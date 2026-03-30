@@ -18,9 +18,8 @@ KILL_ZONES = [
 
 class KillZoneScalperBot:
     '''ICT Kill Zone Scalper - Automated Paper Trading Version'''
-    def __init__(self, api_key, api_secret, testnet=True, symbol='BTC/USDT:USDT'):
+    def __init__(self, api_key, api_secret, testnet=True):
         self.bybit = BybitConnector(api_key, api_secret, testnet)
-        self.symbol = symbol
         self.running = False
         self.check_interval = 60
         self.trade_log = []
@@ -52,7 +51,7 @@ class KillZoneScalperBot:
             current_balance = float(balance_data['total'].get('USDT', 0))
         except Exception as e:
             print(f"  [Drawdown Check] Could not fetch balance: {e}")
-            return False  # Block trading if balance unavailable (fail-safe)
+            return True  # Allow trading if balance unavailable (fail-open)
 
         today = date.today()
 
@@ -172,7 +171,7 @@ class KillZoneScalperBot:
 
         print(f"   📊 Qty: {qty} | SL: {sl:,.2f} | TP: {tp:,.2f}")
 
-        symbol = self.symbol
+        symbol = 'BTC/USDT:USDT'  # TODO: make configurable
         order_params = {
             'stopLoss': round(sl, 2),
             'takeProfit': round(tp, 2)
@@ -182,7 +181,7 @@ class KillZoneScalperBot:
         if order:
             trade_info = {
                 'timestamp': datetime.utcnow(),
-                'symbol': self.symbol,
+                'symbol': 'BTC/USDT',
                 'side': side,
                 'entry': price,
                 'qty': qty,
@@ -211,7 +210,7 @@ class KillZoneScalperBot:
             return None, None, None
         print(f"  Kill Zone: {kz_name}")
 
-        df_1h = self.bybit.get_ohlcv(symbol=self.symbol, timeframe='1h', limit=10)
+        df_1h = self.bybit.get_ohlcv(symbol='BTC/USDT:USDT', timeframe='1h', limit=10)
         trend = self.get_trend(df_1h)
         print(f"  1H Trend: {trend.upper()}")
 
