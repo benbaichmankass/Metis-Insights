@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
-from backtester import ICTBacktester
+from src.backtest.backtester import ICTBacktester
 
 def make_data():
     rows = []
