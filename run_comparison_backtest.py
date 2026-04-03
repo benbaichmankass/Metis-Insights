@@ -1,6 +1,6 @@
 import os
 import pandas as pd
-from backtester import ICTBacktester
+from src.backtest.backtester import ICTBacktester
 from alert_manager import AlertManager
 
 CURRENT_VERSION_NAME = "v1_baseline"

@@ -1,6 +1,53 @@
-bybit_config.py
-__pycache__/
-*.pyc
+# Secrets
 .env
-*.log
+.env.*
+!.env.example
 
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Runtime / process
+*.pid
+*.log
+logs/
+runtime_logs/
+
+# Databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Backup / temp
+*.bak
+*.tmp
+*.temp
+*.save
+*~
+
+# Generated outputs
+output/
+reports/
+*.html
+
+# Data files
+data/*.csv
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Build / packaging
+build/
+dist/
+*.egg-info/

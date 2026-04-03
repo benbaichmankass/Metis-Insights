@@ -1,4 +1,4 @@
-from bybit_connector import BybitConnector
+from src.exchange.bybit_connector import BybitConnector
 from bybit_config import BYBIT_TESTNET_API_KEY, BYBIT_TESTNET_API_SECRET
 
 bybit = BybitConnector(
