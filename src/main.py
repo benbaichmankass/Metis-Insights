@@ -5,6 +5,8 @@ import os
 
 from dotenv import load_dotenv
 
+from src.exchange.bybit_connector import BybitConnector
+from src.runtime.pipeline import run_pipeline
 from src.runtime.validation import build_settings_from_env, validate_startup
 
 
@@ -16,27 +18,58 @@ logging.basicConfig(
 logger = logging.getLogger("src.main")
 
 
-def run_bot(settings: dict) -> None:
+class BybitExchangeAdapter:
     """
-    Temporary Thread 2 runner.
-    Replace internals later with the repo's real analysis -> signal -> order flow.
+    Thin adapter exposing place_order(**order) so it works with safe_place_order.
+    Wraps the existing BybitConnector.
     """
-    logger.info(
-        "Bot runtime ready | mode=%s symbol=%s timeframe=%s dry_run=%s",
-        settings.get("MODE"),
-        settings.get("SYMBOL"),
-        settings.get("TIMEFRAME"),
-        settings.get("DRY_RUN"),
-    )
-    logger.info("Next step: wire this entrypoint into the actual bot modules.")
+    def __init__(self, connector: BybitConnector, symbol: str):
+        self._connector = connector
+        self._symbol = symbol
+
+    def place_order(self, **order):
+        side = order.get("side")
+        qty = float(order.get("qty", 0))
+        symbol = order.get("symbol", self._symbol)
+        logger.info("BybitExchangeAdapter.place_order: %s %s %s", symbol, side, qty)
+        if qty <= 0:
+            raise ValueError(f"Invalid qty for adapter: {qty}")
+        return self._connector.place_market_order(symbol, side, qty)
+
+
+class DummyTelegramClient:
+    def send_message(self, message: str):
+        logger.info("DummyTelegramClient.send_message: %s", message)
 
 
 def main() -> None:
     load_dotenv()
     settings = build_settings_from_env(os.environ)
+
+    # Force DRY_RUN by default for safety during Thread 2 integration.
+    if not settings.get("DRY_RUN"):
+        settings["DRY_RUN"] = "true"
+
     validate_startup(settings)
-    logger.info("Startup validation passed.")
-    run_bot(settings)
+    logger.info("Startup validation passed. MODE=%s DRY_RUN=%s", settings.get("MODE"), settings.get("DRY_RUN"))
+
+    api_key = settings.get("BYBIT_API_KEY")
+    api_secret = settings.get("BYBIT_API_SECRET")
+    mode = str(settings.get("MODE", "testnet")).lower()
+    testnet = mode != "live"
+
+    connector = BybitConnector(api_key=api_key, api_secret=api_secret, testnet=testnet)
+    symbol = settings.get("SYMBOL", "BTC/USDT:USDT")
+    exchange_client = BybitExchangeAdapter(connector, symbol)
+
+    telegram_client = DummyTelegramClient()
+
+    result = run_pipeline(
+        settings=settings,
+        exchange_client=exchange_client,
+        telegram_client=telegram_client,
+    )
+    logger.info("Runtime result: %s", result)
 
 
 if __name__ == "__main__":
