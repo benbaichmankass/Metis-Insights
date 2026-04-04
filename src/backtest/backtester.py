@@ -88,8 +88,14 @@ class ICTBacktester:
             return "bearish"
         return "ranging"
     def in_session(self, ts):
-        if isinstance(ts, (int, float)):
-            ts = datetime.utcfromtimestamp(ts / 1000)
+        from numbers import Number
+        import numpy as np
+        from datetime import datetime
+
+        # Normalize numeric-like timestamps (including numpy scalars) to datetime
+        if isinstance(ts, Number) or isinstance(ts, (np.integer, np.floating)):
+            ts = datetime.utcfromtimestamp(float(ts) / 1000.0)
+
         return self.cfg["session_start_hour"] <= ts.hour < self.cfg["session_end_hour"]
     def fmt_ts(self, ts):
         if isinstance(ts, (int, float)):
