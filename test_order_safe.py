@@ -1,3 +1,6 @@
+import pytest
+pytest.importorskip('bybit_config', reason='Local Bybit credentials are not available in Colab')
+
 from src.exchange.bybit_connector import BybitConnector
 from bybit_config import BYBIT_TESTNET_API_KEY, BYBIT_TESTNET_API_SECRET
 

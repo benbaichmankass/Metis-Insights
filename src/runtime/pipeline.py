@@ -82,10 +82,20 @@ def run_pipeline(
     else:
         result = safe_place_order(signal, settings, exchange_client)
 
+    status = result.get("status", "unknown")
+    reason = result.get("reason")
+    symbol = signal.get("symbol", "?")
+    side = signal.get("side", "?")
+    qty = signal.get("qty", "?")
+
+    message = f"Pipeline result: status={status} | symbol={symbol} | side={side} | qty={qty}"
+    if reason:
+        message += f" | reason={reason}"
+
     if telegram_client is not None:
-        notify_operator(telegram_client, f"Signal result: {result['status']} | {signal}")
+        notify_operator(telegram_client, message)
     else:
-        send_via_alert_manager(f"Signal result: {result.get('status')} | {signal}")
+        send_via_alert_manager(message)
 
     logger.info("Pipeline complete: %s", result)
     return {

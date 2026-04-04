@@ -35,7 +35,7 @@ def test_dry_run_does_not_call_exchange():
 
 def test_live_submission_calls_exchange():
     client = DummyClient()
-    settings = make_settings(DRY_RUN="false")
+    settings = make_settings(DRY_RUN="false", ALLOW_LIVE_TRADING="true")
     result = safe_place_order(
         {"symbol": "BTCUSDT", "side": "buy", "qty": 1},
         settings,
@@ -48,20 +48,84 @@ def test_live_submission_calls_exchange():
 def test_order_rejected_when_qty_exceeds_max():
     client = DummyClient()
     settings = make_settings(DRY_RUN="false", MAX_QTY="1")
-    with pytest.raises(RuntimeError, match="exceeds MAX_QTY"):
-        safe_place_order(
-            {"symbol": "BTCUSDT", "side": "buy", "qty": 2},
-            settings,
-            client,
-        )
+    result = safe_place_order(
+        {"symbol": "BTCUSDT", "side": "buy", "qty": 2},
+        settings,
+        client,
+    )
+    assert result["status"] == "failed_validation"
+    assert "exceeds MAX_QTY" in result["reason"]
 
 
 def test_order_rejected_for_bad_side():
     client = DummyClient()
     settings = make_settings()
-    with pytest.raises(RuntimeError, match="side must be"):
-        safe_place_order(
-            {"symbol": "BTCUSDT", "side": "hold", "qty": 1},
-            settings,
-            client,
-        )
+    result = safe_place_order(
+        {"symbol": "BTCUSDT", "side": "hold", "qty": 1},
+        settings,
+        client,
+    )
+    assert result["status"] == "failed_validation"
+    assert "side must be" in result["reason"]
+def test_live_submission_blocked_without_explicit_gate():
+    client = DummyClient()
+    settings = make_settings(DRY_RUN="false")
+    result = safe_place_order(
+        {"symbol": "BTCUSDT", "side": "buy", "qty": 1},
+        settings,
+        client,
+    )
+    assert result["status"] == "failed_validation"
+    assert "ALLOW_LIVE_TRADING" in result["reason"]
+    assert client.calls == []
+
+
+def test_live_submission_allowed_only_with_explicit_gate():
+    client = DummyClient()
+    settings = make_settings(DRY_RUN="false", ALLOW_LIVE_TRADING="true")
+    result = safe_place_order(
+        {"symbol": "BTCUSDT", "side": "buy", "qty": 1},
+        settings,
+        client,
+    )
+    assert result["status"] == "submitted"
+    assert len(client.calls) == 1
+class FailingClient:
+    def place_order(self, **order):
+        raise RuntimeError("exchange unavailable")
+
+
+def test_live_submission_returns_failed_exchange_on_client_error():
+    client = FailingClient()
+    settings = make_settings(DRY_RUN="false", ALLOW_LIVE_TRADING="true")
+    result = safe_place_order(
+        {"symbol": "BTCUSDT", "side": "buy", "qty": 1},
+        settings,
+        client,
+    )
+    assert result["status"] == "failed_exchange"
+    assert "exchange unavailable" in result["reason"]
+
+
+def test_invalid_qty_returns_failed_validation():
+    client = DummyClient()
+    settings = make_settings(DRY_RUN="true")
+    result = safe_place_order(
+        {"symbol": "BTCUSDT", "side": "buy", "qty": "abc"},
+        settings,
+        client,
+    )
+    assert result["status"] == "failed_validation"
+    assert "invalid qty" in result["reason"].lower()
+
+
+def test_non_positive_qty_returns_failed_validation():
+    client = DummyClient()
+    settings = make_settings(DRY_RUN="true")
+    result = safe_place_order(
+        {"symbol": "BTCUSDT", "side": "buy", "qty": 0},
+        settings,
+        client,
+    )
+    assert result["status"] == "failed_validation"
+    assert "qty must be > 0" in result["reason"]
