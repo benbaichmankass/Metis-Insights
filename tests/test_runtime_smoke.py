@@ -9,6 +9,7 @@ class DummyClient:
 
 def test_runtime_smoke_path():
     settings = {
+        "EXCHANGE": "bybit",
         "BYBIT_API_KEY": "demo_key",
         "BYBIT_API_SECRET": "demo_secret",
         "TELEGRAM_BOT_TOKEN": "demo_telegram_token",
