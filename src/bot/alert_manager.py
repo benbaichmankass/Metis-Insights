@@ -22,7 +22,7 @@ class AlertManager:
                     await bot.send_message(
                         chat_id=self.chat_id,
                         text=message,
-                        parse_mode="Markdown"
+                        parse_mode=None
                     )
             asyncio.run(_send())
         except Exception as e:
