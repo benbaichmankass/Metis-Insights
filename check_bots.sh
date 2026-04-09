@@ -10,3 +10,6 @@ echo "=== GIT ==="
 git status --short
 echo "=== RECENT LOGS ==="
 find . -name "*.log" -mmin -10 2>/dev/null | head -5
+
+echo "=== TRADER LIVE OUTPUT (last 10 lines) ==="
+tmux capture-pane -pt trader | tail -n 10
