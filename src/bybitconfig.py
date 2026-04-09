@@ -1,27 +1,20 @@
-# ICT Trading Bot - Bybit Testnet Config
 import os
-from typing import Optional
 
-# Testnet API credentials (get from Bybit testnet dashboard)
-API_KEY = os.getenv("BYBIT_TESTNET_API_KEY", "your_testnet_api_key_here")
-API_SECRET = os.getenv("BYBIT_TESTNET_API_SECRET", "your_testnet_api_secret_here")
+API_KEY = os.getenv("BYBIT_API_KEY", "")
+API_SECRET = os.getenv("BYBIT_API_SECRET", "")
 
-# Testnet base URLs
-TESTNET_BASE_URL = "https://api-testnet.bybit.com"
-FUNDING_WALLET = "unified"
-
-# Trading params
+BASE_URL = "https://api.bybit.com"
 SYMBOL = "BTCUSDT"
 TIMEFRAME = "5m"
-RISK_PER_TRADE = 0.01  # 1% risk per trade
-MAX_DAILY_LOSS = 0.05  # 5% max daily loss
 
-# Kill Zone (London session)
-KZ_START_HOUR = 8   # UTC
-KZ_END_HOUR = 11    # UTC
+RISK_PER_TRADE = 0.01
+MAX_DAILY_LOSS = 0.05
 
-# Current balance (will be updated live)
-USDT_BALANCE: Optional[float] = None
+KZ_START_HOUR = 8
+KZ_END_HOUR = 11
 
-print(f"Configured for testnet: {SYMBOL} @ {TIMEFRAME}")
+LIVE_TRADING = False
+
+print(f"Configured symbol: {SYMBOL} @ {TIMEFRAME}")
 print(f"Kill zone: {KZ_START_HOUR}:00-{KZ_END_HOUR}:00 UTC")
+print(f"LIVE_TRADING={LIVE_TRADING}")
