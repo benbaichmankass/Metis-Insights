@@ -371,7 +371,7 @@ async def cmd_log(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_authorised(update):
         return
     try:
-        log_path = "/home/ubuntu/ict-trading-bot/bot.log"
+        log_path = os.path.join(BASE_DIR, "bot.log")
         if not os.path.exists(log_path):
             await update.message.reply_text("No bot.log file found.")
             return
