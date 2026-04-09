@@ -1,128 +1,121 @@
+"""
+src/runtime/validation.py
+
+Startup validation for the ICT trading bot.
+Exchange-aware: only the keys for the configured exchange are required.
+"""
 from __future__ import annotations
 
-from typing import Any, Iterable
+import os
+from typing import Any
 
 
-def _get_value(settings: Any, key: str, default: Any = None) -> Any:
-    if isinstance(settings, dict):
-        return settings.get(key, default)
-    return getattr(settings, key, default)
+def _env(key: str) -> str:
+    """Return stripped env-var value or empty string."""
+    return os.environ.get(key, "").strip()
 
 
-def _require_keys(settings: Any, required_keys: Iterable[str]) -> None:
-    missing = []
-    for key in required_keys:
-        value = _get_value(settings, key)
-        if value is None:
-            missing.append(key)
-            continue
-        if isinstance(value, str) and not value.strip():
-            missing.append(key)
-    if missing:
-        raise RuntimeError(
-            "Missing required settings: " + ", ".join(sorted(missing))
-        )
+def _missing(keys: list) -> list:
+    """Return subset of keys that are absent/empty in the environment."""
+    return [k for k in keys if not _env(k)]
 
 
-def validate_startup(settings: Any) -> None:
+def validate_startup() -> None:
     """
-    Run startup checks before the bot begins any exchange or Telegram activity.
-    Exchange key requirements are now conditional on EXCHANGE value.
-    Raises RuntimeError with a human-readable message if anything is invalid.
+    Validate all required environment variables before the bot starts.
+
+    Raises EnvironmentError if any required variable is missing or invalid.
     """
-    # Telegram is always required regardless of exchange
-    _require_keys(settings, [
-        "TELEGRAM_BOT_TOKEN",
-        "TELEGRAM_CHAT_ID",
-        "SYMBOL",
-    ])
+    errors: list = []
 
-    # EXCHANGE must be explicitly set and valid
-    exchange = str(_get_value(settings, "EXCHANGE", "")).strip().lower()
-    if exchange not in {"binance", "bybit"}:
-        raise RuntimeError(
-            f"Invalid EXCHANGE={exchange!r}. Allowed values: 'binance', 'bybit'."
+    # ---- Exchange selection ------------------------------------------------
+    exchange = _env("EXCHANGE").lower()
+    valid_exchanges = ("binance", "bybit")
+    if exchange not in valid_exchanges:
+        errors.append(
+            f"EXCHANGE must be one of {valid_exchanges}, got {exchange!r}"
         )
-
-    # Require the correct exchange keys based on EXCHANGE setting
-    if exchange == "binance":
-        _require_keys(settings, ["BINANCE_API_KEY", "BINANCE_API_SECRET"])
     else:
-        _require_keys(settings, ["BYBIT_API_KEY", "BYBIT_API_SECRET"])
+        # ---- Exchange-specific API keys ------------------------------------
+        # Only require keys for the *configured* exchange.
+        if exchange == "binance":
+            for key in _missing(["BINANCE_API_KEY", "BINANCE_API_SECRET"]):
+                errors.append(f"Missing required Binance credential: {key}")
+        elif exchange == "bybit":
+            for key in _missing(["BYBIT_API_KEY", "BYBIT_API_SECRET"]):
+                errors.append(f"Missing required Bybit credential: {key}")
 
-    # MODE validation
-    mode = str(_get_value(settings, "MODE", "testnet")).strip().lower()
-    if mode not in {"testnet", "live"}:
-        raise RuntimeError(
-            f"Invalid MODE={mode!r}. Allowed values: 'testnet', 'live'."
-        )
+    # ---- Telegram (always required, regardless of exchange) ----------------
+    for key in _missing(["TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"]):
+        errors.append(f"Missing required Telegram credential: {key}")
 
-    # SYMBOL must be non-empty
-    symbol = str(_get_value(settings, "SYMBOL", "")).strip().upper()
-    if not symbol:
-        raise RuntimeError("SYMBOL must be a non-empty string.")
+    # ---- Trading mode ------------------------------------------------------
+    mode = _env("MODE").upper()
+    if mode not in ("LIVE", "PAPER", "BACKTEST"):
+        errors.append(f"MODE must be LIVE, PAPER, or BACKTEST, got {mode!r}")
 
-    # TIMEFRAME must be set
-    timeframe = str(_get_value(settings, "TIMEFRAME", "15")).strip()
-    if not timeframe:
-        raise RuntimeError("TIMEFRAME must be set.")
+    # ---- Symbol & timeframe ------------------------------------------------
+    if not _env("SYMBOL"):
+        errors.append("SYMBOL is required (e.g. BTCUSDT)")
+    if not _env("TIMEFRAME"):
+        errors.append("TIMEFRAME is required (e.g. 15m)")
 
-    # RISK_PER_TRADE must be numeric and within safe bounds
-    try:
-        risk_per_trade = float(_get_value(settings, "RISK_PER_TRADE", 0.0))
-    except (TypeError, ValueError):
-        raise RuntimeError("RISK_PER_TRADE must be numeric.")
-    if not (0 < risk_per_trade <= 0.02):
-        raise RuntimeError(
-            f"RISK_PER_TRADE must be between 0 and 0.02 inclusive, got {risk_per_trade}."
-        )
+    # ---- Risk management ---------------------------------------------------
+    risk_raw = _env("RISK_PER_TRADE")
+    if not risk_raw:
+        errors.append("RISK_PER_TRADE is required")
+    else:
+        try:
+            risk = float(risk_raw)
+            if not (0 < risk <= 1):
+                errors.append(
+                    f"RISK_PER_TRADE must be between 0 (exclusive) and 1 (inclusive), "
+                    f"got {risk}"
+                )
+        except ValueError:
+            errors.append(f"RISK_PER_TRADE must be a float, got {risk_raw!r}")
 
-    # MAX_QTY optional but must be numeric and positive if provided
-    max_qty_raw = _get_value(settings, "MAX_QTY", None)
-    if max_qty_raw not in (None, ""):
+    max_qty_raw = _env("MAX_QTY")
+    if not max_qty_raw:
+        errors.append("MAX_QTY is required")
+    else:
         try:
             max_qty = float(max_qty_raw)
-        except (TypeError, ValueError):
-            raise RuntimeError("MAX_QTY must be numeric if provided.")
-        if max_qty <= 0:
-            raise RuntimeError("MAX_QTY must be greater than 0 if provided.")
+            if max_qty <= 0:
+                errors.append(f"MAX_QTY must be > 0, got {max_qty}")
+        except ValueError:
+            errors.append(f"MAX_QTY must be a float, got {max_qty_raw!r}")
 
-    # DRY_RUN must be a recognised boolean string
-    dry_run = str(_get_value(settings, "DRY_RUN", "true")).strip().lower()
-    if dry_run not in {"true", "false", "1", "0", "yes", "no"}:
-        raise RuntimeError(
-            "DRY_RUN must be one of: true, false, 1, 0, yes, no."
+    # ---- DRY_RUN / live-trading interlock ----------------------------------
+    dry_run = _env("DRY_RUN").lower()
+    allow_live = _env("ALLOW_LIVE_TRADING").lower()
+    if dry_run == "false" and allow_live != "true":
+        errors.append(
+            "DRY_RUN=false requires ALLOW_LIVE_TRADING=true "
+            "(set explicitly to enable real order placement)"
         )
 
-    # DRY_RUN=false requires ALLOW_LIVE_TRADING=true
-    if dry_run in {"false", "0", "no"}:
-        allow = str(_get_value(settings, "ALLOW_LIVE_TRADING", "false")).strip().lower()
-        if allow not in {"true", "1", "yes"}:
-            raise RuntimeError(
-                "DRY_RUN=false requires ALLOW_LIVE_TRADING=true. "
-                "Set ALLOW_LIVE_TRADING=true explicitly to enable live order submission."
-            )
+    # ---- Raise if any errors found -----------------------------------------
+    if errors:
+        msg = "Startup validation failed:\n" + "\n".join(f"  - {e}" for e in errors)
+        raise EnvironmentError(msg)
 
 
-def build_settings_from_env(environ: dict) -> dict:
+def build_settings_from_env() -> dict:
     """
-    Build a settings dict from the environment.
-    Includes all keys needed for exchange-aware validation.
+    Build a settings dict from validated environment variables.
+    Call validate_startup() first.
     """
-    keys = [
-        "EXCHANGE",
-        "BINANCE_API_KEY",
-        "BINANCE_API_SECRET",
-        "BYBIT_API_KEY",
-        "BYBIT_API_SECRET",
-        "TELEGRAM_BOT_TOKEN",
-        "TELEGRAM_CHAT_ID",
-        "MODE",
-        "SYMBOL",
-        "TIMEFRAME",
-        "RISK_PER_TRADE",
-        "MAX_QTY",
-        "DRY_RUN",
-        "ALLOW_LIVE_TRADING",
-    ]
-    return {key: environ.get(key, "") for key in keys}
+    return {
+        "exchange":           _env("EXCHANGE").lower(),
+        "mode":               _env("MODE").upper(),
+        "symbol":             _env("SYMBOL"),
+        "timeframe":          _env("TIMEFRAME"),
+        "risk_per_trade":     float(_env("RISK_PER_TRADE")),
+        "max_qty":            float(_env("MAX_QTY")),
+        "dry_run":            _env("DRY_RUN").lower() == "true",
+        "allow_live_trading": _env("ALLOW_LIVE_TRADING").lower() == "true",
+        "log_level":          _env("LOG_LEVEL") or "INFO",
+        "tick_interval":      int(_env("TICK_INTERVAL_SECONDS") or "900"),
+        "loop":               _env("LOOP").lower() == "true",
+    }
