@@ -5,7 +5,7 @@ from datetime import datetime, date
 import pandas as pd
 from dotenv import load_dotenv
 
-from src.runtime.pipeline import build_exchange
+from src.runtime.pipeline import _build_killzone_exchange
 
 load_dotenv(os.path.expanduser("~/.bot_env"))
 
@@ -303,7 +303,7 @@ if __name__ == "__main__":
         "BYBIT_API_KEY": os.environ.get("BYBIT_API_KEY", ""),
         "BYBIT_API_SECRET": os.environ.get("BYBIT_API_SECRET", ""),
     }
-    exchange = build_exchange(settings)
+    exchange = _build_killzone_exchange(settings)
 
     bot = KillZoneScalperBot(
         exchange=exchange,
