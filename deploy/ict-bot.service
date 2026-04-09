@@ -1,23 +1,27 @@
-# ============================================
-# ICT BOT SYSTEMD SERVICE
-# Main trading engine service
-# Save to: /etc/systemd/system/ict-bot.service
-# ============================================
-
 [Unit]
-Description=ICT Trading Bot - Main Engine
+Description=ICT Trading Bot
 After=network.target
-Wants=network-online.target
 
 [Service]
+# Run as the ubuntu user that owns the repo
 User=ubuntu
-WorkingDirectory=/home/ubuntu/YOUR_REPO
-ExecStart=/home/ubuntu/YOUR_REPO/.venv/bin/python -m src.main
-Restart=always
-RestartSec=15
-StandardOutput=append:/home/ubuntu/YOUR_REPO/runtime_logs/bot.log
-StandardError=append:/home/ubuntu/YOUR_REPO/runtime_logs/bot_error.log
-EnvironmentFile=/home/ubuntu/YOUR_REPO/.env
+Group=ubuntu
+
+# Absolute paths for the Oracle Cloud Ubuntu instance
+WorkingDirectory=/home/ubuntu/ict-trading-bot
+EnvironmentFile=/home/ubuntu/ict-trading-bot/.env
+Environment=PYTHONPATH=/home/ubuntu/ict-trading-bot
+
+# Launch via module so relative imports resolve correctly
+ExecStart=/usr/bin/python3 -m src.main
+
+# Restart policy: restart on crash, not on clean exit
+Restart=on-failure
+RestartSec=30
+
+# Log to systemd journal (view with: journalctl -u ict-bot -f)
+StandardOutput=journal
+StandardError=journal
 
 [Install]
 WantedBy=multi-user.target
