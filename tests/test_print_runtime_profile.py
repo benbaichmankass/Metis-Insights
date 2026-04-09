@@ -10,6 +10,8 @@ def test_print_runtime_profile_outputs_summary(monkeypatch, capsys):
     monkeypatch.setenv("SYMBOL", "BTCUSDT")
     monkeypatch.setenv("BYBIT_API_KEY", "demo_key")
     monkeypatch.setenv("BYBIT_API_SECRET", "demo_secret")
+    monkeypatch.setenv("BINANCE_API_KEY", "demo_binance_key")
+    monkeypatch.setenv("BINANCE_API_SECRET", "demo_binance_secret")
     monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "demo_token")
     monkeypatch.setenv("TELEGRAM_CHAT_ID", "123456789")
     monkeypatch.setenv("TIMEFRAME", "15")
