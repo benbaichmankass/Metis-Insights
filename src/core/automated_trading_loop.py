@@ -5,7 +5,7 @@ from datetime import datetime, date
 import pandas as pd
 from dotenv import load_dotenv
 
-from src.exchange.bybit_connector import BybitConnector
+from src.runtime.pipeline import build_exchange
 
 load_dotenv(os.path.expanduser("~/.bot_env"))
 
@@ -295,11 +295,15 @@ class KillZoneScalperBot:
 
 
 if __name__ == "__main__":
-    exchange = BybitConnector(
-        api_key=os.environ.get("BYBIT_API_KEY", ""),
-        api_secret=os.environ.get("BYBIT_API_SECRET", ""),
-        testnet=True,
-    )
+    settings = {
+        "EXCHANGE": os.environ.get("EXCHANGE", "bybit"),
+        "MODE": os.environ.get("MODE", "PAPER"),
+        "BINANCE_API_KEY": os.environ.get("BINANCE_API_KEY", ""),
+        "BINANCE_API_SECRET": os.environ.get("BINANCE_API_SECRET", ""),
+        "BYBIT_API_KEY": os.environ.get("BYBIT_API_KEY", ""),
+        "BYBIT_API_SECRET": os.environ.get("BYBIT_API_SECRET", ""),
+    }
+    exchange = build_exchange(settings)
 
     bot = KillZoneScalperBot(
         exchange=exchange,
