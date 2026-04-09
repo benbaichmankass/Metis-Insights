@@ -263,7 +263,7 @@ class KillZoneScalperBot:
         print(" Max Daily Loss: 5% of start-of-day balance")
         print("=" * 70)
 
-        from alert_manager import AlertManager
+        from src.bot.alert_manager import AlertManager
 
         am = AlertManager()
         if not hasattr(am, "send_alert"):
