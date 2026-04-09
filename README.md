@@ -5,9 +5,9 @@ Python-based ICT trading bot for crypto trading workflows, focused on ICT concep
 ## Features
 
 - ICT analysis engine for market structure, swings, FVGs, and order blocks
-- Bybit and Binance exchange connectors
-- Runtime validation for safe startup (MODE, DRY_RUN, RISK_PER_TRADE, MAX_QTY)
-- Kill zone scalper pipeline with injected exchange connector
+- Bybit and Binance exchange connectors present in the codebase
+- Runtime validation for startup safety checks such as `MODE`, `DRY_RUN`, `RISK_PER_TRADE`, and `MAX_QTY`
+- Kill zone scalper pipeline with exchange injection support in the runtime flow
 - Telegram bot commands for status, trade actions, and backtest access
 - Backtesting tools for historical downloads and strategy comparison
 - TUI / control panel components for local operation and monitoring
@@ -35,29 +35,30 @@ ict-trading-bot/
 
 ## Runtime Model
 
-Runtime behavior is driven by environment variables, which are validated before any trading logic runs.
+Runtime behavior is driven by environment variables, which are validated before the main trading pipeline runs.
 
-Key variables:
+Key variables currently used by the runtime flow include:
 
 - `BYBIT_API_KEY`, `BYBIT_API_SECRET`
-- `BINANCE_API_KEY`, `BINANCE_API_SECRET` (when using Binance)
+- `BINANCE_API_KEY`, `BINANCE_API_SECRET`
 - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`
-- `MODE`: `testnet` or `live`
-- `SYMBOL`: e.g. `BTCUSDT` or `BTC/USDT:USDT`
-- `TIMEFRAME`: e.g. `15`
-- `RISK_PER_TRADE`: float between 0 and 0.02
-- `MAX_QTY`: maximum order size
-- `DRY_RUN`: simulated orders when true
-- `EXCHANGE`: `bybit` or `binance`
-- `ALLOW_LIVE_TRADING`: required when `DRY_RUN=false`
+- `MODE`
+- `SYMBOL`
+- `TIMEFRAME`
+- `RISK_PER_TRADE`
+- `MAX_QTY`
+- `DRY_RUN`
+- `EXCHANGE`
+- `ALLOW_LIVE_TRADING`
 
-Startup validation is implemented in `src/runtime/validation.py` and enforced by `src/main.py` before the pipeline runs.
+Startup validation is implemented in `src/runtime/validation.py`, and the runtime entrypoint is `src/main.py`.
+
 
 ## Setup
 
 1. Clone the repository.
 2. Copy `.env.example` to `.env`.
-3. Fill in your Bybit and Telegram credentials (and Binance keys if needed).
+3. Fill in the required credentials and runtime values for your chosen environment.
 4. Install dependencies.
 
 Example:
@@ -71,33 +72,34 @@ pip install -r requirements.txt
 
 ## Safe Profile Validation
 
-Before running the bot, validate the runtime profile safely:
+Before running the bot, validate the current runtime profile safely:
 
 ```bash
 python scripts/print_runtime_profile.py
 ```
 
-This will:
+This helper script:
 
-- Load `.env` and environment variables
-- Build settings from the environment
-- Run startup validation
-- Print a summary like:
+- Loads environment variables
+- Builds runtime settings from the environment
+- Runs startup validation
+- Prints a concise runtime summary
+- Exits without placing any trades
+
+Example output:
 
 ```text
-EXCHANGE=bybit | MODE=testnet | DRY_RUN=true | ALLOW_LIVE_TRADING=false | SYMBOL=BTCUSDT
+EXCHANGE=binance | MODE=testnet | DRY_RUN=true | ALLOW_LIVE_TRADING=false | SYMBOL=BTCUSDT
 ```
 
-If settings are invalid, it will raise a clear error instead of starting the pipeline.
+## Running the Runtime Entry Point
 
-## Running the Pipeline
-
-The main runtime entrypoint lives in `src/main.py`. It:
+The current runtime entrypoint lives in `src/main.py`. It:
 
 1. Loads environment variables
-2. Builds settings via `build_settings_from_env`
-3. Runs `validate_startup`
-4. Constructs the exchange adapter (Bybit or Binance)
+2. Builds settings from the environment
+3. Runs startup validation
+4. Constructs the exchange adapter
 5. Calls `src.runtime.pipeline.run_pipeline`
 
 Example:
@@ -106,9 +108,9 @@ Example:
 python -m src.main
 ```
 
-## Recommended Profiles
+## Example Development Profile
 
-### Colab / Local Dev (dry run)
+Use a safe dry-run profile while developing or testing:
 
 ```env
 BYBIT_API_KEY=demo_key
@@ -126,14 +128,16 @@ EXCHANGE=binance
 ALLOW_LIVE_TRADING=false
 ```
 
-Run:
+Then run:
 
 ```bash
 python scripts/print_runtime_profile.py
 python -m src.main
 ```
 
-### Oracle / Server – Bybit Live (caution)
+## Example Live-Oriented Profile
+
+Use live settings only when you explicitly intend to trade live:
 
 ```env
 BYBIT_API_KEY=your_bybit_api_key
@@ -151,7 +155,7 @@ EXCHANGE=bybit
 ALLOW_LIVE_TRADING=true
 ```
 
-Validate then run:
+Validate first, then run:
 
 ```bash
 python scripts/print_runtime_profile.py
@@ -160,16 +164,16 @@ python -m src.main
 
 ## Tests
 
-Run focused runtime tests:
+Run focused runtime/profile tests:
 
 ```bash
-pytest -q tests/test_runtime_validation.py tests/test_runtime_pipeline.py tests/test_runtime_orders.py tests/test_print_runtime_profile.py
+PYTHONPATH=. pytest -q tests/test_print_runtime_profile.py tests/test_runtime_validation.py
 ```
 
-Run full test suite:
+Run the full test suite in the `tests/` folder:
 
 ```bash
-pytest -q
+PYTHONPATH=. pytest -q tests
 ```
 
 ## Backtesting
