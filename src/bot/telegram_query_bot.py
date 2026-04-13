@@ -224,10 +224,12 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     text = (
         "👋 *ICT Trading Bot*\n\n"
-        "Available commands:\n"
+        "234
+        :\n"
         "/status — Is the bot running?\n"
         "/balance — Current account balance\n"
         "/trades — Open positions right now\n"
+        "/closeall — EMERGENCY: Close all open positions\n"
         "/last5 — Last 5 trade signals from journal\n"
         "/backtest — Start a backtest in the background\n"
         "/latest_backtest — Show latest backtest status/result\n"
@@ -367,7 +369,9 @@ async def cmd_last5(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"⚠️ Could not load last 5 trades: {e}")
 
 
-async def cmd_log(update: Update, context: ContextTypes.DEFAULT_TYPE):
+318
+316
+(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_authorised(update):
         return
     try:
@@ -383,6 +387,56 @@ async def cmd_log(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text(f"⚠️ Could not read log file: {e}")
 
+
+async def cmd_closeall(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Emergency command to close ALL open positions immediately.
+    """
+    if not is_authorised(update):
+        return
+
+    try:
+        client = get_bybit_client()
+        resp = client.get_positions(category="linear", settleCoin="USDT")
+        positions = [
+            p for p in resp["result"]["list"] if float(p.get("size", 0)) > 0
+        ]
+
+        if not positions:
+            await update.message.reply_text("🟢 No open positions to close.")
+            return
+
+        closed_count = 0
+        errors = []
+
+        for p in positions:
+            try:
+                # Close position by placing opposite order
+                side = "Sell" if p["side"] == "Buy" else "Buy"
+                client.place_order(
+                    category="linear",
+                    symbol=p["symbol"],
+                    side=side,
+                    orderType="Market",
+                    qty=p["size"],
+                    reduceOnly=True
+                )
+                closed_count += 1
+            except Exception as e:
+                errors.append(f"{p['symbol']}: {str(e)}")
+
+        msg = f"🚨 *EMERGENCY CLOSE ALL*\n\n"
+        msg += f"✅ Closed {closed_count} position(s)\n"
+        if errors:
+            msg += f"❌ Failed: {len(errors)}\n"
+            msg += "Errors:\n" + "\n".join(errors[:5])
+
+        await update.message.reply_text(msg, parse_mode="Markdown")
+
+    except Exception as e:
+        await update.message.reply_text(
+            f"⚠️ CRITICAL ERROR in closeall: {e}"
+        )
 
 async def cmd_backtest(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
@@ -445,7 +499,8 @@ async def cmd_latest_backtest(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     await update.message.reply_text(text, parse_mode="Markdown")
 
-def main():
+500
+
     if not TELEGRAM_BOT_TOKEN:
         raise RuntimeError("TELEGRAM_BOT_TOKEN is not set in .env")
 
@@ -461,6 +516,10 @@ def main():
         BotCommand("status", "Bot status"),
         BotCommand("balance", "Account balance"),
         BotCommand("trades", "Open positions"),
+                BotCommand("closeall", "Emergency: Close all open positions"),530
+        535
+525
+
         BotCommand("last5", "Last 5 trade signals"),
         BotCommand("backtest", "Start backtest in background"),
         BotCommand("latest_backtest", "Latest backtest status/result"),
@@ -469,12 +528,19 @@ def main():
     ]
     application.bot.set_my_commands(commands)
 
-    application.add_handler(CommandHandler("start", cmd_start))
-    application.add_handler(CommandHandler("help", cmd_help))
-    application.add_handler(CommandHandler("status", cmd_status))
-    application.add_handler(CommandHandler("balance", cmd_balance))
-    application.add_handler(CommandHandler("price", cmd_price))
-    application.add_handler(CommandHandler("trades", cmd_trades))
+    application.522
+(CommandHandler("start", cmd_start))
+    application.540
+(CommandHandler("help", cmd_help))
+    application.536
+(CommandHandler("status", cmd_status))
+    application.538
+(CommandHandler("balance", cmd_balance))
+    application.540
+(CommandHandler("price", cmd_price))
+    application.539
+(CommandHandler("trades", cmd_trades))
+    application.add_handler(CommandHandler("closeall", cmd_closeall))
     application.add_handler(CommandHandler("last5", cmd_last5))
     application.add_handler(CommandHandler("log", cmd_log))
     application.add_handler(CommandHandler("backtest", cmd_backtest))
