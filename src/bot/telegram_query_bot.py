@@ -2,22 +2,25 @@ import os
 import logging
 import sqlite3
 import asyncio
+import subprocess
 from datetime import datetime, timezone
 
-from dotenv import load_dotenv
+from dotenv import load_dotenv, dotenv_values
 from telegram import Update, BotCommand
 from telegram.ext import Application, CommandHandler, ContextTypes
 import requests
 
 load_dotenv()
 
+BASE_DIR = os.path.dirname(__file__)
+REPO_ROOT = os.path.abspath(os.path.join(BASE_DIR, "..", ".."))
+DB_PATH = os.path.join(BASE_DIR, "trade_journal.db")
+
+LIVE_ENV_PATH = os.path.join(REPO_ROOT, ".env.live")
+PAPER_ENV_PATH = os.path.join(REPO_ROOT, ".env.paper")
+
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
-BYBIT_API_KEY = os.getenv("BYBIT_API_KEY")
-BYBIT_API_SECRET = os.getenv("BYBIT_API_SECRET")
-
-BASE_DIR = os.path.dirname(__file__)
-DB_PATH = os.path.join(BASE_DIR, "trade_journal.db")
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -25,10 +28,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# In-memory backtest status
 BACKTEST_TASK = None
 BACKTEST_STATUS = {
-    "state": "idle",  # idle | running | completed | failed
+    "state": "idle",
     "started_at": None,
     "finished_at": None,
     "last_error": None,
@@ -37,18 +39,36 @@ BACKTEST_STATUS = {
 }
 
 
-def get_bybit_client():
-    from pybit.unified_trading import HTTP
+def is_authorised(update: Update) -> bool:
+    return str(update.effective_chat.id) == str(TELEGRAM_CHAT_ID)
 
+
+def load_account_env(target: str) -> dict:
+    if target == "live":
+        path = LIVE_ENV_PATH
+    elif target == "paper":
+        path = PAPER_ENV_PATH
+    else:
+        raise ValueError(f"Unknown target: {target}")
+
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"Environment file not found for {target}: {path}")
+
+    values = dotenv_values(path)
+    return {k: v for k, v in values.items() if v is not None}
+
+
+def get_bybit_client_from_env(env_vars: dict):
+    from pybit.unified_trading import HTTP
     return HTTP(
         testnet=False,
-        api_key=BYBIT_API_KEY,
-        api_secret=BYBIT_API_SECRET,
+        api_key=env_vars.get("BYBIT_API_KEY"),
+        api_secret=env_vars.get("BYBIT_API_SECRET"),
     )
 
 
-def is_authorised(update: Update) -> bool:
-    return str(update.effective_chat.id) == str(TELEGRAM_CHAT_ID)
+def get_account_label(target: str) -> str:
+    return "LIVE" if target == "live" else "PAPER"
 
 
 def fetch_last_5_trades():
@@ -121,16 +141,115 @@ def format_backtest_summary(latest):
     )
 
 
+def resolve_target_from_args(context):
+    args = getattr(context, "args", []) or []
+    if not args:
+        return None
+    target = args[0].strip().lower()
+    if target in ("live", "paper"):
+        return target
+    return None
+
+
+def require_target_help(command_name: str) -> str:
+    return (
+        f"Please choose an account:\n"
+        f"`/{command_name} live`\n"
+        f"`/{command_name} paper`"
+    )
+
+
+def run_shell_command(cmd):
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=20)
+    output = (result.stdout or "") + (result.stderr or "")
+    return output.strip()
+
+
+def get_service_status(service_name: str) -> str:
+    try:
+        output = run_shell_command(["systemctl", "is-active", service_name])
+        return output or "unknown"
+    except Exception as e:
+        return f"error: {e}"
+
+
+def get_last_logs_for_target(target: str, lines: int = 20) -> str:
+    service_name = f"ict-trader-{target}"
+    try:
+        output = run_shell_command(
+            ["journalctl", "-u", service_name, "-n", str(lines), "--no-pager"]
+        )
+        return output or f"No logs found for {service_name}."
+    except Exception as e:
+        return f"Could not read logs for {service_name}: {e}"
+
+
+def format_bybit_balance(env_vars: dict, target: str) -> str:
+    client = get_bybit_client_from_env(env_vars)
+    resp = client.get_wallet_balance(accountType="UNIFIED")
+    coins = resp["result"]["list"][0]["coin"]
+    lines = [
+        f"{c['coin']}: {float(c['walletBalance']):.4f} (≈ ${float(c.get('usdValue', '0')):.2f})"
+        for c in coins
+        if float(c.get("walletBalance", 0)) > 0
+    ]
+    text = "\n".join(lines) if lines else "No balance found."
+    return f"💰 *{get_account_label(target)} Balance*\n{text}"
+
+
+def format_bybit_positions(env_vars: dict, target: str) -> str:
+    client = get_bybit_client_from_env(env_vars)
+    resp = client.get_positions(category="linear", settleCoin="USDT")
+    positions = [p for p in resp["result"]["list"] if float(p.get("size", 0)) > 0]
+    if not positions:
+        return f"📊 *{get_account_label(target)} Positions*\nNo open positions."
+
+    lines = [
+        f"{p['symbol']} {p['side']} | Size: {p['size']} | Entry: ${float(p['avgPrice']):,.2f} | PnL: ${float(p['unrealisedPnl']):+.2f}"
+        for p in positions
+    ]
+    return f"📊 *{get_account_label(target)} Positions*\n" + "\n".join(lines)
+
+
+def close_all_bybit_positions(env_vars: dict, target: str) -> str:
+    client = get_bybit_client_from_env(env_vars)
+    resp = client.get_positions(category="linear", settleCoin="USDT")
+    positions = [p for p in resp["result"]["list"] if float(p.get("size", 0)) > 0]
+
+    if not positions:
+        return f"🟢 {get_account_label(target)}: No open positions to close."
+
+    closed_count = 0
+    errors = []
+
+    for p in positions:
+        try:
+            side = "Sell" if p["side"] == "Buy" else "Buy"
+            client.place_order(
+                category="linear",
+                symbol=p["symbol"],
+                side=side,
+                orderType="Market",
+                qty=p["size"],
+                reduceOnly=True,
+            )
+            closed_count += 1
+        except Exception as e:
+            errors.append(f"{p['symbol']}: {str(e)}")
+
+    msg = f"🚨 *{get_account_label(target)} CLOSE ALL*\n\n"
+    msg += f"✅ Closed {closed_count} position(s)\n"
+    if errors:
+        msg += f"❌ Failed: {len(errors)}\n"
+        msg += "Errors:\n" + "\n".join(errors[:5])
+    return msg
+
+
 async def run_backtest_in_background(application: Application):
-    """
-    Run backtester.py as a background subprocess so the bot stays responsive.
-    """
     global BACKTEST_TASK, BACKTEST_STATUS
 
     BACKTEST_STATUS["state"] = "running"
-    BACKTEST_STATUS["started_at"] = datetime.now(timezone.utc).strftime(
-        "%Y-%m-%d %H:%M:%S UTC"
-    )
+    BACKTEST_STATUS["started_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     BACKTEST_STATUS["finished_at"] = None
     BACKTEST_STATUS["last_error"] = None
     BACKTEST_STATUS["last_stdout_tail"] = None
@@ -151,15 +270,11 @@ async def run_backtest_in_background(application: Application):
 
         BACKTEST_STATUS["last_returncode"] = process.returncode
         BACKTEST_STATUS["last_stdout_tail"] = (stdout_text or "")[-2000:]
-        BACKTEST_STATUS["finished_at"] = datetime.now(timezone.utc).strftime(
-            "%Y-%m-%d %H:%M:%S UTC"
-        )
+        BACKTEST_STATUS["finished_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
         if process.returncode != 0:
             BACKTEST_STATUS["state"] = "failed"
-            BACKTEST_STATUS["last_error"] = (
-                stderr_text or stdout_text or "Unknown error"
-            )[-2000:]
+            BACKTEST_STATUS["last_error"] = (stderr_text or stdout_text or "Unknown error")[-2000:]
             logger.error("Backtest failed: %s", BACKTEST_STATUS["last_error"])
 
             await application.bot.send_message(
@@ -184,10 +299,7 @@ async def run_backtest_in_background(application: Application):
                 parse_mode="Markdown",
             )
         else:
-            stdout_tail = (
-                stdout_text
-                or "Backtest finished, but no row was found in backtest_results."
-            )[-3000:]
+            stdout_tail = (stdout_text or "Backtest finished, but no row was found in backtest_results.")[-3000:]
             await application.bot.send_message(
                 chat_id=TELEGRAM_CHAT_ID,
                 text=(
@@ -200,9 +312,7 @@ async def run_backtest_in_background(application: Application):
 
     except Exception as e:
         BACKTEST_STATUS["state"] = "failed"
-        BACKTEST_STATUS["finished_at"] = datetime.now(timezone.utc).strftime(
-            "%Y-%m-%d %H:%M:%S UTC"
-        )
+        BACKTEST_STATUS["finished_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
         BACKTEST_STATUS["last_error"] = str(e)
         logger.exception("Background backtest crashed")
 
@@ -224,16 +334,15 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     text = (
         "👋 *ICT Trading Bot*\n\n"
-        "234
-        :\n"
-        "/status — Is the bot running?\n"
-        "/balance — Current account balance\n"
-        "/trades — Open positions right now\n"
-        "/closeall — EMERGENCY: Close all open positions\n"
+        "Commands:\n"
+        "/status — Show live and paper runtime status\n"
+        "/balance — Show live and paper account balances\n"
+        "/trades — Show live and paper open positions\n"
+        "/closeall live|paper — Emergency close positions for one account\n"
+        "/log live|paper — Show recent logs for one account\n"
         "/last5 — Last 5 trade signals from journal\n"
         "/backtest — Start a backtest in the background\n"
         "/latest_backtest — Show latest backtest status/result\n"
-        "/log — Last 20 log lines\n"
         "/price — Current BTC price\n"
         "/help — Show this menu"
     )
@@ -248,30 +357,46 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_authorised(update):
         return
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-    await update.message.reply_text(
-        f"✅ ICT Trading Bot is LIVE on Oracle Cloud!\n"
-        f"Monitoring kill zones...\n🕐 {now}"
+
+    live_status = get_service_status("ict-trader-live")
+    paper_status = get_service_status("ict-trader-paper")
+    telegram_status = get_service_status("ict-telegram-bot")
+
+    text = (
+        "✅ *ICT Trading Bot Status*\n\n"
+        f"🟢 Live trader: `{live_status}`\n"
+        f"🟡 Paper trader: `{paper_status}`\n"
+        f"🤖 Telegram bot: `{telegram_status}`\n"
+        f"🕐 {now}"
     )
+    await update.message.reply_text(text, parse_mode="Markdown")
 
 
 async def cmd_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_authorised(update):
         return
+
+    blocks = []
+
     try:
-        client = get_bybit_client()
-        resp = client.get_wallet_balance(accountType="UNIFIED")
-        coins = resp["result"]["list"][0]["coin"]
-        lines = [
-            f"{c['coin']}: {float(c['walletBalance']):.4f} (≈ ${float(c.get('usdValue', '0')):.2f})"
-            for c in coins
-            if float(c.get("walletBalance", 0)) > 0
-        ]
-        text = "\n".join(lines) if lines else "No balance found."
-        await update.message.reply_text(
-            f"💰 *Account Balance:*\n{text}", parse_mode="Markdown"
-        )
+        live_env = load_account_env("live")
+        if str(live_env.get("EXCHANGE", "")).lower() == "bybit":
+            blocks.append(format_bybit_balance(live_env, "live"))
+        else:
+            blocks.append("💰 *LIVE Balance*\nUnsupported exchange for Telegram balance view.")
     except Exception as e:
-        await update.message.reply_text(f"⚠️ Could not fetch balance: {e}")
+        blocks.append(f"💰 *LIVE Balance*\n⚠️ Could not fetch: {e}")
+
+    try:
+        paper_env = load_account_env("paper")
+        if str(paper_env.get("EXCHANGE", "")).lower() == "bybit":
+            blocks.append(format_bybit_balance(paper_env, "paper"))
+        else:
+            blocks.append("💰 *PAPER Balance*\nTelegram balance view currently supports Bybit only.")
+    except Exception as e:
+        blocks.append(f"💰 *PAPER Balance*\n⚠️ Could not fetch: {e}")
+
+    await update.message.reply_text("\n\n".join(blocks), parse_mode="Markdown")
 
 
 async def cmd_price(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -284,9 +409,7 @@ async def cmd_price(update: Update, context: ContextTypes.DEFAULT_TYPE):
             timeout=10,
         )
         price = float(resp.json()["result"]["list"][0]["lastPrice"])
-        await update.message.reply_text(
-            f"📈 *BTC/USDT:* ${price:,.2f}", parse_mode="Markdown"
-        )
+        await update.message.reply_text(f"📈 *BTC/USDT:* ${price:,.2f}", parse_mode="Markdown")
     except Exception as e:
         await update.message.reply_text(f"⚠️ Could not fetch price: {e}")
 
@@ -294,27 +417,28 @@ async def cmd_price(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cmd_trades(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_authorised(update):
         return
-    try:
-        client = get_bybit_client()
-        resp = client.get_positions(category="linear", settleCoin="USDT")
-        positions = [
-            p for p in resp["result"]["list"] if float(p.get("size", 0)) > 0
-        ]
-        if not positions:
-            await update.message.reply_text("📊 No open positions right now.")
-            return
 
-        lines = [
-            f"{p['symbol']} {p['side']} | Size: {p['size']} | "
-            f"Entry: ${float(p['avgPrice']):,.2f} | "
-            f"PnL: ${float(p['unrealisedPnl']):+.2f}"
-            for p in positions
-        ]
-        await update.message.reply_text(
-            "📊 *Open Positions:*\n" + "\n".join(lines), parse_mode="Markdown"
-        )
+    blocks = []
+
+    try:
+        live_env = load_account_env("live")
+        if str(live_env.get("EXCHANGE", "")).lower() == "bybit":
+            blocks.append(format_bybit_positions(live_env, "live"))
+        else:
+            blocks.append("📊 *LIVE Positions*\nUnsupported exchange for Telegram positions view.")
     except Exception as e:
-        await update.message.reply_text(f"⚠️ Could not fetch trades: {e}")
+        blocks.append(f"📊 *LIVE Positions*\n⚠️ Could not fetch: {e}")
+
+    try:
+        paper_env = load_account_env("paper")
+        if str(paper_env.get("EXCHANGE", "")).lower() == "bybit":
+            blocks.append(format_bybit_positions(paper_env, "paper"))
+        else:
+            blocks.append("📊 *PAPER Positions*\nTelegram positions view currently supports Bybit only.")
+    except Exception as e:
+        blocks.append(f"📊 *PAPER Positions*\n⚠️ Could not fetch: {e}")
+
+    await update.message.reply_text("\n\n".join(blocks), parse_mode="Markdown")
 
 
 async def cmd_last5(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -323,9 +447,7 @@ async def cmd_last5(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         rows = fetch_last_5_trades()
         if not rows:
-            await update.message.reply_text(
-                "📭 No trades found in trade_journal.db."
-            )
+            await update.message.reply_text("📭 No trades found in trade_journal.db.")
             return
 
         chart_candidates = [
@@ -333,9 +455,7 @@ async def cmd_last5(update: Update, context: ContextTypes.DEFAULT_TYPE):
             os.path.join(BASE_DIR, "ict_enhanced_chart.html"),
             os.path.join(BASE_DIR, "swing_chart.html"),
         ]
-        available_chart = next(
-            (p for p in chart_candidates if os.path.exists(p)), None
-        )
+        available_chart = next((p for p in chart_candidates if os.path.exists(p)), None)
 
         for row in rows:
             msg = (
@@ -361,192 +481,152 @@ async def cmd_last5(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(msg, parse_mode="Markdown")
 
             if available_chart:
-                await update.message.reply_document(
-                    document=open(available_chart, "rb")
-                )
+                await update.message.reply_document(document=open(available_chart, "rb"))
 
     except Exception as e:
         await update.message.reply_text(f"⚠️ Could not load last 5 trades: {e}")
 
 
-318
-316
-(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def cmd_log(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_authorised(update):
         return
+
+    target = resolve_target_from_args(context)
+    if not target:
+        await update.message.reply_text(require_target_help("log"), parse_mode="Markdown")
+        return
+
     try:
-        log_path = "/home/ubuntu/ict-trading-bot/bot.log"
-        if not os.path.exists(log_path):
-            await update.message.reply_text("No bot.log file found.")
-            return
-        with open(log_path, "r") as f:
-            lines = f.readlines()[-20:]
+        log_text = get_last_logs_for_target(target, lines=20)
         await update.message.reply_text(
-            "📝 *Last 20 log lines:*\n" + "".join(lines), parse_mode="Markdown"
+            f"📝 *{get_account_label(target)} logs*\n```{log_text[-3500:]}```",
+            parse_mode="Markdown",
         )
     except Exception as e:
-        await update.message.reply_text(f"⚠️ Could not read log file: {e}")
+        await update.message.reply_text(f"⚠️ Could not read logs: {e}")
 
 
 async def cmd_closeall(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Emergency command to close ALL open positions immediately.
-    """
     if not is_authorised(update):
+        return
+
+    target = resolve_target_from_args(context)
+    if not target:
+        await update.message.reply_text(require_target_help("closeall"), parse_mode="Markdown")
         return
 
     try:
-        client = get_bybit_client()
-        resp = client.get_positions(category="linear", settleCoin="USDT")
-        positions = [
-            p for p in resp["result"]["list"] if float(p.get("size", 0)) > 0
-        ]
+        env_vars = load_account_env(target)
+        exchange_name = str(env_vars.get("EXCHANGE", "")).lower()
 
-        if not positions:
-            await update.message.reply_text("🟢 No open positions to close.")
+        if exchange_name != "bybit":
+            await update.message.reply_text(
+                f"⚠️ /closeall for {target} currently supports Bybit only."
+            )
             return
 
-        closed_count = 0
-        errors = []
-
-        for p in positions:
-            try:
-                # Close position by placing opposite order
-                side = "Sell" if p["side"] == "Buy" else "Buy"
-                client.place_order(
-                    category="linear",
-                    symbol=p["symbol"],
-                    side=side,
-                    orderType="Market",
-                    qty=p["size"],
-                    reduceOnly=True
-                )
-                closed_count += 1
-            except Exception as e:
-                errors.append(f"{p['symbol']}: {str(e)}")
-
-        msg = f"🚨 *EMERGENCY CLOSE ALL*\n\n"
-        msg += f"✅ Closed {closed_count} position(s)\n"
-        if errors:
-            msg += f"❌ Failed: {len(errors)}\n"
-            msg += "Errors:\n" + "\n".join(errors[:5])
-
+        msg = close_all_bybit_positions(env_vars, target)
         await update.message.reply_text(msg, parse_mode="Markdown")
 
     except Exception as e:
-        await update.message.reply_text(
-            f"⚠️ CRITICAL ERROR in closeall: {e}"
-        )
+        await update.message.reply_text(f"⚠️ CRITICAL ERROR in closeall: {e}")
+
 
 async def cmd_backtest(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Start a backtest in the background.
-    """
+    global BACKTEST_TASK, BACKTEST_STATUS
     if not is_authorised(update):
         return
 
-    global BACKTEST_TASK, BACKTEST_STATUS
-
     if BACKTEST_STATUS["state"] == "running":
-        await update.message.reply_text(
-            "⏳ A backtest is already running.\n"
-            "Use /latest_backtest to see status."
-        )
+        await update.message.reply_text("⏳ Backtest is already running. Use /latest_backtest to see status.")
         return
 
-    await update.message.reply_text(
-        "🚀 Starting backtest in the background...\n"
-        "Use /latest_backtest to see status and results."
-    )
-
-    app: Application = context.application
-    BACKTEST_TASK = asyncio.create_task(run_backtest_in_background(app))
+    application = context.application
+    BACKTEST_TASK = asyncio.create_task(run_backtest_in_background(application))
+    await update.message.reply_text("🚀 Backtest started in background. Use /latest_backtest to see status and results.")
 
 
 async def cmd_latest_backtest(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Show latest backtest status/result quickly.
-    """
     if not is_authorised(update):
         return
 
     state = BACKTEST_STATUS["state"]
 
     if state == "running":
-        await update.message.reply_text(
-            "⏳ Backtest is currently *running*...\n"
+        lines = [
+            "⏳ *Backtest status: RUNNING*",
             f"Started: {BACKTEST_STATUS['started_at']}",
-            parse_mode="Markdown",
-        )
+        ]
+        await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
+        return
+
+    if state == "failed":
+        lines = [
+            "⚠️ *Backtest status: FAILED*",
+            f"Started: {BACKTEST_STATUS['started_at']}",
+            f"Finished: {BACKTEST_STATUS['finished_at']}",
+            f"Return code: {BACKTEST_STATUS['last_returncode']}",
+            f"Error: {BACKTEST_STATUS['last_error']}",
+        ]
+        await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
+        return
+
+    if state == "completed":
+        latest = fetch_latest_backtest_result()
+        if latest:
+            await update.message.reply_text(format_backtest_summary(latest), parse_mode="Markdown")
+        else:
+            lines = [
+                "✅ *Backtest status: COMPLETED*",
+                f"Finished: {BACKTEST_STATUS['finished_at']}",
+                f"Tail: {BACKTEST_STATUS['last_stdout_tail']}",
+            ]
+            await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
         return
 
     latest = fetch_latest_backtest_result()
     if latest:
-        text = format_backtest_summary(latest)
+        await update.message.reply_text(format_backtest_summary(latest), parse_mode="Markdown")
     else:
-        text = "ℹ️ No backtest results found in backtest_results table yet."
+        await update.message.reply_text("ℹ️ No backtest is running, and no saved backtest result was found.")
 
-    if state == "failed":
-        text += (
-            "\n\n⚠️ Last backtest *failed*.\n"
-            f"Error: {BACKTEST_STATUS['last_error']}"
-        )
-    elif state == "completed":
-        text += (
-            "\n\n✅ Last backtest *completed* successfully.\n"
-            f"Finished: {BACKTEST_STATUS['finished_at']}"
-        )
 
-    await update.message.reply_text(text, parse_mode="Markdown")
-
-500
-
+def main():
     if not TELEGRAM_BOT_TOKEN:
-        raise RuntimeError("TELEGRAM_BOT_TOKEN is not set in .env")
+        raise RuntimeError("TELEGRAM_BOT_TOKEN is not set in environment")
 
-    application = (
-        Application.builder()
-        .token(TELEGRAM_BOT_TOKEN)
-        .build()
-    )
+    application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
-    commands = [
-        BotCommand("start", "Show help and status"),
-        BotCommand("help", "Show help and status"),
-        BotCommand("status", "Bot status"),
-        BotCommand("balance", "Account balance"),
-        BotCommand("trades", "Open positions"),
-                BotCommand("closeall", "Emergency: Close all open positions"),530
-        535
-525
+    async def post_init(app):
+        commands = [
+            BotCommand("start", "Show help and status"),
+            BotCommand("help", "Show help and status"),
+            BotCommand("status", "Show live and paper service status"),
+            BotCommand("balance", "Show live and paper balances"),
+            BotCommand("trades", "Show live and paper open positions"),
+            BotCommand("closeall", "Close positions for one account: live|paper"),
+            BotCommand("last5", "Show last 5 journal entries"),
+            BotCommand("backtest", "Run backtest in background"),
+            BotCommand("latest_backtest", "Latest backtest status/result"),
+            BotCommand("log", "Show logs for one account: live|paper"),
+            BotCommand("price", "Current BTC price"),
+        ]
+        await app.bot.set_my_commands(commands)
 
-        BotCommand("last5", "Last 5 trade signals"),
-        BotCommand("backtest", "Start backtest in background"),
-        BotCommand("latest_backtest", "Latest backtest status/result"),
-        BotCommand("log", "Last 20 log lines"),
-        BotCommand("price", "Current BTC price"),
-    ]
-    application.bot.set_my_commands(commands)
+    application.post_init = post_init
 
-    application.522
-(CommandHandler("start", cmd_start))
-    application.540
-(CommandHandler("help", cmd_help))
-    application.536
-(CommandHandler("status", cmd_status))
-    application.538
-(CommandHandler("balance", cmd_balance))
-    application.540
-(CommandHandler("price", cmd_price))
-    application.539
-(CommandHandler("trades", cmd_trades))
+    application.add_handler(CommandHandler("start", cmd_start))
+    application.add_handler(CommandHandler("help", cmd_help))
+    application.add_handler(CommandHandler("status", cmd_status))
+    application.add_handler(CommandHandler("balance", cmd_balance))
+    application.add_handler(CommandHandler("trades", cmd_trades))
     application.add_handler(CommandHandler("closeall", cmd_closeall))
     application.add_handler(CommandHandler("last5", cmd_last5))
-    application.add_handler(CommandHandler("log", cmd_log))
     application.add_handler(CommandHandler("backtest", cmd_backtest))
     application.add_handler(CommandHandler("latest_backtest", cmd_latest_backtest))
+    application.add_handler(CommandHandler("log", cmd_log))
+    application.add_handler(CommandHandler("price", cmd_price))
 
-    logger.info("Starting Telegram bot...")
     application.run_polling()
 
 
