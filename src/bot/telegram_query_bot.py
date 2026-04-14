@@ -2,6 +2,7 @@ import os
 import logging
 import sqlite3
 import asyncio
+import sys
 import subprocess
 from datetime import datetime, timezone
 
@@ -257,7 +258,7 @@ async def run_backtest_in_background(application: Application):
 
     try:
         process = await asyncio.create_subprocess_exec(
-            "python",
+            sys.executable,
             "backtester.py",
             cwd=BASE_DIR,
             stdout=asyncio.subprocess.PIPE,
