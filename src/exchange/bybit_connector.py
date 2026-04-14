@@ -45,6 +45,11 @@ class BybitConnector:
             return df
         except Exception as e:
             print(f"❌ Error fetching OHLCV: {e}")
+            msg = str(e)
+            if "Rate Limit" in msg or "Too many visits" in msg or 'retCode":10006' in msg:
+                import time
+                print("Rate limit hit on Bybit, sleeping 15 seconds...")
+                time.sleep(15)
             return None
     
     def get_balance(self):
