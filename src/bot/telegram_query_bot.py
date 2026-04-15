@@ -15,7 +15,14 @@ load_dotenv()
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.abspath(os.path.join(BASE_DIR, "..", ".."))
-DB_PATH = os.path.join(BASE_DIR, "trade_journal.db")
+# DB_PATH: check env override, then repo root, then src/bot/ (legacy).
+_DB_CANDIDATES = [
+    os.environ.get("TRADE_JOURNAL_DB", ""),
+    os.path.join(REPO_ROOT, "trade_journal.db"),
+    os.path.join(BASE_DIR, "trade_journal.db"),
+]
+DB_PATH = next((p for p in _DB_CANDIDATES if p and os.path.exists(p)),
+               os.path.join(REPO_ROOT, "trade_journal.db"))  # default if none exist
 
 LIVE_ENV_PATH = os.path.join(REPO_ROOT, ".env.live")
 PAPER_ENV_PATH = os.path.join(REPO_ROOT, ".env.paper")
