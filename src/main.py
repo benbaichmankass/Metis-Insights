@@ -79,9 +79,13 @@ def _build_telegram_client():
 
 def _build_exchange_adapter(settings: dict):
     exchange_name = settings.get("EXCHANGE", "bybit").lower()
-    mode = str(settings.get("MODE", "testnet")).lower()
-    testnet = mode != "live"
     symbol = settings.get("SYMBOL", "BTCUSDT")
+
+    # FIXED: read BYBIT_TESTNET directly; do not rely on MODE
+    bybit_testnet_raw = str(os.environ.get("BYBIT_TESTNET", "true")).strip().lower()
+    testnet = bybit_testnet_raw not in {"false", "0", "no"}
+
+    logger.info("Exchange mode: exchange=%s testnet=%s symbol=%s", exchange_name, testnet, symbol)
 
     if exchange_name == "binance":
         connector = BinanceConnector(
@@ -114,23 +118,21 @@ def main() -> None:
     load_dotenv()
     settings = build_settings_from_env(os.environ)
 
-    # Safety: force DRY_RUN true if not explicitly set
-    if not settings.get("DRY_RUN"):
-        settings["DRY_RUN"] = "true"
+    # FIXED: respect DRY_RUN=false from .env correctly
+    dry_run_raw = str(os.environ.get("DRY_RUN", "true")).strip().lower()
+    settings["DRY_RUN"] = dry_run_raw not in {"false", "0", "no"}
 
     validate_startup(settings)
     logger.info(
-        "Startup validation passed. EXCHANGE=%s MODE=%s DRY_RUN=%s ALLOW_LIVE_TRADING=%s",
+        "Startup validation passed. EXCHANGE=%s DRY_RUN=%s BYBIT_TESTNET=%s",
         settings.get("EXCHANGE"),
-        settings.get("MODE"),
         settings.get("DRY_RUN"),
-        settings.get("ALLOW_LIVE_TRADING"),
+        os.environ.get("BYBIT_TESTNET"),
     )
 
     exchange_client = _build_exchange_adapter(settings)
     telegram_client = _build_telegram_client()
 
-    # LOOP=false means run one tick only (used in Colab and tests)
     loop = str(os.environ.get("LOOP", "true")).strip().lower() not in {"false", "0", "no"}
     interval = int(os.environ.get("TICK_INTERVAL_SECONDS", "900"))
 
