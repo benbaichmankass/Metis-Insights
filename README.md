@@ -190,3 +190,14 @@ Backtesting modules live under `src/backtest/`. Use them to:
 - Do not commit runtime files such as `*.pid`
 - Do not commit generated charts or database files
 - Always validate the runtime profile before enabling non-dry-run execution
+
+## Environment notes
+
+- `EXCHANGE`: `bybit` or `binance`
+- `BYBIT_TESTNET`: `true` or `false`
+- `BINANCE_TESTNET`: `true` or `false`
+- `TRADE_JOURNAL_DB`: absolute path to `trade_journal.db`
+
+If `TRADE_JOURNAL_DB` is not set, the bot falls back to the repo root DB, then `src/bot/trade_journal.db`.
+
+`telegram_query_bot.py` reads trades from `trades` and backtest summaries from `backtestresults`.

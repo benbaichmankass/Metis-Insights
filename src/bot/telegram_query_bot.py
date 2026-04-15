@@ -21,13 +21,11 @@ _DB_CANDIDATES = [
     os.path.join(REPO_ROOT, "trade_journal.db"),
     os.path.join(BASE_DIR, "trade_journal.db"),
 ]
-DB_PATH = next((p for p in _DB_CANDIDATES if p and os.path.exists(p)),
-               os.path.join(REPO_ROOT, "trade_journal.db"))  # default if none exist
+DB_PATH = next((p for p in _DB_CANDIDATES if p and os.path.exists(p)), os.path.join(REPO_ROOT, "trade_journal.db"))
 
 LIVE_ENV_PATH = os.path.join(REPO_ROOT, ".env.live")
 PAPER_ENV_PATH = os.path.join(REPO_ROOT, ".env.paper")
 
-# backtester.py lives in src/ (one level up from src/bot/)
 BACKTESTER_PATH = os.path.join(os.path.dirname(BASE_DIR), "backtester.py")
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
