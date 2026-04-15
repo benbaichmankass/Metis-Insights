@@ -317,6 +317,62 @@ async def run_backtest_in_background(application: Application):
         BACKTEST_TASK = None
 
 
+
+# -- Binance helpers ----------------------------------------------------------
+
+def _get_binance_connector(env_vars: dict):
+    import sys as _sys
+    _sys.path.insert(0, os.path.join(REPO_ROOT, "src"))
+    from exchange.binance_connector import BinanceConnector
+    testnet_raw = str(env_vars.get("BINANCE_TESTNET", "false")).strip().lower()
+    return BinanceConnector(
+        api_key=env_vars.get("BINANCE_API_KEY"),
+        api_secret=env_vars.get("BINANCE_API_SECRET"),
+        testnet=(testnet_raw == "true"),
+    )
+
+
+def format_binance_balance(env_vars: dict, target: str) -> str:
+    try:
+        conn = _get_binance_connector(env_vars)
+        bal = conn.get_balance()
+        if not bal:
+            return f"💰 *{get_account_label(target)} Balance (Binance)*\nNo data returned."
+        usdt = bal.get("USDT", {})
+        total = float(usdt.get("total", 0) or 0)
+        free  = float(usdt.get("free", 0) or 0)
+        used  = float(usdt.get("used", 0) or 0)
+        return (
+            f"💰 *{get_account_label(target)} Balance (Binance Futures)*\n"
+            f"USDT Total: {total:.2f}\n"
+            f"USDT Free: {free:.2f}\n"
+            f"USDT Used: {used:.2f}"
+        )
+    except Exception as e:
+        return f"💰 *{get_account_label(target)} Balance (Binance)*\n⚠️ Error: {e}"
+
+
+def format_binance_positions(env_vars: dict, target: str) -> str:
+    try:
+        conn = _get_binance_connector(env_vars)
+        positions = conn.get_positions()
+        if not positions:
+            return f"📊 *{get_account_label(target)} Positions (Binance)*\nNo open positions."
+        lines = []
+        for p in positions:
+            symbol = p.get("symbol", "?")
+            side = p.get("side", "?")
+            size = p.get("contracts", "?")
+            entry = float(p.get("entryPrice", 0) or 0)
+            pnl = float(p.get("unrealizedPnl", 0) or 0)
+            lines.append(
+                f"{symbol} {side} | Size: {size} | Entry: ${entry:,.2f} | PnL: ${pnl:+.2f}"
+            )
+        return f"📊 *{get_account_label(target)} Positions (Binance)*\n" + "\n".join(lines)
+    except Exception as e:
+        return f"📊 *{get_account_label(target)} Positions (Binance)*\n⚠️ Error: {e}"
+
+
 # ── Commands ──────────────────────────────────────────────────────────────────
 
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -369,10 +425,12 @@ async def cmd_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
             exchange = str(env_vars.get("EXCHANGE", "")).lower()
             if exchange == "bybit":
                 blocks.append(format_bybit_balance(env_vars, target))
+            elif exchange == "binance":
+                blocks.append(format_binance_balance(env_vars, target))
             else:
                 blocks.append(
                     f"💰 *{get_account_label(target)} Balance*\n"
-                    f"Exchange=`{exchange or 'not set'}` — only Bybit supported."
+                    f"Exchange=`{exchange or 'not set'}` — unsupported exchange."
                 )
         except Exception as e:
             blocks.append(f"💰 *{get_account_label(target)} Balance*\n⚠️ {e}")
@@ -389,10 +447,12 @@ async def cmd_trades(update: Update, context: ContextTypes.DEFAULT_TYPE):
             exchange = str(env_vars.get("EXCHANGE", "")).lower()
             if exchange == "bybit":
                 blocks.append(format_bybit_positions(env_vars, target))
+            elif exchange == "binance":
+                blocks.append(format_binance_positions(env_vars, target))
             else:
                 blocks.append(
                     f"📊 *{get_account_label(target)} Positions*\n"
-                    f"Exchange=`{exchange or 'not set'}` — only Bybit supported."
+                    f"Exchange=`{exchange or 'not set'}` — unsupported exchange."
                 )
         except Exception as e:
             blocks.append(f"📊 *{get_account_label(target)} Positions*\n⚠️ {e}")
