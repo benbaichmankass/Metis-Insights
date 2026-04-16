@@ -74,7 +74,13 @@ class KillZoneScalperBot:
         self.symbol = symbol
 
     def _fetch_ohlcv_df(self, limit: int = 250) -> pd.DataFrame:
-        candles = self.exchange.fetch_ohlcv(self.symbol, timeframe='1h', limit=limit)
+        candles_df = self.exchange.get_ohlcv(self.symbol, timeframe='1h', limit=limit)
+        if candles_df is None:
+            return pd.DataFrame(columns=['open','high','low','close','volume'])
+        if 'timestamp' in candles_df.columns:
+            candles_df['timestamp'] = pd.to_datetime(candles_df['timestamp'], utc=True)
+            candles_df = candles_df.set_index('timestamp')
+        return candles_df[['open','high','low','close','volume']]
         df = pd.DataFrame(candles, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
         df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms', utc=True)
         df = df.set_index('timestamp')
