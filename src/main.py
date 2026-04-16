@@ -122,7 +122,7 @@ def main() -> None:
     dry_run_raw = str(os.environ.get("DRY_RUN", "true")).strip().lower()
     settings["DRY_RUN"] = dry_run_raw not in {"false", "0", "no"}
 
-    validate_startup(settings)
+    validate_startup()
     logger.info(
         "Startup validation passed. EXCHANGE=%s DRY_RUN=%s BYBIT_TESTNET=%s",
         settings.get("EXCHANGE"),
