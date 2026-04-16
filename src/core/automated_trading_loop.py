@@ -1,4 +1,13 @@
+from __future__ import annotations
+
+import logging
+import os
+from typing import Optional, Tuple
+
 import pandas as pd
+
+logger = logging.getLogger(__name__)
+
 
 def pure_pandas_atr(high, low, close, length=14):
     tr1 = high - low
@@ -7,15 +16,8 @@ def pure_pandas_atr(high, low, close, length=14):
     tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
     return tr.rolling(length).mean()
 
-def turtle_soup_production(
-    df: pd.DataFrame,
-    risk_pct: float = 0.01,
-    rr: float = 2.2
-) -> list[dict]:
-    """
-    Production Turtle Soup - Iteration #5
-    Pure pandas version for VM compatibility
-    """
+
+def turtle_soup_signal(df: pd.DataFrame, rr: float = 2.2):
     df = df.copy()
     df['hour_utc'] = df.index.hour
     df['atr'] = pure_pandas_atr(df['high'], df['low'], df['close'], length=14)
@@ -44,52 +46,61 @@ def turtle_soup_production(
         (df['vol_ratio'] > 1.1)
     )
 
-    trades = []
-    in_trade = False
-    side = 0
-    entry_price = 0.0
-    stop_price = 0.0
-    target_price = 0.0
+    if len(df) < lookback + 1:
+        return None, None, None
 
-    for i in range(lookback, len(df)):
-        row = df.iloc[i]
+    row = df.iloc[-1]
 
-        if not in_trade:
-            if bool(row['ts_long']) and pd.notna(row['atr']):
-                side = 1
-                entry_price = float(row['close'])
-                atr_stop = 1.4 * float(row['atr'])
-                stop_price = entry_price - atr_stop
-                target_price = entry_price + (atr_stop * rr)
-                in_trade = True
+    if bool(row['ts_long']) and pd.notna(row['atr']):
+        entry_price = float(row['close'])
+        atr_stop = 1.4 * float(row['atr'])
+        stop_price = entry_price - atr_stop
+        target_price = entry_price + (atr_stop * rr)
+        return 'long', entry_price, {'stop_price': stop_price, 'target_price': target_price}
 
-            elif bool(row['ts_short']) and pd.notna(row['atr']):
-                side = -1
-                entry_price = float(row['close'])
-                atr_stop = 1.4 * float(row['atr'])
-                stop_price = entry_price + atr_stop
-                target_price = entry_price - (atr_stop * rr)
-                in_trade = True
+    if bool(row['ts_short']) and pd.notna(row['atr']):
+        entry_price = float(row['close'])
+        atr_stop = 1.4 * float(row['atr'])
+        stop_price = entry_price + atr_stop
+        target_price = entry_price - (atr_stop * rr)
+        return 'short', entry_price, {'stop_price': stop_price, 'target_price': target_price}
 
-        else:
-            hit_stop = (side * (float(row['low']) - stop_price)) <= 0
-            hit_target = (side * (float(row['high']) - target_price)) >= 0
+    return None, None, None
 
-            if hit_stop or hit_target:
-                pnl_r = rr if hit_target else -1
-                pnl_pct = pnl_r * risk_pct
 
-                trades.append({
-                    'timestamp': df.index[i],
-                    'side': 'long' if side == 1 else 'short',
-                    'entry_price': entry_price,
-                    'stop_price': stop_price,
-                    'target_price': target_price,
-                    'exit_price': float(row['close']),
-                    'pnl_pct': pnl_pct,
-                    'r_multiple': pnl_r,
-                    'exit_reason': 'target' if hit_target else 'stop'
-                })
-                in_trade = False
+class KillZoneScalperBot:
+    def __init__(self, exchange, symbol='BTC/USDT:USDT'):
+        self.exchange = exchange
+        self.symbol = symbol
 
-    return trades
+    def _fetch_ohlcv_df(self, limit: int = 250) -> pd.DataFrame:
+        candles = self.exchange.fetch_ohlcv(self.symbol, timeframe='1h', limit=limit)
+        df = pd.DataFrame(candles, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms', utc=True)
+        df = df.set_index('timestamp')
+        return df
+
+    def analyze_market(self) -> Tuple[Optional[str], Optional[float], Optional[dict]]:
+        try:
+            df = self._fetch_ohlcv_df()
+            signal, price, meta = turtle_soup_signal(df)
+            if signal:
+                logger.info('Turtle Soup signal generated: %s at %s', signal, price)
+            else:
+                logger.info('No Turtle Soup signal this tick.')
+            return signal, price, meta
+        except Exception as exc:
+            logger.exception('analyze_market failed: %s', exc)
+            return None, None, None
+
+
+def main():
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s | %(levelname)s | %(name)s | %(message)s',
+    )
+    logger.info('src.core.automated_trading_loop is now a strategy module. Run python -m src.main for the runtime loop.')
+
+
+if __name__ == '__main__':
+    main()
