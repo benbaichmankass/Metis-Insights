@@ -116,7 +116,7 @@ def run_one_tick(settings: dict, exchange_client, telegram_client) -> dict:
 
 def main() -> None:
     load_dotenv()
-    settings = build_settings_from_env(os.environ)
+    settings = build_settings_from_env()
 
     # FIXED: respect DRY_RUN=false from .env correctly
     dry_run_raw = str(os.environ.get("DRY_RUN", "true")).strip().lower()
