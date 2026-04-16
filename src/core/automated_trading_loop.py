@@ -1,312 +1,89 @@
-import os
-import time
-from datetime import datetime, date
-
 import pandas as pd
-from dotenv import load_dotenv
+import pandas_ta as ta
 
-from src.runtime.pipeline import _build_killzone_exchange
+def turtle_soup_production(
+    df: pd.DataFrame,
+    risk_pct: float = 0.01,
+    rr: float = 2.2
+) -> list[dict]:
+    """
+    Production Turtle Soup - Iteration #5 (Best backtest)
+    Returns list of executed trades with entry/exit details
+    """
+    df = df.copy()
+    df['hour_utc'] = df.index.hour
+    df['atr'] = ta.atr(df['high'], df['low'], df['close'], length=14)
+    df['vol_ma'] = df['volume'].rolling(20).mean()
+    df['vol_ratio'] = df['volume'] / df['vol_ma']
 
-load_dotenv(os.path.expanduser("~/.bot_env"))
+    lookback = 12
+    killzone = df['hour_utc'].between(0, 23)
 
-# Kill Zone windows (UTC)
-KILL_ZONES = [
-    {"name": "London Open", "start": 7, "end": 10},
-    {"name": "NY Open", "start": 13, "end": 16},
-    {"name": "London Close", "start": 15, "end": 17},
-]
+    df['prior_low'] = df['low'].rolling(lookback).min().shift(1)
+    df['prior_high'] = df['high'].rolling(lookback).max().shift(1)
 
-
-class KillZoneScalperBot:
-    """ICT Kill Zone Scalper - Automated Paper Trading Version"""
-
-    def __init__(self, exchange, symbol="BTC/USDT:USDT"):
-        if exchange is None:
-            raise ValueError("KillZoneScalperBot requires an exchange connector instance.")
-
-        self.exchange = exchange
-        self.symbol = symbol
-        self.running = False
-        self.check_interval = 60
-        self.trade_log = []
-        self.risk_pct = 0.025
-        self.rr_ratio = 2.0
-
-        # Daily max drawdown protection
-        self.daily_loss_limit_pct = 0.05
-        self.daily_start_balance = None
-        self.daily_realized_pnl = 0.0
-        self.daily_date = None
-        self.daily_limit_hit = False
-
-    def _reset_daily_stats(self, balance):
-        """Reset daily tracking at start of new UTC day."""
-        self.daily_date = date.today()
-        self.daily_start_balance = balance
-        self.daily_realized_pnl = 0.0
-        self.daily_limit_hit = False
-        print(f" [Day Reset] New day {self.daily_date} | Start balance: ${balance:,.2f}")
-
-    def _check_daily_drawdown(self):
-        """Fetch current balance and block trading if daily loss limit is hit."""
-        try:
-            balance_data = self.exchange.get_balance()
-            current_balance = float((balance_data or {}).get("total", {}).get("USDT", 0))
-        except Exception as e:
-            print(f" [Drawdown Check] Could not fetch balance: {e}")
-            return False
-
-        today = date.today()
-
-        if self.daily_date != today or self.daily_start_balance is None:
-            self._reset_daily_stats(current_balance)
-            return True
-
-        daily_pnl = current_balance - self.daily_start_balance
-        daily_loss_limit = self.daily_start_balance * self.daily_loss_limit_pct
-
-        if daily_pnl < 0 and abs(daily_pnl) >= daily_loss_limit:
-            self.daily_limit_hit = True
-            print(
-                f" ⛔ DAILY MAX DRAWDOWN HIT! "
-                f"Loss: ${abs(daily_pnl):,.2f} / Limit: ${daily_loss_limit:,.2f} "
-                f"({self.daily_loss_limit_pct*100:.1f}% of ${self.daily_start_balance:,.2f}) "
-                f"-- Trading HALTED for today."
-            )
-            return False
-
-        self.daily_realized_pnl = daily_pnl
-        remaining = daily_loss_limit - abs(min(daily_pnl, 0))
-        print(
-            f" [Drawdown] Daily P&L: ${daily_pnl:+,.2f} | "
-            f"Buffer remaining: ${remaining:,.2f} / ${daily_loss_limit:,.2f}"
-        )
-        return True
-
-    def is_kill_zone(self):
-        now = datetime.utcnow()
-        for kz in KILL_ZONES:
-            if kz["start"] <= now.hour < kz["end"]:
-                return True, kz["name"]
-        return False, None
-
-    def get_trend(self, df_1h):
-        if df_1h is None or len(df_1h) < 2:
-            return "neutral"
-
-        last = df_1h.iloc[-1]
-        prev = df_1h.iloc[-2]
-
-        if last["close"] > prev["high"]:
-            return "bullish"
-        elif last["close"] < prev["low"]:
-            return "bearish"
-        return "neutral"
-
-    def detect_fvg(self, df, min_pct=0.01):
-        """Detect fair value gaps in the same way as backtester.py"""
-        fvgs = []
-
-        for i in range(2, len(df)):
-            if df["low"].iloc[i] > df["high"].iloc[i - 2]:
-                gap_size = (df["low"].iloc[i] - df["high"].iloc[i - 2]) / df["close"].iloc[i] * 100
-                if gap_size >= min_pct:
-                    fvgs.append(
-                        {
-                            "type": "bullish",
-                            "index": i,
-                            "top": df["low"].iloc[i],
-                            "bottom": df["high"].iloc[i - 2],
-                            "idx": i,
-                        }
-                    )
-
-            if df["high"].iloc[i] < df["low"].iloc[i - 2]:
-                gap_size = (df["low"].iloc[i - 2] - df["high"].iloc[i]) / df["close"].iloc[i] * 100
-                if gap_size >= min_pct:
-                    fvgs.append(
-                        {
-                            "type": "bearish",
-                            "index": i,
-                            "top": df["low"].iloc[i - 2],
-                            "bottom": df["high"].iloc[i],
-                            "idx": i,
-                        }
-                    )
-
-        return fvgs
-
-    def calculate_position_size(self, price, stop_loss):
-        """Calculate quantity based on account balance and risk %."""
-        try:
-            balance_data = self.exchange.get_balance()
-            usdt_balance = float((balance_data or {}).get("total", {}).get("USDT", 0))
-
-            if usdt_balance <= 0:
-                return 0
-
-            risk_amount = usdt_balance * self.risk_pct
-            price_risk = abs(price - stop_loss)
-
-            if price_risk == 0:
-                return 0
-
-            qty = risk_amount / price_risk
-            return round(qty, 3)
-        except Exception as e:
-            print(f"Error calculating size: {e}")
-            return 0
-
-    def execute_trade(self, signal, price, fvg):
-        """Execute market order with SL and TP only if daily drawdown allows it."""
-        if not self._check_daily_drawdown():
-            print(" ❌ Trade blocked: daily max drawdown limit reached.")
-            return
-
-        print(f"🚀 Executing {signal.upper()} trade...")
-
-        if signal == "long":
-            sl = fvg["bottom"] * 0.999
-            tp = price + (price - sl) * self.rr_ratio
-            side = "buy"
-        else:
-            sl = fvg["top"] * 1.001
-            tp = price - (sl - price) * self.rr_ratio
-            side = "sell"
-
-        qty = self.calculate_position_size(price, sl)
-        if qty <= 0:
-            print("❌ Invalid quantity (check balance/risk)")
-            return
-
-        print(f" 📊 Qty: {qty} | SL: {sl:,.2f} | TP: {tp:,.2f}")
-
-        order_params = {
-            "stopLoss": round(sl, 2),
-            "takeProfit": round(tp, 2),
-        }
-
-        order = self.exchange.place_market_order(self.symbol, side, qty, params=order_params)
-
-        if order:
-            trade_info = {
-                "timestamp": datetime.utcnow(),
-                "symbol": self.symbol,
-                "side": side,
-                "entry": price,
-                "qty": qty,
-                "sl": sl,
-                "tp": tp,
-                "status": "open",
-            }
-            self.trade_log.append(trade_info)
-            print("✅ Trade successfully placed and logged.")
-        else:
-            print("❌ Failed to place order.")
-
-    def analyze_market(self):
-        print(f"\n{'=' * 68}")
-        print(f" {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC")
-        print(f" {'=' * 68}")
-
-        if self.daily_limit_hit:
-            print(" ⛔ Daily max drawdown limit already hit - no trading today.")
-            return None, None, None
-
-        in_kz, kz_name = self.is_kill_zone()
-        if not in_kz:
-            print(" Outside Kill Zone - standby")
-            return None, None, None
-
-        print(f" Kill Zone: {kz_name}")
-
-        df_1h = self.exchange.get_ohlcv(symbol=self.symbol, timeframe="1h", limit=10)
-        trend = self.get_trend(df_1h)
-        print(f" 1H Trend: {trend.upper()}")
-
-        if trend == "neutral":
-            print(" Neutral trend - no trade")
-            return None, None, None
-
-        df_5m = self.exchange.get_ohlcv(symbol=self.symbol, timeframe="5m", limit=200)
-        if df_5m is None:
-            print(" Failed to fetch 5m data")
-            return None, None, None
-
-        price = self.exchange.get_price(symbol=self.symbol)
-        if price is None:
-            print(" Failed to fetch price")
-            return None, None, None
-
-        print(f" Price: ${price:,.2f}")
-
-        fvgs = self.detect_fvg(df_5m)
-        recent_fvgs = [f for f in fvgs if len(df_5m) - f["idx"] <= 3]
-
-        for fvg in recent_fvgs:
-            if trend == "bullish" and fvg["type"] == "bullish":
-                if fvg["bottom"] <= price <= fvg["top"]:
-                    print(f" LONG SIGNAL in Kill Zone {kz_name}")
-                    return "long", price, fvg
-
-            if trend == "bearish" and fvg["type"] == "bearish":
-                if fvg["bottom"] <= price <= fvg["top"]:
-                    print(f" SHORT SIGNAL in Kill Zone {kz_name}")
-                    return "short", price, fvg
-
-        print(" No aligned setups")
-        return None, None, None
-
-    def run(self, iterations=None):
-        print("\n" + "=" * 70)
-        print(" ICT Kill Zone Scalper - MILESTONE 6 (Daily Drawdown Protection)")
-        print(" Max Daily Loss: 5% of start-of-day balance")
-        print("=" * 70)
-
-        from src.bot.alert_manager import AlertManager
-
-        am = AlertManager()
-        if not hasattr(am, "send_alert"):
-            am.send_alert = lambda msg: None
-
-        am.send_alert("✅ ICT Trading Bot is LIVE on Oracle Cloud! Monitoring kill zones...")
-
-        self.running = True
-        count = 0
-
-        try:
-            while self.running:
-                count += 1
-
-                if iterations and count > iterations:
-                    break
-
-                signal, price, fvg_data = self.analyze_market()
-
-                if signal:
-                    self.execute_trade(signal, price, fvg_data)
-
-                if self.running and (not iterations or count < iterations):
-                    time.sleep(self.check_interval)
-
-        except KeyboardInterrupt:
-            self.running = False
-            print("\nBot shutdown complete.")
-
-
-if __name__ == "__main__":
-    settings = {
-        "EXCHANGE": os.environ.get("EXCHANGE", "bybit"),
-        "MODE": os.environ.get("MODE", "PAPER"),
-        "BINANCE_API_KEY": os.environ.get("BINANCE_API_KEY", ""),
-        "BINANCE_API_SECRET": os.environ.get("BINANCE_API_SECRET", ""),
-        "BYBIT_API_KEY": os.environ.get("BYBIT_API_KEY", ""),
-        "BYBIT_API_SECRET": os.environ.get("BYBIT_API_SECRET", ""),
-    }
-    exchange = _build_killzone_exchange(settings)
-
-    bot = KillZoneScalperBot(
-        exchange=exchange,
-        symbol=os.environ.get("SYMBOL", "BTC/USDT:USDT"),
+    df['ts_long'] = (
+        (df['low'] < df['prior_low']) &
+        (df['close'] > df['prior_low']) &
+        killzone &
+        (df['close'] > df['open']) &
+        (df['vol_ratio'] > 1.1)
     )
-    bot.run()
+
+    df['ts_short'] = (
+        (df['high'] > df['prior_high']) &
+        (df['close'] < df['prior_high']) &
+        killzone &
+        (df['close'] < df['open']) &
+        (df['vol_ratio'] > 1.1)
+    )
+
+    trades = []
+    in_trade = False
+    side = 0
+    entry_price = 0.0
+    stop_price = 0.0
+    target_price = 0.0
+
+    for i in range(lookback, len(df)):
+        row = df.iloc[i]
+
+        if not in_trade:
+            if bool(row['ts_long']) and pd.notna(row['atr']):
+                side = 1
+                entry_price = float(row['close'])
+                atr_stop = 1.4 * float(row['atr'])
+                stop_price = entry_price - atr_stop
+                target_price = entry_price + (atr_stop * rr)
+                in_trade = True
+
+            elif bool(row['ts_short']) and pd.notna(row['atr']):
+                side = -1
+                entry_price = float(row['close'])
+                atr_stop = 1.4 * float(row['atr'])
+                stop_price = entry_price + atr_stop
+                target_price = entry_price - (atr_stop * rr)
+                in_trade = True
+
+        else:
+            hit_stop = (side * (float(row['low']) - stop_price)) <= 0
+            hit_target = (side * (float(row['high']) - target_price)) >= 0
+
+            if hit_stop or hit_target:
+                pnl_r = rr if hit_target else -1
+                pnl_pct = pnl_r * risk_pct
+
+                trades.append({
+                    'timestamp': df.index[i],
+                    'side': 'long' if side == 1 else 'short',
+                    'entry_price': entry_price,
+                    'stop_price': stop_price,
+                    'target_price': target_price,
+                    'exit_price': float(row['close']),
+                    'pnl_pct': pnl_pct,
+                    'r_multiple': pnl_r,
+                    'exit_reason': 'target' if hit_target else 'stop'
+                })
+                in_trade = False
+
+    return trades
