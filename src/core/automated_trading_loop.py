@@ -1,5 +1,11 @@
 import pandas as pd
-import pandas_ta as ta
+
+def pure_pandas_atr(high, low, close, length=14):
+    tr1 = high - low
+    tr2 = (high - close.shift(1)).abs()
+    tr3 = (low - close.shift(1)).abs()
+    tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+    return tr.rolling(length).mean()
 
 def turtle_soup_production(
     df: pd.DataFrame,
@@ -7,12 +13,12 @@ def turtle_soup_production(
     rr: float = 2.2
 ) -> list[dict]:
     """
-    Production Turtle Soup - Iteration #5 (Best backtest)
-    Returns list of executed trades with entry/exit details
+    Production Turtle Soup - Iteration #5
+    Pure pandas version for VM compatibility
     """
     df = df.copy()
     df['hour_utc'] = df.index.hour
-    df['atr'] = ta.atr(df['high'], df['low'], df['close'], length=14)
+    df['atr'] = pure_pandas_atr(df['high'], df['low'], df['close'], length=14)
     df['vol_ma'] = df['volume'].rolling(20).mean()
     df['vol_ratio'] = df['volume'] / df['vol_ma']
 
