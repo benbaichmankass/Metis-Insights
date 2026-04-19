@@ -11,16 +11,16 @@ logger = logging.getLogger(__name__)
 
 def default_signal_builder(settings: dict) -> Dict[str, Any]:
     return {
-        "symbol": settings.get("SYMBOL", "BTCUSDT"),
+        "symbol": settings.get("SYMBOL", settings.get("symbol", "BTCUSDT")),
         "side": "buy",
         "qty": 1,
     }
 
 
 def _build_killzone_exchange(settings: dict):
-    exchange_name = str(settings.get("EXCHANGE", "bybit")).strip().lower()
-    mode = str(settings.get("MODE", "testnet")).strip().lower()
-    testnet = mode != "live"
+    exchange_name = str(settings.get("EXCHANGE", settings.get("exchange", "bybit"))).strip().lower()
+    bybit_testnet_raw = str(__import__("os").environ.get("BYBIT_TESTNET", "true")).strip().lower()
+    testnet = bybit_testnet_raw not in {"false", "0", "no"}
 
     if exchange_name == "binance":
         from src.exchange.binance_connector import BinanceConnector
@@ -46,7 +46,7 @@ def _killzone_symbol(settings: dict) -> str:
     if configured:
         return configured
 
-    exchange_name = str(settings.get("EXCHANGE", "bybit")).strip().lower()
+    exchange_name = str(settings.get("EXCHANGE", settings.get("exchange", "bybit"))).strip().lower()
     if exchange_name == "binance":
         return "BTC/USDT"
 
@@ -70,7 +70,7 @@ def killzone_signal_builder(settings: dict) -> Dict[str, Any]:
     if not signal:
         logger.info("KillZoneScalperBot returned no signal; staying flat.")
         return {
-            "symbol": settings.get("SYMBOL", "BTCUSDT"),
+            "symbol": settings.get("SYMBOL", settings.get("symbol", "BTCUSDT")),
             "side": "none",
             "qty": 0,
         }
@@ -78,14 +78,14 @@ def killzone_signal_builder(settings: dict) -> Dict[str, Any]:
     side = "buy" if signal.lower() == "long" else "sell"
 
     return {
-        "symbol": settings.get("SYMBOL", "BTCUSDT"),
+        "symbol": settings.get("SYMBOL", settings.get("symbol", "BTCUSDT")),
         "side": side,
-        "qty": float(settings.get("MAX_QTY", 1) or 1),
+        "qty": float(settings.get("MAX_QTY", settings.get("max_qty", 1)) or 1),
         "meta": {
             "price": price,
             "fvg": fvg_data,
             "raw_signal": signal,
-            "exchange": str(settings.get("EXCHANGE", "bybit")).strip().lower(),
+            "exchange": str(settings.get("EXCHANGE", settings.get("exchange", "bybit"))).strip().lower(),
             "market_data_symbol": symbol,
         },
     }

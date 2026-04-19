@@ -124,10 +124,13 @@ def main() -> None:
 
     validate_startup()
     logger.info(
-        "Startup validation passed. EXCHANGE=%s DRY_RUN=%s BYBIT_TESTNET=%s",
-        settings.get("EXCHANGE"),
-        settings.get("DRY_RUN"),
+        "Startup validation passed. exchange=%s dry_run=%s allow_live_trading=%s bybit_testnet=%s mode=%s symbol=%s",
+        settings.get("exchange"),
+        settings.get("DRY_RUN", settings.get("dry_run")),
+        settings.get("ALLOW_LIVE_TRADING", settings.get("allow_live_trading")),
         os.environ.get("BYBIT_TESTNET"),
+        settings.get("mode"),
+        settings.get("symbol"),
     )
 
     exchange_client = _build_exchange_adapter(settings)
