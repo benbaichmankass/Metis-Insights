@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import logging
+from src.bot.telegramquerybot import TelegramQueryBot
+
 import os
 import time
 
