@@ -10,6 +10,16 @@ elif os.path.exists(".env.paper"):
     load_dotenv(".env.paper")
 
 
+
+# Env fallback for .env.live / .env.paper
+import os
+from dotenv import load_dotenv
+if os.path.exists(".env.live"):
+    load_dotenv(".env.live")
+elif os.path.exists(".env.paper"):
+    load_dotenv(".env.paper")
+
+
 import logging
 from typing import Any, Callable, Dict, Optional
 
