@@ -1,4 +1,5 @@
 from __future__ import annotations
+from src.runtime.signal_writer import write_signal
 
 
 # Env fallback for .env.live / .env.paper
@@ -122,6 +123,21 @@ def run_pipeline(
 
     builder = signal_builder or killzone_signal_builder
     signal = builder(settings)
+
+    if signal.get("side") in ("buy", "sell"):
+        meta = signal.get("meta", {}) or {}
+        price = meta.get("price", signal.get("price"))
+
+        write_signal(
+            symbol=signal.get("symbol", "UNKNOWN"),
+            signal_type="fvg" if meta.get("fvg") else "trade_signal",
+            direction="bullish" if signal.get("side") == "buy" else "bearish",
+            price=float(price) if price is not None else None,
+            timeframe=settings.get("TIMEFRAME", settings.get("timeframe", "unknown")),
+            reason="Actionable pipeline signal",
+            metadata=str(signal),
+        )
+
     logger.info("Generated signal: %s", signal)
 
     if signal.get("side") in ("none", "", None) or float(signal.get("qty", 0)) <= 0:

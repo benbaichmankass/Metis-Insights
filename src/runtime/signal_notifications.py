@@ -127,3 +127,43 @@ def msg_trade_close(trade):
         f"Exit: {trade.get('exit_price')} @ {trade.get('exit_time')}\n"
         f"P/L: {trade.get('pnl')}"
     )
+
+
+def ensure_signals_table(conn):
+    cur = conn.cursor()
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS signals (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        timestamp TEXT NOT NULL,
+        symbol TEXT NOT NULL,
+        signal_type TEXT NOT NULL,
+        direction TEXT,
+        price REAL,
+        timeframe TEXT,
+        reason TEXT,
+        metadata TEXT
+    )
+    """)
+    conn.commit()
+
+def insert_signal(
+    conn,
+    timestamp,
+    symbol,
+    signal_type,
+    direction=None,
+    price=None,
+    timeframe=None,
+    reason=None,
+    metadata="{}",
+):
+    cur = conn.cursor()
+    cur.execute(
+        """
+        INSERT INTO signals
+        (timestamp, symbol, signal_type, direction, price, timeframe, reason, metadata)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (timestamp, symbol, signal_type, direction, price, timeframe, reason, metadata),
+    )
+    conn.commit()

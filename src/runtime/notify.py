@@ -1,5 +1,5 @@
-from src.runtime.signal_notifications import *
 from __future__ import annotations
+from src.runtime.signal_notifications import *
 
 import asyncio
 import logging
