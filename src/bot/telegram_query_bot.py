@@ -23,8 +23,8 @@ _DB_CANDIDATES = [
 ]
 DB_PATH = next((p for p in _DB_CANDIDATES if p and os.path.exists(p)), os.path.join(REPO_ROOT, "trade_journal.db"))
 
-LIVE_ENV_PATH = os.path.join(REPO_ROOT, ".env.live")
-PAPER_ENV_PATH = os.path.join(REPO_ROOT, ".env.paper")
+LIVE_ENV_PATH = os.path.join(REPO_ROOT, ".env")
+PAPER_ENV_PATH = os.path.join(REPO_ROOT, ".env")
 
 BACKTESTER_PATH = os.path.join(os.path.dirname(BASE_DIR), "backtester.py")
 
@@ -66,7 +66,7 @@ def load_account_env(target: str) -> dict:
     else:
         raise ValueError(f"Unknown target: {target}")
     if not os.path.exists(path):
-        raise FileNotFoundError(f"Environment file not found for {target}: {path}")
+        return {}
     values = dotenv_values(path)
     return {k: v for k, v in values.items() if v is not None}
 
