@@ -58,3 +58,10 @@ class TelegramQueryBot:
         app.add_handler(CommandHandler("last5", self.last5))
         print("Telegram bot ready (/last5)")
         app.run_polling()
+
+def load_env_fallback(target):
+    candidates = [repo / f".env.{target}", repo.parent / f".env.{target}", Path.cwd() / f".env.{target}"]
+    for p in candidates:
+        if p.exists():
+            return True
+    return False
