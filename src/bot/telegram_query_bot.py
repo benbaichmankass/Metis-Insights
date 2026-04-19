@@ -1,3 +1,4 @@
+from src.runtime.signal_notifications import get_last_signals, format_signals
 import os
 import logging
 import sqlite3
@@ -714,3 +715,10 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+async def cmd_signals(update, context):
+    df = get_last_signals(db_conn, 'signals', 5)
+    await update.message.reply_text(format_signals(df))
+
+application.add_handler(CommandHandler("signals", cmd_signals))
