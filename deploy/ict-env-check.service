@@ -1,0 +1,17 @@
+[Unit]
+Description=ICT Trader Env Preflight Check
+After=network-online.target
+Wants=network-online.target
+Before=ict-trader-live.service
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/ict-trading-bot
+EnvironmentFile=/home/ubuntu/ict-trading-bot/.env
+ExecStart=/usr/bin/python3 /home/ubuntu/ict-trading-bot/scripts/startup_env_check.py
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+
