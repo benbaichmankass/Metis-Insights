@@ -2,28 +2,17 @@ from __future__ import annotations
 from src.runtime.signal_writer import write_signal
 from src.utils.signal_audit_logger import log_signal
 
-
-# Env fallback for .env.live / .env.paper
 import os
 from dotenv import load_dotenv
 if os.path.exists(".env.live"):
     load_dotenv(".env.live")
 elif os.path.exists(".env.paper"):
     load_dotenv(".env.paper")
-
-
-
-# Env fallback for .env.live / .env.paper
-import os
-from dotenv import load_dotenv
-if os.path.exists(".env.live"):
-    load_dotenv(".env.live")
-elif os.path.exists(".env.paper"):
-    load_dotenv(".env.paper")
-
 
 import logging
 from typing import Any, Callable, Dict, Optional
+
+import pandas as pd
 
 from src.runtime.notify import notify_operator, send_via_alert_manager
 from src.runtime.orders import safe_place_order
@@ -109,6 +98,59 @@ def killzone_signal_builder(settings: dict) -> Dict[str, Any]:
             "raw_signal": signal,
             "exchange": str(settings.get("EXCHANGE", settings.get("exchange", "bybit"))).strip().lower(),
             "market_data_symbol": symbol,
+            "strategy_name": "killzone",
+        },
+    }
+
+
+def breakout_model_signal_builder(settings: dict) -> Dict[str, Any]:
+    """Use the trained breakout confirmation model to generate live buy/skip decisions."""
+    from src.strategies_manager import StrategyManager
+
+    symbol = _killzone_symbol(settings)
+    exchange = _build_killzone_exchange(settings)
+
+    candles = exchange.fetch_ohlcv(symbol, "1m", limit=100)
+    candles_df = pd.DataFrame(candles, columns=["timestamp", "open", "high", "low", "close", "volume"])
+    candles_df["datetime_utc"] = pd.to_datetime(candles_df["timestamp"], unit="ms", utc=True)
+
+    manager = StrategyManager()
+    model_signal = manager.get_signal("breakout_confirmation", candles_df)
+
+    if model_signal.get("signal") not in ["CONFIRM", "STRONG_CONFIRM"]:
+        logger.info("Breakout model returned non-actionable signal: %s", model_signal)
+        return {
+            "symbol": settings.get("SYMBOL", settings.get("symbol", "BTCUSDT")),
+            "side": "none",
+            "qty": 0,
+            "meta": {
+                "strategy_name": "breakout_confirmation",
+                "model_signal": model_signal,
+            },
+        }
+
+    risk_per_trade = float(
+        settings.get("RISK_PER_TRADE", settings.get("risk_per_trade", 0.01)) or 0.01
+    )
+    fallback_qty = float(settings.get("MAX_QTY", settings.get("max_qty", 1)) or 1)
+
+    atr = float(model_signal.get("atr_14", 0) or 0)
+    if atr <= 0:
+        qty = fallback_qty
+    else:
+        qty = fallback_qty
+
+    return {
+        "symbol": settings.get("SYMBOL", settings.get("symbol", "BTCUSDT")),
+        "side": "buy",
+        "qty": qty,
+        "meta": {
+            "strategy_name": "breakout_confirmation",
+            "model_signal": model_signal,
+            "prob_tp": model_signal.get("prob_tp"),
+            "entry_price": model_signal.get("entry_price"),
+            "atr_14": model_signal.get("atr_14"),
+            "risk_per_trade": risk_per_trade,
         },
     }
 
@@ -119,19 +161,28 @@ def run_pipeline(
     telegram_client: Any = None,
     signal_builder: Optional[Callable[[dict], Dict[str, Any]]] = None,
 ) -> dict:
-    """Thread 2 integration adapter. Uses killzone_signal_builder by default."""
+    """Pipeline adapter. Chooses strategy from STRATEGY env var, defaults to killzone."""
     logger.info("Pipeline start")
 
-    builder = signal_builder or killzone_signal_builder
+    strategy_name = str(os.environ.get("STRATEGY", "killzone")).strip().lower()
+
+    if signal_builder is not None:
+        builder = signal_builder
+    elif strategy_name == "breakout":
+        builder = breakout_model_signal_builder
+    else:
+        builder = killzone_signal_builder
+
+    logger.info("Using strategy builder: %s", strategy_name)
     signal = builder(settings)
 
     if signal.get("side") in ("buy", "sell"):
         meta = signal.get("meta", {}) or {}
-        price = meta.get("price", signal.get("price"))
+        price = meta.get("price", meta.get("entry_price", signal.get("price")))
 
         write_signal(
             symbol=signal.get("symbol", "UNKNOWN"),
-            signal_type="fvg" if meta.get("fvg") else "trade_signal",
+            signal_type="ml_breakout" if meta.get("strategy_name") == "breakout_confirmation" else ("fvg" if meta.get("fvg") else "trade_signal"),
             direction="bullish" if signal.get("side") == "buy" else "bearish",
             price=float(price) if price is not None else None,
             timeframe=settings.get("TIMEFRAME", settings.get("timeframe", "unknown")),
@@ -146,7 +197,7 @@ def run_pipeline(
         result = {"status": "skipped", "reason": "no_signal", "signal": signal}
     else:
         result = safe_place_order(signal, settings, exchange_client)
-    # Audit log of every pipeline result
+
     try:
         log_signal(
             {
@@ -159,9 +210,7 @@ def run_pipeline(
             }
         )
     except Exception:
-        # Never let audit logging break the trading loop
         pass
-
 
     status = result.get("status", "unknown")
     reason = result.get("reason")
