@@ -1,0 +1,2 @@
+
+STRATEGY_CLASS = 'TurtleSoupMTFv1'
