@@ -238,6 +238,9 @@ class TurtleSoupMTFv1(BaseStrategy):
         if "atr" not in x.columns:
             x = self.add_atr(x, self.atr_period)
 
+        partial_done = False
+        be_done = False
+
         for _, row in x.iterrows():
             high = float(row["high"])
             low = float(row["low"])
@@ -247,11 +250,7 @@ class TurtleSoupMTFv1(BaseStrategy):
             if plan.side == "long":
                 unreal_r = (close - plan.entry_price) / plan.risk_per_unit
 
-                if (not plan.moved_to_be) and unreal_r >= self.be_at_r:
-                    plan.stop_price = max(plan.stop_price, plan.entry_price)
-                    plan.moved_to_be = True
-
-                if (not plan.took_partial) and high >= plan.tp1_price:
+                if (not partial_done) and high >= plan.tp1_price:
                     partial_size = plan.remaining_size * self.partial_close_pct
                     pnl_part = partial_size * (plan.tp1_price - plan.entry_price)
                     fees = partial_size * (plan.entry_price + plan.tp1_price) * self.fee_rate
@@ -259,8 +258,14 @@ class TurtleSoupMTFv1(BaseStrategy):
                     plan.realized_pnl += pnl_part - fees - slip
                     plan.remaining_size -= partial_size
                     plan.took_partial = True
+                    partial_done = True
 
-                if plan.took_partial and atr > 0:
+                if partial_done and (not be_done) and unreal_r >= self.be_at_r:
+                    plan.stop_price = max(plan.stop_price, plan.entry_price)
+                    plan.moved_to_be = True
+                    be_done = True
+
+                if partial_done and atr > 0:
                     plan.stop_price = max(plan.stop_price, close - atr * self.trail_atr_mult)
 
                 if high >= plan.tp2_price:
@@ -292,11 +297,7 @@ class TurtleSoupMTFv1(BaseStrategy):
             else:
                 unreal_r = (plan.entry_price - close) / plan.risk_per_unit
 
-                if (not plan.moved_to_be) and unreal_r >= self.be_at_r:
-                    plan.stop_price = min(plan.stop_price, plan.entry_price)
-                    plan.moved_to_be = True
-
-                if (not plan.took_partial) and low <= plan.tp1_price:
+                if (not partial_done) and low <= plan.tp1_price:
                     partial_size = plan.remaining_size * self.partial_close_pct
                     pnl_part = partial_size * (plan.entry_price - plan.tp1_price)
                     fees = partial_size * (plan.entry_price + plan.tp1_price) * self.fee_rate
@@ -304,8 +305,14 @@ class TurtleSoupMTFv1(BaseStrategy):
                     plan.realized_pnl += pnl_part - fees - slip
                     plan.remaining_size -= partial_size
                     plan.took_partial = True
+                    partial_done = True
 
-                if plan.took_partial and atr > 0:
+                if partial_done and (not be_done) and unreal_r >= self.be_at_r:
+                    plan.stop_price = min(plan.stop_price, plan.entry_price)
+                    plan.moved_to_be = True
+                    be_done = True
+
+                if partial_done and atr > 0:
                     plan.stop_price = min(plan.stop_price, close + atr * self.trail_atr_mult)
 
                 if low <= plan.tp2_price:
