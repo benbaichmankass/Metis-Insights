@@ -39,10 +39,10 @@ class TurtleSoupMTFv1(BaseStrategy):
         self.min_sweep_buffer_bps = 12
         self.min_body_to_range = 0.60
         self.atr_stop_mult = 0.35
-        self.be_at_r = 1.0
+        self.be_at_r = 0.75
         self.tp1_at_r = 1.25
         self.tp2_at_r = 3.0
-        self.partial_close_pct = 0.50
+        self.partial_close_pct = 0.25
         self.trail_atr_mult = 1.2
         self.max_entry_wait_bars_1m = 20
         self.setup_tf = "15m"
@@ -51,6 +51,8 @@ class TurtleSoupMTFv1(BaseStrategy):
         self.risk_per_trade = self.config.get("risk_per_trade", 0.005)
         self.fee_rate = self.config.get("fee_rate", 0.0006)
         self.slippage_rate = self.config.get("slippage_rate", 0.0002)
+        self.max_notional_pct = self.config.get("max_notional_pct", 1.0)
+        self.max_leverage = self.config.get("max_leverage", 1.0)
 
     def add_atr(self, df: pd.DataFrame, period: Optional[int] = None) -> pd.DataFrame:
         period = period or self.atr_period
@@ -197,8 +199,17 @@ class TurtleSoupMTFv1(BaseStrategy):
         if risk_per_unit <= 0:
             return None
 
+        if entry_price <= 0:
+            return None
+
         risk_cash = balance * self.risk_per_trade
-        size = risk_cash / risk_per_unit
+        available_cash = balance * self.max_notional_pct * self.max_leverage
+        risk_size = risk_cash / risk_per_unit
+        cash_size = available_cash / entry_price if entry_price > 0 else 0.0
+        size = min(risk_size, cash_size)
+
+        if size <= 0:
+            return None
 
         if signal["side"] == "long":
             tp1 = entry_price + self.tp1_at_r * risk_per_unit
