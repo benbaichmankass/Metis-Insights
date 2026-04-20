@@ -1,4 +1,6 @@
 from __future__ import annotations
+from datetime import datetime, timezone
+from src.utils.signal_audit_logger import should_send_summary
 
 import logging
 from src.bot.telegramquerybot import TelegramQueryBot
@@ -158,6 +160,18 @@ def main() -> None:
                 telegram_client.send_message(f"[ICT Bot] Tick error: {exc}")
             except Exception:
                 pass
+        now_utc = datetime.now(timezone.utc)
+        try:
+            if should_send_summary(now_utc):
+                telegram_client.send_message(
+                    f"Bot summary at {now_utc.strftime('%Y-%m-%d %H:%M UTC')}: "
+                    "service is alive on LIVE BYBIT for BTCUSDT. "
+                    "Use /signals, /balance, /trades and check "
+                    "runtime_logs/signal_audit.jsonl for full history."
+                )
+        except Exception:
+            logger.exception("Failed to send summary update")
+
         logger.info("Sleeping %s seconds until next tick.", interval)
         time.sleep(interval)
 

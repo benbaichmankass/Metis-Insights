@@ -1,5 +1,6 @@
 from __future__ import annotations
 from src.runtime.signal_writer import write_signal
+from src.utils.signal_audit_logger import log_signal
 
 
 # Env fallback for .env.live / .env.paper
@@ -145,6 +146,22 @@ def run_pipeline(
         result = {"status": "skipped", "reason": "no_signal", "signal": signal}
     else:
         result = safe_place_order(signal, settings, exchange_client)
+    # Audit log of every pipeline result
+    try:
+        log_signal(
+            {
+                "event": "pipeline_result",
+                "symbol": signal.get("symbol"),
+                "side": signal.get("side"),
+                "qty": signal.get("qty"),
+                "status": result.get("status"),
+                "reason": result.get("reason"),
+            }
+        )
+    except Exception:
+        # Never let audit logging break the trading loop
+        pass
+
 
     status = result.get("status", "unknown")
     reason = result.get("reason")
