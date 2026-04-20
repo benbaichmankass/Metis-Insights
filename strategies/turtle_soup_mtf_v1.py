@@ -40,10 +40,10 @@ class TurtleSoupMTFv1(BaseStrategy):
         self.min_body_to_range = 0.60
         self.atr_stop_mult = 0.35
         self.be_at_r = 1.0
-        self.tp1_at_r = 1.5
+        self.tp1_at_r = 1.25
         self.tp2_at_r = 3.0
         self.partial_close_pct = 0.50
-        self.trail_atr_mult = 1.4
+        self.trail_atr_mult = 1.2
         self.max_entry_wait_bars_1m = 20
         self.setup_tf = "15m"
         self.entry_tf = "1m"
