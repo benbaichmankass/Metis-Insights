@@ -155,6 +155,62 @@ def breakout_model_signal_builder(settings: dict) -> Dict[str, Any]:
     }
 
 
+
+def _write_ict_signals_from_meta(signal: dict, settings: dict) -> None:
+    """Write individual ICT detections even when no trade is taken."""
+    if not isinstance(signal, dict):
+        return
+
+    meta = signal.get("meta") or {}
+    symbol = signal.get("symbol", settings.get("SYMBOL", "BTCUSDT"))
+    timeframe = settings.get("TIMEFRAME", "15m")
+
+    fvgs = meta.get("fvgs") or []
+    for fvg in fvgs:
+        if not isinstance(fvg, dict):
+            continue
+        fvg_type = fvg.get("type", "unknown")
+        gap_low = fvg.get("gap_low")
+        gap_high = fvg.get("gap_high")
+        price = None
+        if gap_low is not None and gap_high is not None:
+            try:
+                price = (float(gap_low) + float(gap_high)) / 2.0
+            except Exception:
+                price = None
+        write_signal(
+            symbol=symbol,
+            signal_type=f"fvg_{fvg_type}",
+            direction=fvg_type,
+            price=price,
+            timeframe=timeframe,
+            reason="ICT FVG detected",
+            metadata=str(fvg),
+        )
+
+    order_blocks = meta.get("order_blocks") or meta.get("obs") or []
+    for ob in order_blocks:
+        if not isinstance(ob, dict):
+            continue
+        ob_type = ob.get("type", "unknown")
+        low = ob.get("low")
+        high = ob.get("high")
+        price = None
+        if low is not None and high is not None:
+            try:
+                price = (float(low) + float(high)) / 2.0
+            except Exception:
+                price = None
+        write_signal(
+            symbol=symbol,
+            signal_type=f"ob_{ob_type}",
+            direction=ob_type,
+            price=price,
+            timeframe=timeframe,
+            reason="ICT order block detected",
+            metadata=str(ob),
+        )
+
 def run_pipeline(
     settings: dict,
     exchange_client: Any = None,
@@ -175,6 +231,7 @@ def run_pipeline(
 
     logger.info("Using strategy builder: %s", strategy_name)
     signal = builder(settings)
+    _write_ict_signals_from_meta(signal, settings)
 
     if signal.get("side") in ("buy", "sell"):
         meta = signal.get("meta", {}) or {}
