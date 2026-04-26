@@ -110,7 +110,7 @@ def breakout_model_signal_builder(settings: dict) -> Dict[str, Any]:
     symbol = _killzone_symbol(settings)
     exchange = _build_killzone_exchange(settings)
 
-    candles = exchange.fetch_ohlcv(symbol, "1m", limit=100)
+    candles = exchange.get_ohlcv(symbol, "1m", limit=100)
     candles_df = pd.DataFrame(candles, columns=["timestamp", "open", "high", "low", "close", "volume"])
     candles_df["datetime_utc"] = pd.to_datetime(candles_df["timestamp"], unit="ms", utc=True)
 
