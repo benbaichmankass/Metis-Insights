@@ -51,3 +51,21 @@ Thumbs.db
 build/
 dist/
 *.egg-info/
+# Claude/local tooling
+.claude/settings.local.json
+# Notebook checkpoints
+.ipynb_checkpoints/
+# Python/tooling caches
+.ruff_cache/
+.tox/
+.coverage
+.coverage.*
+htmlcov/
+# ML/data artifacts — store large assets in Drive/Hugging Face
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+ml/data/raw/
+ml/data/processed/
+ml/models/checkpoints/

@@ -1,61 +1,41 @@
-# ICT Trading Bot - Project Overview
+# CLAUDE.md
 
-## Architecture Summary
-- Python-based cryptocurrency trading bot
-- ICT (Inner Circle Trader) methodology strategies
-- VWAP mean reversion strategies
-- ML model integration for signal generation
-- Telegram bot for monitoring and alerts
-- Deployed on Oracle Cloud Infrastructure
+Lean router for Claude Code sessions in the ICT Trading Bot repo.
 
-## Repository Structure
+## First rule
+
+Do not load every project document by default. Start with this file, identify the task type, then read only the focused docs listed below.
+
+## Task routing
+
+| Task | Read |
+|---|---|
+| Any session | `docs/claude/INDEX.md`, then the smallest relevant subset |
+| Bug fix / regression | `docs/claude/session-workflow.md`, `docs/claude/debug-memory.md`, `docs/claude/testing-policy.md` |
+| Repo cleanup | `docs/claude/cleanup-policy.md`, `docs/claude/cleanup-report.md` |
+| ML model work | `docs/claude/ml-training-policy.md`, `docs/claude/external-delegation.md` |
+| Colab work | `docs/claude/colab-workflows.md` |
+| Hugging Face work | `docs/claude/huggingface-workflows.md` |
+| Deployment / Oracle VM | `docs/claude/deployment-ops.md`, `docs/claude/security-secrets.md` |
+| Git / PR / push | `docs/claude/git-workflow.md`, `docs/claude/security-secrets.md` |
+| Architecture lookup | `docs/claude/repo-map.md` |
+
+## Always do
+
+- Keep changes small and reversible.
+- Prefer scripts/notebooks that let Colab, Hugging Face, or the VM do heavy work.
+- Do not run training, full backtests, live trading, or deployment unless explicitly asked.
+- Do not print secrets.
+- Update the relevant `docs/claude/*.md` file after discovering a recurring bug, cleanup rule, or workflow improvement.
+
+## Default verification
+
+Run lightweight checks only:
+
+```bash
+python scripts/repo_inventory.py
+python scripts/secret_scan.py
+PYTHONPATH=. pytest --collect-only -q tests
 ```
-ict-trading-bot/
-  config/       - Configuration files
-  data/         - Historical and live market data
-  deploy/       - Deployment scripts and configs
-  docs/         - Documentation
-  logs/         - Runtime logs
-  ml/           - Machine learning models
-  runtime_logs/ - Live trading logs
-  scripts/      - Utility scripts
-  src/          - Main source code
-  strategies/   - Trading strategy implementations
-  tests/        - Test suite
-```
 
-## Key Commands
-- `python src/main.py` - Run the bot
-- `python scripts/backtest.py` - Run backtests
-- `./run_telegram_bot.sh` - Start Telegram monitoring
-- `./run_trader.sh` - Start live trading
-
-## Environment
-- Python 3.x
-- Bybit API (primary exchange)
-- Oracle Cloud VM deployment
-- Docker support available
-
-
-## Claude Code Issue: Stream Timeout During Git Push
-
-### Problem Description
-When using Claude Code to push files to GitHub, the connection times out with `API Error: Stream idle timeout - partial response received`. The MCP (Model Context Protocol) git provider experiences repeated stream timeouts, preventing commits from being pushed to the remote repository.
-
-### Root Cause
-Claude Code's git operations are performed through MCP integration. Large file operations or slow network conditions can cause the stream to idle. The MCP stream timeout is hardcoded and occurs before git operations complete. The web interface cannot reliably display git operation progress or error recovery.
-
-### Error Signatures
-- `API Error: Stream idle timeout - partial response received`
-- `fatal: unable to access 'https://github.com/...': The requested URL returned error: 403`
-- Git operations hang indefinitely without clear completion status
-
-### Solution
-**Bypass Claude Code's git limitations by using GitHub's web editor directly:**
-
-1. Create the branch on GitHub first using the branch dropdown
-2. Create files via GitHub web interface with paths like `docs/strategies/ict.md`
-3. Use GitHub's "Compare & pull request" button for PR creation
-4. Merge directly through GitHub's web interface
-
-This avoids MCP stream timeouts entirely and provides immediate feedback on success.
+If tests need optional dependencies, explain the missing dependency and do not install broad packages without approval.
