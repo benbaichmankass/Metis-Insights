@@ -42,6 +42,13 @@ Use this file for recurring bugs so Claude does not rediscover them.
   regardless of `DRY_RUN`.
 - Check: `PYTHONPATH=. pytest tests/test_vwap_strategy.py::TestLiveSafetyGate -q`
 
+### 2026-04-27: Telegram bot token leaked into logs via httpx
+
+- Cause: `python-telegram-bot` uses `httpx` internally. At `INFO` level, httpx logs full request URLs including the bot token (`https://api.telegram.org/bot<TOKEN>/sendMessage`). Triggered during a VWAP dry-run smoke test.
+- Fix: Added `src/utils/log_redact.py` with `RedactingFilter` (installed on root logger at startup) and `suppress_httpx_logging()` (raises httpx/httpcore to WARNING). `alert_manager.py` `print()` calls replaced with `logger`. See `docs/claude/security-secrets.md` for full details.
+- Check: `PYTHONPATH=. pytest tests/test_log_redaction.py -q`
+- Lesson: Never run smoke tests at INFO log level without first suppressing httpx/httpcore. Any new Telegram client code must call `suppress_httpx_logging()` before sending.
+
 ## Add new entries here
 
 Use this format:

@@ -22,6 +22,10 @@ logging.basicConfig(
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
 )
 
+from src.utils.log_redact import install_redacting_filter, suppress_httpx_logging  # noqa: E402
+install_redacting_filter()   # redact tokens from every log record
+suppress_httpx_logging()     # prevent httpx from emitting full Telegram URLs at INFO
+
 logger = logging.getLogger("src.main")
 
 
