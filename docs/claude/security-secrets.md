@@ -5,6 +5,8 @@
 - Telegram bot tokens.
 - Telegram chat IDs if private.
 - Bybit/Binance API keys or secrets.
+- Bybit subaccount API keys (e.g. `vwap_strategy`, `current_account`) — these live
+  only in the encrypted master secrets file and are never to be committed in plaintext.
 - `.env` files.
 - Colab userdata exports.
 - SSH keys.
