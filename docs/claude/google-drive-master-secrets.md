@@ -179,6 +179,75 @@ python scripts/render_env_from_master.py \
 
 ---
 
+---
+
+## After rendering .env.paper
+
+### 1. Verify the file was written correctly
+
+From the repo root (local terminal or Colab cell):
+
+```bash
+python scripts/check_env_paper.py --env /content/ict-trading-bot/.env.paper
+```
+
+Or for a local path:
+
+```bash
+python scripts/check_env_paper.py --env .env.paper
+```
+
+This checks that all required variable **names** are present and that
+safety flags (`DRY_RUN=true`, `ALLOW_LIVE_TRADING=false`, `MODE=PAPER`)
+are correct.  It never prints secret values.  Exit 0 = all clear.
+
+### 2. Load .env.paper in Colab (Python cell)
+
+```python
+from dotenv import load_dotenv
+load_dotenv("/content/ict-trading-bot/.env.paper", override=True)
+```
+
+`override=True` ensures the paper values win over any stale shell vars.
+Do not print `os.environ` after loading.
+
+### 3. Load .env.paper in a local terminal
+
+```bash
+# Temporary — exported only for this shell session
+set -a && source .env.paper && set +a
+```
+
+`set -a` makes every subsequent assignment an export; `set +a` turns it
+off.  The file is never echoed to the terminal.
+
+### 4. Key-name alias required by the runtime
+
+The paper profile writes `BYBIT_TESTNET_API_KEY` / `BYBIT_TESTNET_API_SECRET`,
+but `src/runtime/validation.py` checks for `BYBIT_API_KEY` / `BYBIT_API_SECRET`.
+
+Before starting the bot (not needed for the smoke-test script), export
+the aliases:
+
+```bash
+export BYBIT_API_KEY=$BYBIT_TESTNET_API_KEY
+export BYBIT_API_SECRET=$BYBIT_TESTNET_API_SECRET
+```
+
+Or add these two lines to the env file itself if you are not sharing it
+across live/testnet profiles.
+
+### 5. Clean up after use
+
+Delete the rendered file from Colab after copying to the VM or completing
+the smoke test:
+
+```bash
+rm /content/ict-trading-bot/.env.paper
+```
+
+---
+
 ## Related files
 
 | File | Purpose |
