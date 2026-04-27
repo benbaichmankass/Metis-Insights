@@ -20,3 +20,11 @@ api_key = userdata.get("BYBIT_API_KEY")
 ```
 
 Never hardcode keys in cells.
+
+## Gemini delegate notebook
+
+`tools/gemini_delegate.ipynb` — wraps `google-generativeai` for prompt delegation.
+
+- Secret name: `GEMINI_API_KEY` (Colab userdata).
+- Model: `gemini-2.0-pro-exp` (update cell if model changes).
+- Output: `/content/gemini_response.txt` — copy back to Claude Code session.
