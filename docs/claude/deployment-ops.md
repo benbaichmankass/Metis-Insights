@@ -65,6 +65,51 @@ secrets file.
 - Do not render or deploy this profile without a full audit and explicit user approval.
 - Requires `--allow-live` on the renderer CLI, `DRY_RUN=false`, and `ALLOW_LIVE_TRADING=true`.
 
+## deploy_pull_restart.sh — VM deploy script
+
+### Why no venv on the VM
+
+The live trader is invoked directly by systemd as `/usr/bin/python3 -u -B -m src.main`.
+There is no virtualenv on the production VM. Attempting `source .venv/bin/activate`
+fails with "No such file or directory". The deploy script uses `/usr/bin/python3 -m pip`
+to match the live runtime.
+
+### Services restarted (in order)
+
+1. `ict-trader-live.service` — the live ICT trader
+2. `ict-telegram-bot.service` — Telegram notification bot
+
+**Not restarted:**
+- `ict-vwap-dry-run.service` — intentionally stopped, pending sprint completion
+- `ict-git-sync.service` — this is the service running the script itself
+- `ict-bot.service` — stale unit file; not the live trader
+
+### No-op fast path
+
+If `git pull` reports "Already up to date.", the script logs
+`">>> No new commits. Skipping deploy."` and exits 0 without running
+`pip install` or restarting any services. This prevents unnecessary
+churn on polling triggers with nothing to deploy.
+
+### sudo detection logic
+
+At startup the script picks the right invocation once and stores it in a
+bash array `SYSTEMCTL`:
+
+```
+if running as root    → SYSTEMCTL=(systemctl)
+elif sudo -n works    → SYSTEMCTL=(sudo systemctl)
+else                  → print error + exit 1
+```
+
+All `systemctl` calls in the script use `"${SYSTEMCTL[@]}"` so the
+detection is applied consistently. If neither path is available, the
+script exits 1 with a clear message pointing to the required sudoers line:
+
+```
+ubuntu ALL=(ALL) NOPASSWD: /bin/systemctl
+```
+
 ## Recovery from broken git-sync
 
 **Symptom:** `ict-git-sync.service` shows `ActiveState=failed` or a restart counter in the thousands
