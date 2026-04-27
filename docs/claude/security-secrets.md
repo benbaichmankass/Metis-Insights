@@ -44,6 +44,31 @@ Files produced by `scripts/render_env_from_master.py` are:
 3. Commit the cleanup.
 4. Consider history rewrite only with explicit approval because it requires force-push coordination.
 
+## httpx logs Telegram bot tokens in request URLs
+
+**Root cause (discovered 2026-04-27):** `python-telegram-bot` uses `httpx` internally. At the default `INFO` log level, `httpx` emits full request URLs including the bot token:
+
+```
+https://api.telegram.org/bot<TOKEN>/getMe
+https://api.telegram.org/bot<TOKEN>/sendMessage
+```
+
+These lines appear in stdout and any log aggregator attached to the process.
+
+**Mitigations applied:**
+
+1. `src/utils/log_redact.py` — `RedactingFilter` strips tokens from every log record before it reaches a handler. Installed on the root logger at startup.
+2. `src/main.py` — calls `suppress_httpx_logging()` to raise `httpx` and `httpcore` loggers to `WARNING`, preventing the URL lines from being emitted at all.
+3. `src/bot/alert_manager.py` — `print()` calls replaced with `logging`; `suppress_httpx_logging()` called before each send.
+
+**If a token is observed in logs:**
+
+1. Rotate the token immediately in BotFather.
+2. Update the `.env` / VM environment variable.
+3. Grep log files for the old token pattern and purge or archive them.
+
+**Never log:** `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `BYBIT_API_KEY`, `BYBIT_API_SECRET`.
+
 ## Current known issue
 
 The setup audit found committed Telegram and Bybit testnet credentials. Rotate them before pushing further changes.
