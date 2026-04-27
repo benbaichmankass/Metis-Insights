@@ -7,7 +7,7 @@
 
 set -e
 
-REPO_DIR="/home/ubuntu/YOUR_REPO"
+REPO_DIR="/home/ubuntu/ict-trading-bot"
 VENV="$REPO_DIR/.venv"
 
 echo "===== DEPLOY STARTED: $(date) ====="

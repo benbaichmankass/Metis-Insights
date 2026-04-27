@@ -1,0 +1,25 @@
+# ============================================
+# ICT GIT SYNC SYSTEMD SERVICE
+# Pulls latest code and restarts services when triggered
+# Save to: /etc/systemd/system/ict-git-sync.service
+# ============================================
+
+[Unit]
+Description=ICT Git Auto Update
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/ict-trading-bot
+ExecStart=/bin/bash /home/ubuntu/ict-trading-bot/scripts/deploy_pull_restart.sh
+# on-failure: only restart if the script exits non-zero.
+# Prevents runaway restart loops (46 000+ restarts in 8 days) if the script
+# itself is broken or the remote is unreachable.
+Restart=on-failure
+RestartSec=60
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
