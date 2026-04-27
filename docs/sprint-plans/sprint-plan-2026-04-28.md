@@ -27,7 +27,15 @@ Last sprint stabilized the trading runtime and repaired the deployment pipeline.
 ⏳ **In flight:**
 - Claude PR — `ict-git-sync.timer` (auto-deploy schedule, sprint M1 below)
 - Claude PR — sprint planning audit (sprint M2 below)
-- Gemini-in-Colab — ICT research notebook with vectorized backtest
+
+✅ **Just completed (research phase):**
+- Gemini-in-Colab ICT research notebook — first run produced viable signal:
+  - **FVG detection:** 160 events on QQQ 5m (105 bullish, 55 bearish) at 0.01% min gap
+  - **Backtest:** 13 trades, 61.5% win rate, +0.85 avg R, +11.4% return, -2.0% max DD (~5.7x return/DD)
+  - **OB detection:** 0 events — `OB_BODY_THRESHOLD=1.5` is too strict, needs tuning
+  - **Caveat:** Single asset/timeframe, naive entry logic (any FVG = enter), 13 trades is thin
+  - **Verdict:** Pipeline works end-to-end and signal has positive expectancy → green light to port to repo and validate at scale
+  - Artifacts saved to `MyDrive/ict-bot-research/colab-reports/`
 
 🔴 **Operational reality check:**
 The bot is **already live trading on Bybit mainnet** (`DRY_RUN=False`, `ALLOW_LIVE_TRADING=True`). No documented risk caps, no kill-switch, no hard-coded position ceiling. **This is the single highest priority of the sprint.**
@@ -166,21 +174,36 @@ Tasks:
 
 ---
 
-### M7 — ICT runtime strategy decision
-**Owner:** Ben + Gemini-in-Colab (research) → Claude (implementation if go)
-**Why now:** `src/ict_detection/` library exists but is unused at runtime. Decide: use it or drop it.
+### M7 — ICT strategy port + multi-symbol validation
+**Owner:** Claude (port) + Gemini-in-Colab (validation runs) → Claude (live wiring if go)
+**Why now:** Phase 1 research done — FVG signal showed positive expectancy on QQQ 5m. Bottleneck is no longer Colab iteration; it's getting the logic into the repo where it can be tested systematically with CI and run across multiple symbols/timeframes.
 
-**Phase 1 — Research (Gemini-in-Colab):**
-- Use research notebook (currently being built) to backtest ICT-driven entries on 5+ random datasets
-- Compare against `breakout_confirmation` on same data
-- Document go/no-go in a follow-up to the audit doc
+**Phase 1 — COMPLETE (Gemini-in-Colab):**
+- ✅ FVG detection + vectorized backtest engine working
+- ✅ Positive expectancy on first run (61.5% WR, +0.85R avg, 13 trades)
+- ⚠️ OB detection inactive (threshold too strict)
+- ⚠️ Single-symbol sample is too thin for live promotion
 
-**Phase 2 — Implementation (only if Phase 1 says go, Claude):**
-- New `strategies/ict_signal_builder.py` consuming `src/ict_detection/` modules
-- New dry-run staging service mirroring VWAP's pattern
-- Promote to live only after dry-run validates
+**Phase 2 — Repo port (Claude):**
+- Port FVG detection + backtest harness from research notebook into `src/ict_detection/` (use existing module — currently unused at runtime)
+- Add backtest CLI entry point so the harness can be re-run from CI on multiple symbol/timeframe pairs
+- Lower `OB_BODY_THRESHOLD` from 1.5 toward ~0.6–0.8 and verify OB detection produces non-zero events
+- Add basic confluence filters: session-time gate, higher-timeframe trend filter
+- Tests for FVG detector, OB detector, and entry-filter logic
 
-**Done when:** Either documented no-go, or new ICT dry-run staging service running cleanly.
+**Phase 3 — Multi-symbol validation (Gemini-in-Colab using ported harness):**
+- Run on 5–10 symbol/timeframe pairs (BTC, ETH, EURUSD, GBPUSD, GC, CL, SPY, QQQ across 5m / 15m / 1h)
+- Target: ≥50 trades total with consistent positive expectancy before considering live
+- Document results as `docs/sprint-plans/2026-04-28-ict-validation.md`
+
+**Phase 4 — Dry-run staging (only if Phase 3 confirms edge holds, Claude):**
+- New `strategies/ict_signal_builder.py` wired into pipeline
+- New `ict-dry-run.service` mirroring VWAP staging pattern
+- Live promotion gated behind: M3 risk caps active + ≥50 trades validated + ≥2 weeks dry-run clean
+
+**Done when:** Either FVG/OB logic ported and validated across multiple assets with documented dry-run staging, OR documented decision to drop based on broader-sample backtest evidence.
+
+**Explicitly out of scope this sprint:** Bybit paper-trading or live promotion of the ICT strategy. That requires the 50+ trade validation gate to pass first.
 
 ---
 
@@ -206,19 +229,19 @@ Phase 1 (immediate):
 
 Phase 2 (after audit):
   ├─ Claude            : M3 risk guards (sequential PRs)
-  ├─ Gemini-in-Colab   : M7 Phase 1 research (parallel)
+  ├─ Claude            : M7 Phase 2 — port FVG/OB detection into repo
   └─ Colab/Oracle      : M5 VWAP smoke test
 
 Phase 3:
   ├─ Claude            : M4 cleanup PRs (after risk caps in)
-  └─ Gemini-in-Colab   : Research notebook v2
+  └─ Gemini-in-Colab   : M7 Phase 3 — multi-symbol validation runs
 
 Phase 4:
   ├─ Claude            : M6 VWAP graduation (after M3 + M5)
-  └─ Claude            : M7 Phase 2 ICT runtime (only if research says go)
+  └─ Claude            : M7 Phase 4 ICT dry-run staging (only if validation passes)
 
 Phase 5:
-  └─ Colab + Claude    : M8 HF dataset push
+  └─ Colab + Claude    : M8 HF dataset push (publish ICT validation dataset)
 ```
 
 ---
@@ -240,7 +263,8 @@ Phase 5:
 ## Notes / Risks
 
 - **M3 is non-negotiable urgency.** Live mainnet trading without documented risk caps is the single highest operational risk surface. Do not let M4 or M5 leapfrog M3.
-- **M6 and M7 should NOT happen simultaneously.** Two new live strategies in one sprint is too much variance. Do M6 first, observe a week, then consider M7 if both go-criteria are met.
+- **M6 and M7 should NOT graduate to live simultaneously.** Two new live strategies in one sprint is too much variance. Do M6 first, observe a week, then consider M7 live promotion if both go-criteria are met. (M7 port + dry-run staging in parallel with M6 is fine — only live promotion is serialized.)
+- **M7 live promotion is gated behind ≥50 validated trades.** First-run research had only 13 trades on a single symbol. Sample size must grow before paper-trading on Bybit.
 - **Audit findings may reorder this plan.** Treat M3–M8 as best-guess sequencing; M2's output is authoritative.
 - **`turtle_soup_mtf_v1.py`** (15kB) was untouched last sprint with no tests — flagged for M4e.
 - **`config/fly.toml`** suggests an abandoned Fly.io deploy — flagged for M4d audit.
