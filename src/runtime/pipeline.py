@@ -103,6 +103,57 @@ def killzone_signal_builder(settings: dict) -> Dict[str, Any]:
     }
 
 
+def vwap_signal_builder(settings: dict) -> Dict[str, Any]:
+    """
+    Fetch OHLCV candles from the configured exchange and return a VWAP
+    mean-reversion signal.
+
+    Safe under DRY_RUN=true: fetches market data for signal computation but
+    relies on safe_place_order to prevent any actual order submission.
+
+    If candle data is unavailable or insufficient, raises a clear,
+    non-secret error rather than silently doing nothing.
+    """
+    from strategies.vwap_signal_builder import build_vwap_signal
+
+    symbol = settings.get("SYMBOL", settings.get("symbol", "BTCUSDT"))
+    timeframe = settings.get("TIMEFRAME", settings.get("timeframe", "5m"))
+    qty = float(settings.get("MAX_QTY", settings.get("max_qty", 1)) or 1)
+
+    exchange = _build_killzone_exchange(settings)
+    candles_raw = exchange.get_ohlcv(symbol, timeframe, limit=100)
+
+    if candles_raw is None or (hasattr(candles_raw, "__len__") and len(candles_raw) == 0):
+        raise RuntimeError(
+            f"VWAP strategy: no candle data returned for symbol={symbol} "
+            f"timeframe={timeframe}. "
+            "Check that the exchange connection is configured and the symbol is valid."
+        )
+
+    if isinstance(candles_raw, pd.DataFrame):
+        candles_df = candles_raw.copy()
+    else:
+        candles_df = pd.DataFrame(
+            candles_raw, columns=["timestamp", "open", "high", "low", "close", "volume"]
+        )
+
+    for col in ("high", "low", "close", "volume"):
+        candles_df[col] = pd.to_numeric(candles_df[col], errors="coerce")
+
+    if candles_df[["high", "low", "close", "volume"]].isnull().all().any():
+        raise RuntimeError(
+            f"VWAP strategy: candle data for symbol={symbol} timeframe={timeframe} "
+            "contains all-NaN columns after parsing. Data may be malformed."
+        )
+
+    logger.info(
+        "VWAP signal builder: symbol=%s timeframe=%s candles=%d",
+        symbol, timeframe, len(candles_df),
+    )
+
+    return build_vwap_signal(candles_df, symbol=symbol, qty=qty)
+
+
 def breakout_model_signal_builder(settings: dict) -> Dict[str, Any]:
     """Use the trained breakout confirmation model to generate live buy/skip decisions."""
     from src.strategies_manager import StrategyManager
@@ -224,6 +275,8 @@ def run_pipeline(
 
     if signal_builder is not None:
         builder = signal_builder
+    elif strategy_name == "vwap":
+        builder = vwap_signal_builder
     elif strategy_name == "breakout":
         builder = breakout_model_signal_builder
     else:

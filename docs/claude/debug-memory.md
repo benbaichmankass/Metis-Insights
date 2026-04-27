@@ -27,6 +27,21 @@ Use this file for recurring bugs so Claude does not rediscover them.
   `BYBIT_API_KEY` / `BYBIT_API_SECRET` for the `vwap_btcusd_*` profiles.
 - Do not try to derive subaccount credentials from `bybit.live.*` parent-account keys.
 
+### 2026-04-27: STRATEGY=vwap routing and offline VWAP signal builder
+- Cause: Pipeline had no handler for `STRATEGY=vwap`; it fell through to killzone.
+- Fix: Added `vwap_signal_builder` to `src/runtime/pipeline.py` and routed `STRATEGY=vwap`.
+  Pure computation lives in `strategies/vwap_signal_builder.py` — no exchange calls,
+  no ML dependency, offline-safe.
+- Check: `PYTHONPATH=. pytest tests/test_vwap_strategy.py -q`
+
+### 2026-04-27: MODE=LIVE without ALLOW_LIVE_TRADING passes validate_startup
+- Cause: `validate_startup` only checked `DRY_RUN=false` requires `ALLOW_LIVE_TRADING=true`.
+  A config with `MODE=LIVE` + `DRY_RUN=true` + `ALLOW_LIVE_TRADING=false` passed validation
+  even though the intent was clearly live.
+- Fix: Added a second interlock: `MODE=LIVE` requires `ALLOW_LIVE_TRADING=true` at startup,
+  regardless of `DRY_RUN`.
+- Check: `PYTHONPATH=. pytest tests/test_vwap_strategy.py::TestLiveSafetyGate -q`
+
 ## Add new entries here
 
 Use this format:

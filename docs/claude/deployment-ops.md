@@ -42,6 +42,25 @@ Two profiles target the Bybit `vwap_strategy` subaccount:
   Requires `--allow-live` on the renderer CLI.
 
 Both pull credentials from `bybit.vwap_strategy.api_key` / `api_secret` in the master
-secrets file. The strategy itself (`STRATEGY=vwap`) must be implemented and wired
-into the runtime loop before it is meaningful at runtime — rendering the env does
-not make the strategy executable.
+secrets file.
+
+## VWAP strategy runtime status (as of 2026-04-27)
+
+`STRATEGY=vwap` is implemented and wired into the pipeline:
+
+- Signal builder: `strategies/vwap_signal_builder.py` (pure VWAP mean-reversion,
+  offline-safe, no ML dependency).
+- Pipeline routing: `src/runtime/pipeline.py` dispatches to `vwap_signal_builder`
+  when `STRATEGY=vwap`.
+- Safety gates: `DRY_RUN=true` prevents order placement inside `safe_place_order`.
+  `ALLOW_LIVE_TRADING=false` provides a second block. `MODE=LIVE` without
+  `ALLOW_LIVE_TRADING=true` is rejected by `validate_startup`.
+
+**`vwap_btcusd_dry_run` is intended for safe runtime testing only.**
+- It must not and cannot place live orders (DRY_RUN=true + ALLOW_LIVE_TRADING=false).
+- BYBIT_TESTNET=false in this profile is safe because orders never reach the exchange.
+- VM reset is not approved until env rendering, tests, and VM readiness audit are green.
+
+**`vwap_btcusd_live` is not approved for use yet.**
+- Do not render or deploy this profile without a full audit and explicit user approval.
+- Requires `--allow-live` on the renderer CLI, `DRY_RUN=false`, and `ALLOW_LIVE_TRADING=true`.
