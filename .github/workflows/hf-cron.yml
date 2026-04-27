@@ -1,0 +1,3 @@
+name: HF Train
+on: schedule: - cron: '0 9 * * *'
+jobs: train: runs-on: ubuntu-latest steps: - uses: actions/checkout@v4 - run: pip install autotrain-advanced huggingface_hub - run: autotrain llm --train_dataset bentzbk/ict-signals-dataset --model microsoft/DialoGPT-small --push_to_hub env: HF_TOKEN: ${{ secrets.HF_TOKEN }}
