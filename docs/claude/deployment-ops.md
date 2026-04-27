@@ -110,6 +110,50 @@ script exits 1 with a clear message pointing to the required sudoers line:
 ubuntu ALL=(ALL) NOPASSWD: /bin/systemctl
 ```
 
+## Auto-deploy schedule
+
+`ict-git-sync.service` is driven by `ict-git-sync.timer` (added in the
+"Add systemd timer for ict-git-sync.service" PR). The timer triggers the
+service every 5 minutes with a 30-second randomised jitter and a 2-minute
+boot delay so the system settles before the first pull.
+
+### Install the timer on the VM
+
+```bash
+sudo cp /home/ubuntu/ict-trading-bot/deploy/ict-git-sync.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now ict-git-sync.timer
+```
+
+### Inspect
+
+```bash
+# Confirm next trigger time
+systemctl list-timers --all | grep git-sync
+
+# Recent service log
+journalctl -u ict-git-sync.service --since "1 hour ago"
+```
+
+### Pause auto-deploy temporarily
+
+```bash
+sudo systemctl stop ict-git-sync.timer
+```
+
+### Resume
+
+```bash
+sudo systemctl start ict-git-sync.timer
+```
+
+### Legacy cron note
+
+A zombie cron entry `* * * * * /home/ubuntu/ict-trading-bot/scripts/auto_update.sh`
+was found and removed from the VM in April 2026. The script it referenced
+(`auto_update.sh`) never existed in the repo. The systemd timer supersedes
+that intent entirely — do not recreate the cron entry.
+
 ## Recovery from broken git-sync
 
 **Symptom:** `ict-git-sync.service` shows `ActiveState=failed` or a restart counter in the thousands
@@ -119,8 +163,9 @@ ubuntu ALL=(ALL) NOPASSWD: /bin/systemctl
 `/home/ubuntu/ict-trading-bot/deploy_git_sync.sh`, which never existed.
 The correct script is `scripts/deploy_pull_restart.sh`.
 The unit file was also absent from the repo entirely; it has now been added at
-`deploy/ict-git-sync.service` with `Restart=on-failure` and `RestartSec=60` to prevent
-future restart-counter explosions.
+`deploy/ict-git-sync.service`. The service type was later changed to `Type=oneshot`
+(removing the earlier `Restart=on-failure`/`RestartSec=60`) when the systemd timer
+was introduced — the timer handles re-runs, so service-level restart is redundant.
 
 **To redeploy the fixed unit on the VM:**
 
@@ -129,17 +174,19 @@ future restart-counter explosions.
 cd /home/ubuntu/ict-trading-bot
 git pull origin main
 
-# 2. Install the corrected unit file
+# 2. Install the corrected unit file and timer
 sudo cp /home/ubuntu/ict-trading-bot/deploy/ict-git-sync.service /etc/systemd/system/
+sudo cp /home/ubuntu/ict-trading-bot/deploy/ict-git-sync.timer /etc/systemd/system/
 
-# 3. Reload systemd and restart the service
+# 3. Reload systemd and enable the timer (the timer starts the service)
 sudo systemctl daemon-reload
-sudo systemctl restart ict-git-sync.service
+sudo systemctl enable --now ict-git-sync.timer
 
-# 4. Confirm it started cleanly
-sudo systemctl status ict-git-sync.service
+# 4. Confirm both are active
+sudo systemctl status ict-git-sync.timer
+systemctl list-timers --all | grep git-sync
 ```
 
-**Do NOT** run `systemctl enable ict-git-sync.service` unless you intend it to start on every
-boot — the deploy script restarts `ict-trader-live.service` and `ict-telegram-bot.service`, so
-an unexpected boot-time run could interrupt a live session.
+**Enable the timer, not the service directly.** `ict-git-sync.service` is started
+on demand by the timer. Do not `enable` the service unit itself — doing so would run
+the deploy script at every boot before the timer's `OnBootSec=2min` delay applies.
