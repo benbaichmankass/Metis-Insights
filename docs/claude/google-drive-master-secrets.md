@@ -130,6 +130,58 @@ python scripts/render_env_from_master.py \
   --allow-live
 ```
 
+### VWAP BTCUSD dry-run (Bybit `vwap_strategy` subaccount)
+```bash
+python scripts/render_env_from_master.py \
+  --master ~/ICT_Bot_Secrets/master-secrets.sops.yaml \
+  --age-key-file ~/ICT_Bot_Secrets/age-keys.txt \
+  --profile vwap_btcusd_dry_run \
+  --out .env.vwap_btcusd_dry_run
+```
+
+### VWAP BTCUSD live (requires --allow-live)
+```bash
+python scripts/render_env_from_master.py \
+  --master ~/ICT_Bot_Secrets/master-secrets.sops.yaml \
+  --age-key-file ~/ICT_Bot_Secrets/age-keys.txt \
+  --profile vwap_btcusd_live \
+  --out .env.vwap_btcusd_live \
+  --allow-live
+```
+
+---
+
+## VWAP BTCUSD profile and Bybit subaccount mapping
+
+The VWAP BTCUSD strategy targets a dedicated Bybit subaccount called
+`vwap_strategy`. Its API keys live under `bybit.vwap_strategy.*` in the master
+secrets file, **not** under `bybit.live.*`.
+
+| Profile | Telegram | DRY_RUN | ALLOW_LIVE_TRADING | BYBIT_TESTNET | Source of `BYBIT_API_KEY` / `BYBIT_API_SECRET` |
+|---|---|---|---|---|---|
+| `vwap_btcusd_dry_run` | `telegram.dev` | `true` | `false` | `false` | `bybit.vwap_strategy.api_key` / `api_secret` |
+| `vwap_btcusd_live` | `telegram.prod` | `false` | `true` | `false` | `bybit.vwap_strategy.api_key` / `api_secret` |
+
+**Why subaccount-owned keys?** Bybit's REST API does not support routing a
+request to a subaccount via parent-account API keys. To trade on the
+`vwap_strategy` subaccount, the API key must be created **inside that
+subaccount**. The renderer therefore reads `bybit.vwap_strategy.*` directly.
+
+**`BYBIT_TESTNET=false` with `DRY_RUN=true`?** The dry-run profile uses live
+Bybit endpoint keys (so they are real production keys), but `DRY_RUN=true`
+prevents actual order placement. This matches running in production with the
+trade execution layer disabled.
+
+Other env variables produced by the VWAP profiles:
+
+- `STRATEGY=vwap`, `SYMBOL=BTCUSD`, `TIMEFRAME=1m` (from `strategies.vwap_btcusd.*`)
+- `MAX_POSITION_USD`, `MAX_DAILY_LOSS_USD`, `RISK_PER_TRADE`, `MAX_QTY`,
+  `MAX_OPEN_POSITIONS` (from `risk.vwap_btcusd.*` — the last two are optional)
+
+> The strategy implementation (`STRATEGY=vwap`) is a runtime contract: the env
+> file alone does not make VWAP execute. The strategy must be implemented in
+> `src/` and wired into the runtime loop before this env is meaningful at runtime.
+
 ---
 
 ## Secrets rules

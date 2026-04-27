@@ -42,6 +42,30 @@ FAKE_DATA = {
         "colab":        {"exchange": "bybit"},
         "oracle_paper": {"exchange": "bybit"},
         "live":         {"exchange": "bybit"},
+        "vwap_btcusd_dry_run": {
+            "environment": "production",
+            "exchange":    "bybit",
+            "mode":        "paper",
+            "dry_run":     "true",
+            "allow_live_trading": "false",
+            "bybit_testnet": "false",
+            "telegram_profile": "dev",
+            "bybit_account":   "vwap_strategy",
+            "strategy_profile": "vwap_btcusd",
+            "risk_profile":     "vwap_btcusd",
+        },
+        "vwap_btcusd_live": {
+            "environment": "production",
+            "exchange":    "bybit",
+            "mode":        "live",
+            "dry_run":     "false",
+            "allow_live_trading": "true",
+            "bybit_testnet": "false",
+            "telegram_profile": "prod",
+            "bybit_account":   "vwap_strategy",
+            "strategy_profile": "vwap_btcusd",
+            "risk_profile":     "vwap_btcusd",
+        },
     },
     "telegram": {
         "dev":  {"bot_token": "fake_dev_token", "chat_id": "fake_dev_chat"},
@@ -57,6 +81,27 @@ FAKE_DATA = {
             "api_key":    "fake_live_key",
             "api_secret": "fake_live_secret",
             "base_url":   "https://api.bybit.com",
+        },
+        "current_account": {
+            "api_key":    "fake_current_key",
+            "api_secret": "fake_current_secret",
+            "account_note": "Current/main Bybit account",
+        },
+        "vwap_strategy": {
+            "api_key":    "fake_vwap_subaccount_key",
+            "api_secret": "fake_vwap_subaccount_secret",
+            "account_note": "VWAP_STrategy subaccount",
+        },
+        "active_strategy_account": "vwap_strategy",
+    },
+    "strategies": {
+        "vwap_btcusd": {
+            "enabled": "true",
+            "strategy_name": "vwap",
+            "exchange": "bybit",
+            "symbol": "BTCUSD",
+            "timeframe": "1m",
+            "bybit_account": "vwap_strategy",
         },
     },
     "github": {"pat": "fake_ghp_token"},
@@ -89,6 +134,13 @@ FAKE_DATA = {
             "max_position_usd":  "500",
             "max_daily_loss_usd": "50",
             "risk_per_trade":    "0.02",
+        },
+        "vwap_btcusd": {
+            "max_position_usd":  "50",
+            "max_daily_loss_usd": "25",
+            "risk_per_trade":    "0.005",
+            "max_qty":           "0.001",
+            "max_open_positions": "1",
         },
     },
 }
@@ -394,3 +446,136 @@ class TestNoSecretsInOutput:
         for _, val in pairs:
             if val and len(val) > 4:
                 assert val not in keys_line
+
+
+# ---------------------------------------------------------------------------
+# VWAP BTCUSD profiles — dry-run + live
+# ---------------------------------------------------------------------------
+
+class TestVwapBtcusdDryRunProfile:
+    def test_expected_keys_present(self):
+        pairs = mod.build_vwap_btcusd_dry_run(FAKE_DATA)
+        keys = {k for k, _ in pairs}
+        expected = {
+            "ENVIRONMENT", "EXCHANGE", "MODE", "DRY_RUN", "ALLOW_LIVE_TRADING",
+            "BYBIT_TESTNET",
+            "STRATEGY", "SYMBOL", "TIMEFRAME",
+            "BYBIT_API_KEY", "BYBIT_API_SECRET",
+            "TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID",
+            "MAX_POSITION_USD", "MAX_DAILY_LOSS_USD", "RISK_PER_TRADE",
+            "MAX_QTY", "MAX_OPEN_POSITIONS",
+        }
+        assert expected.issubset(keys)
+
+    def test_safety_flag_values(self):
+        pairs = dict(mod.build_vwap_btcusd_dry_run(FAKE_DATA))
+        assert pairs["ENVIRONMENT"] == "production"
+        assert pairs["EXCHANGE"] == "bybit"
+        assert pairs["MODE"] == "PAPER"
+        assert pairs["DRY_RUN"] == "true"
+        assert pairs["ALLOW_LIVE_TRADING"] == "false"
+        assert pairs["BYBIT_TESTNET"] == "false"
+        assert pairs["STRATEGY"] == "vwap"
+        assert pairs["SYMBOL"] == "BTCUSD"
+        assert pairs["TIMEFRAME"] == "1m"
+
+    def test_uses_vwap_strategy_subaccount_keys(self):
+        pairs = dict(mod.build_vwap_btcusd_dry_run(FAKE_DATA))
+        # Must come from bybit.vwap_strategy, not bybit.live or bybit.testnet
+        assert pairs["BYBIT_API_KEY"] == FAKE_DATA["bybit"]["vwap_strategy"]["api_key"]
+        assert pairs["BYBIT_API_SECRET"] == FAKE_DATA["bybit"]["vwap_strategy"]["api_secret"]
+        # And specifically not from the parent-account live keys
+        assert pairs["BYBIT_API_KEY"] != FAKE_DATA["bybit"]["live"]["api_key"]
+        assert pairs["BYBIT_API_SECRET"] != FAKE_DATA["bybit"]["live"]["api_secret"]
+
+    def test_uses_dev_telegram(self):
+        pairs = dict(mod.build_vwap_btcusd_dry_run(FAKE_DATA))
+        assert pairs["TELEGRAM_BOT_TOKEN"] == FAKE_DATA["telegram"]["dev"]["bot_token"]
+        assert pairs["TELEGRAM_CHAT_ID"] == FAKE_DATA["telegram"]["dev"]["chat_id"]
+
+    def test_no_testnet_keys_in_output(self):
+        keys = {k for k, _ in mod.build_vwap_btcusd_dry_run(FAKE_DATA)}
+        assert "BYBIT_TESTNET_API_KEY" not in keys
+        assert "BYBIT_TESTNET_API_SECRET" not in keys
+
+
+class TestVwapBtcusdLiveProfile:
+    def test_safety_flag_values(self):
+        pairs = dict(mod.build_vwap_btcusd_live(FAKE_DATA))
+        assert pairs["MODE"] == "LIVE"
+        assert pairs["DRY_RUN"] == "false"
+        assert pairs["ALLOW_LIVE_TRADING"] == "true"
+        assert pairs["BYBIT_TESTNET"] == "false"
+        assert pairs["STRATEGY"] == "vwap"
+        assert pairs["SYMBOL"] == "BTCUSD"
+
+    def test_uses_prod_telegram(self):
+        pairs = dict(mod.build_vwap_btcusd_live(FAKE_DATA))
+        assert pairs["TELEGRAM_BOT_TOKEN"] == FAKE_DATA["telegram"]["prod"]["bot_token"]
+        assert pairs["TELEGRAM_CHAT_ID"] == FAKE_DATA["telegram"]["prod"]["chat_id"]
+
+    def test_uses_vwap_strategy_subaccount_keys(self):
+        pairs = dict(mod.build_vwap_btcusd_live(FAKE_DATA))
+        assert pairs["BYBIT_API_KEY"] == FAKE_DATA["bybit"]["vwap_strategy"]["api_key"]
+        assert pairs["BYBIT_API_SECRET"] == FAKE_DATA["bybit"]["vwap_strategy"]["api_secret"]
+
+
+class TestVwapBtcusdMissingCredentials:
+    def _data_without(self, *paths):
+        import copy
+        data = copy.deepcopy(FAKE_DATA)
+        for p in paths:
+            node = data
+            parts = p.split(".")
+            for part in parts[:-1]:
+                node = node[part]
+            node.pop(parts[-1], None)
+        return data
+
+    def test_missing_api_key_fails_with_field_name(self, capsys):
+        data = self._data_without("bybit.vwap_strategy.api_key")
+        with pytest.raises(SystemExit) as exc:
+            mod.build_vwap_btcusd_dry_run(data)
+        msg = str(exc.value)
+        assert "bybit.vwap_strategy.api_key" in msg
+        # Field name only — the value (which is absent here anyway) must not appear
+        assert "fake_vwap_subaccount" not in msg
+
+    def test_missing_api_secret_fails_with_field_name(self):
+        data = self._data_without("bybit.vwap_strategy.api_secret")
+        with pytest.raises(SystemExit) as exc:
+            mod.build_vwap_btcusd_dry_run(data)
+        assert "bybit.vwap_strategy.api_secret" in str(exc.value)
+
+    def test_placeholder_api_key_fails_with_field_name_only(self):
+        import copy
+        data = copy.deepcopy(FAKE_DATA)
+        data["bybit"]["vwap_strategy"]["api_key"] = "REPLACE_ME_BYBIT_VWAP_STRATEGY_SUBACCOUNT_API_KEY"
+        with pytest.raises(SystemExit) as exc:
+            mod.build_vwap_btcusd_dry_run(data)
+        msg = str(exc.value)
+        assert "bybit.vwap_strategy.api_key" in msg
+        # The placeholder string itself should not be echoed back
+        assert "REPLACE_ME_BYBIT_VWAP_STRATEGY_SUBACCOUNT_API_KEY" not in msg
+
+
+class TestVwapBtcusdCLILiveGuard:
+    def test_vwap_btcusd_live_without_allow_live_exits(self, tmp_path):
+        master = tmp_path / "master-secrets.sops.yaml"
+        master.write_text("fake")
+        age_key = tmp_path / "age-keys.txt"
+        age_key.write_text("fake")
+        out = tmp_path / ".env.vwap_btcusd_live"
+
+        test_args = [
+            "render_env_from_master.py",
+            "--master", str(master),
+            "--age-key-file", str(age_key),
+            "--profile", "vwap_btcusd_live",
+            "--out", str(out),
+            # --allow-live intentionally omitted
+        ]
+        with patch.object(sys, "argv", test_args):
+            with pytest.raises(SystemExit) as exc:
+                mod.main()
+            assert exc.value.code != 0

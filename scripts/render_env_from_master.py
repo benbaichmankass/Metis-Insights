@@ -7,7 +7,7 @@ Usage:
     python scripts/render_env_from_master.py \
         --master /path/to/master-secrets.sops.yaml \
         --age-key-file /path/to/age-keys.txt \
-        --profile paper|colab|oracle_paper|live \
+        --profile paper|colab|oracle_paper|live|vwap_btcusd_dry_run|vwap_btcusd_live \
         --out .env.paper \
         [--allow-live] \
         [--sops-bin sops]
@@ -22,7 +22,15 @@ import sys
 from pathlib import Path
 from typing import Any
 
-PROFILES = ("paper", "colab", "oracle_paper", "live")
+PROFILES = (
+    "paper",
+    "colab",
+    "oracle_paper",
+    "live",
+    "vwap_btcusd_dry_run",
+    "vwap_btcusd_live",
+)
+LIVE_PROFILES = ("live", "vwap_btcusd_live")
 PLACEHOLDER_PATTERNS = ("REPLACE_ME", "CHANGEME", "YOUR_", "<", ">", "TODO")
 
 
@@ -210,11 +218,70 @@ def build_live(data: dict) -> list[tuple[str, str]]:
     return pairs
 
 
+def _vwap_risk_pairs(data: dict) -> list[tuple[str, str]]:
+    """Risk pairs for the vwap_btcusd risk profile, including optional max_qty
+    and max_open_positions."""
+    risk = (data.get("risk") or {}).get("vwap_btcusd") or {}
+    pairs: list[tuple[str, str]] = []
+    mapping = [
+        ("MAX_POSITION_USD", "max_position_usd"),
+        ("MAX_DAILY_LOSS_USD", "max_daily_loss_usd"),
+        ("RISK_PER_TRADE", "risk_per_trade"),
+        ("MAX_QTY", "max_qty"),
+        ("MAX_OPEN_POSITIONS", "max_open_positions"),
+    ]
+    for env_key, yaml_key in mapping:
+        val = risk.get(yaml_key)
+        if val is not None and not _is_placeholder(str(val)):
+            pairs.append((env_key, str(val)))
+    return pairs
+
+
+def _build_vwap_btcusd(data: dict, *, live: bool) -> list[tuple[str, str]]:
+    """Shared builder for vwap_btcusd_dry_run / vwap_btcusd_live profiles.
+
+    Both profiles use the bybit.vwap_strategy subaccount keys (live Bybit
+    endpoints). The dry-run variant sets DRY_RUN=true and routes through the
+    dev Telegram profile; the live variant requires --allow-live and uses the
+    prod Telegram profile.
+    """
+    profile_key = "vwap_btcusd_live" if live else "vwap_btcusd_dry_run"
+    telegram_tier = "prod" if live else "dev"
+
+    pairs: list[tuple[str, str]] = [
+        ("ENVIRONMENT", _get(data, f"profiles.{profile_key}.environment")),
+        ("EXCHANGE", _get(data, f"profiles.{profile_key}.exchange")),
+        ("MODE", "LIVE" if live else "PAPER"),
+        ("DRY_RUN", "false" if live else "true"),
+        ("ALLOW_LIVE_TRADING", "true" if live else "false"),
+        ("BYBIT_TESTNET", "false"),
+        ("STRATEGY", _get(data, "strategies.vwap_btcusd.strategy_name")),
+        ("SYMBOL", _get(data, "strategies.vwap_btcusd.symbol")),
+        ("TIMEFRAME", _get(data, "strategies.vwap_btcusd.timeframe")),
+        ("BYBIT_API_KEY", _get(data, "bybit.vwap_strategy.api_key")),
+        ("BYBIT_API_SECRET", _get(data, "bybit.vwap_strategy.api_secret")),
+        ("TELEGRAM_BOT_TOKEN", _get(data, f"telegram.{telegram_tier}.bot_token")),
+        ("TELEGRAM_CHAT_ID", _get(data, f"telegram.{telegram_tier}.chat_id")),
+    ]
+    pairs.extend(_vwap_risk_pairs(data))
+    return pairs
+
+
+def build_vwap_btcusd_dry_run(data: dict) -> list[tuple[str, str]]:
+    return _build_vwap_btcusd(data, live=False)
+
+
+def build_vwap_btcusd_live(data: dict) -> list[tuple[str, str]]:
+    return _build_vwap_btcusd(data, live=True)
+
+
 BUILDERS = {
     "paper": build_paper,
     "colab": build_colab,
     "oracle_paper": build_oracle_paper,
     "live": build_live,
+    "vwap_btcusd_dry_run": build_vwap_btcusd_dry_run,
+    "vwap_btcusd_live": build_vwap_btcusd_live,
 }
 
 
@@ -267,9 +334,9 @@ def main() -> int:
     if not age_key_file.exists():
         sys.exit(f"ERROR: Age key file not found: {age_key_file}")
 
-    if args.profile == "live" and not args.allow_live:
+    if args.profile in LIVE_PROFILES and not args.allow_live:
         sys.exit(
-            "ERROR: Generating the live profile requires --allow-live.\n"
+            f"ERROR: Generating the '{args.profile}' profile requires --allow-live.\n"
             "Pass --allow-live only when you intentionally want live trading credentials."
         )
 
