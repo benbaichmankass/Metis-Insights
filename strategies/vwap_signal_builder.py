@@ -63,6 +63,20 @@ def compute_vwap(candles_df: pd.DataFrame) -> float:
     return vwap
 
 
+def _no_trade(symbol: str, reason: str) -> Dict[str, Any]:
+    """Return a standardised no-trade signal for invalid or insufficient candle data."""
+    logger.warning("VWAP no-trade for %s: %s", symbol, reason)
+    return {
+        "symbol": symbol,
+        "side": "none",
+        "qty": 0.0,
+        "meta": {
+            "strategy_name": "vwap",
+            "reason": reason,
+        },
+    }
+
+
 def build_vwap_signal(
     candles_df: pd.DataFrame,
     symbol: str,
@@ -77,7 +91,19 @@ def build_vwap_signal(
     - side='sell' when price is at least ENTRY_STD_THRESHOLD std-devs *above* VWAP
                   (mean-reversion short)
     - side='none' / qty=0 when price is near VWAP or data is insufficient for bands
+
+    Invalid candle data (empty, missing volume column, zero/negative total volume)
+    returns a no-trade signal instead of raising, so the tick completes safely.
     """
+    if not isinstance(candles_df, pd.DataFrame) or candles_df.empty:
+        return _no_trade(symbol, "VWAP skipped: candle data is empty or invalid")
+
+    if "volume" not in candles_df.columns:
+        return _no_trade(symbol, "VWAP skipped: candle data is empty or invalid")
+
+    if candles_df["volume"].sum() <= 0:
+        return _no_trade(symbol, "VWAP skipped: total candle volume is zero or negative")
+
     vwap = compute_vwap(candles_df)
     current_price = float(candles_df["close"].iloc[-1])
 
