@@ -2,6 +2,13 @@
 .env
 .env.*
 !.env.example
+master-secrets.yaml
+*master-secrets*.yaml
+age-keys.txt
+*.agekey
+
+# Allow the placeholder template only
+!config/master-secrets.template.yaml
 
 # Python
 __pycache__/

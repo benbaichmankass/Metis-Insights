@@ -8,10 +8,32 @@
 - `.env` files.
 - Colab userdata exports.
 - SSH keys.
+- `master-secrets.yaml` (plaintext master secrets file).
+- `master-secrets.sops.yaml` (encrypted master secrets — contains ciphertext but keep it in Drive only).
+- `age-keys.txt` (age private key — keep only in Drive and a password manager).
+- Any generated `.env.*` files — these are runtime artifacts, not source files.
 
 ## Required storage
 
 Use `.env`, Colab userdata, GitHub secrets, or VM environment variables.
+
+For encrypted-at-rest master secrets, use the Google Drive SOPS workflow:
+see `docs/claude/google-drive-master-secrets.md`.
+
+## Claude must not
+
+- Read or print decrypted secret values.
+- Log, echo, or expose the contents of any `.env*` file.
+- Print the output of `sops --decrypt` beyond confirming success/failure.
+- Commit generated `.env.*` files — they are runtime-only artifacts.
+
+## Generated env files
+
+Files produced by `scripts/render_env_from_master.py` are:
+
+- Written with `chmod 0600` (owner read/write only).
+- Listed in `.gitignore` — never tracked.
+- Deleted from Colab after copying to the target host.
 
 ## If a secret was committed
 
