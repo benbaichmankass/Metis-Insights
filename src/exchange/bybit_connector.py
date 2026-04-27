@@ -1,7 +1,10 @@
+import logging
 import os
 import ccxt
 import pandas as pd
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 # NOTE — dual-library design (intentional):
 #   BybitConnector (this file) uses ccxt for market data + order placement.
@@ -40,9 +43,15 @@ class BybitConnector:
 
         if testnet:
             self.exchange.set_sandbox_mode(True)
-            print("Testnet BYBIT (Unified Trading Account)")
-        else:
-            print("LIVE BYBIT")
+
+        dry_run_raw = os.getenv("DRY_RUN", "true").strip().lower()
+        dry_run = dry_run_raw not in {"false", "0", "no"}
+        allow_live_raw = os.getenv("ALLOW_LIVE_TRADING", "false").strip().lower()
+        allow_live = allow_live_raw in {"true", "1", "yes"}
+
+        logger.info("Bybit market data environment: %s", "testnet" if testnet else "mainnet")
+        logger.info("Trading execution mode: %s", "dry-run" if dry_run else "live")
+        logger.info("Live order placement allowed: %s", str(not dry_run and allow_live).lower())
 
     def get_price(self, symbol="BTC/USDT:USDT"):
         try:

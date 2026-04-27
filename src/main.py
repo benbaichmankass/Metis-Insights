@@ -167,9 +167,12 @@ def main() -> None:
         now_utc = datetime.now(timezone.utc)
         try:
             if should_send_summary(now_utc):
+                _testnet_raw = str(os.environ.get("BYBIT_TESTNET", "true")).strip().lower()
+                _market_env = "testnet" if _testnet_raw not in {"false", "0", "no"} else "mainnet"
+                _exec_mode = "dry-run" if settings.get("DRY_RUN", True) else "live"
                 telegram_client.send_message(
                     f"Bot summary at {now_utc.strftime('%Y-%m-%d %H:%M UTC')}: "
-                    "service is alive on LIVE BYBIT for BTCUSDT. "
+                    f"service is alive on Bybit {_market_env} ({_exec_mode}) for BTCUSDT. "
                     "Use /signals, /balance, /trades and check "
                     "runtime_logs/signal_audit.jsonl for full history."
                 )
