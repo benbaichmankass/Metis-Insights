@@ -15,7 +15,9 @@ Generated as part of Claude Code setup.
 
 ## Security cleanup
 
-- `test_bybit_keys.py`: must not contain Bybit keys. Replace with env-based smoke helper or delete.
+- `test_bybit_keys.py`: replaced with `tests/test_bybit_env.py` — a proper pytest smoke test
+  that skips gracefully when env vars are absent. Top-level script deleted. No hardcoded keys
+  were present in the original file; the escaping bug (`\"\"\"`) was also resolved.
 
 ## Candidate migrations
 
