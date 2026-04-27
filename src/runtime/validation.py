@@ -95,6 +95,16 @@ def validate_startup() -> None:
             "(set explicitly to enable real order placement)"
         )
 
+    # ---- MODE=LIVE requires explicit live-trading gate ---------------------
+    # Fail closed: MODE=LIVE without ALLOW_LIVE_TRADING=true is rejected at
+    # startup even if DRY_RUN is also set, to prevent misconfiguration from
+    # silently running in a live-adjacent state.
+    if mode == "LIVE" and allow_live != "true":
+        errors.append(
+            "MODE=LIVE requires ALLOW_LIVE_TRADING=true "
+            "(set explicitly to acknowledge live order placement)"
+        )
+
     # ---- Raise if any errors found -----------------------------------------
     if errors:
         msg = "Startup validation failed:\n" + "\n".join(f"  - {e}" for e in errors)
