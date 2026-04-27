@@ -30,3 +30,4 @@ Remove stale instructions when they waste context.
 - `deployment-ops.md`: Oracle/live bot operations.
 - `git-workflow.md`: branch, commit, push rules.
 - `security-secrets.md`: credential rules.
+- `google-drive-master-secrets.md`: SOPS-encrypted master secrets workflow — fill, encrypt, render lean .env files.
