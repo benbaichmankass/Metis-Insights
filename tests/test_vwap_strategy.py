@@ -448,3 +448,81 @@ class TestVwapEdgeCases:
             assert suspicious not in meta_str.lower(), (
                 f"Signal output contains suspicious key: {suspicious}"
             )
+
+
+# ---------------------------------------------------------------------------
+# Invalid candle data — must return no-trade, never raise
+# ---------------------------------------------------------------------------
+
+class TestVwapInvalidDataNoTrade:
+    """Bad market data must yield a no-trade signal; the tick must not crash."""
+
+    def test_zero_volume_returns_no_trade(self):
+        df = _candles(100, 102, 101, volume=0)
+        signal = build_vwap_signal(df, symbol="BTCUSDT", qty=1.0)
+        assert signal["side"] == "none"
+        assert signal["qty"] == 0.0
+        assert signal["meta"]["strategy_name"] == "vwap"
+
+    def test_zero_volume_reason_text(self):
+        df = _candles(100, 102, 101, volume=0)
+        signal = build_vwap_signal(df, symbol="BTCUSDT", qty=1.0)
+        reason = signal["meta"]["reason"]
+        assert "zero" in reason.lower() or "negative" in reason.lower()
+
+    def test_zero_volume_does_not_raise(self):
+        df = _candles(100, 102, 101, volume=0)
+        build_vwap_signal(df, symbol="BTCUSDT", qty=1.0)  # must not raise
+
+    def test_missing_volume_column_returns_no_trade(self):
+        df = pd.DataFrame([
+            {"timestamp": 0, "open": 99, "high": 102, "low": 98, "close": 100},
+            {"timestamp": 1, "open": 100, "high": 103, "low": 99, "close": 101},
+        ])
+        signal = build_vwap_signal(df, symbol="BTCUSDT", qty=1.0)
+        assert signal["side"] == "none"
+        assert signal["qty"] == 0.0
+
+    def test_missing_volume_column_does_not_raise(self):
+        df = pd.DataFrame([
+            {"timestamp": 0, "open": 99, "high": 102, "low": 98, "close": 100},
+            {"timestamp": 1, "open": 100, "high": 103, "low": 99, "close": 101},
+        ])
+        build_vwap_signal(df, symbol="BTCUSDT", qty=1.0)  # must not raise
+
+    def test_empty_dataframe_returns_no_trade(self):
+        df = pd.DataFrame()
+        signal = build_vwap_signal(df, symbol="BTCUSDT", qty=1.0)
+        assert signal["side"] == "none"
+        assert signal["qty"] == 0.0
+
+    def test_empty_dataframe_does_not_raise(self):
+        df = pd.DataFrame()
+        build_vwap_signal(df, symbol="BTCUSDT", qty=1.0)  # must not raise
+
+    def test_normal_candles_still_produce_signal(self):
+        """Valid candle data must continue to generate actionable signals."""
+        df = _candles_below_vwap()
+        signal = build_vwap_signal(df, symbol="BTCUSDT", qty=1.0)
+        assert signal["side"] == "buy"
+        assert signal["qty"] == 1.0
+        assert signal["meta"]["strategy_name"] == "vwap"
+        assert signal["meta"]["current_price"] < signal["meta"]["vwap"]
+
+    def test_pipeline_zero_volume_skips_order_placement(self):
+        """Zero-volume candles routed through pipeline must not reach order placement."""
+        exchange = DummyExchangeClient()
+
+        def zero_volume_builder(settings):
+            df = _candles(100, 102, 101, volume=0)
+            return build_vwap_signal(df, symbol=settings.get("SYMBOL", "BTCUSDT"), qty=1.0)
+
+        settings = {"SYMBOL": "BTCUSDT", "DRY_RUN": "true", "MAX_QTY": "1"}
+        result = run_pipeline(
+            settings,
+            exchange_client=exchange,
+            telegram_client=DummyTelegramClient(),
+            signal_builder=zero_volume_builder,
+        )
+        assert result["order_result"]["status"] == "skipped"
+        assert exchange.calls == []
