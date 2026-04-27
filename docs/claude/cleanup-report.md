@@ -7,10 +7,14 @@ Generated as part of Claude Code setup.
 - Remove tracked editor/backup junk when present:
   - `test_bybit_keys.py.save`
   - `src/bot/telegram_query_bot.py.bak_20260409_191144`
+- `bybit_config.py`: rewrote as a clean env-based shim exposing only
+  `BYBIT_TESTNET_API_KEY` and `BYBIT_TESTNET_API_SECRET`. Removed
+  misplaced Telegram vars (nothing imported them from here). Fixed a
+  pre-existing SyntaxError caused by escaped-quote docstring (`\"\"\"` →
+  `"""`).
 
 ## Security cleanup
 
-- `bybit_config.py`: must not contain a Telegram token. Replace with env-based shim or delete after import check.
 - `test_bybit_keys.py`: must not contain Bybit keys. Replace with env-based smoke helper or delete.
 
 ## Candidate migrations

@@ -1,11 +1,12 @@
-\"\"\"Legacy compatibility shim.
+"""Legacy compatibility shim — Bybit credentials only.
 
-Do not hardcode Telegram or exchange credentials here.
-Set values in .env, Colab userdata, GitHub secrets, or VM environment variables.
-\"\"\"
+Do not hardcode credentials here.
+Set BYBIT_TESTNET_API_KEY and BYBIT_TESTNET_API_SECRET in .env,
+Colab userdata, GitHub secrets, or VM environment variables.
+"""
 from __future__ import annotations
 
 import os
 
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
-TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
+BYBIT_TESTNET_API_KEY = os.getenv("BYBIT_TESTNET_API_KEY", "")
+BYBIT_TESTNET_API_SECRET = os.getenv("BYBIT_TESTNET_API_SECRET", "")
