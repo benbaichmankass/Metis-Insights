@@ -49,6 +49,12 @@ Use this file for recurring bugs so Claude does not rediscover them.
 - Check: `PYTHONPATH=. pytest tests/test_log_redaction.py -q`
 - Lesson: Never run smoke tests at INFO log level without first suppressing httpx/httpcore. Any new Telegram client code must call `suppress_httpx_logging()` before sending.
 
+### 2026-04-27: deploy_pull_restart.sh restarted ict-bot.service, not ict-trader-live.service
+- Cause: Script was written when `ict-bot.service` was the primary trading unit. `ict-trader-live.service` was added later but the deploy script was never updated.
+- Effect: Every `ict-git-sync` auto-deploy left `ict-trader-live.service` running stale code; restarts had to be done manually.
+- Fix: Changed `scripts/deploy_pull_restart.sh` and `deploy/ict-telegram-bot.service` to reference `ict-trader-live.service` instead of `ict-bot.service`.
+- Check: Confirm `sudo systemctl status ict-trader-live.service` shows the new code after the next git-sync run.
+
 ## Add new entries here
 
 Use this format:

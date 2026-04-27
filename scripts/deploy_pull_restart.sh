@@ -22,11 +22,11 @@ source $VENV/bin/activate
 pip install -r requirements.txt --quiet
 
 echo ">>> Restarting services..."
-sudo systemctl restart ict-bot.service
+sudo systemctl restart ict-trader-live.service
 sudo systemctl restart ict-telegram-bot.service
 
 echo ">>> Service status:"
-sudo systemctl status ict-bot.service --no-pager
+sudo systemctl status ict-trader-live.service --no-pager
 sudo systemctl status ict-telegram-bot.service --no-pager
 
 echo "===== DEPLOY COMPLETE: $(date) ====="

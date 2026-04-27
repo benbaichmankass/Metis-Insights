@@ -6,7 +6,7 @@
 
 [Unit]
 Description=ICT Trading Bot - Telegram UI
-After=network.target ict-bot.service
+After=network.target ict-trader-live.service
 Wants=network-online.target
 
 [Service]
