@@ -96,5 +96,5 @@ sudo systemctl status ict-git-sync.service
 ```
 
 **Do NOT** run `systemctl enable ict-git-sync.service` unless you intend it to start on every
-boot — the deploy script restarts `ict-bot.service` and `ict-telegram-bot.service`, so
+boot — the deploy script restarts `ict-trader-live.service` and `ict-telegram-bot.service`, so
 an unexpected boot-time run could interrupt a live session.
