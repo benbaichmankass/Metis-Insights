@@ -64,3 +64,37 @@ secrets file.
 **`vwap_btcusd_live` is not approved for use yet.**
 - Do not render or deploy this profile without a full audit and explicit user approval.
 - Requires `--allow-live` on the renderer CLI, `DRY_RUN=false`, and `ALLOW_LIVE_TRADING=true`.
+
+## Recovery from broken git-sync
+
+**Symptom:** `ict-git-sync.service` shows `ActiveState=failed` or a restart counter in the thousands
+(`systemctl status ict-git-sync.service`), and the live trader has fallen behind `origin/main`.
+
+**Root cause (April 2026):** The live unit's `ExecStart` pointed to
+`/home/ubuntu/ict-trading-bot/deploy_git_sync.sh`, which never existed.
+The correct script is `scripts/deploy_pull_restart.sh`.
+The unit file was also absent from the repo entirely; it has now been added at
+`deploy/ict-git-sync.service` with `Restart=on-failure` and `RestartSec=60` to prevent
+future restart-counter explosions.
+
+**To redeploy the fixed unit on the VM:**
+
+```bash
+# 1. Pull the fix (if the trader is far behind, do a manual pull first)
+cd /home/ubuntu/ict-trading-bot
+git pull origin main
+
+# 2. Install the corrected unit file
+sudo cp /home/ubuntu/ict-trading-bot/deploy/ict-git-sync.service /etc/systemd/system/
+
+# 3. Reload systemd and restart the service
+sudo systemctl daemon-reload
+sudo systemctl restart ict-git-sync.service
+
+# 4. Confirm it started cleanly
+sudo systemctl status ict-git-sync.service
+```
+
+**Do NOT** run `systemctl enable ict-git-sync.service` unless you intend it to start on every
+boot — the deploy script restarts `ict-bot.service` and `ict-telegram-bot.service`, so
+an unexpected boot-time run could interrupt a live session.
