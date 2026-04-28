@@ -10,6 +10,37 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-29-02 — PR 2: news-veto Telegram notification
+
+- **Session date:** 2026-04-28
+- **Sprint:** sprint-plan-2026-04-29 (operational-hardening)
+- **Current sprint phase:** PR 2 — news-veto operator notification
+- **Last completed checkpoint:** CP-2026-04-29-01 (PR 1 done, PR #66 open)
+- **Next checkpoint:** **CP-2026-04-29-03** — start PR 3 (daily operational heartbeat)
+- **Blockers:** none. PR #68 open as draft.
+
+### 1. Completed
+- `src/runtime/pipeline.py`: in the `news_result.veto` branch, added formatted veto notification `🚫 News veto: <reason>\nSymbol:...\nAdj:...|Items:...` capped at 200 chars; wrapped in try/except so notify failure never changes return status; calls `notify_operator(telegram_client, ...)` when client is present, else `send_via_alert_manager`
+- `tests/test_pipeline_news_veto.py`: 2 new tests — `test_news_veto_sends_operator_notification` (asserts notify_operator called once with "News veto" and reason) and `test_veto_notify_failure_does_not_change_status` (asserts RuntimeError caught, status=news_veto preserved)
+
+### 2. Files changed
+- `src/runtime/pipeline.py` (+15 lines)
+- `tests/test_pipeline_news_veto.py` (+55 lines, 2 new tests)
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_pipeline_news_veto.py -v` → **8/8 pass**
+- Full suite (5 broken-import files ignored): 307 pass, 106 fail, 4 skip — pass count +2 vs pre-PR baseline (no new failures)
+
+### 4. Remaining
+- none — PR 2 complete
+
+### 5. Next checkpoint
+**CP-2026-04-29-03** — PR 3: daily operational heartbeat. Create `scripts/daily_heartbeat.py`, `deploy/ict-heartbeat.service`, `deploy/ict-heartbeat.timer`, `tests/test_daily_heartbeat.py`. Read `deploy/` existing unit files for format before starting.
+
+**Telegram sent:** no (no creds in env)
+
+---
+
 ## CP-2026-04-29-01 — PR 1: plumb NEWS_ENABLED=false through config
 
 - **Session date:** 2026-04-28
