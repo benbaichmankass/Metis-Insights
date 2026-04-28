@@ -10,6 +10,57 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-M9-PR5 — M9 PR5: news veto hook wired into run_pipeline
+
+- **Session date:** 2026-04-28
+- **Sprint:** M9 — News-Augmented Trade Decision Layer (sequestered branch)
+- **Current sprint phase:** PR 5 — runtime veto hook (final M9 deliverable)
+- **Last completed checkpoint:** CP-RISK-COUNTER (PR #64, merged)
+- **Next checkpoint:** M9 sprint complete. Next task per sprint plan.
+- **Blockers:** none. Branch open as PR #65.
+
+### 1. Completed
+- **`src/runtime/pipeline.py`**: imported `get_news_score`; inside `run_pipeline`
+  after `inject_runtime_counters`, derives `symbol_tags` from the signal symbol
+  (`"BTCUSDT"` → `["BTC","BTCUSDT"]`; slash format → same base extraction),
+  calls `get_news_score(settings, symbol_tags)`. Veto → returns
+  `{"status":"news_veto","reason":...,"signal":signal}` without calling
+  `safe_place_order`. Non-veto → logs decision/adj/items/reason at INFO, then
+  proceeds to `safe_place_order` unchanged. No-signal and halt paths untouched.
+- **`.env.live`**: created with `NEWS_ENABLED=false` (+ `NEWS_API_KEY=` blank).
+  File is gitignored via `.env.*` rule.
+- **`docs/news_layer.md`**: added "Going live" section: how to enable the gate,
+  optional threshold knobs, veto return shape, non-veto log format, symbol-tag
+  derivation table.
+- **`tests/test_pipeline_news_veto.py`** (6 tests, all passing):
+  veto short-circuits order, non-veto calls order, no-signal skips news check,
+  BTCUSDT tag derivation, slash-symbol tag derivation, veto carries signal.
+
+### 2. Files changed
+- `src/runtime/pipeline.py` (+14 lines: import + veto block)
+- `docs/news_layer.md` (+45 lines: Going live section)
+- `tests/test_pipeline_news_veto.py` (new, 6 tests)
+- `.env.live` (new, gitignored — not committed)
+
+### 3. Tests run
+- `pytest tests/test_pipeline_news_veto.py -v` → **6/6 pass**
+- `pytest tests/test_news_layer.py tests/test_news_pipeline.py tests/test_news_scoring.py tests/test_runtime_risk_injection.py tests/test_pipeline_news_veto.py tests/test_kill_switch.py tests/test_orders.py` → **135/135 pass**
+
+### 4. Remaining
+- M9 sprint complete. All 5 PRs delivered:
+  PR #57 (scorer), PR #61 (pipeline), PR #62 (scoring refinements),
+  PR #63 (docs), PR #64 (risk-counter fix), PR #65 (veto hook).
+
+### 5. Next checkpoint
+**Next sprint task** — read `docs/claude/checkpoints/CHECKPOINT_LOG.md` for the
+most recent entry from the main branch to identify the next sprint item.
+
+**PR:** [#65](https://github.com/the-lizardking/ict-trading-bot/pull/65) — news veto hook.
+
+**Telegram sent:** no (pandas not installed in sandbox)
+
+---
+
 ## CP-RISK-COUNTER — fix: inject live risk counters before safe_place_order
 
 - **Session date:** 2026-04-28
