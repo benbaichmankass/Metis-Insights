@@ -3,10 +3,6 @@ from datetime import datetime, timezone
 from src.utils.signal_audit_logger import should_send_summary
 
 import logging
-from src.bot.telegramquerybot import TelegramQueryBot
-
-from src.bot.telegramquerybot import TelegramQueryBot
-
 import os
 import time
 
