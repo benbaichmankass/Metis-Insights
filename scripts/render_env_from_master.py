@@ -116,6 +116,7 @@ def _risk_pairs(data: dict, tier: str) -> list[tuple[str, str]]:
     mapping = [
         ("MAX_POSITION_USD", "max_position_usd"),
         ("MAX_DAILY_LOSS_USD", "max_daily_loss_usd"),
+        ("MAX_OPEN_POSITIONS", "max_open_positions"),
         ("RISK_PER_TRADE", "risk_per_trade"),
     ]
     for env_key, yaml_key in mapping:
