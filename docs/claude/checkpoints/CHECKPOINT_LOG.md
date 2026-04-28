@@ -10,6 +10,55 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-M9-PR4 — M9 PR4: news layer reference documentation
+
+- **Session date:** 2026-04-28
+- **Sprint:** M9 — News-Augmented Trade Decision Layer (sequestered branch)
+- **Current sprint phase:** PR 4 — docs
+- **Last completed checkpoint:** CP-M9-PR3 (PR #62, merged)
+- **Next checkpoint:** **CP-M9-PR5** — optional pipeline hook into
+  `src/runtime/pipeline.py` so `get_news_score` is called during each
+  strategy tick and the result is logged alongside the signal. Requires
+  explicit approval before touching runtime files.
+- **Blockers:** none. Branch `claude/news-trade-decisions-ICLjq` open as PR #63.
+
+### 1. Completed
+- Created `docs/news_layer.md` (178 lines) covering:
+  - Quick-start usage example (`get_news_score` + `adjust_probability`)
+  - Internal schema — all 11 fields with types and descriptions
+  - Score formula — freshness, item_score, weighted aggregation, probability nudge
+  - Decision label table (boost / reduce / veto / neutral)
+  - Logging payload pattern for audit trails
+  - Full configuration reference — 12 knobs with defaults and descriptions
+  - Keyword extension example
+  - Module layout and test inventory (97 tests across three files)
+  - Guidance for adding a future data source
+
+### 2. Files changed
+- `docs/news_layer.md` (new, 178 lines)
+
+### 3. Tests run
+- `python3 scripts/secret_scan.py` — clean
+- `python3 scripts/repo_inventory.py` — clean (no junk candidates)
+- No source changes; existing 97 news tests remain passing.
+
+### 4. Remaining
+- M9 PR5: optional runtime hook (deferred; needs approval before touching
+  `src/runtime/pipeline.py`).
+- M9 is otherwise feature-complete for v1.
+
+### 5. Next checkpoint
+**CP-M9-PR5** — If approved: add a single call to `get_news_score` inside
+`run_pipeline()` in `src/runtime/pipeline.py`, log the result alongside
+the signal dict, and add a test asserting the log field is present.
+If not approved yet: M9 v1 is complete and the branch can be merged.
+
+**PR:** [#63](https://github.com/the-lizardking/ict-trading-bot/pull/63) — `claude/news-trade-decisions-ICLjq` (open, draft).
+
+**Telegram sent:** no (no live creds in sequestered session environment)
+
+---
+
 ## CP-M9-PR3 — M9 PR3: weighted aggregation and configurable keyword lists
 
 - **Session date:** 2026-04-28
