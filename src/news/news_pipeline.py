@@ -85,7 +85,7 @@ def get_news_score(
         return NewsScoreResult(reason="no news items")
 
     try:
-        normalized = normalize_articles(raw_articles, symbol_tags=symbol_tags)
+        normalized = normalize_articles(raw_articles, symbol_tags=symbol_tags, settings=settings)
     except Exception as exc:  # noqa: BLE001
         logger.warning("news_pipeline: normalize_articles raised unexpectedly — %s", exc)
         return NewsScoreResult(reason=f"normalize error: {exc}")

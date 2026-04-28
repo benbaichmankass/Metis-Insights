@@ -19,9 +19,10 @@ dependency is required — this keeps the module importable in all environments.
 """
 from __future__ import annotations
 
+import os
 import re
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, FrozenSet, List, Optional
 
 # ---------------------------------------------------------------------------
 # Sentiment keyword dictionaries
@@ -95,11 +96,42 @@ def _tokenize(text: str) -> List[str]:
     return re.findall(r"[a-zA-Z]+", text.lower())
 
 
-def _score_sentiment(text: str) -> float:
-    """Return sentiment in [-1, 1] from keyword counts."""
+def _parse_extra_keywords(raw: str) -> FrozenSet[str]:
+    """Parse a comma-separated keyword string into a frozenset of lower-case tokens."""
+    return frozenset(w.strip().lower() for w in raw.split(",") if w.strip())
+
+
+def _get_extra_positive(settings: dict) -> FrozenSet[str]:
+    raw = str(settings.get("NEWS_POSITIVE_KEYWORDS",
+                           os.environ.get("NEWS_POSITIVE_KEYWORDS", ""))).strip()
+    return _parse_extra_keywords(raw) if raw else frozenset()
+
+
+def _get_extra_negative(settings: dict) -> FrozenSet[str]:
+    raw = str(settings.get("NEWS_NEGATIVE_KEYWORDS",
+                           os.environ.get("NEWS_NEGATIVE_KEYWORDS", ""))).strip()
+    return _parse_extra_keywords(raw) if raw else frozenset()
+
+
+def _score_sentiment(
+    text: str,
+    extra_positive: FrozenSet[str] = frozenset(),
+    extra_negative: FrozenSet[str] = frozenset(),
+) -> float:
+    """Return sentiment in [-1, 1] from keyword counts.
+
+    Parameters
+    ----------
+    extra_positive:
+        Additional positive words to count alongside the built-in list.
+    extra_negative:
+        Additional negative words to count alongside the built-in list.
+    """
     tokens = _tokenize(text)
-    pos = sum(1 for t in tokens if t in _POSITIVE_WORDS)
-    neg = sum(1 for t in tokens if t in _NEGATIVE_WORDS)
+    positive = _POSITIVE_WORDS | extra_positive
+    negative = _NEGATIVE_WORDS | extra_negative
+    pos = sum(1 for t in tokens if t in positive)
+    neg = sum(1 for t in tokens if t in negative)
     total = pos + neg
     if total == 0:
         return 0.0
@@ -191,6 +223,7 @@ def _build_reason(sentiment: float, relevance: float, impact: float, freshness: 
 def normalize_article(
     raw: Dict[str, Any],
     symbol_tags: Optional[List[str]] = None,
+    settings: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Convert a single raw NewsAPI article dict into the internal schema.
 
@@ -201,12 +234,20 @@ def normalize_article(
     symbol_tags:
         Trading symbols to score for relevance, e.g. ``["BTC", "BTCUSDT"]``.
         When ``None``, all known symbols are checked.
+    settings:
+        Config/env dict. When provided, ``NEWS_POSITIVE_KEYWORDS`` and
+        ``NEWS_NEGATIVE_KEYWORDS`` (comma-separated) extend the built-in
+        sentiment word lists for this article.
 
     Returns
     -------
     dict
         Fully populated internal news schema.
     """
+    settings = settings or {}
+    extra_pos = _get_extra_positive(settings)
+    extra_neg = _get_extra_negative(settings)
+
     headline = str(raw.get("title") or "")
     summary = str(raw.get("description") or "")
     url = str(raw.get("url") or "")
@@ -217,7 +258,7 @@ def normalize_article(
 
     freshness = _freshness_minutes(published_at)
     tags = _extract_symbol_tags(combined_text, symbol_tags)
-    sentiment = _score_sentiment(combined_text)
+    sentiment = _score_sentiment(combined_text, extra_positive=extra_pos, extra_negative=extra_neg)
     relevance = _score_relevance(combined_text, tags if tags else (symbol_tags or []))
     impact = _score_impact(combined_text, sentiment)
     reason = _build_reason(sentiment, relevance, impact, freshness)
@@ -240,12 +281,13 @@ def normalize_article(
 def normalize_articles(
     raw_list: List[Dict[str, Any]],
     symbol_tags: Optional[List[str]] = None,
+    settings: Optional[Dict[str, Any]] = None,
 ) -> List[Dict[str, Any]]:
     """Normalize a list of raw articles.  Articles that raise are skipped."""
     result = []
     for raw in raw_list:
         try:
-            result.append(normalize_article(raw, symbol_tags=symbol_tags))
+            result.append(normalize_article(raw, symbol_tags=symbol_tags, settings=settings))
         except Exception as exc:  # noqa: BLE001
             import logging
             logging.getLogger(__name__).warning("news: failed to normalize article — %s", exc)
