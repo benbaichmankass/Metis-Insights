@@ -538,3 +538,129 @@ class TestNoSecretsInOutput:
         for _, val in pairs:
             if val and len(val) > 4:
                 assert val not in keys_line
+
+
+# ---------------------------------------------------------------------------
+# News layer — renderer and template regression tests (PR 1, 2026-04-29 sprint)
+# ---------------------------------------------------------------------------
+
+# Fake data with news block disabled (mirrors the template default)
+FAKE_DATA_WITH_NEWS_DISABLED = {
+    **FAKE_DATA,
+    "news": {
+        "enabled": "false",
+        "api_key": "",
+    },
+}
+
+# Fake data with news explicitly enabled (operator opt-in)
+FAKE_DATA_WITH_NEWS_ENABLED = {
+    **FAKE_DATA,
+    "news": {
+        "enabled": "true",
+        "api_key": "fake_newsapi_key",
+        "cache_ttl": "300",
+        "veto_sentiment_threshold": "-0.6",
+    },
+}
+
+# Fake data with no news block at all (pre-M9 master; should still emit disabled defaults)
+FAKE_DATA_WITHOUT_NEWS_BLOCK = {k: v for k, v in FAKE_DATA.items() if k != "news"}
+
+
+class TestNewsRenderer:
+    """Regression tests for _news_pairs() and its integration into profile builders."""
+
+    def test_disabled_default_emits_news_enabled_false(self):
+        pairs = dict(mod._news_pairs(FAKE_DATA_WITH_NEWS_DISABLED))
+        assert pairs["NEWS_ENABLED"] == "false"
+
+    def test_disabled_default_emits_empty_api_key(self):
+        pairs = dict(mod._news_pairs(FAKE_DATA_WITH_NEWS_DISABLED))
+        assert "NEWS_API_KEY" in pairs
+        assert pairs["NEWS_API_KEY"] == ""
+
+    def test_enabled_emits_news_enabled_true(self):
+        pairs = dict(mod._news_pairs(FAKE_DATA_WITH_NEWS_ENABLED))
+        assert pairs["NEWS_ENABLED"] == "true"
+
+    def test_enabled_emits_api_key(self):
+        pairs = dict(mod._news_pairs(FAKE_DATA_WITH_NEWS_ENABLED))
+        assert pairs["NEWS_API_KEY"] == "fake_newsapi_key"
+
+    def test_optional_tuning_knobs_written_when_set(self):
+        pairs = dict(mod._news_pairs(FAKE_DATA_WITH_NEWS_ENABLED))
+        assert pairs.get("NEWS_CACHE_TTL") == "300"
+        assert pairs.get("NEWS_VETO_SENTIMENT_THRESHOLD") == "-0.6"
+
+    def test_optional_tuning_knobs_absent_when_not_set(self):
+        pairs = dict(mod._news_pairs(FAKE_DATA_WITH_NEWS_DISABLED))
+        # Only the two mandatory keys should be present
+        assert set(pairs.keys()) == {"NEWS_ENABLED", "NEWS_API_KEY"}
+
+    def test_missing_news_block_defaults_to_disabled(self):
+        """A master without a news: block must still emit NEWS_ENABLED=false."""
+        pairs = dict(mod._news_pairs(FAKE_DATA_WITHOUT_NEWS_BLOCK))
+        assert pairs["NEWS_ENABLED"] == "false"
+        assert "NEWS_API_KEY" in pairs
+
+
+class TestNewsDefaultInProfiles:
+    """Integration: both profile builders include the news keys."""
+
+    def test_live_profile_contains_news_enabled(self):
+        pairs = dict(mod.build_live(FAKE_DATA_WITH_NEWS_DISABLED))
+        assert "NEWS_ENABLED" in pairs
+
+    def test_live_profile_news_disabled_by_default(self):
+        pairs = dict(mod.build_live(FAKE_DATA_WITH_NEWS_DISABLED))
+        assert pairs["NEWS_ENABLED"] == "false"
+
+    def test_vwap_profile_contains_news_enabled(self):
+        pairs = dict(mod.build_vwap_btcusd_live(FAKE_DATA_WITH_NEWS_DISABLED))
+        assert "NEWS_ENABLED" in pairs
+
+    def test_vwap_profile_news_disabled_by_default(self):
+        pairs = dict(mod.build_vwap_btcusd_live(FAKE_DATA_WITH_NEWS_DISABLED))
+        assert pairs["NEWS_ENABLED"] == "false"
+
+
+class TestNewsTemplateSanity:
+    """Ensure the committed template always ships NEWS_ENABLED=false."""
+
+    def test_template_news_block_has_enabled_false(self):
+        yaml = pytest.importorskip("yaml", reason="PyYAML not installed")
+        repo_root = Path(__file__).resolve().parents[1]
+        template_path = repo_root / "config" / "master-secrets.template.yaml"
+        assert template_path.exists(), "master-secrets.template.yaml is missing"
+        with open(template_path, "r") as fh:
+            data = yaml.safe_load(fh)
+        news = data.get("news", {})
+        assert news, "news: block is missing from master-secrets.template.yaml"
+        assert news.get("enabled") == "false", (
+            f"news.enabled must be 'false' in the template (got {news.get('enabled')!r}). "
+            "The template must ship disabled."
+        )
+
+    def test_template_news_block_api_key_is_blank(self):
+        yaml = pytest.importorskip("yaml", reason="PyYAML not installed")
+        repo_root = Path(__file__).resolve().parents[1]
+        template_path = repo_root / "config" / "master-secrets.template.yaml"
+        with open(template_path, "r") as fh:
+            data = yaml.safe_load(fh)
+        news = data.get("news", {})
+        api_key = news.get("api_key", None)
+        assert api_key is not None, "news.api_key key is missing from template"
+        assert api_key == "" or api_key is None, (
+            "news.api_key must be blank in the template so that absence is detectable"
+        )
+
+    def test_rendered_output_never_produces_news_enabled_true_without_explicit_override(self):
+        """No profile rendered from FAKE_DATA (no news block) emits NEWS_ENABLED=true."""
+        for builder_name in ("build_live", "build_vwap_btcusd_live"):
+            builder = getattr(mod, builder_name)
+            pairs = dict(builder(FAKE_DATA_WITHOUT_NEWS_BLOCK))
+            assert pairs.get("NEWS_ENABLED") != "true", (
+                f"{builder_name} must not emit NEWS_ENABLED=true when there is no "
+                "explicit news block in the master secrets data"
+            )
