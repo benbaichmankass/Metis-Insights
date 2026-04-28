@@ -32,6 +32,8 @@ BACKTESTER_PATH = os.path.join(os.path.dirname(BASE_DIR), "backtester.py")
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
+HALT_FLAG_PATH = "/tmp/trader_halt.flag"
+
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO,
@@ -57,6 +59,41 @@ def is_authorised(update: Update) -> bool:
     else:
         return False
     return str(chat_id) == str(TELEGRAM_CHAT_ID)
+
+
+def is_halted() -> bool:
+    return os.path.exists(HALT_FLAG_PATH)
+
+
+def fetch_today_pnl() -> tuple:
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT COUNT(*), SUM(COALESCE(pnl, 0)) FROM trades "
+            "WHERE DATE(timestamp) = ? AND is_backtest = 0",
+            (today,),
+        )
+        row = cur.fetchone()
+        conn.close()
+        return (row[0] or 0, float(row[1] or 0.0))
+    except Exception:
+        return (0, 0.0)
+
+
+def fetch_open_positions_count() -> int:
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT COUNT(*) FROM trades WHERE status = 'open' AND is_backtest = 0"
+        )
+        row = cur.fetchone()
+        conn.close()
+        return row[0] or 0
+    except Exception:
+        return 0
 
 
 def load_account_env(target: str) -> dict:
@@ -380,7 +417,9 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = (
         "👋 *ICT Trading Bot*\n\n"
         "Commands:\n"
-        "/status — Live and paper runtime status\n"
+        "/halt — Stop order placement immediately\n"
+        "/resume — Re-enable order placement\n"
+        "/status — Kill-switch state, P&L summary, service status\n"
         "/balance — Account balances\n"
         "/trades — Open positions\n"
         "/closeall live|paper — Emergency close positions\n"
@@ -404,14 +443,52 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_authorised(update):
         return
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    halted = is_halted()
+    halt_line = "🔴 *HALTED* — orders blocked" if halted else "🟢 *RUNNING* — orders enabled"
+    trade_count, total_pnl = fetch_today_pnl()
+    open_count = fetch_open_positions_count()
     text = (
         "✅ *ICT Trading Bot Status*\n\n"
+        f"🚦 Kill-switch: {halt_line}\n"
+        f"📊 Today's trades: {trade_count} | P&L: ${total_pnl:+.2f}\n"
+        f"📂 Open positions (DB): {open_count}\n\n"
         f"🟢 Live trader: `{get_service_status('ict-trader-live')}`\n"
         f"🟡 Paper trader: `{get_service_status('ict-trader-paper')}`\n"
         f"🤖 Telegram bot: `{get_service_status('ict-telegram-bot')}`\n"
         f"🕐 {now}"
     )
     await update.message.reply_text(text, parse_mode="Markdown")
+
+
+async def cmd_halt(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_authorised(update):
+        return
+    try:
+        with open(HALT_FLAG_PATH, "w") as f:
+            f.write(datetime.now(timezone.utc).isoformat())
+        await update.message.reply_text(
+            "🛑 *Trader HALTED*\nFlag file created. No new orders will be placed.\n"
+            "Use /resume to re-enable trading.",
+            parse_mode="Markdown",
+        )
+    except Exception as e:
+        await update.message.reply_text(f"⚠️ Failed to create halt flag: {e}")
+
+
+async def cmd_resume(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_authorised(update):
+        return
+    if not os.path.exists(HALT_FLAG_PATH):
+        await update.message.reply_text("ℹ️ Trader is not halted — no flag file found.")
+        return
+    try:
+        os.remove(HALT_FLAG_PATH)
+        await update.message.reply_text(
+            "✅ *Trader RESUMED*\nHalt flag removed. Orders will resume on the next cycle.",
+            parse_mode="Markdown",
+        )
+    except Exception as e:
+        await update.message.reply_text(f"⚠️ Failed to remove halt flag: {e}")
 
 
 async def cmd_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -681,7 +758,9 @@ def main():
         commands = [
             BotCommand("start", "Show help"),
             BotCommand("help", "Show help"),
-            BotCommand("status", "Service status"),
+            BotCommand("halt", "Stop order placement immediately"),
+            BotCommand("resume", "Re-enable order placement"),
+            BotCommand("status", "Kill-switch state, P&L summary, service status"),
             BotCommand("balance", "Account balances"),
             BotCommand("trades", "Open positions"),
             BotCommand("closeall", "Close all positions: live|paper"),
@@ -698,6 +777,8 @@ def main():
     application.post_init = post_init
     application.add_handler(CommandHandler("start", cmd_start))
     application.add_handler(CommandHandler("help", cmd_help))
+    application.add_handler(CommandHandler("halt", cmd_halt))
+    application.add_handler(CommandHandler("resume", cmd_resume))
     application.add_handler(CommandHandler("status", cmd_status))
     application.add_handler(CommandHandler("balance", cmd_balance))
     application.add_handler(CommandHandler("trades", cmd_trades))

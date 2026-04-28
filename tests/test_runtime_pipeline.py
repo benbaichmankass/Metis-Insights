@@ -310,3 +310,44 @@ def test_killzone_signal_builder_raises_for_unsupported_exchange():
 
     with pytest.raises(ValueError, match="Unsupported EXCHANGE value"):
         killzone_signal_builder(settings)
+
+
+def test_pipeline_skips_when_halted(tmp_path, monkeypatch):
+    flag = tmp_path / "trader_halt.flag"
+    flag.write_text("halted")
+    monkeypatch.setattr("src.runtime.pipeline.HALT_FLAG_PATH", str(flag))
+
+    settings = {"SYMBOL": "BTCUSDT", "DRY_RUN": "true", "MAX_QTY": "10"}
+    exchange = DummyExchangeClient()
+    telegram = DummyTelegramClient()
+
+    result = run_pipeline(
+        settings,
+        exchange_client=exchange,
+        telegram_client=telegram,
+        signal_builder=forced_long_builder,
+    )
+
+    assert result["order_result"]["status"] == "halted"
+    assert result["order_result"]["reason"] == "halt_flag_active"
+    assert exchange.calls == []
+
+
+def test_pipeline_runs_normally_when_not_halted(tmp_path, monkeypatch):
+    flag = tmp_path / "trader_halt.flag"
+    # flag intentionally NOT created
+    monkeypatch.setattr("src.runtime.pipeline.HALT_FLAG_PATH", str(flag))
+
+    settings = {"SYMBOL": "BTCUSDT", "DRY_RUN": "true", "MAX_QTY": "10"}
+    exchange = DummyExchangeClient()
+    telegram = DummyTelegramClient()
+
+    result = run_pipeline(
+        settings,
+        exchange_client=exchange,
+        telegram_client=telegram,
+        signal_builder=forced_long_builder,
+    )
+
+    assert result["order_result"]["status"] == "simulated"
+    assert exchange.calls == []
