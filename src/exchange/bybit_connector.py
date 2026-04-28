@@ -25,8 +25,8 @@ class BybitConnector:
     Works with Cross Margin and linear perpetual contracts.
 
     Testnet / live mode is controlled by the BYBIT_TESTNET environment
-    variable.  Set BYBIT_TESTNET=false in .env.live and .env.paper for
-    live trading.  If testnet param is omitted, the env var is read.
+    variable.  Set BYBIT_TESTNET=false in .env.live for live trading.
+    If testnet param is omitted, the env var is read.
     """
 
     def __init__(self, api_key=None, api_secret=None, testnet=None):

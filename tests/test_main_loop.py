@@ -43,7 +43,7 @@ def test_main_single_tick_binance(monkeypatch):
 
     def fake_run_pipeline(settings, exchange_client, telegram_client):
         called["ran"] = True
-        return {"signal": {}, "order_result": {"status": "simulated"}}
+        return {"signal": {}, "order_result": {"status": "dry_run"}}
 
     monkeypatch.setattr(main_module, 'run_pipeline', fake_run_pipeline)
 
@@ -65,7 +65,7 @@ def test_main_single_tick_bybit(monkeypatch):
 
     def fake_run_pipeline(settings, exchange_client, telegram_client):
         called["ran"] = True
-        return {"signal": {}, "order_result": {"status": "simulated"}}
+        return {"signal": {}, "order_result": {"status": "dry_run"}}
 
     monkeypatch.setattr(main_module, 'run_pipeline', fake_run_pipeline)
 
