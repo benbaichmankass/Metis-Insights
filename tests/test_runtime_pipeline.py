@@ -375,6 +375,72 @@ def _flat_signal(symbol="BTCUSDT"):
 def test_multi_strategy_pipeline_strategies_list_contains_expected_strategies():
     assert "breakout_confirmation" in STRATEGIES
     assert "vwap" in STRATEGIES
+    # M7 Phase 2.6 (CP-14): "ict" registered as the last fallback so it
+    # only fires when neither breakout_confirmation nor vwap fire.
+    assert "ict" in STRATEGIES
+    assert STRATEGIES[-1] == "ict", (
+        "ICT must be the last fallback so it cannot pre-empt the "
+        "existing breakout / VWAP strategies; existing tick outcomes "
+        "must remain unchanged."
+    )
+
+
+def test_multi_strategy_pipeline_ict_runs_only_after_others_flat(monkeypatch):
+    """ICT (last in STRATEGIES) must not be invoked when an earlier
+    strategy already produced an actionable signal — this is the
+    behaviour-preservation guarantee for CP-14."""
+    ict_called = []
+
+    monkeypatch.setitem(
+        _pipeline_mod._STRATEGY_BUILDERS,
+        "breakout_confirmation",
+        lambda s: _flat_signal(),
+    )
+    monkeypatch.setitem(
+        _pipeline_mod._STRATEGY_BUILDERS,
+        "vwap",
+        lambda s: _make_signal(side="buy", qty=1.0, strategy="vwap"),
+    )
+    monkeypatch.setitem(
+        _pipeline_mod._STRATEGY_BUILDERS,
+        "ict",
+        lambda s: ict_called.append(True)
+        or _make_signal(side="sell", qty=1.0, strategy="ict"),
+    )
+
+    settings = {"SYMBOL": "BTCUSDT", "MAX_QTY": "1"}
+    signal = multiplexed_signal_builder(settings)
+
+    assert signal["side"] == "buy"
+    assert signal["meta"]["strategy_name"] == "vwap"
+    assert ict_called == [], "ICT must not run when an earlier strategy already fires"
+
+
+def test_multi_strategy_pipeline_ict_fires_when_others_flat(monkeypatch):
+    """When breakout and VWAP both return flat, ICT (last in the list)
+    is invoked and its actionable signal is returned."""
+    monkeypatch.setitem(
+        _pipeline_mod._STRATEGY_BUILDERS,
+        "breakout_confirmation",
+        lambda s: _flat_signal(),
+    )
+    monkeypatch.setitem(
+        _pipeline_mod._STRATEGY_BUILDERS,
+        "vwap",
+        lambda s: _flat_signal(),
+    )
+    monkeypatch.setitem(
+        _pipeline_mod._STRATEGY_BUILDERS,
+        "ict",
+        lambda s: _make_signal(side="buy", qty=2.5, strategy="ict"),
+    )
+
+    settings = {"SYMBOL": "BTCUSDT", "MAX_QTY": "2.5"}
+    signal = multiplexed_signal_builder(settings)
+
+    assert signal["side"] == "buy"
+    assert signal["qty"] == 2.5
+    assert signal["meta"]["strategy_name"] == "ict"
 
 
 def test_multi_strategy_pipeline_first_wins(monkeypatch):
