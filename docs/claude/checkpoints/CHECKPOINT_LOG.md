@@ -10,6 +10,84 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-28-13 — M7 Phase 2.5: wire ict_signal_builder into pipeline
+
+- **Session date:** 2026-04-28
+- **Sprint:** sprint-plan-2026-04-28
+- **Current sprint phase:** Phase 3 — M7 Phase 2 (ICT runtime port)
+- **Last completed checkpoint:** CP-2026-04-28-12 (PR #52 merged — pure
+  ICT signal-builder factory).
+- **Next checkpoint:** **CP-2026-04-28-14 — add `"ict"` to the
+  multiplexer `STRATEGIES` order in `src/runtime/pipeline.py`** (and
+  decide its position relative to `breakout_confirmation` / `vwap`).
+  Owner: Claude. Cheap PR, but needs a deliberate ordering call — the
+  multiplexer returns the first actionable signal so order matters.
+  Likely position: after `vwap` (most conservative — only fires when
+  ICT bias + kill-zone + entry-zone all align). Add a multiplexer test
+  asserting the ordering.
+
+### Completed
+- Added `ict_signal_builder(settings)` runtime adapter in
+  `src/runtime/pipeline.py`. Mirrors `vwap_signal_builder` shape:
+  fetches OHLCV via `_build_killzone_exchange(settings).get_ohlcv()`,
+  coerces the payload into a UTC `DatetimeIndex` frame (the ICT
+  analyzer requires this for kill-zone derivation), optionally fetches
+  a higher-timeframe frame, and delegates to the **pure**
+  `src.runtime.strategies.ict.build_ict_signal` factory.
+- Helper `_coerce_ohlcv_with_dt_index(raw)` accepts list-of-rows,
+  `DataFrame` with `timestamp` column, or a pre-indexed frame.
+- Registered `"ict"` in `_STRATEGY_BUILDERS` and added
+  `STRATEGY=ict` routing in `run_pipeline()`. Multiplexer `STRATEGIES`
+  list intentionally **untouched** (own checkpoint per ops rules).
+- New optional settings: `ICT_TIMEFRAME`, `ICT_HTF_TIMEFRAME`,
+  `ICT_CANDLE_LIMIT`, `ICT_HTF_CANDLE_LIMIT`. All previously-defined
+  `ICT_*` knobs from `build_ict_signal` pass through unchanged.
+- HTF fallback: raising HTF fetch is logged + swallowed so the
+  strategy frame still drives the trend gate.
+- Added 10 unit tests in `tests/test_runtime_ict.py` covering:
+  registration (`"ict"` in registry but not in multiplexer order),
+  three coercion paths plus the missing-timestamp error, happy-path
+  bullish FVG → `buy`, timeframe / limit overrides, HTF fetch routing
+  (asserts second `get_ohlcv` call), HTF graceful fallback, and the
+  no-candles `RuntimeError` path. Uses a `FakeExchange` patched in
+  via `monkeypatch` — no network.
+
+### Files changed
+- `src/runtime/pipeline.py` (additive: new function, registration,
+  routing branch, coercion helper)
+- `tests/test_runtime_ict.py` (new)
+
+### Tests run
+- `python scripts/repo_inventory.py` — clean.
+- `python scripts/secret_scan.py` — clean.
+- Targeted: `pytest tests/test_runtime_ict.py -q` → 10/10.
+- Full: `pytest -q --ignore=tests/test_main_loop.py tests`
+  → **312 passed**, 23 failed (pre-existing in `test_runtime_*`,
+  unchanged), 2 skipped. Test count delta vs CP-12: **+10** (matches
+  new file).
+- **Regression check:** stashed the `pipeline.py` edit and re-ran the
+  suite (excluding `test_runtime_ict.py`) → 23 failed / 302 passed,
+  identical to the CP-12 baseline. PR introduces zero regressions.
+
+### Remaining
+- **CP-14:** decide and apply multiplexer ordering for `"ict"` in
+  `STRATEGIES`. Add multiplexer test.
+- Backlog items 8/9 (VWAP) remain Colab/Ben-owned.
+- The 23 pre-existing `test_runtime_*` failures still need their own
+  cleanup checkpoint (out of M7 scope).
+
+### Next checkpoint
+CP-2026-04-28-14 — multiplexer ordering for `"ict"`. Branch:
+`feat/m7-ict-multiplexer-order`. Read `STRATEGIES` and `multiplexed_signal_builder` in `pipeline.py`; pick a position; add a focused
+test patching `_STRATEGY_BUILDERS` so the test does not need real
+data.
+
+**PR:** [#53](https://github.com/the-lizardking/ict-trading-bot/pull/53) — `feat/m7-ict-pipeline-wire` (open, awaiting review/merge).
+
+**Telegram sent:** yes
+
+---
+
 ## CP-2026-04-28-12 — M7 Phase 2.4: ICT signal-builder factory
 
 - **Session date:** 2026-04-28

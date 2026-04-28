@@ -209,6 +209,139 @@ def breakout_model_signal_builder(settings: dict) -> Dict[str, Any]:
 
 
 
+def ict_signal_builder(settings: dict) -> Dict[str, Any]:
+    """
+    Runtime adapter for the M7 ICT strategy (M7 Phase 2.5).
+
+    Pulls OHLCV candles from the configured exchange and delegates the
+    actual signal logic to the **pure** factory in
+    ``src.runtime.strategies.ict.build_ict_signal``. This thin adapter
+    keeps the live-data plumbing in one place (mirroring
+    ``vwap_signal_builder``) and lets the strategy itself stay pure and
+    unit-testable.
+
+    Settings recognised
+    -------------------
+    - ``SYMBOL`` / ``symbol`` — trading pair (default: same default the
+      kill-zone helper uses for the configured exchange).
+    - ``TIMEFRAME`` / ``timeframe`` — candle timeframe (default ``"15m"``).
+    - ``ICT_TIMEFRAME`` — overrides ``TIMEFRAME`` for the strategy frame.
+    - ``ICT_HTF_TIMEFRAME`` — optional higher-timeframe used **only** for
+      the trend bias gate (e.g. ``"1h"``). When unset the function
+      reuses the strategy frame.
+    - ``ICT_CANDLE_LIMIT`` — number of candles to fetch (default ``200``,
+      enough to seed a 50-period EMA plus headroom).
+    - ``ICT_HTF_CANDLE_LIMIT`` — candle count for the HTF frame (default
+      ``200``).
+    - all the ``ICT_*`` knobs forwarded by ``build_ict_signal`` (see
+      ``src/runtime/strategies/ict.py``) pass through unchanged.
+
+    Safe under ``DRY_RUN=true`` because it never places orders — only
+    fetches market data — and ``safe_place_order`` enforces the actual
+    no-trade contract downstream.
+    """
+    from src.runtime.strategies.ict import build_ict_signal
+
+    symbol = _killzone_symbol(settings)
+    timeframe = settings.get(
+        "ICT_TIMEFRAME",
+        settings.get("TIMEFRAME", settings.get("timeframe", "15m")),
+    )
+    htf_timeframe = settings.get("ICT_HTF_TIMEFRAME")
+    candle_limit = int(settings.get("ICT_CANDLE_LIMIT", 200) or 200)
+    htf_candle_limit = int(
+        settings.get("ICT_HTF_CANDLE_LIMIT", 200) or 200
+    )
+
+    exchange = _build_killzone_exchange(settings)
+    candles_raw = exchange.get_ohlcv(symbol, timeframe, limit=candle_limit)
+
+    if candles_raw is None or (
+        hasattr(candles_raw, "__len__") and len(candles_raw) == 0
+    ):
+        raise RuntimeError(
+            f"ICT strategy: no candle data returned for symbol={symbol} "
+            f"timeframe={timeframe}. Check exchange configuration and "
+            "that the symbol is valid."
+        )
+
+    candles_df = _coerce_ohlcv_with_dt_index(candles_raw)
+
+    htf_df = None
+    if htf_timeframe:
+        try:
+            htf_raw = exchange.get_ohlcv(
+                symbol, htf_timeframe, limit=htf_candle_limit
+            )
+        except Exception as exc:
+            logger.warning(
+                "ICT strategy: HTF fetch failed (%s) — falling back to "
+                "strategy frame for trend gate",
+                exc,
+            )
+            htf_raw = None
+        if htf_raw is not None and (
+            not hasattr(htf_raw, "__len__") or len(htf_raw) > 0
+        ):
+            htf_df = _coerce_ohlcv_with_dt_index(htf_raw)
+
+    settings_for_builder = dict(settings)
+    settings_for_builder.setdefault("SYMBOL", symbol)
+
+    logger.info(
+        "ICT signal builder: symbol=%s timeframe=%s candles=%d htf=%s",
+        symbol,
+        timeframe,
+        len(candles_df),
+        htf_timeframe or "(reuse)",
+    )
+
+    return build_ict_signal(
+        candles_df,
+        settings=settings_for_builder,
+        htf_df=htf_df,
+    )
+
+
+def _coerce_ohlcv_with_dt_index(raw: Any) -> pd.DataFrame:
+    """
+    Normalise raw exchange OHLCV into a DataFrame with a UTC
+    ``DatetimeIndex``.
+
+    The ICT analyzer requires a DatetimeIndex (kill-zones are derived
+    from ``df.index.hour``). We accept either:
+
+    - a list of ``[ts_ms, open, high, low, close, volume]`` rows
+      (the ccxt / Bybit / Binance native shape), or
+    - a DataFrame already containing a ``timestamp`` column in ms or a
+      DatetimeIndex.
+    """
+    if isinstance(raw, pd.DataFrame):
+        df = raw.copy()
+    else:
+        df = pd.DataFrame(
+            raw,
+            columns=["timestamp", "open", "high", "low", "close", "volume"],
+        )
+
+    if not isinstance(df.index, pd.DatetimeIndex):
+        if "timestamp" not in df.columns:
+            raise RuntimeError(
+                "ICT strategy: candle frame is missing a 'timestamp' "
+                "column and has no DatetimeIndex."
+            )
+        df["timestamp"] = pd.to_datetime(
+            df["timestamp"], unit="ms", utc=True
+        )
+        df = df.set_index("timestamp")
+
+    for col in ("open", "high", "low", "close", "volume"):
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    return df
+
+
 def _write_ict_signals_from_meta(signal: dict, settings: dict) -> None:
     """Write individual ICT detections even when no trade is taken."""
     if not isinstance(signal, dict):
@@ -271,6 +404,10 @@ _STRATEGY_BUILDERS: Dict[str, Callable[[dict], Dict[str, Any]]] = {
     "breakout_confirmation": breakout_model_signal_builder,
     "vwap": vwap_signal_builder,
     "killzone": killzone_signal_builder,
+    # M7 Phase 2.5: registered for direct STRATEGY=ict selection. Adding
+    # it to the multiplexer order (STRATEGIES, above) is intentionally
+    # deferred to its own checkpoint — see CHECKPOINT_LOG.md.
+    "ict": ict_signal_builder,
 }
 
 
@@ -325,6 +462,8 @@ def run_pipeline(
         builder = vwap_signal_builder
     elif strategy_name == "breakout":
         builder = breakout_model_signal_builder
+    elif strategy_name == "ict":
+        builder = ict_signal_builder
     else:
         builder = killzone_signal_builder
 
