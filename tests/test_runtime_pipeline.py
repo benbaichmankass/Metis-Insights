@@ -2,7 +2,13 @@ import pandas as pd
 import pytest
 
 from src.core.automated_trading_loop import KillZoneScalperBot
-from src.runtime.pipeline import killzone_signal_builder, run_pipeline
+from src.runtime.pipeline import (
+    STRATEGIES,
+    killzone_signal_builder,
+    multiplexed_signal_builder,
+    run_pipeline,
+)
+import src.runtime.pipeline as _pipeline_mod
 
 
 class DummyExchangeClient:
@@ -351,3 +357,137 @@ def test_pipeline_runs_normally_when_not_halted(tmp_path, monkeypatch):
 
     assert result["order_result"]["status"] == "simulated"
     assert exchange.calls == []
+
+
+# ---------------------------------------------------------------------------
+# Strategy multiplexer tests
+# ---------------------------------------------------------------------------
+
+def _make_signal(side="buy", qty=1.0, strategy="test"):
+    return {"symbol": "BTCUSDT", "side": side, "qty": qty,
+            "meta": {"strategy_name": strategy}}
+
+
+def _flat_signal(symbol="BTCUSDT"):
+    return {"symbol": symbol, "side": "none", "qty": 0}
+
+
+def test_multi_strategy_pipeline_strategies_list_contains_expected_strategies():
+    assert "breakout_confirmation" in STRATEGIES
+    assert "vwap" in STRATEGIES
+
+
+def test_multi_strategy_pipeline_first_wins(monkeypatch):
+    """First strategy returns actionable; second builder must not be called."""
+    second_called = []
+
+    monkeypatch.setitem(
+        _pipeline_mod._STRATEGY_BUILDERS,
+        "breakout_confirmation",
+        lambda s: _make_signal(side="buy", qty=1.0, strategy="breakout_confirmation"),
+    )
+    monkeypatch.setitem(
+        _pipeline_mod._STRATEGY_BUILDERS,
+        "vwap",
+        lambda s: second_called.append(True) or _make_signal(side="sell", qty=1.0, strategy="vwap"),
+    )
+
+    settings = {"SYMBOL": "BTCUSDT", "MAX_QTY": "1"}
+    signal = multiplexed_signal_builder(settings)
+
+    assert signal["side"] == "buy"
+    assert signal["meta"]["strategy_name"] == "breakout_confirmation"
+    assert second_called == [], "second strategy must not be invoked when first fires"
+
+
+def test_multi_strategy_pipeline_fallback_to_second(monkeypatch):
+    """First strategy flat; second produces the actionable signal."""
+    monkeypatch.setitem(
+        _pipeline_mod._STRATEGY_BUILDERS,
+        "breakout_confirmation",
+        lambda s: _flat_signal(),
+    )
+    monkeypatch.setitem(
+        _pipeline_mod._STRATEGY_BUILDERS,
+        "vwap",
+        lambda s: _make_signal(side="sell", qty=2.0, strategy="vwap"),
+    )
+
+    settings = {"SYMBOL": "BTCUSDT", "MAX_QTY": "2"}
+    signal = multiplexed_signal_builder(settings)
+
+    assert signal["side"] == "sell"
+    assert signal["qty"] == 2.0
+    assert signal["meta"]["strategy_name"] == "vwap"
+
+
+def test_multi_strategy_pipeline_no_signal_when_all_flat(monkeypatch):
+    """All strategies flat → side=none returned."""
+    monkeypatch.setitem(_pipeline_mod._STRATEGY_BUILDERS, "breakout_confirmation", lambda s: _flat_signal())
+    monkeypatch.setitem(_pipeline_mod._STRATEGY_BUILDERS, "vwap", lambda s: _flat_signal())
+
+    settings = {"SYMBOL": "BTCUSDT"}
+    signal = multiplexed_signal_builder(settings)
+
+    assert signal["side"] == "none"
+    assert float(signal["qty"]) == 0
+
+
+def test_multi_strategy_pipeline_skips_erroring_strategy(monkeypatch):
+    """Strategy that raises is skipped; next strategy wins."""
+    monkeypatch.setitem(
+        _pipeline_mod._STRATEGY_BUILDERS,
+        "breakout_confirmation",
+        lambda s: (_ for _ in ()).throw(RuntimeError("exchange down")),
+    )
+    monkeypatch.setitem(
+        _pipeline_mod._STRATEGY_BUILDERS,
+        "vwap",
+        lambda s: _make_signal(side="buy", qty=1.0, strategy="vwap"),
+    )
+
+    settings = {"SYMBOL": "BTCUSDT", "MAX_QTY": "1"}
+    signal = multiplexed_signal_builder(settings)
+
+    assert signal["side"] == "buy"
+    assert signal["meta"]["strategy_name"] == "vwap"
+
+
+def test_multi_strategy_pipeline_per_strategy_sizing_no_compounding(monkeypatch):
+    """Each strategy uses its own qty; quantities must not be summed."""
+    monkeypatch.setitem(
+        _pipeline_mod._STRATEGY_BUILDERS,
+        "breakout_confirmation",
+        lambda s: _make_signal(side="buy", qty=3.0, strategy="breakout_confirmation"),
+    )
+    monkeypatch.setitem(
+        _pipeline_mod._STRATEGY_BUILDERS,
+        "vwap",
+        lambda s: _make_signal(side="buy", qty=5.0, strategy="vwap"),
+    )
+
+    settings = {"SYMBOL": "BTCUSDT", "MAX_QTY": "3"}
+    signal = multiplexed_signal_builder(settings)
+
+    # Only the first-winning strategy qty is returned, no summing
+    assert signal["qty"] == 3.0
+    assert signal["meta"]["strategy_name"] == "breakout_confirmation"
+
+
+def test_multi_strategy_pipeline_via_env_var(monkeypatch):
+    """STRATEGY=multiplexed env var activates the multiplexer through run_pipeline."""
+    monkeypatch.setenv("STRATEGY", "multiplexed")
+    monkeypatch.setitem(
+        _pipeline_mod._STRATEGY_BUILDERS,
+        "breakout_confirmation",
+        lambda s: _make_signal(side="buy", qty=1.0, strategy="breakout_confirmation"),
+    )
+
+    settings = {"SYMBOL": "BTCUSDT", "DRY_RUN": "true", "MAX_QTY": "1"}
+    telegram = DummyTelegramClient()
+
+    result = run_pipeline(settings, telegram_client=telegram)
+
+    assert result["signal"]["side"] == "buy"
+    assert result["signal"]["meta"]["strategy_name"] == "breakout_confirmation"
+    assert result["order_result"]["status"] == "simulated"
