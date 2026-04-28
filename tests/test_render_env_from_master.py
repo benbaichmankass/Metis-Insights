@@ -2,12 +2,13 @@
 Tests for scripts/render_env_from_master.py
 
 Uses only fake/mock data — no real secrets, no sops binary, no network calls.
+
+Post-CP-17: paper / colab / oracle_paper / vwap_btcusd_dry_run profiles have
+been removed. Only the live profiles (`live`, `vwap_btcusd_live`) remain.
 """
 from __future__ import annotations
 
-import stat
 import sys
-import textwrap
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -38,22 +39,7 @@ mod = _import_module()
 
 FAKE_DATA = {
     "profiles": {
-        "paper":        {"exchange": "bybit"},
-        "colab":        {"exchange": "bybit"},
-        "oracle_paper": {"exchange": "bybit"},
-        "live":         {"exchange": "bybit"},
-        "vwap_btcusd_dry_run": {
-            "environment": "production",
-            "exchange":    "bybit",
-            "mode":        "paper",
-            "dry_run":     "true",
-            "allow_live_trading": "false",
-            "bybit_testnet": "false",
-            "telegram_profile": "dev",
-            "bybit_account":   "vwap_strategy",
-            "strategy_profile": "vwap_btcusd",
-            "risk_profile":     "vwap_btcusd",
-        },
+        "live": {"exchange": "bybit"},
         "vwap_btcusd_live": {
             "environment": "production",
             "exchange":    "bybit",
@@ -72,25 +58,15 @@ FAKE_DATA = {
         "prod": {"bot_token": "fake_prod_token", "chat_id": "fake_prod_chat"},
     },
     "bybit": {
-        "testnet": {
-            "api_key":    "fake_testnet_key",
-            "api_secret": "fake_testnet_secret",
-            "base_url":   "https://api-testnet.bybit.com",
-        },
         "live": {
             "api_key":    "fake_live_key",
             "api_secret": "fake_live_secret",
             "base_url":   "https://api.bybit.com",
         },
-        "current_account": {
-            "api_key":    "fake_current_key",
-            "api_secret": "fake_current_secret",
-            "account_note": "Current/main Bybit account",
-        },
         "vwap_strategy": {
             "api_key":    "fake_vwap_subaccount_key",
             "api_secret": "fake_vwap_subaccount_secret",
-            "account_note": "VWAP_STrategy subaccount",
+            "account_note": "VWAP strategy subaccount",
         },
         "active_strategy_account": "vwap_strategy",
     },
@@ -111,11 +87,6 @@ FAKE_DATA = {
         "dataset_repo": "fake_user/ict-bot-data",
         "model_repo":  "fake_user/ict-bot-model",
     },
-    "oracle": {
-        "host":      "1.2.3.4",
-        "username":  "ubuntu",
-        "repo_path": "/home/ubuntu/ict-trading-bot",
-    },
     "runtime_defaults": {
         "symbol":    "BTCUSDT",
         "timeframe": "1m",
@@ -125,11 +96,6 @@ FAKE_DATA = {
         "db_path":   "data/trading.db",
     },
     "risk": {
-        "paper": {
-            "max_position_usd":  "100",
-            "max_daily_loss_usd": "20",
-            "risk_per_trade":    "0.01",
-        },
         "live": {
             "max_position_usd":  "500",
             "max_daily_loss_usd": "50",
@@ -147,16 +113,51 @@ FAKE_DATA = {
 
 
 # ---------------------------------------------------------------------------
+# Module-level guarantees: paper surfaces are gone
+# ---------------------------------------------------------------------------
+
+class TestNoPaperSurfaces:
+    """Regression tests asserting paper / dry-run profiles can no longer be
+    rendered from this script. These are the structural guard-rails for the
+    'no paper trading anywhere' directive."""
+
+    def test_profiles_tuple_is_live_only(self):
+        assert mod.PROFILES == ("live", "vwap_btcusd_live")
+
+    def test_every_profile_is_a_live_profile(self):
+        # By design, LIVE_PROFILES == PROFILES post-CP-17.
+        assert set(mod.LIVE_PROFILES) == set(mod.PROFILES)
+
+    def test_paper_builders_removed(self):
+        for name in (
+            "build_paper",
+            "build_colab",
+            "build_oracle_paper",
+            "build_vwap_btcusd_dry_run",
+            "_build_vwap_btcusd",
+        ):
+            assert not hasattr(mod, name), f"{name} should have been removed in CP-17"
+
+    def test_builders_dict_is_live_only(self):
+        assert set(mod.BUILDERS.keys()) == {"live", "vwap_btcusd_live"}
+
+    def test_check_env_paper_script_deleted(self):
+        # Hard guarantee that the paper smoke-test script is gone from disk.
+        repo_root = Path(__file__).resolve().parents[1]
+        assert not (repo_root / "scripts" / "check_env_paper.py").exists()
+
+
+# ---------------------------------------------------------------------------
 # _get helper
 # ---------------------------------------------------------------------------
 
 class TestGet:
     def test_nested_key_found(self):
-        assert mod._get(FAKE_DATA, "bybit.testnet.api_key") == "fake_testnet_key"
+        assert mod._get(FAKE_DATA, "bybit.live.api_key") == "fake_live_key"
 
     def test_missing_required_exits(self):
         with pytest.raises(SystemExit) as exc:
-            mod._get(FAKE_DATA, "bybit.testnet.nonexistent")
+            mod._get(FAKE_DATA, "bybit.live.nonexistent")
         assert "nonexistent" in str(exc.value).lower() or exc.value.code != 0
 
     def test_placeholder_exits(self):
@@ -165,77 +166,12 @@ class TestGet:
             mod._get(data, "key.val")
 
     def test_optional_missing_returns_none(self):
-        result = mod._get_optional(FAKE_DATA, "does.not.exist")
-        assert result is None
+        assert mod._get_optional(FAKE_DATA, "does.not.exist") is None
 
 
 # ---------------------------------------------------------------------------
-# Profile builders — check variable names only, never print values
+# Live profile
 # ---------------------------------------------------------------------------
-
-class TestPaperProfile:
-    def test_expected_keys_present(self):
-        pairs = mod.build_paper(FAKE_DATA)
-        keys = {k for k, _ in pairs}
-        expected = {
-            "ENVIRONMENT", "EXCHANGE", "MODE", "DRY_RUN", "ALLOW_LIVE_TRADING",
-            "TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID",
-            "BYBIT_TESTNET_API_KEY", "BYBIT_TESTNET_API_SECRET", "BYBIT_TESTNET_BASE_URL",
-            "HF_USERNAME", "HF_TOKEN", "HF_DATASET_REPO", "HF_MODEL_REPO",
-            "SYMBOL", "TIMEFRAME",
-            "MAX_POSITION_USD", "MAX_DAILY_LOSS_USD", "RISK_PER_TRADE",
-        }
-        assert expected.issubset(keys)
-
-    def test_environment_is_local(self):
-        pairs = dict(mod.build_paper(FAKE_DATA))
-        assert pairs["ENVIRONMENT"] == "local"
-
-    def test_dry_run_true(self):
-        pairs = dict(mod.build_paper(FAKE_DATA))
-        assert pairs["DRY_RUN"] == "true"
-
-    def test_no_live_keys(self):
-        pairs = mod.build_paper(FAKE_DATA)
-        keys = {k for k, _ in pairs}
-        assert "BYBIT_API_KEY" not in keys
-        assert "BYBIT_API_SECRET" not in keys
-
-
-class TestColabProfile:
-    def test_expected_keys_present(self):
-        pairs = mod.build_colab(FAKE_DATA)
-        keys = {k for k, _ in pairs}
-        expected = {
-            "ENVIRONMENT", "EXCHANGE", "MODE", "DRY_RUN", "ALLOW_LIVE_TRADING",
-            "GITHUB_PAT",
-            "HF_USERNAME", "HF_TOKEN",
-            "TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID",
-            "BYBIT_TESTNET_API_KEY", "BYBIT_TESTNET_API_SECRET", "BYBIT_TESTNET_BASE_URL",
-        }
-        assert expected.issubset(keys)
-
-    def test_environment_is_colab(self):
-        pairs = dict(mod.build_colab(FAKE_DATA))
-        assert pairs["ENVIRONMENT"] == "colab"
-
-
-class TestOraclePaperProfile:
-    def test_expected_keys_present(self):
-        pairs = mod.build_oracle_paper(FAKE_DATA)
-        keys = {k for k, _ in pairs}
-        expected = {
-            "ENVIRONMENT", "EXCHANGE", "MODE", "DRY_RUN", "ALLOW_LIVE_TRADING",
-            "ORACLE_HOST", "ORACLE_USERNAME", "ORACLE_REPO_PATH",
-            "TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID",
-            "BYBIT_TESTNET_API_KEY", "BYBIT_TESTNET_API_SECRET",
-        }
-        assert expected.issubset(keys)
-
-    def test_environment_is_oracle(self):
-        pairs = dict(mod.build_oracle_paper(FAKE_DATA))
-        assert pairs["ENVIRONMENT"] == "oracle"
-
 
 class TestLiveProfile:
     def test_expected_keys_present(self):
@@ -252,14 +188,110 @@ class TestLiveProfile:
         pairs = dict(mod.build_live(FAKE_DATA))
         assert pairs["ENVIRONMENT"] == "production"
 
+    def test_mode_is_live_uppercase(self):
+        pairs = dict(mod.build_live(FAKE_DATA))
+        assert pairs["MODE"] == "LIVE"
+        assert pairs["MODE"].lower() != "paper"
+
+    def test_dry_run_false(self):
+        pairs = dict(mod.build_live(FAKE_DATA))
+        assert pairs["DRY_RUN"] == "false"
+
     def test_allow_live_trading_true(self):
         pairs = dict(mod.build_live(FAKE_DATA))
         assert pairs["ALLOW_LIVE_TRADING"] == "true"
 
     def test_no_testnet_keys(self):
-        pairs = mod.build_live(FAKE_DATA)
-        keys = {k for k, _ in pairs}
+        keys = {k for k, _ in mod.build_live(FAKE_DATA)}
         assert "BYBIT_TESTNET_API_KEY" not in keys
+        assert "BYBIT_TESTNET_API_SECRET" not in keys
+
+
+# ---------------------------------------------------------------------------
+# vwap_btcusd_live profile
+# ---------------------------------------------------------------------------
+
+class TestVwapBtcusdLiveProfile:
+    def test_expected_keys_present(self):
+        pairs = mod.build_vwap_btcusd_live(FAKE_DATA)
+        keys = {k for k, _ in pairs}
+        expected = {
+            "ENVIRONMENT", "EXCHANGE", "MODE", "DRY_RUN", "ALLOW_LIVE_TRADING",
+            "BYBIT_TESTNET",
+            "STRATEGY", "SYMBOL", "TIMEFRAME",
+            "BYBIT_API_KEY", "BYBIT_API_SECRET",
+            "TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID",
+            "MAX_POSITION_USD", "MAX_DAILY_LOSS_USD", "RISK_PER_TRADE",
+            "MAX_QTY", "MAX_OPEN_POSITIONS",
+        }
+        assert expected.issubset(keys)
+
+    def test_safety_flag_values(self):
+        pairs = dict(mod.build_vwap_btcusd_live(FAKE_DATA))
+        assert pairs["MODE"] == "LIVE"
+        assert pairs["DRY_RUN"] == "false"
+        assert pairs["ALLOW_LIVE_TRADING"] == "true"
+        assert pairs["BYBIT_TESTNET"] == "false"
+        assert pairs["STRATEGY"] == "vwap"
+        assert pairs["SYMBOL"] == "BTCUSD"
+        assert pairs["TIMEFRAME"] == "1m"
+
+    def test_uses_prod_telegram(self):
+        pairs = dict(mod.build_vwap_btcusd_live(FAKE_DATA))
+        assert pairs["TELEGRAM_BOT_TOKEN"] == FAKE_DATA["telegram"]["prod"]["bot_token"]
+        assert pairs["TELEGRAM_CHAT_ID"] == FAKE_DATA["telegram"]["prod"]["chat_id"]
+
+    def test_uses_vwap_strategy_subaccount_keys(self):
+        pairs = dict(mod.build_vwap_btcusd_live(FAKE_DATA))
+        # Must come from bybit.vwap_strategy, not bybit.live
+        assert pairs["BYBIT_API_KEY"] == FAKE_DATA["bybit"]["vwap_strategy"]["api_key"]
+        assert pairs["BYBIT_API_SECRET"] == FAKE_DATA["bybit"]["vwap_strategy"]["api_secret"]
+        # And specifically not from the parent-account live keys
+        assert pairs["BYBIT_API_KEY"] != FAKE_DATA["bybit"]["live"]["api_key"]
+        assert pairs["BYBIT_API_SECRET"] != FAKE_DATA["bybit"]["live"]["api_secret"]
+
+    def test_no_testnet_keys_in_output(self):
+        keys = {k for k, _ in mod.build_vwap_btcusd_live(FAKE_DATA)}
+        assert "BYBIT_TESTNET_API_KEY" not in keys
+        assert "BYBIT_TESTNET_API_SECRET" not in keys
+
+
+class TestVwapBtcusdMissingCredentials:
+    def _data_without(self, *paths):
+        import copy
+        data = copy.deepcopy(FAKE_DATA)
+        for p in paths:
+            node = data
+            parts = p.split(".")
+            for part in parts[:-1]:
+                node = node[part]
+            node.pop(parts[-1], None)
+        return data
+
+    def test_missing_api_key_fails_with_field_name(self):
+        data = self._data_without("bybit.vwap_strategy.api_key")
+        with pytest.raises(SystemExit) as exc:
+            mod.build_vwap_btcusd_live(data)
+        msg = str(exc.value)
+        assert "bybit.vwap_strategy.api_key" in msg
+        # Field name only — the value (which is absent here anyway) must not appear
+        assert "fake_vwap_subaccount" not in msg
+
+    def test_missing_api_secret_fails_with_field_name(self):
+        data = self._data_without("bybit.vwap_strategy.api_secret")
+        with pytest.raises(SystemExit) as exc:
+            mod.build_vwap_btcusd_live(data)
+        assert "bybit.vwap_strategy.api_secret" in str(exc.value)
+
+    def test_placeholder_api_key_fails_with_field_name_only(self):
+        import copy
+        data = copy.deepcopy(FAKE_DATA)
+        data["bybit"]["vwap_strategy"]["api_key"] = "REPLACE_ME_BYBIT_VWAP_STRATEGY_SUBACCOUNT_API_KEY"
+        with pytest.raises(SystemExit) as exc:
+            mod.build_vwap_btcusd_live(data)
+        msg = str(exc.value)
+        assert "bybit.vwap_strategy.api_key" in msg
+        assert "REPLACE_ME_BYBIT_VWAP_STRATEGY_SUBACCOUNT_API_KEY" not in msg
 
 
 # ---------------------------------------------------------------------------
@@ -269,20 +301,20 @@ class TestLiveProfile:
 class TestPlaceholderValidation:
     def test_replace_me_fails(self):
         data = {
-            "profiles": {"paper": {"exchange": "REPLACE_ME"}},
-            "telegram": {"dev": {"bot_token": "tok", "chat_id": "cid"}},
+            "profiles": {"live": {"exchange": "REPLACE_ME"}},
+            "telegram": {"prod": {"bot_token": "tok", "chat_id": "cid"}},
             "bybit": {
-                "testnet": {
+                "live": {
                     "api_key": "k", "api_secret": "s",
-                    "base_url": "https://api-testnet.bybit.com",
+                    "base_url": "https://api.bybit.com",
                 }
             },
             "huggingface": {},
             "runtime_defaults": {},
-            "risk": {"paper": {}},
+            "risk": {"live": {}},
         }
         with pytest.raises(SystemExit):
-            mod.build_paper(data)
+            mod.build_live(data)
 
     def test_empty_string_fails(self):
         with pytest.raises(SystemExit):
@@ -290,25 +322,25 @@ class TestPlaceholderValidation:
 
 
 # ---------------------------------------------------------------------------
-# write_env_file — output must not contain secret values in our fake dataset
+# write_env_file — output formatting
 # ---------------------------------------------------------------------------
 
 class TestWriteEnvFile:
     def test_file_created(self, tmp_path):
-        out = tmp_path / ".env.paper"
-        pairs = [("ENVIRONMENT", "local"), ("MODE", "paper")]
+        out = tmp_path / ".env.live"
+        pairs = [("ENVIRONMENT", "production"), ("MODE", "LIVE")]
         mod.write_env_file(out, pairs)
         assert out.exists()
 
     def test_file_permissions(self, tmp_path):
-        out = tmp_path / ".env.paper"
-        pairs = [("ENVIRONMENT", "local")]
+        out = tmp_path / ".env.live"
+        pairs = [("ENVIRONMENT", "production")]
         mod.write_env_file(out, pairs)
         mode = out.stat().st_mode & 0o777
         assert mode == 0o600
 
     def test_content_format(self, tmp_path):
-        out = tmp_path / ".env.paper"
+        out = tmp_path / ".env.live"
         pairs = [("KEY", "value"), ("SPACED", "hello world")]
         mod.write_env_file(out, pairs)
         text = out.read_text()
@@ -322,17 +354,36 @@ class TestWriteEnvFile:
         mod.write_env_file(out, pairs)
         content = out.read_text()
         assert "FOO=bar123" in content
-        # Keys present, values present for fake data only
-        assert "FOO" in content
 
 
 # ---------------------------------------------------------------------------
-# CLI — live profile requires --allow-live
+# CLI — every supported profile requires --allow-live (all are live)
 # ---------------------------------------------------------------------------
 
 class TestCLILiveGuard:
-    def test_live_without_allow_live_exits(self, tmp_path):
+    @pytest.mark.parametrize("profile", ["live", "vwap_btcusd_live"])
+    def test_profile_without_allow_live_exits(self, tmp_path, profile):
         master = tmp_path / "master-secrets.sops.yaml"
+        master.write_text("fake")
+        age_key = tmp_path / "age-keys.txt"
+        age_key.write_text("fake")
+        out = tmp_path / f".env.{profile}"
+
+        test_args = [
+            "render_env_from_master.py",
+            "--master", str(master),
+            "--age-key-file", str(age_key),
+            "--profile", profile,
+            "--out", str(out),
+            # --allow-live intentionally omitted
+        ]
+        with patch.object(sys, "argv", test_args):
+            with pytest.raises(SystemExit) as exc:
+                mod.main()
+            assert exc.value.code != 0
+
+    def test_plaintext_yaml_rejected(self, tmp_path):
+        master = tmp_path / "master-secrets.yaml"  # not .sops.yaml
         master.write_text("fake")
         age_key = tmp_path / "age-keys.txt"
         age_key.write_text("fake")
@@ -344,26 +395,29 @@ class TestCLILiveGuard:
             "--age-key-file", str(age_key),
             "--profile", "live",
             "--out", str(out),
-            # --allow-live intentionally omitted
+            "--allow-live",
         ]
         with patch.object(sys, "argv", test_args):
             with pytest.raises(SystemExit) as exc:
                 mod.main()
             assert exc.value.code != 0
 
-    def test_plaintext_yaml_rejected(self, tmp_path):
-        master = tmp_path / "master-secrets.yaml"
+    @pytest.mark.parametrize("profile", ["paper", "colab", "oracle_paper", "vwap_btcusd_dry_run"])
+    def test_removed_profiles_rejected_by_argparse(self, tmp_path, profile):
+        """argparse choices=PROFILES must reject removed paper-style profiles."""
+        master = tmp_path / "master-secrets.sops.yaml"
         master.write_text("fake")
         age_key = tmp_path / "age-keys.txt"
         age_key.write_text("fake")
-        out = tmp_path / ".env.paper"
+        out = tmp_path / f".env.{profile}"
 
         test_args = [
             "render_env_from_master.py",
             "--master", str(master),
             "--age-key-file", str(age_key),
-            "--profile", "paper",
+            "--profile", profile,
             "--out", str(out),
+            "--allow-live",
         ]
         with patch.object(sys, "argv", test_args):
             with pytest.raises(SystemExit) as exc:
@@ -380,7 +434,7 @@ class TestDecryptMaster:
     def _mock_yaml():
         """Return a minimal yaml mock that parses a simple mapping."""
         yaml_mock = MagicMock()
-        yaml_mock.safe_load.return_value = {"profiles": {"paper": {"exchange": "bybit"}}}
+        yaml_mock.safe_load.return_value = {"profiles": {"live": {"exchange": "bybit"}}}
         return yaml_mock
 
     def test_sops_called_with_correct_args(self, tmp_path):
@@ -389,7 +443,7 @@ class TestDecryptMaster:
         age_key = tmp_path / "age-keys.txt"
         age_key.write_text("fake")
 
-        fake_yaml = b"profiles:\n  paper:\n    exchange: bybit\n"
+        fake_yaml = b"profiles:\n  live:\n    exchange: bybit\n"
         mock_result = MagicMock()
         mock_result.returncode = 0
         mock_result.stdout = fake_yaml
@@ -432,10 +486,10 @@ class TestNoSecretsInOutput:
     """Verify the rendered env file contains variable names but not raw secret strings
     that only exist in the fake data (not in env var names)."""
 
-    def test_fake_token_not_in_keys_line(self, tmp_path, capsys):
+    def test_fake_token_not_in_keys_line(self, tmp_path):
         """The printed 'Keys:' line should list variable names, not values."""
-        out = tmp_path / ".env.paper"
-        pairs = mod.build_paper(FAKE_DATA)
+        out = tmp_path / ".env.live"
+        pairs = mod.build_live(FAKE_DATA)
         pairs = [(k, v) for k, v in pairs if v is not None]
         mod.write_env_file(out, pairs)
 
@@ -446,136 +500,3 @@ class TestNoSecretsInOutput:
         for _, val in pairs:
             if val and len(val) > 4:
                 assert val not in keys_line
-
-
-# ---------------------------------------------------------------------------
-# VWAP BTCUSD profiles — dry-run + live
-# ---------------------------------------------------------------------------
-
-class TestVwapBtcusdDryRunProfile:
-    def test_expected_keys_present(self):
-        pairs = mod.build_vwap_btcusd_dry_run(FAKE_DATA)
-        keys = {k for k, _ in pairs}
-        expected = {
-            "ENVIRONMENT", "EXCHANGE", "MODE", "DRY_RUN", "ALLOW_LIVE_TRADING",
-            "BYBIT_TESTNET",
-            "STRATEGY", "SYMBOL", "TIMEFRAME",
-            "BYBIT_API_KEY", "BYBIT_API_SECRET",
-            "TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID",
-            "MAX_POSITION_USD", "MAX_DAILY_LOSS_USD", "RISK_PER_TRADE",
-            "MAX_QTY", "MAX_OPEN_POSITIONS",
-        }
-        assert expected.issubset(keys)
-
-    def test_safety_flag_values(self):
-        pairs = dict(mod.build_vwap_btcusd_dry_run(FAKE_DATA))
-        assert pairs["ENVIRONMENT"] == "production"
-        assert pairs["EXCHANGE"] == "bybit"
-        assert pairs["MODE"] == "PAPER"
-        assert pairs["DRY_RUN"] == "true"
-        assert pairs["ALLOW_LIVE_TRADING"] == "false"
-        assert pairs["BYBIT_TESTNET"] == "false"
-        assert pairs["STRATEGY"] == "vwap"
-        assert pairs["SYMBOL"] == "BTCUSD"
-        assert pairs["TIMEFRAME"] == "1m"
-
-    def test_uses_vwap_strategy_subaccount_keys(self):
-        pairs = dict(mod.build_vwap_btcusd_dry_run(FAKE_DATA))
-        # Must come from bybit.vwap_strategy, not bybit.live or bybit.testnet
-        assert pairs["BYBIT_API_KEY"] == FAKE_DATA["bybit"]["vwap_strategy"]["api_key"]
-        assert pairs["BYBIT_API_SECRET"] == FAKE_DATA["bybit"]["vwap_strategy"]["api_secret"]
-        # And specifically not from the parent-account live keys
-        assert pairs["BYBIT_API_KEY"] != FAKE_DATA["bybit"]["live"]["api_key"]
-        assert pairs["BYBIT_API_SECRET"] != FAKE_DATA["bybit"]["live"]["api_secret"]
-
-    def test_uses_dev_telegram(self):
-        pairs = dict(mod.build_vwap_btcusd_dry_run(FAKE_DATA))
-        assert pairs["TELEGRAM_BOT_TOKEN"] == FAKE_DATA["telegram"]["dev"]["bot_token"]
-        assert pairs["TELEGRAM_CHAT_ID"] == FAKE_DATA["telegram"]["dev"]["chat_id"]
-
-    def test_no_testnet_keys_in_output(self):
-        keys = {k for k, _ in mod.build_vwap_btcusd_dry_run(FAKE_DATA)}
-        assert "BYBIT_TESTNET_API_KEY" not in keys
-        assert "BYBIT_TESTNET_API_SECRET" not in keys
-
-
-class TestVwapBtcusdLiveProfile:
-    def test_safety_flag_values(self):
-        pairs = dict(mod.build_vwap_btcusd_live(FAKE_DATA))
-        assert pairs["MODE"] == "LIVE"
-        assert pairs["DRY_RUN"] == "false"
-        assert pairs["ALLOW_LIVE_TRADING"] == "true"
-        assert pairs["BYBIT_TESTNET"] == "false"
-        assert pairs["STRATEGY"] == "vwap"
-        assert pairs["SYMBOL"] == "BTCUSD"
-
-    def test_uses_prod_telegram(self):
-        pairs = dict(mod.build_vwap_btcusd_live(FAKE_DATA))
-        assert pairs["TELEGRAM_BOT_TOKEN"] == FAKE_DATA["telegram"]["prod"]["bot_token"]
-        assert pairs["TELEGRAM_CHAT_ID"] == FAKE_DATA["telegram"]["prod"]["chat_id"]
-
-    def test_uses_vwap_strategy_subaccount_keys(self):
-        pairs = dict(mod.build_vwap_btcusd_live(FAKE_DATA))
-        assert pairs["BYBIT_API_KEY"] == FAKE_DATA["bybit"]["vwap_strategy"]["api_key"]
-        assert pairs["BYBIT_API_SECRET"] == FAKE_DATA["bybit"]["vwap_strategy"]["api_secret"]
-
-
-class TestVwapBtcusdMissingCredentials:
-    def _data_without(self, *paths):
-        import copy
-        data = copy.deepcopy(FAKE_DATA)
-        for p in paths:
-            node = data
-            parts = p.split(".")
-            for part in parts[:-1]:
-                node = node[part]
-            node.pop(parts[-1], None)
-        return data
-
-    def test_missing_api_key_fails_with_field_name(self, capsys):
-        data = self._data_without("bybit.vwap_strategy.api_key")
-        with pytest.raises(SystemExit) as exc:
-            mod.build_vwap_btcusd_dry_run(data)
-        msg = str(exc.value)
-        assert "bybit.vwap_strategy.api_key" in msg
-        # Field name only — the value (which is absent here anyway) must not appear
-        assert "fake_vwap_subaccount" not in msg
-
-    def test_missing_api_secret_fails_with_field_name(self):
-        data = self._data_without("bybit.vwap_strategy.api_secret")
-        with pytest.raises(SystemExit) as exc:
-            mod.build_vwap_btcusd_dry_run(data)
-        assert "bybit.vwap_strategy.api_secret" in str(exc.value)
-
-    def test_placeholder_api_key_fails_with_field_name_only(self):
-        import copy
-        data = copy.deepcopy(FAKE_DATA)
-        data["bybit"]["vwap_strategy"]["api_key"] = "REPLACE_ME_BYBIT_VWAP_STRATEGY_SUBACCOUNT_API_KEY"
-        with pytest.raises(SystemExit) as exc:
-            mod.build_vwap_btcusd_dry_run(data)
-        msg = str(exc.value)
-        assert "bybit.vwap_strategy.api_key" in msg
-        # The placeholder string itself should not be echoed back
-        assert "REPLACE_ME_BYBIT_VWAP_STRATEGY_SUBACCOUNT_API_KEY" not in msg
-
-
-class TestVwapBtcusdCLILiveGuard:
-    def test_vwap_btcusd_live_without_allow_live_exits(self, tmp_path):
-        master = tmp_path / "master-secrets.sops.yaml"
-        master.write_text("fake")
-        age_key = tmp_path / "age-keys.txt"
-        age_key.write_text("fake")
-        out = tmp_path / ".env.vwap_btcusd_live"
-
-        test_args = [
-            "render_env_from_master.py",
-            "--master", str(master),
-            "--age-key-file", str(age_key),
-            "--profile", "vwap_btcusd_live",
-            "--out", str(out),
-            # --allow-live intentionally omitted
-        ]
-        with patch.object(sys, "argv", test_args):
-            with pytest.raises(SystemExit) as exc:
-                mod.main()
-            assert exc.value.code != 0
