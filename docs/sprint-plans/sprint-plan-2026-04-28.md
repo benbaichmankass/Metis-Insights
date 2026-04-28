@@ -7,6 +7,21 @@
 
 ---
 
+## Sprint Checkpoint
+
+Resume state for Claude Code is tracked in
+[`docs/claude/checkpoints/CHECKPOINT_LOG.md`](../claude/checkpoints/CHECKPOINT_LOG.md).
+Rules: [`docs/claude/checkpoint-workflow.md`](../claude/checkpoint-workflow.md).
+
+- **Current sprint phase:** Phase 0 — workflow scaffolding complete, backlog not yet started.
+- **Last completed checkpoint:** `CP-2026-04-28-00` (workflow scaffolding).
+- **Next checkpoint:** `CP-2026-04-28-01` — begin **M1 Auto-deploy timer verification**.
+- **Blocked:** none.
+
+Do not restart from M1 every session — read the checkpoint log first.
+
+---
+
 ## Sprint Theme
 
 Last sprint stabilized the trading runtime and repaired the deployment pipeline. This sprint converts that working infrastructure into **production-grade live trading** (risk caps, kill-switch, multi-strategy support) and trims technical debt that accumulated during the firefighting phase.

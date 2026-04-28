@@ -6,11 +6,30 @@ Lean router for Claude Code sessions in the ICT Trading Bot repo.
 
 Do not load every project document by default. Start with this file, identify the task type, then read only the focused docs listed below.
 
+## Resume rule (read before anything else)
+
+1. Read `docs/claude/checkpoints/CHECKPOINT_LOG.md` — the **most recent entry**
+   tells you exactly where to resume.
+2. Read `docs/claude/checkpoint-workflow.md` for the rules.
+3. Only then read the task-specific docs below.
+
+Do **not** start from the top of the sprint plan. Always resume from the
+latest checkpoint. Work **one task per session**, keep changes **PR-sized**,
+stop and hand off if usage/context/timeout limits are near, and continue the
+sprint even if a previous PR has not been merged yet.
+
+At the **end of every session**, append an entry to the checkpoint log using
+`docs/claude/checkpoints/HANDOFF_TEMPLATE.md`. The entry must contain:
+1. Completed   2. Files changed   3. Tests run   4. Remaining   5. Next checkpoint.
+Then send the Telegram session ping via `scripts/notify_session.py session`
+(and the sprint ping via `... sprint` only if the whole sprint is done).
+
 ## Task routing
 
 | Task | Read |
 |---|---|
-| Any session | `docs/claude/INDEX.md`, then the smallest relevant subset |
+| Any session | `docs/claude/checkpoints/CHECKPOINT_LOG.md`, `docs/claude/checkpoint-workflow.md`, `docs/claude/INDEX.md` |
+| End-of-session handoff | `docs/claude/checkpoint-workflow.md`, `docs/claude/checkpoints/HANDOFF_TEMPLATE.md` |
 | Bug fix / regression | `docs/claude/session-workflow.md`, `docs/claude/debug-memory.md`, `docs/claude/testing-policy.md` |
 | Repo cleanup | `docs/claude/cleanup-policy.md`, `docs/claude/cleanup-report.md` |
 | ML model work | `docs/claude/ml-training-policy.md`, `docs/claude/external-delegation.md` |

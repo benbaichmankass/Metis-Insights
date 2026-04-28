@@ -2,6 +2,9 @@
 
 Use this directory as Claude Code's task-specific memory. The root `CLAUDE.md` routes here.
 
+**Always start a session by reading `checkpoints/CHECKPOINT_LOG.md` first** —
+it tells you exactly where to resume. See `checkpoint-workflow.md` for the rules.
+
 ## Update-as-you-go rule
 
 Every session must end by updating the smallest relevant doc when it learns something durable:
@@ -17,6 +20,9 @@ Remove stale instructions when they waste context.
 
 ## Files
 
+- `checkpoint-workflow.md`: **read first.** Resume rules, stop rules, handoff format.
+- `checkpoints/CHECKPOINT_LOG.md`: append-only log of session handoffs (source of truth for "where to resume").
+- `checkpoints/HANDOFF_TEMPLATE.md`: template every session copies into the log at the end.
 - `session-workflow.md`: start/middle/end checklist.
 - `repo-map.md`: high-level structure and entry points.
 - `debug-memory.md`: recurring bugs and known fixes.
