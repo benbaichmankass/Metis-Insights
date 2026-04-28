@@ -10,6 +10,43 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-29-03 — PR 3: daily operational heartbeat
+
+- **Session date:** 2026-04-28
+- **Sprint:** sprint-plan-2026-04-29 (operational-hardening)
+- **Current sprint phase:** PR 3 — daily heartbeat
+- **Last completed checkpoint:** CP-2026-04-29-02 (PR 2 done, PR #68 open)
+- **Next checkpoint:** **CP-2026-04-29-04** — start PR 4 (refresh sprint audit doc)
+- **Blockers:** none. PR #69 open as draft.
+
+### 1. Completed
+- `scripts/daily_heartbeat.py`: stdlib+requests daily heartbeat — kill-switch state, open positions (DB-only), today's PnL, news layer status, last tick time; env loaded via dotenv or manual parse; posts to Telegram via urllib
+- `deploy/ict-heartbeat.service`: oneshot service, user=ubuntu, EnvironmentFile=.env.live
+- `deploy/ict-heartbeat.timer`: OnCalendar=*-*-* 13:00:00 UTC, Persistent=true
+- `tests/test_daily_heartbeat.py`: 9 tests — halted/running, 3 news states, missing-DB fallback, PnL/positions, main() e2e, missing-token exit 1
+- `docs/bot.md`: new "Operational visibility" section with install instructions
+
+### 2. Files changed
+- `scripts/daily_heartbeat.py` (new)
+- `deploy/ict-heartbeat.service` (new)
+- `deploy/ict-heartbeat.timer` (new)
+- `tests/test_daily_heartbeat.py` (new)
+- `docs/bot.md` (+46 lines)
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_daily_heartbeat.py -v` → **9/9 pass**
+- Full suite: 314 pass, 106 fail, 4 skip — pass count +9 vs pre-sprint baseline (no new failures)
+
+### 4. Remaining
+- none — PR 3 complete
+
+### 5. Next checkpoint
+**CP-2026-04-29-04** — PR 4: refresh sprint audit doc. Branch: `docs/refresh-audit-2026-04-29`. Read `docs/sprint-plans/2026-04-28-audit.md` before starting.
+
+**Telegram sent:** no (no creds in env)
+
+---
+
 ## CP-2026-04-29-02 — PR 2: news-veto Telegram notification
 
 - **Session date:** 2026-04-28
