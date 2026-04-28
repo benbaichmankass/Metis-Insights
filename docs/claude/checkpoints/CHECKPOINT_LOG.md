@@ -10,6 +10,69 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-M9-PR2 — M9 PR2: news pipeline convenience entry point and integration tests
+
+- **Session date:** 2026-04-28
+- **Sprint:** M9 — News-Augmented Trade Decision Layer (sequestered branch)
+- **Current sprint phase:** PR 2 — ingestion + normalize → score pipeline wired
+- **Last completed checkpoint:** CP-2026-04-28-16b (PR #57, merged)
+- **Next checkpoint:** **CP-M9-PR3** — scoring refinements: multi-item weighting,
+  configurable keyword lists, signal-strength calibration tests.
+- **Blockers:** none. Branch `claude/news-trade-decisions-ICLjq` open as PR #61.
+
+### 1. Completed
+- Created `src/news/news_pipeline.py` with a single `get_news_score(settings,
+  symbol_tags=None)` entry point. Wires `fetch_news` → `normalize_articles` →
+  `score_news` in three try/except stages so the function never raises; each
+  exception returns a neutral `NewsScoreResult` with a reason string.
+- Added `get_news_score` to `src/news/__init__.py` re-exports.
+- Added `tests/test_news_pipeline.py` (25 tests, all network-free via
+  `urllib.request.urlopen` mocks or `fetch_news` patches):
+  - disabled/no-key returns neutral
+  - network error / HTTP 429 returns neutral
+  - empty articles list returns neutral
+  - NewsAPI `status: error` returns neutral
+  - successful positive payload → valid `NewsScoreResult` schema
+  - high-impact negative triggers veto; veto=false when disabled
+  - stale articles (>120 min) produce `item_count=0`
+  - mismatched symbol tag → item filtered out; matching tag → item counted
+  - second call with same settings hits cache, `urlopen` called only once
+  - per-stage error recovery (`fetch_error`, `normalize error`, `score error`)
+  - public import contract (`from src.news import get_news_score`)
+
+### 2. Files changed
+- `src/news/news_pipeline.py` (new, 97 lines)
+- `src/news/__init__.py` (+3 lines: import + re-export)
+- `tests/test_news_pipeline.py` (new, 228 lines)
+
+### 3. Tests run
+- `python3 scripts/secret_scan.py` — clean
+- `python3 scripts/repo_inventory.py` — clean
+- `pytest tests/test_news_pipeline.py -v` → **25/25 pass**
+- Full suite (excluding pandas/numpy-dependent files):
+  → **206 passed**, 1 skipped, 1 pre-existing failure
+  (`test_master_secrets_template_has_no_paper_profiles` requires PyYAML,
+  not installed in sandbox; added by CP-19, unrelated to news layer).
+  Net delta vs CP-16b baseline: **+25** (matches new test file).
+
+### 4. Remaining
+- M9 PR3: scoring refinements (multi-item weighting, configurable keyword lists).
+- M9 PR4: additional tests and a short `docs/` note.
+- M9 PR5: optional hook into the runtime decision path (deferred, needs approval).
+
+### 5. Next checkpoint
+**CP-M9-PR3** — scoring refinements inside `src/news/news_score.py`:
+- weighted aggregation (more-relevant items count more than low-relevance ones)
+- configurable positive/negative keyword lists via settings
+- calibration test verifying adjustment magnitude stays within expected range
+Keep inside `src/news/` only.
+
+**PR:** [#61](https://github.com/the-lizardking/ict-trading-bot/pull/61) — `claude/news-trade-decisions-ICLjq` (open, draft).
+
+**Telegram sent:** no (no live creds in sequestered session environment)
+
+---
+
 ## CP-2026-04-28-19 — Excise paper trading from docs and config templates
 
 - **Session date:** 2026-04-28
