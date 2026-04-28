@@ -264,6 +264,48 @@ def _write_ict_signals_from_meta(signal: dict, settings: dict) -> None:
             metadata=str(ob),
         )
 
+# Ordered list of strategies tried in multiplexed mode; first actionable signal wins.
+STRATEGIES = ["breakout_confirmation", "vwap"]
+
+_STRATEGY_BUILDERS: Dict[str, Callable[[dict], Dict[str, Any]]] = {
+    "breakout_confirmation": breakout_model_signal_builder,
+    "vwap": vwap_signal_builder,
+    "killzone": killzone_signal_builder,
+}
+
+
+def multiplexed_signal_builder(settings: dict) -> Dict[str, Any]:
+    """
+    Loop STRATEGIES in order; return the first actionable signal.
+
+    Each strategy is sized independently (no compounding across strategies).
+    If a strategy raises an exception it is logged and skipped.
+    Returns a side=none signal when no strategy fires.
+    """
+    symbol = settings.get("SYMBOL", settings.get("symbol", "BTCUSDT"))
+
+    for strategy_name in STRATEGIES:
+        builder = _STRATEGY_BUILDERS.get(strategy_name)
+        if builder is None:
+            logger.warning("Multiplexer: unknown strategy '%s' — skipping", strategy_name)
+            continue
+        try:
+            signal = builder(settings)
+        except Exception as exc:
+            logger.warning("Multiplexer: strategy '%s' raised %s — skipping", strategy_name, exc)
+            continue
+
+        if signal.get("side") in ("buy", "sell") and float(signal.get("qty", 0)) > 0:
+            logger.info("Multiplexer: '%s' produced actionable signal", strategy_name)
+            return signal
+
+        logger.info("Multiplexer: '%s' returned no actionable signal", strategy_name)
+
+    logger.info("Multiplexer: no strategy fired — staying flat")
+    return {"symbol": symbol, "side": "none", "qty": 0,
+            "meta": {"strategy_name": "multiplexed", "reason": "no_strategy_triggered"}}
+
+
 def run_pipeline(
     settings: dict,
     exchange_client: Any = None,
@@ -277,6 +319,8 @@ def run_pipeline(
 
     if signal_builder is not None:
         builder = signal_builder
+    elif strategy_name == "multiplexed":
+        builder = multiplexed_signal_builder
     elif strategy_name == "vwap":
         builder = vwap_signal_builder
     elif strategy_name == "breakout":
