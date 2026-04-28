@@ -1,7 +1,7 @@
 # ICT Bot — Master Instructions
 > **For:** Perplexity Space AI assistant (Tech Lead)
 > **Owner:** Ben Baichman-Kass
-> **Last updated:** 2026-04-28
+> **Last updated:** 2026-04-28 (CP-16)
 > **Update policy:** After every completed task, assess whether any lessons learned should be appended to the [Lessons Learned](#lessons-learned) section at the bottom of this document.
 
 ---
@@ -102,12 +102,31 @@ The bot is live on Bybit mainnet. Current runtime settings:
 
 | Service | Purpose | Status |
 |---|---|---|
-| `ict-live-trader.service` | Main live trading loop | ✅ Running |
+| `ict-trader-live.service` | Main live trading loop | ✅ Running |
 | `ict-telegram-bot.service` | Telegram command interface | ✅ Running |
 | `ict-git-sync.service` + `.timer` | Auto-pull and restart from GitHub | ✅ Running |
-| `ict-vwap-dry-run.service` | VWAP strategy staging | ⏳ Staging |
 
-**Auto-deploy:** Merging a PR to `main` will auto-deploy to the VM within ~5 minutes via the git-sync timer. No manual restart needed after the timer is running.
+### VM is a read-only mirror of `origin/main`
+
+The VM **must never carry local commits** that aren't on GitHub. The deploy
+script (`scripts/deploy_pull_restart.sh`) uses `git fetch && git reset --hard
+origin/main`, which means any uncommitted changes or local-only commits on
+the VM will be wiped on the next sync (every 5 minutes via
+`ict-git-sync.timer`).
+
+This is enforced for two reasons:
+1. **Drift detection.** If something is different between the VM and `main`,
+   it must show up in `git log origin/main` — not as a hidden VM-only commit.
+2. **Reproducibility.** Anything reproducible must come from a GitHub commit.
+   If a fix only exists on the VM, it does not exist.
+
+**Workflow rule:** Never `git commit` on the VM. Never `git push` from the
+VM. All changes go through a PR → merge to `main` → auto-sync. The deploy
+script also restarts services unconditionally, so a manual `git reset --hard`
+on the VM is correctly picked up by the running Python processes.
+
+**Auto-deploy:** Merging a PR to `main` auto-deploys to the VM within ~5
+minutes via the git-sync timer. No manual restart needed.
 
 ---
 
@@ -160,6 +179,8 @@ These apply to every task unless Ben explicitly overrides:
 - ❌ Do NOT reset the VM
 - ❌ Do NOT stop the live trader
 - ❌ Do NOT overwrite `/home/ubuntu/ict-trading-bot` directly
+- ❌ Do NOT commit on the VM — it is a read-only mirror of `origin/main` (see §6)
+- ❌ Do NOT introduce **paper trading** in any form. There is no paper trader, no paper-trading mode, no `MODE=PAPER`, no `live|paper` toggles. We build, test, and deploy live on small accounts. Nothing in the repo, the bot, the docs, or any user-facing surface should suggest paper trading is even a possibility. When in doubt, remove the paper reference.
 - ❌ Do NOT paste secrets into Claude, Gemini, GitHub, notebooks, or chat
 - ❌ Do NOT run long backtests inside Claude Code (use Colab/Gemini)
 - ❌ Do NOT promote any strategy from dry-run to live without documented risk caps
@@ -202,7 +223,7 @@ Before any strategy goes live on mainnet:
 
 ### 2026-04-28 — Repo cleanup / status-balance wiring
 - When fixing status/balance messaging, always check **both** `telegram_query_bot.py` and the `.service` env file — they can diverge and produce confusing behavior.
-- Do not blindly remove `paper` references; inspect the actual repo state first. The snapshot may not match assumptions from prior sessions.
+- ~~Do not blindly remove `paper` references; inspect the actual repo state first.~~ **Superseded 2026-04-28 (CP-16):** Paper trading is being fully excised from the repo. See §9 guardrail. Remove paper references on sight.
 - Small, single-concern PRs are far easier for Claude to execute accurately than multi-concern PRs. Break anything that touches >3 files into separate PRs.
 
 ### 2026-04-28 — ICT strategy port (M7)
@@ -212,5 +233,10 @@ Before any strategy goes live on mainnet:
 
 ### General workflow lessons
 - Auto-deploy timer (`ict-git-sync.timer`) must be verified live before starting any sprint that depends on hands-off deploys. Don't assume it's running.
-- When the VM is 38+ commits behind, a simple `git pull` may not be enough — verify the service actually restarts and picks up new code.
+- ~~When the VM is 38+ commits behind, a simple `git pull` may not be enough~~ **Superseded 2026-04-28 (CP-16):** The deploy script now uses `git fetch && git reset --hard origin/main` and restarts services unconditionally, which is robust against VM drift. The VM is a read-only mirror; any divergence is automatically corrected on the next 5-minute sync.
 - Always tail `bot.log` after a deploy to confirm signals are firing before declaring a milestone done.
+
+### 2026-04-28 — CP-16: Excise paper trading; harden VM auto-sync
+- The bot's `live|paper` slash-command targets were a legacy of dual trader instances we no longer run. Excising paper trading is a multi-PR sprint (CP-16 → CP-19): bot → env-rendering scripts → src/ runtime mode branches → docs + config templates.
+- The deploy script's `if "Already up to date": exit 0` early-return was a foot-gun: any time the VM was *manually* resynced (e.g. after a `git reset`), services were left running stale code because the script skipped restart. Always restart services unconditionally; gate only the expensive steps (pip install) on actual HEAD movement.
+- Whenever a fix is only present on the VM and not on GitHub, treat that as a bug in the deploy/sync model, not a feature. The fix is to make the VM cleanly resyncable, not to preserve VM-only state.

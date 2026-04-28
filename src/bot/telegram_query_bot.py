@@ -24,8 +24,13 @@ _DB_CANDIDATES = [
 ]
 DB_PATH = next((p for p in _DB_CANDIDATES if p and os.path.exists(p)), os.path.join(REPO_ROOT, "trade_journal.db"))
 
+# Single live trader. There is no paper trader. The bot operates exclusively on
+# the .env at the repo root, which configures the live trading service.
 LIVE_ENV_PATH = os.path.join(REPO_ROOT, ".env")
-PAPER_ENV_PATH = os.path.join(REPO_ROOT, ".env")
+
+# Single systemd service for the trader. Used to build journalctl/systemctl
+# commands. Kept as a constant so any future rename happens in one place.
+LIVE_SERVICE_NAME = "ict-trader-live"
 
 BACKTESTER_PATH = os.path.join(os.path.dirname(BASE_DIR), "backtest", "run_backtest.py")
 
@@ -96,16 +101,15 @@ def fetch_open_positions_count() -> int:
         return 0
 
 
-def load_account_env(target: str) -> dict:
-    if target == "live":
-        path = LIVE_ENV_PATH
-    elif target == "paper":
-        path = PAPER_ENV_PATH
-    else:
-        raise ValueError(f"Unknown target: {target}")
-    if not os.path.exists(path):
+def load_account_env() -> dict:
+    """Load environment variables from the live trader .env file.
+
+    There is only one trader (live). Returns an empty dict when the file is
+    missing so callers can render help text without crashing on a fresh box.
+    """
+    if not os.path.exists(LIVE_ENV_PATH):
         return {}
-    values = dotenv_values(path)
+    values = dotenv_values(LIVE_ENV_PATH)
     return {k: v for k, v in values.items() if v is not None}
 
 
@@ -118,10 +122,6 @@ def get_bybit_client_from_env(env_vars: dict):
     )
 
 
-def get_account_label(target: str) -> str:
-    return "LIVE" if target == "live" else "PAPER"
-
-
 _STRATEGY_DISPLAY = {
     "killzone": "ICT",
     "ict": "ICT",
@@ -130,29 +130,38 @@ _STRATEGY_DISPLAY = {
     "multiplexed": "Multi",
 }
 
-
-def get_strategy_label(env_vars: dict, target: str) -> str:
-    """Return strategy display name from env_vars STRATEGY key, or fall back to LIVE/PAPER."""
-    raw = str(env_vars.get("STRATEGY", env_vars.get("STRATEGY_NAME", ""))).strip().lower()
-    return _STRATEGY_DISPLAY.get(raw) or get_account_label(target)
+# Default label when STRATEGY env var is missing or unrecognised. The bot is
+# live-trading only; this fallback should rarely be visible.
+_DEFAULT_STRATEGY_LABEL = "Strategy"
 
 
-def format_target_options(separator: str = "|") -> str:
-    """Render the live/paper target choices for help text using strategy-aware labels.
+def get_strategy_label(env_vars: dict | None = None) -> str:
+    """Return the display name for the active strategy.
 
-    Resolves each target through ``get_strategy_label`` so command help and
-    BotCommand descriptions stay in sync with the actual STRATEGY env var on
-    each account. Falls back to ``LIVE``/``PAPER`` when the env file is
-    missing or STRATEGY is unset, so the bot still starts cleanly on a fresh
-    box. Any failure is caught defensively because this is called at
+    Reads ``STRATEGY`` (or legacy ``STRATEGY_NAME``) from the supplied env vars
+    or, if none are supplied, from the live ``.env`` on disk. Falls back to
+    ``_DEFAULT_STRATEGY_LABEL`` when STRATEGY is unset or unknown. Defensive
+    against missing/malformed env files because this is called at
     ``post_init`` time and must never crash the bot.
     """
     try:
-        live_label = get_strategy_label(load_account_env("live"), "live")
-        paper_label = get_strategy_label(load_account_env("paper"), "paper")
+        if env_vars is None:
+            env_vars = load_account_env()
+        raw = str(env_vars.get("STRATEGY", env_vars.get("STRATEGY_NAME", ""))).strip().lower()
+        return _STRATEGY_DISPLAY.get(raw, _DEFAULT_STRATEGY_LABEL)
     except Exception:
-        live_label, paper_label = "LIVE", "PAPER"
-    return f"{live_label}{separator}{paper_label}"
+        return _DEFAULT_STRATEGY_LABEL
+
+
+def format_target_options(separator: str = "|") -> str:
+    """Return the strategy label shown in slash-command help text.
+
+    Historically this rendered ``live|paper`` to distinguish two trader
+    instances. Paper trading no longer exists, so this returns the single
+    active strategy's display name. ``separator`` is kept for API
+    compatibility but is unused with one label.
+    """
+    return get_strategy_label()
 
 
 def fetch_last_5_trades():
@@ -250,19 +259,19 @@ def toggle_service(service_name: str, action: str) -> str:
         return f"❌ Exception toggling `{service_name}`: {e}"
 
 
-def get_last_logs_for_target(target: str, lines: int = 20) -> str:
-    service_name = f"ict-trader-{target}"
+def get_last_logs(lines: int = 20) -> str:
+    """Return the most recent journalctl lines for the live trader service."""
     try:
         output = run_shell_command(
-            ["journalctl", "-u", service_name, "-n", str(lines), "--no-pager"]
+            ["journalctl", "-u", LIVE_SERVICE_NAME, "-n", str(lines), "--no-pager"]
         )
-        return output or f"No logs found for {service_name}."
+        return output or f"No logs found for {LIVE_SERVICE_NAME}."
     except Exception as e:
-        return f"Could not read logs for {service_name}: {e}"
+        return f"Could not read logs for {LIVE_SERVICE_NAME}: {e}"
 
 
-def format_bybit_balance(env_vars: dict, target: str) -> str:
-    label = get_strategy_label(env_vars, target)
+def format_bybit_balance(env_vars: dict) -> str:
+    label = get_strategy_label(env_vars)
     try:
         client = get_bybit_client_from_env(env_vars)
         resp = client.get_wallet_balance(accountType="UNIFIED")
@@ -281,8 +290,8 @@ def format_bybit_balance(env_vars: dict, target: str) -> str:
         return f"💰 *{label} Balance*\n⚠️ Bybit error: {e}"
 
 
-def format_bybit_positions(env_vars: dict, target: str) -> str:
-    label = get_strategy_label(env_vars, target)
+def format_bybit_positions(env_vars: dict) -> str:
+    label = get_strategy_label(env_vars)
     try:
         client = get_bybit_client_from_env(env_vars)
         resp = client.get_positions(category="linear", settleCoin="USDT")
@@ -298,8 +307,8 @@ def format_bybit_positions(env_vars: dict, target: str) -> str:
         return f"📊 *{label} Positions*\n⚠️ Bybit error: {e}"
 
 
-def close_all_bybit_positions(env_vars: dict, target: str) -> str:
-    label = get_strategy_label(env_vars, target)
+def close_all_bybit_positions(env_vars: dict) -> str:
+    label = get_strategy_label(env_vars)
     client = get_bybit_client_from_env(env_vars)
     resp = client.get_positions(category="linear", settleCoin="USDT")
     positions = [p for p in resp["result"]["list"] if float(p.get("size", 0)) > 0]
@@ -404,8 +413,8 @@ def _get_binance_connector(env_vars: dict):
     )
 
 
-def format_binance_balance(env_vars: dict, target: str) -> str:
-    label = get_strategy_label(env_vars, target)
+def format_binance_balance(env_vars: dict) -> str:
+    label = get_strategy_label(env_vars)
     try:
         conn = _get_binance_connector(env_vars)
         bal = conn.get_balance()
@@ -425,8 +434,8 @@ def format_binance_balance(env_vars: dict, target: str) -> str:
         return f"💰 *{label} Balance (Binance)*\n⚠️ Error: {e}"
 
 
-def format_binance_positions(env_vars: dict, target: str) -> str:
-    label = get_strategy_label(env_vars, target)
+def format_binance_positions(env_vars: dict) -> str:
+    label = get_strategy_label(env_vars)
     try:
         conn = _get_binance_connector(env_vars)
         positions = conn.get_positions()
@@ -452,18 +461,18 @@ def format_binance_positions(env_vars: dict, target: str) -> str:
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_authorised(update):
         return
-    targets = format_target_options()
+    label = get_strategy_label()
     text = (
-        "👋 *ICT Trading Bot*\n\n"
+        f"👋 *ICT Trading Bot* — {label}\n\n"
         "Commands:\n"
         "/halt — Stop order placement immediately\n"
         "/resume — Re-enable order placement\n"
         "/status — Kill-switch state, P&L summary, service status\n"
-        "/balance — Account balances\n"
+        "/balance — Account balance\n"
         "/trades — Open positions\n"
-        f"/closeall {targets} — Emergency close positions\n"
-        f"/log {targets} — Recent logs\n"
-        f"/toggle {targets} — Start or stop a trader service\n"
+        "/closeall — Emergency close all positions\n"
+        "/log — Recent trader logs\n"
+        "/toggle — Start or stop the trader service\n"
         "/download\\_journal — Download trade journal DB\n"
         "/last5 — Last 5 trade signals\n"
         "/backtest — Start backtest in background\n"
@@ -486,15 +495,13 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     halt_line = "🔴 *HALTED* — orders blocked" if halted else "🟢 *RUNNING* — orders enabled"
     trade_count, total_pnl = fetch_today_pnl()
     open_count = fetch_open_positions_count()
-    live_label = get_strategy_label(load_account_env("live"), "live")
-    paper_label = get_strategy_label(load_account_env("paper"), "paper")
+    label = get_strategy_label()
     text = (
         "✅ *ICT Trading Bot Status*\n\n"
         f"🚦 Kill-switch: {halt_line}\n"
         f"📊 Today's trades: {trade_count} | P&L: ${total_pnl:+.2f}\n"
         f"📂 Open positions (DB): {open_count}\n\n"
-        f"🟢 {live_label} trader: `{get_service_status('ict-trader-live')}`\n"
-        f"🟡 {paper_label} trader: `{get_service_status('ict-trader-paper')}`\n"
+        f"🟢 {label} trader: `{get_service_status(LIVE_SERVICE_NAME)}`\n"
         f"🤖 Telegram bot: `{get_service_status('ict-telegram-bot')}`\n"
         f"🕐 {now}"
     )
@@ -535,49 +542,45 @@ async def cmd_resume(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cmd_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_authorised(update):
         return
-    blocks = []
-    for target in ("live", "paper"):
-        env_vars: dict = {}
-        try:
-            env_vars = load_account_env(target)
-            exchange = str(env_vars.get("EXCHANGE", "")).lower()
-            label = get_strategy_label(env_vars, target)
-            if exchange == "bybit":
-                blocks.append(format_bybit_balance(env_vars, target))
-            elif exchange == "binance":
-                blocks.append(format_binance_balance(env_vars, target))
-            else:
-                blocks.append(
-                    f"💰 *{label} Balance*\n"
-                    f"Exchange=`{exchange or 'not set'}` — unsupported exchange."
-                )
-        except Exception as e:
-            blocks.append(f"💰 *{get_strategy_label(env_vars, target)} Balance*\n⚠️ {e}")
-    await update.message.reply_text("\n\n".join(blocks), parse_mode="Markdown")
+    env_vars: dict = {}
+    try:
+        env_vars = load_account_env()
+        exchange = str(env_vars.get("EXCHANGE", "")).lower()
+        label = get_strategy_label(env_vars)
+        if exchange == "bybit":
+            block = format_bybit_balance(env_vars)
+        elif exchange == "binance":
+            block = format_binance_balance(env_vars)
+        else:
+            block = (
+                f"💰 *{label} Balance*\n"
+                f"Exchange=`{exchange or 'not set'}` — unsupported exchange."
+            )
+    except Exception as e:
+        block = f"💰 *{get_strategy_label(env_vars)} Balance*\n⚠️ {e}"
+    await update.message.reply_text(block, parse_mode="Markdown")
 
 
 async def cmd_trades(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_authorised(update):
         return
-    blocks = []
-    for target in ("live", "paper"):
-        env_vars: dict = {}
-        try:
-            env_vars = load_account_env(target)
-            exchange = str(env_vars.get("EXCHANGE", "")).lower()
-            label = get_strategy_label(env_vars, target)
-            if exchange == "bybit":
-                blocks.append(format_bybit_positions(env_vars, target))
-            elif exchange == "binance":
-                blocks.append(format_binance_positions(env_vars, target))
-            else:
-                blocks.append(
-                    f"📊 *{label} Positions*\n"
-                    f"Exchange=`{exchange or 'not set'}` — unsupported exchange."
-                )
-        except Exception as e:
-            blocks.append(f"📊 *{get_strategy_label(env_vars, target)} Positions*\n⚠️ {e}")
-    await update.message.reply_text("\n\n".join(blocks), parse_mode="Markdown")
+    env_vars: dict = {}
+    try:
+        env_vars = load_account_env()
+        exchange = str(env_vars.get("EXCHANGE", "")).lower()
+        label = get_strategy_label(env_vars)
+        if exchange == "bybit":
+            block = format_bybit_positions(env_vars)
+        elif exchange == "binance":
+            block = format_binance_positions(env_vars)
+        else:
+            block = (
+                f"📊 *{label} Positions*\n"
+                f"Exchange=`{exchange or 'not set'}` — unsupported exchange."
+            )
+    except Exception as e:
+        block = f"📊 *{get_strategy_label(env_vars)} Positions*\n⚠️ {e}"
+    await update.message.reply_text(block, parse_mode="Markdown")
 
 
 async def cmd_price(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -631,20 +634,9 @@ async def cmd_last5(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cmd_log(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_authorised(update):
         return
-    args = getattr(context, "args", []) or []
-    target = args[0].strip().lower() if args and args[0].strip().lower() in ("live", "paper") else None
-    if not target:
-        live_label = get_strategy_label(load_account_env("live"), "live")
-        paper_label = get_strategy_label(load_account_env("paper"), "paper")
-        keyboard = InlineKeyboardMarkup([[
-            InlineKeyboardButton(f"📜 {live_label} logs", callback_data="log:live"),
-            InlineKeyboardButton(f"📜 {paper_label} logs", callback_data="log:paper"),
-        ]])
-        await update.message.reply_text("Please choose a strategy:", reply_markup=keyboard)
-        return
     try:
-        log_text = get_last_logs_for_target(target, lines=20)
-        label = get_strategy_label(load_account_env(target), target)
+        log_text = get_last_logs(lines=20)
+        label = get_strategy_label()
         await update.message.reply_text(
             f"📝 *{label} logs*\n```{log_text[-3500:]}```",
             parse_mode="Markdown",
@@ -656,44 +648,21 @@ async def cmd_log(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cmd_toggle(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_authorised(update):
         return
-    args = getattr(context, "args", []) or []
-    target = args[0].strip().lower() if args and args[0].strip().lower() in ("live", "paper") else None
-    if not target:
-        live_label = get_strategy_label(load_account_env("live"), "live")
-        paper_label = get_strategy_label(load_account_env("paper"), "paper")
-        keyboard = InlineKeyboardMarkup([[
-            InlineKeyboardButton(f"🟢 Toggle {live_label}", callback_data="toggle:live"),
-            InlineKeyboardButton(f"🟡 Toggle {paper_label}", callback_data="toggle:paper"),
-        ]])
-        await update.message.reply_text("Choose which trader to toggle:", reply_markup=keyboard)
-        return
-    service_name = f"ict-trader-{target}"
-    current = get_service_status(service_name)
+    current = get_service_status(LIVE_SERVICE_NAME)
     action = "stop" if current == "active" else "start"
-    result = toggle_service(service_name, action)
+    result = toggle_service(LIVE_SERVICE_NAME, action)
     await update.message.reply_text(result, parse_mode="Markdown")
 
 
 async def cmd_closeall(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_authorised(update):
         return
-    args = getattr(context, "args", []) or []
-    target = args[0].strip().lower() if args and args[0].strip().lower() in ("live", "paper") else None
-    if not target:
-        live_label = get_strategy_label(load_account_env("live"), "live")
-        paper_label = get_strategy_label(load_account_env("paper"), "paper")
-        keyboard = InlineKeyboardMarkup([[
-            InlineKeyboardButton(f"🚨 Close {live_label}", callback_data="closeall:live"),
-            InlineKeyboardButton(f"🚨 Close {paper_label}", callback_data="closeall:paper"),
-        ]])
-        await update.message.reply_text("Choose strategy to close all positions:", reply_markup=keyboard)
-        return
     try:
-        env_vars = load_account_env(target)
+        env_vars = load_account_env()
         if str(env_vars.get("EXCHANGE", "")).lower() != "bybit":
-            await update.message.reply_text(f"⚠️ /closeall for {target} currently supports Bybit only.")
+            await update.message.reply_text("⚠️ /closeall currently supports Bybit only.")
             return
-        msg = close_all_bybit_positions(env_vars, target)
+        msg = close_all_bybit_positions(env_vars)
         await update.message.reply_text(msg, parse_mode="Markdown")
     except Exception as e:
         await update.message.reply_text(f"⚠️ CRITICAL ERROR in closeall: {e}")
@@ -767,14 +736,14 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     parts = (query.data or "").split(":", 1)
-    if len(parts) != 2:
+    if not parts or not parts[0]:
         return
-    action, target = parts
+    action = parts[0]
 
     if action == "log":
         try:
-            log_text = get_last_logs_for_target(target, lines=20)
-            label = get_strategy_label(load_account_env(target), target)
+            log_text = get_last_logs(lines=20)
+            label = get_strategy_label()
             await query.edit_message_text(
                 f"📝 *{label} logs*\n```{log_text[-3500:]}```",
                 parse_mode="Markdown",
@@ -783,18 +752,17 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.edit_message_text(f"⚠️ Could not read logs: {e}")
 
     elif action == "toggle":
-        service_name = f"ict-trader-{target}"
-        current = get_service_status(service_name)
+        current = get_service_status(LIVE_SERVICE_NAME)
         act = "stop" if current == "active" else "start"
-        result = toggle_service(service_name, act)
+        result = toggle_service(LIVE_SERVICE_NAME, act)
         await query.edit_message_text(result, parse_mode="Markdown")
 
     elif action == "closeall":
-        env_vars = load_account_env(target)
-        label = get_strategy_label(env_vars, target)
+        env_vars = load_account_env()
+        label = get_strategy_label(env_vars)
         await query.edit_message_text(f"🚨 Closing all {label} positions…")
         try:
-            msg = close_all_bybit_positions(env_vars, target)
+            msg = close_all_bybit_positions(env_vars)
             await query.edit_message_text(msg, parse_mode="Markdown")
         except Exception as e:
             await query.edit_message_text(f"⚠️ Error: {e}")
@@ -809,21 +777,21 @@ def main():
     application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
     async def post_init(app):
-        targets = format_target_options()
+        label = format_target_options()
         commands = [
             BotCommand("start", "Show help"),
             BotCommand("help", "Show help"),
             BotCommand("halt", "Stop order placement immediately"),
             BotCommand("resume", "Re-enable order placement"),
             BotCommand("status", "Kill-switch state, P&L summary, service status"),
-            BotCommand("balance", "Account balances"),
+            BotCommand("balance", "Account balance"),
             BotCommand("trades", "Open positions"),
-            BotCommand("closeall", f"Close all positions: {targets}"),
+            BotCommand("closeall", f"Close all {label} positions"),
             BotCommand("last5", "Last 5 journal entries"),
             BotCommand("backtest", "Run backtest"),
             BotCommand("latest_backtest", "Latest backtest result"),
-            BotCommand("log", f"Show logs: {targets}"),
-            BotCommand("toggle", f"Start/stop trader: {targets}"),
+            BotCommand("log", f"Show {label} trader logs"),
+            BotCommand("toggle", f"Start/stop {label} trader"),
             BotCommand("download_journal", "Download trade journal DB"),
             BotCommand("price", "Current BTC price"),
         ]
