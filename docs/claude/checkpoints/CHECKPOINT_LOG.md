@@ -10,6 +10,43 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-29-01 — PR 1: plumb NEWS_ENABLED=false through config
+
+- **Session date:** 2026-04-28
+- **Sprint:** sprint-plan-2026-04-29 (operational-hardening)
+- **Current sprint phase:** PR 1 — NEWS_ENABLED=false config default
+- **Last completed checkpoint:** CP-M9-PR5 (M9 sprint complete)
+- **Next checkpoint:** **CP-2026-04-29-02** — start PR 2 (news-veto Telegram notify)
+- **Blockers:** none. PR #66 open as draft.
+
+### 1. Completed
+- `config/master-secrets.template.yaml`: added `news:` block with `enabled: "false"`, blank `api_key`, all optional tuning knobs commented out
+- `scripts/render_env_from_master.py`: added `_news_pairs()` that always writes `NEWS_ENABLED` and `NEWS_API_KEY` (absent = detectable bug), plus optional knobs only when set; called from `build_live` and `build_vwap_btcusd_live`
+- `.env.example`: added `# News layer (M9)` section with `NEWS_ENABLED=false` and commented `# NEWS_API_KEY=` placeholder
+- `tests/test_render_env_from_master.py`: 14 new regression tests — `TestNewsRenderer` (7), `TestNewsDefaultInProfiles` (4), `TestNewsTemplateSanity` (3, 2 skip on missing PyYAML)
+- `docs/news_layer.md`: updated Going live section — template ships disabled, both flags required, absent-key warning
+
+### 2. Files changed
+- `config/master-secrets.template.yaml`
+- `scripts/render_env_from_master.py`
+- `.env.example`
+- `tests/test_render_env_from_master.py`
+- `docs/news_layer.md`
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_render_env_from_master.py -v` → 51 pass, 2 skip, 1 pre-existing fail (`test_master_secrets_template_has_no_paper_profiles` — PyYAML missing, pre-dates this PR)
+- Full suite (5 broken-import files ignored): 317 pass, 106 fail, 6 skip — pass count +12 vs pre-PR baseline (no new failures)
+
+### 4. Remaining
+- none — PR 1 complete
+
+### 5. Next checkpoint
+**CP-2026-04-29-02** — PR 2: news-veto Telegram notify. Read `src/runtime/pipeline.py` (veto branch ~line 510) and `src/runtime/notify.py` before starting. Branch: `feat/news-veto-telegram-notify`.
+
+**Telegram sent:** no (no creds in env)
+
+---
+
 ## CP-M9-PR5 — M9 PR5: news veto hook wired into run_pipeline
 
 - **Session date:** 2026-04-28
