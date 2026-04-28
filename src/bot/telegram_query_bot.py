@@ -137,6 +137,24 @@ def get_strategy_label(env_vars: dict, target: str) -> str:
     return _STRATEGY_DISPLAY.get(raw) or get_account_label(target)
 
 
+def format_target_options(separator: str = "|") -> str:
+    """Render the live/paper target choices for help text using strategy-aware labels.
+
+    Resolves each target through ``get_strategy_label`` so command help and
+    BotCommand descriptions stay in sync with the actual STRATEGY env var on
+    each account. Falls back to ``LIVE``/``PAPER`` when the env file is
+    missing or STRATEGY is unset, so the bot still starts cleanly on a fresh
+    box. Any failure is caught defensively because this is called at
+    ``post_init`` time and must never crash the bot.
+    """
+    try:
+        live_label = get_strategy_label(load_account_env("live"), "live")
+        paper_label = get_strategy_label(load_account_env("paper"), "paper")
+    except Exception:
+        live_label, paper_label = "LIVE", "PAPER"
+    return f"{live_label}{separator}{paper_label}"
+
+
 def fetch_last_5_trades():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -434,6 +452,7 @@ def format_binance_positions(env_vars: dict, target: str) -> str:
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_authorised(update):
         return
+    targets = format_target_options()
     text = (
         "👋 *ICT Trading Bot*\n\n"
         "Commands:\n"
@@ -442,9 +461,9 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/status — Kill-switch state, P&L summary, service status\n"
         "/balance — Account balances\n"
         "/trades — Open positions\n"
-        "/closeall live|paper — Emergency close positions\n"
-        "/log live|paper — Recent logs\n"
-        "/toggle live|paper — Start or stop a trader service\n"
+        f"/closeall {targets} — Emergency close positions\n"
+        f"/log {targets} — Recent logs\n"
+        f"/toggle {targets} — Start or stop a trader service\n"
         "/download\\_journal — Download trade journal DB\n"
         "/last5 — Last 5 trade signals\n"
         "/backtest — Start backtest in background\n"
@@ -790,6 +809,7 @@ def main():
     application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
     async def post_init(app):
+        targets = format_target_options()
         commands = [
             BotCommand("start", "Show help"),
             BotCommand("help", "Show help"),
@@ -798,12 +818,12 @@ def main():
             BotCommand("status", "Kill-switch state, P&L summary, service status"),
             BotCommand("balance", "Account balances"),
             BotCommand("trades", "Open positions"),
-            BotCommand("closeall", "Close all positions: live|paper"),
+            BotCommand("closeall", f"Close all positions: {targets}"),
             BotCommand("last5", "Last 5 journal entries"),
             BotCommand("backtest", "Run backtest"),
             BotCommand("latest_backtest", "Latest backtest result"),
-            BotCommand("log", "Show logs: live|paper"),
-            BotCommand("toggle", "Start/stop trader: live|paper"),
+            BotCommand("log", f"Show logs: {targets}"),
+            BotCommand("toggle", f"Start/stop trader: {targets}"),
             BotCommand("download_journal", "Download trade journal DB"),
             BotCommand("price", "Current BTC price"),
         ]
