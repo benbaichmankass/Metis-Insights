@@ -288,7 +288,7 @@ Before considering the bot "live ready":
 - [ ] Both systemd services running and healthy
 - [ ] Trader log shows "ALLOW_LIVE_TRADING=true" on startup
 - [ ] Telegram notifications working for every tick
-- [ ] At least 1-2 days of paper trading observed with no crashes
+- [ ] At least 1-2 days of dry-run on a small live account observed with no crashes (`DRY_RUN=true`, `ALLOW_LIVE_TRADING=false`; orders logged with status `"dry_run"` and never submitted)
 
 ---
 

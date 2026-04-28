@@ -1,5 +1,13 @@
 # ICT Bot Next Sprint Plan: VWAP Stabilization + Google AI Studio Workflow
 
+> **⚠️ ARCHIVED SPRINT PLAN.** Paper-trading references in this plan
+> (e.g. `MODE=PAPER`, `vwap_btcusd_dry_run` profile) are **superseded by
+> CP-2026-04-28-16 through CP-2026-04-28-19**, which excised paper trading
+> from the entire repo. This bot trades live on real exchange accounts;
+> there is no paper-trading mode. The body of this plan is preserved as
+> a historical record — do not use it as a current implementation
+> reference.
+
 Date: 2026-04-27
 Owner: Ben Baichman-Kass
 Project: `the-lizardking/ict-trading-bot`

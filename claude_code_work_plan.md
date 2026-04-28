@@ -1,5 +1,13 @@
 # Claude Code Work Plan — ICT Trading Bot: VWAP Platform Expansion
 
+> **⚠️ ARCHIVED PLANNING DOCUMENT.** Paper-trading references in this document
+> (`mode=paper`, `paper|live`, paper-trading workflows, etc.) are
+> **superseded by CP-2026-04-28-16 through CP-2026-04-28-19**, which
+> excised paper trading from the entire repo. This bot trades live on real
+> exchange accounts; there is no paper-trading mode. The body of this
+> document is preserved as a historical record of pre-sprint planning and
+> should not be used as a current implementation reference.
+
 **Repo:** `the-lizardking/ict-trading-bot`  
 **Date:** April 2026  
 **Scope:** Full platform upgrade to multi-strategy architecture, VWAP implementation, automated training pipeline, HuggingFace integration, and Telegram bot redesign.

@@ -218,7 +218,7 @@ Tasks:
 
 **Done when:** Either FVG/OB logic ported and validated across multiple assets with documented dry-run staging, OR documented decision to drop based on broader-sample backtest evidence.
 
-**Explicitly out of scope this sprint:** Bybit paper-trading or live promotion of the ICT strategy. That requires the 50+ trade validation gate to pass first.
+**Explicitly out of scope this sprint:** Live promotion of the ICT strategy on Bybit. That requires the 50+ trade validation gate to pass first. (Note: there is no paper-trading mode in this repo — see CP-2026-04-28-16 through CP-2026-04-28-19. The validation gate is met via dry-run runs on a small live account.)
 
 ---
 
@@ -279,7 +279,7 @@ Phase 5:
 
 - **M3 is non-negotiable urgency.** Live mainnet trading without documented risk caps is the single highest operational risk surface. Do not let M4 or M5 leapfrog M3.
 - **M6 and M7 should NOT graduate to live simultaneously.** Two new live strategies in one sprint is too much variance. Do M6 first, observe a week, then consider M7 live promotion if both go-criteria are met. (M7 port + dry-run staging in parallel with M6 is fine — only live promotion is serialized.)
-- **M7 live promotion is gated behind ≥50 validated trades.** First-run research had only 13 trades on a single symbol. Sample size must grow before paper-trading on Bybit.
+- **M7 live promotion is gated behind ≥50 validated trades.** First-run research had only 13 trades on a single symbol. Sample size must grow via dry-run runs on a small live Bybit account before flipping to real order placement. (There is no paper-trading mode — see CP-2026-04-28-16→19.)
 - **Audit findings may reorder this plan.** Treat M3–M8 as best-guess sequencing; M2's output is authoritative.
 - **`turtle_soup_mtf_v1.py`** (15kB) was untouched last sprint with no tests — flagged for M4e.
 - **`config/fly.toml`** suggests an abandoned Fly.io deploy — flagged for M4d audit.

@@ -146,6 +146,44 @@ class TestNoPaperSurfaces:
         repo_root = Path(__file__).resolve().parents[1]
         assert not (repo_root / "scripts" / "check_env_paper.py").exists()
 
+    def test_master_secrets_template_has_no_paper_profiles(self):
+        """CP-19 guarantee: master-secrets.template.yaml must not list any
+        paper-trading profile blocks. The renderer can only consume profiles
+        defined here, so this is the canonical source of truth for the
+        'no paper anywhere' directive at the config layer.
+
+        Asserts:
+          - profiles.paper, profiles.colab, profiles.oracle_paper,
+            profiles.vwap_btcusd_dry_run are absent
+          - risk.paper block is absent
+          - any remaining profile uses mode 'live' (not 'paper')
+        """
+        repo_root = Path(__file__).resolve().parents[1]
+        template_path = repo_root / "config" / "master-secrets.template.yaml"
+        assert template_path.exists(), "master-secrets.template.yaml is missing"
+
+        # Parse yaml lazily — PyYAML is already a dependency of the renderer.
+        import yaml
+        with open(template_path, "r") as fh:
+            data = yaml.safe_load(fh)
+
+        profiles = data.get("profiles", {})
+        for forbidden in ("paper", "colab", "oracle_paper", "vwap_btcusd_dry_run"):
+            assert forbidden not in profiles, (
+                f"profiles.{forbidden} must not exist in master-secrets.template.yaml "
+                f"(removed in CP-19)"
+            )
+
+        risk = data.get("risk", {})
+        assert "paper" not in risk, "risk.paper must not exist in master-secrets.template.yaml (removed in CP-19)"
+
+        # Any profile that declares a mode must declare 'live'.
+        for name, body in profiles.items():
+            if isinstance(body, dict) and "mode" in body:
+                assert body["mode"] == "live", (
+                    f"profiles.{name}.mode must be 'live', got {body['mode']!r}"
+                )
+
 
 # ---------------------------------------------------------------------------
 # _get helper

@@ -82,43 +82,22 @@ Or run directly from a terminal (on the VM or locally with SOPS installed):
 python scripts/render_env_from_master.py \
   --master /path/to/master-secrets.sops.yaml \
   --age-key-file /path/to/age-keys.txt \
-  --profile paper \
-  --out .env.paper
+  --profile live \
+  --out .env.live \
+  --allow-live
 ```
 
 This produces the minimal `.env` files each service needs without exposing
 unrelated keys.
 
+> The renderer supports only live profiles (`live`, `vwap_btcusd_live`).
+> Paper-trading profiles (`paper`, `colab`, `oracle_paper`,
+> `vwap_btcusd_dry_run`) were removed in CP-2026-04-28-17 — this bot
+> trades live on real exchange accounts and there is no paper-trading mode.
+
 ---
 
 ## Example commands
-
-### Paper (local)
-```bash
-python scripts/render_env_from_master.py \
-  --master /content/drive/MyDrive/ICT_Bot_Secrets/master-secrets.sops.yaml \
-  --age-key-file /content/drive/MyDrive/ICT_Bot_Secrets/age-keys.txt \
-  --profile paper \
-  --out .env.paper
-```
-
-### Colab
-```bash
-python scripts/render_env_from_master.py \
-  --master /content/drive/MyDrive/ICT_Bot_Secrets/master-secrets.sops.yaml \
-  --age-key-file /content/drive/MyDrive/ICT_Bot_Secrets/age-keys.txt \
-  --profile colab \
-  --out .env.colab
-```
-
-### Oracle VM (paper)
-```bash
-python scripts/render_env_from_master.py \
-  --master ~/ICT_Bot_Secrets/master-secrets.sops.yaml \
-  --age-key-file ~/ICT_Bot_Secrets/age-keys.txt \
-  --profile oracle_paper \
-  --out .env.oracle_paper
-```
 
 ### Live (requires --allow-live)
 ```bash
@@ -128,15 +107,6 @@ python scripts/render_env_from_master.py \
   --profile live \
   --out .env.live \
   --allow-live
-```
-
-### VWAP BTCUSD dry-run (Bybit `vwap_strategy` subaccount)
-```bash
-python scripts/render_env_from_master.py \
-  --master ~/ICT_Bot_Secrets/master-secrets.sops.yaml \
-  --age-key-file ~/ICT_Bot_Secrets/age-keys.txt \
-  --profile vwap_btcusd_dry_run \
-  --out .env.vwap_btcusd_dry_run
 ```
 
 ### VWAP BTCUSD live (requires --allow-live)
@@ -159,7 +129,6 @@ secrets file, **not** under `bybit.live.*`.
 
 | Profile | Telegram | DRY_RUN | ALLOW_LIVE_TRADING | BYBIT_TESTNET | Source of `BYBIT_API_KEY` / `BYBIT_API_SECRET` |
 |---|---|---|---|---|---|
-| `vwap_btcusd_dry_run` | `telegram.dev` | `true` | `false` | `false` | `bybit.vwap_strategy.api_key` / `api_secret` |
 | `vwap_btcusd_live` | `telegram.prod` | `false` | `true` | `false` | `bybit.vwap_strategy.api_key` / `api_secret` |
 
 **Why subaccount-owned keys?** Bybit's REST API does not support routing a
@@ -167,12 +136,7 @@ request to a subaccount via parent-account API keys. To trade on the
 `vwap_strategy` subaccount, the API key must be created **inside that
 subaccount**. The renderer therefore reads `bybit.vwap_strategy.*` directly.
 
-**`BYBIT_TESTNET=false` with `DRY_RUN=true`?** The dry-run profile uses live
-Bybit endpoint keys (so they are real production keys), but `DRY_RUN=true`
-prevents actual order placement. This matches running in production with the
-trade execution layer disabled.
-
-Other env variables produced by the VWAP profiles:
+Other env variables produced by the VWAP profile:
 
 - `STRATEGY=vwap`, `SYMBOL=BTCUSD`, `TIMEFRAME=1m` (from `strategies.vwap_btcusd.*`)
 - `MAX_POSITION_USD`, `MAX_DAILY_LOSS_USD`, `RISK_PER_TRADE`, `MAX_QTY`,
@@ -225,77 +189,32 @@ Then generate the env file on the VM:
 python scripts/render_env_from_master.py \
   --master ~/master-secrets.sops.yaml \
   --age-key-file ~/age-keys.txt \
-  --profile oracle_paper \
-  --out ~/ict-trading-bot/.env.oracle_paper
+  --profile vwap_btcusd_live \
+  --out ~/ict-trading-bot/.env.vwap_btcusd_live \
+  --allow-live
 ```
 
 ---
 
----
+## After rendering .env.live
 
-## After rendering .env.paper
-
-### 1. Verify the file was written correctly
-
-From the repo root (local terminal or Colab cell):
-
-```bash
-python scripts/check_env_paper.py --env /content/ict-trading-bot/.env.paper
-```
-
-Or for a local path:
-
-```bash
-python scripts/check_env_paper.py --env .env.paper
-```
-
-This checks that all required variable **names** are present and that
-safety flags (`DRY_RUN=true`, `ALLOW_LIVE_TRADING=false`, `MODE=PAPER`)
-are correct.  It never prints secret values.  Exit 0 = all clear.
-
-### 2. Load .env.paper in Colab (Python cell)
-
-```python
-from dotenv import load_dotenv
-load_dotenv("/content/ict-trading-bot/.env.paper", override=True)
-```
-
-`override=True` ensures the paper values win over any stale shell vars.
-Do not print `os.environ` after loading.
-
-### 3. Load .env.paper in a local terminal
+### 1. Load .env.live in a local terminal
 
 ```bash
 # Temporary — exported only for this shell session
-set -a && source .env.paper && set +a
+set -a && source .env.live && set +a
 ```
 
 `set -a` makes every subsequent assignment an export; `set +a` turns it
-off.  The file is never echoed to the terminal.
+off. The file is never echoed to the terminal.
 
-### 4. Key-name alias required by the runtime
-
-The paper profile writes `BYBIT_TESTNET_API_KEY` / `BYBIT_TESTNET_API_SECRET`,
-but `src/runtime/validation.py` checks for `BYBIT_API_KEY` / `BYBIT_API_SECRET`.
-
-Before starting the bot (not needed for the smoke-test script), export
-the aliases:
-
-```bash
-export BYBIT_API_KEY=$BYBIT_TESTNET_API_KEY
-export BYBIT_API_SECRET=$BYBIT_TESTNET_API_SECRET
-```
-
-Or add these two lines to the env file itself if you are not sharing it
-across live/testnet profiles.
-
-### 5. Clean up after use
+### 2. Clean up after use
 
 Delete the rendered file from Colab after copying to the VM or completing
 the smoke test:
 
 ```bash
-rm /content/ict-trading-bot/.env.paper
+rm /content/ict-trading-bot/.env.live
 ```
 
 ---

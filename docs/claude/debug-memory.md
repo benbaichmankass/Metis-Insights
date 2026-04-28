@@ -8,7 +8,7 @@ Use this file for recurring bugs so Claude does not rediscover them.
 - Runtime validation tests may fail if function signatures drift from tests.
 - Telegram-related tests need the `telegram` package or must be skipped/mocked.
 - `.env` loading tests need `python-dotenv`.
-- Never test live exchange behavior without explicit paper/live-mode instructions.
+- Never test live exchange behavior without explicit live-mode/dry-run instructions. (There is no paper-trading mode.)
 
 ## Anti-patterns
 
