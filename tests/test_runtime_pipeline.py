@@ -491,3 +491,62 @@ def test_multi_strategy_pipeline_via_env_var(monkeypatch):
     assert result["signal"]["side"] == "buy"
     assert result["signal"]["meta"]["strategy_name"] == "breakout_confirmation"
     assert result["order_result"]["status"] == "simulated"
+
+
+def test_multi_strategy_pipeline_respects_max_qty_via_env_var(monkeypatch):
+    """
+    M6 risk-cap guarantee: when the multiplexer is active and a strategy
+    returns a qty above MAX_QTY, safe_place_order must still reject the
+    order. Proves the combined execution path does not bypass risk caps.
+    """
+    monkeypatch.setenv("STRATEGY", "multiplexed")
+    monkeypatch.setitem(
+        _pipeline_mod._STRATEGY_BUILDERS,
+        "breakout_confirmation",
+        lambda s: _flat_signal(),
+    )
+    # vwap claims qty=10, exceeding MAX_QTY=1 — caps must still bite.
+    monkeypatch.setitem(
+        _pipeline_mod._STRATEGY_BUILDERS,
+        "vwap",
+        lambda s: _make_signal(side="buy", qty=10.0, strategy="vwap"),
+    )
+
+    settings = {"SYMBOL": "BTCUSDT", "DRY_RUN": "true", "MAX_QTY": "1"}
+    telegram = DummyTelegramClient()
+
+    result = run_pipeline(settings, telegram_client=telegram)
+
+    assert result["signal"]["meta"]["strategy_name"] == "vwap"
+    assert result["order_result"]["status"] == "failed_validation"
+    assert "MAX_QTY" in result["order_result"]["reason"]
+
+
+def test_multi_strategy_pipeline_respects_max_position_usd(monkeypatch):
+    """
+    M6 risk-cap guarantee: MAX_POSITION_USD must abort multiplexed orders
+    just like single-strategy orders. Proves notional caps apply across
+    breakout_confirmation + vwap combined execution path.
+    """
+    monkeypatch.setenv("STRATEGY", "multiplexed")
+    monkeypatch.setitem(
+        _pipeline_mod._STRATEGY_BUILDERS,
+        "breakout_confirmation",
+        lambda s: {
+            "symbol": "BTCUSDT",
+            "side": "buy",
+            "qty": 1.0,
+            "meta": {"strategy_name": "breakout_confirmation", "price": 100000.0},
+        },
+    )
+
+    settings = {
+        "SYMBOL": "BTCUSDT",
+        "DRY_RUN": "true",
+        "MAX_QTY": "10",
+        "MAX_POSITION_USD": "5000",  # 1 * 100_000 = 100_000 USD >> 5_000
+    }
+    telegram = DummyTelegramClient()
+
+    with pytest.raises(ValueError, match="MAX_POSITION_USD"):
+        run_pipeline(settings, telegram_client=telegram)
