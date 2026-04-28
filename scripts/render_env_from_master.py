@@ -7,10 +7,14 @@ Usage:
     python scripts/render_env_from_master.py \
         --master /path/to/master-secrets.sops.yaml \
         --age-key-file /path/to/age-keys.txt \
-        --profile paper|colab|oracle_paper|live|vwap_btcusd_dry_run|vwap_btcusd_live \
-        --out .env.paper \
-        [--allow-live] \
+        --profile live|vwap_btcusd_live \
+        --out .env.live \
+        --allow-live \
         [--sops-bin sops]
+
+All supported profiles target live trading on real exchange keys. There is no
+paper / simulation profile in this repo: we build, test, and deploy live on
+small accounts only.
 """
 from __future__ import annotations
 
@@ -23,14 +27,10 @@ from pathlib import Path
 from typing import Any
 
 PROFILES = (
-    "paper",
-    "colab",
-    "oracle_paper",
     "live",
-    "vwap_btcusd_dry_run",
     "vwap_btcusd_live",
 )
-LIVE_PROFILES = ("live", "vwap_btcusd_live")
+LIVE_PROFILES = PROFILES  # every supported profile is live
 PLACEHOLDER_PATTERNS = ("REPLACE_ME", "CHANGEME", "YOUR_", "<", ">", "TODO")
 
 
@@ -126,86 +126,11 @@ def _risk_pairs(data: dict, tier: str) -> list[tuple[str, str]]:
     return pairs
 
 
-def _hf_pairs(data: dict) -> list[tuple[str, str]]:
-    hf = data.get("huggingface") or data.get("hf") or {}
-    pairs = []
-    for env_key, yaml_key in [
-        ("HF_USERNAME", "username"),
-        ("HF_TOKEN", "token"),
-        ("HF_DATASET_REPO", "dataset_repo"),
-        ("HF_MODEL_REPO", "model_repo"),
-    ]:
-        val = hf.get(yaml_key)
-        if val and not _is_placeholder(val):
-            pairs.append((env_key, str(val)))
-    return pairs
-
-
-def build_paper(data: dict) -> list[tuple[str, str]]:
-    pairs: list[tuple[str, str]] = [
-        ("ENVIRONMENT", "local"),
-        ("EXCHANGE", _get(data, "profiles.paper.exchange")),
-        ("MODE", "paper"),
-        ("DRY_RUN", "true"),
-        ("ALLOW_LIVE_TRADING", "false"),
-        ("TELEGRAM_BOT_TOKEN", _get(data, "telegram.dev.bot_token")),
-        ("TELEGRAM_CHAT_ID", _get(data, "telegram.dev.chat_id")),
-        ("BYBIT_TESTNET_API_KEY", _get(data, "bybit.testnet.api_key")),
-        ("BYBIT_TESTNET_API_SECRET", _get(data, "bybit.testnet.api_secret")),
-        ("BYBIT_TESTNET_BASE_URL", _get(data, "bybit.testnet.base_url")),
-    ]
-    pairs.extend(_hf_pairs(data))
-    pairs.extend(_runtime_defaults(data))
-    pairs.extend(_risk_pairs(data, "paper"))
-    return pairs
-
-
-def build_colab(data: dict) -> list[tuple[str, str]]:
-    pairs: list[tuple[str, str]] = [
-        ("ENVIRONMENT", "colab"),
-        ("EXCHANGE", _get(data, "profiles.colab.exchange")),
-        ("MODE", "paper"),
-        ("DRY_RUN", "true"),
-        ("ALLOW_LIVE_TRADING", "false"),
-        ("GITHUB_PAT", _get(data, "github.pat")),
-    ]
-    pairs.extend(_hf_pairs(data))
-    pairs.extend([
-        ("TELEGRAM_BOT_TOKEN", _get(data, "telegram.dev.bot_token")),
-        ("TELEGRAM_CHAT_ID", _get(data, "telegram.dev.chat_id")),
-        ("BYBIT_TESTNET_API_KEY", _get(data, "bybit.testnet.api_key")),
-        ("BYBIT_TESTNET_API_SECRET", _get(data, "bybit.testnet.api_secret")),
-        ("BYBIT_TESTNET_BASE_URL", _get(data, "bybit.testnet.base_url")),
-    ])
-    return pairs
-
-
-def build_oracle_paper(data: dict) -> list[tuple[str, str]]:
-    pairs: list[tuple[str, str]] = [
-        ("ENVIRONMENT", "oracle"),
-        ("EXCHANGE", _get(data, "profiles.oracle_paper.exchange")),
-        ("MODE", "paper"),
-        ("DRY_RUN", "true"),
-        ("ALLOW_LIVE_TRADING", "false"),
-        ("TELEGRAM_BOT_TOKEN", _get(data, "telegram.dev.bot_token")),
-        ("TELEGRAM_CHAT_ID", _get(data, "telegram.dev.chat_id")),
-        ("BYBIT_TESTNET_API_KEY", _get(data, "bybit.testnet.api_key")),
-        ("BYBIT_TESTNET_API_SECRET", _get(data, "bybit.testnet.api_secret")),
-        ("BYBIT_TESTNET_BASE_URL", _get(data, "bybit.testnet.base_url")),
-        ("ORACLE_HOST", _get(data, "oracle.host")),
-        ("ORACLE_USERNAME", _get(data, "oracle.username")),
-        ("ORACLE_REPO_PATH", _get(data, "oracle.repo_path")),
-    ]
-    pairs.extend(_runtime_defaults(data))
-    pairs.extend(_risk_pairs(data, "paper"))
-    return pairs
-
-
 def build_live(data: dict) -> list[tuple[str, str]]:
     pairs: list[tuple[str, str]] = [
         ("ENVIRONMENT", "production"),
         ("EXCHANGE", _get(data, "profiles.live.exchange")),
-        ("MODE", "live"),
+        ("MODE", "LIVE"),
         ("DRY_RUN", "false"),
         ("ALLOW_LIVE_TRADING", "true"),
         ("TELEGRAM_BOT_TOKEN", _get(data, "telegram.prod.bot_token")),
@@ -238,50 +163,35 @@ def _vwap_risk_pairs(data: dict) -> list[tuple[str, str]]:
     return pairs
 
 
-def _build_vwap_btcusd(data: dict, *, live: bool) -> list[tuple[str, str]]:
-    """Shared builder for vwap_btcusd_dry_run / vwap_btcusd_live profiles.
+def build_vwap_btcusd_live(data: dict) -> list[tuple[str, str]]:
+    """Build env pairs for the vwap_btcusd_live profile.
 
-    Both profiles use the bybit.vwap_strategy subaccount keys (live Bybit
-    endpoints). The dry-run variant sets DRY_RUN=true and routes through the
-    dev Telegram profile; the live variant requires --allow-live and uses the
-    prod Telegram profile.
+    Uses the bybit.vwap_strategy subaccount keys (live Bybit endpoints) and the
+    prod Telegram profile. Always renders MODE=LIVE and DRY_RUN=false; the CLI
+    requires --allow-live to render this profile.
     """
-    profile_key = "vwap_btcusd_live" if live else "vwap_btcusd_dry_run"
-    telegram_tier = "prod" if live else "dev"
-
+    profile_key = "vwap_btcusd_live"
     pairs: list[tuple[str, str]] = [
         ("ENVIRONMENT", _get(data, f"profiles.{profile_key}.environment")),
         ("EXCHANGE", _get(data, f"profiles.{profile_key}.exchange")),
-        ("MODE", "LIVE" if live else "PAPER"),
-        ("DRY_RUN", "false" if live else "true"),
-        ("ALLOW_LIVE_TRADING", "true" if live else "false"),
+        ("MODE", "LIVE"),
+        ("DRY_RUN", "false"),
+        ("ALLOW_LIVE_TRADING", "true"),
         ("BYBIT_TESTNET", "false"),
         ("STRATEGY", _get(data, "strategies.vwap_btcusd.strategy_name")),
         ("SYMBOL", _get(data, "strategies.vwap_btcusd.symbol")),
         ("TIMEFRAME", _get(data, "strategies.vwap_btcusd.timeframe")),
         ("BYBIT_API_KEY", _get(data, "bybit.vwap_strategy.api_key")),
         ("BYBIT_API_SECRET", _get(data, "bybit.vwap_strategy.api_secret")),
-        ("TELEGRAM_BOT_TOKEN", _get(data, f"telegram.{telegram_tier}.bot_token")),
-        ("TELEGRAM_CHAT_ID", _get(data, f"telegram.{telegram_tier}.chat_id")),
+        ("TELEGRAM_BOT_TOKEN", _get(data, "telegram.prod.bot_token")),
+        ("TELEGRAM_CHAT_ID", _get(data, "telegram.prod.chat_id")),
     ]
     pairs.extend(_vwap_risk_pairs(data))
     return pairs
 
 
-def build_vwap_btcusd_dry_run(data: dict) -> list[tuple[str, str]]:
-    return _build_vwap_btcusd(data, live=False)
-
-
-def build_vwap_btcusd_live(data: dict) -> list[tuple[str, str]]:
-    return _build_vwap_btcusd(data, live=True)
-
-
 BUILDERS = {
-    "paper": build_paper,
-    "colab": build_colab,
-    "oracle_paper": build_oracle_paper,
     "live": build_live,
-    "vwap_btcusd_dry_run": build_vwap_btcusd_dry_run,
     "vwap_btcusd_live": build_vwap_btcusd_live,
 }
 
@@ -312,9 +222,9 @@ def main() -> int:
     )
     parser.add_argument("--master", required=True, help="Path to master-secrets.sops.yaml")
     parser.add_argument("--age-key-file", required=True, help="Path to age-keys.txt")
-    parser.add_argument("--profile", required=True, choices=PROFILES, help="Target runtime profile")
+    parser.add_argument("--profile", required=True, choices=PROFILES, help="Target runtime profile (all live)")
     parser.add_argument("--out", required=True, help="Output .env file path")
-    parser.add_argument("--allow-live", action="store_true", help="Required to generate the live profile")
+    parser.add_argument("--allow-live", action="store_true", help="Required for every supported profile (all are live)")
     parser.add_argument("--sops-bin", default="sops", help="Path to the sops binary (default: sops)")
     args = parser.parse_args()
 
@@ -338,7 +248,7 @@ def main() -> int:
     if args.profile in LIVE_PROFILES and not args.allow_live:
         sys.exit(
             f"ERROR: Generating the '{args.profile}' profile requires --allow-live.\n"
-            "Pass --allow-live only when you intentionally want live trading credentials."
+            "Pass --allow-live to confirm you intentionally want live trading credentials."
         )
 
     print(f"Profile : {args.profile}")
