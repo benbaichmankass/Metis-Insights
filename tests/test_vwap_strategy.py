@@ -237,7 +237,7 @@ class TestVwapPipelineRouting:
         )
         assert exchange.calls == [], "Exchange order method must not be called in DRY_RUN mode"
 
-    def test_vwap_dry_run_returns_simulated_status(self):
+    def test_vwap_dry_run_returns_dry_run_status(self):
         settings = {
             "SYMBOL": "BTCUSDT",
             "DRY_RUN": "true",
@@ -249,7 +249,7 @@ class TestVwapPipelineRouting:
             telegram_client=DummyTelegramClient(),
             signal_builder=self._vwap_buy_signal_builder,
         )
-        assert result["order_result"]["status"] == "simulated"
+        assert result["order_result"]["status"] == "dry_run"
 
     def test_vwap_no_signal_returns_skipped(self):
         settings = {
@@ -297,7 +297,7 @@ class TestLiveSafetyGate:
         assert result["status"] == "submitted"
         assert len(client.calls) == 1
 
-    def test_dry_run_true_always_simulates_regardless_of_allow_live(self):
+    def test_dry_run_true_blocks_submission_regardless_of_allow_live(self):
         """DRY_RUN=true blocks real submission even if ALLOW_LIVE_TRADING=true."""
         client = DummyExchangeClient()
         settings = {"DRY_RUN": "true", "ALLOW_LIVE_TRADING": "true", "MAX_QTY": "10"}
@@ -306,7 +306,7 @@ class TestLiveSafetyGate:
             settings,
             client,
         )
-        assert result["status"] == "simulated"
+        assert result["status"] == "dry_run"
         assert client.calls == []
 
     def test_mode_live_without_allow_live_fails_validate_startup(self, monkeypatch):
@@ -331,8 +331,8 @@ class TestLiveSafetyGate:
         with pytest.raises(EnvironmentError, match="ALLOW_LIVE_TRADING"):
             validate_startup()
 
-    def test_mode_paper_without_allow_live_passes_validate_startup(self, monkeypatch):
-        """MODE=PAPER must pass even without ALLOW_LIVE_TRADING=true."""
+    def test_mode_paper_is_rejected_by_validate_startup(self, monkeypatch):
+        """MODE=PAPER must be rejected outright — paper trading is not supported."""
         env = {
             "EXCHANGE": "bybit",
             "BYBIT_API_KEY": "fake_key",
@@ -350,36 +350,11 @@ class TestLiveSafetyGate:
         for k, v in env.items():
             monkeypatch.setenv(k, v)
 
-        # Should not raise.
-        validate_startup()
+        with pytest.raises(EnvironmentError, match="MODE"):
+            validate_startup()
 
-    def test_vwap_btcusd_dry_run_profile_passes_validation(self, monkeypatch):
-        """The vwap_btcusd_dry_run env profile must pass startup validation."""
-        env = {
-            "ENVIRONMENT": "oracle",
-            "EXCHANGE": "bybit",
-            "MODE": "PAPER",
-            "DRY_RUN": "true",
-            "ALLOW_LIVE_TRADING": "false",
-            "BYBIT_TESTNET": "false",
-            "STRATEGY": "vwap",
-            "SYMBOL": "BTCUSDT",
-            "TIMEFRAME": "5m",
-            "BYBIT_API_KEY": "fake_key",
-            "BYBIT_API_SECRET": "fake_secret",
-            "TELEGRAM_BOT_TOKEN": "fake_token",
-            "TELEGRAM_CHAT_ID": "123",
-            "RISK_PER_TRADE": "0.01",
-            "MAX_QTY": "1",
-        }
-        for k, v in env.items():
-            monkeypatch.setenv(k, v)
-
-        # Must not raise — this is the target dry-run profile.
-        validate_startup()
-
-    def test_mode_paper_lowercase_is_accepted(self, monkeypatch):
-        """MODE=paper (lowercase) must be treated as PAPER — safe, no error."""
+    def test_mode_paper_lowercase_is_rejected(self, monkeypatch):
+        """MODE=paper (lowercase) must also be rejected after .upper() normalisation."""
         env = {
             "EXCHANGE": "bybit",
             "BYBIT_API_KEY": "fake_key",
@@ -397,8 +372,8 @@ class TestLiveSafetyGate:
         for k, v in env.items():
             monkeypatch.setenv(k, v)
 
-        # validate_startup normalises MODE via .upper() — must not raise.
-        validate_startup()
+        with pytest.raises(EnvironmentError, match="MODE"):
+            validate_startup()
 
     def test_mode_live_lowercase_requires_allow_live(self, monkeypatch):
         """MODE=live (lowercase) must still trigger ALLOW_LIVE_TRADING gate."""

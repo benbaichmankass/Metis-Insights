@@ -50,9 +50,12 @@ def validate_startup() -> None:
         errors.append(f"Missing required Telegram credential: {key}")
 
     # ---- Trading mode ------------------------------------------------------
+    # Paper-trading is intentionally not a supported mode. The bot trades live
+    # on real exchange accounts; backtests are run via the dedicated backtest
+    # CLI, not through this runtime path.
     mode = _env("MODE").upper()
-    if mode not in ("LIVE", "PAPER", "BACKTEST"):
-        errors.append(f"MODE must be LIVE, PAPER, or BACKTEST, got {mode!r}")
+    if mode not in ("LIVE", "BACKTEST"):
+        errors.append(f"MODE must be LIVE or BACKTEST, got {mode!r}")
 
     # ---- Symbol & timeframe ------------------------------------------------
     if not _env("SYMBOL"):

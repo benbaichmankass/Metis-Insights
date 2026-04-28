@@ -24,8 +24,8 @@ _DB_CANDIDATES = [
 ]
 DB_PATH = next((p for p in _DB_CANDIDATES if p and os.path.exists(p)), os.path.join(REPO_ROOT, "trade_journal.db"))
 
-# Single live trader. There is no paper trader. The bot operates exclusively on
-# the .env at the repo root, which configures the live trading service.
+# The bot operates on a single live trader, configured via the .env at the
+# repo root.
 LIVE_ENV_PATH = os.path.join(REPO_ROOT, ".env")
 
 # Single systemd service for the trader. Used to build journalctl/systemctl
@@ -156,10 +156,8 @@ def get_strategy_label(env_vars: dict | None = None) -> str:
 def format_target_options(separator: str = "|") -> str:
     """Return the strategy label shown in slash-command help text.
 
-    Historically this rendered ``live|paper`` to distinguish two trader
-    instances. Paper trading no longer exists, so this returns the single
-    active strategy's display name. ``separator`` is kept for API
-    compatibility but is unused with one label.
+    Returns the single active strategy's display name. ``separator`` is kept
+    for API compatibility but is unused with one label.
     """
     return get_strategy_label()
 

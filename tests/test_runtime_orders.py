@@ -29,7 +29,7 @@ def test_dry_run_does_not_call_exchange():
         settings,
         client,
     )
-    assert result["status"] == "simulated"
+    assert result["status"] == "dry_run"
     assert client.calls == []
 
 

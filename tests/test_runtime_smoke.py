@@ -30,4 +30,4 @@ def test_runtime_smoke_path():
         DummyClient(),
     )
 
-    assert result["status"] == "simulated"
+    assert result["status"] == "dry_run"

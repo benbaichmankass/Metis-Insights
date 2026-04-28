@@ -126,9 +126,9 @@ def safe_place_order(order: Dict[str, Any], settings: Any, client: Any) -> dict[
             }
 
     if _as_bool(_get_value(settings, "DRY_RUN", "true")):
-        logger.info("DRY_RUN enabled; simulated order: %s", order)
+        logger.info("DRY_RUN enabled; order not submitted: %s", order)
         return {
-            "status": "simulated",
+            "status": "dry_run",
             "order": order,
         }
 

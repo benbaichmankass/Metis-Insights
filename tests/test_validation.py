@@ -22,7 +22,7 @@ BASE_ENV = {
     "BINANCE_API_SECRET":  "test-secret",
     "TELEGRAM_BOT_TOKEN": "tok",
     "TELEGRAM_CHAT_ID":   "123",
-    "MODE":               "PAPER",
+    "MODE":               "BACKTEST",
     "SYMBOL":             "BTCUSDT",
     "TIMEFRAME":          "15m",
     "RISK_PER_TRADE":     "0.01",

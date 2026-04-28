@@ -82,7 +82,7 @@ def test_pipeline_places_order_for_forced_signal():
         signal_builder=forced_long_builder,
     )
 
-    assert result["order_result"]["status"] == "simulated"
+    assert result["order_result"]["status"] == "dry_run"
     assert len(exchange.calls) == 0
 
 
@@ -107,7 +107,7 @@ def test_pipeline_does_not_crash_when_telegram_notification_fails():
         signal_builder=forced_long_builder,
     )
 
-    assert result["order_result"]["status"] == "simulated"
+    assert result["order_result"]["status"] == "dry_run"
 
 
 def test_pipeline_returns_skipped_status_for_no_signal():
@@ -151,7 +151,7 @@ def test_pipeline_telegram_message_includes_skipped_status():
     assert "BTCUSDT" in telegram.messages[0]
 
 
-def test_pipeline_telegram_message_includes_simulated_status():
+def test_pipeline_telegram_message_includes_dry_run_status():
     settings = {
         "SYMBOL": "BTCUSDT",
         "DRY_RUN": "true",
@@ -168,7 +168,7 @@ def test_pipeline_telegram_message_includes_simulated_status():
     )
 
     assert len(telegram.messages) == 1
-    assert "simulated" in telegram.messages[0].lower()
+    assert "dry_run" in telegram.messages[0].lower()
     assert "BTCUSDT" in telegram.messages[0]
 
 
@@ -355,7 +355,7 @@ def test_pipeline_runs_normally_when_not_halted(tmp_path, monkeypatch):
         signal_builder=forced_long_builder,
     )
 
-    assert result["order_result"]["status"] == "simulated"
+    assert result["order_result"]["status"] == "dry_run"
     assert exchange.calls == []
 
 
@@ -556,7 +556,7 @@ def test_multi_strategy_pipeline_via_env_var(monkeypatch):
 
     assert result["signal"]["side"] == "buy"
     assert result["signal"]["meta"]["strategy_name"] == "breakout_confirmation"
-    assert result["order_result"]["status"] == "simulated"
+    assert result["order_result"]["status"] == "dry_run"
 
 
 def test_multi_strategy_pipeline_respects_max_qty_via_env_var(monkeypatch):
