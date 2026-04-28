@@ -17,6 +17,17 @@ def _as_bool(value: Any) -> bool:
     return str(value).strip().lower() in {"true", "1", "yes", "on"}
 
 
+def _resolve_price(order: Dict[str, Any]) -> float | None:
+    price = order.get("price")
+    if price is None:
+        meta = order.get("meta") or {}
+        price = meta.get("price") or meta.get("entry_price")
+    try:
+        return float(price) if price is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
 def safe_place_order(order: Dict[str, Any], settings: Any, client: Any) -> dict[str, Any]:
     """
     Validate order payload before real submission.
@@ -62,6 +73,40 @@ def safe_place_order(order: Dict[str, Any], settings: Any, client: Any) -> dict[
             "reason": f"Order rejected: qty must be > 0, got {qty}",
             "order": order,
         }
+
+    # Hard risk guards — raise immediately; no soft fallback.
+    max_pos_raw = _get_value(settings, "MAX_POSITION_USD", None)
+    if max_pos_raw not in (None, ""):
+        max_pos_usd = float(max_pos_raw)
+        price = _resolve_price(order)
+        if price is not None:
+            notional_usd = qty * price
+            if notional_usd > max_pos_usd:
+                raise ValueError(
+                    f"Order aborted: notional {notional_usd:.2f} USD exceeds MAX_POSITION_USD {max_pos_usd}"
+                )
+
+    max_daily_loss_raw = _get_value(settings, "MAX_DAILY_LOSS_USD", None)
+    if max_daily_loss_raw not in (None, ""):
+        max_daily_loss = float(max_daily_loss_raw)
+        current_loss_raw = _get_value(settings, "CURRENT_DAILY_LOSS_USD", None)
+        if current_loss_raw not in (None, ""):
+            if float(current_loss_raw) >= max_daily_loss:
+                raise ValueError(
+                    f"Order aborted: daily loss {float(current_loss_raw):.2f} USD has reached"
+                    f" MAX_DAILY_LOSS_USD {max_daily_loss}"
+                )
+
+    max_open_raw = _get_value(settings, "MAX_OPEN_POSITIONS", None)
+    if max_open_raw not in (None, ""):
+        max_open = int(float(max_open_raw))
+        current_open_raw = _get_value(settings, "CURRENT_OPEN_POSITIONS", None)
+        if current_open_raw not in (None, ""):
+            if int(float(current_open_raw)) >= max_open:
+                raise ValueError(
+                    f"Order aborted: open positions {int(float(current_open_raw))}"
+                    f" has reached MAX_OPEN_POSITIONS {max_open}"
+                )
 
     max_qty_raw = _get_value(settings, "MAX_QTY", None)
     if max_qty_raw not in (None, ""):
