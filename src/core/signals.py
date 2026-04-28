@@ -42,6 +42,11 @@ class ICTSignalsAnalyzer:
         Minimum price gap size to record an FVG.
     ob_lookback : int
         Candles to look back when searching for the origin candle of an OB.
+    ob_body_min_pct : float
+        Minimum OB origin-candle body size as a percentage of close price.
+        ``0.0`` (default) keeps the original any-body behaviour. Values in
+        the ``0.5``–``0.8`` range filter out indecision/doji bars while
+        keeping impulse candles (matches the Phase-1 research notebook).
     swing_bars : int
         Bars on each side required to confirm a swing high/low.
     """
@@ -51,11 +56,15 @@ class ICTSignalsAnalyzer:
         symbol: str = "BTC/USDT",
         fvg_min_gap: float = 0.0,
         ob_lookback: int = 20,
+        ob_body_min_pct: float = 0.0,
         swing_bars: int = 5,
     ) -> None:
         self.symbol = symbol
         self._fvg = FVGDetector(min_gap_size=fvg_min_gap)
-        self._ob = OrderBlockDetector(lookback=ob_lookback)
+        self._ob = OrderBlockDetector(
+            lookback=ob_lookback,
+            body_min_pct=ob_body_min_pct,
+        )
         self._swing = SwingPointDetector(left_bars=swing_bars, right_bars=swing_bars)
 
     # ------------------------------------------------------------------
