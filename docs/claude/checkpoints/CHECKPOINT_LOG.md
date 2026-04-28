@@ -337,6 +337,71 @@ session-complete) once log push completes.
 
 ---
 
+## CP-2026-04-28-16b — M9 PR1: news layer package, schema, scoring, and tests
+
+- **Session date:** 2026-04-28
+- **Sprint:** M9 — News-Augmented Trade Decision Layer (sequestered branch)
+- **Current sprint phase:** PR 1 — module boundary, schema, config interfaces, scoring core
+- **Last completed checkpoint:** CP-2026-04-28-15 (PR #55 — Telegram strategy labels)
+- **Next checkpoint:** **CP-M9-PR2 — ingestion integration** — add live fetch → normalize
+  pipeline wired into a single `get_news_score(settings)` convenience call; add integration
+  test with a mocked NewsAPI response; keep isolated to `src/news/`.
+- **Blockers:** none. Branch `claude/news-trade-decisions-ICLjq` is open as PR #57.
+
+### 1. Completed
+- Created `src/news/` package with full module boundary for the M9 news layer.
+- `news_cache.py`: thread-safe in-memory TTL cache; module-level singleton `get_cache()`.
+- `news_client.py`: NewsAPI `/v2/everything` fetcher using stdlib `urllib`; returns `[]`
+  when `NEWS_ENABLED=false`, no key, or any network/HTTP error. Results cached.
+- `news_normalizer.py`: converts raw NewsAPI articles to internal schema (11 fields);
+  keyword-based sentiment scorer (no external NLP deps); relevance from symbol keyword
+  matching; impact from high-impact pattern list; freshness in minutes.
+- `news_score.py`: aggregates normalized items → `NewsScoreResult` (adjustment, veto,
+  reason, decision, raw_scores); `adjust_probability()` clamps nudge to ±15 pp, returns
+  0.0 on veto. Config-driven veto thresholds.
+- `__init__.py`: re-exports `score_news`, `adjust_probability`, `NewsScoreResult`.
+- `tests/test_news_layer.py`: 46 tests covering all acceptance criteria — missing news,
+  stale news, positive relevant news, negative high-impact veto, disabled mode, score
+  determinism, reason string, adjust_probability edge cases, cache TTL, schema keys,
+  public API re-exports, network error fallback.
+
+### 2. Files changed
+- `src/news/__init__.py` (new)
+- `src/news/news_cache.py` (new)
+- `src/news/news_client.py` (new)
+- `src/news/news_normalizer.py` (new)
+- `src/news/news_score.py` (new)
+- `tests/test_news_layer.py` (new)
+
+### 3. Tests run
+- `python scripts/repo_inventory.py` — clean
+- `python scripts/secret_scan.py` — clean
+- `pytest tests/test_news_layer.py -v` → **46/46 pass**
+- Full suite (excluding pandas/numpy-dependent tests that fail pre-existing in sandbox):
+  → **175 passed**, 1 skipped, 0 new failures. Zero regressions.
+
+### 4. Remaining
+- PR #57 open, awaiting review/merge.
+- M9 PR2: wire `fetch_news` + `normalize_articles` + `score_news` into a single
+  `get_news_score(settings, symbol_tags)` convenience call in `src/news/news_client.py`
+  or a new `src/news/news_pipeline.py`. Add mocked integration test.
+- M9 PR3: scoring refinements (multi-item weighting, configurable keyword lists).
+- M9 PR4: additional tests and a short doc note in `docs/`.
+- M9 PR5: optional pipeline hook into runtime decision path (deferred, needs approval).
+
+### 5. Next checkpoint
+**CP-M9-PR2** — Create `src/news/news_pipeline.py` with a single
+`get_news_score(settings, symbol_tags=None)` function that calls `fetch_news` →
+`normalize_articles` → `score_news` and returns `NewsScoreResult`. Add a mocked
+integration test. Read in order: this entry, `src/news/` (all five files), then
+implement. Keep strictly inside `src/news/`.
+
+**PR:** [#57](https://github.com/the-lizardking/ict-trading-bot/pull/57) — `claude/news-trade-decisions-ICLjq` (open, draft).
+
+**Telegram sent:** no (no live creds in sequestered session environment)
+
+---
+
 ## CP-2026-04-28-15 — UI: strategy-aware Telegram /start help and BotCommand list
 
 - **Session date:** 2026-04-28
