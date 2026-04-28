@@ -3,6 +3,8 @@ from src.runtime.signal_writer import write_signal
 from src.utils.signal_audit_logger import log_signal
 
 import os
+
+HALT_FLAG_PATH = "/tmp/trader_halt.flag"
 from dotenv import load_dotenv
 if os.path.exists(".env.live"):
     load_dotenv(".env.live")
@@ -305,6 +307,9 @@ def run_pipeline(
     if signal.get("side") in ("none", "", None) or float(signal.get("qty", 0)) <= 0:
         logger.info("No actionable signal; skipping order placement.")
         result = {"status": "skipped", "reason": "no_signal", "signal": signal}
+    elif os.path.exists(HALT_FLAG_PATH):
+        logger.warning("Trader is HALTED — flag file present. Skipping order placement.")
+        result = {"status": "halted", "reason": "halt_flag_active"}
     else:
         result = safe_place_order(signal, settings, exchange_client)
 
