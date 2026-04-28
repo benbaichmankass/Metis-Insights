@@ -10,6 +10,36 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-29-05 — PR 5: delete dead tui_control_panel.py + bybit_config.py
+
+- **Session date:** 2026-04-28
+- **Sprint:** sprint-plan-2026-04-29 (operational-hardening)
+- **Current sprint phase:** PR 5 — repo hygiene
+- **Last completed checkpoint:** CP-2026-04-29-04 (PR 4 done, PR #70 open)
+- **Next checkpoint:** **CP-2026-04-29-06** — start PR 6 (fix dead ATR sizing in breakout builder — Option B: remove dead branch)
+- **Blockers:** none. PR #71 open as draft.
+
+### 1. Completed
+- Deleted `tui_control_panel.py` (only remaining MODE=PAPER string in any .py) and `bybit_config.py` (credentials shim used only by the TUI and three root-level Colab test files with pytest.importorskip guards)
+- Verified no runtime imports of either file; verified deployment-ops.md has no TUI references
+
+### 2. Files changed
+- `tui_control_panel.py` (deleted)
+- `bybit_config.py` (deleted)
+
+### 3. Tests run
+- Full suite: 305 pass, 106 fail, 4 skip — identical to pre-sprint baseline, no regressions
+
+### 4. Remaining
+- none — PR 5 complete
+
+### 5. Next checkpoint
+**CP-2026-04-29-06** — PR 6: fix dead ATR sizing. Default to Option B (remove dead branch, document fixed-qty). Read `src/runtime/pipeline.py:185–207` before starting. Branch: `fix/breakout-fixed-qty`.
+
+**Telegram sent:** no (no creds in env)
+
+---
+
 ## CP-2026-04-29-04 — PR 4: refresh sprint audit doc
 
 - **Session date:** 2026-04-28
