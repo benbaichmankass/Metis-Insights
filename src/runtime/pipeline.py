@@ -510,6 +510,19 @@ def run_pipeline(
         if news_result.veto:
             logger.warning("news veto: %s", news_result.reason)
             result = {"status": "news_veto", "reason": news_result.reason, "signal": signal}
+            _veto_msg = (
+                f"\U0001f6ab News veto: {news_result.reason}\n"
+                f"Symbol: {signal.get('symbol', '?')} | Side: {signal.get('side', '?')}"
+                f" | Qty: {signal.get('qty', '?')}\n"
+                f"Adj: {news_result.adjustment:.4f} | Items: {news_result.item_count}"
+            )[:200]
+            try:
+                if telegram_client is not None:
+                    notify_operator(telegram_client, _veto_msg)
+                else:
+                    send_via_alert_manager(_veto_msg)
+            except Exception:
+                logger.exception("news veto notify failed")
         else:
             logger.info(
                 "news: decision=%s adj=%.4f items=%d reason=%s",

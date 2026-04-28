@@ -185,3 +185,60 @@ def test_veto_result_contains_signal():
         result = run_pipeline(_settings(), signal_builder=lambda s: expected_signal)
 
     assert result["order_result"]["signal"] == expected_signal
+
+
+# ---------------------------------------------------------------------------
+# Test 7: veto → notify_operator called exactly once with veto message
+# ---------------------------------------------------------------------------
+
+def test_news_veto_sends_operator_notification():
+    mock_client = MagicMock()
+
+    with (
+        patch("src.runtime.pipeline.get_news_score", return_value=_veto_result()),
+        patch("src.runtime.pipeline.safe_place_order"),
+        patch("src.runtime.pipeline.inject_runtime_counters", side_effect=lambda s, _: dict(s)),
+        patch("src.runtime.pipeline.write_signal"),
+        patch("src.runtime.pipeline.log_signal"),
+        patch("src.runtime.pipeline.notify_operator") as mock_notify,
+        patch("src.runtime.pipeline.send_via_alert_manager"),
+    ):
+        run_pipeline(_settings(), signal_builder=lambda s: _actionable_signal(),
+                     telegram_client=mock_client)
+
+    # notify_operator called at least once for the veto-specific message
+    veto_calls = [
+        call for call in mock_notify.call_args_list
+        if "News veto" in str(call) and "bearish" in str(call)
+    ]
+    assert len(veto_calls) == 1, (
+        f"Expected exactly 1 veto-specific notify call, got {len(veto_calls)}. "
+        f"All calls: {mock_notify.call_args_list}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Test 8: notify_operator raising does not alter the pipeline return status
+# ---------------------------------------------------------------------------
+
+def test_veto_notify_failure_does_not_change_status():
+    """A RuntimeError from the veto-specific notify_operator call must be
+    caught by the pipeline's try/except and must not change the return status."""
+    mock_client = MagicMock()
+
+    # Raise only on the first call (veto-specific); subsequent calls (generic
+    # pipeline-end notify) succeed normally.
+    with (
+        patch("src.runtime.pipeline.get_news_score", return_value=_veto_result()),
+        patch("src.runtime.pipeline.safe_place_order"),
+        patch("src.runtime.pipeline.inject_runtime_counters", side_effect=lambda s, _: dict(s)),
+        patch("src.runtime.pipeline.write_signal"),
+        patch("src.runtime.pipeline.log_signal"),
+        patch("src.runtime.pipeline.notify_operator",
+              side_effect=[RuntimeError("Telegram down"), None]),
+        patch("src.runtime.pipeline.send_via_alert_manager"),
+    ):
+        result = run_pipeline(_settings(), signal_builder=lambda s: _actionable_signal(),
+                              telegram_client=mock_client)
+
+    assert result["order_result"]["status"] == "news_veto"
