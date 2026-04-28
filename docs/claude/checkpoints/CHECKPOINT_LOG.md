@@ -10,6 +10,64 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-M9-PR3 — M9 PR3: weighted aggregation and configurable keyword lists
+
+- **Session date:** 2026-04-28
+- **Sprint:** M9 — News-Augmented Trade Decision Layer (sequestered branch)
+- **Current sprint phase:** PR 3 — scoring refinements
+- **Last completed checkpoint:** CP-M9-PR2 (PR #61, merged)
+- **Next checkpoint:** **CP-M9-PR4** — docs note + any remaining test gaps.
+  Add a short `docs/news_layer.md` describing the module, its config knobs,
+  the score formula, and how to wire `get_news_score` into a strategy tick.
+- **Blockers:** none. Branch `claude/news-trade-decisions-ICLjq` open as PR #62.
+
+### 1. Completed
+- **Weighted aggregation** (`news_score.py`): `NEWS_WEIGHTED_AGGREGATION` (default
+  `true`). Aggregate now uses `sum(score_i * relevance_i) / sum(relevance_i)` so
+  high-relevance items dominate over low-relevance noise. Falls back to plain mean
+  when disabled or all weights are zero. Decision and reason strings unchanged.
+- **Configurable keyword extension** (`news_normalizer.py`):
+  - `NEWS_POSITIVE_KEYWORDS` and `NEWS_NEGATIVE_KEYWORDS` (comma-separated) extend
+    the built-in sentiment word lists additively — built-in words remain active.
+  - `normalize_article` and `normalize_articles` accept an optional `settings` dict;
+    fully backward-compatible (default `None`).
+  - Internal helpers `_parse_extra_keywords`, `_get_extra_positive`,
+    `_get_extra_negative`, and updated `_score_sentiment(extra_positive, extra_negative)`
+    exported for direct unit-testing.
+- **Pipeline wiring** (`news_pipeline.py`): `settings` now forwarded to
+  `normalize_articles` so custom keywords reach the normalizer end-to-end.
+- **26 calibration tests** (`tests/test_news_scoring.py`): keyword parsing,
+  sentiment extension, normalize with settings, weighted vs. unweighted
+  dominance, equal-weight equivalence, magnitude bounds across full parameter
+  space (15-case grid), scaling with relevance, and backward-compat regressions.
+
+### 2. Files changed
+- `src/news/news_score.py` (+15/-2: config helper + weighted aggregation branch)
+- `src/news/news_normalizer.py` (+50/-5: imports, helpers, settings param thread)
+- `src/news/news_pipeline.py` (+1/-1: settings forwarded to normalize_articles)
+- `tests/test_news_scoring.py` (new, 26 tests)
+
+### 3. Tests run
+- `python3 scripts/secret_scan.py` — clean
+- `pytest tests/test_news_scoring.py -v` → **26/26 pass**
+- `pytest -q tests/test_news_layer.py tests/test_news_pipeline.py tests/test_news_scoring.py`
+  → **97/97 pass** (all three news test files together; zero regressions)
+
+### 4. Remaining
+- M9 PR4: `docs/news_layer.md` — module overview, config knobs, score formula,
+  wiring example, and any remaining test gaps from the acceptance-criteria checklist.
+- M9 PR5: optional hook into runtime decision path (deferred, needs approval).
+
+### 5. Next checkpoint
+**CP-M9-PR4** — Write `docs/news_layer.md` (short, focused). No source changes
+needed unless test gaps surface during the doc write. Keep strictly in `docs/`.
+
+**PR:** [#62](https://github.com/the-lizardking/ict-trading-bot/pull/62) — `claude/news-trade-decisions-ICLjq` (open, draft).
+
+**Telegram sent:** no (no live creds in sequestered session environment)
+
+---
+
 ## CP-M9-PR2 — M9 PR2: news pipeline convenience entry point and integration tests
 
 - **Session date:** 2026-04-28
