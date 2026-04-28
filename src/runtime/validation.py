@@ -86,6 +86,31 @@ def validate_startup() -> None:
         except ValueError:
             errors.append(f"MAX_QTY must be a float, got {max_qty_raw!r}")
 
+    # ---- Hard order-layer risk guards (all optional; validated if set) -----
+    _max_pos_raw = _env("MAX_POSITION_USD")
+    if _max_pos_raw:
+        try:
+            if float(_max_pos_raw) <= 0:
+                errors.append(f"MAX_POSITION_USD must be > 0, got {_max_pos_raw!r}")
+        except ValueError:
+            errors.append(f"MAX_POSITION_USD must be a positive number, got {_max_pos_raw!r}")
+
+    _max_daily_loss_raw = _env("MAX_DAILY_LOSS_USD")
+    if _max_daily_loss_raw:
+        try:
+            if float(_max_daily_loss_raw) <= 0:
+                errors.append(f"MAX_DAILY_LOSS_USD must be > 0, got {_max_daily_loss_raw!r}")
+        except ValueError:
+            errors.append(f"MAX_DAILY_LOSS_USD must be a positive number, got {_max_daily_loss_raw!r}")
+
+    _max_open_raw = _env("MAX_OPEN_POSITIONS")
+    if _max_open_raw:
+        try:
+            if int(float(_max_open_raw)) <= 0:
+                errors.append(f"MAX_OPEN_POSITIONS must be > 0, got {_max_open_raw!r}")
+        except ValueError:
+            errors.append(f"MAX_OPEN_POSITIONS must be a positive integer, got {_max_open_raw!r}")
+
     # ---- DRY_RUN / live-trading interlock ----------------------------------
     dry_run = _env("DRY_RUN").lower()
     allow_live = _env("ALLOW_LIVE_TRADING").lower()
@@ -128,4 +153,9 @@ def build_settings_from_env() -> dict:
         "log_level":          _env("LOG_LEVEL") or "INFO",
         "tick_interval":      int(_env("TICK_INTERVAL_SECONDS") or "900"),
         "loop":               _env("LOOP").lower() == "true",
+        # Hard order-layer risk guards — uppercase keys match safe_place_order() lookups.
+        # None when unset; safe_place_order() skips the guard when value is None.
+        "MAX_POSITION_USD":   _env("MAX_POSITION_USD") or None,
+        "MAX_DAILY_LOSS_USD": _env("MAX_DAILY_LOSS_USD") or None,
+        "MAX_OPEN_POSITIONS": _env("MAX_OPEN_POSITIONS") or None,
     }

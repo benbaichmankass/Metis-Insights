@@ -85,6 +85,7 @@ def test_build_settings_from_env_keys():
         "exchange", "mode", "symbol", "timeframe",
         "risk_per_trade", "max_qty", "dry_run",
         "allow_live_trading", "log_level", "tick_interval", "loop",
+        "MAX_POSITION_USD", "MAX_DAILY_LOSS_USD", "MAX_OPEN_POSITIONS",
     }
     assert s["exchange"] == "binance"
     assert s["risk_per_trade"] == 0.01

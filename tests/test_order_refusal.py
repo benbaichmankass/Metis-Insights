@@ -96,3 +96,31 @@ def test_order_allowed_when_halt_flag_path_not_configured():
     # No HALT_FLAG_PATH in settings — guard is skipped entirely.
     result = safe_place_order(_order(), _settings(), _Client())
     assert result["status"] == "submitted"
+
+
+# ---------------------------------------------------------------------------
+# Guard 4 — MAX_OPEN_POSITIONS
+# ---------------------------------------------------------------------------
+
+
+def test_order_refused_when_open_positions_at_limit():
+    settings = _settings(MAX_OPEN_POSITIONS="3", CURRENT_OPEN_POSITIONS="3")
+    with pytest.raises(ValueError, match="MAX_OPEN_POSITIONS"):
+        safe_place_order(_order(), settings, _Client())
+
+
+def test_order_refused_when_open_positions_exceed_limit():
+    settings = _settings(MAX_OPEN_POSITIONS="3", CURRENT_OPEN_POSITIONS="5")
+    with pytest.raises(ValueError, match="MAX_OPEN_POSITIONS"):
+        safe_place_order(_order(), settings, _Client())
+
+
+def test_order_allowed_when_open_positions_below_limit():
+    settings = _settings(MAX_OPEN_POSITIONS="5", CURRENT_OPEN_POSITIONS="2")
+    result = safe_place_order(_order(), settings, _Client())
+    assert result["status"] == "submitted"
+
+
+def test_order_allowed_when_max_open_positions_not_configured():
+    result = safe_place_order(_order(), _settings(), _Client())
+    assert result["status"] == "submitted"
