@@ -8,14 +8,17 @@ consume.
 
 Public API
 ----------
-score_news(items, settings)       -> NewsScoreResult
-adjust_probability(base, result)  -> float
+get_news_score(settings, symbol_tags) -> NewsScoreResult   # full pipeline
+score_news(items, settings)           -> NewsScoreResult   # score only
+adjust_probability(base, result)      -> float
 """
 from __future__ import annotations
 
+from src.news.news_pipeline import get_news_score
 from src.news.news_score import NewsScoreResult, adjust_probability, score_news
 
 __all__ = [
+    "get_news_score",
     "score_news",
     "adjust_probability",
     "NewsScoreResult",
