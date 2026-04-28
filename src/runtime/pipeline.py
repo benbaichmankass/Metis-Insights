@@ -1,6 +1,7 @@
 from __future__ import annotations
 from src.runtime.signal_writer import write_signal
 from src.utils.signal_audit_logger import log_signal
+from src.runtime.risk_counters import inject_runtime_counters
 
 import os
 
@@ -446,6 +447,7 @@ def multiplexed_signal_builder(settings: dict) -> Dict[str, Any]:
             "meta": {"strategy_name": "multiplexed", "reason": "no_strategy_triggered"}}
 
 
+
 def run_pipeline(
     settings: dict,
     exchange_client: Any = None,
@@ -497,6 +499,7 @@ def run_pipeline(
         logger.warning("Trader is HALTED — flag file present. Skipping order placement.")
         result = {"status": "halted", "reason": "halt_flag_active"}
     else:
+        settings = inject_runtime_counters(settings, exchange_client)
         result = safe_place_order(signal, settings, exchange_client)
 
     try:

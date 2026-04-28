@@ -10,6 +10,69 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-RISK-COUNTER — fix: inject live risk counters before safe_place_order
+
+- **Session date:** 2026-04-28
+- **Sprint:** M9 sequestered branch (blocker cleared before PR5)
+- **Current sprint phase:** Risk-counter injection fix (prerequisite for M9 PR5)
+- **Last completed checkpoint:** CP-M9-PR4 (PR #63, merged)
+- **Next checkpoint:** **CP-M9-PR5** — news veto hook in run_pipeline.
+  Approved: option (b), NEWS_ENABLED=false default in .env.live.
+- **Blockers:** none. Branch open as PR #64.
+
+### 1. Completed
+- **Root cause fixed:** `run_pipeline` passed `settings` to `safe_place_order`
+  unmodified, so both hard guards (`MAX_DAILY_LOSS_USD` at orders.py:96 and
+  `MAX_OPEN_POSITIONS` at orders.py:107) always saw `None` for the current
+  counters and were silently skipped on every tick.
+- **`src/runtime/risk_counters.py`** (new, stdlib-only):
+  `inject_runtime_counters(settings, exchange_client)` returns a copy of
+  `settings` with two counters added:
+  - `CURRENT_OPEN_POSITIONS`: from `exchange_client.get_positions()` if the
+    method is present (Bybit/Binance connectors); counter absent on error.
+  - `CURRENT_DAILY_LOSS_USD`: from trade journal DB with exact query
+    `WHERE is_backtest=0 AND status='closed' AND DATE(timestamp)=DATE('now')`;
+    value = `abs(min(0, sum_pnl))` — positive PnL day yields `"0.0"`.
+    Counter absent on any DB error.
+- **`src/exchange/bybit_connector.py`**: added `get_positions()` using
+  `fetch_positions(params={"category":"linear"})` filtered to `contracts > 0`.
+  Explicit `category` param required for Bybit v5 UTA linear perpetuals; without
+  it ccxt may route to the spot endpoint and return empty even with
+  `defaultType=linear` set at construction time.
+- **`src/runtime/pipeline.py`**: imports and calls `inject_runtime_counters`
+  on the `settings` dict immediately before `safe_place_order`.
+- **11 tests** in `tests/test_runtime_risk_injection.py`:
+  no exchange/no DB, original dict not mutated, 0/N positions, exchange error,
+  missing method, negative pnl, positive pnl → 0.0, backtest exclusion
+  (is_backtest=1 -9999 ignored / is_backtest=0 -50 counted), DB error,
+  open trades excluded.
+
+### 2. Files changed
+- `src/runtime/risk_counters.py` (new)
+- `src/exchange/bybit_connector.py` (+22 lines: get_positions)
+- `src/runtime/pipeline.py` (+2 lines: import + call)
+- `tests/test_runtime_risk_injection.py` (new, 11 tests)
+
+### 3. Tests run
+- `python3 scripts/secret_scan.py` — clean
+- `python3 scripts/repo_inventory.py` — clean
+- `pytest tests/test_runtime_risk_injection.py -v` → **11/11 pass**
+- Full suite: **243 passed**, 1 skipped, 1 pre-existing failure (PyYAML)
+
+### 4. Remaining
+- CP-M9-PR5: news veto hook.
+
+### 5. Next checkpoint
+**CP-M9-PR5** — Add `get_news_score` call in `run_pipeline`, veto branch
+only (option b), `NEWS_ENABLED=false` default, "Going live" section in
+`docs/news_layer.md`.
+
+**PR:** [#64](https://github.com/the-lizardking/ict-trading-bot/pull/64) — risk counter injection.
+
+**Telegram sent:** no
+
+---
+
 ## CP-M9-PR4 — M9 PR4: news layer reference documentation
 
 - **Session date:** 2026-04-28
