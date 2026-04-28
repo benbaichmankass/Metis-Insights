@@ -1,9 +1,11 @@
 import pandas as pd
 import pytest
+from unittest.mock import MagicMock, patch
 
 from src.core.automated_trading_loop import KillZoneScalperBot
 from src.runtime.pipeline import (
     STRATEGIES,
+    breakout_model_signal_builder,
     killzone_signal_builder,
     multiplexed_signal_builder,
     run_pipeline,
@@ -616,3 +618,50 @@ def test_multi_strategy_pipeline_respects_max_position_usd(monkeypatch):
 
     with pytest.raises(ValueError, match="MAX_POSITION_USD"):
         run_pipeline(settings, telegram_client=telegram)
+
+
+# ---------------------------------------------------------------------------
+# PR 6 — breakout_model_signal_builder uses fixed-qty sizing (Option B)
+# Verifies qty == MAX_QTY regardless of atr_14 value in model_signal.
+# ---------------------------------------------------------------------------
+
+def _make_model_signal(signal="CONFIRM", atr_14=None):
+    return {
+        "signal": signal,
+        "prob_tp": 0.75,
+        "entry_price": 60000.0,
+        "atr_14": atr_14,
+    }
+
+
+def _breakout_settings(max_qty="0.005"):
+    return {
+        "SYMBOL": "BTCUSDT",
+        "EXCHANGE": "bybit",
+        "BYBIT_API_KEY": "fake",
+        "BYBIT_API_SECRET": "fake",
+        "MAX_QTY": max_qty,
+        "RISK_PER_TRADE": "0.01",
+    }
+
+
+@pytest.mark.parametrize("atr_14", [0, 0.0, 150.0, 9999.0, None])
+def test_breakout_builder_uses_max_qty_regardless_of_atr(atr_14, monkeypatch):
+    """Option B: qty must always equal MAX_QTY; atr_14 value must not affect it."""
+    fake_candles = [[i, 60000, 60100, 59900, 60050, 1.0] for i in range(100)]
+    fake_exchange = MagicMock()
+    fake_exchange.get_ohlcv.return_value = fake_candles
+
+    fake_manager = MagicMock()
+    fake_manager.get_signal.return_value = _make_model_signal(atr_14=atr_14)
+
+    with (
+        patch("src.runtime.pipeline._build_killzone_exchange", return_value=fake_exchange),
+        patch("src.strategies_manager.StrategyManager", return_value=fake_manager),
+    ):
+        result = breakout_model_signal_builder(_breakout_settings(max_qty="0.005"))
+
+    assert result["qty"] == float("0.005"), (
+        f"Expected qty=0.005 (MAX_QTY) for atr_14={atr_14}, got {result['qty']}"
+    )
+    assert result["side"] == "buy"
