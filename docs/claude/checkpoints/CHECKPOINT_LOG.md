@@ -10,6 +10,127 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-28-19 — Excise paper trading from docs and config templates
+
+- **Session date:** 2026-04-28
+- **Sprint:** sprint-plan-2026-04-28 (Live Trading Hardening + Repo Cleanup)
+- **Current sprint phase:** Final checkpoint of the multi-PR paper-trading
+  excision mini-sprint (CP-16 → CP-19). With CP-19 merged, the bot, runtime,
+  env-rendering pipeline, secrets template, and deployment docs are
+  paper-free; remaining `paper`/`PAPER` references are intentional
+  guardrail comments, archived-doc banners, and historical log entries.
+- **Last completed checkpoint:** CP-2026-04-28-18 (PR #59, merged at
+  `abba8f9`). Side-merge of PR #57 (M9 PR1 news layer) integrated cleanly
+  on top at `779d7db`; renamed his earlier CP-16 entry to
+  `CP-2026-04-28-16b` to avoid ID collision.
+- **Next checkpoint:** Resume the main sprint plan (sprint-plan-2026-04-28)
+  proper. Likely next focus is M7 live-promotion gating (50+ validated
+  trades on small live account via `DRY_RUN=true`). The paper-excision
+  mini-sprint is complete.
+- **Blockers:** CP-19 PR #60 awaiting merge.
+
+### 1. Completed
+- **`config/master-secrets.template.yaml` paper-free.** Deleted the
+  `profiles.paper`, `profiles.colab`, `profiles.oracle_paper`, and
+  `profiles.vwap_btcusd_dry_run` blocks plus the entire `risk.paper`
+  block. Added a header comment stating no paper-trading mode is
+  supported and that only `live` and `vwap_btcusd_live` profiles are
+  shipped. Net 21 lines deleted.
+- **`docs/` scrub across 6 files.**
+  - `docs/bot.md`: removed the `### Paper Trading Mode` subsection (3
+    commands) and the `[ ] Paper/live mode separation` checklist item;
+    added a blockquote stating the bot trades live only.
+  - `docs/strategies/vwap_mean_reversion.md`: `[ ] Paper trading
+    validation` → `[ ] Dry-run validation on small live account`.
+  - `docs/claude/debug-memory.md`: "without explicit paper/live-mode
+    instructions" → "without explicit live-mode/dry-run instructions.
+    (There is no paper-trading mode.)"
+  - `docs/claude/deployment-ops.md`: renamed "Paper to live checklist"
+    → "Pre-live checklist"; rewrote the VWAP BTCUSD profile section to
+    a single live profile; documented that `MODE=PAPER` is rejected
+    outright and that intercepted orders log status `"dry_run"`.
+  - `docs/claude/google-drive-master-secrets.md`: removed `--profile
+    paper`, `--profile colab`, `--profile oracle_paper`, and
+    `--profile vwap_btcusd_dry_run` CLI examples; deleted the entire
+    "After rendering .env.paper" section (~65 lines); collapsed the
+    profile mapping table to a single `vwap_btcusd_live` row.
+  - `docs/sprint-plans/sprint-plan-2026-04-28.md`: 2 lines updated
+    from "paper-trading on Bybit" to live-trading-promotion framing
+    referencing CP-16 → 19.
+- **Top-level deployment doc.** `DEPLOYMENT_LIVE_TRADING.md`: "1-2
+  days of paper trading observed" → dry-run-on-small-live-account
+  language with explicit `DRY_RUN=true`/`ALLOW_LIVE_TRADING=false`
+  semantics and `"dry_run"` status callout.
+- **Archived legacy planning docs (banner only, body preserved).**
+  Per product-manager direction (preserve historical record but flag
+  superseded content):
+  - `claude_code_work_plan.md`
+  - `claude_project_setup_guide.md`
+  - `docs/sprint-plans/sprint-plan-2026-04-27.md`
+  Each gets an ARCHIVED banner at top citing CP-2026-04-28-16 →
+  CP-2026-04-28-19 supersession.
+- **Lessons learned addendum.**
+  `docs/ICT_BOT_MASTER_INSTRUCTIONS.md` §12 gets a new "2026-04-28 —
+  CP-17/18/19: Paper-trading excision complete" subsection
+  summarising CP-17 (env-rendering scripts), CP-18 (src/ runtime),
+  CP-19 (docs + config templates), the end state, and DRY_RUN's
+  surviving role as a per-order interlock (not paper trading).
+- **Regression test.**
+  `tests/test_render_env_from_master.py::TestNoPaperSurfaces` gains
+  `test_master_secrets_template_has_no_paper_profiles`: loads the
+  template YAML and asserts no forbidden profile blocks (`paper`,
+  `colab`, `oracle_paper`, `vwap_btcusd_dry_run`), no `risk.paper`,
+  and that any profile carrying a `mode` field uses `'live'`.
+
+### 2. Files changed
+- `config/master-secrets.template.yaml` (−21 lines net)
+- `docs/bot.md`
+- `docs/strategies/vwap_mean_reversion.md`
+- `docs/claude/debug-memory.md`
+- `docs/claude/deployment-ops.md`
+- `docs/claude/google-drive-master-secrets.md` (−99 lines net)
+- `docs/sprint-plans/sprint-plan-2026-04-28.md`
+- `DEPLOYMENT_LIVE_TRADING.md`
+- `claude_code_work_plan.md` (ARCHIVED banner only)
+- `claude_project_setup_guide.md` (ARCHIVED banner only)
+- `docs/sprint-plans/sprint-plan-2026-04-27.md` (ARCHIVED banner only)
+- `docs/ICT_BOT_MASTER_INSTRUCTIONS.md` (CP-17/18/19 lessons-learned)
+- `tests/test_render_env_from_master.py` (+38 lines, 1 new test)
+
+Net stat: 13 files changed, 113 insertions, 148 deletions.
+
+### 3. Tests run
+- `python3 scripts/secret_scan.py` → No tracked-file secrets found.
+- `python3 scripts/repo_inventory.py` → clean; no junk candidates.
+- `PYTHONPATH=. pytest -v
+  tests/test_render_env_from_master.py::TestNoPaperSurfaces::
+  test_master_secrets_template_has_no_paper_profiles` → **1 passed**.
+- `PYTHONPATH=. pytest -q --ignore=tests/test_main_loop.py tests` →
+  **382 passed / 23 failed / 2 skipped**. Failures match the
+  pre-existing baseline (1 in `test_print_runtime_profile.py`, 6 in
+  `test_runtime_pipeline.py`, 1 in `test_runtime_smoke.py`, 15 in
+  `test_runtime_validation.py`). Pass count is exactly baseline + 1
+  (the new template regression test).
+- Final `paper` audit: every remaining match across `*.md`/`*.yaml`/
+  `*.yml` (excluding CHECKPOINT_LOG and vendored dirs) is intentional
+  — ARCHIVED banners, header comment in the secrets template,
+  "paper is not supported" blockquotes in operational docs, and
+  lessons-learned text in `ICT_BOT_MASTER_INSTRUCTIONS.md`.
+
+### 4. Remaining
+- Merge PR #60 (CP-19) once reviewed.
+- Trigger VM auto-sync after merge to pull the cleaned docs/config
+  template onto `158.178.210.252`.
+- Resume the main sprint plan (sprint-plan-2026-04-28) proper. The
+  paper-excision mini-sprint (CP-16 → CP-19) is now complete.
+
+### 5. Next checkpoint
+Return to sprint-plan-2026-04-28 line items — most likely M7 live
+promotion gating work (50+ validated dry-run trades on a small live
+Bybit account) or any other product-manager-directed priority.
+
+---
+
 ## CP-2026-04-28-18 — Excise paper trading from src/ runtime code
 
 - **Session date:** 2026-04-28
