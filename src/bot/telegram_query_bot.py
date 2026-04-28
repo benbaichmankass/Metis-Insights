@@ -122,6 +122,21 @@ def get_account_label(target: str) -> str:
     return "LIVE" if target == "live" else "PAPER"
 
 
+_STRATEGY_DISPLAY = {
+    "killzone": "ICT",
+    "ict": "ICT",
+    "vwap": "VWAP",
+    "breakout": "Breakout",
+    "multiplexed": "Multi",
+}
+
+
+def get_strategy_label(env_vars: dict, target: str) -> str:
+    """Return strategy display name from env_vars STRATEGY key, or fall back to LIVE/PAPER."""
+    raw = str(env_vars.get("STRATEGY", env_vars.get("STRATEGY_NAME", ""))).strip().lower()
+    return _STRATEGY_DISPLAY.get(raw) or get_account_label(target)
+
+
 def fetch_last_5_trades():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -229,12 +244,13 @@ def get_last_logs_for_target(target: str, lines: int = 20) -> str:
 
 
 def format_bybit_balance(env_vars: dict, target: str) -> str:
+    label = get_strategy_label(env_vars, target)
     try:
         client = get_bybit_client_from_env(env_vars)
         resp = client.get_wallet_balance(accountType="UNIFIED")
         result_list = resp.get("result", {}).get("list", [])
         if not result_list:
-            return f"💰 *{get_account_label(target)} Balance*\nNo balance data returned from Bybit."
+            return f"💰 *{label} Balance*\nNo balance data returned from Bybit."
         coins = result_list[0].get("coin", [])
         lines = [
             f"{c['coin']}: {float(c['walletBalance']):.4f} (≈ ${float(c.get('usdValue', '0')):.2f})"
@@ -242,33 +258,35 @@ def format_bybit_balance(env_vars: dict, target: str) -> str:
             if float(c.get("walletBalance", 0)) > 0
         ]
         text = "\n".join(lines) if lines else "No non-zero balances found."
-        return f"💰 *{get_account_label(target)} Balance*\n{text}"
+        return f"💰 *{label} Balance*\n{text}"
     except Exception as e:
-        return f"💰 *{get_account_label(target)} Balance*\n⚠️ Bybit error: {e}"
+        return f"💰 *{label} Balance*\n⚠️ Bybit error: {e}"
 
 
 def format_bybit_positions(env_vars: dict, target: str) -> str:
+    label = get_strategy_label(env_vars, target)
     try:
         client = get_bybit_client_from_env(env_vars)
         resp = client.get_positions(category="linear", settleCoin="USDT")
         positions = [p for p in resp["result"]["list"] if float(p.get("size", 0)) > 0]
         if not positions:
-            return f"📊 *{get_account_label(target)} Positions*\nNo open positions."
+            return f"📊 *{label} Positions*\nNo open positions."
         lines = [
             f"{p['symbol']} {p['side']} | Size: {p['size']} | Entry: ${float(p['avgPrice']):,.2f} | PnL: ${float(p['unrealisedPnl']):+.2f}"
             for p in positions
         ]
-        return f"📊 *{get_account_label(target)} Positions*\n" + "\n".join(lines)
+        return f"📊 *{label} Positions*\n" + "\n".join(lines)
     except Exception as e:
-        return f"📊 *{get_account_label(target)} Positions*\n⚠️ Bybit error: {e}"
+        return f"📊 *{label} Positions*\n⚠️ Bybit error: {e}"
 
 
 def close_all_bybit_positions(env_vars: dict, target: str) -> str:
+    label = get_strategy_label(env_vars, target)
     client = get_bybit_client_from_env(env_vars)
     resp = client.get_positions(category="linear", settleCoin="USDT")
     positions = [p for p in resp["result"]["list"] if float(p.get("size", 0)) > 0]
     if not positions:
-        return f"🟢 {get_account_label(target)}: No open positions to close."
+        return f"🟢 {label}: No open positions to close."
     closed_count = 0
     errors = []
     for p in positions:
@@ -281,7 +299,7 @@ def close_all_bybit_positions(env_vars: dict, target: str) -> str:
             closed_count += 1
         except Exception as e:
             errors.append(f"{p['symbol']}: {str(e)}")
-    msg = f"🚨 *{get_account_label(target)} CLOSE ALL*\n\n✅ Closed {closed_count} position(s)\n"
+    msg = f"🚨 *{label} CLOSE ALL*\n\n✅ Closed {closed_count} position(s)\n"
     if errors:
         msg += f"❌ Failed: {len(errors)}\nErrors:\n" + "\n".join(errors[:5])
     return msg
@@ -369,31 +387,33 @@ def _get_binance_connector(env_vars: dict):
 
 
 def format_binance_balance(env_vars: dict, target: str) -> str:
+    label = get_strategy_label(env_vars, target)
     try:
         conn = _get_binance_connector(env_vars)
         bal = conn.get_balance()
         if not bal:
-            return f"💰 *{get_account_label(target)} Balance (Binance)*\nNo data returned."
+            return f"💰 *{label} Balance (Binance)*\nNo data returned."
         usdt = bal.get("USDT", {})
         total = float(usdt.get("total", 0) or 0)
         free  = float(usdt.get("free", 0) or 0)
         used  = float(usdt.get("used", 0) or 0)
         return (
-            f"💰 *{get_account_label(target)} Balance (Binance Futures)*\n"
+            f"💰 *{label} Balance (Binance Futures)*\n"
             f"USDT Total: {total:.2f}\n"
             f"USDT Free: {free:.2f}\n"
             f"USDT Used: {used:.2f}"
         )
     except Exception as e:
-        return f"💰 *{get_account_label(target)} Balance (Binance)*\n⚠️ Error: {e}"
+        return f"💰 *{label} Balance (Binance)*\n⚠️ Error: {e}"
 
 
 def format_binance_positions(env_vars: dict, target: str) -> str:
+    label = get_strategy_label(env_vars, target)
     try:
         conn = _get_binance_connector(env_vars)
         positions = conn.get_positions()
         if not positions:
-            return f"📊 *{get_account_label(target)} Positions (Binance)*\nNo open positions."
+            return f"📊 *{label} Positions (Binance)*\nNo open positions."
         lines = []
         for p in positions:
             symbol = p.get("symbol", "?")
@@ -404,9 +424,9 @@ def format_binance_positions(env_vars: dict, target: str) -> str:
             lines.append(
                 f"{symbol} {side} | Size: {size} | Entry: ${entry:,.2f} | PnL: ${pnl:+.2f}"
             )
-        return f"📊 *{get_account_label(target)} Positions (Binance)*\n" + "\n".join(lines)
+        return f"📊 *{label} Positions (Binance)*\n" + "\n".join(lines)
     except Exception as e:
-        return f"📊 *{get_account_label(target)} Positions (Binance)*\n⚠️ Error: {e}"
+        return f"📊 *{label} Positions (Binance)*\n⚠️ Error: {e}"
 
 
 # ── Commands ──────────────────────────────────────────────────────────────────
@@ -447,13 +467,15 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     halt_line = "🔴 *HALTED* — orders blocked" if halted else "🟢 *RUNNING* — orders enabled"
     trade_count, total_pnl = fetch_today_pnl()
     open_count = fetch_open_positions_count()
+    live_label = get_strategy_label(load_account_env("live"), "live")
+    paper_label = get_strategy_label(load_account_env("paper"), "paper")
     text = (
         "✅ *ICT Trading Bot Status*\n\n"
         f"🚦 Kill-switch: {halt_line}\n"
         f"📊 Today's trades: {trade_count} | P&L: ${total_pnl:+.2f}\n"
         f"📂 Open positions (DB): {open_count}\n\n"
-        f"🟢 Live trader: `{get_service_status('ict-trader-live')}`\n"
-        f"🟡 Paper trader: `{get_service_status('ict-trader-paper')}`\n"
+        f"🟢 {live_label} trader: `{get_service_status('ict-trader-live')}`\n"
+        f"🟡 {paper_label} trader: `{get_service_status('ict-trader-paper')}`\n"
         f"🤖 Telegram bot: `{get_service_status('ict-telegram-bot')}`\n"
         f"🕐 {now}"
     )
@@ -496,20 +518,22 @@ async def cmd_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     blocks = []
     for target in ("live", "paper"):
+        env_vars: dict = {}
         try:
             env_vars = load_account_env(target)
             exchange = str(env_vars.get("EXCHANGE", "")).lower()
+            label = get_strategy_label(env_vars, target)
             if exchange == "bybit":
                 blocks.append(format_bybit_balance(env_vars, target))
             elif exchange == "binance":
                 blocks.append(format_binance_balance(env_vars, target))
             else:
                 blocks.append(
-                    f"💰 *{get_account_label(target)} Balance*\n"
+                    f"💰 *{label} Balance*\n"
                     f"Exchange=`{exchange or 'not set'}` — unsupported exchange."
                 )
         except Exception as e:
-            blocks.append(f"💰 *{get_account_label(target)} Balance*\n⚠️ {e}")
+            blocks.append(f"💰 *{get_strategy_label(env_vars, target)} Balance*\n⚠️ {e}")
     await update.message.reply_text("\n\n".join(blocks), parse_mode="Markdown")
 
 
@@ -518,20 +542,22 @@ async def cmd_trades(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     blocks = []
     for target in ("live", "paper"):
+        env_vars: dict = {}
         try:
             env_vars = load_account_env(target)
             exchange = str(env_vars.get("EXCHANGE", "")).lower()
+            label = get_strategy_label(env_vars, target)
             if exchange == "bybit":
                 blocks.append(format_bybit_positions(env_vars, target))
             elif exchange == "binance":
                 blocks.append(format_binance_positions(env_vars, target))
             else:
                 blocks.append(
-                    f"📊 *{get_account_label(target)} Positions*\n"
+                    f"📊 *{label} Positions*\n"
                     f"Exchange=`{exchange or 'not set'}` — unsupported exchange."
                 )
         except Exception as e:
-            blocks.append(f"📊 *{get_account_label(target)} Positions*\n⚠️ {e}")
+            blocks.append(f"📊 *{get_strategy_label(env_vars, target)} Positions*\n⚠️ {e}")
     await update.message.reply_text("\n\n".join(blocks), parse_mode="Markdown")
 
 
