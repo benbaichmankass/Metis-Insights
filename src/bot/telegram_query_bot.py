@@ -27,7 +27,7 @@ DB_PATH = next((p for p in _DB_CANDIDATES if p and os.path.exists(p)), os.path.j
 LIVE_ENV_PATH = os.path.join(REPO_ROOT, ".env")
 PAPER_ENV_PATH = os.path.join(REPO_ROOT, ".env")
 
-BACKTESTER_PATH = os.path.join(os.path.dirname(BASE_DIR), "backtester.py")
+BACKTESTER_PATH = os.path.join(os.path.dirname(BASE_DIR), "backtest", "run_backtest.py")
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
