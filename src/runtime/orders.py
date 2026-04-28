@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any, Dict
 
 
@@ -73,6 +74,12 @@ def safe_place_order(order: Dict[str, Any], settings: Any, client: Any) -> dict[
             "reason": f"Order rejected: qty must be > 0, got {qty}",
             "order": order,
         }
+
+    # Halt flag — checked before any risk math.
+    halt_flag_path = _get_value(settings, "HALT_FLAG_PATH", None)
+    if halt_flag_path and os.path.exists(halt_flag_path):
+        logger.warning("Order blocked: halt flag active at %s", halt_flag_path)
+        return {"status": "halted", "reason": "halt_flag_active", "order": order}
 
     # Hard risk guards — raise immediately; no soft fallback.
     max_pos_raw = _get_value(settings, "MAX_POSITION_USD", None)
