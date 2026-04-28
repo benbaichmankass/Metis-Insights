@@ -126,6 +126,42 @@ def _risk_pairs(data: dict, tier: str) -> list[tuple[str, str]]:
     return pairs
 
 
+def _news_pairs(data: dict) -> list[tuple[str, str]]:
+    """Render the news: block from the master secrets template.
+
+    NEWS_ENABLED and NEWS_API_KEY are always written so their absence in the
+    template is a detectable config bug rather than a silent default.
+    Optional tuning knobs are written only when explicitly present.
+    """
+    news = data.get("news") or {}
+    pairs: list[tuple[str, str]] = []
+
+    # Always-present keys (absence → detectable config bug, not silent default)
+    enabled = news.get("enabled", "false")
+    pairs.append(("NEWS_ENABLED", str(enabled) if enabled is not None else "false"))
+    api_key = news.get("api_key", "")
+    pairs.append(("NEWS_API_KEY", str(api_key) if api_key is not None else ""))
+
+    # Optional tuning knobs — only written when explicitly set
+    optional_mapping = [
+        ("NEWS_QUERY", "query"),
+        ("NEWS_MAX_ARTICLES", "max_articles"),
+        ("NEWS_CACHE_TTL", "cache_ttl"),
+        ("NEWS_MAX_AGE_MINUTES", "max_age_minutes"),
+        ("NEWS_VETO_ENABLED", "veto_enabled"),
+        ("NEWS_VETO_SENTIMENT_THRESHOLD", "veto_sentiment_threshold"),
+        ("NEWS_VETO_IMPACT_THRESHOLD", "veto_impact_threshold"),
+        ("NEWS_WEIGHTED_AGGREGATION", "weighted_aggregation"),
+        ("NEWS_POSITIVE_KEYWORDS", "positive_keywords"),
+        ("NEWS_NEGATIVE_KEYWORDS", "negative_keywords"),
+    ]
+    for env_key, yaml_key in optional_mapping:
+        val = news.get(yaml_key)
+        if val is not None and str(val).strip():
+            pairs.append((env_key, str(val)))
+    return pairs
+
+
 def build_live(data: dict) -> list[tuple[str, str]]:
     pairs: list[tuple[str, str]] = [
         ("ENVIRONMENT", "production"),
@@ -141,6 +177,7 @@ def build_live(data: dict) -> list[tuple[str, str]]:
     ]
     pairs.extend(_runtime_defaults(data))
     pairs.extend(_risk_pairs(data, "live"))
+    pairs.extend(_news_pairs(data))
     return pairs
 
 
@@ -187,6 +224,7 @@ def build_vwap_btcusd_live(data: dict) -> list[tuple[str, str]]:
         ("TELEGRAM_CHAT_ID", _get(data, "telegram.prod.chat_id")),
     ]
     pairs.extend(_vwap_risk_pairs(data))
+    pairs.extend(_news_pairs(data))
     return pairs
 
 

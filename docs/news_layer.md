@@ -172,23 +172,37 @@ tests/
 The news veto hook is wired into `src/runtime/pipeline.py`.  It runs on every
 actionable signal tick (after risk-counter injection, before `safe_place_order`).
 
-**Default posture: disabled.**  The `.env.live` template ships with
-`NEWS_ENABLED=false`.  When disabled, `get_news_score` returns a neutral result
-instantly (no network call, no latency) and the pipeline proceeds unchanged.
+**Default posture: disabled.**  The `config/master-secrets.template.yaml`
+template ships with `news.enabled: "false"` and a blank `news.api_key`.
+`scripts/render_env_from_master.py` always writes `NEWS_ENABLED` and
+`NEWS_API_KEY` into the rendered `.env.live` — if either key is absent in a
+rendered env file, that is a config bug, not a silent default.
+
+> **Warning:** if either `NEWS_ENABLED` or `NEWS_API_KEY` is absent or blank,
+> the hook is a **silent no-op** — the pipeline proceeds as if news were
+> disabled.  You must set **both** to activate the gate.
 
 ### Enabling the veto gate
 
 1. Obtain a free NewsAPI key at <https://newsapi.org>.
-2. In `.env.live`, set:
+2. In `config/master-secrets.yaml` (plaintext, never committed), set:
+   ```yaml
+   news:
+     enabled: "true"
+     api_key: "your_newsapi_key_here"
    ```
-   NEWS_ENABLED=true
-   NEWS_API_KEY=your_newsapi_key_here
+3. Re-render `.env.live`:
+   ```bash
+   python scripts/render_env_from_master.py \
+     --master config/master-secrets.sops.yaml \
+     --age-key-file age-keys.txt \
+     --profile live --out .env.live --allow-live
    ```
-3. Optionally tune the veto thresholds:
-   ```
-   NEWS_VETO_SENTIMENT_THRESHOLD=-0.3   # default: -0.3
-   NEWS_VETO_IMPACT_THRESHOLD=0.5       # default: 0.5
-   NEWS_CACHE_TTL=300                   # seconds; default: 300 (5 min)
+4. Optionally tune the veto thresholds (add to the `news:` block):
+   ```yaml
+   veto_sentiment_threshold: "-0.3"   # default: -0.3
+   veto_impact_threshold: "0.5"       # default: 0.5
+   cache_ttl: "300"                   # seconds; default: 300 (5 min)
    ```
 
 ### Veto behaviour
