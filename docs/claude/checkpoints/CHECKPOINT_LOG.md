@@ -10,6 +10,81 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-28-12 — M7 Phase 2.4: ICT signal-builder factory
+
+- **Session date:** 2026-04-28
+- **Sprint:** sprint-plan-2026-04-28
+- **Current sprint phase:** Phase 3 — M7 Phase 2 (ICT runtime port)
+- **Last completed checkpoint:** CP-2026-04-28-11 (PR #51 merged — HTF
+  trend helper).
+- **Next checkpoint:** **CP-2026-04-28-13 — register `"ict"` in
+  `src/runtime/pipeline.py`'s `_STRATEGY_BUILDERS` and the multiplexer
+  `STRATEGIES` order.** Owner: Claude. Scope: thin wiring PR — adds an
+  `ict_signal_builder(settings)` adapter in `pipeline.py` that fetches
+  candles via the configured exchange and delegates to
+  `src.runtime.strategies.ict.build_ict_signal`, then registers it.
+  Includes runtime-side tests using a fake exchange. Keep PR-sized.
+
+### Completed
+- Created `src/runtime/strategies/` package (`__init__.py`).
+- Implemented pure `build_ict_signal(candles_df, settings, htf_df=None)`
+  in `src/runtime/strategies/ict.py`. Returns the standard
+  `{symbol, side, qty, meta}` signal dict.
+- Gates wired (in order): `htf_trend_bias` ≠ neutral → kill-zone gate
+  (toggleable via `ICT_REQUIRE_KILLZONE`, default on) → aligned entry
+  trigger (unfilled FVG preferred, OB fallback). All gate failures emit
+  `side="none"` with `meta.reason` plus full diagnostic payload
+  (`fvgs`, `order_blocks`, `kill_zone`, `trend_bias`) so the existing
+  `_write_ict_signals_from_meta` writer keeps working.
+- Added 12 unit tests in `tests/test_ict_signal_builder.py` covering
+  empty input, missing trend source, neutral trend, kill-zone
+  active/disabled, bullish FVG → buy, bearish FVG → sell, OB fallback
+  (monkeypatched analyzer), no-aligned-zone branch, string-truthy
+  settings parsing, invalid `MAX_QTY` fallback, and default-symbol path.
+- Confirmed builder is **pure** — no exchange/DB/IO at module load or
+  call time. Pipeline `_STRATEGY_BUILDERS` intentionally **not** touched
+  this session per the operating rules.
+
+### Files changed
+- `src/runtime/strategies/__init__.py` (new)
+- `src/runtime/strategies/ict.py` (new)
+- `tests/test_ict_signal_builder.py` (new)
+
+### Tests run
+- `python scripts/repo_inventory.py` — clean (no junk candidates).
+- `python scripts/secret_scan.py` — clean.
+- `PYTHONPATH=. python -m pytest -q --ignore=tests/test_main_loop.py tests`
+  → **302 passed**, 23 failed (pre-existing in `test_runtime_*`,
+  unchanged from CP-11), 2 skipped. Test count delta vs CP-11: **+12**
+  (matches new test file). Verified no regressions: this PR adds only
+  new, untracked files that cannot affect the runtime-validation/
+  pipeline test modules.
+- Targeted suite: `pytest tests/test_ict_signal_builder.py -q` → 12/12.
+
+### Remaining
+- **CP-13:** runtime wiring PR — `ict_signal_builder(settings)` adapter
+  in `pipeline.py` that pulls OHLCV from the configured exchange,
+  passes it (plus optional HTF frame) to `build_ict_signal`, and
+  registers `"ict"` in `_STRATEGY_BUILDERS`. Add
+  `tests/test_runtime_ict.py` with a fake exchange.
+- **CP-14:** decide on multiplexer ordering for `"ict"` and update
+  `STRATEGIES` list (cheap PR after #13 merges).
+- Backlog items 8/9 (VWAP) remain Colab/Ben-owned.
+- Pre-existing 23 `test_runtime_*` failures still need their own
+  cleanup checkpoint at some point (out of M7 scope).
+
+### Next checkpoint
+CP-2026-04-28-13 — `ict_signal_builder` adapter in `pipeline.py` +
+registration in `_STRATEGY_BUILDERS`. Branch:
+`feat/m7-ict-pipeline-wire`. Read `pipeline.py` only as needed; mirror
+the `vwap_signal_builder` shape (lines 108–156) for the OHLCV fetch.
+
+**PR:** [#52](https://github.com/the-lizardking/ict-trading-bot/pull/52) — `feat/m7-ict-signal-builder` (open, awaiting review/merge).
+
+**Telegram sent:** yes
+
+---
+
 ## CP-2026-04-28-11 — M7 Phase 2.3: HTF trend confluence helper
 
 - **Session date:** 2026-04-28
