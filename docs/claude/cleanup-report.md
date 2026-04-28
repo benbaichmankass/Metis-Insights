@@ -4,6 +4,12 @@ Generated as part of Claude Code setup.
 
 ## Completed
 
+- **M4b** (sprint 2026-04-28): `src/bot/telegramquerybot.py` (no-underscore duplicate) deleted in
+  PR #31. Verified in M4b audit: `src/bot/telegram_query_bot.py` (canonical) is the live Telegram
+  bot process — invoked by `run_telegram_bot.sh`, `scripts/start.sh`, monitored by `check_bots.sh`,
+  and imported by `tests/test_kill_switch.py`. Do **not** delete the canonical file.
+  Note: `deploy/ict-telegram-bot.service` contains a stale `ExecStart` path (`-m src.telegram_bot`);
+  the real entrypoint is `run_telegram_bot.sh`.
 - Remove tracked editor/backup junk when present:
   - `test_bybit_keys.py.save`
   - `src/bot/telegram_query_bot.py.bak_20260409_191144`
