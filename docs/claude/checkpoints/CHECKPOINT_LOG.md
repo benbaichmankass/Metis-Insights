@@ -10,6 +10,79 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-28-11 — M7 Phase 2.3: HTF trend confluence helper
+
+- **Session date:** 2026-04-28
+- **Sprint:** sprint-plan-2026-04-28
+- **Current sprint phase:** Phase 3 — M7 Phase 2 (ICT runtime port)
+- **Last completed checkpoint:** CP-2026-04-28-10 (PR #50 merged — OB body
+  filter).
+- **Next checkpoint:** **CP-2026-04-28-12 — M7 Phase 2.4: wire ICT signals
+  into a non-runtime entry point (`ict_signal_builder` factory) plus tests.**
+  Owner: Claude. Scope: introduce a strategy builder that combines the
+  existing FVG/OB detectors with the new HTF trend filter and the
+  killzone gate, returning the standard `{symbol, side, qty, meta}`
+  signal dict. **Do NOT register it in `pipeline.STRATEGIES` yet** — the
+  registration step is its own checkpoint after a smoke-style test exists.
+- **Blockers:** none. Branch `feat/m7-htf-trend-helper` is open and does
+  not block CP-12.
+
+### 1. Completed
+- Added `src/ict_detection/trend.py` with two pure helpers:
+  - `ema(series, length)` — standard `ewm(span=length, adjust=False)`
+    EMA, exposed so callers and tests share a single numerical source of
+    truth.
+  - `htf_trend_bias(df, fast=20, slow=50, source="close", eps=1e-9)` —
+    returns `"bullish"`, `"bearish"`, or `"neutral"` from the
+    relationship between the two EMAs on the most recent bar. Empty
+    frames, NaN-tail series, and prices inside the `eps` band all
+    return `"neutral"` (no-information posture).
+- Added `tests/test_htf_trend.py` (16 tests) covering EMA numerics
+  against the pandas reference, monotone up / down / flat / V-shape
+  bias outcomes, NaN-tail handling, eps-band classification, full
+  argument validation (bad spans, missing source column, fast >= slow),
+  and an alternate-source-column case.
+
+### 2. Files changed
+- `src/ict_detection/trend.py` (new, 149 lines)
+- `tests/test_htf_trend.py` (new, 187 lines)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_htf_trend.py -q` — 16 passed in 0.31s.
+- `python scripts/repo_inventory.py` — pass.
+- `python scripts/secret_scan.py` — pass.
+- `PYTHONPATH=. pytest -q --ignore=tests/test_main_loop.py tests` —
+  290 passed / 23 failed / 2 skipped. The 23 failures are the same
+  pre-existing main failures. **+16 new passes vs CP-10 baseline; no new
+  regressions.**
+
+### 4. Remaining
+- ICT signal-builder factory that combines FVG/OB + HTF trend + killzone
+  gate (next checkpoint, CP-12).
+- Register the factory under `STRATEGIES` (later checkpoint).
+- Wire `ob_body_min_pct` into the live pipeline (M7 Phase 4 — still
+  gated on multi-symbol Colab validation).
+- Multi-symbol manifest fixtures for CI use of the backtest CLI.
+
+### 5. Next checkpoint
+**CP-2026-04-28-12** — Build a pure ICT signal-builder factory in
+`src/runtime/strategies/ict.py` (new module) that takes a settings dict
+and returns a `{symbol, side, qty, meta}` dict. Use the existing
+`ICTSignalsAnalyzer` for FVG/OB and the new `htf_trend_bias()` to gate
+direction. Add unit tests. Do **not** edit `src/runtime/pipeline.py` in
+CP-12; registration in `_STRATEGY_BUILDERS` is its own checkpoint.
+
+Read in order: this entry, `docs/claude/checkpoint-workflow.md`,
+`docs/sprint-plans/sprint-plan-2026-04-28.md` § M7 Phase 2,
+`src/runtime/pipeline.py` (read-only — to mirror the signal-dict shape),
+`src/core/signals.py`, `src/ict_detection/trend.py`.
+
+**Telegram sent:** yes (session-complete dispatched via Pipedream
+Telegram connector from the agent runtime).
+
+---
+
 ## CP-2026-04-28-10 — M7 Phase 2.2: OB body-size filter
 
 - **Session date:** 2026-04-28
