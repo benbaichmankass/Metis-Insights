@@ -24,10 +24,8 @@
 
 ## Target Command Structure
 
-### Paper Trading Mode
-- `/paper_start` - Start paper trading
-- `/paper_stop` - Stop paper trading
-- `/paper_report` - Paper trading report
+> This bot trades live on real exchange accounts. There is no paper-trading
+> mode. The trading commands below operate on the single live trader.
 
 ### Live Trading Mode
 - `/live_start` - Start live trading
@@ -49,5 +47,4 @@
 - [x] Basic command structure defined
 - [x] Telegram bot integration
 - [ ] Multi-strategy routing
-- [ ] Paper/live mode separation
 - [ ] Risk management commands

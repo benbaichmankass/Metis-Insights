@@ -1,5 +1,13 @@
 # Claude Project Setup Guide for `ict-trading-bot`
 
+> **⚠️ ARCHIVED PLANNING DOCUMENT.** Paper-trading references in this document
+> (`paper or live` environments, `paper/live` mode separation, etc.) are
+> **superseded by CP-2026-04-28-16 through CP-2026-04-28-19**, which
+> excised paper trading from the entire repo. This bot trades live on real
+> exchange accounts; there is no paper-trading mode. The body of this
+> document is preserved as a historical record of pre-sprint planning and
+> should not be used as a current implementation reference.
+
 This document is meant to be used in two ways:
 
 1. As the **project context / instructions** for the Claude project space.

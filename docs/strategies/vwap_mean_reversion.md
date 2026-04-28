@@ -30,6 +30,6 @@ A statistical strategy that trades price deviations from VWAP (Volume Weighted A
 
 ## Status
 - [ ] Backtesting complete
-- [ ] Paper trading validation
+- [ ] Dry-run validation on small live account
 - [ ] Live deployment ready
 - [x] Strategy scaffold created
