@@ -82,7 +82,6 @@ to match the live runtime.
 **Not restarted:**
 - `ict-vwap-dry-run.service` — intentionally stopped, pending sprint completion
 - `ict-git-sync.service` — this is the service running the script itself
-- `ict-bot.service` — stale unit file; not the live trader
 
 ### No-op fast path
 
