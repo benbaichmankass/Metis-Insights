@@ -615,16 +615,19 @@ async def cmd_log(update: Update, context: ContextTypes.DEFAULT_TYPE):
     args = getattr(context, "args", []) or []
     target = args[0].strip().lower() if args and args[0].strip().lower() in ("live", "paper") else None
     if not target:
+        live_label = get_strategy_label(load_account_env("live"), "live")
+        paper_label = get_strategy_label(load_account_env("paper"), "paper")
         keyboard = InlineKeyboardMarkup([[
-            InlineKeyboardButton("📜 Live logs", callback_data="log:live"),
-            InlineKeyboardButton("📜 Paper logs", callback_data="log:paper"),
+            InlineKeyboardButton(f"📜 {live_label} logs", callback_data="log:live"),
+            InlineKeyboardButton(f"📜 {paper_label} logs", callback_data="log:paper"),
         ]])
-        await update.message.reply_text("Please choose an account:", reply_markup=keyboard)
+        await update.message.reply_text("Please choose a strategy:", reply_markup=keyboard)
         return
     try:
         log_text = get_last_logs_for_target(target, lines=20)
+        label = get_strategy_label(load_account_env(target), target)
         await update.message.reply_text(
-            f"📝 *{get_account_label(target)} logs*\n```{log_text[-3500:]}```",
+            f"📝 *{label} logs*\n```{log_text[-3500:]}```",
             parse_mode="Markdown",
         )
     except Exception as e:
@@ -637,9 +640,11 @@ async def cmd_toggle(update: Update, context: ContextTypes.DEFAULT_TYPE):
     args = getattr(context, "args", []) or []
     target = args[0].strip().lower() if args and args[0].strip().lower() in ("live", "paper") else None
     if not target:
+        live_label = get_strategy_label(load_account_env("live"), "live")
+        paper_label = get_strategy_label(load_account_env("paper"), "paper")
         keyboard = InlineKeyboardMarkup([[
-            InlineKeyboardButton("🟢 Toggle Live", callback_data="toggle:live"),
-            InlineKeyboardButton("🟡 Toggle Paper", callback_data="toggle:paper"),
+            InlineKeyboardButton(f"🟢 Toggle {live_label}", callback_data="toggle:live"),
+            InlineKeyboardButton(f"🟡 Toggle {paper_label}", callback_data="toggle:paper"),
         ]])
         await update.message.reply_text("Choose which trader to toggle:", reply_markup=keyboard)
         return
@@ -656,11 +661,13 @@ async def cmd_closeall(update: Update, context: ContextTypes.DEFAULT_TYPE):
     args = getattr(context, "args", []) or []
     target = args[0].strip().lower() if args and args[0].strip().lower() in ("live", "paper") else None
     if not target:
+        live_label = get_strategy_label(load_account_env("live"), "live")
+        paper_label = get_strategy_label(load_account_env("paper"), "paper")
         keyboard = InlineKeyboardMarkup([[
-            InlineKeyboardButton("🚨 Close Live", callback_data="closeall:live"),
-            InlineKeyboardButton("🚨 Close Paper", callback_data="closeall:paper"),
+            InlineKeyboardButton(f"🚨 Close {live_label}", callback_data="closeall:live"),
+            InlineKeyboardButton(f"🚨 Close {paper_label}", callback_data="closeall:paper"),
         ]])
-        await update.message.reply_text("Choose account to close all positions:", reply_markup=keyboard)
+        await update.message.reply_text("Choose strategy to close all positions:", reply_markup=keyboard)
         return
     try:
         env_vars = load_account_env(target)
@@ -748,8 +755,9 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if action == "log":
         try:
             log_text = get_last_logs_for_target(target, lines=20)
+            label = get_strategy_label(load_account_env(target), target)
             await query.edit_message_text(
-                f"📝 *{get_account_label(target)} logs*\n```{log_text[-3500:]}```",
+                f"📝 *{label} logs*\n```{log_text[-3500:]}```",
                 parse_mode="Markdown",
             )
         except Exception as e:
@@ -763,9 +771,10 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text(result, parse_mode="Markdown")
 
     elif action == "closeall":
-        await query.edit_message_text(f"🚨 Closing all {target.upper()} positions…")
+        env_vars = load_account_env(target)
+        label = get_strategy_label(env_vars, target)
+        await query.edit_message_text(f"🚨 Closing all {label} positions…")
         try:
-            env_vars = load_account_env(target)
             msg = close_all_bybit_positions(env_vars, target)
             await query.edit_message_text(msg, parse_mode="Markdown")
         except Exception as e:
