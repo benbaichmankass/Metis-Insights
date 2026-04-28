@@ -48,6 +48,7 @@ _DEFAULT_MAX_AGE_MINUTES = 120.0
 _DEFAULT_VETO_SENTIMENT = -0.6
 _DEFAULT_VETO_IMPACT = 0.7
 _MAX_ADJUSTMENT_FACTOR = 0.15  # news can move probability by at most ±15 pp
+_DEFAULT_WEIGHTED_AGGREGATION = True  # weight items by relevance_score
 
 
 # ---------------------------------------------------------------------------
@@ -119,6 +120,12 @@ def _get_veto_impact(settings: dict) -> float:
         return _DEFAULT_VETO_IMPACT
 
 
+def _get_weighted_aggregation(settings: dict) -> bool:
+    raw = str(settings.get("NEWS_WEIGHTED_AGGREGATION",
+                           os.environ.get("NEWS_WEIGHTED_AGGREGATION", "true"))).strip().lower()
+    return raw not in {"false", "0", "no"}
+
+
 # ---------------------------------------------------------------------------
 # Core scoring
 # ---------------------------------------------------------------------------
@@ -181,9 +188,11 @@ def score_news(
     veto_enabled = _get_veto_enabled(settings)
     veto_sentiment_thresh = _get_veto_sentiment(settings)
     veto_impact_thresh = _get_veto_impact(settings)
+    weighted = _get_weighted_aggregation(settings)
 
     raw_scores: List[Dict[str, Any]] = []
     valid_scores: List[float] = []
+    valid_weights: List[float] = []
     veto = False
     veto_reason = ""
 
@@ -193,6 +202,8 @@ def score_news(
             continue
         raw_scores.append(entry)
         valid_scores.append(entry["score"])
+        # Weight = relevance_score so high-relevance items dominate the aggregate.
+        valid_weights.append(entry["relevance"])
 
         # Veto check on the raw item fields (not the compound score).
         if veto_enabled:
@@ -211,7 +222,11 @@ def score_news(
             raw_scores=raw_scores,
         )
 
-    adjustment = sum(valid_scores) / len(valid_scores)
+    if weighted and sum(valid_weights) > 0:
+        # Weighted mean: each item's score is weighted by its relevance.
+        adjustment = sum(s * w for s, w in zip(valid_scores, valid_weights)) / sum(valid_weights)
+    else:
+        adjustment = sum(valid_scores) / len(valid_scores)
     adjustment = max(-1.0, min(1.0, round(adjustment, 6)))
 
     if veto:
