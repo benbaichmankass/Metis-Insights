@@ -10,6 +10,115 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-28-18 — Excise paper trading from src/ runtime code
+
+- **Session date:** 2026-04-28
+- **Sprint:** sprint-plan-2026-04-28 (Live Trading Hardening + Repo Cleanup)
+- **Current sprint phase:** Multi-PR mini-sprint to fully excise paper
+  trading. CP-18 is the third of four planned checkpoints (CP-16 → 19).
+- **Last completed checkpoint:** CP-2026-04-28-17 (PR #58, merged).
+- **Next checkpoint:** **CP-2026-04-28-19** — final paper-removal pass.
+  Clean up docs (`docs/bot.md`, `docs/strategies/vwap_mean_reversion.md`,
+  `docs/DEPLOYMENT_LIVE_TRADING.md`, `docs/claude/*.md`) and
+  `config/master-secrets.template.yaml` (drop `paper:`/`oracle_paper:`
+  profile blocks + `risk.paper:`). Update sprint-plan headers to note
+  paper is out of scope.
+- **Blockers:** CP-18 PR #59 awaiting merge before CP-19 starts.
+
+### 1. Completed
+- **`src/runtime/validation.py` rejects MODE=PAPER outright.** MODE
+  whitelist tightened from `(LIVE, PAPER, BACKTEST)` to `(LIVE,
+  BACKTEST)`. Added a comment block above the check explaining why paper
+  is intentionally not a supported mode (per master directive). Anything
+  else — including `MODE=PAPER` and `MODE=paper` — fails closed at
+  startup with `EnvironmentError`.
+- **`src/runtime/pipeline.py` no longer auto-loads `.env.paper`.**
+  Removed the `elif os.path.exists(".env.paper"): load_dotenv(".env.paper")`
+  fallback. Only `.env.live` is auto-loaded.
+- **`src/runtime/orders.py` paper vocabulary purged.** DRY_RUN order
+  status renamed from `"simulated"` to `"dry_run"` (paper-trading
+  vocabulary replaced with neutral operational language). Log line
+  rephrased: `"DRY_RUN enabled; simulated order: ..."` →
+  `"DRY_RUN enabled; order not submitted: ..."`. This status surfaces in
+  Telegram messages and audit logs.
+- **`src/bot/telegram_query_bot.py` comments cleaned.** Removed
+  paper-trading explanatory comments ("There is no paper trader" /
+  "Historically this rendered live|paper... Paper trading no longer
+  exists") — replaced with neutral wording that doesn't reference paper.
+- **`src/exchange/bybit_connector.py` docstring cleaned.** Removed
+  reference to `.env.paper` from the testnet/live-mode docstring.
+- **Tests updated.**
+  - `tests/test_vwap_strategy.py`: renamed
+    `test_vwap_dry_run_returns_simulated_status` →
+    `_dry_run_status`; renamed
+    `test_dry_run_true_always_simulates_regardless_of_allow_live` →
+    `_blocks_submission_regardless_of_allow_live`; **inverted**
+    `test_mode_paper_without_allow_live_passes_validate_startup` →
+    `test_mode_paper_is_rejected_by_validate_startup` (now asserts
+    `EnvironmentError`); **inverted** `test_mode_paper_lowercase_is_accepted`
+    → `test_mode_paper_lowercase_is_rejected`; **deleted**
+    `test_vwap_btcusd_dry_run_profile_passes_validation` (profile was
+    removed in CP-17).
+  - `tests/test_runtime_orders.py`, `tests/test_runtime_smoke.py`,
+    `tests/test_main_loop.py`, `tests/test_runtime_pipeline.py`:
+    `"simulated"` → `"dry_run"` status assertions; renamed test
+    function `test_pipeline_telegram_message_includes_simulated_status`
+    → `_includes_dry_run_status`.
+  - `tests/test_validation.py`: `BASE_ENV` `MODE=PAPER` → `MODE=BACKTEST`
+    so happy-path tests still pass under the tightened mode whitelist.
+
+### 2. Files changed
+- `src/runtime/validation.py`: +5 / −2
+- `src/runtime/pipeline.py`: 0 / −2
+- `src/runtime/orders.py`: +2 / −2
+- `src/bot/telegram_query_bot.py`: +4 / −6
+- `src/exchange/bybit_connector.py`: +2 / −2
+- `tests/test_vwap_strategy.py`: +13 / −36 (deleted obsolete profile test)
+- `tests/test_runtime_pipeline.py`: +6 / −6
+- `tests/test_runtime_orders.py`, `test_runtime_smoke.py`,
+  `test_main_loop.py`, `test_validation.py`: +1 / −1 each
+- **Net: 11 files changed, +36 / −62 (−26 lines).**
+
+### 3. Tests run
+- `python3 scripts/secret_scan.py` — clean.
+- `python3 scripts/repo_inventory.py` — clean.
+- `PYTHONPATH=. pytest -q --ignore=tests/test_main_loop.py tests` —
+  **335 passed / 23 failed / 2 skipped** (matches sprint baseline). Net
+  delta vs. baseline: −1 pass (deleted obsolete dry-run profile test),
+  +2 new PAPER-rejection tests = no sprint regression.
+- All 5 CP-18-specific tests pass
+  (`test_vwap_dry_run_returns_dry_run_status`,
+  `test_dry_run_true_blocks_submission_regardless_of_allow_live`,
+  `test_mode_paper_is_rejected_by_validate_startup`,
+  `test_mode_paper_lowercase_is_rejected`,
+  `test_vwap_dry_run_does_not_call_exchange_place_order`).
+
+### 4. Remaining work (carried into CP-19)
+- Documentation pass: scrub `docs/bot.md`, `docs/claude/*.md`,
+  `docs/strategies/vwap_mean_reversion.md`,
+  `docs/DEPLOYMENT_LIVE_TRADING.md` for paper-trading mentions and
+  rewrite or excise.
+- `config/master-secrets.template.yaml`: drop `paper:` and
+  `oracle_paper:` profile blocks; drop `risk.paper:` block.
+- Sprint-plan headers note paper is out of scope going forward.
+- Trigger VM sync after CP-18 merge; verify Telegram bot still shows
+  correct strategy labels (CP-16 wiring).
+
+### 5. Next checkpoint
+**CP-2026-04-28-19** — final paper-removal pass (docs + config
+templates). Last checkpoint of this mini-sprint. After that, full sprint
+verification: re-run pre-flight, confirm zero `paper`/`PAPER` matches in
+repo (excepting the single explanatory comment in `validation.py`), and
+trigger VM auto-sync.
+
+**PR:** [#59](https://github.com/the-lizardking/ict-trading-bot/pull/59)
+— `feat/excise-paper-runtime-src` against `main`.
+
+**Telegram sent:** to be sent on session-complete (msg # TBD; CP-16 was
+2784, CP-17 was 2788).
+
+---
+
 ## CP-2026-04-28-17 — Excise paper trading from env-rendering scripts
 
 - **Session date:** 2026-04-28
