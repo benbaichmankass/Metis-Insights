@@ -2,6 +2,7 @@ from __future__ import annotations
 from src.runtime.signal_writer import write_signal
 from src.utils.signal_audit_logger import log_signal
 from src.runtime.risk_counters import inject_runtime_counters
+from src.news.news_pipeline import get_news_score
 
 import os
 
@@ -500,7 +501,24 @@ def run_pipeline(
         result = {"status": "halted", "reason": "halt_flag_active"}
     else:
         settings = inject_runtime_counters(settings, exchange_client)
-        result = safe_place_order(signal, settings, exchange_client)
+        _sym = signal.get("symbol", settings.get("SYMBOL", "BTCUSDT"))
+        _base = _sym.upper().split("/")[0]
+        if _base.endswith("USDT"):
+            _base = _base[:-4]
+        _tags = list(dict.fromkeys(t for t in [_base, _sym] if t))
+        news_result = get_news_score(settings, symbol_tags=_tags)
+        if news_result.veto:
+            logger.warning("news veto: %s", news_result.reason)
+            result = {"status": "news_veto", "reason": news_result.reason, "signal": signal}
+        else:
+            logger.info(
+                "news: decision=%s adj=%.4f items=%d reason=%s",
+                news_result.decision,
+                news_result.adjustment,
+                news_result.item_count,
+                news_result.reason[:80],
+            )
+            result = safe_place_order(signal, settings, exchange_client)
 
     try:
         log_signal(
