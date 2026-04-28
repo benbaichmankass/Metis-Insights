@@ -10,6 +10,105 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-28-15 — UI: strategy-aware Telegram /start help and BotCommand list
+
+- **Session date:** 2026-04-28
+- **Sprint:** sprint-plan-2026-04-28 (post-M7 follow-up — surfaced from
+  the VM auto-sync investigation after PR #54 merge).
+- **Current sprint phase:** Sprint backlog item 10 already closed in
+  CP-14. This is a small UI/ops follow-up that turns a manual VM-side
+  patch into a proper PR so the VM's 5-min `ict-git-sync.timer` can
+  resume.
+- **Last completed checkpoint:** CP-2026-04-28-14 (PR #54 merged —
+  multiplexer ordering, ict added as last fallback).
+- **Next checkpoint:** None planned. After PR #55 merges and the VM's
+  uncommitted `telegram_query_bot.py` edit is cleaned up, auto-sync
+  resumes and the labels appear on the live bot. Optional future CP
+  to clean up the 23 pre-existing `test_runtime_*` failures still
+  applies (out of scope here).
+
+### Completed
+- Diagnosed VM auto-sync stall: `ict-git-sync.timer` was active and
+  firing every 5 min, but `deploy_pull_restart.sh` was bailing with
+  `git pull` exit 128 because the VM's working tree had a dirty
+  uncommitted edit to `src/bot/telegram_query_bot.py` (manual
+  `LIVE/PAPER` → `ICT/VWAP` label rename). VM was stuck on `441bdbf`,
+  missing PRs #44 → #54.
+- Audited `src/bot/telegram_query_bot.py`: `get_strategy_label()` and
+  `_STRATEGY_DISPLAY` already exist (added in commits `811b858`,
+  `0778be2`). All interactive button paths (`cmd_log`, `cmd_toggle`,
+  `cmd_closeall`, `cmd_status`, `format_*_balance`, `format_*_positions`,
+  `close_all_bybit_positions`) already use `get_strategy_label`.
+  **Three remaining hard-coded `live|paper` strings** were missed in
+  the prior refactor:
+  - `cmd_start` help text — three lines for `/closeall`, `/log`, `/toggle`.
+  - `post_init` `BotCommand` autocomplete descriptions — same three
+    commands.
+- Added `format_target_options(separator="|")` helper (lines 140-155).
+  Resolves both targets through `get_strategy_label()`. Defensive:
+  catches any exception and falls back to `LIVE|PAPER`, so it can be
+  called at `post_init` time without risking a bot crash.
+- Replaced the 6 hard-coded strings with `f"{targets}"` interpolation.
+- Added `tests/test_telegram_strategy_labels.py` (16 tests, all
+  network-free):
+  - `_install_stubs()` registers `telegram` and `telegram.ext` in
+    `sys.modules` before importing the bot module — uses an
+    `_AnyAttr` metaclass so attribute access like
+    `ContextTypes.DEFAULT_TYPE` (used in async handler annotations)
+    resolves cleanly.
+  - `restore_dotenv_values` fixture monkeypatches a real file-reading
+    `dotenv_values` onto the bot module. **Required** because
+    `tests/test_kill_switch.py` and `tests/test_orders.py` install a
+    `MagicMock` into `sys.modules['dotenv']` without cleanup — that
+    leaks across the suite and breaks `load_account_env`. Took ~30
+    min to bisect.
+  - Coverage: `get_account_label`, `get_strategy_label` (7 known
+    strategies + case + whitespace + alias + 3 fallback paths),
+    `format_target_options` (env-driven, missing files, missing
+    STRATEGY, mixed known/unknown, custom separator, exception swallow).
+
+### Files changed
+- `src/bot/telegram_query_bot.py` (+20/-6: helper + 6 string-literal
+  replacements)
+- `tests/test_telegram_strategy_labels.py` (new, 232 lines)
+
+### Tests run
+- `python scripts/repo_inventory.py` — clean.
+- `python scripts/secret_scan.py` — clean.
+- Targeted: `pytest tests/test_telegram_strategy_labels.py -v`
+  → 16/16 pass.
+- Full: `pytest -q --ignore=tests/test_main_loop.py tests`
+  → **330 passed** (+16 vs CP-14 baseline of 314), 23 pre-existing
+  fails (unchanged), 2 skipped.
+- Confirmed the 23 fails are pre-existing by stashing the CP-15
+  changes and re-running — same 23 fails appear without my changes.
+  Distribution: 1 in `test_print_runtime_profile.py`, 6 in
+  `test_runtime_pipeline.py`, 1 in `test_runtime_smoke.py`, 15 in
+  `test_runtime_validation.py` (all `TypeError` fixture issues, out
+  of scope).
+
+### Remaining
+- **Operational follow-up after PR #55 merges:** the VM's uncommitted
+  `telegram_query_bot.py` patch must be discarded so `git pull` can
+  succeed. Recommended path: `cd /home/ubuntu/ict-trading-bot && git
+  stash push -m "vm-cp15-superseded-$(date +%Y%m%d)" && sudo
+  systemctl start ict-git-sync.service`. This pulls main (which now
+  contains a strategy-aware version of the same intent), restarts
+  the trader + telegram services, and the bot starts using the new
+  labels.
+- Optional future CP to clean up the 23 pre-existing `test_runtime_*`
+  failures. Out of scope here.
+
+### Next checkpoint
+None planned. M7 sprint remains complete. Awaiting Ben's next task or
+sprint kickoff.
+
+**PR:** [#55](https://github.com/the-lizardking/ict-trading-bot/pull/55) — `feat/ui-telegram-strategy-labels` (open, awaiting review/merge).
+
+**Telegram sent:** yes
+
+---
+
 ## CP-2026-04-28-14 — M7 Phase 2.6: ict as last fallback in multiplexer
 
 - **Session date:** 2026-04-28
