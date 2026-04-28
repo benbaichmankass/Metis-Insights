@@ -10,6 +10,79 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-28-14 — M7 Phase 2.6: ict as last fallback in multiplexer
+
+- **Session date:** 2026-04-28
+- **Sprint:** sprint-plan-2026-04-28
+- **Current sprint phase:** Phase 3 — M7 Phase 2 (ICT runtime port) —
+  **complete with this checkpoint** for backlog item 10.
+- **Last completed checkpoint:** CP-2026-04-28-13 (PR #53 merged —
+  ict_signal_builder pipeline adapter).
+- **Next checkpoint:** Sprint backlog item 10 (M7 ICT runtime port) is
+  done after this PR merges. Open work:
+  - Backlog items 8 / 9 (VWAP) — Colab/Ben-owned.
+  - Optional follow-up checkpoint to clean up the 23 pre-existing
+    `test_runtime_*` failures (TypeError fixtures unrelated to ICT,
+    out of M7 scope).
+
+### Completed
+- Added `"ict"` to the end of `pipeline.STRATEGIES`. Multiplexed mode
+  now runs `breakout_confirmation → vwap → ict`. Rationale documented
+  in a comment above the list: ICT is the newest and most-gated
+  strategy (HTF trend + kill-zone + aligned FVG/OB), so placing it
+  last preserves every prior multiplexer outcome — ICT can only change
+  behaviour for ticks that previously returned `side="none"`.
+- Extended `tests/test_runtime_pipeline.py`:
+  - existing strategies-list test now asserts `STRATEGIES[-1] == "ict"`,
+  - new `test_multi_strategy_pipeline_ict_runs_only_after_others_flat`
+    — ICT builder is **not** invoked when an earlier strategy fires,
+  - new `test_multi_strategy_pipeline_ict_fires_when_others_flat` —
+    ICT produces the actionable signal when breakout + vwap both
+    return flat.
+- Updated `tests/test_runtime_ict.py::test_ict_registered_in_strategy_builders`:
+  the CP-13 version asserted `"ict" not in STRATEGIES`; that
+  expectation is now obsolete and replaced with the new ordering
+  assertion.
+- All ordering tests use `monkeypatch` against `_STRATEGY_BUILDERS`
+  — no network, no exchange.
+
+### Files changed
+- `src/runtime/pipeline.py` (one-line `STRATEGIES` change + ordering
+  rationale comment + tidy of the trailing `_STRATEGY_BUILDERS` comment)
+- `tests/test_runtime_pipeline.py` (existing test extended + 2 new tests)
+- `tests/test_runtime_ict.py` (registration test updated)
+
+### Tests run
+- `python scripts/repo_inventory.py` — clean.
+- `python scripts/secret_scan.py` — clean.
+- Targeted: `pytest tests/test_runtime_pipeline.py -q` → 22 multiplexer
+  tests pass (3 pre-existing killzone fails unchanged); the 2 new
+  ordering tests + the updated strategies-list test all pass.
+- Full: `pytest -q --ignore=tests/test_main_loop.py tests`
+  → **314 passed**, 23 failed (pre-existing in `test_runtime_*`,
+  unchanged), 2 skipped. Test count delta vs CP-13: **+2** (matches
+  the two new ordering tests; the registration test was updated, not
+  added).
+- One transient failure during iteration: the original CP-13
+  registration test asserted `"ict" not in STRATEGIES`. That test
+  needed updating in this same checkpoint — done before commit.
+
+### Remaining
+- Backlog items 8 / 9 (VWAP) — Colab/Ben-owned, no Claude action.
+- Optional cleanup checkpoint for the 23 pre-existing `test_runtime_*`
+  failures (out of M7 scope).
+
+### Next checkpoint
+No Claude-owned ICT work remains in the M7 sprint after PR #54 merges.
+Wait for Ben to pick the next sprint or to delegate the
+`test_runtime_*` cleanup.
+
+**PR:** [#54](https://github.com/the-lizardking/ict-trading-bot/pull/54) — `feat/m7-ict-multiplexer-order` (open, awaiting review/merge).
+
+**Telegram sent:** yes
+
+---
+
 ## CP-2026-04-28-13 — M7 Phase 2.5: wire ict_signal_builder into pipeline
 
 - **Session date:** 2026-04-28

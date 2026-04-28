@@ -118,15 +118,17 @@ def _bullish_fvg_rows(n: int = 80, hour_utc: int = 8):
 # ---------------------------------------------------------------------------
 
 def test_ict_registered_in_strategy_builders():
-    """``\"ict\"`` is callable via the registry but **not** in the
-    multiplexer order yet (that wiring is a later checkpoint)."""
+    """``\"ict\"`` is callable via the registry and appears as the last
+    fallback in the multiplexer order (M7 Phase 2.6 / CP-14)."""
     assert "ict" in runtime_pipeline._STRATEGY_BUILDERS
     assert (
         runtime_pipeline._STRATEGY_BUILDERS["ict"]
         is runtime_pipeline.ict_signal_builder
     )
-    # Multiplexer ordering deliberately untouched in this checkpoint.
-    assert "ict" not in runtime_pipeline.STRATEGIES
+    # CP-14 ordering: ICT is last so it cannot pre-empt breakout_confirmation
+    # or vwap. Detailed ordering tests live in tests/test_runtime_pipeline.py.
+    assert "ict" in runtime_pipeline.STRATEGIES
+    assert runtime_pipeline.STRATEGIES[-1] == "ict"
 
 
 # ---------------------------------------------------------------------------
