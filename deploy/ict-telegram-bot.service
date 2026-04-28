@@ -11,13 +11,13 @@ Wants=network-online.target
 
 [Service]
 User=ubuntu
-WorkingDirectory=/home/ubuntu/YOUR_REPO
-ExecStart=/home/ubuntu/YOUR_REPO/.venv/bin/python -m src.telegram_bot
+WorkingDirectory=/home/ubuntu/ict-trading-bot
+ExecStart=/usr/bin/python3 -u -B -m src.telegram_bot
 Restart=always
 RestartSec=15
-StandardOutput=append:/home/ubuntu/YOUR_REPO/runtime_logs/telegram.log
-StandardError=append:/home/ubuntu/YOUR_REPO/runtime_logs/telegram_error.log
-EnvironmentFile=/home/ubuntu/YOUR_REPO/.env
+StandardOutput=journal
+StandardError=journal
+EnvironmentFile=/home/ubuntu/ict-trading-bot/.env
 
 [Install]
 WantedBy=multi-user.target
