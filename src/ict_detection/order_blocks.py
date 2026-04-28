@@ -9,16 +9,34 @@ import numpy as np
 
 class OrderBlockDetector:
     """Detects Order Blocks in price data"""
-    
-    def __init__(self, lookback=20):
+
+    def __init__(self, lookback=20, body_min_pct=0.0):
         """
         Initialize Order Block detector
-        
+
         Args:
-            lookback (int): How many candles to look back for swing points
+            lookback (int): How many candles to look back for swing points.
+            body_min_pct (float): Minimum candle body size as a percentage of
+                the candle's close price (0.0–100.0). Candles whose body is
+                smaller than this threshold are skipped as OB origin
+                candles. Default ``0.0`` preserves the original behaviour
+                (no body filter). Typical research-notebook values are
+                ``0.5``–``0.8`` (i.e. 0.5%–0.8% of close), which trims tiny
+                indecision candles while keeping institutional impulse
+                bars.
         """
         self.lookback = lookback
-    
+        self.body_min_pct = float(body_min_pct)
+
+    def _passes_body_filter(self, candle_open, candle_close):
+        """Return True iff the candle's body meets ``body_min_pct``."""
+        if self.body_min_pct <= 0.0:
+            return True
+        if candle_close == 0:
+            return False
+        body_pct = abs(candle_close - candle_open) / abs(candle_close) * 100.0
+        return body_pct >= self.body_min_pct
+
     def detect_bullish_ob(self, df):
         """
         Detect bullish Order Blocks
@@ -52,8 +70,10 @@ class OrderBlockDetector:
                 candle_open = df['open'].iloc[i]
                 candle_close = df['close'].iloc[i]
                 
-                # Is it a bearish (down) candle?
-                if candle_close < candle_open:
+                # Is it a bearish (down) candle that also passes the body filter?
+                if candle_close < candle_open and self._passes_body_filter(
+                    candle_open, candle_close
+                ):
                     ob = {
                         'type': 'bullish',
                         'index': i,
@@ -103,8 +123,10 @@ class OrderBlockDetector:
                 candle_open = df['open'].iloc[i]
                 candle_close = df['close'].iloc[i]
                 
-                # Is it a bullish (up) candle?
-                if candle_close > candle_open:
+                # Is it a bullish (up) candle that also passes the body filter?
+                if candle_close > candle_open and self._passes_body_filter(
+                    candle_open, candle_close
+                ):
                     ob = {
                         'type': 'bearish',
                         'index': i,
@@ -165,16 +187,19 @@ class OrderBlockDetector:
 
 
 # Convenience function
-def detect_order_blocks(df, lookback=20):
+def detect_order_blocks(df, lookback=20, body_min_pct=0.0):
     """
     Quick function to detect all Order Blocks
-    
+
     Args:
         df (pd.DataFrame): OHLCV data (must have swing points)
         lookback (int): Candles to look back
-        
+        body_min_pct (float): Minimum candle body as a % of close (default
+            0.0 keeps the original "any-body" behaviour). See
+            ``OrderBlockDetector`` for details.
+
     Returns:
         tuple: (DataFrame with markers, list of OBs)
     """
-    detector = OrderBlockDetector(lookback)
+    detector = OrderBlockDetector(lookback, body_min_pct=body_min_pct)
     return detector.mark_obs_on_dataframe(df)
