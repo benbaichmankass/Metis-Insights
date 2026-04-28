@@ -167,6 +167,57 @@ tests/
 
 ---
 
+## Going live
+
+The news veto hook is wired into `src/runtime/pipeline.py`.  It runs on every
+actionable signal tick (after risk-counter injection, before `safe_place_order`).
+
+**Default posture: disabled.**  The `.env.live` template ships with
+`NEWS_ENABLED=false`.  When disabled, `get_news_score` returns a neutral result
+instantly (no network call, no latency) and the pipeline proceeds unchanged.
+
+### Enabling the veto gate
+
+1. Obtain a free NewsAPI key at <https://newsapi.org>.
+2. In `.env.live`, set:
+   ```
+   NEWS_ENABLED=true
+   NEWS_API_KEY=your_newsapi_key_here
+   ```
+3. Optionally tune the veto thresholds:
+   ```
+   NEWS_VETO_SENTIMENT_THRESHOLD=-0.3   # default: -0.3
+   NEWS_VETO_IMPACT_THRESHOLD=0.5       # default: 0.5
+   NEWS_CACHE_TTL=300                   # seconds; default: 300 (5 min)
+   ```
+
+### Veto behaviour
+
+When the veto fires the pipeline returns:
+```python
+{"status": "news_veto", "reason": "<reason string>", "signal": <signal dict>}
+```
+This is surfaced as `order_result.status == "news_veto"` in the outer return
+dict and logged via `log_signal` alongside the signal audit trail.  A Telegram
+notification is sent with `status=news_veto`.
+
+Non-veto ticks log at INFO:
+```
+news: decision=reduce adj=-0.2100 items=3 reason=...
+```
+
+### Symbol tag derivation
+
+The pipeline derives `symbol_tags` automatically from `signal["symbol"]`:
+
+| Signal symbol  | Tags passed to `get_news_score` |
+|----------------|----------------------------------|
+| `"BTCUSDT"`    | `["BTC", "BTCUSDT"]`            |
+| `"BTC/USDT:USDT"` | `["BTC", "BTC/USDT:USDT"]`  |
+| `"ETHUSDT"`    | `["ETH", "ETHUSDT"]`            |
+
+---
+
 ## Adding a new data source (future)
 
 1. Create `src/news/news_client_<source>.py` mirroring the `fetch_news(settings)`
