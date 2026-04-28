@@ -10,6 +10,34 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-29-04 — PR 4: refresh sprint audit doc
+
+- **Session date:** 2026-04-28
+- **Sprint:** sprint-plan-2026-04-29 (operational-hardening)
+- **Current sprint phase:** PR 4 — audit doc refresh
+- **Last completed checkpoint:** CP-2026-04-29-03 (PR 3 done, PR #69 open)
+- **Next checkpoint:** **CP-2026-04-29-05** — start PR 5 (delete dead tui_control_panel.py + bybit_config.py)
+- **Blockers:** none. PR #70 open as draft.
+
+### 1. Completed
+- `docs/sprint-plans/2026-04-28-audit.md`: refreshed against 875bfcc — updated front-matter SHA, corrected all file:line citations (run_pipeline 309→452, orders.py lines updated), added inject_runtime_counters + news-veto branch to order-placement diagram, added ict_signal_builder to dispatch table, corrected status=simulated→status=dry_run, moved counter-injection finding to Resolved section (PR #64), added tui_control_panel.py/bybit_config.py to canonical-files table, added ict-heartbeat units to deploy artefacts table, appended Section 4 (F1–F5 findings)
+
+### 2. Files changed
+- `docs/sprint-plans/2026-04-28-audit.md` (110 insertions, 130 deletions — net refresh)
+
+### 3. Tests run
+- Docs-only PR — no test run required
+
+### 4. Remaining
+- none — PR 4 complete
+
+### 5. Next checkpoint
+**CP-2026-04-29-05** — PR 5: delete dead `tui_control_panel.py` + `bybit_config.py`. Verify no imports first, then delete. Branch: `chore/delete-dead-tui`.
+
+**Telegram sent:** no (no creds in env)
+
+---
+
 ## CP-2026-04-29-03 — PR 3: daily operational heartbeat
 
 - **Session date:** 2026-04-28
