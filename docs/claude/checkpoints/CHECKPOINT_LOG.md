@@ -39,6 +39,36 @@ See `../checkpoint-workflow.md` for the full rules.
 ### 5. Next checkpoint
 **CP-2026-04-29-08** — once Ben approves #75, merge it, then merge PR #74. Both together close sprint 2026-04-29 at 8/8. Read `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry) before starting.
 
+## CP-2026-04-29-07b — PR 7: add killzone to multiplexed STRATEGIES list
+
+- **Session date:** 2026-04-28
+- **Sprint:** sprint-plan-2026-04-29 (operational-hardening)
+- **Current sprint phase:** PR 7 — multiplexer gap
+- **Last completed checkpoint:** CP-2026-04-29-06 (PR 6 done, PR #72 open)
+- **Next checkpoint:** **CP-2026-04-29-08** — start PR 8 (test coverage gaps)
+- **Blockers:** none. PR #73 open as draft.
+
+### 1. Completed
+- Added `"killzone"` to `STRATEGIES` at pipeline.py:409: `["breakout_confirmation", "vwap", "killzone", "ict"]`.
+- Updated comment block above list explaining rationale.
+- Added 2 new tests: `test_multiplexed_killzone_position_before_ict` (ordering invariant) and `test_multiplexed_killzone_fires_when_breakout_and_vwap_flat` (behaviour).
+- Updated `test_multi_strategy_pipeline_strategies_list_contains_expected_strategies` to assert killzone membership.
+- Fixed two existing tests (`ict_fires_when_others_flat`, `no_signal_when_all_flat`) to stub killzone so they isolate intended behaviour.
+
+### 2. Files changed
+- `src/runtime/pipeline.py` (STRATEGIES list + comment)
+- `tests/test_runtime_pipeline.py` (2 new tests, 3 existing tests updated)
+
+### 3. Tests run
+- Full suite: 307 pass (+21 vs pre-sprint baseline), 106 fail unchanged — no regressions
+- All 11 multiplexer tests pass
+
+### 4. Remaining
+- none — PR 7 complete
+
+### 5. Next checkpoint
+**CP-2026-04-29-08** — PR 8: close test coverage gaps. Add smoke tests for `src/ict_detection/key_levels.py`, `src/ict_detection/liquidity.py`, `src/strategies_manager.py`, `src/bot/telegram_query_bot.py`, `src/backtest/backtester.py`. Use `pytest.importorskip` guards. Branch: `test/coverage-gaps`.
+
 **Telegram sent:** no (no creds in env)
 
 ---
