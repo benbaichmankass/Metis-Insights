@@ -10,6 +10,128 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-28-16 — Excise paper trading from bot; harden VM auto-sync
+
+- **Session date:** 2026-04-28
+- **Sprint:** sprint-plan-2026-04-28 (Live Trading Hardening + Repo Cleanup)
+- **Current sprint phase:** Follow-up cleanup (after M7 / sprint backlog complete).
+  This is the first checkpoint of a new multi-PR mini-sprint to fully excise
+  paper trading from the repo.
+- **Last completed checkpoint:** CP-2026-04-28-15.
+- **Next checkpoint:** **CP-2026-04-28-17** — remove `paper`, `oracle_paper`,
+  and `colab` profiles from `scripts/render_env_from_master.py`; delete
+  `scripts/check_env_paper.py`; update `.env.example` to default `MODE=LIVE`
+  and remove the paper/simulation comment block.
+- **Blockers:** none.
+
+### 1. Completed
+- **Bot (single trader, no paper).** Reworked `src/bot/telegram_query_bot.py`
+  to operate on a single live trader. Dropped `PAPER_ENV_PATH` and
+  `get_account_label`. `load_account_env()` is now zero-arg and reads only
+  `LIVE_ENV_PATH`. `get_strategy_label()` takes only `env_vars` (defaults
+  to live env on disk) and falls back to a single `_DEFAULT_STRATEGY_LABEL`
+  (`"Strategy"`) when STRATEGY is unset/unknown. `format_target_options()`
+  now returns the single strategy label (kept as a named helper so
+  `post_init` BotCommand registration callers don't churn). `cmd_balance`
+  and `cmd_trades` collapsed from a `for target in ("live","paper")` loop
+  to a single block. `cmd_log` / `cmd_toggle` / `cmd_closeall` no longer
+  show inline-keyboard target pickers; they act directly on the single
+  live trader. `callback_handler` simplified accordingly. `/start` help
+  text now shows the active strategy as a header. `BotCommand`
+  descriptions no longer embed `live|paper`. New `LIVE_SERVICE_NAME`
+  constant centralises the service identifier.
+- **Deploy script hardened.** Replaced `git pull origin main` with
+  `git fetch --prune origin && git reset --hard origin/main` in
+  `scripts/deploy_pull_restart.sh`. The VM is now a true read-only mirror
+  of `origin/main`; any local commits or dirty working tree are wiped on
+  every 5-minute sync. The previous `if "Already up to date": exit 0`
+  early-return left services pinned to stale code after a manual VM
+  resync; this PR restarts services **unconditionally** while still
+  gating the expensive `pip install` on actual HEAD movement.
+- **Master instructions updated.** Added §6 subsection
+  "VM is a read-only mirror of `origin/main`" formalising the workflow
+  rule (never `git commit` or `git push` from the VM). Added §9
+  guardrail forbidding paper trading in any form. Struck through and
+  superseded the prior "do not blindly remove paper refs" lesson and
+  the "38+ commits behind workaround" lesson. Added a CP-16
+  lessons-learned entry. Fixed stale service name
+  `ict-live-trader.service` → `ict-trader-live.service` in the §6
+  service table; removed `ict-vwap-dry-run.service` row
+  (out-of-scope for the live-only model).
+- **Tests.** Rewrote `tests/test_telegram_strategy_labels.py` for the
+  single-trader API. Added explicit assertions that paper surfaces are
+  gone (`get_account_label`, `PAPER_ENV_PATH`), that `LIVE_SERVICE_NAME`
+  is the canonical service id, and that `load_account_env` raises
+  `TypeError` if any positional arg is passed (signature change
+  enforcement).
+
+### 2. Files changed
+- `src/bot/telegram_query_bot.py` (+117 / -149)
+- `scripts/deploy_pull_restart.sh` (+39 / -8)
+- `docs/ICT_BOT_MASTER_INSTRUCTIONS.md` (+30 / -8)
+- `tests/test_telegram_strategy_labels.py` (+91 / -56)
+
+### 3. Tests run
+- `bash -n scripts/deploy_pull_restart.sh` — pass (syntax).
+- `python3 -m py_compile src/bot/telegram_query_bot.py` — pass.
+- `python3 scripts/repo_inventory.py` — pass (no junk candidates).
+- `python3 scripts/secret_scan.py` — pass (no obvious secrets).
+- `PYTHONPATH=. python3 -m pytest tests/test_telegram_strategy_labels.py -q`
+  — **22 passed in 0.79s.**
+- `PYTHONPATH=. python3 -m pytest -q --ignore=tests/test_main_loop.py tests`
+  — **336 passed / 23 failed / 2 skipped.** The 23 failures are the same
+  pre-existing failures tracked since CP-13 (fixture/env issues in
+  `test_runtime_validation.py`, `test_runtime_pipeline.py`,
+  `test_runtime_smoke.py`); none introduced by this patch.
+  **No new regressions.**
+
+### 4. Remaining
+- **CP-17:** Excise paper from env-rendering scripts.
+  - Remove `paper`, `oracle_paper`, `colab` profiles from
+    `scripts/render_env_from_master.py` (touch `_PROFILES`, `build_paper`,
+    `build_oracle_paper`, `build_colab` if it exists).
+  - Delete `scripts/check_env_paper.py`.
+  - Update `.env.example`: change `MODE=PAPER` default to `MODE=LIVE`,
+    remove the "PAPER" mention from the comment, and remove the
+    "Any other combination is paper/simulation only" line.
+  - Update `config/master-secrets.template.yaml` (or move to CP-19) to
+    drop the `paper:` and `oracle_paper:` profile blocks.
+- **CP-18:** Excise paper from `src/` runtime code.
+  - Audit `src/` for `MODE=PAPER` branches and DRY_RUN logic that's only
+    meaningful in a paper context. Confirm whether `dry_run` is still a
+    legitimate concept (e.g. for backtests/staging) or should be removed
+    entirely.
+  - Update startup validation messages so they don't mention paper.
+- **CP-19:** Excise paper from docs.
+  - `docs/bot.md` (`/paper_start`, `/paper_stop`, `/paper_report` references).
+  - `docs/claude/debug-memory.md`, `docs/claude/deployment-ops.md`,
+    `docs/claude/google-drive-master-secrets.md` (paper profile sections).
+  - `docs/strategies/vwap_mean_reversion.md` (Paper trading validation
+    bullet).
+  - `docs/sprint-plans/*` historical references can be left as-is
+    (archival), but add a header note to current/active sprint plans
+    that paper trading is no longer in scope.
+  - Update `docs/DEPLOYMENT_LIVE_TRADING.md` paper trading checklist line.
+- **VM verification (post-merge of CP-16).** Once PR #56 merges, the
+  next 5-minute sync should restart services unconditionally and the
+  Telegram bot should re-register slash commands using the new
+  single-strategy descriptions (e.g. `Close all Breakout positions`).
+  Verify via `getMyCommands` from the Telegram API.
+
+### 5. Next checkpoint
+**CP-2026-04-28-17** — Env-rendering scripts cleanup (CP-17). Read in
+order: this entry, `docs/ICT_BOT_MASTER_INSTRUCTIONS.md` §9 (paper
+guardrail), `scripts/render_env_from_master.py`,
+`scripts/check_env_paper.py`, `.env.example`. Smallest safe subtask: delete
+`scripts/check_env_paper.py` and remove `paper`/`oracle_paper`/`colab`
+from `_PROFILES` in `render_env_from_master.py`; update tests
+accordingly; defer config/master-secrets.template.yaml to CP-19.
+
+**Telegram sent:** to be sent at the end of this session (CP-16
+session-complete) once log push completes.
+
+---
+
 ## CP-2026-04-28-15 — UI: strategy-aware Telegram /start help and BotCommand list
 
 - **Session date:** 2026-04-28
