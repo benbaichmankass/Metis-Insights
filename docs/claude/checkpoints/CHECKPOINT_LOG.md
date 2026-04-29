@@ -45,6 +45,43 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-29-10 — Sprint S-001 PR-B0: add strategy_name column to trades
+
+- **Session date:** 2026-04-29
+- **Sprint:** Sprint S-001 (Telegram bot hardening)
+- **Current sprint phase:** PR-B0 — schema migration prereq for data-loader work
+- **Last completed checkpoint:** CP-2026-04-29-09 (PR-A spec doc, PR #76 open on `feat/telegram-spec-doc`)
+- **Next checkpoint:** **CP-2026-04-29-11** — PR-B: implement `src/bot/data_loaders.py` with the 9 loader functions named in the spec.
+- **Blockers:** none. Schema change is forward-compatible; pre-existing rows render `n/a` until trader writes the column.
+
+### 1. Completed
+- Added `strategy_name TEXT` column to the `trades` table in both schema bootstrap paths: `scripts/init_db.py` (bot DB) and `src/data_layer/database.py` (trader DB).
+- Wrote idempotent migration helpers (`migrate_add_strategy_name` in init_db.py; `_migrate_add_strategy_name` in database.py) that ALTER TABLE only when the column is missing.
+- Added `tests/test_strategy_name_column.py` with 10 tests covering: fresh-DB column presence, legacy-DB migration, idempotency on re-run, helper return values, row preservation, insert acceptance with `strategy_name`.
+- `Database.insert_trade` already accepts arbitrary dicts so callers don't need updating; they pass `strategy_name=...` and it flows through.
+
+### 2. Files changed
+- `scripts/init_db.py` (+18 lines: helper, column, migration call)
+- `src/data_layer/database.py` (+18 lines: helper, column, migration call)
+- `tests/test_strategy_name_column.py` (new, 223 lines)
+
+### 3. Tests run
+- `python scripts/repo_inventory.py` — pass
+- `python scripts/secret_scan.py` — pass
+- `PYTHONPATH=. pytest --collect-only -q --ignore=tests/test_main_loop.py tests` — 573 collected (was 563, +10 new)
+- `PYTHONPATH=. pytest tests/test_strategy_name_column.py -q` — 10 passed
+- Full suite: 548 passed, 23 failed unchanged (same baseline on main verified by stash-and-rerun), 2 skipped. No new regressions.
+
+### 4. Remaining
+- Trader code that builds the trade dict (e.g. in `src/runtime/orders.py` or wherever `insert_trade` is called) still needs to populate `strategy_name`. Punted to PR-B / PR-C: the bot must tolerate NULL/`n/a` for now anyway, so fixing the writer is independent. Track as a follow-up PR before sprint close.
+
+### 5. Next checkpoint
+**CP-2026-04-29-11** — PR-B: implement `src/bot/data_loaders.py`. 9 loader functions per spec §5. Each catches its own exceptions and returns a neutral fallback. New test file `tests/test_data_loaders.py` covers happy path + at least one failure mode per loader. No bot wiring yet (that's PR-C onward).
+
+**Telegram sent:** no (no creds in env)
+
+---
+
 ## CP-2026-04-29-07 — fix deprecated pandas fillna(method=) in key_levels.py
 
 - **Session date:** 2026-04-29

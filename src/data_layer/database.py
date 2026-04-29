@@ -9,6 +9,21 @@ from datetime import datetime
 import json
 
 
+def _migrate_add_strategy_name(cursor: sqlite3.Cursor) -> bool:
+    """Add ``strategy_name`` column to ``trades`` table if absent.
+
+    Idempotent: returns True only on the run that actually adds the column.
+    Mirrors the helper in ``scripts/init_db.py`` (kept private here to
+    avoid an import cycle between scripts/ and src/).
+    """
+    cursor.execute("PRAGMA table_info(trades)")
+    columns = {row[1] for row in cursor.fetchall()}
+    if "strategy_name" in columns:
+        return False
+    cursor.execute("ALTER TABLE trades ADD COLUMN strategy_name TEXT")
+    return True
+
+
 class Database:
     """Manages SQLite database for trade journal and backtest results"""
     
@@ -58,9 +73,14 @@ class Database:
                 status TEXT DEFAULT 'open',
                 notes TEXT,
                 is_backtest BOOLEAN DEFAULT 1,
+                strategy_name TEXT,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
         ''')
+        # Idempotent migration: add strategy_name to pre-existing DBs that
+        # were created before the column was introduced. Safe to run on
+        # every connection bootstrap.
+        _migrate_add_strategy_name(cursor)
         
         # Backtest results table
         cursor.execute('''
