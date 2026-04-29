@@ -11,6 +11,40 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-29-54 — S-008 #124: Telegram Bot rewired
+
+- **Session date:** 2026-04-29
+- **Sprint:** S-008 (Translator Architecture Overhaul)
+- **Current sprint phase:** #124 — Telegram Bot rewired
+- **Last completed checkpoint:** CP-2026-04-29-53 (S-008 #123, PR #123 merged)
+- **Next checkpoint:** **CP-2026-04-29-55** — S-008 #125: Trading School integration. Wire `coordinator.validate_strategy_update()` stub; backtest → coordinator → auto-PR trigger pattern.
+- **Telegram sent:** no (no creds in session)
+- **Alerts sent during session:** none
+- **Blockers:** none
+
+### 1. Completed
+- `src/bot/telegram_query_bot.py`: `get_coordinator()` singleton; cmd_strategies → coordinator.dashboard_stats(); cmd_halt/resume → also call coordinator.return_command(); cmd_alerts (new /alerts command)
+- `tests/test_s008_telegram_rewired.py`: 19 offline tests, all passed
+- Draft PR #124: https://github.com/the-lizardking/ict-trading-bot/pull/124
+
+### 2. Files changed
+- `src/bot/telegram_query_bot.py` (updated)
+- `tests/test_s008_telegram_rewired.py` (new)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_s008_*.py -q` — 130 passed
+- `python scripts/secret_scan.py` — clean
+
+### 4. Remaining
+- none for this checkpoint
+
+### 5. Next checkpoint
+**CP-2026-04-29-55** — S-008 #125: Trading School integration. Add `coordinator.validate_strategy_update(strategy, metrics)` stub + backtest-trigger helper in `src/units/trading_school/`; offline tests.
+Read: `docs/claude/checkpoints/CHECKPOINT_LOG.md`, `docs/claude/checkpoint-workflow.md`.
+
+---
+
 ## CP-2026-04-29-53 — S-008 #123: Dashboards unified
 
 - **Session date:** 2026-04-29
