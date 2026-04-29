@@ -11,6 +11,43 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-29-50 — S-008 #120: Coordinator (TRANSLATOR) + units.yaml
+
+- **Session date:** 2026-04-29
+- **Sprint:** S-008 (Translator Architecture Overhaul)
+- **Current sprint phase:** #120 — Coordinator + units.yaml
+- **Last completed checkpoint:** CP-2026-04-29-49 (S-007 complete, PR #119)
+- **Next checkpoint:** **CP-2026-04-29-51** — S-008 #121: Strategies → order_package(). Wire `src/units/strategies/<name>.py` with `order_package(cfg) → OrderPackage` for ICT, VWAP, breakout, killzone.
+- **Telegram sent:** no (no creds in session)
+- **Alerts sent during session:** none
+- **Blockers:** none
+
+### 1. Completed
+- `config/units.yaml`: all 9 units declared (strategies, accounts, dashboards, return_commands, telegram_bot, app, trading_school, db, workflows)
+- `src/core/coordinator.py`: Coordinator class — TRANSLATOR routing layer with `strategy_order_pkg()` (stub→PR#121), `account_execute()` (stub→PR#122), `dashboard_stats()`, `recent_signals()`, `return_command()` (halt/killswitch/resume), `list_strategies()`, `list_accounts()`, `is_account_paused()`
+- `tests/test_s008_coordinator.py`: 36 offline tests, all passed
+- Draft PR #120: https://github.com/the-lizardking/ict-trading-bot/pull/120
+
+### 2. Files changed
+- `config/units.yaml` (new)
+- `src/core/coordinator.py` (new)
+- `tests/test_s008_coordinator.py` (new)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_s008_coordinator.py -v` — 36 passed
+- `python scripts/secret_scan.py` — clean
+- `PYTHONPATH=. pytest --collect-only -q tests/` — 778 collected, 5 pre-existing errors (optional deps), no regressions
+
+### 4. Remaining
+- none for this checkpoint
+
+### 5. Next checkpoint
+**CP-2026-04-29-51** — S-008 #121: create `src/units/strategies/` package; implement `order_package(cfg) → dict` for each strategy (ict, vwap, breakout_confirmation, killzone); wire `Coordinator.strategy_order_pkg()` end-to-end.
+Read: `docs/claude/checkpoints/CHECKPOINT_LOG.md`, `docs/claude/checkpoint-workflow.md`.
+
+---
+
 ## CP-2026-04-29-49 — S-007 #119: VM registry validate script + sprint complete
 
 - **Session date:** 2026-04-29
