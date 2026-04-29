@@ -11,6 +11,49 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-29-45 — S-007 #114: pipeline + data_loaders rewired to registry
+
+- **Session date:** 2026-04-29
+- **Sprint:** S-007 (Strategy Architecture Overhaul)
+- **Current sprint phase:** #114 — pipeline + dl rewiring
+- **Last completed checkpoint:** CP-2026-04-29-44 (S-007 #113, PR #114 merged)
+- **Next checkpoint:** **CP-2026-04-29-46** — S-007 #115: model loader safe (Trader model loader → registry.model_path())
+- **Telegram sent:** no (no creds in session)
+- **Alerts sent during session:** none
+- **Blockers:** none
+
+### 1. Completed
+- `config/strategies.yaml`: added `killzone` (service: ict-trader-live)
+- `src/runtime/pipeline.py`: STRATEGIES now loaded from registry via `_strategies_from_registry()`, hardcoded fallback preserved
+- `src/bot/data_loaders.py`: `list_live_strategies()` registry-first; `list_trader_services()` registry-first with deploy/ fallback
+- `tests/test_data_loaders.py`: updated 3 tests for new registry-first behaviour
+- `tests/test_s007_pipeline_rewire.py`: 8 new tests, all pass
+- Draft PR #115: https://github.com/the-lizardking/ict-trading-bot/pull/115
+
+### 2. Files changed
+- `config/strategies.yaml`
+- `src/runtime/pipeline.py`
+- `src/bot/data_loaders.py`
+- `tests/test_data_loaders.py`
+- `tests/test_s007_pipeline_rewire.py` (new)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_data_loaders.py tests/test_s007_pipeline_rewire.py tests/test_strategy_registry.py -q` — 77 passed
+- `python scripts/secret_scan.py` — clean
+
+### 4. Remaining
+- S-007 #115: Trader model loader → registry.model_path()
+- S-007 #116: signals/trades attribution
+- S-007 #117–118: bot commands (/strategies → registry summary)
+- S-007 #119: tests + VM validate script
+
+### 5. Next checkpoint
+**CP-2026-04-29-46** — S-007 #115: find where the Trader loads its model artifact (grep for `.joblib` / `load_model` / `joblib.load`), replace the hardcoded path with `registry.model_path("breakout_confirmation")`.
+Read: `docs/claude/checkpoints/CHECKPOINT_LOG.md`, `docs/claude/checkpoint-workflow.md`.
+
+---
+
 ## CP-2026-04-29-44 — S-007 #113: YAML strategy registry + loader
 
 - **Session date:** 2026-04-29
