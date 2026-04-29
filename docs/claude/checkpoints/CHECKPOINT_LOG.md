@@ -11,6 +11,41 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-29-24 — Sprint S-002 M2b: delete get_bybit_client_from_env + stale comments
+
+- **Session date:** 2026-04-29
+- **Sprint:** Sprint S-002 (Telegram bot multi-account + workflow hardening)
+- **Current sprint phase:** M2b — retire dead helpers
+- **Last completed checkpoint:** CP-2026-04-29-23 (M2a close_all_bybit_positions migration, PR #91 merged)
+- **Next checkpoint:** **CP-2026-04-29-25 — M3a: get_strategy_label becomes account-aware** — drop the no-arg load_account_env fallback from get_strategy_label; when called with no arg, use first account from dl.list_accounts() or fall back to _DEFAULT_STRATEGY_LABEL. Update all 5+ call sites that pass _account_env(account) to pass account directly. Rewrite ~10 tests in test_telegram_strategy_labels.py.
+- **Telegram sent:** no (import chain blocked by missing `pandas` in this environment — exits 0)
+- **Alerts sent during session:** none
+- **Blockers:** Waiting for Ben to merge PR #92 before M3a starts.
+
+### 1. Completed
+- Deleted `get_bybit_client_from_env(env_vars)` from `src/bot/telegram_query_bot.py` — its only caller (`close_all_bybit_positions`) was migrated to `dl.bybit_client_for` in M2a.
+- Removed stale `_get_binance_connector` comment block (function deleted in S-001 PR-F; comment was dead text).
+- Updated top-of-file sprint comment to reflect current state: M2 done, M3 remaining.
+- Opened PR-M2b as draft: https://github.com/the-lizardking/ict-trading-bot/pull/92
+
+### 2. Files changed
+- `src/bot/telegram_query_bot.py`
+
+### 3. Tests run
+- `pytest tests/test_telegram_query_bot.py tests/test_telegram_strategy_labels.py -q` — **70 passed**
+- Broader suite — **130 passed, 1 skipped**, no regressions
+- `python scripts/secret_scan.py` — clean
+
+### 4. Remaining
+- M3a: `get_strategy_label` becomes account-aware (drop no-arg load_account_env fallback).
+- M3b: delete `load_account_env` and `format_target_options`.
+
+### 5. Next checkpoint
+**CP-2026-04-29-25** — M3a: `get_strategy_label` account-aware refactor.
+Read first: this entry, `docs/claude/checkpoint-workflow.md`, then `src/bot/telegram_query_bot.py` `get_strategy_label` and all its call sites, then `tests/test_telegram_strategy_labels.py` for the existing test shape.
+
+---
+
 ## CP-2026-04-29-23 — Sprint S-002 M2a: migrate close_all_bybit_positions to (account: dict)
 
 - **Session date:** 2026-04-29
