@@ -69,6 +69,22 @@ Then send the Telegram session ping via `scripts/notify_session.py session`
   3. VM deployment scripts (`deploy/`).
 - After self-merge, post `/sprintlet_status PR#X merged` to Telegram bot.
 
+## Sprint Completion Checklist (ALWAYS LAST TASK)
+
+1. Run full tests: `PYTHONPATH=. pytest tests/ -q --ignore=tests/test_main_loop.py`
+2. Run `python scripts/secret_scan.py` — must be clean.
+3. Create summary PR: `docs/sprint-summaries/sprint-NNN-summary.md` containing:
+   - PR list (#XXX–#YYY)
+   - Tests added
+   - Checkpoint ID from `CHECKPOINT_LOG.md`
+   - Deliverables table (file/unit → tests)
+   - Deferred items (if any)
+   - Lessons learned (1–3 bullets for future sprints)
+4. **Self-merge summary PR** (docs-only, no code risk).
+5. Propose 1–2 improvements to this `CLAUDE.md` for the next sprint.
+6. Telegram: `/sprintlet_complete S-NNN`
+7. Append final checkpoint to `CHECKPOINT_LOG.md`.
+
 ## Default verification
 
 Run lightweight checks only:

@@ -11,6 +11,40 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-29-58.5 — S-008.5 SPRINTLET COMPLETE
+
+- **Session date:** 2026-04-29
+- **Sprint:** S-008.5 (Claude Workflow Fixes)
+- **Current sprint phase:** wrap-up — all 3 PRs merged
+- **Last completed checkpoint:** CP-2026-04-29-58 (S-008 wrap-up)
+- **Next checkpoint:** Start of S-009 — read CHECKPOINT_LOG.md as usual.
+- **Telegram sent:** no (no creds in session)
+- **Blockers:** none
+
+### 1. Completed
+- PR #129: Merging Rules added to `CLAUDE.md` (self-merged)
+- PR #130: `/sprintlet_status`, `/sprintlet_complete`, `/checkpoint` commands in `telegram_query_bot.py` + Telegram Reporting section in `CLAUDE.md` + 11 tests (self-merged)
+- PR #131: Sprint Completion Checklist in `CLAUDE.md` + `docs/sprint-summaries/sprint-008.5-summary.md` (self-merged)
+
+### 2. Files changed
+- `CLAUDE.md` (Merging Rules + Telegram Reporting + Sprint Completion Checklist)
+- `src/bot/telegram_query_bot.py` (3 new command handlers + BotCommands)
+- `tests/test_s008_5_telegram_sprint_cmds.py` (new, 11 tests)
+- `docs/sprint-summaries/sprint-008.5-summary.md` (new)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_s008_*.py tests/test_coordinator_flow.py tests/test_s008_5_telegram_sprint_cmds.py -q` — 189 passed
+- `python scripts/secret_scan.py` — clean
+
+### 4. Remaining
+- None. Ready for S-009.
+
+### 5. Next checkpoint
+**S-009** — next sprint. Read `CHECKPOINT_LOG.md` (this entry) to resume.
+
+---
+
 ## CP-2026-04-29-58 — S-008 SPRINT COMPLETE
 
 - **Session date:** 2026-04-29
