@@ -11,6 +11,46 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-29-37 — Sprint S-006 M1: ICT multi-symbol validate manifest
+
+- **Session date:** 2026-04-29
+- **Sprint:** S-006 (ICT Multi-Symbol Backtest)
+- **Current sprint phase:** M1 — manifest + --manifest loader
+- **Last completed checkpoint:** CP-2026-04-29-36 (S-005 M5, PR #105 draft)
+- **Telegram sent:** no (no creds in session)
+- **Alerts sent during session:** none
+- **Blockers:** none
+
+### 1. Completed
+- `data/ict_validate_manifest.csv`: 4-pair manifest (BTCUSDT 5m, ETHUSDT 5m, SPY 5m, QQQ 15m)
+- `data/ohlcv/{btc,eth,spy,qqq}_*_2026.csv`: 300-row placeholder OHLCV files for immediate local use
+- `tests/test_backtest_ict_cli.py`: 3 new tests — manifest existence, timeframes, end-to-end run (17 total, all pass)
+- `.gitignore`: exception for `ict_validate_manifest.csv`; added `data/ohlcv/*.csv` suppression
+- Note: `bin/backtest_ict.py --manifest` was already fully implemented; no code changes needed
+- PR #106 opened (draft): https://github.com/the-lizardking/ict-trading-bot/pull/106
+- Subscribed to PR #106 activity for CI/review monitoring
+
+### 2. Files changed
+- `data/ict_validate_manifest.csv` (new)
+- `data/ohlcv/btc_5m_2026.csv` (new)
+- `data/ohlcv/eth_5m_2026.csv` (new)
+- `data/ohlcv/spy_5m_2026.csv` (new)
+- `data/ohlcv/qqq_15m_2026.csv` (new)
+- `tests/test_backtest_ict_cli.py` (3 tests added)
+- `.gitignore` (manifest exception + ohlcv suppress)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_backtest_ict_cli.py -v` — 17 passed
+
+### 4. Remaining
+- S-006 M2+: Gemini runs backtests against the manifest; Claude analyzes results
+
+### 5. Next checkpoint
+**CP-2026-04-29-38** — S-006 M2: Gemini backtest delegation. Read this entry first, then await PM direction on triggering the Gemini Colab notebook with the manifest.
+
+---
+
 ## CP-2026-04-29-36 — Sprint S-005 M5: Integration tests + deploy verification
 
 - **Session date:** 2026-04-29

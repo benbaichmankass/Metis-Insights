@@ -187,3 +187,41 @@ def test_main_writes_output_file(tmp_path: Path, capsys):
     payload = json.loads(out.read_text())
     assert payload["aggregate"]["pairs_total"] == 1
     assert payload["aggregate"]["pairs_ok"] == 1
+
+
+# ---------------------------------------------------------------------------
+# Validate data/ict_validate_manifest.csv is well-formed
+# ---------------------------------------------------------------------------
+
+
+def test_ict_validate_manifest_exists_and_loads():
+    manifest = REPO_ROOT / "data" / "ict_validate_manifest.csv"
+    assert manifest.exists(), "data/ict_validate_manifest.csv not found"
+    pairs = backtest_ict_cli.load_manifest(manifest)
+    assert len(pairs) == 4
+    symbols = [p.symbol for p in pairs]
+    assert "BTCUSDT" in symbols
+    assert "ETHUSDT" in symbols
+    assert "SPY" in symbols
+    assert "QQQ" in symbols
+
+
+def test_ict_validate_manifest_timeframes():
+    manifest = REPO_ROOT / "data" / "ict_validate_manifest.csv"
+    pairs = backtest_ict_cli.load_manifest(manifest)
+    by_symbol = {p.symbol: p.timeframe for p in pairs}
+    assert by_symbol["BTCUSDT"] == "5m"
+    assert by_symbol["ETHUSDT"] == "5m"
+    assert by_symbol["SPY"] == "5m"
+    assert by_symbol["QQQ"] == "15m"
+
+
+def test_ict_validate_manifest_runs_all_pairs():
+    """End-to-end: run the validate manifest against the placeholder OHLCV files."""
+    manifest = REPO_ROOT / "data" / "ict_validate_manifest.csv"
+    pairs = backtest_ict_cli.load_manifest(manifest)
+    results = backtest_ict_cli.run_all(pairs)
+    assert len(results) == 4
+    # All placeholder CSVs exist and are valid OHLCV files.
+    failed = [(r.symbol, r.error) for r in results if not r.ok]
+    assert failed == [], f"Some pairs failed: {failed}"
