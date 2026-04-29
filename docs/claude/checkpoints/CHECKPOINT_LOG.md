@@ -11,6 +11,45 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-29-13 — Sprint S-001 PR-B3: data_loaders exchange queries
+
+- **Session date:** 2026-04-29
+- **Sprint:** Sprint S-001 (Telegram bot hardening)
+- **Current sprint phase:** PR-B3 — third and final slice of `src/bot/data_loaders.py` (exchange queries). Closes the PR-B work.
+- **Last completed checkpoint:** CP-2026-04-29-12 (PR-B2 DB readers, opened as #79)
+- **Next checkpoint:** **CP-2026-04-29-14** — PR-C: wire `/help`, `/status`, `/price` to data loaders.
+- **Blockers:** none.
+
+### 1. Completed
+- Added `account_balance(account)`: Bybit (UNIFIED wallet) and Binance (USDT futures) balance fetchers; returns `{"total_usdt": float, "raw": ...}` or `None`.
+- Added `account_open_positions(account)`: Bybit (linear/USDT) and Binance positions, normalised to `{symbol, side, size, entry_price, unrealised_pnl}`. Skips zero-size rows. Returns `None` on failure.
+- Added `account_last_trade(account)`: most-recent live trade row from the trade-journal DB. Today the `trades` table has no `account_id` column, so non-legacy accounts return `None` until that schema gains one (tracked as a follow-up sprint item).
+- Helpers `_read_env_file`, `_bybit_client`, `_binance_conn`, `_f` extracted as small, isolated wrappers so handlers can mock at the right level.
+- 9 new tests in `tests/test_data_loaders.py` (file total 28). `MagicMock` is used to stub the exchange clients so tests do not hit the network.
+
+### 2. Files changed
+- `src/bot/data_loaders.py` (extended with exchange-query layer)
+- `tests/test_data_loaders.py` (extended with exchange-query tests)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+- `python scripts/repo_inventory.py` — pass (no junk candidates)
+- `python scripts/secret_scan.py` — pass (no tracked secrets)
+- `PYTHONPATH=. pytest tests/test_data_loaders.py` — 28 passed.
+- `PYTHONPATH=. pytest --ignore=tests/test_main_loop.py tests` — 23 failed (pre-existing baseline); no new regressions.
+
+### 4. Remaining
+- PR-C/PR-D/PR-E/PR-F still ahead per spec §9.
+- Trader-side `strategy_name` write on insert remains a follow-up after the bot-wiring PRs.
+- Multi-account journal attribution (adding an `account` column on `trades`) is a separate sprint item; non-legacy `account_last_trade` returns `None` until then.
+
+### 5. Next checkpoint
+**CP-2026-04-29-14** — PR-C: wire `/help`, `/status`, `/price` in `src/bot/telegram_query_bot.py` to the data loaders. Acceptance: `/status` reads strategy list via `dl.list_live_strategies()` and reports per-strategy running state + last-signal time + today's P&L; `/price` falls back to "n/a" when Bybit is unreachable; `/help` lists all 11 spec commands.
+
+**Telegram sent:** no (no creds in env)
+
+---
+
 ## CP-2026-04-29-12 — Sprint S-001 PR-B2: data_loaders DB readers
 
 - **Session date:** 2026-04-29

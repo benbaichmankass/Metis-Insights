@@ -1,13 +1,12 @@
-"""Tests for src/bot/data_loaders.py — Sprint S-001 PR-B1/B2.
+"""Tests for src/bot/data_loaders.py — Sprint S-001 PR-B1/B2/B3.
 
 Each loader has a happy path + at least one failure-mode test, per the
-spec's acceptance criteria (docs/TELEGRAM-SPEC.md §6). Exchange queries
-land in PR-B3 with their own tests.
+spec's acceptance criteria (docs/TELEGRAM-SPEC.md §6).
 """
 import sqlite3
 import sys
 from types import SimpleNamespace
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -288,3 +287,130 @@ def test_latest_backtests_per_model_db_missing(monkeypatch, tmp_path):
 
 def test_latest_backtests_per_model_empty_table(trade_journal_db):
     assert dl.latest_backtests_per_model() == []
+
+
+# -- Exchange-aware account queries (PR-B3) -----------------------------------
+
+@pytest.fixture
+def fake_repo_b3(tmp_path, monkeypatch):
+    (tmp_path / "deploy").mkdir()
+    monkeypatch.setattr(dl, "REPO_ROOT", str(tmp_path))
+    return tmp_path
+
+
+def _bybit_account(env_path):
+    return {"account_id": "live", "exchange": "bybit",
+            "env_path": env_path, "service": "ict-trader-live",
+            "strategies": [], "source": "env"}
+
+
+def test_account_balance_bybit_happy(fake_repo_b3):
+    env_path = str(fake_repo_b3 / ".env")
+    (fake_repo_b3 / ".env").write_text("BYBIT_API_KEY=abc\nBYBIT_API_SECRET=def\n")
+    fake_client = MagicMock()
+    fake_client.get_wallet_balance.return_value = {
+        "result": {"list": [{"coin": [
+            {"coin": "USDT", "walletBalance": "100", "usdValue": "100.0"},
+            {"coin": "BTC", "walletBalance": "0.01", "usdValue": "650.5"},
+        ]}]}
+    }
+    with patch.object(dl, "_bybit_client", return_value=fake_client):
+        out = dl.account_balance(_bybit_account(env_path))
+    assert out is not None
+    assert out["total_usdt"] == pytest.approx(750.5)
+
+
+def test_account_balance_returns_none_on_exception(fake_repo_b3):
+    env_path = str(fake_repo_b3 / ".env")
+    (fake_repo_b3 / ".env").write_text("BYBIT_API_KEY=abc\nBYBIT_API_SECRET=def\n")
+    fake_client = MagicMock()
+    fake_client.get_wallet_balance.side_effect = RuntimeError("net down")
+    with patch.object(dl, "_bybit_client", return_value=fake_client):
+        assert dl.account_balance(_bybit_account(env_path)) is None
+
+
+def test_account_balance_unknown_exchange_returns_none():
+    acc = {"account_id": "x", "exchange": "ftx", "env_path": None,
+           "service": "ict-trader-x", "strategies": [], "source": "env"}
+    assert dl.account_balance(acc) is None
+
+
+def test_account_balance_missing_keys_returns_none(fake_repo_b3):
+    # No .env on disk → _read_env_file → {} → _bybit_client returns None.
+    acc = _bybit_account(str(fake_repo_b3 / ".env"))
+    assert dl.account_balance(acc) is None
+
+
+def test_account_open_positions_bybit_filters_zero_size(fake_repo_b3):
+    env_path = str(fake_repo_b3 / ".env")
+    (fake_repo_b3 / ".env").write_text("BYBIT_API_KEY=abc\nBYBIT_API_SECRET=def\n")
+    fake_client = MagicMock()
+    fake_client.get_positions.return_value = {
+        "result": {"list": [
+            {"symbol": "BTCUSDT", "side": "Buy", "size": "0.01",
+             "avgPrice": "65000", "unrealisedPnl": "10.5"},
+            {"symbol": "ETHUSDT", "side": "Sell", "size": "0",
+             "avgPrice": "3000", "unrealisedPnl": "0"},
+        ]}
+    }
+    with patch.object(dl, "_bybit_client", return_value=fake_client):
+        out = dl.account_open_positions(_bybit_account(env_path))
+    assert isinstance(out, list)
+    assert len(out) == 1
+    assert out[0]["symbol"] == "BTCUSDT"
+    assert out[0]["entry_price"] == 65000.0
+
+
+def test_account_open_positions_returns_none_on_exception(fake_repo_b3):
+    env_path = str(fake_repo_b3 / ".env")
+    (fake_repo_b3 / ".env").write_text("BYBIT_API_KEY=abc\nBYBIT_API_SECRET=def\n")
+    fake_client = MagicMock()
+    fake_client.get_positions.side_effect = RuntimeError("api down")
+    with patch.object(dl, "_bybit_client", return_value=fake_client):
+        assert dl.account_open_positions(_bybit_account(env_path)) is None
+
+
+def test_account_last_trade_returns_latest_live_row(trade_journal_db):
+    conn = sqlite3.connect(trade_journal_db)
+    conn.execute(
+        "INSERT INTO trades (timestamp, symbol, direction, entry_price, "
+        "is_backtest, strategy_name, created_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+        ("2026-04-29T10:00:00", "BTCUSDT", "LONG", 65000.0, 0, "ict",
+         "2026-04-29 10:00:00"),
+    )
+    conn.execute(
+        "INSERT INTO trades (timestamp, symbol, direction, entry_price, "
+        "is_backtest, strategy_name, created_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+        ("2026-04-29T11:00:00", "ETHUSDT", "SHORT", 3200.0, 0, "vwap",
+         "2026-04-29 11:00:00"),
+    )
+    # A backtest row that must NOT be returned.
+    conn.execute(
+        "INSERT INTO trades (timestamp, symbol, is_backtest, created_at) "
+        "VALUES (?, ?, ?, ?)",
+        ("2026-04-29T12:00:00", "SOLUSDT", 1, "2026-04-29 12:00:00"),
+    )
+    conn.commit()
+    conn.close()
+    acc = {"account_id": "live", "exchange": "bybit", "env_path": None,
+           "service": "ict-trader-live", "strategies": [], "source": "env"}
+    out = dl.account_last_trade(acc)
+    assert out is not None
+    assert out["symbol"] == "ETHUSDT"
+    assert out["strategy_name"] == "vwap"
+
+
+def test_account_last_trade_returns_none_for_non_legacy_account(trade_journal_db):
+    acc = {"account_id": "binance-sub-1", "exchange": "binance",
+           "env_path": None, "service": "ict-trader-binance-1",
+           "strategies": [], "source": "env"}
+    assert dl.account_last_trade(acc) is None
+
+
+def test_account_last_trade_db_missing(monkeypatch, tmp_path):
+    monkeypatch.setattr(dl, "TRADE_JOURNAL_DB", str(tmp_path / "nope.db"))
+    acc = {"account_id": "live", "exchange": "bybit", "env_path": None,
+           "service": "ict-trader-live", "strategies": [], "source": "env"}
+    assert dl.account_last_trade(acc) is None
