@@ -102,9 +102,9 @@ class KeyLevelsDetector:
         df['ny_open_price'] = np.where(df['ny_open'], df['open'], np.nan)
         
         # Forward fill to make them available throughout the session
-        df['asian_open_price'].fillna(method='ffill', inplace=True)
-        df['london_open_price'].fillna(method='ffill', inplace=True)
-        df['ny_open_price'].fillna(method='ffill', inplace=True)
+        df['asian_open_price'] = df['asian_open_price'].ffill()
+        df['london_open_price'] = df['london_open_price'].ffill()
+        df['ny_open_price'] = df['ny_open_price'].ffill()
         
         df.drop('hour', axis=1, inplace=True)
         
