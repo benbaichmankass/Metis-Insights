@@ -618,3 +618,129 @@ class TestCmdCloseallStrategy:
         result = dl.close_all_bybit_positions_for_strategy(acc, "vwap")
         assert result is not None
         assert "Error" in result
+
+
+# ---------------------------------------------------------------------------
+# S-005 M4: strategy_dashboard_data
+# ---------------------------------------------------------------------------
+
+def _make_signals_db(tmp_path, rows):
+    """Create a minimal signals DB and return its path."""
+    path = str(tmp_path / "signals.db")
+    conn = sqlite3.connect(path)
+    conn.execute(
+        "CREATE TABLE signals "
+        "(id INTEGER PRIMARY KEY, timestamp TEXT, symbol TEXT, "
+        "signal_type TEXT, direction TEXT, price REAL, "
+        "timeframe TEXT, reason TEXT, metadata TEXT)"
+    )
+    for r in rows:
+        conn.execute(
+            "INSERT INTO signals (timestamp, symbol, signal_type, direction) "
+            "VALUES (?, 'BTCUSDT', ?, 'buy')",
+            (r["timestamp"], r["signal_type"]),
+        )
+    conn.commit()
+    conn.close()
+    return path
+
+
+def _make_tj_db(tmp_path, rows):
+    """Create a minimal trade journal DB and return its path."""
+    path = str(tmp_path / "trade_journal.db")
+    conn = sqlite3.connect(path)
+    conn.execute(
+        "CREATE TABLE trades "
+        "(id INTEGER PRIMARY KEY, timestamp TEXT, symbol TEXT, "
+        "direction TEXT, entry_price REAL, pnl REAL, status TEXT, "
+        "is_backtest INTEGER, strategy_name TEXT)"
+    )
+    for r in rows:
+        conn.execute(
+            "INSERT INTO trades (timestamp, symbol, direction, entry_price, "
+            "pnl, status, is_backtest, strategy_name) "
+            "VALUES (?, 'BTCUSDT', 'long', 50000, ?, ?, ?, ?)",
+            (r["timestamp"], r.get("pnl", 0.0), r.get("status", "closed"),
+             r.get("is_backtest", 0), r.get("strategy_name")),
+        )
+    conn.commit()
+    conn.close()
+    return path
+
+
+class TestStrategyDashboardData:
+    from datetime import date as _dt
+
+    def test_returns_one_row_per_strategy(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(dl, "SIGNALS_DB", str(tmp_path / "nosignals.db"))
+        monkeypatch.setattr(dl, "TRADE_JOURNAL_DB", str(tmp_path / "notj.db"))
+        rows = dl.strategy_dashboard_data(["breakout_confirmation", "vwap", "ict"])
+        assert len(rows) == 3
+        assert [r["strategy"] for r in rows] == [
+            "breakout_confirmation", "vwap", "ict"
+        ]
+
+    def test_each_row_has_required_keys(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(dl, "SIGNALS_DB", str(tmp_path / "nosignals.db"))
+        monkeypatch.setattr(dl, "TRADE_JOURNAL_DB", str(tmp_path / "notj.db"))
+        rows = dl.strategy_dashboard_data(["vwap"])
+        assert set(rows[0].keys()) >= {"strategy", "signals_today", "pnl", "open_pos", "status"}
+
+    def test_signals_today_counts_correct_strategy(self, tmp_path, monkeypatch):
+        from datetime import date
+        today = date.today().isoformat() + "T10:00:00"
+        sig_db = _make_signals_db(tmp_path, [
+            {"timestamp": today, "signal_type": "vwap_signal"},
+            {"timestamp": today, "signal_type": "vwap_signal"},
+            {"timestamp": today, "signal_type": "ml_breakout"},  # breakout, not vwap
+        ])
+        monkeypatch.setattr(dl, "SIGNALS_DB", sig_db)
+        monkeypatch.setattr(dl, "TRADE_JOURNAL_DB", str(tmp_path / "notj.db"))
+        rows = dl.strategy_dashboard_data(["vwap"])
+        assert rows[0]["signals_today"] == 2
+
+    def test_pnl_sums_closed_trades_today(self, tmp_path, monkeypatch):
+        from datetime import date
+        today = date.today().isoformat() + "T10:00:00"
+        tj_db = _make_tj_db(tmp_path, [
+            {"timestamp": today, "pnl": 30.0, "status": "closed",
+             "is_backtest": 0, "strategy_name": "ict"},
+            {"timestamp": today, "pnl": -10.0, "status": "closed",
+             "is_backtest": 0, "strategy_name": "ict"},
+            {"timestamp": today, "pnl": 999.0, "status": "closed",
+             "is_backtest": 0, "strategy_name": "vwap"},  # different strategy
+        ])
+        monkeypatch.setattr(dl, "TRADE_JOURNAL_DB", tj_db)
+        monkeypatch.setattr(dl, "SIGNALS_DB", str(tmp_path / "nosignals.db"))
+        rows = dl.strategy_dashboard_data(["ict"])
+        assert rows[0]["pnl"] == pytest.approx(20.0)
+
+    def test_open_pos_counts_open_trades(self, tmp_path, monkeypatch):
+        from datetime import date
+        today = date.today().isoformat() + "T10:00:00"
+        tj_db = _make_tj_db(tmp_path, [
+            {"timestamp": today, "status": "open", "is_backtest": 0,
+             "strategy_name": "breakout_confirmation"},
+            {"timestamp": today, "status": "open", "is_backtest": 0,
+             "strategy_name": "breakout_confirmation"},
+            {"timestamp": today, "status": "closed", "is_backtest": 0,
+             "strategy_name": "breakout_confirmation"},
+        ])
+        monkeypatch.setattr(dl, "TRADE_JOURNAL_DB", tj_db)
+        monkeypatch.setattr(dl, "SIGNALS_DB", str(tmp_path / "nosignals.db"))
+        rows = dl.strategy_dashboard_data(["breakout_confirmation"])
+        assert rows[0]["open_pos"] == 2
+
+    def test_status_is_active_for_all(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(dl, "SIGNALS_DB", str(tmp_path / "nosignals.db"))
+        monkeypatch.setattr(dl, "TRADE_JOURNAL_DB", str(tmp_path / "notj.db"))
+        rows = dl.strategy_dashboard_data(["vwap", "ict"])
+        assert all(r["status"] == "active" for r in rows)
+
+    def test_missing_dbs_return_zero_counters(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(dl, "SIGNALS_DB", str(tmp_path / "nosignals.db"))
+        monkeypatch.setattr(dl, "TRADE_JOURNAL_DB", str(tmp_path / "notj.db"))
+        rows = dl.strategy_dashboard_data(["breakout_confirmation"])
+        assert rows[0]["signals_today"] == 0
+        assert rows[0]["pnl"] == 0.0
+        assert rows[0]["open_pos"] == 0

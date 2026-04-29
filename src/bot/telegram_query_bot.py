@@ -438,6 +438,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/balance — Account balance\n"
         "/trades — Open positions\n"
         "/closeall — Emergency close all positions\n"
+        "/strategies — Per-strategy signals, PnL and positions\n"
         "/log — Recent trader logs\n"
         "/toggle — Start or stop the trader service\n"
         "/download\\_journal — Download trade journal DB\n"
@@ -798,6 +799,36 @@ async def cmd_closeall(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+def _format_strategies_dashboard(rows: list) -> str:
+    if not rows:
+        return "📊 *Strategy Dashboard*\nNo strategies configured."
+    lines = ["📊 *Strategy Dashboard*\n"]
+    for r in rows:
+        pnl = float(r.get("pnl", 0) or 0)
+        pnl_str = f"+${pnl:.2f}" if pnl >= 0 else f"-${abs(pnl):.2f}"
+        status = r.get("status", "active")
+        icon = "✅" if status == "active" else "⏸"
+        lines.append(
+            f"{icon} *{r['strategy']}*\n"
+            f"  📡 {r.get('signals_today', 0)} signals | "
+            f"💵 {pnl_str} | "
+            f"📂 {r.get('open_pos', 0)} open | "
+            f"`{status}`"
+        )
+    return "\n\n".join(lines)
+
+
+async def cmd_strategies(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_authorised(update):
+        return
+    try:
+        rows = dl.strategy_dashboard_data()
+        text = _format_strategies_dashboard(rows)
+        await update.message.reply_text(text, parse_mode="Markdown")
+    except Exception as e:
+        await update.message.reply_text(f"⚠️ Could not load strategy dashboard: {e}")
+
+
 async def cmd_download_journal(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_authorised(update):
         return
@@ -974,6 +1005,7 @@ def main():
             BotCommand("balance", "Account balance"),
             BotCommand("trades", "Open positions"),
             BotCommand("closeall", f"Close all {label} positions"),
+            BotCommand("strategies", "Per-strategy signals, PnL and positions"),
             BotCommand("last5", "Last 5 journal entries"),
             BotCommand("backtest", "Run backtest"),
             BotCommand("latest_backtest", "Latest backtest result"),
@@ -993,6 +1025,7 @@ def main():
     application.add_handler(CommandHandler("balance", cmd_balance))
     application.add_handler(CommandHandler("trades", cmd_trades))
     application.add_handler(CommandHandler("closeall", cmd_closeall))
+    application.add_handler(CommandHandler("strategies", cmd_strategies))
     application.add_handler(CommandHandler("last5", cmd_last5))
     application.add_handler(CommandHandler("backtest", cmd_backtest))
     application.add_handler(CommandHandler("latest_backtest", cmd_latest_backtest))

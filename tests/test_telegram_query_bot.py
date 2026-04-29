@@ -1335,3 +1335,125 @@ class TestCmdCloseallStrategy:
         self._run(bot.callback_handler(upd, MagicMock()))
 
         assert closed_strategy == ["vwap"]
+
+
+# ---------------------------------------------------------------------------
+# S-005 M4 — TestCmdStrategiesMultiAccount
+# ---------------------------------------------------------------------------
+
+class TestCmdStrategiesMultiAccount:
+    """Tests for /strategies dashboard command (S-005 M4)."""
+
+    def _make_update(self):
+        upd = MagicMock()
+        upd.effective_chat.id = 12345
+        upd.callback_query = None
+        upd.message.reply_text = AsyncMock()
+        return upd
+
+    def _run(self, coro):
+        import asyncio
+        return asyncio.get_event_loop().run_until_complete(coro)
+
+    def _dashboard_rows(self, strategies=None):
+        strategies = strategies or ["breakout_confirmation", "vwap", "ict"]
+        return [
+            {"strategy": s, "signals_today": i + 1,
+             "pnl": (i - 1) * 50.0, "open_pos": i, "status": "active"}
+            for i, s in enumerate(strategies)
+        ]
+
+    def test_cmd_strategies_sends_dashboard_message(self, monkeypatch):
+        """'/strategies' replies with a formatted dashboard message."""
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        rows = self._dashboard_rows()
+        monkeypatch.setattr(bot.dl, "strategy_dashboard_data", lambda: rows)
+
+        upd = self._make_update()
+        self._run(bot.cmd_strategies(upd, MagicMock()))
+
+        assert upd.message.reply_text.called
+        sent = upd.message.reply_text.call_args.args[0]
+        assert "Strategy Dashboard" in sent
+
+    def test_dashboard_contains_all_strategies(self, monkeypatch):
+        """All strategies from dashboard_data appear in the message."""
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        rows = self._dashboard_rows(["breakout_confirmation", "vwap", "ict", "killzone"])
+        monkeypatch.setattr(bot.dl, "strategy_dashboard_data", lambda: rows)
+
+        upd = self._make_update()
+        self._run(bot.cmd_strategies(upd, MagicMock()))
+
+        sent = upd.message.reply_text.call_args.args[0]
+        for strategy in ["breakout_confirmation", "vwap", "ict", "killzone"]:
+            assert strategy in sent, f"'{strategy}' missing from dashboard"
+
+    def test_dashboard_shows_signals_pnl_open_pos(self, monkeypatch):
+        """Dashboard message includes signals, PnL, and open positions."""
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        monkeypatch.setattr(bot.dl, "strategy_dashboard_data", lambda: [
+            {"strategy": "vwap", "signals_today": 7,
+             "pnl": -25.50, "open_pos": 2, "status": "active"},
+        ])
+
+        upd = self._make_update()
+        self._run(bot.cmd_strategies(upd, MagicMock()))
+
+        sent = upd.message.reply_text.call_args.args[0]
+        assert "7" in sent        # signals_today
+        assert "25.50" in sent    # pnl magnitude
+        assert "2" in sent        # open_pos
+
+    def test_dashboard_positive_pnl_prefixed_plus(self, monkeypatch):
+        """Positive PnL must be prefixed with '+'."""
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        monkeypatch.setattr(bot.dl, "strategy_dashboard_data", lambda: [
+            {"strategy": "breakout_confirmation", "signals_today": 3,
+             "pnl": 100.0, "open_pos": 0, "status": "active"},
+        ])
+
+        upd = self._make_update()
+        self._run(bot.cmd_strategies(upd, MagicMock()))
+
+        sent = upd.message.reply_text.call_args.args[0]
+        assert "+$100.00" in sent
+
+    def test_dashboard_empty_strategies_shows_fallback(self, monkeypatch):
+        """When strategy_dashboard_data returns [], a fallback message is shown."""
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        monkeypatch.setattr(bot.dl, "strategy_dashboard_data", lambda: [])
+
+        upd = self._make_update()
+        self._run(bot.cmd_strategies(upd, MagicMock()))
+
+        sent = upd.message.reply_text.call_args.args[0]
+        assert "No strategies" in sent
+
+    def test_unauthorised_request_ignored(self, monkeypatch):
+        """Unauthorised chat must not receive a reply."""
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "99999")
+
+        upd = self._make_update()  # chat_id=12345 ≠ 99999
+        self._run(bot.cmd_strategies(upd, MagicMock()))
+
+        upd.message.reply_text.assert_not_called()
+
+
+# _format_strategies_dashboard unit tests
+
+def test_format_strategies_dashboard_renders_all_fields():
+    rows = [
+        {"strategy": "vwap", "signals_today": 5, "pnl": -10.0,
+         "open_pos": 1, "status": "active"},
+    ]
+    text = bot._format_strategies_dashboard(rows)
+    assert "vwap" in text
+    assert "5" in text
+    assert "10.00" in text
+    assert "1" in text
+    assert "active" in text
+
+
+def test_format_strategies_dashboard_empty():
+    assert "No strategies" in bot._format_strategies_dashboard([])

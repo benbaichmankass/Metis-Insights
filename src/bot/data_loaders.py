@@ -440,6 +440,102 @@ def account_open_positions(account: Dict[str, Any]) -> Optional[List[Dict[str, A
         return None
 
 
+def _count_signals_today(strategy: str) -> int:
+    """Count today's signals in the signals DB attributed to *strategy*."""
+    from datetime import date as _date
+    if not os.path.exists(SIGNALS_DB):
+        return 0
+    today = _date.today().isoformat()
+    prefixes = _STRATEGY_SIGNAL_PREFIXES.get(strategy.lower())
+    try:
+        conn = sqlite3.connect(SIGNALS_DB)
+        try:
+            if prefixes:
+                where = " OR ".join(["signal_type LIKE ?"] * len(prefixes))
+                row = conn.execute(
+                    f"SELECT COUNT(*) FROM signals WHERE ({where}) AND DATE(timestamp) = ?",
+                    [f"%{p}%" for p in prefixes] + [today],
+                ).fetchone()
+            else:
+                row = conn.execute(
+                    "SELECT COUNT(*) FROM signals WHERE DATE(timestamp) = ?",
+                    (today,),
+                ).fetchone()
+        finally:
+            conn.close()
+        return int(row[0] or 0)
+    except Exception as exc:
+        logger.warning("_count_signals_today(%s): %s", strategy, exc)
+        return 0
+
+
+def _strategy_pnl_today(strategy_name: str) -> float:
+    """Today's closed PnL for *strategy_name* from the trade journal."""
+    from datetime import date as _date
+    if not os.path.exists(TRADE_JOURNAL_DB):
+        return 0.0
+    today = _date.today().isoformat()
+    try:
+        conn = sqlite3.connect(TRADE_JOURNAL_DB)
+        try:
+            row = conn.execute(
+                "SELECT COALESCE(SUM(pnl), 0) FROM trades "
+                "WHERE strategy_name = ? AND is_backtest = 0 AND status = 'closed' "
+                "AND DATE(timestamp) = ?",
+                (strategy_name, today),
+            ).fetchone()
+        finally:
+            conn.close()
+        return float(row[0] or 0.0)
+    except Exception as exc:
+        logger.warning("_strategy_pnl_today(%s): %s", strategy_name, exc)
+        return 0.0
+
+
+def _strategy_open_positions(strategy_name: str) -> int:
+    """Count of open, non-backtest trades for *strategy_name* in the trade journal."""
+    if not os.path.exists(TRADE_JOURNAL_DB):
+        return 0
+    try:
+        conn = sqlite3.connect(TRADE_JOURNAL_DB)
+        try:
+            row = conn.execute(
+                "SELECT COUNT(*) FROM trades "
+                "WHERE strategy_name = ? AND status = 'open' AND is_backtest = 0",
+                (strategy_name,),
+            ).fetchone()
+        finally:
+            conn.close()
+        return int(row[0] or 0)
+    except Exception as exc:
+        logger.warning("_strategy_open_positions(%s): %s", strategy_name, exc)
+        return 0
+
+
+def strategy_dashboard_data(strategies: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+    """Return one dashboard dict per strategy.
+
+    Keys: ``strategy``, ``signals_today``, ``pnl``, ``open_pos``, ``status``.
+    Status is ``"active"`` for all strategies in the live STRATEGIES list.
+    All counters fall back to zero when the DB is missing or the
+    ``strategy_name`` column does not yet exist.
+    """
+    if strategies is None:
+        strategies = list_live_strategies() or [
+            "breakout_confirmation", "vwap", "killzone", "ict"
+        ]
+    rows = []
+    for s in strategies:
+        rows.append({
+            "strategy": s,
+            "signals_today": _count_signals_today(s),
+            "pnl": _strategy_pnl_today(s),
+            "open_pos": _strategy_open_positions(s),
+            "status": "active",
+        })
+    return rows
+
+
 def close_all_bybit_positions_for_strategy(
     account: Dict[str, Any], strategy_name: str
 ) -> Optional[str]:

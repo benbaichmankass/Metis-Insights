@@ -11,6 +11,41 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-29-35 — Sprint S-005 M4: /strategies dashboard command
+
+- **Session date:** 2026-04-29
+- **Sprint:** S-005 (Full Multi-Strategy Production)
+- **Current sprint phase:** M4 — strategy dashboard
+- **Last completed checkpoint:** CP-2026-04-29-34 (S-005 M3, PR #103 merged)
+- **Telegram sent:** no (no creds in session)
+- **Alerts sent during session:** none
+- **Blockers:** none
+
+### 1. Completed
+- Added `strategy_dashboard_data()` + 3 private helpers to `src/bot/data_loaders.py`: signals_today (signals DB), pnl + open_pos (trade journal by strategy_name), status=active
+- Added `cmd_strategies` + `_format_strategies_dashboard` to `src/bot/telegram_query_bot.py`; registered in help text, BotCommand list, and handler
+- 15 new tests in `TestStrategyDashboardData` and `TestCmdStrategiesMultiAccount`
+- PR #104 opened (draft): https://github.com/the-lizardking/ict-trading-bot/pull/104
+
+### 2. Files changed
+- `src/bot/data_loaders.py`
+- `src/bot/telegram_query_bot.py`
+- `tests/test_data_loaders.py`
+- `tests/test_telegram_query_bot.py`
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_data_loaders.py::TestStrategyDashboardData tests/test_telegram_query_bot.py::TestCmdStrategiesMultiAccount -q` — 15 passed
+- Full suite (excl. test_main_loop.py): 687 passed, 24 failed (pre-existing), 5 skipped — net +15 vs M3
+
+### 4. Remaining
+- none for M4
+
+### 5. Next checkpoint
+**CP-2026-04-29-36** — S-005 M5: Integration tests + VM deploy verification script. Full multiplex dry-run simulation + `scripts/verify_deploy.py`. Branch: same `claude/multi-strategy-isolated-risk-lS9hT`. Read this entry first.
+
+---
+
 ## CP-2026-04-29-34 — Sprint S-005 M3: Per-strategy /closeall + inline keyboard
 
 - **Session date:** 2026-04-29
