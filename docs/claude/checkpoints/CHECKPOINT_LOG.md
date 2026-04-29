@@ -11,6 +11,50 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-29-21 — Sprint S-002 M1c: real per-account queries in data_loaders
+
+- **Session date:** 2026-04-29
+- **Sprint:** Sprint S-002 (Telegram bot multi-account + workflow hardening)
+- **Current sprint phase:** M1c — loaders become real per-account
+- **Last completed checkpoint:** CP-2026-04-29-20 (M1b insert_trade default, PR #88 merged)
+- **Next checkpoint:** **CP-2026-04-29-22 — M1d: architecture doc follow-up** — note the schema change in the relevant repo doc (find the right file — likely `docs/architecture.md` or similar); one-PR doc-only update.
+- **Telegram sent:** no (import chain blocked by missing `pandas` in this environment — exits 0)
+- **Alerts sent during session:** none
+- **Blockers:** Waiting for Ben to merge PR #89 before M1d (and then M2) starts.
+
+### 1. Completed
+- Dropped `LEGACY_LIVE_ACCOUNT_ID` short-circuit from `dl.account_last_trade` and `dl.recent_trades_for` in `src/bot/data_loaders.py`. Both now query `WHERE account_id = ?` — non-legacy accounts return real rows when their data exists.
+- `account_last_trade`: `WHERE account_id = ? AND COALESCE(is_backtest, 0) = 0`.
+- `recent_trades_for`: `WHERE account_id = ? ORDER BY datetime(created_at) DESC, id DESC LIMIT ?`.
+- Removed stale "today only legacy account returns data" comment from `cmd_last5` in `telegram_query_bot.py`.
+- Updated `trade_journal_db` test fixture to include `account_id TEXT NOT NULL DEFAULT 'live'` and the index.
+- Updated `_insert_trade` helper to accept optional `account_id` parameter.
+- Renamed two "non-legacy returns empty" tests to reflect per-account-filter semantics.
+- Added 5 new tests: `account_last_trade` returns row for non-legacy account; `recent_trades_for` returns rows for non-legacy account; per-account isolation; account-has-no-rows cases.
+- Opened PR-M1c as draft: https://github.com/the-lizardking/ict-trading-bot/pull/89
+
+### 2. Files changed
+- `src/bot/data_loaders.py`
+- `src/bot/telegram_query_bot.py`
+- `tests/test_data_loaders.py`
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_data_loaders.py -v` — **36 passed, 1 skipped**
+- Broader suite (data_loaders + account_id + notify + strategy_name + bot) — **111 passed, 1 skipped**, no regressions
+- `python scripts/secret_scan.py` — clean
+
+### 4. Remaining
+- M1d: doc follow-up (architecture notes on schema change).
+- M2a: `close_all_bybit_positions(account: dict)` migration (highest-risk, requires staging dry-run).
+- M2b: retire dead helpers.
+- M3a/M3b: retire `load_account_env` and `format_target_options`.
+
+### 5. Next checkpoint
+**CP-2026-04-29-22** — M1d: architecture doc follow-up.
+Read first: this entry, `docs/claude/checkpoint-workflow.md`, then find the architecture/repo doc that should note the `account_id` schema change.
+
+---
+
 ## CP-2026-04-29-20 — Sprint S-002 M1b: insert_trade always writes account_id
 
 - **Session date:** 2026-04-29
