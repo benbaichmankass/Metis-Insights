@@ -418,6 +418,45 @@ class Coordinator:
         )
         return {"account": account_name, "dry_run": dry_run, "mode": mode}
 
+    def reload_strategy_config(self, config_path: Optional[str] = None) -> Dict[str, Any]:
+        """Verify strategies.yaml is readable and return the loaded config.
+
+        Pushes a ``source="app"`` alert with strategy names and count.
+
+        Parameters
+        ----------
+        config_path : str, optional
+            Override path to strategies.yaml.  Defaults to ``config/strategies.yaml``.
+
+        Returns
+        -------
+        dict
+            ``{reloaded, strategy_count, strategies, config_path}`` on success,
+            ``{reloaded: False, error: "..."}`` on FileNotFoundError.
+        """
+        from src.units.strategies import load_strategy_config
+        import os as _os
+
+        path = config_path or _os.path.join(_REPO_ROOT, "config", "strategies.yaml")
+        try:
+            cfg = load_strategy_config(path)
+        except FileNotFoundError:
+            return {"reloaded": False, "error": f"strategies.yaml not found: {path}"}
+
+        summary = {
+            "reloaded": True,
+            "config_path": path,
+            "strategy_count": len(cfg),
+            "strategies": list(cfg.keys()),
+        }
+        self.push_alert(
+            f"Strategy config reloaded: {len(cfg)} strategies from {path}",
+            source="app",
+            level="info",
+            **summary,
+        )
+        return summary
+
     # ------------------------------------------------------------------
     # Unit 3 → Dashboards
     # ------------------------------------------------------------------
