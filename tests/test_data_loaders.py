@@ -141,8 +141,11 @@ def trade_journal_db(tmp_path, monkeypatch):
             pnl REAL, pnl_percent REAL, status TEXT, notes TEXT,
             is_backtest INTEGER DEFAULT 0,
             strategy_name TEXT,
+            account_id TEXT NOT NULL DEFAULT 'live',
             created_at TEXT DEFAULT (datetime('now'))
         );
+        CREATE INDEX IF NOT EXISTS idx_trades_account_created
+            ON trades (account_id, datetime(created_at) DESC);
         CREATE TABLE backtest_results (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             run_date TEXT, strategy_version TEXT,
@@ -374,23 +377,23 @@ def test_account_last_trade_returns_latest_live_row(trade_journal_db):
     conn = sqlite3.connect(trade_journal_db)
     conn.execute(
         "INSERT INTO trades (timestamp, symbol, direction, entry_price, "
-        "is_backtest, strategy_name, created_at) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+        "is_backtest, strategy_name, account_id, created_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
         ("2026-04-29T10:00:00", "BTCUSDT", "LONG", 65000.0, 0, "ict",
-         "2026-04-29 10:00:00"),
+         "live", "2026-04-29 10:00:00"),
     )
     conn.execute(
         "INSERT INTO trades (timestamp, symbol, direction, entry_price, "
-        "is_backtest, strategy_name, created_at) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+        "is_backtest, strategy_name, account_id, created_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
         ("2026-04-29T11:00:00", "ETHUSDT", "SHORT", 3200.0, 0, "vwap",
-         "2026-04-29 11:00:00"),
+         "live", "2026-04-29 11:00:00"),
     )
     # A backtest row that must NOT be returned.
     conn.execute(
-        "INSERT INTO trades (timestamp, symbol, is_backtest, created_at) "
-        "VALUES (?, ?, ?, ?)",
-        ("2026-04-29T12:00:00", "SOLUSDT", 1, "2026-04-29 12:00:00"),
+        "INSERT INTO trades (timestamp, symbol, is_backtest, account_id, created_at) "
+        "VALUES (?, ?, ?, ?, ?)",
+        ("2026-04-29T12:00:00", "SOLUSDT", 1, "live", "2026-04-29 12:00:00"),
     )
     conn.commit()
     conn.close()
@@ -402,11 +405,30 @@ def test_account_last_trade_returns_latest_live_row(trade_journal_db):
     assert out["strategy_name"] == "vwap"
 
 
-def test_account_last_trade_returns_none_for_non_legacy_account(trade_journal_db):
+def test_account_last_trade_returns_none_when_account_has_no_rows(trade_journal_db):
+    # No rows inserted for this account_id — query returns no results.
     acc = {"account_id": "binance-sub-1", "exchange": "binance",
            "env_path": None, "service": "ict-trader-binance-1",
            "strategies": [], "source": "env"}
     assert dl.account_last_trade(acc) is None
+
+
+def test_account_last_trade_returns_row_for_non_legacy_account(trade_journal_db):
+    conn = sqlite3.connect(trade_journal_db)
+    conn.execute(
+        "INSERT INTO trades (timestamp, symbol, direction, entry_price, "
+        "is_backtest, account_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        ("2026-04-29T10:00:00", "ETHUSDT", "LONG", 3200.0, 0,
+         "binance-sub-1", "2026-04-29 10:00:00"),
+    )
+    conn.commit()
+    conn.close()
+    acc = {"account_id": "binance-sub-1", "exchange": "binance",
+           "env_path": None, "service": "ict-trader-binance-1",
+           "strategies": [], "source": "env"}
+    out = dl.account_last_trade(acc)
+    assert out is not None
+    assert out["symbol"] == "ETHUSDT"
 
 
 def test_account_last_trade_db_missing(monkeypatch, tmp_path):
@@ -419,13 +441,13 @@ def test_account_last_trade_db_missing(monkeypatch, tmp_path):
 # -- recent_trades_for --------------------------------------------------------
 
 def _insert_trade(db, ts, symbol, direction="LONG", entry_price=100.0,
-                  is_backtest=0, strategy="ict"):
+                  is_backtest=0, strategy="ict", account_id="live"):
     conn = sqlite3.connect(db)
     conn.execute(
         "INSERT INTO trades (timestamp, symbol, direction, entry_price, "
-        "is_backtest, strategy_name, created_at) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?)",
-        (ts, symbol, direction, entry_price, is_backtest, strategy, ts),
+        "is_backtest, strategy_name, account_id, created_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        (ts, symbol, direction, entry_price, is_backtest, strategy, account_id, ts),
     )
     conn.commit()
     conn.close()
@@ -467,13 +489,40 @@ def test_recent_trades_for_respects_n_parameter(trade_journal_db):
     assert len(dl.recent_trades_for(acc, n=10)) == 7
 
 
-def test_recent_trades_for_returns_empty_for_non_legacy_account(
+def test_recent_trades_for_returns_empty_when_account_has_no_rows(
         trade_journal_db):
+    # Row exists for 'live' but not for 'binance-sub-1' — query isolates by account_id.
     _insert_trade(trade_journal_db, "2026-04-29 10:00:00", "BTCUSDT")
     acc = {"account_id": "binance-sub-1", "exchange": "binance",
            "env_path": None, "service": "ict-trader-binance-1",
            "strategies": [], "source": "env"}
     assert dl.recent_trades_for(acc, n=5) == []
+
+
+def test_recent_trades_for_returns_rows_for_non_legacy_account(trade_journal_db):
+    _insert_trade(trade_journal_db, "2026-04-29 10:00:00", "ETHUSDT",
+                  account_id="binance-sub-1")
+    _insert_trade(trade_journal_db, "2026-04-29 11:00:00", "SOLUSDT",
+                  account_id="binance-sub-1")
+    acc = {"account_id": "binance-sub-1", "exchange": "binance",
+           "env_path": None, "service": "ict-trader-binance-1",
+           "strategies": [], "source": "env"}
+    out = dl.recent_trades_for(acc, n=5)
+    assert len(out) == 2
+    assert out[0]["symbol"] == "SOLUSDT"  # newest first
+
+
+def test_recent_trades_for_isolates_accounts(trade_journal_db):
+    _insert_trade(trade_journal_db, "2026-04-29 10:00:00", "BTCUSDT",
+                  account_id="live")
+    _insert_trade(trade_journal_db, "2026-04-29 11:00:00", "ETHUSDT",
+                  account_id="bybit-sub2")
+    live_acc = {"account_id": "live"}
+    sub2_acc = {"account_id": "bybit-sub2"}
+    live_rows = dl.recent_trades_for(live_acc, n=5)
+    sub2_rows = dl.recent_trades_for(sub2_acc, n=5)
+    assert len(live_rows) == 1 and live_rows[0]["symbol"] == "BTCUSDT"
+    assert len(sub2_rows) == 1 and sub2_rows[0]["symbol"] == "ETHUSDT"
 
 
 def test_recent_trades_for_returns_empty_when_db_missing(monkeypatch, tmp_path):

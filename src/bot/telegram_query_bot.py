@@ -640,8 +640,6 @@ async def cmd_last5(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:  # noqa: BLE001
         await update.message.reply_text(f"⚠️ Could not list accounts: {e}")
         return
-    # Collect rows from every account; today only the legacy account returns
-    # data (trades table has no account_id column yet — tracked follow-up).
     rows: list = []
     for acc in accounts:
         try:

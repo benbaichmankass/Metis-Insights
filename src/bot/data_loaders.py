@@ -433,18 +433,16 @@ def account_open_positions(account: Dict[str, Any]) -> Optional[List[Dict[str, A
 
 
 def account_last_trade(account: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    """Most-recent live trade row from the trade-journal DB.
+    """Most-recent live trade row from the trade-journal DB for ``account``.
 
-    The ``trades`` table has no ``account_id`` column today (single-account
-    deployment), so for non-legacy accounts this returns ``None`` until the
-    schema gains one (tracked as a follow-up in the sprint todo list).
+    Returns ``None`` when the account has no live trades yet, the DB is
+    missing, or any error occurs.
     """
     if not isinstance(account, dict):
         return None
-    if account.get("account_id") != LEGACY_LIVE_ACCOUNT_ID:
-        return None
     if not os.path.exists(TRADE_JOURNAL_DB):
         return None
+    aid = account.get("account_id", LEGACY_LIVE_ACCOUNT_ID)
     try:
         conn = sqlite3.connect(TRADE_JOURNAL_DB)
         try:
@@ -452,8 +450,9 @@ def account_last_trade(account: Dict[str, Any]) -> Optional[Dict[str, Any]]:
             row = conn.execute(
                 "SELECT id, timestamp, symbol, direction, entry_price, exit_price,"
                 " pnl, status, strategy_name, created_at FROM trades"
-                " WHERE COALESCE(is_backtest, 0) = 0"
-                " ORDER BY datetime(created_at) DESC, id DESC LIMIT 1"
+                " WHERE account_id = ? AND COALESCE(is_backtest, 0) = 0"
+                " ORDER BY datetime(created_at) DESC, id DESC LIMIT 1",
+                (aid,),
             ).fetchone()
         finally:
             conn.close()
@@ -472,18 +471,14 @@ def recent_trades_for(account: Dict[str, Any], n: int = 5) -> List[Dict[str, Any
     bias, entry_reason, exit_reason, pnl, pnl_percent, status, notes,
     is_backtest, created_at.
 
-    Today the ``trades`` table has no ``account_id`` column, so non-legacy
-    accounts get ``[]`` until the schema gains one (tracked as a follow-up
-    in the sprint todo list — same constraint as ``account_last_trade``).
-
-    Returns ``[]`` on any failure or missing DB.
+    Returns ``[]`` when the account has no trades yet, the DB is missing,
+    or any error occurs.
     """
     if not isinstance(account, dict):
         return []
-    if account.get("account_id") != LEGACY_LIVE_ACCOUNT_ID:
-        return []
     if not os.path.exists(TRADE_JOURNAL_DB):
         return []
+    aid = account.get("account_id", LEGACY_LIVE_ACCOUNT_ID)
     try:
         n = max(1, int(n))
     except (TypeError, ValueError):
@@ -498,8 +493,9 @@ def recent_trades_for(account: Dict[str, Any], n: int = 5) -> List[Dict[str, Any
                 " take_profit_3, position_size, setup_type, killzone, bias,"
                 " entry_reason, exit_reason, pnl, pnl_percent, status, notes,"
                 " is_backtest, created_at FROM trades"
+                " WHERE account_id = ?"
                 " ORDER BY datetime(created_at) DESC, id DESC LIMIT ?",
-                (n,),
+                (aid, n),
             ).fetchall()
         finally:
             conn.close()
