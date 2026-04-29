@@ -227,6 +227,206 @@ class TestFetchOpenPositionsCount:
 
 
 # ---------------------------------------------------------------------------
+# S-003 N1-b: per-account fetch helpers + cmd_status multi-account
+# ---------------------------------------------------------------------------
+
+def _make_db_with_accounts(tmp_path) -> str:
+    """DB with two accounts and an account_id column for per-account filter tests."""
+    db_path = str(tmp_path / "trades_acct.db")
+    conn = sqlite3.connect(db_path)
+    conn.execute("""
+        CREATE TABLE trades (
+            id INTEGER PRIMARY KEY,
+            symbol TEXT,
+            pnl REAL,
+            status TEXT,
+            is_backtest INTEGER,
+            timestamp TEXT,
+            account_id TEXT
+        )
+    """)
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    conn.executemany(
+        "INSERT INTO trades (symbol, pnl, status, is_backtest, timestamp, account_id) "
+        "VALUES (?, ?, ?, ?, ?, ?)",
+        [
+            # account "live": two live trades today
+            ("BTCUSDT", 200.0, "closed", 0, f"{today} 09:00:00", "live"),
+            ("BTCUSDT",  -50.0, "closed", 0, f"{today} 10:00:00", "live"),
+            # account "live": one open position today
+            ("ETHUSDT",   0.0, "open",   0, f"{today} 11:00:00", "live"),
+            # account "alpha": one live trade today
+            ("SOLUSDT",  75.0, "closed", 0, f"{today} 09:30:00", "alpha"),
+            # account "alpha": one open position
+            ("SOLUSDT",   0.0, "open",   0, f"{today} 10:30:00", "alpha"),
+            # backtest row — must be excluded for both accounts
+            ("BTCUSDT",  999.0, "closed", 1, f"{today} 12:00:00", "live"),
+        ],
+    )
+    conn.commit()
+    conn.close()
+    return db_path
+
+
+class TestFetchTodayPnlPerAccount:
+    def test_filters_by_account_id(self, tmp_path, monkeypatch):
+        db_path = _make_db_with_accounts(tmp_path)
+        monkeypatch.setattr(bot, "DB_PATH", db_path)
+
+        count_live, pnl_live = bot.fetch_today_pnl(account_id="live")
+        # 3 live rows for "live" (200, -50, 0-open)
+        assert count_live == 3
+        assert abs(pnl_live - 150.0) < 0.01  # 200 + (-50) + 0
+
+        count_alpha, pnl_alpha = bot.fetch_today_pnl(account_id="alpha")
+        # 2 live rows for "alpha" (75, 0-open)
+        assert count_alpha == 2
+        assert abs(pnl_alpha - 75.0) < 0.01
+
+    def test_no_account_filter_returns_aggregate(self, tmp_path, monkeypatch):
+        db_path = _make_db_with_accounts(tmp_path)
+        monkeypatch.setattr(bot, "DB_PATH", db_path)
+        count, pnl = bot.fetch_today_pnl()
+        # 5 live rows total across both accounts (backtest excluded)
+        assert count == 5
+        assert abs(pnl - 225.0) < 0.01  # 200 - 50 + 0 + 75 + 0
+
+    def test_unknown_account_id_returns_zeros(self, tmp_path, monkeypatch):
+        db_path = _make_db_with_accounts(tmp_path)
+        monkeypatch.setattr(bot, "DB_PATH", db_path)
+        count, pnl = bot.fetch_today_pnl(account_id="nonexistent")
+        assert count == 0
+        assert pnl == 0.0
+
+    def test_missing_db_returns_zeros(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(bot, "DB_PATH", str(tmp_path / "no.db"))
+        count, pnl = bot.fetch_today_pnl(account_id="live")
+        assert count == 0
+        assert pnl == 0.0
+
+
+class TestFetchOpenPositionsCountPerAccount:
+    def test_filters_by_account_id(self, tmp_path, monkeypatch):
+        db_path = _make_db_with_accounts(tmp_path)
+        monkeypatch.setattr(bot, "DB_PATH", db_path)
+
+        assert bot.fetch_open_positions_count(account_id="live") == 1
+        assert bot.fetch_open_positions_count(account_id="alpha") == 1
+
+    def test_no_account_filter_returns_aggregate(self, tmp_path, monkeypatch):
+        db_path = _make_db_with_accounts(tmp_path)
+        monkeypatch.setattr(bot, "DB_PATH", db_path)
+        assert bot.fetch_open_positions_count() == 2
+
+    def test_unknown_account_id_returns_zero(self, tmp_path, monkeypatch):
+        db_path = _make_db_with_accounts(tmp_path)
+        monkeypatch.setattr(bot, "DB_PATH", db_path)
+        assert bot.fetch_open_positions_count(account_id="ghost") == 0
+
+    def test_missing_db_returns_zero(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(bot, "DB_PATH", str(tmp_path / "no.db"))
+        assert bot.fetch_open_positions_count(account_id="live") == 0
+
+
+class TestCmdStatusMultiAccount:
+    """cmd_status must produce a per-account block for each account returned
+    by dl.list_accounts(), using per-account DB filters."""
+
+    def _make_update(self):
+        upd = MagicMock()
+        upd.effective_chat.id = 12345
+        upd.callback_query = None
+        upd.message.reply_text = AsyncMock()
+        return upd
+
+    def _run(self, coro):
+        import asyncio
+        return asyncio.new_event_loop().run_until_complete(coro)
+
+    def test_shows_block_per_account(self, tmp_path, monkeypatch):
+        db_path = _make_db_with_accounts(tmp_path)
+        monkeypatch.setattr(bot, "DB_PATH", db_path)
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        monkeypatch.setattr(bot, "HALT_FLAG_PATH", str(tmp_path / "no_flag"))
+        monkeypatch.setattr(bot, "_account_env", lambda acc: {"STRATEGY": "ict"})
+        monkeypatch.setattr(bot, "get_service_status", lambda svc: "active")
+        monkeypatch.setattr(bot.dl, "list_accounts", lambda: [
+            {"account_id": "live",  "exchange": "bybit",   "env_path": "",
+             "service": "ict-trader-live"},
+            {"account_id": "alpha", "exchange": "binance", "env_path": "",
+             "service": "ict-trader-alpha"},
+        ])
+
+        upd = self._make_update()
+        self._run(bot.cmd_status(upd, MagicMock()))
+
+        sent = upd.message.reply_text.call_args.args[0]
+        # Both account IDs present
+        assert "live" in sent
+        assert "alpha" in sent
+        # Service names present
+        assert "ict-trader-live" in sent
+        assert "ict-trader-alpha" in sent
+        # Per-account P&L figures present (live: 150, alpha: 75)
+        assert "$+150.00" in sent
+        assert "$+75.00" in sent
+        # Both open-position counts
+        assert "Open (DB): 1" in sent
+
+    def test_no_accounts_falls_back_to_aggregate(self, tmp_path, monkeypatch):
+        db_path = _make_db_with_accounts(tmp_path)
+        monkeypatch.setattr(bot, "DB_PATH", db_path)
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        monkeypatch.setattr(bot, "HALT_FLAG_PATH", str(tmp_path / "no_flag"))
+        monkeypatch.setattr(bot, "_account_env", lambda acc: {})
+        monkeypatch.setattr(bot, "get_service_status", lambda svc: "inactive")
+        monkeypatch.setattr(bot.dl, "list_accounts", lambda: [])
+
+        upd = self._make_update()
+        self._run(bot.cmd_status(upd, MagicMock()))
+
+        sent = upd.message.reply_text.call_args.args[0]
+        assert "ICT Trading Bot Status" in sent
+        # Fallback still shows aggregate — 5 live rows, pnl 225
+        assert "$+225.00" in sent
+
+    def test_halted_state_shown(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        flag = tmp_path / "halt.flag"
+        flag.touch()
+        monkeypatch.setattr(bot, "HALT_FLAG_PATH", str(flag))
+        monkeypatch.setattr(bot, "get_service_status", lambda svc: "active")
+        monkeypatch.setattr(bot.dl, "list_accounts", lambda: [])
+        monkeypatch.setattr(bot, "DB_PATH", str(tmp_path / "no.db"))
+
+        upd = self._make_update()
+        self._run(bot.cmd_status(upd, MagicMock()))
+
+        sent = upd.message.reply_text.call_args.args[0]
+        assert "HALTED" in sent
+
+    def test_list_accounts_exception_falls_back_gracefully(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        monkeypatch.setattr(bot, "HALT_FLAG_PATH", str(tmp_path / "no_flag"))
+        monkeypatch.setattr(bot, "get_service_status", lambda svc: "active")
+        monkeypatch.setattr(bot, "DB_PATH", str(tmp_path / "no.db"))
+        monkeypatch.setattr(bot, "_account_env", lambda acc: {})
+
+        def boom():
+            raise RuntimeError("registry error")
+
+        monkeypatch.setattr(bot.dl, "list_accounts", boom)
+
+        upd = self._make_update()
+        self._run(bot.cmd_status(upd, MagicMock()))
+
+        # Must not crash — reply sent with fallback content
+        upd.message.reply_text.assert_called_once()
+        sent = upd.message.reply_text.call_args.args[0]
+        assert "ICT Trading Bot Status" in sent
+
+
+# ---------------------------------------------------------------------------
 # PR-C: data_loaders facade wiring
 # ---------------------------------------------------------------------------
 
