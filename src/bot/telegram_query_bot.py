@@ -12,6 +12,12 @@ from telegram import Update, BotCommand, InlineKeyboardButton, InlineKeyboardMar
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 import requests
 
+# Sprint S-001 PR-C: route data access through the data_loaders facade so the
+# bot has one stable interface for journalctl, signals/backtests, and exchange
+# queries. Inline helpers (get_last_logs, fetch_latest_backtest_result, etc.)
+# remain for now to avoid breaking other call sites; later PRs prune them.
+from src.bot import data_loaders as dl
+
 load_dotenv()
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -258,14 +264,12 @@ def toggle_service(service_name: str, action: str) -> str:
 
 
 def get_last_logs(lines: int = 20) -> str:
-    """Return the most recent journalctl lines for the live trader service."""
-    try:
-        output = run_shell_command(
-            ["journalctl", "-u", LIVE_SERVICE_NAME, "-n", str(lines), "--no-pager"]
-        )
-        return output or f"No logs found for {LIVE_SERVICE_NAME}."
-    except Exception as e:
-        return f"Could not read logs for {LIVE_SERVICE_NAME}: {e}"
+    """Return the most recent journalctl lines for the live trader service.
+
+    Thin wrapper kept for backwards-compat with any importers; new call sites
+    should use ``dl.recent_logs_for(service, n=...)`` directly.
+    """
+    return dl.recent_logs_for(LIVE_SERVICE_NAME, n=lines)
 
 
 def format_bybit_balance(env_vars: dict) -> str:
@@ -369,7 +373,11 @@ async def run_backtest_in_background(application: Application):
             return
 
         BACKTEST_STATUS["state"] = "completed"
-        latest = fetch_latest_backtest_result()
+        # PR-C: pull the freshest backtest row through data_loaders. The loader
+        # returns one row per strategy_version; we surface the newest entry —
+        # which matches the legacy single-row behaviour for today's pipeline.
+        rows = dl.latest_backtests_per_model()
+        latest = rows[0] if rows else None
         if latest:
             await application.bot.send_message(
                 chat_id=TELEGRAM_CHAT_ID, text=format_backtest_summary(latest), parse_mode="Markdown"
@@ -709,7 +717,8 @@ async def cmd_latest_backtest(update: Update, context: ContextTypes.DEFAULT_TYPE
             parse_mode="Markdown",
         )
     elif state == "completed":
-        latest = fetch_latest_backtest_result()
+        rows = dl.latest_backtests_per_model()
+        latest = rows[0] if rows else None
         if latest:
             await update.message.reply_text(format_backtest_summary(latest), parse_mode="Markdown")
         else:
@@ -717,7 +726,8 @@ async def cmd_latest_backtest(update: Update, context: ContextTypes.DEFAULT_TYPE
                 f"✅ *Backtest COMPLETED*\nFinished: {BACKTEST_STATUS['finished_at']}", parse_mode="Markdown"
             )
     else:
-        latest = fetch_latest_backtest_result()
+        rows = dl.latest_backtests_per_model()
+        latest = rows[0] if rows else None
         if latest:
             await update.message.reply_text(format_backtest_summary(latest), parse_mode="Markdown")
         else:
