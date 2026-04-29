@@ -220,11 +220,13 @@ Bybit is unreachable, fall back to "n/a" rather than crashing.
 |---|---|---|
 | PR-A | `feat/telegram-spec-doc` | This spec doc. |
 | PR-B0 | `feat/trades-strategy-name-column` | Add `strategy_name` column to `trades` table; idempotent migration; trader writes the column on insert. |
-| PR-B | `feat/telegram-data-loaders` | `src/bot/data_loaders.py` module + tests. No bot wiring. |
+| PR-B1 | `feat/telegram-data-loaders-registry` | `src/bot/data_loaders.py` registry layer (`list_accounts`, `list_live_strategies`, `list_trader_services`) + tests. |
+| PR-B2 | `feat/telegram-data-loaders-db` | DB readers (`recent_signals_for`, `latest_backtests_per_model`, `recent_logs_for`) + tests. |
+| PR-B3 | `feat/telegram-data-loaders-exchange` | Exchange-aware account queries (`account_balance`, `account_open_positions`, `account_last_trade`) + tests. |
 | PR-C | `feat/telegram-help-status-price` | Wire `/help`, `/status`, `/price` to data loaders. |
 | PR-D | `feat/telegram-accounts-trades-closeall` | Wire `/accounts`, `/trades`, `/closeall` (with 2-step confirm). |
 | PR-E | `feat/telegram-log-toggle` | Inline-keyboard `/log` and `/toggle`. |
 | PR-F | `feat/telegram-journal-last5-backtest` | `/download_journal`, `/last5`, `/latest_backtest`. |
 
 ---
-*Last updated: 2026-04-29 (PM decisions locked).*
+*Last updated: 2026-04-29 — PR-B split into PR-B1/PR-B2/PR-B3 to keep each PR under the 300-line cap; loader scope unchanged.*

@@ -11,6 +11,47 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-29-11 — Sprint S-001 PR-B1: data_loaders registry layer
+
+- **Session date:** 2026-04-29
+- **Sprint:** Sprint S-001 (Telegram bot hardening)
+- **Current sprint phase:** PR-B1 — first slice of `src/bot/data_loaders.py` (registry only)
+- **Last completed checkpoint:** CP-2026-04-29-10 (PR-B0 strategy_name column, merged as #77)
+- **Next checkpoint:** **CP-2026-04-29-12** — PR-B2: DB readers (`recent_signals_for`, `latest_backtests_per_model`, `recent_logs_for`).
+- **Blockers:** none.
+
+### 1. Completed
+- Built `src/bot/data_loaders.py` for the registry layer (`list_live_strategies`, `list_trader_services`, `list_accounts` + helpers `_load_yaml_accounts`, `_load_env_accounts`, `_exchange_from_env`).
+- PyYAML kept optional (no new deps): `try: import yaml` with graceful fallback to `.env` discovery only.
+- Account discovery walks `<repo>/.env` (legacy single live account on `ict-trader-live`) and `<repo>/.env.<account_id>` (multi-account future state on `ict-trader-<account_id>`); YAML overrides env on duplicate `account_id`.
+- Wrote `tests/test_data_loaders.py` covering happy + failure modes for the 3 registry loaders (8 tests, all green). Used `monkeypatch.setitem(sys.modules, ...)` for the pipeline-import-error case to avoid leaking partially-loaded modules into other tests.
+- Updated `docs/TELEGRAM-SPEC.md` §9: PR-B split into PR-B1/PR-B2/PR-B3 to keep each PR within the sprint's 300-line/PR cap. Loader scope unchanged.
+
+### 2. Files changed
+- `src/bot/data_loaders.py` (new, registry layer)
+- `tests/test_data_loaders.py` (new, 8 tests for registry layer)
+- `docs/TELEGRAM-SPEC.md` (updated PR sequence table)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+- `python scripts/repo_inventory.py` — pass (no junk candidates)
+- `python scripts/secret_scan.py` — pass (no tracked secrets)
+- `PYTHONPATH=. pytest --collect-only -q --ignore=tests/test_main_loop.py tests` — collects (count grows by 8 to match the new file).
+- `PYTHONPATH=. pytest tests/test_data_loaders.py` — 8 passed, 0 failed.
+- `PYTHONPATH=. pytest --ignore=tests/test_main_loop.py tests` — 23 failed (pre-existing baseline, same set as on `main`); no new regressions.
+
+### 4. Remaining
+- PR-B2: signals/backtests/journalctl readers, with their own tests. Will reuse `dl.REPO_ROOT` and add `TRADE_JOURNAL_DB` / `SIGNALS_DB` resolution constants.
+- PR-B3: exchange-aware account queries (`account_balance`, `account_open_positions`, `account_last_trade`). Requires Bybit/Binance helper extraction from `telegram_query_bot.py`.
+- Trader-side `strategy_name` write on insert remains as a follow-up after the bot wiring PRs (sprint todo item 9).
+
+### 5. Next checkpoint
+**CP-2026-04-29-12** — PR-B2: DB readers. Acceptance: `recent_signals_for(strategy, n)` filters the signals DB by `signal_type` substring matching the strategy; `latest_backtests_per_model()` group-wise-max over `backtest_results.strategy_version`; `recent_logs_for(service, n)` is a journalctl wrapper that returns `"⚠️ unavailable"` when journalctl is missing. Tests cover happy + 1 failure mode each.
+
+**Telegram sent:** no (no creds in env)
+
+---
+
 ## CP-2026-04-29-09 — Sprint S-001 PR-A: docs/TELEGRAM-SPEC.md
 
 - **Session date:** 2026-04-29
