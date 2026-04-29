@@ -11,6 +11,47 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-29-23 — Sprint S-002 M2a: migrate close_all_bybit_positions to (account: dict)
+
+- **Session date:** 2026-04-29
+- **Sprint:** Sprint S-002 (Telegram bot multi-account + workflow hardening)
+- **Current sprint phase:** M2a — close_all_bybit_positions migration
+- **Last completed checkpoint:** CP-2026-04-29-22 (M1d architecture docs, PR #90 merged)
+- **Next checkpoint:** **CP-2026-04-29-24 — M2b: delete get_bybit_client_from_env** — once PR #91 is merged and staging-verified, delete `get_bybit_client_from_env(env_vars)` (now unused) from `telegram_query_bot.py`. Also verify `_get_binance_connector` is already gone (it was removed in PR-F). Update the top-of-file sprint comment.
+- **Telegram sent:** no (import chain blocked by missing `pandas` in this environment — exits 0)
+- **Alerts sent during session:** none
+- **Blockers:** Waiting for Ben to run staging dry-run against paper-mode Bybit account, then merge PR #91. **This is the highest-risk milestone** — do not merge without staging verification.
+
+### 1. Completed
+- Added `dl.bybit_client_for(account)` to `src/bot/data_loaders.py` — wraps `_read_env_file` + `_bybit_client`, returns `None` if creds are missing.
+- Migrated `close_all_bybit_positions(env_vars)` → `close_all_bybit_positions(account: dict)`. Order-placement logic byte-for-byte identical (`get_positions(category="linear")`, `place_order(reduceOnly=True, orderType="Market")`). Client construction now via `dl.bybit_client_for(account)`. Label uses `account_id` instead of strategy label.
+- Updated `cmd_closeall` to iterate `dl.list_accounts()`, filter `exchange == 'bybit'`, call per account with failure isolation.
+- Updated `closeall` inline-keyboard callback same way.
+- `get_bybit_client_from_env` left in place — removed in M2b.
+- 7 new tests: `place_order` args verified (reduceOnly, category, side-flip, qty), empty-positions branch, no-creds branch, per-position failure isolation, cmd_closeall account-level failure isolation.
+- Opened PR-M2a as draft: https://github.com/the-lizardking/ict-trading-bot/pull/91
+
+### 2. Files changed
+- `src/bot/data_loaders.py`
+- `src/bot/telegram_query_bot.py`
+- `tests/test_telegram_query_bot.py`
+
+### 3. Tests run
+- `pytest tests/test_telegram_query_bot.py::TestCloseAllBybitPositions tests/test_telegram_query_bot.py::TestCmdCloseallFailureIsolation -v` — **7 passed**
+- Broader suite — **108 passed, 1 skipped**, no regressions
+- `python scripts/secret_scan.py` — clean
+
+### 4. Remaining
+- Ben must run staging dry-run, then merge PR #91.
+- M2b: delete `get_bybit_client_from_env` (now unused).
+- M3a/M3b: retire `load_account_env` and `format_target_options`.
+
+### 5. Next checkpoint
+**CP-2026-04-29-24** — M2b: delete `get_bybit_client_from_env`.
+Read first: this entry, `docs/claude/checkpoint-workflow.md`, then confirm in `telegram_query_bot.py` that `get_bybit_client_from_env` has no remaining callers before deleting.
+
+---
+
 ## CP-2026-04-29-22 — Sprint S-002 M1d: architecture doc + repo-map updates
 
 - **Session date:** 2026-04-29

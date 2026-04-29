@@ -301,13 +301,15 @@ def format_bybit_positions(account: dict) -> str:
     return f"📊 *{label} Positions*\n" + "\n".join(lines)
 
 
-def close_all_bybit_positions(env_vars: dict) -> str:
-    label = get_strategy_label(env_vars)
-    client = get_bybit_client_from_env(env_vars)
+def close_all_bybit_positions(account: dict) -> str:
+    aid = account.get("account_id", "?")
+    client = dl.bybit_client_for(account)
+    if client is None:
+        return f"⚠️ {aid}: Bybit credentials not found."
     resp = client.get_positions(category="linear", settleCoin="USDT")
     positions = [p for p in resp["result"]["list"] if float(p.get("size", 0)) > 0]
     if not positions:
-        return f"🟢 {label}: No open positions to close."
+        return f"🟢 {aid}: No open positions to close."
     closed_count = 0
     errors = []
     for p in positions:
@@ -320,7 +322,7 @@ def close_all_bybit_positions(env_vars: dict) -> str:
             closed_count += 1
         except Exception as e:
             errors.append(f"{p['symbol']}: {str(e)}")
-    msg = f"🚨 *{label} CLOSE ALL*\n\n✅ Closed {closed_count} position(s)\n"
+    msg = f"🚨 *{aid} CLOSE ALL*\n\n✅ Closed {closed_count} position(s)\n"
     if errors:
         msg += f"❌ Failed: {len(errors)}\nErrors:\n" + "\n".join(errors[:5])
     return msg
@@ -697,14 +699,21 @@ async def cmd_closeall(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_authorised(update):
         return
     try:
-        env_vars = load_account_env()
-        if str(env_vars.get("EXCHANGE", "")).lower() != "bybit":
-            await update.message.reply_text("⚠️ /closeall currently supports Bybit only.")
-            return
-        msg = close_all_bybit_positions(env_vars)
-        await update.message.reply_text(msg, parse_mode="Markdown")
+        accounts = dl.list_accounts() or []
+        bybit_accounts = [a for a in accounts if (a.get("exchange") or "").lower() == "bybit"]
     except Exception as e:
-        await update.message.reply_text(f"⚠️ CRITICAL ERROR in closeall: {e}")
+        await update.message.reply_text(f"⚠️ Could not list accounts: {e}")
+        return
+    if not bybit_accounts:
+        await update.message.reply_text("⚠️ No Bybit accounts configured.")
+        return
+    for account in bybit_accounts:
+        try:
+            msg = close_all_bybit_positions(account)
+            await update.message.reply_text(msg, parse_mode="Markdown")
+        except Exception as e:
+            aid = account.get("account_id", "?")
+            await update.message.reply_text(f"⚠️ CRITICAL ERROR in closeall ({aid}): {e}")
 
 
 async def cmd_download_journal(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -799,14 +808,26 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text(result, parse_mode="Markdown")
 
     elif action == "closeall":
-        env_vars = load_account_env()
-        label = get_strategy_label(env_vars)
-        await query.edit_message_text(f"🚨 Closing all {label} positions…")
         try:
-            msg = close_all_bybit_positions(env_vars)
-            await query.edit_message_text(msg, parse_mode="Markdown")
+            accounts = dl.list_accounts() or []
+            bybit_accounts = [a for a in accounts if (a.get("exchange") or "").lower() == "bybit"]
         except Exception as e:
-            await query.edit_message_text(f"⚠️ Error: {e}")
+            await query.edit_message_text(f"⚠️ Could not list accounts: {e}")
+            return
+        if not bybit_accounts:
+            await query.edit_message_text("⚠️ No Bybit accounts configured.")
+            return
+        await query.edit_message_text(
+            f"🚨 Closing positions across {len(bybit_accounts)} Bybit account(s)…"
+        )
+        results = []
+        for account in bybit_accounts:
+            try:
+                results.append(close_all_bybit_positions(account))
+            except Exception as e:
+                aid = account.get("account_id", "?")
+                results.append(f"⚠️ Error ({aid}): {e}")
+        await query.edit_message_text("\n\n".join(results)[:4000], parse_mode="Markdown")
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
