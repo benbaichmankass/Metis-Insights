@@ -959,3 +959,244 @@ class TestCmdCloseallFailureIsolation:
         msgs = [c.args[0] for c in upd.message.reply_text.call_args_list]
         assert any("bybit-a" in m and "network error" in m for m in msgs)
         assert any("bybit-b" in m for m in msgs)
+
+
+# ---------------------------------------------------------------------------
+# S-003 N1-c: account-aware /log and /toggle (cmd + callback_handler)
+# ---------------------------------------------------------------------------
+
+class TestCmdLogMultiAccount:
+    def _make_update(self):
+        upd = MagicMock()
+        upd.effective_chat.id = 12345
+        upd.callback_query = None
+        upd.message.reply_text = AsyncMock()
+        return upd
+
+    def _run(self, coro):
+        import asyncio
+        return asyncio.new_event_loop().run_until_complete(coro)
+
+    def _accounts(self):
+        return [
+            {"account_id": "live",  "exchange": "bybit",   "env_path": "",
+             "service": "ict-trader-live"},
+            {"account_id": "alpha", "exchange": "binance", "env_path": "",
+             "service": "ict-trader-alpha"},
+        ]
+
+    def test_sends_one_message_per_account(self, monkeypatch):
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        monkeypatch.setattr(bot.dl, "list_accounts", lambda: self._accounts())
+        monkeypatch.setattr(bot, "_account_env", lambda acc: {"STRATEGY": "ict"})
+        log_calls = []
+
+        def fake_logs(svc, n=20):
+            log_calls.append(svc)
+            return f"log output for {svc}"
+
+        monkeypatch.setattr(bot.dl, "recent_logs_for", fake_logs)
+
+        upd = self._make_update()
+        self._run(bot.cmd_log(upd, MagicMock()))
+
+        assert "ict-trader-live" in log_calls
+        assert "ict-trader-alpha" in log_calls
+        msgs = [c.args[0] for c in upd.message.reply_text.call_args_list]
+        assert len(msgs) == 2
+        assert any("ict-trader-live" in m for m in msgs)
+        assert any("ict-trader-alpha" in m for m in msgs)
+
+    def test_no_accounts_falls_back_to_live_service(self, monkeypatch):
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        monkeypatch.setattr(bot.dl, "list_accounts", lambda: [])
+        monkeypatch.setattr(bot, "_account_env", lambda acc: {})
+        monkeypatch.setattr(bot, "get_last_logs", lambda lines=20: "fallback log")
+
+        upd = self._make_update()
+        self._run(bot.cmd_log(upd, MagicMock()))
+
+        sent = upd.message.reply_text.call_args.args[0]
+        assert "fallback log" in sent
+
+    def test_one_account_log_failure_does_not_block_others(self, monkeypatch):
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        monkeypatch.setattr(bot.dl, "list_accounts", lambda: self._accounts())
+        monkeypatch.setattr(bot, "_account_env", lambda acc: {})
+
+        def boom(svc, n=20):
+            if svc == "ict-trader-live":
+                raise RuntimeError("journalctl error")
+            return "alpha log ok"
+
+        monkeypatch.setattr(bot.dl, "recent_logs_for", boom)
+
+        upd = self._make_update()
+        self._run(bot.cmd_log(upd, MagicMock()))
+
+        msgs = [c.args[0] for c in upd.message.reply_text.call_args_list]
+        assert any("journalctl error" in m for m in msgs)
+        assert any("alpha log ok" in m for m in msgs)
+
+
+class TestCmdToggleMultiAccount:
+    def _make_update(self):
+        upd = MagicMock()
+        upd.effective_chat.id = 12345
+        upd.callback_query = None
+        upd.message.reply_text = AsyncMock()
+        return upd
+
+    def _run(self, coro):
+        import asyncio
+        return asyncio.new_event_loop().run_until_complete(coro)
+
+    def _accounts(self):
+        return [
+            {"account_id": "live",  "exchange": "bybit",   "env_path": "",
+             "service": "ict-trader-live"},
+            {"account_id": "alpha", "exchange": "binance", "env_path": "",
+             "service": "ict-trader-alpha"},
+        ]
+
+    def test_toggles_each_account_service(self, monkeypatch):
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        monkeypatch.setattr(bot.dl, "list_accounts", lambda: self._accounts())
+        toggle_calls = []
+
+        def fake_toggle(svc, action):
+            toggle_calls.append((svc, action))
+            return f"✅ `{svc}` {action}ed. Status: `inactive`"
+
+        monkeypatch.setattr(bot, "get_service_status", lambda svc: "active")
+        monkeypatch.setattr(bot, "toggle_service", fake_toggle)
+
+        upd = self._make_update()
+        self._run(bot.cmd_toggle(upd, MagicMock()))
+
+        assert ("ict-trader-live", "stop") in toggle_calls
+        assert ("ict-trader-alpha", "stop") in toggle_calls
+        assert upd.message.reply_text.call_count == 2
+
+    def test_start_when_inactive(self, monkeypatch):
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        monkeypatch.setattr(bot.dl, "list_accounts", lambda: [
+            {"account_id": "live", "service": "ict-trader-live", "env_path": ""}
+        ])
+        toggle_calls = []
+
+        def fake_toggle(svc, action):
+            toggle_calls.append((svc, action))
+            return f"✅ `{svc}` {action}ed."
+
+        monkeypatch.setattr(bot, "get_service_status", lambda svc: "inactive")
+        monkeypatch.setattr(bot, "toggle_service", fake_toggle)
+
+        upd = self._make_update()
+        self._run(bot.cmd_toggle(upd, MagicMock()))
+
+        assert toggle_calls == [("ict-trader-live", "start")]
+
+    def test_no_accounts_falls_back_to_live_service(self, monkeypatch):
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        monkeypatch.setattr(bot.dl, "list_accounts", lambda: [])
+        toggle_calls = []
+
+        def fake_toggle(svc, action):
+            toggle_calls.append((svc, action))
+            return f"✅ `{svc}` {action}ed."
+
+        monkeypatch.setattr(bot, "get_service_status", lambda svc: "active")
+        monkeypatch.setattr(bot, "toggle_service", fake_toggle)
+        monkeypatch.setattr(bot, "LIVE_SERVICE_NAME", "ict-trader-live")
+
+        upd = self._make_update()
+        self._run(bot.cmd_toggle(upd, MagicMock()))
+
+        assert toggle_calls == [("ict-trader-live", "stop")]
+
+
+class TestCallbackHandlerLogToggleMultiAccount:
+    def _make_query(self, data):
+        query = MagicMock()
+        query.data = data
+        query.answer = AsyncMock()
+        query.edit_message_text = AsyncMock()
+        query.message.chat.id = 12345
+        upd = MagicMock()
+        upd.callback_query = query
+        upd.effective_chat = None
+        return upd, query
+
+    def _run(self, coro):
+        import asyncio
+        return asyncio.new_event_loop().run_until_complete(coro)
+
+    def _accounts(self):
+        return [
+            {"account_id": "live",  "env_path": "",
+             "service": "ict-trader-live"},
+            {"account_id": "alpha", "env_path": "",
+             "service": "ict-trader-alpha"},
+        ]
+
+    def test_log_callback_concatenates_all_accounts(self, monkeypatch):
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        monkeypatch.setattr(bot.dl, "list_accounts", lambda: self._accounts())
+        monkeypatch.setattr(bot, "_account_env", lambda acc: {})
+        monkeypatch.setattr(bot.dl, "recent_logs_for",
+                            lambda svc, n=10: f"log:{svc}")
+
+        upd, query = self._make_query("log")
+        self._run(bot.callback_handler(upd, MagicMock()))
+
+        sent = query.edit_message_text.call_args.args[0]
+        assert "ict-trader-live" in sent
+        assert "ict-trader-alpha" in sent
+
+    def test_log_callback_fallback_when_no_accounts(self, monkeypatch):
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        monkeypatch.setattr(bot.dl, "list_accounts", lambda: [])
+        monkeypatch.setattr(bot, "_account_env", lambda acc: {})
+        monkeypatch.setattr(bot, "get_last_logs", lambda lines=20: "fallback")
+
+        upd, query = self._make_query("log")
+        self._run(bot.callback_handler(upd, MagicMock()))
+
+        sent = query.edit_message_text.call_args.args[0]
+        assert "fallback" in sent
+
+    def test_toggle_callback_aggregates_all_accounts(self, monkeypatch):
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        monkeypatch.setattr(bot.dl, "list_accounts", lambda: self._accounts())
+        toggle_calls = []
+
+        def fake_toggle(svc, action):
+            toggle_calls.append(svc)
+            return f"✅ `{svc}` {action}ed."
+
+        monkeypatch.setattr(bot, "get_service_status", lambda svc: "active")
+        monkeypatch.setattr(bot, "toggle_service", fake_toggle)
+
+        upd, query = self._make_query("toggle")
+        self._run(bot.callback_handler(upd, MagicMock()))
+
+        assert "ict-trader-live" in toggle_calls
+        assert "ict-trader-alpha" in toggle_calls
+        sent = query.edit_message_text.call_args.args[0]
+        assert "ict-trader-live" in sent
+        assert "ict-trader-alpha" in sent
+
+    def test_toggle_callback_fallback_when_no_accounts(self, monkeypatch):
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        monkeypatch.setattr(bot.dl, "list_accounts", lambda: [])
+        monkeypatch.setattr(bot, "get_service_status", lambda svc: "active")
+        monkeypatch.setattr(bot, "toggle_service",
+                            lambda svc, act: f"✅ `{svc}` {act}ed.")
+        monkeypatch.setattr(bot, "LIVE_SERVICE_NAME", "ict-trader-live")
+
+        upd, query = self._make_query("toggle")
+        self._run(bot.callback_handler(upd, MagicMock()))
+
+        sent = query.edit_message_text.call_args.args[0]
+        assert "ict-trader-live" in sent

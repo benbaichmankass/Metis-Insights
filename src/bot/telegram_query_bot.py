@@ -31,12 +31,8 @@ _DB_CANDIDATES = [
 ]
 DB_PATH = next((p for p in _DB_CANDIDATES if p and os.path.exists(p)), os.path.join(REPO_ROOT, "trade_journal.db"))
 
-# The bot operates on a single live trader, configured via the .env at the
-# repo root.
-LIVE_ENV_PATH = os.path.join(REPO_ROOT, ".env")
-
-# Single systemd service for the trader. Used to build journalctl/systemctl
-# commands. Kept as a constant so any future rename happens in one place.
+# Fallback service name used when dl.list_accounts() returns no accounts.
+# Multi-account deployments use per-account service keys from list_accounts().
 LIVE_SERVICE_NAME = "ict-trader-live"
 
 BACKTESTER_PATH = os.path.join(os.path.dirname(BASE_DIR), "backtest", "run_backtest.py")
@@ -683,23 +679,52 @@ async def cmd_log(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_authorised(update):
         return
     try:
-        log_text = get_last_logs(lines=20)
-        label = get_strategy_label()
-        await update.message.reply_text(
-            f"📝 *{label} logs*\n```{log_text[-3500:]}```",
-            parse_mode="Markdown",
-        )
-    except Exception as e:
-        await update.message.reply_text(f"⚠️ Could not read logs: {e}")
+        accounts = dl.list_accounts() or []
+    except Exception:
+        accounts = []
+    if not accounts:
+        try:
+            log_text = get_last_logs(lines=20)
+            label = get_strategy_label()
+            await update.message.reply_text(
+                f"📝 *{label} logs*\n```{log_text[-3500:]}```",
+                parse_mode="Markdown",
+            )
+        except Exception as e:
+            await update.message.reply_text(f"⚠️ Could not read logs: {e}")
+        return
+    for acc in accounts:
+        svc = acc.get("service") or LIVE_SERVICE_NAME
+        label = get_strategy_label(acc)
+        try:
+            log_text = dl.recent_logs_for(svc, n=20)
+            await update.message.reply_text(
+                f"📝 *{label}* (`{svc}`)\n```{log_text[-3500:]}```",
+                parse_mode="Markdown",
+            )
+        except Exception as e:  # noqa: BLE001
+            await update.message.reply_text(f"⚠️ Could not read logs for `{svc}`: {e}")
 
 
 async def cmd_toggle(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_authorised(update):
         return
-    current = get_service_status(LIVE_SERVICE_NAME)
-    action = "stop" if current == "active" else "start"
-    result = toggle_service(LIVE_SERVICE_NAME, action)
-    await update.message.reply_text(result, parse_mode="Markdown")
+    try:
+        accounts = dl.list_accounts() or []
+    except Exception:
+        accounts = []
+    if not accounts:
+        current = get_service_status(LIVE_SERVICE_NAME)
+        action = "stop" if current == "active" else "start"
+        result = toggle_service(LIVE_SERVICE_NAME, action)
+        await update.message.reply_text(result, parse_mode="Markdown")
+        return
+    for acc in accounts:
+        svc = acc.get("service") or LIVE_SERVICE_NAME
+        current = get_service_status(svc)
+        action = "stop" if current == "active" else "start"
+        result = toggle_service(svc, action)
+        await update.message.reply_text(result, parse_mode="Markdown")
 
 
 async def cmd_closeall(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -799,20 +824,53 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if action == "log":
         try:
-            log_text = get_last_logs(lines=20)
-            label = get_strategy_label()
-            await query.edit_message_text(
-                f"📝 *{label} logs*\n```{log_text[-3500:]}```",
-                parse_mode="Markdown",
-            )
-        except Exception as e:
-            await query.edit_message_text(f"⚠️ Could not read logs: {e}")
+            accounts = dl.list_accounts() or []
+        except Exception:
+            accounts = []
+        if not accounts:
+            try:
+                log_text = get_last_logs(lines=20)
+                label = get_strategy_label()
+                await query.edit_message_text(
+                    f"📝 *{label} logs*\n```{log_text[-3500:]}```",
+                    parse_mode="Markdown",
+                )
+            except Exception as e:
+                await query.edit_message_text(f"⚠️ Could not read logs: {e}")
+        else:
+            blocks = []
+            for acc in accounts:
+                svc = acc.get("service") or LIVE_SERVICE_NAME
+                label = get_strategy_label(acc)
+                log_text = dl.recent_logs_for(svc, n=10)
+                blocks.append(f"📝 *{label}* (`{svc}`)\n```{log_text[-1200:]}```")
+            try:
+                await query.edit_message_text(
+                    "\n\n".join(blocks)[:4000], parse_mode="Markdown"
+                )
+            except Exception as e:
+                await query.edit_message_text(f"⚠️ Could not read logs: {e}")
 
     elif action == "toggle":
-        current = get_service_status(LIVE_SERVICE_NAME)
-        act = "stop" if current == "active" else "start"
-        result = toggle_service(LIVE_SERVICE_NAME, act)
-        await query.edit_message_text(result, parse_mode="Markdown")
+        try:
+            accounts = dl.list_accounts() or []
+        except Exception:
+            accounts = []
+        if not accounts:
+            current = get_service_status(LIVE_SERVICE_NAME)
+            act = "stop" if current == "active" else "start"
+            result = toggle_service(LIVE_SERVICE_NAME, act)
+            await query.edit_message_text(result, parse_mode="Markdown")
+        else:
+            results = []
+            for acc in accounts:
+                svc = acc.get("service") or LIVE_SERVICE_NAME
+                current = get_service_status(svc)
+                act = "stop" if current == "active" else "start"
+                results.append(toggle_service(svc, act))
+            await query.edit_message_text(
+                "\n\n".join(results)[:4000], parse_mode="Markdown"
+            )
 
     elif action == "closeall":
         try:
