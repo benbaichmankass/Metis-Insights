@@ -9,7 +9,22 @@ if str(REPO_ROOT) not in sys.path:
 import pandas as pd
 from src.strategies_manager import StrategyManager
 
-raw_df = pd.read_csv(REPO_ROOT / "ml/data/raw/btcusdt_1m.csv")
+_HF_DATASET_REPO = "bentzbk/ict-trading-bot-btcusdt-1m"
+_HF_CSV_FILE = "btcusdt_1m.csv"
+_LOCAL_CSV = REPO_ROOT / "ml" / "data" / "raw" / "btcusdt_1m.csv"
+
+
+def _load_raw_df() -> pd.DataFrame:
+    """Download 1m OHLCV CSV from HF Hub (cached); fall back to local copy."""
+    try:
+        from huggingface_hub import hf_hub_download  # type: ignore
+        path = hf_hub_download(repo_id=_HF_DATASET_REPO, filename=_HF_CSV_FILE, repo_type="dataset")
+        return pd.read_csv(path)
+    except Exception:
+        return pd.read_csv(_LOCAL_CSV)
+
+
+raw_df = _load_raw_df()
 raw_df["datetime_utc"] = pd.to_datetime(raw_df["datetime_utc"], utc=True)
 
 manager = StrategyManager()

@@ -3,12 +3,27 @@ import pandas as pd
 import numpy as np
 import joblib
 import json
+import os
 from pathlib import Path
+
+_HF_MODEL_REPO = "bentzbk/ict-trading-bot-rf-breakout-v1"
+_HF_MODEL_FILE = "btc_breakout_confirmation_v1.joblib"
+_LOCAL_MODEL = Path(__file__).resolve().parent.parent / "ml" / "models" / "local" / _HF_MODEL_FILE
+
+
+def _load_model():
+    """Download model from HF Hub (cached); fall back to local copy if unavailable."""
+    try:
+        from huggingface_hub import hf_hub_download  # type: ignore
+        path = hf_hub_download(repo_id=_HF_MODEL_REPO, filename=_HF_MODEL_FILE, repo_type="model")
+        return joblib.load(path)
+    except Exception:
+        return joblib.load(str(_LOCAL_MODEL))
 
 
 class BreakoutConfirmationStrategy:
     def __init__(self):
-        self.model = joblib.load("ml/models/local/btc_breakout_confirmation_v1.joblib")
+        self.model = _load_model()
         self.feature_names = json.loads(Path("ml/config/features_v1.json").read_text())
         self.thresholds = json.loads(Path("ml/config/thresholds_v1.json").read_text())
         self.lookback_bars = 20
