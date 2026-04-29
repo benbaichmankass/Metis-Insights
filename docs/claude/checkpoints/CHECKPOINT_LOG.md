@@ -11,6 +11,43 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-29-49 — S-007 #119: VM registry validate script + sprint complete
+
+- **Session date:** 2026-04-29
+- **Sprint:** S-007 (Strategy Architecture Overhaul) — COMPLETE
+- **Current sprint phase:** #119 — tests + VM validate script
+- **Last completed checkpoint:** CP-2026-04-29-48 (S-007 #117-118, PR #118 merged)
+- **Next checkpoint:** **CP-2026-04-29-50** — merge PR #119, then start S-008
+- **Telegram sent:** no (no creds in session)
+- **Alerts sent during session:** none
+- **Blockers:** none
+
+### 1. Completed
+- `scripts/validate_registry_vm.py`: checks service prefix, signal_prefixes, model artifact; --json flag; exits 0/1
+- `tests/test_s007_validate_script.py`: 15 tests, all pass
+- Draft PR #119: https://github.com/the-lizardking/ict-trading-bot/pull/119
+- **S-007 all 7 PRs delivered** (#113 registry, #114 pipeline+dl, #115 model loader, #116 attribution, #117-118 bot commands, #119 validate)
+
+### 2. Files changed
+- `scripts/validate_registry_vm.py` (new)
+- `tests/test_s007_validate_script.py` (new)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_s007_validate_script.py -v` — 15 passed
+- All S-007 tests combined: 69 passed
+- `python scripts/secret_scan.py` — clean
+
+### 4. Remaining
+- Merge PR #119
+- Begin S-008 (next sprint)
+
+### 5. Next checkpoint
+**CP-2026-04-29-50** — merge PR #119, confirm S-007 complete, start S-008.
+Read: `docs/claude/checkpoints/CHECKPOINT_LOG.md`, `docs/claude/checkpoint-workflow.md`.
+
+---
+
 ## CP-2026-04-29-48 — S-007 #117-118: /strategies → registry summary
 
 - **Session date:** 2026-04-29
