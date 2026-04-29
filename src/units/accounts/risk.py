@@ -1,14 +1,25 @@
-"""Per-account risk manager — units layer (S-008 PR #122 / S-010 PR #1).
+"""Per-account risk manager — units layer (S-008 PR #122 / S-010 PR #1 /
+S-012 PR E3a max_dd_pct enforcement).
 
 Two interfaces:
   - Functional (S-008): size_order() / size_order_from_cfg() — used by execute_pkg()
-  - Class-based (S-010): RiskManager — used by TradingAccount.place_order()
+  - Class-based (S-010 + S-012 E3a): RiskManager — used by
+    TradingAccount.place_order()
 
-The class-based interface adds stateful daily-PnL tracking and per-account
-hard limits (max drawdown %, max daily loss USD, max position size USD).
+The class-based interface tracks per-account state:
+  - daily_pnl: USD PnL since the last reset
+  - current_equity / daily_high_equity: equity tracking for intra-day
+    drawdown (PM § 8 #6 — resets at UTC midnight on the next approve()
+    or update_equity() call).
+
+Hard limits (from accounts.yaml ``risk`` section):
+  - max_dd_pct: max intra-day equity drawdown from today's high (S-012 PR E3a)
+  - daily_usd: max daily loss in USD (S-010)
+  - pos_size: max single-position size in USD (S-010)
 """
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any, Optional
 from src.core.coordinator import OrderPackage
 
@@ -118,15 +129,76 @@ class RiskManager:
         self.max_daily_loss_usd: float = float(config.get("daily_usd", 100.0))
         self.max_pos_size_usd: float = float(config.get("pos_size", 500.0))
         self.daily_pnl: float = 0.0       # updated by record_trade_result()
-        self._starting_equity: Optional[float] = None
+        # S-012 PR E3a — intra-day drawdown tracking. None until the
+        # caller seeds equity via update_equity(); the drawdown check
+        # is skipped while equity is unknown so the field remains
+        # backwards-compatible with callers that don't track equity.
+        self.current_equity: Optional[float] = None
+        self.daily_high_equity: Optional[float] = None
+        self._last_reset_utc_date: Optional[Any] = self._today_utc()
+
+    @staticmethod
+    def _today_utc():
+        """Return today's UTC date (timezone-aware)."""
+        return datetime.now(timezone.utc).date()
+
+    def _maybe_roll_daily(self) -> None:
+        """If the UTC date has advanced past the last reset, reset daily state.
+
+        Called at the top of approve() / update_equity() so the rollover
+        happens lazily without a scheduler. PM § 8 #6: resets at UTC
+        midnight.
+        """
+        today = self._today_utc()
+        if self._last_reset_utc_date is None or today > self._last_reset_utc_date:
+            self.daily_pnl = 0.0
+            # Re-anchor the intra-day high to current_equity (or None).
+            self.daily_high_equity = self.current_equity
+            self._last_reset_utc_date = today
+
+    def update_equity(self, equity_usd: float) -> None:
+        """Set the account's current equity in USD.
+
+        Bumps daily_high_equity when the new value is a fresh intra-day
+        high. Idempotent on the same equity value. Roll the daily window
+        first so a new UTC day re-anchors the high.
+        """
+        self._maybe_roll_daily()
+        self.current_equity = float(equity_usd)
+        if (
+            self.daily_high_equity is None
+            or self.current_equity > self.daily_high_equity
+        ):
+            self.daily_high_equity = self.current_equity
+
+    def intraday_drawdown(self) -> Optional[float]:
+        """Return the current intra-day drawdown as a fraction (0.0 .. 1.0).
+
+        Returns None when equity has not been seeded (no signal). When
+        current_equity exceeds daily_high_equity, drawdown is clamped at 0.
+        """
+        if self.daily_high_equity is None or self.current_equity is None:
+            return None
+        if self.daily_high_equity <= 0:
+            return None
+        if self.current_equity >= self.daily_high_equity:
+            return 0.0
+        return (self.daily_high_equity - self.current_equity) / self.daily_high_equity
 
     def approve(self, order: OrderPackage) -> bool:
         """Return True when the order passes all risk checks.
 
         Checks (in order):
-          1. Daily loss limit: ``daily_pnl < -max_daily_loss_usd`` → reject
-          2. Position size: ``order.meta['estimated_value'] > max_pos_size_usd`` → reject
+          1. UTC daily rollover (resets daily_pnl + re-anchors high).
+          2. Daily loss limit: ``daily_pnl < -max_daily_loss_usd`` → reject.
+          3. Position size: ``order.meta['estimated_value'] >
+             max_pos_size_usd`` → reject.
+          4. Intra-day drawdown (S-012 PR E3a): when equity is known,
+             ``(daily_high - current) / daily_high >= max_dd_pct`` → reject.
+             Skipped when equity has not been seeded via update_equity().
         """
+        self._maybe_roll_daily()
+
         if self.daily_pnl < -self.max_daily_loss_usd:
             return False
 
@@ -134,18 +206,36 @@ class RiskManager:
         if estimated_value is not None and float(estimated_value) > self.max_pos_size_usd:
             return False
 
+        dd = self.intraday_drawdown()
+        if dd is not None and dd >= self.max_dd_pct:
+            return False
+
         return True
 
     def record_trade_result(self, pnl_usd: float) -> None:
-        """Update daily PnL after a trade closes.  Call this from the accounts unit."""
+        """Update daily PnL after a trade closes.  Call this from the accounts unit.
+
+        When equity is being tracked, update_equity() should also be
+        called by the caller with the post-trade equity value so the
+        intra-day high stays current.
+        """
+        self._maybe_roll_daily()
         self.daily_pnl += pnl_usd
 
     def reset_daily(self) -> None:
-        """Reset daily PnL counter (call at midnight / session open)."""
+        """Manually reset daily PnL + intra-day high (UTC-day-independent).
+
+        The lazy UTC rollover via _maybe_roll_daily() handles normal
+        midnight resets. This method is kept for explicit operator
+        intervention (Telegram /reset_daily etc.) and for tests.
+        """
         self.daily_pnl = 0.0
+        self.daily_high_equity = self.current_equity
+        self._last_reset_utc_date = self._today_utc()
 
     def report(self) -> dict:
         """Return a human-readable status dict."""
+        dd = self.intraday_drawdown()
         return {
             "daily_pnl": round(self.daily_pnl, 2),
             "max_daily_loss_usd": self.max_daily_loss_usd,
@@ -154,6 +244,16 @@ class RiskManager:
             "daily_loss_remaining": round(
                 self.max_daily_loss_usd + self.daily_pnl, 2
             ),
-            "halted": self.daily_pnl < -self.max_daily_loss_usd,
+            "current_equity": (
+                round(self.current_equity, 2) if self.current_equity is not None else None
+            ),
+            "daily_high_equity": (
+                round(self.daily_high_equity, 2) if self.daily_high_equity is not None else None
+            ),
+            "intraday_drawdown_pct": round(dd, 4) if dd is not None else None,
+            "halted": (
+                self.daily_pnl < -self.max_daily_loss_usd
+                or (dd is not None and dd >= self.max_dd_pct)
+            ),
         }
 
