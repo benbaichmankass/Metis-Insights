@@ -98,36 +98,50 @@ class TestIsAuthorised:
 # ---------------------------------------------------------------------------
 
 class TestGetStrategyLabel:
-    def test_killzone_maps_to_ict(self):
-        assert bot.get_strategy_label({"STRATEGY": "killzone"}) == "ICT"
+    def _account_with(self, monkeypatch, **env_vars):
+        """Return an account dict whose _account_env resolves to env_vars."""
+        monkeypatch.setattr(bot, "_account_env", lambda _acct: env_vars)
+        return {"env_path": "/fake/.env"}
 
-    def test_ict_maps_to_ict(self):
-        assert bot.get_strategy_label({"STRATEGY": "ict"}) == "ICT"
+    def test_killzone_maps_to_ict(self, monkeypatch):
+        account = self._account_with(monkeypatch, STRATEGY="killzone")
+        assert bot.get_strategy_label(account) == "ICT"
 
-    def test_vwap_maps_to_vwap(self):
-        assert bot.get_strategy_label({"STRATEGY": "vwap"}) == "VWAP"
+    def test_ict_maps_to_ict(self, monkeypatch):
+        account = self._account_with(monkeypatch, STRATEGY="ict")
+        assert bot.get_strategy_label(account) == "ICT"
 
-    def test_breakout_maps_to_breakout(self):
-        assert bot.get_strategy_label({"STRATEGY": "breakout"}) == "Breakout"
+    def test_vwap_maps_to_vwap(self, monkeypatch):
+        account = self._account_with(monkeypatch, STRATEGY="vwap")
+        assert bot.get_strategy_label(account) == "VWAP"
 
-    def test_multiplexed_maps_to_multi(self):
-        assert bot.get_strategy_label({"STRATEGY": "multiplexed"}) == "Multi"
+    def test_breakout_maps_to_breakout(self, monkeypatch):
+        account = self._account_with(monkeypatch, STRATEGY="breakout")
+        assert bot.get_strategy_label(account) == "Breakout"
 
-    def test_unknown_returns_default(self):
-        assert bot.get_strategy_label({"STRATEGY": "unknown_xyz"}) == "Strategy"
+    def test_multiplexed_maps_to_multi(self, monkeypatch):
+        account = self._account_with(monkeypatch, STRATEGY="multiplexed")
+        assert bot.get_strategy_label(account) == "Multi"
 
-    def test_empty_env_returns_default(self):
+    def test_unknown_returns_default(self, monkeypatch):
+        account = self._account_with(monkeypatch, STRATEGY="unknown_xyz")
+        assert bot.get_strategy_label(account) == "Strategy"
+
+    def test_empty_env_returns_default(self, monkeypatch):
+        monkeypatch.setattr(bot.dl, "list_accounts", lambda: [])
         assert bot.get_strategy_label({}) == "Strategy"
 
     def test_none_env_falls_back_gracefully(self, monkeypatch):
-        monkeypatch.setattr(bot, "load_account_env", lambda: {})
+        monkeypatch.setattr(bot.dl, "list_accounts", lambda: [])
         assert bot.get_strategy_label(None) == "Strategy"
 
-    def test_case_insensitive(self):
-        assert bot.get_strategy_label({"STRATEGY": "VWAP"}) == "VWAP"
+    def test_case_insensitive(self, monkeypatch):
+        account = self._account_with(monkeypatch, STRATEGY="VWAP")
+        assert bot.get_strategy_label(account) == "VWAP"
 
-    def test_legacy_strategy_name_key(self):
-        assert bot.get_strategy_label({"STRATEGY_NAME": "killzone"}) == "ICT"
+    def test_legacy_strategy_name_key(self, monkeypatch):
+        account = self._account_with(monkeypatch, STRATEGY_NAME="killzone")
+        assert bot.get_strategy_label(account) == "ICT"
 
 
 # ---------------------------------------------------------------------------

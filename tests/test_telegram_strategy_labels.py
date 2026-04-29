@@ -15,6 +15,7 @@ from __future__ import annotations
 import sys
 import types
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -23,40 +24,33 @@ import pytest
 # Stub the third-party packages the bot module imports at top-level.
 # ---------------------------------------------------------------------------
 
-class _AnyAttr(type):
-    """Metaclass that returns a fresh placeholder for any attribute access.
+for _mod in (
+    "telegram",
+    "telegram.ext",
+    "dotenv",
+    "requests",
+    "pybit",
+    "pybit.unified_trading",
+    "src.runtime.signal_notifications",
+):
+    sys.modules.setdefault(_mod, MagicMock())
 
-    Lets us satisfy annotations like ``ContextTypes.DEFAULT_TYPE`` without
-    pulling in the real ``python-telegram-bot`` package.
-    """
+# Provide realistic dotenv stubs (real parse logic is restored per-test via fixture)
+sys.modules["dotenv"].load_dotenv = lambda *a, **kw: None
+sys.modules["dotenv"].dotenv_values = lambda *a, **kw: {}
 
-    def __getattr__(cls, name):  # noqa: D401
-        return type(name, (), {})
-
-
-def _make_stub_class(name: str):
-    return _AnyAttr(name, (), {})
-
-
-def _install_stubs() -> None:
-    if "telegram" not in sys.modules:
-        telegram_mod = types.ModuleType("telegram")
-        for name in ("Update", "BotCommand", "InlineKeyboardButton", "InlineKeyboardMarkup"):
-            setattr(telegram_mod, name, _make_stub_class(name))
-        sys.modules["telegram"] = telegram_mod
-
-    if "telegram.ext" not in sys.modules:
-        telegram_ext_mod = types.ModuleType("telegram.ext")
-        for name in ("Application", "CommandHandler", "CallbackQueryHandler", "ContextTypes"):
-            setattr(telegram_ext_mod, name, _make_stub_class(name))
-        sys.modules["telegram.ext"] = telegram_ext_mod
-
-    # `pybit.unified_trading.HTTP` is imported lazily inside
-    # `get_bybit_client_from_env`, so it does not need stubbing for our
-    # tests. Same for `requests` (real package, available in the sandbox).
-
-
-_install_stubs()
+# telegram.Update must be importable as a class
+_tg_mock = sys.modules["telegram"]
+_tg_mock.Update = MagicMock
+_tg_mock.BotCommand = MagicMock
+_tg_mock.InlineKeyboardButton = MagicMock
+_tg_mock.InlineKeyboardMarkup = MagicMock
+_tg_ext_mock = sys.modules["telegram.ext"]
+_tg_ext_mock.Application = MagicMock
+_tg_ext_mock.CommandHandler = MagicMock
+_tg_ext_mock.CallbackQueryHandler = MagicMock
+_tg_ext_mock.ContextTypes = MagicMock()
+_tg_ext_mock.ContextTypes.DEFAULT_TYPE = object
 
 # Now safe to import the module under test.
 from src.bot import telegram_query_bot as bot  # noqa: E402
@@ -148,7 +142,7 @@ def test_load_account_env_takes_no_arguments():
 
 
 # ---------------------------------------------------------------------------
-# get_strategy_label — STRATEGY env var drives the label
+# get_strategy_label — account dict with env_path drives the label
 # ---------------------------------------------------------------------------
 
 @pytest.mark.parametrize(
@@ -163,37 +157,49 @@ def test_load_account_env_takes_no_arguments():
         ("killzone", "ICT"),  # legacy alias
     ],
 )
-def test_get_strategy_label_known_strategies(raw, expected):
-    assert bot.get_strategy_label({"STRATEGY": raw}) == expected
+def test_get_strategy_label_known_strategies(tmp_path, restore_dotenv_values, raw, expected):
+    env_file = _write_env(tmp_path, ".env", STRATEGY=raw)
+    account = {"env_path": str(env_file)}
+    assert bot.get_strategy_label(account) == expected
 
 
-def test_get_strategy_label_strategy_name_alias():
+def test_get_strategy_label_strategy_name_alias(tmp_path, restore_dotenv_values):
     """``STRATEGY_NAME`` is supported as a fallback to ``STRATEGY``."""
-    assert bot.get_strategy_label({"STRATEGY_NAME": "vwap"}) == "VWAP"
+    env_file = _write_env(tmp_path, ".env", STRATEGY_NAME="vwap")
+    account = {"env_path": str(env_file)}
+    assert bot.get_strategy_label(account) == "VWAP"
 
 
-def test_get_strategy_label_falls_back_for_unknown_strategy():
+def test_get_strategy_label_falls_back_for_unknown_strategy(tmp_path, restore_dotenv_values):
     """Unknown / empty strategy values fall back to the default label."""
-    assert bot.get_strategy_label({"STRATEGY": "not-a-real-strategy"}) == bot._DEFAULT_STRATEGY_LABEL
-    assert bot.get_strategy_label({"STRATEGY": ""}) == bot._DEFAULT_STRATEGY_LABEL
+    env_file_unknown = _write_env(tmp_path, "unknown.env", STRATEGY="not-a-real-strategy")
+    env_file_empty = _write_env(tmp_path, "empty.env", STRATEGY="")
+    assert bot.get_strategy_label({"env_path": str(env_file_unknown)}) == bot._DEFAULT_STRATEGY_LABEL
+    assert bot.get_strategy_label({"env_path": str(env_file_empty)}) == bot._DEFAULT_STRATEGY_LABEL
     assert bot.get_strategy_label({}) == bot._DEFAULT_STRATEGY_LABEL
 
 
-def test_get_strategy_label_reads_live_env_when_no_arg(monkeypatch, tmp_path, restore_dotenv_values):
-    """Calling with no args reads the STRATEGY value from ``LIVE_ENV_PATH``."""
+def test_get_strategy_label_reads_first_account_when_no_arg(monkeypatch, tmp_path, restore_dotenv_values):
+    """Calling with no args reads from the first account returned by dl.list_accounts()."""
     env_file = _write_env(tmp_path, ".env", STRATEGY="vwap")
-    monkeypatch.setattr(bot, "LIVE_ENV_PATH", str(env_file))
+    monkeypatch.setattr(bot.dl, "list_accounts", lambda: [{"env_path": str(env_file)}])
 
     assert bot.get_strategy_label() == "VWAP"
 
 
+def test_get_strategy_label_no_arg_falls_back_when_no_accounts(monkeypatch):
+    """No-arg path returns default label when dl.list_accounts() is empty."""
+    monkeypatch.setattr(bot.dl, "list_accounts", lambda: [])
+    assert bot.get_strategy_label() == bot._DEFAULT_STRATEGY_LABEL
+
+
 def test_get_strategy_label_swallows_unexpected_errors(monkeypatch):
-    """Defensive: a broken ``load_account_env`` must not crash the bot."""
+    """Defensive: a broken dl.list_accounts must not crash the bot."""
 
     def _boom():
         raise RuntimeError("unexpected env failure")
 
-    monkeypatch.setattr(bot, "load_account_env", _boom)
+    monkeypatch.setattr(bot.dl, "list_accounts", _boom)
     assert bot.get_strategy_label() == bot._DEFAULT_STRATEGY_LABEL
 
 
@@ -204,21 +210,21 @@ def test_get_strategy_label_swallows_unexpected_errors(monkeypatch):
 def test_format_target_options_returns_single_strategy(monkeypatch, tmp_path, restore_dotenv_values):
     """Returns the active strategy label — no more ``live|paper``."""
     env_file = _write_env(tmp_path, ".env", STRATEGY="ict")
-    monkeypatch.setattr(bot, "LIVE_ENV_PATH", str(env_file))
+    monkeypatch.setattr(bot.dl, "list_accounts", lambda: [{"env_path": str(env_file)}])
 
     assert bot.format_target_options() == "ICT"
 
 
-def test_format_target_options_falls_back_when_env_missing(monkeypatch, tmp_path):
-    """Missing env file → default label, never crashes."""
-    monkeypatch.setattr(bot, "LIVE_ENV_PATH", str(tmp_path / "nope.env"))
+def test_format_target_options_falls_back_when_no_accounts(monkeypatch):
+    """No accounts configured → default label, never crashes."""
+    monkeypatch.setattr(bot.dl, "list_accounts", lambda: [])
     assert bot.format_target_options() == bot._DEFAULT_STRATEGY_LABEL
 
 
 def test_format_target_options_falls_back_when_strategy_unset(monkeypatch, tmp_path, restore_dotenv_values):
     """Env file exists but has no STRATEGY → default label."""
     env_file = _write_env(tmp_path, ".env", BYBIT_API_KEY="x")
-    monkeypatch.setattr(bot, "LIVE_ENV_PATH", str(env_file))
+    monkeypatch.setattr(bot.dl, "list_accounts", lambda: [{"env_path": str(env_file)}])
 
     assert bot.format_target_options() == bot._DEFAULT_STRATEGY_LABEL
 
@@ -229,7 +235,7 @@ def test_format_target_options_swallows_unexpected_errors(monkeypatch):
     def _boom():
         raise RuntimeError("unexpected env failure")
 
-    monkeypatch.setattr(bot, "load_account_env", _boom)
+    monkeypatch.setattr(bot.dl, "list_accounts", _boom)
     assert bot.format_target_options() == bot._DEFAULT_STRATEGY_LABEL
 
 
@@ -238,7 +244,7 @@ def test_format_target_options_separator_is_no_op_with_single_label(
 ):
     """``separator`` is retained for API compatibility but unused with one label."""
     env_file = _write_env(tmp_path, ".env", STRATEGY="ict")
-    monkeypatch.setattr(bot, "LIVE_ENV_PATH", str(env_file))
+    monkeypatch.setattr(bot.dl, "list_accounts", lambda: [{"env_path": str(env_file)}])
 
     assert bot.format_target_options(separator=" / ") == "ICT"
     assert bot.format_target_options(separator="|") == "ICT"
