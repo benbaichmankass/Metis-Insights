@@ -12,14 +12,10 @@ from telegram import Update, BotCommand, InlineKeyboardButton, InlineKeyboardMar
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 import requests
 
-# Sprint S-001 PR-C..F: route data access through the data_loaders facade so
-# the bot has one stable interface for journalctl, signals/backtests, and
-# exchange queries. PR-F pruned the dead in-bot helpers (fetch_last_5_trades,
-# fetch_latest_backtest_result, _get_binance_connector). The remaining
-# legacy helpers — load_account_env, format_target_options,
-# get_bybit_client_from_env, close_all_bybit_positions — stay for now
-# because they're still wired into post_init / cmd_closeall, and the sprint
-# rules forbid changing live order logic. Tracked as post-sprint follow-ups.
+# Sprint S-001 PR-C..F: route data access through the data_loaders facade.
+# Sprint S-002 M2: migrated close_all_bybit_positions to (account: dict) and
+# deleted get_bybit_client_from_env. Remaining legacy helpers tracked for M3:
+# load_account_env, format_target_options.
 from src.bot import data_loaders as dl
 
 load_dotenv()
@@ -122,14 +118,6 @@ def load_account_env() -> dict:
     values = dotenv_values(LIVE_ENV_PATH)
     return {k: v for k, v in values.items() if v is not None}
 
-
-def get_bybit_client_from_env(env_vars: dict):
-    from pybit.unified_trading import HTTP
-    return HTTP(
-        testnet=False,
-        api_key=env_vars.get("BYBIT_API_KEY"),
-        api_secret=env_vars.get("BYBIT_API_SECRET"),
-    )
 
 
 _STRATEGY_DISPLAY = {
@@ -397,11 +385,6 @@ async def run_backtest_in_background(application: Application):
     finally:
         BACKTEST_TASK = None
 
-
-
-# -- Binance helpers ----------------------------------------------------------
-# _get_binance_connector was removed in PR-F (Sprint S-001). Binance balance
-# and positions go through dl.account_balance / dl.account_open_positions.
 
 
 def format_binance_balance(account: dict) -> str:
