@@ -8,8 +8,9 @@ handlers never see exceptions originating outside their own rendering code.
 This module is delivered incrementally:
 
 * PR-B1 — account registry, strategies, trader services.
-* PR-B2 (this PR) — DB readers (signals, backtests, logs).
-* PR-B3 — exchange-aware account queries (balance, positions, last trade).
+* PR-B2 — DB readers (signals, backtests, logs).
+* PR-B3 (this PR) — exchange-aware account queries (balance, positions,
+  last trade).
 
 Account registry (PM decision §8.1): ``config/accounts.yaml`` (optional —
 PyYAML is **not** in requirements.txt and S-001 forbids new deps, so this
@@ -314,3 +315,149 @@ def latest_backtests_per_model() -> List[Dict[str, Any]]:
     except Exception as exc:  # noqa: BLE001
         logger.warning("latest_backtests_per_model: %s", exc)
         return []
+
+
+# -- Exchange-aware account queries (PR-B3) -----------------------------------
+
+def _read_env_file(env_path: str) -> Dict[str, str]:
+    if not env_path or not os.path.exists(env_path):
+        return {}
+    try:
+        from dotenv import dotenv_values  # type: ignore
+        values = dotenv_values(env_path)
+        return {k: v for k, v in values.items() if v is not None}
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("_read_env_file(%s): %s", env_path, exc)
+        return {}
+
+
+def _bybit_client(env_vars: Dict[str, str]):
+    api_key = env_vars.get("BYBIT_API_KEY")
+    api_secret = env_vars.get("BYBIT_API_SECRET")
+    if not api_key or not api_secret:
+        return None
+    from pybit.unified_trading import HTTP  # type: ignore
+    return HTTP(testnet=False, api_key=api_key, api_secret=api_secret)
+
+
+def _binance_conn(env_vars: Dict[str, str]):
+    api_key = env_vars.get("BINANCE_API_KEY")
+    api_secret = env_vars.get("BINANCE_API_SECRET")
+    if not api_key or not api_secret:
+        return None
+    import sys as _sys
+    _sys.path.insert(0, os.path.join(REPO_ROOT, "src"))
+    from exchange.binance_connector import BinanceConnector  # type: ignore
+    testnet = str(env_vars.get("BINANCE_TESTNET", "false")).strip().lower() == "true"
+    return BinanceConnector(api_key=api_key, api_secret=api_secret, testnet=testnet)
+
+
+def _f(x, default=0.0):
+    try:
+        return float(x or 0)
+    except (TypeError, ValueError):
+        return default
+
+
+def account_balance(account: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Return ``{"total_usdt": float, "raw": ...}`` or ``None`` on failure."""
+    if not isinstance(account, dict):
+        return None
+    env = _read_env_file(account.get("env_path") or "")
+    ex = (account.get("exchange") or "unknown").lower()
+    try:
+        if ex == "bybit":
+            client = _bybit_client(env)
+            if client is None:
+                return None
+            resp = client.get_wallet_balance(accountType="UNIFIED")
+            lst = resp.get("result", {}).get("list", []) if isinstance(resp, dict) else []
+            total = sum(_f(c.get("usdValue")) for c in (lst[0].get("coin", []) if lst else []))
+            return {"total_usdt": total, "raw": resp}
+        if ex == "binance":
+            conn = _binance_conn(env)
+            if conn is None:
+                return None
+            bal = conn.get_balance() or {}
+            usdt = bal.get("USDT", {}) if isinstance(bal, dict) else {}
+            return {"total_usdt": _f((usdt or {}).get("total")), "raw": bal}
+        return None
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("account_balance(%s): %s", account.get("account_id"), exc)
+        return None
+
+
+def account_open_positions(account: Dict[str, Any]) -> Optional[List[Dict[str, Any]]]:
+    """Return list of ``{symbol, side, size, entry_price, unrealised_pnl}``
+    dicts (size > 0). ``None`` on failure."""
+    if not isinstance(account, dict):
+        return None
+    env = _read_env_file(account.get("env_path") or "")
+    ex = (account.get("exchange") or "unknown").lower()
+    try:
+        if ex == "bybit":
+            client = _bybit_client(env)
+            if client is None:
+                return None
+            resp = client.get_positions(category="linear", settleCoin="USDT")
+            raw = resp.get("result", {}).get("list", []) if isinstance(resp, dict) else []
+            out = []
+            for p in raw:
+                size = _f(p.get("size"))
+                if size <= 0:
+                    continue
+                out.append({"symbol": p.get("symbol"), "side": p.get("side"),
+                            "size": size, "entry_price": _f(p.get("avgPrice")),
+                            "unrealised_pnl": _f(p.get("unrealisedPnl"))})
+            return out
+        if ex == "binance":
+            conn = _binance_conn(env)
+            if conn is None:
+                return None
+            out = []
+            for p in (conn.get_positions() or []):
+                size = _f(p.get("contracts", p.get("positionAmt")))
+                if size == 0:
+                    continue
+                out.append({"symbol": p.get("symbol"),
+                            "side": p.get("side") or ("long" if size > 0 else "short"),
+                            "size": abs(size), "entry_price": _f(p.get("entryPrice")),
+                            "unrealised_pnl": _f(p.get("unrealizedPnl",
+                                                       p.get("unrealised_pnl")))})
+            return out
+        return None
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("account_open_positions(%s): %s",
+                       account.get("account_id"), exc)
+        return None
+
+
+def account_last_trade(account: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Most-recent live trade row from the trade-journal DB.
+
+    The ``trades`` table has no ``account_id`` column today (single-account
+    deployment), so for non-legacy accounts this returns ``None`` until the
+    schema gains one (tracked as a follow-up in the sprint todo list).
+    """
+    if not isinstance(account, dict):
+        return None
+    if account.get("account_id") != LEGACY_LIVE_ACCOUNT_ID:
+        return None
+    if not os.path.exists(TRADE_JOURNAL_DB):
+        return None
+    try:
+        conn = sqlite3.connect(TRADE_JOURNAL_DB)
+        try:
+            conn.row_factory = sqlite3.Row
+            row = conn.execute(
+                "SELECT id, timestamp, symbol, direction, entry_price, exit_price,"
+                " pnl, status, strategy_name, created_at FROM trades"
+                " WHERE COALESCE(is_backtest, 0) = 0"
+                " ORDER BY datetime(created_at) DESC, id DESC LIMIT 1"
+            ).fetchone()
+        finally:
+            conn.close()
+        return dict(row) if row else None
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("account_last_trade(%s): %s", account.get("account_id"), exc)
+        return None
