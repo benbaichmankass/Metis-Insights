@@ -52,6 +52,13 @@ Then send the Telegram session ping via `scripts/notify_session.py session`
   CryptoCompare, yfinance, or our HF datasets). See
   `docs/claude/testing-policy.md` → “Test data sources”.
 
+## Telegram Reporting (MANDATORY after every PR merge)
+
+- `/sprintlet_status <milestone/PR#> merged, next: <next task>` — real-time PM update
+- `/sprintlet_complete S-NNN` — sent once at sprint end
+- `/checkpoint` — show latest checkpoint ID from CHECKPOINT_LOG.md
+- Use `scripts/notify_session.py session` for end-of-session ping (fallback when bot unavailable)
+
 ## Merging Rules (MANDATORY)
 
 - For ALL sprint PRs: Create PR → run tests/lint → if green → **SELF-MERGE immediately via GitHub MCP tools**.
