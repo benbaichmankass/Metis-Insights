@@ -11,6 +11,51 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-29-60 — S-010 SPRINT COMPLETE
+
+- **Session date:** 2026-04-29
+- **Sprint:** S-010 (Per-Account Risk Engine + Accounts Modularisation)
+- **Current sprint phase:** wrap-up — all 4 PRs merged
+- **Last completed checkpoint:** CP-2026-04-29-59 (S-009 complete)
+- **Next checkpoint:** Start of S-011 — read CHECKPOINT_LOG.md as usual.
+- **Telegram sent:** no (no creds in session)
+- **Alerts sent during session:** none
+- **Blockers:** none
+
+### 1. Completed
+- PR #135: Modular account refactor — `TradingAccount`, `RiskManager`, `Integrator`, `config/accounts.yaml`, 23 tests
+- PR #136: Coordinator `accounts_status()`, `multi_account_execute()`, `reload_accounts()` — 19 new coordinator flow tests
+- PR #137: Telegram bot `/accounts_status` and `/risk_check` commands
+- PR #138: `docs/workflows/accounts-risk.md` + `tests/test_accounts_integration.py` (20 integration tests)
+
+### 2. Files changed
+- `src/units/accounts/risk.py` (RiskManager class added)
+- `src/units/accounts/account.py` (new — TradingAccount, RiskBreach)
+- `src/units/accounts/integrator.py` (new — EXCHANGE_MAP, route_order, BybitAPI, BreakoutAPI)
+- `src/units/accounts/__init__.py` (load_accounts)
+- `config/accounts.yaml` (new)
+- `src/core/coordinator.py` (3 new methods)
+- `src/bot/telegram_query_bot.py` (/accounts_status, /risk_check)
+- `docs/workflows/accounts-risk.md` (new)
+- `tests/test_s010_accounts.py` (new — 23 tests)
+- `tests/test_coordinator_flow.py` (19 new tests)
+- `tests/test_accounts_integration.py` (new — 20 tests)
+- `docs/sprint-summaries/sprint-010-summary.md` (new)
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_s010_accounts.py tests/test_coordinator_flow.py tests/test_accounts_integration.py -q` — 62 passed
+- `PYTHONPATH=. pytest tests/ -q --ignore=tests/test_main_loop.py` — 1095 passed (23 pre-existing failures in test_runtime_validation.py, unrelated to S-010)
+- `python scripts/secret_scan.py` — clean
+
+### 4. Remaining
+- BreakoutAPI live implementation (future sprint)
+- `test_runtime_validation.py` pre-existing failures (pre-date S-010)
+
+### 5. Next checkpoint
+**CP-2026-04-29-61** — Start S-011. Read `CHECKPOINT_LOG.md` for the latest entry, then the S-011 sprint plan.
+
+---
+
 ## CP-2026-04-29-59 — S-009 SPRINT COMPLETE
 
 - **Session date:** 2026-04-29
