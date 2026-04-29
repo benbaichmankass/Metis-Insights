@@ -11,6 +11,50 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-29-30 — Sprint S-004 M2: delete archived planning docs
+
+- **Session date:** 2026-04-29
+- **Sprint:** Sprint S-004 (deploy hygiene + repo cleanup)
+- **Current sprint phase:** M2 — archived doc deletion
+- **Last completed checkpoint:** CP-2026-04-29-29 (S-004 M1 ExecStart fix, PR #97 merged)
+- **Completed this session:**
+  - Audited all large files and top-level docs for safe-delete eligibility
+  - Deleted `claude_code_work_plan.md`, `claude_project_setup_guide.md`, `THREAD1_CHANGELOG.md` (ARCHIVED / zero refs)
+  - Updated `docs/claude/cleanup-report.md`: recorded M1+M2 complete; added HF migration backlog table for 3 large files that need upload before deletion; clarified permanent keep-list
+  - PR #98 opened (draft), watching
+- **Files changed:**
+  - `THREAD1_CHANGELOG.md` (deleted)
+  - `claude_code_work_plan.md` (deleted)
+  - `claude_project_setup_guide.md` (deleted)
+  - `docs/claude/cleanup-report.md`
+  - `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+- **Tests run:** none needed (no .py changes; pre-delete `git grep` confirmed zero refs)
+- **Telegram sent:** no (import chain blocked by missing pandas)
+- **Alerts sent during session:** none
+- **Blockers:** none
+
+### 1. Completed
+- S-004 M2: 3 archived docs deleted, cleanup-report.md updated (PR #98)
+
+### 2. Files changed
+- `THREAD1_CHANGELOG.md` (deleted)
+- `claude_code_work_plan.md` (deleted)
+- `claude_project_setup_guide.md` (deleted)
+- `docs/claude/cleanup-report.md`
+
+### 3. Tests run
+- `git grep` confirmed zero code/test references to deleted files
+
+### 4. Remaining (S-004 M3/M4 — HF migration, requires external delegation)
+- `data/bybit_btcusdt_1m.csv` (2.4 MB) — upload to HF dataset, update refs, `git rm`
+- `ml/data/raw/btcusdt_1m.csv` (3.4 MB) — same
+- `ml/models/local/btc_breakout_confirmation_v1.joblib` (1.5 MB) — upload to HF model repo, update `strategies/breakout_confirmation.py` loader
+
+### 5. Next checkpoint
+**CP-2026-04-29-31** — S-004 M3: HF migration of large data files. Read `docs/claude/huggingface-workflows.md` and `docs/claude/external-delegation.md` before starting. Requires HF credentials + Colab or direct upload.
+
+---
+
 ## CP-2026-04-29-29 — Sprint S-004 M1: fix stale ExecStart in ict-telegram-bot.service
 
 - **Session date:** 2026-04-29
