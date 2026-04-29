@@ -1,13 +1,12 @@
 # Sprint S-012 — Production Wiring Audit & Full Live Activation
 
-> Initial draft created in PR F1; finalized in PR F5 alongside the
-> CHECKPOINT_LOG.md entry.
+> Finalized in PR F5 alongside the closing CHECKPOINT_LOG.md entry.
 >
 > **Sprint type:** All-night, slow-and-thorough audit + remediation.
 > **Owner:** Claude Code (autonomous).
 > **PM:** Ben.
 > **Tech Lead:** Perplexity.
-> **Created:** 2026-04-29.
+> **Created:** 2026-04-29. **Closed:** 2026-04-29.
 > **Goal:** Every component production-ready, fully live, no orphan
 > service references. Strategy roster reduced to **turtle_soup + vwap**
 > only.
@@ -25,9 +24,9 @@
 | Phantom services gone + regression test | ✅ | D3 |
 | No `DRY_RUN=true` reachable for production strategies; startup hard-fails | ✅ | E1 |
 | Risk caps fire for both strategies (pos_size, daily_usd, kill, drawdown) | ✅ | E3 + E3a |
-| `pytest` green; `secret_scan.py` clean | ⚠️ | F1 — see *Test suite* below |
-| Deployment runbook exists, followed on VM | ⏳ | F4 (this PR adds the doc; PM/Colab executes on VM) |
-| Live trader uptime preserved | ✅ | guardrail #1; no service touched |
+| `pytest` green; `secret_scan.py` clean | ⚠️ | F1 — 1153 pass, 17 pre-existing fail (S-009 carry); secret scan clean |
+| Deployment runbook exists, followed on VM | ⚠️ | F4 ships the doc; PM/Colab runs it post-merge on the VM |
+| Live trader uptime preserved | ✅ | guardrail #1; no service touched during the sprint window |
 
 ## PRs merged (Phase A → Phase E)
 
@@ -52,8 +51,13 @@
 | [#163](https://github.com/the-lizardking/ict-trading-bot/pull/163) | S-012 PR E3: risk-cap firing tests for both turtle_soup and vwap |
 | [#164](https://github.com/the-lizardking/ict-trading-bot/pull/164) | S-012 PR E3a: implement max_dd_pct intra-day UTC reset |
 | [#165](https://github.com/the-lizardking/ict-trading-bot/pull/165) | S-012 PR E4: strategy-attributed signal audit log |
+| [#166](https://github.com/the-lizardking/ict-trading-bot/pull/166) | S-012 PR F1: full-suite verification + initial sprint summary |
+| [#167](https://github.com/the-lizardking/ict-trading-bot/pull/167) | S-012 PR F4: deployment runbook |
+| #168 | S-012 PR F5: finalize sprint summary + close CHECKPOINT_LOG (this PR) |
 
-PR F1 (this) and F4 (runbook) finalize Phase F. F5 closes the sprint.
+**Total:** 22 PRs (one audit + one Phase-A checkpoint + four configs +
+six code + one tests + two services + four live-mode + three
+verification/runbook/close).
 
 ## Tests added
 
@@ -154,11 +158,16 @@ The 17 failures are **not introduced by S-012**. They fall into three classes, a
 
 S-012 PR E1 added a new, focused live-mode test file (`tests/test_s012_live_mode.py`, 10 tests) covering exactly the interlock contract; the old broken file is left in place for a follow-up sprint to either rewrite or delete.
 
-### Lessons learned (will be reviewed and finalized in F5)
+### Lessons learned
 
-1. **The audit doc library pattern worked.** Splitting `docs/audit/sprint-012/` into 9 focused chunks (one per audit section) plus an index made each follow-up PR small enough to write in one shot, and made the PM-decision document a clean single-source artefact (PRs B1 → C4 each cite specific § 8 items by number).
-2. **The phantom service investigation found a repo-side root cause that the original audit hypothesized to be VM-only.** Always treat "must be VM-only" as a hypothesis, not a conclusion; B3's verification surfaced the actual mechanism (`_load_env_accounts` discovering `.env.example`).
-3. **Tightening defaults beats adding code paths.** PRs C4 + D2 didn't add new validation logic — they changed the default service value from `f"ict-trader-{name}"` to `"ict-trader-live"`. The change is a one-line edit per call site, and it eliminates a whole class of phantom-service bugs without any runtime check.
+1. **Audit doc libraries beat one big audit doc.** Splitting `docs/audit/sprint-012/` into 9 focused chunks (one per audit section) plus an index made each follow-up PR small enough to write in one shot, and made the PM-decision document a clean single-source artefact (PRs B1 → E3a each cite specific § 8 items by number). Pattern recommended for future audit-style sprints.
+2. **Treat audit hypotheses as hypotheses.** The phantom service investigation initially concluded the source must be VM-only; B3's verification accidentally surfaced the actual repo-side mechanism (`_load_env_accounts` discovering `.env.example`). Re-check claims when adjacent code touches them.
+3. **Tightening defaults beats adding code paths.** PRs C4 + D2 didn't add new validation logic — they changed the default service value from `f"ict-trader-{name}"` to `"ict-trader-live"`. One-line edit per call site, whole-class phantom-service elimination without any runtime check. Same pattern with PR E1 (`dry_run != "true"` instead of `dry_run == "false"`) closed the silent-downgrade hole. **Default-tightening as a deliberate technique** for fail-closed systems.
+
+### Suggested CLAUDE.md improvements for the next sprint
+
+1. Add a "audit doc library" recipe to `docs/claude/session-workflow.md` so future sprints with a heavy audit phase reach for the multi-file pattern by default.
+2. The 17 pre-existing `test_runtime_validation.py` failures should be a **first-task** of S-013 (rewrite or delete) so the suite is clean enough that future "pytest green" DoD items are unambiguous. Add an entry to the next sprint backlog.
 
 ## Deferred items
 
