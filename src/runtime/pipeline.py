@@ -407,6 +407,17 @@ def _write_ict_signals_from_meta(signal: dict, settings: dict) -> None:
 # for ticks that previously returned ``side="none"``.
 STRATEGIES = ["breakout_confirmation", "vwap", "killzone", "ict"]
 
+# Per-strategy risk allocation fractions applied inside the multiplexer.
+# Each winner's qty is multiplied by its fraction so that the three core
+# strategies together consume 100 % of the position budget.
+# killzone uses the default (1.0) — it was the original single-strategy
+# path and does its own sizing; do not change without an explicit PR.
+STRATEGY_RISK_PCT: Dict[str, float] = {
+    "breakout_confirmation": 0.4,
+    "vwap": 0.3,
+    "ict": 0.3,
+}
+
 _STRATEGY_BUILDERS: Dict[str, Callable[[dict], Dict[str, Any]]] = {
     "breakout_confirmation": breakout_model_signal_builder,
     "vwap": vwap_signal_builder,
@@ -437,7 +448,13 @@ def multiplexed_signal_builder(settings: dict) -> Dict[str, Any]:
             continue
 
         if signal.get("side") in ("buy", "sell") and float(signal.get("qty", 0)) > 0:
-            logger.info("Multiplexer: '%s' produced actionable signal", strategy_name)
+            risk_scale = STRATEGY_RISK_PCT.get(strategy_name, 1.0)
+            signal = dict(signal)
+            signal["qty"] = float(signal["qty"]) * risk_scale
+            logger.info(
+                "Multiplexer: '%s' produced actionable signal (risk_scale=%.2f)",
+                strategy_name, risk_scale,
+            )
             return signal
 
         logger.info("Multiplexer: '%s' returned no actionable signal", strategy_name)

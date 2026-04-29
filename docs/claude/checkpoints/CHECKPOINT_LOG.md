@@ -11,6 +11,40 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-29-32 — Sprint S-005 M1: Per-strategy risk allocation
+
+- **Session date:** 2026-04-29
+- **Sprint:** S-005 (Full Multi-Strategy Production)
+- **Current sprint phase:** M1 — per-strategy sizing
+- **Last completed checkpoint:** CP-2026-04-29-31 (S-004 M3 HF loaders, PR #99)
+- **Telegram sent:** no (no creds in session)
+- **Alerts sent during session:** none
+- **Blockers:** none
+
+### 1. Completed
+- Added `STRATEGY_RISK_PCT` dict to `src/runtime/pipeline.py`: breakout=0.4, vwap=0.3, ict=0.3 (sum=1.0); killzone defaults to 1.0
+- Applied scaling inside `multiplexed_signal_builder`: winning strategy qty *= STRATEGY_RISK_PCT.get(name, 1.0)
+- Added `test_runtime_pipeline_strategy_qty_scaling` (4 parametrized cases) + `test_runtime_pipeline_strategy_risk_pct_sums_to_one`
+- Updated 3 pre-existing tests whose qty assertions assumed no scaling
+- PR #101 opened (draft): https://github.com/the-lizardking/ict-trading-bot/pull/101
+
+### 2. Files changed
+- `src/runtime/pipeline.py`
+- `tests/test_runtime_pipeline.py`
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_runtime_pipeline.py -q` — 34 passed, 3 failed (pre-existing ccxt failures, unchanged from baseline)
+- Full suite (excl. test_main_loop.py): 651 passed, 24 failed, 5 skipped — net +5 vs baseline of 646 passed, 24 failed
+
+### 4. Remaining
+- none for M1
+
+### 5. Next checkpoint
+**CP-2026-04-29-33** — S-005 M2: Per-strategy risk caps. Create `src/runtime/risk_counters.py` per-strategy open_pos + daily_pnl tracking; update `src/runtime/orders.py` to refuse if any strategy breaches MAX_POS_PER_STRATEGY. Test: `test_per_strategy_risk_refusal`. Branch: same `claude/multi-strategy-isolated-risk-lS9hT`. Read `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry) first.
+
+---
+
 ## CP-2026-04-29-31 — Sprint S-004 M3: HF Hub loaders + upload script
 
 - **Session date:** 2026-04-29

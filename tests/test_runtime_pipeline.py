@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 from src.core.automated_trading_loop import KillZoneScalperBot
 from src.runtime.pipeline import (
     STRATEGIES,
+    STRATEGY_RISK_PCT,
     breakout_model_signal_builder,
     killzone_signal_builder,
     multiplexed_signal_builder,
@@ -488,7 +489,7 @@ def test_multi_strategy_pipeline_ict_fires_when_others_flat(monkeypatch):
     signal = multiplexed_signal_builder(settings)
 
     assert signal["side"] == "buy"
-    assert signal["qty"] == 2.5
+    assert abs(signal["qty"] - 2.5 * STRATEGY_RISK_PCT["ict"]) < 1e-9  # 2.5 * 0.3
     assert signal["meta"]["strategy_name"] == "ict"
 
 
@@ -532,7 +533,7 @@ def test_multi_strategy_pipeline_fallback_to_second(monkeypatch):
     signal = multiplexed_signal_builder(settings)
 
     assert signal["side"] == "sell"
-    assert signal["qty"] == 2.0
+    assert abs(signal["qty"] - 2.0 * STRATEGY_RISK_PCT["vwap"]) < 1e-9  # 2.0 * 0.3
     assert signal["meta"]["strategy_name"] == "vwap"
 
 
@@ -586,8 +587,8 @@ def test_multi_strategy_pipeline_per_strategy_sizing_no_compounding(monkeypatch)
     settings = {"SYMBOL": "BTCUSDT", "MAX_QTY": "3"}
     signal = multiplexed_signal_builder(settings)
 
-    # Only the first-winning strategy qty is returned, no summing
-    assert signal["qty"] == 3.0
+    # Only the first-winning strategy qty is returned, no summing; scaled by risk fraction
+    assert abs(signal["qty"] - 3.0 * STRATEGY_RISK_PCT["breakout_confirmation"]) < 1e-9  # 3.0 * 0.4
     assert signal["meta"]["strategy_name"] == "breakout_confirmation"
 
 
@@ -714,3 +715,46 @@ def test_breakout_builder_uses_max_qty_regardless_of_atr(atr_14, monkeypatch):
         f"Expected qty=0.005 (MAX_QTY) for atr_14={atr_14}, got {result['qty']}"
     )
     assert result["side"] == "buy"
+
+
+# ---------------------------------------------------------------------------
+# S-005 M1 — per-strategy qty scaling (STRATEGY_RISK_PCT)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("strategy,raw_qty,expected_scale", [
+    ("breakout_confirmation", 1.0, 0.4),
+    ("vwap",                  1.0, 0.3),
+    ("ict",                   1.0, 0.3),
+    ("killzone",              1.0, 1.0),  # default: no entry in STRATEGY_RISK_PCT
+])
+def test_runtime_pipeline_strategy_qty_scaling(strategy, raw_qty, expected_scale, monkeypatch):
+    """Multiplexer applies STRATEGY_RISK_PCT to winning signal qty (S-005 M1)."""
+    # Make *only* the target strategy fire; everything else flat.
+    for name in STRATEGIES:
+        if name == strategy:
+            monkeypatch.setitem(
+                _pipeline_mod._STRATEGY_BUILDERS,
+                name,
+                lambda s, _n=name: _make_signal(side="buy", qty=raw_qty, strategy=_n),
+            )
+        else:
+            monkeypatch.setitem(
+                _pipeline_mod._STRATEGY_BUILDERS,
+                name,
+                lambda s: _flat_signal(),
+            )
+
+    settings = {"SYMBOL": "BTCUSDT"}
+    signal = multiplexed_signal_builder(settings)
+
+    assert signal["side"] == "buy"
+    assert signal["meta"]["strategy_name"] == strategy
+    assert abs(signal["qty"] - raw_qty * expected_scale) < 1e-9, (
+        f"{strategy}: expected qty={raw_qty * expected_scale}, got {signal['qty']}"
+    )
+
+
+def test_runtime_pipeline_strategy_risk_pct_sums_to_one():
+    """breakout+vwap+ict fractions must sum to 1.0 (S-005 M1 invariant)."""
+    total = sum(STRATEGY_RISK_PCT.values())
+    assert abs(total - 1.0) < 1e-9, f"STRATEGY_RISK_PCT sums to {total}, expected 1.0"
