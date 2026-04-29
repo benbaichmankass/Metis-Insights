@@ -185,13 +185,12 @@ def breakout_model_signal_builder(settings: dict) -> Dict[str, Any]:
     risk_per_trade = float(
         settings.get("RISK_PER_TRADE", settings.get("risk_per_trade", 0.01)) or 0.01
     )
-    fallback_qty = float(settings.get("MAX_QTY", settings.get("max_qty", 1)) or 1)
-
-    atr = float(model_signal.get("atr_14", 0) or 0)
-    if atr <= 0:
-        qty = fallback_qty
-    else:
-        qty = fallback_qty
+    # Fixed-qty sizing: uses MAX_QTY from settings.
+    # ATR-based fractional sizing was stubbed here but both branches assigned
+    # fallback_qty unconditionally (dead code). Removed in favour of explicit
+    # fixed sizing; ATR-based sizing is a strategy-logic change deferred to a
+    # dedicated PR requiring explicit approval.
+    qty = float(settings.get("MAX_QTY", settings.get("max_qty", 1)) or 1)
 
     return {
         "symbol": settings.get("SYMBOL", settings.get("symbol", "BTCUSDT")),

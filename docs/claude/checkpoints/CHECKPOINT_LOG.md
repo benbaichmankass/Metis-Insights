@@ -10,6 +10,132 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-29-05 — PR 5: delete dead tui_control_panel.py + bybit_config.py
+
+- **Session date:** 2026-04-28
+- **Sprint:** sprint-plan-2026-04-29 (operational-hardening)
+- **Current sprint phase:** PR 5 — repo hygiene
+- **Last completed checkpoint:** CP-2026-04-29-04 (PR 4 done, PR #70 open)
+- **Next checkpoint:** **CP-2026-04-29-06** — start PR 6 (fix dead ATR sizing in breakout builder — Option B: remove dead branch)
+- **Blockers:** none. PR #71 open as draft.
+
+### 1. Completed
+- Deleted `tui_control_panel.py` (only remaining MODE=PAPER string in any .py) and `bybit_config.py` (credentials shim used only by the TUI and three root-level Colab test files with pytest.importorskip guards)
+- Verified no runtime imports of either file; verified deployment-ops.md has no TUI references
+
+### 2. Files changed
+- `tui_control_panel.py` (deleted)
+- `bybit_config.py` (deleted)
+
+### 3. Tests run
+- Full suite: 305 pass, 106 fail, 4 skip — identical to pre-sprint baseline, no regressions
+
+### 4. Remaining
+- none — PR 5 complete
+
+### 5. Next checkpoint
+**CP-2026-04-29-06** — PR 6: fix dead ATR sizing. Default to Option B (remove dead branch, document fixed-qty). Read `src/runtime/pipeline.py:185–207` before starting. Branch: `fix/breakout-fixed-qty`.
+
+**Telegram sent:** no (no creds in env)
+
+---
+
+## CP-2026-04-29-04 — PR 4: refresh sprint audit doc
+
+- **Session date:** 2026-04-28
+- **Sprint:** sprint-plan-2026-04-29 (operational-hardening)
+- **Current sprint phase:** PR 4 — audit doc refresh
+- **Last completed checkpoint:** CP-2026-04-29-03 (PR 3 done, PR #69 open)
+- **Next checkpoint:** **CP-2026-04-29-05** — start PR 5 (delete dead tui_control_panel.py + bybit_config.py)
+- **Blockers:** none. PR #70 open as draft.
+
+### 1. Completed
+- `docs/sprint-plans/2026-04-28-audit.md`: refreshed against 875bfcc — updated front-matter SHA, corrected all file:line citations (run_pipeline 309→452, orders.py lines updated), added inject_runtime_counters + news-veto branch to order-placement diagram, added ict_signal_builder to dispatch table, corrected status=simulated→status=dry_run, moved counter-injection finding to Resolved section (PR #64), added tui_control_panel.py/bybit_config.py to canonical-files table, added ict-heartbeat units to deploy artefacts table, appended Section 4 (F1–F5 findings)
+
+### 2. Files changed
+- `docs/sprint-plans/2026-04-28-audit.md` (110 insertions, 130 deletions — net refresh)
+
+### 3. Tests run
+- Docs-only PR — no test run required
+
+### 4. Remaining
+- none — PR 4 complete
+
+### 5. Next checkpoint
+**CP-2026-04-29-05** — PR 5: delete dead `tui_control_panel.py` + `bybit_config.py`. Verify no imports first, then delete. Branch: `chore/delete-dead-tui`.
+
+**Telegram sent:** no (no creds in env)
+
+---
+
+## CP-2026-04-29-03 — PR 3: daily operational heartbeat
+
+- **Session date:** 2026-04-28
+- **Sprint:** sprint-plan-2026-04-29 (operational-hardening)
+- **Current sprint phase:** PR 3 — daily heartbeat
+- **Last completed checkpoint:** CP-2026-04-29-02 (PR 2 done, PR #68 open)
+- **Next checkpoint:** **CP-2026-04-29-04** — start PR 4 (refresh sprint audit doc)
+- **Blockers:** none. PR #69 open as draft.
+
+### 1. Completed
+- `scripts/daily_heartbeat.py`: stdlib+requests daily heartbeat — kill-switch state, open positions (DB-only), today's PnL, news layer status, last tick time; env loaded via dotenv or manual parse; posts to Telegram via urllib
+- `deploy/ict-heartbeat.service`: oneshot service, user=ubuntu, EnvironmentFile=.env.live
+- `deploy/ict-heartbeat.timer`: OnCalendar=*-*-* 13:00:00 UTC, Persistent=true
+- `tests/test_daily_heartbeat.py`: 9 tests — halted/running, 3 news states, missing-DB fallback, PnL/positions, main() e2e, missing-token exit 1
+- `docs/bot.md`: new "Operational visibility" section with install instructions
+
+### 2. Files changed
+- `scripts/daily_heartbeat.py` (new)
+- `deploy/ict-heartbeat.service` (new)
+- `deploy/ict-heartbeat.timer` (new)
+- `tests/test_daily_heartbeat.py` (new)
+- `docs/bot.md` (+46 lines)
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_daily_heartbeat.py -v` → **9/9 pass**
+- Full suite: 314 pass, 106 fail, 4 skip — pass count +9 vs pre-sprint baseline (no new failures)
+
+### 4. Remaining
+- none — PR 3 complete
+
+### 5. Next checkpoint
+**CP-2026-04-29-04** — PR 4: refresh sprint audit doc. Branch: `docs/refresh-audit-2026-04-29`. Read `docs/sprint-plans/2026-04-28-audit.md` before starting.
+
+**Telegram sent:** no (no creds in env)
+
+---
+
+## CP-2026-04-29-02 — PR 2: news-veto Telegram notification
+
+- **Session date:** 2026-04-28
+- **Sprint:** sprint-plan-2026-04-29 (operational-hardening)
+- **Current sprint phase:** PR 2 — news-veto operator notification
+- **Last completed checkpoint:** CP-2026-04-29-01 (PR 1 done, PR #66 open)
+- **Next checkpoint:** **CP-2026-04-29-03** — start PR 3 (daily operational heartbeat)
+- **Blockers:** none. PR #68 open as draft.
+
+### 1. Completed
+- `src/runtime/pipeline.py`: in the `news_result.veto` branch, added formatted veto notification `🚫 News veto: <reason>\nSymbol:...\nAdj:...|Items:...` capped at 200 chars; wrapped in try/except so notify failure never changes return status; calls `notify_operator(telegram_client, ...)` when client is present, else `send_via_alert_manager`
+- `tests/test_pipeline_news_veto.py`: 2 new tests — `test_news_veto_sends_operator_notification` (asserts notify_operator called once with "News veto" and reason) and `test_veto_notify_failure_does_not_change_status` (asserts RuntimeError caught, status=news_veto preserved)
+
+### 2. Files changed
+- `src/runtime/pipeline.py` (+15 lines)
+- `tests/test_pipeline_news_veto.py` (+55 lines, 2 new tests)
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_pipeline_news_veto.py -v` → **8/8 pass**
+- Full suite (5 broken-import files ignored): 307 pass, 106 fail, 4 skip — pass count +2 vs pre-PR baseline (no new failures)
+
+### 4. Remaining
+- none — PR 2 complete
+
+### 5. Next checkpoint
+**CP-2026-04-29-03** — PR 3: daily operational heartbeat. Create `scripts/daily_heartbeat.py`, `deploy/ict-heartbeat.service`, `deploy/ict-heartbeat.timer`, `tests/test_daily_heartbeat.py`. Read `deploy/` existing unit files for format before starting.
+
+**Telegram sent:** no (no creds in env)
+
+---
+
 ## CP-2026-04-29-01 — PR 1: plumb NEWS_ENABLED=false through config
 
 - **Session date:** 2026-04-28
