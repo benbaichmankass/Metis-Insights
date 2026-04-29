@@ -11,6 +11,43 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-29-29 — Sprint S-004 M1: fix stale ExecStart in ict-telegram-bot.service
+
+- **Session date:** 2026-04-29
+- **Sprint:** Sprint S-004 (deploy hygiene)
+- **Current sprint phase:** M1 — fix stale ExecStart
+- **Last completed checkpoint:** CP-2026-04-29-28 (S-003 N1-a/c complete, PR #96 merged)
+- **Completed this session:**
+  - Identified correct module path from `run_telegram_bot.sh`: `src.bot.telegram_query_bot`
+  - Updated `deploy/ict-telegram-bot.service` ExecStart from `src.telegram_bot` → `src.bot.telegram_query_bot`
+  - `systemd-analyze verify` passes clean
+  - PR #97 opened (draft), watching for CI/reviews
+- **Files changed:**
+  - `deploy/ict-telegram-bot.service`
+  - `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+- **Tests run:** `systemd-analyze verify deploy/ict-telegram-bot.service` — clean (no output)
+- **Telegram sent:** no (import chain blocked by missing pandas)
+- **Alerts sent during session:** none
+- **Blockers:** none
+
+### 1. Completed
+- S-004 M1: stale ExecStart corrected (PR #97)
+
+### 2. Files changed
+- `deploy/ict-telegram-bot.service`
+
+### 3. Tests run
+- `systemd-analyze verify deploy/ict-telegram-bot.service` — clean
+
+### 4. Remaining
+- PR #97 pending merge
+- Post-merge: `sudo systemctl daemon-reload && sudo systemctl restart ict-telegram-bot` on VM
+
+### 5. Next checkpoint
+**CP-2026-04-29-30** — After #97 merges, run daemon-reload + restart on VM (deployment-ops task), or start next S-004 milestone. Read `CHECKPOINT_LOG.md` (this entry) then `docs/claude/cleanup-report.md` for remaining backlog items.
+
+---
+
 ## CP-2026-04-29-28 — Sprint S-003 N1-a/c: dead code cleanup + account-aware /log and /toggle
 
 - **Session date:** 2026-04-29
