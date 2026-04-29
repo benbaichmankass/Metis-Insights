@@ -247,3 +247,52 @@ class TestTraderDatabaseAccountId:
         finally:
             conn.close()
         assert row == ("BTCUSDT", "bybit_main")
+
+
+class TestInsertTradeAccountIdDefault:
+    """insert_trade always writes account_id — defaults to 'live' when omitted."""
+
+    def _read_account_id(self, db_path: str, trade_id: int) -> str:
+        conn = sqlite3.connect(db_path)
+        try:
+            cur = conn.cursor()
+            cur.execute("SELECT account_id FROM trades WHERE id = ?", (trade_id,))
+            return cur.fetchone()[0]
+        finally:
+            conn.close()
+
+    def test_default_live_when_account_id_omitted(self, tmp_path):
+        db = db_module.Database(db_path=str(tmp_path / "default.db"))
+        tid = db.insert_trade({
+            "timestamp": "2026-04-29T10:00:00Z",
+            "symbol": "BTCUSDT",
+            "direction": "LONG",
+            "entry_price": 50000.0,
+            "position_size": 0.01,
+        })
+        assert self._read_account_id(str(tmp_path / "default.db"), tid) == "live"
+
+    def test_explicit_account_id_is_preserved(self, tmp_path):
+        db = db_module.Database(db_path=str(tmp_path / "explicit.db"))
+        tid = db.insert_trade({
+            "timestamp": "2026-04-29T10:00:00Z",
+            "symbol": "BTCUSDT",
+            "direction": "LONG",
+            "entry_price": 50000.0,
+            "position_size": 0.01,
+            "account_id": "bybit_sub1",
+        })
+        assert self._read_account_id(str(tmp_path / "explicit.db"), tid) == "bybit_sub1"
+
+    def test_caller_dict_not_mutated(self, tmp_path):
+        db = db_module.Database(db_path=str(tmp_path / "nomutate.db"))
+        original = {
+            "timestamp": "2026-04-29T10:00:00Z",
+            "symbol": "BTCUSDT",
+            "direction": "LONG",
+            "entry_price": 50000.0,
+            "position_size": 0.01,
+        }
+        before_keys = set(original.keys())
+        db.insert_trade(original)
+        assert set(original.keys()) == before_keys  # account_id not injected into caller's dict
