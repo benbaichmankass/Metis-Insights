@@ -11,6 +11,48 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-29-19 — Sprint S-002 M1a: account_id column migration for trades table
+
+- **Session date:** 2026-04-29
+- **Sprint:** Sprint S-002 (Telegram bot multi-account + workflow hardening)
+- **Current sprint phase:** M1a — schema migration
+- **Last completed checkpoint:** CP-2026-04-29-18 (M0 workflow fix, PR #86 merged)
+- **Next checkpoint:** **CP-2026-04-29-20 — M1b: trader writes account_id on insert** — locate every `INSERT INTO trades` site (likely `src/runtime/orders.py` or a journal helper), populate `account_id` from the trader's account dict, default to `'live'` if missing; add tests for each insert path.
+- **Telegram sent:** no (import chain blocked by missing `pandas` in this environment — exits 0, non-fatal)
+- **Alerts sent during session:** none
+- **Blockers:** Waiting for Ben to merge PR #87 before M1b starts (account_id column must exist in schema before trader insert code writes to it).
+
+### 1. Completed
+- Added `migrate_add_account_id(cur)` to `scripts/init_db.py` — idempotent `ALTER TABLE trades ADD COLUMN account_id TEXT NOT NULL DEFAULT 'live'`; returns `True` on first run, `False` if already present.
+- Added `_migrate_add_account_id(cursor)` to `src/data_layer/database.py` — mirrors the above; called on every `Database()` construction after `_migrate_add_strategy_name`.
+- Added `account_id TEXT NOT NULL DEFAULT 'live'` to both `CREATE TABLE IF NOT EXISTS trades` definitions so fresh DBs include the column immediately.
+- Added `CREATE INDEX IF NOT EXISTS idx_trades_account_created ON trades (account_id, datetime(created_at) DESC)` in both bootstrap paths.
+- Created `tests/test_account_id_column.py` with 13 tests: fresh DB column present, idempotency, index present, legacy DB migration, legacy rows default to `'live'`, helper return values (True/False), insert with explicit `account_id`.
+- Opened PR-M1a as draft: https://github.com/the-lizardking/ict-trading-bot/pull/87
+
+### 2. Files changed
+- `scripts/init_db.py`
+- `src/data_layer/database.py`
+- `tests/test_account_id_column.py` (new)
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_account_id_column.py -v` — **13 passed**
+- `PYTHONPATH=. pytest tests/test_strategy_name_column.py tests/test_account_id_column.py tests/test_notify_session.py tests/test_data_loaders.py tests/test_telegram_query_bot.py -q` — **105 passed, 1 skipped** (no regressions)
+- `python scripts/repo_inventory.py` — clean
+- `python scripts/secret_scan.py` — clean
+
+### 4. Remaining
+- Ben must merge PR #87 before M1b starts.
+- M1b: populate `account_id` on every `INSERT INTO trades`.
+- M1c: `dl.recent_trades_for` and `dl.account_last_trade` — drop legacy-account short-circuit, add `WHERE account_id = ?`.
+- M1d: doc follow-up (architecture notes).
+
+### 5. Next checkpoint
+**CP-2026-04-29-20** — M1b: trader writes `account_id` on insert.
+Read first: this entry, `docs/claude/checkpoint-workflow.md`, then locate every `INSERT INTO trades` site (`grep -rn "INSERT INTO trades" src/`).
+
+---
+
 ## CP-2026-04-29-18 — Sprint S-002 M0: alert subcommand + notification workflow hardening
 
 - **Session date:** 2026-04-29
