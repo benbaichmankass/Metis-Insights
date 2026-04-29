@@ -45,7 +45,67 @@ ict-trading-bot/
     scripts/
 ```
 
-## Components
+## S-008: 9-Unit Translator Architecture (current)
+
+All cross-unit data flows through the **Coordinator** (TRANSLATOR).
+No unit calls another unit directly.
+
+```mermaid
+flowchart TD
+    subgraph Units
+        U1[1. Strategies\nsrc/units/strategies/]
+        U2[2. Accounts\nsrc/units/accounts/]
+        U3[3. Dashboards\nsrc/units/dashboards/]
+        U4[4. Return Commands]
+        U5[5. Telegram Bot\nsrc/bot/telegram_query_bot.py]
+        U6[6. App]
+        U7[7. Trading School\nsrc/units/trading_school/]
+        U8[8. DB\ntrade_journal.db / trades.db]
+        U9[9. Workflows\ndocs/workflows/]
+    end
+
+    COORD[Coordinator\nsrc/core/coordinator.py]
+
+    U1 -- "OrderPackage\n(strategy, symbol,\ndirection, entry,\nsl, tp, confidence)" --> COORD
+    COORD -- "account_execute(pkg)" --> U2
+    COORD -- "dashboard_stats()" --> U3
+    U3 -- "alerts, stats" --> COORD
+    U4 -- "halt / resume" --> COORD
+    COORD -- "pause/resume\n_PAUSED_ACCOUNTS" --> U2
+    U5 -- "cmd_strategies\ncmd_halt/resume\ncmd_alerts" --> COORD
+    U6 -- "config, API keys" --> COORD
+    COORD -- "validate_strategy_update()\ntrigger_backtest()" --> U7
+    COORD -- "trade_journal writes" --> U8
+    U9 -.->|"protocol docs\n(human + Claude)"| COORD
+```
+
+### Data flow: live trade
+1. Strategy generates `OrderPackage` → `Coordinator.strategy_order_pkg()`
+2. Coordinator calls `Coordinator.account_execute(pkg)` → `execute_pkg()` in accounts unit
+3. Accounts unit risk-sizes via `size_order()`, submits to exchange
+4. Dashboards unit receives alerts pushed by accounts unit
+5. Telegram bot reads `dashboard_stats()` / `list_alerts()` — no direct DB calls
+
+### Adding a new strategy
+1. Add one entry to `config/units.yaml → units.strategies`
+2. Add `src/units/strategies/<name>.py` with `order_package(cfg, candles_df)` function
+3. Update `config/strategies.yaml` (service, model, signal_prefixes)
+
+### Key source files
+
+| File | Role |
+|---|---|
+| `config/units.yaml` | Declares all 9 units + their config |
+| `src/core/coordinator.py` | TRANSLATOR — all cross-unit routing |
+| `src/units/strategies/_base.py` | Shared helpers (side_to_direction, derive_sl_tp) |
+| `src/units/accounts/risk.py` | Fixed-fractional position sizing |
+| `src/units/accounts/execute.py` | Order execution + dry-run mode |
+| `src/units/dashboards/alerts.py` | Thread-safe ring-buffer alerts queue |
+| `src/units/dashboards/stats.py` | Unified stats builder |
+| `src/units/trading_school/validator.py` | Strategy metric validation + backtest trigger |
+| `src/bot/telegram_query_bot.py` | Telegram UI — Coordinator consumer only |
+
+## Components (pre-S-008 summary)
 - **API Layer**: Bybit, Binance exchange APIs
 - **Strategy Engine**: ICT, VWAP mean reversion
 - **ML Pipeline**: Signal generation models

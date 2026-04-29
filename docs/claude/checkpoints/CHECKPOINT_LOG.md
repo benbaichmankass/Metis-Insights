@@ -11,6 +11,49 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-29-56 — S-008 #126: Workflows + Architecture docs
+
+- **Session date:** 2026-04-29
+- **Sprint:** S-008 (Translator Architecture Overhaul)
+- **Current sprint phase:** #126 — Workflows + Docs
+- **Last completed checkpoint:** CP-2026-04-29-55 (S-008 #125, PR #125 merged)
+- **Next checkpoint:** **CP-2026-04-29-57** — S-008 #127: Full Integration Tests. `tests/test_coordinator_flow.py` end-to-end flow: strategy → coordinator → account (dry-run) → dashboard alert.
+- **Telegram sent:** no (no creds in session)
+- **Alerts sent during session:** none
+- **Blockers:** none
+
+### 1. Completed
+- `docs/architecture.md`: updated with S-008 Mermaid data-flow diagram, key source file table, "adding a strategy" steps
+- `docs/workflows/README.md`: 9-unit index + golden rule
+- `docs/workflows/{strategies,accounts,dashboards,return_commands,telegram_bot,app,trading_school,db}.md`: per-unit operating procedures
+- Draft PR #126: https://github.com/the-lizardking/ict-trading-bot/pull/126
+
+### 2. Files changed
+- `docs/architecture.md` (updated)
+- `docs/workflows/README.md` (new)
+- `docs/workflows/strategies.md` (new)
+- `docs/workflows/accounts.md` (new)
+- `docs/workflows/dashboards.md` (new)
+- `docs/workflows/return_commands.md` (new)
+- `docs/workflows/telegram_bot.md` (new)
+- `docs/workflows/app.md` (new)
+- `docs/workflows/trading_school.md` (new)
+- `docs/workflows/db.md` (new)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_s008_*.py -q` — 153 passed
+- `python scripts/secret_scan.py` — clean
+
+### 4. Remaining
+- none for this checkpoint
+
+### 5. Next checkpoint
+**CP-2026-04-29-57** — S-008 #127: Full Integration Tests. Add `tests/test_coordinator_flow.py` covering the full end-to-end flow: strategy → coordinator → account (dry-run) → dashboard alert. VM smoke script optional.
+Read: `docs/claude/checkpoints/CHECKPOINT_LOG.md`, `docs/claude/checkpoint-workflow.md`.
+
+---
+
 ## CP-2026-04-29-55 — S-008 #125: Trading School validator
 
 - **Session date:** 2026-04-29
