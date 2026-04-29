@@ -1139,6 +1139,31 @@ async def cmd_accounts(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"⚠️ Could not load accounts: {e}")
 
 
+async def cmd_reload_strats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Reload strategy config from strategies.yaml and confirm via Coordinator."""
+    if not is_authorised(update):
+        return
+    try:
+        coord = get_coordinator()
+        if coord is None:
+            await update.message.reply_text("⚠️ Coordinator unavailable.")
+            return
+        result = coord.reload_strategy_config()
+        if result.get("reloaded"):
+            names = ", ".join(f"`{s}`" for s in result.get("strategies", []))
+            await update.message.reply_text(
+                f"✅ *Strategy config reloaded*\n"
+                f"{result['strategy_count']} strategies: {names}",
+                parse_mode="Markdown",
+            )
+        else:
+            await update.message.reply_text(
+                f"⚠️ Reload failed: {result.get('error', 'unknown error')}"
+            )
+    except Exception as e:
+        await update.message.reply_text(f"⚠️ Could not reload strategy config: {e}")
+
+
 async def cmd_backtest_ui(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Tell the user how to launch the Streamlit backtesting dashboard."""
     if not is_authorised(update):
@@ -1267,6 +1292,7 @@ def main():
             BotCommand("download_journal", "Download trade journal DB"),
             BotCommand("price", "Current BTC price"),
             BotCommand("alerts", "Recent unit alerts (coordinator queue)"),
+            BotCommand("reload_strats", "Reload strategy config from strategies.yaml"),
             BotCommand("backtest_ui", "How to launch the Streamlit backtesting dashboard"),
             BotCommand("accounts", "List accounts or toggle dry/live: /accounts dry|live <name>"),
             BotCommand("accounts_status", "Per-account risk state (daily PnL, halted)"),
@@ -1295,6 +1321,7 @@ def main():
     application.add_handler(CommandHandler("download_journal", cmd_download_journal))
     application.add_handler(CommandHandler("price", cmd_price))
     application.add_handler(CommandHandler("alerts", cmd_alerts))
+    application.add_handler(CommandHandler("reload_strats", cmd_reload_strats))
     application.add_handler(CommandHandler("backtest_ui", cmd_backtest_ui))
     application.add_handler(CommandHandler("accounts", cmd_accounts))
     application.add_handler(CommandHandler("accounts_status", cmd_accounts_status))
