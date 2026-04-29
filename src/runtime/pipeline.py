@@ -1,7 +1,7 @@
 from __future__ import annotations
 from src.runtime.signal_writer import write_signal
 from src.utils.signal_audit_logger import log_signal
-from src.runtime.risk_counters import inject_runtime_counters
+from src.runtime.risk_counters import inject_runtime_counters, inject_per_strategy_counters
 from src.news.news_pipeline import get_news_score
 
 import os
@@ -517,6 +517,9 @@ def run_pipeline(
         result = {"status": "halted", "reason": "halt_flag_active"}
     else:
         settings = inject_runtime_counters(settings, exchange_client)
+        _strat_name = (signal.get("meta") or {}).get("strategy_name")
+        if _strat_name:
+            settings = inject_per_strategy_counters(settings, _strat_name)
         _sym = signal.get("symbol", settings.get("SYMBOL", "BTCUSDT"))
         _base = _sym.upper().split("/")[0]
         if _base.endswith("USDT"):

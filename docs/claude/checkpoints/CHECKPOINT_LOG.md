@@ -11,6 +11,42 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-29-33 — Sprint S-005 M2: Per-strategy risk caps
+
+- **Session date:** 2026-04-29
+- **Sprint:** S-005 (Full Multi-Strategy Production)
+- **Current sprint phase:** M2 — strategy risk caps
+- **Last completed checkpoint:** CP-2026-04-29-32 (S-005 M1, PR #101 merged)
+- **Telegram sent:** no (no creds in session)
+- **Alerts sent during session:** none
+- **Blockers:** none
+
+### 1. Completed
+- Added `inject_per_strategy_counters(settings, strategy_name, db_path=None)` to `src/runtime/risk_counters.py`: queries trade journal for per-strategy open positions and daily PnL; handles missing `strategy_name` column gracefully
+- Added `MAX_POS_PER_STRATEGY` and `MAX_DAILY_LOSS_PER_STRATEGY_USD` soft-refusal checks to `safe_place_order` in `src/runtime/orders.py`; returns `status="refused"`
+- Wired `inject_per_strategy_counters` into `run_pipeline` in `src/runtime/pipeline.py` after global counter injection
+- 11 new tests in `tests/test_per_strategy_risk.py`
+- PR #102 opened (draft): https://github.com/the-lizardking/ict-trading-bot/pull/102
+
+### 2. Files changed
+- `src/runtime/risk_counters.py`
+- `src/runtime/orders.py`
+- `src/runtime/pipeline.py`
+- `tests/test_per_strategy_risk.py` (new)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_per_strategy_risk.py -q` — 11 passed
+- Full suite (excl. test_main_loop.py): 662 passed, 24 failed (pre-existing), 5 skipped — net +11 vs M1
+
+### 4. Remaining
+- none for M2
+
+### 5. Next checkpoint
+**CP-2026-04-29-34** — S-005 M3: Multi-strategy close. Add `cmd_closeall <strategy>` to the Telegram bot: calls `dl.close_all_bybit_positions_for_strategy()` (or equivalent), inline keyboard per-strategy toggle. Test: `TestCmdCloseallStrategy`. Branch: same `claude/multi-strategy-isolated-risk-lS9hT`. Read this entry first.
+
+---
+
 ## CP-2026-04-29-32 — Sprint S-005 M1: Per-strategy risk allocation
 
 - **Session date:** 2026-04-29
