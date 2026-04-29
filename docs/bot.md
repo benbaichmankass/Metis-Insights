@@ -48,3 +48,46 @@
 - [x] Telegram bot integration
 - [ ] Multi-strategy routing
 - [ ] Risk management commands
+
+
+## Operational visibility
+
+Three channels give the operator passive and active observability without SSH:
+
+### 1. `/status` slash command
+Telegram slash command handled by `src/bot/telegram_query_bot.py`.
+Returns current bot status on demand.
+
+### 2. Daily heartbeat (automated)
+`scripts/daily_heartbeat.py` posts once daily at **13:00 UTC** (16:00 IDT —
+post NY open) via the `ict-heartbeat.timer` systemd unit.
+
+Message format:
+```
+📊 Daily heartbeat — YYYY-MM-DD
+🚦 Kill-switch: 🟢 RUNNING | 🔴 HALTED
+📂 Open positions: N
+💰 Today's PnL: $±X.XX
+📰 News layer: disabled | enabled-no-key | enabled-active
+🕐 Last tick: <ts>  (HH:MM ago)
+```
+
+**Install on the VM** (run once via SSH):
+```bash
+sudo cp deploy/ict-heartbeat.service /etc/systemd/system/
+sudo cp deploy/ict-heartbeat.timer   /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now ict-heartbeat.timer
+# Verify:
+sudo systemctl list-timers ict-heartbeat.timer
+```
+
+### 3. News-veto notifications (event-driven)
+When the news veto gate fires, `run_pipeline` sends an immediate Telegram
+push (`feat/news-veto-telegram-notify`, PR #68):
+```
+🚫 News veto: <reason>
+Symbol: <sym> | Side: <side> | Qty: <qty>
+Adj: <adjustment> | Items: <item_count>
+```
+This fires in addition to the regular pipeline-result notification.

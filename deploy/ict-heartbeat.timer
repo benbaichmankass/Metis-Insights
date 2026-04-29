@@ -1,0 +1,19 @@
+# ============================================
+# ICT HEARTBEAT SYSTEMD TIMER
+# Fires ict-heartbeat.service once daily at 13:00 UTC
+# (16:00 IDT — post NY open).
+# Save to: /etc/systemd/system/ict-heartbeat.timer
+# ============================================
+
+[Unit]
+Description=Daily ICT Trading Bot Heartbeat (13:00 UTC)
+Requires=ict-heartbeat.service
+
+[Timer]
+OnCalendar=*-*-* 13:00:00 UTC
+RandomizedDelaySec=60
+Persistent=true
+Unit=ict-heartbeat.service
+
+[Install]
+WantedBy=timers.target

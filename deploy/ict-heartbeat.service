@@ -1,0 +1,23 @@
+# ============================================
+# ICT HEARTBEAT SYSTEMD SERVICE
+# One-shot daily operator status message via Telegram.
+# Triggered by ict-heartbeat.timer (once daily at 13:00 UTC).
+# Save to: /etc/systemd/system/ict-heartbeat.service
+# ============================================
+
+[Unit]
+Description=ICT Trading Bot — Daily Operational Heartbeat
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/ict-trading-bot
+EnvironmentFile=/home/ubuntu/ict-trading-bot/.env.live
+ExecStart=/usr/bin/python3 -u scripts/daily_heartbeat.py
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
