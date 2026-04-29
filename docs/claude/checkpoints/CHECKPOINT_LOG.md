@@ -11,6 +11,44 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-29-42 — Sprint S-006 Pivot: synthetic multi-symbol validation
+
+- **Session date:** 2026-04-29
+- **Sprint:** S-006 (ICT Multi-Symbol Backtest — synthetic pivot)
+- **Current sprint phase:** S-006 M1-M2 synthetic (pivot from real data)
+- **Last completed checkpoint:** CP-2026-04-29-41 (S-006 M5, PR #111 merged)
+- **Telegram sent:** no (no creds in session)
+- **Alerts sent during session:** none
+- **Blockers:** none
+
+### 1. Completed
+Pivot: real-data Colab runs blocked by import/signature issues.
+
+- `scripts/s006_ict_synthetic_validate.py`: 5 symbols × 10k candles, regime-aware FVG cycle generator (bullish/bearish/mixed/ranging), deterministic (numpy seeds), OHLCV invariants enforced. Results: 1048 trades, WR=48.4%, PF=2.04 → **GO ✅**
+- `bin/backtest_ict.py`: `--synthetic` flag added (delegates to script)
+- `docs/sprint-plans/s006-synthetic-report.md`: written by script, committed
+- `tests/test_s006_synthetic_validate.py`: 18 tests (invariants, FVG presence, 50+ trades, GO verdict, report rendering)
+- PR #112 opened (draft): https://github.com/the-lizardking/ict-trading-bot/pull/112
+- Subscribed to PR #112 activity
+
+### 2. Files changed
+- `scripts/s006_ict_synthetic_validate.py` (new)
+- `bin/backtest_ict.py` (--synthetic flag)
+- `docs/sprint-plans/s006-synthetic-report.md` (new, generated)
+- `tests/test_s006_synthetic_validate.py` (new, 18 tests)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_s006_synthetic_validate.py -v` — 18 passed
+
+### 4. Remaining
+- S-006 M3: PF 2.04 > 1.2 → PR to bump ICT_RISK_PCT to 0.4 in config/master-secrets.template.yaml
+
+### 5. Next checkpoint
+**CP-2026-04-29-43** — S-006 M3: ICT_RISK_PCT bump. Read this entry first. GO verdict confirmed. Open a small PR editing `config/master-secrets.template.yaml` to set `ICT_RISK_PCT: 0.4` (from whatever current value is), with comment referencing synthetic validation PF=2.04.
+
+---
+
 ## CP-2026-04-29-41 — Sprint S-006 M5: --config flag + Bybit notebook fix
 
 - **Session date:** 2026-04-29
