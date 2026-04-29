@@ -658,38 +658,60 @@ async def cmd_price(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"⚠️ Could not fetch price: {e}")
 
 
+def _format_trade_row(row: dict) -> str:
+    """Render one trade-journal row using the /last5 emoji template."""
+    return (
+        f"🔔 *Trade #{row['id']}*\n"
+        f"🕒 {row['timestamp']}\n💱 {row['symbol']}\n📈 {row['direction']}\n"
+        f"💰 Entry: {row['entry_price']}\n🛑 SL: {row['stop_loss']}\n"
+        f"🎯 TP1: {row['take_profit_1']} | TP2: {row['take_profit_2']} | TP3: {row['take_profit_3']}\n"
+        f"📦 Size: {row['position_size']}\n"
+        f"🧠 {row['setup_type']} | {row['bias']} | {row['killzone']}\n"
+        f"📝 {row['entry_reason']}\n🚪 {row['exit_reason']}\n"
+        f"💵 PnL: {row['pnl']} ({row['pnl_percent']}%)\n"
+        f"📌 {row['status']}\n📓 {row['notes']}\n"
+        f"🧪 Backtest: {bool(row['is_backtest'])}\n🕒 {row['created_at']}"
+    )
+
+
 async def cmd_last5(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_authorised(update):
         return
     try:
-        rows = fetch_last_5_trades()
-        if not rows:
-            await update.message.reply_text("📭 No trades found in trade_journal.db.")
-            return
-        chart_candidates = [
-            os.path.join(BASE_DIR, "ict_complete_chart.html"),
-            os.path.join(BASE_DIR, "ict_enhanced_chart.html"),
-            os.path.join(BASE_DIR, "swing_chart.html"),
-        ]
-        available_chart = next((p for p in chart_candidates if os.path.exists(p)), None)
-        for row in rows:
-            msg = (
-                f"🔔 *Trade #{row['id']}*\n"
-                f"🕒 {row['timestamp']}\n💱 {row['symbol']}\n📈 {row['direction']}\n"
-                f"💰 Entry: {row['entry_price']}\n🛑 SL: {row['stop_loss']}\n"
-                f"🎯 TP1: {row['take_profit_1']} | TP2: {row['take_profit_2']} | TP3: {row['take_profit_3']}\n"
-                f"📦 Size: {row['position_size']}\n"
-                f"🧠 {row['setup_type']} | {row['bias']} | {row['killzone']}\n"
-                f"📝 {row['entry_reason']}\n🚪 {row['exit_reason']}\n"
-                f"💵 PnL: {row['pnl']} ({row['pnl_percent']}%)\n"
-                f"📌 {row['status']}\n📓 {row['notes']}\n"
-                f"🧪 Backtest: {bool(row['is_backtest'])}\n🕒 {row['created_at']}"
+        accounts = dl.list_accounts() or []
+    except Exception as e:  # noqa: BLE001
+        await update.message.reply_text(f"⚠️ Could not list accounts: {e}")
+        return
+    # Collect rows from every account; today only the legacy account returns
+    # data (trades table has no account_id column yet — tracked follow-up).
+    rows: list = []
+    for acc in accounts:
+        try:
+            rows.extend(dl.recent_trades_for(acc, n=5) or [])
+        except Exception as e:  # noqa: BLE001
+            await update.message.reply_text(
+                f"⚠️ {acc.get('account_id', '?')}: could not load trades: {e}"
             )
-            await update.message.reply_text(msg, parse_mode="Markdown")
+    if not rows:
+        await update.message.reply_text("📭 No trades found in trade_journal.db.")
+        return
+    chart_candidates = [
+        os.path.join(BASE_DIR, "ict_complete_chart.html"),
+        os.path.join(BASE_DIR, "ict_enhanced_chart.html"),
+        os.path.join(BASE_DIR, "swing_chart.html"),
+    ]
+    available_chart = next(
+        (p for p in chart_candidates if os.path.exists(p)), None)
+    for row in rows:
+        try:
+            await update.message.reply_text(
+                _format_trade_row(row), parse_mode="Markdown")
             if available_chart:
-                await update.message.reply_document(document=open(available_chart, "rb"))
-    except Exception as e:
-        await update.message.reply_text(f"⚠️ Could not load last 5 trades: {e}")
+                await update.message.reply_document(
+                    document=open(available_chart, "rb"))
+        except Exception as e:  # noqa: BLE001
+            await update.message.reply_text(
+                f"⚠️ Could not render trade: {e}")
 
 
 async def cmd_log(update: Update, context: ContextTypes.DEFAULT_TYPE):

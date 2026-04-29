@@ -461,3 +461,49 @@ def account_last_trade(account: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     except Exception as exc:  # noqa: BLE001
         logger.warning("account_last_trade(%s): %s", account.get("account_id"), exc)
         return None
+
+
+def recent_trades_for(account: Dict[str, Any], n: int = 5) -> List[Dict[str, Any]]:
+    """Last ``n`` trade-journal rows for ``account`` (newest first).
+
+    Returns dicts with the full set of columns the bot's ``/last5`` handler
+    expects: id, timestamp, symbol, direction, entry/exit price,
+    stop_loss, take_profit_1/2/3, position_size, setup_type, killzone,
+    bias, entry_reason, exit_reason, pnl, pnl_percent, status, notes,
+    is_backtest, created_at.
+
+    Today the ``trades`` table has no ``account_id`` column, so non-legacy
+    accounts get ``[]`` until the schema gains one (tracked as a follow-up
+    in the sprint todo list — same constraint as ``account_last_trade``).
+
+    Returns ``[]`` on any failure or missing DB.
+    """
+    if not isinstance(account, dict):
+        return []
+    if account.get("account_id") != LEGACY_LIVE_ACCOUNT_ID:
+        return []
+    if not os.path.exists(TRADE_JOURNAL_DB):
+        return []
+    try:
+        n = max(1, int(n))
+    except (TypeError, ValueError):
+        n = 5
+    try:
+        conn = sqlite3.connect(TRADE_JOURNAL_DB)
+        try:
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute(
+                "SELECT id, timestamp, symbol, direction, entry_price,"
+                " exit_price, stop_loss, take_profit_1, take_profit_2,"
+                " take_profit_3, position_size, setup_type, killzone, bias,"
+                " entry_reason, exit_reason, pnl, pnl_percent, status, notes,"
+                " is_backtest, created_at FROM trades"
+                " ORDER BY datetime(created_at) DESC, id DESC LIMIT ?",
+                (n,),
+            ).fetchall()
+        finally:
+            conn.close()
+        return [dict(r) for r in rows]
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("recent_trades_for(%s): %s", account.get("account_id"), exc)
+        return []

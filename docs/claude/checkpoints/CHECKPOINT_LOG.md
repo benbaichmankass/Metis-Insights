@@ -11,6 +11,45 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-29-16 — Sprint S-001 PR-E: wire /last5 through dl.recent_trades_for
+
+- **Session date:** 2026-04-29
+- **Sprint:** Sprint S-001 (Telegram bot hardening)
+- **Current sprint phase:** PR-E — third slice of bot wiring. Adds a new `recent_trades_for(account, n)` loader and rewires `cmd_last5` to iterate `dl.list_accounts()`. Closes out the per-handler wiring track; only PR-F (cleanup) remains.
+- **Last completed checkpoint:** CP-2026-04-29-15 (PR-D `/balance` + `/trades` wiring, merged as #83)
+- **Next checkpoint:** **CP-2026-04-29-17** — PR-F: prune legacy helpers (`fetch_last_5_trades`, `get_bybit_client_from_env`, `_get_binance_connector`, `load_account_env`, `fetch_latest_backtest_result`, `format_target_options` legacy bits), migrate `close_all_bybit_positions` to `account: dict`, restore the per-account failure-isolation test.
+- **Blockers:** none.
+
+### 1. Completed
+- Added `dl.recent_trades_for(account, n=5)` in `src/bot/data_loaders.py`. Returns a list of dicts with the full set of columns the bot's `/last5` template renders: `id, timestamp, symbol, direction, entry_price, exit_price, stop_loss, take_profit_1/2/3, position_size, setup_type, killzone, bias, entry_reason, exit_reason, pnl, pnl_percent, status, notes, is_backtest, created_at`.
+- Same legacy-account constraint as `account_last_trade`: returns `[]` for non-legacy accounts (the `trades` table has no `account_id` column yet — already flagged as a sprint follow-up). Returns `[]` on any failure (bad input, missing DB, sqlite error). `n` is coerced to `>=1`.
+- Extracted `_format_trade_row(row)` helper from `cmd_last5` for the emoji-formatted message — pure-Python, easy to unit-test.
+- Rewired `cmd_last5` in `src/bot/telegram_query_bot.py` to iterate `dl.list_accounts()`, call `dl.recent_trades_for(acc, n=5)` per account, and concatenate rows. Per-account failures surface as a warning message but do not stop other accounts from rendering. Empty case (`No trades found`) and chart attachment behaviour preserved.
+- Tests added:
+  - `tests/test_data_loaders.py` (+6 tests, +82 lines): happy path, `n` parameter respected, non-legacy → `[]`, missing DB → `[]`, invalid account → `[]`, invalid `n` coerced.
+  - `tests/test_telegram_query_bot.py` (+4 tests, +102 lines, class `TestCmdLast5IteratesAccounts`): calls loader for each account, empty-rows path, per-account failure isolation, `list_accounts` failure handled.
+
+### 2. Verification
+- `python scripts/repo_inventory.py` — clean (no junk candidates).
+- `python scripts/secret_scan.py` — clean (no tracked-file secrets).
+- `PYTHONPATH=. pytest --collect-only -q --ignore=tests/test_main_loop.py tests` — 625 tests collected (was 615 before PR-E; +10 new tests).
+- `PYTHONPATH=. pytest --ignore=tests/test_main_loop.py tests` — **600 passed, 23 failed, 2 skipped** (vs. 590 / 23 / 2 before PR-E). The 23 failures are the existing `test_runtime_validation.py` baseline — unchanged. No regressions.
+- Baseline confirmed by stashing the working tree and rerunning the suite (590 passed, 23 failed) — the 10-test delta matches the 10 tests added in this PR.
+- Diff stat: `4 files changed, 278 insertions(+), 26 deletions(-)` — within the 300-line PR cap.
+
+### 3. Notes / follow-ups
+- `cmd_last5` does not filter `is_backtest=0`. This matches the legacy `fetch_last_5_trades` behaviour, which the test suite asserts. If we want to hide backtest rows from `/last5`, that's a separate UX decision — flagged for the post-sprint review.
+- The `monkeypatch.setattr(bot.os.path, "exists", lambda _p: False)` guard in the new bot tests prevents chart attachments from interfering. PR-F should consider centralising chart-availability into a small helper for testability.
+- The legacy `fetch_last_5_trades` helper in `telegram_query_bot.py` is now dead code and is the first thing PR-F should remove.
+
+### 4. Loose ends across sprint
+- Trader-side `strategy_name` write on insert (post-sprint).
+- `account_id` column in `trades` table (post-sprint; unblocks per-account `/last5` and `/last_trade`).
+- Per-account failure-isolation test for `cmd_balance` / `cmd_trades` (was trimmed in PR-D to fit the 300-line cap; PR-F restores it).
+
+
+---
+
 ## CP-2026-04-29-15 — Sprint S-001 PR-D: wire /balance + /trades through data_loaders
 
 - **Session date:** 2026-04-29

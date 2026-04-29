@@ -472,3 +472,105 @@ class TestCmdTradesIteratesAccounts:
 
         sent = upd.message.reply_text.call_args.args[0]
         assert sent == "POSITIONS-OK"
+
+
+class TestCmdLast5IteratesAccounts:
+    """PR-E — /last5 wired through dl.recent_trades_for + dl.list_accounts."""
+
+    def _make_update(self):
+        upd = MagicMock()
+        upd.effective_chat.id = 12345
+        upd.callback_query = None
+        upd.message.reply_text = AsyncMock()
+        upd.message.reply_document = AsyncMock()
+        return upd
+
+    def _run(self, coro):
+        import asyncio
+        return asyncio.new_event_loop().run_until_complete(coro)
+
+    @staticmethod
+    def _trade_row(trade_id, symbol="BTCUSDT"):
+        return {
+            "id": trade_id, "timestamp": "2026-04-29T10:00", "symbol": symbol,
+            "direction": "LONG", "entry_price": 65000.0, "exit_price": 66000.0,
+            "stop_loss": 64000.0, "take_profit_1": 66500.0,
+            "take_profit_2": 67000.0, "take_profit_3": 67500.0,
+            "position_size": 0.01, "setup_type": "ICT", "killzone": "London",
+            "bias": "Bullish", "entry_reason": "FVG fill",
+            "exit_reason": "TP1 hit", "pnl": 10.0, "pnl_percent": 1.5,
+            "status": "CLOSED", "notes": "n/a", "is_backtest": 0,
+            "created_at": "2026-04-29 10:30:00",
+        }
+
+    def test_calls_recent_trades_for_each_account(self, monkeypatch):
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        accounts = [
+            {"account_id": "live",  "exchange": "bybit",   "env_path": ""},
+            {"account_id": "alpha", "exchange": "binance", "env_path": ""},
+        ]
+        monkeypatch.setattr(bot.dl, "list_accounts", lambda: accounts)
+        seen = []
+
+        def fake_recent(acc, n=5):
+            seen.append((acc["account_id"], n))
+            return [self._trade_row(1)] if acc["account_id"] == "live" else []
+
+        monkeypatch.setattr(bot.dl, "recent_trades_for", fake_recent)
+        # No charts available
+        monkeypatch.setattr(bot.os.path, "exists", lambda _p: False)
+
+        upd = self._make_update()
+        self._run(bot.cmd_last5(upd, MagicMock()))
+
+        assert ("live", 5) in seen
+        assert ("alpha", 5) in seen
+        # One trade rendered.
+        msgs = [c.args[0] for c in upd.message.reply_text.call_args_list]
+        assert any("Trade #1" in m for m in msgs)
+
+    def test_no_trades_anywhere_renders_empty_message(self, monkeypatch):
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        monkeypatch.setattr(bot.dl, "list_accounts", lambda: [
+            {"account_id": "live", "exchange": "bybit", "env_path": ""},
+        ])
+        monkeypatch.setattr(bot.dl, "recent_trades_for", lambda acc, n=5: [])
+        upd = self._make_update()
+        self._run(bot.cmd_last5(upd, MagicMock()))
+        sent = [c.args[0] for c in upd.message.reply_text.call_args_list]
+        assert any("No trades found" in m for m in sent)
+
+    def test_loader_failure_isolated_per_account(self, monkeypatch):
+        """A raising loader for one account does not block the other."""
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        monkeypatch.setattr(bot.dl, "list_accounts", lambda: [
+            {"account_id": "live",  "exchange": "bybit",   "env_path": ""},
+            {"account_id": "alpha", "exchange": "binance", "env_path": ""},
+        ])
+
+        def fake_recent(acc, n=5):
+            if acc["account_id"] == "alpha":
+                raise RuntimeError("boom")
+            return [self._trade_row(7, "ETHUSDT")]
+
+        monkeypatch.setattr(bot.dl, "recent_trades_for", fake_recent)
+        monkeypatch.setattr(bot.os.path, "exists", lambda _p: False)
+
+        upd = self._make_update()
+        self._run(bot.cmd_last5(upd, MagicMock()))
+        msgs = [c.args[0] for c in upd.message.reply_text.call_args_list]
+        # Warning surfaced for alpha + trade rendered for live.
+        assert any("alpha" in m and "boom" in m for m in msgs)
+        assert any("Trade #7" in m for m in msgs)
+
+    def test_list_accounts_failure_warns_and_returns(self, monkeypatch):
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+
+        def boom():
+            raise RuntimeError("nope")
+
+        monkeypatch.setattr(bot.dl, "list_accounts", boom)
+        upd = self._make_update()
+        self._run(bot.cmd_last5(upd, MagicMock()))
+        sent = [c.args[0] for c in upd.message.reply_text.call_args_list]
+        assert any("Could not list accounts" in m for m in sent)
