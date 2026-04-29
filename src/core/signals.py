@@ -6,7 +6,6 @@ them into a single signals dict.  Plotly visualization is optional
 (gracefully skipped when plotly is not installed).
 
 Colab-ready: instantiate ICTSignalsAnalyzer and call analyze(df).
-Integrates with src.core.automated_trading_loop via analyze_market().
 """
 
 from __future__ import annotations
@@ -277,8 +276,8 @@ class ICTSignalsAnalyzer:
 
 
 # ------------------------------------------------------------------
-# Integration helper – drop-in replacement for turtle_soup_signal
-# in automated_trading_loop.KillZoneScalperBot
+# Integration helper — convenience wrapper that returns
+# (direction, price, meta) from a single OHLCV DataFrame.
 # ------------------------------------------------------------------
 
 def ict_signal_from_df(

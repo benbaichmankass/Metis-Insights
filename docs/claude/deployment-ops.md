@@ -4,6 +4,37 @@
 
 Do not deploy, restart, or live-trade unless explicitly asked.
 
+## Canonical entrypoint (S-012)
+
+The live trader is launched by systemd unit `ict-trader-live.service`,
+which runs `python3 -u -B -m src.main`. **There are no other live trader
+entrypoints.** Manual launches go through the same module:
+`PYTHONPATH=. python3 -m src.main`.
+
+The Telegram bot is launched by `ict-telegram-bot.service` running
+`python3 -u -B -m src.bot.telegram_query_bot`.
+
+S-012 PR C5 / C6 removed the legacy alternatives:
+
+| Removed | Replacement |
+|---|---|
+| `src/core/automated_trading_loop.py` (orphan module) | `src/main.py` |
+| `run_trader.sh` (called the orphan) | `systemctl start ict-trader-live` (or `python -m src.main` directly) |
+| `check_bots.sh` (greped for the orphan name) | rewritten to grep `src.main` and `src.bot.telegram_query_bot` |
+| `strategies/` directory and `src/runtime/strategies/` | `src/units/strategies/` (canonical) |
+| `src/strategies_manager.py` (in-memory dict) | `src/strategy_registry.py` (YAML-driven) |
+
+Single-process architecture (PM § 8 #1): every strategy in the active
+roster (`turtle_soup`, `vwap`) runs inside the same `ict-trader-live`
+process, dispatched by `src/runtime/pipeline.py::multiplexed_signal_builder`
+through `src/core/coordinator.py::Coordinator.strategy_order_pkg`.
+
+Per-strategy systemd units do **not** exist and must not be re-introduced
+without an explicit sprint to author the unit files and refactor the
+dispatcher. The `service:` field has been dropped from
+`config/strategies.yaml` and `config/units.yaml`; the registry defaults
+any missing service entry to `ict-trader-live`.
+
 ## Before live changes
 
 ```bash
