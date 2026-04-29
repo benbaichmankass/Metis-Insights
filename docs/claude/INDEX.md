@@ -24,7 +24,7 @@ Remove stale instructions when they waste context.
 - `checkpoints/CHECKPOINT_LOG.md`: append-only log of session handoffs (source of truth for "where to resume").
 - `checkpoints/HANDOFF_TEMPLATE.md`: template every session copies into the log at the end.
 - `session-workflow.md`: start/middle/end checklist.
-- `repo-map.md`: high-level structure and entry points.
+- `repo-map.md`: high-level structure and entry points. **Updated S-008:** includes 9-unit Coordinator table and key file locations.
 - `debug-memory.md`: recurring bugs and known fixes.
 - `cleanup-policy.md`: safe deletion rules.
 - `cleanup-report.md`: current cleanup backlog.

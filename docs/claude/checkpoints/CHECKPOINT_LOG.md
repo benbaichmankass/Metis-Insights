@@ -11,6 +11,46 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-29-58 — S-008 SPRINT COMPLETE
+
+- **Session date:** 2026-04-29
+- **Sprint:** S-008 (Translator Architecture Overhaul) — **ALL 8 PRs MERGED**
+- **Current sprint phase:** wrap-up
+- **Last completed checkpoint:** CP-2026-04-29-57 (S-008 #127, PR #127 merged)
+- **Next checkpoint:** Start of next sprint — read CHECKPOINT_LOG.md as usual.
+- **Telegram sent:** no (no creds in session)
+- **Alerts sent during session:** none
+- **Blockers:** none
+
+### 1. Completed
+- `docs/claude/repo-map.md`: updated with S-008 9-unit Coordinator table, key file locations, test suite pointers
+- `docs/claude/INDEX.md`: updated repo-map.md entry to note S-008 update
+
+### 2. PRs delivered this sprint
+| PR | Title | Status |
+|----|-------|--------|
+| #120 | Coordinator skeleton + units.yaml | merged |
+| #121 | Strategies unit (ict, vwap, breakout, killzone) | merged |
+| #122 | Accounts unit (risk + execute_pkg) | merged |
+| #123 | Dashboards unified (stats + alerts queue) | merged |
+| #124 | Telegram Bot rewired as Coordinator consumer | merged |
+| #125 | Trading School validator + trigger_backtest stub | merged |
+| #126 | Workflows + Architecture docs | merged |
+| #127 | Full Integration Tests (178 passing) | merged |
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_s008_*.py tests/test_coordinator_flow.py -q` — 178 passed
+- `python scripts/secret_scan.py` — clean
+
+### 4. Remaining
+- `trigger_backtest()` Colab/HF wiring (deferred — PR #126 stub raises NotImplementedError)
+- App unit config-enabled operations (deferred)
+
+### 5. Next checkpoint
+Next sprint — read `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry) to resume.
+
+---
+
 ## CP-2026-04-29-57 — S-008 #127: Full Integration Tests
 
 - **Session date:** 2026-04-29
