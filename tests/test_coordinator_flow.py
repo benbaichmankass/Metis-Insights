@@ -37,19 +37,17 @@ FLOW_UNITS_YAML = textwrap.dedent("""\
     units:
       strategies:
         - name: vwap
-          service: ict-trader-vwap
           model: null
           signal_prefixes: [vwap]
-        - name: killzone
-          service: ict-trader-live
+        - name: turtle_soup
           model: null
-          signal_prefixes: [killzone]
+          signal_prefixes: [turtle_soup, sweep_reversal]
       accounts:
         - id: flow_account
           exchange: bybit
           risk_pct: 0.01
           env_path: .env
-          strategies: [vwap, killzone]
+          strategies: [vwap, turtle_soup]
       dashboards:
         alerts_enabled: true
       return_commands:
@@ -90,21 +88,32 @@ def _make_vwap_candles() -> pd.DataFrame:
     })
 
 
-def _make_killzone_candles(direction: str = "long") -> pd.DataFrame:
+def _make_turtle_soup_candles(direction: str = "long") -> pd.DataFrame:
+    """Bullish-sweep candles for the turtle_soup strategy.
+
+    Mirrors tests/test_s012_turtle_soup.py::_bullish_sweep_frame.
+    """
+    import numpy as np
+    n = 80
+    base = 50_000.0
+    rng = pd.date_range("2026-04-01", periods=n, freq="15min", tz="UTC")
+    df = pd.DataFrame({
+        "open": np.full(n, base),
+        "high": np.full(n, base + 100.0),
+        "low": np.full(n, base - 100.0),
+        "close": np.full(n, base + 50.0),
+        "volume": np.full(n, 1.0),
+    }, index=rng)
+    last = df.index[-1]
     if direction == "long":
-        opens  = [99.0, 100.0, 101.0, 102.0, 103.0]
-        closes = [100.0, 101.0, 102.0, 103.0, 104.0]  # close > open → bullish
+        df.loc[last, "low"] = base - 500.0
+        df.loc[last, "open"] = base - 400.0
+        df.loc[last, "close"] = base + 50.0
     else:
-        opens  = [101.0, 102.0, 103.0, 104.0, 105.0]
-        closes = [100.0, 101.0, 102.0, 103.0, 100.0]  # last close < open → bearish
-    return pd.DataFrame({
-        "open": opens,
-        "high": [max(o, c) + 0.5 for o, c in zip(opens, closes)],
-        "low": [min(o, c) - 0.5 for o, c in zip(opens, closes)],
-        "close": closes,
-        "volume": [500.0] * len(closes),
-        "timestamp": range(len(closes)),
-    })
+        df.loc[last, "high"] = base + 500.0
+        df.loc[last, "open"] = base + 400.0
+        df.loc[last, "close"] = base - 50.0
+    return df
 
 
 @pytest.fixture()
@@ -136,19 +145,19 @@ def coord(units_yaml, tmp_path):
 
 
 class TestStrategyToAccountFlow:
-    def test_killzone_order_package_routed_through_coordinator(self, coord):
-        candles = _make_killzone_candles("long")
-        pkg = coord.strategy_order_pkg("killzone", symbol="BTCUSDT", candles_df=candles)
+    def test_turtle_soup_order_package_routed_through_coordinator(self, coord):
+        candles = _make_turtle_soup_candles("long")
+        pkg = coord.strategy_order_pkg("turtle_soup", symbol="BTCUSDT", candles_df=candles)
         assert isinstance(pkg, OrderPackage)
-        assert pkg.strategy == "killzone"
+        assert pkg.strategy == "turtle_soup"
         assert pkg.direction in ("long", "short")
         assert pkg.entry > 0
         assert pkg.sl > 0
         assert pkg.tp > 0
 
     def test_account_execute_dry_run_returns_trade_id(self, coord):
-        candles = _make_killzone_candles("long")
-        pkg = coord.strategy_order_pkg("killzone", symbol="BTCUSDT", candles_df=candles)
+        candles = _make_turtle_soup_candles("long")
+        pkg = coord.strategy_order_pkg("turtle_soup", symbol="BTCUSDT", candles_df=candles)
         trade_id = coord.account_execute(
             "flow_account", pkg, balance_usdt=10_000.0
         )
@@ -156,23 +165,23 @@ class TestStrategyToAccountFlow:
         assert trade_id.startswith("dry-")
 
     def test_dry_run_pushes_alert(self, coord):
-        candles = _make_killzone_candles("long")
-        pkg = coord.strategy_order_pkg("killzone", symbol="BTCUSDT", candles_df=candles)
+        candles = _make_turtle_soup_candles("long")
+        pkg = coord.strategy_order_pkg("turtle_soup", symbol="BTCUSDT", candles_df=candles)
         coord.account_execute("flow_account", pkg, balance_usdt=10_000.0)
         alerts = coord.list_alerts()
         assert len(alerts) >= 1
 
     def test_full_flow_alert_mentions_strategy(self, coord):
-        candles = _make_killzone_candles("long")
-        pkg = coord.strategy_order_pkg("killzone", symbol="BTCUSDT", candles_df=candles)
+        candles = _make_turtle_soup_candles("long")
+        pkg = coord.strategy_order_pkg("turtle_soup", symbol="BTCUSDT", candles_df=candles)
         coord.account_execute("flow_account", pkg, balance_usdt=10_000.0)
         alerts = coord.list_alerts()
         messages = " ".join(a["message"] for a in alerts)
-        assert "killzone" in messages.lower() or "dry-" in messages.lower()
+        assert "turtle_soup" in messages.lower() or "dry-" in messages.lower()
 
     def test_full_flow_alert_level_is_info(self, coord):
-        candles = _make_killzone_candles("long")
-        pkg = coord.strategy_order_pkg("killzone", symbol="BTCUSDT", candles_df=candles)
+        candles = _make_turtle_soup_candles("long")
+        pkg = coord.strategy_order_pkg("turtle_soup", symbol="BTCUSDT", candles_df=candles)
         coord.account_execute("flow_account", pkg, balance_usdt=10_000.0)
         alerts = coord.list_alerts()
         exec_alerts = [a for a in alerts if a.get("source") == "accounts"]
@@ -181,15 +190,15 @@ class TestStrategyToAccountFlow:
 
     def test_unknown_account_raises_key_error(self, coord):
         pkg = OrderPackage(
-            strategy="killzone", symbol="BTCUSDT", direction="long",
+            strategy="turtle_soup", symbol="BTCUSDT", direction="long",
             entry=100.0, sl=98.0, tp=104.0,
         )
         with pytest.raises(KeyError):
             coord.account_execute("no_such_account", pkg, balance_usdt=1_000.0)
 
     def test_order_package_symbol_matches_request(self, coord):
-        candles = _make_killzone_candles("long")
-        pkg = coord.strategy_order_pkg("killzone", symbol="ETHUSDT", candles_df=candles)
+        candles = _make_turtle_soup_candles("long")
+        pkg = coord.strategy_order_pkg("turtle_soup", symbol="ETHUSDT", candles_df=candles)
         assert pkg.symbol == "ETHUSDT"
 
 
@@ -202,7 +211,7 @@ class TestHaltResumeFlow:
     def test_halt_blocks_account_execute(self, coord):
         coord.return_command("halt")
         pkg = OrderPackage(
-            strategy="killzone", symbol="BTCUSDT", direction="long",
+            strategy="turtle_soup", symbol="BTCUSDT", direction="long",
             entry=100.0, sl=98.0, tp=104.0,
         )
         with pytest.raises(RuntimeError, match="paused"):
@@ -219,7 +228,7 @@ class TestHaltResumeFlow:
         coord.return_command("halt")
         coord.return_command("resume")
         pkg = OrderPackage(
-            strategy="killzone", symbol="BTCUSDT", direction="long",
+            strategy="turtle_soup", symbol="BTCUSDT", direction="long",
             entry=100.0, sl=98.0, tp=104.0,
         )
         trade_id = coord.account_execute("flow_account", pkg, balance_usdt=10_000.0)
@@ -264,7 +273,7 @@ class TestDashboardStatsFlow:
             "src.bot.data_loaders.account_last_trade", lambda a: None
         )
         pkg = OrderPackage(
-            strategy="killzone", symbol="BTCUSDT", direction="long",
+            strategy="turtle_soup", symbol="BTCUSDT", direction="long",
             entry=100.0, sl=98.0, tp=104.0,
         )
         coord.account_execute("flow_account", pkg, balance_usdt=5_000.0)
@@ -331,9 +340,9 @@ class TestTradingSchoolGatingFlow:
 
     def test_validation_result_carries_strategy_name(self, coord):
         result = coord.validate_strategy_update(
-            "killzone", {"trade_count": 10, "win_rate": 0.55}
+            "turtle_soup", {"trade_count": 10, "win_rate": 0.55}
         )
-        assert result["strategy"] == "killzone"
+        assert result["strategy"] == "turtle_soup"
 
     def test_trigger_backtest_queues_job(self, coord, tmp_path, monkeypatch):
         monkeypatch.setenv("BACKTEST_QUEUE_PATH", str(tmp_path / "q.json"))
@@ -348,13 +357,13 @@ class TestTradingSchoolGatingFlow:
 
 class TestMultiStrategySequenceFlow:
     def test_two_strategies_produce_independent_packages(self, coord):
-        kz_candles = _make_killzone_candles("long")
-        pkg_kz = coord.strategy_order_pkg("killzone", symbol="BTCUSDT", candles_df=kz_candles)
-        assert pkg_kz.strategy == "killzone"
+        kz_candles = _make_turtle_soup_candles("long")
+        pkg_kz = coord.strategy_order_pkg("turtle_soup", symbol="BTCUSDT", candles_df=kz_candles)
+        assert pkg_kz.strategy == "turtle_soup"
 
     def test_execute_two_trades_produces_two_alerts(self, coord):
         pkg1 = OrderPackage(
-            strategy="killzone", symbol="BTCUSDT", direction="long",
+            strategy="turtle_soup", symbol="BTCUSDT", direction="long",
             entry=100.0, sl=98.0, tp=104.0,
         )
         pkg2 = OrderPackage(
@@ -370,7 +379,7 @@ class TestMultiStrategySequenceFlow:
         coord.return_command("halt")
         for direction in ("long", "short"):
             pkg = OrderPackage(
-                strategy="killzone", symbol="BTCUSDT", direction=direction,
+                strategy="turtle_soup", symbol="BTCUSDT", direction=direction,
                 entry=100.0, sl=98.0, tp=104.0,
             )
             with pytest.raises(RuntimeError):
@@ -393,10 +402,10 @@ class TestTriggerBacktestFlow:
         import json
         queue = tmp_path / "queue.json"
         monkeypatch.setenv("BACKTEST_QUEUE_PATH", str(queue))
-        coord.trigger_backtest("killzone", config={"symbol": "ETHUSDT"})
+        coord.trigger_backtest("turtle_soup", config={"symbol": "ETHUSDT"})
         lines = [json.loads(l) for l in queue.read_text().splitlines() if l.strip()]
         assert len(lines) == 1
-        assert lines[0]["strategy"] == "killzone"
+        assert lines[0]["strategy"] == "turtle_soup"
         assert lines[0]["symbol"] == "ETHUSDT"
 
     def test_multiple_triggers_append_lines(self, coord, tmp_path, monkeypatch):
@@ -404,7 +413,7 @@ class TestTriggerBacktestFlow:
         queue = tmp_path / "queue.json"
         monkeypatch.setenv("BACKTEST_QUEUE_PATH", str(queue))
         coord.trigger_backtest("vwap")
-        coord.trigger_backtest("killzone")
+        coord.trigger_backtest("turtle_soup")
         lines = [l for l in queue.read_text().splitlines() if l.strip()]
         assert len(lines) == 2
 

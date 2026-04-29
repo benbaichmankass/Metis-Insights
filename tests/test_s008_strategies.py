@@ -234,86 +234,8 @@ class TestVwapOrderPackage:
 # ---------------------------------------------------------------------------
 
 
-class TestKillzoneOrderPackage:
-    def test_requires_candles_or_signal(self):
-        from src.units.strategies.killzone import order_package
-        with pytest.raises(ValueError):
-            order_package({"symbol": "BTCUSDT"}, candles_df=None)
-
-    def test_bullish_candle_returns_long(self):
-        from src.units.strategies.killzone import order_package
-        rng = pd.date_range("2024-01-01", periods=5, freq="5min", tz="UTC")
-        df = pd.DataFrame({
-            "open": [100.0] * 5, "high": [110.0] * 5,
-            "low": [90.0] * 5,   "close": [105.0] * 5,
-            "volume": [10.0] * 5,
-        }, index=rng)
-        pkg = order_package({"symbol": "BTCUSDT"}, candles_df=df)
-        assert pkg["direction"] == "long"
-
-    def test_bearish_candle_returns_short(self):
-        from src.units.strategies.killzone import order_package
-        rng = pd.date_range("2024-01-01", periods=5, freq="5min", tz="UTC")
-        df = pd.DataFrame({
-            "open": [110.0] * 5, "high": [115.0] * 5,
-            "low": [90.0] * 5,   "close": [95.0] * 5,
-            "volume": [10.0] * 5,
-        }, index=rng)
-        pkg = order_package({"symbol": "BTCUSDT"}, candles_df=df)
-        assert pkg["direction"] == "short"
-
-    def test_pre_built_signal_injection(self):
-        """cfg['_signal'] bypasses candles entirely."""
-        from src.units.strategies.killzone import order_package
-        signal = {
-            "symbol": "BTCUSDT", "side": "buy", "qty": 1.0,
-            "meta": {"strategy_name": "killzone", "entry_price": 50000.0,
-                     "stop_loss": 49000.0, "take_profit": 52000.0},
-        }
-        rng = pd.date_range("2024-01-01", periods=3, freq="5min", tz="UTC")
-        df = pd.DataFrame({
-            "open": [50000.0]*3, "high": [51000.0]*3,
-            "low": [49000.0]*3, "close": [50500.0]*3,
-            "volume": [10.0]*3,
-        }, index=rng)
-        pkg = order_package({"symbol": "BTCUSDT", "_signal": signal}, candles_df=df)
-        assert pkg["direction"] == "long"
-        assert pkg["sl"] == 49000.0
-        assert pkg["tp"] == 52000.0
-
-    def test_package_keys(self):
-        from src.units.strategies.killzone import order_package
-        rng = pd.date_range("2024-01-01", periods=5, freq="5min", tz="UTC")
-        df = pd.DataFrame({
-            "open": [100.0]*5, "high": [110.0]*5,
-            "low": [90.0]*5, "close": [105.0]*5,
-            "volume": [10.0]*5,
-        }, index=rng)
-        pkg = order_package({"symbol": "BTCUSDT"}, candles_df=df)
-        for key in ("symbol", "direction", "entry", "sl", "tp", "confidence", "meta"):
-            assert key in pkg
-
-    def test_doji_raises(self):
-        from src.units.strategies.killzone import order_package
-        rng = pd.date_range("2024-01-01", periods=3, freq="5min", tz="UTC")
-        df = pd.DataFrame({
-            "open": [100.0]*3, "high": [110.0]*3,
-            "low": [90.0]*3, "close": [100.0]*3,  # close == open
-            "volume": [10.0]*3,
-        }, index=rng)
-        with pytest.raises(ValueError, match="doji"):
-            order_package({"symbol": "BTCUSDT"}, candles_df=df)
-
-    def test_confidence_is_08(self):
-        from src.units.strategies.killzone import order_package
-        rng = pd.date_range("2024-01-01", periods=3, freq="5min", tz="UTC")
-        df = pd.DataFrame({
-            "open": [100.0]*3, "high": [110.0]*3,
-            "low": [90.0]*3, "close": [105.0]*3,
-            "volume": [10.0]*3,
-        }, index=rng)
-        pkg = order_package({"symbol": "BTCUSDT"}, candles_df=df)
-        assert pkg["confidence"] == 0.8
+# S-012 PR C5: TestKillzoneOrderPackage removed; killzone strategy and
+# its tests deleted along with src/units/strategies/killzone.py.
 
 
 # ---------------------------------------------------------------------------
@@ -337,17 +259,6 @@ class TestCoordinatorStrategyOrderPkg:
         assert isinstance(pkg, OrderPackage)
         assert pkg.strategy == "vwap"
         assert pkg.direction in ("long", "short")
-
-    def test_killzone_end_to_end(self, coord):
-        rng = pd.date_range("2024-01-01", periods=5, freq="5min", tz="UTC")
-        df = pd.DataFrame({
-            "open": [100.0]*5, "high": [110.0]*5,
-            "low": [90.0]*5,   "close": [105.0]*5,
-            "volume": [10.0]*5,
-        }, index=rng)
-        pkg = coord.strategy_order_pkg("killzone", candles_df=df)
-        assert isinstance(pkg, OrderPackage)
-        assert pkg.strategy == "killzone"
 
     def test_unknown_strategy_raises_not_implemented(self, coord):
         with pytest.raises(NotImplementedError):
