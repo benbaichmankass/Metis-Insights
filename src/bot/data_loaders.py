@@ -440,6 +440,58 @@ def account_open_positions(account: Dict[str, Any]) -> Optional[List[Dict[str, A
         return None
 
 
+def close_all_bybit_positions_for_strategy(
+    account: Dict[str, Any], strategy_name: str
+) -> Optional[str]:
+    """Close all Bybit positions for *account* if it runs *strategy_name*.
+
+    Returns a status string when the account runs the strategy (even if
+    there were no positions), or ``None`` when the account's strategy list
+    does not include *strategy_name* (caller should skip it).
+
+    The strategy membership check is case-insensitive.
+    """
+    strategies = account.get("strategies") or []
+    if strategy_name.lower() not in [s.lower() for s in strategies]:
+        return None
+
+    aid = account.get("account_id", "?")
+    client = bybit_client_for(account)
+    if client is None:
+        return f"⚠️ {aid}: Bybit credentials not found."
+
+    try:
+        resp = client.get_positions(category="linear", settleCoin="USDT")
+        positions = [
+            p for p in resp["result"]["list"] if float(p.get("size", 0)) > 0
+        ]
+        if not positions:
+            return f"🟢 {aid}: No open positions to close."
+        closed_count = 0
+        errors: list = []
+        for p in positions:
+            try:
+                side = "Sell" if p["side"] == "Buy" else "Buy"
+                client.place_order(
+                    category="linear", symbol=p["symbol"], side=side,
+                    orderType="Market", qty=p["size"], reduceOnly=True,
+                )
+                closed_count += 1
+            except Exception as e:
+                errors.append(f"{p['symbol']}: {e}")
+        msg = (
+            f"🚨 *{aid} CLOSE {strategy_name.upper()}*\n\n"
+            f"✅ Closed {closed_count} position(s)\n"
+        )
+        if errors:
+            msg += f"❌ Failed: {len(errors)}\nErrors:\n" + "\n".join(errors[:5])
+        return msg
+    except Exception as exc:
+        logger.warning("close_all_bybit_positions_for_strategy(%s, %s): %s",
+                       aid, strategy_name, exc)
+        return f"⚠️ {aid}: Error fetching positions: {exc}"
+
+
 def account_last_trade(account: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """Most-recent live trade row from the trade-journal DB for ``account``.
 

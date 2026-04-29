@@ -727,9 +727,62 @@ async def cmd_toggle(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(result, parse_mode="Markdown")
 
 
+# Display labels for per-strategy close buttons.
+_CLOSE_BUTTON_LABELS = {
+    "breakout_confirmation": "Breakout",
+    "vwap": "VWAP",
+    "ict": "ICT",
+    "killzone": "KillZone",
+}
+
+
+async def _do_closeall_strategy(reply_fn, strategy_name: str) -> None:
+    """Close positions for all Bybit accounts that run *strategy_name*."""
+    try:
+        accounts = dl.list_accounts() or []
+        bybit_accounts = [a for a in accounts if (a.get("exchange") or "").lower() == "bybit"]
+    except Exception as e:
+        await reply_fn(f"⚠️ Could not list accounts: {e}")
+        return
+    if not bybit_accounts:
+        await reply_fn("⚠️ No Bybit accounts configured.")
+        return
+    results = []
+    for account in bybit_accounts:
+        try:
+            msg = dl.close_all_bybit_positions_for_strategy(account, strategy_name)
+            if msg is not None:
+                results.append(msg)
+        except Exception as e:
+            aid = account.get("account_id", "?")
+            results.append(f"⚠️ Error ({aid}): {e}")
+    if not results:
+        await reply_fn(f"ℹ️ No accounts configured to run strategy '{strategy_name}'.")
+        return
+    await reply_fn("\n\n".join(results)[:4000], parse_mode="Markdown")
+
+
 async def cmd_closeall(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_authorised(update):
         return
+    # /closeall <strategy> → filter by strategy
+    if context.args:
+        strategy = context.args[0].strip().lower()
+        await _do_closeall_strategy(update.message.reply_text, strategy)
+        return
+    # No args → inline keyboard for per-strategy selection + close-all
+    strategies = dl.list_live_strategies() or list(_CLOSE_BUTTON_LABELS.keys())
+    buttons = [
+        InlineKeyboardButton(
+            f"Close {_CLOSE_BUTTON_LABELS.get(s, s.title())}",
+            callback_data=f"closeall:{s}",
+        )
+        for s in strategies
+    ]
+    buttons.append(InlineKeyboardButton("🚨 Close ALL", callback_data="closeall:all"))
+    # Arrange in rows of 2
+    rows = [buttons[i:i + 2] for i in range(0, len(buttons), 2)]
+    keyboard = InlineKeyboardMarkup(rows)
     try:
         accounts = dl.list_accounts() or []
         bybit_accounts = [a for a in accounts if (a.get("exchange") or "").lower() == "bybit"]
@@ -739,13 +792,10 @@ async def cmd_closeall(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not bybit_accounts:
         await update.message.reply_text("⚠️ No Bybit accounts configured.")
         return
-    for account in bybit_accounts:
-        try:
-            msg = close_all_bybit_positions(account)
-            await update.message.reply_text(msg, parse_mode="Markdown")
-        except Exception as e:
-            aid = account.get("account_id", "?")
-            await update.message.reply_text(f"⚠️ CRITICAL ERROR in closeall ({aid}): {e}")
+    await update.message.reply_text(
+        "Select strategy to close positions for:",
+        reply_markup=keyboard,
+    )
 
 
 async def cmd_download_journal(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -873,26 +923,36 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
 
     elif action == "closeall":
-        try:
-            accounts = dl.list_accounts() or []
-            bybit_accounts = [a for a in accounts if (a.get("exchange") or "").lower() == "bybit"]
-        except Exception as e:
-            await query.edit_message_text(f"⚠️ Could not list accounts: {e}")
-            return
-        if not bybit_accounts:
-            await query.edit_message_text("⚠️ No Bybit accounts configured.")
-            return
-        await query.edit_message_text(
-            f"🚨 Closing positions across {len(bybit_accounts)} Bybit account(s)…"
-        )
-        results = []
-        for account in bybit_accounts:
+        payload = parts[1] if len(parts) > 1 else "all"
+        if payload != "all":
+            # Per-strategy close via inline button
+            await _do_closeall_strategy(query.edit_message_text, payload)
+        else:
+            # Close ALL positions across all Bybit accounts
             try:
-                results.append(close_all_bybit_positions(account))
+                accounts = dl.list_accounts() or []
+                bybit_accounts = [
+                    a for a in accounts if (a.get("exchange") or "").lower() == "bybit"
+                ]
             except Exception as e:
-                aid = account.get("account_id", "?")
-                results.append(f"⚠️ Error ({aid}): {e}")
-        await query.edit_message_text("\n\n".join(results)[:4000], parse_mode="Markdown")
+                await query.edit_message_text(f"⚠️ Could not list accounts: {e}")
+                return
+            if not bybit_accounts:
+                await query.edit_message_text("⚠️ No Bybit accounts configured.")
+                return
+            await query.edit_message_text(
+                f"🚨 Closing positions across {len(bybit_accounts)} Bybit account(s)…"
+            )
+            results = []
+            for account in bybit_accounts:
+                try:
+                    results.append(close_all_bybit_positions(account))
+                except Exception as e:
+                    aid = account.get("account_id", "?")
+                    results.append(f"⚠️ Error ({aid}): {e}")
+            await query.edit_message_text(
+                "\n\n".join(results)[:4000], parse_mode="Markdown"
+            )
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────

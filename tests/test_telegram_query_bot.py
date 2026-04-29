@@ -927,13 +927,23 @@ class TestCloseAllBybitPositions:
 
 
 class TestCmdCloseallFailureIsolation:
-    """cmd_closeall — one account raising must not block the other."""
+    """closeall — one account raising must not block the other.
 
-    def _make_update(self):
+    With S-005 M3, the direct no-arg /closeall command now shows an inline
+    keyboard. The "close all accounts" path lives in the callback handler
+    under closeall:all, so failure-isolation is tested there.
+    """
+
+    def _make_query(self, data):
+        query = MagicMock()
+        query.data = data
+        query.answer = AsyncMock()
+        query.edit_message_text = AsyncMock()
+        query.message.chat.id = 12345
         upd = MagicMock()
-        upd.effective_chat.id = 12345
-        upd.message.reply_text = AsyncMock()
-        return upd
+        upd.callback_query = query
+        upd.effective_chat = None
+        return upd, query
 
     def _run(self, coro):
         import asyncio
@@ -953,12 +963,13 @@ class TestCmdCloseallFailureIsolation:
             return "🟢 bybit-b: No open positions to close."
 
         monkeypatch.setattr(bot, "close_all_bybit_positions", fake_closeall)
-        upd = self._make_update()
-        self._run(bot.cmd_closeall(upd, MagicMock()))
+        upd, query = self._make_query("closeall:all")
+        self._run(bot.callback_handler(upd, MagicMock()))
 
-        msgs = [c.args[0] for c in upd.message.reply_text.call_args_list]
-        assert any("bybit-a" in m and "network error" in m for m in msgs)
-        assert any("bybit-b" in m for m in msgs)
+        # Final edit_message_text call contains results from both accounts
+        sent = query.edit_message_text.call_args.args[0]
+        assert "bybit-a" in sent and "network error" in sent
+        assert "bybit-b" in sent
 
 
 # ---------------------------------------------------------------------------
@@ -1200,3 +1211,127 @@ class TestCallbackHandlerLogToggleMultiAccount:
 
         sent = query.edit_message_text.call_args.args[0]
         assert "ict-trader-live" in sent
+
+
+# ---------------------------------------------------------------------------
+# S-005 M3 — TestCmdCloseallStrategy
+# ---------------------------------------------------------------------------
+
+class TestCmdCloseallStrategy:
+    """Tests for per-strategy /closeall <strategy> command and inline callback."""
+
+    def _make_update(self, args=None):
+        upd = MagicMock()
+        upd.effective_chat.id = 12345
+        upd.callback_query = None
+        upd.message.reply_text = AsyncMock()
+        ctx = MagicMock()
+        ctx.args = args or []
+        return upd, ctx
+
+    def _make_query(self, data):
+        query = MagicMock()
+        query.data = data
+        query.answer = AsyncMock()
+        query.edit_message_text = AsyncMock()
+        query.message.chat.id = 12345
+        upd = MagicMock()
+        upd.callback_query = query
+        upd.effective_chat = None
+        return upd, query
+
+    def _run(self, coro):
+        import asyncio
+        return asyncio.get_event_loop().run_until_complete(coro)
+
+    def _bybit_account(self, aid, strategies):
+        return {
+            "account_id": aid,
+            "exchange": "bybit",
+            "env_path": None,
+            "service": f"ict-trader-{aid}",
+            "strategies": strategies,
+            "source": "env",
+        }
+
+    def test_cmd_closeall_with_strategy_arg_calls_strategy_filter(self, monkeypatch):
+        """'/closeall vwap' only processes accounts that run vwap."""
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        vwap_acc = self._bybit_account("vwap-acct", ["vwap"])
+        ict_acc = self._bybit_account("ict-acct", ["ict"])
+        monkeypatch.setattr(bot.dl, "list_accounts", lambda: [vwap_acc, ict_acc])
+
+        closed_for = []
+
+        def fake_close(account, strategy_name):
+            closed_for.append((account["account_id"], strategy_name))
+            return f"✅ Closed {account['account_id']}"
+
+        monkeypatch.setattr(bot.dl, "close_all_bybit_positions_for_strategy", fake_close)
+
+        upd, ctx = self._make_update(args=["vwap"])
+        self._run(bot.cmd_closeall(upd, ctx))
+
+        assert closed_for == [("vwap-acct", "vwap"), ("ict-acct", "vwap")]
+
+    def test_cmd_closeall_with_strategy_arg_skips_non_matching(self, monkeypatch):
+        """When close_all_bybit_positions_for_strategy returns None, no message sent for that account."""
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        vwap_acc = self._bybit_account("vwap-acct", ["vwap"])
+        monkeypatch.setattr(bot.dl, "list_accounts", lambda: [vwap_acc])
+
+        def fake_close(account, strategy_name):
+            if strategy_name == "ict":
+                return None  # account doesn't run ict
+            return "✅ closed"
+
+        monkeypatch.setattr(bot.dl, "close_all_bybit_positions_for_strategy", fake_close)
+
+        upd, ctx = self._make_update(args=["ict"])
+        self._run(bot.cmd_closeall(upd, ctx))
+
+        # Reply must say no accounts configured for ict
+        sent = upd.message.reply_text.call_args.args[0]
+        assert "ict" in sent.lower()
+
+    def test_cmd_closeall_no_args_sends_inline_keyboard(self, monkeypatch):
+        """'/closeall' with no args must reply with an InlineKeyboardMarkup."""
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        monkeypatch.setattr(bot.dl, "list_accounts", lambda: [
+            self._bybit_account("a1", ["vwap"])
+        ])
+        monkeypatch.setattr(bot.dl, "list_live_strategies",
+                            lambda: ["breakout_confirmation", "vwap", "ict"])
+
+        # Replace InlineKeyboardMarkup with a simple sentinel factory so
+        # the list-of-rows argument doesn't confuse MagicMock's spec logic.
+        class _FakeKeyboard:
+            def __init__(self, rows):
+                self.rows = rows
+
+        monkeypatch.setattr(bot, "InlineKeyboardMarkup", _FakeKeyboard)
+
+        upd, ctx = self._make_update(args=[])
+        self._run(bot.cmd_closeall(upd, ctx))
+
+        call_kwargs = upd.message.reply_text.call_args
+        assert call_kwargs is not None
+        # reply_markup keyword must have been passed
+        assert "reply_markup" in (call_kwargs.kwargs or {})
+
+    def test_callback_closeall_strategy_dispatches_to_strategy_filter(self, monkeypatch):
+        """Inline button 'closeall:vwap' calls per-strategy close helper."""
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+
+        closed_strategy = []
+
+        async def fake_do_closeall(reply_fn, strategy_name):
+            closed_strategy.append(strategy_name)
+            await reply_fn(f"closed {strategy_name}")
+
+        monkeypatch.setattr(bot, "_do_closeall_strategy", fake_do_closeall)
+
+        upd, query = self._make_query("closeall:vwap")
+        self._run(bot.callback_handler(upd, MagicMock()))
+
+        assert closed_strategy == ["vwap"]
