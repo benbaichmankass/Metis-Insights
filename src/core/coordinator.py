@@ -425,15 +425,28 @@ class Coordinator:
         strategy: str,
         config: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        """Trigger a backtest run for *strategy* via the Trading School unit.
+        """Queue a backtest run for *strategy* via the Colab/VM polling mechanism.
 
-        Raises
-        ------
-        NotImplementedError
-            Until PR #126 wires the Colab/HF pipeline.
+        Writes a JSON line to the backtest queue file (default
+        ``/tmp/backtest-queue.json``; override via ``BACKTEST_QUEUE_PATH`` env
+        var).  A VM cron job or Colab notebook polls this file and runs the
+        backtest.  Pushes an info alert to the dashboards queue.
+
+        Returns
+        -------
+        dict
+            ``{queued: True, strategy: str, queue_path: str, payload: dict}``
         """
         from src.units.trading_school.validator import trigger_backtest
-        return trigger_backtest(strategy, config=config)
+        result = trigger_backtest(strategy, config=config)
+        self.push_alert(
+            f"Backtest queued: {strategy} → {result.get('queue_path')}",
+            source="trading_school",
+            level="info",
+            strategy=strategy,
+            queue_path=result.get("queue_path"),
+        )
+        return result
 
 
 # ---------------------------------------------------------------------------
