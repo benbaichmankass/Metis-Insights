@@ -331,3 +331,144 @@ class TestLatestBacktestPullsFromDataLoaders:
 
         sent = upd.message.reply_text.call_args.args[0]
         assert "Backtest COMPLETED" in sent
+
+
+# ---------------------------------------------------------------------------
+# PR-D: balance / positions formatters consume dl.account_* output
+# ---------------------------------------------------------------------------
+
+class TestFormatBybitBalance:
+    def _account(self):
+        return {"account_id": "live", "exchange": "bybit", "env_path": ""}
+
+    def test_renders_per_coin_lines_from_raw(self, monkeypatch):
+        monkeypatch.setattr(bot, "_account_env", lambda acc: {"STRATEGY": "vwap"})
+        monkeypatch.setattr(bot.dl, "account_balance", lambda acc: {
+            "total_usdt": 1234.0,
+            "raw": {"result": {"list": [{"coin": [
+                {"coin": "USDT", "walletBalance": "1000.5", "usdValue": "1000.5"},
+                {"coin": "BTC",  "walletBalance": "0.0123", "usdValue": "720.0"},
+                {"coin": "ETH",  "walletBalance": "0",      "usdValue": "0"},  # filtered
+            ]}]}},
+        })
+        out = bot.format_bybit_balance(self._account())
+        assert "VWAP Balance" in out
+        assert "USDT: 1000.5000" in out
+        assert "BTC: 0.0123" in out
+        assert "ETH:" not in out  # zero-balance row dropped
+
+    def test_returns_unavailable_when_loader_returns_none(self, monkeypatch):
+        monkeypatch.setattr(bot, "_account_env", lambda acc: {})
+        monkeypatch.setattr(bot.dl, "account_balance", lambda acc: None)
+        out = bot.format_bybit_balance(self._account())
+        assert "⚠️" in out and "unavailable" in out
+
+
+class TestFormatBybitPositions:
+    def _account(self):
+        return {"account_id": "live", "exchange": "bybit", "env_path": ""}
+
+    def test_renders_normalized_rows(self, monkeypatch):
+        monkeypatch.setattr(bot, "_account_env", lambda acc: {"STRATEGY": "ict"})
+        monkeypatch.setattr(bot.dl, "account_open_positions", lambda acc: [
+            {"symbol": "BTCUSDT", "side": "Buy", "size": 0.05,
+             "entry_price": 50000.0, "unrealised_pnl": 12.34},
+        ])
+        out = bot.format_bybit_positions(self._account())
+        assert "ICT Positions" in out
+        assert "BTCUSDT Buy" in out
+        assert "Entry: $50,000.00" in out
+        assert "PnL: $+12.34" in out
+
+    def test_empty_list_renders_no_open(self, monkeypatch):
+        monkeypatch.setattr(bot, "_account_env", lambda acc: {})
+        monkeypatch.setattr(bot.dl, "account_open_positions", lambda acc: [])
+        out = bot.format_bybit_positions(self._account())
+        assert "No open positions" in out
+
+    def test_none_renders_unavailable(self, monkeypatch):
+        monkeypatch.setattr(bot, "_account_env", lambda acc: {})
+        monkeypatch.setattr(bot.dl, "account_open_positions", lambda acc: None)
+        out = bot.format_bybit_positions(self._account())
+        assert "⚠️" in out and "unavailable" in out
+
+
+class TestFormatBinanceBalance:
+    def _account(self):
+        return {"account_id": "alpha", "exchange": "binance", "env_path": ""}
+
+    def test_renders_total_free_used(self, monkeypatch):
+        monkeypatch.setattr(bot, "_account_env", lambda acc: {"STRATEGY": "breakout"})
+        monkeypatch.setattr(bot.dl, "account_balance", lambda acc: {
+            "total_usdt": 500.0,
+            "raw": {"USDT": {"total": 500.0, "free": 480.0, "used": 20.0}},
+        })
+        out = bot.format_binance_balance(self._account())
+        assert "Breakout Balance (Binance Futures)" in out
+        assert "USDT Total: 500.00" in out
+        assert "USDT Free: 480.00" in out
+        assert "USDT Used: 20.00" in out
+
+
+class TestCmdBalanceIteratesAccounts:
+    def _make_update(self):
+        upd = MagicMock()
+        upd.effective_chat.id = 12345
+        upd.callback_query = None
+        upd.message.reply_text = AsyncMock()
+        return upd
+
+    def _run(self, coro):
+        import asyncio
+        return asyncio.new_event_loop().run_until_complete(coro)
+
+    def test_concatenates_blocks_per_account(self, monkeypatch):
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        monkeypatch.setattr(bot.dl, "list_accounts", lambda: [
+            {"account_id": "live",  "exchange": "bybit",   "env_path": ""},
+            {"account_id": "alpha", "exchange": "binance", "env_path": ""},
+        ])
+        monkeypatch.setattr(bot, "format_bybit_balance", lambda acc: "BYBIT-BLOCK")
+        monkeypatch.setattr(bot, "format_binance_balance", lambda acc: "BINANCE-BLOCK")
+
+        upd = self._make_update()
+        self._run(bot.cmd_balance(upd, MagicMock()))
+
+        sent = upd.message.reply_text.call_args.args[0]
+        assert "BYBIT-BLOCK" in sent
+        assert "BINANCE-BLOCK" in sent
+        assert sent.index("BYBIT-BLOCK") < sent.index("BINANCE-BLOCK")
+
+    def test_no_accounts_renders_empty_message(self, monkeypatch):
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        monkeypatch.setattr(bot.dl, "list_accounts", lambda: [])
+        upd = self._make_update()
+        self._run(bot.cmd_balance(upd, MagicMock()))
+        sent = upd.message.reply_text.call_args.args[0]
+        assert "No accounts configured" in sent
+
+
+class TestCmdTradesIteratesAccounts:
+    def _make_update(self):
+        upd = MagicMock()
+        upd.effective_chat.id = 12345
+        upd.callback_query = None
+        upd.message.reply_text = AsyncMock()
+        return upd
+
+    def _run(self, coro):
+        import asyncio
+        return asyncio.new_event_loop().run_until_complete(coro)
+
+    def test_concatenates_position_blocks(self, monkeypatch):
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        monkeypatch.setattr(bot.dl, "list_accounts", lambda: [
+            {"account_id": "live", "exchange": "bybit", "env_path": ""},
+        ])
+        monkeypatch.setattr(bot, "format_bybit_positions", lambda acc: "POSITIONS-OK")
+
+        upd = self._make_update()
+        self._run(bot.cmd_trades(upd, MagicMock()))
+
+        sent = upd.message.reply_text.call_args.args[0]
+        assert sent == "POSITIONS-OK"

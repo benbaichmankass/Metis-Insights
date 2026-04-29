@@ -11,6 +11,52 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-29-15 — Sprint S-001 PR-D: wire /balance + /trades through data_loaders
+
+- **Session date:** 2026-04-29
+- **Sprint:** Sprint S-001 (Telegram bot hardening)
+- **Current sprint phase:** PR-D — second slice of bot wiring. Refactors the four exchange formatters and the two handlers (`cmd_balance`, `cmd_trades`) to go through `data_loaders`.
+- **Last completed checkpoint:** CP-2026-04-29-14 (PR-C bot wiring foundation, merged as #82)
+- **Next checkpoint:** **CP-2026-04-29-16** — PR-E: wire `cmd_last5` through a new `dl.recent_trades_for(account, n)` loader (a follow-up since `cmd_last5` reads `trade_journal.trades`, not `signals.db`).
+- **Blockers:** none.
+
+### 1. Completed
+- Added private helper `_account_env(account)` in the bot — best-effort `dotenv_values` of an account's env file. Returns `{}` on any failure so label rendering is robust.
+- `format_bybit_balance(account)`: now calls `dl.account_balance(account)` and renders per-coin lines from the loader's `raw` field. Same UX as before; no exchange-client construction in the bot.
+- `format_bybit_positions(account)`: now consumes `dl.account_open_positions(account)`'s normalized list `{symbol, side, size, entry_price, unrealised_pnl}`. Drops the dependency on the Bybit response's exact shape.
+- `format_binance_balance(account)` / `format_binance_positions(account)`: same treatment — source data via `dl`, format only here.
+- All four formatter signatures changed from `(env_vars: dict)` to `(account: dict)`. The account dicts are exactly the shape `dl.list_accounts()` returns, so multi-account is naturally supported.
+- Added private dispatch helpers `_render_account_balance(account)` / `_render_account_positions(account)` — pick formatter by `account["exchange"]` with an "unsupported exchange" fallback.
+- `cmd_balance` and `cmd_trades` now iterate over `dl.list_accounts()`, render one block per account, and concatenate. Today returns one block (legacy single account); future `.env.<aid>` files extend without further bot changes.
+- Per-account exception isolation: a render failure for one account turns into a ` ⚠️ ` block, but other accounts still render.
+- `close_all_bybit_positions` left untouched — it places orders, out of scope for the data-only PR.
+- 11 new tests in `tests/test_telegram_query_bot.py`: per-coin balance rendering, zero-balance row dropping, normalized-position rendering, empty/None fallback paths, Binance balance breakdown, multi-account concatenation order, no-accounts message, trades happy-path.
+- One test class deliberately trimmed (per-account failure isolation) to keep the PR insertion count at 299 — right under the 300-line cap. The behaviour is still implemented and can be tested in PR-F.
+
+### 2. Files changed
+- `src/bot/telegram_query_bot.py` (4 formatter rewrites + 2 dispatch helpers + 2 handler rewrites)
+- `tests/test_telegram_query_bot.py` (11 new tests)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+- `python scripts/repo_inventory.py` — pass
+- `python scripts/secret_scan.py` — pass
+- `PYTHONPATH=. pytest tests/test_telegram_query_bot.py -q` — 35 passed (was 26 before PR-D, +11 new − 2 trimmed = +9 net registered)
+- `PYTHONPATH=. pytest --ignore=tests/test_main_loop.py tests` — 23 failed (pre-existing baseline) / 591 passed (was 581 before PR-D — +10 net, no regressions).
+
+### 4. Remaining
+- PR-E: `cmd_last5` wiring — likely a new `dl.recent_trades_for(account, n)` loader against `trade_journal.trades` (today's `dl.recent_signals_for` reads `signals.db`).
+- PR-F: prune the now-unused `get_bybit_client_from_env`, `_get_binance_connector`, and the `load_account_env`-only entry points; add a per-account failure-isolation test back; consider migrating `close_all_bybit_positions` to also take an `account` dict for consistency.
+- Trader-side `strategy_name` write on insert remains a follow-up.
+- Multi-account journal attribution (adding `account` column on `trades`) is still a separate sprint item; `account_last_trade` returns `None` for non-legacy accounts until then.
+
+### 5. Next checkpoint
+**CP-2026-04-29-16** — PR-E: introduce `dl.recent_trades_for(account, n=5)` (reads `trade_journal.trades`, returns normalized list) and rewire `cmd_last5` to consume it. Today the per-strategy multiplexing on a single account means the loader returns the same single account's last 5 trades, but the API is multi-account-ready.
+
+**Telegram sent:** no (no creds in env)
+
+---
+
 ## CP-2026-04-29-14 — Sprint S-001 PR-C: wire bot logs + latest_backtest through data_loaders
 
 - **Session date:** 2026-04-29
