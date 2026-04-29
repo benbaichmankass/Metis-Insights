@@ -11,6 +11,33 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-29-25 — Sprint S-002 M3a: get_strategy_label account-aware
+
+- **Session date:** 2026-04-29
+- **Sprint:** Sprint S-002 (Telegram bot multi-account + workflow hardening)
+- **Current sprint phase:** M3a — get_strategy_label account-aware
+- **Last completed checkpoint:** CP-2026-04-29-24 (M2b delete get_bybit_client_from_env, PR #92 merged)
+- **Completed this session:**
+  - Changed `get_strategy_label(env_vars)` → `get_strategy_label(account)` in `telegram_query_bot.py`
+  - No-arg path now uses `dl.list_accounts()[0]` instead of `load_account_env()`
+  - Updated 6 call sites: `get_strategy_label(_account_env(account))` → `get_strategy_label(account)`
+  - Rewrote all `get_strategy_label` tests in `test_telegram_strategy_labels.py` and `test_telegram_query_bot.py` to use account dicts with `env_path`
+  - PR #93 opened (draft)
+- **Files changed:**
+  - `src/bot/telegram_query_bot.py`
+  - `tests/test_telegram_strategy_labels.py`
+  - `tests/test_telegram_query_bot.py`
+  - `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+- **Tests run:** 132 passed (test_telegram_strategy_labels, test_telegram_query_bot, test_data_loaders, test_account_id_column, test_notify_session)
+- **Telegram sent:** no (import chain blocked by missing pandas)
+- **Alerts sent during session:** none
+- **Remaining in sprint:**
+  - M3b: delete `load_account_env` and `format_target_options` (after M3a PR #93 merged)
+  - Commit sprint plan to `docs/sprint-plans/sprint-plan-2026-04-29.md`
+- **Next checkpoint:** **CP-2026-04-29-26 — M3b: delete load_account_env + format_target_options** — remove both dead helpers, remove tests that specifically test them (3 load_account_env tests + format_target_options tests in test_telegram_strategy_labels.py), verify no remaining callers.
+
+---
+
 ## CP-2026-04-29-24 — Sprint S-002 M2b: delete get_bybit_client_from_env + stale comments
 
 - **Session date:** 2026-04-29
