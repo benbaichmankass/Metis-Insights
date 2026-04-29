@@ -11,6 +11,46 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-29-44 — S-007 #113: YAML strategy registry + loader
+
+- **Session date:** 2026-04-29
+- **Sprint:** S-007 (Strategy Architecture Overhaul)
+- **Current sprint phase:** #113 — registry.py + yaml
+- **Last completed checkpoint:** CP-2026-04-29-43 (S-006 M3, PR #113 for risk config)
+- **Next checkpoint:** **CP-2026-04-29-45** — S-007 #114: rewire pipeline.STRATEGIES and dl.list_accounts() to use strategy_registry
+- **Telegram sent:** no (no creds in session)
+- **Alerts sent during session:** none
+- **Blockers:** none
+
+### 1. Completed
+- `config/strategies.yaml`: three strategies (breakout_confirmation, vwap, ict) each with service + model fields
+- `src/strategy_registry.py`: `load_strategies()`, `model_path()`, `service_name()` with in-process cache; pyyaml required
+- `requirements.txt`: added `pyyaml>=6.0`
+- `tests/test_strategy_registry.py`: 17 tests (unit synthetic YAML + integration against real YAML), all pass
+- Draft PR #114 opened: https://github.com/the-lizardking/ict-trading-bot/pull/114
+
+### 2. Files changed
+- `config/strategies.yaml` (new)
+- `src/strategy_registry.py` (new)
+- `tests/test_strategy_registry.py` (new)
+- `requirements.txt` (pyyaml added)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_strategy_registry.py -v` — 17 passed
+- `python scripts/secret_scan.py` — clean
+- `PYTHONPATH=. pytest --collect-only -q tests` — 686 collected, 5 pre-existing ccxt errors
+
+### 4. Remaining
+- S-007 #114: pipeline + dl rewiring (pipeline.STRATEGIES → registry.keys(), dl.list_accounts() → registry services, /strategies → registry summary)
+- S-007 #115–#119: model loader, signals attribution, bot commands, tests + VM validate
+
+### 5. Next checkpoint
+**CP-2026-04-29-45** — S-007 #114: open `src/runtime/pipeline.py` and `src/bot/data_loaders.py`, replace the hard-coded STRATEGIES list and service lookups with calls to `strategy_registry.load_strategies()`.
+Read: `docs/claude/checkpoints/CHECKPOINT_LOG.md`, `docs/claude/checkpoint-workflow.md`, then `src/runtime/pipeline.py` and `src/bot/data_loaders.py`.
+
+---
+
 ## CP-2026-04-29-43 — S-006 M3: ICT_RISK_PCT=0.4 live sizing bump
 
 - **Session date:** 2026-04-29

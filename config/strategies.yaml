@@ -1,0 +1,10 @@
+strategies:
+  breakout_confirmation:
+    service: ict-trader-breakout
+    model: btc_v1.joblib
+  vwap:
+    service: ict-trader-vwap
+    model: null
+  ict:
+    service: ict-trader-ict
+    model: null
