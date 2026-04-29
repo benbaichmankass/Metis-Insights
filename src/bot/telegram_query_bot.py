@@ -77,16 +77,23 @@ def is_halted() -> bool:
     return os.path.exists(HALT_FLAG_PATH)
 
 
-def fetch_today_pnl() -> tuple:
+def fetch_today_pnl(account_id: str | None = None) -> tuple:
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     try:
         conn = sqlite3.connect(DB_PATH)
         cur = conn.cursor()
-        cur.execute(
-            "SELECT COUNT(*), SUM(COALESCE(pnl, 0)) FROM trades "
-            "WHERE DATE(timestamp) = ? AND is_backtest = 0",
-            (today,),
-        )
+        if account_id is not None:
+            cur.execute(
+                "SELECT COUNT(*), SUM(COALESCE(pnl, 0)) FROM trades "
+                "WHERE DATE(timestamp) = ? AND is_backtest = 0 AND account_id = ?",
+                (today, account_id),
+            )
+        else:
+            cur.execute(
+                "SELECT COUNT(*), SUM(COALESCE(pnl, 0)) FROM trades "
+                "WHERE DATE(timestamp) = ? AND is_backtest = 0",
+                (today,),
+            )
         row = cur.fetchone()
         conn.close()
         return (row[0] or 0, float(row[1] or 0.0))
@@ -94,13 +101,20 @@ def fetch_today_pnl() -> tuple:
         return (0, 0.0)
 
 
-def fetch_open_positions_count() -> int:
+def fetch_open_positions_count(account_id: str | None = None) -> int:
     try:
         conn = sqlite3.connect(DB_PATH)
         cur = conn.cursor()
-        cur.execute(
-            "SELECT COUNT(*) FROM trades WHERE status = 'open' AND is_backtest = 0"
-        )
+        if account_id is not None:
+            cur.execute(
+                "SELECT COUNT(*) FROM trades "
+                "WHERE status = 'open' AND is_backtest = 0 AND account_id = ?",
+                (account_id,),
+            )
+        else:
+            cur.execute(
+                "SELECT COUNT(*) FROM trades WHERE status = 'open' AND is_backtest = 0"
+            )
         row = cur.fetchone()
         conn.close()
         return row[0] or 0
@@ -450,15 +464,42 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     halted = is_halted()
     halt_line = "🔴 *HALTED* — orders blocked" if halted else "🟢 *RUNNING* — orders enabled"
-    trade_count, total_pnl = fetch_today_pnl()
-    open_count = fetch_open_positions_count()
-    label = get_strategy_label()
+
+    try:
+        accounts = dl.list_accounts() or []
+    except Exception:
+        accounts = []
+
+    account_lines: list[str] = []
+    for acc in accounts:
+        aid = acc.get("account_id", "?")
+        label = get_strategy_label(acc)
+        trade_count, total_pnl = fetch_today_pnl(account_id=aid)
+        open_count = fetch_open_positions_count(account_id=aid)
+        svc = acc.get("service") or LIVE_SERVICE_NAME
+        svc_status = get_service_status(svc)
+        account_lines.append(
+            f"*{label}* (`{aid}`)\n"
+            f"  📊 Trades today: {trade_count} | P&L: ${total_pnl:+.2f}\n"
+            f"  📂 Open (DB): {open_count} | `{svc}`: {svc_status}"
+        )
+
+    if not account_lines:
+        # Fallback: no accounts discovered — show aggregate totals as before.
+        trade_count, total_pnl = fetch_today_pnl()
+        open_count = fetch_open_positions_count()
+        label = get_strategy_label()
+        account_lines.append(
+            f"*{label}* trader: `{get_service_status(LIVE_SERVICE_NAME)}`\n"
+            f"  📊 Trades today: {trade_count} | P&L: ${total_pnl:+.2f}\n"
+            f"  📂 Open (DB): {open_count}"
+        )
+
+    accounts_block = "\n\n".join(account_lines)
     text = (
         "✅ *ICT Trading Bot Status*\n\n"
-        f"🚦 Kill-switch: {halt_line}\n"
-        f"📊 Today's trades: {trade_count} | P&L: ${total_pnl:+.2f}\n"
-        f"📂 Open positions (DB): {open_count}\n\n"
-        f"🟢 {label} trader: `{get_service_status(LIVE_SERVICE_NAME)}`\n"
+        f"🚦 Kill-switch: {halt_line}\n\n"
+        f"{accounts_block}\n\n"
         f"🤖 Telegram bot: `{get_service_status('ict-telegram-bot')}`\n"
         f"🕐 {now}"
     )
