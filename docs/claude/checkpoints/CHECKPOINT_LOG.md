@@ -11,6 +11,38 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-29-36 — Sprint S-005 M5: Integration tests + deploy verification
+
+- **Session date:** 2026-04-29
+- **Sprint:** S-005 (Full Multi-Strategy Production)
+- **Current sprint phase:** M5 — integration tests + VM deploy verification (FINAL)
+- **Last completed checkpoint:** CP-2026-04-29-35 (S-005 M4, PR #104 merged)
+- **Telegram sent:** no (no creds in session)
+- **Alerts sent during session:** none
+- **Blockers:** none
+
+### 1. Completed
+- `tests/test_multiplex_integration.py`: 10 end-to-end integration tests covering full S-005 multiplexer stack (STRATEGY_RISK_PCT scaling, per-strategy caps, halt flag, all-flat fallback, risk invariants); no network calls
+- `scripts/verify_deploy.py`: VM deploy verification script checking required env vars, safety flags, S-005 per-strategy caps, pipeline import health, STRATEGY_RISK_PCT sum=1.0 invariant; exits 0/1; optionally notifies Telegram
+- PR #105 opened (draft): https://github.com/the-lizardking/ict-trading-bot/pull/105
+
+### 2. Files changed
+- `tests/test_multiplex_integration.py` (new)
+- `scripts/verify_deploy.py` (new)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_multiplex_integration.py -q` — 10 passed
+- Full suite (excl. test_main_loop.py): 697 passed, 24 failed (pre-existing), 5 skipped — net +10 vs M4
+
+### 4. Remaining
+- none — Sprint S-005 is complete (all 5 milestones shipped across PRs #101–#105)
+
+### 5. Next checkpoint
+**CP-2026-04-29-37** — Sprint S-006 planning or follow-up work. Read this entry first. Sprint S-005 is fully done; await PM direction for next sprint.
+
+---
+
 ## CP-2026-04-29-35 — Sprint S-005 M4: /strategies dashboard command
 
 - **Session date:** 2026-04-29
