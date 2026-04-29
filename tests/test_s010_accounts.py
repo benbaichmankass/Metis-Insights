@@ -208,3 +208,124 @@ class TestLoadAccounts:
     def test_missing_file_raises(self, tmp_path):
         with pytest.raises(FileNotFoundError):
             load_accounts(str(tmp_path / "nonexistent.yaml"))
+
+
+# ---------------------------------------------------------------------------
+# S-011 PR #1: dry_run flag + toggle
+# ---------------------------------------------------------------------------
+
+class TestDryRunFlag:
+    def _account(self) -> "TradingAccount":
+        from src.units.accounts.account import TradingAccount
+        from src.units.accounts.risk import RiskManager
+        rm = RiskManager({"daily_usd": 100, "pos_size": 500})
+        return TradingAccount("test", "bybit", "KEY", rm)
+
+    def test_default_dry_run_is_true(self):
+        acc = self._account()
+        assert acc.dry_run is True
+
+    def test_place_order_default_returns_dry_id(self):
+        acc = self._account()
+        tid = acc.place_order(_pkg())
+        assert tid.startswith("dry-")
+
+    def test_explicit_dry_run_kwarg_overrides_instance(self):
+        acc = self._account()
+        acc.dry_run = False  # instance says live
+        # but explicit kwarg says dry
+        tid = acc.place_order(_pkg(), dry_run=True)
+        assert tid.startswith("dry-")
+
+    def test_status_includes_dry_run_key(self):
+        acc = self._account()
+        s = acc.status()
+        assert "dry_run" in s
+        assert s["dry_run"] is True
+
+    def test_status_reflects_toggled_dry_run(self):
+        acc = self._account()
+        acc.dry_run = False
+        assert acc.status()["dry_run"] is False
+
+
+class TestDryRunOverrides:
+    def setup_method(self):
+        import src.units.accounts as _pkg
+        _pkg._DRY_RUN_OVERRIDES.clear()
+
+    def teardown_method(self):
+        import src.units.accounts as _pkg
+        _pkg._DRY_RUN_OVERRIDES.clear()
+
+    def test_set_account_dry_run_persists(self, accounts_yaml):
+        from src.units.accounts import set_account_dry_run, load_accounts
+        set_account_dry_run("bybit_1", False)
+        accounts = load_accounts(accounts_yaml)
+        bybit_1 = next(a for a in accounts if a.name == "bybit_1")
+        assert bybit_1.dry_run is False
+
+    def test_unset_accounts_keep_default(self, accounts_yaml):
+        from src.units.accounts import set_account_dry_run, load_accounts
+        set_account_dry_run("bybit_1", False)
+        accounts = load_accounts(accounts_yaml)
+        bybit_2 = next(a for a in accounts if a.name == "bybit_2")
+        assert bybit_2.dry_run is True
+
+    def test_toggle_back_to_dry(self, accounts_yaml):
+        from src.units.accounts import set_account_dry_run, load_accounts
+        set_account_dry_run("bybit_1", False)
+        set_account_dry_run("bybit_1", True)
+        accounts = load_accounts(accounts_yaml)
+        bybit_1 = next(a for a in accounts if a.name == "bybit_1")
+        assert bybit_1.dry_run is True
+
+    def test_get_dry_run_overrides_returns_copy(self):
+        from src.units.accounts import set_account_dry_run, get_dry_run_overrides
+        set_account_dry_run("bybit_1", False)
+        overrides = get_dry_run_overrides()
+        assert overrides == {"bybit_1": False}
+        overrides["bybit_1"] = True  # mutate copy
+        from src.units.accounts import get_dry_run_overrides as g
+        assert g()["bybit_1"] is False  # original unchanged
+
+
+class TestCoordinatorSetAccountDryRun:
+    def setup_method(self):
+        import src.units.accounts as _pkg
+        _pkg._DRY_RUN_OVERRIDES.clear()
+
+    def teardown_method(self):
+        import src.units.accounts as _pkg
+        _pkg._DRY_RUN_OVERRIDES.clear()
+
+    def _coord(self):
+        from src.core.coordinator import Coordinator
+        return Coordinator()
+
+    def test_returns_correct_mode_dict(self):
+        coord = self._coord()
+        result = coord.set_account_dry_run("bybit_1", False)
+        assert result["account"] == "bybit_1"
+        assert result["dry_run"] is False
+        assert result["mode"] == "live"
+
+    def test_dry_mode_dict(self):
+        coord = self._coord()
+        result = coord.set_account_dry_run("bybit_1", True)
+        assert result["mode"] == "dry"
+
+    def test_toggle_pushes_alert(self):
+        coord = self._coord()
+        coord.pop_alerts()
+        coord.set_account_dry_run("bybit_1", False)
+        alerts = coord.list_alerts()
+        assert any("bybit_1" in a.get("message", "") and "live" in a.get("message", "") for a in alerts)
+
+    def test_toggle_persists_across_load_accounts(self, accounts_yaml):
+        from src.units.accounts import load_accounts
+        coord = self._coord()
+        coord.set_account_dry_run("bybit_1", False)
+        accounts = load_accounts(accounts_yaml)
+        bybit_1 = next(a for a in accounts if a.name == "bybit_1")
+        assert bybit_1.dry_run is False
