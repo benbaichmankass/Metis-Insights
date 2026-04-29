@@ -11,6 +11,49 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-29-31 — Sprint S-004 M3: HF Hub loaders + upload script
+
+- **Session date:** 2026-04-29
+- **Sprint:** Sprint S-004 (deploy hygiene + repo cleanup)
+- **Current sprint phase:** M3 — HF migration prep
+- **Last completed checkpoint:** CP-2026-04-29-30 (S-004 M2 archived docs deleted, PR #98 merged)
+- **Completed this session:**
+  - Added `huggingface_hub>=0.23.0` to `requirements.txt`
+  - `strategies/breakout_confirmation.py`: `_load_model()` tries HF Hub first (`bentzbk/ict-trading-bot-rf-breakout-v1`), falls back to local `.joblib`. Also fixes fragile relative path.
+  - `ml/src/test_breakout_strategy.py`: `_load_raw_df()` tries HF Hub first (`bentzbk/ict-trading-bot-btcusdt-1m`), falls back to local CSV.
+  - `scripts/hf_upload_large_files.py`: one-shot upload script for all 3 large assets; prints `git rm` command to run after confirming uploads.
+  - `tests/test_telegram_strategy_labels.py`: fixed stale assertion — `test_paper_env_path_constant_removed` incorrectly expected `LIVE_ENV_PATH` to exist (deleted in S-003 N1-a PR #96).
+  - PR #99 opened (draft), watching.
+- **Files changed:**
+  - `requirements.txt`
+  - `strategies/breakout_confirmation.py`
+  - `ml/src/test_breakout_strategy.py`
+  - `scripts/hf_upload_large_files.py` (new)
+  - `tests/test_telegram_strategy_labels.py`
+  - `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+- **Tests run:** 120 passed, 1 skipped
+- **Telegram sent:** no (import chain blocked by missing pandas)
+- **Alerts sent during session:** none
+- **Blockers:** none
+
+### 1. Completed
+- S-004 M3: HF loaders wired, upload script created, stale test fixed (PR #99)
+
+### 2. Files changed
+- `requirements.txt`, `strategies/breakout_confirmation.py`, `ml/src/test_breakout_strategy.py`, `scripts/hf_upload_large_files.py`, `tests/test_telegram_strategy_labels.py`
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_telegram_strategy_labels.py tests/test_telegram_query_bot.py tests/test_data_loaders.py -q` — 120 passed, 1 skipped
+
+### 4. Remaining
+- **User action required:** run `python scripts/hf_upload_large_files.py` (needs HF token with write access)
+- **S-004 M4:** after upload confirmed — `git rm data/bybit_btcusdt_1m.csv ml/data/raw/btcusdt_1m.csv ml/models/local/btc_breakout_confirmation_v1.joblib`
+
+### 5. Next checkpoint
+**CP-2026-04-29-32** — S-004 M4: after user confirms HF uploads succeeded, `git rm` the 3 large files and open final cleanup PR. Read this entry first.
+
+---
+
 ## CP-2026-04-29-30 — Sprint S-004 M2: delete archived planning docs
 
 - **Session date:** 2026-04-29
