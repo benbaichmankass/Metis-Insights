@@ -130,7 +130,9 @@ def test_list_accounts_multi_env(fake_repo):
     assert "live" in ids
     assert "binance-sub-1" in ids
     sub = next(a for a in out if a["account_id"] == "binance-sub-1")
-    assert sub["service"] == "ict-trader-binance-sub-1"
+    # S-012 PR D2 (single-process): every env-discovered account routes
+    # through ict-trader-live; per-account systemd units do not exist.
+    assert sub["service"] == "ict-trader-live"
     assert sub["exchange"] == "binance"
 
 

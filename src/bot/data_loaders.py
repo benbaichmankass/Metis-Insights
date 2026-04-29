@@ -191,8 +191,11 @@ def _load_yaml_accounts() -> List[Dict[str, Any]]:
             "account_id": aid,
             "exchange": str(item.get("exchange", "")).strip().lower() or "unknown",
             "env_path": str(item.get("env_path", "")).strip() or None,
-            "service": str(item.get("service", "")).strip()
-                       or f"{TRADER_SERVICE_PREFIX}{aid}",
+            # S-012 PR D2 (single-process): default to LEGACY_LIVE_SERVICE
+            # not f"{TRADER_SERVICE_PREFIX}{aid}". Per-account systemd
+            # units do not exist post-S-012; every account routes through
+            # ict-trader-live.
+            "service": str(item.get("service", "")).strip() or LEGACY_LIVE_SERVICE,
             "strategies": list(item.get("strategies", [])) or list_live_strategies(),
             "source": "yaml",
         })
@@ -233,7 +236,11 @@ def _load_env_accounts(repo_root: Optional[str] = None) -> List[Dict[str, Any]]:
             "account_id": aid,
             "exchange": _exchange_from_env(env_path),
             "env_path": env_path,
-            "service": f"{TRADER_SERVICE_PREFIX}{aid}",
+            # S-012 PR D2 (single-process): every env-discovered account
+            # also routes through ict-trader-live. Per-account .service
+            # files do not exist; D3 adds the regression test that
+            # surfaces phantom service references.
+            "service": LEGACY_LIVE_SERVICE,
             "strategies": list_live_strategies(),
             "source": "env",
         })
@@ -586,7 +593,10 @@ def strategy_dashboard_data(strategies: Optional[List[str]] = None) -> List[Dict
         reg = reg_by_name.get(s, {})
         rows.append({
             "strategy": s,
-            "service": reg.get("service") or f"ict-trader-{s}",
+            # S-012 PR D2 (single-process): default to ict-trader-live
+            # rather than f"ict-trader-{s}". Per-strategy services do not
+            # exist post-S-012.
+            "service": reg.get("service") or LEGACY_LIVE_SERVICE,
             "model": reg.get("model"),
             "signals_today": _count_signals_today(s),
             "pnl": _strategy_pnl_today(s),
