@@ -13,6 +13,23 @@ Safe to re-run: uses CREATE TABLE IF NOT EXISTS so existing data is preserved.
 import os
 import sqlite3
 
+
+def migrate_add_strategy_name(cur: sqlite3.Cursor) -> bool:
+    """Add the ``strategy_name`` column to the ``trades`` table if missing.
+
+    Idempotent: safe to call on fresh DBs (created with the column) and on
+    pre-existing DBs (where the column gets added). Returns ``True`` when
+    the column was actually added by this call, ``False`` when it was
+    already present.
+    """
+    cur.execute("PRAGMA table_info(trades)")
+    columns = {row[1] for row in cur.fetchall()}
+    if "strategy_name" in columns:
+        return False
+    cur.execute("ALTER TABLE trades ADD COLUMN strategy_name TEXT")
+    return True
+
+
 # The DB lives next to telegram_query_bot.py in src/bot/
 BASE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "src", "bot")
 DB_PATH = os.path.abspath(os.path.join(BASE_DIR, "trade_journal.db"))
@@ -50,10 +67,14 @@ def init_db(db_path: str) -> None:
             status          TEXT,          -- OPEN | CLOSED | CANCELLED
             notes           TEXT,
             is_backtest     INTEGER DEFAULT 0,  -- 0 = live, 1 = backtest
+            strategy_name   TEXT,          -- e.g. breakout_confirmation, vwap, killzone, ict
             created_at      TEXT DEFAULT (datetime('now'))
         )
         """
     )
+    # Idempotent migration for pre-existing DBs that were created before
+    # the strategy_name column was introduced. Safe to run repeatedly.
+    migrate_add_strategy_name(cur)
     print("  [OK] trades table ready.")
 
     # ------------------------------------------------------------------
