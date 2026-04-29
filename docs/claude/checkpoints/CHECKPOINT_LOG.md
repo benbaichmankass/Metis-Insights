@@ -11,6 +11,42 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-29-46 — S-007 #115: safe model loader via registry.model_path()
+
+- **Session date:** 2026-04-29
+- **Sprint:** S-007 (Strategy Architecture Overhaul)
+- **Current sprint phase:** #115 — model loader safe
+- **Last completed checkpoint:** CP-2026-04-29-45 (S-007 #114, PR #115 merged)
+- **Next checkpoint:** **CP-2026-04-29-47** — S-007 #116: signals/trades attribution
+- **Telegram sent:** no (no creds in session)
+- **Alerts sent during session:** none
+- **Blockers:** none
+
+### 1. Completed
+- `strategies/breakout_confirmation.py`: `_local_model_path()` reads from `registry.model_path("breakout_confirmation")`; falls back to legacy path; `_load_model()` raises `FileNotFoundError` with clear message on missing file
+- `tests/test_s007_safe_model_loader.py`: 8 tests, all pass
+- Draft PR #116: https://github.com/the-lizardking/ict-trading-bot/pull/116
+
+### 2. Files changed
+- `strategies/breakout_confirmation.py`
+- `tests/test_s007_safe_model_loader.py` (new)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_s007_safe_model_loader.py tests/test_strategy_registry.py -q` — 25 passed
+- `python scripts/secret_scan.py` — clean
+
+### 4. Remaining
+- S-007 #116: signals/trades attribution
+- S-007 #117–118: bot commands (/strategies → registry summary)
+- S-007 #119: tests + VM validate script
+
+### 5. Next checkpoint
+**CP-2026-04-29-47** — S-007 #116: signals/trades attribution. Grep for `strategy_name` in signal_writer and database writes; ensure strategy names written to DB come from registry keys.
+Read: `docs/claude/checkpoints/CHECKPOINT_LOG.md`, `docs/claude/checkpoint-workflow.md`.
+
+---
+
 ## CP-2026-04-29-45 — S-007 #114: pipeline + data_loaders rewired to registry
 
 - **Session date:** 2026-04-29
