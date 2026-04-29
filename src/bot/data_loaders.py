@@ -138,6 +138,33 @@ def list_trader_services(deploy_dir: Optional[str] = None) -> List[str]:
 
 _ENV_RE = re.compile(r"^\.env\.(?P<account_id>[A-Za-z0-9_\-]+)$")
 
+# S-012 PR D3 (phantom service investigation): account_id values that
+# never represent real accounts. Filter them out of env discovery so the
+# bot never sees phantom services like `ict-trader-example` or
+# `ict-trader-bak` (the symptom that triggered S-012). Compare
+# case-insensitively.
+_ENV_DISCOVERY_RESERVED = {
+    "example",         # .env.example — repo template
+    "sample",          # .env.sample — alternate naming
+    "template",        # .env.template
+    "dist",            # .env.dist — packaging convention
+    "default",         # .env.default
+    "bak",             # .env.bak — backup file (the second phantom name)
+    "backup",          # .env.backup
+    "old",             # .env.old
+    "orig",            # .env.orig
+    "save",            # .env.save
+    "test",            # .env.test — testing convention
+    "tests",           # .env.tests
+    "ci",              # .env.ci — CI override
+    "local",           # .env.local — convention used by some frameworks
+    "development",     # .env.development
+    "dev",             # .env.dev
+    "production",      # .env.production
+    "prod",            # .env.prod
+    "staging",         # .env.staging
+}
+
 
 def _exchange_from_env(env_path: str) -> str:
     try:
@@ -230,6 +257,17 @@ def _load_env_accounts(repo_root: Optional[str] = None) -> List[Dict[str, Any]]:
             continue
         aid = m.group("account_id")
         if aid == LEGACY_LIVE_ACCOUNT_ID:
+            continue
+        # S-012 PR D3: skip reserved env-file names (.env.example,
+        # .env.bak, .env.template, …) so they never produce phantom
+        # account_ids / service references. This is the repo-side root
+        # cause of the ict-trader-example / ict-trader-bak symptom that
+        # triggered S-012.
+        if aid.lower() in _ENV_DISCOVERY_RESERVED:
+            logger.debug(
+                "_load_env_accounts: skipping reserved env file '.env.%s'",
+                aid,
+            )
             continue
         env_path = os.path.join(repo_root, name)
         out.append({
