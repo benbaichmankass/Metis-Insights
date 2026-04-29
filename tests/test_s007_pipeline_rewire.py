@@ -82,14 +82,21 @@ def test_list_live_strategies_pipeline_fallback(monkeypatch):
 # data_loaders — registry-first for list_trader_services
 # ---------------------------------------------------------------------------
 
-def test_list_trader_services_returns_registry_services():
-    """list_trader_services() must return service names from the registry."""
+def test_list_trader_services_returns_deduplicated_registry_services():
+    """list_trader_services() returns unique service names from the registry.
+
+    S-012 PR C4: single-process architecture — every strategy maps to
+    ict-trader-live. The function dedupes so callers see one entry per
+    real systemd unit, not one per strategy.
+    """
     from src.bot import data_loaders as dl
     from src.strategy_registry import load_strategies
 
     result = dl.list_trader_services()
-    expected = [s["service"] for s in load_strategies()]
+    expected = list(dict.fromkeys(s["service"] for s in load_strategies()))
     assert result == expected
+    # Production roster of two strategies → one unique service.
+    assert len(set(result)) == len(result)
 
 
 def test_list_trader_services_all_ict_trader_prefix():

@@ -68,15 +68,20 @@ def test_load_strategies_null_model(tmp_path):
     assert s["model"] is None
 
 
-def test_load_strategies_missing_service_defaults(tmp_path):
-    """service defaults to ict-trader-<name> when omitted."""
+def test_load_strategies_missing_service_defaults_to_live(tmp_path):
+    """S-012 PR C4: missing service defaults to ict-trader-live.
+
+    Single-process architecture (PM § 8 #1): every strategy runs inside
+    the same systemd unit. Per-strategy service names are aspirational
+    metadata that this sprint removed.
+    """
     path = _write_yaml(tmp_path, """
         strategies:
           delta:
             model: null
     """)
     s = reg.load_strategies(path)[0]
-    assert s["service"] == "ict-trader-delta"
+    assert s["service"] == "ict-trader-live"
 
 
 def test_load_strategies_bad_yaml_raises(tmp_path):

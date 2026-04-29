@@ -1,14 +1,21 @@
-"""YAML-driven strategy registry (S-007 PR #113).
+"""YAML-driven strategy registry (S-007 PR #113; S-012 PR C4 single-process).
 
-Single source of truth for which strategies exist, which systemd service
-runs each one, where the model artifact lives (if any), and which
-signal_type substrings identify each strategy's rows in the signals DB.
+Single source of truth for which strategies exist, where the model artifact
+lives (if any), and which signal_type substrings identify each strategy's
+rows in the signals DB.
+
+S-012 PR C4: per-strategy systemd services are gone (PM § 8 #1). Every
+strategy now runs inside ``ict-trader-live`` so ``service_name()`` returns
+``"ict-trader-live"`` for every name and the YAMLs no longer carry a
+``service:`` field. The function and field are retained for backwards
+compatibility with consumers that still ask; both can be deleted in a
+future sprint once all callers migrate.
 
 Public API
 ----------
 load_strategies()     -> list[dict]    one dict per strategy; keys: name, service, model, signal_prefixes
 model_path(name)      -> str | None   absolute path to .joblib, or None
-service_name(name)    -> str          systemd unit stem, e.g. "ict-trader-breakout"
+service_name(name)    -> str          systemd unit stem; always "ict-trader-live" post-S-012 PR C4
 signal_prefixes(name) -> list[str]    signal_type substrings for DB attribution, e.g. ["ml_breakout"]
 """
 from __future__ import annotations
@@ -21,6 +28,9 @@ import yaml
 _REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 _YAML_PATH = os.path.join(_REPO_ROOT, "config", "strategies.yaml")
 _MODELS_DIR = os.path.join(_REPO_ROOT, "models")
+
+# S-012 PR C4: every strategy runs in the single live trader process.
+_DEFAULT_TRADER_SERVICE = "ict-trader-live"
 
 _cache: list[dict] | None = None
 
@@ -50,9 +60,12 @@ def load_strategies(path: str = _YAML_PATH) -> list[dict]:
     for name, cfg in raw.items():
         cfg = cfg or {}
         raw_prefixes = cfg.get("signal_prefixes") or []
+        # S-012 PR C4: default service is ict-trader-live (single-process).
+        # YAML may still set an explicit service for backwards-compatible
+        # synthetic test fixtures; production YAMLs drop the field entirely.
         result.append({
             "name": str(name),
-            "service": str(cfg.get("service") or f"ict-trader-{name}"),
+            "service": str(cfg.get("service") or _DEFAULT_TRADER_SERVICE),
             "model": cfg.get("model") or None,
             "signal_prefixes": [str(p) for p in raw_prefixes] if raw_prefixes else [],
         })
