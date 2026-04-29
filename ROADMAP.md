@@ -1,6 +1,6 @@
 # ICT Trading Bot — Product Roadmap
 
-> **Last Updated:** 2026-04-29
+> **Last Updated:** 2026-04-29 (S-010 complete; prop sprints deferred; Text Milestones promoted to S-011)
 > **Maintained by:** PM (Ben) + Tech Lead (Perplexity)
 > **Sprint prompt files:** `docs/sprints/sprint-NNN-prompt.md`
 
@@ -63,9 +63,19 @@
 |--------|-------|--------|
 | S-007 | **Prop Account Manager** — upload API key, associate with a strategy, isolated execution layer | ✅ Done |
 | S-008 | **Coordinator Architecture & Full Unit Rewire** — Translator/Coordinator pattern, unit rewire (strategies, accounts, dashboards, trading school), Telegram bot rewired, 178 tests across 9 PRs (#120–#128) | ✅ Done |
-| S-009 | **Deferred Wiring: Colab Backtest + App Config** — `trigger_backtest()` Colab wiring, App unit config operations (carried over from S-008) | 🔜 Next |
-| S-010 | **Per-Account Risk Engine** — prop-specific risk rules (max drawdown, daily loss limits, position sizing), breach prevention logic | 📋 Backlog |
-| S-011 | **Prop Account Model** — optional lightweight model per account focused on breach avoidance (probability scoring, position adjustment) | 📋 Backlog |
+| S-009 | **Deferred Wiring: Colab Backtest + App Config** — `trigger_backtest()` Colab wiring, App unit config operations (carried over from S-008) | ✅ Done |
+| S-010 | **Per-Account Risk Engine** — `TradingAccount`, `RiskManager`, `Integrator`, multi-account execution, Telegram risk commands, 62 tests (PRs #135–#139) | ✅ Done |
+| — | **Prop Account Model** — lightweight breach-avoidance model per account (probability scoring, position adjustment) | 📋 Backlog — Deferred until prop accounts ready |
+
+---
+
+### Phase 3.5 — Text Milestones (Web UIs)
+**Goal:** PM-iterable visibility into backtests and strategy config — no mobile app required.
+
+| Sprint | Title | Status |
+|--------|-------|--------|
+| S-011 | **Backtesting UI** — Streamlit web view for historical results, equity curve, strategy comparison; `/accounts` dry/live toggle | 🔜 Next |
+| S-012 | **Strategy Config UI** — Edit risk %, timeframe, symbols via Streamlit + `config/strategies.yaml`; `/reload_strats` Telegram command | 📋 Backlog |
 
 ---
 
@@ -74,8 +84,8 @@
 
 | Sprint | Title | Status |
 |--------|-------|--------|
-| S-012 | **App Scaffold & Home Dashboard** — React Native or Flutter scaffold, home tab with overall P&L, system status, active strategies | 📋 Backlog |
-| S-013 | **Component Tabs** — tabs for Strategies, Accounts, Model Metrics, Runtime Logs & Bugs; left-side tab panel | 📋 Backlog |
+| S-013 | **App Scaffold & Home Dashboard** — React Native or Flutter scaffold, home tab with overall P&L, system status, active strategies | 📋 Backlog |
+| S-014 | **Component Tabs** — tabs for Strategies, Accounts, Model Metrics, Runtime Logs & Bugs; left-side tab panel | 📋 Backlog |
 
 ---
 
@@ -84,7 +94,7 @@
 
 | Sprint | Title | Status |
 |--------|-------|--------|
-| S-014 | **Secure API Key Management** — add/store/rotate API keys through the app, encrypted vault, eliminates need to manually edit master-secrets file | 📋 Backlog |
+| S-015 | **Secure API Key Management** — add/store/rotate API keys through the app, encrypted vault, eliminates need to manually edit master-secrets file | 📋 Backlog |
 
 ---
 
@@ -114,8 +124,6 @@
 
 These are suggested additions for discussion — they are not committed sprints yet:
 
-- **Backtesting UI** — a lightweight web or app view for browsing historical backtest results and comparing strategies visually.
-- **Strategy Configuration UI** — ability to adjust strategy parameters (risk %, timeframe, instruments) without editing code/config files.
 - **Exchange Failover / Multi-Exchange Support** — add resilience by supporting a secondary exchange in case Bybit has issues.
 - **Notification Centre** — structured trade, error, and performance notifications beyond Telegram (push to mobile app).
 - **Audit Log / Trade Journal** — persistent, queryable record of all trade decisions with reasoning for review.
