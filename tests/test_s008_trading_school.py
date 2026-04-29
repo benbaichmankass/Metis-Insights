@@ -209,22 +209,29 @@ class TestValidateMetricsStandalone:
 
 
 # ---------------------------------------------------------------------------
-# trigger_backtest — standalone function
+# trigger_backtest — standalone function (wired S-009 PR #1)
 # ---------------------------------------------------------------------------
 
 
 class TestTriggerBacktestStandalone:
-    def test_raises_not_implemented(self):
-        with pytest.raises(NotImplementedError):
-            trigger_backtest("test_strat")
+    def test_returns_queued_true(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("BACKTEST_QUEUE_PATH", str(tmp_path / "q.json"))
+        result = trigger_backtest("test_strat")
+        assert result["queued"] is True
 
-    def test_error_message_mentions_pr126(self):
-        with pytest.raises(NotImplementedError, match="PR #126"):
-            trigger_backtest("test_strat")
+    def test_returns_strategy_name(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("BACKTEST_QUEUE_PATH", str(tmp_path / "q.json"))
+        result = trigger_backtest("test_strat")
+        assert result["strategy"] == "test_strat"
 
-    def test_passes_strategy_name_in_message(self):
-        with pytest.raises(NotImplementedError, match="test_strat"):
-            trigger_backtest("test_strat")
+    def test_writes_queue_file(self, tmp_path, monkeypatch):
+        import json
+        queue = tmp_path / "q.json"
+        monkeypatch.setenv("BACKTEST_QUEUE_PATH", str(queue))
+        trigger_backtest("test_strat")
+        assert queue.exists()
+        payload = json.loads(queue.read_text().strip())
+        assert payload["strategy"] == "test_strat"
 
 
 # ---------------------------------------------------------------------------
@@ -287,15 +294,20 @@ class TestCoordinatorValidateStrategyUpdate:
 
 
 # ---------------------------------------------------------------------------
-# Coordinator.trigger_backtest
+# Coordinator.trigger_backtest (wired S-009 PR #1)
 # ---------------------------------------------------------------------------
 
 
 class TestCoordinatorTriggerBacktest:
-    def test_raises_not_implemented(self, coord):
-        with pytest.raises(NotImplementedError):
-            coord.trigger_backtest("test_strat")
+    def test_queues_job(self, coord, tmp_path, monkeypatch):
+        monkeypatch.setenv("BACKTEST_QUEUE_PATH", str(tmp_path / "q.json"))
+        result = coord.trigger_backtest("test_strat")
+        assert result["queued"] is True
 
-    def test_error_message_mentions_pr126(self, coord):
-        with pytest.raises(NotImplementedError, match="PR #126"):
-            coord.trigger_backtest("test_strat")
+    def test_pushes_alert(self, coord, tmp_path, monkeypatch):
+        from src.units.dashboards.alerts import clear_alerts
+        clear_alerts()
+        monkeypatch.setenv("BACKTEST_QUEUE_PATH", str(tmp_path / "q.json"))
+        coord.trigger_backtest("test_strat")
+        alerts = coord.list_alerts()
+        assert any(a.get("source") == "trading_school" for a in alerts)

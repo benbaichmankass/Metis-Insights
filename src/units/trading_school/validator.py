@@ -85,16 +85,52 @@ def trigger_backtest(
     strategy: str,
     config: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    """Trigger a backtest run for *strategy*.
+    """Queue a backtest run for *strategy* via the Colab/VM polling mechanism.
 
-    Stub — wired to Colab/HF pipeline in a later PR.
+    Appends a JSON line to ``BACKTEST_QUEUE_PATH`` (default
+    ``/tmp/backtest-queue.json``).  A VM cron job or Colab cell polls this file
+    and executes the backtest.
+
+    Parameters
+    ----------
+    strategy : str
+        Strategy name to backtest.
+    config : dict, optional
+        Override payload fields.  Recognised keys: ``symbol``, ``timeframe``,
+        ``start_date``, ``end_date``.
+
+    Returns
+    -------
+    dict
+        ``{queued: True, strategy: str, queue_path: str, payload: dict}``
 
     Raises
     ------
-    NotImplementedError
-        Always; will be implemented in PR #126 (Workflows integration).
+    OSError
+        If the queue file cannot be written.
     """
-    raise NotImplementedError(
-        f"trigger_backtest('{strategy}') not yet wired to Colab pipeline; "
-        "implement in PR #126."
-    )
+    import json as _json
+    import os as _os
+    from datetime import datetime as _dt, timezone as _tz
+
+    queue_path = _os.environ.get("BACKTEST_QUEUE_PATH", "/tmp/backtest-queue.json")
+
+    payload: Dict[str, Any] = {
+        "strategy": strategy,
+        "symbol": "BTCUSDT",
+        "timeframe": "1h",
+        "start_date": "2026-01-01",
+        "end_date": None,
+        "queued_at": _dt.now(_tz.utc).isoformat(),
+        "vm_user": _os.environ.get("VM_USER", "ubuntu"),
+        "vm_host": _os.environ.get("VM_HOST", ""),
+        "repo_dir": _os.environ.get("REPO_DIR", "/home/ubuntu/ict-trading-bot"),
+        "ssh_key": _os.environ.get("SSH_KEY_FILE", "ict-bot-ovm-private.key"),
+    }
+    if config:
+        payload.update(config)
+
+    with open(queue_path, "a", encoding="utf-8") as fh:
+        fh.write(_json.dumps(payload) + "\n")
+
+    return {"queued": True, "strategy": strategy, "queue_path": queue_path, "payload": payload}

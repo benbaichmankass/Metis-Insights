@@ -330,9 +330,10 @@ class TestTradingSchoolGatingFlow:
         )
         assert result["strategy"] == "killzone"
 
-    def test_trigger_backtest_raises_not_implemented(self, coord):
-        with pytest.raises(NotImplementedError, match="PR #126"):
-            coord.trigger_backtest("vwap")
+    def test_trigger_backtest_queues_job(self, coord, tmp_path, monkeypatch):
+        monkeypatch.setenv("BACKTEST_QUEUE_PATH", str(tmp_path / "q.json"))
+        result = coord.trigger_backtest("vwap")
+        assert result["queued"] is True
 
 
 # ---------------------------------------------------------------------------
@@ -369,3 +370,54 @@ class TestMultiStrategySequenceFlow:
             )
             with pytest.raises(RuntimeError):
                 coord.account_execute("flow_account", pkg, balance_usdt=10_000.0)
+
+
+# ---------------------------------------------------------------------------
+# Flow 6: trigger_backtest() — queue-file wiring (S-009 PR #1)
+# ---------------------------------------------------------------------------
+
+
+class TestTriggerBacktestFlow:
+    def test_queues_job_and_returns_queued_true(self, coord, tmp_path, monkeypatch):
+        monkeypatch.setenv("BACKTEST_QUEUE_PATH", str(tmp_path / "queue.json"))
+        result = coord.trigger_backtest("vwap")
+        assert result["queued"] is True
+        assert result["strategy"] == "vwap"
+
+    def test_writes_json_line_to_queue_file(self, coord, tmp_path, monkeypatch):
+        import json
+        queue = tmp_path / "queue.json"
+        monkeypatch.setenv("BACKTEST_QUEUE_PATH", str(queue))
+        coord.trigger_backtest("killzone", config={"symbol": "ETHUSDT"})
+        lines = [json.loads(l) for l in queue.read_text().splitlines() if l.strip()]
+        assert len(lines) == 1
+        assert lines[0]["strategy"] == "killzone"
+        assert lines[0]["symbol"] == "ETHUSDT"
+
+    def test_multiple_triggers_append_lines(self, coord, tmp_path, monkeypatch):
+        import json
+        queue = tmp_path / "queue.json"
+        monkeypatch.setenv("BACKTEST_QUEUE_PATH", str(queue))
+        coord.trigger_backtest("vwap")
+        coord.trigger_backtest("killzone")
+        lines = [l for l in queue.read_text().splitlines() if l.strip()]
+        assert len(lines) == 2
+
+    def test_trigger_pushes_alert(self, coord, tmp_path, monkeypatch):
+        monkeypatch.setenv("BACKTEST_QUEUE_PATH", str(tmp_path / "queue.json"))
+        from src.units.dashboards.alerts import clear_alerts
+        clear_alerts()
+        coord.trigger_backtest("vwap")
+        alerts = coord.list_alerts()
+        ts_alerts = [a for a in alerts if a.get("source") == "trading_school"]
+        assert len(ts_alerts) == 1
+        assert "vwap" in ts_alerts[0]["message"].lower()
+
+    def test_config_override_applied(self, coord, tmp_path, monkeypatch):
+        import json
+        queue = tmp_path / "queue.json"
+        monkeypatch.setenv("BACKTEST_QUEUE_PATH", str(queue))
+        coord.trigger_backtest("ict", config={"timeframe": "4h", "start_date": "2025-01-01"})
+        payload = json.loads(queue.read_text().strip())
+        assert payload["timeframe"] == "4h"
+        assert payload["start_date"] == "2025-01-01"
