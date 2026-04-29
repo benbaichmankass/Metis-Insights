@@ -11,6 +11,38 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-29-38 — Sprint S-006 M2: ICT backtest result analyzer
+
+- **Session date:** 2026-04-29
+- **Sprint:** S-006 (ICT Multi-Symbol Backtest)
+- **Current sprint phase:** M2 — result analyzer + go/no-go verdict
+- **Last completed checkpoint:** CP-2026-04-29-37 (S-006 M1, PR #106 merged)
+- **Telegram sent:** no (no creds in session)
+- **Alerts sent during session:** none
+- **Blockers:** none
+
+### 1. Completed
+- `bin/analyze_ict_results.py`: reads JSON from `backtest_ict.py --output`, produces per-pair stats table + cross-pair aggregate + go/no-go verdict (thresholds: ≥50 trades, WR ≥55%, avg_R >0, all overridable); writes markdown report
+- `tests/test_analyze_ict_results.py`: 15 tests covering aggregate math, verdict logic (each criterion individually + multi-fail), markdown rendering, and file I/O
+- PR #107 opened (draft): https://github.com/the-lizardking/ict-trading-bot/pull/107
+- Subscribed to PR #107 activity
+
+### 2. Files changed
+- `bin/analyze_ict_results.py` (new)
+- `tests/test_analyze_ict_results.py` (new)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_analyze_ict_results.py -v` — 15 passed
+
+### 4. Remaining
+- S-006 M3+: Gemini runs backtests on real 2026 OHLCV data → feed output JSON to analyzer → review go/no-go report
+
+### 5. Next checkpoint
+**CP-2026-04-29-39** — S-006 M3: Gemini delegation notebook or real data ingestion. Read this entry first. The full pipeline is now in place: manifest → `backtest_ict.py --manifest` → `analyze_ict_results.py --input` → markdown report.
+
+---
+
 ## CP-2026-04-29-37 — Sprint S-006 M1: ICT multi-symbol validate manifest
 
 - **Session date:** 2026-04-29
