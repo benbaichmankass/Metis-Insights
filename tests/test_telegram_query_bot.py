@@ -2,7 +2,7 @@
 Smoke tests for src/bot/telegram_query_bot.py.
 
 Tests target pure-Python helper functions that carry no telegram dependency:
-is_halted, is_authorised, get_strategy_label, format_target_options,
+is_halted, is_authorised, get_strategy_label,
 format_backtest_summary, fetch_today_pnl, fetch_open_positions_count.
 
 Heavy deps (telegram, pybit) are stubbed at sys.modules level before import.
@@ -142,17 +142,6 @@ class TestGetStrategyLabel:
     def test_legacy_strategy_name_key(self, monkeypatch):
         account = self._account_with(monkeypatch, STRATEGY_NAME="killzone")
         assert bot.get_strategy_label(account) == "ICT"
-
-
-# ---------------------------------------------------------------------------
-# format_target_options
-# ---------------------------------------------------------------------------
-
-def test_format_target_options_returns_string(monkeypatch):
-    monkeypatch.setattr(bot, "get_strategy_label", lambda env_vars=None: "VWAP")
-    result = bot.format_target_options()
-    assert isinstance(result, str)
-    assert len(result) > 0
 
 
 # ---------------------------------------------------------------------------
