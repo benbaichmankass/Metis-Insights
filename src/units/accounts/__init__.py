@@ -1,15 +1,32 @@
-"""Accounts package — loader for TradingAccount objects (S-010 PR #1).
+"""Accounts package — loader for TradingAccount objects (S-010 PR #1 / S-011 PR #1).
 
 ``load_accounts()`` reads config/accounts.yaml and returns a list of
 fully-configured TradingAccount instances, each with its own RiskManager.
+
+``set_account_dry_run()`` persists a dry/live toggle for an account across
+``load_accounts()`` calls (module-level dict, process lifetime).
 """
 from __future__ import annotations
 
 import os
-from typing import List
+from typing import Dict, List
 
 _REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 _DEFAULT_ACCOUNTS_YAML = os.path.join(_REPO_ROOT, "config", "accounts.yaml")
+
+# Persistent dry/live overrides: {account_name: dry_run_bool}
+# Set via set_account_dry_run(); applied by load_accounts() on each call.
+_DRY_RUN_OVERRIDES: Dict[str, bool] = {}
+
+
+def set_account_dry_run(name: str, dry_run: bool) -> None:
+    """Persist a dry/live override for *name* across load_accounts() calls."""
+    _DRY_RUN_OVERRIDES[name] = dry_run
+
+
+def get_dry_run_overrides() -> Dict[str, bool]:
+    """Return a copy of the current override dict (for status display)."""
+    return dict(_DRY_RUN_OVERRIDES)
 
 
 def load_accounts(config_path: str = _DEFAULT_ACCOUNTS_YAML) -> "List":
@@ -48,5 +65,8 @@ def load_accounts(config_path: str = _DEFAULT_ACCOUNTS_YAML) -> "List":
             risk_manager=rm,
             account_type=cfg.get("type", "regular"),
         )
+        # Apply persistent dry/live override if set
+        if name in _DRY_RUN_OVERRIDES:
+            account.dry_run = _DRY_RUN_OVERRIDES[name]
         accounts.append(account)
     return accounts

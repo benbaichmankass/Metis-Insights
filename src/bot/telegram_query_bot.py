@@ -469,6 +469,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/backtest — Start backtest in background\n"
         "/latest\\_backtest — Backtest status/result\n"
         "/price — Current BTC price\n"
+        "/accounts — List accounts (dry/live + PnL) or toggle mode\n"
         "/accounts\\_status — Per-account risk state\n"
         "/risk\\_check <account> — Risk details for one account\n"
         "/help — Show this menu"
@@ -1085,6 +1086,59 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
 
 
+async def cmd_accounts(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """List accounts with dry/live mode, or toggle: /accounts dry|live <name>"""
+    if not is_authorised(update):
+        return
+    coord = get_coordinator()
+    if coord is None:
+        await update.message.reply_text("⚠️ Coordinator unavailable.")
+        return
+
+    # /accounts dry bybit_1  or  /accounts live bybit_1
+    if len(context.args) == 2:
+        mode = context.args[0].strip().lower()
+        acc_name = context.args[1].strip()
+        if mode not in ("dry", "live"):
+            await update.message.reply_text(
+                "⚠️ Usage: `/accounts dry|live <account_name>`",
+                parse_mode="Markdown",
+            )
+            return
+        try:
+            result = coord.set_account_dry_run(acc_name, mode == "dry")
+            icon = "🧪" if result["dry_run"] else "🔴"
+            await update.message.reply_text(
+                f"{icon} `{acc_name}` → **{result['mode']} mode**",
+                parse_mode="Markdown",
+            )
+        except Exception as e:
+            await update.message.reply_text(f"⚠️ Could not toggle account: {e}")
+        return
+
+    # /accounts → list all with dry/live status
+    try:
+        statuses = coord.accounts_status()
+        if not statuses:
+            await update.message.reply_text("ℹ️ No accounts found in accounts.yaml.")
+            return
+        lines = ["📋 *Accounts* (dry/live + risk)\n"]
+        for s in statuses:
+            dry = s.get("dry_run", True)
+            mode_icon = "🧪 dry" if dry else "🔴 live"
+            halted_icon = " 🛑HALTED" if s.get("halted") else ""
+            pnl = float(s.get("daily_pnl", 0))
+            limit = float(s.get("max_daily_loss_usd", 0))
+            lines.append(
+                f"{mode_icon}{halted_icon} — *{s['name']}* (`{s.get('exchange', '?')}`)\n"
+                f"  💵 PnL ${pnl:+.2f} / ${limit:.0f} | Type: {s.get('account_type', '?')}"
+            )
+        lines.append("\nUse `/accounts dry|live <name>` to toggle.")
+        await update.message.reply_text("\n\n".join(lines), parse_mode="Markdown")
+    except Exception as e:
+        await update.message.reply_text(f"⚠️ Could not load accounts: {e}")
+
+
 async def cmd_accounts_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Show per-account risk state from config/accounts.yaml via Coordinator."""
     if not is_authorised(update):
@@ -1195,6 +1249,7 @@ def main():
             BotCommand("download_journal", "Download trade journal DB"),
             BotCommand("price", "Current BTC price"),
             BotCommand("alerts", "Recent unit alerts (coordinator queue)"),
+            BotCommand("accounts", "List accounts or toggle dry/live: /accounts dry|live <name>"),
             BotCommand("accounts_status", "Per-account risk state (daily PnL, halted)"),
             BotCommand("risk_check", "Risk details for one account: /risk_check <name>"),
         BotCommand("sprintlet_status", "Report sprintlet milestone status"),
@@ -1221,6 +1276,7 @@ def main():
     application.add_handler(CommandHandler("download_journal", cmd_download_journal))
     application.add_handler(CommandHandler("price", cmd_price))
     application.add_handler(CommandHandler("alerts", cmd_alerts))
+    application.add_handler(CommandHandler("accounts", cmd_accounts))
     application.add_handler(CommandHandler("accounts_status", cmd_accounts_status))
     application.add_handler(CommandHandler("risk_check", cmd_risk_check))
     application.add_handler(CommandHandler("sprintlet_status", cmd_sprintlet_status))
