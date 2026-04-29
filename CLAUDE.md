@@ -52,6 +52,16 @@ Then send the Telegram session ping via `scripts/notify_session.py session`
   CryptoCompare, yfinance, or our HF datasets). See
   `docs/claude/testing-policy.md` → “Test data sources”.
 
+## Merging Rules (MANDATORY)
+
+- For ALL sprint PRs: Create PR → run tests/lint → if green → **SELF-MERGE immediately via GitHub MCP tools**.
+- No waiting for manual approval.
+- ONLY flag for PM review (do not self-merge):
+  1. New secrets/API key handling.
+  2. Changes to live trading logic (`src/runtime/orders.py`).
+  3. VM deployment scripts (`deploy/`).
+- After self-merge, post `/sprintlet_status PR#X merged` to Telegram bot.
+
 ## Default verification
 
 Run lightweight checks only:
