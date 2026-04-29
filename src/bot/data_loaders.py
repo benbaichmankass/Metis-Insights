@@ -55,12 +55,29 @@ SIGNALS_DB = next((p for p in _SIG_CANDIDATES if p and os.path.exists(p)),
                   os.path.join(REPO_ROOT, "data", "trades.db"))
 
 # Strategy → signal_type substring mapping (filters /last5 and /status).
-_STRATEGY_SIGNAL_PREFIXES: Dict[str, tuple] = {
+# Used as a fallback when the registry is unavailable (S-007).
+_STRATEGY_SIGNAL_PREFIXES_FALLBACK: Dict[str, tuple] = {
     "ict": ("fvg", "ob", "ict"),
     "killzone": ("killzone", "trade_signal"),
     "vwap": ("vwap",),
     "breakout_confirmation": ("ml_breakout", "breakout"),
 }
+
+
+def _get_signal_prefixes(strategy: str) -> tuple:
+    """Return signal_type substrings for *strategy* from the registry.
+
+    Falls back to the hardcoded map when the registry is unavailable so
+    existing attribution behaviour is preserved in minimal environments.
+    """
+    try:
+        from src.strategy_registry import signal_prefixes as _reg_sp  # type: ignore
+        prefixes = _reg_sp(strategy.lower())
+        if prefixes:
+            return tuple(prefixes)
+    except Exception as exc:
+        logger.debug("_get_signal_prefixes: registry unavailable (%s)", exc)
+    return _STRATEGY_SIGNAL_PREFIXES_FALLBACK.get(strategy.lower(), ())
 
 
 # -- Strategies / services ----------------------------------------------------
@@ -231,8 +248,8 @@ def list_accounts() -> List[Dict[str, Any]]:
 
 def recent_signals_for(strategy: str, n: int = 5) -> List[Dict[str, Any]]:
     """Last ``n`` signals attributed to ``strategy`` via signal_type substring
-    matching (see ``_STRATEGY_SIGNAL_PREFIXES``). Falls through to "any
-    signal_type" when the strategy is unknown. Returns ``[]`` on any failure.
+    matching (registry-driven, S-007). Falls through to "any signal_type"
+    when no prefixes are configured. Returns ``[]`` on any failure.
     """
     if not strategy:
         return []
@@ -243,7 +260,7 @@ def recent_signals_for(strategy: str, n: int = 5) -> List[Dict[str, Any]]:
     if not os.path.exists(SIGNALS_DB):
         return []
     try:
-        prefixes = _STRATEGY_SIGNAL_PREFIXES.get(strategy.lower())
+        prefixes = _get_signal_prefixes(strategy) or None
         conn = sqlite3.connect(SIGNALS_DB)
         try:
             conn.row_factory = sqlite3.Row
@@ -467,7 +484,7 @@ def _count_signals_today(strategy: str) -> int:
     if not os.path.exists(SIGNALS_DB):
         return 0
     today = _date.today().isoformat()
-    prefixes = _STRATEGY_SIGNAL_PREFIXES.get(strategy.lower())
+    prefixes = _get_signal_prefixes(strategy) or None
     try:
         conn = sqlite3.connect(SIGNALS_DB)
         try:

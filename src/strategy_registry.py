@@ -1,13 +1,15 @@
 """YAML-driven strategy registry (S-007 PR #113).
 
 Single source of truth for which strategies exist, which systemd service
-runs each one, and where the model artifact lives (if any).
+runs each one, where the model artifact lives (if any), and which
+signal_type substrings identify each strategy's rows in the signals DB.
 
 Public API
 ----------
-load_strategies()  -> list[dict]   one dict per strategy, keys: name, service, model
-model_path(name)   -> str | None   absolute path to .joblib, or None
-service_name(name) -> str          systemd unit stem, e.g. "ict-trader-breakout"
+load_strategies()     -> list[dict]    one dict per strategy; keys: name, service, model, signal_prefixes
+model_path(name)      -> str | None   absolute path to .joblib, or None
+service_name(name)    -> str          systemd unit stem, e.g. "ict-trader-breakout"
+signal_prefixes(name) -> list[str]    signal_type substrings for DB attribution, e.g. ["ml_breakout"]
 """
 from __future__ import annotations
 
@@ -47,10 +49,12 @@ def load_strategies(path: str = _YAML_PATH) -> list[dict]:
     result = []
     for name, cfg in raw.items():
         cfg = cfg or {}
+        raw_prefixes = cfg.get("signal_prefixes") or []
         result.append({
             "name": str(name),
             "service": str(cfg.get("service") or f"ict-trader-{name}"),
             "model": cfg.get("model") or None,
+            "signal_prefixes": [str(p) for p in raw_prefixes] if raw_prefixes else [],
         })
 
     if path == _YAML_PATH:
@@ -82,3 +86,13 @@ def model_path(name: str, path: str = _YAML_PATH) -> str | None:
 def service_name(name: str, path: str = _YAML_PATH) -> str:
     """Return the systemd service stem for *name* (e.g. 'ict-trader-breakout')."""
     return _strategy_cfg(name, path)["service"]
+
+
+def signal_prefixes(name: str, path: str = _YAML_PATH) -> list[str]:
+    """Return signal_type substrings used to attribute DB rows to *name*.
+
+    Used by data_loaders to filter the signals table and by pipeline to pick
+    the primary signal_type when writing a trade signal.  Returns an empty
+    list when no prefixes are configured.
+    """
+    return list(_strategy_cfg(name, path).get("signal_prefixes") or [])

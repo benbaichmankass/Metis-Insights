@@ -501,9 +501,21 @@ def run_pipeline(
         meta = signal.get("meta", {}) or {}
         price = meta.get("price", meta.get("entry_price", signal.get("price")))
 
+        _strat_key = (meta.get("strategy_name") or strategy_name or "").lower()
+        try:
+            from src.strategy_registry import signal_prefixes as _sp
+            _prefixes = _sp(_strat_key)
+            _sig_type = _prefixes[0] if _prefixes else "trade_signal"
+        except Exception:
+            # Pre-S-007 fallback: preserves exact historical behaviour.
+            _sig_type = (
+                "ml_breakout" if _strat_key == "breakout_confirmation"
+                else ("fvg" if meta.get("fvg") else "trade_signal")
+            )
+
         write_signal(
             symbol=signal.get("symbol", "UNKNOWN"),
-            signal_type="ml_breakout" if meta.get("strategy_name") == "breakout_confirmation" else ("fvg" if meta.get("fvg") else "trade_signal"),
+            signal_type=_sig_type,
             direction="bullish" if signal.get("side") == "buy" else "bearish",
             price=float(price) if price is not None else None,
             timeframe=settings.get("TIMEFRAME", settings.get("timeframe", "unknown")),
