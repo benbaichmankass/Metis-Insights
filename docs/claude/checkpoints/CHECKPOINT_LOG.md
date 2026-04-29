@@ -10,6 +10,39 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-29-07 — fix deprecated pandas fillna(method=) in key_levels.py
+
+- **Session date:** 2026-04-29
+- **Sprint:** sprint-plan-2026-04-29 (operational-hardening)
+- **Current sprint phase:** follow-up fix — key_levels pandas-2.x API bug
+- **Last completed checkpoint:** CP-2026-04-29-06 (PR 6 done, PR #72 open)
+- **Next checkpoint:** **CP-2026-04-29-08** — merge PR #75 then PR #74 to complete sprint 8/8
+- **Blockers:** PR #75 awaiting Ben's review; PR #74 on hold until #75 lands.
+
+### 1. Completed
+- Replaced `df['col'].fillna(method='ffill', inplace=True)` (3 calls, lines 105–107) with `df['col'] = df['col'].ffill()` in `src/ict_detection/key_levels.py`.
+- Grepped all of `src/` for other deprecated pandas API (`fillna(method=`, `bfill(method=`, `df.append(`, `iteritems(`): none found beyond the three fixed calls.
+- Added `tests/test_key_levels.py` with 8 regression tests (2 classes: `TestSessionOpenPriceFfill`, `TestGetAllKeyLevels`) verifying forward-fill correctness on a synthetic 24-hour OHLCV frame.
+- Opened PR #75 as draft.
+
+### 2. Files changed
+- `src/ict_detection/key_levels.py` (lines 105–107)
+- `tests/test_key_levels.py` (new file, 111 lines)
+
+### 3. Tests run
+- `python3.11 -m pytest -q tests/test_key_levels.py` — 8 passed
+- `python3.11 -m pytest -q --ignore=tests/test_main_loop.py tests/` — 23 failed (canonical baseline), 490 passed, 0 regressions
+
+### 4. Remaining
+- none — PR #75 complete and pushed
+
+### 5. Next checkpoint
+**CP-2026-04-29-08** — once Ben approves #75, merge it, then merge PR #74. Both together close sprint 2026-04-29 at 8/8. Read `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry) before starting.
+
+**Telegram sent:** no (no creds in env)
+
+---
+
 ## CP-2026-04-29-06 — PR 6: fix dead ATR sizing in breakout builder
 
 - **Session date:** 2026-04-28
