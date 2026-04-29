@@ -11,6 +11,122 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-29-63 — S-012 SPRINT COMPLETE
+
+- **Session date:** 2026-04-29
+- **Sprint:** S-012 (Production Wiring Audit + Full Live Activation)
+- **Current sprint phase:** wrap-up — all 21 PRs merged across Phases A → F
+- **Last completed checkpoint:** CP-2026-04-29-62 (S-012 Phase A done)
+- **Next checkpoint:** Start of S-013 — read `CHECKPOINT_LOG.md` (this entry)
+  for context, then `docs/sprint-summaries/sprint-012-summary.md` for the
+  deferred items list.
+- **Telegram sent:** no (no creds in session). Sprint-completion
+  `/sprintlet_complete S-012` ping is queued for the PM to fire.
+- **Blockers:** none. Sprint goals delivered; deployment is the PM's
+  call (runbook ships in PR F4 #167).
+
+### 1. Completed
+- Phase A — `docs/audit/sprint-012-wiring-audit.md` index + 9 evidence
+  sections under `docs/audit/sprint-012/` (PR #147, CP CP-2026-04-29-62
+  via PR #148).
+- Phase B — config reconciliation: `config/strategies.yaml`,
+  `config/units.yaml`, `config/accounts.yaml` rewritten to the
+  turtle_soup + vwap roster; account ID space collapsed to
+  `accounts.yaml`; tests updated and synthetic fixtures healed
+  (PRs #149-152).
+- Phase C — code reconciliation: turtle_soup ported into
+  `src/units/strategies/`, wired into the runtime pipeline,
+  `service:` fields dropped, out-of-scope strategies +
+  `strategies_manager.py` deleted, entrypoints reconciled,
+  `automated_trading_loop.py` removed (PRs #153-158).
+- Phase D — service reconciliation: regression test asserting the
+  canonical `deploy/*.service` set + single trader-side unit;
+  `_load_env_accounts` reserved-name filter (`example`, `bak`,
+  `template`, …) + `toggle_service` unit-file validation
+  (PRs #159-160).
+- Phase E — live-mode hardening: hard interlock close on the
+  unset-`DRY_RUN` hole; `/accounts` toggle docs; risk-cap firing
+  tests for both strategies; `max_dd_pct` intra-day UTC reset
+  implementation; strategy-attributed signal audit log
+  (PRs #161-165).
+- Phase F — verification + deploy artefacts: full-suite recorded;
+  initial sprint summary; deployment runbook with rollback procedure
+  (PRs #166-167); this PR closes.
+
+### 2. Files changed (summary; full diff list in
+`docs/sprint-summaries/sprint-012-summary.md`)
+- Source: `src/runtime/pipeline.py`, `src/runtime/validation.py`,
+  `src/units/strategies/turtle_soup.py` (new), `src/units/strategies/vwap.py`
+  (folded helpers in), `src/units/accounts/risk.py`,
+  `src/units/accounts/__init__.py`, `src/bot/data_loaders.py`,
+  `src/bot/telegram_query_bot.py`, `src/core/coordinator.py`,
+  `src/core/signals.py`, `src/strategy_registry.py`.
+- Configs: `config/strategies.yaml`, `config/units.yaml`,
+  `config/accounts.yaml`.
+- Operator: `check_bots.sh` (rewritten).
+- Docs: `docs/audit/sprint-012-wiring-audit.md` + 9 sections under
+  `docs/audit/sprint-012/`,
+  `docs/audit/sprint-012-deployment-runbook.md`,
+  `docs/claude/deployment-ops.md` (canonical-entrypoint + /accounts
+  toggle sections),
+  `docs/sprint-summaries/sprint-012-summary.md`.
+- Tests: 90 new across 7 `tests/test_s012_*.py` files; 16 existing
+  test files updated (B4 + targeted fixes); 6 obsolete test files
+  deleted alongside the source they covered.
+- Deletions (source + scripts): 9 source modules,
+  `automated_trading_loop.py`, `run_trader.sh`, `scripts/start.sh`;
+  `strategies/` and `src/runtime/strategies/` directories removed.
+
+### 3. Tests run
+- `PYTHONPATH=. python3 -m pytest tests/ -q --ignore=tests/test_main_loop.py`
+  → 1153 passed, 17 failed, 2 skipped, 5 warnings (~106 s).
+- `python scripts/secret_scan.py` — clean.
+- `python scripts/repo_inventory.py` — no junk candidates; one
+  intentional 641 KB CSV fixture flagged (not noise).
+- The 17 failures are pre-existing
+  `test_runtime_validation.py` / `test_runtime_smoke.py` /
+  `test_print_runtime_profile.py` signature mismatches from S-009; not
+  introduced by S-012 and listed in the sprint summary's "Deferred
+  items".
+
+### 4. Remaining
+- Deferred to a follow-up sprint: rewrite or delete the 17
+  pre-existing failing tests so the suite is unambiguously green.
+- Deferred (separate sprint): wire `RiskManager.update_equity(<usd>)`
+  into the orchestrator after each balance refresh so the
+  `max_dd_pct` cap actually fires in production. Until then the cap
+  is silently skipped; the test suite proves the implementation works
+  when equity is seeded.
+- PM action: run the VM-side phantom-service diagnostic commands
+  documented in `docs/audit/sprint-012/04-phantom-services.md` § 4.5
+  to confirm no out-of-repo source still produces phantom names.
+- PM action: follow `docs/audit/sprint-012-deployment-runbook.md` to
+  land S-012 on the live VM in the safe restart order.
+
+### 5. Next checkpoint
+**CP-2026-04-29-64** — Start S-013. Suggested first task: clear the
+17 pre-existing test failures (rewrite `test_runtime_validation.py`,
+`test_runtime_smoke.py`, `test_print_runtime_profile.py` against the
+current signatures). Read order for the next session:
+1. This entry.
+2. `docs/sprint-summaries/sprint-012-summary.md` (especially
+   "Lessons learned" and "Deferred items").
+3. The S-013 sprint plan (TBD).
+
+### 6. Improvements for the next sprint (per CLAUDE.md § 5)
+1. Add a "audit doc library" recipe to
+   `docs/claude/session-workflow.md` so future heavy-audit sprints
+   reach for the multi-file pattern by default. The S-012 audit
+   library (1 index + 9 sections + cross-PR citations by section
+   number) made every Phase B–E PR small enough to land cleanly.
+2. The merging-rules section in `CLAUDE.md` should explicitly call
+   out the "after every 2 merged PRs, re-read prompt + DoD" pacing
+   rule from sprint-012-prompt.md § "Pacing reminder". It worked well
+   in S-012 — the periodic re-reads caught two scope drifts before
+   they shipped.
+
+---
+
 ## CP-2026-04-29-62 — S-012 Phase A done
 
 - **Session date:** 2026-04-29
