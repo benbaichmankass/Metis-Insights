@@ -66,17 +66,38 @@ _STRATEGY_SIGNAL_PREFIXES: Dict[str, tuple] = {
 # -- Strategies / services ----------------------------------------------------
 
 def list_live_strategies() -> List[str]:
-    """Return ``STRATEGIES`` from src.runtime.pipeline; ``[]`` on import failure."""
+    """Return strategy names from the YAML registry (S-007).
+
+    Falls back to importing ``STRATEGIES`` from pipeline if the registry is
+    unavailable, and to ``[]`` if both fail.
+    """
+    try:
+        from src.strategy_registry import load_strategies  # type: ignore
+        return [s["name"] for s in load_strategies()]
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("list_live_strategies: registry unavailable (%s), trying pipeline", exc)
     try:
         from src.runtime.pipeline import STRATEGIES  # type: ignore
         return list(STRATEGIES)
     except Exception as exc:  # noqa: BLE001
-        logger.warning("list_live_strategies: %s", exc)
+        logger.warning("list_live_strategies: pipeline fallback also failed: %s", exc)
         return []
 
 
 def list_trader_services(deploy_dir: Optional[str] = None) -> List[str]:
-    """Return systemd unit names matching ``ict-trader-*.service`` in ``deploy/``."""
+    """Return systemd service stems for all registered strategies (S-007).
+
+    Primary source: ``service`` field from ``config/strategies.yaml`` via the
+    registry.  Falls back to scanning ``deploy/`` for ``ict-trader-*.service``
+    unit files when the registry is unavailable.
+    """
+    try:
+        from src.strategy_registry import load_strategies  # type: ignore
+        return [s["service"] for s in load_strategies()]
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("list_trader_services: registry unavailable (%s), scanning deploy/", exc)
+
+    # Legacy fallback: scan deploy/ directory for unit files.
     if deploy_dir is None:
         deploy_dir = os.path.join(REPO_ROOT, "deploy")
     try:
@@ -90,7 +111,7 @@ def list_trader_services(deploy_dir: Optional[str] = None) -> List[str]:
                     units.append(stem)
         return units
     except Exception as exc:  # noqa: BLE001
-        logger.warning("list_trader_services: %s", exc)
+        logger.warning("list_trader_services: deploy/ scan failed: %s", exc)
         return []
 
 

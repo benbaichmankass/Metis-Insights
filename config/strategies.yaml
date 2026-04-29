@@ -5,6 +5,9 @@ strategies:
   vwap:
     service: ict-trader-vwap
     model: null
+  killzone:
+    service: ict-trader-live
+    model: null
   ict:
     service: ict-trader-ict
     model: null

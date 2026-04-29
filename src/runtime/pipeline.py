@@ -397,15 +397,19 @@ def _write_ict_signals_from_meta(signal: dict, settings: dict) -> None:
         )
 
 # Ordered list of strategies tried in multiplexed mode; first actionable signal wins.
-#
-# Order rationale: breakout_confirmation and vwap are the established signals.
-# killzone was the default single-strategy path (pipeline dispatch else-branch) but
-# was never included here, so STRATEGY=multiplexed silently skipped it. Added after
-# vwap (CP-2026-04-29-07) so it acts as a third option before ICT.
-# ``"ict"`` remains **last**: it is the newest and most-gated strategy
-# (HTF trend + kill-zone + aligned FVG/OB); ICT can only change behaviour
-# for ticks that previously returned ``side="none"``.
-STRATEGIES = ["breakout_confirmation", "vwap", "killzone", "ict"]
+# Source of truth is config/strategies.yaml (S-007). Order in the YAML determines
+# multiplexer priority. Falls back to the original hardcoded list if the registry
+# cannot be loaded (e.g. missing pyyaml in a minimal deploy environment).
+def _strategies_from_registry() -> list:
+    try:
+        from src.strategy_registry import load_strategies
+        return [s["name"] for s in load_strategies()]
+    except Exception as exc:
+        logger.warning("pipeline: registry unavailable, using hardcoded STRATEGIES list: %s", exc)
+        return ["breakout_confirmation", "vwap", "killzone", "ict"]
+
+
+STRATEGIES = _strategies_from_registry()
 
 # Per-strategy risk allocation fractions applied inside the multiplexer.
 # Each winner's qty is multiplied by its fraction so that the three core

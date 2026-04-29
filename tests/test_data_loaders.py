@@ -36,37 +36,73 @@ def test_list_live_strategies_happy_path():
             assert expected in out
 
 
-def test_list_live_strategies_handles_pipeline_import_error(monkeypatch):
-    """If src.runtime.pipeline is broken, the loader returns [].
+def test_list_live_strategies_handles_both_sources_broken(monkeypatch):
+    """Returns [] only when both the registry and pipeline are unavailable.
 
-    We simulate the broken state by injecting a sentinel module whose
-    ``STRATEGIES`` attribute raises on access — safer than monkey-patching
-    ``builtins.__import__`` (which would bleed into other tests via
-    partially-loaded modules in sys.modules).
+    S-007: list_live_strategies() now tries the registry first, then pipeline.
+    Both must be broken to produce an empty list.
     """
 
     class _Boom:
         def __getattr__(self, _name):
-            raise RuntimeError("simulated broken pipeline")
+            raise RuntimeError("simulated broken import")
 
+    monkeypatch.setitem(sys.modules, "src.strategy_registry", _Boom())
     monkeypatch.setitem(sys.modules, "src.runtime.pipeline", _Boom())
     assert dl.list_live_strategies() == []
 
 
+def test_list_live_strategies_uses_registry_when_available(monkeypatch):
+    """Registry is the primary source; pipeline fallback should not be needed."""
+    import types
+    fake_reg = types.ModuleType("src.strategy_registry")
+    fake_reg.load_strategies = lambda: [
+        {"name": "alpha", "service": "ict-trader-alpha", "model": None},
+        {"name": "beta", "service": "ict-trader-beta", "model": None},
+    ]
+    monkeypatch.setitem(sys.modules, "src.strategy_registry", fake_reg)
+    result = dl.list_live_strategies()
+    assert result == ["alpha", "beta"]
+
+
 # -- list_trader_services -----------------------------------------------------
 
-def test_list_trader_services_scans_deploy_dir(fake_repo):
+def test_list_trader_services_uses_registry(monkeypatch):
+    """S-007: primary source is the registry service field."""
+    import types
+    fake_reg = types.ModuleType("src.strategy_registry")
+    fake_reg.load_strategies = lambda: [
+        {"name": "breakout_confirmation", "service": "ict-trader-breakout", "model": "x.joblib"},
+        {"name": "vwap", "service": "ict-trader-vwap", "model": None},
+    ]
+    monkeypatch.setitem(sys.modules, "src.strategy_registry", fake_reg)
+    assert dl.list_trader_services() == ["ict-trader-breakout", "ict-trader-vwap"]
+
+
+def test_list_trader_services_falls_back_to_deploy_dir(fake_repo, monkeypatch):
+    """When the registry is unavailable, deploy/ directory scan is the fallback."""
     deploy = fake_repo / "deploy"
     (deploy / "ict-trader-live.service").write_text("# unit\n")
     (deploy / "ict-trader-binance-1.service").write_text("# unit\n")
-    (deploy / "ict-telegram-bot.service").write_text("# unit\n")  # not a trader
-    (deploy / "ict-heartbeat.timer").write_text("# timer\n")  # not a service
+    (deploy / "ict-telegram-bot.service").write_text("# unit\n")
+    (deploy / "ict-heartbeat.timer").write_text("# timer\n")
 
+    class _Boom:
+        def __getattr__(self, _name):
+            raise RuntimeError("simulated broken registry")
+
+    monkeypatch.setitem(sys.modules, "src.strategy_registry", _Boom())
     out = dl.list_trader_services()
     assert sorted(out) == ["ict-trader-binance-1", "ict-trader-live"]
 
 
-def test_list_trader_services_missing_dir_returns_empty(tmp_path, monkeypatch):
+def test_list_trader_services_both_sources_missing(tmp_path, monkeypatch):
+    """Returns [] when registry is broken and deploy/ dir does not exist."""
+    class _Boom:
+        def __getattr__(self, _name):
+            raise RuntimeError("simulated broken registry")
+
+    monkeypatch.setitem(sys.modules, "src.strategy_registry", _Boom())
     monkeypatch.setattr(dl, "REPO_ROOT", str(tmp_path / "does-not-exist"))
     assert dl.list_trader_services() == []
 
