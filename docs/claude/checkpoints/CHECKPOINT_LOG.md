@@ -11,6 +11,49 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-29-14 — Sprint S-001 PR-C: wire bot logs + latest_backtest through data_loaders
+
+- **Session date:** 2026-04-29
+- **Sprint:** Sprint S-001 (Telegram bot hardening)
+- **Current sprint phase:** PR-C — first slice of bot wiring. Establishes the `from src.bot import data_loaders as dl` facade in `telegram_query_bot.py` and routes the two cleanest call sites through it.
+- **Last completed checkpoint:** CP-2026-04-29-13 (PR-B3 exchange queries, merged via the consolidating PR #81)
+- **Next checkpoint:** **CP-2026-04-29-15** — PR-D: refactor `format_bybit_balance` / `format_binance_balance` / `format_*_positions` to consume `dl.account_balance` / `dl.account_open_positions` instead of calling exchange clients directly, then iterate over `dl.list_accounts()` for multi-account-ready `/balance` and `/positions`.
+- **Blockers:** none.
+
+### 1. Completed
+- Imported `data_loaders as dl` in `telegram_query_bot.py` (single new top-level import).
+- `get_last_logs(lines=...)` is now a one-line delegation to `dl.recent_logs_for(LIVE_SERVICE_NAME, n=lines)`. The previous body (run_shell_command + journalctl argv) is gone from the bot — it lives in `data_loaders` only.
+- `cmd_latest_backtest` (both "completed" and "idle" branches) and the `run_backtest_in_background` notification path now read backtest summaries from `dl.latest_backtests_per_model()` (newest entry) instead of `fetch_latest_backtest_result()`.
+- `format_backtest_summary` is unchanged — the new loader returns the same column shape, so presentation code is intact.
+- Legacy helpers `fetch_last_5_trades`, `fetch_latest_backtest_result`, `format_bybit_balance`, `format_binance_balance`, `format_bybit_positions`, `format_binance_positions`, `_get_binance_connector`, `get_bybit_client_from_env` remain in place and untouched. They are kept as a soft compat layer for any other importers (e.g. tests) until PR-D / PR-E retire them.
+- 5 new tests in `tests/test_telegram_query_bot.py` covering the wiring: 2 for `get_last_logs` (delegates to `dl.recent_logs_for` with correct args; propagates `⚠️ unavailable`), 3 for `cmd_latest_backtest` (completed branch surfaces `rows[0]`, idle/completed branches fall back gracefully on empty rows).
+- Test mocks use `AsyncMock` for `update.message.reply_text` and the `bot.dl` attribute as the patch target — no global module monkeypatching required.
+
+### 2. Files changed
+- `src/bot/telegram_query_bot.py` (import + 4 small surgical edits)
+- `tests/test_telegram_query_bot.py` (5 new tests, 1 import added)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+- `python scripts/repo_inventory.py` — pass
+- `python scripts/secret_scan.py` — pass
+- `PYTHONPATH=. pytest --collect-only -q --ignore=tests/test_main_loop.py tests` — 606 collected
+- `PYTHONPATH=. pytest tests/test_telegram_query_bot.py -q` — 26 passed
+- `PYTHONPATH=. pytest --ignore=tests/test_main_loop.py tests` — 23 failed (pre-existing baseline) / 581 passed (was 576 before PR-C — +5 new tests, no regressions).
+
+### 4. Remaining
+- PR-D: balance / positions wiring (formatters consume dl.* output).
+- PR-E: `cmd_last5` wiring — needs design call: today reads `trade_journal.trades`, `dl.recent_signals_for` reads `signals.db`. Likely outcome is a new `dl.recent_trades_for(account, n)` loader rather than re-pointing `last5` at signals.
+- PR-F: prune legacy helpers, fold strategy/account discovery through `dl.list_accounts()` everywhere.
+- Trader-side `strategy_name` write on insert remains a follow-up.
+
+### 5. Next checkpoint
+**CP-2026-04-29-15** — PR-D: refactor balance/positions formatters to consume `dl.account_balance` / `dl.account_open_positions` outputs and iterate `dl.list_accounts()` so `/balance` and `/positions` become multi-account-ready without changing today's single-account behaviour.
+
+**Telegram sent:** no (no creds in env)
+
+---
+
 ## CP-2026-04-29-13 — Sprint S-001 PR-B3: data_loaders exchange queries
 
 - **Session date:** 2026-04-29

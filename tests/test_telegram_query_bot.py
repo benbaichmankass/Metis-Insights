@@ -15,7 +15,7 @@ import sys
 import tempfile
 from datetime import datetime, timezone
 from types import ModuleType
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 # ---------------------------------------------------------------------------
 # Stub heavy deps before any src import
@@ -221,3 +221,113 @@ class TestFetchOpenPositionsCount:
     def test_returns_zero_on_missing_db(self, tmp_path, monkeypatch):
         monkeypatch.setattr(bot, "DB_PATH", str(tmp_path / "no.db"))
         assert bot.fetch_open_positions_count() == 0
+
+
+# ---------------------------------------------------------------------------
+# PR-C: data_loaders facade wiring
+# ---------------------------------------------------------------------------
+
+class TestGetLastLogsRoutesThroughDataLoaders:
+    """get_last_logs() must delegate to dl.recent_logs_for and pass through
+    both the configured service name and the requested line count."""
+
+    def test_delegates_to_dl_recent_logs_for(self, monkeypatch):
+        captured = {}
+
+        def _fake_recent_logs_for(service, n=20):
+            captured["service"] = service
+            captured["n"] = n
+            return "== fake journalctl output =="
+
+        monkeypatch.setattr(bot.dl, "recent_logs_for", _fake_recent_logs_for)
+        monkeypatch.setattr(bot, "LIVE_SERVICE_NAME", "ict-trader-live")
+
+        out = bot.get_last_logs(lines=42)
+
+        assert out == "== fake journalctl output =="
+        assert captured == {"service": "ict-trader-live", "n": 42}
+
+    def test_propagates_unavailable_marker(self, monkeypatch):
+        monkeypatch.setattr(
+            bot.dl, "recent_logs_for", lambda service, n=20: "⚠️ unavailable"
+        )
+        assert bot.get_last_logs() == "⚠️ unavailable"
+
+
+class TestLatestBacktestPullsFromDataLoaders:
+    """cmd_latest_backtest must source completed/idle results from
+    dl.latest_backtests_per_model() (newest entry) instead of the legacy
+    fetch_latest_backtest_result(). The 'running' branch is unrelated and
+    stays intentionally untouched in this PR."""
+
+    def _make_row(self, **overrides):
+        row = {
+            "id": 7, "run_date": "2026-04-29", "strategy_version": "vX",
+            "start_date": "2026-04-01", "end_date": "2026-04-28",
+            "total_trades": 10, "winning_trades": 6, "losing_trades": 4,
+            "win_rate": "60%", "profit_factor": 1.5, "expectancy": 12.0,
+            "max_drawdown": 100.0, "max_drawdown_pct": "3%",
+            "sharpe_ratio": 1.1, "total_pnl": 555.5, "total_pnl_pct": "5.5%",
+            "avg_win": 50.0, "avg_loss": 25.0,
+            "largest_win": 200.0, "largest_loss": 80.0,
+            "created_at": "2026-04-29T00:00:00",
+        }
+        row.update(overrides)
+        return row
+
+    def _run(self, coro):
+        import asyncio
+        return asyncio.new_event_loop().run_until_complete(coro)
+
+    def _make_update(self):
+        upd = MagicMock()
+        upd.effective_chat.id = 12345
+        upd.callback_query = None  # is_authorised checks truthiness of this
+        upd.message.reply_text = AsyncMock()
+        return upd
+
+    def test_completed_branch_uses_dl_first_row(self, monkeypatch):
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        monkeypatch.setattr(bot, "BACKTEST_STATUS", {
+            "state": "completed", "started_at": None, "finished_at": "now",
+            "last_error": None, "last_stdout_tail": None, "last_returncode": 0,
+        })
+        rows = [self._make_row(id=99), self._make_row(id=100, strategy_version="vY")]
+        monkeypatch.setattr(bot.dl, "latest_backtests_per_model", lambda: rows)
+
+        upd = self._make_update()
+        self._run(bot.cmd_latest_backtest(upd, MagicMock()))
+
+        upd.message.reply_text.assert_called()
+        sent = upd.message.reply_text.call_args.args[0]
+        # newest row surfaces first — confirms rows[0] selection, not rows[-1]
+        assert "Row ID: 99" in sent
+
+    def test_idle_branch_falls_back_when_no_rows(self, monkeypatch):
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        monkeypatch.setattr(bot, "BACKTEST_STATUS", {
+            "state": "idle", "started_at": None, "finished_at": None,
+            "last_error": None, "last_stdout_tail": None, "last_returncode": None,
+        })
+        monkeypatch.setattr(bot.dl, "latest_backtests_per_model", lambda: [])
+
+        upd = self._make_update()
+        self._run(bot.cmd_latest_backtest(upd, MagicMock()))
+
+        upd.message.reply_text.assert_called_once()
+        sent = upd.message.reply_text.call_args.args[0]
+        assert "No backtest running" in sent
+
+    def test_completed_branch_falls_back_when_no_rows(self, monkeypatch):
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        monkeypatch.setattr(bot, "BACKTEST_STATUS", {
+            "state": "completed", "started_at": None, "finished_at": "now",
+            "last_error": None, "last_stdout_tail": None, "last_returncode": 0,
+        })
+        monkeypatch.setattr(bot.dl, "latest_backtests_per_model", lambda: [])
+
+        upd = self._make_update()
+        self._run(bot.cmd_latest_backtest(upd, MagicMock()))
+
+        sent = upd.message.reply_text.call_args.args[0]
+        assert "Backtest COMPLETED" in sent
