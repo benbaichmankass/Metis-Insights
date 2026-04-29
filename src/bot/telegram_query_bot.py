@@ -895,6 +895,37 @@ async def cmd_alerts(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"⚠️ Could not load alerts: {e}")
 
 
+async def cmd_sprintlet_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Report sprintlet milestone status. Usage: /sprintlet_status <milestone>"""
+    if not is_authorised(update):
+        return
+    milestone = " ".join(context.args) if context.args else "update"
+    await update.message.reply_text(f"✅ Sprintlet S-008.5: {milestone}")
+
+
+async def cmd_sprintlet_complete(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Signal sprintlet completion."""
+    if not is_authorised(update):
+        return
+    await update.message.reply_text(
+        "🎉 Sprintlet S-008.5 COMPLETE. Resume at CP-2026-04-29-58. Ready for S-009."
+    )
+
+
+async def cmd_checkpoint(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show the latest checkpoint ID from CHECKPOINT_LOG.md."""
+    if not is_authorised(update):
+        return
+    log_path = os.path.join(REPO_ROOT, "docs", "claude", "checkpoints", "CHECKPOINT_LOG.md")
+    try:
+        with open(log_path, "r", encoding="utf-8") as fh:
+            cp_lines = [ln.strip() for ln in fh if ln.strip().startswith("## CP-")]
+        latest = cp_lines[0] if cp_lines else "No checkpoint found"
+        await update.message.reply_text(f"Latest checkpoint: {latest}")
+    except Exception as exc:
+        await update.message.reply_text(f"⚠️ Could not read checkpoint log: {exc}")
+
+
 async def cmd_download_journal(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_authorised(update):
         return
@@ -1080,6 +1111,9 @@ def main():
             BotCommand("download_journal", "Download trade journal DB"),
             BotCommand("price", "Current BTC price"),
             BotCommand("alerts", "Recent unit alerts (coordinator queue)"),
+        BotCommand("sprintlet_status", "Report sprintlet milestone status"),
+        BotCommand("sprintlet_complete", "Signal sprintlet completion"),
+        BotCommand("checkpoint", "Show latest checkpoint from CHECKPOINT_LOG.md"),
         ]
         await app.bot.set_my_commands(commands)
 
@@ -1101,6 +1135,9 @@ def main():
     application.add_handler(CommandHandler("download_journal", cmd_download_journal))
     application.add_handler(CommandHandler("price", cmd_price))
     application.add_handler(CommandHandler("alerts", cmd_alerts))
+    application.add_handler(CommandHandler("sprintlet_status", cmd_sprintlet_status))
+    application.add_handler(CommandHandler("sprintlet_complete", cmd_sprintlet_complete))
+    application.add_handler(CommandHandler("checkpoint", cmd_checkpoint))
     application.add_handler(CallbackQueryHandler(callback_handler))
     application.run_polling()
 
