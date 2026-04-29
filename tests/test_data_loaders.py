@@ -414,3 +414,85 @@ def test_account_last_trade_db_missing(monkeypatch, tmp_path):
     acc = {"account_id": "live", "exchange": "bybit", "env_path": None,
            "service": "ict-trader-live", "strategies": [], "source": "env"}
     assert dl.account_last_trade(acc) is None
+
+
+# -- recent_trades_for --------------------------------------------------------
+
+def _insert_trade(db, ts, symbol, direction="LONG", entry_price=100.0,
+                  is_backtest=0, strategy="ict"):
+    conn = sqlite3.connect(db)
+    conn.execute(
+        "INSERT INTO trades (timestamp, symbol, direction, entry_price, "
+        "is_backtest, strategy_name, created_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (ts, symbol, direction, entry_price, is_backtest, strategy, ts),
+    )
+    conn.commit()
+    conn.close()
+
+
+def test_recent_trades_for_returns_latest_live_rows(trade_journal_db):
+    # Three live rows (newest last) + one backtest row that must be excluded.
+    _insert_trade(trade_journal_db, "2026-04-29 09:00:00", "BTCUSDT")
+    _insert_trade(trade_journal_db, "2026-04-29 10:00:00", "ETHUSDT")
+    _insert_trade(trade_journal_db, "2026-04-29 11:00:00", "SOLUSDT")
+    _insert_trade(trade_journal_db, "2026-04-29 12:00:00", "BNBUSDT",
+                  is_backtest=1)
+    acc = {"account_id": "live", "exchange": "bybit", "env_path": None,
+           "service": "ict-trader-live", "strategies": [], "source": "env"}
+    out = dl.recent_trades_for(acc, n=5)
+    assert isinstance(out, list)
+    # Note: recent_trades_for does not filter is_backtest (matches existing
+    # cmd_last5 behavior of fetch_last_5_trades). Newest first.
+    symbols = [r["symbol"] for r in out]
+    assert symbols[0] == "BNBUSDT"
+    assert symbols[1] == "SOLUSDT"
+    # All expected columns are present.
+    for col in ("id", "timestamp", "symbol", "direction", "entry_price",
+                "exit_price", "stop_loss", "take_profit_1", "take_profit_2",
+                "take_profit_3", "position_size", "setup_type", "killzone",
+                "bias", "entry_reason", "exit_reason", "pnl", "pnl_percent",
+                "status", "notes", "is_backtest", "created_at"):
+        assert col in out[0]
+
+
+def test_recent_trades_for_respects_n_parameter(trade_journal_db):
+    for i in range(7):
+        _insert_trade(trade_journal_db,
+                      f"2026-04-29 1{i}:00:00", f"SYM{i}")
+    acc = {"account_id": "live", "exchange": "bybit", "env_path": None,
+           "service": "ict-trader-live", "strategies": [], "source": "env"}
+    assert len(dl.recent_trades_for(acc, n=3)) == 3
+    assert len(dl.recent_trades_for(acc, n=5)) == 5
+    assert len(dl.recent_trades_for(acc, n=10)) == 7
+
+
+def test_recent_trades_for_returns_empty_for_non_legacy_account(
+        trade_journal_db):
+    _insert_trade(trade_journal_db, "2026-04-29 10:00:00", "BTCUSDT")
+    acc = {"account_id": "binance-sub-1", "exchange": "binance",
+           "env_path": None, "service": "ict-trader-binance-1",
+           "strategies": [], "source": "env"}
+    assert dl.recent_trades_for(acc, n=5) == []
+
+
+def test_recent_trades_for_returns_empty_when_db_missing(monkeypatch, tmp_path):
+    monkeypatch.setattr(dl, "TRADE_JOURNAL_DB", str(tmp_path / "nope.db"))
+    acc = {"account_id": "live", "exchange": "bybit", "env_path": None,
+           "service": "ict-trader-live", "strategies": [], "source": "env"}
+    assert dl.recent_trades_for(acc, n=5) == []
+
+
+def test_recent_trades_for_handles_invalid_account(monkeypatch):
+    assert dl.recent_trades_for(None, n=5) == []
+    assert dl.recent_trades_for("not-a-dict", n=5) == []
+
+
+def test_recent_trades_for_handles_invalid_n(trade_journal_db):
+    _insert_trade(trade_journal_db, "2026-04-29 10:00:00", "BTCUSDT")
+    acc = {"account_id": "live", "exchange": "bybit", "env_path": None,
+           "service": "ict-trader-live", "strategies": [], "source": "env"}
+    # Bogus n falls back to default 5; zero/negative coerced to >=1.
+    assert isinstance(dl.recent_trades_for(acc, n="oops"), list)
+    assert isinstance(dl.recent_trades_for(acc, n=0), list)
+    assert isinstance(dl.recent_trades_for(acc, n=-3), list)
