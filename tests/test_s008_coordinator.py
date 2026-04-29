@@ -222,13 +222,17 @@ class TestDashboards:
         stats = coord.dashboard_stats()
         assert isinstance(stats["strategies"], list)
 
-    def test_dashboard_stats_accounts_matches_list_accounts(self, coord, monkeypatch):
+    def test_dashboard_stats_accounts_contain_same_ids(self, coord, monkeypatch):
+        """dashboard_stats() enriches accounts; account_ids must match list_accounts()."""
         monkeypatch.setattr(
             "src.bot.data_loaders.strategy_dashboard_data",
             lambda: [],
         )
+        monkeypatch.setattr("src.bot.data_loaders.account_last_trade", lambda a: None)
         stats = coord.dashboard_stats()
-        assert stats["accounts"] == coord.list_accounts()
+        stat_ids = {a["account_id"] for a in stats["accounts"]}
+        cfg_ids = {a["account_id"] for a in coord.list_accounts()}
+        assert stat_ids == cfg_ids
 
 
 # ---------------------------------------------------------------------------

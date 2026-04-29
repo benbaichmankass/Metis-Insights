@@ -232,19 +232,58 @@ class Coordinator:
     # Unit 3 → Dashboards
     # ------------------------------------------------------------------
 
-    def dashboard_stats(self) -> Dict[str, Any]:
-        """Return unified stats for all strategies and accounts.
+    def dashboard_stats(
+        self,
+        exchange_clients: Optional[Dict[str, Any]] = None,
+        strategy_rows: Optional[List[Dict[str, Any]]] = None,
+    ) -> Dict[str, Any]:
+        """Return unified stats for all strategies, accounts, and alerts.
 
-        Keys: ``strategies`` (list of per-strategy dicts),
-              ``accounts`` (list of account configs).
+        Parameters
+        ----------
+        exchange_clients : dict[account_id, client], optional
+            When provided, balance and open_positions are fetched live.
+            When None (default) those fields are None (safe for offline use).
+        strategy_rows : list[dict], optional
+            Pre-fetched strategy rows; fetched from data_loaders when None.
+
+        Keys in returned dict:
+            ``strategies``   — per-strategy enriched rows (incl. paused flag)
+            ``accounts``     — per-account enriched rows (balance, positions)
+            ``alerts``       — pending alerts from the global queue
+            ``generated_at`` — ISO-8601 UTC timestamp
         """
-        from src.bot.data_loaders import strategy_dashboard_data
-        strategies = strategy_dashboard_data()
-        accounts = self.list_accounts()
-        return {
-            "strategies": strategies,
-            "accounts": accounts,
-        }
+        from src.units.dashboards.stats import build_stats
+        return build_stats(
+            accounts=self.list_accounts(),
+            paused_account_ids=set(_PAUSED_ACCOUNTS),
+            paused_strategy_names=set(),
+            strategy_rows=strategy_rows,
+            exchange_clients=exchange_clients,
+        )
+
+    # --- Alerts helpers (Dashboards subunit) ---------------------------------
+
+    def push_alert(
+        self,
+        message: str,
+        source: str = "coordinator",
+        level: str = "info",
+        **extra: Any,
+    ) -> Dict[str, Any]:
+        """Push an alert to the global dashboards alerts queue."""
+        from src.units.dashboards.alerts import push_alert
+        return push_alert(message, source=source, level=level, **extra)
+
+    def list_alerts(self, n: Optional[int] = None) -> List[Dict[str, Any]]:
+        """Return up to *n* most-recent alerts (all when None)."""
+        from src.units.dashboards.alerts import list_alerts
+        return list_alerts(n)
+
+    def pop_alerts(self) -> List[Dict[str, Any]]:
+        """Drain and return all pending alerts."""
+        from src.units.dashboards.alerts import pop_alerts
+        return pop_alerts()
 
     def recent_signals(self, strategy: Optional[str] = None, n: int = 5) -> List[Dict[str, Any]]:
         """Recent signals for *strategy* (all strategies when None).
@@ -301,6 +340,8 @@ class Coordinator:
         detail = f"Paused {len(paused)} account(s)"
         if errors:
             detail += f"; errors: {errors}"
+        self.push_alert(detail, source="return_commands", level="warning",
+                        cmd="halt", paused=paused)
         return {
             "cmd": "halt",
             "status": "ok" if not errors else "partial",
@@ -321,6 +362,8 @@ class Coordinator:
         detail = f"Resumed {len(resumed)} account(s)"
         if errors:
             detail += f"; errors: {errors}"
+        self.push_alert(detail, source="return_commands", level="info",
+                        cmd="resume", resumed=resumed)
         return {
             "cmd": "resume",
             "status": "ok" if not errors else "partial",
