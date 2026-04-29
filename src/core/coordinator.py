@@ -90,6 +90,33 @@ class Coordinator:
             logger.warning("units.yaml not found at %s; using empty config", self._units_path)
             self._cfg = {}
 
+    def reload_units(self) -> Dict[str, Any]:
+        """Re-read units.yaml and refresh the Coordinator's config in-place.
+
+        Returns a summary of what changed: ``{reloaded: bool, units_path: str,
+        strategy_count: int, enabled_strategies: list[str]}``.
+
+        Pushes an info alert so Telegram / App consumers see the reload event.
+        """
+        self._reload()
+        from src.units import list_enabled_strategies
+        enabled = list_enabled_strategies(self._units_path)
+        summary = {
+            "reloaded": True,
+            "units_path": self._units_path,
+            "strategy_count": len(self.list_strategies()),
+            "enabled_strategies": enabled,
+        }
+        self.push_alert(
+            f"Units reloaded from {self._units_path}: "
+            f"{len(enabled)} enabled strategies",
+            source="app",
+            level="info",
+            **summary,
+        )
+        logger.info("reload_units: %s", summary)
+        return summary
+
     # ------------------------------------------------------------------
     # Unit 1 → Strategies
     # ------------------------------------------------------------------
