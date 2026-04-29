@@ -272,41 +272,66 @@ def get_last_logs(lines: int = 20) -> str:
     return dl.recent_logs_for(LIVE_SERVICE_NAME, n=lines)
 
 
-def format_bybit_balance(env_vars: dict) -> str:
-    label = get_strategy_label(env_vars)
+def _account_env(account: dict) -> dict:
+    """Best-effort load of the account's .env file (for strategy-label
+    rendering). Empty dict on any failure — the caller's label fallback
+    handles the “unknown” case."""
+    path = (account or {}).get("env_path") or ""
+    if not path or not os.path.exists(path):
+        return {}
     try:
-        client = get_bybit_client_from_env(env_vars)
-        resp = client.get_wallet_balance(accountType="UNIFIED")
-        result_list = resp.get("result", {}).get("list", [])
-        if not result_list:
-            return f"💰 *{label} Balance*\nNo balance data returned from Bybit."
-        coins = result_list[0].get("coin", [])
-        lines = [
-            f"{c['coin']}: {float(c['walletBalance']):.4f} (≈ ${float(c.get('usdValue', '0')):.2f})"
-            for c in coins
-            if float(c.get("walletBalance", 0)) > 0
-        ]
-        text = "\n".join(lines) if lines else "No non-zero balances found."
-        return f"💰 *{label} Balance*\n{text}"
-    except Exception as e:
-        return f"💰 *{label} Balance*\n⚠️ Bybit error: {e}"
+        return {k: v for k, v in dotenv_values(path).items() if v is not None}
+    except Exception:  # noqa: BLE001
+        return {}
 
 
-def format_bybit_positions(env_vars: dict) -> str:
-    label = get_strategy_label(env_vars)
-    try:
-        client = get_bybit_client_from_env(env_vars)
-        resp = client.get_positions(category="linear", settleCoin="USDT")
-        positions = [p for p in resp["result"]["list"] if float(p.get("size", 0)) > 0]
-        if not positions:
-            return f"📊 *{label} Positions*\nNo open positions."
-        lines = [
-            f"{p['symbol']} {p['side']} | Size: {p['size']} | Entry: ${float(p['avgPrice']):,.2f} | PnL: ${float(p['unrealisedPnl']):+.2f}"
-            for p in positions
-        ]
-        return f"📊 *{label} Positions*\n" + "\n".join(lines)
-    except Exception as e:
-        return f"📊 *{label} Positions*\n⚠️ Bybit error: {e}"
+def format_bybit_balance(account: dict) -> str:
+    """Render the per-coin Bybit balance block for one account.
+    Data is sourced via ``dl.account_balance``; this function only formats."""
+    label = get_strategy_label(_account_env(account))
+    payload = dl.account_balance(account)
+    if payload is None:
+        return f"💰 *{label} Balance*\n⚠️ Bybit error: balance unavailable."
+    raw = (payload or {}).get("raw") or {}
+    result_list = (raw.get("result") or {}).get("list") or []
+    if not result_list:
+        return f"💰 *{label} Balance*\nNo balance data returned from Bybit."
+    coins = result_list[0].get("coin", []) or []
+    lines = []
+    for c in coins:
+        try:
+            wb = float(c.get("walletBalance", 0) or 0)
+        except (TypeError, ValueError):
+            wb = 0.0
+        if wb <= 0:
+            continue
+        try:
+            usd = float(c.get("usdValue", "0") or 0)
+        except (TypeError, ValueError):
+            usd = 0.0
+        lines.append(f"{c.get('coin', '?')}: {wb:.4f} (≈ ${usd:.2f})")
+    text = "\n".join(lines) if lines else "No non-zero balances found."
+    return f"💰 *{label} Balance*\n{text}"
+
+
+def format_bybit_positions(account: dict) -> str:
+    """Render the open-positions block for one Bybit account using
+    ``dl.account_open_positions`` output."""
+    label = get_strategy_label(_account_env(account))
+    rows = dl.account_open_positions(account)
+    if rows is None:
+        return f"📊 *{label} Positions*\n⚠️ Bybit error: positions unavailable."
+    if not rows:
+        return f"📊 *{label} Positions*\nNo open positions."
+    lines = []
+    for p in rows:
+        sym = p.get("symbol") or "?"
+        side = p.get("side") or "?"
+        size = p.get("size") or 0
+        entry = float(p.get("entry_price") or 0)
+        pnl = float(p.get("unrealised_pnl") or 0)
+        lines.append(f"{sym} {side} | Size: {size} | Entry: ${entry:,.2f} | PnL: ${pnl:+.2f}")
+    return f"📊 *{label} Positions*\n" + "\n".join(lines)
 
 
 def close_all_bybit_positions(env_vars: dict) -> str:
@@ -419,47 +444,47 @@ def _get_binance_connector(env_vars: dict):
     )
 
 
-def format_binance_balance(env_vars: dict) -> str:
-    label = get_strategy_label(env_vars)
-    try:
-        conn = _get_binance_connector(env_vars)
-        bal = conn.get_balance()
-        if not bal:
-            return f"💰 *{label} Balance (Binance)*\nNo data returned."
-        usdt = bal.get("USDT", {})
-        total = float(usdt.get("total", 0) or 0)
-        free  = float(usdt.get("free", 0) or 0)
-        used  = float(usdt.get("used", 0) or 0)
-        return (
-            f"💰 *{label} Balance (Binance Futures)*\n"
-            f"USDT Total: {total:.2f}\n"
-            f"USDT Free: {free:.2f}\n"
-            f"USDT Used: {used:.2f}"
-        )
-    except Exception as e:
-        return f"💰 *{label} Balance (Binance)*\n⚠️ Error: {e}"
+def format_binance_balance(account: dict) -> str:
+    """Render the Binance Futures USDT balance block for one account.
+    Total/free/used are derived from the loader's ``raw`` ccxt-style
+    balance map (preserves today's UX)."""
+    label = get_strategy_label(_account_env(account))
+    payload = dl.account_balance(account)
+    if payload is None:
+        return f"💰 *{label} Balance (Binance)*\n⚠️ Error: balance unavailable."
+    raw = (payload or {}).get("raw") or {}
+    if not raw:
+        return f"💰 *{label} Balance (Binance)*\nNo data returned."
+    usdt = raw.get("USDT", {}) if isinstance(raw, dict) else {}
+    total = float((usdt or {}).get("total", 0) or 0)
+    free = float((usdt or {}).get("free", 0) or 0)
+    used = float((usdt or {}).get("used", 0) or 0)
+    return (
+        f"💰 *{label} Balance (Binance Futures)*\n"
+        f"USDT Total: {total:.2f}\n"
+        f"USDT Free: {free:.2f}\n"
+        f"USDT Used: {used:.2f}"
+    )
 
 
-def format_binance_positions(env_vars: dict) -> str:
-    label = get_strategy_label(env_vars)
-    try:
-        conn = _get_binance_connector(env_vars)
-        positions = conn.get_positions()
-        if not positions:
-            return f"📊 *{label} Positions (Binance)*\nNo open positions."
-        lines = []
-        for p in positions:
-            symbol = p.get("symbol", "?")
-            side = p.get("side", "?")
-            size = p.get("contracts", "?")
-            entry = float(p.get("entryPrice", 0) or 0)
-            pnl = float(p.get("unrealizedPnl", 0) or 0)
-            lines.append(
-                f"{symbol} {side} | Size: {size} | Entry: ${entry:,.2f} | PnL: ${pnl:+.2f}"
-            )
-        return f"📊 *{label} Positions (Binance)*\n" + "\n".join(lines)
-    except Exception as e:
-        return f"📊 *{label} Positions (Binance)*\n⚠️ Error: {e}"
+def format_binance_positions(account: dict) -> str:
+    """Render the Binance open-positions block for one account using
+    ``dl.account_open_positions`` output."""
+    label = get_strategy_label(_account_env(account))
+    rows = dl.account_open_positions(account)
+    if rows is None:
+        return f"📊 *{label} Positions (Binance)*\n⚠️ Error: positions unavailable."
+    if not rows:
+        return f"📊 *{label} Positions (Binance)*\nNo open positions."
+    lines = []
+    for p in rows:
+        sym = p.get("symbol") or "?"
+        side = p.get("side") or "?"
+        size = p.get("size") or 0
+        entry = float(p.get("entry_price") or 0)
+        pnl = float(p.get("unrealised_pnl") or 0)
+        lines.append(f"{sym} {side} | Size: {size} | Entry: ${entry:,.2f} | PnL: ${pnl:+.2f}")
+    return f"📊 *{label} Positions (Binance)*\n" + "\n".join(lines)
 
 
 # ── Commands ──────────────────────────────────────────────────────────────────
@@ -545,48 +570,78 @@ async def cmd_resume(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"⚠️ Failed to remove halt flag: {e}")
 
 
+def _render_account_balance(account: dict) -> str:
+    """Dispatch a single account to the right balance formatter."""
+    exchange = str((account or {}).get("exchange", "")).lower()
+    if exchange == "bybit":
+        return format_bybit_balance(account)
+    if exchange == "binance":
+        return format_binance_balance(account)
+    label = get_strategy_label(_account_env(account))
+    return (
+        f"💰 *{label} Balance*\n"
+        f"Exchange=`{exchange or 'not set'}` — unsupported exchange."
+    )
+
+
+def _render_account_positions(account: dict) -> str:
+    """Dispatch a single account to the right positions formatter."""
+    exchange = str((account or {}).get("exchange", "")).lower()
+    if exchange == "bybit":
+        return format_bybit_positions(account)
+    if exchange == "binance":
+        return format_binance_positions(account)
+    label = get_strategy_label(_account_env(account))
+    return (
+        f"📊 *{label} Positions*\n"
+        f"Exchange=`{exchange or 'not set'}` — unsupported exchange."
+    )
+
+
 async def cmd_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_authorised(update):
         return
-    env_vars: dict = {}
     try:
-        env_vars = load_account_env()
-        exchange = str(env_vars.get("EXCHANGE", "")).lower()
-        label = get_strategy_label(env_vars)
-        if exchange == "bybit":
-            block = format_bybit_balance(env_vars)
-        elif exchange == "binance":
-            block = format_binance_balance(env_vars)
-        else:
-            block = (
-                f"💰 *{label} Balance*\n"
-                f"Exchange=`{exchange or 'not set'}` — unsupported exchange."
-            )
-    except Exception as e:
-        block = f"💰 *{get_strategy_label(env_vars)} Balance*\n⚠️ {e}"
-    await update.message.reply_text(block, parse_mode="Markdown")
+        accounts = dl.list_accounts() or []
+    except Exception as e:  # noqa: BLE001
+        await update.message.reply_text(f"⚠️ Could not list accounts: {e}")
+        return
+    if not accounts:
+        await update.message.reply_text(
+            "⚠️ No accounts configured. Add `.env` (legacy) or `.env.<id>` files.",
+            parse_mode="Markdown",
+        )
+        return
+    blocks = []
+    for acc in accounts:
+        try:
+            blocks.append(_render_account_balance(acc))
+        except Exception as e:  # noqa: BLE001
+            blocks.append(f"💰 *{acc.get('account_id', '?')} Balance*\n⚠️ {e}")
+    await update.message.reply_text("\n\n".join(blocks), parse_mode="Markdown")
 
 
 async def cmd_trades(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_authorised(update):
         return
-    env_vars: dict = {}
     try:
-        env_vars = load_account_env()
-        exchange = str(env_vars.get("EXCHANGE", "")).lower()
-        label = get_strategy_label(env_vars)
-        if exchange == "bybit":
-            block = format_bybit_positions(env_vars)
-        elif exchange == "binance":
-            block = format_binance_positions(env_vars)
-        else:
-            block = (
-                f"📊 *{label} Positions*\n"
-                f"Exchange=`{exchange or 'not set'}` — unsupported exchange."
-            )
-    except Exception as e:
-        block = f"📊 *{get_strategy_label(env_vars)} Positions*\n⚠️ {e}"
-    await update.message.reply_text(block, parse_mode="Markdown")
+        accounts = dl.list_accounts() or []
+    except Exception as e:  # noqa: BLE001
+        await update.message.reply_text(f"⚠️ Could not list accounts: {e}")
+        return
+    if not accounts:
+        await update.message.reply_text(
+            "⚠️ No accounts configured. Add `.env` (legacy) or `.env.<id>` files.",
+            parse_mode="Markdown",
+        )
+        return
+    blocks = []
+    for acc in accounts:
+        try:
+            blocks.append(_render_account_positions(acc))
+        except Exception as e:  # noqa: BLE001
+            blocks.append(f"📊 *{acc.get('account_id', '?')} Positions*\n⚠️ {e}")
+    await update.message.reply_text("\n\n".join(blocks), parse_mode="Markdown")
 
 
 async def cmd_price(update: Update, context: ContextTypes.DEFAULT_TYPE):
