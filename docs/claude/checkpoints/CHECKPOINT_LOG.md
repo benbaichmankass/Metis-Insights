@@ -11,6 +11,41 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-29-43 — S-006 M3: ICT_RISK_PCT=0.4 live sizing bump
+
+- **Session date:** 2026-04-29
+- **Sprint:** S-006 (ICT Multi-Symbol Backtest)
+- **Current sprint phase:** M3 — live sizing bump after GO verdict
+- **Last completed checkpoint:** CP-2026-04-29-42 (S-006 synthetic pivot, PR #112 merged)
+- **Next checkpoint:** **CP-2026-04-29-44** — merge PR #113 and close out S-006
+- **Telegram sent:** no (no creds in session)
+- **Alerts sent during session:** none
+- **Blockers:** none
+
+### 1. Completed
+- Added `risk.ict` profile to `config/master-secrets.template.yaml`: `risk_per_trade: "0.004"` (0.4%), `max_open_positions: "1"`, `max_position_usd: REPLACE_ME`, with comment referencing S-006 PF=2.04
+- Added `ICT_RISK_PCT=0.4` to `.env.example` with inline comment
+- `tests/test_s006_ict_risk_config.py`: 7 tests verifying presence and values in both files
+- Opened draft PR #113 on branch `feat/s006-m3-ict-risk-pct`
+
+### 2. Files changed
+- `config/master-secrets.template.yaml`
+- `.env.example`
+- `tests/test_s006_ict_risk_config.py` (new)
+
+### 3. Tests run
+- `pytest tests/test_s006_ict_risk_config.py -v` — 7 passed
+
+### 4. Remaining
+- Merge PR #113
+- S-006 sprint complete once #113 merges
+
+### 5. Next checkpoint
+**CP-2026-04-29-44** — merge PR #113, verify tests pass on main, send sprint-done Telegram ping.
+Read: `docs/claude/checkpoints/CHECKPOINT_LOG.md`, `docs/claude/checkpoint-workflow.md`.
+
+---
+
 ## CP-2026-04-29-42 — Sprint S-006 Pivot: synthetic multi-symbol validation
 
 - **Session date:** 2026-04-29
