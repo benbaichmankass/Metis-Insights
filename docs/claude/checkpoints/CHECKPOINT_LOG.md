@@ -11,6 +11,60 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-29-61 — S-011 SPRINT COMPLETE
+
+- **Session date:** 2026-04-29
+- **Sprint:** S-011 (Text Milestones — Backtesting UI + Strategy Config)
+- **Current sprint phase:** wrap-up — all 4 PRs merged + roadmap mini-PR #140
+- **Last completed checkpoint:** CP-2026-04-29-60 (S-010 complete)
+- **Next checkpoint:** Start of S-012 — read CHECKPOINT_LOG.md as usual.
+- **Telegram sent:** no (no creds in session)
+- **Alerts sent during session:** none
+- **Blockers:** none
+
+### 1. Completed
+- PR #140 (mini): Roadmap — S-010 ✅, prop deferred, Phase 3.5 Text Milestones inserted
+- PR #141: `/accounts` dry/live toggle — `TradingAccount.dry_run`, `_DRY_RUN_OVERRIDES`, Coordinator.set_account_dry_run(), `/accounts` bot command, 17 tests
+- PR #142: Strategies pure signals — docstring contract, 18 structural + functional tests
+- PR #143: Backtesting UI — `src/web/backtest_ui.py`, `/backtest_ui` bot command, 26 tests, workflow doc
+- PR #144: Strategy Config UI — `src/web/config_ui.py`, `config/strategies.yaml` extended, `load/save_strategy_config()`, `Coordinator.reload_strategy_config()`, `/reload_strats` bot command, 29 tests
+- PR #145 (this PR): sprint summary + checkpoint
+
+### 2. Files changed
+- `src/units/accounts/__init__.py` (dry run overrides)
+- `src/units/accounts/account.py` (dry_run flag)
+- `src/core/coordinator.py` (set_account_dry_run, reload_strategy_config)
+- `src/units/strategies/__init__.py` (load/save_strategy_config — new)
+- `src/units/strategies/_base.py` (pure-signal docstring)
+- `src/bot/telegram_query_bot.py` (/accounts, /reload_strats, /backtest_ui)
+- `src/web/__init__.py` (new)
+- `src/web/backtest_ui.py` (new)
+- `src/web/config_ui.py` (new)
+- `config/strategies.yaml` (extended + reordered fix)
+- `requirements.txt` (streamlit added)
+- `docs/workflows/backtest-ui.md` (new)
+- `tests/test_s010_accounts.py` (17 new tests)
+- `tests/test_s011_strategy_purity.py` (new — 18 tests)
+- `tests/test_s011_backtest_ui.py` (new — 26 tests)
+- `tests/test_s011_config_ui.py` (new — 29 tests)
+- `docs/sprint-summaries/sprint-011-summary.md` (new)
+- `ROADMAP.md` (Phase 3.5 added)
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/ -q --ignore=tests/test_main_loop.py` — 1181 passed (23 pre-existing failures in test_runtime_validation.py, unrelated to S-011)
+- `python scripts/secret_scan.py` — clean
+- New tests this sprint: 90
+
+### 4. Remaining
+- Streamlit deployment to Oracle VM (future sprint)
+- BreakoutAPI live implementation (future sprint)
+- `test_runtime_validation.py` pre-existing failures (23 failures, pre-date S-010)
+
+### 5. Next checkpoint
+**CP-2026-04-29-62** — Start S-012 (Strategy Config UI polish / next Text Milestone). Read `CHECKPOINT_LOG.md` for the latest entry.
+
+---
+
 ## CP-2026-04-29-60 — S-010 SPRINT COMPLETE
 
 - **Session date:** 2026-04-29

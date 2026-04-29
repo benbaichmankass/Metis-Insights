@@ -3,21 +3,22 @@
 # Original fields: service, model, signal_prefixes (S-008)
 # New fields (S-011): enabled, risk_pct, timeframe, symbols, + strategy-specific params
 #
+# ORDERING: breakout_confirmation, vwap, killzone, ict
+# test_s007 asserts ict is last and killzone precedes ict — preserve this order.
+#
 # Edit via Streamlit UI (src/web/config_ui.py) or directly here.
 # Reload at runtime: Coordinator.reload_strategy_config() or /reload_strats Telegram.
 
 strategies:
-  ict:
-    service: ict-trader-ict
-    model: null
-    signal_prefixes: [fvg, ob, ict]
-    enabled: true
-    risk_pct: 1.0           # % of account to risk per trade
-    timeframe: "5m"
+  breakout_confirmation:
+    service: ict-trader-breakout
+    model: btc_v1.joblib
+    signal_prefixes: [ml_breakout, breakout]
+    enabled: false
+    risk_pct: 1.0
+    timeframe: "1h"
     symbols:
       - BTCUSDT
-      - ETHUSDT
-    confidence_threshold: 0.6
 
   vwap:
     service: ict-trader-vwap
@@ -41,12 +42,14 @@ strategies:
       - BTCUSDT
       - ETHUSDT
 
-  breakout_confirmation:
-    service: ict-trader-breakout
-    model: btc_v1.joblib
-    signal_prefixes: [ml_breakout, breakout]
-    enabled: false
-    risk_pct: 1.0
-    timeframe: "1h"
+  ict:
+    service: ict-trader-ict
+    model: null
+    signal_prefixes: [fvg, ob, ict]
+    enabled: true
+    risk_pct: 1.0           # % of account to risk per trade
+    timeframe: "5m"
     symbols:
       - BTCUSDT
+      - ETHUSDT
+    confidence_threshold: 0.6
