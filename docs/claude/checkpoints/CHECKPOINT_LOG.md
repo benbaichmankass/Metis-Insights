@@ -11,6 +11,90 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-29-19 — Sprint S-002 M1a: account_id column migration for trades table
+
+- **Session date:** 2026-04-29
+- **Sprint:** Sprint S-002 (Telegram bot multi-account + workflow hardening)
+- **Current sprint phase:** M1a — schema migration
+- **Last completed checkpoint:** CP-2026-04-29-18 (M0 workflow fix, PR #86 merged)
+- **Next checkpoint:** **CP-2026-04-29-20 — M1b: trader writes account_id on insert** — locate every `INSERT INTO trades` site (likely `src/runtime/orders.py` or a journal helper), populate `account_id` from the trader's account dict, default to `'live'` if missing; add tests for each insert path.
+- **Telegram sent:** no (import chain blocked by missing `pandas` in this environment — exits 0, non-fatal)
+- **Alerts sent during session:** none
+- **Blockers:** Waiting for Ben to merge PR #87 before M1b starts (account_id column must exist in schema before trader insert code writes to it).
+
+### 1. Completed
+- Added `migrate_add_account_id(cur)` to `scripts/init_db.py` — idempotent `ALTER TABLE trades ADD COLUMN account_id TEXT NOT NULL DEFAULT 'live'`; returns `True` on first run, `False` if already present.
+- Added `_migrate_add_account_id(cursor)` to `src/data_layer/database.py` — mirrors the above; called on every `Database()` construction after `_migrate_add_strategy_name`.
+- Added `account_id TEXT NOT NULL DEFAULT 'live'` to both `CREATE TABLE IF NOT EXISTS trades` definitions so fresh DBs include the column immediately.
+- Added `CREATE INDEX IF NOT EXISTS idx_trades_account_created ON trades (account_id, datetime(created_at) DESC)` in both bootstrap paths.
+- Created `tests/test_account_id_column.py` with 13 tests: fresh DB column present, idempotency, index present, legacy DB migration, legacy rows default to `'live'`, helper return values (True/False), insert with explicit `account_id`.
+- Opened PR-M1a as draft: https://github.com/the-lizardking/ict-trading-bot/pull/87
+
+### 2. Files changed
+- `scripts/init_db.py`
+- `src/data_layer/database.py`
+- `tests/test_account_id_column.py` (new)
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_account_id_column.py -v` — **13 passed**
+- `PYTHONPATH=. pytest tests/test_strategy_name_column.py tests/test_account_id_column.py tests/test_notify_session.py tests/test_data_loaders.py tests/test_telegram_query_bot.py -q` — **105 passed, 1 skipped** (no regressions)
+- `python scripts/repo_inventory.py` — clean
+- `python scripts/secret_scan.py` — clean
+
+### 4. Remaining
+- Ben must merge PR #87 before M1b starts.
+- M1b: populate `account_id` on every `INSERT INTO trades`.
+- M1c: `dl.recent_trades_for` and `dl.account_last_trade` — drop legacy-account short-circuit, add `WHERE account_id = ?`.
+- M1d: doc follow-up (architecture notes).
+
+### 5. Next checkpoint
+**CP-2026-04-29-20** — M1b: trader writes `account_id` on insert.
+Read first: this entry, `docs/claude/checkpoint-workflow.md`, then locate every `INSERT INTO trades` site (`grep -rn "INSERT INTO trades" src/`).
+
+---
+
+## CP-2026-04-29-18 — Sprint S-002 M0: alert subcommand + notification workflow hardening
+
+- **Session date:** 2026-04-29
+- **Sprint:** Sprint S-002 (Telegram bot multi-account + workflow hardening)
+- **Current sprint phase:** M0 — workflow fix (first task, mandatory stop after)
+- **Last completed checkpoint:** CP-2026-04-29-17 (Sprint S-001 PR-F, merged)
+- **Next checkpoint:** **CP-2026-04-29-19 — M1a schema migration** — add `ALTER TABLE trades ADD COLUMN account_id TEXT NOT NULL DEFAULT 'live'` migration following the PR-B0 pattern; index on `(account_id, datetime(created_at) DESC)`; idempotency test; run on copy of live DB.
+- **Telegram sent:** no (import of `send_via_alert_manager` blocked by missing `pandas` in this environment — exits 0, non-fatal)
+- **Alerts sent during session:** no (same reason — no-creds/import-error path; will verify end-to-end when environment has pandas installed)
+- **Blockers:** Waiting for Ben to merge PR #86 and say "continue" before starting M1. This is the intentional M0 verification stop.
+
+### 1. Completed
+- Added `alert` subcommand to `scripts/notify_session.py`. Args: `--summary`, `--link`. Message format: `🚨 Alert! - User Action Required\n<summary>\n👉 <link>`. Reuses `_send` and `send_via_alert_manager` identically to `_cmd_session`.
+- Updated `docs/claude/session-workflow.md`: lifted Telegram ping into **"## End-of-session notification (REQUIRED)"** section with skip-recovery instruction; added **"## Alert path — when blocked on user input"** section with exact command.
+- Updated `docs/claude/checkpoint-workflow.md`: parenthetical re-open annotation on step 4; added **Alerts** subsection after step 4 pointing to session-workflow.md.
+- Updated `docs/claude/checkpoints/HANDOFF_TEMPLATE.md`: `Telegram sent` and `Alerts sent during session` promoted to top-level required header fields (just under `Next checkpoint`); removed the buried footer `Telegram sent` line.
+- Created `tests/test_notify_session.py` with 8 tests: arg routing (`alert` → `_cmd_alert`), required-arg enforcement, message contains header/summary/link, message order (header < summary < link), no-creds path via `send_via_alert_manager` raise.
+- Opened PR-M0 as draft: https://github.com/the-lizardking/ict-trading-bot/pull/86
+
+### 2. Files changed
+- `scripts/notify_session.py`
+- `docs/claude/session-workflow.md`
+- `docs/claude/checkpoint-workflow.md`
+- `docs/claude/checkpoints/HANDOFF_TEMPLATE.md`
+- `tests/test_notify_session.py` (new)
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_notify_session.py -v` — **8 passed**
+- `PYTHONPATH=. pytest tests/test_data_loaders.py tests/test_telegram_query_bot.py -q` — **82 passed, 1 skipped** (no regressions)
+- `python scripts/repo_inventory.py` — clean (no junk candidates)
+- `python scripts/secret_scan.py` — clean
+
+### 4. Remaining
+- Ben must merge PR #86 and say "continue" (intentional M0 verification stop).
+- After merge, start M1a: schema migration for `account_id` column in `trades` table.
+
+### 5. Next checkpoint
+**CP-2026-04-29-19** — M1a: add `account_id` column migration.
+Read first: `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry), `docs/claude/checkpoint-workflow.md`, then locate `src/runtime/db_migrations.py` or equivalent schema bootstrap from PR-B0 to follow that pattern.
+
+---
+
 ## CP-2026-04-29-17 — Sprint S-001 PR-F: prune dead helpers + restore failure-isolation tests
 
 - **Session date:** 2026-04-29

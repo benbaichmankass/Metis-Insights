@@ -24,6 +24,21 @@ def _migrate_add_strategy_name(cursor: sqlite3.Cursor) -> bool:
     return True
 
 
+def _migrate_add_account_id(cursor: sqlite3.Cursor) -> bool:
+    """Add ``account_id`` column to ``trades`` table if absent.
+
+    Default ``'live'`` keeps pre-existing rows attributed to the legacy live
+    account. Idempotent: returns True only on the run that adds the column.
+    Mirrors ``migrate_add_account_id`` in ``scripts/init_db.py``.
+    """
+    cursor.execute("PRAGMA table_info(trades)")
+    columns = {row[1] for row in cursor.fetchall()}
+    if "account_id" in columns:
+        return False
+    cursor.execute("ALTER TABLE trades ADD COLUMN account_id TEXT NOT NULL DEFAULT 'live'")
+    return True
+
+
 class Database:
     """Manages SQLite database for trade journal and backtest results"""
     
@@ -74,13 +89,18 @@ class Database:
                 notes TEXT,
                 is_backtest BOOLEAN DEFAULT 1,
                 strategy_name TEXT,
+                account_id TEXT NOT NULL DEFAULT 'live',
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
         ''')
-        # Idempotent migration: add strategy_name to pre-existing DBs that
-        # were created before the column was introduced. Safe to run on
-        # every connection bootstrap.
+        # Idempotent migrations for pre-existing DBs missing these columns.
         _migrate_add_strategy_name(cursor)
+        _migrate_add_account_id(cursor)
+        # Index for efficient per-account trade history queries.
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_trades_account_created "
+            "ON trades (account_id, datetime(created_at) DESC)"
+        )
         
         # Backtest results table
         cursor.execute('''
