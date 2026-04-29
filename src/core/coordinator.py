@@ -372,6 +372,58 @@ class Coordinator:
             "errors": errors,
         }
 
+    # ------------------------------------------------------------------
+    # Unit 7 → Trading School
+    # ------------------------------------------------------------------
+
+    def validate_strategy_update(
+        self,
+        strategy: str,
+        metrics: Dict[str, Any],
+        thresholds: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Validate live *metrics* for *strategy* before applying an update.
+
+        Delegates to ``src.units.trading_school.validator.validate_metrics()``.
+        Thresholds are merged from units.yaml (``trading_school`` section) then
+        from the *thresholds* argument, so callers may override per-invocation.
+
+        Parameters
+        ----------
+        strategy : str
+            Strategy name to validate.
+        metrics : dict
+            Observed performance data (win_rate, profit_factor, drawdown_pct,
+            trade_count).
+        thresholds : dict, optional
+            Per-call threshold overrides.
+
+        Returns
+        -------
+        dict
+            ``{ok: bool, strategy: str, metrics: dict, issues: list[str]}``
+        """
+        from src.units.trading_school.validator import validate_metrics
+        units = self._cfg.get("units") or {}
+        yaml_th = (units.get("trading_school") or {}).get("thresholds") or {}
+        merged = {**yaml_th, **(thresholds or {})}
+        return validate_metrics(strategy, metrics, thresholds=merged or None)
+
+    def trigger_backtest(
+        self,
+        strategy: str,
+        config: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Trigger a backtest run for *strategy* via the Trading School unit.
+
+        Raises
+        ------
+        NotImplementedError
+            Until PR #126 wires the Colab/HF pipeline.
+        """
+        from src.units.trading_school.validator import trigger_backtest
+        return trigger_backtest(strategy, config=config)
+
 
 # ---------------------------------------------------------------------------
 # Module-level helpers (used by downstream units)
