@@ -1444,15 +1444,34 @@ class TestCmdStrategiesMultiAccount:
 
 def test_format_strategies_dashboard_renders_all_fields():
     rows = [
-        {"strategy": "vwap", "signals_today": 5, "pnl": -10.0,
-         "open_pos": 1, "status": "active"},
+        {"strategy": "vwap", "service": "ict-trader-vwap", "model": None,
+         "signals_today": 5, "pnl": -10.0, "open_pos": 1, "status": "active"},
     ]
     text = bot._format_strategies_dashboard(rows)
     assert "vwap" in text
+    assert "ict-trader-vwap" in text   # S-007: service shown
     assert "5" in text
     assert "10.00" in text
     assert "1" in text
-    assert "active" in text
+
+
+def test_format_strategies_dashboard_shows_model_when_present():
+    rows = [
+        {"strategy": "breakout_confirmation", "service": "ict-trader-breakout",
+         "model": "btc_v1.joblib", "signals_today": 0, "pnl": 0.0,
+         "open_pos": 0, "status": "active"},
+    ]
+    text = bot._format_strategies_dashboard(rows)
+    assert "btc_v1.joblib" in text
+
+
+def test_format_strategies_dashboard_no_model_line_when_none():
+    rows = [
+        {"strategy": "vwap", "service": "ict-trader-vwap", "model": None,
+         "signals_today": 0, "pnl": 0.0, "open_pos": 0, "status": "active"},
+    ]
+    text = bot._format_strategies_dashboard(rows)
+    assert "🧠" not in text
 
 
 def test_format_strategies_dashboard_empty():

@@ -11,6 +11,44 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-29-48 — S-007 #117-118: /strategies → registry summary
+
+- **Session date:** 2026-04-29
+- **Sprint:** S-007 (Strategy Architecture Overhaul)
+- **Current sprint phase:** #117-118 — bot commands
+- **Last completed checkpoint:** CP-2026-04-29-47 (S-007 #116, PR #117 merged)
+- **Next checkpoint:** **CP-2026-04-29-49** — S-007 #119: tests + VM validate script
+- **Telegram sent:** no (no creds in session)
+- **Alerts sent during session:** none
+- **Blockers:** none
+
+### 1. Completed
+- `src/bot/data_loaders.py`: `strategy_dashboard_data()` enriched with service+model from registry; removed hardcoded fallback list
+- `src/bot/telegram_query_bot.py`: `_format_strategies_dashboard()` shows service and model alongside runtime stats
+- `tests/test_telegram_query_bot.py`: updated 1 test; added 2 new formatter tests
+- `tests/test_s007_bot_commands.py`: 9 new tests, all pass
+- Draft PR #118: https://github.com/the-lizardking/ict-trading-bot/pull/118
+
+### 2. Files changed
+- `src/bot/data_loaders.py`
+- `src/bot/telegram_query_bot.py`
+- `tests/test_telegram_query_bot.py`
+- `tests/test_s007_bot_commands.py` (new)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_s007_bot_commands.py tests/test_telegram_query_bot.py tests/test_data_loaders.py tests/test_strategy_registry.py -q` — 161 passed
+- `python scripts/secret_scan.py` — clean
+
+### 4. Remaining
+- S-007 #119: tests + VM validate script
+
+### 5. Next checkpoint
+**CP-2026-04-29-49** — S-007 #119: write an end-to-end validate script (`scripts/validate_registry_vm.py`) that checks all registry entries are consistent, services exist, model paths are reachable; add integration tests.
+Read: `docs/claude/checkpoints/CHECKPOINT_LOG.md`, `docs/claude/checkpoint-workflow.md`.
+
+---
+
 ## CP-2026-04-29-47 — S-007 #116: registry-driven signals/trades attribution
 
 - **Session date:** 2026-04-29

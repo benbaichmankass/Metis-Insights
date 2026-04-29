@@ -551,21 +551,29 @@ def _strategy_open_positions(strategy_name: str) -> int:
 
 
 def strategy_dashboard_data(strategies: Optional[List[str]] = None) -> List[Dict[str, Any]]:
-    """Return one dashboard dict per strategy.
+    """Return one dashboard dict per strategy (S-007: enriched with registry info).
 
-    Keys: ``strategy``, ``signals_today``, ``pnl``, ``open_pos``, ``status``.
-    Status is ``"active"`` for all strategies in the live STRATEGIES list.
-    All counters fall back to zero when the DB is missing or the
-    ``strategy_name`` column does not yet exist.
+    Keys: ``strategy``, ``service``, ``model``, ``signals_today``, ``pnl``,
+    ``open_pos``, ``status``.  Source of truth for strategy names is the
+    registry; no hardcoded fallback list.
     """
     if strategies is None:
-        strategies = list_live_strategies() or [
-            "breakout_confirmation", "vwap", "killzone", "ict"
-        ]
+        strategies = list_live_strategies()
+
+    try:
+        from src.strategy_registry import load_strategies as _load  # type: ignore
+        reg_by_name: Dict[str, Any] = {s["name"]: s for s in _load()}
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("strategy_dashboard_data: registry unavailable (%s)", exc)
+        reg_by_name = {}
+
     rows = []
     for s in strategies:
+        reg = reg_by_name.get(s, {})
         rows.append({
             "strategy": s,
+            "service": reg.get("service") or f"ict-trader-{s}",
+            "model": reg.get("model"),
             "signals_today": _count_signals_today(s),
             "pnl": _strategy_pnl_today(s),
             "open_pos": _strategy_open_positions(s),

@@ -808,12 +808,13 @@ def _format_strategies_dashboard(rows: list) -> str:
         pnl_str = f"+${pnl:.2f}" if pnl >= 0 else f"-${abs(pnl):.2f}"
         status = r.get("status", "active")
         icon = "✅" if status == "active" else "⏸"
+        model_str = f" | 🧠 `{r['model']}`" if r.get("model") else ""
         lines.append(
             f"{icon} *{r['strategy']}*\n"
+            f"  🔧 `{r.get('service', '?')}`{model_str}\n"
             f"  📡 {r.get('signals_today', 0)} signals | "
             f"💵 {pnl_str} | "
-            f"📂 {r.get('open_pos', 0)} open | "
-            f"`{status}`"
+            f"📂 {r.get('open_pos', 0)} open"
         )
     return "\n\n".join(lines)
 
