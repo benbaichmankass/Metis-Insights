@@ -11,6 +11,79 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-29-62 — S-012 Phase A done
+
+- **Session date:** 2026-04-29
+- **Sprint:** S-012 (Production Wiring Audit + Full Live Activation)
+- **Current sprint phase:** Phase A complete (audit doc); paused for PM input
+  on the four sprint-prompt decision-request items before Phase B/C/D ships.
+- **Last completed checkpoint:** CP-2026-04-29-61 (S-011 sprint complete)
+- **Next checkpoint:** **CP-2026-04-29-63 — S-012 Phase B start**, after PM
+  confirms decisions #1 (single-process), #2 (Turtle Soup go-live), #3
+  (account ID space), #4 (`/accounts` toggle). Default actions documented
+  in `docs/audit/sprint-012/08-pm-decisions.md`.
+- **Telegram sent:** no (no creds in session). The pacing instruction
+  ("pause and `/sprintlet_status decision needed` before D2/B3/E3a/E2 and
+  Turtle Soup go-live") is queued — will fire from the next session that
+  has bot creds, or from PM directly via the bot.
+- **Blockers:** four PM decision items in
+  `docs/audit/sprint-012/08-pm-decisions.md` block PRs B3, C4/D2, E2, E3a.
+  PRs B1, B2, B4, C1, C2, C3, C5, C6, D3, E1, E3, E4 are unblocked and can
+  ship ahead of PM input.
+
+### 1. Completed
+- PR #147 merged: Phase A audit. Adds
+  `docs/audit/sprint-012-wiring-audit.md` (index + executive summary)
+  plus 9 evidence sections at `docs/audit/sprint-012/01..09-*.md`.
+- Confirmed S-011 closed at CP-2026-04-29-61; no in-flight S-012
+  checkpoint when this session began.
+- Confirmed PR #146 (sprint-012-prompt) was already merged.
+
+### 2. Files changed
+- `docs/audit/sprint-012-wiring-audit.md` (new)
+- `docs/audit/sprint-012/01-strategy-inventory.md` (new)
+- `docs/audit/sprint-012/02-registry-inventory.md` (new)
+- `docs/audit/sprint-012/03-service-config-mapping.md` (new)
+- `docs/audit/sprint-012/04-phantom-services.md` (new)
+- `docs/audit/sprint-012/05-entrypoints.md` (new)
+- `docs/audit/sprint-012/06-dry-run-surface.md` (new)
+- `docs/audit/sprint-012/07-risk-caps.md` (new)
+- `docs/audit/sprint-012/08-pm-decisions.md` (new)
+- `docs/audit/sprint-012/09-pr-sequence.md` (new)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+- `python scripts/secret_scan.py` — clean.
+- No code paths touched; pytest not required. Phase F1 will run the full
+  suite once the Phase B–E PRs land.
+
+### 4. Remaining
+- Phase B (config reconciliation): PRs B1, B2, B3, B4.
+- Phase C (code reconciliation): PRs C1, C2, C3, C4, C5, C6.
+- Phase D (service reconciliation): PRs D1 (only if PM vetoes single-
+  process), D2, D3.
+- Phase E (live-mode hardening): PRs E1, E2, E3, E3a, E4.
+- Phase F (verification + deployment): PRs F1, F4, F5.
+- VM-side phantom investigation (PM action — see § 8 item 5).
+
+### 5. Next checkpoint
+**CP-2026-04-29-63** — start of Phase B. Read in order: this entry,
+`docs/sprints/sprint-012-prompt.md`,
+`docs/audit/sprint-012-wiring-audit.md`,
+`docs/audit/sprint-012/09-pr-sequence.md`, and
+`docs/audit/sprint-012/08-pm-decisions.md` to confirm the PM has
+responded to (or defaulted on) decisions #1–#4 before continuing.
+
+The next Claude session should:
+1. Read this log entry first, then the audit doc index.
+2. Check whether `/sprintlet_status decision needed` has been answered;
+   if defaults still hold (single-process; held-dry-run for turtle_soup;
+   collapse to `accounts.yaml`; keep `/accounts` toggle), continue.
+3. Open PR B1 (rewrite `config/strategies.yaml` to turtle_soup + vwap
+   only) per `docs/audit/sprint-012/09-pr-sequence.md`.
+
+---
+
 ## CP-2026-04-29-61 — S-011 SPRINT COMPLETE
 
 - **Session date:** 2026-04-29
