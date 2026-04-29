@@ -11,6 +11,42 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-29-34 — Sprint S-005 M3: Per-strategy /closeall + inline keyboard
+
+- **Session date:** 2026-04-29
+- **Sprint:** S-005 (Full Multi-Strategy Production)
+- **Current sprint phase:** M3 — multi-strategy close
+- **Last completed checkpoint:** CP-2026-04-29-33 (S-005 M2, PR #102 merged)
+- **Telegram sent:** no (no creds in session)
+- **Alerts sent during session:** none
+- **Blockers:** none
+
+### 1. Completed
+- Added `close_all_bybit_positions_for_strategy(account, strategy_name)` to `src/bot/data_loaders.py`: returns None for non-matching accounts, closes positions for matching ones
+- Updated `cmd_closeall` in `src/bot/telegram_query_bot.py`: `/closeall <strategy>` filters by strategy; `/closeall` (no args) shows inline keyboard with per-strategy buttons + "Close ALL"
+- Updated `callback_handler`: `closeall:<strategy>` dispatches to per-strategy helper; `closeall:all` keeps existing path
+- 10 new tests; `TestCmdCloseallFailureIsolation` migrated to callback path
+- PR #103 opened (draft): https://github.com/the-lizardking/ict-trading-bot/pull/103
+
+### 2. Files changed
+- `src/bot/data_loaders.py`
+- `src/bot/telegram_query_bot.py`
+- `tests/test_data_loaders.py`
+- `tests/test_telegram_query_bot.py`
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_data_loaders.py::TestCmdCloseallStrategy tests/test_telegram_query_bot.py::TestCmdCloseallStrategy -q` — 10 passed
+- Full suite (excl. test_main_loop.py): 672 passed, 24 failed (pre-existing), 5 skipped — net +10 vs M2
+
+### 4. Remaining
+- none for M3
+
+### 5. Next checkpoint
+**CP-2026-04-29-35** — S-005 M4: `/strategies` dashboard command. Add `cmd_strategies` to `telegram_query_bot.py` showing a table: strategy | signals_today | pnl | open_pos | status. Test: `TestCmdStrategiesMultiAccount`. Branch: same `claude/multi-strategy-isolated-risk-lS9hT`. Read this entry first.
+
+---
+
 ## CP-2026-04-29-33 — Sprint S-005 M2: Per-strategy risk caps
 
 - **Session date:** 2026-04-29
