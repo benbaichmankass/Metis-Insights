@@ -120,19 +120,12 @@ def test_load_model_uses_local_file_when_hf_unavailable(monkeypatch, tmp_path):
 # registry integration — model_path returns absolute path ending in .joblib
 # ---------------------------------------------------------------------------
 
-def test_registry_breakout_model_path_is_absolute():
-    from src.strategy_registry import model_path
-    p = model_path("breakout_confirmation")
-    assert p is not None
-    assert Path(p).is_absolute()
-    assert p.endswith(".joblib")
-
-
 def test_registry_vwap_model_path_is_none():
     from src.strategy_registry import model_path
     assert model_path("vwap") is None
 
 
-def test_registry_ict_model_path_is_none():
+def test_registry_turtle_soup_model_path_is_none():
+    """S-012 PR B1: turtle_soup is the new strategy; no model artefact."""
     from src.strategy_registry import model_path
-    assert model_path("ict") is None
+    assert model_path("turtle_soup") is None

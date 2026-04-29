@@ -29,10 +29,10 @@ def fake_repo(tmp_path, monkeypatch):
 def test_list_live_strategies_happy_path():
     out = dl.list_live_strategies()
     # Defensive: in a sandbox without ccxt this returns []. In a healthy env
-    # it must include the four strategies the multiplexer iterates.
+    # it must include the production roster (S-012 PR B1: turtle_soup + vwap).
     assert isinstance(out, list)
     if out:
-        for expected in ("breakout_confirmation", "vwap", "killzone", "ict"):
+        for expected in ("turtle_soup", "vwap"):
             assert expected in out
 
 

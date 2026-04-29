@@ -72,9 +72,14 @@ def units_yaml(tmp_path):
 
 
 @pytest.fixture()
-def coord(units_yaml):
+def coord(units_yaml, tmp_path):
     _PAUSED_ACCOUNTS.clear()
-    return Coordinator(units_path=units_yaml)
+    # S-012 PR B3: pass non-existent accounts_path so synthetic
+    # units.yaml::accounts is honored.
+    return Coordinator(
+        units_path=units_yaml,
+        accounts_path=str(tmp_path / "no-accounts.yaml"),
+    )
 
 
 def _make_candles(n: int = 50, base: float = 50_000.0, bullish: bool = True) -> pd.DataFrame:

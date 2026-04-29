@@ -103,11 +103,14 @@ def yaml_no_enabled_field(tmp_path):
 
 
 @pytest.fixture()
-def coord(yaml_with_toggles):
+def coord(yaml_with_toggles, tmp_path):
     _PAUSED_ACCOUNTS.clear()
     from src.units.dashboards.alerts import clear_alerts
     clear_alerts()
-    c = Coordinator(units_path=yaml_with_toggles)
+    c = Coordinator(
+        units_path=yaml_with_toggles,
+        accounts_path=str(tmp_path / "no-accounts.yaml"),
+    )
     yield c
     _PAUSED_ACCOUNTS.clear()
     clear_alerts()

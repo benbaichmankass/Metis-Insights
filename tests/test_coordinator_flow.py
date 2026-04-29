@@ -115,11 +115,16 @@ def units_yaml(tmp_path):
 
 
 @pytest.fixture()
-def coord(units_yaml):
+def coord(units_yaml, tmp_path):
     _PAUSED_ACCOUNTS.clear()
     from src.units.dashboards.alerts import clear_alerts
     clear_alerts()
-    c = Coordinator(units_path=units_yaml)
+    # S-012 PR B3: pass non-existent accounts_path so synthetic
+    # units.yaml::accounts is honored.
+    c = Coordinator(
+        units_path=units_yaml,
+        accounts_path=str(tmp_path / "no-accounts.yaml"),
+    )
     yield c
     _PAUSED_ACCOUNTS.clear()
     clear_alerts()
