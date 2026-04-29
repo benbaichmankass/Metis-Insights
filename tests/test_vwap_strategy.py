@@ -23,7 +23,9 @@ import pytest
 
 pd = pytest.importorskip("pandas")
 
-from strategies.vwap_signal_builder import (
+# S-012 PR C5: VWAP helpers moved from strategies/vwap_signal_builder.py
+# (deleted) into src/units/strategies/vwap.py.
+from src.units.strategies.vwap import (
     MIN_CANDLES,
     ENTRY_STD_THRESHOLD,
     build_vwap_signal,

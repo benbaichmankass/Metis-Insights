@@ -66,45 +66,6 @@ def _killzone_symbol(settings: dict) -> str:
     return "BTC/USDT:USDT"
 
 
-def killzone_signal_builder(settings: dict) -> Dict[str, Any]:
-    """Use KillZoneScalperBot with the selected exchange connector for market data."""
-    from src.core.automated_trading_loop import KillZoneScalperBot
-
-    symbol = _killzone_symbol(settings)
-    exchange = _build_killzone_exchange(settings)
-
-    bot = KillZoneScalperBot(
-        exchange=exchange,
-        symbol=symbol,
-    )
-
-    signal, price, fvg_data = bot.analyze_market()
-
-    if not signal:
-        logger.info("KillZoneScalperBot returned no signal; staying flat.")
-        return {
-            "symbol": settings.get("SYMBOL", settings.get("symbol", "BTCUSDT")),
-            "side": "none",
-            "qty": 0,
-        }
-
-    side = "buy" if signal.lower() == "long" else "sell"
-
-    return {
-        "symbol": settings.get("SYMBOL", settings.get("symbol", "BTCUSDT")),
-        "side": side,
-        "qty": float(settings.get("MAX_QTY", settings.get("max_qty", 1)) or 1),
-        "meta": {
-            "price": price,
-            "fvg": fvg_data,
-            "raw_signal": signal,
-            "exchange": str(settings.get("EXCHANGE", settings.get("exchange", "bybit"))).strip().lower(),
-            "market_data_symbol": symbol,
-            "strategy_name": "killzone",
-        },
-    }
-
-
 def turtle_soup_signal_builder(settings: dict) -> Dict[str, Any]:
     """Sweep + reversal at 15m. S-012 PR C3 wires it into the multiplexer.
 
@@ -200,7 +161,7 @@ def vwap_signal_builder(settings: dict) -> Dict[str, Any]:
     If candle data is unavailable or insufficient, raises a clear,
     non-secret error rather than silently doing nothing.
     """
-    from strategies.vwap_signal_builder import build_vwap_signal
+    from src.units.strategies.vwap import build_vwap_signal
 
     symbol = settings.get("SYMBOL", settings.get("symbol", "BTCUSDT"))
     timeframe = settings.get("TIMEFRAME", settings.get("timeframe", "5m"))
@@ -238,152 +199,6 @@ def vwap_signal_builder(settings: dict) -> Dict[str, Any]:
     )
 
     return build_vwap_signal(candles_df, symbol=symbol, qty=qty)
-
-
-def breakout_model_signal_builder(settings: dict) -> Dict[str, Any]:
-    """Use the trained breakout confirmation model to generate live buy/skip decisions."""
-    from src.strategies_manager import StrategyManager
-
-    symbol = _killzone_symbol(settings)
-    exchange = _build_killzone_exchange(settings)
-
-    candles = exchange.get_ohlcv(symbol, "1m", limit=100)
-    candles_df = pd.DataFrame(candles, columns=["timestamp", "open", "high", "low", "close", "volume"])
-    candles_df["datetime_utc"] = pd.to_datetime(candles_df["timestamp"], unit="ms", utc=True)
-
-    manager = StrategyManager()
-    model_signal = manager.get_signal("breakout_confirmation", candles_df)
-
-    if model_signal.get("signal") not in ["CONFIRM", "STRONG_CONFIRM"]:
-        logger.info("Breakout model returned non-actionable signal: %s", model_signal)
-        return {
-            "symbol": settings.get("SYMBOL", settings.get("symbol", "BTCUSDT")),
-            "side": "none",
-            "qty": 0,
-            "meta": {
-                "strategy_name": "breakout_confirmation",
-                "model_signal": model_signal,
-            },
-        }
-
-    risk_per_trade = float(
-        settings.get("RISK_PER_TRADE", settings.get("risk_per_trade", 0.01)) or 0.01
-    )
-    # Fixed-qty sizing: uses MAX_QTY from settings.
-    # ATR-based fractional sizing was stubbed here but both branches assigned
-    # fallback_qty unconditionally (dead code). Removed in favour of explicit
-    # fixed sizing; ATR-based sizing is a strategy-logic change deferred to a
-    # dedicated PR requiring explicit approval.
-    qty = float(settings.get("MAX_QTY", settings.get("max_qty", 1)) or 1)
-
-    return {
-        "symbol": settings.get("SYMBOL", settings.get("symbol", "BTCUSDT")),
-        "side": "buy",
-        "qty": qty,
-        "meta": {
-            "strategy_name": "breakout_confirmation",
-            "model_signal": model_signal,
-            "prob_tp": model_signal.get("prob_tp"),
-            "entry_price": model_signal.get("entry_price"),
-            "atr_14": model_signal.get("atr_14"),
-            "risk_per_trade": risk_per_trade,
-        },
-    }
-
-
-
-def ict_signal_builder(settings: dict) -> Dict[str, Any]:
-    """
-    Runtime adapter for the M7 ICT strategy (M7 Phase 2.5).
-
-    Pulls OHLCV candles from the configured exchange and delegates the
-    actual signal logic to the **pure** factory in
-    ``src.runtime.strategies.ict.build_ict_signal``. This thin adapter
-    keeps the live-data plumbing in one place (mirroring
-    ``vwap_signal_builder``) and lets the strategy itself stay pure and
-    unit-testable.
-
-    Settings recognised
-    -------------------
-    - ``SYMBOL`` / ``symbol`` — trading pair (default: same default the
-      kill-zone helper uses for the configured exchange).
-    - ``TIMEFRAME`` / ``timeframe`` — candle timeframe (default ``"15m"``).
-    - ``ICT_TIMEFRAME`` — overrides ``TIMEFRAME`` for the strategy frame.
-    - ``ICT_HTF_TIMEFRAME`` — optional higher-timeframe used **only** for
-      the trend bias gate (e.g. ``"1h"``). When unset the function
-      reuses the strategy frame.
-    - ``ICT_CANDLE_LIMIT`` — number of candles to fetch (default ``200``,
-      enough to seed a 50-period EMA plus headroom).
-    - ``ICT_HTF_CANDLE_LIMIT`` — candle count for the HTF frame (default
-      ``200``).
-    - all the ``ICT_*`` knobs forwarded by ``build_ict_signal`` (see
-      ``src/runtime/strategies/ict.py``) pass through unchanged.
-
-    Safe under ``DRY_RUN=true`` because it never places orders — only
-    fetches market data — and ``safe_place_order`` enforces the actual
-    no-trade contract downstream.
-    """
-    from src.runtime.strategies.ict import build_ict_signal
-
-    symbol = _killzone_symbol(settings)
-    timeframe = settings.get(
-        "ICT_TIMEFRAME",
-        settings.get("TIMEFRAME", settings.get("timeframe", "15m")),
-    )
-    htf_timeframe = settings.get("ICT_HTF_TIMEFRAME")
-    candle_limit = int(settings.get("ICT_CANDLE_LIMIT", 200) or 200)
-    htf_candle_limit = int(
-        settings.get("ICT_HTF_CANDLE_LIMIT", 200) or 200
-    )
-
-    exchange = _build_killzone_exchange(settings)
-    candles_raw = exchange.get_ohlcv(symbol, timeframe, limit=candle_limit)
-
-    if candles_raw is None or (
-        hasattr(candles_raw, "__len__") and len(candles_raw) == 0
-    ):
-        raise RuntimeError(
-            f"ICT strategy: no candle data returned for symbol={symbol} "
-            f"timeframe={timeframe}. Check exchange configuration and "
-            "that the symbol is valid."
-        )
-
-    candles_df = _coerce_ohlcv_with_dt_index(candles_raw)
-
-    htf_df = None
-    if htf_timeframe:
-        try:
-            htf_raw = exchange.get_ohlcv(
-                symbol, htf_timeframe, limit=htf_candle_limit
-            )
-        except Exception as exc:
-            logger.warning(
-                "ICT strategy: HTF fetch failed (%s) — falling back to "
-                "strategy frame for trend gate",
-                exc,
-            )
-            htf_raw = None
-        if htf_raw is not None and (
-            not hasattr(htf_raw, "__len__") or len(htf_raw) > 0
-        ):
-            htf_df = _coerce_ohlcv_with_dt_index(htf_raw)
-
-    settings_for_builder = dict(settings)
-    settings_for_builder.setdefault("SYMBOL", symbol)
-
-    logger.info(
-        "ICT signal builder: symbol=%s timeframe=%s candles=%d htf=%s",
-        symbol,
-        timeframe,
-        len(candles_df),
-        htf_timeframe or "(reuse)",
-    )
-
-    return build_ict_signal(
-        candles_df,
-        settings=settings_for_builder,
-        htf_df=htf_df,
-    )
 
 
 def _coerce_ohlcv_with_dt_index(raw: Any) -> pd.DataFrame:
@@ -498,25 +313,16 @@ def _strategies_from_registry() -> list:
 STRATEGIES = _strategies_from_registry()
 
 # Per-strategy risk allocation fractions applied inside the multiplexer.
-# Each winner's qty is multiplied by its fraction so that the strategies
-# together consume 100 % of the position budget.
-# S-012 PR C3: roster reduced to turtle_soup + vwap (50 / 50 split). The
-# legacy breakout / killzone / ict entries are kept as no-op fallbacks
-# for any caller still passing those names; they are not in STRATEGIES so
-# the multiplexer never reaches them. Full cleanup ships in PR C5.
+# S-012 PR C5: roster reduced to turtle_soup + vwap (50 / 50 split). The
+# legacy breakout / killzone / ict builders and entries are deleted.
 STRATEGY_RISK_PCT: Dict[str, float] = {
     "turtle_soup": 0.5,
     "vwap": 0.5,
-    "breakout_confirmation": 0.4,
-    "ict": 0.3,
 }
 
 _STRATEGY_BUILDERS: Dict[str, Callable[[dict], Dict[str, Any]]] = {
     "turtle_soup": turtle_soup_signal_builder,
     "vwap": vwap_signal_builder,
-    "breakout_confirmation": breakout_model_signal_builder,
-    "killzone": killzone_signal_builder,
-    "ict": ict_signal_builder,
 }
 
 
@@ -565,25 +371,24 @@ def run_pipeline(
     telegram_client: Any = None,
     signal_builder: Optional[Callable[[dict], Dict[str, Any]]] = None,
 ) -> dict:
-    """Pipeline adapter. Chooses strategy from STRATEGY env var, defaults to killzone."""
+    """Pipeline adapter. Chooses strategy from STRATEGY env var.
+
+    S-012 PR C5: roster is turtle_soup + vwap. Default is the multiplexer
+    so unset / unknown values still iterate the active strategies.
+    """
     logger.info("Pipeline start")
 
-    strategy_name = str(os.environ.get("STRATEGY", "killzone")).strip().lower()
+    strategy_name = str(os.environ.get("STRATEGY", "multiplexed")).strip().lower()
 
     if signal_builder is not None:
         builder = signal_builder
-    elif strategy_name == "multiplexed":
-        builder = multiplexed_signal_builder
     elif strategy_name in ("turtle_soup", "turtlesoup"):
         builder = turtle_soup_signal_builder
     elif strategy_name == "vwap":
         builder = vwap_signal_builder
-    elif strategy_name == "breakout":
-        builder = breakout_model_signal_builder
-    elif strategy_name == "ict":
-        builder = ict_signal_builder
     else:
-        builder = killzone_signal_builder
+        # "multiplexed" or anything unknown → multiplexer.
+        builder = multiplexed_signal_builder
 
     logger.info("Using strategy builder: %s", strategy_name)
     signal = builder(settings)

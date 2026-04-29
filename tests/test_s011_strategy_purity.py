@@ -45,10 +45,9 @@ def _bearish_candles(n: int = 5) -> pd.DataFrame:
 
 
 _STRATEGY_MODULES = [
-    "src.units.strategies.ict",
+    # S-012 PR C5: roster reduced to turtle_soup + vwap.
+    "src.units.strategies.turtle_soup",
     "src.units.strategies.vwap",
-    "src.units.strategies.killzone",
-    "src.units.strategies.breakout_confirmation",
 ]
 
 _REQUIRED_SIGNAL_KEYS = {"symbol", "direction", "entry", "sl", "tp"}
@@ -119,34 +118,41 @@ class TestVwapSignal:
         assert isinstance(result, dict)
 
 
-class TestKillzoneSignal:
+class TestTurtleSoupSignal:
+    """S-012 PR C5: Turtle Soup replaces the deleted killzone purity tests."""
+
     _CFG = {"symbol": "BTCUSDT"}
 
-    def _long_candles(self):
-        opens = [99.0, 100.0, 101.0, 102.0, 103.0]
-        closes = [100.0, 101.0, 102.0, 103.0, 104.0]
-        return pd.DataFrame({
-            "open": opens,
-            "high": [max(o, c) + 0.5 for o, c in zip(opens, closes)],
-            "low": [min(o, c) - 0.5 for o, c in zip(opens, closes)],
-            "close": closes,
-            "volume": [500.0] * len(closes),
-            "timestamp": list(range(len(closes))),
-        })
+    def _bullish_sweep_candles(self):
+        import numpy as np
+        n = 80
+        rng = pd.date_range("2026-04-01", periods=n, freq="15min", tz="UTC")
+        df = pd.DataFrame({
+            "open": np.full(n, 50_000.0),
+            "high": np.full(n, 50_100.0),
+            "low": np.full(n, 49_900.0),
+            "close": np.full(n, 50_050.0),
+            "volume": np.full(n, 1.0),
+        }, index=rng)
+        last = df.index[-1]
+        df.loc[last, "low"] = 49_500.0
+        df.loc[last, "open"] = 49_600.0
+        df.loc[last, "close"] = 50_050.0
+        return df
 
     def test_returns_required_keys(self):
-        from src.units.strategies.killzone import order_package
-        result = order_package(self._CFG, candles_df=self._long_candles())
+        from src.units.strategies.turtle_soup import order_package
+        result = order_package(self._CFG, candles_df=self._bullish_sweep_candles())
         assert _REQUIRED_SIGNAL_KEYS <= result.keys()
 
-    def test_direction_is_long_for_bullish_candles(self):
-        from src.units.strategies.killzone import order_package
-        result = order_package(self._CFG, candles_df=self._long_candles())
+    def test_direction_is_long_for_bullish_sweep(self):
+        from src.units.strategies.turtle_soup import order_package
+        result = order_package(self._CFG, candles_df=self._bullish_sweep_candles())
         assert result["direction"] == "long"
 
     def test_no_dry_run_kwarg_needed(self):
-        from src.units.strategies.killzone import order_package
-        result = order_package(self._CFG, candles_df=self._long_candles())
+        from src.units.strategies.turtle_soup import order_package
+        result = order_package(self._CFG, candles_df=self._bullish_sweep_candles())
         assert isinstance(result, dict)
 
 
