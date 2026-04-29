@@ -8,17 +8,46 @@ from pathlib import Path
 
 _HF_MODEL_REPO = "bentzbk/ict-trading-bot-rf-breakout-v1"
 _HF_MODEL_FILE = "btc_breakout_confirmation_v1.joblib"
-_LOCAL_MODEL = Path(__file__).resolve().parent.parent / "ml" / "models" / "local" / _HF_MODEL_FILE
+# Legacy fallback path — used only when both HF Hub and the registry are unavailable.
+_LEGACY_LOCAL_MODEL = Path(__file__).resolve().parent.parent / "ml" / "models" / "local" / _HF_MODEL_FILE
+
+
+def _local_model_path() -> Path:
+    """Return the local model artifact path from the strategy registry.
+
+    Falls back to the legacy hard-coded path when the registry is unavailable
+    (e.g. pyyaml not installed in a minimal deploy environment).
+    """
+    try:
+        from src.strategy_registry import model_path as _registry_model_path  # type: ignore
+        p = _registry_model_path("breakout_confirmation")
+        if p:
+            return Path(p)
+    except Exception:
+        pass
+    return _LEGACY_LOCAL_MODEL
 
 
 def _load_model():
-    """Download model from HF Hub (cached); fall back to local copy if unavailable."""
+    """Download model from HF Hub (cached); fall back to local copy if unavailable.
+
+    Raises FileNotFoundError with a clear message when neither source is
+    available, rather than letting joblib emit a confusing OSError.
+    """
     try:
         from huggingface_hub import hf_hub_download  # type: ignore
         path = hf_hub_download(repo_id=_HF_MODEL_REPO, filename=_HF_MODEL_FILE, repo_type="model")
         return joblib.load(path)
     except Exception:
-        return joblib.load(str(_LOCAL_MODEL))
+        local = _local_model_path()
+        if not local.exists():
+            raise FileNotFoundError(
+                f"Breakout model not found at {local}. "
+                "Either run 'huggingface_hub.snapshot_download' to populate the HF cache, "
+                "or place the artifact at the path configured in config/strategies.yaml "
+                "(model: btc_v1.joblib under <repo_root>/models/)."
+            )
+        return joblib.load(str(local))
 
 
 class BreakoutConfirmationStrategy:
