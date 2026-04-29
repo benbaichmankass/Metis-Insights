@@ -34,6 +34,10 @@ Then update the relevant `docs/claude/*.md` memory file.
 using `HANDOFF_TEMPLATE.md`. Required fields: Completed, Files changed,
 Tests run, Remaining, Next checkpoint.
 
+## End-of-session notification (REQUIRED)
+
+This step is **mandatory**. Do not exit without completing it.
+
 Send the Telegram session ping (and sprint ping if the whole sprint is done):
 
 ```bash
@@ -44,6 +48,22 @@ PYTHONPATH=. python scripts/notify_session.py session \
 
 If `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` are not set, the script logs a
 warning and exits 0 — record `Telegram sent: no (no creds)` in the log entry.
+If you skip this step, the checkpoint entry is incomplete — re-open the session
+and run it before exiting.
+
+## Alert path — when blocked on user input
+
+Whenever the sprinter needs Ben's input to continue — a question that can't be
+resolved without him, a PR that needs merging before the next PR can branch, or
+any blocker — send an alert before pausing. Use:
+
+```bash
+PYTHONPATH=. python scripts/notify_session.py alert \
+  --summary "<one-line: what is needed from Ben>" \
+  --link "<PR URL, or the current session URL if Ben needs to answer in-session>"
+```
+
+Then wait. Do not silently stall.
 
 ## Commit/push block
 
