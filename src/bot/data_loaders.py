@@ -110,7 +110,9 @@ def list_trader_services(deploy_dir: Optional[str] = None) -> List[str]:
     """
     try:
         from src.strategy_registry import load_strategies  # type: ignore
-        return [s["service"] for s in load_strategies()]
+        # S-012 PR C4: single-process — every strategy maps to
+        # ict-trader-live. Dedupe to return one entry per real service.
+        return list(dict.fromkeys(s["service"] for s in load_strategies()))
     except Exception as exc:  # noqa: BLE001
         logger.warning("list_trader_services: registry unavailable (%s), scanning deploy/", exc)
 

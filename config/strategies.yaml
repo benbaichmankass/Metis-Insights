@@ -1,15 +1,14 @@
-# config/strategies.yaml — strategy config (S-012 PR B1: roster reduced to
-# turtle_soup + vwap only, per PM intent in docs/sprints/sprint-012-prompt.md).
+# config/strategies.yaml — strategy config (S-012).
 #
-# Both entries currently set `service: ict-trader-live` to reflect the
-# single-process runtime reality. The `service:` field is scheduled to be
-# removed entirely in PR C4 (PM-blocked on decision-request item #1 in
-# docs/audit/sprint-012/08-pm-decisions.md). Until C4 ships, keep the field
-# explicit and consistent so strategy_registry.service_name() consumers
-# don't drift back to the per-strategy aspirational names.
+# Roster: turtle_soup + vwap only (PR B1, per PM § 8 #7).
+#
+# Single-process architecture (PR C4, per PM § 8 #1): every strategy
+# runs inside the ict-trader-live systemd unit. The `service:` field is
+# no longer required; src/strategy_registry.py defaults missing/absent
+# service entries to "ict-trader-live".
 #
 # Loaded by:
-#   - src/strategy_registry.py (service / model / signal_prefixes)
+#   - src/strategy_registry.py (model / signal_prefixes)
 #   - src/units/strategies/__init__.py::load_strategy_config (per-strategy
 #     parameters: enabled, risk_pct, timeframe, symbols, strategy-specific)
 #
@@ -20,9 +19,8 @@ strategies:
 
   turtle_soup:
     # Turtle Soup MTF v1 — sweep + reversal at 15m, 1m entry. Ported from
-    # strategies/turtle_soup_mtf_v1.py constants. Strategy code lands in
-    # src/units/strategies/turtle_soup.py via PR C1.
-    service: ict-trader-live
+    # strategies/turtle_soup_mtf_v1.py constants. Strategy code lives in
+    # src/units/strategies/turtle_soup.py (PR C1).
     model: null
     signal_prefixes: [turtle_soup, sweep_reversal]
     enabled: true
@@ -47,7 +45,6 @@ strategies:
     entry_tf: "1m"
 
   vwap:
-    service: ict-trader-live
     model: null
     signal_prefixes: [vwap]
     enabled: true

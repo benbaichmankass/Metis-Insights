@@ -12,20 +12,17 @@ units:
 
   # 1. Strategies — generate order packages (entry, SL, TP, confidence)
   #
-  # Both entries currently set service: ict-trader-live to reflect the
-  # single-process runtime reality. The service: field is scheduled for
-  # removal in PR C4 (PM-blocked on § 8 decision #1). Until then, keep it
-  # consistent so consumers don't drift back to per-strategy aspirational
-  # service names.
+  # S-012 PR C4 (PM § 8 #1): single-process architecture. Every strategy
+  # runs inside ict-trader-live; per-strategy service: fields are gone.
+  # src/strategy_registry.py defaults missing service entries to
+  # "ict-trader-live" so any consumer that still asks gets a coherent answer.
   strategies:
     - name: turtle_soup
       enabled: true
-      service: ict-trader-live
       model: null
       signal_prefixes: [turtle_soup, sweep_reversal]
     - name: vwap
       enabled: true
-      service: ict-trader-live
       model: null
       signal_prefixes: [vwap]
 

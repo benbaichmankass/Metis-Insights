@@ -3,7 +3,38 @@
 Items the PM must weigh in on before the corresponding PR ships. Claude
 will pause and post `/sprintlet_status decision needed: <topic>` for each.
 
-## #1 — Single-process vs per-strategy systemd services (BLOCKS PR D2)
+> **Status (post-PM, post-PR C4):** all seven items have been answered
+> and incorporated into PRs B1 → C4. This document is now a historical
+> record of the decision rationale; the PR numbers in each section show
+> where the decision shipped or is still pending.
+
+## #1 — Single-process vs per-strategy systemd services — APPROVED (b) (PR C4)
+
+> **PM decision:** Approved single-process. Guardrail: Claude must
+> explicitly confirm no shared mutable state between strategy modules
+> (no shared position tracker, no shared connector that could deadlock).
+>
+> **Guardrail audit (PR C4, 2026-04-29):** confirmed. Findings:
+>
+> - `src/units/strategies/turtle_soup.py`: only module-level state is
+>   `_DEFAULTS` (read-only constants); `_resolve_params` returns a fresh
+>   dict on every call.
+> - `src/units/strategies/vwap.py`: only `_ENTRY_STD_THRESHOLD = 1.0`
+>   read-only constant.
+> - `src/units/strategies/_base.py`: pure helper functions, no globals.
+> - `src/runtime/pipeline.py`: `STRATEGIES`, `STRATEGY_RISK_PCT`,
+>   `_STRATEGY_BUILDERS`, `HALT_FLAG_PATH` — read-only after module
+>   load. `_build_killzone_exchange()` constructs a fresh connector
+>   instance per call (no singleton, no cache).
+> - `src/units/accounts/account.py` + `risk.py`: stateful
+>   (`self.positions`, `self.daily_pnl`) but **per-instance** — one
+>   `TradingAccount` + `RiskManager` pair per account, no cross-account
+>   or cross-strategy mutable state.
+>
+> Both `order_package` functions are pure (cfg + DataFrame in, dict
+> out). Strategies cannot deadlock each other because they share no
+> connector and emit no callbacks. Single-process is safe.
+
 
 - **Ambiguity:** Configs (`strategies.yaml`, `units.yaml`) declare
   per-strategy `service:` fields (`ict-trader-vwap`, `ict-trader-ict`,
