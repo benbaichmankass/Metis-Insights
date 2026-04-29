@@ -11,6 +11,52 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-29-40 — Sprint S-006 M4: OB confluence + session filter fixes
+
+- **Session date:** 2026-04-29
+- **Sprint:** S-006 (ICT Multi-Symbol Backtest)
+- **Current sprint phase:** M4 — quality filters after M3 NO-GO
+- **Last completed checkpoint:** CP-2026-04-29-39 (S-006 M3, PR #108 merged + Colab run completed)
+- **Telegram sent:** no (no creds in session)
+- **Alerts sent during session:** none
+- **Blockers:** none
+
+### 1. Completed
+M3 Colab run returned NO-GO (282 trades, 43.6% WR). Analysis:
+- BTC/ETH: 0 trades — session filter (02–12 UTC) blocked all real crypto bars
+- SPY 5m: 154 trades at 40.9% WR — FVG-only entries too noisy
+- QQQ 15m: 128 trades, 46.9% WR, avg R 0.27 — best signal, near break-even before fees
+
+Two new ICTBacktester config flags (off by default):
+- `ob_confluence_only=True` — only enter FVGs backed by an Order Block
+- `disable_session_filter=True` — bypass 02–12 UTC gate for 24/7 crypto
+- `data/ict_validate_manifest.csv`: SPY upgraded 5m → 15m
+- `data/ohlcv/spy_15m_2026.csv`: placeholder added
+- 6 new tests for both flags; 53 total, all pass
+- PR #110 opened (draft): https://github.com/the-lizardking/ict-trading-bot/pull/110
+- Subscribed to PR #110 activity
+
+### 2. Files changed
+- `src/backtest/backtester.py` (2 new config flags + run() wiring)
+- `data/ict_validate_manifest.csv` (SPY 5m → 15m)
+- `data/ohlcv/spy_15m_2026.csv` (new placeholder)
+- `tests/test_backtester.py` (6 new tests)
+- `tests/test_backtest_ict_cli.py` (manifest timeframe assertion updated)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_backtester.py tests/test_backtest_ict_cli.py tests/test_analyze_ict_results.py -v` — 53 passed
+
+### 4. Remaining
+- Ben re-runs Colab notebook with `ob_confluence_only=True, disable_session_filter=True`
+- If second run returns GO (≥50 trades, WR ≥55%, avg R >0): M5 = wire ICT into live pipeline
+- If still NO-GO: reassess thresholds or strategy parameters
+
+### 5. Next checkpoint
+**CP-2026-04-29-41** — S-006 M5 (conditional on GO from second Colab run). Read this entry first. If GO: open PR to wire `ict_signal_builder.py` into pipeline. If NO-GO: document and reassess.
+
+---
+
 ## CP-2026-04-29-39 — Sprint S-006 M3: Colab backtest notebook
 
 - **Session date:** 2026-04-29

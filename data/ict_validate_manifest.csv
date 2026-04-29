@@ -1,5 +1,5 @@
 symbol,timeframe,path
 BTCUSDT,5m,data/ohlcv/btc_5m_2026.csv
 ETHUSDT,5m,data/ohlcv/eth_5m_2026.csv
-SPY,5m,data/ohlcv/spy_5m_2026.csv
+SPY,15m,data/ohlcv/spy_15m_2026.csv
 QQQ,15m,data/ohlcv/qqq_15m_2026.csv

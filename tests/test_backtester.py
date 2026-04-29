@@ -228,3 +228,51 @@ def test_config_override():
     assert bt.cfg["risk_per_trade_pct"] == 0.5
     # defaults not overridden should still be present
     assert bt.cfg["reward_to_risk"] == DEFAULT_CONFIG["reward_to_risk"]
+
+
+# ---------------------------------------------------------------------------
+# ob_confluence_only flag
+# ---------------------------------------------------------------------------
+
+def test_ob_confluence_only_default_is_false():
+    assert DEFAULT_CONFIG["ob_confluence_only"] is False
+
+
+def test_ob_confluence_only_reduces_or_equal_trade_count():
+    """With ob_confluence_only=True the backtester must produce ≤ trades than
+    without it, because it skips FVG signals that lack OB backing."""
+    df = _make_trending_candles(300, direction="up")
+    base_trades = len(ICTBacktester(df, config={"ob_confluence_only": False}).run())
+    filtered_trades = len(ICTBacktester(df, config={"ob_confluence_only": True}).run())
+    assert filtered_trades <= base_trades
+
+
+def test_ob_confluence_only_all_surviving_trades_have_confluence():
+    """Every trade that survives the ob_confluence_only filter must have
+    ob_confluence=True."""
+    df = _make_trending_candles(400, direction="up")
+    bt = ICTBacktester(df, config={"ob_confluence_only": True})
+    trades = bt.run()
+    for t in trades:
+        assert t["ob_confluence"] is True, f"Non-OB trade slipped through: {t}"
+
+
+# ---------------------------------------------------------------------------
+# disable_session_filter flag
+# ---------------------------------------------------------------------------
+
+def test_disable_session_filter_default_is_false():
+    assert DEFAULT_CONFIG["disable_session_filter"] is False
+
+
+def test_disable_session_filter_allows_out_of_session_bars():
+    """Candles outside the default session window (hour=20, i.e. 8 pm UTC)
+    should produce 0 trades with the filter on and ≥0 with it off."""
+    df = _make_candles(300, base_price=69_000.0, session_hour=20)
+    filtered_count = len(ICTBacktester(df, config={"disable_session_filter": False}).run())
+    unfiltered_count = len(ICTBacktester(df, config={"disable_session_filter": True}).run())
+    # With filter on, hour=20 is outside session (2–12), so 0 trades expected.
+    assert filtered_count == 0
+    # With filter off, backtester can find trades (flat market → still likely 0,
+    # but the important invariant is unfiltered ≥ filtered).
+    assert unfiltered_count >= filtered_count

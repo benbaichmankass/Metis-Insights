@@ -212,7 +212,7 @@ def test_ict_validate_manifest_timeframes():
     by_symbol = {p.symbol: p.timeframe for p in pairs}
     assert by_symbol["BTCUSDT"] == "5m"
     assert by_symbol["ETHUSDT"] == "5m"
-    assert by_symbol["SPY"] == "5m"
+    assert by_symbol["SPY"] == "15m"   # upgraded from 5m after M3 NO-GO analysis
     assert by_symbol["QQQ"] == "15m"
 
 
