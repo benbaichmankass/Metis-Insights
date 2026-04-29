@@ -1,0 +1,33 @@
+# config/accounts.yaml — per-account risk configuration (S-010 PR #1)
+#
+# Loaded by src/units/accounts/__init__.py::load_accounts().
+# API keys are referenced by environment variable NAME only — never hardcoded.
+# Add a new account: add one entry here, set the env var, reload.
+
+accounts:
+  bybit_1:
+    type: regular
+    exchange: bybit
+    api_key_env: BYBIT_API_KEY_1       # env var holding the actual key
+    risk:
+      max_dd_pct: 0.05                 # 5% max drawdown
+      daily_usd: 100                   # $100 max daily loss
+      pos_size: 500                    # $500 max single position
+
+  bybit_2:
+    type: regular
+    exchange: bybit
+    api_key_env: BYBIT_API_KEY_2
+    risk:
+      max_dd_pct: 0.05
+      daily_usd: 100
+      pos_size: 500
+
+  prop_breakout_1:
+    type: prop
+    exchange: breakout
+    api_key_env: BREAKOUT_API_KEY_1
+    risk:
+      max_dd_pct: 0.02                 # stricter: 2% max drawdown
+      daily_usd: 50                    # stricter: $50 max daily loss
+      pos_size: 200                    # stricter: $200 max position
