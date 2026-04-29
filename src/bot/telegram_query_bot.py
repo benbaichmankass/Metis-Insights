@@ -219,7 +219,36 @@ def get_service_status(service_name: str) -> str:
         return f"error: {e}"
 
 
+def _known_systemd_units() -> set:
+    """Return the set of systemd unit stems present in the repo's deploy/.
+
+    Used by toggle_service() to fail loudly when callers pass a service
+    name that has no matching unit file — the failure mode that
+    triggered S-012 (PM § 8 #5).
+    """
+    deploy_dir = os.path.join(REPO_ROOT, "deploy")
+    try:
+        return {
+            name[: -len(".service")]
+            for name in os.listdir(deploy_dir)
+            if name.endswith(".service")
+        }
+    except FileNotFoundError:
+        return set()
+
+
 def toggle_service(service_name: str, action: str) -> str:
+    # S-012 PR D3: pre-validate against deploy/. If the unit file does
+    # not exist in the repo, refuse to call systemctl rather than let
+    # the operator see a confusing "Unit not found" error from systemd.
+    known = _known_systemd_units()
+    if known and service_name not in known:
+        return (
+            f"❌ Refusing to {action} `{service_name}`: no matching unit "
+            f"file in deploy/. Known units: `{', '.join(sorted(known))}`. "
+            "If this service should exist, add the unit file in a PR; "
+            "otherwise fix the caller."
+        )
     try:
         result = subprocess.run(
             ["sudo", "systemctl", action, service_name],
