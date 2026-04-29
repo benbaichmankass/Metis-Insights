@@ -1,4 +1,4 @@
-"""Shared helpers for the src/units/strategies/ adapters (S-008 PR #121).
+"""Shared helpers for the src/units/strategies/ adapters (S-008 PR #121 / S-011 PR #2).
 
 Each strategy module exposes a single public function::
 
@@ -15,6 +15,12 @@ Coordinator inserts itself):
     tp         : float   (primary take-profit price)
     confidence : float   (0.0 – 1.0)
     meta       : dict    (raw signal data for logging)
+
+**Strategies are pure signal generators.**
+They have no ``dry_run`` flag and no knowledge of whether orders will be
+executed or simulated.  The dry/live execution decision lives entirely in
+the Accounts layer (``TradingAccount.dry_run``).  This separation ensures
+signal logic is never coupled to execution mode.
 
 Raises
 ------
