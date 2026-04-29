@@ -48,6 +48,29 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# ---------------------------------------------------------------------------
+# Coordinator singleton (S-008 PR #124 — Telegram Bot rewired)
+# ---------------------------------------------------------------------------
+# All cross-unit data flows through the Coordinator (TRANSLATOR).  The bot
+# is a pure consumer: it reads from dashboard_stats() / recent_signals() and
+# writes return commands through return_command().
+# ---------------------------------------------------------------------------
+
+_coordinator = None
+
+
+def get_coordinator():
+    """Return the module-level Coordinator singleton (lazy-initialised)."""
+    global _coordinator
+    if _coordinator is None:
+        try:
+            from src.core.coordinator import Coordinator
+            _coordinator = Coordinator()
+        except Exception as exc:
+            logger.warning("get_coordinator: failed to initialise Coordinator: %s", exc)
+    return _coordinator
+
+
 BACKTEST_TASK = None
 BACKTEST_STATUS = {
     "state": "idle",
@@ -509,6 +532,13 @@ async def cmd_halt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         with open(HALT_FLAG_PATH, "w") as f:
             f.write(datetime.now(timezone.utc).isoformat())
+        # Also pause accounts via Coordinator so in-process risk guard fires.
+        try:
+            coord = get_coordinator()
+            if coord is not None:
+                coord.return_command("halt")
+        except Exception as exc:
+            logger.warning("cmd_halt: coordinator.return_command failed: %s", exc)
         await update.message.reply_text(
             "🛑 *Trader HALTED*\nFlag file created. No new orders will be placed.\n"
             "Use /resume to re-enable trading.",
@@ -526,6 +556,13 @@ async def cmd_resume(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     try:
         os.remove(HALT_FLAG_PATH)
+        # Also resume accounts via Coordinator.
+        try:
+            coord = get_coordinator()
+            if coord is not None:
+                coord.return_command("resume")
+        except Exception as exc:
+            logger.warning("cmd_resume: coordinator.return_command failed: %s", exc)
         await update.message.reply_text(
             "✅ *Trader RESUMED*\nHalt flag removed. Orders will resume on the next cycle.",
             parse_mode="Markdown",
@@ -823,11 +860,39 @@ async def cmd_strategies(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_authorised(update):
         return
     try:
-        rows = dl.strategy_dashboard_data()
+        coord = get_coordinator()
+        if coord is not None:
+            stats = coord.dashboard_stats()
+            rows = stats.get("strategies") or []
+        else:
+            rows = dl.strategy_dashboard_data()
         text = _format_strategies_dashboard(rows)
         await update.message.reply_text(text, parse_mode="Markdown")
     except Exception as e:
         await update.message.reply_text(f"⚠️ Could not load strategy dashboard: {e}")
+
+
+async def cmd_alerts(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show the most recent alerts from all units (coordinator alerts queue)."""
+    if not is_authorised(update):
+        return
+    try:
+        coord = get_coordinator()
+        if coord is None:
+            await update.message.reply_text("⚠️ Coordinator unavailable.")
+            return
+        alerts = coord.list_alerts(n=10)
+        if not alerts:
+            await update.message.reply_text("📭 No alerts in queue.")
+            return
+        lines = ["🔔 *Recent Alerts* (last 10)\n"]
+        for a in reversed(alerts):
+            level_icon = {"info": "ℹ️", "warning": "⚠️", "error": "🚨"}.get(a.get("level", "info"), "ℹ️")
+            ts = (a.get("ts") or "")[:19].replace("T", " ")
+            lines.append(f"{level_icon} `{ts}` [{a.get('source', '?')}] {a.get('message', '')}")
+        await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
+    except Exception as e:
+        await update.message.reply_text(f"⚠️ Could not load alerts: {e}")
 
 
 async def cmd_download_journal(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1014,6 +1079,7 @@ def main():
             BotCommand("toggle", f"Start/stop {label} trader"),
             BotCommand("download_journal", "Download trade journal DB"),
             BotCommand("price", "Current BTC price"),
+            BotCommand("alerts", "Recent unit alerts (coordinator queue)"),
         ]
         await app.bot.set_my_commands(commands)
 
@@ -1034,6 +1100,7 @@ def main():
     application.add_handler(CommandHandler("toggle", cmd_toggle))
     application.add_handler(CommandHandler("download_journal", cmd_download_journal))
     application.add_handler(CommandHandler("price", cmd_price))
+    application.add_handler(CommandHandler("alerts", cmd_alerts))
     application.add_handler(CallbackQueryHandler(callback_handler))
     application.run_polling()
 
