@@ -45,8 +45,10 @@ output/
 reports/
 *.html
 
-# Data files
+# Data files (large/generated CSVs ignored; manifests and placeholders tracked)
 data/*.csv
+!data/ict_validate_manifest.csv
+data/ohlcv/*.csv
 
 # OS / editor
 .DS_Store
