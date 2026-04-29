@@ -2,12 +2,13 @@
 """
 notify_session.py — small CLI for end-of-session Telegram pings.
 
-Two subcommands:
+Three subcommands:
 
     session   one short message at end of a Claude session checkpoint
     sprint    one short message when an entire sprint is complete
+    alert     user-action-required message when the sprinter is blocked
 
-Both reuse the existing safe helper `src.runtime.notify.send_via_alert_manager`,
+All reuse the existing safe helper `src.runtime.notify.send_via_alert_manager`,
 which reads `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` from env. If those are
 missing, the helper logs a warning and exits cleanly — never raises and never
 prints the secrets.
@@ -20,6 +21,10 @@ Usage:
     PYTHONPATH=. python scripts/notify_session.py sprint \\
         --sprint sprint-plan-2026-04-28 \\
         --summary "Live trading hardening + cleanup done"
+
+    PYTHONPATH=. python scripts/notify_session.py alert \\
+        --summary "M0 ready for review" \\
+        --link "https://github.com/the-lizardking/ict-trading-bot/pull/86"
 
 This script does not handle secrets itself. It only formats and forwards.
 """
@@ -67,8 +72,17 @@ def _cmd_sprint(args: argparse.Namespace) -> int:
     return _send(msg)
 
 
+def _cmd_alert(args: argparse.Namespace) -> int:
+    msg = (
+        f"🚨 Alert! - User Action Required\n"
+        f"{args.summary}\n"
+        f"👉 {args.link}"
+    )
+    return _send(msg)
+
+
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Session/sprint Telegram pings.")
+    parser = argparse.ArgumentParser(description="Session/sprint/alert Telegram pings.")
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     s = sub.add_parser("session", help="end-of-session checkpoint ping")
@@ -80,6 +94,11 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--sprint", required=True, help="e.g. sprint-plan-2026-04-28")
     sp.add_argument("--summary", required=True, help="one-line summary")
     sp.set_defaults(func=_cmd_sprint)
+
+    al = sub.add_parser("alert", help="user-action-required ping when sprinter is blocked")
+    al.add_argument("--summary", required=True, help="one-line: what is needed from Ben")
+    al.add_argument("--link", required=True, help="PR URL or session URL where Ben should act")
+    al.set_defaults(func=_cmd_alert)
 
     return parser
 

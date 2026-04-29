@@ -58,7 +58,9 @@ Read this at the start of **every** session, before touching code.
    3. **Tests run** — commands + pass/fail.
    4. **Remaining** — what is left for this checkpoint, or "none".
    5. **Next checkpoint** — the very next task the next session should pick up.
-4. Send the Telegram session-complete notification:
+4. Send the Telegram session-complete notification (REQUIRED — if you skip
+   this step, the entry is incomplete — re-open the session and run it before
+   exiting):
 
    ```bash
    PYTHONPATH=. python scripts/notify_session.py session \
@@ -69,6 +71,12 @@ Read this at the start of **every** session, before touching code.
    If env vars `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` are not set in the
    session, log it in the checkpoint entry under `Telegram sent: no (no creds)`
    and continue. Do **not** paste secrets to enable it.
+
+   **Alerts:** Whenever you are blocked waiting on Ben (a PR that must be merged,
+   a question that can't be resolved without him, or any other blocker), send an
+   alert **before** pausing. See the "Alert path" section in
+   `docs/claude/session-workflow.md` for the exact command.
+
 5. If this checkpoint completes the **entire sprint**, additionally send
    the sprint-complete notification:
 

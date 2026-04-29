@@ -13,6 +13,8 @@ session. Fill in every field. Do not skip sections — write "none" if empty.
 - **Last completed checkpoint:** CP-YYYY-MM-DD-NN (or "none")
 - **Next checkpoint:** **CP-YYYY-MM-DD-NN — <title>** — <one-line description
   of what the next session should pick up first>
+- **Telegram sent:** yes (CP-X) / no (reason)
+- **Alerts sent during session:** none / list any alerts fired with their summaries
 - **Blockers:** <none | external dep | waiting on PM | ...>
 
 ### 1. Completed
@@ -33,5 +35,3 @@ session. Fill in every field. Do not skip sections — write "none" if empty.
 ### 5. Next checkpoint
 **CP-YYYY-MM-DD-NN** — <concrete first action for the next session>.
 List the docs/files the next session should read in order.
-
-**Telegram sent:** yes / no (reason if no, e.g. "no creds in env")
