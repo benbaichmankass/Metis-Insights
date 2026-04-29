@@ -11,6 +11,47 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-29-47 — S-007 #116: registry-driven signals/trades attribution
+
+- **Session date:** 2026-04-29
+- **Sprint:** S-007 (Strategy Architecture Overhaul)
+- **Current sprint phase:** #116 — signals/trades attribution
+- **Last completed checkpoint:** CP-2026-04-29-46 (S-007 #115, PR #116 merged)
+- **Next checkpoint:** **CP-2026-04-29-48** — S-007 #117–118: bot commands (/strategies → registry summary)
+- **Telegram sent:** no (no creds in session)
+- **Alerts sent during session:** none
+- **Blockers:** none
+
+### 1. Completed
+- `config/strategies.yaml`: added `signal_prefixes` to all 4 strategies
+- `src/strategy_registry.py`: `signal_prefixes(name)` + `signal_prefixes` in `load_strategies()` dicts
+- `src/bot/data_loaders.py`: `_get_signal_prefixes()` registry-first, hardcoded fallback preserved; both `recent_signals_for()` and `_count_signals_today()` updated
+- `src/runtime/pipeline.py`: `signal_type` in `run_pipeline` now registry-driven; fixes vwap attribution bug
+- `tests/test_s007_signals_attribution.py`: 14 new tests, all pass
+- Draft PR #117: https://github.com/the-lizardking/ict-trading-bot/pull/117
+
+### 2. Files changed
+- `config/strategies.yaml`
+- `src/strategy_registry.py`
+- `src/bot/data_loaders.py`
+- `src/runtime/pipeline.py`
+- `tests/test_s007_signals_attribution.py` (new)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_s007_signals_attribution.py tests/test_strategy_registry.py tests/test_data_loaders.py -q` — 81 passed
+- `python scripts/secret_scan.py` — clean
+
+### 4. Remaining
+- S-007 #117–118: bot commands (/strategies → registry summary)
+- S-007 #119: tests + VM validate script
+
+### 5. Next checkpoint
+**CP-2026-04-29-48** — S-007 #117–118: find /strategies command in telegram_query_bot.py; replace hardcoded strategy list with registry summary (name, service, model, signal_prefixes).
+Read: `docs/claude/checkpoints/CHECKPOINT_LOG.md`, `docs/claude/checkpoint-workflow.md`, then `src/bot/telegram_query_bot.py`.
+
+---
+
 ## CP-2026-04-29-46 — S-007 #115: safe model loader via registry.model_path()
 
 - **Session date:** 2026-04-29
