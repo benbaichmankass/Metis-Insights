@@ -115,6 +115,41 @@ def safe_place_order(order: Dict[str, Any], settings: Any, client: Any) -> dict[
                     f" has reached MAX_OPEN_POSITIONS {max_open}"
                 )
 
+    # Per-strategy caps (S-005 M2): only applied when the order carries a strategy name.
+    _strategy_name = (order.get("meta") or {}).get("strategy_name")
+    if _strategy_name:
+        max_strat_pos_raw = _get_value(settings, "MAX_POS_PER_STRATEGY", None)
+        if max_strat_pos_raw not in (None, ""):
+            max_strat_pos = int(float(max_strat_pos_raw))
+            cur_strat_pos_raw = _get_value(settings, "STRATEGY_OPEN_POSITIONS", None)
+            if cur_strat_pos_raw not in (None, ""):
+                if int(float(cur_strat_pos_raw)) >= max_strat_pos:
+                    return {
+                        "status": "refused",
+                        "reason": (
+                            f"strategy '{_strategy_name}' open positions "
+                            f"{int(float(cur_strat_pos_raw))} has reached "
+                            f"MAX_POS_PER_STRATEGY {max_strat_pos}"
+                        ),
+                        "order": order,
+                    }
+
+        max_strat_loss_raw = _get_value(settings, "MAX_DAILY_LOSS_PER_STRATEGY_USD", None)
+        if max_strat_loss_raw not in (None, ""):
+            max_strat_loss = float(max_strat_loss_raw)
+            cur_strat_pnl_raw = _get_value(settings, "STRATEGY_DAILY_PNL", None)
+            if cur_strat_pnl_raw not in (None, ""):
+                strat_loss = abs(min(0.0, float(cur_strat_pnl_raw)))
+                if strat_loss >= max_strat_loss:
+                    return {
+                        "status": "refused",
+                        "reason": (
+                            f"strategy '{_strategy_name}' daily loss {strat_loss:.2f} USD "
+                            f"has reached MAX_DAILY_LOSS_PER_STRATEGY_USD {max_strat_loss}"
+                        ),
+                        "order": order,
+                    }
+
     max_qty_raw = _get_value(settings, "MAX_QTY", None)
     if max_qty_raw not in (None, ""):
         max_qty = float(max_qty_raw)
