@@ -19,6 +19,9 @@ DEFAULT_CONFIG = {
     "taker_fee_pct": 0.055,
     "maker_fee_pct": 0.02,
     "slippage_pct": 0.02,
+    # Quality filters (off by default for backwards compatibility)
+    "ob_confluence_only": False,   # only enter when FVG has OB backing
+    "disable_session_filter": False,  # bypass hour gate (useful for 24/7 crypto)
 }
 class ICTBacktester:
     def __init__(self, df, config=None):
@@ -191,8 +194,10 @@ class ICTBacktester:
         active_fvgs = list(fvgs)
         daily_trades = {}
         daily_loss = {}
+        ob_only = cfg.get("ob_confluence_only", False)
+        no_session = cfg.get("disable_session_filter", False)
         for i in range(cfg["ob_lookback"] + 5, len(df)):
-            if not self.in_session(df["timestamp"].iloc[i]):
+            if not no_session and not self.in_session(df["timestamp"].iloc[i]):
                 continue
             day = self.fmt_ts(df["timestamp"].iloc[i])[:10]
             daily_trades.setdefault(day, 0)
@@ -213,6 +218,9 @@ class ICTBacktester:
                             and o["bottom"] <= price <= o["top"] * 1.002
                             for o in obs
                         )
+                        if ob_only and not ob_conf:
+                            fvg["filled"] = True
+                            break
                         signal = {"index": i, "direction": "long",
                             "entry_price": price, "ob_confluence": ob_conf,
                             "structure": structure}
@@ -225,6 +233,9 @@ class ICTBacktester:
                             and o["bottom"] * 0.998 <= price <= o["top"]
                             for o in obs
                         )
+                        if ob_only and not ob_conf:
+                            fvg["filled"] = True
+                            break
                         signal = {"index": i, "direction": "short",
                             "entry_price": price, "ob_confluence": ob_conf,
                             "structure": structure}
