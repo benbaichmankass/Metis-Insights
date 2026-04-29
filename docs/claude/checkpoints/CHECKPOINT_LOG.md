@@ -11,6 +11,50 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-29-27 — Sprint S-003 N1-b: per-account /status P&L and open positions
+
+- **Session date:** 2026-04-29
+- **Sprint:** Sprint S-003 (Telegram Status/Balance Fix)
+- **Current sprint phase:** N1-b — per-account /status metrics
+- **Last completed checkpoint:** CP-2026-04-29-26 (S-002 M3b complete, PR #94)
+- **Completed this session:**
+  - Audited `telegram_query_bot.py` for legacy wording, single-source balance, and stale env loading (N1 audit — no code written)
+  - Added `account_id: str | None = None` param to `fetch_today_pnl()` — filters `WHERE account_id = ?` when provided
+  - Added `account_id: str | None = None` param to `fetch_open_positions_count()` — same pattern
+  - Rewrote `cmd_status` to iterate `dl.list_accounts()` and render one block per account (label, trade count, P&L, open positions, service name + systemd status); falls back to aggregate totals when no accounts found
+  - Service line now renders `` `{svc}`: {status} `` so the service name is visible in the /status reply
+  - Added 14 new tests: `TestFetchTodayPnlPerAccount`, `TestFetchOpenPositionsCountPerAccount`, `TestCmdStatusMultiAccount`
+  - PR #95 opened, merged
+- **Files changed:**
+  - `src/bot/telegram_query_bot.py`
+  - `tests/test_telegram_query_bot.py`
+  - `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+- **Tests run:** 59 passed (`test_telegram_query_bot`), 110 passed total across `test_telegram_query_bot`, `test_telegram_strategy_labels`, `test_data_loaders` (1 skipped, 5 pre-existing collection errors in unrelated files)
+- **Telegram sent:** no (import chain blocked by missing pandas)
+- **Alerts sent during session:** none
+- **Blockers:** none
+
+### 1. Completed
+- N1 audit (identify legacy wording, single-source balance, stale env loading)
+- N1-b: per-account fetch helpers + multi-account cmd_status (PR #95, merged)
+
+### 2. Files changed
+- `src/bot/telegram_query_bot.py`
+- `tests/test_telegram_query_bot.py`
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_telegram_query_bot.py -v` — 59 passed
+- `PYTHONPATH=. pytest tests/test_telegram_query_bot.py tests/test_telegram_strategy_labels.py tests/test_data_loaders.py -q` — 110 passed, 1 skipped
+
+### 4. Remaining
+- N1-a: delete `LIVE_ENV_PATH` dead code + stale comment (trivial, separate PR)
+- N1-c: make `/log`, `/toggle`, and `callback_handler` log/toggle branches account-aware (iterate `account["service"]` instead of hardcoded `LIVE_SERVICE_NAME`)
+
+### 5. Next checkpoint
+**CP-2026-04-29-28** — Start S-003 N1-a: delete `LIVE_ENV_PATH` (line 36) and update stale comment on line 35 of `src/bot/telegram_query_bot.py`. Read `CHECKPOINT_LOG.md` (this entry) then `docs/claude/checkpoint-workflow.md`. One-line change + one test-run confirmation.
+
+---
+
 ## CP-2026-04-29-26 — Sprint S-002 M3b: delete load_account_env + format_target_options
 
 - **Session date:** 2026-04-29
