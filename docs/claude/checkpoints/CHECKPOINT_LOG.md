@@ -8,6 +8,41 @@ ID convention: `CP-YYYY-MM-DD-NN` (sprint date + 2-digit sequence).
 
 See `../checkpoint-workflow.md` for the full rules.
 
+
+---
+
+## CP-2026-04-29-09 — Sprint S-001 PR-A: docs/TELEGRAM-SPEC.md
+
+- **Session date:** 2026-04-29
+- **Sprint:** Sprint S-001 (Telegram bot hardening)
+- **Current sprint phase:** PR-A — pin down the 11-command spec
+- **Last completed checkpoint:** CP-2026-04-29-07b (PR 7 killzone, merged via #74 rebase)
+- **Next checkpoint:** **CP-2026-04-29-10** — PR-B: `src/bot/data_loaders.py` + tests (account registry, strategy registry, signals/logs/backtest queries).
+- **Blockers:** none. Three open questions for PM logged in §8 of the spec; not blocking the spec PR itself.
+
+### 1. Completed
+- Pre-work for Sprint S-001: rebased PR #74 onto `main`, resolved conflicts (CHECKPOINT_LOG checkpoint-id collision and tests/test_key_levels.py add/add), force-pushed; PM merged into main as #74. Both PR #75 and PR #74 now landed.
+- Read existing bot at `src/bot/telegram_query_bot.py` (820 lines) and inventoried state sources: `STRATEGIES` list in `src/runtime/pipeline.py`, signals DB writer in `src/runtime/signal_writer.py`, journalctl path via systemd unit `ict-trader-live`, trade journal SQLite at repo root.
+- Drafted `docs/TELEGRAM-SPEC.md` documenting all 11 commands, vocabulary (account vs strategy vs trader service), today-vs-tomorrow behaviour, tech approach, acceptance criteria, and 3 open questions for PM.
+
+### 2. Files changed
+- `docs/TELEGRAM-SPEC.md` (new, 218 lines)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+- `python scripts/repo_inventory.py` — pass (no junk candidates)
+- `python scripts/secret_scan.py` — pass (no tracked secrets)
+- `PYTHONPATH=. pytest --collect-only -q --ignore=tests/test_main_loop.py tests` — 563 collected
+- No production code touched, so no test deltas expected.
+
+### 4. Remaining
+- 3 PM clarifications captured in `docs/TELEGRAM-SPEC.md` §8 (account registry source, strategy-trade attribution, /closeall confirm). PM may answer in PR review or in a follow-up; defaults stand if no objection.
+
+### 5. Next checkpoint
+**CP-2026-04-29-10** — PR-B: implement `src/bot/data_loaders.py`. Acceptance: pure-Python module with the loader functions named in §5 of the spec (`list_accounts`, `list_live_strategies`, `list_trader_services`, `recent_signals_for`, `recent_logs_for`, `latest_backtests_per_model`, `account_balance`, `account_open_positions`, `account_last_trade`). Each loader catches its own exceptions and returns a neutral fallback. Tests in `tests/test_data_loaders.py` covering happy-path + one failure mode per loader. No bot wiring yet; that lands in PR-C onward.
+
+**Telegram sent:** no (no creds in env)
+
 ---
 
 ## CP-2026-04-29-07 — fix deprecated pandas fillna(method=) in key_levels.py
