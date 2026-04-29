@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 
 _REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 _UNITS_YAML = os.path.join(_REPO_ROOT, "config", "units.yaml")
+_ACCOUNTS_YAML = os.path.join(_REPO_ROOT, "config", "accounts.yaml")
 
 # In-process pause sentinels (PR #122 will replace with persistent flags).
 _PAUSED_ACCOUNTS: set[str] = set()
@@ -78,8 +79,13 @@ class Coordinator:
     All cross-unit calls go through this object — never bypass it.
     """
 
-    def __init__(self, units_path: str = _UNITS_YAML) -> None:
+    def __init__(
+        self,
+        units_path: str = _UNITS_YAML,
+        accounts_path: str = _ACCOUNTS_YAML,
+    ) -> None:
         self._units_path = units_path
+        self._accounts_path = accounts_path
         self._cfg: Dict[str, Any] = {}
         self._reload()
 
@@ -239,7 +245,37 @@ class Coordinator:
         raise KeyError(f"Account '{account_id}' not found in units.yaml")
 
     def list_accounts(self) -> List[Dict[str, Any]]:
-        """Return account configs from units.yaml, falling back to data_loaders."""
+        """Return account configs.
+
+        S-012 PR B3: accounts.yaml is the production single source of truth
+        (PM § 8 #3). Read order:
+          1. config/accounts.yaml via data_loaders._load_yaml_accounts() —
+             strict YAML-only read; deliberately bypasses _load_env_accounts()
+             so .env.* file discovery does not introduce phantom services
+             (e.g. .env.example → ict-trader-example). The full phantom
+             regression test ships in PR D3.
+          2. units.yaml::accounts — back-compat for synthetic test fixtures
+             (test_s008_coordinator) that embed accounts in a tmp units.yaml.
+          3. data_loaders.list_accounts() — final legacy env-only fallback,
+             used only when neither accounts.yaml nor units.yaml::accounts
+             yields anything.
+        """
+        # 1. accounts.yaml strict YAML read.
+        if os.path.exists(self._accounts_path):
+            try:
+                from src.bot import data_loaders
+                original = data_loaders.ACCOUNTS_YAML_PATH
+                data_loaders.ACCOUNTS_YAML_PATH = self._accounts_path
+                try:
+                    accounts = data_loaders._load_yaml_accounts()
+                    if accounts:
+                        return accounts
+                finally:
+                    data_loaders.ACCOUNTS_YAML_PATH = original
+            except Exception as exc:
+                logger.warning("list_accounts: accounts.yaml read failed: %s", exc)
+
+        # 2. units.yaml::accounts back-compat for synthetic test fixtures.
         units = self._cfg.get("units") or {}
         accounts = units.get("accounts") or []
         if accounts:
@@ -255,6 +291,8 @@ class Coordinator:
                 for a in accounts
                 if isinstance(a, dict)
             ]
+
+        # 3. Final fallback — env-only discovery.
         try:
             from src.bot.data_loaders import list_accounts as _dl_accounts
             return _dl_accounts()

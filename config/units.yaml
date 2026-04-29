@@ -31,16 +31,12 @@ units:
 
   # 2. Accounts — per-account risk management + exchange execution
   #
-  # The `live` account ID space here is disjoint from accounts.yaml's
-  # bybit_1 / bybit_2 / prop_breakout_1. PR B3 reconciles (PM-blocked on
-  # § 8 decision #3). For B2, only the strategies list is narrowed to the
-  # new roster.
-  accounts:
-    - id: live
-      exchange: bybit
-      risk_pct: 0.01          # 1 % risk per trade
-      env_path: .env
-      strategies: [turtle_soup, vwap]
+  # S-012 PR B3 (PM § 8 #3): accounts moved to config/accounts.yaml as
+  # the single source of truth. Kept here as an empty list to preserve
+  # the documented 9-unit architecture shape. Coordinator.list_accounts()
+  # reads accounts.yaml when present and falls back to this block only
+  # for synthetic test fixtures that embed accounts in a tmp units.yaml.
+  accounts: []
 
   # 3. Dashboards — performance stats + live data for UI
   dashboards:

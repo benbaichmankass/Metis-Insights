@@ -164,12 +164,24 @@ def _load_yaml_accounts() -> List[Dict[str, Any]]:
         logger.warning("_load_yaml_accounts: %s", exc)
         return []
     raw = data.get("accounts") if isinstance(data, dict) else None
-    if not isinstance(raw, list):
+    # Support two YAML shapes:
+    #   list:  [{account_id: foo, ...}, ...]
+    #   dict:  {foo: {...}, bar: {...}}    (S-012 PR B3 production shape)
+    if isinstance(raw, dict):
+        items = []
+        for key, item in raw.items():
+            if not isinstance(item, dict):
+                continue
+            merged = dict(item)
+            merged.setdefault("account_id", key)
+            items.append(merged)
+    elif isinstance(raw, list):
+        items = [item for item in raw if isinstance(item, dict)]
+    else:
         return []
+
     out = []
-    for item in raw:
-        if not isinstance(item, dict):
-            continue
+    for item in items:
         aid = str(item.get("account_id") or item.get("id") or "").strip()
         if not aid:
             continue
