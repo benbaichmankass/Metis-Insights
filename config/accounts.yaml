@@ -1,16 +1,29 @@
-# config/accounts.yaml — per-account risk configuration (S-010 PR #1)
+# config/accounts.yaml — per-account risk + strategy configuration.
 #
-# Loaded by src/units/accounts/__init__.py::load_accounts().
-# API keys are referenced by environment variable NAME only — never hardcoded.
-# Add a new account: add one entry here, set the env var, reload.
+# S-012 PR B3: single source of truth for account identity, exchange,
+# risk caps, and strategy assignment, per PM decision § 8 #3 (b).
+# config/units.yaml no longer carries an `accounts:` block.
+#
+# Loaded by:
+#   - src/units/accounts/__init__.py::load_accounts() (production wiring;
+#     dict format with named keys).
+#   - src/bot/data_loaders.py::_load_yaml_accounts() (Telegram bot listing).
+#
+# API keys are referenced by environment variable NAME only — never
+# hardcoded. Each account starts in dry-run mode by default; the
+# /accounts dry|live <name> Telegram command flips it. Per PM § 8 #4,
+# default is dry for every new account; live only when explicitly set.
+# Risk caps fire bidirectionally: pos_size, daily_usd, and (S-012 PR E3a)
+# max_dd_pct (intra-day, UTC midnight reset).
 
 accounts:
   bybit_1:
     type: regular
     exchange: bybit
     api_key_env: BYBIT_API_KEY_1       # env var holding the actual key
+    strategies: [turtle_soup, vwap]
     risk:
-      max_dd_pct: 0.05                 # 5% max drawdown
+      max_dd_pct: 0.05                 # 5% max intra-day drawdown
       daily_usd: 100                   # $100 max daily loss
       pos_size: 500                    # $500 max single position
 
@@ -18,6 +31,7 @@ accounts:
     type: regular
     exchange: bybit
     api_key_env: BYBIT_API_KEY_2
+    strategies: [turtle_soup, vwap]
     risk:
       max_dd_pct: 0.05
       daily_usd: 100
@@ -27,6 +41,7 @@ accounts:
     type: prop
     exchange: breakout
     api_key_env: BREAKOUT_API_KEY_1
+    strategies: [turtle_soup, vwap]
     risk:
       max_dd_pct: 0.02                 # stricter: 2% max drawdown
       daily_usd: 50                    # stricter: $50 max daily loss
