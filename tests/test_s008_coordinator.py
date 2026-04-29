@@ -176,21 +176,24 @@ class TestAccounts:
         acc = coord.list_accounts()[0]
         assert "exchange" in acc
 
-    def test_account_execute_raises_not_implemented(self, coord):
+    def test_account_execute_dry_run_returns_trade_id(self, coord):
+        """account_execute() now wired (PR #122): dry-run returns a trade_id string."""
         pkg = OrderPackage(
             strategy="test_strat", symbol="BTCUSDT", direction="long",
             entry=50000.0, sl=49000.0, tp=52000.0,
         )
-        with pytest.raises(NotImplementedError):
-            coord.account_execute("test_account", pkg)
+        trade_id = coord.account_execute("test_account", pkg, balance_usdt=10_000.0)
+        assert isinstance(trade_id, str)
+        assert trade_id.startswith("dry-")
 
-    def test_account_execute_message_mentions_pr122(self, coord):
+    def test_account_execute_unknown_account_raises(self, coord):
+        """Requesting an account not in units.yaml raises KeyError."""
         pkg = OrderPackage(
             strategy="test_strat", symbol="BTCUSDT", direction="long",
             entry=50000.0, sl=49000.0, tp=52000.0,
         )
-        with pytest.raises(NotImplementedError, match="PR #122"):
-            coord.account_execute("test_account", pkg)
+        with pytest.raises(KeyError):
+            coord.account_execute("no_such_account_xyz", pkg)
 
     def test_is_account_paused_default_false(self, coord):
         assert coord.is_account_paused("test_account") is False

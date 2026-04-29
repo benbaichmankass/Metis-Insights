@@ -6,7 +6,7 @@ through this class.
 
 Unit interface stubs (filled in by subsequent PRs):
   PR #121 → strategy_order_pkg()   DONE — src/units/strategies/<name>.py
-  PR #122 → account_execute()      (accounts expose execute_pkg())
+  PR #122 → account_execute()      DONE — src/units/accounts/execute.py
 
 Data flow:
   Strategies.order_package() ──▶ Coordinator ──▶ Accounts.execute(pkg)
@@ -154,15 +154,51 @@ class Coordinator:
     # Unit 2 → Accounts
     # ------------------------------------------------------------------
 
-    def account_execute(self, account_id: str, pkg: OrderPackage) -> str:
-        """Risk-check *pkg* then execute on *account_id*.  Returns a trade_id.
+    def account_execute(
+        self,
+        account_id: str,
+        pkg: OrderPackage,
+        exchange_client=None,
+        balance_usdt: Optional[float] = None,
+        *,
+        dry_run: Optional[bool] = None,
+    ) -> str:
+        """Risk-size and execute *pkg* on *account_id*.  Returns a trade_id.
 
-        Raises NotImplementedError until PR #122 wires the account modules.
+        Parameters
+        ----------
+        account_id : str
+            Must match the ``id`` / ``account_id`` in units.yaml.
+        pkg : OrderPackage
+            The order package from strategy_order_pkg().
+        exchange_client : object, optional
+            Bybit/Binance client.  When None the call runs in dry-run mode.
+        balance_usdt : float, optional
+            Balance override; skips live fetch.  Used in tests.
+        dry_run : bool, optional
+            Explicit dry-run override; defaults to DRY_RUN env var.
+
+        Raises
+        ------
+        RuntimeError
+            When the account is paused.
+        KeyError
+            When account_id is not found in units.yaml.
         """
-        raise NotImplementedError(
-            f"Account execution for '{account_id}' not yet wired; "
-            "implement in PR #122."
+        account_cfg = self._account_cfg(account_id)
+        from src.units.accounts.execute import execute_pkg
+        return execute_pkg(
+            pkg, account_cfg,
+            exchange_client=exchange_client,
+            balance_usdt=balance_usdt,
+            dry_run=dry_run,
         )
+
+    def _account_cfg(self, account_id: str) -> dict:
+        for acc in self.list_accounts():
+            if acc.get("account_id") == account_id:
+                return acc
+        raise KeyError(f"Account '{account_id}' not found in units.yaml")
 
     def list_accounts(self) -> List[Dict[str, Any]]:
         """Return account configs from units.yaml, falling back to data_loaders."""

@@ -11,6 +11,48 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-29-52 — S-008 #122: Accounts → execute_pkg()
+
+- **Session date:** 2026-04-29
+- **Sprint:** S-008 (Translator Architecture Overhaul)
+- **Current sprint phase:** #122 — Accounts → execute_pkg()
+- **Last completed checkpoint:** CP-2026-04-29-51 (S-008 #121, PR #121 merged)
+- **Next checkpoint:** **CP-2026-04-29-53** — S-008 #123: Dashboards unified. Implement `coordinator.dashboard_stats()` enriched view + alerts queue; PR #123.
+- **Telegram sent:** no (no creds in session)
+- **Alerts sent during session:** none
+- **Blockers:** none
+
+### 1. Completed
+- `src/units/accounts/__init__.py`: package scaffold
+- `src/units/accounts/risk.py`: fixed-fractional sizing — `size_order(pkg, risk_pct, balance_usdt)` → qty; clipped to [min_qty, max_qty]
+- `src/units/accounts/execute.py`: `execute_pkg()` — pause check → balance fetch → risk sizing → Bybit/Binance market order; dry-run when client=None or DRY_RUN=true
+- `src/core/coordinator.py`: `account_execute()` fully wired; `_account_cfg()` helper added
+- `tests/test_s008_accounts.py`: 23 offline tests (mocked exchange), all passed
+- `tests/test_s008_coordinator.py`: 2 stub tests updated to reflect wired behaviour
+- Draft PR #122: https://github.com/the-lizardking/ict-trading-bot/pull/122
+
+### 2. Files changed
+- `src/units/accounts/__init__.py` (new)
+- `src/units/accounts/risk.py` (new)
+- `src/units/accounts/execute.py` (new)
+- `src/core/coordinator.py` (updated: account_execute wired)
+- `tests/test_s008_accounts.py` (new)
+- `tests/test_s008_coordinator.py` (updated: 2 stub tests)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_s008_coordinator.py tests/test_s008_strategies.py tests/test_s008_accounts.py -q` — 86 passed
+- `python scripts/secret_scan.py` — clean
+
+### 4. Remaining
+- none for this checkpoint
+
+### 5. Next checkpoint
+**CP-2026-04-29-53** — S-008 #123: Dashboards unified. Enrich `coordinator.dashboard_stats()` with per-account open positions + PnL; add alerts queue structure; tests offline.
+Read: `docs/claude/checkpoints/CHECKPOINT_LOG.md`, `docs/claude/checkpoint-workflow.md`.
+
+---
+
 ## CP-2026-04-29-51 — S-008 #121: Strategies → order_package()
 
 - **Session date:** 2026-04-29
