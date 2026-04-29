@@ -1,0 +1,166 @@
+"""S-012 PR D2: single-process consolidation regression test.
+
+Locks the post-S-012 architecture in place: every strategy in the active
+roster runs inside ``ict-trader-live.service``; per-strategy systemd
+units do not exist and must not be re-introduced without an explicit
+sprint.
+
+This test catches the failure mode that triggered S-012 — configs
+declaring per-strategy services that have no matching ``.service`` file
+in ``deploy/``.
+
+PM § 8 #1 (b) confirmed.
+"""
+from __future__ import annotations
+
+import os
+
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+DEPLOY_DIR = os.path.join(REPO_ROOT, "deploy")
+
+# Canonical set of systemd units in deploy/ post-S-012. Any change to
+# this set is an architectural decision and must be reflected in
+# docs/claude/deployment-ops.md plus an explicit sprint.
+EXPECTED_SERVICES = {
+    "ict-env-check.service",
+    "ict-git-sync.service",
+    "ict-heartbeat.service",
+    "ict-telegram-bot.service",
+    "ict-trader-live.service",
+}
+
+# Trader-side units (i.e. units that run trading-strategy code). Used to
+# pin the single-process architecture.
+TRADER_UNITS = {"ict-trader-live.service"}
+
+
+# ---------------------------------------------------------------------------
+# deploy/ shape
+# ---------------------------------------------------------------------------
+
+
+def test_deploy_dir_exists():
+    assert os.path.isdir(DEPLOY_DIR), f"deploy/ missing at {DEPLOY_DIR}"
+
+
+def test_deploy_service_set_matches_canonical():
+    """Exactly the canonical 5 .service files exist; no more, no less."""
+    actual = {
+        name for name in os.listdir(DEPLOY_DIR)
+        if name.endswith(".service")
+    }
+    assert actual == EXPECTED_SERVICES, (
+        f"deploy/ .service set drifted from the canonical S-012 architecture.\n"
+        f"  expected: {sorted(EXPECTED_SERVICES)}\n"
+        f"  actual:   {sorted(actual)}\n"
+        f"  missing:  {sorted(EXPECTED_SERVICES - actual)}\n"
+        f"  extra:    {sorted(actual - EXPECTED_SERVICES)}\n"
+        "Adding or removing a unit is a sprint-level decision; update "
+        "EXPECTED_SERVICES here, deployment-ops.md, and the sprint summary "
+        "in the same PR."
+    )
+
+
+def test_only_one_trader_side_unit():
+    """Single-process architecture: exactly one trader-side .service."""
+    trader_units = {
+        name for name in os.listdir(DEPLOY_DIR)
+        if name.startswith("ict-trader-") and name.endswith(".service")
+    }
+    assert trader_units == TRADER_UNITS, (
+        f"Expected exactly one trader-side service ({sorted(TRADER_UNITS)}); "
+        f"got {sorted(trader_units)}. Per-strategy services were the failure "
+        "that triggered S-012; do not re-introduce them without a dedicated "
+        "sprint."
+    )
+
+
+# ---------------------------------------------------------------------------
+# Configs reference no service that lacks a .service file
+# ---------------------------------------------------------------------------
+
+
+def _service_files_in_deploy() -> set:
+    return {
+        name for name in os.listdir(DEPLOY_DIR)
+        if name.endswith(".service")
+    }
+
+
+def test_strategy_registry_service_names_have_unit_files():
+    """Every service_name() returned by the registry is a real unit file."""
+    from src.strategy_registry import load_strategies
+
+    units_on_disk = {
+        name[: -len(".service")] for name in _service_files_in_deploy()
+    }
+    for s in load_strategies():
+        svc = s["service"]
+        assert svc in units_on_disk, (
+            f"strategy '{s['name']}' references service '{svc}', "
+            f"but deploy/{svc}.service does not exist. "
+            "Either author the unit file or remove the service field."
+        )
+
+
+def test_data_loaders_list_trader_services_returns_real_units():
+    """list_trader_services() must return only services whose unit files exist."""
+    from src.bot import data_loaders as dl
+
+    services = dl.list_trader_services()
+    units_on_disk = {
+        name[: -len(".service")] for name in _service_files_in_deploy()
+    }
+    for svc in services:
+        assert svc in units_on_disk, (
+            f"list_trader_services() returned '{svc}' but no matching "
+            f"unit file exists in deploy/."
+        )
+
+
+def test_data_loaders_list_trader_services_is_single_process():
+    """S-012 single-process: exactly one trader-side service in the registry."""
+    from src.bot import data_loaders as dl
+
+    services = dl.list_trader_services()
+    assert services == ["ict-trader-live"], (
+        f"Expected single-process architecture (services == ['ict-trader-live']); "
+        f"got {services}."
+    )
+
+
+def test_account_services_have_unit_files_or_are_default():
+    """Each account in accounts.yaml routes to a real systemd unit.
+
+    Either the account has no explicit ``service`` (defaults to
+    ict-trader-live in src/bot/data_loaders) or its declared service
+    matches a unit file in deploy/.
+    """
+    from src.bot import data_loaders as dl
+
+    accounts_yaml = os.path.join(REPO_ROOT, "config", "accounts.yaml")
+    if not os.path.exists(accounts_yaml):
+        return  # accounts.yaml absent in this checkout
+
+    original = dl.ACCOUNTS_YAML_PATH
+    dl.ACCOUNTS_YAML_PATH = accounts_yaml
+    try:
+        accounts = dl._load_yaml_accounts()
+    finally:
+        dl.ACCOUNTS_YAML_PATH = original
+
+    units_on_disk = {
+        name[: -len(".service")] for name in _service_files_in_deploy()
+    }
+    for acc in accounts:
+        svc = acc.get("service")
+        if not svc:
+            continue
+        # data_loaders may auto-fill `ict-trader-<account_id>` when the
+        # YAML omits the field. The post-S-012 contract is that account
+        # services must still exist in deploy/. The default is the
+        # legacy live unit, which always exists.
+        assert svc in units_on_disk or svc == "ict-trader-live", (
+            f"Account '{acc.get('account_id')}' references service '{svc}', "
+            f"but deploy/{svc}.service does not exist."
+        )
