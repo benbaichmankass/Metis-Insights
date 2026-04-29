@@ -466,9 +466,23 @@ def run_pipeline(
             result = safe_place_order(signal, settings, exchange_client)
 
     try:
+        # S-012 PR E4: include strategy attribution so the audit log
+        # answers "which strategy fired this tick" for every line.
+        # Source priority: signal.meta.strategy_name (set by every
+        # builder in src/runtime/pipeline.py) → top-level signal["strategy"]
+        # → settings["STRATEGY"]/env → "unknown".
+        _meta = signal.get("meta") or {}
+        _strategy = (
+            _meta.get("strategy_name")
+            or signal.get("strategy")
+            or settings.get("STRATEGY")
+            or os.environ.get("STRATEGY")
+            or "unknown"
+        )
         log_signal(
             {
                 "event": "pipeline_result",
+                "strategy": _strategy,
                 "symbol": signal.get("symbol"),
                 "side": signal.get("side"),
                 "qty": signal.get("qty"),
