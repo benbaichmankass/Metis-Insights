@@ -11,6 +11,41 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-29-41 — Sprint S-006 M5: --config flag + Bybit notebook fix
+
+- **Session date:** 2026-04-29
+- **Sprint:** S-006 (ICT Multi-Symbol Backtest)
+- **Current sprint phase:** M5 — CLI config flag + notebook policy fix
+- **Last completed checkpoint:** CP-2026-04-29-40 (S-006 M4, PR #110 merged)
+- **Telegram sent:** no (no creds in session)
+- **Alerts sent during session:** none
+- **Blockers:** none
+
+### 1. Completed
+- `bin/backtest_ict.py`: `--config '{"ob_confluence_only": true, ...}'` flag — parses JSON object of ICTBacktester overrides; exit 2 on bad/non-object JSON
+- `notebooks/ict_multi_symbol_backtest.ipynb`: fixed Cell 4 (Binance→Bybit public REST per PR #109 policy), Cell 5 now passes `--config` with M4 quality filters
+- 3 new CLI tests (valid config, bad JSON→exit 2, non-object→exit 2); 56 total, all pass
+- PR #111 opened (draft): https://github.com/the-lizardking/ict-trading-bot/pull/111
+- Subscribed to PR #111 activity
+
+### 2. Files changed
+- `bin/backtest_ict.py` (`--config` flag added)
+- `notebooks/ict_multi_symbol_backtest.ipynb` (Bybit REST + config wiring)
+- `tests/test_backtest_ict_cli.py` (3 new tests)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_backtest_ict_cli.py tests/test_backtester.py tests/test_analyze_ict_results.py -q` — 56 passed
+
+### 4. Remaining
+- Ben re-runs Colab notebook (now using Bybit + quality filters)
+- If GO: S-006 M6 = wire ICT into live pipeline PR
+
+### 5. Next checkpoint
+**CP-2026-04-29-42** — S-006 M6 or second Colab verdict. Read this entry first. If GO: open PR to wire `ict_signal_builder.py` into pipeline. If NO-GO: reassess strategy parameters.
+
+---
+
 ## CP-2026-04-29-40 — Sprint S-006 M4: OB confluence + session filter fixes
 
 - **Session date:** 2026-04-29
