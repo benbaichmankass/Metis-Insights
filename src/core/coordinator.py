@@ -266,6 +266,127 @@ class Coordinator:
         """Return True when *account_id* has been halted via return_command."""
         return account_id in _PAUSED_ACCOUNTS
 
+    def accounts_status(
+        self, accounts_path: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """Return per-account status dicts from config/accounts.yaml.
+
+        Each dict contains name, exchange, account_type, open_positions,
+        daily_pnl, max_daily_loss_usd, max_pos_size_usd, halted.
+
+        Parameters
+        ----------
+        accounts_path : str, optional
+            Path to accounts.yaml.  Defaults to ``config/accounts.yaml``.
+        """
+        from src.units.accounts import load_accounts
+        import os as _os
+        path = accounts_path or _os.path.join(_REPO_ROOT, "config", "accounts.yaml")
+        try:
+            return [a.status() for a in load_accounts(path)]
+        except FileNotFoundError:
+            logger.warning("accounts_status: accounts.yaml not found at %s", path)
+            return []
+
+    def multi_account_execute(
+        self,
+        pkg: OrderPackage,
+        accounts_path: Optional[str] = None,
+        *,
+        dry_run: bool = True,
+        account_type: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """Execute *pkg* on all accounts loaded from accounts.yaml.
+
+        Parameters
+        ----------
+        pkg : OrderPackage
+            The order package from strategy_order_pkg().
+        accounts_path : str, optional
+            Override path to accounts.yaml.
+        dry_run : bool
+            When True (default), simulate — no live exchange calls.
+        account_type : str, optional
+            When set, only execute on accounts matching this type
+            (``"regular"`` | ``"prop"``).
+
+        Returns
+        -------
+        list[dict]
+            One result dict per account:
+            ``{name, exchange, account_type, trade_id, error}``
+        """
+        from src.units.accounts import load_accounts
+        from src.units.accounts.account import RiskBreach
+        import os as _os
+
+        path = accounts_path or _os.path.join(_REPO_ROOT, "config", "accounts.yaml")
+        try:
+            accounts = load_accounts(path)
+        except FileNotFoundError:
+            logger.warning("multi_account_execute: accounts.yaml not found at %s", path)
+            return []
+
+        results = []
+        for account in accounts:
+            if account_type and account.account_type != account_type:
+                continue
+            try:
+                trade_id = account.place_order(pkg, dry_run=dry_run)
+                self.push_alert(
+                    f"multi_execute: {account.name} {pkg.strategy} "
+                    f"{pkg.direction} {pkg.symbol} → {trade_id}",
+                    source="accounts",
+                    level="info",
+                    account=account.name,
+                    trade_id=trade_id,
+                )
+                results.append({
+                    "name": account.name,
+                    "exchange": account.exchange,
+                    "account_type": account.account_type,
+                    "trade_id": trade_id,
+                    "error": None,
+                })
+            except RiskBreach as exc:
+                results.append({
+                    "name": account.name,
+                    "exchange": account.exchange,
+                    "account_type": account.account_type,
+                    "trade_id": None,
+                    "error": str(exc),
+                })
+        return results
+
+    def reload_accounts(self, accounts_path: Optional[str] = None) -> Dict[str, Any]:
+        """Push an alert confirming accounts.yaml is accessible and return count.
+
+        The accounts layer is stateless per-call (load_accounts() is called fresh
+        each time), so 'reloading' just verifies the file is readable.
+        """
+        from src.units.accounts import load_accounts
+        import os as _os
+
+        path = accounts_path or _os.path.join(_REPO_ROOT, "config", "accounts.yaml")
+        try:
+            accounts = load_accounts(path)
+        except FileNotFoundError:
+            return {"reloaded": False, "error": f"accounts.yaml not found: {path}"}
+
+        summary = {
+            "reloaded": True,
+            "accounts_path": path,
+            "account_count": len(accounts),
+            "accounts": [a.name for a in accounts],
+        }
+        self.push_alert(
+            f"Accounts reloaded: {len(accounts)} accounts from {path}",
+            source="app",
+            level="info",
+            **summary,
+        )
+        return summary
+
     # ------------------------------------------------------------------
     # Unit 3 → Dashboards
     # ------------------------------------------------------------------
