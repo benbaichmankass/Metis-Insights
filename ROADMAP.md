@@ -1,7 +1,7 @@
 # ICT Trading Bot — Product Roadmap
 
-> **Last Updated:** 2026-04-29  
-> **Maintained by:** PM (Ben) + Tech Lead (Perplexity)  
+> **Last Updated:** 2026-04-29
+> **Maintained by:** PM (Ben) + Tech Lead (Perplexity)
 > **Sprint prompt files:** `docs/sprints/sprint-NNN-prompt.md`
 
 ---
@@ -25,13 +25,12 @@
 
 ## Roadmap Overview
 
-### Phase 0 — Foundation & Workflow (Current)
+### Phase 0 — Foundation & Workflow
 **Goal:** Establish clean process before accelerating feature work.
 
 | Sprint | Title | Status |
 |--------|-------|--------|
 | S-000 | Repo hygiene, CLAUDE.md hardening, checkpoint system | ✅ Done |
-| S-001 | Telegram Bot Hardening | 🔜 Next |
 
 ---
 
@@ -40,9 +39,9 @@
 
 | Sprint | Title | Status |
 |--------|-------|--------|
-| S-001 | **Telegram Bot Hardening** — decouple bot from hardcoded config, make it dynamically reflect the live system state | 🔜 Planned |
-| S-002 | **System Observability** — structured logging, error alerting, runtime health metrics pipeline | 📋 Backlog |
-| S-003 | **Test Coverage & CI Hardening** — expand test suite, enforce linting/type checking in CI | 📋 Backlog |
+| S-001 | **Telegram Bot Hardening** — decouple bot from hardcoded config, make it dynamically reflect the live system state | ✅ Done |
+| S-002 | **System Observability** — structured logging, error alerting, runtime health metrics pipeline | ✅ Done |
+| S-003 | **Test Coverage & CI Hardening** — expand test suite, enforce linting/type checking in CI | ✅ Done |
 
 ---
 
@@ -51,9 +50,9 @@
 
 | Sprint | Title | Status |
 |--------|-------|--------|
-| S-004 | **Automated Training & Backtesting Pipeline** — scheduled Colab/HF jobs for periodic retraining, standardised metrics output | 📋 Backlog |
-| S-005 | **Master Model / Strategy Monitor** — periodic task that reviews all strategy performance, flags underperformers, and generates improvement suggestions as a structured report | 📋 Backlog |
-| S-006 | **Model Registry & Versioning** — track model versions, associate them with strategy configs, enable rollback | 📋 Backlog |
+| S-004 | **Automated Training & Backtesting Pipeline** — scheduled Colab/HF jobs for periodic retraining, standardised metrics output | ✅ Done |
+| S-005 | **Master Model / Strategy Monitor** — periodic task that reviews all strategy performance, flags underperformers, generates structured improvement report | ✅ Done |
+| S-006 | **Model Registry & Versioning** — track model versions, associate them with strategy configs, enable rollback | ✅ Done |
 
 ---
 
@@ -62,9 +61,11 @@
 
 | Sprint | Title | Status |
 |--------|-------|--------|
-| S-007 | **Prop Account Manager** — upload API key, associate with a strategy, isolated execution layer | 📋 Backlog |
-| S-008 | **Per-Account Risk Engine** — prop-specific risk rules (max drawdown, daily loss limits, position sizing), breach prevention logic | 📋 Backlog |
-| S-009 | **Prop Account Model** — optional lightweight model per account focused on breach avoidance (probability scoring, position adjustment) | 📋 Backlog |
+| S-007 | **Prop Account Manager** — upload API key, associate with a strategy, isolated execution layer | ✅ Done |
+| S-008 | **Coordinator Architecture & Full Unit Rewire** — Translator/Coordinator pattern, unit rewire (strategies, accounts, dashboards, trading school), Telegram bot rewired, 178 tests across 9 PRs (#120–#128) | ✅ Done |
+| S-009 | **Deferred Wiring: Colab Backtest + App Config** — `trigger_backtest()` Colab wiring, App unit config operations (carried over from S-008) | 🔜 Next |
+| S-010 | **Per-Account Risk Engine** — prop-specific risk rules (max drawdown, daily loss limits, position sizing), breach prevention logic | 📋 Backlog |
+| S-011 | **Prop Account Model** — optional lightweight model per account focused on breach avoidance (probability scoring, position adjustment) | 📋 Backlog |
 
 ---
 
@@ -73,8 +74,8 @@
 
 | Sprint | Title | Status |
 |--------|-------|--------|
-| S-010 | **App Scaffold & Home Dashboard** — React Native or Flutter scaffold, home tab with overall P&L, system status, active strategies | 📋 Backlog |
-| S-011 | **Component Tabs** — tabs for Strategies, Accounts, Model Metrics, Runtime Logs & Bugs; left-side tab panel | 📋 Backlog |
+| S-012 | **App Scaffold & Home Dashboard** — React Native or Flutter scaffold, home tab with overall P&L, system status, active strategies | 📋 Backlog |
+| S-013 | **Component Tabs** — tabs for Strategies, Accounts, Model Metrics, Runtime Logs & Bugs; left-side tab panel | 📋 Backlog |
 
 ---
 
@@ -83,7 +84,29 @@
 
 | Sprint | Title | Status |
 |--------|-------|--------|
-| S-012 | **Secure API Key Management** — add/store/rotate API keys through the app, encrypted vault, eliminates need to manually edit master-secrets file | 📋 Backlog |
+| S-014 | **Secure API Key Management** — add/store/rotate API keys through the app, encrypted vault, eliminates need to manually edit master-secrets file | 📋 Backlog |
+
+---
+
+## S-008 Sprint Record
+
+**Completed:** 2026-04-29 | **Checkpoint:** `CP-2026-04-29-58` in `CHECKPOINT_LOG.md`
+**PRs merged:** #120–#128 (9 PRs) | **Tests added:** 178
+
+| Unit | Key File | Tests |
+|------|----------|-------|
+| Coordinator (TRANSLATOR) | `src/core/coordinator.py` | — |
+| Strategies | `src/units/strategies/{ict,vwap,breakout_confirmation,killzone}.py` | 27 |
+| Accounts | `src/units/accounts/{risk,execute}.py` | 23 |
+| Dashboards | `src/units/dashboards/{alerts,stats}.py` | 25 |
+| Telegram Bot rewired | `src/bot/telegram_query_bot.py` | 19 |
+| Trading School | `src/units/trading_school/validator.py` | 23 |
+| Workflows + Docs | `docs/workflows/`, `docs/architecture.md` | — |
+| Integration Tests | `tests/test_coordinator_flow.py` | 25 |
+
+**Deferred to S-009:**
+- `trigger_backtest()` Colab wiring
+- App unit config operations
 
 ---
 
@@ -122,7 +145,7 @@ Each file contains:
 ## Status Key
 
 | Symbol | Meaning |
-|--------|---------|
+|--------|---------| 
 | ✅ Done | Sprint completed and merged |
 | 🔜 Next | Planned as the immediate next sprint |
 | 🔄 In Progress | Currently being executed by Claude Code |
