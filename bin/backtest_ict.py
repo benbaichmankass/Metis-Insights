@@ -226,6 +226,16 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Print only the aggregate, not per-pair details.",
     )
+    p.add_argument(
+        "--config",
+        type=str,
+        default=None,
+        metavar="JSON",
+        help=(
+            "JSON object of ICTBacktester config overrides, e.g. "
+            "'{\"ob_confluence_only\": true, \"disable_session_filter\": true}'."
+        ),
+    )
     return p
 
 
@@ -233,6 +243,16 @@ def main(argv: Optional[list] = None) -> int:
     logging.basicConfig(level=logging.INFO,
                         format="%(levelname)s %(name)s: %(message)s")
     args = build_parser().parse_args(argv)
+
+    config: Optional[dict] = None
+    if args.config:
+        try:
+            config = json.loads(args.config)
+            if not isinstance(config, dict):
+                raise ValueError("--config must be a JSON object")
+        except (json.JSONDecodeError, ValueError) as exc:
+            logger.error("--config: %s", exc)
+            return 2
 
     try:
         if args.manifest:
@@ -247,7 +267,7 @@ def main(argv: Optional[list] = None) -> int:
         logger.error("no pairs to run")
         return 2
 
-    results = run_all(pairs)
+    results = run_all(pairs, config=config)
     report = render_results(results)
 
     if args.output:

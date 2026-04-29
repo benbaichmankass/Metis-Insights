@@ -190,6 +190,42 @@ def test_main_writes_output_file(tmp_path: Path, capsys):
 
 
 # ---------------------------------------------------------------------------
+# --config JSON flag
+# ---------------------------------------------------------------------------
+
+def test_main_config_flag_accepted(tmp_path: Path):
+    csv = tmp_path / "flat.csv"
+    _make_flat_csv(csv)
+    rc = backtest_ict_cli.main([
+        "--pair", f"FLAT:5m:{csv}",
+        "--quiet",
+        "--config", '{"ob_confluence_only": true, "disable_session_filter": true}',
+    ])
+    # flat market → 0 trades either way; what matters is the flag is parsed
+    assert rc == 0
+
+
+def test_main_config_bad_json_returns_2(tmp_path: Path):
+    csv = tmp_path / "flat.csv"
+    _make_flat_csv(csv)
+    rc = backtest_ict_cli.main([
+        "--pair", f"FLAT:5m:{csv}",
+        "--config", "not-json{{",
+    ])
+    assert rc == 2
+
+
+def test_main_config_non_object_returns_2(tmp_path: Path):
+    csv = tmp_path / "flat.csv"
+    _make_flat_csv(csv)
+    rc = backtest_ict_cli.main([
+        "--pair", f"FLAT:5m:{csv}",
+        "--config", '"just-a-string"',
+    ])
+    assert rc == 2
+
+
+# ---------------------------------------------------------------------------
 # Validate data/ict_validate_manifest.csv is well-formed
 # ---------------------------------------------------------------------------
 
