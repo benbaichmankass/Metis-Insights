@@ -33,13 +33,22 @@ Generated as part of Claude Code setup.
   `claude_project_setup_guide.md`, `THREAD1_CHANGELOG.md`. No code or test references to any of
   them. (PR #98)
 
+## Completed (continued)
+
+- **S-004 M3** (2026-04-29): HF loaders wired in `strategies/breakout_confirmation.py` and
+  `ml/src/test_breakout_strategy.py`; `scripts/hf_upload_large_files.py` created (PR #99).
+- **S-004 M4** (2026-04-29): Large files removed after confirmed HF upload (PR #100):
+  - `data/bybit_btcusdt_1m.csv` → `bentzbk/ict-trading-bot-btcusdt-1m` dataset
+  - `ml/data/raw/btcusdt_1m.csv` → `bentzbk/ict-trading-bot-btcusdt-1m` dataset
+  - `ml/models/local/btc_breakout_confirmation_v1.joblib` → `bentzbk/ict-trading-bot-rf-breakout-v1` model
+
 ## HF migration backlog (do not delete without HF upload first)
 
 | File | Size | Used by | Action |
 |---|---|---|---|
-| `data/bybit_btcusdt_1m.csv` | 2.4 MB | `download_bybit_history.py`, `run_comparison_backtest.py` | Upload to bentzbk HF dataset, update path refs, then `git rm` |
-| `ml/data/raw/btcusdt_1m.csv` | 3.4 MB | `ml/src/test_breakout_strategy.py` | Upload to HF dataset, update path ref, then `git rm` |
-| `ml/models/local/btc_breakout_confirmation_v1.joblib` | 1.5 MB | `strategies/breakout_confirmation.py` (live load) | Upload to HF model repo, update loader to `hf_hub_download`, then `git rm` |
+| ~~`data/bybit_btcusdt_1m.csv`~~ | ~~2.4 MB~~ | `download_bybit_history.py`, `run_comparison_backtest.py` | ✅ Removed (M4) |
+| ~~`ml/data/raw/btcusdt_1m.csv`~~ | ~~3.4 MB~~ | `ml/src/test_breakout_strategy.py` | ✅ Removed (M4) |
+| ~~`ml/models/local/btc_breakout_confirmation_v1.joblib`~~ | ~~1.5 MB~~ | `strategies/breakout_confirmation.py` | ✅ Removed (M4) |
 
 **Do not migrate:** `data/btc_1m_sample.csv` — test fixture used by 4 tests, must stay in repo.
 **Do not migrate:** `data/backtest_candles.csv` — default backtest data loaded by `src/backtest/run_backtest.py`.
