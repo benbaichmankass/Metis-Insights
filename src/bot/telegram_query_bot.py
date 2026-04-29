@@ -133,18 +133,21 @@ _STRATEGY_DISPLAY = {
 _DEFAULT_STRATEGY_LABEL = "Strategy"
 
 
-def get_strategy_label(env_vars: dict | None = None) -> str:
+def get_strategy_label(account: dict | None = None) -> str:
     """Return the display name for the active strategy.
 
-    Reads ``STRATEGY`` (or legacy ``STRATEGY_NAME``) from the supplied env vars
-    or, if none are supplied, from the live ``.env`` on disk. Falls back to
-    ``_DEFAULT_STRATEGY_LABEL`` when STRATEGY is unset or unknown. Defensive
-    against missing/malformed env files because this is called at
-    ``post_init`` time and must never crash the bot.
+    Reads ``STRATEGY`` (or legacy ``STRATEGY_NAME``) from the account's .env
+    file. When called with no argument, uses the first account returned by
+    ``dl.list_accounts()``. Falls back to ``_DEFAULT_STRATEGY_LABEL`` when
+    STRATEGY is unset, unknown, or the env file is missing. Defensive against
+    missing/malformed env files because this is called at ``post_init`` time
+    and must never crash the bot.
     """
     try:
-        if env_vars is None:
-            env_vars = load_account_env()
+        if account is None:
+            accounts = dl.list_accounts() or []
+            account = accounts[0] if accounts else {}
+        env_vars = _account_env(account)
         raw = str(env_vars.get("STRATEGY", env_vars.get("STRATEGY_NAME", ""))).strip().lower()
         return _STRATEGY_DISPLAY.get(raw, _DEFAULT_STRATEGY_LABEL)
     except Exception:
@@ -243,7 +246,7 @@ def _account_env(account: dict) -> dict:
 def format_bybit_balance(account: dict) -> str:
     """Render the per-coin Bybit balance block for one account.
     Data is sourced via ``dl.account_balance``; this function only formats."""
-    label = get_strategy_label(_account_env(account))
+    label = get_strategy_label(account)
     payload = dl.account_balance(account)
     if payload is None:
         return f"💰 *{label} Balance*\n⚠️ Bybit error: balance unavailable."
@@ -272,7 +275,7 @@ def format_bybit_balance(account: dict) -> str:
 def format_bybit_positions(account: dict) -> str:
     """Render the open-positions block for one Bybit account using
     ``dl.account_open_positions`` output."""
-    label = get_strategy_label(_account_env(account))
+    label = get_strategy_label(account)
     rows = dl.account_open_positions(account)
     if rows is None:
         return f"📊 *{label} Positions*\n⚠️ Bybit error: positions unavailable."
@@ -391,7 +394,7 @@ def format_binance_balance(account: dict) -> str:
     """Render the Binance Futures USDT balance block for one account.
     Total/free/used are derived from the loader's ``raw`` ccxt-style
     balance map (preserves today's UX)."""
-    label = get_strategy_label(_account_env(account))
+    label = get_strategy_label(account)
     payload = dl.account_balance(account)
     if payload is None:
         return f"💰 *{label} Balance (Binance)*\n⚠️ Error: balance unavailable."
@@ -413,7 +416,7 @@ def format_binance_balance(account: dict) -> str:
 def format_binance_positions(account: dict) -> str:
     """Render the Binance open-positions block for one account using
     ``dl.account_open_positions`` output."""
-    label = get_strategy_label(_account_env(account))
+    label = get_strategy_label(account)
     rows = dl.account_open_positions(account)
     if rows is None:
         return f"📊 *{label} Positions (Binance)*\n⚠️ Error: positions unavailable."
@@ -520,7 +523,7 @@ def _render_account_balance(account: dict) -> str:
         return format_bybit_balance(account)
     if exchange == "binance":
         return format_binance_balance(account)
-    label = get_strategy_label(_account_env(account))
+    label = get_strategy_label(account)
     return (
         f"💰 *{label} Balance*\n"
         f"Exchange=`{exchange or 'not set'}` — unsupported exchange."
@@ -534,7 +537,7 @@ def _render_account_positions(account: dict) -> str:
         return format_bybit_positions(account)
     if exchange == "binance":
         return format_binance_positions(account)
-    label = get_strategy_label(_account_env(account))
+    label = get_strategy_label(account)
     return (
         f"📊 *{label} Positions*\n"
         f"Exchange=`{exchange or 'not set'}` — unsupported exchange."
