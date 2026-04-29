@@ -35,6 +35,56 @@ dispatcher. The `service:` field has been dropped from
 `config/strategies.yaml` and `config/units.yaml`; the registry defaults
 any missing service entry to `ict-trader-live`.
 
+## /accounts dry/live toggle (S-012)
+
+PM decision § 8 #4 confirmed: the per-account dry/live toggle introduced
+in S-011 PR #141 stays. It is the staging escape hatch for prop-account
+configuration and account-by-account go-live promotion.
+
+### Defaults
+
+* **Every newly-loaded account starts in dry-run mode.**
+  `src/units/accounts/account.py::TradingAccount.__init__` sets
+  `dry_run=True` by default. Loading `config/accounts.yaml` does not
+  flip any account to live.
+* **Live trading is opt-in, per account, and persistent across reloads.**
+  Flipping requires the operator to issue an explicit Telegram
+  `/accounts dry|live <account_id>` command (S-011 PR #141), which
+  records the override in the in-process `_DRY_RUN_OVERRIDES` dict and
+  re-applies it on every `load_accounts()` call.
+
+### Operator workflow
+
+1. Edit `config/accounts.yaml` to declare the account (api_key_env,
+   risk caps, `strategies: [turtle_soup, vwap]`).
+2. `git add` + `git commit` + `git push`. Pull on the VM and reload —
+   the new account loads in **dry-run** by default.
+3. Telegram `/accounts_status` confirms the account is present and
+   shows `dry_run: True`.
+4. When ready to promote: Telegram `/accounts live <account_id>`.
+5. To revert: `/accounts dry <account_id>`.
+
+### Interaction with the global DRY_RUN env
+
+The global `DRY_RUN` env var and the per-account override are layered:
+
+* `DRY_RUN=true` (env) → **all** accounts are dry, regardless of override.
+  Useful for whole-fleet staging.
+* `DRY_RUN=false` (or unset) + `ALLOW_LIVE_TRADING=true` (the only path
+  the startup interlock allows for live execution per PR E1) → each
+  account's `dry_run` attribute applies.
+
+The interlock and the per-account toggle are independent guards:
+both must permit live execution before any real order is placed.
+
+### Why this is safe
+
+Risk caps (`pos_size`, `daily_usd`, `max_dd_pct` per S-012 PR E3a) fire
+**before** the dry/live decision in `TradingAccount.place_order()`, so
+even an account flipped to live with the caps misconfigured cannot
+exceed the limits in `accounts.yaml`. The dry-run toggle only suppresses
+exchange submission; risk gating is unaffected.
+
 ## Before live changes
 
 ```bash
