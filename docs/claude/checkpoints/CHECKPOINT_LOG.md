@@ -11,6 +11,43 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-29-55 — S-008 #125: Trading School validator
+
+- **Session date:** 2026-04-29
+- **Sprint:** S-008 (Translator Architecture Overhaul)
+- **Current sprint phase:** #125 — Trading School integration
+- **Last completed checkpoint:** CP-2026-04-29-54 (S-008 #124, PR #124 merged)
+- **Next checkpoint:** **CP-2026-04-29-56** — S-008 #126: Workflows + Docs. `docs/architecture.md` with Mermaid diagram; `docs/workflows/` referencing all 9 units.
+- **Telegram sent:** no (no creds in session)
+- **Alerts sent during session:** none
+- **Blockers:** none
+
+### 1. Completed
+- `src/units/trading_school/validator.py`: `validate_metrics()` with default + YAML + caller-override thresholds; `trigger_backtest()` stub (NotImplementedError, PR #126)
+- `src/core/coordinator.py`: `validate_strategy_update()` + `trigger_backtest()` methods wired to Trading School unit
+- `tests/test_s008_trading_school.py`: 23 offline tests, all passed
+- Draft PR #125: https://github.com/the-lizardking/ict-trading-bot/pull/125
+
+### 2. Files changed
+- `src/units/trading_school/__init__.py` (new)
+- `src/units/trading_school/validator.py` (new)
+- `src/core/coordinator.py` (updated — 2 new methods)
+- `tests/test_s008_trading_school.py` (new)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_s008_*.py -q` — 153 passed
+- secret scan: clean
+
+### 4. Remaining
+- none for this checkpoint
+
+### 5. Next checkpoint
+**CP-2026-04-29-56** — S-008 #126: Workflows + Docs. Add `docs/architecture.md` with Mermaid data-flow diagram for the 9-unit Coordinator pattern; add `docs/workflows/` stubs for each unit.
+Read: `docs/claude/checkpoints/CHECKPOINT_LOG.md`, `docs/claude/checkpoint-workflow.md`.
+
+---
+
 ## CP-2026-04-29-54 — S-008 #124: Telegram Bot rewired
 
 - **Session date:** 2026-04-29
