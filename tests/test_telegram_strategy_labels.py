@@ -116,32 +116,6 @@ def test_live_service_name_constant_exists():
 
 
 # ---------------------------------------------------------------------------
-# load_account_env — single-arg, reads only the live .env
-# ---------------------------------------------------------------------------
-
-def test_load_account_env_reads_live_env(monkeypatch, tmp_path, restore_dotenv_values):
-    env_file = _write_env(tmp_path, ".env", STRATEGY="ict", BYBIT_API_KEY="x")
-    monkeypatch.setattr(bot, "LIVE_ENV_PATH", str(env_file))
-
-    result = bot.load_account_env()
-    assert result["STRATEGY"] == "ict"
-    assert result["BYBIT_API_KEY"] == "x"
-
-
-def test_load_account_env_returns_empty_dict_when_file_missing(monkeypatch, tmp_path):
-    monkeypatch.setattr(bot, "LIVE_ENV_PATH", str(tmp_path / "does-not-exist.env"))
-    assert bot.load_account_env() == {}
-
-
-def test_load_account_env_takes_no_arguments():
-    """Signature is ``load_account_env()`` — passing a target should error."""
-    with pytest.raises(TypeError):
-        bot.load_account_env("live")  # type: ignore[call-arg]
-    with pytest.raises(TypeError):
-        bot.load_account_env("paper")  # type: ignore[call-arg]
-
-
-# ---------------------------------------------------------------------------
 # get_strategy_label — account dict with env_path drives the label
 # ---------------------------------------------------------------------------
 
@@ -203,48 +177,3 @@ def test_get_strategy_label_swallows_unexpected_errors(monkeypatch):
     assert bot.get_strategy_label() == bot._DEFAULT_STRATEGY_LABEL
 
 
-# ---------------------------------------------------------------------------
-# format_target_options — back-compat helper used by post_init
-# ---------------------------------------------------------------------------
-
-def test_format_target_options_returns_single_strategy(monkeypatch, tmp_path, restore_dotenv_values):
-    """Returns the active strategy label — no more ``live|paper``."""
-    env_file = _write_env(tmp_path, ".env", STRATEGY="ict")
-    monkeypatch.setattr(bot.dl, "list_accounts", lambda: [{"env_path": str(env_file)}])
-
-    assert bot.format_target_options() == "ICT"
-
-
-def test_format_target_options_falls_back_when_no_accounts(monkeypatch):
-    """No accounts configured → default label, never crashes."""
-    monkeypatch.setattr(bot.dl, "list_accounts", lambda: [])
-    assert bot.format_target_options() == bot._DEFAULT_STRATEGY_LABEL
-
-
-def test_format_target_options_falls_back_when_strategy_unset(monkeypatch, tmp_path, restore_dotenv_values):
-    """Env file exists but has no STRATEGY → default label."""
-    env_file = _write_env(tmp_path, ".env", BYBIT_API_KEY="x")
-    monkeypatch.setattr(bot.dl, "list_accounts", lambda: [{"env_path": str(env_file)}])
-
-    assert bot.format_target_options() == bot._DEFAULT_STRATEGY_LABEL
-
-
-def test_format_target_options_swallows_unexpected_errors(monkeypatch):
-    """If anything explodes, ``post_init`` still gets a safe default."""
-
-    def _boom():
-        raise RuntimeError("unexpected env failure")
-
-    monkeypatch.setattr(bot.dl, "list_accounts", _boom)
-    assert bot.format_target_options() == bot._DEFAULT_STRATEGY_LABEL
-
-
-def test_format_target_options_separator_is_no_op_with_single_label(
-    monkeypatch, tmp_path, restore_dotenv_values
-):
-    """``separator`` is retained for API compatibility but unused with one label."""
-    env_file = _write_env(tmp_path, ".env", STRATEGY="ict")
-    monkeypatch.setattr(bot.dl, "list_accounts", lambda: [{"env_path": str(env_file)}])
-
-    assert bot.format_target_options(separator=" / ") == "ICT"
-    assert bot.format_target_options(separator="|") == "ICT"

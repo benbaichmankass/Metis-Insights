@@ -14,8 +14,9 @@ import requests
 
 # Sprint S-001 PR-C..F: route data access through the data_loaders facade.
 # Sprint S-002 M2: migrated close_all_bybit_positions to (account: dict) and
-# deleted get_bybit_client_from_env. Remaining legacy helpers tracked for M3:
-# load_account_env, format_target_options.
+# deleted get_bybit_client_from_env.
+# Sprint S-002 M3: get_strategy_label is account-aware; load_account_env and
+# format_target_options deleted.
 from src.bot import data_loaders as dl
 
 load_dotenv()
@@ -107,19 +108,6 @@ def fetch_open_positions_count() -> int:
         return 0
 
 
-def load_account_env() -> dict:
-    """Load environment variables from the live trader .env file.
-
-    There is only one trader (live). Returns an empty dict when the file is
-    missing so callers can render help text without crashing on a fresh box.
-    """
-    if not os.path.exists(LIVE_ENV_PATH):
-        return {}
-    values = dotenv_values(LIVE_ENV_PATH)
-    return {k: v for k, v in values.items() if v is not None}
-
-
-
 _STRATEGY_DISPLAY = {
     "killzone": "ICT",
     "ict": "ICT",
@@ -153,14 +141,6 @@ def get_strategy_label(account: dict | None = None) -> str:
     except Exception:
         return _DEFAULT_STRATEGY_LABEL
 
-
-def format_target_options(separator: str = "|") -> str:
-    """Return the strategy label shown in slash-command help text.
-
-    Returns the single active strategy's display name. ``separator`` is kept
-    for API compatibility but is unused with one label.
-    """
-    return get_strategy_label()
 
 
 # fetch_last_5_trades and fetch_latest_backtest_result were removed in PR-F
@@ -825,7 +805,7 @@ def main():
     application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
     async def post_init(app):
-        label = format_target_options()
+        label = get_strategy_label()
         commands = [
             BotCommand("start", "Show help"),
             BotCommand("help", "Show help"),
