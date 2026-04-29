@@ -11,6 +11,47 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-29-59 — S-009 SPRINT COMPLETE
+
+- **Session date:** 2026-04-29
+- **Sprint:** S-009 (Deferred Wiring Tasks)
+- **Current sprint phase:** wrap-up — all 3 PRs merged
+- **Last completed checkpoint:** CP-2026-04-29-58.5 (S-008.5 complete)
+- **Next checkpoint:** Start of S-010 — read CHECKPOINT_LOG.md as usual.
+- **Telegram sent:** no (no creds in session)
+- **Blockers:** none
+
+### 1. Completed
+- PR #132: `trigger_backtest()` wired — queue-file mechanism, Colab notebook template, workflow doc
+- PR #133: App unit config — `load_enabled_units()`, `Coordinator.reload_units()`, `enabled` flags in units.yaml, 16 tests, workflow doc
+- PR #134: Sprint summary + this checkpoint
+
+### 2. Files changed
+- `src/units/trading_school/validator.py` (trigger_backtest wired)
+- `src/core/coordinator.py` (trigger_backtest alert + reload_units)
+- `src/units/__init__.py` (load_enabled_units, list_enabled_strategies)
+- `config/units.yaml` (enabled flags on strategies)
+- `notebooks/templates/triggered-backtest.ipynb` (new)
+- `docs/workflows/backtest-trigger.md` (new)
+- `docs/workflows/app-unit-config.md` (new)
+- `tests/test_coordinator_flow.py` (+5 backtest flow tests)
+- `tests/test_s008_trading_school.py` (stub tests replaced)
+- `tests/test_unit_config.py` (new, 16 tests)
+- `docs/sprint-summaries/sprint-009-summary.md` (new)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+- Full suite: 210 passed
+- `python scripts/secret_scan.py` — clean
+
+### 4. Remaining
+- None. Both S-008 deferred items resolved.
+
+### 5. Next checkpoint
+**S-010** — next sprint. Read `CHECKPOINT_LOG.md` (this entry) to resume.
+
+---
+
 ## CP-2026-04-29-58.5 — S-008.5 SPRINTLET COMPLETE
 
 - **Session date:** 2026-04-29
