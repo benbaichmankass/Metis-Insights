@@ -11,6 +11,44 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-29-12 — Sprint S-001 PR-B2: data_loaders DB readers
+
+- **Session date:** 2026-04-29
+- **Sprint:** Sprint S-001 (Telegram bot hardening)
+- **Current sprint phase:** PR-B2 — second slice of `src/bot/data_loaders.py` (DB readers)
+- **Last completed checkpoint:** CP-2026-04-29-11 (PR-B1 registry, opened as #78)
+- **Next checkpoint:** **CP-2026-04-29-13** — PR-B3: exchange-aware account queries (`account_balance`, `account_open_positions`, `account_last_trade`).
+- **Blockers:** none.
+
+### 1. Completed
+- Added `recent_signals_for(strategy, n)`: queries the signals DB filtered by `signal_type` substrings mapped per strategy in `_STRATEGY_SIGNAL_PREFIXES` (ict → fvg/ob/ict, killzone → killzone/trade_signal, vwap → vwap, breakout_confirmation → ml_breakout/breakout). Falls through to "any signal_type" when the strategy is unknown.
+- Added `latest_backtests_per_model()`: groupwise-max correlated subquery over `backtest_results.strategy_version` to return the latest row per model.
+- Added `recent_logs_for(service, n)`: thin journalctl wrapper. Returns `"⚠️ unavailable"` on `FileNotFoundError` (sandboxes without journalctl) and any other exception. Test injection point via the `_runner` kwarg.
+- Added DB-path resolution constants `TRADE_JOURNAL_DB` and `SIGNALS_DB` mirroring the existing resolution order in `src/bot/telegram_query_bot.py` and `src/runtime/signal_writer.py`.
+- 11 new tests in `tests/test_data_loaders.py` (happy + ≥1 failure mode per loader). Total in this file is now 19; all pass.
+
+### 2. Files changed
+- `src/bot/data_loaders.py` (extended with DB-reader layer)
+- `tests/test_data_loaders.py` (extended with DB-reader tests + fixtures)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+- `python scripts/repo_inventory.py` — pass (no junk candidates)
+- `python scripts/secret_scan.py` — pass (no tracked secrets)
+- `PYTHONPATH=. pytest tests/test_data_loaders.py` — 19 passed.
+- `PYTHONPATH=. pytest --ignore=tests/test_main_loop.py tests` — 23 failed (pre-existing baseline); no new regressions.
+
+### 4. Remaining
+- PR-B3: exchange-aware account queries. Requires reusing the Bybit / Binance helper pattern from `src/bot/telegram_query_bot.py` (`format_bybit_balance`, `_get_binance_connector`, etc.) but exposing them as data-only loaders that return dicts/lists rather than markdown strings.
+- Trader-side `strategy_name` write on insert remains a follow-up after the bot-wiring PRs.
+
+### 5. Next checkpoint
+**CP-2026-04-29-13** — PR-B3: exchange-aware account queries. Acceptance: `account_balance(account)` returns `{"total_usdt": float, "raw": ...}` or `None`; `account_open_positions(account)` returns a list of `{symbol, side, size, entry_price, unrealised_pnl}` or `None`; `account_last_trade(account)` returns the most recent live trade row from the trade-journal DB (legacy account today; multi-account attribution is a follow-up sprint item). Tests cover happy + 1 failure mode each, using `MagicMock` for exchange clients.
+
+**Telegram sent:** no (no creds in env)
+
+---
+
 ## CP-2026-04-29-11 — Sprint S-001 PR-B1: data_loaders registry layer
 
 - **Session date:** 2026-04-29
