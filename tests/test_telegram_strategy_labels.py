@@ -105,9 +105,10 @@ def test_get_account_label_helper_removed():
 
 
 def test_paper_env_path_constant_removed():
-    """``PAPER_ENV_PATH`` is gone — there is only ``LIVE_ENV_PATH``."""
+    """Both legacy path constants are gone: PAPER_ENV_PATH (paper-trading era)
+    and LIVE_ENV_PATH (deleted in S-003 N1-a — dead code)."""
     assert not hasattr(bot, "PAPER_ENV_PATH")
-    assert hasattr(bot, "LIVE_ENV_PATH")
+    assert not hasattr(bot, "LIVE_ENV_PATH")
 
 
 def test_live_service_name_constant_exists():
