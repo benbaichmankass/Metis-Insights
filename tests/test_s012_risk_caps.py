@@ -227,3 +227,113 @@ class TestRiskManagerApprove:
         pkg = _turtle_soup_pkg()
         pkg.meta.pop("estimated_value", None)
         assert rm.approve(pkg) is True
+
+
+# ---------------------------------------------------------------------------
+# S-012 PR E3a — max_dd_pct intra-day drawdown enforcement
+# ---------------------------------------------------------------------------
+
+
+class TestMaxDrawdownIntraday:
+    """Per PM § 8 #6: intra-day drawdown from today's high; UTC-midnight reset."""
+
+    def test_no_drawdown_check_until_equity_seeded(self):
+        """Backwards-compatible: rejection only fires after update_equity()."""
+        rm = RiskManager({"max_dd_pct": 0.05, "daily_usd": 100.0, "pos_size": 500.0})
+        # Equity unset → drawdown is None; approve passes.
+        assert rm.intraday_drawdown() is None
+        assert rm.approve(_vwap_pkg(estimated_value=100.0)) is True
+
+    def test_drawdown_below_cap_passes_for_vwap(self):
+        rm = RiskManager({"max_dd_pct": 0.05, "daily_usd": 1_000.0, "pos_size": 1_000.0})
+        rm.update_equity(10_000.0)        # establish daily high
+        rm.update_equity(9_700.0)         # 3 % drawdown < 5 % cap
+        assert rm.approve(_vwap_pkg(estimated_value=100.0)) is True
+
+    def test_drawdown_at_or_above_cap_rejects_vwap(self):
+        rm = RiskManager({"max_dd_pct": 0.05, "daily_usd": 1_000.0, "pos_size": 1_000.0})
+        rm.update_equity(10_000.0)
+        rm.update_equity(9_500.0)         # exactly 5 % → reject (>= cap)
+        assert rm.approve(_vwap_pkg(estimated_value=100.0)) is False
+
+    def test_drawdown_at_or_above_cap_rejects_turtle_soup(self):
+        rm = RiskManager({"max_dd_pct": 0.05, "daily_usd": 1_000.0, "pos_size": 1_000.0})
+        rm.update_equity(10_000.0)
+        rm.update_equity(9_400.0)         # 6 % > 5 % cap
+        assert rm.approve(_turtle_soup_pkg(estimated_value=100.0)) is False
+
+    def test_drawdown_via_place_order_raises_breach(self):
+        """The end-to-end path: TradingAccount.place_order surfaces RiskBreach
+        when the drawdown cap is breached."""
+        acc = _account(max_dd_pct=0.05, daily_usd=1_000.0, pos_size=1_000.0)
+        acc.risk_manager.update_equity(10_000.0)
+        acc.risk_manager.update_equity(9_400.0)  # 6 % drawdown
+        with pytest.raises(RiskBreach):
+            acc.place_order(_vwap_pkg(estimated_value=100.0))
+
+    def test_intraday_high_bumps_when_equity_climbs(self):
+        rm = RiskManager({"max_dd_pct": 0.05, "daily_usd": 1_000.0, "pos_size": 1_000.0})
+        rm.update_equity(10_000.0)
+        rm.update_equity(11_000.0)       # new intra-day high
+        rm.update_equity(10_500.0)       # 4.5 % drawdown vs 11 000 — passes
+        assert rm.approve(_vwap_pkg(estimated_value=100.0)) is True
+        rm.update_equity(10_400.0)       # 5.45 % drawdown vs 11 000 — fails
+        assert rm.approve(_vwap_pkg(estimated_value=100.0)) is False
+
+    def test_drawdown_clamped_at_zero_when_above_high(self):
+        """Sanity: equity > high → drawdown is 0, not a negative."""
+        rm = RiskManager({"max_dd_pct": 0.05, "daily_usd": 1_000.0, "pos_size": 1_000.0})
+        rm.update_equity(10_000.0)
+        rm.update_equity(11_000.0)
+        # Force a stale high lower than current to exercise the clamp.
+        rm.daily_high_equity = 10_500.0
+        rm.current_equity = 11_000.0
+        assert rm.intraday_drawdown() == 0.0
+
+    def test_utc_midnight_rollover_re_anchors_high(self, monkeypatch):
+        """When the UTC date advances, the intra-day high re-anchors to
+        current_equity and daily_pnl resets. PM § 8 #6 contract."""
+        from datetime import date
+
+        # Monkeypatch BEFORE constructing the RiskManager so the
+        # initial _last_reset_utc_date is the simulated "yesterday".
+        monkeypatch.setattr(
+            RiskManager, "_today_utc",
+            staticmethod(lambda: date(2026, 4, 28)),
+        )
+        rm = RiskManager({"max_dd_pct": 0.05, "daily_usd": 1_000.0, "pos_size": 1_000.0})
+        # Simulate yesterday: equity drops to a breach.
+        rm.update_equity(10_000.0)
+        rm.update_equity(9_000.0)         # 10 % drawdown — would block today
+        rm.record_trade_result(-200.0)
+        assert rm.daily_pnl == -200.0
+        assert rm.intraday_drawdown() == pytest.approx(0.10)
+        assert rm.approve(_vwap_pkg(estimated_value=100.0)) is False
+
+        # Roll over to next UTC day.
+        monkeypatch.setattr(
+            RiskManager, "_today_utc",
+            staticmethod(lambda: date(2026, 4, 29)),
+        )
+        # Any equity update or approve() triggers the reset.
+        rm.update_equity(9_000.0)
+        assert rm.daily_pnl == 0.0                  # daily_pnl reset
+        assert rm.intraday_drawdown() == 0.0        # high re-anchored to 9 000
+        assert rm.approve(_vwap_pkg(estimated_value=100.0)) is True
+
+    def test_report_includes_drawdown_fields(self):
+        rm = RiskManager({"max_dd_pct": 0.05, "daily_usd": 1_000.0, "pos_size": 1_000.0})
+        rm.update_equity(10_000.0)
+        rm.update_equity(9_700.0)
+        rep = rm.report()
+        assert rep["current_equity"] == 9_700.0
+        assert rep["daily_high_equity"] == 10_000.0
+        assert rep["intraday_drawdown_pct"] == pytest.approx(0.03)
+        assert rep["halted"] is False
+
+    def test_report_halted_when_drawdown_breached(self):
+        rm = RiskManager({"max_dd_pct": 0.05, "daily_usd": 1_000.0, "pos_size": 1_000.0})
+        rm.update_equity(10_000.0)
+        rm.update_equity(9_000.0)        # 10 % > 5 % cap
+        rep = rm.report()
+        assert rep["halted"] is True
