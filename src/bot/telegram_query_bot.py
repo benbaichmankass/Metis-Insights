@@ -469,6 +469,8 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/backtest — Start backtest in background\n"
         "/latest\\_backtest — Backtest status/result\n"
         "/price — Current BTC price\n"
+        "/accounts\\_status — Per-account risk state\n"
+        "/risk\\_check <account> — Risk details for one account\n"
         "/help — Show this menu"
     )
     await update.message.reply_text(text, parse_mode="Markdown")
@@ -1083,6 +1085,88 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
 
 
+async def cmd_accounts_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show per-account risk state from config/accounts.yaml via Coordinator."""
+    if not is_authorised(update):
+        return
+    try:
+        coord = get_coordinator()
+        if coord is None:
+            await update.message.reply_text("⚠️ Coordinator unavailable.")
+            return
+        statuses = coord.accounts_status()
+        if not statuses:
+            await update.message.reply_text("ℹ️ No accounts found in accounts.yaml.")
+            return
+        lines = ["📋 *Accounts Risk Status*\n"]
+        for s in statuses:
+            halted_icon = "🔴" if s.get("halted") else "🟢"
+            pnl = float(s.get("daily_pnl", 0))
+            limit = float(s.get("max_daily_loss_usd", 0))
+            pos_size = float(s.get("max_pos_size_usd", 0))
+            open_pos = s.get("open_positions", 0)
+            lines.append(
+                f"{halted_icon} *{s['name']}* (`{s.get('exchange', '?')}` / {s.get('account_type', '?')})\n"
+                f"  💵 Daily PnL: ${pnl:+.2f} / limit ${limit:.0f}\n"
+                f"  📦 Max pos: ${pos_size:.0f} | Open: {open_pos}"
+            )
+        await update.message.reply_text("\n\n".join(lines), parse_mode="Markdown")
+    except Exception as e:
+        await update.message.reply_text(f"⚠️ Could not load accounts status: {e}")
+
+
+async def cmd_risk_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Check risk state for a specific account. Usage: /risk_check <account_name>"""
+    if not is_authorised(update):
+        return
+    account_name = (context.args[0].strip() if context.args else "").lower()
+    try:
+        coord = get_coordinator()
+        if coord is None:
+            await update.message.reply_text("⚠️ Coordinator unavailable.")
+            return
+        statuses = coord.accounts_status()
+        if not statuses:
+            await update.message.reply_text("ℹ️ No accounts found in accounts.yaml.")
+            return
+        if not account_name:
+            names = ", ".join(f"`{s['name']}`" for s in statuses)
+            await update.message.reply_text(
+                f"ℹ️ Specify an account name. Available: {names}",
+                parse_mode="Markdown",
+            )
+            return
+        match = next((s for s in statuses if s["name"].lower() == account_name), None)
+        if match is None:
+            names = ", ".join(f"`{s['name']}`" for s in statuses)
+            await update.message.reply_text(
+                f"⚠️ Account `{account_name}` not found.\nAvailable: {names}",
+                parse_mode="Markdown",
+            )
+            return
+        halted_icon = "🔴 HALTED" if match.get("halted") else "🟢 OK"
+        pnl = float(match.get("daily_pnl", 0))
+        limit = float(match.get("max_daily_loss_usd", 0))
+        remaining = float(match.get("daily_loss_remaining", limit + pnl))
+        pos_size = float(match.get("max_pos_size_usd", 0))
+        dd_pct = float(match.get("max_dd_pct", 0)) * 100
+        open_pos = match.get("open_positions", 0)
+        text = (
+            f"🔍 *Risk Check: {match['name']}*\n\n"
+            f"Status: {halted_icon}\n"
+            f"Exchange: `{match.get('exchange', '?')}` | Type: `{match.get('account_type', '?')}`\n\n"
+            f"💵 Daily PnL: ${pnl:+.2f}\n"
+            f"💰 Daily loss limit: ${limit:.0f}\n"
+            f"🔋 Remaining budget: ${remaining:.2f}\n"
+            f"📦 Max position size: ${pos_size:.0f}\n"
+            f"📉 Max drawdown: {dd_pct:.1f}%\n"
+            f"📂 Open positions: {open_pos}"
+        )
+        await update.message.reply_text(text, parse_mode="Markdown")
+    except Exception as e:
+        await update.message.reply_text(f"⚠️ Could not check risk for '{account_name}': {e}")
+
+
 # ── Entry point ───────────────────────────────────────────────────────────────
 
 def main():
@@ -1111,6 +1195,8 @@ def main():
             BotCommand("download_journal", "Download trade journal DB"),
             BotCommand("price", "Current BTC price"),
             BotCommand("alerts", "Recent unit alerts (coordinator queue)"),
+            BotCommand("accounts_status", "Per-account risk state (daily PnL, halted)"),
+            BotCommand("risk_check", "Risk details for one account: /risk_check <name>"),
         BotCommand("sprintlet_status", "Report sprintlet milestone status"),
         BotCommand("sprintlet_complete", "Signal sprintlet completion"),
         BotCommand("checkpoint", "Show latest checkpoint from CHECKPOINT_LOG.md"),
@@ -1135,6 +1221,8 @@ def main():
     application.add_handler(CommandHandler("download_journal", cmd_download_journal))
     application.add_handler(CommandHandler("price", cmd_price))
     application.add_handler(CommandHandler("alerts", cmd_alerts))
+    application.add_handler(CommandHandler("accounts_status", cmd_accounts_status))
+    application.add_handler(CommandHandler("risk_check", cmd_risk_check))
     application.add_handler(CommandHandler("sprintlet_status", cmd_sprintlet_status))
     application.add_handler(CommandHandler("sprintlet_complete", cmd_sprintlet_complete))
     application.add_handler(CommandHandler("checkpoint", cmd_checkpoint))
