@@ -30,6 +30,21 @@ def migrate_add_strategy_name(cur: sqlite3.Cursor) -> bool:
     return True
 
 
+def migrate_add_account_id(cur: sqlite3.Cursor) -> bool:
+    """Add the ``account_id`` column to the ``trades`` table if missing.
+
+    Default ``'live'`` keeps all pre-existing rows attributed to the legacy
+    live account. Idempotent: returns ``True`` only on the run that adds the
+    column.
+    """
+    cur.execute("PRAGMA table_info(trades)")
+    columns = {row[1] for row in cur.fetchall()}
+    if "account_id" in columns:
+        return False
+    cur.execute("ALTER TABLE trades ADD COLUMN account_id TEXT NOT NULL DEFAULT 'live'")
+    return True
+
+
 # The DB lives next to telegram_query_bot.py in src/bot/
 BASE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "src", "bot")
 DB_PATH = os.path.abspath(os.path.join(BASE_DIR, "trade_journal.db"))
@@ -68,13 +83,19 @@ def init_db(db_path: str) -> None:
             notes           TEXT,
             is_backtest     INTEGER DEFAULT 0,  -- 0 = live, 1 = backtest
             strategy_name   TEXT,          -- e.g. breakout_confirmation, vwap, killzone, ict
+            account_id      TEXT NOT NULL DEFAULT 'live',  -- multi-account identifier
             created_at      TEXT DEFAULT (datetime('now'))
         )
         """
     )
-    # Idempotent migration for pre-existing DBs that were created before
-    # the strategy_name column was introduced. Safe to run repeatedly.
+    # Idempotent migrations for pre-existing DBs missing these columns.
     migrate_add_strategy_name(cur)
+    migrate_add_account_id(cur)
+    # Index for efficient per-account trade history queries.
+    cur.execute(
+        "CREATE INDEX IF NOT EXISTS idx_trades_account_created "
+        "ON trades (account_id, datetime(created_at) DESC)"
+    )
     print("  [OK] trades table ready.")
 
     # ------------------------------------------------------------------
