@@ -12,7 +12,7 @@ Wants=network-online.target
 [Service]
 User=ubuntu
 WorkingDirectory=/home/ubuntu/ict-trading-bot
-ExecStart=/usr/bin/python3 -u -B -m src.telegram_bot
+ExecStart=/usr/bin/python3 -u -B -m src.bot.telegram_query_bot
 Restart=always
 RestartSec=15
 StandardOutput=journal
