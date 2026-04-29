@@ -156,33 +156,28 @@ def test_service_name_unknown_strategy_raises(tmp_path):
 
 def test_real_yaml_loads():
     strategies = reg.load_strategies(_REAL_YAML)
-    assert len(strategies) >= 3
+    assert len(strategies) == 2  # S-012 PR B1: roster reduced to turtle_soup + vwap
 
 
 def test_real_yaml_has_required_strategies():
     strategies = reg.load_strategies(_REAL_YAML)
     names = {s["name"] for s in strategies}
-    assert {"breakout_confirmation", "vwap", "ict"}.issubset(names)
-
-
-def test_real_yaml_breakout_has_model():
-    mp = reg.model_path("breakout_confirmation", _REAL_YAML)
-    assert mp is not None
-    assert mp.endswith(".joblib")
+    assert names == {"turtle_soup", "vwap"}
 
 
 def test_real_yaml_vwap_no_model():
     assert reg.model_path("vwap", _REAL_YAML) is None
 
 
-def test_real_yaml_ict_no_model():
-    assert reg.model_path("ict", _REAL_YAML) is None
+def test_real_yaml_turtle_soup_no_model():
+    assert reg.model_path("turtle_soup", _REAL_YAML) is None
 
 
 def test_real_yaml_service_names():
-    assert reg.service_name("breakout_confirmation", _REAL_YAML) == "ict-trader-breakout"
-    assert reg.service_name("vwap", _REAL_YAML) == "ict-trader-vwap"
-    assert reg.service_name("ict", _REAL_YAML) == "ict-trader-ict"
+    # S-012 single-process: every strategy currently runs inside
+    # ict-trader-live. The `service:` field is scheduled for removal in PR C4.
+    assert reg.service_name("turtle_soup", _REAL_YAML) == "ict-trader-live"
+    assert reg.service_name("vwap", _REAL_YAML) == "ict-trader-live"
 
 
 def test_real_yaml_all_strategies_have_service():
