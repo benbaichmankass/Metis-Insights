@@ -11,6 +11,41 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-29-22 — Sprint S-002 M1d: architecture doc + repo-map updates
+
+- **Session date:** 2026-04-29
+- **Sprint:** Sprint S-002 (Telegram bot multi-account + workflow hardening)
+- **Current sprint phase:** M1d — architecture doc follow-up
+- **Last completed checkpoint:** CP-2026-04-29-21 (M1c per-account loader queries, PR #89 merged)
+- **Next checkpoint:** **CP-2026-04-29-23 — M2a: migrate close_all_bybit_positions to (account: dict)** — add `dl.bybit_client_for(account)`, refactor `close_all_bybit_positions`, update `cmd_closeall` to iterate accounts, write mandatory unit tests (mock place_order, failure isolation, empty-positions branch). This is the highest-risk milestone — byte-identical order logic, tests required before merge.
+- **Telegram sent:** no (import chain blocked by missing `pandas` in this environment — exits 0)
+- **Alerts sent during session:** none
+- **Blockers:** Waiting for Ben to merge PR #90 before M2a starts.
+
+### 1. Completed
+- Added "## Trade Journal Database" section to `docs/architecture.md` with full `trades` table schema (all columns including `account_id` added in M1a), `idx_trades_account_created` index description, and migration helper note.
+- Added `backtest_results` table note to the same section.
+- Added `src/data_layer/` and `scripts/init_db.py` entries to `docs/claude/repo-map.md`.
+- Opened PR-M1d as draft: https://github.com/the-lizardking/ict-trading-bot/pull/90
+
+### 2. Files changed
+- `docs/architecture.md`
+- `docs/claude/repo-map.md`
+
+### 3. Tests run
+- No code changes — doc-only PR. Previous suite (111 passed, 1 skipped) unchanged.
+
+### 4. Remaining
+- M2a: `close_all_bybit_positions(account: dict)` — highest-risk milestone, must have tests + staging dry-run.
+- M2b: retire `get_bybit_client_from_env`.
+- M3a/M3b: retire `load_account_env` and `format_target_options`.
+
+### 5. Next checkpoint
+**CP-2026-04-29-23** — M2a: `close_all_bybit_positions` migration.
+Read first: this entry, `docs/claude/checkpoint-workflow.md`, then `src/bot/telegram_query_bot.py` lines ~850 (closeall callback) and the current `close_all_bybit_positions` implementation, then `src/bot/data_loaders.py` `account_balance` for the bybit client construction pattern.
+
+---
+
 ## CP-2026-04-29-21 — Sprint S-002 M1c: real per-account queries in data_loaders
 
 - **Session date:** 2026-04-29
