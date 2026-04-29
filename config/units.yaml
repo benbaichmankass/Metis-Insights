@@ -1,44 +1,46 @@
-# config/units.yaml — 9-unit architecture (S-008 PR #120)
+# config/units.yaml — 9-unit architecture (S-008 PR #120, S-012 PR B2 update)
 #
 # Managed by the TRANSLATOR (src/core/coordinator.py).
 # Every inter-unit data flow goes through the Coordinator; no unit calls
 # another unit directly.
 #
-# Adding a strategy: 1 line in units.strategies + the matching entry in
-# config/strategies.yaml (registry source of truth for service/model/prefixes).
+# S-012 PR B2: strategies block reduced to turtle_soup + vwap to match
+# config/strategies.yaml (PR B1). Account ID space reconciliation between
+# this file and config/accounts.yaml is PR B3 (PM-blocked on § 8 #3).
 
 units:
 
   # 1. Strategies — generate order packages (entry, SL, TP, confidence)
+  #
+  # Both entries currently set service: ict-trader-live to reflect the
+  # single-process runtime reality. The service: field is scheduled for
+  # removal in PR C4 (PM-blocked on § 8 decision #1). Until then, keep it
+  # consistent so consumers don't drift back to per-strategy aspirational
+  # service names.
   strategies:
-    - name: ict
-      enabled: true
-      service: ict-trader-ict
-      model: null
-      signal_prefixes: [fvg, ob, ict]
-    - name: vwap
-      enabled: true
-      service: ict-trader-vwap
-      model: null
-      signal_prefixes: [vwap]
-    - name: breakout_confirmation
-      enabled: false              # toggle example — disable without removing
-      service: ict-trader-breakout
-      model: btc_v1.joblib
-      signal_prefixes: [ml_breakout, breakout]
-    - name: killzone
+    - name: turtle_soup
       enabled: true
       service: ict-trader-live
       model: null
-      signal_prefixes: [killzone, trade_signal]
+      signal_prefixes: [turtle_soup, sweep_reversal]
+    - name: vwap
+      enabled: true
+      service: ict-trader-live
+      model: null
+      signal_prefixes: [vwap]
 
   # 2. Accounts — per-account risk management + exchange execution
+  #
+  # The `live` account ID space here is disjoint from accounts.yaml's
+  # bybit_1 / bybit_2 / prop_breakout_1. PR B3 reconciles (PM-blocked on
+  # § 8 decision #3). For B2, only the strategies list is narrowed to the
+  # new roster.
   accounts:
     - id: live
       exchange: bybit
       risk_pct: 0.01          # 1 % risk per trade
       env_path: .env
-      strategies: [ict, vwap, breakout_confirmation, killzone]
+      strategies: [turtle_soup, vwap]
 
   # 3. Dashboards — performance stats + live data for UI
   dashboards:
