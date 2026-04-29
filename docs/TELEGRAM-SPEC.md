@@ -196,22 +196,35 @@ Bybit is unreachable, fall back to "n/a" rather than crashing.
   `/balance`, `/backtest`) — they may stay during the sprint and be
   cleaned up in a follow-up.
 
-## 8. Open questions for PM
+## 8. PM decisions (locked 2026-04-29)
 
-These are documented now so they are answered before the matching PR
-lands. Not blocking the spec doc itself.
-
-1. **Account registry source.** Default plan: read accounts from a new
+1. **Account registry source.** Read accounts from a new
    `config/accounts.yaml` (with `<repo>/.env` as the fallback for the
-   single-account case). OK?
-2. **Strategy → trade attribution.** `/status` and `/accounts` need
-   per-strategy P&L. Today's `trades` table does not store
-   `strategy_name`. Two options: (a) add a column in a follow-up PR
-   so today's bot just shows "n/a"; or (b) infer from `setup_type`
-   where possible. Default plan: (a).
-3. **`/closeall` confirmation.** Today's `/closeall` fires immediately.
-   With multi-account, do you want a 2-step confirm via inline button?
-   Default plan: keep one-step (matches today) but log every fire.
+   single-account case). ✅ Confirmed.
+2. **Strategy → trade attribution.** Add a `strategy_name` column to
+   the `trades` table **in this sprint**. Bot writes "n/a" for trades
+   that pre-date the migration. Schema change lands as PR-B0 before
+   the data-loader work. ✅ Confirmed.
+3. **`/closeall` confirmation.** Use a **2-step inline-button confirm**.
+   First press → "Are you sure? This will close ALL positions across
+   all accounts." Second press → execute. Log chat-id and timestamp
+   on every fire. ✅ Confirmed.
+4. **Module path.** Keep new modules under `src/bot/` to match the
+   existing convention (`src/bot/telegram_query_bot.py`,
+   `src/bot/alert_manager.py`). The brief's `src/telegram/` path is
+   treated as illustrative. ✅ Confirmed.
+
+## 9. PR sequence
+
+| # | Branch | Scope |
+|---|---|---|
+| PR-A | `feat/telegram-spec-doc` | This spec doc. |
+| PR-B0 | `feat/trades-strategy-name-column` | Add `strategy_name` column to `trades` table; idempotent migration; trader writes the column on insert. |
+| PR-B | `feat/telegram-data-loaders` | `src/bot/data_loaders.py` module + tests. No bot wiring. |
+| PR-C | `feat/telegram-help-status-price` | Wire `/help`, `/status`, `/price` to data loaders. |
+| PR-D | `feat/telegram-accounts-trades-closeall` | Wire `/accounts`, `/trades`, `/closeall` (with 2-step confirm). |
+| PR-E | `feat/telegram-log-toggle` | Inline-keyboard `/log` and `/toggle`. |
+| PR-F | `feat/telegram-journal-last5-backtest` | `/download_journal`, `/last5`, `/latest_backtest`. |
 
 ---
-*Last updated: 2026-04-29.*
+*Last updated: 2026-04-29 (PM decisions locked).*
