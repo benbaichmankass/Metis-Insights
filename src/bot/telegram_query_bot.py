@@ -12,10 +12,14 @@ from telegram import Update, BotCommand, InlineKeyboardButton, InlineKeyboardMar
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 import requests
 
-# Sprint S-001 PR-C: route data access through the data_loaders facade so the
-# bot has one stable interface for journalctl, signals/backtests, and exchange
-# queries. Inline helpers (get_last_logs, fetch_latest_backtest_result, etc.)
-# remain for now to avoid breaking other call sites; later PRs prune them.
+# Sprint S-001 PR-C..F: route data access through the data_loaders facade so
+# the bot has one stable interface for journalctl, signals/backtests, and
+# exchange queries. PR-F pruned the dead in-bot helpers (fetch_last_5_trades,
+# fetch_latest_backtest_result, _get_binance_connector). The remaining
+# legacy helpers — load_account_env, format_target_options,
+# get_bybit_client_from_env, close_all_bybit_positions — stay for now
+# because they're still wired into post_init / cmd_closeall, and the sprint
+# rules forbid changing live order logic. Tracked as post-sprint follow-ups.
 from src.bot import data_loaders as dl
 
 load_dotenv()
@@ -168,46 +172,9 @@ def format_target_options(separator: str = "|") -> str:
     return get_strategy_label()
 
 
-def fetch_last_5_trades():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    cur = conn.cursor()
-    cur.execute(
-        """
-        SELECT id, timestamp, symbol, direction, entry_price, exit_price,
-               stop_loss, take_profit_1, take_profit_2, take_profit_3,
-               position_size, setup_type, killzone, bias, entry_reason,
-               exit_reason, pnl, pnl_percent, status, notes,
-               is_backtest, created_at
-        FROM trades
-        ORDER BY datetime(created_at) DESC, id DESC
-        LIMIT 5
-        """
-    )
-    rows = cur.fetchall()
-    conn.close()
-    return rows
-
-
-def fetch_latest_backtest_result():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    cur = conn.cursor()
-    cur.execute(
-        """
-        SELECT id, run_date, strategy_version, start_date, end_date,
-               total_trades, winning_trades, losing_trades, win_rate,
-               profit_factor, expectancy, max_drawdown, max_drawdown_pct,
-               sharpe_ratio, total_pnl, total_pnl_pct, avg_win, avg_loss,
-               largest_win, largest_loss, created_at
-        FROM backtest_results
-        ORDER BY datetime(created_at) DESC, id DESC
-        LIMIT 1
-        """
-    )
-    row = cur.fetchone()
-    conn.close()
-    return row
+# fetch_last_5_trades and fetch_latest_backtest_result were removed in PR-F
+# (Sprint S-001). /last5 now reads via dl.recent_trades_for; /latest_backtest
+# and the post-backtest broadcast read via dl.latest_backtests_per_model().
 
 
 def format_backtest_summary(latest):
@@ -431,17 +398,8 @@ async def run_backtest_in_background(application: Application):
 
 
 # -- Binance helpers ----------------------------------------------------------
-
-def _get_binance_connector(env_vars: dict):
-    import sys as _sys
-    _sys.path.insert(0, os.path.join(REPO_ROOT, "src"))
-    from exchange.binance_connector import BinanceConnector
-    testnet_raw = str(env_vars.get("BINANCE_TESTNET", "false")).strip().lower()
-    return BinanceConnector(
-        api_key=env_vars.get("BINANCE_API_KEY"),
-        api_secret=env_vars.get("BINANCE_API_SECRET"),
-        testnet=(testnet_raw == "true"),
-    )
+# _get_binance_connector was removed in PR-F (Sprint S-001). Binance balance
+# and positions go through dl.account_balance / dl.account_open_positions.
 
 
 def format_binance_balance(account: dict) -> str:
