@@ -474,6 +474,60 @@ class TestCmdTradesIteratesAccounts:
         assert sent == "POSITIONS-OK"
 
 
+class TestCmdBalanceTradesPerAccountFailureIsolation:
+    """PR-F — restored from PR-D's trim. A raising formatter for one
+    account must not block the other accounts' blocks from rendering."""
+
+    def _make_update(self):
+        upd = MagicMock()
+        upd.effective_chat.id = 12345
+        upd.callback_query = None
+        upd.message.reply_text = AsyncMock()
+        return upd
+
+    def _run(self, coro):
+        import asyncio
+        return asyncio.new_event_loop().run_until_complete(coro)
+
+    def test_balance_one_account_raises_others_render(self, monkeypatch):
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        monkeypatch.setattr(bot.dl, "list_accounts", lambda: [
+            {"account_id": "live",  "exchange": "bybit",   "env_path": ""},
+            {"account_id": "alpha", "exchange": "binance", "env_path": ""},
+        ])
+
+        def boom(_acc):
+            raise RuntimeError("nope")
+
+        monkeypatch.setattr(bot, "format_bybit_balance", boom)
+        monkeypatch.setattr(bot, "format_binance_balance",
+                            lambda acc: "BINANCE-OK")
+        upd = self._make_update()
+        self._run(bot.cmd_balance(upd, MagicMock()))
+        sent = upd.message.reply_text.call_args.args[0]
+        assert "BINANCE-OK" in sent
+        assert "live" in sent and "nope" in sent
+
+    def test_trades_one_account_raises_others_render(self, monkeypatch):
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        monkeypatch.setattr(bot.dl, "list_accounts", lambda: [
+            {"account_id": "live",  "exchange": "bybit",   "env_path": ""},
+            {"account_id": "alpha", "exchange": "binance", "env_path": ""},
+        ])
+
+        def boom(_acc):
+            raise RuntimeError("kaboom")
+
+        monkeypatch.setattr(bot, "format_binance_positions", boom)
+        monkeypatch.setattr(bot, "format_bybit_positions",
+                            lambda acc: "BYBIT-POS-OK")
+        upd = self._make_update()
+        self._run(bot.cmd_trades(upd, MagicMock()))
+        sent = upd.message.reply_text.call_args.args[0]
+        assert "BYBIT-POS-OK" in sent
+        assert "alpha" in sent and "kaboom" in sent
+
+
 class TestCmdLast5IteratesAccounts:
     """PR-E — /last5 wired through dl.recent_trades_for + dl.list_accounts."""
 
