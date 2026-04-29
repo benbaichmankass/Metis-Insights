@@ -628,3 +628,131 @@ class TestCmdLast5IteratesAccounts:
         self._run(bot.cmd_last5(upd, MagicMock()))
         sent = [c.args[0] for c in upd.message.reply_text.call_args_list]
         assert any("Could not list accounts" in m for m in sent)
+
+
+# ---------------------------------------------------------------------------
+# close_all_bybit_positions (M2a) — per-account migration tests
+# ---------------------------------------------------------------------------
+
+class TestCloseAllBybitPositions:
+    """Tests for the migrated close_all_bybit_positions(account: dict)."""
+
+    def _account(self, aid="live"):
+        return {"account_id": aid, "exchange": "bybit", "env_path": ""}
+
+    def _fake_client(self, positions):
+        """Build a mock Bybit client with the given position list."""
+        client = MagicMock()
+        client.get_positions.return_value = {
+            "result": {"list": positions}
+        }
+        client.place_order.return_value = {"retCode": 0}
+        return client
+
+    def test_place_order_called_with_reduce_only_and_correct_args(self, monkeypatch):
+        positions = [
+            {"symbol": "BTCUSDT", "side": "Buy", "size": "0.01"},
+            {"symbol": "ETHUSDT", "side": "Sell", "size": "0.5"},
+        ]
+        client = self._fake_client(positions)
+        monkeypatch.setattr(bot.dl, "bybit_client_for", lambda acc: client)
+
+        result = bot.close_all_bybit_positions(self._account())
+
+        assert client.place_order.call_count == 2
+        calls = {c.kwargs["symbol"]: c.kwargs for c in client.place_order.call_args_list}
+        # Buy position → Sell close
+        assert calls["BTCUSDT"]["side"] == "Sell"
+        assert calls["BTCUSDT"]["reduceOnly"] is True
+        assert calls["BTCUSDT"]["category"] == "linear"
+        assert calls["BTCUSDT"]["qty"] == "0.01"
+        # Sell position → Buy close
+        assert calls["ETHUSDT"]["side"] == "Buy"
+        assert calls["ETHUSDT"]["reduceOnly"] is True
+        assert calls["ETHUSDT"]["qty"] == "0.5"
+        assert "Closed 2" in result
+
+    def test_side_flip_buy_to_sell(self, monkeypatch):
+        client = self._fake_client([{"symbol": "BTCUSDT", "side": "Buy", "size": "1.0"}])
+        monkeypatch.setattr(bot.dl, "bybit_client_for", lambda acc: client)
+        bot.close_all_bybit_positions(self._account())
+        assert client.place_order.call_args.kwargs["side"] == "Sell"
+
+    def test_side_flip_sell_to_buy(self, monkeypatch):
+        client = self._fake_client([{"symbol": "ETHUSDT", "side": "Sell", "size": "2.0"}])
+        monkeypatch.setattr(bot.dl, "bybit_client_for", lambda acc: client)
+        bot.close_all_bybit_positions(self._account())
+        assert client.place_order.call_args.kwargs["side"] == "Buy"
+
+    def test_empty_positions_returns_no_open_message(self, monkeypatch):
+        client = self._fake_client([])
+        monkeypatch.setattr(bot.dl, "bybit_client_for", lambda acc: client)
+        result = bot.close_all_bybit_positions(self._account("bybit-sub1"))
+        assert "No open positions to close" in result
+        assert "bybit-sub1" in result
+        client.place_order.assert_not_called()
+
+    def test_no_creds_returns_error_message(self, monkeypatch):
+        monkeypatch.setattr(bot.dl, "bybit_client_for", lambda acc: None)
+        result = bot.close_all_bybit_positions(self._account("bybit-sub2"))
+        assert "credentials not found" in result
+        assert "bybit-sub2" in result
+
+    def test_per_position_failure_does_not_stop_other_positions(self, monkeypatch):
+        """If one place_order raises, the other positions still get closed."""
+        call_count = {"n": 0}
+
+        def flaky_place_order(**kwargs):
+            call_count["n"] += 1
+            if kwargs["symbol"] == "BTCUSDT":
+                raise RuntimeError("exchange error")
+            return {"retCode": 0}
+
+        positions = [
+            {"symbol": "BTCUSDT", "side": "Buy", "size": "0.01"},
+            {"symbol": "ETHUSDT", "side": "Buy", "size": "0.5"},
+        ]
+        client = self._fake_client(positions)
+        client.place_order.side_effect = flaky_place_order
+        monkeypatch.setattr(bot.dl, "bybit_client_for", lambda acc: client)
+
+        result = bot.close_all_bybit_positions(self._account())
+        assert call_count["n"] == 2  # both attempted
+        assert "Closed 1" in result
+        assert "Failed: 1" in result
+        assert "exchange error" in result
+
+
+class TestCmdCloseallFailureIsolation:
+    """cmd_closeall — one account raising must not block the other."""
+
+    def _make_update(self):
+        upd = MagicMock()
+        upd.effective_chat.id = 12345
+        upd.message.reply_text = AsyncMock()
+        return upd
+
+    def _run(self, coro):
+        import asyncio
+        asyncio.get_event_loop().run_until_complete(coro)
+
+    def test_one_account_raises_other_still_sends(self, monkeypatch):
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        accounts = [
+            {"account_id": "bybit-a", "exchange": "bybit", "env_path": ""},
+            {"account_id": "bybit-b", "exchange": "bybit", "env_path": ""},
+        ]
+        monkeypatch.setattr(bot.dl, "list_accounts", lambda: accounts)
+
+        def fake_closeall(account):
+            if account["account_id"] == "bybit-a":
+                raise RuntimeError("network error")
+            return "🟢 bybit-b: No open positions to close."
+
+        monkeypatch.setattr(bot, "close_all_bybit_positions", fake_closeall)
+        upd = self._make_update()
+        self._run(bot.cmd_closeall(upd, MagicMock()))
+
+        msgs = [c.args[0] for c in upd.message.reply_text.call_args_list]
+        assert any("bybit-a" in m and "network error" in m for m in msgs)
+        assert any("bybit-b" in m for m in msgs)

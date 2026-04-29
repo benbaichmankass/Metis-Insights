@@ -340,6 +340,14 @@ def _bybit_client(env_vars: Dict[str, str]):
     return HTTP(testnet=False, api_key=api_key, api_secret=api_secret)
 
 
+def bybit_client_for(account: Dict[str, Any]):
+    """Return a Bybit HTTP client for ``account``, or ``None`` if creds are missing."""
+    if not isinstance(account, dict):
+        return None
+    env = _read_env_file(account.get("env_path") or "")
+    return _bybit_client(env)
+
+
 def _binance_conn(env_vars: Dict[str, str]):
     api_key = env_vars.get("BINANCE_API_KEY")
     api_secret = env_vars.get("BINANCE_API_SECRET")
