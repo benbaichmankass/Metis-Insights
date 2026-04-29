@@ -2,12 +2,16 @@ strategies:
   breakout_confirmation:
     service: ict-trader-breakout
     model: btc_v1.joblib
+    signal_prefixes: [ml_breakout, breakout]
   vwap:
     service: ict-trader-vwap
     model: null
+    signal_prefixes: [vwap]
   killzone:
     service: ict-trader-live
     model: null
+    signal_prefixes: [killzone, trade_signal]
   ict:
     service: ict-trader-ict
     model: null
+    signal_prefixes: [fvg, ob, ict]
