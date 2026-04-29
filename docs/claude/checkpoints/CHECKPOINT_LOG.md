@@ -11,6 +11,48 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-29-53 — S-008 #123: Dashboards unified
+
+- **Session date:** 2026-04-29
+- **Sprint:** S-008 (Translator Architecture Overhaul)
+- **Current sprint phase:** #123 — Dashboards unified
+- **Last completed checkpoint:** CP-2026-04-29-52 (S-008 #122, PR #122 merged)
+- **Next checkpoint:** **CP-2026-04-29-54** — S-008 #124: Telegram Bot rewired. Update `src/bot/telegram_query_bot.py` to call `coordinator.dashboard_stats()` / `coordinator.recent_signals()` instead of calling data_loaders directly; wire /halt → `coordinator.return_command("halt")`.
+- **Telegram sent:** no (no creds in session)
+- **Alerts sent during session:** none
+- **Blockers:** none
+
+### 1. Completed
+- `src/units/dashboards/__init__.py`: package scaffold
+- `src/units/dashboards/alerts.py`: AlertsQueue ring buffer + global helpers
+- `src/units/dashboards/stats.py`: build_stats() — enriched unified stats
+- `src/core/coordinator.py`: dashboard_stats() → enriched shape; push_alert/list_alerts/pop_alerts exposed; halt/resume auto-push alerts
+- `tests/test_s008_dashboards.py`: 25 offline tests, all passed
+- `tests/test_s008_coordinator.py`: 1 test updated for enriched accounts shape
+- Draft PR #123: https://github.com/the-lizardking/ict-trading-bot/pull/123
+
+### 2. Files changed
+- `src/units/dashboards/__init__.py` (new)
+- `src/units/dashboards/alerts.py` (new)
+- `src/units/dashboards/stats.py` (new)
+- `src/core/coordinator.py` (updated: dashboard_stats enriched, alert methods)
+- `tests/test_s008_dashboards.py` (new)
+- `tests/test_s008_coordinator.py` (updated: 1 test)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_s008_*.py -q` — 111 passed
+- `python scripts/secret_scan.py` — clean
+
+### 4. Remaining
+- none for this checkpoint
+
+### 5. Next checkpoint
+**CP-2026-04-29-54** — S-008 #124: Telegram Bot rewired. Patch `src/bot/telegram_query_bot.py` to consume `coordinator.dashboard_stats()` and `coordinator.recent_signals()`; wire `/halt` and `/resume` through `coordinator.return_command()`.
+Read: `docs/claude/checkpoints/CHECKPOINT_LOG.md`, `docs/claude/checkpoint-workflow.md`.
+
+---
+
 ## CP-2026-04-29-52 — S-008 #122: Accounts → execute_pkg()
 
 - **Session date:** 2026-04-29
