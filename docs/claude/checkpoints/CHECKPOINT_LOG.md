@@ -11,6 +11,43 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-29-39 — Sprint S-006 M3: Colab backtest notebook
+
+- **Session date:** 2026-04-29
+- **Sprint:** S-006 (ICT Multi-Symbol Backtest)
+- **Current sprint phase:** M3 — Colab notebook for real data fetch + backtest run
+- **Last completed checkpoint:** CP-2026-04-29-38 (S-006 M2, PR #107 merged)
+- **Telegram sent:** no (no creds in session)
+- **Alerts sent during session:** none
+- **Blockers:** none
+
+### 1. Completed
+- `notebooks/ict_multi_symbol_backtest.ipynb`: 10-cell Colab notebook that closes the S-006 pipeline:
+  - Fetches real 2026 OHLCV data (Binance public REST for BTCUSDT/ETHUSDT, yfinance for SPY/QQQ)
+  - Writes data to `data/ohlcv/` paths matching the manifest (no remapping)
+  - Runs `bin/backtest_ict.py --manifest` → JSON report to Drive
+  - Runs `bin/analyze_ict_results.py` → go/no-go verdict + markdown to Drive
+  - Optional Cell 8: commits validation report back to repo
+  - Outputs: `MyDrive/ict-bot-research/backtest-runs/ict_multi_YYYYMMDD.json` + `ict_validation_report_YYYYMMDD.md`
+- PR #108 opened (draft): https://github.com/the-lizardking/ict-trading-bot/pull/108
+- Subscribed to PR #108 activity
+
+### 2. Files changed
+- `notebooks/ict_multi_symbol_backtest.ipynb` (new)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_backtest_ict_cli.py tests/test_analyze_ict_results.py -q` — 32 passed
+
+### 4. Remaining
+- Ben runs the notebook in Colab; copies verdict + report back to Claude
+- S-006 M4 (conditional on GO): wire ICT strategy into live pipeline
+
+### 5. Next checkpoint
+**CP-2026-04-29-40** — S-006 M4 or post-Colab analysis. Read this entry first. If Colab run returned GO, next session opens a PR to wire ICT into pipeline. If NO-GO, document shortfall and recommend data-gathering steps.
+
+---
+
 ## CP-2026-04-29-38 — Sprint S-006 M2: ICT backtest result analyzer
 
 - **Session date:** 2026-04-29
