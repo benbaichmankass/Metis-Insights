@@ -11,6 +11,49 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-29-28 — Sprint S-003 N1-a/c: dead code cleanup + account-aware /log and /toggle
+
+- **Session date:** 2026-04-29
+- **Sprint:** Sprint S-003 (Telegram Status/Balance Fix)
+- **Current sprint phase:** N1-a + N1-c (combined)
+- **Last completed checkpoint:** CP-2026-04-29-27 (N1-b per-account /status, PR #95 merged)
+- **Completed this session:**
+  - N1-a: deleted `LIVE_ENV_PATH` dead code; replaced stale "single live trader" comment with accurate fallback note
+  - N1-c: `cmd_log` iterates `dl.list_accounts()`, sends one reply per account with service name in header; falls back to `LIVE_SERVICE_NAME`
+  - N1-c: `cmd_toggle` iterates `dl.list_accounts()`, toggles each account's service independently; falls back to `LIVE_SERVICE_NAME`
+  - N1-c: `callback_handler` "log" branch concatenates per-account logs into single `edit_message_text` call
+  - N1-c: `callback_handler` "toggle" branch aggregates all toggle results into single `edit_message_text` call
+  - 10 new tests: `TestCmdLogMultiAccount`, `TestCmdToggleMultiAccount`, `TestCallbackHandlerLogToggleMultiAccount`
+  - PR #96 opened (draft)
+- **Files changed:**
+  - `src/bot/telegram_query_bot.py`
+  - `tests/test_telegram_query_bot.py`
+  - `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+- **Tests run:** 69 passed (`test_telegram_query_bot`)
+- **Telegram sent:** no (import chain blocked by missing pandas)
+- **Alerts sent during session:** none
+- **Blockers:** none
+
+### 1. Completed
+- N1-a: LIVE_ENV_PATH deleted, comment updated
+- N1-c: /log, /toggle, callback log/toggle account-aware (PR #96)
+
+### 2. Files changed
+- `src/bot/telegram_query_bot.py`
+- `tests/test_telegram_query_bot.py`
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_telegram_query_bot.py -v` — 69 passed
+
+### 4. Remaining
+- Sprint S-003 N1 is fully addressed (N1-a, N1-b, N1-c all done)
+- PR #96 pending merge
+
+### 5. Next checkpoint
+**CP-2026-04-29-29** — After #96 merges, start Sprint S-004 (TBD) or any follow-on S-003 tasks identified by the PM. Read `CHECKPOINT_LOG.md` (this entry) then `docs/claude/INDEX.md` to pick the next sprint.
+
+---
+
 ## CP-2026-04-29-27 — Sprint S-003 N1-b: per-account /status P&L and open positions
 
 - **Session date:** 2026-04-29
