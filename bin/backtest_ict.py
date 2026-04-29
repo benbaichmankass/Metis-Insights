@@ -215,6 +215,15 @@ def build_parser() -> argparse.ArgumentParser:
         default=[],
         help="Ad-hoc pair as 'SYMBOL:TIMEFRAME:PATH'. May be repeated.",
     )
+    src.add_argument(
+        "--synthetic",
+        action="store_true",
+        default=False,
+        help=(
+            "Generate 5 synthetic symbols × 10k candles and run validation. "
+            "Writes report to docs/sprint-plans/s006-synthetic-report.md."
+        ),
+    )
     p.add_argument(
         "--output",
         type=Path,
@@ -243,6 +252,14 @@ def main(argv: Optional[list] = None) -> int:
     logging.basicConfig(level=logging.INFO,
                         format="%(levelname)s %(name)s: %(message)s")
     args = build_parser().parse_args(argv)
+
+    # --synthetic: delegate entirely to the synthetic validation script
+    if getattr(args, "synthetic", False):
+        from scripts.s006_ict_synthetic_validate import main as syn_main
+        syn_argv = ["--quiet"] if args.quiet else []
+        if args.output:
+            syn_argv += ["--output", str(args.output)]
+        return syn_main(syn_argv)
 
     config: Optional[dict] = None
     if args.config:
