@@ -150,16 +150,22 @@ class Database:
     def insert_trade(self, trade_data):
         """
         Insert a new trade record
-        
+
         Args:
             trade_data (dict): Trade information
-            
+
         Returns:
             int: ID of inserted trade
         """
+        # Ensure every row carries an account identifier. Callers that have an
+        # account dict should pass account_id explicitly; legacy/backtest callers
+        # that don't will be attributed to the 'live' legacy account.
+        if "account_id" not in trade_data:
+            trade_data = {**trade_data, "account_id": "live"}
+
         conn = self.connect()
         cursor = conn.cursor()
-        
+
         columns = ', '.join(trade_data.keys())
         placeholders = ', '.join(['?' for _ in trade_data])
         query = f"INSERT INTO trades ({columns}) VALUES ({placeholders})"
