@@ -421,3 +421,159 @@ class TestTriggerBacktestFlow:
         payload = json.loads(queue.read_text().strip())
         assert payload["timeframe"] == "4h"
         assert payload["start_date"] == "2025-01-01"
+
+
+# ---------------------------------------------------------------------------
+# S-010 PR #2: accounts_status / multi_account_execute / reload_accounts
+# ---------------------------------------------------------------------------
+
+ACCOUNTS_YAML_CONTENT = textwrap.dedent("""\
+    accounts:
+      bybit_1:
+        type: regular
+        exchange: bybit
+        api_key_env: BYBIT_KEY_1
+        risk:
+          max_dd_pct: 0.05
+          daily_usd: 100
+          pos_size: 500
+      bybit_2:
+        type: regular
+        exchange: bybit
+        api_key_env: BYBIT_KEY_2
+        risk:
+          max_dd_pct: 0.05
+          daily_usd: 100
+          pos_size: 500
+      prop_breakout_1:
+        type: prop
+        exchange: breakout
+        api_key_env: BREAKOUT_KEY_1
+        risk:
+          max_dd_pct: 0.02
+          daily_usd: 50
+          pos_size: 200
+""")
+
+
+@pytest.fixture()
+def accounts_yaml(tmp_path):
+    p = tmp_path / "accounts.yaml"
+    p.write_text(ACCOUNTS_YAML_CONTENT)
+    return str(p)
+
+
+def _pkg(strategy="test", symbol="BTCUSDT", direction="long",
+         entry=100.0, sl=98.0, tp=104.0, **meta) -> OrderPackage:
+    return OrderPackage(
+        strategy=strategy, symbol=symbol, direction=direction,
+        entry=entry, sl=sl, tp=tp, meta=meta or {},
+    )
+
+
+class TestAccountsStatusFlow:
+    def test_returns_list_of_three(self, coord, accounts_yaml):
+        statuses = coord.accounts_status(accounts_yaml)
+        assert len(statuses) == 3
+
+    def test_each_status_has_required_keys(self, coord, accounts_yaml):
+        for s in coord.accounts_status(accounts_yaml):
+            assert "name" in s
+            assert "daily_pnl" in s
+            assert "halted" in s
+
+    def test_missing_file_returns_empty_list(self, coord, tmp_path):
+        statuses = coord.accounts_status(str(tmp_path / "nonexistent.yaml"))
+        assert statuses == []
+
+    def test_account_names_correct(self, coord, accounts_yaml):
+        names = {s["name"] for s in coord.accounts_status(accounts_yaml)}
+        assert names == {"bybit_1", "bybit_2", "prop_breakout_1"}
+
+
+class TestMultiAccountExecuteFlow:
+    def test_returns_result_per_account(self, coord, accounts_yaml):
+        results = coord.multi_account_execute(_pkg(), accounts_path=accounts_yaml)
+        assert len(results) == 3
+
+    def test_dry_run_trade_ids_prefixed(self, coord, accounts_yaml):
+        results = coord.multi_account_execute(_pkg(), accounts_path=accounts_yaml)
+        for r in results:
+            assert r["error"] is None
+            assert r["trade_id"].startswith("dry-")
+
+    def test_account_type_filter_prop_only(self, coord, accounts_yaml):
+        results = coord.multi_account_execute(
+            _pkg(), accounts_path=accounts_yaml, account_type="prop"
+        )
+        assert len(results) == 1
+        assert results[0]["name"] == "prop_breakout_1"
+
+    def test_account_type_filter_regular_only(self, coord, accounts_yaml):
+        results = coord.multi_account_execute(
+            _pkg(), accounts_path=accounts_yaml, account_type="regular"
+        )
+        assert len(results) == 2
+
+    def test_risk_breach_captured_as_error(self, coord, accounts_yaml):
+        from src.units.accounts import load_accounts
+        accounts = load_accounts(accounts_yaml)
+        prop = next(a for a in accounts if a.name == "prop_breakout_1")
+        prop.risk_manager.daily_pnl = -200.0
+
+        # monkeypatch load_accounts inside coordinator to return accounts with breached one
+        with patch("src.units.accounts.load_accounts", return_value=accounts):
+            results = coord.multi_account_execute(_pkg(), accounts_path=accounts_yaml)
+
+        breached = next(r for r in results if r["name"] == "prop_breakout_1")
+        assert breached["trade_id"] is None
+        assert breached["error"] is not None
+
+    def test_risk_breach_does_not_block_other_accounts(self, coord, accounts_yaml):
+        from src.units.accounts import load_accounts
+        accounts = load_accounts(accounts_yaml)
+        # breach only prop account
+        next(a for a in accounts if a.name == "prop_breakout_1").risk_manager.daily_pnl = -200.0
+
+        with patch("src.units.accounts.load_accounts", return_value=accounts):
+            results = coord.multi_account_execute(_pkg(), accounts_path=accounts_yaml)
+
+        ok_results = [r for r in results if r["error"] is None]
+        assert len(ok_results) == 2
+
+    def test_missing_file_returns_empty_list(self, coord, tmp_path):
+        results = coord.multi_account_execute(
+            _pkg(), accounts_path=str(tmp_path / "nonexistent.yaml")
+        )
+        assert results == []
+
+    def test_execute_pushes_alert_per_success(self, coord, accounts_yaml):
+        coord.multi_account_execute(_pkg(), accounts_path=accounts_yaml)
+        alerts = coord.list_alerts()
+        multi_alerts = [a for a in alerts if "multi_execute" in a.get("message", "")]
+        assert len(multi_alerts) == 3
+
+
+class TestReloadAccountsFlow:
+    def test_returns_reloaded_true(self, coord, accounts_yaml):
+        result = coord.reload_accounts(accounts_yaml)
+        assert result["reloaded"] is True
+
+    def test_returns_correct_account_count(self, coord, accounts_yaml):
+        result = coord.reload_accounts(accounts_yaml)
+        assert result["account_count"] == 3
+
+    def test_returns_account_names(self, coord, accounts_yaml):
+        result = coord.reload_accounts(accounts_yaml)
+        assert set(result["accounts"]) == {"bybit_1", "bybit_2", "prop_breakout_1"}
+
+    def test_missing_file_returns_reloaded_false(self, coord, tmp_path):
+        result = coord.reload_accounts(str(tmp_path / "nonexistent.yaml"))
+        assert result["reloaded"] is False
+        assert "error" in result
+
+    def test_reload_pushes_app_alert(self, coord, accounts_yaml):
+        coord.pop_alerts()  # drain existing
+        coord.reload_accounts(accounts_yaml)
+        alerts = coord.list_alerts()
+        assert any("Accounts reloaded" in a.get("message", "") for a in alerts)
