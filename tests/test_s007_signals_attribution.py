@@ -9,27 +9,16 @@ import types
 # registry — signal_prefixes()
 # ---------------------------------------------------------------------------
 
-def test_signal_prefixes_breakout():
-    from src.strategy_registry import signal_prefixes
-    p = signal_prefixes("breakout_confirmation")
-    assert "ml_breakout" in p
-
-
 def test_signal_prefixes_vwap():
     from src.strategy_registry import signal_prefixes
     assert signal_prefixes("vwap") == ["vwap"]
 
 
-def test_signal_prefixes_killzone():
+def test_signal_prefixes_turtle_soup():
+    """S-012 PR B1: turtle_soup is the new strategy alongside vwap."""
     from src.strategy_registry import signal_prefixes
-    p = signal_prefixes("killzone")
-    assert "trade_signal" in p
-
-
-def test_signal_prefixes_ict():
-    from src.strategy_registry import signal_prefixes
-    p = signal_prefixes("ict")
-    for expected in ("fvg", "ob", "ict"):
+    p = signal_prefixes("turtle_soup")
+    for expected in ("turtle_soup", "sweep_reversal"):
         assert expected in p
 
 

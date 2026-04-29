@@ -115,17 +115,25 @@ def units_yaml_with_thresholds(tmp_path):
 
 
 @pytest.fixture()
-def coord(units_yaml):
+def coord(units_yaml, tmp_path):
     _PAUSED_ACCOUNTS.clear()
-    c = Coordinator(units_path=units_yaml)
+    # S-012 PR B3: pass non-existent accounts_path so synthetic
+    # units.yaml::accounts is honored.
+    c = Coordinator(
+        units_path=units_yaml,
+        accounts_path=str(tmp_path / "no-accounts.yaml"),
+    )
     yield c
     _PAUSED_ACCOUNTS.clear()
 
 
 @pytest.fixture()
-def coord_th(units_yaml_with_thresholds):
+def coord_th(units_yaml_with_thresholds, tmp_path):
     _PAUSED_ACCOUNTS.clear()
-    c = Coordinator(units_path=units_yaml_with_thresholds)
+    c = Coordinator(
+        units_path=units_yaml_with_thresholds,
+        accounts_path=str(tmp_path / "no-accounts.yaml"),
+    )
     yield c
     _PAUSED_ACCOUNTS.clear()
 

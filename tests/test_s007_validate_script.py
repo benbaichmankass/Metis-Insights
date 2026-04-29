@@ -136,11 +136,11 @@ def test_run_checks_all_signal_prefixes_pass():
     assert not failures, f"Signal prefix failures: {failures}"
 
 
-def test_run_checks_four_strategies():
-    """Registry must have exactly the four expected strategies."""
+def test_run_checks_strategies_match_roster():
+    """S-012 PR B1: registry must match the production roster exactly."""
     from src.strategy_registry import load_strategies
     names = {s["name"] for s in load_strategies()}
-    assert names == {"breakout_confirmation", "vwap", "killzone", "ict"}
+    assert names == {"turtle_soup", "vwap"}
 
 
 # ---------------------------------------------------------------------------

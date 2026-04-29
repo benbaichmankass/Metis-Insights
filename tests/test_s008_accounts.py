@@ -62,9 +62,15 @@ def units_yaml(tmp_path):
 
 
 @pytest.fixture()
-def coord(units_yaml):
+def coord(units_yaml, tmp_path):
     _PAUSED_ACCOUNTS.clear()
-    c = Coordinator(units_path=units_yaml)
+    # S-012 PR B3: Coordinator now prefers config/accounts.yaml. For these
+    # synthetic-fixture tests, pass a non-existent accounts_path so the
+    # Coordinator falls back to units.yaml::accounts (the fixture's path).
+    c = Coordinator(
+        units_path=units_yaml,
+        accounts_path=str(tmp_path / "no-accounts.yaml"),
+    )
     yield c
     _PAUSED_ACCOUNTS.clear()
 

@@ -13,30 +13,25 @@ import pytest
 # ---------------------------------------------------------------------------
 
 def test_registry_contains_all_pipeline_strategies():
-    """All four multiplexer strategies must be in config/strategies.yaml."""
+    """All multiplexer strategies must be in config/strategies.yaml.
+
+    S-012 PR B1: roster reduced to turtle_soup + vwap.
+    """
     from src.strategy_registry import load_strategies
     names = [s["name"] for s in load_strategies()]
-    for expected in ("breakout_confirmation", "vwap", "killzone", "ict"):
+    for expected in ("turtle_soup", "vwap"):
         assert expected in names, f"'{expected}' missing from strategies.yaml"
 
 
-def test_registry_ict_is_last():
-    """ICT must be last in strategies.yaml (multiplexer tries it last)."""
+def test_registry_roster_is_exactly_turtle_soup_and_vwap():
+    """S-012 production roster — strict equality, no extras."""
     from src.strategy_registry import load_strategies
-    names = [s["name"] for s in load_strategies()]
-    assert names[-1] == "ict", "ICT must be last in config/strategies.yaml"
+    names = sorted(s["name"] for s in load_strategies())
+    assert names == ["turtle_soup", "vwap"]
 
 
-def test_registry_killzone_before_ict():
-    from src.strategy_registry import load_strategies
-    names = [s["name"] for s in load_strategies()]
-    assert names.index("killzone") < names.index("ict")
-
-
-def test_registry_fallback_loader_returns_four_strategies(monkeypatch):
+def test_registry_fallback_loader_returns_new_roster(monkeypatch):
     """_strategies_from_registry() falls back to hardcoded list when registry is broken."""
-    import src.strategy_registry as reg_mod
-
     class _Boom:
         def __getattr__(self, _name):
             raise RuntimeError("registry broken")
@@ -47,8 +42,8 @@ def test_registry_fallback_loader_returns_four_strategies(monkeypatch):
         from src.strategy_registry import load_strategies
         result = [s["name"] for s in load_strategies()]
     except Exception:
-        result = ["breakout_confirmation", "vwap", "killzone", "ict"]
-    for name in ("breakout_confirmation", "vwap", "killzone", "ict"):
+        result = ["turtle_soup", "vwap"]
+    for name in ("turtle_soup", "vwap"):
         assert name in result
 
 

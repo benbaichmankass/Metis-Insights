@@ -71,20 +71,17 @@ def test_dashboard_rows_no_hardcoded_fallback(monkeypatch):
     assert rows[0]["service"] == "ict-trader-alpha"
 
 
-def test_dashboard_rows_breakout_has_model():
-    """breakout_confirmation row must carry the model filename from registry."""
-    from src.bot import data_loaders as dl
-    rows = {r["strategy"]: r for r in dl.strategy_dashboard_data()}
-    bc = rows.get("breakout_confirmation")
-    assert bc is not None
-    assert bc["model"] is not None
-    assert bc["model"].endswith(".joblib")
-
-
 def test_dashboard_rows_vwap_model_is_none():
     from src.bot import data_loaders as dl
     rows = {r["strategy"]: r for r in dl.strategy_dashboard_data()}
     assert rows["vwap"]["model"] is None
+
+
+def test_dashboard_rows_turtle_soup_model_is_none():
+    """S-012 PR B1: turtle_soup is pure-Python; no model artefact."""
+    from src.bot import data_loaders as dl
+    rows = {r["strategy"]: r for r in dl.strategy_dashboard_data()}
+    assert rows["turtle_soup"]["model"] is None
 
 
 # ---------------------------------------------------------------------------
