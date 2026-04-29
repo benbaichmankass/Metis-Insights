@@ -11,6 +11,42 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-29-20 — Sprint S-002 M1b: insert_trade always writes account_id
+
+- **Session date:** 2026-04-29
+- **Sprint:** Sprint S-002 (Telegram bot multi-account + workflow hardening)
+- **Current sprint phase:** M1b — trader writes account_id on insert
+- **Last completed checkpoint:** CP-2026-04-29-19 (M1a schema migration, PR #87 merged)
+- **Next checkpoint:** **CP-2026-04-29-21 — M1c: per-account queries in data_loaders** — drop the legacy-account short-circuit in `dl.recent_trades_for` and `dl.account_last_trade`; add `WHERE account_id = ?` to both queries; update `cmd_last5` warning handling.
+- **Telegram sent:** no (import chain blocked by missing `pandas` in this environment — exits 0)
+- **Alerts sent during session:** none
+- **Blockers:** Waiting for Ben to merge PR #88 before M1c starts.
+
+### 1. Completed
+- Modified `Database.insert_trade()` in `src/data_layer/database.py` to default `account_id='live'` when callers omit the field — no row can ever be written without an account attribution.
+- Explicit `account_id` values pass through unchanged; caller's dict is never mutated (copy via `{**trade_data, "account_id": "live"}`).
+- Added 3 new tests to `tests/test_account_id_column.py`: default-to-live path, explicit-override path, no-mutation guarantee.
+- Opened PR-M1b as draft: https://github.com/the-lizardking/ict-trading-bot/pull/88
+
+### 2. Files changed
+- `src/data_layer/database.py`
+- `tests/test_account_id_column.py`
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_account_id_column.py -v` — **16 passed**
+- Broader suite (account_id + strategy_name + notify + data_loaders + bot) — **108 passed, 1 skipped**, no regressions
+- `python scripts/secret_scan.py` — clean
+
+### 4. Remaining
+- M1c: `dl.recent_trades_for` and `dl.account_last_trade` — drop legacy short-circuit, add `WHERE account_id = ?`.
+- M1d: architecture doc follow-up.
+
+### 5. Next checkpoint
+**CP-2026-04-29-21** — M1c: per-account queries in data_loaders.
+Read first: this entry, `docs/claude/checkpoint-workflow.md`, then `src/bot/data_loaders.py` lines 430–500 (the two loader functions with the legacy short-circuit).
+
+---
+
 ## CP-2026-04-29-19 — Sprint S-002 M1a: account_id column migration for trades table
 
 - **Session date:** 2026-04-29
