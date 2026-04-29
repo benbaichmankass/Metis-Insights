@@ -10,6 +10,36 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-29-06 — PR 6: fix dead ATR sizing in breakout builder
+
+- **Session date:** 2026-04-28
+- **Sprint:** sprint-plan-2026-04-29 (operational-hardening)
+- **Current sprint phase:** PR 6 — dead-code removal
+- **Last completed checkpoint:** CP-2026-04-29-05 (PR 5 done, PR #71 open)
+- **Next checkpoint:** **CP-2026-04-29-07** — start PR 7 (add killzone to multiplexed strategy list)
+- **Blockers:** none. PR #72 open as draft.
+
+### 1. Completed
+- Removed dead ATR sizing branch in `breakout_model_signal_builder` (pipeline.py:190–194): both `if atr > 0` and `else` branches assigned `fallback_qty` unconditionally. Replaced with direct `qty = float(settings.get("MAX_QTY", ...) or 1)` plus explanatory comment.
+- Added parametrized test `test_breakout_builder_uses_max_qty_regardless_of_atr` covering atr_14 ∈ {0, 0.0, 150.0, 9999.0, None} — all must return `qty == MAX_QTY`.
+
+### 2. Files changed
+- `src/runtime/pipeline.py` (dead ATR branch removed, ~185–207)
+- `tests/test_runtime_pipeline.py` (5 new parametrized cases added)
+
+### 3. Tests run
+- Full suite: 310 pass (+5 vs baseline), 106 fail unchanged — no regressions
+
+### 4. Remaining
+- none — PR 6 complete
+
+### 5. Next checkpoint
+**CP-2026-04-29-07** — PR 7: Add `"killzone"` to `STRATEGIES` list at pipeline.py:409. Recommended order: `["breakout_confirmation", "vwap", "killzone", "ict"]`. Add unit test verifying multiplexer calls builders in declared order. Branch: `feat/multiplexed-include-killzone`.
+
+**Telegram sent:** no (no creds in env)
+
+---
+
 ## CP-2026-04-29-05 — PR 5: delete dead tui_control_panel.py + bybit_config.py
 
 - **Session date:** 2026-04-28

@@ -377,13 +377,55 @@ def _flat_signal(symbol="BTCUSDT"):
 def test_multi_strategy_pipeline_strategies_list_contains_expected_strategies():
     assert "breakout_confirmation" in STRATEGIES
     assert "vwap" in STRATEGIES
+    assert "killzone" in STRATEGIES, (
+        "killzone was the default single-strategy path but was missing from "
+        "STRATEGIES so STRATEGY=multiplexed silently skipped it (CP-2026-04-29-07)."
+    )
     # M7 Phase 2.6 (CP-14): "ict" registered as the last fallback so it
-    # only fires when neither breakout_confirmation nor vwap fire.
+    # only fires when nothing else fires.
     assert "ict" in STRATEGIES
     assert STRATEGIES[-1] == "ict", (
         "ICT must be the last fallback so it cannot pre-empt the "
         "existing breakout / VWAP strategies; existing tick outcomes "
         "must remain unchanged."
+    )
+
+
+def test_multiplexed_killzone_position_before_ict():
+    """killzone must appear before ict in STRATEGIES so it is tried first."""
+    assert STRATEGIES.index("killzone") < STRATEGIES.index("ict")
+
+
+def test_multiplexed_killzone_fires_when_breakout_and_vwap_flat(monkeypatch):
+    """killzone (third in STRATEGIES) fires when breakout_confirmation and vwap
+    both return flat — confirms the missing-killzone gap is closed (CP-2026-04-29-07)."""
+    monkeypatch.setitem(
+        _pipeline_mod._STRATEGY_BUILDERS,
+        "breakout_confirmation",
+        lambda s: _flat_signal(),
+    )
+    monkeypatch.setitem(
+        _pipeline_mod._STRATEGY_BUILDERS,
+        "vwap",
+        lambda s: _flat_signal(),
+    )
+    monkeypatch.setitem(
+        _pipeline_mod._STRATEGY_BUILDERS,
+        "killzone",
+        lambda s: _make_signal(side="buy", qty=1.0, strategy="killzone"),
+    )
+    monkeypatch.setitem(
+        _pipeline_mod._STRATEGY_BUILDERS,
+        "ict",
+        lambda s: _make_signal(side="sell", qty=1.0, strategy="ict"),
+    )
+
+    settings = {"SYMBOL": "BTCUSDT", "MAX_QTY": "1"}
+    signal = multiplexed_signal_builder(settings)
+
+    assert signal["side"] == "buy"
+    assert signal["meta"]["strategy_name"] == "killzone", (
+        "killzone must fire before ict when breakout and vwap are flat"
     )
 
 
@@ -419,7 +461,7 @@ def test_multi_strategy_pipeline_ict_runs_only_after_others_flat(monkeypatch):
 
 
 def test_multi_strategy_pipeline_ict_fires_when_others_flat(monkeypatch):
-    """When breakout and VWAP both return flat, ICT (last in the list)
+    """When breakout, VWAP, and killzone all return flat, ICT (last in the list)
     is invoked and its actionable signal is returned."""
     monkeypatch.setitem(
         _pipeline_mod._STRATEGY_BUILDERS,
@@ -429,6 +471,11 @@ def test_multi_strategy_pipeline_ict_fires_when_others_flat(monkeypatch):
     monkeypatch.setitem(
         _pipeline_mod._STRATEGY_BUILDERS,
         "vwap",
+        lambda s: _flat_signal(),
+    )
+    monkeypatch.setitem(
+        _pipeline_mod._STRATEGY_BUILDERS,
+        "killzone",
         lambda s: _flat_signal(),
     )
     monkeypatch.setitem(
@@ -493,6 +540,8 @@ def test_multi_strategy_pipeline_no_signal_when_all_flat(monkeypatch):
     """All strategies flat → side=none returned."""
     monkeypatch.setitem(_pipeline_mod._STRATEGY_BUILDERS, "breakout_confirmation", lambda s: _flat_signal())
     monkeypatch.setitem(_pipeline_mod._STRATEGY_BUILDERS, "vwap", lambda s: _flat_signal())
+    monkeypatch.setitem(_pipeline_mod._STRATEGY_BUILDERS, "killzone", lambda s: _flat_signal())
+    monkeypatch.setitem(_pipeline_mod._STRATEGY_BUILDERS, "ict", lambda s: _flat_signal())
 
     settings = {"SYMBOL": "BTCUSDT"}
     signal = multiplexed_signal_builder(settings)

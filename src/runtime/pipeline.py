@@ -398,14 +398,14 @@ def _write_ict_signals_from_meta(signal: dict, settings: dict) -> None:
 
 # Ordered list of strategies tried in multiplexed mode; first actionable signal wins.
 #
-# M7 Phase 2.6 (CP-14) places ``"ict"`` **last**: it is the newest and
-# most-gated strategy (HTF trend + kill-zone + aligned FVG/OB) so we
-# trust the existing breakout / VWAP signals first and let ICT act as a
-# fallback that only triggers when nothing else fires. This preserves
-# every prior multiplexer outcome — ICT can only change behaviour for
-# ticks that previously returned ``side="none"``. The ordering can be
-# revisited once we have ICT backtest data.
-STRATEGIES = ["breakout_confirmation", "vwap", "ict"]
+# Order rationale: breakout_confirmation and vwap are the established signals.
+# killzone was the default single-strategy path (pipeline dispatch else-branch) but
+# was never included here, so STRATEGY=multiplexed silently skipped it. Added after
+# vwap (CP-2026-04-29-07) so it acts as a third option before ICT.
+# ``"ict"`` remains **last**: it is the newest and most-gated strategy
+# (HTF trend + kill-zone + aligned FVG/OB); ICT can only change behaviour
+# for ticks that previously returned ``side="none"``.
+STRATEGIES = ["breakout_confirmation", "vwap", "killzone", "ict"]
 
 _STRATEGY_BUILDERS: Dict[str, Callable[[dict], Dict[str, Any]]] = {
     "breakout_confirmation": breakout_model_signal_builder,
