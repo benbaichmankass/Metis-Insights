@@ -46,6 +46,11 @@ Then send the Telegram session ping via `scripts/notify_session.py session`
 - Do not run training, full backtests, live trading, or deployment unless explicitly asked.
 - Do not print secrets.
 - Update the relevant `docs/claude/*.md` file after discovering a recurring bug, cleanup rule, or workflow improvement.
+- For tests and notebooks, never pull market data from Binance or other
+  key-gated exchanges. Use hand-crafted DataFrames, repo fixtures, or open
+  keyless sources (Bybit public, Coinbase public, Kraken public,
+  CryptoCompare, yfinance, or our HF datasets). See
+  `docs/claude/testing-policy.md` → “Test data sources”.
 
 ## Default verification
 
