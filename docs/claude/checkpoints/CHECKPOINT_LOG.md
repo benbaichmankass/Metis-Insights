@@ -11,6 +11,41 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-29-57 — S-008 #127: Full Integration Tests
+
+- **Session date:** 2026-04-29
+- **Sprint:** S-008 (Translator Architecture Overhaul)
+- **Current sprint phase:** #127 — Full Integration Tests
+- **Last completed checkpoint:** CP-2026-04-29-56 (S-008 #126, PR #126 merged)
+- **Next checkpoint:** **CP-2026-04-29-58** — S-008 sprint complete. All 8 PRs merged. Final tidy: update INDEX.md, repo-map.md, run full test suite, send sprint ping.
+- **Telegram sent:** no (no creds in session)
+- **Alerts sent during session:** none
+- **Blockers:** none
+
+### 1. Completed
+- `tests/test_coordinator_flow.py`: 25 end-to-end integration tests (5 flows: strategy→account, halt/resume, dashboard stats, trading school gating, multi-strategy sequence)
+- `src/core/coordinator.py`: added execution alert push to `account_execute()` (source="accounts")
+- Draft PR #127: https://github.com/the-lizardking/ict-trading-bot/pull/127
+
+### 2. Files changed
+- `tests/test_coordinator_flow.py` (new)
+- `src/core/coordinator.py` (updated — account_execute pushes alert)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_s008_*.py tests/test_coordinator_flow.py -q` — 178 passed
+- `python scripts/secret_scan.py` — clean
+
+### 4. Remaining
+- PR #127 needs merge
+- Sprint wrap-up: update INDEX.md / repo-map.md to reference new units/coordinator
+
+### 5. Next checkpoint
+**CP-2026-04-29-58** — S-008 sprint wrap-up. Update `docs/claude/INDEX.md` and `docs/claude/repo-map.md` to reference the 9-unit architecture. Send sprint Telegram ping.
+Read: `docs/claude/checkpoints/CHECKPOINT_LOG.md`, `docs/claude/checkpoint-workflow.md`.
+
+---
+
 ## CP-2026-04-29-56 — S-008 #126: Workflows + Architecture docs
 
 - **Session date:** 2026-04-29

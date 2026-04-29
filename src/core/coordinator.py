@@ -187,12 +187,23 @@ class Coordinator:
         """
         account_cfg = self._account_cfg(account_id)
         from src.units.accounts.execute import execute_pkg
-        return execute_pkg(
+        trade_id = execute_pkg(
             pkg, account_cfg,
             exchange_client=exchange_client,
             balance_usdt=balance_usdt,
             dry_run=dry_run,
         )
+        self.push_alert(
+            f"Executed {pkg.strategy} {pkg.direction} {pkg.symbol} → {trade_id}",
+            source="accounts",
+            level="info",
+            strategy=pkg.strategy,
+            symbol=pkg.symbol,
+            direction=pkg.direction,
+            trade_id=trade_id,
+            account_id=account_id,
+        )
+        return trade_id
 
     def _account_cfg(self, account_id: str) -> dict:
         for acc in self.list_accounts():
