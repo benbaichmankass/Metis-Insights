@@ -11,6 +11,53 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-29-51 — S-008 #121: Strategies → order_package()
+
+- **Session date:** 2026-04-29
+- **Sprint:** S-008 (Translator Architecture Overhaul)
+- **Current sprint phase:** #121 — Strategies → order_package()
+- **Last completed checkpoint:** CP-2026-04-29-50 (S-008 #120, PR #120 merged)
+- **Next checkpoint:** **CP-2026-04-29-52** — S-008 #122: Accounts → execute_pkg(). Create `src/units/accounts/live.py` with `execute_pkg(pkg, account_cfg) → trade_id`; wire risk sizing (risk_pct × balance → position_size); wire `Coordinator.account_execute()` end-to-end.
+- **Telegram sent:** no (no creds in session)
+- **Alerts sent during session:** none
+- **Blockers:** none
+
+### 1. Completed
+- `src/units/__init__.py`, `src/units/strategies/__init__.py`: package scaffolding
+- `src/units/strategies/_base.py`: shared helpers (side_to_direction, derive_sl_tp, require_candles, last_close)
+- `src/units/strategies/ict.py`: wraps build_ict_signal(); uses FVG/OB zone boundaries for entry/SL/TP
+- `src/units/strategies/vwap.py`: wraps build_vwap_signal(); TP = VWAP, confidence = deviation/threshold
+- `src/units/strategies/breakout_confirmation.py`: wraps StrategyManager; ATR-based SL/TP
+- `src/units/strategies/killzone.py`: accepts pre-built signal via cfg['_signal'] or candle proxy
+- `src/core/coordinator.py`: strategy_order_pkg() updated to accept optional candles_df
+- `tests/test_s008_strategies.py`: 27 offline tests, all passed
+- Draft PR #121: https://github.com/the-lizardking/ict-trading-bot/pull/121
+
+### 2. Files changed
+- `src/units/__init__.py` (new)
+- `src/units/strategies/__init__.py` (new)
+- `src/units/strategies/_base.py` (new)
+- `src/units/strategies/ict.py` (new)
+- `src/units/strategies/vwap.py` (new)
+- `src/units/strategies/breakout_confirmation.py` (new)
+- `src/units/strategies/killzone.py` (new)
+- `src/core/coordinator.py` (updated: strategy_order_pkg signature)
+- `tests/test_s008_strategies.py` (new)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_s008_strategies.py tests/test_s008_coordinator.py -q` — 63 passed
+- `python scripts/secret_scan.py` — clean
+
+### 4. Remaining
+- none for this checkpoint
+
+### 5. Next checkpoint
+**CP-2026-04-29-52** — S-008 #122: create `src/units/accounts/` package; implement `execute_pkg(pkg, account_cfg) → str` with risk sizing (risk_pct × balance → qty); wire `Coordinator.account_execute()` end-to-end; offline tests with mocked exchange.
+Read: `docs/claude/checkpoints/CHECKPOINT_LOG.md`, `docs/claude/checkpoint-workflow.md`.
+
+---
+
 ## CP-2026-04-29-50 — S-008 #120: Coordinator (TRANSLATOR) + units.yaml
 
 - **Session date:** 2026-04-29

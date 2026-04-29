@@ -5,7 +5,7 @@ No unit communicates with another unit directly; all cross-unit data flows
 through this class.
 
 Unit interface stubs (filled in by subsequent PRs):
-  PR #121 → strategy_order_pkg()   (strategies expose order_package())
+  PR #121 → strategy_order_pkg()   DONE — src/units/strategies/<name>.py
   PR #122 → account_execute()      (accounts expose execute_pkg())
 
 Data flow:
@@ -94,17 +94,39 @@ class Coordinator:
     # Unit 1 → Strategies
     # ------------------------------------------------------------------
 
-    def strategy_order_pkg(self, strategy: str, symbol: str = "BTCUSDT") -> OrderPackage:
+    def strategy_order_pkg(
+        self,
+        strategy: str,
+        symbol: str = "BTCUSDT",
+        candles_df=None,
+    ) -> OrderPackage:
         """Generate an OrderPackage from *strategy*.
 
-        Delegates to ``src.units.strategies.<strategy>.order_package(cfg)``.
-        Raises NotImplementedError until PR #121 wires the strategy modules.
+        Delegates to ``src.units.strategies.<strategy>.order_package(cfg, candles_df)``.
+
+        Parameters
+        ----------
+        strategy : str
+            Name matching a unit in config/units.yaml → strategies.
+        symbol : str
+            Market symbol, merged into the strategy cfg.
+        candles_df : pd.DataFrame, optional
+            OHLCV frame.  Most strategies require this; pass hand-crafted
+            DataFrames in tests (no live exchange calls).
+
+        Raises
+        ------
+        NotImplementedError
+            When the strategy module does not yet exist.
+        ValueError
+            When the signal is non-actionable (strategy returned side="none").
         """
         try:
             mod = importlib.import_module(f"src.units.strategies.{strategy}")
             if not hasattr(mod, "order_package"):
                 raise AttributeError(f"module has no order_package()")
-            pkg_dict = mod.order_package(self._strategy_cfg(strategy))
+            cfg = {**self._strategy_cfg(strategy), "symbol": symbol}
+            pkg_dict = mod.order_package(cfg, candles_df=candles_df)
             return OrderPackage(strategy=strategy, **pkg_dict)
         except ImportError:
             raise NotImplementedError(
