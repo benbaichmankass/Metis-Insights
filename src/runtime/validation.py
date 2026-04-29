@@ -115,12 +115,27 @@ def validate_startup() -> None:
             errors.append(f"MAX_OPEN_POSITIONS must be a positive integer, got {_max_open_raw!r}")
 
     # ---- DRY_RUN / live-trading interlock ----------------------------------
+    # S-012 PR E1 (PM § 6.5 contract): the ONLY path to live order
+    # placement is DRY_RUN!=true AND ALLOW_LIVE_TRADING=true.
+    #
+    #   DRY_RUN=true  + anything            → no exchange call (staging path)
+    #   DRY_RUN=false + ALLOW_LIVE_TRADING=true → live orders
+    #   DRY_RUN unset + ALLOW_LIVE_TRADING=true → live orders (treated as false)
+    #   anything else                       → refuse to start
+    #
+    # Tightened from the previous check (`dry_run == "false"`) so that an
+    # unset DRY_RUN also requires the explicit ALLOW_LIVE_TRADING gate.
+    # Previously, leaving DRY_RUN unset bypassed the interlock entirely
+    # and the runtime would silently attempt live trading.
     dry_run = _env("DRY_RUN").lower()
     allow_live = _env("ALLOW_LIVE_TRADING").lower()
-    if dry_run == "false" and allow_live != "true":
+    if dry_run != "true" and allow_live != "true":
         errors.append(
-            "DRY_RUN=false requires ALLOW_LIVE_TRADING=true "
-            "(set explicitly to enable real order placement)"
+            "Live trading requires ALLOW_LIVE_TRADING=true "
+            "(DRY_RUN is not 'true', so the runtime would attempt to place "
+            "real orders; set ALLOW_LIVE_TRADING=true explicitly to "
+            "acknowledge live order placement, or set DRY_RUN=true to "
+            "stay in staging mode)"
         )
 
     # ---- MODE=LIVE requires explicit live-trading gate ---------------------
