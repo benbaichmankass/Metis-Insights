@@ -105,6 +105,90 @@ def killzone_signal_builder(settings: dict) -> Dict[str, Any]:
     }
 
 
+def turtle_soup_signal_builder(settings: dict) -> Dict[str, Any]:
+    """Sweep + reversal at 15m. S-012 PR C3 wires it into the multiplexer.
+
+    Calls the units-layer ``src.units.strategies.turtle_soup.order_package``
+    so the same signal logic exercised by tests/test_s012_turtle_soup.py
+    is what runs in production. Routes through the same pipeline-level
+    signal shape used by VWAP / killzone / ict so downstream consumers
+    (multiplexer, RiskManager, order layer) need no changes.
+
+    Returns
+    -------
+    dict
+        Pipeline signal: {symbol, side, qty, price, stop_loss, take_profit,
+        meta} where side ∈ {"buy", "sell", "none"}.
+    """
+    from src.units.strategies.turtle_soup import order_package
+
+    symbol = settings.get("SYMBOL", settings.get("symbol", "BTCUSDT"))
+    timeframe = settings.get("TURTLE_SOUP_TIMEFRAME", settings.get("timeframe", "15m"))
+    qty = float(settings.get("MAX_QTY", settings.get("max_qty", 1)) or 1)
+
+    exchange = _build_killzone_exchange(settings)
+    candles_raw = exchange.get_ohlcv(symbol, timeframe, limit=200)
+
+    if candles_raw is None or (hasattr(candles_raw, "__len__") and len(candles_raw) == 0):
+        raise RuntimeError(
+            f"Turtle Soup: no candle data returned for symbol={symbol} "
+            f"timeframe={timeframe}. "
+            "Check that the exchange connection is configured and the symbol is valid."
+        )
+
+    if isinstance(candles_raw, pd.DataFrame):
+        candles_df = candles_raw.copy()
+    else:
+        candles_df = pd.DataFrame(
+            candles_raw, columns=["timestamp", "open", "high", "low", "close", "volume"]
+        )
+
+    for col in ("open", "high", "low", "close", "volume"):
+        candles_df[col] = pd.to_numeric(candles_df[col], errors="coerce")
+
+    cfg: Dict[str, Any] = {"symbol": symbol, "timeframe": timeframe}
+    # Merge per-strategy params from config/strategies.yaml when available.
+    try:
+        from src.units.strategies import load_strategy_config
+        params = load_strategy_config().get("turtle_soup", {})
+        cfg.update(params)
+    except Exception as exc:
+        logger.warning("Turtle Soup: could not load strategies.yaml params (%s); using adapter defaults", exc)
+
+    try:
+        pkg = order_package(cfg, candles_df=candles_df)
+    except ValueError as exc:
+        # No setup on the latest bar — return a flat signal, not an error.
+        logger.info("Turtle Soup: no actionable signal (%s)", exc)
+        return {
+            "symbol": symbol,
+            "side": "none",
+            "qty": 0,
+            "meta": {"strategy_name": "turtle_soup", "reason": str(exc)},
+        }
+
+    side = "buy" if pkg["direction"] == "long" else "sell"
+    logger.info(
+        "Turtle Soup: %s signal at %s (entry=%s sl=%s tp=%s confidence=%.3f)",
+        side, symbol, pkg["entry"], pkg["sl"], pkg["tp"], pkg["confidence"],
+    )
+    return {
+        "symbol": symbol,
+        "side": side,
+        "qty": qty,
+        "price": pkg["entry"],
+        "entry_price": pkg["entry"],
+        "stop_loss": pkg["sl"],
+        "take_profit": pkg["tp"],
+        "meta": {
+            **(pkg.get("meta") or {}),
+            "strategy_name": "turtle_soup",
+            "confidence": pkg["confidence"],
+            "direction": pkg["direction"],
+        },
+    }
+
+
 def vwap_signal_builder(settings: dict) -> Dict[str, Any]:
     """
     Fetch OHLCV candles from the configured exchange and return a VWAP
@@ -406,25 +490,31 @@ def _strategies_from_registry() -> list:
         return [s["name"] for s in load_strategies()]
     except Exception as exc:
         logger.warning("pipeline: registry unavailable, using hardcoded STRATEGIES list: %s", exc)
-        return ["breakout_confirmation", "vwap", "killzone", "ict"]
+        # S-012 PR C3: hardcoded fallback matches the production roster
+        # in config/strategies.yaml after PR B1.
+        return ["turtle_soup", "vwap"]
 
 
 STRATEGIES = _strategies_from_registry()
 
 # Per-strategy risk allocation fractions applied inside the multiplexer.
-# Each winner's qty is multiplied by its fraction so that the three core
-# strategies together consume 100 % of the position budget.
-# killzone uses the default (1.0) — it was the original single-strategy
-# path and does its own sizing; do not change without an explicit PR.
+# Each winner's qty is multiplied by its fraction so that the strategies
+# together consume 100 % of the position budget.
+# S-012 PR C3: roster reduced to turtle_soup + vwap (50 / 50 split). The
+# legacy breakout / killzone / ict entries are kept as no-op fallbacks
+# for any caller still passing those names; they are not in STRATEGIES so
+# the multiplexer never reaches them. Full cleanup ships in PR C5.
 STRATEGY_RISK_PCT: Dict[str, float] = {
+    "turtle_soup": 0.5,
+    "vwap": 0.5,
     "breakout_confirmation": 0.4,
-    "vwap": 0.3,
     "ict": 0.3,
 }
 
 _STRATEGY_BUILDERS: Dict[str, Callable[[dict], Dict[str, Any]]] = {
-    "breakout_confirmation": breakout_model_signal_builder,
+    "turtle_soup": turtle_soup_signal_builder,
     "vwap": vwap_signal_builder,
+    "breakout_confirmation": breakout_model_signal_builder,
     "killzone": killzone_signal_builder,
     "ict": ict_signal_builder,
 }
@@ -484,6 +574,8 @@ def run_pipeline(
         builder = signal_builder
     elif strategy_name == "multiplexed":
         builder = multiplexed_signal_builder
+    elif strategy_name in ("turtle_soup", "turtlesoup"):
+        builder = turtle_soup_signal_builder
     elif strategy_name == "vwap":
         builder = vwap_signal_builder
     elif strategy_name == "breakout":
