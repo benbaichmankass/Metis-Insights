@@ -7,9 +7,10 @@ handlers never see exceptions originating outside their own rendering code.
 
 This module is delivered incrementally:
 
-* PR-B1 (this PR) — account registry, strategies, trader services.
+* PR-B1 — account registry, strategies, trader services.
 * PR-B2 — DB readers (signals, backtests, logs).
-* PR-B3 — exchange-aware account queries (balance, positions, last trade).
+* PR-B3 (this PR) — exchange-aware account queries (balance, positions,
+  last trade).
 
 Account registry (PM decision §8.1): ``config/accounts.yaml`` (optional —
 PyYAML is **not** in requirements.txt and S-001 forbids new deps, so this
@@ -21,6 +22,8 @@ from __future__ import annotations
 import logging
 import os
 import re
+import sqlite3
+import subprocess
 from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
@@ -32,6 +35,32 @@ ACCOUNTS_YAML_PATH = os.path.join(REPO_ROOT, "config", "accounts.yaml")
 LEGACY_LIVE_SERVICE = "ict-trader-live"
 LEGACY_LIVE_ACCOUNT_ID = "live"
 TRADER_SERVICE_PREFIX = "ict-trader-"
+
+# Trade-journal DB resolution mirrors src/bot/telegram_query_bot.py.
+_TJ_CANDIDATES = [
+    os.environ.get("TRADE_JOURNAL_DB", ""),
+    os.path.join(REPO_ROOT, "trade_journal.db"),
+    os.path.join(_BASE_DIR, "trade_journal.db"),
+]
+TRADE_JOURNAL_DB = next((p for p in _TJ_CANDIDATES if p and os.path.exists(p)),
+                       os.path.join(REPO_ROOT, "trade_journal.db"))
+
+# Signals DB written by src/runtime/signal_writer.py (literal "data/trades.db").
+_SIG_CANDIDATES = [
+    os.environ.get("SIGNALS_DB", ""),
+    os.path.join(REPO_ROOT, "data", "trades.db"),
+    os.path.join(REPO_ROOT, "trade_journal.db"),  # legacy combined DB
+]
+SIGNALS_DB = next((p for p in _SIG_CANDIDATES if p and os.path.exists(p)),
+                  os.path.join(REPO_ROOT, "data", "trades.db"))
+
+# Strategy → signal_type substring mapping (filters /last5 and /status).
+_STRATEGY_SIGNAL_PREFIXES: Dict[str, tuple] = {
+    "ict": ("fvg", "ob", "ict"),
+    "killzone": ("killzone", "trade_signal"),
+    "vwap": ("vwap",),
+    "breakout_confirmation": ("ml_breakout", "breakout"),
+}
 
 
 # -- Strategies / services ----------------------------------------------------
@@ -175,3 +204,260 @@ def list_accounts() -> List[Dict[str, Any]]:
     except Exception as exc:  # noqa: BLE001
         logger.warning("list_accounts: %s", exc)
         return []
+
+
+# -- Signals ------------------------------------------------------------------
+
+def recent_signals_for(strategy: str, n: int = 5) -> List[Dict[str, Any]]:
+    """Last ``n`` signals attributed to ``strategy`` via signal_type substring
+    matching (see ``_STRATEGY_SIGNAL_PREFIXES``). Falls through to "any
+    signal_type" when the strategy is unknown. Returns ``[]`` on any failure.
+    """
+    if not strategy:
+        return []
+    try:
+        n = max(1, int(n))
+    except (TypeError, ValueError):
+        n = 5
+    if not os.path.exists(SIGNALS_DB):
+        return []
+    try:
+        prefixes = _STRATEGY_SIGNAL_PREFIXES.get(strategy.lower())
+        conn = sqlite3.connect(SIGNALS_DB)
+        try:
+            conn.row_factory = sqlite3.Row
+            cols = ("id, timestamp, symbol, signal_type, direction, price,"
+                    " timeframe, reason, metadata")
+            if prefixes:
+                where = " OR ".join(["signal_type LIKE ?"] * len(prefixes))
+                params = [f"%{p}%" for p in prefixes] + [n]
+                rows = conn.execute(
+                    f"SELECT {cols} FROM signals WHERE {where} "
+                    f"ORDER BY datetime(timestamp) DESC, id DESC LIMIT ?",
+                    params,
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    f"SELECT {cols} FROM signals "
+                    "ORDER BY datetime(timestamp) DESC, id DESC LIMIT ?",
+                    (n,),
+                ).fetchall()
+        finally:
+            conn.close()
+        return [dict(r) for r in rows]
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("recent_signals_for(%s): %s", strategy, exc)
+        return []
+
+
+# -- Logs (journalctl wrapper) ------------------------------------------------
+
+def _default_runner(cmd):
+    return subprocess.run(cmd, capture_output=True, text=True, timeout=20)
+
+
+def recent_logs_for(service: str, n: int = 20, *, _runner=None) -> str:
+    """Last ``n`` journalctl lines for ``service`` (or ``"⚠️ unavailable"``).
+    ``_runner`` is a test injection point — must accept a list argv and
+    return an object exposing ``stdout`` and ``stderr``.
+    """
+    if not service or not isinstance(service, str):
+        return "⚠️ unavailable"
+    try:
+        n = max(1, int(n))
+    except (TypeError, ValueError):
+        n = 20
+    runner = _runner or _default_runner
+    try:
+        result = runner(["journalctl", "-u", service, "-n", str(n), "--no-pager"])
+        out = ((result.stdout or "") + (result.stderr or "")).strip()
+        return out or f"No logs found for {service}."
+    except FileNotFoundError:
+        return "⚠️ unavailable"
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("recent_logs_for(%s): %s", service, exc)
+        return "⚠️ unavailable"
+
+
+# -- Backtests ----------------------------------------------------------------
+
+def latest_backtests_per_model() -> List[Dict[str, Any]]:
+    """Latest ``backtest_results`` row per ``strategy_version``. ``[]`` on failure."""
+    if not os.path.exists(TRADE_JOURNAL_DB):
+        return []
+    try:
+        conn = sqlite3.connect(TRADE_JOURNAL_DB)
+        try:
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute(
+                """
+                SELECT b.id, b.run_date, b.strategy_version, b.start_date,
+                       b.end_date, b.total_trades, b.winning_trades,
+                       b.losing_trades, b.win_rate, b.profit_factor,
+                       b.expectancy, b.max_drawdown, b.max_drawdown_pct,
+                       b.sharpe_ratio, b.total_pnl, b.total_pnl_pct,
+                       b.avg_win, b.avg_loss, b.largest_win, b.largest_loss,
+                       b.created_at
+                FROM backtest_results b
+                JOIN (
+                    SELECT COALESCE(strategy_version, '') AS sv,
+                           MAX(datetime(created_at)) AS latest
+                    FROM backtest_results
+                    GROUP BY COALESCE(strategy_version, '')
+                ) m ON COALESCE(b.strategy_version, '') = m.sv
+                   AND datetime(b.created_at) = m.latest
+                ORDER BY b.strategy_version IS NULL, b.strategy_version ASC
+                """
+            ).fetchall()
+        finally:
+            conn.close()
+        return [dict(r) for r in rows]
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("latest_backtests_per_model: %s", exc)
+        return []
+
+
+# -- Exchange-aware account queries (PR-B3) -----------------------------------
+
+def _read_env_file(env_path: str) -> Dict[str, str]:
+    if not env_path or not os.path.exists(env_path):
+        return {}
+    try:
+        from dotenv import dotenv_values  # type: ignore
+        values = dotenv_values(env_path)
+        return {k: v for k, v in values.items() if v is not None}
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("_read_env_file(%s): %s", env_path, exc)
+        return {}
+
+
+def _bybit_client(env_vars: Dict[str, str]):
+    api_key = env_vars.get("BYBIT_API_KEY")
+    api_secret = env_vars.get("BYBIT_API_SECRET")
+    if not api_key or not api_secret:
+        return None
+    from pybit.unified_trading import HTTP  # type: ignore
+    return HTTP(testnet=False, api_key=api_key, api_secret=api_secret)
+
+
+def _binance_conn(env_vars: Dict[str, str]):
+    api_key = env_vars.get("BINANCE_API_KEY")
+    api_secret = env_vars.get("BINANCE_API_SECRET")
+    if not api_key or not api_secret:
+        return None
+    import sys as _sys
+    _sys.path.insert(0, os.path.join(REPO_ROOT, "src"))
+    from exchange.binance_connector import BinanceConnector  # type: ignore
+    testnet = str(env_vars.get("BINANCE_TESTNET", "false")).strip().lower() == "true"
+    return BinanceConnector(api_key=api_key, api_secret=api_secret, testnet=testnet)
+
+
+def _f(x, default=0.0):
+    try:
+        return float(x or 0)
+    except (TypeError, ValueError):
+        return default
+
+
+def account_balance(account: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Return ``{"total_usdt": float, "raw": ...}`` or ``None`` on failure."""
+    if not isinstance(account, dict):
+        return None
+    env = _read_env_file(account.get("env_path") or "")
+    ex = (account.get("exchange") or "unknown").lower()
+    try:
+        if ex == "bybit":
+            client = _bybit_client(env)
+            if client is None:
+                return None
+            resp = client.get_wallet_balance(accountType="UNIFIED")
+            lst = resp.get("result", {}).get("list", []) if isinstance(resp, dict) else []
+            total = sum(_f(c.get("usdValue")) for c in (lst[0].get("coin", []) if lst else []))
+            return {"total_usdt": total, "raw": resp}
+        if ex == "binance":
+            conn = _binance_conn(env)
+            if conn is None:
+                return None
+            bal = conn.get_balance() or {}
+            usdt = bal.get("USDT", {}) if isinstance(bal, dict) else {}
+            return {"total_usdt": _f((usdt or {}).get("total")), "raw": bal}
+        return None
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("account_balance(%s): %s", account.get("account_id"), exc)
+        return None
+
+
+def account_open_positions(account: Dict[str, Any]) -> Optional[List[Dict[str, Any]]]:
+    """Return list of ``{symbol, side, size, entry_price, unrealised_pnl}``
+    dicts (size > 0). ``None`` on failure."""
+    if not isinstance(account, dict):
+        return None
+    env = _read_env_file(account.get("env_path") or "")
+    ex = (account.get("exchange") or "unknown").lower()
+    try:
+        if ex == "bybit":
+            client = _bybit_client(env)
+            if client is None:
+                return None
+            resp = client.get_positions(category="linear", settleCoin="USDT")
+            raw = resp.get("result", {}).get("list", []) if isinstance(resp, dict) else []
+            out = []
+            for p in raw:
+                size = _f(p.get("size"))
+                if size <= 0:
+                    continue
+                out.append({"symbol": p.get("symbol"), "side": p.get("side"),
+                            "size": size, "entry_price": _f(p.get("avgPrice")),
+                            "unrealised_pnl": _f(p.get("unrealisedPnl"))})
+            return out
+        if ex == "binance":
+            conn = _binance_conn(env)
+            if conn is None:
+                return None
+            out = []
+            for p in (conn.get_positions() or []):
+                size = _f(p.get("contracts", p.get("positionAmt")))
+                if size == 0:
+                    continue
+                out.append({"symbol": p.get("symbol"),
+                            "side": p.get("side") or ("long" if size > 0 else "short"),
+                            "size": abs(size), "entry_price": _f(p.get("entryPrice")),
+                            "unrealised_pnl": _f(p.get("unrealizedPnl",
+                                                       p.get("unrealised_pnl")))})
+            return out
+        return None
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("account_open_positions(%s): %s",
+                       account.get("account_id"), exc)
+        return None
+
+
+def account_last_trade(account: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Most-recent live trade row from the trade-journal DB.
+
+    The ``trades`` table has no ``account_id`` column today (single-account
+    deployment), so for non-legacy accounts this returns ``None`` until the
+    schema gains one (tracked as a follow-up in the sprint todo list).
+    """
+    if not isinstance(account, dict):
+        return None
+    if account.get("account_id") != LEGACY_LIVE_ACCOUNT_ID:
+        return None
+    if not os.path.exists(TRADE_JOURNAL_DB):
+        return None
+    try:
+        conn = sqlite3.connect(TRADE_JOURNAL_DB)
+        try:
+            conn.row_factory = sqlite3.Row
+            row = conn.execute(
+                "SELECT id, timestamp, symbol, direction, entry_price, exit_price,"
+                " pnl, status, strategy_name, created_at FROM trades"
+                " WHERE COALESCE(is_backtest, 0) = 0"
+                " ORDER BY datetime(created_at) DESC, id DESC LIMIT 1"
+            ).fetchone()
+        finally:
+            conn.close()
+        return dict(row) if row else None
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("account_last_trade(%s): %s", account.get("account_id"), exc)
+        return None
