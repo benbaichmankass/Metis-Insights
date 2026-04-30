@@ -829,8 +829,13 @@ async def cmd_last5(update: Update, context: ContextTypes.DEFAULT_TYPE):
 #   /signals 25       → last 25
 #   /signals vwap     → last 10 for the vwap strategy
 #   /signals turtle_soup 5
-SIGNAL_AUDIT_PATH = os.path.join(
-    REPO_ROOT, "runtime_logs", "signal_audit.jsonl"
+_SIG_AUDIT_CANDIDATES = [
+    os.environ.get("SIGNAL_AUDIT_PATH", ""),
+    os.path.join(REPO_ROOT, "runtime_logs", "signal_audit.jsonl"),
+]
+SIGNAL_AUDIT_PATH = next(
+    (p for p in _SIG_AUDIT_CANDIDATES if p and os.path.exists(p)),
+    os.path.join(REPO_ROOT, "runtime_logs", "signal_audit.jsonl"),
 )
 _SIGNAL_STATUS_EMOJI = {
     "submitted": "🟢",
@@ -872,7 +877,13 @@ def _read_audit_tail(path: str, limit: int) -> list[dict]:
 
 
 def _format_signal_row(rec: dict) -> str:
-    """Render one signal_audit.jsonl record for a Telegram block."""
+    """Render one signal_audit.jsonl record for a Telegram block.
+
+    Plain text only — pipeline statuses/reasons (``no_signal``,
+    ``halt_flag_active``, ``failed_validation``) contain underscores that
+    break Telegram's legacy Markdown italic parsing, so the original
+    ``_..._``/``*...*`` wrappers caused a silent BadRequest on every reply.
+    """
     ts = str(rec.get("logged_at_utc", ""))[:19].replace("T", " ")
     strategy = str(rec.get("strategy", "?"))
     symbol = str(rec.get("symbol", "?"))
@@ -882,10 +893,10 @@ def _format_signal_row(rec: dict) -> str:
     status = str(rec.get("status", "?"))
     emoji = _SIGNAL_STATUS_EMOJI.get(status, "•")
     reason = str(rec.get("reason") or "")
-    reason_s = f" — _{reason[:60]}_" if reason else ""
+    reason_s = f" — {reason[:60]}" if reason else ""
     return (
-        f"{emoji} `{ts}` {strategy} {symbol} {side} {qty_s} "
-        f"→ *{status}*{reason_s}"
+        f"{emoji} {ts} {strategy} {symbol} {side} {qty_s} "
+        f"→ {status}{reason_s}"
     )
 
 
@@ -909,22 +920,20 @@ async def cmd_signals(update: Update, context: ContextTypes.DEFAULT_TYPE):
     records = records[-limit:]
 
     if not records:
-        scope = f" for `{strategy_filter}`" if strategy_filter else ""
+        scope = f" for {strategy_filter}" if strategy_filter else ""
         await update.message.reply_text(
             f"📭 No signals logged yet{scope}.\n"
-            f"Audit file: `{SIGNAL_AUDIT_PATH}`",
-            parse_mode="Markdown",
+            f"Audit file: {SIGNAL_AUDIT_PATH}",
         )
         return
 
     header = (
-        f"📡 *Last {len(records)} signals"
-        + (f" — {strategy_filter}*" if strategy_filter else "*")
+        f"📡 Last {len(records)} signals"
+        + (f" — {strategy_filter}" if strategy_filter else "")
     )
     body = "\n".join(_format_signal_row(r) for r in records)
     await update.message.reply_text(
         f"{header}\n{body}",
-        parse_mode="Markdown",
         disable_web_page_preview=True,
     )
 
