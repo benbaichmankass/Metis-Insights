@@ -499,6 +499,35 @@ def _binance_conn(env_vars: Dict[str, str]):
     return BinanceConnector(api_key=api_key, api_secret=api_secret, testnet=testnet)
 
 
+def binance_conn_for(account: Dict[str, Any]):
+    """Return a Binance connector for ``account``, or ``None`` if creds are missing.
+
+    Mirrors ``bybit_client_for`` two-path resolution (S-012 hotfix):
+      1. ``account["api_key_env"]`` → ``os.environ`` (accounts.yaml contract)
+      2. ``account["env_path"]`` → ``_read_env_file`` (legacy)
+    """
+    if not isinstance(account, dict):
+        return None
+
+    api_key_env = account.get("api_key_env")
+    if api_key_env:
+        api_key = os.environ.get(api_key_env)
+        secret_env = (
+            account.get("api_secret_env")
+            or api_key_env.replace("_API_KEY", "_API_SECRET")
+        )
+        api_secret = os.environ.get(secret_env)
+        if api_key and api_secret:
+            import sys as _sys
+            _sys.path.insert(0, os.path.join(REPO_ROOT, "src"))
+            from exchange.binance_connector import BinanceConnector  # type: ignore
+            testnet = str(os.environ.get("BINANCE_TESTNET", "false")).strip().lower() == "true"
+            return BinanceConnector(api_key=api_key, api_secret=api_secret, testnet=testnet)
+
+    env = _read_env_file(account.get("env_path") or "")
+    return _binance_conn(env)
+
+
 def _f(x, default=0.0):
     try:
         return float(x or 0)
@@ -507,14 +536,20 @@ def _f(x, default=0.0):
 
 
 def account_balance(account: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    """Return ``{"total_usdt": float, "raw": ...}`` or ``None`` on failure."""
+    """Return ``{"total_usdt": float, "raw": ...}`` or ``None`` on failure.
+
+    S-012 hotfix: routes through ``bybit_client_for(account)`` /
+    ``binance_conn_for(account)`` so accounts.yaml's ``api_key_env``
+    contract is honored. Previously this inlined ``_bybit_client(env)``
+    which only knew the legacy env_path path — every accounts.yaml
+    account returned None ("balance unavailable").
+    """
     if not isinstance(account, dict):
         return None
-    env = _read_env_file(account.get("env_path") or "")
     ex = (account.get("exchange") or "unknown").lower()
     try:
         if ex == "bybit":
-            client = _bybit_client(env)
+            client = bybit_client_for(account)
             if client is None:
                 return None
             resp = client.get_wallet_balance(accountType="UNIFIED")
@@ -522,7 +557,7 @@ def account_balance(account: Dict[str, Any]) -> Optional[Dict[str, Any]]:
             total = sum(_f(c.get("usdValue")) for c in (lst[0].get("coin", []) if lst else []))
             return {"total_usdt": total, "raw": resp}
         if ex == "binance":
-            conn = _binance_conn(env)
+            conn = binance_conn_for(account)
             if conn is None:
                 return None
             bal = conn.get_balance() or {}
@@ -536,14 +571,16 @@ def account_balance(account: Dict[str, Any]) -> Optional[Dict[str, Any]]:
 
 def account_open_positions(account: Dict[str, Any]) -> Optional[List[Dict[str, Any]]]:
     """Return list of ``{symbol, side, size, entry_price, unrealised_pnl}``
-    dicts (size > 0). ``None`` on failure."""
+    dicts (size > 0). ``None`` on failure.
+
+    S-012 hotfix: same api_key_env routing as account_balance.
+    """
     if not isinstance(account, dict):
         return None
-    env = _read_env_file(account.get("env_path") or "")
     ex = (account.get("exchange") or "unknown").lower()
     try:
         if ex == "bybit":
-            client = _bybit_client(env)
+            client = bybit_client_for(account)
             if client is None:
                 return None
             resp = client.get_positions(category="linear", settleCoin="USDT")
@@ -558,7 +595,7 @@ def account_open_positions(account: Dict[str, Any]) -> Optional[List[Dict[str, A
                             "unrealised_pnl": _f(p.get("unrealisedPnl"))})
             return out
         if ex == "binance":
-            conn = _binance_conn(env)
+            conn = binance_conn_for(account)
             if conn is None:
                 return None
             out = []
