@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from src.web.api.auth import require_session
 
@@ -127,6 +127,5 @@ def build_pnl(
 
 
 @router.get("/pnl")
-@require_session
-async def get_pnl() -> Dict[str, Any]:
+async def get_pnl(_session: dict = Depends(require_session)) -> Dict[str, Any]:
     return build_pnl()

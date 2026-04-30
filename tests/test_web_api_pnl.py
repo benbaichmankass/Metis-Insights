@@ -1,6 +1,7 @@
-"""S-013 M2 PR #2 — GET /api/pnl."""
+"""S-013 M2 PR #2 + M3 PR #2 — GET /api/pnl."""
 from __future__ import annotations
 
+import hashlib
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
@@ -13,9 +14,28 @@ from src.web.api import main as api_main
 from src.web.api.routers import pnl as pnl_router
 
 
+_ALLOWED_EMAIL = "ben.baichmankass@gmail.com"
+_PASSWORD = "correct horse battery staple"
+_PASSWORD_HASH = hashlib.sha256(_PASSWORD.encode("utf-8")).hexdigest()
+_SIGNING_KEY = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+
+
 @pytest.fixture
-def client():
-    return TestClient(api_main.app)
+def env(monkeypatch):
+    monkeypatch.setenv("JWT_SIGNING_KEY", _SIGNING_KEY)
+    monkeypatch.setenv("ALLOWED_EMAIL", _ALLOWED_EMAIL)
+    monkeypatch.setenv("WEBAPP_PASSWORD_SHA256", _PASSWORD_HASH)
+
+
+@pytest.fixture
+def client(env):
+    return TestClient(api_main.app, raise_server_exceptions=False)
+
+
+def _bearer(token: str = "") -> dict:
+    if not token:
+        token = auth_module.issue_token(_ALLOWED_EMAIL)
+    return {"Authorization": f"Bearer {token}"}
 
 
 def _write_accounts_yaml(path: Path, names: list[str]) -> Path:
@@ -109,7 +129,7 @@ def test_pnl_happy_path_aggregates_realised_unrealised_and_trades_today(
 
     monkeypatch.setattr(pnl_router, "datetime", _FrozenDatetime)
 
-    resp = client.get("/api/pnl")
+    resp = client.get("/api/pnl", headers=_bearer())
     assert resp.status_code == 200
     body = resp.json()
     assert body["schema_version"] == 1
@@ -125,7 +145,7 @@ def test_pnl_happy_path_aggregates_realised_unrealised_and_trades_today(
 
 
 def test_pnl_empty_journal_returns_all_zeros(fixtures, client):
-    resp = client.get("/api/pnl")
+    resp = client.get("/api/pnl", headers=_bearer())
     assert resp.status_code == 200
     body = resp.json()
     assert body["schema_version"] == 1
@@ -140,7 +160,7 @@ def test_pnl_missing_db_file_returns_zeros_not_503(tmp_path, monkeypatch, client
     accounts = _write_accounts_yaml(tmp_path / "accounts.yaml", ["main"])
     monkeypatch.setattr(pnl_router, "_resolve_db_path", lambda: tmp_path / "does-not-exist.db")
     monkeypatch.setattr(pnl_router, "_resolve_accounts_yaml", lambda: accounts)
-    resp = client.get("/api/pnl")
+    resp = client.get("/api/pnl", headers=_bearer())
     assert resp.status_code == 200
     assert resp.json()["accounts"] == {
         "main": {"realized_usd": 0.0, "unrealized_usd": 0.0, "trades_today": 0},
@@ -153,7 +173,7 @@ def test_pnl_db_error_returns_503(tmp_path, monkeypatch, client):
     accounts = _write_accounts_yaml(tmp_path / "accounts.yaml", ["main"])
     monkeypatch.setattr(pnl_router, "_resolve_db_path", lambda: bogus)
     monkeypatch.setattr(pnl_router, "_resolve_accounts_yaml", lambda: accounts)
-    resp = client.get("/api/pnl")
+    resp = client.get("/api/pnl", headers=_bearer())
     assert resp.status_code == 503
     assert resp.json()["detail"]["error"] == "pnl_unavailable"
 
@@ -166,14 +186,26 @@ def test_pnl_surfaces_legacy_account_ids_not_in_yaml(fixtures, client):
         "status": "closed", "is_backtest": 0, "account_id": "live",  # legacy default
         "created_at": "2026-01-01T00:00:00Z",
     })
-    resp = client.get("/api/pnl")
+    resp = client.get("/api/pnl", headers=_bearer())
     assert resp.status_code == 200
     body = resp.json()
     assert "live" in body["accounts"]
     assert body["accounts"]["live"]["realized_usd"] == pytest.approx(1.23)
 
 
-def test_require_session_passthrough_on_pnl(fixtures, client):
-    """M3 PR #2 regression guard: no Authorization → 200 today."""
+# ---------------------------------------------------------------------------
+# require_session enforcement on /api/pnl (M3 PR #2).
+# ---------------------------------------------------------------------------
+
+
+def test_pnl_without_token_returns_401(fixtures, client):
     resp = client.get("/api/pnl")
-    assert resp.status_code == 200
+    assert resp.status_code == 401
+    assert resp.json()["detail"]["error"] == "invalid_session"
+
+
+def test_pnl_with_off_allowlist_email_returns_403(fixtures, client):
+    forged = auth_module.issue_token("attacker@example.com")
+    resp = client.get("/api/pnl", headers={"Authorization": f"Bearer {forged}"})
+    assert resp.status_code == 403
+    assert resp.json()["detail"]["error"] == "email_not_allowlisted"

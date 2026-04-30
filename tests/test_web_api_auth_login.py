@@ -149,18 +149,40 @@ def test_verify_password_constant_time_compare(env):
 
 
 # ---------------------------------------------------------------------------
-# Cross-PR contract: status/pnl still pass through (M3 PR #2 regression
-# guard so the swap is the only moment behaviour changes).
+# Cross-PR contract (M3 PR #2): /api/auth/login is in PUBLIC_ROUTES so the
+# operator can mint a token without already having one; /api/status and
+# /api/pnl are default-deny.
 # ---------------------------------------------------------------------------
 
 
-def test_status_and_pnl_still_unauthenticated_in_m3_pr1(client, env, tmp_path, monkeypatch):
-    """Issuance shipping does NOT enable enforcement on protected routes."""
+def test_auth_login_is_in_public_routes(env):
+    assert "/api/auth/login" in auth_module.PUBLIC_ROUTES
+    assert "/api/health" in auth_module.PUBLIC_ROUTES
+    # Default-deny: protected routes must NOT be in PUBLIC_ROUTES.
+    assert "/api/status" not in auth_module.PUBLIC_ROUTES
+    assert "/api/pnl" not in auth_module.PUBLIC_ROUTES
+
+
+def test_login_then_status_round_trip(client, env, tmp_path, monkeypatch):
+    """End-to-end: log in, then call /api/status with the issued token."""
     from src.web.api.routers import status as status_router
 
     payload_path = tmp_path / "rs.json"
     payload_path.write_text('{"schema_version": 1}', encoding="utf-8")
     monkeypatch.setattr(status_router, "STATUS_PATH", payload_path)
 
-    resp = client.get("/api/status")
+    # Step 1: log in.
+    login = client.post(
+        "/api/auth/login",
+        json={"email": _ALLOWED_EMAIL, "password": _PASSWORD},
+    )
+    assert login.status_code == 200
+    token = login.json()["access_token"]
+
+    # Step 2: status now reachable with that token.
+    resp = client.get("/api/status", headers={"Authorization": f"Bearer {token}"})
     assert resp.status_code == 200
+
+    # Sanity: still 401 without it.
+    resp_anon = client.get("/api/status")
+    assert resp_anon.status_code == 401
