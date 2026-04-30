@@ -11,6 +11,87 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-30-05 — S-014.5 SHIPPED (VM operator mode end-to-end), S-014 M0 PR still open as draft
+
+- **Session date:** 2026-04-30
+- **Sprint:** S-014.5 (closed) + S-014 (in progress)
+- **Current sprint phase:** S-014.5 closed end-to-end on the VM. S-014 M0 PR #1 (`/api/pnl/history`) opened as draft PR #183 but never marked ready / merged — operator wanted VM operator mode bedded in first.
+- **Last completed checkpoint:** CP-2026-04-30-04 (S-014 kickoff)
+- **Next checkpoint:** **CP-YYYY-MM-DD-NN — S-014 M1 + side fixes (long autonomous run)** — see the sprint prompt the operator pasted at session end. Concrete first action for the next session: `git status; git log --oneline -5; gh pr view 183` then mark PR #183 ready and self-merge as task T0. Then warm-up side fix `/signals` bot command, then M1 PR #1 + #2, then M3 PR #1 + #2, then strategy/account wiring as draft (PM review), then end-of-sprint checkpoint.
+- **Telegram sent:** no — operator handling.
+- **Alerts sent during session:** none.
+- **Blockers:** none for the next session. PR #183 is ready to merge. M2 (login flow) is PM-review and explicitly deferred until operator is back online.
+
+### 1. Completed (5 PRs merged + 1 draft from earlier session)
+
+| PR | Title | Status |
+|---|---|---|
+| #183 | S-014 M0 PR #1: `GET /api/pnl/history` for equity sparkline | 🟡 draft (carried over; T0 of next session) |
+| #184 | S-014.5: VM operator mode — Telegram-dispatched Claude on the VM | ✅ merged |
+| #186 | S-014.5 hotfix: privileged dispatch wrapper + sudoers for VM runner | ✅ merged |
+| #187 | S-014.5 hotfix #2: ReadWritePaths for Claude Code state dirs | ✅ merged |
+| #188 | deploy: only restart services when HEAD advanced (fixes /vm SIGTERM-loop) | ✅ merged |
+
+### 2. Files changed (S-014.5 totals across the four PRs)
+
+- New code:
+  - `deploy/claude-permissions.{read,write}.json` — tier policy (Tier 3 deny lists encode immutability for live-trading code, /etc/, secrets, force-push, mask-trader).
+  - `deploy/claude-vm-runner@.service` — one-shot template unit, MemoryMax=400M, MemoryHigh=300M, ReadWritePaths covering `/home/ubuntu/{ict-trading-bot,.claude,.cache,.config/claude}`, `/var/log/claude-vm`, `/run/claude`, `/tmp`.
+  - `deploy/claude-vm-dispatch` — privileged dispatcher (root, mode 0755). Validates digits-only id, tier 1/2, prompt path under `/run/claude/prompts/<digits>.txt`. Writes per-invocation drop-in to `/run/systemd/system/<unit>.d/env.conf`, `systemctl start`s, cleans up on EXIT trap.
+  - `deploy/claude-vm-runner.sudoers` — single-entry sudoers drop-in. `ubuntu ALL=(root) NOPASSWD: /usr/local/bin/claude-vm-dispatch`. No wildcards on systemd-run / systemctl.
+  - `scripts/vm_bootstrap.sh` — one-time installer the operator runs on the VM. Idempotent. Adds 2 GB swap, installs Node 20 + Claude Code, drops permission profiles, prompts for API key (or token), creates state dirs, installs unit + wrapper + sudoers, daemon-reload, verifies `sudo -n -l /usr/local/bin/claude-vm-dispatch` returns ok.
+  - `src/bot/vm_runner.py` — `handle_vm_command(prompt, tier)`, Tier 3 pre-flight regex screen, `_systemd_dispatch` calls `sudo -n claude-vm-dispatch`, transcript truncation for Telegram limits.
+  - `tests/test_vm_runner.py` — 36 tests (Tier 3 refusals, marker gating, dispatch contract, oversize prompt, exception surfacing, profile-file schema, deny-list invariants).
+- Touched:
+  - `src/bot/telegram_query_bot.py` — `/vm` and `/vm_write` commands + inline Confirm/Cancel callback handling. Help/start menu updated.
+  - `scripts/deploy_pull_restart.sh` — restart only when HEAD advances; defer if `claude-vm-runner@*.service` is active.
+  - `CLAUDE.md` — new task-routing row + "VM-resident sessions" preamble (binding tier policy when `/etc/claude/vm-marker` exists).
+- Docs:
+  - `docs/claude/vm-operator-mode.md` (new) — binding tier policy, refusal protocol, audit-trail format, dispatch path with privilege boundary.
+  - `docs/claude/deployment-ops.md` — appended "VM-resident Claude" section (install, smoke test, rollback, memory accounting).
+  - `docs/claude/security-secrets.md` — appended file-modes table, hard rules, threat model.
+
+### 3. Tests run
+
+- `PYTHONPATH=. pytest tests/test_vm_runner.py -q` → **36 passed** (across all four S-014.5 PRs).
+- `PYTHONPATH=. pytest tests/test_vm_runner.py tests/test_web_api_status.py tests/test_web_api_pnl.py tests/test_web_api_auth_login.py -q` → **73 passed** (no regressions in S-013 backend).
+- `python scripts/secret_scan.py` — clean throughout.
+- `bash -n scripts/{vm_bootstrap,deploy_pull_restart}.sh` + `bash -n deploy/claude-vm-dispatch` — all clean.
+- **Live VM smoke test:** Tier 1 verified end-to-end via Telegram (`/vm what services are active and what is the trader uptime` → `✅ exit 0` with real `systemctl` output). Tier 2 + Tier 3 wired but not yet smoke-tested (deferred — Tier 2 needs operator confirmation, Tier 3 refusal path needs operator validation).
+
+### 4. Five distinct VM bugs fixed during smoke test
+
+In order discovered:
+
+1. **`apscheduler 3.6.3` ↔ `tzlocal 5.x` timezone format mismatch** — bot crash-looped 121 times before the VM session restarted it cleanly. Fixed on the VM by `sudo pip3 install --upgrade pytz "apscheduler>=3.10.4"`. Working set now: `apscheduler 3.11.2 / tzlocal 5.3.1 / pytz 2026.1.post1` on Python 3.10. **Should be pinned in `requirements.txt` as a follow-up so a fresh VM doesn't re-hit this.**
+2. **Empty Anthropic API credit** — pay-as-you-go API key had $0 balance. Operator switched to a long-lived OAuth subscription token via `claude setup-token`. `/etc/ict-trader/claude.env` now contains `CLAUDE_CODE_OAUTH_TOKEN=...` (mode 0640 root:ubuntu). The `ANTHROPIC_API_KEY=...` form would also have worked given billing.
+3. **`systemd-run` polkit auth hang** (the original bug) — non-root invocation of system-mode units prompts for polkit auth on a tty, which the bot doesn't have. Bot's wrapper subprocess hung silently. **Fixed in PR #186** with the `claude-vm-dispatch` wrapper + sudoers drop-in.
+4. **`ProtectHome=read-only` blocking Claude state writes** — the runner ran (exit 0) but Claude's Bash tool was disabled because `/home/ubuntu/.claude/session-env` was unwritable. **Fixed in PR #187** by extending `ReadWritePaths` to include `~/.claude`, `~/.cache`, `~/.config/claude` (with leading `-` to tolerate missing paths) + bootstrap creates them.
+5. **`ict-git-sync.timer` restarting both services every 5 minutes unconditionally** — `scripts/deploy_pull_restart.sh` had explicit "no-op restart is cheap" logic that restarted trader + bot on every 5-min sync tick, even with no new commits. Each restart killed any in-flight `/vm` (wrapper subprocess in bot's cgroup). **Fixed in PR #188** with conditional restart on `HEAD` advance + defer if `claude-vm-runner@*.service` is active.
+
+### 5. Operator cleanup deferred (not blocking, flagged for follow-up)
+
+1. **Pin `requirements.txt`:** `apscheduler>=3.10.4`, `pytz`, allow `tzlocal>=3.0` to float (or pin to a known-good range). Avoids the # 4.1 issue on a fresh VM.
+2. **Filter `httpx` URL logging** so the Telegram bot token doesn't appear in plaintext in `journalctl -u ict-telegram-bot`. Pre-existing behavior of `python-telegram-bot` + `httpx` INFO logging.
+3. **Revoke leaked OAuth tokens** (operator pasted one in chat earlier; was burned and replaced). Console.anthropic.com → Settings → API Keys → revoke any token created today that the operator doesn't recognize.
+4. **Bybit API key not configured on the VM.** The trader is generating sell signals every tick but every order fails with `bybit requires "apiKey" credential`. No live trades happening. Pre-existing gap.
+5. **Tier 2 + Tier 3 smoke-test on the VM** — wire the next operator-available session to walk through `/vm_write echo …` (Confirm flow) and `/vm rm -rf …` (TIER 3 BLOCKED refusal). Both are wired but not validated end-to-end.
+
+### 6. Next checkpoint
+
+**CP-YYYY-MM-DD-NN — S-014 M1 + side fixes (long autonomous run)** — operator pasted the sprint prompt at session end. Concrete first action: confirm PR #183 is still draft and merge it. Then warm-up side fix `/signals`. Then M1 PR #1 + #2 + M3 PR #1 + #2. Then strategy/account wiring as draft (PM review). Append checkpoint after every 2 merged PRs.
+
+PRs the next session can self-merge per CLAUDE.md: M0 (#183), `/signals` fix, M1 PR #1, M1 PR #2, M3 PR #1, M3 PR #2.
+
+PRs the next session must push as draft and STOP at: strategy/account wiring (changes which Bybit account places live orders for which strategy — PM review per CLAUDE.md § "Merging Rules" item 1+2). M2 PRs (login flow) are also PM-review but explicitly out of scope for the next session.
+
+### 7. Improvements for the next sprint (per CLAUDE.md § 5)
+
+1. **Add a "smoke-test on the VM is part of DoD for any unit/script change" rule** to `docs/claude/testing-policy.md`. Today we shipped four hotfixes in succession because each change was correct in unit tests but broke under real systemd / polkit / cgroup conditions. Unit tests can't catch those — the VM bootstrap + Telegram dispatch is the integration test.
+2. **Document the Tier 1 vs Tier 2 contract for autonomous sessions** in `docs/claude/vm-operator-mode.md`: when the operator is unavailable, autonomous Claude sessions can use Tier 1 only (read/debug). Tier 2 (mutations) requires real-time operator confirmation in Telegram, which doesn't happen during long autonomous runs. Add a note in the sprint-planning template that PM-review tasks should be planned at the END of autonomous sprints so they don't block earlier work.
+
+---
+
 ## CP-2026-04-30-04 — S-014 kickoff + bot regression blocker
 
 - **Session date:** 2026-04-30
