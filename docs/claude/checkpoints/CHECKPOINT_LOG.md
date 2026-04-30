@@ -11,6 +11,64 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-30-07 — S-014 M1 shipped (T3 + T4), mid-session 2
+
+- **Session date:** 2026-04-30
+- **Sprint:** S-014 — Web Client V1 (Home Dashboard)
+- **Current sprint phase:** M1 complete (frontend scaffold + FastAPI mounts). Next: M3 fragment PRs.
+- **Last completed checkpoint:** CP-2026-04-30-06 (T0 + T1 done).
+- **Next checkpoint:** **CP-2026-04-30-08 — S-014 M3 fragments shipped (T6 + T7)** — emit after M3 PR #1 + M3 PR #2 ship.
+- **Telegram sent:** no (operator unavailable).
+- **Alerts sent during session:** none.
+- **Blockers:** none.
+
+### 1. Completed (2 more PRs merged this checkpoint window — 4 total in session)
+
+| PR | Title | Status |
+|---|---|---|
+| #192 | S-014 M1 PR #1: frontend scaffold (templates + vendored HTMX/Chart.js) | ✅ merged |
+| #193 | S-014 M1 PR #2: FastAPI mounts for UI router + static tree | ✅ merged |
+
+### 2. Files changed
+
+- `web/templates/{base,login,home}.html` (new).
+- `web/static/css/app.css` (new, 133 LOC).
+- `web/static/js/auth.js` (new, 77 LOC).
+- `web/static/js/htmx.min.js` (new, vendored HTMX 2.0.4).
+- `web/static/js/chart.umd.js` (new, vendored Chart.js 4.4.7).
+- `.gitignore` — added `!web/templates/*.html` to whitelist tracked HTML.
+- `src/web/api/routers/ui.py` (new) — `/`, `/login`, `/home` routes.
+- `src/web/api/main.py` — Jinja2Templates + StaticFiles mount.
+- `src/web/api/auth.py` — `PUBLIC_ROUTES` + new `PUBLIC_PREFIXES`.
+- `tests/test_web_api_ui.py` (new, 8 cases).
+
+### 3. Tests run
+
+- `python -c "import ast; …"` — all changed Python files parse cleanly.
+- `python scripts/secret_scan.py` — clean.
+- `wc -l web/...` — 287 LOC excluding vendored JS (M1 PR #1).
+- `tests/test_web_api_ui.py` and `tests/test_web_api_pnl_history.py` — deferred to CI (lean local pytest venv lacks fastapi/jinja2/pandas per CLAUDE.md).
+
+### 4. Vendored asset provenance
+
+- HTMX 2.0.4 — sourced from `https://raw.githubusercontent.com/bigskysoftware/htmx/v2.0.4/dist/htmx.min.js` (SHA-256 `e209dda5c8235479f3166defc7750e1dbcd5a5c1808b7792fc2e6733768fb447`).
+- Chart.js 4.4.7 — sourced from the npm tarball `https://registry.npmjs.org/chart.js/-/chart.js-4.4.7.tgz`, file `package/dist/chart.umd.js` (SHA-256 `2812cb8825fdc57469eb2f7bb055e9429244e599920511ee477e828499b632cb`). Other CDN fronts (unpkg, cdnjs, jsdelivr) were 403 from this sandbox — recorded for reproducibility on a fresh VM.
+- Both files have a top-of-file `/*! … */` banner with version + license + upstream URL + SHA-256.
+
+### 5. Remaining (T6..T10)
+
+- **T6** — M3 PR #1 status panel HTMX fragment (auth-gated, ≤ 250 LOC).
+- **T7** — M3 PR #2 P&L panel HTMX fragment (auth-gated, ≤ 250 LOC).
+- **T8** — checkpoint after T6+T7.
+- **T9** — strategy/account wiring (PM REVIEW, push as draft, STOP).
+- **T10** — final session checkpoint + Telegram `/sprintlet_status` ping.
+
+### 6. Next checkpoint
+
+**CP-2026-04-30-08 — S-014 M3 fragments shipped** — read this entry, then continue with T6 (`GET /ui/fragments/status`) followed by T7 (`GET /ui/fragments/pnl`) per `docs/sprints/sprint-014-prompt.md` § M3.
+
+---
+
 ## CP-2026-04-30-06 — S-014 long autonomous run: T0 + T1 done, mid-session
 
 - **Session date:** 2026-04-30
