@@ -81,6 +81,20 @@ if [ "${PRE_SYNC_HEAD}" = "${POST_SYNC_HEAD}" ]; then
     exit 0
 fi
 
+# ---------------------------------------------------------------------------
+# Telegram ping fanout (S-016 H3). Idempotent — only fires when HEAD
+# advanced. Reads token + chat-id from /etc/ict-trader/claude.env (or
+# whatever is in process env). Failures here are logged but do NOT abort
+# the deploy: a broken ping channel must not break the deploy channel.
+# ---------------------------------------------------------------------------
+echo ">>> Sending Telegram pings for new commits..."
+if /usr/bin/python3 scripts/notify_on_pull.py \
+    --pre "${PRE_SYNC_HEAD}" --post "${POST_SYNC_HEAD}"; then
+    echo ">>> Pings dispatched."
+else
+    echo ">>> WARNING: notify_on_pull exited nonzero — see journal for details."
+fi
+
 echo ">>> Code changed (${PRE_SYNC_HEAD:0:7} -> ${POST_SYNC_HEAD:0:7}). Installing/updating dependencies..."
 /usr/bin/python3 -m pip install -r requirements.txt --quiet
 
