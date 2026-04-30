@@ -11,6 +11,106 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-30-17 — S-020 COMPLETE (auto-ping fixed; recursive verification expected on this commit)
+
+- **Session date:** 2026-04-30
+- **Sprint:** S-020 — fix auto-ping path (manual /ping_test was already green).
+- **Current sprint phase:** COMPLETE.
+- **Last completed checkpoint:** CP-2026-04-30-16.
+- **Next checkpoint:** **CP-…-S021-OPEN** — next sprint, no carry-over.
+- **Telegram sent:** this commit IS the recursive verification. If the operator
+  receives `🔔 CP-2026-04-30-17 — S-020 COMPLETE …` within ~5 min of the merge
+  to `main`, the auto-ping path is end-to-end green and BUG-018/BUG-022 are
+  fully closed.
+- **Blockers:** none.
+
+### Root cause (T0)
+
+`scripts/deploy_pull_restart.sh` baselined the ping diff against
+`PRE_SYNC_HEAD` (the local HEAD this run saw 1 second ago). It had no
+memory across timer ticks. During S-019 debugging the operator manually
+`git reset --hard origin/main`-d several times to clear state. That
+advanced HEAD outside the timer's window, so the next tick saw
+`PRE_SYNC_HEAD == POST_SYNC_HEAD` and short-circuited via the no-op
+early-out at line 78 — silently swallowing the ping for #226 (CP-15).
+
+§ 4.2–4.4 of the sprint prompt (claude-vm-runner active, old script
+on first tick, perms mismatch) are ruled out by code inspection: 4.2
+only affects the restart phase (after notify), 4.3 is in the past,
+4.4 is contradicted by `/ping_test` working through the same inbox dir.
+
+### Fix (T1)
+
+`scripts/deploy_pull_restart.sh` now persists a state file at
+`runtime_logs/notify_state.txt` recording the last commit it pinged
+for. On each tick the ping baseline is `LAST_NOTIFIED_HEAD`, not
+`PRE_SYNC_HEAD`. The state file is written **only on success**, so a
+failed `notify_on_pull` invocation re-fires on the next tick.
+
+The deploy-script's no-op early-out for **restart** is preserved
+(its purpose was to avoid killing in-flight `/vm` runners), but it
+no longer lives upstream of the ping step.
+
+### Force-trigger (T3)
+
+`runtime_flags/auto_ping_test.flag` — when present, the deploy
+script runs `notify_on_pull --force-checkpoint`, which emits a
+checkpoint ping even if the diff doesn't naturally include
+`CHECKPOINT_LOG.md`. The flag is consumed (deleted) on success.
+This is the manual escape hatch promised in the S-020 § 5 plan.
+
+### Regression tests (T2)
+
+- `tests/test_notify_on_pull.py` — three new tests for
+  `--force-checkpoint`, the `pre==post` force path, and an explicit
+  pin of the actual `send_ping.enqueue` on-disk file write (atomic
+  tmp→rename, .json suffix, drainable filename pattern).
+- `tests/test_deploy_pull_restart_notify_state.py` (new file) — five
+  shell-level tests that run the actual `deploy_pull_restart.sh`
+  with stubbed git/python3/systemctl on PATH, asserting:
+  cold-start ping with `--pre=unknown`; second-run idempotency;
+  the **regression case** (`HEAD` advanced outside the timer's
+  window still pings); flag-driven force-checkpoint + flag
+  consumption; failed notify leaves state file untouched for retry.
+
+All 28 tests in this PR pass (`PYTHONPATH=. pytest
+tests/test_notify_on_pull.py tests/test_deploy_pull_restart_notify_state.py`).
+
+### Files changed
+
+- `scripts/deploy_pull_restart.sh` — state file + flag handling.
+- `scripts/notify_on_pull.py` — `--force-checkpoint` flag.
+- `tests/test_notify_on_pull.py` — new tests for force flag + on-disk write.
+- `tests/test_deploy_pull_restart_notify_state.py` — new shell-level test file.
+- `docs/claude/bug-log.md` — BUG-022 added; BUG-018 marked fully resolved.
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` — this entry.
+
+### Recursive verification (T4 + T5)
+
+This checkpoint is itself the verification. The merge of this PR will:
+
+1. Land on `origin/main` with a diff that touches `CHECKPOINT_LOG.md`.
+2. On the next `ict-git-sync.timer` tick (≤ 5 min), the VM runs
+   `deploy_pull_restart.sh`, which now reads `LAST_NOTIFIED_HEAD`
+   from `runtime_logs/notify_state.txt`.
+3. **Bootstrap on first post-fix tick:** the state file is absent on
+   the VM until the first run writes it. `notify_on_pull.py` treats
+   `--pre=unknown` as a hard short-circuit (no diff, no blocker scan),
+   which would miss the very first ping. The deploy script handles this
+   by bootstrapping `LAST_NOTIFIED_HEAD` with `git rev-parse HEAD~1`
+   when the state file is missing — so the merge commit for this PR
+   IS the very first pre/post pair, and its diff (which includes
+   `CHECKPOINT_LOG.md`) fires the recursive ping.
+
+### Hand-off
+
+If the recursive ping arrives → BUG-018/BUG-022 closed; next sprint
+starts from a clean slate. If it doesn't → operator runs the §3
+diagnostics from the S-020 prompt against this PR's pre/post SHAs;
+the most likely cause is the bootstrap edge case above.
+
+---
+
 ## CP-2026-04-30-16 — S-019 PARTIAL VERIFY (manual /ping_test works, auto-ping still dead)
 
 - **Session date:** 2026-04-30 (late session, operator going to bed)

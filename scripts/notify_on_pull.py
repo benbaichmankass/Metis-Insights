@@ -279,12 +279,22 @@ def _checkpoint_ping(post_sha: str) -> Optional[tuple[str, str]]:
 # ---------------------------------------------------------------------------
 
 
-def collect_pings(pre_sha: str, post_sha: str) -> List[tuple[str, str]]:
-    """Order: blockers first (urgent), then queue drain, then checkpoint."""
+def collect_pings(
+    pre_sha: str,
+    post_sha: str,
+    force_checkpoint: bool = False,
+) -> List[tuple[str, str]]:
+    """Order: blockers first (urgent), then queue drain, then checkpoint.
+
+    ``force_checkpoint=True`` emits the checkpoint ping even if the diff
+    didn't touch ``CHECKPOINT_LOG.md`` — used by the deploy script's
+    ``runtime_flags/auto_ping_test.flag`` path to verify the auto-ping
+    leg without waiting for a real checkpoint commit.
+    """
     pings: List[tuple[str, str]] = []
     pings.extend(_blocker_pings(pre_sha, post_sha))
     pings.extend(_drain_pending_pings(PENDING_PINGS))
-    if _diff_touched_checkpoint_log(pre_sha, post_sha):
+    if force_checkpoint or _diff_touched_checkpoint_log(pre_sha, post_sha):
         cp_ping = _checkpoint_ping(post_sha)
         if cp_ping is not None:
             pings.append(cp_ping)
@@ -297,16 +307,20 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
     parser.add_argument("--post", required=True, help="HEAD after the pull")
     parser.add_argument("--dry-run", action="store_true",
                         help="Skip the actual Telegram POST")
+    parser.add_argument("--force-checkpoint", action="store_true",
+                        help="Emit a checkpoint ping even if the diff "
+                             "didn't touch CHECKPOINT_LOG.md (for the "
+                             "auto_ping_test.flag verification path).")
     args = parser.parse_args(list(argv) if argv is not None else None)
 
     logging.basicConfig(level=logging.INFO,
                         format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
-    if args.pre == args.post:
+    if args.pre == args.post and not args.force_checkpoint:
         logger.info("HEAD did not advance (%s); nothing to ping.", args.pre[:8])
         return 0
 
-    pings = collect_pings(args.pre, args.post)
+    pings = collect_pings(args.pre, args.post, force_checkpoint=args.force_checkpoint)
     if not pings:
         logger.info("No pingable events in %s..%s", args.pre[:8], args.post[:8])
         return 0
