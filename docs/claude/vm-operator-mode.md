@@ -151,13 +151,32 @@ the runner — that's Tier 3 (it's an `Edit(/etc/systemd/system/...)`).
 `MemoryHigh=300M` triggers the kernel's memory pressure handling first,
 giving the trader breathing room before the OOM.
 
-## 6. Concurrency
+## 6. Concurrency and dispatch path
 
 The runner is a **oneshot** template unit (`claude-vm-runner@.service`).
 Each Telegram invocation gets a unique `<id>` (UTC unix timestamp). Two
 concurrent invocations are allowed but the bot serializes them at the
 chat level: a second `/vm` or `/vm_write` while the first is running
 gets a "busy — your prompt is queued" reply.
+
+**Dispatch path (privilege boundary):**
+
+1. Bot writes the prompt to `/run/claude/prompts/<id>.txt` as `ubuntu`.
+2. Bot invokes `sudo -n /usr/local/bin/claude-vm-dispatch <id> <tier> <path>`.
+   The sudoers drop-in `/etc/sudoers.d/claude-vm-runner` allows this
+   exact command without a password and nothing else.
+3. The wrapper validates inputs strictly (digits-only id, tier 1/2,
+   prompt path under `/run/claude/prompts/<digits>.txt`), writes a
+   per-invocation drop-in to `/run/systemd/system/claude-vm-runner@<id>.service.d/env.conf`
+   with the tier profile + transcript path, and `systemctl start`s the
+   template instance.
+4. The unit runs `claude -p` as `ubuntu` with the tier profile, writing
+   the transcript to `/var/log/claude-vm/<id>.log`.
+5. On exit, the wrapper deletes the drop-in and reset-failed's the
+   unit. The bot reads the transcript and posts it back to Telegram.
+
+The wrapper is the *only* entry point with sudo. `systemd-run` and
+`systemctl start` are not directly invocable by the bot.
 
 Runner timeout: **5 minutes** (`TimeoutStartSec=300`). Beyond that, the
 unit is killed and the bot posts the truncated transcript with a

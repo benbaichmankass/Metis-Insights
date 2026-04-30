@@ -1,0 +1,25 @@
+# /etc/sudoers.d/claude-vm-runner — passwordless dispatch for the bot.
+#
+# Save to: /etc/sudoers.d/claude-vm-runner (mode 0440, validated with visudo -c)
+# Installed by: scripts/vm_bootstrap.sh
+#
+# Grants the bot user (`ubuntu`) permission to invoke ONE command
+# without a password: the claude-vm-dispatch wrapper. The wrapper
+# validates its own inputs strictly (digits-only id, tier 1/2, prompt
+# path under /run/claude/prompts/) before touching systemd, so this
+# entry does not expose `systemd-run` or arbitrary `systemctl` calls.
+#
+# The wrapper itself lives at /usr/local/bin/claude-vm-dispatch (mode
+# 0755, owned by root) and is in the Tier 3 deny list — the runner
+# cannot edit it from inside.
+#
+# Why we need this: `systemd-run` and `systemctl start` for system-
+# scope units require polkit auth, which prompts on a tty. The bot is
+# not a tty, so without this rule the dispatch hangs on prompt or
+# fails silently.
+#
+# Defaults!/usr/local/bin/claude-vm-dispatch !requiretty   — explicit
+# in case the global sudoers config changes the default.
+
+Defaults!/usr/local/bin/claude-vm-dispatch !requiretty
+ubuntu ALL=(root) NOPASSWD: /usr/local/bin/claude-vm-dispatch

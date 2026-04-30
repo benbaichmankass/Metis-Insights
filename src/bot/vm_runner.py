@@ -122,22 +122,37 @@ DispatchFn = Callable[[str, int, Path, Path], int]
 """Signature: (invocation_id, tier, prompt_path, transcript_path) -> return code."""
 
 
+DISPATCH_WRAPPER = "/usr/local/bin/claude-vm-dispatch"
+
+
 def _systemd_dispatch(
     invocation_id: str, tier: int, prompt_path: Path, transcript_path: Path
 ) -> int:
+    """Invoke the privileged dispatch wrapper via passwordless sudo.
+
+    The wrapper (`/usr/local/bin/claude-vm-dispatch`) validates its
+    inputs strictly and instantiates ``claude-vm-runner@<id>.service``
+    with per-invocation env via a transient drop-in. The bot has
+    permission to invoke ONLY this wrapper, granted by
+    ``/etc/sudoers.d/claude-vm-runner``.
+
+    ``transcript_path`` is computed inside the wrapper and ignored
+    here — kept in the signature for parity with the test stubs.
+    """
     import subprocess  # noqa: WPS433 — local import keeps tests hermetic
     cmd = [
-        "systemd-run",
-        f"--unit=claude-vm-runner@{invocation_id}",
-        "--wait",
-        "--collect",
-        f"--property=TimeoutStartSec={RUNNER_TIMEOUT_S}",
-        f"--setenv=CLAUDE_VM_PROFILE={PROFILE_BY_TIER[tier]}",
-        f"--setenv=CLAUDE_VM_PROMPT_FILE={prompt_path}",
-        f"--setenv=CLAUDE_VM_TRANSCRIPT={transcript_path}",
-        "/bin/systemctl", "start", f"claude-vm-runner@{invocation_id}.service",
+        "sudo", "-n",
+        DISPATCH_WRAPPER,
+        invocation_id,
+        str(tier),
+        str(prompt_path),
     ]
-    proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
+    proc = subprocess.run(
+        cmd, capture_output=True, text=True, check=False,
+        timeout=RUNNER_TIMEOUT_S + 30,
+    )
+    if proc.returncode != 0 and proc.stderr:
+        logger.warning("dispatch wrapper stderr: %s", proc.stderr.strip())
     return proc.returncode
 
 
