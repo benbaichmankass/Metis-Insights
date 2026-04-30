@@ -11,6 +11,96 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-30-11 — S-015 Session A complete (all 6 infra PRs merged)
+
+- **Session date:** 2026-04-30
+- **Sprint:** S-015 — strategy + model improvement pass.
+- **Current sprint phase:** Session A infrastructure all merged. Post-clarification follow-ups (github-raw adapter, daily smoke test, VWAP 5m draft) in flight.
+- **Last completed checkpoint:** CP-2026-04-30-10 (S-015 mid-session).
+- **Next checkpoint:** **CP-YYYY-MM-DD-NN — S-015 Session B** — opened by whoever picks up the next networked session.
+- **Telegram sent:** no — `TELEGRAM_BOT_TOKEN` absent in this sandbox env. Operator can post `/sprintlet_status` themselves on resume.
+- **Blockers:** Session B (real intraday baseline + parameter sweeps) is gated on a host with keyless-API egress.
+
+### Operator clarification mid-session (verbatim)
+
+> the not pushing anything without checking with me specifically relates to the results of the test. And do we wanna push the new version of the model and the strategy, or or wait. Like, that's, that's the only decision that I want you to wait. Everything that has to with building the infrastructure for the testing. Regular workflow.
+
+Applied: harness / fetcher / sampler / scripts / fixtures / reports / checkpoints / sprint prompt → **self-merge**. Strategy params, strategy source code, model artefacts, regime-filter wiring → **draft for PM**. The 6 infra drafts (#200..#205) self-merged after this clarification.
+
+### 1. PRs merged in S-015 Session A
+
+| PR | Title |
+|---:|---|
+| #200 | S-015 sprint prompt |
+| #201 | S-015 T1: backtest harness + multi-source keyless fetcher + sampler |
+| #202 | S-015 T3: harness validation on existing repo fixtures |
+| #203 | checkpoint: CP-2026-04-30-10 (mid-session) |
+| #204 | S-015 T9: Session A summary report |
+| #205 | this checkpoint (CP-2026-04-30-11) |
+
+### 2. T0 audit — environmental blocker (decisions log)
+
+Sandbox egress allowlisted to pypi + github only:
+
+```
+api.exchange.coinbase.com   -> 403
+api.kraken.com              -> 403
+query1.finance.yahoo.com    -> 403
+min-api.cryptocompare.com   -> 403
+huggingface.co              -> 403
+api.bybit.com               -> 403   (excluded anyway)
+pypi.org / github.com       -> 200 ✓
+raw.githubusercontent.com   -> 200 ✓
+```
+
+Re-probe surfaced **`coinmetrics/data` on github** — daily BTC + ETH reference rates back to 2009. Usable for a **daily-resolution smoke test** but not parameter tuning at 5m/15m.
+
+### 3. Mid-session strategy-config correction (verbatim)
+
+> vwap should be wired to 5 minutes not 15 minutes so we should do that fix as well
+
+Treated as a live-trading-behaviour change → opens as **DRAFT** for PM. Carries the strategies.yaml `timeframe: "15m"` → `"5m"` change + a regression test.
+
+### 4. Remaining (Session B + later)
+
+- T2 — lock baseline on real intraday data (Session B, networked host).
+- T4 — VWAP parameter sweep (DRAFT only if cleared threshold).
+- T6 — turtle_soup parameter sweep (DRAFT only if cleared threshold).
+- T7 — regime-filter probe (DRAFT only if cleared threshold).
+- T9' — merged Session A + B summary.
+
+Threshold (all three must hold): Sharpe Δ > 0, max-DD not worse > 10 %, fold-wise paired t-test p < 0.10.
+
+### 5. Concrete first action for Session B
+
+```bash
+git pull
+PYTHONPATH=. python -m pytest tests/sprint015/ -q   # all must pass
+PYTHONPATH=. python -c "
+import datetime as dt
+from scripts.sprint015 import data_sources as ds
+df, src, attempts = ds.fetch_ohlcv(
+    'BTCUSDT', '5m',
+    dt.datetime(2025, 1, 1, tzinfo=dt.timezone.utc),
+    dt.datetime(2025, 2, 1, tzinfo=dt.timezone.utc),
+)
+print(f'source={src} rows={len(df)} attempts={[(a.source, a.ok) for a in attempts]}')
+"
+```
+
+If `source=` prints a name and `rows>0`, proceed with T2 → T4 / T6 / T7 → T9'.
+
+### 6. Improvements for next sprint (carried forward)
+
+1. Centralise telegram stubs in `tests/conftest.py`.
+2. Document the recursive `web/templates/**/*.html` whitelist pattern.
+3. Add "no market-data egress" note to `docs/claude/testing-policy.md`.
+4. Wire HuggingFace adapter to a specific community dataset.
+5. CryptoCompare keyless tier is hour/day-only — falls through silently for sub-hour.
+6. Consider github-raw as a tier-3 keyless adapter (added in this sprint).
+
+---
+
 ## CP-2026-04-30-10 — S-015 Session A mid-session (T0 + T1 + T3, 3 drafts open)
 
 - **Session date:** 2026-04-30
