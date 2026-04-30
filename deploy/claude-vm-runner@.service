@@ -64,6 +64,12 @@ NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=read-only
 ReadWritePaths=/home/ubuntu/ict-trading-bot /var/log/claude-vm /run/claude /tmp
+# Claude Code state dirs — leading "-" so missing paths are tolerated
+# (`.cache` may not exist on a fresh user; `.claude` is created by
+# `claude setup-token` and bootstrap touches both during install).
+ReadWritePaths=-/home/ubuntu/.claude
+ReadWritePaths=-/home/ubuntu/.cache
+ReadWritePaths=-/home/ubuntu/.config/claude
 PrivateTmp=true
 PrivateDevices=true
 ProtectKernelTunables=true
