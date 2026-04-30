@@ -205,62 +205,62 @@ def test_main_no_advance_returns_zero(stub_post):
     assert stub_post == []
 
 
-def test_main_no_token_logs_and_returns_zero(monkeypatch, stub_post, tmp_path):
+def test_main_dry_run_skips_enqueue(monkeypatch, tmp_path):
+    """S-019: --dry-run no longer takes a Telegram path; just must not enqueue."""
+    inbox = tmp_path / "pending_pings"
     monkeypatch.setattr(nop, "CHECKPOINT_LOG", tmp_path / "log.md")
     monkeypatch.setattr(nop, "PENDING_PINGS", tmp_path / "queue.jsonl")
     monkeypatch.setattr(nop, "_blocker_pings", lambda pre, post: [("urgent", "B")])
     monkeypatch.setattr(nop, "_diff_touched_checkpoint_log", lambda pre, post: False)
-    monkeypatch.delenv("TELEGRAM_BOT_TOKEN", raising=False)
-    monkeypatch.delenv("TELEGRAM_CHAT_ID", raising=False)
-    rc = nop.main(["--pre", "abc", "--post", "def"])
-    assert rc == 0
-    # Nothing posted because no token
-    assert stub_post == []
 
+    sys.path.insert(0, str(REPO_ROOT / "scripts"))
+    import send_ping
+    monkeypatch.setattr(send_ping, "PENDING_PINGS_DIR", inbox)
 
-def test_main_dry_run_skips_post(monkeypatch, stub_post, tmp_path):
-    monkeypatch.setattr(nop, "CHECKPOINT_LOG", tmp_path / "log.md")
-    monkeypatch.setattr(nop, "PENDING_PINGS", tmp_path / "queue.jsonl")
-    monkeypatch.setattr(nop, "_blocker_pings", lambda pre, post: [("urgent", "B")])
-    monkeypatch.setattr(nop, "_diff_touched_checkpoint_log", lambda pre, post: False)
-    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "fake")
-    monkeypatch.setenv("TELEGRAM_CHAT_ID", "1")
     rc = nop.main(["--pre", "abc", "--post", "def", "--dry-run"])
     assert rc == 0
-    assert stub_post == []
+    assert not inbox.exists() or not list(inbox.iterdir())
 
 
-def test_main_sends_pings_through_telegram(monkeypatch, stub_post, tmp_path):
+def test_main_enqueues_pings_via_send_ping(monkeypatch, tmp_path):
+    """S-019: notify_on_pull writes JSON files to send_ping's queue dir
+    instead of POSTing direct to Telegram. The bot's drain loop sends
+    them; this script's job is just to enqueue."""
+    inbox = tmp_path / "pending_pings"
     monkeypatch.setattr(nop, "CHECKPOINT_LOG", tmp_path / "log.md")
     monkeypatch.setattr(nop, "PENDING_PINGS", tmp_path / "queue.jsonl")
     monkeypatch.setattr(nop, "_blocker_pings",
                         lambda pre, post: [("urgent", "BLOCKED — need help")])
     monkeypatch.setattr(nop, "_diff_touched_checkpoint_log", lambda pre, post: False)
-    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "fake")
-    monkeypatch.setenv("TELEGRAM_CHAT_ID", "1")
+
+    sys.path.insert(0, str(REPO_ROOT / "scripts"))
+    import send_ping
+    monkeypatch.setattr(send_ping, "PENDING_PINGS_DIR", inbox)
+
     rc = nop.main(["--pre", "abc", "--post", "def"])
     assert rc == 0
-    assert len(stub_post) == 1
-    assert "URGENT" in stub_post[0]["json"]["text"]
-    assert "BLOCKED" in stub_post[0]["json"]["text"]
+    queued = sorted(inbox.glob("*.json"))
+    assert len(queued) == 1
+    payload = json.loads(queued[0].read_text())
+    assert payload["priority"] == "urgent"
+    assert "BLOCKED" in payload["body"]
 
 
-def test_main_returns_one_on_partial_failure(monkeypatch, tmp_path):
-    """A 5xx that doesn't recover after retries returns nonzero so the
-    deploy script can log a follow-up warning if anyone watches."""
+def test_main_returns_one_when_enqueue_fails(monkeypatch, tmp_path):
+    """If the inbox can't be written, the script returns nonzero so the
+    deploy log shows the failure."""
     monkeypatch.setattr(nop, "CHECKPOINT_LOG", tmp_path / "log.md")
     monkeypatch.setattr(nop, "PENDING_PINGS", tmp_path / "queue.jsonl")
     monkeypatch.setattr(nop, "_blocker_pings",
                         lambda pre, post: [("normal", "x")])
     monkeypatch.setattr(nop, "_diff_touched_checkpoint_log", lambda pre, post: False)
-    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "fake")
-    monkeypatch.setenv("TELEGRAM_CHAT_ID", "1")
-    monkeypatch.setattr(nop, "RETRY_BACKOFF_S", (0, 0, 0))  # don't sleep in tests
 
-    class _R:
-        status_code = 500
-        text = "boom"
+    sys.path.insert(0, str(REPO_ROOT / "scripts"))
+    import send_ping
 
-    monkeypatch.setattr(nop.requests, "post", lambda *a, **kw: _R())
+    def _boom(*a, **kw):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(send_ping, "enqueue", _boom)
     rc = nop.main(["--pre", "abc", "--post", "def"])
     assert rc == 1

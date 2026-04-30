@@ -311,29 +311,34 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
         logger.info("No pingable events in %s..%s", args.pre[:8], args.post[:8])
         return 0
 
-    token = os.getenv("TELEGRAM_BOT_TOKEN")
-    chat_id = os.getenv("TELEGRAM_CHAT_ID")
-    if not token or not chat_id:
-        logger.warning("TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID not set — "
-                       "would have sent %d ping(s):", len(pings))
-        for p, body in pings:
-            logger.warning("  [%s] %s", p, body.splitlines()[0])
-        return 0
-
     if args.dry_run:
-        logger.info("Dry-run: would send %d ping(s)", len(pings))
+        logger.info("Dry-run: would queue %d ping(s)", len(pings))
         for p, body in pings:
             logger.info("  [%s] %s", p, body.splitlines()[0])
         return 0
 
+    # S-019 — enqueue via the bot's pending-pings inbox instead of
+    # POSTing direct to Telegram. The bot drains the inbox every ~5 s.
+    # No more dependency on TELEGRAM_BOT_TOKEN being in this script's
+    # process env (the bot has it; we just write a file).
+    sys.path.insert(0, str(REPO_ROOT / "scripts"))
+    try:
+        from send_ping import enqueue as _enqueue
+    except ImportError as exc:
+        logger.error("scripts/send_ping.py not importable: %s", exc)
+        return 1
+
     failures = 0
     for priority, body in pings:
-        if not _send_priority(token, chat_id, priority, body):
+        try:
+            _enqueue(body, priority=priority)
+        except (OSError, ValueError) as exc:
+            logger.error("enqueue failed [%s]: %s", priority, exc)
             failures += 1
     if failures:
-        logger.error("%d / %d pings failed", failures, len(pings))
+        logger.error("%d / %d pings failed to enqueue", failures, len(pings))
         return 1
-    logger.info("Sent %d ping(s) successfully", len(pings))
+    logger.info("Queued %d ping(s) — bot drains within ~5 s", len(pings))
     return 0
 
 
