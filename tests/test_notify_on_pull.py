@@ -246,6 +246,79 @@ def test_main_enqueues_pings_via_send_ping(monkeypatch, tmp_path):
     assert "BLOCKED" in payload["body"]
 
 
+def test_force_checkpoint_emits_cp_ping_without_log_diff(monkeypatch, tmp_path):
+    """S-020 T3: --force-checkpoint emits a checkpoint ping even when the
+    diff didn't touch CHECKPOINT_LOG.md. Used by the auto_ping_test.flag
+    path to verify the auto-ping leg without waiting for a real CP commit.
+    """
+    log = tmp_path / "log.md"
+    log.write_text(
+        "# Checkpoint log\n\n---\n\n"
+        "## CP-2026-04-30-99 — force-trigger smoke\n\n"
+        "- **Sprint:** S-020\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(nop, "CHECKPOINT_LOG", log)
+    monkeypatch.setattr(nop, "PENDING_PINGS", tmp_path / "queue.jsonl")
+    monkeypatch.setattr(nop, "_blocker_pings", lambda pre, post: [])
+    monkeypatch.setattr(nop, "_diff_touched_checkpoint_log", lambda pre, post: False)
+
+    pings = nop.collect_pings("pre", "post", force_checkpoint=True)
+    assert any("CP-2026-04-30-99" in body for _, body in pings)
+
+
+def test_main_force_checkpoint_runs_when_pre_equals_post(monkeypatch, tmp_path):
+    """The flag-triggered path may pass --pre == --post (state file already
+    at HEAD, but operator wants to verify the leg). The script must still
+    enqueue when --force-checkpoint is set."""
+    inbox = tmp_path / "pending_pings"
+    log = tmp_path / "log.md"
+    log.write_text(
+        "# Checkpoint log\n\n---\n\n"
+        "## CP-2026-04-30-99 — force-trigger\n\n- **Sprint:** S-020\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(nop, "CHECKPOINT_LOG", log)
+    monkeypatch.setattr(nop, "PENDING_PINGS", tmp_path / "queue.jsonl")
+    monkeypatch.setattr(nop, "_blocker_pings", lambda pre, post: [])
+
+    sys.path.insert(0, str(REPO_ROOT / "scripts"))
+    import send_ping
+    monkeypatch.setattr(send_ping, "PENDING_PINGS_DIR", inbox)
+
+    rc = nop.main(["--pre", "abc", "--post", "abc", "--force-checkpoint"])
+    assert rc == 0
+    queued = sorted(inbox.glob("*.json"))
+    assert len(queued) == 1
+    assert "CP-2026-04-30-99" in queued[0].read_text()
+
+
+def test_enqueue_writes_atomically_into_inbox(tmp_path, monkeypatch):
+    """S-020 T2: pin the actual on-disk file-write path of send_ping.enqueue
+    (not just a stubbed enqueue). The bot's drain loop reads from this exact
+    directory, with the exact filename pattern, so any drift here breaks
+    the auto-ping path silently — like the bug we just fixed."""
+    sys.path.insert(0, str(REPO_ROOT / "scripts"))
+    import send_ping
+
+    inbox = tmp_path / "pending_pings"
+    monkeypatch.setattr(send_ping, "PENDING_PINGS_DIR", inbox)
+
+    # No tmp left over, dir created on demand, atomic rename to .json.
+    path = send_ping.enqueue("hello operator", priority="normal")
+    assert path.exists()
+    assert path.suffix == ".json"
+    assert not list(inbox.glob("*.json.tmp"))
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    assert payload == {"priority": "normal", "body": "hello operator"}
+
+    # Drain-loop filename filter: the bot picks files ending in .json
+    # but NOT .json.tmp (see telegram_query_bot._drain_pending_pings).
+    # If we ever change the suffix here, the drainer goes silent — pin it.
+    assert path.name.endswith(".json")
+    assert not path.name.endswith(".tmp")
+
+
 def test_main_returns_one_when_enqueue_fails(monkeypatch, tmp_path):
     """If the inbox can't be written, the script returns nonzero so the
     deploy log shows the failure."""

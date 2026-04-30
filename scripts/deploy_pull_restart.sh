@@ -56,7 +56,65 @@ POST_SYNC_HEAD=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
 echo ">>> Post-sync HEAD: ${POST_SYNC_HEAD}"
 
 # ---------------------------------------------------------------------------
-# Restart only when HEAD actually moved.
+# S-020: Telegram ping fanout, state-file driven.
+#
+# We compare against the LAST-NOTIFIED head (persisted in
+# runtime_logs/notify_state.txt), NOT this run's PRE_SYNC_HEAD. Why:
+# during S-019 debugging the operator manually `git reset --hard`d to
+# advance HEAD outside the timer's window. PRE_SYNC_HEAD only remembers
+# this run, so the next tick sees pre==post and skipped the ping —
+# CP-2026-04-30-15 (#226) was permanently lost. The state file fixes
+# that: as long as POST_SYNC_HEAD differs from what we last pinged for,
+# we ping, regardless of how HEAD got there.
+#
+# Auto-ping test flag: if runtime_flags/auto_ping_test.flag exists, we
+# force a notify_on_pull run with --force-checkpoint, which emits a
+# checkpoint ping even if the diff doesn't naturally include
+# CHECKPOINT_LOG.md. The flag file is consumed (deleted) on success.
+#
+# Failures here are logged but do NOT abort the deploy: a broken ping
+# channel must not break the deploy channel. The state file is updated
+# only on success, so the next tick retries.
+# ---------------------------------------------------------------------------
+NOTIFY_STATE_DIR="${REPO_DIR}/runtime_logs"
+NOTIFY_STATE_FILE="${NOTIFY_STATE_DIR}/notify_state.txt"
+AUTO_PING_TEST_FLAG="${REPO_DIR}/runtime_flags/auto_ping_test.flag"
+mkdir -p "${NOTIFY_STATE_DIR}"
+LAST_NOTIFIED_HEAD=$(cat "${NOTIFY_STATE_FILE}" 2>/dev/null || true)
+# Bootstrap: on first run after this fix lands the state file is absent.
+# notify_on_pull.py treats "unknown" as a hard short-circuit (no diff,
+# no blocker scan), so we'd silently miss the very first checkpoint
+# ping. Default to HEAD~1 so the merge commit's diff (which includes
+# CHECKPOINT_LOG.md when this PR lands) actually fires a ping.
+if [ -z "${LAST_NOTIFIED_HEAD}" ]; then
+    LAST_NOTIFIED_HEAD=$(git rev-parse HEAD~1 2>/dev/null || echo "unknown")
+    echo ">>> No notify_state.txt — bootstrapping with HEAD~1=${LAST_NOTIFIED_HEAD:0:7}"
+fi
+
+NOTIFY_ARGS=(--pre "${LAST_NOTIFIED_HEAD}" --post "${POST_SYNC_HEAD}")
+if [ -f "${AUTO_PING_TEST_FLAG}" ]; then
+    echo ">>> auto_ping_test.flag detected — adding --force-checkpoint"
+    NOTIFY_ARGS+=(--force-checkpoint)
+fi
+
+if [ "${LAST_NOTIFIED_HEAD}" != "${POST_SYNC_HEAD}" ] || [ -f "${AUTO_PING_TEST_FLAG}" ]; then
+    echo ">>> Sending Telegram pings (last_notified=${LAST_NOTIFIED_HEAD:0:7} -> head=${POST_SYNC_HEAD:0:7})..."
+    if /usr/bin/python3 scripts/notify_on_pull.py "${NOTIFY_ARGS[@]}"; then
+        echo ">>> Pings dispatched."
+        echo "${POST_SYNC_HEAD}" > "${NOTIFY_STATE_FILE}"
+        if [ -f "${AUTO_PING_TEST_FLAG}" ]; then
+            rm -f "${AUTO_PING_TEST_FLAG}"
+            echo ">>> Consumed auto_ping_test.flag."
+        fi
+    else
+        echo ">>> WARNING: notify_on_pull exited nonzero — leaving state file untouched so next tick retries."
+    fi
+else
+    echo ">>> notify state already at HEAD (${POST_SYNC_HEAD:0:7}); no pings to send."
+fi
+
+# ---------------------------------------------------------------------------
+# Restart only when HEAD actually moved during THIS run.
 #
 # Originally we restarted unconditionally on every 5-minute git-sync tick,
 # reasoning that a no-op restart is cheap. That broke the S-014.5
@@ -76,23 +134,9 @@ echo ">>> Post-sync HEAD: ${POST_SYNC_HEAD}"
 # git-sync tick (5 min) will pick up the change with no /vm in flight.
 # ---------------------------------------------------------------------------
 if [ "${PRE_SYNC_HEAD}" = "${POST_SYNC_HEAD}" ]; then
-    echo ">>> No new commits. Skipping dependency install and service restart."
+    echo ">>> No new commits in this pull. Skipping dependency install and service restart."
     echo "===== DEPLOY COMPLETE: $(date) ====="
     exit 0
-fi
-
-# ---------------------------------------------------------------------------
-# Telegram ping fanout (S-016 H3). Idempotent — only fires when HEAD
-# advanced. Reads token + chat-id from /etc/ict-trader/claude.env (or
-# whatever is in process env). Failures here are logged but do NOT abort
-# the deploy: a broken ping channel must not break the deploy channel.
-# ---------------------------------------------------------------------------
-echo ">>> Sending Telegram pings for new commits..."
-if /usr/bin/python3 scripts/notify_on_pull.py \
-    --pre "${PRE_SYNC_HEAD}" --post "${POST_SYNC_HEAD}"; then
-    echo ">>> Pings dispatched."
-else
-    echo ">>> WARNING: notify_on_pull exited nonzero — see journal for details."
 fi
 
 echo ">>> Code changed (${PRE_SYNC_HEAD:0:7} -> ${POST_SYNC_HEAD:0:7}). Installing/updating dependencies..."
