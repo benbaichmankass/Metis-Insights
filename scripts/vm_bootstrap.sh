@@ -110,6 +110,11 @@ echo "==> 5/7  Preparing transcript + prompt directories"
 sudo install -d -m 0750 -o ubuntu -g ubuntu /var/log/claude-vm
 sudo install -d -m 0750 -o ubuntu -g ubuntu /run/claude
 sudo install -d -m 0750 -o ubuntu -g ubuntu /run/claude/prompts
+# Claude Code state dirs — runner writes session-env, cache, and
+# config under HOME; ReadWritePaths in the unit needs these to exist.
+sudo install -d -m 0700 -o ubuntu -g ubuntu /home/ubuntu/.claude
+sudo install -d -m 0700 -o ubuntu -g ubuntu /home/ubuntu/.cache
+sudo install -d -m 0700 -o ubuntu -g ubuntu /home/ubuntu/.config/claude
 # /run is tmpfs — ensure the dir is recreated on every boot via tmpfiles.d.
 echo "d /run/claude         0750 ubuntu ubuntu - -" | \
   sudo tee /etc/tmpfiles.d/claude-vm.conf >/dev/null
