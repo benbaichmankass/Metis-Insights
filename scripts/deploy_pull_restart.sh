@@ -56,15 +56,38 @@ POST_SYNC_HEAD=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
 echo ">>> Post-sync HEAD: ${POST_SYNC_HEAD}"
 
 # ---------------------------------------------------------------------------
-# Only run pip install when HEAD actually moved. Restart services
-# unconditionally — the running Python processes hold the in-memory copy of
-# the previous revision, and a no-op restart is cheap (~5 s).
+# Restart only when HEAD actually moved.
+#
+# Originally we restarted unconditionally on every 5-minute git-sync tick,
+# reasoning that a no-op restart is cheap. That broke the S-014.5
+# Telegram-dispatched VM runner: a /vm invocation that lands within ~30 s
+# of the next git-sync tick gets killed by the bot restart (the wrapper
+# subprocess is in the bot's cgroup and dies with it).
+#
+# We now restart ONLY when the new HEAD differs from the pre-sync HEAD.
+# Trade-off: if an operator does a manual `git reset --hard` to a different
+# revision and the timer happens not to advance HEAD on its next tick,
+# the running Python processes will hold the previous in-memory copy
+# until the next deploy. That is a rare path and is handled by a manual
+# `sudo systemctl restart ict-trader-live ict-telegram-bot`.
+#
+# Defense in depth: even when HEAD advances, skip the restart if any
+# claude-vm-runner@*.service unit is currently active — the next
+# git-sync tick (5 min) will pick up the change with no /vm in flight.
 # ---------------------------------------------------------------------------
-if [ "${PRE_SYNC_HEAD}" != "${POST_SYNC_HEAD}" ]; then
-    echo ">>> Code changed (${PRE_SYNC_HEAD:0:7} -> ${POST_SYNC_HEAD:0:7}). Installing/updating dependencies..."
-    /usr/bin/python3 -m pip install -r requirements.txt --quiet
-else
-    echo ">>> No new commits. Skipping dependency install."
+if [ "${PRE_SYNC_HEAD}" = "${POST_SYNC_HEAD}" ]; then
+    echo ">>> No new commits. Skipping dependency install and service restart."
+    echo "===== DEPLOY COMPLETE: $(date) ====="
+    exit 0
+fi
+
+echo ">>> Code changed (${PRE_SYNC_HEAD:0:7} -> ${POST_SYNC_HEAD:0:7}). Installing/updating dependencies..."
+/usr/bin/python3 -m pip install -r requirements.txt --quiet
+
+if "${SYSTEMCTL[@]}" list-units 'claude-vm-runner@*.service' --state=active --no-legend 2>/dev/null | grep -q .; then
+    echo ">>> A claude-vm-runner unit is active — deferring service restart to the next sync tick to avoid killing an in-flight /vm invocation."
+    echo "===== DEPLOY COMPLETE (restart deferred): $(date) ====="
+    exit 0
 fi
 
 echo ">>> Restarting services..."
