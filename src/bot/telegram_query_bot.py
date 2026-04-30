@@ -19,6 +19,7 @@ import requests
 # Sprint S-002 M3: get_strategy_label is account-aware; load_account_env and
 # format_target_options deleted.
 from src.bot import data_loaders as dl
+from src.bot.vm_runner import handle_vm_command, RunnerResult, MAX_PROMPT_CHARS
 
 load_dotenv()
 
@@ -572,6 +573,8 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/accounts\\_status — Per-account risk state\n"
         "/risk\\_check <account> — Risk details for one account\n"
         "/webapp — Open the secure web dashboard\n"
+        "/vm <prompt> — Tier 1 read-only Claude on the VM\n"
+        "/vm\\_write <prompt> — Tier 2 mutating Claude on the VM \\(asks to confirm\\)\n"
         "/help — Show this menu"
     )
     await update.message.reply_text(text, parse_mode="Markdown")
@@ -1139,6 +1142,78 @@ async def cmd_checkpoint(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"⚠️ Could not read checkpoint log: {exc}")
 
 
+# ── VM-resident Claude runner (S-014.5) ──────────────────────────────────────
+#
+# /vm <prompt>        — Tier 1, read-only ops, no confirmation.
+# /vm_write <prompt>  — Tier 2, mutating ops, requires Telegram YES/NO.
+#
+# Tier 3 actions are pre-screened in src.bot.vm_runner.screen_for_tier3 and
+# refused here regardless of command. See docs/claude/vm-operator-mode.md.
+
+# Pending /vm_write confirmations, keyed by chat id. Single-slot per chat —
+# a second /vm_write while one is pending replaces the first (the first one
+# is implicitly cancelled). Bot is single-operator anyway so this is fine.
+_PENDING_VM_WRITE: dict[int, str] = {}
+
+_VM_WRITE_BUTTONS = InlineKeyboardMarkup([[
+    InlineKeyboardButton("✅ Confirm", callback_data="vm_write_confirm"),
+    InlineKeyboardButton("✖️ Cancel",  callback_data="vm_write_cancel"),
+]])
+
+
+async def _run_and_reply(
+    update: Update, prompt: str, tier: int
+) -> None:
+    """Spawn the runner in a thread (it blocks on systemd-run --wait) and
+    post the result back. Keeps the bot's event loop responsive."""
+    chat = update.effective_chat
+    progress = await update.message.reply_text(
+        f"🤖 VM runner spawned (tier {tier}). Waiting for transcript…"
+    )
+    result: RunnerResult = await asyncio.to_thread(handle_vm_command, prompt, tier)
+    icon = "✅" if result.ok else "⚠️"
+    await progress.edit_text(f"{icon} {result.telegram_text()}")
+
+
+async def cmd_vm(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Tier 1 — read-only VM diagnostics via Claude Code."""
+    if not is_authorised(update):
+        return
+    prompt = " ".join(context.args or []).strip()
+    if not prompt:
+        await update.message.reply_text(
+            "Usage: /vm <prompt>\n"
+            "Example: /vm what is the trader uptime and last error?\n"
+            f"Max {MAX_PROMPT_CHARS} chars. Tier 1 only — read-only ops."
+        )
+        return
+    await _run_and_reply(update, prompt, tier=1)
+
+
+async def cmd_vm_write(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Tier 2 — mutating ops. Stages the prompt; user confirms via inline button."""
+    if not is_authorised(update):
+        return
+    prompt = " ".join(context.args or []).strip()
+    if not prompt:
+        await update.message.reply_text(
+            "Usage: /vm_write <prompt>\n"
+            "Tier 2 — service restarts, file edits, branch push, PR open. "
+            "You'll be asked to confirm before the runner spawns."
+        )
+        return
+    chat_id = update.effective_chat.id
+    _PENDING_VM_WRITE[chat_id] = prompt
+    preview = prompt if len(prompt) <= 600 else prompt[:600] + "…"
+    await update.message.reply_text(
+        "⚠️ *Tier 2 (write) confirmation*\n\n"
+        f"```\n{preview}\n```\n\n"
+        "Confirm to spawn the runner with write permissions, or cancel.",
+        parse_mode="Markdown",
+        reply_markup=_VM_WRITE_BUTTONS,
+    )
+
+
 async def cmd_webapp(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Reply with a tap-to-open button for the secure web dashboard.
 
@@ -1233,7 +1308,25 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text("⛔ Unauthorised.")
         return
 
-    parts = (query.data or "").split(":", 1)
+    raw = query.data or ""
+    if raw == "vm_write_confirm":
+        chat_id = update.effective_chat.id
+        prompt = _PENDING_VM_WRITE.pop(chat_id, "")
+        if not prompt:
+            await query.edit_message_text("⏰ Confirmation expired or already actioned.")
+            return
+        await query.edit_message_text("🤖 Tier 2 confirmed — runner spawned. Waiting for transcript…")
+        result: RunnerResult = await asyncio.to_thread(handle_vm_command, prompt, 2)
+        icon = "✅" if result.ok else "⚠️"
+        await query.message.reply_text(f"{icon} {result.telegram_text()}")
+        return
+    if raw == "vm_write_cancel":
+        chat_id = update.effective_chat.id
+        _PENDING_VM_WRITE.pop(chat_id, None)
+        await query.edit_message_text("✖️ Cancelled.")
+        return
+
+    parts = raw.split(":", 1)
     if not parts or not parts[0]:
         return
     action = parts[0]
@@ -1568,6 +1661,8 @@ def main():
     application.add_handler(CommandHandler("sprintlet_complete", cmd_sprintlet_complete))
     application.add_handler(CommandHandler("checkpoint", cmd_checkpoint))
     application.add_handler(CommandHandler("webapp", cmd_webapp))
+    application.add_handler(CommandHandler("vm", cmd_vm))
+    application.add_handler(CommandHandler("vm_write", cmd_vm_write))
     application.add_handler(CallbackQueryHandler(callback_handler))
     application.run_polling()
 
