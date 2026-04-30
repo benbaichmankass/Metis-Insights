@@ -579,6 +579,9 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/backtest — Start backtest in background\n"
         "/latest\\_backtest — Backtest status/result\n"
         "/backtest\\_ui — How to launch the Streamlit backtesting dashboard\n\n"
+        "*Visibility*\n"
+        "/health — Per-unit status + data-file freshness\n"
+        "/vmstats — VM resource snapshot \\(uptime, load, mem, disk\\)\n\n"
         "*Web dashboard*\n"
         "/webapp — Open the secure web dashboard\n\n"
         "*VM-resident Claude (S-014.5)*\n"
@@ -1217,6 +1220,145 @@ async def cmd_checkpoint(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"⚠️ Could not read checkpoint log: {exc}")
 
 
+# ── /health and /vmstats (S-016 H2) ──────────────────────────────────────────
+
+
+_HEALTH_UNITS = (
+    "ict-trader-live",
+    "ict-telegram-bot",
+    "ict-web-api",
+    "ict-git-sync.timer",
+)
+_HEALTH_FILES: tuple[tuple[str, str], ...] = (
+    # (display_label, repo_relative_path)
+    ("runtime_status.json (last tick)", "runtime_logs/runtime_status.json"),
+    ("signal_audit.jsonl (last signal)", "runtime_logs/signal_audit.jsonl"),
+    ("trade_journal.db",                 "trade_journal.db"),
+)
+
+
+def _file_age(path: str) -> str:
+    """Return a short freshness string for *path*, e.g. ``42s``, ``7m``,
+    ``3h12m``. ``missing`` if the file isn't there. Used by /health."""
+    if not os.path.exists(path):
+        return "missing"
+    try:
+        mtime = os.path.getmtime(path)
+        size = os.path.getsize(path)
+    except OSError as exc:
+        return f"stat-err: {exc.__class__.__name__}"
+    age = max(0.0, datetime.now(timezone.utc).timestamp() - mtime)
+    if age < 60:
+        return f"{int(age)}s ({size}B)"
+    if age < 3600:
+        return f"{int(age / 60)}m ({size}B)"
+    if age < 86400:
+        h = int(age // 3600)
+        m = int((age % 3600) // 60)
+        return f"{h}h{m:02d}m ({size}B)"
+    return f"{int(age / 86400)}d ({size}B)"
+
+
+async def cmd_health(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Per-unit status snapshot — systemd units + key data files.
+
+    Designed to fit in one Telegram message; no cross-process
+    coordination, just file mtimes and ``systemctl is-active``.
+    """
+    if not is_authorised(update):
+        return
+    lines = ["🩺 *ICT Trading Bot — health*\n"]
+    lines.append("*Services*")
+    for unit in _HEALTH_UNITS:
+        status = get_service_status(unit)
+        icon = "🟢" if status == "active" else "🔴" if status == "failed" else "⚪️"
+        lines.append(f"  {icon} `{unit}` — {status}")
+    lines.append("\n*Data freshness*")
+    for label, rel_path in _HEALTH_FILES:
+        full = os.path.join(REPO_ROOT, rel_path)
+        lines.append(f"  • {label}: `{_file_age(full)}`")
+    lines.append(f"\n🕐 {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}")
+    await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
+
+
+def _read_loadavg() -> str:
+    try:
+        with open("/proc/loadavg", "r", encoding="utf-8") as fh:
+            parts = fh.read().split()
+        return " ".join(parts[:3]) if len(parts) >= 3 else "unknown"
+    except OSError:
+        return "unknown"
+
+
+def _read_uptime_human() -> str:
+    try:
+        with open("/proc/uptime", "r", encoding="utf-8") as fh:
+            secs = float(fh.read().split()[0])
+    except (OSError, ValueError):
+        return "unknown"
+    d, secs = divmod(int(secs), 86400)
+    h, secs = divmod(secs, 3600)
+    m, _ = divmod(secs, 60)
+    if d:
+        return f"{d}d {h}h {m}m"
+    if h:
+        return f"{h}h {m}m"
+    return f"{m}m"
+
+
+def _read_meminfo_mb() -> tuple[int, int]:
+    """Return (total_mb, available_mb). (0, 0) on read error."""
+    total = avail = 0
+    try:
+        with open("/proc/meminfo", "r", encoding="utf-8") as fh:
+            for line in fh:
+                if line.startswith("MemTotal:"):
+                    total = int(line.split()[1]) // 1024
+                elif line.startswith("MemAvailable:"):
+                    avail = int(line.split()[1]) // 1024
+                if total and avail:
+                    break
+    except (OSError, ValueError, IndexError):
+        return 0, 0
+    return total, avail
+
+
+def _disk_usage_repo() -> tuple[int, int]:
+    """Return (free_gb, total_gb) for the partition holding the repo."""
+    try:
+        import shutil
+        total, _, free = shutil.disk_usage(REPO_ROOT)
+        return free // (1024 ** 3), total // (1024 ** 3)
+    except OSError:
+        return 0, 0
+
+
+async def cmd_vmstats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """VM-side resource snapshot — uptime, load, memory, disk."""
+    if not is_authorised(update):
+        return
+    load = _read_loadavg()
+    uptime = _read_uptime_human()
+    mem_total, mem_avail = _read_meminfo_mb()
+    mem_used_pct = (
+        int(100 * (mem_total - mem_avail) / mem_total)
+        if mem_total else 0
+    )
+    disk_free_gb, disk_total_gb = _disk_usage_repo()
+    cpus = os.cpu_count() or 0
+    lines = [
+        "🖥️ *VM stats*\n",
+        f"⏱️ Uptime: `{uptime}`",
+        f"📈 Load (1/5/15 m): `{load}` on `{cpus}` CPU{'s' if cpus != 1 else ''}",
+        (f"🧠 Memory: `{mem_total - mem_avail}` / `{mem_total}` MB "
+         f"used (`{mem_used_pct}%`)" if mem_total else "🧠 Memory: unknown"),
+        (f"💾 Disk (repo partition): `{disk_free_gb}` / `{disk_total_gb}` GB free"
+         if disk_total_gb else "💾 Disk: unknown"),
+        f"\n🕐 {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}",
+    ]
+    await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
+
+
 # ── VM-resident Claude runner (S-014.5) ──────────────────────────────────────
 #
 # /vm <prompt>        — Tier 1, read-only ops, no confirmation.
@@ -1705,6 +1847,8 @@ def main():
             BotCommand("vm", "Tier 1 read-only Claude on the VM"),
             BotCommand("vm_write", "Tier 2 mutating Claude on the VM (asks to confirm)"),
             BotCommand("checkpoint", "Show latest checkpoint from CHECKPOINT_LOG.md"),
+            BotCommand("health", "Per-unit status + data-file freshness"),
+            BotCommand("vmstats", "VM resource snapshot (uptime, load, mem, disk)"),
             BotCommand("sprintlet_status", "Manual sprint milestone update: /sprintlet_status [note]"),
             BotCommand("sprintlet_complete", "Manual sprint-complete signal: /sprintlet_complete [sprint]"),
         ]
@@ -1737,6 +1881,8 @@ def main():
     application.add_handler(CommandHandler("sprintlet_status", cmd_sprintlet_status))
     application.add_handler(CommandHandler("sprintlet_complete", cmd_sprintlet_complete))
     application.add_handler(CommandHandler("checkpoint", cmd_checkpoint))
+    application.add_handler(CommandHandler("health", cmd_health))
+    application.add_handler(CommandHandler("vmstats", cmd_vmstats))
     application.add_handler(CommandHandler("webapp", cmd_webapp))
     application.add_handler(CommandHandler("vm", cmd_vm))
     application.add_handler(CommandHandler("vm_write", cmd_vm_write))
