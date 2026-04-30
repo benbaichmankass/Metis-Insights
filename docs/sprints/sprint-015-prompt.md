@@ -10,6 +10,15 @@ Run a self-contained training + backtest pass against the last 5 years of OHLCV.
 
 Not a "huge model" sprint — local-compute only. Aim for grids of cheap experiments rather than one expensive run.
 
+## Execution model — split across two sessions (added 2026-04-30)
+
+The sandbox the planning session runs in has the egress gateway allowlisted to **pypi + GitHub only** (probe results: every market-data host returned HTTP 403 from inside this box). Real data fetches will fail here. Therefore S-015 is split:
+
+- **Session A (this one — sandbox-bound, no market-data egress).** Build T1 harness + multi-source data fetcher + sampler + tests + a clearly-labeled synthetic fixture for the unit tests, plus the analysis-only T3 deliverables that don't need fresh data (TOD / per-symbol on existing repo fixtures). Open everything as draft PRs.
+- **Session B (next networked session — operator-online VM-resident OR a sandbox with market-data egress).** Pull the harness from Session A, run T2 (lock baseline), T4/T6/T7 (parameter + regime experiments), T9 (summary). Same draft-only rule. Operator merges the stack at end.
+
+If you find yourself in Session A and your draft for T2/T4/T6/T7 needs real OHLCV — **stop**, don't synthesize. Document in the checkpoint that the work is queued for Session B.
+
 ## Compute envelope (HARD)
 
 - **Local only.** No Colab, no Hugging Face GPU. The whole loop runs in the autonomous session.
@@ -25,9 +34,17 @@ Not a "huge model" sprint — local-compute only. Aim for grids of cheap experim
   - 13–36 months: weight `0.50`
   - 37–60 months: weight `0.25`
   Stratified shuffle so every fold sees a recency mix; no leakage across folds (no overlap inside a month).
-- **Source priority:** repo HF datasets first (`docs/claude/huggingface-workflows.md`), then open keyless sources (Bybit public, Coinbase public, yfinance for crypto pairs). **Never** Binance or other key-gated feeds (per `docs/claude/testing-policy.md`).
+- **Sources — open, keyless, NOT Bybit.** Training data must not come from the venue we trade on (avoids subtle leakage between training set and live execution). Order of fallthrough:
+  1. **Coinbase Exchange public REST** (`api.exchange.coinbase.com/products/<sym>/candles`).
+  2. **Kraken public REST** (`api.kraken.com/0/public/OHLC`).
+  3. **yfinance** (Yahoo Finance crypto pairs, e.g. `BTC-USD`).
+  4. **CryptoCompare keyless tier** (`min-api.cryptocompare.com/data/v2/histohour`).
+  5. **HuggingFace community OHLCV datasets** (per `docs/claude/huggingface-workflows.md`).
+  Each adapter must detect upstream errors (HTTP ≥ 400, DNS, timeout) and yield to the next source. If every source fails, raise — never silently substitute.
+- **NEVER** Binance, **NEVER** Bybit, **NEVER** any key-gated feed (per `docs/claude/testing-policy.md` + the no-leakage rule above).
 - **Slippage model:** 2 bps round-trip, applied symmetrically to entry + exit fills.
-- Cache the resampled monthly buckets under `data/backtests/sprint-015/` so reruns don't re-download.
+- Cache the resampled monthly buckets under `data/backtests/sprint-015/` so reruns don't re-download. Cache is keyed by `(symbol, timeframe, year, month, source)` so you can prove provenance per bucket.
+- **Synthetic OHLCV is permitted *only* in unit-test fixtures**, never as a fallback for an experiment run. If real data is unavailable, the harness must fail loudly, not silently substitute.
 
 ## Read order (binding)
 
