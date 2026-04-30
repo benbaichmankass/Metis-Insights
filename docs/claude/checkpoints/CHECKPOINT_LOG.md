@@ -11,6 +11,60 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-30-04 — S-014 kickoff + bot regression blocker
+
+- **Session date:** 2026-04-30
+- **Sprint:** S-014 — Web Client V1 (Home Dashboard) — kickoff only, no code yet.
+- **Current sprint phase:** prompt drafted + committed; M0 PR #1 (`/api/pnl/history`) is the next concrete action.
+- **Last completed checkpoint:** CP-2026-04-30-03 (S-013 SPRINT COMPLETE).
+- **Next checkpoint:** **CP-2026-MM-DD-NN — S-014 M0 PR #1: /api/pnl/history** — branch off latest `main` as `claude/s014-m0-pr1-pnl-history`; ship the backend gap-fill endpoint first, before any frontend lands.
+- **Telegram sent:** no (no creds in session)
+- **Alerts sent during session:** none
+- **Blockers:** **Telegram bot regression on production VM is unresolved.** PM reported commands "stopped working" after S-013 landed; diagnostics blocked because all five private keys in PM's OCI Cloud Shell `~/.ssh/` were rejected by the Oracle VM (`ict-bot`, public IP `158.178.210.252`). Local repro is clean (bot imports fine, 126 bot unit tests pass, no transitive web deps), so the failure is environmental on the VM. Resolution requires the operator to regain SSH (Oracle Console-connection key recovery) and paste `journalctl -u ict-telegram-bot -n 100 --no-pager`.
+
+### 1. Completed
+- S-013 wrap-up confirmed: 10 PRs merged on `main` (#173 kickoff, #174 M0, #175 M1, #176 M2 PR #1, #177 M2 PR #2, #178 M3 PR #1 PM-reviewed, #179 mid-sprint checkpoint, #180 M3 PR #2 PM-reviewed, #181 M4 PR #1 runbook, #182 M4 PR #2 close).
+- S-014 sprint prompt drafted with PM resolutions baked in:
+  1. Stack = HTMX + Jinja2 + Chart.js. **No Node anywhere** (PM rule: no VM-side deps that drift from repo merges).
+  2. Build artefacts committed directly under `web/static/`. Roadmap-meeting follow-up to revisit if bundle complexity grows.
+  3. `/api/pnl/history` reads `trade_journal.db` directly per request (SSoT). No caching, no parallel store.
+  4. Loopback-only hosting; reverse proxy + TLS deferred to a separate "S-014.5" sprint.
+- Prompt committed at `docs/sprints/sprint-014-prompt.md` (this PR).
+- Triage attempted on the bot regression: bot module imports cleanly locally with `python-telegram-bot 22.x`, all 126 bot unit tests pass, no transitive web-deps in the bot import chain. SSH diagnostics blocked.
+
+### 2. Files changed
+- `docs/sprints/sprint-014-prompt.md` (new)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+- `python scripts/secret_scan.py` — clean.
+- No code changes; pytest not required.
+
+### 4. Remaining
+- **S-014 execution** — 8 PRs across M0 → M4 per the prompt. M0 first.
+- **Bot regression** — operator-side SSH recovery before any code-side fix is possible. Carried in the prompt's "Standing item" so future sessions see it on every read.
+
+### 5. Next checkpoint
+**CP-2026-MM-DD-NN** — S-014 M0 PR #1: `/api/pnl/history`. Read order for the next session:
+
+1. This entry.
+2. `docs/sprints/sprint-014-prompt.md` (binding sprint prompt).
+3. `docs/sprint-summaries/sprint-013-summary.md` § "Architecture decisions" — the auth contract is unchanged.
+4. `src/web/api/routers/pnl.py` — pattern reference for the new `pnl_history.py`.
+5. `src/data_layer/database.py` — `trades` table schema; `is_backtest`, `account_id`, `pnl`, `status`, `created_at`, `timestamp`.
+
+Concrete first action: branch off latest `main` as `claude/s014-m0-pr1-pnl-history`; create `src/web/api/routers/pnl_history.py` and `tests/test_web_api_pnl_history.py`; mount the new router in `src/web/api/main.py`. Do NOT start frontend work until M0 PR #1 has merged.
+
+### 6. Standing item — production bot regression
+- **Symptom:** PM reported Telegram commands "stopped working" after S-013 landed on `main`.
+- **Diagnostic blocker:** all five SSH keys in PM's OCI Cloud Shell `~/.ssh/` rejected by `ict-bot` at `158.178.210.252`. Oracle Console-connection recovery is the path back in.
+- **What's been ruled out locally:** bot module imports cleanly with `python-telegram-bot==22.x`; all 126 bot unit tests pass; bot's import chain does NOT pull in any of the new S-013 web deps (`fastapi`, `uvicorn`, `pyjwt`, `email-validator`).
+- **Likely root cause classes** (in order, none confirmed without VM access): (a) VM auto-pulled `main` and restarted before `pip install -r requirements.txt` ran — but bot doesn't import the new deps, so this is unlikely; (b) systemd service crashed at startup with a Python traceback we can't see yet; (c) handler-specific runtime issue exposed only on the VM's Python or PTB version.
+- **Resolution:** once SSH is restored, run `sudo journalctl -u ict-telegram-bot -n 100 --no-pager` on the VM, paste the tail; the traceback alone almost certainly identifies the fix.
+- **Carry forward:** every future session should read this checkpoint and surface the bot regression at the top of the response until the operator confirms the bot is healthy again.
+
+---
+
 ## CP-2026-04-30-03 — S-013 SPRINT COMPLETE
 
 - **Session date:** 2026-04-30
