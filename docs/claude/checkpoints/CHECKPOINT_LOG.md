@@ -11,6 +11,80 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-30-13 — S-016 housekeeping COMPLETE (9 PRs merged, no DRAFTs left)
+
+- **Session date:** 2026-04-30
+- **Sprint:** S-016 — defensive housekeeping pass.
+- **Current sprint phase:** complete. All eight checkpoints (H0..H8) shipped + the H3 ping wiring.
+- **Last completed checkpoint:** CP-2026-04-30-12 (S-015 wrap).
+- **Next checkpoint:** **planning sprint** — operator's stated next step. Use `docs/claude/sprint-planning.md` template.
+- **Telegram sent:** the ping path now works on the VM (S-016 H3). This commit's CP-13 entry should fire a "high" priority ping on the next git-sync tick.
+- **Alerts sent during session:** none.
+- **Blockers:** none.
+
+### 1. PRs merged in S-016 (9 total)
+
+| PR | Title | Risk class |
+|---:|---|---|
+| #213 | H3: notify_on_pull — Telegram pings on checkpoint commits | infra (operator pre-approved self-merge) |
+| #214 | H0: housekeeping audit pass | docs |
+| #215 | H1: Telegram surface cleanup (strategy not service, no stale refs) | infra (bot UX) |
+| #216 | H2: /health and /vmstats visibility commands | infra (bot UX) |
+| #217 | H4: unit-independence check (deploy graph confirmed independent) | docs |
+| #218 | H5: conftest centralisation + git/testing docs (carry-overs) | infra (tests + docs) |
+| #219 | H6: requirements pinning + stale-branch listing tool | infra |
+| #220 | H7: operator action handoff doc | docs |
+| #221 | H8: final checkpoint + bug-log update (this PR) | docs |
+
+### 2. What this sprint actually fixed
+
+**Ping channel now works.** PR #213 wired `scripts/notify_on_pull.py` into the VM's existing `ict-git-sync.timer` → `deploy_pull_restart.sh` path. The script is stdlib + `requests` only (no pandas dependency, so it stays alive when the trader is broken). 16 unit tests cover blocker detection, queue drain, checkpoint parsing, and the no-token fallback. Latency is ≤ 5 min.
+
+**Telegram surface is current.** PR #215 dropped the systemd-unit-name leak from `/status`, fixed the hardcoded `"S-008.5"` in `cmd_sprintlet_*` (now reads from CHECKPOINT_LOG), reorganised `/start` into named sections, and added `/vm` + `/vm_write` to the BotCommand autocomplete.
+
+**Two new visibility commands.** `/health` (per-unit `systemctl is-active` + data-file freshness) and `/vmstats` (uptime + load + memory + disk).
+
+**Unit independence verified.** PR #217 confirmed there's no `Requires=`/`BindsTo=`/`PartOf=` between the three long-running units; trader crashes don't cascade. 4 adjacent risks (R1..R4) flagged for future sprints — including R2 (web-api WorkingDirectory) which is an operator-verify item on the live VM.
+
+**Bug log standing patterns surfaced.** The H5 carry-overs landed:
+- `tests/conftest.py` centralisation (BUG-010 — was breaking ~10 test files).
+- `docs/claude/git-workflow.md` recursive-whitelist convention (BUG-011, BUG-012).
+- `docs/claude/testing-policy.md` sandbox-egress note (BUG-015).
+
+**Repo hygiene.** Pinned `apscheduler`/`pytz`/`tzlocal` in `requirements.txt` (BUG-005). Split `requirements-test.txt` so the lean sandbox installs in one shot. New `scripts/list_stale_branches.sh` for the operator-driven branch prune.
+
+**Operator action handoff.** New `docs/operator-actions.md` with five outstanding items the operator needs to do (revoke leaked OAuth, configure Bybit API on VM, httpx log-filter, /opt path verification, optional branch prune). Each carries why/how/verify/status blocks.
+
+### 3. Files changed (cumulative)
+
+- New: `scripts/notify_on_pull.py`, `scripts/list_stale_branches.sh`, `requirements-test.txt`, `tests/conftest.py`, `tests/test_notify_on_pull.py`, `tests/test_telegram_surface_cleanup.py`, `tests/test_health_vmstats.py`.
+- New docs: `docs/audit/2026-04-30-housekeeping.md`, `docs/audit/2026-04-30-unit-independence.md`, `docs/operator-actions.md`.
+- Modified: `src/bot/telegram_query_bot.py` (cleaner /start, drop service-name leak, sprint-id from log, new cmd_health + cmd_vmstats, BotCommand re-ordered, /vm + /vm_write surfaced), `scripts/deploy_pull_restart.sh` (calls `notify_on_pull.py` after a HEAD-advancing pull), `requirements.txt` (apscheduler stack pinned), `docs/claude/git-workflow.md` (gitignore whitelist), `docs/claude/testing-policy.md` (sandbox-egress), `docs/claude/bug-log.md` (3 new entries + resolution markers + standing-pattern updates), 10 test files now use the conftest-centralised stubs.
+
+### 4. Tests run
+
+- `pytest tests/sprint015/ tests/test_telegram_*.py tests/test_health_vmstats.py tests/test_notify_on_pull.py tests/test_vwap_timeframe_5m.py tests/test_s012_hotfix_balance_and_signals.py -q` → **97 passing in 8.28 s** (was failing on import before BUG-010 fix).
+- `python scripts/secret_scan.py` → clean throughout.
+- `bash -n scripts/notify_on_pull.py scripts/list_stale_branches.sh scripts/deploy_pull_restart.sh` → ok.
+- Real-data dry-run of `notify_on_pull.py` correctly classified `CP-2026-04-30-12` as `high` priority (`WRAPPED` keyword).
+
+### 5. Remaining (next session — planning)
+
+Operator's stated sequence: housekeeping → **planning sprint** → next sprint. The planning sprint should:
+
+- Use `docs/claude/sprint-planning.md` template (binding from S-014).
+- Open with the bug-log standing patterns as architectural discussion topics: `config` (5 entries — settings resolver), `git` (4 — log-format redesign), `deploy` (4 — VM-as-contract), `tests` (2 — partial fix landed in S-016 H5).
+- Pick up the operator-action items from `docs/operator-actions.md` only if any of them block the next sprint's deliverables; otherwise leave them in the operator's queue.
+- The H4 `R2` operator-check (`/opt/ict-trading-bot` exists?) is a one-line `ls` on the VM — do this before the next sprint starts so the web-api is known-good.
+
+### 6. Improvements for next sprint (per CLAUDE.md § 5)
+
+1. **Move the bug-log entry-creation into the commit hook** — every fix PR should automatically prompt for a bug-log row. Today it's manual and we already missed adding a row for one of the H1 fixes until H8.
+2. **Wire CI** — even a `pytest tests/sprint015/ tests/test_telegram_*.py -q` GitHub Action would catch the BUG-010 / BUG-021 / BUG-016 class of regressions before they hit `main`. The repo currently has 0 configured CI jobs.
+3. **Make `notify_on_pull.py` log to `/var/log/claude-vm/notify-on-pull.log`** — currently logs to stdout via the `ict-git-sync.service` journal. A dedicated log makes "why didn't I get a ping" debuggable in one tail.
+
+---
+
 ## CP-2026-04-30-12 — S-015 Session A WRAPPED (10 PRs merged, no DRAFTs left)
 
 - **Session date:** 2026-04-30
