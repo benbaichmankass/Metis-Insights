@@ -19,30 +19,38 @@ USAGE
     PYTHONPATH=. python3 scripts/smoke_test_trade.py \\
         --account bybit_2 \\
         --qty 0.001 \\
-        --side buy \\
-        --confirm
+        --side buy
 
-The four flags are MANDATORY in LIVE mode. ``--dry-run`` swaps in a
-no-op execution path so the harness can be exercised without hitting
-the exchange.
+``--dry-run`` swaps in a no-op execution path so the harness can be
+exercised without hitting the exchange.
+
+AUTONOMOUS-TRADING RULE
+-----------------------
+Per ``CLAUDE.md`` § "Autonomous live-trading rule": the trader is
+designed to fire trades without per-trade operator confirmation.
+This script honours that — it does NOT require an interactive
+``--confirm`` flag in LIVE mode. The safety rails are entirely
+process-level (``ALLOW_LIVE_TRADING`` interlock + ``RiskManager``
+limits in ``safe_place_order`` + the hard ``qty`` cap below).
 
 SAFETY GUARDS
 -------------
-1. Hard cap: ``qty`` may not exceed ``MAX_SAFE_QTY`` (0.001 BTC). The
-   script refuses to start if the cap is exceeded.
-2. ``--confirm`` is mandatory in LIVE mode (i.e. when ``--dry-run`` is
-   absent). Missing the flag returns a usage error before any side
-   effect.
-3. Read-only against the strategy / order code paths: the script does
+1. Hard cap: ``qty`` may not exceed ``MAX_SAFE_QTY`` (0.001 BTC).
+   The script refuses to start if the cap is exceeded — typo guard,
+   not human-in-the-loop.
+2. Read-only against the strategy / order code paths: the script does
    NOT import ``src/units/strategies/*`` and does NOT modify
    ``src/runtime/orders.py``. It only constructs a signal dict and
-   passes it through the existing ``safe_place_order`` entry point.
-4. Refuses if ``ALLOW_LIVE_TRADING`` env-var is unset / false in live
-   mode (matches the production interlock).
-5. Tags every audit-log entry with ``strategy="smoke_test"`` and
+   passes it through the existing ``safe_place_order`` entry point —
+   the same entry point a real strategy signal uses.
+3. Refuses if ``ALLOW_LIVE_TRADING`` env-var is unset / false in
+   live mode. This is the standing process-level interlock; the
+   smoke can't accidentally fire if the env file disables live
+   trading.
+4. Tags every audit-log entry with ``strategy="smoke_test"`` and
    ``meta.is_smoke=True`` so future ``/strategies`` aggregations can
    exclude them.
-6. Post-fill, attempts an opposite-side close at the same ``qty``.
+5. Post-fill, attempts an opposite-side close at the same ``qty``.
    If the close fails, prints a loud warning so the operator can
    manually flatten via ``/closeall``.
 
@@ -228,8 +236,6 @@ def _parse_args(argv: Optional[list] = None) -> argparse.Namespace:
                    help="Free-form note recorded in meta.note.")
     p.add_argument("--dry-run", action="store_true",
                    help="Force DRY_RUN; safe_place_order will refuse the order.")
-    p.add_argument("--confirm", action="store_true",
-                   help="Required in LIVE mode. Omitted = usage error.")
     p.add_argument("--no-close", action="store_true",
                    help="Skip the post-fill opposite-side close (rare; for "
                         "operator-driven flow control).")
@@ -247,13 +253,6 @@ def main(argv: Optional[list] = None) -> int:
         return 2
     if args.qty <= 0:
         logger.error("qty must be > 0; got %s", args.qty)
-        return 2
-
-    if not args.dry_run and not args.confirm:
-        logger.error(
-            "LIVE mode requires --confirm. Pass --dry-run to exercise "
-            "the harness without an exchange call."
-        )
         return 2
 
     if not args.dry_run:

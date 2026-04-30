@@ -108,6 +108,26 @@ echo ">>> Restarting services..."
 "${SYSTEMCTL[@]}" restart ict-trader-live.service
 "${SYSTEMCTL[@]}" restart ict-telegram-bot.service
 
+# ---------------------------------------------------------------------------
+# S-017 T7: one-shot smoke trigger. If a sandbox/operator session committed
+# `runtime_flags/run_smoke_once.flag`, fire the smoke now via the
+# ict-smoke-once.service oneshot unit. The unit's wrapper deletes the
+# flag after running so a no-op re-pull does not refire.
+#
+# Per CLAUDE.md "Autonomous live-trading rule": this fires without
+# per-trade operator confirmation. Safety is enforced by the qty cap
+# in scripts/smoke_test_trade.py + ALLOW_LIVE_TRADING in the env.
+# ---------------------------------------------------------------------------
+if [ -f "${REPO_DIR}/runtime_flags/run_smoke_once.flag" ]; then
+    if [ -f /etc/systemd/system/ict-smoke-once.service ]; then
+        echo ">>> Smoke trigger flag detected — starting ict-smoke-once.service"
+        "${SYSTEMCTL[@]}" start ict-smoke-once.service || true
+    else
+        echo ">>> Smoke trigger flag detected but ict-smoke-once.service is not installed."
+        echo ">>> Operator: copy deploy/ict-smoke-once.service to /etc/systemd/system/ and 'systemctl daemon-reload'."
+    fi
+fi
+
 echo ">>> Service status:"
 "${SYSTEMCTL[@]}" status ict-trader-live.service --no-pager
 "${SYSTEMCTL[@]}" status ict-telegram-bot.service --no-pager
