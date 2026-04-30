@@ -164,10 +164,10 @@ python -m src.main
 
 ## Tests
 
-Run focused runtime/profile tests:
+Run focused validation tests:
 
 ```bash
-PYTHONPATH=. pytest -q tests/test_print_runtime_profile.py tests/test_runtime_validation.py
+PYTHONPATH=. pytest -q tests/test_validation.py tests/test_s012_live_mode.py
 ```
 
 Run the full test suite in the `tests/` folder:
