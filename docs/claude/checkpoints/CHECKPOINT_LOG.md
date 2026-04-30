@@ -11,6 +11,53 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-30-08 — S-014 M3 fragments shipped (T6 + T7), mid-session 3
+
+- **Session date:** 2026-04-30
+- **Sprint:** S-014 — Web Client V1 (Home Dashboard)
+- **Current sprint phase:** M1 + M3 fragments complete. Remaining: M2 PR #1 + #2 (login flow, PM review), M3 PR #3 (sparkline), M4 close.
+- **Last completed checkpoint:** CP-2026-04-30-07 (M1 shipped).
+- **Next checkpoint:** **CP-2026-04-30-09 — S-014 long autonomous run final** — emit after T9 (draft) + T10 final.
+- **Telegram sent:** no (operator unavailable; `/sprintlet_status` will be sent at T10).
+- **Alerts sent during session:** none.
+- **Blockers:** none.
+
+### 1. Completed (2 more PRs merged this checkpoint window — 6 total in session)
+
+| PR | Title | Status |
+|---|---|---|
+| #195 | S-014 M3 PR #1: GET /ui/fragments/status (auth-gated HTMX fragment) | ✅ merged |
+| #196 | S-014 M3 PR #2: GET /ui/fragments/pnl (auth-gated HTMX fragment) | ✅ merged |
+
+### 2. Files changed
+
+- `src/web/api/routers/status_fragment.py` (new) — `/ui/fragments/status`.
+- `src/web/api/routers/pnl_fragment.py` (new) — `/ui/fragments/pnl`.
+- `src/web/api/main.py` — both fragment routers included.
+- `web/templates/fragments/{status,status_unavailable,pnl,pnl_unavailable}.html` (new).
+- `web/static/css/app.css` — `.status-grid`, `.pnl-list`, `.pnl-row`, `.pnl-cell`, `.pnl-account` rules.
+- `.gitignore` — `!web/templates/**/*.html` recursive whitelist (so the fragments/ subdir isn't swallowed by `*.html`).
+- `tests/test_web_api_status_fragment.py` (new, 5 cases).
+- `tests/test_web_api_pnl_fragment.py` (new, 5 cases).
+
+### 3. Tests run
+
+- `python -c "import ast; ..."` — all changed Python files parse cleanly.
+- `python scripts/secret_scan.py` — clean.
+- `wc -l` — both PRs at exactly 250 LOC (budget 250).
+- Test suites for both fragments — deferred to CI (lean local pytest venv lacks fastapi/jinja2 per CLAUDE.md).
+
+### 4. Remaining (T9, T10)
+
+- **T9** — strategy/account wiring in `config/accounts.yaml` (turtle_soup → bybit_1, vwap → bybit_2; leave prop accounts disabled). PM REVIEW — push as **draft**, do not self-merge.
+- **T10** — final session checkpoint + Telegram `/sprintlet_status S-014 partial: 6 PRs merged, 1 draft for review`.
+
+### 5. Next checkpoint
+
+**CP-2026-04-30-09 — S-014 long autonomous run final** — closes out the session after T9 (draft) is opened and T10 is appended.
+
+---
+
 ## CP-2026-04-30-07 — S-014 M1 shipped (T3 + T4), mid-session 2
 
 - **Session date:** 2026-04-30
