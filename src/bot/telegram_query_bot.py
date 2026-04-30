@@ -49,6 +49,18 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO,
 )
+
+# S-017 T1 — match what the live trader (src/main.py) already does:
+# install the token-redacting filter on the root logger, and demote
+# httpx/httpcore to WARNING so the bot token doesn't appear in plaintext
+# in ``journalctl -u ict-telegram-bot``. python-telegram-bot uses httpx
+# under the hood and httpx logs every outgoing URL at INFO. Operator-
+# flagged in CP-2026-04-30-05; until S-017 only the trader process had
+# this protection — the bot process leaked.
+from src.utils.log_redact import install_redacting_filter, suppress_httpx_logging  # noqa: E402
+install_redacting_filter()
+suppress_httpx_logging()
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
