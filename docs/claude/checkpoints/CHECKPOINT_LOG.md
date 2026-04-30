@@ -11,6 +11,72 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-30-02 — S-013 M0 → M3 PR #1 (autonomous run; M3 PR #1 awaiting PM review)
+
+- **Session date:** 2026-04-30
+- **Sprint:** S-013 — Secure Web Dashboard: Backend Scaffold & Home Status
+- **Current sprint phase:** M3 PR #1 pushed as draft; **awaiting PM review** before merge. Subsequent PRs (M3 PR #2, M4 PR #1, M4 PR #2) are blocked on it.
+- **Last completed checkpoint:** CP-2026-04-30-01 (S-013 kickoff)
+- **Next checkpoint:** **CP-2026-04-30-03 — M3 PR #2: flip `require_session` to enforcement** — only after PR #178 (M3 PR #1) merges. Concrete first action: branch off latest `main`, change `require_session` body in `src/web/api/auth.py` from no-op passthrough to header parsing + `decode_token` + allowlist check; introduce a `PUBLIC_ROUTES` set in the same file; update `tests/test_web_api_status.py`, `tests/test_web_api_pnl.py`, and `tests/test_web_api_auth_login.py` regression-guard tests to assert the new enforced behaviour.
+- **Telegram sent:** no (no creds in session)
+- **Alerts sent during session:** none
+- **Blockers:** **PR #178 needs PM review.** New secrets handling (`JWT_SIGNING_KEY`, `WEBAPP_PASSWORD_SHA256`, `ALLOWED_EMAIL`) — not self-mergeable per `CLAUDE.md` § "Merging Rules" item 1.
+
+### 1. Completed (5 PRs merged + 1 draft awaiting PM)
+
+| PR | Title | Status |
+|---|---|---|
+| #173 | S-013 kickoff: sprint prompt, plan, ROADMAP update | ✅ merged |
+| #174 | S-013 M0 PR #1: clear 17 pre-existing failing tests | ✅ merged |
+| #175 | S-013 M1 PR #1: runtime status producer | ✅ merged |
+| #176 | S-013 M2 PR #1: GET /api/status (no-op auth) | ✅ merged |
+| #177 | S-013 M2 PR #2: GET /api/pnl (no-op auth) | ✅ merged |
+| #178 | S-013 M3 PR #1: POST /api/auth/login + JWT helpers | 🟡 **draft, PM REVIEW** |
+
+### 2. Files changed (across the run)
+- `docs/sprints/sprint-013-prompt.md` (new), `docs/sprint-plans/sprint-plan-2026-04-30.md` (new), `ROADMAP.md` (Phase 4 reframed), `docs/claude/checkpoints/CHECKPOINT_LOG.md` (kickoff entry).
+- `tests/test_runtime_validation.py`, `tests/test_runtime_smoke.py`, `tests/test_print_runtime_profile.py` (deleted — 17 failing tests; canonical replacements in `tests/test_validation.py` + `tests/test_s012_live_mode.py`); `README.md` snippet updated.
+- `src/web/runtime_status.py` (new — atomic JSON producer), one-line carve-out in `src/runtime/pipeline.py` (import + `write_status()` call at end of `run_pipeline()`).
+- `src/web/api/__init__.py`, `src/web/api/main.py`, `src/web/api/auth.py`, `src/web/api/routers/__init__.py`, `src/web/api/routers/status.py`, `src/web/api/routers/pnl.py`, `src/web/api/routers/auth.py` (last in PR #178).
+- `deploy/ict-web-api.service` (new staging unit, NOT enabled in prod). `tests/test_s012_service_consolidation.py` updated `EXPECTED_SERVICES` to include the new unit with an inline rationale comment so the canonical-set lock still holds.
+- `requirements.txt`: added `fastapi`, `uvicorn`, `httpx`, `pyjwt`, `email-validator`.
+- `.env.example`: documented `JWT_SIGNING_KEY`, `ALLOWED_EMAIL`, `WEBAPP_PASSWORD_SHA256`, `WEBAPP_URL` placeholders (no real values).
+- 4 new test files: `tests/test_s013_runtime_status.py` (11), `tests/test_web_api_status.py` (6), `tests/test_web_api_pnl.py` (6), `tests/test_web_api_auth_login.py` (15).
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/ -q --ignore=tests/test_main_loop.py` after each merged PR:
+  - post-#174: 1187 passed, 2 skipped, 0 failed (was 1153 / 17 failed pre-#174).
+  - post-#175: 1198 passed, 2 skipped, 0 failed.
+  - post-#176: 1204 passed, 2 skipped, 0 failed.
+  - post-#177: 1210 passed, 2 skipped, 0 failed.
+  - on PR #178 branch: 1225 passed, 2 skipped, 0 failed.
+- `python scripts/secret_scan.py` — clean throughout.
+
+### 4. Remaining (sprint scope)
+- **PM review of PR #178** (M3 PR #1).
+- **M3 PR #2 — enforce `require_session`** (blocked on M3 PR #1).
+- **M4 PR #1 — VM staging deployment runbook** (blocked on M3 PR #2).
+- **M4 PR #2 — `/webapp` Telegram command + sprint summary + final checkpoint** (blocked on M4 PR #1).
+
+### 5. Next checkpoint
+**CP-2026-04-30-03** — see "Next checkpoint" field above.
+
+Read order for the next session:
+1. This entry.
+2. PR #178 review state — `mcp__github__pull_request_read` for any comments/changes-requested.
+3. `docs/sprints/sprint-013-prompt.md` § "M3 PR #2" and "Auth contract".
+4. `docs/sprint-plans/sprint-plan-2026-04-30.md` § "M3 PR #2".
+5. The shipped helpers: `src/web/api/auth.py` (`decode_token`, `verify_password`, `_signing_key`), `tests/test_web_api_auth_login.py` (regression contract for the enforcement swap).
+
+Concrete first action for the next session: confirm PR #178 is merged on `main`. If not, surface PM-review questions instead of starting M3 PR #2.
+
+### 6. Operator notes
+- The dashboard service unit is named `ict-web-api.service` (not `ict-trader-web-api.service` as the original prompt suggested) so it does not match the `ict-trader-` trader-side prefix in `tests/test_s012_service_consolidation.py::test_only_one_trader_side_unit`. The sprint plan and runbook will adopt the new name in M4 PR #1.
+- `runtime_logs/runtime_status.json` is now produced on every tick; first-boot absence is gracefully handled by `/api/status` (returns 503, not 500).
+- All `/api/*` routes still pass through unauthenticated **until** M3 PR #2 lands; `ict-web-api.service` binds to `127.0.0.1` only as an interim safety guard.
+
+---
+
 ## CP-2026-04-30-01 — S-013 kickoff (planning docs)
 
 - **Session date:** 2026-04-30
