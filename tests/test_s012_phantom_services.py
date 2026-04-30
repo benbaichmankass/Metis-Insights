@@ -36,8 +36,8 @@ for _mod in ("telegram", "telegram.ext", "dotenv", "requests"):
 _tg = sys.modules["telegram"]
 _tg.Update = MagicMock
 _tg.BotCommand = MagicMock
-_tg.InlineKeyboardButton = MagicMock
-_tg.InlineKeyboardMarkup = MagicMock
+_tg.InlineKeyboardButton = lambda *a, **kw: MagicMock()  # S-016 H5 BUG-010 fix
+_tg.InlineKeyboardMarkup = lambda *a, **kw: MagicMock()  # S-016 H5 BUG-010 fix
 
 _tgext = sys.modules["telegram.ext"]
 _tgext.Application = MagicMock

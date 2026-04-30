@@ -70,3 +70,58 @@ PYTHONPATH=. pytest tests/test_vwap_strategy.py -q
 ## Missing dependencies
 
 If tests fail from missing optional packages, report the exact package and do not silently install broad dependency sets.
+
+## Sandbox network egress (S-015 BUG-015)
+
+When Claude Code runs in the **anthropic-managed sandbox** (the
+default environment for autonomous sessions), the egress gateway is
+allowlisted to:
+
+```
+✓ pypi.org, files.pythonhosted.org   (pip)
+✓ github.com, raw.githubusercontent.com, objects.githubusercontent.com
+✗ api.bybit.com, api.coinbase.com, api.kraken.com,
+✗ query1.finance.yahoo.com, min-api.cryptocompare.com,
+✗ api.coingecko.com, api.coinpaprika.com,
+✗ huggingface.co, datasets-server.huggingface.co,
+✗ kaggle.com, archive.org, data-api.binance.vision,
+✗ everything else (incl. Anthropic's own console.anthropic.com)
+```
+
+Probed exhaustively in S-015 T0 / S-015 post-clarification re-probe.
+Even with `curl -k` (insecure mode) the keyless market-data hosts
+return HTTP 403 — this is a **proxy allowlist**, not a TLS issue.
+
+### Implications
+
+- Real-time market-data fetches (any exchange API, even keyless) FAIL
+  in autonomous sandbox sessions. `scripts/sprint015/data_sources.py`
+  raises `DataUnavailableError` from any tier-1/2 adapter.
+- The **github-raw adapter** (S-015 PR #207) is the only working
+  source from the sandbox. Currently exposes `coinmetrics/data` daily
+  BTC + ETH from 2010 onwards. Hard-rule: only daily timeframes;
+  sub-daily requests return None so daily reference rates can't
+  masquerade as 5m / 15m bars.
+- `git clone` against arbitrary github repos works — useful for
+  pre-staging fixture data via repos under our control.
+
+### What to do when you need real intraday data
+
+For 5m / 15m / 1m bars — i.e. anything matching the live trader's
+timeframe — the autonomous sandbox cannot fetch them. Choose one:
+
+1. **Run on the Oracle VM** — the VM has unrestricted egress and
+   already-vetted credentials. The `/vm` Telegram dispatcher
+   (S-014.5) can launch a Claude session there. Tier 2 mutations
+   (e.g. `pip install`) need real-time operator confirmation in
+   Telegram.
+2. **Pre-stage data manually** — operator downloads from kaggle /
+   polygon / alpaca on a personal box, commits via `git lfs`. One-off,
+   no recurring pipeline.
+3. **Self-host an intraday mirror** — VM-side scheduled job mirrors
+   Coinbase / Kraken 5m to a public github repo. Harness adapter
+   targets that mirror.
+
+This note is the canonical place to document this — earlier sprints
+re-discovered it via a 30-host probe each time. If you're a Claude
+session reading this, the answer is "not from this sandbox".
