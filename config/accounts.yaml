@@ -17,31 +17,45 @@
 # max_dd_pct (intra-day, UTC midnight reset).
 
 accounts:
+  # bybit_1: turtle_soup only — operator-confirmed wallet holds BTC + USDT
+  # so the swept-and-reversal MTF strategy can size off either base asset.
   bybit_1:
     type: regular
     exchange: bybit
     api_key_env: BYBIT_API_KEY_1       # env var holding the actual key
-    strategies: [turtle_soup, vwap]
+    strategies: [turtle_soup]
     risk:
       max_dd_pct: 0.05                 # 5% max intra-day drawdown
       daily_usd: 100                   # $100 max daily loss
       pos_size: 500                    # $500 max single position
 
+  # bybit_2: vwap only — wallet holds USDT only, so vwap (mean-reversion
+  # against perp pair, USDT-margined) is the right fit. turtle_soup
+  # would have to size into BTC and would block on a missing base.
   bybit_2:
     type: regular
     exchange: bybit
     api_key_env: BYBIT_API_KEY_2
-    strategies: [turtle_soup, vwap]
+    strategies: [vwap]
     risk:
       max_dd_pct: 0.05
       daily_usd: 100
       pos_size: 500
 
+  # prop_breakout_1: DISABLED — no real prop account exists yet. Leaving
+  # the wiring scaffolded (PM directive) so future prop onboarding only
+  # has to add credentials and re-enable. ``strategies: []`` is the
+  # current load_accounts() contract for "no strategy is routed to this
+  # account" — the multiplexer cannot fire orders into an empty strategy
+  # list. Re-enable by adding the strategy names back.
   prop_breakout_1:
     type: prop
     exchange: breakout
     api_key_env: BREAKOUT_API_KEY_1
-    strategies: [turtle_soup, vwap]
+    strategies: []
+    enabled: false                     # forward-compat: current loader
+                                       # ignores this key, but a future
+                                       # filter at load time will use it.
     risk:
       max_dd_pct: 0.02                 # stricter: 2% max drawdown
       daily_usd: 50                    # stricter: $50 max daily loss
