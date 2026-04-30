@@ -1,0 +1,133 @@
+/* ICT Trading Bot — minimal dashboard CSS.
+   Single source of style; no preprocessor, no build step. */
+
+:root {
+  --bg:          #0e1117;
+  --bg-card:     #161b22;
+  --bg-elev:    #1f2630;
+  --fg:          #e6edf3;
+  --fg-muted:   #8b949e;
+  --accent:     #58a6ff;
+  --accent-hi:  #79b8ff;
+  --good:        #3fb950;
+  --bad:         #f85149;
+  --border:     #30363d;
+  --radius:     6px;
+  --gap:        1rem;
+  --font-mono:  "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 14px/1.5 -apple-system, "Segoe UI", system-ui, sans-serif;
+}
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { color: var(--accent-hi); text-decoration: underline; }
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-card);
+}
+.app-header .brand { font-weight: 600; letter-spacing: 0.02em; }
+.app-nav { display: flex; gap: 0.5rem; }
+
+.app-main { padding: var(--gap) 1.25rem; max-width: 1200px; margin: 0 auto; }
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: var(--gap);
+}
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+}
+.card-wide { grid-column: 1 / -1; }
+.card > header {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-elev);
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+.card > header h2 { margin: 0; font-size: 1rem; font-weight: 600; }
+.card-body { padding: 1rem; }
+.card-loading { color: var(--fg-muted); font-style: italic; }
+
+button, .button {
+  font: inherit;
+  background: var(--accent);
+  color: #0b0e13;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  padding: 0.5rem 0.9rem;
+  cursor: pointer;
+  font-weight: 600;
+}
+button:hover { background: var(--accent-hi); }
+button.ghost {
+  background: transparent;
+  color: var(--fg);
+  border-color: var(--border);
+  font-weight: 500;
+}
+button.ghost:hover { background: var(--bg-elev); color: var(--fg); }
+
+.login-card {
+  max-width: 360px;
+  margin: 4rem auto;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+}
+.login-card h1 { margin: 0 0 0.25rem; font-size: 1.4rem; }
+.login-card .hint { color: var(--fg-muted); margin: 0 0 1.25rem; font-size: 0.92rem; }
+.login-card form { display: flex; flex-direction: column; gap: 0.85rem; }
+.login-card label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; }
+.login-card input {
+  background: var(--bg-elev);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.5rem 0.65rem;
+  font: inherit;
+  font-family: var(--font-mono);
+}
+.login-card input:focus { outline: none; border-color: var(--accent); }
+.login-card .error { color: var(--bad); font-size: 0.9rem; margin: 0; }
+
+.pill {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border: 1px solid var(--border);
+  background: var(--bg-elev);
+  color: var(--fg-muted);
+}
+.pill.live { color: var(--good); border-color: var(--good); }
+.pill.dry  { color: var(--accent); border-color: var(--accent); }
+
+.metric { font-family: var(--font-mono); font-weight: 600; }
+.metric.positive { color: var(--good); }
+.metric.negative { color: var(--bad); }
+.muted { color: var(--fg-muted); }
+
+@media (max-width: 480px) {
+  .app-main { padding: 0.75rem; }
+  .login-card { margin: 1.5rem 0.5rem; }
+}
