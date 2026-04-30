@@ -12,6 +12,12 @@ After=network.target
 Type=oneshot
 User=ubuntu
 WorkingDirectory=/home/ubuntu/ict-trading-bot
+# S-018 fix: load .env so TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID reach
+# scripts/notify_on_pull.py. Without this, the H3 ping fanout silently
+# fell through (the script logged "would have sent N pings" and exited 0
+# because the env vars weren't set in the systemd unit's environment).
+# `-` prefix tolerates the file being absent on a fresh VM bootstrap.
+EnvironmentFile=-/home/ubuntu/ict-trading-bot/.env
 ExecStart=/bin/bash /home/ubuntu/ict-trading-bot/scripts/deploy_pull_restart.sh
 StandardOutput=journal
 StandardError=journal

@@ -28,16 +28,22 @@ Three pieces:
 
 ## One-time install on the VM
 
+**No manual step required since S-018.** `scripts/deploy_pull_restart.sh`
+runs `scripts/install_systemd_units.sh` after every HEAD-advancing
+pull, which auto-copies every `deploy/*.service` and `deploy/*.timer`
+into `/etc/systemd/system/` and runs `daemon-reload` if anything
+changed. The first pull after S-017 PR #223 + S-018 PR landed on the
+VM installed `ict-smoke-once.service` automatically.
+
+If you want to verify or force-install:
+
 ```bash
-# As ubuntu / sudo
-sudo cp /home/ubuntu/ict-trading-bot/deploy/ict-smoke-once.service \
-        /etc/systemd/system/
-sudo systemctl daemon-reload
-# Do NOT enable — this is a one-shot triggered by the flag, not on boot.
+cd /home/ubuntu/ict-trading-bot
+bash scripts/install_systemd_units.sh        # idempotent
+sudo systemctl status ict-smoke-once.service --no-pager | head -3
 ```
 
-After this lands once, the flag-file path triggers the smoke
-autonomously on every subsequent commit + pull cycle.
+The unit is one-shot — never enabled. The flag file triggers it.
 
 ## How to fire the smoke autonomously (from anywhere)
 

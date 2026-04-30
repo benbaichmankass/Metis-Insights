@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+# =============================================================================
+# Auto-install / refresh systemd units from deploy/ (S-018).
+#
+# The autonomous-deploy contract says: an operator pushes a commit
+# from anywhere with `git push`, the VM picks it up via
+# ict-git-sync.timer, services come up running the new code. New
+# systemd units (e.g. deploy/ict-smoke-once.service shipped in S-017)
+# used to require a manual `sudo cp ... && sudo systemctl daemon-reload`
+# on the VM — defeating the promise. This script closes that gap.
+#
+# Behaviour:
+#   - For every `deploy/*.service` and `deploy/*.timer` that's NOT a
+#     systemd template (i.e. doesn't contain `@`), compare against
+#     `/etc/systemd/system/<name>`. If different (or missing), copy
+#     the new version in.
+#   - `daemon-reload` ONCE at the end if any change happened.
+#   - DOES NOT enable / start / restart anything. The regular
+#     `deploy_pull_restart.sh` flow handles restarts of the long-
+#     running units.
+#   - Idempotent — second run with no changes is a no-op.
+#
+# Wiring: called from scripts/deploy_pull_restart.sh after a HEAD-
+# advancing pull, before the service-restart step.
+#
+# Required: passwordless sudo for `cp`, `systemctl daemon-reload` and
+# `chmod` (already granted in the existing deploy environment).
+# =============================================================================
+
+set -uo pipefail
+
+REPO_DIR=${REPO_DIR:-/home/ubuntu/ict-trading-bot}
+SYSTEMD_DIR=${SYSTEMD_DIR:-/etc/systemd/system}
+
+if [ "$(id -u)" -eq 0 ]; then
+    SUDO=()
+else
+    SUDO=(sudo)
+fi
+
+cd "$REPO_DIR"
+
+changed=0
+
+shopt -s nullglob
+for unit_path in deploy/*.service deploy/*.timer; do
+    unit_name=$(basename "$unit_path")
+    # Skip systemd template units (e.g. claude-vm-runner@.service) —
+    # those are installed once by the bootstrap script and don't get
+    # mass-refreshed.
+    if [[ "$unit_name" == *@* ]]; then
+        continue
+    fi
+
+    target="$SYSTEMD_DIR/$unit_name"
+
+    if [ ! -e "$target" ] || ! cmp -s "$unit_path" "$target"; then
+        echo ">>> install_systemd_units: $unit_name → $target"
+        "${SUDO[@]}" cp "$unit_path" "$target"
+        "${SUDO[@]}" chmod 0644 "$target"
+        changed=1
+    fi
+done
+shopt -u nullglob
+
+if [ "$changed" -eq 1 ]; then
+    echo ">>> install_systemd_units: daemon-reload"
+    if ! "${SUDO[@]}" systemctl daemon-reload 2>&1; then
+        # Test environments / containers without PID1 systemd can't
+        # daemon-reload. Log loudly but don't fail the deploy — the
+        # files are in place and the next real systemd start picks
+        # them up automatically.
+        echo ">>> install_systemd_units: WARN daemon-reload failed (no systemd in this env?)"
+    fi
+else
+    echo ">>> install_systemd_units: nothing to refresh."
+fi
+exit 0

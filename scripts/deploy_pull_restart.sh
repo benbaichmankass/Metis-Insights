@@ -98,6 +98,22 @@ fi
 echo ">>> Code changed (${PRE_SYNC_HEAD:0:7} -> ${POST_SYNC_HEAD:0:7}). Installing/updating dependencies..."
 /usr/bin/python3 -m pip install -r requirements.txt --quiet
 
+# ---------------------------------------------------------------------------
+# S-018 fix: auto-refresh systemd units from deploy/.
+#
+# Closes the gap that caused operator frustration: new .service / .timer
+# files used to require manual `sudo cp ... && systemctl daemon-reload`.
+# The installer is idempotent (compares each unit against /etc/systemd
+# /system; only copies + reloads on diff) and never restarts anything —
+# the existing flow below handles restarts for long-running units.
+# ---------------------------------------------------------------------------
+echo ">>> Refreshing systemd units from deploy/..."
+if bash "${REPO_DIR}/scripts/install_systemd_units.sh"; then
+    echo ">>> Systemd units in sync."
+else
+    echo ">>> WARNING: install_systemd_units.sh exited nonzero — see journal."
+fi
+
 if "${SYSTEMCTL[@]}" list-units 'claude-vm-runner@*.service' --state=active --no-legend 2>/dev/null | grep -q .; then
     echo ">>> A claude-vm-runner unit is active — deferring service restart to the next sync tick to avoid killing an in-flight /vm invocation."
     echo "===== DEPLOY COMPLETE (restart deferred): $(date) ====="
