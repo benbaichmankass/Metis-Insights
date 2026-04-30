@@ -146,6 +146,8 @@ _STRATEGY_DISPLAY = {
     "ict": "ICT",
     "vwap": "VWAP",
     "breakout": "Breakout",
+    "breakout_confirmation": "Breakout",
+    "turtle_soup": "Turtle Soup",
     "multiplexed": "Multi",
 }
 
@@ -157,20 +159,52 @@ _DEFAULT_STRATEGY_LABEL = "Strategy"
 def get_strategy_label(account: dict | None = None) -> str:
     """Return the display name for the active strategy.
 
-    Reads ``STRATEGY`` (or legacy ``STRATEGY_NAME``) from the account's .env
-    file. When called with no argument, uses the first account returned by
-    ``dl.list_accounts()``. Falls back to ``_DEFAULT_STRATEGY_LABEL`` when
-    STRATEGY is unset, unknown, or the env file is missing. Defensive against
-    missing/malformed env files because this is called at ``post_init`` time
-    and must never crash the bot.
+    Resolution order (S-012 PR hotfix — accounts.yaml strategies field):
+
+      1. ``STRATEGY`` (or legacy ``STRATEGY_NAME``) in the account's
+         .env file. Used by env-discovered accounts.
+      2. ``account["strategies"]`` from accounts.yaml. When the account
+         runs a single strategy, that name is shown; when it runs more
+         than one (the post-S-012 multiplexer norm), label is "Multi".
+      3. Fall back to the global ``STRATEGY`` env var.
+      4. ``_DEFAULT_STRATEGY_LABEL``.
+
+    Defensive against missing/malformed env files because this is called
+    at ``post_init`` time and must never crash the bot.
     """
     try:
         if account is None:
             accounts = dl.list_accounts() or []
             account = accounts[0] if accounts else {}
+
+        # 1. Per-account .env STRATEGY/STRATEGY_NAME
         env_vars = _account_env(account)
         raw = str(env_vars.get("STRATEGY", env_vars.get("STRATEGY_NAME", ""))).strip().lower()
-        return _STRATEGY_DISPLAY.get(raw, _DEFAULT_STRATEGY_LABEL)
+        if raw:
+            label = _STRATEGY_DISPLAY.get(raw)
+            if label:
+                return label
+
+        # 2. accounts.yaml strategies list
+        strategies = account.get("strategies") if isinstance(account, dict) else None
+        if isinstance(strategies, list) and strategies:
+            normalized = [str(s).strip().lower() for s in strategies if s]
+            if len(normalized) == 1:
+                label = _STRATEGY_DISPLAY.get(normalized[0])
+                if label:
+                    return label
+            elif len(normalized) > 1:
+                # Multi-strategy account → multiplexer label.
+                return _STRATEGY_DISPLAY["multiplexed"]
+
+        # 3. Process-wide STRATEGY env (the run_pipeline default since PR C5).
+        proc_raw = str(os.environ.get("STRATEGY", "")).strip().lower()
+        if proc_raw:
+            label = _STRATEGY_DISPLAY.get(proc_raw)
+            if label:
+                return label
+
+        return _DEFAULT_STRATEGY_LABEL
     except Exception:
         return _DEFAULT_STRATEGY_LABEL
 

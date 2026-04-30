@@ -286,12 +286,26 @@ def _load_env_accounts(repo_root: Optional[str] = None) -> List[Dict[str, Any]]:
 
 
 def list_accounts() -> List[Dict[str, Any]]:
-    """YAML entries first (if PyYAML installed), then ``.env`` discovery.
-    Deduplicated by ``account_id`` (first wins). Each dict has: ``account_id``,
-    ``exchange``, ``env_path``, ``service``, ``strategies``, ``source``."""
+    """Return all configured accounts.
+
+    S-012 PR B3 made config/accounts.yaml the single source of truth for
+    account identity (PM § 8 #3). When YAML accounts are present, env
+    discovery is skipped — otherwise the legacy ``.env`` file produces a
+    duplicate ``account_id="live"`` entry alongside the YAML accounts
+    (the "Breakout (live)" symptom in /status). Env discovery still runs
+    when YAML is absent so older deployments keep working.
+
+    Each dict has: ``account_id``, ``exchange``, ``env_path``,
+    ``service``, ``strategies``, ``source``.
+    """
     try:
+        yaml_accounts = _load_yaml_accounts()
+        if yaml_accounts:
+            return yaml_accounts
+
+        # Legacy fallback: only used when accounts.yaml is absent or empty.
         out, seen = [], set()
-        for acc in _load_yaml_accounts() + _load_env_accounts():
+        for acc in _load_env_accounts():
             aid = acc["account_id"]
             if aid in seen:
                 continue
@@ -438,9 +452,37 @@ def _bybit_client(env_vars: Dict[str, str]):
 
 
 def bybit_client_for(account: Dict[str, Any]):
-    """Return a Bybit HTTP client for ``account``, or ``None`` if creds are missing."""
+    """Return a Bybit HTTP client for ``account``, or ``None`` if creds are missing.
+
+    Resolution order (S-012 PR hotfix — accounts.yaml api_key_env contract):
+
+      1. ``account["api_key_env"]`` — the env-var name carrying the
+         API key (S-010 contract). When set, looks up
+         ``os.environ[<api_key_env>]`` and the matching ``..._SECRET``
+         (or ``api_secret_env`` when set explicitly). This is the path
+         used by all accounts.yaml entries (bybit_1, bybit_2, ...).
+      2. ``account["env_path"]`` — read ``BYBIT_API_KEY`` /
+         ``BYBIT_API_SECRET`` from the .env file. The legacy single-
+         account path; still used by env-discovered accounts.
+    """
     if not isinstance(account, dict):
         return None
+
+    # Path 1: api_key_env (accounts.yaml contract)
+    api_key_env = account.get("api_key_env")
+    if api_key_env:
+        api_key = os.environ.get(api_key_env)
+        secret_env = (
+            account.get("api_secret_env")
+            or api_key_env.replace("_API_KEY", "_API_SECRET")
+        )
+        api_secret = os.environ.get(secret_env)
+        if api_key and api_secret:
+            from pybit.unified_trading import HTTP  # type: ignore
+            testnet = str(os.environ.get("BYBIT_TESTNET", "false")).strip().lower() == "true"
+            return HTTP(testnet=testnet, api_key=api_key, api_secret=api_secret)
+
+    # Path 2: legacy env_path
     env = _read_env_file(account.get("env_path") or "")
     return _bybit_client(env)
 
