@@ -91,6 +91,8 @@ must NEVER touch them.
 | `/etc/claude/permissions.write.json` | `0644` | `root:root` | tier-2 policy (immutable to runner) |
 | `/etc/claude/vm-marker` | `0644` | `root:root` | host id, ocid prefix, bootstrap utc |
 | `/var/log/claude-vm/<id>.log` | `0640` | `ubuntu:ubuntu` | per-invocation transcript |
+| `/usr/local/bin/claude-vm-dispatch` | `0755` | `root:root` | privileged dispatch wrapper (immutable to runner) |
+| `/etc/sudoers.d/claude-vm-runner` | `0440` | `root:root` | passwordless sudo for the wrapper only |
 
 The runner runs as `ubuntu`, can **read** `claude.env` (group), and
 cannot **write** any of the policy files (root-owned, world-readable

@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+# /usr/local/bin/claude-vm-dispatch — privileged dispatcher for VM-resident Claude.
+#
+# Wrapper invoked by the Telegram bot through sudo (passwordless via
+# /etc/sudoers.d/claude-vm-runner). Validates its inputs strictly and
+# instantiates the claude-vm-runner@<id>.service template with the
+# right per-invocation Environment via a transient drop-in under /run.
+#
+# Args:
+#   $1 — invocation_id (digits only)
+#   $2 — tier ("1" or "2")
+#   $3 — prompt path (must be /run/claude/prompts/<digits>.txt and readable)
+#
+# Exit codes:
+#   2  — input validation failure (won't even touch systemd)
+#   *  — propagated from `systemctl start`
+#
+# Why a wrapper at all: sudoers wildcards can't safely constrain
+# arbitrary `systemd-run --setenv=…` invocations. A small wrapper with
+# strict regex validation gives us exactly the surface we want — one
+# sudoers entry, no shell escapes — instead of trying to whitelist
+# every variant of `systemd-run`.
+#
+# See docs/claude/vm-operator-mode.md for the authority contract.
+
+set -euo pipefail
+
+if [[ "$#" -ne 3 ]]; then
+    echo "ERROR: usage: $0 <invocation_id> <tier> <prompt_path>" >&2
+    exit 2
+fi
+
+INVOCATION_ID="$1"
+TIER="$2"
+PROMPT_PATH="$3"
+
+# Validate inputs. The bot already constrains these, but defense in
+# depth — never trust input that crosses a privilege boundary.
+if [[ ! "$INVOCATION_ID" =~ ^[0-9]+$ ]]; then
+    echo "ERROR: invocation_id must be digits only" >&2
+    exit 2
+fi
+if [[ "$TIER" != "1" && "$TIER" != "2" ]]; then
+    echo "ERROR: tier must be 1 or 2" >&2
+    exit 2
+fi
+if [[ ! "$PROMPT_PATH" =~ ^/run/claude/prompts/[0-9]+\.txt$ ]]; then
+    echo "ERROR: prompt path must match /run/claude/prompts/<digits>.txt" >&2
+    exit 2
+fi
+if [[ ! -r "$PROMPT_PATH" ]]; then
+    echo "ERROR: prompt file not readable: $PROMPT_PATH" >&2
+    exit 2
+fi
+if [[ ! -f /etc/claude/vm-marker ]]; then
+    echo "ERROR: /etc/claude/vm-marker missing — bootstrap incomplete" >&2
+    exit 2
+fi
+
+if [[ "$TIER" == "1" ]]; then
+    PROFILE=/etc/claude/permissions.read.json
+else
+    PROFILE=/etc/claude/permissions.write.json
+fi
+
+if [[ ! -r "$PROFILE" ]]; then
+    echo "ERROR: tier profile not readable: $PROFILE" >&2
+    exit 2
+fi
+
+UNIT="claude-vm-runner@${INVOCATION_ID}.service"
+TRANSCRIPT="/var/log/claude-vm/${INVOCATION_ID}.log"
+DROPIN_DIR="/run/systemd/system/${UNIT}.d"
+
+# Per-invocation env via a runtime drop-in. /run is tmpfs, so this
+# evaporates on reboot; we also clean up on exit.
+mkdir -p "$DROPIN_DIR"
+cat > "${DROPIN_DIR}/env.conf" <<EOF
+[Service]
+Environment=CLAUDE_VM_PROFILE=${PROFILE}
+Environment=CLAUDE_VM_PROMPT_FILE=${PROMPT_PATH}
+Environment=CLAUDE_VM_TRANSCRIPT=${TRANSCRIPT}
+EOF
+
+cleanup() {
+    rm -rf "$DROPIN_DIR" 2>/dev/null || true
+    /bin/systemctl daemon-reload 2>/dev/null || true
+    /bin/systemctl reset-failed "$UNIT" 2>/dev/null || true
+}
+trap cleanup EXIT
+
+/bin/systemctl daemon-reload
+
+# Type=oneshot in the template means `systemctl start` blocks until
+# the unit completes (success or failure), so we can rely on its rc.
+/bin/systemctl start "$UNIT"

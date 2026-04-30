@@ -45,7 +45,7 @@ EnvironmentFile=/etc/ict-trader/claude.env
 ExecStartPre=/usr/bin/test -f /etc/claude/vm-marker
 ExecStartPre=/usr/bin/test -r ${CLAUDE_VM_PROFILE}
 ExecStartPre=/usr/bin/test -r ${CLAUDE_VM_PROMPT_FILE}
-ExecStart=/usr/bin/env bash -c 'cat "$$CLAUDE_VM_PROMPT_FILE" | /usr/bin/claude -p --settings "$$CLAUDE_VM_PROFILE" --output-format stream-json --include-partial-messages > "$$CLAUDE_VM_TRANSCRIPT" 2>&1'
+ExecStart=/usr/bin/env bash -c 'cat "$$CLAUDE_VM_PROMPT_FILE" | /usr/bin/claude -p --settings "$$CLAUDE_VM_PROFILE" > "$$CLAUDE_VM_TRANSCRIPT" 2>&1'
 
 # Cleanup: drop the prompt file from /run (tmpfs, gone on reboot anyway,
 # but be tidy).

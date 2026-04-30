@@ -116,19 +116,38 @@ echo "d /run/claude         0750 ubuntu ubuntu - -" | \
 echo "d /run/claude/prompts 0750 ubuntu ubuntu - -" | \
   sudo tee -a /etc/tmpfiles.d/claude-vm.conf >/dev/null
 
-echo "==> 6/7  Installing claude-vm-runner@.service"
+echo "==> 6a/7 Installing claude-vm-runner@.service"
 sudo install -m 0644 -o root -g root \
   "${REPO_DIR}/deploy/claude-vm-runner@.service" \
   /etc/systemd/system/claude-vm-runner@.service
+
+echo "==> 6b/7 Installing claude-vm-dispatch wrapper + sudoers"
+sudo install -m 0755 -o root -g root \
+  "${REPO_DIR}/deploy/claude-vm-dispatch" /usr/local/bin/claude-vm-dispatch
+# Stage the sudoers file in /etc/sudoers.d after a visudo -c check.
+TMP_SUDOERS="$(mktemp)"
+cp "${REPO_DIR}/deploy/claude-vm-runner.sudoers" "${TMP_SUDOERS}"
+if ! sudo visudo -cf "${TMP_SUDOERS}"; then
+  echo "    sudoers file failed visudo -c check; refusing to install" >&2
+  rm -f "${TMP_SUDOERS}"
+  exit 1
+fi
+sudo install -m 0440 -o root -g root \
+  "${TMP_SUDOERS}" /etc/sudoers.d/claude-vm-runner
+rm -f "${TMP_SUDOERS}"
+
 sudo systemctl daemon-reload
 
 echo "==> 7/7  Verifying"
-echo "    claude:           $(command -v claude)"
-echo "    vm-marker:        $(sudo test -f /etc/claude/vm-marker && echo present || echo MISSING)"
-echo "    permissions.read: $(sudo test -r /etc/claude/permissions.read.json && echo readable || echo MISSING)"
-echo "    permissions.write:$(sudo test -r /etc/claude/permissions.write.json && echo readable || echo MISSING)"
-echo "    runner unit:      $(systemctl cat claude-vm-runner@.service >/dev/null 2>&1 && echo registered || echo MISSING)"
-echo "    swap:             $(free -m | awk '/Swap:/ {print $2}') MB"
+echo "    claude:            $(command -v claude)"
+echo "    vm-marker:         $(sudo test -f /etc/claude/vm-marker && echo present || echo MISSING)"
+echo "    permissions.read:  $(sudo test -r /etc/claude/permissions.read.json && echo readable || echo MISSING)"
+echo "    permissions.write: $(sudo test -r /etc/claude/permissions.write.json && echo readable || echo MISSING)"
+echo "    runner unit:       $(systemctl cat claude-vm-runner@.service >/dev/null 2>&1 && echo registered || echo MISSING)"
+echo "    dispatch wrapper:  $(test -x /usr/local/bin/claude-vm-dispatch && echo executable || echo MISSING)"
+echo "    sudoers:           $(sudo test -r /etc/sudoers.d/claude-vm-runner && echo installed || echo MISSING)"
+echo "    sudo (passwordless): $(sudo -n -l /usr/local/bin/claude-vm-dispatch >/dev/null 2>&1 && echo ok || echo MISSING)"
+echo "    swap:              $(free -m | awk '/Swap:/ {print $2}') MB"
 echo
 echo "Bootstrap complete. Restart the Telegram bot to enable /vm and /vm_write:"
 echo "    sudo systemctl restart ict-telegram-bot"
