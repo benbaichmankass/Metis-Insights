@@ -11,6 +11,37 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-30-15 — S-018 ping wiring verification
+
+- **Session date:** 2026-04-30
+- **Sprint:** S-018 — fix Telegram pings + auto-install systemd units (closed PR #225).
+- **Current sprint phase:** verifying the H3 ping path actually fires after the EnvironmentFile fix.
+- **Last completed checkpoint:** CP-2026-04-30-14.
+- **Next checkpoint:** **CP-…-S017-VERIFIED** — when the operator runs the smoke and reports back.
+- **Telegram sent:** this checkpoint *should* fire a normal-priority ping within ~5 min of the next `ict-git-sync.timer` tick on the VM.
+- **Blockers:** none — purely a verification ping.
+
+### Why this checkpoint exists
+
+PR #225 fixed two latent failures: `ict-git-sync.service` had no `EnvironmentFile=` (so `notify_on_pull.py` never saw `TELEGRAM_BOT_TOKEN`), and new systemd units required manual `sudo cp` (so `ict-smoke-once.service` from S-017 was never on the VM). The fix was autonomous (timer-triggered auto-install).
+
+This checkpoint is a deliberate ping-trigger:
+- HEAD advances (this commit is new on `main`).
+- Diff touches `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this file).
+- Both conditions match `scripts/notify_on_pull.py`'s ping-emit gate.
+
+If the operator receives a `ℹ️ CP-2026-04-30-15 — S-018 ping wiring verification` ping in Telegram within ~5 min, the H3 wiring is finally end-to-end green and BUG-018 from `docs/claude/bug-log.md` is fully resolved.
+
+If no ping arrives, the next diagnostic step is on the VM:
+
+```bash
+sudo journalctl -u ict-git-sync.service -n 80 --no-pager | tail -30
+```
+
+…look for the line `Sending Telegram pings for new commits...` and what comes after. The most likely remaining cause is `TELEGRAM_BOT_TOKEN` not being in `/home/ubuntu/ict-trading-bot/.env`. If that's the case, the operator can either add it there OR I can wire a different env source (e.g. `/etc/ict-trader/claude.env`).
+
+---
+
 ## CP-2026-04-30-14 — S-017 ARMED (smoke trigger ready, awaiting first fire)
 
 - **Session date:** 2026-04-30
