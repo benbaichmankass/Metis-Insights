@@ -1,4 +1,5 @@
 from src.runtime.signal_notifications import get_last_signals, format_signals
+import json
 import os
 import logging
 import sqlite3
@@ -319,13 +320,47 @@ def _account_env(account: dict) -> dict:
         return {}
 
 
+def _bybit_creds_diagnostic(account: dict) -> str | None:
+    """Return a diagnostic string when an account is missing Bybit creds.
+
+    Returns ``None`` when both API key + secret env vars are present
+    (in which case any balance failure is on the API side, not config).
+    """
+    api_key_env = (account or {}).get("api_key_env")
+    if api_key_env:
+        secret_env = (
+            account.get("api_secret_env")
+            or api_key_env.replace("_API_KEY", "_API_SECRET")
+        )
+        missing = [name for name in (api_key_env, secret_env) if not os.environ.get(name)]
+        if missing:
+            return (
+                f"missing env vars: {', '.join(missing)} "
+                f"(declared in config/accounts.yaml; export them in the systemd "
+                f"unit's EnvironmentFile)."
+            )
+        return None
+    env_path = (account or {}).get("env_path")
+    if env_path:
+        if not os.path.exists(env_path):
+            return f"env_path does not exist: {env_path}"
+        return None
+    return (
+        "no api_key_env (accounts.yaml) and no env_path (legacy .env) "
+        "configured for this account."
+    )
+
+
 def format_bybit_balance(account: dict) -> str:
     """Render the per-coin Bybit balance block for one account.
     Data is sourced via ``dl.account_balance``; this function only formats."""
     label = get_strategy_label(account)
+    aid = (account or {}).get("account_id", "?")
     payload = dl.account_balance(account)
     if payload is None:
-        return f"💰 *{label} Balance*\n⚠️ Bybit error: balance unavailable."
+        diag = _bybit_creds_diagnostic(account)
+        suffix = f"\n→ {diag}" if diag else ""
+        return f"💰 *{label} Balance* (`{aid}`)\n⚠️ Bybit error: balance unavailable.{suffix}"
     raw = (payload or {}).get("raw") or {}
     result_list = (raw.get("result") or {}).get("list") or []
     if not result_list:
@@ -529,6 +564,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/toggle — Start or stop the trader service\n"
         "/download\\_journal — Download trade journal DB\n"
         "/last5 — Last 5 trade signals\n"
+        "/signals \\[N\\] \\[strategy\\] — Recent pipeline signals from audit log\n"
         "/backtest — Start backtest in background\n"
         "/latest\\_backtest — Backtest status/result\n"
         "/price — Current BTC price\n"
@@ -777,6 +813,116 @@ async def cmd_last5(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception as e:  # noqa: BLE001
             await update.message.reply_text(
                 f"⚠️ Could not render trade: {e}")
+
+
+# ---------------------------------------------------------------------------
+# /signals — show recent pipeline signals from runtime_logs/signal_audit.jsonl
+# ---------------------------------------------------------------------------
+
+# S-012 PR E4 wires the audit log; this command surfaces it to the
+# operator. Arguments:
+#   /signals          → last 10 signals across all strategies
+#   /signals 25       → last 25
+#   /signals vwap     → last 10 for the vwap strategy
+#   /signals turtle_soup 5
+SIGNAL_AUDIT_PATH = os.path.join(
+    REPO_ROOT, "runtime_logs", "signal_audit.jsonl"
+)
+_SIGNAL_STATUS_EMOJI = {
+    "submitted": "🟢",
+    "dry_run":   "🟡",
+    "skipped":   "⚪️",
+    "halted":    "🛑",
+    "failed_validation": "🔴",
+    "failed_exchange":   "❌",
+    "refused":   "🚫",
+    "blocked":   "🚫",
+}
+
+
+def _read_audit_tail(path: str, limit: int) -> list[dict]:
+    """Return the last ``limit`` JSON records from ``path`` (newest LAST)."""
+    if not os.path.exists(path):
+        return []
+    try:
+        # Pull the last 4× the limit lines from the end of the file so we
+        # have headroom after filter/parse failures, but never the whole
+        # file in memory.
+        from collections import deque
+        wanted = max(limit * 4, 50)
+        with open(path, "r", encoding="utf-8", errors="replace") as fh:
+            tail = deque(fh, maxlen=wanted)
+        out: list[dict] = []
+        for line in tail:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                out.append(json.loads(line))
+            except Exception:
+                continue
+        return out
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("_read_audit_tail(%s): %s", path, exc)
+        return []
+
+
+def _format_signal_row(rec: dict) -> str:
+    """Render one signal_audit.jsonl record for a Telegram block."""
+    ts = str(rec.get("logged_at_utc", ""))[:19].replace("T", " ")
+    strategy = str(rec.get("strategy", "?"))
+    symbol = str(rec.get("symbol", "?"))
+    side = str(rec.get("side", "?"))
+    qty = rec.get("qty")
+    qty_s = f"{float(qty):.4f}" if isinstance(qty, (int, float)) else "?"
+    status = str(rec.get("status", "?"))
+    emoji = _SIGNAL_STATUS_EMOJI.get(status, "•")
+    reason = str(rec.get("reason") or "")
+    reason_s = f" — _{reason[:60]}_" if reason else ""
+    return (
+        f"{emoji} `{ts}` {strategy} {symbol} {side} {qty_s} "
+        f"→ *{status}*{reason_s}"
+    )
+
+
+async def cmd_signals(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show recent signals from runtime_logs/signal_audit.jsonl."""
+    if not is_authorised(update):
+        return
+
+    args = list(context.args or [])
+    strategy_filter: str | None = None
+    limit = 10
+    for arg in args:
+        if arg.isdigit():
+            limit = max(1, min(int(arg), 100))
+        else:
+            strategy_filter = arg.strip().lower()
+
+    records = _read_audit_tail(SIGNAL_AUDIT_PATH, limit * 5 if strategy_filter else limit)
+    if strategy_filter:
+        records = [r for r in records if str(r.get("strategy", "")).lower() == strategy_filter]
+    records = records[-limit:]
+
+    if not records:
+        scope = f" for `{strategy_filter}`" if strategy_filter else ""
+        await update.message.reply_text(
+            f"📭 No signals logged yet{scope}.\n"
+            f"Audit file: `{SIGNAL_AUDIT_PATH}`",
+            parse_mode="Markdown",
+        )
+        return
+
+    header = (
+        f"📡 *Last {len(records)} signals"
+        + (f" — {strategy_filter}*" if strategy_filter else "*")
+    )
+    body = "\n".join(_format_signal_row(r) for r in records)
+    await update.message.reply_text(
+        f"{header}\n{body}",
+        parse_mode="Markdown",
+        disable_web_page_preview=True,
+    )
 
 
 async def cmd_log(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1348,6 +1494,7 @@ def main():
             BotCommand("closeall", f"Close all {label} positions"),
             BotCommand("strategies", "Per-strategy signals, PnL and positions"),
             BotCommand("last5", "Last 5 journal entries"),
+            BotCommand("signals", "Recent pipeline signals: /signals [N] [strategy]"),
             BotCommand("backtest", "Run backtest"),
             BotCommand("latest_backtest", "Latest backtest result"),
             BotCommand("log", f"Show {label} trader logs"),
@@ -1377,6 +1524,7 @@ def main():
     application.add_handler(CommandHandler("closeall", cmd_closeall))
     application.add_handler(CommandHandler("strategies", cmd_strategies))
     application.add_handler(CommandHandler("last5", cmd_last5))
+    application.add_handler(CommandHandler("signals", cmd_signals))
     application.add_handler(CommandHandler("backtest", cmd_backtest))
     application.add_handler(CommandHandler("latest_backtest", cmd_latest_backtest))
     application.add_handler(CommandHandler("log", cmd_log))
