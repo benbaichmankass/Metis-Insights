@@ -1,0 +1,39 @@
+# =============================================================================
+# Test-only dependencies (S-016 H6).
+#
+# Lean Claude sandbox environments don't ship pandas / scipy / sklearn
+# / fastapi by default. Across S-014..S-015 every session re-installed
+# these piecemeal via `pip install --user pandas scipy ...`. Putting
+# them in one file lets the next session run a single command:
+#
+#     pip install --user -r requirements-test.txt
+#
+# These are NOT installed on the production VM unless the operator
+# runs the test suite there. The runtime requirements are in
+# requirements.txt.
+# =============================================================================
+
+# Test runner (pulled in by uv tool venv on most dev machines, but
+# the lean sandbox needs an explicit user-site install).
+pytest>=8.0
+
+# Used by sprint015 backtest harness + the existing test suite.
+# Floor pins match production requirements.txt to avoid drift.
+pandas>=2.0.0
+numpy>=1.24.0
+scipy>=1.11.0
+scikit-learn>=1.3.0
+statsmodels>=0.14.0
+
+# Used by tests that import via the FastAPI dashboard router stack.
+fastapi>=0.110.0
+httpx>=0.27.0
+jinja2>=3.0.0
+pyjwt>=2.8.0
+
+# Optional intraday source adapters (data_sources.py).
+yfinance>=0.2.0
+
+# python-telegram-bot is stubbed by tests/conftest.py; install it only
+# if you want to exercise the real handlers (rare).
+# python-telegram-bot>=20.0
