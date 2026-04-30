@@ -158,7 +158,18 @@ def build_settings_from_env() -> dict:
     """
     Build a settings dict from validated environment variables.
     Call validate_startup() first.
+
+    Live-mode flags are emitted under BOTH casings: the lowercase
+    keys are kept for back-compat with callers that read settings
+    like a typed config object; the UPPERCASE keys match
+    safe_place_order()'s lookups (which expects env-var-style names).
+    Without the uppercase aliases the per-tick order-layer interlock
+    silently rejects every order with reason
+    "ALLOW_LIVE_TRADING=true is required for live submission" even
+    when the env was set correctly (S-012 hotfix).
     """
+    dry_run_bool = _env("DRY_RUN").lower() == "true"
+    allow_live_bool = _env("ALLOW_LIVE_TRADING").lower() == "true"
     return {
         "exchange":           _env("EXCHANGE").lower(),
         "mode":               _env("MODE").upper(),
@@ -166,8 +177,8 @@ def build_settings_from_env() -> dict:
         "timeframe":          _env("TIMEFRAME"),
         "risk_per_trade":     float(_env("RISK_PER_TRADE")),
         "max_qty":            float(_env("MAX_QTY")),
-        "dry_run":            _env("DRY_RUN").lower() == "true",
-        "allow_live_trading": _env("ALLOW_LIVE_TRADING").lower() == "true",
+        "dry_run":            dry_run_bool,
+        "allow_live_trading": allow_live_bool,
         "log_level":          _env("LOG_LEVEL") or "INFO",
         "tick_interval":      int(_env("TICK_INTERVAL_SECONDS") or "900"),
         "loop":               _env("LOOP").lower() == "true",
@@ -176,4 +187,12 @@ def build_settings_from_env() -> dict:
         "MAX_POSITION_USD":   _env("MAX_POSITION_USD") or None,
         "MAX_DAILY_LOSS_USD": _env("MAX_DAILY_LOSS_USD") or None,
         "MAX_OPEN_POSITIONS": _env("MAX_OPEN_POSITIONS") or None,
+        # S-012 hotfix: uppercase aliases for the live-mode flags so
+        # safe_place_order's _get_value(settings, "DRY_RUN", ...) /
+        # _get_value(settings, "ALLOW_LIVE_TRADING", ...) lookups find
+        # them. Without these the order layer treats every signal as
+        # "ALLOW_LIVE_TRADING is unset".
+        "DRY_RUN":            dry_run_bool,
+        "ALLOW_LIVE_TRADING": allow_live_bool,
+        "MAX_QTY":            float(_env("MAX_QTY")),
     }

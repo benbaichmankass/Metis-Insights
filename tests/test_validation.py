@@ -86,11 +86,21 @@ def test_build_settings_from_env_keys():
         "risk_per_trade", "max_qty", "dry_run",
         "allow_live_trading", "log_level", "tick_interval", "loop",
         "MAX_POSITION_USD", "MAX_DAILY_LOSS_USD", "MAX_OPEN_POSITIONS",
+        # S-012 hotfix: uppercase aliases for the live-mode flags so
+        # safe_place_order's _get_value(settings, "DRY_RUN", ...) /
+        # _get_value(settings, "ALLOW_LIVE_TRADING", ...) lookups find
+        # them. MAX_QTY is the same value as max_qty, surfaced under
+        # safe_place_order's expected key.
+        "DRY_RUN", "ALLOW_LIVE_TRADING", "MAX_QTY",
     }
     assert s["exchange"] == "binance"
     assert s["risk_per_trade"] == 0.01
     assert s["tick_interval"] == 900
     assert s["loop"] is True
+    # S-012 hotfix invariants: uppercase mirrors the lowercase value.
+    assert s["DRY_RUN"] == s["dry_run"]
+    assert s["ALLOW_LIVE_TRADING"] == s["allow_live_trading"]
+    assert s["MAX_QTY"] == s["max_qty"]
 
 
 # ---------------------------------------------------------------------------
