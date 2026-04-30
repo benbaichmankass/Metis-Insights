@@ -27,6 +27,12 @@ EXPECTED_SERVICES = {
     "ict-heartbeat.service",
     "ict-telegram-bot.service",
     "ict-trader-live.service",
+    # S-013 M2 PR #1: read-only dashboard API. Non-trader; binds to
+    # 127.0.0.1:8001 and reads runtime_logs/runtime_status.json without
+    # touching the live tick loop. Deliberately not prefixed
+    # `ict-trader-` so it never matches the single-process trader-side
+    # invariant below.
+    "ict-web-api.service",
 }
 
 # Trader-side units (i.e. units that run trading-strategy code). Used to

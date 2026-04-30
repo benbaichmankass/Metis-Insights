@@ -1,0 +1,42 @@
+# systemd unit — ICT Trading Bot dashboard API (S-013 M2 PR #1).
+#
+# Save to: /etc/systemd/system/ict-web-api.service
+#
+# Staging-only as of S-013 M2:
+#   - Binds to 127.0.0.1:8001 (loopback only).
+#   - NOT enabled in production until the S-014 web client ships AND
+#     the S-013 M3 PR #2 enforcement (JWT + ALLOWED_EMAIL allowlist) is
+#     live; without that, the endpoints are read-only but unauthenticated.
+#
+# Required env (from /etc/ict-trader/web-api.env):
+#   JWT_SIGNING_KEY    — HS256 signing key (M3 PR #1 issuance)
+#   ALLOWED_EMAIL      — single-operator allowlist (M3 PR #2 enforcement)
+#   GIT_SHA            — optional, used by runtime_status when git CLI
+#                        is unavailable inside the unit
+#
+# To enable on the VM:
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now ict-web-api
+#
+# Rollback:
+#   sudo systemctl disable --now ict-web-api
+
+[Unit]
+Description=ICT Trading Bot — read-only dashboard API
+After=network-online.target ict-trader-live.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/opt/ict-trading-bot
+Environment=PYTHONPATH=/opt/ict-trading-bot
+EnvironmentFile=/etc/ict-trader/web-api.env
+ExecStart=/usr/bin/python3 -m uvicorn src.web.api.main:app --host 127.0.0.1 --port 8001
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
