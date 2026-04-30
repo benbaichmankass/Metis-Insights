@@ -273,13 +273,18 @@ class TestFormatSignalRow:
 
 
 class TestCmdSignals:
-    """cmd_signals is async; we drive it via asyncio.run rather than depend
-    on pytest-asyncio (not installed in this env)."""
+    """cmd_signals is async; we drive it via a fresh event loop rather
+    than depend on pytest-asyncio (not installed in this env).
+
+    Important: use ``new_event_loop().run_until_complete()`` rather than
+    ``asyncio.run()``. ``asyncio.run`` closes the loop after the call,
+    which breaks downstream tests in tests/test_telegram_query_bot.py
+    that still use the older ``asyncio.get_event_loop()`` API."""
 
     @staticmethod
     def _drive(coro):
         import asyncio
-        return asyncio.run(coro)
+        return asyncio.new_event_loop().run_until_complete(coro)
 
     def test_no_records_replies_empty(self, tmp_path, monkeypatch):
         from src.bot import telegram_query_bot as bot
