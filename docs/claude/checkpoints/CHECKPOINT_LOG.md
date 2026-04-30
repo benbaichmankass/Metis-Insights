@@ -11,6 +11,57 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-30-03 — S-013 SPRINT COMPLETE
+
+- **Session date:** 2026-04-30
+- **Sprint:** S-013 — Secure Web Dashboard: Backend Scaffold & Home Status
+- **Current sprint phase:** wrap-up — all 10 PRs merged across M0 → M4
+- **Last completed checkpoint:** CP-2026-04-30-02 (M0 → M3 PR #1; pre-PM-review pause)
+- **Next checkpoint:** Start of S-014 — read `CHECKPOINT_LOG.md` (this entry) for context, then `docs/sprint-summaries/sprint-013-summary.md` for the deliverables and the "What this sprint did NOT do" list, then `ROADMAP.md` Phase 4 for the S-014 framing.
+- **Telegram sent:** no (no creds in session). Sprint-completion `/sprintlet_complete S-013` is queued for the PM to fire.
+- **Blockers:** none.
+
+### 1. Completed
+- 10 PRs merged: kickoff (#173), M0 (#174), M1 (#175), M2 PR #1 (#176), M2 PR #2 (#177), M3 PR #1 PM-reviewed (#178), session checkpoint (#179), M3 PR #2 PM-reviewed (#180), M4 PR #1 runbook (#181), M4 PR #2 — `/webapp` Telegram + sprint summary + this checkpoint.
+- Backend stack: `runtime_logs/runtime_status.json` producer + read-only FastAPI app (`/api/status`, `/api/pnl`, `/api/auth/login`, `/api/health`) with HS256 JWT auth, 1-hour TTL, single-operator allowlist, default-deny (`PUBLIC_ROUTES = {/api/auth/login, /api/health}`).
+- Operator surface: `deploy/ict-web-api.service` (staging-only on `127.0.0.1:8001`), `docs/audit/sprint-013-deployment-runbook.md` (six-step VM enable + smoke-test + rollback), `/webapp` Telegram command (returns `WEBAPP_URL` as inline button or "not configured yet").
+- 53 new tests across 5 files; 17 stale tests deleted (M0); one S-012 regression test updated for the new canonical service set.
+- Phase 4 reframed in `ROADMAP.md` from "Mobile App V1 (Dashboard)" to "Secure Web Dashboard"; S-011/S-012 marked done; S-014/S-015/S-016 renumbered.
+
+### 2. Files changed (summary; full diff list in `docs/sprint-summaries/sprint-013-summary.md`)
+- New code: `src/web/runtime_status.py`, `src/web/api/{__init__,main,auth}.py`, `src/web/api/routers/{__init__,status,pnl,auth}.py`.
+- New deploy: `deploy/ict-web-api.service`.
+- Touched: `src/runtime/pipeline.py` (one import + one call at end of `run_pipeline()`), `src/bot/telegram_query_bot.py` (`/webapp` handler + registration + help text), `requirements.txt`, `.env.example`, `tests/test_s012_service_consolidation.py`, `ROADMAP.md`.
+- Deleted: `tests/test_runtime_validation.py`, `tests/test_runtime_smoke.py`, `tests/test_print_runtime_profile.py` (M0).
+- Docs: `docs/sprints/sprint-013-prompt.md`, `docs/sprint-plans/sprint-plan-2026-04-30.md`, `docs/audit/sprint-013-deployment-runbook.md`, `docs/sprint-summaries/sprint-013-summary.md`, `docs/claude/checkpoints/CHECKPOINT_LOG.md` (CP-2026-04-30-01, -02, -03).
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/ -q --ignore=tests/test_main_loop.py` → **1239 passed, 2 skipped, 0 failed** on the M4 PR #2 branch (was 1153 / 17 failed at sprint start).
+- `python scripts/secret_scan.py` — clean throughout.
+- `python scripts/repo_inventory.py` — no junk candidates; one intentional 641 KB CSV fixture flagged (not noise).
+
+### 4. Remaining
+- **None at sprint scope.** Every M0 → M4 milestone shipped.
+- VM enable per the runbook is the PM's operational call.
+- S-014 (web client v1) is unblocked and can start whenever the PM picks the next sprint.
+
+### 5. Next checkpoint
+**CP-2026-05-NN-01** — Start of S-014 (web client v1 against the S-013 backend).
+
+Read order for the next session:
+1. This entry.
+2. `docs/sprint-summaries/sprint-013-summary.md` — especially "Architecture decisions" and "What this sprint did NOT do".
+3. `ROADMAP.md` § Phase 4 for the S-014 framing.
+4. The shipped contract: `src/web/api/routers/{status,pnl,auth}.py`, `src/web/api/auth.py` (token contract + `PUBLIC_ROUTES`), and the schema in `src/web/runtime_status.py`.
+
+Concrete first action for the next session: confirm S-014 scope with PM (browser stack choice — Vite + React vs. plain HTMX vs. Streamlit-style), then plan in `docs/sprints/sprint-014-prompt.md`.
+
+### 6. Improvements for the next sprint (per CLAUDE.md § 5)
+1. Add a **stale-prompt detection rule** to `CLAUDE.md`: if a session prompt references docs that don't exist (sprint plan, checkpoint ID, PR number), stop and surface the discrepancy before any code change. S-013 nearly silently invented a sprint plan from a prompt that didn't match the repo state; catching that at minute 1 saved real backtracking.
+2. Add a **PM-review hand-off pattern** to `docs/claude/session-workflow.md`: when a PR is flagged for PM review (secrets / live trading / `deploy/`), push as draft, append a session-end checkpoint immediately, and stop. Don't stack the next PR locally — its correctness depends on PM-reviewed code that may change in review.
+
+---
+
 ## CP-2026-04-30-02 — S-013 M0 → M3 PR #1 (autonomous run; M3 PR #1 awaiting PM review)
 
 - **Session date:** 2026-04-30
