@@ -11,6 +11,78 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-30-10 — S-015 Session A mid-session (T0 + T1 + T3, 3 drafts open)
+
+- **Session date:** 2026-04-30
+- **Sprint:** S-015 — strategy + model improvement pass.
+- **Current sprint phase:** Session A of a planned A+B split. T0 audit + T1 harness + T3 fixture analysis done; T2/T4/T6/T7 explicitly deferred to Session B (which needs egress to keyless market-data hosts).
+- **Last completed checkpoint:** CP-2026-04-30-09 (S-014 close).
+- **Next checkpoint:** **CP-2026-04-30-11 — S-015 Session A close** (after T9 + T10).
+- **Telegram sent:** no (operator unavailable; will record in T10).
+- **Alerts sent during session:** none.
+- **Blockers:** none for Session A. **Session B is the gate on T2/T4/T6/T7** — needs a host with keyless-source egress (Coinbase / Kraken / yfinance / CryptoCompare).
+
+### 1. Drafts opened (no self-merge per S-015 rule)
+
+| PR | Title | Stack |
+|---|---|---|
+| #200 | S-015 sprint prompt | base = `main` |
+| #201 | S-015 T1: backtest harness + multi-source keyless fetcher + sampler | base = `main` |
+| #202 | S-015 T3: harness validation on existing repo fixtures | base = `claude/s015-t1-harness` (stacks on #201) |
+
+PM review order: **#200 → #201 → #202**.
+
+### 2. Files changed (cumulative)
+
+- `docs/sprints/sprint-015-prompt.md` — sprint spec + amended after T0 audit to lock no-Bybit-for-training rule and document split-session execution model.
+- `scripts/sprint015/{__init__,data_sources,sample_data,run_backtest,analyze_fixtures}.py` — pure-function harness modules.
+- `tests/sprint015/test_*.py` — 28 tests (24 T1 + 4 T3) all passing locally.
+- `docs/backtests/sprint-015/harness-validation.md` — generated harness-validation report on existing repo fixtures.
+- `data/backtests/sprint-015/.gitkeep` + `.gitignore` carve-out for cached buckets.
+
+### 3. Tests run
+
+- `PYTHONPATH=. python -m pytest tests/sprint015/ -q` → **28 passed in 12.66 s**.
+- `python scripts/secret_scan.py` → clean.
+- T1 contract test pins the no-leakage rule (default registry has no Bybit, no Binance).
+
+### 4. T0 audit — environmental blocker surfaced
+
+This sandbox's egress gateway returns HTTP 403 for every keyless market-data host probed (Coinbase, Kraken, yfinance, CryptoCompare, HuggingFace). Only `pypi.org` and `github.com` are allowlisted. Verified by direct `curl` and by the ccxt SDK's TLS handshake.
+
+Consequence: **T2/T4/T6/T7 cannot run from this sandbox.** PM was asked, picked option (2): ship infrastructure as drafts, defer the runs to a networked session.
+
+### 5. Remaining (Session A)
+
+- **T9** — Session A summary report (what was deferred to Session B + concrete first action).
+- **T10** — final session checkpoint + Telegram fallback ping.
+
+### 6. Hand-off to Session B
+
+Concrete first action for Session B:
+
+```
+git pull
+PYTHONPATH=. python -m pytest tests/sprint015/ -q   # 28 should pass
+PYTHONPATH=. python -c "from scripts.sprint015 import data_sources; \
+  df, src, attempts = data_sources.fetch_ohlcv('BTCUSDT', '1h', \
+    __import__('datetime').datetime(2025,1,1,tzinfo=__import__('datetime').timezone.utc), \
+    __import__('datetime').datetime(2025,2,1,tzinfo=__import__('datetime').timezone.utc)); \
+  print(src, len(df))"
+```
+
+If that prints a source name and a row count > 0, proceed with T2 (lock baseline) → T4 / T6 / T7 (only the experiments that clear `Sharpe Δ > 0 AND max-DD not worse > 10% AND p < 0.10`) → T9 (full summary).
+
+If the smoke test 403s on every source, the egress gateway is still blocking — escalate to PM before continuing.
+
+### 7. Improvements (carry forward)
+
+1. **Centralise telegram stubs in `tests/conftest.py`** — still flagged from S-014 CP-09.
+2. **Document the `*.html` exclusion / recursive whitelist pattern in git-workflow.md** — still flagged from S-014 CP-09.
+3. **Add a "this sandbox has no market-data egress" note to `docs/claude/testing-policy.md`** — so future training/backtest sprints don't repeat T0's discovery.
+
+---
+
 ## CP-2026-04-30-09 — S-014 long autonomous run COMPLETE (6 merged + 1 draft for PM)
 
 - **Session date:** 2026-04-30
