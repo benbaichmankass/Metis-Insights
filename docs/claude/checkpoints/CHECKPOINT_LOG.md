@@ -11,6 +11,96 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-30-09 — S-014 long autonomous run COMPLETE (6 merged + 1 draft for PM)
+
+- **Session date:** 2026-04-30
+- **Sprint:** S-014 — Web Client V1 (Home Dashboard)
+- **Current sprint phase:** session done. M0 + M1 + M3 PR #1 + M3 PR #2 shipped end-to-end; M2 (login flow, PM review) and M3 PR #3 (sparkline) and M4 (close) remain in the backlog.
+- **Last completed checkpoint:** CP-2026-04-30-08 (M3 fragments shipped).
+- **Next checkpoint:** **CP-YYYY-MM-DD-NN — S-014 M2 + M3 PR #3 + M4** — picked up by the next operator-available session, after PM has reviewed PR #198 (strategy/account wiring) and is back online to gate the M2 login-flow PRs.
+- **Telegram sent:** `/sprintlet_status S-014 partial: 6 PRs merged, 1 draft for review` will be sent at the end of this checkpoint commit per the sprint prompt's T10 requirement. Sprint is **NOT** complete (M2 + M3 PR #3 + M4 remain) so `/sprintlet_complete` is **NOT** sent.
+- **Alerts sent during session:** none.
+- **Blockers:** none for the next session. PR #198 needs PM review before merge.
+
+### 1. Completed (6 PRs self-merged + 1 draft for PM)
+
+| PR | Title | Status |
+|---|---|---|
+| #183 | S-014 M0 PR #1: GET /api/pnl/history for equity sparkline | ✅ merged (rebased + carried over from CP-05) |
+| #190 | S-014 side fix: /signals Markdown parse failure → plain text | ✅ merged |
+| #191 | checkpoint: CP-2026-04-30-06 — mid-session (T0 + T1) | ✅ merged |
+| #192 | S-014 M1 PR #1: frontend scaffold (templates + vendored HTMX/Chart.js) | ✅ merged |
+| #193 | S-014 M1 PR #2: FastAPI mounts for UI router + static tree | ✅ merged |
+| #194 | checkpoint: CP-2026-04-30-07 — M1 shipped (T3 + T4) | ✅ merged |
+| #195 | S-014 M3 PR #1: GET /ui/fragments/status (auth-gated) | ✅ merged |
+| #196 | S-014 M3 PR #2: GET /ui/fragments/pnl (auth-gated) | ✅ merged |
+| #197 | checkpoint: CP-2026-04-30-08 — M3 fragments shipped | ✅ merged |
+| #198 | S-014 side fix: strategy/account wiring (PM REVIEW) | 🟡 **draft — awaits PM** |
+
+(9 self-merges total this session; 6 of those carry feature/fix code.
+The 3 mid-session checkpoint PRs are #191, #194, #197.)
+
+### 2. Files changed (cumulative across the session)
+
+- **Backend** —
+  - `src/web/api/routers/pnl_history.py` (M0 PR #1 contract pinned).
+  - `src/web/api/routers/ui.py` (M1 PR #2 — `/`, `/login`, `/home`).
+  - `src/web/api/routers/status_fragment.py` (M3 PR #1 — `/ui/fragments/status`).
+  - `src/web/api/routers/pnl_fragment.py` (M3 PR #2 — `/ui/fragments/pnl`).
+  - `src/web/api/main.py` — Jinja2Templates + StaticFiles mount + 4 router includes.
+  - `src/web/api/auth.py` — `PUBLIC_ROUTES` (+/, +/login) + new `PUBLIC_PREFIXES` (/static/).
+  - `src/bot/telegram_query_bot.py` — `/signals` formatter is plain text + `SIGNAL_AUDIT_PATH` honours env override.
+- **Frontend (vendored)** —
+  - `web/templates/{base,login,home}.html` (M1 PR #1).
+  - `web/templates/fragments/{status,status_unavailable,pnl,pnl_unavailable}.html` (M3 PR #1, #2).
+  - `web/static/css/app.css` — single dark-themed sheet (M1 + M3 layout rules).
+  - `web/static/js/auth.js` — htmx:configRequest helper, /home gate, logout.
+  - `web/static/js/htmx.min.js` — vendored HTMX 2.0.4 with SHA-256 banner.
+  - `web/static/js/chart.umd.js` — vendored Chart.js 4.4.7 with SHA-256 banner.
+- **Config / housekeeping** —
+  - `.gitignore` — recursive `!web/templates/**/*.html` whitelist.
+  - `config/accounts.yaml` (PR #198 draft only — not on main).
+  - `docs/claude/checkpoints/CHECKPOINT_LOG.md` — CP-06, CP-07, CP-08, CP-09 entries.
+- **Tests (new)** —
+  - `tests/test_telegram_signals.py` (4 cases) — `/signals` no-Markdown contract + env override.
+  - `tests/test_web_api_ui.py` (8 cases) — `/`, `/login`, `/home`, static mount, PUBLIC_ROUTES contract.
+  - `tests/test_web_api_status_fragment.py` (5 cases) — happy + minute-only + 503 + 401 + 403.
+  - `tests/test_web_api_pnl_fragment.py` (5 cases) — per-account cards + zero-state + 503 + 401 + 403.
+
+### 3. Tests run
+
+- `PYTHONPATH=. pytest tests/test_telegram_signals.py -q` → **4 passed** locally (test file stubs pandas/telegram so it runs in the lean venv).
+- `python -c "import ast; …"` — every changed Python file parses cleanly.
+- `python scripts/secret_scan.py` — clean throughout.
+- All four web-api test files (`test_web_api_pnl_history.py`, `test_web_api_ui.py`, `test_web_api_status_fragment.py`, `test_web_api_pnl_fragment.py`) — deferred to CI; lean local pytest venv lacks `fastapi`/`jinja2`/`pandas` per CLAUDE.md "do not install broad packages without approval." All four files were authored against the same `TestClient` + `auth_module.issue_token` pattern that the existing `tests/test_web_api_*.py` suites use, so they will exercise on the same CI lane.
+
+### 4. Latent issues observed (out of scope for this session)
+
+1. **Module-level `_VM_WRITE_BUTTONS = InlineKeyboardMarkup([[…]])` (PR #184)** breaks the `_tg.InlineKeyboardMarkup = MagicMock` stub used by ~10 existing test files at import time (passing a list to `MagicMock` blows up `_mock_set_magics`). My `tests/test_telegram_signals.py` works around it with `lambda *a, **kw: MagicMock()` factories — good template for whoever centralises the telegram stubs in `conftest.py`. Filed in CP-06 too; carrying forward.
+2. **Vendored Chart.js / HTMX provenance recorded in CP-07** — unpkg / cdnjs / jsdelivr returned 403 from this sandbox; the tarball at `https://registry.npmjs.org/chart.js/-/chart.js-4.4.7.tgz` and `https://raw.githubusercontent.com/bigskysoftware/htmx/v2.0.4/dist/htmx.min.js` were the only sources reachable. SHA-256 hashes are in the file banners + this checkpoint for reproducibility.
+
+### 5. Remaining (NOT done in this session — for the next operator-available session)
+
+- **PR #198** — strategy/account wiring; PM review then merge.
+- **M2 PR #1** — login form wires up to `/api/auth/login`, stores JWT in localStorage, navigates to `/home`. PM REVIEW.
+- **M2 PR #2** — auth-aware HTMX requests: 401 → clear token + redirect, 403 → toast. PM REVIEW.
+- **M3 PR #3** — equity sparkline (`web/static/js/equity_chart.js` fetches `/api/pnl/history?days=7`, renders Chart.js line chart into the existing canvas on home.html). Self-mergeable.
+- **M4 PR #1** — sprint summary + runbook appendix + ROADMAP update + final `CP — S-014 SPRINT COMPLETE` checkpoint.
+
+### 6. Next checkpoint
+
+**CP-YYYY-MM-DD-NN — S-014 M2 + M3 PR #3 + M4** — next operator-available session. Read order:
+1. This entry (CP-09).
+2. `docs/sprints/sprint-014-prompt.md` § M2 / M3 PR #3 / M4.
+3. PR #198 review status (merge or rework per PM feedback).
+
+### 7. Improvements for the next sprint (per CLAUDE.md § 5)
+
+1. **Centralise telegram stubs in `tests/conftest.py`.** Every Telegram-bot test file copy-pastes ~20 lines of `sys.modules.setdefault("telegram", MagicMock())` boilerplate, and PR #184's module-level `InlineKeyboardMarkup([[…]])` already broke ~10 of those copies. A single conftest fixture with the `lambda *a, **kw: MagicMock()` factory pattern would fix all of them in one place and prevent drift.
+2. **Document the `*.html` exclusion / `web/templates/**/*.html` whitelist pattern in `docs/claude/git-workflow.md`.** The first M1 PR #1 commit lost the templates because `*.html` (added for coverage / output reports) silently swallowed them; the recursive whitelist isn't obvious. A one-line note in the git-workflow doc would save future Claudes the same round-trip.
+
+---
+
 ## CP-2026-04-30-08 — S-014 M3 fragments shipped (T6 + T7), mid-session 3
 
 - **Session date:** 2026-04-30
