@@ -11,6 +11,57 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-30-06 — S-014 long autonomous run: T0 + T1 done, mid-session
+
+- **Session date:** 2026-04-30
+- **Sprint:** S-014 — Web Client V1 (Home Dashboard)
+- **Current sprint phase:** mid-session through the long autonomous prompt (T0 + T1 of T0..T10).
+- **Last completed checkpoint:** CP-2026-04-30-05 (S-014.5 closeout).
+- **Next checkpoint:** **CP-2026-04-30-07 — S-014 M1 (frontend scaffold + FastAPI mounts) merged** — emit after T3 + T4 ship.
+- **Telegram sent:** no (operator unavailable for the duration; per sprint prompt only `/sprintlet_status` at session end).
+- **Alerts sent during session:** none.
+- **Blockers:** none.
+
+### 1. Completed (2 PRs merged)
+
+| PR | Title | Status |
+|---|---|---|
+| #183 | S-014 M0 PR #1: `GET /api/pnl/history` for equity sparkline | ✅ merged (rebased onto main, CHECKPOINT_LOG conflict resolved by taking main's superset) |
+| #190 | S-014 side fix: `/signals` Markdown parse failure → plain text | ✅ merged |
+
+### 2. Files changed
+
+- `src/web/api/routers/pnl_history.py` (new, from #183).
+- `src/web/api/main.py` — one router include (from #183).
+- `tests/test_web_api_pnl_history.py` (new, 10 cases — from #183).
+- `src/bot/telegram_query_bot.py` — `/signals` formatter + reply_text now plain text; `SIGNAL_AUDIT_PATH` honours env override (from #190).
+- `tests/test_telegram_signals.py` (new, 4 regression cases — from #190).
+
+### 3. Tests run
+
+- `PYTHONPATH=. pytest tests/test_telegram_signals.py -q` → **4 passed** locally (test file stubs `pandas`/`telegram` so it runs in the lean venv).
+- `tests/test_web_api_pnl_history.py` (10 cases) — verified pre-merge in #183, deferred to CI locally (no `fastapi` in lean venv).
+- `python scripts/secret_scan.py` → clean.
+
+### 4. Remaining (T2..T10)
+
+- **T3** — M1 PR #1 frontend scaffold (`web/templates/{base,login,home}.html`, `web/static/css/app.css`, vendored HTMX 2.x + Chart.js 4.x with SHA-256 in top-of-file comments, `web/static/js/auth.js`).
+- **T4** — M1 PR #2 FastAPI mounts (new `src/web/api/routers/ui.py` with `/`, `/login`, `/home`; mount static + templates in `src/web/api/main.py`; extend `PUBLIC_ROUTES` for `/login` + `/static/*`; tests).
+- **T6** — M3 PR #1 status panel HTMX fragment (auth-gated).
+- **T7** — M3 PR #2 P&L panel HTMX fragment (auth-gated).
+- **T9** — strategy/account wiring in `config/accounts.yaml` (turtle_soup → bybit_1, vwap → bybit_2, leave prop accounts disabled). PM REVIEW — push as **draft**, do not self-merge.
+- **T10** — final session checkpoint + `/sprintlet_status S-014 partial: 5 PRs merged, 1 draft for review`.
+
+### 5. Side notes / latent issues observed
+
+1. **Module-level `_VM_WRITE_BUTTONS = InlineKeyboardMarkup([[...]])` (added in PR #184)** breaks the `_tg.InlineKeyboardMarkup = MagicMock` stub used by ~10 existing test files (passing a list to `MagicMock` blows up `_mock_set_magics`). My new `tests/test_telegram_signals.py` works around it with `lambda *a, **kw: MagicMock()` factories. The pre-existing tests will fail at import in CI until they adopt the same fix or telegram-stubs are centralised in `conftest.py`. Flagging — not in scope for this session.
+
+### 6. Next checkpoint
+
+**CP-2026-04-30-07 — S-014 M1 merged** — read this entry, then continue with T3 (M1 PR #1) followed by T4 (M1 PR #2) per `docs/sprints/sprint-014-prompt.md` § M1.
+
+---
+
 ## CP-2026-04-30-05 — S-014.5 SHIPPED (VM operator mode end-to-end), S-014 M0 PR still open as draft
 
 - **Session date:** 2026-04-30
