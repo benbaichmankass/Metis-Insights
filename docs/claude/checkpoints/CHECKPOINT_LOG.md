@@ -11,6 +11,59 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-30-16 — S-019 PARTIAL VERIFY (manual /ping_test works, auto-ping still dead)
+
+- **Session date:** 2026-04-30 (late session, operator going to bed)
+- **Sprint:** S-019 — bot-side ping inbox.
+- **Current sprint phase:** verified half. Deferred remaining auto-ping debugging to S-020.
+- **Last completed checkpoint:** CP-2026-04-30-15.
+- **Next checkpoint:** **CP-…-S020-COMPLETE** — emitted when the auto-ping is fixed and verified.
+- **Telegram sent:** the auto-ping path is the very thing that's broken; this checkpoint will NOT fire one. Operator typed `/ping_test` manually to verify the bot half.
+- **Blockers:** none. Sprint S-020 is queued at `docs/sprints/sprint-020-prompt.md`.
+
+### What's verified green
+
+Operator-confirmed in Telegram (verbatim):
+
+```
+/ping_test
+📨 Queued test-1777592474.json. Should fire within 5s.
+ℹ️ ping_test from /ping_test: ping test
+```
+
+So:
+
+- ✅ `cmd_ping_test` is registered and reachable.
+- ✅ `send_ping.enqueue` writes a file into `runtime_logs/pending_pings/`.
+- ✅ Bot's `_drain_pending_pings` JobQueue task is running.
+- ✅ Bot has `TELEGRAM_CHAT_ID` and a working `bot.send_message`.
+
+### What's still broken
+
+Operator-confirmed: **no auto-ping fired** for CP-2026-04-30-15 (PR #226), which was a deliberate `CHECKPOINT_LOG.md`-touching commit specifically designed to trigger one.
+
+The break is upstream of `send_ping.enqueue` — between `ict-git-sync.timer` firing on the VM and a JSON file appearing in the inbox dir.
+
+### Diagnosis queued for S-020
+
+`docs/sprints/sprint-020-prompt.md` § 3 has paste-ready diagnostic commands and § 4 has ranked likely root causes. Most likely:
+
+1. The deploy script's no-op early-out fired during the relevant ticks (operator's mid-debug `git reset --hard` consumed the diff range).
+2. The ict-git-sync.service ran the OLD deploy_pull_restart.sh on the first post-#225 tick (before the EnvironmentFile fix landed), and by the second tick HEAD didn't advance.
+3. Permissions / path mismatch on `runtime_logs/pending_pings/` between deploy-script-side write and bot-side read.
+
+S-020 § 5 has the checkpoint plan: diagnose, fix, add an integration test that exercises the actual file-write path (we only had stubbed-enqueue tests), force-trigger to verify, close the loop with a recursive auto-ping on CP-S020-COMPLETE.
+
+### What lands when this PR merges
+
+Just docs. Operator will see no auto-ping (because it's broken — that's the bug we're tracking). Operator can verify the bot is still alive by typing `/ping_test`.
+
+### Hand-off
+
+Next session: read `docs/sprints/sprint-020-prompt.md` first, run § 3 diagnostic, follow § 5 checkpoint plan.
+
+---
+
 ## CP-2026-04-30-15 — S-018 ping wiring verification
 
 - **Session date:** 2026-04-30
