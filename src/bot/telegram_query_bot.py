@@ -2,6 +2,7 @@ from src.runtime.signal_notifications import get_last_signals, format_signals
 import json
 import os
 import logging
+import re
 import sqlite3
 import asyncio
 import sys
@@ -553,28 +554,40 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     label = get_strategy_label()
     text = (
         f"👋 *ICT Trading Bot* — {label}\n\n"
-        "Commands:\n"
+        "*Live trading control*\n"
+        "/status — Kill-switch state, P&L summary, service status\n"
         "/halt — Stop order placement immediately\n"
         "/resume — Re-enable order placement\n"
-        "/status — Kill-switch state, P&L summary, service status\n"
-        "/balance — Account balance\n"
-        "/trades — Open positions\n"
         "/closeall — Emergency close all positions\n"
-        "/strategies — Per-strategy signals, PnL and positions\n"
-        "/log — Recent trader logs\n"
-        "/toggle — Start or stop the trader service\n"
-        "/download\\_journal — Download trade journal DB\n"
-        "/last5 — Last 5 trade signals\n"
-        "/signals \\[N\\] \\[strategy\\] — Recent pipeline signals from audit log\n"
-        "/backtest — Start backtest in background\n"
-        "/latest\\_backtest — Backtest status/result\n"
-        "/price — Current BTC price\n"
+        "/toggle — Start or stop the trader service\n\n"
+        "*Account & strategy*\n"
         "/accounts — List accounts (dry/live + PnL) or toggle mode\n"
         "/accounts\\_status — Per-account risk state\n"
         "/risk\\_check <account> — Risk details for one account\n"
-        "/webapp — Open the secure web dashboard\n"
+        "/strategies — Per-strategy signals, PnL and positions\n"
+        "/reload\\_strats — Reload strategies.yaml without restart\n"
+        "/balance — Account balance\n"
+        "/trades — Open positions\n\n"
+        "*Signals & history*\n"
+        "/last5 — Last 5 journal entries\n"
+        "/signals \\[N\\] \\[strategy\\] — Recent pipeline signals from audit log\n"
+        "/alerts — Recent unit alerts (coordinator queue)\n"
+        "/log — Recent trader logs\n"
+        "/download\\_journal — Download trade journal DB\n"
+        "/price — Current BTC price\n\n"
+        "*Backtesting*\n"
+        "/backtest — Start backtest in background\n"
+        "/latest\\_backtest — Backtest status/result\n"
+        "/backtest\\_ui — How to launch the Streamlit backtesting dashboard\n\n"
+        "*Web dashboard*\n"
+        "/webapp — Open the secure web dashboard\n\n"
+        "*VM-resident Claude (S-014.5)*\n"
         "/vm <prompt> — Tier 1 read-only Claude on the VM\n"
-        "/vm\\_write <prompt> — Tier 2 mutating Claude on the VM \\(asks to confirm\\)\n"
+        "/vm\\_write <prompt> — Tier 2 mutating Claude on the VM \\(asks to confirm\\)\n\n"
+        "*Sprint / planning*\n"
+        "/checkpoint — Latest entry from CHECKPOINT\\_LOG.md\n"
+        "/sprintlet\\_status \\[note\\] — Manual milestone update\n"
+        "/sprintlet\\_complete \\[sprint\\] — Manual sprint-complete signal\n\n"
         "/help — Show this menu"
     )
     await update.message.reply_text(text, parse_mode="Markdown")
@@ -602,12 +615,16 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
         label = get_strategy_label(acc)
         trade_count, total_pnl = fetch_today_pnl(account_id=aid)
         open_count = fetch_open_positions_count(account_id=aid)
-        svc = acc.get("service") or LIVE_SERVICE_NAME
-        svc_status = get_service_status(svc)
+        # S-016 H1 (audit § A5): drop the systemd unit name from the
+        # per-account block. Since S-012 every strategy runs inside the
+        # single `ict-trader-live` unit, so the service name is identical
+        # for every account and conveys no per-account info. The strategy
+        # name (already in the bold header) is what the operator cares
+        # about. The aggregate-level bot-status line below is unchanged.
         account_lines.append(
             f"*{label}* (`{aid}`)\n"
             f"  📊 Trades today: {trade_count} | P&L: ${total_pnl:+.2f}\n"
-            f"  📂 Open (DB): {open_count} | `{svc}`: {svc_status}"
+            f"  📂 Open (DB): {open_count}"
         )
 
     if not account_lines:
@@ -1120,20 +1137,69 @@ async def cmd_alerts(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"⚠️ Could not load alerts: {e}")
 
 
+_SPRINT_RE = re.compile(r"\bS-\d{3}(?:\.\d+)?\b")
+_CP_HEADER_RE = re.compile(r"^##\s+(CP-\d{4}-\d{2}-\d{2}-\d+)\b")
+
+
+def _latest_sprint_from_checkpoint_log() -> tuple[str, str]:
+    """Return ``(sprint_id, cp_id)`` parsed from the topmost CP entry of
+    ``docs/claude/checkpoints/CHECKPOINT_LOG.md``. Falls back to
+    ``("unknown", "unknown")`` on any read / parse error so a stale
+    or missing log can never crash these commands."""
+    log_path = os.path.join(REPO_ROOT, "docs", "claude", "checkpoints",
+                            "CHECKPOINT_LOG.md")
+    try:
+        with open(log_path, "r", encoding="utf-8") as fh:
+            text = fh.read()
+    except (OSError, UnicodeDecodeError):
+        return "unknown", "unknown"
+    cp_id = "unknown"
+    sprint_id = "unknown"
+    in_entry = False
+    for line in text.splitlines():
+        m = _CP_HEADER_RE.match(line)
+        if m and not in_entry:
+            cp_id = m.group(1)
+            in_entry = True
+            continue
+        if in_entry and line.startswith("- **Sprint:**"):
+            ms = _SPRINT_RE.search(line)
+            if ms:
+                sprint_id = ms.group(0)
+            break
+        if in_entry and line.startswith("## "):
+            break
+    return sprint_id, cp_id
+
+
 async def cmd_sprintlet_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Report sprintlet milestone status. Usage: /sprintlet_status <milestone>"""
+    """Manual sprint milestone update. Usage: ``/sprintlet_status <note>``.
+
+    The sprint id is parsed from the topmost CP entry of
+    ``CHECKPOINT_LOG.md``, so the command is no longer hardcoded to
+    a long-dead sprint number (fixed in S-016 H1 — see the audit doc).
+    """
     if not is_authorised(update):
         return
-    milestone = " ".join(context.args) if context.args else "update"
-    await update.message.reply_text(f"✅ Sprintlet S-008.5: {milestone}")
+    sprint_id, _ = _latest_sprint_from_checkpoint_log()
+    note = " ".join(context.args) if context.args else "update"
+    await update.message.reply_text(f"✅ {sprint_id}: {note}")
 
 
 async def cmd_sprintlet_complete(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Signal sprintlet completion."""
+    """Manual sprint-complete signal. Usage:
+    ``/sprintlet_complete [sprint]`` — defaults to the active sprint
+    parsed from ``CHECKPOINT_LOG.md``."""
     if not is_authorised(update):
         return
+    sprint_arg = context.args[0].strip().upper() if context.args else None
+    if sprint_arg and _SPRINT_RE.fullmatch(sprint_arg):
+        sprint_id = sprint_arg
+        cp_id = "(see CHECKPOINT_LOG.md)"
+    else:
+        sprint_id, cp_id = _latest_sprint_from_checkpoint_log()
     await update.message.reply_text(
-        "🎉 Sprintlet S-008.5 COMPLETE. Resume at CP-2026-04-29-58. Ready for S-009."
+        f"🎉 {sprint_id} COMPLETE. Latest checkpoint: {cp_id}."
     )
 
 
@@ -1614,31 +1680,33 @@ def main():
         commands = [
             BotCommand("start", "Show help"),
             BotCommand("help", "Show help"),
+            BotCommand("status", "Kill-switch state, P&L summary, service status"),
             BotCommand("halt", "Stop order placement immediately"),
             BotCommand("resume", "Re-enable order placement"),
-            BotCommand("status", "Kill-switch state, P&L summary, service status"),
-            BotCommand("balance", "Account balance"),
-            BotCommand("trades", "Open positions"),
             BotCommand("closeall", f"Close all {label} positions"),
-            BotCommand("strategies", "Per-strategy signals, PnL and positions"),
-            BotCommand("last5", "Last 5 journal entries"),
-            BotCommand("signals", "Recent pipeline signals: /signals [N] [strategy]"),
-            BotCommand("backtest", "Run backtest"),
-            BotCommand("latest_backtest", "Latest backtest result"),
-            BotCommand("log", f"Show {label} trader logs"),
             BotCommand("toggle", f"Start/stop {label} trader"),
-            BotCommand("download_journal", "Download trade journal DB"),
-            BotCommand("price", "Current BTC price"),
-            BotCommand("alerts", "Recent unit alerts (coordinator queue)"),
-            BotCommand("reload_strats", "Reload strategy config from strategies.yaml"),
-            BotCommand("backtest_ui", "How to launch the Streamlit backtesting dashboard"),
             BotCommand("accounts", "List accounts or toggle dry/live: /accounts dry|live <name>"),
             BotCommand("accounts_status", "Per-account risk state (daily PnL, halted)"),
             BotCommand("risk_check", "Risk details for one account: /risk_check <name>"),
-        BotCommand("sprintlet_status", "Report sprintlet milestone status"),
-        BotCommand("sprintlet_complete", "Signal sprintlet completion"),
-        BotCommand("checkpoint", "Show latest checkpoint from CHECKPOINT_LOG.md"),
-        BotCommand("webapp", "Open the secure web dashboard"),
+            BotCommand("strategies", "Per-strategy signals, PnL and positions"),
+            BotCommand("reload_strats", "Reload strategy config from strategies.yaml"),
+            BotCommand("balance", "Account balance"),
+            BotCommand("trades", "Open positions"),
+            BotCommand("last5", "Last 5 journal entries"),
+            BotCommand("signals", "Recent pipeline signals: /signals [N] [strategy]"),
+            BotCommand("alerts", "Recent unit alerts (coordinator queue)"),
+            BotCommand("log", f"Show {label} trader logs"),
+            BotCommand("download_journal", "Download trade journal DB"),
+            BotCommand("price", "Current BTC price"),
+            BotCommand("backtest", "Run backtest"),
+            BotCommand("latest_backtest", "Latest backtest result"),
+            BotCommand("backtest_ui", "How to launch the Streamlit backtesting dashboard"),
+            BotCommand("webapp", "Open the secure web dashboard"),
+            BotCommand("vm", "Tier 1 read-only Claude on the VM"),
+            BotCommand("vm_write", "Tier 2 mutating Claude on the VM (asks to confirm)"),
+            BotCommand("checkpoint", "Show latest checkpoint from CHECKPOINT_LOG.md"),
+            BotCommand("sprintlet_status", "Manual sprint milestone update: /sprintlet_status [note]"),
+            BotCommand("sprintlet_complete", "Manual sprint-complete signal: /sprintlet_complete [sprint]"),
         ]
         await app.bot.set_my_commands(commands)
 
