@@ -571,6 +571,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/accounts — List accounts (dry/live + PnL) or toggle mode\n"
         "/accounts\\_status — Per-account risk state\n"
         "/risk\\_check <account> — Risk details for one account\n"
+        "/webapp — Open the secure web dashboard\n"
         "/help — Show this menu"
     )
     await update.message.reply_text(text, parse_mode="Markdown")
@@ -1138,6 +1139,31 @@ async def cmd_checkpoint(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"⚠️ Could not read checkpoint log: {exc}")
 
 
+async def cmd_webapp(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Reply with a tap-to-open button for the secure web dashboard.
+
+    Reads ``WEBAPP_URL`` from the environment. Unset/empty → clean
+    "not configured yet" message. The dashboard requires the operator
+    to log in (S-013 M3) before any data is shown.
+    """
+    if not is_authorised(update):
+        return
+    url = (os.environ.get("WEBAPP_URL") or "").strip()
+    if not url:
+        await update.message.reply_text(
+            "🌐 Web dashboard not configured yet.\n"
+            "Set WEBAPP_URL on the VM once the dashboard is reachable."
+        )
+        return
+    keyboard = InlineKeyboardMarkup(
+        [[InlineKeyboardButton("🔐 Open dashboard", url=url)]]
+    )
+    await update.message.reply_text(
+        "🌐 Web dashboard — log in with your allowlisted email.",
+        reply_markup=keyboard,
+    )
+
+
 async def cmd_download_journal(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_authorised(update):
         return
@@ -1510,6 +1536,7 @@ def main():
         BotCommand("sprintlet_status", "Report sprintlet milestone status"),
         BotCommand("sprintlet_complete", "Signal sprintlet completion"),
         BotCommand("checkpoint", "Show latest checkpoint from CHECKPOINT_LOG.md"),
+        BotCommand("webapp", "Open the secure web dashboard"),
         ]
         await app.bot.set_my_commands(commands)
 
@@ -1540,6 +1567,7 @@ def main():
     application.add_handler(CommandHandler("sprintlet_status", cmd_sprintlet_status))
     application.add_handler(CommandHandler("sprintlet_complete", cmd_sprintlet_complete))
     application.add_handler(CommandHandler("checkpoint", cmd_checkpoint))
+    application.add_handler(CommandHandler("webapp", cmd_webapp))
     application.add_handler(CallbackQueryHandler(callback_handler))
     application.run_polling()
 
