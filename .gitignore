@@ -55,6 +55,10 @@ data/ohlcv/*.csv
 data/backtests/sprint-015/*.csv
 data/backtests/sprint-015/*.parquet
 
+# Telegram ping queue (drained by VM-side notify-on-pull script)
+docs/claude/pending-pings.jsonl
+!docs/claude/pending-pings.jsonl.template
+
 # OS / editor
 .DS_Store
 Thumbs.db
