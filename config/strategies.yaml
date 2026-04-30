@@ -49,7 +49,12 @@ strategies:
     signal_prefixes: [vwap]
     enabled: true
     risk_pct: 1.0
-    timeframe: "15m"
+    # Operator directive (S-015 mid-sprint): VWAP runs at 5m, not 15m.
+    # 5m gives the mean-reversion signal more bars to react to intra-day
+    # deviations and matches the timeframe the analyst tunes against.
+    # PM REVIEW required because this changes which bars the live trader
+    # consumes and the cadence of order generation.
+    timeframe: "5m"
     symbols:
       - BTCUSDT
     threshold: 0.01           # VWAP deviation threshold (preserved from S-011)

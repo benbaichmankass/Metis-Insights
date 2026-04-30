@@ -161,11 +161,35 @@ def vwap_signal_builder(settings: dict) -> Dict[str, Any]:
 
     If candle data is unavailable or insufficient, raises a clear,
     non-secret error rather than silently doing nothing.
+
+    Timeframe resolution (S-015 mid-sprint fix):
+
+      1. Per-strategy ``timeframe`` from ``config/strategies.yaml`` —
+         the operator-controlled source of truth. VWAP runs at 5m as
+         of S-015; the legacy 15m setting is no longer compatible.
+      2. ``settings["TIMEFRAME"]`` env var, then ``settings["timeframe"]``
+         — only consulted if the strategies.yaml entry is missing.
+      3. Hard default ``"5m"``.
+
+    This ordering ensures the YAML change wins even on accounts whose
+    .env file still has the legacy ``TIMEFRAME=15m`` line.
     """
+    from src.units.strategies import load_strategy_config
     from src.units.strategies.vwap import build_vwap_signal
 
+    try:
+        strategies_cfg = load_strategy_config()
+    except Exception:  # noqa: BLE001 — never fail-open on a config error
+        strategies_cfg = {}
+    vwap_cfg = strategies_cfg.get("vwap", {}) or {}
+
     symbol = settings.get("SYMBOL", settings.get("symbol", "BTCUSDT"))
-    timeframe = settings.get("TIMEFRAME", settings.get("timeframe", "5m"))
+    timeframe = (
+        vwap_cfg.get("timeframe")
+        or settings.get("TIMEFRAME")
+        or settings.get("timeframe")
+        or "5m"
+    )
     qty = float(settings.get("MAX_QTY", settings.get("max_qty", 1)) or 1)
 
     exchange = _build_killzone_exchange(settings)
