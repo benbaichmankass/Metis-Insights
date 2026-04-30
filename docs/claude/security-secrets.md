@@ -72,3 +72,62 @@ These lines appear in stdout and any log aggregator attached to the process.
 ## Current known issue
 
 The setup audit found committed Telegram and Bybit testnet credentials. Rotate them before pushing further changes.
+
+---
+
+## VM-resident Claude — secrets handling (S-014.5)
+
+The runner has its own narrow secrets surface: the Anthropic API key.
+The other secrets (Telegram bot token, exchange API keys, JWT signing
+key, web app password hash) are read by sibling services and the runner
+must NEVER touch them.
+
+### Files and modes
+
+| Path | Mode | Owner | Contents |
+|---|---|---|---|
+| `/etc/ict-trader/claude.env` | `0640` | `root:ubuntu` | `ANTHROPIC_API_KEY=...` |
+| `/etc/claude/permissions.read.json` | `0644` | `root:root` | tier-1 policy (immutable to runner) |
+| `/etc/claude/permissions.write.json` | `0644` | `root:root` | tier-2 policy (immutable to runner) |
+| `/etc/claude/vm-marker` | `0644` | `root:root` | host id, ocid prefix, bootstrap utc |
+| `/var/log/claude-vm/<id>.log` | `0640` | `ubuntu:ubuntu` | per-invocation transcript |
+
+The runner runs as `ubuntu`, can **read** `claude.env` (group), and
+cannot **write** any of the policy files (root-owned, world-readable
+only). This is defense in depth — the policy files are also in the
+Tier 3 deny list.
+
+### Hard rules
+
+1. The runner **never** echoes the contents of `claude.env`, `.env`,
+   `master-secrets*`, or any path matching `*credential*`/`*secret*`.
+   The Tier 3 patterns in `src/bot/vm_runner.py` refuse the prompt
+   before Claude even spawns.
+2. `Bash(env)` and `Bash(printenv:*)` are denied in both tier profiles.
+   Even a tier-2 confirmed invocation cannot dump the process env.
+3. Telegram replies are checked through `secret_scan.py` before posting
+   for tier-2 invocations. Non-clean → reply suppressed, alert posted
+   instead with the offending pattern type (not the value).
+4. API key rotation is **out of band only**: SSH to the VM as `ubuntu`,
+   `sudo $EDITOR /etc/ict-trader/claude.env`, `sudo systemctl restart
+   ict-telegram-bot`. Never request rotation through `/vm_write`; the
+   runner will refuse via the Tier 3 `(ANTHROPIC|TELEGRAM|JWT|WEBAPP).*KEY`
+   pattern.
+5. Transcripts under `/var/log/claude-vm/` are kept for **30 days** via
+   logrotate. After that, they're deleted. They are NOT shipped off-VM —
+   the operator chat is the audit channel for offsite copies.
+
+### Threat model
+
+* **Compromised Anthropic API key:** the worst case is unauthorised LLM
+  spend. The key has no path to trading orders or exchange APIs.
+  Rotation per § 4 above.
+* **Compromised Telegram bot token:** an attacker who has the bot token
+  AND the operator chat id can dispatch `/vm_write` and pass the
+  confirmation step. Mitigation: chat-id allowlist (already enforced),
+  Tier 3 hard blocks on the worst actions, and the operator notices a
+  shadow tier-2 invocation in the bot's reply history.
+* **Compromised `ubuntu` user on the VM:** game over for everything,
+  including the runner. The runner is not a privileged escalation
+  vector beyond what `ubuntu` already has — it just makes the existing
+  surface remotely actionable. Same threat model as the live trader.

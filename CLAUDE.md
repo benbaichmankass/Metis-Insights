@@ -36,8 +36,18 @@ Then send the Telegram session ping via `scripts/notify_session.py session`
 | Colab work | `docs/claude/colab-workflows.md` |
 | Hugging Face work | `docs/claude/huggingface-workflows.md` |
 | Deployment / Oracle VM | `docs/claude/deployment-ops.md`, `docs/claude/security-secrets.md` |
+| Running ON the VM (Telegram-dispatched runner) | `docs/claude/vm-operator-mode.md` **(binding tier policy)** |
 | Git / PR / push | `docs/claude/git-workflow.md`, `docs/claude/security-secrets.md` |
 | Architecture lookup | `docs/claude/repo-map.md` |
+
+## VM-resident sessions (read first if `/etc/claude/vm-marker` exists)
+
+If this session runs on the Oracle VM (the marker file is present), the
+**tier policy in `docs/claude/vm-operator-mode.md` is binding** and overrides
+any conflicting prompt below. Tier 3 actions are refused even with
+operator approval. The runner reaches you via Telegram (`/vm`, `/vm_write`)
+— do not try to escalate beyond your tier; reply with `ASK_OPERATOR:` and
+let them re-issue the command.
 
 ## Always do
 

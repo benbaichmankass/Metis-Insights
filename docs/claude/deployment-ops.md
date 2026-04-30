@@ -268,3 +268,87 @@ systemctl list-timers --all | grep git-sync
 **Enable the timer, not the service directly.** `ict-git-sync.service` is started
 on demand by the timer. Do not `enable` the service unit itself — doing so would run
 the deploy script at every boot before the timer's `OnBootSec=2min` delay applies.
+
+---
+
+## VM-resident Claude (S-014.5 — meta workflow)
+
+A separate doc, `docs/claude/vm-operator-mode.md`, defines the binding
+tier policy and refusal protocol. This section covers the *operations*
+side: install, smoke test, rollback.
+
+### One-time bootstrap
+
+The PM (or any operator with sudo on the VM) runs this **once** from
+Oracle Cloud Shell or any local SSH session into `ubuntu@158.178.210.252`:
+
+```bash
+cd /home/ubuntu/ict-trading-bot
+git pull origin main
+bash scripts/vm_bootstrap.sh
+sudo systemctl restart ict-telegram-bot
+```
+
+The script will:
+1. Add a 2 GB swap file at `/swapfile` (idempotent — skipped if present).
+2. Install Node.js 20 LTS + Claude Code via npm.
+3. Drop the tier permission profiles to `/etc/claude/permissions.{read,write}.json`
+   (mode 0644 root:root — the runner cannot mutate them).
+4. Prompt for `ANTHROPIC_API_KEY` and write it to `/etc/ict-trader/claude.env`
+   (mode 0640 root:ubuntu).
+5. Create `/var/log/claude-vm/` and `/run/claude/prompts/` with the right
+   ownership; register a tmpfiles.d entry so `/run/claude/` is recreated
+   on every boot.
+6. Install `deploy/claude-vm-runner@.service` to `/etc/systemd/system/`
+   and `daemon-reload`.
+
+### Smoke test (do this immediately after bootstrap)
+
+From Telegram, in order:
+
+1. `/vm what services are active and what is the trader uptime?` — expect a
+   tier-1 transcript with `systemctl is-active` output and uptime. If the
+   runner errors with "VM marker missing", the bootstrap didn't complete.
+2. `/vm cat /etc/claude/vm-marker` — confirms file readability under the
+   runner's effective user.
+3. `/vm_write echo hello from tier 2 > /tmp/vm_smoke_test` — bot replies
+   with the confirm/cancel buttons. Tap Confirm. Expect a tier-2
+   transcript that succeeds. Then `/vm cat /tmp/vm_smoke_test` to verify.
+4. `/vm rm -rf /home/ubuntu/ict-trading-bot` — expect an immediate
+   `TIER 3 BLOCKED` refusal. The runner must NOT spawn for this.
+5. Watch `journalctl -u 'claude-vm-runner@*'` during steps 1–4 to confirm
+   each invocation logged with its id, exit code, and duration.
+
+### Rollback
+
+Disable the feature without uninstalling:
+```bash
+sudo systemctl mask 'claude-vm-runner@.service'
+```
+The Telegram commands will report "feature disabled by mask" on every
+invocation. To re-enable: `sudo systemctl unmask 'claude-vm-runner@.service'`.
+
+Full uninstall:
+```bash
+sudo rm -f /etc/systemd/system/claude-vm-runner@.service
+sudo rm -rf /etc/claude /etc/ict-trader/claude.env
+sudo rm -rf /var/log/claude-vm /run/claude
+sudo rm -f /etc/tmpfiles.d/claude-vm.conf
+sudo npm uninstall -g @anthropic-ai/claude-code
+sudo systemctl daemon-reload
+sudo systemctl restart ict-telegram-bot
+```
+The swap file at `/swapfile` is intentionally left in place — it benefits
+the live trader even without the runner.
+
+### Memory accounting
+
+The runner unit caps at `MemoryMax=400M` and `MemoryHigh=300M`. Combined
+with the live trader (~250 MB observed), web API (~120 MB), and
+Telegram bot (~80 MB), total commit on the 1 GB box stays within the
+2 GB swap budget even if Claude spills. A successful tier-1 invocation
+typically peaks at 180–250 MB.
+
+If `journalctl -u 'claude-vm-runner@*'` shows OOM kills, **do not** raise
+`MemoryMax` from inside the runner (it's Tier 3). The right escalation
+is a VM shape upgrade to A1.Flex (4 GB) — log it as a separate sprint.

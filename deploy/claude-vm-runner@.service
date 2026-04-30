@@ -1,0 +1,78 @@
+# systemd unit — VM-resident Claude Code runner (one-shot, per invocation).
+#
+# Save to: /etc/systemd/system/claude-vm-runner@.service
+# Started by: src/bot/vm_runner.py via `systemd-run --unit=claude-vm-runner@<id>`
+#   or directly via `systemctl start claude-vm-runner@<id>.service`.
+#
+# `<id>` is the UTC unix timestamp of the invocation (used as the
+# transcript filename and the journal correlation id).
+#
+# The bot picks the permission profile (read.json or write.json) by
+# setting CLAUDE_VM_PROFILE in the per-invocation drop-in. The default
+# below is the read-only profile, so a misconfigured invocation
+# silently degrades to Tier 1 instead of escalating to Tier 2.
+#
+# Memory limits are HARD. The trader takes priority on this 1 GB box.
+# OOM in this unit must NOT take down ict-trader-live.service.
+#
+# Refusal protocol, audit trail, tier definitions live in
+# docs/claude/vm-operator-mode.md.
+
+[Unit]
+Description=Claude Code one-shot runner (id=%i)
+After=network-online.target
+Wants=network-online.target
+# If the trader is down for any reason, refuse to start a runner —
+# we don't want Claude making changes to a broken environment.
+Requires=ict-trader-live.service
+After=ict-trader-live.service
+
+[Service]
+Type=oneshot
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/ict-trading-bot
+
+# Per-invocation drop-in writes:
+#   Environment=CLAUDE_VM_PROFILE=/etc/claude/permissions.read.json
+#   Environment=CLAUDE_VM_PROMPT_FILE=/run/claude/prompts/<id>.txt
+#   Environment=CLAUDE_VM_TRANSCRIPT=/var/log/claude-vm/<id>.log
+# The defaults below are conservative.
+Environment=CLAUDE_VM_PROFILE=/etc/claude/permissions.read.json
+Environment=CLAUDE_VM_TRANSCRIPT=/var/log/claude-vm/%i.log
+EnvironmentFile=/etc/ict-trader/claude.env
+
+ExecStartPre=/usr/bin/test -f /etc/claude/vm-marker
+ExecStartPre=/usr/bin/test -r ${CLAUDE_VM_PROFILE}
+ExecStartPre=/usr/bin/test -r ${CLAUDE_VM_PROMPT_FILE}
+ExecStart=/usr/bin/env bash -c 'cat "$$CLAUDE_VM_PROMPT_FILE" | /usr/bin/claude -p --settings "$$CLAUDE_VM_PROFILE" --output-format stream-json --include-partial-messages > "$$CLAUDE_VM_TRANSCRIPT" 2>&1'
+
+# Cleanup: drop the prompt file from /run (tmpfs, gone on reboot anyway,
+# but be tidy).
+ExecStopPost=-/usr/bin/rm -f ${CLAUDE_VM_PROMPT_FILE}
+
+# Resource caps — the live trader gets priority on the 1 GB VM.
+MemoryMax=400M
+MemoryHigh=300M
+CPUQuota=70%
+TasksMax=128
+TimeoutStartSec=300
+
+# Hardening — best-effort. Some are weakened so Claude can do its job
+# (write to /var/log/claude-vm, run pytest, talk to GitHub).
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/ubuntu/ict-trading-bot /var/log/claude-vm /run/claude /tmp
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+StandardOutput=journal
+StandardError=journal
