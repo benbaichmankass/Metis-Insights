@@ -11,6 +11,89 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-30-01 — Sprint 8 / S-013 planning artifacts
+
+- **Session date:** 2026-04-30
+- **Sprint:** sprint-plan-2026-04-30 (Sprint 8 / S-013 — Website UI with Secure Auth)
+- **Current sprint phase:** Phase 0 — planning (M1 done in CP-00; planning
+  docs done in this checkpoint).
+- **Last completed checkpoint:** CP-2026-04-30-00 (ROADMAP retargeted).
+- **Next checkpoint:** **CP-2026-04-30-02 — M2 PR #1**: read-only
+  `/api/status` FastAPI endpoint with JWT scaffolding (no enforcement
+  yet) under `src/web/api/`. Add `deploy/ict-trader-web-api.service`
+  (staging port 8001). Tests for happy path + missing-heartbeat. Smallest
+  safe code subtask of the sprint.
+- **Telegram sent:** no (no creds in session).
+- **Alerts sent during session:** none.
+- **Blockers:** none.
+
+### 1. Completed
+- Wrote `docs/sprint-plans/sprint-plan-2026-04-30.md` — PM-facing Sprint
+  8 plan covering M1–M7, sprint guardrails, the auth contract,
+  parallel-execution calendar, definition of done, decision requests,
+  and the explicit allow / off-limits file list.
+- Wrote `docs/sprints/sprint-013-prompt.md` — autonomous-execution
+  prompt for Claude. Section structure mirrors
+  `docs/sprints/sprint-012-prompt.md`. Adds an explicit
+  one-checkpoint-per-PR sequence (CP-2026-04-30-02 through
+  CP-2026-04-30-18) so each subsequent session has a single concrete
+  task to pick up.
+- Both docs carry the auth contract (Google OAuth one-email allowlist,
+  Telegram Approve/Deny whitelist flow, device-trust cookie, WebAuthn
+  passkey + 30-min idle, fresh-passkey ≤ 5 min for mutations) verbatim
+  so it can't drift.
+
+### 2. Files changed
+- `docs/sprint-plans/sprint-plan-2026-04-30.md` (new)
+- `docs/sprints/sprint-013-prompt.md` (new)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+- `python scripts/secret_scan.py` — pass (`No obvious tracked-file
+  secrets found.`).
+- `python scripts/repo_inventory.py` — pass (no junk candidates; one
+  intentional 641 KB CSV fixture flagged as expected).
+- Pytest **not** run — docs-only change; no Python touched.
+
+### 4. Remaining
+- None for this checkpoint.
+- The full M2–M7 implementation is broken into checkpoints
+  CP-2026-04-30-02 through CP-2026-04-30-18 in the sprint prompt — each
+  is a separate session.
+
+### 5. Next checkpoint
+**CP-2026-04-30-02** — M2 PR #1: read-only `/api/status` FastAPI
+endpoint with JWT scaffolding.
+
+Read in order:
+1. This entry.
+2. `docs/claude/checkpoint-workflow.md`.
+3. `docs/sprints/sprint-013-prompt.md` § "Checkpoint sequence" → look
+   up `CP-2026-04-30-02` for the exact scope.
+4. `docs/sprint-plans/sprint-plan-2026-04-30.md` § "M2" for the API
+   shape and acceptance criteria.
+5. `runtime_logs/` and `src/runtime/` (read-only) — confirm the
+   heartbeat file path and shape.
+6. `deploy/ict-trader-live.service` (read-only) — copy the service
+   conventions (`EnvironmentFile`, `Restart=always`, log redaction).
+
+Concrete first action for the next session: create `src/web/api/main.py`
+exposing a FastAPI app with one route, `/api/status`, that reads the
+runtime heartbeat file and returns
+`{bot_uptime_s, live, strategies, git_sha}`. Add `src/web/api/auth.py`
+with JWT decode helpers but **do not enforce yet** — the decorator is a
+no-op until M3 PR #2 / CP-2026-04-30-07 turns it on. New
+`deploy/ict-trader-web-api.service` (NOT enabled in prod). Tests:
+happy-path + heartbeat-missing-503. PR ≤ 400 LOC.
+
+Hard reminders for that session:
+- Do NOT touch `src/runtime/**`, `src/main.py`, or
+  `src/units/strategies/**`.
+- Do NOT enable the new service on the live VM in this checkpoint.
+- Run `python scripts/secret_scan.py` before pushing.
+
+---
+
 ## CP-2026-04-30-00 — Sprint 8 / S-013 kickoff: ROADMAP retargeted to secure web dashboard
 
 - **Session date:** 2026-04-30
