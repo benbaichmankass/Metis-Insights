@@ -1,9 +1,32 @@
+# =============================================================================
+# Production runtime dependencies for ict-trading-bot.
+#
+# Pinning policy:
+#   - Floor pin (>=) per package. Major-version ceiling left open so
+#     security patches land via `pip install -U`.
+#   - apscheduler / pytz / tzlocal pinned together — see BUG-005:
+#     apscheduler 3.6.3 + tzlocal 5.x crash-loop on Python 3.10 with a
+#     timezone-format mismatch. Working set in production:
+#       apscheduler 3.11.2 / tzlocal 5.3.1 / pytz 2026.1.post1
+#     Floors below match what was hand-installed on the VM during the
+#     S-014.5 fix; they prevent BUG-005 from re-occurring on a fresh
+#     VM bootstrap.
+#
+# Test-only deps live in requirements-test.txt — avoid mixing.
+# =============================================================================
+
 ccxt>=4.0.0
 pandas>=2.0.0
 numpy>=1.24.0
 rich>=13.0.0
 python-dotenv>=1.0.0
 python-telegram-bot>=20.0
+
+# BUG-005 fix — pin the scheduler stack (S-014.5 hand-fix on the VM).
+apscheduler>=3.10.4
+pytz>=2024.1
+tzlocal>=5.0
+
 plotly>=5.0.0
 streamlit>=1.30.0
 huggingface_hub>=0.23.0
