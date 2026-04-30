@@ -32,8 +32,7 @@ from unittest.mock import AsyncMock, MagicMock
 # Bot import pulls in telegram + pandas + dotenv via signal_notifications.
 # Stub the optional deps so the test runs in the lean pytest venv.
 # ---------------------------------------------------------------------------
-for _mod in ("telegram", "telegram.ext", "dotenv", "requests",
-             "pandas", "matplotlib", "matplotlib.pyplot"):
+for _mod in ("telegram", "telegram.ext", "dotenv", "requests"):
     sys.modules.setdefault(_mod, MagicMock())
 
 _tg = sys.modules["telegram"]

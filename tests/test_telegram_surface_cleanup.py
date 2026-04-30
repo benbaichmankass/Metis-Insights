@@ -16,8 +16,7 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 # Stub optional deps so the bot module imports in the lean sandbox.
-for _mod in ("telegram", "telegram.ext", "dotenv", "requests",
-             "pandas", "matplotlib", "matplotlib.pyplot"):
+for _mod in ("telegram", "telegram.ext", "dotenv", "requests"):
     sys.modules.setdefault(_mod, MagicMock())
 
 _tg = sys.modules["telegram"]
