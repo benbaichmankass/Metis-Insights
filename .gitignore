@@ -44,7 +44,8 @@ runtime_logs/
 output/
 reports/
 *.html
-# But: vendored web templates are tracked.
+# But: vendored web templates are tracked (recursively).
+!web/templates/**/*.html
 !web/templates/*.html
 
 # Data files (large/generated CSVs ignored; manifests and placeholders tracked)

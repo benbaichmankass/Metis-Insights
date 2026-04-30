@@ -1,0 +1,37 @@
+<div class="card-body" id="status-card-body">
+  <dl class="status-grid">
+    <dt>Uptime</dt>
+    <dd class="metric">{{ uptime_human }}</dd>
+
+    <dt>Git SHA</dt>
+    <dd class="metric"><code>{{ git_sha }}</code></dd>
+
+    <dt>Strategies</dt>
+    <dd>
+      {% if strategies %}
+        {% for name in strategies %}
+          <span class="pill" data-strategy="{{ name }}">{{ name }}</span>
+        {% endfor %}
+      {% else %}
+        <span class="muted">none enabled</span>
+      {% endif %}
+    </dd>
+
+    <dt>Accounts</dt>
+    <dd>
+      {% if accounts %}
+        {% for acc in accounts %}
+          <span class="pill {% if acc.live %}live{% else %}dry{% endif %}"
+                data-account="{{ acc.name }}">
+            {{ acc.name }} · {{ acc.label }}
+          </span>
+        {% endfor %}
+      {% else %}
+        <span class="muted">none configured</span>
+      {% endif %}
+    </dd>
+
+    <dt>Last tick</dt>
+    <dd class="muted"><time datetime="{{ last_tick_utc }}">{{ last_tick_utc }}</time></dd>
+  </dl>
+</div>
