@@ -222,6 +222,104 @@ def fetch_huggingface(symbol: str, timeframe: str, start: datetime, end: datetim
     return None
 
 
+# ---------------------------------------------------------------------------
+# Github-raw adapter — last-resort tier-3 keyless source.
+# ---------------------------------------------------------------------------
+
+# Curated registry of keyless-public github datasets. Each entry maps
+# (symbol, timeframe) -> (raw_url, parser_kind). The parser_kind selects
+# the tiny code path that turns the upstream CSV shape into our
+# canonical OHLCV frame.
+#
+# Be conservative: only register sources that have been verified to
+# return *real* OHLCV bars (not aggregations or reference rates that
+# would lie about strategy behaviour). ``coinmetrics`` is daily-only
+# reference rates — fine for daily smoke tests, deliberately NOT
+# advertised for sub-daily timeframes (its parser returns ``None``).
+_GITHUB_DATASETS: Dict[tuple[str, str], Dict[str, str]] = {
+    ("BTCUSDT", "1d"): {
+        "url": "https://raw.githubusercontent.com/coinmetrics/data/master/csv/btc.csv",
+        "parser": "coinmetrics",
+        "provenance": "coinmetrics/data btc.csv (daily reference rate)",
+    },
+    ("ETHUSDT", "1d"): {
+        "url": "https://raw.githubusercontent.com/coinmetrics/data/master/csv/eth.csv",
+        "parser": "coinmetrics",
+        "provenance": "coinmetrics/data eth.csv (daily reference rate)",
+    },
+}
+
+
+def _parse_coinmetrics(text: str) -> Optional[pd.DataFrame]:
+    """coinmetrics CSV: time + PriceUSD + volume_reported_spot_usd_1d.
+
+    coinmetrics ships several price columns. PriceUSD is the long-running
+    daily series (~5.7k rows from 2010-07-18 onwards); ReferenceRateUSD is
+    a recently-added series populated only for the last few days. We
+    prefer PriceUSD and fall back to ReferenceRateUSD only if PriceUSD is
+    absent.
+
+    Synthesises an OHLC frame by replicating the close into open/high/low —
+    fine for end-of-day smoke testing arithmetic, **not** for any
+    intra-day signal that depends on a real bar shape. The volume column
+    is reported spot USD volume; absolute scale doesn't matter for
+    daily-resolution smoke tests.
+    """
+    from io import StringIO
+    df = pd.read_csv(StringIO(text))
+    if "time" not in df.columns:
+        return None
+    price_col = "PriceUSD" if "PriceUSD" in df.columns else "ReferenceRateUSD"
+    if price_col not in df.columns:
+        return None
+    df["timestamp"] = pd.to_datetime(df["time"], utc=True, errors="coerce")
+    df = df.dropna(subset=["timestamp"])
+    df = df.set_index("timestamp")
+    close = pd.to_numeric(df[price_col], errors="coerce")
+    volume = pd.to_numeric(
+        df.get("volume_reported_spot_usd_1d", 0.0), errors="coerce"
+    ).fillna(0.0)
+    out = pd.DataFrame({
+        "open": close, "high": close, "low": close,
+        "close": close, "volume": volume,
+    }, index=df.index).dropna(subset=["close"])
+    return out.sort_index()
+
+
+_GITHUB_PARSERS: Dict[str, Callable[[str], Optional[pd.DataFrame]]] = {
+    "coinmetrics": _parse_coinmetrics,
+}
+
+
+def fetch_github_raw(
+    symbol: str, timeframe: str, start: datetime, end: datetime,
+) -> Optional[pd.DataFrame]:
+    """Fall through to a curated github-raw dataset if one is registered
+    for ``(symbol, timeframe)``. Used as a tier-3 fallback when all the
+    public-exchange APIs are unreachable (e.g. when running inside a
+    sandboxed CI box with restricted egress)."""
+    entry = _GITHUB_DATASETS.get((symbol.upper(), timeframe))
+    if entry is None:
+        return None
+    parser = _GITHUB_PARSERS.get(entry["parser"])
+    if parser is None:
+        return None
+    try:
+        r = requests.get(entry["url"], timeout=REQUEST_TIMEOUT_S, headers={"User-Agent": USER_AGENT})
+        if r.status_code >= 400:
+            return None
+        df = parser(r.text)
+        if df is None or df.empty:
+            return None
+        start_ts = pd.Timestamp(start)
+        end_ts = pd.Timestamp(end)
+        df = df.loc[(df.index >= start_ts) & (df.index <= end_ts)]
+        return _normalise(df)
+    except (requests.RequestException, ValueError, KeyError) as exc:  # noqa: BLE001
+        logger.info("github_raw fetch failed: %s", exc.__class__.__name__)
+        return None
+
+
 # Order matters: try the most-trusted public exchange first, fall through.
 _SOURCE_REGISTRY: List[tuple[str, Callable[..., Optional[pd.DataFrame]]]] = [
     ("coinbase", fetch_coinbase),
@@ -229,6 +327,7 @@ _SOURCE_REGISTRY: List[tuple[str, Callable[..., Optional[pd.DataFrame]]]] = [
     ("yfinance", fetch_yfinance),
     ("cryptocompare", fetch_cryptocompare),
     ("huggingface", fetch_huggingface),
+    ("github_raw", fetch_github_raw),
 ]
 
 

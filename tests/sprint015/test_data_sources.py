@@ -171,3 +171,76 @@ def test_default_registry_excludes_bybit():
     names = [name for name, _ in ds._SOURCE_REGISTRY]
     assert "bybit" not in names
     assert "binance" not in names
+
+
+# ---------------------------------------------------------------------------
+# github-raw — tier-3 fallback (curated keyless datasets)
+# ---------------------------------------------------------------------------
+
+
+_COINMETRICS_SAMPLE = (
+    "time,AdrActCnt,PriceUSD,ReferenceRateUSD,volume_reported_spot_usd_1d\n"
+    "2024-05-01,1,60000.0,,12500000\n"
+    "2024-05-02,1,60500.0,,11800000\n"
+    "2024-05-03,1,59800.0,,9900000\n"
+)
+
+
+def test_github_raw_returns_none_for_unregistered_pair():
+    assert ds.fetch_github_raw(
+        "DOGEUSDT", "1d", _ts(2024, 5, 1), _ts(2024, 5, 4),
+    ) is None
+
+
+def test_github_raw_returns_none_for_unsupported_timeframe():
+    """Coinmetrics is daily-only; sub-daily timeframes must NOT silently
+    upsample. The adapter returns None so the orchestrator falls
+    through (or raises) rather than producing an OHLC frame that lies
+    about strategy behaviour."""
+    assert ds.fetch_github_raw(
+        "BTCUSDT", "5m", _ts(2024, 5, 1), _ts(2024, 5, 4),
+    ) is None
+
+
+def test_github_raw_parses_coinmetrics_daily(monkeypatch):
+    monkeypatch.setattr(ds.requests, "get",
+                        lambda *a, **kw: SimpleNamespace(
+                            status_code=200, text=_COINMETRICS_SAMPLE, json=lambda: {},
+                        ))
+    df = ds.fetch_github_raw("BTCUSDT", "1d", _ts(2024, 5, 1), _ts(2024, 5, 3))
+    assert df is not None
+    assert list(df.columns) == ["open", "high", "low", "close", "volume"]
+    assert len(df) == 3
+    # Each bar's OHLC is the daily reference rate (no real intra-day shape).
+    assert df.iloc[0]["close"] == pytest.approx(60000.0)
+    assert df.iloc[0]["open"] == pytest.approx(60000.0)
+    assert df.iloc[0]["high"] == pytest.approx(60000.0)
+    assert df.iloc[0]["low"] == pytest.approx(60000.0)
+
+
+def test_github_raw_returns_none_on_4xx(monkeypatch):
+    monkeypatch.setattr(ds.requests, "get",
+                        lambda *a, **kw: SimpleNamespace(
+                            status_code=403, text="forbidden", json=lambda: {},
+                        ))
+    assert ds.fetch_github_raw(
+        "BTCUSDT", "1d", _ts(2024, 5, 1), _ts(2024, 5, 3),
+    ) is None
+
+
+def test_github_raw_is_last_in_default_registry():
+    """Tier-3 fallback ordering — public-exchange adapters must run first
+    so live-quality data wins when available."""
+    names = [name for name, _ in ds._SOURCE_REGISTRY]
+    assert names[-1] == "github_raw"
+
+
+def test_github_dataset_registry_only_serves_daily():
+    """Sanity: the curated github registry must NOT register a sub-daily
+    pair (that would let coinmetrics-style daily reference rates
+    masquerade as 5m/15m bars)."""
+    for (symbol, timeframe), entry in ds._GITHUB_DATASETS.items():
+        assert timeframe == "1d", (
+            f"{symbol} {timeframe}: only daily entries allowed (no fake "
+            f"intraday from daily refrate)"
+        )
