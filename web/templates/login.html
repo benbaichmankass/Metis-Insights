@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Sign in — ICT Trading Bot{% endblock %}
+{% block content %}
+<section class="login-card" aria-labelledby="login-heading">
+  <h1 id="login-heading">Sign in</h1>
+  <p class="hint">Operator-only. Email must be on the allowlist.</p>
+  <form id="login-form" action="/api/auth/login" method="post" autocomplete="off">
+    <label>
+      <span>Email</span>
+      <input type="email" name="email" required autocomplete="username">
+    </label>
+    <label>
+      <span>Password</span>
+      <input type="password" name="password" required autocomplete="current-password">
+    </label>
+    <button type="submit">Sign in</button>
+    <p id="login-error" class="error" role="alert" hidden></p>
+  </form>
+</section>
+{% endblock %}
