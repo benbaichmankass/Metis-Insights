@@ -9,12 +9,14 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 
+from src.web.api.routers import auth as auth_router
 from src.web.api.routers import pnl as pnl_router
 from src.web.api.routers import status as status_router
 
 app = FastAPI(title="ICT Trading Bot — Dashboard API", version="0.1.0")
 app.include_router(status_router.router)
 app.include_router(pnl_router.router)
+app.include_router(auth_router.router)
 
 
 @app.get("/api/health", tags=["health"])
