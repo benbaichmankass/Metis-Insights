@@ -21,8 +21,11 @@ sprint even if a previous PR has not been merged yet.
 At the **end of every session**, append an entry to the checkpoint log using
 `docs/claude/checkpoints/HANDOFF_TEMPLATE.md`. The entry must contain:
 1. Completed   2. Files changed   3. Tests run   4. Remaining   5. Next checkpoint.
-Then send the Telegram session ping via `scripts/notify_session.py session`
-(and the sprint ping via `... sprint` only if the whole sprint is done).
+The Telegram ping fires automatically off the checkpoint commit (VM-side
+wiring per `docs/claude/telegram-pings.md`); the manual
+`scripts/notify_session.py` is only a fallback. If the session is
+blocked and needs operator input, commit `[BLOCKED-PM] <question>` and
+open a draft PR titled `BLOCKED: <question>` — see § Telegram Reporting.
 
 ## Task routing
 
@@ -30,7 +33,8 @@ Then send the Telegram session ping via `scripts/notify_session.py session`
 |---|---|
 | Any session | `docs/claude/checkpoints/CHECKPOINT_LOG.md`, `docs/claude/checkpoint-workflow.md`, `docs/claude/INDEX.md` |
 | End-of-session handoff | `docs/claude/checkpoint-workflow.md`, `docs/claude/checkpoints/HANDOFF_TEMPLATE.md` |
-| Bug fix / regression | `docs/claude/session-workflow.md`, `docs/claude/debug-memory.md`, `docs/claude/testing-policy.md` |
+| Sprint planning | `docs/claude/sprint-planning.md` **(binding template — every sprint prompt must follow it)** |
+| Bug fix / regression | `docs/claude/session-workflow.md`, `docs/claude/debug-memory.md`, `docs/claude/testing-policy.md`, `docs/claude/bug-log.md` (append after each fix) |
 | Repo cleanup | `docs/claude/cleanup-policy.md`, `docs/claude/cleanup-report.md` |
 | ML model work | `docs/claude/ml-training-policy.md`, `docs/claude/external-delegation.md` |
 | Colab work | `docs/claude/colab-workflows.md` |
@@ -38,6 +42,7 @@ Then send the Telegram session ping via `scripts/notify_session.py session`
 | Deployment / Oracle VM | `docs/claude/deployment-ops.md`, `docs/claude/security-secrets.md` |
 | Running ON the VM (Telegram-dispatched runner) | `docs/claude/vm-operator-mode.md` **(binding tier policy)** |
 | Git / PR / push | `docs/claude/git-workflow.md`, `docs/claude/security-secrets.md` |
+| Telegram ping wiring | `docs/claude/telegram-pings.md` |
 | Architecture lookup | `docs/claude/repo-map.md` |
 
 ## VM-resident sessions (read first if `/etc/claude/vm-marker` exists)
@@ -62,12 +67,31 @@ let them re-issue the command.
   CryptoCompare, yfinance, or our HF datasets). See
   `docs/claude/testing-policy.md` → “Test data sources”.
 
-## Telegram Reporting (MANDATORY after every PR merge)
+## Telegram Reporting (MANDATORY)
 
-- `/sprintlet_status <milestone/PR#> merged, next: <next task>` — real-time PM update
-- `/sprintlet_complete S-NNN` — sent once at sprint end
-- `/checkpoint` — show latest checkpoint ID from CHECKPOINT_LOG.md
-- Use `scripts/notify_session.py session` for end-of-session ping (fallback when bot unavailable)
+The full spec lives in `docs/claude/telegram-pings.md`. The short version:
+
+- **Every** commit that touches `docs/claude/checkpoints/CHECKPOINT_LOG.md`
+  triggers a Telegram ping (VM-side wiring; ≤ 5 min latency).
+- **Blocker pings** — when an autonomous session needs operator input,
+  commit with `[BLOCKED-PM] <question>` in the subject **and** open a
+  draft PR titled `BLOCKED: <question>` with the chat link in the body.
+  This double-routes through Telegram + GitHub notifications.
+- Sprint completion → final checkpoint with `COMPLETE` / `WRAPPED` in
+  the title triggers a high-priority sprint-end ping.
+- If the sandbox can't reach Telegram, append the ping payload to
+  `docs/claude/pending-pings.jsonl`; the VM's git-sync drains it on
+  next pull.
+- Manual fallback (rarely needed): `PYTHONPATH=. python
+  scripts/notify_session.py session …`.
+
+## Bug log (MANDATORY)
+
+Whenever a bug is identified and fixed, append a row to
+`docs/claude/bug-log.md`. The row must include: date, sprint, area,
+symptom, root cause, fix-PR, architectural-concern category. The log is
+reviewed at the start of every planning sprint to spot recurring trouble
+spots and decide where deeper architectural investment is worth it.
 
 ## Merging Rules (MANDATORY)
 
