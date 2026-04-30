@@ -11,6 +11,120 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-30-14 — S-017 ARMED (smoke trigger ready, awaiting first fire)
+
+- **Session date:** 2026-04-30
+- **Sprint:** S-017 — Activate live trading + smoke test.
+- **Current sprint phase:** infrastructure shipped, smoke trigger armed. T5/T6/T8 fire automatically the first time the operator commits `runtime_flags/run_smoke_once.flag` after installing the unit on the VM.
+- **Last completed checkpoint:** CP-2026-04-30-13 (S-016 close).
+- **Next checkpoint:** **CP-…-S017-VERIFIED** — emitted from the next session that observes the smoke result. Operator triggers when convenient.
+- **Telegram sent:** auto-pings via S-016 H3 wiring.
+- **Alerts sent during session:** none.
+- **Blockers:** operator was unable to sign in to the VM during this session. Smoke is armed and one commit away whenever access is restored.
+
+### 1. PRs merged in S-017
+
+| PR | Title | What landed |
+|---:|---|---|
+| #222 | T0/T1 + smoke script scaffold | sprint prompt + httpx log filter (operator-action C) + `scripts/smoke_test_trade.py` + 14 tests |
+| #223 | Lock autonomous-trading rule + autonomous smoke trigger | CLAUDE.md § "Autonomous live-trading rule" (binding); `--confirm` flag dropped from the smoke script; `deploy/ict-smoke-once.service`; `scripts/run_smoke_once.sh`; `runtime_flags/.gitkeep`; `scripts/deploy_pull_restart.sh` reads the flag; runbook at `docs/runbooks/live-smoke-test.md`; operator-actions A/B/C marked resolved |
+
+### 2. Operator-action items (per `docs/operator-actions.md`)
+
+| ID | Item | Status |
+|---|---|---|
+| A | Revoke leaked Anthropic OAuth token | ✅ resolved (operator confirmed only their tokens exist today) |
+| B | Configure Bybit API keys on the VM | ✅ resolved (operator confirmed keys are in env, `/balance` returns non-zero) |
+| C | Filter `httpx` URL logging | ✅ resolved (PR #222 — bot module now matches `src/main.py` pattern) |
+| D | Verify `/opt/ict-trading-bot` exists on VM | ⏳ optional VM-side check; not blocking |
+| E | Bulk-prune stale `claude/*` branches | ⏳ optional |
+
+### 3. The autonomous-trading rule (now binding in CLAUDE.md)
+
+Operator clarified mid-session (verbatim):
+
+> the system isn't supposed to need my confirmation for each life trade.
+> It's supposed to send a package, and then the risk manager decides
+> to make the trade or not. [...] You don't need me to approve the
+> live trade. That's the whole point of the system that we're
+> building.
+
+Encoded as a binding § in CLAUDE.md. Future sessions that try to insert
+per-trade operator confirmation into sprint plans, smoke tests, or
+runbooks are wrong and should be told so + linked to that section. The
+four standing rails (none human-in-the-loop) are: `ALLOW_LIVE_TRADING`
++ `RiskManager` + `safe_place_order` + `/halt`.
+
+### 4. The smoke trigger — armed and waiting
+
+Three pieces, all on `main` after #223:
+
+- `deploy/ict-smoke-once.service` — one-shot systemd unit. Loads
+  `.env.bybit_1` + `.env.bybit_2` via `EnvironmentFile=`.
+- `scripts/run_smoke_once.sh` — wrapper that fires four steps:
+  bybit_1 sub-min → bybit_1 real → bybit_2 sub-min → bybit_2 real.
+- `scripts/deploy_pull_restart.sh` — after every HEAD-advancing pull,
+  checks for `runtime_flags/run_smoke_once.flag` and starts the unit.
+  The wrapper deletes the flag so a no-op re-pull does NOT refire.
+
+### 5. Hand-off — what the next session has to do
+
+**One-time install on the VM** (when the operator can sign in):
+
+```bash
+cd /home/ubuntu/ict-trading-bot
+git fetch --prune origin && git reset --hard origin/main
+sudo cp deploy/ict-smoke-once.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl status ict-smoke-once.service --no-pager | head -5   # verify "loaded"
+```
+
+**Trigger the smoke** (from the VM shell, fastest):
+
+```bash
+sudo systemctl start ict-smoke-once.service
+sudo journalctl -u ict-smoke-once.service -f
+```
+
+Or from anywhere with `git push` (works from a phone):
+
+```bash
+mkdir -p runtime_flags && touch runtime_flags/run_smoke_once.flag
+git pull origin main
+git add runtime_flags/run_smoke_once.flag
+git commit -m "smoke: trigger" && git push origin main
+# VM picks it up within ~5 min.
+```
+
+**Verify**: see `docs/runbooks/live-smoke-test.md` for the full
+checklist (signal_audit / trade_journal / `/trades` / `/balance`).
+
+### 6. What's deferred to the next session
+
+- T5 (pre-smoke verification) — a `/health` + `/balance` check before
+  firing.
+- T6 (autonomous smoke fire) — armed; runs on first flag commit.
+- T8 (verify chain) — assertions against signal_audit, trade_journal,
+  `/trades`, `/balance` after the smoke fires.
+- The next checkpoint (`CP-…-S017-VERIFIED`) closes the loop.
+
+### 7. Improvements for next sprint (per CLAUDE.md § 5)
+
+1. **Smoke unit retry guard** — currently the wrapper deletes the
+   flag unconditionally. If the VM fails to pull mid-smoke, the flag
+   is gone but the smoke didn't run. A small idempotency token would
+   help, but low priority — re-committing the flag is one keystroke.
+2. **Add a `/smoke` Telegram command** that wraps the flag-commit dance
+   so the operator can trigger the smoke from chat without leaving
+   Telegram. Out of S-017 scope but a nice S-018 follow-up.
+3. **Bug log entry pending for the auto-trader's existing /balance**
+   working — the assumption that "operator-action B" was unresolved
+   for two sprints turned out to be wrong; the keys had been
+   populated quietly. Worth a one-line bug-log entry classified as
+   `config` (yet another env-vs-doc-drift).
+
+---
+
 ## CP-2026-04-30-13 — S-016 housekeeping COMPLETE (9 PRs merged, no DRAFTs left)
 
 - **Session date:** 2026-04-30
