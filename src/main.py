@@ -123,10 +123,13 @@ def run_one_tick(settings: dict, exchange_client, telegram_client) -> dict:
 def main() -> None:
     load_dotenv()
     settings = build_settings_from_env()
-
-    # FIXED: respect DRY_RUN=false from .env correctly
-    dry_run_raw = str(os.environ.get("DRY_RUN", "true")).strip().lower()
-    settings["DRY_RUN"] = dry_run_raw not in {"false", "0", "no"}
+    # S-012 hotfix: build_settings_from_env now emits both lowercase
+    # ("dry_run", "allow_live_trading") and uppercase ("DRY_RUN",
+    # "ALLOW_LIVE_TRADING") keys. The post-call patch that previously
+    # backfilled DRY_RUN here is no longer needed and is removed —
+    # ALLOW_LIVE_TRADING was never backfilled, which produced the
+    # "ALLOW_LIVE_TRADING=true is required for live submission"
+    # rejection on every live signal.
 
     validate_startup()
     logger.info(
