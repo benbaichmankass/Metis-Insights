@@ -11,7 +11,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from src.web.api.auth import require_session
 from src.web.runtime_status import STATUS_PATH
@@ -35,6 +35,5 @@ def _load_status(path: Path) -> Dict[str, Any]:
 
 
 @router.get("/status")
-@require_session
-async def get_status() -> Dict[str, Any]:
+async def get_status(_session: dict = Depends(require_session)) -> Dict[str, Any]:
     return _load_status(STATUS_PATH)

@@ -1,4 +1,4 @@
-"""S-013 M3 PR #1 — JWT helpers + (still no-op) ``require_session``.
+"""S-013 M3 — JWT helpers and ``require_session`` dependency.
 
 Token contract (binding for S-013):
 
@@ -7,22 +7,20 @@ Token contract (binding for S-013):
     claims = {"email": <str>, "iat": <int>, "exp": <int>}
 
 Allowlist gate ``email == ALLOWED_EMAIL`` is enforced at issuance time
-(``POST /api/auth/login``) and again at decode time inside
-``require_session`` once M3 PR #2 flips the decorator.
+(``POST /api/auth/login``) and again at request time inside
+``require_session``.
 
 Secrets stay server-side. Envs (``JWT_SIGNING_KEY``,
 ``WEBAPP_PASSWORD_SHA256``, ``ALLOWED_EMAIL``) are read **per call**, not
-at import time, so unit tests can monkeypatch them and the unit on the
-VM picks up an updated ``EnvironmentFile`` without a process restart.
+at import time, so unit tests can monkeypatch them and the systemd
+``EnvironmentFile`` updates without a process restart.
 
 Error responses must never leak which env var is missing — only that
 auth is unavailable.
 
-TODO(S-013 M3 PR #2): replace ``require_session`` body with header
-parsing + ``decode_token`` + allowlist check. Tests in
-``tests/test_web_api_status.py`` and ``tests/test_web_api_pnl.py`` pin
-the current passthrough as a regression guard so the swap is the only
-moment behaviour changes.
+Default-deny: every route attaches ``Depends(require_session)`` unless
+its path is in ``PUBLIC_ROUTES``. Adding to ``PUBLIC_ROUTES`` is a code
+change reviewed in a PR.
 """
 from __future__ import annotations
 
@@ -31,16 +29,22 @@ import hmac
 import logging
 import os
 import time
-from functools import wraps
-from typing import Any, Callable, Optional, TypeVar
+from typing import Optional
 
 import jwt
+from fastapi import HTTPException, Request, status
 
 logger = logging.getLogger(__name__)
 
 JWT_ALGORITHM = "HS256"
 TOKEN_TTL_SECONDS = 3600
-F = TypeVar("F", bound=Callable[..., Any])
+
+# Routes that may be reached without a valid session token. Anything not
+# in this set is default-deny.
+PUBLIC_ROUTES: frozenset[str] = frozenset({
+    "/api/auth/login",
+    "/api/health",
+})
 
 
 # ---------------------------------------------------------------------------
@@ -115,21 +119,58 @@ def decode_token(token: str) -> Optional[dict]:
 
 
 # ---------------------------------------------------------------------------
-# Decorator. Currently a no-op; M3 PR #2 swaps the body for real
-# enforcement.
+# require_session — FastAPI dependency.
 # ---------------------------------------------------------------------------
 
 
-def require_session(func: F) -> F:
-    """Mark a route as session-protected.
+_UNAUTH = HTTPException(
+    status_code=status.HTTP_401_UNAUTHORIZED,
+    detail={"error": "invalid_session"},
+    headers={"WWW-Authenticate": "Bearer"},
+)
 
-    No-op in M2 / M3 PR #1; M3 PR #2 swaps this for real JWT enforcement.
-    Tests treat the passthrough as a regression guard so the swap is
-    the only moment behaviour changes.
+
+async def require_session(request: Request) -> dict:
+    """Default-deny session gate.
+
+    - Returns the decoded claims dict on success.
+    - 401 ``invalid_session`` on missing/malformed Authorization, expired
+      token, bad signature, or ``alg=none``.
+    - 403 ``email_not_allowlisted`` if the token's ``email`` claim no
+      longer matches ``ALLOWED_EMAIL`` (operator was de-allowlisted
+      after issuance).
+    - 500 ``auth_unavailable`` if the server's auth env vars are missing
+      so the gate cannot make a decision; never echoes which env var.
+
+    Routes whose path is in ``PUBLIC_ROUTES`` opt out by NOT attaching
+    this dependency in the first place; that's enforced in
+    ``src/web/api/main.py`` by the test suite.
     """
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise _UNAUTH
 
-    @wraps(func)
-    async def _wrapper(*args: Any, **kwargs: Any) -> Any:
-        return await func(*args, **kwargs)
+    token = auth_header[len("Bearer "):].strip()
+    if not token:
+        raise _UNAUTH
 
-    return _wrapper  # type: ignore[return-value]
+    claims = decode_token(token)
+    if claims is None:
+        raise _UNAUTH
+
+    try:
+        allowed = _allowed_email()
+    except RuntimeError:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"error": "auth_unavailable"},
+        )
+
+    claim_email = str(claims.get("email", "")).strip().lower()
+    if not claim_email or claim_email != allowed:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"error": "email_not_allowlisted"},
+        )
+
+    return claims
