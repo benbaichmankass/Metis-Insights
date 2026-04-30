@@ -1,0 +1,41 @@
+# =============================================================================
+# ICT Trading Bot — one-shot autonomous smoke test (S-017 T7).
+#
+# Fires `scripts/smoke_test_trade.py` four times against the live exchange
+# to verify the plumbing end-to-end. Per CLAUDE.md "Autonomous live-trading
+# rule": NO per-trade operator confirmation. Safety rails are entirely
+# process-level.
+#
+# Trigger: enabled by a one-shot trigger file at
+# `runtime_flags/run_smoke_once.flag`. The git-sync deploy script
+# (`scripts/deploy_pull_restart.sh`) checks for the flag after a HEAD
+# advance and, if present, runs `systemctl start ict-smoke-once.service`.
+# The service then deletes the flag (best-effort) so a second pull
+# without re-creating the flag does NOT re-run the smoke.
+#
+# To trigger from a sandbox session: commit + push the flag file. The
+# VM picks it up on the next git-sync tick (~5 min) and fires.
+#
+# To trigger manually on the VM: `sudo systemctl start ict-smoke-once`.
+#
+# Save to: /etc/systemd/system/ict-smoke-once.service
+# =============================================================================
+
+[Unit]
+Description=ICT Trading Bot — one-shot live-trading plumbing smoke test
+After=network-online.target ict-trader-live.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/ict-trading-bot
+EnvironmentFile=/home/ubuntu/ict-trading-bot/.env
+EnvironmentFile=-/home/ubuntu/ict-trading-bot/.env.bybit_1
+EnvironmentFile=-/home/ubuntu/ict-trading-bot/.env.bybit_2
+ExecStart=/bin/bash /home/ubuntu/ict-trading-bot/scripts/run_smoke_once.sh
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

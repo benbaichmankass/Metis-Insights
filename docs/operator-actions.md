@@ -39,7 +39,9 @@ sudo -u ubuntu /usr/local/bin/claude-vm-dispatch \
 Or simpler: `/vm what time is it` from Telegram. If it returns the
 expected `✅ exit 0`, the active token is intact.
 
-**Status:** ⏳ pending operator.
+**Status:** ✅ resolved (S-017). Operator confirmed all OAuth tokens in
+the Anthropic console were created today by them; no leaked token to
+revoke.
 
 ---
 
@@ -85,7 +87,10 @@ false` lets the trader validate API auth without actually submitting
 orders. Confirm `MAX_QTY` is small in `.env.bybit_2` (default 0.001)
 before flipping `ALLOW_LIVE_TRADING=true`.
 
-**Status:** ⏳ pending operator.
+**Status:** ✅ resolved (S-017). Operator confirmed Bybit keys are
+already loaded into the trader's process env via the per-account
+`.env.bybit_*` files; `/balance` returns non-zero numbers on both
+accounts. The autonomous smoke (T6/T7) consumes the same env files.
 
 ---
 
@@ -122,7 +127,9 @@ sudo journalctl -u ict-telegram-bot -n 100 --no-pager | grep -i httpx
 # should be empty
 ```
 
-**Status:** ⏳ next dev session (small bot-side fix).
+**Status:** ✅ resolved in S-017 PR #222. The bot module now calls
+`install_redacting_filter()` + `suppress_httpx_logging()` at startup,
+matching the trader's `src/main.py` pattern.
 
 ---
 

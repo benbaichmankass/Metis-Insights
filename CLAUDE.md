@@ -67,6 +67,37 @@ let them re-issue the command.
   CryptoCompare, yfinance, or our HF datasets). See
   `docs/claude/testing-policy.md` → “Test data sources”.
 
+## Autonomous live-trading rule (MANDATORY — do not relitigate)
+
+The trader is **designed to be autonomous**. Per-trade operator
+confirmation is **not** part of the architecture and **must not** be
+inserted into sprint plans, smoke tests, runbooks, or any checkpoint
+table. The safety rails are:
+
+1. `ALLOW_LIVE_TRADING=true` + `DRY_RUN=false` — process-level interlock.
+2. `RiskManager` per account — sizing, daily loss caps, max-drawdown.
+3. `safe_place_order` — the single live-order entry point. Validates
+   payload before touching the exchange.
+4. The kill-switch flag (`/halt`) — operator can stop everything in
+   one tap; default-running otherwise.
+
+When proposing or running anything that touches live trading,
+*assume autonomous execution*. Do not gate trades on `--confirm`
+flags requiring human input, do not pause sprints "for the operator
+to greenlight each LIVE order", do not insert "operator confirms
+before placement" into checkpoint tables. The risk manager + the
+process-level interlock + the kill-switch are the policy. The
+operator pre-approves the **system**, not each **trade**.
+
+This applies to smoke tests too: a smoke trade fires the moment the
+risk manager and `safe_place_order` accept it, no human in the loop.
+If `qty` is over a hard safety cap (e.g. `0.001` BTC for plumbing
+smokes), refuse to dispatch — but for any value below the cap, the
+trader's autonomous rails are the policy.
+
+If a future session is tempted to add operator confirmation per
+trade, it's wrong. Tell the user it's wrong and link to this section.
+
 ## Telegram Reporting (MANDATORY)
 
 The full spec lives in `docs/claude/telegram-pings.md`. The short version:

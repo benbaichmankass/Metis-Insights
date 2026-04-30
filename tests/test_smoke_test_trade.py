@@ -1,13 +1,12 @@
 """S-017 — smoke_test_trade.py safety + signal-shape tests.
 
-The script never gets unit-tested on the live VM; the safety cap is the
-only thing standing between an operator typo and a 10-BTC order. Tests
-here pin:
+The script never gets unit-tested on the live VM; the qty cap is the
+only thing standing between a typo and a 10-BTC order. Tests here pin:
 
 * `--qty > MAX_SAFE_QTY` returns 2 (refuses to start).
 * `--qty <= 0` returns 2.
-* LIVE without `--confirm` returns 2.
-* LIVE without `ALLOW_LIVE_TRADING=true` returns 2.
+* LIVE without `ALLOW_LIVE_TRADING=true` env returns 2 (process-level
+  interlock from the autonomous-trading rule in CLAUDE.md).
 * Disabled account in accounts.yaml → returns 2.
 * Missing API key in env → returns 2.
 * Signal shape: smoke entries always carry
@@ -15,6 +14,11 @@ here pin:
 * Audit log entries for OPEN attempts always tag `strategy=smoke_test`.
 * Open + close round-trip on a stubbed safe_place_order: 4 audit events
   written (open_attempt, open_result, close_attempt, close_result).
+
+Per the CLAUDE.md § "Autonomous live-trading rule": the script does
+NOT take a `--confirm` flag. The safety rails are process-level
+(`ALLOW_LIVE_TRADING` env, `RiskManager`, `safe_place_order`
+validation, the hard qty cap), not human-in-the-loop.
 
 The tests stub `safe_place_order` so they never touch a real exchange.
 """
@@ -38,27 +42,18 @@ import smoke_test_trade as smoke  # noqa: E402
 # ---------------------------------------------------------------------------
 
 
-def test_qty_above_cap_refuses(monkeypatch, caplog):
-    rc = smoke.main(["--account", "bybit_2", "--qty", "0.01",
-                     "--side", "buy", "--confirm"])
+def test_qty_above_cap_refuses():
+    rc = smoke.main(["--account", "bybit_2", "--qty", "0.01", "--side", "buy"])
     assert rc == 2
 
 
 def test_qty_zero_refuses():
-    rc = smoke.main(["--account", "bybit_2", "--qty", "0",
-                     "--side", "buy", "--confirm"])
+    rc = smoke.main(["--account", "bybit_2", "--qty", "0", "--side", "buy"])
     assert rc == 2
 
 
 def test_qty_negative_refuses():
-    rc = smoke.main(["--account", "bybit_2", "--qty", "-0.0001",
-                     "--side", "buy", "--confirm"])
-    assert rc == 2
-
-
-def test_live_without_confirm_refuses():
-    rc = smoke.main(["--account", "bybit_2", "--qty", "0.0001",
-                     "--side", "buy"])
+    rc = smoke.main(["--account", "bybit_2", "--qty", "-0.0001", "--side", "buy"])
     assert rc == 2
 
 
@@ -67,9 +62,21 @@ def test_live_without_allow_flag_refuses(monkeypatch):
     monkeypatch.setattr(smoke, "_account_settings",
                         lambda name: {"BYBIT_API_KEY": "fake",
                                       "BYBIT_API_SECRET": "fake"})
-    rc = smoke.main(["--account", "bybit_2", "--qty", "0.0001",
-                     "--side", "buy", "--confirm"])
+    rc = smoke.main(["--account", "bybit_2", "--qty", "0.0001", "--side", "buy"])
     assert rc == 2
+
+
+def test_no_confirm_flag_exists():
+    """Per CLAUDE.md autonomous-trading rule: the smoke script must NOT
+    take a --confirm flag (no human-in-the-loop per trade)."""
+    import argparse
+    p = argparse.ArgumentParser()
+    parsed = smoke._parse_args(["--account", "bybit_2", "--qty", "0.0001",
+                                "--side", "buy"])
+    assert not hasattr(parsed, "confirm"), (
+        "smoke script must not require a --confirm flag — that violates "
+        "the autonomous-trading rule in CLAUDE.md"
+    )
 
 
 # ---------------------------------------------------------------------------
