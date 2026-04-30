@@ -18,6 +18,7 @@ import pandas as pd
 
 from src.runtime.notify import notify_operator, send_via_alert_manager
 from src.runtime.orders import safe_place_order
+from src.web.runtime_status import write_status
 
 logger = logging.getLogger(__name__)
 
@@ -509,6 +510,8 @@ def run_pipeline(
         send_via_alert_manager(message)
 
     logger.info("Pipeline complete: %s", result)
+
+    write_status()
 
     return {
         "signal": signal,
