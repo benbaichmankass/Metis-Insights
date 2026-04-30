@@ -1,6 +1,6 @@
 # ICT Trading Bot — Product Roadmap
 
-> **Last Updated:** 2026-04-29 (S-010 complete; prop sprints deferred; Text Milestones promoted to S-011)
+> **Last Updated:** 2026-04-30 (S-011/S-012 complete; S-013 reframed from native mobile to secure web dashboard)
 > **Maintained by:** PM (Ben) + Tech Lead (Perplexity)
 > **Sprint prompt files:** `docs/sprints/sprint-NNN-prompt.md`
 
@@ -74,27 +74,28 @@
 
 | Sprint | Title | Status |
 |--------|-------|--------|
-| S-011 | **Backtesting UI** — Streamlit web view for historical results, equity curve, strategy comparison; `/accounts` dry/live toggle | 🔜 Next |
-| S-012 | **Strategy Config UI** — Edit risk %, timeframe, symbols via Streamlit + `config/strategies.yaml`; `/reload_strats` Telegram command | 📋 Backlog |
+| S-011 | **Backtesting UI** — Streamlit web view for historical results, equity curve, strategy comparison; `/accounts` dry/live toggle | ✅ Done |
+| S-012 | **Production Wiring Audit & Full Live Activation** — strategy roster reduced to turtle_soup + vwap; phantom services eliminated; live-mode interlock; risk caps proven (replaced original "Strategy Config UI" framing) | ✅ Done |
 
 ---
 
-### Phase 4 — Mobile App V1 (Dashboard)
-**Goal:** Read-only mobile dashboard giving full visibility into the system.
+### Phase 4 — Secure Web Dashboard
+**Goal:** Read-only web dashboard (auth-gated) giving full visibility into the system. Replaces the original native-mobile framing — same end product, web stack, no app-store gates.
 
 | Sprint | Title | Status |
 |--------|-------|--------|
-| S-013 | **App Scaffold & Home Dashboard** — React Native or Flutter scaffold, home tab with overall P&L, system status, active strategies | 📋 Backlog |
-| S-014 | **Component Tabs** — tabs for Strategies, Accounts, Model Metrics, Runtime Logs & Bugs; left-side tab panel | 📋 Backlog |
+| S-013 | **Secure Web Dashboard: Backend Scaffold & Home Status** — FastAPI `/api/status` + `/api/pnl`, JWT auth (HS256, 1h TTL, single-operator allowlist), runtime status producer, `/webapp` Telegram command | 🔄 In Progress |
+| S-014 | **Web Client V1 (Home Dashboard)** — browser client consuming S-013 APIs; login flow; home view with overall P&L, system status, active strategies | 📋 Backlog |
+| S-015 | **Web Client V2 (Component Tabs)** — Strategies, Accounts, Model Metrics, Runtime Logs & Bugs tabs | 📋 Backlog |
 
 ---
 
-### Phase 5 — Mobile App V2 (Ops)
-**Goal:** Allow operational tasks from the app — primarily secure key management.
+### Phase 5 — Web Dashboard Ops Layer
+**Goal:** Allow operational tasks from the dashboard — primarily secure key management.
 
 | Sprint | Title | Status |
 |--------|-------|--------|
-| S-015 | **Secure API Key Management** — add/store/rotate API keys through the app, encrypted vault, eliminates need to manually edit master-secrets file | 📋 Backlog |
+| S-016 | **Secure API Key Management** — add/store/rotate API keys through the dashboard, encrypted vault, eliminates need to manually edit master-secrets file | 📋 Backlog |
 
 ---
 

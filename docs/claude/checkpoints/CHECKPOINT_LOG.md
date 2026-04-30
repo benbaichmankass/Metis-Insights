@@ -11,6 +11,56 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-30-01 — S-013 kickoff (planning docs)
+
+- **Session date:** 2026-04-30
+- **Sprint:** S-013 — Secure Web Dashboard: Backend Scaffold & Home Status
+- **Current sprint phase:** kickoff — planning docs only, no code changes
+- **Last completed checkpoint:** CP-2026-04-29-63 (S-012 SPRINT COMPLETE)
+- **Next checkpoint:** **CP-2026-04-30-02 — M0 PR #1: clear 17 pre-existing failing tests** — rewrite or delete `tests/test_runtime_validation.py` (15), `tests/test_runtime_smoke.py::test_runtime_smoke_path`, `tests/test_print_runtime_profile.py::test_print_runtime_profile_outputs_summary` against current production signatures so `pytest tests/ -q --ignore=tests/test_main_loop.py` is unambiguously green.
+- **Telegram sent:** no (no creds in session)
+- **Alerts sent during session:** none
+- **Blockers:** none
+
+### 1. Completed
+- Surveyed repo state vs. user-supplied "Sprint 8 / S-013" prompt; flagged that the original prompt referenced docs that did not exist (`sprint-013-prompt.md`, `sprint-plan-2026-04-30.md`, `CP-2026-04-30-02`, PR #172) and assumed a runtime "heartbeat file" the repo did not produce.
+- Cross-checked against `ROADMAP.md` (stale; S-013 was framed as "App Scaffold & Home Dashboard" — React Native / Flutter) and the closing S-012 checkpoint (suggested first task: clear 17 pre-existing failing tests).
+- Drafted a cohesive S-013 prompt; PM approved with four resolutions (replace native-mobile framing with secure web dashboard; single-operator allowlist `ben.baichmankass@gmail.com`; JWT TTL = 1 hour; M0 first) plus a new `/webapp` Telegram command requirement.
+- Wrote planning docs:
+  - `docs/sprints/sprint-013-prompt.md` (binding sprint prompt).
+  - `docs/sprint-plans/sprint-plan-2026-04-30.md` (8-PR milestone breakdown with per-PR acceptance criteria, API shapes, auth contract).
+  - `ROADMAP.md` updated: S-011/S-012 marked Done; Phase 4 reframed as "Secure Web Dashboard"; S-013 in-progress; S-014/S-015/S-016 renumbered.
+
+### 2. Files changed
+- `docs/sprints/sprint-013-prompt.md` (new)
+- `docs/sprint-plans/sprint-plan-2026-04-30.md` (new)
+- `ROADMAP.md` (Phase 3.5 / Phase 4 / Phase 5 updates)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+- None — docs-only PR.
+- `python scripts/secret_scan.py` — to be run before commit.
+
+### 4. Remaining
+- Sprint execution: M0 PR #1 → M1 PR #1 → M2 PR #1 → M2 PR #2 → M3 PR #1 (PM review) → M3 PR #2 (PM review) → M4 PR #1 → M4 PR #2.
+- This kickoff PR self-merges per `CLAUDE.md` after CI green.
+
+### 5. Next checkpoint
+**CP-2026-04-30-02 — M0 PR #1: clear 17 pre-existing failing tests.**
+
+Read order for the next session:
+1. This entry.
+2. `docs/sprints/sprint-013-prompt.md` (binding).
+3. `docs/sprint-plans/sprint-plan-2026-04-30.md` § "M0 PR #1".
+4. `docs/sprint-summaries/sprint-012-summary.md` § "Pre-existing failures (deferred)" — the table identifying the 17 tests by class.
+5. The three test files themselves: `tests/test_runtime_validation.py`, `tests/test_runtime_smoke.py`, `tests/test_print_runtime_profile.py`.
+
+Concrete first action: read the three test files alongside the current production signatures of `validate_startup()` and `build_settings_from_env()`; decide rewrite-vs-delete per test; ship as a single tests-only PR, ≤ 200 LOC.
+
+Guardrails for next session: tests-only diff (no production code touched); branch off latest `main` as `claude/s013-m0-pr1-test-cleanup`; self-merge after CI green.
+
+---
+
 ## CP-2026-04-29-63 — S-012 SPRINT COMPLETE
 
 - **Session date:** 2026-04-29
