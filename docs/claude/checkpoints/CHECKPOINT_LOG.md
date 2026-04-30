@@ -11,6 +11,116 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-30-12 — S-015 Session A WRAPPED (10 PRs merged, no DRAFTs left)
+
+- **Session date:** 2026-04-30
+- **Sprint:** S-015 — strategy + model improvement pass.
+- **Current sprint phase:** Session A wrapped (per operator: "wrap up this sprint"). Session B (real 5m intraday baseline + parameter sweeps) **not run** — the sandbox can't fetch keyless intraday data and operator chose not to burn compute on a wrong-resolution test.
+- **Last completed checkpoint:** CP-2026-04-30-11.
+- **Next checkpoint:** **CP-YYYY-MM-DD-NN — housekeeping** — operator's plan: small housekeeping session, then a planning session, then the next sprint. Do **not** auto-start Session B from this checkpoint.
+- **Telegram sent:** no — `TELEGRAM_BOT_TOKEN` absent in this sandbox env (matches earlier sessions). Operator can post manually.
+- **Alerts sent during session:** none.
+- **Blockers:** Session B remains gated on a host with keyless intraday-API egress. The harness is ready to run there in one command.
+
+### Session-close verification (CLAUDE.md § Default verification)
+
+- `python scripts/secret_scan.py` → clean.
+- `python scripts/repo_inventory.py` → no junk candidates; one large committed CSV (`data/btc_1m_sample.csv`, 642 KB) is the pre-existing fixture used by tests/test_analyze_fixtures.py.
+- `PYTHONPATH=. python -m pytest tests/sprint015/ tests/test_vwap_timeframe_5m.py --collect-only -q` → **43 tests collected** (39 sprint015 + 4 vwap-timeframe). Full run earlier this session: 43 passed in 10.92 s.
+- Working tree clean, branch `main` matches `origin/main`.
+
+### 1. PRs merged in S-015 Session A (10 total)
+
+| PR | Title | Risk class |
+|---:|---|---|
+| #200 | S-015 sprint prompt | docs |
+| #201 | S-015 T1: backtest harness + multi-source keyless fetcher + sampler | infra |
+| #202 | S-015 T3: harness validation on existing repo fixtures | infra |
+| #203 | checkpoint: CP-2026-04-30-10 (mid-session) | docs |
+| #204 | S-015 T9: Session A summary report | docs |
+| #206 | checkpoint: CP-2026-04-30-11 (rebase fix; #205 closed unmerged) | docs |
+| #207 | github-raw fetcher adapter + coinmetrics/data wrapper | infra |
+| #208 | daily-resolution smoke test against coinmetrics | infra |
+| #209 | **VWAP timeframe 15m → 5m** | **strategy / live behaviour — operator-approved merge** |
+| #210 | Session A summary post-clarification update | docs |
+
+### 2. The one live-behaviour change shipped (PR #209)
+
+VWAP now runs at **5m** on `bybit_2`. Three coordinated changes pinned by 4 regression tests:
+
+- `config/strategies.yaml` — `vwap.timeframe: "15m"` → `"5m"`.
+- `src/runtime/pipeline.py::vwap_signal_builder` — resolution order is now strategies.yaml → env → default `"5m"` (was env-first, which would have silently no-op'd the YAML change if any account's `.env` still had `TIMEFRAME=15m`).
+- `.env.example` — default `15m` → `5m` + comment that strategies.yaml takes precedence.
+
+**Operational impact on next deploy:** signal evaluation triples in frequency on `bybit_2`. Risk caps unchanged. Existing turtle_soup behaviour unchanged.
+
+### 3. Files created during S-015
+
+- `docs/sprints/sprint-015-prompt.md` — sprint spec.
+- `scripts/sprint015/{__init__,data_sources,sample_data,run_backtest,analyze_fixtures,run_smoke_test}.py` — pure-function harness (~1k LOC).
+- `tests/sprint015/test_*.py` — 39 contract / regression tests.
+- `tests/test_vwap_timeframe_5m.py` — 4 regression tests for the live-behaviour change.
+- `docs/backtests/sprint-015/{harness-validation,smoke-test-daily,summary}.md`.
+- `data/backtests/sprint-015/.gitkeep` + `.gitignore` carve-out for cached buckets.
+
+### 4. T0 audit — environmental blocker (decisions log, abridged)
+
+This sandbox's egress gateway is allowlisted to **pypi + github only**. Probed (HTTPS, even with `-k` insecure):
+
+```
+api.exchange.coinbase.com / api.kraken.com / query1.finance.yahoo.com /
+min-api.cryptocompare.com / api.coingecko.com / api.coinpaprika.com /
+api.kucoin.com / api.gemini.com / api.bitfinex.com / api.bitvavo.com /
+stooq.com / archive.org / kaggle.com / data-api.binance.vision /
+huggingface.co  → all 403
+pypi.org / files.pythonhosted.org / github.com /
+raw.githubusercontent.com  → 200 ✓
+```
+
+The github-raw adapter (#207) uses the only reachable path — `raw.githubusercontent.com` — to pull `coinmetrics/data` daily reference rates. **Hard rule pinned by tests:** github-raw only serves daily timeframes; sub-daily requests return None so reference rates can't masquerade as 5m / 15m bars.
+
+### 5. Mid-session decisions log (operator directives, verbatim)
+
+1. *"the testing package should also be able to pull data from open sources on the web that don't require Api keys. don't take data from bybit for training sessions."* — pinned by `test_default_registry_excludes_bybit`.
+2. *"the not pushing anything without checking with me specifically relates to the results of the test [...] Everything that has to with building the infrastructure for the testing. Regular workflow."* — applied: 9 infra PRs self-merged, 1 strategy-config PR (#209) held as draft until operator-approved.
+3. *"vwap should be wired to 5 minutes not 15 minutes so we should do that fix as well"* — shipped in #209, operator-approved and merged.
+4. *"we definitely don't want the models learning from incorrect datasets"* — daily smoke test (#208) was run for harness validation only; no parameter tuning ran on daily data, no PR proposed parameter changes from #208's output.
+5. *"wrap up this sprint [...] our next session needs to be a planning session, not just running to the next sprint"* — Session A closed here; Session B not auto-started.
+
+### 6. What Session B still needs (handoff)
+
+The harness, fetcher, sampler, regression tests are all on `main`. Session B's first action — verbatim from `docs/backtests/sprint-015/summary.md`:
+
+```bash
+git pull
+PYTHONPATH=. python -m pytest tests/sprint015/ tests/test_vwap_timeframe_5m.py -q
+PYTHONPATH=. python -c "
+import datetime as dt
+from scripts.sprint015 import data_sources as ds
+df, src, attempts = ds.fetch_ohlcv(
+    'BTCUSDT', '5m',
+    dt.datetime(2025, 1, 1, tzinfo=dt.timezone.utc),
+    dt.datetime(2025, 2, 1, tzinfo=dt.timezone.utc),
+)
+print(f'source={src} rows={len(df)}')
+"
+```
+
+If `source=` prints (e.g.) `coinbase` or `kraken` and `rows>0`, proceed with T2 → T4 / T6 / T7. If every adapter still 403s, stop and tell the operator the egress is still blocked.
+
+Recommended host: the Oracle VM (`/vm` Telegram dispatcher unlocks it, Tier-2 confirmation needed once at install time for `pip install pandas scipy`). Other paths in `docs/backtests/sprint-015/summary.md`.
+
+### 7. Improvements for next sprint (carried forward)
+
+1. **Centralise telegram stubs in `tests/conftest.py`** — flagged from S-014 CP-09. Module-level `_VM_WRITE_BUTTONS = InlineKeyboardMarkup([[…]])` (PR #184) breaks the `MagicMock` stub used by ~10 existing test files.
+2. **Document the recursive `web/templates/**/*.html` whitelist pattern in `docs/claude/git-workflow.md`** — flagged from S-014 CP-09.
+3. **Add a "sandbox has no market-data egress" note to `docs/claude/testing-policy.md`** — flagged from S-015 CP-10/11; still pending.
+4. **Pre-stage intraday data** for future training sprints — kaggle download + `git lfs add`, or a self-hosted mirror, so the sandbox isn't a hard blocker on future ML/backtest work.
+5. **HuggingFace OHLCV adapter is a placeholder** — wire to a specific community dataset when one is identified.
+6. **CryptoCompare keyless tier is hour/day-only** — sub-hourly fetches will fall through silently.
+
+---
+
 ## CP-2026-04-30-11 — S-015 Session A complete (all 6 infra PRs merged)
 
 - **Session date:** 2026-04-30
