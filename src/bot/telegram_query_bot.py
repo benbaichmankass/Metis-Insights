@@ -1218,6 +1218,118 @@ async def cmd_sprintlet_complete(update: Update, context: ContextTypes.DEFAULT_T
     )
 
 
+# ── Pending-pings inbox (S-019) ────────────────────────────────────────────
+#
+# Any process on the VM (deploy script, smoke runner, trader, /vm session)
+# can ping the operator without re-implementing the Telegram client by
+# dropping a JSON file in `runtime_logs/pending_pings/`. The bot's job
+# queue drains the directory every few seconds. This decouples ping
+# emission from the git-sync timer — pings fire seconds after the file
+# lands, not minutes.
+#
+# Schema: ``{"priority": "normal|high|urgent|low", "body": "..."}``.
+# Atomic writes: writers create ``<id>.json.tmp`` then ``rename`` to
+# ``<id>.json`` so the drainer never reads a half-written file.
+
+PENDING_PINGS_DIR = os.path.join(REPO_ROOT, "runtime_logs", "pending_pings")
+PING_DRAIN_INTERVAL_S = 5
+
+_PRIORITY_ICONS = {
+    "urgent": "🚨 URGENT",
+    "high":   "🔔",
+    "normal": "ℹ️",
+    "low":    "·",
+}
+
+
+async def _drain_pending_pings(context: ContextTypes.DEFAULT_TYPE):
+    """JobQueue task — scan the inbox, send each, delete on success.
+
+    Failures (Telegram 4xx, malformed JSON) move the offending file
+    aside with a ``.broken`` suffix so the drainer doesn't loop on it.
+    """
+    try:
+        os.makedirs(PENDING_PINGS_DIR, exist_ok=True)
+        names = sorted(
+            n for n in os.listdir(PENDING_PINGS_DIR)
+            if n.endswith(".json") and not n.endswith(".tmp")
+        )
+    except OSError:
+        return
+
+    if not names:
+        return
+
+    chat_id = TELEGRAM_CHAT_ID
+    if not chat_id:
+        logger.warning("ping inbox has %d file(s) but TELEGRAM_CHAT_ID is unset",
+                       len(names))
+        return
+
+    for name in names:
+        path = os.path.join(PENDING_PINGS_DIR, name)
+        try:
+            with open(path, "r", encoding="utf-8") as fh:
+                payload = json.load(fh)
+        except (OSError, json.JSONDecodeError) as exc:
+            logger.warning("ping inbox: malformed file %s — %s", name, exc)
+            try:
+                os.rename(path, path + ".broken")
+            except OSError:
+                pass
+            continue
+
+        priority = str(payload.get("priority", "normal")).lower()
+        body = str(payload.get("body", "")).strip()
+        if not body:
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
+            continue
+
+        prefix = _PRIORITY_ICONS.get(priority, _PRIORITY_ICONS["normal"])
+        text = f"{prefix} {body}"
+
+        try:
+            await context.bot.send_message(
+                chat_id=chat_id, text=text,
+                disable_web_page_preview=True,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("ping inbox: send failed for %s — %s", name, exc)
+            continue   # leave file in place; retry next tick
+
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
+
+
+async def cmd_ping_test(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Verify the inbox-drain loop end-to-end.
+
+    Drops a test ping in the inbox, waits one drain cycle, replies
+    with success / diagnostic.
+    """
+    if not is_authorised(update):
+        return
+    note = " ".join(context.args) if context.args else "ping test"
+    os.makedirs(PENDING_PINGS_DIR, exist_ok=True)
+    test_id = f"test-{int(datetime.now(timezone.utc).timestamp())}"
+    path = os.path.join(PENDING_PINGS_DIR, f"{test_id}.json")
+    tmp = path + ".tmp"
+    payload = {"priority": "normal", "body": f"ping_test from /ping_test: {note}"}
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump(payload, fh)
+    os.rename(tmp, path)
+    await update.message.reply_text(
+        f"📨 Queued `{test_id}.json`. Should fire within "
+        f"{PING_DRAIN_INTERVAL_S}s.",
+        parse_mode="Markdown",
+    )
+
+
 async def cmd_checkpoint(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Show the latest checkpoint ID from CHECKPOINT_LOG.md."""
     if not is_authorised(update):
@@ -1829,6 +1941,23 @@ def main():
 
     application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
+    # S-019 — pending-pings inbox drain. Job queue runs the coroutine
+    # every PING_DRAIN_INTERVAL_S seconds. Any process can drop a JSON
+    # file into runtime_logs/pending_pings/ and it'll be sent within
+    # one tick. See _drain_pending_pings docstring above.
+    if application.job_queue is not None:
+        application.job_queue.run_repeating(
+            _drain_pending_pings,
+            interval=PING_DRAIN_INTERVAL_S,
+            first=2,   # 2 s grace at startup so post_init lands first
+            name="drain_pending_pings",
+        )
+    else:
+        logger.warning(
+            "JobQueue unavailable — pending-pings inbox drain disabled. "
+            "Install python-telegram-bot[job-queue] to enable.",
+        )
+
     async def post_init(app):
         label = get_strategy_label()
         commands = [
@@ -1861,6 +1990,7 @@ def main():
             BotCommand("checkpoint", "Show latest checkpoint from CHECKPOINT_LOG.md"),
             BotCommand("health", "Per-unit status + data-file freshness"),
             BotCommand("vmstats", "VM resource snapshot (uptime, load, mem, disk)"),
+            BotCommand("ping_test", "Verify the pending-pings inbox drain loop"),
             BotCommand("sprintlet_status", "Manual sprint milestone update: /sprintlet_status [note]"),
             BotCommand("sprintlet_complete", "Manual sprint-complete signal: /sprintlet_complete [sprint]"),
         ]
@@ -1895,6 +2025,7 @@ def main():
     application.add_handler(CommandHandler("checkpoint", cmd_checkpoint))
     application.add_handler(CommandHandler("health", cmd_health))
     application.add_handler(CommandHandler("vmstats", cmd_vmstats))
+    application.add_handler(CommandHandler("ping_test", cmd_ping_test))
     application.add_handler(CommandHandler("webapp", cmd_webapp))
     application.add_handler(CommandHandler("vm", cmd_vm))
     application.add_handler(CommandHandler("vm_write", cmd_vm_write))
