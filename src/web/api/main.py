@@ -15,6 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from src.web.api.routers import auth as auth_router
 from src.web.api.routers import pnl as pnl_router
 from src.web.api.routers import pnl_history as pnl_history_router
+from src.web.api.routers import pnl_fragment as pnl_fragment_router
 from src.web.api.routers import status as status_router
 from src.web.api.routers import status_fragment as status_fragment_router
 from src.web.api.routers import ui as ui_router
@@ -29,6 +30,7 @@ app.include_router(pnl_history_router.router)
 app.include_router(auth_router.router)
 app.include_router(ui_router.router)
 app.include_router(status_fragment_router.router)
+app.include_router(pnl_fragment_router.router)
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 
