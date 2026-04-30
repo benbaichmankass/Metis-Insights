@@ -11,6 +11,133 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-30-00 — Sprint 8 / S-013 kickoff: ROADMAP retargeted to secure web dashboard
+
+- **Session date:** 2026-04-30
+- **Sprint:** sprint-plan-2026-04-30 (Sprint 8 / S-013 — Website UI with Secure Auth)
+- **Current sprint phase:** Phase 0 — planning (M1 partial)
+- **Last completed checkpoint:** CP-2026-04-29-63 (S-012 SPRINT COMPLETE).
+- **Next checkpoint:** **CP-2026-04-30-01 — author Sprint 8 plan + prompt docs.**
+  Owner: Claude. Scope: write `docs/sprint-plans/sprint-plan-2026-04-30.md`
+  (PM-facing plan, M1–M7) and `docs/sprints/sprint-013-prompt.md` (autonomous
+  execution prompt) using `docs/sprint-plans/sprint-plan-2026-04-28.md` and
+  `docs/sprints/sprint-012-prompt.md` as structural templates. Must include
+  the full auth model (Google OAuth allowlist of one email, Telegram
+  whitelist alert flow with Approve/Deny inline buttons, WebAuthn passkey
+  enrolment + 30-min idle timeout, device-trust cookie). No code work; docs
+  only. End that checkpoint by running `python scripts/secret_scan.py` and
+  `python scripts/repo_inventory.py` and committing on this same branch.
+- **Telegram sent:** no (no creds in session).
+- **Alerts sent during session:** none.
+- **Blockers:** session repeatedly hit timeouts before plan/prompt docs
+  could be written; deliberately split that work to the next checkpoint to
+  keep this PR small and resumable.
+
+### 1. Completed
+- Updated `ROADMAP.md`:
+  - Header date bumped to 2026-04-30; S-011 and S-012 marked ✅ Done with
+    accurate one-line summaries.
+  - **Retired** the former mobile-app track (old S-013 React-Native
+    scaffold, old S-014 component tabs, old S-015 secure key management
+    in-app).
+  - **Added Phase 4 — Secure Web Dashboard** (responsive website, mobile +
+    desktop), with a non-negotiable auth/session model section:
+    1. Google OAuth via NextAuth.js, allowlist = one email (PM's).
+    2. Telegram whitelist alert flow with Approve/Deny inline buttons for
+       any non-allowlisted login attempt.
+    3. Device-persistent sessions via long-lived `device_id` cookie.
+    4. WebAuthn passkey on first login, every fresh login, and after
+       30 min of inactivity (JS heartbeat → `/api/heartbeat`).
+    5. Read-only by default; mutating endpoints require fresh-passkey
+       assertion (≤ 5 min old).
+  - New sprint sequence: **S-013 (🔜 Next) — Sprint 8 Website UI with
+    Secure Auth (foundations)**, **S-014 — Web Dashboard V1 (data + read
+    views)**, **S-015 — Web Dashboard V2 (operational controls)**,
+    **S-016 — Secure API Key Management (Web)**.
+  - Updated "Items Under Consideration" — replaced "push to mobile app"
+    with web-push / PWA notification idea.
+
+### 2. Files changed
+- `ROADMAP.md` (+24 / -14)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+- None — docs-only edit. `secret_scan.py` and `repo_inventory.py` are
+  deferred to CP-2026-04-30-01 (one verification run for the whole
+  planning bundle is more useful than two).
+
+### 4. Remaining
+- `docs/sprint-plans/sprint-plan-2026-04-30.md` (PM-facing Sprint 8 plan,
+  M1–M7, guardrails, definition of done, parallel-execution plan).
+- `docs/sprints/sprint-013-prompt.md` (autonomous Claude execution
+  prompt; MUST include "Files Claude is permitted to modify / OFF
+  LIMITS", PR size limit ≤ 400 LOC, decision-request items for the PM).
+- Lightweight verification (`secret_scan.py`, `repo_inventory.py`).
+- Both deferred to **CP-2026-04-30-01** in a follow-up session on this
+  same branch (`claude/sprint-8-secure-website-rqV3g`).
+
+### 5. Next checkpoint
+**CP-2026-04-30-01** — author Sprint 8 plan + prompt docs.
+
+Read in order:
+1. This entry.
+2. `docs/claude/checkpoint-workflow.md`.
+3. `git diff main..HEAD -- ROADMAP.md` to see the new Phase 4 contract.
+4. `docs/sprints/sprint-012-prompt.md` (structural template for the
+   autonomous prompt — copy section headings, not content).
+5. `docs/sprint-plans/sprint-plan-2026-04-28.md` (structural template
+   for the PM-facing plan).
+
+Sprint 8 milestones to expand into both docs (verbatim source of
+truth for the next session — do **not** invent new milestones):
+
+- **M1** — Roadmap update. **DONE this checkpoint.**
+- **M2** — Backend API foundations: read-only `/api/pnl`,
+  `/api/positions`, `/api/signals`, `/api/status`; `/api/killswitch`
+  (POST, auth-gated). FastAPI + JWT proxy to bot runtime, **no
+  secrets in web layer**. Staging on VM port 8001. Unit tests for
+  endpoints + auth-refusal.
+- **M3** — Google OAuth via NextAuth.js, allowlist = one email
+  (`ben.baichmankass@gmail.com`). Non-allowlisted login → Telegram
+  alert with Approve/Deny inline buttons. Allowlist + denylist
+  persisted server-side. Tailwind responsive dashboard skeleton.
+- **M4** — WebAuthn (`@simplewebauthn/server`) passkey enrolment on
+  first login; required on every fresh login; required after 30 min
+  inactivity (JS heartbeat → `/api/heartbeat`). Long-lived
+  `device_id` cookie keeps device persistently logged in between
+  fresh logins.
+- **M5** — Telegram whitelist bot extension in
+  `src/bot/telegram_query_bot.py`: handlers for whitelist requests
+  carrying `(email, device_info, ip)`; Approve writes allowlist,
+  Deny writes denylist + notifies user. New systemd service.
+- **M6** — Frontend wired to backend; Recharts/Plotly PnL + signals
+  pulled from existing bot signals DB / `runtime_logs/`. Tested on
+  iOS Safari, Android Chrome, desktop. Staging at `:3001`.
+- **M7** — Security audit (OWASP, strict CORS, no secrets in client
+  bundle), HTTPS via Let's Encrypt, Nginx reverse proxy on port
+  3000.
+
+Hard guardrails (carry into both docs):
+- **Do not touch live trader** (`ict-trader-live.service`,
+  `src/runtime/orders.py`, `src/runtime/pipeline.py`, `src/main.py`)
+  in this sprint. Web layer is **purely additive**.
+- **No secrets in client bundle.** Allowlist email lives only
+  server-side. Telegram bot token only on the VM.
+- **One concern per PR**, ≤ 400 LOC diff, self-merge per the
+  `CLAUDE.md` merge rules; flag for PM review only on (a) new
+  secret/API-key handling, (b) any change to live trading logic,
+  (c) `deploy/` scripts.
+- **VM context** (already in repo): `VM_HOST=158.178.210.252`,
+  `VM_USER=ubuntu`, `REPO_DIR=/home/ubuntu/ict-trading-bot`, SSH
+  key file `ict-bot-ovm-private.key`. Staging port 3001 (web) +
+  8001 (api). Prod port 3000 behind Nginx.
+
+After CP-2026-04-30-01 ships those two docs, the next checkpoint
+(`CP-2026-04-30-02`) begins **M2 PR #1 — read-only `/api/status`
+endpoint with JWT scaffolding** as the smallest safe code subtask.
+
+---
+
 ## CP-2026-04-29-63 — S-012 SPRINT COMPLETE
 
 - **Session date:** 2026-04-29

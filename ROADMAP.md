@@ -1,6 +1,6 @@
 # ICT Trading Bot — Product Roadmap
 
-> **Last Updated:** 2026-04-29 (S-010 complete; prop sprints deferred; Text Milestones promoted to S-011)
+> **Last Updated:** 2026-04-30 (S-011, S-012 complete; mobile-app phases retired; replaced by **Secure Web Dashboard** track starting at S-013)
 > **Maintained by:** PM (Ben) + Tech Lead (Perplexity)
 > **Sprint prompt files:** `docs/sprints/sprint-NNN-prompt.md`
 
@@ -74,27 +74,36 @@
 
 | Sprint | Title | Status |
 |--------|-------|--------|
-| S-011 | **Backtesting UI** — Streamlit web view for historical results, equity curve, strategy comparison; `/accounts` dry/live toggle | 🔜 Next |
-| S-012 | **Strategy Config UI** — Edit risk %, timeframe, symbols via Streamlit + `config/strategies.yaml`; `/reload_strats` Telegram command | 📋 Backlog |
+| S-011 | **Backtesting UI + Strategy Config UI** — Streamlit dashboards for historical results / equity curve / strategy comparison; `/accounts` dry/live toggle; `/reload_strats` Telegram command | ✅ Done |
+| S-012 | **Production Wiring Audit & Full Live Activation** — strategy roster reduced to `turtle_soup + vwap`; one strategy dir / one registry / one entrypoint; phantom services removed; live-mode hard guard; risk caps proven by tests | ✅ Done |
 
 ---
 
-### Phase 4 — Mobile App V1 (Dashboard)
-**Goal:** Read-only mobile dashboard giving full visibility into the system.
+### Phase 4 — Secure Web Dashboard (replaces former Mobile App track)
+**Goal:** A single responsive **website** (mobile + desktop) that gives the PM read-only visibility into the live bot and a small set of operational controls. Auth must be locked to the PM's Google account, with a Telegram-mediated whitelist flow for any other account that ever attempts a login. After first login on a device, the device stays logged in but each fresh login (or 30-min inactivity timeout) requires a passkey (WebAuthn). No native mobile app — the website is mobile-first responsive.
+
+> **Why a website, not an app:** zero app-store overhead, instant updates, identical codebase for mobile and desktop, simpler auth (browser-native passkeys + Google OAuth via NextAuth.js), reuses the existing Oracle VM. The mobile-app sprints from the previous roadmap (former S-013/S-014/S-015) are retired in favour of this track.
+
+#### Auth & session model (non-negotiable)
+
+1. **Google OAuth (only sign-in method).** NextAuth.js with the Google provider. The allowlist is exactly one Google email — the PM's. Stored server-side; never exposed to the client.
+2. **Whitelist alert flow.** If any account that is **not** on the allowlist attempts to sign in, the server (a) refuses the session, (b) sends a Telegram message to the PM with the requesting email + device fingerprint + IP/country, and (c) presents inline `Approve` / `Deny` buttons. Approve → email is added to the allowlist (via the existing Telegram bot's callback handler) and the requester can retry. Deny → email is added to a deny list and the requester gets a generic "request denied" page. All decisions are logged.
+3. **Device-persistent sessions.** Once a device successfully completes Google OAuth + passkey, a long-lived `device_id` cookie keeps that device "trusted". The trusted-device record is stored server-side keyed by `device_id` and `user_id`.
+4. **Passkey (WebAuthn) re-auth.** Required:
+   - on first login from any device (passkey enrolment),
+   - on every fresh login on a trusted device,
+   - after **30 minutes of inactivity** on the site (idle timeout — JS heartbeat to `/api/heartbeat`).
+   Passkey credentials live server-side via the WebAuthn `simplewebauthn` library; private keys never leave the device.
+5. **Read-only by default.** Every endpoint that mutates state (kill-switch, dry-run toggle, strategy reload) is gated behind a fresh-passkey assertion (i.e. passkey was used in the last 5 minutes), in addition to the session.
+
+#### Sprint sequence
 
 | Sprint | Title | Status |
 |--------|-------|--------|
-| S-013 | **App Scaffold & Home Dashboard** — React Native or Flutter scaffold, home tab with overall P&L, system status, active strategies | 📋 Backlog |
-| S-014 | **Component Tabs** — tabs for Strategies, Accounts, Model Metrics, Runtime Logs & Bugs; left-side tab panel | 📋 Backlog |
-
----
-
-### Phase 5 — Mobile App V2 (Ops)
-**Goal:** Allow operational tasks from the app — primarily secure key management.
-
-| Sprint | Title | Status |
-|--------|-------|--------|
-| S-015 | **Secure API Key Management** — add/store/rotate API keys through the app, encrypted vault, eliminates need to manually edit master-secrets file | 📋 Backlog |
+| S-013 | **Sprint 8 — Website UI with Secure Auth (foundations)** — read-only FastAPI endpoints, Next.js + Tailwind responsive scaffold, NextAuth.js Google OAuth restricted to the PM's email, Telegram whitelist alert flow, WebAuthn passkey enrolment + re-auth, 30-min idle timeout, device-trust cookie, staging deploy on VM port 3001, then prod deploy on port 3000 behind Nginx + Let's Encrypt | 🔜 Next |
+| S-014 | **Web Dashboard V1 (data + read views)** — connect frontend to the S-013 read-only API, render PnL curve, open positions, recent signals, system status, active strategies; recharts/plotly; mobile-first layout polished on iOS Safari + Android Chrome + desktop | 📋 Backlog |
+| S-015 | **Web Dashboard V2 (operational controls)** — kill-switch UI, `/accounts` dry/live toggle from the web, `/reload_strats` from the web, audit log view; every mutating action requires fresh-passkey assertion | 📋 Backlog |
+| S-016 | **Secure API Key Management (Web)** — add/rotate exchange API keys through the website into the existing SOPS-encrypted master-secrets workflow; client-side never sees plaintext keys; eliminates manual master-secrets edits | 📋 Backlog |
 
 ---
 
@@ -125,10 +134,11 @@
 These are suggested additions for discussion — they are not committed sprints yet:
 
 - **Exchange Failover / Multi-Exchange Support** — add resilience by supporting a secondary exchange in case Bybit has issues.
-- **Notification Centre** — structured trade, error, and performance notifications beyond Telegram (push to mobile app).
+- **Notification Centre** — structured trade, error, and performance notifications beyond Telegram (browser push from the web dashboard).
 - **Audit Log / Trade Journal** — persistent, queryable record of all trade decisions with reasoning for review.
 - **Paper Trading Mode** — ability to run any strategy in simulated mode against live data without real orders, useful for validating new models.
 - **Deployment Automation** — CI/CD pipeline for deploying approved code to the Oracle VM automatically after sprint merges.
+- **Web Push Notifications** — browser-side push to the PM (PWA / Web Push API) as a Telegram fallback for critical alerts.
 
 ---
 
