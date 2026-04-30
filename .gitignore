@@ -52,6 +52,8 @@ reports/
 data/*.csv
 !data/ict_validate_manifest.csv
 data/ohlcv/*.csv
+data/backtests/sprint-015/*.csv
+data/backtests/sprint-015/*.parquet
 
 # OS / editor
 .DS_Store
