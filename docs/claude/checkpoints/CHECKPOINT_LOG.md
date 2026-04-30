@@ -11,6 +11,117 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-04-30-11 — S-015 Session A COMPLETE (5 drafts + 1 checkpoint draft)
+
+- **Session date:** 2026-04-30
+- **Sprint:** S-015 — strategy + model improvement pass.
+- **Current sprint phase:** Session A done. **Session B pending** — needs a host with keyless-source egress (Coinbase / Kraken / yfinance / CryptoCompare).
+- **Last completed checkpoint:** CP-2026-04-30-10 (S-015 mid-session — pending merge on PR #203).
+- **Next checkpoint:** **CP-YYYY-MM-DD-NN — S-015 Session B** — opened by whoever picks up the next networked session.
+- **Telegram sent:** no — `TELEGRAM_BOT_TOKEN` absent in this sandbox env (matches CP-04 + CP-09 fallback). Operator can post `/sprintlet_status` themselves on resume.
+- **Alerts sent during session:** none.
+- **Blockers:** Session B is gated on a host with keyless-egress. The egress gateway in this sandbox returned 403 for every market-data host probed in T0.
+
+> **Note on log ordering:** CP-10 lives on the still-draft PR #203. If PR #205 (this checkpoint) merges before #203, the on-main log will read `CP-11 → CP-09 → ...` until #203 lands; merging #203 will insert CP-10 between them. Both PRs are append-only at the top; resolving any conflict is trivial.
+
+### 1. Drafts opened in S-015 Session A (no merges per sprint rule)
+
+| PR | Title | Stack base |
+|---:|---|---|
+| #200 | S-015 sprint prompt | `main` |
+| #201 | S-015 T1: backtest harness + multi-source keyless fetcher + sampler | `main` |
+| #202 | S-015 T3: harness validation on existing repo fixtures | `claude/s015-t1-harness` |
+| #203 | checkpoint: CP-2026-04-30-10 (mid-session) | `main` |
+| #204 | S-015 T9: Session A summary report | `claude/s015-t3-fixture-analysis` |
+| #205 | checkpoint: CP-2026-04-30-11 (this entry) | `main` |
+
+**Recommended PM review order:** #200 → #201 → #202 → #204 → #205 → #203 (#203 + #205 are independent docs PRs and can land any time).
+
+### 2. Files changed (cumulative across the session)
+
+- `docs/sprints/sprint-015-prompt.md` — sprint spec; amended at T0 to lock the no-Bybit-for-training rule and document the split-session model.
+- `scripts/sprint015/{__init__,data_sources,sample_data,run_backtest,analyze_fixtures}.py` — pure-function harness modules (768 LOC).
+- `tests/sprint015/test_*.py` — 28 tests (24 T1 + 4 T3) all passing locally in 12.66 s.
+- `docs/backtests/sprint-015/{harness-validation,summary}.md` — generated harness validation + Session A summary.
+- `data/backtests/sprint-015/.gitkeep` + `.gitignore` carve-out for cached buckets.
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` — CP-10 + CP-11 entries.
+
+### 3. Tests run
+
+- `PYTHONPATH=. python -m pytest tests/sprint015/ -q` → **28 passed in 12.66 s**.
+- `python scripts/secret_scan.py` → clean throughout.
+- The default registry's no-leakage rule (no Bybit, no Binance) is pinned by a contract test in `test_data_sources.py`.
+
+### 4. T0 audit — environmental blocker (decisions log)
+
+This sandbox's egress gateway is allowlisted to **pypi + github only**. Probed (HTTPS, even with `-k` insecure):
+
+```
+api.exchange.coinbase.com  -> 403
+api.kraken.com             -> 403
+query1.finance.yahoo.com   -> 403
+min-api.cryptocompare.com  -> 403
+huggingface.co             -> 403
+data-api.binance.vision    -> 403
+api.bybit.com              -> 403   (intentionally excluded anyway)
+pypi.org / github.com      -> 200 ✓
+```
+
+Every keyless market-data adapter would return `None` from inside this box → `DataUnavailableError` from the orchestrator. Per the operator's option-2 directive, Session A built infrastructure only; the actual baseline + parameter sweeps land in **Session B**.
+
+### 5. Mid-session prompt correction (sprint planning chat, verbatim)
+
+Operator added late in T0:
+
+> the testing package should also be able to pull data from open sources on the web that don't require Api keys. don't take data from bybit for training sessions.
+
+Applied via amended prompt + default registry that excludes Bybit + Binance. A contract test (`test_default_registry_excludes_bybit`) fails the build if either ever sneaks back in.
+
+### 6. Remaining (Session B + later)
+
+- **T2** — lock baseline. Run harness on current `config/strategies.yaml` for `vwap` + `turtle_soup` across ≥ 5 stratified folds against 2021-04-30 → 2026-04-30. Write `docs/backtests/sprint-015/baseline.md` with per-fold seeds + commit SHA.
+- **T4** — VWAP parameter sweep (DRAFT only if cleared the threshold).
+- **T6** — turtle_soup parameter sweep (DRAFT only if cleared the threshold).
+- **T7** — regime-filter probe (DRAFT only if cleared the threshold).
+- **T9'** — replace Session A summary with a merged Session A + Session B view; document negative results in line.
+
+Threshold for any T4 / T6 / T7 PR (all three must hold against the locked baseline):
+
+1. `Sharpe Δ > 0`.
+2. `max-DD not worse by more than 10 %` of baseline max-DD.
+3. `fold-wise paired t-test p < 0.10` on per-fold realised P&L.
+
+Failed candidates **do not get a PR** — describe in the summary, no branch.
+
+### 7. Concrete first action for Session B
+
+```bash
+git pull
+PYTHONPATH=. python -m pytest tests/sprint015/ -q   # all 28 must pass
+PYTHONPATH=. python -c "
+import datetime as dt
+from scripts.sprint015 import data_sources as ds
+df, src, attempts = ds.fetch_ohlcv(
+    'BTCUSDT', '1h',
+    dt.datetime(2025, 1, 1, tzinfo=dt.timezone.utc),
+    dt.datetime(2025, 2, 1, tzinfo=dt.timezone.utc),
+)
+print(f'source={src} rows={len(df)} attempts={[(a.source, a.ok) for a in attempts]}')
+"
+```
+
+If `source=` prints a name and `rows>0`, proceed with T2 → T4 / T6 / T7 → T9'. If every adapter still 403s, **stop** and tell the operator the egress is still blocked — do not synthesize.
+
+### 8. Improvements for next sprint (carried forward)
+
+1. **Centralise telegram stubs in `tests/conftest.py`** — still flagged from S-014 CP-09.
+2. **Document the recursive `web/templates/**/*.html` whitelist pattern in `docs/claude/git-workflow.md`** — flagged from S-014 CP-09.
+3. **Add a "this sandbox has no market-data egress" note to `docs/claude/testing-policy.md`** — so the next training/backtest sprint doesn't repeat T0's discovery.
+4. **HuggingFace OHLCV adapter is a placeholder** — wire to a specific community dataset when one is identified.
+5. **CryptoCompare keyless tier is hour/day-only** — sub-hourly fetches will fall through to the next adapter silently. Document or add a Coingecko fallback.
+
+---
+
 ## CP-2026-04-30-09 — S-014 long autonomous run COMPLETE (6 merged + 1 draft for PM)
 
 - **Session date:** 2026-04-30
