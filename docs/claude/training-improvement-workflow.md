@@ -78,8 +78,16 @@ Claude writes:
      `google.colab.userdata` (already in the operator's Colab).
    - Clones the repo at the current branch SHA, runs experiments,
      writes outputs to `experiments/<run-id>/results/`.
-   - Hardens against long runs: every long step is checkpointed to
-     Drive so a Colab disconnect doesn't lose hours of work.
+   - In-session checkpoints under `/tmp/ict-training/<run-id>/` so a
+     re-run within the same Colab kernel skips completed hypotheses.
+     **Does not** mount Google Drive — restart loses the in-session
+     cache, acceptable for ≤ 6 hr runs. Longer runs should commit
+     per-hypothesis to the results branch (the repo is the durability
+     layer).
+   - Free data sources only — yfinance / Coinbase public / Bybit
+     public / our HF datasets. Each fetch must print fallback
+     diagnostics on failure so the next run is debuggable. **No
+     Binance** per `testing-policy.md`.
    - On success **or** failure, commits results to a fresh branch
      `claude/training-results-<run-id>` and opens a draft PR titled
      `TRAINING-RESULTS: <run-id>` (or `TRAINING-RESULTS [FAILED]:
