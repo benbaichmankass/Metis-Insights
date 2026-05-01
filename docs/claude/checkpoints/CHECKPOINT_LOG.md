@@ -5,6 +5,120 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-01-05 — fix dotenv silent-fail on the Stop-hook ping path
+
+- **Session date:** 2026-05-01
+- **Sprint:** continuation of CP-2026-05-01-04 (PR #233 merged).
+- **Last completed checkpoint:** CP-2026-05-01-04.
+- **Next checkpoint:** **CP-2026-05-01-06** — operator's choice.
+- **Telegram sent:** auto-ping fires off this commit (touches CHECKPOINT_LOG.md).
+  Once delivered via the new stdlib-only direct POST, that's the
+  end-to-end verification ping.
+- **Blockers:** none.
+
+### 1. Completed
+
+CP-2026-05-01-04 patched the matplotlib leak. End-to-end retest from a
+vanilla sandbox surfaced the next layer down — same bug class, one
+import deep:
+
+`src/runtime/notify.py::_send_via_alert_manager_async` does
+`from src.bot.alert_manager import AlertManager`, which transitively
+imports `python-dotenv`. On any host without `dotenv` installed (any
+vanilla sandbox), the inner `except Exception: log + return` swallows
+the ImportError; `send_via_alert_manager` returns without raising;
+`scripts/notify_session.py::_send` happily prints
+`[notify_session] dispatched: …` and returns 0. Operator sees a
+"successful" ping that never reached Telegram. False positive,
+identical failure mode to the matplotlib leak we just patched.
+
+Fix: bypass AlertManager entirely on the Stop-hook ping path with a
+stdlib-only direct POST helper.
+
+1. **`src/runtime/notify.py`** — added `send_telegram_direct(message)`.
+   Reads `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` from `os.environ`;
+   missing → log warning and return (back-compat). Present →
+   `urllib.request.urlopen` POST to
+   `https://api.telegram.org/bot<TOKEN>/sendMessage`, form-encoded
+   `chat_id` + `text` + `parse_mode=HTML`. Raises
+   `urllib.error.URLError` / `HTTPError` on network failure and
+   `RuntimeError` on `ok=false`. Stdlib only — no `requests`, no
+   `httpx`, no `python-telegram-bot`. **Token is never printed or
+   logged in any form** (full, redacted, or length); only `ok`,
+   `message_id`, and `status_code` are logged on success.
+2. **`scripts/notify_session.py::_send`** — now calls
+   `send_telegram_direct` instead of `send_via_alert_manager`.
+   Removed the `except Exception: return 0` import-path swallow:
+   ImportError now surfaces as exit 1 with a single-line
+   `[notify_session] telegram-import-error: …` stderr marker.
+   Network errors map to `telegram-network-error` / `telegram-http-error`
+   exit-1 markers; missing creds still exit 0 (back-compat). The Stop
+   hook's `|| true` keeps it non-blocking; `logs/notify_hook.log` now
+   shows the failure clearly.
+3. **`src/runtime/notify.py::send_via_alert_manager` and
+   `notify_operator` left untouched** — `src/runtime/pipeline.py:19`
+   still imports them for the legitimate Thread 2 runtime path that
+   wants AlertManager's rate limiting / formatting features.
+4. **Tests** (`tests/test_notify_session.py`):
+   - `TestTelegramDirectSuccess` — mock `urlopen` → 200 +
+     `{"ok": true, "result": {"message_id": 42}}`; helper returns
+     cleanly, script exits 0.
+   - `TestTelegramDirectMissingCreds` — clear env, helper logs
+     warning and returns without raising; script exits 0 (back-compat).
+   - `TestTelegramDirectNetworkError` — mock `urlopen` to raise
+     `URLError`; script exits non-zero, stderr contains
+     `telegram-network-error` marker.
+   - `TestTelegramDirectNoTokenInLogs` — patches `Logger.handle`,
+     fires helper with synthetic token `TEST_TOKEN_DO_NOT_LOG` on
+     both success and network-error paths; asserts the synthetic
+     token never appears in any captured log record.
+   - `TestNotifyImportIsLightweight` extended — also asserts
+     `import scripts.notify_session` does not pull `dotenv` or
+     `src.bot.alert_manager` into `sys.modules`.
+   - `TestAlertNoCredsPath` rewritten — old test asserted the
+     silent-fail behavior we just removed; now asserts that a
+     raised send error propagates as exit 1.
+
+### 2. Files changed
+
+- `src/runtime/notify.py` — added `send_telegram_direct` + stdlib imports
+- `scripts/notify_session.py` — rewired `_send` to direct helper,
+  removed silent-fail import path, added stderr error markers
+- `tests/test_notify_session.py` — 4 new test classes + extended
+  `TestNotifyImportIsLightweight` + rewritten `TestAlertNoCredsPath`
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+
+- `python3 -m unittest tests.test_notify_session -v` — 14/14 pass.
+- `PYTHONPATH=. python3 -c "import sys; import scripts.notify_session;
+  assert 'dotenv' not in sys.modules; assert 'src.bot.alert_manager'
+  not in sys.modules"` — clean.
+- `python scripts/secret_scan.py` — clean.
+- `jq . .claude/settings.json` — valid JSON. Stop hook unchanged
+  (already tees stderr to `logs/notify_hook.log` per CP-2026-05-01-04).
+
+### 4. Remaining
+
+None for this checkpoint. After this PR merges, the next session-end
+fires a real Telegram ping via `send_telegram_direct`. If the bot
+token / chat id are present in env, delivery succeeds; if absent, the
+helper logs a warning and exits 0 (back-compat); if present but the
+network fails, the script exits 1 and `logs/notify_hook.log` records
+the failure mode — no more silent false positives.
+
+### 5. Next checkpoint
+
+**CP-2026-05-01-06** — operator's choice.
+
+Format: copy `HANDOFF_TEMPLATE.md` and fill it in.
+ID convention: `CP-YYYY-MM-DD-NN` (sprint date + 2-digit sequence).
+
+See `../checkpoint-workflow.md` for the full rules.
+
+
+---
+
 ## CP-2026-05-01-04 — fix matplotlib leak on the Stop-hook ping path
 
 - **Session date:** 2026-05-01
