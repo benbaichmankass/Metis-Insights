@@ -21,6 +21,11 @@ ping" below.
 | **PR merged** | Any squash-merge to `main` from a `claude/*` branch | PR title, link | low |
 | **CI failure on a Claude branch** | If/when CI is wired — failure on any branch starting with `claude/` | branch, failed job, link | high |
 | **Session-close** | Last commit of an autonomous session pushes any new content | sprint id, "session ending", commit count this session, link to last checkpoint | normal |
+| **Training session start** | Checkpoint commit with `[TRAINING-START]` in title | strategy/model under study, link to commit | normal |
+| **Training notebook ready** | PR opened with title prefix `TRAINING-PLAN:` | run-id, Colab open-in-Colab URL, expected runtime, link to PR | high |
+| **Training run complete** | PR opened with title prefix `TRAINING-RESULTS:` (or `TRAINING-RESULTS [FAILED]:`) | run-id, hypothesis count, success/failure, link to SUMMARY.md, link to PR | high |
+| **Recommendations ready for approval** | PR opened with title prefix `RECOMMENDATIONS (PM REVIEW):` (matches existing `(PM REVIEW)` rule). Writeup only — no code changes. | run-id, proposed change summary, link to PR, chat link | high |
+| **Implementation PR (post-approval)** | PR opened with title prefix `IMPLEMENT:` after the operator approves the recommendations writeup | run-id, files touched, link to PR | high |
 
 The session-close ping is a fallback for sessions that didn't already
 trigger a "checkpoint appended" or "sprint complete" ping. Don't
@@ -117,6 +122,25 @@ a link to both the PR and the chat.
   pull timer; webhooks need a public endpoint and deeper change. 5 min
   is fast enough for status; blockers double-route via PR notifications.
 
+## Title-prefix grep list (VM-side script)
+
+The VM-side `notify_on_pull.sh` script (or sibling) recognises these
+title prefixes when scanning the new commit range / open PRs. Adding
+a new ping = adding a prefix here.
+
+| Prefix | Surface |
+|---|---|
+| `[TRAINING-START]` (commit subject) | training session start |
+| `[BLOCKED-PM]` (commit subject) | blocker (urgent) |
+| `BLOCKED:` (PR title) | blocker (urgent, also notifies via GitHub) |
+| `TRAINING-PLAN:` (PR title) | training notebook ready |
+| `TRAINING-RESULTS:` (PR title) | training run complete |
+| `TRAINING-RESULTS [FAILED]:` (PR title) | training run failed (still notify) |
+| `RECOMMENDATIONS (PM REVIEW):` (PR title) | recommendations ready for approval (writeup only) |
+| `IMPLEMENT:` (PR title) | post-approval implementation PR with code changes |
+| `(PM REVIEW)` / `DRAFT:` (PR title) | generic PM-review draft |
+| `CP-…-WRAPPED` / `CP-…-COMPLETE` (in checkpoint title) | sprint complete |
+
 ## Cross-references
 
 - `scripts/notify_session.py` — existing session-end ping helper. Keep
@@ -128,5 +152,8 @@ a link to both the PR and the chat.
   that the new ping logic plugs into.
 - `docs/claude/sprint-planning.md` — references this doc for the
   per-sprint ping requirements.
+- `docs/claude/training-improvement-workflow.md` — defines the four
+  `TRAINING-*` / `RECOMMENDATIONS` PR title prefixes that ride on the
+  generic PR-opened ping.
 - `docs/claude/bug-log.md` — entry BUG-018 tracks "operator not
   receiving sprint progress pings".

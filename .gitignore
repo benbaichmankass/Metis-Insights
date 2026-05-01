@@ -87,3 +87,20 @@ htmlcov/
 ml/data/raw/
 ml/data/processed/
 ml/models/checkpoints/
+
+# Training experiments — keep PLAN.md, RECOMMENDATIONS.md, and results/
+# (text/metrics/plots), ignore raw datasets and large intermediate
+# artifacts. See docs/claude/training-improvement-workflow.md.
+# Pattern: re-include directories first so git recurses into them, then
+# allow specific text files; finally re-ignore large binary formats
+# inside results/.
+experiments/**/*
+!experiments/**/
+!experiments/**/PLAN.md
+!experiments/**/RECOMMENDATIONS.md
+!experiments/**/SUMMARY.md
+!experiments/**/results/**/*.json
+!experiments/**/results/**/*.md
+!experiments/**/results/**/*.png
+!experiments/**/results/**/*.svg
+!experiments/**/results/**/*.txt
