@@ -5,6 +5,59 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-01-13 — S-022 COMPLETE: error monitoring sprint wrapped
+
+- **Session date:** 2026-05-01
+- **Sprint:** sprint-plan-2026-05-01 (S-022 — error monitoring) — **CLOSED**
+- **Current sprint phase:** complete
+- **Last completed checkpoint:** CP-2026-05-01-12 (PR6 bot/web sweep, MERGED #241)
+- **Next checkpoint:** **none — S-022 wrapped.** Operator should verify
+  the four post-merge checks listed in
+  `docs/sprint-summaries/sprint-022-summary.md::Verification`.
+- **Telegram sent:** pending — this checkpoint commit triggers a
+  high-priority sprint-end ping per `docs/claude/telegram-pings.md`.
+- **Alerts sent during session:** none
+- **Blockers:** none
+
+### 1. Completed
+All 6 code PRs merged. Sprint summary PR opened.
+
+| PR | Description |
+|---|---|
+| #236 | PR1 — `src/runtime/outcomes.py` foundation + tick-loop + pipeline wiring |
+| #237 | PR2 — hourly summary report (replaces 2x/day blurb) |
+| #238 | PR3 — `src/runtime/health.py` (7 checks) + hourly_report integration |
+| #239 | PR4 — silent-except sweep in `src/runtime/`, `src/core/`, `src/units/` |
+| #240 | PR5 — `src/runtime/heartbeat.py` + `scripts/check_heartbeat.py` |
+| #241 | PR6 — bot/web silent-except sweep |
+
+**Net delivery:** ~+4,300 LOC, 94 new tests across 8 new test files,
+0 net regressions in the broader suite.
+
+### 2. Files changed (this checkpoint)
+- `docs/sprint-summaries/sprint-022-summary.md` — **new**, the closing
+  summary.
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` — this entry.
+
+### 3. Tests run
+- Across the sprint: every PR ran its own focused suite + the broader
+  S-022 + adjacent suite. Final sweep at PR6: **167 passed, 0 failed**.
+- `python scripts/repo_inventory.py` — pass.
+- `python scripts/secret_scan.py` — pass.
+
+### 4. Remaining
+- **Operator verification on the VM** (4 checks listed in the sprint
+  summary). Heartbeat systemd timer is operator-installed per
+  CLAUDE.md merging rules (deploy/ requires PM review).
+- CLAUDE.md improvements proposed in the sprint summary for the next
+  sprint planning conversation.
+
+### 5. Next checkpoint
+**none.** Sprint S-022 is closed. Next session should plan S-023 from
+the operator's next priority.
+
+---
+
 ## CP-2026-05-01-12 — S-022 PR6: bot/web silent-except sweep
 
 - **Session date:** 2026-05-01
