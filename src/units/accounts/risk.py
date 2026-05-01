@@ -28,6 +28,23 @@ _DEFAULT_MIN_QTY = 0.001    # BTC minimum lot size
 _DEFAULT_MAX_QTY = 100.0    # hard cap; override via account cfg
 _DEFAULT_QTY_PRECISION = 3
 
+# Default smoke-test qty when meta.is_test=True but meta.test_qty is missing.
+# Below Bybit linear perp min-lot (0.001 BTC) so the exchange rejects.
+_DEFAULT_TEST_QTY = 0.0001
+
+
+def _is_test_order(pkg: "OrderPackage") -> bool:
+    """Return True when *pkg* is a smoke-test order (meta.is_test=True).
+
+    A test order short-circuits both risk approval (RiskManager.approve)
+    and risk-based sizing (size_order_from_cfg). The executor uses
+    meta.test_qty directly. The whole point is to exercise the live
+    plumbing path without sizing real risk into the account.
+    """
+    if not getattr(pkg, "meta", None):
+        return False
+    return bool(pkg.meta.get("is_test"))
+
 
 # ---------------------------------------------------------------------------
 # Functional interface (S-008 — backward-compatible)
@@ -94,7 +111,16 @@ def size_order_from_cfg(
     account_cfg: dict,
     balance_usdt: float,
 ) -> float:
-    """Convenience wrapper: extract risk params from account_cfg dict."""
+    """Convenience wrapper: extract risk params from account_cfg dict.
+
+    Smoke-test orders (``pkg.meta['is_test']`` is True) skip risk-based
+    sizing entirely and return ``pkg.meta['test_qty']`` (default
+    ``_DEFAULT_TEST_QTY``). The qty is intentionally below Bybit's
+    min-lot so the exchange rejects on submission — the rejection is
+    the success signal for the live-plumbing test.
+    """
+    if _is_test_order(pkg):
+        return float(pkg.meta.get("test_qty") or _DEFAULT_TEST_QTY)
     risk_pct = float(account_cfg.get("risk_pct") or 0.01)
     min_qty = float(account_cfg.get("min_qty") or _DEFAULT_MIN_QTY)
     max_qty = float(account_cfg.get("max_qty") or _DEFAULT_MAX_QTY)
@@ -188,7 +214,15 @@ class RiskManager:
     def approve(self, order: OrderPackage) -> bool:
         """Return True when the order passes all risk checks.
 
-        Checks (in order):
+        Smoke-test orders (``order.meta['is_test']`` is True) bypass
+        every gate below — they are intentionally tiny payloads
+        designed to exercise the exchange-rejection path; running them
+        through the risk gate would either short-circuit on a daily
+        loss reset or trip the position-size cap depending on
+        ``meta.estimated_value``, neither of which is meaningful for
+        plumbing verification.
+
+        Checks (in order, real orders only):
           1. UTC daily rollover (resets daily_pnl + re-anchors high).
           2. Daily loss limit: ``daily_pnl < -max_daily_loss_usd`` → reject.
           3. Position size: ``order.meta['estimated_value'] >
@@ -197,6 +231,9 @@ class RiskManager:
              ``(daily_high - current) / daily_high >= max_dd_pct`` → reject.
              Skipped when equity has not been seeded via update_equity().
         """
+        if _is_test_order(order):
+            return True
+
         self._maybe_roll_daily()
 
         if self.daily_pnl < -self.max_daily_loss_usd:
