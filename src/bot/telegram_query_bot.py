@@ -1903,6 +1903,18 @@ async def cmd_accounts_status(update: Update, context: ContextTypes.DEFAULT_TYPE
         if not statuses:
             await update.message.reply_text("ℹ️ No accounts found in accounts.yaml.")
             return
+
+        # Telegram's "Markdown" parse mode treats `_` as an italic
+        # marker and silently strips it. Env-var names like
+        # BYBIT_API_KEY_1 in error strings ended up rendering as
+        # BYBITAPIKEY1, which made the diagnostic useless. Escape
+        # the dynamic strings before interpolating.
+        def _md_escape(s: object) -> str:
+            text = str(s) if s is not None else ""
+            for ch in ("_", "*", "`", "["):
+                text = text.replace(ch, "\\" + ch)
+            return text
+
         lines = ["📋 *Accounts Status* (risk + live API)\n"]
         for s in statuses:
             halted_icon = "🔴" if s.get("halted") else "🟢"
@@ -1913,13 +1925,14 @@ async def cmd_accounts_status(update: Update, context: ContextTypes.DEFAULT_TYPE
             bal = s.get("live_balance_usdt")
             bal_err = s.get("live_balance_error")
             if bal_err:
-                api_line = f"  🔌 API: ❌ {bal_err}"
+                api_line = f"  🔌 API: ❌ {_md_escape(bal_err)}"
             elif bal is not None:
                 api_line = f"  🔌 API: ✅ Balance ${float(bal):,.2f} USDT"
             else:
                 api_line = "  🔌 API: ⚠️ no balance returned"
             lines.append(
-                f"{halted_icon} *{s['name']}* (`{s.get('exchange', '?')}` / {s.get('account_type', '?')})\n"
+                f"{halted_icon} *{_md_escape(s['name'])}* "
+                f"(`{s.get('exchange', '?')}` / {_md_escape(s.get('account_type', '?'))})\n"
                 f"{api_line}\n"
                 f"  💵 Daily PnL: ${pnl:+.2f} / limit ${limit:.0f}\n"
                 f"  📦 Max pos: ${pos_size:.0f} | Open: {open_pos}"
