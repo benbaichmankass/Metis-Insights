@@ -685,6 +685,7 @@ class Coordinator:
         account_id: Optional[str] = None,
         *,
         exchange_client: Optional[Any] = None,
+        exchange_client_factory: Optional[Any] = None,
         dry_run: Optional[bool] = None,
         symbol: str = "BTCUSDT",
         direction: str = "long",
@@ -705,8 +706,16 @@ class Coordinator:
             When set, only run the smoke against this account. Default
             (None) runs it against every account from accounts.yaml.
         exchange_client : object, optional
-            Bybit/Binance client. When None, the executor falls back to
-            dry-run regardless of ``dry_run`` argument or DRY_RUN env.
+            A single Bybit/Binance client applied to every account. Use
+            this only for single-account runs or tests; for multi-account
+            live runs prefer ``exchange_client_factory`` so each account
+            gets its own keyed client.
+        exchange_client_factory : callable, optional
+            ``factory(account_cfg) -> client | None``. Resolved once per
+            account inside the loop, so multi-account live runs route
+            each order through the right wallet's keys. When both
+            ``exchange_client`` and ``exchange_client_factory`` are set,
+            ``exchange_client`` wins (per-call override).
         dry_run : bool, optional
             Override the executor's dry-run flag. None defers to env.
         symbol, direction, ref_price :
@@ -768,9 +777,19 @@ class Coordinator:
             }
             try:
                 from src.units.accounts.execute import execute_pkg
+                client = exchange_client
+                if client is None and exchange_client_factory is not None:
+                    try:
+                        client = exchange_client_factory(acc)
+                    except Exception as factory_exc:  # noqa: BLE001
+                        logger.warning(
+                            "smoke_test_run: client factory failed for %s: %s",
+                            aid, factory_exc,
+                        )
+                        client = None
                 trade_id = execute_pkg(
                     pkg, acc,
-                    exchange_client=exchange_client,
+                    exchange_client=client,
                     dry_run=dry_run,
                 )
                 entry["trade_id"] = trade_id
