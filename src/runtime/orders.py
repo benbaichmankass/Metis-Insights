@@ -8,6 +8,13 @@ from typing import Any, Dict
 logger = logging.getLogger(__name__)
 
 
+from src.runtime.trading_mode import (
+    LIVE_DEFAULTS,
+    is_dry_truthy,
+    is_live_truthy,
+)
+
+
 def _get_value(settings: Any, key: str, default: Any = None) -> Any:
     if isinstance(settings, dict):
         return settings.get(key, default)
@@ -15,7 +22,10 @@ def _get_value(settings: Any, key: str, default: Any = None) -> Any:
 
 
 def _as_bool(value: Any) -> bool:
-    return str(value).strip().lower() in {"true", "1", "yes", "on"}
+    # Back-compat shim: tests and external callers import this from
+    # src.runtime.orders. The semantics are now "live truthy" (which
+    # also accepts the literal string "live").
+    return is_live_truthy(value)
 
 
 def _resolve_price(order: Dict[str, Any]) -> float | None:
@@ -160,14 +170,19 @@ def safe_place_order(order: Dict[str, Any], settings: Any, client: Any) -> dict[
                 "order": order,
             }
 
-    if _as_bool(_get_value(settings, "DRY_RUN", "true")):
+    # Default to live: DRY_RUN unset / ALLOW_LIVE_TRADING unset means
+    # the system trades live. The risk manager + halt flag are the
+    # safety rails (see CLAUDE.md "Autonomous live-trading rule").
+    if is_dry_truthy(_get_value(settings, "DRY_RUN", LIVE_DEFAULTS["DRY_RUN"])):
         logger.info("DRY_RUN enabled; order not submitted: %s", order)
         return {
             "status": "dry_run",
             "order": order,
         }
 
-    if not _as_bool(_get_value(settings, "ALLOW_LIVE_TRADING", "false")):
+    if not is_live_truthy(
+        _get_value(settings, "ALLOW_LIVE_TRADING", LIVE_DEFAULTS["ALLOW_LIVE_TRADING"])
+    ):
         logger.warning(
             "Live order blocked: DRY_RUN is false but ALLOW_LIVE_TRADING is not enabled. order=%s",
             order,

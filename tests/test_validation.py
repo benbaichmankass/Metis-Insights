@@ -164,9 +164,25 @@ def test_invalid_exchange_raises():
 # DRY_RUN interlock
 # ---------------------------------------------------------------------------
 
-def test_dry_run_false_without_allow_live_raises():
-    with pytest.raises(EnvironmentError, match="ALLOW_LIVE_TRADING"):
-        run(overrides={"DRY_RUN": "false", "ALLOW_LIVE_TRADING": "false"})
+def test_dry_run_false_without_allow_live_passes():
+    """BUG-031: live is the default. DRY_RUN=false with ALLOW_LIVE_TRADING=false
+    used to require an explicit opt-in. Per the operator rule
+    (CLAUDE.md: 'default is live'), this is now a valid live config and
+    validate_startup must accept it.
+    """
+    run(overrides={"DRY_RUN": "false", "ALLOW_LIVE_TRADING": "false"})
+
+
+def test_dry_run_and_allow_live_both_truthy_is_contradiction():
+    """The only state validate_startup still refuses: both flags truthy."""
+    with pytest.raises(EnvironmentError, match="both truthy"):
+        run(overrides={"DRY_RUN": "true", "ALLOW_LIVE_TRADING": "true",
+                       "MODE": "BACKTEST"})
+
+
+def test_allow_live_accepts_literal_live_string():
+    """BUG-031: validate_startup must accept the natural-language 'live'."""
+    run(overrides={"DRY_RUN": "false", "ALLOW_LIVE_TRADING": "live"})
 
 
 # ---------------------------------------------------------------------------

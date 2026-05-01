@@ -2100,6 +2100,53 @@ async def cmd_risk_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"⚠️ Could not check risk for '{account_name}': {e}")
 
 
+async def cmd_set_all_live(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Force every account out of dry-run mode.
+
+    BUG-031 follow-up: when the operator wants to make sure every
+    account is firing real orders, this is the single button that
+    flips them all. Iterates accounts.yaml via the Coordinator and
+    calls ``set_account_dry_run(name, False)`` on each.
+
+    Reports a summary back over Telegram (account count, any failures).
+    The process-level ``ALLOW_LIVE_TRADING`` env var is unaffected
+    here — that lives in ``.env.live`` and changing it requires a
+    trader restart. The per-account ``dry_run`` toggle is in-memory
+    and applies to the next ``load_accounts()`` call (no restart).
+    """
+    if not is_authorised(update):
+        return
+    coord = get_coordinator()
+    if coord is None:
+        await update.message.reply_text("⚠️ Coordinator unavailable.")
+        return
+    try:
+        statuses = coord.accounts_status()
+    except Exception as exc:  # noqa: BLE001
+        await update.message.reply_text(f"⚠️ Could not list accounts: {exc}")
+        return
+
+    flipped, errors = [], []
+    for s in statuses:
+        name = s.get("name")
+        if not name:
+            continue
+        try:
+            coord.set_account_dry_run(name, False)
+            flipped.append(name)
+        except Exception as exc:  # noqa: BLE001
+            errors.append(f"{name}: {exc}")
+
+    lines = ["🔴 <b>All accounts → LIVE</b>"]
+    if flipped:
+        lines.append(f"flipped: {', '.join(flipped)}")
+    if errors:
+        lines.append("errors:\n  - " + "\n  - ".join(errors))
+    if not flipped and not errors:
+        lines.append("(no accounts found)")
+    await update.message.reply_text("\n".join(lines), parse_mode="HTML")
+
+
 # ── Entry point ───────────────────────────────────────────────────────────────
 
 def main():
@@ -2137,6 +2184,7 @@ def main():
             BotCommand("toggle", f"Start/stop {label} trader"),
             BotCommand("accounts", "List accounts or toggle dry/live: /accounts dry|live <name>"),
             BotCommand("accounts_status", "Per-account risk state (daily PnL, halted)"),
+            BotCommand("set_all_live", "Flip every account out of dry-run into live mode"),
             BotCommand("risk_check", "Risk details for one account: /risk_check <name>"),
             BotCommand("smoke_test", "Live-plumbing smoke (always LIVE): /smoke_test [account]"),
             BotCommand("strategies", "Per-strategy signals, PnL and positions"),
@@ -2188,6 +2236,7 @@ def main():
     application.add_handler(CommandHandler("backtest_ui", cmd_backtest_ui))
     application.add_handler(CommandHandler("accounts", cmd_accounts))
     application.add_handler(CommandHandler("accounts_status", cmd_accounts_status))
+    application.add_handler(CommandHandler("set_all_live", cmd_set_all_live))
     application.add_handler(CommandHandler("risk_check", cmd_risk_check))
     application.add_handler(CommandHandler("smoke_test", cmd_smoke_test))
     application.add_handler(CommandHandler("sprintlet_status", cmd_sprintlet_status))
