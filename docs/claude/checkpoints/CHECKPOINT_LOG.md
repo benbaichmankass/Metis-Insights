@@ -11,6 +11,86 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-05-01-03 — sandbox-side Telegram pings via Stop hook + harness env
+
+- **Session date:** 2026-05-01
+- **Sprint:** ad-hoc operator request — make Claude Code sandboxes able
+  to ping Telegram immediately at session end without waiting for a PR
+  merge + VM git-sync round trip.
+- **Current sprint phase:** OPEN.
+- **Last completed checkpoint:** CP-2026-05-01-02 (PR #231 merged).
+- **Next checkpoint:** **CP-2026-05-01-04** — operator's choice.
+- **Telegram sent:** auto-ping fires off this commit (touches CHECKPOINT_LOG.md).
+  Once the operator drops `.claude/settings.local.json` with real tokens,
+  the new Stop hook also fires a sandbox-direct ping at session end.
+- **Alerts sent during session:** none.
+- **Blockers:** none.
+
+### 1. Completed
+
+The operator pointed out that S-019 was supposed to make pings travel
+without waiting for the PR to merge + VM git-sync. The actual gap: the
+sandbox lacked the Telegram tokens needed for the direct path; only the
+VM-side `notify_on_pull.py` was wired. This checkpoint adds the
+harness-env path so a sandbox with creds can ping immediately.
+
+- `.claude/settings.json` (new, committed) — `Stop` hook that runs
+  `scripts/notify_session.py` with the latest CP id + title from
+  `CHECKPOINT_LOG.md`. Wrapped in `2>/dev/null || true` so a missing
+  token, missing matplotlib import, or broken subprocess never blocks
+  Claude Code (`notify_session.py` already exits 0 gracefully).
+- `.claude/settings.local.json.example` (new, committed) — template
+  the operator copies to `.claude/settings.local.json` (gitignored,
+  line 73 of `.gitignore`) and fills in with `telegram.prod.bot_token`
+  + `telegram.prod.chat_id` from the decrypted master-secrets file.
+  Claude Code merges `settings.local.json` over `settings.json`, so
+  the env vars are exposed to all subprocesses including the Stop hook.
+- `docs/claude/security-secrets.md` — new "Sandbox-side Telegram
+  pings (S-021)" section documenting the setup, the rationale for
+  keeping committed `settings.json` env-free (empty placeholder
+  strings would override real env vars to blank), and the operator's
+  one-time setup steps.
+
+The fallback paths still work: VM-side `notify_on_pull.py` keeps
+draining `pending-pings.jsonl` on every git-sync, and the
+CHECKPOINT_LOG.md diff-detection still fires when this commit lands on
+main. So even sandboxes without the token file see pings via the VM
+round-trip; sandboxes WITH the token file get pings within ~2 s of
+session end.
+
+### 2. Files changed
+
+- `.claude/settings.json` (new)
+- `.claude/settings.local.json.example` (new)
+- `docs/claude/security-secrets.md`
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+
+- `jq . .claude/settings.json` — valid JSON.
+- `jq . .claude/settings.local.json.example` — valid JSON.
+- `jq -e '.hooks.Stop[] | .hooks[] | select(.type == "command") | .command' .claude/settings.json`
+  — extracts the hook command at the right schema path.
+- Pipe-test of the raw hook command with a synthetic Stop-hook stdin
+  payload — exit code 0, gracefully degrades when matplotlib /
+  Telegram creds missing (logs `ERROR notify_session: ...` to stderr,
+  swallowed by the hook's `2>/dev/null`).
+- `python scripts/secret_scan.py` — clean.
+
+### 4. Remaining
+
+- None for this checkpoint. Future work (separate PR if wanted):
+  fold the same env-var loading into the VM's claude-code-runner so
+  `/vm` and `/vm_write` sessions also get sandbox-direct pings; right
+  now they rely on the VM's `claude.env` for `ANTHROPIC_API_KEY` and
+  the bot's existing Telegram path.
+
+### 5. Next checkpoint
+
+**CP-2026-05-01-04** — operator's choice.
+
+---
+
 ## CP-2026-05-01-02 — `/smoke_test` defaults to LIVE + per-account client factory
 
 - **Session date:** 2026-05-01

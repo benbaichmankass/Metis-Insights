@@ -75,6 +75,58 @@ The setup audit found committed Telegram and Bybit testnet credentials. Rotate t
 
 ---
 
+## Sandbox-side Telegram pings (S-021)
+
+Claude Code sandboxes don't get the VM's `claude.env` by default, so
+sandbox sessions can't ping Telegram directly — they have to fall back
+to the `pending-pings.jsonl` queue + VM git-sync round-trip (≤ 5 min).
+The harness-env path closes this gap when the operator opts in.
+
+### How it works
+
+1. The committed `.claude/settings.json` contains a `Stop` hook that
+   reads the topmost `## CP-…` entry from `CHECKPOINT_LOG.md` and
+   runs `scripts/notify_session.py` with that checkpoint id + title.
+2. `notify_session.py` calls `src.runtime.notify.send_via_alert_manager`,
+   which reads `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` from the
+   process env. When unset, it logs a warning and exits 0 — the
+   pipeline never crashes on missing creds.
+3. The operator (per-machine) drops a `.claude/settings.local.json`
+   alongside it with the actual tokens. That file is **gitignored**
+   (`.gitignore` line 73) and Claude Code reads it AFTER `settings.json`,
+   so the env vars win and are exposed to all subprocesses including
+   the Stop hook.
+
+### Operator setup (one-time, per machine)
+
+```bash
+cp .claude/settings.local.json.example .claude/settings.local.json
+# edit and fill in TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID from the
+# decrypted master-secrets.yaml → telegram.prod section
+chmod 600 .claude/settings.local.json
+```
+
+### Rules
+
+- **Never paste tokens into chat or commit them.** The whole point of
+  this path is to keep secrets in a gitignored file the harness reads
+  on session start. Pasting them in chat puts them in the
+  conversation transcript — which is harder to rotate cleanly than a
+  file on disk.
+- **The committed `settings.json` carries the hook only — no env.**
+  Putting empty placeholder env values in the committed file would
+  override real env vars to blank strings; instead the env keys live
+  in the `.local.json.example` template the operator copies + fills in.
+- **Token redaction still applies.** `src/utils/log_redact.py` strips
+  tokens from log records before any handler sees them; the Stop
+  hook's `2>/dev/null` swallows stderr anyway, but the redacting
+  filter is the defense in depth.
+- **The Stop hook is non-blocking.** It returns exit 0 on missing
+  creds, missing CHECKPOINT_LOG entry, or any subprocess failure.
+  Claude Code never gets stuck on a broken hook.
+
+---
+
 ## VM-resident Claude — secrets handling (S-014.5)
 
 The runner has its own narrow secrets surface: the Anthropic API key.
