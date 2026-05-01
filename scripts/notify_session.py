@@ -8,10 +8,12 @@ Three subcommands:
     sprint    one short message when an entire sprint is complete
     alert     user-action-required message when the sprinter is blocked
 
-All reuse the existing safe helper `src.runtime.notify.send_via_alert_manager`,
-which reads `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` from env. If those are
-missing, the helper logs a warning and exits cleanly — never raises and never
-prints the secrets.
+All reuse `src.runtime.notify.send_telegram_direct`, a stdlib-only POST to
+the Telegram sendMessage API. It reads `TELEGRAM_BOT_TOKEN` /
+`TELEGRAM_CHAT_ID` from env; if either is missing it logs a warning and
+returns cleanly (back-compat). Network/HTTP failures DO raise — those are
+real delivery failures and surface here as exit 1, so the Stop hook's
+`logs/notify_hook.log` shows the failure instead of silently exiting 0.
 
 Usage:
     PYTHONPATH=. python scripts/notify_session.py session \\
@@ -33,27 +35,51 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
+import urllib.error
 
 logger = logging.getLogger("notify_session")
 
 
 def _send(message: str) -> int:
-    """Forward to the existing safe Telegram helper. Returns exit code."""
+    """Forward to the stdlib-only Telegram helper. Returns exit code.
+
+    Import failures (e.g. ImportError) surface as exit 1 — the Stop hook
+    log will show them. Network failures (URLError/HTTPError) likewise
+    return exit 1 with a single-line stderr marker. Missing-creds is
+    treated as a clean no-op (exit 0) by the helper itself.
+    """
     try:
-        from src.runtime.notify import send_via_alert_manager
-    except Exception as exc:  # noqa: BLE001
-        logger.error("Could not import send_via_alert_manager: %s", exc)
-        # Don't fail the build — workflow continues even without Telegram.
-        return 0
+        from src.runtime.notify import send_telegram_direct
+    except ImportError as exc:
+        print(
+            f"[notify_session] telegram-import-error: {exc}",
+            file=sys.stderr,
+        )
+        return 1
 
     try:
-        send_via_alert_manager(message)
-        print(f"[notify_session] dispatched: {message[:80]}")
-        return 0
+        send_telegram_direct(message)
+    except urllib.error.HTTPError as exc:
+        print(
+            f"[notify_session] telegram-http-error: status={exc.code}",
+            file=sys.stderr,
+        )
+        return 1
+    except urllib.error.URLError as exc:
+        print(
+            f"[notify_session] telegram-network-error: {exc.reason}",
+            file=sys.stderr,
+        )
+        return 1
     except Exception as exc:  # noqa: BLE001
-        # send_via_alert_manager already swallows most failures, but be defensive.
-        logger.warning("Telegram send failed (non-fatal): %s", exc)
-        return 0
+        print(
+            f"[notify_session] telegram-send-failed: {type(exc).__name__}",
+            file=sys.stderr,
+        )
+        return 1
+
+    print(f"[notify_session] dispatched: {message[:80]}")
+    return 0
 
 
 def _cmd_session(args: argparse.Namespace) -> int:

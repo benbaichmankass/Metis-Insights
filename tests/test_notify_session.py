@@ -1,9 +1,11 @@
 """Tests for scripts/notify_session.py — focused on the alert subcommand."""
 from __future__ import annotations
 
+import io
 import sys
 import types
 import unittest
+import urllib.error
 from unittest.mock import patch
 
 # Make the script importable without installing the package.
@@ -73,50 +75,55 @@ class TestAlertMessageFormat(unittest.TestCase):
 
 
 class TestAlertNoCredsPath(unittest.TestCase):
-    def test_returns_zero_when_send_raises(self):
-        def raising_send(msg: str) -> int:
-            raise RuntimeError("no creds")
+    """Per CP-2026-05-01-05, the script no longer swallows send errors.
+    Missing creds is the ONLY back-compat exit-0 path (handled inside the
+    helper, see TestTelegramDirectMissingCreds). Any other failure surfaces
+    as exit 1 so the Stop-hook log shows the real failure mode.
+    """
 
+    def test_send_failure_propagates_as_nonzero_exit(self):
         parser = build_parser()
-        args = parser.parse_args(["alert", "--summary", "blocked", "--link", "https://example.com"])
+        args = parser.parse_args(
+            ["alert", "--summary", "blocked", "--link", "https://example.com"]
+        )
 
-        with patch("scripts.notify_session._send", side_effect=raising_send):
-            # _cmd_alert calls _send, which raises — but _send itself wraps
-            # send_via_alert_manager. We test the _cmd_alert -> _send boundary
-            # by replacing _send entirely.  When _send raises, _cmd_alert
-            # should propagate — so we verify the no-creds path at the
-            # send_via_alert_manager level instead.
-            pass
-
-        # Simulate the actual no-creds path: send_via_alert_manager raises,
-        # _send catches it and returns 0, so _cmd_alert returns 0.
-        def send_via_raises(msg: str) -> None:
-            raise Exception("TELEGRAM_BOT_TOKEN not set")
+        def send_raises(_msg: str) -> None:
+            raise RuntimeError("Telegram API returned ok=false")
 
         fake_notify = types.ModuleType("src.runtime.notify")
-        fake_notify.send_via_alert_manager = send_via_raises  # type: ignore[attr-defined]
+        fake_notify.send_telegram_direct = send_raises  # type: ignore[attr-defined]
 
         with patch.dict("sys.modules", {"src.runtime.notify": fake_notify}):
-            # Re-import to pick up patched module inside _send's try/except.
             import importlib
             import scripts.notify_session as ns_mod
+
             importlib.reload(ns_mod)
-            result = ns_mod._cmd_alert(args)
-            self.assertEqual(result, 0)
-            # Restore
-            importlib.reload(ns_mod)
+            try:
+                result = ns_mod._cmd_alert(args)
+                self.assertEqual(result, 1)
+            finally:
+                importlib.reload(ns_mod)
 
 
 class TestNotifyImportIsLightweight(unittest.TestCase):
-    """Regression for the matplotlib leak (CP-2026-05-01-04).
+    """Regression for the matplotlib leak (CP-2026-05-01-04) and the
+    AlertManager→dotenv leak (CP-2026-05-01-05).
 
-    `src.runtime.notify` is on the Stop-hook ping path. Pulling matplotlib
-    through it makes the path silently exit 0 on any sandbox without
-    matplotlib installed, so the operator sees zero signal that pings
-    aren't being delivered. Lock the import surface down.
+    `src.runtime.notify` and `scripts.notify_session` are on the Stop-hook
+    ping path. Pulling heavy / optional deps through them makes the path
+    silently exit 0 on any sandbox without those deps installed, so the
+    operator sees zero signal that pings aren't being delivered. Lock the
+    import surface down.
     """
 
     FORBIDDEN = ("matplotlib", "pandas", "src.runtime.signal_notifications")
+    SCRIPT_FORBIDDEN = (
+        "matplotlib",
+        "pandas",
+        "src.runtime.signal_notifications",
+        "dotenv",
+        "src.bot.alert_manager",
+    )
 
     def test_notify_does_not_pull_heavy_deps(self):
         import importlib
@@ -134,6 +141,162 @@ class TestNotifyImportIsLightweight(unittest.TestCase):
                 f"importing src.runtime.notify pulled in {mod} — Stop-hook ping path "
                 f"will silently exit 0 on hosts without it",
             )
+
+    def test_notify_session_script_does_not_pull_dotenv_or_alert_manager(self):
+        import importlib
+
+        for mod in self.SCRIPT_FORBIDDEN:
+            sys.modules.pop(mod, None)
+        sys.modules.pop("scripts.notify_session", None)
+
+        importlib.import_module("scripts.notify_session")
+
+        for mod in self.SCRIPT_FORBIDDEN:
+            self.assertNotIn(
+                mod,
+                sys.modules,
+                f"importing scripts.notify_session pulled in {mod} — "
+                f"Stop-hook ping path will silently fail on hosts without it",
+            )
+
+
+class _FakeResponse:
+    def __init__(self, body: bytes, status: int = 200, headers=None):
+        self._body = body
+        self._status = status
+        self.headers = headers or {}
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_exc):
+        return False
+
+    def read(self) -> bytes:
+        return self._body
+
+    def getcode(self) -> int:
+        return self._status
+
+
+class TestTelegramDirectSuccess(unittest.TestCase):
+    def test_send_returns_cleanly_and_script_exits_zero(self):
+        import importlib
+        import json as _json
+
+        sys.modules.pop("src.runtime.notify", None)
+        sys.modules.pop("scripts.notify_session", None)
+        notify = importlib.import_module("src.runtime.notify")
+        ns = importlib.import_module("scripts.notify_session")
+
+        body = _json.dumps({"ok": True, "result": {"message_id": 42}}).encode()
+        fake = _FakeResponse(body, status=200)
+
+        env = {"TELEGRAM_BOT_TOKEN": "abc:def", "TELEGRAM_CHAT_ID": "111"}
+        with patch.dict("os.environ", env, clear=False):
+            with patch("urllib.request.urlopen", return_value=fake) as m:
+                # Direct helper returns cleanly.
+                self.assertIsNone(notify.send_telegram_direct("hi"))
+                self.assertTrue(m.called)
+                # Script wrapper exits 0.
+                rc = ns._send("hi")
+                self.assertEqual(rc, 0)
+
+
+class TestTelegramDirectMissingCreds(unittest.TestCase):
+    def test_warns_and_returns_without_raising_and_script_exits_zero(self):
+        import importlib
+
+        sys.modules.pop("src.runtime.notify", None)
+        sys.modules.pop("scripts.notify_session", None)
+        notify = importlib.import_module("src.runtime.notify")
+        ns = importlib.import_module("scripts.notify_session")
+
+        env_clear = {}
+        with patch.dict(
+            "os.environ",
+            env_clear,
+            clear=True,
+        ):
+            with patch.object(notify.logger, "warning") as warn:
+                self.assertIsNone(notify.send_telegram_direct("hi"))
+                self.assertTrue(warn.called)
+            # Script must still exit 0 for back-compat.
+            rc = ns._send("hi")
+            self.assertEqual(rc, 0)
+
+
+class TestTelegramDirectNetworkError(unittest.TestCase):
+    def test_url_error_yields_nonzero_exit_with_stderr_marker(self):
+        import importlib
+
+        sys.modules.pop("src.runtime.notify", None)
+        sys.modules.pop("scripts.notify_session", None)
+        importlib.import_module("src.runtime.notify")
+        ns = importlib.import_module("scripts.notify_session")
+
+        def raising_urlopen(*_a, **_kw):
+            raise urllib.error.URLError("connection refused")
+
+        env = {"TELEGRAM_BOT_TOKEN": "abc:def", "TELEGRAM_CHAT_ID": "111"}
+        buf = io.StringIO()
+        with patch.dict("os.environ", env, clear=False):
+            with patch("urllib.request.urlopen", side_effect=raising_urlopen):
+                with patch.object(sys, "stderr", buf):
+                    rc = ns._send("hi")
+
+        self.assertNotEqual(rc, 0)
+        out = buf.getvalue()
+        self.assertIn("telegram-network-error", out)
+
+
+class TestTelegramDirectNoTokenInLogs(unittest.TestCase):
+    def test_synthetic_token_never_appears_in_log_records(self):
+        import importlib
+        import json as _json
+        import logging as _logging
+
+        sys.modules.pop("src.runtime.notify", None)
+        notify = importlib.import_module("src.runtime.notify")
+
+        secret = "TEST_TOKEN_DO_NOT_LOG"
+        captured: list[str] = []
+
+        original_handle = _logging.Logger.handle
+
+        def capturing_handle(self, record):
+            try:
+                captured.append(record.getMessage())
+                captured.append(str(record.args))
+                if record.exc_info:
+                    captured.append(repr(record.exc_info))
+            except Exception:  # noqa: BLE001
+                pass
+            return original_handle(self, record)
+
+        body = _json.dumps({"ok": True, "result": {"message_id": 7}}).encode()
+
+        env = {"TELEGRAM_BOT_TOKEN": secret, "TELEGRAM_CHAT_ID": "111"}
+        # Success path
+        with patch.dict("os.environ", env, clear=False):
+            with patch("urllib.request.urlopen", return_value=_FakeResponse(body)):
+                with patch.object(_logging.Logger, "handle", capturing_handle):
+                    notify.send_telegram_direct("hi")
+
+        # Network-error path (also must not log token)
+        with patch.dict("os.environ", env, clear=False):
+            with patch(
+                "urllib.request.urlopen",
+                side_effect=urllib.error.URLError("boom"),
+            ):
+                with patch.object(_logging.Logger, "handle", capturing_handle):
+                    try:
+                        notify.send_telegram_direct("hi")
+                    except urllib.error.URLError:
+                        pass
+
+        joined = "\n".join(captured)
+        self.assertNotIn(secret, joined)
 
 
 if __name__ == "__main__":

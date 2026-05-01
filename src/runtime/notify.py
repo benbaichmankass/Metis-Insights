@@ -1,11 +1,75 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
+import urllib.error
+import urllib.parse
+import urllib.request
 from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
+
+
+def send_telegram_direct(message: str) -> None:
+    """
+    Stdlib-only direct POST to Telegram's sendMessage API.
+
+    Reads ``TELEGRAM_BOT_TOKEN`` and ``TELEGRAM_CHAT_ID`` from the process
+    environment. If either is missing, logs a warning and returns (back-compat
+    with the previous AlertManager-based path).
+
+    On present credentials, performs a synchronous form-encoded POST. Raises
+    ``urllib.error.URLError`` / ``urllib.error.HTTPError`` on network failure
+    or non-2xx responses, and ``RuntimeError`` if the API replies with
+    ``ok=false``. Callers are responsible for translating those into exit codes.
+
+    Security: the bot token is embedded in the request URL but is never logged
+    or printed in any form (full, redacted, or length). Only ``ok``,
+    ``message_id``, and HTTP ``status_code`` are logged on success.
+    """
+    token = os.environ.get("TELEGRAM_BOT_TOKEN")
+    chat_id = os.environ.get("TELEGRAM_CHAT_ID")
+    if not token or not chat_id:
+        logger.warning(
+            "Telegram credentials missing (TELEGRAM_BOT_TOKEN or "
+            "TELEGRAM_CHAT_ID); skipping send"
+        )
+        return
+
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    payload = urllib.parse.urlencode(
+        {"chat_id": chat_id, "text": message, "parse_mode": "HTML"}
+    ).encode("utf-8")
+    req = urllib.request.Request(
+        url,
+        data=payload,
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        method="POST",
+    )
+
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        status = resp.getcode()
+        body = resp.read()
+        if not (200 <= status < 300):
+            raise urllib.error.HTTPError(
+                "<redacted>", status, "non-2xx from Telegram", resp.headers, None
+            )
+        try:
+            parsed = json.loads(body.decode("utf-8"))
+        except (ValueError, UnicodeDecodeError) as exc:
+            raise RuntimeError(f"Telegram returned non-JSON body: {exc}") from exc
+        ok = bool(parsed.get("ok"))
+        message_id = (parsed.get("result") or {}).get("message_id")
+        logger.info(
+            "Telegram send: ok=%s message_id=%s status_code=%s",
+            ok,
+            message_id,
+            status,
+        )
+        if not ok:
+            raise RuntimeError("Telegram API returned ok=false")
 
 
 def notify_operator(telegram_client: Any, message: str) -> None:
