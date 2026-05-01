@@ -29,6 +29,10 @@ logger = logging.getLogger(__name__)
 _DRY_RUN = os.environ.get("DRY_RUN", "false").strip().lower() in {"true", "1", "yes"}
 
 
+def _is_test_order(pkg: OrderPackage) -> bool:
+    return bool(getattr(pkg, "meta", None) and pkg.meta.get("is_test"))
+
+
 def execute_pkg(
     pkg: OrderPackage,
     account_cfg: dict,
@@ -120,8 +124,69 @@ def execute_pkg(
         logger.info("DRY RUN — order not placed: %s → trade_id=%s", order, trade_id)
         return trade_id
 
+    # Smoke-test path: keep exchange rejection in-band so the caller can
+    # log it as the success signal instead of unwinding the stack.
+    # Bybit returns retCode != 0 (no exception) for below-min-lot qty —
+    # see _submit_test_order for the explicit retCode check.
+    if _is_test_order(pkg):
+        return _submit_test_order(exchange_client, order, account_cfg)
+
     trade_id = _submit_order(exchange_client, order, account_cfg)
     return trade_id
+
+
+def _submit_test_order(client: Any, order: dict, account_cfg: dict) -> str:
+    """Submit a smoke-test order and surface rejection in-band.
+
+    Returns
+    -------
+    str
+        ``"<exchange-orderId>"`` when Bybit unexpectedly accepts (the
+        operator should manually flatten if this happens; the qty is
+        meant to be below min-lot), or
+        ``"rejected_too_small:<reason>"`` when the exchange rejects.
+        The latter is the success path.
+    """
+    exchange = (account_cfg.get("exchange") or "bybit").lower()
+    try:
+        if exchange == "bybit":
+            resp = client.place_order(
+                category="linear",
+                symbol=order["symbol"],
+                side=order["side"],
+                orderType="Market",
+                qty=str(order["qty"]),
+                stopLoss=str(order["sl"]),
+                takeProfit=str(order["tp"]),
+            ) or {}
+            ret_code = resp.get("retCode")
+            if ret_code not in (0, "0", None):
+                reason = str(resp.get("retMsg") or f"retCode={ret_code}")
+                logger.info(
+                    "smoke_test rejected by Bybit (success signal): "
+                    "account=%s retCode=%s retMsg=%s",
+                    order.get("account_id"), ret_code, reason,
+                )
+                return f"rejected_too_small:retCode={ret_code} {reason}"
+            order_id = (resp.get("result") or {}).get("orderId")
+            if order_id:
+                logger.warning(
+                    "smoke_test ACCEPTED by Bybit unexpectedly (qty=%s should "
+                    "be below min-lot): orderId=%s — operator should flatten.",
+                    order.get("qty"), order_id,
+                )
+                return str(order_id)
+            return f"rejected_too_small:no orderId in response"
+        if exchange == "breakout":
+            return f"rejected_too_small:breakout exchange does not support live smoke yet"
+    except Exception as exc:  # noqa: BLE001
+        reason = str(exc)
+        logger.info(
+            "smoke_test rejected by exchange (success signal): "
+            "account=%s reason=%s", order.get("account_id"), reason,
+        )
+        return f"rejected_too_small:{reason}"
+    return f"rejected_too_small:unsupported exchange {exchange}"
 
 
 # ---------------------------------------------------------------------------

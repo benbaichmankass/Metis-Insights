@@ -676,6 +676,152 @@ class Coordinator:
         merged = {**yaml_th, **(thresholds or {})}
         return validate_metrics(strategy, metrics, thresholds=merged or None)
 
+    # ------------------------------------------------------------------
+    # Live-plumbing smoke test (cross-unit: Strategies → Accounts → DB)
+    # ------------------------------------------------------------------
+
+    def smoke_test_run(
+        self,
+        account_id: Optional[str] = None,
+        *,
+        exchange_client: Optional[Any] = None,
+        dry_run: Optional[bool] = None,
+        symbol: str = "BTCUSDT",
+        direction: str = "long",
+        ref_price: Optional[float] = None,
+        db_path: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Drive a live-plumbing smoke through the full 9-unit pipeline.
+
+        Builds a ``smoke_test`` OrderPackage (``meta.is_test=True``), routes
+        it through ``account_execute()`` for one or every account, captures
+        the exchange's "too small" rejection as the success signal, logs a
+        row to ``trade_journal.db``, pushes a dashboards alert, and returns
+        a structured per-account result dict.
+
+        Parameters
+        ----------
+        account_id : str, optional
+            When set, only run the smoke against this account. Default
+            (None) runs it against every account from accounts.yaml.
+        exchange_client : object, optional
+            Bybit/Binance client. When None, the executor falls back to
+            dry-run regardless of ``dry_run`` argument or DRY_RUN env.
+        dry_run : bool, optional
+            Override the executor's dry-run flag. None defers to env.
+        symbol, direction, ref_price :
+            Passed to the smoke_test strategy. Defaults are safe.
+        db_path : str, optional
+            Override path to trade_journal.db. None → repo-root default.
+
+        Returns
+        -------
+        dict
+            ``{
+              "smoke_id": str,
+              "results": [
+                {
+                  "account_id": str,
+                  "exchange": str,
+                  "trade_id": str,         # "rejected_too_small:..." on success
+                  "status": "rejected_too_small" | "submitted" | "dry_run" | "error",
+                  "reason": str,
+                  "logged": bool,
+                }, ...
+              ],
+              "ok": bool,                  # True when at least one account passed
+            }``
+        """
+        from src.units.strategies.smoke_test import order_package as _smoke_pkg
+
+        cfg: Dict[str, Any] = {"symbol": symbol, "direction": direction}
+        if ref_price is not None:
+            cfg["ref_price"] = float(ref_price)
+
+        pkg_dict = _smoke_pkg(cfg, candles_df=None)
+        pkg = OrderPackage(strategy="smoke_test", **pkg_dict)
+        smoke_id = pkg.meta.get("smoke_id", "")
+
+        accounts = self.list_accounts()
+        if account_id:
+            accounts = [a for a in accounts if a.get("account_id") == account_id]
+            if not accounts:
+                return {
+                    "smoke_id": smoke_id,
+                    "results": [],
+                    "ok": False,
+                    "error": f"account '{account_id}' not found in accounts.yaml",
+                }
+
+        results: List[Dict[str, Any]] = []
+        ok_any = False
+        for acc in accounts:
+            aid = acc.get("account_id") or "unknown"
+            exchange = acc.get("exchange") or "unknown"
+            entry: Dict[str, Any] = {
+                "account_id": aid,
+                "exchange": exchange,
+                "trade_id": None,
+                "status": "error",
+                "reason": "",
+                "logged": False,
+            }
+            try:
+                from src.units.accounts.execute import execute_pkg
+                trade_id = execute_pkg(
+                    pkg, acc,
+                    exchange_client=exchange_client,
+                    dry_run=dry_run,
+                )
+                entry["trade_id"] = trade_id
+                if isinstance(trade_id, str) and trade_id.startswith("rejected_too_small:"):
+                    entry["status"] = "rejected_too_small"
+                    entry["reason"] = trade_id.split(":", 1)[1]
+                    ok_any = True
+                elif isinstance(trade_id, str) and trade_id.startswith("dry-"):
+                    entry["status"] = "dry_run"
+                    entry["reason"] = "DRY_RUN — exchange not contacted"
+                    ok_any = True
+                else:
+                    entry["status"] = "submitted"
+                    entry["reason"] = (
+                        "Bybit accepted the smoke order — operator should "
+                        "flatten manually."
+                    )
+            except Exception as exc:  # noqa: BLE001
+                entry["status"] = "error"
+                entry["reason"] = str(exc)
+
+            entry["logged"] = _log_smoke_to_journal(
+                pkg, entry, db_path=db_path,
+            )
+            self.push_alert(
+                f"smoke_test {aid}: {entry['status']} — {entry['reason']}",
+                source="accounts",
+                level="info" if entry["status"] != "error" else "warning",
+                smoke_id=smoke_id,
+                account_id=aid,
+                trade_id=entry["trade_id"],
+                status=entry["status"],
+            )
+            results.append(entry)
+
+        return {
+            "smoke_id": smoke_id,
+            "results": results,
+            "ok": ok_any,
+            "package": {
+                "symbol": pkg.symbol,
+                "direction": pkg.direction,
+                "entry": pkg.entry,
+                "qty": pkg.meta.get("test_qty"),
+            },
+        }
+
+    # ------------------------------------------------------------------
+    # Unit 7 → Trading School (continued)
+    # ------------------------------------------------------------------
+
     def trigger_backtest(
         self,
         strategy: str,
@@ -713,3 +859,55 @@ class Coordinator:
 def is_paused(account_id: str) -> bool:
     """Check if *account_id* is currently halted.  Used by accounts unit (PR #122)."""
     return account_id in _PAUSED_ACCOUNTS
+
+
+def _log_smoke_to_journal(
+    pkg: "OrderPackage",
+    result: Dict[str, Any],
+    *,
+    db_path: Optional[str] = None,
+) -> bool:
+    """Write a row for the smoke order into ``trade_journal.db``.
+
+    The row uses ``strategy_name="smoke_test"`` and ``status`` set to the
+    smoke outcome (``rejected_too_small`` / ``dry_run`` / ``submitted`` /
+    ``error``) so future ``/strategies`` aggregations can filter these
+    out. Returns True on a successful insert, False on any error
+    (logged but not re-raised — journal failure must never crash the
+    smoke harness).
+    """
+    try:
+        from datetime import datetime, timezone
+        from src.data_layer.database import Database
+
+        path = db_path or os.environ.get("TRADE_JOURNAL_DB") or os.path.join(
+            _REPO_ROOT, "trade_journal.db"
+        )
+        db = Database(db_path=path)
+        smoke_id = (pkg.meta or {}).get("smoke_id", "")
+        notes = (
+            f"smoke_id={smoke_id} "
+            f"trade_id={result.get('trade_id')} "
+            f"reason={result.get('reason', '')[:240]}"
+        )
+        db.insert_trade({
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "symbol": pkg.symbol,
+            "direction": pkg.direction,
+            "entry_price": float(pkg.entry),
+            "stop_loss": float(pkg.sl),
+            "take_profit_1": float(pkg.tp),
+            "position_size": float((pkg.meta or {}).get("test_qty") or 0.0),
+            "setup_type": "smoke_test",
+            "entry_reason": "live-plumbing smoke",
+            "exit_reason": result.get("reason", ""),
+            "status": str(result.get("status") or "smoke_test"),
+            "notes": notes,
+            "is_backtest": 0,
+            "strategy_name": "smoke_test",
+            "account_id": str(result.get("account_id") or "unknown"),
+        })
+        return True
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("_log_smoke_to_journal failed: %s", exc)
+        return False

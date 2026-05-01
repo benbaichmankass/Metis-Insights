@@ -576,6 +576,8 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/accounts — List accounts (dry/live + PnL) or toggle mode\n"
         "/accounts\\_status — Per-account risk state\n"
         "/risk\\_check <account> — Risk details for one account\n"
+        "/smoke\\_test \\[account\\] \\[dry\\] — Live-plumbing smoke "
+        "\\(strategies → accounts → exchange, journaled\\)\n"
         "/strategies — Per-strategy signals, PnL and positions\n"
         "/reload\\_strats — Reload strategies.yaml without restart\n"
         "/balance — Account balance\n"
@@ -1881,6 +1883,111 @@ async def cmd_accounts_status(update: Update, context: ContextTypes.DEFAULT_TYPE
         await update.message.reply_text(f"⚠️ Could not load accounts status: {e}")
 
 
+async def cmd_smoke_test(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Run a live-plumbing smoke trade: strategies → coordinator → accounts → exchange.
+
+    Usage:
+        /smoke_test                  — run on every account in accounts.yaml
+        /smoke_test <account>        — run on a single account (e.g. /smoke_test bybit_2)
+        /smoke_test <account> dry    — force dry-run (no exchange call)
+
+    Builds a ``smoke_test`` OrderPackage tagged ``meta.is_test=True``,
+    bypasses the risk gate by design, ships a 0.0001 BTC qty (below
+    Bybit min-lot) through ``account_execute()``, captures Bybit's
+    "qty invalid" rejection as the success signal, and writes a row
+    to ``trade_journal.db`` with ``strategy_name='smoke_test'``.
+    """
+    if not is_authorised(update):
+        return
+    coord = get_coordinator()
+    if coord is None:
+        await update.message.reply_text("⚠️ Coordinator unavailable.")
+        return
+
+    args = list(context.args or [])
+    account_id: str | None = None
+    force_dry: bool | None = None
+    if args:
+        account_id = args[0].strip()
+        if len(args) > 1 and args[1].strip().lower() in {"dry", "dry-run", "dry_run"}:
+            force_dry = True
+
+    await update.message.reply_text(
+        f"🧪 Running live-plumbing smoke test"
+        + (f" on `{account_id}`" if account_id else " (all accounts)")
+        + ("  _[forced dry-run]_" if force_dry else "")
+        + "…",
+        parse_mode="Markdown",
+    )
+
+    accounts_for_clients: list[dict] = []
+    try:
+        if account_id:
+            accounts_for_clients = [
+                a for a in (dl.list_accounts() or [])
+                if a.get("account_id") == account_id
+            ]
+        else:
+            accounts_for_clients = dl.list_accounts() or []
+    except Exception as exc:  # noqa: BLE001
+        accounts_for_clients = []
+        logger.warning("cmd_smoke_test: list_accounts failed: %s", exc)
+
+    # Resolve a single exchange_client when running against one account;
+    # when running against many, the coordinator falls back to per-call
+    # dry-run (passing one client to every account would mis-route keys).
+    exchange_client = None
+    if account_id and accounts_for_clients and not force_dry:
+        try:
+            exchange_client = dl.bybit_client_for(accounts_for_clients[0])
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("cmd_smoke_test: bybit_client_for failed: %s", exc)
+
+    try:
+        result = await asyncio.to_thread(
+            coord.smoke_test_run,
+            account_id,
+            exchange_client=exchange_client,
+            dry_run=force_dry,
+        )
+    except Exception as exc:  # noqa: BLE001
+        await update.message.reply_text(f"⚠️ smoke_test failed: {exc}")
+        return
+
+    smoke_id = result.get("smoke_id", "?")
+    pkg = result.get("package", {})
+    lines = [
+        f"🧪 *Smoke test* `{smoke_id}`",
+        f"Symbol: `{pkg.get('symbol', '?')}` | Dir: `{pkg.get('direction', '?')}`"
+        f" | Qty: `{pkg.get('qty', '?')}`",
+        "",
+    ]
+    if not result.get("results"):
+        lines.append("⚠️ No accounts evaluated. " + str(result.get("error") or ""))
+    for r in result.get("results", []):
+        status = r.get("status", "?")
+        icon = {
+            "rejected_too_small": "✅",   # expected/success path
+            "dry_run":            "🟡",   # plumbing OK, exchange not contacted
+            "submitted":          "⚠️",   # unexpected acceptance — flatten manually
+            "error":              "❌",
+        }.get(status, "•")
+        reason = (r.get("reason") or "")[:160]
+        logged = "📝" if r.get("logged") else "⚠️ not-logged"
+        lines.append(
+            f"{icon} `{r.get('account_id', '?')}` ({r.get('exchange', '?')})"
+            f" — *{status}* {logged}\n  ↳ {reason}"
+        )
+
+    if result.get("ok"):
+        lines.append("\n*Test successful*: order travelled the full pipeline; "
+                     "exchange rejection or dry-run captured and journaled.")
+    else:
+        lines.append("\n⚠️ *Test inconclusive*: see per-account reasons above.")
+
+    await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
+
+
 async def cmd_risk_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Check risk state for a specific account. Usage: /risk_check <account_name>"""
     if not is_authorised(update):
@@ -1971,6 +2078,7 @@ def main():
             BotCommand("accounts", "List accounts or toggle dry/live: /accounts dry|live <name>"),
             BotCommand("accounts_status", "Per-account risk state (daily PnL, halted)"),
             BotCommand("risk_check", "Risk details for one account: /risk_check <name>"),
+            BotCommand("smoke_test", "Live-plumbing smoke: /smoke_test [account] [dry]"),
             BotCommand("strategies", "Per-strategy signals, PnL and positions"),
             BotCommand("reload_strats", "Reload strategy config from strategies.yaml"),
             BotCommand("balance", "Account balance"),
@@ -2020,6 +2128,7 @@ def main():
     application.add_handler(CommandHandler("accounts", cmd_accounts))
     application.add_handler(CommandHandler("accounts_status", cmd_accounts_status))
     application.add_handler(CommandHandler("risk_check", cmd_risk_check))
+    application.add_handler(CommandHandler("smoke_test", cmd_smoke_test))
     application.add_handler(CommandHandler("sprintlet_status", cmd_sprintlet_status))
     application.add_handler(CommandHandler("sprintlet_complete", cmd_sprintlet_complete))
     application.add_handler(CommandHandler("checkpoint", cmd_checkpoint))

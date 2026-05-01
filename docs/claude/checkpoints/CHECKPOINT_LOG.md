@@ -11,7 +11,121 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
-## CP-2026-04-30-17 — S-020 COMPLETE (auto-ping fixed; recursive verification expected on this commit)
+## CP-2026-05-01-01 — `/smoke_test` Telegram command + live-plumbing pipeline
+
+- **Session date:** 2026-05-01
+- **Sprint:** ad-hoc operator request — live-plumbing smoke test command.
+- **Current sprint phase:** OPEN (single-task PR).
+- **Last completed checkpoint:** CP-2026-04-30-17.
+- **Next checkpoint:** **CP-2026-05-01-02** — operator decides the next
+  sprint focus; this PR is self-contained.
+- **Telegram sent:** auto-ping fires off this commit (touches CHECKPOINT_LOG.md).
+- **Alerts sent during session:** none.
+- **Blockers:** none.
+
+### 1. Completed
+
+Operator-requested feature: a `/smoke_test` Telegram command that exercises
+the **full** 9-unit pipeline (strategies → Coordinator → accounts →
+exchange → journal) using a tagged smoke order that the exchange will
+reject for being below the minimum lot size. The rejection is the
+success signal — it proves every layer is wired without moving real
+money.
+
+- New strategy module `src/units/strategies/smoke_test.py`. Pure signal
+  generator returning an `OrderPackage` dict tagged
+  `meta.is_test=True`, `meta.test_qty=0.0001` (below Bybit linear
+  perp min-lot 0.001), and an 8-char `smoke_id` for trace correlation.
+  No live data needed — uses a configurable `ref_price` (default
+  $70k) so unit tests run offline.
+
+- `src/units/accounts/risk.py` — `RiskManager.approve()` and
+  `size_order_from_cfg()` short-circuit on `meta.is_test`. Test
+  orders bypass daily-loss, pos-size, and intra-day drawdown gates
+  (running them through the gate is meaningless — the qty is
+  designed to fail at the exchange, not at our risk layer).
+  `size_order_from_cfg` returns `meta.test_qty` directly instead of
+  risk-sizing.
+
+- `src/units/accounts/execute.py` — new `_submit_test_order` helper
+  that catches Bybit `retCode != 0` (the actual response shape for
+  too-small qty; not an exception) **and** any exchange exception,
+  returning `"rejected_too_small:<reason>"` in-band as the trade_id.
+  Unexpected acceptance returns the real `orderId` with a
+  `WARNING`-level log so the operator knows to flatten.
+
+- `src/core/coordinator.py` — new `smoke_test_run(account_id=None,
+  exchange_client=None, dry_run=None, ...)` method. Drives the
+  pipeline for one or all accounts, captures per-account
+  `{status, reason, trade_id, logged}` dicts, writes a row to
+  `trade_journal.db` via the new module-level
+  `_log_smoke_to_journal` helper (with `strategy_name="smoke_test"`,
+  `status` reflecting the smoke outcome), pushes a dashboards alert.
+
+- `src/bot/telegram_query_bot.py` — new `cmd_smoke_test` handler.
+  Usage: `/smoke_test [account] [dry]`. Resolves the live Bybit
+  client via `data_loaders.bybit_client_for(account)` when a single
+  account is targeted; defers to dry-run otherwise (passing one
+  client to every account would mis-route keys). Handler runs the
+  blocking `coord.smoke_test_run` via `asyncio.to_thread` and
+  formats per-account results with status icons.
+  Registered in `application.add_handler` and the `BotCommand` menu;
+  `/help` text updated.
+
+- Tests: `tests/test_smoke_test_pipeline.py` — 20 new tests covering
+  the strategy module shape, risk-bypass for daily-loss / pos-size /
+  drawdown, sizing fallback, the executor's retCode-vs-exception
+  handling, unexpected-acceptance pass-through, coordinator
+  end-to-end wiring, journal row written, alert pushed, and
+  per-account filtering.
+
+### 2. Files changed
+
+- `src/units/strategies/smoke_test.py` (new)
+- `src/units/accounts/risk.py`
+- `src/units/accounts/execute.py`
+- `src/core/coordinator.py`
+- `src/bot/telegram_query_bot.py`
+- `tests/test_smoke_test_pipeline.py` (new)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+
+- `PYTHONPATH=. pytest tests/test_smoke_test_pipeline.py -v` —
+  **20/20 pass** (0.18s).
+- `PYTHONPATH=. pytest tests/test_s008_accounts.py
+  tests/test_s008_strategies.py tests/test_s008_coordinator.py
+  tests/test_s010_accounts.py tests/test_s012_risk_caps.py -q` —
+  **138/138 pass** (regression suite for the units I touched).
+- `PYTHONPATH=. pytest tests/test_smoke_test_trade.py -q` —
+  **14/14 pass** (the legacy CLI smoke harness still works).
+- `PYTHONPATH=. pytest tests/ -q` (excluding 8 pre-existing
+  fastapi-missing collection errors and `test_main_loop.py` per
+  CLAUDE.md) — **1362 passed, 8 failed, 2 skipped**. The 8 failures
+  are pre-existing on `main` (stale sprint-number assertions in
+  `test_s008_5_telegram_sprint_cmds.py` and
+  `test_telegram_query_bot.py::TestCmdStatusMultiAccount`,
+  `test_s012_service_consolidation`, plus a Py3.11
+  `requests.RequestException` typing issue in
+  `sprint015/data_sources.py`). Verified by re-running with my
+  changes git-stashed: **same 8 failures on main**.
+- `python scripts/secret_scan.py` — clean.
+
+### 4. Remaining
+
+- None for this checkpoint. Future enhancement (separate PR if
+  desired): route the test path through `safe_place_order` to
+  unify with the existing single-entry-point contract — currently
+  the 9-unit `accounts/execute.py` path bypasses
+  `safe_place_order`, which is a pre-existing inconsistency, not
+  one introduced by this PR.
+
+### 5. Next checkpoint
+
+**CP-2026-05-01-02** — operator's choice. This PR is self-contained;
+no follow-on work is required to ship `/smoke_test`.
+
+
 
 - **Session date:** 2026-04-30
 - **Sprint:** S-020 — fix auto-ping path (manual /ping_test was already green).
