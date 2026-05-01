@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "_comment": "Copy this file to .claude/settings.local.json (gitignored) and fill in real values. Claude Code reads settings.local.json AFTER settings.json, so the env vars below are exposed to subprocesses (notify_session.py, hooks, etc.) — that lets the Stop hook in settings.json fire a Telegram ping immediately at session end. Source the values from telegram.prod in your decrypted master-secrets.yaml; never paste them into chat or commit the local file.",
+  "env": {
+    "TELEGRAM_BOT_TOKEN": "REPLACE_ME",
+    "TELEGRAM_CHAT_ID": "REPLACE_ME"
+  }
+}
