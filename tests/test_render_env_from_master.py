@@ -69,6 +69,28 @@ FAKE_DATA = {
             "account_note": "VWAP strategy subaccount",
         },
         "active_strategy_account": "vwap_strategy",
+        # S-023 PR1: per-account block keyed by account_id from
+        # config/accounts.yaml. Render script bridges this to the
+        # api_key_env/api_secret_env names the bot reads.
+        "accounts": {
+            "bybit_1": {
+                "api_key":    "fake_bybit_1_key",
+                "api_secret": "fake_bybit_1_secret",
+            },
+            "bybit_2": {
+                "api_key":    "fake_bybit_2_key",
+                "api_secret": "fake_bybit_2_secret",
+            },
+        },
+    },
+    "breakout": {
+        "accounts": {
+            "prop_breakout_1": {
+                "api_key":    "fake_prop_key",
+                "api_secret": "fake_prop_secret",
+                "enabled":    False,
+            },
+        },
     },
     "strategies": {
         "vwap_btcusd": {
@@ -663,4 +685,204 @@ class TestNewsTemplateSanity:
             assert pairs.get("NEWS_ENABLED") != "true", (
                 f"{builder_name} must not emit NEWS_ENABLED=true when there is no "
                 "explicit news block in the master secrets data"
+            )
+
+
+# ---------------------------------------------------------------------------
+# S-023 PR1 — per-account credential rendering driven by accounts.yaml
+# ---------------------------------------------------------------------------
+
+
+def _write_accounts_yaml(path: Path, accounts: dict) -> None:
+    import yaml
+    path.write_text(
+        yaml.safe_dump({"accounts": accounts}, sort_keys=False),
+        encoding="utf-8",
+    )
+
+
+class TestPerAccountRendering:
+    """The render script must emit ``<api_key_env>=...`` and the matching
+    ``..._SECRET`` for every account in accounts.yaml. Without this, the
+    bot's bybit_client_for(account) returns None silently and every
+    /accounts_status reads "balance unavailable".
+    """
+
+    def _accounts_fixture(self, tmp_path: Path) -> Path:
+        path = tmp_path / "accounts.yaml"
+        _write_accounts_yaml(path, {
+            "bybit_1": {
+                "type": "regular",
+                "exchange": "bybit",
+                "api_key_env": "BYBIT_API_KEY_1",
+                "strategies": ["turtle_soup"],
+            },
+            "bybit_2": {
+                "type": "regular",
+                "exchange": "bybit",
+                "api_key_env": "BYBIT_API_KEY_2",
+                "strategies": ["vwap"],
+            },
+            "prop_breakout_1": {
+                "type": "prop",
+                "exchange": "breakout",
+                "api_key_env": "BREAKOUT_API_KEY_1",
+                "strategies": [],
+            },
+        })
+        return path
+
+    def test_emits_one_pair_per_account_in_accounts_yaml(self, tmp_path):
+        accounts = self._accounts_fixture(tmp_path)
+        pairs = mod.build_live(FAKE_DATA, accounts_path=accounts)
+        keys = {k for k, _ in pairs}
+        # bybit_1 + bybit_2 should be rendered. prop_breakout_1 is
+        # `enabled: False` in FAKE_DATA so it's intentionally skipped.
+        assert "BYBIT_API_KEY_1" in keys
+        assert "BYBIT_API_SECRET_1" in keys
+        assert "BYBIT_API_KEY_2" in keys
+        assert "BYBIT_API_SECRET_2" in keys
+        assert "BREAKOUT_API_KEY_1" not in keys
+
+    def test_rendered_secrets_match_master_block(self, tmp_path):
+        accounts = self._accounts_fixture(tmp_path)
+        pairs = dict(mod.build_live(FAKE_DATA, accounts_path=accounts))
+        assert pairs["BYBIT_API_KEY_1"] == "fake_bybit_1_key"
+        assert pairs["BYBIT_API_SECRET_1"] == "fake_bybit_1_secret"
+        assert pairs["BYBIT_API_KEY_2"] == "fake_bybit_2_key"
+        assert pairs["BYBIT_API_SECRET_2"] == "fake_bybit_2_secret"
+
+    def test_warns_when_master_lacks_account_block(self, tmp_path):
+        """Account exists in accounts.yaml, missing from master → warning."""
+        accounts = self._accounts_fixture(tmp_path)
+        data_minus_bybit_2 = {
+            **FAKE_DATA,
+            "bybit": {**FAKE_DATA["bybit"],
+                      "accounts": {"bybit_1": FAKE_DATA["bybit"]["accounts"]["bybit_1"]}},
+        }
+        pairs, warnings = mod._per_account_pairs(data_minus_bybit_2, accounts)
+        keys = {k for k, _ in pairs}
+        assert "BYBIT_API_KEY_2" not in keys
+        assert any("bybit_2" in w and "bybit.accounts.bybit_2" in w for w in warnings)
+
+    def test_warns_when_credentials_still_placeholder(self, tmp_path):
+        accounts = self._accounts_fixture(tmp_path)
+        data = {
+            **FAKE_DATA,
+            "bybit": {
+                **FAKE_DATA["bybit"],
+                "accounts": {
+                    "bybit_1": {"api_key": "REPLACE_ME", "api_secret": "fake"},
+                    "bybit_2": FAKE_DATA["bybit"]["accounts"]["bybit_2"],
+                },
+            },
+        }
+        pairs, warnings = mod._per_account_pairs(data, accounts)
+        keys = {k for k, _ in pairs}
+        assert "BYBIT_API_KEY_1" not in keys
+        assert "BYBIT_API_KEY_2" in keys  # untouched
+        assert any("placeholder" in w and "bybit_1" in w for w in warnings)
+
+    def test_explicit_enabled_false_skips_account(self, tmp_path):
+        accounts = self._accounts_fixture(tmp_path)
+        # prop_breakout_1 has enabled: False in FAKE_DATA → no pairs, has warning
+        pairs, warnings = mod._per_account_pairs(FAKE_DATA, accounts)
+        keys = {k for k, _ in pairs}
+        assert "BREAKOUT_API_KEY_1" not in keys
+        assert any("prop_breakout_1" in w and "enabled: false" in w
+                   for w in warnings)
+
+    def test_custom_api_secret_env_honoured(self, tmp_path):
+        """Account may declare api_secret_env explicitly; must be used verbatim."""
+        path = tmp_path / "accounts.yaml"
+        _write_accounts_yaml(path, {
+            "weird": {
+                "exchange": "bybit",
+                "api_key_env": "WEIRD_KEY",
+                "api_secret_env": "TOTALLY_DIFFERENT_SECRET_NAME",
+                "strategies": ["vwap"],
+            },
+        })
+        data = {
+            **FAKE_DATA,
+            "bybit": {
+                **FAKE_DATA["bybit"],
+                "accounts": {"weird": {"api_key": "k", "api_secret": "s"}},
+            },
+        }
+        pairs = dict(mod.build_live(data, accounts_path=path))
+        assert pairs["WEIRD_KEY"] == "k"
+        assert pairs["TOTALLY_DIFFERENT_SECRET_NAME"] == "s"
+
+    def test_missing_accounts_yaml_returns_empty_with_warning(self, tmp_path):
+        bogus = tmp_path / "no-such-file.yaml"
+        pairs, warnings = mod._per_account_pairs(FAKE_DATA, bogus)
+        assert pairs == []
+        assert warnings  # at least one
+        assert any("no accounts found" in w for w in warnings)
+
+    def test_account_without_api_key_env_skipped_with_warning(self, tmp_path):
+        path = tmp_path / "accounts.yaml"
+        _write_accounts_yaml(path, {
+            "broken": {"exchange": "bybit", "strategies": []},
+        })
+        pairs, warnings = mod._per_account_pairs(FAKE_DATA, path)
+        assert pairs == []
+        assert any("broken" in w and "no api_key_env" in w for w in warnings)
+
+    def test_rendered_pairs_are_appended_to_live_profile(self, tmp_path):
+        accounts = self._accounts_fixture(tmp_path)
+        pairs = mod.build_live(FAKE_DATA, accounts_path=accounts)
+        # Legacy keys still present (back-compat)
+        keys = {k for k, _ in pairs}
+        assert "BYBIT_API_KEY" in keys           # legacy
+        assert "BYBIT_API_KEY_1" in keys         # per-account
+
+
+class TestMasterTemplateAccountsBlock:
+    """Regression: master-secrets.template.yaml must keep an accounts:
+    block under bybit so render_env_from_master keeps producing the
+    per-account env vars the bot reads.
+    """
+
+    def test_template_has_bybit_accounts_block(self):
+        repo_root = Path(__file__).resolve().parents[1]
+        template = repo_root / "config" / "master-secrets.template.yaml"
+        import yaml
+        data = yaml.safe_load(template.read_text(encoding="utf-8"))
+        bybit = data.get("bybit") or {}
+        accounts = bybit.get("accounts") or {}
+        # Whatever account_ids accounts.yaml has, the template must
+        # mention at least the live ones (bybit_1, bybit_2 today).
+        # We don't require an exact set here — accounts can change.
+        # We DO require the structure exists.
+        assert isinstance(accounts, dict) and accounts, (
+            "config/master-secrets.template.yaml must define a bybit.accounts "
+            "mapping; the render script reads it to emit BYBIT_API_KEY_<id>."
+        )
+
+    def test_template_account_ids_match_accounts_yaml(self):
+        """Drift guard: every live account_id in accounts.yaml must have a
+        placeholder block in the master template (otherwise the render
+        script will warn but the operator may miss it).
+        """
+        repo_root = Path(__file__).resolve().parents[1]
+        import yaml
+        accounts_yaml = yaml.safe_load(
+            (repo_root / "config" / "accounts.yaml").read_text(encoding="utf-8"),
+        )
+        template = yaml.safe_load(
+            (repo_root / "config" / "master-secrets.template.yaml").read_text(encoding="utf-8"),
+        )
+        accounts = (accounts_yaml or {}).get("accounts") or {}
+        # Group by exchange
+        for aid, cfg in accounts.items():
+            if not isinstance(cfg, dict):
+                continue
+            exchange = (cfg.get("exchange") or "").lower()
+            master_block = ((template.get(exchange) or {}).get("accounts") or {})
+            assert aid in master_block, (
+                f"accounts.yaml::{aid} (exchange={exchange}) has no matching "
+                f"entry under master-secrets.template.yaml::{exchange}.accounts.{aid}. "
+                f"Add a placeholder block so render_env_from_master.py covers it."
             )
