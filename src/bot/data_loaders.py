@@ -465,90 +465,16 @@ def _read_env_file(env_path: str) -> Dict[str, str]:
         return {}
 
 
-def _bybit_client(env_vars: Dict[str, str]):
-    api_key = env_vars.get("BYBIT_API_KEY")
-    api_secret = env_vars.get("BYBIT_API_SECRET")
-    if not api_key or not api_secret:
-        return None
-    from pybit.unified_trading import HTTP  # type: ignore
-    return HTTP(testnet=False, api_key=api_key, api_secret=api_secret)
-
-
-def bybit_client_for(account: Dict[str, Any]):
-    """Return a Bybit HTTP client for ``account``, or ``None`` if creds are missing.
-
-    Resolution order (S-012 PR hotfix — accounts.yaml api_key_env contract):
-
-      1. ``account["api_key_env"]`` — the env-var name carrying the
-         API key (S-010 contract). When set, looks up
-         ``os.environ[<api_key_env>]`` and the matching ``..._SECRET``
-         (or ``api_secret_env`` when set explicitly). This is the path
-         used by all accounts.yaml entries (bybit_1, bybit_2, ...).
-      2. ``account["env_path"]`` — read ``BYBIT_API_KEY`` /
-         ``BYBIT_API_SECRET`` from the .env file. The legacy single-
-         account path; still used by env-discovered accounts.
-    """
-    if not isinstance(account, dict):
-        return None
-
-    # Path 1: api_key_env (accounts.yaml contract)
-    api_key_env = account.get("api_key_env")
-    if api_key_env:
-        api_key = os.environ.get(api_key_env)
-        secret_env = (
-            account.get("api_secret_env")
-            or api_key_env.replace("_API_KEY", "_API_SECRET")
-        )
-        api_secret = os.environ.get(secret_env)
-        if api_key and api_secret:
-            from pybit.unified_trading import HTTP  # type: ignore
-            testnet = str(os.environ.get("BYBIT_TESTNET", "false")).strip().lower() == "true"
-            return HTTP(testnet=testnet, api_key=api_key, api_secret=api_secret)
-
-    # Path 2: legacy env_path
-    env = _read_env_file(account.get("env_path") or "")
-    return _bybit_client(env)
-
-
-def _binance_conn(env_vars: Dict[str, str]):
-    api_key = env_vars.get("BINANCE_API_KEY")
-    api_secret = env_vars.get("BINANCE_API_SECRET")
-    if not api_key or not api_secret:
-        return None
-    import sys as _sys
-    _sys.path.insert(0, os.path.join(REPO_ROOT, "src"))
-    from exchange.binance_connector import BinanceConnector  # type: ignore
-    testnet = str(env_vars.get("BINANCE_TESTNET", "false")).strip().lower() == "true"
-    return BinanceConnector(api_key=api_key, api_secret=api_secret, testnet=testnet)
-
-
-def binance_conn_for(account: Dict[str, Any]):
-    """Return a Binance connector for ``account``, or ``None`` if creds are missing.
-
-    Mirrors ``bybit_client_for`` two-path resolution (S-012 hotfix):
-      1. ``account["api_key_env"]`` → ``os.environ`` (accounts.yaml contract)
-      2. ``account["env_path"]`` → ``_read_env_file`` (legacy)
-    """
-    if not isinstance(account, dict):
-        return None
-
-    api_key_env = account.get("api_key_env")
-    if api_key_env:
-        api_key = os.environ.get(api_key_env)
-        secret_env = (
-            account.get("api_secret_env")
-            or api_key_env.replace("_API_KEY", "_API_SECRET")
-        )
-        api_secret = os.environ.get(secret_env)
-        if api_key and api_secret:
-            import sys as _sys
-            _sys.path.insert(0, os.path.join(REPO_ROOT, "src"))
-            from exchange.binance_connector import BinanceConnector  # type: ignore
-            testnet = str(os.environ.get("BINANCE_TESTNET", "false")).strip().lower() == "true"
-            return BinanceConnector(api_key=api_key, api_secret=api_secret, testnet=testnet)
-
-    env = _read_env_file(account.get("env_path") or "")
-    return _binance_conn(env)
+# Per-account exchange-client construction now lives in the accounts unit
+# (src/units/accounts/clients.py) so the canonical owner of "what creds
+# belong to which account" is also the canonical owner of "how do I open
+# a client for that account". Re-export here for back-compat with every
+# existing call site (telegram_query_bot, coordinator, smoke tests).
+from src.units.accounts.clients import (  # noqa: E402
+    bybit_client_for,
+    binance_conn_for,
+    resolve_credentials,
+)
 
 
 def _f(x, default=0.0):
