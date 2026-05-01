@@ -672,8 +672,18 @@ def run_pipeline(
                 "reason": result.get("reason"),
             }
         )
-    except Exception:
-        pass
+    except Exception as _audit_exc:  # noqa: BLE001
+        logger.exception("pipeline audit log_signal failed")
+        # Audit data loss is operationally relevant — surface it.
+        # WARN, not ERROR, because this is a write to a JSONL we own;
+        # if it fails repeatedly the disk-free health check or hourly
+        # report will escalate.
+        report(
+            "audit_log",
+            "write_failed",
+            level=Level.WARN,
+            reason=f"{type(_audit_exc).__name__}: {_audit_exc}",
+        )
 
     status = result.get("status", "unknown")
     reason = result.get("reason")

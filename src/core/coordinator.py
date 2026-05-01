@@ -1015,4 +1015,14 @@ def _log_smoke_to_journal(
         return True
     except Exception as exc:  # noqa: BLE001
         logger.warning("_log_smoke_to_journal failed: %s", exc)
+        try:
+            from src.runtime.outcomes import Level, report
+            report(
+                "smoke_test",
+                "journal_write_failed",
+                level=Level.WARN,
+                reason=f"{type(exc).__name__}: {exc}",
+            )
+        except Exception:  # noqa: BLE001
+            pass
         return False
