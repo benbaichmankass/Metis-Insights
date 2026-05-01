@@ -5,6 +5,79 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-01-18 — Session close: operator-onboarding sprint COMPLETE, system fully operator-operable
+
+- **Session date:** 2026-05-01
+- **Sprint:** operator-onboarding (continuation of S-023) — **CLOSED**
+- **Current sprint phase:** complete; system is operator-operable end-to-end without SSH access
+- **Last completed checkpoint:** CP-2026-05-01-17 (S-023 COMPLETE)
+- **Next checkpoint:** **none — session ends here.** Next session should start fresh from `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry) and the operator's next priority.
+- **Telegram sent:** pending — this checkpoint commit triggers the VM-side ping.
+- **Alerts sent during session:** none from the bot. The operator's age private key was exposed in chat earlier in the session — flagged for rotation.
+- **Blockers:** none
+
+### 1. Completed
+After S-023 closed (#246) the operator hit the rotation flow for the
+first time. The remainder of this session was a tight iteration loop:
+ship the smallest plausible fix, operator runs it, surface the next
+bug, fix it. Seven PRs total (#247-#253). Final state: operator can
+rotate keys end-to-end from Colab + Telegram without ever SSHing the
+VM.
+
+The operator-facing flow is fully documented in
+`docs/sprint-summaries/operator-onboarding-summary.md` (added in this
+PR).
+
+Cross-cutting docs updated in this PR:
+
+- **`docs/claude/repo-map.md`** — added the systemd-units-that-read-env
+  table, the operator-facing surfaces table, the new `src/runtime/`
+  modules from S-022 (`outcomes`, `health`, `heartbeat`,
+  `hourly_report`, `api_reporting`), and pointers to `docs/operator/`
+  and `notebooks/operator/`.
+- **`docs/claude/debug-memory.md`** — three new durable findings:
+  Telegram parse modes (use HTML for any handler with dynamic
+  identifiers), multi-process restart awareness (rotating env vars
+  requires restarting every unit that reads them), `.env` vs
+  `.env.live` divergence (and the table of who reads what).
+- **`docs/claude/bug-log.md`** — BUG-023 through BUG-029 added,
+  covering each fix in this session.
+- **`docs/sprint-summaries/operator-onboarding-summary.md`** — new
+  closing summary with operator workflow, lessons learned, and
+  CLAUDE.md improvement proposals.
+
+### 2. Files changed (this checkpoint PR)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` — this entry.
+- `docs/claude/repo-map.md` — systemd-unit + operator-surface tables.
+- `docs/claude/debug-memory.md` — 3 new durable findings (Telegram
+  parse modes, multi-process restart, env-file divergence).
+- `docs/claude/bug-log.md` — 7 new bug rows (BUG-023 through BUG-029).
+- `docs/sprint-summaries/operator-onboarding-summary.md` — **new**.
+
+### 3. Tests run
+This is a docs-only PR. No code changed; no test sweep needed beyond
+the lint scripts.
+- `python scripts/secret_scan.py` — pass.
+- `python scripts/repo_inventory.py` — pass.
+
+### 4. Remaining
+- **Operator action**: rotate the age private key that was exposed in
+  this session's chat (called out in `docs/sprint-summaries/sprint-023-summary.md::Security note` and reiterated here).
+- **Optional follow-up sprint candidates** (operator picks):
+  - Standardize on a single env file: add `EnvironmentFile=-/home/.../.env.live` to `deploy/ict-trader-live.service` and `deploy/ict-telegram-bot.service` so the bot loads either `.env` or `.env.live`. One-line systemd change, requires PM review per CLAUDE.md.
+  - Wire the `scripts/check_heartbeat.py` watchdog into a systemd timer on the VM (S-022 PR5 left this as operator action).
+  - Sweep remaining `except: pass` sites in `src/web/` and `src/bot/` not covered by S-022 PR6.
+  - Add a `/diag_env` Telegram command that prints which env vars are visible to the bot process (vs. just what's in the `.env` file). Would short-circuit "did the restart take?" debugging.
+
+### 5. Next checkpoint
+**none — session closed.** Next session should:
+1. Read this entry first, plus `docs/claude/checkpoint-workflow.md`.
+2. Read `docs/sprint-summaries/operator-onboarding-summary.md` for full context on the now-stable operator surface.
+3. Read `docs/claude/debug-memory.md` for the 3 new durable findings (Telegram parse modes, multi-process restart, env-file divergence).
+4. Then plan with the operator from their next priority.
+
+---
+
 ## CP-2026-05-01-17 — S-023 COMPLETE: accounts wiring + API failure pings
 
 - **Session date:** 2026-05-01

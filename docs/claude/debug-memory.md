@@ -18,6 +18,55 @@ Use this file for recurring bugs so Claude does not rediscover them.
 
 ## Durable findings
 
+### 2026-05-01: Telegram parse modes — use HTML for any handler with dynamic identifiers
+
+Telegram's bot API has three parse modes that disagree on escaping:
+
+| Mode | Bold | Italic | Code | Escape mechanism |
+|---|---|---|---|---|
+| `parse_mode="Markdown"` (legacy v1) | `*bold*` | `_italic_` | `` `code` `` | **None** — backslash escapes are NOT processed; appear literally |
+| `parse_mode="MarkdownV2"` | `*bold*` | `_italic_` | `` `code` `` | `\` escapes any of ``_*[]()~`>#+-=|{}.!`` |
+| `parse_mode="HTML"` | `<b>bold</b>` | `<i>italic</i>` | `<code>code</code>` | Escape `&`, `<`, `>` only |
+
+**Trap:** `parse_mode="Markdown"` silently strips unmatched `_` as italic markers. So `BYBIT_API_KEY_1` renders as `BYBITAPIKEY1`. Backslash-escaping (`BYBIT\_API\_KEY\_1`) does NOT help — legacy Markdown renders the backslash literally as `\_`.
+
+**Rule:** any Telegram handler whose output contains user-visible identifiers (env var names, account names, file paths, error strings) must use `parse_mode="HTML"`. Two-line helper:
+```python
+def _h(s):
+    return str(s or "").replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
+```
+
+Canonical pattern: `cmd_accounts_status` in `src/bot/telegram_query_bot.py`. See BUG-027 + BUG-028.
+
+### 2026-05-01: Multi-process restart awareness
+
+The bot has multiple systemd units. Each reads `os.environ` once at startup. When the operator rotates env vars, **every** unit that reads them must restart, not just the trader:
+
+| systemd unit | Surface affected |
+|---|---|
+| `ict-trader-live.service` | trade loop, signal generation |
+| `ict-telegram-bot.service` | `/accounts_status`, `/balance`, `/smoke_test`, every `cmd_*` handler |
+| `ict-web-api.service` | dashboard `/api/*` endpoints |
+| `ict-heartbeat.service` | daily heartbeat ping |
+
+The Colab key-rotation notebook restarts BOTH `ict-trader-live.service` and `ict-telegram-bot.service` after writing `.env`. See BUG-029.
+
+### 2026-05-01: `.env` vs `.env.live` divergence
+
+Multiple code paths look at multiple files for the same data:
+
+| Path | What it reads |
+|---|---|
+| systemd `EnvironmentFile=` (most units) | `/home/<user>/ict-trading-bot/.env` |
+| `src/main.py::load_dotenv()` (no arg) | `.env` from CWD |
+| `src/runtime/pipeline.py` line 11 | `.env.live` if exists |
+| `scripts/render_env_from_master.py` (default `--out`) | writes `.env.live` |
+| Colab key-rotation notebook (post-#252) | writes BOTH `.env` and `.env.live` |
+| `deploy/ict-heartbeat.service` | `.env.live` |
+| `deploy/ict-smoke-once.service` | `.env` + `-.env.bybit_<id>` |
+
+**Rule:** when wiring a new env-loading path, always check the systemd unit. If they disagree, write the same content to both files. Long-term fix is to standardize via `EnvironmentFile=-/home/.../.env.live` (deploy/ change → PM review). See BUG-026.
+
 ### Bybit subaccount routing
 - The Bybit REST API does **not** support routing a request to a subaccount via a
   parent-account API key. There is no per-call subaccount selector.
