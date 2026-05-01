@@ -2100,6 +2100,59 @@ async def cmd_risk_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"⚠️ Could not check risk for '{account_name}': {e}")
 
 
+async def cmd_hourly(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Build + send the hourly summary on demand.
+
+    BUG-032: the in-process scheduler in `src/main.py` is the only path
+    that emits the hourly summary; if the trader process is in a tick-
+    loop crash spiral, a stuck `summary_markers.json`, or
+    `send_via_alert_manager` is failing, the operator sees nothing.
+    `/hourly` bypasses the dedup marker and reports the build/send
+    result back over the same Telegram channel so the failure mode
+    becomes visible.
+
+    Optional first arg ``replay`` reuses the marker (same as the
+    scheduled path); otherwise the dedup is bypassed.
+    """
+    if not is_authorised(update):
+        return
+
+    bypass_dedup = True
+    args = list(context.args or [])
+    if args and args[0].strip().lower() in {"replay", "scheduled"}:
+        bypass_dedup = False
+
+    try:
+        from datetime import datetime, timezone
+        from src.runtime.hourly_report import build_hourly_report
+        from src.runtime.outcomes import send_scheduled
+
+        now = datetime.now(timezone.utc)
+        if not bypass_dedup:
+            from src.utils.signal_audit_logger import should_send_summary
+            if not should_send_summary(now):
+                await update.message.reply_text(
+                    "ℹ️ /hourly replay: marker already present for this hour. "
+                    "Use plain /hourly to force-send."
+                )
+                return
+
+        msg = build_hourly_report(now_utc=now, tick_interval_s=900)
+        send_scheduled(msg)
+
+        await update.message.reply_text(
+            f"✅ Hourly report dispatched ({len(msg)} chars). "
+            f"If you don't see it shortly, check "
+            f"`runtime_logs/pending_pings.jsonl` on the VM "
+            f"(send_via_alert_manager failure path).",
+            parse_mode="Markdown",
+        )
+    except Exception as exc:  # noqa: BLE001
+        await update.message.reply_text(
+            f"⚠️ /hourly failed: {type(exc).__name__}: {exc}"
+        )
+
+
 async def cmd_set_all_live(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Force every account out of dry-run mode.
 
@@ -2185,6 +2238,7 @@ def main():
             BotCommand("accounts", "List accounts or toggle dry/live: /accounts dry|live <name>"),
             BotCommand("accounts_status", "Per-account risk state (daily PnL, halted)"),
             BotCommand("set_all_live", "Flip every account out of dry-run into live mode"),
+            BotCommand("hourly", "Send the hourly summary on demand (bypasses dedup)"),
             BotCommand("risk_check", "Risk details for one account: /risk_check <name>"),
             BotCommand("smoke_test", "Live-plumbing smoke (always LIVE): /smoke_test [account]"),
             BotCommand("strategies", "Per-strategy signals, PnL and positions"),
@@ -2237,6 +2291,7 @@ def main():
     application.add_handler(CommandHandler("accounts", cmd_accounts))
     application.add_handler(CommandHandler("accounts_status", cmd_accounts_status))
     application.add_handler(CommandHandler("set_all_live", cmd_set_all_live))
+    application.add_handler(CommandHandler("hourly", cmd_hourly))
     application.add_handler(CommandHandler("risk_check", cmd_risk_check))
     application.add_handler(CommandHandler("smoke_test", cmd_smoke_test))
     application.add_handler(CommandHandler("sprintlet_status", cmd_sprintlet_status))
