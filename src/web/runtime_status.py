@@ -26,6 +26,25 @@ SCHEMA_VERSION = 1
 _START_MONOTONIC = time.monotonic()
 
 
+def _swallow_runtime_status(status: str, exc: BaseException, **ctx: Any) -> None:
+    """Report a config-read failure that previously degraded silently.
+
+    Per-fingerprint dedup in outcomes.report keeps a flapping config
+    file from spamming the operator on every status read.
+    """
+    try:
+        from src.runtime.outcomes import Level, report
+        report(
+            "runtime_status",
+            status,
+            level=Level.WARN,
+            reason=f"{type(exc).__name__}: {exc}",
+            **ctx,
+        )
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def _resolve_git_sha() -> str:
     try:
         out = subprocess.run(
@@ -48,7 +67,9 @@ def _read_strategy_names(strategies_yaml: Path) -> List[str]:
         import yaml
         with strategies_yaml.open(encoding="utf-8") as fh:
             raw = yaml.safe_load(fh) or {}
-    except Exception:
+    except Exception as exc:  # noqa: BLE001
+        _swallow_runtime_status("strategies_yaml_read_failed", exc,
+                                path=str(strategies_yaml))
         return []
     return [
         name
@@ -64,7 +85,9 @@ def _read_live_per_account(
         import yaml
         with accounts_yaml.open(encoding="utf-8") as fh:
             raw = yaml.safe_load(fh) or {}
-    except Exception:
+    except Exception as exc:  # noqa: BLE001
+        _swallow_runtime_status("accounts_yaml_read_failed", exc,
+                                path=str(accounts_yaml))
         return {}
     overrides = overrides or {}
     # Per S-012 PR E2 / PM § 8 #4: every account starts dry by default.

@@ -40,7 +40,18 @@ def _load_account_ids(accounts_yaml: Path) -> list[str]:
         import yaml
         with accounts_yaml.open(encoding="utf-8") as fh:
             raw = yaml.safe_load(fh) or {}
-    except Exception:
+    except Exception as exc:  # noqa: BLE001
+        try:
+            from src.runtime.outcomes import Level, report
+            report(
+                "pnl_endpoint",
+                "accounts_yaml_read_failed",
+                level=Level.WARN,
+                reason=f"{type(exc).__name__}: {exc}",
+                path=str(accounts_yaml),
+            )
+        except Exception:  # noqa: BLE001
+            pass
         return []
     return list((raw.get("accounts") or {}).keys())
 
