@@ -5,6 +5,121 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-01-14 — S-023 PR1: render script + master template per-account block
+
+- **Session date:** 2026-05-01
+- **Sprint:** sprint-plan-2026-05-01 (S-023 — accounts wiring + API failure pings)
+- **Current sprint phase:** Phase 1 of 4 — root-cause fix for "balance unavailable"
+- **Last completed checkpoint:** CP-2026-05-01-13 (S-022 sprint complete)
+- **Next checkpoint:** **CP-2026-05-01-15 — S-023 PR2: specific account diagnostics**.
+  Make `bybit_client_for` and `account_balance` propagate a structured
+  error so `/accounts_status` shows exactly which env var is missing
+  (or which Bybit retCode/retMsg fired) instead of the generic
+  "missing API creds or exchange rejected the request".
+- **Telegram sent:** pending
+- **Alerts sent during session:** none — but the operator pasted an age
+  PRIVATE key into chat. Flagged for rotation in the user-facing reply.
+- **Blockers:** none
+
+### 1. Completed
+**Root cause confirmed:** the render script wrote
+`BYBIT_API_KEY` / `BYBIT_API_SECRET` (singular), but
+`config/accounts.yaml` made the bot look up
+`BYBIT_API_KEY_1`, `BYBIT_API_KEY_2`, `BREAKOUT_API_KEY_1` per
+account. Three-way label drift across:
+- `config/accounts.yaml` (numbered, per-account_id)
+- `config/master-secrets.template.yaml` (no accounts block at all)
+- `scripts/render_env_from_master.py` (singular only)
+
+This is why every account showed "balance unavailable (missing API
+creds or exchange rejected the request)" on /accounts_status —
+the bot was looking up env vars that the render script never wrote.
+
+**Fix shipped:**
+
+- `config/master-secrets.template.yaml`: added a `bybit.accounts`
+  block keyed by account_id (`bybit_1`, `bybit_2`) and a
+  `breakout.accounts.prop_breakout_1` block (with `enabled: false`
+  matching the current accounts.yaml roster).
+- `scripts/render_env_from_master.py`: new `_per_account_pairs()`
+  function reads `config/accounts.yaml` to learn which account_ids
+  exist + what env-var name each declares (`api_key_env`), then
+  walks the master file's `bybit.accounts.<id>` /
+  `breakout.accounts.<id>` blocks and writes
+  `<api_key_env>=<key>` plus the matching `..._SECRET`. Honours
+  explicit `enabled: false` in the master block. Surfaces
+  per-account warnings (placeholder still in master, missing block,
+  etc.) at the bottom of `main()` output so a missed account is
+  loud, not silent.
+- Legacy `BYBIT_API_KEY` / `BYBIT_API_SECRET` writes preserved for
+  backward compat with any singular-name reader still in the tree.
+- New `--accounts-yaml <path>` CLI arg defaults to `config/accounts.yaml`.
+
+**Tests** (`tests/test_render_env_from_master.py` +11 cases):
+emits one pair per account, secrets match the master block,
+warning when master lacks the matching account block, warning when
+credentials still placeholder, explicit `enabled: false` skips with
+warning, custom `api_secret_env` honoured, missing accounts.yaml
+returns empty + warning, account without `api_key_env` skipped + warning,
+per-account pairs are appended on top of legacy keys, plus a drift
+guard asserting the master template has at least one
+`bybit.accounts.*` entry, plus a stronger drift guard asserting
+every live account_id in `accounts.yaml` has a matching entry in
+the master template.
+
+### 2. Files changed
+- `config/master-secrets.template.yaml` — add `bybit.accounts` +
+  `breakout.accounts` blocks.
+- `scripts/render_env_from_master.py` — `_per_account_pairs` +
+  `_load_accounts_yaml` + CLI flag + warning surface.
+- `tests/test_render_env_from_master.py` — extend FAKE_DATA + add
+  11 new tests covering the per-account rendering.
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_render_env_from_master.py -q`
+  — 65 passed (was 54 — added 11).
+- Cross-suite sweep: `tests/test_render_env_from_master.py
+  test_outcomes test_hourly_report test_health test_heartbeat
+  test_orders test_smoke_test_pipeline` — **179 passed, 0 failed**.
+- `python scripts/secret_scan.py` — pass.
+- `python scripts/repo_inventory.py` — pass.
+
+### 4. Remaining
+- **PR2 (next)** — make `/accounts_status` show the specific failure
+  per account (which env var, or which Bybit retCode/retMsg).
+- **PR3** — ping on every API call failure with the direct
+  Bybit/Binance response.
+- **Sprint summary**.
+- **Operator post-merge action** (already covered by this PR's render
+  script — no manual edit needed):
+  1. Add the 4 missing entries to your master file
+     (`bybit.accounts.bybit_1`, `bybit.accounts.bybit_2`,
+     `breakout.accounts.prop_breakout_1`).
+  2. Re-encrypt with sops.
+  3. Re-render: `python scripts/render_env_from_master.py
+     --master ~/secure/.../master-secrets.sops.yaml
+     --age-key-file ~/.../age-keys.txt --profile vwap_btcusd_live
+     --out .env.live --allow-live`. Read the warnings the script
+     prints — any account that didn't get rendered is named.
+  4. Restart the trader systemd unit so the new `.env.live` takes
+     effect.
+
+### 5. Next checkpoint
+**CP-2026-05-01-15** — Build PR2 (specific account diagnostics).
+First reads:
+1. `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry).
+2. `src/bot/data_loaders.py::bybit_client_for` — change to return
+   `(client, error_string)` or raise typed exception.
+3. `src/core/coordinator.py::accounts_status` — propagate the error
+   string verbatim into `live_balance_error` instead of fabricating
+   the generic message.
+4. `src/bot/telegram_query_bot.py::cmd_accounts_status` — display
+   the pinpointed error.
+
+---
+
+---
+
 ## CP-2026-05-01-13 — S-022 COMPLETE: error monitoring sprint wrapped
 
 - **Session date:** 2026-05-01
