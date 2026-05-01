@@ -38,17 +38,20 @@ When the operator says "let's run a training/improvement session on
      reports). If nothing recent exists, propose a baseline backtest
      as the first hypothesis.
    - Skim `docs/claude/bug-log.md` for known weaknesses in the area.
-3. Open-source / external research (**wide scope**):
+3. Open-source / external research (**wide scope, free sources only**):
    - HuggingFace MCP: `paper_search`, `hub_repo_search` for relevant
      models / techniques / papers.
-   - Bigdata.com MCP: market regime context for the symbols /
-     timeframes being studied (single focus, single time period per
-     call — see the MCP's own discipline rules).
    - Web search for recent (≤ 12 months) blog posts, repos, and
      papers on the technique.
+   - Free market-data sources for any context lookups (Bybit public,
+     Coinbase public, Kraken public, CryptoCompare, yfinance, our HF
+     datasets) — same rules as `testing-policy.md`.
+   - **Do not use paid data sources** (e.g. Bigdata.com MCP). If a
+     hypothesis genuinely requires paid data to evaluate, drop it
+     and note the reason in PLAN.md.
 4. Produce a **hypotheses table** in the Stage-2 plan doc (next stage):
    | # | Hypothesis | Why we think it helps | How we test it | Success metric |
-   Aim for 3–6 hypotheses, ranked by expected impact / cost.
+   Aim for 3–5 hypotheses, ranked by expected impact / cost.
 
 **Stop conditions for Stage 1:**
 - Hypotheses table is empty or all entries are speculative → ask the
@@ -139,13 +142,17 @@ The reviewing Claude session:
    `experiments/<run-id>/results/SUMMARY.md` + the per-hypothesis
    files.
 2. For each hypothesis, decides: **adopt / reject / needs more data**.
-3. Drafts the actual code changes against `src/units/strategies/`,
-   `src/units/accounts/`, or `ml/` as appropriate — but commits them
-   to a **separate** branch `claude/recommendations-<run-id>`.
+3. Writes a **strategy-level writeup** (no code) to
+   `experiments/<run-id>/RECOMMENDATIONS.md` on a new branch
+   `claude/recommendations-<run-id>`.
 4. Opens a draft PR titled
-   `RECOMMENDATIONS (PM REVIEW): <run-id>`. Body MUST contain:
+   `RECOMMENDATIONS (PM REVIEW): <run-id>`. The PR diff is the
+   writeup only — no source-code changes. Body MUST contain:
    - Per-hypothesis result summary (1 line each).
-   - Proposed change (file + 1-line description).
+   - **Proposed strategy-level change** (what changes about how the
+     strategy behaves — entry/exit logic, sizing, regime filter, etc.
+     — described at the level of a trader explaining a rule change,
+     not a diff).
    - Why we should make the change (mechanism + supporting metric).
    - Expected impact on live (sharpe lift, drawdown change, trade
      frequency change, anything operator cares about).
@@ -157,13 +164,24 @@ The reviewing Claude session:
    is not — that's the moment the operator gets to steer. The PR
    opening fires the "recommendations ready" ping.
 
-After the operator approves (in chat or by approving the PR):
+After the operator approves the strategy-level writeup (in chat or
+by approving the PR):
 
-6. The reviewing session merges `claude/recommendations-<run-id>`
-   into `main`. This is the only stage that touches live strategy
-   code, so it fits the existing PM-review gate from `CLAUDE.md`.
-7. Final checkpoint with `CP-…-COMPLETE` (training session id) →
+6. The reviewing session merges the writeup-only PR into `main`
+   (docs-only, no code risk).
+7. Opens a **separate** implementation PR `IMPLEMENT: <run-id>`
+   on branch `claude/implement-<run-id>` with the actual code
+   changes against `src/units/strategies/` (or `ml/` etc.). This
+   PR is reviewed and merged under the existing PM-review gate
+   for live trading code (`src/units/strategies/`,
+   `src/runtime/orders.py`, etc., per `CLAUDE.md` § Merging Rules).
+8. Final checkpoint with `CP-…-COMPLETE` (training session id) →
    sprint-end ping.
+
+**Why split writeup and implementation?** The operator reviews
+behaviour, not diffs. The strategy-level writeup is the actual
+decision; the implementation PR is the mechanical translation
+(and gets its own narrower PM review for the code itself).
 
 ---
 
@@ -191,7 +209,8 @@ training sessions just reuse it.
 | Session start | Checkpoint commit with `[TRAINING-START]` in title | "checkpoint appended" ping |
 | Notebook ready | PR opened with `TRAINING-PLAN:` title | "PR opened (DRAFT for PM review)" ping (treats `TRAINING-PLAN:` as PM-relevant, see `telegram-pings.md`) |
 | Training done | PR opened with `TRAINING-RESULTS:` title | same as above |
-| Recommendations ready | PR opened with `RECOMMENDATIONS (PM REVIEW):` title | matches existing `(PM REVIEW)` convention |
+| Recommendations ready | PR opened with `RECOMMENDATIONS (PM REVIEW):` title (writeup only) | matches existing `(PM REVIEW)` convention |
+| Implementation ready (post-approval) | PR opened with `IMPLEMENT:` title | generic PR-opened ping; PM-review gate applies because it touches live trading code |
 | Mid-session block | `[BLOCKED-PM]` commit + `BLOCKED:` PR | existing blocker ping (urgent) |
 
 No new ping infra. Only new title conventions, and the VM-side
@@ -209,7 +228,9 @@ script's title-grep list needs the four new prefixes added.
 | Plan doc | `experiments/<run-id>/PLAN.md` |
 | Results branch (Colab pushes here) | `claude/training-results-<run-id>` |
 | Results dir | `experiments/<run-id>/results/` |
-| Recommendations branch | `claude/recommendations-<run-id>` |
+| Recommendations branch (writeup only) | `claude/recommendations-<run-id>` |
+| Recommendations doc | `experiments/<run-id>/RECOMMENDATIONS.md` |
+| Implementation branch (after approval) | `claude/implement-<run-id>` |
 | Large artifacts | Hugging Face under our org, URL referenced from PR |
 
 `experiments/` is gitignored except for `PLAN.md` and `results/`
