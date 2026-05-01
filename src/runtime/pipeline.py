@@ -18,7 +18,49 @@ import pandas as pd
 
 from src.runtime.notify import notify_operator, send_via_alert_manager
 from src.runtime.orders import safe_place_order
+from src.runtime.outcomes import Level, report
 from src.web.runtime_status import write_status
+
+_OUTCOME_LEVEL_BY_STATUS: Dict[str, Level] = {
+    # Happy / expected
+    "submitted": Level.INFO,
+    "multi_account_dispatched": Level.INFO,
+    "dry_run": Level.INFO,
+    "skipped": Level.INFO,
+    "halted": Level.INFO,
+    "news_veto": Level.INFO,
+    "refused": Level.INFO,
+    # Validation: bounded but a sign of upstream drift
+    "failed_validation": Level.WARN,
+    # Hard failures: page the operator
+    "failed_exchange": Level.ERROR,
+    "failed_dispatch": Level.ERROR,
+    "error": Level.ERROR,
+}
+
+
+def _report_pipeline_outcome(result: Dict[str, Any], signal: Dict[str, Any]) -> None:
+    """Translate the run_pipeline result dict into an outcomes.report() call.
+
+    Never raises. Centralizes the status → level mapping so individual
+    sites in the pipeline don't have to care about alerting.
+    """
+    try:
+        status = str((result or {}).get("status") or "unknown")
+        level = _OUTCOME_LEVEL_BY_STATUS.get(status, Level.ERROR)
+        meta = (signal or {}).get("meta") or {}
+        report(
+            "pipeline_order",
+            status,
+            level=level,
+            reason=(result or {}).get("reason"),
+            symbol=(signal or {}).get("symbol"),
+            side=(signal or {}).get("side"),
+            qty=(signal or {}).get("qty"),
+            strategy=meta.get("strategy_name"),
+        )
+    except Exception:  # noqa: BLE001
+        logger.exception("outcomes reporting failed")
 
 logger = logging.getLogger(__name__)
 
@@ -433,6 +475,13 @@ def multiplexed_signal_builder(settings: dict) -> Dict[str, Any]:
             signal = builder(settings)
         except Exception as exc:
             logger.warning("Multiplexer: strategy '%s' raised %s — skipping", strategy_name, exc)
+            report(
+                "strategy_builder",
+                "exception",
+                level=Level.ERROR,
+                reason=f"{type(exc).__name__}: {exc}",
+                strategy=strategy_name,
+            )
             continue
 
         if signal.get("side") in ("buy", "sell") and float(signal.get("qty", 0)) > 0:
@@ -595,6 +644,8 @@ def run_pipeline(
                         }
             else:
                 result = safe_place_order(signal, settings, exchange_client)
+
+    _report_pipeline_outcome(result, signal)
 
     try:
         # S-012 PR E4: include strategy attribution so the audit log
