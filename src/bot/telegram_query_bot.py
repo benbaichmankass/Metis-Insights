@@ -1927,6 +1927,17 @@ async def cmd_accounts_status(update: Update, context: ContextTypes.DEFAULT_TYPE
             open_pos = s.get("open_positions", 0)
             bal = s.get("live_balance_usdt")
             bal_err = s.get("live_balance_error")
+            strategies = s.get("strategies") or []
+            strat_line = (
+                f"  🎯 Strategy: {_h(', '.join(strategies))}\n"
+                if strategies else
+                "  🎯 Strategy: <i>(none assigned)</i>\n"
+            )
+            # BUG-033: show the last 4 chars of the resolved API key so the
+            # operator can spot two accounts wired to the same wallet at a
+            # glance (the symptom that opened this issue).
+            key_fp = s.get("api_key_fingerprint") or "—"
+            fp_line = f"  🔑 Key: …{_h(key_fp)}\n"
             if bal_err:
                 api_line = f"  🔌 API: ❌ {_h(bal_err)}"
             elif bal is not None:
@@ -1936,6 +1947,8 @@ async def cmd_accounts_status(update: Update, context: ContextTypes.DEFAULT_TYPE
             lines.append(
                 f"{halted_icon} <b>{_h(s['name'])}</b> "
                 f"(<code>{_h(s.get('exchange', '?'))}</code> / {_h(s.get('account_type', '?'))})\n"
+                f"{strat_line}"
+                f"{fp_line}"
                 f"{api_line}\n"
                 f"  💵 Daily PnL: ${pnl:+.2f} / limit ${limit:.0f}\n"
                 f"  📦 Max pos: ${pos_size:.0f} | Open: {open_pos}"
@@ -2100,6 +2113,106 @@ async def cmd_risk_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"⚠️ Could not check risk for '{account_name}': {e}")
 
 
+async def cmd_hourly(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Build + send the hourly summary on demand.
+
+    BUG-032: the in-process scheduler in `src/main.py` is the only path
+    that emits the hourly summary; if the trader process is in a tick-
+    loop crash spiral, a stuck `summary_markers.json`, or
+    `send_via_alert_manager` is failing, the operator sees nothing.
+    `/hourly` bypasses the dedup marker and reports the build/send
+    result back over the same Telegram channel so the failure mode
+    becomes visible.
+
+    Optional first arg ``replay`` reuses the marker (same as the
+    scheduled path); otherwise the dedup is bypassed.
+    """
+    if not is_authorised(update):
+        return
+
+    bypass_dedup = True
+    args = list(context.args or [])
+    if args and args[0].strip().lower() in {"replay", "scheduled"}:
+        bypass_dedup = False
+
+    try:
+        from datetime import datetime, timezone
+        from src.runtime.hourly_report import build_hourly_report
+        from src.runtime.outcomes import send_scheduled
+
+        now = datetime.now(timezone.utc)
+        if not bypass_dedup:
+            from src.utils.signal_audit_logger import should_send_summary
+            if not should_send_summary(now):
+                await update.message.reply_text(
+                    "ℹ️ /hourly replay: marker already present for this hour. "
+                    "Use plain /hourly to force-send."
+                )
+                return
+
+        msg = build_hourly_report(now_utc=now, tick_interval_s=900)
+        send_scheduled(msg)
+
+        await update.message.reply_text(
+            f"✅ Hourly report dispatched ({len(msg)} chars). "
+            f"If you don't see it shortly, check "
+            f"`runtime_logs/pending_pings.jsonl` on the VM "
+            f"(send_via_alert_manager failure path).",
+            parse_mode="Markdown",
+        )
+    except Exception as exc:  # noqa: BLE001
+        await update.message.reply_text(
+            f"⚠️ /hourly failed: {type(exc).__name__}: {exc}"
+        )
+
+
+async def cmd_set_all_live(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Force every account out of dry-run mode.
+
+    BUG-031 follow-up: when the operator wants to make sure every
+    account is firing real orders, this is the single button that
+    flips them all. Iterates accounts.yaml via the Coordinator and
+    calls ``set_account_dry_run(name, False)`` on each.
+
+    Reports a summary back over Telegram (account count, any failures).
+    The process-level ``ALLOW_LIVE_TRADING`` env var is unaffected
+    here — that lives in ``.env.live`` and changing it requires a
+    trader restart. The per-account ``dry_run`` toggle is in-memory
+    and applies to the next ``load_accounts()`` call (no restart).
+    """
+    if not is_authorised(update):
+        return
+    coord = get_coordinator()
+    if coord is None:
+        await update.message.reply_text("⚠️ Coordinator unavailable.")
+        return
+    try:
+        statuses = coord.accounts_status()
+    except Exception as exc:  # noqa: BLE001
+        await update.message.reply_text(f"⚠️ Could not list accounts: {exc}")
+        return
+
+    flipped, errors = [], []
+    for s in statuses:
+        name = s.get("name")
+        if not name:
+            continue
+        try:
+            coord.set_account_dry_run(name, False)
+            flipped.append(name)
+        except Exception as exc:  # noqa: BLE001
+            errors.append(f"{name}: {exc}")
+
+    lines = ["🔴 <b>All accounts → LIVE</b>"]
+    if flipped:
+        lines.append(f"flipped: {', '.join(flipped)}")
+    if errors:
+        lines.append("errors:\n  - " + "\n  - ".join(errors))
+    if not flipped and not errors:
+        lines.append("(no accounts found)")
+    await update.message.reply_text("\n".join(lines), parse_mode="HTML")
+
+
 # ── Entry point ───────────────────────────────────────────────────────────────
 
 def main():
@@ -2137,6 +2250,8 @@ def main():
             BotCommand("toggle", f"Start/stop {label} trader"),
             BotCommand("accounts", "List accounts or toggle dry/live: /accounts dry|live <name>"),
             BotCommand("accounts_status", "Per-account risk state (daily PnL, halted)"),
+            BotCommand("set_all_live", "Flip every account out of dry-run into live mode"),
+            BotCommand("hourly", "Send the hourly summary on demand (bypasses dedup)"),
             BotCommand("risk_check", "Risk details for one account: /risk_check <name>"),
             BotCommand("smoke_test", "Live-plumbing smoke (always LIVE): /smoke_test [account]"),
             BotCommand("strategies", "Per-strategy signals, PnL and positions"),
@@ -2188,6 +2303,8 @@ def main():
     application.add_handler(CommandHandler("backtest_ui", cmd_backtest_ui))
     application.add_handler(CommandHandler("accounts", cmd_accounts))
     application.add_handler(CommandHandler("accounts_status", cmd_accounts_status))
+    application.add_handler(CommandHandler("set_all_live", cmd_set_all_live))
+    application.add_handler(CommandHandler("hourly", cmd_hourly))
     application.add_handler(CommandHandler("risk_check", cmd_risk_check))
     application.add_handler(CommandHandler("smoke_test", cmd_smoke_test))
     application.add_handler(CommandHandler("sprintlet_status", cmd_sprintlet_status))

@@ -67,9 +67,27 @@ def test_order_rejected_for_bad_side():
     )
     assert result["status"] == "failed_validation"
     assert "side must be" in result["reason"]
-def test_live_submission_blocked_without_explicit_gate():
+def test_live_is_the_default_when_dry_run_is_false():
+    """BUG-031: live is the default. DRY_RUN=false with ALLOW_LIVE_TRADING
+    unset must SUBMIT, not refuse. The opt-in safety rails are the risk
+    manager + halt flag (per CLAUDE.md), not an extra env-var gate.
+    """
     client = DummyClient()
     settings = make_settings(DRY_RUN="false")
+    result = safe_place_order(
+        {"symbol": "BTCUSDT", "side": "buy", "qty": 1},
+        settings,
+        client,
+    )
+    assert result["status"] == "submitted"
+    assert len(client.calls) == 1
+
+
+def test_explicit_allow_live_false_still_blocks():
+    """Operator can still explicitly disable live by setting
+    ALLOW_LIVE_TRADING=false (e.g. /set_all_dry temporarily)."""
+    client = DummyClient()
+    settings = make_settings(DRY_RUN="false", ALLOW_LIVE_TRADING="false")
     result = safe_place_order(
         {"symbol": "BTCUSDT", "side": "buy", "qty": 1},
         settings,
@@ -78,6 +96,18 @@ def test_live_submission_blocked_without_explicit_gate():
     assert result["status"] == "failed_validation"
     assert "ALLOW_LIVE_TRADING" in result["reason"]
     assert client.calls == []
+
+
+def test_allow_live_accepts_literal_live_string():
+    """BUG-031: the operator's natural-language 'live' must be accepted."""
+    client = DummyClient()
+    settings = make_settings(DRY_RUN="false", ALLOW_LIVE_TRADING="live")
+    result = safe_place_order(
+        {"symbol": "BTCUSDT", "side": "buy", "qty": 1},
+        settings,
+        client,
+    )
+    assert result["status"] == "submitted"
 
 
 def test_live_submission_allowed_only_with_explicit_gate():

@@ -153,6 +153,16 @@ def main() -> None:
         settings.get("symbol"),
     )
 
+    # BUG-033: ping the operator on duplicate per-account API keys. Doesn't
+    # block startup — per CLAUDE.md the trader runs autonomously and the
+    # per-account risk caps bound the blast radius.
+    try:
+        from src.units.accounts import load_accounts
+        from src.units.accounts.dup_key_check import warn_on_duplicate_keys
+        warn_on_duplicate_keys(load_accounts())
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("dup-key check skipped: %s", exc)
+
     exchange_client = _build_exchange_adapter(settings)
     telegram_client = _build_telegram_client()
 
@@ -189,18 +199,55 @@ def main() -> None:
             # surfaces.
             write_heartbeat(status="error", tick=tick_count)
         now_utc = datetime.now(timezone.utc)
+        # BUG-032: a one-shot demo flag the operator drops on the VM after
+        # deploy (`touch runtime_flags/send_hourly_demo`). When present, the
+        # dedup marker is bypassed for one tick so the operator sees a fresh
+        # summary in Telegram and confirms the fix is live. The flag is
+        # consumed (deleted) after a successful build to prevent loops.
+        demo_flag = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "runtime_flags", "send_hourly_demo",
+        )
+        force_demo = os.path.exists(demo_flag)
         try:
-            if should_send_summary(now_utc):
+            if force_demo or should_send_summary(now_utc):
                 # S-022 PR2: replace the one-line "service is alive" blurb
                 # with the structured hourly report. Sent via the
                 # scheduled-message path so it bypasses the per-fingerprint
                 # rate limit and the hourly cap on ERROR/CRITICAL alerts.
+                #
+                # BUG-032: explicit INFO log on every attempted send so the
+                # operator can grep `journalctl -u ict-trader-live` for
+                # "hourly report" when summaries stop arriving. Without this
+                # the silent-failure mode (e.g. send_via_alert_manager raising
+                # and being swallowed by send_scheduled) is invisible.
                 message = build_hourly_report(
                     now_utc=now_utc, tick_interval_s=interval,
                 )
+                logger.info(
+                    "hourly report dispatch: slot=%s len=%d",
+                    now_utc.strftime("%Y-%m-%d-%H"), len(message),
+                )
                 send_scheduled(message)
-        except Exception:
+                report(
+                    "hourly_report", "dispatched",
+                    level=Level.INFO,
+                    slot=now_utc.strftime("%Y-%m-%d-%H"),
+                    chars=len(message),
+                    demo=force_demo,
+                )
+                if force_demo:
+                    try:
+                        os.remove(demo_flag)
+                    except OSError:
+                        pass
+        except Exception as exc:  # noqa: BLE001
             logger.exception("Failed to send hourly report")
+            report(
+                "hourly_report", "failed",
+                level=Level.WARN,
+                reason=f"{type(exc).__name__}: {exc}",
+            )
 
         logger.info("Sleeping %s seconds until next tick.", interval)
         time.sleep(interval)

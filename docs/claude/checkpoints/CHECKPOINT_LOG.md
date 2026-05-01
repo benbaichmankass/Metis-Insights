@@ -5,6 +5,80 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-01-19 — Housekeeping: API-key inventory, mode unification, hourly fix, dup-key guard
+
+- **Session date:** 2026-05-01
+- **Sprint:** housekeeping (4-issue mini-sprint requested by operator)
+- **Current sprint phase:** **COMPLETE** — all 4 commits landed on
+  branch `claude/refactor-telegram-api-keys-4lzzY`; one PR opened for
+  the bundle (single-branch constraint per session-prompt instructions).
+- **Last completed checkpoint:** CP-2026-05-01-18 (operator-onboarding COMPLETE)
+- **Next checkpoint:** **none — session ends here.** Operator should
+  review/merge the bundled PR, then drop `runtime_flags/send_hourly_demo`
+  on the VM (already committed in the PR) — the trader consumes it on
+  next tick and fires a demo hourly summary so BUG-032 is visibly fixed.
+- **Telegram sent:** pending — this checkpoint commit triggers the VM
+  ping.
+- **Alerts sent during session:** none from the bot.
+- **Blockers:** none.
+
+### 1. Completed
+Four issues, four commits on the assigned branch:
+
+| Commit | Issue | What |
+|---|---|---|
+| `b5c7f8b` | #1 | Moved per-account exchange-client construction into `src/units/accounts/clients.py`. `data_loaders` now re-exports for back-compat. New `docs/claude/api-key-inventory.md` lists every API-key call site + a maintenance grep recipe. |
+| `3096342` | #2 (BUG-031) | New `src/runtime/trading_mode.py` — single source of truth. Defaults flipped to LIVE per CLAUDE.md "Autonomous live-trading rule". Truthy parser now accepts the operator's natural-language `"live"`. New `/set_all_live` Telegram command. New `scripts/check_dry_run_in_diff.py` + `.github/workflows/dry-run-guard.yml` ping the operator on PRs that introduce flag flips. New `docs/claude/trading-mode-flags.md`. |
+| `8266501` | #3 (BUG-032) | Hourly-summary dispatch now logs INFO + emits an outcomes record on every attempt, and WARN on every failure. New `/hourly` Telegram command (force-send, bypasses dedup). New `scripts/send_hourly_now.py`. `runtime_flags/send_hourly_demo` is consumed on next tick after deploy → operator sees the fix work end-to-end. |
+| `c981d88` | #4 (BUG-033) | `TradingAccount.status()` now carries `strategies`. `/accounts_status` renders the strategy label + last-4-chars of the resolved API key per account. New `src/units/accounts/dup_key_check.py` runs at trader startup and pings the operator (without blocking) when two accounts resolve to the same key — the root cause of the duplicate $47.47 balances. |
+
+### 2. Files changed (this checkpoint)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` — this entry.
+
+(Per-PR file lists are in each commit body; total ≈ 30 files
+modified or added across the four commits.)
+
+### 3. Tests run
+- New + touched test files: `tests/test_accounts_clients.py`,
+  `tests/test_trading_mode.py`, `tests/test_check_dry_run_in_diff.py`,
+  `tests/test_runtime_orders.py`, `tests/test_validation.py`,
+  `tests/test_s012_live_mode.py`, `tests/test_vwap_strategy.py` (live-
+  gate tests rewritten to the BUG-031 contract),
+  `tests/test_dup_key_check.py`, `tests/test_hourly_dispatch.py` —
+  **all 107 pass**.
+- Broader suite: same baseline failure count as the prior session
+  (pre-existing `fastapi.testclient` collection errors + the
+  numpy/MagicMock vwap pollution noted in S-022). No new regressions
+  from this session's changes.
+- `python scripts/secret_scan.py` — pass.
+- `scripts/check_dry_run_in_diff.py` against the session's own diff
+  — clean (the guard does not flip on its own implementation).
+
+### 4. Remaining
+- **Operator action**: drop `runtime_flags/send_hourly_demo` on the
+  VM if it isn't auto-pulled with the merge, then restart the trader.
+  Watch Telegram for the demo hourly summary within ~15 min.
+- **Operator action**: investigate the deployed env file — the
+  duplicate-key warning will only fire on startup if both
+  `BYBIT_API_KEY_1` and `BYBIT_API_KEY_2` resolve to the same string.
+  If it doesn't fire but `/accounts_status` still shows identical
+  balances, the issue is at a different layer (verify with the new
+  `🔑 Key: …xxxx` line on each `/accounts_status` card).
+- **PM-review item** (not self-merged): none in this batch — the
+  operator pre-authorised PR2 (mode-flag default flip) at sprint
+  planning.
+
+### 5. Next checkpoint
+**none — session closed.** Next session should:
+1. Read this entry first, plus `docs/claude/checkpoint-workflow.md`.
+2. Read `docs/claude/api-key-inventory.md` and
+   `docs/claude/trading-mode-flags.md` for the new operator-facing
+   surfaces.
+3. Reconcile the operator's verification of the demo hourly summary
+   and the duplicate-key ping outcome.
+
+---
+
 ## CP-2026-05-01-18 — Session close: operator-onboarding sprint COMPLETE, system fully operator-operable
 
 - **Session date:** 2026-05-01

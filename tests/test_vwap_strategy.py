@@ -274,8 +274,10 @@ class TestVwapPipelineRouting:
 # ---------------------------------------------------------------------------
 
 class TestLiveSafetyGate:
-    def test_live_without_allow_live_trading_blocked_by_safe_place_order(self):
-        """DRY_RUN=false + ALLOW_LIVE_TRADING absent → order is rejected at orders layer."""
+    def test_live_without_allow_live_trading_submits_by_default(self):
+        """BUG-031: DRY_RUN=false with ALLOW_LIVE_TRADING absent submits.
+        Live is the default — the safety rails are the risk manager and
+        /halt, not an extra opt-in env var."""
         client = DummyExchangeClient()
         settings = {"DRY_RUN": "false", "MAX_QTY": "10"}
         result = safe_place_order(
@@ -283,9 +285,8 @@ class TestLiveSafetyGate:
             settings,
             client,
         )
-        assert result["status"] == "failed_validation"
-        assert "ALLOW_LIVE_TRADING" in result["reason"]
-        assert client.calls == []
+        assert result["status"] == "submitted"
+        assert len(client.calls) == 1
 
     def test_live_with_explicit_gate_is_submitted(self):
         """DRY_RUN=false + ALLOW_LIVE_TRADING=true → order reaches exchange."""
@@ -311,8 +312,11 @@ class TestLiveSafetyGate:
         assert result["status"] == "dry_run"
         assert client.calls == []
 
-    def test_mode_live_without_allow_live_fails_validate_startup(self, monkeypatch):
-        """validate_startup must reject MODE=LIVE without ALLOW_LIVE_TRADING=true."""
+    def test_mode_live_with_dry_run_truthy_is_contradiction(self, monkeypatch):
+        """BUG-031: MODE=LIVE with DRY_RUN truthy is contradictory and
+        must be refused. (The legacy test required ALLOW_LIVE_TRADING=true
+        as an explicit opt-in; under the BUG-031 default-live contract,
+        the contradiction is the operative failure mode.)"""
         env = {
             "EXCHANGE": "bybit",
             "BYBIT_API_KEY": "fake_key",
@@ -330,7 +334,7 @@ class TestLiveSafetyGate:
         for k, v in env.items():
             monkeypatch.setenv(k, v)
 
-        with pytest.raises(EnvironmentError, match="ALLOW_LIVE_TRADING"):
+        with pytest.raises(EnvironmentError, match="contradictory"):
             validate_startup()
 
     def test_mode_paper_is_rejected_by_validate_startup(self, monkeypatch):
@@ -377,8 +381,9 @@ class TestLiveSafetyGate:
         with pytest.raises(EnvironmentError, match="MODE"):
             validate_startup()
 
-    def test_mode_live_lowercase_requires_allow_live(self, monkeypatch):
-        """MODE=live (lowercase) must still trigger ALLOW_LIVE_TRADING gate."""
+    def test_mode_live_lowercase_with_dry_run_truthy_is_contradiction(self, monkeypatch):
+        """BUG-031: MODE=live (lowercase) + DRY_RUN truthy → contradictory.
+        The .upper() normalisation still applies."""
         env = {
             "EXCHANGE": "bybit",
             "BYBIT_API_KEY": "fake_key",
@@ -396,7 +401,7 @@ class TestLiveSafetyGate:
         for k, v in env.items():
             monkeypatch.setenv(k, v)
 
-        with pytest.raises(EnvironmentError, match="ALLOW_LIVE_TRADING"):
+        with pytest.raises(EnvironmentError, match="contradictory"):
             validate_startup()
 
 

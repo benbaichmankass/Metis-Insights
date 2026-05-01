@@ -1,0 +1,14 @@
+BUG-032 demo flag.
+
+Created so that on the first main-loop tick after this PR lands and
+the trader restarts, an hourly summary fires immediately (bypassing
+the per-hour dedup marker). The trader consumes the flag after a
+successful dispatch — see src/main.py.
+
+Operator: if you don't see a summary in Telegram within ~15 minutes
+(one tick interval) after restart, run:
+
+    PYTHONPATH=. python scripts/send_hourly_now.py
+
+on the VM, or `/hourly` from Telegram, and watch
+`journalctl -u ict-trader-live -f` for `hourly_report → dispatched`.

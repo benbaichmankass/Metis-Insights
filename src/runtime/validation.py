@@ -53,6 +53,11 @@ def validate_startup() -> None:
     # Paper-trading is intentionally not a supported mode. The bot trades live
     # on real exchange accounts; backtests are run via the dedicated backtest
     # CLI, not through this runtime path.
+    #
+    # MODE accepts the case-insensitive aliases ``live`` (the natural-language
+    # form the operator was setting before BUG-031) and ``backtest`` in
+    # addition to ``LIVE``/``BACKTEST``. We normalise to upper for the
+    # downstream checks below.
     mode = _env("MODE").upper()
     if mode not in ("LIVE", "BACKTEST"):
         errors.append(f"MODE must be LIVE or BACKTEST, got {mode!r}")
@@ -115,37 +120,34 @@ def validate_startup() -> None:
             errors.append(f"MAX_OPEN_POSITIONS must be a positive integer, got {_max_open_raw!r}")
 
     # ---- DRY_RUN / live-trading interlock ----------------------------------
-    # S-012 PR E1 (PM § 6.5 contract): the ONLY path to live order
-    # placement is DRY_RUN!=true AND ALLOW_LIVE_TRADING=true.
+    # Live is the **default** per CLAUDE.md "Autonomous live-trading rule":
+    # the system trades autonomously and the safety rails are
+    # `RiskManager` + `safe_place_order` + the `/halt` kill-switch.
+    # The interlock therefore only fails closed in one direction:
     #
-    #   DRY_RUN=true  + anything            → no exchange call (staging path)
-    #   DRY_RUN=false + ALLOW_LIVE_TRADING=true → live orders
-    #   DRY_RUN unset + ALLOW_LIVE_TRADING=true → live orders (treated as false)
-    #   anything else                       → refuse to start
+    #   DRY_RUN truthy  AND ALLOW_LIVE_TRADING truthy → contradiction; refuse
     #
-    # Tightened from the previous check (`dry_run == "false"`) so that an
-    # unset DRY_RUN also requires the explicit ALLOW_LIVE_TRADING gate.
-    # Previously, leaving DRY_RUN unset bypassed the interlock entirely
-    # and the runtime would silently attempt live trading.
-    dry_run = _env("DRY_RUN").lower()
-    allow_live = _env("ALLOW_LIVE_TRADING").lower()
-    if dry_run != "true" and allow_live != "true":
+    # Truthy is the broad set normalised by `trading_mode.is_live_truthy`
+    # / `is_dry_truthy` — i.e. the literal "live" the operator was setting
+    # before BUG-031 is now equivalent to "true".
+    from src.runtime.trading_mode import is_dry_truthy, is_live_truthy
+    dry_run_raw = _env("DRY_RUN")
+    allow_live_raw = _env("ALLOW_LIVE_TRADING")
+    dry_run_set = bool(dry_run_raw) and is_dry_truthy(dry_run_raw)
+    allow_live_set = bool(allow_live_raw) and is_live_truthy(allow_live_raw)
+    if dry_run_set and allow_live_set:
         errors.append(
-            "Live trading requires ALLOW_LIVE_TRADING=true "
-            "(DRY_RUN is not 'true', so the runtime would attempt to place "
-            "real orders; set ALLOW_LIVE_TRADING=true explicitly to "
-            "acknowledge live order placement, or set DRY_RUN=true to "
-            "stay in staging mode)"
+            "DRY_RUN and ALLOW_LIVE_TRADING are both truthy — pick one. "
+            f"(DRY_RUN={dry_run_raw!r}, ALLOW_LIVE_TRADING={allow_live_raw!r})"
         )
 
-    # ---- MODE=LIVE requires explicit live-trading gate ---------------------
-    # Fail closed: MODE=LIVE without ALLOW_LIVE_TRADING=true is rejected at
-    # startup even if DRY_RUN is also set, to prevent misconfiguration from
-    # silently running in a live-adjacent state.
-    if mode == "LIVE" and allow_live != "true":
+    # ---- MODE=LIVE requires either no DRY_RUN, or explicit ALLOW_LIVE ------
+    # MODE=LIVE with DRY_RUN truthy is the contradictory state we still
+    # refuse. MODE=LIVE with both flags unset is now valid (default-live).
+    if mode == "LIVE" and dry_run_set and not allow_live_set:
         errors.append(
-            "MODE=LIVE requires ALLOW_LIVE_TRADING=true "
-            "(set explicitly to acknowledge live order placement)"
+            "MODE=LIVE with DRY_RUN truthy is contradictory. "
+            "Either unset DRY_RUN (default is live) or set MODE=BACKTEST."
         )
 
     # ---- Raise if any errors found -----------------------------------------
@@ -167,9 +169,19 @@ def build_settings_from_env() -> dict:
     silently rejects every order with reason
     "ALLOW_LIVE_TRADING=true is required for live submission" even
     when the env was set correctly (S-012 hotfix).
+
+    BUG-031: defaults are now **live** when the env vars are unset, and
+    the truthy parser accepts the literal "live" alongside "true".
     """
-    dry_run_bool = _env("DRY_RUN").lower() == "true"
-    allow_live_bool = _env("ALLOW_LIVE_TRADING").lower() == "true"
+    from src.runtime.trading_mode import (
+        LIVE_DEFAULTS,
+        is_dry_truthy,
+        is_live_truthy,
+    )
+    dry_run_raw = _env("DRY_RUN") or LIVE_DEFAULTS["DRY_RUN"]
+    allow_live_raw = _env("ALLOW_LIVE_TRADING") or LIVE_DEFAULTS["ALLOW_LIVE_TRADING"]
+    dry_run_bool = is_dry_truthy(dry_run_raw)
+    allow_live_bool = is_live_truthy(allow_live_raw)
     return {
         "exchange":           _env("EXCHANGE").lower(),
         "mode":               _env("MODE").upper(),
