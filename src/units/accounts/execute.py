@@ -237,5 +237,16 @@ def _submit_order(client: Any, order: dict, account_cfg: dict) -> str:
             return str(resp.get("orderId") or uuid.uuid4().hex)
     except Exception as exc:
         logger.error("_submit_order(%s): %s", exchange, exc)
+        try:
+            from src.runtime.api_reporting import report_api_failure
+            report_api_failure(
+                exchange=exchange,
+                op="place_order",
+                account_id=str(account_cfg.get("account_id") or "unknown"),
+                error=f"{type(exc).__name__}: {exc}",
+                exception=exc,
+            )
+        except Exception:  # noqa: BLE001
+            pass
         raise RuntimeError(f"Order submission failed for {order['symbol']}: {exc}") from exc
     raise ValueError(f"Unsupported exchange: {exchange}")

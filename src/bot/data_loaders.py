@@ -667,11 +667,28 @@ def account_balance_with_diagnostic(
             resp = client.get_wallet_balance(accountType="UNIFIED")
         except Exception as exc:  # noqa: BLE001
             logger.warning("account_balance(%s): %s", aid, exc)
+            err_str = f"{type(exc).__name__}: {exc}"
+            try:
+                from src.runtime.api_reporting import report_api_failure
+                report_api_failure(
+                    exchange="bybit", op="get_wallet_balance",
+                    account_id=str(aid), error=err_str, exception=exc,
+                )
+            except Exception:  # noqa: BLE001
+                pass
             return {"status": "api_error", "total_usdt": None, "raw": None,
-                    "error": f"{type(exc).__name__}: {exc}"}
+                    "error": err_str}
 
         api_err = _bybit_response_error(resp)
         if api_err:
+            try:
+                from src.runtime.api_reporting import report_api_failure
+                report_api_failure(
+                    exchange="bybit", op="get_wallet_balance",
+                    account_id=str(aid), error=api_err, response=resp,
+                )
+            except Exception:  # noqa: BLE001
+                pass
             return {"status": "api_error", "total_usdt": None, "raw": resp,
                     "error": api_err}
         lst = (resp.get("result") or {}).get("list") or []
@@ -690,8 +707,17 @@ def account_balance_with_diagnostic(
             bal = conn.get_balance() or {}
         except Exception as exc:  # noqa: BLE001
             logger.warning("account_balance(%s): %s", aid, exc)
+            err_str = f"{type(exc).__name__}: {exc}"
+            try:
+                from src.runtime.api_reporting import report_api_failure
+                report_api_failure(
+                    exchange="binance", op="get_balance",
+                    account_id=str(aid), error=err_str, exception=exc,
+                )
+            except Exception:  # noqa: BLE001
+                pass
             return {"status": "api_error", "total_usdt": None, "raw": None,
-                    "error": f"{type(exc).__name__}: {exc}"}
+                    "error": err_str}
         usdt = bal.get("USDT", {}) if isinstance(bal, dict) else {}
         return {"status": "ok",
                 "total_usdt": _f((usdt or {}).get("total")),
@@ -758,8 +784,16 @@ def account_open_positions(account: Dict[str, Any]) -> Optional[List[Dict[str, A
             return out
         return None
     except Exception as exc:  # noqa: BLE001
-        logger.warning("account_open_positions(%s): %s",
-                       account.get("account_id"), exc)
+        aid = account.get("account_id") or "unknown"
+        logger.warning("account_open_positions(%s): %s", aid, exc)
+        try:
+            from src.runtime.api_reporting import report_api_failure
+            report_api_failure(
+                exchange=ex, op="get_positions", account_id=str(aid),
+                error=f"{type(exc).__name__}: {exc}", exception=exc,
+            )
+        except Exception:  # noqa: BLE001
+            pass
         return None
 
 
