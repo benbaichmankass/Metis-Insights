@@ -5,6 +5,79 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-01-11 — S-022 PR5: heartbeat watcher + standalone watchdog
+
+- **Session date:** 2026-05-01
+- **Sprint:** sprint-plan-2026-05-01 (S-022 — error monitoring)
+- **Current sprint phase:** Phase 5 of 6 — heartbeat
+- **Last completed checkpoint:** CP-2026-05-01-10 (PR4 silent-except sweep, MERGED #239)
+- **Next checkpoint:** **CP-2026-05-01-12 — S-022 PR6: bot/web sweep** —
+  apply the same surgical-replacement pattern from PR4 to
+  `src/bot/`, `src/web/`. Lower priority because these are render-side
+  endpoints, not the trade path; downgrade to WARN at most.
+- **Telegram sent:** pending — checkpoint commit triggers VM-side ping
+- **Alerts sent during session:** none
+- **Blockers:** none
+
+### 1. Completed
+- **`src/runtime/heartbeat.py`** (new, ~70 LOC). Single function
+  `write_heartbeat(status, tick, path) -> bool`. Atomic via
+  tempfile + `os.replace`. Never raises (returns False on error).
+  Output line: `2026-05-01T14:00:03+00:00  ok  tick=4218`.
+- **`src/main.py`** wires the heartbeat into the tick loop. Successful
+  ticks write `status=ok`; unhandled exceptions write `status=error`
+  (so the watchdog can distinguish "process is alive but ticks
+  failing" from "process is dead"). Tick counter included.
+- **`src/runtime/health.py::check_tick_freshness`** pivots from
+  `signal_audit.jsonl` mtime to `heartbeat.txt` mtime. Falls back to
+  the audit JSONL when no heartbeat exists yet (fresh deploys).
+- **`scripts/check_heartbeat.py`** (new, ~190 LOC). Standalone,
+  stdlib-only watchdog. Reads heartbeat mtime, decides "ok / missing /
+  stale / recovered", maintains state in
+  `runtime_logs/heartbeat_check_state.json` for dedupe so a 5-min
+  cron doesn't spam Telegram. Re-pings only when staleness has
+  worsened by another full grace window. Sends a single "recovered"
+  message when heartbeat returns. Uses the existing
+  `src.runtime.notify.send_telegram_direct` for the POST.
+  Exit codes: 0 ok / 1 stat error / 2 telegram POST failed.
+- **Tests** (`tests/test_heartbeat.py`, 17 cases): write atomicity +
+  parent-dir creation + IO-failure return-False; mtime updates per
+  call; `check_tick_freshness` prefers heartbeat over audit jsonl;
+  watchdog evaluation: missing / fresh / stale-first / already-alerted-
+  dedup / re-alert-on-worsening / recovered transitions; CLI dry-run
+  vs live; Telegram failure → exit 2 + no state write.
+
+### 2. Files changed
+- `src/runtime/heartbeat.py` — **new**, ~70 LOC.
+- `src/main.py` — wire heartbeat into tick loop with ok/error status.
+- `src/runtime/health.py` — `check_tick_freshness` pivots to heartbeat,
+  falls back to audit jsonl.
+- `scripts/check_heartbeat.py` — **new**, ~190 LOC standalone watchdog.
+- `tests/test_heartbeat.py` — **new**, 17 tests.
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_heartbeat.py -q` — 17 passed.
+- Full S-022 + adjacent (`test_heartbeat`, `test_silent_except_sweep`,
+  `test_health`, `test_hourly_report`, `test_outcomes`,
+  `test_outcomes_integration`, `test_orders`, `test_smoke_test_pipeline`,
+  `test_s008_coordinator`) — **162 passed, 0 failed**.
+- `python scripts/secret_scan.py` — pass.
+
+### 4. Remaining
+- PR6 — bot/web sweep.
+- Sprint summary PR.
+
+### 5. Next checkpoint
+**CP-2026-05-01-12** — Build PR6 (bot/web sweep). First reads:
+1. `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry).
+2. `grep -rn "except.*:" src/bot/ src/web/` then classify.
+3. `src/bot/data_loaders.py` already has correct `try/except` →
+   `return []/None` patterns + warning log; mostly leave alone. Most
+   value in `src/web/runtime_status.py`, `src/web/api/`,
+   `src/bot/telegram_query_bot.py` UI rendering paths.
+
+---
+
 ## CP-2026-05-01-10 — S-022 PR4: silent-except sweep (runtime/core/units)
 
 - **Session date:** 2026-05-01
