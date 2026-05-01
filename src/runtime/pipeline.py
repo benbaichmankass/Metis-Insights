@@ -67,6 +67,69 @@ def _killzone_symbol(settings: dict) -> str:
     return "BTC/USDT:USDT"
 
 
+def _signal_to_order_package(signal: Dict[str, Any], settings: dict):
+    """Build an ``OrderPackage`` from a pipeline signal dict.
+
+    The signal shape is what every builder in this module produces:
+    ``{symbol, side, qty, price/entry_price, stop_loss, take_profit,
+    meta: {strategy_name, ...}}``. The Coordinator's per-account
+    dispatch path consumes ``OrderPackage``, which has a slightly
+    different shape (``direction`` instead of ``side``, ``entry`` /
+    ``sl`` / ``tp``). This helper bridges the two so we can fan a
+    pipeline-generated signal out to every account in
+    ``config/accounts.yaml`` without changing the strategy builders.
+    """
+    from src.core.coordinator import OrderPackage
+
+    meta = dict(signal.get("meta") or {})
+    side = str(signal.get("side", "")).strip().lower()
+    if side not in ("buy", "sell"):
+        raise ValueError(
+            f"_signal_to_order_package: side must be buy/sell, got {side!r}"
+        )
+    direction = "long" if side == "buy" else "short"
+
+    entry = signal.get("entry_price") or signal.get("price") or meta.get("price")
+    sl = signal.get("stop_loss") or meta.get("stop_loss") or meta.get("sl")
+    tp = signal.get("take_profit") or meta.get("take_profit") or meta.get("tp")
+    if entry is None or sl is None or tp is None:
+        raise ValueError(
+            "_signal_to_order_package: signal missing entry/sl/tp "
+            f"(entry={entry!r}, sl={sl!r}, tp={tp!r}); strategy must "
+            "populate price+stop_loss+take_profit before fan-out."
+        )
+
+    strategy = (
+        meta.get("strategy_name")
+        or signal.get("strategy")
+        or settings.get("STRATEGY")
+        or "unknown"
+    )
+    return OrderPackage(
+        strategy=str(strategy),
+        symbol=str(signal.get("symbol") or settings.get("SYMBOL") or "BTCUSDT"),
+        direction=direction,
+        entry=float(entry),
+        sl=float(sl),
+        tp=float(tp),
+        confidence=float(meta.get("confidence") or 0.0),
+        meta=meta,
+    )
+
+
+def _multi_account_dispatch_enabled(settings: dict) -> bool:
+    """Return True when pipeline signals should fan out to every account.
+
+    The operator opts in by exporting ``MULTI_ACCOUNT_DISPATCH=true``.
+    When unset, the legacy single-client path runs — preserving the
+    behaviour of single-account deployments.
+    """
+    raw = settings.get("MULTI_ACCOUNT_DISPATCH") if isinstance(settings, dict) else None
+    if raw is None:
+        raw = os.environ.get("MULTI_ACCOUNT_DISPATCH", "false")
+    return str(raw).strip().lower() in {"true", "1", "yes", "on"}
+
+
 def turtle_soup_signal_builder(settings: dict) -> Dict[str, Any]:
     """Sweep + reversal at 15m. S-012 PR C3 wires it into the multiplexer.
 
@@ -488,7 +551,50 @@ def run_pipeline(
                 news_result.item_count,
                 news_result.reason[:80],
             )
-            result = safe_place_order(signal, settings, exchange_client)
+
+            multi = _multi_account_dispatch_enabled(settings)
+            if multi:
+                # Validate the signal via safe_place_order (halt flag,
+                # MAX_QTY, daily-loss, max-open caps) but force dry-run
+                # so the legacy single-client path doesn't submit. Real
+                # submission happens via Coordinator → per-account
+                # execute_pkg below, which honours each account's own
+                # API keys + RiskManager.
+                val_settings = {
+                    **(settings if isinstance(settings, dict) else {}),
+                    "DRY_RUN": "true",
+                    "ALLOW_LIVE_TRADING": "false",
+                }
+                result = safe_place_order(signal, val_settings, exchange_client)
+                if result.get("status") == "dry_run":
+                    try:
+                        from src.core.coordinator import Coordinator
+                        pkg = _signal_to_order_package(signal, settings)
+                        coord = Coordinator()
+                        live_dry = str(
+                            (settings.get("DRY_RUN") if isinstance(settings, dict) else None)
+                            or os.environ.get("DRY_RUN", "false")
+                        ).strip().lower() in {"true", "1", "yes", "on"}
+                        multi_results = coord.multi_account_execute(
+                            pkg, dry_run=live_dry,
+                        )
+                        result = {
+                            "status": "multi_account_dispatched",
+                            "validation": result,
+                            "multi_account_results": multi_results,
+                            "order": signal,
+                        }
+                    except Exception as exc:  # noqa: BLE001
+                        logger.exception(
+                            "multi-account dispatch failed: %s", exc,
+                        )
+                        result = {
+                            "status": "failed_dispatch",
+                            "reason": f"multi_account_execute: {exc}",
+                            "order": signal,
+                        }
+            else:
+                result = safe_place_order(signal, settings, exchange_client)
 
     try:
         # S-012 PR E4: include strategy attribution so the audit log

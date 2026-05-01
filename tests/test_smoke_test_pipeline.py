@@ -370,19 +370,35 @@ class TestCoordinatorSmokeRun:
         assert seen == ["bybit_test"]
         assert result["results"][0]["status"] == "rejected_too_small"
 
-    def test_factory_returning_none_falls_back_to_dry_run(self, coord, journal_db):
-        """If the factory can't resolve creds (returns None), the executor
-        forces dry-run for that account — no half-baked submission."""
+    def test_factory_returning_none_in_live_mode_errors(self, coord, journal_db):
+        """If the factory can't resolve creds in LIVE mode, surface the
+        problem as an explicit error rather than silently dry-running.
+        Silent dry-run was the previous behaviour and it masked broken
+        per-account API integration — see /smoke_test fix in S-021."""
         result = coord.smoke_test_run(
             exchange_client_factory=lambda acc: None,
             dry_run=False,
         )
+        assert result["ok"] is False
+        r = result["results"][0]
+        assert r["status"] == "error"
+        assert "missing API credentials" in r["reason"]
+
+    def test_factory_returning_none_with_explicit_dry_run_still_dry(self, coord, journal_db):
+        """Tests that pass dry_run=True explicitly still get the dry-run
+        path (the executor flips to dry-run when client is None). Only
+        the silent fallback in LIVE mode is closed off."""
+        result = coord.smoke_test_run(
+            exchange_client_factory=lambda acc: None,
+            dry_run=True,
+        )
         assert result["ok"] is True
         assert result["results"][0]["status"] == "dry_run"
 
-    def test_factory_exception_is_swallowed(self, coord, journal_db):
-        """Factory errors must not crash the smoke harness — the account
-        falls back to dry-run with a warning."""
+    def test_factory_exception_in_live_mode_errors(self, coord, journal_db):
+        """Factory errors in LIVE mode are reported as 'missing
+        credentials' (with the underlying exception attached) rather
+        than silently dry-running."""
         def boom(acc):
             raise RuntimeError("env not loaded")
 
@@ -390,7 +406,10 @@ class TestCoordinatorSmokeRun:
             exchange_client_factory=boom,
             dry_run=False,
         )
-        assert result["results"][0]["status"] == "dry_run"
+        r = result["results"][0]
+        assert r["status"] == "error"
+        assert "missing API credentials" in r["reason"]
+        assert "env not loaded" in r["reason"]
 
     def test_explicit_client_overrides_factory(self, coord, journal_db):
         client = MagicMock()

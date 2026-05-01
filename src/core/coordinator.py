@@ -310,7 +310,19 @@ class Coordinator:
         """Return per-account status dicts from config/accounts.yaml.
 
         Each dict contains name, exchange, account_type, open_positions,
-        daily_pnl, max_daily_loss_usd, max_pos_size_usd, halted.
+        daily_pnl, max_daily_loss_usd, max_pos_size_usd, halted, plus
+        live API integration fields (S-021):
+
+        - ``live_balance_usdt``: total USDT balance fetched from the
+          exchange API (None when the API call failed).
+        - ``live_balance_error``: human-readable error string when the
+          API integration is broken (missing creds, network, etc.).
+          None when balance was fetched successfully.
+
+        These fields make it obvious from ``/accounts_status`` whether
+        the bot's per-account API keys are wired correctly — the
+        previous version only showed the local risk state, so a
+        broken API integration looked the same as a working one.
 
         Parameters
         ----------
@@ -321,10 +333,61 @@ class Coordinator:
         import os as _os
         path = accounts_path or _os.path.join(_REPO_ROOT, "config", "accounts.yaml")
         try:
-            return [a.status() for a in load_accounts(path)]
+            tradeaccs = load_accounts(path)
         except FileNotFoundError:
             logger.warning("accounts_status: accounts.yaml not found at %s", path)
             return []
+
+        # Resolve live balances via the same data_loaders path /balance uses,
+        # so the two surfaces report the same numbers. Honour the explicit
+        # accounts_path the caller passed in (the integration test fixture
+        # writes a tmp accounts.yaml and expects accounts_status to read
+        # exactly that file).
+        try:
+            from src.bot import data_loaders as _dl
+            original = _dl.ACCOUNTS_YAML_PATH
+            _dl.ACCOUNTS_YAML_PATH = path
+            try:
+                yaml_accounts = {
+                    a.get("account_id"): a
+                    for a in (_dl._load_yaml_accounts() or [])
+                }
+            finally:
+                _dl.ACCOUNTS_YAML_PATH = original
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("accounts_status: yaml lookup failed: %s", exc)
+            yaml_accounts = {}
+
+        out: List[Dict[str, Any]] = []
+        for ta in tradeaccs:
+            entry = ta.status()
+            entry["live_balance_usdt"] = None
+            entry["live_balance_error"] = None
+            cfg = yaml_accounts.get(ta.name)
+            if cfg is None:
+                entry["live_balance_error"] = (
+                    "account missing from data_loaders view of accounts.yaml"
+                )
+                out.append(entry)
+                continue
+            try:
+                from src.bot.data_loaders import account_balance as _acct_bal
+                bal = _acct_bal(cfg)
+            except Exception as exc:  # noqa: BLE001
+                bal = None
+                entry["live_balance_error"] = f"API error: {exc}"
+            if bal is None and entry["live_balance_error"] is None:
+                # account_balance() returns None for both "no creds" and
+                # "API call failed" — be explicit so the operator knows
+                # what to fix.
+                entry["live_balance_error"] = (
+                    "balance unavailable (missing API creds or exchange "
+                    "rejected the request)"
+                )
+            elif bal is not None:
+                entry["live_balance_usdt"] = float(bal.get("total_usdt") or 0.0)
+            out.append(entry)
+        return out
 
     def multi_account_execute(
         self,
@@ -778,6 +841,7 @@ class Coordinator:
             try:
                 from src.units.accounts.execute import execute_pkg
                 client = exchange_client
+                factory_error: Optional[str] = None
                 if client is None and exchange_client_factory is not None:
                     try:
                         client = exchange_client_factory(acc)
@@ -787,26 +851,48 @@ class Coordinator:
                             aid, factory_exc,
                         )
                         client = None
-                trade_id = execute_pkg(
-                    pkg, acc,
-                    exchange_client=client,
-                    dry_run=dry_run,
-                )
-                entry["trade_id"] = trade_id
-                if isinstance(trade_id, str) and trade_id.startswith("rejected_too_small:"):
-                    entry["status"] = "rejected_too_small"
-                    entry["reason"] = trade_id.split(":", 1)[1]
-                    ok_any = True
-                elif isinstance(trade_id, str) and trade_id.startswith("dry-"):
-                    entry["status"] = "dry_run"
-                    entry["reason"] = "DRY_RUN — exchange not contacted"
-                    ok_any = True
-                else:
-                    entry["status"] = "submitted"
+                        factory_error = str(factory_exc)
+
+                # The smoke test must always contact the exchange — that's the
+                # whole point. A missing client here means per-account API creds
+                # aren't loaded into the bot's process environment, which is a
+                # real integration failure. Surface it as an error rather than
+                # silently flipping to dry-run (which used to mask the problem).
+                # Tests that want the dry-run path still set dry_run=True
+                # explicitly.
+                if client is None and dry_run is not True:
+                    entry["status"] = "error"
                     entry["reason"] = (
-                        "Bybit accepted the smoke order — operator should "
-                        "flatten manually."
+                        f"missing API credentials for account '{aid}' "
+                        f"(check api_key_env in accounts.yaml + that the "
+                        f"matching env vars are sourced into the bot's "
+                        f"process environment)"
                     )
+                    if factory_error:
+                        entry["reason"] += f" — factory error: {factory_error}"
+                else:
+                    trade_id = execute_pkg(
+                        pkg, acc,
+                        exchange_client=client,
+                        dry_run=dry_run,
+                    )
+                    entry["trade_id"] = trade_id
+                    if isinstance(trade_id, str) and trade_id.startswith("rejected_too_small:"):
+                        entry["status"] = "rejected_too_small"
+                        entry["reason"] = trade_id.split(":", 1)[1]
+                        ok_any = True
+                    elif isinstance(trade_id, str) and trade_id.startswith("dry-"):
+                        # Only reachable when dry_run=True was passed
+                        # explicitly (test path).
+                        entry["status"] = "dry_run"
+                        entry["reason"] = "DRY_RUN — exchange not contacted"
+                        ok_any = True
+                    else:
+                        entry["status"] = "submitted"
+                        entry["reason"] = (
+                            "Bybit accepted the smoke order — operator should "
+                            "flatten manually."
+                        )
             except Exception as exc:  # noqa: BLE001
                 entry["status"] = "error"
                 entry["reason"] = str(exc)
