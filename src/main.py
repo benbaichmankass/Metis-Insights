@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 
 from src.exchange.binance_connector import BinanceConnector
 from src.exchange.bybit_connector import BybitConnector
+from src.runtime.heartbeat import write_heartbeat
 from src.runtime.hourly_report import build_hourly_report
 from src.runtime.outcomes import Level, report, send_scheduled
 from src.runtime.pipeline import run_pipeline
@@ -164,9 +165,16 @@ def main() -> None:
         return
 
     logger.info("Starting continuous loop. TICK_INTERVAL_SECONDS=%s", interval)
+    tick_count = 0
     while True:
+        tick_count += 1
         try:
             run_one_tick(settings, exchange_client, telegram_client)
+            # PR5: heartbeat is the single source of truth for "trader is
+            # alive". Writes after a successful tick, not before — so a
+            # tick that crashes mid-run doesn't refresh the heartbeat and
+            # the watchdog will alert.
+            write_heartbeat(status="ok", tick=tick_count)
         except Exception as exc:
             logger.exception("Tick failed with unhandled exception: %s", exc)
             report(
@@ -175,6 +183,11 @@ def main() -> None:
                 level=Level.CRITICAL,
                 reason=f"{type(exc).__name__}: {exc}",
             )
+            # Heartbeat marker still gets written so monitors can
+            # distinguish "process is running but ticks failing" from
+            # "process is dead". The 'error' status is what the watchdog
+            # surfaces.
+            write_heartbeat(status="error", tick=tick_count)
         now_utc = datetime.now(timezone.utc)
         try:
             if should_send_summary(now_utc):

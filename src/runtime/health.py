@@ -279,28 +279,41 @@ def check_tick_freshness(
     audit_path: Optional[Path] = None,
     tick_interval_s: int = 900,
 ) -> HealthCheck:
-    """The audit JSONL gets a line per pipeline tick; its mtime is a
-    proxy for "is the tick loop alive". A real heartbeat file lands in
-    PR5 and this check will pivot to that.
+    """Use ``runtime_logs/heartbeat.txt`` mtime if available, else fall
+    back to ``signal_audit.jsonl``.
+
+    PR5 introduced the dedicated heartbeat file (written by
+    ``src/runtime/heartbeat.py`` from ``src/main.py`` after each tick).
+    The jsonl fallback exists so a fresh deploy that hasn't written a
+    heartbeat yet still has a signal to read from.
     """
     name = "tick"
-    path = audit_path or _REPO_ROOT / "runtime_logs" / "signal_audit.jsonl"
+    if audit_path is not None:
+        path = audit_path
+    else:
+        heartbeat = _REPO_ROOT / "runtime_logs" / "heartbeat.txt"
+        path = heartbeat if heartbeat.exists() else (
+            _REPO_ROOT / "runtime_logs" / "signal_audit.jsonl"
+        )
     if not path.exists():
         return _critical(
             name,
-            "signal_audit.jsonl missing — has the tick loop ever run?",
+            "no heartbeat or signal_audit.jsonl — has the tick loop ever run?",
         )
     try:
         age_s = time.time() - path.stat().st_mtime
     except OSError as exc:
-        return _warn(name, f"could not stat signal_audit.jsonl: {exc}")
+        return _warn(name, f"could not stat {path.name}: {exc}")
     if age_s > 2 * tick_interval_s:
         return _critical(
             name,
             f"last tick {int(age_s)}s ago (> 2x interval {tick_interval_s}s)",
-            age_s=age_s,
+            age_s=age_s, source=path.name,
         )
-    return _ok(name, f"last tick {int(age_s)}s ago", age_s=age_s)
+    return _ok(
+        name, f"last tick {int(age_s)}s ago",
+        age_s=age_s, source=path.name,
+    )
 
 
 # ---------------------------------------------------------------------------
