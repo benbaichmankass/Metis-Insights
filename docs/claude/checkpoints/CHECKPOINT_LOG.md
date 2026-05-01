@@ -5,6 +5,81 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-01-12 — S-022 PR6: bot/web silent-except sweep
+
+- **Session date:** 2026-05-01
+- **Sprint:** sprint-plan-2026-05-01 (S-022 — error monitoring)
+- **Current sprint phase:** Phase 6 of 6 — bot/web sweep (final code PR)
+- **Last completed checkpoint:** CP-2026-05-01-11 (PR5 heartbeat, MERGED #240)
+- **Next checkpoint:** **CP-2026-05-01-13 — S-022 sprint summary** —
+  write `docs/sprint-summaries/sprint-022-summary.md`, append final
+  checkpoint, propose CLAUDE.md improvements.
+- **Telegram sent:** pending — checkpoint commit triggers VM-side ping
+- **Alerts sent during session:** none
+- **Blockers:** none
+
+### 1. Completed
+Surgical replacement of silent failures in bot/web render-side code.
+Audit pass intentionally **skipped** sites that:
+  * Are bounded auth/decode failures (`auth.py:123/127`) — expected
+    bad input from clients, not operator-relevant.
+  * Are filesystem housekeeping operations after the real work
+    completed (`telegram_query_bot.py:1259-1308` ping inbox cleanup).
+  * Are best-effort label fallbacks the caller already handles
+    (`telegram_query_bot.py:333` env file load).
+  * Have a sensible default already (`runtime_status.py:41` git_sha
+    falls back to "unknown").
+The remaining 4 high-value sites all surface config-read failures
+where the UI silently shows wrong data:
+
+1. `src/web/runtime_status.py:51` (strategies.yaml read fail) →
+   `runtime_status:strategies_yaml_read_failed` WARN with path.
+2. `src/web/runtime_status.py:67` (accounts.yaml read fail) →
+   `runtime_status:accounts_yaml_read_failed` WARN with path.
+3. `src/web/api/routers/pnl.py:43` (accounts.yaml read fail in PnL
+   endpoint) → `pnl_endpoint:accounts_yaml_read_failed` WARN.
+4. `src/bot/data_loaders.py:185` (PyYAML ImportError) →
+   `data_loaders:pyyaml_missing` WARN. PyYAML is now in
+   requirements.txt so this is a deployment issue, not graceful
+   degradation.
+
+Same defense-in-depth pattern as PR4: each `outcomes.report` call
+is wrapped in its own try/except so a broken reporter cannot break
+the host call site.
+
+### 2. Files changed
+- `src/web/runtime_status.py` — `_swallow_runtime_status` helper +
+  WARN reports on the 2 yaml-read sites.
+- `src/web/api/routers/pnl.py` — WARN report on accounts.yaml fail.
+- `src/bot/data_loaders.py` — WARN report on PyYAML ImportError.
+- `tests/test_bot_web_sweep.py` — **new**, 5 tests covering each
+  converted site, with sys.modules stubs for `fastapi` +
+  `src.web.api.auth` so the tests run without those (heavy) deps.
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_bot_web_sweep.py -q` — 5 passed.
+- Full S-022 + adjacent (`test_bot_web_sweep`, `test_heartbeat`,
+  `test_silent_except_sweep`, `test_health`, `test_hourly_report`,
+  `test_outcomes`, `test_outcomes_integration`, `test_orders`,
+  `test_smoke_test_pipeline`, `test_s008_coordinator`) —
+  **167 passed, 0 failed**.
+- `python scripts/secret_scan.py` — pass.
+
+### 4. Remaining
+- Sprint summary PR.
+
+### 5. Next checkpoint
+**CP-2026-05-01-13** — Write the S-022 sprint summary.
+1. `docs/sprint-summaries/sprint-022-summary.md` — PR list, tests
+   added, deliverables table, lessons learned.
+2. Final `[COMPLETE]` checkpoint entry.
+3. Propose CLAUDE.md improvements — based on this sprint's
+   experience, the merging-rule "src/runtime/orders.py" hard-stop
+   could be loosened to allow non-trade-logic edits (e.g. just
+   reads, just type annotations) — flag for operator review.
+
+---
+
 ## CP-2026-05-01-11 — S-022 PR5: heartbeat watcher + standalone watchdog
 
 - **Session date:** 2026-05-01

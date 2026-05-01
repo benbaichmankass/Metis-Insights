@@ -182,7 +182,19 @@ def _exchange_from_env(env_path: str) -> str:
 def _load_yaml_accounts() -> List[Dict[str, Any]]:
     try:
         import yaml  # type: ignore
-    except ImportError:
+    except ImportError as exc:
+        # PyYAML moved to a hard dep in requirements.txt — an ImportError
+        # here is a deployment / venv issue, not graceful degradation.
+        try:
+            from src.runtime.outcomes import Level, report
+            report(
+                "data_loaders",
+                "pyyaml_missing",
+                level=Level.WARN,
+                reason=f"{type(exc).__name__}: {exc}",
+            )
+        except Exception:  # noqa: BLE001
+            pass
         return []
     if not os.path.exists(ACCOUNTS_YAML_PATH):
         return []
