@@ -5,6 +5,88 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-01-09 — S-022 PR3: health module + hourly-report integration
+
+- **Session date:** 2026-05-01
+- **Sprint:** sprint-plan-2026-05-01 (S-022 — error monitoring)
+- **Current sprint phase:** Phase 3 of 6 — health checks
+- **Last completed checkpoint:** CP-2026-05-01-08 (PR2 hourly summary, MERGED #237)
+- **Next checkpoint:** **CP-2026-05-01-10 — S-022 PR4: silent-except sweep** —
+  systematically replace bare/silent `except` blocks in
+  `src/runtime/`, `src/core/`, `src/units/` with `outcomes.report()`
+  calls at the right severity. Audit list of 22 sites in
+  `src/runtime/pipeline.py` alone.
+- **Telegram sent:** pending — checkpoint commit triggers VM-side ping
+- **Alerts sent during session:** none
+- **Blockers:** none
+
+### 1. Completed
+- **`src/runtime/health.py`** (new, ~340 LOC). Public surface:
+  `HealthCheck` dataclass + `run_all_checks()` + `overall_status()`.
+  Seven checks, each independent, each safe (catch all exceptions
+  and return a HealthCheck rather than raising):
+  1. **`check_service`** — `systemctl is-active` for the trader.
+     Active = ok; anything else = critical; missing systemctl = warn
+     (so dev / CI hosts don't get flagged).
+  2. **`check_git_drift`** — compare `HEAD` with `origin/main`.
+     In sync = ok; behind with a recent commit = warn; behind with a
+     commit older than 24h = critical.
+  3. **`check_last_fetch`** — `.git/FETCH_HEAD` mtime > 15 min = warn.
+     Catches a broken `ict-git-sync.timer`.
+  4. **`check_tick_freshness`** — `runtime_logs/signal_audit.jsonl`
+     mtime > 2x `TICK_INTERVAL_SECONDS` = critical. PR5 will pivot
+     this to a real heartbeat file.
+  5. **`check_accounts_api`** — calls `data_loaders.account_balance`
+     for each account; any None = warn with the failing account_ids.
+  6. **`check_db`** — opens `trade_journal.db` and runs `SELECT 1`.
+  7. **`check_disk`** — `shutil.disk_usage('/')`; <10% free = warn.
+- **Wired into `hourly_report`.** `health_summary()` now accepts an
+  optional `health_checks` list; if omitted it calls `run_all_checks()`
+  at call time. The `overall` status promotes to "degraded" when any
+  check is critical, and to "warn" when any is warn (joining the
+  existing tick-stale / outcome-count signals). The renderer emits
+  one line per check: `[OK|WARN|CRIT] name: detail`.
+- **Tests** (`tests/test_health.py`, 26 cases): every check has its
+  ok/warn/critical paths exercised, including filesystem-edge cases
+  (missing FETCH_HEAD, missing audit jsonl, no DB candidates, OSError
+  from disk_usage). Plus the runner-level `run_all_checks` exception
+  swallowing and `overall_status` reduction. `test_hourly_report.py`
+  gained 2 cases verifying that critical/warn HealthChecks promote
+  the overall status.
+
+### 2. Files changed
+- `src/runtime/health.py` — **new**, ~340 LOC.
+- `src/runtime/hourly_report.py` — `health_summary()` accepts
+  health_checks param + invokes `run_all_checks()` lazily; renderer
+  emits a `[OK|WARN|CRIT]` line per check.
+- `tests/test_health.py` — **new**, 26 tests.
+- `tests/test_hourly_report.py` — pass `health_checks=[]` to legacy
+  health_summary tests; add 2 cases for the new param.
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_health.py -q` — 26 passed.
+- `PYTHONPATH=. pytest tests/test_health.py tests/test_hourly_report.py
+  tests/test_outcomes.py tests/test_outcomes_integration.py
+  tests/test_orders.py tests/test_smoke_test_pipeline.py
+  tests/test_s008_coordinator.py -q` — **138 passed, 0 failed**.
+- `python scripts/repo_inventory.py` — pass.
+- `python scripts/secret_scan.py` — pass.
+
+### 4. Remaining
+- PR4 — sweep silent excepts in `src/runtime/`, `src/core/`, `src/units/`.
+- PR5 — heartbeat watcher + VM-side checker.
+- PR6 — bot/web sweep.
+- Sprint summary PR.
+
+### 5. Next checkpoint
+**CP-2026-05-01-10** — Build PR4. First reads:
+1. `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry).
+2. Sweep target list: `grep -rn "except.*:" src/runtime/ src/core/ src/units/`
+   then classify each as benign / should-warn / should-error.
+3. `src/runtime/outcomes.py::Level` — the levels to use.
+
+---
+
 ## CP-2026-05-01-08 — S-022 PR2: hourly summary report
 
 - **Session date:** 2026-05-01

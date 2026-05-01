@@ -289,6 +289,7 @@ def test_health_summary_marks_stale_on_old_tick():
         outcomes={"warn_count": 0, "error_count": 0, "critical_count": 0},
         tick_interval_s=900,  # 15 min
         now_utc=now,
+        health_checks=[],
     )
     # 45 min > 2 * 15 min → stale → degraded
     assert h["tick_stale"] is True
@@ -302,6 +303,7 @@ def test_health_summary_critical_marks_degraded():
         outcomes={"warn_count": 0, "error_count": 0, "critical_count": 1},
         tick_interval_s=900,
         now_utc=now,
+        health_checks=[],
     )
     assert h["overall"] == "degraded"
 
@@ -313,6 +315,7 @@ def test_health_summary_error_marks_warn():
         outcomes={"warn_count": 0, "error_count": 1, "critical_count": 0},
         tick_interval_s=900,
         now_utc=now,
+        health_checks=[],
     )
     assert h["overall"] == "warn"
 
@@ -324,8 +327,36 @@ def test_health_summary_clean_is_ok():
         outcomes={"warn_count": 0, "error_count": 0, "critical_count": 0},
         tick_interval_s=900,
         now_utc=now,
+        health_checks=[],
     )
     assert h["overall"] == "ok"
+
+
+def test_health_summary_picks_up_check_results():
+    """When a passed check is critical, overall must be degraded."""
+    from src.runtime.health import HealthCheck
+    now = datetime(2026, 5, 1, 14, 0, tzinfo=timezone.utc)
+    h = health_summary(
+        last_tick_ts=now.isoformat(),
+        outcomes={"warn_count": 0, "error_count": 0, "critical_count": 0},
+        tick_interval_s=900,
+        now_utc=now,
+        health_checks=[HealthCheck("service", "critical", "service down")],
+    )
+    assert h["overall"] == "degraded"
+
+
+def test_health_summary_warn_check_demotes_to_warn():
+    from src.runtime.health import HealthCheck
+    now = datetime(2026, 5, 1, 14, 0, tzinfo=timezone.utc)
+    h = health_summary(
+        last_tick_ts=now.isoformat(),
+        outcomes={"warn_count": 0, "error_count": 0, "critical_count": 0},
+        tick_interval_s=900,
+        now_utc=now,
+        health_checks=[HealthCheck("disk", "warn", "low disk")],
+    )
+    assert h["overall"] == "warn"
 
 
 # ---------------------------------------------------------------------------
