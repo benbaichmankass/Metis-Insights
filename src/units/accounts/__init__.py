@@ -64,6 +64,7 @@ def load_accounts(config_path: str = _DEFAULT_ACCOUNTS_YAML) -> "List":
             api_key_env=cfg.get("api_key_env", ""),
             risk_manager=rm,
             account_type=cfg.get("type", "regular"),
+            strategies=list(cfg.get("strategies", []) or []),
         )
         # Apply persistent dry/live override if set
         if name in _DRY_RUN_OVERRIDES:

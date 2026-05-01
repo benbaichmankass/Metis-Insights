@@ -363,6 +363,22 @@ class Coordinator:
             entry = ta.status()
             entry["live_balance_usdt"] = None
             entry["live_balance_error"] = None
+            # BUG-033: surface a short fingerprint of the resolved API key
+            # so the operator can see at a glance whether two accounts
+            # are pointed at the same wallet. Computed via the accounts
+            # unit (resolve_credentials) so the fingerprint matches the
+            # creds the order layer would actually use.
+            entry["api_key_fingerprint"] = None
+            try:
+                from src.units.accounts.clients import resolve_credentials
+                creds = resolve_credentials({
+                    "api_key_env": getattr(ta, "api_key_env", ""),
+                    "exchange": ta.exchange,
+                })
+                if creds and creds.get("api_key"):
+                    entry["api_key_fingerprint"] = creds["api_key"][-4:]
+            except Exception as exc:  # noqa: BLE001
+                logger.debug("api_key_fingerprint lookup failed: %s", exc)
             cfg = yaml_accounts.get(ta.name)
             if cfg is None:
                 entry["live_balance_error"] = (

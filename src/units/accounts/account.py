@@ -47,6 +47,7 @@ class TradingAccount:
         risk_manager: RiskManager,
         account_type: str = "regular",
         dry_run: bool = True,
+        strategies: Optional[List[str]] = None,
     ) -> None:
         self.name = name
         self.exchange = exchange
@@ -55,6 +56,11 @@ class TradingAccount:
         self.account_type = account_type
         self.dry_run = dry_run             # default safe; toggle via Telegram
         self.positions: List[Dict[str, Any]] = []
+        # BUG-033: per-account strategy assignment, surfaced in
+        # /accounts_status so the operator can verify each wallet is
+        # routed to the right model. accounts.yaml is the source of
+        # truth; this is just the rendering hook.
+        self.strategies: List[str] = list(strategies or [])
 
     def place_order(self, order: OrderPackage, *, dry_run: Optional[bool] = None) -> str:
         """Risk-check and route *order* to the exchange.
@@ -101,5 +107,6 @@ class TradingAccount:
             "account_type": self.account_type,
             "dry_run": self.dry_run,
             "open_positions": len(self.positions),
+            "strategies": list(self.strategies),
             **risk_report,
         }

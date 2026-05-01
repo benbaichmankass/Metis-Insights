@@ -1927,6 +1927,17 @@ async def cmd_accounts_status(update: Update, context: ContextTypes.DEFAULT_TYPE
             open_pos = s.get("open_positions", 0)
             bal = s.get("live_balance_usdt")
             bal_err = s.get("live_balance_error")
+            strategies = s.get("strategies") or []
+            strat_line = (
+                f"  🎯 Strategy: {_h(', '.join(strategies))}\n"
+                if strategies else
+                "  🎯 Strategy: <i>(none assigned)</i>\n"
+            )
+            # BUG-033: show the last 4 chars of the resolved API key so the
+            # operator can spot two accounts wired to the same wallet at a
+            # glance (the symptom that opened this issue).
+            key_fp = s.get("api_key_fingerprint") or "—"
+            fp_line = f"  🔑 Key: …{_h(key_fp)}\n"
             if bal_err:
                 api_line = f"  🔌 API: ❌ {_h(bal_err)}"
             elif bal is not None:
@@ -1936,6 +1947,8 @@ async def cmd_accounts_status(update: Update, context: ContextTypes.DEFAULT_TYPE
             lines.append(
                 f"{halted_icon} <b>{_h(s['name'])}</b> "
                 f"(<code>{_h(s.get('exchange', '?'))}</code> / {_h(s.get('account_type', '?'))})\n"
+                f"{strat_line}"
+                f"{fp_line}"
                 f"{api_line}\n"
                 f"  💵 Daily PnL: ${pnl:+.2f} / limit ${limit:.0f}\n"
                 f"  📦 Max pos: ${pos_size:.0f} | Open: {open_pos}"

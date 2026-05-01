@@ -153,6 +153,16 @@ def main() -> None:
         settings.get("symbol"),
     )
 
+    # BUG-033: ping the operator on duplicate per-account API keys. Doesn't
+    # block startup — per CLAUDE.md the trader runs autonomously and the
+    # per-account risk caps bound the blast radius.
+    try:
+        from src.units.accounts import load_accounts
+        from src.units.accounts.dup_key_check import warn_on_duplicate_keys
+        warn_on_duplicate_keys(load_accounts())
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("dup-key check skipped: %s", exc)
+
     exchange_client = _build_exchange_adapter(settings)
     telegram_client = _build_telegram_client()
 
