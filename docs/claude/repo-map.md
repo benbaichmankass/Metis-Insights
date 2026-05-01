@@ -33,12 +33,49 @@ No unit calls another unit directly.
 - `src/bot/`: Telegram bot and command handlers. `data_loaders.py` is the single facade for all operational data reads.
 - `src/core/`: trading loop and core strategy flow.
 - `src/data_layer/`: SQLite `Database` class (`trade_journal.db` bootstrap + migrations).
-- `src/runtime/`: runtime config/validation/pipeline pieces.
-- `scripts/`: operational scripts. `scripts/init_db.py` bootstraps `trade_journal.db`.
+- `src/runtime/`: runtime config/validation/pipeline pieces. **Post-S-022:** `outcomes.py` is the central error reporter (every silent-failure replacement uses `report()`); `health.py`, `heartbeat.py`, `hourly_report.py`, `api_reporting.py` are the supporting surfaces.
+- `scripts/`: operational scripts. `scripts/init_db.py` bootstraps `trade_journal.db`. `scripts/check_heartbeat.py` (S-022 PR5) is the standalone watchdog.
 - `tests/`: pytest suite. `tests/test_s008_*.py` + `tests/test_coordinator_flow.py` cover the 9-unit layer (178 tests).
-- `config/`: `units.yaml` (9-unit declarations), `strategies.yaml` (strategy registry).
+- `config/`: `units.yaml` (9-unit declarations), `strategies.yaml`, `accounts.yaml` (per-account credentials → `api_key_env` contract), `master-secrets.template.yaml`.
 - `data/`, `ml/data/`, `ml/models/`: data/model artifacts. Prefer remote storage for large files.
 - `docs/`: human-readable project docs.
+- `docs/operator/`: operator-facing setup walkthroughs (post-S-023). `setup-api-keys.md` for the manual sops flow; `colab-key-rotation.md` for the one-click Colab notebook flow (preferred path).
+- `notebooks/operator/rotate_api_keys.ipynb`: Colab key-rotation notebook. Reads from Colab Secrets + Drive (`My Drive/ICT_Bot_Secrets/`), writes `.env` + `.env.live` to the VM, restarts trader + telegram bot. The operational path for rotating keys without SSH.
+
+## systemd units (post-operator-onboarding)
+
+The bot runs as multiple systemd units on the VM. Anything that reads
+`os.environ` only does so at process start, so rotating env vars
+requires restarting **every** unit that reads them.
+
+| Unit | Reads | Surface |
+|------|-------|---------|
+| `ict-trader-live.service` | `.env` (systemd) + `.env.live` (via `pipeline.py::load_dotenv`) | trading loop, signal generation |
+| `ict-telegram-bot.service` | `.env` | every `cmd_*` handler — including `/accounts_status` |
+| `ict-web-api.service` | `/etc/ict-trader/web-api.env` | dashboard `/api/*` endpoints |
+| `ict-heartbeat.service` | `.env.live` | daily heartbeat ping |
+| `ict-git-sync.timer` + `.service` | n/a | pulls main every 5 min, runs `deploy_pull_restart.sh` |
+
+The Colab key-rotation notebook restarts trader + telegram bot.
+If you add a new env-reading process, also update
+`notebooks/operator/rotate_api_keys.ipynb::SERVICES_TO_RESTART`.
+
+## Operator-facing surfaces (Telegram + Colab)
+
+The operator runs the bot from Telegram, with Colab as the one-click
+key-rotation tool. They never SSH to the VM after one-time setup.
+
+| Surface | Purpose |
+|---|---|
+| `/start` / `/help` | Commands index |
+| `/status` | Halt-flag + per-account daily PnL |
+| `/accounts_status` | Per-account API health with specific failure reasons (S-023 PR2). Uses `parse_mode="HTML"` because legacy Markdown ate underscores in env-var names |
+| `/balance` | Per-account live balance |
+| `/halt` / `/resume` | Kill-switch toggle |
+| `/smoke_test` | One-shot too-small order to each account, proves API integration |
+| `/set_keys` | Returns the Colab open-in-Colab URL for the rotation notebook |
+| `/alerts` | Last 200 alerts from the dashboards queue |
+| Hourly report | Auto-fires at the top of each UTC hour with structured trades + accounts + strategies + health (S-022 PR2) |
 
 ## Rule
 
