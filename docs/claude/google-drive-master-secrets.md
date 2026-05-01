@@ -2,6 +2,14 @@
 
 How to fill, encrypt, verify, and use your master secrets file.
 
+> **Setting up Bybit API keys for the first time?** Use the
+> step-by-step guide at
+> [`docs/operator/setup-api-keys.md`](../operator/setup-api-keys.md).
+> It walks through Bybit-side key creation, the per-account fill-in
+> template, encryption, render, and `/accounts_status` verification —
+> end to end, with troubleshooting for every error message the new
+> diagnostic produces.
+
 ## Quick reference
 
 | Step | What you do |

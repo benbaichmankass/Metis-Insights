@@ -1,0 +1,48 @@
+# Fill-in template for the per-account API key block.
+# ==========================================================================
+#
+# Copy these blocks into your existing master-secrets.yaml in Drive,
+# replacing each REPLACE_ME with the real value. Then re-encrypt with
+# sops and re-render .env.live (see docs/operator/setup-api-keys.md).
+#
+# Account_ids here MUST match the keys in config/accounts.yaml (currently:
+# bybit_1, bybit_2, prop_breakout_1). If you add or rename an account,
+# update both files in the same commit.
+#
+# Permissions to grant on each Bybit API key:
+#   - Read         (required)
+#   - Trade        (required for live order placement)
+#   - Withdraw     DO NOT GRANT (keep wallet funds safe)
+#   - Subaccount   only if the key controls a master/subaccount tree
+#
+# Strongly recommended: lock each key to your VM's static IP in the
+# Bybit dashboard. If you don't have a static IP, at minimum scope the
+# key to your Oracle VM region.
+# ==========================================================================
+
+bybit:
+  accounts:
+    # Maps to accounts.yaml::bybit_1 (turtle_soup strategy).
+    # Bot reads BYBIT_API_KEY_1 and BYBIT_API_SECRET_1 (derived).
+    bybit_1:
+      api_key:    "REPLACE_ME_BYBIT_1_API_KEY"
+      api_secret: "REPLACE_ME_BYBIT_1_API_SECRET"
+      account_note: "turtle_soup — wallet should hold BTC + USDT"
+
+    # Maps to accounts.yaml::bybit_2 (vwap strategy).
+    # Bot reads BYBIT_API_KEY_2 and BYBIT_API_SECRET_2 (derived).
+    bybit_2:
+      api_key:    "REPLACE_ME_BYBIT_2_API_KEY"
+      api_secret: "REPLACE_ME_BYBIT_2_API_SECRET"
+      account_note: "vwap — wallet should hold USDT only"
+
+# Prop-firm exchange. Currently disabled in accounts.yaml (strategies: []).
+# Leave enabled: false until you have a real prop account; the render
+# script will skip this entry and the bot won't try to call its API.
+breakout:
+  accounts:
+    prop_breakout_1:
+      api_key:    "REPLACE_ME_BREAKOUT_PROP_1_API_KEY"
+      api_secret: "REPLACE_ME_BREAKOUT_PROP_1_API_SECRET"
+      account_note: "prop firm account — currently disabled"
+      enabled:    false
