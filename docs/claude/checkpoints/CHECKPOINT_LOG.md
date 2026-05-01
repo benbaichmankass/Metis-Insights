@@ -5,6 +5,65 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-01-17 — S-023 COMPLETE: accounts wiring + API failure pings
+
+- **Session date:** 2026-05-01
+- **Sprint:** sprint-plan-2026-05-01 (S-023) — **CLOSED**
+- **Current sprint phase:** complete
+- **Last completed checkpoint:** CP-2026-05-01-16 (PR3 merged #245)
+- **Next checkpoint:** **none — S-023 wrapped.** Operator should
+  complete the 4 verification steps in
+  `docs/sprint-summaries/sprint-023-summary.md::Verification`.
+- **Telegram sent:** pending — high-priority sprint-end ping per
+  `docs/claude/telegram-pings.md`.
+- **Alerts sent during session:** none from the bot. Sprint
+  flagged the operator-side age-private-key chat exposure for
+  rotation.
+- **Blockers:** none
+
+### 1. Completed
+All 3 code PRs merged. Sprint summary PR opened.
+
+| PR | Description |
+|---|---|
+| #243 | PR1 — render script + master template per-account block |
+| #244 | PR2 — specific `/accounts_status` diagnostics + `_load_yaml_accounts` field preservation + duplicate `_bybit_account` test fix |
+| #245 | PR3 — API failure pings with direct response + token redaction |
+
+**Net delivery:** ~+1,750 LOC, ~50 new tests across 2 new test files
++ 11 added to existing render-script tests, 0 net regressions.
+
+### 2. Files changed (this checkpoint)
+- `docs/sprint-summaries/sprint-023-summary.md` — **new**, the
+  closing summary including operator post-merge action list,
+  lessons learned, and CLAUDE.md improvement proposals.
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` — this entry.
+
+### 3. Tests run (final sprint sweep)
+- All sprint-touched suites + adjacent: **278 passed, 0 failed**
+  (excluding pre-existing pytest9/numpy MagicMock incompat which
+  is the same baseline as S-022).
+- `python scripts/secret_scan.py` — pass.
+- `python scripts/repo_inventory.py` — pass.
+
+### 4. Remaining
+- **Operator verification on the VM** (4 steps in the sprint
+  summary): add per-account credentials to master file,
+  re-encrypt, re-render `.env.live`, restart trader, run
+  `/accounts_status`.
+- **Operator-side action: rotate age private key** that was
+  exposed in this chat session.
+- CLAUDE.md improvements proposed in the sprint summary for the
+  next planning sprint.
+
+### 5. Next checkpoint
+**none.** Sprint S-023 is closed. Next session should plan S-024
+from the operator's next priority. If `/accounts_status` still
+shows errors after the post-merge action, those errors will now
+be specific (PR2) and pinged (PR3) — start there.
+
+---
+
 ## CP-2026-05-01-16 — S-023 PR3: API failure pings with direct response
 
 - **Session date:** 2026-05-01
