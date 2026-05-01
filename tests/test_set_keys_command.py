@@ -75,14 +75,14 @@ def test_set_keys_does_not_list_ssh_key_as_a_secret():
     assert "VM_SSH_KEY" not in msg
 
 
-def test_set_keys_mentions_ssh_key_file_upload():
-    """Reply must tell the operator to drag-drop the SSH key file."""
+def test_set_keys_mentions_ssh_key_in_drive():
+    """Reply must tell the operator where to put the SSH key file."""
     update = _make_update()
     with patch("src.bot.telegram_query_bot.is_authorised", return_value=True):
         _run(cmd_set_keys(update, MagicMock()))
     msg = update.message.reply_text.await_args.args[0]
-    # Should hint at the Files panel + the default filename
-    assert "Files" in msg
+    # Should point at the Drive folder + the default filename
+    assert "ICT_Bot_Secrets" in msg
     assert "vm_ssh_key" in msg
 
 

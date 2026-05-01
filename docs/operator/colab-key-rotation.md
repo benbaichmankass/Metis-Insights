@@ -69,33 +69,36 @@ notebook can read it.
 | `BREAKOUT_API_SECRET_1` | Prop-firm secret |
 | `NEWS_API_KEY`          | NewsAPI key — only set if you want the news layer enabled |
 
-### 3. Upload your SSH private key as a file
+### 3. Put your SSH private key in Google Drive (preferred)
 
-In Colab, click the **📁 folder icon** in the left sidebar (the
-"Files" panel). Then either:
+The cleanest path: keep your VM SSH **private** key in the same Drive
+folder as your encrypted master secrets. The notebook mounts Drive on
+`Run all` and reads the key from there.
 
-- **Drag-drop** your VM SSH private key file from your laptop onto the
-  Files panel, OR
-- Click the **📤 upload** icon at the top of the panel and pick the
-  key file.
+1. Open Google Drive in a browser.
+2. Navigate to (or create) `My Drive/ICT_Bot_Secrets/`.
+3. Upload your VM SSH private key there.
 
 **Filename:** the notebook accepts any of these (first match wins):
 
 | Preferred | Also accepted |
 |---|---|
-| `vm_ssh_key` | `id_rsa`, `id_ed25519`, `id_ecdsa` |
+| `vm_ssh_key` | `id_rsa`, `id_ed25519`, `id_ecdsa`, `ict-bot-ovm-private.key` |
 
-If your key is already named one of the "also accepted" names (the
-standard SSH defaults), you can upload it as-is. Otherwise, drop it
-in and rename to `vm_ssh_key` by right-clicking → Rename.
+Or, if your key has a different name and you don't want to rename:
+add a Colab Secret called `SSH_KEY_FILE` with the exact filename. The
+notebook will look for it first.
 
 **Make sure it's the PRIVATE key**, not the public one (`.pub`). The
 notebook checks the first line of the file and refuses anything that
 doesn't start with `-----BEGIN`.
 
-The file lives only in your Colab session's `/content/` directory.
-It's wiped automatically when the runtime ends (close tab or
-`Runtime → Disconnect and delete runtime`).
+#### Fallback: drag-drop to the Colab Files panel
+
+If you don't want to use Drive, you can drag the key file directly
+into the Colab **📁 Files** panel (left sidebar) at the start of each
+session. The notebook checks Drive first, then `/content/`. Same
+filename rules.
 
 ### 4. Confirm SSH from the VM works
 
@@ -127,8 +130,11 @@ documents.
 ## Each time you rotate keys
 
 1. Open the notebook (Telegram `/set_keys` returns the link).
-2. Update whichever Colab Secret you're rotating (Bybit key, etc.) **OR** if rotating the SSH key, drag the new private key file into the Files panel (replacing the old one if it's still there).
+2. Update whichever Colab Secret you're rotating (Bybit key, etc.) **OR** if rotating the SSH key, replace the file in `My Drive/ICT_Bot_Secrets/` with the new one (same filename).
 3. **`Runtime → Run all`**.
+
+The first run in a fresh Colab session pops a one-click "Allow Drive
+access" dialog. After that, no further interaction.
 
 The notebook prints clear ✅/❌ for each step. If something fails, it
 tells you what — see Troubleshooting below.
@@ -163,11 +169,19 @@ required secret is present and the toggle is on.
 
 ### `SSH key file not found`
 
-The notebook didn't see a file at any of `/content/vm_ssh_key`,
-`/content/id_rsa`, `/content/id_ed25519`, `/content/id_ecdsa`. Open
-the Files sidebar (📁 icon, left) and confirm your key file is there.
-If it's there with a different name, rename it to `vm_ssh_key` (right-
-click → Rename).
+The notebook checked both `My Drive/ICT_Bot_Secrets/` and
+`/content/` and didn't see a key file with any of the accepted
+names (`vm_ssh_key`, `id_rsa`, `id_ed25519`, `id_ecdsa`,
+`ict-bot-ovm-private.key`). Three fixes, in order of preference:
+
+1. **Move/copy your key to Drive** — put the file in
+   `My Drive/ICT_Bot_Secrets/` and re-run.
+2. **Set the filename override** — if your key has a different name,
+   add a Colab Secret called `SSH_KEY_FILE` with the exact filename
+   (e.g. `my-vm-key`). The notebook will look for it first.
+3. **Drag-drop into Colab Files** — if you don't want to use Drive,
+   drag the key into the 📁 Files panel (left sidebar) before
+   running.
 
 ### `does not look like a private key`
 
