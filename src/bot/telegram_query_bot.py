@@ -576,8 +576,8 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/accounts — List accounts (dry/live + PnL) or toggle mode\n"
         "/accounts\\_status — Per-account risk state\n"
         "/risk\\_check <account> — Risk details for one account\n"
-        "/smoke\\_test \\[account\\] \\[dry\\] — Live-plumbing smoke "
-        "*\\(LIVE by default; pass `dry` to simulate\\)*\n"
+        "/smoke\\_test \\[account\\] — Live-plumbing smoke "
+        "*\\(always LIVE — micro-qty rejected by exchange\\)*\n"
         "/strategies — Per-strategy signals, PnL and positions\n"
         "/reload\\_strats — Reload strategies.yaml without restart\n"
         "/balance — Account balance\n"
@@ -1854,7 +1854,12 @@ async def cmd_backtest_ui(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def cmd_accounts_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Show per-account risk state from config/accounts.yaml via Coordinator."""
+    """Show per-account risk state + live API balance via Coordinator.
+
+    The live balance line is what proves the API is integrated for each
+    account. Anything other than a USD figure means the bot can't reach
+    that account's exchange (missing creds, network, etc.).
+    """
     if not is_authorised(update):
         return
     try:
@@ -1866,15 +1871,24 @@ async def cmd_accounts_status(update: Update, context: ContextTypes.DEFAULT_TYPE
         if not statuses:
             await update.message.reply_text("ℹ️ No accounts found in accounts.yaml.")
             return
-        lines = ["📋 *Accounts Risk Status*\n"]
+        lines = ["📋 *Accounts Status* (risk + live API)\n"]
         for s in statuses:
             halted_icon = "🔴" if s.get("halted") else "🟢"
             pnl = float(s.get("daily_pnl", 0))
             limit = float(s.get("max_daily_loss_usd", 0))
             pos_size = float(s.get("max_pos_size_usd", 0))
             open_pos = s.get("open_positions", 0)
+            bal = s.get("live_balance_usdt")
+            bal_err = s.get("live_balance_error")
+            if bal_err:
+                api_line = f"  🔌 API: ❌ {bal_err}"
+            elif bal is not None:
+                api_line = f"  🔌 API: ✅ Balance ${float(bal):,.2f} USDT"
+            else:
+                api_line = "  🔌 API: ⚠️ no balance returned"
             lines.append(
                 f"{halted_icon} *{s['name']}* (`{s.get('exchange', '?')}` / {s.get('account_type', '?')})\n"
+                f"{api_line}\n"
                 f"  💵 Daily PnL: ${pnl:+.2f} / limit ${limit:.0f}\n"
                 f"  📦 Max pos: ${pos_size:.0f} | Open: {open_pos}"
             )
@@ -1905,18 +1919,18 @@ async def cmd_smoke_test(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Run a live-plumbing smoke trade: strategies → coordinator → accounts → exchange.
 
     Usage:
-        /smoke_test                  — run LIVE on every account in accounts.yaml
-        /smoke_test <account>        — run LIVE on a single account (e.g. /smoke_test bybit_2)
-        /smoke_test <account> dry    — force dry-run (no exchange call)
-        /smoke_test all dry          — force dry-run on all accounts
+        /smoke_test            — every account in accounts.yaml
+        /smoke_test <account>  — a single account (e.g. /smoke_test bybit_2)
 
-    The default is now **live**: a ``smoke_test`` OrderPackage tagged
-    ``meta.is_test=True`` is shipped through ``account_execute()`` with
-    a 0.0001 BTC qty (below Bybit's min-lot), the risk gate is
-    bypassed by design, Bybit's "qty invalid" rejection is captured
-    as the success signal, and a row is written to
-    ``trade_journal.db`` with ``strategy_name='smoke_test'``. The qty
-    is the safety cap — it's intentionally too small to ever fill.
+    The smoke is **always LIVE** — there is no dry-run option. A
+    ``smoke_test`` OrderPackage tagged ``meta.is_test=True`` is
+    shipped through ``account_execute()`` with a 0.0001 BTC qty (below
+    Bybit's min-lot), the risk gate is bypassed by design, Bybit's
+    "qty invalid" rejection is captured as the success signal, and a
+    row is written to ``trade_journal.db`` with
+    ``strategy_name='smoke_test'``. The qty is the safety cap — it's
+    intentionally too small to ever fill, so contacting the exchange
+    is safe and proves the API integration is hot end-to-end.
     """
     if not is_authorised(update):
         return
@@ -1925,24 +1939,17 @@ async def cmd_smoke_test(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("⚠️ Coordinator unavailable.")
         return
 
-    # Default is LIVE. ``dry`` opts in to the safe dry-run path.
     args = list(context.args or [])
     account_id: str | None = None
-    force_dry: bool | None = False
     for arg in args:
         a = arg.strip().lower()
-        if a in {"dry", "dry-run", "dry_run"}:
-            force_dry = True
-        elif a in {"live", "real"}:
-            force_dry = False
-        elif a in {"all", "*"}:
+        if a in {"all", "*"}:
             account_id = None
         elif account_id is None:
             account_id = arg.strip()
 
     await update.message.reply_text(
-        ("🧪 Running smoke test "
-         + ("(LIVE)" if not force_dry else "(forced dry-run)")
+        ("🧪 Running smoke test (LIVE)"
          + (f" on `{account_id}`" if account_id else " on all accounts")
          + "…"),
         parse_mode="Markdown",
@@ -1952,8 +1959,7 @@ async def cmd_smoke_test(update: Update, context: ContextTypes.DEFAULT_TYPE):
         result = await asyncio.to_thread(
             coord.smoke_test_run,
             account_id,
-            exchange_client_factory=(None if force_dry else _smoke_test_client_factory),
-            dry_run=force_dry,
+            exchange_client_factory=_smoke_test_client_factory,
         )
     except Exception as exc:  # noqa: BLE001
         await update.message.reply_text(f"⚠️ smoke_test failed: {exc}")
@@ -1973,10 +1979,9 @@ async def cmd_smoke_test(update: Update, context: ContextTypes.DEFAULT_TYPE):
         status = r.get("status", "?")
         icon = {
             "rejected_too_small": "✅",   # expected/success path
-            "dry_run":            "🟡",   # plumbing OK, exchange not contacted
             "submitted":          "⚠️",   # unexpected acceptance — flatten manually
             "error":              "❌",
-        }.get(status, "•")
+        }.get(status, "❌")
         reason = (r.get("reason") or "")[:160]
         logged = "📝" if r.get("logged") else "⚠️ not-logged"
         lines.append(
@@ -1985,10 +1990,12 @@ async def cmd_smoke_test(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
     if result.get("ok"):
-        lines.append("\n*Test successful*: order travelled the full pipeline; "
-                     "exchange rejection or dry-run captured and journaled.")
+        lines.append("\n*Test successful*: order reached the exchange and was "
+                     "rejected (below min-lot) — API integration is live.")
     else:
-        lines.append("\n⚠️ *Test inconclusive*: see per-account reasons above.")
+        lines.append("\n⚠️ *Test failed*: see per-account reasons above. "
+                     "If reason mentions credentials, the bot's environment "
+                     "is missing the per-account API key/secret env vars.")
 
     await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
 
@@ -2083,7 +2090,7 @@ def main():
             BotCommand("accounts", "List accounts or toggle dry/live: /accounts dry|live <name>"),
             BotCommand("accounts_status", "Per-account risk state (daily PnL, halted)"),
             BotCommand("risk_check", "Risk details for one account: /risk_check <name>"),
-            BotCommand("smoke_test", "Live-plumbing smoke (LIVE by default): /smoke_test [account] [dry]"),
+            BotCommand("smoke_test", "Live-plumbing smoke (always LIVE): /smoke_test [account]"),
             BotCommand("strategies", "Per-strategy signals, PnL and positions"),
             BotCommand("reload_strats", "Reload strategy config from strategies.yaml"),
             BotCommand("balance", "Account balance"),

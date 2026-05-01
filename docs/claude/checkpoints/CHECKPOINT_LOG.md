@@ -5,6 +5,106 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-01-06 — S-021: API integration fixes (smoke + status + multi-account dispatch)
+
+- **Session date:** 2026-05-01
+- **Sprint:** sprint-plan-2026-05-01 (carry-over: API-integration debugging)
+- **Current sprint phase:** ad-hoc fix — operator reported three issues
+  with the live API surface
+- **Last completed checkpoint:** CP-2026-05-01-05 (dotenv silent-fail fix)
+- **Next checkpoint:** **CP-2026-05-01-07 — verify the three fixes against
+  a live VM session** — operator runs `/smoke_test`, `/accounts_status`,
+  and one strategy tick with `MULTI_ACCOUNT_DISPATCH=true` on the VM and
+  confirms the new behaviour. If a per-account smoke errors with
+  "missing API credentials", the per-account `.env.bybit_<id>` files
+  need to be sourced into the bot's systemd unit (out of repo —
+  see `deploy/`).
+- **Telegram sent:** session-complete dispatched via Stop-hook; operator
+  pings on checkpoint commit
+- **Alerts sent during session:** none
+- **Blockers:** none
+
+### 1. Completed
+- **`/smoke_test` is now always LIVE.** Removed the `dry`/`dry-run`/`dry_run`
+  argument from `cmd_smoke_test` in `src/bot/telegram_query_bot.py`,
+  including the help text and BotCommand listing. The smoke is designed
+  around the qty being below Bybit's min-lot, so the exchange rejects
+  on submission — there is no reason to ever skip the API call.
+- **No more silent dry-run on missing creds.** `Coordinator.smoke_test_run`
+  used to fall through to dry-run when the per-account exchange-client
+  factory returned `None` (or raised). That masked broken integration —
+  operators saw 🟡 dry_run when they expected ✅ rejected_too_small. Now
+  the loop emits `status="error"` with `reason="missing API credentials
+  for account '<id>' …"` whenever the factory can't produce a client in
+  LIVE mode. Tests passing `dry_run=True` explicitly still get the dry
+  path.
+- **`/accounts_status` shows live API balance.** `Coordinator.accounts_status`
+  now enriches each per-account dict with `live_balance_usdt` and
+  `live_balance_error` (resolved via `data_loaders.account_balance` —
+  the same code path `/balance` uses, so the two surfaces report the
+  same numbers). The bot's `cmd_accounts_status` renders an extra
+  "🔌 API: ✅/❌" line so a broken integration is obvious at a glance.
+- **Pipeline signals can now fan out to every account.** Added
+  `_signal_to_order_package()` and `_multi_account_dispatch_enabled()`
+  helpers in `src/runtime/pipeline.py`. When `MULTI_ACCOUNT_DISPATCH=true`
+  is exported (env or settings), `run_pipeline` validates the signal via
+  `safe_place_order` (forced dry-run, so no double-submit) and then
+  dispatches the OrderPackage through `Coordinator.multi_account_execute`
+  to every account in `config/accounts.yaml`, honouring each account's
+  own keys + RiskManager. Default behaviour (flag off) is unchanged —
+  legacy single-client deployments keep working.
+
+### 2. Files changed
+- `src/bot/telegram_query_bot.py` — drop `dry` arg in `cmd_smoke_test`,
+  display `live_balance_usdt` / `live_balance_error` in
+  `cmd_accounts_status`, update menu help + BotCommand listing.
+- `src/core/coordinator.py` — fail loudly on missing smoke creds,
+  enrich `accounts_status()` with live balance.
+- `src/runtime/pipeline.py` — add `_signal_to_order_package`,
+  `_multi_account_dispatch_enabled`, and the multi-account fan-out
+  branch in `run_pipeline`.
+- `tests/test_smoke_test_pipeline.py` — replace the two
+  "factory_returning_none falls back to dry-run" cases with the new
+  "errors out in LIVE mode" expectation; keep an explicit-dry-run case.
+- `tests/test_s021_smoke_and_status.py` — new file, 15 tests covering
+  the three areas (4 status / 4 smoke / 7 pipeline helper tests).
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_s021_smoke_and_status.py -q` — 15 passed.
+- `PYTHONPATH=. pytest tests/test_smoke_test_pipeline.py
+  tests/test_accounts_integration.py tests/test_coordinator_flow.py
+  tests/test_s008_coordinator.py tests/test_s010_accounts.py
+  tests/test_s012_hotfix_balance_and_signals.py
+  tests/test_s012_hotfix_settings_casing.py -q` — 186 passed (no
+  regressions in adjacent units).
+- `PYTHONPATH=. pytest tests/ --ignore=tests/test_main_loop.py
+  --ignore=tests/test_web_api_*.py -q` — 1387 passed, 9 failed (8 of
+  the 9 are pre-existing on `main` per stash-and-rerun; the ninth is
+  a test-ordering flake on `test_signal_audit_path_env_override` that
+  passes both in isolation and when run alongside `test_s021_*`).
+- `python scripts/repo_inventory.py` — pass (no junk).
+- `python scripts/secret_scan.py` — pass.
+
+### 4. Remaining
+- **Verify on the VM.** The bot's process environment needs the
+  per-account `BYBIT_API_KEY_<id>` / `BYBIT_API_SECRET_<id>` env vars
+  sourced — that's the operator-side work. Once that is true, both
+  `/smoke_test` and `/accounts_status` should light up green for every
+  account. If the operator wants `MULTI_ACCOUNT_DISPATCH=true` on by
+  default, that's a one-line env change in the trader's systemd unit.
+- The 9 broader-suite failures are pre-existing and not in scope here.
+
+### 5. Next checkpoint
+**CP-2026-05-01-07** — Operator-side verification: run `/smoke_test`,
+`/accounts_status`, and one tick with `MULTI_ACCOUNT_DISPATCH=true` on
+the VM. If any account shows `❌ missing API credentials` in
+`/accounts_status` or smoke, fix the systemd unit env-file sourcing.
+Read in order: this entry, `docs/claude/checkpoint-workflow.md`,
+`docs/claude/deployment-ops.md` (env wiring),
+`config/accounts.yaml` (api_key_env contract).
+
+---
+
 ## CP-2026-05-01-05 — fix dotenv silent-fail on the Stop-hook ping path
 
 - **Session date:** 2026-05-01
