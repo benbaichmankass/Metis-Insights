@@ -5,6 +5,82 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-01-16 — S-023 PR3: API failure pings with direct response
+
+- **Session date:** 2026-05-01
+- **Sprint:** sprint-plan-2026-05-01 (S-023)
+- **Current sprint phase:** Phase 3 of 4 — API failure pings
+- **Last completed checkpoint:** CP-2026-05-01-15 (PR2 merged #244)
+- **Next checkpoint:** **CP-2026-05-01-17 — S-023 sprint complete** —
+  write `docs/sprint-summaries/sprint-023-summary.md`, append
+  `[COMPLETE]` final checkpoint, propose CLAUDE.md improvements.
+- **Telegram sent:** pending
+- **Alerts sent during session:** none (in-session, but the new pings
+  will fire on the VM as soon as the master file is updated and
+  the trader restarts)
+- **Blockers:** none
+
+### 1. Completed
+- **`src/runtime/api_reporting.py`** (new, ~150 LOC):
+  - `report_api_failure(exchange, op, account_id, error, response,
+    exception)` — single chokepoint for every API failure path.
+    Routes through `outcomes.report` at ERROR (so the per-fingerprint
+    5-min dedup + 30/hour cap from S-022 PR1 apply automatically).
+  - `_redact_for_telegram(text)` — strips long base64/hex tokens
+    (≥18 chars), `api_key`/`apiKey`/`api_secret`/`secret`/`token`/
+    `Authorization` KV pairs, and `Bearer <token>` headers from
+    response excerpts before they go to Telegram. Defers to the
+    existing `log_redact._redact` for Telegram-bot-token shapes.
+  - `_excerpt(payload, max_chars)` — JSON-serializes dicts for
+    readability, falls back to `str()` / `repr()`. Truncates to
+    500 chars after redaction.
+  - Never raises (ping-on-failure must not itself crash the host
+    call site).
+- **Bybit retCode failures dispatch a ping** —
+  `data_loaders.account_balance_with_diagnostic` now reports both
+  the exception path and the retCode path with the direct API
+  response in `ctx.response_excerpt` and `ctx.retCode/retMsg`.
+- **Bybit network failures dispatch a ping** — same hook on the
+  exception branch with `exception_type` in ctx.
+- **Open-positions failures dispatch a ping** —
+  `data_loaders.account_open_positions` now reports
+  `<exchange>_get_positions_failed` on any exception.
+- **Order submission failures dispatch a ping** —
+  `units/accounts/execute.py::_submit_order` reports
+  `<exchange>_place_order_failed` (still re-raises so the
+  RiskManager / multi_account_execute paths see the exception
+  too).
+- **Tests** (`tests/test_api_reporting.py`, 21 cases): redaction
+  variants (long tokens, kv api_key, Bearer prefix, camelCase
+  apiKey, short IDs preserved); excerpt rendering (json, truncate,
+  None, unjsonable, dict redaction); end-to-end `report_api_failure`
+  routing through outcomes (action+status+level+ctx, exception
+  type, response excerpt redacts creds, swallows internal failures);
+  cross-module integration (retCode → ping, exception → ping,
+  missing-creds → no ping since /accounts_status already shows that).
+
+### 2. Files changed
+- `src/runtime/api_reporting.py` — **new**, ~150 LOC.
+- `src/bot/data_loaders.py` — wire 3 ping sites.
+- `src/units/accounts/execute.py` — wire 1 ping site.
+- `tests/test_api_reporting.py` — **new**, 21 tests.
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_api_reporting.py -q` — 21 passed.
+- Full cross-suite sweep — **278 passed, 0 failed**.
+- `python scripts/secret_scan.py` — pass.
+- `python scripts/repo_inventory.py` — pass.
+
+### 4. Remaining
+- Sprint summary PR (final).
+
+### 5. Next checkpoint
+**CP-2026-05-01-17** — S-023 COMPLETE. First reads:
+1. `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry).
+2. `docs/sprint-summaries/sprint-022-summary.md` for the template.
+
+---
+
 ## CP-2026-05-01-15 — S-023 PR2: specific /accounts_status diagnostics
 
 - **Session date:** 2026-05-01
