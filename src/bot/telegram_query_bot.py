@@ -624,16 +624,22 @@ async def cmd_set_keys(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     msg = (
         "🔑 *Rotate API keys*\n\n"
-        "Open in Colab and click *Runtime → Run all*:\n"
+        "Open in Colab:\n"
         f"{_COLAB_NOTEBOOK_URL}\n\n"
-        "The notebook reads from your Colab Secrets and pushes a fresh "
-        "`.env.live` to the VM. No SSH or terminal needed.\n\n"
+        "1. Drag your VM SSH private key file into the Colab *Files* "
+        "panel (left sidebar). Default name: `vm_ssh_key`.\n"
+        "2. *Runtime → Run all*.\n\n"
+        "The notebook reads your Colab Secrets, picks up the SSH key "
+        "file, and pushes a fresh `.env.live` to the VM. No SSH or "
+        "terminal needed.\n\n"
         f"Setup guide (one-time): {_COLAB_DOC_URL}\n\n"
         "Required Colab Secrets:\n"
         "• `BYBIT_API_KEY_1`, `BYBIT_API_SECRET_1`\n"
         "• `BYBIT_API_KEY_2`, `BYBIT_API_SECRET_2`\n"
         "• `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`\n"
-        "• `VM_SSH_HOST`, `VM_SSH_USER`, `VM_SSH_KEY`\n"
+        "• `VM_SSH_HOST`, `VM_SSH_USER`\n\n"
+        "Required file (drag-drop):\n"
+        "• `vm_ssh_key` (or `id_rsa` / `id_ed25519`)\n\n"
         "After Run all completes, run `/accounts_status` to verify."
     )
     await update.message.reply_text(

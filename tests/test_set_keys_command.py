@@ -57,9 +57,33 @@ def test_set_keys_replies_with_colab_link():
         "BYBIT_API_KEY_1", "BYBIT_API_SECRET_1",
         "BYBIT_API_KEY_2", "BYBIT_API_SECRET_2",
         "TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID",
-        "VM_SSH_HOST", "VM_SSH_USER", "VM_SSH_KEY",
+        "VM_SSH_HOST", "VM_SSH_USER",
     ):
         assert required in msg, f"missing {required} in /set_keys reply"
+
+
+def test_set_keys_does_not_list_ssh_key_as_a_secret():
+    """SSH key is uploaded as a file, NOT pasted into Colab Secrets.
+    The reply must NOT mention VM_SSH_KEY in the secrets list (operators
+    would then waste time creating a Colab Secret with that name)."""
+    update = _make_update()
+    with patch("src.bot.telegram_query_bot.is_authorised", return_value=True):
+        _run(cmd_set_keys(update, MagicMock()))
+    msg = update.message.reply_text.await_args.args[0]
+    # `VM_SSH_KEY` should not appear at all — the file path uses
+    # `vm_ssh_key` (lowercase, hinting at filename convention).
+    assert "VM_SSH_KEY" not in msg
+
+
+def test_set_keys_mentions_ssh_key_file_upload():
+    """Reply must tell the operator to drag-drop the SSH key file."""
+    update = _make_update()
+    with patch("src.bot.telegram_query_bot.is_authorised", return_value=True):
+        _run(cmd_set_keys(update, MagicMock()))
+    msg = update.message.reply_text.await_args.args[0]
+    # Should hint at the Files panel + the default filename
+    assert "Files" in msg
+    assert "vm_ssh_key" in msg
 
 
 def test_set_keys_silent_when_unauthorised():

@@ -54,10 +54,12 @@ key icon** ("Secrets"). Add each of these by name:
 | `TELEGRAM_CHAT_ID`    | Your numeric chat id |
 | `VM_SSH_HOST`         | The VM's hostname or public IP |
 | `VM_SSH_USER`         | SSH user on the VM (usually `ubuntu`) |
-| `VM_SSH_KEY`          | **Full contents** of your SSH private key file (e.g. `~/.ssh/id_ed25519`). Includes the `-----BEGIN ... PRIVATE KEY-----` header and footer lines. |
 
 For each secret, also flick on the **"Notebook access"** toggle so the
 notebook can read it.
+
+> The SSH **private key** is NOT a Colab Secret. You upload it as a file
+> in the next step — no copy-pasting key contents.
 
 #### Optional (skip if not used)
 
@@ -67,7 +69,35 @@ notebook can read it.
 | `BREAKOUT_API_SECRET_1` | Prop-firm secret |
 | `NEWS_API_KEY`          | NewsAPI key — only set if you want the news layer enabled |
 
-### 3. Confirm SSH from the VM works
+### 3. Upload your SSH private key as a file
+
+In Colab, click the **📁 folder icon** in the left sidebar (the
+"Files" panel). Then either:
+
+- **Drag-drop** your VM SSH private key file from your laptop onto the
+  Files panel, OR
+- Click the **📤 upload** icon at the top of the panel and pick the
+  key file.
+
+**Filename:** the notebook accepts any of these (first match wins):
+
+| Preferred | Also accepted |
+|---|---|
+| `vm_ssh_key` | `id_rsa`, `id_ed25519`, `id_ecdsa` |
+
+If your key is already named one of the "also accepted" names (the
+standard SSH defaults), you can upload it as-is. Otherwise, drop it
+in and rename to `vm_ssh_key` by right-clicking → Rename.
+
+**Make sure it's the PRIVATE key**, not the public one (`.pub`). The
+notebook checks the first line of the file and refuses anything that
+doesn't start with `-----BEGIN`.
+
+The file lives only in your Colab session's `/content/` directory.
+It's wiped automatically when the runtime ends (close tab or
+`Runtime → Disconnect and delete runtime`).
+
+### 4. Confirm SSH from the VM works
 
 You only need to do this once. From your laptop:
 ```bash
@@ -77,9 +107,9 @@ Should print `ok`. If it asks for a password, the key isn't authorized
 on the VM yet — add the matching `.pub` to `~/.ssh/authorized_keys` on
 the VM first.
 
-The same key must be the one you pasted into `VM_SSH_KEY`.
+The same key file must be the one you upload to Colab.
 
-### 4. Confirm passwordless sudo for systemctl on the VM
+### 5. Confirm passwordless sudo for systemctl on the VM
 
 The notebook restarts `ict-trader-live.service` via `sudo -n systemctl`
 (the `-n` means "don't prompt for a password"). For this to work, your
@@ -97,7 +127,7 @@ documents.
 ## Each time you rotate keys
 
 1. Open the notebook (Telegram `/set_keys` returns the link).
-2. Update whichever Colab Secret you're rotating (Bybit key, SSH key, etc.).
+2. Update whichever Colab Secret you're rotating (Bybit key, etc.) **OR** if rotating the SSH key, drag the new private key file into the Files panel (replacing the old one if it's still there).
 3. **`Runtime → Run all`**.
 
 The notebook prints clear ✅/❌ for each step. If something fails, it
@@ -125,10 +155,27 @@ required secret is present and the toggle is on.
 ### `❌ SSH connectivity failed`
 
 - Wrong `VM_SSH_HOST` value (typo, or VM moved IPs).
-- `VM_SSH_KEY` contents don't match the public key in the VM's `~/.ssh/authorized_keys`.
+- The uploaded SSH private key doesn't match the public key in the VM's `~/.ssh/authorized_keys`. Test from your laptop with the same key file: `ssh -i <path-to-the-uploaded-file> ubuntu@<vm-host> echo ok`.
+- You uploaded the **public** key (`.pub`) by mistake — the notebook checks for this and refuses, but if you bypassed the check make sure the file's first line starts with `-----BEGIN OPENSSH PRIVATE KEY-----` (or `-----BEGIN RSA PRIVATE KEY-----`).
 - VM's firewall blocking port 22 from Colab's outbound IPs (rare; Colab
   IPs are GCP, usually allowed). Try from your laptop first to confirm
   the key works at all.
+
+### `SSH key file not found`
+
+The notebook didn't see a file at any of `/content/vm_ssh_key`,
+`/content/id_rsa`, `/content/id_ed25519`, `/content/id_ecdsa`. Open
+the Files sidebar (📁 icon, left) and confirm your key file is there.
+If it's there with a different name, rename it to `vm_ssh_key` (right-
+click → Rename).
+
+### `does not look like a private key`
+
+The notebook's safety check rejected the uploaded file because it
+doesn't begin with `-----BEGIN`. Most common cause: you uploaded the
+**public** key (the `.pub` file) instead of the private one. They're
+in the same directory on your laptop — make sure you grab the one
+*without* the `.pub` extension.
 
 ### `❌ atomic rename failed: Permission denied`
 
