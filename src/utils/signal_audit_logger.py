@@ -32,13 +32,16 @@ def _save_state(state: Dict[str, str]) -> None:
 
 
 def should_send_summary(now_utc: datetime) -> bool:
+    """Return True at most once per UTC hour.
+
+    S-022 PR2: cadence flipped from twice-a-day (07:00 / 19:00) to once
+    every hour. The slot key is now ``{YYYY-MM-DD}-{HH}`` so the existing
+    dedupe machinery (last_slot in summary_markers.json) still applies —
+    a tick loop that calls this multiple times within the same hour gets
+    True only on the first call.
+    """
     now_utc = now_utc.astimezone(timezone.utc)
-    if now_utc.hour == 7:
-        slot = f"{now_utc.date()}-07"
-    elif now_utc.hour == 19:
-        slot = f"{now_utc.date()}-19"
-    else:
-        return False
+    slot = f"{now_utc.date()}-{now_utc.hour:02d}"
     state = _load_state()
     if state.get("last_slot") == slot:
         return False

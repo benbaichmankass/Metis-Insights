@@ -10,7 +10,8 @@ from dotenv import load_dotenv
 
 from src.exchange.binance_connector import BinanceConnector
 from src.exchange.bybit_connector import BybitConnector
-from src.runtime.outcomes import Level, report
+from src.runtime.hourly_report import build_hourly_report
+from src.runtime.outcomes import Level, report, send_scheduled
 from src.runtime.pipeline import run_pipeline
 from src.runtime.validation import build_settings_from_env, validate_startup
 
@@ -177,17 +178,16 @@ def main() -> None:
         now_utc = datetime.now(timezone.utc)
         try:
             if should_send_summary(now_utc):
-                _testnet_raw = str(os.environ.get("BYBIT_TESTNET", "true")).strip().lower()
-                _market_env = "testnet" if _testnet_raw not in {"false", "0", "no"} else "mainnet"
-                _exec_mode = "dry-run" if settings.get("DRY_RUN", True) else "live"
-                telegram_client.send_message(
-                    f"Bot summary at {now_utc.strftime('%Y-%m-%d %H:%M UTC')}: "
-                    f"service is alive on Bybit {_market_env} ({_exec_mode}) for BTCUSDT. "
-                    "Use /signals, /balance, /trades and check "
-                    "runtime_logs/signal_audit.jsonl for full history."
+                # S-022 PR2: replace the one-line "service is alive" blurb
+                # with the structured hourly report. Sent via the
+                # scheduled-message path so it bypasses the per-fingerprint
+                # rate limit and the hourly cap on ERROR/CRITICAL alerts.
+                message = build_hourly_report(
+                    now_utc=now_utc, tick_interval_s=interval,
                 )
+                send_scheduled(message)
         except Exception:
-            logger.exception("Failed to send summary update")
+            logger.exception("Failed to send hourly report")
 
         logger.info("Sleeping %s seconds until next tick.", interval)
         time.sleep(interval)
