@@ -5,6 +5,90 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-01-08 — S-022 PR2: hourly summary report
+
+- **Session date:** 2026-05-01
+- **Sprint:** sprint-plan-2026-05-01 (S-022 — error monitoring)
+- **Current sprint phase:** Phase 2 of 6 — hourly summary
+- **Last completed checkpoint:** CP-2026-05-01-07 (PR1 outcomes foundation, MERGED #236)
+- **Next checkpoint:** **CP-2026-05-01-09 — S-022 PR3: health module** —
+  add `src/runtime/health.py` (VM service status via systemctl,
+  repo-vs-VM HEAD drift, last-pull mtime, DB writability, disk free,
+  per-account API). Wire it into `hourly_report` so the Health section
+  fills out, and expose it standalone for the VM-side ping script.
+- **Telegram sent:** pending — checkpoint commit triggers VM-side ping
+- **Alerts sent during session:** none
+- **Blockers:** none
+
+### 1. Completed
+- **Cadence flipped from 2x/day to hourly.** `should_send_summary` in
+  `src/utils/signal_audit_logger.py` now uses
+  `slot = "{date}-{HH:02d}"`. The same
+  `runtime_logs/summary_markers.json` dedupe machinery applies, so a
+  tick loop that calls this several times within an hour gets True
+  only on the first call.
+- **`src/runtime/hourly_report.py`** (new, ~430 LOC): top-level
+  `build_hourly_report(now_utc, tick_interval_s)` returns a
+  Telegram-ready string. Pulls from:
+  * `runtime_logs/signal_audit.jsonl` for tick + signal counts.
+  * `runtime_logs/outcomes.jsonl` (PR1) for WARN+ aggregates.
+  * `trade_journal.db` for placed / closed trades + realized PnL
+    in the last hour.
+  * `src/bot/data_loaders.py` for live balances, open positions,
+    strategy daily activity.
+  * `runtime_logs/balance_snapshots.json` (new, written by this
+    module) for the 1h balance delta — no DB schema changes needed.
+  Health section in this PR is a thin slice (last-tick freshness +
+  outcome counts → ok/warn/degraded). PR3 will replace it with the
+  full health module.
+- **Wired into `src/main.py`.** The old one-line "service is alive"
+  blurb is replaced with `send_scheduled(build_hourly_report(...))`,
+  which goes via the new scheduled-message path on the outcomes
+  reporter — bypassing the per-fingerprint rate limit and the
+  hourly cap on alerts.
+- **Tests** (`tests/test_hourly_report.py`, 18 cases):
+  cadence (hourly slot, no longer hour∈{7,19}), audit-line filtering,
+  tick/signal bucketing, trade-journal queries with backtest exclusion,
+  account snapshot delta computation across two calls, safe behaviour
+  when data_loaders is unavailable, outcomes aggregation with
+  fingerprint top-K, health summary's stale/critical/error/ok
+  transitions, renderer contains every section, degraded path emits
+  "ACTION NEEDED", and the assembler returns a degraded message
+  rather than raising on internal failure.
+
+### 2. Files changed
+- `src/utils/signal_audit_logger.py` — flip slot key.
+- `src/runtime/hourly_report.py` — **new**, ~430 LOC.
+- `src/main.py` — import + replace one-line summary with
+  `send_scheduled(build_hourly_report(...))`.
+- `tests/test_hourly_report.py` — **new**, 18 tests.
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_hourly_report.py -q` — 18 passed.
+- `PYTHONPATH=. pytest tests/test_hourly_report.py tests/test_outcomes.py
+  tests/test_outcomes_integration.py tests/test_orders.py
+  tests/test_smoke_test_pipeline.py tests/test_s008_coordinator.py -q`
+  — **110 passed, 0 failed**.
+- `python scripts/repo_inventory.py` — pass.
+- `python scripts/secret_scan.py` — pass.
+
+### 4. Remaining
+- PR3 — `src/runtime/health.py` + wire into hourly_report.
+- PR4 — sweep silent excepts in `src/runtime/`, `src/core/`, `src/units/`.
+- PR5 — heartbeat watcher + VM-side checker.
+- PR6 — bot/web sweep.
+- Sprint summary PR.
+
+### 5. Next checkpoint
+**CP-2026-05-01-09** — Build PR3 (health module). First reads:
+1. `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry).
+2. `src/runtime/hourly_report.py::health_summary` — the thin slice
+   PR3 expands.
+3. `scripts/deploy_pull_restart.sh` — see what's already on the VM
+   for the repo-vs-VM HEAD drift check.
+
+---
+
 ## CP-2026-05-01-07 — S-022 PR1: outcomes.report() foundation + tick-loop wiring
 
 - **Session date:** 2026-05-01
