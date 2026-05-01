@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cp_line=$(grep -m1 '^## CP-' \"$CLAUDE_PROJECT_DIR/docs/claude/checkpoints/CHECKPOINT_LOG.md\" 2>/dev/null || echo ''); [ -z \"$cp_line\" ] && exit 0; cp_id=$(echo \"$cp_line\" | grep -oE 'CP-[0-9-]+' | head -1); title=$(echo \"$cp_line\" | sed 's/^## CP-[0-9-]* — //'); cd \"$CLAUDE_PROJECT_DIR\" && PYTHONPATH=. python3 scripts/notify_session.py session --checkpoint \"$cp_id\" --summary \"$title\" 2>/dev/null || true",
+            "command": "log=\"$CLAUDE_PROJECT_DIR/logs/notify_hook.log\"; mkdir -p \"$(dirname \"$log\")\"; cp_line=$(grep -m1 '^## CP-' \"$CLAUDE_PROJECT_DIR/docs/claude/checkpoints/CHECKPOINT_LOG.md\" 2>>\"$log\" || echo ''); [ -z \"$cp_line\" ] && { echo \"$(date -Iseconds) skip: no CP entry found\" >>\"$log\"; exit 0; }; cp_id=$(echo \"$cp_line\" | grep -oE 'CP-[0-9-]+' | head -1); title=$(echo \"$cp_line\" | sed 's/^## CP-[0-9-]* — //'); cd \"$CLAUDE_PROJECT_DIR\" && { echo \"$(date -Iseconds) firing $cp_id\" >>\"$log\"; PYTHONPATH=. python3 scripts/notify_session.py session --checkpoint \"$cp_id\" --summary \"$title\" >>\"$log\" 2>&1; echo \"$(date -Iseconds) exit=$?\" >>\"$log\"; } || true",
             "timeout": 30
           }
         ]

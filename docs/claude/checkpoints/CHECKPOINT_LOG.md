@@ -3,6 +3,75 @@
 Append-only log of Claude Code sessions on this repo.
 Newest entry on top. Every session **must** add one entry before exiting.
 
+---
+
+## CP-2026-05-01-04 — fix matplotlib leak on the Stop-hook ping path
+
+- **Session date:** 2026-05-01
+- **Sprint:** continuation of CP-2026-05-01-03 (PR #232 merged).
+- **Last completed checkpoint:** CP-2026-05-01-03.
+- **Next checkpoint:** **CP-2026-05-01-05** — operator's choice.
+- **Telegram sent:** auto-ping fires off this commit (touches CHECKPOINT_LOG.md).
+  Once delivered, that's the verification ping the operator asked for.
+- **Blockers:** none.
+
+### 1. Completed
+
+CP-2026-05-01-03 wired the harness-env path. End-to-end test from a
+sandbox surfaced two bugs that would have left every operator wondering
+why the path silently no-ops:
+
+1. **`src/runtime/notify.py:2`** — `from src.runtime.signal_notifications
+   import *` pulls matplotlib + pandas through what should be an HTTP-POST
+   import path. The wildcard's exported names aren't referenced anywhere
+   in `notify.py`; both real callers (`src/runtime/pipeline.py:19` and
+   `scripts/notify_session.py:43`) import specific names, so the
+   wildcard was dead. Removed.
+2. **`.claude/settings.json` Stop hook** — `2>/dev/null || true` swallowed
+   the matplotlib ImportError, combined with `notify_session.py`'s own
+   `except ImportError: return 0`, the operator saw zero signal that the
+   path was broken. Replaced with a logging tee:
+   `logs/notify_hook.log` gets timestamped lines for skip / fire / exit-N,
+   so a future operator can grep for delivery failures without reaching
+   for strace.
+3. **Regression test** (`tests/test_notify_session.py::
+   TestNotifyImportIsLightweight`) — asserts
+   `import src.runtime.notify` does NOT pull matplotlib, pandas, or
+   `src.runtime.signal_notifications`. Locks the import surface so a
+   future session can't silently re-introduce the leak.
+
+`logs/` is already gitignored (line 28); the hook does `mkdir -p` on
+the log directory so first-run on a fresh checkout works.
+
+### 2. Files changed
+
+- `src/runtime/notify.py` — removed wildcard import (1 line)
+- `.claude/settings.json` — Stop hook now logs to `logs/notify_hook.log`
+- `tests/test_notify_session.py` — new `TestNotifyImportIsLightweight`
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+
+- `python3 -m unittest tests.test_notify_session -v` — 9/9 pass,
+  including the new regression test.
+- `python3 -c "import src.runtime.notify; ..."` confirms matplotlib
+  and signal_notifications are NOT in `sys.modules` after import.
+- `jq . .claude/settings.json` — valid JSON.
+- `python scripts/secret_scan.py` — clean.
+
+### 4. Remaining
+
+None for this checkpoint. The operator's `.claude/settings.local.json`
+was populated this session (out of band, via SOPS+age decrypt of
+uploaded master-secrets) and persists on the workspace filesystem;
+future sessions inherit it without manual steps. After this PR merges,
+the next session-end will fire a real Telegram ping via the harness-env
+path with no operator action required.
+
+### 5. Next checkpoint
+
+**CP-2026-05-01-05** — operator's choice.
+
 Format: copy `HANDOFF_TEMPLATE.md` and fill it in.
 ID convention: `CP-YYYY-MM-DD-NN` (sprint date + 2-digit sequence).
 
