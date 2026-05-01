@@ -5,6 +5,104 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-01-15 — S-023 PR2: specific /accounts_status diagnostics
+
+- **Session date:** 2026-05-01
+- **Sprint:** sprint-plan-2026-05-01 (S-023)
+- **Current sprint phase:** Phase 2 of 4 — diagnostic propagation
+- **Last completed checkpoint:** CP-2026-05-01-14 (PR1 merged #243)
+- **Next checkpoint:** **CP-2026-05-01-16 — S-023 PR3: API failure pings** —
+  every Bybit/Binance API call routes through a wrapper that on
+  failure (exception OR retCode != 0 OR HTTP 4xx/5xx) reports the
+  direct response via `outcomes.report` with retCode + retMsg or
+  HTTP status + body excerpt.
+- **Telegram sent:** pending
+- **Alerts sent during session:** none
+- **Blockers:** none
+
+### 1. Completed
+- **`data_loaders.credentials_check(account)`** — single source of
+  truth for naming missing env vars. Path 1 (api_key_env): names
+  the missing vars. Path 2 (env_path): checks file existence.
+  Path 3: reports neither configured.
+- **`data_loaders._bybit_response_error(resp)`** — surfaces Bybit's
+  retCode + retMsg directly (the API returns 200 OK with retCode
+  != 0 on auth/rate-limit failures, and the previous code didn't
+  check for that — silent failure).
+- **`data_loaders.account_balance_with_diagnostic(account)`**:
+  structured-status variant. Returns
+  `{status: ok|missing_creds|api_error|unsupported, total_usdt,
+  raw, error}` so callers can show the operator exactly what failed.
+- **`account_balance(account)`** — now a thin back-compat wrapper.
+  Existing callers (UI, hourly report) keep using it.
+- **`Coordinator.accounts_status`** — switched to the diagnostic
+  variant. The old generic *"missing API creds or exchange rejected
+  the request"* is gone; the operator sees the specific error verbatim.
+- **`telegram_query_bot.py::_bybit_creds_diagnostic`** — delegates
+  to the shared `data_loaders.credentials_check` so /balance and
+  /accounts_status give identical wording and stay in sync.
+- **Second bug fixed in the same chain:** `_load_yaml_accounts`
+  was stripping `api_key_env` and `api_secret_env` from the YAML
+  when projecting to its output dict. So even when accounts.yaml
+  declared them, downstream `bybit_client_for(account)` couldn't
+  see them and silently fell through. Now preserves them
+  (along with `type`, `risk` blocks) so the credential-resolution
+  contract works end-to-end.
+- **Pre-existing test bug fixed:** `tests/test_data_loaders.py`
+  had two `_bybit_account` functions — line 342 (env_path arg)
+  and line 592 (strategies arg). Python silently kept only the
+  latter, which masked the credential-check failure mode in the
+  upstream tests. Renamed line 592 to `_bybit_strategy_account`
+  so each helper is unambiguous.
+
+### 2. Files changed
+- `src/bot/data_loaders.py` — new `credentials_check`,
+  `_bybit_response_error`, `account_balance_with_diagnostic`;
+  `account_balance` is now a wrapper; `_load_yaml_accounts`
+  preserves credential-resolution fields.
+- `src/core/coordinator.py` — `accounts_status` calls
+  `account_balance_with_diagnostic` and propagates the specific
+  error verbatim into `live_balance_error`.
+- `src/bot/telegram_query_bot.py` — `_bybit_creds_diagnostic`
+  delegates to the shared helper.
+- `tests/test_account_diagnostics.py` — **new**, 21 cases
+  covering `credentials_check`, `_bybit_response_error`,
+  `account_balance_with_diagnostic` (4 status branches),
+  `account_balance` back-compat, and end-to-end
+  `/accounts_status` propagation (missing env, retCode error).
+- `tests/test_s021_smoke_and_status.py` — updated to patch
+  `account_balance_with_diagnostic` instead of `account_balance`
+  (coordinator call path changed); added retCode-error test.
+- `tests/test_data_loaders.py` — renamed second `_bybit_account`
+  to `_bybit_strategy_account` and updated 6 call sites.
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_account_diagnostics.py
+  tests/test_s021_smoke_and_status.py tests/test_data_loaders.py -q`
+  — 89 passed.
+- Cross-suite sweep (S-022 + S-023): 327 passed, 2 failed.
+  Both failures are pre-existing pytest 9/numpy MagicMock
+  interaction (same baseline as S-022 sprint), not regressions.
+- `python scripts/secret_scan.py` — pass.
+- `python scripts/repo_inventory.py` — pass.
+
+### 4. Remaining
+- PR3 — API failure pings (every API call wraps to report
+  retCode/retMsg on failure).
+- Sprint summary.
+
+### 5. Next checkpoint
+**CP-2026-05-01-16** — Build PR3 (API failure pings). First reads:
+1. `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry).
+2. `src/runtime/outcomes.py` — use `report("api_call",
+   "<exchange>_<op>_failed", level=ERROR, ...)`.
+3. Site list: `account_balance` (already structured), 
+   `account_open_positions`, `account_last_trade`,
+   `_submit_order` (units/accounts/execute.py),
+   `_fetch_balance`, `bybit_client_for` connection failures.
+
+---
+
 ## CP-2026-05-01-14 — S-023 PR1: render script + master template per-account block
 
 - **Session date:** 2026-05-01

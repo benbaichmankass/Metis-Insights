@@ -589,7 +589,13 @@ def test_recent_trades_for_handles_invalid_n(trade_journal_db):
 # S-005 M3: close_all_bybit_positions_for_strategy
 # ---------------------------------------------------------------------------
 
-def _bybit_account(strategies):
+def _bybit_strategy_account(strategies):
+    """Distinct from `_bybit_account(env_path)` defined above —
+    that one builds a credential-resolving dict, this one is for
+    strategy-assignment tests. The two used to share a name
+    (line 342 vs here) and Python silently kept only the latter,
+    which masked credential-check failures in the upstream tests.
+    """
     return {
         "account_id": "test-acct",
         "exchange": "bybit",
@@ -603,18 +609,18 @@ def _bybit_account(strategies):
 class TestCmdCloseallStrategy:
     def test_returns_none_when_strategy_not_in_account(self):
         """Account running only 'vwap' must be skipped for 'breakout_confirmation'."""
-        acc = _bybit_account(["vwap"])
+        acc = _bybit_strategy_account(["vwap"])
         result = dl.close_all_bybit_positions_for_strategy(acc, "breakout_confirmation")
         assert result is None
 
     def test_returns_none_for_empty_strategies(self):
-        acc = _bybit_account([])
+        acc = _bybit_strategy_account([])
         result = dl.close_all_bybit_positions_for_strategy(acc, "ict")
         assert result is None
 
     def test_strategy_match_is_case_insensitive(self, monkeypatch):
         """'VWAP' in strategies list matches strategy_name='vwap'."""
-        acc = _bybit_account(["VWAP"])
+        acc = _bybit_strategy_account(["VWAP"])
         # bybit_client_for returns None → credentials not found message
         monkeypatch.setattr(dl, "bybit_client_for", lambda _a: None)
         result = dl.close_all_bybit_positions_for_strategy(acc, "vwap")
@@ -623,7 +629,7 @@ class TestCmdCloseallStrategy:
 
     def test_no_positions_returns_green_message(self, monkeypatch):
         """When the strategy matches and no positions exist, returns green status."""
-        acc = _bybit_account(["breakout_confirmation"])
+        acc = _bybit_strategy_account(["breakout_confirmation"])
         fake_client = MagicMock()
         fake_client.get_positions.return_value = {"result": {"list": []}}
         monkeypatch.setattr(dl, "bybit_client_for", lambda _a: fake_client)
@@ -635,7 +641,7 @@ class TestCmdCloseallStrategy:
 
     def test_closes_positions_when_strategy_matches(self, monkeypatch):
         """Matching strategy with open positions → place_order called, closed count reported."""
-        acc = _bybit_account(["ict"])
+        acc = _bybit_strategy_account(["ict"])
         fake_client = MagicMock()
         fake_client.get_positions.return_value = {
             "result": {"list": [{"symbol": "BTCUSDT", "side": "Buy", "size": "0.01"}]}
@@ -649,7 +655,7 @@ class TestCmdCloseallStrategy:
 
     def test_exchange_error_returns_error_string(self, monkeypatch):
         """When get_positions raises, returns an error string (no exception propagated)."""
-        acc = _bybit_account(["vwap"])
+        acc = _bybit_strategy_account(["vwap"])
         fake_client = MagicMock()
         fake_client.get_positions.side_effect = RuntimeError("network error")
         monkeypatch.setattr(dl, "bybit_client_for", lambda _a: fake_client)

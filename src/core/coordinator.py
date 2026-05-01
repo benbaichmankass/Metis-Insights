@@ -370,22 +370,26 @@ class Coordinator:
                 )
                 out.append(entry)
                 continue
+            # S-023 PR2: use the diagnostic variant so the operator
+            # sees exactly which env var is missing or what API error
+            # fired — replacing the previous generic "missing API creds
+            # or exchange rejected the request" message.
             try:
-                from src.bot.data_loaders import account_balance as _acct_bal
-                bal = _acct_bal(cfg)
-            except Exception as exc:  # noqa: BLE001
-                bal = None
-                entry["live_balance_error"] = f"API error: {exc}"
-            if bal is None and entry["live_balance_error"] is None:
-                # account_balance() returns None for both "no creds" and
-                # "API call failed" — be explicit so the operator knows
-                # what to fix.
-                entry["live_balance_error"] = (
-                    "balance unavailable (missing API creds or exchange "
-                    "rejected the request)"
+                from src.bot.data_loaders import (
+                    account_balance_with_diagnostic as _acct_bal_diag,
                 )
-            elif bal is not None:
-                entry["live_balance_usdt"] = float(bal.get("total_usdt") or 0.0)
+                diag = _acct_bal_diag(cfg)
+            except Exception as exc:  # noqa: BLE001
+                entry["live_balance_error"] = (
+                    f"unexpected: {type(exc).__name__}: {exc}"
+                )
+                out.append(entry)
+                continue
+
+            if diag["status"] == "ok":
+                entry["live_balance_usdt"] = float(diag["total_usdt"] or 0.0)
+            else:
+                entry["live_balance_error"] = diag["error"]
             out.append(entry)
         return out
 
