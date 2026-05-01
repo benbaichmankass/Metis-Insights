@@ -107,5 +107,34 @@ class TestAlertNoCredsPath(unittest.TestCase):
             importlib.reload(ns_mod)
 
 
+class TestNotifyImportIsLightweight(unittest.TestCase):
+    """Regression for the matplotlib leak (CP-2026-05-01-04).
+
+    `src.runtime.notify` is on the Stop-hook ping path. Pulling matplotlib
+    through it makes the path silently exit 0 on any sandbox without
+    matplotlib installed, so the operator sees zero signal that pings
+    aren't being delivered. Lock the import surface down.
+    """
+
+    FORBIDDEN = ("matplotlib", "pandas", "src.runtime.signal_notifications")
+
+    def test_notify_does_not_pull_heavy_deps(self):
+        import importlib
+
+        for mod in self.FORBIDDEN:
+            sys.modules.pop(mod, None)
+        sys.modules.pop("src.runtime.notify", None)
+
+        importlib.import_module("src.runtime.notify")
+
+        for mod in self.FORBIDDEN:
+            self.assertNotIn(
+                mod,
+                sys.modules,
+                f"importing src.runtime.notify pulled in {mod} — Stop-hook ping path "
+                f"will silently exit 0 on hosts without it",
+            )
+
+
 if __name__ == "__main__":
     unittest.main()
