@@ -346,6 +346,71 @@ class TestCoordinatorSmokeRun:
             "smoke_test" in (a.get("message") or "") for a in after[-3:]
         )
 
+    def test_factory_called_per_account(self, coord, journal_db):
+        """Multi-account live smokes call the factory once per account so
+        keys don't get mis-routed."""
+        client = MagicMock()
+        client.get_wallet_balance.return_value = {
+            "result": {"list": [{"coin": [{"usdValue": "10000"}]}]}
+        }
+        client.place_order.return_value = {
+            "retCode": 10001, "retMsg": "qty invalid", "result": {},
+        }
+        seen: list[str] = []
+
+        def factory(acc):
+            seen.append(acc.get("account_id"))
+            return client
+
+        result = coord.smoke_test_run(
+            exchange_client_factory=factory,
+            dry_run=False,
+        )
+        assert result["ok"] is True
+        assert seen == ["bybit_test"]
+        assert result["results"][0]["status"] == "rejected_too_small"
+
+    def test_factory_returning_none_falls_back_to_dry_run(self, coord, journal_db):
+        """If the factory can't resolve creds (returns None), the executor
+        forces dry-run for that account — no half-baked submission."""
+        result = coord.smoke_test_run(
+            exchange_client_factory=lambda acc: None,
+            dry_run=False,
+        )
+        assert result["ok"] is True
+        assert result["results"][0]["status"] == "dry_run"
+
+    def test_factory_exception_is_swallowed(self, coord, journal_db):
+        """Factory errors must not crash the smoke harness — the account
+        falls back to dry-run with a warning."""
+        def boom(acc):
+            raise RuntimeError("env not loaded")
+
+        result = coord.smoke_test_run(
+            exchange_client_factory=boom,
+            dry_run=False,
+        )
+        assert result["results"][0]["status"] == "dry_run"
+
+    def test_explicit_client_overrides_factory(self, coord, journal_db):
+        client = MagicMock()
+        client.get_wallet_balance.return_value = {
+            "result": {"list": [{"coin": [{"usdValue": "10000"}]}]}
+        }
+        client.place_order.return_value = {
+            "retCode": 10001, "retMsg": "qty invalid", "result": {},
+        }
+
+        def factory(acc):
+            raise AssertionError("factory should not be called")
+
+        result = coord.smoke_test_run(
+            exchange_client=client,
+            exchange_client_factory=factory,
+            dry_run=False,
+        )
+        assert result["results"][0]["status"] == "rejected_too_small"
+
     def test_live_path_with_mocked_rejection(self, coord, journal_db):
         """End-to-end: live mode (dry_run=False), client returns retCode=10001."""
         import sqlite3

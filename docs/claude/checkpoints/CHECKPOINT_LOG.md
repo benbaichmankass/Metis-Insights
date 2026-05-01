@@ -11,6 +11,82 @@ See `../checkpoint-workflow.md` for the full rules.
 
 ---
 
+## CP-2026-05-01-02 — `/smoke_test` defaults to LIVE + per-account client factory
+
+- **Session date:** 2026-05-01
+- **Sprint:** ad-hoc operator request — flip the smoke command from
+  defaulting to dry-run over to defaulting to live.
+- **Current sprint phase:** OPEN.
+- **Last completed checkpoint:** CP-2026-05-01-01 (PR #230 merged).
+- **Next checkpoint:** **CP-2026-05-01-03** — operator's choice.
+- **Telegram sent:** auto-ping fires off this commit (touches CHECKPOINT_LOG.md).
+- **Alerts sent during session:** none.
+- **Blockers:** none.
+
+### 1. Completed
+
+After CP-2026-05-01-01 shipped `/smoke_test` it always came back as
+`status="dry_run"` because the default left dry_run resolution to the
+DRY_RUN env var. This checkpoint flips the default so `/smoke_test`
+goes **live** unless the operator explicitly passes `dry`.
+
+- `src/core/coordinator.py::smoke_test_run` — new
+  `exchange_client_factory` param. Resolved once per account inside the
+  loop so multi-account live runs route each order through the right
+  wallet's keys (passing one `exchange_client` to every account would
+  mis-route). Factory exceptions are caught and the offending account
+  falls back to dry-run with a warning. Explicit `exchange_client`
+  still wins when both are set.
+- `src/bot/telegram_query_bot.py::cmd_smoke_test` —
+  `force_dry` defaults to `False` (LIVE). New args:
+    - `dry` / `dry-run` / `dry_run` → forced dry
+    - `live` / `real`               → forced live (explicit)
+    - `all` / `*`                   → all accounts (default anyway)
+  New helper `_smoke_test_client_factory` dispatches on
+  `account_cfg["exchange"]` to either `dl.bybit_client_for` or
+  `dl.binance_conn_for`. Passed as `exchange_client_factory` to the
+  coordinator.
+- `BotCommand` description and `/help` markdown updated to flag the
+  new "LIVE by default" semantics so the operator can't be surprised.
+- `tests/test_smoke_test_pipeline.py` — 4 new tests:
+    - factory called once per account
+    - factory returning None falls back to dry-run
+    - factory raising is caught (no crash)
+    - explicit `exchange_client` overrides the factory
+  All 24 tests pass.
+
+### 2. Files changed
+
+- `src/core/coordinator.py`
+- `src/bot/telegram_query_bot.py`
+- `tests/test_smoke_test_pipeline.py`
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+
+- `PYTHONPATH=. pytest tests/test_smoke_test_pipeline.py -v` —
+  **24/24 pass** (0.69s).
+- `PYTHONPATH=. pytest tests/test_s008_accounts.py
+  tests/test_s008_strategies.py tests/test_s008_coordinator.py
+  tests/test_s010_accounts.py tests/test_s012_risk_caps.py
+  tests/test_telegram_query_bot.py tests/test_s007_bot_commands.py
+  tests/test_smoke_test_trade.py -q` — **243/244 pass**. The one
+  failure (`TestCmdStatusMultiAccount::test_shows_block_per_account`)
+  is the same pre-existing failure on `main` (stale assertion looking
+  for `ict-trader-live` after S-016 H1 deliberately removed per-account
+  systemd unit names from `/status`).
+- `python scripts/secret_scan.py` — clean.
+
+### 4. Remaining
+
+- None.
+
+### 5. Next checkpoint
+
+**CP-2026-05-01-03** — operator's choice.
+
+---
+
 ## CP-2026-05-01-01 — `/smoke_test` Telegram command + live-plumbing pipeline
 
 - **Session date:** 2026-05-01

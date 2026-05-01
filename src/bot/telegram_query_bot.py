@@ -577,7 +577,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/accounts\\_status — Per-account risk state\n"
         "/risk\\_check <account> — Risk details for one account\n"
         "/smoke\\_test \\[account\\] \\[dry\\] — Live-plumbing smoke "
-        "\\(strategies → accounts → exchange, journaled\\)\n"
+        "*\\(LIVE by default; pass `dry` to simulate\\)*\n"
         "/strategies — Per-strategy signals, PnL and positions\n"
         "/reload\\_strats — Reload strategies.yaml without restart\n"
         "/balance — Account balance\n"
@@ -1883,19 +1883,40 @@ async def cmd_accounts_status(update: Update, context: ContextTypes.DEFAULT_TYPE
         await update.message.reply_text(f"⚠️ Could not load accounts status: {e}")
 
 
+def _smoke_test_client_factory(account_cfg: dict):
+    """Resolve a per-account exchange client for the smoke test.
+
+    Dispatches on ``account_cfg['exchange']`` so multi-account smoke
+    runs use each account's own keys (passing one client to every
+    account would mis-route orders into the wrong wallet).
+    """
+    exchange = str((account_cfg or {}).get("exchange", "")).lower()
+    if exchange == "bybit":
+        return dl.bybit_client_for(account_cfg)
+    if exchange == "binance":
+        try:
+            return dl.binance_conn_for(account_cfg)
+        except AttributeError:
+            return None
+    return None
+
+
 async def cmd_smoke_test(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Run a live-plumbing smoke trade: strategies → coordinator → accounts → exchange.
 
     Usage:
-        /smoke_test                  — run on every account in accounts.yaml
-        /smoke_test <account>        — run on a single account (e.g. /smoke_test bybit_2)
+        /smoke_test                  — run LIVE on every account in accounts.yaml
+        /smoke_test <account>        — run LIVE on a single account (e.g. /smoke_test bybit_2)
         /smoke_test <account> dry    — force dry-run (no exchange call)
+        /smoke_test all dry          — force dry-run on all accounts
 
-    Builds a ``smoke_test`` OrderPackage tagged ``meta.is_test=True``,
-    bypasses the risk gate by design, ships a 0.0001 BTC qty (below
-    Bybit min-lot) through ``account_execute()``, captures Bybit's
-    "qty invalid" rejection as the success signal, and writes a row
-    to ``trade_journal.db`` with ``strategy_name='smoke_test'``.
+    The default is now **live**: a ``smoke_test`` OrderPackage tagged
+    ``meta.is_test=True`` is shipped through ``account_execute()`` with
+    a 0.0001 BTC qty (below Bybit's min-lot), the risk gate is
+    bypassed by design, Bybit's "qty invalid" rejection is captured
+    as the success signal, and a row is written to
+    ``trade_journal.db`` with ``strategy_name='smoke_test'``. The qty
+    is the safety cap — it's intentionally too small to ever fill.
     """
     if not is_authorised(update):
         return
@@ -1904,50 +1925,34 @@ async def cmd_smoke_test(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("⚠️ Coordinator unavailable.")
         return
 
+    # Default is LIVE. ``dry`` opts in to the safe dry-run path.
     args = list(context.args or [])
     account_id: str | None = None
-    force_dry: bool | None = None
-    if args:
-        account_id = args[0].strip()
-        if len(args) > 1 and args[1].strip().lower() in {"dry", "dry-run", "dry_run"}:
+    force_dry: bool | None = False
+    for arg in args:
+        a = arg.strip().lower()
+        if a in {"dry", "dry-run", "dry_run"}:
             force_dry = True
+        elif a in {"live", "real"}:
+            force_dry = False
+        elif a in {"all", "*"}:
+            account_id = None
+        elif account_id is None:
+            account_id = arg.strip()
 
     await update.message.reply_text(
-        f"🧪 Running live-plumbing smoke test"
-        + (f" on `{account_id}`" if account_id else " (all accounts)")
-        + ("  _[forced dry-run]_" if force_dry else "")
-        + "…",
+        ("🧪 Running smoke test "
+         + ("(LIVE)" if not force_dry else "(forced dry-run)")
+         + (f" on `{account_id}`" if account_id else " on all accounts")
+         + "…"),
         parse_mode="Markdown",
     )
-
-    accounts_for_clients: list[dict] = []
-    try:
-        if account_id:
-            accounts_for_clients = [
-                a for a in (dl.list_accounts() or [])
-                if a.get("account_id") == account_id
-            ]
-        else:
-            accounts_for_clients = dl.list_accounts() or []
-    except Exception as exc:  # noqa: BLE001
-        accounts_for_clients = []
-        logger.warning("cmd_smoke_test: list_accounts failed: %s", exc)
-
-    # Resolve a single exchange_client when running against one account;
-    # when running against many, the coordinator falls back to per-call
-    # dry-run (passing one client to every account would mis-route keys).
-    exchange_client = None
-    if account_id and accounts_for_clients and not force_dry:
-        try:
-            exchange_client = dl.bybit_client_for(accounts_for_clients[0])
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("cmd_smoke_test: bybit_client_for failed: %s", exc)
 
     try:
         result = await asyncio.to_thread(
             coord.smoke_test_run,
             account_id,
-            exchange_client=exchange_client,
+            exchange_client_factory=(None if force_dry else _smoke_test_client_factory),
             dry_run=force_dry,
         )
     except Exception as exc:  # noqa: BLE001
@@ -2078,7 +2083,7 @@ def main():
             BotCommand("accounts", "List accounts or toggle dry/live: /accounts dry|live <name>"),
             BotCommand("accounts_status", "Per-account risk state (daily PnL, halted)"),
             BotCommand("risk_check", "Risk details for one account: /risk_check <name>"),
-            BotCommand("smoke_test", "Live-plumbing smoke: /smoke_test [account] [dry]"),
+            BotCommand("smoke_test", "Live-plumbing smoke (LIVE by default): /smoke_test [account] [dry]"),
             BotCommand("strategies", "Per-strategy signals, PnL and positions"),
             BotCommand("reload_strats", "Reload strategy config from strategies.yaml"),
             BotCommand("balance", "Account balance"),
