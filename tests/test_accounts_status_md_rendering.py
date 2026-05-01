@@ -50,12 +50,11 @@ def _run(coro):
     return asyncio.get_event_loop().run_until_complete(coro)
 
 
-def test_underscores_in_error_string_escaped_so_telegram_renders_them():
-    """Diagnostic for missing env vars contains BYBIT_API_KEY_1 etc.
-    Without escaping, Telegram would render this as BYBITAPIKEY1
-    (italic markers stripped). The reply must contain the escaped
-    form `BYBIT\\_API\\_KEY\\_1` so Telegram renders the underscores
-    literally.
+def test_underscores_in_error_string_render_literally_under_html():
+    """Switched to parse_mode=HTML so underscores need no escaping —
+    they render literally. The previous Markdown-with-backslashes
+    fix produced a visible `\\_` because Telegram's legacy Markdown
+    doesn't process the escape sequence.
     """
     update = _make_update()
     fake_coord = MagicMock()
@@ -81,17 +80,22 @@ def test_underscores_in_error_string_escaped_so_telegram_renders_them():
         _run(cmd_accounts_status(update, MagicMock()))
 
     update.message.reply_text.assert_awaited_once()
-    msg = update.message.reply_text.await_args.args[0]
-    # Underscores in the dynamic content must be escaped so Telegram's
-    # Markdown parser doesn't eat them as italic markers.
-    assert "BYBIT\\_API\\_KEY\\_1" in msg
-    assert "BYBIT\\_API\\_SECRET\\_1" in msg
-    # Account name with underscore must also be escaped.
-    assert "bybit\\_1" in msg
+    args, kwargs = update.message.reply_text.await_args.args, \
+        update.message.reply_text.await_args.kwargs
+    msg = args[0]
+    assert kwargs.get("parse_mode") == "HTML"
+    # Underscores render literally — no escaping needed in HTML mode.
+    assert "BYBIT_API_KEY_1" in msg
+    assert "BYBIT_API_SECRET_1" in msg
+    assert "bybit_1" in msg
+    # Backslash-escapes from the previous (broken) Markdown fix must NOT
+    # appear in the rendered output.
+    assert "\\_" not in msg
 
 
 def test_account_with_no_special_chars_unaffected():
-    """Account names + errors without underscores render identically."""
+    """Account names + errors without underscores still render correctly
+    with bold formatting via <b> tags."""
     update = _make_update()
     fake_coord = MagicMock()
     fake_coord.accounts_status.return_value = [
@@ -114,14 +118,12 @@ def test_account_with_no_special_chars_unaffected():
         _run(cmd_accounts_status(update, MagicMock()))
 
     msg = update.message.reply_text.await_args.args[0]
-    assert "*main*" in msg  # bold name still works
+    assert "<b>main</b>" in msg  # bold via HTML
     assert "$1,234.56" in msg
 
 
-def test_retcode_error_text_underscores_escaped():
-    """retCode/retMsg failures don't typically have underscores in the
-    message itself, but the operator's filename / path might. Make sure
-    no accidental italic spans are introduced."""
+def test_retcode_error_text_renders_literally():
+    """retCode/retMsg failures appear verbatim, no escape artefacts."""
     update = _make_update()
     fake_coord = MagicMock()
     fake_coord.accounts_status.return_value = [
@@ -146,3 +148,33 @@ def test_retcode_error_text_underscores_escaped():
     msg = update.message.reply_text.await_args.args[0]
     assert "10003" in msg
     assert "API key is invalid" in msg
+
+
+def test_html_special_chars_in_dynamic_content_are_escaped():
+    """If a dynamic value somehow contains <, >, or & it must be HTML-
+    escaped so Telegram doesn't parse it as a tag."""
+    update = _make_update()
+    fake_coord = MagicMock()
+    fake_coord.accounts_status.return_value = [
+        {
+            "name": "weird<name>",
+            "exchange": "bybit",
+            "account_type": "regular",
+            "halted": False,
+            "daily_pnl": 0.0,
+            "max_daily_loss_usd": 100.0,
+            "max_pos_size_usd": 500.0,
+            "open_positions": 0,
+            "live_balance_usdt": None,
+            "live_balance_error": "error with <html> & more",
+        }
+    ]
+    with patch("src.bot.telegram_query_bot.is_authorised", return_value=True), \
+            patch("src.bot.telegram_query_bot.get_coordinator",
+                  return_value=fake_coord):
+        _run(cmd_accounts_status(update, MagicMock()))
+
+    msg = update.message.reply_text.await_args.args[0]
+    assert "weird&lt;name&gt;" in msg
+    assert "&lt;html&gt;" in msg
+    assert "&amp;" in msg

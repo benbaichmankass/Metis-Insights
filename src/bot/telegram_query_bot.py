@@ -1904,18 +1904,21 @@ async def cmd_accounts_status(update: Update, context: ContextTypes.DEFAULT_TYPE
             await update.message.reply_text("ℹ️ No accounts found in accounts.yaml.")
             return
 
-        # Telegram's "Markdown" parse mode treats `_` as an italic
-        # marker and silently strips it. Env-var names like
-        # BYBIT_API_KEY_1 in error strings ended up rendering as
-        # BYBITAPIKEY1, which made the diagnostic useless. Escape
-        # the dynamic strings before interpolating.
-        def _md_escape(s: object) -> str:
+        # Telegram's legacy "Markdown" parse mode treats `_` as italic
+        # markers and silently strips them — env-var names like
+        # BYBIT_API_KEY_1 in error strings rendered as BYBITAPIKEY1.
+        # `\_` escapes don't work in legacy Markdown either (they only
+        # work in MarkdownV2). HTML parse mode has the simplest reliable
+        # escaping: just &amp; &lt; &gt; for the three special chars.
+        def _h(s: object) -> str:
             text = str(s) if s is not None else ""
-            for ch in ("_", "*", "`", "["):
-                text = text.replace(ch, "\\" + ch)
-            return text
+            return (
+                text.replace("&", "&amp;")
+                    .replace("<", "&lt;")
+                    .replace(">", "&gt;")
+            )
 
-        lines = ["📋 *Accounts Status* (risk + live API)\n"]
+        lines = ["📋 <b>Accounts Status</b> (risk + live API)\n"]
         for s in statuses:
             halted_icon = "🔴" if s.get("halted") else "🟢"
             pnl = float(s.get("daily_pnl", 0))
@@ -1925,19 +1928,19 @@ async def cmd_accounts_status(update: Update, context: ContextTypes.DEFAULT_TYPE
             bal = s.get("live_balance_usdt")
             bal_err = s.get("live_balance_error")
             if bal_err:
-                api_line = f"  🔌 API: ❌ {_md_escape(bal_err)}"
+                api_line = f"  🔌 API: ❌ {_h(bal_err)}"
             elif bal is not None:
                 api_line = f"  🔌 API: ✅ Balance ${float(bal):,.2f} USDT"
             else:
                 api_line = "  🔌 API: ⚠️ no balance returned"
             lines.append(
-                f"{halted_icon} *{_md_escape(s['name'])}* "
-                f"(`{s.get('exchange', '?')}` / {_md_escape(s.get('account_type', '?'))})\n"
+                f"{halted_icon} <b>{_h(s['name'])}</b> "
+                f"(<code>{_h(s.get('exchange', '?'))}</code> / {_h(s.get('account_type', '?'))})\n"
                 f"{api_line}\n"
                 f"  💵 Daily PnL: ${pnl:+.2f} / limit ${limit:.0f}\n"
                 f"  📦 Max pos: ${pos_size:.0f} | Open: {open_pos}"
             )
-        await update.message.reply_text("\n\n".join(lines), parse_mode="Markdown")
+        await update.message.reply_text("\n\n".join(lines), parse_mode="HTML")
     except Exception as e:
         await update.message.reply_text(f"⚠️ Could not load accounts status: {e}")
 
