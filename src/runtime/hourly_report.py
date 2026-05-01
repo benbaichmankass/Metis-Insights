@@ -369,11 +369,18 @@ def health_summary(
     outcomes: Dict[str, Any],
     tick_interval_s: int,
     now_utc: datetime,
+    health_checks: Optional[List[Any]] = None,
 ) -> Dict[str, Any]:
-    """Lightweight health snapshot.
+    """Health snapshot.
 
-    PR3 will replace this with a full health module that adds VM service
-    status, repo-vs-VM HEAD drift, DB writability, and disk free.
+    PR3 replaced the thin slice with the full set in
+    ``src/runtime/health.py``. The legacy fields (``tick_age_s``,
+    ``tick_stale``, outcome counts, ``overall``) remain so the renderer
+    and tests can keep their existing shape; the new
+    ``checks`` field carries the full HealthCheck list.
+
+    ``health_checks`` may be passed in by callers/tests; if omitted,
+    ``run_all_checks`` is invoked at call time.
     """
     tick_age_s: Optional[float] = None
     tick_stale = False
@@ -389,10 +396,22 @@ def health_summary(
 
     has_critical = (outcomes.get("critical_count") or 0) > 0
     has_error = (outcomes.get("error_count") or 0) > 0
+
+    if health_checks is None:
+        try:
+            from src.runtime.health import run_all_checks
+            health_checks = run_all_checks()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("hourly_report: run_all_checks failed: %s", exc)
+            health_checks = []
+
+    checks_critical = any(c.status == "critical" for c in health_checks)
+    checks_warn = any(c.status == "warn" for c in health_checks)
+
     overall = "ok"
-    if has_critical or tick_stale:
+    if has_critical or tick_stale or checks_critical:
         overall = "degraded"
-    elif has_error:
+    elif has_error or checks_warn:
         overall = "warn"
 
     return {
@@ -402,6 +421,7 @@ def health_summary(
         "warn_count": outcomes.get("warn_count", 0),
         "error_count": outcomes.get("error_count", 0),
         "critical_count": outcomes.get("critical_count", 0),
+        "checks": health_checks,
         "overall": overall,
     }
 
@@ -507,6 +527,9 @@ def render_report(report: Dict[str, Any]) -> str:
         f"(expected <= {health['tick_interval_s'] // 60}m)"
         + ("  STALE" if health["tick_stale"] else "")
     )
+    for c in (health.get("checks") or []):
+        marker = {"ok": "OK", "warn": "WARN", "critical": "CRIT"}.get(c.status, "?")
+        lines.append(f"  [{marker}] {c.name}: {c.detail}")
     lines.append(
         f"  Errors (last hour): "
         f"{health['critical_count']} critical, "
