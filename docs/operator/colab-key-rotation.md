@@ -73,7 +73,7 @@ notebook can read it.
 
 The cleanest path: keep your VM SSH **private** key in the same Drive
 folder as your encrypted master secrets. The notebook mounts Drive on
-`Run all` and reads the key from there.
+the **first** cell of `Run all` and reads the key from there.
 
 1. Open Google Drive in a browser.
 2. Navigate to (or create) `My Drive/ICT_Bot_Secrets/`.
@@ -83,7 +83,7 @@ folder as your encrypted master secrets. The notebook mounts Drive on
 
 | Preferred | Also accepted |
 |---|---|
-| `vm_ssh_key` | `id_rsa`, `id_ed25519`, `id_ecdsa`, `ict-bot-ovm-private.key` |
+| `ict-bot-ovm-private.key` | `vm_ssh_key`, `id_rsa`, `id_ed25519`, `id_ecdsa` |
 
 Or, if your key has a different name and you don't want to rename:
 add a Colab Secret called `SSH_KEY_FILE` with the exact filename. The
@@ -93,12 +93,16 @@ notebook will look for it first.
 notebook checks the first line of the file and refuses anything that
 doesn't start with `-----BEGIN`.
 
-#### Fallback: drag-drop to the Colab Files panel
+#### Fallback: file-picker upload
 
-If you don't want to use Drive, you can drag the key file directly
-into the Colab **📁 Files** panel (left sidebar) at the start of each
-session. The notebook checks Drive first, then `/content/`. Same
-filename rules.
+If your key file isn't in Drive (or Drive can't be mounted in this
+session), the notebook automatically pops a **"Choose Files"** picker
+in the cell output. Click it and select your key file from your
+computer. The notebook uses it for this run only — the file is wiped
+when the Colab session ends.
+
+This is the automatic safety net: even if Drive setup is wrong, you
+won't get stuck.
 
 ### 4. Confirm SSH from the VM works
 
@@ -167,21 +171,45 @@ required secret is present and the toggle is on.
   IPs are GCP, usually allowed). Try from your laptop first to confirm
   the key works at all.
 
-### `SSH key file not found`
+### Notebook pops "Choose Files" — what now?
 
-The notebook checked both `My Drive/ICT_Bot_Secrets/` and
-`/content/` and didn't see a key file with any of the accepted
-names (`vm_ssh_key`, `id_rsa`, `id_ed25519`, `id_ecdsa`,
-`ict-bot-ovm-private.key`). Three fixes, in order of preference:
+That's the automatic fallback when your key isn't found in Drive
+(or Drive isn't mounted). Click **Choose Files**, pick your VM SSH
+private key file from your computer, and the notebook continues.
 
-1. **Move/copy your key to Drive** — put the file in
-   `My Drive/ICT_Bot_Secrets/` and re-run.
-2. **Set the filename override** — if your key has a different name,
-   add a Colab Secret called `SSH_KEY_FILE` with the exact filename
-   (e.g. `my-vm-key`). The notebook will look for it first.
-3. **Drag-drop into Colab Files** — if you don't want to use Drive,
-   drag the key into the 📁 Files panel (left sidebar) before
-   running.
+Permanent fix: put the file at
+`My Drive/ICT_Bot_Secrets/ict-bot-ovm-private.key` so future runs
+find it without prompting.
+
+### "No file uploaded" after the picker closed
+
+You closed the picker without selecting a file. Re-run **just that
+cell** (Step 1B) — it'll prompt again. Or place the key in Drive
+and re-run all.
+
+### `does not look like a private key`
+
+The notebook's safety check rejected the uploaded/located file
+because it doesn't begin with `-----BEGIN`. Most common cause: it's
+the **public** key (the `.pub` file) instead of the private one.
+Same directory on your laptop — make sure you grab the one *without*
+the `.pub` extension.
+
+### Drive mount didn't pop a dialog
+
+The very first cell mounts Drive. If you see "Drive is NOT mounted",
+either:
+
+- The auth dialog opened in a popup that was blocked — re-run cell 1
+  with popups allowed.
+- You declined access — re-run and click Allow.
+- A stale Colab session has a token cached but the mount silently
+  fails. The cell auto-retries with `force_remount=True`; if that
+  still fails, restart the runtime (`Runtime → Disconnect and delete
+  runtime`) and try again.
+
+If Drive truly can't mount, the file picker fallback will take over
+in cell 1B — you can still complete the rotation.
 
 ### `does not look like a private key`
 
