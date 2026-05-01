@@ -84,11 +84,25 @@ def build_stats(
     )
     from src.units.dashboards.alerts import list_alerts
 
+    def _swallow(action: str, reason: str, exc: BaseException) -> None:
+        """Report a swallowed dashboard exception. Never raises.
+
+        Per-fingerprint dedup in outcomes.report keeps a flapping
+        loader from spamming the operator on every dashboard render.
+        """
+        try:
+            from src.runtime.outcomes import Level, report as _report
+            _report(action, reason, level=Level.WARN,
+                    reason_text=f"{type(exc).__name__}: {exc}")
+        except Exception:  # noqa: BLE001
+            pass
+
     # --- Strategies ----------------------------------------------------------
     if strategy_rows is None:
         try:
             strategy_rows = strategy_dashboard_data()
-        except Exception:
+        except Exception as exc:  # noqa: BLE001
+            _swallow("dashboard_stats", "strategy_data_failed", exc)
             strategy_rows = []
 
     enriched_strategies = []
@@ -117,16 +131,19 @@ def build_stats(
             try:
                 bal_result = account_balance({**acc, "account_id": aid})
                 balance = bal_result.get("total_usdt") if bal_result else None
-            except Exception:
+            except Exception as exc:  # noqa: BLE001
+                _swallow("dashboard_stats", "balance_failed", exc)
                 balance = None
             try:
                 open_positions = account_open_positions({**acc, "account_id": aid})
-            except Exception:
+            except Exception as exc:  # noqa: BLE001
+                _swallow("dashboard_stats", "positions_failed", exc)
                 open_positions = None
 
         try:
             last_trade = account_last_trade({**acc, "account_id": aid})
-        except Exception:
+        except Exception as exc:  # noqa: BLE001
+            _swallow("dashboard_stats", "last_trade_failed", exc)
             last_trade = None
 
         enriched_accounts.append({

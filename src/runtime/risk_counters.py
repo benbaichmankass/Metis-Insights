@@ -44,6 +44,18 @@ def inject_runtime_counters(settings: dict, exchange_client: Any) -> dict:
             s["CURRENT_OPEN_POSITIONS"] = str(len(positions))
         except Exception as exc:
             logger.warning("inject_runtime_counters: exchange positions error — %s", exc)
+            # Surfaced via outcomes so a flaky exchange API doesn't
+            # silently disable the MAX_OPEN_POSITIONS guard.
+            try:
+                from src.runtime.outcomes import Level, report
+                report(
+                    "risk_counters",
+                    "positions_fetch_failed",
+                    level=Level.WARN,
+                    reason=f"{type(exc).__name__}: {exc}",
+                )
+            except Exception:  # noqa: BLE001
+                pass  # outcomes shouldn't crash the tick
 
     # ---- daily loss: trade journal DB (closed live trades only) ----
     db_path = settings.get("TRADE_JOURNAL_DB") or os.environ.get("TRADE_JOURNAL_DB")
@@ -63,6 +75,18 @@ def inject_runtime_counters(settings: dict, exchange_client: Any) -> dict:
             s["CURRENT_DAILY_LOSS_USD"] = str(abs(min(0.0, sum_pnl)))
         except Exception as exc:
             logger.warning("inject_runtime_counters: DB error — %s", exc)
+            # Safety-relevant: a failed read here means
+            # MAX_DAILY_LOSS_USD silently won't be enforced.
+            try:
+                from src.runtime.outcomes import Level, report
+                report(
+                    "risk_counters",
+                    "daily_loss_fetch_failed",
+                    level=Level.WARN,
+                    reason=f"{type(exc).__name__}: {exc}",
+                )
+            except Exception:  # noqa: BLE001
+                pass
 
     return s
 
@@ -121,5 +145,16 @@ def inject_per_strategy_counters(
             conn.close()
     except Exception as exc:
         logger.warning("inject_per_strategy_counters: DB error — %s", exc)
+        try:
+            from src.runtime.outcomes import Level, report
+            report(
+                "risk_counters",
+                "per_strategy_fetch_failed",
+                level=Level.WARN,
+                reason=f"{type(exc).__name__}: {exc}",
+                strategy=strategy_name,
+            )
+        except Exception:  # noqa: BLE001
+            pass
 
     return s

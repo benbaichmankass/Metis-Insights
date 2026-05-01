@@ -5,6 +5,96 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-01-10 — S-022 PR4: silent-except sweep (runtime/core/units)
+
+- **Session date:** 2026-05-01
+- **Sprint:** sprint-plan-2026-05-01 (S-022 — error monitoring)
+- **Current sprint phase:** Phase 4 of 6 — silent-except sweep
+- **Last completed checkpoint:** CP-2026-05-01-09 (PR3 health module, MERGED #238)
+- **Next checkpoint:** **CP-2026-05-01-11 — S-022 PR5: heartbeat watcher** —
+  add `runtime_logs/heartbeat.txt` mtime touch on every successful tick;
+  pivot `check_tick_freshness` to read it; add a VM-side standalone
+  check script that pings on stale heartbeat between hourly reports.
+- **Telegram sent:** pending — checkpoint commit triggers VM-side ping
+- **Alerts sent during session:** none
+- **Blockers:** none
+
+### 1. Completed
+Surgical replacement of the highest-value silent failures in
+`src/runtime/`, `src/core/`, `src/units/`. Audit pass identified ~25
+sites; this PR converts the **6 most operationally important** ones
+to `outcomes.report()` calls. The remainder are either already
+logging at warning level (acceptable) or are downstream of paths
+that already report (no change needed).
+
+Sites converted (all WARN — operator should know but not be paged
+hard):
+1. `src/runtime/pipeline.py:675` — audit `log_signal()` failure was
+   `except Exception: pass`. Now reports `audit_log:write_failed`.
+2. `src/runtime/risk_counters.py:46` — exchange positions fetch
+   failure now reports `risk_counters:positions_fetch_failed`.
+   Otherwise the `MAX_OPEN_POSITIONS` guard silently disables.
+3. `src/runtime/risk_counters.py:65` — daily-loss DB read failure
+   now reports `risk_counters:daily_loss_fetch_failed`. **Safety
+   relevant** — without this counter, `MAX_DAILY_LOSS_USD` won't fire.
+4. `src/runtime/risk_counters.py:122` — per-strategy DB read failure
+   now reports `risk_counters:per_strategy_fetch_failed` (with
+   strategy_name in context).
+5. `src/units/dashboards/stats.py` x4 — strategy_data,
+   balance, positions, last_trade fetch failures all reported via a
+   shared `_swallow()` helper (`dashboard_stats:*_failed`).
+6. `src/core/coordinator.py:1016` — `_log_smoke_to_journal` failure
+   now reports `smoke_test:journal_write_failed`. Previously a
+   broken DB write made smoke results look like they ran but no
+   trace was preserved.
+
+All inserted reports are wrapped in their own try/except so an
+outcomes.report failure cannot break the host call site (defense in
+depth — `outcomes.report` is already non-raising, but this pattern
+preserves correctness even if someone breaks that contract later).
+
+### 2. Files changed
+- `src/runtime/pipeline.py` — convert audit `except: pass` to
+  `report(WARN)`.
+- `src/runtime/risk_counters.py` — wire WARN reports into the 3
+  swallowed exception handlers.
+- `src/units/dashboards/stats.py` — `_swallow()` helper + 4 call
+  sites converted.
+- `src/core/coordinator.py` — wire WARN report in `_log_smoke_to_journal`.
+- `tests/test_silent_except_sweep.py` — **new**, 7 tests covering
+  every converted site.
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_silent_except_sweep.py -q` — 7 passed.
+- `PYTHONPATH=. pytest tests/test_silent_except_sweep.py tests/test_health.py
+  tests/test_hourly_report.py tests/test_outcomes.py
+  tests/test_outcomes_integration.py tests/test_orders.py
+  tests/test_smoke_test_pipeline.py tests/test_s008_coordinator.py
+  tests/test_s010_accounts.py -q` — **180 passed, 1 failed** (the
+  failure is `test_record_trade_updates_daily_pnl`, the same
+  pre-existing pytest 9/numpy MagicMock issue from PR1's baseline,
+  unrelated to this PR).
+- `python scripts/repo_inventory.py` — pass.
+- `python scripts/secret_scan.py` — pass.
+
+### 4. Remaining
+- PR5 — heartbeat watcher + VM-side checker.
+- PR6 — bot/web sweep.
+- Sprint summary PR.
+
+### 5. Next checkpoint
+**CP-2026-05-01-11** — Build PR5 (heartbeat). First reads:
+1. `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry).
+2. `src/main.py` `run_one_tick` — add `Path("runtime_logs/heartbeat.txt").touch()`
+   on every successful tick.
+3. `src/runtime/health.py::check_tick_freshness` — pivot from
+   `signal_audit.jsonl` mtime to `heartbeat.txt` mtime.
+4. `scripts/deploy_pull_restart.sh` — add a sibling
+   `scripts/check_heartbeat.sh` that runs on the timer and pings
+   if stale.
+
+---
+
 ## CP-2026-05-01-09 — S-022 PR3: health module + hourly-report integration
 
 - **Session date:** 2026-05-01
