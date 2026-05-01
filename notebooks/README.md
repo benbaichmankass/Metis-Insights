@@ -14,3 +14,15 @@ Rules:
   yfinance, or our Hugging Face datasets). See
   [`docs/claude/testing-policy.md`](../docs/claude/testing-policy.md#test-data-sources-read-first)
   for the full policy.
+
+## Templates
+
+- `templates/colab_template.ipynb` — minimal generic one-task scaffold.
+- `templates/hf_dataset_push.ipynb` — push a dataset to Hugging Face.
+- `templates/triggered-backtest.ipynb` — process a backtest job from the VM queue.
+- `templates/training_improvement_template.ipynb` — autonomous "improve a
+  strategy / model" run. Reads `GITHUB_TOKEN` + `GITHUB_USERNAME` from Colab
+  Secrets, runs experiments per `experiments/<RUN_ID>/PLAN.md`, commits
+  results to a fresh branch, and opens a draft `TRAINING-RESULTS:` PR.
+  Used by [`docs/claude/training-improvement-workflow.md`](../docs/claude/training-improvement-workflow.md)
+  Stage 2.

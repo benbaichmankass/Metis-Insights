@@ -37,6 +37,7 @@ open a draft PR titled `BLOCKED: <question>` — see § Telegram Reporting.
 | Bug fix / regression | `docs/claude/session-workflow.md`, `docs/claude/debug-memory.md`, `docs/claude/testing-policy.md`, `docs/claude/bug-log.md` (append after each fix) |
 | Repo cleanup | `docs/claude/cleanup-policy.md`, `docs/claude/cleanup-report.md` |
 | ML model work | `docs/claude/ml-training-policy.md`, `docs/claude/external-delegation.md` |
+| Training / improvement session (strategy or model) | `docs/claude/training-improvement-workflow.md`, `docs/claude/ml-training-policy.md`, `docs/claude/colab-workflows.md` |
 | Colab work | `docs/claude/colab-workflows.md` |
 | Hugging Face work | `docs/claude/huggingface-workflows.md` |
 | Deployment / Oracle VM | `docs/claude/deployment-ops.md`, `docs/claude/security-secrets.md` |
@@ -115,6 +116,20 @@ The full spec lives in `docs/claude/telegram-pings.md`. The short version:
   next pull.
 - Manual fallback (rarely needed): `PYTHONPATH=. python
   scripts/notify_session.py session …`.
+- **Pings ride on PRs and commits** — that is the channel. ≤ 5 min
+  delivery via the existing VM wiring is acceptable for everything
+  except blockers (which double-route via the GitHub draft-PR
+  notification). Do not add a synchronous notification dependency to
+  any sprint workflow; commit-then-ping is the only contract.
+- **Mid-session operator input** — when an autonomous session needs
+  steering, the `[BLOCKED-PM]` commit + `BLOCKED:` draft PR is the
+  mechanism. The PR body MUST include the **chat link** so the
+  operator can click through and answer in the same session that's
+  waiting. Then stop until they reply.
+- **Training / improvement sessions** use four additional title
+  prefixes (`[TRAINING-START]`, `TRAINING-PLAN:`, `TRAINING-RESULTS:`,
+  `RECOMMENDATIONS (PM REVIEW):`) that all ride on the existing
+  ping wiring — see `docs/claude/training-improvement-workflow.md`.
 
 ## Bug log (MANDATORY)
 

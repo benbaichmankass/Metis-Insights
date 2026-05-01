@@ -87,3 +87,17 @@ htmlcov/
 ml/data/raw/
 ml/data/processed/
 ml/models/checkpoints/
+
+# Training experiments — keep PLAN.md + results/ (text/metrics/plots),
+# ignore raw datasets and large intermediate artifacts.
+# See docs/claude/training-improvement-workflow.md.
+experiments/**/*
+!experiments/
+!experiments/**/PLAN.md
+!experiments/**/results/
+!experiments/**/results/**
+experiments/**/results/**/*.parquet
+experiments/**/results/**/*.csv
+experiments/**/results/**/*.pt
+experiments/**/results/**/*.pth
+experiments/**/results/**/*.safetensors

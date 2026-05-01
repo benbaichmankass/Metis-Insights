@@ -33,6 +33,7 @@ Remove stale instructions when they waste context.
 - `huggingface-workflows.md`: datasets/models/Spaces patterns.
 - `testing-policy.md`: local vs remote checks.
 - `ml-training-policy.md`: ML training boundaries.
+- `training-improvement-workflow.md`: 4-stage autonomous "improve a strategy / model" cycle (research → notebook → Colab run → recommendations PR).
 - `deployment-ops.md`: Oracle/live bot operations.
 - `git-workflow.md`: branch, commit, push rules.
 - `security-secrets.md`: credential rules.
