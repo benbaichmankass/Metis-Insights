@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 
 from src.exchange.binance_connector import BinanceConnector
 from src.exchange.bybit_connector import BybitConnector
+from src.runtime.outcomes import Level, report
 from src.runtime.pipeline import run_pipeline
 from src.runtime.validation import build_settings_from_env, validate_startup
 
@@ -117,6 +118,14 @@ def run_one_tick(settings: dict, exchange_client, telegram_client) -> dict:
         telegram_client=telegram_client,
     )
     logger.info("Tick result: %s", result)
+    order_result = (result or {}).get("order_result") or {}
+    status = order_result.get("status", "unknown")
+    report(
+        "pipeline_tick",
+        status,
+        level=Level.INFO,
+        symbol=(result or {}).get("signal", {}).get("symbol"),
+    )
     return result
 
 
@@ -159,10 +168,12 @@ def main() -> None:
             run_one_tick(settings, exchange_client, telegram_client)
         except Exception as exc:
             logger.exception("Tick failed with unhandled exception: %s", exc)
-            try:
-                telegram_client.send_message(f"[ICT Bot] Tick error: {exc}")
-            except Exception:
-                pass
+            report(
+                "pipeline_tick",
+                "exception",
+                level=Level.CRITICAL,
+                reason=f"{type(exc).__name__}: {exc}",
+            )
         now_utc = datetime.now(timezone.utc)
         try:
             if should_send_summary(now_utc):

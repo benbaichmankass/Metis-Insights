@@ -5,6 +5,112 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-01-07 — S-022 PR1: outcomes.report() foundation + tick-loop wiring
+
+- **Session date:** 2026-05-01
+- **Sprint:** sprint-plan-2026-05-01 (S-022 — error monitoring)
+- **Current sprint phase:** Phase 1 of 6 — central reporter + tick-loop +
+  pipeline order callers
+- **Last completed checkpoint:** CP-2026-05-01-06 (API integration fixes)
+- **Next checkpoint:** **CP-2026-05-01-08 — S-022 PR2: hourly summary** —
+  flip `should_send_summary` cadence from 2x/day to hourly, build
+  `src/runtime/hourly_report.py` that assembles trades / PnL / accounts /
+  strategies / health from the existing `src/bot/data_loaders.py` API.
+  Then PR3 adds the health checks (VM service status, repo-vs-VM HEAD
+  drift, last-tick freshness, DB writability, disk).
+- **Telegram sent:** pending — checkpoint commit triggers VM-side ping
+- **Alerts sent during session:** none
+- **Blockers:** none
+
+### 1. Completed
+- **Operator scoping call.** Operator confirmed silent failures are the
+  current pain point. Two-doc audit (`pipeline.py`, `main.py`,
+  `orders.py`, `notify.py`, `alerts.py`) revealed: 202 try/except blocks
+  in `src/`, `AlertsQueue` is a dead-end (never reaches Telegram), no
+  standard outcome envelope, no liveness check. Plan locked in 6 PRs.
+  Telegram budget: **1 per fingerprint per 5 min, hard cap 30/hour**;
+  scheduled messages bypass both.
+- **PR1 — `src/runtime/outcomes.py`.** New centralized reporter. Public
+  surface: `report(action, status, *, level, reason, **ctx)` and
+  `send_scheduled(message)`. Four-tier severity (`info | warn | error |
+  critical`). INFO → AlertsQueue only; WARN → +outcomes.jsonl; ERROR/
+  CRITICAL → +Telegram (rate-limited). Falls through to
+  `runtime_logs/outcomes_pending.jsonl` if Telegram fails (same drain
+  pattern as `docs/claude/pending-pings.jsonl`). `report()` itself
+  never raises — wrapped in a defensive try/except so a broken
+  reporter can't crash the tick loop.
+- **Tick-loop wiring (`src/main.py`).** Every successful tick reports
+  `pipeline_tick:<status>` at INFO. Unhandled exceptions report
+  `pipeline_tick:exception` at CRITICAL (replaces the old
+  `telegram_client.send_message` + `except: pass` path that swallowed
+  notify failures).
+- **Pipeline wiring (`src/runtime/pipeline.py`).** Added
+  `_OUTCOME_LEVEL_BY_STATUS` mapping + `_report_pipeline_outcome()`
+  helper. Every `safe_place_order` outcome (submitted, dry_run,
+  halted, news_veto, refused, failed_validation, failed_exchange,
+  failed_dispatch, multi_account_dispatched) now flows through
+  `report()` with the right level. The multiplexer's silent
+  `except Exception` → `continue` block now also reports
+  `strategy_builder:exception` at ERROR, so a strategy that quietly
+  raises every tick stops being invisible.
+- **Tests.** `tests/test_outcomes.py` (16 cases): severity routing,
+  per-fingerprint dedup, suppress count appended on the next message
+  through, CRITICAL bypass, hourly cap (caps CRITICAL too), Telegram
+  failure → pending queue, AlertsQueue receives every report,
+  `report()` never raises even when both AlertsQueue and Telegram
+  blow up, scheduled bypasses both rate limits.
+  `tests/test_outcomes_integration.py` (5 cases): submitted is INFO
+  with no Telegram; `failed_exchange` pages operator with persisted
+  log; halt flag is INFO; strategy raise is ERROR with strategy name
+  in fingerprint.
+
+### 2. Files changed
+- `src/runtime/outcomes.py` — **new**, 285 LOC.
+- `src/main.py` — import + 2 wiring sites in tick loop.
+- `src/runtime/pipeline.py` — import + `_OUTCOME_LEVEL_BY_STATUS` map +
+  `_report_pipeline_outcome()` helper + 2 wiring sites (after
+  `safe_place_order` + multiplexer strategy-exception).
+- `tests/test_outcomes.py` — **new**, 16 tests.
+- `tests/test_outcomes_integration.py` — **new**, 5 tests.
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_outcomes.py tests/test_outcomes_integration.py -q`
+  — 21 passed.
+- `PYTHONPATH=. pytest tests/test_orders.py tests/test_smoke_test_pipeline.py
+  tests/test_s008_coordinator.py tests/test_s010_accounts.py tests/test_kill_switch.py
+  tests/test_order_refusal.py -q` — 145 passed, 8 failed. Confirmed
+  pre-existing on `main` via `git stash` + rerun (same 8 fail on
+  baseline). Cause is a pytest 9.x / numpy MagicMock interaction in
+  the shared conftest stubs, unrelated to this PR.
+- `python scripts/repo_inventory.py` — pass (no junk).
+- `python scripts/secret_scan.py` — pass.
+
+### 4. Remaining
+- **PR2 — hourly summary** (next session): flip `should_send_summary`
+  to hourly, build `src/runtime/hourly_report.py` with the structured
+  report (ticks, signals, trades placed/closed, realized PnL, account
+  balances + 1h delta, strategy activity, health section).
+- **PR3 — health checks**: `src/runtime/health.py` for service-active,
+  repo-vs-VM HEAD drift, last-pull recency, last-tick freshness, API
+  per-account, DB writability, disk free.
+- **PR4** — sweep `except: pass` in `src/runtime/`, `src/core/`, `src/units/`.
+- **PR5** — heartbeat watcher + VM-side checker.
+- **PR6** — bot/web sweep.
+
+### 5. Next checkpoint
+**CP-2026-05-01-08** — Build PR2 (hourly summary). First reads:
+1. `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry).
+2. `src/utils/signal_audit_logger.py::should_send_summary` — flip
+   from `hour in {7, 19}` to any hour.
+3. `src/bot/data_loaders.py` — has `account_balance`,
+   `account_open_positions`, `recent_trades_for`, `_strategy_pnl_today`,
+   `strategy_dashboard_data`, `account_last_trade` — the data sources
+   for the new report.
+4. `src/main.py` line ~167 — where `should_send_summary` is called;
+   replace the one-liner message with the new report assembler.
+
+---
+
 ## CP-2026-05-01-06 — S-021: API integration fixes (smoke + status + multi-account dispatch)
 
 - **Session date:** 2026-05-01
