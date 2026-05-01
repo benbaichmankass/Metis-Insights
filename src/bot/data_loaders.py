@@ -226,7 +226,7 @@ def _load_yaml_accounts() -> List[Dict[str, Any]]:
         aid = str(item.get("account_id") or item.get("id") or "").strip()
         if not aid:
             continue
-        out.append({
+        entry = {
             "account_id": aid,
             "exchange": str(item.get("exchange", "")).strip().lower() or "unknown",
             "env_path": str(item.get("env_path", "")).strip() or None,
@@ -237,7 +237,18 @@ def _load_yaml_accounts() -> List[Dict[str, Any]]:
             "service": str(item.get("service", "")).strip() or LEGACY_LIVE_SERVICE,
             "strategies": list(item.get("strategies", [])) or list_live_strategies(),
             "source": "yaml",
-        })
+        }
+        # S-023 PR2: preserve credential-resolution fields. The bot's
+        # bybit_client_for / binance_conn_for read these directly from
+        # the account dict — without preserving them here every account
+        # silently fell through to the legacy env_path branch (which
+        # doesn't exist for accounts.yaml-managed accounts), which was
+        # the second contributing cause of "balance unavailable".
+        for k in ("api_key_env", "api_secret_env", "type", "risk"):
+            v = item.get(k)
+            if v is not None:
+                entry[k] = v
+        out.append(entry)
     return out
 
 
@@ -547,38 +558,162 @@ def _f(x, default=0.0):
         return default
 
 
+# ---------------------------------------------------------------------------
+# Credential diagnostics (S-023 PR2)
+# ---------------------------------------------------------------------------
+
+
+def credentials_check(account: Dict[str, Any]) -> Optional[str]:
+    """Return a human-readable string naming missing creds, or ``None``
+    when every expected env var is present and accounted for.
+
+    Surfaced by ``/accounts_status`` and ``/balance`` so the operator
+    sees exactly which env var is missing — replacing the previous
+    generic *"missing API creds or exchange rejected the request"*
+    message that conflated three different failure modes.
+
+    Resolution order matches ``bybit_client_for`` / ``binance_conn_for``:
+      1. ``api_key_env`` (accounts.yaml contract): require both the
+         declared key var and the derived (or explicit) secret var.
+      2. ``env_path`` (legacy): require the .env file to exist.
+    """
+    if not isinstance(account, dict):
+        return "account config is not a mapping"
+    api_key_env = account.get("api_key_env")
+    if api_key_env:
+        secret_env = (
+            account.get("api_secret_env")
+            or api_key_env.replace("_API_KEY", "_API_SECRET")
+        )
+        missing = [name for name in (api_key_env, secret_env)
+                   if not os.environ.get(name)]
+        if missing:
+            return (
+                f"missing env vars: {', '.join(missing)} "
+                f"(declared in config/accounts.yaml; export them in the "
+                f"systemd unit's EnvironmentFile, then restart the trader)"
+            )
+        return None
+    env_path = account.get("env_path")
+    if env_path:
+        if not os.path.exists(env_path):
+            return f"env_path does not exist: {env_path}"
+        return None
+    return (
+        "no api_key_env (accounts.yaml) and no env_path (legacy .env) "
+        "configured for this account"
+    )
+
+
+def _bybit_response_error(resp: Any) -> Optional[str]:
+    """Return a human-readable error string when a Bybit response
+    indicates failure, or ``None`` on success.
+
+    Bybit returns 200 OK with retCode != 0 on failures (invalid key,
+    expired, rate limit, etc.). Surfacing retCode + retMsg is the
+    direct API response the operator asked for.
+    """
+    if not isinstance(resp, dict):
+        return f"unexpected response shape: {type(resp).__name__}"
+    ret_code = resp.get("retCode")
+    if ret_code in (None, 0, "0"):
+        return None
+    ret_msg = str(resp.get("retMsg") or "(no retMsg)")[:200]
+    return f"Bybit error retCode={ret_code}: {ret_msg}"
+
+
+def account_balance_with_diagnostic(
+    account: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Return a structured status dict.
+
+    Shape:
+      {
+        "status":     "ok" | "missing_creds" | "api_error" | "unsupported",
+        "total_usdt": float | None,
+        "raw":        dict | None,
+        "error":      str | None,
+      }
+
+    The thin ``account_balance(account)`` wrapper preserves the legacy
+    ``dict | None`` contract for read-only consumers (UI rendering,
+    hourly report). Diagnostic-aware callers (``/accounts_status``)
+    call this function directly so they can show the operator exactly
+    what failed.
+    """
+    if not isinstance(account, dict):
+        return {"status": "unsupported", "total_usdt": None, "raw": None,
+                "error": "account config is not a mapping"}
+
+    ex = (account.get("exchange") or "unknown").lower()
+    aid = account.get("account_id") or "unknown"
+
+    # Step 1: cred presence check (no API call yet).
+    cred_err = credentials_check(account)
+    if cred_err is not None:
+        return {"status": "missing_creds", "total_usdt": None, "raw": None,
+                "error": cred_err}
+
+    if ex == "bybit":
+        try:
+            client = bybit_client_for(account)
+            if client is None:
+                # Defensive: should not happen post-credentials_check, but
+                # pybit may be uninstalled or some other init path failed.
+                return {"status": "missing_creds", "total_usdt": None,
+                        "raw": None,
+                        "error": "bybit client could not be created "
+                                 "(pybit missing or init failed)"}
+            resp = client.get_wallet_balance(accountType="UNIFIED")
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("account_balance(%s): %s", aid, exc)
+            return {"status": "api_error", "total_usdt": None, "raw": None,
+                    "error": f"{type(exc).__name__}: {exc}"}
+
+        api_err = _bybit_response_error(resp)
+        if api_err:
+            return {"status": "api_error", "total_usdt": None, "raw": resp,
+                    "error": api_err}
+        lst = (resp.get("result") or {}).get("list") or []
+        total = sum(_f(c.get("usdValue"))
+                    for c in (lst[0].get("coin", []) if lst else []))
+        return {"status": "ok", "total_usdt": total, "raw": resp,
+                "error": None}
+
+    if ex == "binance":
+        try:
+            conn = binance_conn_for(account)
+            if conn is None:
+                return {"status": "missing_creds", "total_usdt": None,
+                        "raw": None,
+                        "error": "binance connector could not be created"}
+            bal = conn.get_balance() or {}
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("account_balance(%s): %s", aid, exc)
+            return {"status": "api_error", "total_usdt": None, "raw": None,
+                    "error": f"{type(exc).__name__}: {exc}"}
+        usdt = bal.get("USDT", {}) if isinstance(bal, dict) else {}
+        return {"status": "ok",
+                "total_usdt": _f((usdt or {}).get("total")),
+                "raw": bal, "error": None}
+
+    return {"status": "unsupported", "total_usdt": None, "raw": None,
+            "error": f"exchange '{ex}' is not supported by account_balance"}
+
+
 def account_balance(account: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """Return ``{"total_usdt": float, "raw": ...}`` or ``None`` on failure.
 
-    S-012 hotfix: routes through ``bybit_client_for(account)`` /
-    ``binance_conn_for(account)`` so accounts.yaml's ``api_key_env``
-    contract is honored. Previously this inlined ``_bybit_client(env)``
-    which only knew the legacy env_path path — every accounts.yaml
-    account returned None ("balance unavailable").
+    Backward-compatible wrapper around
+    ``account_balance_with_diagnostic`` — preserves the legacy
+    dict-or-None contract for callers that just want the number
+    (UI rendering, hourly report). Use the diagnostic variant when
+    you need the failure reason.
     """
-    if not isinstance(account, dict):
+    diag = account_balance_with_diagnostic(account)
+    if diag["status"] != "ok":
         return None
-    ex = (account.get("exchange") or "unknown").lower()
-    try:
-        if ex == "bybit":
-            client = bybit_client_for(account)
-            if client is None:
-                return None
-            resp = client.get_wallet_balance(accountType="UNIFIED")
-            lst = resp.get("result", {}).get("list", []) if isinstance(resp, dict) else []
-            total = sum(_f(c.get("usdValue")) for c in (lst[0].get("coin", []) if lst else []))
-            return {"total_usdt": total, "raw": resp}
-        if ex == "binance":
-            conn = binance_conn_for(account)
-            if conn is None:
-                return None
-            bal = conn.get_balance() or {}
-            usdt = bal.get("USDT", {}) if isinstance(bal, dict) else {}
-            return {"total_usdt": _f((usdt or {}).get("total")), "raw": bal}
-        return None
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("account_balance(%s): %s", account.get("account_id"), exc)
-        return None
+    return {"total_usdt": diag["total_usdt"], "raw": diag["raw"]}
 
 
 def account_open_positions(account: Dict[str, Any]) -> Optional[List[Dict[str, Any]]]:

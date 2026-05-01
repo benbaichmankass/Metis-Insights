@@ -80,42 +80,69 @@ def coord(tmp_path, accounts_yaml):
 
 
 class TestAccountsStatusLiveBalance:
+    """S-023 PR2 update: coordinator now calls
+    ``account_balance_with_diagnostic``, which returns a structured
+    status dict. These tests patch the new function and assert on the
+    pinpointed error strings."""
+
     def test_balance_present_when_api_returns_data(self, coord, accounts_yaml):
-        """Successful account_balance() → live_balance_usdt populated, no error."""
+        """``status: ok`` → live_balance_usdt populated, no error."""
         from src.bot import data_loaders as dl
 
-        def fake_balance(account):
-            return {"total_usdt": 1234.56, "raw": {}}
-
-        with patch.object(dl, "account_balance", side_effect=fake_balance):
+        diag = {"status": "ok", "total_usdt": 1234.56,
+                "raw": {}, "error": None}
+        with patch.object(dl, "account_balance_with_diagnostic", return_value=diag):
             statuses = coord.accounts_status(accounts_yaml)
         assert len(statuses) == 2
         for s in statuses:
-            assert s["live_balance_usdt"] == pytest.approx(1234.56)
+            # Plain float check (pytest.approx is broken in this repo's
+            # MagicMock-numpy conftest stub).
+            assert abs(s["live_balance_usdt"] - 1234.56) < 1e-9
             assert s["live_balance_error"] is None
 
-    def test_error_set_when_balance_returns_none(self, coord, accounts_yaml):
-        """``None`` from account_balance() (missing creds, API failure) →
-        live_balance_error explains the integration is broken."""
+    def test_error_set_when_credentials_missing(self, coord, accounts_yaml):
+        """missing-creds diagnostic propagates verbatim — naming the
+        env vars instead of the old generic 'balance unavailable'."""
         from src.bot import data_loaders as dl
 
-        with patch.object(dl, "account_balance", return_value=None):
+        diag = {
+            "status": "missing_creds", "total_usdt": None, "raw": None,
+            "error": "missing env vars: BYBIT_API_KEY_1, BYBIT_API_SECRET_1",
+        }
+        with patch.object(dl, "account_balance_with_diagnostic", return_value=diag):
             statuses = coord.accounts_status(accounts_yaml)
         for s in statuses:
             assert s["live_balance_usdt"] is None
-            assert s["live_balance_error"]
-            assert "balance unavailable" in s["live_balance_error"]
+            assert "BYBIT_API_KEY_1" in s["live_balance_error"]
+            assert "BYBIT_API_SECRET_1" in s["live_balance_error"]
 
-    def test_exception_in_balance_call_is_captured(self, coord, accounts_yaml):
-        """An exception bubbling out of account_balance() must not crash
-        accounts_status — the caller renders the error string instead."""
+    def test_error_set_when_api_returns_retcode(self, coord, accounts_yaml):
+        """retCode != 0 → live_balance_error carries retCode + retMsg."""
         from src.bot import data_loaders as dl
 
-        with patch.object(dl, "account_balance", side_effect=RuntimeError("HTTP 401")):
+        diag = {
+            "status": "api_error", "total_usdt": None,
+            "raw": {"retCode": 10003, "retMsg": "API key is invalid."},
+            "error": "Bybit error retCode=10003: API key is invalid.",
+        }
+        with patch.object(dl, "account_balance_with_diagnostic", return_value=diag):
             statuses = coord.accounts_status(accounts_yaml)
         for s in statuses:
             assert s["live_balance_usdt"] is None
-            assert "API error" in s["live_balance_error"]
+            assert "10003" in s["live_balance_error"]
+            assert "API key is invalid" in s["live_balance_error"]
+
+    def test_exception_in_diagnostic_call_is_captured(self, coord, accounts_yaml):
+        """A bubble-out exception from the diagnostic function must not
+        crash accounts_status — coordinator renders 'unexpected: ...'."""
+        from src.bot import data_loaders as dl
+
+        with patch.object(dl, "account_balance_with_diagnostic",
+                          side_effect=RuntimeError("HTTP 401")):
+            statuses = coord.accounts_status(accounts_yaml)
+        for s in statuses:
+            assert s["live_balance_usdt"] is None
+            assert "RuntimeError" in s["live_balance_error"]
             assert "HTTP 401" in s["live_balance_error"]
 
     def test_legacy_risk_fields_still_present(self, coord, accounts_yaml):
@@ -124,7 +151,8 @@ class TestAccountsStatusLiveBalance:
         rendering keeps working."""
         from src.bot import data_loaders as dl
 
-        with patch.object(dl, "account_balance", return_value={"total_usdt": 0.0, "raw": {}}):
+        diag = {"status": "ok", "total_usdt": 0.0, "raw": {}, "error": None}
+        with patch.object(dl, "account_balance_with_diagnostic", return_value=diag):
             statuses = coord.accounts_status(accounts_yaml)
         for s in statuses:
             for key in (

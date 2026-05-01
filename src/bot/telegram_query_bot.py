@@ -339,30 +339,13 @@ def _bybit_creds_diagnostic(account: dict) -> str | None:
 
     Returns ``None`` when both API key + secret env vars are present
     (in which case any balance failure is on the API side, not config).
+
+    S-023 PR2: delegates to the shared
+    ``data_loaders.credentials_check`` so /balance and
+    /accounts_status give identical wording and stay in sync as the
+    diagnostic logic evolves.
     """
-    api_key_env = (account or {}).get("api_key_env")
-    if api_key_env:
-        secret_env = (
-            account.get("api_secret_env")
-            or api_key_env.replace("_API_KEY", "_API_SECRET")
-        )
-        missing = [name for name in (api_key_env, secret_env) if not os.environ.get(name)]
-        if missing:
-            return (
-                f"missing env vars: {', '.join(missing)} "
-                f"(declared in config/accounts.yaml; export them in the systemd "
-                f"unit's EnvironmentFile)."
-            )
-        return None
-    env_path = (account or {}).get("env_path")
-    if env_path:
-        if not os.path.exists(env_path):
-            return f"env_path does not exist: {env_path}"
-        return None
-    return (
-        "no api_key_env (accounts.yaml) and no env_path (legacy .env) "
-        "configured for this account."
-    )
+    return dl.credentials_check(account or {})
 
 
 def format_bybit_balance(account: dict) -> str:
