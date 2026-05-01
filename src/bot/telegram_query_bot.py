@@ -597,6 +597,50 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await cmd_start(update, context)
 
 
+# ---------------------------------------------------------------------------
+# /set_keys — open the Colab key-rotation notebook
+# ---------------------------------------------------------------------------
+
+# Hardcoded so the message works even if the bot can't reach the repo.
+# Update this constant if the repo or notebook path moves.
+_COLAB_NOTEBOOK_URL = (
+    "https://colab.research.google.com/github/the-lizardking/ict-trading-bot/"
+    "blob/main/notebooks/operator/rotate_api_keys.ipynb"
+)
+_COLAB_DOC_URL = (
+    "https://github.com/the-lizardking/ict-trading-bot/blob/main/"
+    "docs/operator/colab-key-rotation.md"
+)
+
+
+async def cmd_set_keys(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Reply with the open-in-Colab link for the key-rotation notebook.
+
+    The notebook reads from the operator's Colab Secrets and pushes a
+    fresh ``.env.live`` to the VM. See
+    ``docs/operator/colab-key-rotation.md`` for the full setup.
+    """
+    if not is_authorised(update):
+        return
+    msg = (
+        "🔑 *Rotate API keys*\n\n"
+        "Open in Colab and click *Runtime → Run all*:\n"
+        f"{_COLAB_NOTEBOOK_URL}\n\n"
+        "The notebook reads from your Colab Secrets and pushes a fresh "
+        "`.env.live` to the VM. No SSH or terminal needed.\n\n"
+        f"Setup guide (one-time): {_COLAB_DOC_URL}\n\n"
+        "Required Colab Secrets:\n"
+        "• `BYBIT_API_KEY_1`, `BYBIT_API_SECRET_1`\n"
+        "• `BYBIT_API_KEY_2`, `BYBIT_API_SECRET_2`\n"
+        "• `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`\n"
+        "• `VM_SSH_HOST`, `VM_SSH_USER`, `VM_SSH_KEY`\n"
+        "After Run all completes, run `/accounts_status` to verify."
+    )
+    await update.message.reply_text(
+        msg, parse_mode="Markdown", disable_web_page_preview=True,
+    )
+
+
 async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_authorised(update):
         return
@@ -2102,6 +2146,7 @@ def main():
     application.post_init = post_init
     application.add_handler(CommandHandler("start", cmd_start))
     application.add_handler(CommandHandler("help", cmd_help))
+    application.add_handler(CommandHandler("set_keys", cmd_set_keys))
     application.add_handler(CommandHandler("halt", cmd_halt))
     application.add_handler(CommandHandler("resume", cmd_resume))
     application.add_handler(CommandHandler("status", cmd_status))
