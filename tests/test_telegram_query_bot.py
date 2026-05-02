@@ -1156,6 +1156,63 @@ class TestHelpButtonCallbacks:
 
 
 # ---------------------------------------------------------------------------
+# /hourly Markdown crash regression (BUG-031)
+# ---------------------------------------------------------------------------
+
+
+class TestCmdHourlyReplyMarkdown:
+    """``/hourly`` was failing with ``BadRequest: Can't parse entities``
+    because its success-reply text contained ``send_via_alert_manager``
+    (three underscores → unbalanced italic in legacy Markdown). Same
+    shape as BUG-009 (#190 /signals) and BUG-030 (#265 /last5).
+    """
+
+    def _make_update(self):
+        upd = MagicMock()
+        upd.effective_chat.id = 12345
+        upd.callback_query = None
+        upd.message.reply_text = AsyncMock()
+        return upd
+
+    def _run(self, coro):
+        import asyncio
+        return asyncio.new_event_loop().run_until_complete(coro)
+
+    def test_hourly_success_reply_drops_markdown_parse_mode(self, monkeypatch):
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        monkeypatch.setitem(
+            sys.modules, "src.runtime.hourly_report",
+            MagicMock(build_hourly_report=lambda **kwargs: "fake hourly"),
+        )
+        monkeypatch.setitem(
+            sys.modules, "src.runtime.outcomes",
+            MagicMock(send_scheduled=lambda msg: None),
+        )
+
+        upd = self._make_update()
+        ctx = MagicMock()
+        ctx.args = []
+        self._run(bot.cmd_hourly(upd, ctx))
+
+        # The success reply should NOT have parse_mode='Markdown' — its
+        # text contains identifiers like 'send_via_alert_manager' that
+        # Telegram's legacy Markdown parser breaks on.
+        success_calls = [
+            c for c in upd.message.reply_text.call_args_list
+            if c.args and "Hourly report dispatched" in c.args[0]
+        ]
+        assert success_calls, (
+            f"expected a success-reply, got: "
+            f"{[c.args[0] for c in upd.message.reply_text.call_args_list]}"
+        )
+        for call in success_calls:
+            assert call.kwargs.get("parse_mode") is None, (
+                "cmd_hourly success reply must not use parse_mode='Markdown' "
+                "— text contains underscored identifiers (BUG-031)"
+            )
+
+
+# ---------------------------------------------------------------------------
 # G4 — /risk_check inline-button account picker
 # ---------------------------------------------------------------------------
 

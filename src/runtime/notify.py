@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import os
@@ -12,7 +11,7 @@ from typing import Any, Optional
 logger = logging.getLogger(__name__)
 
 
-def send_telegram_direct(message: str) -> None:
+def send_telegram_direct(message: str, *, parse_mode: Optional[str] = "HTML") -> None:
     """
     Stdlib-only direct POST to Telegram's sendMessage API.
 
@@ -24,6 +23,14 @@ def send_telegram_direct(message: str) -> None:
     ``urllib.error.URLError`` / ``urllib.error.HTTPError`` on network failure
     or non-2xx responses, and ``RuntimeError`` if the API replies with
     ``ok=false``. Callers are responsible for translating those into exit codes.
+
+    ``parse_mode`` defaults to ``"HTML"`` for back-compat with existing
+    HTML-formatted callers (``cmd_accounts_status`` etc.). Plain-text content
+    that contains ``<``/``>``/``&`` (e.g. the hourly report's
+    ``expected <= 15m`` line) MUST pass ``parse_mode=None`` to avoid Telegram's
+    HTML parser rejecting the message with ``BadRequest: Can't parse entities``.
+    Pass an explicit ``"MarkdownV2"`` only when every special character has
+    been escaped.
 
     Security: the bot token is embedded in the request URL but is never logged
     or printed in any form (full, redacted, or length). Only ``ok``,
@@ -39,9 +46,10 @@ def send_telegram_direct(message: str) -> None:
         return
 
     url = f"https://api.telegram.org/bot{token}/sendMessage"
-    payload = urllib.parse.urlencode(
-        {"chat_id": chat_id, "text": message, "parse_mode": "HTML"}
-    ).encode("utf-8")
+    fields = {"chat_id": chat_id, "text": message}
+    if parse_mode:
+        fields["parse_mode"] = parse_mode
+    payload = urllib.parse.urlencode(fields).encode("utf-8")
     req = urllib.request.Request(
         url,
         data=payload,
@@ -91,35 +99,36 @@ def notify_operator(telegram_client: Any, message: str) -> None:
         logger.exception("Failed to notify operator: %s | original=%s", exc, message)
 
 
-async def _send_via_alert_manager_async(message: str) -> None:
-    try:
-        from src.bot.alert_manager import AlertManager
-    except Exception as exc:  # noqa: BLE001
-        logger.exception("Failed to import AlertManager: %s", exc)
-        return
-
-    token = os.getenv("TELEGRAM_BOT_TOKEN")
-    chat_id = os.getenv("TELEGRAM_CHAT_ID")
-    if not token or not chat_id:
-        logger.warning("AlertManager not configured (missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID)")
-        return
-
-    mgr = AlertManager()
-    await mgr.send(message)
-
-
 def send_via_alert_manager(message: str) -> None:
-    """
-    Convenience function: fire-and-forget AlertManager.send from sync code.
-    Used by Thread 2 pipeline when we don't have a custom telegram_client.
+    """Send a message to the operator's Telegram chat. Plain-text mode.
+
+    Used by the hourly report scheduler, the news-veto pipeline reporter,
+    and the "Pipeline result" message at the end of every tick. The name
+    is historical — there is no AlertManager dependency anymore.
+
+    Previously this routed through ``src.bot.alert_manager.AlertManager``
+    which had two problems:
+
+      1. The wrapper called ``mgr.send(message)`` but ``AlertManager``
+         only exposes ``send_alert``. Every send raised ``AttributeError``,
+         was caught by ``outcomes._send_telegram_or_queue``, and the
+         message landed in the pending-queue JSONL. Operator never
+         received hourly summaries (fixed CP-2026-05-02).
+      2. The wrapper's nested ``asyncio.run`` could not run from inside
+         an existing event loop, which the bot process is.
+
+    The replacement is a direct sync call to ``send_telegram_direct``
+    with ``parse_mode=None`` so the hourly summary's plain-text content
+    (which contains characters like ``<= 15m`` that Telegram's HTML
+    parser rejects) is delivered without the parser interpreting any
+    of it. Callers that DO want HTML/Markdown should call
+    ``send_telegram_direct`` directly with the appropriate ``parse_mode``.
     """
     try:
-        loop = asyncio.get_event_loop()
-    except RuntimeError:
-        loop = None
-
-    if loop and loop.is_running():
-        # Fire-and-forget task in existing loop
-        asyncio.create_task(_send_via_alert_manager_async(message))
-    else:
-        asyncio.run(_send_via_alert_manager_async(message))
+        send_telegram_direct(message, parse_mode=None)
+    except Exception as exc:  # noqa: BLE001
+        # Re-raise so the caller (typically ``outcomes._send_telegram_or_queue``)
+        # can fall through to the pending-queue JSONL drain. The previous
+        # silent-failure mode hid this exact code path for two sprints.
+        logger.warning("send_via_alert_manager: telegram send failed: %s", exc)
+        raise

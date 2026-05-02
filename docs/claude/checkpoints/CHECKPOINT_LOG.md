@@ -5,6 +5,60 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-02-10 — Hourly summary delivery fixed (BUG-031 + BUG-032)
+
+- **Session date:** 2026-05-02
+- **Sprint:** S-XXX — Telegram bot debug + UI overhaul + repo cleanup (mid-sprint hotfix on operator report)
+- **Current sprint phase:** out-of-band hotfix. The G5 work-PR (#271) is still draft awaiting operator on the VWAP question; this hotfix is unrelated and self-merges.
+- **Last completed checkpoint:** CP-2026-05-02-08 (#270 G6, merged) + CP-2026-05-02-09 (#271 G5, draft + #272 ping merged).
+- **Next checkpoint:** **CP-2026-05-02-11 — sprint-summary PR.** With this hotfix landed, all visible operator-reported issues from the sprint prompt are resolved (G5 still awaits the (a)/(b) decision, but the sprint can otherwise close).
+- **Telegram sent:** pending — this checkpoint commit triggers the VM ping. **Bonus:** after this PR merges, the hourly summary path itself is repaired, so the operator should start seeing hourly summaries automatically again.
+- **Alerts sent during session:** none beyond the existing G5 ping.
+- **Blockers:** none.
+
+### 1. Operator-reported issue
+After PR #265 (G1) landed, the operator reported:
+```
+/hourly
+⚠️ /hourly failed: BadRequest: Can't parse entities: can't find end of the entity starting at byte offset 138
+```
+plus the standing complaint "I'm still not getting hourly updates."
+
+### 2. Two bugs found
+- **BUG-031 (visible):** `cmd_hourly` success-reply uses `parse_mode="Markdown"` and the text contains `send_via_alert_manager` (3 underscores → unbalanced italic) and `pending_pings.jsonl` (more underscores). Same shape as BUG-009 (#190 /signals) and BUG-030 (#265 /last5) — third occurrence.
+- **BUG-032 (silent — hourly delivery):** `src/runtime/notify.py::_send_via_alert_manager_async` called `mgr.send(message)` on `AlertManager`, but that class only exposes `send_alert`. Every send raised `AttributeError`, was caught by `outcomes._send_telegram_or_queue`, and the message was appended to the pending-queue JSONL — silently. The async wrapper also tried to call `asyncio.run` from inside the bot's running event loop, which would have failed even if the method name had been right. **The hourly summary has been queue-only for an entire sprint cycle.**
+
+### 3. Completed
+- Dropped `parse_mode="Markdown"` from the `cmd_hourly` success-reply (BUG-031). Added `TestCmdHourlyReplyMarkdown` regression test asserting no parse_mode is set on the success line.
+- Replaced the broken AlertManager dance in `notify.py::send_via_alert_manager` with a direct stdlib `send_telegram_direct(message, parse_mode=None)` call (BUG-032). The new function is sync — no `asyncio.run` from inside the bot's loop. Failures re-raise so `outcomes._send_telegram_or_queue` can correctly fall through to the pending-queue drain.
+- Made `parse_mode` configurable on `send_telegram_direct` (default still `"HTML"` for back-compat with `cmd_accounts_status` and any other HTML-formatted callers). Plain-text content (the hourly report's `(expected <= 15m)` line included) now passes `parse_mode=None` so Telegram's HTML parser doesn't reject literal `<` characters.
+- Added `tests/test_notify_send_via_alert_manager.py` (6 tests) covering: (i) `send_via_alert_manager` routes through `send_telegram_direct` with parse_mode=None; (ii) failures propagate so the queue can take over; (iii) the implementation does not re-import the broken AlertManager; (iv) `send_telegram_direct` defaults to HTML; (v) parse_mode=None omits the field entirely from the wire payload; (vi) missing-credentials no-op.
+- Updated `bug-log.md` with both BUG-031 and BUG-032 rows. Cross-referenced BUG-009 / BUG-030 for the markdown shape and noted the recurring "no parse_mode='Markdown' on dynamic content" rule.
+
+### 4. Files changed
+- `src/bot/telegram_query_bot.py` — `cmd_hourly` success-reply drops `parse_mode="Markdown"`.
+- `src/runtime/notify.py` — `send_telegram_direct` accepts optional `parse_mode`; `send_via_alert_manager` rewritten to use it directly (no AlertManager, no asyncio); dead `_send_via_alert_manager_async` and `import asyncio` removed.
+- `tests/test_notify_send_via_alert_manager.py` — new file, 6 tests.
+- `tests/test_telegram_query_bot.py` — new `TestCmdHourlyReplyMarkdown` class (1 test).
+- `docs/claude/bug-log.md` — BUG-031 + BUG-032 rows.
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` — this entry.
+
+### 5. Tests run
+- `PYTHONPATH=. pytest tests/test_telegram_query_bot.py::TestCmdHourlyReplyMarkdown tests/test_notify_send_via_alert_manager.py tests/test_outcomes.py -v` — 23 passed.
+- `PYTHONPATH=. pytest tests/test_telegram_query_bot.py -q` — 105 passed; 1 pre-existing failure (`TestCmdStatusMultiAccount::test_shows_block_per_account`, see CP-2026-05-02-01 / CP-2026-05-01-19), not from this PR.
+- `python scripts/check_dry_run_in_diff.py` — clean.
+- `python scripts/secret_scan.py` — clean.
+
+### 6. Remaining
+- none for this hotfix.
+- G5 (#271) still draft awaiting operator on the VWAP (a)/(b) decision.
+- After this PR merges, the operator should expect to see the hourly summary delivered to Telegram on the next scheduler tick.
+
+### 7. Next checkpoint
+**CP-2026-05-02-11 — sprint-summary PR.** Once G5 unblocks, close out the sprint with a `docs/sprint-summaries/sprint-XXX-summary.md` doc per the CLAUDE.md sprint-completion checklist.
+
+---
+
 ## CP-2026-05-02-08 — G6: signal_notifications.py trimmed to live surface
 
 - **Session date:** 2026-05-02
