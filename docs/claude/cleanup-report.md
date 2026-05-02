@@ -58,13 +58,17 @@ Generated as part of Claude Code setup.
 - Old top-level docs in `docs/` (`architecture.md`, `bot.md`, `deployment.md`, `news_layer.md`,
   `hf_claude_patch.md`) reviewed and left in place — actively maintained or still referenced.
 
+## Completed (continued)
+
+- **CP-2026-05-02-08** (2026-05-02, S-XXX G6): trimmed `src/runtime/signal_notifications.py` to its live surface. The module had grown into a grab-bag of legacy notification helpers that no live code path imports anymore — superseded by `src/runtime/hourly_report.py` (S-022 PR2) for summaries and by `src/bot/telegram_query_bot.py` (S-023 multi-account renderers) for everything else. Functions removed (verified zero non-self callers across `src/`, `scripts/`, `tests/`, `notebooks/`):
+  - `msg_bi_daily(stats)` — explicit-removal hard error stub kept since CP-2026-05-02-01; the prompt for this sprint asked whether it could be deleted entirely. Yes — no callers remain in the live tree, and the legacy "Bi-daily summary" string is forbidden by `should_send_summary` already.
+  - `msg_started`, `msg_stopped`, `msg_trade_open`, `msg_trade_close` — string formatters never called from any live path; the bot uses different on-trade and on-startup notification strings now (see `src/runtime/notify.py` and the trader's startup logging).
+  - `plot_signal_summary`, `plot_trade_chart`, `_plot_base` — matplotlib chart helpers wired for an old per-trade chart attachment that's been replaced by HTML chart artefacts (`ict_complete_chart.html` etc.) at trade-write time.
+  - `summarize_trades`, `load_db` — unused stat utilities.
+  - `import matplotlib.pyplot as plt` — no longer imported at all. Several test files used to carry "matplotlib is a transitive dep of signal_notifications" comments — those scaffolds can be loosened in a follow-up sprint, but I haven't touched them in this PR.
+- Survives: `fetch_df`, `get_last_signals`, `format_signals`, `ensure_signals_table`, `insert_signal` — these are the four entry points consumed by `src/bot/telegram_query_bot.py` (signals view) and `src/runtime/signal_writer.py` (DB insert).
+- Inventory verified `python scripts/repo_inventory.py`: no junk candidates, no `*_old.py` / `*_bak.py` / `*.save` / `*.orig` files in the tree. All 8 `.service` files in `deploy/` are referenced by `scripts/install_systemd_units.sh`, `scripts/deploy_pull_restart.sh`, `scripts/vm_bootstrap.sh`, or `scripts/daily_heartbeat.py` — none are dead. The 8 notebooks under `notebooks/` (including `ict_multi_symbol_backtest.ipynb`) are operator/setup tooling, not retired training notebooks; `notebooks/training/` does not exist.
+- `.env.example` siblings: only `.env.example` itself is tracked. It's used by `README.md` (developer onboarding) and `tests/test_s006_ict_risk_config.py`. It does **not** match `_ENV_DISCOVERY_RESERVED` filtering at runtime — the runtime filter uses the `.env.<account_id>` shape, and `_ENV_DISCOVERY_RESERVED` already excludes `example`. Nothing to remove here.
+- Fixed an unrelated regression introduced by CP-2026-05-02-05 (G3, #267): `tests/test_telegram_surface_cleanup.py::test_botcommand_registry_includes_vm_commands` did a literal-string match for `BotCommand("vm",` which the G3 `BotCommandSpec` refactor broke. Test now accepts either `BotCommand("vm", ...)` or `BotCommandSpec("vm", ...)`. The invariant being asserted (vm and vm_write surface in the operator menu) is unchanged.
+
 ## Process
-
-Run:
-
-```bash
-python scripts/repo_inventory.py
-python scripts/secret_scan.py
-```
-
-Process one row at a time in separate Claude sessions.
