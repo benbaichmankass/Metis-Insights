@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ict-trading-bot.local/schema/comms/response.schema.json",
+  "title": "Comms Response",
+  "description": "Operator's reply, embedded inline in the request file at .response. Written by the Telegram bot once it has matched a callback or text message back to the originating request_id + question_id(s).",
+  "type": "object",
+  "required": ["request_id", "answered_at", "answers", "status"],
+  "additionalProperties": false,
+  "properties": {
+    "request_id": {
+      "type": "string",
+      "pattern": "^REQ-[0-9]{8}-[0-9]{6}-[a-z0-9]{4,12}$"
+    },
+    "answered_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "UTC timestamp of the LAST answer received (updated as questions get answered one by one)."
+    },
+    "operator": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "telegram_user_id": {"type": ["integer", "null"]},
+        "telegram_username": {"type": ["string", "null"]}
+      }
+    },
+    "answers": {
+      "type": "array",
+      "minItems": 0,
+      "items": {
+        "type": "object",
+        "required": ["question_id", "answer_type", "received_at"],
+        "additionalProperties": false,
+        "properties": {
+          "question_id": {"type": "string", "pattern": "^[a-z0-9_]{1,40}$"},
+          "answer_type": {
+            "type": "string",
+            "enum": ["choice", "multi_choice", "free_text", "yes_no", "other"]
+          },
+          "selected_ids": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "For choice/multi_choice/yes_no answers: the chosen choice.id values."
+          },
+          "free_text": {
+            "type": ["string", "null"],
+            "description": "For free_text answers, OR the operator's typed reply when answer_type='other'."
+          },
+          "received_at": {"type": "string", "format": "date-time"}
+        }
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": ["partial", "complete", "invalid"],
+      "description": "partial=at least one answer received but required questions remain; complete=every required question answered; invalid=bot received a reply it could not parse against the schema."
+    },
+    "notes": {
+      "type": ["string", "null"],
+      "description": "Optional bot-side diagnostic text (e.g. why the response was marked invalid)."
+    }
+  }
+}

@@ -1,0 +1,162 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ict-trading-bot.local/schema/comms/request.schema.json",
+  "title": "Comms Request",
+  "description": "Outbound operator-question artifact. One file per request lives at comms/requests/REQ-*.json and is mutated through its lifecycle (status field). Closed/expired requests move to comms/archive/.",
+  "type": "object",
+  "required": ["request_id", "schema_version", "created_at", "source", "questions", "status"],
+  "additionalProperties": false,
+  "properties": {
+    "request_id": {
+      "type": "string",
+      "pattern": "^REQ-[0-9]{8}-[0-9]{6}-[a-z0-9]{4,12}$",
+      "description": "Globally unique. Format: REQ-YYYYMMDD-HHMMSS-<slug>. Example: REQ-20260502-143015-bot-inventory."
+    },
+    "schema_version": {
+      "type": "integer",
+      "const": 1,
+      "description": "Bumped only on breaking schema changes. Bot must refuse unknown versions."
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "UTC ISO-8601 with timezone."
+    },
+    "expires_at": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "Optional UTC ISO-8601. If set and now > expires_at without a complete answer, status transitions to expired."
+    },
+    "source": {
+      "type": "object",
+      "required": ["actor"],
+      "additionalProperties": false,
+      "properties": {
+        "actor": {
+          "type": "string",
+          "enum": ["claude", "operator", "system"]
+        },
+        "session_id": {"type": ["string", "null"]},
+        "branch": {"type": ["string", "null"]},
+        "pr_number": {"type": ["integer", "null"]},
+        "task": {"type": ["string", "null"]}
+      }
+    },
+    "topic": {
+      "type": "string",
+      "description": "Short human-readable label for the operator (1-line)."
+    },
+    "context": {
+      "type": "string",
+      "description": "Optional longer prose shown above the questions in Telegram."
+    },
+    "questions": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 10,
+      "items": {"$ref": "#/$defs/question"}
+    },
+    "default_on_timeout": {
+      "type": "string",
+      "enum": ["expire", "use_defaults", "close"],
+      "default": "expire",
+      "description": "Behaviour when expires_at lapses. expire=mark expired, no answers; use_defaults=record any per-question default_choice as the answer; close=mark closed without writeback."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pending", "sent", "partially_answered", "answered", "acknowledged", "expired", "cancelled"],
+      "description": "Current lifecycle state. Transitions enforced by src/comms/state.py."
+    },
+    "delivery": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Bot-managed bookkeeping. Claude must NOT write this; only the bot updates it.",
+      "properties": {
+        "sent_at": {"type": ["string", "null"], "format": "date-time"},
+        "telegram_chat_id": {"type": ["string", "null"]},
+        "telegram_message_id": {"type": ["integer", "null"]},
+        "send_attempts": {"type": "integer", "minimum": 0, "default": 0}
+      }
+    },
+    "response": {
+      "anyOf": [
+        {"type": "null"},
+        {"$ref": "https://ict-trading-bot.local/schema/comms/response.schema.json"}
+      ],
+      "description": "Filled in by the bot on operator reply. Inline copy of the response sub-document."
+    },
+    "history": {
+      "type": "array",
+      "description": "Append-only state-transition trail for auditability.",
+      "items": {
+        "type": "object",
+        "required": ["at", "from_status", "to_status"],
+        "additionalProperties": false,
+        "properties": {
+          "at": {"type": "string", "format": "date-time"},
+          "from_status": {"type": ["string", "null"]},
+          "to_status": {"type": "string"},
+          "actor": {"type": ["string", "null"]},
+          "note": {"type": ["string", "null"]}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "question": {
+      "type": "object",
+      "required": ["question_id", "prompt", "input_type"],
+      "additionalProperties": false,
+      "properties": {
+        "question_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9_]{1,40}$",
+          "description": "Stable per-question id; referenced by responses.answers[].question_id."
+        },
+        "prompt": {"type": "string", "minLength": 1, "maxLength": 1000},
+        "input_type": {
+          "type": "string",
+          "enum": ["choice", "multi_choice", "free_text", "yes_no"]
+        },
+        "choices": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 12,
+          "items": {
+            "type": "object",
+            "required": ["id", "label"],
+            "additionalProperties": false,
+            "properties": {
+              "id": {"type": "string", "pattern": "^[a-z0-9_]{1,40}$"},
+              "label": {"type": "string", "minLength": 1, "maxLength": 80}
+            }
+          }
+        },
+        "allow_other": {
+          "type": "boolean",
+          "default": false,
+          "description": "If true, the bot adds an 'Other (type a reply)' button to choice/multi_choice/yes_no menus."
+        },
+        "allow_free_text": {
+          "type": "boolean",
+          "default": false,
+          "description": "If true, free-form text replies are accepted alongside button presses."
+        },
+        "required": {
+          "type": "boolean",
+          "default": true
+        },
+        "default_choice": {
+          "type": ["string", "null"],
+          "description": "If set and used with default_on_timeout=use_defaults, this id is recorded on expiry."
+        }
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"input_type": {"enum": ["choice", "multi_choice"]}}},
+          "then": {"required": ["choices"]}
+        }
+      ]
+    }
+  }
+}
