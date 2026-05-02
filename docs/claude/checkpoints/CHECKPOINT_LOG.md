@@ -5,6 +5,83 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-02-26 — Recurring-session triggers wired end-to-end on the right bot
+
+- **Session date:** 2026-05-02
+- **Sprint:** Recurring-session infrastructure (follow-on from CP-2026-05-02-25)
+- **Current sprint phase:** COMPLETE — all 7 PRs merged.
+- **Last completed checkpoint:** CP-2026-05-02-25
+- **Next checkpoint:** **CP-2026-05-02-27 — VWAP order-execution fix + per-account failure pings.** Operator will paste the prepared starter prompt into a fresh Claude Code session. See "Next session prompt" below.
+- **Telegram sent:** pending — checkpoint commit fires the VM ping.
+- **Alerts sent during session:** none.
+- **Blockers:** none.
+
+### 1. Completed
+- PR #297 — `recurring_dispatch.py` + initial handlers (mistakenly added to trading bot).
+- PR #298 — Added recurring commands to trading-bot `BOT_COMMAND_SPECS` (later reverted).
+- PR #299 — CLAUDE.md Telegram group invite link.
+- PR #300 — `notebooks/operator/restart_telegram_bot.ipynb` (one-click bot service restart).
+- PR #301 — **Fix:** moved /audit /improve_strategy /train_model /roadmap from `telegram_query_bot.py` to `claude_bridge.py` (the actual @claude_ict_comms_bot). Added a CLAUDE.md table that distinguishes the two bots so future sessions don't conflate them.
+- PR #302 — `deploy_pull_restart.sh` now restarts `ict-claude-bridge.service` too; notebook handles both services with per-service installed-check.
+- PR #303 — Notebook dumps journalctl on failed service so the crash trace is in the output.
+- PR #304 — Fixed `deploy/ict-claude-bridge.service` ExecStart from a non-existent `.venv/bin/python` to `/usr/bin/python3` (matches trader + trading-bot units; was crash-looping with status=203/EXEC).
+- PR #305 — Starter prompt now wraps in HTML `<pre><code>` for tap-to-copy on mobile.
+- PR #306 — `docs/claude/web-automations.md` documents the 3 cloud automations (bi-daily hardening, weekly strategy improvement, weekly model training); added `/schedules` Telegram command on the bridge.
+
+### 2. Files changed (this session)
+- `src/bot/claude_bridge.py` (handlers + commands + post_init)
+- `src/bot/telegram_query_bot.py` (removed mistakenly-added handlers)
+- `src/bot/recurring_dispatch.py` (no changes this session)
+- `tests/test_recurring_session_cmds.py` (rewired to claude_bridge, HTML assertions)
+- `tests/test_recurring_dispatch.py` (no changes this session)
+- `deploy/ict-claude-bridge.service` (python path fix)
+- `scripts/deploy_pull_restart.sh` (auto-restart bridge on deploy)
+- `notebooks/operator/restart_telegram_bot.ipynb` (multi-service + journalctl dump)
+- `docs/claude/web-automations.md` (new — automation setup spec)
+- `CLAUDE.md` (two-bot distinction + group invite)
+- This file (CP-2026-05-02-26 entry).
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_recurring_session_cmds.py tests/test_recurring_dispatch.py -q` — 25 passed (after every code change in the session)
+- CI `scan` job passed on every PR (#297–#306)
+
+### 4. Remaining
+- Operator action: set up the 3 cloud automations using `docs/claude/web-automations.md`.
+- Next session: VWAP execution fix per the prompt below.
+
+### 5. Next checkpoint
+**CP-2026-05-02-27 — VWAP order-execution fix + per-account failure pings.**
+
+The operator will paste this prompt into a fresh Claude Code session:
+
+```
+Read CLAUDE.md, docs/sprints/recurring-hardening-prompt.md, and docs/claude/checkpoints/CHECKPOINT_LOG.md.
+
+Begin a recurring hardening session focused on the VWAP order-execution gap. The operator confirms VWAP is producing order packages but Bybit is not executing them, and there's no per-account ping when execution fails.
+
+Goals (both must land before closing the session):
+a. Fix the execution bug. Suspected root cause: pipeline_order:multi_account_execute is calling the wrong path — should route through execute_pkg() from src.units.accounts.execute. Trace the actual code path from VWAP signal → order package → account execution in src/runtime/pipeline.py and src/units/accounts/. Add a regression test that proves the order package reaches execute_pkg for at least one account in dry-run mode. Per the live-mode invariant, do NOT add --confirm gates or paper/dry flips — autonomous-live is binding.
+
+b. Add a diagnostic ping for execution failures. When safe_place_order refuses or errors out, the operator must receive a Telegram message identifying: account name, strategy that produced the package, symbol + side + qty, exact failure reason. Use the existing pending-pings inbox (runtime_logs/pending_pings/) — the bot drains it on its job-queue tick. Do NOT add a synchronous Telegram dependency to the order path.
+
+Process:
+- Phase 1 E2E health check first (per recurring-hardening-prompt.md). Surface other broken things before the fix.
+- Tier 2 changes (src/runtime/pipeline.py, src/units/accounts/*): open work-PR as draft titled "(PM REVIEW): vwap execution fix"; fire a separate ping-PR per the ping-PR vs work-PR rule. Operator merges the work-PR.
+- End with summary ping per Phase 3 — append CP-2026-05-02-27 to CHECKPOINT_LOG.md with fix-PR link, ping-PR link, and the regression test.
+
+Don't:
+- Touch strategy params (Tier 3).
+- Bypass the live-mode CI guard with --no-verify.
+- Delete unfamiliar branches/files — ask first.
+```
+
+Read in order: CLAUDE.md → docs/sprints/recurring-hardening-prompt.md → docs/claude/checkpoints/CHECKPOINT_LOG.md → src/runtime/pipeline.py → src/units/accounts/execute.py.
+
+---
+
+
+---
+
 ## CP-2026-05-02-25 — Recurring-session triggers: /audit /improve_strategy /train_model /roadmap MERGED
 
 - **Session date:** 2026-05-02
