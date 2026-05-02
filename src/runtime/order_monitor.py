@@ -182,12 +182,17 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
             }
             close_updates = {k: v for k, v in close_updates.items() if v is not None}
 
+            matched_trade = None
             linked_trade_id = open_pkg.get("linked_trade_id")
             if linked_trade_id:
                 db.update_trade(int(linked_trade_id), close_updates)
+                # Re-read the row so the exchange-side close has the
+                # account_id + position_size.
+                rows = db.get_trades(filters={"id": int(linked_trade_id)})
+                matched_trade = rows[0] if rows else None
             else:
                 # Fallback close-by-symbol-and-strategy.
-                _close_trade_by_match(
+                matched_trade = _close_trade_by_match(
                     db,
                     strategy=open_pkg.get("strategy_name"),
                     symbol=open_pkg.get("symbol"),
@@ -197,6 +202,17 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
             logger.warning(
                 "order_monitor: trades close-side update failed for %s: %s",
                 pkg_id, exc,
+            )
+            matched_trade = None
+
+        # Exchange-side close — env-gated. Operator flips
+        # MONITOR_APPLY_TO_EXCHANGE=true on the trader's systemd unit
+        # when ready to leave shadow mode.
+        if _apply_to_exchange_enabled() and matched_trade:
+            ex_result = _send_close_to_exchange(matched_trade)
+            logger.info(
+                "order_monitor: exchange close for pkg=%s account=%s → %s",
+                pkg_id, matched_trade.get("account_id"), ex_result,
             )
         summary.closed_count += 1
         return
@@ -226,26 +242,152 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
         )
         summary.error_count += 1
         summary.errors.append(f"{pkg_id}: update-write failed")
+        return
+
+    # Exchange-side modify — env-gated. Same shadow-mode contract as
+    # the close path above. Looks up the matched trade row to get
+    # account_id + symbol; bypasses the exchange call when no trade
+    # row matches (the package may have been dispatched but the
+    # account_id linkage hasn't been wired in yet).
+    if _apply_to_exchange_enabled():
+        try:
+            rows = db.get_trades(filters={
+                "strategy_name": open_pkg.get("strategy_name"),
+                "symbol": open_pkg.get("symbol"),
+                "status": "open",
+            }, limit=1) or []
+            if rows:
+                ex_result = _send_modify_to_exchange(
+                    rows[0],
+                    sl=updates.get("sl"),
+                    tp=updates.get("tp"),
+                )
+                logger.info(
+                    "order_monitor: exchange modify for pkg=%s account=%s → %s",
+                    pkg_id, rows[0].get("account_id"), ex_result,
+                )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "order_monitor: exchange modify lookup failed for %s: %s",
+                pkg_id, exc,
+            )
 
 
 def _close_trade_by_match(db, *, strategy: Optional[str], symbol: Optional[str],
-                          updates: Dict[str, Any]) -> None:
+                          updates: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """Best-effort: find the most-recent open trade row matching the
     strategy + symbol and apply ``updates``. Used when the order
     package row doesn't yet carry a linked_trade_id (the link is a
     follow-up to S-029 PR2).
+
+    Returns the matched trade row before the update (or ``None`` if
+    no match) so the caller can decide whether to also send an
+    exchange-side close based on its ``account_id`` + ``position_size``.
     """
     if not strategy or not symbol:
-        return
+        return None
     rows = db.get_trades(
         filters={"strategy_name": strategy, "symbol": symbol, "status": "open"},
         limit=1,
     )
     if not rows:
-        return
-    trade_id = rows[0].get("id")
+        return None
+    matched = rows[0]
+    trade_id = matched.get("id")
     if trade_id is not None:
         db.update_trade(int(trade_id), updates)
+    return matched
+
+
+# ---------------------------------------------------------------------------
+# Exchange-side wiring (S-030 PR4) — env-gated
+# ---------------------------------------------------------------------------
+
+
+def _apply_to_exchange_enabled() -> bool:
+    """``MONITOR_APPLY_TO_EXCHANGE`` is the operator-controlled flag
+    that flips PR3's "shadow mode" (DB-only) into live mode (also
+    talks to the exchange). Defaults to **False** so an unconfigured
+    deploy never accidentally modifies live orders. Operator sets the
+    env on the trader's systemd unit when ready.
+    """
+    raw = os.environ.get("MONITOR_APPLY_TO_EXCHANGE", "false")
+    return str(raw).strip().lower() in {"true", "1", "yes", "on"}
+
+
+def _build_account_client(account_id):
+    """Resolve an exchange client + cfg for *account_id*.
+
+    Returns ``(client, account_cfg)`` — both may be ``None`` if the
+    account isn't found or has missing creds. Best-effort; every step
+    wrapped.
+    """
+    try:
+        from src.units.accounts import load_accounts
+        from src.units.accounts.clients import (
+            bybit_client_for, binance_conn_for,
+        )
+        for acc in load_accounts():
+            if acc.name != account_id:
+                continue
+            cfg = {
+                "account_id": acc.name,
+                "exchange": acc.exchange,
+                "api_key_env": acc.api_key_env,
+            }
+            exchange_lc = (acc.exchange or "").lower()
+            if exchange_lc == "bybit":
+                return bybit_client_for(cfg), cfg
+            if exchange_lc == "binance":
+                return binance_conn_for(cfg), cfg
+            return None, cfg
+        return None, None
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "order_monitor: client resolution failed for %s: %s",
+            account_id, exc,
+        )
+        return None, None
+
+
+def _send_close_to_exchange(matched_trade: Dict[str, Any]) -> Dict[str, Any]:
+    """Send a reduce-only close order for the matched trade row.
+
+    Returns the helper's result dict. Best-effort — never raises.
+    """
+    try:
+        from src.units.accounts.execute import close_open_position
+        client, cfg = _build_account_client(matched_trade.get("account_id"))
+        if client is None or cfg is None:
+            return {"ok": False, "error": "no_client"}
+        return close_open_position(
+            client, cfg,
+            symbol=matched_trade.get("symbol"),
+            side=matched_trade.get("direction"),
+            qty=float(matched_trade.get("position_size") or 0.0),
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("order_monitor: exchange close failed: %s", exc)
+        return {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
+
+
+def _send_modify_to_exchange(matched_trade: Dict[str, Any], *,
+                             sl: Optional[float] = None,
+                             tp: Optional[float] = None) -> Dict[str, Any]:
+    """Send a SL/TP modify to the exchange for the matched trade row."""
+    try:
+        from src.units.accounts.execute import modify_open_order
+        client, cfg = _build_account_client(matched_trade.get("account_id"))
+        if client is None or cfg is None:
+            return {"ok": False, "error": "no_client"}
+        return modify_open_order(
+            client, cfg,
+            symbol=matched_trade.get("symbol"),
+            sl=sl, tp=tp,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("order_monitor: exchange modify failed: %s", exc)
+        return {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
 
 
 def run_monitor_tick(
