@@ -891,6 +891,52 @@ class TestCmdLast5IteratesAccounts:
         sent = [c.args[0] for c in upd.message.reply_text.call_args_list]
         assert any("Could not list accounts" in m for m in sent)
 
+    def test_format_trade_row_handles_markdown_special_chars(self):
+        """Regression: DB columns with *, _, [, ` must not crash the renderer.
+
+        Telegram's legacy Markdown parser rejected unbalanced entities and
+        produced ``Can't parse entities: can't find end of the entity`` on
+        /last5. Output is now plain text, so the function must accept any
+        string content without raising.
+        """
+        row = self._trade_row(42)
+        row["notes"] = "saw a [bug] in *VWAP* with `weird` _name_"
+        row["entry_reason"] = "FVG_fill `H1` *bullish*"
+        row["exit_reason"] = "TP1 hit [partial] _scaled_"
+        row["setup_type"] = "ICT *Silver* `bullet`"
+
+        out = bot._format_trade_row(row)
+        assert "Trade #42" in out
+        assert "[bug]" in out and "*VWAP*" in out and "`weird`" in out
+        assert "_name_" in out
+
+    def test_last5_does_not_use_markdown_parse_mode(self, monkeypatch):
+        """cmd_last5 must reply without parse_mode='Markdown' so DB-sourced
+        text containing *, _, [, ` no longer crashes Telegram."""
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        monkeypatch.setattr(bot.dl, "list_accounts", lambda: [
+            {"account_id": "live", "exchange": "bybit", "env_path": ""},
+        ])
+        nasty = self._trade_row(99)
+        nasty["notes"] = "edge*case_[stuff]`"
+        monkeypatch.setattr(
+            bot.dl, "recent_trades_for", lambda acc, n=5: [nasty])
+        monkeypatch.setattr(bot.os.path, "exists", lambda _p: False)
+
+        upd = self._make_update()
+        self._run(bot.cmd_last5(upd, MagicMock()))
+
+        trade_calls = [
+            c for c in upd.message.reply_text.call_args_list
+            if "Trade #99" in c.args[0]
+        ]
+        assert trade_calls, "expected the trade row to be rendered"
+        for call in trade_calls:
+            assert call.kwargs.get("parse_mode") is None, (
+                "trade rows must not be sent with parse_mode='Markdown'; "
+                "DB content can contain unescaped Markdown specials"
+            )
+
 
 # ---------------------------------------------------------------------------
 # close_all_bybit_positions (M2a) — per-account migration tests

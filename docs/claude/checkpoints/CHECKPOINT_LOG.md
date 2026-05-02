@@ -5,6 +5,49 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-02-03 — G1: /last5 Markdown crash fixed (BUG-030)
+
+- **Session date:** 2026-05-02
+- **Sprint:** S-XXX — Telegram bot debug + UI overhaul + repo cleanup
+- **Current sprint phase:** G1 (1/6) complete. G2 — hamburger menu / help command parity — is the next pick-up.
+- **Last completed checkpoint:** CP-2026-05-02-02 (#262 area).
+- **Next checkpoint:** **CP-2026-05-02-04 — G2: hamburger menu mirrors /help.** The next session should audit the `application.bot.set_my_commands(...)` call inside `src/bot/telegram_query_bot.py` (search the file for `set_my_commands`), confirm it lists every command exposed by `/help` in the same order with ≤80-char descriptions, and add a regression test asserting the help-text source-of-truth and the BotCommand list are 1:1.
+- **Telegram sent:** pending — this checkpoint commit triggers the VM ping.
+- **Alerts sent during session:** none.
+- **Blockers:** none. Work-PR is draft; no operator weigh-in needed for this goal (no live-trading or secrets surface touched). The follow-up G5 PR will require the ping-PR pattern because it touches `src/runtime/pipeline.py`.
+
+### 1. Completed
+- Identified the root cause of the `/last5` failure (`Can't parse entities: can't find end of the entity starting at byte offset 621`): `_format_trade_row` rendered DB columns containing `*`, `_`, `[`, or backticks inside a `parse_mode="Markdown"` reply, so Telegram's legacy parser rejected the message.
+- Fix landed: `_format_trade_row` is now plain text (no `*Trade #N*` bold), and `cmd_last5` no longer passes `parse_mode="Markdown"` to `reply_text`. Emoji prefixes (🔔 🕒 💱 📈 …) carry the visual structure on their own. This is the same remediation pattern applied in BUG-009 / PR #190 for `/signals` — DB-sourced content does not pass through legacy Markdown.
+- Two regression tests added under `TestCmdLast5IteratesAccounts`:
+  1. `test_format_trade_row_handles_markdown_special_chars` — feeds notes / entry_reason / exit_reason / setup_type with `*`, `_`, `[`, `` ` `` and asserts `_format_trade_row` renders without raising and preserves the literal characters.
+  2. `test_last5_does_not_use_markdown_parse_mode` — drives `cmd_last5` against a mocked recent-trades loader returning a row with Markdown specials and asserts every `reply_text` call carrying the trade has `parse_mode is None` (would have caught the original regression at PR-time).
+- Bug log: appended `BUG-030` row tagged `markdown`, cross-referenced BUG-009.
+
+### 2. Files changed
+- `src/bot/telegram_query_bot.py` — `_format_trade_row` plain text + `cmd_last5` reply drops `parse_mode`.
+- `tests/test_telegram_query_bot.py` — two new regression tests in `TestCmdLast5IteratesAccounts`.
+- `docs/claude/bug-log.md` — BUG-030 row.
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` — this entry.
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_telegram_query_bot.py::TestCmdLast5IteratesAccounts -q` — 6 passed (4 existing + 2 new).
+- `PYTHONPATH=. pytest tests/test_telegram_query_bot.py -q` — 86 passed, 1 failed (`TestCmdStatusMultiAccount::test_shows_block_per_account`). That failure is the pre-existing one called out in CP-2026-05-02-01 / CP-2026-05-01-19 (asserts the dropped `ict-trader-live` service-name string from BUG-019); it is unrelated to G1 and not a regression introduced by this PR.
+- `python scripts/secret_scan.py` — clean.
+
+### 4. Remaining for this checkpoint
+- none — G1 fully shipped.
+- Sprint goals G2–G6 + the architecture audit doc still queued; one task per session, so they are next-checkpoint work.
+
+### 5. Next checkpoint
+**CP-2026-05-02-04 — G2: hamburger menu mirrors /help.** Next session should:
+1. `cat docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry).
+2. Read `CLAUDE.md` (esp. § Live-mode invariant + Ping-PR vs work-PR), `docs/claude/session-workflow.md`, `docs/claude/testing-policy.md`.
+3. `grep -n set_my_commands src/bot/telegram_query_bot.py` and the help-text source.
+4. Make set_my_commands canonical (one line per cmd, ≤80 chars) and add a 1:1 regression test.
+
+---
+
 ## CP-2026-05-02-02 — Workflow YAML hygiene: hf-cron repaired, validator test added
 
 - **Session date:** 2026-05-02
