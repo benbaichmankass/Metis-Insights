@@ -20,9 +20,10 @@ Rules:
 - `templates/colab_template.ipynb` — minimal generic one-task scaffold.
 - `templates/hf_dataset_push.ipynb` — push a dataset to Hugging Face.
 - `templates/triggered-backtest.ipynb` — process a backtest job from the VM queue.
-- `templates/training_improvement_template.ipynb` — autonomous "improve a
-  strategy / model" run. Reads `GITHUB_TOKEN` + `GITHUB_USERNAME` from Colab
-  Secrets, runs experiments per `experiments/<RUN_ID>/PLAN.md`, commits
-  results to a fresh branch, and opens a draft `TRAINING-RESULTS:` PR.
-  Used by [`docs/claude/training-improvement-workflow.md`](../docs/claude/training-improvement-workflow.md)
-  Stage 2.
+
+**Note:** Training/improvement runs no longer use Colab (free Colab
+disconnects after ~90 min idle, breaking "fire and forget"). They run
+via GitHub Actions instead — see
+[`docs/claude/training-improvement-workflow.md`](../docs/claude/training-improvement-workflow.md)
+and `.github/workflows/training-run.yml`. Hypotheses are committed as
+`experiments/<run-id>/hypotheses.py`, not as notebooks.

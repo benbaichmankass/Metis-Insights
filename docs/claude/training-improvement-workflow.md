@@ -7,12 +7,12 @@ for the operator. Pings (via PR / commit titles → existing Telegram wiring)
 fire at each stage boundary so the operator always knows where they are.
 
 ```
-Stage 1: Research + hypotheses     →  ping: TRAINING-START
-Stage 2: Notebook + plan committed →  ping: TRAINING-PLAN PR opened
-        (operator opens Colab, runs all cells, closes the tab)
-Stage 3: Colab finishes, commits   →  ping: TRAINING-RESULTS PR opened
-Stage 4: Review + recommendations  →  ping: RECOMMENDATIONS (PM REVIEW) PR opened
-        (operator approves; Claude opens a follow-up PR with the
+Stage 1: Research + hypotheses              →  ping: TRAINING-START
+Stage 2: PLAN.md + hypotheses.py committed  →  ping: TRAINING-PLAN PR opened
+        (push triggers GitHub Action; operator does nothing)
+Stage 3: GitHub Action finishes, commits    →  ping: TRAINING-RESULTS PR opened
+Stage 4: Review + recommendations           →  ping: RECOMMENDATIONS (PM REVIEW) PR opened
+        (operator approves; Claude opens a follow-up IMPLEMENT: PR with
          actual code changes against the live strategy / model)
 ```
 
@@ -62,7 +62,7 @@ When the operator says "let's run a training/improvement session on
 
 ---
 
-## Stage 2 — Notebook + plan, committed for one-click run
+## Stage 2 — PLAN.md + hypotheses.py, committed for autonomous run
 
 Claude writes:
 
@@ -70,59 +70,59 @@ Claude writes:
    compute budget, expected runtime, what "success" looks like per
    hypothesis. `<run-id>` = `YYYY-MM-DD-<slug>` (e.g.
    `2026-05-01-vwap-htf-filter`).
-2. `notebooks/training/<run-id>.ipynb` — a copy of
-   `notebooks/templates/training_improvement_template.ipynb` with the
-   experiment-specific cells filled in. The notebook MUST satisfy:
-   - **One-click**: Runtime → Run all; no human input after that.
-   - Reads `GITHUB_TOKEN` and `GITHUB_USERNAME` from
-     `google.colab.userdata` (already in the operator's Colab).
-   - Clones the repo at the current branch SHA, runs experiments,
-     writes outputs to `experiments/<run-id>/results/`.
-   - In-session checkpoints under `/tmp/ict-training/<run-id>/` so a
-     re-run within the same Colab kernel skips completed hypotheses.
-     **Does not** mount Google Drive — restart loses the in-session
-     cache, acceptable for ≤ 6 hr runs. Longer runs should commit
-     per-hypothesis to the results branch (the repo is the durability
-     layer).
-   - Free data sources only — yfinance / Coinbase public / Bybit
-     public / our HF datasets. Each fetch must print fallback
-     diagnostics on failure so the next run is debuggable. **No
-     Binance** per `testing-policy.md`.
-   - On success **or** failure, commits results to a fresh branch
-     `claude/training-results-<run-id>` and opens a draft PR titled
-     `TRAINING-RESULTS: <run-id>` (or `TRAINING-RESULTS [FAILED]:
-     <run-id>` on failure) via the GitHub REST API.
-3. Open a draft PR titled `TRAINING-PLAN: <run-id>` with the notebook
-   + plan. Body: link to the Colab "Open in Colab" URL, expected
-   runtime, hypothesis summary. This PR fires the "notebook ready"
-   ping.
+2. `experiments/<run-id>/hypotheses.py` — Python module that defines:
+   - `setup(ctx)` (optional) — pre-fetches data into `ctx`, populated
+     fields available to all hypotheses.
+   - `def H1(ctx) -> dict`, `H2(ctx)`, ... — each returns
+     `{'metrics': {...}, 'baseline_metrics': {...}, 'summary_md': str}`.
+   - `HYPOTHESES = [('H1', H1), ('H2', H2), ...]` — ordered registry.
+   The module imports `scripts.training.{data_loader, backtest_helpers}`
+   for shared helpers and the strategies under test from
+   `src.units.strategies.*`.
 
-The operator's only manual action in the entire workflow:
-**click the Colab link, click Runtime → Run all, close the tab.**
+The push to `claude/training-plan-<run-id>` triggers
+`.github/workflows/training-run.yml` automatically (it filters on
+changes to `experiments/*/hypotheses.py`). The Action:
 
-**Data sources** — same rules as everywhere: no Binance, prefer
-HF datasets / Bybit public / repo fixtures. See
-[`testing-policy.md`](testing-policy.md#test-data-sources-read-first).
+- installs `requirements.txt` + `yfinance`,
+- runs `python scripts/training/run_experiment.py --run-id <run-id>`,
+- commits results to `claude/training-results-<run-id>`,
+- opens a draft PR titled `TRAINING-RESULTS: <run-id>`.
+
+3. Open a draft PR titled `TRAINING-PLAN: <run-id>` with PLAN.md +
+   hypotheses.py. Body: hypothesis summary, expected runtime, link to
+   the Action run. This PR fires the "notebook ready" ping (kept name
+   for backwards compat, even though there's no notebook anymore).
+
+**The operator's manual action in the entire workflow: zero.** Pings #1-#3
+arrive automatically; only ping #4 (recommendations writeup) needs
+operator decision.
+
+**Data sources** — free only: yfinance, Coinbase public, Bybit public,
+our HF datasets. Loader prints fallback diagnostics on each failure.
+See [`testing-policy.md`](testing-policy.md#test-data-sources-read-first).
+
+**Why GitHub Actions, not Colab?** Free Colab disconnects after ~90 min
+of tab inactivity, so "close the tab and walk away" doesn't actually
+work without paying for Colab Pro. GitHub Actions runs to completion
+(6 hr cap, plenty for our backtests), free, and naturally tied to the
+git push that ends Stage 2. No new infra to maintain.
 
 ---
 
-## Stage 3 — Colab runs autonomously, commits results
+## Stage 3 — GitHub Action runs autonomously, commits results
 
-The notebook (running on Colab):
+Triggered automatically by Stage 2's push of `hypotheses.py`. The
+Action job (`training-run.yml` → `run`):
 
-1. Executes the experiments per PLAN.md.
-2. Writes per-hypothesis result files under
-   `experiments/<run-id>/results/<hypothesis-id>/`:
-   - `metrics.json` (sharpe, drawdown, win-rate, etc.)
-   - `equity_curve.png` (or whatever plots are relevant)
-   - `summary.md` (one paragraph: did it beat baseline, by how much)
-3. Writes `experiments/<run-id>/results/SUMMARY.md` aggregating all
-   hypotheses into a single ranked table.
-4. Commits everything to `claude/training-results-<run-id>` and opens
-   a draft PR `TRAINING-RESULTS: <run-id>` via GitHub API.
-5. If a step fails, the notebook still commits whatever partial
-   results exist plus a `FAILURE.md` traceback, and opens the PR with
-   `[FAILED]` in the title so the operator knows to check.
+1. Checks out the plan branch.
+2. Installs deps and runs `scripts/training/run_experiment.py`.
+3. Per hypothesis: writes `experiments/<run-id>/results/<hid>/{metrics.json, summary.md}`.
+4. Failures get `FAILURE.md` instead of `summary.md`; the run continues.
+5. Aggregates `experiments/<run-id>/results/SUMMARY.md`.
+6. Commits to `claude/training-results-<run-id>` and opens
+   `TRAINING-RESULTS: <run-id>` (or `TRAINING-RESULTS [FAILED]:` if any
+   hypothesis errored) via `gh pr create`.
 
 The PR opening fires the "training done" ping.
 
@@ -215,7 +215,7 @@ training sessions just reuse it.
 | Stage boundary | Trigger | Existing wiring it rides on |
 |---|---|---|
 | Session start | Checkpoint commit with `[TRAINING-START]` in title | "checkpoint appended" ping |
-| Notebook ready | PR opened with `TRAINING-PLAN:` title | "PR opened (DRAFT for PM review)" ping (treats `TRAINING-PLAN:` as PM-relevant, see `telegram-pings.md`) |
+| Plan + run started | PR opened with `TRAINING-PLAN:` title; the GitHub Action then runs autonomously | "PR opened (DRAFT for PM review)" ping (treats `TRAINING-PLAN:` as PM-relevant, see `telegram-pings.md`) |
 | Training done | PR opened with `TRAINING-RESULTS:` title | same as above |
 | Recommendations ready | PR opened with `RECOMMENDATIONS (PM REVIEW):` title (writeup only) | matches existing `(PM REVIEW)` convention |
 | Implementation ready (post-approval) | PR opened with `IMPLEMENT:` title | generic PR-opened ping; PM-review gate applies because it touches live trading code |
@@ -231,18 +231,20 @@ script's title-grep list needs the four new prefixes added.
 | Thing | Location |
 |---|---|
 | Run-id format | `YYYY-MM-DD-<slug>`, slug = lower-kebab description |
-| Plan + notebook branch | `claude/training-plan-<run-id>` |
-| Notebook copy | `notebooks/training/<run-id>.ipynb` |
+| Plan branch | `claude/training-plan-<run-id>` |
 | Plan doc | `experiments/<run-id>/PLAN.md` |
-| Results branch (Colab pushes here) | `claude/training-results-<run-id>` |
+| Hypotheses module | `experiments/<run-id>/hypotheses.py` |
+| Shared helpers | `scripts/training/{run_experiment,data_loader,backtest_helpers}.py` |
+| GitHub Action | `.github/workflows/training-run.yml` |
+| Results branch (Action pushes here) | `claude/training-results-<run-id>` |
 | Results dir | `experiments/<run-id>/results/` |
 | Recommendations branch (writeup only) | `claude/recommendations-<run-id>` |
 | Recommendations doc | `experiments/<run-id>/RECOMMENDATIONS.md` |
 | Implementation branch (after approval) | `claude/implement-<run-id>` |
 | Large artifacts | Hugging Face under our org, URL referenced from PR |
 
-`experiments/` is gitignored except for `PLAN.md` and `results/`
-text/metrics. The notebook template enforces this.
+`experiments/` is gitignored except for `PLAN.md`, `RECOMMENDATIONS.md`,
+`hypotheses.py`, and the text/metrics under `results/`.
 
 ---
 
@@ -279,13 +281,17 @@ Stage 4.
 
 - [`ml-training-policy.md`](ml-training-policy.md) — what Claude does
   vs. delegates for ML work.
-- [`colab-workflows.md`](colab-workflows.md) — notebook conventions,
-  data-source rules.
 - [`huggingface-workflows.md`](huggingface-workflows.md) — large
   model / dataset storage.
 - [`telegram-pings.md`](telegram-pings.md) — ping contract this
   workflow rides on.
 - [`external-delegation.md`](external-delegation.md) — Claude
-  orchestrates, Colab/HF/VM execute.
-- `notebooks/templates/training_improvement_template.ipynb` — the
-  notebook template Stage-2 copies from.
+  orchestrates, GitHub Actions / HF / VM execute.
+- `.github/workflows/training-run.yml` — the GitHub Action that runs
+  Stage 3.
+- `scripts/training/run_experiment.py` — the orchestrator the Action
+  invokes; loads `experiments/<run-id>/hypotheses.py` and writes results.
+- Removed: `notebooks/templates/training_improvement_template.ipynb`
+  and `notebooks/training/<run-id>.ipynb` — the prior Colab-based path.
+  Replaced by GitHub Actions because free Colab disconnects after ~90 min
+  idle.
