@@ -5,6 +5,71 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-02-28 — Architecture audit + S-029 P0 fixes (3 draft PRs)
+
+- **Session date:** 2026-05-02
+- **Sprint:** Architecture compliance (operator-driven wider audit triggered post-#308). Audit doc + CLAUDE.md rules merged via #310; S-029 PRs ship the three P0 findings.
+- **Current sprint phase:** **3 draft work-PRs OPEN — awaiting PM review.** PR1 (#311) account-strategy filter; PR2 (#312) trade-journal write; PR3 (#313) liveness watchdog. A consolidated ping-PR fires the operator alert linking to all three.
+- **Last completed checkpoint:** CP-2026-05-02-27 (BUG-034 VWAP execution routing fix merged in #308).
+- **Next checkpoint:** **CP-2026-05-?-?? — S-030** (multi-PR: order-packages log + open-trade monitor loop). Read order: this entry, `docs/claude/architecture-audit-2026-05-02.md` § P1-4 + § P1-5, the merged S-029 PRs.
+- **Telegram sent:** consolidated ping-PR `claude/s029-checkpoint-and-ping` self-merges to fire the operator alert per `CLAUDE.md § Ping-PR vs work-PR`.
+- **Alerts sent during session:** ping-PR #309 (BUG-034 work-PR alert, merged); this checkpoint's ping-PR (S-029 alert).
+- **Blockers:** PM review on three Tier-2 work-PRs.
+
+### 1. Completed
+- **Architecture audit (this session, earlier).** 4 parallel Explore sub-agents surveyed the repo against the 6 architectural rules. Findings shipped in `docs/claude/architecture-audit-2026-05-02.md` (#310, merged): 10 violations ranked P0/P1/P2 with file:line evidence and a sprint sequence (S-029 → S-035).
+- **CLAUDE.md § Architecture rules (this session, earlier, #310).** The 6 rules verbatim with enforcement pointers; sprint-planning.md gained § 4b *Unit boundary declaration*.
+- **S-029 PR1 (#311) — account-strategy filter (P0-1).** `Coordinator.multi_account_execute` now consults `account.strategies` from `accounts.yaml` and skips accounts whose list doesn't include the package's strategy. A `skipped_not_assigned` result row makes the skip auditable. Legacy fixtures without a `strategies` field bypass the filter for back-compat. 4 new regression tests + 73 regression-adjacent pass.
+- **S-029 PR2 (#312) — live trades land in `trade_journal.db` (P0-2).** New `_log_trade_to_journal` helper inside `execute_pkg` runs after `_submit_order` succeeds. Status starts `open`; close path is S-030. Best-effort, never raises; smoke tests + dry-run paths skip via existing branches. 6 new tests + 96 regression-adjacent pass.
+- **S-029 PR3 (#313) — liveness watchdog (P0-3).** New `src/runtime/liveness_watchdog.py` runs once per hour from `src/main.py`'s hourly cycle. When ≥ 5 actionable signals fired AND 0 trades landed in the last hour, it enqueues an urgent ping to `runtime_logs/pending_pings/`. Per-slot dedupe via `runtime_logs/liveness_watchdog_state.json`. 11 new tests pass.
+
+### 2. Files changed (this session, across all PRs)
+- `docs/claude/architecture-audit-2026-05-02.md` (new, merged in #310)
+- `CLAUDE.md` (§ Architecture rules added, merged in #310)
+- `docs/claude/sprint-planning.md` (§ 4b added, merged in #310)
+- `src/core/coordinator.py` (#311, draft) — strategy filter in `multi_account_execute`.
+- `tests/test_s029_pr1_account_strategy_filter.py` (#311, new, 4 tests)
+- `src/units/accounts/execute.py` (#312, draft) — `_log_trade_to_journal` helper + call site after `_submit_order`.
+- `tests/test_s029_pr2_trade_journal_write.py` (#312, new, 6 tests)
+- `src/runtime/liveness_watchdog.py` (#313, draft, ~280 lines, new module)
+- `src/main.py` (#313, draft) — single try/except calling `run_liveness_watchdog` after `build_hourly_report`.
+- `tests/test_s029_pr3_liveness_watchdog.py` (#313, new, 11 tests)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` — this entry.
+- `docs/claude/pending-pings.jsonl` — consolidated ping-PR entry.
+
+### 3. Tests run
+- `pytest tests/test_s029_pr1_account_strategy_filter.py -v` — 4/4 pass.
+- `pytest tests/test_s029_pr2_trade_journal_write.py -v` — 6/6 pass.
+- `pytest tests/test_s029_pr3_liveness_watchdog.py -v` — 11/11 pass.
+- Regression-adjacent (per branch): 73, 96, 84 pass.
+- `python scripts/secret_scan.py` — clean.
+- `python scripts/check_dry_run_in_diff.py` — clean per branch.
+- CI `scan` job: green on #311, #312; #313 queued at write time.
+
+### 4. Remaining
+- **Operator merges #311 → #312 → #313** (in any order, no inter-PR dependency).
+- **S-030 multi-PR (next session).** Order-packages log table + open-trade monitor loop (P1-4 + P1-5). Order-packages log is the prerequisite for monitor.
+- **S-031 → S-035** per the audit doc. After #311–#313 merge the system is *operationally correct*; the rest is unit-boundary cleanup.
+
+### 5. Next checkpoint
+**CP-2026-05-?-??** — S-030 PR1 (order-packages log table). Read order: this entry, `docs/claude/architecture-audit-2026-05-02.md` § P1-5, `src/data_layer/database.py`, `src/units/accounts/execute.py` (where the writer is called from), and the merged S-029 PRs.
+
+### 6. Live-mode check (across S-029 PRs)
+- ✅ `scripts/check_dry_run_in_diff.py` clean on every branch.
+- ✅ `config/accounts.yaml` not touched.
+- ⚠️ #311 touches `src/core/coordinator.py` (rule 3 list). #312 touches `src/units/accounts/execute.py`. #313 touches `src/main.py`. All three are draft `(PM REVIEW)` per the per-PR ping rule. Behavioural changes:
+  - #311 *fixes* mis-routing (signal → wrong-strategy account no longer possible).
+  - #312 is observability (live trades now land in the journal — the order/risk path is unchanged).
+  - #313 is observability (hourly watchdog reads logs and enqueues a ping; no order-path change).
+- The per-account RiskManager remains the sizing authority across all three.
+
+### 7. Lessons learned
+1. **Architectural audits scale with parallel sub-agents.** 4 Explore agents in parallel covered the 6 rules end-to-end in ~2 minutes of wall-clock and roughly 100k tokens of agent context — far less than serial reading would have cost the main session. Worth a CLAUDE.md note for future audit sessions.
+2. **The audit doc + the CLAUDE.md rule update is the right "land first" foundation.** Putting the rules on `main` *before* the fix PRs means each fix PR can reference the rule it satisfies (`§ 3` etc.) in the commit message. Future hardening sessions can grep the rule text and find the fix.
+3. **One ping-PR for batched work is fine.** S-029 ships three work-PRs in one session; one consolidated ping-PR (this checkpoint) routes the operator to all three at once instead of three separate Telegram notifications. The per-PR ping-PR pattern is for when the operator needs to weigh in on a *single* decision; here they're approving a coherent stack.
+
+---
+
 ## CP-2026-05-02-27 — Recurring hardening session #1: VWAP execution routing fix (BUG-034)
 
 - **Session date:** 2026-05-02
