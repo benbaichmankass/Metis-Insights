@@ -114,48 +114,20 @@ def is_halted() -> bool:
 
 
 def fetch_today_pnl(account_id: str | None = None) -> tuple:
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        cur = conn.cursor()
-        if account_id is not None:
-            cur.execute(
-                "SELECT COUNT(*), SUM(COALESCE(pnl, 0)) FROM trades "
-                "WHERE DATE(timestamp) = ? AND is_backtest = 0 AND account_id = ?",
-                (today, account_id),
-            )
-        else:
-            cur.execute(
-                "SELECT COUNT(*), SUM(COALESCE(pnl, 0)) FROM trades "
-                "WHERE DATE(timestamp) = ? AND is_backtest = 0",
-                (today,),
-            )
-        row = cur.fetchone()
-        conn.close()
-        return (row[0] or 0, float(row[1] or 0.0))
-    except Exception:
-        return (0, 0.0)
+    """Back-compat wrapper. S-031 PR1
+    (architecture-audit-2026-05-02 P1-6) moved the SQL query into
+    ``src.ui.processor.get_today_pnl`` so the bot stops touching
+    ``trade_journal.db`` directly. The tuple shape is preserved for
+    existing handlers."""
+    from src.ui.processor import get_today_pnl
+    result = get_today_pnl(account_id)
+    return (result["trade_count"], result["total_pnl_usd"])
 
 
 def fetch_open_positions_count(account_id: str | None = None) -> int:
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        cur = conn.cursor()
-        if account_id is not None:
-            cur.execute(
-                "SELECT COUNT(*) FROM trades "
-                "WHERE status = 'open' AND is_backtest = 0 AND account_id = ?",
-                (account_id,),
-            )
-        else:
-            cur.execute(
-                "SELECT COUNT(*) FROM trades WHERE status = 'open' AND is_backtest = 0"
-            )
-        row = cur.fetchone()
-        conn.close()
-        return row[0] or 0
-    except Exception:
-        return 0
+    """Back-compat wrapper — see ``fetch_today_pnl`` for context."""
+    from src.ui.processor import get_open_positions_count
+    return get_open_positions_count(account_id)
 
 
 _STRATEGY_DISPLAY = {
