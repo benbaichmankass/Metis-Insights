@@ -348,20 +348,37 @@ def _bybit_creds_diagnostic(account: dict) -> str | None:
     return dl.credentials_check(account or {})
 
 
+def _account_balance_header(account: dict, *, exchange_suffix: str = "") -> str:
+    """Build the balance block header.
+
+    Account-first labeling (CP-2026-05-02): the primary identifier is the
+    account_id (the thing the operator sees in accounts.yaml + the thing
+    that actually owns the API key + wallet); the strategy is shown as a
+    parenthetical so the operator knows which strategy routes through it
+    without confusing strategies-have-balances. Two accounts that happen
+    to share the same single-strategy assignment now show distinct
+    headers — which exposes dup-key issues immediately.
+    """
+    aid = (account or {}).get("account_id", "?")
+    strat = get_strategy_label(account)
+    base = f"`{aid}`" + (f" ({strat})" if strat and strat != _DEFAULT_STRATEGY_LABEL else "")
+    suffix = f" {exchange_suffix}" if exchange_suffix else ""
+    return f"💰 *{base} Balance{suffix}*"
+
+
 def format_bybit_balance(account: dict) -> str:
     """Render the per-coin Bybit balance block for one account.
     Data is sourced via ``dl.account_balance``; this function only formats."""
-    label = get_strategy_label(account)
-    aid = (account or {}).get("account_id", "?")
+    header = _account_balance_header(account)
     payload = dl.account_balance(account)
     if payload is None:
         diag = _bybit_creds_diagnostic(account)
         suffix = f"\n→ {diag}" if diag else ""
-        return f"💰 *{label} Balance* (`{aid}`)\n⚠️ Bybit error: balance unavailable.{suffix}"
+        return f"{header}\n⚠️ Bybit error: balance unavailable.{suffix}"
     raw = (payload or {}).get("raw") or {}
     result_list = (raw.get("result") or {}).get("list") or []
     if not result_list:
-        return f"💰 *{label} Balance*\nNo balance data returned from Bybit."
+        return f"{header}\nNo balance data returned from Bybit."
     coins = result_list[0].get("coin", []) or []
     lines = []
     for c in coins:
@@ -377,7 +394,7 @@ def format_bybit_balance(account: dict) -> str:
             usd = 0.0
         lines.append(f"{c.get('coin', '?')}: {wb:.4f} (≈ ${usd:.2f})")
     text = "\n".join(lines) if lines else "No non-zero balances found."
-    return f"💰 *{label} Balance*\n{text}"
+    return f"{header}\n{text}"
 
 
 def format_bybit_positions(account: dict) -> str:
@@ -502,19 +519,19 @@ def format_binance_balance(account: dict) -> str:
     """Render the Binance Futures USDT balance block for one account.
     Total/free/used are derived from the loader's ``raw`` ccxt-style
     balance map (preserves today's UX)."""
-    label = get_strategy_label(account)
+    header = _account_balance_header(account, exchange_suffix="(Binance)")
     payload = dl.account_balance(account)
     if payload is None:
-        return f"💰 *{label} Balance (Binance)*\n⚠️ Error: balance unavailable."
+        return f"{header}\n⚠️ Error: balance unavailable."
     raw = (payload or {}).get("raw") or {}
     if not raw:
-        return f"💰 *{label} Balance (Binance)*\nNo data returned."
+        return f"{header}\nNo data returned."
     usdt = raw.get("USDT", {}) if isinstance(raw, dict) else {}
     total = float((usdt or {}).get("total", 0) or 0)
     free = float((usdt or {}).get("free", 0) or 0)
     used = float((usdt or {}).get("used", 0) or 0)
     return (
-        f"💰 *{label} Balance (Binance Futures)*\n"
+        f"{header}\n"
         f"USDT Total: {total:.2f}\n"
         f"USDT Free: {free:.2f}\n"
         f"USDT Used: {used:.2f}"
@@ -949,6 +966,10 @@ def _format_signal_row(rec: dict) -> str:
     ``halt_flag_active``, ``failed_validation``) contain underscores that
     break Telegram's legacy Markdown italic parsing, so the original
     ``_..._``/``*...*`` wrappers caused a silent BadRequest on every reply.
+
+    CP-2026-05-02: strategy is labelled (``strategy=…``) so the operator
+    can see at a glance which strategy fired the signal — previously the
+    bare token blended with symbol/side and was easy to miss.
     """
     ts = str(rec.get("logged_at_utc", ""))[:19].replace("T", " ")
     strategy = str(rec.get("strategy", "?"))
@@ -961,7 +982,7 @@ def _format_signal_row(rec: dict) -> str:
     reason = str(rec.get("reason") or "")
     reason_s = f" — {reason[:60]}" if reason else ""
     return (
-        f"{emoji} {ts} {strategy} {symbol} {side} {qty_s} "
+        f"{emoji} {ts} | strategy={strategy} | {symbol} {side} {qty_s} "
         f"→ {status}{reason_s}"
     )
 

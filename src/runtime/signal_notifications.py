@@ -101,13 +101,18 @@ def msg_started():
 def msg_stopped():
     return "🛑 Bot shut down. Runtime monitoring has stopped."
 
-def msg_bi_daily(stats):
-    return (
-        "📈 Bi-daily summary\n\n"
-        f"Wins: {stats['wins']}\n"
-        f"Losses: {stats['losses']}\n"
-        f"P/L: {stats['pnl']:.2f}\n"
-        f"Balance: {stats['balance'] if stats['balance'] is not None else 'n/a'}"
+def msg_bi_daily(stats):  # noqa: ARG001 — kept as a hard error for old call sites
+    """Removed CP-2026-05-02. The twice-a-day summary was replaced by the
+    hourly report (``src/runtime/hourly_report.build_hourly_report``) in
+    S-022 PR2. Calling this raises so any remaining importer fails loudly
+    instead of silently sending the legacy format the operator stopped
+    expecting.
+    """
+    raise RuntimeError(
+        "msg_bi_daily was removed — use "
+        "src.runtime.hourly_report.build_hourly_report() instead. "
+        "If you saw a 'Bi-daily summary' message after CP-2026-05-02, "
+        "the VM has not pulled latest main yet."
     )
 
 def msg_trade_open(trade):

@@ -555,7 +555,12 @@ class TestFormatBybitBalance:
             ]}]}},
         })
         out = bot.format_bybit_balance(self._account())
-        assert "VWAP Balance" in out
+        # CP-2026-05-02: account-first labelling. Account_id leads,
+        # strategy is parenthetical so two accounts that share a
+        # single strategy don't render with identical headers.
+        assert "live" in out
+        assert "VWAP" in out
+        assert "Balance" in out
         assert "USDT: 1000.5000" in out
         assert "BTC: 0.0123" in out
         assert "ETH:" not in out  # zero-balance row dropped
@@ -607,7 +612,11 @@ class TestFormatBinanceBalance:
             "raw": {"USDT": {"total": 500.0, "free": 480.0, "used": 20.0}},
         })
         out = bot.format_binance_balance(self._account())
-        assert "Breakout Balance (Binance Futures)" in out
+        # CP-2026-05-02: account-first labelling. Strategy is parenthetical.
+        assert "alpha" in out
+        assert "Breakout" in out
+        assert "Balance" in out
+        assert "(Binance)" in out
         assert "USDT Total: 500.00" in out
         assert "USDT Free: 480.00" in out
         assert "USDT Used: 20.00" in out

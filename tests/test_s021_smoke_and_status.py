@@ -317,10 +317,19 @@ class TestPipelineMultiAccountDispatch:
         with pytest.raises(ValueError, match="side must be"):
             _signal_to_order_package(sig, settings={})
 
-    def test_dispatch_flag_default_off(self, monkeypatch):
+    def test_dispatch_flag_default_on(self, monkeypatch):
+        # Post CP-2026-05-02: default is now ON so the per-account dry/live
+        # state is the source of truth, and the global ALLOW_LIVE_TRADING
+        # gate stops surfacing as "failed_validation" on every tick.
         from src.runtime.pipeline import _multi_account_dispatch_enabled
 
         monkeypatch.delenv("MULTI_ACCOUNT_DISPATCH", raising=False)
+        assert _multi_account_dispatch_enabled({}) is True
+
+    def test_dispatch_flag_explicit_off(self, monkeypatch):
+        from src.runtime.pipeline import _multi_account_dispatch_enabled
+
+        monkeypatch.setenv("MULTI_ACCOUNT_DISPATCH", "false")
         assert _multi_account_dispatch_enabled({}) is False
 
     def test_dispatch_flag_via_env(self, monkeypatch):
