@@ -68,6 +68,14 @@ notebook can read it.
 | `BREAKOUT_API_KEY_1`    | Prop-firm key (currently disabled in `accounts.yaml`) |
 | `BREAKOUT_API_SECRET_1` | Prop-firm secret |
 | `NEWS_API_KEY`          | NewsAPI key — only set if you want the news layer enabled |
+| `TELEGRAM_CLAUDE_BOT_TOKEN` | Token for the Claude bridge bot (a SECOND Telegram bot, separate from `TELEGRAM_BOT_TOKEN`). Only required if running `ict-claude-bridge.service`. |
+| `ANTHROPIC_API_KEY`     | Anthropic API key for the Claude bridge bot. Only required if running `ict-claude-bridge.service`. |
+| `CLAUDE_MODEL`          | Override the model id for the Claude bridge (default `claude-opus-4-7`). |
+
+> The Claude bridge service (`ict-claude-bridge.service`) is shipped
+> disabled. The notebook only renders these three vars into `.env` when
+> both `TELEGRAM_CLAUDE_BOT_TOKEN` and `ANTHROPIC_API_KEY` are set;
+> enabling the service is a separate manual step on the VM.
 
 ### 3. Put your SSH private key in Google Drive (preferred)
 
