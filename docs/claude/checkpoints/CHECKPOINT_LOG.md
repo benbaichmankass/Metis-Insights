@@ -5,6 +5,52 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-02-02 — Workflow YAML hygiene: hf-cron repaired, validator test added
+
+- **Session date:** 2026-05-02
+- **Sprint:** mid-sprint hotfix follow-up (CI red-run cleanup)
+- **Current sprint phase:** **COMPLETE** — single PR on `claude/fix-workflow-yaml`.
+- **Last completed checkpoint:** CP-2026-05-02-01 (#261, merged)
+- **Next checkpoint:** **none — session ends here.**
+- **Telegram sent:** pending — this checkpoint commit triggers the VM ping.
+- **Blockers:** none.
+
+### 1. Completed
+- Repaired `.github/workflows/hf-cron.yml`. The previous shape was a
+  one-line shorthand that wasn't valid YAML — every scheduled run since
+  it landed had been failing daily, hiding any real CI failures behind
+  a flood of red. The schedule trigger was removed (the autonomous
+  training/improvement workflow now runs through `training-run.yml`
+  per CP-2026-05-02-01); the file is now `workflow_dispatch`-only so
+  the operator can still fire ad-hoc HuggingFace AutoTrain runs by
+  hand.
+- New regression guard `tests/test_workflow_yaml_valid.py`: parameterised
+  parse + minimum-shape assertion across every `.github/workflows/*.yml`.
+  Catches the same bug shape at PR time instead of when the cron next
+  fires.
+
+### 2. Files changed
+- `.github/workflows/hf-cron.yml` — replaced.
+- `tests/test_workflow_yaml_valid.py` — new.
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` — this entry.
+
+### 3. Tests run
+- `tests/test_workflow_yaml_valid.py` — 3 pass (one per workflow file).
+- `tests/test_notify_on_pull.py`, `tests/test_ui_processor.py` — pass.
+- `python scripts/check_dry_run_in_diff.py` against this PR's diff — clean.
+
+### 4. Remaining
+- **Operator note**: the `hf-cron` workflow no longer runs daily.
+  Re-enable the schedule when the AutoTrain dataset is actually
+  intended to retrain on cadence — the previous file had not produced
+  a successful run, so resuming the schedule should be a deliberate
+  decision.
+
+### 5. Next checkpoint
+**none — session closed.**
+
+---
+
 ## CP-2026-05-02-01 — Pipeline validation no longer hits per-tick, account-first balance labels, UI processor unit, training pings
 
 - **Session date:** 2026-05-02

@@ -1,3 +1,43 @@
 name: HF Train
-on: schedule: - cron: '0 9 * * *'
-jobs: train: runs-on: ubuntu-latest steps: - uses: actions/checkout@v4 - run: pip install autotrain-advanced huggingface_hub - run: autotrain llm --train_dataset bentzbk/ict-signals-dataset --model microsoft/DialoGPT-small --push_to_hub env: HF_TOKEN: ${{ secrets.HF_TOKEN }}
+
+# Disabled the daily cron (CP-2026-05-02-02): the previous shape of
+# this file was a single-line hack that was not valid YAML, so every
+# scheduled run since it landed has failed. Switching to
+# ``workflow_dispatch`` only stops the daily red runs while keeping
+# the wiring around for manual one-shot training jobs. The
+# autonomous training/improvement workflow now lives in
+# ``training-run.yml`` (see ``docs/claude/training-improvement-workflow.md``);
+# this file remains only for ad-hoc HuggingFace AutoTrain runs the
+# operator may want to fire manually.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install autotrain
+        run: |
+          python -m pip install --upgrade pip
+          pip install autotrain-advanced huggingface_hub
+
+      - name: Run AutoTrain
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          if [ -z "$HF_TOKEN" ]; then
+            echo "::error::HF_TOKEN not configured; aborting."
+            exit 1
+          fi
+          autotrain llm \
+            --train_dataset bentzbk/ict-signals-dataset \
+            --model microsoft/DialoGPT-small \
+            --push_to_hub
