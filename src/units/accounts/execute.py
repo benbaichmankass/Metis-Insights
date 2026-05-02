@@ -351,3 +351,134 @@ def _log_trade_to_journal(
             trade_id, exc,
         )
         return False
+
+
+# ---------------------------------------------------------------------------
+# Exchange-side modify/close helpers — S-030 PR4
+# (architecture-audit-2026-05-02 P1-4, follow-up to PR3 monitor loop)
+# ---------------------------------------------------------------------------
+
+
+def modify_open_order(
+    exchange_client: Any,
+    account_cfg: dict,
+    *,
+    symbol: str,
+    sl: Optional[float] = None,
+    tp: Optional[float] = None,
+) -> dict:
+    """Modify SL/TP on an open position on the account's exchange.
+
+    Bybit Unified Trading: ``set_trading_stop(category='linear',
+    symbol=…, stopLoss=…, takeProfit=…)``. Binance is not yet
+    supported (only the live trader's Bybit accounts are wired);
+    returns ``ok=False`` with a NotImplementedError reason.
+
+    Best-effort. Returns a result dict instead of raising so the
+    caller (the monitor loop) can record the outcome on the
+    order_packages row without unwinding the loop.
+
+    Returns
+    -------
+    dict
+        ``{"ok": bool, "exchange_response": <raw>, "error": <str|None>}``.
+    """
+    if exchange_client is None:
+        return {"ok": False, "exchange_response": None,
+                "error": "no exchange_client (missing creds?)"}
+    if sl is None and tp is None:
+        return {"ok": False, "exchange_response": None,
+                "error": "no sl or tp provided — nothing to modify"}
+
+    exchange = (account_cfg.get("exchange") or "bybit").lower()
+    if exchange == "bybit":
+        try:
+            kwargs = {"category": "linear", "symbol": symbol}
+            if sl is not None:
+                kwargs["stopLoss"] = str(sl)
+            if tp is not None:
+                kwargs["takeProfit"] = str(tp)
+            resp = exchange_client.set_trading_stop(**kwargs)
+            ret_code = (resp or {}).get("retCode")
+            if ret_code in (0, "0", None):
+                logger.info(
+                    "modify_open_order: account=%s symbol=%s sl=%s tp=%s OK",
+                    account_cfg.get("account_id"), symbol, sl, tp,
+                )
+                return {"ok": True, "exchange_response": resp, "error": None}
+            err = str((resp or {}).get("retMsg") or f"retCode={ret_code}")
+            return {"ok": False, "exchange_response": resp, "error": err}
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "modify_open_order: bybit raised for account=%s symbol=%s: %s",
+                account_cfg.get("account_id"), symbol, exc,
+            )
+            return {"ok": False, "exchange_response": None,
+                    "error": f"{type(exc).__name__}: {exc}"}
+
+    return {"ok": False, "exchange_response": None,
+            "error": f"unsupported exchange {exchange!r} (bybit only in v1)"}
+
+
+def close_open_position(
+    exchange_client: Any,
+    account_cfg: dict,
+    *,
+    symbol: str,
+    side: str,
+    qty: float,
+) -> dict:
+    """Place a reduce-only market order to flatten an open position.
+
+    *side* is the side of the original entry (``"long"`` or ``"short"``);
+    the close order is the opposite side. *qty* is the position size
+    to close (typically the size of the original entry).
+
+    Bybit-only for v1. Returns a result dict.
+    """
+    if exchange_client is None:
+        return {"ok": False, "exchange_response": None, "exchange_order_id": None,
+                "error": "no exchange_client (missing creds?)"}
+    if qty <= 0:
+        return {"ok": False, "exchange_response": None, "exchange_order_id": None,
+                "error": f"invalid qty {qty}"}
+
+    exchange = (account_cfg.get("exchange") or "bybit").lower()
+    direction = (side or "").lower()
+    close_side = "Sell" if direction == "long" else "Buy"
+
+    if exchange == "bybit":
+        try:
+            resp = exchange_client.place_order(
+                category="linear",
+                symbol=symbol,
+                side=close_side,
+                orderType="Market",
+                qty=str(qty),
+                reduceOnly=True,
+            ) or {}
+            ret_code = resp.get("retCode")
+            if ret_code in (0, "0", None):
+                order_id = (resp.get("result") or {}).get("orderId")
+                logger.info(
+                    "close_open_position: account=%s symbol=%s side=%s qty=%s "
+                    "→ orderId=%s",
+                    account_cfg.get("account_id"), symbol, close_side, qty,
+                    order_id,
+                )
+                return {"ok": True, "exchange_response": resp,
+                        "exchange_order_id": order_id, "error": None}
+            err = str(resp.get("retMsg") or f"retCode={ret_code}")
+            return {"ok": False, "exchange_response": resp,
+                    "exchange_order_id": None, "error": err}
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "close_open_position: bybit raised for account=%s symbol=%s: %s",
+                account_cfg.get("account_id"), symbol, exc,
+            )
+            return {"ok": False, "exchange_response": None,
+                    "exchange_order_id": None,
+                    "error": f"{type(exc).__name__}: {exc}"}
+
+    return {"ok": False, "exchange_response": None, "exchange_order_id": None,
+            "error": f"unsupported exchange {exchange!r} (bybit only in v1)"}
