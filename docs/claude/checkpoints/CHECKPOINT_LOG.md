@@ -5,6 +5,45 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-02-15 — Sprint 025 T2: /smoke_test inline-button account picker (G4 slice 3)
+
+- **Session date:** 2026-05-02
+- **Sprint:** 025 — UI processor migration + remaining G4 button flows.
+- **Current sprint phase:** T2 (2/4) complete. T3 (`/signals` stepper), T4 (`/accounts` mode toggle with confirm — sensitive, ping-PR pattern) are next.
+- **Last completed checkpoint:** CP-2026-05-02-14 (#276 T1, merged).
+- **Next checkpoint:** **CP-2026-05-02-16 — T3: `/signals` stepper.** Two-step button flow: pick strategy first (vwap / turtle_soup / all), then pick N (10 / 25 / 50 / 100). Renderer reuses the existing `_format_signal_row` helper.
+- **Telegram sent:** pending — this checkpoint commit triggers the VM ping.
+- **Alerts sent during session:** none.
+- **Blockers:** none.
+
+### 1. Completed
+- Extended `_account_picker_keyboard` with `include_all` (default False) and `all_label` parameters. When `include_all=True`, an extra row is appended with a single "All accounts" button whose `callback_data` is `"<prefix>:all"`. Used by `/smoke_test`; `/risk_check` still passes the default `False` and is unaffected.
+- Extracted `_render_smoke_test_result(result) -> str` (pure renderer) and `_run_smoke_test(account_id, coord)` (async helper). Both surfaces — typed-arg path and button callback — delegate to these so they produce identical output.
+- `cmd_smoke_test`: no-args invocation now replies with the picker keyboard (per-account buttons + "🌐 All accounts" button labelled `(LIVE smoke)`). Typed `/smoke_test [account|all]` path preserved as power-user shortcut.
+- `callback_handler` extended with the `smoke:<account_id|all>` action. The "Running…" message edits in place; the result is sent as a follow-up reply so the breadcrumb stays visible.
+- New test class `TestCmdSmokeTestButtonFlow` (7 tests) covering: no-args picker keyboard with All button; typed-account-arg runs immediately; typed-all-arg runs against every account; callback for specific account; callback for "all" payload; pure-renderer determinism; no-accounts-configured friendly fallback.
+
+### 2. Files changed
+- `src/bot/telegram_query_bot.py` — `_account_picker_keyboard(include_all=…, all_label=…)`, `_render_smoke_test_result`, `_run_smoke_test`, `cmd_smoke_test` rewrite, `callback_handler` extended with `smoke:` action.
+- `tests/test_telegram_query_bot.py` — `TestCmdSmokeTestButtonFlow` class (7 tests).
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` — this entry.
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_telegram_query_bot.py::TestCmdSmokeTestButtonFlow -v` — 7 passed.
+- `PYTHONPATH=. pytest tests/test_telegram_query_bot.py -q` — 113 passed; 1 pre-existing failure (`TestCmdStatusMultiAccount::test_shows_block_per_account`), not from this PR.
+- `python scripts/check_dry_run_in_diff.py` — clean.
+- `python scripts/secret_scan.py` — clean.
+
+### 4. Remaining for this checkpoint
+- none — T2 fully shipped.
+
+### 5. Next checkpoint
+**CP-2026-05-02-16 — T3: `/signals` stepper.** Two-step button flow: strategy → N.
+
+---
+
+---
+
 ## CP-2026-05-02-14 — Sprint 025 T1: cmd_hourly routes through src.ui.processor
 
 - **Session date:** 2026-05-02
