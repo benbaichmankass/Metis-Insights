@@ -528,6 +528,33 @@ class Coordinator:
             if account_type and account.account_type != account_type:
                 continue
 
+            # 0. Per-account strategy filter (CLAUDE.md § Architecture
+            # rules § 3). Each account in accounts.yaml declares
+            # ``strategies: [...]`` — the package's strategy must be on
+            # that list or the account is skipped. Pre-fix
+            # (architecture-audit-2026-05-02 P0-1) every signal fanned
+            # out to every account regardless of assignment, so vwap
+            # signals landed in turtle_soup-only wallets and vice
+            # versa. The filter is opt-in by data shape: if an account
+            # has no strategies list (legacy fixtures) the filter is
+            # bypassed and the package routes — preserves test-fixture
+            # behaviour where unit tests don't bother declaring the
+            # mapping.
+            assigned = list(getattr(account, "strategies", None) or [])
+            if assigned and pkg.strategy and pkg.strategy not in assigned:
+                results.append({
+                    "name": account.name,
+                    "exchange": account.exchange,
+                    "account_type": account.account_type,
+                    "trade_id": None,
+                    "sized_qty": 0.0,
+                    "error": (
+                        f"skipped_not_assigned: pkg.strategy={pkg.strategy!r} "
+                        f"not in account.strategies={assigned!r}"
+                    ),
+                })
+                continue
+
             # 1. Per-account sizing — the only place qty is decided.
             try:
                 balance = float(fetcher(account))
