@@ -1,10 +1,13 @@
 """Per-account risk manager — units layer (S-008 PR #122 / S-010 PR #1 /
-S-012 PR E3a max_dd_pct enforcement).
+S-012 PR E3a max_dd_pct enforcement / S-026 G2 single-sizer contract).
 
 Two interfaces:
-  - Functional (S-008): size_order() / size_order_from_cfg() — used by execute_pkg()
-  - Class-based (S-010 + S-012 E3a): RiskManager — used by
-    TradingAccount.place_order()
+  - Functional (S-008): size_order() / size_order_from_cfg() — kept as a
+    backwards-compatible wrapper that now delegates to
+    RiskManager.position_size().
+  - Class-based (S-010 + S-012 E3a + S-026 G2): RiskManager — the only
+    place that decides position size. Used by TradingAccount.place_order()
+    and (post G2) by Coordinator.multi_account_execute() per account.
 
 The class-based interface tracks per-account state:
   - daily_pnl: USD PnL since the last reset
@@ -15,7 +18,14 @@ The class-based interface tracks per-account state:
 Hard limits (from accounts.yaml ``risk`` section):
   - max_dd_pct: max intra-day equity drawdown from today's high (S-012 PR E3a)
   - daily_usd: max daily loss in USD (S-010)
-  - pos_size: max single-position size in USD (S-010)
+  - pos_size: max single-position size in USD (S-010) — applied by
+    approve() against ``order.meta['estimated_value']``; **not** used as
+    a clamp inside position_size() per operator directive (S-026 G2:
+    "no hard-coded max position, just balance %").
+
+Sizing inputs (also from the ``risk`` section):
+  - risk_pct: fraction of balance risked per trade (operator default 0.01)
+  - min_balance_usd: refuse to size below this balance (operator default 50)
 """
 from __future__ import annotations
 
@@ -51,41 +61,20 @@ def _is_test_order(pkg: "OrderPackage") -> bool:
 # ---------------------------------------------------------------------------
 
 
-def size_order(
+def _size_unbounded(
     pkg: OrderPackage,
+    *,
     risk_pct: float,
     balance_usdt: float,
-    *,
     min_qty: float = _DEFAULT_MIN_QTY,
-    max_qty: float = _DEFAULT_MAX_QTY,
     qty_precision: int = _DEFAULT_QTY_PRECISION,
 ) -> float:
-    """Return the position size (qty) for *pkg* given the account constraints.
+    """Raw position-size calculation with no upper-bound clamp.
 
-    Parameters
-    ----------
-    pkg : OrderPackage
-        Contains entry and sl prices for risk calculation.
-    risk_pct : float
-        Fraction of balance to risk (e.g., 0.01 = 1 %).
-    balance_usdt : float
-        Current USDT balance of the account.
-    min_qty : float
-        Minimum tradeable quantity (default 0.001 BTC).
-    max_qty : float
-        Maximum allowed quantity.
-    qty_precision : int
-        Number of decimal places for rounding.
-
-    Returns
-    -------
-    float
-        Sized, clipped, and rounded quantity.
-
-    Raises
-    ------
-    ValueError
-        When balance or risk_pct are non-positive, or when entry == sl.
+    S-026 G2: this is the math kernel both ``size_order`` (legacy, with
+    optional max_qty clamp) and ``RiskManager.position_size`` (canonical,
+    no clamp per operator directive) call into. Exposed as a private
+    helper so the two paths can't drift.
     """
     if balance_usdt <= 0:
         raise ValueError(f"balance_usdt must be positive, got {balance_usdt}")
@@ -101,9 +90,62 @@ def size_order(
 
     risk_usdt = balance_usdt * risk_pct
     raw_qty = risk_usdt / risk_distance
+    return round(max(min_qty, raw_qty), qty_precision)
 
-    qty = round(max(min_qty, min(raw_qty, max_qty)), qty_precision)
-    return qty
+
+def size_order(
+    pkg: OrderPackage,
+    risk_pct: float,
+    balance_usdt: float,
+    *,
+    min_qty: float = _DEFAULT_MIN_QTY,
+    max_qty: float = _DEFAULT_MAX_QTY,
+    qty_precision: int = _DEFAULT_QTY_PRECISION,
+) -> float:
+    """Return the position size (qty) for *pkg* given the account constraints.
+
+    S-026 G2: kept as a backwards-compatible wrapper. New callers should
+    use ``RiskManager.position_size(pkg, balance_usd)`` — the single
+    sizing site post-G2. This freestanding function is preserved for
+    callers that still construct sizing from a plain dict (smoke-test
+    helpers, backtest harnesses).
+
+    Parameters
+    ----------
+    pkg : OrderPackage
+        Contains entry and sl prices for risk calculation.
+    risk_pct : float
+        Fraction of balance to risk (e.g., 0.01 = 1 %).
+    balance_usdt : float
+        Current USDT balance of the account.
+    min_qty : float
+        Minimum tradeable quantity (default 0.001 BTC).
+    max_qty : float
+        Maximum allowed quantity. Note: operator directive S-026 G2
+        removes the max-qty clamp from the canonical sizer
+        (``RiskManager.position_size``); this freestanding helper
+        retains it for backwards compatibility.
+    qty_precision : int
+        Number of decimal places for rounding.
+
+    Returns
+    -------
+    float
+        Sized, clipped, and rounded quantity.
+
+    Raises
+    ------
+    ValueError
+        When balance or risk_pct are non-positive, or when entry == sl.
+    """
+    raw = _size_unbounded(
+        pkg,
+        risk_pct=risk_pct,
+        balance_usdt=balance_usdt,
+        min_qty=min_qty,
+        qty_precision=qty_precision,
+    )
+    return round(min(raw, max_qty), qty_precision)
 
 
 def size_order_from_cfg(
@@ -111,24 +153,30 @@ def size_order_from_cfg(
     account_cfg: dict,
     balance_usdt: float,
 ) -> float:
-    """Convenience wrapper: extract risk params from account_cfg dict.
+    """Convenience wrapper: build a RiskManager from *account_cfg* and
+    delegate sizing to its ``position_size`` method.
+
+    S-026 G2: this used to call ``size_order`` directly with values
+    pulled from the dict; after G2 the only sizer is
+    ``RiskManager.position_size`` so this wrapper now constructs an
+    ephemeral RiskManager from the dict and forwards.
 
     Smoke-test orders (``pkg.meta['is_test']`` is True) skip risk-based
     sizing entirely and return ``pkg.meta['test_qty']`` (default
     ``_DEFAULT_TEST_QTY``). The qty is intentionally below Bybit's
     min-lot so the exchange rejects on submission — the rejection is
     the success signal for the live-plumbing test.
+
+    The dict's keys mirror the YAML schema:
+      - ``risk_pct`` (default 0.01)
+      - ``min_balance_usd`` (default 50)
+      - ``min_qty`` (default 0.001)
+      - ``qty_precision`` (default 3)
+    Plus the legacy ``risk:`` sub-keys (``max_dd_pct``, ``daily_usd``,
+    ``pos_size``) which RiskManager ignores for sizing.
     """
-    if _is_test_order(pkg):
-        return float(pkg.meta.get("test_qty") or _DEFAULT_TEST_QTY)
-    risk_pct = float(account_cfg.get("risk_pct") or 0.01)
-    min_qty = float(account_cfg.get("min_qty") or _DEFAULT_MIN_QTY)
-    max_qty = float(account_cfg.get("max_qty") or _DEFAULT_MAX_QTY)
-    qty_precision = int(account_cfg.get("qty_precision") or _DEFAULT_QTY_PRECISION)
-    return size_order(
-        pkg, risk_pct, balance_usdt,
-        min_qty=min_qty, max_qty=max_qty, qty_precision=qty_precision,
-    )
+    rm = RiskManager(account_cfg)
+    return rm.position_size(pkg, balance_usdt)
 
 
 # ---------------------------------------------------------------------------
@@ -154,6 +202,14 @@ class RiskManager:
         self.max_dd_pct: float = float(config.get("max_dd_pct", 0.05))
         self.max_daily_loss_usd: float = float(config.get("daily_usd", 100.0))
         self.max_pos_size_usd: float = float(config.get("pos_size", 500.0))
+        # S-026 G2: sizing inputs. Operator-confirmed defaults: 1% risk
+        # per trade, refuse to size below $50 balance.
+        self.risk_pct: float = float(config.get("risk_pct", 0.01))
+        self.min_balance_usd: float = float(config.get("min_balance_usd", 50.0))
+        # Optional sizing-shape overrides (per account). When absent the
+        # module-level defaults apply.
+        self.min_qty: float = float(config.get("min_qty", _DEFAULT_MIN_QTY))
+        self.qty_precision: int = int(config.get("qty_precision", _DEFAULT_QTY_PRECISION))
         self.daily_pnl: float = 0.0       # updated by record_trade_result()
         # S-012 PR E3a — intra-day drawdown tracking. None until the
         # caller seeds equity via update_equity(); the drawdown check
@@ -258,6 +314,64 @@ class RiskManager:
         """
         self._maybe_roll_daily()
         self.daily_pnl += pnl_usd
+
+    def position_size(
+        self,
+        package: OrderPackage,
+        balance_usd: float,
+    ) -> float:
+        """Return the qty to trade for *package* given *balance_usd*.
+
+        S-026 G2: this is the **only** function in the codebase that
+        decides position size. Inputs are the strategy's trade idea
+        (entry/sl/tp) and the per-account balance; output is qty in
+        base-asset units. Per-account risk parameters
+        (``risk_pct``, ``min_balance_usd``, ``min_qty``,
+        ``qty_precision``) come from this RiskManager instance —
+        which is itself loaded from the account's ``risk:`` block in
+        ``config/accounts.yaml``.
+
+        Smoke-test orders (``meta.is_test=True``) bypass risk-based
+        sizing and use ``meta.test_qty`` (default
+        ``_DEFAULT_TEST_QTY``); the qty is intentionally below
+        Bybit's min-lot so the exchange rejects on submission.
+
+        Returns 0.0 (and logs a warning at the call site via the
+        normal sizing-skipped path) when balance is below
+        ``min_balance_usd`` — the account is too small to size into a
+        meaningful position.
+
+        Notes
+        -----
+        - No hard-coded max-position cap (operator directive S-026 G2).
+        - Per-strategy risk allocation (``meta.strategy_risk_pct``,
+          recorded by the multiplexer in S-026 G1) is multiplied into
+          ``risk_pct`` so two strategies on the same account split the
+          per-trade risk budget instead of doubling it.
+        - The exchange min-lot floor (``min_qty``) and step-size
+          rounding (``qty_precision``) are applied here so the quote
+          submitted to the exchange is always exchange-acceptable.
+        """
+        if _is_test_order(package):
+            return float((package.meta or {}).get("test_qty") or _DEFAULT_TEST_QTY)
+
+        if balance_usd < self.min_balance_usd:
+            return 0.0
+
+        # Per-strategy allocation (set by the multiplexer in pipeline.py).
+        # Defaults to 1.0 — single-strategy accounts get full risk_pct.
+        strategy_risk_pct = float(
+            (package.meta or {}).get("strategy_risk_pct") or 1.0
+        )
+        effective_risk_pct = self.risk_pct * strategy_risk_pct
+
+        return _size_unbounded(
+            package,
+            risk_pct=effective_risk_pct,
+            balance_usdt=balance_usd,
+            min_qty=self.min_qty,
+            qty_precision=self.qty_precision,
+        )
 
     def reset_daily(self) -> None:
         """Manually reset daily PnL + intra-day high (UTC-day-independent).

@@ -1,0 +1,269 @@
+"""S-026 G2 — Position sizing moves into the per-account RiskManager.
+
+Pins the contract: ``RiskManager.position_size(pkg, balance_usd) -> qty``
+is the *only* function that decides quantity in the codebase. Inputs:
+the strategy's trade idea (entry/sl) and the per-account balance.
+Output: qty in base-asset units.
+"""
+from __future__ import annotations
+
+import sys
+import types
+from unittest import mock
+from unittest.mock import MagicMock
+
+import pytest
+
+# pipeline.py needs matplotlib at import time via signal_notifications.
+if "matplotlib" not in sys.modules:
+    _mpl_stub = types.ModuleType("matplotlib")
+    _mpl_stub.pyplot = mock.MagicMock()
+    sys.modules["matplotlib"] = _mpl_stub
+    sys.modules["matplotlib.pyplot"] = mock.MagicMock()
+
+from src.core.coordinator import OrderPackage
+from src.units.accounts.risk import RiskManager
+
+
+def _pkg(entry: float = 50_000.0, sl: float = 49_500.0) -> OrderPackage:
+    return OrderPackage(
+        strategy="vwap",
+        symbol="BTCUSDT",
+        direction="long",
+        entry=entry,
+        sl=sl,
+        tp=51_000.0,
+        confidence=0.7,
+    )
+
+
+class TestPositionSizeContract:
+    """RiskManager.position_size is the single sizing entry-point post-G2."""
+
+    def test_balance_drives_qty(self):
+        """Same package, two balances → two different qtys.
+        risk_pct=0.01, distance=500. balance=10_000 → 100/500=0.2;
+        balance=1_000 → 10/500=0.02."""
+        rm = RiskManager({"risk_pct": 0.01, "min_balance_usd": 50})
+        pkg = _pkg(entry=50_000.0, sl=49_500.0)
+
+        qty_big = rm.position_size(pkg, balance_usd=10_000.0)
+        qty_small = rm.position_size(pkg, balance_usd=1_000.0)
+
+        assert qty_big == pytest.approx(0.2, rel=1e-3)
+        assert qty_small == pytest.approx(0.02, rel=1e-3)
+        assert qty_big > qty_small, (
+            "Bigger balance must size into a bigger position"
+        )
+
+    def test_two_accounts_two_qtys(self):
+        """Same package, two RiskManagers (different balances) → two qtys.
+        Pins the multi-account contract from the sprint prompt."""
+        rm_a = RiskManager({"risk_pct": 0.01, "min_balance_usd": 50})
+        rm_b = RiskManager({"risk_pct": 0.01, "min_balance_usd": 50})
+        pkg = _pkg(entry=50_000.0, sl=49_500.0)
+
+        qty_a = rm_a.position_size(pkg, balance_usd=5_000.0)
+        qty_b = rm_b.position_size(pkg, balance_usd=500.0)
+
+        assert qty_a == pytest.approx(0.1, rel=1e-3)
+        assert qty_b == pytest.approx(0.01, rel=1e-3)
+
+    def test_below_min_balance_returns_zero(self):
+        """Account below min_balance_usd refuses to size (returns 0.0).
+        Pins the operator-confirmed safety floor."""
+        rm = RiskManager({"risk_pct": 0.01, "min_balance_usd": 50})
+        pkg = _pkg()
+
+        # Below the min — refuse to size.
+        assert rm.position_size(pkg, balance_usd=49.99) == 0.0
+        assert rm.position_size(pkg, balance_usd=10.0) == 0.0
+        assert rm.position_size(pkg, balance_usd=0.0) == 0.0
+
+        # At or above the min — sizing runs.
+        assert rm.position_size(pkg, balance_usd=50.0) > 0.0
+
+    def test_default_risk_pct_is_one_percent(self):
+        """Operator-confirmed default: 1% balance per trade."""
+        rm = RiskManager({})  # all defaults
+        assert rm.risk_pct == 0.01
+        assert rm.min_balance_usd == 50.0
+
+    def test_no_max_position_clamp(self):
+        """Operator directive: no hard-coded max-position cap on sizing.
+        A huge balance must scale qty proportionally — no upper clip."""
+        rm = RiskManager({"risk_pct": 0.01, "min_balance_usd": 50})
+        pkg = _pkg(entry=50_000.0, sl=49_500.0)
+
+        # Balance = $1M, risk = $10k, distance = $500 → qty = 20.
+        qty = rm.position_size(pkg, balance_usd=1_000_000.0)
+        assert qty == pytest.approx(20.0, rel=1e-3), (
+            "S-026 G2: no max-position clamp — qty must scale linearly with balance"
+        )
+
+    def test_smoke_test_order_bypasses_sizing(self):
+        """meta.is_test=True orders use meta.test_qty (or default), not risk math."""
+        rm = RiskManager({"risk_pct": 0.01, "min_balance_usd": 50})
+        pkg = OrderPackage(
+            strategy="smoke_test",
+            symbol="BTCUSDT",
+            direction="long",
+            entry=50_000.0,
+            sl=49_500.0,
+            tp=51_000.0,
+            meta={"is_test": True, "test_qty": 0.0001},
+        )
+        # Smoke test bypasses min_balance_usd too — the whole point is
+        # to exercise the live plumbing without sizing real risk in.
+        assert rm.position_size(pkg, balance_usd=0.0) == pytest.approx(0.0001)
+
+    def test_strategy_risk_pct_meta_scales_qty(self):
+        """When the multiplexer tags a per-strategy risk allocation in
+        meta.strategy_risk_pct (S-026 G1), the sizer multiplies it into
+        risk_pct so two strategies on the same account split risk
+        instead of doubling it."""
+        rm = RiskManager({"risk_pct": 0.01, "min_balance_usd": 50})
+        pkg_full = _pkg()  # no meta override → strategy_risk_pct=1.0
+        pkg_half = _pkg()
+        pkg_half.meta = {"strategy_risk_pct": 0.5}
+
+        qty_full = rm.position_size(pkg_full, balance_usd=10_000.0)
+        qty_half = rm.position_size(pkg_half, balance_usd=10_000.0)
+
+        assert qty_half == pytest.approx(qty_full / 2.0, rel=1e-3)
+
+
+class TestSizeOrderFromCfgDelegatesToRiskManager:
+    """Backwards-compat: size_order_from_cfg now goes through RiskManager."""
+
+    def test_cfg_with_risk_pct_produces_same_qty_as_risk_manager(self):
+        from src.units.accounts.risk import size_order_from_cfg
+
+        cfg = {"risk_pct": 0.02, "min_balance_usd": 50}
+        pkg = _pkg(entry=50_000.0, sl=49_000.0)
+
+        qty_via_cfg = size_order_from_cfg(pkg, cfg, balance_usdt=10_000.0)
+        qty_via_rm = RiskManager(cfg).position_size(pkg, balance_usd=10_000.0)
+
+        assert qty_via_cfg == qty_via_rm
+
+
+class TestMultiAccountDispatchSizesPerAccount:
+    """Coordinator.multi_account_execute calls position_size per account."""
+
+    def _stub_accounts(self, monkeypatch):
+        """Return a fake load_accounts() that yields two accounts, both
+        with their own RiskManager, place_order returning a dry trade-id."""
+        from src.units.accounts.account import TradingAccount
+
+        rm_a = RiskManager({"risk_pct": 0.01, "min_balance_usd": 50})
+        rm_b = RiskManager({"risk_pct": 0.01, "min_balance_usd": 50})
+
+        class _Account:
+            def __init__(self, name, rm):
+                self.name = name
+                self.exchange = "bybit"
+                self.account_type = "regular"
+                self.risk_manager = rm
+                self.dry_run = True
+                self.calls = []
+
+            def place_order(self, pkg, *, dry_run=None):
+                self.calls.append(pkg)
+                return f"dry-{self.name}-1"
+
+        accounts = [_Account("acc_a", rm_a), _Account("acc_b", rm_b)]
+
+        def _fake_load(_path):
+            return accounts
+
+        monkeypatch.setattr("src.units.accounts.load_accounts", _fake_load)
+        return accounts
+
+    def test_two_balances_yield_two_qtys(self, monkeypatch, tmp_path):
+        """Pins the sprint contract: same pkg, two balances → two qtys."""
+        from src.core.coordinator import Coordinator
+
+        accounts = self._stub_accounts(monkeypatch)
+        # Need a path that "exists" so the FileNotFoundError branch
+        # isn't taken — point at a tmp file so load_accounts is reached.
+        accounts_path = tmp_path / "accounts.yaml"
+        accounts_path.write_text("accounts: {}\n")
+
+        pkg = _pkg(entry=50_000.0, sl=49_500.0)
+        # Stash per-account balances on the package so the default
+        # balance_fetcher reads them.
+        pkg.meta = {
+            "account_balances_usd": {"acc_a": 10_000.0, "acc_b": 1_000.0},
+        }
+
+        coord = Coordinator()
+        results = coord.multi_account_execute(
+            pkg, accounts_path=str(accounts_path), dry_run=True,
+        )
+
+        names = {r["name"]: r for r in results}
+        assert names["acc_a"]["sized_qty"] == pytest.approx(0.2, rel=1e-3)
+        assert names["acc_b"]["sized_qty"] == pytest.approx(0.02, rel=1e-3)
+
+        # Map stamped on pkg.meta for downstream readers.
+        sized = (pkg.meta or {}).get("sized_qty_by_account") or {}
+        assert sized["acc_a"] == pytest.approx(0.2, rel=1e-3)
+        assert sized["acc_b"] == pytest.approx(0.02, rel=1e-3)
+
+        # Both accounts received the package.
+        assert len(accounts[0].calls) == 1
+        assert len(accounts[1].calls) == 1
+
+    def test_below_min_balance_account_is_skipped(self, monkeypatch, tmp_path):
+        """Accounts below min_balance_usd produce qty=0 and are NOT routed."""
+        from src.core.coordinator import Coordinator
+
+        accounts = self._stub_accounts(monkeypatch)
+        accounts_path = tmp_path / "accounts.yaml"
+        accounts_path.write_text("accounts: {}\n")
+
+        pkg = _pkg(entry=50_000.0, sl=49_500.0)
+        pkg.meta = {
+            "account_balances_usd": {"acc_a": 5_000.0, "acc_b": 25.0},
+        }
+
+        coord = Coordinator()
+        results = coord.multi_account_execute(
+            pkg, accounts_path=str(accounts_path), dry_run=True,
+        )
+
+        names = {r["name"]: r for r in results}
+        assert names["acc_a"]["sized_qty"] > 0
+        assert names["acc_a"]["error"] is None
+        assert names["acc_b"]["sized_qty"] == 0.0
+        assert "below_min_balance" in names["acc_b"]["error"]
+
+        # acc_a routed; acc_b was skipped (qty=0 → no place_order call).
+        assert len(accounts[0].calls) == 1
+        assert len(accounts[1].calls) == 0
+
+    def test_balance_fetcher_override(self, monkeypatch, tmp_path):
+        """Caller can inject a custom balance fetcher (live processor wiring path)."""
+        from src.core.coordinator import Coordinator
+
+        accounts = self._stub_accounts(monkeypatch)
+        accounts_path = tmp_path / "accounts.yaml"
+        accounts_path.write_text("accounts: {}\n")
+
+        pkg = _pkg(entry=50_000.0, sl=49_500.0)
+
+        balances = {"acc_a": 2_000.0, "acc_b": 8_000.0}
+        coord = Coordinator()
+        results = coord.multi_account_execute(
+            pkg,
+            accounts_path=str(accounts_path),
+            dry_run=True,
+            balance_fetcher=lambda acc: balances[acc.name],
+        )
+
+        names = {r["name"]: r for r in results}
+        # acc_a: 2000 * 0.01 / 500 = 0.04
+        # acc_b: 8000 * 0.01 / 500 = 0.16
+        assert names["acc_a"]["sized_qty"] == pytest.approx(0.04, rel=1e-3)
+        assert names["acc_b"]["sized_qty"] == pytest.approx(0.16, rel=1e-3)

@@ -130,29 +130,48 @@ class TestAccountsYamlToPlaceOrder:
 # ---------------------------------------------------------------------------
 
 class TestCoordinatorMultiAccountExecute:
+    # S-026 G2: multi_account_execute now sizes per-account. Tests
+    # supply a fixed balance via balance_fetcher so position_size
+    # produces a non-zero qty.
+    _BALANCE_USD = 10_000.0
+
+    def _balance_fetcher(self, _account):
+        return self._BALANCE_USD
+
     def test_all_accounts_executed(self, coord, accounts_yaml):
-        results = coord.multi_account_execute(_pkg(), accounts_path=accounts_yaml)
+        results = coord.multi_account_execute(
+            _pkg(), accounts_path=accounts_yaml,
+            balance_fetcher=self._balance_fetcher,
+        )
         assert len(results) == 3
 
     def test_no_errors_on_clean_accounts(self, coord, accounts_yaml):
-        results = coord.multi_account_execute(_pkg(), accounts_path=accounts_yaml)
+        results = coord.multi_account_execute(
+            _pkg(), accounts_path=accounts_yaml,
+            balance_fetcher=self._balance_fetcher,
+        )
         assert all(r["error"] is None for r in results)
 
     def test_result_dict_keys(self, coord, accounts_yaml):
-        results = coord.multi_account_execute(_pkg(), accounts_path=accounts_yaml)
+        results = coord.multi_account_execute(
+            _pkg(), accounts_path=accounts_yaml,
+            balance_fetcher=self._balance_fetcher,
+        )
         for r in results:
             assert {"name", "exchange", "account_type", "trade_id", "error"} <= r.keys()
 
     def test_prop_filter_returns_one(self, coord, accounts_yaml):
         results = coord.multi_account_execute(
-            _pkg(), accounts_path=accounts_yaml, account_type="prop"
+            _pkg(), accounts_path=accounts_yaml, account_type="prop",
+            balance_fetcher=self._balance_fetcher,
         )
         assert len(results) == 1
         assert results[0]["name"] == "prop_breakout"
 
     def test_regular_filter_returns_two(self, coord, accounts_yaml):
         results = coord.multi_account_execute(
-            _pkg(), accounts_path=accounts_yaml, account_type="regular"
+            _pkg(), accounts_path=accounts_yaml, account_type="regular",
+            balance_fetcher=self._balance_fetcher,
         )
         assert len(results) == 2
 
@@ -161,7 +180,10 @@ class TestCoordinatorMultiAccountExecute:
         accounts = load_accounts(accounts_yaml)
         next(a for a in accounts if a.name == "prop_breakout").risk_manager.daily_pnl = -200.0
         with patch("src.units.accounts.load_accounts", return_value=accounts):
-            results = coord.multi_account_execute(_pkg(), accounts_path=accounts_yaml)
+            results = coord.multi_account_execute(
+                _pkg(), accounts_path=accounts_yaml,
+                balance_fetcher=self._balance_fetcher,
+            )
         ok = [r for r in results if r["error"] is None]
         err = [r for r in results if r["error"] is not None]
         assert len(ok) == 2
@@ -170,13 +192,19 @@ class TestCoordinatorMultiAccountExecute:
 
     def test_alerts_pushed_for_successful_trades(self, coord, accounts_yaml):
         coord.pop_alerts()
-        coord.multi_account_execute(_pkg(), accounts_path=accounts_yaml)
+        coord.multi_account_execute(
+            _pkg(), accounts_path=accounts_yaml,
+            balance_fetcher=self._balance_fetcher,
+        )
         alerts = coord.list_alerts()
         multi = [a for a in alerts if "multi_execute" in a.get("message", "")]
         assert len(multi) == 3
 
     def test_exchange_type_present_in_results(self, coord, accounts_yaml):
-        results = coord.multi_account_execute(_pkg(), accounts_path=accounts_yaml)
+        results = coord.multi_account_execute(
+            _pkg(), accounts_path=accounts_yaml,
+            balance_fetcher=self._balance_fetcher,
+        )
         exchanges = {r["exchange"] for r in results}
         assert "bybit" in exchanges
         assert "breakout" in exchanges

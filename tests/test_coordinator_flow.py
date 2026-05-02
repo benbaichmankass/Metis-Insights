@@ -506,26 +506,43 @@ class TestAccountsStatusFlow:
 
 
 class TestMultiAccountExecuteFlow:
+    # S-026 G2: multi_account_execute now sizes per-account. Tests
+    # supply a fixed balance via balance_fetcher so position_size
+    # produces a non-zero qty and the legacy contract (one result per
+    # account, all routed) still holds.
+    _BALANCE_USD = 10_000.0
+
+    def _balance_fetcher(self, _account):
+        return self._BALANCE_USD
+
     def test_returns_result_per_account(self, coord, accounts_yaml):
-        results = coord.multi_account_execute(_pkg(), accounts_path=accounts_yaml)
+        results = coord.multi_account_execute(
+            _pkg(), accounts_path=accounts_yaml,
+            balance_fetcher=self._balance_fetcher,
+        )
         assert len(results) == 3
 
     def test_dry_run_trade_ids_prefixed(self, coord, accounts_yaml):
-        results = coord.multi_account_execute(_pkg(), accounts_path=accounts_yaml)
+        results = coord.multi_account_execute(
+            _pkg(), accounts_path=accounts_yaml,
+            balance_fetcher=self._balance_fetcher,
+        )
         for r in results:
             assert r["error"] is None
             assert r["trade_id"].startswith("dry-")
 
     def test_account_type_filter_prop_only(self, coord, accounts_yaml):
         results = coord.multi_account_execute(
-            _pkg(), accounts_path=accounts_yaml, account_type="prop"
+            _pkg(), accounts_path=accounts_yaml, account_type="prop",
+            balance_fetcher=self._balance_fetcher,
         )
         assert len(results) == 1
         assert results[0]["name"] == "prop_breakout_1"
 
     def test_account_type_filter_regular_only(self, coord, accounts_yaml):
         results = coord.multi_account_execute(
-            _pkg(), accounts_path=accounts_yaml, account_type="regular"
+            _pkg(), accounts_path=accounts_yaml, account_type="regular",
+            balance_fetcher=self._balance_fetcher,
         )
         assert len(results) == 2
 
@@ -537,7 +554,10 @@ class TestMultiAccountExecuteFlow:
 
         # monkeypatch load_accounts inside coordinator to return accounts with breached one
         with patch("src.units.accounts.load_accounts", return_value=accounts):
-            results = coord.multi_account_execute(_pkg(), accounts_path=accounts_yaml)
+            results = coord.multi_account_execute(
+                _pkg(), accounts_path=accounts_yaml,
+                balance_fetcher=self._balance_fetcher,
+            )
 
         breached = next(r for r in results if r["name"] == "prop_breakout_1")
         assert breached["trade_id"] is None
@@ -550,7 +570,10 @@ class TestMultiAccountExecuteFlow:
         next(a for a in accounts if a.name == "prop_breakout_1").risk_manager.daily_pnl = -200.0
 
         with patch("src.units.accounts.load_accounts", return_value=accounts):
-            results = coord.multi_account_execute(_pkg(), accounts_path=accounts_yaml)
+            results = coord.multi_account_execute(
+                _pkg(), accounts_path=accounts_yaml,
+                balance_fetcher=self._balance_fetcher,
+            )
 
         ok_results = [r for r in results if r["error"] is None]
         assert len(ok_results) == 2
@@ -562,7 +585,10 @@ class TestMultiAccountExecuteFlow:
         assert results == []
 
     def test_execute_pushes_alert_per_success(self, coord, accounts_yaml):
-        coord.multi_account_execute(_pkg(), accounts_path=accounts_yaml)
+        coord.multi_account_execute(
+            _pkg(), accounts_path=accounts_yaml,
+            balance_fetcher=self._balance_fetcher,
+        )
         alerts = coord.list_alerts()
         multi_alerts = [a for a in alerts if "multi_execute" in a.get("message", "")]
         assert len(multi_alerts) == 3

@@ -15,6 +15,15 @@
 # default is dry for every new account; live only when explicitly set.
 # Risk caps fire bidirectionally: pos_size, daily_usd, and (S-012 PR E3a)
 # max_dd_pct (intra-day, UTC midnight reset).
+#
+# S-026 G2 sizing inputs (operator-confirmed defaults):
+#   risk_pct         — fraction of balance risked per trade (1 % live).
+#   min_balance_usd  — refuse to size below this balance ($50).
+# These feed RiskManager.position_size(pkg, balance) — the single
+# qty-deciding function in the codebase. There is no max-position
+# notional cap on sizing per the operator directive; ``pos_size`` is
+# kept only for the post-sizing approval gate
+# (RiskManager.approve(order)).
 
 accounts:
   # bybit_1: turtle_soup only — operator-confirmed wallet holds BTC + USDT
@@ -27,7 +36,9 @@ accounts:
     risk:
       max_dd_pct: 0.05                 # 5% max intra-day drawdown
       daily_usd: 100                   # $100 max daily loss
-      pos_size: 500                    # $500 max single position
+      pos_size: 500                    # $500 max single position (approval gate only)
+      risk_pct: 0.01                   # 1% balance risked per trade (S-026 G2)
+      min_balance_usd: 50              # refuse to size below $50 (S-026 G2)
 
   # bybit_2: vwap only — wallet holds USDT only, so vwap (mean-reversion
   # against perp pair, USDT-margined) is the right fit. turtle_soup
@@ -41,6 +52,8 @@ accounts:
       max_dd_pct: 0.05
       daily_usd: 100
       pos_size: 500
+      risk_pct: 0.01
+      min_balance_usd: 50
 
   # prop_breakout_1: DISABLED — no real prop account exists yet. Leaving
   # the wiring scaffolded (PM directive) so future prop onboarding only
@@ -60,3 +73,5 @@ accounts:
       max_dd_pct: 0.02                 # stricter: 2% max drawdown
       daily_usd: 50                    # stricter: $50 max daily loss
       pos_size: 200                    # stricter: $200 max position
+      risk_pct: 0.005                  # half-rate per trade for prop
+      min_balance_usd: 50
