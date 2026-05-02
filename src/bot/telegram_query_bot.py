@@ -911,9 +911,15 @@ async def cmd_price(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 def _format_trade_row(row: dict) -> str:
-    """Render one trade-journal row using the /last5 emoji template."""
+    """Render one trade-journal row using the /last5 emoji template.
+
+    Plain text only — DB-sourced fields (notes, entry_reason, exit_reason)
+    routinely contain ``*``, ``_``, ``[``, or backticks that crash Telegram's
+    legacy Markdown parser. The emoji prefixes carry the visual structure
+    so we don't need bold/italic.
+    """
     return (
-        f"🔔 *Trade #{row['id']}*\n"
+        f"🔔 Trade #{row['id']}\n"
         f"🕒 {row['timestamp']}\n💱 {row['symbol']}\n📈 {row['direction']}\n"
         f"💰 Entry: {row['entry_price']}\n🛑 SL: {row['stop_loss']}\n"
         f"🎯 TP1: {row['take_profit_1']} | TP2: {row['take_profit_2']} | TP3: {row['take_profit_3']}\n"
@@ -954,8 +960,7 @@ async def cmd_last5(update: Update, context: ContextTypes.DEFAULT_TYPE):
         (p for p in chart_candidates if os.path.exists(p)), None)
     for row in rows:
         try:
-            await update.message.reply_text(
-                _format_trade_row(row), parse_mode="Markdown")
+            await update.message.reply_text(_format_trade_row(row))
             if available_chart:
                 await update.message.reply_document(
                     document=open(available_chart, "rb"))
