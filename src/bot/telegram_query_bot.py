@@ -23,6 +23,7 @@ import requests
 from src.bot import data_loaders as dl
 from src.bot.vm_runner import handle_vm_command, RunnerResult, MAX_PROMPT_CHARS
 from src.bot.comms_handler import install_comms_handlers
+from src.bot import recurring_dispatch
 
 load_dotenv()
 
@@ -2848,6 +2849,87 @@ async def cmd_set_all_live(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("\n".join(lines), parse_mode="HTML")
 
 
+# ── Recurring-session triggers ────────────────────────────────────────────────
+# Logs the trigger to runtime_logs/recurring_sessions.jsonl and replies with a
+# starter prompt the operator pastes into a fresh Claude Code session. Full
+# spec: docs/claude/recurring-sessions.md.
+
+
+def _format_starter_reply(session_label: str, prompt: str, triggered_at: str) -> str:
+    return (
+        f"🔧 {session_label} session queued at {triggered_at}\n\n"
+        f"Open a new Claude Code session and paste:\n\n"
+        f"---\n{prompt}\n---"
+    )
+
+
+async def cmd_audit(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_authorised(update):
+        return
+    entry = recurring_dispatch.log_trigger(Path(REPO_ROOT), "audit")
+    prompt = recurring_dispatch.build_starter_prompt("audit")
+    await update.message.reply_text(
+        _format_starter_reply("Hardening", prompt, entry["triggered_at"])
+    )
+
+
+async def cmd_improve_strategy(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_authorised(update):
+        return
+    args = context.args or []
+    strategy = args[0] if args else None
+    entry = recurring_dispatch.log_trigger(
+        Path(REPO_ROOT), "improve_strategy", args=args
+    )
+    prompt = recurring_dispatch.build_starter_prompt(
+        "improve_strategy", strategy=strategy
+    )
+    label = (
+        f"Strategy Improvement ({strategy})"
+        if strategy
+        else "Strategy Improvement"
+    )
+    await update.message.reply_text(
+        _format_starter_reply(label, prompt, entry["triggered_at"])
+    )
+
+
+async def cmd_train_model(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_authorised(update):
+        return
+    args = context.args or []
+    strategy = args[0] if args else None
+    entry = recurring_dispatch.log_trigger(
+        Path(REPO_ROOT), "train_model", args=args
+    )
+    prompt = recurring_dispatch.build_starter_prompt(
+        "train_model", strategy=strategy
+    )
+    label = (
+        f"Model Training ({strategy})"
+        if strategy
+        else "Model Training"
+    )
+    await update.message.reply_text(
+        _format_starter_reply(label, prompt, entry["triggered_at"])
+    )
+
+
+async def cmd_roadmap(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_authorised(update):
+        return
+    roadmap_file = Path(REPO_ROOT) / recurring_dispatch.ROADMAP_PATH
+    try:
+        text = roadmap_file.read_text(encoding="utf-8")
+    except OSError as exc:
+        await update.message.reply_text(
+            f"⚠️ Could not read ROADMAP.md: {exc}"
+        )
+        return
+    summary = recurring_dispatch.render_roadmap_summary(text)
+    await update.message.reply_text(summary)
+
+
 # ── Entry point ───────────────────────────────────────────────────────────────
 
 def main():
@@ -2923,6 +3005,10 @@ def main():
     application.add_handler(CommandHandler("webapp", cmd_webapp))
     application.add_handler(CommandHandler("vm", cmd_vm))
     application.add_handler(CommandHandler("vm_write", cmd_vm_write))
+    application.add_handler(CommandHandler("audit", cmd_audit))
+    application.add_handler(CommandHandler("improve_strategy", cmd_improve_strategy))
+    application.add_handler(CommandHandler("train_model", cmd_train_model))
+    application.add_handler(CommandHandler("roadmap", cmd_roadmap))
     application.add_handler(CallbackQueryHandler(callback_handler))
     application.run_polling()
 
