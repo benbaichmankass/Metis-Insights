@@ -217,3 +217,27 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
             "setup_tf": str(cfg.get("timeframe", "15m")),
         },
     }
+
+
+# ---------------------------------------------------------------------------
+# monitor() — S-030 PR2 (architecture-audit-2026-05-02 P1-4)
+# ---------------------------------------------------------------------------
+
+
+def monitor(cfg, candles_df, open_pkg):
+    """Re-evaluate an open turtle_soup order package against fresh candles.
+
+    Per CLAUDE.md § Architecture rules § 2 the strategy unit monitors
+    open packages. v1 logic — break-even SL after 1R; the sweep/reversal
+    thesis is "the prior swing held"; once 1R has been captured the
+    original invalidation level no longer needs to be defended.
+
+    Future versions can add: opposite-sweep close (the next swing-low
+    sweep on a long-bias trade), time-decay close, structure-break
+    close.
+
+    Parameters mirror ``order_package``; see ``_base.monitor_breakeven_sl``
+    for the return contract.
+    """
+    from src.units.strategies._base import monitor_breakeven_sl
+    return monitor_breakeven_sl(open_pkg, candles_df)
