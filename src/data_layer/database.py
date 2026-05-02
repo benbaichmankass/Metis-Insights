@@ -184,6 +184,45 @@ class Database:
             "ON order_packages (status, datetime(updated_at) DESC)"
         )
 
+        # Signals table (S-034, architecture-audit-2026-05-02 P2-9).
+        # Per CLAUDE.md § Architecture rules § 4 the DB unit owns three
+        # logs side-by-side: signals (this table), order_packages
+        # (above), trades (above). Pre-S-034 signals lived in two
+        # places: ``runtime_logs/signal_audit.jsonl`` (file) and
+        # ``data/trades.db::signals`` (legacy SQL). The transition
+        # window flow is:
+        #   1. JSONL writer dual-writes to this table.
+        #   2. Readers (processor.get_recent_signals,
+        #      liveness_watchdog._count_actionable_signals) flip to
+        #      SQL when stable.
+        #   3. JSONL writer + legacy data/trades.db::signals deleted
+        #      after one full operator-confirmed day.
+        # The schema mirrors what the JSONL writer already records
+        # (``log_signal({…})``) so the dual-writer can map fields 1:1.
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS signals (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                logged_at_utc TEXT NOT NULL,
+                strategy TEXT,
+                symbol TEXT,
+                side TEXT,
+                qty REAL,
+                status TEXT,
+                reason TEXT,
+                meta TEXT
+            )
+        ''')
+        # Per Rule 4 the primary access path is "signals log per
+        # strategy" (mirrors the order-packages indexing scheme).
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_signals_strategy_logged "
+            "ON signals (strategy, datetime(logged_at_utc) DESC)"
+        )
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_signals_logged_at "
+            "ON signals (datetime(logged_at_utc) DESC)"
+        )
+
         conn.commit()
         conn.close()
 
@@ -368,6 +407,114 @@ class Database:
             )
             conn.commit()
             return cursor.rowcount
+        finally:
+            conn.close()
+
+    def insert_signal(self, signal_data):
+        """Insert a row into the signals table.
+
+        S-034 (architecture-audit-2026-05-02 P2-9). The DB unit owns the
+        signals log per CLAUDE.md § Architecture rules § 4. The JSONL
+        writer (``src/utils/signal_audit_logger.py::log_signal``) calls
+        this during the dual-write transition window so both stores
+        carry the same data; readers will flip to SQL once the
+        operator confirms one full day of clean dual-writes.
+
+        Args:
+            signal_data (dict): Pipeline event with optional fields
+                ``logged_at_utc``, ``strategy``, ``symbol``, ``side``,
+                ``qty``, ``status``, ``reason``, plus any extra
+                metadata fields (folded into ``meta`` as JSON).
+
+        Returns:
+            int: The new row's primary key.
+        """
+        import json
+        from datetime import datetime, timezone
+
+        row = dict(signal_data or {})
+        logged_at = row.pop("logged_at_utc", None) or \
+            datetime.now(timezone.utc).isoformat()
+        strategy = row.pop("strategy", None)
+        symbol = row.pop("symbol", None)
+        side = row.pop("side", None)
+        qty = row.pop("qty", None)
+        status = row.pop("status", None)
+        reason = row.pop("reason", None)
+        # Anything left over rides in the meta JSON blob — keeps the
+        # write lossless even when the schema lags behind a new
+        # pipeline-event field.
+        meta = json.dumps(row, default=str) if row else None
+
+        conn = self.connect()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                "INSERT INTO signals "
+                "(logged_at_utc, strategy, symbol, side, qty, status, "
+                "reason, meta) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (logged_at, strategy, symbol, side, qty, status, reason, meta),
+            )
+            conn.commit()
+            return cursor.lastrowid
+        finally:
+            conn.close()
+
+    def get_recent_signals(self, *, limit=10, strategy=None):
+        """Return the most-recent signals rows.
+
+        S-034 reader for the SQL signals log. Mirrors
+        ``processor.get_recent_signals`` shape so the JSONL → SQL
+        cutover is a one-line swap on the reader side.
+
+        Args:
+            limit (int): Cap (default 10, max 200).
+            strategy (str): Optional case-insensitive filter.
+
+        Returns:
+            list[dict]: Newest-first by ``logged_at_utc``. Each dict
+                contains the ``meta`` JSON expanded back into the
+                top-level dict so downstream renderers see the same
+                shape as a JSONL record.
+        """
+        import json
+
+        try:
+            limit = max(1, min(int(limit), 200))
+        except (TypeError, ValueError):
+            limit = 10
+
+        conn = self.connect()
+        cursor = conn.cursor()
+        try:
+            params = []
+            sql = (
+                "SELECT logged_at_utc, strategy, symbol, side, qty, "
+                "status, reason, meta FROM signals"
+            )
+            if strategy is not None:
+                sql += " WHERE LOWER(strategy) = ?"
+                params.append(str(strategy).lower())
+            sql += " ORDER BY datetime(logged_at_utc) DESC LIMIT ?"
+            params.append(int(limit))
+            cursor.execute(sql, params)
+            rows = []
+            # Newest-first from SQL → reverse to match JSONL "tail" order
+            # (oldest-first within the window) so existing renderers see
+            # the same sequence.
+            for r in reversed(cursor.fetchall()):
+                d = dict(r)
+                meta_blob = d.pop("meta", None)
+                if meta_blob:
+                    try:
+                        extra = json.loads(meta_blob)
+                        if isinstance(extra, dict):
+                            for k, v in extra.items():
+                                d.setdefault(k, v)
+                    except (json.JSONDecodeError, TypeError):
+                        pass
+                rows.append(d)
+            return rows
         finally:
             conn.close()
 
