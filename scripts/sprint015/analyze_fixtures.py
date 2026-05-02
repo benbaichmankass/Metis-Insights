@@ -68,6 +68,10 @@ def _vwap_strategy(frame: pd.DataFrame, params: Dict[str, Any]):
     import src.units.strategies.vwap as vwap_module
 
     threshold = float(params.get("entry_std_threshold", vwap_module.ENTRY_STD_THRESHOLD))
+    # S-026 G1: build_vwap_signal no longer takes a qty kwarg — strategies
+    # emit the trade idea, sizing happens per-account. Backtests still
+    # need a notional unit for the slippage sweep, so we read qty from
+    # params here and apply it locally.
     qty = float(params.get("qty", 1.0))
     lookback = int(params.get("lookback", 50))
     symbol = str(params.get("symbol", "BTCUSDT"))
@@ -78,9 +82,9 @@ def _vwap_strategy(frame: pd.DataFrame, params: Dict[str, Any]):
         sigs = []
         for i in range(lookback, len(frame)):
             window = frame.iloc[i - lookback : i + 1]
-            sig = build_vwap_signal(window, symbol=symbol, qty=qty)
+            sig = build_vwap_signal(window, symbol=symbol)
             if sig.get("side") in ("buy", "sell"):
-                sigs.append({"ts": window.index[-1], "side": sig["side"], "qty": sig["qty"]})
+                sigs.append({"ts": window.index[-1], "side": sig["side"], "qty": qty})
         return sigs
     finally:
         vwap_module.ENTRY_STD_THRESHOLD = saved

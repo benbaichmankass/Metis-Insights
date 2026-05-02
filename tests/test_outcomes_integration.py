@@ -98,8 +98,8 @@ def test_failed_exchange_pages_operator(reporter):
 
 
 def test_failed_validation_logs_warn_no_telegram(reporter):
-    """Bad qty → failed_validation → WARN, persisted but no telegram."""
-    bad = {"symbol": "BTCUSDT", "side": "buy", "qty": 0, "price": 50_000.0}
+    """side='none' → no_signal short-circuit (skipped) before safe_place_order."""
+    bad = {"symbol": "BTCUSDT", "side": "none", "price": 50_000.0}
     with patch("src.runtime.pipeline.os.path.exists", return_value=False), \
             patch("src.runtime.outcomes._Reporter._send_telegram_or_queue") as send:
         result = run_pipeline(
@@ -107,8 +107,10 @@ def test_failed_validation_logs_warn_no_telegram(reporter):
             exchange_client=_DummyClient(),
             signal_builder=_signal_stub(bad),
         )
-    # qty=0 produces "skipped" with reason "no_signal" in run_pipeline's
+    # side=none produces "skipped" with reason "no_signal" in run_pipeline's
     # pre-check, before safe_place_order. That's INFO, not WARN.
+    # (S-026 G1: the legacy qty=0 short-circuit is gone — strategies no
+    # longer emit qty, sizing is the per-account RiskManager's job.)
     assert result["order_result"]["status"] == "skipped"
     send.assert_not_called()
 

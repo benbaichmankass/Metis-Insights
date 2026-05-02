@@ -142,50 +142,52 @@ class TestComputeVwap:
 class TestBuildVwapSignal:
     def test_buy_signal_when_price_below_vwap(self):
         df = _candles_below_vwap()
-        signal = build_vwap_signal(df, symbol="BTCUSDT", qty=1.0)
+        signal = build_vwap_signal(df, symbol="BTCUSDT")
         assert signal["side"] == "buy"
-        assert signal["qty"] == 1.0
         assert signal["symbol"] == "BTCUSDT"
         assert signal["meta"]["strategy_name"] == "vwap"
         assert signal["meta"]["current_price"] < signal["meta"]["vwap"]
 
     def test_sell_signal_when_price_above_vwap(self):
         df = _candles_above_vwap()
-        signal = build_vwap_signal(df, symbol="BTCUSDT", qty=1.0)
+        signal = build_vwap_signal(df, symbol="BTCUSDT")
         assert signal["side"] == "sell"
-        assert signal["qty"] == 1.0
         assert signal["meta"]["current_price"] > signal["meta"]["vwap"]
 
     def test_no_signal_when_price_near_vwap(self):
         df = _candles_near_vwap()
-        signal = build_vwap_signal(df, symbol="BTCUSDT", qty=1.0)
+        signal = build_vwap_signal(df, symbol="BTCUSDT")
         assert signal["side"] == "none"
-        assert signal["qty"] == 0.0
 
     def test_signal_includes_vwap_meta(self):
         df = _candles(100, 102, 101, 103, 100)
-        signal = build_vwap_signal(df, symbol="BTCUSDT", qty=2.0)
+        signal = build_vwap_signal(df, symbol="BTCUSDT")
         assert "vwap" in signal["meta"]
         assert "current_price" in signal["meta"]
         assert "std_dev" in signal["meta"]
         assert "deviation_std" in signal["meta"]
         assert "reason" in signal["meta"]
 
-    def test_qty_is_zero_for_no_signal(self):
-        df = _candles_near_vwap()
-        signal = build_vwap_signal(df, symbol="BTCUSDT", qty=5.0)
-        assert signal["qty"] == 0.0
+    def test_signal_does_not_carry_qty(self):
+        """S-026 G1: strategies emit the trade idea, not the order.
+        Sizing is decided per-account by the RiskManager, so the
+        strategy package must never carry a top-level ``qty`` field."""
+        for df in (_candles_below_vwap(), _candles_above_vwap(), _candles_near_vwap()):
+            signal = build_vwap_signal(df, symbol="BTCUSDT")
+            assert "qty" not in signal, (
+                f"S-026 G1: build_vwap_signal must not emit qty (got {signal!r})"
+            )
 
     def test_insufficient_candles_raises(self):
         df = _candles(100)
         with pytest.raises(ValueError, match="at least"):
-            build_vwap_signal(df, symbol="BTCUSDT", qty=1.0)
+            build_vwap_signal(df, symbol="BTCUSDT")
 
     # ----- G5 (CP-2026-05-02-12, option a) — VWAP must populate sl/tp -----
 
     def test_buy_signal_carries_entry_sl_tp_at_top_level(self):
         df = _candles_below_vwap()
-        signal = build_vwap_signal(df, symbol="BTCUSDT", qty=1.0)
+        signal = build_vwap_signal(df, symbol="BTCUSDT")
         assert signal["side"] == "buy"
         for k in ("entry_price", "stop_loss", "take_profit"):
             assert k in signal, (
@@ -199,7 +201,7 @@ class TestBuildVwapSignal:
 
     def test_sell_signal_carries_entry_sl_tp_at_top_level(self):
         df = _candles_above_vwap()
-        signal = build_vwap_signal(df, symbol="BTCUSDT", qty=1.0)
+        signal = build_vwap_signal(df, symbol="BTCUSDT")
         assert signal["side"] == "sell"
         for k in ("entry_price", "stop_loss", "take_profit"):
             assert k in signal
@@ -210,7 +212,7 @@ class TestBuildVwapSignal:
 
     def test_no_signal_does_not_emit_sl_tp(self):
         df = _candles_near_vwap()
-        signal = build_vwap_signal(df, symbol="BTCUSDT", qty=1.0)
+        signal = build_vwap_signal(df, symbol="BTCUSDT")
         assert signal["side"] == "none"
         # SL/TP keys must be absent for no-trade signals; the multi-account
         # dispatch fast-path uses .get() and falls through correctly when
@@ -222,8 +224,8 @@ class TestBuildVwapSignal:
     def test_sl_distance_uses_sl_std_mult(self):
         """The stop-loss distance from entry equals sl_std_mult * std_dev."""
         df = _candles_below_vwap()
-        s_default = build_vwap_signal(df, symbol="BTCUSDT", qty=1.0)
-        s_wide = build_vwap_signal(df, symbol="BTCUSDT", qty=1.0, sl_std_mult=2.0)
+        s_default = build_vwap_signal(df, symbol="BTCUSDT")
+        s_wide = build_vwap_signal(df, symbol="BTCUSDT", sl_std_mult=2.0)
 
         std_dev = s_default["meta"]["std_dev"]
         # default = 1.0
@@ -240,7 +242,7 @@ class TestBuildVwapSignal:
         from src.runtime.pipeline import _signal_carries_full_sltp
 
         df = _candles_below_vwap()
-        signal = build_vwap_signal(df, symbol="BTCUSDT", qty=1.0)
+        signal = build_vwap_signal(df, symbol="BTCUSDT")
         assert _signal_carries_full_sltp(signal), (
             "Post-G5: VWAP signals must be packageable "
             "(this was the BUG)"
@@ -256,15 +258,16 @@ class TestVwapPipelineRouting:
         return {
             "symbol": settings.get("SYMBOL", "BTCUSDT"),
             "side": "none",
-            "qty": 0,
             "meta": {"strategy_name": "vwap"},
         }
 
     def _vwap_buy_signal_builder(self, settings):
+        # S-026 G1: signals carry no qty — pipeline injects a placeholder
+        # for safe_place_order until G2 moves sizing into the
+        # per-account RiskManager.
         return {
             "symbol": settings.get("SYMBOL", "BTCUSDT"),
             "side": "buy",
-            "qty": 1.0,
             "meta": {"strategy_name": "vwap", "vwap": 100.0, "current_price": 90.0},
         }
 
@@ -274,7 +277,7 @@ class TestVwapPipelineRouting:
 
         def fake_vwap_builder(settings):
             called_with["settings"] = settings
-            return {"symbol": "BTCUSDT", "side": "none", "qty": 0}
+            return {"symbol": "BTCUSDT", "side": "none"}
 
         monkeypatch.setattr("src.runtime.pipeline.vwap_signal_builder", fake_vwap_builder)
         monkeypatch.setenv("STRATEGY", "vwap")
@@ -332,6 +335,73 @@ class TestVwapPipelineRouting:
         )
         assert result["order_result"]["status"] == "skipped"
         assert result["order_result"]["reason"] == "no_signal"
+
+
+# ---------------------------------------------------------------------------
+# S-026 G1: signals without top-level qty are still routed to multi-account
+# dispatch (sizing happens per-account; the strategy emits the trade idea).
+# ---------------------------------------------------------------------------
+
+
+class TestQtylessSignalRoutesToMultiAccountDispatch:
+    """Strategy signal that satisfies _signal_carries_full_sltp and has no
+    qty must still be routed through the multi-account dispatch fast-path.
+    Quantity is the per-account RiskManager's job (G2)."""
+
+    def test_qtyless_packageable_signal_dispatches_per_account(self, monkeypatch):
+        from src.runtime import pipeline as pl
+
+        # Strategy emits the trade idea — symbol/side/entry/sl/tp + meta —
+        # explicitly NO qty.
+        signal = {
+            "symbol": "BTCUSDT",
+            "side": "buy",
+            "entry_price": 50_000.0,
+            "stop_loss": 49_500.0,
+            "take_profit": 51_000.0,
+            "meta": {"strategy_name": "vwap"},
+        }
+        assert "qty" not in signal
+
+        # Capture the OrderPackage that reaches multi_account_execute and
+        # short-circuit the actual fan-out so no exchange/file I/O runs.
+        captured = {}
+
+        class _StubCoord:
+            def multi_account_execute(self, pkg, dry_run=False):
+                captured["pkg"] = pkg
+                return [{"name": "fake", "trade_id": "dry-1", "error": None}]
+
+        monkeypatch.setattr("src.core.coordinator.Coordinator", lambda: _StubCoord())
+
+        settings = {
+            "SYMBOL": "BTCUSDT",
+            "DRY_RUN": "false",
+            "ALLOW_LIVE_TRADING": "true",
+            "MULTI_ACCOUNT_DISPATCH": "true",
+            "MAX_QTY": "1",
+        }
+        result = pl.run_pipeline(
+            settings,
+            exchange_client=DummyExchangeClient(),
+            telegram_client=DummyTelegramClient(),
+            signal_builder=lambda _s: signal,
+        )
+
+        assert result["order_result"]["status"] == "multi_account_dispatched", (
+            f"S-026 G1: qty-less actionable signal must reach the "
+            f"multi-account dispatch fast-path; got "
+            f"{result['order_result']!r}"
+        )
+        assert "pkg" in captured, "multi_account_execute was never called"
+        # OrderPackage carries the trade idea — no qty field.
+        pkg = captured["pkg"]
+        assert pkg.symbol == "BTCUSDT"
+        assert pkg.direction == "long"
+        assert pkg.entry == 50_000.0
+        assert not hasattr(pkg, "qty"), (
+            "OrderPackage must not carry qty (sizing is per-account)"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -478,18 +548,18 @@ class TestVwapEdgeCases:
     def test_single_candle_insufficient(self):
         df = _candles(100)
         with pytest.raises(ValueError, match="at least"):
-            build_vwap_signal(df, symbol="BTCUSDT", qty=1.0)
+            build_vwap_signal(df, symbol="BTCUSDT")
 
     def test_exactly_min_candles_is_accepted(self):
         df = _candles(*([100] * MIN_CANDLES))
         # All-same prices → std_dev = 0 → deviation = 0 → no signal, but no error
-        signal = build_vwap_signal(df, symbol="BTCUSDT", qty=1.0)
+        signal = build_vwap_signal(df, symbol="BTCUSDT")
         assert signal["side"] == "none"
 
     def test_vwap_meta_never_contains_api_key(self):
         """Ensure VWAP signal meta cannot leak credentials."""
         df = _candles(100, 102, 101)
-        signal = build_vwap_signal(df, symbol="BTCUSDT", qty=1.0)
+        signal = build_vwap_signal(df, symbol="BTCUSDT")
         meta_str = str(signal)
         for suspicious in ("api_key", "api_secret", "token", "password", "secret"):
             assert suspicious not in meta_str.lower(), (
@@ -506,53 +576,53 @@ class TestVwapInvalidDataNoTrade:
 
     def test_zero_volume_returns_no_trade(self):
         df = _candles(100, 102, 101, volume=0)
-        signal = build_vwap_signal(df, symbol="BTCUSDT", qty=1.0)
+        signal = build_vwap_signal(df, symbol="BTCUSDT")
         assert signal["side"] == "none"
-        assert signal["qty"] == 0.0
+        assert "qty" not in signal
         assert signal["meta"]["strategy_name"] == "vwap"
 
     def test_zero_volume_reason_text(self):
         df = _candles(100, 102, 101, volume=0)
-        signal = build_vwap_signal(df, symbol="BTCUSDT", qty=1.0)
+        signal = build_vwap_signal(df, symbol="BTCUSDT")
         reason = signal["meta"]["reason"]
         assert "zero" in reason.lower() or "negative" in reason.lower()
 
     def test_zero_volume_does_not_raise(self):
         df = _candles(100, 102, 101, volume=0)
-        build_vwap_signal(df, symbol="BTCUSDT", qty=1.0)  # must not raise
+        build_vwap_signal(df, symbol="BTCUSDT")  # must not raise
 
     def test_missing_volume_column_returns_no_trade(self):
         df = pd.DataFrame([
             {"timestamp": 0, "open": 99, "high": 102, "low": 98, "close": 100},
             {"timestamp": 1, "open": 100, "high": 103, "low": 99, "close": 101},
         ])
-        signal = build_vwap_signal(df, symbol="BTCUSDT", qty=1.0)
+        signal = build_vwap_signal(df, symbol="BTCUSDT")
         assert signal["side"] == "none"
-        assert signal["qty"] == 0.0
+        assert "qty" not in signal
 
     def test_missing_volume_column_does_not_raise(self):
         df = pd.DataFrame([
             {"timestamp": 0, "open": 99, "high": 102, "low": 98, "close": 100},
             {"timestamp": 1, "open": 100, "high": 103, "low": 99, "close": 101},
         ])
-        build_vwap_signal(df, symbol="BTCUSDT", qty=1.0)  # must not raise
+        build_vwap_signal(df, symbol="BTCUSDT")  # must not raise
 
     def test_empty_dataframe_returns_no_trade(self):
         df = pd.DataFrame()
-        signal = build_vwap_signal(df, symbol="BTCUSDT", qty=1.0)
+        signal = build_vwap_signal(df, symbol="BTCUSDT")
         assert signal["side"] == "none"
-        assert signal["qty"] == 0.0
+        assert "qty" not in signal
 
     def test_empty_dataframe_does_not_raise(self):
         df = pd.DataFrame()
-        build_vwap_signal(df, symbol="BTCUSDT", qty=1.0)  # must not raise
+        build_vwap_signal(df, symbol="BTCUSDT")  # must not raise
 
     def test_normal_candles_still_produce_signal(self):
         """Valid candle data must continue to generate actionable signals."""
         df = _candles_below_vwap()
-        signal = build_vwap_signal(df, symbol="BTCUSDT", qty=1.0)
+        signal = build_vwap_signal(df, symbol="BTCUSDT")
         assert signal["side"] == "buy"
-        assert signal["qty"] == 1.0
+        assert "qty" not in signal
         assert signal["meta"]["strategy_name"] == "vwap"
         assert signal["meta"]["current_price"] < signal["meta"]["vwap"]
 
@@ -562,7 +632,7 @@ class TestVwapInvalidDataNoTrade:
 
         def zero_volume_builder(settings):
             df = _candles(100, 102, 101, volume=0)
-            return build_vwap_signal(df, symbol=settings.get("SYMBOL", "BTCUSDT"), qty=1.0)
+            return build_vwap_signal(df, symbol=settings.get("SYMBOL", "BTCUSDT"))
 
         settings = {"SYMBOL": "BTCUSDT", "DRY_RUN": "true", "MAX_QTY": "1"}
         result = run_pipeline(

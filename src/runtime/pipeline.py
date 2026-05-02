@@ -69,7 +69,6 @@ def default_signal_builder(settings: dict) -> Dict[str, Any]:
     return {
         "symbol": settings.get("SYMBOL", settings.get("symbol", "BTCUSDT")),
         "side": "buy",
-        "qty": 1,
     }
 
 
@@ -207,14 +206,14 @@ def turtle_soup_signal_builder(settings: dict) -> Dict[str, Any]:
     Returns
     -------
     dict
-        Pipeline signal: {symbol, side, qty, price, stop_loss, take_profit,
-        meta} where side ∈ {"buy", "sell", "none"}.
+        Pipeline signal: {symbol, side, price, stop_loss, take_profit,
+        meta} where side ∈ {"buy", "sell", "none"}. S-026 G1: no qty —
+        sizing is the per-account RiskManager's job.
     """
     from src.units.strategies.turtle_soup import order_package
 
     symbol = settings.get("SYMBOL", settings.get("symbol", "BTCUSDT"))
     timeframe = settings.get("TURTLE_SOUP_TIMEFRAME", settings.get("timeframe", "15m"))
-    qty = float(settings.get("MAX_QTY", settings.get("max_qty", 1)) or 1)
 
     exchange = _build_killzone_exchange(settings)
     candles_raw = exchange.get_ohlcv(symbol, timeframe, limit=200)
@@ -253,7 +252,6 @@ def turtle_soup_signal_builder(settings: dict) -> Dict[str, Any]:
         return {
             "symbol": symbol,
             "side": "none",
-            "qty": 0,
             "meta": {"strategy_name": "turtle_soup", "reason": str(exc)},
         }
 
@@ -265,7 +263,6 @@ def turtle_soup_signal_builder(settings: dict) -> Dict[str, Any]:
     return {
         "symbol": symbol,
         "side": side,
-        "qty": qty,
         "price": pkg["entry"],
         "entry_price": pkg["entry"],
         "stop_loss": pkg["sl"],
@@ -318,7 +315,6 @@ def vwap_signal_builder(settings: dict) -> Dict[str, Any]:
         or settings.get("timeframe")
         or "5m"
     )
-    qty = float(settings.get("MAX_QTY", settings.get("max_qty", 1)) or 1)
 
     exchange = _build_killzone_exchange(settings)
     candles_raw = exchange.get_ohlcv(symbol, timeframe, limit=100)
@@ -351,7 +347,7 @@ def vwap_signal_builder(settings: dict) -> Dict[str, Any]:
         symbol, timeframe, len(candles_df),
     )
 
-    return build_vwap_signal(candles_df, symbol=symbol, qty=qty)
+    return build_vwap_signal(candles_df, symbol=symbol)
 
 
 def _coerce_ohlcv_with_dt_index(raw: Any) -> pd.DataFrame:
@@ -483,9 +479,14 @@ def multiplexed_signal_builder(settings: dict) -> Dict[str, Any]:
     """
     Loop STRATEGIES in order; return the first actionable signal.
 
-    Each strategy is sized independently (no compounding across strategies).
     If a strategy raises an exception it is logged and skipped.
     Returns a side=none signal when no strategy fires.
+
+    S-026 G1: signals carry no qty — sizing is the per-account
+    RiskManager's job. The per-strategy risk allocation
+    (``STRATEGY_RISK_PCT``) is recorded under
+    ``meta["strategy_risk_pct"]`` so the downstream sizer (G2) can
+    apply it when computing the per-account quantity.
     """
     symbol = settings.get("SYMBOL", settings.get("symbol", "BTCUSDT"))
 
@@ -507,10 +508,12 @@ def multiplexed_signal_builder(settings: dict) -> Dict[str, Any]:
             )
             continue
 
-        if signal.get("side") in ("buy", "sell") and float(signal.get("qty", 0)) > 0:
+        if signal.get("side") in ("buy", "sell"):
             risk_scale = STRATEGY_RISK_PCT.get(strategy_name, 1.0)
             signal = dict(signal)
-            signal["qty"] = float(signal["qty"]) * risk_scale
+            meta = dict(signal.get("meta") or {})
+            meta["strategy_risk_pct"] = float(risk_scale)
+            signal["meta"] = meta
             logger.info(
                 "Multiplexer: '%s' produced actionable signal (risk_scale=%.2f)",
                 strategy_name, risk_scale,
@@ -520,7 +523,7 @@ def multiplexed_signal_builder(settings: dict) -> Dict[str, Any]:
         logger.info("Multiplexer: '%s' returned no actionable signal", strategy_name)
 
     logger.info("Multiplexer: no strategy fired — staying flat")
-    return {"symbol": symbol, "side": "none", "qty": 0,
+    return {"symbol": symbol, "side": "none",
             "meta": {"strategy_name": "multiplexed", "reason": "no_strategy_triggered"}}
 
 
@@ -582,7 +585,7 @@ def run_pipeline(
 
     logger.info("Generated signal: %s", signal)
 
-    if signal.get("side") in ("none", "", None) or float(signal.get("qty", 0)) <= 0:
+    if signal.get("side") not in ("buy", "sell"):
         logger.info("No actionable signal; skipping order placement.")
         result = {"status": "skipped", "reason": "no_signal", "signal": signal}
     elif os.path.exists(HALT_FLAG_PATH):
@@ -630,6 +633,19 @@ def run_pipeline(
                 or os.environ.get("DRY_RUN", "false")
             ).strip().lower() in {"true", "1", "yes", "on"}
 
+            # S-026 G1: signals carry no qty after the strategy/sizing
+            # decoupling. ``safe_place_order`` still requires qty for the
+            # MAX_QTY / MAX_POSITION_USD caps to operate. Inject the
+            # operator-configured ``MAX_QTY`` as a placeholder so
+            # validation continues to work while the proper per-account
+            # sizing lands in G2 (RiskManager.position_size). The
+            # placeholder is local to validation/legacy paths — it is
+            # NOT written back into the strategy-emitted signal dict.
+            _placeholder_qty = float(
+                settings.get("MAX_QTY", settings.get("max_qty", 1)) or 1
+            )
+            _signal_for_orders = {**signal, "qty": _placeholder_qty}
+
             # G5 — the predicate moved to module scope as
             # ``_signal_carries_full_sltp`` so the missing-sltp warning
             # in the audit-log block uses the same definition.
@@ -643,7 +659,7 @@ def run_pipeline(
                     "DRY_RUN": "true",
                     "ALLOW_LIVE_TRADING": "false",
                 }
-                result = safe_place_order(signal, val_settings, exchange_client)
+                result = safe_place_order(_signal_for_orders, val_settings, exchange_client)
                 if result.get("status") == "dry_run":
                     try:
                         from src.core.coordinator import Coordinator
@@ -672,7 +688,7 @@ def run_pipeline(
                 #   * MULTI_ACCOUNT_DISPATCH is pinned off by the operator,
                 #   * the global mode is dry (no need to fan out), or
                 #   * signal is missing entry/sl/tp (smoke/synthetic).
-                result = safe_place_order(signal, settings, exchange_client)
+                result = safe_place_order(_signal_for_orders, settings, exchange_client)
 
     _report_pipeline_outcome(result, signal)
 
@@ -700,11 +716,10 @@ def run_pipeline(
     # single-client path raises ``failed_validation``. Log the
     # smoking-gun so journalctl identifies the offending strategy
     # without us having to interpret per-tick "failed_validation"
-    # noise. The classification is conservative — only flagged for
-    # actionable signals (buy/sell with qty > 0).
+    # noise. S-026 G1: the qty>0 gate dropped — strategies no longer
+    # emit qty (sizing is the per-account RiskManager's job in G2).
     if (
         signal.get("side") in ("buy", "sell")
-        and float(signal.get("qty", 0) or 0) > 0
         and not _signal_carries_full_sltp(signal)
     ):
         logger.warning(
