@@ -5,6 +5,48 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-02-06 — G4 (slice 1): /risk_check is button-driven (account picker)
+
+- **Session date:** 2026-05-02
+- **Sprint:** S-XXX — Telegram bot debug + UI overhaul + repo cleanup
+- **Current sprint phase:** G4 partial. `/risk_check` migrated to a button picker; `/signals`, `/smoke_test`, `/accounts` mode-toggle still use typed args and are queued for follow-up sub-PRs (G4b/G4c). G5 (pipeline.py touch) is next per the sprint plan but requires the ping-PR pattern.
+- **Last completed checkpoint:** CP-2026-05-02-05 (#267, merged).
+- **Next checkpoint:** **CP-2026-05-02-07 — G5: failed_validation investigation + ping-PR.** This one touches `src/runtime/pipeline.py` so the work-PR stays draft and a ping-PR is opened per CLAUDE.md § Live-mode invariant rule (3) and § Ping-PR vs work-PR.
+- **Telegram sent:** pending — this checkpoint commit triggers the VM ping.
+- **Alerts sent during session:** none.
+- **Blockers:** none for this slice. Self-merged the work-PR — UI surface only, no live-trading or secrets paths touched.
+
+### 1. Completed
+- Extracted `_render_risk_check_for_account(statuses, account_name) -> str` as a pure renderer. The typed-arg path and the new button path both delegate to it, guaranteeing identical output across surfaces.
+- Added `_account_picker_keyboard(callback_prefix, statuses)` helper — generic 2-column inline keyboard of one button per account. The first reuse is `/risk_check`; future per-account flows (G4 follow-ups, e.g. /smoke_test, /accounts toggle) can call it directly with their own callback prefix.
+- `cmd_risk_check` no-args path now replies with `"Pick an account"` + the account-picker keyboard. Typed `/risk_check <name>` still works as a power-user shortcut.
+- `callback_handler` extended with the `risk_check:<account>` action, which calls the same renderer and edits the existing message in place.
+- Updated the `BotCommandSpec` description for `/risk_check` from "Risk details for one account: /risk\\_check &lt;name&gt;" → "Risk details for an account (button picker)" so the menu reflects the new UX.
+- New test class `TestCmdRiskCheckButtonFlow` (6 E2E tests) covering: no-args replies with picker keyboard; typed arg still renders directly; callback edits message with chosen account; unknown-account callback returns "not found"; typed-path and button-path produce identical text (renderer-parity); zero-accounts-configured fallback message.
+
+### 2. Files changed
+- `src/bot/telegram_query_bot.py` — `_render_risk_check_for_account`, `_account_picker_keyboard`, `cmd_risk_check` rewrite (no-args path now uses picker), `callback_handler` extended with `risk_check:<acc>` action, BotCommandSpec description tweak.
+- `tests/test_telegram_query_bot.py` — `TestCmdRiskCheckButtonFlow` class (6 tests).
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` — this entry.
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_telegram_query_bot.py::TestCmdRiskCheckButtonFlow -v` — 6 passed.
+- `PYTHONPATH=. pytest tests/test_telegram_query_bot.py -q` — 104 passed; 1 pre-existing failure (`TestCmdStatusMultiAccount::test_shows_block_per_account`, see CP-2026-05-02-01 / CP-2026-05-01-19), not introduced by this PR.
+- `python scripts/check_dry_run_in_diff.py` — clean.
+- `python scripts/secret_scan.py` — clean.
+
+### 4. Remaining for this checkpoint
+- G4 is a multi-command goal in the sprint plan. This slice covers `/risk_check`. Remaining:
+  - `/signals` — needs strategy picker + N stepper (two-step button flow).
+  - `/smoke_test` — needs account picker including "all" button.
+  - `/accounts dry|live <name>` — needs mode + account picker. Flagged as sensitive (changes per-account live/dry mode) — should add a confirm-before-flip step rather than a single tap.
+- These are queued for follow-up sub-PRs in subsequent sessions; this PR is intentionally PR-sized.
+
+### 5. Next checkpoint
+**CP-2026-05-02-07 — G5: failed_validation investigation + ping-PR.** Per CLAUDE.md § Live-mode invariant: any PR touching `src/runtime/pipeline.py` requires the ping-PR pattern, regardless of test outcome. Open the work-PR as draft and a separate ping-PR with a checkpoint-log/jsonl append linking back to it.
+
+---
+
 ## CP-2026-05-02-05 — G3: /help is now a button-driven category menu
 
 - **Session date:** 2026-05-02
