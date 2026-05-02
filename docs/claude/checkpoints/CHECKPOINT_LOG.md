@@ -5,6 +5,54 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-02-18 — Sprint 025 COMPLETE / WRAPPED
+
+- **Session date:** 2026-05-02
+- **Sprint:** 025 — UI processor migration step 1 + remaining G4 button flows.
+- **Current sprint phase:** **COMPLETE / WRAPPED.** All four T-tasks landed across PRs #276–#279. Sprint summary at `docs/sprint-summaries/sprint-025-summary.md`.
+- **Last completed checkpoint:** CP-2026-05-02-17 (#279 T4, merged).
+- **Next checkpoint:** **none — sprint closed.** Next sprint should pick up audit-doc step 2 (`cmd_balance` → `processor.get_account_balances`, processor API already exists) or any operator-driven priority.
+- **Telegram sent:** pending — this checkpoint commit triggers the high-priority sprint-end ping (the `COMPLETE` / `WRAPPED` keywords route through the sprint-completion path on the VM).
+- **Alerts sent during sprint:** none (no operator-decision blockers this sprint — all four tasks were uncontroversial extensions of patterns established in S-024).
+- **Blockers:** none.
+
+### 1. Completed (sprint-end summary)
+PRs #276–#279 (4 PRs, all merged). Per-PR detail in `docs/sprint-summaries/sprint-025-summary.md`. High points:
+
+- **T1 #276 — `cmd_hourly` → `processor.get_hourly_report` (audit doc § 5 step 1).** Smallest possible PR per the migration plan: the processor API already existed; this PR just routes the bot through it. Pattern set for the remaining 13 audit-doc steps.
+- **T2 #277 — `/smoke_test` account picker (G4 slice 3).** Reused `_account_picker_keyboard` from G4 slice 1 by adding `include_all=True` / `all_label=…` kwargs. Same helper now serves `/risk_check` (per-account only) and `/smoke_test` (per-account + 🌐 All accounts).
+- **T3 #278 — `/signals` two-step stepper (G4 slice 2).** Pick strategy → pick N. Strategy encoded in `callback_data` (no per-chat state). Buckets [10, 25, 50, 100]; arbitrary N still via typed shortcut.
+- **T4 #279 — `/accounts` mode toggle with confirm step (G4 slice 4).** Two-tap UX: pick account → confirmation prompt with explicit Confirm/Cancel. Flipping to LIVE triggers a "REAL orders" warning. Strictly safer than the existing typed path (which is preserved one-shot for power users).
+
+### 2. Sprint-completion checklist
+- [x] Run full tests — covered per-PR (final state: 127 passed in test_telegram_query_bot.py + 7 in test_ui_processor.py, +24 new tests this sprint; the only failing test is the long-pre-existing `TestCmdStatusMultiAccount::test_shows_block_per_account` documented in CP-2026-05-02-01).
+- [x] `python scripts/secret_scan.py` — clean on every PR.
+- [x] Sprint-summary doc (`docs/sprint-summaries/sprint-025-summary.md`) — created.
+- [x] Self-merge summary PR — this commit is the summary PR's contents.
+- [x] Append final checkpoint — this entry.
+- [ ] Telegram `/sprintlet_complete S-025` — fires automatically off this checkpoint commit per the existing VM wiring.
+
+### 3. Lessons learned (carried into the next sprint)
+1. **`callback_data`-encoded flow state scales further than expected.** Two-step flows like `/signals` would normally need a `_PENDING_<X>: dict[chat_id, ...]` module state. Encoding the choice directly in the callback string (`signals_n:<strategy>:<N>`) is simpler and has no expiry concerns. Worth a CLAUDE.md / audit-doc bullet recommending this pattern for future button flows (with a fallback to module state only when the encoded payload would exceed Telegram's 64-byte callback_data limit).
+2. **Renderer purity tests catch real regressions.** `test_render_smoke_test_result_is_pure` (T2) and the renderer-parity tests in T3/T4 are quick to write and pinpoint regressions in pure-renderer code that has no I/O. Worth requiring these on any new pure renderer.
+3. **The audit-doc migration order is realistic.** Step 1 (`cmd_hourly`) was a literal one-line change in the bot + a small kwargs forwarder in the processor. The next steps (`cmd_balance` and `cmd_signals` which already have processor APIs) should be similarly small.
+
+### 4. Files changed (this checkpoint)
+- `docs/sprint-summaries/sprint-025-summary.md` — new sprint-summary doc.
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` — this entry.
+
+### 5. Tests run
+- No new code in this PR — sprint-summary PR is docs-only.
+- `python scripts/check_dry_run_in_diff.py` — clean.
+- `python scripts/secret_scan.py` — clean.
+
+### 6. Next checkpoint
+**none — sprint 025 closed.** Next sprint picks up audit-doc step 2 onward.
+
+---
+
+---
+
 ## CP-2026-05-02-17 — Sprint 025 T4: /accounts mode toggle with confirm step (G4 slice 4)
 
 - **Session date:** 2026-05-02
