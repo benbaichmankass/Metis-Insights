@@ -241,6 +241,18 @@ def main() -> None:
                         os.remove(demo_flag)
                     except OSError:
                         pass
+
+                # CLAUDE.md § Architecture rules § 6 +
+                # architecture-audit-2026-05-02 P0-3: liveness watchdog
+                # piggybacks on the hourly cycle. Pings the operator
+                # when actionable signals fired but no trades landed —
+                # the gap that allowed BUG-034 to hide. Best-effort;
+                # never raises.
+                try:
+                    from src.runtime.liveness_watchdog import run_liveness_watchdog
+                    run_liveness_watchdog(now_utc=now_utc)
+                except Exception:  # noqa: BLE001
+                    logger.exception("liveness_watchdog dispatch failed")
         except Exception as exc:  # noqa: BLE001
             logger.exception("Failed to send hourly report")
             report(
