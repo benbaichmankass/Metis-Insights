@@ -162,13 +162,20 @@ def _signal_to_order_package(signal: Dict[str, Any], settings: dict):
 def _multi_account_dispatch_enabled(settings: dict) -> bool:
     """Return True when pipeline signals should fan out to every account.
 
-    The operator opts in by exporting ``MULTI_ACCOUNT_DISPATCH=true``.
-    When unset, the legacy single-client path runs — preserving the
-    behaviour of single-account deployments.
+    Default flipped to **true** (post-CP-2026-05-02): the architecture is
+    "strategy produces signal; each account decides whether to live-trade
+    that signal." The legacy single-client path applied a global
+    ``ALLOW_LIVE_TRADING`` gate to every signal, which surfaced as the
+    "ALLOW_LIVE_TRADING=true is required" failed-validation message even
+    when accounts.yaml had per-account dry/live state set correctly.
+
+    Operator can still pin to the legacy single-client path by exporting
+    ``MULTI_ACCOUNT_DISPATCH=false`` — used for single-account smoke
+    deployments that don't want to load Coordinator.
     """
     raw = settings.get("MULTI_ACCOUNT_DISPATCH") if isinstance(settings, dict) else None
     if raw is None:
-        raw = os.environ.get("MULTI_ACCOUNT_DISPATCH", "false")
+        raw = os.environ.get("MULTI_ACCOUNT_DISPATCH", "true")
     return str(raw).strip().lower() in {"true", "1", "yes", "on"}
 
 
@@ -602,13 +609,30 @@ def run_pipeline(
             )
 
             multi = _multi_account_dispatch_enabled(settings)
-            if multi:
-                # Validate the signal via safe_place_order (halt flag,
-                # MAX_QTY, daily-loss, max-open caps) but force dry-run
-                # so the legacy single-client path doesn't submit. Real
-                # submission happens via Coordinator → per-account
-                # execute_pkg below, which honours each account's own
-                # API keys + RiskManager.
+            global_dry = str(
+                (settings.get("DRY_RUN") if isinstance(settings, dict) else None)
+                or os.environ.get("DRY_RUN", "false")
+            ).strip().lower() in {"true", "1", "yes", "on"}
+
+            def _signal_packageable(_sig: Dict[str, Any]) -> bool:
+                """True only when the signal carries everything the
+                Coordinator needs to fan out (entry, sl, tp). Stub /
+                synthetic signals from smoke tests routinely omit sl/tp;
+                routing those through the multi-account path would crash
+                in ``_signal_to_order_package``. Falling back to the
+                legacy single-client path preserves their behaviour."""
+                _meta = _sig.get("meta") or {}
+                return (
+                    (_sig.get("entry_price") or _sig.get("price") or _meta.get("price")) is not None
+                    and (_sig.get("stop_loss") or _meta.get("stop_loss") or _meta.get("sl")) is not None
+                    and (_sig.get("take_profit") or _meta.get("take_profit") or _meta.get("tp")) is not None
+                )
+
+            if multi and not global_dry and _signal_packageable(signal):
+                # CP-2026-05-02: when the system is live AND the signal
+                # is fully populated, fan-out to every account so each
+                # one can apply its own dry/live state. Validation runs
+                # in forced-dry mode first (halt flag, MAX_QTY, etc.).
                 val_settings = {
                     **(settings if isinstance(settings, dict) else {}),
                     "DRY_RUN": "true",
@@ -620,12 +644,8 @@ def run_pipeline(
                         from src.core.coordinator import Coordinator
                         pkg = _signal_to_order_package(signal, settings)
                         coord = Coordinator()
-                        live_dry = str(
-                            (settings.get("DRY_RUN") if isinstance(settings, dict) else None)
-                            or os.environ.get("DRY_RUN", "false")
-                        ).strip().lower() in {"true", "1", "yes", "on"}
                         multi_results = coord.multi_account_execute(
-                            pkg, dry_run=live_dry,
+                            pkg, dry_run=False,
                         )
                         result = {
                             "status": "multi_account_dispatched",
@@ -643,6 +663,10 @@ def run_pipeline(
                             "order": signal,
                         }
             else:
+                # Legacy single-client path. Reached when:
+                #   * MULTI_ACCOUNT_DISPATCH=false (operator pinned),
+                #   * DRY_RUN=true (no need to fan out — global mode wins), or
+                #   * signal is missing entry/sl/tp (smoke/synthetic).
                 result = safe_place_order(signal, settings, exchange_client)
 
     _report_pipeline_outcome(result, signal)

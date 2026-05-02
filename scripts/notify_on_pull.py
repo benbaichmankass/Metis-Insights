@@ -65,6 +65,22 @@ PRIORITY_PREFIX = {
 BLOCKER_TAG = "[BLOCKED-PM]"
 GITHUB_COMMIT_URL = "https://github.com/the-lizardking/ict-trading-bot/commit/{sha}"
 
+# CP-2026-05-02: training/improvement workflow stage tags. Each stage
+# emits its own ping by matching the commit subject prefix. Subjects can
+# include the tag at the start (commit) or after a fixed prefix
+# convention. Priorities follow docs/claude/telegram-pings.md.
+TRAINING_TAGS: list[tuple[str, str, str]] = [
+    # (subject prefix, label shown to operator, priority)
+    ("[TRAINING-START]",         "TRAINING-START — research + hypotheses",          "normal"),
+    ("TRAINING-PLAN:",           "TRAINING-PLAN — plan committed, run dispatched",  "high"),
+    ("TRAINING-RESULTS:",        "TRAINING-RESULTS — run finished",                 "high"),
+    ("TRAINING-RESULTS [FAILED]:",
+                                 "TRAINING-RESULTS [FAILED] — run errored",         "high"),
+    ("RECOMMENDATIONS (PM REVIEW):",
+                                 "RECOMMENDATIONS (PM REVIEW) — writeup ready",     "high"),
+    ("IMPLEMENT:",               "IMPLEMENT — strategy/model code change ready",    "high"),
+]
+
 
 # ---------------------------------------------------------------------------
 # Telegram transport
@@ -147,6 +163,32 @@ def _blocker_pings(pre_sha: str, post_sha: str) -> List[tuple[str, str]]:
             f"Commit: {GITHUB_COMMIT_URL.format(sha=sha)}"
         )
         out.append(("urgent", body))
+    return out
+
+
+def _training_workflow_pings(pre_sha: str, post_sha: str) -> List[tuple[str, str]]:
+    """Detect training-improvement workflow stage commits in the new range.
+
+    docs/claude/training-improvement-workflow.md defines four stage
+    boundaries; each rides on its own commit-subject prefix (logged in
+    ``TRAINING_TAGS``). Until CP-2026-05-02 these prefixes were only
+    documented — no ping fired when an autonomous Claude session
+    advanced through them. This helper matches the prefixes and emits
+    one ping per stage transition so the operator gets per-step
+    visibility on training runs.
+    """
+    out: List[tuple[str, str]] = []
+    for sha, subject in _commit_subjects(pre_sha, post_sha):
+        for prefix, label, priority in TRAINING_TAGS:
+            if subject.startswith(prefix):
+                detail = subject[len(prefix):].strip(" :-")
+                body = (
+                    f"{label}\n"
+                    + (f"{detail}\n" if detail else "")
+                    + f"Commit: {GITHUB_COMMIT_URL.format(sha=sha)}"
+                )
+                out.append((priority, body))
+                break  # one ping per commit; longest-match unnecessary
     return out
 
 
@@ -293,6 +335,7 @@ def collect_pings(
     """
     pings: List[tuple[str, str]] = []
     pings.extend(_blocker_pings(pre_sha, post_sha))
+    pings.extend(_training_workflow_pings(pre_sha, post_sha))
     pings.extend(_drain_pending_pings(PENDING_PINGS))
     if force_checkpoint or _diff_touched_checkpoint_log(pre_sha, post_sha):
         cp_ping = _checkpoint_ping(post_sha)

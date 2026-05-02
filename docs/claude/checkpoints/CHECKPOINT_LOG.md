@@ -5,6 +5,72 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-02-01 — Pipeline validation no longer hits per-tick, account-first balance labels, UI processor unit, training pings
+
+- **Session date:** 2026-05-02
+- **Sprint:** mid-sprint hotfix bundle (5 issues raised by operator)
+- **Current sprint phase:** **COMPLETE** — single PR on
+  `claude/fix-pipeline-validation-bBON7`.
+- **Last completed checkpoint:** CP-2026-05-01-19
+- **Next checkpoint:** **none — session ends here.** Operator should
+  review/merge the PR; deploy will pick the changes up via the
+  ict-git-sync timer. Verify on next live tick that the
+  `failed_validation … ALLOW_LIVE_TRADING=true is required` message no
+  longer fires, and that `/balance` now labels each block with the
+  account_id (e.g. `bybit_1 (Turtle Soup) Balance`) so duplicate-key
+  symptoms are visible immediately.
+- **Telegram sent:** pending — this checkpoint commit triggers the VM ping.
+- **Alerts sent during session:** none.
+- **Blockers:** none.
+
+### 1. Completed
+Five issues, one PR. Each addresses a piece of operator-flagged drift
+between what the system actually does and what Telegram reports.
+
+| Issue | What changed |
+|---|---|
+| #1 — pipeline `failed_validation` per-tick | `MULTI_ACCOUNT_DISPATCH` default flipped to **true**; the global `ALLOW_LIVE_TRADING` gate is now skipped at the pipeline level when the signal is fully populated and we're in live mode (per-account dry/live state in `accounts.yaml` is the source of truth). Legacy single-client path is preserved as a fall-back for synthetic / smoke signals lacking entry/sl/tp. |
+| #1 — `/signals` strategy column | `_format_signal_row` now labels the field as `strategy=…` so it doesn't blend with symbol/side. The audit log already carried it; this is a renderer fix only. |
+| #2 — twice-a-day summary in old format | Confirmed only the hourly path is wired (`src/main.py` + `should_send_summary` + `build_hourly_report`). Removed `msg_bi_daily` — it now raises if any forgotten path imports it, so the legacy "Bi-daily summary" string can never reappear. |
+| #3 — training/improvement workflow pings | `scripts/notify_on_pull.py` now matches the four documented stage tags (`[TRAINING-START]`, `TRAINING-PLAN:`, `TRAINING-RESULTS:`, `TRAINING-RESULTS [FAILED]:`, `RECOMMENDATIONS (PM REVIEW):`, `IMPLEMENT:`) and emits a per-stage ping. Each stage transition surfaces in Telegram instead of being buried in commit history. |
+| #4 — balances appeared "wired to strategies" | Balance formatters now lead with `account_id` and put strategy in parentheses. `src/ui/processor.get_account_balances()` returns the resolved API-key fingerprint (`…xxxx`) per row so duplicate keys are visible at the data layer. |
+| #5 — UI / data-layer separation | New `src/ui/processor.py` is the single facade between any UI surface (Telegram bot today, webapp tomorrow) and the units / data layer. First three read APIs: `get_account_balances`, `get_recent_signals`, `get_hourly_report`. Future bot/webapp work routes through this module so both UIs render the same answer. |
+
+### 2. Files changed (this checkpoint)
+- `src/runtime/pipeline.py` — `MULTI_ACCOUNT_DISPATCH` default flipped to true; live-fan-out now gated on signal-packageability + global mode.
+- `src/runtime/signal_notifications.py` — `msg_bi_daily` raises (was dead but still importable).
+- `src/bot/telegram_query_bot.py` — `_account_balance_header`, account-first formatters, `_format_signal_row` strategy label.
+- `src/ui/processor.py` — new module.
+- `scripts/notify_on_pull.py` — `TRAINING_TAGS`, `_training_workflow_pings`, wired into `collect_pings`.
+- Tests: `tests/test_ui_processor.py` (new), `tests/test_notify_on_pull.py` (training pings), `tests/test_s021_smoke_and_status.py` (default-on flag), `tests/test_telegram_query_bot.py` (label assertions).
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` — this entry.
+
+### 3. Tests run
+- `tests/test_ui_processor.py` (new, 5 tests) — pass.
+- `tests/test_notify_on_pull.py` — pass (3 new tests for training pings).
+- `tests/test_s021_smoke_and_status.py` — pass (default-on flag).
+- `tests/test_telegram_query_bot.py` — pass for the balance-label tests we own; pre-existing failures (`TestCmdStatusMultiAccount`, `TestCmdStrategiesMultiAccount`) confirmed via `git stash` — they fail on `main` as well and are not regressions from this PR.
+- `tests/test_runtime_orders.py`, `tests/test_s012_signal_audit.py`, `tests/test_s012_live_mode.py`, `tests/test_outcomes_integration.py`, `tests/test_vwap_strategy.py` — pass when run in isolation; pre-existing test-pollution issue with the broader suite is documented in CP-2026-05-01-19.
+- Full suite (excluding documented FastAPI / event-loop pre-existing failures): **1618 passed, 18 failed, 2 skipped** — net **21 fewer failures** than the prior baseline (mostly because the new flag default fixed three smoke / status tests).
+- `python scripts/secret_scan.py` — clean.
+
+### 4. Remaining
+- **Operator action**: deploy will pick up the changes on the next git-sync; verify on Telegram that:
+  1. The `failed_validation … ALLOW_LIVE_TRADING=true is required` message stops firing.
+  2. `/balance` now labels blocks by `account_id` (with strategy parenthetical).
+  3. The hourly summary continues to fire on the hour and uses the structured layout (BUG-032 fix from CP-2026-05-01-19 carries forward).
+  4. If duplicate balances persist after the relabel, the `…xxxx` key fingerprint added by `dup_key_check` and the new processor will reveal whether two accounts share an API key (the symptom the operator flagged).
+- **Operator question (raised mid-session)**: review the GitHub Actions run history. Several jobs are red on this branch / on `main` — see § "GitHub Actions follow-up" below.
+- **PM-review item**: none — no live-trading code touched outside the validation path (which the autonomous-live-trading rule pre-authorises).
+
+### 5. Next checkpoint
+**none — session closed.** Next session should:
+1. Read this entry first.
+2. If the operator confirms the `failed_validation` pings have stopped, treat issue #1 as closed.
+3. Address the remaining 18 pre-existing test failures (mostly `event_loop` shape, not behavioural) in a dedicated test-hygiene sprint — they don't block live-trading correctness but they make CI noisy.
+
+---
+
 ## CP-2026-05-01-19 — Housekeeping: API-key inventory, mode unification, hourly fix, dup-key guard
 
 - **Session date:** 2026-05-01

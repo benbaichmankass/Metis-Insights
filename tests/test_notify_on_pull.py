@@ -337,3 +337,60 @@ def test_main_returns_one_when_enqueue_fails(monkeypatch, tmp_path):
     monkeypatch.setattr(send_ping, "enqueue", _boom)
     rc = nop.main(["--pre", "abc", "--post", "def"])
     assert rc == 1
+
+
+# ---------------------------------------------------------------------------
+# CP-2026-05-02 — training/improvement workflow stage pings
+# ---------------------------------------------------------------------------
+
+
+def test_training_workflow_pings_detect_each_stage(monkeypatch):
+    """Each documented training-improvement stage prefix must produce
+    its own ping via _commit_subjects + _training_workflow_pings."""
+    fake_subjects = [
+        ("sha111", "[TRAINING-START] vwap regime filter"),
+        ("sha222", "TRAINING-PLAN: 2026-05-02-vwap-htf"),
+        ("sha333", "TRAINING-RESULTS: 2026-05-02-vwap-htf"),
+        ("sha444", "TRAINING-RESULTS [FAILED]: 2026-05-02-vwap-htf"),
+        ("sha555", "RECOMMENDATIONS (PM REVIEW): 2026-05-02-vwap-htf"),
+        ("sha666", "IMPLEMENT: 2026-05-02-vwap-htf"),
+        ("sha777", "boring docs commit"),
+    ]
+    monkeypatch.setattr(nop, "_commit_subjects",
+                        lambda pre, post: fake_subjects)
+
+    out = nop._training_workflow_pings("pre", "post")
+    bodies = "\n".join(b for _, b in out)
+    assert len(out) == 6
+    assert "TRAINING-START" in bodies
+    assert "TRAINING-PLAN" in bodies
+    assert "TRAINING-RESULTS — run finished" in bodies
+    assert "TRAINING-RESULTS [FAILED] — run errored" in bodies
+    assert "RECOMMENDATIONS (PM REVIEW)" in bodies
+    assert "IMPLEMENT" in bodies
+    # Priorities: only TRAINING-START is normal; all others are high.
+    assert sum(1 for p, _ in out if p == "high") == 5
+    assert sum(1 for p, _ in out if p == "normal") == 1
+
+
+def test_training_workflow_pings_empty_for_normal_commits(monkeypatch):
+    monkeypatch.setattr(
+        nop, "_commit_subjects",
+        lambda pre, post: [("sha", "fix: typo"), ("sha2", "chore: bump")],
+    )
+    assert nop._training_workflow_pings("pre", "post") == []
+
+
+def test_collect_pings_includes_training_pings(monkeypatch, tmp_path):
+    """Top-level dispatch must surface training-stage pings between
+    blockers and the checkpoint ping."""
+    monkeypatch.setattr(nop, "CHECKPOINT_LOG", tmp_path / "log.md")
+    monkeypatch.setattr(nop, "PENDING_PINGS", tmp_path / "missing.jsonl")
+    monkeypatch.setattr(nop, "_blocker_pings", lambda pre, post: [])
+    monkeypatch.setattr(nop, "_diff_touched_checkpoint_log", lambda pre, post: False)
+    monkeypatch.setattr(
+        nop, "_commit_subjects",
+        lambda pre, post: [("sha", "TRAINING-PLAN: smoke run")],
+    )
+    pings = nop.collect_pings("pre", "post")
+    assert any("TRAINING-PLAN" in body for _, body in pings)
