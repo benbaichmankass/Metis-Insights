@@ -38,3 +38,4 @@ Remove stale instructions when they waste context.
 - `git-workflow.md`: branch, commit, push rules.
 - `security-secrets.md`: credential rules.
 - `google-drive-master-secrets.md`: SOPS-encrypted master secrets workflow — fill, encrypt, render lean .env files.
+- `ui-processor-audit.md`: which Telegram bot handlers read DB / env / Coordinator directly and which need a `src/ui/processor.py` API before a webapp UI can be added without forking logic. Per-handler migration order in § 5.
