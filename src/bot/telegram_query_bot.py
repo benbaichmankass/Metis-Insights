@@ -1211,42 +1211,118 @@ def _format_signal_row(rec: dict) -> str:
     )
 
 
+# Sprint 025 T3 — /signals stepper. Pre-defined N buckets the operator
+# can pick with one tap. Power users still get arbitrary N via the typed
+# ``/signals <N> [strategy]`` shortcut.
+_SIGNALS_N_CHOICES: list[int] = [10, 25, 50, 100]
+
+
+def _list_known_strategies_for_picker() -> list[str]:
+    """Strategy names for the /signals first-step picker. Fallbacks
+    mirror the pipeline's hardcoded roster so the picker still works
+    in lean deploys where the YAML registry isn't readable."""
+    try:
+        from src.bot.data_loaders import list_live_strategies
+        names = list_live_strategies() or []
+        if names:
+            return list(names)
+    except Exception:  # noqa: BLE001
+        pass
+    return ["turtle_soup", "vwap"]
+
+
+def _signals_strategy_keyboard() -> InlineKeyboardMarkup:
+    """Step 1 — pick strategy. Includes an 'all' option and 'Cancel'."""
+    rows: list[list[InlineKeyboardButton]] = []
+    row: list[InlineKeyboardButton] = []
+    for name in _list_known_strategies_for_picker():
+        row.append(InlineKeyboardButton(
+            name, callback_data=f"signals_strat:{name}"))
+        if len(row) == 2:
+            rows.append(row)
+            row = []
+    if row:
+        rows.append(row)
+    rows.append([InlineKeyboardButton(
+        "🌐 All strategies", callback_data="signals_strat:all")])
+    return InlineKeyboardMarkup(rows)
+
+
+def _signals_n_keyboard(strategy: str) -> InlineKeyboardMarkup:
+    """Step 2 — pick N. Strategy is encoded in callback_data so we
+    don't need per-chat state. 'Back' returns to step 1."""
+    row = [
+        InlineKeyboardButton(str(n), callback_data=f"signals_n:{strategy}:{n}")
+        for n in _SIGNALS_N_CHOICES
+    ]
+    rows = [row, [InlineKeyboardButton("« Back", callback_data="signals_top")]]
+    return InlineKeyboardMarkup(rows)
+
+
+def _render_signals_block(strategy_filter: str | None, limit: int) -> str:
+    """Pure renderer — read audit-log records and format them.
+
+    Used by the typed `/signals` path and the stepper's final callback
+    so both surfaces produce identical output.
+    """
+    records = _read_audit_tail(
+        SIGNAL_AUDIT_PATH,
+        limit * 5 if strategy_filter else limit,
+    )
+    if strategy_filter:
+        records = [
+            r for r in records
+            if str(r.get("strategy", "")).lower() == strategy_filter
+        ]
+    records = records[-limit:]
+    if not records:
+        scope = f" for {strategy_filter}" if strategy_filter else ""
+        return (
+            f"📭 No signals logged yet{scope}.\n"
+            f"Audit file: {SIGNAL_AUDIT_PATH}"
+        )
+    header = (
+        f"📡 Last {len(records)} signals"
+        + (f" — {strategy_filter}" if strategy_filter else "")
+    )
+    body = "\n".join(_format_signal_row(r) for r in records)
+    return f"{header}\n{body}"
+
+
 async def cmd_signals(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Show recent signals from runtime_logs/signal_audit.jsonl."""
+    """Show recent signals from runtime_logs/signal_audit.jsonl.
+
+    Sprint 025 T3 — no-args invocation is now a two-step button stepper:
+    pick strategy first (vwap / turtle_soup / all), then pick N (10 /
+    25 / 50 / 100). Typed ``/signals [N] [strategy]`` is preserved as
+    a power-user shortcut so the operator can request arbitrary values.
+    """
     if not is_authorised(update):
         return
 
     args = list(context.args or [])
     strategy_filter: str | None = None
     limit = 10
+    has_arg = False
     for arg in args:
+        has_arg = True
         if arg.isdigit():
             limit = max(1, min(int(arg), 100))
         else:
             strategy_filter = arg.strip().lower()
 
-    records = _read_audit_tail(SIGNAL_AUDIT_PATH, limit * 5 if strategy_filter else limit)
-    if strategy_filter:
-        records = [r for r in records if str(r.get("strategy", "")).lower() == strategy_filter]
-    records = records[-limit:]
-
-    if not records:
-        scope = f" for {strategy_filter}" if strategy_filter else ""
+    if not has_arg:
+        # Step 1: strategy picker.
         await update.message.reply_text(
-            f"📭 No signals logged yet{scope}.\n"
-            f"Audit file: {SIGNAL_AUDIT_PATH}",
+            "📡 *Recent signals*\nPick a strategy first, then pick how "
+            "many records to show.",
+            parse_mode="Markdown",
+            reply_markup=_signals_strategy_keyboard(),
         )
         return
 
-    header = (
-        f"📡 Last {len(records)} signals"
-        + (f" — {strategy_filter}" if strategy_filter else "")
-    )
-    body = "\n".join(_format_signal_row(r) for r in records)
-    await update.message.reply_text(
-        f"{header}\n{body}",
-        disable_web_page_preview=True,
-    )
+    body = _render_signals_block(strategy_filter, limit)
+    await update.message.reply_text(body, disable_web_page_preview=True)
 
 
 async def cmd_log(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1982,6 +2058,39 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception as e:  # noqa: BLE001
             await query.edit_message_text(
                 f"⚠️ Could not check risk for '{account_name}': {e}")
+        return
+
+    # Sprint 025 T3 — /signals stepper navigation.
+    if action == "signals_top":
+        await query.edit_message_text(
+            "📡 *Recent signals*\nPick a strategy first, then pick how "
+            "many records to show.",
+            parse_mode="Markdown",
+            reply_markup=_signals_strategy_keyboard(),
+        )
+        return
+    if action == "signals_strat":
+        strategy = parts[1] if len(parts) > 1 else "all"
+        scope = "all strategies" if strategy == "all" else strategy
+        await query.edit_message_text(
+            f"📡 *Recent signals* — {scope}\nHow many?",
+            parse_mode="Markdown",
+            reply_markup=_signals_n_keyboard(strategy),
+        )
+        return
+    if action == "signals_n":
+        # signals_n:<strategy>:<N>
+        rest = parts[1] if len(parts) > 1 else ""
+        strat_part, _, n_part = rest.rpartition(":")
+        try:
+            limit = max(1, min(int(n_part), 200))
+        except (TypeError, ValueError):
+            await query.edit_message_text(
+                "⚠️ Invalid N — tap a number on the stepper.")
+            return
+        strategy_filter = None if strat_part == "all" else strat_part
+        body = _render_signals_block(strategy_filter, limit)
+        await query.edit_message_text(body, disable_web_page_preview=True)
         return
 
     # Sprint 025 T2 — /smoke_test account picker.
