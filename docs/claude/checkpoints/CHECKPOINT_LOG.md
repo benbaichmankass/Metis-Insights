@@ -5,7 +5,89 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
-## CP-2026-05-02-22 — Sprint 026 G4 + sprint COMPLETE / WRAPPED
+## CP-2026-05-02-23 — Sprint 027 PR1: comms infrastructure foundation
+
+- **Session date:** 2026-05-02
+- **Sprint:** 027 — Claude ↔ Telegram operator communication infrastructure.
+- **Current sprint phase:** **PR1 of 2 — foundation lands.** Schemas, state machine, file-based store, operator README, architecture doc, timer assessment, and 104 unit tests. **No bot integration yet** — that is PR2 (next session). PR1 changes nothing in the running system: no new imports into runtime/strategy/bot code, no polling loop, no behaviour change.
+- **Last completed checkpoint:** CP-2026-05-02-22 (Sprint 026 closed).
+- **Next checkpoint:** **CP-2026-05-?-?? — Sprint 027 PR2** — wire `src/comms` into `src/bot/telegram_query_bot.py`. Read order: `docs/claude/comms-architecture.md` § 8 ("PR 2 — Telegram bot integration"), `src/bot/telegram_query_bot.py` (callback-handler patterns near `_signals_strategy_keyboard`, line 1234), `comms/schema/request.schema.json`, `tests/test_telegram_query_bot.py` (mock pattern).
+- **Telegram sent:** pending — checkpoint commit fires the VM ping.
+- **Alerts sent during session:** none.
+- **Blockers:** none.
+
+### 1. Completed
+- **`src/comms/`** — new Python package, stdlib-only:
+  - `models.py` — `Request`, `Question`, `Choice`, `Answer`, `Response` dataclasses with hand-rolled validation (`jsonschema` is not in `requirements.txt`); regex-validated `request_id` / `question_id` / `choice.id`; `make_request_id(slug=…)` helper.
+  - `state.py` — `STATUS` + `ANSWER_STATUS` constants, `_TRANSITIONS` map, `can_transition(current, target)`, `next_status_after_answer(total_required, answered_required)`. Terminal states (`acknowledged`, `expired`, `cancelled`) have empty outgoing sets.
+  - `store.py` — `RequestStore` class with `create / load / list_active / list_pending / list_awaiting_response / transition / mark_sent / attach_response / archive`. Atomic writes (`tempfile.NamedTemporaryFile` + `os.replace`). Malformed-file iteration skips bad artifacts with WARNING (poll-loop survival).
+  - `log.py` — best-effort `log_event()` writer for `comms/log.ndjson`; never raises.
+- **`comms/`** — operator-facing area at repo root: `README.md`, `requests/`, `archive/`, `schema/request.schema.json`, `schema/response.schema.json`, plus `.gitignore` (only `log.ndjson` + `.tmp`). All directories carry `.gitkeep`.
+- **`docs/claude/comms-architecture.md`** — canonical architecture: high-level flow diagram, state-machine diagram, file contract, idempotency/safety table, risk register, 3-phase implementation plan (PR1 done, PR2 deferred, PR3 contingent).
+- **`docs/claude/comms-timer-assessment.md`** — 1-minute polling feasibility note. **Recommendation: keep 5-min `ict-git-sync.timer`; add a 1-min in-bot comms poll inside `telegram_query_bot.py` in PR2.** Documents safeguards needed if operator chooses option B (drop git-sync to 1 min) instead.
+- **104 unit tests** added across:
+  - `tests/test_s027_comms_models.py` (53 tests) — Choice/Question/Answer/Response/Request validation, round-trip serialisation, `is_expired` boundaries, `make_request_id` slug normalisation, schema-file regex parity check.
+  - `tests/test_s027_comms_state.py` (31 tests) — every legal/illegal transition pair, terminal-state quarantine, `next_status_after_answer` boundary cases.
+  - `tests/test_s027_comms_store.py` (20 tests) — create/load/list, malformed-file skip, transition history, `mark_sent` re-entrancy refusal, `attach_response` id mismatch, archive moves files, atomic-write leaves no `.tmp` residue, `log_event` swallows write failures.
+
+### 2. Files changed
+- `src/comms/__init__.py` (new)
+- `src/comms/models.py` (new)
+- `src/comms/state.py` (new)
+- `src/comms/store.py` (new)
+- `src/comms/log.py` (new)
+- `comms/README.md` (new)
+- `comms/.gitignore` (new)
+- `comms/requests/.gitkeep` (new)
+- `comms/archive/.gitkeep` (new)
+- `comms/schema/request.schema.json` (new)
+- `comms/schema/response.schema.json` (new)
+- `docs/claude/comms-architecture.md` (new)
+- `docs/claude/comms-timer-assessment.md` (new)
+- `tests/test_s027_comms_models.py` (new)
+- `tests/test_s027_comms_state.py` (new)
+- `tests/test_s027_comms_store.py` (new)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_s027_comms_models.py tests/test_s027_comms_state.py tests/test_s027_comms_store.py -v` — **104 / 104 passed.**
+- `PYTHONPATH=. pytest tests/test_s027_comms_*.py tests/test_telegram_query_bot.py tests/test_telegram_signals.py` — 233 passed, 3 pre-existing failures (sandbox missing `yaml`/`pandas`; failures emit `ModuleNotFoundError: No module named 'yaml'` warnings; not caused by this PR).
+- `python scripts/secret_scan.py` — clean.
+- `python scripts/check_dry_run_in_diff.py` — clean.
+- Full suite collection blocked by sandbox missing `pyyaml`, `pyjwt`, `pandas` (pre-existing). New comms code imports stdlib only — `grep -r "import yaml\|import pandas" src/comms/` is empty.
+
+### 4. Remaining (deferred to PR 2)
+- Telegram bot integration — `src/bot/comms_handler.py` wiring `RequestStore` → `Application` poll loop with `CallbackQueryHandler` for `comms:<request_id>:<question_id>:<choice_id>` callback-data.
+- "Other" free-text capture path (per-chat conversation state).
+- Repo writeback: bot `git commit -m "comms(response): <id>" && git push`, with rebase-on-conflict retries; add `comms(response):` to `scripts/notify_on_pull.py` ignored-prefix list to suppress self-pings.
+- Expiry sweep + cancellation handler.
+- `scripts/comms_ask.py` CLI helper for authoring requests from a Claude session.
+- Integration tests using the existing `tests/test_telegram_query_bot.py` mock pattern.
+
+### 5. Next checkpoint
+**CP-2026-05-?-??** — Sprint 027 PR2 (comms bot integration).
+
+Read order:
+1. `docs/claude/comms-architecture.md` § 8 (PR 2 task list).
+2. `comms/schema/request.schema.json`, `comms/schema/response.schema.json`.
+3. `src/comms/__init__.py` public surface; `src/comms/store.py` for the API.
+4. `src/bot/telegram_query_bot.py` lines ~13–14 (imports), ~1234 (`_signals_strategy_keyboard` — InlineKeyboard pattern), ~2880+ (handler registry).
+5. `scripts/notify_on_pull.py` (where to add the `comms(response):` prefix to the ignored list).
+6. `tests/test_telegram_query_bot.py` (mock pattern).
+
+### 6. Live-mode check
+- ✅ No DRY_RUN flip. `scripts/check_dry_run_in_diff.py` is clean.
+- ✅ `config/accounts.yaml` not touched.
+- ✅ No files under `src/runtime/`, `src/units/accounts/`, `src/runtime/orders.py`, `src/runtime/pipeline.py`, or `src/runtime/trading_mode.py` touched. `grep -r "src.comms" src/` outside `src/comms/` is empty — the new module is fully isolated and not yet wired into any code path. Live trading cannot regress from this PR.
+
+### 7. Lessons learned (carry into PR 2)
+1. **Schema files double as machine-readable docs even without a runtime validator.** `jsonschema` isn't installed; the regex/enum constraints are duplicated in `models.py`. Tests pin the regex in `tests/test_s027_comms_models.py::TestSchemaFiles::test_schema_request_id_pattern_matches_our_regex` so the two cannot drift.
+2. **Single-artifact-per-request beats split pending/response files.** The sprint prompt suggested two files (`pending_input.json`, `input_response.json`). One file with `.response` inline is simpler, atomic, and avoids correlation orphans. Documented in `comms-architecture.md` § 4.2 if the next session wants to revisit.
+3. **`_strip_none` is a footgun for required-but-nullable fields.** The schema requires `history[].from_status` (allowed null), but `_strip_none` removes null keys. Caught by the first test run; fixed by inlining the dict construction in `Request.append_history`. Worth a glance during PR 2 when adding response-side helpers.
+
+---
+
+
 
 - **Session date:** 2026-05-02
 - **Sprint:** 026 — Decouple position sizing from strategies; fix "unknown ×4" attribution.

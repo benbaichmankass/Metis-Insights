@@ -1,0 +1,5 @@
+# The event log is append-only and noisy — checked into the repo only via
+# .gitkeep so the directory exists for tests + the bot's first write. The
+# log itself is regenerated on the VM.
+log.ndjson
+.*.tmp
