@@ -5,6 +5,90 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-02-24 — Sprint 027 PR2: Telegram bot integration + sprint COMPLETE
+
+- **Session date:** 2026-05-02
+- **Sprint:** 027 — Claude ↔ Telegram operator communication infrastructure.
+- **Current sprint phase:** **PR2 of 2 — bot integration lands. Sprint COMPLETE / WRAPPED.** PR1 (foundation: schemas, state, store, docs, tests) merged earlier this session as #290. PR2 wires `src/comms` into the running Telegram bot: `src/bot/comms_handler.py` (CommsPoller + callback router + free-text capture + GitPusher writeback), `scripts/comms_ask.py` CLI for Claude to author requests, and a defensive ``COMMS_RESPONSE_PREFIX`` audit-log line in `scripts/notify_on_pull.py`. Touches `src/bot/telegram_query_bot.py` (one import + one wiring call inside `main()`).
+- **Last completed checkpoint:** CP-2026-05-02-23 (PR1 — merged in #290).
+- **Next checkpoint:** **none — sprint closed.** Possible follow-ups for the next sprint: (a) S-027 PR3 (operator hardening: `/comms_status`, `/comms_resend`, optional 1-min poll if cadence feels slow), (b) deploy-side rollout — operator must set `COMMS_PUSH_ENABLED=1` on the VM bot service for response writeback to actually push, (c) any operator-driven priority.
+- **Telegram sent:** pending — checkpoint commit fires the VM ping.
+- **Alerts sent during session:** none.
+- **Blockers:** none.
+
+### 1. Completed (PR2)
+- **`src/bot/comms_handler.py`** (NEW, ~410 lines, stdlib + python-telegram-bot):
+  - `CommsPoller` async task — every 60 s, lists pending requests and delivers each as a Telegram inline-keyboard menu, then sweeps `awaiting_response` requests for TTL elapse and archives terminal artifacts. Idempotent re-entrancy guards (only `pending → sent` via `mark_sent`).
+  - `comms_callback_handler` — routes `comms:<request_id>:<question_id>:<choice_id>` callback data; validates choice id against the question; rejects unknown callbacks gracefully (no crash on stale buttons).
+  - `comms_text_handler` — passive observer registered in group=1; only consumes a text message when `context.user_data[USERDATA_AWAITING_KEY]` is set (the operator just tapped "Other"). Cleared on success, never blocks other text-based features.
+  - `apply_answer` — last-write-wins per `question_id`; computes the next status via `next_status_after_answer`; handles the self-edge case (re-answer of an already-answered question) by saving without a transition (the state machine forbids `answered → answered`).
+  - `GitPusher` — subprocess wrapper around `git add / commit / pull --rebase / push`. Disabled by default (`COMMS_PUSH_ENABLED=1` env flag opt-in). Three retry attempts on push race. Operator sets the flag on the VM bot service unit; sandbox / dev runs stay no-op.
+  - `install_comms_handlers(application, repo_root=…)` — single-call wiring helper.
+- **`scripts/comms_ask.py`** (NEW, ~210 lines) — CLI for Claude to author a comms request from a session: `--topic`, `--slug`, repeated `--question` blocks with `--type / --prompt / --choice id=label / --allow-other / --optional / --default-choice`, plus `--expires-in 24h`, `--default-on-timeout`, `--commit` (no push), `--print` (dry-run). Two-pass argv stitching recovers per-question flag pairing that argparse's append-style flags lose.
+- **`src/bot/telegram_query_bot.py`** — three small surgical edits inside `main()`:
+  - +1 import line (`from src.bot.comms_handler import install_comms_handlers`).
+  - +1 import line (`from pathlib import Path`).
+  - +5 lines after `application.post_init = post_init` calling `install_comms_handlers(application, repo_root=Path(REPO_ROOT))`. Registered BEFORE the generic `CallbackQueryHandler(callback_handler)` so the pattern-matched `^comms:` handler wins on comms callback_data (PTB first-match-in-group routing).
+- **`scripts/notify_on_pull.py`** — defensive `COMMS_RESPONSE_PREFIX` constant + `logger.info` audit line in `_blocker_pings`. The pipeline is opt-in (only matches `[BLOCKED-PM]`, `TRAINING-*`, `CHECKPOINT_LOG.md` touches), so comms commits were already silent — but documenting + auditing the prefix makes the contract explicit for forward compat.
+- **`tests/test_s027_comms_handler.py`** (NEW, 39 tests):
+  - `TestParseCallbackData` (3) — round-trip + 7 invalid-data parametrised cases.
+  - `TestBuildKeyboard` (4) — yes_no, choice with Other, free_text → None, multi_choice.
+  - `TestRenderQuestionText` (4) — request_id present, multi-question Q1/N progress, context only on first question, free-text hint.
+  - `TestApplyAnswer` (4) — single required completes, two-required partial→complete, last-write-wins per question_id, optional questions don't block completion.
+  - `TestGitPusher` (3) — disabled is no-op; from_env reads `COMMS_PUSH_ENABLED`.
+  - `TestCommsPollerDeliver` (5) — delivers + marks sent; skips when no chat_id; doesn't resend already-sent; expires stale; archives terminal.
+  - `TestCallbackHandler` (5) — choice records answer; invalid choice rejected; "Other" button starts capture state; unknown request id acks safely; malformed callback acks silently.
+  - `TestTextHandler` (3) — free-text captured when awaiting; no-op when not awaiting; pure free_text question records as `free_text` answer_type (vs `other` for free-text-after-Other).
+  - Async tests use a `_run(coro)` helper around `asyncio.run` because `pytest-asyncio` isn't installed in the sandbox; the underlying coroutine methods are renamed `_impl_*_async` so pytest doesn't auto-collect them.
+- **`tests/test_s027_comms_ask_cli.py`** (NEW, 13 tests) — `_parse_expires_in` (relative TTLs, invalid raises), `_parse_choice` (`id=label` parsing), `_stitch_question_groups` (single + multiple questions, `--allow-other` and `--optional` attach to the right question), `main()` (`--print` emits JSON, `--repo-root` writes to a tmp dir, `--expires-in` recorded, `--default-on-timeout` recorded).
+- **`tests/test_telegram_query_bot.py`** — 3-line stub addition for `telegram.error`, `telegram.ext.filters`, `telegram.ext.MessageHandler`. The existing test file's stub set was missing the imports that comms_handler adds; with these additions it imports cleanly again.
+- **`docs/claude/comms-architecture.md`** — § 8 PR-2 task list updated to note that `notify_on_pull.py`'s opt-in nature means comms commits are *naturally* silent (the architecture doc previously claimed an "ignored prefix list" that never existed).
+
+### 2. Files changed (this checkpoint)
+- `src/bot/comms_handler.py` (new)
+- `src/bot/telegram_query_bot.py` (3 lines added inside `main()` + 1 import line)
+- `scripts/comms_ask.py` (new, executable)
+- `scripts/notify_on_pull.py` (constant + audit log in `_blocker_pings`)
+- `tests/test_s027_comms_handler.py` (new)
+- `tests/test_s027_comms_ask_cli.py` (new)
+- `tests/test_telegram_query_bot.py` (stubs for new import paths)
+- `docs/claude/comms-architecture.md` (PR-2 task line correction)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_s027_comms_handler.py tests/test_s027_comms_ask_cli.py -q` — **59 / 59 passed.**
+- `PYTHONPATH=. pytest tests/test_s027_*.py -q` — **163 / 163 passed** (PR1 104 + PR2 59).
+- `PYTHONPATH=. pytest tests/test_telegram_query_bot.py -q` — 127 passed, 1 pre-existing failure (`test_shows_block_per_account` — fails before this PR too, sandbox missing yaml/pandas; not introduced here).
+- `python scripts/secret_scan.py` — clean.
+- `python scripts/check_dry_run_in_diff.py` — clean.
+
+### 4. Sprint-completion checklist (sprint S-027)
+- [x] Run target tests — 163 / 163 S-027 tests pass; existing telegram suite unaffected (1 pre-existing failure documented).
+- [x] `python scripts/secret_scan.py` — clean.
+- [x] `python scripts/check_dry_run_in_diff.py` — clean.
+- [ ] Sprint summary doc (`docs/sprint-summaries/sprint-027-summary.md`) — deferred (operator can request; the architecture doc + the two PR descriptions cover the same surface).
+- [x] Append final checkpoint (this entry).
+- [x] Sprint COMPLETE / WRAPPED.
+
+### 5. Sprint 027 — what shipped
+| Goal | PR | Outcome |
+|---|---|---|
+| Foundation: schemas, state machine, store, docs, tests | #290 (merged) | 104 unit tests; zero behaviour change to running system. |
+| Bot integration: poller, callback router, free-text capture, writeback, CLI | this PR | 59 more tests; opt-in `COMMS_PUSH_ENABLED` flag means VM rollout is operator-controlled. |
+
+### 6. Live-mode check (PR2)
+- ✅ No DRY_RUN flip. `scripts/check_dry_run_in_diff.py` is clean.
+- ✅ `config/accounts.yaml` not touched.
+- ✅ No files under `src/runtime/`, `src/units/accounts/`, `src/runtime/orders.py`, `src/runtime/pipeline.py`, or `src/runtime/trading_mode.py` touched.
+- ✅ `src/bot/telegram_query_bot.py` is touched (the bot is a sibling of the trader; per `docs/claude/repo-map.md` the bot does not control live trading). The change is +5 lines that register a poll task and three handlers — no existing handler is removed or reordered for trading-related callbacks. The pattern-matched `^comms:` `CallbackQueryHandler` is registered before the generic catch-all so the existing handler order is preserved for non-comms callbacks.
+
+### 7. Lessons learned (carry forward)
+1. **Opt-in pipelines beat opt-out.** The architecture doc (PR1) claimed `notify_on_pull.py` had an "ignored prefix list" — it doesn't, it's a positive-match filter (only fires on specific prefixes / file touches). Comms commits are naturally silent. The PR2 audit-log line is forward-compat scaffolding; the real safety is the existing positive filter. Worth a CLAUDE.md note: *if a future ping pipeline needs to scope-out commits, prefer the existing positive-match pattern, not a deny list*.
+2. **Self-edges in state machines deserve a clean fallback.** `apply_answer` initially crashed on re-answer of an already-`answered` request because the store enforces no-self-edge transitions. Fix: check `target_status == request.status` and `save` without `transition`. Pattern is documented in `comms_handler.apply_answer`. Carry forward: any future last-write-wins consumer of a state machine needs the same guard.
+3. **Telegram-mock stubs need to keep up with new imports.** Adding `from telegram.error import TelegramError` and `from telegram.ext import filters` to comms_handler broke `tests/test_telegram_query_bot.py` collection until I extended its stub list. The pattern is well-established in that file but easy to miss; future Telegram-touching PRs should grep `sys.modules.setdefault` in tests/ before adding new `telegram.*` imports.
+
+---
+
 ## CP-2026-05-02-23 — Sprint 027 PR1: comms infrastructure foundation
 
 - **Session date:** 2026-05-02

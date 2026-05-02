@@ -65,6 +65,12 @@ PRIORITY_PREFIX = {
 BLOCKER_TAG = "[BLOCKED-PM]"
 GITHUB_COMMIT_URL = "https://github.com/the-lizardking/ict-trading-bot/commit/{sha}"
 
+# S-027 PR2 — comms response commits use this prefix. The notify pipeline
+# is opt-in (only matches BLOCKER_TAG, TRAINING_TAGS, and
+# CHECKPOINT_LOG.md touches), so comms commits are naturally silent. We
+# log them at INFO so journalctl shows the pipeline saw and ignored them.
+COMMS_RESPONSE_PREFIX = "comms(response):"
+
 # CP-2026-05-02: training/improvement workflow stage tags. Each stage
 # emits its own ping by matching the commit subject prefix. Subjects can
 # include the tag at the start (commit) or after a fixed prefix
@@ -154,6 +160,11 @@ def _blocker_pings(pre_sha: str, post_sha: str) -> List[tuple[str, str]]:
     blocker tag in the new range."""
     out: List[tuple[str, str]] = []
     for sha, subject in _commit_subjects(pre_sha, post_sha):
+        if subject.startswith(COMMS_RESPONSE_PREFIX):
+            # Silently audit — comms response writebacks ride on their
+            # own channel and must never fire a checkpoint/blocker ping.
+            logger.info("notify_on_pull: ignoring comms response commit %s", sha[:8])
+            continue
         if not subject.startswith(BLOCKER_TAG):
             continue
         question = subject[len(BLOCKER_TAG):].strip(" :-")

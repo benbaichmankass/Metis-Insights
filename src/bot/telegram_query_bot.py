@@ -8,6 +8,7 @@ import asyncio
 import sys
 import subprocess
 from datetime import datetime, timezone
+from pathlib import Path
 
 from dotenv import load_dotenv, dotenv_values
 from telegram import Update, BotCommand, InlineKeyboardButton, InlineKeyboardMarkup
@@ -21,6 +22,7 @@ import requests
 # format_target_options deleted.
 from src.bot import data_loaders as dl
 from src.bot.vm_runner import handle_vm_command, RunnerResult, MAX_PROMPT_CHARS
+from src.bot.comms_handler import install_comms_handlers
 
 load_dotenv()
 
@@ -2877,6 +2879,14 @@ def main():
         await app.bot.set_my_commands(BOT_COMMANDS)
 
     application.post_init = post_init
+
+    # S-027 PR2 — operator comms channel. Registers a CallbackQueryHandler
+    # filtered to ``comms:`` data and a passive text handler for the
+    # "Other" free-text path; spawns CommsPoller once Application is up.
+    # Must run BEFORE the generic CallbackQueryHandler below so the
+    # pattern-matched handler wins on ``comms:*`` callback_data.
+    install_comms_handlers(application, repo_root=Path(REPO_ROOT))
+
     application.add_handler(CommandHandler("start", cmd_start))
     application.add_handler(CommandHandler("help", cmd_help))
     application.add_handler(CommandHandler("set_keys", cmd_set_keys))
