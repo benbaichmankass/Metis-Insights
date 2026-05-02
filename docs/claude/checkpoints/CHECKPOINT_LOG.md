@@ -5,6 +5,43 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-02-07 — Architecture audit doc: UI processor migration plan
+
+- **Session date:** 2026-05-02
+- **Sprint:** S-XXX — Telegram bot debug + UI overhaul + repo cleanup
+- **Current sprint phase:** Architecture-audit deliverable (parallel to G1–G6) shipped. G5 + G6 still queued; G5 still needs the ping-PR pattern because it touches `src/runtime/pipeline.py`.
+- **Last completed checkpoint:** CP-2026-05-02-06 (#268, merged).
+- **Next checkpoint:** **CP-2026-05-02-08 — G6: repo cleanup.** Run `python scripts/repo_inventory.py`, identify dead `.service` files in `deploy/`, dead notebooks under `notebooks/`, any `*_old.py` / `*_bak.py`, and `.env.example` siblings whose account_id matches `_ENV_DISCOVERY_RESERVED`. Remove or archive. Append a fresh entry to `docs/claude/cleanup-report.md` describing what was removed and why. Specifically check whether `src/runtime/signal_notifications.py::msg_bi_daily` and any old `notebooks/training/*.ipynb` referenced by retired workflows can be removed entirely.
+- **Telegram sent:** pending — this checkpoint commit triggers the VM ping.
+- **Alerts sent during session:** none.
+- **Blockers:** none. Doc-only change; safe to self-merge.
+
+### 1. Completed
+- Wrote `docs/claude/ui-processor-audit.md` covering every command handler in `src/bot/telegram_query_bot.py`. Categorized handlers as Class A (already on / near processor), Class B (reads through `data_loaders` / Coordinator and needs a new processor API), or Class C (has VM side effects — needs a design decision before migrating).
+- Catalogued 8 ad-hoc Telegram renderers that live inside the bot module today (`format_bybit_balance`, `_format_trade_row`, etc.) and listed where they should move (`src/ui/renderers/telegram_*.py`) so a webapp can plug in renderers without forking read logic.
+- Proposed processor APIs: `get_runtime_status`, `get_recent_trades`, `get_open_positions`, `get_strategy_dashboard`, `get_recent_alerts`, `get_accounts_summary`, `get_account_risk_state`, `get_service_logs`, `get_health_snapshot`, `get_btc_spot_price`, `get_latest_backtests`, `get_latest_checkpoint`, plus a small `set_kill_switch` write API for the halt/resume pair.
+- Proposed a 14-step migration order, starting with `cmd_hourly` (one-line change because `processor.get_hourly_report()` already exists) and ending with the Class C write paths that require the live-mode invariant ping.
+- Listed four anti-patterns to avoid during migration (e.g. don't add `processor.format_*`, don't import `src.bot.*` from a webapp module).
+- Updated `docs/claude/INDEX.md` to reference the new audit doc.
+
+### 2. Files changed
+- `docs/claude/ui-processor-audit.md` — new file (~6 KB).
+- `docs/claude/INDEX.md` — added a one-line entry for the audit doc.
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` — this entry.
+
+### 3. Tests run
+- `python scripts/check_dry_run_in_diff.py` — clean.
+- `python scripts/secret_scan.py` — clean.
+- (No code changed; no pytest run.)
+
+### 4. Remaining for this checkpoint
+- none — audit deliverable shipped. Migration work is explicitly deferred to subsequent sprints per the prompt's "don't make the actual code changes in this sprint — just the audit doc, so the next sprint can do the migration in PR-sized chunks."
+
+### 5. Next checkpoint
+**CP-2026-05-02-08 — G6: repo cleanup.** Doc-and-deletion sprint. Drives a fresh `cleanup-report.md` entry.
+
+---
+
 ## CP-2026-05-02-06 — G4 (slice 1): /risk_check is button-driven (account picker)
 
 - **Session date:** 2026-05-02
