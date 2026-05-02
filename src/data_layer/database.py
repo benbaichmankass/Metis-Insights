@@ -141,10 +141,52 @@ class Database:
                 is_active BOOLEAN DEFAULT 0
             )
         ''')
-        
+
+        # Order packages table (S-030 PR1, architecture-audit-2026-05-02
+        # P1-5). Each row records the lifecycle of an OrderPackage from
+        # generation through dispatch, monitor updates, and close. Per
+        # CLAUDE.md § Architecture rules § 2 + § 4 the DB unit owns
+        # three logs: signals (file-based today), order packages
+        # (this table), and trades (the table above). The strategy
+        # unit writes the open row when the package is dispatched and
+        # updates the row from its monitor() loop; the row links to
+        # the trades table via ``linked_trade_id`` once the account
+        # unit places the order.
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS order_packages (
+                order_package_id TEXT PRIMARY KEY,
+                strategy_name TEXT NOT NULL,
+                symbol TEXT NOT NULL,
+                direction TEXT NOT NULL,
+                entry REAL NOT NULL,
+                sl REAL NOT NULL,
+                tp REAL NOT NULL,
+                confidence REAL,
+                signal_logic TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'open',
+                linked_trade_id INTEGER,
+                close_reason TEXT,
+                meta TEXT,
+                FOREIGN KEY (linked_trade_id) REFERENCES trades(id)
+            )
+        ''')
+        # Indexes — hourly report + UI helpers query by strategy and
+        # by status; the per-strategy view is the primary access path
+        # per Rule 4 ("order package logs per strategy").
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_order_packages_strategy_created "
+            "ON order_packages (strategy_name, datetime(created_at) DESC)"
+        )
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_order_packages_status "
+            "ON order_packages (status, datetime(updated_at) DESC)"
+        )
+
         conn.commit()
         conn.close()
-        
+
         print("✓ Database tables created/verified")
     
     def insert_trade(self, trade_data):
@@ -201,16 +243,129 @@ class Database:
             params = list(filters.values())
         
         query += " ORDER BY timestamp DESC"
-        
+
         if limit:
             query += f" LIMIT {limit}"
-        
+
         cursor.execute(query, params)
         trades = [dict(row) for row in cursor.fetchall()]
-        
+
         conn.close()
         return trades
-    
+
+    # ------------------------------------------------------------------
+    # Order packages log (S-030 PR1, architecture-audit-2026-05-02 P1-5)
+    # ------------------------------------------------------------------
+
+    def insert_order_package(self, package_data):
+        """Insert a fresh OrderPackage row.
+
+        Args:
+            package_data (dict): Must contain order_package_id (TEXT),
+                strategy_name, symbol, direction, entry, sl, tp.
+                Optional: confidence, signal_logic, status (defaults
+                to 'open'), linked_trade_id, close_reason, meta
+                (dict — serialised to JSON). created_at / updated_at
+                default to UTC now if absent.
+
+        Returns:
+            str: The order_package_id.
+        """
+        from datetime import datetime, timezone
+        import json as _json
+
+        row = dict(package_data)
+        if "order_package_id" not in row or not row["order_package_id"]:
+            raise ValueError("insert_order_package requires order_package_id")
+        now_iso = datetime.now(timezone.utc).isoformat()
+        row.setdefault("created_at", now_iso)
+        row.setdefault("updated_at", now_iso)
+        row.setdefault("status", "open")
+        if isinstance(row.get("meta"), dict):
+            row["meta"] = _json.dumps(row["meta"], default=str)
+
+        conn = self.connect()
+        cursor = conn.cursor()
+        try:
+            columns = ", ".join(row.keys())
+            placeholders = ", ".join(["?" for _ in row])
+            cursor.execute(
+                f"INSERT INTO order_packages ({columns}) VALUES ({placeholders})",
+                list(row.values()),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+        return row["order_package_id"]
+
+    def update_order_package(self, order_package_id, updates):
+        """Update a row by ``order_package_id``.
+
+        Used by the strategy's monitor loop (entry/sl/tp updates) and
+        by the account unit's close path (status, close_reason,
+        linked_trade_id). ``updated_at`` is bumped automatically.
+
+        Args:
+            order_package_id (str): Primary key.
+            updates (dict): Column → new value.
+
+        Returns:
+            int: Rows affected (0 if the id was not found).
+        """
+        from datetime import datetime, timezone
+        import json as _json
+
+        if not order_package_id:
+            raise ValueError("update_order_package requires order_package_id")
+        row = dict(updates or {})
+        row["updated_at"] = datetime.now(timezone.utc).isoformat()
+        if isinstance(row.get("meta"), dict):
+            row["meta"] = _json.dumps(row["meta"], default=str)
+
+        conn = self.connect()
+        cursor = conn.cursor()
+        try:
+            assignments = ", ".join(f"{k} = ?" for k in row.keys())
+            cursor.execute(
+                f"UPDATE order_packages SET {assignments} "
+                "WHERE order_package_id = ?",
+                list(row.values()) + [order_package_id],
+            )
+            conn.commit()
+            return cursor.rowcount
+        finally:
+            conn.close()
+
+    def get_order_packages_by_strategy(self, strategy_name, *, limit=None,
+                                       status=None):
+        """Return rows filtered by ``strategy_name`` (Rule 4 — package
+        logs are queried *by strategy*).
+
+        Args:
+            strategy_name (str): The strategy column to filter on.
+            limit (int): Optional row cap.
+            status (str): Optional status filter ('open' / 'closed' /
+                'rejected').
+
+        Returns:
+            list[dict]: Newest-first by ``updated_at``.
+        """
+        conn = self.connect()
+        cursor = conn.cursor()
+        try:
+            query = "SELECT * FROM order_packages WHERE strategy_name = ?"
+            params = [strategy_name]
+            if status is not None:
+                query += " AND status = ?"
+                params.append(status)
+            query += " ORDER BY datetime(updated_at) DESC"
+            if limit:
+                query += f" LIMIT {int(limit)}"
+            cursor.execute(query, params)
+            return [dict(row) for row in cursor.fetchall()]
+        finally:
+            conn.close()
+
     def save_backtest_results(self, results):
         """
         Save backtest results

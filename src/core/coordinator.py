@@ -523,6 +523,19 @@ class Coordinator:
 
         fetcher = balance_fetcher or _default_balance_fetcher
 
+        # CLAUDE.md § Architecture rules § 2 + § 4 +
+        # architecture-audit-2026-05-02 P1-5: log the OrderPackage to
+        # the DB unit's order_packages table once per dispatch round.
+        # Pre-S-030 the OrderPackage was in-memory only — the operator
+        # could see "a vwap signal fired" + "a trade exists" but could
+        # not trace the package that linked them or replay how it
+        # evolved. The id is generated here and stamped on the package
+        # so per-account result rows can reference it. Best-effort —
+        # journal failures must never crash the dispatch.
+        order_package_id = _log_new_order_package(pkg)
+        if order_package_id and isinstance(pkg.meta, dict):
+            pkg.meta["order_package_id"] = order_package_id
+
         results = []
         for account in accounts:
             if account_type and account.account_type != account_type:
@@ -1250,6 +1263,53 @@ class Coordinator:
 def is_paused(account_id: str) -> bool:
     """Check if *account_id* is currently halted.  Used by accounts unit (PR #122)."""
     return account_id in _PAUSED_ACCOUNTS
+
+
+def _log_new_order_package(pkg: "OrderPackage") -> Optional[str]:
+    """Insert a fresh row into ``trade_journal.db::order_packages``.
+
+    Returns the generated ``order_package_id`` on success, ``None`` on
+    any error (logged but never re-raised — observability writes must
+    never crash the order path).
+    """
+    try:
+        import json as _json
+        import uuid
+        from src.data_layer.database import Database
+
+        order_package_id = (
+            (pkg.meta or {}).get("order_package_id")
+            or f"pkg-{uuid.uuid4().hex[:16]}"
+        )
+        path = (
+            os.environ.get("TRADE_JOURNAL_DB")
+            or os.path.join(_REPO_ROOT, "trade_journal.db")
+        )
+        db = Database(db_path=path)
+        meta_for_log = {
+            k: v for k, v in (pkg.meta or {}).items()
+            if k not in {"order_package_id"}
+        }
+        db.insert_order_package({
+            "order_package_id": order_package_id,
+            "strategy_name": pkg.strategy,
+            "symbol": pkg.symbol,
+            "direction": pkg.direction,
+            "entry": float(pkg.entry),
+            "sl": float(pkg.sl),
+            "tp": float(pkg.tp),
+            "confidence": float(getattr(pkg, "confidence", 0.0) or 0.0),
+            "signal_logic": _json.dumps(meta_for_log, default=str)[:1000],
+            "status": "open",
+            "meta": meta_for_log,
+        })
+        return order_package_id
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "_log_new_order_package failed for %s/%s: %s",
+            getattr(pkg, "strategy", "?"), getattr(pkg, "symbol", "?"), exc,
+        )
+        return None
 
 
 def _emit_execution_failure_ping(
