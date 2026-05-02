@@ -1,9 +1,9 @@
-# Sprint 1 — Comms Infrastructure
+# Sprint M2.S1 — Comms Infrastructure
 
-**Classification**: `auto-claude`  
-**Tier**: All Tier 1 — no live trading path touched. Self-merge once tests pass.  
-**Depends on**: S0 (complete)  
-**Unlocks**: S2, S3, S4, S5 — everything requires the comms ping system
+**Classification**: `auto-claude`
+**Tier**: All Tier 1 — no live trading path touched. Self-merge once tests pass.
+**Depends on**: M1.S1 complete (live system stable; VWAP execution fixed; mode flags canonical)
+**Unlocks**: M2.S2, M3, M5 — everything async requires the comms ping system
 
 ---
 

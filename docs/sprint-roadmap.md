@@ -1,181 +1,240 @@
 # Sprint Roadmap
 
-**Project**: ICT Trading Bot  
-**Current Phase**: Hardening — wrapping the live system in production-grade risk management  
+**Project**: ICT Trading Bot
+**Current Phase**: Hardening — wrapping the live system in production-grade risk management
 **Last Updated**: 2026-05-02
 
 ---
 
-## Sprint Overview
+## Structure
 
-| Sprint | Focus | Classification | Status | Depends On |
-|--------|-------|---------------|--------|------------|
-| S0 | Autonomous Workflow Setup | `auto-claude` | ✅ complete | — |
-| S1 | Comms Infrastructure | `auto-claude` | 🔄 next | S0 |
-| S2 | Risk Caps + Kill Switch | `auto-claude` | ⏳ pending | S1 |
-| S3 | Repo Hygiene (Janitor) | `auto-claude` | ⏳ pending | — |
-| S4 | Web App Core | `auto-claude` | ⏳ pending | S2 |
-| S5 | Strategy Testing Pipeline | `auto-claude` | ⏳ pending | S1, S2 |
-| S6 | Web App UI | `auto-claude` | ⏳ pending | S4 |
-| S7 | ICT Strategy Review | `pm-sprint` | ⏳ pending | S2, S5 |
+The roadmap is organized in three levels:
 
----
+- **Milestone (M)**: A coherent theme or capability (e.g., "Production Hardening", "Web App")
+- **Sprint (S)**: One Claude Code session worth of work (~2–6 hours of focused execution)
+- **Checkpoint (C)**: An individually verifiable unit inside a sprint (test passes, file produced, behavior demonstrated)
 
-## Sprint Details
+Sprints are referenced as `M{milestone}.S{sprint}` (e.g., `M1.S2`). Checkpoints as `M{milestone}.S{sprint}.C{checkpoint}`.
 
-### S0 — Autonomous Workflow Setup (`auto-claude`) ✅
-
-**Goal**: Establish the foundational files and protocols so every subsequent sprint can operate autonomously.
-
-**Deliverables**:
-- [x] `CLAUDE.md` — master autonomous protocol with 3-tier decision matrix
-- [x] `docs/sprint-roadmap.md` — this file
-- [x] `comms/` directory with schema files and `sprint_state.json`
-- [x] `comms/schemas/` — JSON schema examples for all comms file types
-- [x] `.github/workflows/ci.yml` — CI pipeline (tests + lint on every PR)
-- [x] `docs/SPRINT_1_PROMPT.md` — detailed task spec for Sprint 1
-
-**Tier**: All Tier 1. No live trading path touched.
+Every checkpoint must be independently verifiable — a checkpoint is "done" when its acceptance criterion is observably true (test passes, file present, log line emitted, etc.).
 
 ---
 
-### S1 — Comms Infrastructure (`auto-claude`) 🔄
+## Milestone Map
 
-**Goal**: Get the Telegram ping system live so all future sprints can use it. This unlocks the full autonomous loop.
-
-**Deliverables**:
-- [ ] `comms/` polling logic in the Telegram bot — detect `pending_input.json`, send formatted message with inline buttons
-- [ ] Bot writes response back to `comms/input_response.json` on button press
-- [ ] PM Sprint start ping handler — reads `sprint_state.json`, sends session link at scheduled time
-- [ ] Sprint completion ping — announces next autonomous sprint starting
-- [ ] `/test [strategy]` command stub — writes `comms/test_request.json`
-- [ ] `/new-session [sprint_id]` command — triggers sprint handoff
-- [ ] Unit tests for all comms handlers
-- [ ] Docs update
-
-**Tier**: Tier 1 throughout (comms infra, bot handlers, no live order path touched). Self-merge once tests pass.
-
-**Spec**: `docs/SPRINT_1_PROMPT.md`
+| Milestone | Theme | Status | Classification |
+|-----------|-------|--------|---------------|
+| **M0** | Autonomous Workflow Setup | ✅ complete | `auto-claude` |
+| **M1** | Production Hardening (Pre-Kickoff) | 🔄 active | `auto-claude` |
+| **M2** | Communication & Safety Layer | ⏳ pending | `auto-claude` |
+| **M3** | Repo Hygiene & Janitor Mode | ⏳ pending (concurrent) | `auto-claude` |
+| **M4** | Web App | ⏳ pending | mixed |
+| **M5** | Strategy Operations | ⏳ pending | mixed |
 
 ---
 
-### S2 — Risk Caps + Kill Switch (`auto-claude`) ⏳
+## M0 — Autonomous Workflow Setup ✅
 
-**Goal**: Close the highest-priority safety gap. The live bot currently has no hard position or loss limits.
+**Goal**: Foundational protocol files so every subsequent sprint can operate autonomously.
 
-**Deliverables**:
-- [ ] Add `MAX_POSITION_USD`, `MAX_DAILY_LOSS_USD`, `MAX_OPEN_POSITIONS` to `config.py`
-- [ ] Enforce in `src/runtime/orders.py` — hard `raise RiskCapExceeded`, not soft warning
-- [ ] Add `/halt` and `/resume` Telegram commands (pause all order submission)
-- [ ] Enhance `/status` to show current exposure vs caps
-- [ ] Unit tests proving cap refusal (orders above limit must be rejected)
-- [ ] Dry-run smoke test
-
-**Tier**: Touches `src/runtime/orders.py` → **Tier 2 ping** after tests pass. Claude runs full test suite + dry-run, then pings Ben with merge/hold button.
-
-**Depends on**: S1 (needs comms infrastructure for the Tier 2 ping)
+### M0.S0 — Workflow Bootstrap ✅
+- C1: `CLAUDE.md` master protocol
+- C2: `docs/sprint-roadmap.md` (this file)
+- C3: `comms/` directory + JSON schemas + `sprint_state.json`
+- C4: `.github/workflows/ci.yml`
+- C5: `docs/SPRINT_HARDENING_PROMPT.md` (next sprint's task spec)
 
 ---
 
-### S3 — Repo Hygiene / Janitor Mode (`auto-claude`) ⏳
+## M1 — Production Hardening (Pre-Kickoff) 🔄
 
-**Goal**: Kill duplicate files, dead services, and orphan configs. This sprint is also the template for recurring Janitor Mode runs.
+**Goal**: Stabilize the live system **before** building any new infrastructure on top of it. Three known issues have surfaced that must be resolved before Sprint M2.S1 begins:
 
-**Known issues to resolve**:
-- [ ] Resolve `src/backtester.py` vs `src/backtest/` — pick canonical, delete duplicate
-- [ ] Resolve `src/bot/telegramquerybot.py` vs `src/bot/telegram_query_bot.py` — delete the orphan
-- [ ] Delete `.bak` files after confirming originals are canonical
-- [ ] Audit `deploy/` for stale systemd unit files
-- [ ] Audit `scripts/` for scripts with no callers
-- [ ] Resolve/flesh out `src/strategies_manager.py` — stub or implement
-- [ ] Add missing `__init__.py` files that break imports
-- [ ] Each fix in a **separate PR** — never bundle unrelated cleanups
+1. **Live/dry-run mode confusion** — default is supposed to be live, but errors keep surfacing about mode. System must default to live, and if live trading is disabled, Ben must be pinged immediately on bot startup.
+2. **VWAP order execution failure** — VWAP strategy generates signals but Bybit account isn't executing orders. This is a production bug, not a future feature.
+3. **Architectural drift** — modules have hidden coupling, transparency gaps, and inconsistent error reporting.
 
-**Tier**: All Tier 1. Pure cleanup, no live trading path. Self-merge all PRs.
+**Spec**: `docs/SPRINT_HARDENING_PROMPT.md`
 
-**Note**: S3 can run in parallel with other sprints since it's all Tier 1 cleanup. Can be triggered by Ben via `/janitor` Telegram command once S1 is live.
+### M1.S1 — Infrastructure Audit & Stabilization (`auto-claude`)
 
----
+**Tier**: Investigation is Tier 1. Any fix touching `src/runtime/orders.py` or `src/runtime/pipeline.py` is Tier 2 and pings Ben.
 
-### S4 — Web App Core (`auto-claude`) ⏳
+**Checkpoints:**
 
-**Goal**: Build the foundational backend for a visual dashboard — P&L tracking, open positions, bot status.
+- **C1 — Live/Dry-Run Config Audit**
+  - Find every place the live/dry-run flag is read
+  - Confirm default is `live` everywhere
+  - Add startup validation: if dry-run mode is on, log a loud warning AND write `comms/pending_input.json` with `type: "mode_alert"` so Ben gets a Telegram ping
+  - Test: bot started in dry-run mode produces ping; bot started in live mode does not
 
-**Deliverables**:
-- [ ] FastAPI (or Flask) backend in `src/webapp/`
-- [ ] API endpoints: `/status`, `/positions`, `/pnl`, `/signals`
-- [ ] Data layer connecting to trade journal DB
-- [ ] Authentication (API key or simple token)
-- [ ] Basic health check endpoint
-- [ ] Docker Compose service definition
-- [ ] Tests for all endpoints
+- **C2 — VWAP Order Execution Debug**
+  - Trace VWAP signal → order package → Bybit submission path
+  - Identify where the disconnect is (signal not reaching `orders.py`? Order rejected silently? Strategy not registered?)
+  - Document root cause in `docs/vwap-debug-findings.md`
+  - Apply fix (Tier 2 ping required if it touches `orders.py` or `pipeline.py`)
+  - Test: VWAP signal in staging produces an order submission attempt logged with full request/response
 
-**Tier**: All Tier 1. New service, no live trading path modified.
+- **C3 — Modular Independence Audit**
+  - Map import graph of `src/runtime/`, `strategies/`, `src/core/`, `src/exchange/`
+  - Identify circular imports and hidden coupling
+  - Document findings in `docs/architecture-audit.md` — no fixes yet, just inventory
+  - Each cross-module dependency must be either: (a) justified, or (b) flagged for refactor in M3
 
-**Depends on**: S2 (risk caps and status data from orders.py)
+- **C4 — Transparency Layer**
+  - Audit current logging — every order attempt, signal generation, mode switch, and risk-cap check must produce a structured log line
+  - Add missing log lines (Tier 1 in `notify.py`/`signal_writer.py`; Tier 2 in `orders.py`)
+  - Add `/diagnose` Telegram command stub (full implementation in M2.S1) that prints last 20 structured events
+  - Test: dry-run cycle produces a complete event trace covering signal → decision → order attempt → result
 
----
+- **C5 — Stability Smoke Test**
+  - 4-hour live monitoring run (no order changes) confirming:
+    - No unexpected mode switches
+    - No signal-without-order-attempt events
+    - No silent exceptions in logs
+  - Result documented in `docs/m1-stabilization-report.md`
 
-### S5 — Strategy Testing Pipeline (`auto-claude`) ⏳
-
-**Goal**: Repeatable, bot-triggered strategy testing. Ben types `/test turtle_soup_mtf_v1` and gets a full backtest report.
-
-**Deliverables**:
-- [ ] `/test [strategy]` command in Telegram bot — writes `comms/test_request.json`
-- [ ] Async test runner: reads `test_request.json`, runs backtest, writes results to `comms/test_results.json`
-- [ ] Bot sends results summary: win rate, R-multiple, max drawdown, sample size
-- [ ] Dry-run staging mode: 2 cycles clean before Tier 2 ping for live promotion
-- [ ] Per-strategy position sizing support
-- [ ] Multi-strategy test coverage
-
-**Tier**: Command handler and runner are Tier 1. Promoting to live is Tier 2 (with full test evidence) or Tier 3 (strategy parameter changes).
-
-**Depends on**: S1 (comms), S2 (risk caps must be live before staging)
+**Acceptance**: All 5 checkpoints green. Bot has been running for 4 hours stable. VWAP fix verified by signal → order trace.
 
 ---
 
-### S6 — Web App UI (`auto-claude`) ⏳
+## M2 — Communication & Safety Layer ⏳
 
-**Goal**: Visualization layer on top of the S4 backend.
+**Goal**: Operationalize the autonomous ping loop and add the risk caps that make live trading safe.
 
-**Deliverables**:
-- [ ] React or plain HTML/JS frontend in `src/webapp/ui/`
-- [ ] P&L chart (daily, cumulative)
-- [ ] Open positions table with entry price, current price, unrealized P&L
-- [ ] Signal log with timestamps
-- [ ] Bot status indicator (running / halted / dry-run)
-- [ ] Strategy performance comparison view
-- [ ] Served as a static build from the FastAPI backend
+### M2.S1 — Comms Infrastructure (`auto-claude`)
 
-**Tier**: All Tier 1. UI only, no trading logic.
+**Tier**: All Tier 1. Self-merge once tests pass.
 
-**Depends on**: S4
+**Checkpoints:**
+- **C1**: `comms/` polling task in `telegram_query_bot.py` (30s cycle)
+- **C2**: Inline-button handler writes `input_response.json` + git push
+- **C3**: `/test [strategy]` command writes `comms/test_request.json`
+- **C4**: `/new-session [sprint_id]` command updates `sprint_state.json`
+- **C5**: `/diagnose` command (full implementation, builds on M1.S1.C4 stub)
+- **C6**: Unit tests for all handlers
+- **C7**: PM sprint start ping handler (sends session link at scheduled time)
+- **C8**: Sprint completion ping handler
 
----
+**Spec**: `docs/SPRINT_M2_S1_PROMPT.md` (created at end of M1)
 
-### S7 — ICT Strategy Review (`pm-sprint`) ⏳
+### M2.S2 — Risk Caps + Kill Switch (`auto-claude`)
 
-**Goal**: Ben reviews FVG/OB backtest results and decides on live promotion. Also reviews any strategy parameter optimizations from S5/S6 data.
+**Tier**: Tier 2 ping required (touches `orders.py`).
 
-**Claude pre-loads**:
-- Multi-symbol FVG/OB validation results (50+ trades)
-- Current dry-run stats vs live benchmark
-- Risk cap headroom (current exposure vs MAX_POSITION_USD)
-- Parameter sensitivity analysis from S5 backtest runs
-
-**PM decisions required**:
-- Promote ICT strategy to live, extend dry-run, or kill
-- Approve/reject any parameter changes from S6 analysis
-
-**Tier**: All changes resulting from this sprint are **Tier 3** — no merges without Ben's explicit approval in the session.
-
-**Depends on**: S2 (risk caps live), S5 (strategy testing pipeline)
+**Checkpoints:**
+- **C1**: `MAX_POSITION_USD`, `MAX_DAILY_LOSS_USD`, `MAX_OPEN_POSITIONS` in `config.py`
+- **C2**: Hard-raise enforcement in `src/runtime/orders.py` (not soft warning)
+- **C3**: `/halt` and `/resume` Telegram commands
+- **C4**: `/status` enhanced with current exposure vs caps
+- **C5**: Unit tests proving cap refusal
+- **C6**: Dry-run smoke test
+- **C7**: Tier 2 ping with merge/hold buttons → wait for response → merge
 
 ---
 
-## Roadmap Notes
+## M3 — Repo Hygiene & Janitor Mode ⏳ (concurrent)
 
-1. **S3 (Janitor)** can run concurrently with any other sprint since it's all Tier 1 cleanup PRs.
-2. **S1 is the unlock sprint** — the comms infrastructure enables autonomous pings for all subsequent Tier 2/3 decisions.
-3. **S2 must be live before any strategy goes live** — risk caps are non-negotiable.
-4. New `pm-sprint` items can be inserted before S7 if Ben schedules calendar blocks.
+**Goal**: Kill duplicate files, dead services, orphan configs. M3 runs in **parallel** with other milestones once M2.S1 is live.
+
+### M3.S1 — Janitor Mode Bootstrap (`auto-claude`)
+
+**Tier**: All Tier 1. Each fix is a separate small PR.
+
+**Checkpoints:**
+- **C1**: Resolve `src/backtester.py` vs `src/backtest/` duplicate
+- **C2**: Resolve `telegramquerybot.py` vs `telegram_query_bot.py` duplicate
+- **C3**: Delete `.bak` files after confirming originals are canonical
+- **C4**: Audit `deploy/` for stale systemd units
+- **C5**: Audit `scripts/` for callerless scripts
+- **C6**: Resolve `src/strategies_manager.py` (stub or implement)
+- **C7**: Add missing `__init__.py` files
+- **C8**: Address refactor items flagged in M1.S1.C3 architecture audit
+- **C9**: `/janitor` Telegram command — Ben can trigger janitor pass on demand
+
+---
+
+## M4 — Web App ⏳
+
+**Goal**: Visual dashboard for P&L, positions, signals, and bot status. Now broken into design → backend → UI to surface design decisions before code is written.
+
+### M4.S1 — Design & Architecture (`pm-sprint`)
+
+**Tier**: No code changes. Design doc only.
+
+**Checkpoints:**
+- **C1**: Wireframes for dashboard, positions view, P&L view, signal log, strategy comparison
+- **C2**: API contract spec (endpoints, payloads, auth model) in `docs/webapp-api-spec.md`
+- **C3**: Tech stack decision (FastAPI vs Flask, React vs HTMX vs vanilla) documented
+- **C4**: Data model — what views/tables are needed beyond the existing trade journal
+- **C5**: Hosting & deployment plan (same VM? separate? Docker compose?)
+- **C6**: PM review session — Ben approves design before M4.S2 starts
+
+### M4.S2 — Backend Core (`auto-claude`)
+
+**Tier**: All Tier 1 (new service, no live trading path).
+
+**Checkpoints:**
+- **C1**: FastAPI/Flask scaffold in `src/webapp/`
+- **C2**: Endpoints from API spec implemented
+- **C3**: Auth middleware
+- **C4**: Health check endpoint
+- **C5**: Docker Compose service definition
+- **C6**: Endpoint tests
+
+### M4.S3 — UI (`auto-claude`)
+
+**Tier**: All Tier 1.
+
+**Checkpoints:**
+- **C1**: Dashboard view (per wireframe)
+- **C2**: Positions table with live updates
+- **C3**: P&L chart (daily + cumulative)
+- **C4**: Signal log
+- **C5**: Bot status indicator (running/halted/dry-run)
+- **C6**: Strategy comparison view
+- **C7**: Built and served from backend
+
+---
+
+## M5 — Strategy Operations ⏳
+
+**Goal**: Repeatable strategy testing and approval pipeline.
+
+### M5.S1 — Strategy Testing Pipeline (`auto-claude`)
+
+**Tier**: Test runner is Tier 1. Live promotion is Tier 2 (with evidence) or Tier 3 (parameter changes).
+
+**Checkpoints:**
+- **C1**: Async test runner reading `comms/test_request.json`
+- **C2**: Backtest output → `comms/test_results.json`
+- **C3**: 2-cycle staging gate before any live promotion
+- **C4**: Per-strategy position sizing
+- **C5**: Multi-strategy test coverage
+
+### M5.S2 — ICT Strategy Review (`pm-sprint`)
+
+**Tier**: All Tier 3 — no merges without explicit approval.
+
+**Checkpoints:**
+- **C1**: Pre-load FVG/OB validation results (50+ trades)
+- **C2**: Pre-load dry-run vs live benchmark
+- **C3**: Pre-load risk cap headroom report
+- **C4**: Pre-load parameter sensitivity analysis
+- **C5**: PM session — Ben decides: promote, extend dry-run, or kill
+
+---
+
+## Concurrency & Sequencing Rules
+
+1. **M1 must complete before M2.S1** — comms infrastructure depends on a stable bot.
+2. **M2.S2 must complete before M5** — no strategy goes live without risk caps.
+3. **M3 runs concurrently** with M2/M4/M5 once M2.S1 is live (Janitor needs the ping system).
+4. **M4.S1 is a `pm-sprint`** — Ben must approve design before M4.S2/S3 build it.
+5. **M5.S2 is a `pm-sprint`** — final live-promotion gate.
+
+---
+
+## Current Pointer
+
+See `comms/sprint_state.json` — currently `M1.S1` (Infrastructure Audit & Stabilization).

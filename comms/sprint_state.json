@@ -1,13 +1,21 @@
 {
-  "current_sprint": "S1",
-  "sprint_title": "Comms Infrastructure",
+  "current_milestone": "M1",
+  "current_sprint": "M1.S1",
+  "sprint_title": "Infrastructure Audit & Stabilization",
   "classification": "auto-claude",
   "status": "not_started",
   "started_at": null,
   "completed_at": null,
-  "next_sprint": "S2",
-  "last_session_summary": "S0 complete — CLAUDE.md, sprint-roadmap.md, comms/ schema, CI workflow, and Sprint 1 prompt all created and merged.",
+  "next_sprint": "M2.S1",
+  "checkpoints": {
+    "C1": {"name": "Live/Dry-Run Config Audit", "status": "not_started"},
+    "C2": {"name": "VWAP Order Execution Debug", "status": "not_started"},
+    "C3": {"name": "Modular Independence Audit", "status": "not_started"},
+    "C4": {"name": "Transparency Layer", "status": "not_started"},
+    "C5": {"name": "Stability Smoke Test", "status": "not_started"}
+  },
+  "last_session_summary": "M0 complete — workflow protocol files created. Roadmap reorganized into Milestone/Sprint/Checkpoint hierarchy. Pre-kickoff hardening sprint (M1.S1) added to address live/dry-run mode confusion, VWAP order execution failure, and modular design issues before M2 begins. M4 (Web App) elevated to dedicated milestone with design phase added.",
   "blocked_on": null,
   "pending_tier2_or_tier3": false,
-  "sprint_prompt_file": "docs/SPRINT_1_PROMPT.md"
+  "sprint_prompt_file": "docs/SPRINT_HARDENING_PROMPT.md"
 }
