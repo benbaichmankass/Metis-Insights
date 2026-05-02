@@ -2,6 +2,8 @@
 
 Tests 5 changes to turtle_soup + vwap. Driven by scripts/training/run_experiment.py.
 See PLAN.md for the full hypothesis table.
+
+Trigger marker: live-test-1
 """
 from __future__ import annotations
 
