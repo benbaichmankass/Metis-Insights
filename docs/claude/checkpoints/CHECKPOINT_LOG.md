@@ -5,6 +5,44 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-02-04 — G2: hamburger menu mirrors /help (single source of truth)
+
+- **Session date:** 2026-05-02
+- **Sprint:** S-XXX — Telegram bot debug + UI overhaul + repo cleanup
+- **Current sprint phase:** G2 (2/6) complete. G3 — /help becomes a category-button menu — is next.
+- **Last completed checkpoint:** CP-2026-05-02-03 (#265, merged).
+- **Next checkpoint:** **CP-2026-05-02-05 — G3: /help as category-button menu.** Restructure cmd_start so the first reply is an InlineKeyboardMarkup with one button per category (Live trading control, Account & strategy, Signals & history, Backtesting, Diagnostics, Web dashboard, VM-resident Claude, Sprint / planning). Tap → callback edits the message to the second-level command list with a "Back" button. Keep `/help <category>` as a typed shortcut.
+- **Telegram sent:** pending — this checkpoint commit triggers the VM ping.
+- **Alerts sent during session:** none.
+- **Blockers:** none. Self-merged the work-PR per the merging rule (no live-trading or secrets surface touched).
+
+### 1. Completed
+- Audited `set_my_commands` in `src/bot/telegram_query_bot.py`. Found drift: four registered handlers (`/set_keys`, `/set_all_live`, `/hourly`, `/ping_test`) were missing from `/help` text, and the menu order did not match `/help` reading order.
+- Extracted `BOT_COMMANDS: list[BotCommand]` to a module-level constant. `post_init` now passes it directly to `set_my_commands(...)`. The constant is documented as the single source of truth — the contract reads "every entry must also appear in cmd_start in the same order".
+- Updated `cmd_start` (`/help`) so every BotCommand has a corresponding line in the categorized help text. Categories: Live trading control / Account & strategy / Signals & history / Backtesting / Diagnostics / Web dashboard / VM-resident Claude (S-014.5) / Sprint / planning. All BotCommand descriptions ≤ 80 chars.
+- Added `_commands_in_help_text(text)` helper + `_HELP_CMD_RE` (line-anchored, multiline) so the parity test can robustly extract the operator command surface from the rendered /help text. Anchoring at line-start avoids false positives from descriptions containing embedded slashes (e.g. "dry/live", "status/result").
+- Added `TestHelpCommandParity` with five assertions: every BOT_COMMANDS entry appears in /help (allowing /start to be menu-only); every command in /help appears in BOT_COMMANDS; relative order between the two matches (excluding the meta /start /help aliases); every BotCommand description is ≤ 80 chars; every CommandHandler registered in `main()` has a matching BOT_COMMANDS row.
+- Refactored the `_tg_mock.BotCommand` test stub from `MagicMock` to a real `_FakeBotCommand` class that preserves `command`/`description` attributes, so the parity tests can read them.
+
+### 2. Files changed
+- `src/bot/telegram_query_bot.py` — `BOT_COMMANDS` constant, expanded `cmd_start` text, `_commands_in_help_text` helper, `post_init` simplified to one `set_my_commands(BOT_COMMANDS)` call.
+- `tests/test_telegram_query_bot.py` — `_FakeBotCommand` stub upgrade, new `TestHelpCommandParity` class (5 tests).
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` — this entry.
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_telegram_query_bot.py::TestHelpCommandParity -v` — 5 passed.
+- `PYTHONPATH=. pytest tests/test_telegram_query_bot.py -q` — 91 passed, 1 failed (`TestCmdStatusMultiAccount::test_shows_block_per_account` — pre-existing, documented in CP-2026-05-02-01 / CP-2026-05-01-19, not introduced by this PR).
+- `python scripts/secret_scan.py` — clean.
+- `python scripts/check_dry_run_in_diff.py` — clean.
+
+### 4. Remaining for this checkpoint
+- none — G2 fully shipped.
+
+### 5. Next checkpoint
+**CP-2026-05-02-05 — G3: /help as a category-button InlineKeyboardMarkup.** Next session should review the existing `/closeall` flow (`_CLOSE_BUTTON_LABELS` + matching callback handler) — that's the pattern. Drive the categories from BOT_COMMANDS sections introduced in this PR.
+
+---
+
 ## CP-2026-05-02-03 — G1: /last5 Markdown crash fixed (BUG-030)
 
 - **Session date:** 2026-05-02
