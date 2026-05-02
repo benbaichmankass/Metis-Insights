@@ -144,6 +144,18 @@ def execute_pkg(
         return _submit_test_order(exchange_client, order, account_cfg)
 
     trade_id = _submit_order(exchange_client, order, account_cfg)
+
+    # CLAUDE.md § Architecture rules § 3 + architecture-audit-2026-05-02
+    # P0-2: every executed trade must land a row in the trade log so
+    # ``/last5`` / ``/strategies`` / hourly-report aggregations have
+    # something to read. Pre-fix only smoke tests wrote to the journal
+    # (via ``Coordinator._log_smoke_to_journal``); live trades silently
+    # bypassed it. Best-effort — a journal failure must never crash the
+    # order path. Status starts ``open``; the close path (S-030 monitor
+    # loop) updates it via ``Database.update_trade``.
+    _log_trade_to_journal(
+        pkg, account_cfg, order, trade_id=trade_id, is_dry=is_dry,
+    )
     return trade_id
 
 
@@ -262,3 +274,80 @@ def _submit_order(client: Any, order: dict, account_cfg: dict) -> str:
             pass
         raise RuntimeError(f"Order submission failed for {order['symbol']}: {exc}") from exc
     raise ValueError(f"Unsupported exchange: {exchange}")
+
+
+# ---------------------------------------------------------------------------
+# Trade-journal writer (architecture-audit-2026-05-02 P0-2)
+# ---------------------------------------------------------------------------
+
+
+def _log_trade_to_journal(
+    pkg: OrderPackage,
+    account_cfg: dict,
+    order: dict,
+    *,
+    trade_id: str,
+    is_dry: bool,
+) -> bool:
+    """Insert a row into ``trade_journal.db::trades`` for a freshly-placed
+    order. Best-effort — a journal failure must never crash the order
+    path. Returns True on a successful insert, False on any error
+    (logged but never re-raised).
+
+    The row uses ``status='open'``; the close path (S-030 monitor loop)
+    will update via ``Database.update_trade``. ``is_backtest=0`` for
+    runtime trades; the backtester writes its own rows with
+    ``is_backtest=1``.
+
+    The ``TRADE_JOURNAL_DB`` env var overrides the DB path; tests can
+    set it to a tmp path to avoid polluting the production journal.
+    Tests that don't care about the journal patch this helper directly.
+    """
+    try:
+        import json
+        from datetime import datetime, timezone
+        from src.data_layer.database import Database
+
+        path = (
+            os.environ.get("TRADE_JOURNAL_DB")
+            or os.path.join(
+                os.path.abspath(os.path.join(os.path.dirname(__file__),
+                                             "..", "..", "..")),
+                "trade_journal.db",
+            )
+        )
+        db = Database(db_path=path)
+        notes_payload = {
+            "trade_id": trade_id,
+            "is_dry": bool(is_dry),
+            "confidence": float(getattr(pkg, "confidence", 0.0) or 0.0),
+            "signal_logic": (pkg.meta or {}).get("signal_logic") or "",
+        }
+        db.insert_trade({
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "symbol": pkg.symbol,
+            "direction": pkg.direction,
+            "entry_price": float(pkg.entry),
+            "stop_loss": float(pkg.sl),
+            "take_profit_1": float(pkg.tp),
+            "position_size": float(order.get("qty") or 0.0),
+            "setup_type": pkg.strategy,
+            "entry_reason": (pkg.meta or {}).get("entry_reason")
+                or f"{pkg.strategy} signal",
+            "status": "open",
+            "is_backtest": 0,
+            "strategy_name": pkg.strategy,
+            "account_id": str(
+                account_cfg.get("account_id") or account_cfg.get("id") or "unknown"
+            ),
+            "notes": json.dumps(notes_payload, ensure_ascii=False)[:500],
+        })
+        return True
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "execute_pkg: trade-journal write failed (account=%s strategy=%s "
+            "symbol=%s trade_id=%s): %s",
+            account_cfg.get("account_id"), pkg.strategy, pkg.symbol,
+            trade_id, exc,
+        )
+        return False
