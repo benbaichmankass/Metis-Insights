@@ -58,6 +58,28 @@ Conventions:
   list T2 as their gate but T2 is itself gated on an external dependency,
   the sprint is too fragile.
 
+### 4b. Unit boundary declaration (MANDATORY post 2026-05-02)
+
+Per the architecture rules in `CLAUDE.md` § *Architecture rules*, every
+sprint prompt declares the units it touches. One row per unit; mark each
+as **owns** (the sprint adds/changes the unit's primary code) or
+**reads** (the sprint only consumes the unit's public API).
+
+| Unit | Role in this sprint |
+|---|---|
+| `src/units/strategies/` | owns / reads / untouched |
+| `src/units/accounts/` | … |
+| `src/data_layer/` (DB unit) | … |
+| `src/ui/` | … |
+| `src/runtime/` | … |
+| `src/bot/` | … |
+| `src/core/coordinator.py` | … |
+
+If a sprint plans to add a cross-unit import (i.e. one unit `from`-imports
+another without going through `Coordinator`), explain why in this
+section. Default answer is "we won't" — the `Coordinator` translator
+exists to keep units swappable.
+
 ### 5. Risk class & merge model
 
 Every PR opened during the sprint maps to a risk class:
