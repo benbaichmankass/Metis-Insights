@@ -680,7 +680,7 @@ BOT_COMMAND_SPECS: list[BotCommandSpec] = [
     BotCommandSpec("accounts_status", "Per-account risk state (daily PnL, halted)", "accounts"),
     BotCommandSpec("set_all_live", "Flip every account out of dry-run into live mode", "accounts"),
     BotCommandSpec("set_keys", "Open the Colab key-rotation notebook", "accounts"),
-    BotCommandSpec("risk_check", "Risk details for one account: /risk_check <name>", "accounts"),
+    BotCommandSpec("risk_check", "Risk details for an account (button picker)", "accounts"),
     BotCommandSpec("smoke_test", "Live-plumbing smoke (always LIVE): /smoke_test [account]", "accounts"),
     BotCommandSpec("strategies", "Per-strategy signals, PnL and positions", "accounts"),
     BotCommandSpec("reload_strats", "Reload strategies.yaml without restart", "accounts"),
@@ -1964,6 +1964,26 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text, parse_mode="Markdown", reply_markup=kb)
         return
 
+    # G4 — account picker for /risk_check.
+    if action == "risk_check":
+        account_name = parts[1] if len(parts) > 1 else ""
+        try:
+            coord = get_coordinator()
+            if coord is None:
+                await query.edit_message_text("⚠️ Coordinator unavailable.")
+                return
+            statuses = coord.accounts_status() or []
+            if not statuses:
+                await query.edit_message_text(
+                    "ℹ️ No accounts found in accounts.yaml.")
+                return
+            text = _render_risk_check_for_account(statuses, account_name)
+            await query.edit_message_text(text, parse_mode="Markdown")
+        except Exception as e:  # noqa: BLE001
+            await query.edit_message_text(
+                f"⚠️ Could not check risk for '{account_name}': {e}")
+        return
+
     if action == "log":
         try:
             accounts = dl.list_accounts() or []
@@ -2319,8 +2339,62 @@ async def cmd_smoke_test(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
 
 
+def _render_risk_check_for_account(statuses: list[dict], account_name: str) -> str:
+    """Format the /risk_check body for one account.
+
+    Pure renderer (no I/O, no side effects). Both ``cmd_risk_check`` and
+    the ``risk_check:<account>`` callback handler delegate here so the
+    typed-arg path and the button path produce identical output.
+    """
+    match = next((s for s in statuses if s["name"].lower() == account_name.lower()), None)
+    if match is None:
+        names = ", ".join(f"`{s['name']}`" for s in statuses)
+        return f"⚠️ Account `{account_name}` not found.\nAvailable: {names}"
+    halted_icon = "🔴 HALTED" if match.get("halted") else "🟢 OK"
+    pnl = float(match.get("daily_pnl", 0))
+    limit = float(match.get("max_daily_loss_usd", 0))
+    remaining = float(match.get("daily_loss_remaining", limit + pnl))
+    pos_size = float(match.get("max_pos_size_usd", 0))
+    dd_pct = float(match.get("max_dd_pct", 0)) * 100
+    open_pos = match.get("open_positions", 0)
+    return (
+        f"🔍 *Risk Check: {match['name']}*\n\n"
+        f"Status: {halted_icon}\n"
+        f"Exchange: `{match.get('exchange', '?')}` | "
+        f"Type: `{match.get('account_type', '?')}`\n\n"
+        f"💵 Daily PnL: ${pnl:+.2f}\n"
+        f"💰 Daily loss limit: ${limit:.0f}\n"
+        f"🔋 Remaining budget: ${remaining:.2f}\n"
+        f"📦 Max position size: ${pos_size:.0f}\n"
+        f"📉 Max drawdown: {dd_pct:.1f}%\n"
+        f"📂 Open positions: {open_pos}"
+    )
+
+
+def _account_picker_keyboard(callback_prefix: str, statuses: list[dict]) -> InlineKeyboardMarkup:
+    """Build a 2-column ``InlineKeyboardMarkup`` of account-picker buttons.
+
+    Each button's ``callback_data`` is ``"<callback_prefix>:<account_name>"``.
+    Used by /risk_check (and any future per-account command flow).
+    """
+    rows: list[list[InlineKeyboardButton]] = []
+    row: list[InlineKeyboardButton] = []
+    for s in statuses:
+        name = s["name"]
+        exch = s.get("exchange", "?")
+        row.append(InlineKeyboardButton(
+            f"{name} ({exch})", callback_data=f"{callback_prefix}:{name}"))
+        if len(row) == 2:
+            rows.append(row)
+            row = []
+    if row:
+        rows.append(row)
+    return InlineKeyboardMarkup(rows)
+
+
 async def cmd_risk_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Check risk state for a specific account. Usage: /risk_check <account_name>"""
+    """Risk state for an account. /risk_check (no args) → button picker;
+    /risk_check <name> still works as a typed shortcut."""
     if not is_authorised(update):
         return
     account_name = (context.args[0].strip() if context.args else "").lower()
@@ -2334,38 +2408,15 @@ async def cmd_risk_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("ℹ️ No accounts found in accounts.yaml.")
             return
         if not account_name:
-            names = ", ".join(f"`{s['name']}`" for s in statuses)
+            # G4 — no args: show inline-button picker so the operator
+            # never has to remember exact account names.
+            kb = _account_picker_keyboard("risk_check", statuses)
             await update.message.reply_text(
-                f"ℹ️ Specify an account name. Available: {names}",
-                parse_mode="Markdown",
+                "🔍 *Risk Check*\nPick an account:",
+                parse_mode="Markdown", reply_markup=kb,
             )
             return
-        match = next((s for s in statuses if s["name"].lower() == account_name), None)
-        if match is None:
-            names = ", ".join(f"`{s['name']}`" for s in statuses)
-            await update.message.reply_text(
-                f"⚠️ Account `{account_name}` not found.\nAvailable: {names}",
-                parse_mode="Markdown",
-            )
-            return
-        halted_icon = "🔴 HALTED" if match.get("halted") else "🟢 OK"
-        pnl = float(match.get("daily_pnl", 0))
-        limit = float(match.get("max_daily_loss_usd", 0))
-        remaining = float(match.get("daily_loss_remaining", limit + pnl))
-        pos_size = float(match.get("max_pos_size_usd", 0))
-        dd_pct = float(match.get("max_dd_pct", 0)) * 100
-        open_pos = match.get("open_positions", 0)
-        text = (
-            f"🔍 *Risk Check: {match['name']}*\n\n"
-            f"Status: {halted_icon}\n"
-            f"Exchange: `{match.get('exchange', '?')}` | Type: `{match.get('account_type', '?')}`\n\n"
-            f"💵 Daily PnL: ${pnl:+.2f}\n"
-            f"💰 Daily loss limit: ${limit:.0f}\n"
-            f"🔋 Remaining budget: ${remaining:.2f}\n"
-            f"📦 Max position size: ${pos_size:.0f}\n"
-            f"📉 Max drawdown: {dd_pct:.1f}%\n"
-            f"📂 Open positions: {open_pos}"
-        )
+        text = _render_risk_check_for_account(statuses, account_name)
         await update.message.reply_text(text, parse_mode="Markdown")
     except Exception as e:
         await update.message.reply_text(f"⚠️ Could not check risk for '{account_name}': {e}")

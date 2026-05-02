@@ -1156,6 +1156,136 @@ class TestHelpButtonCallbacks:
 
 
 # ---------------------------------------------------------------------------
+# G4 — /risk_check inline-button account picker
+# ---------------------------------------------------------------------------
+
+
+class TestCmdRiskCheckButtonFlow:
+    """G4 — /risk_check no longer requires a typed account name.
+
+    No-args invocation now replies with an inline keyboard listing every
+    configured account; tapping a button edits the message in place to
+    that account's risk details. Typed `/risk_check <name>` still works
+    as a power-user shortcut and goes through the same renderer.
+    """
+
+    def _statuses(self):
+        return [
+            {"name": "live",  "exchange": "bybit",
+             "account_type": "futures", "halted": False,
+             "daily_pnl": -25.50, "max_daily_loss_usd": 200.0,
+             "daily_loss_remaining": 174.50, "max_pos_size_usd": 5000.0,
+             "max_dd_pct": 0.05, "open_positions": 1},
+            {"name": "alpha", "exchange": "binance",
+             "account_type": "spot", "halted": True,
+             "daily_pnl": -210.0, "max_daily_loss_usd": 200.0,
+             "daily_loss_remaining": 0.0, "max_pos_size_usd": 1000.0,
+             "max_dd_pct": 0.10, "open_positions": 0},
+        ]
+
+    def _make_update(self):
+        upd = MagicMock()
+        upd.effective_chat.id = 12345
+        upd.callback_query = None
+        upd.message.reply_text = AsyncMock()
+        return upd
+
+    def _make_query(self, data: str):
+        query = MagicMock()
+        query.data = data
+        query.answer = AsyncMock()
+        query.edit_message_text = AsyncMock()
+        query.message.chat.id = 12345
+        upd = MagicMock()
+        upd.callback_query = query
+        upd.effective_chat = None
+        return upd, query
+
+    def _run(self, coro):
+        import asyncio
+        return asyncio.new_event_loop().run_until_complete(coro)
+
+    def _patch_coord(self, monkeypatch):
+        coord = MagicMock()
+        coord.accounts_status.return_value = self._statuses()
+        monkeypatch.setattr(bot, "get_coordinator", lambda: coord)
+        return coord
+
+    def test_no_args_replies_with_account_picker(self, monkeypatch):
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        self._patch_coord(monkeypatch)
+        upd = self._make_update()
+        ctx = MagicMock()
+        ctx.args = []
+        self._run(bot.cmd_risk_check(upd, ctx))
+        kwargs = upd.message.reply_text.call_args.kwargs
+        assert kwargs.get("reply_markup") is not None, (
+            "/risk_check with no args must reply with an account-picker "
+            "InlineKeyboardMarkup (G4)"
+        )
+        text = upd.message.reply_text.call_args.args[0]
+        assert "Pick an account" in text
+
+    def test_typed_arg_still_renders_directly(self, monkeypatch):
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        self._patch_coord(monkeypatch)
+        upd = self._make_update()
+        ctx = MagicMock()
+        ctx.args = ["live"]
+        self._run(bot.cmd_risk_check(upd, ctx))
+        text = upd.message.reply_text.call_args.args[0]
+        assert "Risk Check: live" in text
+        assert "🟢 OK" in text
+
+    def test_callback_renders_chosen_account(self, monkeypatch):
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        self._patch_coord(monkeypatch)
+        upd, query = self._make_query("risk_check:alpha")
+        self._run(bot.callback_handler(upd, MagicMock()))
+        text = query.edit_message_text.call_args.args[0]
+        assert "Risk Check: alpha" in text
+        assert "🔴 HALTED" in text  # alpha is halted in our fixture
+
+    def test_callback_unknown_account_returns_not_found(self, monkeypatch):
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        self._patch_coord(monkeypatch)
+        upd, query = self._make_query("risk_check:does_not_exist")
+        self._run(bot.callback_handler(upd, MagicMock()))
+        text = query.edit_message_text.call_args.args[0]
+        assert "not found" in text.lower()
+
+    def test_typed_arg_and_callback_produce_same_render(self, monkeypatch):
+        """Typed `/risk_check live` and tapping the live button should
+        produce identical text — the renderer is shared between the two
+        paths."""
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        self._patch_coord(monkeypatch)
+        # Typed path
+        upd_typed = self._make_update()
+        ctx = MagicMock()
+        ctx.args = ["live"]
+        self._run(bot.cmd_risk_check(upd_typed, ctx))
+        typed_text = upd_typed.message.reply_text.call_args.args[0]
+        # Button path
+        upd_btn, query = self._make_query("risk_check:live")
+        self._run(bot.callback_handler(upd_btn, MagicMock()))
+        btn_text = query.edit_message_text.call_args.args[0]
+        assert typed_text == btn_text
+
+    def test_no_accounts_configured_returns_friendly_message(self, monkeypatch):
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        coord = MagicMock()
+        coord.accounts_status.return_value = []
+        monkeypatch.setattr(bot, "get_coordinator", lambda: coord)
+        upd = self._make_update()
+        ctx = MagicMock()
+        ctx.args = []
+        self._run(bot.cmd_risk_check(upd, ctx))
+        text = upd.message.reply_text.call_args.args[0]
+        assert "No accounts" in text
+
+
+# ---------------------------------------------------------------------------
 # close_all_bybit_positions (M2a) — per-account migration tests
 # ---------------------------------------------------------------------------
 
