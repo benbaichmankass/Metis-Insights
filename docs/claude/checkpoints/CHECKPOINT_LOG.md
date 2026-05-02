@@ -5,6 +5,68 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-02-30 — S-030 PR1 merged + S-030 PR2 drafted (strategy monitor() hook)
+
+- **Session date:** 2026-05-02
+- **Sprint:** Architecture compliance — S-030 (order-packages log + monitor loop). PR1 (#315) merged this session; PR2 (#317, this checkpoint) ships the `monitor()` contract on every strategy. PR3 (next session) builds the heartbeat-driven loop that consumes the contract.
+- **Current sprint phase:** **PR2 DRAFTED** — operator merges, then S-030 PR3 (the monitor loop) starts.
+- **Last completed checkpoint:** CP-2026-05-02-29 (S-030 PR1 drafted).
+- **Next checkpoint:** **CP-2026-05-?-?? — S-030 PR3** (heartbeat-driven monitor loop + close-side trade-row update). Read order: this entry, `docs/claude/architecture-audit-2026-05-02.md` § P1-4, the merged #317 (the `monitor()` contract), `src/units/strategies/_base.py::monitor_breakeven_sl`, `src/runtime/heartbeat.py`, `src/data_layer/database.py::get_order_packages_by_strategy`.
+- **Telegram sent:** ping-PR self-merges to fire the operator alert linking to #317.
+- **Alerts sent during session:** ping-PRs #309, #314, #316, this checkpoint's ping-PR.
+- **Blockers:** PM review on #317 (Tier 2 — strategy unit changes per Architecture rule 2).
+
+### 1. Completed
+- **#315 (S-030 PR1) merged.** order_packages table + insert/update/get_by_strategy writers + dispatch insert from `Coordinator.multi_account_execute`. The DB unit now owns the order-packages log; `pkg.meta["order_package_id"]` carries the link key downstream.
+- **#317 (S-030 PR2, draft).** Strategy `monitor()` contract:
+  - `src/units/strategies/_base.py` — new `monitor_breakeven_sl(open_pkg, candles_df, *, one_r_threshold=1.0)` helper. When the trade has captured 1R and SL is still at the original invalidation, returns `{"sl": entry}` so the loop moves the stop to break-even. Defensive: every malformed input (empty df, missing columns/keys, zero risk distance, unknown direction) returns `None`, never raises.
+  - `src/units/strategies/vwap.py::monitor` — delegates to the helper. The mean-reversion thesis invalidates at the original SL; once 1R captured the original level no longer needs defending.
+  - `src/units/strategies/turtle_soup.py::monitor` — same pattern.
+  - `tests/test_s030_pr2_strategy_monitor_hook.py` (NEW, 21 tests) — 9 break-even-SL contract tests, 6 defensive tests, 6 strategy-level integration tests.
+
+### 2. Files changed
+- `src/units/strategies/_base.py` — `monitor_breakeven_sl` helper.
+- `src/units/strategies/vwap.py` — new `monitor()`.
+- `src/units/strategies/turtle_soup.py` — new `monitor()`.
+- `tests/test_s030_pr2_strategy_monitor_hook.py` — new (21 tests).
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` — this entry.
+- `docs/claude/pending-pings.jsonl` — S-030 PR2 ping entry.
+
+### 3. Tests run
+- `pytest tests/test_s030_pr2_strategy_monitor_hook.py -v` — 21/21 pass.
+- `pytest tests/test_s030_pr1 tests/test_vwap_strategy tests/test_s008_strategies` — 94/94 pass (no regressions).
+- `python scripts/secret_scan.py` — clean.
+- `python scripts/check_dry_run_in_diff.py` — clean.
+
+### 4. Remaining (S-030 PR3 — next session)
+- **`src/runtime/order_monitor.py`** (or fold into `heartbeat.py`) — heartbeat-driven loop:
+  1. For each enabled strategy in `units.yaml`, call `db.get_order_packages_by_strategy(s, status="open")`.
+  2. Fetch fresh candles for each package's symbol/timeframe.
+  3. Call the strategy's `monitor(cfg, candles_df, open_pkg)`.
+  4. On a non-None return:
+     - `{"sl": x}` or `{"tp": x}` → `db.update_order_package(id, {…})` + a new `account.update_open_trade(pkg)` that re-runs `risk_manager.approve` and modifies the live exchange order.
+     - `{"action": "close", ...}` → close the live order (new `account.close_open_trade(pkg)` route through `execute_pkg` close path) + `db.update_order_package(id, {"status": "closed", "close_reason": …})` + close-side `trades` row update.
+  5. Log every monitor tick to a new `pipeline_result` event variant so `signal_audit.jsonl` carries the monitor lifecycle.
+- **`account.update_open_trade(pkg)`** + **`account.close_open_trade(pkg)`** — the account unit's side of Rule 3 ("while a trade is open ... the account re-runs the package through its risk manager to decide whether to close").
+- **Close-side `trades` row update.** The S-029 PR2 writer creates the row at `status='open'`; the close path needs to update `status`, `exit_price`, `exit_reason`, `pnl`, `pnl_percent`.
+- **Tests.** Per-strategy monitor() contract tests already pass (PR2). PR3 needs an integration test exercising the full loop: open package → monitor returns {"sl": be} → DB row updated → exchange order modified.
+
+### 5. Next checkpoint
+**CP-2026-05-?-??** — S-030 PR3 (monitor loop + close path). Do not start until #317 merges. Estimated diff size: ~600 LoC including tests. Tier 2 — the close path mutates live orders.
+
+### 6. Live-mode check
+- ✅ `scripts/check_dry_run_in_diff.py` clean.
+- ✅ `config/accounts.yaml` not touched.
+- ⚠️ #317 touches `src/units/strategies/*` (Architecture rule 2 — strategy code always needs PM review).
+- Behavioural change in #317 is contract-only — `monitor()` is unused until PR3's loop calls it. Risk = 0.
+
+### 7. Lessons learned
+1. **Contract-first PRs land cleaner than wiring-first PRs.** Splitting S-030 PR2 (monitor contract on strategies) from PR3 (loop that calls it) means the operator can review the monitor logic in isolation before signing off on the heartbeat-driven changes. PR2's diff is 300 LoC of well-tested business logic; PR3 will be similar size for the loop + close path.
+2. **Helpers in `_base.py` keep strategy modules thin.** `monitor_breakeven_sl` lives in `_base.py`; both vwap and turtle_soup are 4-line `delegate-to-helper` functions. Future strategies can add custom logic on top by checking their own conditions first and falling through to the helper. Mirrors the existing `derive_sl_tp` / `side_to_direction` pattern.
+3. **Defensive monitor logic must NEVER raise.** Bad candle data, missing keys, zero risk — all return `None`. The monitor loop runs every heartbeat tick across every open package; one corrupt package row must not take down the loop. Same pattern as `execution_diagnostics` and `_log_new_order_package` — observability writes never crash the trading path.
+
+---
+
 ## CP-2026-05-02-29 — S-029 P0 fixes merged + S-030 PR1 drafted
 
 - **Session date:** 2026-05-02
