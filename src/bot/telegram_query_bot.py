@@ -2060,6 +2060,60 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"⚠️ Could not check risk for '{account_name}': {e}")
         return
 
+    # Sprint 025 T4 — /accounts mode-toggle confirm flow.
+    if action == "acct_flip_ask":
+        # acct_flip_ask:<name>:<target>
+        rest = parts[1] if len(parts) > 1 else ""
+        name, _, target = rest.rpartition(":")
+        if not name or target not in {"dry", "live"}:
+            await query.edit_message_text(
+                "⚠️ Invalid flip request — please re-open /accounts.")
+            return
+        coord = get_coordinator()
+        if coord is None:
+            await query.edit_message_text("⚠️ Coordinator unavailable.")
+            return
+        target_icon = "🔴" if target == "live" else "🧪"
+        warn = (
+            "\n\n⚠️ *Flipping to LIVE means this account will place "
+            "REAL orders on the next signal.*"
+            if target == "live" else ""
+        )
+        await query.edit_message_text(
+            f"❓ *Confirm flip*\n\n"
+            f"Account: `{name}`\n"
+            f"New mode: {target_icon} **{target.upper()}**"
+            f"{warn}",
+            parse_mode="Markdown",
+            reply_markup=_accounts_confirm_keyboard(name, target),
+        )
+        return
+    if action == "acct_flip_do":
+        rest = parts[1] if len(parts) > 1 else ""
+        name, _, target = rest.rpartition(":")
+        if not name or target not in {"dry", "live"}:
+            await query.edit_message_text(
+                "⚠️ Invalid flip request — please re-open /accounts.")
+            return
+        coord = get_coordinator()
+        if coord is None:
+            await query.edit_message_text("⚠️ Coordinator unavailable.")
+            return
+        try:
+            result = coord.set_account_dry_run(name, target == "dry")
+            icon = "🧪" if result.get("dry_run") else "🔴"
+            await query.edit_message_text(
+                f"{icon} `{name}` → **{result.get('mode', target)} mode**",
+                parse_mode="Markdown",
+            )
+        except Exception as exc:  # noqa: BLE001
+            await query.edit_message_text(
+                f"⚠️ Could not flip `{name}`: {exc}", parse_mode="Markdown")
+        return
+    if action == "acct_flip_cancel":
+        await query.edit_message_text("✖️ Cancelled — no mode change applied.")
+        return
+
     # Sprint 025 T3 — /signals stepper navigation.
     if action == "signals_top":
         await query.edit_message_text(
@@ -2199,8 +2253,74 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
 
 
+def _render_accounts_listing(statuses: list[dict]) -> str:
+    """Pure renderer for the /accounts listing body. Shared between
+    the typed path and the listing+keyboard path."""
+    if not statuses:
+        return "ℹ️ No accounts found in accounts.yaml."
+    lines = ["📋 *Accounts* (dry/live + risk)\n"]
+    for s in statuses:
+        dry = s.get("dry_run", True)
+        mode_icon = "🧪 dry" if dry else "🔴 live"
+        halted_icon = " 🛑HALTED" if s.get("halted") else ""
+        pnl = float(s.get("daily_pnl", 0))
+        limit = float(s.get("max_daily_loss_usd", 0))
+        lines.append(
+            f"{mode_icon}{halted_icon} — *{s['name']}* (`{s.get('exchange', '?')}`)\n"
+            f"  💵 PnL ${pnl:+.2f} / ${limit:.0f} | Type: {s.get('account_type', '?')}"
+        )
+    return "\n\n".join(lines)
+
+
+def _accounts_toggle_keyboard(statuses: list[dict]) -> InlineKeyboardMarkup:
+    """Sprint 025 T4 — one mode-toggle button per account.
+
+    Each button label says where the account is going (e.g.
+    ``live → 🧪 dry`` for an account currently in live, or
+    ``dry → 🔴 live`` for an account currently in dry). Tap →
+    confirmation prompt (a second tap is required before the flip
+    actually applies — a deliberately heavier UX than the typed
+    ``/accounts dry|live <name>`` path because flipping mode changes
+    whether real orders fire on that account).
+    """
+    rows: list[list[InlineKeyboardButton]] = []
+    for s in statuses:
+        name = s["name"]
+        dry = s.get("dry_run", True)
+        target = "live" if dry else "dry"
+        target_icon = "🔴" if target == "live" else "🧪"
+        cur = "dry" if dry else "live"
+        rows.append([InlineKeyboardButton(
+            f"{name}: {cur} → {target_icon} {target}",
+            callback_data=f"acct_flip_ask:{name}:{target}",
+        )])
+    return InlineKeyboardMarkup(rows)
+
+
+def _accounts_confirm_keyboard(name: str, target: str) -> InlineKeyboardMarkup:
+    """Sprint 025 T4 — confirm-or-cancel keyboard for a pending flip."""
+    return InlineKeyboardMarkup([[
+        InlineKeyboardButton(
+            f"✅ Confirm flip to {target.upper()}",
+            callback_data=f"acct_flip_do:{name}:{target}",
+        ),
+        InlineKeyboardButton(
+            "✖️ Cancel", callback_data="acct_flip_cancel"),
+    ]])
+
+
 async def cmd_accounts(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """List accounts with dry/live mode, or toggle: /accounts dry|live <name>"""
+    """List accounts with dry/live mode + per-account toggle buttons.
+
+    Usage:
+        /accounts                          — listing + per-account toggle buttons
+        /accounts dry|live <account_name>  — typed power-user shortcut
+
+    Sprint 025 T4 — the button flow REQUIRES two taps to apply a
+    flip (pick → confirm) so accidental switches between dry and live
+    can't happen with one click. The typed path is preserved
+    unchanged for operators who still want one-shot.
+    """
     if not is_authorised(update):
         return
     coord = get_coordinator()
@@ -2229,27 +2349,24 @@ async def cmd_accounts(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(f"⚠️ Could not toggle account: {e}")
         return
 
-    # /accounts → list all with dry/live status
+    # /accounts (no args) → listing text + per-account toggle keyboard.
     try:
-        statuses = coord.accounts_status()
-        if not statuses:
-            await update.message.reply_text("ℹ️ No accounts found in accounts.yaml.")
-            return
-        lines = ["📋 *Accounts* (dry/live + risk)\n"]
-        for s in statuses:
-            dry = s.get("dry_run", True)
-            mode_icon = "🧪 dry" if dry else "🔴 live"
-            halted_icon = " 🛑HALTED" if s.get("halted") else ""
-            pnl = float(s.get("daily_pnl", 0))
-            limit = float(s.get("max_daily_loss_usd", 0))
-            lines.append(
-                f"{mode_icon}{halted_icon} — *{s['name']}* (`{s.get('exchange', '?')}`)\n"
-                f"  💵 PnL ${pnl:+.2f} / ${limit:.0f} | Type: {s.get('account_type', '?')}"
-            )
-        lines.append("\nUse `/accounts dry|live <name>` to toggle.")
-        await update.message.reply_text("\n\n".join(lines), parse_mode="Markdown")
-    except Exception as e:
+        statuses = coord.accounts_status() or []
+    except Exception as e:  # noqa: BLE001
         await update.message.reply_text(f"⚠️ Could not load accounts: {e}")
+        return
+    if not statuses:
+        await update.message.reply_text("ℹ️ No accounts found in accounts.yaml.")
+        return
+    body = _render_accounts_listing(statuses)
+    kb = _accounts_toggle_keyboard(statuses)
+    await update.message.reply_text(
+        body
+        + "\n\nTap a button to flip an account's mode. You'll be asked "
+        "to confirm before the change is applied.",
+        parse_mode="Markdown",
+        reply_markup=kb,
+    )
 
 
 async def cmd_reload_strats(update: Update, context: ContextTypes.DEFAULT_TYPE):

@@ -1374,6 +1374,137 @@ class TestCmdRiskCheckButtonFlow:
 
 
 # ---------------------------------------------------------------------------
+# Sprint 025 T4 — /accounts mode toggle with confirm step (G4 slice 4)
+# ---------------------------------------------------------------------------
+
+
+class TestCmdAccountsToggleConfirm:
+    """No-args /accounts replies with the listing + per-account toggle
+    keyboard. Tap → "❓ Confirm flip" prompt with explicit Confirm /
+    Cancel buttons. ONLY the second tap actually calls
+    coord.set_account_dry_run, so a single accidental tap can't flip
+    an account between dry and live.
+
+    Typed `/accounts dry|live <name>` is preserved unchanged.
+    """
+
+    def _statuses(self, *, live_dry=("live", True), alpha_dry=False):
+        return [
+            {"name": live_dry[0], "exchange": "bybit", "account_type": "futures",
+             "dry_run": live_dry[1], "halted": False,
+             "daily_pnl": 0.0, "max_daily_loss_usd": 200.0},
+            {"name": "alpha", "exchange": "binance", "account_type": "spot",
+             "dry_run": alpha_dry, "halted": False,
+             "daily_pnl": 0.0, "max_daily_loss_usd": 100.0},
+        ]
+
+    def _make_update(self):
+        upd = MagicMock()
+        upd.effective_chat.id = 12345
+        upd.callback_query = None
+        upd.message.reply_text = AsyncMock()
+        return upd
+
+    def _make_query(self, data: str):
+        query = MagicMock()
+        query.data = data
+        query.answer = AsyncMock()
+        query.edit_message_text = AsyncMock()
+        query.message.chat.id = 12345
+        upd = MagicMock()
+        upd.callback_query = query
+        upd.effective_chat = None
+        return upd, query
+
+    def _run(self, coro):
+        import asyncio
+        return asyncio.new_event_loop().run_until_complete(coro)
+
+    def _patch_coord(self, monkeypatch, statuses=None):
+        coord = MagicMock()
+        coord.accounts_status.return_value = statuses or self._statuses()
+        coord.set_account_dry_run.return_value = {
+            "name": "live", "dry_run": True, "mode": "dry",
+        }
+        monkeypatch.setattr(bot, "get_coordinator", lambda: coord)
+        return coord
+
+    def test_no_args_replies_with_listing_and_keyboard(self, monkeypatch):
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        self._patch_coord(monkeypatch)
+        upd = self._make_update()
+        ctx = MagicMock()
+        ctx.args = []
+        self._run(bot.cmd_accounts(upd, ctx))
+        kwargs = upd.message.reply_text.call_args.kwargs
+        assert kwargs.get("reply_markup") is not None
+        text = upd.message.reply_text.call_args.args[0]
+        assert "Accounts" in text
+        assert "confirm" in text.lower()
+
+    def test_typed_path_still_works_one_shot(self, monkeypatch):
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        coord = self._patch_coord(monkeypatch)
+        upd = self._make_update()
+        ctx = MagicMock()
+        ctx.args = ["dry", "live"]
+        self._run(bot.cmd_accounts(upd, ctx))
+        # Typed path applies immediately — single coord call.
+        coord.set_account_dry_run.assert_called_once_with("live", True)
+
+    def test_first_tap_does_not_apply_flip(self, monkeypatch):
+        """Tapping a toggle button must NOT call coord.set_account_dry_run.
+        The first tap only opens the confirmation prompt."""
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        coord = self._patch_coord(monkeypatch)
+        upd, query = self._make_query("acct_flip_ask:live:dry")
+        self._run(bot.callback_handler(upd, MagicMock()))
+        coord.set_account_dry_run.assert_not_called()
+        # Edited message asks for confirmation.
+        text = query.edit_message_text.call_args.args[0]
+        assert "Confirm" in text
+        kwargs = query.edit_message_text.call_args.kwargs
+        assert kwargs.get("reply_markup") is not None
+
+    def test_first_tap_to_live_warns_explicitly(self, monkeypatch):
+        """Flipping TO live must include a clear "REAL orders" warning
+        in the confirmation prompt — flipping to dry doesn't need
+        that warning."""
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        self._patch_coord(monkeypatch)
+        upd, query = self._make_query("acct_flip_ask:live:live")
+        self._run(bot.callback_handler(upd, MagicMock()))
+        text = query.edit_message_text.call_args.args[0]
+        assert "REAL orders" in text
+
+    def test_second_tap_applies_flip(self, monkeypatch):
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        coord = self._patch_coord(monkeypatch)
+        upd, query = self._make_query("acct_flip_do:live:dry")
+        self._run(bot.callback_handler(upd, MagicMock()))
+        coord.set_account_dry_run.assert_called_once_with("live", True)
+        text = query.edit_message_text.call_args.args[0]
+        assert "dry mode" in text or "DRY mode" in text or "🧪" in text
+
+    def test_cancel_button_does_not_apply(self, monkeypatch):
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        coord = self._patch_coord(monkeypatch)
+        upd, query = self._make_query("acct_flip_cancel")
+        self._run(bot.callback_handler(upd, MagicMock()))
+        coord.set_account_dry_run.assert_not_called()
+        text = query.edit_message_text.call_args.args[0]
+        assert "Cancel" in text or "cancel" in text
+
+    def test_invalid_target_in_callback_warns(self, monkeypatch):
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        self._patch_coord(monkeypatch)
+        upd, query = self._make_query("acct_flip_do:live:nonsense")
+        self._run(bot.callback_handler(upd, MagicMock()))
+        text = query.edit_message_text.call_args.args[0]
+        assert "Invalid flip" in text
+
+
+# ---------------------------------------------------------------------------
 # Sprint 025 T3 — /signals stepper (G4 slice 2)
 # ---------------------------------------------------------------------------
 
