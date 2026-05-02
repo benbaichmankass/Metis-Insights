@@ -233,6 +233,30 @@ async def cmd_roadmap(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(summary)
 
 
+# Static schedule of automations configured in claude.ai/code. The full
+# setup spec (form values + cron rationale) lives in
+# docs/claude/web-automations.md; this command is a quick reminder of
+# what's running in the cloud sandbox so the operator knows when to
+# expect each ping.
+WEB_AUTOMATIONS = (
+    ("Hardening audit",      "every other day at 06:00 UTC", "0 6 1-31/2 * *"),
+    ("Strategy improvement", "Mondays at 06:00 UTC",         "0 6 * * 1"),
+    ("Model training",       "Thursdays at 06:00 UTC",       "0 6 * * 4"),
+)
+
+
+async def cmd_schedules(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
+    if not _is_authorized(update):
+        return
+    lines = ["📆 Cloud automations (claude.ai/code)", ""]
+    for name, cadence, cron in WEB_AUTOMATIONS:
+        lines.append(f"• {name} — {cadence}  ({cron})")
+    lines.append("")
+    lines.append("Setup: docs/claude/web-automations.md")
+    lines.append("Manual triggers: /audit /improve_strategy /train_model")
+    await update.message.reply_text("\n".join(lines))
+
+
 BOT_COMMANDS: List[BotCommand] = [
     BotCommand("start", "Show help"),
     BotCommand("reset", "Clear conversation history"),
@@ -241,6 +265,7 @@ BOT_COMMANDS: List[BotCommand] = [
     BotCommand("improve_strategy", "Trigger a strategy improvement session: /improve_strategy [strategy]"),
     BotCommand("train_model", "Trigger a model training session: /train_model [strategy]"),
     BotCommand("roadmap", "Show current roadmap status"),
+    BotCommand("schedules", "Show cloud automation schedule"),
 ]
 
 
@@ -266,6 +291,7 @@ def main() -> None:
     app.add_handler(CommandHandler("improve_strategy", cmd_improve_strategy))
     app.add_handler(CommandHandler("train_model", cmd_train_model))
     app.add_handler(CommandHandler("roadmap", cmd_roadmap))
+    app.add_handler(CommandHandler("schedules", cmd_schedules))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, chat))
     logger.info(
         "Claude bridge starting (model=%s, allowed_chat=%s)",
