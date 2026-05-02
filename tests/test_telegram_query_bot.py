@@ -960,21 +960,26 @@ class TestCmdLast5IteratesAccounts:
 
 
 class TestHelpCommandParity:
-    """The Telegram command-menu (BOT_COMMANDS) must mirror /help 1:1.
+    """The Telegram command-menu (BOT_COMMANDS) must mirror the union of
+    /help category drill-downs 1:1.
 
-    Two regressions caused this test to be added:
-      - /help listed `/closeall` etc. but the hamburger menu showed stale
-        descriptions referring to a single legacy strategy label.
-      - Several handlers (`/set_keys`, `/set_all_live`, `/hourly`,
-        `/ping_test`) were registered but never surfaced in /help.
+    G3 — /help is now a button-driven menu. cmd_start replies with the
+    category buttons; tapping a category edits the message to that
+    category's drill-down. Parity is therefore checked against the
+    concatenation of every category render, not against cmd_start's
+    top-level text (which intentionally lists no commands).
 
     Failure modes the test catches:
-      1. A command in BOT_COMMANDS that's missing from /help text.
-      2. A command in /help text that's missing from BOT_COMMANDS.
+      1. A command in BOT_COMMANDS that's missing from every drill-down.
+      2. A command in some drill-down that's missing from BOT_COMMANDS.
       3. Order drift between the two (Telegram displays the menu in the
-         order set_my_commands receives it; /help should match).
+         order set_my_commands receives it; the union of drill-downs in
+         category-display order should match).
       4. A description longer than 80 chars (Telegram truncates ugly).
+      5. A registered CommandHandler that has no spec.
     """
+
+    META_NAMES = {"start", "help"}
 
     def _make_update(self):
         upd = MagicMock()
@@ -987,55 +992,80 @@ class TestHelpCommandParity:
         import asyncio
         return asyncio.new_event_loop().run_until_complete(coro)
 
-    def _help_text(self, monkeypatch) -> str:
-        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
-        # cmd_help just delegates to cmd_start — exercise the same path
-        # the operator hits.
-        upd = self._make_update()
-        self._run(bot.cmd_help(upd, MagicMock()))
-        return upd.message.reply_text.call_args.args[0]
-
-    def test_every_bot_command_appears_in_help(self, monkeypatch):
-        text = self._help_text(monkeypatch)
-        cmds_in_help = bot._commands_in_help_text(text)
-        # /start is exposed in the hamburger menu (Telegram opens chat
-        # with /start) but is not described in the /help body — it's an
-        # alias for /help.
+    def test_every_bot_command_appears_in_some_category(self):
+        all_cmds = bot._commands_across_help_categories()
         for bc in bot.BOT_COMMANDS:
-            if bc.command == "start":
+            if bc.command in self.META_NAMES:
                 continue
-            assert bc.command in cmds_in_help, (
-                f"/{bc.command} is in BOT_COMMANDS but missing from /help text"
+            assert bc.command in all_cmds, (
+                f"/{bc.command} is in BOT_COMMANDS but missing from every "
+                f"/help category drill-down"
             )
 
-    def test_every_help_command_appears_in_bot_commands(self, monkeypatch):
-        text = self._help_text(monkeypatch)
+    def test_every_help_command_appears_in_bot_commands(self):
         cmd_names = {bc.command for bc in bot.BOT_COMMANDS}
-        for name in bot._commands_in_help_text(text):
+        for name in bot._commands_across_help_categories():
             assert name in cmd_names, (
-                f"/{name} appears in /help but is missing from BOT_COMMANDS"
+                f"/{name} appears in a /help drill-down but is missing "
+                f"from BOT_COMMANDS"
             )
 
-    def test_help_and_bot_commands_share_order(self, monkeypatch):
-        """The hamburger menu order must match /help reading order.
+    def test_help_and_bot_commands_share_order(self):
+        """The hamburger menu order must match the union of drill-downs.
 
-        ``set_my_commands`` is what Telegram displays in the bot-command
-        picker, and operators expect the picker to list things the same
-        way they're written in /help. /start and /help are aliases for
-        the menu itself — they sit at the top of BOT_COMMANDS for
-        discoverability but are not interleaved into the categorized /help
-        body — so the parity check is applied to the rest of the surface.
+        ``set_my_commands`` is what Telegram displays in the chat
+        composer; the union of drill-downs is what operators see when
+        navigating /help with buttons. Both must reflect BOT_COMMAND_SPECS
+        in the same order, modulo the meta /start /help aliases (which
+        live at the top of BOT_COMMANDS for discoverability but are not
+        in any drill-down body).
         """
-        text = self._help_text(monkeypatch)
-        cmds_in_help = [c for c in bot._commands_in_help_text(text)
-                        if c not in {"start", "help"}]
+        cmds_in_help = bot._commands_across_help_categories()
         bot_cmd_names = [bc.command for bc in bot.BOT_COMMANDS
-                         if bc.command not in {"start", "help"}]
+                         if bc.command not in self.META_NAMES]
         assert cmds_in_help == bot_cmd_names, (
             "Order mismatch:\n"
-            f"  /help:         {cmds_in_help}\n"
-            f"  BOT_COMMANDS:  {bot_cmd_names}"
+            f"  /help drill-downs: {cmds_in_help}\n"
+            f"  BOT_COMMANDS:      {bot_cmd_names}"
         )
+
+    def test_cmd_start_replies_with_category_buttons(self, monkeypatch):
+        """The first reply to /help should be the top-level menu with one
+        button per category — not a wall of text."""
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        upd = self._make_update()
+        self._run(bot.cmd_help(upd, MagicMock()))
+        kwargs = upd.message.reply_text.call_args.kwargs
+        kb = kwargs.get("reply_markup")
+        assert kb is not None, (
+            "cmd_help must reply with an InlineKeyboardMarkup of category "
+            "buttons (G3 — /help is button-driven now)"
+        )
+        # Top-level greeting should not list every command — that defeats
+        # the purpose of the category menu.
+        text = upd.message.reply_text.call_args.args[0]
+        assert "/status" not in text, (
+            "cmd_help top-level should not list every command — only "
+            "category buttons. Found '/status' in the top message."
+        )
+
+    def test_render_help_category_lists_category_commands(self):
+        """Each category render lists exactly the commands in that
+        category (and only those), in declared order."""
+        for cid, _label in bot.HELP_CATEGORIES:
+            text, _kb = bot.render_help_category(cid)
+            seen = bot._commands_in_help_text(text)
+            expected = [s.name for s in bot.BOT_COMMAND_SPECS
+                        if s.category == cid]
+            assert seen == expected, (
+                f"Category '{cid}' drill-down mismatch:\n"
+                f"  rendered: {seen}\n"
+                f"  expected: {expected}"
+            )
+
+    def test_unknown_help_category_returns_back_button(self):
+        text, _kb = bot.render_help_category("does_not_exist")
+        assert "Unknown" in text or "unknown" in text
 
     def test_descriptions_are_within_telegram_limits(self):
         for bc in bot.BOT_COMMANDS:
@@ -1045,22 +1075,84 @@ class TestHelpCommandParity:
                 f"{bc.description!r}"
             )
 
-    def test_every_registered_handler_is_in_bot_commands(self, monkeypatch):
+    def test_every_registered_handler_is_in_bot_commands(self):
         """Any operator-facing command-handler registered in main() should
-        also appear in the menu. Exceptions are allow-listed below — those
-        are intentional handler-only commands (none today)."""
-        # Walk the module source for ``CommandHandler("name", ...)`` calls.
+        also appear in BOT_COMMANDS. Catches "registered handler with no
+        menu entry" drift at PR time."""
         import inspect
         src = inspect.getsource(bot)
         registered = set(re.findall(r'CommandHandler\("([a-zA-Z0-9_]+)"', src))
         bot_cmd_names = {bc.command for bc in bot.BOT_COMMANDS}
-        # Allow-list — these are not surfaced via the menu intentionally.
-        # /start is in BOT_COMMANDS already; nothing else is exempt today.
         intentionally_hidden: set[str] = set()
         missing = registered - bot_cmd_names - intentionally_hidden
         assert not missing, (
             f"Handlers registered but missing from BOT_COMMANDS: {sorted(missing)}"
         )
+
+
+class TestHelpButtonCallbacks:
+    """G3 — the inline-button navigation for /help.
+
+    Top-level → category drill-down → back to top-level. Each transition
+    edits the original message in place via ``query.edit_message_text``.
+    """
+
+    def _make_query(self, data: str):
+        query = MagicMock()
+        query.data = data
+        query.answer = AsyncMock()
+        query.edit_message_text = AsyncMock()
+        query.message.chat.id = 12345
+        upd = MagicMock()
+        upd.callback_query = query
+        upd.effective_chat = None
+        return upd, query
+
+    def _run(self, coro):
+        import asyncio
+        return asyncio.new_event_loop().run_until_complete(coro)
+
+    def test_help_top_callback_renders_category_buttons(self, monkeypatch):
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        upd, query = self._make_query("help_top")
+        self._run(bot.callback_handler(upd, MagicMock()))
+        kwargs = query.edit_message_text.call_args.kwargs
+        assert kwargs.get("reply_markup") is not None, (
+            "help_top callback must edit message with the category-button "
+            "InlineKeyboardMarkup"
+        )
+
+    def test_help_cat_callback_lists_category_commands(self, monkeypatch):
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        upd, query = self._make_query("help_cat:trading")
+        self._run(bot.callback_handler(upd, MagicMock()))
+        text = query.edit_message_text.call_args.args[0]
+        # Trading commands should all be listed.
+        for name in ("status", "halt", "resume", "closeall", "toggle"):
+            assert f"/{name}" in text, (
+                f"help_cat:trading drill-down missing /{name}"
+            )
+
+    def test_help_cat_callback_unknown_category_warns(self, monkeypatch):
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        upd, query = self._make_query("help_cat:does_not_exist")
+        self._run(bot.callback_handler(upd, MagicMock()))
+        text = query.edit_message_text.call_args.args[0]
+        assert "Unknown" in text or "unknown" in text
+
+    def test_typed_help_with_category_arg_renders_drilldown(self, monkeypatch):
+        """`/help trading` typed in chat should render the trading drill-down
+        directly — no menu navigation needed for power users."""
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        upd = MagicMock()
+        upd.effective_chat.id = 12345
+        upd.callback_query = None
+        upd.message.reply_text = AsyncMock()
+        ctx = MagicMock()
+        ctx.args = ["trading"]
+        self._run(bot.cmd_help(upd, ctx))
+        text = upd.message.reply_text.call_args.args[0]
+        assert "/status" in text and "/halt" in text
 
 
 # ---------------------------------------------------------------------------
