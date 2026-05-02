@@ -41,6 +41,7 @@ open a draft PR titled `BLOCKED: <question>` — see § Telegram Reporting.
 | Colab work | `docs/claude/colab-workflows.md` |
 | Hugging Face work | `docs/claude/huggingface-workflows.md` |
 | Deployment / Oracle VM | `docs/claude/deployment-ops.md`, `docs/claude/security-secrets.md` |
+| Manual VM operator step (set env, restart svc, flip flag, rotate key) | **`docs/claude/colab-workflows.md` § "Operator VM steps"** — deliver a one-click `notebooks/operator/*.ipynb`, NOT a markdown CLI checklist |
 | Running ON the VM (Telegram-dispatched runner) | `docs/claude/vm-operator-mode.md` **(binding tier policy)** |
 | Git / PR / push | `docs/claude/git-workflow.md`, `docs/claude/security-secrets.md` |
 | Telegram ping wiring | `docs/claude/telegram-pings.md` |
@@ -60,6 +61,10 @@ let them re-issue the command.
 
 - Keep changes small and reversible.
 - Prefer scripts/notebooks that let Colab, Hugging Face, or the VM do heavy work.
+- **For ANY manual VM operator step, deliver a one-click Colab notebook
+  under `notebooks/operator/`, never a copy-paste CLI checklist.** Follow
+  the structure in `notebooks/operator/rotate_api_keys.ipynb`. Full rules
+  in `docs/claude/colab-workflows.md` § "Operator VM steps".
 - Do not run training, full backtests, live trading, or deployment unless explicitly asked.
 - Do not print secrets.
 - Update the relevant `docs/claude/*.md` file after discovering a recurring bug, cleanup rule, or workflow improvement.
