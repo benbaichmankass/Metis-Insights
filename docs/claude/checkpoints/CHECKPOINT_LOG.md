@@ -5,6 +5,66 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-02-32 — S-030 PR3 merged + S-030 PR4 drafted (exchange-side modify/close)
+
+- **Session date:** 2026-05-02
+- **Sprint:** Architecture compliance — S-030 PR4 ships the exchange-side wiring that completes the monitor loop. After this merges + the env flag is flipped, the **live order lifecycle is architecturally complete**: signal → package → dispatch → trade → monitor (DB + exchange) → close (DB + exchange).
+- **Current sprint phase:** **PR4 DRAFTED** — operator merges, then optionally flips `MONITOR_APPLY_TO_EXCHANGE=true`. After that, S-031 → S-035 from the audit doc are pure boundary cleanup with no behavioural changes.
+- **Last completed checkpoint:** CP-2026-05-02-31 (S-030 PR3 drafted; merged shortly after).
+- **Next checkpoint:** **CP-2026-05-?-?? — S-031 PR1 (thin the bot)**. Read order: this entry, `docs/claude/architecture-audit-2026-05-02.md` § P1-6, `src/bot/telegram_query_bot.py`'s direct DB-query handlers (`fetch_today_pnl`, `fetch_open_positions_count`, `_read_audit_tail`, `_render_signals_block`), `src/ui/processor.py`. PR1 of S-031 pulls the status / balance / signals handlers into UI-unit helpers.
+- **Telegram sent:** ping-PR self-merges to fire the operator alert linking to #321.
+- **Alerts sent during session:** ping-PRs #309 (BUG-034), #314 (S-029 batch), #316 (S-030 PR1), #318 (S-030 PR2), #320 (S-030 PR3), this checkpoint's ping-PR (S-030 PR4).
+- **Blockers:** PM review on #321 (Tier 2).
+
+### 1. Completed
+- **#319 (S-030 PR3) merged.** Order-monitor loop runs once per pipeline tick; reads open packages, calls each strategy's `monitor()`, applies sl/tp updates and close decisions to the DB. Shadow mode — DB-only.
+- **#321 (S-030 PR4, draft).** Exchange-side wiring:
+  - `src/units/accounts/execute.py::modify_open_order` — Bybit `set_trading_stop` wrapper. Atomic SL+TP update.
+  - `src/units/accounts/execute.py::close_open_position` — reduce-only market-close wrapper. Side flips automatically (long→Sell).
+  - `src/runtime/order_monitor.py::_apply_to_exchange_enabled` — `MONITOR_APPLY_TO_EXCHANGE` env flag (default off).
+  - `src/runtime/order_monitor.py::_send_close_to_exchange` + `_send_modify_to_exchange` — bridges that resolve the per-account exchange client and dispatch the helpers.
+  - `src/runtime/order_monitor.py::_apply_update` now dispatches to those bridges after the DB write — but only when the env flag is on.
+  - `tests/test_s030_pr4_exchange_modify_close.py` (NEW, 29 tests) — 8 modify_open_order + 6 close_open_position + 4 monitor-env-gate + 11 env-flag parsing.
+
+### 2. Files changed
+- `src/units/accounts/execute.py` — modify_open_order + close_open_position helpers.
+- `src/runtime/order_monitor.py` — env flag + per-account client resolution + bridges + wiring in `_apply_update`.
+- `tests/test_s030_pr4_exchange_modify_close.py` — new (29 tests).
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` — this entry.
+- `docs/claude/pending-pings.jsonl` — S-030 PR4 ping.
+
+### 3. Tests run
+- `pytest tests/test_s030_pr4_exchange_modify_close.py -v` — 29/29 pass.
+- `pytest <regression-adjacent>` — 113/113 pass (s030_pr1/pr2/pr3/pr4, s029_pr2, s028, s008_accounts).
+- `python scripts/secret_scan.py` — clean.
+- `python scripts/check_dry_run_in_diff.py` — clean.
+- CI `scan` job: queued on #321 at write time.
+
+### 4. Remaining (after #321 merges)
+- **Operator rollout step (manual VM step).** Once #321 merges, deliver a one-click Colab notebook under `notebooks/operator/` per CLAUDE.md that:
+  1. Sets `MONITOR_APPLY_TO_EXCHANGE=true` on the trader's systemd unit.
+  2. `systemctl restart ict-trader-live`.
+  3. Tails the journal for `order_monitor: exchange (close|modify)` log lines for the next 30 minutes.
+  This is a Tier 2 operator step, not a Claude-merged change.
+- **S-031 (next big sprint) — thin the Telegram bot.** P1-6 from the audit doc; multi-PR. Each handler in `telegram_query_bot.py` that does DB queries, log reads, or aggregation moves into `src/ui/processor.py`. Tier 1 per PR (no live-routing changes).
+- **S-032 → S-035.** `data_loaders.py` move, OHLCV-out-of-builders, signals-store consolidation, final folder reshuffle.
+
+### 5. Next checkpoint
+**CP-2026-05-?-??** — S-031 PR1 (status / balance / signals handlers into UI helpers). Read order: this entry, `architecture-audit-2026-05-02.md` § P1-6, the merged #321, `src/bot/telegram_query_bot.py:fetch_today_pnl/fetch_open_positions_count/_read_audit_tail/_render_signals_block`, `src/ui/processor.py`.
+
+### 6. Live-mode check
+- ✅ `scripts/check_dry_run_in_diff.py` clean.
+- ✅ `config/accounts.yaml` not touched.
+- ⚠️ #321 touches `src/units/accounts/execute.py` + `src/runtime/order_monitor.py` (Live-mode invariant rule 3).
+- The new code paths are env-gated and OFF by default. With `MONITOR_APPLY_TO_EXCHANGE` unset, behaviour is identical to PR3 (shadow mode). The operator must explicitly opt in via the rollout notebook.
+
+### 7. Lessons learned
+1. **Env-gated rollouts make Tier 2 PRs reviewable.** Adding `MONITOR_APPLY_TO_EXCHANGE` (default off) means the diff lands without immediate behaviour change. The operator gets a no-risk merge, then flips the env when ready and watches for ~30 min. Same pattern works for any live-routing change that the operator wants to verify before activating.
+2. **Returning a result dict is better than raising in observability code.** `modify_open_order` and `close_open_position` return `{"ok": bool, "error": …}` rather than raising. The monitor loop logs the result; the dispatch loop never unwinds because of an exchange hiccup. Future helpers in the same area should follow this pattern.
+3. **Bybit-only-for-now is fine to ship.** Both helpers refuse Binance with a clear `error` string. The live trader's `accounts.yaml` is Bybit-only today (`bybit_1`, `bybit_2`); the prop_breakout entry is disabled. Adding Binance is a separate sprint when there's a real Binance account in production.
+
+---
+
 ## CP-2026-05-02-31 — S-030 PR2 merged + S-030 PR3 drafted (monitor loop)
 
 - **Session date:** 2026-05-02
