@@ -659,6 +659,56 @@ class TestCmdBalanceIteratesAccounts:
         sent = upd.message.reply_text.call_args.args[0]
         assert "No accounts configured" in sent
 
+    def test_emits_dup_key_warning_when_two_accounts_share_a_key(self, monkeypatch):
+        # CP-2026-05-02-03: directly answers the operator's "both
+        # accounts show the same balance" complaint. When the resolved
+        # API key is the same across two accounts, /balance prepends a
+        # banner naming the offending accounts and explains the fix.
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        monkeypatch.setattr(bot.dl, "list_accounts", lambda: [
+            {"account_id": "bybit_1", "exchange": "bybit",
+             "api_key_env": "BYBIT_API_KEY_1",
+             "strategies": ["turtle_soup"]},
+            {"account_id": "bybit_2", "exchange": "bybit",
+             "api_key_env": "BYBIT_API_KEY_2",
+             "strategies": ["vwap"]},
+        ])
+        # Both env vars resolve to the same key value — the exact
+        # situation the operator is in.
+        monkeypatch.setenv("BYBIT_API_KEY_1", "AAAAAAAAAAAA9999")
+        monkeypatch.setenv("BYBIT_API_SECRET_1", "secret-1")
+        monkeypatch.setenv("BYBIT_API_KEY_2", "AAAAAAAAAAAA9999")
+        monkeypatch.setenv("BYBIT_API_SECRET_2", "secret-2")
+        monkeypatch.setattr(bot, "format_bybit_balance", lambda acc: "BLOCK")
+
+        upd = self._make_update()
+        self._run(bot.cmd_balance(upd, MagicMock()))
+        sent = upd.message.reply_text.call_args.args[0]
+        assert "DUPLICATE API KEY DETECTED" in sent
+        assert "bybit_1" in sent and "bybit_2" in sent
+        assert "…9999" in sent
+
+    def test_no_dup_warning_when_keys_differ(self, monkeypatch):
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        monkeypatch.setattr(bot.dl, "list_accounts", lambda: [
+            {"account_id": "bybit_1", "exchange": "bybit",
+             "api_key_env": "BYBIT_API_KEY_1",
+             "strategies": ["turtle_soup"]},
+            {"account_id": "bybit_2", "exchange": "bybit",
+             "api_key_env": "BYBIT_API_KEY_2",
+             "strategies": ["vwap"]},
+        ])
+        monkeypatch.setenv("BYBIT_API_KEY_1", "AAAAAAAAAAAA1111")
+        monkeypatch.setenv("BYBIT_API_SECRET_1", "secret-1")
+        monkeypatch.setenv("BYBIT_API_KEY_2", "BBBBBBBBBBBB2222")
+        monkeypatch.setenv("BYBIT_API_SECRET_2", "secret-2")
+        monkeypatch.setattr(bot, "format_bybit_balance", lambda acc: "BLOCK")
+
+        upd = self._make_update()
+        self._run(bot.cmd_balance(upd, MagicMock()))
+        sent = upd.message.reply_text.call_args.args[0]
+        assert "DUPLICATE API KEY DETECTED" not in sent
+
 
 class TestCmdTradesIteratesAccounts:
     def _make_update(self):

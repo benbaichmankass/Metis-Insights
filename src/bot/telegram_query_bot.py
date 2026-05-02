@@ -348,22 +348,81 @@ def _bybit_creds_diagnostic(account: dict) -> str | None:
     return dl.credentials_check(account or {})
 
 
+def _account_key_fingerprint(account: dict) -> str | None:
+    """Last-4 of the resolved API key, or None if unresolvable.
+
+    Sourced from ``src.units.accounts.clients.resolve_credentials`` so
+    the fingerprint we render is exactly the key the
+    bybit_client_for/binance_conn_for path will use — no chance of
+    drift between "what we show" and "what makes the API call".
+    """
+    try:
+        from src.units.accounts.clients import resolve_credentials
+        creds = resolve_credentials(account or {}) or {}
+        key = creds.get("api_key") or ""
+        return f"…{str(key)[-4:]}" if key else None
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def _account_balance_header(account: dict, *, exchange_suffix: str = "") -> str:
     """Build the balance block header.
 
-    Account-first labeling (CP-2026-05-02): the primary identifier is the
-    account_id (the thing the operator sees in accounts.yaml + the thing
-    that actually owns the API key + wallet); the strategy is shown as a
-    parenthetical so the operator knows which strategy routes through it
-    without confusing strategies-have-balances. Two accounts that happen
-    to share the same single-strategy assignment now show distinct
-    headers — which exposes dup-key issues immediately.
+    Account-first labeling: the primary identifier is the account_id
+    (the thing the operator sees in accounts.yaml + the thing that
+    actually owns the API key + wallet); the strategy is shown as a
+    parenthetical. The resolved API-key fingerprint is appended so two
+    accounts that resolve to the same key are visually obvious in the
+    same /balance reply — no need to wait for the trader's
+    startup-time dup-key ping.
     """
     aid = (account or {}).get("account_id", "?")
     strat = get_strategy_label(account)
+    fp = _account_key_fingerprint(account)
+    env_name = (account or {}).get("api_key_env") or ""
     base = f"`{aid}`" + (f" ({strat})" if strat and strat != _DEFAULT_STRATEGY_LABEL else "")
     suffix = f" {exchange_suffix}" if exchange_suffix else ""
-    return f"💰 *{base} Balance{suffix}*"
+    # Show the env-var name + last-4 of the resolved key. Identical
+    # fingerprints across two rows = same key value in env (operator
+    # action: edit env file). Identical env_name across two rows
+    # would be a code bug (we route here through accounts.yaml so it
+    # should never happen — but if it does, the rendered string
+    # surfaces it instead of hiding it).
+    fp_part = ""
+    if env_name and fp:
+        fp_part = f"\n🔑 env `{env_name}` → {fp}"
+    elif fp:
+        fp_part = f"\n🔑 key {fp}"
+    return f"💰 *{base} Balance{suffix}*{fp_part}"
+
+
+def _duplicate_key_warning(accounts: list[dict]) -> str | None:
+    """Return a warning string when ≥ 2 accounts resolve to the same API key.
+
+    Runs against the same accounts list that ``cmd_balance`` is about
+    to render, so the warning, if present, exactly matches the rows
+    below it. Returns ``None`` when keys are distinct (clean case).
+    """
+    by_fp: dict[str, list[str]] = {}
+    for acc in accounts:
+        fp = _account_key_fingerprint(acc)
+        if not fp:
+            continue
+        by_fp.setdefault(fp, []).append(str((acc or {}).get("account_id", "?")))
+    dup_lines: list[str] = []
+    for fp, ids in by_fp.items():
+        if len(ids) > 1:
+            dup_lines.append(f"`{', '.join(sorted(ids))}` share key {fp}")
+    if not dup_lines:
+        return None
+    return (
+        "⚠️ *DUPLICATE API KEY DETECTED* — accounts below resolve to the\n"
+        "same Bybit/Binance wallet, so identical balances are expected.\n"
+        + "\n".join(f"  • {ln}" for ln in dup_lines)
+        + "\n→ fix: edit the env file so each `api_key_env` in\n"
+        "`config/accounts.yaml` points at a *distinct* key, then\n"
+        "restart the trader + bot."
+    )
 
 
 def format_bybit_balance(account: dict) -> str:
@@ -803,6 +862,9 @@ async def cmd_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
     blocks = []
+    dup_warning = _duplicate_key_warning(accounts)
+    if dup_warning:
+        blocks.append(dup_warning)
     for acc in accounts:
         try:
             blocks.append(_render_account_balance(acc))
