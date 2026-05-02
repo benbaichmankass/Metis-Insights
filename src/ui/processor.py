@@ -407,3 +407,45 @@ def get_signals_block(
     )
     body = "\n".join(_format_signal_row(r) for r in rows)
     return f"{header}\n{body}"
+
+
+# ---------------------------------------------------------------------------
+# Price helper — S-031 PR3 (architecture-audit-2026-05-02 P1-6)
+# ---------------------------------------------------------------------------
+
+
+def get_price(symbol: str = "BTCUSDT") -> Optional[float]:
+    """Return the latest spot/linear last-price for *symbol*, or ``None``.
+
+    Pre-PR (S-031 PR3) ``src/bot/telegram_query_bot.py::cmd_price``
+    made a raw HTTP call to Bybit's public ticker endpoint. Per
+    CLAUDE.md § Architecture rules § 5 the bot doesn't talk to
+    exchanges; the UI unit owns reads of public market data. The
+    public-tickers endpoint is keyless so this helper does not need
+    a per-account client — the call is identical for every operator.
+
+    Returns
+    -------
+    float | None
+        The last-trade price as a float, or ``None`` on any
+        failure (network error, non-200 response, missing fields).
+        Renderers should branch on ``None`` and show a sane
+        ``"unavailable"`` message rather than try/except.
+    """
+    try:
+        import requests  # local import — keep the module light
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("get_price: requests import failed: %s", exc)
+        return None
+    try:
+        resp = requests.get(
+            "https://api.bybit.com/v5/market/tickers",
+            params={"category": "linear", "symbol": symbol},
+            timeout=10,
+        )
+        payload = resp.json()
+        last = payload["result"]["list"][0]["lastPrice"]
+        return float(last)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("get_price(%s): %s", symbol, exc)
+        return None

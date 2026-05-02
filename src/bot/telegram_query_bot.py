@@ -13,7 +13,6 @@ from pathlib import Path
 from dotenv import load_dotenv, dotenv_values
 from telegram import Update, BotCommand, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
-import requests
 
 # Sprint S-001 PR-C..F: route data access through the data_loaders facade.
 # Sprint S-002 M2: migrated close_all_bybit_positions to (account: dict) and
@@ -1030,15 +1029,14 @@ async def cmd_trades(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cmd_price(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_authorised(update):
         return
-    try:
-        resp = requests.get(
-            "https://api.bybit.com/v5/market/tickers",
-            params={"category": "linear", "symbol": "BTCUSDT"}, timeout=10,
-        )
-        price = float(resp.json()["result"]["list"][0]["lastPrice"])
-        await update.message.reply_text(f"📈 *BTC/USDT:* ${price:,.2f}", parse_mode="Markdown")
-    except Exception as e:
-        await update.message.reply_text(f"⚠️ Could not fetch price: {e}")
+    from src.ui import processor
+    price = processor.get_price("BTCUSDT")
+    if price is None:
+        await update.message.reply_text("⚠️ Could not fetch price.")
+        return
+    await update.message.reply_text(
+        f"📈 *BTC/USDT:* ${price:,.2f}", parse_mode="Markdown",
+    )
 
 
 def _format_trade_row(row: dict) -> str:
