@@ -78,7 +78,16 @@ def repo_root(tmp_path, monkeypatch):
 
 
 def _last_reply(update: MagicMock) -> str:
-    return update.message.reply_text.call_args[0][0]
+    call = update.message.reply_text.call_args
+    # Most calls pass the body as the first positional arg, but the
+    # roadmap-missing path uses a keyword. Handle both.
+    if call.args:
+        return call.args[0]
+    return call.kwargs["text"]
+
+
+def _last_parse_mode(update: MagicMock):
+    return update.message.reply_text.call_args.kwargs.get("parse_mode")
 
 
 def _read_trigger_log(repo_root: Path) -> list[dict]:
@@ -105,6 +114,9 @@ class TestCmdAudit:
         reply = _last_reply(update)
         assert "recurring-hardening-prompt.md" in reply
         assert "Hardening session queued" in reply
+        # HTML mode + tap-to-copy code block.
+        assert "<pre><code>" in reply
+        assert _last_parse_mode(update) == "HTML"
 
     def test_unauthorised_does_nothing(self, repo_root: Path):
         update = _make_update(chat_id=12345)
