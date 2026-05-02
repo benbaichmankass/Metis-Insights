@@ -44,6 +44,7 @@ open a draft PR titled `BLOCKED: <question>` — see § Telegram Reporting.
 | Running ON the VM (Telegram-dispatched runner) | `docs/claude/vm-operator-mode.md` **(binding tier policy)** |
 | Git / PR / push | `docs/claude/git-workflow.md`, `docs/claude/security-secrets.md` |
 | Telegram ping wiring | `docs/claude/telegram-pings.md` |
+| Operator weigh-in needed (ping-PR pattern) | `docs/claude/telegram-pings.md` § "Ping-PR vs work-PR" + § "Live-mode invariant" in this file |
 | Architecture lookup | `docs/claude/repo-map.md` |
 
 ## VM-resident sessions (read first if `/etc/claude/vm-marker` exists)
@@ -126,10 +127,59 @@ The full spec lives in `docs/claude/telegram-pings.md`. The short version:
   mechanism. The PR body MUST include the **chat link** so the
   operator can click through and answer in the same session that's
   waiting. Then stop until they reply.
+- **Ping-PR vs work-PR separation (MANDATORY).** A draft work-PR that
+  is waiting on operator input does **not** by itself fire a Telegram
+  ping — pings ride on **merged commits**. So when you need the
+  operator to weigh in, you must:
+  1. Open / keep the work PR as **draft** (`BLOCKED: <q>` or
+     `(PM REVIEW): <q>`). This is what the operator clicks to
+     review/approve. **Do not merge it yourself.**
+  2. Open a **separate, tiny ping-PR** (≤ 5 lines) on its own branch
+     `claude/ping-<slug>` whose only payload is an entry appended to
+     `docs/claude/pending-pings.jsonl` (or a checkpoint-log
+     append) with the question + link to the draft work-PR.
+  3. **Self-merge the ping-PR** immediately. That merge is what
+     fires Telegram. The work-PR stays draft.
+  4. Stop. Do not start unrelated work until the operator replies.
+  Never conflate the two: merging the work-PR to "fire the ping"
+  means you've also approved your own pending change. The ping-PR
+  is the channel, the work-PR is the content; they ride on
+  different commits.
 - **Training / improvement sessions** use four additional title
   prefixes (`[TRAINING-START]`, `TRAINING-PLAN:`, `TRAINING-RESULTS:`,
   `RECOMMENDATIONS (PM REVIEW):`) that all ride on the existing
   ping wiring — see `docs/claude/training-improvement-workflow.md`.
+
+## Live-mode invariant (MANDATORY — every PR)
+
+Before opening (and again before merging) any PR, run a positive check
+that the system stays in live mode for live accounts:
+
+1. Diff against `main` and search for any **added** line that flips a
+   trading-mode flag away from live. The existing CI guard
+   (`scripts/check_dry_run_in_diff.py` / `.github/workflows/dry-run-guard.yml`)
+   covers the obvious patterns; if it fails, **do not bypass** —
+   instead open a ping-PR (per the rule above) explaining the change
+   and stop until the operator approves.
+2. Check `config/accounts.yaml` and any `.env*` template files that
+   the PR touches: every account whose `enabled` is unset / `true`
+   must still have `mode: live` (or no `mode` field — default is
+   live per the autonomous-live-trading rule). Any account that
+   would be left in `dry_run` / `paper` after the PR merges must be
+   explicitly approved by the operator via a ping-PR.
+3. If the PR touches `src/runtime/orders.py`, `src/runtime/pipeline.py`,
+   `src/runtime/trading_mode.py`, `src/units/accounts/*`, or anything
+   that controls the live/dry routing, **always ping the operator**
+   regardless of test outcome — this is a per-PR rule on top of the
+   PM-review gate.
+4. Record the result of (1)–(3) in the PR body under a `## Live-mode
+   check` heading: green ✅ = no change to mode, ⚠️ = a flip was
+   intentionally proposed (with the ping-PR link).
+
+This rule is here because per-tick `failed_validation` messages have
+recurred twice in two sprints, each time because a PR landed a code
+path that bypassed the per-account live/dry contract without an
+explicit operator confirmation.
 
 ## Bug log (MANDATORY)
 
