@@ -5,6 +5,50 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-02-14 — Sprint 025 T1: cmd_hourly routes through src.ui.processor
+
+- **Session date:** 2026-05-02
+- **Sprint:** 025 — UI processor migration + remaining G4 button flows (deferred from S-024).
+- **Current sprint phase:** T1 (1/4) complete. T2 (`/smoke_test` account picker), T3 (`/signals` stepper), T4 (`/accounts` mode toggle with confirm — sensitive, ping-PR pattern) are next.
+- **Last completed checkpoint:** CP-2026-05-02-13 (S-024 closeout, #274 merged).
+- **Next checkpoint:** **CP-2026-05-02-15 — T2: `/smoke_test` account picker.** Reuse `_account_picker_keyboard` from G4 slice 1 (#268). Add an "all accounts" button so the operator can run smoke across every configured account in one tap.
+- **Telegram sent:** pending — this checkpoint commit triggers the VM ping.
+- **Alerts sent during session:** none.
+- **Blockers:** none.
+
+### 1. Completed
+First step of the migration plan in `docs/claude/ui-processor-audit.md` § 5 (the smallest possible PR — operator-facing read API already exists on `src.ui.processor`, just needs to route the bot through it).
+
+- `src/ui/processor.py::get_hourly_report(*, now_utc=None, tick_interval_s=900)` — now accepts kwargs and forwards to `src.runtime.hourly_report.build_hourly_report`. Default `now_utc=None` is _not_ passed through; the runtime helper expects an absent keyword to default to `datetime.now(timezone.utc)`.
+- `src/bot/telegram_query_bot.py::cmd_hourly` — replaces the direct `from src.runtime.hourly_report import build_hourly_report` + `build_hourly_report(now_utc=now, ...)` call with `from src.ui import processor` + `processor.get_hourly_report(now_utc=now, tick_interval_s=900)`. Same input, same output, but the bot now sits behind the same facade the webapp will use.
+- New tests:
+  - `tests/test_ui_processor.py::test_get_hourly_report_forwards_kwargs_to_build` — asserts now_utc + tick_interval_s pass through correctly.
+  - `tests/test_ui_processor.py::test_get_hourly_report_default_kwargs_omit_now_utc` — guards the "absent keyword" detail.
+  - `tests/test_telegram_query_bot.py::TestCmdHourlyReplyMarkdown::test_hourly_routes_through_ui_processor` — asserts `cmd_hourly` consumes the processor (catches future regressions where someone re-introduces a direct runtime import).
+
+### 2. Files changed
+- `src/ui/processor.py` — `get_hourly_report` accepts kwargs, forwards to `build_hourly_report`.
+- `src/bot/telegram_query_bot.py` — `cmd_hourly` consumes `processor.get_hourly_report` instead of `build_hourly_report` directly.
+- `tests/test_ui_processor.py` — 2 new tests for kwarg forwarding + absent-keyword default.
+- `tests/test_telegram_query_bot.py` — 1 new test for the bot→processor wiring.
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` — this entry.
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_ui_processor.py -v` — 7 passed (5 existing + 2 new).
+- `PYTHONPATH=. pytest tests/test_telegram_query_bot.py -q` — 106 passed; 1 pre-existing failure (`TestCmdStatusMultiAccount::test_shows_block_per_account`, see CP-2026-05-02-01), not from this PR.
+- `python scripts/check_dry_run_in_diff.py` — clean.
+- `python scripts/secret_scan.py` — clean.
+
+### 4. Remaining for this checkpoint
+- none — T1 fully shipped.
+
+### 5. Next checkpoint
+**CP-2026-05-02-15 — T2: `/smoke_test` account picker.** Same pattern as G4 slice 1 (`_account_picker_keyboard`). Add an "all accounts" button. Pure renderer for the smoke result so the typed-arg path and the button path return identical text.
+
+---
+
+---
+
 ## CP-2026-05-02-13 — Sprint 024 COMPLETE / WRAPPED
 
 - **Session date:** 2026-05-02

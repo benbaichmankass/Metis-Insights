@@ -2446,7 +2446,7 @@ async def cmd_hourly(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     try:
         from datetime import datetime, timezone
-        from src.runtime.hourly_report import build_hourly_report
+        from src.ui import processor
         from src.runtime.outcomes import send_scheduled
 
         now = datetime.now(timezone.utc)
@@ -2459,7 +2459,12 @@ async def cmd_hourly(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
                 return
 
-        msg = build_hourly_report(now_utc=now, tick_interval_s=900)
+        # Sprint 025 T1 (UI processor migration step 1, audit doc § 5):
+        # /hourly used to call src.runtime.hourly_report.build_hourly_report
+        # directly. It now goes through src.ui.processor — the same facade
+        # the webapp will consume — so the bot and any future UI surface
+        # render identical text.
+        msg = processor.get_hourly_report(now_utc=now, tick_interval_s=900)
         send_scheduled(msg)
 
         # Plain text — the message contains identifiers with multiple
