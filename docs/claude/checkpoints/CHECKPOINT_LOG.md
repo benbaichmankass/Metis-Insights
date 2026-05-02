@@ -5,6 +5,64 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-02-31 — S-030 PR2 merged + S-030 PR3 drafted (monitor loop)
+
+- **Session date:** 2026-05-02
+- **Sprint:** Architecture compliance — S-030. PR1 (#315) merged earlier; PR2 (#317) merged this session; PR3 (#319, this checkpoint) drafted. After PR3 merges, the live order lifecycle is **architecturally complete** (signal → package → dispatch → trade → monitor → close, all logged to the DB unit).
+- **Current sprint phase:** **PR3 DRAFTED** — operator merges, then the optional follow-up wires exchange-side modify/close.
+- **Last completed checkpoint:** CP-2026-05-02-30 (S-030 PR2 drafted; merged shortly after).
+- **Next checkpoint:** **CP-2026-05-?-?? — exchange-side modify/close** (small follow-up to S-030: per-account `account.update_open_trade` + `account.close_open_trade` that route monitor verdicts through `execute_pkg`'s exchange client). Then S-031+ from the audit doc.
+- **Telegram sent:** ping-PR self-merges to fire the operator alert linking to #319.
+- **Alerts sent during session:** ping-PRs #309, #314, #316, #318, this checkpoint's ping-PR.
+- **Blockers:** PM review on #319 (Tier 2).
+
+### 1. Completed
+- **#317 (S-030 PR2) merged.** Strategy `monitor()` hook on every strategy module + `monitor_breakeven_sl` helper. The contract is on `main`.
+- **#319 (S-030 PR3, draft).** Order-package monitor loop:
+  - `src/runtime/order_monitor.py` (NEW, ~290 lines) — `run_monitor_tick()` reads open packages from the DB unit, dispatches to each strategy's `monitor()`, applies non-None verdicts (sl/tp updates, close decisions) to the DB. Best-effort, never raises. Per-strategy summary returned for log/observability.
+  - `src/data_layer/database.py::Database.update_trade(trade_id, updates)` — close-side writer that mirrors `update_order_package`.
+  - `src/main.py` — single try/except calling `run_monitor_tick()` after each successful `run_one_tick`.
+  - `tests/test_s030_pr3_monitor_loop.py` (NEW, 15 tests) — 4 update_trade contract + 6 verdict-handling + 5 defensive.
+
+### 2. Files changed
+- `src/runtime/order_monitor.py` — new module.
+- `src/data_layer/database.py` — `update_trade` method.
+- `src/main.py` — monitor tick wiring.
+- `tests/test_s030_pr3_monitor_loop.py` — new (15 tests).
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` — this entry.
+- `docs/claude/pending-pings.jsonl` — S-030 PR3 ping entry.
+
+### 3. Tests run
+- `pytest tests/test_s030_pr3_monitor_loop.py -v` — 15/15 pass.
+- `pytest <regression-adjacent>` — 137/137 pass (s030_pr1, pr2, pr3, vwap_strategy, coordinator_flow).
+- `python scripts/secret_scan.py` — clean.
+- `python scripts/check_dry_run_in_diff.py` — clean.
+- CI `scan` job: queued on #319 at write time.
+
+### 4. Remaining (next session)
+- **Exchange-side modify/close (small follow-up).** S-030 PR3 currently updates the DB on monitor verdicts but doesn't yet touch the live exchange order — sl-update and close decisions are recorded but the exchange's server-side SL/TP remain. The follow-up adds:
+  - `src/units/accounts/execute.py::modify_open_order(client, order_id, sl, tp)` and `close_open_position(client, symbol, side, qty)` — thin wrappers around the exchange SDK.
+  - `src/units/accounts/account.py::TradingAccount.update_open_trade(pkg)` and `close_open_trade(pkg)` — re-run `risk_manager.approve` and dispatch to the exchange-side helpers.
+  - `order_monitor._apply_update` flips an `apply_to_exchange=True` flag (env-var-gated initially) that routes verdicts through the new account methods.
+- **S-031 (after S-030 fully done).** Thin the bot — pull every business-logic handler in `telegram_query_bot.py` into `src/ui/processor.py` helpers. Multi-PR per the audit doc.
+- **S-032 → S-035.** Boundary-cleanup sprints from `architecture-audit-2026-05-02.md` § Recommended sprint sequence.
+
+### 5. Next checkpoint
+**CP-2026-05-?-??** — Exchange-side modify/close. Read order: this entry, the merged #319, `architecture-audit-2026-05-02.md` § P1-4, `src/units/accounts/execute.py` (where the new helpers live), `src/units/accounts/integrator.py` (already-dead BybitAPI stubs to delete in the same PR — Tier 1 cleanup follow-on noted in BUG-034 row).
+
+### 6. Live-mode check
+- ✅ `scripts/check_dry_run_in_diff.py` clean.
+- ✅ `config/accounts.yaml` not touched.
+- ⚠️ #319 touches `src/main.py` (Live-mode invariant rule 3). Single try/except added; swallows exceptions; no order routing change.
+- The exchange-side wiring is **deferred**; this PR is observability + DB-side bookkeeping only. Risk = 0 behavioural change to live orders.
+
+### 7. Lessons learned
+1. **Splitting the monitor stack into 3 PRs landed cleanly.** PR1 (schema), PR2 (strategy contract), PR3 (loop) each reviewed in isolation. PR3 is the largest at ~290 LoC of runtime + 15 tests; combining it with PR1's schema would have produced a 600+ LoC PR that's hard to review. Same pattern works for any "log + writer + reader" lifecycle feature.
+2. **Verdict shape `{sl: x}` / `{tp: x}` / `{action: close}` is the right contract.** Returning a delta dict (not a full OrderPackage replacement) makes consumption explicit and the close-vs-modify branch obvious. Strategies can return `{"sl": x, "tp": y}` to update both atomically; the loop applies them in one DB write.
+3. **Deferring the exchange-side modify/close kept PR3 reviewable.** The DB updates give the operator visibility within 1h via the hourly report; the exchange-side wiring is a separate Tier 2 PR. "Shadow mode" — DB updated, exchange untouched — is a real testing tool the operator can verify on production data before flipping the live wiring.
+
+---
+
 ## CP-2026-05-02-30 — S-030 PR1 merged + S-030 PR2 drafted (strategy monitor() hook)
 
 - **Session date:** 2026-05-02
