@@ -1,0 +1,7 @@
+{
+  "_comment": "Schema for comms/input_response.json — written by Telegram bot after Ben responds",
+  "type": "tier2_merge_review",
+  "response": "merge",
+  "responded_at": "2026-05-02T14:35:00Z",
+  "notes": "Looks good, go ahead"
+}

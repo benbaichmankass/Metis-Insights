@@ -1,0 +1,14 @@
+{
+  "_comment": "Schema for comms/test_results.json — written by Claude after running /test pipeline",
+  "strategy": "turtle_soup_mtf_v1",
+  "symbols": ["BTCUSDT", "ETHUSDT"],
+  "timeframe": "1h",
+  "trade_count": 63,
+  "win_rate": 0.54,
+  "avg_r_multiple": 1.82,
+  "max_drawdown_pct": 4.7,
+  "sharpe_ratio": 1.34,
+  "dry_run_cycles_clean": 2,
+  "promote_to_live_eligible": true,
+  "completed_at": "2026-05-02T14:45:00Z"
+}

@@ -1,0 +1,13 @@
+{
+  "current_sprint": "S1",
+  "sprint_title": "Comms Infrastructure",
+  "classification": "auto-claude",
+  "status": "not_started",
+  "started_at": null,
+  "completed_at": null,
+  "next_sprint": "S2",
+  "last_session_summary": "S0 complete — CLAUDE.md, sprint-roadmap.md, comms/ schema, CI workflow, and Sprint 1 prompt all created and merged.",
+  "blocked_on": null,
+  "pending_tier2_or_tier3": false,
+  "sprint_prompt_file": "docs/SPRINT_1_PROMPT.md"
+}

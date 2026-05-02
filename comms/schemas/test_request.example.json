@@ -1,0 +1,7 @@
+{
+  "_comment": "Schema for comms/test_request.json — written by Telegram bot when Ben sends /test [strategy]",
+  "strategy": "turtle_soup_mtf_v1",
+  "symbols": ["BTCUSDT", "ETHUSDT"],
+  "timeframe": "1h",
+  "requested_at": "2026-05-02T14:30:00Z"
+}
