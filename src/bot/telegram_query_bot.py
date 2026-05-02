@@ -619,10 +619,74 @@ def format_binance_positions(account: dict) -> str:
 
 # ── Commands ──────────────────────────────────────────────────────────────────
 
+
+# G2 — Single source of truth for the operator-facing command surface.
+#
+# Every entry here MUST also appear in ``cmd_start`` / ``/help`` text in the
+# same order, and ``post_init`` flattens this list into ``set_my_commands``
+# so Telegram's hamburger menu mirrors /help. Order is grouped by the same
+# section labels as /help. Descriptions are kept ≤ 80 chars per Telegram
+# convention. ``tests/test_telegram_query_bot.py::TestHelpCommandParity``
+# enforces the 1:1 invariant.
+#
+# When you add a CommandHandler in ``main()``, also add a row here AND a
+# line in cmd_start. The parity test will fail otherwise.
+BOT_COMMANDS: list[BotCommand] = [
+    BotCommand("start", "Show help"),
+    BotCommand("help", "Show help"),
+    # Live trading control
+    BotCommand("status", "Kill-switch state, P&L summary, service status"),
+    BotCommand("halt", "Stop order placement immediately"),
+    BotCommand("resume", "Re-enable order placement"),
+    BotCommand("closeall", "Emergency close all positions"),
+    BotCommand("toggle", "Start or stop the trader service"),
+    # Account & strategy
+    BotCommand("accounts", "List accounts (dry/live + PnL) or toggle mode"),
+    BotCommand("accounts_status", "Per-account risk state (daily PnL, halted)"),
+    BotCommand("set_all_live", "Flip every account out of dry-run into live mode"),
+    BotCommand("set_keys", "Open the Colab key-rotation notebook"),
+    BotCommand("risk_check", "Risk details for one account: /risk_check <name>"),
+    BotCommand("smoke_test", "Live-plumbing smoke (always LIVE): /smoke_test [account]"),
+    BotCommand("strategies", "Per-strategy signals, PnL and positions"),
+    BotCommand("reload_strats", "Reload strategies.yaml without restart"),
+    BotCommand("balance", "Account balance"),
+    BotCommand("trades", "Open positions"),
+    # Signals & history
+    BotCommand("last5", "Last 5 journal entries"),
+    BotCommand("signals", "Recent pipeline signals: /signals [N] [strategy]"),
+    BotCommand("alerts", "Recent unit alerts (coordinator queue)"),
+    BotCommand("log", "Recent trader logs"),
+    BotCommand("download_journal", "Download trade journal DB"),
+    BotCommand("price", "Current BTC price"),
+    BotCommand("hourly", "Send the hourly summary on demand (bypasses dedup)"),
+    # Backtesting
+    BotCommand("backtest", "Start backtest in background"),
+    BotCommand("latest_backtest", "Latest backtest status/result"),
+    BotCommand("backtest_ui", "How to launch the Streamlit backtesting dashboard"),
+    # Diagnostics
+    BotCommand("health", "Per-unit status + data-file freshness"),
+    BotCommand("vmstats", "VM resource snapshot (uptime, load, mem, disk)"),
+    BotCommand("ping_test", "Verify the pending-pings inbox drain loop"),
+    # Web dashboard
+    BotCommand("webapp", "Open the secure web dashboard"),
+    # VM-resident Claude (S-014.5)
+    BotCommand("vm", "Tier 1 read-only Claude on the VM"),
+    BotCommand("vm_write", "Tier 2 mutating Claude on the VM (asks to confirm)"),
+    # Sprint / planning
+    BotCommand("checkpoint", "Latest entry from CHECKPOINT_LOG.md"),
+    BotCommand("sprintlet_status", "Manual sprint milestone update"),
+    BotCommand("sprintlet_complete", "Manual sprint-complete signal"),
+]
+
+
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_authorised(update):
         return
     label = get_strategy_label()
+    # NB: every /<cmd> token below must correspond to a BotCommand in
+    # BOT_COMMANDS, in the same order. Parity is asserted in the test
+    # suite (TestHelpCommandParity). Underscores are backslash-escaped
+    # because parse_mode="Markdown" treats `_` as italic.
     text = (
         f"👋 *ICT Trading Bot* — {label}\n\n"
         "*Live trading control*\n"
@@ -633,7 +697,9 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/toggle — Start or stop the trader service\n\n"
         "*Account & strategy*\n"
         "/accounts — List accounts (dry/live + PnL) or toggle mode\n"
-        "/accounts\\_status — Per-account risk state\n"
+        "/accounts\\_status — Per-account risk state (daily PnL, halted)\n"
+        "/set\\_all\\_live — Flip every account out of dry-run into live mode\n"
+        "/set\\_keys — Open the Colab key-rotation notebook\n"
         "/risk\\_check <account> — Risk details for one account\n"
         "/smoke\\_test \\[account\\] — Live-plumbing smoke "
         "*\\(always LIVE — micro-qty rejected by exchange\\)*\n"
@@ -647,14 +713,16 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/alerts — Recent unit alerts (coordinator queue)\n"
         "/log — Recent trader logs\n"
         "/download\\_journal — Download trade journal DB\n"
-        "/price — Current BTC price\n\n"
+        "/price — Current BTC price\n"
+        "/hourly — Send the hourly summary on demand \\(bypasses dedup\\)\n\n"
         "*Backtesting*\n"
         "/backtest — Start backtest in background\n"
         "/latest\\_backtest — Backtest status/result\n"
         "/backtest\\_ui — How to launch the Streamlit backtesting dashboard\n\n"
-        "*Visibility*\n"
+        "*Diagnostics*\n"
         "/health — Per-unit status + data-file freshness\n"
-        "/vmstats — VM resource snapshot \\(uptime, load, mem, disk\\)\n\n"
+        "/vmstats — VM resource snapshot \\(uptime, load, mem, disk\\)\n"
+        "/ping\\_test — Verify the pending-pings inbox drain loop\n\n"
         "*Web dashboard*\n"
         "/webapp — Open the secure web dashboard\n\n"
         "*VM-resident Claude (S-014.5)*\n"
@@ -671,6 +739,23 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await cmd_start(update, context)
+
+
+# Regex for the parity test: walks /help text line-by-line and yields each
+# leading /<cmd> token. Anchored at line-start so descriptions like
+# ``(dry/live + PnL)`` or ``Backtest status/result`` are not misread as
+# extra commands. Handles Markdown's ``\_`` underscore-escape.
+_HELP_CMD_RE = re.compile(r"^/([a-zA-Z][a-zA-Z0-9\\_]*)", re.MULTILINE)
+
+
+def _commands_in_help_text(text: str) -> list[str]:
+    """Return the list of /<cmd> names appearing in /help, in order.
+
+    Strips Markdown backslash escapes (``/accounts\\_status`` →
+    ``accounts_status``). Used by ``TestHelpCommandParity`` and any future
+    tooling that needs the canonical operator command surface.
+    """
+    return [m.group(1).replace("\\_", "_") for m in _HELP_CMD_RE.finditer(text)]
 
 
 # ---------------------------------------------------------------------------
@@ -2327,45 +2412,9 @@ def main():
         )
 
     async def post_init(app):
-        label = get_strategy_label()
-        commands = [
-            BotCommand("start", "Show help"),
-            BotCommand("help", "Show help"),
-            BotCommand("status", "Kill-switch state, P&L summary, service status"),
-            BotCommand("halt", "Stop order placement immediately"),
-            BotCommand("resume", "Re-enable order placement"),
-            BotCommand("closeall", f"Close all {label} positions"),
-            BotCommand("toggle", f"Start/stop {label} trader"),
-            BotCommand("accounts", "List accounts or toggle dry/live: /accounts dry|live <name>"),
-            BotCommand("accounts_status", "Per-account risk state (daily PnL, halted)"),
-            BotCommand("set_all_live", "Flip every account out of dry-run into live mode"),
-            BotCommand("hourly", "Send the hourly summary on demand (bypasses dedup)"),
-            BotCommand("risk_check", "Risk details for one account: /risk_check <name>"),
-            BotCommand("smoke_test", "Live-plumbing smoke (always LIVE): /smoke_test [account]"),
-            BotCommand("strategies", "Per-strategy signals, PnL and positions"),
-            BotCommand("reload_strats", "Reload strategy config from strategies.yaml"),
-            BotCommand("balance", "Account balance"),
-            BotCommand("trades", "Open positions"),
-            BotCommand("last5", "Last 5 journal entries"),
-            BotCommand("signals", "Recent pipeline signals: /signals [N] [strategy]"),
-            BotCommand("alerts", "Recent unit alerts (coordinator queue)"),
-            BotCommand("log", f"Show {label} trader logs"),
-            BotCommand("download_journal", "Download trade journal DB"),
-            BotCommand("price", "Current BTC price"),
-            BotCommand("backtest", "Run backtest"),
-            BotCommand("latest_backtest", "Latest backtest result"),
-            BotCommand("backtest_ui", "How to launch the Streamlit backtesting dashboard"),
-            BotCommand("webapp", "Open the secure web dashboard"),
-            BotCommand("vm", "Tier 1 read-only Claude on the VM"),
-            BotCommand("vm_write", "Tier 2 mutating Claude on the VM (asks to confirm)"),
-            BotCommand("checkpoint", "Show latest checkpoint from CHECKPOINT_LOG.md"),
-            BotCommand("health", "Per-unit status + data-file freshness"),
-            BotCommand("vmstats", "VM resource snapshot (uptime, load, mem, disk)"),
-            BotCommand("ping_test", "Verify the pending-pings inbox drain loop"),
-            BotCommand("sprintlet_status", "Manual sprint milestone update: /sprintlet_status [note]"),
-            BotCommand("sprintlet_complete", "Manual sprint-complete signal: /sprintlet_complete [sprint]"),
-        ]
-        await app.bot.set_my_commands(commands)
+        # G2 — single source of truth: BOT_COMMANDS mirrors /help in order.
+        # See the BOT_COMMANDS docstring above the constant for the contract.
+        await app.bot.set_my_commands(BOT_COMMANDS)
 
     application.post_init = post_init
     application.add_handler(CommandHandler("start", cmd_start))

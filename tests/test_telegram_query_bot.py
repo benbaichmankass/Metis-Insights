@@ -10,6 +10,7 @@ Heavy deps (telegram, pybit) are stubbed at sys.modules level before import.
 from __future__ import annotations
 
 import os
+import re
 import sqlite3
 import sys
 import tempfile
@@ -38,7 +39,22 @@ sys.modules["dotenv"].dotenv_values = lambda *a, **kw: {}
 # telegram.Update must be importable as a class
 _tg_mock = sys.modules["telegram"]
 _tg_mock.Update = MagicMock
-_tg_mock.BotCommand = MagicMock
+
+
+# G2 — BotCommand stand-in. The real telegram.BotCommand stores `command` and
+# `description` as attributes; tests in TestHelpCommandParity read both.
+# A bare MagicMock would auto-generate them as MagicMock attributes, so we
+# need a tiny class that preserves the args.
+class _FakeBotCommand:
+    def __init__(self, command, description=""):
+        self.command = command
+        self.description = description
+
+    def __repr__(self):
+        return f"BotCommand(command={self.command!r}, description={self.description!r})"
+
+
+_tg_mock.BotCommand = _FakeBotCommand
 _tg_mock.InlineKeyboardButton = lambda *a, **kw: MagicMock()  # S-016 H5 BUG-010 fix
 _tg_mock.InlineKeyboardMarkup = lambda *a, **kw: MagicMock()  # S-016 H5 BUG-010 fix
 _tg_ext_mock = sys.modules["telegram.ext"]
@@ -936,6 +952,115 @@ class TestCmdLast5IteratesAccounts:
                 "trade rows must not be sent with parse_mode='Markdown'; "
                 "DB content can contain unescaped Markdown specials"
             )
+
+
+# ---------------------------------------------------------------------------
+# G2 — hamburger menu (set_my_commands) ↔ /help parity
+# ---------------------------------------------------------------------------
+
+
+class TestHelpCommandParity:
+    """The Telegram command-menu (BOT_COMMANDS) must mirror /help 1:1.
+
+    Two regressions caused this test to be added:
+      - /help listed `/closeall` etc. but the hamburger menu showed stale
+        descriptions referring to a single legacy strategy label.
+      - Several handlers (`/set_keys`, `/set_all_live`, `/hourly`,
+        `/ping_test`) were registered but never surfaced in /help.
+
+    Failure modes the test catches:
+      1. A command in BOT_COMMANDS that's missing from /help text.
+      2. A command in /help text that's missing from BOT_COMMANDS.
+      3. Order drift between the two (Telegram displays the menu in the
+         order set_my_commands receives it; /help should match).
+      4. A description longer than 80 chars (Telegram truncates ugly).
+    """
+
+    def _make_update(self):
+        upd = MagicMock()
+        upd.effective_chat.id = 12345
+        upd.callback_query = None
+        upd.message.reply_text = AsyncMock()
+        return upd
+
+    def _run(self, coro):
+        import asyncio
+        return asyncio.new_event_loop().run_until_complete(coro)
+
+    def _help_text(self, monkeypatch) -> str:
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        # cmd_help just delegates to cmd_start — exercise the same path
+        # the operator hits.
+        upd = self._make_update()
+        self._run(bot.cmd_help(upd, MagicMock()))
+        return upd.message.reply_text.call_args.args[0]
+
+    def test_every_bot_command_appears_in_help(self, monkeypatch):
+        text = self._help_text(monkeypatch)
+        cmds_in_help = bot._commands_in_help_text(text)
+        # /start is exposed in the hamburger menu (Telegram opens chat
+        # with /start) but is not described in the /help body — it's an
+        # alias for /help.
+        for bc in bot.BOT_COMMANDS:
+            if bc.command == "start":
+                continue
+            assert bc.command in cmds_in_help, (
+                f"/{bc.command} is in BOT_COMMANDS but missing from /help text"
+            )
+
+    def test_every_help_command_appears_in_bot_commands(self, monkeypatch):
+        text = self._help_text(monkeypatch)
+        cmd_names = {bc.command for bc in bot.BOT_COMMANDS}
+        for name in bot._commands_in_help_text(text):
+            assert name in cmd_names, (
+                f"/{name} appears in /help but is missing from BOT_COMMANDS"
+            )
+
+    def test_help_and_bot_commands_share_order(self, monkeypatch):
+        """The hamburger menu order must match /help reading order.
+
+        ``set_my_commands`` is what Telegram displays in the bot-command
+        picker, and operators expect the picker to list things the same
+        way they're written in /help. /start and /help are aliases for
+        the menu itself — they sit at the top of BOT_COMMANDS for
+        discoverability but are not interleaved into the categorized /help
+        body — so the parity check is applied to the rest of the surface.
+        """
+        text = self._help_text(monkeypatch)
+        cmds_in_help = [c for c in bot._commands_in_help_text(text)
+                        if c not in {"start", "help"}]
+        bot_cmd_names = [bc.command for bc in bot.BOT_COMMANDS
+                         if bc.command not in {"start", "help"}]
+        assert cmds_in_help == bot_cmd_names, (
+            "Order mismatch:\n"
+            f"  /help:         {cmds_in_help}\n"
+            f"  BOT_COMMANDS:  {bot_cmd_names}"
+        )
+
+    def test_descriptions_are_within_telegram_limits(self):
+        for bc in bot.BOT_COMMANDS:
+            assert 1 <= len(bc.description) <= 80, (
+                f"BotCommand /{bc.command} description "
+                f"({len(bc.description)} chars) violates ≤80-char rule: "
+                f"{bc.description!r}"
+            )
+
+    def test_every_registered_handler_is_in_bot_commands(self, monkeypatch):
+        """Any operator-facing command-handler registered in main() should
+        also appear in the menu. Exceptions are allow-listed below — those
+        are intentional handler-only commands (none today)."""
+        # Walk the module source for ``CommandHandler("name", ...)`` calls.
+        import inspect
+        src = inspect.getsource(bot)
+        registered = set(re.findall(r'CommandHandler\("([a-zA-Z0-9_]+)"', src))
+        bot_cmd_names = {bc.command for bc in bot.BOT_COMMANDS}
+        # Allow-list — these are not surfaced via the menu intentionally.
+        # /start is in BOT_COMMANDS already; nothing else is exempt today.
+        intentionally_hidden: set[str] = set()
+        missing = registered - bot_cmd_names - intentionally_hidden
+        assert not missing, (
+            f"Handlers registered but missing from BOT_COMMANDS: {sorted(missing)}"
+        )
 
 
 # ---------------------------------------------------------------------------
