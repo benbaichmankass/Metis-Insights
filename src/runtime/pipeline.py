@@ -664,8 +664,8 @@ def run_pipeline(
                         }
             else:
                 # Legacy single-client path. Reached when:
-                #   * MULTI_ACCOUNT_DISPATCH=false (operator pinned),
-                #   * DRY_RUN=true (no need to fan out — global mode wins), or
+                #   * MULTI_ACCOUNT_DISPATCH is pinned off by the operator,
+                #   * the global mode is dry (no need to fan out), or
                 #   * signal is missing entry/sl/tp (smoke/synthetic).
                 result = safe_place_order(signal, settings, exchange_client)
 
