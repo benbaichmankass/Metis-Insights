@@ -5,6 +5,54 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-02-25 — Recurring-session triggers: /audit /improve_strategy /train_model /roadmap MERGED
+
+- **Session date:** 2026-05-02
+- **Sprint:** Recurring-session infrastructure (follow-up to S-027)
+- **Current sprint phase:** COMPLETE — PR #297 squash-merged to main.
+- **Last completed checkpoint:** CP-2026-05-02-24 (S-027 sprint COMPLETE)
+- **Next checkpoint:** **none queued** — operator to trigger first `/audit` session once VM git-sync pulls main (~5 min). Deferred: (a) GitHub Action cron option for automated 48h nudges, (b) janitor pass on pre-existing `test_s008_5_telegram_sprint_cmds.py` failures.
+- **Telegram sent:** pending — checkpoint commit fires the VM ping.
+- **Alerts sent during session:** none.
+- **Blockers:** none.
+
+### 1. Completed
+- `src/bot/recurring_dispatch.py` (NEW) — `log_trigger`, `build_starter_prompt`, `render_roadmap_summary`, `_extract_first_sprint_with_status`; strategy arg sanitized via `re.sub(r"[^a-zA-Z0-9_-]", "", ...)[:64]`; plain-text output per BUG-009/030/031.
+- `src/bot/telegram_query_bot.py` — added 4 handlers (`cmd_audit`, `cmd_improve_strategy`, `cmd_train_model`, `cmd_roadmap`) + `_format_starter_reply` helper + 4 `CommandHandler` registrations.
+- `tests/test_recurring_dispatch.py` (NEW, 15 tests) — pure unit tests for all dispatch helpers including XSS/injection sanitization.
+- `tests/test_recurring_session_cmds.py` (NEW, 10 tests) — offline async bot command tests using sys.modules stubs.
+- `docs/claude/recurring-sessions.md` (NEW) — master spec, prioritization formula, cadence.
+- `docs/sprints/recurring-hardening-prompt.md` (NEW) — Phase 1-3 protocol, sessions 1-3 predetermined targets (4 live bugs).
+- `docs/sprints/recurring-strategy-improvement-prompt.md` (NEW) — propose-only, Tier 3 boundary.
+- `docs/sprints/recurring-model-training-prompt.md` (NEW) — train candidate, evaluate vs incumbent, outputs to docs/model-evals/.
+- `ROADMAP.md` — S-013 ✅ Done, S-014 🔜 Next, recurring-sessions section added.
+
+### 2. Files changed
+- `src/bot/recurring_dispatch.py` (new)
+- `src/bot/telegram_query_bot.py`
+- `tests/test_recurring_dispatch.py` (new)
+- `tests/test_recurring_session_cmds.py` (new)
+- `docs/claude/recurring-sessions.md` (new)
+- `docs/sprints/recurring-hardening-prompt.md` (new)
+- `docs/sprints/recurring-strategy-improvement-prompt.md` (new)
+- `docs/sprints/recurring-model-training-prompt.md` (new)
+- `ROADMAP.md`
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_recurring_dispatch.py tests/test_recurring_session_cmds.py -q` — 25 passed
+- `python scripts/secret_scan.py` — clean
+- CI `scan` job — success (PR #297)
+
+### 4. Remaining
+- VM will auto-pull within ~5 min; no manual restart needed.
+- Operator should send `/roadmap` in Telegram to verify commands are live.
+- Then `/audit` to start the first hardening session targeting the 4 live bugs.
+
+### 5. Next checkpoint
+**CP-2026-05-02-26** — First hardening session (recurring audit #1). Read `docs/sprints/recurring-hardening-prompt.md` and `docs/claude/recurring-sessions.md`. Start with Phase 1 E2E health check, then tackle the 4 predetermined targets from sessions 1-3.
+
+---
+
 ## CP-2026-05-02-24 — Sprint 027 PR2: Telegram bot integration + sprint COMPLETE
 
 - **Session date:** 2026-05-02

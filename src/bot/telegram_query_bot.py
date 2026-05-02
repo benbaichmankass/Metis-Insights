@@ -664,6 +664,7 @@ HELP_CATEGORIES: list[tuple[str, str]] = [
     ("backtest",    "🧪 Backtesting & dashboard"),
     ("diagnostics", "🩺 Diagnostics & VM"),
     ("sprint",      "📋 Sprint / dev"),
+    ("recurring",   "🔁 Recurring sessions"),
 ]
 HELP_CATEGORY_IDS = {cid for cid, _ in HELP_CATEGORIES}
 
@@ -712,6 +713,11 @@ BOT_COMMAND_SPECS: list[BotCommandSpec] = [
     BotCommandSpec("checkpoint", "Latest entry from CHECKPOINT_LOG.md", "sprint"),
     BotCommandSpec("sprintlet_status", "Manual sprint milestone update", "sprint"),
     BotCommandSpec("sprintlet_complete", "Manual sprint-complete signal", "sprint"),
+    # Recurring sessions
+    BotCommandSpec("audit", "Trigger a recurring hardening session", "recurring"),
+    BotCommandSpec("improve_strategy", "Trigger a strategy improvement session: /improve_strategy [strategy]", "recurring"),
+    BotCommandSpec("train_model", "Trigger a model training session: /train_model [strategy]", "recurring"),
+    BotCommandSpec("roadmap", "Show current roadmap status", "recurring"),
 ]
 
 

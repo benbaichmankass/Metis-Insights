@@ -57,6 +57,22 @@ operator approval. The runner reaches you via Telegram (`/vm`, `/vm_write`)
 — do not try to escalate beyond your tier; reply with `ASK_OPERATOR:` and
 let them re-issue the command.
 
+## Telegram test group (use for bot verification)
+
+The operator has added both the **Claude bot** (`telegram_query_bot`) and the
+**ICT trading UI bot** to a shared Telegram group. When a session needs to
+verify that a new command is live and working correctly, send the command in
+that group and inspect the reply — this gives the same view the operator sees.
+
+Rules:
+- Use the group for **smoke-testing bot commands** after a deploy (e.g. `/roadmap`,
+  `/audit`, `/status`), not for issuing live trading commands.
+- Read the bot's reply directly in the group to confirm formatting, auth guard,
+  and content — this replaces asking the operator "did the reply look right?".
+- If the bot does not respond within ~10 minutes of a VM git-sync cycle, the
+  systemd unit may need a restart — produce a one-click Colab notebook per the
+  rule below rather than instructing CLI steps.
+
 ## Always do
 
 - Keep changes small and reversible.
