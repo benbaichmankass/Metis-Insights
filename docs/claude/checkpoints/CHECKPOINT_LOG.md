@@ -5,6 +5,59 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-02-13 — Sprint 024 COMPLETE / WRAPPED
+
+- **Session date:** 2026-05-02
+- **Sprint:** 024 — Telegram bot debug + UI overhaul + repo cleanup
+- **Current sprint phase:** **COMPLETE / WRAPPED.** All six goals + the architecture-audit deliverable + an out-of-band hourly-summary hotfix landed across PRs #265–#273. Sprint summary at `docs/sprint-summaries/sprint-024-summary.md`.
+- **Last completed checkpoint:** CP-2026-05-02-12 (#271 G5 option a, merged).
+- **Next checkpoint:** **none — sprint closed.** Next sprint will pick up deferred items: G4 slices 2–4 (`/signals`, `/smoke_test`, `/accounts` mode toggle) or step 1 of the UI processor migration order from `docs/claude/ui-processor-audit.md` § 5 (`cmd_hourly` → `processor.get_hourly_report()`, one-line change).
+- **Telegram sent:** pending — this checkpoint commit triggers the high-priority sprint-end ping (the `COMPLETE` / `WRAPPED` keywords route through the sprint-completion path on the VM).
+- **Alerts sent during sprint:** ping-PR #272 (G5 operator-decision alert; resolved with operator's option (a) reply).
+- **Blockers:** none.
+
+### 1. Completed (sprint-end summary)
+PRs #265–#273 (9 PRs, all merged). Per-PR detail in `docs/sprint-summaries/sprint-024-summary.md`. High points:
+
+- **G1 #265 — `/last5` Markdown crash (BUG-030).** Drop `parse_mode="Markdown"` on DB-row replies; emoji-rich plain text already conveys the structure.
+- **G2 #266 — hamburger menu mirrors `/help`.** `BOT_COMMANDS` is now the single source of truth; parity test catches "registered handler not surfaced in menu" at PR time.
+- **G3 #267 — `/help` is a button-driven category menu.** Six categories; tap edits the message in place; `/help <category>` typed shortcut preserved.
+- **G4 slice 1 #268 — `/risk_check` button picker.** No-args invocation replies with an account-picker keyboard; pure renderer shared between typed-arg path and button path.
+- **Architecture audit doc #269.** Catalogues every command handler, proposes ~12 read APIs + 1 write API on `src/ui/processor.py`, lists 8 ad-hoc renderers that should move to `src/ui/renderers/telegram_*.py`, gives a 14-step migration order.
+- **G6 #270 — repo cleanup.** Trimmed `signal_notifications.py` from 175 lines / 16 functions → 94 lines / 5 functions; removed the matplotlib import; verified no dead `.service` files / `*_old.py` / `*_bak.py` / `notebooks/training/`.
+- **G5 #271 — `failed_validation` root cause + fix (option a, operator-directed).** VWAP's `build_vwap_signal` now populates `entry_price`/`stop_loss`/`take_profit` (mean-reversion: TP = VWAP, SL = entry ± `sl_std_mult` × std_dev). Multi-account dispatch fans VWAP signals out; per-account dry/live state takes over. New `signal_missing_sltp` warning + report at the source for any future strategy that ships actionable signals without sl/tp. Telegram "Pipeline result" line now includes `strategy=…`.
+- **Ping-PR #272.** Operator-decision alert for G5; merged immediately to fire Telegram. Pattern worked end-to-end.
+- **Hourly hotfix #273 — BUG-031 (visible) + BUG-032 (silent for an entire sprint cycle).** `cmd_hourly` reply drops `parse_mode="Markdown"`; `notify.py::send_via_alert_manager` rewritten to skip the broken AlertManager dance and go straight to `send_telegram_direct(parse_mode=None)`. Net effect: operator now receives hourly summaries automatically.
+
+### 2. Sprint-completion checklist (per CLAUDE.md)
+- [x] Run full tests — covered per-PR in each checkpoint entry.
+- [x] `python scripts/secret_scan.py` — clean on every PR.
+- [x] Sprint-summary PR (`docs/sprint-summaries/sprint-024-summary.md`) — created and self-merged via this commit.
+- [x] Self-merge summary PR — this is the summary-PR commit (docs-only, no code risk).
+- [x] Propose CLAUDE.md improvements — added "Do not use `parse_mode='Markdown'` on Telegram replies whose content is dynamic" to § Always do (recurring bug shape — three occurrences: BUG-009 / BUG-030 / BUG-031).
+- [x] Append final checkpoint — this entry.
+- [ ] Telegram `/sprintlet_complete S-024` — fires automatically off this checkpoint commit per the existing VM wiring.
+
+### 3. Files changed (this checkpoint)
+- `docs/sprint-summaries/sprint-024-summary.md` — new sprint-summary doc.
+- `CLAUDE.md` — § Always do gains the no-Markdown-on-dynamic-content rule.
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` — this entry.
+
+### 4. Tests run
+- No new code in this PR — sprint-summary PR is docs-only.
+- `python scripts/check_dry_run_in_diff.py` — clean.
+- `python scripts/secret_scan.py` — clean.
+
+### 5. Lessons learned (carried into the next sprint)
+1. Telegram `parse_mode="Markdown"` on dynamic content has now bitten three times. The new CLAUDE.md rule + a future lint should prevent #4. Plain text is the safest default; HTML mode with explicit escapes is the safest "rich-text" alternative.
+2. Silent-failure swallow + queue-on-error hides structural bugs. When a wrapper fails, re-raise so the outer queue mechanism does its job and the operator sees the queue grow visibly.
+3. The ping-PR vs work-PR pattern shipped its first end-to-end use this sprint. It worked. The lesson is that the workflow needs to stay in muscle memory — this sprint had two operator-decision points and the second one (BUG-031 / BUG-032 hotfix) didn't need a ping because the user explicitly said "everything can be merged"; that's the right shape.
+
+### 6. Next checkpoint
+**none — sprint 024 closed.** Next operator-driven sprint picks up at the deferred-items list in the summary doc.
+
+---
+
 ## CP-2026-05-02-12 — G5 follow-up: VWAP populates entry/sl/tp (option a)
 
 - **Session date:** 2026-05-02
