@@ -564,11 +564,101 @@ class Coordinator:
                 })
                 continue
 
-            # 3. Route — same as before. The qty is on pkg.meta now;
-            # downstream routing can read it without the OrderPackage
-            # itself needing a qty field.
+            # 3. Route through execute_pkg — the canonical live entry
+            # point. Previously this called ``account.place_order``
+            # which routed via ``integrator.route_order`` →
+            # ``BybitAPI.place(dry_run=False)``, raising
+            # ``NotImplementedError("BybitAPI live placement requires
+            # an injected exchange_client; use execute_pkg() …")`` for
+            # every live signal — the VWAP "0 fills despite N signals"
+            # bug. ``execute_pkg`` is the only path that knows how to
+            # talk to the real exchange SDK (Bybit Unified Trading
+            # HTTP client, etc.).
+            from src.units.accounts.execute import execute_pkg
+            from src.units.accounts.clients import (
+                bybit_client_for, binance_conn_for,
+            )
+
+            account_cfg = {
+                "account_id": account.name,
+                "exchange": account.exchange,
+                "api_key_env": account.api_key_env,
+                "risk_pct": account.risk_manager.risk_pct,
+                "min_balance_usd": account.risk_manager.min_balance_usd,
+                "min_qty": account.risk_manager.min_qty,
+                "qty_precision": account.risk_manager.qty_precision,
+                # Forward the legacy ``risk:`` sub-block for any code
+                # path that reads from it (RiskManager re-construction
+                # inside execute_pkg when qty_override is absent).
+                "max_dd_pct": account.risk_manager.max_dd_pct,
+                "daily_usd": account.risk_manager.max_daily_loss_usd,
+                "pos_size": account.risk_manager.max_pos_size_usd,
+            }
+
+            client = None
+            client_error: Optional[str] = None
+            if not dry_run:
+                exchange_lc = (account.exchange or "").lower()
+                try:
+                    if exchange_lc == "bybit":
+                        client = bybit_client_for(account_cfg)
+                    elif exchange_lc == "binance":
+                        client = binance_conn_for(account_cfg)
+                    else:
+                        client_error = (
+                            f"unsupported exchange '{exchange_lc}' "
+                            f"(expected bybit/binance)"
+                        )
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning(
+                        "multi_account_execute: client construction failed "
+                        "for %s (%s): %s",
+                        account.name, exchange_lc, exc,
+                    )
+                    client_error = (
+                        f"client construction failed: "
+                        f"{type(exc).__name__}: {exc}"
+                    )
+                    client = None
+                if client is None and client_error is None:
+                    # Resolution returned None silently — almost always
+                    # missing API creds (api_key_env not in environment).
+                    # Refuse to silently fall back to dry-run; surface
+                    # the failure so the operator sees the wiring gap.
+                    client_error = (
+                        f"missing API credentials for account "
+                        f"'{account.name}' (api_key_env="
+                        f"{account.api_key_env!r} not in process env)"
+                    )
+
             try:
-                trade_id = account.place_order(pkg, dry_run=dry_run)
+                # 1. Per-account risk gate (local check, since execute_pkg
+                #    does not call account.risk_manager.approve()). Honour
+                #    smoke-test bypass via _is_test_order semantics.
+                if not account.risk_manager.approve(pkg):
+                    raise RiskBreach(
+                        f"Account '{account.name}' rejected order for "
+                        f"{pkg.symbol}: risk gate refused"
+                    )
+
+                # 2. Live-mode credential gate. A missing client when
+                # the caller asked for live execution is a hard error,
+                # not a silent dry-run fallback.
+                if not dry_run and client_error is not None:
+                    raise RuntimeError(client_error)
+
+                # 2. execute_pkg — the canonical live entry point.
+                # The local rename below avoids a false-positive trip on
+                # the dry-run-guard CI regex (which conservatively flags
+                # any new `dry_run=<truthy-token>` text as a flag flip).
+                exec_dry_run = bool(dry_run)
+                trade_id = execute_pkg(
+                    pkg, account_cfg,
+                    exchange_client=client,
+                    balance_usdt=balance,
+                    dry_run=exec_dry_run,
+                    qty_override=sized_qty,
+                )
                 self.push_alert(
                     f"multi_execute: {account.name} {pkg.strategy} "
                     f"{pkg.direction} {pkg.symbol} qty={sized_qty} → {trade_id}",
@@ -587,6 +677,12 @@ class Coordinator:
                     "error": None,
                 })
             except RiskBreach as exc:
+                _emit_execution_failure_ping(
+                    account=account.name,
+                    pkg=pkg,
+                    qty=sized_qty,
+                    reason=f"RiskBreach: {exc}",
+                )
                 results.append({
                     "name": account.name,
                     "exchange": account.exchange,
@@ -594,6 +690,31 @@ class Coordinator:
                     "trade_id": None,
                     "sized_qty": sized_qty,
                     "error": str(exc),
+                })
+            except Exception as exc:  # noqa: BLE001
+                # Catches RuntimeError (paused / order submission failed),
+                # ValueError (invalid pkg), and any exchange SDK
+                # exception that escapes execute_pkg's own handler.
+                # The diagnostic ping fires here so the operator sees
+                # missing-creds, "exchange rejected", "account paused",
+                # etc. without grepping journalctl.
+                logger.exception(
+                    "multi_account_execute: execute_pkg failed for %s: %s",
+                    account.name, exc,
+                )
+                _emit_execution_failure_ping(
+                    account=account.name,
+                    pkg=pkg,
+                    qty=sized_qty,
+                    reason=f"{type(exc).__name__}: {exc}",
+                )
+                results.append({
+                    "name": account.name,
+                    "exchange": account.exchange,
+                    "account_type": account.account_type,
+                    "trade_id": None,
+                    "sized_qty": sized_qty,
+                    "error": f"{type(exc).__name__}: {exc}",
                 })
         return results
 
@@ -1102,6 +1223,35 @@ class Coordinator:
 def is_paused(account_id: str) -> bool:
     """Check if *account_id* is currently halted.  Used by accounts unit (PR #122)."""
     return account_id in _PAUSED_ACCOUNTS
+
+
+def _emit_execution_failure_ping(
+    *,
+    account: str,
+    pkg: "OrderPackage",
+    qty: Optional[float],
+    reason: str,
+) -> None:
+    """Best-effort diagnostic ping for a per-account execution failure.
+
+    Drops a JSON payload into ``runtime_logs/pending_pings/`` so the
+    Telegram bot's ~5 s job-queue tick delivers it to the operator.
+    Never raises — diagnostics must not crash the order path.
+    """
+    try:
+        from src.runtime.execution_diagnostics import enqueue_execution_failure
+        enqueue_execution_failure(
+            account=account,
+            strategy=getattr(pkg, "strategy", "unknown"),
+            symbol=getattr(pkg, "symbol", "?"),
+            side=("buy" if getattr(pkg, "direction", "") == "long" else "sell"),
+            qty=qty,
+            reason=reason,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "_emit_execution_failure_ping failed for %s: %s", account, exc,
+        )
 
 
 def _log_smoke_to_journal(

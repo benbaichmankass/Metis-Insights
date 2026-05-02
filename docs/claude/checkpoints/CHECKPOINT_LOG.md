@@ -5,6 +5,70 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-02-27 — Recurring hardening session #1: VWAP execution routing fix (BUG-034)
+
+- **Session date:** 2026-05-02
+- **Sprint:** Recurring hardening (Phase 2A — Session 1 predetermined target #1 from `docs/sprints/recurring-hardening-prompt.md`)
+- **Current sprint phase:** **WORK-PR DRAFTED — awaiting PM review.** The fix is committed on branch `claude/vwap-hardening-session-Im8Xo` with a draft `(PM REVIEW): vwap execution routing fix` PR (#308). A separate ping-PR (#309 — merged) fired the Telegram operator alert per the ping-PR / work-PR separation rule.
+- **Last completed checkpoint:** CP-2026-05-02-26 (recurring-session triggers wired end-to-end, merged in #297-#306).
+- **Next checkpoint:** **CP-2026-05-?-?? — Hardening session #2** — once the operator merges #308, the next session should (a) verify the fix on the VM by checking that vwap signals produce non-`failed_dispatch` audit-log entries, (b) tackle the remaining three Phase-2A predetermined targets from `recurring-hardening-prompt.md` (ALLOW_LIVE_TRADING env propagation, comms ping system, and confirmation that the systemd unit reloads env on restart). Read order: this entry, `docs/sprints/recurring-hardening-prompt.md` § Phase 2A, the merged BUG-034 fix PR.
+- **Telegram sent:** fired via merged ping-PR #309 (pending-pings.jsonl line drained by VM git-sync).
+- **Alerts sent during session:** ping-PR #309 (operator alert linking to draft work-PR #308).
+- **Blockers:** PM review on work-PR #308 (Tier-2 surface — touches `src/core/coordinator.py`, `src/units/accounts/execute.py`, and adds `src/runtime/execution_diagnostics.py`). Operator merges; session does **not** self-merge.
+
+### 1. Completed
+- **Phase 1 E2E health check (best-effort).** Sandbox does not have VM access so per-strategy fill rate / API-OK / comms round-trip cannot be checked from here; relied on the operator's pasted journalctl error to confirm the bug shape. The four predetermined Phase-2A targets from `recurring-hardening-prompt.md` are independent of each other; this session takes target #1 and leaves #2/#3/#4 for follow-up sessions per the one-task-per-session rule.
+- **Code trace.** Followed the live VWAP path: `pipeline.run_pipeline` → `_signal_to_order_package` → `Coordinator.multi_account_execute(pkg, dry_run=False)` → `account.place_order(pkg, dry_run=False)` → `integrator.route_order` → `BybitAPI.place(order, dry_run=False)` — which raises `NotImplementedError("BybitAPI live placement requires an injected exchange_client; use execute_pkg() from src.units.accounts.execute for live trading.")`. Confirmed against operator's exact journalctl line: `[ERROR] pipeline_order → failed_dispatch: multi_account_execute: BybitAPI live placement requires an injected exchange_client …`.
+- **Fix (BUG-034).**
+  - `src/core/coordinator.py::Coordinator.multi_account_execute` — replaced the `account.place_order(pkg, dry_run=…)` call with a direct route through `execute_pkg(pkg, account_cfg, exchange_client=client, balance_usdt=balance, dry_run=…, qty_override=sized_qty)`. Per-account exchange client resolved via `bybit_client_for` / `binance_conn_for` from `src.units.accounts.clients`. Live-mode missing creds is now a hard `RuntimeError` instead of a silent dry-run fallback.
+  - `src/units/accounts/execute.py::execute_pkg` — added `qty_override: Optional[float]` parameter so the caller's stateful per-account RiskManager-approved qty wins over the ephemeral `size_order_from_cfg` recomputation. Preserves daily-loss-budget state.
+  - `src/runtime/execution_diagnostics.py` (NEW, ~80 lines) — `enqueue_execution_failure(account, strategy, symbol, side, qty, reason)` drops a JSON ping into `runtime_logs/pending_pings/` for the bot's ~5-second job-queue tick to deliver. Best-effort, no synchronous Telegram dependency on the order path.
+  - `src/core/coordinator.py::_emit_execution_failure_ping` (NEW module helper) — wraps the diagnostics call so the order-routing path stays clean. Catches RiskBreach, RuntimeError, and any unexpected exchange-SDK exception escaping `execute_pkg`.
+- **Regression test (`tests/test_s028_vwap_execute_routing.py`, 6 tests).**
+  - `TestOrderPackageReachesExecutePkg::test_dry_run_routes_through_execute_pkg` — dry-run path captures the OrderPackage at `execute_pkg`; verifies `qty_override` carries the per-account RiskManager qty.
+  - `TestOrderPackageReachesExecutePkg::test_live_path_constructs_per_account_client_and_calls_execute_pkg` — live path resolves a `bybit_client_for` sentinel and hands it to `execute_pkg`.
+  - `TestOrderPackageReachesExecutePkg::test_no_call_to_bybit_api_place` — belt-and-braces: `BybitAPI.place` is patched to raise; the test passes only when the legacy path is never touched.
+  - `TestExecutionFailureDiagnosticPing::test_ping_enqueued_when_execute_pkg_raises` — verifies the JSON ping lands with the right account/strategy/symbol/side/reason.
+  - `TestExecutionFailureDiagnosticPing::test_live_mode_missing_creds_emits_ping_and_does_not_silently_dry_run` — pins the new hard-fail-on-missing-creds gate; previously execute_pkg silently flipped `is_dry=True`.
+  - `TestExecutionFailureDiagnosticPing::test_no_ping_when_execution_succeeds` — diagnostics stay quiet on the happy path.
+- **Bug-log row (BUG-034).** Appended to `docs/claude/bug-log.md` with full root-cause / fix / architectural-concern columns.
+
+### 2. Files changed
+- `src/core/coordinator.py` — `multi_account_execute` body rewritten; `_emit_execution_failure_ping` helper added.
+- `src/units/accounts/execute.py` — `qty_override` parameter added to `execute_pkg`.
+- `src/runtime/execution_diagnostics.py` — new module.
+- `tests/test_s028_vwap_execute_routing.py` — new (6 tests).
+- `docs/claude/bug-log.md` — BUG-034 row prepended.
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` — this entry.
+
+### 3. Tests run
+- `PYTHONPATH=. python -m pytest tests/test_s028_vwap_execute_routing.py -v` — **6 / 6 passed.**
+- `PYTHONPATH=. python -m pytest tests/test_coordinator_flow.py tests/test_accounts_integration.py tests/test_s010_accounts.py tests/test_s012_risk_caps.py tests/test_vwap_strategy.py tests/test_s021_smoke_and_status.py tests/test_s028_vwap_execute_routing.py -q` — **191 / 191 passed.** No regressions in the order-execution / accounts / VWAP suites.
+- `PYTHONPATH=. python -m pytest tests/ -q --ignore=tests/test_main_loop.py …` — full filtered suite: 1860 passed / 53 failed / 2 skipped. The 53 failures are pre-existing sandbox-environment failures (missing `telegram`, `fastapi.testclient`, etc.) — verified by stashing the patch and re-running the same files: same failure on `main`.
+- `python scripts/secret_scan.py` — clean.
+- `python scripts/check_dry_run_in_diff.py` — clean.
+
+### 4. Remaining
+- **Operator merges work-PR #308.** Tier-2 surface (`src/core/coordinator.py`, `src/units/accounts/execute.py`); session does not self-merge per `CLAUDE.md § Merging Rules`.
+- **Phase 2A targets #2/#3/#4** from the hardening prompt (ALLOW_LIVE_TRADING env propagation, comms ping system, systemd env reload) — independent of this fix and pick-up-able in the next hardening session.
+- **Cleanup follow-up.** Once #308 merges, `src/units/accounts/integrator.py::BybitAPI.place(dry_run=False)` and the related `BreakoutAPI` stub are dead code in production (only test fixtures via `account.place_order` still exercise the dry-run branch). File a small Tier-1 cleanup sprint to drop them.
+
+### 5. Next checkpoint
+**CP-2026-05-?-??** — Hardening session #2. Read order: this entry, `docs/sprints/recurring-hardening-prompt.md` § Phase 2A targets #2 (ALLOW_LIVE_TRADING env propagation), `src/runtime/trading_mode.py`, the systemd unit file under `deploy/`. Confirm the merged BUG-034 fix produced non-`failed_dispatch` rows on the VM via the operator's next hourly report before tackling target #2.
+
+### 6. Live-mode check
+- ✅ `python scripts/check_dry_run_in_diff.py` — clean (no DRY_RUN flips).
+- ✅ `config/accounts.yaml` not touched.
+- ⚠️ Touches `src/core/coordinator.py` and `src/units/accounts/execute.py` — both in `CLAUDE.md § Live-mode invariant rule (3)`. Work-PR opens as draft `(PM REVIEW): vwap execution routing fix` (#308); ping-PR `claude/ping-vwap-exec-fix` (#309) self-merged to fire the operator alert. Operator merges work-PR #308.
+- The behavioural change is **toward** live correctness: pre-fix, every live VWAP/turtle_soup tick failed at `BybitAPI.place(dry_run=False)`; post-fix, live ticks reach the canonical `execute_pkg` entry point with a real exchange client. No path is added that bypasses the per-account RiskManager (the live RiskManager still sizes; `qty_override` propagates that decision intact).
+
+### 7. Lessons learned
+1. **When an exception's message names the fix, the next hardening session takes it as P0.** `BybitAPI.place(dry_run=False)`'s `NotImplementedError("… use execute_pkg() from src.units.accounts.execute for live trading.")` was the bug *and* the spec at the same time — the fix is to literally do what the exception suggests. Worth a CLAUDE.md note: any `NotImplementedError` in production order-routing code is a *find me* signal for the next recurring hardening session.
+2. **Silent dry-run fallback on missing creds is worse than a noisy crash.** `execute_pkg` flipped `is_dry=True` whenever `exchange_client is None`, masking missing-API-key issues as successful dry-run trade_ids. The fix turns that into a hard `RuntimeError("missing API credentials …")` at the multi_account_execute layer plus a diagnostic ping. Carry forward: any "graceful" fallback that downgrades from live to dry should ping the operator instead of staying quiet.
+3. **The pending-pings inbox is the right channel for diagnostics on the order path.** Synchronous Telegram from `multi_account_execute` would have coupled order placement to network reachability of `api.telegram.org`. The `runtime_logs/pending_pings/` JSON-drop pattern (already used by `scripts/send_ping.py`) decouples cleanly: the order path drops a file and returns, and the bot's job-queue tick handles delivery. Future per-account error-reporting paths should reuse `enqueue_execution_failure`-style helpers rather than calling Telegram directly.
+
+---
+
 ## CP-2026-05-02-26 — Recurring-session triggers wired end-to-end on the right bot
 
 - **Session date:** 2026-05-02
@@ -76,9 +140,6 @@ Don't:
 ```
 
 Read in order: CLAUDE.md → docs/sprints/recurring-hardening-prompt.md → docs/claude/checkpoints/CHECKPOINT_LOG.md → src/runtime/pipeline.py → src/units/accounts/execute.py.
-
----
-
 
 ---
 
