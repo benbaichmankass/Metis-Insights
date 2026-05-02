@@ -62,6 +62,60 @@ Operator reply on PR #271: "We should go with option a — the trade package sho
 
 ---
 
+## CP-2026-05-02-10 — Hourly summary delivery fixed (BUG-031 + BUG-032)
+
+- **Session date:** 2026-05-02
+- **Sprint:** S-XXX — Telegram bot debug + UI overhaul + repo cleanup (mid-sprint hotfix on operator report)
+- **Current sprint phase:** out-of-band hotfix. The G5 work-PR (#271) is still draft awaiting operator on the VWAP question; this hotfix is unrelated and self-merges.
+- **Last completed checkpoint:** CP-2026-05-02-08 (#270 G6, merged) + CP-2026-05-02-09 (#271 G5, draft + #272 ping merged).
+- **Next checkpoint:** **CP-2026-05-02-11 — sprint-summary PR.** With this hotfix landed, all visible operator-reported issues from the sprint prompt are resolved (G5 still awaits the (a)/(b) decision, but the sprint can otherwise close).
+- **Telegram sent:** pending — this checkpoint commit triggers the VM ping. **Bonus:** after this PR merges, the hourly summary path itself is repaired, so the operator should start seeing hourly summaries automatically again.
+- **Alerts sent during session:** none beyond the existing G5 ping.
+- **Blockers:** none.
+
+### 1. Operator-reported issue
+After PR #265 (G1) landed, the operator reported:
+```
+/hourly
+⚠️ /hourly failed: BadRequest: Can't parse entities: can't find end of the entity starting at byte offset 138
+```
+plus the standing complaint "I'm still not getting hourly updates."
+
+### 2. Two bugs found
+- **BUG-031 (visible):** `cmd_hourly` success-reply uses `parse_mode="Markdown"` and the text contains `send_via_alert_manager` (3 underscores → unbalanced italic) and `pending_pings.jsonl` (more underscores). Same shape as BUG-009 (#190 /signals) and BUG-030 (#265 /last5) — third occurrence.
+- **BUG-032 (silent — hourly delivery):** `src/runtime/notify.py::_send_via_alert_manager_async` called `mgr.send(message)` on `AlertManager`, but that class only exposes `send_alert`. Every send raised `AttributeError`, was caught by `outcomes._send_telegram_or_queue`, and the message was appended to the pending-queue JSONL — silently. The async wrapper also tried to call `asyncio.run` from inside the bot's running event loop, which would have failed even if the method name had been right. **The hourly summary has been queue-only for an entire sprint cycle.**
+
+### 3. Completed
+- Dropped `parse_mode="Markdown"` from the `cmd_hourly` success-reply (BUG-031). Added `TestCmdHourlyReplyMarkdown` regression test asserting no parse_mode is set on the success line.
+- Replaced the broken AlertManager dance in `notify.py::send_via_alert_manager` with a direct stdlib `send_telegram_direct(message, parse_mode=None)` call (BUG-032). The new function is sync — no `asyncio.run` from inside the bot's loop. Failures re-raise so `outcomes._send_telegram_or_queue` can correctly fall through to the pending-queue drain.
+- Made `parse_mode` configurable on `send_telegram_direct` (default still `"HTML"` for back-compat with `cmd_accounts_status` and any other HTML-formatted callers). Plain-text content (the hourly report's `(expected <= 15m)` line included) now passes `parse_mode=None` so Telegram's HTML parser doesn't reject literal `<` characters.
+- Added `tests/test_notify_send_via_alert_manager.py` (6 tests) covering: (i) `send_via_alert_manager` routes through `send_telegram_direct` with parse_mode=None; (ii) failures propagate so the queue can take over; (iii) the implementation does not re-import the broken AlertManager; (iv) `send_telegram_direct` defaults to HTML; (v) parse_mode=None omits the field entirely from the wire payload; (vi) missing-credentials no-op.
+- Updated `bug-log.md` with both BUG-031 and BUG-032 rows. Cross-referenced BUG-009 / BUG-030 for the markdown shape and noted the recurring "no parse_mode='Markdown' on dynamic content" rule.
+
+### 4. Files changed
+- `src/bot/telegram_query_bot.py` — `cmd_hourly` success-reply drops `parse_mode="Markdown"`.
+- `src/runtime/notify.py` — `send_telegram_direct` accepts optional `parse_mode`; `send_via_alert_manager` rewritten to use it directly (no AlertManager, no asyncio); dead `_send_via_alert_manager_async` and `import asyncio` removed.
+- `tests/test_notify_send_via_alert_manager.py` — new file, 6 tests.
+- `tests/test_telegram_query_bot.py` — new `TestCmdHourlyReplyMarkdown` class (1 test).
+- `docs/claude/bug-log.md` — BUG-031 + BUG-032 rows.
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` — this entry.
+
+### 5. Tests run
+- `PYTHONPATH=. pytest tests/test_telegram_query_bot.py::TestCmdHourlyReplyMarkdown tests/test_notify_send_via_alert_manager.py tests/test_outcomes.py -v` — 23 passed.
+- `PYTHONPATH=. pytest tests/test_telegram_query_bot.py -q` — 105 passed; 1 pre-existing failure (`TestCmdStatusMultiAccount::test_shows_block_per_account`, see CP-2026-05-02-01 / CP-2026-05-01-19), not from this PR.
+- `python scripts/check_dry_run_in_diff.py` — clean.
+- `python scripts/secret_scan.py` — clean.
+
+### 6. Remaining
+- none for this hotfix.
+- G5 (#271) still draft awaiting operator on the VWAP (a)/(b) decision.
+- After this PR merges, the operator should expect to see the hourly summary delivered to Telegram on the next scheduler tick.
+
+### 7. Next checkpoint
+**CP-2026-05-02-11 — sprint-summary PR.** Once G5 unblocks, close out the sprint with a `docs/sprint-summaries/sprint-XXX-summary.md` doc per the CLAUDE.md sprint-completion checklist.
+
+---
+
 ## CP-2026-05-02-09 — G5: failed_validation root cause + decision needed (PM REVIEW)
 
 - **Session date:** 2026-05-02
@@ -119,6 +173,54 @@ Operator reply on PR #271: "We should go with option a — the trade package sho
 Operator picks (a) or (b) and the work-PR moves out of draft after the follow-up commit lands. Until then the work-PR stays draft and `claude/ping-g5-vwap-decision` carries the alert.
 
 (Note: CP-2026-05-02-08 is on the G6 branch / PR #270 and lands when that merges; this entry is intentionally not chained to it because the two PRs touch disjoint files and either can land first.)
+
+---
+
+## CP-2026-05-02-08 — G6: signal_notifications.py trimmed to live surface
+
+- **Session date:** 2026-05-02
+- **Sprint:** S-XXX — Telegram bot debug + UI overhaul + repo cleanup
+- **Current sprint phase:** G6 (6/6 in scope minus G5 which requires the ping-PR pattern). Sprint substantially complete.
+- **Last completed checkpoint:** CP-2026-05-02-07 (#269, merged).
+- **Next checkpoint:** **CP-2026-05-02-09 — G5: failed_validation investigation + ping-PR.** Per CLAUDE.md § Live-mode invariant: any PR touching `src/runtime/pipeline.py` requires the ping-PR pattern. The work-PR stays draft; a separate `claude/ping-<slug>` PR with a `pending-pings.jsonl` append fires the operator alert.
+- **Telegram sent:** pending — this checkpoint commit triggers the VM ping.
+- **Alerts sent during session:** none.
+- **Blockers:** none for G6. G5 is queued and will explicitly stop for operator review.
+
+### 1. Completed
+- Trimmed `src/runtime/signal_notifications.py` from ~175 lines down to ~94 lines by deleting helpers with zero callers across `src/`, `scripts/`, `tests/`, `notebooks/`:
+  - `msg_bi_daily` — the explicit-removal hard-error stub introduced in CP-2026-05-02-01. The prompt for this sprint asked whether it could be deleted outright; verified yes — no remaining importers and `should_send_summary` already prevents the legacy summary path from running.
+  - `msg_started`, `msg_stopped`, `msg_trade_open`, `msg_trade_close` — old text formatters superseded by `src/runtime/notify.py` and the trader's startup logging.
+  - `plot_signal_summary`, `plot_trade_chart`, `_plot_base` — matplotlib chart helpers superseded by the static HTML chart artefacts (`ict_complete_chart.html`, etc.).
+  - `summarize_trades`, `load_db` — unused stat utilities.
+  - `import matplotlib.pyplot as plt` — removed. The module no longer pulls matplotlib; existing test scaffolds can be loosened in a follow-up sprint but I left them untouched in this PR (no behaviour change).
+- Surviving surface: `fetch_df`, `get_last_signals`, `format_signals`, `ensure_signals_table`, `insert_signal` — the four entry points consumed by `src/bot/telegram_query_bot.py` and `src/runtime/signal_writer.py`. Verified with grep for each survivor.
+- Fixed an unrelated regression introduced by my own G3 PR (#267): `tests/test_telegram_surface_cleanup.py::test_botcommand_registry_includes_vm_commands` did a literal string match for `BotCommand("vm",` which the G3 `BotCommandSpec` refactor broke. The test now accepts either form; the invariant it asserts (vm/vm_write present in the operator menu) is unchanged.
+- Verified the rest of the sprint cleanup checklist:
+  - `python scripts/repo_inventory.py` — no junk candidates; no `*_old.py` / `*_bak.py` / `*.save` / `*.orig` in the tree.
+  - All 8 `deploy/*.service` files are referenced (install_systemd_units.sh / deploy_pull_restart.sh / vm_bootstrap.sh / daily_heartbeat.py); none dead.
+  - 8 notebooks under `notebooks/` are operator + setup tooling — not retired training notebooks; `notebooks/training/` does not exist.
+  - Only `.env.example` is tracked; used by `README.md` and `tests/test_s006_ict_risk_config.py`. The reserved-account-id filter (`_ENV_DISCOVERY_RESERVED`) already excludes "example" at runtime, but the file itself stays — it's the dev onboarding template.
+
+### 2. Files changed
+- `src/runtime/signal_notifications.py` — trimmed to live surface (now a 94-line file with 5 functions instead of a 175-line file with 16 functions). Module docstring updated to reflect the surviving API.
+- `tests/test_telegram_surface_cleanup.py` — `BotCommand("vm",` → `BotCommandSpec("vm",` (tolerant of both forms).
+- `docs/claude/cleanup-report.md` — appended a CP-2026-05-02-08 entry detailing the cuts and the inventory checklist results.
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` — this entry.
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_telegram_surface_cleanup.py -q` — 2 passed (the two not blocked by the pre-existing pandas-not-in-sandbox import issue). The one I introduced in G3 (`test_botcommand_registry_includes_vm_commands`) now passes after the test fix.
+- `PYTHONPATH=. pytest tests/test_telegram_query_bot.py tests/test_data_loaders.py tests/test_kill_switch.py tests/test_notify_session.py tests/test_set_keys_command.py tests/test_telegram_signals.py tests/test_telegram_strategy_labels.py tests/test_s007_bot_commands.py tests/test_s008_telegram_rewired.py tests/test_s008_5_telegram_sprint_cmds.py tests/test_telegram_surface_cleanup.py tests/test_pipeline_news_veto.py tests/test_s013_webapp_command.py tests/test_accounts_status_md_rendering.py -q` — 253 passed, 14 failed. Of those 14: 5 in `test_s008_5_telegram_sprint_cmds.py`, 4 in `test_data_loaders.py`, 1 each in `test_telegram_signals.py`, `test_s007_bot_commands.py`, `test_s008_telegram_rewired.py`, `test_telegram_query_bot.py`, `test_telegram_surface_cleanup.py` (pandas-not-in-sandbox). All confirmed pre-existing by re-running the same test paths against `origin/main` of `src/runtime/signal_notifications.py` and `src/bot/telegram_query_bot.py`. None are regressions from this PR.
+- `python scripts/check_dry_run_in_diff.py` — clean.
+- `python scripts/secret_scan.py` — clean.
+
+### 4. Remaining for this checkpoint
+- none — G6 fully shipped.
+
+### 5. Next checkpoint
+**CP-2026-05-02-09 — G5: failed_validation investigation + ping-PR.** Touches `src/runtime/pipeline.py`; opens a draft work-PR + a separate ping-PR per the CLAUDE.md ping-PR rule. Sprint completion summary follows once G5 lands (or is parked at the operator-review step).
+
+---
 
 ---
 

@@ -2462,12 +2462,16 @@ async def cmd_hourly(update: Update, context: ContextTypes.DEFAULT_TYPE):
         msg = build_hourly_report(now_utc=now, tick_interval_s=900)
         send_scheduled(msg)
 
+        # Plain text — the message contains identifiers with multiple
+        # underscores ("send_via_alert_manager", "pending_pings.jsonl")
+        # that Telegram's legacy Markdown parser interprets as
+        # unbalanced italic and rejects with BadRequest. Same shape as
+        # BUG-009 / BUG-030 for /signals and /last5.
         await update.message.reply_text(
             f"✅ Hourly report dispatched ({len(msg)} chars). "
             f"If you don't see it shortly, check "
-            f"`runtime_logs/pending_pings.jsonl` on the VM "
-            f"(send_via_alert_manager failure path).",
-            parse_mode="Markdown",
+            f"runtime_logs/pending_pings.jsonl on the VM "
+            f"(send_via_alert_manager failure path)."
         )
     except Exception as exc:  # noqa: BLE001
         await update.message.reply_text(

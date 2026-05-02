@@ -104,13 +104,22 @@ def test_status_per_account_block_drops_service_name(monkeypatch):
 
 
 def test_botcommand_registry_includes_vm_commands():
-    """§A1 — vm and vm_write must be in the BotCommand list (operator
-    autocomplete) so they're discoverable, not just registered as
-    handlers."""
+    """§A1 — vm and vm_write must surface in the operator's Telegram
+    autocomplete (set_my_commands), not just as registered handlers.
+
+    The source-of-truth changed in CP-2026-05-02-05 (G3): per-command
+    metadata moved from a flat ``BotCommand("vm", ...)`` literal list
+    to ``BotCommandSpec("vm", ..., "diagnostics")`` entries derived
+    into ``BOT_COMMANDS`` at module load. The invariant the test
+    asserts is unchanged — ``vm`` and ``vm_write`` are in the menu.
+    """
     src_path = REPO_ROOT / "src" / "bot" / "telegram_query_bot.py"
     text = src_path.read_text(encoding="utf-8")
-    assert 'BotCommand("vm",' in text
-    assert 'BotCommand("vm_write",' in text
+    assert 'BotCommandSpec("vm",' in text or 'BotCommand("vm",' in text
+    assert (
+        'BotCommandSpec("vm_write",' in text
+        or 'BotCommand("vm_write",' in text
+    )
 
 
 def test_no_stale_s008_5_hardcoded_in_handlers():
