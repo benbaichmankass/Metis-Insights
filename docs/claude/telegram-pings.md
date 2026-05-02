@@ -90,15 +90,48 @@ When the autonomous Claude session can't proceed and needs operator
 input:
 
 1. Make a commit with `[BLOCKED-PM] <one-line question>` in the
-   subject. The body of the commit message contains: what's blocking,
-   what context is needed to unblock, what Claude tried.
-2. Open a draft PR with title `BLOCKED: <one-line question>`.
+   subject **on the work branch**. The body of the commit message
+   contains: what's blocking, what context is needed to unblock,
+   what Claude tried.
+2. Open a **draft** PR with title `BLOCKED: <one-line question>`.
+   This PR carries the actual change (or the half-built change). It
+   is **never** self-merged — only the operator decides.
 3. Include the chat link in the PR body (the session URL the operator
    can open to reply directly to Claude).
-4. Stop. Do not start unrelated work in the meantime.
+4. **Open a separate ping-PR** (see "Ping-PR vs work-PR" below) and
+   self-merge it. That merge fires the Telegram alert via the
+   existing checkpoint / pending-pings drain.
+5. Stop. Do not start unrelated work in the meantime.
 
 The VM-side ping then surfaces this immediately (highest priority), with
-a link to both the PR and the chat.
+a link to both the work PR and the chat.
+
+## Ping-PR vs work-PR (MANDATORY pattern)
+
+Pings ride on **merged commits**, not on draft PRs. So when an
+autonomous session needs to fire a ping while keeping its actual
+change open for review, two PRs are required, on two branches:
+
+| Concern | Ping-PR | Work-PR |
+|---|---|---|
+| Branch | `claude/ping-<slug>` | `claude/<sprint-or-task>-…` |
+| Title prefix | `PING:` (high priority) or `BLOCKED-PING:` (urgent) | `BLOCKED:`, `(PM REVIEW):`, normal sprint title |
+| Payload | ≤ 5 lines: append to `docs/claude/pending-pings.jsonl` *or* checkpoint-log entry | the actual code/docs change |
+| Action | self-merge immediately → fires ping | left as **draft** → operator reviews/approves |
+| Body must include | link to the work-PR + the question / status | chat link + question / context |
+
+Why two PRs:
+- Merging the work-PR to "fire the ping" silently approves your own
+  change. Operator loses the chance to gate the merge.
+- Leaving the work-PR as draft without a ping means the operator
+  doesn't know they were waited on.
+- The split keeps the channel (ping-PR) and the content (work-PR) on
+  different commits, so reverting one never affects the other.
+
+Failure mode the pattern prevents: the recurring "I'm waiting on you,
+but you didn't see anything in Telegram" loop noted in
+CP-2026-05-02-03 review. Always do this when a session needs operator
+weigh-in before continuing.
 
 ## Failure modes the wiring must handle
 
