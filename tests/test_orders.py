@@ -126,3 +126,112 @@ def test_run_pipeline_places_order_when_halt_flag_absent():
             signal_builder=_signal_stub(_ACTIONABLE_SIGNAL),
         )
     assert result["order_result"]["status"] == "submitted"
+
+
+# ---------------------------------------------------------------------------
+# G5 — Pipeline result Telegram message attribution
+# ---------------------------------------------------------------------------
+
+
+def _signal_with_strategy(name: str, has_sltp: bool = True):
+    """Actionable signal with meta.strategy_name populated. ``has_sltp``
+    toggles the entry/sl/tp top-level fields the multi-account dispatch
+    fast-path requires."""
+    sig = {
+        "symbol": "BTCUSDT",
+        "side": "buy",
+        "qty": 1.0,
+        "price": 50_000.0,
+        "meta": {"strategy_name": name},
+    }
+    if has_sltp:
+        sig.update(
+            entry_price=50_000.0,
+            stop_loss=49_500.0,
+            take_profit=51_000.0,
+        )
+    return sig
+
+
+def test_pipeline_result_message_includes_strategy_name():
+    """G5 — the operator's Telegram 'Pipeline result' line must surface
+    the firing strategy so per-tick failed_validation messages identify
+    the offending strategy without a journalctl dive."""
+    captured = []
+    with patch("src.runtime.pipeline.os.path.exists", return_value=False), \
+         patch("src.runtime.pipeline.send_via_alert_manager",
+               side_effect=lambda msg: captured.append(msg)):
+        run_pipeline(
+            settings=_settings(MULTI_ACCOUNT_DISPATCH="false"),
+            exchange_client=_DummyClient(),
+            signal_builder=_signal_stub(_signal_with_strategy("vwap")),
+        )
+    msgs = [m for m in captured if "Pipeline result" in m]
+    assert msgs, f"no Pipeline result message captured. got: {captured}"
+    assert "strategy=vwap" in msgs[-1], (
+        f"Pipeline result message missing strategy attribution: {msgs[-1]!r}"
+    )
+
+
+def test_pipeline_result_message_strategy_unknown_when_meta_missing():
+    """When a builder forgets meta.strategy_name AND no STRATEGY env / settings
+    fallback is available, the message says 'strategy=unknown' rather than
+    omitting the field entirely. This is the ground-truth state for the bug
+    report — operator should still see something parseable."""
+    captured = []
+    sig_no_meta = {"symbol": "BTCUSDT", "side": "buy", "qty": 1.0, "price": 50_000.0}
+    with patch("src.runtime.pipeline.os.path.exists", return_value=False), \
+         patch.dict(os.environ, {}, clear=False), \
+         patch("src.runtime.pipeline.send_via_alert_manager",
+               side_effect=lambda msg: captured.append(msg)):
+        # Drop STRATEGY so the fallback chain hits "unknown".
+        os.environ.pop("STRATEGY", None)
+        # Settings without STRATEGY field.
+        settings = {"DRY_RUN": "false", "ALLOW_LIVE_TRADING": "true",
+                    "MULTI_ACCOUNT_DISPATCH": "false"}
+        run_pipeline(
+            settings=settings,
+            exchange_client=_DummyClient(),
+            signal_builder=_signal_stub(sig_no_meta),
+        )
+    msgs = [m for m in captured if "Pipeline result" in m]
+    assert msgs and "strategy=unknown" in msgs[-1]
+
+
+# ---------------------------------------------------------------------------
+# G5 — _signal_carries_full_sltp predicate (the smoking-gun gate)
+# ---------------------------------------------------------------------------
+
+
+def test_signal_carries_full_sltp_true_when_top_level_fields_present():
+    from src.runtime.pipeline import _signal_carries_full_sltp
+    sig = _signal_with_strategy("turtle_soup", has_sltp=True)
+    assert _signal_carries_full_sltp(sig)
+
+
+def test_signal_carries_full_sltp_false_for_vwap_shape_no_sltp():
+    """Reproduces the operator's bug: VWAP's build_vwap_signal returns a
+    signal with meta.strategy_name='vwap' but no entry/sl/tp at top
+    level. The multi-account dispatch fast-path correctly skips it."""
+    from src.runtime.pipeline import _signal_carries_full_sltp
+    vwap_shape = {
+        "symbol": "BTCUSDT", "side": "buy", "qty": 1.0,
+        "meta": {
+            "strategy_name": "vwap",
+            "vwap": 50_000.0, "current_price": 49_500.0,
+            "std_dev": 100.0, "deviation_std": -2.5,
+        },
+    }
+    assert not _signal_carries_full_sltp(vwap_shape)
+
+
+def test_signal_carries_full_sltp_accepts_meta_aliases():
+    """meta.sl / meta.tp are accepted as aliases for the top-level
+    stop_loss / take_profit fields (some builders nest them)."""
+    from src.runtime.pipeline import _signal_carries_full_sltp
+    sig = {
+        "symbol": "BTCUSDT", "side": "buy", "qty": 1.0,
+        "meta": {"price": 50_000.0, "sl": 49_500.0, "tp": 51_000.0,
+                 "strategy_name": "synthetic"},
+    }
+    assert _signal_carries_full_sltp(sig)

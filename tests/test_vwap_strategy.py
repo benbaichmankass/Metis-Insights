@@ -181,6 +181,71 @@ class TestBuildVwapSignal:
         with pytest.raises(ValueError, match="at least"):
             build_vwap_signal(df, symbol="BTCUSDT", qty=1.0)
 
+    # ----- G5 (CP-2026-05-02-12, option a) — VWAP must populate sl/tp -----
+
+    def test_buy_signal_carries_entry_sl_tp_at_top_level(self):
+        df = _candles_below_vwap()
+        signal = build_vwap_signal(df, symbol="BTCUSDT", qty=1.0)
+        assert signal["side"] == "buy"
+        for k in ("entry_price", "stop_loss", "take_profit"):
+            assert k in signal, (
+                f"BUY signal missing top-level {k}; multi-account dispatch "
+                f"requires it (signal_carries_full_sltp gate)"
+            )
+        # Mean-reversion: TP = VWAP, entry below VWAP, SL further below entry.
+        assert signal["take_profit"] == signal["meta"]["vwap"]
+        assert signal["entry_price"] < signal["take_profit"]
+        assert signal["stop_loss"] < signal["entry_price"]
+
+    def test_sell_signal_carries_entry_sl_tp_at_top_level(self):
+        df = _candles_above_vwap()
+        signal = build_vwap_signal(df, symbol="BTCUSDT", qty=1.0)
+        assert signal["side"] == "sell"
+        for k in ("entry_price", "stop_loss", "take_profit"):
+            assert k in signal
+        # Mean-reversion: TP = VWAP, entry above VWAP, SL further above entry.
+        assert signal["take_profit"] == signal["meta"]["vwap"]
+        assert signal["entry_price"] > signal["take_profit"]
+        assert signal["stop_loss"] > signal["entry_price"]
+
+    def test_no_signal_does_not_emit_sl_tp(self):
+        df = _candles_near_vwap()
+        signal = build_vwap_signal(df, symbol="BTCUSDT", qty=1.0)
+        assert signal["side"] == "none"
+        # SL/TP keys must be absent for no-trade signals; the multi-account
+        # dispatch fast-path uses .get() and falls through correctly when
+        # they're missing.
+        assert "entry_price" not in signal
+        assert "stop_loss" not in signal
+        assert "take_profit" not in signal
+
+    def test_sl_distance_uses_sl_std_mult(self):
+        """The stop-loss distance from entry equals sl_std_mult * std_dev."""
+        df = _candles_below_vwap()
+        s_default = build_vwap_signal(df, symbol="BTCUSDT", qty=1.0)
+        s_wide = build_vwap_signal(df, symbol="BTCUSDT", qty=1.0, sl_std_mult=2.0)
+
+        std_dev = s_default["meta"]["std_dev"]
+        # default = 1.0
+        d_default = s_default["entry_price"] - s_default["stop_loss"]
+        d_wide = s_wide["entry_price"] - s_wide["stop_loss"]
+        assert d_default == pytest.approx(1.0 * std_dev, rel=1e-6)
+        assert d_wide == pytest.approx(2.0 * std_dev, rel=1e-6)
+
+    def test_signal_is_packageable_after_g5_fix(self):
+        """The signal returned by build_vwap_signal must satisfy the
+        pipeline's _signal_carries_full_sltp predicate so the
+        multi-account dispatch fast-path accepts it instead of falling
+        into the legacy ALLOW_LIVE_TRADING gate."""
+        from src.runtime.pipeline import _signal_carries_full_sltp
+
+        df = _candles_below_vwap()
+        signal = build_vwap_signal(df, symbol="BTCUSDT", qty=1.0)
+        assert _signal_carries_full_sltp(signal), (
+            "Post-G5: VWAP signals must be packageable "
+            "(this was the BUG)"
+        )
+
 
 # ---------------------------------------------------------------------------
 # Integration: STRATEGY=vwap routes to VWAP logic via run_pipeline

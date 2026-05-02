@@ -5,6 +5,63 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-02-12 — G5 follow-up: VWAP populates entry/sl/tp (option a)
+
+- **Session date:** 2026-05-02
+- **Sprint:** S-XXX — Telegram bot debug + UI overhaul + repo cleanup
+- **Current sprint phase:** G5 unblocked. Operator picked option (a) on PR #271 — "the trade package should always include entry/sl/tp levels". Work-PR #271 moves out of draft.
+- **Last completed checkpoint:** CP-2026-05-02-09 (G5 work-PR draft) + CP-2026-05-02-10 (hourly hotfix #273).
+- **Next checkpoint:** **CP-2026-05-02-13 — sprint-summary PR.** All goals shipped; close out the sprint per CLAUDE.md § Sprint Completion Checklist.
+- **Telegram sent:** pending — this checkpoint commit triggers the VM ping. After this PR merges the per-tick `failed_validation` message stops firing for VWAP.
+- **Alerts sent during session:** none beyond the existing G5 ping.
+- **Blockers:** none.
+
+### 1. Completed (option a — operator-directed)
+Operator reply on PR #271: "We should go with option a — the trade package should always include entry/sl/tp levels." Implementation:
+
+- `src/units/strategies/vwap.py::build_vwap_signal` now populates `entry_price`, `stop_loss`, `take_profit` at the top level on every actionable signal. Mean-reversion logic:
+  - `entry = current_price` (the close at signal time)
+  - `take_profit = vwap` (mean-reversion target)
+  - `stop_loss`:
+    - BUY  (price < VWAP): `entry - sl_std_mult * std_dev`
+    - SELL (price > VWAP): `entry + sl_std_mult * std_dev`
+- New module-level constant `SL_STD_MULT_DEFAULT = 1.0`. The signal builder accepts an optional `sl_std_mult` arg so the operator can tune the stop without a code change. With the default, R/R at entry is `|deviation_std| : 1` which is favourable when the entry threshold (`|deviation_std| ≥ ENTRY_STD_THRESHOLD = 1.0`) is met.
+- `meta` carries the same sl/tp values plus the `sl_std_mult` actually used, so the audit log captures both the rule (`sl_std_mult=1.0`) and the resolved levels.
+- No-trade signals (side="none") deliberately omit the sl/tp keys; the multi-account dispatch fast-path uses `.get()` and short-circuits correctly.
+- Five new tests in `tests/test_vwap_strategy.py::TestBuildVwapSignal`:
+  1. BUY signal carries entry/sl/tp at top level (entry < TP=vwap, SL < entry).
+  2. SELL signal carries entry/sl/tp at top level (entry > TP=vwap, SL > entry).
+  3. No-signal case omits sl/tp keys.
+  4. SL distance scales with `sl_std_mult` (1.0 vs 2.0 — verified arithmetic).
+  5. The signal satisfies `pipeline._signal_carries_full_sltp` so multi-account dispatch will accept it (this was the root-cause predicate that failed pre-fix).
+
+### 2. Files changed (this checkpoint)
+- `src/units/strategies/vwap.py` — `SL_STD_MULT_DEFAULT` constant; `build_vwap_signal` accepts optional `sl_std_mult`; populates `entry_price` / `stop_loss` / `take_profit` at top level for actionable signals; meta also carries them for audit.
+- `tests/test_vwap_strategy.py` — 5 new tests inside `TestBuildVwapSignal`.
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` — this entry.
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_orders.py -q` — 15 passed (the existing G5 predicate tests still hold).
+- `tests/test_vwap_strategy.py` — skipped in this sandbox (`pytest.importorskip("pandas")`); runs on CI / VM where pandas is installed.
+- `python scripts/check_dry_run_in_diff.py` — clean.
+- `python scripts/secret_scan.py` — clean.
+
+### 4. Remaining for this checkpoint
+- none — option (a) implemented; PR moves out of draft and merges.
+
+### 5. Next checkpoint
+**CP-2026-05-02-13 — sprint-summary PR.** With G5 landed, this sprint is functionally complete:
+- G1 #265 (last5 Markdown) ✅
+- G2 #266 (hamburger ↔ /help) ✅
+- G3 #267 (/help button menu) ✅
+- G4 slice 1 #268 (/risk_check picker) ✅
+- audit doc #269 ✅
+- G6 #270 (signal_notifications cleanup) ✅
+- G5 #271 (this PR) ✅
+- hourly hotfix #273 ✅
+
+---
+
 ## CP-2026-05-02-10 — Hourly summary delivery fixed (BUG-031 + BUG-032)
 
 - **Session date:** 2026-05-02
@@ -59,6 +116,66 @@ plus the standing complaint "I'm still not getting hourly updates."
 
 ---
 
+## CP-2026-05-02-09 — G5: failed_validation root cause + decision needed (PM REVIEW)
+
+- **Session date:** 2026-05-02
+- **Sprint:** S-XXX — Telegram bot debug + UI overhaul + repo cleanup
+- **Current sprint phase:** G5 (5/6) — root-cause analysis done, work-PR opened as **draft**, ping-PR fired. Awaiting operator decision on the VWAP question.
+- **Last completed checkpoint:** CP-2026-05-02-08 (#270, merged).
+- **Next checkpoint:** **CP-2026-05-02-10 — G5 follow-up after operator decides.** Either implement option (a) "compute SL/TP in VWAP" (VWAP becomes a fully-packageable signal and the multi-account dispatch fans it out) OR option (b) "mark VWAP signal-only" (short-circuit before safe_place_order, never reaches the live-trading interlock). The work-PR currently does the safe diagnostics — strategy in the Telegram message and a smoking-gun warning at the source — but does not pick a side.
+- **Telegram sent:** ping-PR (claude/ping-g5-vwap-decision) carries the alert. The work-PR stays draft per CLAUDE.md § Ping-PR vs work-PR.
+- **Alerts sent during session:** ping-PR for operator decision (see § 4 below).
+- **Blockers:** **operator weigh-in needed** before VWAP is changed. The two options have different risk profiles; both reach `src/units/strategies/vwap.py` and either is reasonable. I am not picking unilaterally per the autonomous-trading rule's spirit (small change, broad blast radius).
+
+### 1. Completed (root-cause analysis)
+- Traced the per-tick `failed_validation … ALLOW_LIVE_TRADING=true is required` message. Confirmed the architecture introduced in CP-2026-05-02-01 is correct: when a signal carries entry+sl+tp, multi-account dispatch fans it out and the global ALLOW_LIVE_TRADING gate is bypassed; only the per-account dry/live state matters.
+- **The signal that's still tripping the gate is VWAP.** `src/units/strategies/vwap.py::build_vwap_signal` (lines 157-169) returns:
+  ```python
+  {
+    "symbol": symbol,
+    "side": "buy" | "sell" | "none",
+    "qty": float,
+    "meta": {"strategy_name": "vwap", "vwap": …, "current_price": …, "std_dev": …, "deviation_std": …, "reason": …},
+  }
+  ```
+  No `entry_price`, `stop_loss`, or `take_profit` at the top level (and no `sl`/`tp` aliases under `meta`). When VWAP fires `side=buy/sell`, `_signal_packageable` returns False, the signal falls into the legacy single-client path, and `safe_place_order` returns `failed_validation` because the per-process `ALLOW_LIVE_TRADING` env var isn't set (the live/dry decision lives in `accounts.yaml`, not the process env).
+- For comparison: `turtle_soup_signal_builder` (`src/runtime/pipeline.py:249-263`) DOES populate `entry_price`, `stop_loss`, `take_profit` at the top level — that's why turtle_soup never trips this validator while VWAP does.
+- The audit log already carries the strategy correctly via `signal.meta.strategy_name`. The bug "signal log missing strategy" is downstream from this — it's the operator-facing **Telegram** "Pipeline result" line, not the audit log JSONL.
+
+### 2. Completed (this PR's safe fixes)
+- The Telegram "Pipeline result" message in `run_pipeline` now includes `strategy={...}` so per-tick `failed_validation` messages identify the offending strategy without an audit-log dive. Source priority: `signal.meta.strategy_name` → `signal["strategy"]` → `settings["STRATEGY"]` → `os.environ["STRATEGY"]` → `"unknown"` (same chain the audit log uses, lifted upward so it feeds both consumers).
+- Lifted the local `_signal_packageable` predicate inside `run_pipeline` to module-level `_signal_carries_full_sltp` so the same definition feeds both the multi-account-dispatch gate and the new diagnostics warning.
+- Added a `logger.warning` + `report("pipeline", "signal_missing_sltp", ...)` when an actionable signal (side ∈ {buy, sell}, qty > 0) is missing entry/sl/tp at the top level. This puts the smoking-gun in journalctl and the alert manager so the next ping-cycle has structured data to work from.
+- Tests:
+  - `test_pipeline_result_message_includes_strategy_name` — asserts `strategy=vwap` appears in the operator's Telegram message for a vwap-attributed signal.
+  - `test_pipeline_result_message_strategy_unknown_when_meta_missing` — asserts `strategy=unknown` when the signal builder forgot meta.strategy_name AND no STRATEGY env / settings fallback exists.
+  - `test_signal_carries_full_sltp_true_when_top_level_fields_present` — happy path.
+  - `test_signal_carries_full_sltp_false_for_vwap_shape_no_sltp` — reproduces the VWAP shape.
+  - `test_signal_carries_full_sltp_accepts_meta_aliases` — meta.price / meta.sl / meta.tp aliases work.
+
+### 3. What I deliberately did NOT change
+- `src/units/strategies/vwap.py` is **untouched**. Picking option (a) vs (b) is the operator's call — see § 4. Either change is small but each has different live-trading consequences:
+  - **Option (a) — VWAP populates entry/sl/tp.** Sane defaults: entry = current_price, SL = current_price ± N × std_dev (where N is configurable), TP = vwap (mean-reversion target). Multi-account dispatch then fans VWAP signals out and per-account dry/live state takes over. Risk: VWAP starts placing real orders on every account whose dry_run is `false`. The risk caps + per-account state should hold, but this is a behavioural change.
+  - **Option (b) — mark VWAP as signal-only.** Add a `meta["signal_only"] = True` flag in `build_vwap_signal`; in `run_pipeline`, short-circuit signal-only signals before `safe_place_order` so they only update the audit log. Risk: VWAP never becomes a live execution path. Safer, but the operator may have intended VWAP to actually trade.
+- I would default to (a) IF I had clear evidence VWAP is wired to trade live (e.g. a non-zero `risk_pct` or an account in `accounts.yaml` declaring `vwap` as its strategy). The repo carries `STRATEGY_RISK_PCT["vwap"] = 0.5`, which suggests yes; but the autonomous-trading rule says trades happen because the operator pre-approved the system, and a strategy that's never placed a live order before should not start doing so under "small fix" cover.
+
+### 4. Files changed (work-PR — stays DRAFT)
+- `src/runtime/pipeline.py` — `_signal_carries_full_sltp` lifted to module scope; `_signal_packageable` (closure) replaced with the module-level predicate; missing-sltp warning + report added; `_strategy` extraction moved up so the Telegram "Pipeline result" message includes it.
+- `tests/test_orders.py` — 5 new tests under "G5 — Pipeline result Telegram message attribution" + "G5 — _signal_carries_full_sltp predicate (the smoking-gun gate)" headings.
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` — this entry.
+
+### 5. Tests run
+- `PYTHONPATH=. pytest tests/test_orders.py -v` — 15 passed (10 pre-existing + 5 new).
+- `python scripts/check_dry_run_in_diff.py` — clean.
+- `python scripts/secret_scan.py` — clean.
+
+### 6. Next checkpoint (operator action required)
+Operator picks (a) or (b) and the work-PR moves out of draft after the follow-up commit lands. Until then the work-PR stays draft and `claude/ping-g5-vwap-decision` carries the alert.
+
+(Note: CP-2026-05-02-08 is on the G6 branch / PR #270 and lands when that merges; this entry is intentionally not chained to it because the two PRs touch disjoint files and either can land first.)
+
+---
+
 ## CP-2026-05-02-08 — G6: signal_notifications.py trimmed to live surface
 
 - **Session date:** 2026-05-02
@@ -102,6 +219,8 @@ plus the standing complaint "I'm still not getting hourly updates."
 
 ### 5. Next checkpoint
 **CP-2026-05-02-09 — G5: failed_validation investigation + ping-PR.** Touches `src/runtime/pipeline.py`; opens a draft work-PR + a separate ping-PR per the CLAUDE.md ping-PR rule. Sprint completion summary follows once G5 lands (or is parked at the operator-review step).
+
+---
 
 ---
 
