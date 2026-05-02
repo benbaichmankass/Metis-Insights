@@ -155,7 +155,10 @@ class TestRiskSizing:
 
     def test_size_order_from_cfg(self):
         from src.units.accounts.risk import size_order_from_cfg
-        cfg = {"risk_pct": 0.02, "min_qty": 0.001, "max_qty": 10.0}
+        # S-026 G3: bump daily_usd so the new daily-loss budget gate
+        # doesn't clip the qty for this base sizing assertion.
+        cfg = {"risk_pct": 0.02, "min_qty": 0.001, "max_qty": 10.0,
+               "daily_usd": 1_000_000_000}
         pkg = _pkg(entry=50_000.0, sl=49_000.0)
         # risk_usdt = 10_000 * 0.02 = 200; distance = 1_000; qty = 0.2
         qty = size_order_from_cfg(pkg, cfg, balance_usdt=10_000.0)

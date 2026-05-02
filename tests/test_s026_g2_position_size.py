@@ -91,8 +91,17 @@ class TestPositionSizeContract:
 
     def test_no_max_position_clamp(self):
         """Operator directive: no hard-coded max-position cap on sizing.
-        A huge balance must scale qty proportionally — no upper clip."""
-        rm = RiskManager({"risk_pct": 0.01, "min_balance_usd": 50})
+        A huge balance must scale qty proportionally — no upper clip.
+
+        S-026 G3: the daily-loss budget gate IS a sizing-time clamp;
+        bump ``daily_usd`` high so this assertion isolates the
+        "no max-position clamp" property.
+        """
+        rm = RiskManager({
+            "risk_pct": 0.01,
+            "min_balance_usd": 50,
+            "daily_usd": 1_000_000_000,  # disable daily-loss gate
+        })
         pkg = _pkg(entry=50_000.0, sl=49_500.0)
 
         # Balance = $1M, risk = $10k, distance = $500 → qty = 20.
