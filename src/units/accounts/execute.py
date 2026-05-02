@@ -40,6 +40,7 @@ def execute_pkg(
     balance_usdt: Optional[float] = None,
     *,
     dry_run: Optional[bool] = None,
+    qty_override: Optional[float] = None,
 ) -> str:
     """Risk-size and execute *pkg* on the account described by *account_cfg*.
 
@@ -58,6 +59,12 @@ def execute_pkg(
         coordinator-level balance caching.
     dry_run : bool, optional
         Explicit dry-run override.  Defaults to the ``DRY_RUN`` env var.
+    qty_override : float, optional
+        Pre-computed quantity from a stateful per-account RiskManager.
+        Skips the ephemeral re-sizing inside this function so the qty
+        actually placed matches what the live RiskManager already
+        approved (preserves daily-loss-budget state). Used by
+        ``Coordinator.multi_account_execute``.
 
     Returns
     -------
@@ -95,8 +102,13 @@ def execute_pkg(
                 "execute_pkg: no client — using cfg balance %.2f USDT", balance_usdt
             )
 
-    # 4. Risk-size
-    qty = size_order_from_cfg(pkg, account_cfg, balance_usdt)
+    # 4. Risk-size — honour an explicit override from a stateful caller
+    # (Coordinator.multi_account_execute) so the qty that lands at the
+    # exchange matches what the live RiskManager already approved.
+    if qty_override is not None:
+        qty = float(qty_override)
+    else:
+        qty = size_order_from_cfg(pkg, account_cfg, balance_usdt)
 
     side = "Buy" if pkg.direction == "long" else "Sell"
     order = {
