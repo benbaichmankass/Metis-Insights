@@ -68,6 +68,16 @@ let them re-issue the command.
   keyless sources (Bybit public, Coinbase public, Kraken public,
   CryptoCompare, yfinance, or our HF datasets). See
   `docs/claude/testing-policy.md` → “Test data sources”.
+- **Do not use `parse_mode="Markdown"` on Telegram replies whose content
+  is dynamic** (DB columns, error strings, env-var names, file paths,
+  Python identifiers — anything that may contain `*`, `_`, `[`, or
+  backticks). Telegram's legacy Markdown parser rejects unbalanced
+  delimiters with `BadRequest: Can't parse entities`. This bug shape
+  has recurred in BUG-009 (#190 /signals), BUG-030 (#265 /last5), and
+  BUG-031 (#273 /hourly). Use **plain text** (no `parse_mode`) by
+  default; reach for `parse_mode="HTML"` only when the renderer
+  explicitly escapes `&`, `<`, `>` (the pattern used by
+  `/accounts_status`).
 
 ## Autonomous live-trading rule (MANDATORY — do not relitigate)
 
