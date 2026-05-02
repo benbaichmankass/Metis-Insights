@@ -179,6 +179,22 @@ def _multi_account_dispatch_enabled(settings: dict) -> bool:
     return str(raw).strip().lower() in {"true", "1", "yes", "on"}
 
 
+def _signal_carries_full_sltp(signal: Dict[str, Any]) -> bool:
+    """True only when the signal carries entry, sl, and tp at the top
+    level (or under ``meta``). Same shape as the local
+    ``_signal_packageable`` inside ``run_pipeline``; lifted to module
+    scope so the G5 missing-sltp warning can re-use it without copying
+    the predicate."""
+    if not isinstance(signal, dict):
+        return False
+    _meta = signal.get("meta") or {}
+    return (
+        (signal.get("entry_price") or signal.get("price") or _meta.get("price")) is not None
+        and (signal.get("stop_loss") or _meta.get("stop_loss") or _meta.get("sl")) is not None
+        and (signal.get("take_profit") or _meta.get("take_profit") or _meta.get("tp")) is not None
+    )
+
+
 def turtle_soup_signal_builder(settings: dict) -> Dict[str, Any]:
     """Sweep + reversal at 15m. S-012 PR C3 wires it into the multiplexer.
 
@@ -614,21 +630,10 @@ def run_pipeline(
                 or os.environ.get("DRY_RUN", "false")
             ).strip().lower() in {"true", "1", "yes", "on"}
 
-            def _signal_packageable(_sig: Dict[str, Any]) -> bool:
-                """True only when the signal carries everything the
-                Coordinator needs to fan out (entry, sl, tp). Stub /
-                synthetic signals from smoke tests routinely omit sl/tp;
-                routing those through the multi-account path would crash
-                in ``_signal_to_order_package``. Falling back to the
-                legacy single-client path preserves their behaviour."""
-                _meta = _sig.get("meta") or {}
-                return (
-                    (_sig.get("entry_price") or _sig.get("price") or _meta.get("price")) is not None
-                    and (_sig.get("stop_loss") or _meta.get("stop_loss") or _meta.get("sl")) is not None
-                    and (_sig.get("take_profit") or _meta.get("take_profit") or _meta.get("tp")) is not None
-                )
-
-            if multi and not global_dry and _signal_packageable(signal):
+            # G5 — the predicate moved to module scope as
+            # ``_signal_carries_full_sltp`` so the missing-sltp warning
+            # in the audit-log block uses the same definition.
+            if multi and not global_dry and _signal_carries_full_sltp(signal):
                 # CP-2026-05-02: when the system is live AND the signal
                 # is fully populated, fan-out to every account so each
                 # one can apply its own dry/live state. Validation runs
@@ -671,20 +676,55 @@ def run_pipeline(
 
     _report_pipeline_outcome(result, signal)
 
-    try:
-        # S-012 PR E4: include strategy attribution so the audit log
-        # answers "which strategy fired this tick" for every line.
-        # Source priority: signal.meta.strategy_name (set by every
-        # builder in src/runtime/pipeline.py) → top-level signal["strategy"]
-        # → settings["STRATEGY"]/env → "unknown".
-        _meta = signal.get("meta") or {}
-        _strategy = (
-            _meta.get("strategy_name")
-            or signal.get("strategy")
-            or settings.get("STRATEGY")
-            or os.environ.get("STRATEGY")
-            or "unknown"
+    # S-012 PR E4: include strategy attribution so the audit log
+    # answers "which strategy fired this tick" for every line.
+    # Source priority: signal.meta.strategy_name (set by every
+    # builder in src/runtime/pipeline.py) → top-level signal["strategy"]
+    # → settings["STRATEGY"]/env → "unknown".
+    #
+    # G5 (CP-2026-05-02-09): the same value now feeds the Telegram
+    # "Pipeline result" message so the operator can see which strategy
+    # is firing failed_validation per-tick.
+    _meta = signal.get("meta") or {}
+    _strategy = (
+        _meta.get("strategy_name")
+        or signal.get("strategy")
+        or settings.get("STRATEGY")
+        or os.environ.get("STRATEGY")
+        or "unknown"
+    )
+
+    # G5 (CP-2026-05-02-09): when an actionable signal reaches the
+    # validator without entry/sl/tp populated at the top level, the
+    # multi-account dispatch fast-path skips it and the legacy
+    # single-client path raises ``failed_validation``. Log the
+    # smoking-gun so journalctl identifies the offending strategy
+    # without us having to interpret per-tick "failed_validation"
+    # noise. The classification is conservative — only flagged for
+    # actionable signals (buy/sell with qty > 0).
+    if (
+        signal.get("side") in ("buy", "sell")
+        and float(signal.get("qty", 0) or 0) > 0
+        and not _signal_carries_full_sltp(signal)
+    ):
+        logger.warning(
+            "pipeline: actionable %s signal lacks entry/sl/tp at top level "
+            "→ falls into legacy single-client path. signal=%s",
+            _strategy, signal,
         )
+        try:
+            report(
+                "pipeline",
+                "signal_missing_sltp",
+                level=Level.WARN,
+                strategy=_strategy,
+                symbol=signal.get("symbol"),
+                side=signal.get("side"),
+            )
+        except Exception:  # noqa: BLE001
+            logger.exception("pipeline: report() for signal_missing_sltp failed")
+
+    try:
         log_signal(
             {
                 "event": "pipeline_result",
@@ -715,7 +755,13 @@ def run_pipeline(
     side = signal.get("side", "?")
     qty = signal.get("qty", "?")
 
-    message = f"Pipeline result: status={status} | symbol={symbol} | side={side} | qty={qty}"
+    # G5 — operator's "Pipeline result" Telegram line now includes
+    # strategy so per-tick `failed_validation` messages identify the
+    # offending strategy without an audit-log dive.
+    message = (
+        f"Pipeline result: status={status} | strategy={_strategy} "
+        f"| symbol={symbol} | side={side} | qty={qty}"
+    )
     if reason:
         message += f" | reason={reason}"
 
