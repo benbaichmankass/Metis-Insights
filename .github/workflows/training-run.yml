@@ -1,0 +1,121 @@
+name: Training run
+
+# Autonomous training/improvement run.
+# Triggered when a hypotheses.py is pushed to a claude/training-plan-* branch.
+# Stages: install deps -> run experiment -> commit results to claude/training-results-<run-id>
+# -> open draft TRAINING-RESULTS: PR. Fires the operator's "training done" Telegram ping
+# via the existing PR-opened wiring (docs/claude/telegram-pings.md).
+#
+# See docs/claude/training-improvement-workflow.md for the full 4-stage workflow.
+
+on:
+  push:
+    branches:
+      - 'claude/training-plan-*'
+    paths:
+      - 'experiments/*/hypotheses.py'
+      - 'scripts/training/**'
+      - '.github/workflows/training-run.yml'
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: 'Run ID (slug after claude/training-plan-)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350   # 5h50m, just under GitHub's 6h hard cap
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Derive run id
+        id: cfg
+        run: |
+          if [ -n "${{ inputs.run_id }}" ]; then
+            RID="${{ inputs.run_id }}"
+          else
+            RID="${GITHUB_REF_NAME#claude/training-plan-}"
+          fi
+          echo "run_id=$RID" >> "$GITHUB_OUTPUT"
+          echo "results_branch=claude/training-results-$RID" >> "$GITHUB_OUTPUT"
+          echo "Run ID: $RID"
+
+      - name: Skip if no hypotheses.py
+        run: |
+          if [ ! -f "experiments/${{ steps.cfg.outputs.run_id }}/hypotheses.py" ]; then
+            echo "::warning::No experiments/${{ steps.cfg.outputs.run_id }}/hypotheses.py — skipping."
+            exit 0
+          fi
+
+      - name: Install dependencies
+        run: |
+          python -m pip install -q --upgrade pip
+          pip install -q -r requirements.txt
+          pip install -q yfinance
+
+      - name: Run experiment
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: python scripts/training/run_experiment.py --run-id "${{ steps.cfg.outputs.run_id }}"
+
+      - name: Commit + push results branch
+        id: commit
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          RID="${{ steps.cfg.outputs.run_id }}"
+          RB="${{ steps.cfg.outputs.results_branch }}"
+          git config user.email 'training-bot@github-actions.local'
+          git config user.name 'Training Bot'
+          git checkout -B "$RB"
+          git add "experiments/$RID/results/"
+          if git diff --cached --quiet; then
+            echo "::warning::no result files to commit; bailing"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          FAILED=""
+          [ -f "experiments/$RID/results/_FAILURES" ] && FAILED=" [FAILED]"
+          git commit -m "training(results): $RID$FAILED"
+          git push -u origin "$RB" --force-with-lease
+          echo "failed_tag=$FAILED" >> "$GITHUB_OUTPUT"
+
+      - name: Open or update draft TRAINING-RESULTS PR
+        if: steps.commit.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          RID="${{ steps.cfg.outputs.run_id }}"
+          RB="${{ steps.cfg.outputs.results_branch }}"
+          FAILED="${{ steps.commit.outputs.failed_tag }}"
+          TITLE="TRAINING-RESULTS$FAILED: $RID"
+          BODY=$(cat <<EOF
+          Auto-opened by \`.github/workflows/training-run.yml\` (job: ${{ github.run_id }}).
+
+          See \`experiments/$RID/results/SUMMARY.md\` for the ranked table.
+
+          - Run id: $RID
+          - Plan branch: \`claude/training-plan-$RID\`
+          - Results branch: \`$RB\`
+          - Action run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          EOF
+          )
+          # Try to open; if a PR already exists for this head, gh exits non-zero — fine, just log it.
+          if ! gh pr create --draft --title "$TITLE" --base main --head "$RB" --body "$BODY"; then
+            echo "PR may already exist for $RB; logging and continuing."
+            gh pr list --head "$RB" --state open || true
+          fi
