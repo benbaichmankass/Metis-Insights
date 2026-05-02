@@ -1,12 +1,15 @@
 """Telegram bot command tests for /audit, /improve_strategy, /train_model, /roadmap.
 
-Mirrors the offline async pattern from test_s008_5_telegram_sprint_cmds.py
-— heavy deps (telegram, pybit) are stubbed at sys.modules level.
+These commands live on the Claude-bridge bot (@claude_ict_comms_bot,
+src/bot/claude_bridge.py), NOT the trading-UI bot. Heavy deps (telegram,
+anthropic, dotenv) are stubbed at sys.modules level so the import is
+offline.
 """
 from __future__ import annotations
 
 import asyncio
 import json
+import os
 import sys
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
@@ -18,42 +21,43 @@ import pytest
 # ---------------------------------------------------------------------------
 for _mod in (
     "telegram",
+    "telegram.constants",
     "telegram.ext",
     "telegram.error",
     "dotenv",
-    "requests",
-    "pybit",
-    "pybit.unified_trading",
-    "src.runtime.signal_notifications",
+    "anthropic",
 ):
     sys.modules.setdefault(_mod, MagicMock())
 
-# telegram.error.TelegramError must be a real class so `except` works.
 sys.modules["telegram.error"].TelegramError = type("TelegramError", (Exception,), {})
-
 sys.modules["dotenv"].load_dotenv = lambda *a, **kw: None
-sys.modules["dotenv"].dotenv_values = lambda *a, **kw: {}
 
 _tg = sys.modules["telegram"]
 _tg.Update = MagicMock
-_tg.BotCommand = MagicMock
-_tg.InlineKeyboardButton = lambda *a, **kw: MagicMock()
-_tg.InlineKeyboardMarkup = lambda *a, **kw: MagicMock()
+_tg.BotCommand = lambda *a, **kw: ("BotCommand", a, kw)
+_tg_consts = sys.modules["telegram.constants"]
+_tg_consts.ChatAction = MagicMock()
 _tg_ext = sys.modules["telegram.ext"]
 _tg_ext.Application = MagicMock
 _tg_ext.CommandHandler = MagicMock
-_tg_ext.CallbackQueryHandler = MagicMock
+_tg_ext.MessageHandler = MagicMock
 _tg_ext.ContextTypes = MagicMock()
 _tg_ext.ContextTypes.DEFAULT_TYPE = object
+_tg_ext.filters = MagicMock()
 
-import src.bot.telegram_query_bot as bot  # noqa: E402
+# claude_bridge reads these at import time.
+os.environ.setdefault("TELEGRAM_CLAUDE_BOT_TOKEN", "test-token")
+os.environ.setdefault("TELEGRAM_CHAT_ID", "99999")
+os.environ.setdefault("ANTHROPIC_API_KEY", "test-key")
+
+import src.bot.claude_bridge as bot  # noqa: E402
 
 
 def _run(coro):
     return asyncio.new_event_loop().run_until_complete(coro)
 
 
-def _make_update(chat_id: str = "99999") -> MagicMock:
+def _make_update(chat_id: int = 99999) -> MagicMock:
     update = MagicMock()
     update.effective_chat.id = chat_id
     update.message.reply_text = AsyncMock()
@@ -69,8 +73,7 @@ def _make_context(args=None) -> MagicMock:
 @pytest.fixture
 def repo_root(tmp_path, monkeypatch):
     """Point bot.REPO_ROOT at a tmp dir so the trigger log is isolated."""
-    monkeypatch.setattr(bot, "REPO_ROOT", str(tmp_path))
-    bot.TELEGRAM_CHAT_ID = "99999"
+    monkeypatch.setattr(bot, "REPO_ROOT", tmp_path)
     return tmp_path
 
 
@@ -95,18 +98,16 @@ class TestCmdAudit:
         update = _make_update()
         _run(bot.cmd_audit(update, _make_context()))
 
-        # Trigger logged
         log = _read_trigger_log(repo_root)
         assert len(log) == 1
         assert log[0]["type"] == "audit"
 
-        # Reply contains the starter prompt
         reply = _last_reply(update)
         assert "recurring-hardening-prompt.md" in reply
         assert "Hardening session queued" in reply
 
     def test_unauthorised_does_nothing(self, repo_root: Path):
-        update = _make_update(chat_id="bad")
+        update = _make_update(chat_id=12345)
         _run(bot.cmd_audit(update, _make_context()))
         update.message.reply_text.assert_not_called()
         assert _read_trigger_log(repo_root) == []
@@ -142,7 +143,7 @@ class TestCmdImproveStrategy:
         assert log[0]["args"] == ["vwap"]
 
     def test_unauthorised_does_nothing(self, repo_root: Path):
-        update = _make_update(chat_id="bad")
+        update = _make_update(chat_id=12345)
         _run(bot.cmd_improve_strategy(update, _make_context(["vwap"])))
         update.message.reply_text.assert_not_called()
 
@@ -198,7 +199,6 @@ class TestCmdRoadmap:
         assert "📋 1 backlog" in reply
 
     def test_missing_roadmap_returns_warning(self, repo_root: Path):
-        # No ROADMAP.md created
         update = _make_update()
         _run(bot.cmd_roadmap(update, _make_context()))
         reply = _last_reply(update)
@@ -206,6 +206,6 @@ class TestCmdRoadmap:
 
     def test_unauthorised_does_nothing(self, repo_root: Path):
         (repo_root / "ROADMAP.md").write_text(self.SAMPLE)
-        update = _make_update(chat_id="bad")
+        update = _make_update(chat_id=12345)
         _run(bot.cmd_roadmap(update, _make_context()))
         update.message.reply_text.assert_not_called()

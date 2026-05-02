@@ -57,12 +57,27 @@ operator approval. The runner reaches you via Telegram (`/vm`, `/vm_write`)
 — do not try to escalate beyond your tier; reply with `ASK_OPERATOR:` and
 let them re-issue the command.
 
+## Telegram bots (two separate processes — do not conflate)
+
+There are **two** Telegram bots running on the VM, each with its own token,
+service unit, and source file:
+
+| Bot username | Service | Source | Token env | Purpose |
+|---|---|---|---|---|
+| `@bict_trading_bot` | `ict-telegram-bot.service` | `src/bot/telegram_query_bot.py` | `TELEGRAM_BOT_TOKEN` | Trading UI: `/status /halt /signals /accounts …` plus the comms-handler that delivers Claude→operator pings |
+| `@claude_ict_comms_bot` | `ict-claude-bridge.service` | `src/bot/claude_bridge.py` | `TELEGRAM_CLAUDE_BOT_TOKEN` | Claude bridge: free-text relay to the Anthropic API plus the recurring-session triggers (`/audit /improve_strategy /train_model /roadmap`) |
+
+**When adding a new command, decide which bot it belongs to first.** Trading
+ops → `telegram_query_bot.py`. Anything that triggers or queries a Claude
+session → `claude_bridge.py`. Both bots have their own `set_my_commands()`
+populating their `/` menu — the menu only updates after a service restart.
+
 ## Telegram test group (use for bot verification)
 
-The operator has added both the **Claude bot** (`telegram_query_bot`) and the
-**ICT trading UI bot** to a shared Telegram group. When a session needs to
-verify that a new command is live and working correctly, send the command in
-that group and inspect the reply — this gives the same view the operator sees.
+The operator has added both bots to a shared Telegram group. When a session
+needs to verify that a new command is live and working correctly, send the
+command in that group and inspect the reply — this gives the same view the
+operator sees.
 
 **Group invite:** https://t.me/+AEyPWWlkcKFhMDQ0
 
