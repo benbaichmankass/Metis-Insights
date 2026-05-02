@@ -1374,6 +1374,147 @@ class TestCmdRiskCheckButtonFlow:
 
 
 # ---------------------------------------------------------------------------
+# Sprint 025 T2 — /smoke_test inline-button account picker (G4 slice 3)
+# ---------------------------------------------------------------------------
+
+
+class TestCmdSmokeTestButtonFlow:
+    """No-args /smoke_test now replies with an account picker (with a
+    🌐 All accounts button); tap → callback runs the smoke and edits
+    the message in place. Typed `/smoke_test [account|all]` still
+    works as a power-user shortcut."""
+
+    def _statuses(self):
+        return [
+            {"name": "live",  "exchange": "bybit",  "account_type": "futures"},
+            {"name": "alpha", "exchange": "binance", "account_type": "spot"},
+        ]
+
+    def _result(self, ok=True, account_ids=("live",)):
+        return {
+            "ok": ok,
+            "smoke_id": "smoke-2026-05-02-001",
+            "package": {"symbol": "BTCUSDT", "direction": "long", "qty": 0.0001},
+            "results": [
+                {"account_id": aid, "exchange": "bybit",
+                 "status": "rejected_too_small", "reason": "qty too small",
+                 "logged": True}
+                for aid in account_ids
+            ],
+        }
+
+    def _make_update(self):
+        upd = MagicMock()
+        upd.effective_chat.id = 12345
+        upd.callback_query = None
+        upd.message.reply_text = AsyncMock()
+        return upd
+
+    def _make_query(self, data: str):
+        query = MagicMock()
+        query.data = data
+        query.answer = AsyncMock()
+        query.edit_message_text = AsyncMock()
+        query.message.chat.id = 12345
+        query.message.reply_text = AsyncMock()
+        upd = MagicMock()
+        upd.callback_query = query
+        upd.effective_chat = None
+        return upd, query
+
+    def _run(self, coro):
+        import asyncio
+        return asyncio.new_event_loop().run_until_complete(coro)
+
+    def _patch_coord(self, monkeypatch, *, result=None):
+        coord = MagicMock()
+        coord.accounts_status.return_value = self._statuses()
+        coord.smoke_test_run.return_value = result or self._result()
+        monkeypatch.setattr(bot, "get_coordinator", lambda: coord)
+        return coord
+
+    def test_no_args_replies_with_picker_including_all_button(self, monkeypatch):
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        self._patch_coord(monkeypatch)
+        upd = self._make_update()
+        ctx = MagicMock()
+        ctx.args = []
+        self._run(bot.cmd_smoke_test(upd, ctx))
+        kwargs = upd.message.reply_text.call_args.kwargs
+        assert kwargs.get("reply_markup") is not None, (
+            "/smoke_test no-args must reply with the picker keyboard"
+        )
+        text = upd.message.reply_text.call_args.args[0]
+        assert "Pick an account" in text or "Smoke test" in text
+
+    def test_typed_account_arg_runs_immediately(self, monkeypatch):
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        coord = self._patch_coord(monkeypatch)
+        upd = self._make_update()
+        ctx = MagicMock()
+        ctx.args = ["live"]
+        self._run(bot.cmd_smoke_test(upd, ctx))
+        # Coordinator received the account_id as positional arg.
+        assert coord.smoke_test_run.call_args.args[0] == "live"
+
+    def test_typed_all_arg_runs_against_every_account(self, monkeypatch):
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        coord = self._patch_coord(monkeypatch)
+        upd = self._make_update()
+        ctx = MagicMock()
+        ctx.args = ["all"]
+        self._run(bot.cmd_smoke_test(upd, ctx))
+        # account_id should be None — coord runs across all accounts.
+        assert coord.smoke_test_run.call_args.args[0] is None
+
+    def test_callback_smoke_specific_account(self, monkeypatch):
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        coord = self._patch_coord(monkeypatch)
+        upd, query = self._make_query("smoke:alpha")
+        self._run(bot.callback_handler(upd, MagicMock()))
+        assert coord.smoke_test_run.call_args.args[0] == "alpha"
+        # Result rendered as a follow-up reply (not edit) so the
+        # original "Running…" stays as breadcrumb.
+        assert query.message.reply_text.called
+
+    def test_callback_smoke_all_accounts(self, monkeypatch):
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        coord = self._patch_coord(monkeypatch)
+        upd, query = self._make_query("smoke:all")
+        self._run(bot.callback_handler(upd, MagicMock()))
+        assert coord.smoke_test_run.call_args.args[0] is None
+
+    def test_render_smoke_test_result_is_pure(self):
+        result = {
+            "ok": True,
+            "smoke_id": "smoke-x",
+            "package": {"symbol": "BTCUSDT", "direction": "long", "qty": 0.0001},
+            "results": [
+                {"account_id": "live", "exchange": "bybit",
+                 "status": "rejected_too_small", "reason": "qty too small",
+                 "logged": True},
+            ],
+        }
+        out1 = bot._render_smoke_test_result(result)
+        out2 = bot._render_smoke_test_result(result)
+        assert out1 == out2, "renderer is not pure"
+        assert "smoke-x" in out1
+        assert "Test successful" in out1
+
+    def test_no_accounts_configured_returns_friendly_message(self, monkeypatch):
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        coord = MagicMock()
+        coord.accounts_status.return_value = []
+        monkeypatch.setattr(bot, "get_coordinator", lambda: coord)
+        upd = self._make_update()
+        ctx = MagicMock()
+        ctx.args = []
+        self._run(bot.cmd_smoke_test(upd, ctx))
+        text = upd.message.reply_text.call_args.args[0]
+        assert "No accounts" in text
+
+
+# ---------------------------------------------------------------------------
 # close_all_bybit_positions (M2a) — per-account migration tests
 # ---------------------------------------------------------------------------
 

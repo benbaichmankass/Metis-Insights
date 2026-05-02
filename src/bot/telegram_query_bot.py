@@ -1984,6 +1984,29 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"⚠️ Could not check risk for '{account_name}': {e}")
         return
 
+    # Sprint 025 T2 — /smoke_test account picker.
+    if action == "smoke":
+        payload = parts[1] if len(parts) > 1 else ""
+        target = None if payload == "all" else payload
+        coord = get_coordinator()
+        if coord is None:
+            await query.edit_message_text("⚠️ Coordinator unavailable.")
+            return
+        await query.edit_message_text(
+            ("🧪 Running smoke test (LIVE)"
+             + (f" on `{target}`" if target else " on all accounts")
+             + "…"),
+            parse_mode="Markdown",
+        )
+        result = await _run_smoke_test(target, coord)
+        if result.get("error") and not result.get("results"):
+            await query.message.reply_text(
+                f"⚠️ smoke_test failed: {result['error']}")
+            return
+        await query.message.reply_text(
+            _render_smoke_test_result(result), parse_mode="Markdown")
+        return
+
     if action == "log":
         try:
             accounts = dl.list_accounts() or []
@@ -2254,56 +2277,11 @@ def _smoke_test_client_factory(account_cfg: dict):
     return None
 
 
-async def cmd_smoke_test(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Run a live-plumbing smoke trade: strategies → coordinator → accounts → exchange.
-
-    Usage:
-        /smoke_test            — every account in accounts.yaml
-        /smoke_test <account>  — a single account (e.g. /smoke_test bybit_2)
-
-    The smoke is **always LIVE** — there is no dry-run option. A
-    ``smoke_test`` OrderPackage tagged ``meta.is_test=True`` is
-    shipped through ``account_execute()`` with a 0.0001 BTC qty (below
-    Bybit's min-lot), the risk gate is bypassed by design, Bybit's
-    "qty invalid" rejection is captured as the success signal, and a
-    row is written to ``trade_journal.db`` with
-    ``strategy_name='smoke_test'``. The qty is the safety cap — it's
-    intentionally too small to ever fill, so contacting the exchange
-    is safe and proves the API integration is hot end-to-end.
+def _render_smoke_test_result(result: dict) -> str:
+    """Format the operator-facing smoke-test result. Pure renderer
+    shared by the typed-arg path and the button callback so both
+    surfaces produce identical text.
     """
-    if not is_authorised(update):
-        return
-    coord = get_coordinator()
-    if coord is None:
-        await update.message.reply_text("⚠️ Coordinator unavailable.")
-        return
-
-    args = list(context.args or [])
-    account_id: str | None = None
-    for arg in args:
-        a = arg.strip().lower()
-        if a in {"all", "*"}:
-            account_id = None
-        elif account_id is None:
-            account_id = arg.strip()
-
-    await update.message.reply_text(
-        ("🧪 Running smoke test (LIVE)"
-         + (f" on `{account_id}`" if account_id else " on all accounts")
-         + "…"),
-        parse_mode="Markdown",
-    )
-
-    try:
-        result = await asyncio.to_thread(
-            coord.smoke_test_run,
-            account_id,
-            exchange_client_factory=_smoke_test_client_factory,
-        )
-    except Exception as exc:  # noqa: BLE001
-        await update.message.reply_text(f"⚠️ smoke_test failed: {exc}")
-        return
-
     smoke_id = result.get("smoke_id", "?")
     pkg = result.get("package", {})
     lines = [
@@ -2335,8 +2313,103 @@ async def cmd_smoke_test(update: Update, context: ContextTypes.DEFAULT_TYPE):
         lines.append("\n⚠️ *Test failed*: see per-account reasons above. "
                      "If reason mentions credentials, the bot's environment "
                      "is missing the per-account API key/secret env vars.")
+    return "\n".join(lines)
 
-    await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
+
+async def _run_smoke_test(account_id: str | None, coord) -> dict:
+    """Dispatch the coordinator's smoke-test runner off the bot's
+    event loop. Returns the result dict (may include ``error`` on
+    failure) — never raises."""
+    try:
+        return await asyncio.to_thread(
+            coord.smoke_test_run,
+            account_id,
+            exchange_client_factory=_smoke_test_client_factory,
+        )
+    except Exception as exc:  # noqa: BLE001
+        return {"error": f"smoke_test_run raised: {exc}", "results": []}
+
+
+async def cmd_smoke_test(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Run a live-plumbing smoke trade: strategies → coordinator → accounts → exchange.
+
+    Usage:
+        /smoke_test               — button picker (all accounts + per-account)
+        /smoke_test all           — every account in accounts.yaml
+        /smoke_test <account>     — a single account (e.g. /smoke_test bybit_2)
+
+    The smoke is **always LIVE** — there is no dry-run option. A
+    ``smoke_test`` OrderPackage tagged ``meta.is_test=True`` is
+    shipped through ``account_execute()`` with a 0.0001 BTC qty (below
+    Bybit's min-lot), the risk gate is bypassed by design, Bybit's
+    "qty invalid" rejection is captured as the success signal, and a
+    row is written to ``trade_journal.db`` with
+    ``strategy_name='smoke_test'``. The qty is the safety cap — it's
+    intentionally too small to ever fill, so contacting the exchange
+    is safe and proves the API integration is hot end-to-end.
+
+    Sprint 025 T2 — no-args invocation now replies with an
+    inline-keyboard account picker (reusing
+    ``_account_picker_keyboard(include_all=True)``) so the operator
+    doesn't have to remember exact account names. Tap → callback runs
+    the smoke and edits the message in place.
+    """
+    if not is_authorised(update):
+        return
+    coord = get_coordinator()
+    if coord is None:
+        await update.message.reply_text("⚠️ Coordinator unavailable.")
+        return
+
+    args = list(context.args or [])
+    account_id: str | None = None
+    has_arg = False
+    for arg in args:
+        a = arg.strip().lower()
+        has_arg = True
+        if a in {"all", "*"}:
+            account_id = None
+            break
+        if account_id is None:
+            account_id = arg.strip()
+
+    # Sprint 025 T2 — no args: show the picker and stop here.
+    if not has_arg:
+        try:
+            statuses = coord.accounts_status() or []
+        except Exception as exc:  # noqa: BLE001
+            await update.message.reply_text(
+                f"⚠️ Could not list accounts: {exc}")
+            return
+        if not statuses:
+            await update.message.reply_text(
+                "ℹ️ No accounts found in accounts.yaml.")
+            return
+        kb = _account_picker_keyboard(
+            "smoke", statuses, include_all=True,
+            all_label="🌐 All accounts (LIVE smoke)",
+        )
+        await update.message.reply_text(
+            "🧪 *Smoke test* (LIVE)\nPick an account, or run on every "
+            "configured account:",
+            parse_mode="Markdown", reply_markup=kb,
+        )
+        return
+
+    # Typed-arg path — run immediately.
+    await update.message.reply_text(
+        ("🧪 Running smoke test (LIVE)"
+         + (f" on `{account_id}`" if account_id else " on all accounts")
+         + "…"),
+        parse_mode="Markdown",
+    )
+    result = await _run_smoke_test(account_id, coord)
+    if result.get("error") and not result.get("results"):
+        await update.message.reply_text(
+            f"⚠️ smoke_test failed: {result['error']}")
+        return
+    await update.message.reply_text(
+        _render_smoke_test_result(result), parse_mode="Markdown")
 
 
 def _render_risk_check_for_account(statuses: list[dict], account_name: str) -> str:
@@ -2371,11 +2444,24 @@ def _render_risk_check_for_account(statuses: list[dict], account_name: str) -> s
     )
 
 
-def _account_picker_keyboard(callback_prefix: str, statuses: list[dict]) -> InlineKeyboardMarkup:
+def _account_picker_keyboard(
+    callback_prefix: str,
+    statuses: list[dict],
+    *,
+    include_all: bool = False,
+    all_label: str = "🌐 All accounts",
+) -> InlineKeyboardMarkup:
     """Build a 2-column ``InlineKeyboardMarkup`` of account-picker buttons.
 
-    Each button's ``callback_data`` is ``"<callback_prefix>:<account_name>"``.
-    Used by /risk_check (and any future per-account command flow).
+    Each per-account button's ``callback_data`` is
+    ``"<callback_prefix>:<account_name>"``. When ``include_all`` is true,
+    an extra row with a single "All accounts" button is appended whose
+    ``callback_data`` is ``"<callback_prefix>:all"``. The handler is
+    responsible for dispatching the ``"all"`` payload to the
+    every-account path.
+
+    Used by /risk_check (`include_all=False`) and /smoke_test
+    (`include_all=True`).
     """
     rows: list[list[InlineKeyboardButton]] = []
     row: list[InlineKeyboardButton] = []
@@ -2389,6 +2475,9 @@ def _account_picker_keyboard(callback_prefix: str, statuses: list[dict]) -> Inli
             row = []
     if row:
         rows.append(row)
+    if include_all:
+        rows.append([InlineKeyboardButton(
+            all_label, callback_data=f"{callback_prefix}:all")])
     return InlineKeyboardMarkup(rows)
 
 
