@@ -187,15 +187,29 @@ def get_recent_signals(
 # ---------------------------------------------------------------------------
 
 
-def get_hourly_report() -> str:
+def get_hourly_report(
+    *,
+    now_utc: Optional[Any] = None,
+    tick_interval_s: int = 900,
+) -> str:
     """Return the structured hourly report string, or a clear error.
 
-    Single source of truth so the bot's ``/hourly`` and the webapp's
-    "summary" widget render identical text.
+    Single source of truth so the bot's ``/hourly``, the in-process
+    scheduler in ``src/main.py``, and the webapp's "summary" widget all
+    render identical text.
+
+    ``now_utc`` and ``tick_interval_s`` forward to
+    ``src.runtime.hourly_report.build_hourly_report``. Callers that
+    want "now / 15-min ticks" can omit both. The bot's ``/hourly``
+    handler passes an explicit ``now_utc`` so the report's window
+    matches the operator's invocation time exactly.
     """
     try:
         from src.runtime.hourly_report import build_hourly_report
-        return build_hourly_report()
+        kwargs: Dict[str, Any] = {"tick_interval_s": tick_interval_s}
+        if now_utc is not None:
+            kwargs["now_utc"] = now_utc
+        return build_hourly_report(**kwargs)
     except Exception as exc:  # noqa: BLE001
         logger.exception("get_hourly_report: build failed")
         return f"⚠️ hourly report unavailable: {type(exc).__name__}: {exc}"
