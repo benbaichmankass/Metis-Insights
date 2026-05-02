@@ -5,6 +5,63 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-02-12 — G5 follow-up: VWAP populates entry/sl/tp (option a)
+
+- **Session date:** 2026-05-02
+- **Sprint:** S-XXX — Telegram bot debug + UI overhaul + repo cleanup
+- **Current sprint phase:** G5 unblocked. Operator picked option (a) on PR #271 — "the trade package should always include entry/sl/tp levels". Work-PR #271 moves out of draft.
+- **Last completed checkpoint:** CP-2026-05-02-09 (G5 work-PR draft) + CP-2026-05-02-10 (hourly hotfix #273).
+- **Next checkpoint:** **CP-2026-05-02-13 — sprint-summary PR.** All goals shipped; close out the sprint per CLAUDE.md § Sprint Completion Checklist.
+- **Telegram sent:** pending — this checkpoint commit triggers the VM ping. After this PR merges the per-tick `failed_validation` message stops firing for VWAP.
+- **Alerts sent during session:** none beyond the existing G5 ping.
+- **Blockers:** none.
+
+### 1. Completed (option a — operator-directed)
+Operator reply on PR #271: "We should go with option a — the trade package should always include entry/sl/tp levels." Implementation:
+
+- `src/units/strategies/vwap.py::build_vwap_signal` now populates `entry_price`, `stop_loss`, `take_profit` at the top level on every actionable signal. Mean-reversion logic:
+  - `entry = current_price` (the close at signal time)
+  - `take_profit = vwap` (mean-reversion target)
+  - `stop_loss`:
+    - BUY  (price < VWAP): `entry - sl_std_mult * std_dev`
+    - SELL (price > VWAP): `entry + sl_std_mult * std_dev`
+- New module-level constant `SL_STD_MULT_DEFAULT = 1.0`. The signal builder accepts an optional `sl_std_mult` arg so the operator can tune the stop without a code change. With the default, R/R at entry is `|deviation_std| : 1` which is favourable when the entry threshold (`|deviation_std| ≥ ENTRY_STD_THRESHOLD = 1.0`) is met.
+- `meta` carries the same sl/tp values plus the `sl_std_mult` actually used, so the audit log captures both the rule (`sl_std_mult=1.0`) and the resolved levels.
+- No-trade signals (side="none") deliberately omit the sl/tp keys; the multi-account dispatch fast-path uses `.get()` and short-circuits correctly.
+- Five new tests in `tests/test_vwap_strategy.py::TestBuildVwapSignal`:
+  1. BUY signal carries entry/sl/tp at top level (entry < TP=vwap, SL < entry).
+  2. SELL signal carries entry/sl/tp at top level (entry > TP=vwap, SL > entry).
+  3. No-signal case omits sl/tp keys.
+  4. SL distance scales with `sl_std_mult` (1.0 vs 2.0 — verified arithmetic).
+  5. The signal satisfies `pipeline._signal_carries_full_sltp` so multi-account dispatch will accept it (this was the root-cause predicate that failed pre-fix).
+
+### 2. Files changed (this checkpoint)
+- `src/units/strategies/vwap.py` — `SL_STD_MULT_DEFAULT` constant; `build_vwap_signal` accepts optional `sl_std_mult`; populates `entry_price` / `stop_loss` / `take_profit` at top level for actionable signals; meta also carries them for audit.
+- `tests/test_vwap_strategy.py` — 5 new tests inside `TestBuildVwapSignal`.
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` — this entry.
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_orders.py -q` — 15 passed (the existing G5 predicate tests still hold).
+- `tests/test_vwap_strategy.py` — skipped in this sandbox (`pytest.importorskip("pandas")`); runs on CI / VM where pandas is installed.
+- `python scripts/check_dry_run_in_diff.py` — clean.
+- `python scripts/secret_scan.py` — clean.
+
+### 4. Remaining for this checkpoint
+- none — option (a) implemented; PR moves out of draft and merges.
+
+### 5. Next checkpoint
+**CP-2026-05-02-13 — sprint-summary PR.** With G5 landed, this sprint is functionally complete:
+- G1 #265 (last5 Markdown) ✅
+- G2 #266 (hamburger ↔ /help) ✅
+- G3 #267 (/help button menu) ✅
+- G4 slice 1 #268 (/risk_check picker) ✅
+- audit doc #269 ✅
+- G6 #270 (signal_notifications cleanup) ✅
+- G5 #271 (this PR) ✅
+- hourly hotfix #273 ✅
+
+---
+
 ## CP-2026-05-02-09 — G5: failed_validation root cause + decision needed (PM REVIEW)
 
 - **Session date:** 2026-05-02

@@ -46,6 +46,28 @@ ENTRY_STD_THRESHOLD = 1.0
 # Internal alias retained for backwards-compatible imports.
 _ENTRY_STD_THRESHOLD = ENTRY_STD_THRESHOLD
 
+# G5 (CP-2026-05-02-12, operator picked option (a)): VWAP must populate
+# entry / stop_loss / take_profit on every actionable signal so the
+# multi-account dispatch fast-path can fan it out. Operator directive:
+# "the trade package should always include entry/sl/tp levels".
+#
+# Mean-reversion logic:
+#   * entry      = current candle close (the price at which the signal fires)
+#   * take_profit = VWAP (the mean-reversion target — by definition price
+#                  deviates from VWAP and we expect it to revert)
+#   * stop_loss   = entry ± SL_STD_MULT × std_dev
+#                   - BUY  (entry < vwap): SL = entry - SL_STD_MULT * std_dev (further below)
+#                   - SELL (entry > vwap): SL = entry + SL_STD_MULT * std_dev (further above)
+#
+# Risk/reward at entry: R = (vwap - entry) for BUY, (entry - vwap) for SELL.
+# That's |deviation_std| × std_dev. With SL_STD_MULT = 1.0, the trade
+# carries R/R = |deviation_std| : 1, which is favourable when |deviation_std|
+# >= ENTRY_STD_THRESHOLD = 1.0 (the entry threshold). Operator can tune
+# via the ``sl_std_mult`` arg to ``build_vwap_signal`` or the matching
+# entry in ``config/strategies.yaml`` (consumed by the pipeline-side
+# vwap_signal_builder when it wires it through).
+SL_STD_MULT_DEFAULT = 1.0
+
 
 def compute_vwap(candles_df: pd.DataFrame) -> float:
     """Return VWAP for the supplied candle window.
@@ -104,10 +126,14 @@ def build_vwap_signal(
     candles_df: pd.DataFrame,
     symbol: str,
     qty: float,
+    sl_std_mult: float = SL_STD_MULT_DEFAULT,
 ) -> Dict[str, Any]:
     """Compute a VWAP mean-reversion signal from OHLCV candle data.
 
-    Returns a signal dict with keys: symbol, side, qty, meta.
+    Returns a signal dict with keys:
+        symbol, side, qty,
+        entry_price, stop_loss, take_profit  (only when side != "none"),
+        meta.
 
     * side='buy'  when price is at least ENTRY_STD_THRESHOLD std-devs *below*
                   VWAP (mean-reversion long).
@@ -118,6 +144,23 @@ def build_vwap_signal(
     Invalid candle data (empty, missing volume column, zero/negative total
     volume) returns a no-trade signal instead of raising — the tick completes
     safely.
+
+    G5 (CP-2026-05-02-12, operator option (a)): when the signal IS
+    actionable, ``entry_price`` / ``stop_loss`` / ``take_profit`` are
+    populated at the top level so the pipeline's multi-account dispatch
+    fast-path (``_signal_carries_full_sltp``) accepts the signal and
+    fans it out per account, instead of falling into the legacy
+    single-client path that bombs on the global ALLOW_LIVE_TRADING gate.
+
+    SL/TP rules:
+        entry = current candle close
+        TP    = VWAP (mean-reversion target)
+        SL    = entry - sl_std_mult * std_dev   (BUY — further below entry)
+                entry + sl_std_mult * std_dev   (SELL — further above entry)
+
+    With ``sl_std_mult = SL_STD_MULT_DEFAULT = 1.0``, R/R at entry equals
+    ``|deviation_std| : 1``, which is favourable when the entry threshold
+    (``|deviation_std| >= ENTRY_STD_THRESHOLD = 1.0``) is met.
     """
     if not isinstance(candles_df, pd.DataFrame) or candles_df.empty:
         return _no_trade(symbol, "VWAP skipped: candle data is empty or invalid")
@@ -154,17 +197,44 @@ def build_vwap_signal(
         symbol, vwap, current_price, std_dev, deviation, side,
     )
 
+    base_meta = {
+        "strategy_name": "vwap",
+        "vwap": vwap,
+        "current_price": current_price,
+        "std_dev": std_dev,
+        "deviation_std": deviation,
+        "reason": reason,
+    }
+
+    if side == "none":
+        return {
+            "symbol": symbol,
+            "side": "none",
+            "qty": 0.0,
+            "meta": base_meta,
+        }
+
+    # G5 — populate entry/sl/tp so multi-account dispatch can fan this out.
+    entry_price = current_price
+    take_profit = vwap
+    if side == "buy":
+        stop_loss = entry_price - sl_std_mult * std_dev
+    else:  # "sell"
+        stop_loss = entry_price + sl_std_mult * std_dev
+
     return {
         "symbol": symbol,
         "side": side,
-        "qty": float(qty) if side != "none" else 0.0,
+        "qty": float(qty),
+        "entry_price": float(entry_price),
+        "stop_loss": float(stop_loss),
+        "take_profit": float(take_profit),
         "meta": {
-            "strategy_name": "vwap",
-            "vwap": vwap,
-            "current_price": current_price,
-            "std_dev": std_dev,
-            "deviation_std": deviation,
-            "reason": reason,
+            **base_meta,
+            "sl_std_mult": sl_std_mult,
+            "entry_price": float(entry_price),
+            "stop_loss": float(stop_loss),
+            "take_profit": float(take_profit),
         },
     }
 
