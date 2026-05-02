@@ -5,6 +5,52 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-02-08 — G6: signal_notifications.py trimmed to live surface
+
+- **Session date:** 2026-05-02
+- **Sprint:** S-XXX — Telegram bot debug + UI overhaul + repo cleanup
+- **Current sprint phase:** G6 (6/6 in scope minus G5 which requires the ping-PR pattern). Sprint substantially complete.
+- **Last completed checkpoint:** CP-2026-05-02-07 (#269, merged).
+- **Next checkpoint:** **CP-2026-05-02-09 — G5: failed_validation investigation + ping-PR.** Per CLAUDE.md § Live-mode invariant: any PR touching `src/runtime/pipeline.py` requires the ping-PR pattern. The work-PR stays draft; a separate `claude/ping-<slug>` PR with a `pending-pings.jsonl` append fires the operator alert.
+- **Telegram sent:** pending — this checkpoint commit triggers the VM ping.
+- **Alerts sent during session:** none.
+- **Blockers:** none for G6. G5 is queued and will explicitly stop for operator review.
+
+### 1. Completed
+- Trimmed `src/runtime/signal_notifications.py` from ~175 lines down to ~94 lines by deleting helpers with zero callers across `src/`, `scripts/`, `tests/`, `notebooks/`:
+  - `msg_bi_daily` — the explicit-removal hard-error stub introduced in CP-2026-05-02-01. The prompt for this sprint asked whether it could be deleted outright; verified yes — no remaining importers and `should_send_summary` already prevents the legacy summary path from running.
+  - `msg_started`, `msg_stopped`, `msg_trade_open`, `msg_trade_close` — old text formatters superseded by `src/runtime/notify.py` and the trader's startup logging.
+  - `plot_signal_summary`, `plot_trade_chart`, `_plot_base` — matplotlib chart helpers superseded by the static HTML chart artefacts (`ict_complete_chart.html`, etc.).
+  - `summarize_trades`, `load_db` — unused stat utilities.
+  - `import matplotlib.pyplot as plt` — removed. The module no longer pulls matplotlib; existing test scaffolds can be loosened in a follow-up sprint but I left them untouched in this PR (no behaviour change).
+- Surviving surface: `fetch_df`, `get_last_signals`, `format_signals`, `ensure_signals_table`, `insert_signal` — the four entry points consumed by `src/bot/telegram_query_bot.py` and `src/runtime/signal_writer.py`. Verified with grep for each survivor.
+- Fixed an unrelated regression introduced by my own G3 PR (#267): `tests/test_telegram_surface_cleanup.py::test_botcommand_registry_includes_vm_commands` did a literal string match for `BotCommand("vm",` which the G3 `BotCommandSpec` refactor broke. The test now accepts either form; the invariant it asserts (vm/vm_write present in the operator menu) is unchanged.
+- Verified the rest of the sprint cleanup checklist:
+  - `python scripts/repo_inventory.py` — no junk candidates; no `*_old.py` / `*_bak.py` / `*.save` / `*.orig` in the tree.
+  - All 8 `deploy/*.service` files are referenced (install_systemd_units.sh / deploy_pull_restart.sh / vm_bootstrap.sh / daily_heartbeat.py); none dead.
+  - 8 notebooks under `notebooks/` are operator + setup tooling — not retired training notebooks; `notebooks/training/` does not exist.
+  - Only `.env.example` is tracked; used by `README.md` and `tests/test_s006_ict_risk_config.py`. The reserved-account-id filter (`_ENV_DISCOVERY_RESERVED`) already excludes "example" at runtime, but the file itself stays — it's the dev onboarding template.
+
+### 2. Files changed
+- `src/runtime/signal_notifications.py` — trimmed to live surface (now a 94-line file with 5 functions instead of a 175-line file with 16 functions). Module docstring updated to reflect the surviving API.
+- `tests/test_telegram_surface_cleanup.py` — `BotCommand("vm",` → `BotCommandSpec("vm",` (tolerant of both forms).
+- `docs/claude/cleanup-report.md` — appended a CP-2026-05-02-08 entry detailing the cuts and the inventory checklist results.
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` — this entry.
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_telegram_surface_cleanup.py -q` — 2 passed (the two not blocked by the pre-existing pandas-not-in-sandbox import issue). The one I introduced in G3 (`test_botcommand_registry_includes_vm_commands`) now passes after the test fix.
+- `PYTHONPATH=. pytest tests/test_telegram_query_bot.py tests/test_data_loaders.py tests/test_kill_switch.py tests/test_notify_session.py tests/test_set_keys_command.py tests/test_telegram_signals.py tests/test_telegram_strategy_labels.py tests/test_s007_bot_commands.py tests/test_s008_telegram_rewired.py tests/test_s008_5_telegram_sprint_cmds.py tests/test_telegram_surface_cleanup.py tests/test_pipeline_news_veto.py tests/test_s013_webapp_command.py tests/test_accounts_status_md_rendering.py -q` — 253 passed, 14 failed. Of those 14: 5 in `test_s008_5_telegram_sprint_cmds.py`, 4 in `test_data_loaders.py`, 1 each in `test_telegram_signals.py`, `test_s007_bot_commands.py`, `test_s008_telegram_rewired.py`, `test_telegram_query_bot.py`, `test_telegram_surface_cleanup.py` (pandas-not-in-sandbox). All confirmed pre-existing by re-running the same test paths against `origin/main` of `src/runtime/signal_notifications.py` and `src/bot/telegram_query_bot.py`. None are regressions from this PR.
+- `python scripts/check_dry_run_in_diff.py` — clean.
+- `python scripts/secret_scan.py` — clean.
+
+### 4. Remaining for this checkpoint
+- none — G6 fully shipped.
+
+### 5. Next checkpoint
+**CP-2026-05-02-09 — G5: failed_validation investigation + ping-PR.** Touches `src/runtime/pipeline.py`; opens a draft work-PR + a separate ping-PR per the CLAUDE.md ping-PR rule. Sprint completion summary follows once G5 lands (or is parked at the operator-review step).
+
+---
+
 ## CP-2026-05-02-07 — Architecture audit doc: UI processor migration plan
 
 - **Session date:** 2026-05-02
