@@ -219,7 +219,42 @@ class Database:
         conn.close()
         
         return trade_id
-    
+
+    def update_trade(self, trade_id, updates):
+        """Update a row in the ``trades`` table by primary key.
+
+        S-030 PR3 (architecture-audit-2026-05-02 P1-4) — close path.
+        The S-029 PR2 writer creates the row at ``status='open'``;
+        the monitor loop updates it on close (status, exit_price,
+        exit_reason, pnl, pnl_percent). Caller controls the field
+        set; this method mirrors ``update_order_package`` semantics.
+
+        Args:
+            trade_id (int): The trades.id value (from insert_trade).
+            updates (dict): Column → new value.
+
+        Returns:
+            int: Rows affected (0 if the id was not found).
+        """
+        if trade_id is None:
+            raise ValueError("update_trade requires trade_id")
+        row = dict(updates or {})
+        if not row:
+            return 0
+
+        conn = self.connect()
+        cursor = conn.cursor()
+        try:
+            assignments = ", ".join(f"{k} = ?" for k in row.keys())
+            cursor.execute(
+                f"UPDATE trades SET {assignments} WHERE id = ?",
+                list(row.values()) + [int(trade_id)],
+            )
+            conn.commit()
+            return cursor.rowcount
+        finally:
+            conn.close()
+
     def get_trades(self, filters=None, limit=None):
         """
         Retrieve trades from database

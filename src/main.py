@@ -180,6 +180,19 @@ def main() -> None:
         tick_count += 1
         try:
             run_one_tick(settings, exchange_client, telegram_client)
+
+            # CLAUDE.md § Architecture rules § 2 + § 3 +
+            # architecture-audit-2026-05-02 P1-4: after generating
+            # signals on this tick, run the monitor loop across every
+            # open order package. The loop calls each strategy's
+            # monitor() hook with fresh candles and applies non-None
+            # verdicts to the DB unit. Best-effort; never raises.
+            try:
+                from src.runtime.order_monitor import run_monitor_tick
+                run_monitor_tick()
+            except Exception:  # noqa: BLE001
+                logger.exception("order_monitor tick failed")
+
             # PR5: heartbeat is the single source of truth for "trader is
             # alive". Writes after a successful tick, not before — so a
             # tick that crashes mid-run doesn't refresh the heartbeat and
