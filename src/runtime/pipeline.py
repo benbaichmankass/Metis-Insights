@@ -81,27 +81,17 @@ def default_signal_builder(settings: dict) -> Dict[str, Any]:
 
 
 def _build_killzone_exchange(settings: dict):
-    exchange_name = str(settings.get("EXCHANGE", settings.get("exchange", "bybit"))).strip().lower()
-    bybit_testnet_raw = str(__import__("os").environ.get("BYBIT_TESTNET", "true")).strip().lower()
-    testnet = bybit_testnet_raw not in {"false", "0", "no"}
+    """Back-compat shim — the canonical home is now
+    ``src.runtime.market_data._build_exchange_client``.
 
-    if exchange_name == "binance":
-        from src.exchange.binance_connector import BinanceConnector
-        return BinanceConnector(
-            api_key=settings.get("BINANCE_API_KEY"),
-            api_secret=settings.get("BINANCE_API_SECRET"),
-            testnet=testnet,
-        )
-
-    if exchange_name == "bybit":
-        from src.exchange.bybit_connector import BybitConnector
-        return BybitConnector(
-            api_key=settings.get("BYBIT_API_KEY"),
-            api_secret=settings.get("BYBIT_API_SECRET"),
-            testnet=testnet,
-        )
-
-    raise ValueError(f"Unsupported EXCHANGE value: {exchange_name}")
+    S-033 (architecture-audit-2026-05-02 § P1-8): connector
+    construction moved out of the pipeline so signal builders aren't
+    coupled to exchange reachability. Existing call sites + tests that
+    monkeypatch ``pipeline._build_killzone_exchange`` keep working
+    through this thin re-export.
+    """
+    from src.runtime.market_data import _build_exchange_client
+    return _build_exchange_client(settings)
 
 
 def _killzone_symbol(settings: dict) -> str:
@@ -220,29 +210,23 @@ def turtle_soup_signal_builder(settings: dict) -> Dict[str, Any]:
         sizing is the per-account RiskManager's job.
     """
     from src.units.strategies.turtle_soup import order_package
+    from src.runtime.market_data import fetch_candles
 
     symbol = settings.get("SYMBOL", settings.get("symbol", "BTCUSDT"))
     timeframe = settings.get("TURTLE_SOUP_TIMEFRAME", settings.get("timeframe", "15m"))
 
+    # Construct the connector through the local shim (patched by
+    # existing tests) and hand it to fetch_candles.
     exchange = _build_killzone_exchange(settings)
-    candles_raw = exchange.get_ohlcv(symbol, timeframe, limit=200)
-
-    if candles_raw is None or (hasattr(candles_raw, "__len__") and len(candles_raw) == 0):
+    candles_df = fetch_candles(
+        symbol, timeframe, exchange_client=exchange, limit=200,
+    )
+    if candles_df is None:
         raise RuntimeError(
             f"Turtle Soup: no candle data returned for symbol={symbol} "
             f"timeframe={timeframe}. "
             "Check that the exchange connection is configured and the symbol is valid."
         )
-
-    if isinstance(candles_raw, pd.DataFrame):
-        candles_df = candles_raw.copy()
-    else:
-        candles_df = pd.DataFrame(
-            candles_raw, columns=["timestamp", "open", "high", "low", "close", "volume"]
-        )
-
-    for col in ("open", "high", "low", "close", "volume"):
-        candles_df[col] = pd.to_numeric(candles_df[col], errors="coerce")
 
     cfg: Dict[str, Any] = {"symbol": symbol, "timeframe": timeframe}
     # Merge per-strategy params from config/strategies.yaml when available.
@@ -325,25 +309,18 @@ def vwap_signal_builder(settings: dict) -> Dict[str, Any]:
         or "5m"
     )
 
-    exchange = _build_killzone_exchange(settings)
-    candles_raw = exchange.get_ohlcv(symbol, timeframe, limit=100)
+    from src.runtime.market_data import fetch_candles
 
-    if candles_raw is None or (hasattr(candles_raw, "__len__") and len(candles_raw) == 0):
+    exchange = _build_killzone_exchange(settings)
+    candles_df = fetch_candles(
+        symbol, timeframe, exchange_client=exchange, limit=100,
+    )
+    if candles_df is None:
         raise RuntimeError(
             f"VWAP strategy: no candle data returned for symbol={symbol} "
             f"timeframe={timeframe}. "
             "Check that the exchange connection is configured and the symbol is valid."
         )
-
-    if isinstance(candles_raw, pd.DataFrame):
-        candles_df = candles_raw.copy()
-    else:
-        candles_df = pd.DataFrame(
-            candles_raw, columns=["timestamp", "open", "high", "low", "close", "volume"]
-        )
-
-    for col in ("high", "low", "close", "volume"):
-        candles_df[col] = pd.to_numeric(candles_df[col], errors="coerce")
 
     if candles_df[["high", "low", "close", "volume"]].isnull().all().any():
         raise RuntimeError(
