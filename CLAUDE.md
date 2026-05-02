@@ -64,6 +64,8 @@ The operator has added both the **Claude bot** (`telegram_query_bot`) and the
 verify that a new command is live and working correctly, send the command in
 that group and inspect the reply — this gives the same view the operator sees.
 
+**Group invite:** https://t.me/+AEyPWWlkcKFhMDQ0
+
 Rules:
 - Use the group for **smoke-testing bot commands** after a deploy (e.g. `/roadmap`,
   `/audit`, `/status`), not for issuing live trading commands.
