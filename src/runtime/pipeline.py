@@ -698,23 +698,66 @@ def run_pipeline(
 
     _report_pipeline_outcome(result, signal)
 
-    # S-012 PR E4: include strategy attribution so the audit log
-    # answers "which strategy fired this tick" for every line.
-    # Source priority: signal.meta.strategy_name (set by every
-    # builder in src/runtime/pipeline.py) → top-level signal["strategy"]
-    # → settings["STRATEGY"]/env → "unknown".
+    # S-012 PR E4 + S-026 G4: include strategy attribution so the audit
+    # log answers "which strategy fired this tick" for every line.
+    # Source priority:
+    #   1. signal.meta.strategy_name (set by every builder in this module)
+    #   2. top-level signal["strategy"]
+    #   3. settings["STRATEGY"]
+    #   4. env STRATEGY
+    #   5. final default — "multiplexed" (matches the actual production
+    #      builder when STRATEGY is unset/multiplexed) — *not* "unknown",
+    #      because the operator's hourly report counts "unknown" as a
+    #      separate bucket and a missing label is uninformative noise.
+    #      "unknown" was the silent default before BUG-033; the audit
+    #      log now lands a meaningful name for every actionable tick.
     #
-    # G5 (CP-2026-05-02-09): the same value now feeds the Telegram
-    # "Pipeline result" message so the operator can see which strategy
-    # is firing failed_validation per-tick.
+    # G5 (CP-2026-05-02-09): the same value also feeds the Telegram
+    # "Pipeline result" message.
     _meta = signal.get("meta") or {}
     _strategy = (
         _meta.get("strategy_name")
         or signal.get("strategy")
-        or settings.get("STRATEGY")
+        or (settings.get("STRATEGY") if isinstance(settings, dict) else None)
         or os.environ.get("STRATEGY")
-        or "unknown"
+        or "multiplexed"
     )
+
+    # BUG-033 (CP-2026-05-02-22): the operator reported the hourly
+    # summary showing actionable signals attributed to "unknown" even
+    # though "Strategies (today)" correctly listed them under their
+    # real names. Post-G1 the multiplexer preserves meta correctly, so
+    # the remaining leak path is unclear. Land a one-shot diagnostic
+    # warning that fires when an actionable signal still resolves to
+    # the safety-default attribution — captures the signal keys, meta
+    # keys, and which fallback level matched. The next hourly cycle
+    # tells the operator (via journalctl) exactly which path produces
+    # an under-attributed signal so a follow-up PR can fix it at the
+    # source. Delete this block once a real cause is identified.
+    if (
+        signal.get("side") in ("buy", "sell")
+        and (
+            _meta.get("strategy_name") in (None, "")
+            and signal.get("strategy") in (None, "")
+        )
+    ):
+        try:
+            _settings_keys = (
+                list(settings.keys()) if isinstance(settings, dict) else []
+            )
+            logger.warning(
+                "audit: actionable signal lacks meta.strategy_name + "
+                "top-level strategy; resolved=%r via fallback. "
+                "signal_keys=%s meta_keys=%s settings_has_STRATEGY=%s "
+                "env_has_STRATEGY=%s",
+                _strategy,
+                list(signal.keys()),
+                list(_meta.keys()),
+                "STRATEGY" in _settings_keys,
+                "STRATEGY" in os.environ,
+            )
+        except Exception:  # noqa: BLE001
+            logger.exception("audit: BUG-033 diagnostic warning failed")
 
     # G5 (CP-2026-05-02-09): when an actionable signal reaches the
     # validator without entry/sl/tp populated at the top level, the

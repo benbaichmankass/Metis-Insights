@@ -173,18 +173,24 @@ def test_pipeline_result_message_includes_strategy_name():
     )
 
 
-def test_pipeline_result_message_strategy_unknown_when_meta_missing():
-    """When a builder forgets meta.strategy_name AND no STRATEGY env / settings
-    fallback is available, the message says 'strategy=unknown' rather than
-    omitting the field entirely. This is the ground-truth state for the bug
-    report — operator should still see something parseable."""
+def test_pipeline_result_message_strategy_falls_back_to_multiplexed_when_meta_missing():
+    """S-026 G4 (BUG-033): when a builder forgets meta.strategy_name AND
+    no STRATEGY env / settings fallback is available, the message falls
+    back to ``strategy=multiplexed`` (the production builder name)
+    rather than ``strategy=unknown``.
+
+    The operator's hourly summary counts ``strategy=unknown`` as a real
+    bucket; a missing label is uninformative noise. ``multiplexed`` is
+    the safe default because it matches the actual builder name when
+    STRATEGY is unset.
+    """
     captured = []
     sig_no_meta = {"symbol": "BTCUSDT", "side": "buy", "qty": 1.0, "price": 50_000.0}
     with patch("src.runtime.pipeline.os.path.exists", return_value=False), \
          patch.dict(os.environ, {}, clear=False), \
          patch("src.runtime.pipeline.send_via_alert_manager",
                side_effect=lambda msg: captured.append(msg)):
-        # Drop STRATEGY so the fallback chain hits "unknown".
+        # Drop STRATEGY so the fallback chain hits the final default.
         os.environ.pop("STRATEGY", None)
         # Settings without STRATEGY field.
         settings = {"DRY_RUN": "false", "ALLOW_LIVE_TRADING": "true",
@@ -195,7 +201,11 @@ def test_pipeline_result_message_strategy_unknown_when_meta_missing():
             signal_builder=_signal_stub(sig_no_meta),
         )
     msgs = [m for m in captured if "Pipeline result" in m]
-    assert msgs and "strategy=unknown" in msgs[-1]
+    assert msgs, f"no Pipeline result message captured. got: {captured}"
+    assert "strategy=multiplexed" in msgs[-1], (
+        f"BUG-033: 'unknown' must not leak; expected 'multiplexed'. got: {msgs[-1]!r}"
+    )
+    assert "strategy=unknown" not in msgs[-1]
 
 
 # ---------------------------------------------------------------------------
