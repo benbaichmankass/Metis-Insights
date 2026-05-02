@@ -5,6 +5,76 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-02-22 — Sprint 026 G4 + sprint COMPLETE / WRAPPED
+
+- **Session date:** 2026-05-02
+- **Sprint:** 026 — Decouple position sizing from strategies; fix "unknown ×4" attribution.
+- **Current sprint phase:** **COMPLETE / WRAPPED.** All four goals shipped in this same session: G1 (#281), G2 (#283), G3 (#285), and G4 in this PR. BUG-033 logged. Operator ran the sprint serially via per-PR PM-review approval throughout the session.
+- **Last completed checkpoint:** CP-2026-05-02-21 (G3 — merged in #285).
+- **Next checkpoint:** **none — sprint closed.** Next session can pick from: (a) audit-doc step 2 onward (`cmd_balance` → `processor.get_account_balances`), (b) the G4 follow-up once the operator's next ping cycle identifies the BUG-033 leak source via the diagnostic warning, or (c) any operator-driven priority.
+- **Telegram sent:** pending — checkpoint commit fires the VM ping; ping-PR also opened. The `COMPLETE / WRAPPED` keywords route through the sprint-completion path on the VM for a high-priority sprint-end ping.
+- **Alerts sent during session:** none (operator-driven session — every PM review happened in-conversation).
+- **Blockers:** none — work-PR opens as `(PM REVIEW): G4 …` draft per the per-PR rule for files in CLAUDE.md § Live-mode invariant rule (3); ping-PR self-merges to fire the operator alert.
+
+### 1. Completed (G4 + sprint summary)
+- **`src/runtime/pipeline.py::run_pipeline`** — strategy-attribution fallback in the audit-log + Telegram-message site:
+  - **Defensive default flipped from `"unknown"` to `"multiplexed"`.** The operator's hourly summary aggregates audit-log rows under their `strategy` field; "unknown" is treated as a real bucket. A missing label is uninformative noise — `"multiplexed"` matches the actual production builder name when `STRATEGY` is unset and surfaces the right answer for the most common leak path.
+  - **One-shot diagnostic warning** added: when an actionable signal still resolves via the safety default (`meta.strategy_name` AND top-level `strategy` both empty), `pipeline.py` emits `logger.warning("audit: actionable signal lacks meta.strategy_name + top-level strategy; resolved=… via fallback. signal_keys=… meta_keys=… settings_has_STRATEGY=… env_has_STRATEGY=…")`. The next hourly cycle on the VM tells the operator exactly which path under-attributes; the warning gets removed in the follow-up PR that fixes the source.
+- **`tests/test_s026_g4_audit_attribution.py`** (new, 8 tests):
+  - `TestActionableSignalsLogTheirStrategyName` (3) — vwap-actionable, turtle_soup-actionable, and multiplexer-preserves-attribution end-to-end pins.
+  - `TestNeverLogUnknownByDefault` (2) — safe-default fallback is `"multiplexed"` (not `"unknown"`); env `STRATEGY` still wins when set.
+  - `TestDiagnosticWarningFires` (3) — warning fires for under-attributed actionable signals; does not fire for well-attributed signals; does not fire for `side="none"` ticks.
+  - The fixtures patch `src.runtime.pipeline.log_signal` directly (rather than `signal_audit_logger.SIGNAL_FILE`) so the tests survive `tests/test_kill_switch.py`'s session-scoped stub of `signal_audit_logger`.
+- **`tests/test_orders.py::test_pipeline_result_message_strategy_unknown_when_meta_missing`** renamed and updated to assert the new defensive default (`strategy=multiplexed`) instead of the old `strategy=unknown`.
+- **`docs/claude/bug-log.md`** — BUG-033 row appended (audit-log / strategy attribution).
+
+### 2. Sprint-completion checklist
+- [x] Run full tests — 36 failed (= main baseline), **1699 passed** (was 1666 on main; +33 new = G2 12 + G3 13 + G4 8). **Zero new failures from this sprint.**
+- [x] `python scripts/secret_scan.py` — clean.
+- [x] `python scripts/check_dry_run_in_diff.py` — clean.
+- [x] BUG-033 logged in `docs/claude/bug-log.md`.
+- [x] Append final checkpoint (this entry).
+- [ ] Sprint summary doc (`docs/sprint-summaries/sprint-026-summary.md`) — deferred to a follow-up summary PR (operator can request when ready). All four work-PRs are merged on main; the G4 work-PR follows here.
+- [ ] Telegram `/sprintlet_complete S-026` — fires automatically off this checkpoint commit per the existing VM wiring (the `COMPLETE / WRAPPED` keywords route to the sprint-completion path).
+
+### 3. Sprint 026 — what shipped
+| Goal | PR | Outcome |
+|---|---|---|
+| G1 — strategy signals lose `qty` | #281 (merged) | Strategies now emit only the trade idea (symbol/side/entry/sl/tp). |
+| G2 — sizing in `RiskManager.position_size` | #283 (merged) | Single sizing site. Operator-confirmed: `risk_pct=0.01`, `min_balance_usd=50`, no max-position cap. |
+| G3 — dynamic sizing | #285 (merged) | Live balance fetcher; floor-rounding; daily-loss-budget gate. |
+| G4 — audit-log "unknown ×4" | this PR | Defensive default + diagnostic warning + 8 regression tests. BUG-033 logged. |
+
+### 4. Files changed (this checkpoint)
+- `src/runtime/pipeline.py` — defensive fallback default + BUG-033 diagnostic warning.
+- `tests/test_s026_g4_audit_attribution.py` — new (8 tests).
+- `tests/test_orders.py` — update `test_pipeline_result_message_strategy_…` to expect `multiplexed`.
+- `docs/claude/bug-log.md` — BUG-033 row.
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` — this entry.
+
+### 5. Tests run
+- `PYTHONPATH=. pytest tests/test_s026_g4_audit_attribution.py -v` — 8 / 8 passed.
+- `PYTHONPATH=. pytest tests/test_kill_switch.py tests/test_s026_g4_audit_attribution.py -v` — all pass (cross-pollution from `signal_audit_logger` stub no longer breaks the G4 tests).
+- Full suite: **36 failed, 1699 passed, 2 skipped** vs. main baseline of **36 failed, 1666 passed**. **Zero new failures.**
+- `python scripts/check_dry_run_in_diff.py` — clean.
+- `python scripts/secret_scan.py` — clean.
+
+### 6. Live-mode check
+- ✅ No DRY_RUN flip. `scripts/check_dry_run_in_diff.py` is clean.
+- ✅ `config/accounts.yaml` not touched.
+- ⚠️ Touches `src/runtime/pipeline.py` — in CLAUDE.md § Live-mode invariant rule (3). Work-PR opens as draft `(PM REVIEW): G4 …`; ping-PR `claude/ping-s026-g4` self-merges to fire the operator alert.
+- The behavioural change is observability-only: no new path is taken, no new order is placed; the audit-log and Telegram message just get a more meaningful default label.
+
+### 7. Lessons learned (carried into the next sprint)
+1. **Operator-overridden one-task-per-session pace works when the session has bandwidth.** Sprint S-026 shipped all four goals (G1 → G2 → G3 → G4) plus a diagnostic-only fix for BUG-033 in a single conversation. The per-PR ping-PR + PM-review pattern scales to multiple back-to-back PRs without losing operator visibility — the operator answered four "merge this?" prompts and got four merges with full context each time.
+2. **Defensive defaults should match the actual producer name, not "unknown".** Aggregators (here: hourly_report) treat `"unknown"` as a real bucket; the "missing label" semantics are lost. Generalise to a CLAUDE.md / repo-map note: when a fallback chain exists for a string field that aggregators bucket on, the final default should be a real producer name from the system, not a generic placeholder.
+3. **Test isolation under shared module stubs.** `tests/test_kill_switch.py` stubs `src.utils.signal_audit_logger` at module level; that stub survives across test files in a single session run. Patching `src.runtime.pipeline.log_signal` directly (rather than the upstream module attribute) is the survival strategy.
+4. **`config/accounts.yaml` schema can grow without breaking either consumer.** G2 added `risk_pct` + `min_balance_usd` per account; both `_load_yaml_accounts` (Telegram bot) and `load_accounts` (production wiring) handled the new keys without changes. Worth noting that the `risk:` sub-block is the right home for sizing knobs — keeps the schema self-documenting.
+
+---
+
+---
+
 ## CP-2026-05-02-21 — Sprint 026 G3: dynamic sizing (live balance + daily-loss budget)
 
 - **Session date:** 2026-05-02
