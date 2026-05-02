@@ -36,3 +36,6 @@ uvicorn>=0.29.0
 httpx>=0.27.0
 pyjwt>=2.8.0
 email-validator>=2.0.0
+
+# Claude Telegram bridge (ict-claude-bridge.service, optional/disabled by default).
+anthropic>=0.40.0
