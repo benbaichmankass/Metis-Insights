@@ -620,142 +620,214 @@ def format_binance_positions(account: dict) -> str:
 # ── Commands ──────────────────────────────────────────────────────────────────
 
 
-# G2 — Single source of truth for the operator-facing command surface.
+# G2/G3 — Single source of truth for the operator-facing command surface.
 #
-# Every entry here MUST also appear in ``cmd_start`` / ``/help`` text in the
-# same order, and ``post_init`` flattens this list into ``set_my_commands``
-# so Telegram's hamburger menu mirrors /help. Order is grouped by the same
-# section labels as /help. Descriptions are kept ≤ 80 chars per Telegram
-# convention. ``tests/test_telegram_query_bot.py::TestHelpCommandParity``
-# enforces the 1:1 invariant.
+# Each ``BotCommandSpec`` is one operator-facing slash command. The list is
+# the canonical ordering, used by:
 #
-# When you add a CommandHandler in ``main()``, also add a row here AND a
-# line in cmd_start. The parity test will fail otherwise.
-BOT_COMMANDS: list[BotCommand] = [
-    BotCommand("start", "Show help"),
-    BotCommand("help", "Show help"),
-    # Live trading control
-    BotCommand("status", "Kill-switch state, P&L summary, service status"),
-    BotCommand("halt", "Stop order placement immediately"),
-    BotCommand("resume", "Re-enable order placement"),
-    BotCommand("closeall", "Emergency close all positions"),
-    BotCommand("toggle", "Start or stop the trader service"),
-    # Account & strategy
-    BotCommand("accounts", "List accounts (dry/live + PnL) or toggle mode"),
-    BotCommand("accounts_status", "Per-account risk state (daily PnL, halted)"),
-    BotCommand("set_all_live", "Flip every account out of dry-run into live mode"),
-    BotCommand("set_keys", "Open the Colab key-rotation notebook"),
-    BotCommand("risk_check", "Risk details for one account: /risk_check <name>"),
-    BotCommand("smoke_test", "Live-plumbing smoke (always LIVE): /smoke_test [account]"),
-    BotCommand("strategies", "Per-strategy signals, PnL and positions"),
-    BotCommand("reload_strats", "Reload strategies.yaml without restart"),
-    BotCommand("balance", "Account balance"),
-    BotCommand("trades", "Open positions"),
-    # Signals & history
-    BotCommand("last5", "Last 5 journal entries"),
-    BotCommand("signals", "Recent pipeline signals: /signals [N] [strategy]"),
-    BotCommand("alerts", "Recent unit alerts (coordinator queue)"),
-    BotCommand("log", "Recent trader logs"),
-    BotCommand("download_journal", "Download trade journal DB"),
-    BotCommand("price", "Current BTC price"),
-    BotCommand("hourly", "Send the hourly summary on demand (bypasses dedup)"),
-    # Backtesting
-    BotCommand("backtest", "Start backtest in background"),
-    BotCommand("latest_backtest", "Latest backtest status/result"),
-    BotCommand("backtest_ui", "How to launch the Streamlit backtesting dashboard"),
-    # Diagnostics
-    BotCommand("health", "Per-unit status + data-file freshness"),
-    BotCommand("vmstats", "VM resource snapshot (uptime, load, mem, disk)"),
-    BotCommand("ping_test", "Verify the pending-pings inbox drain loop"),
-    # Web dashboard
-    BotCommand("webapp", "Open the secure web dashboard"),
-    # VM-resident Claude (S-014.5)
-    BotCommand("vm", "Tier 1 read-only Claude on the VM"),
-    BotCommand("vm_write", "Tier 2 mutating Claude on the VM (asks to confirm)"),
-    # Sprint / planning
-    BotCommand("checkpoint", "Latest entry from CHECKPOINT_LOG.md"),
-    BotCommand("sprintlet_status", "Manual sprint milestone update"),
-    BotCommand("sprintlet_complete", "Manual sprint-complete signal"),
+#   * ``BOT_COMMANDS`` — flat ``BotCommand`` list passed to
+#     ``app.bot.set_my_commands(...)`` in ``post_init``. Determines the
+#     hamburger menu Telegram displays in the chat composer.
+#   * ``render_help_top`` / ``render_help_category`` — the G3 button-driven
+#     ``/help`` flow. ``cmd_start`` (which is what /help calls) replies
+#     with the top-level category buttons; tapping a category edits the
+#     message to a drill-down listing every command in that category.
+#   * ``tests/test_telegram_query_bot.py::TestHelpCommandParity`` — asserts
+#     every registered ``CommandHandler`` has a matching spec, every spec
+#     surfaces in the menu, and the union of all category drill-downs
+#     matches the spec order.
+#
+# Categories ``"meta"`` and ``"help"`` are present so /start and /help
+# themselves can be in BOT_COMMANDS (Telegram surfaces them in the
+# hamburger menu) without polluting the categorized /help body.
+class BotCommandSpec:
+    __slots__ = ("name", "description", "category")
+
+    def __init__(self, name: str, description: str, category: str) -> None:
+        self.name = name
+        self.description = description
+        self.category = category
+
+    def __repr__(self) -> str:
+        return f"BotCommandSpec({self.name!r}, {self.category!r})"
+
+
+# (id, button label) — display order for the top-level /help menu.
+# Update HELP_CATEGORIES + the categories of BOT_COMMAND_SPECS together.
+HELP_CATEGORIES: list[tuple[str, str]] = [
+    ("trading",     "🚦 Trading control"),
+    ("accounts",    "💼 Accounts & strategies"),
+    ("signals",     "📈 Signals & history"),
+    ("backtest",    "🧪 Backtesting & dashboard"),
+    ("diagnostics", "🩺 Diagnostics & VM"),
+    ("sprint",      "📋 Sprint / dev"),
 ]
+HELP_CATEGORY_IDS = {cid for cid, _ in HELP_CATEGORIES}
+
+
+BOT_COMMAND_SPECS: list[BotCommandSpec] = [
+    # ``meta`` — surfaced in the hamburger menu but not in the /help body.
+    BotCommandSpec("start", "Show help", "meta"),
+    BotCommandSpec("help", "Show help", "meta"),
+    # Trading control
+    BotCommandSpec("status", "Kill-switch state, P&L summary, service status", "trading"),
+    BotCommandSpec("halt", "Stop order placement immediately", "trading"),
+    BotCommandSpec("resume", "Re-enable order placement", "trading"),
+    BotCommandSpec("closeall", "Emergency close all positions", "trading"),
+    BotCommandSpec("toggle", "Start or stop the trader service", "trading"),
+    # Accounts & strategies
+    BotCommandSpec("accounts", "List accounts (dry/live + PnL) or toggle mode", "accounts"),
+    BotCommandSpec("accounts_status", "Per-account risk state (daily PnL, halted)", "accounts"),
+    BotCommandSpec("set_all_live", "Flip every account out of dry-run into live mode", "accounts"),
+    BotCommandSpec("set_keys", "Open the Colab key-rotation notebook", "accounts"),
+    BotCommandSpec("risk_check", "Risk details for one account: /risk_check <name>", "accounts"),
+    BotCommandSpec("smoke_test", "Live-plumbing smoke (always LIVE): /smoke_test [account]", "accounts"),
+    BotCommandSpec("strategies", "Per-strategy signals, PnL and positions", "accounts"),
+    BotCommandSpec("reload_strats", "Reload strategies.yaml without restart", "accounts"),
+    BotCommandSpec("balance", "Account balance", "accounts"),
+    BotCommandSpec("trades", "Open positions", "accounts"),
+    # Signals & history
+    BotCommandSpec("last5", "Last 5 journal entries", "signals"),
+    BotCommandSpec("signals", "Recent pipeline signals: /signals [N] [strategy]", "signals"),
+    BotCommandSpec("alerts", "Recent unit alerts (coordinator queue)", "signals"),
+    BotCommandSpec("log", "Recent trader logs", "signals"),
+    BotCommandSpec("download_journal", "Download trade journal DB", "signals"),
+    BotCommandSpec("price", "Current BTC price", "signals"),
+    BotCommandSpec("hourly", "Send the hourly summary on demand (bypasses dedup)", "signals"),
+    # Backtesting & dashboard
+    BotCommandSpec("backtest", "Start backtest in background", "backtest"),
+    BotCommandSpec("latest_backtest", "Latest backtest status/result", "backtest"),
+    BotCommandSpec("backtest_ui", "How to launch the Streamlit backtesting dashboard", "backtest"),
+    BotCommandSpec("webapp", "Open the secure web dashboard", "backtest"),
+    # Diagnostics & VM
+    BotCommandSpec("health", "Per-unit status + data-file freshness", "diagnostics"),
+    BotCommandSpec("vmstats", "VM resource snapshot (uptime, load, mem, disk)", "diagnostics"),
+    BotCommandSpec("ping_test", "Verify the pending-pings inbox drain loop", "diagnostics"),
+    BotCommandSpec("vm", "Tier 1 read-only Claude on the VM", "diagnostics"),
+    BotCommandSpec("vm_write", "Tier 2 mutating Claude on the VM (asks to confirm)", "diagnostics"),
+    # Sprint / dev
+    BotCommandSpec("checkpoint", "Latest entry from CHECKPOINT_LOG.md", "sprint"),
+    BotCommandSpec("sprintlet_status", "Manual sprint milestone update", "sprint"),
+    BotCommandSpec("sprintlet_complete", "Manual sprint-complete signal", "sprint"),
+]
+
+
+# Flat BotCommand list for set_my_commands (Telegram hamburger menu).
+BOT_COMMANDS: list[BotCommand] = [
+    BotCommand(s.name, s.description) for s in BOT_COMMAND_SPECS
+]
+
+
+def _category_label(cat_id: str) -> str:
+    for cid, label in HELP_CATEGORIES:
+        if cid == cat_id:
+            return label
+    return cat_id
+
+
+def _commands_in_category(cat_id: str) -> list[BotCommandSpec]:
+    return [s for s in BOT_COMMAND_SPECS if s.category == cat_id]
+
+
+def render_help_top():
+    """Top-level /help: greeting + one button per category.
+
+    Returns ``(text, InlineKeyboardMarkup)``. The keyboard arranges
+    categories in two-column rows so it stays compact on phone screens.
+    """
+    label = get_strategy_label()
+    text = (
+        f"👋 *ICT Trading Bot* — {label}\n\n"
+        "Pick a category to see commands. Tap *« Back* in any category "
+        "to return here.\n\n"
+        "_Power users:_ `/help <category>` jumps straight to one "
+        "(e.g. `/help trading`)."
+    )
+    rows: list[list[InlineKeyboardButton]] = []
+    row: list[InlineKeyboardButton] = []
+    for cid, label_str in HELP_CATEGORIES:
+        row.append(InlineKeyboardButton(
+            label_str, callback_data=f"help_cat:{cid}"))
+        if len(row) == 2:
+            rows.append(row)
+            row = []
+    if row:
+        rows.append(row)
+    return text, InlineKeyboardMarkup(rows)
+
+
+def render_help_category(cat_id: str):
+    """Drill-down: show every command in ``cat_id`` with descriptions.
+
+    Returns ``(text, InlineKeyboardMarkup)``. The keyboard is a single
+    "« Back" button so the operator can return to the top menu without
+    re-typing /help.
+    """
+    cat_id = (cat_id or "").strip().lower()
+    if cat_id not in HELP_CATEGORY_IDS:
+        text = (
+            f"⚠️ Unknown help category `{cat_id}`. Tap *« Back* for the menu."
+        )
+        rows = [[InlineKeyboardButton("« Back", callback_data="help_top")]]
+        return text, InlineKeyboardMarkup(rows)
+    cmds = _commands_in_category(cat_id)
+    label = _category_label(cat_id)
+    lines = [f"*{label}*", ""]
+    for spec in cmds:
+        # Markdown italic-escape underscores in command name.
+        cmd_md = "/" + spec.name.replace("_", "\\_")
+        lines.append(f"{cmd_md} — {spec.description}")
+    text = "\n".join(lines)
+    rows = [[InlineKeyboardButton("« Back", callback_data="help_top")]]
+    return text, InlineKeyboardMarkup(rows)
 
 
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_authorised(update):
         return
-    label = get_strategy_label()
-    # NB: every /<cmd> token below must correspond to a BotCommand in
-    # BOT_COMMANDS, in the same order. Parity is asserted in the test
-    # suite (TestHelpCommandParity). Underscores are backslash-escaped
-    # because parse_mode="Markdown" treats `_` as italic.
-    text = (
-        f"👋 *ICT Trading Bot* — {label}\n\n"
-        "*Live trading control*\n"
-        "/status — Kill-switch state, P&L summary, service status\n"
-        "/halt — Stop order placement immediately\n"
-        "/resume — Re-enable order placement\n"
-        "/closeall — Emergency close all positions\n"
-        "/toggle — Start or stop the trader service\n\n"
-        "*Account & strategy*\n"
-        "/accounts — List accounts (dry/live + PnL) or toggle mode\n"
-        "/accounts\\_status — Per-account risk state (daily PnL, halted)\n"
-        "/set\\_all\\_live — Flip every account out of dry-run into live mode\n"
-        "/set\\_keys — Open the Colab key-rotation notebook\n"
-        "/risk\\_check <account> — Risk details for one account\n"
-        "/smoke\\_test \\[account\\] — Live-plumbing smoke "
-        "*\\(always LIVE — micro-qty rejected by exchange\\)*\n"
-        "/strategies — Per-strategy signals, PnL and positions\n"
-        "/reload\\_strats — Reload strategies.yaml without restart\n"
-        "/balance — Account balance\n"
-        "/trades — Open positions\n\n"
-        "*Signals & history*\n"
-        "/last5 — Last 5 journal entries\n"
-        "/signals \\[N\\] \\[strategy\\] — Recent pipeline signals from audit log\n"
-        "/alerts — Recent unit alerts (coordinator queue)\n"
-        "/log — Recent trader logs\n"
-        "/download\\_journal — Download trade journal DB\n"
-        "/price — Current BTC price\n"
-        "/hourly — Send the hourly summary on demand \\(bypasses dedup\\)\n\n"
-        "*Backtesting*\n"
-        "/backtest — Start backtest in background\n"
-        "/latest\\_backtest — Backtest status/result\n"
-        "/backtest\\_ui — How to launch the Streamlit backtesting dashboard\n\n"
-        "*Diagnostics*\n"
-        "/health — Per-unit status + data-file freshness\n"
-        "/vmstats — VM resource snapshot \\(uptime, load, mem, disk\\)\n"
-        "/ping\\_test — Verify the pending-pings inbox drain loop\n\n"
-        "*Web dashboard*\n"
-        "/webapp — Open the secure web dashboard\n\n"
-        "*VM-resident Claude (S-014.5)*\n"
-        "/vm <prompt> — Tier 1 read-only Claude on the VM\n"
-        "/vm\\_write <prompt> — Tier 2 mutating Claude on the VM \\(asks to confirm\\)\n\n"
-        "*Sprint / planning*\n"
-        "/checkpoint — Latest entry from CHECKPOINT\\_LOG.md\n"
-        "/sprintlet\\_status \\[note\\] — Manual milestone update\n"
-        "/sprintlet\\_complete \\[sprint\\] — Manual sprint-complete signal\n\n"
-        "/help — Show this menu"
-    )
-    await update.message.reply_text(text, parse_mode="Markdown")
+    # /help <category> typed shortcut (power-user path).
+    if context.args:
+        cat_id = context.args[0].strip().lower()
+        text, kb = render_help_category(cat_id)
+        await update.message.reply_text(
+            text, parse_mode="Markdown", reply_markup=kb)
+        return
+    text, kb = render_help_top()
+    await update.message.reply_text(
+        text, parse_mode="Markdown", reply_markup=kb)
 
 
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await cmd_start(update, context)
 
 
-# Regex for the parity test: walks /help text line-by-line and yields each
-# leading /<cmd> token. Anchored at line-start so descriptions like
-# ``(dry/live + PnL)`` or ``Backtest status/result`` are not misread as
+# Regex used by the parity test: walks rendered category text and yields
+# each leading /<cmd> token. Anchored at line-start so descriptions like
+# ``(dry/live + PnL)`` or ``Backtest status/result`` aren't misread as
 # extra commands. Handles Markdown's ``\_`` underscore-escape.
 _HELP_CMD_RE = re.compile(r"^/([a-zA-Z][a-zA-Z0-9\\_]*)", re.MULTILINE)
 
 
 def _commands_in_help_text(text: str) -> list[str]:
-    """Return the list of /<cmd> names appearing in /help, in order.
+    """Return the list of /<cmd> names appearing in ``text``, in order.
 
     Strips Markdown backslash escapes (``/accounts\\_status`` →
-    ``accounts_status``). Used by ``TestHelpCommandParity`` and any future
-    tooling that needs the canonical operator command surface.
+    ``accounts_status``). Used by ``TestHelpCommandParity`` against the
+    rendered category drill-downs.
     """
     return [m.group(1).replace("\\_", "_") for m in _HELP_CMD_RE.finditer(text)]
+
+
+def _commands_across_help_categories() -> list[str]:
+    """Concatenate every category drill-down's command list, in display
+    order. The result is the canonical "what does /help expose" surface,
+    used by the parity test against ``BOT_COMMAND_SPECS`` (excluding meta).
+    """
+    out: list[str] = []
+    for cid, _label in HELP_CATEGORIES:
+        text, _kb = render_help_category(cid)
+        out.extend(_commands_in_help_text(text))
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -1878,6 +1950,19 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not parts or not parts[0]:
         return
     action = parts[0]
+
+    # G3 — /help button menu navigation.
+    if action == "help_top":
+        text, kb = render_help_top()
+        await query.edit_message_text(
+            text, parse_mode="Markdown", reply_markup=kb)
+        return
+    if action == "help_cat":
+        cat_id = parts[1] if len(parts) > 1 else ""
+        text, kb = render_help_category(cat_id)
+        await query.edit_message_text(
+            text, parse_mode="Markdown", reply_markup=kb)
+        return
 
     if action == "log":
         try:

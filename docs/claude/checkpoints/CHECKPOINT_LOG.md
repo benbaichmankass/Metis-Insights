@@ -5,6 +5,49 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-02-05 — G3: /help is now a button-driven category menu
+
+- **Session date:** 2026-05-02
+- **Sprint:** S-XXX — Telegram bot debug + UI overhaul + repo cleanup
+- **Current sprint phase:** G3 (3/6) complete. G4 — replace typed-arg flows with inline-button flows — is next.
+- **Last completed checkpoint:** CP-2026-05-02-04 (#266, merged).
+- **Next checkpoint:** **CP-2026-05-02-06 — G4: button flows for typed-arg commands.** Audit every cmd_* handler for typed args (`/signals vwap 25`, `/closeall vwap`, `/set_keys`, `/risk_check <name>`, `/smoke_test [account]`, etc.) and replace each with an inline-keyboard flow modeled on the existing `_CLOSE_BUTTON_LABELS` pattern. Use enumerated lists for small choice sets, numeric steppers for ranges, free text only as fallback (e.g. `[BLOCKED-PM] <question>`).
+- **Telegram sent:** pending — this checkpoint commit triggers the VM ping.
+- **Alerts sent during session:** none.
+- **Blockers:** none. Self-merged the work-PR per the merging rule (no live-trading or secrets surface touched — UI / set_my_commands surface only).
+
+### 1. Completed
+- Refactored `BOT_COMMANDS` (introduced in G2) into `BOT_COMMAND_SPECS: list[BotCommandSpec]` with per-spec category metadata. `BOT_COMMANDS` is now derived (`[BotCommand(s.name, s.description) for s in BOT_COMMAND_SPECS]`) so `set_my_commands` still gets the same flat list.
+- Six display categories (`HELP_CATEGORIES`): Trading control / Accounts & strategies / Signals & history / Backtesting & dashboard / Diagnostics & VM / Sprint & dev. `/start` and `/help` carry category `"meta"` so they live in the hamburger menu but never appear in any drill-down body.
+- New `render_help_top()` returns the top-level greeting + an `InlineKeyboardMarkup` with one button per category, callback `help_cat:<id>`. Buttons are arranged in two-column rows.
+- New `render_help_category(cat_id)` renders the drill-down for a category (Markdown-formatted command list + "« Back" button → `help_top`). Unknown category id falls through to a "« Back" message.
+- `cmd_start` (which `/help` delegates to) now sends the top-level menu by default, or the drill-down directly when called as `/help <cat>` (typed power-user shortcut).
+- `callback_handler` extended with `help_top` and `help_cat:<id>` actions. Both edit the existing message in place (so the operator's chat doesn't get spammed with new messages on every navigation tap).
+- `_commands_in_help_text(text)` retained but re-purposed: it now extracts /<cmd> tokens from a single drill-down render. New `_commands_across_help_categories()` concatenates every drill-down render in display order — that's the canonical "what does /help expose" surface used by the parity test.
+- Tests:
+  - `TestHelpCommandParity` updated to walk drill-downs instead of cmd_start text. Added `test_render_help_category_lists_category_commands` (per-category internal-order check) and `test_unknown_help_category_returns_back_button` (unknown-id graceful fallback). Total: 8 tests.
+  - New `TestHelpButtonCallbacks` (4 tests) covering: `help_top` callback edits with category buttons; `help_cat:<id>` callback lists that category's commands; unknown-category callback warns; typed `/help trading` renders the trading drill-down directly.
+- Net: 12 parity / button tests, all green.
+
+### 2. Files changed
+- `src/bot/telegram_query_bot.py` — `BotCommandSpec` class, `HELP_CATEGORIES`, `BOT_COMMAND_SPECS` (replaces flat `BOT_COMMANDS` body), derived `BOT_COMMANDS`, `render_help_top` / `render_help_category` / `_commands_across_help_categories`, `cmd_start` rewritten, `callback_handler` extended with `help_top` / `help_cat`.
+- `tests/test_telegram_query_bot.py` — `TestHelpCommandParity` updated for drill-down union; new `TestHelpButtonCallbacks` class.
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` — this entry.
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_telegram_query_bot.py::TestHelpCommandParity tests/test_telegram_query_bot.py::TestHelpButtonCallbacks -v` — 12 passed.
+- `PYTHONPATH=. pytest tests/test_telegram_query_bot.py -q` — 98 passed; 1 pre-existing failure (`TestCmdStatusMultiAccount::test_shows_block_per_account`, see CP-2026-05-02-01 / CP-2026-05-01-19), not a regression from this PR.
+- `python scripts/check_dry_run_in_diff.py` — clean.
+- `python scripts/secret_scan.py` — clean.
+
+### 4. Remaining for this checkpoint
+- none — G3 fully shipped.
+
+### 5. Next checkpoint
+**CP-2026-05-02-06 — G4: button flows for typed-arg commands.** Per-handler audit of typed-arg surface; replace with inline-keyboard flows where the input space is small/enumerable. Reuse the `_CLOSE_BUTTON_LABELS` pattern.
+
+---
+
 ## CP-2026-05-02-04 — G2: hamburger menu mirrors /help (single source of truth)
 
 - **Session date:** 2026-05-02
