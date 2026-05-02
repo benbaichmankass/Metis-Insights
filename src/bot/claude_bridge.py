@@ -219,17 +219,15 @@ async def cmd_train_model(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
 
 async def cmd_roadmap(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
+    """Show the roadmap-status block.
+
+    S-031 PR5 (architecture-audit-2026-05-02 P1-6): file read +
+    rendering moved to ``processor.get_roadmap_summary``.
+    """
     if not _is_authorized(update):
         return
-    roadmap_file = REPO_ROOT / recurring_dispatch.ROADMAP_PATH
-    try:
-        text = roadmap_file.read_text(encoding="utf-8")
-    except FileNotFoundError:
-        await update.message.reply_text(
-            "⚠️ Could not read ROADMAP.md from the repo."
-        )
-        return
-    summary = recurring_dispatch.render_roadmap_summary(text)
+    from src.ui import processor
+    summary = processor.get_roadmap_summary()
     await update.message.reply_text(summary)
 
 

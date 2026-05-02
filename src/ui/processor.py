@@ -449,3 +449,311 @@ def get_price(symbol: str = "BTCUSDT") -> Optional[float]:
     except Exception as exc:  # noqa: BLE001
         logger.warning("get_price(%s): %s", symbol, exc)
         return None
+
+
+# ---------------------------------------------------------------------------
+# Sprint / checkpoint readers — S-031 PR5 (architecture-audit-2026-05-02 P1-6)
+# ---------------------------------------------------------------------------
+
+import re as _re
+
+_SPRINT_RE = _re.compile(r"\bS-\d{3}(?:\.\d+)?\b")
+_CP_HEADER_RE = _re.compile(r"^##\s+(CP-\d{4}-\d{2}-\d{2}-\d+)\b")
+
+
+def _checkpoint_log_path() -> str:
+    import os
+    repo_root = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..", "..")
+    )
+    return os.path.join(repo_root, "docs", "claude", "checkpoints",
+                        "CHECKPOINT_LOG.md")
+
+
+def get_latest_sprint() -> Dict[str, str]:
+    """Return ``(sprint_id, cp_id)`` parsed from the topmost CP entry of
+    ``docs/claude/checkpoints/CHECKPOINT_LOG.md``.
+
+    Pre-PR (S-031 PR5) ``src/bot/telegram_query_bot.py``'s
+    ``_latest_sprint_from_checkpoint_log`` did this work inline. Per
+    CLAUDE.md § Architecture rules § 5 the bot is a thin shell — file
+    parsing belongs to the UI unit.
+
+    Returns
+    -------
+    dict
+        ``{"sprint_id": str, "cp_id": str}``. Both default to
+        ``"unknown"`` when the log is missing or malformed.
+    """
+    path = _checkpoint_log_path()
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            text = fh.read()
+    except (OSError, UnicodeDecodeError):
+        return {"sprint_id": "unknown", "cp_id": "unknown"}
+    cp_id = "unknown"
+    sprint_id = "unknown"
+    in_entry = False
+    for line in text.splitlines():
+        m = _CP_HEADER_RE.match(line)
+        if m and not in_entry:
+            cp_id = m.group(1)
+            in_entry = True
+            continue
+        if in_entry and line.startswith("- **Sprint:**"):
+            ms = _SPRINT_RE.search(line)
+            if ms:
+                sprint_id = ms.group(0)
+            break
+        if in_entry and line.startswith("## "):
+            break
+    return {"sprint_id": sprint_id, "cp_id": cp_id}
+
+
+def get_latest_checkpoint_header() -> str:
+    """Return the topmost ``## CP-…`` header line from the log.
+
+    Pre-PR ``cmd_checkpoint`` opened ``CHECKPOINT_LOG.md`` and grepped
+    for the first ``## CP-`` line. Now goes through the UI unit.
+
+    Returns
+    -------
+    str
+        The header line trimmed of leading/trailing whitespace, or a
+        shape-stable error string starting with ``"⚠️"`` on failure.
+    """
+    path = _checkpoint_log_path()
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            for line in fh:
+                stripped = line.strip()
+                if stripped.startswith("## CP-"):
+                    return stripped
+    except OSError as exc:
+        return f"⚠️ Could not read checkpoint log: {exc}"
+    return "No checkpoint found"
+
+
+# ---------------------------------------------------------------------------
+# /health, /vmstats — VM-side observability helpers (S-031 PR5)
+# ---------------------------------------------------------------------------
+
+_HEALTH_UNITS = (
+    "ict-trader-live",
+    "ict-telegram-bot",
+    "ict-web-api",
+    "ict-git-sync.timer",
+)
+_HEALTH_FILES: tuple = (
+    ("runtime_status.json (last tick)", "runtime_logs/runtime_status.json"),
+    ("signal_audit.jsonl (last signal)", "runtime_logs/signal_audit.jsonl"),
+    ("trade_journal.db",                 "trade_journal.db"),
+)
+
+
+def _file_age_str(path: str) -> str:
+    """Return a freshness string (``42s (12B)`` / ``7m (…)`` / ``3h12m``).
+
+    ``missing`` if the file isn't there. Used by the /health helper.
+    """
+    import os
+    from datetime import datetime, timezone
+    if not os.path.exists(path):
+        return "missing"
+    try:
+        mtime = os.path.getmtime(path)
+        size = os.path.getsize(path)
+    except OSError as exc:
+        return f"stat-err: {exc.__class__.__name__}"
+    age = max(0.0, datetime.now(timezone.utc).timestamp() - mtime)
+    if age < 60:
+        return f"{int(age)}s ({size}B)"
+    if age < 3600:
+        return f"{int(age / 60)}m ({size}B)"
+    if age < 86400:
+        h = int(age // 3600)
+        m = int((age % 3600) // 60)
+        return f"{h}h{m:02d}m ({size}B)"
+    return f"{int(age / 86400)}d ({size}B)"
+
+
+def get_health_summary(
+    *, get_service_status=None, repo_root: Optional[str] = None,
+) -> str:
+    """Return the rendered /health Telegram block.
+
+    Pre-PR (S-031 PR5) ``cmd_health`` did the systemd lookups + file
+    age strings inline. Per CLAUDE.md § Architecture rules § 5 the UI
+    unit owns rendering; the bot becomes a one-liner.
+
+    Parameters
+    ----------
+    get_service_status : callable, optional
+        Injectable systemd lookup. When ``None`` we resolve
+        ``src.bot.telegram_query_bot.get_service_status`` lazily —
+        avoids forcing every test to spin up the bot module.
+    repo_root : str, optional
+        Test override. Defaults to the repo root.
+    """
+    import os
+    from datetime import datetime, timezone
+
+    if repo_root is None:
+        repo_root = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "..", "..")
+        )
+
+    if get_service_status is None:
+        try:
+            from src.bot.telegram_query_bot import (
+                get_service_status as _gss,
+            )
+            get_service_status = _gss
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("get_health_summary: bot import failed: %s", exc)
+            get_service_status = lambda _u: "unknown"
+
+    lines = ["🩺 *ICT Trading Bot — health*\n", "*Services*"]
+    for unit in _HEALTH_UNITS:
+        try:
+            status = get_service_status(unit)
+        except Exception as exc:  # noqa: BLE001
+            status = f"err: {type(exc).__name__}"
+        icon = (
+            "🟢" if status == "active"
+            else "🔴" if status == "failed"
+            else "⚪️"
+        )
+        lines.append(f"  {icon} `{unit}` — {status}")
+    lines.append("\n*Data freshness*")
+    for label, rel_path in _HEALTH_FILES:
+        full = os.path.join(repo_root, rel_path)
+        lines.append(f"  • {label}: `{_file_age_str(full)}`")
+    lines.append(
+        "\n🕐 "
+        + datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    )
+    return "\n".join(lines)
+
+
+def _read_loadavg() -> str:
+    try:
+        with open("/proc/loadavg", "r", encoding="utf-8") as fh:
+            parts = fh.read().split()
+        return " ".join(parts[:3]) if len(parts) >= 3 else "unknown"
+    except OSError:
+        return "unknown"
+
+
+def _read_uptime_human() -> str:
+    try:
+        with open("/proc/uptime", "r", encoding="utf-8") as fh:
+            secs = float(fh.read().split()[0])
+    except (OSError, ValueError):
+        return "unknown"
+    d, secs = divmod(int(secs), 86400)
+    h, secs = divmod(secs, 3600)
+    m, _ = divmod(secs, 60)
+    if d:
+        return f"{d}d {h}h {m}m"
+    if h:
+        return f"{h}h {m}m"
+    return f"{m}m"
+
+
+def _read_meminfo_mb() -> tuple:
+    """Return (total_mb, available_mb). (0, 0) on read error."""
+    total = avail = 0
+    try:
+        with open("/proc/meminfo", "r", encoding="utf-8") as fh:
+            for line in fh:
+                if line.startswith("MemTotal:"):
+                    total = int(line.split()[1]) // 1024
+                elif line.startswith("MemAvailable:"):
+                    avail = int(line.split()[1]) // 1024
+                if total and avail:
+                    break
+    except (OSError, ValueError, IndexError):
+        return 0, 0
+    return total, avail
+
+
+def _disk_usage_repo(repo_root: str) -> tuple:
+    """Return (free_gb, total_gb) for the partition holding the repo."""
+    try:
+        import shutil
+        total, _, free = shutil.disk_usage(repo_root)
+        return free // (1024 ** 3), total // (1024 ** 3)
+    except OSError:
+        return 0, 0
+
+
+def get_vm_stats() -> str:
+    """Return the rendered /vmstats Telegram block.
+
+    Pre-PR (S-031 PR5) ``cmd_vmstats`` opened ``/proc/loadavg``,
+    ``/proc/uptime``, ``/proc/meminfo``, and ``shutil.disk_usage``
+    inline. Per CLAUDE.md § Architecture rules § 5 the UI unit owns
+    those reads; the bot becomes a one-liner.
+    """
+    import os
+    from datetime import datetime, timezone
+
+    repo_root = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..", "..")
+    )
+    load = _read_loadavg()
+    uptime = _read_uptime_human()
+    mem_total, mem_avail = _read_meminfo_mb()
+    mem_used_pct = (
+        int(100 * (mem_total - mem_avail) / mem_total)
+        if mem_total else 0
+    )
+    disk_free_gb, disk_total_gb = _disk_usage_repo(repo_root)
+    cpus = os.cpu_count() or 0
+    lines = [
+        "🖥️ *VM stats*\n",
+        f"⏱️ Uptime: `{uptime}`",
+        f"📈 Load (1/5/15 m): `{load}` on `{cpus}` CPU"
+        f"{'s' if cpus != 1 else ''}",
+        (f"🧠 Memory: `{mem_total - mem_avail}` / `{mem_total}` MB "
+         f"used (`{mem_used_pct}%`)" if mem_total else "🧠 Memory: unknown"),
+        (f"💾 Disk (repo partition): `{disk_free_gb}` / `{disk_total_gb}` "
+         "GB free" if disk_total_gb else "💾 Disk: unknown"),
+        "\n🕐 "
+        + datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
+    ]
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Roadmap — S-031 PR5 (claude_bridge handler P1-6)
+# ---------------------------------------------------------------------------
+
+
+def get_roadmap_summary() -> str:
+    """Return the rendered roadmap-status block, or a clear error.
+
+    Pre-PR (S-031 PR5) ``src/bot/claude_bridge.py::cmd_roadmap`` opened
+    ``ROADMAP.md`` and called ``recurring_dispatch.render_roadmap_summary``
+    inline. Per CLAUDE.md § Architecture rules § 5 the bot doesn't
+    open files — UI unit reads + renders.
+    """
+    import os
+    repo_root = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..", "..")
+    )
+    roadmap_path = os.path.join(repo_root, "ROADMAP.md")
+    try:
+        with open(roadmap_path, "r", encoding="utf-8") as fh:
+            text = fh.read()
+    except FileNotFoundError:
+        return "⚠️ Could not read ROADMAP.md from the repo."
+    except OSError as exc:
+        return f"⚠️ Could not read ROADMAP.md: {exc}"
+    try:
+        from src.bot.recurring_dispatch import render_roadmap_summary
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("get_roadmap_summary: render import failed: %s", exc)
+        return "⚠️ Could not render roadmap summary."
+    return render_roadmap_summary(text)
