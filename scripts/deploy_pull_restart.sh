@@ -167,6 +167,12 @@ fi
 echo ">>> Restarting services..."
 "${SYSTEMCTL[@]}" restart ict-trader-live.service
 "${SYSTEMCTL[@]}" restart ict-telegram-bot.service
+# ict-claude-bridge.service is the Anthropic-API relay bot
+# (@claude_ict_comms_bot) — restart only if installed so dev hosts that
+# don't run it stay quiet.
+if [ -f /etc/systemd/system/ict-claude-bridge.service ]; then
+    "${SYSTEMCTL[@]}" restart ict-claude-bridge.service
+fi
 
 # ---------------------------------------------------------------------------
 # S-017 T7: one-shot smoke trigger. If a sandbox/operator session committed
