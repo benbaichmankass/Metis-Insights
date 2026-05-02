@@ -1,6 +1,6 @@
 # ICT Trading Bot — Product Roadmap
 
-> **Last Updated:** 2026-04-30 (S-011/S-012 complete; S-013 reframed from native mobile to secure web dashboard)
+> **Last Updated:** 2026-05-02 (S-013 closed; S-014 is next; recurring-session program added)
 > **Maintained by:** PM (Ben) + Tech Lead (Perplexity)
 > **Sprint prompt files:** `docs/sprints/sprint-NNN-prompt.md`
 
@@ -84,8 +84,8 @@
 
 | Sprint | Title | Status |
 |--------|-------|--------|
-| S-013 | **Secure Web Dashboard: Backend Scaffold & Home Status** — FastAPI `/api/status` + `/api/pnl`, JWT auth (HS256, 1h TTL, single-operator allowlist), runtime status producer, `/webapp` Telegram command | 🔄 In Progress |
-| S-014 | **Web Client V1 (Home Dashboard)** — browser client consuming S-013 APIs; login flow; home view with overall P&L, system status, active strategies | 📋 Backlog |
+| S-013 | **Secure Web Dashboard: Backend Scaffold & Home Status** — FastAPI `/api/status` + `/api/pnl`, JWT auth (HS256, 1h TTL, single-operator allowlist), runtime status producer, `/webapp` Telegram command | ✅ Done |
+| S-014 | **Web Client V1 (Home Dashboard)** — browser client consuming S-013 APIs; login flow; home view with overall P&L, system status, active strategies (HTMX + Jinja2 + Chart.js stack — design baked into `docs/sprints/sprint-014-prompt.md`) | 🔜 Next |
 | S-015 | **Web Client V2 (Component Tabs)** — Strategies, Accounts, Model Metrics, Runtime Logs & Bugs tabs | 📋 Backlog |
 
 ---
@@ -121,10 +121,29 @@
 
 ---
 
+## Standing / Recurring Sessions
+
+These are not feature sprints — they run on a cadence and keep the system healthy. Full spec: [`docs/claude/recurring-sessions.md`](docs/claude/recurring-sessions.md).
+
+| Type | Cadence | Prompt | Cap | Purpose |
+|------|---------|--------|-----|---------|
+| **Hardening & Stability Audit** | Bi-daily | [`docs/sprints/recurring-hardening-prompt.md`](docs/sprints/recurring-hardening-prompt.md) | 3h | E2E health check; deep-dive a prioritized subsystem; fix bugs found |
+| **Strategy Improvement Review** | Weekly | [`docs/sprints/recurring-strategy-improvement-prompt.md`](docs/sprints/recurring-strategy-improvement-prompt.md) | 4h | Compare live vs backtest performance; propose param adjustments (Tier 3, never auto-merged) |
+| **Model Training & Evaluation** | Weekly (HF cron) | [`docs/sprints/recurring-model-training-prompt.md`](docs/sprints/recurring-model-training-prompt.md) | 6h (offloaded) | Train candidate; evaluate vs incumbent; propose promote/reject |
+
+**Common workflow** (all three): Phase 1 — E2E health check (always first; pivots if red). Phase 2 — targeted work. Phase 3 — structured summary ping to operator + checkpoint append.
+
+**Initial deployment**: manual via Telegram (operator types `/audit`, `/improve_strategy`, `/train_model` once those commands exist — see deferred sprint `S-NNN: Recurring-Session Triggers + /roadmap Command`). Cron-based dispatch is a follow-up.
+
+**First three hardening sessions have predetermined targets** (from 2026-05-02 hourly report findings — see prompt). Sessions 4+ use the prioritization formula.
+
+---
+
 ## Items Under Consideration (Not Yet Scheduled)
 
 These are suggested additions for discussion — they are not committed sprints yet:
 
+- **`S-NNN: Recurring-Session Triggers + /roadmap Command`** — Tier 1 bot sprint adding `/audit`, `/improve_strategy`, `/train_model`, `/roadmap` Telegram commands. Each writes a `comms/requests/` artifact and replies "session queued"; `/roadmap` reads `ROADMAP.md` and returns current phase + next sprint + status counts. Required to operationalize the recurring-session program.
 - **Exchange Failover / Multi-Exchange Support** — add resilience by supporting a secondary exchange in case Bybit has issues.
 - **Notification Centre** — structured trade, error, and performance notifications beyond Telegram (push to mobile app).
 - **Audit Log / Trade Journal** — persistent, queryable record of all trade decisions with reasoning for review.
