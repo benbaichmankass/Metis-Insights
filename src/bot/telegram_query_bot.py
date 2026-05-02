@@ -19,7 +19,7 @@ from telegram.ext import Application, CommandHandler, CallbackQueryHandler, Cont
 # deleted get_bybit_client_from_env.
 # Sprint S-002 M3: get_strategy_label is account-aware; load_account_env and
 # format_target_options deleted.
-from src.bot import data_loaders as dl
+from src.ui import data_loaders as dl
 from src.bot.vm_runner import handle_vm_command, RunnerResult, MAX_PROMPT_CHARS
 from src.bot.comms_handler import install_comms_handlers
 
@@ -1194,7 +1194,7 @@ def _list_known_strategies_for_picker() -> list[str]:
     mirror the pipeline's hardcoded roster so the picker still works
     in lean deploys where the YAML registry isn't readable."""
     try:
-        from src.bot.data_loaders import list_live_strategies
+        from src.ui.data_loaders import list_live_strategies
         names = list_live_strategies() or []
         if names:
             return list(names)

@@ -85,7 +85,7 @@ def get_account_balances() -> List[Dict[str, Any]]:
     strategies" complaint.
     """
     try:
-        from src.bot.data_loaders import (
+        from src.ui.data_loaders import (
             account_balance_with_diagnostic,
             list_accounts,
         )
