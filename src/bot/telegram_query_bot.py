@@ -1461,38 +1461,18 @@ async def cmd_alerts(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 _SPRINT_RE = re.compile(r"\bS-\d{3}(?:\.\d+)?\b")
-_CP_HEADER_RE = re.compile(r"^##\s+(CP-\d{4}-\d{2}-\d{2}-\d+)\b")
 
 
 def _latest_sprint_from_checkpoint_log() -> tuple[str, str]:
-    """Return ``(sprint_id, cp_id)`` parsed from the topmost CP entry of
-    ``docs/claude/checkpoints/CHECKPOINT_LOG.md``. Falls back to
-    ``("unknown", "unknown")`` on any read / parse error so a stale
-    or missing log can never crash these commands."""
-    log_path = os.path.join(REPO_ROOT, "docs", "claude", "checkpoints",
-                            "CHECKPOINT_LOG.md")
-    try:
-        with open(log_path, "r", encoding="utf-8") as fh:
-            text = fh.read()
-    except (OSError, UnicodeDecodeError):
-        return "unknown", "unknown"
-    cp_id = "unknown"
-    sprint_id = "unknown"
-    in_entry = False
-    for line in text.splitlines():
-        m = _CP_HEADER_RE.match(line)
-        if m and not in_entry:
-            cp_id = m.group(1)
-            in_entry = True
-            continue
-        if in_entry and line.startswith("- **Sprint:**"):
-            ms = _SPRINT_RE.search(line)
-            if ms:
-                sprint_id = ms.group(0)
-            break
-        if in_entry and line.startswith("## "):
-            break
-    return sprint_id, cp_id
+    """Back-compat wrapper around ``processor.get_latest_sprint``.
+
+    S-031 PR5 (architecture-audit-2026-05-02 P1-6): file parsing moved
+    to the UI unit; this wrapper preserves the old tuple shape so the
+    sprintlet handlers below stay untouched.
+    """
+    from src.ui import processor
+    info = processor.get_latest_sprint()
+    return info.get("sprint_id", "unknown"), info.get("cp_id", "unknown")
 
 
 async def cmd_sprintlet_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1639,17 +1619,19 @@ async def cmd_ping_test(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def cmd_checkpoint(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Show the latest checkpoint ID from CHECKPOINT_LOG.md."""
+    """Show the latest checkpoint ID from CHECKPOINT_LOG.md.
+
+    S-031 PR5 (architecture-audit-2026-05-02 P1-6): file read moved
+    to ``processor.get_latest_checkpoint_header``.
+    """
     if not is_authorised(update):
         return
-    log_path = os.path.join(REPO_ROOT, "docs", "claude", "checkpoints", "CHECKPOINT_LOG.md")
-    try:
-        with open(log_path, "r", encoding="utf-8") as fh:
-            cp_lines = [ln.strip() for ln in fh if ln.strip().startswith("## CP-")]
-        latest = cp_lines[0] if cp_lines else "No checkpoint found"
-        await update.message.reply_text(f"Latest checkpoint: {latest}")
-    except Exception as exc:
-        await update.message.reply_text(f"⚠️ Could not read checkpoint log: {exc}")
+    from src.ui import processor
+    header = processor.get_latest_checkpoint_header()
+    if header.startswith("⚠️"):
+        await update.message.reply_text(header)
+    else:
+        await update.message.reply_text(f"Latest checkpoint: {header}")
 
 
 # ── /health and /vmstats (S-016 H2) ──────────────────────────────────────────
@@ -1694,23 +1676,15 @@ def _file_age(path: str) -> str:
 async def cmd_health(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Per-unit status snapshot — systemd units + key data files.
 
-    Designed to fit in one Telegram message; no cross-process
-    coordination, just file mtimes and ``systemctl is-active``.
+    S-031 PR5 (architecture-audit-2026-05-02 P1-6): the rendering and
+    file-mtime + systemctl reads moved to
+    ``processor.get_health_summary``.
     """
     if not is_authorised(update):
         return
-    lines = ["🩺 *ICT Trading Bot — health*\n"]
-    lines.append("*Services*")
-    for unit in _HEALTH_UNITS:
-        status = get_service_status(unit)
-        icon = "🟢" if status == "active" else "🔴" if status == "failed" else "⚪️"
-        lines.append(f"  {icon} `{unit}` — {status}")
-    lines.append("\n*Data freshness*")
-    for label, rel_path in _HEALTH_FILES:
-        full = os.path.join(REPO_ROOT, rel_path)
-        lines.append(f"  • {label}: `{_file_age(full)}`")
-    lines.append(f"\n🕐 {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}")
-    await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
+    from src.ui import processor
+    body = processor.get_health_summary(get_service_status=get_service_status)
+    await update.message.reply_text(body, parse_mode="Markdown")
 
 
 def _read_loadavg() -> str:
@@ -1766,29 +1740,16 @@ def _disk_usage_repo() -> tuple[int, int]:
 
 
 async def cmd_vmstats(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """VM-side resource snapshot — uptime, load, memory, disk."""
+    """VM-side resource snapshot — uptime, load, memory, disk.
+
+    S-031 PR5 (architecture-audit-2026-05-02 P1-6): the /proc + disk
+    reads moved to ``processor.get_vm_stats``.
+    """
     if not is_authorised(update):
         return
-    load = _read_loadavg()
-    uptime = _read_uptime_human()
-    mem_total, mem_avail = _read_meminfo_mb()
-    mem_used_pct = (
-        int(100 * (mem_total - mem_avail) / mem_total)
-        if mem_total else 0
-    )
-    disk_free_gb, disk_total_gb = _disk_usage_repo()
-    cpus = os.cpu_count() or 0
-    lines = [
-        "🖥️ *VM stats*\n",
-        f"⏱️ Uptime: `{uptime}`",
-        f"📈 Load (1/5/15 m): `{load}` on `{cpus}` CPU{'s' if cpus != 1 else ''}",
-        (f"🧠 Memory: `{mem_total - mem_avail}` / `{mem_total}` MB "
-         f"used (`{mem_used_pct}%`)" if mem_total else "🧠 Memory: unknown"),
-        (f"💾 Disk (repo partition): `{disk_free_gb}` / `{disk_total_gb}` GB free"
-         if disk_total_gb else "💾 Disk: unknown"),
-        f"\n🕐 {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}",
-    ]
-    await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
+    from src.ui import processor
+    body = processor.get_vm_stats()
+    await update.message.reply_text(body, parse_mode="Markdown")
 
 
 # ── VM-resident Claude runner (S-014.5) ──────────────────────────────────────
