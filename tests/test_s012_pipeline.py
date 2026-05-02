@@ -82,20 +82,23 @@ def test_turtle_soup_signal_builder_emits_buy_on_bullish_sweep(patch_exchange):
 
     patch_exchange(_bullish_sweep_candles())
     signal = turtle_soup_signal_builder(
-        {"SYMBOL": "BTCUSDT", "MAX_QTY": 1.0, "TURTLE_SOUP_TIMEFRAME": "15m"}
+        {"SYMBOL": "BTCUSDT", "TURTLE_SOUP_TIMEFRAME": "15m"}
     )
     assert signal["side"] == "buy"
     assert signal["symbol"] == "BTCUSDT"
-    assert signal["qty"] > 0
+    # S-026 G1: strategies emit the trade idea, not the order — no qty.
+    assert "qty" not in signal
 
 
 def test_turtle_soup_signal_includes_pipeline_required_fields(patch_exchange):
     from src.runtime.pipeline import turtle_soup_signal_builder
 
     patch_exchange(_bullish_sweep_candles())
-    signal = turtle_soup_signal_builder({"SYMBOL": "BTCUSDT", "MAX_QTY": 1.0})
-    for key in ("symbol", "side", "qty", "price", "stop_loss", "take_profit", "meta"):
+    signal = turtle_soup_signal_builder({"SYMBOL": "BTCUSDT"})
+    for key in ("symbol", "side", "price", "stop_loss", "take_profit", "meta"):
         assert key in signal, f"missing pipeline-shape key: {key}"
+    # S-026 G1: qty is no longer a strategy-shape key.
+    assert "qty" not in signal
 
 
 def test_turtle_soup_meta_includes_strategy_name(patch_exchange):
@@ -125,7 +128,8 @@ def test_turtle_soup_flat_market_returns_side_none(patch_exchange):
     patch_exchange(_flat_candles())
     signal = turtle_soup_signal_builder({"SYMBOL": "BTCUSDT"})
     assert signal["side"] == "none"
-    assert signal["qty"] == 0
+    # S-026 G1: no qty field is emitted by strategies.
+    assert "qty" not in signal
     assert signal["meta"]["strategy_name"] == "turtle_soup"
 
 

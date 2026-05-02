@@ -10,15 +10,18 @@ Public surface
 --------------
 - ``ENTRY_STD_THRESHOLD`` — module constant; std-dev threshold for entry.
 - ``compute_vwap(df)`` — pure VWAP scalar from an OHLCV frame.
-- ``build_vwap_signal(df, symbol, qty)`` — pipeline-shape signal dict
-  (``{symbol, side, qty, meta}``); never raises on bad data — returns
-  side="none" with a logged reason. Used by the runtime pipeline.
+- ``build_vwap_signal(df, symbol)`` — pipeline-shape signal dict
+  (``{symbol, side, entry_price, stop_loss, take_profit, meta}``);
+  never raises on bad data — returns side="none" with a logged reason.
+  Used by the runtime pipeline.
 - ``order_package(cfg, candles_df)`` — units-layer adapter conforming to
   the contract in ``src/units/strategies/_base.py``. Used by the
   Coordinator dispatch path.
 
 Strategies are pure signal generators (see ``_base.py`` docstring): no
-``dry_run`` flag, no execution awareness.
+``dry_run`` flag, no execution awareness, **no qty** — quantity is an
+account-side decision (S-026 G1) computed by the per-account
+RiskManager from balance + risk rules, not a strategy output.
 """
 from __future__ import annotations
 
@@ -114,7 +117,6 @@ def _no_trade(symbol: str, reason: str) -> Dict[str, Any]:
     return {
         "symbol": symbol,
         "side": "none",
-        "qty": 0.0,
         "meta": {
             "strategy_name": "vwap",
             "reason": reason,
@@ -125,21 +127,24 @@ def _no_trade(symbol: str, reason: str) -> Dict[str, Any]:
 def build_vwap_signal(
     candles_df: pd.DataFrame,
     symbol: str,
-    qty: float,
     sl_std_mult: float = SL_STD_MULT_DEFAULT,
 ) -> Dict[str, Any]:
     """Compute a VWAP mean-reversion signal from OHLCV candle data.
 
     Returns a signal dict with keys:
-        symbol, side, qty,
+        symbol, side,
         entry_price, stop_loss, take_profit  (only when side != "none"),
         meta.
+
+    S-026 G1: this strategy package is the trade *idea*, not the order.
+    No ``qty`` field is produced — quantity is decided per-account by
+    the RiskManager from balance + risk rules.
 
     * side='buy'  when price is at least ENTRY_STD_THRESHOLD std-devs *below*
                   VWAP (mean-reversion long).
     * side='sell' when price is at least ENTRY_STD_THRESHOLD std-devs *above*
                   VWAP (mean-reversion short).
-    * side='none' / qty=0 when price is near VWAP or data is insufficient.
+    * side='none' when price is near VWAP or data is insufficient.
 
     Invalid candle data (empty, missing volume column, zero/negative total
     volume) returns a no-trade signal instead of raising — the tick completes
@@ -189,7 +194,6 @@ def build_vwap_signal(
         reason = f"price {current_price:.4f} is {deviation:.2f} std-devs above VWAP {vwap:.4f}"
     else:
         side = "none"
-        qty = 0
         reason = f"price {current_price:.4f} within {ENTRY_STD_THRESHOLD} std-dev of VWAP {vwap:.4f} — no signal"
 
     logger.info(
@@ -210,7 +214,6 @@ def build_vwap_signal(
         return {
             "symbol": symbol,
             "side": "none",
-            "qty": 0.0,
             "meta": base_meta,
         }
 
@@ -225,7 +228,6 @@ def build_vwap_signal(
     return {
         "symbol": symbol,
         "side": side,
-        "qty": float(qty),
         "entry_price": float(entry_price),
         "stop_loss": float(stop_loss),
         "take_profit": float(take_profit),
@@ -262,9 +264,8 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
     candles_df = require_candles(candles_df, "vwap")
 
     symbol = cfg.get("symbol") or cfg.get("SYMBOL") or "BTCUSDT"
-    qty = float(cfg.get("max_qty") or cfg.get("MAX_QTY") or 1.0)
 
-    signal = build_vwap_signal(candles_df, symbol=symbol, qty=qty)
+    signal = build_vwap_signal(candles_df, symbol=symbol)
 
     side = signal.get("side", "none")
     direction = side_to_direction(side)  # raises ValueError when side=="none"

@@ -5,6 +5,61 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-02-19 — Sprint 026 G1: decouple qty from strategy signals
+
+- **Session date:** 2026-05-02
+- **Sprint:** 026 — Decouple position sizing from strategies; fix "unknown ×4" attribution.
+- **Current sprint phase:** **G1 of 4 — strategy signals lose `qty`.** G2 (move sizing into the per-account RiskManager) and G3 (dynamic sizing from balance + risk rules) follow in their own sessions; G4 (audit-log "unknown ×4") is independent and can land anytime.
+- **Last completed checkpoint:** CP-2026-05-02-18 (S-025 WRAPPED).
+- **Next checkpoint:** **CP-2026-05-02-20 — Sprint 026 G2** — move `position_size()` into `src/units/accounts/risk.py::RiskManager` and call it from `Coordinator.multi_account_execute` per account. Delete the placeholder qty-injection in `run_pipeline` (introduced in this PR) at the same time.
+- **Telegram sent:** pending — fires automatically off this checkpoint commit per the existing VM ping wiring; ping-PR also opened (per CLAUDE.md § Telegram Reporting "Ping-PR vs work-PR separation") to operator-flag the live-mode-touching change.
+- **Alerts sent during session:** none (this PR is the operator's first heads-up — ping-PR fires the alert).
+- **Blockers:** none — work-PR is opened as `(PM REVIEW): G1 …` draft per the per-PR rule for files in CLAUDE.md § Live-mode invariant rule (3); the ping-PR self-merges to fire the alert.
+
+### 1. Completed
+- **`src/units/strategies/vwap.py`**: `build_vwap_signal(df, symbol, sl_std_mult=…)` no longer takes a `qty` parameter; the returned dict no longer carries a top-level `qty` key (neither in actionable signals nor in `_no_trade`). Module docstring updated. The unit-layer `order_package(cfg, candles_df)` adapter follows suit.
+- **`src/runtime/pipeline.py`**:
+  - `default_signal_builder`, `vwap_signal_builder`, `turtle_soup_signal_builder` no longer compute or attach `qty`.
+  - `multiplexed_signal_builder` actionable-check is now `side ∈ {buy, sell}` only (no `qty > 0`); the per-strategy `STRATEGY_RISK_PCT` allocation is recorded in `meta["strategy_risk_pct"]` so the G2 sizer can apply it per-account.
+  - `run_pipeline` actionable-check is now `side ∈ {buy, sell}` only.
+  - The `signal_missing_sltp` warning gate is `side ∈ {buy, sell} and not _signal_carries_full_sltp(signal)` (qty>0 dropped).
+  - **Transitional placeholder:** until G2 lands, `safe_place_order` still requires a `qty > 0`. The pipeline injects `MAX_QTY` as a placeholder (`_signal_for_orders = {**signal, "qty": _placeholder_qty}`) for the validation step and the legacy single-client path. The strategy-emitted signal dict is **not** mutated. G2 will delete this placeholder when sizing moves into `RiskManager.position_size()`.
+- **`scripts/sprint015/analyze_fixtures.py`**: backtest harness updated to call `build_vwap_signal(window, symbol=…)` without `qty`; the per-row `qty` for the slippage sweep is now read from `params["qty"]` and applied locally.
+- **Tests** — updated to pin the new contract:
+  - `tests/test_vwap_strategy.py`: drop `qty=…` arg from every `build_vwap_signal` call; replace `assert signal["qty"] == …` with `assert "qty" not in signal`. New `test_signal_does_not_carry_qty` (G1 contract pin). New `TestQtylessSignalRoutesToMultiAccountDispatch::test_qtyless_packageable_signal_dispatches_per_account` — proves a signal with full sl/tp but **no** `qty` is still routed through the multi-account dispatch fast-path and produces an `OrderPackage` with no `qty` attribute.
+  - `tests/test_s012_pipeline.py`: turtle-soup signal-shape tests updated for the new contract (no `qty` key).
+  - `tests/test_outcomes_integration.py::test_failed_validation_logs_warn_no_telegram`: refocused on `side='none'` short-circuit (the legacy `qty=0` short-circuit is gone).
+
+### 2. Files changed
+- `src/units/strategies/vwap.py`
+- `src/runtime/pipeline.py`
+- `scripts/sprint015/analyze_fixtures.py`
+- `tests/test_vwap_strategy.py`
+- `tests/test_s012_pipeline.py`
+- `tests/test_outcomes_integration.py`
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` — this entry.
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_vwap_strategy.py tests/test_vwap_timeframe_5m.py tests/test_s012_pipeline.py tests/test_orders.py tests/test_order_refusal.py tests/test_per_strategy_risk.py tests/sprint015/test_analyze_fixtures.py -q` — **all pass** (103 passed).
+- `PYTHONPATH=. pytest tests/test_outcomes_integration.py -q` — 3 pass, 2 fail. **Both failures are pre-existing on `main`** (verified by stashing G1 and rerunning; identical 36-failure / 1666-pass baseline). G1 introduces zero new test failures.
+- `python scripts/check_dry_run_in_diff.py` — clean.
+- `python scripts/secret_scan.py` — clean.
+
+### 4. Live-mode check
+- ✅ No flip of any trading-mode flag away from live. `scripts/check_dry_run_in_diff.py` is clean.
+- ✅ `config/accounts.yaml` not touched. No account is left in `dry_run` / `paper` after this PR.
+- ⚠️ `src/runtime/pipeline.py` and `src/units/strategies/vwap.py` are **in the per-PR ping-PR list** (CLAUDE.md § Live-mode invariant rule (3)). Operator ping fires via the separate `claude/ping-s026-g1` PR. Work-PR opens as draft `(PM REVIEW): G1 — decouple qty from strategy signals` and waits.
+
+### 5. Remaining
+- none — G1 fully shipped.
+
+### 6. Next checkpoint
+**CP-2026-05-02-20 — Sprint 026 G2** — move position sizing into `src/units/accounts/risk.py::RiskManager.position_size(package, balance_usd) → qty`, call it from `Coordinator.multi_account_execute` per account, and delete the transitional placeholder qty-injection added in this PR. Read order: sprint prompt (G2 section), `src/units/accounts/risk.py` (existing `size_order` already does most of this — likely a wrapper), `src/core/coordinator.py::multi_account_execute`, then this PR's diff for the placeholder to remove.
+
+---
+
+---
+
 ## CP-2026-05-02-18 — Sprint 025 COMPLETE / WRAPPED
 
 - **Session date:** 2026-05-02
