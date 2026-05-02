@@ -5,6 +5,62 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-02-21 — Sprint 026 G3: dynamic sizing (live balance + daily-loss budget)
+
+- **Session date:** 2026-05-02
+- **Sprint:** 026 — Decouple position sizing from strategies; fix "unknown ×4" attribution.
+- **Current sprint phase:** **G3 of 4 — dynamic sizing lands.** Operator authorised continuing through the sprint in this session (G1 #281 + G2 #283 are already merged). G4 (audit-log "unknown ×4") is the only goal left and is independent.
+- **Last completed checkpoint:** CP-2026-05-02-20 (G2 — merged in #283).
+- **Next checkpoint:** **CP-2026-05-02-22 — Sprint 026 G4** — fix the "unknown ×4" strategy-attribution drift in `runtime_logs/signal_audit.jsonl`. Read order: sprint prompt § G4, `src/runtime/pipeline.py` (audit-log site near `log_signal` call), `src/utils/signal_audit_logger.py`.
+- **Telegram sent:** pending — checkpoint commit fires the VM ping; ping-PR also opened.
+- **Alerts sent during session:** none (operator-driven session).
+- **Blockers:** none — work-PR opens as `(PM REVIEW): G3 …` draft; ping-PR self-merges to fire the operator alert.
+
+### 1. Completed
+- **`src/units/accounts/risk.py`** — three additions on top of G2's `position_size`:
+  - **Floor rounding** — new private `_floor_to_step(value, precision)` helper that always rounds *down*. Replaces Python's banker's `round()` inside the sizing kernel so the realised risk never overshoots the configured cap by one step-size. Operator safety property: "never round UP into the risk budget".
+  - **Daily-loss-budget gate** — `position_size` now scales the qty down (or refuses outright with qty=0.0) if a full-SL hit would push `daily_pnl` past `-max_daily_loss_usd`. The gate consults `_maybe_roll_daily()` first so a fresh UTC day re-opens the budget, then computes `loss_budget_remaining = max_daily_loss_usd + daily_pnl`; if `qty * |entry-sl| > loss_budget_remaining`, qty is scaled to `loss_budget_remaining / |entry-sl|` and floor-rounded. Below `min_qty` → refuse.
+  - Both rules are layered on top of G2's existing balance × risk_pct math; the smoke-test bypass and below-`min_balance_usd` refuse paths are unchanged.
+- **`src/core/coordinator.py::multi_account_execute`** — default `balance_fetcher` now consults `processor.get_account_balances()` once at the top of the dispatch round and caches the `account_id → total_usdt` map locally. Lookup order: per-tick `pkg.meta["account_balances_usd"]` override → live processor lookup → `account.cached_balance_usd` fallback. A live-fetcher exception is caught and logged; sizing then falls back through (2) and (3). A `total_usdt: None` row (exchange call failed for that account) is preserved as "no balance" rather than silently treated as $0 — the per-account RiskManager surfaces a clean `below_min_balance` skip instead of a phantom zero-qty trade.
+- **Tests** — `tests/test_s026_g3_dynamic_sizing.py` (new, 13 tests):
+  - `TestFloorRounding` (4) — `_floor_to_step` always rounds down; handles zero/negatives; precision=0; `position_size` uses floor (reproduces the safety bug banker's rounding could introduce).
+  - `TestDailyLossBudgetGate` (5) — small trades pass unchanged; big trade scales to fit budget; refuse when `min_qty` busts budget; refuse when already past daily loss; partial budget left → scale to fit.
+  - `TestLiveBalanceFetcher` (4) — multi_account_execute consults `get_account_balances` exactly once; live-fetcher failure falls back safely; `total_usdt: None` → `below_min_balance` skip; explicit pkg-meta override wins over live lookup.
+- **Existing G2 tests updated** — two prior tests were written before the daily-loss-budget gate existed and asserted larger qtys than the gate now permits. They were updated to bump `daily_usd` so they isolate the property they were originally testing:
+  - `tests/test_s026_g2_position_size.py::test_no_max_position_clamp` — adds `daily_usd: 1_000_000_000` (the test verifies linear balance-scaling; the daily-loss budget IS a sizing-time clamp post-G3, so it has to be widened to isolate the property).
+  - `tests/test_s008_accounts.py::TestRiskSizing::test_size_order_from_cfg` — same.
+
+### 2. Files changed
+- `src/units/accounts/risk.py` — `_floor_to_step` helper, floor in `_size_unbounded`, daily-loss-budget gate in `RiskManager.position_size`.
+- `src/core/coordinator.py` — live balance fetcher in `multi_account_execute`.
+- `tests/test_s026_g3_dynamic_sizing.py` — new (13 tests).
+- `tests/test_s026_g2_position_size.py` — bump `daily_usd` in `test_no_max_position_clamp` so the assertion isolates the no-max-position-clamp property.
+- `tests/test_s008_accounts.py` — bump `daily_usd` in `test_size_order_from_cfg` for the same reason.
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` — this entry.
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_s026_g3_dynamic_sizing.py -v` — 13 / 13 passed.
+- `PYTHONPATH=. pytest tests/test_s026_g2_position_size.py tests/test_s008_accounts.py tests/test_s012_risk_caps.py tests/test_coordinator_flow.py tests/test_accounts_integration.py -q` — 125 passed (no regressions in the G2 contract pins).
+- Full suite (excluding web-API tests requiring deps not in this env): **36 failed, 1691 passed, 2 skipped** vs. main baseline of **36 failed, 1666 passed, 2 skipped**. **Zero new failures**; +25 passes from G2 (+12) and G3 (+13).
+- `python scripts/check_dry_run_in_diff.py` — clean.
+- `python scripts/secret_scan.py` — clean.
+
+### 4. Live-mode check
+- ✅ No flip of any trading-mode flag away from live. `scripts/check_dry_run_in_diff.py` is clean.
+- ✅ `config/accounts.yaml` not touched.
+- ⚠️ Touches `src/units/accounts/risk.py` and `src/core/coordinator.py` — both in CLAUDE.md § Live-mode invariant rule (3). Work-PR opens as draft `(PM REVIEW): G3 — dynamic sizing`; ping-PR (`claude/ping-s026-g3`) self-merges to fire the operator alert.
+- ⚠️ Behavioural change: post-G3, **every live order's qty is now a function of (a) the live exchange balance and (b) the remaining daily-loss budget**. Before today, qty was `settings["MAX_QTY"]` regardless of either. The operator pre-approved this change in the G2 conversation (1 % risk × balance); the daily-loss-budget gate is a strict tightening (it can only *reduce* sized qty, never increase) and so does not require additional sign-off.
+
+### 5. Remaining
+- none — G3 fully shipped.
+
+### 6. Next checkpoint
+**CP-2026-05-02-22 — Sprint 026 G4** — fix the "unknown ×4" strategy-attribution drift in `runtime_logs/signal_audit.jsonl`. Hypothesis from the sprint prompt: the multiplexer's `dict(signal)` shallow copy at `pipeline.py:496` may be dropping `meta`, OR `_write_ict_signals_from_meta` mutates `signal["meta"]` before the audit log site reads it. Read order: this checkpoint, the sprint prompt § G4, `src/runtime/pipeline.py::run_pipeline` (the `_strategy = …` block + the `log_signal` call below), and add a temporary `logger.warning(...)` to identify the path before deleting it + adding a regression test.
+
+---
+
+---
+
 ## CP-2026-05-02-20 — Sprint 026 G2: move sizing into per-account RiskManager
 
 - **Session date:** 2026-05-02

@@ -473,14 +473,51 @@ class Coordinator:
             pkg.meta = {}
         pkg.meta["sized_qty_by_account"] = sized_qty_by_account
 
+        # S-026 G3: live balance fetcher. Pull every account's USDT
+        # balance once at the top of the dispatch round and cache the
+        # ``account_id → total_usdt`` map locally so each per-account
+        # call is an O(1) lookup. Lookup order:
+        #   1. Caller-supplied ``balance_fetcher`` override (tests +
+        #      one-shot dispatch paths use this).
+        #   2. ``pkg.meta["account_balances_usd"][acc.name]`` — explicit
+        #      per-tick override (also test-friendly).
+        #   3. Live ``processor.get_account_balances()`` lookup by
+        #      ``account_id``. Returns ``None`` when the row is missing
+        #      or the exchange call failed; the per-account RiskManager
+        #      then refuses to size (below_min_balance).
+        # ``cached_balance_usd`` on the account object remains as a final
+        # fallback so synthetic test fixtures that pre-stash a balance
+        # still work without any wiring.
+        live_balances: Dict[str, Optional[float]] = {}
+        if balance_fetcher is None:
+            try:
+                from src.ui.processor import get_account_balances
+                for row in get_account_balances() or []:
+                    aid = row.get("account_id")
+                    if aid:
+                        # row["total_usdt"] is None when the lookup
+                        # failed; preserve that so the sizer can refuse
+                        # cleanly instead of treating missing as 0.0.
+                        live_balances[aid] = row.get("total_usdt")
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "multi_account_execute: live balance fetch failed (%s) "
+                    "— per-account sizers will use the cached/explicit "
+                    "fallback instead",
+                    exc,
+                )
+
         def _default_balance_fetcher(acc) -> float:
-            # Tests / one-shot dispatch: callers can stash a balance on
-            # the package meta or directly on the account; otherwise we
-            # return 0.0 and the per-account RiskManager refuses to
-            # size below min_balance_usd.
+            # 1. Per-tick override stashed on pkg.meta — tests + the
+            #    bot's per-tick balance refresh use this.
             pkg_balances = (pkg.meta or {}).get("account_balances_usd") or {}
             if acc.name in pkg_balances:
                 return float(pkg_balances[acc.name])
+            # 2. Live lookup, cached at the top of this dispatch round.
+            live = live_balances.get(acc.name)
+            if live is not None:
+                return float(live)
+            # 3. Fixture / cached value on the account object itself.
             cached = getattr(acc, "cached_balance_usd", None)
             return float(cached) if cached is not None else 0.0
 

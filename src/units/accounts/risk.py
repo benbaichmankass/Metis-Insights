@@ -1,5 +1,6 @@
 """Per-account risk manager — units layer (S-008 PR #122 / S-010 PR #1 /
-S-012 PR E3a max_dd_pct enforcement / S-026 G2 single-sizer contract).
+S-012 PR E3a max_dd_pct enforcement / S-026 G2 single-sizer contract /
+S-026 G3 floor-rounding + daily-loss-budget gate).
 
 Two interfaces:
   - Functional (S-008): size_order() / size_order_from_cfg() — kept as a
@@ -29,6 +30,7 @@ Sizing inputs (also from the ``risk`` section):
 """
 from __future__ import annotations
 
+import math
 from datetime import datetime, timezone
 from typing import Any, Optional
 from src.core.coordinator import OrderPackage
@@ -61,6 +63,23 @@ def _is_test_order(pkg: "OrderPackage") -> bool:
 # ---------------------------------------------------------------------------
 
 
+def _floor_to_step(value: float, precision: int) -> float:
+    """Round *value* DOWN to *precision* decimal places.
+
+    S-026 G3: sizing must always round toward zero so the realised
+    risk never exceeds the configured cap. Python's built-in
+    ``round()`` uses banker's rounding (and rounds 0.5 up), which can
+    push an order one step-size over the budget; ``floor`` is the
+    safer choice for risk math.
+    """
+    if precision < 0:
+        raise ValueError(f"precision must be >= 0, got {precision}")
+    if value <= 0:
+        return 0.0
+    factor = 10 ** precision
+    return math.floor(value * factor) / factor
+
+
 def _size_unbounded(
     pkg: OrderPackage,
     *,
@@ -75,6 +94,9 @@ def _size_unbounded(
     optional max_qty clamp) and ``RiskManager.position_size`` (canonical,
     no clamp per operator directive) call into. Exposed as a private
     helper so the two paths can't drift.
+
+    S-026 G3: switched to floor-rounding (``_floor_to_step``) so the
+    realised risk never exceeds the configured cap by one step-size.
     """
     if balance_usdt <= 0:
         raise ValueError(f"balance_usdt must be positive, got {balance_usdt}")
@@ -90,7 +112,11 @@ def _size_unbounded(
 
     risk_usdt = balance_usdt * risk_pct
     raw_qty = risk_usdt / risk_distance
-    return round(max(min_qty, raw_qty), qty_precision)
+    floored = _floor_to_step(raw_qty, qty_precision)
+    # min_qty is the exchange-min lot; orders below it get rejected at
+    # submission. We honour the floor so the order is exchange-acceptable
+    # even when raw_qty is below it.
+    return max(min_qty, floored)
 
 
 def size_order(
@@ -351,6 +377,14 @@ class RiskManager:
         - The exchange min-lot floor (``min_qty``) and step-size
           rounding (``qty_precision``) are applied here so the quote
           submitted to the exchange is always exchange-acceptable.
+        - **Daily-loss budget gate (S-026 G3):** if a full SL hit on
+          this trade would push ``daily_pnl`` past
+          ``-max_daily_loss_usd``, the qty is scaled down to fit the
+          remaining budget. If even ``min_qty`` would bust the budget,
+          the sizer returns 0.0 and the order is refused.
+        - **Floor rounding (S-026 G3):** the step-size rounding is
+          *floor* not banker's, so the realised risk never exceeds the
+          configured cap by one step.
         """
         if _is_test_order(package):
             return float((package.meta or {}).get("test_qty") or _DEFAULT_TEST_QTY)
@@ -365,13 +399,39 @@ class RiskManager:
         )
         effective_risk_pct = self.risk_pct * strategy_risk_pct
 
-        return _size_unbounded(
+        qty = _size_unbounded(
             package,
             risk_pct=effective_risk_pct,
             balance_usdt=balance_usd,
             min_qty=self.min_qty,
             qty_precision=self.qty_precision,
         )
+
+        # S-026 G3: daily-loss-budget gate. Roll the daily window first
+        # (so a fresh UTC day re-opens the budget) and then verify that
+        # if this trade hits its SL, the resulting daily_pnl still sits
+        # above -max_daily_loss_usd. Scale down or refuse otherwise.
+        self._maybe_roll_daily()
+        loss_budget_remaining = self.max_daily_loss_usd + self.daily_pnl
+        if loss_budget_remaining <= 0:
+            # Already past the daily loss cap — sizer refuses any new
+            # trade. (RiskManager.approve will also refuse, but blocking
+            # here saves the routing detour.)
+            return 0.0
+
+        risk_distance = abs(package.entry - package.sl)
+        max_loss_at_sl = qty * risk_distance
+        if max_loss_at_sl > loss_budget_remaining:
+            # Scale qty down to exactly fit the remaining budget,
+            # then floor-round to the exchange step-size. If the
+            # floored qty is below min_qty, the trade is too big for
+            # the remaining budget — refuse.
+            scaled = loss_budget_remaining / risk_distance
+            qty = _floor_to_step(scaled, self.qty_precision)
+            if qty < self.min_qty:
+                return 0.0
+
+        return qty
 
     def reset_daily(self) -> None:
         """Manually reset daily PnL + intra-day high (UTC-day-independent).
