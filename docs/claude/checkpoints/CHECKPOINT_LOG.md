@@ -5,6 +5,54 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-02-17 — Sprint 025 T4: /accounts mode toggle with confirm step (G4 slice 4)
+
+- **Session date:** 2026-05-02
+- **Sprint:** 025 — UI processor migration + remaining G4 button flows.
+- **Current sprint phase:** **Sprint 025 substantially complete.** All four T-tasks shipped (T1 #276 cmd_hourly→processor, T2 #277 /smoke_test picker, T3 #278 /signals stepper, T4 this PR /accounts mode toggle). Sprint-summary PR is the next checkpoint.
+- **Last completed checkpoint:** CP-2026-05-02-16 (#278 T3, merged).
+- **Next checkpoint:** **CP-2026-05-02-18 — Sprint 025 summary PR.** Close out S-025 per CLAUDE.md § Sprint Completion Checklist.
+- **Telegram sent:** pending — this checkpoint commit triggers the VM ping.
+- **Alerts sent during session:** none.
+- **Blockers:** none.
+
+### 1. Completed
+- New `_render_accounts_listing(statuses)` (pure renderer, shared between paths) and `_accounts_toggle_keyboard(statuses)` (one button per account, label tells the operator which way the flip will go: `<name>: <current> → <target_icon> <target>`).
+- New `_accounts_confirm_keyboard(name, target)` — Confirm + Cancel buttons. The confirm button label includes the target mode (`✅ Confirm flip to LIVE` / `✅ Confirm flip to DRY`).
+- `cmd_accounts` no-args path now sends the listing text + the toggle keyboard. The typed `/accounts dry|live <name>` path is preserved unchanged for power users — that path already exists and applies one-shot.
+- `callback_handler` extended with three actions:
+  - `acct_flip_ask:<name>:<target>` — first tap. Edits the message in place to a confirmation prompt. Includes a *"Flipping to LIVE means this account will place REAL orders on the next signal"* warning when the target is live (no warning when going to dry — flipping to dry is always safe).
+  - `acct_flip_do:<name>:<target>` — second tap. Calls `coord.set_account_dry_run(name, dry=...)` and edits the message with the result.
+  - `acct_flip_cancel` — third tap. Edits the message to "✖️ Cancelled — no mode change applied" and the flip is NOT applied.
+- New test class `TestCmdAccountsToggleConfirm` (7 tests) covering: no-args picker keyboard; typed path still applies one-shot; first tap does NOT call `set_account_dry_run`; first-tap-to-live includes the explicit "REAL orders" warning; second tap applies; cancel button does not apply; invalid target callback warns.
+
+### 2. Why this PR is safe to self-merge (Live-mode invariant)
+- The PR touches `src/bot/telegram_query_bot.py` only (UI surface). No edits under `src/runtime/orders.py`, `src/runtime/pipeline.py`, `src/runtime/trading_mode.py`, `src/units/accounts/*`, `config/accounts.yaml`, or `.env*`.
+- The underlying `coord.set_account_dry_run(name, dry)` API is unchanged — this PR is a confirmation-step UX wrapper around the same call the typed path has used since S-023.
+- The new flow is **strictly safer** than the typed path: pre-existing `/accounts dry|live <name>` flips one-shot; the new button path requires two explicit taps.
+- `python scripts/check_dry_run_in_diff.py` — clean.
+
+### 3. Files changed
+- `src/bot/telegram_query_bot.py` — `_render_accounts_listing`, `_accounts_toggle_keyboard`, `_accounts_confirm_keyboard`; `cmd_accounts` no-args path returns listing + keyboard; `callback_handler` extended with 3 new actions.
+- `tests/test_telegram_query_bot.py` — `TestCmdAccountsToggleConfirm` class (7 tests).
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` — this entry.
+
+### 4. Tests run
+- `PYTHONPATH=. pytest tests/test_telegram_query_bot.py::TestCmdAccountsToggleConfirm -v` — 7 passed.
+- `PYTHONPATH=. pytest tests/test_telegram_query_bot.py -q` — 127 passed; 1 pre-existing failure (`TestCmdStatusMultiAccount::test_shows_block_per_account`), not from this PR.
+- `python scripts/check_dry_run_in_diff.py` — clean.
+- `python scripts/secret_scan.py` — clean.
+
+### 5. Remaining for this checkpoint
+- none — T4 fully shipped.
+
+### 6. Next checkpoint
+**CP-2026-05-02-18 — Sprint 025 summary PR.** All four T-tasks plus the deferred-from-S-024 items are now landed. Close out the sprint per CLAUDE.md § Sprint Completion Checklist.
+
+---
+
+---
+
 ## CP-2026-05-02-16 — Sprint 025 T3: /signals two-step stepper (G4 slice 2)
 
 - **Session date:** 2026-05-02
