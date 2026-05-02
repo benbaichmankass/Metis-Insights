@@ -15,6 +15,7 @@ Optional:
 """
 from __future__ import annotations
 
+import html
 import logging
 import os
 from collections import defaultdict, deque
@@ -150,10 +151,17 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 def _format_starter_reply(label: str, prompt: str, triggered_at: str) -> str:
+    # HTML mode: wrap the prompt in <pre><code> so Telegram renders a
+    # monospace block with a one-tap "copy" affordance on mobile clients.
+    # html.escape() is mandatory — Telegram's HTML parser rejects bare
+    # &/</> in the body even outside the code block.
+    safe_label = html.escape(label)
+    safe_at = html.escape(triggered_at)
+    safe_prompt = html.escape(prompt)
     return (
-        f"🔧 {label} session queued at {triggered_at}\n\n"
-        f"Open a new Claude Code session and paste:\n\n"
-        f"---\n{prompt}\n---"
+        f"🔧 {safe_label} session queued at {safe_at}\n\n"
+        f"Open a new Claude Code session and tap-to-copy:\n\n"
+        f"<pre><code>{safe_prompt}</code></pre>"
     )
 
 
@@ -163,7 +171,8 @@ async def cmd_audit(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     entry = recurring_dispatch.log_trigger(REPO_ROOT, "audit")
     prompt = recurring_dispatch.build_starter_prompt("audit")
     await update.message.reply_text(
-        _format_starter_reply("Hardening", prompt, entry["triggered_at"])
+        _format_starter_reply("Hardening", prompt, entry["triggered_at"]),
+        parse_mode="HTML",
     )
 
 
@@ -184,7 +193,8 @@ async def cmd_improve_strategy(update: Update, context: ContextTypes.DEFAULT_TYP
         else "Strategy Improvement"
     )
     await update.message.reply_text(
-        _format_starter_reply(label, prompt, entry["triggered_at"])
+        _format_starter_reply(label, prompt, entry["triggered_at"]),
+        parse_mode="HTML",
     )
 
 
@@ -203,7 +213,8 @@ async def cmd_train_model(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         f"Model Training ({strategy})" if strategy else "Model Training"
     )
     await update.message.reply_text(
-        _format_starter_reply(label, prompt, entry["triggered_at"])
+        _format_starter_reply(label, prompt, entry["triggered_at"]),
+        parse_mode="HTML",
     )
 
 
