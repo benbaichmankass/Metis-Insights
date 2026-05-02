@@ -18,11 +18,12 @@ from __future__ import annotations
 import logging
 import os
 from collections import defaultdict, deque
+from pathlib import Path
 from typing import Deque, Dict, List
 
 import anthropic
 from dotenv import load_dotenv
-from telegram import Update
+from telegram import BotCommand, Update
 from telegram.constants import ChatAction
 from telegram.ext import (
     Application,
@@ -31,6 +32,8 @@ from telegram.ext import (
     MessageHandler,
     filters,
 )
+
+from src.bot import recurring_dispatch
 
 load_dotenv()
 
@@ -42,6 +45,9 @@ MODEL = os.environ.get("CLAUDE_MODEL", "claude-opus-4-7")
 MAX_HISTORY = 40
 MAX_TOKENS = 4096
 TG_MAX_LEN = 4000  # Telegram hard limit is 4096; leave headroom
+
+# Repo root resolved relative to this file: src/bot/claude_bridge.py → repo
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 SYSTEM_PROMPT = (
     "You are a helpful assistant connected to the operator's Telegram. "
@@ -143,15 +149,112 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text(chunk)
 
 
+def _format_starter_reply(label: str, prompt: str, triggered_at: str) -> str:
+    return (
+        f"🔧 {label} session queued at {triggered_at}\n\n"
+        f"Open a new Claude Code session and paste:\n\n"
+        f"---\n{prompt}\n---"
+    )
+
+
+async def cmd_audit(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
+    if not _is_authorized(update):
+        return
+    entry = recurring_dispatch.log_trigger(REPO_ROOT, "audit")
+    prompt = recurring_dispatch.build_starter_prompt("audit")
+    await update.message.reply_text(
+        _format_starter_reply("Hardening", prompt, entry["triggered_at"])
+    )
+
+
+async def cmd_improve_strategy(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not _is_authorized(update):
+        return
+    args = context.args or []
+    strategy = args[0] if args else None
+    entry = recurring_dispatch.log_trigger(
+        REPO_ROOT, "improve_strategy", args=args
+    )
+    prompt = recurring_dispatch.build_starter_prompt(
+        "improve_strategy", strategy=strategy
+    )
+    label = (
+        f"Strategy Improvement ({strategy})"
+        if strategy
+        else "Strategy Improvement"
+    )
+    await update.message.reply_text(
+        _format_starter_reply(label, prompt, entry["triggered_at"])
+    )
+
+
+async def cmd_train_model(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not _is_authorized(update):
+        return
+    args = context.args or []
+    strategy = args[0] if args else None
+    entry = recurring_dispatch.log_trigger(
+        REPO_ROOT, "train_model", args=args
+    )
+    prompt = recurring_dispatch.build_starter_prompt(
+        "train_model", strategy=strategy
+    )
+    label = (
+        f"Model Training ({strategy})" if strategy else "Model Training"
+    )
+    await update.message.reply_text(
+        _format_starter_reply(label, prompt, entry["triggered_at"])
+    )
+
+
+async def cmd_roadmap(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
+    if not _is_authorized(update):
+        return
+    roadmap_file = REPO_ROOT / recurring_dispatch.ROADMAP_PATH
+    try:
+        text = roadmap_file.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        await update.message.reply_text(
+            "⚠️ Could not read ROADMAP.md from the repo."
+        )
+        return
+    summary = recurring_dispatch.render_roadmap_summary(text)
+    await update.message.reply_text(summary)
+
+
+BOT_COMMANDS: List[BotCommand] = [
+    BotCommand("start", "Show help"),
+    BotCommand("reset", "Clear conversation history"),
+    BotCommand("model", "Show current model + history depth"),
+    BotCommand("audit", "Trigger a recurring hardening session"),
+    BotCommand("improve_strategy", "Trigger a strategy improvement session: /improve_strategy [strategy]"),
+    BotCommand("train_model", "Trigger a model training session: /train_model [strategy]"),
+    BotCommand("roadmap", "Show current roadmap status"),
+]
+
+
+async def _post_init(app: Application) -> None:
+    await app.bot.set_my_commands(BOT_COMMANDS)
+
+
 def main() -> None:
     logging.basicConfig(
         level=os.environ.get("LOG_LEVEL", "INFO"),
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     )
-    app = Application.builder().token(TELEGRAM_TOKEN).build()
+    app = (
+        Application.builder()
+        .token(TELEGRAM_TOKEN)
+        .post_init(_post_init)
+        .build()
+    )
     app.add_handler(CommandHandler("start", start_cmd))
     app.add_handler(CommandHandler("reset", reset_cmd))
     app.add_handler(CommandHandler("model", model_cmd))
+    app.add_handler(CommandHandler("audit", cmd_audit))
+    app.add_handler(CommandHandler("improve_strategy", cmd_improve_strategy))
+    app.add_handler(CommandHandler("train_model", cmd_train_model))
+    app.add_handler(CommandHandler("roadmap", cmd_roadmap))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, chat))
     logger.info(
         "Claude bridge starting (model=%s, allowed_chat=%s)",
