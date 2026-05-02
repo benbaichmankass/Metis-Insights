@@ -1234,33 +1234,14 @@ def _signals_n_keyboard(strategy: str) -> InlineKeyboardMarkup:
 
 
 def _render_signals_block(strategy_filter: str | None, limit: int) -> str:
-    """Pure renderer — read audit-log records and format them.
-
-    Used by the typed `/signals` path and the stepper's final callback
-    so both surfaces produce identical output.
+    """Back-compat wrapper. S-031 PR2
+    (architecture-audit-2026-05-02 P1-6) moved the rendering into
+    ``src.ui.processor.get_signals_block`` — the UI unit owns the
+    "what to display" decision per Architecture rule § 5; both this
+    bot and the webapp render the same string.
     """
-    records = _read_audit_tail(
-        SIGNAL_AUDIT_PATH,
-        limit * 5 if strategy_filter else limit,
-    )
-    if strategy_filter:
-        records = [
-            r for r in records
-            if str(r.get("strategy", "")).lower() == strategy_filter
-        ]
-    records = records[-limit:]
-    if not records:
-        scope = f" for {strategy_filter}" if strategy_filter else ""
-        return (
-            f"📭 No signals logged yet{scope}.\n"
-            f"Audit file: {SIGNAL_AUDIT_PATH}"
-        )
-    header = (
-        f"📡 Last {len(records)} signals"
-        + (f" — {strategy_filter}" if strategy_filter else "")
-    )
-    body = "\n".join(_format_signal_row(r) for r in records)
-    return f"{header}\n{body}"
+    from src.ui.processor import get_signals_block
+    return get_signals_block(strategy_filter=strategy_filter, limit=limit)
 
 
 async def cmd_signals(update: Update, context: ContextTypes.DEFAULT_TYPE):

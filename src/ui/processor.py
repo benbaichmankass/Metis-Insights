@@ -312,3 +312,98 @@ def get_open_positions_count(account_id: Optional[str] = None) -> int:
     except Exception as exc:  # noqa: BLE001
         logger.warning("get_open_positions_count: %s", exc)
         return 0
+
+
+# ---------------------------------------------------------------------------
+# Signals block — S-031 PR2 (architecture-audit-2026-05-02 P1-6)
+# ---------------------------------------------------------------------------
+
+# Status → emoji mapping, used by the rendered signals block. Lives in
+# the UI unit so the bot, webapp, and any future surface render the
+# same thing.
+_SIGNAL_STATUS_EMOJI = {
+    "submitted": "🟢",
+    "dry_run":   "🟡",
+    "skipped":   "⚪️",
+    "halted":    "🛑",
+    "failed_validation": "🔴",
+    "failed_exchange":   "❌",
+    "refused":   "🚫",
+    "blocked":   "🚫",
+    "multi_account_dispatched": "🟢",
+}
+
+
+def _format_signal_row(rec: Dict[str, Any]) -> str:
+    """Render one signal_audit.jsonl record for a Telegram block.
+
+    Plain text only — pipeline statuses (``no_signal``,
+    ``halt_flag_active``, ``failed_validation``) contain underscores
+    that break Telegram's legacy Markdown italic parsing, so the
+    formatter never wraps with ``_…_`` or ``*…*``.
+    """
+    ts = str(rec.get("logged_at_utc", ""))[:19].replace("T", " ")
+    strategy = str(rec.get("strategy", "?"))
+    symbol = str(rec.get("symbol", "?"))
+    side = str(rec.get("side", "?"))
+    qty = rec.get("qty")
+    qty_s = f"{float(qty):.4f}" if isinstance(qty, (int, float)) else "?"
+    status = str(rec.get("status", "?"))
+    emoji = _SIGNAL_STATUS_EMOJI.get(status, "•")
+    reason = str(rec.get("reason") or "")
+    reason_s = f" — {reason[:60]}" if reason else ""
+    return (
+        f"{emoji} {ts} | strategy={strategy} | {symbol} {side} {qty_s} "
+        f"→ {status}{reason_s}"
+    )
+
+
+def get_signals_block(
+    strategy_filter: Optional[str] = None,
+    limit: int = 10,
+) -> str:
+    """Return a fully-rendered Telegram-ready block for ``/signals``.
+
+    Pre-PR (S-031 PR2) the rendering lived inline in
+    ``src/bot/telegram_query_bot.py`` (``_render_signals_block`` +
+    ``_format_signal_row`` + ``_SIGNAL_STATUS_EMOJI``). Per
+    CLAUDE.md § Architecture rules § 5 the UI unit owns the
+    rendering; the bot just sends what comes back.
+
+    Parameters
+    ----------
+    strategy_filter : str, optional
+        Lowercased filter; ``None`` means all strategies.
+    limit : int
+        How many rows to render. Capped at 200 internally.
+
+    Returns
+    -------
+    str
+        A header + N body lines. Empty-state replaces the body with
+        a "no signals" hint and points at the audit-file path so
+        the operator can grep manually.
+    """
+    import os
+
+    rows = get_recent_signals(limit=limit, strategy=strategy_filter)
+
+    if not rows:
+        scope = f" for {strategy_filter}" if strategy_filter else ""
+        repo_root = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "..", "..")
+        )
+        audit_path = os.environ.get("SIGNAL_AUDIT_PATH") or os.path.join(
+            repo_root, "runtime_logs", "signal_audit.jsonl",
+        )
+        return (
+            f"📭 No signals logged yet{scope}.\n"
+            f"Audit file: {audit_path}"
+        )
+
+    header = (
+        f"📡 Last {len(rows)} signals"
+        + (f" — {strategy_filter}" if strategy_filter else "")
+    )
+    body = "\n".join(_format_signal_row(r) for r in rows)
+    return f"{header}\n{body}"
