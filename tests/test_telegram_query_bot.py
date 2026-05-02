@@ -1374,6 +1374,120 @@ class TestCmdRiskCheckButtonFlow:
 
 
 # ---------------------------------------------------------------------------
+# Sprint 025 T3 — /signals stepper (G4 slice 2)
+# ---------------------------------------------------------------------------
+
+
+class TestCmdSignalsStepper:
+    """No-args /signals replies with a two-step stepper:
+    1. Pick strategy (vwap / turtle_soup / all).
+    2. Pick N (10 / 25 / 50 / 100).
+    Final tap renders the audit tail using the existing
+    `_format_signal_row` renderer.
+
+    Typed `/signals [N] [strategy]` preserved as power-user shortcut.
+    """
+
+    def _make_update(self):
+        upd = MagicMock()
+        upd.effective_chat.id = 12345
+        upd.callback_query = None
+        upd.message.reply_text = AsyncMock()
+        return upd
+
+    def _make_query(self, data: str):
+        query = MagicMock()
+        query.data = data
+        query.answer = AsyncMock()
+        query.edit_message_text = AsyncMock()
+        query.message.chat.id = 12345
+        upd = MagicMock()
+        upd.callback_query = query
+        upd.effective_chat = None
+        return upd, query
+
+    def _run(self, coro):
+        import asyncio
+        return asyncio.new_event_loop().run_until_complete(coro)
+
+    def test_no_args_replies_with_strategy_picker(self, monkeypatch):
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        upd = self._make_update()
+        ctx = MagicMock()
+        ctx.args = []
+        self._run(bot.cmd_signals(upd, ctx))
+        kwargs = upd.message.reply_text.call_args.kwargs
+        assert kwargs.get("reply_markup") is not None
+        text = upd.message.reply_text.call_args.args[0]
+        assert "Pick a strategy" in text
+
+    def test_typed_n_arg_renders_directly(self, monkeypatch, tmp_path):
+        """/signals 5 should still bypass the stepper and render."""
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        # Empty audit file → "no signals logged" body, but cmd reaches
+        # the render path (not the stepper).
+        audit = tmp_path / "signal_audit.jsonl"
+        audit.write_text("", encoding="utf-8")
+        monkeypatch.setattr(bot, "SIGNAL_AUDIT_PATH", str(audit))
+        upd = self._make_update()
+        ctx = MagicMock()
+        ctx.args = ["5"]
+        self._run(bot.cmd_signals(upd, ctx))
+        text = upd.message.reply_text.call_args.args[0]
+        assert "No signals logged" in text or "📡" in text
+        # No reply_markup on the typed path — render is final.
+        assert upd.message.reply_text.call_args.kwargs.get("reply_markup") is None
+
+    def test_callback_signals_top_returns_strategy_picker(self, monkeypatch):
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        upd, query = self._make_query("signals_top")
+        self._run(bot.callback_handler(upd, MagicMock()))
+        kwargs = query.edit_message_text.call_args.kwargs
+        assert kwargs.get("reply_markup") is not None
+
+    def test_callback_signals_strat_returns_n_picker(self, monkeypatch):
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        upd, query = self._make_query("signals_strat:vwap")
+        self._run(bot.callback_handler(upd, MagicMock()))
+        text = query.edit_message_text.call_args.args[0]
+        assert "vwap" in text and "How many" in text
+        kwargs = query.edit_message_text.call_args.kwargs
+        assert kwargs.get("reply_markup") is not None
+
+    def test_callback_signals_strat_all_label(self, monkeypatch):
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        upd, query = self._make_query("signals_strat:all")
+        self._run(bot.callback_handler(upd, MagicMock()))
+        text = query.edit_message_text.call_args.args[0]
+        assert "all strategies" in text
+
+    def test_callback_signals_n_renders_records(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        audit = tmp_path / "signal_audit.jsonl"
+        # Two valid signal rows.
+        rows = [
+            '{"logged_at_utc":"2026-05-02T10:00:00+00:00","strategy":"vwap",'
+            '"symbol":"BTCUSDT","side":"buy","qty":0.001,"status":"submitted"}',
+            '{"logged_at_utc":"2026-05-02T10:01:00+00:00","strategy":"vwap",'
+            '"symbol":"BTCUSDT","side":"sell","qty":0.001,"status":"dry_run"}',
+        ]
+        audit.write_text("\n".join(rows) + "\n", encoding="utf-8")
+        monkeypatch.setattr(bot, "SIGNAL_AUDIT_PATH", str(audit))
+        upd, query = self._make_query("signals_n:vwap:10")
+        self._run(bot.callback_handler(upd, MagicMock()))
+        text = query.edit_message_text.call_args.args[0]
+        assert "Last 2 signals" in text
+        assert "vwap" in text
+
+    def test_callback_signals_n_invalid_int_warns(self, monkeypatch):
+        monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
+        upd, query = self._make_query("signals_n:vwap:abc")
+        self._run(bot.callback_handler(upd, MagicMock()))
+        text = query.edit_message_text.call_args.args[0]
+        assert "Invalid N" in text
+
+
+# ---------------------------------------------------------------------------
 # Sprint 025 T2 — /smoke_test inline-button account picker (G4 slice 3)
 # ---------------------------------------------------------------------------
 

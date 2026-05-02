@@ -5,6 +5,48 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-02-16 — Sprint 025 T3: /signals two-step stepper (G4 slice 2)
+
+- **Session date:** 2026-05-02
+- **Sprint:** 025 — UI processor migration + remaining G4 button flows.
+- **Current sprint phase:** T3 (3/4) complete. T4 (`/accounts` mode toggle with confirm — sensitive, ping-PR pattern) is next and last.
+- **Last completed checkpoint:** CP-2026-05-02-15 (#277 T2, merged).
+- **Next checkpoint:** **CP-2026-05-02-17 — T4: `/accounts` mode toggle.** Sensitive (changes per-account live/dry mode). Per CLAUDE.md the work-PR opens as draft and a ping-PR fires the alert; operator must confirm a per-account flip with a second tap before the change applies.
+- **Telegram sent:** pending — this checkpoint commit triggers the VM ping.
+- **Alerts sent during session:** none.
+- **Blockers:** none.
+
+### 1. Completed
+- Two-step button stepper for `/signals`:
+  - **Step 1** — strategy picker (`signals_strat:<name>`), driven by `data_loaders.list_live_strategies()` with a hardcoded fallback to `["turtle_soup", "vwap"]` for lean deploys.
+  - **Step 2** — N picker (`signals_n:<strategy>:<N>`) with the four most-used buckets: 10 / 25 / 50 / 100. The strategy is encoded in `callback_data` so we don't need per-chat state.
+  - "« Back" button on step 2 (`signals_top`) returns to step 1.
+- Extracted `_render_signals_block(strategy_filter, limit) -> str` (pure renderer over `_read_audit_tail` + `_format_signal_row`). Used by the typed-arg path and the final stepper callback.
+- `cmd_signals` no-args invocation now sends step 1; typed `/signals [N] [strategy]` preserved.
+- `callback_handler` extended with `signals_top`, `signals_strat:<name>`, `signals_n:<strategy>:<N>`. Edits the message in place at every step.
+- New test class `TestCmdSignalsStepper` (7 tests): no-args picker, typed-arg renders directly, top callback re-shows step 1, strat callback shows N picker, strat:all label, n callback renders records, invalid-int callback warns.
+
+### 2. Files changed
+- `src/bot/telegram_query_bot.py` — `_SIGNALS_N_CHOICES`, `_list_known_strategies_for_picker`, `_signals_strategy_keyboard`, `_signals_n_keyboard`, `_render_signals_block`; `cmd_signals` rewrite; `callback_handler` extended with three new actions.
+- `tests/test_telegram_query_bot.py` — `TestCmdSignalsStepper` (7 tests).
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` — this entry.
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_telegram_query_bot.py::TestCmdSignalsStepper -v` — 7 passed.
+- `PYTHONPATH=. pytest tests/test_telegram_query_bot.py -q` — 120 passed; 1 pre-existing failure (`TestCmdStatusMultiAccount::test_shows_block_per_account`), not from this PR.
+- `python scripts/check_dry_run_in_diff.py` — clean.
+- `python scripts/secret_scan.py` — clean.
+
+### 4. Remaining for this checkpoint
+- none — T3 fully shipped.
+
+### 5. Next checkpoint
+**CP-2026-05-02-17 — T4: `/accounts` mode toggle with confirm.** Two-tap flow (account → confirm flip). Touches per-account dry/live state — sensitive, ping-PR pattern.
+
+---
+
+---
+
 ## CP-2026-05-02-15 — Sprint 025 T2: /smoke_test inline-button account picker (G4 slice 3)
 
 - **Session date:** 2026-05-02
