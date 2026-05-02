@@ -5,6 +5,60 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-02-29 — S-029 P0 fixes merged + S-030 PR1 drafted
+
+- **Session date:** 2026-05-02
+- **Sprint:** Architecture compliance — S-030 (order-packages log + monitor loop). PR1 (this checkpoint) ships the schema + writers + dispatch insert. PR2 (next session) builds the monitor loop on top.
+- **Current sprint phase:** **S-029 COMPLETE / S-030 PR1 DRAFTED.** Operator merged #311 #312 #313 (S-029 P0 fixes) in this session; #315 (S-030 PR1) is open as draft awaiting PM review.
+- **Last completed checkpoint:** CP-2026-05-02-28 (architecture audit + S-029 P0 fixes drafted).
+- **Next checkpoint:** **CP-2026-05-?-?? — S-030 PR2** (strategy monitor loop + close-side update). Depends on #315 merging first. Read order: this entry, `docs/claude/architecture-audit-2026-05-02.md` § P1-4, `src/units/strategies/{vwap,turtle_soup}.py` (need a `monitor()` hook), `src/runtime/heartbeat.py` (where the monitor loop probably hangs), and the merged #315 schema.
+- **Telegram sent:** ping-PR self-merges to fire the operator alert linking to #315.
+- **Alerts sent during session:** ping-PR #309 (BUG-034), #314 (S-029 batch), this checkpoint's ping-PR (S-030 PR1).
+- **Blockers:** PM review on #315 (Tier 2).
+
+### 1. Completed
+- **S-029 PRs merged.** #311 (account-strategy filter), #312 (live trade journal write), #313 (liveness watchdog) — all merged to `main` after operator approval. The system is now operationally correct: signals route to the right wallet, every live trade lands in the journal, and the operator gets a Telegram alert within an hour if signals fire but trades don't.
+- **S-030 PR1 — order_packages log table + writers + dispatch insert (#315, draft).**
+  - `src/data_layer/database.py` — new `order_packages` table with `(strategy_name, updated_at DESC)` + `(status, updated_at DESC)` indexes; `insert_order_package`, `update_order_package`, `get_order_packages_by_strategy` methods.
+  - `src/core/coordinator.py` — module-level `_log_new_order_package(pkg)` helper; called once per dispatch from `multi_account_execute` before the per-account loop. Generates `pkg-<uuid12>` if `pkg.meta` doesn't already carry one and stamps the id on `pkg.meta["order_package_id"]` so per-account result rows can reference it. Best-effort; journal failure logs a warning and returns None.
+  - `tests/test_s030_pr1_order_packages_log.py` (NEW, 13 tests) — 9 DB-layer + 2 helper-layer + 2 multi_account_execute integration.
+
+### 2. Files changed
+- `src/data_layer/database.py` — schema + 3 new methods.
+- `src/core/coordinator.py` — `_log_new_order_package` helper + insert call in `multi_account_execute`.
+- `tests/test_s030_pr1_order_packages_log.py` — new (13 tests).
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` — this entry.
+- `docs/claude/pending-pings.jsonl` — S-030 PR1 ping entry.
+
+### 3. Tests run
+- `pytest tests/test_s030_pr1_order_packages_log.py -v` — 13/13 pass.
+- `pytest <regression-adjacent suites>` — 119/119 pass (s030_pr1, s029_pr1, s029_pr2, s028, coordinator_flow, accounts_integration, s008_accounts).
+- `python scripts/secret_scan.py` — clean.
+- `python scripts/check_dry_run_in_diff.py` — clean.
+- CI `scan` job: green on #315.
+
+### 4. Remaining (S-030 PR2 — next session)
+- **Strategy monitor hook.** Add a `monitor(cfg, candles_df, open_pkg)` function to each strategy module under `src/units/strategies/`. Returns either an updated `OrderPackage` dict (mutate sl/tp) or `None` (no change) or a sentinel meaning "close now".
+- **Heartbeat-driven monitor loop.** New `src/runtime/order_monitor.py` (or fold into heartbeat) reads `db.get_order_packages_by_strategy(s, status="open")` for each enabled strategy, fetches fresh candles, calls `monitor()`, and on a change calls `db.update_order_package` + a new `account.update_open_trade(pkg)` that re-runs `risk_manager.approve` and either modifies the live exchange order or closes it.
+- **Close-side trade-row update.** When the monitor closes a position, update the linked `trades` row (status, exit_reason, exit_price, pnl) — the close-side counterpart to S-029 PR2's open-side write.
+- **Tests.** Per-strategy `monitor()` contract tests + an integration test exercising the open → monitor → close → row-updated flow.
+
+### 5. Next checkpoint
+**CP-2026-05-?-??** — S-030 PR2 (strategy monitor loop). Read order: this entry, `docs/claude/architecture-audit-2026-05-02.md` § P1-4, the merged #315, `src/units/strategies/vwap.py`, `src/units/strategies/turtle_soup.py`, `src/runtime/heartbeat.py`. PR2 needs the schema from #315; do not start before it merges.
+
+### 6. Live-mode check
+- ✅ `scripts/check_dry_run_in_diff.py` clean.
+- ✅ `config/accounts.yaml` not touched.
+- ⚠️ #315 touches `src/core/coordinator.py` (Live-mode invariant rule 3). Draft + ping-PR + operator merges.
+- Behavioural change is observability-only: a new row lands per dispatch. Order routing identical to pre-PR.
+
+### 7. Lessons learned
+1. **DB schema PRs land cleanest before the wiring PRs.** Splitting S-030 into PR1 (schema + writer + insert call) and PR2 (monitor loop + update calls) means PR1 is reviewable in isolation — the operator approves "yes, the table looks right" without also having to evaluate the monitor-loop architecture. PR2 then has somewhere to write to.
+2. **`pkg.meta["order_package_id"]` is the right linking key.** Mutating the in-memory `OrderPackage` to stamp the id makes it propagate naturally to per-account result rows + the trades table's `notes` blob. Future linkage (e.g. close-side update) reads it from the same place.
+3. **Best-effort observability writes belong outside the order path entirely.** `_log_new_order_package` is module-level (not a Coordinator method), wraps every IO step, and returns `None` on failure. The dispatch loop checks the return value before stamping the id; if the helper fails the dispatch still completes and the per-account result rows just lack the id (which the operator sees as "row missing in order_packages — reporting glitch, not a trade-cancel signal").
+
+---
+
 ## CP-2026-05-02-28 — Architecture audit + S-029 P0 fixes (3 draft PRs)
 
 - **Session date:** 2026-05-02
