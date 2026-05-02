@@ -5,6 +5,82 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-02-20 — Sprint 026 G2: move sizing into per-account RiskManager
+
+- **Session date:** 2026-05-02
+- **Sprint:** 026 — Decouple position sizing from strategies; fix "unknown ×4" attribution.
+- **Current sprint phase:** **G2 of 4 — position sizing lives in `RiskManager.position_size()`.** Operator overrode the "one-task-per-session" rule and asked to keep going after G1; G2 lands now. Next: G3 (dynamic balance fetch + remaining sizing rules) and G4 (audit-log "unknown ×4").
+- **Last completed checkpoint:** CP-2026-05-02-19 (G1 — PR #281 still draft pending operator review).
+- **Next checkpoint:** **CP-2026-05-02-21 — Sprint 026 G3** — pull live account balance via `processor.get_account_balances()` (or `dl.account_balance` directly) inside the default balance fetcher, add the exchange min-lot/step-size rounding, and wire the daily-loss-budget sanity check. The G3 PR can also delete the legacy single-client `_DRY_MODE_PLACEHOLDER_QTY` path if the operator confirms it's never used in production.
+- **Telegram sent:** pending — checkpoint commit fires the VM ping; ping-PR also opened to alert the operator.
+- **Alerts sent during session:** none (operator-driven session — they have full context).
+- **Blockers:** none — work-PR opens as `(PM REVIEW): G2 …` draft per CLAUDE.md § Live-mode invariant rule (3); ping-PR self-merges to fire the alert. Operator-confirmed numbers landed in `config/accounts.yaml` (`risk_pct: 0.01`, `min_balance_usd: 50`, no max-position cap on sizing).
+
+### 1. Completed
+- **`src/units/accounts/risk.py`**:
+  - New `RiskManager.position_size(package, balance_usd) -> float` — the **only** sizing site post-G2. Reads `risk_pct`, `min_balance_usd`, `min_qty`, `qty_precision` from the account's `risk:` block. Returns `0.0` when balance is below `min_balance_usd`. Multiplies `meta["strategy_risk_pct"]` (S-026 G1) into the effective risk fraction so two strategies on one account split the per-trade risk budget. **No max-position clamp** per operator directive.
+  - New private `_size_unbounded(...)` math kernel shared between `size_order` (legacy, retains optional `max_qty` clamp for backwards compat) and `RiskManager.position_size` so the two paths can't drift.
+  - `size_order_from_cfg(pkg, account_cfg, balance)` now constructs an ephemeral `RiskManager(account_cfg)` and delegates to `position_size`. Old callers (smoke-test helpers, backtest harnesses) work unchanged.
+  - `RiskManager.__init__` reads the new `risk_pct` (default 0.01), `min_balance_usd` (default 50), `min_qty` (default 0.001), and `qty_precision` (default 3) keys.
+- **`src/core/coordinator.py::multi_account_execute`**:
+  - Per-account sizing now happens here. For each account: fetch balance via the new `balance_fetcher` (default reads `pkg.meta["account_balances_usd"][acc.name]` then falls back to 0.0), call `account.risk_manager.position_size(pkg, balance)`, stash the qty under `pkg.meta["sized_qty_by_account"][acc.name]`, then forward.
+  - Accounts whose balance is below `min_balance_usd` produce `{"error": "below_min_balance: ..."}` and are NOT routed (no `place_order` call). The result dict gains a `sized_qty` field.
+  - New optional `balance_fetcher: Callable[[TradingAccount], float]` parameter — operator-side wiring (G3) injects the live `processor.get_account_balances()` lookup here.
+- **`src/runtime/pipeline.py`**:
+  - The G1 `_signal_for_orders = {**signal, "qty": MAX_QTY}` placeholder is deleted from the multi-account fast-path. That path no longer calls `safe_place_order` at all — sizing happens inside `multi_account_execute` per-account.
+  - The legacy single-client path (only reached when `MULTI_ACCOUNT_DISPATCH=false`, global `DRY_RUN=true`, or signal lacks sl/tp) keeps a `_DRY_MODE_PLACEHOLDER_QTY = 1.0` constant — clearly named so its dry-only semantics are obvious; G3 may delete this path entirely.
+  - The result dict for the multi-account fast-path now carries `sized_qty_by_account` so downstream observability (Telegram, audit log) can show what each account was sized to.
+- **`config/accounts.yaml`** — operator-confirmed defaults added per account:
+  - `risk_pct: 0.01` (1 % balance per trade) for both live regular accounts; `0.005` for the disabled prop scaffold.
+  - `min_balance_usd: 50` for every account.
+  - `pos_size` retained on the existing `risk:` block (used by `RiskManager.approve(order)` against `meta.estimated_value`, **not** by `position_size`).
+- **Tests**:
+  - **New:** `tests/test_s026_g2_position_size.py` — 11 tests pinning the contract:
+    - balance drives qty (10× balance → 10× qty)
+    - same package, two accounts/balances → two qtys (the explicit sprint-prompt requirement)
+    - below `min_balance_usd` returns 0.0
+    - default `risk_pct == 0.01`, default `min_balance_usd == 50.0`
+    - **no max-position clamp** — qty scales linearly with balance up through $1M (operator directive)
+    - smoke-test orders bypass sizing
+    - `meta.strategy_risk_pct` (G1) scales the qty
+    - `size_order_from_cfg` delegates to `RiskManager.position_size`
+    - `multi_account_execute` produces per-account qtys via the default balance fetcher and via an injected one
+    - accounts below `min_balance_usd` are skipped (no `place_order` call)
+  - **Updated:** `tests/test_coordinator_flow.py::TestMultiAccountExecuteFlow` and `tests/test_accounts_integration.py::TestCoordinatorMultiAccountExecute` — pass `balance_fetcher=lambda _: 10_000.0` so the existing tests still see all three accounts route. The structural change is API-additive (new kwarg) so tests that didn't seed balance get the new safe behaviour: skip accounts with no balance.
+
+### 2. Files changed
+- `src/units/accounts/risk.py` — new `position_size`, `_size_unbounded`, refactored `size_order_from_cfg`; new config keys.
+- `src/core/coordinator.py` — `multi_account_execute` per-account sizing + `balance_fetcher` kwarg.
+- `src/runtime/pipeline.py` — drop G1 `MAX_QTY` placeholder, rename to `_DRY_MODE_PLACEHOLDER_QTY` for the legacy single-client path; multi-account fast-path no longer calls `safe_place_order`; result carries `sized_qty_by_account`.
+- `config/accounts.yaml` — `risk_pct`, `min_balance_usd` per account.
+- `tests/test_s026_g2_position_size.py` — new (11 tests).
+- `tests/test_coordinator_flow.py` — supply `balance_fetcher` in `TestMultiAccountExecuteFlow`.
+- `tests/test_accounts_integration.py` — same.
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` — this entry.
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_s026_g2_position_size.py -v` — 11 / 11 passed.
+- `PYTHONPATH=. pytest tests/test_s008_accounts.py tests/test_s012_risk_caps.py tests/test_vwap_strategy.py tests/test_s012_pipeline.py tests/test_orders.py tests/test_order_refusal.py tests/test_per_strategy_risk.py tests/test_coordinator_flow.py tests/test_s008_coordinator.py tests/test_accounts_integration.py tests/sprint015/test_analyze_fixtures.py -q` — **all pass** (177 passed in the focused subset).
+- Full suite (excluding web-API tests requiring deps not in this env): **36 failed, 1678 passed, 2 skipped** vs. main baseline of **36 failed, 1666 passed, 2 skipped**. **Zero new failures**; +12 passes from the new G2 contract pins.
+- `python scripts/check_dry_run_in_diff.py` — clean.
+- `python scripts/secret_scan.py` — clean.
+
+### 4. Live-mode check
+- ✅ No flip of any trading-mode flag away from live. `scripts/check_dry_run_in_diff.py` is clean.
+- ⚠️ `config/accounts.yaml` **was** modified — added `risk_pct` and `min_balance_usd` keys. No account `dry_run` state changed. The new keys are operator-confirmed (1 % risk, $50 min balance, no max-position cap).
+- ⚠️ Touches `src/runtime/pipeline.py`, `src/core/coordinator.py`, `src/units/accounts/risk.py`, `config/accounts.yaml` — all in CLAUDE.md § Live-mode invariant rule (3). Work-PR opens as draft `(PM REVIEW): G2 — sizing in RiskManager`. Ping-PR (`claude/ping-s026-g2`) self-merges to fire the operator alert.
+- ⚠️ Behavioural change: post-G2, **every live order in production sizes from the per-account balance × risk_pct** instead of `settings["MAX_QTY"]`. Operator pre-approved (this conversation): 1 % risk, $50 min balance, no max-position notional cap.
+
+### 5. Remaining
+- none — G2 fully shipped.
+
+### 6. Next checkpoint
+**CP-2026-05-02-21 — Sprint 026 G3** — wire the default balance fetcher to `processor.get_account_balances()` so live balances flow into `multi_account_execute` without callers having to inject them, and add the exchange min-lot/step-size rounding + daily-loss-budget sanity check the sprint prompt enumerates. Read order: this checkpoint, then `src/ui/processor.py::get_account_balances`, then `src/bot/data_loaders.py::account_balance`. The G3 PR can also delete the legacy single-client path if the operator confirms it's never used in production.
+
+---
+
+---
+
 ## CP-2026-05-02-19 — Sprint 026 G1: decouple qty from strategy signals
 
 - **Session date:** 2026-05-02

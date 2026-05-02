@@ -7,6 +7,14 @@ from src.news.news_pipeline import get_news_score
 import os
 
 HALT_FLAG_PATH = "/tmp/trader_halt.flag"
+
+# S-026 G2: legacy single-client path placeholder. Sizing is decided
+# per-account inside Coordinator.multi_account_execute via
+# RiskManager.position_size(); the legacy path has no per-account
+# context and is dry-only by virtue of its trigger conditions
+# (MULTI_ACCOUNT_DISPATCH=false OR global DRY_RUN). The placeholder
+# exists so safe_place_order's halt/news rails can still run through.
+_DRY_MODE_PLACEHOLDER_QTY = 1.0
 from dotenv import load_dotenv
 if os.path.exists(".env.live"):
     load_dotenv(".env.live")
@@ -112,12 +120,13 @@ def _signal_to_order_package(signal: Dict[str, Any], settings: dict):
     """Build an ``OrderPackage`` from a pipeline signal dict.
 
     The signal shape is what every builder in this module produces:
-    ``{symbol, side, qty, price/entry_price, stop_loss, take_profit,
-    meta: {strategy_name, ...}}``. The Coordinator's per-account
-    dispatch path consumes ``OrderPackage``, which has a slightly
-    different shape (``direction`` instead of ``side``, ``entry`` /
-    ``sl`` / ``tp``). This helper bridges the two so we can fan a
-    pipeline-generated signal out to every account in
+    ``{symbol, side, price/entry_price, stop_loss, take_profit,
+    meta: {strategy_name, ...}}`` — S-026 G1: no qty (sizing is the
+    per-account RiskManager's job in G2). The Coordinator's
+    per-account dispatch path consumes ``OrderPackage``, which has a
+    slightly different shape (``direction`` instead of ``side``,
+    ``entry`` / ``sl`` / ``tp``). This helper bridges the two so we
+    can fan a pipeline-generated signal out to every account in
     ``config/accounts.yaml`` without changing the strategy builders.
     """
     from src.core.coordinator import OrderPackage
@@ -633,61 +642,58 @@ def run_pipeline(
                 or os.environ.get("DRY_RUN", "false")
             ).strip().lower() in {"true", "1", "yes", "on"}
 
-            # S-026 G1: signals carry no qty after the strategy/sizing
-            # decoupling. ``safe_place_order`` still requires qty for the
-            # MAX_QTY / MAX_POSITION_USD caps to operate. Inject the
-            # operator-configured ``MAX_QTY`` as a placeholder so
-            # validation continues to work while the proper per-account
-            # sizing lands in G2 (RiskManager.position_size). The
-            # placeholder is local to validation/legacy paths — it is
-            # NOT written back into the strategy-emitted signal dict.
-            _placeholder_qty = float(
-                settings.get("MAX_QTY", settings.get("max_qty", 1)) or 1
-            )
-            _signal_for_orders = {**signal, "qty": _placeholder_qty}
-
             # G5 — the predicate moved to module scope as
             # ``_signal_carries_full_sltp`` so the missing-sltp warning
             # in the audit-log block uses the same definition.
             if multi and not global_dry and _signal_carries_full_sltp(signal):
-                # CP-2026-05-02: when the system is live AND the signal
-                # is fully populated, fan-out to every account so each
-                # one can apply its own dry/live state. Validation runs
-                # in forced-dry mode first (halt flag, MAX_QTY, etc.).
-                val_settings = {
-                    **(settings if isinstance(settings, dict) else {}),
-                    "DRY_RUN": "true",
-                    "ALLOW_LIVE_TRADING": "false",
-                }
-                result = safe_place_order(_signal_for_orders, val_settings, exchange_client)
-                if result.get("status") == "dry_run":
-                    try:
-                        from src.core.coordinator import Coordinator
-                        pkg = _signal_to_order_package(signal, settings)
-                        coord = Coordinator()
-                        multi_results = coord.multi_account_execute(
-                            pkg, dry_run=False,
-                        )
-                        result = {
-                            "status": "multi_account_dispatched",
-                            "validation": result,
-                            "multi_account_results": multi_results,
-                            "order": signal,
-                        }
-                    except Exception as exc:  # noqa: BLE001
-                        logger.exception(
-                            "multi-account dispatch failed: %s", exc,
-                        )
-                        result = {
-                            "status": "failed_dispatch",
-                            "reason": f"multi_account_execute: {exc}",
-                            "order": signal,
-                        }
+                # S-026 G2: the multi-account dispatch fast-path skips
+                # the legacy ``safe_place_order`` validation entirely.
+                # Sizing is now decided per-account inside
+                # ``Coordinator.multi_account_execute`` via
+                # ``RiskManager.position_size(pkg, balance)`` — the
+                # single qty-deciding site post-G2. Halt-flag + news
+                # veto are already checked above.
+                try:
+                    from src.core.coordinator import Coordinator
+                    pkg = _signal_to_order_package(signal, settings)
+                    coord = Coordinator()
+                    multi_results = coord.multi_account_execute(
+                        pkg, dry_run=False,
+                    )
+                    result = {
+                        "status": "multi_account_dispatched",
+                        "multi_account_results": multi_results,
+                        "order": signal,
+                        "sized_qty_by_account": (pkg.meta or {}).get(
+                            "sized_qty_by_account", {}
+                        ),
+                    }
+                except Exception as exc:  # noqa: BLE001
+                    logger.exception(
+                        "multi-account dispatch failed: %s", exc,
+                    )
+                    result = {
+                        "status": "failed_dispatch",
+                        "reason": f"multi_account_execute: {exc}",
+                        "order": signal,
+                    }
             else:
                 # Legacy single-client path. Reached when:
                 #   * MULTI_ACCOUNT_DISPATCH is pinned off by the operator,
                 #   * the global mode is dry (no need to fan out), or
                 #   * signal is missing entry/sl/tp (smoke/synthetic).
+                # S-026 G2: sizing has fully moved into the per-account
+                # RiskManager. This path still runs ``safe_place_order``
+                # for halt-flag / news / validation rails, but it has no
+                # per-account context — there is no balance to size
+                # against. Use ``DRY_MODE_PLACEHOLDER_QTY`` (1.0) so
+                # validation can run; the path is dry-only by virtue of
+                # its trigger conditions (global DRY_RUN or
+                # MULTI_ACCOUNT_DISPATCH=false) so a real order is never
+                # submitted with this qty in production. Tests that
+                # exercise the legacy validation path should construct
+                # signals through this path explicitly.
+                _signal_for_orders = {**signal, "qty": _DRY_MODE_PLACEHOLDER_QTY}
                 result = safe_place_order(_signal_for_orders, settings, exchange_client)
 
     _report_pipeline_outcome(result, signal)

@@ -21,7 +21,7 @@ import importlib
 import logging
 import os
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 import yaml
 
@@ -416,8 +416,16 @@ class Coordinator:
         *,
         dry_run: bool = True,
         account_type: Optional[str] = None,
+        balance_fetcher: Optional[Callable[["TradingAccount"], float]] = None,
     ) -> List[Dict[str, Any]]:
         """Execute *pkg* on all accounts loaded from accounts.yaml.
+
+        S-026 G2: per-account sizing happens here. Each account's
+        ``risk_manager.position_size(pkg, balance)`` is called before the
+        package is forwarded; the resulting qty is recorded under
+        ``pkg.meta['sized_qty_by_account'][account.name]``. Accounts whose
+        balance is below ``min_balance_usd`` produce ``qty=0.0`` and a
+        ``below_min_balance`` skip result instead of being routed.
 
         Parameters
         ----------
@@ -430,12 +438,20 @@ class Coordinator:
         account_type : str, optional
             When set, only execute on accounts matching this type
             (``"regular"`` | ``"prop"``).
+        balance_fetcher : callable, optional
+            ``(account) -> balance_usd`` override. When None the
+            in-process default is used: read ``meta['account_balance_usd']``
+            on the package, then ``account.cached_balance_usd``, then
+            fall back to a smoke-safe stub of $0.0 (which produces a
+            ``below_min_balance`` skip — surfacing the missing wiring
+            instead of placing an unsized order). G3 will replace the
+            default with a live ``processor.get_account_balances()`` call.
 
         Returns
         -------
         list[dict]
             One result dict per account:
-            ``{name, exchange, account_type, trade_id, error}``
+            ``{name, exchange, account_type, trade_id, error, sized_qty}``
         """
         from src.units.accounts import load_accounts
         from src.units.accounts.account import RiskBreach
@@ -448,25 +464,89 @@ class Coordinator:
             logger.warning("multi_account_execute: accounts.yaml not found at %s", path)
             return []
 
+        # S-026 G2: stamp a per-account qty map onto the package so
+        # downstream routing can read what the sizer decided. Mutating
+        # the meta dict in-place is fine — the package is constructed
+        # fresh by ``_signal_to_order_package`` for each tick.
+        sized_qty_by_account: Dict[str, float] = {}
+        if pkg.meta is None:
+            pkg.meta = {}
+        pkg.meta["sized_qty_by_account"] = sized_qty_by_account
+
+        def _default_balance_fetcher(acc) -> float:
+            # Tests / one-shot dispatch: callers can stash a balance on
+            # the package meta or directly on the account; otherwise we
+            # return 0.0 and the per-account RiskManager refuses to
+            # size below min_balance_usd.
+            pkg_balances = (pkg.meta or {}).get("account_balances_usd") or {}
+            if acc.name in pkg_balances:
+                return float(pkg_balances[acc.name])
+            cached = getattr(acc, "cached_balance_usd", None)
+            return float(cached) if cached is not None else 0.0
+
+        fetcher = balance_fetcher or _default_balance_fetcher
+
         results = []
         for account in accounts:
             if account_type and account.account_type != account_type:
                 continue
+
+            # 1. Per-account sizing — the only place qty is decided.
+            try:
+                balance = float(fetcher(account))
+                sized_qty = account.risk_manager.position_size(pkg, balance)
+            except Exception as exc:  # noqa: BLE001
+                logger.exception(
+                    "multi_account_execute: position_size failed for %s: %s",
+                    account.name, exc,
+                )
+                results.append({
+                    "name": account.name,
+                    "exchange": account.exchange,
+                    "account_type": account.account_type,
+                    "trade_id": None,
+                    "sized_qty": 0.0,
+                    "error": f"sizing_failed: {type(exc).__name__}: {exc}",
+                })
+                continue
+
+            sized_qty_by_account[account.name] = sized_qty
+
+            # 2. Refuse to forward a zero-qty order (under-balance accounts).
+            if sized_qty <= 0:
+                results.append({
+                    "name": account.name,
+                    "exchange": account.exchange,
+                    "account_type": account.account_type,
+                    "trade_id": None,
+                    "sized_qty": 0.0,
+                    "error": (
+                        f"below_min_balance: balance={balance:.2f} USD < "
+                        f"min_balance_usd={account.risk_manager.min_balance_usd}"
+                    ),
+                })
+                continue
+
+            # 3. Route — same as before. The qty is on pkg.meta now;
+            # downstream routing can read it without the OrderPackage
+            # itself needing a qty field.
             try:
                 trade_id = account.place_order(pkg, dry_run=dry_run)
                 self.push_alert(
                     f"multi_execute: {account.name} {pkg.strategy} "
-                    f"{pkg.direction} {pkg.symbol} → {trade_id}",
+                    f"{pkg.direction} {pkg.symbol} qty={sized_qty} → {trade_id}",
                     source="accounts",
                     level="info",
                     account=account.name,
                     trade_id=trade_id,
+                    sized_qty=sized_qty,
                 )
                 results.append({
                     "name": account.name,
                     "exchange": account.exchange,
                     "account_type": account.account_type,
                     "trade_id": trade_id,
+                    "sized_qty": sized_qty,
                     "error": None,
                 })
             except RiskBreach as exc:
@@ -475,6 +555,7 @@ class Coordinator:
                     "exchange": account.exchange,
                     "account_type": account.account_type,
                     "trade_id": None,
+                    "sized_qty": sized_qty,
                     "error": str(exc),
                 })
         return results
