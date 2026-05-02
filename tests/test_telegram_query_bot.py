@@ -24,6 +24,7 @@ from unittest.mock import AsyncMock, MagicMock
 for _mod in (
     "telegram",
     "telegram.ext",
+    "telegram.error",
     "dotenv",
     "requests",
     "pybit",
@@ -31,6 +32,14 @@ for _mod in (
     "src.runtime.signal_notifications",
 ):
     sys.modules.setdefault(_mod, MagicMock())
+
+# S-027 PR2 — comms_handler imports ``filters`` from telegram.ext and
+# ``TelegramError`` from telegram.error. Provide the attributes the
+# import path needs; the actual handler logic is not exercised by this
+# test module.
+sys.modules["telegram.error"].TelegramError = type("TelegramError", (Exception,), {})
+sys.modules["telegram.ext"].filters = MagicMock()
+sys.modules["telegram.ext"].MessageHandler = MagicMock
 
 # Provide realistic dotenv stubs
 sys.modules["dotenv"].load_dotenv = lambda *a, **kw: None

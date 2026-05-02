@@ -230,9 +230,11 @@ training / debug-memory docs.
       `next_status_after_answer` to track completion.
 - [ ] Repo writeback: `git add comms/requests/REQ-*.json && git commit
       -m "comms(response): <id>" && git push`. Push retries on rebase
-      race. Adds `comms(response):` to `scripts/notify_on_pull.py`'s
-      ignored-prefix list so the writeback doesn't fire a checkpoint
-      ping.
+      race. ``scripts/notify_on_pull.py`` is opt-in (only fires for
+      ``[BLOCKED-PM]``, ``TRAINING-*`` prefixes, and ``CHECKPOINT_LOG.md``
+      touches) so comms commits are naturally silent — PR 2 adds an
+      explicit ``COMMS_RESPONSE_PREFIX`` constant + ``logger.info``
+      audit line for forward compat.
 - [ ] Expiry sweep: every poll, check `is_expired()` on awaiting
       requests, transition → `expired`, archive.
 - [ ] Cancellation handler: artifacts manually edited to
