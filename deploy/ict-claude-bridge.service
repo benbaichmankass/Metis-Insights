@@ -12,7 +12,7 @@ Wants=network-online.target
 [Service]
 User=ubuntu
 WorkingDirectory=/home/ubuntu/ict-trading-bot
-ExecStart=/home/ubuntu/ict-trading-bot/.venv/bin/python -u -B -m src.bot.claude_bridge
+ExecStart=/usr/bin/python3 -u -B -m src.bot.claude_bridge
 Restart=always
 RestartSec=15
 StandardOutput=append:/home/ubuntu/ict-trading-bot/runtime_logs/claude_bridge.log
