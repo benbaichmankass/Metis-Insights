@@ -308,3 +308,45 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
         "confidence": round(confidence, 4),
         "meta": {**meta, "signal": signal},
     }
+
+
+# ---------------------------------------------------------------------------
+# monitor() — S-030 PR2 (architecture-audit-2026-05-02 P1-4)
+# ---------------------------------------------------------------------------
+
+
+def monitor(cfg, candles_df, open_pkg):
+    """Re-evaluate an open vwap order package against fresh candles.
+
+    Per CLAUDE.md § Architecture rules § 2 the strategy unit *monitors*
+    open packages — generates updates while a trade is live. The
+    monitor loop (S-030 PR3) calls this hook on every heartbeat tick
+    for each open package; the strategy decides whether to do nothing,
+    tighten the stop, move the target, or close.
+
+    v1 logic — break-even SL after 1R. The mean-reversion thesis is
+    "price returns to vwap"; once the trade has captured 1R of risk
+    the original invalidation no longer holds and the SL should not
+    risk the realised profit. Future versions can add: vwap-cross
+    close, volume-spike close, time-decay close.
+
+    Parameters
+    ----------
+    cfg : dict
+        Strategy config (passed through; not currently consumed in
+        v1 but the signature mirrors ``order_package`` so the monitor
+        loop can reuse the same cfg dict).
+    candles_df : pandas.DataFrame
+        Fresh OHLCV at the strategy's timeframe.
+    open_pkg : dict
+        Current order package row from the DB unit's order_packages
+        table — keys: ``entry``, ``sl``, ``tp``, ``direction``,
+        ``symbol``, ``meta`` (str-or-dict).
+
+    Returns
+    -------
+    None | dict
+        See ``_base.monitor_breakeven_sl`` for the exact contract.
+    """
+    from src.units.strategies._base import monitor_breakeven_sl
+    return monitor_breakeven_sl(open_pkg, candles_df)
