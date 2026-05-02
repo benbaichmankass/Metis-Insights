@@ -229,6 +229,106 @@ recurred twice in two sprints, each time because a PR landed a code
 path that bypassed the per-account live/dry contract without an
 explicit operator confirmation.
 
+## Architecture rules (MANDATORY — every PR)
+
+These are the canonical unit-boundary contracts for the codebase. Every
+PR must respect them; every sprint prompt must declare which units it
+touches. The 2026-05-02 architecture audit
+(`docs/claude/architecture-audit-2026-05-02.md`) enumerates the current
+violations and the sprint sequence that resolves them — read it before
+proposing any structural change.
+
+1. **Unit separation.** Each unit owns a single responsibility and lives
+   under its own folder. Cross-unit calls go through
+   `src/core/coordinator.py` (the translator). Direct imports between
+   units are boundary leaks. The canonical units are:
+   - `src/units/strategies/` — signal + order-package generation.
+   - `src/units/accounts/` — per-account risk + execution.
+   - `src/units/dashboards/` — aggregated views.
+   - `src/units/trading_school/` — strategy validation + retraining.
+   - `src/data_layer/` — DB unit (signals log + order packages log +
+     trade log; will move to `src/units/db/` per S-035).
+   - `src/ui/` — UI helpers (read-only data formatters; will move to
+     `src/units/ui/` per S-035).
+   - `src/runtime/` — orchestration (pipeline, validation, mode flags).
+   - `src/bot/` — Telegram-rendering shell (no business logic).
+
+2. **Strategy unit responsibilities.** Strategies *generate*, *log*, and
+   *monitor* — they MUST NOT execute. A strategy module:
+   - Returns an `OrderPackage` (entry/sl/tp/symbol/direction/strategy/meta).
+   - Logs the signal to the **signals log** in the DB unit.
+   - Logs the order package to the **order packages log** in the DB unit.
+     The package log row tracks: order id, originating strategy,
+     entry/sl/tp, signal logic + confidence, timestamps for each
+     step/update, status (open|closed).
+   - Monitors open packages — while a trade is open, the strategy
+     re-enters with fresh candles to update the package; updates are
+     written back to the order packages log.
+   - Forbidden: calling `execute_pkg`, `route_order`, `safe_place_order`,
+     `account.place_order`, or any exchange SDK.
+
+3. **Account / risk / execute boundary.** Each account in
+   `config/accounts.yaml` is configured to follow specific strategies
+   via `strategies: [...]`. Dispatch logic **must** filter by this list
+   — a strategy's package only routes to accounts whose `strategies`
+   includes its name. For each account that matches:
+   1. The per-account `RiskManager` runs `approve(pkg)` +
+      `position_size(pkg, balance)`.
+   2. If approved + sized, `execute_pkg` submits the order via the
+      account's exchange client (`bybit_client_for` / `binance_conn_for`).
+   3. The account writes to the **trade log** in the DB unit
+      (`Database.insert_trade`) on submission.
+   4. While the trade is open and the order package gets updates from
+      the strategy's monitor, the account re-runs `approve` and either
+      modifies the live order, closes it, or leaves it.
+   5. On close, the trade row is updated (status, exit_reason, PnL).
+   `execute_pkg` is the **single canonical live-order entry point** —
+   no other code path touches the exchange SDK for placement.
+
+4. **UI unit mirrors the DB structure.** UI helpers query the DB unit's
+   three logs and group as the operator expects:
+   - **Trade log helpers** — group/filter **by account**
+     (e.g. `processor.get_trades_by_account(account_name)`).
+   - **Order package log helpers** — group/filter **by strategy**
+     (e.g. `processor.get_packages_by_strategy(strategy_name)`).
+   - **Signals log helpers** — same shape as packages, by strategy.
+   Inverted groupings (trades-by-strategy, packages-by-account) are
+   architecturally incorrect — file a sprint to remove them.
+
+5. **Telegram bot is a thin shell over the UI unit.** The bot's
+   `BOT_COMMAND_SPECS` only attaches existing UI helpers to commands
+   and renders their output. The bot must NOT:
+   - Open `trade_journal.db` or read `signal_audit.jsonl` directly.
+   - Call `data_loaders` / `coord` for business logic (`coord` is for
+     ad-hoc admin commands like `/halt`; everything that produces a
+     view goes through `src/ui/`).
+   - Make raw HTTP calls to exchanges.
+   - Implement filtering, aggregation, or formatting that belongs in
+     the UI unit.
+   New commands add a UI helper first, then a one-line handler that
+   calls it.
+
+6. **Live by default + tell-me-if-not.** The system defaults to live
+   trading — see § *Autonomous live-trading rule* above. The
+   `liveness_watchdog` (S-029 PR3) pings the operator within 1 hour
+   when actionable signals fire but no trades land. Silent failure is
+   forbidden — every refusal path on the order route emits a
+   diagnostic ping via `runtime_logs/pending_pings/`
+   (`src/runtime/execution_diagnostics.py`).
+
+### Enforcement
+
+- **Sprint prompts** must declare which units they touch in the *Unit
+  boundary declaration* section (`docs/claude/sprint-planning.md`).
+- **PR descriptions** must list the unit(s) touched and confirm no new
+  cross-unit imports outside `src/core/coordinator.py`.
+- **The Live-mode invariant check** (above) already pings the operator
+  when `src/runtime/orders.py`, `src/runtime/pipeline.py`,
+  `src/runtime/trading_mode.py`, or `src/units/accounts/*` is touched.
+
+If a fix requires temporarily breaking a rule, file a ping-PR explaining
+why and stop until the operator approves.
+
 ## Bug log (MANDATORY)
 
 Whenever a bug is identified and fixed, append a row to
