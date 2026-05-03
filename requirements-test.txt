@@ -16,6 +16,7 @@
 # Test runner (pulled in by uv tool venv on most dev machines, but
 # the lean sandbox needs an explicit user-site install).
 pytest>=8.0
+pytest-asyncio>=0.23.0
 
 # Used by sprint015 backtest harness + the existing test suite.
 # Floor pins match production requirements.txt to avoid drift.
@@ -31,9 +32,39 @@ httpx>=0.27.0
 jinja2>=3.0.0
 pyjwt>=2.8.0
 
+# pyyaml is a production runtime dep (requirements.txt) but also
+# needed at test-collection time — many test modules import yaml
+# directly without a try/except guard. Listed here so the
+# single-command install covers it for lean sandbox sessions.
+pyyaml>=6.0
+
+# ccxt is a production runtime dep but not in the default sandbox;
+# coordinator and exchange-integration tests import it at the top level.
+ccxt>=4.0.0
+
 # Optional intraday source adapters (data_sources.py).
 yfinance>=0.2.0
 
 # python-telegram-bot is stubbed by tests/conftest.py; install it only
 # if you want to exercise the real handlers (rare).
 # python-telegram-bot>=20.0
+
+# =============================================================================
+# Known collection errors NOT fixed by adding deps (as of 2026-05-03):
+#
+# 1. "No module named 'fastapi.testclient'" / "No module named
+#    'telegram.error'" — test-isolation bug: some test files stub
+#    `fastapi` / `telegram` as MagicMock via sys.modules.setdefault()
+#    at module scope; pytest's collection order causes the stub to win
+#    before tests that need the real package, making submodule lookups
+#    fail with "X is not a package". Fix: convert the stubs to
+#    pytest fixtures or conftest session-level patches so they only
+#    apply within the test that needs them.  Not a missing dep.
+#
+# 2. "pyo3_runtime.PanicException: Python API call failed" on jwt /
+#    cryptography — the system-installed jwt/cryptography package has a
+#    broken Rust (pyo3 0.20.2) binding in this sandbox. Installing
+#    pyjwt from pip over the system package resolves it if a writable
+#    site-packages is available; otherwise this is an environment-level
+#    issue outside requirements pinning.
+# =============================================================================
