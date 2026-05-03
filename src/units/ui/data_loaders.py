@@ -977,3 +977,93 @@ def recent_trades_for(account: Dict[str, Any], n: int = 5) -> List[Dict[str, Any
     except Exception as exc:  # noqa: BLE001
         logger.warning("recent_trades_for(%s): %s", account.get("account_id"), exc)
         return []
+
+
+# ---------------------------------------------------------------------------
+# /packages — rejection rows + open-but-undispatched order packages.
+# ---------------------------------------------------------------------------
+#
+# Inverse of the rejection-row filters listed in CP-2026-05-03-14. The
+# operator's ``/last5`` / hourly summaries / liveness watchdog all
+# *exclude* rejection rows so the success-path numbers stay clean;
+# ``/packages`` is the dedicated surface that *includes* them so the
+# operator can see "why isn't VWAP placing trades?" without an SSH +
+# direct DB query.
+
+REFUSAL_STATUSES = ("rejected", "exchange_rejected")
+
+
+def recent_rejections(n: int = 10) -> List[Dict[str, Any]]:
+    """Last ``n`` rejection rows from ``trade_journal.db::trades``.
+
+    Includes BOTH ``status='rejected'`` (RiskManager refusals —
+    ``account_mode_dry_run``, ``DAILY_LOSS_CAP``, ``POSITION_SIZE_CAP``,
+    ``INTRADAY_DRAWDOWN``) AND ``status='exchange_rejected'`` (Bybit
+    retCode != 0, DXtrade ``NotImplementedError``,
+    ``MissingCredentialsError``, ``RuntimeError("Account is paused …")``).
+
+    Newest first. Returns ``[]`` on any error.
+    """
+    if not os.path.exists(TRADE_JOURNAL_DB):
+        return []
+    try:
+        n = max(1, int(n))
+    except (TypeError, ValueError):
+        n = 10
+    try:
+        conn = sqlite3.connect(TRADE_JOURNAL_DB)
+        try:
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute(
+                "SELECT id, timestamp, symbol, direction, entry_price,"
+                " stop_loss, take_profit_1, position_size, setup_type,"
+                " entry_reason, status, notes, strategy_name, account_id,"
+                " created_at FROM trades"
+                " WHERE status IN ('rejected', 'exchange_rejected')"
+                " ORDER BY datetime(created_at) DESC, id DESC LIMIT ?",
+                (n,),
+            ).fetchall()
+        finally:
+            conn.close()
+        return [dict(r) for r in rows]
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("recent_rejections(%d): %s", n, exc)
+        return []
+
+
+def open_order_packages(n: int = 10) -> List[Dict[str, Any]]:
+    """Last ``n`` order packages with ``status='open'`` and no linked trade.
+
+    These are signals the strategy emitted whose dispatch never landed
+    a trade row — typically because every routed account refused (see
+    ``recent_rejections`` for the matching refusal rows). Newest by
+    ``updated_at`` first.
+
+    Returns ``[]`` on any error.
+    """
+    if not os.path.exists(TRADE_JOURNAL_DB):
+        return []
+    try:
+        n = max(1, int(n))
+    except (TypeError, ValueError):
+        n = 10
+    try:
+        conn = sqlite3.connect(TRADE_JOURNAL_DB)
+        try:
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute(
+                "SELECT order_package_id, strategy_name, symbol, direction,"
+                " entry, sl, tp, confidence, status, linked_trade_id,"
+                " close_reason, created_at, updated_at"
+                " FROM order_packages"
+                " WHERE status = 'open' AND linked_trade_id IS NULL"
+                " ORDER BY datetime(updated_at) DESC,"
+                " datetime(created_at) DESC LIMIT ?",
+                (n,),
+            ).fetchall()
+        finally:
+            conn.close()
+        return [dict(r) for r in rows]
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("open_order_packages(%d): %s", n, exc)
+        return []
