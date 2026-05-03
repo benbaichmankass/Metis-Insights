@@ -5,6 +5,56 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-03-04 — Velotrade phase-2 sprint COMPLETE / WRAPPED — summary + DXtrade contract template
+
+- **Session date:** 2026-05-03
+- **Sprint:** Velotrade integration — **COMPLETE.** Three work-PRs (#336 + #337 + #338) merged plus this docs-only summary PR. Sprint Completion Checklist run per CLAUDE.md.
+- **Current sprint phase:** **WRAPPED.** All planned deliverables shipped: phase-1 scaffold (PR #336, prior session), phase-2a SDK shape + not-configured state (PR #337), phase-2b persistence + UI (PR #338). Velotrade onboarding is fully wired except for the four DXtrade SDK method bodies — single-file change once the operator drops the contract.
+- **Last completed checkpoint:** CP-2026-05-03-03 (phase-2b merged as PR #338 via squash-merge `b45896f`).
+- **Next checkpoint:** **CP-2026-05-?-?? — DXtrade SDK contract drop.** When the operator fills in `docs/integrations/dxtrade-contract-template.md` (this PR adds the structured drop zone), open a follow-up PR that fills in the four `NotImplementedError` method bodies in `src/units/accounts/dxtrade_client.py` (`place`, `cancel`, `status`, `balance`). Use the bybit branch in `src/units/accounts/execute.py::_submit_order` as the reference pattern. Then run the live smoke test on sandbox per § 6 of the original phase-2 prompt.
+- **Telegram sent:** rides on the merge of this docs-only summary PR (sprint-end ping fires off `WRAPPED` in the title per CLAUDE.md § Telegram Reporting).
+- **Alerts sent during session:** none.
+- **Blockers:** none.
+
+### 1. Completed
+- **Sprint Completion Checklist** (CLAUDE.md):
+  1. Full tests run on phase-2b: `pytest -q` against the accounts/coordinator/UI regression sweep → **300 passed**.
+  2. `python scripts/secret_scan.py` → clean.
+  3. New sprint summary at `docs/sprint-summaries/sprint-velotrade-phase2-summary.md` containing PR list, deliverables matrix, highlights, live-mode + architecture compliance per PR, lessons learned, and 1–2 proposed CLAUDE.md improvements for the next sprint.
+  4. Self-merge this docs-only PR (no code risk; Tier 1).
+  5. Two CLAUDE.md improvements proposed in the summary's § "Proposed CLAUDE.md improvements".
+  6. (Telegram `/sprintlet_complete S-velotrade-phase2` rides on the WRAPPED commit.)
+  7. This checkpoint entry is the final entry — appended on top per the template.
+- **DXtrade contract template** (`docs/integrations/dxtrade-contract-template.md`): structured drop zone for the operator to fill in once Velotrade provides the API spec. Covers endpoints, auth, request/response schemas, error codes, min-lot, rate limits, sandbox vs prod, connection lifecycle, open questions, and the implementation checklist for the SDK-drop session. Eliminates the "where do I put the contract?" ambiguity.
+
+### 2. Files changed (this PR — docs only)
+- **New:**
+  - `docs/sprint-summaries/sprint-velotrade-phase2-summary.md` — sprint summary.
+  - `docs/integrations/dxtrade-contract-template.md` — contract drop zone.
+- **Modified:**
+  - `docs/claude/checkpoints/CHECKPOINT_LOG.md` — this CP entry.
+
+### 3. Tests run
+- No code changed in this PR. All previous test sweeps remain authoritative — see CP-2026-05-03-02 + CP-2026-05-03-03 for the per-PR test matrices.
+- `python scripts/secret_scan.py` → clean.
+- `python scripts/check_dry_run_in_diff.py` → clean.
+
+### 4. Live-mode check
+- `scripts/check_dry_run_in_diff.py` → clean.
+- Docs-only diff. Zero code change. Self-merging per CLAUDE.md § Merging Rules (only Tier-2 categories — secrets, `src/runtime/orders.py`, `deploy/` — block self-merge for docs).
+
+### 5. Architecture rules check
+- Docs-only. No unit boundary touched.
+
+### 6. Remaining
+- **DXtrade SDK contract drop** — see template + summary for the structured handoff.
+- **Live smoke test** — runs once SDK methods land + sandbox creds provisioned.
+
+### 7. Next checkpoint
+**CP-2026-05-?-?? — DXtrade SDK contract drop.** Read in order: this entry, `docs/sprint-summaries/sprint-velotrade-phase2-summary.md`, `docs/integrations/dxtrade-contract-template.md` (with operator-filled values), `src/units/accounts/dxtrade_client.py`, the bybit branch in `src/units/accounts/execute.py::_submit_order`.
+
+---
+
 ## CP-2026-05-03-03 — Velotrade phase-2b — prop_state.json persistence + /accounts_status prop fields
 
 - **Session date:** 2026-05-03
