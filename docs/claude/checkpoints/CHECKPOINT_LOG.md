@@ -5,6 +5,232 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-03-18 — operator P0 reprioritization: BUG-043 confidence=0 is a live-trading blocker (supersedes CP-17 § 7)
+
+- **Session date:** 2026-05-03 (same long session, post-CP-17)
+- **Sprint:** claude/fix-trading-validation-kGwLc — same sprint;
+  this CP only re-orders the hand-off prompt that CP-17 § 7
+  shipped.
+- **Current sprint phase:** WRAP. No new code in this CP — pure
+  hand-off prompt reorganization driven by operator P0 callout.
+- **Last completed checkpoint:** CP-2026-05-03-17.
+- **Next checkpoint:** **CP-2026-05-?-?? — BUG-043 confidence=0
+  root-cause + fix.** Must come before any other deferred item
+  per the operator's call.
+- **Telegram sent:** rides on the merge of this checkpoint commit.
+- **Alerts sent during session:** none.
+- **Blockers:** none.
+
+### 1. Why this CP exists
+
+CP-17 § 7 ordered the hand-off prompt as:
+
+  1. Operator runs cleanup notebook
+  2. Append BUG-041 to bug-log
+  3. **BUG-043 (confidence=0) — diagnose** ← buried at #3
+  4. Cosmetic Pipeline-result body fix
+  5. Scope BUG-042 monitor-loop write-back gap
+
+Operator immediate callout (verbatim):
+
+> "If order package is coming in with a zero confidence score,
+>  that's a huge issue because that means that it's effectively
+>  blocking live trading because the risk traders should never
+>  take a trade that has zero confidence. So we need to figure
+>  out if that's because, for some reason, the strategy is
+>  generating trades like that or if it's creating them correctly
+>  and they're being logged incorrectly for some reason, which
+>  seems like a smaller issue. But either way, it's effectively
+>  blocking live trading, so that has to be an immediate fix for
+>  the next session to start right now. And everything else can
+>  be a part two if we get to what we get to and if not, not.
+>  So reorganize the problem based around that very high critical
+>  failure priority."
+
+### 2. Reframed severity
+
+The 0-confidence pattern is not a cosmetic display bug — it is a
+**latent live-trading blocker**, even when no current
+RiskManager gate enforces a confidence floor:
+
+- Every order package the operator inspected via ``/packages`` and
+  every ghost trade visible via ``/last5`` carried
+  ``confidence: 0.0``. If the operator (correctly) decides to add
+  a confidence floor to ``RiskManager.evaluate()``, **every
+  signal will be rejected** because all packages currently log as
+  zero. Adding the floor is the right risk-management posture; it
+  shouldn't break trading.
+- Even without an explicit floor, downstream consumers
+  (``/latest_backtest`` delta tracking, hourly summary attribution,
+  any future ML scoring) will treat all live signals as having
+  zero conviction, which is wrong by construction (VWAP's formula
+  ``confidence = min(deviation / ENTRY_STD_THRESHOLD, 1.0)`` yields
+  exactly 1.0 at the entry boundary and >1.0 capped at 1.0 above).
+- The 0.0 on every row also obscures the CP-17 §6c diagnosis: if
+  the journal is silently zeroing the field, it could be silently
+  zeroing other fields too, and the operator has no way to know
+  what they're losing.
+
+Fix priority: **P0**. The CP-17 § 7 prompt is hereby superseded by
+the prompt in § 3 below.
+
+### 3. Reorganized hand-off prompt (paste verbatim into the new session)
+
+```
+Resume sprint claude/fix-trading-validation-kGwLc from CP-2026-05-03-18.
+
+Read CP-2026-05-03-18 + CP-2026-05-03-17 in
+docs/claude/checkpoints/CHECKPOINT_LOG.md for context. Short version:
+the previous session merged 11 PRs (rogue interpreter killed, /packages
++ /latest_backtest shipped, /last5 unbreakable, ghost-trade backfill
+notebook landed). Operator then flagged that EVERY order package
+shows confidence: 0.0 in the journal — that's a live-trading
+blocker because adding the (correct) RiskManager confidence floor
+would reject every signal. CP-17's hand-off prompt was reordered
+to put this at P0.
+
+================================================================
+P0 — BUG-043: order packages logging with confidence=0.0
+================================================================
+
+This is the critical failure. Start here and DO NOT move past it
+until it's fixed and verified on the live VM. Every other item is
+P1+ and only happens if there's time after the operator confirms
+the fix.
+
+Investigation order (each step gates the next):
+
+1. Read src/units/strategies/vwap.py::order_package(). Confirm
+   the formula `confidence = min(deviation / ENTRY_STD_THRESHOLD, 1.0)`
+   produces a non-zero value for an actionable signal (deviation
+   is by definition >= ENTRY_STD_THRESHOLD = 2.0, so confidence
+   should be exactly 1.0 at the boundary — possibly higher if the
+   .min cap isn't applied; either way >0).
+
+2. Read src/core/coordinator.py::_log_new_order_package. The
+   strategy's confidence field must be threaded through to the
+   order_packages row. Verify:
+   - The package dict passed in has `confidence` populated.
+   - The Database.insert_order_package call passes it through to
+     the SQL INSERT.
+   - SQLite's row.confidence reads back the same value.
+
+3. Read src/units/db/database.py::insert_order_package. Confirm
+   `confidence` is in the column list and not silently dropped or
+   defaulted.
+
+4. Read src/units/accounts/execute.py::_log_trade_to_journal.
+   This writes to the trades table (different from
+   order_packages). The trades.notes JSON gets a `confidence`
+   key — same investigation: is it threaded through?
+
+5. Find the bug. It will be in ONE of these layers:
+   (a) Strategy bug — vwap.py somehow returns 0 (unlikely given
+       the formula, but verify).
+   (b) Coordinator bug — package dict has confidence but the
+       Database call drops it.
+   (c) Database bug — SQL INSERT defaults the column to 0 even
+       when a non-zero value is provided.
+   (d) Notes-JSON bug — _log_trade_to_journal writes a constant
+       0.0 instead of the package's value.
+
+6. Ship a SMALL targeted PR fixing the one layer that's broken.
+   Add a regression test that pins the contract end-to-end (a
+   real OrderPackage with confidence=0.85 → insert via the
+   production path → SELECT shows 0.85).
+
+7. Append BUG-043 to docs/claude/bug-log.md. Cross-reference
+   PR #360 (/packages, where the symptom first surfaced),
+   PR #367 (orphaned-status backfill, where the same 0.0 pattern
+   was visible on every ghost trade), and CP-17 § 6d.
+
+8. Operator-verify: ask the operator to re-run /packages on the
+   live VM and confirm the next NEW package (post-fix) shows a
+   non-zero confidence value. Without this confirmation, the
+   sprint isn't done.
+
+DO NOT add a RiskManager confidence floor in this PR. That's a
+separate Tier-2 sprint (touches src/units/accounts/risk.py and
+behavioural change to live trading) and needs its own operator
+ping. The fix here is ONLY: stop logging zero where there's a
+real value.
+
+Live-mode check for the BUG-043 fix:
+- If the fix is in the strategy / coordinator / DB unit, no
+  src/runtime/orders.py or src/units/accounts/execute.py touch
+  is needed → Tier 1, self-merge after CI.
+- If the fix is in src/units/accounts/execute.py (notes JSON
+  path) → Tier 2 surface; ping the operator before merging the
+  work-PR.
+
+================================================================
+P1+ — only after P0 is shipped + operator-verified
+================================================================
+
+P1. Confirm operator ran the cleanup notebook
+    (notebooks/operator/cleanup_ghost_trades.ipynb). Use the
+    "✅ UPDATE complete. N row(s) changed" output count for
+    BUG-041 below. If they haven't, prompt them; do not start P2.
+
+P2. Append BUG-041 to docs/claude/bug-log.md — pre-#357
+    ghost-trade row pattern. Cross-reference PR #357 (prevention),
+    PR #367 (backfill mechanism), CP-17 § 6b, and CP-18 §3 P0
+    (because BUG-041 was diagnosed via the same /packages output
+    that surfaced BUG-043).
+
+P3. Cosmetic — gate the "Order package — not generated" body on
+    side ∈ {'buy', 'sell'} so it doesn't fire on no-signal ticks.
+    ~5 lines + 1 test in
+    tests/test_processor_signals_trades_collapsable.py.
+
+P4. Scope (do NOT implement) BUG-042 — monitor-loop write-back
+    gap. Read src/runtime/order_monitor.py end-to-end. Identify
+    the seam where exchange-vs-DB reconciliation should land.
+    Write a one-page plan in ~/.claude/plans/ and stop —
+    operator approval needed before shipping a sprint that
+    touches Tier 2 surfaces under CLAUDE.md § Live-mode
+    invariant.
+
+================================================================
+Side checks each session per CLAUDE.md
+================================================================
+
+- Run scripts/secret_scan.py + scripts/check_dry_run_in_diff.py
+  on every PR.
+- Live-mode check: ✅ no code under src/runtime/orders.py,
+  src/units/accounts/execute.py (Tier 2), src/units/accounts/risk.py
+  (Tier 2), or config/accounts.yaml unless explicitly scoped +
+  operator-pinged.
+- Append a closing checkpoint at session end. The Telegram ping
+  fires off the checkpoint commit.
+- DO NOT bundle BUG-043 + BUG-042 + cosmetic in one PR — small
+  PRs, one concern each.
+```
+
+### 4. What's NOT changed by this CP
+
+- The 11 merged PRs from this session stand.
+- The cleanup notebook is still ready for the operator to run.
+- The BUG-040 entry in `docs/claude/bug-log.md` stands.
+- Live-mode posture unchanged: ✅ no src/runtime/orders.py,
+  src/units/accounts/, or config/accounts.yaml touched in this
+  CP. Pure docs reorganization.
+
+### 5. Files changed (this CP)
+
+- ``docs/claude/checkpoints/CHECKPOINT_LOG.md`` — this entry.
+
+### 6. Tests run
+
+None — docs-only change.
+
+### 7. Live-mode check
+
+- ✅ No code touched.
+- ✅ ``scripts/check_dry_run_in_diff.py`` clean (docs diff only).
+
+---
+
 ## CP-2026-05-03-17 — session WRAP / SPRINTLET-COMPLETE (rogue→/packages→/last5→cleanup, 9 PRs)
 
 - **Session date:** 2026-05-03 (single long session — multiple
