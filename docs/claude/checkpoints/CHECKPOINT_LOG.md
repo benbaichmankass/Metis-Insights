@@ -5,6 +5,66 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-03-03 — Velotrade phase-2b — prop_state.json persistence + /accounts_status prop fields
+
+- **Session date:** 2026-05-03
+- **Sprint:** Velotrade integration phase-2b — persistence + UI follow-ups to phase-2a (PR #337, merged this session).
+- **Current sprint phase:** **COMPLETE.** Both deferred items from CP-2026-05-03-02 ship. Velotrade onboarding is fully wired except for the four DXtrade SDK method bodies (still `NotImplementedError("contract pending")` until the operator drops the API contract — single-file change once it lands).
+- **Last completed checkpoint:** CP-2026-05-03-02 (phase-2a merged as PR #337 via squash-merge `9865cca`).
+- **Next checkpoint:** **CP-2026-05-?-?? — Velotrade SDK contract drop.** When the operator provides the DXtrade API contract document (endpoints, auth, place/cancel/status/balance schemas, error codes, sandbox URLs), fill in the four `NotImplementedError` method bodies in `src/units/accounts/dxtrade_client.py` and run the live smoke test from § 6 of the original phase-2 prompt.
+- **Telegram sent:** rides on the merge of work-PR (this session ships as Tier-2 per Live-mode invariant rule 3 — touches `src/units/accounts/*`).
+- **Alerts sent during session:** none.
+- **Blockers:** none.
+
+### 1. Completed
+- **Persistence (T3).** New `src/units/accounts/prop_state_io.py` (`load_prop_state`, `write_prop_state`, `get_prop_state_path`, `set_prop_state_path`) does atomic JSON read/write of per-account counters under `runtime_state/prop_state.json`. Path is overrideable via `PROP_STATE_PATH` env var or `set_prop_state_path()` for tests.
+- **PropRiskManager wired through.** Constructor accepts `account_name=…` and seeds counters from JSON when present, falling back to the YAML `prop_state:` block. `record_trade_result` writes the updated counters back atomically. Best-effort with a defensive outer try/except so a write failure can never escape into the order path.
+- **Loader integration.** `load_accounts()` passes `account_name=name` into `PropRiskManager(...)` so each prop manager reads/writes its own JSON section. Generic mechanism — every prop account gets persistence for free.
+- **`/accounts_status` prop fields (T4).** Extracted the per-account block formatter into `src/units/ui/processor.py::format_account_status_block(status)` (CLAUDE.md rule 5 — bot is a thin shell). The renderer adds two new lines for prop accounts: phase + mission-complete flag (🏁 / 🛤️), and "Mission PnL: +X.XX% / target Y.YY% | Active days: N/M". Adds the "⚙️ Not configured: <reason>" line for any account whose `configured=False`.
+- **Bot refactor.** `cmd_accounts_status` now imports `format_account_status_block` and loops; the inline formatting code (and the inline `_h` helper) moved into the processor. ~70 lines of bot logic → 4 lines.
+- **Docs.** `docs/claude/prop-account-state.md` § "State persistence" rewritten to document the JSON-wins-over-YAML contract + reset workflow.
+- **Gitignore.** Added `runtime_state/` so the JSON file (per-account counters) never lands in git.
+- **Tests.** New `tests/test_prop_state_persistence.py` (18 tests) covers IO round-trip, per-account isolation, corrupt-file recovery, env var path resolution, JSON-overrides-YAML seed, partial JSON merge, write-failure isolation, restart-resumes-state, and full loader round-trip. New `tests/test_accounts_status_block_renderer.py` (18 tests) covers regular / not-configured / prop blocks, mission-complete icons, ordering invariants, and HTML escaping.
+
+### 2. Files changed
+- **New:**
+  - `src/units/accounts/prop_state_io.py` — atomic JSON read/write helpers.
+  - `tests/test_prop_state_persistence.py` — 18 persistence tests.
+  - `tests/test_accounts_status_block_renderer.py` — 18 renderer tests.
+- **Modified:**
+  - `src/units/accounts/prop_risk.py` — `account_name` param + JSON seeding + `_persist_state` write-through.
+  - `src/units/accounts/__init__.py` — pass `account_name=name` to `PropRiskManager`.
+  - `src/units/ui/processor.py` — `format_account_status_block(status)` helper + `_h()` HTML escape.
+  - `src/bot/telegram_query_bot.py` — `cmd_accounts_status` delegates to processor; ~70 lines removed.
+  - `docs/claude/prop-account-state.md` — phase-2b persistence section.
+  - `.gitignore` — `runtime_state/` ignored.
+
+### 3. Tests run
+- `PYTHONPATH=. python -m pytest tests/test_accounts_status_block_renderer.py tests/test_prop_state_persistence.py tests/test_velotrade_infrastructure.py tests/test_prop_risk_manager.py tests/test_s010_accounts.py tests/test_s008_accounts.py tests/test_unit_config.py tests/test_render_env_from_master.py tests/test_account_diagnostics.py tests/test_accounts_clients.py tests/test_accounts_integration.py tests/test_account_id_column.py tests/test_s029_pr2_trade_journal_write.py -q` → **300 passed**.
+- `python scripts/secret_scan.py` → clean.
+- `python scripts/check_dry_run_in_diff.py` → clean.
+
+### 4. Live-mode check
+- `scripts/check_dry_run_in_diff.py` → clean.
+- `config/accounts.yaml` not touched. `bybit_1` / `bybit_2` unchanged. `prop_velotrade_1` ships from phase-2a as not-configured + empty strategies.
+- This PR touches `src/units/accounts/*` (Live-mode invariant rule 3 list) → **Tier 2 PM REVIEW** despite green CI. Persistence + UI surface only — no changes to order routing, risk gates, or live placement. The order path is unaffected: persistence writes happen on `record_trade_result` *after* the trade has already executed.
+
+### 5. Architecture rules check
+- **Unit boundary.** Touches `src/units/accounts/*` (persistence) + `src/units/ui/processor.py` (renderer) + `src/bot/telegram_query_bot.py` (thin-shell delegation). No new cross-unit imports outside `src.core.coordinator`. The bot import of `format_account_status_block` is bot → UI processor — the canonical Rule-5 dependency direction.
+- **Strategies untouched.**
+- `execute_pkg` remains the single canonical live-order entry point.
+- **DB unit untouched.** Per the unit-boundary declaration in the original phase-2 sprint plan, prop-state lives in `runtime_state/`, not the DB unit (it's per-account ephemeral, not log-shaped).
+- **Bot is a thin shell.** Removed ~70 lines of inline rendering.
+
+### 6. Remaining
+- **DXtrade SDK contract drop.** The four `NotImplementedError` method bodies in `dxtrade_client.py` need filling once the operator provides the contract. Single-file change.
+- **Live smoke test.** Per § 6 of the original phase-2 prompt: enable `prop_velotrade_1`, route a `pkg.meta['is_test']=True` order with qty below DXtrade min-lot, expect rejection. Requires the SDK methods + sandbox creds.
+
+### 7. Next checkpoint
+**CP-2026-05-?-?? — Velotrade SDK contract drop.** Read in order: this entry, the operator's contract document (when dropped), `src/units/accounts/dxtrade_client.py`, the bybit branch in `src/units/accounts/execute.py::_submit_order` as the reference implementation pattern.
+
+---
+
 ## CP-2026-05-03-02 — Velotrade phase-2 — DXtrade integration infrastructure + "not fully configured" account state
 
 - **Session date:** 2026-05-03

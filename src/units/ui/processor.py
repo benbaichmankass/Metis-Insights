@@ -128,6 +128,112 @@ def get_account_balances() -> List[Dict[str, Any]]:
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# /accounts_status block formatter (Velotrade phase-2b)
+# ---------------------------------------------------------------------------
+
+
+def _h(value: object) -> str:
+    """HTML-escape *value* for Telegram parse_mode='HTML'."""
+    text = "" if value is None else str(value)
+    return (
+        text.replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+    )
+
+
+def format_account_status_block(status: Dict[str, Any]) -> str:
+    """Render one account's `/accounts_status` block as HTML.
+
+    Pulls the per-account dict produced by
+    ``Coordinator.accounts_status`` (which in turn drains
+    ``TradingAccount.status()`` + ``PropRiskManager.report()``) into
+    the operator-facing block. Centralising this in the processor
+    means the bot stays a thin shell (CLAUDE.md architecture rule 5)
+    and the same renderer is unit-testable without importing the bot.
+
+    Velotrade phase-2 / 2b additions:
+
+    - **Configured / not-configured.** When ``status['configured']``
+      is ``False``, a "⚙️ Not configured: <reason>" line shows the
+      missing env var so the operator sees instantly which account is
+      inert.
+    - **Prop fields.** Prop accounts render an extra two-line block
+      with the phase (evaluation / funded), mission progress
+      (``cumulative_pnl_pct`` vs ``target_profit_pct``), active-day
+      count, and the mission-complete flag.
+
+    Returns
+    -------
+    str
+        HTML block (no surrounding header). Caller joins blocks
+        with ``"\\n\\n"`` and prepends the page header.
+    """
+    halted_icon = "🔴" if status.get("halted") else "🟢"
+    pnl = float(status.get("daily_pnl", 0))
+    limit = float(status.get("max_daily_loss_usd", 0))
+    pos_size = float(status.get("max_pos_size_usd", 0))
+    open_pos = status.get("open_positions", 0)
+    bal = status.get("live_balance_usdt")
+    bal_err = status.get("live_balance_error")
+    strategies = status.get("strategies") or []
+    strat_line = (
+        f"  🎯 Strategy: {_h(', '.join(strategies))}\n"
+        if strategies else
+        "  🎯 Strategy: <i>(none assigned)</i>\n"
+    )
+    key_fp = status.get("api_key_fingerprint") or "—"
+    fp_line = f"  🔑 Key: …{_h(key_fp)}\n"
+
+    # Velotrade phase-2: not-configured surface.
+    cfg_line = ""
+    if status.get("configured") is False:
+        reason = status.get("configured_reason") or "credentials not set"
+        cfg_line = f"  ⚙️ Not configured: {_h(reason)}\n"
+
+    if bal_err:
+        api_line = f"  🔌 API: ❌ {_h(bal_err)}"
+    elif bal is not None:
+        api_line = f"  🔌 API: ✅ Balance ${float(bal):,.2f} USDT"
+    else:
+        api_line = "  🔌 API: ⚠️ no balance returned"
+
+    # Velotrade phase-2b: prop fields. Only shown when the dict
+    # actually carries them (PropRiskManager.report() supplies them
+    # for prop accounts).
+    prop_lines = ""
+    if status.get("account_type") == "prop" and "account_state" in status:
+        state = status.get("account_state") or "?"
+        cumul = float(status.get("cumulative_pnl_pct") or 0.0)
+        target = float(status.get("target_profit_pct") or 0.0)
+        days = int(status.get("active_days") or 0)
+        min_days = int(status.get("min_active_days") or 0)
+        mission = bool(status.get("mission_complete"))
+        mission_icon = "🏁" if mission else "🛤️"
+        prop_lines = (
+            f"  🏷️ Phase: <code>{_h(state)}</code>"
+            f" {mission_icon} mission_complete="
+            f"{'✅' if mission else '⏳'}\n"
+            f"  📈 Mission PnL: {cumul * 100:+.2f}%"
+            f" / target {target * 100:.2f}%"
+            f" | Active days: {days}/{min_days}\n"
+        )
+
+    return (
+        f"{halted_icon} <b>{_h(status['name'])}</b> "
+        f"(<code>{_h(status.get('exchange', '?'))}</code> / "
+        f"{_h(status.get('account_type', '?'))})\n"
+        f"{strat_line}"
+        f"{fp_line}"
+        f"{cfg_line}"
+        f"{prop_lines}"
+        f"{api_line}\n"
+        f"  💵 Daily PnL: ${pnl:+.2f} / limit ${limit:.0f}\n"
+        f"  📦 Max pos: ${pos_size:.0f} | Open: {open_pos}"
+    )
+
+
 def get_recent_signals(
     limit: int = 10,
     strategy: Optional[str] = None,

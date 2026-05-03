@@ -65,7 +65,10 @@ def load_accounts(config_path: str = _DEFAULT_ACCOUNTS_YAML) -> "List":
         # RiskManager — keeps the live Bybit path bit-identical.
         account_type = cfg.get("type", "regular")
         if account_type == "prop":
-            rm = PropRiskManager(cfg)
+            # Pass account_name so PropRiskManager can read its own
+            # section from runtime_state/prop_state.json on init and
+            # write back on each record_trade_result.
+            rm = PropRiskManager(cfg, account_name=name)
         else:
             rm = RiskManager(cfg.get("risk") or {})
         # Forward-compat: skip accounts explicitly disabled in YAML.

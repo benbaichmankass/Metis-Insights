@@ -70,18 +70,35 @@ class PropRiskManager(RiskManager):
         False to allow Sat/Sun trading on a 24/7 prop product.
     """
 
-    def __init__(self, config: Dict[str, Any]) -> None:
+    def __init__(
+        self,
+        config: Dict[str, Any],
+        *,
+        account_name: Optional[str] = None,
+    ) -> None:
         super().__init__(config.get("risk") or config)
+        self.account_name: Optional[str] = account_name
         self.account_state: str = str(config.get("account_state") or "evaluation").lower()
         phase = config.get("phase_requirements") or {}
         self.target_profit_pct: float = float(phase.get("target_profit_pct", 0.05))
         self.min_active_days: int = int(phase.get("min_active_days", 4))
         self.min_daily_profit_pct: float = float(phase.get("min_daily_profit_pct", 0.0))
 
-        prop_state = config.get("prop_state") or {}
-        self.cumulative_pnl_pct: float = float(prop_state.get("cumulative_pnl_pct") or 0.0)
-        self.active_days: int = int(prop_state.get("active_days") or 0)
-        self._entry_date_iso: Optional[str] = prop_state.get("entry_date") or None
+        # Velotrade phase-2b: persistent prop-state. The JSON file is
+        # the live source of truth — it overrides the YAML seed when
+        # present so a trader restart preserves mission progress.
+        # YAML stays as the fallback seed for fresh installs / phase
+        # resets. Counters update on every record_trade_result and
+        # write through atomically.
+        seed: Dict[str, Any] = dict(config.get("prop_state") or {})
+        if account_name:
+            from src.units.accounts.prop_state_io import load_prop_state
+            persisted = load_prop_state(account_name)
+            if persisted is not None:
+                seed.update(persisted)  # JSON wins; YAML keys survive only when JSON lacks them
+        self.cumulative_pnl_pct: float = float(seed.get("cumulative_pnl_pct") or 0.0)
+        self.active_days: int = int(seed.get("active_days") or 0)
+        self._entry_date_iso: Optional[str] = seed.get("entry_date") or None
 
         # Default to False so legacy prop fixtures (test_coordinator_flow,
         # test_s010_accounts) that pre-date the Velotrade integration
@@ -194,6 +211,11 @@ class PropRiskManager(RiskManager):
         evaluation phase (used to convert USD pnl → percentage). When
         omitted we fall back to ``self.current_equity`` if seeded, or
         leave the cumulative fraction unchanged if neither is known.
+
+        Velotrade phase-2b: writes the updated counters to
+        ``runtime_state/prop_state.json`` so the next trader restart
+        resumes from the same mission progress. Best-effort — a write
+        failure logs a warning and does NOT raise into the caller.
         """
         super().record_trade_result(pnl_usd)
 
@@ -209,6 +231,36 @@ class PropRiskManager(RiskManager):
         if self._entry_date_iso != today_iso:
             self.active_days += 1
             self._entry_date_iso = today_iso
+
+        self._persist_state()
+
+    def _persist_state(self) -> None:
+        """Write current counters through to ``prop_state.json``.
+
+        Best-effort with a defensive outer try/except: even if
+        ``write_prop_state`` itself raises (e.g. a misbehaving
+        monkeypatch in a test, or an unexpected SDK exception), the
+        in-process counters and the order path stay intact. The
+        next ``record_trade_result`` retries the write.
+        """
+        if not self.account_name:
+            # Tests / legacy fixtures construct the manager without an
+            # account name — skip persistence rather than write to a
+            # nameless slot.
+            return
+        try:
+            from src.units.accounts.prop_state_io import write_prop_state
+            write_prop_state(self.account_name, {
+                "cumulative_pnl_pct": float(self.cumulative_pnl_pct),
+                "active_days": int(self.active_days),
+                "entry_date": self._entry_date_iso,
+            })
+        except Exception:  # noqa: BLE001
+            # Already best-effort inside write_prop_state, but the
+            # outer guard protects against monkeypatched-helper
+            # surprises in tests and any unexpected import-time
+            # failure.
+            pass
 
     # ------------------------------------------------------------------
     # Reporting
