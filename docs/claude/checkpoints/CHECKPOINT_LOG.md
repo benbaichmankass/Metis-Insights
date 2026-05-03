@@ -5,6 +5,174 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-03-16 — /latest_backtest history view with delta indicators (CP-15 §6 follow-through, COMPLETE)
+
+- **Session date:** 2026-05-03
+- **Sprint:** claude/fix-trading-validation-kGwLc (continuation of
+  CP-2026-05-03-15; this checkpoint closes both deferred items
+  from §6 — `/latest_backtest` shipped here, "0 placed" diagnosis
+  is now operator-actionable via `/packages`).
+- **Current sprint phase:** **COMPLETE.** Both items from CP-15 §7
+  are landed. Sprint is ready for hand-off to the operator for
+  the live diagnostic step.
+- **Last completed checkpoint:** CP-2026-05-03-15 (rogue-process
+  sweep + `/packages` command, 3-PR trio).
+- **Next checkpoint:** **CP-2026-05-?-?? — "0 placed" root-cause
+  fix.** Now blocked on a single piece of operator data — the
+  output of `/packages` on the live VM. The most-recent rejection
+  row's reason token uniquely identifies which gate is firing, and
+  the next session can ship the targeted fix in one PR.
+- **Telegram sent:** rides on the merge of this checkpoint commit
+  (VM-side wiring per `docs/claude/telegram-pings.md`).
+- **Alerts sent during session:** none.
+- **Blockers:** none for this checkpoint. The next checkpoint is
+  blocked on operator input (`/packages` output from the live VM).
+
+### 1. Completed
+
+- **PR #362 — `/latest_backtest` history view.** Extended the
+  pre-existing `cmd_latest_backtest` handler with an args path:
+  - `/latest_backtest` (no args) → unchanged. Surfaces the latest
+    `backtest_results` row per `strategy_version` or the
+    `BACKTEST_STATUS` running/failed snapshot.
+  - `/latest_backtest <strategy>` → last 5 rows for that
+    `strategy_version`, newest-first.
+  - `/latest_backtest <strategy> N` → last N rows (1..20).
+  - `/latest_backtest <unknown>` → friendly fallback listing
+    available `strategy_version` names from a new
+    `data_loaders.list_backtest_strategies()` helper.
+- **Delta indicators on the latest run.** Six metrics in the
+  watch-set (`win_rate`, `sharpe_ratio`, `profit_factor`,
+  `expectancy`, `max_drawdown_pct`, `total_pnl`); summary line on
+  row 0 carries `📈<label>` / `📉<label>` per metric vs the prior
+  run. `max_drawdown_pct` is sign-inverted (lower = better) so
+  improving drawdown shows 📈, not 📉.
+- **Defensive numeric helper.** `_compute_backtest_deltas`
+  returns `None` per metric when either side is missing or
+  non-numeric — rendering then skips that metric's tag rather
+  than spamming a misleading arrow.
+
+### 2. Files changed
+
+**Modified (PR #362):**
+- ``src/units/ui/data_loaders.py`` — `backtest_history_for()` +
+  `list_backtest_strategies()`.
+- ``src/units/ui/processor.py`` — `render_backtest_history_collapsable()`
+  + `_compute_backtest_deltas()` + `_BACKTEST_DELTA_METRICS`
+  module constant.
+- ``src/bot/telegram_query_bot.py`` — `cmd_latest_backtest`
+  args-path branch + `BotCommandSpec` description update.
+
+**New:**
+- ``tests/test_latest_backtest_history.py`` — 24 tests across 4
+  classes (TestBacktestHistoryFor, TestListBacktestStrategies,
+  TestRenderBacktestHistory, async cmd_latest_backtest).
+
+**Modified (this checkpoint):**
+- ``docs/claude/checkpoints/CHECKPOINT_LOG.md`` — this entry.
+
+### 3. Tests run
+
+- ``PYTHONPATH=. pytest tests/test_latest_backtest_history.py -q``
+  → **24 passed**.
+- ``PYTHONPATH=. pytest tests/test_packages_command.py
+  tests/test_execute_journal_rejections.py
+  tests/test_latest_backtest_history.py -q`` → **52 passed**
+  (regression-adjacent suites still clean).
+- ``python3 scripts/secret_scan.py`` →
+  ``No obvious tracked-file secrets found``.
+- ``python3 scripts/check_dry_run_in_diff.py`` →
+  ``dry_run_in_diff: clean``.
+- ``ast.parse`` on every modified file → clean.
+
+### 4. Live-mode check
+
+- ✅ No code under ``src/runtime/`` (orders, pipeline, trading_mode).
+- ✅ No code under ``src/units/accounts/`` (risk, execute, clients).
+- ✅ ``config/accounts.yaml`` not touched. ``bybit_1`` + ``bybit_2``
+  remain ``mode: live``; ``prop_velotrade_1`` remains ``mode: dry_run``
+  (DXtrade SDK contract still pending).
+- ✅ ``scripts/check_dry_run_in_diff.py`` clean.
+- New code is read-only diagnostic — SQLite SELECTs + HTML render
+  only. No path can change a live/dry routing decision.
+
+### 5. Architecture rules check
+
+- **Unit boundary declaration.** Touched units:
+  - ``src/units/ui/`` (data_loaders + processor — read-only DB
+    queries + HTML rendering, Rule 5).
+  - ``src/bot/`` (telegram_query_bot — thin-shell handler).
+- **Rule 4 (DB unit owns three logs).** `/latest_backtest` reads
+  ``backtest_results`` only — already in the DB unit's schema.
+  No new raw schema knowledge in `src/bot/`.
+- **Rule 5 (bot is a thin shell).** `cmd_latest_backtest`'s new
+  args path: parse 1–2 args → 1 `data_loaders` call → 1
+  `processor` call → 1 Telegram reply. The no-arg fallback path
+  is unchanged. No DB access in the bot file, no aggregation,
+  no exchange calls.
+- No new cross-unit imports outside `src/core/coordinator.py`.
+
+### 6. Remaining
+
+- **"0 placed / 5 open packages" root-cause fix.** Still open.
+  The diagnosis is now blocked on a single piece of operator data
+  — the output of `/packages` on the live VM. Once the operator
+  shares it:
+  - If the rejection row's reason token is `account_mode_dry_run`,
+    `DAILY_LOSS_CAP`, `INTRADAY_DRAWDOWN`, or `account paused`,
+    the next session writes a targeted config / state fix.
+  - If it's `POSITION_SIZE_CAP` ($500 hard cap on
+    `meta['estimated_value']`), the next session investigates
+    why VWAP signals are sizing into orders whose estimated value
+    exceeds $500 on a $177 balance — likely a sizing-input bug.
+  - If it's a Bybit `retCode != 0`, the rejection row carries the
+    raw retCode + retMsg; the next session classifies it
+    (insufficient balance, symbol not supported, wallet missing
+    base asset, etc.) and writes a targeted client-side fix.
+
+### 7. Next checkpoint
+
+**CP-2026-05-?-?? — "0 placed" root-cause fix.**
+
+The next session should:
+
+1. Read this checkpoint (CP-2026-05-03-16) and CP-2026-05-03-15
+   for full context.
+2. Ask the operator to run `/packages` on the live VM (after the
+   rotate-keys notebook has been run at least once to ensure no
+   rogue process is still polluting the trade journal).
+3. Read the most-recent rejection row's reason token + the
+   matching open package's strategy / symbol / direction.
+4. Map the reason token to one of the candidate root causes (see
+   §6 above) and write the targeted fix.
+5. After the fix lands, confirm via `/packages` that no new
+   rejections appear for actionable signals; the sprint then
+   wraps as `[SPRINTLET-COMPLETE]`.
+
+### Lessons learned (for CLAUDE.md improvement)
+
+- **Two new commands in one session, both diagnostic, both thin
+  shells.** The `/packages` + `/latest_backtest` pattern (read-
+  only, single-DB-table, single-renderer, single-handler-arg-
+  parse) is fast to ship — ~300 LoC + 18-24 tests per command,
+  one PR each. Future "operator can't see X" reports should
+  default to this shape rather than broadening an existing
+  command.
+- **`_compute_backtest_deltas` sign-inversion pattern.** When a
+  metric's "good" direction is opposite the natural arithmetic
+  direction (lower max_drawdown_pct = better), encode the
+  direction in a constant tuple (`("metric", "label", "up|down")`)
+  rather than scattered if/else. Easy to extend; tests can pin
+  each metric independently.
+- **CP-15 lesson confirmed.** "Two Pipeline-result formats in
+  one Telegram session is the smoking gun for a rogue
+  interpreter" — the rotate-keys notebook now sweeps + masks,
+  but the diagnostic pattern (diff message formats, not just
+  `git_drift`) remains the right first step for any future
+  recurrence.
+
+---
+
 ## CP-2026-05-03-15 — rogue-process sweep + /packages bot command (3-PR trio)
 
 - **Session date:** 2026-05-03
