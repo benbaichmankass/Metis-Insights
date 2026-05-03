@@ -5,6 +5,317 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-03-17 — session WRAP / SPRINTLET-COMPLETE (rogue→/packages→/last5→cleanup, 9 PRs)
+
+- **Session date:** 2026-05-03 (single long session — multiple
+  hand-off-eligible breakpoints used, never closed)
+- **Sprint:** claude/fix-trading-validation-kGwLc — operator-driven,
+  started as a diagnosis question and fanned out into a
+  rogue-process kill, two new diagnostic Telegram surfaces, three
+  bug fixes, and a one-shot data migration.
+- **Current sprint phase:** **WRAP / SPRINTLET-COMPLETE.** All
+  in-flight items shipped or explicitly deferred to a fresh
+  session (see § 4 *Remaining* + the hand-off prompt below).
+- **Last completed checkpoint:** CP-2026-05-03-16
+  (/latest_backtest history view, merged via #362; closing CP via #363).
+- **Next checkpoint:** **CP-2026-05-?-?? — monitor-loop write-back
+  gap + cosmetic Pipeline-result body + ghost-trade postmortem
+  (BUG-041/042/043).** Fresh session. The hand-off prompt at the
+  bottom of this checkpoint is self-contained — start a new
+  session and paste it as the first message.
+- **Telegram sent:** rides on the merge of this checkpoint commit
+  (VM-side wiring per `docs/claude/telegram-pings.md`).
+- **Alerts sent during session:** none.
+- **Blockers:** none for shipping this CP. The next session is
+  blocked on a single piece of operator data — the operator
+  running `notebooks/operator/cleanup_ghost_trades.ipynb` once
+  to backfill the 5 known ghost trades, then sharing the
+  `affected count` so the next session can confirm the migration
+  is complete before scoping the proper monitor-loop fix.
+
+### 1. Completed (9 PRs merged; closing this checkpoint = #10)
+
+| # | PR | Title | sha |
+|---|---|---|---|
+| 1 | #358 | rotate-keys notebook sweeps + kills rogue Python processes | `4560b7d` |
+| 2 | #359 | survivors-check polish + auto-mask of disabled non-canonical units | `43013d0` |
+| 3 | #360 | new `/packages` Telegram command (refusals + open packages) + 18 tests | `1b3b709` |
+| 4 | #361 | CP-2026-05-03-15 checkpoint | `d807675` |
+| 5 | #362 | `/latest_backtest` history view with delta indicators + 24 tests | `bccaa9f` |
+| 6 | #363 | CP-2026-05-03-16 closing checkpoint | `6559f7a` |
+| 7 | #364 | `_truncate` keeps HTML balanced — fixes /last5 blockquote rejection (BUG-040) | `8d2bfb5` |
+| 8 | #365 | mask fallback when local unit-file blocks `systemctl mask` | `d0273f6` |
+| 9 | #366 | include `rejected_too_small` in REFUSAL_STATUSES — declutter /last5 | `91fd6bd` |
+| 10 | #367 | `orphaned` status + one-shot ghost-trade cleanup notebook | `990a1a2` |
+
+**Original purpose** (diagnose why `Pipeline result: failed_validation
+| reason=ALLOW_LIVE_TRADING=true is required` kept appearing on
+Telegram even after `main` was at PR #353): **fully resolved.** A
+5-day-old manual `python -m src.main` from a `user.slice` SSH
+session was killed; rogue era ended at ~16:00 UTC. The diagnostic
+surfaces (`/packages`, `/latest_backtest [strategy] [N]`,
+unbreakable `/last5`) now give the operator visibility without
+requiring SSH.
+
+**Live state on the VM (sha `990a1a2`):**
+
+- 0 rogue processes; only canonical systemd-managed units running.
+- 2 stale unit-files (`ict-trader-paper.service`,
+  `ict-vwap-dry-run.service`) renamed to `.disabled-by-claude`
+  (next notebook run will report "Only known ict-* units installed").
+- Bot loaded with the truncate fix + `rejected_too_small` filter +
+  the `orphaned` filter (latter only takes effect after the
+  cleanup notebook is run).
+- 5 known **ghost-trade rows** (status='open' in trade_journal,
+  zero corresponding open positions on Bybit) **NOT YET
+  BACKFILLED** — operator action item via the new notebook (see
+  hand-off prompt § 1).
+
+### 2. Files changed (this CP)
+
+**Modified:**
+- ``docs/claude/checkpoints/CHECKPOINT_LOG.md`` — this entry.
+
+(All code changes for the session were merged via PRs #358–#367
+listed above. This checkpoint is documentation-only.)
+
+### 3. Tests run (cumulative across the session)
+
+- 18/18 pass on ``tests/test_packages_command.py`` (CP-15) →
+  24/24 after CP-17 added `TestRejectedTooSmallStatus` +
+  `TestOrphanedStatus`.
+- 24/24 pass on ``tests/test_latest_backtest_history.py`` (CP-16).
+- 15/15 pass on ``tests/test_telegram_format.py`` (CP-16; +5 from
+  the truncate fix).
+- 4 pre-existing failures in ``tests/test_data_loaders.py``
+  (`_bybit_client` AttributeError cluster) verified unchanged
+  via ``git stash`` round-trip — same cohort flagged in CP-11 §3
+  and CP-2026-05-03-14 §3.
+- ``python3 scripts/secret_scan.py`` clean on every PR.
+- ``python3 scripts/check_dry_run_in_diff.py`` clean on every PR.
+- ``ast.parse`` + ``json.load`` validated on every notebook edit.
+
+### 4. Live-mode check (cumulative)
+
+- ✅ No code under ``src/runtime/orders.py``,
+  ``src/units/accounts/``, or ``config/accounts.yaml`` in any
+  shipped PR. Per-account ``mode: live`` invariant intact:
+  ``bybit_1`` + ``bybit_2`` remain ``mode: live``;
+  ``prop_velotrade_1`` remains ``mode: dry_run`` (DXtrade SDK
+  contract still pending).
+- ✅ ``scripts/check_dry_run_in_diff.py`` clean across all 9
+  PRs + this CP.
+- New surfaces are read-only diagnostic (SQLite SELECTs + HTML
+  render). The notebook PRs (#358 / #359 / #365 / #367) execute
+  destructive operations on the VM (kill / rename / SQL UPDATE)
+  but each is gated by a positive guard (cgroup classifier for
+  kills; `[ -f ... ]` idempotent guard for renames; `CONFIRM=True`
+  cell parameter for SQL).
+- ⚠️ ``src/runtime/liveness_watchdog.py`` filter changes
+  (#357 / #366 / #367) all **tighten** the success-path filter —
+  counting fewer rows as "successful" makes the watchdog MORE
+  likely to fire (safer side of the rail). Per CLAUDE.md rule 3
+  the watchdog change family was operator-pinged via the
+  ping-PR / merge-Telegram channel as part of CP-15 / CP-16 / this CP.
+
+### 5. Architecture rules check (cumulative)
+
+- **Unit boundary declaration.** Touched units across all 9 PRs:
+  - ``src/units/ui/`` (data_loaders + processor — read-only DB
+    queries + HTML rendering, Rule 5).
+  - ``src/bot/`` (telegram_query_bot — thin-shell handlers for
+    `/packages` and `/latest_backtest`).
+  - ``src/runtime/`` (liveness_watchdog + hourly_report SQL
+    filters; the truncate fix in `src/units/ui/telegram_format.py`
+    is read-only rendering).
+  - ``src/web/api/routers/pnl.py`` (operator dashboard count
+    filter).
+  - ``notebooks/operator/`` (operator tooling).
+- **Rule 4 (DB unit owns three logs).** All new code reads
+  ``trades`` / ``order_packages`` / ``backtest_results`` through
+  the existing DB unit's schema. No raw schema knowledge added
+  in `src/bot/`.
+- **Rule 5 (bot is a thin shell).** Both new commands
+  (`cmd_packages`, expanded `cmd_latest_backtest`) parse args,
+  call data_loaders helpers, call processor renderers, send one
+  message. No DB access in the bot file, no aggregation, no
+  exchange calls.
+- No new cross-unit imports outside `src/core/coordinator.py`.
+
+### 6. Remaining (handed off to next session)
+
+These items were diagnosed during the session but explicitly
+deferred. The hand-off prompt below makes them actionable as a
+fresh session.
+
+#### 6a. Operator action — run the cleanup notebook
+
+The 5 known ghost trades (trade IDs `10`, `11`, `12`, `13`, `14`,
+all `status='open'`, all from 22:56 yesterday → 01:49 today,
+zero matching open positions on bybit_2) are still in the DB.
+The new ``notebooks/operator/cleanup_ghost_trades.ipynb`` is
+ready to run; it previews + asks for `CONFIRM=True` + executes
+the UPDATE. Operator runs it once.
+
+  Colab link:
+  https://colab.research.google.com/github/the-lizardking/ict-trading-bot/blob/main/notebooks/operator/cleanup_ghost_trades.ipynb
+
+#### 6b. BUG-041 — pre-#357 ghost-trade row pattern (root-caused, mitigated, not yet logged)
+
+Pre-PR #357 (`_log_trade_to_journal` refactor) the executor wrote
+``status='open'`` BEFORE the exchange call returned. Exchange
+refusals orphaned the row with no rejection counterpart. PR #357
+prevents the shape for new trades; PR #367 ships the backfill
+mechanism. Logging this in the bug-log is owed; deferred so the
+next session can include the cleanup notebook's actual
+`affected count` in the bug-log row.
+
+#### 6c. BUG-042 — monitor-loop write-back gap (root cause of 6a)
+
+``src/runtime/order_monitor.py`` (S-030 PR3) was supposed to
+reconcile DB `status='open'` rows against actual exchange
+positions and update the row to `status='closed'` (or similar)
+when the position closes. It evidently isn't — that's *why* the
+5 ghost trades stayed open. This is a real sprint, not a
+one-PR fix:
+  1. Read open trade rows.
+  2. Per-account, fetch position state from the exchange
+     (`bybit_client_for(account).get_positions()`).
+  3. For each open row whose position no longer exists on the
+     exchange: mark the row `status='closed'` (or `'orphaned'`
+     if no fill data is available).
+  4. Tests + observability ping when the reconciler closes a
+     row not driven by a strategy verdict.
+
+#### 6d. BUG-043 — `confidence: 0.0` on every package row
+
+VWAP's formula is `confidence = min(deviation / threshold, 1.0)`
+which is ≥ 1.0 for actionable signals. The 10 stuck packages
+shown by `/packages` and the 5 ghost trades shown by `/last5`
+all carry `confidence: 0.0` in the journal — implies the field
+is being defaulted-to-zero somewhere on the journal write path
+rather than reading the strategy's computed value. Likely
+candidate: `Coordinator._log_new_order_package` or
+``execute._log_trade_to_journal`` not threading the
+``OrderPackage.confidence`` attribute through to the DB row.
+Investigation deferred. Possibly trivial fix once located.
+
+#### 6e. Pipeline-result cosmetic — "Order package — not generated"
+
+Per-tick Telegram message body shows:
+> "Signal did not carry entry/sl/tp at the top level; the legacy
+>  single-client validation path ran instead of the multi-account
+>  dispatch fast-path."
+
+…even when ``side=none / reason=no_signal``. There's nothing to
+dispatch on a no-signal tick so the body wording is misleading.
+Pure cosmetic. Fix: gate the message on `side ∈ {'buy', 'sell'}`
+in the section-builder. ~5 lines + 1 test.
+
+#### 6f. Live verification of post-rogue VWAP signal
+
+Operator-blocked. Once VWAP fires fresh (price moves ≥ 2σ from
+VWAP) post-rogue-kill (~16:00 UTC), the next session can confirm
+via `/packages` that the new package gets `linked_trade_id` set
+(or that any rejection row carries a meaningful reason token).
+
+#### 6g. Bug-log entries
+
+Only BUG-040 was appended this session (truncate). BUG-041
+(ghost rows), BUG-042 (monitor-loop gap), BUG-043 (confidence=0)
+are owed.
+
+### 7. Hand-off prompt for next session (paste verbatim)
+
+```
+Resume sprint claude/fix-trading-validation-kGwLc from CP-2026-05-03-17.
+
+Read CP-2026-05-03-17 in docs/claude/checkpoints/CHECKPOINT_LOG.md
+for the full context — short version: 10 PRs merged in the previous
+session; rogue interpreter killed; /packages + /latest_backtest
+diagnostic surfaces shipped; ghost-trade backfill notebook landed
+but not yet executed by the operator.
+
+Five items still open. Tackle them in this order, ship one PR per
+item where it makes sense (no scope creep):
+
+1. Confirm 6a is done. Ask the operator if they ran
+   notebooks/operator/cleanup_ghost_trades.ipynb. If yes, ask for
+   the "✅ UPDATE complete. N row(s) changed" output and use that
+   N in the BUG-041 row. If no, prompt them to run it; do not
+   start step 2 until they confirm.
+
+2. Append BUG-041 to docs/claude/bug-log.md — pre-#357 ghost-trade
+   row pattern. Cross-reference: PR #357 (the prevention),
+   PR #367 (the backfill mechanism), and CP-17 § 6b for the
+   root-cause description. Use the operator's affected-row count
+   from step 1 in the row.
+
+3. Diagnose BUG-043 first (likely trivial — confidence field not
+   threaded through journal write). Read
+   src/core/coordinator.py::_log_new_order_package and
+   src/units/accounts/execute.py::_log_trade_to_journal; find the
+   missing field. Ship a small PR + test pinning the contract.
+   Append BUG-043 to bug-log.
+
+4. Cosmetic fix from CP-17 § 6e — gate the
+   "Order package — not generated" body on side ∈ {'buy', 'sell'}.
+   ~5 lines + 1 test in tests/test_processor_signals_trades_collapsable.py.
+   Ship as a small PR.
+
+5. Scope (do NOT yet implement) BUG-042 — monitor-loop write-back
+   gap. Read src/runtime/order_monitor.py end-to-end. Identify
+   the seam where exchange-vs-DB reconciliation should land.
+   Write a one-page plan in ~/.claude/plans/ and stop — operator
+   approval needed before shipping a sprint that touches
+   src/runtime/order_monitor.py + src/units/accounts/clients.py
+   (Tier 2 surfaces under CLAUDE.md § Live-mode invariant).
+
+Side checks each session per CLAUDE.md:
+- Run scripts/secret_scan.py + scripts/check_dry_run_in_diff.py
+  on every PR.
+- Live-mode check: ✅ no code under src/runtime/orders.py,
+  src/units/accounts/, or config/accounts.yaml unless explicitly
+  scoped. BUG-042's eventual fix is the one place this rule will
+  bite — that's why step 5 is plan-only.
+- Append a closing checkpoint at session end. The Telegram ping
+  fires off the checkpoint commit.
+
+DO NOT pre-load the Pipeline-result rendering issue in the same
+session as BUG-042 — they're independent and bundling them
+defeats the small-PR rule.
+```
+
+### 8. Lessons learned (for CLAUDE.md improvement candidates)
+
+- **Two new diagnostic commands in one session is the right
+  cadence.** ~300 LoC + ~20 tests + one PR per command, ships in
+  <1 hour each. Future "operator can't see X" reports should
+  default to this shape rather than broadening an existing
+  command.
+- **Symmetric SQL filters need a single source of truth.** This
+  session updated the `('rejected', 'exchange_rejected', ...)`
+  predicate at 7 SQL sites three separate times (PR #366,
+  PR #367, and the original CP-14 work). The right long-term fix
+  is `from src.units.ui.data_loaders import REFUSAL_STATUSES`
+  + an in-Python predicate builder (e.g.
+  `f"NOT IN ({', '.join('?' * len(REFUSAL_STATUSES))})"` with
+  bound parameters). Candidate sprint when convenient.
+- **Per-process renderers must verify well-formedness, not just
+  length.** BUG-040 (truncate dropping closing tag) was missed
+  by the existing length-check test. Adding a `_is_balanced(html)`
+  helper to every renderer test as standard practice would have
+  caught this. Captured in BUG-040 row in bug-log.
+- **Monitor-loop write-back gaps cause silent DB drift.**
+  CLAUDE.md § Architecture rule 6 ("live by default + tell-me-
+  if-not") is supposed to surface "DB says open but exchange
+  says no position" via the liveness watchdog, but the watchdog
+  only counts trade-row writes — it doesn't reconcile state.
+  The architecture-rule §6 phrasing might benefit from a
+  follow-up clarification once BUG-042 lands.
+
+---
+
 ## CP-2026-05-03-16 — /latest_backtest history view with delta indicators (CP-15 §6 follow-through, COMPLETE)
 
 - **Session date:** 2026-05-03
