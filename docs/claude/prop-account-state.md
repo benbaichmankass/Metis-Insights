@@ -121,23 +121,39 @@ satisfied to pass the evaluation).
 
 ---
 
-## State persistence (v1 contract)
+## State persistence (phase-2b contract)
 
 Live counters (`cumulative_pnl_pct`, `active_days`, `entry_date`)
-are **in-process only** in v1. The YAML `prop_state:` block is the
-**seed** loaded on each `load_accounts()` call.
+persist across trader restarts via
+`runtime_state/prop_state.json`. The file is the **live source of
+truth** — `PropRiskManager.__init__` reads its per-account section
+on every load, overriding the YAML `prop_state:` seed.
+`PropRiskManager.record_trade_result(pnl_usd, …)` writes the updated
+counters back to the file atomically (tmp + os.replace).
 
-`PropRiskManager.record_trade_result(pnl_usd, starting_equity_usd=…)`
-updates the counters in-process; restarting the trader resets to the
-YAML seed.
+Resolution order on construction:
+
+1. JSON file `runtime_state/prop_state.json` → wins if the file
+   exists and contains a section keyed by the account name.
+2. YAML `prop_state:` block → fallback seed for fresh installs and
+   phase resets (delete the JSON section to fall back).
+3. Defaults (`0.0` / `0` / `null`) when neither is set.
+
+The file is gitignored (`runtime_state/`) so per-account counters
+never land in commits. Tests can redirect via
+`prop_state_io.set_prop_state_path(tmp_path)` or the
+`PROP_STATE_PATH` env var.
 
 Operator workflow:
-1. After each trading day, read the live counters via the bot
-   (`/accounts_status` extended report; future PR).
-2. Update the YAML `prop_state:` block manually before the next
-   restart.
-3. A follow-up sprint adds `runtime_state/prop_state.json`
-   write-through so this becomes automatic.
+
+1. After each trading day, check `/accounts_status` — the prop
+   block shows `cumulative_pnl_pct` (vs target), `active_days` (vs
+   `min_active_days`), and `mission_complete`.
+2. To reset between phases (evaluation → funded onboarding), delete
+   the account's section from `runtime_state/prop_state.json` (or
+   the entire file). The next trader restart re-seeds from YAML.
+3. Manual YAML edits to `prop_state:` are no longer required —
+   the JSON file is canonical.
 
 ---
 

@@ -2356,55 +2356,15 @@ async def cmd_accounts_status(update: Update, context: ContextTypes.DEFAULT_TYPE
             await update.message.reply_text("ℹ️ No accounts found in accounts.yaml.")
             return
 
-        # Telegram's legacy "Markdown" parse mode treats `_` as italic
-        # markers and silently strips them — env-var names like
-        # BYBIT_API_KEY_1 in error strings rendered as BYBITAPIKEY1.
-        # `\_` escapes don't work in legacy Markdown either (they only
-        # work in MarkdownV2). HTML parse mode has the simplest reliable
-        # escaping: just &amp; &lt; &gt; for the three special chars.
-        def _h(s: object) -> str:
-            text = str(s) if s is not None else ""
-            return (
-                text.replace("&", "&amp;")
-                    .replace("<", "&lt;")
-                    .replace(">", "&gt;")
-            )
-
+        # Per-account block formatting lives in the UI processor
+        # (CLAUDE.md rule 5 — bot stays a thin shell). Velotrade
+        # phase-2b moved the renderer there so the not-configured line
+        # and the prop-state block (account_state / mission progress /
+        # active_days) are unit-testable without importing the bot.
+        from src.units.ui.processor import format_account_status_block
         lines = ["📋 <b>Accounts Status</b> (risk + live API)\n"]
         for s in statuses:
-            halted_icon = "🔴" if s.get("halted") else "🟢"
-            pnl = float(s.get("daily_pnl", 0))
-            limit = float(s.get("max_daily_loss_usd", 0))
-            pos_size = float(s.get("max_pos_size_usd", 0))
-            open_pos = s.get("open_positions", 0)
-            bal = s.get("live_balance_usdt")
-            bal_err = s.get("live_balance_error")
-            strategies = s.get("strategies") or []
-            strat_line = (
-                f"  🎯 Strategy: {_h(', '.join(strategies))}\n"
-                if strategies else
-                "  🎯 Strategy: <i>(none assigned)</i>\n"
-            )
-            # BUG-033: show the last 4 chars of the resolved API key so the
-            # operator can spot two accounts wired to the same wallet at a
-            # glance (the symptom that opened this issue).
-            key_fp = s.get("api_key_fingerprint") or "—"
-            fp_line = f"  🔑 Key: …{_h(key_fp)}\n"
-            if bal_err:
-                api_line = f"  🔌 API: ❌ {_h(bal_err)}"
-            elif bal is not None:
-                api_line = f"  🔌 API: ✅ Balance ${float(bal):,.2f} USDT"
-            else:
-                api_line = "  🔌 API: ⚠️ no balance returned"
-            lines.append(
-                f"{halted_icon} <b>{_h(s['name'])}</b> "
-                f"(<code>{_h(s.get('exchange', '?'))}</code> / {_h(s.get('account_type', '?'))})\n"
-                f"{strat_line}"
-                f"{fp_line}"
-                f"{api_line}\n"
-                f"  💵 Daily PnL: ${pnl:+.2f} / limit ${limit:.0f}\n"
-                f"  📦 Max pos: ${pos_size:.0f} | Open: {open_pos}"
-            )
+            lines.append(format_account_status_block(s))
         await update.message.reply_text("\n\n".join(lines), parse_mode="HTML")
     except Exception as e:
         await update.message.reply_text(f"⚠️ Could not load accounts status: {e}")

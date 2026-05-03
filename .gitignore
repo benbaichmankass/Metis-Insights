@@ -27,6 +27,10 @@ env/
 *.log
 logs/
 runtime_logs/
+# Velotrade phase-2b: persistent prop-state — per-account counters
+# (cumulative_pnl_pct, active_days, entry_date) survive trader
+# restarts. Gitignored so secrets-adjacent data stays off git.
+runtime_state/
 
 # Databases
 *.db
