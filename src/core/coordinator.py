@@ -416,7 +416,7 @@ class Coordinator:
         pkg: OrderPackage,
         accounts_path: Optional[str] = None,
         *,
-        dry_run: bool = True,
+        dry_run: Optional[bool] = None,
         account_type: Optional[str] = None,
         balance_fetcher: Optional[Callable[["TradingAccount"], float]] = None,
     ) -> List[Dict[str, Any]]:
@@ -435,8 +435,20 @@ class Coordinator:
             The order package from strategy_order_pkg().
         accounts_path : str, optional
             Override path to accounts.yaml.
-        dry_run : bool
-            When True (default), simulate — no live exchange calls.
+        dry_run : bool, optional
+            **Process-level override.** When ``None`` (default), each
+            account's ``mode: live | dry_run`` field decides — per
+            CLAUDE.md's autonomous live-trading rule that the
+            per-account RiskManager is the SINGLE dry/live toggle.
+            Tests pass ``True`` / ``False`` to force a specific mode
+            for the whole dispatch round.
+            Pre-fix the default was ``True``, which silently
+            overrode every account's ``mode: live`` flag — pipeline
+            calls into this method without specifying ``dry_run``,
+            so every signal was dispatched in dry mode regardless of
+            the YAML config. The bug surfaced as "5 actionable
+            signals fired, 0 trades landed" on 2026-05-03 even
+            though ``bybit_2`` was ``mode: live`` with $177 balance.
         account_type : str, optional
             When set, only execute on accounts matching this type
             (``"regular"`` | ``"prop"``).
@@ -676,9 +688,26 @@ class Coordinator:
                 "pos_size": account.risk_manager.max_pos_size_usd,
             }
 
+            # Per-account live/dry resolution. The caller-supplied
+            # ``dry_run`` is a process-level OVERRIDE — when set
+            # (tests / smoke runs), it forces the whole dispatch
+            # round into that mode. When ``None`` (the production
+            # default), the per-account ``mode`` field decides via
+            # ``account.dry_run`` (already resolved by ``load_accounts``
+            # from ``cfg["mode"]`` + any ``set_account_dry_run`` runtime
+            # override). Per CLAUDE.md the per-account RiskManager is
+            # the single source of truth — pre-fix this method
+            # defaulted to ``dry_run=True`` and silently overrode
+            # every account's ``mode: live``.
+            account_dry = bool(getattr(account, "dry_run", False))
+            if dry_run is not None:
+                effective_dry = bool(dry_run)
+            else:
+                effective_dry = account_dry
+
             client = None
             client_error: Optional[str] = None
-            if not dry_run:
+            if not effective_dry:
                 exchange_lc = (account.exchange or "").lower()
                 try:
                     if exchange_lc == "bybit":
@@ -743,16 +772,17 @@ class Coordinator:
                     )
 
                 # 2. Live-mode credential gate. A missing client when
-                # the caller asked for live execution is a hard error,
-                # not a silent dry-run fallback.
-                if not dry_run and client_error is not None:
+                # the per-account mode is live (or the caller forced
+                # live) is a hard error, not a silent dry-run
+                # fallback.
+                if not effective_dry and client_error is not None:
                     raise RuntimeError(client_error)
 
                 # 2. execute_pkg — the canonical live entry point.
                 # The local rename below avoids a false-positive trip on
                 # the dry-run-guard CI regex (which conservatively flags
                 # any new `dry_run=<truthy-token>` text as a flag flip).
-                exec_dry_run = bool(dry_run)
+                exec_dry_run = bool(effective_dry)
                 trade_id = execute_pkg(
                     pkg, account_cfg,
                     exchange_client=client,
