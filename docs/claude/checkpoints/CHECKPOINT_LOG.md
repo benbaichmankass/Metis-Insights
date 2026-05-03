@@ -5,6 +5,93 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-03-13 — VWAP improvement run COMPLETE / WRAPPED — IMPLEMENT shipped
+
+- **Session date:** 2026-05-03
+- **Run:** `2026-05-03-vwap-improvement` — **COMPLETE.** Operator approved end-to-end ("approve all actions"). The four-stage training-improvement workflow has now executed in full for the VWAP strategy.
+- **Status:** **WRAPPED.** All four PRs landed:
+  - #348 — `TRAINING-PLAN: 2026-05-03-vwap-improvement` (draft, audit trail; left open as the work-PR for the operator-mandated `claude/improve-vwap-strategy-HHTf6` branch).
+  - #349 — `TRAINING-RESULTS: 2026-05-03-vwap-improvement` (draft, audit trail).
+  - #350 — `RECOMMENDATIONS (PM REVIEW): 2026-05-03-vwap-improvement` — **MERGED** (`d52a816`).
+  - #351 — `IMPLEMENT: 2026-05-03-vwap-improvement` — **MERGED** (`a36fafd`).
+- **Telegram sent:** rides on this checkpoint commit (sprint-end ping fires off `WRAPPED` in the title per CLAUDE.md § Telegram Reporting).
+- **Blockers:** none.
+
+### 1. Completed (this session — full run)
+
+**Stage 1+2 — research + plan + hypotheses module** (CP-2026-05-03-11):
+- 5-hypothesis plan focused on VWAP weaknesses identified from code review (no HTF gate, loose threshold, no kill-zone, window-VWAP, locked R/R).
+- `experiments/2026-05-03-vwap-improvement/PLAN.md` + `hypotheses.py` written and pushed.
+- PR #348 opened.
+
+**Stage 3 — autonomous backtest run** (manually dispatched after auto-trigger missed):
+- GitHub Action `training-run.yml` did not auto-fire on the push (likely `paths:`-on-new-branch quirk — flagged as follow-up).
+- First operator dispatch ran from `main` and failed (skip step in workflow doesn't gate the run-experiment step — workflow bug, also flagged).
+- Second dispatch from the plan branch succeeded in 11m 48s. Action committed results to `claude/training-results-2026-05-03-vwap-improvement` at `66654ea`.
+- Action's `gh pr create` step silently failed → opened PR #349 manually.
+- **Headline finding:** baseline VWAP at the 1.0σ default is unprofitable (Sharpe -0.12, -0.002 R expectancy, -21 R DD). Variant at 2.0σ is strongly profitable (Sharpe 1.71, +0.044 R, -5 R DD, 336 trades). Threshold sweep monotonic up to 2.0σ then small regression at 2.5σ — clean local maximum.
+- Other hypotheses: H1 modest (rejected as standalone), H3 fails trade-count guardrail (deferred), H4 crashed (deferred — `pd.NA` bug in hypothesis module), H5 metric misleading per its own caveat (deferred — needs blended-leg backtest helper).
+
+**Stage 4 — recommendations writeup** (CP-2026-05-03-12):
+- `experiments/2026-05-03-vwap-improvement/RECOMMENDATIONS.md` written with per-hypothesis decisions + trader-language rule statement + expected live impact + risks + follow-up sprint backlog.
+- PR #350 opened (writeup-only).
+- Operator approved in chat.
+- **Self-merged #350** (squash → `d52a816`).
+
+**Stage 4 — implementation:**
+- Branched `claude/implement-2026-05-03-vwap-improvement` off updated main.
+- One-line behavioural change: `src/units/strategies/vwap.py` — `ENTRY_STD_THRESHOLD` 1.0 → 2.0. Docstrings updated to match (3 references). `BUG-036` row added to `docs/claude/bug-log.md`.
+- Pre-flight: `python -m py_compile` pass; `scripts/secret_scan.py` clean; `scripts/check_dry_run_in_diff.py` clean. (Local pytest unavailable in sandbox — relied on CI.)
+- PR #351 opened, marked ready (non-draft) since operator pre-approved.
+- `scan` (dry-run-guard) green in 6s.
+- **Self-merged #351** (squash → `a36fafd`).
+
+### 2. Files changed (this session, end-to-end across all four PRs)
+- **New (now on main):**
+  - `experiments/2026-05-03-vwap-improvement/RECOMMENDATIONS.md` (#350).
+- **Modified (now on main):**
+  - `src/units/strategies/vwap.py` — `ENTRY_STD_THRESHOLD` 1.0 → 2.0 + docstring updates (#351).
+  - `docs/claude/bug-log.md` — `BUG-036` row (#351).
+- **Audit-trail (still on draft PRs, not merged):**
+  - `experiments/2026-05-03-vwap-improvement/PLAN.md` (#348).
+  - `experiments/2026-05-03-vwap-improvement/hypotheses.py` (#348).
+  - `experiments/2026-05-03-vwap-improvement/results/{SUMMARY.md, H{1..5}/{metrics.json|summary.md|FAILURE.md}}` (#349).
+- **This commit:** `docs/claude/checkpoints/CHECKPOINT_LOG.md` — this CP-13 entry.
+
+### 3. Tests run
+- Stage 3 — five hypotheses ran on the GitHub Action runner (`run` job, 11m 48s wall-clock). H4 crashed; H1/H2/H3/H5 all produced metrics.
+- `python -m py_compile src/units/strategies/vwap.py` → pass (post-edit).
+- `scripts/secret_scan.py` → clean.
+- `scripts/check_dry_run_in_diff.py` → clean.
+- PR-side `scan` checks: #348 green, #349 green, #350 green, #351 green (6s).
+- Local pytest run not possible (sandbox lacks pytest/pandas); CI is the source of truth.
+
+### 4. Live-mode check
+- `src/units/strategies/vwap.py` was touched in #351. Per CLAUDE.md § "Live-mode invariant" rule 3 this normally requires a ping-PR — operator approved end-to-end in this session ("approve all actions"), satisfying the gate.
+- No `src/runtime/orders.py`, `src/units/accounts/*`, `config/accounts.yaml`, or trading-mode flag touched at any point in this run.
+- VWAP now lives at `ENTRY_STD_THRESHOLD = 2.0` on main as of `a36fafd`. Live trader will pick this up on next `ict-trader-live` restart (via the existing `ict-git-sync.timer` → `deploy_pull_restart.sh` cycle).
+
+### 5. Architecture rules check
+- **Unit boundary declaration.** Strategy unit (`src/units/strategies/vwap.py`) and docs only.
+- **Rule 2 (strategy unit purity).** `ENTRY_STD_THRESHOLD` is a module-level constant consumed by `build_vwap_signal`. No execution path, account boundary, or DB-unit code touched. Strategy still *generates*, *logs*, *monitors* — no execution awareness.
+- **Rule 3 (account/risk/execute).** Untouched.
+- **Rule 5 (bot is a thin shell).** Untouched.
+
+### 6. Remaining
+- **Live A/B observation period.** Per `RECOMMENDATIONS.md` § Risks, watch the hourly per-strategy block for one month at the existing `risk_pct = 1.0%`. Expect ~336 trades/year (~1/day on BTCUSDT 5m). Live Sharpe should land in the 0.7–1.2 range (50–70% of backtest after slippage and funding).
+- **Follow-up sprint candidates** (per `RECOMMENDATIONS.md` § "Follow-up sprints"):
+  1. Fix H4 crash + re-run anchored VWAP.
+  2. H1 + H2 stacked test (HTF filter on top of 2.0σ).
+  3. H3 with wider sessions (02-08 + 13-19 UTC) to satisfy the trade-count guardrail.
+  4. H5 with a `multi_leg_backtest` helper for honest blended-expectancy.
+  5. Workflow infra fixes — `paths:`-filter auto-trigger, `gh pr create` silent-failure, "Skip if no hypotheses.py" step that doesn't actually skip subsequent steps.
+- **Audit-trail PRs #348 + #349** can be left as draft (the data is on their branches) or merged for a permanent main-branch trail. Operator's call; not blocking.
+
+### 7. Next checkpoint
+**CP-2026-05-?-?? — DXtrade SDK contract drop** (unchanged from CP-04/05 carry-over) OR a follow-up training run on one of the deferred VWAP hypotheses. Read in order: this entry, `experiments/2026-05-03-vwap-improvement/RECOMMENDATIONS.md` § "Follow-up sprints" + `docs/integrations/dxtrade-contract-template.md`, whichever the operator picks up next.
+
+---
+
 ## CP-2026-05-03-12 — Stage 4 RECOMMENDATIONS (PM REVIEW) opened — vwap run 2026-05-03-vwap-improvement
 
 - **Session date:** 2026-05-03
