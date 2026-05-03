@@ -675,10 +675,20 @@ class Coordinator:
                 # 1. Per-account risk gate (local check, since execute_pkg
                 #    does not call account.risk_manager.approve()). Honour
                 #    smoke-test bypass via _is_test_order semantics.
-                if not account.risk_manager.approve(pkg):
+                #
+                # Velotrade integration: ``evaluate`` returns a
+                # structured reason on reject (DAILY_LOSS_CAP /
+                # POSITION_SIZE_CAP / INTRADAY_DRAWDOWN /
+                # SKIP_MISSION_MET / SKIP_OVERNIGHT_RESTRICTED /
+                # SKIP_WEEKEND_RESTRICTED). The reason flows through
+                # the result row's ``error`` field so /signals and the
+                # diagnostic ping can distinguish a true risk breach
+                # from a mission-aware skip.
+                ok, reason = account.risk_manager.evaluate(pkg)
+                if not ok:
                     raise RiskBreach(
                         f"Account '{account.name}' rejected order for "
-                        f"{pkg.symbol}: risk gate refused"
+                        f"{pkg.symbol}: {reason or 'risk gate refused'}"
                     )
 
                 # 2. Live-mode credential gate. A missing client when

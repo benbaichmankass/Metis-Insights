@@ -50,20 +50,34 @@ def load_accounts(config_path: str = _DEFAULT_ACCOUNTS_YAML) -> "List":
     import yaml
     from src.units.accounts.account import TradingAccount
     from src.units.accounts.risk import RiskManager
+    from src.units.accounts.prop_risk import PropRiskManager
 
     with open(config_path, "r", encoding="utf-8") as fh:
         raw = yaml.safe_load(fh) or {}
 
     accounts = []
     for name, cfg in (raw.get("accounts") or {}).items():
-        risk_cfg = cfg.get("risk") or {}
-        rm = RiskManager(risk_cfg)
+        # Velotrade integration: prop accounts get the mission-aware
+        # PropRiskManager which adds account-state, mission, and
+        # overnight/weekend skip reasons on top of the base gates.
+        # Regular bybit accounts continue to use the unchanged
+        # RiskManager — keeps the live Bybit path bit-identical.
+        account_type = cfg.get("type", "regular")
+        if account_type == "prop":
+            rm = PropRiskManager(cfg)
+        else:
+            rm = RiskManager(cfg.get("risk") or {})
+        # Forward-compat: skip accounts explicitly disabled in YAML.
+        # (Velotrade scaffold ships with ``enabled: false`` until
+        # credentials + SDK wiring land in a follow-up sprint.)
+        if cfg.get("enabled") is False:
+            continue
         account = TradingAccount(
             name=name,
             exchange=cfg.get("exchange", "bybit"),
             api_key_env=cfg.get("api_key_env", ""),
             risk_manager=rm,
-            account_type=cfg.get("type", "regular"),
+            account_type=account_type,
             strategies=list(cfg.get("strategies", []) or []),
         )
         # Apply persistent dry/live override if set

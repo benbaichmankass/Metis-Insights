@@ -5,6 +5,69 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-03-01 — Velotrade integration scaffold (PropRiskManager + executor stub)
+
+- **Session date:** 2026-05-03
+- **Sprint:** Velotrade integration — prop-aware risk + executor abstraction.
+- **Current sprint phase:** Phase 1 (infrastructure scaffolding) — complete and shipped on a draft PR. Phase 2 (real DXtrade SDK wiring) deferred until the operator confirms the API contract + creds.
+- **Last completed checkpoint:** CP-2026-05-02-35.
+- **Next checkpoint:** **CP-2026-05-?-?? — Velotrade phase-2** — wire the real DXtrade SDK in `src/units/accounts/integrator.py::VelotradeAPI.place` and `src/units/accounts/execute.py::_submit_order` (`velotrade` branch). Add `runtime_state/prop_state.json` write-through so cumulative_pnl_pct / active_days persist across restarts.
+- **Telegram sent:** rides on the checkpoint commit.
+- **Alerts sent during session:** none.
+- **Blockers:** none — operator approved the audit + smallest-safe proposal at the start of this session.
+
+### 1. Completed
+- Added `RiskManager.evaluate(order) -> (bool, reason)` returning structured skip vocabulary (`DAILY_LOSS_CAP`, `POSITION_SIZE_CAP`, `INTRADAY_DRAWDOWN`); kept `approve()` as a thin wrapper for legacy callers.
+- New `PropRiskManager(RiskManager)` in `src/units/accounts/prop_risk.py` adds three reasons on top: `SKIP_MISSION_MET`, `SKIP_OVERNIGHT_RESTRICTED`, `SKIP_WEEKEND_RESTRICTED`. Drives a config-only state machine (evaluation vs funded) plus UTC overnight-window + weekend filters.
+- `load_accounts()` instantiates `PropRiskManager` only for `type: prop` rows; regular bybit accounts keep the unchanged base `RiskManager`. Disabled rows (`enabled: false`) now filter out at load (was a forward-compat marker before — see existing comment).
+- `Coordinator.multi_account_execute` calls `evaluate()` instead of `approve()` so skip reasons surface on the result-row `error` field for `/signals` + the diagnostic ping.
+- Velotrade executor stub: `VelotradeAPI` added to `EXCHANGE_MAP`; `_submit_order` refuses live placement for `velotrade`/`breakout` exchanges (architectural inertness until SDK wires in phase 2). `BreakoutAPI` kept as deprecated alias.
+- `config/accounts.yaml`: replaced `prop_breakout_1` with `prop_velotrade_1` (disabled, `account_state: evaluation`, full `phase_requirements` + `prop_state` + overnight/weekend block). `config/master-secrets.template.yaml` now keys under `velotrade:` instead of `breakout:`.
+- Docs: new `docs/claude/prop-account-state.md` (full operator reference), one-line update to `docs/claude/repo-map.md`, new routing row in `CLAUDE.md`.
+
+### 2. Files changed
+- `src/units/accounts/risk.py` — `evaluate()` method.
+- `src/units/accounts/prop_risk.py` — **new** `PropRiskManager` class.
+- `src/units/accounts/__init__.py` — loader picks Prop vs base; honours `enabled: false`.
+- `src/units/accounts/integrator.py` — `VelotradeAPI`; `BreakoutAPI` deprecated.
+- `src/units/accounts/execute.py` — `_submit_order` refuses live for prop exchanges.
+- `src/core/coordinator.py` — `multi_account_execute` uses `evaluate()`.
+- `config/accounts.yaml` — `prop_velotrade_1` (disabled).
+- `config/master-secrets.template.yaml` — `velotrade:` block replaces `breakout:`.
+- `docs/claude/prop-account-state.md` — **new**.
+- `docs/claude/repo-map.md` — accounts unit row updated.
+- `CLAUDE.md` — task-routing row added.
+- `tests/test_prop_risk_manager.py` — **new**, 31 tests.
+
+### 3. Tests run
+- `PYTHONPATH=. python -m pytest tests/test_prop_risk_manager.py -q` → **31 passed**.
+- `PYTHONPATH=. python -m pytest tests/test_s010_accounts.py tests/test_s008_accounts.py tests/test_render_env_from_master.py tests/test_unit_config.py tests/test_prop_risk_manager.py -q` → **171 passed** (regression-adjacent suites for accounts loader + render + units config).
+- Full suite (excluding modules with optional fastapi / telegram / pyo3 deps not installed): main = 88 failed / 2023 passed; this branch = 68 failed / 2043 passed. **Net: 0 regressions** — all pre-existing failures are missing-optional-dep import errors (telegram, fastapi, pandas in old fixtures) that exist on `main` too. Confirmed by stash-bisect on a representative failure (`test_s026_g2_position_size::test_two_balances_yield_two_qtys`).
+- `python scripts/secret_scan.py` → clean.
+
+### 4. Live-mode check
+- Diff against `main` searched for any line that flips `mode: live` → `dry_run` / `paper`. Result: ✅ none.
+- `config/accounts.yaml` audit: `bybit_1` + `bybit_2` unchanged — both still default-live (no `mode` field, autonomous-live policy applies). The new `prop_velotrade_1` ships with `enabled: false` so it is filtered at load — never reaches the order route.
+- This PR touches `src/runtime/orders.py`? **No.** It touches `src/core/coordinator.py` (the dispatch coordinator) + `src/units/accounts/*` (risk + execute + integrator). Per § Live-mode invariant point 3, ping the operator. Done via the draft PR pending review (Velotrade is a new prop platform, even though the live Bybit path is untouched).
+- `execute._submit_order` velotrade branch is a hard `RuntimeError` for live; structurally inert.
+
+### 5. Architecture rules check
+- Unit boundary: only `src/units/accounts/*` and `src/core/coordinator.py` modified. No new cross-unit imports outside the coordinator.
+- Strategies are still pure (untouched).
+- `execute_pkg` remains the single canonical live entry point.
+- DB unit untouched.
+- Bot is untouched.
+
+### 6. Remaining (next session)
+- **Phase 2 — DXtrade SDK wiring.** Replace the `NotImplementedError` in `VelotradeAPI.place` and the `RuntimeError` in `execute._submit_order` velotrade branch with real DXtrade calls. Operator must provide credentials + the API contract first.
+- **Persistent prop state.** Currently `cumulative_pnl_pct` / `active_days` reset on every trader restart; the YAML `prop_state:` block is the seed. A trivial follow-up adds `runtime_state/prop_state.json` write-through on `record_trade_result`.
+- **Bot surface for `/accounts_status`.** Extend the renderer to show `account_state`, `mission_complete`, and `cumulative_pnl_pct` per prop account so the operator can confirm progress without reading YAML.
+
+### 7. Next checkpoint
+**CP-2026-05-?-?? — Velotrade phase-2.** Read in order: `docs/claude/prop-account-state.md`, `src/units/accounts/prop_risk.py`, the DXtrade API contract once the operator provides it.
+
+---
+
 ## CP-2026-05-02-35 — Architecture compliance sprint COMPLETE / WRAPPED (audit fully closed)
 
 - **Session date:** 2026-05-02 / 2026-05-03

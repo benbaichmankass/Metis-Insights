@@ -10,7 +10,7 @@ No unit calls another unit directly.
 | Unit | Location | Purpose |
 |------|----------|---------|
 | 1. Strategies | `src/units/strategies/` | Generate `OrderPackage` objects |
-| 2. Accounts | `src/units/accounts/` | Risk-size + execute orders |
+| 2. Accounts | `src/units/accounts/` | Risk-size + execute orders. `risk.py` (base `RiskManager`), `prop_risk.py` (mission-aware `PropRiskManager` for prop accounts — see `docs/claude/prop-account-state.md`), `execute.py` (canonical live entry point), `integrator.py` (exchange API stubs incl. Velotrade). |
 | 3. Dashboards | `src/units/dashboards/` | Stats + alerts ring buffer |
 | 4. Return Commands | `src/core/coordinator.py` | halt/resume via `_PAUSED_ACCOUNTS` |
 | 5. Telegram Bot | `src/bot/telegram_query_bot.py` | UI consumer of Coordinator |
