@@ -110,39 +110,37 @@ PYTHONPATH=. pytest --collect-only -q tests
 > manually first. Do **not** assume any tool, notebook, or script has performed that audit
 > on your behalf. There is no auto-reset path.
 
-The `notebooks/setup/test_vwap_env_and_vm_readiness.ipynb` notebook only checks that
-the VWAP env renders and that safety flags are correct. It does not call Bybit, place
-orders, SSH, or restart the VM.
+The canonical operator workflow for `.env` generation, settings updates, key
+rotation, and VM restart is `notebooks/operator/rotate_api_keys.ipynb` — the
+single notebook the Telegram `/set_keys` command opens. It does not reset the
+VM beyond restarting the trader and Telegram-bot systemd units.
 
-## VWAP BTCUSD profile
+## Trading mode (BUG-039)
 
-One profile targets the Bybit `vwap_strategy` subaccount:
+The dry/live toggle is **per-account** in `config/accounts.yaml` (`mode: live | dry_run`),
+applied via `RiskManager.dry_run` and checked inside `RiskManager.evaluate()`
+(returns `reason="account_mode_dry_run"` so the executor logs the would-be
+trade to the journal but never calls the exchange).
 
-- `vwap_btcusd_live` — `MODE=LIVE`, `DRY_RUN=false`, `ALLOW_LIVE_TRADING=true`.
-  Requires `--allow-live` on the renderer CLI.
+There is **no** process-level interlock. There is **no** strategy-level toggle.
+There is **no** profile-level / env-variable toggle. The rendered `.env` carries
+credentials, exchange selection, Telegram tokens, and per-account API-key env
+vars — never `MODE` / `DRY_RUN` / `ALLOW_LIVE_TRADING`.
 
-It pulls credentials from `bybit.vwap_strategy.api_key` / `api_secret` in the
-master secrets file. (Paper-trading variants of this profile have been
-removed from the renderer; see `scripts/render_env_from_master.py`.)
+To flip an account: edit `config/accounts.yaml` `mode` field and let the
+trader reload, or use Telegram `/accounts dry|live <name>` for a runtime
+override.
 
 ## VWAP strategy runtime status (as of 2026-04-27)
 
 `STRATEGY=vwap` is implemented and wired into the pipeline:
 
-- Signal builder: `strategies/vwap_signal_builder.py` (pure VWAP mean-reversion,
+- Signal builder: `src/units/strategies/vwap.py` (pure VWAP mean-reversion,
   offline-safe, no ML dependency).
-- Pipeline routing: `src/runtime/pipeline.py` dispatches to `vwap_signal_builder`
-  when `STRATEGY=vwap`.
-- Safety gates: `DRY_RUN=true` prevents order placement inside
-  `safe_place_order` (the order is logged with status `"dry_run"` and never
-  reaches the exchange). `ALLOW_LIVE_TRADING=false` provides a second
-  block. `MODE=LIVE` without `ALLOW_LIVE_TRADING=true` is rejected by
-  `validate_startup`. `MODE=PAPER` is rejected outright (paper trading is
-  not a supported mode).
-
-**`vwap_btcusd_live` is not approved for use yet.**
-- Do not render or deploy this profile without a full audit and explicit user approval.
-- Requires `--allow-live` on the renderer CLI, `DRY_RUN=false`, and `ALLOW_LIVE_TRADING=true`.
+- Pipeline routing: `src/runtime/pipeline.py` dispatches to the multiplexer
+  which iterates the registry in `config/strategies.yaml`.
+- Safety gates: per-account `RiskManager.dry_run` (the only dry/live toggle
+  in the codebase post-BUG-039) plus the `/halt` kill-switch.
 
 ## deploy_pull_restart.sh — VM deploy script
 
