@@ -19,11 +19,13 @@ from typing import List, Optional
 
 import pandas as pd
 
+from src.utils.paths import repo_root as _repo_root
+
 # ---------------------------------------------------------------------------
 # Data loading helpers (importable without Streamlit)
 # ---------------------------------------------------------------------------
 
-_REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+_REPO_ROOT = _repo_root()
 
 _CSV_CANDIDATES = [
     os.environ.get("BACKTEST_CSV", ""),

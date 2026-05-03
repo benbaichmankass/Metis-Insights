@@ -29,16 +29,8 @@ from typing import Any, Dict, List, Optional
 logger = logging.getLogger(__name__)
 
 _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-# This module lives at src/units/ui/data_loaders.py — three levels up from
-# the file is the repo root. Pre-fix the calc used "..", ".." (two levels)
-# left over from when this module lived at src/bot/data_loaders.py before
-# the S-032 move; that resolved REPO_ROOT to <repo>/src and made every
-# downstream path lookup (config/accounts.yaml, data/trades.db,
-# trade_journal.db, .env discovery) miss the real files. Symptoms:
-# /trades + hourly summary reported "no accounts configured" even though
-# accounts.yaml was populated; /strategies showed 0 signals across all
-# strategies even when the signals DB was being written.
-REPO_ROOT = os.path.abspath(os.path.join(_BASE_DIR, "..", "..", ".."))
+from src.utils.paths import repo_root as _repo_root  # noqa: E402
+REPO_ROOT = _repo_root()
 
 ACCOUNTS_YAML_PATH = os.path.join(REPO_ROOT, "config", "accounts.yaml")
 LEGACY_LIVE_SERVICE = "ict-trader-live"

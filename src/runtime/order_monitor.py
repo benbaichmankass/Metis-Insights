@@ -57,7 +57,8 @@ from typing import Any, Callable, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
-_REPO_ROOT = Path(__file__).resolve().parents[2]
+from src.utils.paths import repo_root as _repo_root_fn  # noqa: E402
+_REPO_ROOT = Path(_repo_root_fn())
 
 
 @dataclass

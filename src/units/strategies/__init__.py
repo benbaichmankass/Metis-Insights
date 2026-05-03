@@ -9,7 +9,9 @@ from __future__ import annotations
 import os
 from typing import Any, Dict, Optional
 
-_REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+from src.utils.paths import repo_root as _repo_root
+
+_REPO_ROOT = _repo_root()
 _DEFAULT_STRATEGIES_YAML = os.path.join(_REPO_ROOT, "config", "strategies.yaml")
 
 

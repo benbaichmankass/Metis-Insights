@@ -26,7 +26,8 @@ from src.bot.comms_handler import install_comms_handlers
 load_dotenv()
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-REPO_ROOT = os.path.abspath(os.path.join(BASE_DIR, "..", ".."))
+from src.utils.paths import repo_root as _repo_root  # noqa: E402
+REPO_ROOT = _repo_root()
 # DB_PATH: check env override, then repo root, then src/bot/ (legacy).
 _DB_CANDIDATES = [
     os.environ.get("TRADE_JOURNAL_DB", ""),
