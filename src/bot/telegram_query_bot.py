@@ -857,51 +857,86 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     halted = is_halted()
-    halt_line = "🔴 *HALTED* — orders blocked" if halted else "🟢 *RUNNING* — orders enabled"
 
     try:
         accounts = dl.list_accounts() or []
     except Exception:
         accounts = []
 
-    account_lines: list[str] = []
-    for acc in accounts:
-        aid = acc.get("account_id", "?")
-        label = get_strategy_label(acc)
-        trade_count, total_pnl = fetch_today_pnl(account_id=aid)
-        open_count = fetch_open_positions_count(account_id=aid)
-        # S-016 H1 (audit § A5): drop the systemd unit name from the
-        # per-account block. Since S-012 every strategy runs inside the
-        # single `ict-trader-live` unit, so the service name is identical
-        # for every account and conveys no per-account info. The strategy
-        # name (already in the bold header) is what the operator cares
-        # about. The aggregate-level bot-status line below is unchanged.
-        account_lines.append(
-            f"*{label}* (`{aid}`)\n"
-            f"  📊 Trades today: {trade_count} | P&L: ${total_pnl:+.2f}\n"
-            f"  📂 Open (DB): {open_count}"
-        )
+    # S-telegram-format Phase 4: status renders as collapsable
+    # sections. The operator sees the kill-switch state in the header,
+    # one summary line per account ("📈 main — 12 trades, +$45 PnL,
+    # 1 open"), and taps to expand for full per-account detail.
+    from src.units.ui.telegram_format import Section, render_html
 
-    if not account_lines:
-        # Fallback: no accounts discovered — show aggregate totals as before.
+    sections: list = []
+    sections.append(Section(
+        summary=(
+            "🛑 HALTED — orders blocked"
+            if halted else "🟢 RUNNING — orders enabled"
+        ),
+        body=(
+            f"Kill-switch flag: {HALT_FLAG_PATH}\n"
+            f"Use /resume to re-enable trading."
+            if halted else
+            f"Kill-switch flag: not set ({HALT_FLAG_PATH})\n"
+            f"Use /halt to stop placing orders."
+        ),
+        priority=5,
+    ))
+
+    if accounts:
+        for idx, acc in enumerate(accounts):
+            aid = acc.get("account_id", "?")
+            label = get_strategy_label(acc)
+            trade_count, total_pnl = fetch_today_pnl(account_id=aid)
+            open_count = fetch_open_positions_count(account_id=aid)
+            sections.append(Section(
+                summary=(
+                    f"📈 {label} ({aid}) — "
+                    f"{trade_count} trades, ${total_pnl:+.2f}, "
+                    f"{open_count} open"
+                ),
+                body=(
+                    f"Strategy / label: {label}\n"
+                    f"Account: {aid}\n"
+                    f"Trades today: {trade_count}\n"
+                    f"P&L today: ${total_pnl:+.2f}\n"
+                    f"Open positions (DB): {open_count}"
+                ),
+                priority=10 + idx,
+            ))
+    else:
+        # Aggregate fallback — no accounts discovered.
         trade_count, total_pnl = fetch_today_pnl()
         open_count = fetch_open_positions_count()
         label = get_strategy_label()
-        account_lines.append(
-            f"*{label}* trader: `{get_service_status(LIVE_SERVICE_NAME)}`\n"
-            f"  📊 Trades today: {trade_count} | P&L: ${total_pnl:+.2f}\n"
-            f"  📂 Open (DB): {open_count}"
-        )
+        sections.append(Section(
+            summary=(
+                f"📈 {label} — {trade_count} trades, ${total_pnl:+.2f}, "
+                f"{open_count} open (aggregate)"
+            ),
+            body=(
+                f"Service: {get_service_status(LIVE_SERVICE_NAME)}\n"
+                f"Trades today: {trade_count}\n"
+                f"P&L today: ${total_pnl:+.2f}\n"
+                f"Open positions (DB): {open_count}"
+            ),
+            priority=10,
+        ))
 
-    accounts_block = "\n\n".join(account_lines)
-    text = (
-        "✅ *ICT Trading Bot Status*\n\n"
-        f"🚦 Kill-switch: {halt_line}\n\n"
-        f"{accounts_block}\n\n"
-        f"🤖 Telegram bot: `{get_service_status('ict-telegram-bot')}`\n"
-        f"🕐 {now}"
+    sections.append(Section(
+        summary=f"🤖 Telegram bot — {get_service_status('ict-telegram-bot')}",
+        body=f"Service: ict-telegram-bot\nTimestamp: {now}",
+        priority=90,
+    ))
+
+    text = render_html(
+        header="✅ ICT Trading Bot Status",
+        sections=sections,
+        footer=f"🕐 {now}",
     )
-    await update.message.reply_text(text, parse_mode="Markdown")
+    await update.message.reply_text(text, parse_mode="HTML")
 
 
 async def cmd_halt(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -985,22 +1020,21 @@ async def cmd_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:  # noqa: BLE001
         await update.message.reply_text(f"⚠️ Could not list accounts: {e}")
         return
-    if not accounts:
-        await update.message.reply_text(
-            "⚠️ No accounts configured. Add `.env` (legacy) or `.env.<id>` files.",
-            parse_mode="Markdown",
-        )
-        return
-    blocks = []
+
+    # S-telegram-format Phase 4: wrap each account's balance block in
+    # a collapsable section so the operator scans summaries and taps
+    # to expand details. Dup-key warning rides on a top "Notes"
+    # section.
+    from src.units.ui.processor import render_per_account_collapsable
     dup_warning = _duplicate_key_warning(accounts)
-    if dup_warning:
-        blocks.append(dup_warning)
-    for acc in accounts:
-        try:
-            blocks.append(_render_account_balance(acc))
-        except Exception as e:  # noqa: BLE001
-            blocks.append(f"💰 *{acc.get('account_id', '?')} Balance*\n⚠️ {e}")
-    await update.message.reply_text("\n\n".join(blocks), parse_mode="Markdown")
+    body = render_per_account_collapsable(
+        accounts,
+        body_fn=_render_account_balance,
+        header="💰 Account balances",
+        empty_message="No accounts configured. Add .env (legacy) or .env.<id> files.",
+        extra_top_lines=[dup_warning] if dup_warning else None,
+    )
+    await update.message.reply_text(body, parse_mode="HTML")
 
 
 async def cmd_trades(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1011,19 +1045,15 @@ async def cmd_trades(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:  # noqa: BLE001
         await update.message.reply_text(f"⚠️ Could not list accounts: {e}")
         return
-    if not accounts:
-        await update.message.reply_text(
-            "⚠️ No accounts configured. Add `.env` (legacy) or `.env.<id>` files.",
-            parse_mode="Markdown",
-        )
-        return
-    blocks = []
-    for acc in accounts:
-        try:
-            blocks.append(_render_account_positions(acc))
-        except Exception as e:  # noqa: BLE001
-            blocks.append(f"📊 *{acc.get('account_id', '?')} Positions*\n⚠️ {e}")
-    await update.message.reply_text("\n\n".join(blocks), parse_mode="Markdown")
+
+    from src.units.ui.processor import render_per_account_collapsable
+    body = render_per_account_collapsable(
+        accounts,
+        body_fn=_render_account_positions,
+        header="📊 Open positions",
+        empty_message="No accounts configured. Add .env (legacy) or .env.<id> files.",
+    )
+    await update.message.reply_text(body, parse_mode="HTML")
 
 
 async def cmd_price(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1310,28 +1340,51 @@ async def cmd_log(update: Update, context: ContextTypes.DEFAULT_TYPE):
         accounts = dl.list_accounts() or []
     except Exception:
         accounts = []
+
+    # S-telegram-format Phase 4: render each account's log tail as a
+    # collapsable section so the operator sees one-line summaries
+    # ("📝 main (ict-trader-live) — 20 lines") and taps to expand the
+    # full tail. With many accounts this replaces N separate
+    # multi-screen replies with one scannable message.
+    from src.units.ui.processor import render_per_account_collapsable
+    from src.units.ui.telegram_format import Section, render_html
+
     if not accounts:
+        # No-accounts fallback: show host-wide logs in a single
+        # collapsable section.
         try:
             log_text = get_last_logs(lines=20)
-            label = get_strategy_label()
-            await update.message.reply_text(
-                f"📝 *{label} logs*\n```{log_text[-3500:]}```",
-                parse_mode="Markdown",
-            )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             await update.message.reply_text(f"⚠️ Could not read logs: {e}")
+            return
+        label = get_strategy_label()
+        body = render_html(
+            header=f"📝 {label} logs",
+            sections=[Section(
+                summary=f"{label} — 20 lines",
+                body=log_text[-3500:],
+            )],
+        )
+        await update.message.reply_text(body, parse_mode="HTML")
         return
-    for acc in accounts:
+
+    def _body(acc):
+        svc = acc.get("service") or LIVE_SERVICE_NAME
+        return dl.recent_logs_for(svc, n=20)[-3500:]
+
+    def _summary(acc, body_text):
         svc = acc.get("service") or LIVE_SERVICE_NAME
         label = get_strategy_label(acc)
-        try:
-            log_text = dl.recent_logs_for(svc, n=20)
-            await update.message.reply_text(
-                f"📝 *{label}* (`{svc}`)\n```{log_text[-3500:]}```",
-                parse_mode="Markdown",
-            )
-        except Exception as e:  # noqa: BLE001
-            await update.message.reply_text(f"⚠️ Could not read logs for `{svc}`: {e}")
+        line_count = body_text.count("\n") + 1 if body_text else 0
+        return f"📝 {label} ({svc}) — {line_count} lines"
+
+    body = render_per_account_collapsable(
+        accounts,
+        body_fn=_body,
+        summary_fn=_summary,
+        header="📝 Service logs (last 20 lines per account)",
+    )
+    await update.message.reply_text(body, parse_mode="HTML")
 
 
 async def cmd_toggle(update: Update, context: ContextTypes.DEFAULT_TYPE):

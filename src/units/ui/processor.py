@@ -639,6 +639,86 @@ def get_signals_block(
     return f"{header}\n{body}"
 
 
+def render_per_account_collapsable(
+    accounts: List[Dict[str, Any]],
+    body_fn,
+    *,
+    header: str,
+    summary_fn=None,
+    empty_message: str = "(no accounts configured)",
+    extra_top_lines: Optional[List[str]] = None,
+) -> str:
+    """Generic helper: wrap a per-account renderer in a collapsable
+    HTML envelope.
+
+    Used by ``/balance``, ``/trades``, and ``/log`` to apply the
+    unified collapsable shape uniformly. ``body_fn(account)`` returns
+    the per-account body string (legacy formatters that already emit
+    Markdown are fine — the formatter HTML-escapes by default so the
+    `*` characters render as literal asterisks inside the
+    blockquote, which is acceptable since the section's value is the
+    summary line + tap-to-expand UX, not in-blockquote rich
+    formatting).
+
+    ``summary_fn(account)``, when provided, returns the summary line.
+    Default summary uses ``account_id`` plus the first non-empty line
+    of the body so the operator sees the headline figure (balance /
+    position count / log activity) without expanding.
+
+    ``extra_top_lines`` are appended to the header section verbatim
+    (after HTML escape) — useful for dup-key warnings on /balance.
+    """
+    from src.units.ui.telegram_format import Section, render_html
+
+    if not accounts:
+        return render_html(
+            header=header,
+            sections=[Section(summary=empty_message, body="")],
+        )
+
+    sections: List[Section] = []
+    if extra_top_lines:
+        sections.append(Section(
+            summary="ℹ️ Notes",
+            body="\n".join(extra_top_lines),
+            priority=1,
+        ))
+
+    for idx, acc in enumerate(accounts):
+        aid = acc.get("account_id") or "?"
+        try:
+            body = body_fn(acc) or ""
+        except Exception as exc:  # noqa: BLE001
+            body = f"⚠️ {type(exc).__name__}: {exc}"
+        if summary_fn is not None:
+            try:
+                summary = summary_fn(acc, body) or aid
+            except Exception:  # noqa: BLE001
+                summary = aid
+        else:
+            # Default summary: ``{account_id} — {first body line}``
+            # so the operator can identify the section even when the
+            # body's first line doesn't already name the account.
+            # Legacy Markdown decorations (``*x*``, ``` `x` ```) are
+            # stripped to literal text — the summary is plain text by
+            # design (HTML escape happens below).
+            first = next(
+                (ln for ln in body.split("\n") if ln.strip()),
+                "",
+            )
+            stripped = first.replace("*", "").replace("`", "").strip()
+            if not stripped or stripped == aid:
+                summary = aid
+            else:
+                summary = f"{aid} — {stripped[:100]}"
+
+        sections.append(Section(
+            summary=summary, body=body, priority=10 + idx,
+        ))
+
+    return render_html(header=header, sections=sections)
+
+
 def render_recent_trades_collapsable(
     rows: List[Dict[str, Any]],
     *,
