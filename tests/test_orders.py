@@ -260,6 +260,57 @@ def test_safe_place_order_allow_live_diagnostic_includes_source_and_value():
     assert "settings" in result["reason"]
 
 
+def test_pipeline_result_sections_omits_not_generated_on_no_signal_tick():
+    """CP-2026-05-03-18 P3 (cosmetic): on a no-signal tick the
+    'Order package — not generated' section must not fire. Pre-fix it
+    rendered every tick, adding noise to the operator's per-tick
+    feed when no signal had even been considered. The body's text
+    references the legacy single-client validation path, which
+    only makes sense when the strategy actually fired."""
+    from src.runtime.pipeline import _pipeline_result_sections
+
+    no_signal = {
+        "symbol": "BTCUSDT",
+        "side": "none",
+        "meta": {"strategy_name": "vwap", "reason": "no setup on the latest bar"},
+    }
+    result = {"status": "no_signal"}
+    sections = _pipeline_result_sections(
+        signal=no_signal, result=result, strategy="vwap",
+    )
+    summaries = [s.summary for s in sections]
+    assert "Order package — not generated" not in summaries, (
+        "P3 regression: the 'not generated' body must skip on "
+        f"side='none' ticks (got summaries={summaries!r})"
+    )
+    # The other legitimate sections still render.
+    assert any("Strategy" in s for s in summaries)
+
+
+def test_pipeline_result_sections_keeps_not_generated_when_actionable_but_missing_sltp():
+    """Inverse pin: when side IS actionable (buy/sell) but the signal
+    didn't carry entry/sl/tp at the top level, the 'not generated'
+    section is the operator's diagnostic for the legacy single-client
+    fallback — it must keep firing in that case."""
+    from src.runtime.pipeline import _pipeline_result_sections
+
+    actionable_no_sltp = {
+        "symbol": "BTCUSDT",
+        "side": "buy",
+        "meta": {"strategy_name": "vwap"},
+    }
+    sections = _pipeline_result_sections(
+        signal=actionable_no_sltp, result={"status": "failed_validation"},
+        strategy="vwap",
+    )
+    summaries = [s.summary for s in sections]
+    assert "Order package — not generated" in summaries, (
+        "P3 inverse pin: actionable signal lacking sl/tp must still "
+        "render the 'not generated' diagnostic so the operator sees "
+        "it took the legacy path"
+    )
+
+
 def test_pipeline_result_failed_validation_includes_remediation_section():
     """When ALLOW_LIVE_TRADING isn't truthy, the Telegram envelope must
     surface a 'Why & next step' section with the actual reason — the

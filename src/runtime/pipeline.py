@@ -245,8 +245,12 @@ def _pipeline_result_sections(
         priority=10,
     ))
 
-    # 2. Order package detail (entry / sl / tp / direction)
+    # 2. Order package detail (entry / sl / tp / direction). The
+    # "not generated" body is only meaningful when the strategy
+    # actually fired (side ∈ {'buy', 'sell'}) — on no-signal ticks
+    # there's no package to show and the section adds noise. CP-18 P3.
     pkg = _extract_order_package_fields(signal)
+    side_actionable = str(signal.get("side", "")).strip().lower() in ("buy", "sell")
     if any(v is not None for v in (pkg["entry"], pkg["sl"], pkg["tp"])):
         pkg_rows = [
             ("Direction", pkg["direction"]),
@@ -260,7 +264,7 @@ def _pipeline_result_sections(
             body=kv_block(pkg_rows),
             priority=20,
         ))
-    else:
+    elif side_actionable:
         sections.append(Section(
             summary="Order package — not generated",
             body=(
