@@ -5,6 +5,65 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-03-11 — fix-telegram-pipeline: data_loaders REPO_ROOT + render-env install path
+
+- **Session date:** 2026-05-03
+- **Sprint:** claude/fix-telegram-pipeline-9lvk5 — focused fix branch (operator
+  reported 7 distinct Telegram-bot pipeline bugs; this checkpoint addresses the
+  two pipeline-blocking root causes and logs both in `docs/claude/bug-log.md`).
+- **Current sprint phase:** PR #1 of N — pipeline-blocking config-drift fixes.
+- **Last completed checkpoint:** CP-2026-05-03-10 (S-telegram-format WRAPPED).
+- **Next checkpoint:** **CP-2026-05-?-?? — risk-manager rejection logging + log-view bot commands.** Operator-deferred to next session per "cosmetic fixes in a subsequent session" directive. Read in order: this entry, `docs/claude/bug-log.md` (BUG-037, BUG-038), then the pending items in §6 below.
+- **Telegram sent:** rides on the merge of this PR (commit touches CHECKPOINT_LOG.md → VM-side ping fires per CLAUDE.md § Telegram Reporting).
+- **Alerts sent during session:** none.
+- **Blockers:** none.
+
+### 1. Completed
+
+- **BUG-037 — `src/units/ui/data_loaders.py::REPO_ROOT` was off by one level after the S-032 module move from `src/bot/` to `src/units/ui/`.** The `os.path.join(_BASE_DIR, "..", "..")` calc resolved to `<repo>/src` instead of `<repo>`, making every downstream lookup (`config/accounts.yaml`, `data/trades.db`, `trade_journal.db`) miss the real files. Symptoms reported by operator:
+  - `/trades` and the hourly accounts summary both said "no accounts configured" even though `config/accounts.yaml` had 3 populated entries and `/balance` (which uses a different lookup path) successfully returned the Bybit-2 wallet.
+  - `/strategies` showed every strategy at `0 signals` because `SIGNALS_DB` resolved to `<repo>/src/data/trades.db` (does not exist) and silently returned 0.
+  - **Fix:** bumped to `"..", "..", ".."` (three levels) and added a comment naming the S-032 move. Verified resolution end-to-end with a live `list_accounts()` call: 3 accounts loaded (`bybit_1`, `bybit_2`, `prop_velotrade_1`).
+- **BUG-038 — Trader systemd unit reads `.env` (no suffix) but the colab render notebook writes `.env.live`.** Operator's per-tick `Pipeline result: ALLOW_LIVE_TRADING=true is required for live submission` was caused by the trader running on a stale/empty `.env` while the operator believed they had installed live credentials by SCP'ing `.env.live`. Same convention drift as BUG-026 / BUG-024. The `render_env_from_master.py` script itself emits `ALLOW_LIVE_TRADING=true` correctly for both `live` and `vwap_btcusd_live` profiles — the failure was downstream, in the install procedure documented in `notebooks/setup/render_env_from_drive_master.ipynb`.
+  - **Fix:** rewrote cell 14 of the render notebook with a corrected install procedure: SCP the rendered file to `~/ict-trading-bot/.env` (no suffix), restart **both** `ict-trader-live` and `ict-telegram-bot` (BUG-029 caveat), and verify with a `head -10 ~/ict-trading-bot/.env | grep -E 'MODE|ALLOW_LIVE_TRADING|DRY_RUN|EXCHANGE'` step that prints just the key names.
+- **Cosmetic post-S-012 message in `cmd_trades`** ("No accounts configured. Add .env (legacy) or .env.<id> files.") replaced with the correct guidance: "Edit config/accounts.yaml and restart the trader."
+- **Bug log updated** with full root-cause and concern entries for BUG-037 + BUG-038.
+
+### 2. Files changed
+- `src/units/ui/data_loaders.py` — REPO_ROOT calc bumped one level + diagnostic comment.
+- `src/bot/telegram_query_bot.py` — `cmd_trades` empty-message string updated (replace_all=True; 2 occurrences).
+- `notebooks/setup/render_env_from_drive_master.ipynb` — cell 14 (install instructions) rewritten with the unsuffixed-`.env` install + verification steps.
+- `docs/claude/bug-log.md` — appended BUG-037 and BUG-038.
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` — this entry.
+
+### 3. Tests run
+- `PYTHONPATH=. python3 -m pytest tests/test_data_loaders.py tests/test_telegram_query_bot.py tests/test_hourly_report.py -q` → 184 passed, 15 failed (4 in test_data_loaders + 11 in test_telegram_query_bot). **All 15 failures verified pre-existing on main via `git stash`** (unrelated to this PR — `_bybit_client` AttributeError + sandbox timezone quirks + DB-table absence in test fixtures).
+- Smoke check on the REPO_ROOT fix: `from src.units.ui import data_loaders as dl; dl.list_accounts()` returned 3 accounts (bybit_1, bybit_2, prop_velotrade_1) — confirmed working.
+- `python3 scripts/secret_scan.py` → clean (`No obvious tracked-file secrets found.`).
+- `python3 scripts/check_dry_run_in_diff.py` → clean (`dry_run_in_diff: clean (no offending changes)`).
+
+### 4. Live-mode check
+- `scripts/check_dry_run_in_diff.py` → clean.
+- `config/accounts.yaml` not touched.
+- No code change to `src/runtime/orders.py`, `src/runtime/pipeline.py`, `src/runtime/trading_mode.py`, or `src/units/accounts/*`. ✅
+- Notebook change is install-procedure documentation only; the rendered env contract (`ALLOW_LIVE_TRADING=true`, `DRY_RUN=false`) is unchanged. The notebook fix actually restores live-mode for accounts whose installed `.env` was previously stale — this is the live-correct direction.
+
+### 5. Architecture rules check
+- **Unit boundary declaration.** Touched: `src/units/ui/data_loaders.py` (UI unit), `src/bot/telegram_query_bot.py` (bot shell — single-line copy fix), `notebooks/setup/` (operator notebook), and `docs/claude/`. No new cross-unit imports outside `src/core/coordinator.py`.
+- **Rule 5 (bot is a thin shell).** `cmd_trades` change is a copy-only edit on an existing handler.
+
+### 6. Remaining (deferred to next session per operator directive: "fix the pipeline first, cosmetic fixes in a subsequent session")
+- **Risk-manager rejection logging (Tier-2, ping-PR required).** `execute_pkg` only inserts a `status='open'` trade row on submission. Need a row with `status='rejected'` + reason for: paused account, RiskManager.approve()=False, exchange `retCode!=0`, and exception paths. Touches `src/units/accounts/execute.py` — per CLAUDE.md § Live-mode invariant rule 3, mandatory operator ping regardless of test outcome.
+- **`/packages` log-view command.** Wire `Database.get_order_packages_by_strategy` into a new bot handler so the operator can list recent order packages by strategy (UI Rule 4 — package logs grouped by strategy).
+- **`/latest_backtest` enhancement.** Surface the most recent `experiments/<run-id>/RECOMMENDATIONS.md` summary alongside the `backtest_results` row.
+- **`/strategies` signal count window.** Currently shows "today only" via `_count_signals_today`; operator expectation is "all signals in the signals DB". Adjust `strategy_dashboard_data` to also include a `signals_total` field and last-fired timestamp.
+- **Liveness watchdog (#4 from operator's report).** Whether it was firing legitimately or false-positively was inconclusive in-session — pending operator follow-up after BUG-038's env install lands and the trader actually starts placing trades.
+
+### 7. Next checkpoint
+**CP-2026-05-?-?? — risk-manager rejection logging + log-view bot commands.** First action: open a ping-PR per CLAUDE.md § Live-mode invariant for the `src/units/accounts/execute.py` rejection-logging change before touching code. Read in order: this entry, `docs/claude/bug-log.md` (BUG-037, BUG-038), `src/units/accounts/execute.py` (`_log_trade_to_journal` is the existing insertion point), `src/units/db/database.py::get_order_packages_by_strategy` (already exists, just needs a bot handler).
+
+---
+
 ## CP-2026-05-03-10 — Sprint S-telegram-format COMPLETE / WRAPPED
 
 - **Session date:** 2026-05-03
