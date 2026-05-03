@@ -2777,10 +2777,11 @@ async def cmd_set_all_live(update: Update, context: ContextTypes.DEFAULT_TYPE):
     calls ``set_account_dry_run(name, False)`` on each.
 
     Reports a summary back over Telegram (account count, any failures).
-    The process-level ``ALLOW_LIVE_TRADING`` env var is unaffected
-    here — that lives in ``.env.live`` and changing it requires a
-    trader restart. The per-account ``dry_run`` toggle is in-memory
-    and applies to the next ``load_accounts()`` call (no restart).
+    Per-account ``dry_run`` is the only dry/live toggle in the codebase
+    (operator directive 2026-05-03). The override is in-memory and
+    applies to the next ``load_accounts()`` call (no restart). For a
+    persistent change, edit ``config/accounts.yaml`` ``mode`` field and
+    let the trader reload.
     """
     if not is_authorised(update):
         return

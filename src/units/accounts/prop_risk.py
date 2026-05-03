@@ -75,8 +75,9 @@ class PropRiskManager(RiskManager):
         config: Dict[str, Any],
         *,
         account_name: Optional[str] = None,
+        dry_run: bool = False,
     ) -> None:
-        super().__init__(config.get("risk") or config)
+        super().__init__(config.get("risk") or config, dry_run=dry_run)
         self.account_name: Optional[str] = account_name
         self.account_state: str = str(config.get("account_state") or "evaluation").lower()
         phase = config.get("phase_requirements") or {}

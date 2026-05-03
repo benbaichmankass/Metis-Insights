@@ -5,6 +5,12 @@ Uses only fake/mock data — no real secrets, no sops binary, no network calls.
 
 Post-CP-17: paper / colab / oracle_paper / vwap_btcusd_dry_run profiles have
 been removed. Only the live profiles (`live`, `vwap_btcusd_live`) remain.
+
+Post-2026-05-03 (operator directive): the dry/live toggle moved entirely
+to per-account ``mode: live | dry_run`` in ``config/accounts.yaml``.
+The render script no longer emits ``MODE`` / ``DRY_RUN`` /
+``ALLOW_LIVE_TRADING``, the ``vwap_btcusd_live`` profile / builder was
+removed, and the canonical profile is ``live``.
 """
 from __future__ import annotations
 
@@ -143,8 +149,9 @@ class TestNoPaperSurfaces:
     rendered from this script. These are the structural guard-rails for the
     'no paper trading anywhere' directive."""
 
-    def test_profiles_tuple_is_live_only(self):
-        assert mod.PROFILES == ("live", "vwap_btcusd_live")
+    def test_profiles_tuple_is_single_live(self):
+        # Post-2026-05-03: the canonical render path is ``live``.
+        assert mod.PROFILES == ("live",)
 
     def test_every_profile_is_a_live_profile(self):
         # By design, LIVE_PROFILES == PROFILES post-CP-17.
@@ -156,12 +163,13 @@ class TestNoPaperSurfaces:
             "build_colab",
             "build_oracle_paper",
             "build_vwap_btcusd_dry_run",
+            "build_vwap_btcusd_live",
             "_build_vwap_btcusd",
         ):
-            assert not hasattr(mod, name), f"{name} should have been removed in CP-17"
+            assert not hasattr(mod, name), f"{name} should have been removed"
 
     def test_builders_dict_is_live_only(self):
-        assert set(mod.BUILDERS.keys()) == {"live", "vwap_btcusd_live"}
+        assert set(mod.BUILDERS.keys()) == {"live"}
 
     def test_check_env_paper_script_deleted(self):
         # Hard guarantee that the paper smoke-test script is gone from disk.
@@ -237,8 +245,10 @@ class TestLiveProfile:
     def test_expected_keys_present(self):
         pairs = mod.build_live(FAKE_DATA)
         keys = {k for k, _ in pairs}
+        # Post-2026-05-03: MODE / DRY_RUN / ALLOW_LIVE_TRADING are NOT
+        # rendered. The dry/live toggle lives in config/accounts.yaml.
         expected = {
-            "ENVIRONMENT", "EXCHANGE", "MODE", "DRY_RUN", "ALLOW_LIVE_TRADING",
+            "ENVIRONMENT", "EXCHANGE",
             "TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID",
             "BYBIT_API_KEY", "BYBIT_API_SECRET", "BYBIT_BASE_URL",
         }
@@ -248,18 +258,12 @@ class TestLiveProfile:
         pairs = dict(mod.build_live(FAKE_DATA))
         assert pairs["ENVIRONMENT"] == "production"
 
-    def test_mode_is_live_uppercase(self):
-        pairs = dict(mod.build_live(FAKE_DATA))
-        assert pairs["MODE"] == "LIVE"
-        assert pairs["MODE"].lower() != "paper"
-
-    def test_dry_run_false(self):
-        pairs = dict(mod.build_live(FAKE_DATA))
-        assert pairs["DRY_RUN"] == "false"
-
-    def test_allow_live_trading_true(self):
-        pairs = dict(mod.build_live(FAKE_DATA))
-        assert pairs["ALLOW_LIVE_TRADING"] == "true"
+    def test_mode_keys_not_emitted(self):
+        # The mode lives in accounts.yaml `mode:`, not the rendered env.
+        keys = {k for k, _ in mod.build_live(FAKE_DATA)}
+        assert "MODE" not in keys
+        assert "DRY_RUN" not in keys
+        assert "ALLOW_LIVE_TRADING" not in keys
 
     def test_no_testnet_keys(self):
         keys = {k for k, _ in mod.build_live(FAKE_DATA)}
@@ -267,91 +271,10 @@ class TestLiveProfile:
         assert "BYBIT_TESTNET_API_SECRET" not in keys
 
 
-# ---------------------------------------------------------------------------
-# vwap_btcusd_live profile
-# ---------------------------------------------------------------------------
-
-class TestVwapBtcusdLiveProfile:
-    def test_expected_keys_present(self):
-        pairs = mod.build_vwap_btcusd_live(FAKE_DATA)
-        keys = {k for k, _ in pairs}
-        expected = {
-            "ENVIRONMENT", "EXCHANGE", "MODE", "DRY_RUN", "ALLOW_LIVE_TRADING",
-            "BYBIT_TESTNET",
-            "STRATEGY", "SYMBOL", "TIMEFRAME",
-            "BYBIT_API_KEY", "BYBIT_API_SECRET",
-            "TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID",
-            "MAX_POSITION_USD", "MAX_DAILY_LOSS_USD", "RISK_PER_TRADE",
-            "MAX_QTY", "MAX_OPEN_POSITIONS",
-        }
-        assert expected.issubset(keys)
-
-    def test_safety_flag_values(self):
-        pairs = dict(mod.build_vwap_btcusd_live(FAKE_DATA))
-        assert pairs["MODE"] == "LIVE"
-        assert pairs["DRY_RUN"] == "false"
-        assert pairs["ALLOW_LIVE_TRADING"] == "true"
-        assert pairs["BYBIT_TESTNET"] == "false"
-        assert pairs["STRATEGY"] == "vwap"
-        assert pairs["SYMBOL"] == "BTCUSD"
-        assert pairs["TIMEFRAME"] == "1m"
-
-    def test_uses_prod_telegram(self):
-        pairs = dict(mod.build_vwap_btcusd_live(FAKE_DATA))
-        assert pairs["TELEGRAM_BOT_TOKEN"] == FAKE_DATA["telegram"]["prod"]["bot_token"]
-        assert pairs["TELEGRAM_CHAT_ID"] == FAKE_DATA["telegram"]["prod"]["chat_id"]
-
-    def test_uses_vwap_strategy_subaccount_keys(self):
-        pairs = dict(mod.build_vwap_btcusd_live(FAKE_DATA))
-        # Must come from bybit.vwap_strategy, not bybit.live
-        assert pairs["BYBIT_API_KEY"] == FAKE_DATA["bybit"]["vwap_strategy"]["api_key"]
-        assert pairs["BYBIT_API_SECRET"] == FAKE_DATA["bybit"]["vwap_strategy"]["api_secret"]
-        # And specifically not from the parent-account live keys
-        assert pairs["BYBIT_API_KEY"] != FAKE_DATA["bybit"]["live"]["api_key"]
-        assert pairs["BYBIT_API_SECRET"] != FAKE_DATA["bybit"]["live"]["api_secret"]
-
-    def test_no_testnet_keys_in_output(self):
-        keys = {k for k, _ in mod.build_vwap_btcusd_live(FAKE_DATA)}
-        assert "BYBIT_TESTNET_API_KEY" not in keys
-        assert "BYBIT_TESTNET_API_SECRET" not in keys
-
-
-class TestVwapBtcusdMissingCredentials:
-    def _data_without(self, *paths):
-        import copy
-        data = copy.deepcopy(FAKE_DATA)
-        for p in paths:
-            node = data
-            parts = p.split(".")
-            for part in parts[:-1]:
-                node = node[part]
-            node.pop(parts[-1], None)
-        return data
-
-    def test_missing_api_key_fails_with_field_name(self):
-        data = self._data_without("bybit.vwap_strategy.api_key")
-        with pytest.raises(SystemExit) as exc:
-            mod.build_vwap_btcusd_live(data)
-        msg = str(exc.value)
-        assert "bybit.vwap_strategy.api_key" in msg
-        # Field name only — the value (which is absent here anyway) must not appear
-        assert "fake_vwap_subaccount" not in msg
-
-    def test_missing_api_secret_fails_with_field_name(self):
-        data = self._data_without("bybit.vwap_strategy.api_secret")
-        with pytest.raises(SystemExit) as exc:
-            mod.build_vwap_btcusd_live(data)
-        assert "bybit.vwap_strategy.api_secret" in str(exc.value)
-
-    def test_placeholder_api_key_fails_with_field_name_only(self):
-        import copy
-        data = copy.deepcopy(FAKE_DATA)
-        data["bybit"]["vwap_strategy"]["api_key"] = "REPLACE_ME_BYBIT_VWAP_STRATEGY_SUBACCOUNT_API_KEY"
-        with pytest.raises(SystemExit) as exc:
-            mod.build_vwap_btcusd_live(data)
-        msg = str(exc.value)
-        assert "bybit.vwap_strategy.api_key" in msg
-        assert "REPLACE_ME_BYBIT_VWAP_STRATEGY_SUBACCOUNT_API_KEY" not in msg
+# (TestVwapBtcusdLiveProfile + TestVwapBtcusdMissingCredentials removed
+# 2026-05-03 — vwap_btcusd_live profile / builder were deleted along
+# with the rest of the profile picker. The single canonical render path
+# is ``build_live``; per-account mode lives in accounts.yaml.)
 
 
 # ---------------------------------------------------------------------------
@@ -421,26 +344,10 @@ class TestWriteEnvFile:
 # ---------------------------------------------------------------------------
 
 class TestCLILiveGuard:
-    @pytest.mark.parametrize("profile", ["live", "vwap_btcusd_live"])
-    def test_profile_without_allow_live_exits(self, tmp_path, profile):
-        master = tmp_path / "master-secrets.sops.yaml"
-        master.write_text("fake")
-        age_key = tmp_path / "age-keys.txt"
-        age_key.write_text("fake")
-        out = tmp_path / f".env.{profile}"
-
-        test_args = [
-            "render_env_from_master.py",
-            "--master", str(master),
-            "--age-key-file", str(age_key),
-            "--profile", profile,
-            "--out", str(out),
-            # --allow-live intentionally omitted
-        ]
-        with patch.object(sys, "argv", test_args):
-            with pytest.raises(SystemExit) as exc:
-                mod.main()
-            assert exc.value.code != 0
+    # Post-2026-05-03: --allow-live is no longer required (it is accepted
+    # but ignored for back-compat). The dry/live toggle moved to
+    # config/accounts.yaml `mode`. The previous "missing --allow-live
+    # exits 1" guard is removed.
 
     def test_plaintext_yaml_rejected(self, tmp_path):
         master = tmp_path / "master-secrets.yaml"  # not .sops.yaml
@@ -462,9 +369,15 @@ class TestCLILiveGuard:
                 mod.main()
             assert exc.value.code != 0
 
-    @pytest.mark.parametrize("profile", ["paper", "colab", "oracle_paper", "vwap_btcusd_dry_run"])
+    @pytest.mark.parametrize(
+        "profile",
+        ["paper", "colab", "oracle_paper", "vwap_btcusd_dry_run", "vwap_btcusd_live"],
+    )
     def test_removed_profiles_rejected_by_argparse(self, tmp_path, profile):
-        """argparse choices=PROFILES must reject removed paper-style profiles."""
+        """argparse choices=PROFILES must reject every removed profile.
+
+        ``vwap_btcusd_live`` joined the rejection list 2026-05-03 along
+        with the rest of the profile picker — only ``live`` remains."""
         master = tmp_path / "master-secrets.sops.yaml"
         master.write_text("fake")
         age_key = tmp_path / "age-keys.txt"
@@ -638,13 +551,8 @@ class TestNewsDefaultInProfiles:
         pairs = dict(mod.build_live(FAKE_DATA_WITH_NEWS_DISABLED))
         assert pairs["NEWS_ENABLED"] == "false"
 
-    def test_vwap_profile_contains_news_enabled(self):
-        pairs = dict(mod.build_vwap_btcusd_live(FAKE_DATA_WITH_NEWS_DISABLED))
-        assert "NEWS_ENABLED" in pairs
-
-    def test_vwap_profile_news_disabled_by_default(self):
-        pairs = dict(mod.build_vwap_btcusd_live(FAKE_DATA_WITH_NEWS_DISABLED))
-        assert pairs["NEWS_ENABLED"] == "false"
+    # ``build_vwap_btcusd_live`` was removed 2026-05-03 — the canonical
+    # render path is ``build_live``, exercised by the two tests above.
 
 
 class TestNewsTemplateSanity:
@@ -678,14 +586,14 @@ class TestNewsTemplateSanity:
         )
 
     def test_rendered_output_never_produces_news_enabled_true_without_explicit_override(self):
-        """No profile rendered from FAKE_DATA (no news block) emits NEWS_ENABLED=true."""
-        for builder_name in ("build_live", "build_vwap_btcusd_live"):
-            builder = getattr(mod, builder_name)
-            pairs = dict(builder(FAKE_DATA_WITHOUT_NEWS_BLOCK))
-            assert pairs.get("NEWS_ENABLED") != "true", (
-                f"{builder_name} must not emit NEWS_ENABLED=true when there is no "
-                "explicit news block in the master secrets data"
-            )
+        """The canonical builder (post-2026-05-03 ``build_live`` is the
+        only one) must not emit NEWS_ENABLED=true when there is no
+        explicit news block in the master secrets data."""
+        pairs = dict(mod.build_live(FAKE_DATA_WITHOUT_NEWS_BLOCK))
+        assert pairs.get("NEWS_ENABLED") != "true", (
+            "build_live must not emit NEWS_ENABLED=true when there is no "
+            "explicit news block in the master secrets data"
+        )
 
 
 # ---------------------------------------------------------------------------

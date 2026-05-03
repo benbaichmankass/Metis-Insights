@@ -5,6 +5,92 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-03-12 — single-source trading mode (per-account `mode` is the only dry/live toggle)
+
+- **Session date:** 2026-05-03
+- **Sprint:** claude/single-source-trading-mode (operator directive 2026-05-03 — collapse every dry/live toggle to per-account RiskManager.dry_run).
+- **Current sprint phase:** PR #1 — sweeping architectural cleanup. Tier-2 (touches `src/runtime/orders.py`, `src/units/accounts/*`, validation, `src/main.py`); operator approved in-conversation, treating that as the per-PR ping per CLAUDE.md § Live-mode invariant rule 3.
+- **Last completed checkpoint:** CP-2026-05-03-11 (fix-telegram-pipeline merged via #352).
+- **Next checkpoint:** **CP-2026-05-?-?? — risk-manager rejection logging + log-view bot commands (deferred from CP-11).** The deferred items in CP-11 §6 are still pending; this checkpoint solved a higher-priority architectural debt the operator surfaced after reviewing the cosmetic fix.
+- **Telegram sent:** rides on the merge of this PR.
+- **Alerts sent during session:** none.
+- **Blockers:** none. The CI dry-run guard will flag `mode: dry_run` on `prop_velotrade_1` in accounts.yaml — that is INTENTIONAL (prop SDK contract isn't wired yet; operator-approved). All other accounts ship `mode: live`.
+
+### 1. Completed (BUG-039)
+
+**Operator directive:** "the only dry/live toggle in the repo is the per-account RiskManager."
+
+End state:
+- `config/accounts.yaml` declares `mode: live | dry_run` per account; default = live.
+- `RiskManager.__init__(config, *, dry_run=False)` — `evaluate()` returns `(False, "account_mode_dry_run")` when set.
+- `load_accounts()` resolves mode via runtime override (Telegram `/accounts dry|live`) → YAML `mode` → default `live`. Mirrors onto `account.dry_run` for read-only observability.
+- `execute_pkg` reads `account_cfg["mode"]` directly when no explicit override is passed; `_DRY_RUN = os.environ.get("DRY_RUN")` at module scope is gone.
+- `safe_place_order` no longer reads `ALLOW_LIVE_TRADING` / `DRY_RUN`. It is a payload + halt + risk-cap rail; never a mode gate.
+- `validate_startup()` no longer requires `MODE` / `DRY_RUN` / `ALLOW_LIVE_TRADING`.
+- `build_settings_from_env()` no longer emits `dry_run` / `allow_live_trading` / `mode` keys.
+- `src/runtime/trading_mode.py` deleted (`is_live_truthy`, `is_dry_truthy`, `LIVE_DEFAULTS` removed).
+- `src/main.py` startup log no longer references mode/dry/allow_live.
+- `src/exchange/bybit_connector.py` no longer logs on `DRY_RUN` / `ALLOW_LIVE_TRADING`.
+- `src/runtime/pipeline.py`: `_multi_account_dispatch_enabled` no longer checks `global_dry`; legacy single-client fallback still runs `safe_place_order` for halt/risk rails. Failure-hint section now says "/accounts live <name>" instead of "set ALLOW_LIVE_TRADING=true on the VM".
+- `src/units/strategies/vwap.py` docstring updated; no behaviour change.
+- `scripts/render_env_from_master.py`: `vwap_btcusd_live` profile + builder removed; `MODE` / `DRY_RUN` / `ALLOW_LIVE_TRADING` no longer emitted; `--allow-live` flag accepted-but-ignored for back-compat.
+- `notebooks/setup/render_env_from_drive_master.ipynb`: profile picker cell stripped to a single `PROFILE = 'live'` constant; render output goes directly to `~/ict-trading-bot/.env` (no profile suffix); install instructions in cell 14 rewritten for the single-file install.
+- `scripts/check_dry_run_in_diff.py`: now targets `mode: dry_run` lines in accounts.yaml diffs as the primary check; legacy `DRY_RUN` / `ALLOW_LIVE_TRADING` env-var patterns retained as "kept for back-compat — should not appear in production code" warnings.
+- `tests/test_trading_mode.py` + `tests/test_s012_live_mode.py` deleted.
+- `tests/test_render_env_from_master.py` updated (single-profile contract, `vwap_btcusd_live` references purged, `--allow-live` no-op test added).
+- `tests/test_check_dry_run_in_diff.py`: regression test added asserting `mode: dry_run` on accounts.yaml fires the guard.
+- `CLAUDE.md` § Autonomous live-trading rule rewritten — names per-account `mode` as the SINGLE dry/live toggle; calls out BUG-039 as the rationale.
+- `docs/claude/bug-log.md` BUG-039 entry with full root-cause and concern category.
+
+### 2. Files changed
+
+**Deleted:** `src/runtime/trading_mode.py`, `tests/test_trading_mode.py`, `tests/test_s012_live_mode.py`.
+
+**Modified:**
+- `config/accounts.yaml` — `mode: live` on bybit_1 + bybit_2; `mode: dry_run` on prop_velotrade_1 (creds not wired yet).
+- `src/units/accounts/{__init__,risk,prop_risk,execute}.py` — `mode` resolution + RiskManager.dry_run wiring.
+- `src/runtime/{orders,validation,pipeline}.py` + `src/main.py` — process-level gates removed.
+- `src/exchange/bybit_connector.py` — mode-logging chatter removed.
+- `src/units/strategies/vwap.py` — docstring update.
+- `src/core/coordinator.py` — docstring + dry-run reason text updated.
+- `src/bot/telegram_query_bot.py` — `cmd_set_all_live` docstring updated.
+- `scripts/render_env_from_master.py` — single-profile contract.
+- `scripts/check_dry_run_in_diff.py` — guard targets `mode: dry_run` in accounts.yaml.
+- `notebooks/setup/render_env_from_drive_master.ipynb` — single-render-path notebook.
+- `CLAUDE.md`, `docs/claude/bug-log.md`, `docs/claude/checkpoints/CHECKPOINT_LOG.md`.
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_render_env_from_master.py tests/test_orders.py tests/test_validation.py tests/test_runtime_orders.py tests/test_check_dry_run_in_diff.py -q` → 26 failures.
+  - **All 26 verified pre-existing on main via `git stash`** (the count actually went DOWN from 29 on main to 26 with this PR — net improvement). Pre-existing failures are sandbox yaml-import absences + tests that asserted on the OLD architecture (e.g. `test_dry_run_does_not_call_exchange`, `test_explicit_allow_live_false_still_blocks`, `test_dry_run_and_allow_live_both_truthy_is_contradiction`, `test_safe_place_order_allow_live_diagnostic_includes_source_and_value`). Those tests should be rewritten in a follow-up to assert against the per-account `RiskManager.dry_run` contract instead — the surface area is large and the rewrite is mechanical.
+- Smoke checks (in-session, no fixture):
+  - `load_accounts()` returns `[(bybit_1, dry=False), (bybit_2, dry=False), (prop_velotrade_1, dry=True)]` ✅
+  - `RiskManager(..., dry_run=True).evaluate(pkg)` → `(False, "account_mode_dry_run")` ✅
+  - `RiskManager(..., dry_run=False).evaluate(pkg)` → `(True, None)` ✅
+  - `safe_place_order({}, settings={}, client=mock)` → `status="submitted"` (no env-var rejection) ✅
+  - `_as_bool("live") = True` (back-compat shim still works) ✅
+- `python3 scripts/secret_scan.py` → clean.
+- `python3 scripts/check_dry_run_in_diff.py` → expected to flag `mode: dry_run` on `prop_velotrade_1` (intentional — operator must review per the new guard contract).
+
+### 4. Live-mode check
+- `scripts/check_dry_run_in_diff.py` flags `mode: dry_run` on `prop_velotrade_1` — **intentional**. Prop SDK contract is not yet wired (`src/units/accounts/dxtrade_client.py` has four `NotImplementedError` method bodies waiting for the operator-supplied API contract); leaving the prop account in `dry_run` is the correct safety state until those land. Both bybit accounts ship `mode: live`. ✅
+- Operator-side: re-render the `.env` via the updated notebook, SCP to `~/ict-trading-bot/.env`, restart `ict-trader-live + ict-telegram-bot`, confirm `/accounts_status` shows bybit_1 / bybit_2 in live mode and prop_velotrade_1 in dry mode.
+- This PR touches `src/runtime/orders.py`, `src/runtime/pipeline.py`, `src/units/accounts/*` — operator was pinged in-conversation per Live-mode invariant rule 3; the in-conversation directive is the approval.
+
+### 5. Architecture rules check
+- **Unit boundary declaration.** Touched: `src/units/accounts/*` (RiskManager + load_accounts), `src/runtime/*` (gates removed), `src/exchange/bybit_connector.py` (logging), `src/units/strategies/vwap.py` (docstring), `src/core/coordinator.py` (docstring + reason text), `src/bot/telegram_query_bot.py` (docstring), `scripts/`, `notebooks/setup/`, `CLAUDE.md`, `docs/claude/`.
+- No new cross-unit imports outside `src/core/coordinator.py`.
+- **Rule 5 (bot is a thin shell)** — `cmd_set_all_live` docstring update only.
+- **Rule 1 (unit separation)** — RiskManager (in accounts unit) is now the sole dry/live authority. No leakage into strategies, runtime, or pipeline.
+
+### 6. Remaining
+- **Test rewrite pass.** ~10 tests across `tests/test_runtime_orders.py`, `tests/test_orders.py`, `tests/test_validation.py`, `tests/test_render_env_from_master.py` exercise the OLD architecture (process-level gates) and now fail. They should be rewritten to assert the new contract: `account_mode_dry_run` rejection from RiskManager, no env-var checks in safe_place_order. Mechanical work; deferred to keep this PR atomic.
+- **Carry-over from CP-11:** risk-manager rejection logging, /packages bot command, /latest_backtest enhancement, /strategies all-time signal window, liveness watchdog follow-up. All still pending; the BUG-039 fix here makes the rejection-logging item land cleaner because RiskManager rejection paths are now the canonical surface (every `account_mode_dry_run` should produce a trade-journal row).
+
+### 7. Next checkpoint
+**CP-2026-05-?-?? — test cleanup pass for the single-source mode.** First action: rewrite `tests/test_runtime_orders.py` and the dry/allow-live tests in `tests/test_orders.py` and `tests/test_validation.py` against the new per-account `RiskManager.dry_run` contract. Then continue with the CP-11 deferred items (risk-manager rejection logging is the natural next step). Read in order: this entry, BUG-039 in `docs/claude/bug-log.md`, `CLAUDE.md` § Autonomous live-trading rule, `src/units/accounts/risk.py::evaluate`.
+
+---
+
 ## CP-2026-05-03-11 — fix-telegram-pipeline: data_loaders REPO_ROOT + render-env install path
 
 - **Session date:** 2026-05-03

@@ -57,11 +57,14 @@ def test_docs_are_ignored():
     assert scan_diff(_diff("docs/foo.md", ["DRY_RUN=true"])) == []
 
 
-def test_trading_mode_module_is_ignored():
-    """The mode normaliser itself contains the literal patterns."""
-    assert scan_diff(
-        _diff("src/runtime/trading_mode.py", ['"DRY_RUN": "false"'])
-    ) == []
+def test_account_mode_dry_run_is_caught():
+    """Per the operator directive of 2026-05-03, the canonical toggle is
+    config/accounts.yaml ``mode: live | dry_run``. Adding mode: dry_run
+    on an account should fire the guard."""
+    findings = scan_diff(
+        _diff("config/accounts.yaml", ["    mode: dry_run"])
+    )
+    assert len(findings) == 1
 
 
 def test_paper_trading_alias_is_caught():

@@ -3,24 +3,25 @@
 Designed for the GitHub Actions guard (`.github/workflows/dry-run-guard.yml`)
 that runs on every PR. The script reads a unified diff from stdin (or the
 path passed as argv[1]) and exits with status 1 if any **added** line
-sets a trading-mode flag in a way that would silently downgrade a service
-out of live mode. Examples it catches:
+flips an account out of live mode without operator approval.
 
-    +DRY_RUN=true
-    +ALLOW_LIVE_TRADING=false
-    +MODE=BACKTEST           (only when not paired with a removal of MODE=LIVE
-                              on the same hunk — heuristic; falls back to
-                              human review)
-    +dry_run: true           (yaml)
-    +"dry_run": true         (json)
+Per the operator directive of 2026-05-03, the SINGLE dry/live toggle in
+the codebase is per-account ``mode: live | dry_run`` in
+``config/accounts.yaml`` (applied via ``RiskManager.dry_run``). This
+guard now targets the YAML field directly:
 
-When it triggers, it prints a Telegram-shaped message naming the offending
-file:line and intent. The CI workflow forwards that message to the
-operator via the existing pending-pings inbox.
+    +    mode: dry_run         (config/accounts.yaml — flips an account out of live)
+    +    mode: paper           (alias)
+    +mode: dry_run             (legacy unindented; same shape)
 
-Per CLAUDE.md "Autonomous live-trading rule" the system default must
-remain live; an unintended dry-run flip in a PR is a regression that
-the operator wants to see before merge.
+The legacy ``DRY_RUN`` / ``ALLOW_LIVE_TRADING`` env-var patterns are
+kept for back-compat with operator notebooks and external scripts that
+might still reference them — they should not appear in the production
+codebase any longer.
+
+When the guard triggers, it prints a Telegram-shaped message naming the
+offending file:line and intent. The CI workflow forwards that message
+to the operator via the existing pending-pings inbox.
 """
 from __future__ import annotations
 
@@ -32,25 +33,28 @@ from typing import Iterable, List, Tuple
 # Patterns matched against ADDED diff lines (lines starting with `+ ` but not `+++`).
 # Each entry is (regex, human-readable name).
 _PATTERNS: List[Tuple[re.Pattern, str]] = [
+    # Primary check (post-2026-05-03 architecture): per-account mode.
+    (re.compile(r"^\s*mode\s*:\s*['\"]?(?:dry|dry[_-]run|paper)\b", re.IGNORECASE),
+     "account mode flipped to dry_run / paper in accounts.yaml"),
+    # Legacy patterns retained as belt-and-braces. Production code no
+    # longer reads these, but operator notebooks / external scripts
+    # might — flag them so the operator notices.
     (re.compile(r"\bDRY_RUN\s*[:=]\s*['\"]?(?:true|1|yes|on|dry|dry_run|paper)\b",
                 re.IGNORECASE),
-     "DRY_RUN set to a truthy value"),
+     "legacy DRY_RUN env-var set to a truthy value (no longer consulted; remove)"),
     (re.compile(r"\bALLOW_LIVE_TRADING\s*[:=]\s*['\"]?(?:false|0|no|off)\b",
                 re.IGNORECASE),
-     "ALLOW_LIVE_TRADING explicitly disabled"),
-    (re.compile(r"\bdry_run\s*[:=]\s*['\"]?(?:true|1|yes|on)\b", re.IGNORECASE),
-     "dry_run set to truthy in YAML/JSON"),
+     "legacy ALLOW_LIVE_TRADING explicitly disabled (no longer consulted; remove)"),
     (re.compile(r"\bpaper_trading\s*[:=]\s*['\"]?(?:true|1|yes|on)\b",
                 re.IGNORECASE),
      "paper_trading enabled"),
 ]
 
-# Files we deliberately ignore (tests are allowed to set DRY_RUN=true to
+# Files we deliberately ignore (tests are allowed to set mode=dry_run to
 # exercise the dry-run path; this guard targets production code & config).
 _IGNORE_PATH_RE = re.compile(
     r"(^|/)(tests?|test_)/|/test_[^/]+\.py$|^docs/|\.md$|"
-    r"^scripts/check_dry_run_in_diff\.py$|"
-    r"^src/runtime/trading_mode\.py$"
+    r"^scripts/check_dry_run_in_diff\.py$"
 )
 
 

@@ -10,9 +10,22 @@
 #   - src/bot/data_loaders.py::_load_yaml_accounts() (Telegram bot listing).
 #
 # API keys are referenced by environment variable NAME only — never
-# hardcoded. Each account starts in dry-run mode by default; the
-# /accounts dry|live <name> Telegram command flips it. Per PM § 8 #4,
-# default is dry for every new account; live only when explicitly set.
+# hardcoded.
+#
+# Single dry/live toggle (per operator directive 2026-05-03):
+#   `mode: live`     → RiskManager approves and routes to the exchange.
+#   `mode: dry_run`  → RiskManager.approve() returns
+#                      reason="account_mode_dry_run"; the executor logs
+#                      the rejection to the trade journal but does not
+#                      call the exchange. Default is `live` per the
+#                      Autonomous live-trading rule (see CLAUDE.md).
+#
+# This is the ONLY dry/live toggle in the repo. There is no
+# process-level interlock. There is no strategy-level toggle. There is
+# no .env / profile-level toggle. Per-account `mode` is authoritative;
+# the Telegram /accounts command flips it at runtime via
+# `set_account_dry_run()`.
+#
 # Risk caps fire bidirectionally: pos_size, daily_usd, and (S-012 PR E3a)
 # max_dd_pct (intra-day, UTC midnight reset).
 #
@@ -32,6 +45,7 @@ accounts:
     type: regular
     exchange: bybit
     api_key_env: BYBIT_API_KEY_1       # env var holding the actual key
+    mode: live                         # see header — ONLY dry/live toggle
     strategies: [turtle_soup]
     risk:
       max_dd_pct: 0.05                 # 5% max intra-day drawdown
@@ -47,6 +61,7 @@ accounts:
     type: regular
     exchange: bybit
     api_key_env: BYBIT_API_KEY_2
+    mode: live                         # see header — ONLY dry/live toggle
     strategies: [vwap]
     risk:
       max_dd_pct: 0.05
@@ -86,6 +101,7 @@ accounts:
     type: prop
     exchange: velotrade
     api_key_env: VELOTRADE_API_KEY_1
+    mode: dry_run                      # SDK contract not yet wired (see hookup checklist below)
     strategies: []                     # empty: belt-and-braces — even
                                        # if creds land before strategies
                                        # are assigned, the per-account
