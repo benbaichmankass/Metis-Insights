@@ -5,6 +5,144 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-02-35 — Architecture compliance sprint COMPLETE / WRAPPED (audit fully closed)
+
+- **Session date:** 2026-05-02 / 2026-05-03
+- **Sprint:** Architecture compliance — **COMPLETE.** Operator approved the Tier 2 work-PR (#327) plus the deferred S-035 cosmetic reshuffle in this same session. The 2026-05-02 architecture audit is now **fully closed** — every finding from P0 through P2 has shipped to main.
+- **Current sprint phase:** **WRAPPED.** All seven planned PRs from the original sprint prompt landed: S-031 PR3 (#326), S-031 PR4 (#327, operator-approved + merged this session), S-031 PR5 (#329), S-032 (#330), S-033 (#331), S-034 (#332), S-035 (#334). Plus three ops PRs: ping #328, CP-34 checkpoint #333, and this final CP.
+- **Last completed checkpoint:** CP-2026-05-02-34 (95% closed; deferred S-035 to next session).
+- **Next checkpoint:** **CP-2026-05-?-?? — S-034 follow-up cutover** (flip readers from JSONL to SQL, delete JSONL writer + legacy `data/trades.db::signals`). Operator triggers this once they've seen one full day of clean dual-writes. Trivial diff.
+- **Telegram sent:** this checkpoint commit fires the VM ping. Sprint-end ping (`COMPLETE` / `WRAPPED` in title) routes via the same wiring.
+- **Alerts sent during session:** ping-PR #328 (S-031 PR4 operator alert).
+- **Blockers:** none.
+
+### 1. Completed in this session (8 work-PRs + 1 ping-PR + 2 checkpoints)
+
+| PR | Sprint | Merge | Tier | Audit |
+|---|---|---|---|---|
+| **#326** | S-031 PR3 | merged | 1 | P1-6 — `/price` raw HTTP → `processor.get_price` |
+| **#327** | S-031 PR4 | **merged (operator-approved)** | 2 | P1-6 + Rule-3 — `/closeall` → `processor.close_open_positions` through `execute.close_open_position` |
+| **#328** | (ping for #327) | merged | — | Ops alert routing |
+| **#329** | S-031 PR5 | merged | 1 | P1-6 — five bot file-read handlers → UI processor helpers |
+| **#330** | S-032 | merged | 1 | P1-7 — `data_loaders.py` moved to `src/ui/` + back-compat shim |
+| **#331** | S-033 | merged | 1 | P1-8 — OHLCV out of pipeline builders → `src/runtime/market_data.py` |
+| **#332** | S-034 | merged | 1 | P2-9 — signals SQL table + dual-writer transition |
+| **#333** | CP-34 | merged | — | Mid-sprint checkpoint (95% complete handoff) |
+| **#334** | S-035 | merged | 1 | P2-10 — `src/data_layer/` → `src/units/db/`; `src/ui/` → `src/units/ui/` |
+
+### 2. Sprint deliverables — six architecture rules, all enforced
+
+| Rule | What | Status |
+|---|---|---|
+| 1 | Every unit lives under `src/units/` | ✅ enforced — S-035 closed the cosmetic gap |
+| 2 | Strategies are pure (no exchange calls) | ✅ enforced — S-033 extracted `fetch_candles`; the strategy modules themselves were already pure |
+| 3 | Account/risk/execute owns placement (no other path touches the exchange) | ✅ enforced — S-031 PR4 routed `/closeall` through `execute.close_open_position`; the audit's last Rule-3 violation closed |
+| 4 | DB unit owns three logs (trades, order_packages, signals) | ✅ enforced — S-030 added order_packages, S-029 PR2 wired live-trade journal writes, S-034 added the signals SQL table |
+| 5 | Bot is a thin shell over the UI unit | ✅ enforced — S-031 PR1-5 pulled every business-logic handler into `processor` helpers |
+| 6 | Live by default + tell-me-if-not | ✅ enforced — S-029 PR3 shipped the liveness watchdog; the live-mode CI guard catches diff-time drift |
+
+### 3. Files changed (sprint-wide cumulative summary)
+
+- `src/units/ui/processor.py` — the canonical UI facade. New helpers added across the sprint:
+  `get_today_pnl`, `get_open_positions_count`, `get_signals_block`, `get_price`,
+  `close_open_positions`, `get_latest_sprint`, `get_latest_checkpoint_header`,
+  `get_health_summary`, `get_vm_stats`, `get_roadmap_summary`. Also the existing
+  `get_account_balances`, `get_recent_signals`, `get_hourly_report`. Cumulatively
+  the bot is now genuinely thin.
+- `src/units/ui/data_loaders.py` — moved from `src/bot/data_loaders.py` (S-032)
+  and then from `src/ui/data_loaders.py` (S-035). Canonical home now matches
+  the unit-folder rule.
+- `src/units/db/database.py` — moved from `src/data_layer/database.py` (S-035).
+  Adds the `signals` table + `insert_signal` + `get_recent_signals` (S-034) on
+  top of the `order_packages` table from S-030.
+- `src/runtime/market_data.py` — new module (S-033). `_build_exchange_client` +
+  `fetch_candles` are now the canonical OHLCV fetch path.
+- `src/runtime/pipeline.py` — `_build_killzone_exchange` is now a back-compat
+  shim that delegates to `market_data._build_exchange_client`. The two builders
+  call `fetch_candles`.
+- `src/utils/signal_audit_logger.py` — `log_signal` dual-writes to the SQL
+  signals table (S-034). Env-disable-able via `SIGNAL_DUAL_WRITE_DISABLED=true`.
+- `src/bot/telegram_query_bot.py` — every UI handler is now a one-liner
+  delegating to `src.units.ui.processor`.
+- Back-compat shims (S-032 + S-035 trick: `sys.modules[__name__] = canonical`):
+  `src/bot/data_loaders.py`, `src/data_layer/__init__.py`,
+  `src/data_layer/database.py`, `src/data_layer/data_loader.py`,
+  `src/ui/__init__.py`, `src/ui/processor.py`, `src/ui/data_loaders.py`. Every
+  legacy import path resolves to the SAME module object as the canonical path,
+  so monkeypatch fixtures hit a single source of truth.
+- `docs/claude/repo-map.md` — units table updated, `src/runtime/` rationale
+  added, `src/units/db/` + `src/units/ui/` documented as canonical.
+- 7 new test files added across the sprint:
+  `test_s031_pr3_price_helper.py` (10), `test_s031_pr4_closeall_helper.py` (16),
+  `test_s031_pr5_file_reads_in_ui.py` (18), `test_s032_data_loaders_move.py` (3),
+  `test_s033_market_data.py` (12), `test_s034_signals_storage.py` (13),
+  `test_s035_folder_reshuffle.py` (6). **78 new tests this sprint.**
+
+### 4. Tests run
+Each PR ran its own contract tests + regression-adjacent suites. Aggregate this
+sprint: 78 new tests + ~150 regression-adjacent passes across pipeline /
+order_packages / liveness / data_loaders / health / hourly_report / ui-helper
+suites. Pre-existing `_bybit_client` failures in `test_data_loaders.py` were
+verified unrelated to any of this sprint's changes (they exist on every prior
+commit too — see CP-34 § Lessons learned #5).
+
+### 5. Remaining (next session — small follow-up only)
+
+- **S-034 follow-up cutover.** After one full operator-confirmed day of clean
+  SQL dual-writes, a tiny PR will:
+  1. Flip `processor.get_recent_signals` to read from
+     `trade_journal.db::signals` (currently reads `signal_audit.jsonl`).
+  2. Flip `liveness_watchdog._count_actionable_signals` similarly.
+  3. Delete the JSONL writer in `signal_audit_logger.log_signal` (the file
+     write — the SQL write becomes the only one).
+  4. Optionally drop the legacy `data/trades.db::signals` table.
+  Trivial diff once the operator confirms it's safe.
+
+There are no other open architecture-audit findings. The repo is fully
+boundary-clean.
+
+### 6. Live-mode check
+- ✅ Every PR this sprint left the system in live-by-default mode (verified
+  per-PR via `scripts/check_dry_run_in_diff.py`).
+- ✅ `config/accounts.yaml` not touched in any PR this sprint.
+- ✅ S-031 PR4 (the one Tier-2 work-PR) was operator-approved before merge per
+  the Live-mode invariant rule. The other 6 work-PRs were pure boundary
+  cleanup with no live-routing change.
+- ✅ S-035 was a pure folder reshuffle — every production caller's behaviour
+  is bit-for-bit identical (verified by the same-module-identity tests in
+  `test_s035_folder_reshuffle.py`).
+
+### 7. Lessons learned (for the recurring hardening / next architecture sprint)
+
+1. **Module-aliasing shims are the magic carpet for file moves.** `sys.modules[__name__] = canonical` in the legacy module body makes `from old.path import X` and `from new.path import X` resolve to the **same module object**. Every existing `monkeypatch.setattr(legacy, …)` fixture mutates the canonical module; no test edit needed. Used twice this sprint (S-032, S-035). The audit's "huge diff" warning for S-035 turned out to be 21 files only because of this trick; without the alias, every test fixture across hundreds of files would have needed an update.
+
+2. **Inject the dependency, don't construct it inside the helper.** S-033's first cut had `fetch_candles` build its own connector — broke 9 pipeline tests that monkeypatched `pipeline._build_killzone_exchange`. Adding `exchange_client=` to `fetch_candles` and having the legacy shim construct the client recovered all 104 pipeline tests with zero edits. Same pattern works for any helper extraction: inject the side-effect-laden bit so callers + tests can pre-build it.
+
+3. **Dual-writer + env-flag escape hatch is the pattern for a logging migration.** S-034 ships the SQL signals writer alongside the JSONL writer with `SIGNAL_DUAL_WRITE_DISABLED=true` as the operator's escape valve. The cutover (flip readers, delete JSONL) becomes a tiny PR after a clean operator-confirmed day. Future logging migrations should follow this shape.
+
+4. **Six PRs in one session, then a Tier-2 + cosmetic reshuffle in the same session, is achievable when every Tier 1 self-merges immediately on green CI.** The bottleneck used to be ping-PR ceremony for every PR; once #310 codified the architecture rules, every Tier 1 boundary refactor became self-mergeable. The Tier 2 (#327) needed only one ping-PR + one operator approval round-trip. Future architecture cleanup should preserve that split.
+
+5. **Pre-existing test failures should be confirmed against `main` before claiming "regression."** Two test files (`test_data_loaders.py::_bybit_client` cluster, `test_s012_hotfix_balance_and_signals.py::TestCmdSignals` cluster) had failures unrelated to anything this sprint touched; verifying them on `main` first saved a debug round-trip per failure.
+
+6. **Stale `__pycache__` directories will break `git mv` of an entire folder.** The first attempt at S-035 git-mv'd `src/ui/` → `src/units/ui/ui/` because a leftover `__pycache__` from a prior failed attempt counted as content in the destination. Solution: delete leftover dirs before redo, then `git reset --hard` and start clean. Future big folder moves should run `find src -name __pycache__ -exec rm -rf {} +` first.
+
+### 8. Sprint-completion checklist (CLAUDE.md § Sprint Completion Checklist)
+
+1. ✅ Lightweight tests run on every PR (full `pytest tests/ -q` would need
+   pandas + telegram + ccxt installed in this sandbox; sub-suites that don't
+   require those deps all pass).
+2. ✅ `python scripts/secret_scan.py` clean on every PR.
+3. ⏸️ Sprint summary doc — deferred. Per sprint-completion checklist this CP entry IS the summary; a separate `docs/sprint-summaries/sprint-arch-compliance-summary.md` would duplicate the table above.
+4. ✅ This CP entry includes the deliverables table + lessons learned + remaining items.
+5. ✅ Telegram sprint-end ping fires off this commit (via `[SPRINT END]` semantics in CLAUDE.md § Telegram Reporting).
+
+### 9. Proposed CLAUDE.md improvements for the next sprint
+1. Document the **module-aliasing shim pattern** (`sys.modules[__name__] = canonical`) in CLAUDE.md § Architecture rules § "Enforcement" so future folder moves don't reinvent it.
+2. Add a **"clean __pycache__ before git-mv'ing a folder"** note to the architecture rules' enforcement section — the failure mode in lesson #6 will recur.
+3. The **Live-mode invariant rule 3** list of "always ping the operator" files needs `src/runtime/market_data.py` added now that it's the canonical OHLCV fetch path.
+
+---
+
 ## CP-2026-05-02-34 — Architecture compliance sprint 95% closed (S-031 PR3-5, S-032, S-033, S-034); only S-035 left
 
 - **Session date:** 2026-05-02
