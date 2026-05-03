@@ -5,6 +5,71 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-03-12 — Stage 4 RECOMMENDATIONS (PM REVIEW) opened — vwap run 2026-05-03-vwap-improvement
+
+- **Session date:** 2026-05-03
+- **Sprint:** VWAP strategy improvement run `2026-05-03-vwap-improvement`. This session executed **Stages 1+2+4** of `docs/claude/training-improvement-workflow.md`. Stage 3 (the autonomous GitHub Action backtest) ran on the runner, not in this session.
+- **Status:** **PAUSED** — waiting on operator review of PR #350. Per the workflow, the *system* is pre-approved but a *strategy change* is not, so this is the operator's steering moment.
+- **Telegram sent:** rides on this checkpoint commit + on the PR-opened webhooks for #348 / #349 / #350.
+- **Blockers:** none on Claude's side — operator needs to approve / reject / steer PR #350 before a fresh session can open the IMPLEMENT PR.
+
+### 1. Completed (this session)
+
+**Stages 1+2 (covered in CP-2026-05-03-11 — re-summarised here for the handoff):**
+- Drafted hypothesis table for VWAP improvement (5 hypotheses, BTCUSDT 5m, 365d).
+- Wrote `experiments/2026-05-03-vwap-improvement/PLAN.md` and `experiments/2026-05-03-vwap-improvement/hypotheses.py`.
+- Pushed to `claude/improve-vwap-strategy-HHTf6` (operator-mandated work-PR branch) and `claude/training-plan-2026-05-03-vwap-improvement` (Action-trigger branch).
+- Opened **PR #348** — `TRAINING-PLAN: 2026-05-03-vwap-improvement` (draft).
+
+**Stage 3 — autonomous GitHub Action run (`training-run.yml`):**
+- The push **did not auto-trigger** the workflow (likely `paths:` filter quirk on a freshly-created branch). Operator manually dispatched via the workflow UI; first attempt ran from `main` and failed because `experiments/2026-05-03-vwap-improvement/` only exists on the plan branch. Second dispatch from the plan branch succeeded in 11m 48s.
+- Action committed results to `claude/training-results-2026-05-03-vwap-improvement` at `66654ea`. The Action's `gh pr create` step **did not fire** (silent failure) — opened `TRAINING-RESULTS:` PR manually as **PR #349**.
+- Headline: baseline VWAP is unprofitable (Sharpe -0.12, expectancy -0.002 R, 946 trades). H2 (entry threshold raised to 2.0σ) flips it to Sharpe 1.71 / expectancy +0.044 R / max DD -5.2 R / 336 trades — the headline finding. H1 borderline-reject, H3/H4/H5 need more data (H4 crashed on a `pd.NA → astype(float)` bug; H5 metric is misleading per the in-summary caveat; H3 fails its trade-count guardrail).
+
+**Stage 4 — recommendations writeup:**
+- Branched `claude/recommendations-2026-05-03-vwap-improvement` off `main`.
+- Wrote `experiments/2026-05-03-vwap-improvement/RECOMMENDATIONS.md` — strategy-level decisions per hypothesis, trader-language rule statement, expected live impact, risks, follow-up sprint backlog.
+- Opened **PR #350** — `RECOMMENDATIONS (PM REVIEW): 2026-05-03-vwap-improvement` (draft, writeup-only, no `src/` changes).
+
+### 2. Files changed (across the session)
+- **New:**
+  - `experiments/2026-05-03-vwap-improvement/PLAN.md` (in PR #348)
+  - `experiments/2026-05-03-vwap-improvement/hypotheses.py` (in PR #348)
+  - `experiments/2026-05-03-vwap-improvement/results/{SUMMARY.md, H{1..5}/{metrics.json|summary.md|FAILURE.md}}` (in PR #349, written by the Action)
+  - `experiments/2026-05-03-vwap-improvement/RECOMMENDATIONS.md` (in PR #350)
+- **Modified:**
+  - `docs/claude/checkpoints/CHECKPOINT_LOG.md` — CP-11 (start) and this CP-12 (handoff).
+
+### 3. Tests run
+- `python -m py_compile experiments/2026-05-03-vwap-improvement/hypotheses.py` → pass.
+- `python scripts/secret_scan.py` → clean (twice; before each push).
+- `python scripts/check_dry_run_in_diff.py` → clean (twice).
+- The five hypotheses themselves ran on the GitHub Action runner — see `experiments/2026-05-03-vwap-improvement/results/` on PR #349.
+- PR-side `scan` checks (dry-run-guard) — `#348` green; `#349` green; `#350` in_progress at session close (doc-only diff, expected green).
+
+### 4. Live-mode check
+- All three PRs are doc + experiments-only diffs. No `src/runtime/orders.py`, `src/units/accounts/*`, `config/accounts.yaml`, or trading-mode flag touched. ✅
+- The **IMPLEMENT** PR (next session, post-approval) will touch `src/units/strategies/vwap.py` — that's where the existing PM-review gate per `CLAUDE.md` § Merging Rules applies.
+
+### 5. Architecture rules check
+- No `src/` files modified this session. The hypotheses module imports `src.units.strategies.vwap` read-only via the same pattern as the prior dry-run.
+- Strategy unit purity preserved: this run *evaluates* VWAP variants in an isolated `experiments/` scope. The post-approval IMPLEMENT PR is the only place `src/units/strategies/vwap.py` changes, and it stays within Rule 2 (signal-generation logic only — no execution path touched).
+
+### 6. Remaining
+- **Operator review of PR #350.** Approve / reject / steer the H2 adoption recommendation. Per the workflow, this is the operator's strategy-level decision.
+- After approval: a **fresh session** opens **IMPLEMENT: 2026-05-03-vwap-improvement** on `claude/implement-2026-05-03-vwap-improvement` with the actual one-line change to `ENTRY_STD_THRESHOLD` (1.0 → 2.0) plus test pin update + `bug-log.md` row. Goes through the existing PM-review gate for `src/units/strategies/`.
+- **Follow-up sprint candidates** documented in `RECOMMENDATIONS.md` § "Follow-up sprints":
+  1. Fix H4 crash + re-run anchored VWAP.
+  2. H1 + H2 stacked test.
+  3. H3 with wider sessions.
+  4. H5 with `multi_leg_backtest` helper.
+  5. Workflow infra: investigate why `paths:` auto-trigger missed on the new branch + why `gh pr create` silently failed in the Action.
+
+### 7. Next checkpoint
+**CP-2026-05-?-?? — IMPLEMENT vwap H2 (post-approval).** Triggered when the operator approves PR #350. Read in order: this entry, `experiments/2026-05-03-vwap-improvement/RECOMMENDATIONS.md`, `src/units/strategies/vwap.py` (lines 47-72 for the threshold + SL/TP logic). The implementation is one line; the tests + bug-log row are the bulk of the PR diff.
+
+---
+
 ## CP-2026-05-03-11 — [TRAINING-START] vwap — run 2026-05-03-vwap-improvement
 
 - **Session date:** 2026-05-03
