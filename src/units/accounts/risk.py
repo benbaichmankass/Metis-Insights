@@ -224,7 +224,7 @@ class RiskManager:
         Checked against ``order.meta['estimated_value']`` when present.
     """
 
-    def __init__(self, config: dict) -> None:
+    def __init__(self, config: dict, *, dry_run: bool = False) -> None:
         self.max_dd_pct: float = float(config.get("max_dd_pct", 0.05))
         self.max_daily_loss_usd: float = float(config.get("daily_usd", 100.0))
         self.max_pos_size_usd: float = float(config.get("pos_size", 500.0))
@@ -236,6 +236,13 @@ class RiskManager:
         # module-level defaults apply.
         self.min_qty: float = float(config.get("min_qty", _DEFAULT_MIN_QTY))
         self.qty_precision: int = int(config.get("qty_precision", _DEFAULT_QTY_PRECISION))
+        # The single dry/live toggle in the codebase (operator directive
+        # 2026-05-03). Set from accounts.yaml `mode: live | dry_run` at
+        # construction; flippable at runtime via Coordinator.set_account_dry_run().
+        # When True, evaluate() returns reason="account_mode_dry_run" so
+        # the executor records the rejection in the trade journal but
+        # never calls the exchange.
+        self.dry_run: bool = bool(dry_run)
         self.daily_pnl: float = 0.0       # updated by record_trade_result()
         # S-012 PR E3a — intra-day drawdown tracking. None until the
         # caller seeds equity via update_equity(); the drawdown check
@@ -319,6 +326,11 @@ class RiskManager:
         designed to exercise the exchange-rejection path.
 
         Checks (in order, real orders only):
+          0. Account mode (the single dry/live toggle in the repo,
+             operator directive 2026-05-03): ``self.dry_run`` is True →
+             reject with reason ``"account_mode_dry_run"``. The executor
+             still logs a row to the trade journal so the operator can
+             see what *would have* fired; the exchange is not called.
           1. UTC daily rollover (resets daily_pnl + re-anchors high).
           2. Daily loss limit: ``daily_pnl < -max_daily_loss_usd`` → reject.
           3. Position size: ``order.meta['estimated_value'] >
@@ -329,6 +341,9 @@ class RiskManager:
         """
         if _is_test_order(order):
             return True, None
+
+        if self.dry_run:
+            return False, "account_mode_dry_run"
 
         self._maybe_roll_daily()
 

@@ -166,8 +166,9 @@ def build_vwap_signal(
     actionable, ``entry_price`` / ``stop_loss`` / ``take_profit`` are
     populated at the top level so the pipeline's multi-account dispatch
     fast-path (``_signal_carries_full_sltp``) accepts the signal and
-    fans it out per account, instead of falling into the legacy
-    single-client path that bombs on the global ALLOW_LIVE_TRADING gate.
+    fans it out per account. Per-account ``RiskManager.dry_run``
+    (operator directive 2026-05-03) is the only dry/live toggle that
+    runs against the dispatched signal.
 
     SL/TP rules:
         entry = current candle close

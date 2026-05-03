@@ -138,22 +138,16 @@ def run_one_tick(settings: dict, exchange_client, telegram_client) -> dict:
 def main() -> None:
     load_dotenv()
     settings = build_settings_from_env()
-    # S-012 hotfix: build_settings_from_env now emits both lowercase
-    # ("dry_run", "allow_live_trading") and uppercase ("DRY_RUN",
-    # "ALLOW_LIVE_TRADING") keys. The post-call patch that previously
-    # backfilled DRY_RUN here is no longer needed and is removed —
-    # ALLOW_LIVE_TRADING was never backfilled, which produced the
-    # "ALLOW_LIVE_TRADING=true is required for live submission"
-    # rejection on every live signal.
 
     validate_startup()
+    # Operator directive 2026-05-03 — dry/live mode is no longer in env.
+    # Per-account ``mode: live | dry_run`` in config/accounts.yaml is the
+    # only toggle (see RiskManager.dry_run). Startup logs only report
+    # exchange / symbol / testnet — the mode mix is account-scoped.
     logger.info(
-        "Startup validation passed. exchange=%s dry_run=%s allow_live_trading=%s bybit_testnet=%s mode=%s symbol=%s",
+        "Startup validation passed. exchange=%s bybit_testnet=%s symbol=%s",
         settings.get("exchange"),
-        settings.get("DRY_RUN", settings.get("dry_run")),
-        settings.get("ALLOW_LIVE_TRADING", settings.get("allow_live_trading")),
         os.environ.get("BYBIT_TESTNET"),
-        settings.get("mode"),
         settings.get("symbol"),
     )
 

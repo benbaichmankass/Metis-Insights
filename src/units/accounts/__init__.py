@@ -3,8 +3,20 @@
 ``load_accounts()`` reads config/accounts.yaml and returns a list of
 fully-configured TradingAccount instances, each with its own RiskManager.
 
-``set_account_dry_run()`` persists a dry/live toggle for an account across
-``load_accounts()`` calls (module-level dict, process lifetime).
+The dry/live toggle (operator directive 2026-05-03):
+* The YAML field ``mode: live | dry_run`` per account is the single
+  source of truth. Default = ``live`` per the Autonomous live-trading
+  rule (CLAUDE.md).
+* The toggle lives on ``RiskManager.dry_run``. ``RiskManager.evaluate()``
+  rejects with reason ``"account_mode_dry_run"`` so the executor logs
+  the would-be trade but never calls the exchange.
+* ``set_account_dry_run()`` flips the value at runtime (Telegram
+  ``/accounts dry|live <name>``). The override is applied to every
+  subsequent ``load_accounts()`` call.
+
+This is the ONLY dry/live toggle in the codebase. There is no
+process-level interlock. ``DRY_RUN`` and ``ALLOW_LIVE_TRADING`` env vars
+were removed; ``MODE`` is no longer required.
 """
 from __future__ import annotations
 
@@ -27,6 +39,22 @@ def set_account_dry_run(name: str, dry_run: bool) -> None:
 def get_dry_run_overrides() -> Dict[str, bool]:
     """Return a copy of the current override dict (for status display)."""
     return dict(_DRY_RUN_OVERRIDES)
+
+
+def _resolve_mode(cfg: dict, name: str) -> bool:
+    """Return True when the account is in dry_run mode.
+
+    Resolution order:
+      1. Runtime override (``_DRY_RUN_OVERRIDES[name]``) — set by Telegram
+         ``/accounts dry|live <name>``.
+      2. YAML ``mode`` field — accepts case-insensitive
+         ``live`` / ``dry`` / ``dry_run``.
+      3. Default = ``live`` per Autonomous live-trading rule.
+    """
+    if name in _DRY_RUN_OVERRIDES:
+        return bool(_DRY_RUN_OVERRIDES[name])
+    raw = str(cfg.get("mode", "live")).strip().lower()
+    return raw in {"dry", "dry_run", "dry-run", "paper"}
 
 
 def load_accounts(config_path: str = _DEFAULT_ACCOUNTS_YAML) -> "List":
@@ -64,13 +92,14 @@ def load_accounts(config_path: str = _DEFAULT_ACCOUNTS_YAML) -> "List":
         # Regular bybit accounts continue to use the unchanged
         # RiskManager — keeps the live Bybit path bit-identical.
         account_type = cfg.get("type", "regular")
+        dry_run = _resolve_mode(cfg, name)
         if account_type == "prop":
             # Pass account_name so PropRiskManager can read its own
             # section from runtime_state/prop_state.json on init and
             # write back on each record_trade_result.
-            rm = PropRiskManager(cfg, account_name=name)
+            rm = PropRiskManager(cfg, account_name=name, dry_run=dry_run)
         else:
-            rm = RiskManager(cfg.get("risk") or {})
+            rm = RiskManager(cfg.get("risk") or {}, dry_run=dry_run)
         # Forward-compat: skip accounts explicitly disabled in YAML.
         # (Velotrade scaffold ships with ``enabled: false`` until
         # credentials + SDK wiring land in a follow-up sprint.)
@@ -108,8 +137,12 @@ def load_accounts(config_path: str = _DEFAULT_ACCOUNTS_YAML) -> "List":
             configured=configured,
             configured_reason=configured_reason,
         )
-        # Apply persistent dry/live override if set
-        if name in _DRY_RUN_OVERRIDES:
-            account.dry_run = _DRY_RUN_OVERRIDES[name]
+        # Mirror the resolved mode onto the account object so the
+        # legacy ``account.dry_run`` callers (TradingAccount.place_order
+        # legacy path, /accounts UI) still see the right state. The
+        # authoritative gate is ``rm.dry_run`` — checked inside
+        # ``RiskManager.evaluate()``; this attribute is for read-only
+        # observability.
+        account.dry_run = dry_run
         accounts.append(account)
     return accounts

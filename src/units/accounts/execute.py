@@ -26,8 +26,6 @@ from src.units.accounts.risk import size_order_from_cfg
 
 logger = logging.getLogger(__name__)
 
-_DRY_RUN = os.environ.get("DRY_RUN", "false").strip().lower() in {"true", "1", "yes"}
-
 
 def _is_test_order(pkg: OrderPackage) -> bool:
     return bool(getattr(pkg, "meta", None) and pkg.meta.get("is_test"))
@@ -58,7 +56,12 @@ def execute_pkg(
         Balance override — skips the live balance fetch.  Used in tests and
         coordinator-level balance caching.
     dry_run : bool, optional
-        Explicit dry-run override.  Defaults to the ``DRY_RUN`` env var.
+        Explicit dry-run override (callers like ``Coordinator.multi_account_execute``
+        pass the resolved per-account state). When None, the function
+        reads ``account_cfg.get("mode")`` directly so a stale process
+        cannot accidentally route a real order to the exchange.
+        ``DRY_RUN`` env var is no longer consulted (operator directive
+        2026-05-03 — per-account RiskManager is the only toggle).
     qty_override : float, optional
         Pre-computed quantity from a stateful per-account RiskManager.
         Skips the ephemeral re-sizing inside this function so the qty
@@ -87,8 +90,16 @@ def execute_pkg(
             "Resume via coordinator.return_command('resume') before trading."
         )
 
-    # 2. Determine dry-run mode
-    is_dry = dry_run if dry_run is not None else _DRY_RUN
+    # 2. Determine dry-run mode (operator directive 2026-05-03 — the
+    # per-account RiskManager is the only authoritative dry/live gate;
+    # there is no process-level interlock). When the caller doesn't pass
+    # an explicit override we read ``mode`` straight off the account_cfg
+    # (accepting "live"/"dry"/"dry_run"/"paper"). Default = live.
+    if dry_run is not None:
+        is_dry = bool(dry_run)
+    else:
+        _mode_raw = str(account_cfg.get("mode") or "live").strip().lower()
+        is_dry = _mode_raw in {"dry", "dry_run", "dry-run", "paper"}
     if exchange_client is None:
         is_dry = True
 

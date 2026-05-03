@@ -44,14 +44,10 @@ class BybitConnector:
         if testnet:
             self.exchange.set_sandbox_mode(True)
 
-        dry_run_raw = os.getenv("DRY_RUN", "true").strip().lower()
-        dry_run = dry_run_raw not in {"false", "0", "no"}
-        allow_live_raw = os.getenv("ALLOW_LIVE_TRADING", "false").strip().lower()
-        allow_live = allow_live_raw in {"true", "1", "yes"}
-
+        # Operator directive 2026-05-03 — dry/live mode is per-account
+        # (config/accounts.yaml `mode`, applied via RiskManager.dry_run).
+        # The connector itself doesn't gate on a process-level flag.
         logger.info("Bybit market data environment: %s", "testnet" if testnet else "mainnet")
-        logger.info("Trading execution mode: %s", "dry-run" if dry_run else "live")
-        logger.info("Live order placement allowed: %s", str(not dry_run and allow_live).lower())
 
     def get_price(self, symbol="BTC/USDT:USDT"):
         try:

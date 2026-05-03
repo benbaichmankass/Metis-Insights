@@ -125,10 +125,20 @@ confirmation is **not** part of the architecture and **must not** be
 inserted into sprint plans, smoke tests, runbooks, or any checkpoint
 table. The safety rails are:
 
-1. `ALLOW_LIVE_TRADING=true` + `DRY_RUN=false` — process-level interlock.
-2. `RiskManager` per account — sizing, daily loss caps, max-drawdown.
-3. `safe_place_order` — the single live-order entry point. Validates
-   payload before touching the exchange.
+1. **Per-account `mode: live | dry_run`** in `config/accounts.yaml`
+   — applied via `RiskManager.dry_run`. **This is the SINGLE dry/live
+   toggle in the codebase** (operator directive 2026-05-03). When
+   `dry_run=True`, `RiskManager.evaluate()` returns
+   `reason="account_mode_dry_run"`, the executor logs the would-be
+   trade to the trade journal, and the exchange is not called. There
+   is **no** process-level interlock. There is **no** strategy-level
+   toggle. There is **no** profile-level / env-variable toggle.
+   `DRY_RUN` and `ALLOW_LIVE_TRADING` env vars were removed; `MODE`
+   is no longer required.
+2. `RiskManager` per account — sizing, daily loss caps, max-drawdown,
+   dry/live mode (above).
+3. `safe_place_order` — payload + halt-flag + risk-cap rail. **Not** a
+   mode gate.
 4. The kill-switch flag (`/halt`) — operator can stop everything in
    one tap; default-running otherwise.
 
@@ -136,9 +146,9 @@ When proposing or running anything that touches live trading,
 *assume autonomous execution*. Do not gate trades on `--confirm`
 flags requiring human input, do not pause sprints "for the operator
 to greenlight each LIVE order", do not insert "operator confirms
-before placement" into checkpoint tables. The risk manager + the
-process-level interlock + the kill-switch are the policy. The
-operator pre-approves the **system**, not each **trade**.
+before placement" into checkpoint tables. The per-account mode + the
+risk caps + the kill-switch are the policy. The operator pre-approves
+the **system**, not each **trade**.
 
 This applies to smoke tests too: a smoke trade fires the moment the
 risk manager and `safe_place_order` accept it, no human in the loop.
@@ -148,6 +158,11 @@ trader's autonomous rails are the policy.
 
 If a future session is tempted to add operator confirmation per
 trade, it's wrong. Tell the user it's wrong and link to this section.
+
+If a future session is tempted to add a process-level dry/live
+interlock, a strategy-level mode flag, or a profile-suffixed env
+file, it's also wrong — the per-account `mode` field is the only
+toggle. See BUG-039 (2026-05-03) for the full rationale.
 
 ## Telegram Reporting (MANDATORY)
 

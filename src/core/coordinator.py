@@ -209,7 +209,9 @@ class Coordinator:
         balance_usdt : float, optional
             Balance override; skips live fetch.  Used in tests.
         dry_run : bool, optional
-            Explicit dry-run override; defaults to DRY_RUN env var.
+            Explicit dry-run override; defaults to the per-account
+            ``mode`` field in ``config/accounts.yaml`` (the only
+            dry/live toggle in the codebase).
 
         Raises
         ------
@@ -1196,10 +1198,11 @@ class Coordinator:
                         entry["reason"] = trade_id.split(":", 1)[1]
                         ok_any = True
                     elif isinstance(trade_id, str) and trade_id.startswith("dry-"):
-                        # Only reachable when dry_run=True was passed
-                        # explicitly (test path).
+                        # Reached when the account is in dry_run mode
+                        # (config/accounts.yaml `mode: dry_run` →
+                        # RiskManager.dry_run → execute_pkg short-circuits).
                         entry["status"] = "dry_run"
-                        entry["reason"] = "DRY_RUN — exchange not contacted"
+                        entry["reason"] = "account mode=dry_run — exchange not contacted"
                         ok_any = True
                     else:
                         entry["status"] = "submitted"

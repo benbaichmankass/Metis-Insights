@@ -11,13 +11,11 @@ HALT_FLAG_PATH = "/tmp/trader_halt.flag"
 # S-026 G2: legacy single-client path placeholder. Sizing is decided
 # per-account inside Coordinator.multi_account_execute via
 # RiskManager.position_size(); the legacy path has no per-account
-# context and is dry-only by virtue of its trigger conditions
-# (MULTI_ACCOUNT_DISPATCH=false OR global DRY_RUN). The placeholder
-# exists so safe_place_order's halt/news rails can still run through.
+# context. The placeholder exists so safe_place_order's halt/news/risk-
+# cap rails can still run through when MULTI_ACCOUNT_DISPATCH=false.
 _DRY_MODE_PLACEHOLDER_QTY = 1.0
 from dotenv import load_dotenv
-if os.path.exists(".env.live"):
-    load_dotenv(".env.live")
+load_dotenv()
 
 import logging
 from typing import Any, Callable, Dict, Optional
@@ -167,10 +165,10 @@ def _multi_account_dispatch_enabled(settings: dict) -> bool:
 
     Default flipped to **true** (post-CP-2026-05-02): the architecture is
     "strategy produces signal; each account decides whether to live-trade
-    that signal." The legacy single-client path applied a global
-    ``ALLOW_LIVE_TRADING`` gate to every signal, which surfaced as the
-    "ALLOW_LIVE_TRADING=true is required" failed-validation message even
-    when accounts.yaml had per-account dry/live state set correctly.
+    that signal." Per-account ``mode: live | dry_run`` in
+    ``config/accounts.yaml`` (operator directive 2026-05-03) is the only
+    dry/live toggle in the codebase — checked inside
+    ``RiskManager.evaluate()``.
 
     Operator can still pin to the legacy single-client path by exporting
     ``MULTI_ACCOUNT_DISPATCH=false`` — used for single-account smoke
@@ -226,7 +224,7 @@ def _pipeline_result_sections(
        multi_account path ran.
     4. **Why & next step** — only when status indicates a failure;
        echoes the reason string and the operator-actionable hint
-       (e.g. "set ALLOW_LIVE_TRADING=true on the VM").
+       (e.g. "/accounts live <account_name> to flip out of dry mode").
     """
     sections: list = []
     status = result.get("status", "unknown")
@@ -302,12 +300,12 @@ def _pipeline_result_sections(
         hint_lines = []
         if reason:
             hint_lines.append(f"Reason: {reason}")
-        if reason and "ALLOW_LIVE_TRADING" in str(reason):
+        if reason and "account_mode_dry_run" in str(reason):
             hint_lines.append(
-                "Action: confirm `ALLOW_LIVE_TRADING=true` is set on the VM "
-                "(`/etc/claude/vm-marker` host) AND that build_settings_from_env "
-                "is used to seed the runtime settings dict. The reason now "
-                "includes the actual value read and its source — check that."
+                "Action: this account is in dry_run mode "
+                "(config/accounts.yaml `mode: dry_run` or runtime "
+                "/accounts dry/live override). Flip it via Telegram "
+                "/accounts live <account_name> to start live execution."
             )
         sections.append(Section(
             summary=f"Why & next step — {status}",
@@ -755,15 +753,18 @@ def run_pipeline(
             )
 
             multi = _multi_account_dispatch_enabled(settings)
-            global_dry = str(
-                (settings.get("DRY_RUN") if isinstance(settings, dict) else None)
-                or os.environ.get("DRY_RUN", "false")
-            ).strip().lower() in {"true", "1", "yes", "on"}
 
+            # Operator directive 2026-05-03 — the per-account
+            # ``RiskManager.dry_run`` flag is the only dry/live toggle
+            # in the codebase. The legacy ``global_dry`` env-var check
+            # was deleted; the multi-account fast-path now runs
+            # whenever the signal carries full SL/TP, and each account
+            # decides whether to live-trade it via its own RiskManager.
+            #
             # G5 — the predicate moved to module scope as
             # ``_signal_carries_full_sltp`` so the missing-sltp warning
             # in the audit-log block uses the same definition.
-            if multi and not global_dry and _signal_carries_full_sltp(signal):
+            if multi and _signal_carries_full_sltp(signal):
                 # S-026 G2: the multi-account dispatch fast-path skips
                 # the legacy ``safe_place_order`` validation entirely.
                 # Sizing is now decided per-account inside
@@ -775,9 +776,7 @@ def run_pipeline(
                     from src.core.coordinator import Coordinator
                     pkg = _signal_to_order_package(signal, settings)
                     coord = Coordinator()
-                    multi_results = coord.multi_account_execute(
-                        pkg, dry_run=False,
-                    )
+                    multi_results = coord.multi_account_execute(pkg)
                     result = {
                         "status": "multi_account_dispatched",
                         "multi_account_results": multi_results,
@@ -797,20 +796,21 @@ def run_pipeline(
                     }
             else:
                 # Legacy single-client path. Reached when:
-                #   * MULTI_ACCOUNT_DISPATCH is pinned off by the operator,
-                #   * the global mode is dry (no need to fan out), or
+                #   * MULTI_ACCOUNT_DISPATCH is pinned off by the operator
+                #     (single-account smoke deployments), or
                 #   * signal is missing entry/sl/tp (smoke/synthetic).
                 # S-026 G2: sizing has fully moved into the per-account
                 # RiskManager. This path still runs ``safe_place_order``
                 # for halt-flag / news / validation rails, but it has no
                 # per-account context — there is no balance to size
                 # against. Use ``DRY_MODE_PLACEHOLDER_QTY`` (1.0) so
-                # validation can run; the path is dry-only by virtue of
-                # its trigger conditions (global DRY_RUN or
-                # MULTI_ACCOUNT_DISPATCH=false) so a real order is never
-                # submitted with this qty in production. Tests that
-                # exercise the legacy validation path should construct
-                # signals through this path explicitly.
+                # validation can run. Per the operator directive of
+                # 2026-05-03, ``safe_place_order`` no longer carries a
+                # mode gate either — the per-account RiskManager is the
+                # only dry/live toggle, so this fallback path now hits
+                # the exchange via ``client.place_order`` directly when
+                # an exchange_client is injected. Tests can stub
+                # ``exchange_client`` to assert the dispatch shape.
                 _signal_for_orders = {**signal, "qty": _DRY_MODE_PLACEHOLDER_QTY}
                 result = safe_place_order(_signal_for_orders, settings, exchange_client)
 

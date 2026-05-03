@@ -1,20 +1,22 @@
 #!/usr/bin/env python3
 """
 Decrypt a SOPS-encrypted master secrets file and render a lean .env file
-for one runtime profile. Never prints secret values.
+for the trader. Never prints secret values.
 
 Usage:
     python scripts/render_env_from_master.py \
         --master /path/to/master-secrets.sops.yaml \
         --age-key-file /path/to/age-keys.txt \
-        --profile live|vwap_btcusd_live \
-        --out .env.live \
-        --allow-live \
+        --out .env \
         [--sops-bin sops]
 
-All supported profiles target live trading on real exchange keys. There is no
-paper / simulation profile in this repo: we build, test, and deploy live on
-small accounts only.
+Operator directive 2026-05-03 — there is one canonical render path.
+The rendered .env carries credentials, telegram tokens, exchange
+selection, and per-account API-key env vars (driven by
+``config/accounts.yaml``). It does NOT carry MODE / DRY_RUN /
+ALLOW_LIVE_TRADING — the single dry/live toggle in the codebase is
+per-account ``mode: live | dry_run`` inside ``config/accounts.yaml``,
+applied at runtime via ``RiskManager.dry_run``.
 """
 from __future__ import annotations
 
@@ -26,11 +28,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
-PROFILES = (
-    "live",
-    "vwap_btcusd_live",
-)
-LIVE_PROFILES = PROFILES  # every supported profile is live
+PROFILES = ("live",)
+LIVE_PROFILES = PROFILES  # operator directive 2026-05-03 — single canonical profile
 PLACEHOLDER_PATTERNS = ("REPLACE_ME", "CHANGEME", "YOUR_", "<", ">", "TODO")
 
 # config/accounts.yaml is the source of truth for which account_ids
@@ -266,12 +265,16 @@ def _news_pairs(data: dict) -> list[tuple[str, str]]:
 def build_live(
     data: dict, *, accounts_path: Path | None = None
 ) -> list[tuple[str, str]]:
+    """Build the canonical .env for the live trader.
+
+    Operator directive 2026-05-03 — there are no MODE / DRY_RUN /
+    ALLOW_LIVE_TRADING fields in the rendered file. The single dry/live
+    toggle is per-account ``mode: live | dry_run`` in
+    ``config/accounts.yaml``, applied via ``RiskManager.dry_run``.
+    """
     pairs: list[tuple[str, str]] = [
         ("ENVIRONMENT", "production"),
         ("EXCHANGE", _get(data, "profiles.live.exchange")),
-        ("MODE", "LIVE"),
-        ("DRY_RUN", "false"),
-        ("ALLOW_LIVE_TRADING", "true"),
         ("TELEGRAM_BOT_TOKEN", _get(data, "telegram.prod.bot_token")),
         ("TELEGRAM_CHAT_ID", _get(data, "telegram.prod.chat_id")),
         # Legacy single-account env vars — kept for back-compat with
@@ -316,44 +319,8 @@ def _vwap_risk_pairs(data: dict) -> list[tuple[str, str]]:
     return pairs
 
 
-def build_vwap_btcusd_live(
-    data: dict, *, accounts_path: Path | None = None
-) -> list[tuple[str, str]]:
-    """Build env pairs for the vwap_btcusd_live profile.
-
-    Uses the bybit.vwap_strategy subaccount keys (live Bybit endpoints) and the
-    prod Telegram profile. Always renders MODE=LIVE and DRY_RUN=false; the CLI
-    requires --allow-live to render this profile.
-    """
-    profile_key = "vwap_btcusd_live"
-    pairs: list[tuple[str, str]] = [
-        ("ENVIRONMENT", _get(data, f"profiles.{profile_key}.environment")),
-        ("EXCHANGE", _get(data, f"profiles.{profile_key}.exchange")),
-        ("MODE", "LIVE"),
-        ("DRY_RUN", "false"),
-        ("ALLOW_LIVE_TRADING", "true"),
-        ("BYBIT_TESTNET", "false"),
-        ("STRATEGY", _get(data, "strategies.vwap_btcusd.strategy_name")),
-        ("SYMBOL", _get(data, "strategies.vwap_btcusd.symbol")),
-        ("TIMEFRAME", _get(data, "strategies.vwap_btcusd.timeframe")),
-        # Legacy single-account vars (back-compat).
-        ("BYBIT_API_KEY", _get(data, "bybit.vwap_strategy.api_key")),
-        ("BYBIT_API_SECRET", _get(data, "bybit.vwap_strategy.api_secret")),
-        ("TELEGRAM_BOT_TOKEN", _get(data, "telegram.prod.bot_token")),
-        ("TELEGRAM_CHAT_ID", _get(data, "telegram.prod.chat_id")),
-    ]
-    pairs.extend(_vwap_risk_pairs(data))
-    pairs.extend(_news_pairs(data))
-    per_account_pairs, _ = _per_account_pairs(
-        data, accounts_path or DEFAULT_ACCOUNTS_YAML,
-    )
-    pairs.extend(per_account_pairs)
-    return pairs
-
-
 BUILDERS = {
     "live": build_live,
-    "vwap_btcusd_live": build_vwap_btcusd_live,
 }
 
 
@@ -383,9 +350,13 @@ def main() -> int:
     )
     parser.add_argument("--master", required=True, help="Path to master-secrets.sops.yaml")
     parser.add_argument("--age-key-file", required=True, help="Path to age-keys.txt")
-    parser.add_argument("--profile", required=True, choices=PROFILES, help="Target runtime profile (all live)")
+    parser.add_argument("--profile", default="live", choices=PROFILES,
+                        help="Profile to render (default: live; the single canonical profile post-2026-05-03)")
     parser.add_argument("--out", required=True, help="Output .env file path")
-    parser.add_argument("--allow-live", action="store_true", help="Required for every supported profile (all are live)")
+    parser.add_argument("--allow-live", action="store_true",
+                        help="(Deprecated — kept for back-compat with notebooks; rendering "
+                             "live is the only supported path post-2026-05-03 and the flag is "
+                             "no longer required.)")
     parser.add_argument("--sops-bin", default="sops", help="Path to the sops binary (default: sops)")
     parser.add_argument(
         "--accounts-yaml",
@@ -411,11 +382,14 @@ def main() -> int:
     if not age_key_file.exists():
         sys.exit(f"ERROR: Age key file not found: {age_key_file}")
 
-    if args.profile in LIVE_PROFILES and not args.allow_live:
-        sys.exit(
-            f"ERROR: Generating the '{args.profile}' profile requires --allow-live.\n"
-            "Pass --allow-live to confirm you intentionally want live trading credentials."
-        )
+    # --allow-live is no longer required (operator directive 2026-05-03 —
+    # the dry/live toggle is per-account in accounts.yaml, not at render
+    # time). The flag is accepted but ignored for back-compat with old
+    # notebook cells / scripts. Per-account ``mode: dry_run`` is the
+    # operator's safety control if they want to render keys but not
+    # trade live yet.
+    if args.allow_live:
+        print("note: --allow-live accepted but ignored (no longer required)")
 
     print(f"Profile : {args.profile}")
     print(f"Output  : {out_path}")
