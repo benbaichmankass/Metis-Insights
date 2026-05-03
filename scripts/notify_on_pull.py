@@ -272,6 +272,45 @@ def _diff_touched_checkpoint_log(pre_sha: str, post_sha: str) -> bool:
     return any("docs/claude/checkpoints/CHECKPOINT_LOG.md" in name for name in names)
 
 
+def _diff_added_cp_ids(pre_sha: str, post_sha: str) -> List[str]:
+    """Return CP-IDs whose ``## CP-…`` header was added (not just touched)
+    in the diff range, newest first.
+
+    Pre-fix the checkpoint ping fired whenever any commit in the pull
+    window touched ``CHECKPOINT_LOG.md`` — which includes feature-PR
+    merges that bring in an *old* sprint's checkpoint commit, and
+    in-place edits to existing entries. Both shapes pinged the
+    operator with the file's current topmost entry, even though that
+    entry was already announced in a prior pull.
+
+    The fix: parse the diff for added lines matching the CP header
+    regex; only emit a ping when the topmost entry's CP-ID is in
+    that set.
+    """
+    if not pre_sha or pre_sha == "unknown":
+        return []
+    try:
+        out = subprocess.run(
+            ["git", "diff", "-U0",
+             f"{pre_sha}..{post_sha}",
+             "--", "docs/claude/checkpoints/CHECKPOINT_LOG.md"],
+            cwd=str(REPO_ROOT), capture_output=True, text=True,
+            check=False, timeout=10,
+        )
+        if out.returncode != 0:
+            return []
+    except (subprocess.SubprocessError, OSError):
+        return []
+    added: List[str] = []
+    for line in out.stdout.splitlines():
+        if not line.startswith("+") or line.startswith("+++"):
+            continue
+        m = _CP_HEADER_RE.match(line[1:])
+        if m:
+            added.append(m.group(1))
+    return added
+
+
 def _latest_cp_entry(log_path: Path) -> Optional[tuple[str, str, List[str]]]:
     """Parse the topmost ``## CP-…`` entry. Returns (cp_id, title, body_lines)
     or None if the log is empty / malformed."""
@@ -348,10 +387,35 @@ def collect_pings(
     pings.extend(_blocker_pings(pre_sha, post_sha))
     pings.extend(_training_workflow_pings(pre_sha, post_sha))
     pings.extend(_drain_pending_pings(PENDING_PINGS))
-    if force_checkpoint or _diff_touched_checkpoint_log(pre_sha, post_sha):
+    # Checkpoint ping only fires when the diff *added* a new CP header
+    # whose CP-ID matches the file's current topmost entry. A merge
+    # commit that brings an old checkpoint into main, or an in-place
+    # edit to an existing entry, no longer re-pings the operator —
+    # those events ride on the original checkpoint commit's ping.
+    if force_checkpoint:
         cp_ping = _checkpoint_ping(post_sha)
         if cp_ping is not None:
             pings.append(cp_ping)
+    elif _diff_touched_checkpoint_log(pre_sha, post_sha):
+        added_ids = _diff_added_cp_ids(pre_sha, post_sha)
+        parsed = _latest_cp_entry(CHECKPOINT_LOG)
+        if parsed is not None and added_ids and parsed[0] == added_ids[0]:
+            cp_ping = _checkpoint_ping(post_sha)
+            if cp_ping is not None:
+                pings.append(cp_ping)
+        elif added_ids:
+            logger.info(
+                "notify_on_pull: skipping checkpoint ping — diff added "
+                "%s but the file's topmost entry is %s (already pinged "
+                "on its original commit)",
+                added_ids[0], parsed[0] if parsed else "<unparsed>",
+            )
+        else:
+            logger.info(
+                "notify_on_pull: skipping checkpoint ping — diff touched "
+                "CHECKPOINT_LOG.md but added no new CP header (in-place "
+                "edit / merge of an old sprint commit)",
+            )
     return pings
 
 

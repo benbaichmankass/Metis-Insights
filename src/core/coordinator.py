@@ -555,18 +555,41 @@ class Coordinator:
             # bypassed and the package routes — preserves test-fixture
             # behaviour where unit tests don't bother declaring the
             # mapping.
+            # Pre-build a minimal account_cfg for refusal-journal writes
+            # in the early-out branches below. Mirrors the richer
+            # account_cfg constructed inside the dispatch try block.
+            # ``getattr`` keeps legacy/test fixtures (where the account
+            # object may not carry ``api_key_env``) routing cleanly.
+            _early_account_cfg = {
+                "account_id": account.name,
+                "exchange": account.exchange,
+                "api_key_env": getattr(account, "api_key_env", None),
+            }
+
             assigned = list(getattr(account, "strategies", None) or [])
             if assigned and pkg.strategy and pkg.strategy not in assigned:
+                error_msg = (
+                    f"skipped_not_assigned: pkg.strategy={pkg.strategy!r} "
+                    f"not in account.strategies={assigned!r}"
+                )
+                # Land a refusal row so /packages can pair every open
+                # package with a journal reason — pre-fix the package
+                # was logged but no trade row was written, leaving the
+                # operator with an "open with no linked trade" mystery.
+                from src.units.accounts.execute import log_rejection_to_journal
+                log_rejection_to_journal(
+                    pkg, _early_account_cfg,
+                    reason=error_msg,
+                    status="rejected",
+                    sized_qty=0.0,
+                )
                 results.append({
                     "name": account.name,
                     "exchange": account.exchange,
                     "account_type": account.account_type,
                     "trade_id": None,
                     "sized_qty": 0.0,
-                    "error": (
-                        f"skipped_not_assigned: pkg.strategy={pkg.strategy!r} "
-                        f"not in account.strategies={assigned!r}"
-                    ),
+                    "error": error_msg,
                 })
                 continue
 
@@ -579,13 +602,21 @@ class Coordinator:
                     "multi_account_execute: position_size failed for %s: %s",
                     account.name, exc,
                 )
+                error_msg = f"sizing_failed: {type(exc).__name__}: {exc}"
+                from src.units.accounts.execute import log_rejection_to_journal
+                log_rejection_to_journal(
+                    pkg, _early_account_cfg,
+                    reason=error_msg,
+                    status="rejected",
+                    sized_qty=0.0,
+                )
                 results.append({
                     "name": account.name,
                     "exchange": account.exchange,
                     "account_type": account.account_type,
                     "trade_id": None,
                     "sized_qty": 0.0,
-                    "error": f"sizing_failed: {type(exc).__name__}: {exc}",
+                    "error": error_msg,
                 })
                 continue
 
@@ -593,16 +624,24 @@ class Coordinator:
 
             # 2. Refuse to forward a zero-qty order (under-balance accounts).
             if sized_qty <= 0:
+                error_msg = (
+                    f"below_min_balance: balance={balance:.2f} USD < "
+                    f"min_balance_usd={account.risk_manager.min_balance_usd}"
+                )
+                from src.units.accounts.execute import log_rejection_to_journal
+                log_rejection_to_journal(
+                    pkg, _early_account_cfg,
+                    reason=error_msg,
+                    status="rejected",
+                    sized_qty=0.0,
+                )
                 results.append({
                     "name": account.name,
                     "exchange": account.exchange,
                     "account_type": account.account_type,
                     "trade_id": None,
                     "sized_qty": 0.0,
-                    "error": (
-                        f"below_min_balance: balance={balance:.2f} USD < "
-                        f"min_balance_usd={account.risk_manager.min_balance_usd}"
-                    ),
+                    "error": error_msg,
                 })
                 continue
 

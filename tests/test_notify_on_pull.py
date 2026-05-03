@@ -194,6 +194,11 @@ def test_collect_pings_orders_blocker_first(monkeypatch, tmp_path):
     monkeypatch.setattr(nop, "PENDING_PINGS", tmp_path / "missing.jsonl")
     monkeypatch.setattr(nop, "_blocker_pings", lambda pre, post: [("urgent", "B")])
     monkeypatch.setattr(nop, "_diff_touched_checkpoint_log", lambda pre, post: True)
+    # The diff added the same CP-ID that's currently topmost — gating
+    # condition for the new "only ping when a NEW topmost CP was added"
+    # rule.
+    monkeypatch.setattr(nop, "_diff_added_cp_ids",
+                        lambda pre, post: ["CP-2026-04-30-13"])
     pings = nop.collect_pings("pre", "post")
     assert pings[0][0] == "urgent"  # blocker first
     assert any(p == "normal" for p, _ in pings)  # cp ping present
@@ -394,3 +399,139 @@ def test_collect_pings_includes_training_pings(monkeypatch, tmp_path):
     )
     pings = nop.collect_pings("pre", "post")
     assert any("TRAINING-PLAN" in body for _, body in pings)
+
+
+# ---------------------------------------------------------------------------
+# CP ping gating — only fire when a NEW topmost CP-ID was added in the diff.
+# Pre-fix: any commit in the pull window touching CHECKPOINT_LOG.md re-pinged
+# the file's current topmost entry, including merges of feature branches that
+# carried an old sprint's checkpoint commit, and in-place edits to existing
+# entries. Both shapes spammed the operator with already-announced content.
+# ---------------------------------------------------------------------------
+
+
+def test_collect_pings_skips_cp_when_topmost_not_in_added_set(
+    monkeypatch, tmp_path,
+):
+    """File touched by a commit that *edits* an existing entry (no new
+    CP header in the diff) must NOT fire a checkpoint ping — the
+    topmost entry was already pinged on its original commit."""
+    log = tmp_path / "log.md"
+    log.write_text(
+        "# Checkpoint log\n\n---\n\n"
+        "## CP-2026-05-03-20 — already-announced\n\n"
+        "- **Sprint:** S-old\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(nop, "CHECKPOINT_LOG", log)
+    monkeypatch.setattr(nop, "PENDING_PINGS", tmp_path / "missing.jsonl")
+    monkeypatch.setattr(nop, "_blocker_pings", lambda pre, post: [])
+    monkeypatch.setattr(nop, "_diff_touched_checkpoint_log",
+                        lambda pre, post: True)
+    # Diff added no CP header — only edits to existing entries.
+    monkeypatch.setattr(nop, "_diff_added_cp_ids", lambda pre, post: [])
+
+    pings = nop.collect_pings("pre", "post")
+    assert all("CP-2026-05-03-20" not in body for _, body in pings)
+
+
+def test_collect_pings_skips_cp_when_old_id_added_but_not_topmost(
+    monkeypatch, tmp_path,
+):
+    """A merge commit may bring in an old sprint's checkpoint commit
+    (so its CP header IS in the diff's added set) while a newer
+    checkpoint already sits at the top of the file. Re-announcing the
+    old CP would be noise — skip."""
+    log = tmp_path / "log.md"
+    log.write_text(
+        "# Checkpoint log\n\n---\n\n"
+        "## CP-2026-05-03-21 — newest\n\n- **Sprint:** S-new\n\n"
+        "---\n\n"
+        "## CP-2026-04-30-12 — old branch checkpoint\n\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(nop, "CHECKPOINT_LOG", log)
+    monkeypatch.setattr(nop, "PENDING_PINGS", tmp_path / "missing.jsonl")
+    monkeypatch.setattr(nop, "_blocker_pings", lambda pre, post: [])
+    monkeypatch.setattr(nop, "_diff_touched_checkpoint_log",
+                        lambda pre, post: True)
+    # Merge brought CP-2026-04-30-12 into main but the file's topmost
+    # entry is the newer CP-2026-05-03-21.
+    monkeypatch.setattr(nop, "_diff_added_cp_ids",
+                        lambda pre, post: ["CP-2026-04-30-12"])
+
+    pings = nop.collect_pings("pre", "post")
+    assert all("CP-2026-04-30-12" not in body for _, body in pings)
+    assert all("CP-2026-05-03-21" not in body for _, body in pings)
+
+
+def test_collect_pings_fires_cp_when_new_topmost_id_added(
+    monkeypatch, tmp_path,
+):
+    """The happy path: an end-of-session commit appends a NEW CP-ID at
+    the top of the file. The diff's added set contains that CP-ID and
+    it matches the file's current topmost entry — fire the ping."""
+    log = tmp_path / "log.md"
+    log.write_text(
+        "# Checkpoint log\n\n---\n\n"
+        "## CP-2026-05-03-22 — fresh\n\n- **Sprint:** S-new\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(nop, "CHECKPOINT_LOG", log)
+    monkeypatch.setattr(nop, "PENDING_PINGS", tmp_path / "missing.jsonl")
+    monkeypatch.setattr(nop, "_blocker_pings", lambda pre, post: [])
+    monkeypatch.setattr(nop, "_diff_touched_checkpoint_log",
+                        lambda pre, post: True)
+    monkeypatch.setattr(nop, "_diff_added_cp_ids",
+                        lambda pre, post: ["CP-2026-05-03-22"])
+
+    pings = nop.collect_pings("pre", "post")
+    assert any("CP-2026-05-03-22" in body for _, body in pings)
+
+
+def test_diff_added_cp_ids_returns_only_added_headers(monkeypatch):
+    """Parser pulls CP-IDs from `+` diff lines only — context lines
+    (no leading `+`/`-`) and `+++` file headers are ignored."""
+    fake_diff = (
+        "diff --git a/docs/claude/checkpoints/CHECKPOINT_LOG.md "
+        "b/docs/claude/checkpoints/CHECKPOINT_LOG.md\n"
+        "--- a/docs/claude/checkpoints/CHECKPOINT_LOG.md\n"
+        "+++ b/docs/claude/checkpoints/CHECKPOINT_LOG.md\n"
+        "@@ -1,0 +1,3 @@\n"
+        "+## CP-2026-05-03-22 — fresh entry\n"
+        "+\n"
+        "+- **Sprint:** S-new\n"
+        " ## CP-2026-05-03-21 — older context (unchanged)\n"
+    )
+    monkeypatch.setattr(
+        nop.subprocess, "run",
+        lambda *a, **kw: MagicMock(returncode=0, stdout=fake_diff, stderr=""),
+    )
+    out = nop._diff_added_cp_ids("pre", "post")
+    assert out == ["CP-2026-05-03-22"]
+
+
+def test_diff_added_cp_ids_skips_when_pre_unknown():
+    assert nop._diff_added_cp_ids("unknown", "post") == []
+
+
+def test_force_checkpoint_bypasses_added_id_gate(monkeypatch, tmp_path):
+    """The auto_ping_test.flag verification path passes
+    --force-checkpoint and must still fire even though the diff added
+    no new CP header."""
+    log = tmp_path / "log.md"
+    log.write_text(
+        "# Checkpoint log\n\n---\n\n"
+        "## CP-2026-05-03-99 — flag-trigger\n\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(nop, "CHECKPOINT_LOG", log)
+    monkeypatch.setattr(nop, "PENDING_PINGS", tmp_path / "missing.jsonl")
+    monkeypatch.setattr(nop, "_blocker_pings", lambda pre, post: [])
+    # Force path bypasses the touched/added-ids gate entirely.
+    monkeypatch.setattr(nop, "_diff_touched_checkpoint_log",
+                        lambda pre, post: False)
+    monkeypatch.setattr(nop, "_diff_added_cp_ids", lambda pre, post: [])
+
+    pings = nop.collect_pings("pre", "post", force_checkpoint=True)
+    assert any("CP-2026-05-03-99" in body for _, body in pings)
