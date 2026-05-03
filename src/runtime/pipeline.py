@@ -282,15 +282,13 @@ def _pipeline_result_sections(
         for r in multi:
             if not isinstance(r, dict):
                 continue
-            acc = r.get("account") or r.get("account_id") or "?"
-            st  = r.get("status") or "?"
-            qty = r.get("qty")
-            rsn = r.get("reason")
+            acc = r.get("name") or r.get("account") or r.get("account_id") or "?"
+            err = r.get("error")
+            st = "ok" if err is None else (str(err) or "error")
+            qty = r.get("sized_qty") if r.get("sized_qty") is not None else r.get("qty")
             line = f"{acc}: {st}"
-            if qty is not None:
+            if qty is not None and err is None:
                 line += f" qty={qty}"
-            if rsn:
-                line += f" — {rsn}"
             lines.append(line)
         sections.append(Section(
             summary=f"Accounts dispatched — {len(multi)}",
