@@ -491,7 +491,7 @@ class Coordinator:
         live_balances: Dict[str, Optional[float]] = {}
         if balance_fetcher is None:
             try:
-                from src.ui.processor import get_account_balances
+                from src.units.ui.processor import get_account_balances
                 for row in get_account_balances() or []:
                     aid = row.get("account_id")
                     if aid:
@@ -1275,7 +1275,7 @@ def _log_new_order_package(pkg: "OrderPackage") -> Optional[str]:
     try:
         import json as _json
         import uuid
-        from src.data_layer.database import Database
+        from src.units.db.database import Database
 
         order_package_id = (
             (pkg.meta or {}).get("order_package_id")
@@ -1358,7 +1358,7 @@ def _log_smoke_to_journal(
     """
     try:
         from datetime import datetime, timezone
-        from src.data_layer.database import Database
+        from src.units.db.database import Database
 
         path = db_path or os.environ.get("TRADE_JOURNAL_DB") or os.path.join(
             _REPO_ROOT, "trade_journal.db"

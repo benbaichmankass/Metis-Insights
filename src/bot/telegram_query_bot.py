@@ -19,7 +19,7 @@ from telegram.ext import Application, CommandHandler, CallbackQueryHandler, Cont
 # deleted get_bybit_client_from_env.
 # Sprint S-002 M3: get_strategy_label is account-aware; load_account_env and
 # format_target_options deleted.
-from src.ui import data_loaders as dl
+from src.units.ui import data_loaders as dl
 from src.bot.vm_runner import handle_vm_command, RunnerResult, MAX_PROMPT_CHARS
 from src.bot.comms_handler import install_comms_handlers
 
@@ -118,14 +118,14 @@ def fetch_today_pnl(account_id: str | None = None) -> tuple:
     ``src.ui.processor.get_today_pnl`` so the bot stops touching
     ``trade_journal.db`` directly. The tuple shape is preserved for
     existing handlers."""
-    from src.ui.processor import get_today_pnl
+    from src.units.ui.processor import get_today_pnl
     result = get_today_pnl(account_id)
     return (result["trade_count"], result["total_pnl_usd"])
 
 
 def fetch_open_positions_count(account_id: str | None = None) -> int:
     """Back-compat wrapper — see ``fetch_today_pnl`` for context."""
-    from src.ui.processor import get_open_positions_count
+    from src.units.ui.processor import get_open_positions_count
     return get_open_positions_count(account_id)
 
 
@@ -1029,7 +1029,7 @@ async def cmd_trades(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cmd_price(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_authorised(update):
         return
-    from src.ui import processor
+    from src.units.ui import processor
     price = processor.get_price("BTCUSDT")
     if price is None:
         await update.message.reply_text("⚠️ Could not fetch price.")
@@ -1194,7 +1194,7 @@ def _list_known_strategies_for_picker() -> list[str]:
     mirror the pipeline's hardcoded roster so the picker still works
     in lean deploys where the YAML registry isn't readable."""
     try:
-        from src.ui.data_loaders import list_live_strategies
+        from src.units.ui.data_loaders import list_live_strategies
         names = list_live_strategies() or []
         if names:
             return list(names)
@@ -1238,7 +1238,7 @@ def _render_signals_block(strategy_filter: str | None, limit: int) -> str:
     "what to display" decision per Architecture rule § 5; both this
     bot and the webapp render the same string.
     """
-    from src.ui.processor import get_signals_block
+    from src.units.ui.processor import get_signals_block
     return get_signals_block(strategy_filter=strategy_filter, limit=limit)
 
 
@@ -1379,7 +1379,7 @@ async def _do_closeall_strategy(reply_fn, strategy_name: str) -> None:
     reduce-only market orders directly, bypassing ``execute_pkg``'s
     canonical close path. Rule-3 violation closed.
     """
-    from src.ui import processor
+    from src.units.ui import processor
     try:
         rows = processor.close_open_positions(strategy=strategy_name)
     except Exception as exc:  # noqa: BLE001
@@ -1494,7 +1494,7 @@ def _latest_sprint_from_checkpoint_log() -> tuple[str, str]:
     to the UI unit; this wrapper preserves the old tuple shape so the
     sprintlet handlers below stay untouched.
     """
-    from src.ui import processor
+    from src.units.ui import processor
     info = processor.get_latest_sprint()
     return info.get("sprint_id", "unknown"), info.get("cp_id", "unknown")
 
@@ -1650,7 +1650,7 @@ async def cmd_checkpoint(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     if not is_authorised(update):
         return
-    from src.ui import processor
+    from src.units.ui import processor
     header = processor.get_latest_checkpoint_header()
     if header.startswith("⚠️"):
         await update.message.reply_text(header)
@@ -1706,7 +1706,7 @@ async def cmd_health(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     if not is_authorised(update):
         return
-    from src.ui import processor
+    from src.units.ui import processor
     body = processor.get_health_summary(get_service_status=get_service_status)
     await update.message.reply_text(body, parse_mode="Markdown")
 
@@ -1771,7 +1771,7 @@ async def cmd_vmstats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     if not is_authorised(update):
         return
-    from src.ui import processor
+    from src.units.ui import processor
     body = processor.get_vm_stats()
     await update.message.reply_text(body, parse_mode="Markdown")
 
@@ -2166,7 +2166,7 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             # Close ALL open trades — routed through the canonical
             # close path (processor → execute.close_open_position).
-            from src.ui import processor
+            from src.units.ui import processor
             try:
                 rows = processor.close_open_positions()
             except Exception as e:
@@ -2686,7 +2686,7 @@ async def cmd_hourly(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     try:
         from datetime import datetime, timezone
-        from src.ui import processor
+        from src.units.ui import processor
         from src.runtime.outcomes import send_scheduled
 
         now = datetime.now(timezone.utc)

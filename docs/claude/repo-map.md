@@ -16,8 +16,9 @@ No unit calls another unit directly.
 | 5. Telegram Bot | `src/bot/telegram_query_bot.py` | UI consumer of Coordinator |
 | 6. App | (stub) | Extended UI with config |
 | 7. Trading School | `src/units/trading_school/` | Strategy metric validation |
-| 8. DB | `trade_journal.db`, `data/trades.db` | Unified storage |
-| 9. Workflows | `docs/workflows/` | Per-unit operating procedures |
+| 8. DB | `src/units/db/` (canonical) — was `src/data_layer/` pre-S-035 | Unified storage |
+| 9. UI | `src/units/ui/` (canonical) — was `src/ui/` pre-S-035 | Single facade between any UI surface (bot, webapp) and the data/runtime/account units |
+| 10. Workflows | `docs/workflows/` | Per-unit operating procedures |
 
 **Config:** `config/units.yaml` — all 9 units declared here. Adding a strategy = 1 line.
 
@@ -29,11 +30,12 @@ No unit calls another unit directly.
 
 - `src/`: application code.
 - `src/core/coordinator.py`: **TRANSLATOR** — all cross-unit routing. Read this first for any architectural question.
-- `src/units/`: 9-unit layer — strategies, accounts, dashboards, trading_school.
-- `src/bot/`: Telegram bot and command handlers. `data_loaders.py` is the single facade for all operational data reads.
+- `src/units/`: canonical home for every unit per CLAUDE.md § Architecture rules § 1 — strategies, accounts, dashboards, trading_school, db (S-035), ui (S-035).
+- `src/units/db/`: SQLite `Database` class (`trade_journal.db` bootstrap + migrations + the three logs: trades, order_packages, signals). **Pre-S-035** lived at `src/data_layer/`; that path remains as a back-compat shim.
+- `src/units/ui/`: UI processor + data_loaders. The single facade between any UI surface and the units. **Pre-S-035** lived at `src/ui/`; that path remains as a back-compat shim. `src/bot/data_loaders.py` is also a shim that aliases through to `src/units/ui/data_loaders.py` (S-032 + S-035).
+- `src/bot/`: Telegram bot and command handlers — thin shells that call `src.units.ui.processor` helpers. Only `src/bot/data_loaders.py` is an alias shim (no business logic).
 - `src/core/`: trading loop and core strategy flow.
-- `src/data_layer/`: SQLite `Database` class (`trade_journal.db` bootstrap + migrations).
-- `src/runtime/`: runtime config/validation/pipeline pieces. **Post-S-022:** `outcomes.py` is the central error reporter (every silent-failure replacement uses `report()`); `health.py`, `heartbeat.py`, `hourly_report.py`, `api_reporting.py` are the supporting surfaces.
+- `src/runtime/`: runtime config/validation/pipeline pieces. **Stays under `src/runtime/`** (not moved to `src/units/runtime/`) — runtime is the orchestration layer that drives units, not a unit itself. **Post-S-022:** `outcomes.py` is the central error reporter (every silent-failure replacement uses `report()`); `health.py`, `heartbeat.py`, `hourly_report.py`, `api_reporting.py`, `market_data.py` (S-033), `liveness_watchdog.py` (S-029), `order_monitor.py` (S-030) are the supporting surfaces.
 - `scripts/`: operational scripts. `scripts/init_db.py` bootstraps `trade_journal.db`. `scripts/check_heartbeat.py` (S-022 PR5) is the standalone watchdog.
 - `tests/`: pytest suite. `tests/test_s008_*.py` + `tests/test_coordinator_flow.py` cover the 9-unit layer (178 tests).
 - `config/`: `units.yaml` (9-unit declarations), `strategies.yaml`, `accounts.yaml` (per-account credentials → `api_key_env` contract), `master-secrets.template.yaml`.
