@@ -315,7 +315,7 @@ def get_recent_signals(
     import os
     from collections import deque
 
-    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
     audit = os.environ.get("SIGNAL_AUDIT_PATH") or os.path.join(
         repo_root, "runtime_logs", "signal_audit.jsonl",
     )
@@ -581,7 +581,7 @@ def get_signals_block(
     if not rows:
         scope = f" for {strategy_filter}" if strategy_filter else ""
         repo_root = os.path.abspath(
-            os.path.join(os.path.dirname(__file__), "..", "..")
+            os.path.join(os.path.dirname(__file__), "..", "..", "..")
         )
         audit_path = os.environ.get("SIGNAL_AUDIT_PATH") or os.path.join(
             repo_root, "runtime_logs", "signal_audit.jsonl",
@@ -1141,7 +1141,7 @@ _CP_HEADER_RE = _re.compile(r"^##\s+(CP-\d{4}-\d{2}-\d{2}-\d+)\b")
 def _checkpoint_log_path() -> str:
     import os
     repo_root = os.path.abspath(
-        os.path.join(os.path.dirname(__file__), "..", "..")
+        os.path.join(os.path.dirname(__file__), "..", "..", "..")
     )
     return os.path.join(repo_root, "docs", "claude", "checkpoints",
                         "CHECKPOINT_LOG.md")
@@ -1291,7 +1291,7 @@ def get_health_summary(
 
     if repo_root is None:
         repo_root = os.path.abspath(
-            os.path.join(os.path.dirname(__file__), "..", "..")
+            os.path.join(os.path.dirname(__file__), "..", "..", "..")
         )
 
     if get_service_status is None:
@@ -1430,7 +1430,7 @@ def get_vm_stats() -> str:
     from datetime import datetime, timezone
 
     repo_root = os.path.abspath(
-        os.path.join(os.path.dirname(__file__), "..", "..")
+        os.path.join(os.path.dirname(__file__), "..", "..", "..")
     )
     load = _read_loadavg()
     uptime = _read_uptime_human()
@@ -1471,7 +1471,7 @@ def get_roadmap_summary() -> str:
     """
     import os
     repo_root = os.path.abspath(
-        os.path.join(os.path.dirname(__file__), "..", "..")
+        os.path.join(os.path.dirname(__file__), "..", "..", "..")
     )
     roadmap_path = os.path.join(repo_root, "ROADMAP.md")
     try:
