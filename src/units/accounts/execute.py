@@ -353,18 +353,29 @@ def _log_trade_to_journal(
     account_cfg: dict,
     order: dict,
     *,
-    trade_id: str,
-    is_dry: bool,
+    trade_id: Optional[str] = None,
+    is_dry: bool = False,
+    status: str = "open",
+    reason: Optional[str] = None,
 ) -> bool:
-    """Insert a row into ``trade_journal.db::trades`` for a freshly-placed
-    order. Best-effort — a journal failure must never crash the order
-    path. Returns True on a successful insert, False on any error
-    (logged but never re-raised).
+    """Insert a row into ``trade_journal.db::trades`` for an executor event.
 
-    The row uses ``status='open'``; the close path (S-030 monitor loop)
-    will update via ``Database.update_trade``. ``is_backtest=0`` for
-    runtime trades; the backtester writes its own rows with
-    ``is_backtest=1``.
+    Three call patterns:
+
+    - **Successful submission** (default): ``status='open'``, ``trade_id``
+      is the exchange order id. Close path (S-030 monitor loop) updates
+      via ``Database.update_trade``.
+    - **Risk-manager rejection**: ``status='rejected'``,
+      ``reason`` ∈ {``account_mode_dry_run``, ``DAILY_LOSS_CAP``,
+      ``POSITION_SIZE_CAP``, ``INTRADAY_DRAWDOWN``}. ``trade_id`` is
+      synthesised as ``rejected-<uuid>``.
+    - **Exchange rejection**: ``status='exchange_rejected'``, ``reason``
+      is the exchange error string. ``trade_id`` is synthesised.
+
+    Best-effort — a journal failure must never crash the order path.
+    Returns True on a successful insert, False on any error (logged but
+    never re-raised). ``is_backtest=0`` for runtime trades; the
+    backtester writes its own rows with ``is_backtest=1``.
 
     The ``TRADE_JOURNAL_DB`` env var overrides the DB path; tests can
     set it to a tmp path to avoid polluting the production journal.
@@ -384,12 +395,22 @@ def _log_trade_to_journal(
             )
         )
         db = Database(db_path=path)
+        if trade_id is None:
+            trade_id = f"{status}-{uuid.uuid4().hex[:12]}"
         notes_payload = {
             "trade_id": trade_id,
             "is_dry": bool(is_dry),
             "confidence": float(getattr(pkg, "confidence", 0.0) or 0.0),
             "signal_logic": (pkg.meta or {}).get("signal_logic") or "",
         }
+        if reason is not None:
+            notes_payload["reason"] = str(reason)
+        base_entry_reason = (pkg.meta or {}).get("entry_reason") \
+            or f"{pkg.strategy} signal"
+        if status != "open" and reason:
+            entry_reason = f"{status.upper()}: {reason} | {base_entry_reason}"
+        else:
+            entry_reason = base_entry_reason
         db.insert_trade({
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "symbol": pkg.symbol,
@@ -399,9 +420,8 @@ def _log_trade_to_journal(
             "take_profit_1": float(pkg.tp),
             "position_size": float(order.get("qty") or 0.0),
             "setup_type": pkg.strategy,
-            "entry_reason": (pkg.meta or {}).get("entry_reason")
-                or f"{pkg.strategy} signal",
-            "status": "open",
+            "entry_reason": entry_reason[:500],
+            "status": status,
             "is_backtest": 0,
             "strategy_name": pkg.strategy,
             "account_id": str(
@@ -413,9 +433,53 @@ def _log_trade_to_journal(
     except Exception as exc:  # noqa: BLE001
         logger.warning(
             "execute_pkg: trade-journal write failed (account=%s strategy=%s "
-            "symbol=%s trade_id=%s): %s",
+            "symbol=%s status=%s trade_id=%s): %s",
             account_cfg.get("account_id"), pkg.strategy, pkg.symbol,
-            trade_id, exc,
+            status, trade_id, exc,
+        )
+        return False
+
+
+def log_rejection_to_journal(
+    pkg: OrderPackage,
+    account_cfg: dict,
+    *,
+    reason: str,
+    status: str,
+    sized_qty: Optional[float] = None,
+) -> bool:
+    """Public wrapper: log a refusal event to the trade journal.
+
+    Used by ``Coordinator.multi_account_execute`` from its
+    ``except RiskBreach`` and generic exception blocks so every
+    refusal lands a row alongside the existing diagnostic ping.
+
+    ``status`` is one of ``"rejected"`` (RiskManager refused) or
+    ``"exchange_rejected"`` (exchange returned an error). ``reason``
+    is the structured token from ``RiskManager.evaluate`` (for
+    ``rejected``) or ``str(exc)`` (for ``exchange_rejected``).
+
+    ``sized_qty`` is the qty the RiskManager produced before the
+    refusal — written into ``position_size`` so the operator can see
+    the would-be size. Pass ``None`` when sizing was not reached
+    (e.g. early-stage refusal); the row records ``position_size=0.0``.
+
+    Wraps the underlying write in a defensive try/except so a
+    journal-write failure during failure-handling can never escalate
+    to a stack unwind.
+    """
+    try:
+        order = {"qty": float(sized_qty or 0.0), "symbol": pkg.symbol}
+        return _log_trade_to_journal(
+            pkg, account_cfg, order,
+            trade_id=None, is_dry=False,
+            status=status, reason=reason,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "log_rejection_to_journal: write failed (account=%s status=%s "
+            "reason=%s): %s",
+            account_cfg.get("account_id"), status, reason, exc,
         )
         return False
 

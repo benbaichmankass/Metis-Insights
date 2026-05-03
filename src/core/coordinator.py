@@ -678,6 +678,10 @@ class Coordinator:
                         f"_SECRET) not in process env"
                     )
 
+            # Captured before the try so the except blocks can pass the
+            # un-mangled token to the rejection-journal helper (post-CP-13
+            # observability — every refusal lands a row in trade_journal.db).
+            risk_reason: Optional[str] = None
             try:
                 # 1. Per-account risk gate (local check, since execute_pkg
                 #    does not call account.risk_manager.approve()). Honour
@@ -687,15 +691,16 @@ class Coordinator:
                 # structured reason on reject (DAILY_LOSS_CAP /
                 # POSITION_SIZE_CAP / INTRADAY_DRAWDOWN /
                 # SKIP_MISSION_MET / SKIP_OVERNIGHT_RESTRICTED /
-                # SKIP_WEEKEND_RESTRICTED). The reason flows through
-                # the result row's ``error`` field so /signals and the
-                # diagnostic ping can distinguish a true risk breach
-                # from a mission-aware skip.
+                # SKIP_WEEKEND_RESTRICTED / account_mode_dry_run). The
+                # reason flows through the result row's ``error`` field
+                # so /signals and the diagnostic ping can distinguish a
+                # true risk breach from a mission-aware skip.
                 ok, reason = account.risk_manager.evaluate(pkg)
                 if not ok:
+                    risk_reason = reason or "risk_gate_refused"
                     raise RiskBreach(
                         f"Account '{account.name}' rejected order for "
-                        f"{pkg.symbol}: {reason or 'risk gate refused'}"
+                        f"{pkg.symbol}: {risk_reason}"
                     )
 
                 # 2. Live-mode credential gate. A missing client when
@@ -740,6 +745,13 @@ class Coordinator:
                     qty=sized_qty,
                     reason=f"RiskBreach: {exc}",
                 )
+                from src.units.accounts.execute import log_rejection_to_journal
+                log_rejection_to_journal(
+                    pkg, account_cfg,
+                    reason=risk_reason or "risk_gate_refused",
+                    status="rejected",
+                    sized_qty=sized_qty,
+                )
                 results.append({
                     "name": account.name,
                     "exchange": account.exchange,
@@ -764,6 +776,13 @@ class Coordinator:
                     pkg=pkg,
                     qty=sized_qty,
                     reason=f"{type(exc).__name__}: {exc}",
+                )
+                from src.units.accounts.execute import log_rejection_to_journal
+                log_rejection_to_journal(
+                    pkg, account_cfg,
+                    reason=f"{type(exc).__name__}: {exc}",
+                    status="exchange_rejected",
+                    sized_qty=sized_qty,
                 )
                 results.append({
                     "name": account.name,

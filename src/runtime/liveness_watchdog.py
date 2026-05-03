@@ -141,9 +141,16 @@ def _count_trades_placed(since_iso: str, db_path: Path) -> int:
     try:
         conn = sqlite3.connect(str(db_path))
         try:
+            # Refusal rows (status='rejected' / 'exchange_rejected') must
+            # be excluded — the watchdog's job is "did anything actually
+            # land on the exchange?", and rejection rows are the
+            # opposite. Counting them would silently neuter the watchdog.
+            # (CP-2026-05-03-14.)
             row = conn.execute(
                 "SELECT COUNT(*) FROM trades "
                 "WHERE is_backtest = 0 "
+                "AND COALESCE(status, 'open')"
+                " NOT IN ('rejected', 'exchange_rejected') "
                 "AND datetime(created_at) >= datetime(?) ",
                 (since_iso,),
             ).fetchone()
