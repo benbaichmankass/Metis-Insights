@@ -390,6 +390,323 @@ def _send_modify_to_exchange(matched_trade: Dict[str, Any], *,
         return {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
 
 
+# ---------------------------------------------------------------------------
+# Monitor-loop write-back reconciler — BUG-042 PR 2
+# (CLAUDE.md § Architecture rules § 5 "Live by default + tell-me-if-not")
+# ---------------------------------------------------------------------------
+#
+# The trade lifecycle is a two-sided contract: ``execute_pkg`` writes
+# ``status='open'`` to the DB on placement, and the exchange
+# independently closes positions on TP / SL / manual flatten. Without
+# a reconciler the two views silently diverge — closed positions
+# linger as ``status='open'`` in the trade journal forever (BUG-041's
+# pre-#357 ghost-row pattern). The cleanup notebook (PR #367) is the
+# manual one-shot remediation; this is the always-on automated
+# equivalent.
+#
+# Behaviour:
+#   1. SELECT id, account_id, symbol, direction FROM trades
+#      WHERE status='open' AND is_backtest=0.
+#   2. Group by account_id.
+#   3. Per account: load the matching account dict from accounts.yaml,
+#      skip dry-run accounts (no exchange to read), and call
+#      ``account_open_positions``.
+#   4. For each DB-open row whose (symbol, side) is NOT in the
+#      exchange's open-positions list:
+#        - UPDATE trades SET status='orphaned',
+#          exit_reason='reconciler', updated_at=NOW()
+#        - Cascade: UPDATE order_packages SET status='closed',
+#          close_reason='reconciler', updated_at=NOW()
+#          WHERE linked_trade_id=?
+#        - Enqueue one diagnostic ping per orphan (cap at 10 per
+#          tick + one roll-up for the rest).
+#
+# Skip rules (no orphan sweep on this account):
+#   - account.mode != 'live' (dry-run / paper) — no exchange to read.
+#   - account_open_positions returned None (creds missing or
+#     exchange-side error) — don't orphan rows just because we
+#     couldn't read.
+#
+# Gated by env var ``MONITOR_RECONCILE_ENABLED`` (default ``false``).
+# PR 3 of the BUG-042 sprint flips the default to ``true`` after a
+# soak window confirms the dry-mode behaviour is stable.
+
+_ORPHAN_PING_CAP = 10
+
+# Reconcile-only side of the schema: what we can pull from the trades
+# row to match against the exchange snapshot.
+_RECONCILE_TRADE_COLS = (
+    "id", "account_id", "symbol", "direction", "notes"
+)
+
+
+def _reconcile_enabled() -> bool:
+    """Read ``MONITOR_RECONCILE_ENABLED`` at call time so an operator
+    flag flip takes effect within the next tick without restarting
+    the trader. Default ``false`` for PR 2; PR 3 flips it on."""
+    raw = os.environ.get("MONITOR_RECONCILE_ENABLED", "false")
+    return str(raw).strip().lower() == "true"
+
+
+def _load_account_cfgs_for_reconcile() -> Dict[str, Dict[str, Any]]:
+    """Return ``{account_id: account_cfg_dict}`` from accounts.yaml.
+
+    Account dicts carry the keys ``account_open_positions`` reads
+    (``account_id``, ``exchange``, ``api_key_env``, ``api_secret_env``,
+    ``mode``). Best-effort — any read failure returns an empty dict so
+    the reconciler runs as a no-op rather than orphaning trades on a
+    config-load error.
+    """
+    try:
+        import yaml  # type: ignore
+    except ImportError:
+        return {}
+    path = os.path.join(_REPO_ROOT, "config", "accounts.yaml")
+    if not os.path.exists(path):
+        return {}
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            data = yaml.safe_load(fh) or {}
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("_load_account_cfgs_for_reconcile: %s", exc)
+        return {}
+    raw = data.get("accounts") if isinstance(data, dict) else None
+    if not isinstance(raw, dict):
+        return {}
+    out: Dict[str, Dict[str, Any]] = {}
+    for name, cfg in raw.items():
+        if not isinstance(cfg, dict):
+            continue
+        if cfg.get("enabled") is False:
+            continue
+        out[str(name)] = {
+            "account_id": str(name),
+            "exchange": cfg.get("exchange", "bybit"),
+            "api_key_env": cfg.get("api_key_env"),
+            "api_secret_env": cfg.get("api_secret_env"),
+            "mode": cfg.get("mode") or "live",
+        }
+    return out
+
+
+def _exchange_position_set(positions: Optional[List[Dict[str, Any]]]) -> set:
+    """Convert the exchange's ``account_open_positions`` output to a set
+    of ``(symbol, normalised_side)`` tuples for O(1) lookup.
+
+    Side normalisation: bybit returns ``'Buy'`` / ``'Sell'``, the
+    trade-journal stores ``'long'`` / ``'short'``. Both representations
+    map to the same canonical pair so a match is order-of-magnitude-
+    invariant.
+    """
+    if not positions:
+        return set()
+    out = set()
+    for p in positions:
+        sym = p.get("symbol")
+        side = str(p.get("side") or "").lower()
+        canonical_side = {
+            "buy": "long", "long": "long",
+            "sell": "short", "short": "short",
+        }.get(side)
+        if sym and canonical_side:
+            out.add((sym, canonical_side))
+    return out
+
+
+def _reconcile_open_trades(db) -> Dict[str, int]:
+    """Sweep DB-open trades whose exchange counterpart is flat.
+
+    Returns a summary dict
+    ``{checked, orphaned, skipped_dry, skipped_no_creds, skipped_no_cfg,
+       errors}`` so the caller (run_monitor_tick) can emit an INFO log
+    line for every tick that touched at least one row.
+
+    No-op when ``MONITOR_RECONCILE_ENABLED`` is unset or false. Best-
+    effort — every step is wrapped; one bad row never aborts the
+    sweep.
+    """
+    summary = {
+        "checked": 0,
+        "orphaned": 0,
+        "skipped_dry": 0,
+        "skipped_no_creds": 0,
+        "skipped_no_cfg": 0,
+        "errors": 0,
+    }
+    if not _reconcile_enabled():
+        return summary
+
+    # 1. Pull open trade rows. Inline SQL — no Database helper exists
+    # for "all open across accounts" and writing one would be premature
+    # API surface for a single caller.
+    try:
+        conn = db.connect()
+        try:
+            conn.row_factory = __import__("sqlite3").Row
+            rows = conn.execute(
+                "SELECT id, account_id, symbol, direction, notes "
+                "FROM trades WHERE status='open' AND COALESCE(is_backtest,0)=0"
+            ).fetchall()
+        finally:
+            conn.close()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("_reconcile_open_trades: open-trades read failed: %s", exc)
+        summary["errors"] += 1
+        return summary
+
+    if not rows:
+        return summary
+
+    summary["checked"] = len(rows)
+    cfgs = _load_account_cfgs_for_reconcile()
+
+    # 2. Group by account_id.
+    by_account: Dict[str, List[Dict[str, Any]]] = {}
+    for r in rows:
+        aid = str(r["account_id"] or "unknown")
+        by_account.setdefault(aid, []).append(dict(r))
+
+    # 3. Per-account exchange snapshot + orphan sweep.
+    from src.units.accounts.clients import account_open_positions
+    from src.runtime.execution_diagnostics import (
+        enqueue_orphan_reconciliation,
+        enqueue_orphan_rollup,
+    )
+
+    orphan_pings_emitted = 0
+    orphan_pings_suppressed = 0
+
+    for aid, trade_rows in by_account.items():
+        cfg = cfgs.get(aid)
+        if cfg is None:
+            # Account in DB but not in accounts.yaml — could be a
+            # disabled / removed account. Don't orphan its rows; the
+            # operator can clean up manually.
+            summary["skipped_no_cfg"] += len(trade_rows)
+            continue
+        if str(cfg.get("mode") or "live").lower() in {"dry", "dry_run", "dry-run", "paper"}:
+            summary["skipped_dry"] += len(trade_rows)
+            continue
+
+        positions = account_open_positions(cfg)
+        if positions is None:
+            # Creds missing / exchange-side error → skip (don't orphan
+            # rows just because we couldn't read).
+            summary["skipped_no_creds"] += len(trade_rows)
+            continue
+
+        live_set = _exchange_position_set(positions)
+        for row in trade_rows:
+            sym = row["symbol"]
+            side = str(row["direction"] or "").lower()
+            if (sym, side) in live_set:
+                # Still live on exchange — leave it alone.
+                continue
+            # Orphan match: DB-open + exchange-flat.
+            try:
+                _mark_orphaned(db, row)
+                summary["orphaned"] += 1
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "_reconcile_open_trades: mark_orphaned failed for "
+                    "trade_id=%s account=%s symbol=%s: %s",
+                    row.get("id"), aid, sym, exc,
+                )
+                summary["errors"] += 1
+                continue
+
+            # Diagnostic ping (per-orphan cap + roll-up).
+            if orphan_pings_emitted < _ORPHAN_PING_CAP:
+                enqueue_orphan_reconciliation(
+                    account=aid,
+                    symbol=str(sym),
+                    side=side,
+                    db_trade_id=row.get("id"),
+                    linked_package_id=_extract_package_id(row.get("notes")),
+                )
+                orphan_pings_emitted += 1
+            else:
+                orphan_pings_suppressed += 1
+
+    if orphan_pings_suppressed:
+        enqueue_orphan_rollup(suppressed_count=orphan_pings_suppressed)
+
+    if summary["orphaned"] or summary["errors"]:
+        logger.info(
+            "_reconcile_open_trades: checked=%d orphaned=%d skipped_dry=%d "
+            "skipped_no_creds=%d skipped_no_cfg=%d errors=%d",
+            summary["checked"], summary["orphaned"], summary["skipped_dry"],
+            summary["skipped_no_creds"], summary["skipped_no_cfg"],
+            summary["errors"],
+        )
+    return summary
+
+
+def _extract_package_id(notes_raw: Optional[str]) -> Optional[str]:
+    """Pull ``order_package_id`` out of the trades.notes JSON blob if
+    present. Best-effort — returns None on any decode failure."""
+    if not notes_raw:
+        return None
+    try:
+        notes = json.loads(notes_raw)
+    except Exception:  # noqa: BLE001
+        return None
+    if not isinstance(notes, dict):
+        return None
+    return notes.get("order_package_id") or notes.get("trade_id")
+
+
+def _mark_orphaned(db, row: Dict[str, Any]) -> None:
+    """Mark a trade as orphaned + cascade the linked order_packages row.
+
+    Both writes are best-effort — a failure on the package cascade
+    does not undo the trade-row update. The ``trades`` schema has no
+    ``updated_at`` column (only ``created_at``), so the timestamp
+    trail rides on the ``notes`` JSON instead — mirrors the existing
+    ``notebooks/operator/cleanup_ghost_trades.ipynb`` markers
+    (``orphaned_at`` / ``orphaned_by`` / ``orphaned_reason``) so an
+    operator can grep / SQL on the same field for both manual and
+    automated sweeps.
+    """
+    now = datetime.now(timezone.utc).isoformat()
+    notes = _decode_notes(row.get("notes"))
+    notes.update({
+        "orphaned_at": now,
+        "orphaned_by": "monitor_reconciler",
+        "orphaned_reason": "reconciler — DB-open trade not present in exchange open-positions",
+    })
+    db.update_trade(int(row["id"]), {
+        "status": "orphaned",
+        "exit_reason": "reconciler",
+        "notes": json.dumps(notes, ensure_ascii=False)[:500],
+    })
+    pkg_id = _extract_package_id(row.get("notes"))
+    if pkg_id:
+        try:
+            db.update_order_package(pkg_id, {
+                "status": "closed",
+                "close_reason": "reconciler",
+            })
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "_mark_orphaned: package cascade failed for pkg_id=%s "
+                "linked to trade_id=%s: %s",
+                pkg_id, row.get("id"), exc,
+            )
+
+
+def _decode_notes(notes_raw: Optional[str]) -> Dict[str, Any]:
+    """Best-effort decode of a ``trades.notes`` JSON blob; returns an
+    empty dict on missing / malformed content."""
+    if not notes_raw:
+        return {}
+    try:
+        loaded = json.loads(notes_raw)
+        return loaded if isinstance(loaded, dict) else {}
+    except Exception:  # noqa: BLE001
+        return {}
+
+
 def run_monitor_tick(
     *,
     db_path: Optional[str] = None,
@@ -490,5 +807,15 @@ def run_monitor_tick(
                 strategy_name, summary.open_count,
                 summary.updated_count, summary.closed_count,
             )
+
+    # BUG-042 PR 2: write-back reconciler. No-op when
+    # MONITOR_RECONCILE_ENABLED is false (the default for PR 2);
+    # PR 3 of the sprint flips that on after a soak window.
+    try:
+        recon = _reconcile_open_trades(db)
+        if recon.get("orphaned") or recon.get("errors"):
+            summaries["__reconciler__"] = recon
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("run_monitor_tick: reconciler raised: %s", exc)
 
     return summaries
