@@ -1031,7 +1031,7 @@ async def cmd_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
         accounts,
         body_fn=_render_account_balance,
         header="💰 Account balances",
-        empty_message="No accounts configured. Add .env (legacy) or .env.<id> files.",
+        empty_message="No accounts configured. Edit config/accounts.yaml and restart the trader.",
         extra_top_lines=[dup_warning] if dup_warning else None,
     )
     await update.message.reply_text(body, parse_mode="HTML")
@@ -1051,7 +1051,7 @@ async def cmd_trades(update: Update, context: ContextTypes.DEFAULT_TYPE):
         accounts,
         body_fn=_render_account_positions,
         header="📊 Open positions",
-        empty_message="No accounts configured. Add .env (legacy) or .env.<id> files.",
+        empty_message="No accounts configured. Edit config/accounts.yaml and restart the trader.",
     )
     await update.message.reply_text(body, parse_mode="HTML")
 
