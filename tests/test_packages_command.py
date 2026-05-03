@@ -96,6 +96,44 @@ def _seed_one_open_two_rejections(db_path):
     )
 
 
+def _seed_rejected_too_small(db_path):
+    """Insert a single ``status='rejected_too_small'`` row.
+
+    Mirrors the shape produced by ``scripts/smoke_test_trade.py`` when
+    Bybit returns ``ErrCode: 10001`` (qty below minimum). Pre-PR these
+    rows polluted ``/last5`` because the rejection-row filter only
+    excluded ``'rejected'`` / ``'exchange_rejected'``.
+    """
+    # Make sure the trades table exists before raw INSERT (Database()
+    # __init__ runs create_tables() — same pattern as
+    # _seed_open_packages above).
+    from src.units.db.database import Database
+
+    Database(str(db_path))
+
+    conn = sqlite3.connect(str(db_path))
+    try:
+        conn.execute(
+            "INSERT INTO trades (timestamp, symbol, direction, entry_price,"
+            " stop_loss, take_profit_1, position_size, setup_type,"
+            " entry_reason, status, strategy_name, account_id, is_backtest,"
+            " created_at, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                "2026-05-01T22:00:00",
+                "BTCUSDT", "long",
+                70000.0, 68600.0, 71400.0, 0.0001,
+                "smoke_test", "live-plumbing smoke",
+                "rejected_too_small",
+                "smoke_test", "bybit_2", 0,
+                "2026-05-01T22:00:00",
+                '{"smoke_id": "test", "trade_id": "rejected_too_small:foo"}',
+            ),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def _seed_open_packages(db_path, *, n_open=2, n_closed=1, n_open_with_link=1):
     """Seed N open / N closed / N open-but-already-linked packages.
 
@@ -197,6 +235,68 @@ class TestRecentRejections:
             _seed_one_open_two_rejections(tmp_journal)
             # Bad input must not crash; default is 10 and seed has 2 rows.
             assert len(data_loaders.recent_rejections(n="not-an-int")) == 2  # type: ignore[arg-type]
+
+
+# ---------------------------------------------------------------------------
+# rejected_too_small — added to REFUSAL_STATUSES post-CP-16 follow-up.
+# Symmetry: excluded from /last5 (recent_trades_for) AND included in
+# /packages (recent_rejections), same as the other two refusal tokens.
+# ---------------------------------------------------------------------------
+
+
+class TestRejectedTooSmallStatus:
+    def test_recent_trades_for_excludes_rejected_too_small(self, tmp_journal):
+        """Operator hit: smoke_test rows with status='rejected_too_small'
+        were polluting /last5 because the pre-PR filter only matched
+        'rejected' / 'exchange_rejected'."""
+        from src.units.ui import data_loaders
+
+        with patch.object(data_loaders, "TRADE_JOURNAL_DB", str(tmp_journal)):
+            _seed_rejected_too_small(tmp_journal)
+            rows = data_loaders.recent_trades_for(
+                {"account_id": "bybit_2"}, n=10
+            )
+
+        assert rows == [], (
+            "rejected_too_small must be filtered from /last5 — operator's "
+            "smoke-test rows from 2026-05-01 were leaking through."
+        )
+
+    def test_recent_rejections_includes_rejected_too_small(self, tmp_journal):
+        """The inverse filter (/packages) must SHOW rejected_too_small —
+        these are real rejections, just from the smoke-test plumbing
+        rather than a strategy signal."""
+        from src.units.ui import data_loaders
+
+        with patch.object(data_loaders, "TRADE_JOURNAL_DB", str(tmp_journal)):
+            _seed_rejected_too_small(tmp_journal)
+            rows = data_loaders.recent_rejections(n=10)
+
+        assert len(rows) == 1
+        assert rows[0]["status"] == "rejected_too_small"
+
+    def test_account_last_trade_excludes_rejected_too_small(self, tmp_journal):
+        """Mirror of recent_trades_for at the single-row helper."""
+        from src.units.ui import data_loaders
+
+        with patch.object(data_loaders, "TRADE_JOURNAL_DB", str(tmp_journal)):
+            _seed_rejected_too_small(tmp_journal)
+            row = data_loaders.account_last_trade({"account_id": "bybit_2"})
+
+        assert row is None, (
+            "account_last_trade must skip rejected_too_small rows. The "
+            "smoke-test row should not surface as 'last live trade'."
+        )
+
+    def test_refusal_statuses_constant_lists_all_three(self):
+        """The published constant should match the SQL predicates so
+        any future symmetric aggregator can opt in via REFUSAL_STATUSES
+        without duplicating the literal list."""
+        from src.units.ui.data_loaders import REFUSAL_STATUSES
+
+        assert set(REFUSAL_STATUSES) == {
+            "rejected", "exchange_rejected", "rejected_too_small",
+        }
 
 
 # ---------------------------------------------------------------------------

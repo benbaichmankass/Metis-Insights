@@ -150,7 +150,7 @@ def _count_trades_placed(since_iso: str, db_path: Path) -> int:
                 "SELECT COUNT(*) FROM trades "
                 "WHERE is_backtest = 0 "
                 "AND COALESCE(status, 'open')"
-                " NOT IN ('rejected', 'exchange_rejected') "
+                " NOT IN ('rejected', 'exchange_rejected', 'rejected_too_small') "
                 "AND datetime(created_at) >= datetime(?) ",
                 (since_iso,),
             ).fetchone()
