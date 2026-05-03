@@ -5,6 +5,115 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-04-01 — Overnight Sonnet pickup: 6-item queue completed (PRs #389–#394)
+
+- **Session date:** 2026-05-04 (overnight autonomous Sonnet session)
+- **Sprint:** Pickup queue from CP-2026-05-03-22 / `docs/claude/next-session-prompt.md`
+- **Current sprint phase:** WRAP — all 6 queue items shipped.
+- **Last completed checkpoint:** CP-2026-05-03-22
+- **Next checkpoint:** **CP-2026-05-04-02** — Strategy-monocle PR 3/3
+  (exchange-side partial close via `src/units/accounts/execute.py`) is Tier 2;
+  needs an Opus session. Read CP-2026-05-04-01 + `docs/claude/next-session-prompt.md`
+  to orient.
+- **Telegram sent:** yes (rides on this checkpoint commit via VM wiring)
+- **Alerts sent during session:** none
+- **Blockers:** none
+
+### 1. Completed
+
+- **BUG-042 PR 3/3 (PR #389 merged).** `docs/runbooks/monitor-reconciler.md`
+  created (what reconciler does, skip rules, orphan ping interpretation,
+  manual SQL override). `MONITOR_RECONCILE_ENABLED=true` added to `.env.example`.
+  BUG-042 row appended to `docs/claude/bug-log.md`.
+
+- **`paths.py` helper + migration (PR #390 merged).** `src/utils/paths.py::repo_root()`
+  walks up from `__file__` to find `.git`/`pyproject.toml`/`requirements.txt`
+  (cached). 10 call sites migrated off hard-coded `../..` depth counts:
+  `src/strategy_registry.py`, `src/backtest/run_backtest.py`,
+  `src/web/config_ui.py`, `src/web/backtest_ui.py`, `src/units/__init__.py`,
+  `src/units/strategies/__init__.py`, `src/units/ui/data_loaders.py`,
+  `src/units/accounts/__init__.py`, `src/units/accounts/clients.py`,
+  `src/bot/telegram_query_bot.py`, `src/runtime/order_monitor.py`.
+  `src/core/coordinator.py` skipped (Tier 2). 7 tests.
+
+- **Renderer cosmetic fix (PR #391 merged).** `_pipeline_result_sections` in
+  `src/runtime/pipeline.py` was rendering `?: ?` for every "Accounts dispatched"
+  row because it looked for `"account"`/`"account_id"` and `"status"` but
+  `multi_account_execute` returns `"name"` and `"error"`. Fixed field extraction;
+  `"ok"` when `error is None`, error string otherwise; `sized_qty` shown only on
+  ok rows. 7 tests in `test_pipeline_result_renderer.py`.
+
+- **Strategy-monocle PR 2/3 (PR #392 merged).** Extended `_apply_update` in
+  `src/runtime/order_monitor.py` to handle `close_qty_pct < 1.0` partial closes:
+  new `_apply_partial_close` and `_full_close_trade_and_package` helpers.
+  Behaviour: `order_packages` stays `status='open'`; `trades.position_size`
+  reduced by fraction; `notes.partial_closes` list appended; `notes.original_position_size`
+  stored on first partial; sequential partials reaching 100% trigger full close.
+  Invalid pcts rejected. No exchange call (PR 3, Tier 2, Opus). 15 tests.
+
+- **Test deps cleanup (PR #393 merged).** Added `pytest-asyncio>=0.23.0`,
+  `pyyaml>=6.0`, `ccxt>=4.0.0` to `requirements-test.txt`. Documented two
+  non-dep collection failures: MagicMock stub pollution (test isolation bug)
+  and broken pyo3 Rust binding for jwt/cryptography (env-level issue).
+
+- **Doc-drift sweep (PR #394 — pending CI/merge).** Four `docs/claude/` files
+  updated for removed env vars (`ALLOW_LIVE_TRADING`, `DRY_RUN`, `MODE`) and
+  moved paths (`account_open_positions` canonical location):
+  `trading-mode-flags.md` (deprecated notice), `debug-memory.md` (historical
+  note), `api-key-inventory.md` (accounts unit caller updated), `deployment-ops.md`
+  (accounts-default-live corrected, pre-live checklist updated).
+
+### 2. Files changed
+
+- `docs/runbooks/monitor-reconciler.md` — new (PR #389)
+- `.env.example` — `MONITOR_RECONCILE_ENABLED=true` added (PR #389)
+- `docs/claude/bug-log.md` — BUG-042 row (PR #389)
+- `src/utils/paths.py` — new `repo_root()` helper (PR #390)
+- `tests/test_repo_root_helper.py` — 7 tests (PR #390)
+- `src/strategy_registry.py`, `src/backtest/run_backtest.py`,
+  `src/web/config_ui.py`, `src/web/backtest_ui.py`, `src/units/__init__.py`,
+  `src/units/strategies/__init__.py`, `src/units/ui/data_loaders.py`,
+  `src/units/accounts/__init__.py`, `src/units/accounts/clients.py`,
+  `src/bot/telegram_query_bot.py`, `src/runtime/order_monitor.py` — migrated
+  to `repo_root()` (PR #390)
+- `src/runtime/pipeline.py` — renderer fix (PR #391)
+- `tests/test_pipeline_result_renderer.py` — 7 tests (PR #391)
+- `src/runtime/order_monitor.py` — partial-close verdict shape (PR #392)
+- `tests/test_strategy_monocle_partial_close_verdict.py` — 15 tests (PR #392)
+- `requirements-test.txt` — 3 new deps + failure docs (PR #393)
+- `docs/claude/trading-mode-flags.md`, `docs/claude/debug-memory.md`,
+  `docs/claude/api-key-inventory.md`, `docs/claude/deployment-ops.md` (PR #394)
+
+### 3. Tests run
+
+- `PYTHONPATH=. pytest tests/test_monitor_reconciler.py -q` — 15 passed
+- `PYTHONPATH=. pytest tests/test_repo_root_helper.py -q` — 7 passed
+- `PYTHONPATH=. pytest tests/test_pipeline_result_renderer.py -q` — 7 passed
+- `PYTHONPATH=. pytest tests/test_strategy_monocle_partial_close_verdict.py -q` — 15 passed
+- `PYTHONPATH=. pytest tests/test_accounts_clients_open_positions.py -q` — 6 passed
+- `python scripts/secret_scan.py` — clean (all PRs)
+
+### 4. Remaining
+
+- **Strategy-monocle PR 3/3** — exchange-side partial close
+  (`src/units/accounts/execute.py` modify/close for `close_qty_pct < 1.0`).
+  Tier 2 — must be done in an Opus session. See `docs/claude/next-session-prompt.md`
+  item 4 for the spec.
+- `src/core/coordinator.py` `_REPO_ROOT` — not migrated to `repo_root()` (Tier 2).
+  One remaining ad-hoc calc; safe to migrate in a future Tier-1 sweep.
+- Test isolation bug: `fastapi.testclient` / `telegram.error` MagicMock stub
+  pollution. Filed in `requirements-test.txt` comments; needs a conftest
+  fixture refactor sprint.
+
+### 5. Next checkpoint
+
+**CP-2026-05-04-02** — Strategy-monocle PR 3/3 (Tier 2 / Opus):
+exchange-side close/modify in `src/units/accounts/execute.py` for partial-close
+verdicts. Read CP-2026-05-04-01 first, then `docs/claude/next-session-prompt.md`
+item 4 spec. No other queue items remain from the overnight prompt.
+
+---
+
 ## CP-2026-05-03-22 — Two P0 fixes, BUG-042 sprint PRs 1+2 shipped, strategy-monocle sprint kicked off (PRs 384, 385, 386, 387 merged)
 
 - **Session date:** 2026-05-03 (extended bug-fix + sprint session
