@@ -147,3 +147,109 @@ def velotrade_client_for(account: Dict[str, Any]):
         api_secret=creds["api_secret"],
         base_url=base_url,
     )
+
+
+# ---------------------------------------------------------------------------
+# Per-account exchange-state reads
+# ---------------------------------------------------------------------------
+#
+# These helpers belong to the accounts unit per CLAUDE.md
+# § "Architecture rules" § 3 — reading exchange state for a specific
+# account is the accounts unit's responsibility, not the UI unit's. They
+# previously lived under ``src/units/ui/data_loaders.py`` and were
+# called *across* the unit boundary by every consumer (Telegram bot,
+# coordinator, monitor loop). Lifting them here lets the upcoming
+# BUG-042 monitor-loop reconciler depend on the accounts unit directly,
+# closes the wrong-direction import (UI → accounts), and gives every
+# caller a single canonical entry point.
+#
+# Behaviour-preserving lift — the original implementation under
+# ``src/units/ui/data_loaders.py::account_open_positions`` is kept as a
+# thin delegate so legacy callers continue to work.
+
+
+def _f(x: Any, default: float = 0.0) -> float:
+    """Best-effort coerce *x* to ``float``. Mirrors the private helper
+    that previously lived in ``data_loaders.py`` so the lifted
+    ``account_open_positions`` keeps the same numeric semantics.
+    """
+    try:
+        return float(x)
+    except (TypeError, ValueError):
+        return default
+
+
+def account_open_positions(
+    account: Dict[str, Any],
+) -> Optional[list]:
+    """Return list of ``{symbol, side, size, entry_price, unrealised_pnl}``
+    dicts for the account's exchange-side open positions (``size > 0``).
+
+    ``None`` on any failure path so callers can distinguish "no
+    positions" (``[]``) from "could not read" (``None``):
+
+    * non-dict / missing account argument
+    * unsupported exchange (anything other than ``bybit`` / ``binance``)
+    * missing creds (``bybit_client_for`` / ``binance_conn_for`` returns ``None``)
+    * exchange SDK exception (logged + ``report_api_failure``)
+
+    Lifted from ``src/units/ui/data_loaders.py:account_open_positions``
+    in the BUG-042 PR 1 foundation step. Behaviour-preserving — the UI
+    delegate now imports from here; per-account exchange-state reads
+    are the accounts unit's responsibility.
+    """
+    if not isinstance(account, dict):
+        return None
+    ex = (account.get("exchange") or "unknown").lower()
+    try:
+        if ex == "bybit":
+            client = bybit_client_for(account)
+            if client is None:
+                return None
+            resp = client.get_positions(category="linear", settleCoin="USDT")
+            raw = resp.get("result", {}).get("list", []) if isinstance(resp, dict) else []
+            out = []
+            for p in raw:
+                size = _f(p.get("size"))
+                if size <= 0:
+                    continue
+                out.append({
+                    "symbol": p.get("symbol"),
+                    "side": p.get("side"),
+                    "size": size,
+                    "entry_price": _f(p.get("avgPrice")),
+                    "unrealised_pnl": _f(p.get("unrealisedPnl")),
+                })
+            return out
+        if ex == "binance":
+            conn = binance_conn_for(account)
+            if conn is None:
+                return None
+            out = []
+            for p in (conn.get_positions() or []):
+                size = _f(p.get("contracts", p.get("positionAmt")))
+                if size == 0:
+                    continue
+                out.append({
+                    "symbol": p.get("symbol"),
+                    "side": p.get("side") or ("long" if size > 0 else "short"),
+                    "size": abs(size),
+                    "entry_price": _f(p.get("entryPrice")),
+                    "unrealised_pnl": _f(
+                        p.get("unrealizedPnl", p.get("unrealised_pnl"))
+                    ),
+                })
+            return out
+        return None
+    except Exception as exc:  # noqa: BLE001
+        aid = account.get("account_id") or "unknown"
+        logger.warning("account_open_positions(%s): %s", aid, exc)
+        try:
+            from src.runtime.api_reporting import report_api_failure
+            report_api_failure(
+                exchange=ex, op="get_positions", account_id=str(aid),
+                error=f"{type(exc).__name__}: {exc}", exception=exc,
+            )
+        except Exception:  # noqa: BLE001
+            pass
+        return None

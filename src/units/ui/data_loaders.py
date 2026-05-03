@@ -747,58 +747,20 @@ def account_balance(account: Dict[str, Any]) -> Optional[Dict[str, Any]]:
 
 
 def account_open_positions(account: Dict[str, Any]) -> Optional[List[Dict[str, Any]]]:
-    """Return list of ``{symbol, side, size, entry_price, unrealised_pnl}``
-    dicts (size > 0). ``None`` on failure.
+    """Back-compat delegate — the canonical implementation now lives in
+    ``src/units/accounts/clients.py`` (lifted by BUG-042 PR 1).
 
-    S-012 hotfix: same api_key_env routing as account_balance.
+    Per-account exchange-state reads are the accounts unit's
+    responsibility per CLAUDE.md § "Architecture rules" § 3; the UI
+    unit must not reach across the unit boundary to read exchange
+    state. This wrapper preserves the public symbol so existing
+    callers (Telegram bot, dashboards) keep working unchanged while
+    the upcoming reconciler (PR 2) imports the new location directly.
     """
-    if not isinstance(account, dict):
-        return None
-    ex = (account.get("exchange") or "unknown").lower()
-    try:
-        if ex == "bybit":
-            client = bybit_client_for(account)
-            if client is None:
-                return None
-            resp = client.get_positions(category="linear", settleCoin="USDT")
-            raw = resp.get("result", {}).get("list", []) if isinstance(resp, dict) else []
-            out = []
-            for p in raw:
-                size = _f(p.get("size"))
-                if size <= 0:
-                    continue
-                out.append({"symbol": p.get("symbol"), "side": p.get("side"),
-                            "size": size, "entry_price": _f(p.get("avgPrice")),
-                            "unrealised_pnl": _f(p.get("unrealisedPnl"))})
-            return out
-        if ex == "binance":
-            conn = binance_conn_for(account)
-            if conn is None:
-                return None
-            out = []
-            for p in (conn.get_positions() or []):
-                size = _f(p.get("contracts", p.get("positionAmt")))
-                if size == 0:
-                    continue
-                out.append({"symbol": p.get("symbol"),
-                            "side": p.get("side") or ("long" if size > 0 else "short"),
-                            "size": abs(size), "entry_price": _f(p.get("entryPrice")),
-                            "unrealised_pnl": _f(p.get("unrealizedPnl",
-                                                       p.get("unrealised_pnl")))})
-            return out
-        return None
-    except Exception as exc:  # noqa: BLE001
-        aid = account.get("account_id") or "unknown"
-        logger.warning("account_open_positions(%s): %s", aid, exc)
-        try:
-            from src.runtime.api_reporting import report_api_failure
-            report_api_failure(
-                exchange=ex, op="get_positions", account_id=str(aid),
-                error=f"{type(exc).__name__}: {exc}", exception=exc,
-            )
-        except Exception:  # noqa: BLE001
-            pass
-        return None
+    from src.units.accounts.clients import (
+        account_open_positions as _accounts_account_open_positions,
+    )
+    return _accounts_account_open_positions(account)
 
 
 def _count_signals_today(strategy: str) -> int:
