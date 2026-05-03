@@ -5,6 +5,56 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-03-11 — [TRAINING-START] vwap — run 2026-05-03-vwap-improvement
+
+- **Session date:** 2026-05-03
+- **Task:** Stage 1 + Stage 2 of `docs/claude/training-improvement-workflow.md` for the **VWAP** strategy. Operator-approved scope (5 hypotheses).
+- **Run id:** `2026-05-03-vwap-improvement`
+- **Work branch:** `claude/improve-vwap-strategy-HHTf6` (operator-mandated for the work-PR).
+- **Action-trigger branch:** `claude/training-plan-2026-05-03-vwap-improvement` (same commit, pushed in parallel — `.github/workflows/training-run.yml` only fires on `claude/training-plan-*` branches).
+- **Telegram sent:** rides on this checkpoint commit (session-start ping per `[TRAINING-START]` title prefix).
+- **Blockers:** none.
+
+### 1. Completed (this session)
+- **Stage 1 — research + hypotheses.** Read current VWAP code (`src/units/strategies/vwap.py`), bug log entries BUG-014 / BUG-002 / BUG-033 / BUG-034 (VWAP-adjacent), prior dry-run plan (`experiments/2026-05-01-strategy-tuning-dryrun/PLAN.md`). Identified six structural weaknesses: no HTF trend filter, loose 1.0σ entry threshold, no kill-zone session filter, window-based (not session-anchored) VWAP, locked ~1:1 R/R, no volume confirmation.
+- **Stage 2 — PLAN.md + hypotheses.py.** Authored `experiments/2026-05-03-vwap-improvement/PLAN.md` (hypothesis table + datasets + budget + success criteria) and `experiments/2026-05-03-vwap-improvement/hypotheses.py` (five executable hypotheses, all VWAP-only):
+  - **H1** HTF trend filter (1h EMA-200 alignment).
+  - **H2** Entry threshold sweep `{1.0, 1.5, 2.0, 2.5}σ`.
+  - **H3** Kill-zone session filter (London 02-05 UTC + NY 13-16 UTC).
+  - **H4** Session-anchored VWAP (UTC day-open) vs. window-VWAP baseline.
+  - **H5** Partial scale-out at VWAP touch + trail to opposite 1σ band.
+- **Pushed** to both branches; opened draft `TRAINING-PLAN:` PR. The GitHub Action `training-run.yml` should now run autonomously and open `TRAINING-RESULTS: 2026-05-03-vwap-improvement` when done.
+
+### 2. Files changed
+- **New:**
+  - `experiments/2026-05-03-vwap-improvement/PLAN.md`
+  - `experiments/2026-05-03-vwap-improvement/hypotheses.py`
+- **Modified:**
+  - `docs/claude/checkpoints/CHECKPOINT_LOG.md` — this entry.
+
+### 3. Tests run
+- `python -m py_compile experiments/2026-05-03-vwap-improvement/hypotheses.py` — pass.
+- `python scripts/secret_scan.py` — clean.
+- `python scripts/check_dry_run_in_diff.py` — clean.
+- The hypotheses themselves run on the GitHub Action runner (Stage 3) — ≤ 5.5 h budget per `run_experiment.py`.
+
+### 4. Live-mode check
+- Diff is **experiments-only + docs-only**. No `src/runtime/orders.py`, `src/units/accounts/*`, `config/accounts.yaml`, or trading-mode flag touched. ✅
+- `scripts/check_dry_run_in_diff.py` clean.
+
+### 5. Architecture rules check
+- **Unit boundary declaration.** No `src/` files modified. The hypotheses.py imports the strategy unit (`src.units.strategies.vwap`) read-only via the same pattern as the prior dry-run; no new cross-unit imports introduced into `src/`.
+- **Strategy unit purity (Rule 2).** This run *evaluates* VWAP variants in an isolated experiments/ scope. No mutation of `src/units/strategies/vwap.py` — that comes in the post-approval `IMPLEMENT:` PR (Stage 4 outcome).
+
+### 6. Remaining
+- **Stage 3** (autonomous): GitHub Action runs the five hypotheses, writes `experiments/2026-05-03-vwap-improvement/results/`, opens `TRAINING-RESULTS: 2026-05-03-vwap-improvement` draft PR — fires the "training done" ping.
+- **Stage 4** (next session): a fresh Claude session triggered by the results PR reads `SUMMARY.md`, decides adopt/reject per hypothesis, opens `RECOMMENDATIONS (PM REVIEW): 2026-05-03-vwap-improvement` (writeup-only). Operator approves → session opens `IMPLEMENT: 2026-05-03-vwap-improvement` against `src/units/strategies/vwap.py`.
+
+### 7. Next checkpoint
+**CP-2026-05-?-?? — VWAP RECOMMENDATIONS review.** Triggered when the GitHub Action finishes and opens `TRAINING-RESULTS: 2026-05-03-vwap-improvement`. Read in order: this entry, `experiments/2026-05-03-vwap-improvement/PLAN.md`, `experiments/2026-05-03-vwap-improvement/results/SUMMARY.md`, `docs/claude/training-improvement-workflow.md` § Stage 4.
+
+---
+
 ## CP-2026-05-03-10 — Sprint S-telegram-format COMPLETE / WRAPPED
 
 - **Session date:** 2026-05-03
