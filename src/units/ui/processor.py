@@ -234,6 +234,70 @@ def format_account_status_block(status: Dict[str, Any]) -> str:
     )
 
 
+def render_accounts_status_collapsable(statuses: List[Dict[str, Any]]) -> str:
+    """Render the full ``/accounts_status`` page with collapsable
+    per-account sections.
+
+    S-telegram-format follow-up: the operator asked for uniform
+    formatting where the *summary line* of each account is always
+    visible (account_id + halted/healthy + balance) and the deeper
+    detail (strategies, key fingerprint, prop fields, daily PnL)
+    collapses into an expandable blockquote. This renderer wraps
+    ``format_account_status_block`` per-account in that shape.
+
+    Returns an HTML string suitable for ``parse_mode="HTML"``.
+    """
+    from src.units.ui.telegram_format import Section, render_html
+
+    if not statuses:
+        return render_html(
+            header="📋 Accounts Status",
+            sections=[Section(summary="No accounts configured", body="")],
+        )
+
+    sections: List[Section] = []
+    healthy = down = 0
+    for idx, status in enumerate(statuses):
+        if status.get("halted"):
+            down += 1
+            icon = "🔴"
+        else:
+            healthy += 1
+            icon = "🟢"
+
+        name = status.get("name") or "?"
+        bal = status.get("live_balance_usdt")
+        bal_err = status.get("live_balance_error")
+        if bal_err:
+            bal_part = "API error"
+        elif bal is not None:
+            bal_part = f"${float(bal):,.2f}"
+        else:
+            bal_part = "no balance"
+
+        # Use the existing per-account renderer for the detailed body —
+        # it already returns sanitised HTML, so set body_is_html=True
+        # to skip the formatter's escape step (which would render
+        # the &lt;b&gt; tags as visible markup).
+        body = format_account_status_block(status)
+
+        sections.append(Section(
+            summary=f"{icon} {name} — {bal_part}",
+            body=body,
+            body_is_html=True,
+            priority=10 + idx,
+        ))
+
+    return render_html(
+        header=(
+            f"📋 Accounts Status — {len(statuses)} configured"
+            f" / {healthy} healthy"
+            + (f" / {down} halted" if down else "")
+        ),
+        sections=sections,
+    )
+
+
 def get_recent_signals(
     limit: int = 10,
     strategy: Optional[str] = None,
@@ -684,13 +748,24 @@ def _file_age_str(path: str) -> str:
 
 
 def get_health_summary(
-    *, get_service_status=None, repo_root: Optional[str] = None,
+    *,
+    get_service_status=None,
+    repo_root: Optional[str] = None,
+    use_html: bool = False,
 ) -> str:
     """Return the rendered /health Telegram block.
 
     Pre-PR (S-031 PR5) ``cmd_health`` did the systemd lookups + file
     age strings inline. Per CLAUDE.md § Architecture rules § 5 the UI
     unit owns rendering; the bot becomes a one-liner.
+
+    S-telegram-format follow-up: when ``use_html=True`` the body is
+    rendered through the unified collapsable formatter
+    (``src/units/ui/telegram_format.py``). The summary line ("Services
+    — N up / M down") is always visible; per-service detail collapses
+    into an expandable blockquote. Default ``use_html=False`` preserves
+    the legacy Markdown shape so existing callers + their snapshot
+    tests stay green until they migrate one at a time.
 
     Parameters
     ----------
@@ -700,6 +775,9 @@ def get_health_summary(
         avoids forcing every test to spin up the bot module.
     repo_root : str, optional
         Test override. Defaults to the repo root.
+    use_html : bool, default False
+        When True, render with the unified collapsable HTML formatter
+        for use with ``parse_mode='HTML'``.
     """
     import os
     from datetime import datetime, timezone
@@ -719,26 +797,65 @@ def get_health_summary(
             logger.warning("get_health_summary: bot import failed: %s", exc)
             get_service_status = lambda _u: "unknown"
 
-    lines = ["🩺 *ICT Trading Bot — health*\n", "*Services*"]
+    # Gather service statuses + freshness rows once, regardless of
+    # output format.
+    service_rows = []
+    services_up = services_down = services_unknown = 0
     for unit in _HEALTH_UNITS:
         try:
             status = get_service_status(unit)
         except Exception as exc:  # noqa: BLE001
             status = f"err: {type(exc).__name__}"
-        icon = (
-            "🟢" if status == "active"
-            else "🔴" if status == "failed"
-            else "⚪️"
-        )
-        lines.append(f"  {icon} `{unit}` — {status}")
-    lines.append("\n*Data freshness*")
+        if status == "active":
+            services_up += 1
+            icon = "🟢"
+        elif status == "failed":
+            services_down += 1
+            icon = "🔴"
+        else:
+            services_unknown += 1
+            icon = "⚪️"
+        service_rows.append((icon, unit, status))
+
+    freshness_rows = []
     for label, rel_path in _HEALTH_FILES:
         full = os.path.join(repo_root, rel_path)
-        lines.append(f"  • {label}: `{_file_age_str(full)}`")
-    lines.append(
-        "\n🕐 "
-        + datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-    )
+        freshness_rows.append((label, _file_age_str(full)))
+
+    now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+
+    if use_html:
+        from src.units.ui.telegram_format import Section, render_html
+        services_summary = (
+            f"Services — {services_up} up"
+            + (f" / {services_down} down" if services_down else "")
+            + (f" / {services_unknown} unknown" if services_unknown else "")
+        )
+        services_body = "\n".join(
+            f"{icon} {unit} — {status}" for icon, unit, status in service_rows
+        )
+        freshness_summary = f"Data freshness — {len(freshness_rows)} files"
+        freshness_body = "\n".join(
+            f"{label}: {age}" for label, age in freshness_rows
+        )
+        return render_html(
+            header="🩺 ICT Trading Bot — health",
+            sections=[
+                Section(summary=services_summary, body=services_body, priority=10),
+                Section(summary=freshness_summary, body=freshness_body, priority=20),
+            ],
+            footer=f"🕐 {now_str}",
+        )
+
+    # Legacy Markdown rendering — unchanged so existing snapshot tests
+    # and callers that still pass parse_mode='Markdown' keep working.
+    lines = ["🩺 *ICT Trading Bot — health*\n", "*Services*"]
+    for icon, unit, status in service_rows:
+        lines.append(f"  {icon} `{unit}` — {status}")
+    lines.append("\n*Data freshness*")
+    for label, age in freshness_rows:
+        lines.append(f"  • {label}: `{age}`")
+    lines.append(f"\n🕐 {now_str}")
     return "\n".join(lines)
 
 

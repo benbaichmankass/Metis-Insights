@@ -5,6 +5,55 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-03-07 — Session close: Telegram-format Phase 2 — /health + /accounts_status now collapsable
+
+- **Session date:** 2026-05-03
+- **Sprint:** S-telegram-format (continuation). Operator approved CP-06 with `merge and continue`. This phase rolls the unified collapsable formatter out to two of the highest-traffic operator commands.
+- **Current sprint phase:** Tier-1 self-merge (no `src/runtime/orders.py`, no `deploy/`, no secret handling — just `src/units/ui/` + `src/bot/` + tests).
+- **Last completed checkpoint:** CP-2026-05-03-06 (PR #342 merged via `c648c71`, ping-PR #343 merged via `7bde8b0`).
+- **Next checkpoint:** Phase 3 (continuation if operator wants more): `/status`, `/signals`, `/last5`, `/trades` — same collapsable shape.
+- **Telegram sent:** rides on the merge of this PR.
+- **Alerts sent during session:** none.
+- **Blockers:** none.
+
+### 1. Completed
+- **`/health` collapsable.** `processor.get_health_summary` now accepts `use_html=True` and returns the unified collapsable HTML envelope (Services + Data freshness sections, each tap-to-expand). Default `use_html=False` preserves the legacy Markdown render so any unmigrated caller keeps working. `cmd_health` now passes `use_html=True` and sends `parse_mode="HTML"`.
+- **`/accounts_status` collapsable.** New `processor.render_accounts_status_collapsable(statuses)` wraps each account's existing HTML block (from `format_account_status_block`) inside a per-account `<blockquote expandable>` section. The header counts `N configured / M healthy / K halted` so the operator sees the aggregate at a glance. `cmd_accounts_status` is now a 3-line handler.
+- **`Section.body_is_html` opt-in.** Added a `body_is_html` flag to `Section` so callers that have already produced trusted HTML can skip the formatter's escape step. Default stays `False` so user-supplied content is escaped — safe by default.
+- **Six new tests** in `tests/test_processor_collapsable_renderers.py` pin: HTML render contains two collapsable sections, summary line counts up/down, legacy Markdown default unchanged, three accounts → three blockquotes, summary carries balance, inner HTML preserved (no `&lt;b&gt;` leak), empty list handled.
+
+### 2. Files changed
+- **New:**
+  - `tests/test_processor_collapsable_renderers.py` — 6 tests pinning the new renderers.
+- **Modified:**
+  - `src/units/ui/telegram_format.py` — `Section.body_is_html` flag + escape-skipping path in `_section_html`.
+  - `src/units/ui/processor.py` — `get_health_summary(use_html=True)` HTML mode + new `render_accounts_status_collapsable`.
+  - `src/bot/telegram_query_bot.py` — `cmd_health` and `cmd_accounts_status` now route through the new renderers.
+  - `docs/claude/checkpoints/CHECKPOINT_LOG.md` — this entry.
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_processor_collapsable_renderers.py tests/test_telegram_format.py tests/test_health.py tests/test_accounts_status_block_renderer.py tests/test_ui_processor.py` → **67 passed**.
+- `PYTHONPATH=. pytest tests/test_orders.py tests/test_hourly_report.py tests/test_hourly_dispatch.py tests/test_pipeline_news_veto.py tests/test_notify_send_via_alert_manager.py tests/test_s012_hotfix_settings_casing.py` → **60 passed** (prior PR's tests still green).
+- `python scripts/secret_scan.py` → clean.
+- `python scripts/check_dry_run_in_diff.py` → clean.
+
+### 4. Live-mode check
+- `scripts/check_dry_run_in_diff.py` → clean.
+- No change to `src/runtime/orders.py`, `src/runtime/pipeline.py`, `config/accounts.yaml`, or any account/strategy boundary. Bot + UI unit only. ✅
+
+### 5. Architecture rules check
+- **Unit boundary declaration.** Touched: `src/units/ui/` (processor + telegram_format), `src/bot/telegram_query_bot.py` (two thin handlers).
+- **Rule 5 (bot is a thin shell)** is honoured: rendering moves further into `src/units/ui/processor.py`; `cmd_accounts_status` is now a 3-line handler.
+- No new cross-unit imports outside `src/core/coordinator.py`.
+
+### 6. Remaining
+- **Phase 3 (optional, operator's call):** apply the same shape to `/status`, `/signals`, `/last5`, `/trades`. These have larger surface area so deferred to a separate PR.
+
+### 7. Next checkpoint
+**CP-2026-05-?-?? — Phase 3 if operator wants the remaining commands migrated.** Otherwise the next checkpoint resumes the DXtrade SDK contract drop tracked under CP-04/05.
+
+---
+
 ## CP-2026-05-03-06 — Session close: Telegram message standardisation + ALLOW_LIVE_TRADING diagnostic
 
 - **Session date:** 2026-05-03
