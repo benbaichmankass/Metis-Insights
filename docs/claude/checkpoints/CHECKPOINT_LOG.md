@@ -5,6 +5,71 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-03-02 — Velotrade phase-2 — DXtrade integration infrastructure + "not fully configured" account state
+
+- **Session date:** 2026-05-03
+- **Sprint:** Velotrade integration phase-2 — refocused mid-session after operator clarified: "build integration infrastructure, not hook up a specific account; add a not-fully-configured account state".
+- **Current sprint phase:** Phase 2a complete — SDK shape + executor + coordinator routing + loader flag + tests. Phase 2b (`runtime_state/prop_state.json` persistence + full `/accounts_status` prop-field renderer) deferred to a follow-up session per CLAUDE.md "one task per session".
+- **Last completed checkpoint:** CP-2026-05-03-01 (phase-1 scaffold merged in #336).
+- **Next checkpoint:** **CP-2026-05-?-?? — Velotrade phase-2b** — `runtime_state/prop_state.json` write-through on `PropRiskManager.record_trade_result` + load-time seed in `load_accounts()` (JSON wins, YAML is the fallback seed). Plus extend `Coordinator.accounts_status` + `/accounts_status` renderer to surface the prop fields (`account_state`, `cumulative_pnl_pct`, `active_days`, `mission_complete`, `configured`, `configured_reason`) so the operator can verify state without grepping YAML.
+- **Telegram sent:** rides on the merge of work-PR #337 (re-titled from BLOCKED to the phase-2 infrastructure work).
+- **Alerts sent during session:** none (the BLOCKED ping-PR was prepared but discarded after the operator's mid-session clarification — no creds means "build infrastructure", not "stop entirely").
+- **Blockers:** none — the four DXtrade SDK method bodies remain `NotImplementedError("contract pending …")` until the operator drops the API contract, but the rest of the pipeline is wired and `/accounts_status` shows the not-configured state.
+
+### 1. Completed
+- **DXtradeClient infrastructure.** New `src/units/accounts/dxtrade_client.py` defines `DXtradeClient` (real constructor with cred validation; four SDK methods raise `NotImplementedError("contract pending …")` until the operator drops the contract) and `MissingCredentialsError` (RuntimeError subclass — the canonical not-configured signal).
+- **Velotrade client factory.** New `velotrade_client_for(account)` in `src/units/accounts/clients.py` mirrors `bybit_client_for` / `binance_conn_for` — returns `None` when env-var creds are missing, constructs a `DXtradeClient` when set. Reads optional `VELOTRADE_BASE_URL` env var (or `account['base_url']`) for sandbox vs prod.
+- **Integrator real-shape live path.** `VelotradeAPI.place(order, dry_run=False, client=…)` accepts an injected `DXtradeClient` and dispatches a place call with retCode-style error handling (mirrors the bybit branch). Bare class without a client raises `MissingCredentialsError`.
+- **Executor velotrade branch.** `src/units/accounts/execute.py::_submit_order` velotrade branch replaced the unconditional `RuntimeError` with the real call structure: missing client → `MissingCredentialsError` naming the env var; `DXtradeClient.place` returning a non-zero retCode → `RuntimeError("DXtrade rejected order: …")`; SDK `NotImplementedError` (contract pending) → `RuntimeError("DXtrade SDK contract pending — …")`. The legacy `breakout` branch raises a clear "migrate to velotrade" error.
+- **Coordinator routing.** `multi_account_execute` now routes `exchange == "velotrade"` through `velotrade_client_for(account_cfg)` alongside the existing bybit / binance branches. The "missing creds" message was rewritten to say "account 'X' is not fully configured: <env_var> (and matching _SECRET) not in process env" so the diagnostic ping points the operator straight at the gap.
+- **`configured` flag on TradingAccount.** New `configured: bool` + `configured_reason: Optional[str]` fields, set by `load_accounts()` based on `resolve_credentials()`. Surfaced in `account.status()`. Accounts with missing creds now load (instead of silently disappearing) so they appear in `/accounts_status` — every action that needs creds refuses + emits a diagnostic ping.
+- **Real config flip.** `prop_velotrade_1` in `config/accounts.yaml` lost its `enabled: false` line. The not-configured layer keeps it inert: empty `strategies: []` blocks routing at the per-account filter; missing env vars trip the configured=False gate; SDK methods raise contract-pending. Four safety rails remain (process interlock + risk manager + single live entry point + kill-switch).
+- **Docs.** `docs/claude/prop-account-state.md` updated: § "Velotrade executor" rewritten for phase-2 routing layers; new § "Not fully configured account state"; operator checklist updated.
+- **Tests.** New `tests/test_velotrade_infrastructure.py` (20 tests) covers DXtradeClient validation + stub methods, `velotrade_client_for` cred resolution, loader configured flag, end-to-end coordinator path (live + missing creds → diagnostic ping fires; dry-run + missing creds → ping does NOT fire), and real `prop_velotrade_1` wiring. `tests/test_prop_risk_manager.py::TestVelotradeExecutor` rewritten for the new error vocabulary.
+
+### 2. Files changed
+- **New:**
+  - `src/units/accounts/dxtrade_client.py` — DXtradeClient + MissingCredentialsError.
+  - `tests/test_velotrade_infrastructure.py` — 20 tests for the new surface.
+- **Modified:**
+  - `src/units/accounts/clients.py` — `velotrade_client_for(account)`.
+  - `src/units/accounts/integrator.py` — `VelotradeAPI.place` real-shape live path.
+  - `src/units/accounts/execute.py` — `_submit_order` velotrade branch.
+  - `src/units/accounts/__init__.py` — loader sets `configured` based on cred resolution.
+  - `src/units/accounts/account.py` — `configured` + `configured_reason` fields; surfaced in `status()`.
+  - `src/core/coordinator.py` — adds velotrade to client-construction switch; not-fully-configured message.
+  - `config/accounts.yaml` — `prop_velotrade_1` no longer hard-disabled; comment block rewritten.
+  - `docs/claude/prop-account-state.md` — phase-2 sections.
+  - `tests/test_prop_risk_manager.py` — `TestVelotradeExecutor` updated for new error vocabulary; `TestRealAccountsYaml` updated for not-configured state.
+
+### 3. Tests run
+- `PYTHONPATH=. python -m pytest tests/test_velotrade_infrastructure.py tests/test_prop_risk_manager.py tests/test_s010_accounts.py tests/test_s008_accounts.py tests/test_unit_config.py tests/test_render_env_from_master.py tests/test_account_diagnostics.py tests/test_accounts_clients.py tests/test_accounts_integration.py tests/test_account_id_column.py tests/test_s029_pr2_trade_journal_write.py -q` → **264 passed**.
+- `python scripts/secret_scan.py` → clean.
+- `python scripts/check_dry_run_in_diff.py` → clean (live-mode CI guard).
+- `tests/test_coordinator_flow.py` + `tests/test_accounts_status_md_rendering.py` skipped at collect-time — pre-existing missing optional deps (`pandas`, `python-telegram-bot` package layout) on this sandbox; same on `main`.
+
+### 4. Live-mode check
+- `scripts/check_dry_run_in_diff.py` → clean.
+- `config/accounts.yaml`: `bybit_1` + `bybit_2` unchanged (still default-live, no `mode` field). `prop_velotrade_1` lost `enabled: false` but ships with empty `strategies: []` so the per-account routing filter blocks any signal regardless of cred state. Belt-and-braces.
+- This PR touches `src/units/accounts/*` + `src/core/coordinator.py` (live-mode invariant rule 3 list) → **flag for PM review** — not self-merging despite green CI. Work-PR sits as draft pending operator approval.
+
+### 5. Architecture rules check
+- **Unit boundary.** Only `src/units/accounts/*` + `src/core/coordinator.py` touched; no new cross-unit imports outside the coordinator (the new `from src.units.accounts.dxtrade_client import …` lives inside the accounts unit; the coordinator only added `velotrade_client_for` to its existing `from src.units.accounts.clients import …` line).
+- **Strategies are pure** — untouched.
+- `execute_pkg` remains the single canonical live-order entry point.
+- **DB unit untouched.**
+- **Bot untouched** — phase-2b will extend the UI processor for the new prop fields.
+
+### 6. Remaining
+- **Phase 2b — runtime_state/prop_state.json persistence.** `cumulative_pnl_pct` + `active_days` still reset on trader restart. Add write-through on `PropRiskManager.record_trade_result` + a load-time seed in `load_accounts()` that overrides the YAML `prop_state:` block when the JSON file exists. Trivial diff.
+- **Phase 2b — `/accounts_status` prop fields.** Extend `Coordinator.accounts_status` and the UI processor renderer to include `account_state`, `cumulative_pnl_pct`, `active_days`, `mission_complete`, plus the new `configured` / `configured_reason` columns per prop account.
+- **DXtrade contract.** When the operator drops the API contract, fill in the four `NotImplementedError` method bodies in `src/units/accounts/dxtrade_client.py`. No other code changes should be needed — executor + coordinator + integrator already speak the retCode-style shape.
+
+### 7. Next checkpoint
+**CP-2026-05-?-?? — Velotrade phase-2b.** Read in order: this entry, `docs/claude/prop-account-state.md` § "Not fully configured account state", `src/units/accounts/dxtrade_client.py`, `src/units/accounts/prop_risk.py::record_trade_result`, `src/core/coordinator.py::accounts_status`, the UI processor helper that renders /accounts_status. Land the persistence + prop-field renderer as a Tier-1 self-merged PR (no live-route changes — the writers and renderers don't touch order routing).
+
+---
+
 ## CP-2026-05-03-01 — Velotrade integration scaffold (PropRiskManager + executor stub)
 
 - **Session date:** 2026-05-03

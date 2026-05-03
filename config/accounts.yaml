@@ -55,21 +55,30 @@ accounts:
       risk_pct: 0.01
       min_balance_usd: 50
 
-  # prop_velotrade_1: DISABLED — Velotrade DXtrade prop firm scaffold.
-  # Replaces the legacy prop_breakout_1 entry (Breakout has been
-  # deprecated in favour of Velotrade for prop onboarding).
+  # prop_velotrade_1: NOT FULLY CONFIGURED — Velotrade DXtrade prop firm
+  # scaffold. Phase-2 (this commit) wires the integration infrastructure
+  # (DXtradeClient + velotrade_client_for + executor branch + coordinator
+  # routing) but no specific live account is hooked up yet. The account
+  # loads with ``configured: False`` because the env-var creds aren't
+  # set, exists in /accounts_status so the operator can see it, and
+  # any live action against it refuses + emits a diagnostic ping naming
+  # the missing env var.
   #
-  # Enabling checklist (operator):
-  #   1. Provision the Velotrade DXtrade API credentials and stash the
-  #      secret in the env var named in ``api_key_env``.
-  #   2. Wire the live DXtrade SDK in src/units/accounts/integrator.py
-  #      ``VelotradeAPI.place`` and src/units/accounts/execute.py
-  #      ``_submit_order``'s ``velotrade`` branch (currently raises
-  #      NotImplementedError on live).
-  #   3. Re-enable by setting ``enabled: true`` and listing the assigned
-  #      strategies. The loader will instantiate a PropRiskManager so
-  #      ``account_state``, ``phase_requirements``, and
-  #      ``overnight_restricted`` take effect.
+  # Strategies list is intentionally empty so the coordinator's
+  # ``account.strategies`` filter never routes a real signal here even
+  # if creds get added before the operator is ready to trade.
+  #
+  # Hookup checklist (operator):
+  #   1. Drop the DXtrade API contract under docs/integrations/ and
+  #      fill in the four ``NotImplementedError`` method bodies in
+  #      src/units/accounts/dxtrade_client.py (``place``, ``cancel``,
+  #      ``status``, ``balance``).
+  #   2. Provision VELOTRADE_API_KEY_1 + VELOTRADE_API_SECRET_1 on the
+  #      VM via notebooks/operator/rotate_api_keys.ipynb.
+  #   3. Set VELOTRADE_BASE_URL (or ``base_url:`` here) to the
+  #      sandbox / prod URL from the contract.
+  #   4. Add the assigned strategies (e.g. ``strategies: [vwap]``) so
+  #      the coordinator's per-account filter routes signals here.
   #
   # See docs/claude/prop-account-state.md for the full state-machine
   # reference (evaluation vs funded, mission predicates, time windows).
@@ -77,11 +86,10 @@ accounts:
     type: prop
     exchange: velotrade
     api_key_env: VELOTRADE_API_KEY_1
-    strategies: []
-    enabled: false                     # safety: load_accounts() skips
-                                       # disabled rows. Flip to true
-                                       # only after live DXtrade SDK
-                                       # wiring lands.
+    strategies: []                     # empty: belt-and-braces — even
+                                       # if creds land before strategies
+                                       # are assigned, the per-account
+                                       # filter blocks any live signal.
 
     # PropRiskManager-specific — drives the mission gate.
     account_state: evaluation          # 'evaluation' | 'funded'

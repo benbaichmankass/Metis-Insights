@@ -48,6 +48,8 @@ class TradingAccount:
         account_type: str = "regular",
         dry_run: bool = True,
         strategies: Optional[List[str]] = None,
+        configured: bool = True,
+        configured_reason: Optional[str] = None,
     ) -> None:
         self.name = name
         self.exchange = exchange
@@ -61,6 +63,14 @@ class TradingAccount:
         # routed to the right model. accounts.yaml is the source of
         # truth; this is just the rendering hook.
         self.strategies: List[str] = list(strategies or [])
+        # Velotrade phase-2: ``configured`` reflects whether the
+        # account's env-var credentials are populated. False accounts
+        # still load (so /accounts_status can list them) but every
+        # action that needs creds refuses + emits a diagnostic ping.
+        # ``configured_reason`` carries a human-readable explanation
+        # for the operator (e.g. "VELOTRADE_API_KEY_1 not set").
+        self.configured: bool = bool(configured)
+        self.configured_reason: Optional[str] = configured_reason
 
     def place_order(self, order: OrderPackage, *, dry_run: Optional[bool] = None) -> str:
         """Risk-check and route *order* to the exchange.
@@ -106,6 +116,8 @@ class TradingAccount:
             "exchange": self.exchange,
             "account_type": self.account_type,
             "dry_run": self.dry_run,
+            "configured": self.configured,
+            "configured_reason": self.configured_reason,
             "open_positions": len(self.positions),
             "strategies": list(self.strategies),
             **risk_report,

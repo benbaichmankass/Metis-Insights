@@ -240,16 +240,59 @@ def _submit_order(client: Any, order: dict, account_cfg: dict) -> str:
     """Place the order via the exchange client and return a trade_id."""
     exchange = (account_cfg.get("exchange") or "bybit").lower()
 
-    # Velotrade integration: prop-firm stub. Real DXtrade SDK wiring is
-    # deferred to a follow-up sprint. Refusing live placement here
-    # preserves the live-by-default invariant for Bybit accounts while
-    # making any mis-routed Velotrade signal structurally inert. The
-    # dispatcher catches the RuntimeError and surfaces it on the result
-    # row's ``error`` field plus the diagnostic ping.
-    if exchange in ("velotrade", "breakout"):
+    # Velotrade integration phase-2: dispatch to the injected
+    # DXtradeClient. The bybit branch's retCode-style error handling
+    # is mirrored here so a non-zero retCode surfaces as a RuntimeError
+    # the coordinator's diagnostic-ping wrapper can format. A missing
+    # client (creds env var not set) raises MissingCredentialsError —
+    # the coordinator already treats that as the "account not fully
+    # configured" path and emits a ping naming the missing env var.
+    # The legacy `breakout` exchange stays inert (deprecated alias).
+    if exchange == "velotrade":
+        from src.units.accounts.dxtrade_client import (
+            DXtradeClient,
+            MissingCredentialsError,
+        )
+        if client is None:
+            raise MissingCredentialsError(
+                f"velotrade live placement: account "
+                f"'{account_cfg.get('account_id') or 'unknown'}' is not "
+                f"fully configured (no DXtradeClient injected — "
+                f"api_key_env="
+                f"{account_cfg.get('api_key_env', '')!r} likely unset)."
+            )
+        if not isinstance(client, DXtradeClient):
+            raise TypeError(
+                f"velotrade _submit_order: expected DXtradeClient, got "
+                f"{type(client).__name__}"
+            )
+        try:
+            resp = client.place({
+                "symbol": order["symbol"],
+                "side": order["side"],
+                "direction": order.get("direction"),
+                "entry": order.get("entry"),
+                "sl": order.get("sl"),
+                "tp": order.get("tp"),
+                "qty": order["qty"],
+                "strategy": order.get("strategy"),
+            }) or {}
+        except NotImplementedError as exc:
+            raise RuntimeError(
+                f"velotrade _submit_order: DXtrade SDK contract pending — {exc}"
+            ) from exc
+        ret_code = resp.get("retCode")
+        if ret_code in (0, "0", None):
+            order_id = (resp.get("result") or {}).get("orderId")
+            return str(order_id or uuid.uuid4().hex)
+        reason = str(resp.get("retMsg") or f"retCode={ret_code}")
         raise RuntimeError(
-            f"{exchange} live placement not yet implemented; "
-            f"prop accounts must run dry-run until SDK wiring lands."
+            f"DXtrade rejected order for {order['symbol']}: {reason}"
+        )
+    if exchange == "breakout":
+        raise RuntimeError(
+            "breakout exchange is deprecated; migrate the account to "
+            "exchange: velotrade in config/accounts.yaml."
         )
 
     try:

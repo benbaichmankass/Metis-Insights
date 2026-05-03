@@ -10,6 +10,8 @@ Covers:
   - Coordinator routing: skip reasons surface in result['error'].
   - Loader: type=prop → PropRiskManager; type=regular → RiskManager.
   - Loader: enabled=False accounts are filtered out at load.
+  - Velotrade phase-2 integration surface (DXtradeClient + executor
+    branch) is covered separately in test_velotrade_infrastructure.
 """
 from __future__ import annotations
 
@@ -444,21 +446,68 @@ class TestVelotradeExecutor:
         trade_id = api.place(_pkg(), dry_run=True)
         assert trade_id.startswith("dry-velotrade-")
 
-    def test_velotrade_live_raises(self):
+    def test_velotrade_live_without_client_raises_missing_credentials(self):
+        # Phase-2: bare VelotradeAPI without an injected DXtradeClient
+        # raises MissingCredentialsError (the not-configured signal),
+        # not the pre-phase-2 NotImplementedError.
         from src.units.accounts.integrator import VelotradeAPI
+        from src.units.accounts.dxtrade_client import MissingCredentialsError
         api = VelotradeAPI("VELOTRADE_API_KEY_1")
-        with pytest.raises(NotImplementedError):
+        with pytest.raises(MissingCredentialsError):
             api.place(_pkg(), dry_run=False)
 
-    def test_execute_pkg_velotrade_branch_refuses_live(self):
+    def test_velotrade_live_with_stub_client_raises_contract_pending(self):
+        # With a real DXtradeClient injected, the live path dispatches
+        # to client.place(), which still raises NotImplementedError
+        # until the operator drops the DXtrade contract.
+        from src.units.accounts.integrator import VelotradeAPI
+        from src.units.accounts.dxtrade_client import DXtradeClient
+        api = VelotradeAPI("VELOTRADE_API_KEY_1")
+        client = DXtradeClient(api_key="k", api_secret="s")
+        with pytest.raises(NotImplementedError, match="contract pending"):
+            api.place(_pkg(), dry_run=False, client=client)
+
+    def test_execute_pkg_velotrade_branch_missing_client(self):
+        # Executor branch: no client → MissingCredentialsError naming
+        # the env var so the diagnostic ping points at the right gap.
         from src.units.accounts.execute import _submit_order
-        with pytest.raises(RuntimeError, match="velotrade"):
+        from src.units.accounts.dxtrade_client import MissingCredentialsError
+        with pytest.raises(MissingCredentialsError, match="VELOTRADE_API_KEY_1"):
             _submit_order(
-                client=object(),
+                client=None,
                 order={"symbol": "BTCUSDT", "side": "Buy", "qty": 0.01,
                        "sl": 99.0, "tp": 102.0, "account_id": "prop_velo"},
                 account_cfg={"exchange": "velotrade",
-                             "account_id": "prop_velo"},
+                             "account_id": "prop_velo",
+                             "api_key_env": "VELOTRADE_API_KEY_1"},
+            )
+
+    def test_execute_pkg_velotrade_branch_with_stub_client(self):
+        # Executor branch: real DXtradeClient → SDK call raises
+        # NotImplementedError, executor wraps into RuntimeError.
+        from src.units.accounts.execute import _submit_order
+        from src.units.accounts.dxtrade_client import DXtradeClient
+        client = DXtradeClient(api_key="k", api_secret="s")
+        with pytest.raises(RuntimeError, match="DXtrade SDK contract pending"):
+            _submit_order(
+                client=client,
+                order={"symbol": "BTCUSDT", "side": "Buy", "qty": 0.01,
+                       "sl": 99.0, "tp": 102.0, "account_id": "prop_velo"},
+                account_cfg={"exchange": "velotrade",
+                             "account_id": "prop_velo",
+                             "api_key_env": "VELOTRADE_API_KEY_1"},
+            )
+
+    def test_execute_pkg_breakout_still_inert(self):
+        # Deprecated alias: still raises so legacy fixtures stay safe.
+        from src.units.accounts.execute import _submit_order
+        with pytest.raises(RuntimeError, match="deprecated"):
+            _submit_order(
+                client=None,
+                order={"symbol": "BTCUSDT", "side": "Buy", "qty": 0.01,
+                       "sl": 99.0, "tp": 102.0, "account_id": "prop_breakout"},
+                account_cfg={"exchange": "breakout",
+                             "account_id": "prop_breakout"},
             )
 
 
@@ -468,15 +517,37 @@ class TestVelotradeExecutor:
 
 
 class TestRealAccountsYaml:
-    def test_prop_velotrade_1_exists_and_disabled(self):
+    def test_prop_velotrade_1_exists_and_not_configured(self, monkeypatch):
+        # Phase-2: prop_velotrade_1 is no longer disabled at YAML
+        # level — it loads as ``configured=False`` so the operator
+        # can see it in /accounts_status. ``enabled: false`` was the
+        # phase-1 safety; the new mechanism is "load + flag + ping
+        # on use" per the operator's clarification.
         import yaml
         p = Path(__file__).resolve().parents[1] / "config" / "accounts.yaml"
         raw = yaml.safe_load(p.read_text())
         assert "prop_velotrade_1" in raw["accounts"]
         cfg = raw["accounts"]["prop_velotrade_1"]
-        assert cfg["enabled"] is False
+        # No ``enabled`` key — defaults to enabled at load time.
+        assert "enabled" not in cfg
         assert cfg["exchange"] == "velotrade"
         assert cfg["type"] == "prop"
         assert cfg["account_state"] == "evaluation"
         assert "phase_requirements" in cfg
         assert cfg["overnight_restricted"] is True
+        # Belt-and-braces: empty strategies blocks any live signal
+        # routing even if the env-var creds get added before the
+        # operator wires the strategies list.
+        assert cfg.get("strategies") == []
+
+        # And the loader actually treats it as not-configured when
+        # the env vars are absent — strip them first to be sure.
+        monkeypatch.delenv("VELOTRADE_API_KEY_1", raising=False)
+        monkeypatch.delenv("VELOTRADE_API_SECRET_1", raising=False)
+        from src.units.accounts import load_accounts
+        accs = {a.name: a for a in load_accounts(str(p))}
+        assert "prop_velotrade_1" in accs
+        prop = accs["prop_velotrade_1"]
+        assert prop.configured is False
+        assert prop.configured_reason is not None
+        assert "VELOTRADE_API_KEY_1" in prop.configured_reason

@@ -616,7 +616,7 @@ class Coordinator:
             # HTTP client, etc.).
             from src.units.accounts.execute import execute_pkg
             from src.units.accounts.clients import (
-                bybit_client_for, binance_conn_for,
+                bybit_client_for, binance_conn_for, velotrade_client_for,
             )
 
             account_cfg = {
@@ -644,10 +644,12 @@ class Coordinator:
                         client = bybit_client_for(account_cfg)
                     elif exchange_lc == "binance":
                         client = binance_conn_for(account_cfg)
+                    elif exchange_lc == "velotrade":
+                        client = velotrade_client_for(account_cfg)
                     else:
                         client_error = (
                             f"unsupported exchange '{exchange_lc}' "
-                            f"(expected bybit/binance)"
+                            f"(expected bybit/binance/velotrade)"
                         )
                 except Exception as exc:  # noqa: BLE001
                     logger.warning(
@@ -661,14 +663,17 @@ class Coordinator:
                     )
                     client = None
                 if client is None and client_error is None:
-                    # Resolution returned None silently — almost always
-                    # missing API creds (api_key_env not in environment).
-                    # Refuse to silently fall back to dry-run; surface
-                    # the failure so the operator sees the wiring gap.
+                    # Resolution returned None silently — account is
+                    # loaded into the accounts unit but its env-var
+                    # creds aren't set. Surface a clear "not fully
+                    # configured" message so the operator's diagnostic
+                    # ping points straight at the missing env var
+                    # instead of looking like a generic exchange error.
                     client_error = (
-                        f"missing API credentials for account "
-                        f"'{account.name}' (api_key_env="
-                        f"{account.api_key_env!r} not in process env)"
+                        f"account '{account.name}' is not fully "
+                        f"configured: api_key_env="
+                        f"{account.api_key_env!r} (and matching "
+                        f"_SECRET) not in process env"
                     )
 
             try:
