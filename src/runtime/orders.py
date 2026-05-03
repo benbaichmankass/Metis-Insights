@@ -173,23 +173,54 @@ def safe_place_order(order: Dict[str, Any], settings: Any, client: Any) -> dict[
     # Default to live: DRY_RUN unset / ALLOW_LIVE_TRADING unset means
     # the system trades live. The risk manager + halt flag are the
     # safety rails (see CLAUDE.md "Autonomous live-trading rule").
-    if is_dry_truthy(_get_value(settings, "DRY_RUN", LIVE_DEFAULTS["DRY_RUN"])):
+    dry_run_settings_raw = _get_value(settings, "DRY_RUN", None)
+    dry_run_env_raw = os.environ.get("DRY_RUN")
+    dry_run_effective = (
+        dry_run_settings_raw
+        if dry_run_settings_raw is not None
+        else (dry_run_env_raw if dry_run_env_raw is not None else LIVE_DEFAULTS["DRY_RUN"])
+    )
+    if is_dry_truthy(dry_run_effective):
         logger.info("DRY_RUN enabled; order not submitted: %s", order)
         return {
             "status": "dry_run",
             "order": order,
         }
 
-    if not is_live_truthy(
-        _get_value(settings, "ALLOW_LIVE_TRADING", LIVE_DEFAULTS["ALLOW_LIVE_TRADING"])
-    ):
+    allow_live_settings_raw = _get_value(settings, "ALLOW_LIVE_TRADING", None)
+    allow_live_env_raw = os.environ.get("ALLOW_LIVE_TRADING")
+    if allow_live_settings_raw is not None:
+        allow_live_effective = allow_live_settings_raw
+        allow_live_source = "settings"
+    elif allow_live_env_raw is not None:
+        allow_live_effective = allow_live_env_raw
+        allow_live_source = "env"
+    else:
+        allow_live_effective = LIVE_DEFAULTS["ALLOW_LIVE_TRADING"]
+        allow_live_source = "default"
+
+    if not is_live_truthy(allow_live_effective):
+        # When this fires repeatedly the operator needs to know exactly
+        # which value was read and where it came from — otherwise the
+        # only debug path is journalctl + audit log. Surface the raw
+        # value (truncated) and the source (settings dict / env var /
+        # built-in default) directly in the failure reason so the per-
+        # tick Telegram ping is actionable on its own.
+        readable = repr(allow_live_effective)
+        if len(readable) > 64:
+            readable = readable[:61] + "..."
         logger.warning(
-            "Live order blocked: DRY_RUN is false but ALLOW_LIVE_TRADING is not enabled. order=%s",
-            order,
+            "Live order blocked: ALLOW_LIVE_TRADING resolved=%s source=%s "
+            "(needs truthy: true|1|yes|on|live). order=%s",
+            readable, allow_live_source, order,
         )
         return {
             "status": "failed_validation",
-            "reason": "ALLOW_LIVE_TRADING=true is required for live submission",
+            "reason": (
+                f"ALLOW_LIVE_TRADING=true is required for live submission "
+                f"(read {readable} from {allow_live_source}; expected one of "
+                f"true|1|yes|on|live)"
+            ),
             "order": order,
         }
 

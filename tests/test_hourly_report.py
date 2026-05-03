@@ -365,6 +365,11 @@ def test_health_summary_warn_check_demotes_to_warn():
 
 
 def test_render_report_contains_each_section():
+    """S-telegram-format: ``render_report`` now returns the strategies-
+    focused HTML report. Account-only fields (balance, trades placed)
+    moved to ``render_accounts_report``. The pin is on what the
+    operator MUST see in each pane."""
+    from src.runtime.hourly_report import render_accounts_report
     now = datetime(2026, 5, 1, 14, 0, tzinfo=timezone.utc)
     report = {
         "now_utc": now,
@@ -378,26 +383,31 @@ def test_render_report_contains_each_section():
         "outcomes": {"top_errors": []},
         "health": {"tick_age_s": 60, "tick_stale": False, "tick_interval_s": 900,
                    "warn_count": 0, "error_count": 0, "critical_count": 0,
-                   "overall": "ok"},
+                   "overall": "ok", "checks": []},
     }
-    txt = render_report(report)
+    strat_txt = render_report(report)
     for needle in [
-        "Hourly Report",
-        "Last hour",
-        "Ticks: 4 ok / 0 errored",
-        "Signals: 2 fired",
-        "vwap x2",
-        "Trades placed: 1",
-        "Realized PnL",
-        "Accounts",
-        "main: bal $1,000.00",
-        "+$5.00",
         "Strategies",
+        "Performance",
+        "4 ok / 0 errored",
+        "vwap×2",
         "vwap: 5 signals",
         "Health",
         "All systems normal",
+        "<blockquote expandable>",
     ]:
-        assert needle in txt, f"missing: {needle}\nfull:\n{txt}"
+        assert needle in strat_txt, f"missing: {needle}\nfull:\n{strat_txt}"
+
+    acct_txt = render_accounts_report(report)
+    for needle in [
+        "Accounts",
+        "Trades",
+        "1 placed",
+        "main: bal $1,000.00",
+        "+$5.00",
+        "<blockquote expandable>",
+    ]:
+        assert needle in acct_txt, f"missing: {needle}\nfull:\n{acct_txt}"
 
 
 def test_render_report_degraded_path_calls_for_action():
@@ -436,9 +446,11 @@ def test_build_hourly_report_never_raises_when_everything_is_empty(tmp_path, mon
     sys.modules["src.bot.data_loaders"] = fake_loaders
 
     txt = build_hourly_report(now_utc=datetime(2026, 5, 1, 14, 0, tzinfo=timezone.utc))
-    assert "Hourly Report" in txt
-    assert "Ticks: 0 ok / 0 errored" in txt
-    assert "(no accounts configured)" in txt
+    # S-telegram-format: header is the new "Strategies — <slot>" line;
+    # the legacy "Hourly Report" wording lives in ``render_report_plain``
+    # for plain-mode callers that still need it.
+    assert "Strategies" in txt
+    assert "0 ok / 0 errored" in txt
     assert "(none active)" in txt
 
 

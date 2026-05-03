@@ -11,7 +11,11 @@ from dotenv import load_dotenv
 from src.exchange.binance_connector import BinanceConnector
 from src.exchange.bybit_connector import BybitConnector
 from src.runtime.heartbeat import write_heartbeat
-from src.runtime.hourly_report import build_hourly_report
+from src.runtime.hourly_report import (
+    build_accounts_hourly_report,
+    build_hourly_report,
+)
+from src.runtime.notify import send_telegram_direct
 from src.runtime.outcomes import Level, report, send_scheduled
 from src.runtime.pipeline import run_pipeline
 from src.runtime.validation import build_settings_from_env, validate_startup
@@ -234,19 +238,42 @@ def main() -> None:
                 # "hourly report" when summaries stop arriving. Without this
                 # the silent-failure mode (e.g. send_via_alert_manager raising
                 # and being swallowed by send_scheduled) is invisible.
-                message = build_hourly_report(
+                # S-telegram-format: two parallel hourly messages, one
+                # focused on strategies, one focused on accounts/trades.
+                # Both use HTML mode so their detail sections render as
+                # collapsable blockquotes; ``send_telegram_direct`` is
+                # called per-report so an HTML parse failure on one
+                # doesn't suppress the other.
+                strat_message = build_hourly_report(
+                    now_utc=now_utc, tick_interval_s=interval,
+                )
+                acct_message = build_accounts_hourly_report(
                     now_utc=now_utc, tick_interval_s=interval,
                 )
                 logger.info(
-                    "hourly report dispatch: slot=%s len=%d",
-                    now_utc.strftime("%Y-%m-%d-%H"), len(message),
+                    "hourly report dispatch: slot=%s strat_len=%d acct_len=%d",
+                    now_utc.strftime("%Y-%m-%d-%H"),
+                    len(strat_message), len(acct_message),
                 )
-                send_scheduled(message)
+                for label, body in (
+                    ("strategies", strat_message),
+                    ("accounts", acct_message),
+                ):
+                    try:
+                        send_telegram_direct(body, parse_mode="HTML")
+                    except Exception as exc:  # noqa: BLE001
+                        logger.warning(
+                            "hourly report HTML send (%s) failed (%s); "
+                            "falling back to scheduled plain-text path",
+                            label, exc,
+                        )
+                        send_scheduled(body)
                 report(
                     "hourly_report", "dispatched",
                     level=Level.INFO,
                     slot=now_utc.strftime("%Y-%m-%d-%H"),
-                    chars=len(message),
+                    strat_chars=len(strat_message),
+                    acct_chars=len(acct_message),
                     demo=force_demo,
                 )
                 if force_demo:

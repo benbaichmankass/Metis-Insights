@@ -156,11 +156,18 @@ def _signal_with_strategy(name: str, has_sltp: bool = True):
 def test_pipeline_result_message_includes_strategy_name():
     """G5 — the operator's Telegram 'Pipeline result' line must surface
     the firing strategy so per-tick failed_validation messages identify
-    the offending strategy without a journalctl dive."""
+    the offending strategy without a journalctl dive.
+
+    Sprint S-telegram-format: the message is now sent via
+    ``send_telegram_direct`` in HTML mode with collapsable sections,
+    but the canonical ``Pipeline result: status=... | strategy=...``
+    line is preserved as the bold header so journalctl greps and the
+    operator's eyeball-scan still work.
+    """
     captured = []
     with patch("src.runtime.pipeline.os.path.exists", return_value=False), \
-         patch("src.runtime.pipeline.send_via_alert_manager",
-               side_effect=lambda msg: captured.append(msg)):
+         patch("src.runtime.pipeline.send_telegram_direct",
+               side_effect=lambda msg, **kw: captured.append(msg)):
         run_pipeline(
             settings=_settings(MULTI_ACCOUNT_DISPATCH="false"),
             exchange_client=_DummyClient(),
@@ -188,8 +195,8 @@ def test_pipeline_result_message_strategy_falls_back_to_multiplexed_when_meta_mi
     sig_no_meta = {"symbol": "BTCUSDT", "side": "buy", "qty": 1.0, "price": 50_000.0}
     with patch("src.runtime.pipeline.os.path.exists", return_value=False), \
          patch.dict(os.environ, {}, clear=False), \
-         patch("src.runtime.pipeline.send_via_alert_manager",
-               side_effect=lambda msg: captured.append(msg)):
+         patch("src.runtime.pipeline.send_telegram_direct",
+               side_effect=lambda msg, **kw: captured.append(msg)):
         # Drop STRATEGY so the fallback chain hits the final default.
         os.environ.pop("STRATEGY", None)
         # Settings without STRATEGY field.
@@ -206,6 +213,73 @@ def test_pipeline_result_message_strategy_falls_back_to_multiplexed_when_meta_mi
         f"BUG-033: 'unknown' must not leak; expected 'multiplexed'. got: {msgs[-1]!r}"
     )
     assert "strategy=unknown" not in msgs[-1]
+
+
+def test_pipeline_result_message_renders_collapsable_sections():
+    """Sprint S-telegram-format: the per-tick Telegram message must be
+    HTML with one ``<blockquote expandable>`` per detail section and a
+    bold header carrying the legacy ``Pipeline result: status=...`` text.
+    Sections must include the strategy and a stance on the order
+    package (generated vs not)."""
+    captured = []
+    with patch("src.runtime.pipeline.os.path.exists", return_value=False), \
+         patch("src.runtime.pipeline.send_telegram_direct",
+               side_effect=lambda msg, **kw: captured.append(msg)):
+        # signal carries entry/sl/tp so the order-package section
+        # renders in "generated" mode.
+        run_pipeline(
+            settings=_settings(MULTI_ACCOUNT_DISPATCH="false"),
+            exchange_client=_DummyClient(),
+            signal_builder=_signal_stub(_signal_with_strategy("vwap", has_sltp=True)),
+        )
+    assert captured, "no Telegram message captured"
+    body = captured[-1]
+    assert "<b>Pipeline result: status=" in body
+    assert "<blockquote expandable>" in body
+    assert "Strategy &mdash;" in body or "Strategy — vwap" in body \
+        or "<b>Strategy — vwap</b>" in body
+    assert "Order package &mdash; generated" in body or \
+        "<b>Order package — generated</b>" in body
+
+
+def test_safe_place_order_allow_live_diagnostic_includes_source_and_value():
+    """Sprint S-telegram-format: when safe_place_order rejects an order
+    because ALLOW_LIVE_TRADING isn't truthy, the failure reason must
+    name the actual value read AND its source (settings dict, env var,
+    or built-in default). Otherwise the operator only sees a generic
+    'ALLOW_LIVE_TRADING=true is required' line every tick and has to
+    grep journalctl to discover whether the env or the settings dict
+    is wrong."""
+    settings = {"DRY_RUN": "false", "ALLOW_LIVE_TRADING": "false"}
+    result = safe_place_order(_buy_order(), settings, _DummyClient())
+    assert result["status"] == "failed_validation"
+    assert "ALLOW_LIVE_TRADING=true is required" in result["reason"]
+    # The actual value the resolver read AND where it came from must
+    # appear in the reason — otherwise the diagnostic isn't actionable.
+    assert "'false'" in result["reason"]
+    assert "settings" in result["reason"]
+
+
+def test_pipeline_result_failed_validation_includes_remediation_section():
+    """When ALLOW_LIVE_TRADING isn't truthy, the Telegram envelope must
+    surface a 'Why & next step' section with the actual reason — the
+    operator should not need to grep journalctl to know which knob is
+    wrong."""
+    captured = []
+    with patch("src.runtime.pipeline.os.path.exists", return_value=False), \
+         patch("src.runtime.pipeline.send_telegram_direct",
+               side_effect=lambda msg, **kw: captured.append(msg)):
+        run_pipeline(
+            settings={"DRY_RUN": "false", "ALLOW_LIVE_TRADING": "false",
+                      "MULTI_ACCOUNT_DISPATCH": "false"},
+            exchange_client=_DummyClient(),
+            signal_builder=_signal_stub(_signal_with_strategy("vwap")),
+        )
+    assert captured
+    body = captured[-1]
+    assert "failed_validation" in body
+    assert "Why &amp; next step" in body or "Why & next step" in body
+    assert "ALLOW_LIVE_TRADING" in body
 
 
 # ---------------------------------------------------------------------------

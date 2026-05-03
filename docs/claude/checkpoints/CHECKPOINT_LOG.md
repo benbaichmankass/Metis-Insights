@@ -5,6 +5,75 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-03-06 — Session close: Telegram message standardisation + ALLOW_LIVE_TRADING diagnostic
+
+- **Session date:** 2026-05-03
+- **Sprint:** S-telegram-format (operator-requested follow-up after CP-05). Operator flagged the recurring per-tick `Pipeline result: status=failed_validation … reason=ALLOW_LIVE_TRADING=true is required for live submission` line and asked for: (1) uniform Telegram formatting with collapsable sections; (2) richer per-tick message that names the firing strategy + order package; (3) parallel per-account hourly summary; (4) investigate whether the recurring failure is a real bug or a hardcoded message.
+- **Current sprint phase:** **WORK PR OPEN — awaiting operator review.** This session's PR touches `src/runtime/orders.py` and `src/runtime/pipeline.py`, both of which are flagged "live-mode invariant" surfaces in CLAUDE.md § "Architecture rules check" / § "Live-mode invariant". Per the rule, the work-PR stays draft until the operator weighs in; a separate ping-PR carries the Telegram alert.
+- **Last completed checkpoint:** CP-2026-05-03-05 (Velotrade rotate-keys notebook + CI-flake follow-up).
+- **Next checkpoint:** **CP-2026-05-?-?? — Operator review of S-telegram-format.** When the operator approves the work-PR (or requests changes), squash-merge the work PR and append a closing checkpoint. Then resume the DXtrade SDK contract drop tracked under CP-04/05.
+- **Telegram sent:** rides on the merge of the separate ping-PR for this session (per CLAUDE.md § "Ping-PR vs work-PR separation").
+- **Alerts sent during session:** none.
+- **Blockers:** none — but the work-PR is operator-gated by the live-mode rule.
+
+### 1. Completed
+- **Investigation of recurring failed_validation pings.** Traced the message to `src/runtime/orders.py:183-194` (`safe_place_order` ALLOW_LIVE_TRADING gate). The user-reported message lacks the `strategy=` attribution that G5 / CP-2026-05-02-09 added, which means the VM is running pre-G5 code. The remaining defensive change is to make the failure reason *self-debugging* so the next occurrence is actionable without journalctl.
+- **`src/units/ui/telegram_format.py` (new).** Single canonical Telegram message formatter. Public surface: `Section`, `render_html(...)`, `render_plain(...)`, `kv_block(...)`, `bullet_list(...)`, `html_escape(...)`. HTML mode uses `<blockquote expandable>` for each section body so the operator gets a tap-to-expand UX for collapsed detail. Plain mode renders sections inline (used by legacy `parse_mode=None` callers / failure fallbacks). 10-test suite at `tests/test_telegram_format.py` pins escape behaviour, section ordering by `priority`, blockquote-per-section, message length cap.
+- **ALLOW_LIVE_TRADING diagnostic — `safe_place_order`.** Three-tier resolver: settings dict → env var → built-in default (`true`). The failure reason now includes the actual repr'd value AND its source — e.g. `ALLOW_LIVE_TRADING=true is required for live submission (read 'false' from settings; expected one of true|1|yes|on|live)`. Same shape applied to DRY_RUN. New test in `tests/test_orders.py` pins the contract.
+- **Pipeline result Telegram envelope.** Refactored `src/runtime/pipeline.py::run_pipeline` to send the per-tick "Pipeline result" message via `send_telegram_direct(html_body, parse_mode="HTML")` with a `send_via_alert_manager` plain-text fallback on send failure. Header preserves the canonical `Pipeline result: status=... | strategy=... | symbol=... | side=... | qty=... | reason=...` line so journalctl/audit greps stay stable. Sections (collapsable in HTML clients): **Strategy** (name, symbol, side, qty, confidence), **Order package** (entry/sl/tp/direction when the signal carried them; explicit "(not generated)" otherwise), **Accounts dispatched** (per-account result list when multi-account path ran), **Why & next step** (only on failure — echoes the reason + remediation hint when the diagnostic mentions ALLOW_LIVE_TRADING).
+- **Hourly summary split.** `src/runtime/hourly_report.py`:
+  - Added `assemble_hourly_data(...)` that runs the four data-gathering passes once per cycle (audit log + trade-journal + account snapshots + outcomes/health) and returns the assembled dict.
+  - Added `render_strategy_report(...)` (HTML/collapsable) — Performance, Strategies (today), Errors, Health.
+  - Added `render_accounts_report(...)` (HTML/collapsable) — Trades placed/closed/realized PnL, per-account balance + 1h delta + open positions.
+  - `build_hourly_report(...)` is unchanged in name but now returns the strategies-focused HTML rendering. `build_accounts_hourly_report(...)` is the new parallel.
+  - Legacy `render_report(...)` kept as a thin alias for callers (e.g. `/hourly` command) that already consume its output.
+  - `render_report_plain(...)` produces the combined two-pane payload as plain text for `parse_mode=None` callers / failure fallbacks.
+- **`src/main.py` hourly cycle.** Now sends BOTH reports each hour via `send_telegram_direct(parse_mode="HTML")` with the existing `send_scheduled` plain-text path as a fallback per report. The `dispatched` outcome record carries `strat_chars` + `acct_chars` so the operator can grep `journalctl -u ict-trader-live` for delivery confirmation.
+
+### 2. Files changed
+- **New:**
+  - `src/units/ui/telegram_format.py` — unified Telegram formatter.
+  - `tests/test_telegram_format.py` — 10 tests pinning the formatter contract.
+- **Modified:**
+  - `src/runtime/orders.py` — three-tier resolver for ALLOW_LIVE_TRADING / DRY_RUN; failure reason names value + source.
+  - `src/runtime/pipeline.py` — collapsable HTML envelope for "Pipeline result" + section builders.
+  - `src/runtime/hourly_report.py` — strategy + accounts split, collapsable rendering, `render_report_plain` for fallback.
+  - `src/main.py` — hourly cycle dispatches both reports via HTML, with plain-text fallback.
+  - `tests/test_orders.py` — three new tests (collapsable envelope, failure remediation section, ALLOW_LIVE diagnostic). Existing G5 attribution tests updated to patch `send_telegram_direct`.
+  - `tests/test_hourly_report.py` — existing render-report test split into strategy + accounts assertions; "never raises" test loosened from `Hourly Report` to `Strategies` (legacy phrasing only kept for the WARN fallback path).
+  - `tests/test_hourly_dispatch.py` — assertion loosened analogously.
+  - `docs/claude/bug-log.md` — BUG-035 row appended.
+  - `docs/claude/checkpoints/CHECKPOINT_LOG.md` — this entry.
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_orders.py tests/test_telegram_format.py tests/test_hourly_report.py tests/test_hourly_dispatch.py tests/test_s012_hotfix_settings_casing.py tests/test_pipeline_news_veto.py tests/test_notify_send_via_alert_manager.py tests/test_notify_session.py` → **84 passed**.
+- `python scripts/secret_scan.py` → clean.
+- `python scripts/check_dry_run_in_diff.py` → clean (no offending changes).
+- `python scripts/repo_inventory.py` → no junk candidates.
+- Full `pytest tests/ -q` not run because the sandbox is missing `pandas`/`numpy`/`yaml`; the failing collection errors pre-date this session and are unrelated. Targeted suite covers every file this PR touched.
+
+### 4. Live-mode check
+- `scripts/check_dry_run_in_diff.py` → clean.
+- No change to `config/accounts.yaml`. No new mode flips. The ALLOW_LIVE_TRADING resolver still defaults to `true` and accepts the same truthy set (`true|1|yes|on|live`); only the failure-path *diagnostic* changed. The operator's existing live-mode posture is preserved.
+- ⚠️ This PR touches `src/runtime/orders.py` AND `src/runtime/pipeline.py`. Per CLAUDE.md § "Live-mode invariant" rule (3), the operator MUST be pinged regardless of test outcome. The work-PR stays draft and a separate ping-PR carries the alert.
+
+### 5. Architecture rules check
+- **Unit boundary declaration.** Touched: `src/runtime/` (orders, pipeline, hourly_report, validation untouched), `src/units/ui/` (new telegram_format module), `src/main.py` (orchestration). No new cross-unit imports outside `src/core/coordinator.py`. Telegram messaging stays inside `src/units/ui/` per CLAUDE.md rule 4 (UI unit owns formatters).
+- **Strategy unit responsibilities (rule 2).** Untouched.
+- **Account / risk / execute boundary (rule 3).** Untouched — `safe_place_order` is the single canonical live-order entry point; only its diagnostic improved.
+- **Telegram bot is a thin shell (rule 5).** This PR adds business-logic-free formatting helpers in `src/units/ui/telegram_format.py` — exactly the layer the rule names. The bot itself is not touched in this PR.
+
+### 6. Remaining
+- **Operator review of the work-PR.** Decision: approve the new envelope + diagnostic + dual hourly summary, or push back on shape.
+- **Once approved:** squash-merge the work-PR. The `[BLOCKED-PM]`/`PM REVIEW` ping-PR fires the Telegram notification.
+- **Follow-up:** confirm on the VM that the new HTML envelope renders correctly in the operator's Telegram client. If older Android clients show literal `<blockquote expandable>` tags, fall back to the plain renderer per-client (or always send both via the existing scheduled path).
+- **Deferred to next session:** DXtrade SDK contract drop (unchanged from CP-04/05).
+
+### 7. Next checkpoint
+**CP-2026-05-?-?? — Operator review of S-telegram-format.** Read in order: this entry, the work-PR (`claude/standardize-telegram-messages-9pJzz`), `src/units/ui/telegram_format.py`, the per-tick envelope code in `src/runtime/pipeline.py::_pipeline_result_sections`, and the new failure-reason resolver in `src/runtime/orders.py`. The operator's call: approve as-is, request shape changes, or split the work-PR into smaller pieces.
+
+---
+
 ## CP-2026-05-03-05 — Session close: Velotrade rotate-keys notebook + CI-flake follow-up
 
 - **Session date:** 2026-05-03
