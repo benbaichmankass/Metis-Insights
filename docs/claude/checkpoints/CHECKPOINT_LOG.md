@@ -5,6 +5,156 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-03-22 — Two P0 fixes, BUG-042 sprint PRs 1+2 shipped, strategy-monocle sprint kicked off (PRs 384, 385, 386, 387 merged)
+
+- **Session date:** 2026-05-03 (extended bug-fix + sprint session
+  on multiple branches; this checkpoint summarises the whole
+  evening's work).
+- **Sprint:** Multi-track. (1) BUG-042 monitor-loop reconciler
+  sprint (PRs 1+2 merged this session, PR 3 deferred). (2) P0
+  silent-dry-run fix. (3) Strategy-monocle sprint kicked off
+  (PR 1/3 merged; PRs 2+3 deferred to next session).
+- **Current sprint phase:** WRAP. All PRs that landed today are
+  green and merged. Two sprints have remaining PRs deferred to
+  the next session.
+- **Last completed checkpoint:** CP-2026-05-03-21.
+- **Next checkpoint:** **CP-2026-05-?-?? — strategy-monocle PR 2
+  + BUG-042 PR 3 runbook + paths.py helper (any subset, see prompt
+  below).** Operator chose Sonnet-only for the next run; the
+  pickup queue is biased toward Tier 1 + docs-only work.
+
+### 1. Completed this session
+
+- **P0 — BUG-044 closed (PR #382 merged earlier).** Three
+  early-out branches in `multi_account_execute` now land a
+  `status='rejected'` row in `trade_journal.db::trades`
+  (`skipped_not_assigned`, `sizing_failed`, `below_min_balance`).
+  Pre-fix the operator saw open packages with no linked trade and
+  no rejection counterpart; post-fix every dispatch decision is
+  pairable. Companion fix: `notify_on_pull.py` only fires the
+  checkpoint ping when the diff *added* a new `## CP-…` header
+  matching the file's current topmost entry — old-CP merges no
+  longer re-ping.
+- **CP-21 wrap (PR #383 merged).** Bug-log + checkpoint append
+  for PR #382. Rode on the new dedup gate (its first real run).
+- **BUG-042 PR 1/3 (PR #384 merged).** `account_open_positions`
+  lifted from `src/units/ui/data_loaders.py` to
+  `src/units/accounts/clients.py`. Behaviour-preserving — UI
+  keeps a delegate. Per CLAUDE.md § "Architecture rules" § 3,
+  per-account exchange-state reads belong to the accounts unit,
+  not the UI unit.
+- **P0 — silent-dry-run fix (PR #386 merged).**
+  `Coordinator.multi_account_execute(dry_run: bool = True)` was
+  silently overriding every account's `mode: live` because
+  `pipeline.py:783` calls without specifying `dry_run`. The
+  default `True` won, the dispatch built no exchange client, and
+  `execute_pkg(dry_run=True)`'s own per-account fallback never
+  fired. *Every live signal silently went through dry mode for
+  the entire post-#357 window.* Liveness watchdog had been
+  screaming "5 actionable signals fired in the last 1h, but 0
+  trades landed" while bybit_2 was `mode: live` with $177
+  balance and zero open positions. The fix: default `dry_run` to
+  `None`; per-iteration resolve `effective_dry` from
+  `account.dry_run` (already loaded from YAML by `load_accounts`).
+  Caller override still works for tests/smoke. Companion fix:
+  truncated `docs/claude/pending-pings.jsonl` (16 stale entries
+  re-firing every VM pull because no truncation commit followed
+  the original appends).
+- **BUG-042 PR 2/3 (PR #385 merged).**
+  `_reconcile_open_trades(db)` in `src/runtime/order_monitor.py`.
+  Each monitor tick compares `trades.status='open'` against the
+  exchange's `account_open_positions` per account; any DB-open /
+  exchange-flat row gets re-tagged `status='orphaned'` with
+  `exit_reason='reconciler'`, the linked `order_packages` row
+  cascades to `closed`, and one diagnostic ping is enqueued (cap
+  10 individual + 1 roll-up). Skip rules: dry-run accounts,
+  missing creds, accounts not in `accounts.yaml`. Gated by
+  `MONITOR_RECONCILE_ENABLED` (default `false`); PR 3 of the
+  sprint will flip it on. New
+  `enqueue_orphan_reconciliation` + `enqueue_orphan_rollup` in
+  `execution_diagnostics.py`. 15 tests.
+- **Strategy-monocle PR 1/3 (PR #387 merged).** One open
+  `order_packages` row per strategy globally, regardless of how
+  many accounts follow it. Helper
+  `_has_open_package_for_strategy(strategy)` in `pipeline.py`
+  consults `get_order_packages_by_strategy(strategy, status='open')`
+  before `_signal_to_order_package`; non-empty match
+  short-circuits the dispatch with
+  `status='skipped' / reason='open_package_exists'`. Pre-fix
+  every actionable VWAP tick stacked a new package — operator
+  saw 10+ open packages on the same /packages snapshot. 8 tests.
+
+### 2. Files changed (cumulative across this session's merges)
+
+- `src/core/coordinator.py` — early-out journal writes (#382),
+  per-account mode resolution (#386).
+- `src/runtime/pipeline.py` — strategy-monocle gate (#387).
+- `src/runtime/order_monitor.py` — write-back reconciler (#385).
+- `src/runtime/execution_diagnostics.py` — orphan ping helpers (#385).
+- `src/units/accounts/clients.py` — `account_open_positions`
+  canonical implementation (#384).
+- `src/units/ui/data_loaders.py` — delegate to accounts unit (#384).
+- `scripts/notify_on_pull.py` — CP-ping dedup gate (#382).
+- `docs/claude/pending-pings.jsonl` — truncated (#386).
+- 4 new test files: `test_multi_account_execute_early_out_logs_refusal.py`,
+  `test_accounts_clients_open_positions.py`,
+  `test_monitor_reconciler.py`,
+  `test_multi_account_execute_per_account_mode.py`,
+  `test_strategy_monocle_open_gate.py`. + `test_notify_on_pull.py`
+  extended (5 new tests).
+
+### 3. Tests run
+
+- New + adjacent suites green: 27+ tests in the dispatch /
+  reconciler / strategy-monocle suites.
+- Broader sweep: `1746 passed / 282 failed` vs baseline of
+  `1737 passed / 285 failed` — net **9 more pass, 3 fewer fail**.
+  Remaining 282 failures are all pre-existing env-level (missing
+  `pandas` / `pyo3-asyncio` / `pytest-asyncio` for unrelated
+  suites). No new regressions.
+- `python3 scripts/secret_scan.py` — clean on every commit.
+- `scripts/check_dry_run_in_diff.py` — clean on PR #386.
+
+### 4. Remaining
+
+- **BUG-042 PR 3/3** — `docs/runbooks/monitor-reconciler.md` +
+  flip `MONITOR_RECONCILE_ENABLED=true` in `.env.master` +
+  bug-log entry. Tier 1, docs-only.
+- **Strategy-monocle PR 2/3** — partial-close verdict shape
+  (`{"action": "close", "close_qty_pct": float, "reason": str}`)
+  + DB-side cascade (reduce `position_size`, fragment marker in
+  `notes` JSON, package stays open until full close). Tier 1,
+  DB-only.
+- **Strategy-monocle PR 3/3** — exchange-side close from the
+  dispatcher when the strategy decides to exit. Tier 2 — touches
+  `src/units/accounts/execute.py` and a real `close_position` API
+  call. **Opus-recommended.**
+- **paths.py helper** (originally CP-20's deferred P3). Replace
+  ad-hoc `os.path.abspath(os.path.join(_BASE_DIR, "..", "..", ...))`
+  REPO_ROOT calcs (~10 sites) with a single `src/utils/paths.py::repo_root()`
+  helper that walks up to a marker file. Tier 1, autonomous.
+- **Renderer cosmetic** — the per-tick "Pipeline result" Telegram
+  message renders `Accounts dispatched — 3` with `?: ?` for each
+  row. The dispatcher returns `{name, exchange, account_type,
+  trade_id, sized_qty, error}` per result; the renderer isn't
+  pulling those fields correctly. Pure cosmetic, low-risk.
+- **bybit_2 dispatch verification** — post-PR-#386, the next
+  VWAP tick on the live VM should produce a real trade row in
+  `trade_journal.db::trades` (`status='open'`, `notes.is_dry=false`,
+  `position_size > 0`) for `bybit_2`. Liveness watchdog should
+  stop firing within 1 monitor tick.
+
+### 5. Next checkpoint
+
+**CP-2026-05-?-?? — overnight Sonnet session: BUG-042 PR 3 +
+strategy-monocle PR 2 + paths.py + renderer cosmetics (any
+subset).** Operator's directive: "low-risk, paced, no time-outs".
+The pickup queue is intentionally biased toward Tier 1 + docs-only
+work; strategy-monocle PR 3 (Tier 2 — exchange-side close) is
+parked for an Opus session.
+
+---
+
 ## CP-2026-05-03-21 — BUG-044 closed (early-out dispatch refusal-row contract) + checkpoint-ping dedup (PR #382 merged)
 
 - **Session date:** 2026-05-03 (operator-flagged bug session on
