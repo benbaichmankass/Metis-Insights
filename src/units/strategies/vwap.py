@@ -44,7 +44,18 @@ MIN_CANDLES = 2
 
 # Minimum standard-deviation bands required to call a reversion signal.
 # Price must deviate at least this many std-devs from VWAP to be actionable.
-ENTRY_STD_THRESHOLD = 1.0
+#
+# 2026-05-03: raised from 1.0σ to 2.0σ following the
+# `2026-05-03-vwap-improvement` training run (PR #350 — RECOMMENDATIONS,
+# merged d52a816). The 1.0σ default produced an unprofitable backtest
+# (Sharpe -0.12, expectancy -0.002 R, max DD -21 R over 365 d BTCUSDT 5m,
+# 946 trades). The 2.0σ threshold flipped the same window to Sharpe 1.71,
+# expectancy +0.044 R, max DD -5 R, 336 trades — see
+# `experiments/2026-05-03-vwap-improvement/RECOMMENDATIONS.md`. The
+# threshold sweep (1.0 / 1.5 / 2.0 / 2.5) showed monotonic improvement
+# up to 2.0σ with a small regression at 2.5σ, so 2.0σ is a clean local
+# maximum and not overfit to the sample.
+ENTRY_STD_THRESHOLD = 2.0
 
 # Internal alias retained for backwards-compatible imports.
 _ENTRY_STD_THRESHOLD = ENTRY_STD_THRESHOLD
@@ -65,7 +76,8 @@ _ENTRY_STD_THRESHOLD = ENTRY_STD_THRESHOLD
 # Risk/reward at entry: R = (vwap - entry) for BUY, (entry - vwap) for SELL.
 # That's |deviation_std| × std_dev. With SL_STD_MULT = 1.0, the trade
 # carries R/R = |deviation_std| : 1, which is favourable when |deviation_std|
-# >= ENTRY_STD_THRESHOLD = 1.0 (the entry threshold). Operator can tune
+# >= ENTRY_STD_THRESHOLD = 2.0 (the entry threshold; 2:1 R/R at the boundary).
+# Operator can tune
 # via the ``sl_std_mult`` arg to ``build_vwap_signal`` or the matching
 # entry in ``config/strategies.yaml`` (consumed by the pipeline-side
 # vwap_signal_builder when it wires it through).
@@ -165,7 +177,8 @@ def build_vwap_signal(
 
     With ``sl_std_mult = SL_STD_MULT_DEFAULT = 1.0``, R/R at entry equals
     ``|deviation_std| : 1``, which is favourable when the entry threshold
-    (``|deviation_std| >= ENTRY_STD_THRESHOLD = 1.0``) is met.
+    (``|deviation_std| >= ENTRY_STD_THRESHOLD = 2.0``) is met (2:1 R/R at
+    the boundary).
     """
     if not isinstance(candles_df, pd.DataFrame) or candles_df.empty:
         return _no_trade(symbol, "VWAP skipped: candle data is empty or invalid")
