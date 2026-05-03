@@ -23,6 +23,9 @@ def test_build_hourly_report_returns_string():
 
 def test_build_hourly_report_never_raises_on_bad_inputs():
     # Even with no audit log / no DBs in test env, builder must not raise.
+    # S-telegram-format: the header is now "Strategies — <slot>"; the
+    # legacy "Hourly Report" phrasing is still returned by the WARN
+    # fallback path so accept either.
     msg = build_hourly_report(now_utc=None, tick_interval_s=900)
     assert isinstance(msg, str)
-    assert "Hourly Report" in msg
+    assert "Strategies" in msg or "Hourly Report" in msg

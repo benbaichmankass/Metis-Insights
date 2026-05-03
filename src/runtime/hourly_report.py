@@ -452,103 +452,264 @@ def _fmt_age(seconds: Optional[float]) -> str:
     return f"{h}h{m % 60}m"
 
 
-def render_report(report: Dict[str, Any]) -> str:
-    """Render the assembled report dict as a single Telegram-ready string."""
-    now: datetime = report["now_utc"]
-    ticks = report["ticks"]
-    trades = report["trades"]
-    accounts = report["accounts"]
-    strategies = report["strategies"]
-    outcomes = report["outcomes"]
-    health = report["health"]
-
-    header_glyph = "OK" if health["overall"] == "ok" else (
-        "DEGRADED" if health["overall"] == "degraded" else "WARN"
+def _overall_glyph(overall: str) -> str:
+    return {"ok": "OK", "warn": "WARN", "degraded": "DEGRADED"}.get(
+        overall, overall.upper()
     )
-    lines: List[str] = []
-    lines.append(
-        f"[{header_glyph}] Hourly Report - {now.strftime('%Y-%m-%d %H:00 UTC')}"
-    )
-    lines.append("")
 
-    # Last hour
-    lines.append("Last hour")
-    lines.append(
-        f"  Ticks: {ticks['ticks_ok']} ok / {ticks['ticks_err']} errored"
+
+def _build_strategy_sections(
+    *,
+    ticks: Dict[str, Any],
+    strategies: List[Dict[str, Any]],
+    outcomes: Dict[str, Any],
+    health: Dict[str, Any],
+):
+    """Sections for the strategy-focused hourly report.
+
+    Each section's *summary* is the short headline the operator sees
+    at-a-glance ("Performance — 3 errors in past hour"). The *body*
+    is the detail collapsed inside an expandable blockquote.
+    """
+    from src.units.ui.telegram_format import Section, bullet_list, kv_block
+
+    perf_summary = (
+        f"Performance — {ticks['ticks_ok']} ok / {ticks['ticks_err']} errored"
     )
     sigs = ticks["signals_by_strategy"]
+    perf_rows = [
+        ("Ticks ok", ticks["ticks_ok"]),
+        ("Ticks errored", ticks["ticks_err"]),
+        ("Signals fired", ticks["signals_total"]),
+    ]
     if sigs:
-        bits = ", ".join(f"{k} x{v}" for k, v in sorted(sigs.items()))
-        lines.append(f"  Signals: {ticks['signals_total']} fired ({bits})")
-    else:
-        lines.append(f"  Signals: {ticks['signals_total']} fired")
-    lines.append(f"  Trades placed: {len(trades['placed'])}")
-    lines.append(f"  Trades closed: {len(trades['closed'])}")
-    lines.append(
-        f"  Realized PnL (1h): {_fmt_money(trades['realized_pnl'], sign=True)}"
-    )
-    lines.append("")
+        perf_rows.append(("Signals by strategy",
+                          ", ".join(f"{k}×{v}" for k, v in sorted(sigs.items()))))
 
-    # Accounts
-    lines.append("Accounts")
-    if not accounts:
-        lines.append("  (no accounts configured)")
-    for a in accounts:
-        aid = a["account_id"]
-        if not a.get("api_ok"):
-            lines.append(f"  {aid}: API ERROR")
-            continue
-        bal = _fmt_money(a["balance"])
-        delta = _fmt_money(a["delta_1h"], sign=True) if a["delta_1h"] is not None else "(no prev)"
-        op = a["open_positions"]
-        op_str = f"open {op}" if isinstance(op, int) else "open ?"
-        lines.append(f"  {aid}: bal {bal} | 1h {delta} | {op_str} | API OK")
-    lines.append("")
-
-    # Strategies
-    lines.append("Strategies (today)")
-    if not strategies:
-        lines.append("  (none active)")
-    for s in strategies:
+    strat_lines = []
+    for s in strategies or []:
         name = s.get("strategy") or "unknown"
         sigs_today = s.get("signals_today") or 0
         pnl = s.get("pnl")
         opn = s.get("open_pos") or 0
-        lines.append(
-            f"  {name}: {sigs_today} signals, {opn} open, PnL "
-            f"{_fmt_money(pnl, sign=True)}"
+        strat_lines.append(
+            f"{name}: {sigs_today} signals, {opn} open, "
+            f"PnL {_fmt_money(pnl, sign=True)}"
         )
-    lines.append("")
 
-    # Health
-    lines.append("Health")
-    lines.append(
-        f"  Last tick: {_fmt_age(health['tick_age_s'])} ago "
-        f"(expected <= {health['tick_interval_s'] // 60}m)"
-        + ("  STALE" if health["tick_stale"] else "")
+    err_summary = (
+        f"Errors — {health['critical_count']} critical, "
+        f"{health['error_count']} error, {health['warn_count']} warn"
     )
-    for c in (health.get("checks") or []):
-        marker = {"ok": "OK", "warn": "WARN", "critical": "CRIT"}.get(c.status, "?")
-        lines.append(f"  [{marker}] {c.name}: {c.detail}")
-    lines.append(
-        f"  Errors (last hour): "
-        f"{health['critical_count']} critical, "
-        f"{health['error_count']} error, "
-        f"{health['warn_count']} warn"
-    )
+    err_rows = [
+        ("Critical", health["critical_count"]),
+        ("Error",    health["error_count"]),
+        ("Warn",     health["warn_count"]),
+    ]
+    err_body_lines = [kv_block(err_rows)]
     if outcomes.get("top_errors"):
-        for fp, n in outcomes["top_errors"][:3]:
-            lines.append(f"    - {fp} ({n}x)")
-    lines.append("")
+        err_body_lines.append("")
+        err_body_lines.append("Top fingerprints:")
+        for fp, n in outcomes["top_errors"][:5]:
+            err_body_lines.append(f"- {fp} ({n}x)")
 
-    if health["overall"] == "ok":
-        lines.append("All systems normal")
-    elif health["overall"] == "warn":
-        lines.append("WARN: errors logged but no critical issues")
-    else:
-        lines.append("ACTION NEEDED: see Health section above")
+    health_summary = f"Health — {_overall_glyph(health['overall'])}"
+    health_lines = [
+        f"Last tick: {_fmt_age(health['tick_age_s'])} ago "
+        f"(expected <= {health['tick_interval_s'] // 60}m)"
+        + ("  STALE" if health["tick_stale"] else ""),
+    ]
+    for c in (health.get("checks") or []):
+        marker = {"ok": "OK", "warn": "WARN", "critical": "CRIT"}.get(
+            getattr(c, "status", "?"), "?"
+        )
+        health_lines.append(
+            f"[{marker}] {getattr(c, 'name', '?')}: "
+            f"{getattr(c, 'detail', '')}"
+        )
 
-    return "\n".join(lines)
+    return [
+        Section(summary=perf_summary, body=kv_block(perf_rows), priority=10),
+        Section(
+            summary=f"Strategies (today) — {len(strategies or [])} active",
+            body=bullet_list(strat_lines, empty="(none active)"),
+            priority=20,
+        ),
+        Section(
+            summary=err_summary, body="\n".join(err_body_lines), priority=30,
+        ),
+        Section(
+            summary=health_summary, body="\n".join(health_lines), priority=40,
+        ),
+    ]
+
+
+def _build_account_sections(
+    *,
+    trades: Dict[str, Any],
+    accounts: List[Dict[str, Any]],
+):
+    """Sections for the accounts-focused hourly report.
+
+    Mirrors the strategy report but groups detail by account: per-
+    account balance / delta / open positions, and the trades placed +
+    closed in the last hour with realized PnL.
+    """
+    from src.units.ui.telegram_format import Section, bullet_list, kv_block
+
+    placed = trades.get("placed", [])
+    closed = trades.get("closed", [])
+
+    # 1. Trades section
+    placed_lines = [
+        f"{t.get('strategy_name') or '?'} {t.get('symbol')} "
+        f"{t.get('direction')} qty={t.get('position_size')} "
+        f"@ {t.get('entry_price')}"
+        for t in placed
+    ]
+    closed_lines = [
+        f"{t.get('strategy_name') or '?'} {t.get('symbol')} "
+        f"{t.get('direction')} entry={t.get('entry_price')} "
+        f"exit={t.get('exit_price')} pnl="
+        f"{_fmt_money(t.get('pnl'), sign=True)}"
+        for t in closed
+    ]
+    trades_summary = (
+        f"Trades — {len(placed)} placed / {len(closed)} closed / "
+        f"realized {_fmt_money(trades.get('realized_pnl'), sign=True)}"
+    )
+    trades_body_lines = []
+    if placed:
+        trades_body_lines.append("Placed:")
+        trades_body_lines.extend(f"- {ln}" for ln in placed_lines)
+    if closed:
+        if trades_body_lines:
+            trades_body_lines.append("")
+        trades_body_lines.append("Closed:")
+        trades_body_lines.extend(f"- {ln}" for ln in closed_lines)
+    if not trades_body_lines:
+        trades_body_lines.append("(no trades in window)")
+
+    # 2. Per-account section
+    acct_lines = []
+    api_errors = 0
+    for a in accounts or []:
+        aid = a["account_id"]
+        if not a.get("api_ok"):
+            acct_lines.append(f"{aid}: API ERROR")
+            api_errors += 1
+            continue
+        bal = _fmt_money(a["balance"])
+        delta = (
+            _fmt_money(a["delta_1h"], sign=True)
+            if a["delta_1h"] is not None
+            else "(no prev)"
+        )
+        op = a["open_positions"]
+        op_str = f"open {op}" if isinstance(op, int) else "open ?"
+        acct_lines.append(
+            f"{aid}: bal {bal} | 1h {delta} | {op_str} | API OK"
+        )
+    accounts_summary = (
+        f"Accounts — {len(accounts or [])} configured"
+        + (f" / {api_errors} API errors" if api_errors else "")
+    )
+
+    return [
+        Section(summary=trades_summary,
+                body="\n".join(trades_body_lines), priority=10),
+        Section(summary=accounts_summary,
+                body=bullet_list(acct_lines, empty="(no accounts configured)"),
+                priority=20),
+    ]
+
+
+def render_strategy_report(report: Dict[str, Any]) -> str:
+    """Render the strategy-focused hourly report (HTML, collapsable)."""
+    from src.units.ui.telegram_format import render_html
+
+    now: datetime = report["now_utc"]
+    health = report["health"]
+    glyph = _overall_glyph(health["overall"])
+    sections = _build_strategy_sections(
+        ticks=report["ticks"],
+        strategies=report["strategies"],
+        outcomes=report["outcomes"],
+        health=health,
+    )
+    footer = {
+        "ok": "All systems normal",
+        "warn": "WARN: errors logged but no critical issues",
+        "degraded": "ACTION NEEDED: see Errors / Health sections",
+    }.get(health["overall"], "")
+    return render_html(
+        header=f"[{glyph}] Strategies — {now.strftime('%Y-%m-%d %H:00 UTC')}",
+        sections=sections,
+        footer=footer,
+    )
+
+
+def render_accounts_report(report: Dict[str, Any]) -> str:
+    """Render the accounts-focused hourly report (HTML, collapsable)."""
+    from src.units.ui.telegram_format import render_html
+
+    now: datetime = report["now_utc"]
+    health = report["health"]
+    glyph = _overall_glyph(health["overall"])
+    sections = _build_account_sections(
+        trades=report["trades"], accounts=report["accounts"],
+    )
+    return render_html(
+        header=f"[{glyph}] Accounts — {now.strftime('%Y-%m-%d %H:00 UTC')}",
+        sections=sections,
+    )
+
+
+def render_report(report: Dict[str, Any]) -> str:
+    """Back-compat: return the strategy-focused HTML rendering.
+
+    Pre-S-telegram-format callers (``main.py``, ``/hourly`` command,
+    tests) called ``render_report(..)`` and got a single plain-text
+    string covering everything. The accounts-focused half now lives
+    in its own renderer so the two can ride the hourly cycle as
+    parallel messages — see ``render_accounts_report``.
+
+    The legacy plain-text shape is preserved by
+    ``render_report_plain`` for callers that target ``parse_mode=None``.
+    """
+    return render_strategy_report(report)
+
+
+def render_report_plain(report: Dict[str, Any]) -> str:
+    """Plain-text rendering of the combined hourly report.
+
+    Kept so callers that don't want HTML (legacy ``send_scheduled``
+    path with ``parse_mode=None``) still get a usable summary. The
+    body is the strategy + account sections expanded inline.
+    """
+    from src.units.ui.telegram_format import render_plain
+
+    now: datetime = report["now_utc"]
+    health = report["health"]
+    glyph = _overall_glyph(health["overall"])
+    sections = _build_strategy_sections(
+        ticks=report["ticks"],
+        strategies=report["strategies"],
+        outcomes=report["outcomes"],
+        health=health,
+    ) + _build_account_sections(
+        trades=report["trades"], accounts=report["accounts"],
+    )
+    footer = {
+        "ok": "All systems normal",
+        "warn": "WARN: errors logged but no critical issues",
+        "degraded": "ACTION NEEDED: see Errors / Health sections",
+    }.get(health["overall"], "")
+    return render_plain(
+        header=f"[{glyph}] Hourly Report - {now.strftime('%Y-%m-%d %H:00 UTC')}",
+        sections=sections,
+        footer=footer,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -556,42 +717,96 @@ def render_report(report: Dict[str, Any]) -> str:
 # ---------------------------------------------------------------------------
 
 
+def assemble_hourly_data(
+    *,
+    now_utc: Optional[datetime] = None,
+    tick_interval_s: int = 900,
+) -> Dict[str, Any]:
+    """Run the four data-gathering passes and return the assembled dict.
+
+    Both the strategy-focused and account-focused renderers consume
+    the same shape, so the data sweep runs once per hourly cycle.
+    Returns the dict ready for ``render_strategy_report`` /
+    ``render_accounts_report``. Never raises.
+    """
+    now = now_utc or datetime.now(timezone.utc)
+    since = now - timedelta(hours=1)
+    audit_records = _load_audit_lines_since(since)
+    ticks = summarize_ticks(audit_records)
+    trades = trades_in_window(since)
+    accounts = account_snapshots()
+    strategies = strategy_snapshots()
+    outcomes = outcomes_in_window(since)
+    health = health_summary(
+        last_tick_ts=ticks["last_tick_ts"],
+        outcomes=outcomes,
+        tick_interval_s=tick_interval_s,
+        now_utc=now,
+    )
+    return {
+        "now_utc": now,
+        "ticks": ticks,
+        "trades": trades,
+        "accounts": accounts,
+        "strategies": strategies,
+        "outcomes": outcomes,
+        "health": health,
+    }
+
+
 def build_hourly_report(
     *,
     now_utc: Optional[datetime] = None,
     tick_interval_s: int = 900,
 ) -> str:
-    """Assemble + render the hourly report. Never raises."""
-    try:
-        now = now_utc or datetime.now(timezone.utc)
-        since = now - timedelta(hours=1)
+    """Assemble + render the strategy-focused hourly report.
 
-        audit_records = _load_audit_lines_since(since)
-        ticks = summarize_ticks(audit_records)
-        trades = trades_in_window(since)
-        accounts = account_snapshots()
-        strategies = strategy_snapshots()
-        outcomes = outcomes_in_window(since)
-        health = health_summary(
-            last_tick_ts=ticks["last_tick_ts"],
-            outcomes=outcomes,
-            tick_interval_s=tick_interval_s,
-            now_utc=now,
+    Back-compat: callers (e.g. ``/hourly`` command,
+    ``main.py`` legacy path) get the strategy view as a single
+    HTML-formatted string. To get the parallel accounts view, use
+    ``build_accounts_hourly_report``.
+    """
+    try:
+        return render_strategy_report(
+            assemble_hourly_data(
+                now_utc=now_utc, tick_interval_s=tick_interval_s,
+            )
         )
-        return render_report({
-            "now_utc": now,
-            "ticks": ticks,
-            "trades": trades,
-            "accounts": accounts,
-            "strategies": strategies,
-            "outcomes": outcomes,
-            "health": health,
-        })
     except Exception as exc:  # noqa: BLE001
         logger.exception("hourly_report.build_hourly_report failed: %s", exc)
         ts = (now_utc or datetime.now(timezone.utc)).strftime("%Y-%m-%d %H:00 UTC")
         return (
             f"[WARN] Hourly Report - {ts}\n"
+            f"Report assembly failed: {type(exc).__name__}: {exc}\n"
+            f"Check runtime_logs/ for details."
+        )
+
+
+def build_accounts_hourly_report(
+    *,
+    now_utc: Optional[datetime] = None,
+    tick_interval_s: int = 900,
+) -> str:
+    """Render the parallel account-focused hourly report.
+
+    The operator wanted two recurring messages per hour: one for
+    strategies (signals fired, errors, health) and one for accounts
+    (trades placed/closed in the last hour, per-account balance +
+    open positions). This is the second.
+    """
+    try:
+        return render_accounts_report(
+            assemble_hourly_data(
+                now_utc=now_utc, tick_interval_s=tick_interval_s,
+            )
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.exception(
+            "hourly_report.build_accounts_hourly_report failed: %s", exc,
+        )
+        ts = (now_utc or datetime.now(timezone.utc)).strftime("%Y-%m-%d %H:00 UTC")
+        return (
+            f"[WARN] Accounts Hourly Report - {ts}\n"
             f"Report assembly failed: {type(exc).__name__}: {exc}\n"
             f"Check runtime_logs/ for details."
         )

@@ -24,9 +24,14 @@ from typing import Any, Callable, Dict, Optional
 
 import pandas as pd
 
-from src.runtime.notify import notify_operator, send_via_alert_manager
+from src.runtime.notify import (
+    notify_operator,
+    send_telegram_direct,
+    send_via_alert_manager,
+)
 from src.runtime.orders import safe_place_order
 from src.runtime.outcomes import Level, report
+from src.units.ui.telegram_format import Section, kv_block, render_html, render_plain
 from src.web.runtime_status import write_status
 
 _OUTCOME_LEVEL_BY_STATUS: Dict[str, Level] = {
@@ -175,6 +180,142 @@ def _multi_account_dispatch_enabled(settings: dict) -> bool:
     if raw is None:
         raw = os.environ.get("MULTI_ACCOUNT_DISPATCH", "true")
     return str(raw).strip().lower() in {"true", "1", "yes", "on"}
+
+
+def _signal_meta(signal: Dict[str, Any]) -> Dict[str, Any]:
+    meta = signal.get("meta") if isinstance(signal, dict) else None
+    return meta if isinstance(meta, dict) else {}
+
+
+def _extract_order_package_fields(signal: Dict[str, Any]) -> Dict[str, Any]:
+    """Pull entry / sl / tp / direction off *signal* with the same
+    precedence as ``_signal_to_order_package``.
+
+    Returns ``None`` for any field that isn't present so the renderer
+    can show ``—`` rather than fabricating a value. Used only for the
+    operator-facing Telegram envelope; never as a sizing input.
+    """
+    meta = _signal_meta(signal)
+    entry = signal.get("entry_price") or signal.get("price") or meta.get("price")
+    sl = signal.get("stop_loss") or meta.get("stop_loss") or meta.get("sl")
+    tp = signal.get("take_profit") or meta.get("take_profit") or meta.get("tp")
+    side = (signal.get("side") or "").lower()
+    direction = "long" if side == "buy" else ("short" if side == "sell" else None)
+    return {
+        "entry": entry,
+        "sl": sl,
+        "tp": tp,
+        "direction": direction,
+        "confidence": signal.get("confidence") or meta.get("confidence"),
+    }
+
+
+def _pipeline_result_sections(
+    *, signal: Dict[str, Any], result: Dict[str, Any], strategy: str,
+) -> list:
+    """Build the collapsable detail sections for the per-tick Telegram
+    "Pipeline result" message.
+
+    Sections are stable in shape so the operator can predict where to
+    look:
+
+    1. **Strategy** — name + signal confidence + meta keys.
+    2. **Order package** — entry / sl / tp / direction / qty when the
+       signal carried them; explicit "(not generated)" otherwise.
+    3. **Multi-account dispatch** — per-account result list when the
+       multi_account path ran.
+    4. **Why & next step** — only when status indicates a failure;
+       echoes the reason string and the operator-actionable hint
+       (e.g. "set ALLOW_LIVE_TRADING=true on the VM").
+    """
+    sections: list = []
+    status = result.get("status", "unknown")
+    reason = result.get("reason")
+    meta = _signal_meta(signal)
+
+    # 1. Strategy detail
+    strat_rows = [
+        ("Strategy", strategy),
+        ("Symbol", signal.get("symbol")),
+        ("Side", signal.get("side")),
+        ("Qty (signal)", signal.get("qty")),
+        ("Confidence", signal.get("confidence") or meta.get("confidence")),
+    ]
+    sections.append(Section(
+        summary=f"Strategy — {strategy}",
+        body=kv_block(strat_rows),
+        priority=10,
+    ))
+
+    # 2. Order package detail (entry / sl / tp / direction)
+    pkg = _extract_order_package_fields(signal)
+    if any(v is not None for v in (pkg["entry"], pkg["sl"], pkg["tp"])):
+        pkg_rows = [
+            ("Direction", pkg["direction"]),
+            ("Entry",     pkg["entry"]),
+            ("Stop loss", pkg["sl"]),
+            ("Take profit", pkg["tp"]),
+            ("Confidence", pkg["confidence"]),
+        ]
+        sections.append(Section(
+            summary="Order package — generated",
+            body=kv_block(pkg_rows),
+            priority=20,
+        ))
+    else:
+        sections.append(Section(
+            summary="Order package — not generated",
+            body=(
+                "Signal did not carry entry/sl/tp at the top level; the "
+                "legacy single-client validation path ran instead of the "
+                "multi-account dispatch fast-path."
+            ),
+            priority=20,
+        ))
+
+    # 3. Multi-account dispatch (only when that path ran)
+    multi = result.get("multi_account_results")
+    if isinstance(multi, list) and multi:
+        lines = []
+        for r in multi:
+            if not isinstance(r, dict):
+                continue
+            acc = r.get("account") or r.get("account_id") or "?"
+            st  = r.get("status") or "?"
+            qty = r.get("qty")
+            rsn = r.get("reason")
+            line = f"{acc}: {st}"
+            if qty is not None:
+                line += f" qty={qty}"
+            if rsn:
+                line += f" — {rsn}"
+            lines.append(line)
+        sections.append(Section(
+            summary=f"Accounts dispatched — {len(multi)}",
+            body="\n".join(lines) or "(empty)",
+            priority=30,
+        ))
+
+    # 4. Failure remediation hint
+    if status in {"failed_validation", "failed_exchange",
+                  "failed_dispatch", "error"}:
+        hint_lines = []
+        if reason:
+            hint_lines.append(f"Reason: {reason}")
+        if reason and "ALLOW_LIVE_TRADING" in str(reason):
+            hint_lines.append(
+                "Action: confirm `ALLOW_LIVE_TRADING=true` is set on the VM "
+                "(`/etc/claude/vm-marker` host) AND that build_settings_from_env "
+                "is used to seed the runtime settings dict. The reason now "
+                "includes the actual value read and its source — check that."
+            )
+        sections.append(Section(
+            summary=f"Why & next step — {status}",
+            body="\n".join(hint_lines) or "(no detail)",
+            priority=5,
+        ))
+
+    return sections
 
 
 def _signal_carries_full_sltp(signal: Dict[str, Any]) -> bool:
@@ -796,20 +937,41 @@ def run_pipeline(
     side = signal.get("side", "?")
     qty = signal.get("qty", "?")
 
-    # G5 — operator's "Pipeline result" Telegram line now includes
-    # strategy so per-tick `failed_validation` messages identify the
-    # offending strategy without an audit-log dive.
-    message = (
+    # G5 — the leading line keeps the canonical
+    # ``Pipeline result: status=... | strategy=... | symbol=... |
+    # side=... | qty=...`` format so journalctl greps and the existing
+    # audit consumers stay stable. Section bodies (collapsable in HTML
+    # clients) carry the deeper detail the operator asked for —
+    # strategy attribution, order package, why-it-failed remediation.
+    header = (
         f"Pipeline result: status={status} | strategy={_strategy} "
         f"| symbol={symbol} | side={side} | qty={qty}"
     )
     if reason:
-        message += f" | reason={reason}"
+        header += f" | reason={reason}"
+
+    sections = _pipeline_result_sections(
+        signal=signal, result=result, strategy=_strategy,
+    )
+    html_body = render_html(header=header, sections=sections)
+    plain_body = render_plain(header=header, sections=sections)
 
     if telegram_client is not None:
-        notify_operator(telegram_client, message)
+        notify_operator(telegram_client, plain_body)
     else:
-        send_via_alert_manager(message)
+        try:
+            send_telegram_direct(html_body, parse_mode="HTML")
+        except Exception:  # noqa: BLE001
+            # HTML send failed (network, parse-mode rejection, missing
+            # creds path that *did* raise). Fall back to the plain-text
+            # channel so the message still lands.
+            logger.exception(
+                "pipeline: HTML send failed; falling back to plain text",
+            )
+            try:
+                send_via_alert_manager(plain_body)
+            except Exception:  # noqa: BLE001
+                logger.exception("pipeline: plain-text fallback also failed")
 
     logger.info("Pipeline complete: %s", result)
 
