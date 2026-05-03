@@ -9,7 +9,7 @@ fully-configured TradingAccount instances, each with its own RiskManager.
 from __future__ import annotations
 
 import os
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 _REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 _DEFAULT_ACCOUNTS_YAML = os.path.join(_REPO_ROOT, "config", "accounts.yaml")
@@ -51,6 +51,7 @@ def load_accounts(config_path: str = _DEFAULT_ACCOUNTS_YAML) -> "List":
     from src.units.accounts.account import TradingAccount
     from src.units.accounts.risk import RiskManager
     from src.units.accounts.prop_risk import PropRiskManager
+    from src.units.accounts.clients import resolve_credentials
 
     with open(config_path, "r", encoding="utf-8") as fh:
         raw = yaml.safe_load(fh) or {}
@@ -72,13 +73,37 @@ def load_accounts(config_path: str = _DEFAULT_ACCOUNTS_YAML) -> "List":
         # credentials + SDK wiring land in a follow-up sprint.)
         if cfg.get("enabled") is False:
             continue
+        # Velotrade phase-2: detect "not fully configured" accounts
+        # (env-var creds missing). Such accounts still load — they
+        # appear in /accounts_status with ``configured=False`` and
+        # any live action against them refuses + emits a diagnostic
+        # ping naming the missing env var.
+        api_key_env = cfg.get("api_key_env", "") or ""
+        configured = True
+        configured_reason: Optional[str] = None
+        if api_key_env:
+            creds = resolve_credentials({
+                "api_key_env": api_key_env,
+                "api_secret_env": cfg.get("api_secret_env"),
+                "exchange": cfg.get("exchange"),
+            })
+            if not creds:
+                configured = False
+                derived_secret = cfg.get("api_secret_env") or (
+                    api_key_env.replace("_API_KEY", "_API_SECRET")
+                )
+                configured_reason = (
+                    f"{api_key_env} and/or {derived_secret} not set in env"
+                )
         account = TradingAccount(
             name=name,
             exchange=cfg.get("exchange", "bybit"),
-            api_key_env=cfg.get("api_key_env", ""),
+            api_key_env=api_key_env,
             risk_manager=rm,
             account_type=account_type,
             strategies=list(cfg.get("strategies", []) or []),
+            configured=configured,
+            configured_reason=configured_reason,
         )
         # Apply persistent dry/live override if set
         if name in _DRY_RUN_OVERRIDES:

@@ -107,3 +107,43 @@ def binance_conn_for(account: Dict[str, Any]):
         api_secret=creds["api_secret"],
         testnet=testnet,
     )
+
+
+def velotrade_client_for(account: Dict[str, Any]):
+    """Return a DXtrade client for *account*, or ``None`` if creds missing.
+
+    Mirrors :func:`bybit_client_for` and :func:`binance_conn_for` so the
+    coordinator's ``multi_account_execute`` client-construction switch
+    has a uniform shape: factory returns ``None`` → loader/coordinator
+    treats the account as not-configured and emits a diagnostic ping.
+
+    The base URL (sandbox vs prod) is read from
+    ``VELOTRADE_BASE_URL`` (account-level override:
+    ``account['base_url']``) so the operator can flip between
+    environments without touching code. When neither is set, the
+    client is constructed with ``base_url=None`` and the eventual SDK
+    call site picks the canonical default from the DXtrade contract.
+
+    Returns
+    -------
+    DXtradeClient | None
+        Constructed client when both ``api_key_env`` (e.g.
+        ``VELOTRADE_API_KEY_1``) and the matching ``..._SECRET`` env
+        var are populated; ``None`` otherwise (account is "not
+        fully configured" — downstream code refuses live use and
+        pings the operator).
+    """
+    creds = resolve_credentials(account)
+    if not creds:
+        return None
+    from src.units.accounts.dxtrade_client import DXtradeClient
+    base_url = (
+        account.get("base_url")
+        or os.environ.get("VELOTRADE_BASE_URL")
+        or None
+    )
+    return DXtradeClient(
+        api_key=creds["api_key"],
+        api_secret=creds["api_secret"],
+        base_url=base_url,
+    )

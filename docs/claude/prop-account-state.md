@@ -141,36 +141,94 @@ Operator workflow:
 
 ---
 
-## Velotrade executor
+## Velotrade executor — phase-2 infrastructure
 
 `exchange: velotrade` is registered in `EXCHANGE_MAP` (see
-`src/units/accounts/integrator.py`) but is **dry-run only** in v1.
-Both code paths refuse live placement:
+`src/units/accounts/integrator.py`) and dispatches live placement to
+an injected `DXtradeClient`. The integration shape is real; only the
+four DXtrade SDK method bodies (`place` / `cancel` / `status` /
+`balance` in `src/units/accounts/dxtrade_client.py`) still raise
+`NotImplementedError("DXtrade SDK contract pending — …")` until the
+operator drops the API contract.
 
-- `VelotradeAPI.place(..., dry_run=False)` →
-  `NotImplementedError`.
-- `execute._submit_order` with `exchange == "velotrade"` →
-  `RuntimeError`.
+Routing layers:
 
-This preserves the live-by-default invariant for Bybit while making
-any mis-routed Velotrade signal structurally inert until the DXtrade
-SDK is wired in a follow-up sprint.
+- `src/units/accounts/dxtrade_client.py::DXtradeClient` — owns the
+  SDK surface. Constructor validates non-empty creds; methods are
+  stubs.
+- `src/units/accounts/clients.py::velotrade_client_for(account)` —
+  factory; returns `None` when env-var creds are missing, mirroring
+  `bybit_client_for` / `binance_conn_for`.
+- `src/units/accounts/integrator.py::VelotradeAPI.place` — accepts
+  an injected client; bare class raises `MissingCredentialsError`
+  for live placement without a client.
+- `src/units/accounts/execute.py::_submit_order` velotrade branch —
+  dispatches to the client, mirrors bybit's retCode-style error
+  handling. No client injected → `MissingCredentialsError`.
+- `src/core/coordinator.py::multi_account_execute` — its
+  client-construction switch routes `exchange == "velotrade"`
+  through `velotrade_client_for(account_cfg)`. Missing creds set
+  `client_error` and skip the SDK call entirely; the diagnostic
+  ping fires.
 
 The legacy `breakout` exchange is kept in `EXCHANGE_MAP` as a
-deprecated alias (same dry-run semantics) so old fixtures that still
-reference it continue to load. New configs should target `velotrade`.
+deprecated alias and `_submit_order` raises a clear "migrate to
+velotrade" `RuntimeError` for it. New configs should target
+`velotrade`.
+
+## "Not fully configured" account state
+
+Phase-2 introduces a generic mechanism: any account that loads
+without its env-var credentials populated gets `configured=False`
+on its `TradingAccount` instance. Such accounts:
+
+- Still appear in `/accounts_status` (the operator can see them).
+- Refuse live actions; the existing per-account "missing API creds"
+  path in `multi_account_execute` is the same code path, with a
+  clearer message ("account 'X' is not fully configured: …").
+- Emit a `runtime_logs/pending_pings/` JSON via
+  `enqueue_execution_failure` so the operator gets a Telegram alert
+  the next bot tick.
+
+This is what lets `prop_velotrade_1` ship enabled (no `enabled:
+false` line) without opening a live-trading risk: the strategies
+list is empty (per-account filter blocks routing), the creds are
+absent (the not-configured gate refuses any action that bypasses
+the filter), and the DXtrade SDK methods are stubs (the contract
+hasn't landed). All four safety rails — process interlock, risk
+manager, single live entry point, kill-switch — remain in force on
+top.
+
+### YAML contract
+
+`enabled: false` (legacy) still hard-skips an account at load. New
+accounts should omit `enabled` (or set `enabled: true`) and let the
+loader decide configured/not-configured based on env vars.
 
 ---
 
 ## Operator checklist before enabling a Velotrade account
 
-1. Set the `VELOTRADE_API_KEY_*` env var on the VM.
-2. Wire the live DXtrade SDK in:
-   - `src/units/accounts/integrator.py::VelotradeAPI.place`
-   - `src/units/accounts/execute.py::_submit_order` (`velotrade` branch)
+Phase-2 wired the integration infrastructure; what's left to take a
+specific account live is filling in the SDK contract and provisioning
+creds. The checklist:
+
+1. Drop the DXtrade API contract under `docs/integrations/` and fill
+   in the four `NotImplementedError` method bodies in
+   `src/units/accounts/dxtrade_client.py` (`place`, `cancel`,
+   `status`, `balance`). The integrator + executor branches already
+   call into these methods through the same retCode-style shape as
+   the bybit branch — no other code changes should be needed.
+2. Provision `VELOTRADE_API_KEY_*` and the matching `_SECRET` env
+   vars on the VM via `notebooks/operator/rotate_api_keys.ipynb`.
+   Set `VELOTRADE_BASE_URL` (or `base_url:` on the YAML row) to the
+   sandbox / prod URL from the contract.
 3. Confirm `account_state`, `phase_requirements`, and
-   `overnight_restricted` match the prop firm's contract.
-4. Set `enabled: true` and add the assigned strategies to
-   `strategies: [...]`.
-5. Restart the trader. Confirm the new account appears in
-   `/accounts_status` with `account_state` shown.
+   `overnight_restricted` match the prop firm's terms.
+4. Add the assigned strategies to `strategies: [...]` (currently
+   empty as a belt-and-braces default).
+5. Restart the trader. Confirm `/accounts_status` flips
+   `configured` from False to True for the account, then run a smoke
+   trade with `pkg.meta['is_test']=True` and qty below the DXtrade
+   min-lot (the smoke-test bypass in `PropRiskManager.evaluate` skips
+   the mission gate so the SDK call layer gets exercised end-to-end).

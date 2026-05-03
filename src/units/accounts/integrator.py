@@ -67,29 +67,83 @@ class BreakoutAPI:
 
 
 class VelotradeAPI:
-    """Velotrade DXtrade prop firm API stub — dry-run only.
+    """Velotrade DXtrade prop firm API — phase-2 infrastructure.
 
-    Replaces BreakoutAPI as the canonical prop-firm executor.
-    Real DXtrade SDK integration ships in a follow-up sprint once
-    credentials and the API contract are finalised. Until then the
-    live path raises ``NotImplementedError`` so a misconfigured
-    ``ALLOW_LIVE_TRADING=true`` cannot accidentally route a real
-    order through an empty driver.
+    Phase-2 (this PR) turns the phase-1 stub into the real
+    integration shape. Live placement is dispatched to an injected
+    :class:`src.units.accounts.dxtrade_client.DXtradeClient` so the
+    code path has the same routing skeleton as the bybit branch.
+    The DXtrade *SDK calls themselves* (HTTP / auth / response
+    parsing) live in :class:`DXtradeClient` and currently raise
+    ``NotImplementedError`` until the operator drops the API
+    contract — the rest of the pipeline (account loader, coordinator
+    routing, executor branch, diagnostic ping) is already wired.
+
+    Live placement preferred path is ``execute_pkg`` from
+    :mod:`src.units.accounts.execute`, which receives the
+    ``DXtradeClient`` from
+    :func:`src.units.accounts.clients.velotrade_client_for`. The bare
+    :meth:`place` here is kept for parity with :class:`BybitAPI` and
+    for legacy callers that still reach into the integrator directly.
     """
 
-    def __init__(self, api_key_env: str) -> None:
+    def __init__(
+        self,
+        api_key_env: str,
+        *,
+        client: object = None,
+    ) -> None:
         self.api_key_env = api_key_env
+        self._client = client
 
-    def place(self, order: OrderPackage, *, dry_run: bool = True) -> str:
+    def place(
+        self,
+        order: OrderPackage,
+        *,
+        dry_run: bool = True,
+        client: object = None,
+    ) -> str:
         if dry_run:
             trade_id = f"dry-velotrade-{uuid.uuid4().hex[:10]}"
             logger.info("VelotradeAPI DRY-RUN %s → %s", order.symbol, trade_id)
             return trade_id
-        raise NotImplementedError(
-            "VelotradeAPI live integration not yet implemented; "
-            "Velotrade accounts must run dry-run only until the "
-            "DXtrade SDK is wired."
+        # Live path — the injected DXtradeClient owns the SDK call.
+        # The executor in src.units.accounts.execute._submit_order
+        # is the canonical caller and already mirrors bybit's
+        # retCode-style error handling. The bare class still raises
+        # if it's invoked without a client (legacy callers).
+        from src.units.accounts.dxtrade_client import (
+            DXtradeClient,
+            MissingCredentialsError,
         )
+        cli = client or self._client
+        if cli is None:
+            raise MissingCredentialsError(
+                f"VelotradeAPI: live placement requires a DXtradeClient "
+                f"(api_key_env={self.api_key_env!r}); call execute_pkg "
+                f"with exchange_client=velotrade_client_for(account_cfg)."
+            )
+        if not isinstance(cli, DXtradeClient):
+            raise TypeError(
+                f"VelotradeAPI.place: expected DXtradeClient, got "
+                f"{type(cli).__name__}"
+            )
+        side = "Buy" if order.direction == "long" else "Sell"
+        resp = cli.place({
+            "symbol": order.symbol,
+            "side": side,
+            "direction": order.direction,
+            "entry": order.entry,
+            "sl": order.sl,
+            "tp": order.tp,
+            "strategy": order.strategy,
+        }) or {}
+        ret_code = resp.get("retCode")
+        if ret_code in (0, "0", None):
+            order_id = (resp.get("result") or {}).get("orderId")
+            return str(order_id or uuid.uuid4().hex)
+        reason = str(resp.get("retMsg") or f"retCode={ret_code}")
+        raise RuntimeError(f"DXtrade rejected order: {reason}")
 
 
 EXCHANGE_MAP: dict[str, type] = {
