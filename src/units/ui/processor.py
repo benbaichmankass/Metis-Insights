@@ -945,6 +945,148 @@ def render_packages_collapsable(
 
 
 # ---------------------------------------------------------------------------
+# /latest_backtest <strategy> [N] — backtest history with delta indicators.
+# ---------------------------------------------------------------------------
+
+
+# Metric → (display label, "good" direction). The renderer surfaces a
+# 📈 / 📉 indicator on the LATEST run when its value moved in the
+# good / bad direction relative to the prior run.
+_BACKTEST_DELTA_METRICS = (
+    ("win_rate",         "WR",     "up"),
+    ("sharpe_ratio",     "Sharpe", "up"),
+    ("profit_factor",    "PF",     "up"),
+    ("expectancy",       "Exp",    "up"),
+    ("max_drawdown_pct", "DD%",    "down"),
+    ("total_pnl",        "PnL",    "up"),
+)
+
+
+def _compute_backtest_deltas(
+    latest: Dict[str, Any], prior: Dict[str, Any],
+) -> Dict[str, Optional[float]]:
+    """Return {metric: signed delta} where positive=latest higher, None
+    when either side is missing or non-numeric.
+
+    Caller decides which direction is "good" per metric.
+    """
+    deltas: Dict[str, Optional[float]] = {}
+    for key, _label, _dir in _BACKTEST_DELTA_METRICS:
+        try:
+            cur = latest.get(key)
+            pre = prior.get(key)
+            if cur is None or pre is None:
+                deltas[key] = None
+                continue
+            deltas[key] = float(cur) - float(pre)
+        except (TypeError, ValueError):
+            deltas[key] = None
+    return deltas
+
+
+def render_backtest_history_collapsable(
+    rows: List[Dict[str, Any]],
+    strategy_version: str,
+    *,
+    title: Optional[str] = None,
+) -> str:
+    """Render N backtest_results rows as one HTML message.
+
+    Each run gets its own collapsable section with the full metric set.
+    On the *latest* row the summary line carries 📈 / 📉 deltas vs the
+    prior run for the metrics in ``_BACKTEST_DELTA_METRICS`` so the
+    operator immediately sees whether the most-recent run improved or
+    regressed against the previous one.
+
+    Empty input renders a friendly message in the same envelope so
+    callers don't need a separate branch.
+    """
+    from src.units.ui.telegram_format import Section, render_html
+
+    base_title = title or f"📊 Backtest history — {strategy_version}"
+
+    if not rows:
+        return render_html(
+            header=base_title,
+            sections=[Section(
+                summary="📭 No backtest history",
+                body=(f"No rows in backtest_results for "
+                      f"strategy_version={strategy_version!r}."),
+            )],
+        )
+
+    deltas: Dict[str, Optional[float]] = {}
+    if len(rows) >= 2:
+        deltas = _compute_backtest_deltas(rows[0], rows[1])
+
+    sections: List[Section] = []
+    for idx, row in enumerate(rows):
+        run_date = row.get("run_date") or row.get("created_at") or "?"
+        win_rate = row.get("win_rate")
+        sharpe = row.get("sharpe_ratio")
+        pnl = row.get("total_pnl")
+
+        try:
+            wr_str = f"{float(win_rate)*100:.1f}%" if win_rate is not None else "?"
+        except (TypeError, ValueError):
+            wr_str = str(win_rate)
+        try:
+            sh_str = f"{float(sharpe):.2f}" if sharpe is not None else "?"
+        except (TypeError, ValueError):
+            sh_str = str(sharpe)
+        try:
+            pnl_str = f"{float(pnl):+.2f}" if pnl is not None else "?"
+        except (TypeError, ValueError):
+            pnl_str = str(pnl)
+
+        delta_tags = []
+        if idx == 0 and deltas:
+            for key, label, good_dir in _BACKTEST_DELTA_METRICS:
+                d = deltas.get(key)
+                if d is None or abs(d) < 1e-9:
+                    continue
+                improved = (good_dir == "up" and d > 0) or (
+                    good_dir == "down" and d < 0
+                )
+                delta_tags.append(f"{'📈' if improved else '📉'}{label}")
+
+        marker = "🆕 LATEST" if idx == 0 else f"#{idx + 1}"
+        delta_suffix = (" — " + " ".join(delta_tags)) if delta_tags else ""
+        summary = (
+            f"{marker} {run_date} — WR={wr_str} Sharpe={sh_str} "
+            f"PnL={pnl_str}{delta_suffix}"
+        )
+
+        body_lines = [
+            f"🗓 Run: {run_date}",
+            f"📅 Period: {row.get('start_date', '?')} → "
+            f"{row.get('end_date', '?')}",
+            f"🔢 Trades: {row.get('total_trades', '?')} "
+            f"({row.get('winning_trades', '?')}W / "
+            f"{row.get('losing_trades', '?')}L)",
+            f"🎯 Win rate: {wr_str}",
+            f"⚖️ Profit factor: {row.get('profit_factor', '?')}",
+            f"📈 Expectancy: {row.get('expectancy', '?')}",
+            f"📐 Sharpe: {sh_str}",
+            f"📉 Max DD: {row.get('max_drawdown', '?')} "
+            f"({row.get('max_drawdown_pct', '?')}%)",
+            f"💵 Total PnL: {pnl_str} ({row.get('total_pnl_pct', '?')}%)",
+            f"🥇 Avg win: {row.get('avg_win', '?')} | "
+            f"🥀 Avg loss: {row.get('avg_loss', '?')}",
+            f"🚀 Largest win: {row.get('largest_win', '?')} | "
+            f"💥 Largest loss: {row.get('largest_loss', '?')}",
+            f"🕒 Saved: {row.get('created_at', '?')}",
+        ]
+        sections.append(Section(
+            summary=summary, body="\n".join(body_lines), priority=10 + idx,
+        ))
+
+    return render_html(
+        header=f"{base_title} — {len(rows)} run(s)", sections=sections,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Price helper — S-031 PR3 (architecture-audit-2026-05-02 P1-6)
 # ---------------------------------------------------------------------------
 

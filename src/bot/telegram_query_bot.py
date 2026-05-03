@@ -670,7 +670,7 @@ BOT_COMMAND_SPECS: list[BotCommandSpec] = [
     BotCommandSpec("hourly", "Send the hourly summary on demand (bypasses dedup)", "signals"),
     # Backtesting & dashboard
     BotCommandSpec("backtest", "Start backtest in background", "backtest"),
-    BotCommandSpec("latest_backtest", "Latest backtest status/result", "backtest"),
+    BotCommandSpec("latest_backtest", "Latest backtest result; /latest_backtest [strategy] [N] for history", "backtest"),
     BotCommandSpec("backtest_ui", "How to launch the Streamlit backtesting dashboard", "backtest"),
     BotCommandSpec("webapp", "Open the secure web dashboard", "backtest"),
     # Diagnostics & VM
@@ -2046,8 +2046,72 @@ async def cmd_backtest(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def cmd_latest_backtest(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """``/latest_backtest [strategy] [N]``.
+
+    No-arg path: unchanged — surfaces the latest backtest_results row
+    per ``strategy_version`` (or running/failed status when an active
+    job is in flight).
+
+    With args (CP-2026-05-?-??): show the last N backtest_results rows
+    for one ``strategy_version`` with delta indicators on the latest
+    run vs the prior. Lets the operator track whether a strategy is
+    improving or regressing across consecutive backtest runs — useful
+    when investigating "live trades aren't placing" against the
+    backdrop of recent strategy tuning.
+    """
     if not is_authorised(update):
         return
+
+    args = list(context.args or [])
+
+    # ---- New args path: /latest_backtest <strategy> [N] -----------------
+    if args:
+        strategy = str(args[0]).strip()
+        n = 5
+        if len(args) >= 2:
+            try:
+                n = max(1, min(20, int(args[1])))
+            except (TypeError, ValueError):
+                await update.message.reply_text(
+                    "Usage: /latest_backtest [strategy] [N]\n"
+                    f"Got N={args[1]!r}; expected an integer 1..20."
+                )
+                return
+
+        try:
+            rows = dl.backtest_history_for(strategy, n=n) or []
+        except Exception as exc:  # noqa: BLE001
+            await update.message.reply_text(
+                f"⚠️ Could not load backtest history: {exc}"
+            )
+            return
+
+        if not rows:
+            try:
+                available = dl.list_backtest_strategies() or []
+            except Exception:  # noqa: BLE001
+                available = []
+            msg = (
+                f"ℹ️ No backtest history for strategy_version={strategy!r}."
+            )
+            if available:
+                msg += "\nAvailable: " + ", ".join(available)
+            await update.message.reply_text(msg)
+            return
+
+        from src.units.ui.processor import render_backtest_history_collapsable
+        body = render_backtest_history_collapsable(rows, strategy)
+        try:
+            await update.message.reply_text(
+                body, parse_mode="HTML", disable_web_page_preview=True,
+            )
+        except Exception as exc:  # noqa: BLE001
+            await update.message.reply_text(
+                f"⚠️ Could not render backtest history: {exc}"
+            )
+        return
+
+    # ---- No-arg path: unchanged behaviour --------------------------------
     state = BACKTEST_STATUS["state"]
     if state == "running":
         await update.message.reply_text(

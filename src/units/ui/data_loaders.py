@@ -463,6 +463,72 @@ def latest_backtests_per_model() -> List[Dict[str, Any]]:
         return []
 
 
+def backtest_history_for(strategy_version: str, n: int = 5) -> List[Dict[str, Any]]:
+    """Last ``n`` backtest_results rows for *strategy_version* (newest first).
+
+    Powers the enhanced ``/latest_backtest <strategy> [N]`` view —
+    operator can see if a strategy is improving or regressing across
+    consecutive backtest runs (CP-2026-05-?-??). Returns ``[]`` when the
+    DB is missing, the strategy has no history, or any error occurs.
+    """
+    if not strategy_version:
+        return []
+    if not os.path.exists(TRADE_JOURNAL_DB):
+        return []
+    try:
+        n = max(1, int(n))
+    except (TypeError, ValueError):
+        n = 5
+    try:
+        conn = sqlite3.connect(TRADE_JOURNAL_DB)
+        try:
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute(
+                "SELECT id, run_date, strategy_version, start_date, end_date,"
+                " total_trades, winning_trades, losing_trades, win_rate,"
+                " profit_factor, expectancy, max_drawdown, max_drawdown_pct,"
+                " sharpe_ratio, total_pnl, total_pnl_pct, avg_win, avg_loss,"
+                " largest_win, largest_loss, created_at FROM backtest_results"
+                " WHERE strategy_version = ?"
+                " ORDER BY datetime(created_at) DESC LIMIT ?",
+                (strategy_version, n),
+            ).fetchall()
+        finally:
+            conn.close()
+        return [dict(r) for r in rows]
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("backtest_history_for(%r, %d): %s",
+                       strategy_version, n, exc)
+        return []
+
+
+def list_backtest_strategies() -> List[str]:
+    """Distinct ``strategy_version`` values from ``backtest_results``.
+
+    Used by ``/latest_backtest <unknown>`` to show the operator the
+    available strategy_version names instead of an empty result.
+    Returns ``[]`` on any error.
+    """
+    if not os.path.exists(TRADE_JOURNAL_DB):
+        return []
+    try:
+        conn = sqlite3.connect(TRADE_JOURNAL_DB)
+        try:
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute(
+                "SELECT DISTINCT strategy_version FROM backtest_results"
+                " WHERE strategy_version IS NOT NULL"
+                " AND TRIM(strategy_version) != ''"
+                " ORDER BY strategy_version"
+            ).fetchall()
+        finally:
+            conn.close()
+        return [r["strategy_version"] for r in rows]
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("list_backtest_strategies: %s", exc)
+        return []
+
+
 # -- Exchange-aware account queries (PR-B3) -----------------------------------
 
 def _read_env_file(env_path: str) -> Dict[str, str]:
