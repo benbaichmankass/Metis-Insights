@@ -531,6 +531,8 @@ def _format_signal_row(rec: Dict[str, Any]) -> str:
 def get_signals_block(
     strategy_filter: Optional[str] = None,
     limit: int = 10,
+    *,
+    use_html: bool = False,
 ) -> str:
     """Return a fully-rendered Telegram-ready block for ``/signals``.
 
@@ -546,6 +548,13 @@ def get_signals_block(
         Lowercased filter; ``None`` means all strategies.
     limit : int
         How many rows to render. Capped at 200 internally.
+    use_html : bool, default False
+        When True, render with the unified collapsable HTML formatter:
+        signals grouped by status, one expandable section per bucket.
+        The summary line of each section names the count
+        ("🔴 failed_validation — 12 signals") so the operator sees the
+        distribution at a glance and taps the bucket they want to
+        inspect. Default False keeps the legacy plain-text format.
 
     Returns
     -------
@@ -566,10 +575,61 @@ def get_signals_block(
         audit_path = os.environ.get("SIGNAL_AUDIT_PATH") or os.path.join(
             repo_root, "runtime_logs", "signal_audit.jsonl",
         )
-        return (
+        empty_msg = (
             f"📭 No signals logged yet{scope}.\n"
             f"Audit file: {audit_path}"
         )
+        if use_html:
+            from src.units.ui.telegram_format import Section, render_html
+            return render_html(
+                header="📡 Recent signals",
+                sections=[Section(summary=empty_msg, body="")],
+            )
+        return empty_msg
+
+    if use_html:
+        from src.units.ui.telegram_format import Section, render_html
+
+        # Group rows by status so the collapsable buckets give the
+        # operator a one-glance distribution. Within each bucket the
+        # newest signals are first (rows already arrive in reverse-
+        # chronological order from get_recent_signals).
+        by_status: Dict[str, List[Dict[str, Any]]] = {}
+        for r in rows:
+            st = str(r.get("status", "?"))
+            by_status.setdefault(st, []).append(r)
+
+        # Failure-shaped statuses sort first so the operator's eye
+        # lands on them before the happy path.
+        priority_order = {
+            "failed_validation": 5,
+            "failed_exchange":   6,
+            "failed_dispatch":   7,
+            "error":             8,
+            "refused":           10,
+            "blocked":           11,
+            "halted":            12,
+            "news_veto":         13,
+            "submitted":         20,
+            "multi_account_dispatched": 21,
+            "dry_run":           30,
+            "skipped":           40,
+        }
+        sections: List[Section] = []
+        for st, bucket in by_status.items():
+            emoji = _SIGNAL_STATUS_EMOJI.get(st, "•")
+            body_lines = [_format_signal_row(r) for r in bucket]
+            sections.append(Section(
+                summary=f"{emoji} {st} — {len(bucket)} signals",
+                body="\n".join(body_lines),
+                priority=priority_order.get(st, 50),
+            ))
+
+        header = (
+            f"📡 Last {len(rows)} signals"
+            + (f" — {strategy_filter}" if strategy_filter else "")
+        )
+        return render_html(header=header, sections=sections)
 
     header = (
         f"📡 Last {len(rows)} signals"
@@ -577,6 +637,80 @@ def get_signals_block(
     )
     body = "\n".join(_format_signal_row(r) for r in rows)
     return f"{header}\n{body}"
+
+
+def render_recent_trades_collapsable(
+    rows: List[Dict[str, Any]],
+    *,
+    title: str = "📒 Recent trades",
+) -> str:
+    """Render trade-journal rows as one HTML message with each trade
+    in its own collapsable section.
+
+    Pre-S-telegram-format the bot's ``cmd_last5`` sent ONE Telegram
+    message per trade (5 trades → 5 messages, plus a chart per row).
+    The new shape consolidates everything into a single message: the
+    operator sees one summary line per trade ("Trade #42 BTCUSDT long
+    +$23.45") and taps to expand the full SL/TP/setup/notes block.
+
+    Returns an HTML string suitable for ``parse_mode="HTML"``. Empty
+    input returns a "no trades" message wrapped in the same envelope
+    so callers don't need a separate branch.
+    """
+    from src.units.ui.telegram_format import Section, render_html
+
+    if not rows:
+        return render_html(
+            header=title,
+            sections=[Section(summary="📭 No trades found", body="")],
+        )
+
+    sections: List[Section] = []
+    for idx, row in enumerate(rows):
+        trade_id = row.get("id", "?")
+        symbol = row.get("symbol", "?")
+        direction = row.get("direction", "?")
+        pnl = row.get("pnl")
+        try:
+            pnl_str = f"{float(pnl):+.2f}" if pnl is not None else "?"
+        except (TypeError, ValueError):
+            pnl_str = str(pnl)
+        status = row.get("status", "?")
+        summary = (
+            f"Trade #{trade_id} — {symbol} {direction} "
+            f"PnL ${pnl_str} ({status})"
+        )
+
+        # Body mirrors the legacy /last5 layout but plain-text so the
+        # formatter's HTML escape keeps DB-sourced free-text fields
+        # safe (notes / entry_reason / exit_reason can contain any
+        # character — see BUG-009 / BUG-030 / BUG-031).
+        body_lines = [
+            f"🕒 {row.get('timestamp', '?')}",
+            f"💰 Entry: {row.get('entry_price', '?')} | "
+            f"🛑 SL: {row.get('stop_loss', '?')}",
+            f"🎯 TP1: {row.get('take_profit_1', '?')} | "
+            f"TP2: {row.get('take_profit_2', '?')} | "
+            f"TP3: {row.get('take_profit_3', '?')}",
+            f"📦 Size: {row.get('position_size', '?')}",
+            f"🧠 {row.get('setup_type', '?')} | "
+            f"{row.get('bias', '?')} | "
+            f"{row.get('killzone', '?')}",
+            f"📝 {row.get('entry_reason', '')}",
+            f"🚪 {row.get('exit_reason', '')}",
+            f"💵 PnL: {pnl_str} ({row.get('pnl_percent', '?')}%)",
+            f"📓 {row.get('notes', '')}",
+        ]
+        if row.get("is_backtest"):
+            body_lines.append("🧪 BACKTEST row")
+
+        sections.append(Section(
+            summary=summary, body="\n".join(body_lines), priority=10 + idx,
+        ))
+
+    return render_html(
+        header=f"{title} — {len(rows)} rows", sections=sections,
+    )
 
 
 # ---------------------------------------------------------------------------

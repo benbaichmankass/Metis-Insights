@@ -1080,6 +1080,26 @@ async def cmd_last5(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not rows:
         await update.message.reply_text("📭 No trades found in trade_journal.db.")
         return
+    # S-telegram-format Phase 3: render all trades into ONE HTML
+    # message with each trade collapsed into its own
+    # ``<blockquote expandable>`` section. Pre-PR the bot sent one
+    # message per trade plus a chart attachment per row (5 trades →
+    # 5+ messages); the new shape consolidates to a single message
+    # the operator can scan and selectively expand.
+    from src.units.ui.processor import render_recent_trades_collapsable
+    body = render_recent_trades_collapsable(rows, title="📒 Last 5 trades")
+    try:
+        await update.message.reply_text(
+            body, parse_mode="HTML", disable_web_page_preview=True,
+        )
+    except Exception as e:  # noqa: BLE001
+        await update.message.reply_text(
+            f"⚠️ Could not render trades: {e}")
+        return
+
+    # The chart attachment was per-row pre-PR; sending it once at the
+    # end keeps the operator's previous behaviour available without
+    # cluttering the trade list.
     chart_candidates = [
         os.path.join(BASE_DIR, "ict_complete_chart.html"),
         os.path.join(BASE_DIR, "ict_enhanced_chart.html"),
@@ -1087,15 +1107,12 @@ async def cmd_last5(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     available_chart = next(
         (p for p in chart_candidates if os.path.exists(p)), None)
-    for row in rows:
+    if available_chart:
         try:
-            await update.message.reply_text(_format_trade_row(row))
-            if available_chart:
-                await update.message.reply_document(
-                    document=open(available_chart, "rb"))
-        except Exception as e:  # noqa: BLE001
-            await update.message.reply_text(
-                f"⚠️ Could not render trade: {e}")
+            await update.message.reply_document(
+                document=open(available_chart, "rb"))
+        except Exception:  # noqa: BLE001
+            pass
 
 
 # ---------------------------------------------------------------------------
@@ -1274,8 +1291,16 @@ async def cmd_signals(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    body = _render_signals_block(strategy_filter, limit)
-    await update.message.reply_text(body, disable_web_page_preview=True)
+    # S-telegram-format Phase 3: HTML mode groups signals by status
+    # into collapsable sections so the operator sees the distribution
+    # at a glance and taps the bucket they want to inspect.
+    from src.units.ui.processor import get_signals_block
+    body = get_signals_block(
+        strategy_filter=strategy_filter, limit=limit, use_html=True,
+    )
+    await update.message.reply_text(
+        body, parse_mode="HTML", disable_web_page_preview=True,
+    )
 
 
 async def cmd_log(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -2083,8 +2108,13 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "⚠️ Invalid N — tap a number on the stepper.")
             return
         strategy_filter = None if strat_part == "all" else strat_part
-        body = _render_signals_block(strategy_filter, limit)
-        await query.edit_message_text(body, disable_web_page_preview=True)
+        from src.units.ui.processor import get_signals_block
+        body = get_signals_block(
+            strategy_filter=strategy_filter, limit=limit, use_html=True,
+        )
+        await query.edit_message_text(
+            body, parse_mode="HTML", disable_web_page_preview=True,
+        )
         return
 
     # Sprint 025 T2 — /smoke_test account picker.
