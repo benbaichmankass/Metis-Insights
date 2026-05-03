@@ -985,7 +985,7 @@ def account_last_trade(account: Dict[str, Any]) -> Optional[Dict[str, Any]]:
                 " pnl, status, strategy_name, created_at FROM trades"
                 " WHERE account_id = ? AND COALESCE(is_backtest, 0) = 0"
                 " AND COALESCE(status, 'open')"
-                " NOT IN ('rejected', 'exchange_rejected', 'rejected_too_small')"
+                " NOT IN ('rejected', 'exchange_rejected', 'rejected_too_small', 'orphaned')"
                 " ORDER BY datetime(created_at) DESC, id DESC LIMIT 1",
                 (aid,),
             ).fetchone()
@@ -1033,7 +1033,7 @@ def recent_trades_for(account: Dict[str, Any], n: int = 5) -> List[Dict[str, Any
                 " is_backtest, created_at FROM trades"
                 " WHERE account_id = ?"
                 " AND COALESCE(status, 'open')"
-                " NOT IN ('rejected', 'exchange_rejected', 'rejected_too_small')"
+                " NOT IN ('rejected', 'exchange_rejected', 'rejected_too_small', 'orphaned')"
                 " ORDER BY datetime(created_at) DESC, id DESC LIMIT ?",
                 (aid, n),
             ).fetchall()
@@ -1070,8 +1070,18 @@ def recent_trades_for(account: Dict[str, Any], n: int = 5) -> List[Dict[str, Any
 #     real rejections, just not signal-driven). Added to the family
 #     post-CP-16 when the operator hit smoke-test pollution in the
 #     /last5 view (PR follow-up).
+#   - ``orphaned``           — pre-#357 ghost rows where
+#     ``_log_trade_to_journal`` wrote ``status='open'`` *before* the
+#     exchange call returned. If the exchange rejected (insufficient
+#     balance, leverage cap, etc.), the row was orphaned with no
+#     rejection-row counterpart. Backfilled by the one-shot
+#     ``notebooks/operator/cleanup_ghost_trades.ipynb`` migration
+#     (CP-17 follow-up). Going forward PR #357 prevents this shape
+#     for new trades.
 
-REFUSAL_STATUSES = ("rejected", "exchange_rejected", "rejected_too_small")
+REFUSAL_STATUSES = (
+    "rejected", "exchange_rejected", "rejected_too_small", "orphaned",
+)
 
 
 def recent_rejections(n: int = 10) -> List[Dict[str, Any]]:
@@ -1100,7 +1110,7 @@ def recent_rejections(n: int = 10) -> List[Dict[str, Any]]:
                 " stop_loss, take_profit_1, position_size, setup_type,"
                 " entry_reason, status, notes, strategy_name, account_id,"
                 " created_at FROM trades"
-                " WHERE status IN ('rejected', 'exchange_rejected', 'rejected_too_small')"
+                " WHERE status IN ('rejected', 'exchange_rejected', 'rejected_too_small', 'orphaned')"
                 " ORDER BY datetime(created_at) DESC, id DESC LIMIT ?",
                 (n,),
             ).fetchall()

@@ -288,15 +288,85 @@ class TestRejectedTooSmallStatus:
             "smoke-test row should not surface as 'last live trade'."
         )
 
-    def test_refusal_statuses_constant_lists_all_three(self):
+    def test_refusal_statuses_constant_lists_all_four(self):
         """The published constant should match the SQL predicates so
         any future symmetric aggregator can opt in via REFUSAL_STATUSES
-        without duplicating the literal list."""
+        without duplicating the literal list. Four sibling tokens after
+        the CP-17 ghost-trade cleanup: rejected, exchange_rejected,
+        rejected_too_small, orphaned."""
         from src.units.ui.data_loaders import REFUSAL_STATUSES
 
         assert set(REFUSAL_STATUSES) == {
-            "rejected", "exchange_rejected", "rejected_too_small",
+            "rejected", "exchange_rejected",
+            "rejected_too_small", "orphaned",
         }
+
+
+def _seed_orphaned_row(db_path):
+    """Insert a single ``status='orphaned'`` row.
+
+    Mirrors the pre-#357 ghost-trade shape that the operator backfills
+    via ``notebooks/operator/cleanup_ghost_trades.ipynb`` — a row that
+    was logged ``status='open'`` BEFORE the exchange call returned,
+    then orphaned when the exchange refused the order.
+    """
+    from src.units.db.database import Database
+
+    Database(str(db_path))
+
+    conn = sqlite3.connect(str(db_path))
+    try:
+        conn.execute(
+            "INSERT INTO trades (timestamp, symbol, direction, entry_price,"
+            " stop_loss, take_profit_1, position_size, setup_type,"
+            " entry_reason, status, strategy_name, account_id, is_backtest,"
+            " created_at, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                "2026-05-02T22:56:50",
+                "BTCUSDT", "short",
+                78800.0, 78923.27, 78652.54, 0.007,
+                None, "vwap signal",
+                "orphaned",
+                "vwap", "bybit_2", 0,
+                "2026-05-02T22:56:50",
+                '{"trade_id": "1df8286b-0525-4fe7-ace9-e9f884db9726",'
+                ' "is_dry": false, "confidence": 0.0,'
+                ' "orphaned_at": "2026-05-03T20:00:00"}',
+            ),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+class TestOrphanedStatus:
+    def test_recent_trades_for_excludes_orphaned(self, tmp_journal):
+        """The ghost-trade backfill (CP-17) marks pre-#357 open rows
+        as ``orphaned`` so they stop polluting /last5."""
+        from src.units.ui import data_loaders
+
+        with patch.object(data_loaders, "TRADE_JOURNAL_DB", str(tmp_journal)):
+            _seed_orphaned_row(tmp_journal)
+            rows = data_loaders.recent_trades_for(
+                {"account_id": "bybit_2"}, n=10
+            )
+
+        assert rows == [], (
+            "Orphaned ghost-trade rows must be filtered from /last5 — "
+            "they don't correspond to actual exchange positions."
+        )
+
+    def test_recent_rejections_includes_orphaned(self, tmp_journal):
+        """The inverse filter (/packages) must show orphaned rows so
+        the operator can audit what got backfilled."""
+        from src.units.ui import data_loaders
+
+        with patch.object(data_loaders, "TRADE_JOURNAL_DB", str(tmp_journal)):
+            _seed_orphaned_row(tmp_journal)
+            rows = data_loaders.recent_rejections(n=10)
+
+        assert len(rows) == 1
+        assert rows[0]["status"] == "orphaned"
 
 
 # ---------------------------------------------------------------------------
