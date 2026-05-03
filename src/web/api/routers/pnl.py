@@ -93,7 +93,7 @@ def _query_pnl(
               FROM trades
              WHERE COALESCE(is_backtest, 0) = 0
                AND COALESCE(status, 'open')
-                       NOT IN ('rejected', 'exchange_rejected', 'rejected_too_small')
+                       NOT IN ('rejected', 'exchange_rejected', 'rejected_too_small', 'orphaned')
                AND substr(COALESCE(created_at, timestamp), 1, 10) = ?
              GROUP BY account_id
             """,

@@ -426,7 +426,7 @@ def get_today_pnl(account_id: Optional[str] = None) -> Dict[str, Any]:
             # for documentation. (CP-2026-05-03-14.)
             status_filter = (
                 "AND COALESCE(status, 'open') "
-                "NOT IN ('rejected', 'exchange_rejected', 'rejected_too_small')"
+                "NOT IN ('rejected', 'exchange_rejected', 'rejected_too_small', 'orphaned')"
             )
             if account_id is not None:
                 row = conn.execute(
