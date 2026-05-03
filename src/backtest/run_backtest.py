@@ -8,7 +8,8 @@ import pandas as pd
 from src.backtest.backtester import ICTBacktester
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-REPO_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
+from src.utils.paths import repo_root as _repo_root
+REPO_ROOT = _repo_root()
 DB_CANDIDATES = [
     os.environ.get("TRADE_JOURNAL_DB", ""),
     os.path.join(REPO_ROOT, "trade_journal.db"),

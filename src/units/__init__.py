@@ -11,9 +11,11 @@ import logging
 import os
 from typing import Any, Dict, List
 
+from src.utils.paths import repo_root as _repo_root
+
 logger = logging.getLogger(__name__)
 
-_REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+_REPO_ROOT = _repo_root()
 _DEFAULT_UNITS_YAML = os.path.join(_REPO_ROOT, "config", "units.yaml")
 
 

@@ -33,7 +33,8 @@ from typing import Any, Dict, Optional
 logger = logging.getLogger(__name__)
 
 _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-REPO_ROOT = os.path.abspath(os.path.join(_BASE_DIR, "..", "..", ".."))
+from src.utils.paths import repo_root as _repo_root  # noqa: E402
+REPO_ROOT = _repo_root()
 
 
 def _read_env_file(env_path: str) -> Dict[str, str]:

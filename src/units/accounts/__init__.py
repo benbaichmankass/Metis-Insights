@@ -23,7 +23,9 @@ from __future__ import annotations
 import os
 from typing import Dict, List, Optional
 
-_REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+from src.utils.paths import repo_root as _repo_root
+
+_REPO_ROOT = _repo_root()
 _DEFAULT_ACCOUNTS_YAML = os.path.join(_REPO_ROOT, "config", "accounts.yaml")
 
 # Persistent dry/live overrides: {account_name: dry_run_bool}

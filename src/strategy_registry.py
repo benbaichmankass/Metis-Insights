@@ -25,7 +25,9 @@ from typing import Any
 
 import yaml
 
-_REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+from src.utils.paths import repo_root as _repo_root
+
+_REPO_ROOT = _repo_root()
 _YAML_PATH = os.path.join(_REPO_ROOT, "config", "strategies.yaml")
 _MODELS_DIR = os.path.join(_REPO_ROOT, "models")
 
