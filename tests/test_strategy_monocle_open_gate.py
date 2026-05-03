@@ -1,0 +1,153 @@
+"""Strategy-monocle gate (PR 1 of 3) — one open package per strategy
+globally.
+
+Operator directive 2026-05-03: each strategy may have at most one
+open ``order_packages`` row at a time, regardless of how many
+accounts follow it. Once a package is logged, the strategy focuses
+on monitoring + updating that package via the order-monitor loop
+until SL/TP hits or the strategy decides to close (PRs 2 + 3 of
+this sprint wire the close path).
+
+Pre-fix every actionable VWAP tick stacked a new package into
+``trade_journal.db::order_packages`` — the operator's snapshot on
+2026-05-03 22:38 showed 10+ open VWAP packages with no linked
+trades, and a second wave of 5+ ``below_min_balance`` /
+``skipped_not_assigned`` rejection rows landed each tick (PR #382's
+new contract).
+
+This PR puts the gate at the dispatch boundary in
+``src/runtime/pipeline.py``. The strategy unit's signal-builder is
+unchanged; the pipeline consults
+``Database.get_order_packages_by_strategy(strategy, status='open')``
+before calling ``_signal_to_order_package``, and skips dispatch
+with ``status='skipped'`` / ``reason='open_package_exists'`` if any
+match exists.
+
+Three contracts under test:
+
+1. **No open package → dispatch proceeds.** The helper returns
+   ``None`` for an empty DB; the existing pipeline path runs.
+2. **Open package exists → dispatch skipped.** The helper returns
+   the package id; the pipeline emits a ``skipped`` outcome with
+   ``reason='open_package_exists'``.
+3. **Closed package does not block.** A ``status='closed'`` row
+   for the same strategy must NOT block a new package — the gate
+   is open-only.
+"""
+from __future__ import annotations
+
+import pytest
+
+from src.runtime.pipeline import _has_open_package_for_strategy
+from src.units.db.database import Database
+
+
+@pytest.fixture
+def tmp_journal(tmp_path, monkeypatch):
+    db_path = tmp_path / "trade_journal.db"
+    monkeypatch.setenv("TRADE_JOURNAL_DB", str(db_path))
+    db = Database(db_path=str(db_path))
+    return db
+
+
+def _insert_pkg(db, *, pkg_id, strategy="vwap", status="open"):
+    db.insert_order_package({
+        "order_package_id": pkg_id,
+        "strategy_name": strategy,
+        "symbol": "BTCUSDT",
+        "direction": "long",
+        "entry": 80_000.0,
+        "sl": 79_500.0,
+        "tp": 80_500.0,
+        "confidence": 0.42,
+        "status": status,
+        "linked_trade_id": None,
+        "meta": {},
+    })
+
+
+# ---------------------------------------------------------------------------
+# Contract 1: no open package → ``None`` (dispatch proceeds)
+# ---------------------------------------------------------------------------
+
+
+def test_returns_none_when_no_open_package(tmp_journal):
+    assert _has_open_package_for_strategy("vwap") is None
+
+
+def test_returns_none_for_unknown_strategy(tmp_journal):
+    _insert_pkg(tmp_journal, pkg_id="pkg-vwap-1", strategy="vwap")
+    assert _has_open_package_for_strategy("turtle_soup") is None
+
+
+def test_returns_none_for_missing_strategy_name():
+    """A signal whose ``meta.strategy_name`` is unset bypasses the
+    gate — there's no canonical attribution to scope the query."""
+    assert _has_open_package_for_strategy(None) is None
+    assert _has_open_package_for_strategy("") is None
+
+
+# ---------------------------------------------------------------------------
+# Contract 2: open package exists → returns its id
+# ---------------------------------------------------------------------------
+
+
+def test_returns_open_package_id(tmp_journal):
+    _insert_pkg(tmp_journal, pkg_id="pkg-vwap-open-001", strategy="vwap")
+    result = _has_open_package_for_strategy("vwap")
+    assert result == "pkg-vwap-open-001"
+
+
+def test_returns_id_of_first_match_when_multiple_open(tmp_journal):
+    """Pre-this-PR multiple open packages could exist for the same
+    strategy. The helper returns the first match — the gate just
+    needs *any* open package to refuse a new dispatch."""
+    _insert_pkg(tmp_journal, pkg_id="pkg-1", strategy="vwap")
+    _insert_pkg(tmp_journal, pkg_id="pkg-2", strategy="vwap")
+    result = _has_open_package_for_strategy("vwap")
+    # Order is by datetime(updated_at) DESC — both rows have the same
+    # updated_at, but either id satisfies the contract.
+    assert result in {"pkg-1", "pkg-2"}
+
+
+# ---------------------------------------------------------------------------
+# Contract 3: closed package does not block
+# ---------------------------------------------------------------------------
+
+
+def test_closed_package_does_not_block(tmp_journal):
+    _insert_pkg(tmp_journal, pkg_id="pkg-vwap-closed", strategy="vwap",
+                status="closed")
+    assert _has_open_package_for_strategy("vwap") is None
+
+
+def test_orphaned_status_does_not_block(tmp_journal):
+    """The reconciler (BUG-042 PR 2) writes status='orphaned' to the
+    *trades* table, but the *order_packages* row is cascaded to
+    ``status='closed'``. So an orphaned trade should not leave the
+    package in a state that blocks new signals — pin the contract.
+    """
+    _insert_pkg(tmp_journal, pkg_id="pkg-vwap-cascaded", strategy="vwap",
+                status="closed")
+    assert _has_open_package_for_strategy("vwap") is None
+
+
+# ---------------------------------------------------------------------------
+# Best-effort: DB read failure returns None (does not crash dispatch)
+# ---------------------------------------------------------------------------
+
+
+def test_db_read_failure_returns_none_silently(monkeypatch):
+    """A DB-read exception must not raise — the gate is best-effort.
+    Returning None lets the dispatcher proceed (one extra duplicate
+    package is preferable to refusing every signal during a DB
+    outage)."""
+    class _BoomDb:
+        def __init__(self, *a, **kw):
+            pass
+
+        def get_order_packages_by_strategy(self, *a, **kw):
+            raise RuntimeError("simulated DB outage")
+
+    monkeypatch.setattr("src.units.db.database.Database", _BoomDb)
+    assert _has_open_package_for_strategy("vwap") is None
