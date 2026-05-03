@@ -1,9 +1,29 @@
 # Trading-mode flags
 
+> **DEPRECATED — 2026-05-03 (BUG-039 / operator directive)**
+>
+> `src/runtime/trading_mode.py` was **deleted**. The env vars
+> `ALLOW_LIVE_TRADING`, `DRY_RUN`, and `MODE` were **removed** from
+> `safe_place_order`, `validate_startup`, `build_settings_from_env`, and
+> the env-render notebooks.  The `--allow-live` CLI flag was also removed.
+>
+> **The single dry/live toggle is now `mode: live | dry_run` per account
+> in `config/accounts.yaml`** — applied via `RiskManager.dry_run`
+> (checked inside `RiskManager.evaluate()`, reason
+> `"account_mode_dry_run"`).  See CLAUDE.md § "Autonomous live-trading
+> rule" and BUG-039 in `docs/claude/bug-log.md` for the full rationale.
+>
+> The content below is retained as **historical context** explaining why
+> the old multi-flag system was collapsed.  Do not treat it as current
+> specification.
+
+---
+
 Authoritative reference for every flag that controls whether a service
 in this repo trades **live** or **dry-run / paper / simulated**.
-Maintained in lock-step with `src/runtime/trading_mode.py` (the single
-source of truth for the truthy parsers + defaults).
+~~Maintained in lock-step with `src/runtime/trading_mode.py` (the single
+source of truth for the truthy parsers + defaults).~~ File deleted —
+see deprecation notice above.
 
 ## Default
 

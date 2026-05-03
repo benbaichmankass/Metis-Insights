@@ -84,12 +84,17 @@ Multiple code paths look at multiple files for the same data:
 - Check: `PYTHONPATH=. pytest tests/test_vwap_strategy.py -q`
 
 ### 2026-04-27: MODE=LIVE without ALLOW_LIVE_TRADING passes validate_startup
+> **Historical** — `MODE`, `DRY_RUN`, and `ALLOW_LIVE_TRADING` were removed by BUG-039
+> (2026-05-03). `src/runtime/trading_mode.py` was deleted. The single toggle is now
+> `mode: live | dry_run` per account in `config/accounts.yaml`. This entry is kept as
+> context only; the fix described below no longer exists in the codebase.
 - Cause: `validate_startup` only checked `DRY_RUN=false` requires `ALLOW_LIVE_TRADING=true`.
   A config with `MODE=LIVE` + `DRY_RUN=true` + `ALLOW_LIVE_TRADING=false` passed validation
   even though the intent was clearly live.
-- Fix: Added a second interlock: `MODE=LIVE` requires `ALLOW_LIVE_TRADING=true` at startup,
-  regardless of `DRY_RUN`.
+- Fix (historical): Added a second interlock: `MODE=LIVE` requires `ALLOW_LIVE_TRADING=true`
+  at startup, regardless of `DRY_RUN`. Superseded by BUG-039 removal of all three flags.
 - Check: `PYTHONPATH=. pytest tests/test_vwap_strategy.py::TestLiveSafetyGate -q`
+  (test class deleted in BUG-039 sprint)
 
 ### 2026-04-27: Telegram bot token leaked into logs via httpx
 

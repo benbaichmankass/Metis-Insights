@@ -43,15 +43,16 @@ configuration and account-by-account go-live promotion.
 
 ### Defaults
 
-* **Every newly-loaded account starts in dry-run mode.**
-  `src/units/accounts/account.py::TradingAccount.__init__` sets
-  `dry_run=True` by default. Loading `config/accounts.yaml` does not
-  flip any account to live.
-* **Live trading is opt-in, per account, and persistent across reloads.**
-  Flipping requires the operator to issue an explicit Telegram
-  `/accounts dry|live <account_id>` command (S-011 PR #141), which
-  records the override in the in-process `_DRY_RUN_OVERRIDES` dict and
-  re-applies it on every `load_accounts()` call.
+* **Accounts default to `mode: live`** — `_resolve_mode()` in
+  `src/units/accounts/__init__.py` uses `cfg.get("mode", "live")` so any
+  account without an explicit `mode:` field is live.  (Pre-BUG-039 the
+  `TradingAccount.__init__` Python default was `dry_run=True`; that
+  Python-level default is now overridden at load time by `_resolve_mode`.)
+* **To put an account in dry-run:** set `mode: dry_run` in
+  `config/accounts.yaml` and redeploy, or use Telegram
+  `/accounts dry <account_id>` for a runtime override that persists
+  in-process via `_DRY_RUN_OVERRIDES` and is re-applied on every
+  `load_accounts()` call.
 
 ### Operator workflow
 
@@ -66,16 +67,15 @@ configuration and account-by-account go-live promotion.
 
 ### Interaction with the global DRY_RUN env
 
-The global `DRY_RUN` env var and the per-account override are layered:
+> **Historical (BUG-039)** — `DRY_RUN` and `ALLOW_LIVE_TRADING` env vars
+> were removed 2026-05-03.  The section below describes the pre-BUG-039
+> layering; it no longer applies.  The current contract is described in
+> the "Trading mode (BUG-039)" section further down.
 
-* `DRY_RUN=true` (env) → **all** accounts are dry, regardless of override.
-  Useful for whole-fleet staging.
-* `DRY_RUN=false` (or unset) + `ALLOW_LIVE_TRADING=true` (the only path
-  the startup interlock allows for live execution per PR E1) → each
-  account's `dry_run` attribute applies.
-
-The interlock and the per-account toggle are independent guards:
-both must permit live execution before any real order is placed.
+~~The global `DRY_RUN` env var and the per-account override are layered:~~
+~~`DRY_RUN=true` (env) → all accounts are dry, regardless of override.~~
+~~`DRY_RUN=false` (or unset) + `ALLOW_LIVE_TRADING=true` → per-account
+`dry_run` applies.~~
 
 ### Why this is safe
 
@@ -95,12 +95,12 @@ PYTHONPATH=. pytest --collect-only -q tests
 
 ## Pre-live checklist
 
-- Confirm `MODE` is `LIVE` or `BACKTEST` (paper is not a supported mode).
-- Confirm `DRY_RUN` (use `true` for short-window staging on a small live
-  account; flip to `false` only when promoting to real order placement).
-- Confirm `ALLOW_LIVE_TRADING`.
-- Confirm exchange keys are environment variables.
-- Confirm Telegram emergency stop works.
+- Confirm each account's `mode:` in `config/accounts.yaml` is `live`
+  (or absent — default is live). Do **not** look for `MODE` / `DRY_RUN` /
+  `ALLOW_LIVE_TRADING` — those env vars were removed (BUG-039).
+- Confirm exchange API keys are set as env vars matching `api_key_env` /
+  `api_secret_env` in `accounts.yaml`.
+- Confirm Telegram emergency stop works (`/halt` → `/resume`).
 
 ## VM reset / redeploy
 
