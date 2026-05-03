@@ -39,11 +39,16 @@ _PATTERNS: List[Tuple[re.Pattern, str]] = [
     # Legacy patterns retained as belt-and-braces. Production code no
     # longer reads these, but operator notebooks / external scripts
     # might — flag them so the operator notices.
-    (re.compile(r"\bDRY_RUN\s*[:=]\s*['\"]?(?:true|1|yes|on|dry|dry_run|paper)\b",
-                re.IGNORECASE),
+    #
+    # IMPORTANT: these patterns are CASE-SENSITIVE on the env-var name
+    # because env vars are uppercase by convention. The lower-case
+    # ``dry_run`` is reserved for Python kwargs (``RiskManager(..., dry_run=dry_run)``)
+    # and must NOT trip the guard. The previous case-insensitive regex
+    # produced four false positives on the `dry_run=dry_run` kwarg
+    # introduced by BUG-039.
+    (re.compile(r"\bDRY_RUN\s*[:=]\s*['\"]?(?:true|1|yes|on|dry|dry_run|paper)\b"),
      "legacy DRY_RUN env-var set to a truthy value (no longer consulted; remove)"),
-    (re.compile(r"\bALLOW_LIVE_TRADING\s*[:=]\s*['\"]?(?:false|0|no|off)\b",
-                re.IGNORECASE),
+    (re.compile(r"\bALLOW_LIVE_TRADING\s*[:=]\s*['\"]?(?:false|0|no|off)\b"),
      "legacy ALLOW_LIVE_TRADING explicitly disabled (no longer consulted; remove)"),
     (re.compile(r"\bpaper_trading\s*[:=]\s*['\"]?(?:true|1|yes|on)\b",
                 re.IGNORECASE),
