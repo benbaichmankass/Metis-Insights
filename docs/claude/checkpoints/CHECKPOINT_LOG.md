@@ -5,6 +5,51 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-03-08 — Session close: Telegram-format Phase 3 — /signals + /last5 now collapsable
+
+- **Session date:** 2026-05-03
+- **Sprint:** S-telegram-format Phase 3. Operator approved CP-06 + CP-07 with `merge and continue`. This phase rolls the unified collapsable formatter out to the two highest-traffic *list* commands.
+- **Current sprint phase:** Tier-1 self-merge.
+- **Last completed checkpoint:** CP-2026-05-03-07 (PR #344 merged via `679fcef`).
+- **Next checkpoint:** Operator's call. Remaining surfaces (`/status` Markdown overview, `/trades` rough equivalent of `/last5`, `/log`) are smaller/lower-traffic and can ride a future sprint when the operator surfaces a need.
+- **Telegram sent:** rides on the merge of this PR.
+- **Alerts sent during session:** none.
+- **Blockers:** none.
+
+### 1. Completed
+- **`/signals` collapsable.** `processor.get_signals_block` accepts `use_html=True`. The signals are grouped by status into one `<blockquote expandable>` per bucket (`failed_validation — 12 signals`, `submitted — 3 signals`, etc). Failure-shaped statuses sort first (priority 5–13) so the operator's eye lands on actionable buckets above the happy path. Empty state still uses the collapsable envelope so the shape is consistent. Default `use_html=False` keeps the legacy plain-text rendering for any unmigrated caller. Both call sites in the bot — `cmd_signals` (typed-arg path) AND the inline-keyboard `signals_n` callback — now pass `use_html=True` and send `parse_mode="HTML"`.
+- **`/last5` collapsable.** New `processor.render_recent_trades_collapsable(rows, title=...)` returns ONE HTML message with each trade as its own `<blockquote expandable>` section (summary line carries `Trade #ID — symbol direction PnL $±X.XX (status)`). Pre-PR the bot sent one message per trade plus a chart per row (5 trades → 5+ messages); the new shape consolidates to a single message + one chart attachment at the end. Free-text DB fields (notes / entry_reason / exit_reason) flow through the formatter's HTML escape so the BUG-009 / BUG-030 / BUG-031 BadRequest pattern cannot recur on this surface.
+- **Eight new tests** in `tests/test_processor_signals_trades_collapsable.py` pin: signals grouped by status, failures-first ordering, empty-state envelope, legacy plain-text default unchanged, one section per trade, empty trade list handled, free-text fields HTML-escaped, BACKTEST row marker preserved.
+
+### 2. Files changed
+- **New:**
+  - `tests/test_processor_signals_trades_collapsable.py` — 8 tests pinning the contract.
+- **Modified:**
+  - `src/units/ui/processor.py` — `get_signals_block(use_html=True)` HTML mode + new `render_recent_trades_collapsable`.
+  - `src/bot/telegram_query_bot.py` — `cmd_signals` typed path AND `signals_n` callback now use HTML mode; `cmd_last5` consolidates to single HTML message.
+  - `docs/claude/checkpoints/CHECKPOINT_LOG.md` — this entry.
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_processor_collapsable_renderers.py tests/test_processor_signals_trades_collapsable.py tests/test_telegram_format.py tests/test_orders.py tests/test_hourly_report.py tests/test_hourly_dispatch.py tests/test_health.py tests/test_accounts_status_block_renderer.py tests/test_ui_processor.py tests/test_pipeline_news_veto.py tests/test_notify_send_via_alert_manager.py tests/test_s012_hotfix_settings_casing.py` → **135 passed** (8 new, 127 prior).
+- `python scripts/secret_scan.py` → clean.
+- `python scripts/check_dry_run_in_diff.py` → clean.
+
+### 4. Live-mode check
+- `scripts/check_dry_run_in_diff.py` → clean.
+- No change to `src/runtime/orders.py`, `src/runtime/pipeline.py`, `config/accounts.yaml`, or any account/strategy boundary. Bot + UI unit only. ✅
+
+### 5. Architecture rules check
+- **Unit boundary declaration.** Touched: `src/units/ui/processor.py`, `src/bot/telegram_query_bot.py`. No new cross-unit imports outside `src/core/coordinator.py`.
+- **Rule 5 (bot is a thin shell).** `cmd_last5`'s render now lives entirely in the processor; the bot just calls `render_recent_trades_collapsable`. Same for `/signals` (already in processor pre-PR; HTML mode is a flag).
+
+### 6. Remaining
+- **Operator's call.** Phase 4 (if wanted) covers `/status`, `/trades`, `/log`, `/balance` — all smaller and lower-traffic than the surfaces migrated in Phases 1-3.
+
+### 7. Next checkpoint
+**CP-2026-05-?-?? — Operator-driven Phase 4 if requested**, otherwise resume DXtrade SDK contract drop tracked under CP-04/05.
+
+---
+
 ## CP-2026-05-03-07 — Session close: Telegram-format Phase 2 — /health + /accounts_status now collapsable
 
 - **Session date:** 2026-05-03
