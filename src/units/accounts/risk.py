@@ -296,13 +296,27 @@ class RiskManager:
     def approve(self, order: OrderPackage) -> bool:
         """Return True when the order passes all risk checks.
 
+        Thin wrapper over :meth:`evaluate` — kept for the existing
+        callers (``TradingAccount.place_order`` legacy path) that only
+        care about the boolean. New callers should prefer ``evaluate``
+        which carries a structured skip reason for logging.
+        """
+        ok, _reason = self.evaluate(order)
+        return ok
+
+    def evaluate(self, order: OrderPackage) -> tuple[bool, Optional[str]]:
+        """Return ``(allow, reason)`` for *order*.
+
+        ``reason`` is None on accept; on reject it is a short stable
+        token suitable for logging / Telegram surfaces:
+        ``DAILY_LOSS_CAP``, ``POSITION_SIZE_CAP``, ``INTRADAY_DRAWDOWN``.
+        Subclasses (``PropRiskManager``) extend the reason vocabulary —
+        see ``src/units/accounts/prop_risk.py`` for ``SKIP_MISSION_MET``,
+        ``SKIP_OVERNIGHT_RESTRICTED``, ``SKIP_WEEKEND_RESTRICTED``.
+
         Smoke-test orders (``order.meta['is_test']`` is True) bypass
         every gate below — they are intentionally tiny payloads
-        designed to exercise the exchange-rejection path; running them
-        through the risk gate would either short-circuit on a daily
-        loss reset or trip the position-size cap depending on
-        ``meta.estimated_value``, neither of which is meaningful for
-        plumbing verification.
+        designed to exercise the exchange-rejection path.
 
         Checks (in order, real orders only):
           1. UTC daily rollover (resets daily_pnl + re-anchors high).
@@ -314,22 +328,22 @@ class RiskManager:
              Skipped when equity has not been seeded via update_equity().
         """
         if _is_test_order(order):
-            return True
+            return True, None
 
         self._maybe_roll_daily()
 
         if self.daily_pnl < -self.max_daily_loss_usd:
-            return False
+            return False, "DAILY_LOSS_CAP"
 
         estimated_value = order.meta.get("estimated_value") if order.meta else None
         if estimated_value is not None and float(estimated_value) > self.max_pos_size_usd:
-            return False
+            return False, "POSITION_SIZE_CAP"
 
         dd = self.intraday_drawdown()
         if dd is not None and dd >= self.max_dd_pct:
-            return False
+            return False, "INTRADAY_DRAWDOWN"
 
-        return True
+        return True, None
 
     def record_trade_result(self, pnl_usd: float) -> None:
         """Update daily PnL after a trade closes.  Call this from the accounts unit.

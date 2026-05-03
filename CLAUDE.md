@@ -47,6 +47,7 @@ open a draft PR titled `BLOCKED: <question>` — see § Telegram Reporting.
 | Telegram ping wiring | `docs/claude/telegram-pings.md` |
 | Operator weigh-in needed (ping-PR pattern) | `docs/claude/telegram-pings.md` § "Ping-PR vs work-PR" + § "Live-mode invariant" in this file |
 | Architecture lookup | `docs/claude/repo-map.md` |
+| Prop account state / Velotrade integration | `docs/claude/prop-account-state.md` |
 
 ## VM-resident sessions (read first if `/etc/claude/vm-marker` exists)
 

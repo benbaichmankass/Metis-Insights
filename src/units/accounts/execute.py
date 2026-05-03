@@ -239,6 +239,19 @@ def _fetch_balance(client: Any, account_cfg: dict) -> float:
 def _submit_order(client: Any, order: dict, account_cfg: dict) -> str:
     """Place the order via the exchange client and return a trade_id."""
     exchange = (account_cfg.get("exchange") or "bybit").lower()
+
+    # Velotrade integration: prop-firm stub. Real DXtrade SDK wiring is
+    # deferred to a follow-up sprint. Refusing live placement here
+    # preserves the live-by-default invariant for Bybit accounts while
+    # making any mis-routed Velotrade signal structurally inert. The
+    # dispatcher catches the RuntimeError and surfaces it on the result
+    # row's ``error`` field plus the diagnostic ping.
+    if exchange in ("velotrade", "breakout"):
+        raise RuntimeError(
+            f"{exchange} live placement not yet implemented; "
+            f"prop accounts must run dry-run until SDK wiring lands."
+        )
+
     try:
         if exchange == "bybit":
             resp = client.place_order(

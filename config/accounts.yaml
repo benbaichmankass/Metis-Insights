@@ -55,20 +55,50 @@ accounts:
       risk_pct: 0.01
       min_balance_usd: 50
 
-  # prop_breakout_1: DISABLED — no real prop account exists yet. Leaving
-  # the wiring scaffolded (PM directive) so future prop onboarding only
-  # has to add credentials and re-enable. ``strategies: []`` is the
-  # current load_accounts() contract for "no strategy is routed to this
-  # account" — the multiplexer cannot fire orders into an empty strategy
-  # list. Re-enable by adding the strategy names back.
-  prop_breakout_1:
+  # prop_velotrade_1: DISABLED — Velotrade DXtrade prop firm scaffold.
+  # Replaces the legacy prop_breakout_1 entry (Breakout has been
+  # deprecated in favour of Velotrade for prop onboarding).
+  #
+  # Enabling checklist (operator):
+  #   1. Provision the Velotrade DXtrade API credentials and stash the
+  #      secret in the env var named in ``api_key_env``.
+  #   2. Wire the live DXtrade SDK in src/units/accounts/integrator.py
+  #      ``VelotradeAPI.place`` and src/units/accounts/execute.py
+  #      ``_submit_order``'s ``velotrade`` branch (currently raises
+  #      NotImplementedError on live).
+  #   3. Re-enable by setting ``enabled: true`` and listing the assigned
+  #      strategies. The loader will instantiate a PropRiskManager so
+  #      ``account_state``, ``phase_requirements``, and
+  #      ``overnight_restricted`` take effect.
+  #
+  # See docs/claude/prop-account-state.md for the full state-machine
+  # reference (evaluation vs funded, mission predicates, time windows).
+  prop_velotrade_1:
     type: prop
-    exchange: breakout
-    api_key_env: BREAKOUT_API_KEY_1
+    exchange: velotrade
+    api_key_env: VELOTRADE_API_KEY_1
     strategies: []
-    enabled: false                     # forward-compat: current loader
-                                       # ignores this key, but a future
-                                       # filter at load time will use it.
+    enabled: false                     # safety: load_accounts() skips
+                                       # disabled rows. Flip to true
+                                       # only after live DXtrade SDK
+                                       # wiring lands.
+
+    # PropRiskManager-specific — drives the mission gate.
+    account_state: evaluation          # 'evaluation' | 'funded'
+    phase_requirements:
+      target_profit_pct: 0.05          # +5% to clear the evaluation
+      min_active_days: 4               # min trading days before pass
+      min_daily_profit_pct: 0.005      # informational (v1: not gated)
+    prop_state:                        # in-process counters seeded here
+      cumulative_pnl_pct: 0.0
+      active_days: 0
+      entry_date: null
+
+    # Overnight + weekend restrictions (UTC). Default window 22:00→06:00.
+    overnight_restricted: true
+    overnight_window: [22, 6]
+    weekend_restricted: true
+
     risk:
       max_dd_pct: 0.02                 # stricter: 2% max drawdown
       daily_usd: 50                    # stricter: $50 max daily loss

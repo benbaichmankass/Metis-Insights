@@ -4,8 +4,9 @@ EXCHANGE_MAP maps exchange name → API stub class.
 Live exchange clients are injected at runtime; tests use dry-run mode.
 
 Supported exchanges:
-  bybit    — Bybit Unified Trading (live + dry-run)
-  breakout — Breakout prop firm API (stub; dry-run only for now)
+  bybit     — Bybit Unified Trading (live + dry-run)
+  breakout  — Breakout prop firm API (deprecated stub; replaced by velotrade)
+  velotrade — Velotrade DXtrade prop firm API (stub; dry-run only)
 """
 from __future__ import annotations
 
@@ -44,7 +45,13 @@ class BybitAPI:
 
 
 class BreakoutAPI:
-    """Breakout prop firm API stub — wired in a later sprint."""
+    """Breakout prop firm API stub — DEPRECATED.
+
+    The platform has been replaced by Velotrade (DXtrade) for the
+    next prop onboarding. Kept as an alias to ``VelotradeAPI`` so any
+    existing fixtures that still reference ``exchange: breakout``
+    continue to load. New configs should use ``exchange: velotrade``.
+    """
 
     def __init__(self, api_key_env: str) -> None:
         self.api_key_env = api_key_env
@@ -55,13 +62,40 @@ class BreakoutAPI:
             logger.info("BreakoutAPI DRY-RUN %s → %s", order.symbol, trade_id)
             return trade_id
         raise NotImplementedError(
-            "BreakoutAPI live integration not yet implemented."
+            "BreakoutAPI is deprecated; migrate to VelotradeAPI."
+        )
+
+
+class VelotradeAPI:
+    """Velotrade DXtrade prop firm API stub — dry-run only.
+
+    Replaces BreakoutAPI as the canonical prop-firm executor.
+    Real DXtrade SDK integration ships in a follow-up sprint once
+    credentials and the API contract are finalised. Until then the
+    live path raises ``NotImplementedError`` so a misconfigured
+    ``ALLOW_LIVE_TRADING=true`` cannot accidentally route a real
+    order through an empty driver.
+    """
+
+    def __init__(self, api_key_env: str) -> None:
+        self.api_key_env = api_key_env
+
+    def place(self, order: OrderPackage, *, dry_run: bool = True) -> str:
+        if dry_run:
+            trade_id = f"dry-velotrade-{uuid.uuid4().hex[:10]}"
+            logger.info("VelotradeAPI DRY-RUN %s → %s", order.symbol, trade_id)
+            return trade_id
+        raise NotImplementedError(
+            "VelotradeAPI live integration not yet implemented; "
+            "Velotrade accounts must run dry-run only until the "
+            "DXtrade SDK is wired."
         )
 
 
 EXCHANGE_MAP: dict[str, type] = {
     "bybit": BybitAPI,
     "breakout": BreakoutAPI,
+    "velotrade": VelotradeAPI,
 }
 
 
