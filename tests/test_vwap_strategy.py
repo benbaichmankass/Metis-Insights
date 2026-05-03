@@ -248,6 +248,84 @@ class TestBuildVwapSignal:
             "(this was the BUG)"
         )
 
+    # ----- BUG-043: confidence must thread through to the journal -----
+
+    def test_actionable_buy_signal_carries_nonzero_confidence(self):
+        """BUG-043: pre-fix every VWAP order package logged as
+        confidence=0.0 because build_vwap_signal never emitted the
+        field. The pipeline's _signal_to_order_package then read
+        meta.get("confidence") or 0.0 and silently zeroed every row.
+        Pin a non-zero value at both top-level and meta so consumers
+        (pipeline, renderer, journal) see a real conviction."""
+        df = _candles_below_vwap()
+        signal = build_vwap_signal(df, symbol="BTCUSDT")
+        assert signal["side"] == "buy"
+        assert "confidence" in signal, (
+            "BUG-043: top-level confidence must be present so "
+            "_extract_order_package_fields renders it"
+        )
+        assert signal["confidence"] > 0.0, (
+            f"BUG-043: actionable buy signal must report non-zero "
+            f"confidence (got {signal['confidence']!r})"
+        )
+        assert signal["meta"]["confidence"] == signal["confidence"], (
+            "BUG-043: meta.confidence must mirror top-level so "
+            "_signal_to_order_package threads it to OrderPackage"
+        )
+        assert signal["confidence"] <= 1.0, (
+            "VWAP confidence formula caps at 1.0 — anything above is "
+            "a regression in the rounding path"
+        )
+
+    def test_actionable_sell_signal_carries_nonzero_confidence(self):
+        df = _candles_above_vwap()
+        signal = build_vwap_signal(df, symbol="BTCUSDT")
+        assert signal["side"] == "sell"
+        assert signal["confidence"] > 0.0
+        assert signal["meta"]["confidence"] == signal["confidence"]
+
+    def test_no_signal_still_emits_confidence_field(self):
+        """Even when the signal is non-actionable, meta.confidence
+        must be present (and may be 0.0). This keeps the meta shape
+        stable for downstream renderers."""
+        df = _candles_near_vwap()
+        signal = build_vwap_signal(df, symbol="BTCUSDT")
+        assert signal["side"] == "none"
+        assert "confidence" in signal["meta"]
+
+    def test_confidence_threads_through_to_journal_row(
+        self, tmp_path, monkeypatch,
+    ):
+        """End-to-end pin: signal → _signal_to_order_package →
+        _log_new_order_package → SELECT confidence from order_packages.
+        Pre-fix this read 0.0 for every VWAP signal (BUG-043)."""
+        monkeypatch.setenv(
+            "TRADE_JOURNAL_DB", str(tmp_path / "trade_journal.db"),
+        )
+        from src.runtime.pipeline import _signal_to_order_package
+        from src.core.coordinator import _log_new_order_package
+        from src.units.db.database import Database
+
+        df = _candles_below_vwap()
+        signal = build_vwap_signal(df, symbol="BTCUSDT")
+        pkg = _signal_to_order_package(signal, settings={"SYMBOL": "BTCUSDT"})
+        assert pkg.confidence > 0.0, (
+            "OrderPackage must carry the strategy's confidence — "
+            "regression in _signal_to_order_package's meta extraction"
+        )
+
+        order_package_id = _log_new_order_package(pkg)
+        assert order_package_id and order_package_id.startswith("pkg-")
+
+        db = Database(db_path=str(tmp_path / "trade_journal.db"))
+        rows = db.get_order_packages_by_strategy(pkg.strategy)
+        assert len(rows) == 1
+        assert rows[0]["confidence"] == pytest.approx(pkg.confidence)
+        assert rows[0]["confidence"] > 0.0, (
+            "BUG-043 regression: order_packages.confidence must be "
+            "non-zero for an actionable VWAP signal"
+        )
+
 
 # ---------------------------------------------------------------------------
 # Integration: STRATEGY=vwap routes to VWAP logic via run_pipeline

@@ -215,12 +215,19 @@ def build_vwap_signal(
         symbol, vwap, current_price, std_dev, deviation, side,
     )
 
+    # BUG-043: confidence must be threaded through to the order package
+    # so the journal records a real conviction value (not 0.0). Same
+    # formula as ``order_package()`` below — magnitude of the std-dev
+    # deviation, normalised to ENTRY_STD_THRESHOLD, capped at 1.0.
+    confidence = round(min(abs(deviation) / ENTRY_STD_THRESHOLD, 1.0), 4)
+
     base_meta = {
         "strategy_name": "vwap",
         "vwap": vwap,
         "current_price": current_price,
         "std_dev": std_dev,
         "deviation_std": deviation,
+        "confidence": confidence,
         "reason": reason,
     }
 
@@ -228,6 +235,7 @@ def build_vwap_signal(
         return {
             "symbol": symbol,
             "side": "none",
+            "confidence": confidence,
             "meta": base_meta,
         }
 
@@ -245,6 +253,7 @@ def build_vwap_signal(
         "entry_price": float(entry_price),
         "stop_loss": float(stop_loss),
         "take_profit": float(take_profit),
+        "confidence": confidence,
         "meta": {
             **base_meta,
             "sl_std_mult": sl_std_mult,
