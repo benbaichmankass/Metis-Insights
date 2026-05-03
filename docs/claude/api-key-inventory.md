@@ -34,6 +34,7 @@ credentials and is kept for a deployment that has not migrated to
 | File | Lines | Purpose |
 |---|---|---|
 | `src/bot/data_loaders.py` | `bybit_client_for` / `binance_conn_for` re-export | Imports from `src.units.accounts.clients` so existing call sites keep working. Do not add new API-client construction here. |
+| `src/units/ui/data_loaders.py` | `account_open_positions` delegate | Thin delegate to `src.units.accounts.clients.account_open_positions` (moved there in BUG-042 PR 1, PR #384). |
 
 ## Per-account callers (correct: route through accounts unit)
 
@@ -41,7 +42,8 @@ credentials and is kept for a deployment that has not migrated to
 |---|---|---|---|
 | `src/bot/telegram_query_bot.py` | `_smoke_test_client_factory` (~1948) | `dl.bybit_client_for(account_cfg)` / `dl.binance_conn_for(account_cfg)` | Per-account routing — correct. |
 | `src/core/coordinator.py` | `accounts_status` | calls `account_balance_with_diagnostic(cfg)` which routes through `bybit_client_for(cfg)` | Correct. |
-| `src/bot/data_loaders.py` | `account_balance_with_diagnostic`, `account_open_positions`, last-trade lookups | All take an `account` dict and route through the accounts unit. |
+| `src/units/accounts/clients.py` | `account_open_positions` (canonical) | Moved from `src/bot/data_loaders.py` in BUG-042 PR 1 (PR #384). Per CLAUDE.md architecture rules § 3: exchange-state reads belong to the accounts unit. |
+| `src/runtime/order_monitor.py` | `_reconcile_open_trades` | Calls `account_open_positions` from `src.units.accounts.clients` directly. |
 
 ## Legacy single-account boot path
 
