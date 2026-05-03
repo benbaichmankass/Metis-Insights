@@ -222,16 +222,21 @@ class TestBuildVwapSignal:
         assert "take_profit" not in signal
 
     def test_sl_distance_uses_sl_std_mult(self):
-        """The stop-loss distance from entry equals sl_std_mult * std_dev."""
+        """The stop-loss distance from entry equals sl_std_mult * std_dev.
+
+        The default 0.5 reflects the 2026-05-03 operator directive that
+        pairs the 1.0σ entry threshold with a 0.5σ stop to preserve a
+        risk:reward of 1:2 at the entry boundary.
+        """
         df = _candles_below_vwap()
         s_default = build_vwap_signal(df, symbol="BTCUSDT")
         s_wide = build_vwap_signal(df, symbol="BTCUSDT", sl_std_mult=2.0)
 
         std_dev = s_default["meta"]["std_dev"]
-        # default = 1.0
+        # default = SL_STD_MULT_DEFAULT = 0.5 (operator directive 2026-05-03)
         d_default = s_default["entry_price"] - s_default["stop_loss"]
         d_wide = s_wide["entry_price"] - s_wide["stop_loss"]
-        assert d_default == pytest.approx(1.0 * std_dev, rel=1e-6)
+        assert d_default == pytest.approx(0.5 * std_dev, rel=1e-6)
         assert d_wide == pytest.approx(2.0 * std_dev, rel=1e-6)
 
     def test_signal_is_packageable_after_g5_fix(self):
@@ -292,6 +297,71 @@ class TestBuildVwapSignal:
         signal = build_vwap_signal(df, symbol="BTCUSDT")
         assert signal["side"] == "none"
         assert "confidence" in signal["meta"]
+
+    # ----- 2026-05-03 operator directive: 1.0σ entry + 0.5σ stop = 1:2 R:R -----
+
+    def test_entry_threshold_pinned_to_one_sigma_per_operator_directive(self):
+        """CP-2026-05-03-20 operator directive: ENTRY_STD_THRESHOLD reverted
+        from 2.0σ to 1.0σ to raise order-package cadence. Pin the value so
+        a future Sharpe-tuning sprint that quietly re-raises it has to
+        explicitly delete this test (and own the cadence regression)."""
+        assert ENTRY_STD_THRESHOLD == 1.0, (
+            "Operator directive 2026-05-03 fixed ENTRY_STD_THRESHOLD at "
+            "1.0σ for cadence. Any change must come with a fresh "
+            "out-of-sample threshold sweep + operator approval."
+        )
+
+    def test_sl_default_pinned_to_half_sigma_per_operator_directive(self):
+        """CP-2026-05-03-20 operator directive: SL_STD_MULT_DEFAULT halved
+        from 1.0 to 0.5 in lock-step with the entry-threshold revert so
+        the risk:reward at the entry boundary stays 1:2 (reward = 2 ×
+        risk). Pinning both constants prevents a future tuning sprint
+        from drifting one without the other."""
+        from src.units.strategies.vwap import SL_STD_MULT_DEFAULT
+        assert SL_STD_MULT_DEFAULT == 0.5, (
+            "Operator directive 2026-05-03 paired SL_STD_MULT_DEFAULT=0.5 "
+            "with ENTRY_STD_THRESHOLD=1.0 to preserve risk:reward 1:2."
+        )
+
+    def test_risk_reward_at_entry_boundary_is_one_to_two(self):
+        """End-to-end pin of the operator's R:R 1:2 contract. At the entry
+        boundary (|deviation| ≈ ENTRY_STD_THRESHOLD), reward should be
+        twice risk for both buy and sell signals, using the module
+        defaults — i.e. callers don't have to pass anything to get the
+        contracted R:R."""
+        from src.units.strategies.vwap import SL_STD_MULT_DEFAULT
+
+        for df, side, direction_factor in (
+            (_candles_below_vwap(), "buy", +1),  # reward = vwap - entry > 0
+            (_candles_above_vwap(), "sell", -1),  # reward = entry - vwap > 0
+        ):
+            sig = build_vwap_signal(df, symbol="BTCUSDT")
+            assert sig["side"] == side
+            entry = sig["entry_price"]
+            sl = sig["stop_loss"]
+            tp = sig["take_profit"]
+
+            risk = abs(entry - sl)
+            reward = abs(tp - entry)
+            assert risk > 0 and reward > 0
+
+            # The R:R contract is determined by the CONSTANTS (entry
+            # threshold and SL multiplier), not by how far past the
+            # threshold the actual signal fired. The deeper a signal
+            # fires beyond the threshold, the BETTER the realised R:R.
+            # So pin: realised reward:risk >= the boundary contract of
+            # ENTRY_STD_THRESHOLD / SL_STD_MULT_DEFAULT = 1.0 / 0.5 = 2.0.
+            boundary_rr = ENTRY_STD_THRESHOLD / SL_STD_MULT_DEFAULT
+            assert boundary_rr == pytest.approx(2.0), (
+                "Operator R:R 1:2 contract: ENTRY_STD_THRESHOLD / "
+                "SL_STD_MULT_DEFAULT must equal 2.0 (reward = 2 × risk "
+                "at the entry boundary)"
+            )
+            assert (reward / risk) >= boundary_rr - 1e-6, (
+                f"R:R regression: realised reward/risk={reward/risk:.3f} "
+                f"is below the boundary contract {boundary_rr:.3f} "
+                f"(side={side}, entry={entry}, sl={sl}, tp={tp})"
+            )
 
     def test_confidence_threads_through_to_journal_row(
         self, tmp_path, monkeypatch,
