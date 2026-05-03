@@ -226,7 +226,7 @@ async def cmd_roadmap(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     """
     if not _is_authorized(update):
         return
-    from src.ui import processor
+    from src.units.ui import processor
     summary = processor.get_roadmap_summary()
     await update.message.reply_text(summary)
 

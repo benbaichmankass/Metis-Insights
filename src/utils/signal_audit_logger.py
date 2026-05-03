@@ -35,7 +35,7 @@ def _dual_write_to_db(payload: Dict[str, Any]) -> None:
     }:
         return
     try:
-        from src.data_layer.database import Database
+        from src.units.db.database import Database
         db_path = os.environ.get("TRADE_JOURNAL_DB") or "trade_journal.db"
         db = Database(db_path=db_path)
         db.insert_signal(payload)

@@ -100,7 +100,7 @@ def _load_strategies(strategies: Optional[List[str]]) -> List[str]:
 
 def _resolve_db(db_path: Optional[str]):
     """Build a Database instance for the configured journal path."""
-    from src.data_layer.database import Database
+    from src.units.db.database import Database
     path = db_path or os.environ.get("TRADE_JOURNAL_DB") or str(
         _REPO_ROOT / "trade_journal.db"
     )

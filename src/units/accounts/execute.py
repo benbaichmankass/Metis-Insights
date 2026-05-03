@@ -306,7 +306,7 @@ def _log_trade_to_journal(
     try:
         import json
         from datetime import datetime, timezone
-        from src.data_layer.database import Database
+        from src.units.db.database import Database
 
         path = (
             os.environ.get("TRADE_JOURNAL_DB")
