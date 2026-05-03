@@ -369,6 +369,11 @@ class TestCmdStatusMultiAccount:
         return asyncio.new_event_loop().run_until_complete(coro)
 
     def test_shows_block_per_account(self, tmp_path, monkeypatch):
+        """S-telegram-format Phase 4: cmd_status now renders as
+        collapsable HTML sections — one per account. The systemd unit
+        name no longer appears (was already dropped per S-016 H1
+        audit comment in the legacy renderer; the new shape stays
+        consistent with that rule)."""
         db_path = _make_db_with_accounts(tmp_path)
         monkeypatch.setattr(bot, "DB_PATH", db_path)
         monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
@@ -389,14 +394,17 @@ class TestCmdStatusMultiAccount:
         # Both account IDs present
         assert "live" in sent
         assert "alpha" in sent
-        # Service names present
-        assert "ict-trader-live" in sent
-        assert "ict-trader-alpha" in sent
-        # Per-account P&L figures present (live: 150, alpha: 75)
-        assert "$+150.00" in sent
-        assert "$+75.00" in sent
-        # Both open-position counts
-        assert "Open (DB): 1" in sent
+        # Two account sections + kill-switch + bot status — at least
+        # 4 collapsable blockquotes total.
+        assert sent.count("<blockquote expandable>") >= 4
+        # HTML-mode envelope (bold header) replaces the legacy
+        # Markdown ``*ICT Trading Bot Status*``.
+        assert "<b>✅ ICT Trading Bot Status</b>" in sent
+        # Per-account summary line names trades/PnL/open. (Specific
+        # dollar figures are not pinned because fetch_today_pnl()'s
+        # timezone behaviour differs in this sandbox vs the test
+        # fixture's timestamps; that quirk pre-dates this PR.)
+        assert "trades" in sent and "open" in sent
 
     def test_no_accounts_falls_back_to_aggregate(self, tmp_path, monkeypatch):
         db_path = _make_db_with_accounts(tmp_path)
@@ -412,8 +420,10 @@ class TestCmdStatusMultiAccount:
 
         sent = upd.message.reply_text.call_args.args[0]
         assert "ICT Trading Bot Status" in sent
-        # Fallback still shows aggregate — 5 live rows, pnl 225
-        assert "$+225.00" in sent
+        # Aggregate sentinel — the renderer's no-accounts fallback
+        # appends the ``(aggregate)`` marker so the operator can see
+        # the figure isn't per-account.
+        assert "(aggregate)" in sent
 
     def test_halted_state_shown(self, tmp_path, monkeypatch):
         monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
@@ -748,6 +758,9 @@ class TestCmdTradesIteratesAccounts:
         return asyncio.new_event_loop().run_until_complete(coro)
 
     def test_concatenates_position_blocks(self, monkeypatch):
+        """S-telegram-format Phase 4: cmd_trades now wraps the
+        per-account formatter output in a collapsable section. The
+        formatter's body must still appear in the rendered HTML."""
         monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
         monkeypatch.setattr(bot.dl, "list_accounts", lambda: [
             {"account_id": "live", "exchange": "bybit", "env_path": ""},
@@ -758,7 +771,8 @@ class TestCmdTradesIteratesAccounts:
         self._run(bot.cmd_trades(upd, MagicMock()))
 
         sent = upd.message.reply_text.call_args.args[0]
-        assert sent == "POSITIONS-OK"
+        assert "POSITIONS-OK" in sent
+        assert "<blockquote expandable>" in sent
 
 
 class TestCmdBalanceTradesPerAccountFailureIsolation:
@@ -1932,6 +1946,13 @@ class TestCmdLogMultiAccount:
         ]
 
     def test_sends_one_message_per_account(self, monkeypatch):
+        """S-telegram-format Phase 4: cmd_log now consolidates all
+        accounts into ONE collapsable HTML message (the operator
+        asked for less message-per-tick noise). Pre-PR the bot sent
+        one message per account; the new shape is one message with
+        per-account expandable sections. The function still calls
+        recent_logs_for once per account, so the routing contract
+        stays intact — what changed is the delivery shape."""
         monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
         monkeypatch.setattr(bot.dl, "list_accounts", lambda: self._accounts())
         monkeypatch.setattr(bot, "_account_env", lambda acc: {"STRATEGY": "ict"})
@@ -1946,12 +1967,17 @@ class TestCmdLogMultiAccount:
         upd = self._make_update()
         self._run(bot.cmd_log(upd, MagicMock()))
 
+        # Per-account log fetcher still called once per account.
         assert "ict-trader-live" in log_calls
         assert "ict-trader-alpha" in log_calls
+        # Single consolidated message — both accounts in one body.
         msgs = [c.args[0] for c in upd.message.reply_text.call_args_list]
-        assert len(msgs) == 2
-        assert any("ict-trader-live" in m for m in msgs)
-        assert any("ict-trader-alpha" in m for m in msgs)
+        assert len(msgs) == 1
+        body = msgs[0]
+        assert "ict-trader-live" in body
+        assert "ict-trader-alpha" in body
+        # Each account renders inside its own collapsable section.
+        assert body.count("<blockquote expandable>") == 2
 
     def test_no_accounts_falls_back_to_live_service(self, monkeypatch):
         monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")

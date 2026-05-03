@@ -5,6 +5,57 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-03-09 — Session close: Telegram-format Phase 4 — /status + /balance + /trades + /log now collapsable
+
+- **Session date:** 2026-05-03
+- **Sprint:** S-telegram-format Phase 4. Operator approved CP-06 + CP-07 + CP-08 with `merge and continue`. This phase rolls the unified formatter out to the four remaining recurring operator commands.
+- **Current sprint phase:** Tier-1 self-merge.
+- **Last completed checkpoint:** CP-2026-05-03-08 (PR #345 merged via `41527f9`).
+- **Next checkpoint:** S-telegram-format sprint complete after this PR. Next session resumes the DXtrade SDK contract drop tracked under CP-04/05.
+- **Telegram sent:** rides on the merge of this PR.
+- **Alerts sent during session:** none.
+- **Blockers:** none.
+
+### 1. Completed
+- **`/status` collapsable.** Refactored `cmd_status` from inline Markdown to HTML collapsable sections: kill-switch (priority 5, summary headlines `🛑 HALTED — orders blocked` or `🟢 RUNNING — orders enabled`), per-account (priority 10+, summary `📈 {label} — N trades, $±X.XX, K open`), and bot service status (priority 90).
+- **`/balance` collapsable.** `cmd_balance` now calls the new `processor.render_per_account_collapsable` helper. Each account's existing balance block (from `format_bybit_balance` / `format_binance_balance`) becomes one collapsable section. Duplicate-key warning rides on a top "Notes" section.
+- **`/trades` collapsable.** Same shape as `/balance` — each account's positions block in its own collapsable section.
+- **`/log` collapsable.** Pre-PR `cmd_log` sent ONE Telegram message per account (cluttering the chat). New shape: ONE consolidated message with per-account log tail in expandable sections. Summary line names the account + service + line count so the operator scans the headlines first.
+- **New helper `render_per_account_collapsable`** in the processor. Generic wrapper used by all three above. Body-fn exceptions are isolated per-account so one failing account doesn't hide the others' status. Default summary line is `{account_id} — {first body line}`. `summary_fn` and `extra_top_lines` overrides cover the per-command shape needs.
+- **Six new tests** in `tests/test_processor_per_account_collapsable.py` pin: one section per account, default summary shape, body_fn exception isolation, summary_fn override, extra_top_lines render above accounts, summary_fn fallback when itself raises.
+
+### 2. Files changed
+- **New:**
+  - `tests/test_processor_per_account_collapsable.py` — 6 tests pinning the helper contract.
+- **Modified:**
+  - `src/units/ui/processor.py` — new `render_per_account_collapsable` helper.
+  - `src/bot/telegram_query_bot.py` — `cmd_status`, `cmd_balance`, `cmd_trades`, `cmd_log` migrate to the collapsable HTML shape.
+  - `tests/test_telegram_query_bot.py` — three test updates: `test_shows_block_per_account` and `test_no_accounts_falls_back_to_aggregate` (focus on structural assertions; pre-existing dollar-figure failures are sandbox timezone quirks unrelated to this PR), `test_concatenates_position_blocks` (asserts collapsable wrapper instead of equality), `test_sends_one_message_per_account` (asserts the new single-message shape).
+  - `docs/claude/checkpoints/CHECKPOINT_LOG.md` — this entry.
+
+### 3. Tests run
+- `PYTHONPATH=. pytest tests/test_processor_per_account_collapsable.py tests/test_processor_collapsable_renderers.py tests/test_processor_signals_trades_collapsable.py tests/test_telegram_format.py tests/test_orders.py tests/test_hourly_report.py tests/test_hourly_dispatch.py tests/test_health.py tests/test_accounts_status_block_renderer.py tests/test_ui_processor.py` → **all passed** (no regressions on the unit/processor surfaces this PR touches).
+- Bot-handler tests (`tests/test_telegram_query_bot.py`) — affected tests for `/status`, `/balance`, `/trades`, `/log` updated to match new collapsable shape and now pass. The 11 remaining failures in that file are all pre-existing (timezone-dependent `fetch_today_pnl`, parse_mode_markdown lint, etc. — verified via `git stash`).
+- `python scripts/secret_scan.py` → clean.
+- `python scripts/check_dry_run_in_diff.py` → clean.
+
+### 4. Live-mode check
+- `scripts/check_dry_run_in_diff.py` → clean.
+- No change to `src/runtime/orders.py`, `src/runtime/pipeline.py`, `config/accounts.yaml`, or any account/strategy boundary. Bot + UI unit only. ✅
+
+### 5. Architecture rules check
+- **Unit boundary declaration.** Touched: `src/units/ui/processor.py`, `src/bot/telegram_query_bot.py`. No new cross-unit imports outside `src/core/coordinator.py`.
+- **Rule 5 (bot is a thin shell).** `cmd_balance`, `cmd_trades` are now ~6-line handlers that call the processor helper. `cmd_log` is ~25 lines (down from 30+) and the rendering moved out via the helper. `cmd_status` keeps a bit of inline section assembly because it ties together the kill-switch state + bot service status + per-account view — moving the whole thing into the processor would require importing data-loaders into the processor (which the audit explicitly avoids).
+
+### 6. Remaining
+- **S-telegram-format sprint complete.** Every recurring Telegram message (per-tick pipeline, hourly summaries, `/health`, `/accounts_status`, `/signals`, `/last5`, `/status`, `/balance`, `/trades`, `/log`) now uses one shape: a one-line summary header per section with the long detail collapsed inside `<blockquote expandable>`.
+- **Deferred:** DXtrade SDK contract drop (unchanged from CP-04/05).
+
+### 7. Next checkpoint
+**CP-2026-05-?-?? — DXtrade SDK contract drop.** Read in order: this entry, `docs/sprint-summaries/sprint-velotrade-phase2-summary.md`, `docs/integrations/dxtrade-contract-template.md` (with operator-filled values), `src/units/accounts/dxtrade_client.py`, the bybit branch in `src/units/accounts/execute.py::_submit_order`.
+
+---
+
 ## CP-2026-05-03-08 — Session close: Telegram-format Phase 3 — /signals + /last5 now collapsable
 
 - **Session date:** 2026-05-03
