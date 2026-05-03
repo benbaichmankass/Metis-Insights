@@ -168,10 +168,15 @@ def trades_in_window(since: datetime) -> Dict[str, Any]:
         conn = sqlite3.connect(str(db))
         try:
             conn.row_factory = sqlite3.Row
+            # Filter out refusal rows so "placed" reflects real exchange
+            # submissions (CP-2026-05-03-14). Rejected/exchange_rejected
+            # rows are visible in /packages instead.
             placed_rows = conn.execute(
                 "SELECT id, timestamp, symbol, direction, entry_price,"
                 " position_size, strategy_name, status FROM trades"
                 " WHERE COALESCE(is_backtest, 0) = 0"
+                " AND COALESCE(status, 'open')"
+                " NOT IN ('rejected', 'exchange_rejected')"
                 " AND COALESCE(created_at, timestamp) >= ?"
                 " ORDER BY datetime(COALESCE(created_at, timestamp)) DESC",
                 (iso_since,),

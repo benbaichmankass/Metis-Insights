@@ -909,10 +909,17 @@ def account_last_trade(account: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         conn = sqlite3.connect(TRADE_JOURNAL_DB)
         try:
             conn.row_factory = sqlite3.Row
+            # Filter out refusal rows (status='rejected' from RiskManager
+            # refusals + status='exchange_rejected' from _submit_order
+            # failures) so the operator's "last trade" view stays focused
+            # on real exchange submissions. The /packages command
+            # surfaces refusals separately. (CP-2026-05-03-14.)
             row = conn.execute(
                 "SELECT id, timestamp, symbol, direction, entry_price, exit_price,"
                 " pnl, status, strategy_name, created_at FROM trades"
                 " WHERE account_id = ? AND COALESCE(is_backtest, 0) = 0"
+                " AND COALESCE(status, 'open')"
+                " NOT IN ('rejected', 'exchange_rejected')"
                 " ORDER BY datetime(created_at) DESC, id DESC LIMIT 1",
                 (aid,),
             ).fetchone()
@@ -949,6 +956,9 @@ def recent_trades_for(account: Dict[str, Any], n: int = 5) -> List[Dict[str, Any
         conn = sqlite3.connect(TRADE_JOURNAL_DB)
         try:
             conn.row_factory = sqlite3.Row
+            # Filter out refusal rows so /last5 stays focused on real
+            # exchange submissions (CP-2026-05-03-14). /packages surfaces
+            # refusals separately for the operator who wants to see them.
             rows = conn.execute(
                 "SELECT id, timestamp, symbol, direction, entry_price,"
                 " exit_price, stop_loss, take_profit_1, take_profit_2,"
@@ -956,6 +966,8 @@ def recent_trades_for(account: Dict[str, Any], n: int = 5) -> List[Dict[str, Any
                 " entry_reason, exit_reason, pnl, pnl_percent, status, notes,"
                 " is_backtest, created_at FROM trades"
                 " WHERE account_id = ?"
+                " AND COALESCE(status, 'open')"
+                " NOT IN ('rejected', 'exchange_rejected')"
                 " ORDER BY datetime(created_at) DESC, id DESC LIMIT ?",
                 (aid, n),
             ).fetchall()

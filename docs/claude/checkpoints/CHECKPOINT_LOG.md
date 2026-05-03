@@ -5,6 +5,202 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-03-14 — risk-manager rejection logging → trade journal (CP-13 §7 follow-up)
+
+- **Session date:** 2026-05-03
+- **Sprint:** claude/roadmap-status-review-GhILM (planning session that
+  resolved into the deferred CP-13 §7 task: extend ``_log_trade_to_journal``
+  so RiskManager refusals + exchange rejections land rows in
+  ``trade_journal.db::trades``).
+- **Current sprint phase:** PR #1 — observability-only (no live/dry routing
+  behaviour change). Tier-2 because the work-PR touches
+  ``src/units/accounts/execute.py``; the in-conversation operator approval
+  (post-ExitPlanMode acceptance) is the per-PR ping per CLAUDE.md
+  § Live-mode invariant rule 3, **and** a separate ping-PR (#356) was
+  merged ahead of the work-PR for the audit trail.
+- **Last completed checkpoint:** CP-2026-05-03-13 (single canonical operator
+  notebook, merged via #355).
+- **Next checkpoint:** **CP-2026-05-?-?? — /packages bot command + /latest_backtest
+  enhancement** (deferred from CP-11 §6; now unblocked because rejection
+  data lives in the trade log).
+- **Telegram sent:** rides on the merge of this PR (and the earlier
+  ping-PR #356).
+- **Alerts sent during session:** none.
+- **Blockers:** none.
+
+### 1. Completed
+
+- **Refactored ``_log_trade_to_journal``** (``src/units/accounts/execute.py``)
+  to accept ``status`` (default ``"open"``) and optional ``reason`` kwargs.
+  ``trade_id`` is now optional and synthesised as
+  ``"<status>-<uuid>"`` when absent. When ``status != "open"`` the
+  ``entry_reason`` column is prefixed with ``"REJECTED: <token>"`` /
+  ``"EXCHANGE_REJECTED: <token>"`` so plain-text renderers (``/last5``)
+  surface the cause without parsing JSON. ``notes`` JSON gains a
+  ``reason`` key for structured aggregations. Best-effort contract
+  preserved (any DB error returns False, never raises).
+- **Added ``log_rejection_to_journal``** public wrapper in the same module.
+  Used by ``Coordinator.multi_account_execute`` from its except blocks.
+  Builds the order dict and delegates; defensive try/except so a
+  journal failure during failure-handling can never escalate.
+- **Wired into ``Coordinator.multi_account_execute``**:
+  - Captured ``risk_reason`` *before* the ``RiskBreach`` raise so the
+    catch block can pass the un-mangled token (``account_mode_dry_run``,
+    ``DAILY_LOSS_CAP``, etc.) to the journal helper instead of the
+    wrapped ``"RiskBreach: …"`` text.
+  - ``except RiskBreach`` block: writes ``status='rejected'`` row beside
+    the existing ``_emit_execution_failure_ping`` call.
+  - Generic ``except Exception`` block: writes ``status='exchange_rejected'``
+    row with ``reason=f"{type(exc).__name__}: {exc}"``. Covers Bybit
+    retCode != 0, DXtrade ``NotImplementedError``, ``MissingCredentialsError``,
+    and ``RuntimeError("Account is paused …")``.
+- **Updated 6 aggregator queries** to exclude refusal rows so the new
+  ``rejected``/``exchange_rejected`` rows can't pollute operator surfaces:
+  - ``src/units/ui/data_loaders.py::recent_trades_for`` (``/last5``).
+  - ``src/units/ui/data_loaders.py::account_last_trade``.
+  - ``src/units/ui/processor.py::get_today_pnl`` (per-account hourly summary).
+  - ``src/runtime/liveness_watchdog.py`` fill-count query (CRITICAL —
+    counting rejections would silently neuter the watchdog).
+  - ``src/runtime/hourly_report.py`` placed_rows query.
+  - ``src/web/api/routers/pnl.py`` trades_today count.
+  All filters use ``COALESCE(status, 'open') NOT IN ('rejected', 'exchange_rejected')``
+  so the predicate behaves correctly when the column is NULL (test schema
+  drift — production schema has ``DEFAULT 'open'`` but legacy fixtures
+  insert NULL). The refusal rows remain visible to direct DB inspection
+  and to the upcoming ``/packages`` command (next checkpoint).
+- **Tests added:**
+  - ``tests/test_execute_journal_rejections.py`` — 9 tests covering
+    helper signature, public wrapper contract, and the three aggregator
+    filters (``recent_trades_for``, ``account_last_trade``,
+    ``get_today_pnl``). Uses ``patch.object(data_loaders, "TRADE_JOURNAL_DB", ...)``
+    because the constant is resolved at import time from a candidate
+    list.
+  - ``tests/test_coordinator_rejection_journal.py`` — 6 tests pinning
+    the wiring at the Coordinator boundary: RiskBreach → rejected row,
+    generic exception → exchange_rejected row, both still fire the
+    diagnostic ping (regression guard), and the un-mangled risk reason
+    token survives through the wrapped ``RiskBreach`` exception.
+- **Plan file** at ``~/.claude/plans/okay-i-wanna-do-binary-book.md``
+  has the full design rationale (incl. the conservative mid-flight
+  scope adjustment after discovering the existing
+  ``test_dry_run_does_not_write`` test would have been violated by a
+  defensive write inside ``execute_pkg``'s dry-run early-return).
+
+### 2. Files changed
+
+**Modified:**
+- ``src/units/accounts/execute.py`` — ``_log_trade_to_journal`` refactor +
+  new ``log_rejection_to_journal`` public wrapper.
+- ``src/core/coordinator.py`` — ``multi_account_execute`` ``risk_reason``
+  capture + two ``log_rejection_to_journal`` call sites.
+- ``src/units/ui/data_loaders.py`` — refusal-row filter on
+  ``recent_trades_for`` + ``account_last_trade``.
+- ``src/units/ui/processor.py`` — refusal-row filter on
+  ``get_today_pnl``.
+- ``src/runtime/liveness_watchdog.py`` — refusal-row filter on
+  fill-count query.
+- ``src/runtime/hourly_report.py`` — refusal-row filter on
+  placed_rows query.
+- ``src/web/api/routers/pnl.py`` — refusal-row filter on
+  trades_today count.
+- ``docs/claude/checkpoints/CHECKPOINT_LOG.md`` — this entry.
+
+**New:**
+- ``tests/test_execute_journal_rejections.py`` (9 tests).
+- ``tests/test_coordinator_rejection_journal.py`` (6 tests).
+
+### 3. Tests run
+
+- ``PYTHONPATH=. python3 -m pytest tests/test_execute_journal_rejections.py
+  tests/test_coordinator_rejection_journal.py
+  tests/test_s029_pr2_trade_journal_write.py
+  tests/test_data_loaders.py tests/test_hourly_report.py
+  tests/test_s029_pr3_liveness_watchdog.py tests/test_ui_processor.py
+  tests/test_order_refusal.py -q`` → 122 passed, 4 failed.
+  - **All 4 failures verified pre-existing on main via ``git stash``** —
+    same ``_bybit_client`` ``AttributeError`` cluster called out in
+    CP-11 §3 ("4 in test_data_loaders + 11 in test_telegram_query_bot").
+- ``PYTHONPATH=. python3 -m pytest tests/test_runtime_orders.py
+  tests/test_orders.py tests/test_validation.py -q`` → 43 passed,
+  6 failed. **All 6 failures pre-existing** — the BUG-039 cleanup
+  cohort (``test_dry_run_does_not_call_exchange``,
+  ``test_explicit_allow_live_false_still_blocks``,
+  ``test_safe_place_order_allow_live_diagnostic_includes_source_and_value``,
+  ``test_pipeline_result_failed_validation_includes_remediation_section``,
+  ``test_build_settings_from_env_keys``,
+  ``test_dry_run_and_allow_live_both_truthy_is_contradiction``) — same
+  count before/after this PR via ``git stash``.
+- ``python3 scripts/secret_scan.py`` → ``No obvious tracked-file secrets found.``
+- ``python3 scripts/check_dry_run_in_diff.py`` → ``dry_run_in_diff: clean``.
+
+### 4. Live-mode check
+
+- ✅ No live/dry routing decision changed. The new code only writes
+  observability rows in catch blocks where the order has *already*
+  been refused; it doesn't alter whether a trade fires.
+- ✅ ``config/accounts.yaml`` not touched. ``bybit_1`` and ``bybit_2``
+  remain ``mode: live``; ``prop_velotrade_1`` remains ``mode: dry_run``
+  (DXtrade SDK contract still pending).
+- ✅ ``scripts/check_dry_run_in_diff.py`` clean.
+- ⚠️ Touches ``src/units/accounts/execute.py`` and
+  ``src/core/coordinator.py`` — flagged surfaces per Live-mode invariant
+  rule 3. **Operator pinged** via ping-PR #356 (merged ahead of the
+  work-PR), and the work-PR remains draft until merged.
+
+### 5. Architecture rules check
+
+- **Unit boundary declaration.** Touched units: ``src/units/accounts/``
+  (helper refactor), ``src/core/`` (coordinator wiring — the
+  cross-unit translator that's allowed to import from accounts unit),
+  ``src/units/ui/`` (aggregator filters), ``src/runtime/``
+  (watchdog + hourly report — orchestration), ``src/web/api/``
+  (operator dashboard). No new cross-unit imports outside
+  ``src/core/coordinator.py``.
+- **Rule 3 (account/risk/execute).** ``execute_pkg`` remains the single
+  canonical live-order entry point; the new helper sits beside it in
+  the same module.
+- **Rule 4 (UI mirrors DB structure).** Aggregators continue to filter
+  on the trades table; the refusal rows are simply a new sub-bucket
+  the existing surfaces correctly exclude.
+- **Rule 6 (live by default + tell-me-if-not).** The
+  ``_emit_execution_failure_ping`` path is unchanged — operator still
+  gets the per-tick diagnostic ping. The new journal write is a
+  *second* observability surface (durable + queryable), not a
+  replacement.
+
+### 6. Remaining
+
+- **Carry-over from CP-11 (still pending):** ``/packages`` bot command,
+  ``/latest_backtest`` enhancement, ``/strategies`` all-time signal
+  window. ``/packages`` is now unblocked because rejection rows are
+  visible in the trade log — natural next session.
+- **Carry-over from CP-12 (still pending):** mechanical test rewrite
+  pass for the BUG-039 architectural change (~10 tests in
+  ``test_runtime_orders.py``, ``test_orders.py``,
+  ``test_validation.py`` still asserting the OLD process-level gates).
+  Same pre-existing count as before this PR.
+- **Liveness watchdog (architecture-audit P0-3):** ``src/runtime/liveness_watchdog.py``
+  exists and now correctly filters refusal rows; whether it's wired
+  into the operator alert path is a separate question the next
+  session can audit.
+- **Long-term:** replace ad-hoc ``REPO_ROOT = ../..`` calcs with a
+  single ``src/utils/paths.py::repo_root()`` marker-walker (BUG-037
+  follow-up). Not in this PR.
+
+### 7. Next checkpoint
+
+**CP-2026-05-?-?? — /packages bot command.** First action: design the
+UI helper + bot handler in the UI unit per CLAUDE.md § Architecture
+rules § 5 (bot is a thin shell). Read in order: this entry, the
+``trade_journal.db::trades`` schema (``src/units/db/database.py``
+lines 69-90), the existing ``recent_trades_for`` (now refusal-filtered)
+as the template, and the order_packages log writer/reader pair from
+S-030 PR1 / PR3. The handler should group by ``status`` and surface
+``rejected``/``exchange_rejected`` rows with their ``notes.reason``
+token alongside ``open``/``closed`` rows.
+
+---
+
 ## CP-2026-05-03-13 — single canonical operator notebook (env / keys / VM restart)
 
 - **Session date:** 2026-05-03

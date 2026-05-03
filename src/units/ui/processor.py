@@ -419,17 +419,28 @@ def get_today_pnl(account_id: Optional[str] = None) -> Dict[str, Any]:
     try:
         conn = sqlite3.connect(db_path)
         try:
+            # Refusal rows (status='rejected' / 'exchange_rejected') must
+            # be excluded so trade_count reflects real exchange
+            # submissions only. PnL aggregation is also safe because
+            # rejected rows have pnl IS NULL, but the filter is explicit
+            # for documentation. (CP-2026-05-03-14.)
+            status_filter = (
+                "AND COALESCE(status, 'open') "
+                "NOT IN ('rejected', 'exchange_rejected')"
+            )
             if account_id is not None:
                 row = conn.execute(
                     "SELECT COUNT(*), SUM(COALESCE(pnl, 0)) FROM trades "
                     "WHERE DATE(timestamp) = ? AND is_backtest = 0 "
+                    f"{status_filter} "
                     "AND account_id = ?",
                     (today, account_id),
                 ).fetchone()
             else:
                 row = conn.execute(
                     "SELECT COUNT(*), SUM(COALESCE(pnl, 0)) FROM trades "
-                    "WHERE DATE(timestamp) = ? AND is_backtest = 0",
+                    f"WHERE DATE(timestamp) = ? AND is_backtest = 0 "
+                    f"{status_filter}",
                     (today,),
                 ).fetchone()
         finally:

@@ -84,13 +84,16 @@ def _query_pnl(
         )
         sums = {row[0]: (float(row[1]), float(row[2])) for row in cur.fetchall()}
 
-        # Trades opened today (UTC).
+        # Trades opened today (UTC). Exclude refusal rows so the count
+        # reflects real exchange submissions (CP-2026-05-03-14).
         today_iso = now_utc.strftime("%Y-%m-%d")
         cur.execute(
             """
             SELECT account_id, COUNT(*) AS cnt
               FROM trades
              WHERE COALESCE(is_backtest, 0) = 0
+               AND COALESCE(status, 'open')
+                       NOT IN ('rejected', 'exchange_rejected')
                AND substr(COALESCE(created_at, timestamp), 1, 10) = ?
              GROUP BY account_id
             """,
