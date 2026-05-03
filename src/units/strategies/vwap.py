@@ -55,7 +55,15 @@ MIN_CANDLES = 2
 # threshold sweep (1.0 / 1.5 / 2.0 / 2.5) showed monotonic improvement
 # up to 2.0σ with a small regression at 2.5σ, so 2.0σ is a clean local
 # maximum and not overfit to the sample.
-ENTRY_STD_THRESHOLD = 2.0
+#
+# 2026-05-03 operator override (CP-2026-05-03-20): reverted to 1.0σ to
+# raise order-package cadence. Operator accepted the documented R/R
+# trade-off (1:1 at the entry boundary instead of 2:1) in exchange for
+# more frequent fills. The 2.0σ value remains the backtest-optimal Sharpe
+# point; if the live cadence/PnL profile underperforms expectations,
+# the right next move is a fresh threshold sweep on out-of-sample data,
+# not silently bumping the constant back up.
+ENTRY_STD_THRESHOLD = 1.0
 
 # Internal alias retained for backwards-compatible imports.
 _ENTRY_STD_THRESHOLD = ENTRY_STD_THRESHOLD
@@ -73,15 +81,23 @@ _ENTRY_STD_THRESHOLD = ENTRY_STD_THRESHOLD
 #                   - BUY  (entry < vwap): SL = entry - SL_STD_MULT * std_dev (further below)
 #                   - SELL (entry > vwap): SL = entry + SL_STD_MULT * std_dev (further above)
 #
-# Risk/reward at entry: R = (vwap - entry) for BUY, (entry - vwap) for SELL.
-# That's |deviation_std| × std_dev. With SL_STD_MULT = 1.0, the trade
-# carries R/R = |deviation_std| : 1, which is favourable when |deviation_std|
-# >= ENTRY_STD_THRESHOLD = 2.0 (the entry threshold; 2:1 R/R at the boundary).
-# Operator can tune
-# via the ``sl_std_mult`` arg to ``build_vwap_signal`` or the matching
-# entry in ``config/strategies.yaml`` (consumed by the pipeline-side
+# Risk/reward at entry: reward = (vwap - entry) for BUY, (entry - vwap)
+# for SELL. That's |deviation_std| × std_dev. Risk = SL_STD_MULT × std_dev.
+# So R/R (reward:risk) at the entry boundary equals
+# ENTRY_STD_THRESHOLD / SL_STD_MULT.
+#
+# 2026-05-03 operator directive (CP-2026-05-03-20): the strategy must
+# preserve a **risk:reward of 1:2** (reward is twice risk) at the entry
+# boundary while delivering a higher cadence of order packages. To honour
+# both: ENTRY_STD_THRESHOLD reverted from 2.0σ to 1.0σ (above) AND
+# SL_STD_MULT_DEFAULT halved from 1.0 to 0.5 here. Result at the boundary:
+# reward = 1.0 × std_dev, risk = 0.5 × std_dev → reward:risk = 2:1
+# (i.e. risk:reward = 1:2). Operators tuning either value must move the
+# other in lock-step or the R:R contract drifts. Tunable per call via the
+# ``sl_std_mult`` arg to ``build_vwap_signal`` or the matching entry in
+# ``config/strategies.yaml`` (consumed by the pipeline-side
 # vwap_signal_builder when it wires it through).
-SL_STD_MULT_DEFAULT = 1.0
+SL_STD_MULT_DEFAULT = 0.5
 
 
 def compute_vwap(candles_df: pd.DataFrame) -> float:
@@ -176,10 +192,11 @@ def build_vwap_signal(
         SL    = entry - sl_std_mult * std_dev   (BUY — further below entry)
                 entry + sl_std_mult * std_dev   (SELL — further above entry)
 
-    With ``sl_std_mult = SL_STD_MULT_DEFAULT = 1.0``, R/R at entry equals
-    ``|deviation_std| : 1``, which is favourable when the entry threshold
-    (``|deviation_std| >= ENTRY_STD_THRESHOLD = 2.0``) is met (2:1 R/R at
-    the boundary).
+    Per the 2026-05-03 operator directive: ``ENTRY_STD_THRESHOLD = 1.0``
+    and ``SL_STD_MULT_DEFAULT = 0.5`` together give risk:reward = 1:2
+    (reward = 2 × risk) at the entry boundary, while raising cadence
+    versus the prior 2.0σ / 1.0 mult configuration. Deeper excursions
+    carry proportionally better R:R.
     """
     if not isinstance(candles_df, pd.DataFrame) or candles_df.empty:
         return _no_trade(symbol, "VWAP skipped: candle data is empty or invalid")
