@@ -91,9 +91,76 @@ class Section:
 
 
 def _truncate(text: str, limit: int = _TELEGRAM_MAX_CHARS) -> str:
+    """Cap *text* at *limit* characters while keeping HTML well-formed.
+
+    Telegram rejects messages whose tags don't balance (``Can't parse
+    entities: can't find end tag corresponding to start tag
+    "blockquote"``). Pre-fix this helper was a naive
+    ``text[:budget]`` slice — when the cut landed inside a
+    ``<blockquote expandable>...</blockquote>`` block, the closing tag
+    was lost and the whole message was rejected. ``/last5`` triggered
+    this whenever the cumulative trade-row HTML exceeded 4096 chars
+    (5 trades × ~600 chars + a long ``entry_reason`` field).
+
+    Strategy (in order):
+
+    1. **Within budget** — return unchanged.
+    2. **Section seam in budget** — the renderer joins sections with
+       ``"\\n\\n"`` and each section ends with ``</blockquote>``;
+       cutting just after that seam guarantees every opened tag has
+       its matching close, no healing needed.
+    3. **No seam in budget** — naive truncate with the budget reduced
+       by the worst-case healing overhead (one ``</blockquote>`` plus
+       one ``</b>``), then (a) roll back to before any incomplete
+       ``<...`` so we never cut mid-tag, then (b) append the missing
+       close tags. Final length is guaranteed ``≤ limit``.
+    """
     if len(text) <= limit:
         return text
-    return text[: max(0, limit - len(_TRUNCATE_MARKER))] + _TRUNCATE_MARKER
+
+    marker_len = len(_TRUNCATE_MARKER)
+
+    # (2) Prefer a clean section-boundary cut. No healing needed; only
+    # the marker has to fit, so the seam may sit at ``limit - marker_len``.
+    seam = "</blockquote>\n\n"
+    seam_search_end = (limit - marker_len) - len("</blockquote>") + len(seam)
+    if seam_search_end > 0:
+        safe_cut = text.rfind(seam, 0, seam_search_end)
+        if safe_cut >= 0:
+            end = safe_cut + len("</blockquote>")
+            return text[:end] + _TRUNCATE_MARKER
+
+    # (3) Mid-cut path. Reserve room for the worst-case heal so the
+    # final string can never overflow the limit.
+    heal_reserve = len("</blockquote>") + len("</b>")
+    budget = limit - marker_len - heal_reserve
+    if budget <= 0:
+        return _TRUNCATE_MARKER[:limit]
+
+    truncated = text[:budget]
+
+    # (3a) If the cut landed mid-tag (an unmatched ``<`` after the
+    # last ``>``), roll back to before the broken tag.
+    last_open = truncated.rfind("<")
+    last_close = truncated.rfind(">")
+    if last_open > last_close:
+        truncated = truncated[:last_open]
+
+    # (3b) Balance ``<blockquote ...>`` opens with closes. The opening
+    # form has attributes ("<blockquote expandable>") so we count the
+    # bare prefix; closes are always the literal "</blockquote>".
+    bq_opens = truncated.count("<blockquote")
+    bq_closes = truncated.count("</blockquote>")
+    if bq_opens > bq_closes:
+        truncated += "</blockquote>" * (bq_opens - bq_closes)
+
+    # (3c) Same for ``<b>`` headers.
+    b_opens = truncated.count("<b>")
+    b_closes = truncated.count("</b>")
+    if b_opens > b_closes:
+        truncated += "</b>" * (b_opens - b_closes)
+
+    return truncated + _TRUNCATE_MARKER
 
 
 def _section_html(section: Section) -> str:
