@@ -336,6 +336,58 @@ def _signal_carries_full_sltp(signal: Dict[str, Any]) -> bool:
     )
 
 
+def _has_open_package_for_strategy(strategy_name: Optional[str]) -> Optional[str]:
+    """Strategy-monocle gate: return the order_package_id of an existing
+    open package for *strategy_name*, or ``None`` when no open package
+    exists.
+
+    Operator directive 2026-05-03: a strategy may have **one** open
+    package globally — across all accounts that follow it. Once a
+    package is logged, the strategy's job is to monitor + update
+    that package via ``order_monitor`` until SL/TP hits or the
+    strategy decides to close (PRs 2 + 3 of this sprint wire the
+    close path).
+
+    Best-effort — a DB-read failure returns ``None`` (i.e. "no open
+    package known"), which means the dispatcher proceeds. The risk
+    is creating one extra duplicate package in the DB-read failure
+    window; the alternative (refusing the dispatch on every
+    DB-read failure) trades a real bug for a hypothetical one.
+
+    The strategy_name is read from ``signal.meta.strategy_name``
+    (the canonical attribution source post-BUG-033). When unset
+    (multiplexer / unknown), the gate is bypassed — there's no
+    canonical name to scope the open-package query to.
+    """
+    if not strategy_name:
+        return None
+    try:
+        from src.units.db.database import Database
+        import os as _os
+        db_path = (
+            _os.environ.get("TRADE_JOURNAL_DB")
+            or _os.path.join(
+                _os.path.abspath(
+                    _os.path.join(_os.path.dirname(__file__), "..", "..")
+                ),
+                "trade_journal.db",
+            )
+        )
+        db = Database(db_path=db_path)
+        rows = db.get_order_packages_by_strategy(
+            strategy_name, status="open", limit=1,
+        )
+        if rows:
+            return str(rows[0].get("order_package_id") or "")
+        return None
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "_has_open_package_for_strategy(%s): DB read failed — %s",
+            strategy_name, exc,
+        )
+        return None
+
+
 def turtle_soup_signal_builder(settings: dict) -> Dict[str, Any]:
     """Sweep + reversal at 15m. S-012 PR C3 wires it into the multiplexer.
 
@@ -776,6 +828,38 @@ def run_pipeline(
                 # ``RiskManager.position_size(pkg, balance)`` — the
                 # single qty-deciding site post-G2. Halt-flag + news
                 # veto are already checked above.
+
+                # Strategy-monocle gate (one open package per strategy
+                # globally, regardless of how many accounts follow it).
+                # Per the operator directive 2026-05-03: a strategy
+                # that already has an open package focuses on
+                # *monitoring + updating* that package until SL/TP
+                # hits or the strategy decides to close. Pre-fix every
+                # actionable tick stacked a new package, so VWAP
+                # accumulated 10+ open packages with the operator's
+                # accounts unable to keep up.
+                _gate_strategy = (
+                    (signal.get("meta") or {}).get("strategy_name")
+                    or signal.get("strategy")
+                )
+                _existing_open = _has_open_package_for_strategy(
+                    _gate_strategy
+                )
+                if _existing_open is not None:
+                    logger.info(
+                        "strategy_monocle: skipping dispatch — strategy=%s "
+                        "already has open package %s",
+                        _gate_strategy, _existing_open,
+                    )
+                    result = {
+                        "status": "skipped",
+                        "reason": "open_package_exists",
+                        "strategy": _gate_strategy,
+                        "open_package_id": _existing_open,
+                        "signal": signal,
+                    }
+                    _report_pipeline_outcome(result, signal)
+                    return result
                 try:
                     from src.core.coordinator import Coordinator
                     pkg = _signal_to_order_package(signal, settings)
