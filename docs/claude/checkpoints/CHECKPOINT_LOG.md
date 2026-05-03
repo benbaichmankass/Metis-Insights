@@ -5,6 +5,225 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-03-19 — BUG-043 fix + P3 cosmetic gate shipped; BUG-042 plan filed (3 PRs); operator-verification pending
+
+- **Session date:** 2026-05-03 (continuation of the kGwLc sprint, post-CP-18)
+- **Sprint:** claude/fix-trading-validation-kGwLc
+- **Current sprint phase:** WRAP. P0 (BUG-043) shipped + merged. P3
+  (cosmetic gate) shipped + merged. P4 (BUG-042) scoped — plan
+  filed at `~/.claude/plans/bug-042-monitor-loop-write-back.md`
+  (NOT in repo per CP-18 directive; operator approval required
+  before any sprint touches Tier-2 surfaces). P1/P2 (BUG-041
+  bug-log entry) deferred — operator confirmed they ran the
+  cleanup notebook but lost the row-count output.
+- **Last completed checkpoint:** CP-2026-05-03-18.
+- **Next checkpoint:** **CP-2026-05-?-?? — BUG-043 operator-verification
+  + BUG-041 bug-log entry + BUG-042 sprint kickoff (operator-
+  approval-gated) + side-issue triage of /signals path.** First
+  action for the next session is to confirm whether the post-deploy
+  `/packages` row shows non-zero `confidence`. Without that
+  confirmation, BUG-043 isn't formally closed.
+- **Telegram sent:** rides on the merge of this checkpoint commit.
+- **Alerts sent during session:** none.
+- **Blockers:**
+  - **BUG-043 operator-verification.** All `/packages` snapshots
+    the operator shared this session show open packages with
+    `updated_at ≤ 2026-05-03T20:37:21+00:00` — every visible row
+    pre-dates PR #371's merge timestamp (`~2026-05-03T20:52Z`).
+    The fix's effect won't surface until the VM auto-deploys + a
+    new VWAP signal fires; pre-existing rows will keep showing
+    `0.00` forever (a one-shot DB backfill was explicitly out of
+    scope per CP-18 § 3 closing).
+  - **BUG-042 sprint kickoff.** Plan is scoped (~80 new LOC, 3
+    PRs, env-flag rollout) but touches Tier-2 surfaces
+    (`src/runtime/order_monitor.py` + `src/units/accounts/clients.py`)
+    and the next session must open a ping-PR per CLAUDE.md
+    "Ping-PR vs work-PR" rule before writing code.
+
+### 1. Completed
+
+- **P0 — BUG-043 root cause located + fixed (PR #371 merged).** The
+  pipeline production path is `build_vwap_signal →
+  _signal_to_order_package → _log_new_order_package →
+  order_packages.confidence`. `_signal_to_order_package` reads
+  `meta.get("confidence") or 0.0`. `build_vwap_signal` never set
+  `confidence` in the returned dict, so every VWAP signal landed
+  at the `or 0.0` fallback and the journal silently zeroed every
+  row. The strategy unit's own `order_package()` had the formula
+  correct (`confidence = min(deviation / ENTRY_STD_THRESHOLD, 1.0)`)
+  but the pipeline calls `build_vwap_signal()` directly. Fix:
+  compute confidence inside `build_vwap_signal` using the same
+  formula and emit it at both top level and inside meta. Tier 1.
+  CI green. Self-merged after operator approval.
+- **BUG-043 bug-log entry appended (PR #372 merged).** Cross-
+  references PR #371 (fix), CP-17 § 6d (where the 0.0 was first
+  noted as cosmetic), CP-18 § 3 P0 (operator's reprioritization
+  to live-trading blocker), PR #360 (`/packages` symptom surface),
+  PR #367 (orphaned-status backfill where the same 0.0 pattern
+  appeared on every ghost trade). Architectural lesson filed:
+  when a "canonical generator" (`order_package()`) and a
+  "production builder" (`build_vwap_signal()`) compute the same
+  field, drift between them silently kills journal data —
+  recurring shape with BUG-039 / BUG-024 / BUG-026.
+- **P3 — cosmetic gate shipped (PR #373 merged).**
+  `_pipeline_result_sections` now skips the "Order package — not
+  generated" body on no-signal ticks (`side='none'`). The body
+  still fires when `side ∈ {'buy', 'sell'}` but entry/sl/tp are
+  missing — the legacy single-client fallback diagnostic. Two
+  regression tests in `tests/test_orders.py` pin both branches.
+  Tier 1, CI green, self-merged.
+- **P4 — BUG-042 monitor-loop write-back plan filed at
+  `~/.claude/plans/bug-042-monitor-loop-write-back.md`.** Identifies
+  the seam (between the existing per-strategy loop and the return
+  in `run_monitor_tick`) where exchange-→-DB reconciliation
+  belongs. New `_reconcile_open_trades(db)` reads
+  `trades WHERE status='open'`, groups by `account_id`, calls
+  `account_open_positions(account)` (already present at
+  `src/units/ui/data_loaders.py:750-801`, lift to
+  `src/units/accounts/clients.py` per unit-boundary rule), and
+  marks any DB-open / exchange-flat row as `status='orphaned'`
+  with `exit_reason='reconciler'`. Cascades to `order_packages`
+  via `linked_trade_id`. Diagnostic ping per orphan via
+  `src/runtime/execution_diagnostics.py`. Reads only — no new
+  live-order placement. Sprint shape: 3 PRs (foundation, reconciler,
+  runbook), env-gated by `MONITOR_RECONCILE_ENABLED`. Risk
+  inventory + dry-run-account guard documented. Plan stays
+  outside the repo per CP-18 directive.
+
+### 2. Files changed
+
+- `src/units/strategies/vwap.py` — `build_vwap_signal()` computes +
+  emits `confidence` (top-level + `meta.confidence`) on actionable
+  buy/sell signals; `meta.confidence` also emitted on the
+  no-signal branch for renderer shape stability. (PR #371)
+- `tests/test_vwap_strategy.py` — 4 new BUG-043 regression tests
+  in `TestBuildVwapSignal`: actionable buy/sell signals carry
+  non-zero top-level + meta confidence; no-signal branch still
+  emits the field; end-to-end pin via the production
+  `_signal_to_order_package` → `_log_new_order_package` →
+  `SELECT confidence` path. (PR #371)
+- `docs/claude/bug-log.md` — BUG-043 row appended. (PR #372)
+- `src/runtime/pipeline.py` — `_pipeline_result_sections` gates the
+  "not generated" body on `side ∈ {'buy', 'sell'}`. (PR #373)
+- `tests/test_orders.py` — 2 regression tests pinning the gate
+  (skip on no-signal, fire on actionable-no-sltp). (PR #373)
+- `~/.claude/plans/bug-042-monitor-loop-write-back.md` — out-of-repo
+  scoping document for the next sprint, per CP-18 directive.
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` — this entry.
+
+### 3. Tests run
+
+- `PYTHONPATH=. python3 -m pytest tests/test_vwap_strategy.py::TestBuildVwapSignal -q` — **15/15 pass** (incl. 4 new BUG-043 regression tests).
+- `PYTHONPATH=. python3 -m pytest tests/test_s030_pr1_order_packages_log.py -q` — pre-existing DB-layer pins still pass (already pinned `confidence=0.7`/`0.8` end-to-end at the `_log_new_order_package` → `SELECT` boundary).
+- `PYTHONPATH=. python3 -m pytest tests/test_orders.py::test_pipeline_result_sections_omits_not_generated_on_no_signal_tick tests/test_orders.py::test_pipeline_result_sections_keeps_not_generated_when_actionable_but_missing_sltp -v` — **2/2 pass**.
+- `PYTHONPATH=. python3 -m pytest tests/test_vwap_strategy.py -q` — 51/58 pass; 7 pre-existing failures from BUG-039 era stale `MODE` / `DRY_RUN` / `ALLOW_LIVE_TRADING` tests (`TestLiveSafetyGate`, 2× `TestVwapPipelineRouting`). Confirmed pre-existing on `main` via `git stash` round-trip. Out of scope.
+- `PYTHONPATH=. python3 -m pytest tests/test_orders.py -q` — 18/20 pass; 2 pre-existing failures from the same BUG-039-era stale tests (`test_safe_place_order_allow_live_diagnostic_includes_source_and_value`, `test_pipeline_result_failed_validation_includes_remediation_section`). Confirmed pre-existing on `main`. Out of scope.
+- `python3 scripts/secret_scan.py` — clean (run on each PR's diff).
+- `python3 scripts/check_dry_run_in_diff.py` — clean (run on each PR's diff).
+- CI on PR #371 / #372 / #373 (`scan`) — all pass.
+
+### 4. Remaining
+
+- **Operator-verification of BUG-043 on the live VM (BLOCKING per CP-18 § 3 step 8).**
+  All snapshots shared in this session show `updated_at ≤ 2026-05-03T20:37:21+00:00`
+  — every visible row pre-dates PR #371's merge (`~20:52Z`). Verification needs
+  a fresh `/packages` snapshot taken **after** (a) the VM's `deploy_pull_restart`
+  cycle picks up `main`, AND (b) a new VWAP signal fires post-deploy. Sanity
+  check: the most-recent open package's `updated_at` must be `> 2026-05-03T20:52Z`
+  for the row to have been logged by post-fix code; pre-existing rows will keep
+  showing `0.00` forever.
+- **BUG-041 entry deferred.** Operator confirmed they ran
+  `notebooks/operator/cleanup_ghost_trades.ipynb` but didn't save the
+  row-count output ("operator blunder, see the outputs of the packages
+  command"). Decision for the next session: either (a) ask operator to
+  re-run the notebook in dry-mode (`CONFIRM=False`) to read the count
+  from the SELECT cell, or (b) close BUG-041 with `unknown` in the
+  row-count column and the architectural-evidence link to the orphaned
+  /packages rows.
+- **BUG-042 sprint** — plan filed at `~/.claude/plans/bug-042-monitor-loop-write-back.md`.
+  Next session: open ping-PR + work-PR pair per CLAUDE.md "Ping-PR vs work-PR"
+  rule. Do NOT start coding until operator acks the 3-PR shape.
+- **Side-issue: `/signals` audit-file path.** Operator's `/signals`
+  output named the audit file as
+  `/home/ubuntu/ict-trading-bot/src/runtime_logs/signal_audit.jsonl`
+  — the `src/` prefix is suspicious. Looks like the BUG-037 REPO_ROOT
+  pattern resurfacing on a different surface (probably
+  `src/units/ui/processor.py` or `src/bot/telegram_query_bot.py`).
+  Worth a 5-minute investigation in the next session: `grep -rn
+  "signal_audit.jsonl" src/` and check whether the path-up `..` count
+  matches the file's depth from repo-root. Not blocking; not in scope
+  for this checkpoint.
+
+### 5. Next checkpoint
+
+**CP-2026-05-?-?? — BUG-043 verification + BUG-041 close-out + BUG-042
+sprint kickoff + /signals path triage.** First action for the next
+session:
+
+1. **BUG-043 verification (BLOCKING).** Ask the operator: "Has
+   `deploy_pull_restart` picked up `main` since
+   `2026-05-03T20:52Z`, and has a new VWAP signal fired since?
+   If yes, paste the most-recent open-package row from
+   `/packages` (just `confidence` + `updated_at`)."
+   - If `confidence ∈ (0.0, 1.0]` AND `updated_at > 20:52Z` →
+     BUG-043 verified-closed. Append a closing note to the
+     bug-log row + proceed.
+   - If `confidence == 0.00` AND `updated_at > 20:52Z` → fix
+     didn't take effect on the VM. Investigate: deploy cache,
+     stale .pyc files, or a second leak path the regression
+     test missed. The end-to-end pin in `test_vwap_strategy.py`
+     should be the diagnostic.
+   - If `updated_at ≤ 20:52Z` → still pre-deploy; ask operator
+     to wait + re-run.
+
+2. **BUG-041 close-out.** Either re-run the cleanup notebook in
+   dry mode + capture the count, or close the row with
+   `unknown` and link to the architectural evidence in
+   `/packages` (the remaining orphaned rows).
+
+3. **BUG-042 sprint kickoff (operator-approval-gated).** Open
+   the ping-PR + work-PR pair per CLAUDE.md "Ping-PR vs work-PR"
+   rule. Ping-PR title:
+   `BLOCKED: approve BUG-042 monitor-loop reconciler sprint shape?`
+   — body links to `~/.claude/plans/bug-042-monitor-loop-write-back.md`
+   and asks the operator to ack the 3-PR shape + env-flag rollout.
+   Self-merge the ping-PR; do **not** start coding until reply.
+
+4. **/signals path triage (~5 min).** `grep -rn
+   "signal_audit.jsonl" src/`, identify the `os.path.join` /
+   `__file__` `..` count for that path, fix if mis-resolved
+   (likely the same shape as BUG-037). 1-PR small fix or a row
+   on the bug-log if it's not actually wrong.
+
+Read in this order:
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` — this CP first.
+- `docs/claude/checkpoint-workflow.md`.
+- `~/.claude/plans/bug-042-monitor-loop-write-back.md` (out of repo).
+- `docs/claude/bug-log.md` BUG-043 + BUG-039 / BUG-024 / BUG-026
+  rows for the architectural-lesson context.
+- CP-2026-05-03-18 § 3 P1+ for the original deferred-items list.
+
+### 6. Lessons learned
+
+- **Strategy "canonical generator" + "production builder" duplication
+  is a journal-data killer.** `vwap.py::order_package()` had the
+  confidence formula correct from day one. `vwap.py::build_vwap_signal()`
+  silently dropped it. Both were in the same file. The pipeline
+  called the wrong one. Two routes to compute the same field will
+  always drift; a contract test
+  (`assert _signal_to_order_package(build_vwap_signal(df)).confidence
+  == order_package(cfg, df)["confidence"]`) would have failed loudly
+  at PR-time. Filing as a future sprint candidate: collapse the two
+  paths so both routes share one implementation.
+- **`updated_at` is the gold-standard verification anchor for
+  post-deploy fixes.** All three of the operator's `/packages`
+  snapshots this session were rejected as "still pre-deploy" by
+  comparing `updated_at` against the merge timestamp. The next
+  session should instinctively reach for `updated_at > merge_ts`
+  before treating any /packages output as evidence.
+
+---
+
 ## CP-2026-05-03-18 — operator P0 reprioritization: BUG-043 confidence=0 is a live-trading blocker (supersedes CP-17 § 7)
 
 - **Session date:** 2026-05-03 (same long session, post-CP-17)
