@@ -5,7 +5,7 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
-## CP-2026-05-03-19 — BUG-043 fix + P3 cosmetic gate shipped; BUG-042 plan filed (3 PRs); operator-verification pending
+## CP-2026-05-03-19 — BUG-043 + P3 + BUG-044 shipped (4 PRs); halt-flag is the new prime suspect for "no new packages"
 
 - **Session date:** 2026-05-03 (continuation of the kGwLc sprint, post-CP-18)
 - **Sprint:** claude/fix-trading-validation-kGwLc
@@ -16,6 +16,16 @@ Newest entry on top. Every session **must** add one entry before exiting.
   before any sprint touches Tier-2 surfaces). P1/P2 (BUG-041
   bug-log entry) deferred — operator confirmed they ran the
   cleanup notebook but lost the row-count output.
+  **BUG-044** (mid-session find) shipped — `processor.py` had
+  six `os.path.dirname(__file__), "..", ".."` REPO_ROOT calcs
+  that didn't get updated when the file moved from
+  `src/bot/processor.py` (depth 2) to `src/units/ui/processor.py`
+  (depth 3) per S-032. Same shape as BUG-037 in `data_loaders.py`.
+  This explains why operator's `/signals` output reported
+  `Audit file: /home/ubuntu/ict-trading-bot/src/runtime_logs/...`
+  (the spurious `src/` segment is the smoking gun) and why
+  `/last5` and others returned silent empties even when the
+  trader was logging signals.
 - **Last completed checkpoint:** CP-2026-05-03-18.
 - **Next checkpoint:** **CP-2026-05-?-?? — BUG-043 operator-verification
   + BUG-041 bug-log entry + BUG-042 sprint kickoff (operator-
@@ -26,14 +36,30 @@ Newest entry on top. Every session **must** add one entry before exiting.
 - **Telegram sent:** rides on the merge of this checkpoint commit.
 - **Alerts sent during session:** none.
 - **Blockers:**
-  - **BUG-043 operator-verification.** All `/packages` snapshots
-    the operator shared this session show open packages with
+  - **Halt-flag is most likely on (NEW prime hypothesis).** While
+    writing the BUG-044 regression test, pytest exposed the
+    sandbox's `runtime_logs/signal_audit.jsonl` content; that file
+    contained a row at `2026-05-03 21:01:05` with
+    `strategy=multiplexed | BTCUSDT buy 1.0000 → halted —
+    halt_flag_active`. **If the production VM is in the same
+    state, the kill-switch is on and that single fact explains
+    every "no new packages" symptom this session** — the trader
+    is running, generating signals, and `safe_place_order` /
+    `RiskManager` are halting every order before it lands in
+    `order_packages`. Operator must check
+    `ls -la /tmp/trader_halt.flag` on the VM; if present, run
+    the un-halt command (`/resume` or whatever wires
+    `_PAUSED_ACCOUNTS` clear) and BUG-043 verification will
+    complete on the next VWAP signal.
+  - **BUG-043 operator-verification (downstream of the halt-flag
+    hypothesis).** All `/packages` snapshots the operator shared
+    this session show open packages with
     `updated_at ≤ 2026-05-03T20:37:21+00:00` — every visible row
     pre-dates PR #371's merge timestamp (`~2026-05-03T20:52Z`).
-    The fix's effect won't surface until the VM auto-deploys + a
-    new VWAP signal fires; pre-existing rows will keep showing
-    `0.00` forever (a one-shot DB backfill was explicitly out of
-    scope per CP-18 § 3 closing).
+    The fix's effect won't surface until the VM auto-deploys +
+    a new VWAP signal fires + the order isn't halted; pre-existing
+    rows will keep showing `0.00` forever (a one-shot DB backfill
+    was explicitly out of scope per CP-18 § 3 closing).
   - **BUG-042 sprint kickoff.** Plan is scoped (~80 new LOC, 3
     PRs, env-flag rollout) but touches Tier-2 surfaces
     (`src/runtime/order_monitor.py` + `src/units/accounts/clients.py`)
@@ -89,6 +115,23 @@ Newest entry on top. Every session **must** add one entry before exiting.
   runbook), env-gated by `MONITOR_RECONCILE_ENABLED`. Risk
   inventory + dry-run-account guard documented. Plan stays
   outside the repo per CP-18 directive.
+- **BUG-044 — `processor.py` REPO_ROOT path-up count fix
+  (PR #375 merged).** Operator's `/signals` output named the audit
+  file as `<repo>/src/runtime_logs/signal_audit.jsonl` (the
+  spurious `src/` is the smoking gun). Investigation found that
+  `src/units/ui/processor.py` was moved from `src/bot/processor.py`
+  (depth 2) to `src/units/ui/processor.py` (depth 3) per S-032,
+  and six call sites computing `repo_root` via
+  `os.path.dirname(__file__), "..", ".."` were never updated.
+  All six fixed to use three `..`. New regression test at
+  `tests/test_processor_repo_root_resolution.py` includes a
+  source-level pin that scans `processor.py` for any
+  `os.path.dirname(__file__), "..", ...` expression and asserts
+  ≥ 3 `..` segments — catches future regressions at PR-time
+  without runtime fixtures. Same shape as BUG-037; the long-term
+  follow-up "replace ad-hoc REPO_ROOT calcs with
+  `src/utils/paths.py::repo_root()` walking to a marker file"
+  remains a sprint candidate. Tier 1, CI green, self-merged.
 
 ### 2. Files changed
 
@@ -109,6 +152,11 @@ Newest entry on top. Every session **must** add one entry before exiting.
   (skip on no-signal, fire on actionable-no-sltp). (PR #373)
 - `~/.claude/plans/bug-042-monitor-loop-write-back.md` — out-of-repo
   scoping document for the next sprint, per CP-18 directive.
+- `src/units/ui/processor.py` — 6 REPO_ROOT path-up calcs use
+  three `..` instead of two (BUG-044). (PR #375)
+- `tests/test_processor_repo_root_resolution.py` — 3 new regression
+  tests including a source-level pin for any future depth-2
+  regression in `processor.py`. (PR #375)
 - `docs/claude/checkpoints/CHECKPOINT_LOG.md` — this entry.
 
 ### 3. Tests run
@@ -118,19 +166,39 @@ Newest entry on top. Every session **must** add one entry before exiting.
 - `PYTHONPATH=. python3 -m pytest tests/test_orders.py::test_pipeline_result_sections_omits_not_generated_on_no_signal_tick tests/test_orders.py::test_pipeline_result_sections_keeps_not_generated_when_actionable_but_missing_sltp -v` — **2/2 pass**.
 - `PYTHONPATH=. python3 -m pytest tests/test_vwap_strategy.py -q` — 51/58 pass; 7 pre-existing failures from BUG-039 era stale `MODE` / `DRY_RUN` / `ALLOW_LIVE_TRADING` tests (`TestLiveSafetyGate`, 2× `TestVwapPipelineRouting`). Confirmed pre-existing on `main` via `git stash` round-trip. Out of scope.
 - `PYTHONPATH=. python3 -m pytest tests/test_orders.py -q` — 18/20 pass; 2 pre-existing failures from the same BUG-039-era stale tests (`test_safe_place_order_allow_live_diagnostic_includes_source_and_value`, `test_pipeline_result_failed_validation_includes_remediation_section`). Confirmed pre-existing on `main`. Out of scope.
+- `PYTHONPATH=. python3 -m pytest tests/test_processor_repo_root_resolution.py -v` — **3/3 pass** (BUG-044 regression: module-depth invariant, source-level path-up scan, end-to-end empty-state path).
+- `PYTHONPATH=. python3 -m pytest tests/test_processor_collapsable_renderers.py tests/test_processor_signals_trades_collapsable.py tests/test_processor_per_account_collapsable.py -q` — **20/20 pass** (sanity check that the BUG-044 path-up changes didn't break any existing processor renderer behaviour).
 - `python3 scripts/secret_scan.py` — clean (run on each PR's diff).
 - `python3 scripts/check_dry_run_in_diff.py` — clean (run on each PR's diff).
-- CI on PR #371 / #372 / #373 (`scan`) — all pass.
+- CI on PR #371 / #372 / #373 / #375 (`scan`) — all pass.
 
 ### 4. Remaining
 
-- **Operator-verification of BUG-043 on the live VM (BLOCKING per CP-18 § 3 step 8).**
-  All snapshots shared in this session show `updated_at ≤ 2026-05-03T20:37:21+00:00`
-  — every visible row pre-dates PR #371's merge (`~20:52Z`). Verification needs
-  a fresh `/packages` snapshot taken **after** (a) the VM's `deploy_pull_restart`
-  cycle picks up `main`, AND (b) a new VWAP signal fires post-deploy. Sanity
-  check: the most-recent open package's `updated_at` must be `> 2026-05-03T20:52Z`
-  for the row to have been logged by post-fix code; pre-existing rows will keep
+- **VM halt-flag check (NEW BLOCKER, prime hypothesis).**
+  Sandbox-side audit log shows `halt_flag_active` was the outcome
+  of every order at the most-recent timestamp. If the production
+  VM's `/tmp/trader_halt.flag` is present, **the kill-switch
+  alone explains every "no new packages" symptom this session**.
+  Operator should run on the VM:
+  - `ls -la /tmp/trader_halt.flag` — if present, kill-switch is on.
+  - `sudo systemctl status ict-trader-live.service` — confirm
+    process is running.
+  - `tail -20 ~/ict-trading-bot/runtime_logs/signal_audit.jsonl`
+    — confirm signals are still being logged.
+  If the flag exists, clear it (the bot's `/halt off` or remove
+  the file directly) and the next VWAP signal will land
+  unblocked.
+- **Operator-verification of BUG-043 on the live VM (downstream
+  of the halt-flag check; BLOCKING per CP-18 § 3 step 8).**
+  All snapshots shared in this session show
+  `updated_at ≤ 2026-05-03T20:37:21+00:00` — every visible row
+  pre-dates PR #371's merge (`~20:52Z`). Verification needs a
+  fresh `/packages` snapshot taken **after** (a) the VM's
+  `deploy_pull_restart` cycle picks up `main`, AND (b) the
+  halt-flag is cleared, AND (c) a new VWAP signal fires
+  post-deploy. Sanity check: the most-recent open package's
+  `updated_at` must be `> 2026-05-03T20:52Z` for the row to have
+  been logged by post-fix code; pre-existing rows will keep
   showing `0.00` forever.
 - **BUG-041 entry deferred.** Operator confirmed they ran
   `notebooks/operator/cleanup_ghost_trades.ipynb` but didn't save the
@@ -143,57 +211,49 @@ Newest entry on top. Every session **must** add one entry before exiting.
 - **BUG-042 sprint** — plan filed at `~/.claude/plans/bug-042-monitor-loop-write-back.md`.
   Next session: open ping-PR + work-PR pair per CLAUDE.md "Ping-PR vs work-PR"
   rule. Do NOT start coding until operator acks the 3-PR shape.
-- **Side-issue: `/signals` audit-file path.** Operator's `/signals`
-  output named the audit file as
-  `/home/ubuntu/ict-trading-bot/src/runtime_logs/signal_audit.jsonl`
-  — the `src/` prefix is suspicious. Looks like the BUG-037 REPO_ROOT
-  pattern resurfacing on a different surface (probably
-  `src/units/ui/processor.py` or `src/bot/telegram_query_bot.py`).
-  Worth a 5-minute investigation in the next session: `grep -rn
-  "signal_audit.jsonl" src/` and check whether the path-up `..` count
-  matches the file's depth from repo-root. Not blocking; not in scope
-  for this checkpoint.
+- ~~**Side-issue: `/signals` audit-file path.**~~ **CLOSED in this
+  session as BUG-044 / PR #375.** Same shape as BUG-037 — six
+  REPO_ROOT path-up calcs in `src/units/ui/processor.py` were
+  using two `..` instead of three (the file moved from depth 2
+  to depth 3 per S-032 and the calcs weren't updated). Smoking
+  gun was the operator's `/signals` output naming
+  `<repo>/src/runtime_logs/signal_audit.jsonl`. Source-level
+  regression test guards against future depth regressions.
 
 ### 5. Next checkpoint
 
-**CP-2026-05-?-?? — BUG-043 verification + BUG-041 close-out + BUG-042
-sprint kickoff + /signals path triage.** First action for the next
-session:
+**CP-2026-05-?-?? — VM halt-flag clear + BUG-043 verification +
+BUG-041 close-out + BUG-042 sprint kickoff.** First action for
+the next session:
 
-1. **BUG-043 verification (BLOCKING).** Ask the operator: "Has
-   `deploy_pull_restart` picked up `main` since
-   `2026-05-03T20:52Z`, and has a new VWAP signal fired since?
-   If yes, paste the most-recent open-package row from
-   `/packages` (just `confidence` + `updated_at`)."
-   - If `confidence ∈ (0.0, 1.0]` AND `updated_at > 20:52Z` →
-     BUG-043 verified-closed. Append a closing note to the
-     bug-log row + proceed.
-   - If `confidence == 0.00` AND `updated_at > 20:52Z` → fix
-     didn't take effect on the VM. Investigate: deploy cache,
-     stale .pyc files, or a second leak path the regression
-     test missed. The end-to-end pin in `test_vwap_strategy.py`
-     should be the diagnostic.
-   - If `updated_at ≤ 20:52Z` → still pre-deploy; ask operator
-     to wait + re-run.
+1. **VM halt-flag check (BLOCKING — prime suspect).** Ask the
+   operator: "Run `ls -la /tmp/trader_halt.flag` on the VM. If it
+   exists, the kill-switch is on and that single fact explains
+   every 'no new packages' symptom this session. Clear it (e.g.
+   via `/halt off` or `sudo rm /tmp/trader_halt.flag`) and the
+   next VWAP signal will land." Also have the operator run
+   `/signals` post-PR-#375 deploy — if that surface now shows
+   real audit content, BUG-044 is verified closed.
 
-2. **BUG-041 close-out.** Either re-run the cleanup notebook in
+2. **BUG-043 verification (BLOCKING per CP-18 § 3 step 8;
+   downstream of step 1).** Same procedure as in CP-19: confirm
+   the most-recent open package's `updated_at > 2026-05-03T20:52Z`
+   AND `confidence ∈ (0.0, 1.0]`. If `updated_at > 20:52Z` but
+   confidence is still `0.00`, the fix didn't take effect on the
+   VM (deploy cache / stale .pyc / second leak path) — investigate.
+
+3. **BUG-041 close-out.** Either re-run the cleanup notebook in
    dry mode + capture the count, or close the row with
    `unknown` and link to the architectural evidence in
    `/packages` (the remaining orphaned rows).
 
-3. **BUG-042 sprint kickoff (operator-approval-gated).** Open
+4. **BUG-042 sprint kickoff (operator-approval-gated).** Open
    the ping-PR + work-PR pair per CLAUDE.md "Ping-PR vs work-PR"
    rule. Ping-PR title:
    `BLOCKED: approve BUG-042 monitor-loop reconciler sprint shape?`
    — body links to `~/.claude/plans/bug-042-monitor-loop-write-back.md`
    and asks the operator to ack the 3-PR shape + env-flag rollout.
    Self-merge the ping-PR; do **not** start coding until reply.
-
-4. **/signals path triage (~5 min).** `grep -rn
-   "signal_audit.jsonl" src/`, identify the `os.path.join` /
-   `__file__` `..` count for that path, fix if mis-resolved
-   (likely the same shape as BUG-037). 1-PR small fix or a row
-   on the bug-log if it's not actually wrong.
 
 Read in this order:
 - `docs/claude/checkpoints/CHECKPOINT_LOG.md` — this CP first.
@@ -221,6 +281,23 @@ Read in this order:
   comparing `updated_at` against the merge timestamp. The next
   session should instinctively reach for `updated_at > merge_ts`
   before treating any /packages output as evidence.
+- **A failing test that incidentally reveals real data is a
+  diagnostic gift — read it carefully.** The BUG-044 regression
+  test failed initially because the sandbox audit file wasn't
+  empty; the failure message dumped the full audit content,
+  which contained a `halt_flag_active` row that turned out to
+  be the prime hypothesis for the operator's reported "no new
+  packages" symptom. Without that incidental data dump, the
+  halt-flag would not have surfaced as a hypothesis this
+  session. Lesson: when a test fails due to an unexpected
+  non-empty fixture, inspect the fixture content — it's free
+  diagnostic data.
+- **`os.path.dirname(__file__) + ".." * N` is fragile and
+  recurs.** BUG-037 (data_loaders.py) and BUG-044 (processor.py)
+  are the same shape, both caused by the same S-032 reorg. The
+  long-term fix `src/utils/paths.py::repo_root()` walking to a
+  marker file is now overdue — it's filed as a follow-up sprint
+  candidate in both bug rows.
 
 ---
 
