@@ -5,6 +5,51 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-03-05 — Session close: Velotrade rotate-keys notebook + CI-flake follow-up
+
+- **Session date:** 2026-05-03
+- **Sprint:** Velotrade phase-2 — operator-requested post-WRAPPED follow-up on the cred-rotation flow.
+- **Current sprint phase:** Sprint stays **WRAPPED**; this entry is the session-close handoff.
+- **Last completed checkpoint:** CP-2026-05-03-04 (Velotrade phase-2 sprint COMPLETE / WRAPPED — summary + DXtrade contract template merged as #339 via squash-merge `5a02de3`).
+- **Next checkpoint:** **CP-2026-05-?-?? — DXtrade SDK contract drop.** Same as CP-04 — fill in the four `NotImplementedError` method bodies in `src/units/accounts/dxtrade_client.py` per `docs/integrations/dxtrade-contract-template.md`, then add the three Velotrade Colab Secrets per the rotate-keys notebook (now updated this session).
+- **Telegram sent:** rides on the merge of #340 (`a3130f1`).
+- **Alerts sent during session:** none.
+- **Blockers:** none.
+
+### 1. Completed
+- **Velotrade in `notebooks/operator/rotate_api_keys.ipynb` (#340, merged `a3130f1`).** Single canonical place for the operator to drop Velotrade credentials. Three new optional Colab Secrets:
+  - `VELOTRADE_API_KEY_1` — DXtrade API key for `prop_velotrade_1`.
+  - `VELOTRADE_API_SECRET_1` — matching API secret (the names match `accounts.yaml::prop_velotrade_1::api_key_env`; `resolve_credentials()` derives `_API_SECRET` from `_API_KEY`).
+  - `VELOTRADE_BASE_URL` — sandbox vs prod toggle (e.g. `https://demo.dx.trade`); read by `velotrade_client_for()` from env.
+  Also: BREAKOUT rows marked DEPRECATED in the markdown table; new "Velotrade onboarding flow" section explains the safe ordering (drop secrets → run notebook → `/accounts_status` flips configured → fill in SDK contract → add strategies).
+- **CI-flake investigation on #340.** The "scan" check (`dry-run-guard.yml`) reported `failure` in 6 seconds. Reproduced the exact CI diff locally → `python scripts/check_dry_run_in_diff.py` returns `clean`, exit 0. No dry-run patterns in the added lines (`grep -E '\b(DRY_RUN|ALLOW_LIVE_TRADING|dry_run|paper_trading)\b' /tmp/ci-style.diff` empty). Conclusion: transient GH Actions runner flake during checkout / `git fetch` (the 6-second completion is below the typical floor for the workflow). PR was already operator-merged; no code-level issue to fix. Next PR will exercise the workflow again — flag for re-investigation only if it flakes a second time.
+
+### 2. Files changed
+- **Merged this session:**
+  - `notebooks/operator/rotate_api_keys.ipynb` — Velotrade slots in cells 0/3/4 + onboarding flow section.
+- **This handoff PR (docs only):**
+  - `docs/claude/checkpoints/CHECKPOINT_LOG.md` — this CP entry.
+
+### 3. Tests run
+- Cell 4 of the notebook smoke-tested in isolation: all three Velotrade keys land in the rendered `.env` when present (32 vars), stay out cleanly when absent (29 vars — no empty `KEY=` lines).
+- `python scripts/secret_scan.py` → clean.
+- `python scripts/check_dry_run_in_diff.py` → clean (verified locally on the exact CI diff).
+
+### 4. Live-mode check
+- Notebook + docs only. No code, no `accounts.yaml` change, no flag flip. ✅
+
+### 5. Architecture rules check
+- Notebook + docs only. No unit boundary touched.
+
+### 6. Remaining
+- **DXtrade SDK contract drop** (unchanged from CP-04). Single-file change once the operator fills in `docs/integrations/dxtrade-contract-template.md`.
+- **Live smoke test** — runs once SDK methods land + `VELOTRADE_API_KEY_1` / `VELOTRADE_API_SECRET_1` / `VELOTRADE_BASE_URL` provisioned via the rotate-keys notebook.
+
+### 7. Next checkpoint
+**CP-2026-05-?-?? — DXtrade SDK contract drop.** Read in order: this entry, CP-2026-05-03-04, `docs/sprint-summaries/sprint-velotrade-phase2-summary.md`, `docs/integrations/dxtrade-contract-template.md` (with operator-filled values), `src/units/accounts/dxtrade_client.py`, the bybit branch in `src/units/accounts/execute.py::_submit_order`.
+
+---
+
 ## CP-2026-05-03-04 — Velotrade phase-2 sprint COMPLETE / WRAPPED — summary + DXtrade contract template
 
 - **Session date:** 2026-05-03
