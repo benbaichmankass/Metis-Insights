@@ -1339,30 +1339,54 @@ _CLOSE_BUTTON_LABELS = {
 }
 
 
+def _render_closeall_results(rows: list, scope_label: str) -> str:
+    """Render the per-trade outcomes from ``processor.close_open_positions``.
+
+    Plain text — rows include account_id and symbol that may contain
+    underscores; the legacy Markdown parser would crash on those.
+    """
+    if not rows:
+        return f"ℹ️ No open trades found for {scope_label}."
+    ok_count = sum(1 for r in rows if r.get("ok"))
+    fail_count = len(rows) - ok_count
+    lines = [f"🚨 CLOSE {scope_label.upper()}", ""]
+    lines.append(f"✅ Closed {ok_count} | ❌ Failed {fail_count}")
+    lines.append("")
+    for r in rows:
+        icon = "✅" if r.get("ok") else "❌"
+        aid = r.get("account_id", "?")
+        sym = r.get("symbol", "?")
+        side = r.get("direction", "?")
+        qty = r.get("qty", 0.0)
+        suffix = ""
+        if r.get("ok"):
+            oid = r.get("exchange_order_id") or ""
+            if oid:
+                suffix = f" (id={oid})"
+        else:
+            err = r.get("error") or "unknown error"
+            suffix = f" — {err}"
+        lines.append(f"{icon} {aid} | {sym} {side} qty={qty}{suffix}")
+    return "\n".join(lines)
+
+
 async def _do_closeall_strategy(reply_fn, strategy_name: str) -> None:
-    """Close positions for all Bybit accounts that run *strategy_name*."""
+    """Close positions for all Bybit accounts that run *strategy_name*.
+
+    S-031 PR4 (architecture-audit-2026-05-02 P1-6): now a thin shell
+    over ``processor.close_open_positions``. The pre-PR path called
+    ``dl.close_all_bybit_positions_for_strategy`` which placed
+    reduce-only market orders directly, bypassing ``execute_pkg``'s
+    canonical close path. Rule-3 violation closed.
+    """
+    from src.ui import processor
     try:
-        accounts = dl.list_accounts() or []
-        bybit_accounts = [a for a in accounts if (a.get("exchange") or "").lower() == "bybit"]
-    except Exception as e:
-        await reply_fn(f"⚠️ Could not list accounts: {e}")
+        rows = processor.close_open_positions(strategy=strategy_name)
+    except Exception as exc:  # noqa: BLE001
+        await reply_fn(f"⚠️ Could not close positions: {exc}")
         return
-    if not bybit_accounts:
-        await reply_fn("⚠️ No Bybit accounts configured.")
-        return
-    results = []
-    for account in bybit_accounts:
-        try:
-            msg = dl.close_all_bybit_positions_for_strategy(account, strategy_name)
-            if msg is not None:
-                results.append(msg)
-        except Exception as e:
-            aid = account.get("account_id", "?")
-            results.append(f"⚠️ Error ({aid}): {e}")
-    if not results:
-        await reply_fn(f"ℹ️ No accounts configured to run strategy '{strategy_name}'.")
-        return
-    await reply_fn("\n\n".join(results)[:4000], parse_mode="Markdown")
+    body = _render_closeall_results(rows, scope_label=strategy_name)
+    await reply_fn(body[:4000])
 
 
 async def cmd_closeall(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -2140,31 +2164,18 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             # Per-strategy close via inline button
             await _do_closeall_strategy(query.edit_message_text, payload)
         else:
-            # Close ALL positions across all Bybit accounts
+            # Close ALL open trades — routed through the canonical
+            # close path (processor → execute.close_open_position).
+            from src.ui import processor
             try:
-                accounts = dl.list_accounts() or []
-                bybit_accounts = [
-                    a for a in accounts if (a.get("exchange") or "").lower() == "bybit"
-                ]
+                rows = processor.close_open_positions()
             except Exception as e:
-                await query.edit_message_text(f"⚠️ Could not list accounts: {e}")
+                await query.edit_message_text(
+                    f"⚠️ Could not close positions: {e}"
+                )
                 return
-            if not bybit_accounts:
-                await query.edit_message_text("⚠️ No Bybit accounts configured.")
-                return
-            await query.edit_message_text(
-                f"🚨 Closing positions across {len(bybit_accounts)} Bybit account(s)…"
-            )
-            results = []
-            for account in bybit_accounts:
-                try:
-                    results.append(close_all_bybit_positions(account))
-                except Exception as e:
-                    aid = account.get("account_id", "?")
-                    results.append(f"⚠️ Error ({aid}): {e}")
-            await query.edit_message_text(
-                "\n\n".join(results)[:4000], parse_mode="Markdown"
-            )
+            body = _render_closeall_results(rows, scope_label="all")
+            await query.edit_message_text(body[:4000])
 
 
 def _render_accounts_listing(statuses: list[dict]) -> str:

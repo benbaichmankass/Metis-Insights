@@ -757,3 +757,189 @@ def get_roadmap_summary() -> str:
         logger.warning("get_roadmap_summary: render import failed: %s", exc)
         return "⚠️ Could not render roadmap summary."
     return render_roadmap_summary(text)
+
+
+# ---------------------------------------------------------------------------
+# Close open positions — S-031 PR4 (architecture-audit-2026-05-02 P1-6)
+# ---------------------------------------------------------------------------
+
+
+def close_open_positions(
+    strategy: Optional[str] = None,
+    account: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """Close every open trade matching the filter via the canonical close path.
+
+    Pre-PR (S-031 PR4) ``cmd_closeall`` called
+    ``dl.close_all_bybit_positions_for_strategy`` which queried Bybit
+    for live positions and placed reduce-only market orders directly,
+    bypassing ``execute_pkg``'s single-entry contract for live-order
+    placement. Per CLAUDE.md § Architecture rules § 3 every exchange
+    placement (including closes) MUST route through the same canonical
+    helper — ``src.units.accounts.execute.close_open_position`` is the
+    one added in S-030 PR4 for the monitor loop's close path.
+
+    This helper:
+      1. Reads open trade rows from the trade log
+         (``trade_journal.db::trades``) filtered by ``strategy`` /
+         ``account`` (case-insensitive on strategy; exact match on
+         account_id).
+      2. For each row, resolves the per-account exchange client via
+         ``bybit_client_for(account_cfg)`` and dispatches to
+         ``close_open_position``.
+      3. On a successful close, marks the trade row
+         ``status='closed'`` with ``exit_reason='manual_closeall'``
+         so the next /signals + /last5 + hourly-report tick reflects
+         the new state.
+      4. Returns a per-trade result dict so the UI surface
+         (Telegram, webapp) can render the outcome without doing any
+         business logic of its own.
+
+    Parameters
+    ----------
+    strategy : str, optional
+        Filter to a single strategy_name (case-insensitive). ``None``
+        means all strategies.
+    account : str, optional
+        Filter to a single account_id (exact match). ``None`` means
+        all accounts.
+
+    Returns
+    -------
+    list[dict]
+        One entry per open trade in the filter scope, in the order
+        they were processed. Shape:
+        ``{"trade_id": int, "account_id": str, "strategy": str,
+        "symbol": str, "direction": str, "qty": float,
+        "ok": bool, "error": str | None,
+        "exchange_order_id": str | None}``.
+        Empty list when no rows match.
+
+    Notes
+    -----
+    The helper never raises. Per-trade failures (missing creds,
+    exchange refusal, DB write error) are encoded as ``ok=False``
+    rows with an ``error`` string so the bot can render them.
+    """
+    import os
+    import sqlite3
+
+    db_path = os.environ.get("TRADE_JOURNAL_DB") or "trade_journal.db"
+    where = ["status = 'open'", "is_backtest = 0"]
+    params: list = []
+    if strategy is not None:
+        where.append("LOWER(strategy_name) = ?")
+        params.append(str(strategy).lower())
+    if account is not None:
+        where.append("account_id = ?")
+        params.append(str(account))
+    sql = (
+        "SELECT id, symbol, direction, position_size, strategy_name, "
+        "account_id FROM trades WHERE " + " AND ".join(where)
+    )
+
+    try:
+        conn = sqlite3.connect(db_path)
+        try:
+            conn.row_factory = sqlite3.Row
+            rows = list(conn.execute(sql, params).fetchall())
+        finally:
+            conn.close()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("close_open_positions: DB read failed: %s", exc)
+        return []
+
+    if not rows:
+        return []
+
+    # Resolve per-account configs once (used for client + filter check).
+    accounts_by_id: Dict[str, Dict[str, Any]] = {}
+    try:
+        from src.ui import data_loaders as _dl
+        for acc in (_dl.list_accounts() or []):
+            aid = acc.get("account_id")
+            if aid:
+                accounts_by_id[str(aid)] = acc
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("close_open_positions: list_accounts failed: %s", exc)
+
+    from src.units.accounts.clients import bybit_client_for
+    from src.units.accounts.execute import close_open_position
+    from datetime import datetime, timezone
+
+    results: List[Dict[str, Any]] = []
+    for row in rows:
+        trade_id = int(row["id"])
+        aid = str(row["account_id"])
+        symbol = str(row["symbol"])
+        direction = str(row["direction"] or "").lower()
+        qty = float(row["position_size"] or 0.0)
+        strat = str(row["strategy_name"] or "")
+
+        account_cfg = accounts_by_id.get(aid)
+        if account_cfg is None:
+            results.append({
+                "trade_id": trade_id, "account_id": aid, "strategy": strat,
+                "symbol": symbol, "direction": direction, "qty": qty,
+                "ok": False, "error": "account not found in config",
+                "exchange_order_id": None,
+            })
+            continue
+
+        exchange = (account_cfg.get("exchange") or "").lower()
+        if exchange != "bybit":
+            results.append({
+                "trade_id": trade_id, "account_id": aid, "strategy": strat,
+                "symbol": symbol, "direction": direction, "qty": qty,
+                "ok": False,
+                "error": f"unsupported exchange {exchange!r} (bybit only in v1)",
+                "exchange_order_id": None,
+            })
+            continue
+
+        client = bybit_client_for(account_cfg)
+        if client is None:
+            results.append({
+                "trade_id": trade_id, "account_id": aid, "strategy": strat,
+                "symbol": symbol, "direction": direction, "qty": qty,
+                "ok": False, "error": "no exchange_client (missing creds?)",
+                "exchange_order_id": None,
+            })
+            continue
+
+        outcome = close_open_position(
+            client, account_cfg,
+            symbol=symbol, side=direction, qty=qty,
+        )
+        ok = bool(outcome.get("ok"))
+        order_id = outcome.get("exchange_order_id")
+        err = outcome.get("error")
+
+        if ok:
+            try:
+                conn = sqlite3.connect(db_path)
+                try:
+                    now = datetime.now(timezone.utc).isoformat()
+                    conn.execute(
+                        "UPDATE trades SET status = 'closed', "
+                        "exit_reason = 'manual_closeall', notes = ? "
+                        "WHERE id = ?",
+                        (f"closed_at={now}", trade_id),
+                    )
+                    conn.commit()
+                finally:
+                    conn.close()
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "close_open_positions: trade %s close-row update failed: %s",
+                    trade_id, exc,
+                )
+
+        results.append({
+            "trade_id": trade_id, "account_id": aid, "strategy": strat,
+            "symbol": symbol, "direction": direction, "qty": qty,
+            "ok": ok, "error": err if not ok else None,
+            "exchange_order_id": order_id,
+        })
+
+    return results
