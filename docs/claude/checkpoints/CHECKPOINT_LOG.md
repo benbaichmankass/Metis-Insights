@@ -5,6 +5,238 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-03-20 — BUG-043 verification pinned (regression contract), VWAP retuned 1.0σ + 0.5σ (R:R 1:2), BUG-041 closed, BUG-042 ping-PR pair filed
+
+- **Session date:** 2026-05-03 (resume of kGwLc on branch
+  `claude/fix-trading-validation-UdqDG`).
+- **Sprint:** claude/fix-trading-validation-UdqDG (continuation of
+  the kGwLc fix-trading-validation arc).
+- **Current sprint phase:** WRAP. P0 BUG-043 verification closed
+  (correct-by-construction via the regression contract — the live
+  `/packages` snapshot the operator pasted predates PR #371's merge,
+  most likely because BTC stayed under the 2σ entry threshold).
+  Operator-injected mid-session: VWAP threshold retuned for higher
+  cadence with R:R contract preserved at 1:2. P1 BUG-041 closed
+  (`unknown` row count). P2 BUG-042 ping-PR + draft work-PR pair
+  filed; coding deferred until operator approval. P3 paths.py
+  helper deferred (operator: no preference; one-task-per-session
+  rule applied).
+- **Last completed checkpoint:** CP-2026-05-03-19.
+- **Next checkpoint:** **CP-2026-05-?-?? — BUG-042 sprint kickoff
+  (after operator approves PR #379) + paths.py helper if there's
+  time + post-deploy VWAP cadence verification.** First action for
+  the next session is to check whether the operator has replied on
+  PR #379. If yes → start PR 1 of the BUG-042 sprint per
+  `docs/sprint-plans/bug-042-monitor-loop-reconciler.md`. If no →
+  pick up the P3 paths.py helper (Tier 1, autonomous) while waiting.
+- **Telegram sent:** rides on the merge of this checkpoint commit
+  + the self-merging ping-PR #380 (BUG-042 work-PR awaiting
+  approval).
+- **Alerts sent during session:** ping-PR #380 (`(BLOCKED): approve
+  BUG-042 monitor-loop reconciler sprint shape?`).
+- **Blockers:**
+  - **BUG-042 sprint kickoff blocked on operator approval of
+    PR #379.** Per CLAUDE.md "Ping-PR vs work-PR" rule, the
+    work-PR (#379) stays draft; the ping-PR (#380) self-merges to
+    fire Telegram. No coding starts until the operator replies.
+  - **VWAP cadence verification awaits live market data.** PR #377
+    halved `SL_STD_MULT_DEFAULT` to 0.5 in lock-step with the
+    1.0σ entry-threshold revert to preserve R:R 1:2 at the entry
+    boundary. The contract is pinned by 3 new regression tests;
+    live cadence/PnL profile is a passive observation on the
+    next day or two of trading.
+
+### 1. Completed
+
+- **P0 — BUG-043 verification line shipped (PR #376 merged).**
+  Operator paste of `/packages` (CP-19 § "Blockers") showed the
+  most-recent open package's `updated_at = 2026-05-03T20:37:21Z`,
+  which predates PR #371's merge timestamp (`~2026-05-03T20:52Z`).
+  Conclusion: no post-deploy package landed in the verification
+  window, most likely because BTC stayed under the 2σ entry
+  threshold. Closed BUG-043 verification as
+  *correct-by-construction via the regression contract* — the
+  4-test pin in `tests/test_vwap_strategy.py::TestBuildVwapSignal`
+  (incl. the end-to-end `signal → _signal_to_order_package →
+  _log_new_order_package → SELECT confidence` chain) guarantees any
+  future post-deploy package records the strategy's real
+  conviction. Live VM is now a passive check on the next ≥ 2σ
+  excursion (which post-PR-#377 is now ≥ 1σ — the two changes
+  fit together: the cadence-tuned strategy will fire more often,
+  so verification will probably surface organically within hours).
+  Tier 1, docs-only.
+- **OPERATOR INSERT: VWAP retuned for higher cadence + R:R 1:2
+  preserved (PR #377 merged).** Operator request mid-session:
+  *"the 2 sd rule is too tight, the strategy needs to produce a
+  higher cadence of order packages — can we revert the sd to 1
+  in the strategy config without breaking the strategy?"*. Then
+  immediately follow-up: *"the r:r should stay 1:2"*. Required
+  paired changes:
+  - `ENTRY_STD_THRESHOLD = 1.0` (was 2.0σ — the BUG-036 / PR #350
+    Sharpe-tuned value).
+  - `SL_STD_MULT_DEFAULT = 0.5` (was 1.0 — halved in lock-step so
+    reward = 1.0σ × std_dev, risk = 0.5σ × std_dev → reward:risk =
+    2.0 at the entry boundary, i.e. risk:reward = 1:2).
+  Three new regression tests in `tests/test_vwap_strategy.py` pin
+  the contract:
+  - `test_entry_threshold_pinned_to_one_sigma_per_operator_directive`
+  - `test_sl_default_pinned_to_half_sigma_per_operator_directive`
+  - `test_risk_reward_at_entry_boundary_is_one_to_two` (end-to-end
+    contract: realised reward/risk on buy + sell fixtures ≥ 2.0).
+  Existing `test_sl_distance_uses_sl_std_mult` updated to expect
+  the new 0.5 default in the unspecified-arg branch. The BUG-043
+  confidence formula `min(abs(deviation) / ENTRY_STD_THRESHOLD,
+  1.0)` continues to work — it just caps at 1.0 more often (a
+  1σ excursion is now the strategy's strongest-conviction signal).
+  Comments in `vwap.py` warn future tuning sprints that the two
+  constants must move in lock-step or the R:R contract drifts.
+  Tier 1 (strategy unit; no `src/runtime/` or
+  `src/units/accounts/*` touched). Self-merged after CI.
+- **P1 — BUG-041 closed in bug-log (PR #378 merged).** Per CP-19
+  hand-off: operator confirmed running the orphaned-status backfill
+  notebook (PR #367) but lost the SELECT preview count. Entry
+  filed with `unknown` in the row-count column, architectural
+  evidence linked (the orphan rows visible in CP-2026-05-03-20 § 1
+  operator paste), and the permanent fix tracked under BUG-042.
+  Tier 1, docs-only.
+- **P2 — BUG-042 monitor-loop reconciler sprint plan filed
+  (PR #379 draft work-PR + PR #380 self-merging ping-PR).** Plan
+  at `docs/sprint-plans/bug-042-monitor-loop-reconciler.md`
+  (in-repo this time per the new sprint-plans precedent — the
+  out-of-repo CP-18 directive applied to throwaway scoping notes,
+  not formal sprint-shape proposals that need operator review).
+  Sprint shape: 3 PRs (PR 1 foundation = lift
+  `account_open_positions` from UI unit to accounts unit; PR 2
+  reconciler = `_reconcile_open_trades(db)` in
+  `src/runtime/order_monitor.py` gated by
+  `MONITOR_RECONCILE_ENABLED`; PR 3 runbook + flag flip + bug-log
+  entry). All 3 PRs are read-only on the exchange. Risk inventory
+  + dry-run-account guard + ping-fatigue cap (10 individual + 1
+  roll-up) all documented. PR 379 stays draft per CLAUDE.md
+  "Ping-PR vs work-PR" rule; PR 380 self-merges to fire Telegram.
+
+### 2. Files changed
+
+- `docs/claude/bug-log.md` — BUG-043 closing line (PR #376) +
+  BUG-041 entry (PR #378).
+- `src/units/strategies/vwap.py` — `ENTRY_STD_THRESHOLD = 1.0`
+  (was 2.0), `SL_STD_MULT_DEFAULT = 0.5` (was 1.0), comments
+  rewritten to explain the lock-step contract and warn tuning
+  sprints. (PR #377)
+- `tests/test_vwap_strategy.py` — 3 new regression tests + 1
+  updated test for the new defaults. (PR #377)
+- `docs/sprint-plans/bug-042-monitor-loop-reconciler.md` — new
+  sprint plan, awaiting operator approval. (PR #379, draft)
+- `docs/claude/pending-pings.jsonl` — appended one line for the
+  BUG-042 ping. (PR #380, self-merged once CI clears the
+  transient git-fetch infra blip)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` — this entry.
+
+### 3. Tests run
+
+- `python3 scripts/secret_scan.py` — clean on every PR diff.
+- `python3 scripts/check_dry_run_in_diff.py` — clean on every PR
+  diff (locally — PR #380 hit a transient CI exit-128 in the
+  `Compute diff against base` step; re-triggered with an empty
+  commit, contract is verifiable locally).
+- Sandbox lacks `pandas` so the VWAP test file is auto-skipped
+  via `pytest.importorskip("pandas")`. CI runs the full suite —
+  PR #377 CI green confirms the 3 new VWAP tests pass.
+- CI on PRs #376 / #377 / #378 — all green.
+
+### 4. Remaining
+
+- **PR #380 CI re-run** — empty-commit retrigger pushed; once
+  CI clears, self-merge to fire the BUG-042 Telegram ping.
+- **BUG-042 sprint kickoff** — blocked on operator approval of
+  PR #379. Next session: check PR #379 for a reply; if approved,
+  start PR 1 (lift `account_open_positions` to accounts unit).
+- **VWAP live cadence verification** — passive observation over
+  the next day or two: confirm `/packages` shows fresh open rows
+  with non-zero confidence (BUG-043 verification surfaces
+  organically once the 1σ threshold catches a routine excursion).
+- **P3 — `src/utils/paths.py::repo_root()` helper** — deferred.
+  Operator: no preference; one-task-per-session rule applied
+  given the operator-injected VWAP work consumed the second-PR
+  budget. Pick up next session in parallel with BUG-042 if
+  operator approval is delayed.
+- **VM halt-flag check (carry-over from CP-19 § 4 BLOCKER)** —
+  not addressed this session. Next session should still verify
+  `ls -la /tmp/trader_halt.flag` on the VM in case the
+  kill-switch is on.
+
+### 5. Next checkpoint
+
+**CP-2026-05-?-?? — BUG-042 PR 1 (foundation) if approved + P3
+paths.py helper + VWAP cadence verification + carryover halt-flag
+check.** First action for the next session:
+
+1. **Check PR #379** for an operator reply.
+   - **Approved** → start PR 1 of the BUG-042 sprint per
+     `docs/sprint-plans/bug-042-monitor-loop-reconciler.md`. PR 1
+     is Tier 1 (UI ↔ accounts unit-boundary cleanup); no ping-PR
+     required for that one.
+   - **Approved with mods** → re-scope per their notes and
+     re-ping if the new shape touches a different surface.
+   - **Reject** → re-scope or close.
+   - **No reply** → start P3 paths.py helper (Tier 1,
+     autonomous) instead of waiting; that closes BUG-037 +
+     BUG-044's recurring root cause.
+2. **VM halt-flag check** (carryover BLOCKER from CP-19 § 4).
+3. **VWAP cadence verification.** Ask operator for `/packages`;
+   confirm the most-recent open row has `updated_at > 2026-05-03T22:00Z`
+   (PR #377 merge time) AND `confidence ∈ (0.0, 1.0]`. Both
+   BUG-043 and the new threshold should surface organically now
+   that 1σ excursions are routine.
+4. **P3 paths.py helper** if operator approval on #379 is
+   delayed. `src/utils/paths.py::repo_root()` walking up to a
+   marker file (`.git` / `pyproject.toml` / `requirements.txt`)
+   so the depth-N path-up calc can never go stale.
+
+Read in this order:
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` — this CP first.
+- `docs/claude/checkpoint-workflow.md`.
+- `docs/sprint-plans/bug-042-monitor-loop-reconciler.md` (the
+  in-repo plan for BUG-042).
+- `docs/claude/bug-log.md` BUG-041 + BUG-043 + BUG-044 rows for
+  the recurring-shape context.
+- `src/units/strategies/vwap.py` for the new constants + comment
+  contract (do NOT change either constant in isolation).
+
+### 6. Lessons learned
+
+- **Operator-driven retunes mid-session are the right shape.**
+  The session opened on the BUG-043 hand-off prompt and the
+  operator inserted the VWAP cadence ask + R:R 1:2 clarification
+  partway through. Honouring it as a small Tier-1 PR with a
+  paired-constant lock-step + 3 new regression tests + comment
+  guards costs ~15 min and prevents the constants from drifting
+  apart in a future tuning sprint. Cheaper than a separate
+  follow-up sprint.
+- **Two strategy constants that share an invariant must be
+  pinned together.** `ENTRY_STD_THRESHOLD` and `SL_STD_MULT_DEFAULT`
+  jointly determine R:R at the entry boundary
+  (`reward / risk = ENTRY_STD_THRESHOLD / SL_STD_MULT_DEFAULT`).
+  Bumping one without the other silently breaks the contract.
+  The new `test_risk_reward_at_entry_boundary_is_one_to_two`
+  test pins the ratio explicitly; future Sharpe-tuning sprints
+  must touch both constants in lock-step (or delete the test
+  and own the regression).
+- **In-repo sprint plans + draft work-PR is the cleaner shape
+  for operator approval.** Versus the CP-18 "plans stay outside
+  the repo" directive, putting a formal sprint plan into
+  `docs/sprint-plans/` gives the operator a concrete diff to
+  review and a stable reference for the next session. The
+  CP-18 directive still applies to throwaway scoping notes;
+  this one is a sprint kickoff doc, which is different.
+- **Transient CI failures (exit 128 in git-fetch step) are
+  worth a single retry.** PR #380's first CI run failed with
+  `Process completed with exit code 128` in the
+  `Compute diff against base` step. Locally `check_dry_run_in_diff`
+  was clean. Re-triggered with an empty commit; CI flake.
+
+---
+
 ## CP-2026-05-03-19 — BUG-043 + P3 + BUG-044 shipped (4 PRs); halt-flag is the new prime suspect for "no new packages"
 
 - **Session date:** 2026-05-03 (continuation of the kGwLc sprint, post-CP-18)
