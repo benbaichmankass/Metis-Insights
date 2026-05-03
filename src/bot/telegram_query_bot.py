@@ -1707,8 +1707,10 @@ async def cmd_health(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_authorised(update):
         return
     from src.units.ui import processor
-    body = processor.get_health_summary(get_service_status=get_service_status)
-    await update.message.reply_text(body, parse_mode="Markdown")
+    body = processor.get_health_summary(
+        get_service_status=get_service_status, use_html=True,
+    )
+    await update.message.reply_text(body, parse_mode="HTML")
 
 
 def _read_loadavg() -> str:
@@ -2356,16 +2358,15 @@ async def cmd_accounts_status(update: Update, context: ContextTypes.DEFAULT_TYPE
             await update.message.reply_text("ℹ️ No accounts found in accounts.yaml.")
             return
 
-        # Per-account block formatting lives in the UI processor
-        # (CLAUDE.md rule 5 — bot stays a thin shell). Velotrade
-        # phase-2b moved the renderer there so the not-configured line
-        # and the prop-state block (account_state / mission progress /
-        # active_days) are unit-testable without importing the bot.
-        from src.units.ui.processor import format_account_status_block
-        lines = ["📋 <b>Accounts Status</b> (risk + live API)\n"]
-        for s in statuses:
-            lines.append(format_account_status_block(s))
-        await update.message.reply_text("\n\n".join(lines), parse_mode="HTML")
+        # S-telegram-format follow-up: the page is now rendered with
+        # collapsable per-account sections — operator sees the summary
+        # line for every account at a glance, taps the one they want
+        # to inspect for the full risk + API + prop block. Renderer
+        # lives in the UI processor (CLAUDE.md rule 5 — bot is a thin
+        # shell).
+        from src.units.ui.processor import render_accounts_status_collapsable
+        body = render_accounts_status_collapsable(statuses)
+        await update.message.reply_text(body, parse_mode="HTML")
     except Exception as e:
         await update.message.reply_text(f"⚠️ Could not load accounts status: {e}")
 

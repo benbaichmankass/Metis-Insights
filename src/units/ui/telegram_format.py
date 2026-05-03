@@ -75,12 +75,19 @@ class Section:
     ``empty_body_text`` is shown inside the blockquote when ``body``
     is empty, so the operator can still expand the section and see
     "(no entries)" rather than a blank line.
+
+    ``body_is_html``: when True, the renderer skips HTML-escaping the
+    body and treats it as already-sanitised HTML — useful when the
+    caller has produced trusted HTML by calling another processor
+    renderer that already escaped untrusted content. Default False so
+    user-supplied content is escaped.
     """
 
     summary: str
     body: str = ""
     priority: int = 50
     empty_body_text: str = "(no entries)"
+    body_is_html: bool = False
 
 
 def _truncate(text: str, limit: int = _TELEGRAM_MAX_CHARS) -> str:
@@ -92,7 +99,10 @@ def _truncate(text: str, limit: int = _TELEGRAM_MAX_CHARS) -> str:
 def _section_html(section: Section) -> str:
     summary = html_escape(section.summary).strip() or "(unnamed section)"
     body = section.body or section.empty_body_text
-    body_html = html_escape(body).rstrip()
+    if section.body_is_html and section.body:
+        body_html = body.rstrip()
+    else:
+        body_html = html_escape(body).rstrip()
     if not body_html:
         body_html = html_escape(section.empty_body_text)
     return (
