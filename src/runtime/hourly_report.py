@@ -176,7 +176,7 @@ def trades_in_window(since: datetime) -> Dict[str, Any]:
                 " position_size, strategy_name, status FROM trades"
                 " WHERE COALESCE(is_backtest, 0) = 0"
                 " AND COALESCE(status, 'open')"
-                " NOT IN ('rejected', 'exchange_rejected')"
+                " NOT IN ('rejected', 'exchange_rejected', 'rejected_too_small')"
                 " AND COALESCE(created_at, timestamp) >= ?"
                 " ORDER BY datetime(COALESCE(created_at, timestamp)) DESC",
                 (iso_since,),

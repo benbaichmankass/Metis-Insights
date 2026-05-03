@@ -985,7 +985,7 @@ def account_last_trade(account: Dict[str, Any]) -> Optional[Dict[str, Any]]:
                 " pnl, status, strategy_name, created_at FROM trades"
                 " WHERE account_id = ? AND COALESCE(is_backtest, 0) = 0"
                 " AND COALESCE(status, 'open')"
-                " NOT IN ('rejected', 'exchange_rejected')"
+                " NOT IN ('rejected', 'exchange_rejected', 'rejected_too_small')"
                 " ORDER BY datetime(created_at) DESC, id DESC LIMIT 1",
                 (aid,),
             ).fetchone()
@@ -1033,7 +1033,7 @@ def recent_trades_for(account: Dict[str, Any], n: int = 5) -> List[Dict[str, Any
                 " is_backtest, created_at FROM trades"
                 " WHERE account_id = ?"
                 " AND COALESCE(status, 'open')"
-                " NOT IN ('rejected', 'exchange_rejected')"
+                " NOT IN ('rejected', 'exchange_rejected', 'rejected_too_small')"
                 " ORDER BY datetime(created_at) DESC, id DESC LIMIT ?",
                 (aid, n),
             ).fetchall()
@@ -1055,8 +1055,23 @@ def recent_trades_for(account: Dict[str, Any], n: int = 5) -> List[Dict[str, Any
 # ``/packages`` is the dedicated surface that *includes* them so the
 # operator can see "why isn't VWAP placing trades?" without an SSH +
 # direct DB query.
+#
+# Three sibling status tokens identify a rejection row:
+#   - ``rejected``           — RiskManager refusal (PR #357 / CP-14):
+#     account_mode_dry_run, DAILY_LOSS_CAP, POSITION_SIZE_CAP,
+#     INTRADAY_DRAWDOWN.
+#   - ``exchange_rejected``  — exchange-side error (PR #357 / CP-14):
+#     Bybit retCode != 0, DXtrade NotImplementedError, missing creds.
+#   - ``rejected_too_small`` — pre-existing smoke-test status set by
+#     ``scripts/smoke_test_trade.py`` when Bybit returns
+#     ``ErrCode: 10001`` ("contracts below minimum"). These are
+#     intentional plumbing checks; surfacing them in ``/last5`` is
+#     noise, surfacing them in ``/packages`` is correct (they're
+#     real rejections, just not signal-driven). Added to the family
+#     post-CP-16 when the operator hit smoke-test pollution in the
+#     /last5 view (PR follow-up).
 
-REFUSAL_STATUSES = ("rejected", "exchange_rejected")
+REFUSAL_STATUSES = ("rejected", "exchange_rejected", "rejected_too_small")
 
 
 def recent_rejections(n: int = 10) -> List[Dict[str, Any]]:
@@ -1085,7 +1100,7 @@ def recent_rejections(n: int = 10) -> List[Dict[str, Any]]:
                 " stop_loss, take_profit_1, position_size, setup_type,"
                 " entry_reason, status, notes, strategy_name, account_id,"
                 " created_at FROM trades"
-                " WHERE status IN ('rejected', 'exchange_rejected')"
+                " WHERE status IN ('rejected', 'exchange_rejected', 'rejected_too_small')"
                 " ORDER BY datetime(created_at) DESC, id DESC LIMIT ?",
                 (n,),
             ).fetchall()
