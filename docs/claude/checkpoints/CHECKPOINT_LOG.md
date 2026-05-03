@@ -5,6 +5,242 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-03-15 — rogue-process sweep + /packages bot command (3-PR trio)
+
+- **Session date:** 2026-05-03
+- **Sprint:** claude/fix-trading-validation-kGwLc (operator-driven trio:
+  diagnose recurring `ALLOW_LIVE_TRADING=true is required` lines,
+  fix the deployment hygiene gap, ship the diagnostic surface that
+  was deferred from CP-2026-05-03-14).
+- **Current sprint phase:** COMPLETE. Three PRs merged this session:
+  #358 (rogue-process sweep), #359 (notebook polish + auto-mask),
+  #360 (`/packages` command).
+- **Last completed checkpoint:** CP-2026-05-03-14 (rejection logging
+  to trade journal, merged as #357).
+- **Next checkpoint:** **CP-2026-05-?-?? — `/latest_backtest`
+  enhancement + `0 placed / 5 open` investigation**. The latter is
+  now actionable directly via Telegram thanks to `/packages`; the
+  next session should wait for the operator to share `/packages`
+  output and decide whether the recurring refusal token names a
+  real bug or a tunable cap.
+- **Telegram sent:** rides on the merge of this checkpoint commit
+  (VM-side wiring per `docs/claude/telegram-pings.md`).
+- **Alerts sent during session:** none.
+- **Blockers:** none.
+
+### 1. Completed
+
+#### Diagnosis (operator-facing)
+- Diagnosed why the operator was still seeing
+  ``Pipeline result: status=failed_validation … reason=ALLOW_LIVE_TRADING=true
+  is required for live submission`` *after* a clean `git pull` to
+  origin/main `102b927` (which contains the BUG-039 removal at
+  `src/runtime/orders.py`). Smoking gun: that line uses the
+  pre-#342 format with **no `strategy=` field**, while live ticks
+  emit the new format. → there must be a second Python interpreter
+  still running pre-#342 modules.
+- Confirmed via the rogue-sweep block on the live VM:
+  ``pid=170867 etime=5-03:21:28 cgroup=user.slice/user-1001.slice/session-12236.scope
+  python3 -m src.main`` — a manual `python -m src.main` started
+  ~April 28 from an SSH/screen/tmux session, never killed when
+  systemd took over. SIGTERM cleared it on first try.
+- Surfaced two stale unit-files on the VM:
+  ``ict-trader-paper.service`` and ``ict-vwap-dry-run.service``
+  (both `disabled`). Names predate BUG-039 (paper / vwap dry-run
+  era).
+
+#### PR #358 — rogue-process sweep in the rotate-keys notebook
+- Added a discovery + classify + kill block at the end of
+  ``notebooks/operator/rotate_api_keys.ipynb`` cell 5. Discovers
+  every `python -m {src.main, src.bot.telegram_query_bot,
+  src.bot.claude_bridge}` via `pgrep -af`, reads
+  ``/proc/<pid>/cgroup``, classifies as canonical (cgroup contains
+  one of the canonical systemd units) or rogue (anything else).
+  SIGTERM → 3 s grace → SIGKILL for survivors.
+- Added a non-canonical unit-file audit (read-only flag-only in
+  this PR; PR #359 turned it into auto-mask).
+- Updated cell 0 header bullets to name the new behaviour.
+- Updated cell 6 verification block.
+
+#### PR #359 — notebook polish + auto-mask stale disabled units
+- Cosmetic survivors-check fix. Wrapped the
+  ``for p in $pids; do [ -d /proc/$p ] && echo $p; done``
+  shell loop in a subshell + ``; true`` so SSH always exits 0.
+  Pre-fix, the loop's last ``[ -d ]`` failure (the GOOD case —
+  rogue is dead) bubbled up as exit 1 and printed a misleading
+  ``❌ check survivors failed (exit 1)`` line right next to the
+  success message.
+- Auto-mask non-canonical disabled `ict-*` unit-files. Operator
+  directive (in-conversation): "when it kills an old it also hides
+  it so that in the future, avoid having to do this again."
+  Implemented as the narrowest safe rule: only auto-mask units
+  with `[Install]` state `disabled`. Active / enabled / static /
+  generated / transient / indirect units are flagged for manual
+  review (could be a legitimate add-on the canonical deploy set
+  doesn't know about). `mask` symlinks to `/dev/null`; reversible
+  via `sudo systemctl unmask <name>`.
+- Verification block updated with the unmask escape hatch.
+
+#### PR #360 — `/packages` Telegram command
+- New surface that exposes what every other operator surface
+  intentionally hides: rejection rows
+  (`status='rejected'` / `'exchange_rejected'`) +
+  `order_packages` rows still `status='open'` with no
+  `linked_trade_id`. Built specifically to answer "VWAP fired N
+  signals but 0 trades placed — why?" without an SSH + DB query.
+- ``src/units/ui/data_loaders.py``:
+  - ``recent_rejections(n=10)`` — newest-first; full set of
+    columns the renderer needs.
+  - ``open_order_packages(n=10)`` — newest-first; bare-open
+    subset only (status='open' AND linked_trade_id IS NULL).
+  - ``REFUSAL_STATUSES`` constant for any future symmetric
+    aggregator.
+- ``src/units/ui/processor.py``:
+  - ``render_packages_collapsable(rejections, open_packages)`` —
+    one HTML message with two sub-headers + per-row collapsable
+    sections. Refusal summary lines name the bare reason token
+    (post-`_strip_reason_prefix`) so DAILY_LOSS_CAP /
+    POSITION_SIZE_CAP / account_mode_dry_run / Bybit retCode are
+    visible without expanding. Different badges (🛑 vs 💥)
+    distinguish RiskManager from exchange-side rejections.
+- ``src/bot/telegram_query_bot.py``:
+  - New ``BotCommandSpec("packages", ..., "signals")`` in the
+    "Signals & history" category.
+  - ``cmd_packages`` thin-shell handler: parse N (1..50, default
+    10) → 2 loader calls → 1 renderer call → 1 Telegram reply.
+    Bot file opens no DB, runs no aggregation, makes no exchange
+    call (Architecture Rule 5).
+  - Registered next to `cmd_last5` / `cmd_signals`.
+- ``tests/test_packages_command.py`` — 18 new tests covering all
+  three layers (data loaders, renderer, async handler). All pass.
+
+### 2. Files changed
+
+**Modified (PRs #358 + #359):**
+- ``notebooks/operator/rotate_api_keys.ipynb`` — rogue-process
+  sweep + auto-mask of disabled non-canonical `ict-*` unit-files.
+
+**Modified (PR #360):**
+- ``src/bot/telegram_query_bot.py`` — `BotCommandSpec("packages", …)`
+  + `cmd_packages` handler + `CommandHandler` registration.
+- ``src/units/ui/data_loaders.py`` — `recent_rejections` +
+  `open_order_packages` + `REFUSAL_STATUSES`.
+- ``src/units/ui/processor.py`` — `render_packages_collapsable`
+  + `_strip_reason_prefix`.
+
+**New:**
+- ``tests/test_packages_command.py`` — 18 tests across 4 classes
+  (TestRecentRejections, TestOpenOrderPackages,
+  TestRenderPackagesCollapsable, async cmd_packages).
+
+**Modified (this checkpoint):**
+- ``docs/claude/checkpoints/CHECKPOINT_LOG.md`` — this entry.
+
+### 3. Tests run
+
+- ``PYTHONPATH=. pytest tests/test_packages_command.py -q`` —
+  **18 passed**.
+- ``PYTHONPATH=. pytest tests/test_execute_journal_rejections.py
+  tests/test_data_loaders.py -q`` — 58 passed, 4 failed.
+  **All 4 failures verified pre-existing on main** via
+  ``git stash`` round-trip — same `_bybit_client`
+  ``AttributeError`` cluster called out in CP-11 §3 and re-flagged
+  in CP-2026-05-03-14.
+- ``python3 scripts/secret_scan.py`` —
+  ``No obvious tracked-file secrets found``.
+- ``python3 scripts/check_dry_run_in_diff.py`` —
+  ``dry_run_in_diff: clean`` on every PR.
+- ``ast.parse`` + ``json.load`` on every modified file — clean.
+
+### 4. Live-mode check
+
+- ✅ No code under ``src/runtime/`` (orders, pipeline, trading_mode).
+- ✅ No code under ``src/units/accounts/`` (risk, execute, clients).
+- ✅ ``config/accounts.yaml`` not touched. ``bybit_1`` and
+  ``bybit_2`` remain ``mode: live``; ``prop_velotrade_1`` remains
+  ``mode: dry_run`` (DXtrade SDK contract still pending).
+- ✅ ``scripts/check_dry_run_in_diff.py`` clean across all three PRs.
+- New code (PR #360) is read-only diagnostic — SQLite SELECTs +
+  HTML render only. No path can change a live/dry routing decision.
+- Notebook PRs (#358 + #359) execute kill / mask commands on the
+  VM, but those operate on rogue / stale processes / unit-files
+  *outside* the canonical deploy set. The canonical units
+  (`ict-trader-live`, `ict-telegram-bot`, etc.) are explicitly
+  protected by the cgroup-based classifier.
+
+### 5. Architecture rules check
+
+- **Unit boundary declaration.** Touched units:
+  - ``src/units/ui/`` (data_loaders + processor — read-only DB
+    queries + HTML rendering, Rule 5).
+  - ``src/bot/`` (telegram_query_bot — thin-shell handler).
+  - ``notebooks/operator/`` (operator tooling, not a code unit).
+- **Rule 4 (DB unit owns three logs).** `/packages` reads
+  `trades` and `order_packages` only — both already in the DB
+  unit's schema. No raw schema knowledge added in `src/bot/`.
+- **Rule 5 (bot is a thin shell).** `cmd_packages` parses one
+  arg, calls two `data_loaders` helpers, calls one `processor`
+  renderer, sends one Telegram message. No DB access, no
+  aggregation, no exchange calls in the bot file.
+- No new cross-unit imports outside `src/core/coordinator.py`.
+
+### 6. Remaining
+
+- **`/latest_backtest` enhancement** — the original
+  CP-2026-05-03-14 "Next checkpoint" pointed at
+  `/packages + /latest_backtest`. Kept `/packages` atomic this
+  session; `/latest_backtest` deferred to a follow-up.
+- **"0 placed / 5 open packages" investigation** — now
+  actionable. Once the operator runs `/packages` on the live VM,
+  the rejection rows will name the gate that's firing on every
+  VWAP signal. Likely candidates:
+  - `account_mode_dry_run` — but `bybit_2` is `mode: live`, so no.
+  - `DAILY_LOSS_CAP` ($100) — `daily_pnl=$0`, so no.
+  - `POSITION_SIZE_CAP` ($500) — possible if
+    `meta['estimated_value']` is being set high somewhere.
+  - `INTRADAY_DRAWDOWN` — needs equity seeded; if not, skipped.
+  - exchange-side error (Bybit retCode != 0) — `retCode=110007`
+    style. Visible directly in `/packages` row's reason token.
+
+### 7. Next checkpoint
+
+**CP-2026-05-?-?? — `/latest_backtest` enhancement +
+"0 placed" diagnosis follow-through.**
+
+The next session should:
+1. Read this checkpoint (CP-2026-05-03-15) and `CHECKPOINT_LOG.md`
+   for full context.
+2. Wait for the operator to run `/packages` on the live VM and
+   share the output. The single most informative datum is the
+   `reason` token on the most-recent rejection row.
+3. Per the diagnosis above, decide whether the recurring refusal
+   names a real bug (e.g. `POSITION_SIZE_CAP` mis-applied to a
+   sized order whose `estimated_value` shouldn't have hit $500),
+   or a tunable cap the operator wants raised.
+4. Then ship the deferred `/latest_backtest` enhancement —
+   per CP-11 §6, the original ask was to surface historical
+   backtest browsing, filtering by model, or trend analysis on
+   the existing `cmd_latest_backtest` handler.
+
+### Lessons learned (for CLAUDE.md improvement)
+
+- **A clean `git pull` does not bounce running processes.** The
+  rogue-process diagnosis pattern — match by cgroup, classify,
+  kill anything outside the canonical systemd cgroup — should
+  become a standard health check, not just a one-off operator
+  notebook. Candidate hardening: bake the same logic into
+  `ict-git-sync.service` so the VM auto-kills rogues on every
+  pull. Filed as a lesson in this checkpoint; not changing
+  CLAUDE.md this session.
+- **Two Pipeline-result formats in one Telegram session is the
+  smoking gun for a rogue interpreter.** The `strategy=` field
+  was added by PR #342; any line missing it is by definition
+  pre-#342 code. Future operator-reported "still seeing the old
+  message" reports should immediately diff message formats
+  before re-checking `git_drift`.
+
+---
+
 ## CP-2026-05-03-14 — risk-manager rejection logging → trade journal (CP-13 §7 follow-up)
 
 - **Session date:** 2026-05-03
