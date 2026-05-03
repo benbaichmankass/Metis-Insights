@@ -137,14 +137,199 @@ def _call_strategy_monitor(strategy_name: str, cfg: dict, candles_df,
         return None
 
 
+def _apply_partial_close(
+    db,
+    open_pkg: dict,
+    verdict: Dict[str, Any],
+    summary: _StrategyTickSummary,
+) -> None:
+    """Partial-close path for ``close_qty_pct < 1.0`` verdicts.
+
+    DB-side only (no exchange call — that is PR 3 of the
+    strategy-monocle sprint, Tier 2).
+
+    Behaviour
+    ---------
+    * Reads the linked ``trades`` row to get the current
+      ``position_size`` and ``notes`` JSON.
+    * Appends a fragment to ``notes.partial_closes``:
+      ``{"qty": pct, "reason": str, "ts": iso, ["exit_price": float]}``.
+    * Stores ``notes.original_position_size`` on the first partial so
+      subsequent calls can compute the remaining fraction correctly.
+    * Updates ``trades.position_size`` to
+      ``original_position_size * (1 - cumulative_closed_pct)``.
+    * Keeps ``order_packages.status = 'open'``.
+    * When cumulative closed pct >= 1.0 (sequential partials totalling
+      100 %), falls through to a full close of both the package and
+      the trade row.
+    * No-op (warning logged) when there is no linked trade row or when
+      ``linked_trade_id`` is absent (the fallback symbol/strategy match
+      is intentionally skipped for partial closes to avoid wrong-row
+      updates).
+    """
+    pkg_id = open_pkg.get("order_package_id")
+    close_qty_pct = float((verdict or {}).get("close_qty_pct", 1.0))
+    reason = str((verdict or {}).get("reason") or "partial_close")
+    exit_price = (verdict or {}).get("exit_price")
+    now = datetime.now(timezone.utc).isoformat()
+
+    linked_trade_id = open_pkg.get("linked_trade_id")
+    if not linked_trade_id:
+        logger.warning(
+            "order_monitor: partial-close skipped for pkg=%s — "
+            "no linked_trade_id (fallback by symbol not safe for partials)",
+            pkg_id,
+        )
+        summary.no_change_count += 1
+        return
+
+    try:
+        rows = db.get_trades(filters={"id": int(linked_trade_id)})
+        trade = rows[0] if rows else None
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "order_monitor: partial-close trade read failed pkg=%s trade=%s: %s",
+            pkg_id, linked_trade_id, exc,
+        )
+        summary.error_count += 1
+        summary.errors.append(f"{pkg_id}: partial-close trade-read failed")
+        return
+
+    if trade is None:
+        logger.warning(
+            "order_monitor: partial-close skipped for pkg=%s — "
+            "linked trade_id=%s not found",
+            pkg_id, linked_trade_id,
+        )
+        summary.no_change_count += 1
+        return
+
+    trade_notes = _decode_notes(trade.get("notes"))
+    original_pos = trade_notes.get("original_position_size") or float(
+        trade.get("position_size") or 0.0
+    )
+    partials: list = list(trade_notes.get("partial_closes") or [])
+    already_closed_pct = sum(float(p.get("qty", 0)) for p in partials)
+    new_total_closed = already_closed_pct + close_qty_pct
+
+    fragment: Dict[str, Any] = {"qty": close_qty_pct, "reason": reason, "ts": now}
+    if exit_price is not None:
+        fragment["exit_price"] = float(exit_price)
+    partials.append(fragment)
+
+    if new_total_closed >= 1.0:
+        # Sequential partials reached/exceeded 100 % — full close.
+        trade_notes["partial_closes"] = partials
+        _full_close_trade_and_package(
+            db,
+            pkg_id=pkg_id,
+            linked_trade_id=int(linked_trade_id),
+            reason=reason,
+            exit_price=exit_price,
+            extra_notes=trade_notes,
+            summary=summary,
+        )
+        return
+
+    # True partial: reduce position_size, keep package open.
+    if "original_position_size" not in trade_notes:
+        trade_notes["original_position_size"] = original_pos
+    trade_notes["partial_closes"] = partials
+
+    remaining_pct = 1.0 - new_total_closed
+    new_position_size = round(original_pos * remaining_pct, 8)
+
+    try:
+        db.update_trade(int(linked_trade_id), {
+            "position_size": new_position_size,
+            "notes": json.dumps(trade_notes, ensure_ascii=False)[:2000],
+        })
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "order_monitor: partial-close trade write failed pkg=%s trade=%s: %s",
+            pkg_id, linked_trade_id, exc,
+        )
+        summary.error_count += 1
+        summary.errors.append(f"{pkg_id}: partial-close trade-write failed")
+        return
+
+    logger.info(
+        "order_monitor: partial close pkg=%s trade=%s "
+        "close_pct=%.3f new_position_size=%.8f remaining_pct=%.3f",
+        pkg_id, linked_trade_id, close_qty_pct, new_position_size, remaining_pct,
+    )
+    summary.updated_count += 1
+
+
+def _full_close_trade_and_package(
+    db,
+    *,
+    pkg_id: Optional[str],
+    linked_trade_id: int,
+    reason: str,
+    exit_price: Optional[float],
+    extra_notes: Optional[Dict[str, Any]] = None,
+    summary: _StrategyTickSummary,
+) -> None:
+    """Close both the ``order_packages`` row and the linked ``trades`` row.
+
+    Extracted so the normal ``action='close'`` path and the
+    sequential-partials-reach-100% path share one implementation.
+    ``extra_notes`` is merged into the trade's notes JSON before the
+    write (used by the sequential-partial path to persist the
+    ``partial_closes`` list).
+    """
+    try:
+        db.update_order_package(pkg_id, {
+            "status": "closed",
+            "close_reason": reason,
+        })
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "order_monitor: order_packages close write failed for %s: %s",
+            pkg_id, exc,
+        )
+        summary.error_count += 1
+        summary.errors.append(f"{pkg_id}: close-write failed")
+        return
+
+    try:
+        close_updates: Dict[str, Any] = {
+            "status": "closed",
+            "exit_reason": reason,
+        }
+        if exit_price is not None:
+            close_updates["exit_price"] = float(exit_price)
+        if extra_notes:
+            # Read-modify-write the notes field.
+            rows = db.get_trades(filters={"id": linked_trade_id})
+            existing_notes = _decode_notes(rows[0].get("notes") if rows else None)
+            existing_notes.update(extra_notes)
+            close_updates["notes"] = json.dumps(existing_notes, ensure_ascii=False)[:2000]
+        db.update_trade(linked_trade_id, close_updates)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "order_monitor: trade close write failed for trade=%s pkg=%s: %s",
+            linked_trade_id, pkg_id, exc,
+        )
+
+    summary.closed_count += 1
+
+
 def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
                   summary: _StrategyTickSummary) -> None:
     """Translate a non-None monitor verdict into DB writes.
 
     Verdict shapes:
       - ``{"sl": float}`` or ``{"tp": float}`` → update_order_package
-      - ``{"action": "close", "reason": str}`` → close the package
-        AND update the linked trade row.
+      - ``{"action": "close", "reason": str}`` → full close of package
+        AND linked trade row.
+      - ``{"action": "close", "close_qty_pct": float, "reason": str,
+           "exit_price": float?}``
+        → partial close when ``close_qty_pct < 1.0``; full close when
+        ``close_qty_pct == 1.0`` (default) or cumulative partials
+        reach 100 %.  Invalid pct (≤ 0 or > 1) is rejected with a
+        warning.
 
     Each branch is wrapped; one failing write doesn't break the
     rest of the tick.
@@ -152,6 +337,29 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
     pkg_id = open_pkg.get("order_package_id")
     action = (verdict or {}).get("action")
     if action == "close":
+        raw_pct = (verdict or {}).get("close_qty_pct")
+        if raw_pct is not None:
+            try:
+                close_qty_pct = float(raw_pct)
+            except (TypeError, ValueError):
+                logger.warning(
+                    "order_monitor: invalid close_qty_pct=%r for pkg=%s — skipping",
+                    raw_pct, pkg_id,
+                )
+                summary.no_change_count += 1
+                return
+            if close_qty_pct <= 0.0 or close_qty_pct > 1.0:
+                logger.warning(
+                    "order_monitor: close_qty_pct=%.4f out of range (0, 1] "
+                    "for pkg=%s — skipping",
+                    close_qty_pct, pkg_id,
+                )
+                summary.no_change_count += 1
+                return
+            if close_qty_pct < 1.0:
+                _apply_partial_close(db, open_pkg, verdict, summary)
+                return
+            # close_qty_pct == 1.0 falls through to full-close below.
         reason = str((verdict or {}).get("reason") or "monitor_close")
         try:
             db.update_order_package(pkg_id, {
