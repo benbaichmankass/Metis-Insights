@@ -652,7 +652,7 @@ BOT_COMMAND_SPECS: list[BotCommandSpec] = [
     BotCommandSpec("accounts", "List accounts (dry/live + PnL) or toggle mode", "accounts"),
     BotCommandSpec("accounts_status", "Per-account risk state (daily PnL, halted)", "accounts"),
     BotCommandSpec("set_all_live", "Flip every account out of dry-run into live mode", "accounts"),
-    BotCommandSpec("set_keys", "Open the Colab key-rotation notebook", "accounts"),
+    BotCommandSpec("set_keys", "Open the operator notebook (env / keys / VM restart)", "accounts"),
     BotCommandSpec("risk_check", "Risk details for an account (button picker)", "accounts"),
     BotCommandSpec("smoke_test", "Live-plumbing smoke (always LIVE): /smoke_test [account]", "accounts"),
     BotCommandSpec("strategies", "Per-strategy signals, PnL and positions", "accounts"),
@@ -820,10 +820,15 @@ _COLAB_DOC_URL = (
 
 
 async def cmd_set_keys(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Reply with the open-in-Colab link for the key-rotation notebook.
+    """Reply with the open-in-Colab link for the canonical operator notebook.
 
-    The notebook reads from the operator's Colab Secrets and pushes a
-    fresh ``.env.live`` to the VM. See
+    ``notebooks/operator/rotate_api_keys.ipynb`` is the SINGLE notebook
+    in the repo for env generation, settings updates, API key rotation,
+    and VM service restart. It reads from the operator's Colab Secrets,
+    writes a fresh ``.env`` to ``~/ict-trading-bot/.env`` on the VM
+    (no profile suffix — per BUG-039 the dry/live toggle lives in
+    ``config/accounts.yaml`` `mode`), and restarts both the trader and
+    Telegram-bot systemd units. See
     ``docs/operator/colab-key-rotation.md`` for the full setup.
     """
     if not is_authorised(update):

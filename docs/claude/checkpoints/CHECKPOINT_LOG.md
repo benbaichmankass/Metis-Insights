@@ -5,6 +5,69 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-03-13 — single canonical operator notebook (env / keys / VM restart)
+
+- **Session date:** 2026-05-03
+- **Sprint:** claude/single-keys-notebook (operator directive 2026-05-03 follow-up to BUG-039 — "there should only be ONE notebook in the repo for generating envs, updating settings, and adding/rotating API keys and restarting the vm").
+- **Current sprint phase:** Tier-1 cleanup (notebooks + docs + bot text only — no runtime code touched).
+- **Last completed checkpoint:** CP-2026-05-03-12 (BUG-039 single-source mode merged via #353); CP-2026-05-03-12b (rotate-keys notebook BUG-039 cleanup merged via #354).
+- **Next checkpoint:** **CP-2026-05-?-?? — risk-manager rejection logging + log-view bot commands (still deferred from CP-11).**
+- **Telegram sent:** rides on the merge of this PR.
+- **Alerts sent during session:** none.
+- **Blockers:** none.
+
+### 1. Completed
+
+- **Audited the notebook landscape.** Pre-PR there were six notebooks split across `notebooks/operator/` and `notebooks/setup/` overlapping the env/keys/restart workflow:
+  - `notebooks/operator/rotate_api_keys.ipynb` ✓ canonical (post-BUG-039 rewrite landed in #354).
+  - `notebooks/operator/restart_telegram_bot.ipynb` — duplicate of the rotate notebook's restart step.
+  - `notebooks/setup/render_env_from_drive_master.ipynb` — alternate env-render path (SOPS-encrypted-master flow).
+  - `notebooks/setup/encrypt_google_drive_master_secrets.ipynb` — paired with the above (creates the SOPS file).
+  - `notebooks/setup/test_vwap_env_and_vm_readiness.ipynb` — readiness check that referenced the deleted `vwap_btcusd_dry_run` profile.
+- **Deleted the four redundant notebooks** + the obsolete `docs/claude/google-drive-master-secrets.md` (the entire document was about the SOPS-encrypted-master flow which no longer has a notebook entry point). The `notebooks/setup/` directory is now empty and removed.
+- **Confirmed `/set_keys` already links to `rotate_api_keys.ipynb`.** Updated the docstring to reflect the canonical-notebook framing, updated the BotCommandSpec description from "Open the Colab key-rotation notebook" to "Open the operator notebook (env / keys / VM restart)" so the `/help` body and Telegram hamburger menu match the new scope.
+- **Updated `docs/claude/deployment-ops.md`:** removed the `vwap_btcusd_live` profile section (deleted in BUG-039), removed the reference to the deleted readiness notebook, replaced with a short "Trading mode (BUG-039)" section that names per-account `mode` as the only toggle.
+- **Verified:** the only env/keys/restart notebook in the repo is now `notebooks/operator/rotate_api_keys.ipynb`. The remaining notebooks (`enable_comms_channel.ipynb`, `ict_multi_symbol_backtest.ipynb`, `notebooks/templates/*`) cover non-overlapping responsibilities (Claude bridge enablement, backtesting, template skeletons).
+
+### 2. Files changed
+
+**Deleted:**
+- `notebooks/operator/restart_telegram_bot.ipynb`
+- `notebooks/setup/render_env_from_drive_master.ipynb`
+- `notebooks/setup/encrypt_google_drive_master_secrets.ipynb`
+- `notebooks/setup/test_vwap_env_and_vm_readiness.ipynb`
+- `docs/claude/google-drive-master-secrets.md`
+- `notebooks/setup/` (directory empty after deletes)
+
+**Modified:**
+- `src/bot/telegram_query_bot.py` — `/set_keys` docstring + `BotCommandSpec` description.
+- `docs/claude/deployment-ops.md` — VWAP profile section + readiness-notebook reference rewritten for BUG-039 contract.
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` — this entry.
+
+### 3. Tests run
+- `find notebooks -name "*.ipynb"` → confirms 6 notebooks remaining (operator/{rotate_api_keys, enable_comms_channel}, ict_multi_symbol_backtest, templates/*); only `rotate_api_keys.ipynb` covers env/keys/restart.
+- `grep _COLAB_NOTEBOOK_URL src/bot/telegram_query_bot.py` → still points to `notebooks/operator/rotate_api_keys.ipynb` ✓ (target exists).
+- `python3 scripts/secret_scan.py` → expected clean.
+- `python3 scripts/check_dry_run_in_diff.py` → expected clean (no `mode: dry_run` introduced; the deletes don't trip the guard).
+
+### 4. Live-mode check
+- Docs + notebooks + bot copy-text only. No runtime code touched.
+- `config/accounts.yaml` not modified — bybit_1 / bybit_2 / prop_velotrade_1 mode states unchanged.
+- No `src/runtime/orders.py`, `src/runtime/pipeline.py`, `src/units/accounts/*` touch. ✅
+
+### 5. Architecture rules check
+- **Unit boundary declaration.** Touched: `src/bot/telegram_query_bot.py` (bot shell — docstring + BotCommandSpec description, no logic), `docs/claude/`, `notebooks/`. No new cross-unit imports.
+- **Rule 5 (bot is a thin shell)** — only the docstring + spec description changed; the `/set_keys` handler logic is untouched.
+
+### 6. Remaining
+- **Carry-over from CP-11 (still pending):** risk-manager rejection logging, /packages bot command, /latest_backtest enhancement, /strategies all-time signal window, liveness watchdog follow-up. None of these are blocked by this PR.
+- **Carry-over from CP-12:** mechanical test rewrite pass for the BUG-039 architectural change (~10 tests in `tests/test_runtime_orders.py`, `tests/test_orders.py`, `tests/test_validation.py` still asserting the OLD process-level gates).
+
+### 7. Next checkpoint
+**CP-2026-05-?-?? — risk-manager rejection logging.** First action: open a ping-PR per CLAUDE.md § Live-mode invariant for the `src/units/accounts/execute.py` rejection-logging change before touching code. Read in order: this entry, BUG-039 in `docs/claude/bug-log.md`, `src/units/accounts/execute.py::_log_trade_to_journal` (the existing insertion point — needs to also fire on RiskManager rejection paths with status='rejected', and on exchange-rejection paths with status='exchange_rejected').
+
+---
+
 ## CP-2026-05-03-12 — single-source trading mode (per-account `mode` is the only dry/live toggle)
 
 - **Session date:** 2026-05-03
