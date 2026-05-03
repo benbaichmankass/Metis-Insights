@@ -661,6 +661,7 @@ BOT_COMMAND_SPECS: list[BotCommandSpec] = [
     BotCommandSpec("trades", "Open positions", "accounts"),
     # Signals & history
     BotCommandSpec("last5", "Last 5 journal entries", "signals"),
+    BotCommandSpec("packages", "Refusals + stuck packages: why didn't trades land?", "signals"),
     BotCommandSpec("signals", "Recent pipeline signals: /signals [N] [strategy]", "signals"),
     BotCommandSpec("alerts", "Recent unit alerts (coordinator queue)", "signals"),
     BotCommandSpec("log", "Recent trader logs", "signals"),
@@ -1148,6 +1149,65 @@ async def cmd_last5(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 document=open(available_chart, "rb"))
         except Exception:  # noqa: BLE001
             pass
+
+
+# ---------------------------------------------------------------------------
+# /packages — refusals + open undispatched packages (CP-2026-05-03-15).
+# ---------------------------------------------------------------------------
+#
+# Surfaces what /last5 + the hourly summary intentionally hide: rows in
+# trade_journal.db::trades with status='rejected' / 'exchange_rejected'
+# (RiskManager refusals + exchange-side errors) plus order_packages
+# rows still in status='open' with no linked_trade_id (signals the
+# strategy emitted that the dispatcher couldn't turn into a trade).
+#
+# Arguments:
+#   /packages       → last 10 refusals + last 10 open packages
+#   /packages 25    → last 25 of each
+#
+# This command exists because the success-path surfaces (/last5,
+# /strategies, hourly report, liveness watchdog) all filter rejection
+# rows out — counting refusals in those would silently neuter the
+# watchdog (CP-2026-05-03-14). /packages is the dedicated diagnostic
+# surface for "VWAP fired N signals but 0 trades placed — why?".
+
+async def cmd_packages(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_authorised(update):
+        return
+
+    # Parse one optional positional N. Default 10.
+    n = 10
+    if context.args:
+        try:
+            n = max(1, min(50, int(context.args[0])))
+        except (TypeError, ValueError):
+            await update.message.reply_text(
+                f"Usage: /packages [N] (1..50). Got {context.args[0]!r}."
+            )
+            return
+
+    try:
+        rejections = dl.recent_rejections(n=n) or []
+        open_pkgs = dl.open_order_packages(n=n) or []
+    except Exception as exc:  # noqa: BLE001
+        await update.message.reply_text(
+            f"⚠️ Could not load packages diagnostics: {exc}"
+        )
+        return
+
+    from src.units.ui.processor import render_packages_collapsable
+    body = render_packages_collapsable(
+        rejections, open_pkgs,
+        title=f"📦 Order packages (last {n})",
+    )
+    try:
+        await update.message.reply_text(
+            body, parse_mode="HTML", disable_web_page_preview=True,
+        )
+    except Exception as exc:  # noqa: BLE001
+        await update.message.reply_text(
+            f"⚠️ Could not render packages: {exc}"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -2871,6 +2931,7 @@ def main():
     application.add_handler(CommandHandler("closeall", cmd_closeall))
     application.add_handler(CommandHandler("strategies", cmd_strategies))
     application.add_handler(CommandHandler("last5", cmd_last5))
+    application.add_handler(CommandHandler("packages", cmd_packages))
     application.add_handler(CommandHandler("signals", cmd_signals))
     application.add_handler(CommandHandler("backtest", cmd_backtest))
     application.add_handler(CommandHandler("latest_backtest", cmd_latest_backtest))

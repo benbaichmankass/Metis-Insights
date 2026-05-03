@@ -805,6 +805,146 @@ def render_recent_trades_collapsable(
 
 
 # ---------------------------------------------------------------------------
+# /packages — rejection rows + open-but-undispatched order packages.
+# ---------------------------------------------------------------------------
+
+
+def _strip_reason_prefix(entry_reason: Optional[str]) -> str:
+    """Return the bare refusal token (no ``REJECTED:`` / ``EXCHANGE_REJECTED:``
+    prefix) from a rejection row's ``entry_reason`` column.
+
+    See ``src/units/accounts/execute.py::_log_trade_to_journal`` for the
+    prefix shape. Falls back to the raw value when neither prefix matches.
+    """
+    if not entry_reason:
+        return ""
+    s = str(entry_reason)
+    for prefix in ("REJECTED: ", "EXCHANGE_REJECTED: "):
+        if s.startswith(prefix):
+            return s[len(prefix):]
+    return s
+
+
+def render_packages_collapsable(
+    rejections: List[Dict[str, Any]],
+    open_packages: List[Dict[str, Any]],
+    *,
+    title: str = "📦 Order packages — diagnostics",
+) -> str:
+    """Render rejection trade-rows + open undispatched packages as one
+    HTML message with each row in its own collapsable section.
+
+    Two sub-headers in the body — one for refusals (so the operator sees
+    *why* trades didn't land) and one for open packages with no linked
+    trade (so the operator sees *what's stuck*). Per the bug-log § BUG-009
+    /BUG-030 / BUG-031 pattern: HTML mode (the formatter escapes ``&``,
+    ``<``, ``>``); never Markdown — DB-sourced free-text fields routinely
+    carry ``*`` / ``_`` / ``[`` / backticks.
+    """
+    from src.units.ui.telegram_format import Section, render_html
+
+    if not rejections and not open_packages:
+        return render_html(
+            header=title,
+            sections=[Section(
+                summary="✅ No refusals + no stuck packages",
+                body=("Every actionable signal in the recent window placed "
+                      "a trade or had no matching account. Nothing to "
+                      "diagnose."),
+            )],
+        )
+
+    sections: List[Section] = []
+    priority = 0
+
+    # --- Refusal rows -----------------------------------------------------
+    if rejections:
+        sections.append(Section(
+            summary=f"🚫 {len(rejections)} recent refusal(s)",
+            body=("Each row below is a trade that did NOT reach the "
+                  "exchange. The reason token names the gate that "
+                  "fired (RiskManager refusal or exchange-side error)."),
+            priority=priority,
+        ))
+        priority += 1
+        for row in rejections:
+            status = row.get("status", "?")
+            reason_token = _strip_reason_prefix(row.get("entry_reason"))
+            symbol = row.get("symbol", "?")
+            direction = row.get("direction", "?")
+            strategy = row.get("strategy_name") or "?"
+            account = row.get("account_id") or "?"
+            qty = row.get("position_size", "?")
+            ts = row.get("created_at") or row.get("timestamp") or "?"
+            badge = "🛑" if status == "rejected" else "💥"
+            summary = (
+                f"{badge} {strategy} → {account}: {reason_token or status}"
+            )
+            body_lines = [
+                f"🕒 {ts}",
+                f"💱 {symbol} {direction} qty={qty}",
+                f"🏷️  status={status}",
+                f"📝 reason={reason_token or '(none)'}",
+                f"🛑 SL: {row.get('stop_loss', '?')} | "
+                f"🎯 TP: {row.get('take_profit_1', '?')}",
+            ]
+            sections.append(Section(
+                summary=summary, body="\n".join(body_lines),
+                priority=priority,
+            ))
+            priority += 1
+
+    # --- Open undispatched packages --------------------------------------
+    if open_packages:
+        sections.append(Section(
+            summary=f"⏳ {len(open_packages)} open package(s) with no linked trade",
+            body=("Packages logged by the strategy that the dispatcher "
+                  "couldn't route to a successful trade. Compare to the "
+                  "refusals above for the matching reason token."),
+            priority=priority,
+        ))
+        priority += 1
+        for pkg in open_packages:
+            pkg_id = pkg.get("order_package_id", "?")
+            strategy = pkg.get("strategy_name", "?")
+            symbol = pkg.get("symbol", "?")
+            direction = pkg.get("direction", "?")
+            entry = pkg.get("entry", "?")
+            sl = pkg.get("sl", "?")
+            tp = pkg.get("tp", "?")
+            confidence = pkg.get("confidence")
+            updated_at = pkg.get("updated_at") or pkg.get("created_at") or "?"
+            try:
+                conf_str = f"{float(confidence):.2f}" if confidence is not None else "?"
+            except (TypeError, ValueError):
+                conf_str = str(confidence)
+            short_id = str(pkg_id)[-12:] if pkg_id else "?"
+            summary = f"📂 {strategy} {symbol} {direction} (#{short_id})"
+            body_lines = [
+                f"🆔 {pkg_id}",
+                f"💱 {symbol} {direction}",
+                f"💰 entry: {entry}",
+                f"🛑 SL: {sl} | 🎯 TP: {tp}",
+                f"📊 confidence: {conf_str}",
+                f"🕒 updated_at: {updated_at}",
+            ]
+            sections.append(Section(
+                summary=summary, body="\n".join(body_lines),
+                priority=priority,
+            ))
+            priority += 1
+
+    counts = []
+    if rejections:
+        counts.append(f"{len(rejections)} refusal(s)")
+    if open_packages:
+        counts.append(f"{len(open_packages)} open package(s)")
+    return render_html(
+        header=f"{title} — {' + '.join(counts)}", sections=sections,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Price helper — S-031 PR3 (architecture-audit-2026-05-02 P1-6)
 # ---------------------------------------------------------------------------
 
