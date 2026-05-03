@@ -5,6 +5,119 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-03-21 — BUG-044 closed (early-out dispatch refusal-row contract) + checkpoint-ping dedup (PR #382 merged)
+
+- **Session date:** 2026-05-03 (operator-flagged bug session on
+  branch `claude/fix-vwap-trade-logging-7C3FE`).
+- **Sprint:** claude/fix-vwap-trade-logging-7C3FE — single-task
+  bug-fix session, two narrow operator complaints addressed in one
+  PR.
+- **Current sprint phase:** WRAP. PR #382 self-merged after the
+  `scan` job went green; operator approved merge inline.
+- **Last completed checkpoint:** CP-2026-05-03-20.
+- **Next checkpoint:** **CP-2026-05-?-?? — BUG-042 sprint kickoff
+  (still blocked on operator approval of PR #379) OR P3 paths.py
+  helper as a Tier-1 autonomous fallback.** Same hand-off as CP-20
+  — this session inserted between as a P0 bug-fix; the planned
+  BUG-042 / paths.py path is not advanced.
+
+### 1. Completed
+
+- **P0 — BUG-044 closed (PR #382 merged).** Operator pasted a
+  `/packages` snapshot showing 5+ recent VWAP → bybit_2 packages
+  with `status='orphaned'` (from BUG-041's cleanup) AND 10 open
+  packages with `linked_trade_id=NULL` and no matching rejection
+  row. Diagnosis: distinct from BUG-041 + BUG-042 — those address
+  rows that were *opened* on the trade-journal and went stale.
+  This bug was about packages that were *never paired with any
+  trade row at all* because three early-out branches in
+  `Coordinator.multi_account_execute` produced a result row but
+  skipped `log_rejection_to_journal`: `skipped_not_assigned`
+  (per-account strategy filter), `sizing_failed`
+  (`RiskManager.position_size` raised), `below_min_balance`
+  (`sized_qty <= 0`). All three now call
+  `log_rejection_to_journal(status='rejected', reason=…)` with
+  the matching reason token. New
+  `tests/test_multi_account_execute_early_out_logs_refusal.py`
+  (3 classes — one per branch) pins the contract end-to-end
+  against a tmp `trade_journal.db`. Tier 1 (touches
+  `src/core/coordinator.py` but only the result-tabulation arms;
+  the live/dry decision and `execute_pkg` call site are
+  unchanged). Bug-log row appended.
+- **OPERATOR INSERT: checkpoint-ping dedup (same PR #382).**
+  Operator complaint *"every pr triggers these old sprint
+  checkpoint updates that aren't relevant"*. Root cause:
+  `scripts/notify_on_pull.py::_diff_touched_checkpoint_log`
+  returned True for any commit in the pull window touching
+  `CHECKPOINT_LOG.md`, then `_checkpoint_ping` echoed the file's
+  current topmost entry — regardless of whether the merging
+  commit added a new entry, edited body text, or merged in an
+  old branch's checkpoint commit. So a feature-PR merge that
+  carried an old session's checkpoint commit into main re-pinged
+  the operator with the same content the original session had
+  already announced. New `_diff_added_cp_ids` helper parses the
+  diff for added `## CP-…` headers; the ping fires only when the
+  topmost entry's CP-ID is in that set. `--force-checkpoint`
+  bypass kept for the `auto_ping_test.flag` verification path.
+  5 new tests in `tests/test_notify_on_pull.py`.
+
+### 2. Files changed
+
+- `src/core/coordinator.py` — three early-out branches in
+  `multi_account_execute` now call `log_rejection_to_journal`
+  (lines 559–571, 577–590, 595–607).
+- `scripts/notify_on_pull.py` — new `_diff_added_cp_ids` helper
+  + gated CP-ping logic in `collect_pings`.
+- `tests/test_multi_account_execute_early_out_logs_refusal.py`
+  (new) — 3 test classes, one per early-out branch.
+- `tests/test_notify_on_pull.py` — 5 new tests for the
+  diff-parses-only-added-headers contract + the gating
+  decision tree (skip-when-not-added, skip-when-old-id-merged,
+  fire-when-fresh, force-bypass) + 1 update to
+  `test_collect_pings_orders_blocker_first` to stub the new
+  `_diff_added_cp_ids` predicate.
+- `docs/claude/bug-log.md` — BUG-044 row appended.
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` — this entry.
+
+### 3. Tests run
+
+- New + adjacent suites green: `tests/test_notify_on_pull.py`,
+  `tests/test_multi_account_execute_early_out_logs_refusal.py`,
+  `tests/test_s029_pr1_account_strategy_filter.py`,
+  `tests/test_execute_journal_rejections.py` — 44 passed.
+- Broader sweep: 1746 passed / 282 failed vs. main baseline of
+  1737 passed / 285 failed — net **9 more pass, 3 fewer fail**.
+  All remaining failures are pre-existing env-level issues in the
+  sandbox (missing `pandas` / `pyo3-asyncio` / `pytest-asyncio`
+  for `tests/test_packages_command.py`, `tests/test_s026_*`,
+  `tests/test_vwap_strategy.py` collection, `tests/test_web_api_*`).
+  No new regressions from PR #382.
+- `python scripts/secret_scan.py` — clean.
+
+### 4. Remaining
+
+- BUG-042 monitor-loop reconciler sprint still blocked on
+  operator approval of PR #379 (no change since CP-20).
+- P3 paths.py helper — Tier 1 autonomous, deferred.
+- Live verification of PR #382 on the next ≥ 1σ VWAP excursion
+  (post-PR-#377 retune): a vwap → bybit_2 package whose dispatch
+  trips one of the three early-out reasons should now appear in
+  `/packages` paired with a `rejected` row carrying the matching
+  token.
+- Live verification of the ping-dedup: the next code-only PR that
+  doesn't add a new `## CP-…` header should NOT re-ping the
+  previous session's checkpoint.
+
+### 5. Next checkpoint
+
+**CP-2026-05-?-?? — BUG-042 sprint kickoff (after operator
+approves PR #379) + paths.py helper if there's time + post-deploy
+verification of PR #382's two contracts on the live VM.** Same
+priority order as CP-20; this session inserted between as a P0
+bug-fix and did not advance the queued work.
+
+---
+
 ## CP-2026-05-03-20 — BUG-043 verification pinned (regression contract), VWAP retuned 1.0σ + 0.5σ (R:R 1:2), BUG-041 closed, BUG-042 ping-PR pair filed
 
 - **Session date:** 2026-05-03 (resume of kGwLc on branch
