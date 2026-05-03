@@ -5,6 +5,54 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-03-10 — Sprint S-telegram-format COMPLETE / WRAPPED
+
+- **Session date:** 2026-05-03
+- **Sprint:** S-telegram-format — **COMPLETE.** Five PRs merged this session (#342 + #343 + #344 + #345 + #346). Sprint Completion Checklist run per CLAUDE.md.
+- **Current sprint phase:** **WRAPPED.** Every recurring Telegram message in the bot now uses the unified collapsable formatter (per-tick pipeline result, hourly summaries, `/health`, `/accounts_status`, `/signals`, `/last5`, `/status`, `/balance`, `/trades`, `/log`). The recurring `ALLOW_LIVE_TRADING=true is required` ping is now self-debugging — names the actual value read and its source (settings/env/default).
+- **Last completed checkpoint:** CP-2026-05-03-09 (Phase 4 — PR #346 self-merged via `f5d3dd9`).
+- **Next checkpoint:** **CP-2026-05-?-?? — DXtrade SDK contract drop.** Read in order: this entry, `docs/sprint-summaries/sprint-velotrade-phase2-summary.md`, `docs/integrations/dxtrade-contract-template.md` (with operator-filled values), `src/units/accounts/dxtrade_client.py`, the bybit branch in `src/units/accounts/execute.py::_submit_order`.
+- **Telegram sent:** rides on the merge of this docs-only summary PR (sprint-end ping fires off `WRAPPED` in the title per CLAUDE.md § Telegram Reporting).
+- **Alerts sent during session:** none.
+- **Blockers:** none.
+
+### 1. Completed
+- **Sprint Completion Checklist** (CLAUDE.md):
+  1. Full tests run on each phase: 30+ new + 100+ regression-adjacent — **all pass** (the 11 failures in `tests/test_telegram_query_bot.py` are pre-existing sandbox quirks verified unrelated via `git stash` on every phase).
+  2. `python scripts/secret_scan.py` → clean.
+  3. New sprint summary at `docs/sprint-summaries/sprint-telegram-format-summary.md` containing PR list, deliverables matrix, findings, lessons learned, and 2 proposed CLAUDE.md improvements for the next sprint.
+  4. Self-merge this docs-only PR (no code risk; Tier 1).
+  5. Two CLAUDE.md improvements proposed in the summary's § "Proposed CLAUDE.md improvements" — (a) add a "telegram messaging" rule under § Architecture rules § 5 mandating use of `src/units/ui/telegram_format.py` for any future bot-message work; (b) codify the "self-debugging diagnostic" pattern under § "Always do".
+  6. Telegram `/sprintlet_complete S-telegram-format` rides on the WRAPPED commit.
+  7. This checkpoint entry is the final entry — appended on top per the template.
+
+### 2. Files changed (this PR — docs only)
+- **New:**
+  - `docs/sprint-summaries/sprint-telegram-format-summary.md` — sprint summary.
+- **Modified:**
+  - `docs/claude/checkpoints/CHECKPOINT_LOG.md` — this CP entry.
+
+### 3. Tests run
+- No code changed in this PR. All previous test sweeps remain authoritative — see CP-2026-05-03-06 / -07 / -08 / -09 for the per-PR test matrices.
+- `python scripts/secret_scan.py` → clean.
+- `python scripts/check_dry_run_in_diff.py` → clean.
+
+### 4. Live-mode check
+- `scripts/check_dry_run_in_diff.py` → clean.
+- Docs-only diff. Zero code change. Self-merging per CLAUDE.md § Merging Rules (only Tier-2 categories — secrets, `src/runtime/orders.py`, `deploy/` — block self-merge for docs).
+
+### 5. Architecture rules check
+- Docs-only. No unit boundary touched.
+
+### 6. Remaining
+- **DXtrade SDK contract drop** — unchanged from CP-04/05. Single-file change once the operator drops the contract into `docs/integrations/dxtrade-contract-template.md`.
+- **Live smoke test** — runs once SDK methods land + sandbox creds provisioned.
+
+### 7. Next checkpoint
+**CP-2026-05-?-?? — DXtrade SDK contract drop.** Read in order: this entry, `docs/sprint-summaries/sprint-telegram-format-summary.md`, `docs/sprint-summaries/sprint-velotrade-phase2-summary.md`, `docs/integrations/dxtrade-contract-template.md`, `src/units/accounts/dxtrade_client.py`, the bybit branch in `src/units/accounts/execute.py::_submit_order`.
+
+---
+
 ## CP-2026-05-03-09 — Session close: Telegram-format Phase 4 — /status + /balance + /trades + /log now collapsable
 
 - **Session date:** 2026-05-03
