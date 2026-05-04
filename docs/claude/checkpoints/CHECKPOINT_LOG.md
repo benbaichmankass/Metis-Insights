@@ -5,6 +5,52 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-04-05 — Sprint S-021 COMPLETE: config-drift contract + boot observability
+
+- **Session date:** 2026-05-04
+- **Sprint:** S-021 — BUG-048 hardening (branch `claude/fix-trading-bot-push-o3J4w`, PR #402)
+- **Current sprint phase:** COMPLETE
+- **Last completed checkpoint:** CP-2026-05-04-04
+
+### 1. Completed
+
+- **PR 1** (`acf6542`): `tests/test_env_render_contract.py` — 3 contract tests pinning `.env.example` ↔ `build_live(FAKE_DATA)` key-set parity. Drift detection verified: adding a dummy key to `.env.example` makes test 1 fail. 56 + 3 = 59 tests pass.
+- **PR 2** (`7b32d38`): `src/runtime/boot_audit.py` + `tests/test_boot_audit.py` + `src/main.py` 8-line insertion. `report_open_packages_on_boot()` logs linked open packages per strategy on startup, Telegram-pings when total > 0 (plain text, no parse_mode), silent on clean restart. 4 new tests.
+- Merged `origin/main` (PR #401 BUG-049 fix) into sprint branch to pick up `linked_only=True` param on `get_order_packages_by_strategy`.
+- Sprint summary: `docs/sprint-summaries/sprint-021-summary.md`.
+- Draft PR #402 opened.
+
+### 2. Files changed
+
+- `tests/test_env_render_contract.py` (new)
+- `src/runtime/boot_audit.py` (new)
+- `tests/test_boot_audit.py` (new)
+- `src/main.py` (+8 lines)
+- `docs/sprint-summaries/sprint-021-summary.md` (new)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+
+```
+PYTHONPATH=. pytest tests/test_env_render_contract.py tests/test_render_env_from_master.py \
+    tests/test_boot_audit.py tests/test_strategy_monocle_open_gate.py \
+    tests/test_monitor_reconciler.py -q
+# → 90 passed, 0 failed
+```
+
+### 4. Remaining
+
+- Self-merge PR #402 once CI scan passes (currently queued).
+- **Recurring Hardening Session 2** (see `docs/sprints/recurring-hardening-prompt.md`): architecture audit of `src/units/accounts/execute.py` + Coordinator translator.
+
+### 5. Next checkpoint
+
+**CP-2026-05-04-06** — Recurring Hardening Session 2. Read `docs/sprints/recurring-hardening-prompt.md` + `docs/claude/architecture-audit-2026-05-02.md`. Verify `execute_pkg` is the only live-order entry point; audit `src/core/coordinator.py` translator pattern; file a Tier-1 cleanup sprint if legacy paths remain.
+
+- **Telegram sent:** yes (rides on this checkpoint commit via VM wiring)
+
+---
+
 ## CP-2026-05-04-04 — Ad-hoc investigation: vwap signal gap + BUG-049 hotfix notebook
 
 - **Session date:** 2026-05-04

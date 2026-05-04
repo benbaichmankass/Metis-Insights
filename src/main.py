@@ -161,6 +161,14 @@ def main() -> None:
     except Exception as exc:  # noqa: BLE001
         logger.warning("dup-key check skipped: %s", exc)
 
+    # S-021: log open packages per strategy on every startup so the operator
+    # can see at a glance that monitoring will resume (BUG-048 observability gap).
+    try:
+        from src.runtime.boot_audit import report_open_packages_on_boot
+        report_open_packages_on_boot()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("boot_audit skipped: %s", exc)
+
     exchange_client = _build_exchange_adapter(settings)
     telegram_client = _build_telegram_client()
 
