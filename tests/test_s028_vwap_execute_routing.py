@@ -259,7 +259,10 @@ class TestExecutionFailureDiagnosticPing:
             "silent dry-run fallback is the failure mode the fix removes"
         )
         assert results[0]["trade_id"] is None
-        assert "missing API credentials" in (results[0]["error"] or "")
+        # Coordinator message changed from "missing API credentials" to
+        # "not fully configured: api_key_env=..." (BUG-034 rewire + BUG-045
+        # per-account mode fix).  Check the stable phrase that is always present.
+        assert "not fully configured" in (results[0]["error"] or "")
         files = list(ping_dir.glob("*-execfail.json")) if ping_dir.exists() else []
         assert len(files) == 1
 
