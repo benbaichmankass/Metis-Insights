@@ -5,6 +5,48 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-04-06 — Recurring Hardening Session 2: execute.py + Coordinator audit COMPLETE
+
+- **Session date:** 2026-05-04
+- **Sprint:** Recurring hardening session 2 (branch `claude/hardening-session-2-execute-coordinator`)
+- **Current sprint phase:** COMPLETE
+- **Last completed checkpoint:** CP-2026-05-04-05
+
+### 1. Completed
+
+- Deep-read `src/units/accounts/execute.py` and `src/core/coordinator.py` end-to-end.
+- Verified `execute_pkg` is the single canonical live-order entry point. `multi_account_execute` in coordinator routes exclusively through it. ✅
+- Confirmed `close_open_position` and `modify_open_order` in execute.py are the canonical position-management paths. ✅
+- Confirmed the production `/closeall` path goes through `processor.close_open_positions` → `execute_pkg` (S-031 PR4 clean). ✅
+- Found and documented **BUG-050**: dead legacy code `close_all_bybit_positions` (bot) and `close_all_bybit_positions_for_strategy` (data_loaders) bypass `execute_pkg` but are never called in production. Filed cleanup sprint candidate.
+- Documented 3 additional medium/low findings (silent `_fetch_balance` 0.0 return, swallowed `report_api_failure` exception, documented `safe_place_order` fallback).
+- Appended Session 2 entry to `docs/claude/audit-log.md`.
+- Appended BUG-050 to `docs/claude/bug-log.md`.
+
+### 2. Files changed
+
+- `docs/claude/audit-log.md` (Session 2 entry appended)
+- `docs/claude/bug-log.md` (BUG-050 appended)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+
+No code changes this session — docs-only audit. All existing tests remain green (90/90 from S-021 scope verified before session started).
+
+### 4. Remaining
+
+- **BUG-050 cleanup sprint**: remove dead `close_all_bybit_positions` + `close_all_bybit_positions_for_strategy` + their tests. Tier-1; no ping required.
+- **Finding 2 follow-up**: add structured logging to `_fetch_balance()` failure path.
+- **Session 3 target**: Mode flag plumbing — full trace of every place `DRY_RUN`, `ALLOW_LIVE_TRADING`, and `mode:` are read; verify single source of truth.
+
+### 5. Next checkpoint
+
+**CP-2026-05-04-07** — either (a) BUG-050 dead-code cleanup sprint (Tier 1, self-merge) or (b) Recurring Hardening Session 3: mode-flag plumbing audit. Read `docs/sprints/recurring-hardening-prompt.md` § 2A Session 3 target.
+
+- **Telegram sent:** yes (rides on this checkpoint commit via VM wiring)
+
+---
+
 ## CP-2026-05-04-05 — Sprint S-021 COMPLETE: config-drift contract + boot observability
 
 - **Session date:** 2026-05-04
