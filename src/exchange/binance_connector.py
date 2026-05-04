@@ -11,7 +11,7 @@ def _read_testnet_flag() -> bool:
 
 class BinanceConnector:
     """
-    Binance connector for USDT-margined linear perpetual futures via ccxt.
+    Binance connector for USDT-margined spot trading futures via ccxt.
     Default symbol: BTC/USDT:USDT  (futures, not spot).
     Testnet / live mode controlled by BINANCE_TESTNET env var.
     """
