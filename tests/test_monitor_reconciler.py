@@ -40,6 +40,7 @@ import pytest
 from src.runtime.order_monitor import (
     _exchange_position_set,
     _reconcile_open_trades,
+    _sweep_unlinked_packages,
 )
 from src.units.db.database import Database
 
@@ -472,3 +473,74 @@ class TestExchangePositionSet:
     def test_empty_or_none_returns_empty_set(self):
         assert _exchange_position_set([]) == set()
         assert _exchange_position_set(None) == set()
+
+
+# ---------------------------------------------------------------------------
+# BUG-049: _sweep_unlinked_packages
+# ---------------------------------------------------------------------------
+
+
+class TestSweepUnlinkedPackages:
+    """_sweep_unlinked_packages marks open packages with no linked_trade_id
+    as orphaned (BUG-049 fix). Only affects rows older than 5 minutes."""
+
+    def _insert_pkg(self, db, pkg_id, *, linked_trade_id=None,
+                    strategy="vwap", status="open", age_minutes=10):
+        """Insert a package with a synthetic created_at in the past."""
+        import sqlite3
+        conn = db.connect()
+        try:
+            conn.execute(
+                "INSERT INTO order_packages "
+                "(order_package_id, strategy_name, symbol, direction, "
+                "entry, sl, tp, confidence, status, linked_trade_id, "
+                "created_at, updated_at) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?, "
+                "datetime('now', ? || ' minutes'), "
+                "datetime('now', ? || ' minutes'))",
+                (pkg_id, strategy, "BTCUSDT", "long",
+                 80000.0, 79500.0, 80500.0, 0.42, status, linked_trade_id,
+                 f"-{age_minutes}", f"-{age_minutes}"),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+    def test_old_unlinked_package_marked_orphaned(
+            self, tmp_db, monkeypatch):
+        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
+        self._insert_pkg(tmp_db, "pkg-old-unlinked", age_minutes=10)
+        affected = _sweep_unlinked_packages(tmp_db)
+        assert affected == 1
+        rows = tmp_db.get_order_packages_by_strategy("vwap")
+        assert rows[0]["status"] == "orphaned"
+
+    def test_recent_unlinked_package_not_swept(
+            self, tmp_db, monkeypatch):
+        """A package created less than 5 minutes ago with no linked trade
+        is still being dispatched — do not orphan it prematurely."""
+        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
+        self._insert_pkg(tmp_db, "pkg-new-unlinked", age_minutes=1)
+        affected = _sweep_unlinked_packages(tmp_db)
+        assert affected == 0
+        rows = tmp_db.get_order_packages_by_strategy("vwap")
+        assert rows[0]["status"] == "open"
+
+    def test_linked_open_package_not_swept(self, tmp_db, monkeypatch):
+        """A linked open package (real broker position) must never be
+        touched by the unlinked sweep."""
+        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
+        self._insert_pkg(tmp_db, "pkg-linked", linked_trade_id=7,
+                         age_minutes=60)
+        affected = _sweep_unlinked_packages(tmp_db)
+        assert affected == 0
+        rows = tmp_db.get_order_packages_by_strategy("vwap")
+        assert rows[0]["status"] == "open"
+
+    def test_noop_when_reconcile_disabled(self, tmp_db, monkeypatch):
+        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "false")
+        self._insert_pkg(tmp_db, "pkg-disabled", age_minutes=60)
+        affected = _sweep_unlinked_packages(tmp_db)
+        assert affected == 0
+        rows = tmp_db.get_order_packages_by_strategy("vwap")
+        assert rows[0]["status"] == "open"
