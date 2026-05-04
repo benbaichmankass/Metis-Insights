@@ -5,6 +5,69 @@ One entry per session; newest on top.
 
 ---
 
+## 2026-05-04 — execute.py deep-dive + Coordinator translator audit (Session 2)
+
+**Score**: Session 2 predetermined target per `docs/sprints/recurring-hardening-prompt.md` § 2A
+**Time**: ~1h
+**Phase 1**: N/A (sandbox — live VM health checks skipped; no access to `/proc`, runtime_logs, or Telegram smoke-test from agent-side).
+
+**Findings**:
+
+1. **Dead code: `close_all_bybit_positions` in bot + `close_all_bybit_positions_for_strategy` in data_loaders (low)**
+   — Both functions call `client.place_order()` directly, bypassing `execute_pkg`. However, they are DEAD CODE
+   in the production path. The `/closeall` Telegram command routes through
+   `cmd_closeall` → `_do_closeall_strategy` → `processor.close_open_positions` (fixed in S-031 PR4).
+   The dead functions are only exercised by tests (`test_telegram_query_bot.py:1812`,
+   `test_data_loaders.py:613`). Filed as BUG-050. Cleanup sprint needed.
+
+2. **`_fetch_balance()` returns 0.0 silently on exceptions (medium)**
+   — `src/units/accounts/execute.py` line 245: any exception during balance fetch returns `0.0` with
+   no structured logging of which exchange/account failed. Callers cannot distinguish "balance is $0"
+   from "exchange unreachable" — both produce `below_min_balance` rejections. The operator's
+   `/accounts_status` shows the error via `accounts_status` in the coordinator but the trade-journal
+   rejection reason is the same. Filed for follow-up.
+
+3. **`report_api_failure()` exception silently swallowed (low)**
+   — `src/units/accounts/execute.py` line 340: bare `except` on `report_api_failure()`. If the
+   diagnostic ping fails (e.g. Telegram is unreachable), the failure is silently dropped. This is
+   best-effort by design — a failing diagnostic ping must never abort a real trade — but the
+   bare `except` should log a debug line rather than swallow entirely.
+
+4. **Legacy `safe_place_order` fallback path in pipeline (low / documented)**
+   — `src/runtime/pipeline.py` lines 889-901: when `MULTI_ACCOUNT_DISPATCH` is off, the pipeline
+   falls back to `safe_place_order → client.place_order()` without per-account risk gates or
+   journal writes. This is documented in the code and is intentional for smoke/synthetic signals
+   on single-account deployments. Not a bug; confirmed by comment "Use DRY_MODE_PLACEHOLDER_QTY".
+
+**Core architecture verified (all ✅)**:
+
+- `execute_pkg` is the **single canonical live-order entry point** for real positions. ✅
+  Coordinator's `multi_account_execute` routes exclusively through `execute_pkg` (verified at
+  `src/core/coordinator.py:786`). `account_execute` also routes through it (line 224).
+- `close_open_position` in `execute.py` is the canonical position-flattening path (lines 554-615):
+  proper error handling, structured logging, Bybit `retCode` check. ✅
+- `modify_open_order` in `execute.py` handles SL/TP amendments (lines 493-551). ✅
+- **Coordinator translator pattern is correct**: all cross-unit calls go through
+  `src/core/coordinator.py`. No new direct unit-to-unit imports found. ✅
+- `OrderPackage` dataclass defined in `coordinator.py` (lines 43-57) — single source of truth for
+  the strategy-to-account interface. ✅
+- Pause/resume guard (`is_paused`, `_PAUSED_ACCOUNTS`) wired at `execute_pkg` entry via
+  `from src.core.coordinator import is_paused`. ✅
+- Per-account `mode: live | dry_run` is the only dry/live toggle — verified in `execute_pkg`
+  (reads `account_cfg.get("mode")`). No process-level interlock. ✅
+
+**Fixes shipped this session**: none (findings are dead-code cleanup + medium severity; no
+critical live-trading bugs found; clean architecture confirms S-031 fix is solid)
+**Issues filed**: BUG-050 (dead close-all code) in `docs/claude/bug-log.md`
+**Follow-up sprint candidates**:
+  - Remove dead `close_all_bybit_positions` + `close_all_bybit_positions_for_strategy` and
+    their tests (Tier-1 cleanup; file focused PR)
+  - Add structured logging to `_fetch_balance()` failure path (low, Tier-1 improvement)
+  - Replace bare `except` in `report_api_failure` call with `except Exception: logger.debug(...)`
+**Operator pings**: 0
+
+---
+
 ## 2026-05-04 — execute_pkg / coordinator / comms (Session 1)
 
 **Score**: Session 1 predetermined target per `docs/sprints/recurring-hardening-prompt.md` § 2A
