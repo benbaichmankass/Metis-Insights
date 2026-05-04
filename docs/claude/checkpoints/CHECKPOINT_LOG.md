@@ -5,6 +5,40 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-04-04 — Ad-hoc investigation: vwap signal gap + BUG-049 hotfix notebook
+
+- **Session date:** 2026-05-04
+- **Sprint:** ad-hoc operator-driven investigation (branch `claude/fix-trading-bot-push-o3J4w`); continuation of the BUG-048 fix session.
+- **Current sprint phase:** PARTIAL — BUG-049 identified and hotfix notebook delivered; code fix deferred (requires ping-PR for `pipeline.py`). Sprint S-021 not yet started.
+- **Last completed checkpoint:** CP-2026-05-04-03
+- **Next checkpoint:** **CP-2026-05-04-05 — Sprint S-021 kickoff** — after operator runs `sweep_unlinked_packages.ipynb` and confirms vwap signals resumed, proceed with Sprint S-021 per `docs/sprints/sprint-021-prompt.md`: config-drift contract test (`tests/test_env_render_contract.py`) + boot-time observability ping (`src/runtime/boot_audit.py`).
+- **Telegram sent:** yes (rides on this checkpoint commit via VM wiring)
+- **Alerts sent during session:** none
+- **Blockers:** operator must run `notebooks/operator/sweep_unlinked_packages.ipynb` (with `CONFIRM=True`) to unblock vwap signals. Permanent code fix for the gate (`pipeline.py`) deferred to a follow-up ping-PR.
+
+### 1. Completed
+- Diagnosed why vwap stopped sending signals after 2026-05-03 23:06:10 UTC. Root cause confirmed as BUG-049: 10 `order_packages` rows with `status='open'` and `linked_trade_id IS NULL` were blocking the BUG-046 gate in `_has_open_package_for_strategy`. The reconciler does not sweep these (it reads only the `trades` table), so they silently accumulated and silenced vwap indefinitely.
+- Created `notebooks/operator/sweep_unlinked_packages.ipynb` — SSH-based operator hotfix that previews all unlinked open packages by strategy, then (with `CONFIRM=True`) marks them `status='orphaned'` with an auditable `meta.orphaned_by` marker. No trader restart required — the gate re-reads the DB on each tick.
+- Logged BUG-049 in `docs/claude/bug-log.md`.
+
+### 2. Files changed
+- `notebooks/operator/sweep_unlinked_packages.ipynb` (new)
+- `docs/claude/bug-log.md` (BUG-049 row)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+- None for this session (notebook is read-only preview + operator-confirmed SQL UPDATE; no Python unit tests required).
+
+### 4. Remaining
+- **Operator action required:** run `notebooks/operator/sweep_unlinked_packages.ipynb` on the VM with `CONFIRM=True`. Expected outcome: 10 rows flipped to `status='orphaned'`; vwap signals resume within one tick; `/packages` shows 0 unlinked open packages.
+- **Code fix (ping-PR):** modify `_has_open_package_for_strategy` in `src/runtime/pipeline.py` to add `AND linked_trade_id IS NOT NULL` to its query — packages with no linked trade represent a never-executed signal, not a live broker position, and should not block new signals. Requires a ping-PR per CLAUDE.md § Live-mode invariant rule 3. File as BUG-049 follow-up after operator confirms the hotfix unblocks the strategy.
+- **Sprint S-021** is queued (PR #400 draft). Kick off after the operator confirms the vwap signal gap is resolved.
+
+### 5. Next checkpoint
+**CP-2026-05-04-05 — Sprint S-021 kickoff** — run Sprint S-021 per `docs/sprints/sprint-021-prompt.md` once operator confirms vwap signals are flowing again. Deliver `tests/test_env_render_contract.py` (3 contract tests, PR 1) and `src/runtime/boot_audit.py` + `tests/test_boot_audit.py` + `src/main.py` insertion (PR 2). Target: ≥ 59 tests passing.
+
+---
+
 ## CP-2026-05-04-03 — Ad-hoc fix session: ghost trade #24 root-cause + Colab push helper [BUG-048 WRAPPED]
 
 - **Session date:** 2026-05-04
