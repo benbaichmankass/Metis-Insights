@@ -50,7 +50,8 @@ def tmp_journal(tmp_path, monkeypatch):
     return db
 
 
-def _insert_pkg(db, *, pkg_id, strategy="vwap", status="open"):
+def _insert_pkg(db, *, pkg_id, strategy="vwap", status="open",
+                linked_trade_id=None):
     db.insert_order_package({
         "order_package_id": pkg_id,
         "strategy_name": strategy,
@@ -61,7 +62,7 @@ def _insert_pkg(db, *, pkg_id, strategy="vwap", status="open"):
         "tp": 80_500.0,
         "confidence": 0.42,
         "status": status,
-        "linked_trade_id": None,
+        "linked_trade_id": linked_trade_id,
         "meta": {},
     })
 
@@ -93,20 +94,20 @@ def test_returns_none_for_missing_strategy_name():
 
 
 def test_returns_open_package_id(tmp_journal):
-    _insert_pkg(tmp_journal, pkg_id="pkg-vwap-open-001", strategy="vwap")
+    """A linked open package (trade at the broker) must block dispatch."""
+    _insert_pkg(tmp_journal, pkg_id="pkg-vwap-open-001", strategy="vwap",
+                linked_trade_id=1)
     result = _has_open_package_for_strategy("vwap")
     assert result == "pkg-vwap-open-001"
 
 
 def test_returns_id_of_first_match_when_multiple_open(tmp_journal):
-    """Pre-this-PR multiple open packages could exist for the same
-    strategy. The helper returns the first match — the gate just
-    needs *any* open package to refuse a new dispatch."""
-    _insert_pkg(tmp_journal, pkg_id="pkg-1", strategy="vwap")
-    _insert_pkg(tmp_journal, pkg_id="pkg-2", strategy="vwap")
+    """Multiple linked open packages — gate returns the first match."""
+    _insert_pkg(tmp_journal, pkg_id="pkg-1", strategy="vwap",
+                linked_trade_id=10)
+    _insert_pkg(tmp_journal, pkg_id="pkg-2", strategy="vwap",
+                linked_trade_id=11)
     result = _has_open_package_for_strategy("vwap")
-    # Order is by datetime(updated_at) DESC — both rows have the same
-    # updated_at, but either id satisfies the contract.
     assert result in {"pkg-1", "pkg-2"}
 
 
@@ -151,3 +152,40 @@ def test_db_read_failure_returns_none_silently(monkeypatch):
 
     monkeypatch.setattr("src.units.db.database.Database", _BoomDb)
     assert _has_open_package_for_strategy("vwap") is None
+
+
+# ---------------------------------------------------------------------------
+# BUG-049: unlinked open packages must NOT block the gate
+# ---------------------------------------------------------------------------
+
+
+def test_unlinked_open_package_does_not_block(tmp_journal):
+    """A package with status='open' but linked_trade_id IS NULL was never
+    executed at the broker. It must NOT block new signals (BUG-049).
+
+    Before the fix, _has_open_package_for_strategy queried all open
+    packages regardless of linked_trade_id, so never-executed packages
+    silenced the strategy indefinitely."""
+    _insert_pkg(tmp_journal, pkg_id="pkg-unlinked", strategy="vwap",
+                linked_trade_id=None)
+    assert _has_open_package_for_strategy("vwap") is None
+
+
+def test_linked_open_package_still_blocks(tmp_journal):
+    """A package with status='open' AND a real linked_trade_id (a trade
+    was placed at the broker) must still block new signals."""
+    _insert_pkg(tmp_journal, pkg_id="pkg-linked", strategy="vwap",
+                linked_trade_id=42)
+    result = _has_open_package_for_strategy("vwap")
+    assert result == "pkg-linked"
+
+
+def test_mix_unlinked_and_linked_blocks_on_linked(tmp_journal):
+    """When both unlinked and linked open packages exist, the gate returns
+    the linked one's id (a real broker position) and blocks."""
+    _insert_pkg(tmp_journal, pkg_id="pkg-unlinked", strategy="vwap",
+                linked_trade_id=None)
+    _insert_pkg(tmp_journal, pkg_id="pkg-linked", strategy="vwap",
+                linked_trade_id=99)
+    result = _has_open_package_for_strategy("vwap")
+    assert result == "pkg-linked"

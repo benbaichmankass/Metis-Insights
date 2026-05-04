@@ -519,7 +519,7 @@ class Database:
             conn.close()
 
     def get_order_packages_by_strategy(self, strategy_name, *, limit=None,
-                                       status=None):
+                                       status=None, linked_only=False):
         """Return rows filtered by ``strategy_name`` (Rule 4 — package
         logs are queried *by strategy*).
 
@@ -528,6 +528,11 @@ class Database:
             limit (int): Optional row cap.
             status (str): Optional status filter ('open' / 'closed' /
                 'rejected').
+            linked_only (bool): When True, only return rows that have a
+                non-null ``linked_trade_id`` (i.e. a trade was actually
+                placed at the broker). Used by the BUG-046 gate so that
+                packages which were logged but never executed do not
+                block new signals.
 
         Returns:
             list[dict]: Newest-first by ``updated_at``.
@@ -540,6 +545,8 @@ class Database:
             if status is not None:
                 query += " AND status = ?"
                 params.append(status)
+            if linked_only:
+                query += " AND linked_trade_id IS NOT NULL"
             query += " ORDER BY datetime(updated_at) DESC"
             if limit:
                 query += f" LIMIT {int(limit)}"
