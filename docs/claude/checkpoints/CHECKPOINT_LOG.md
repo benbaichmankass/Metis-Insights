@@ -5,6 +5,54 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-04-08 — Session wrap: BUG-050 cleanup + live trading health diagnostic COMPLETE
+
+- **Session date:** 2026-05-04
+- **Sprint:** BUG-050 cleanup + operator tooling (branch `claude/fix-trading-bot-push-o3J4w`)
+- **Current sprint phase:** COMPLETE
+- **Last completed checkpoint:** CP-2026-05-04-07
+- **Blockers:** none
+
+### 1. Completed
+
+- **PR #404** — BUG-050 dead-code removal: `close_all_bybit_positions` (bot) + `close_all_bybit_positions_for_strategy` (data_loaders) + 3 test classes. −335 lines, 0 behavior change. Self-merged.
+- **PR #405** — Sprint S-028 summary (`docs/sprint-summaries/sprint-028-summary.md`) + CP-2026-05-04-07. Self-merged.
+- **PR #406** — New `notebooks/operator/diagnose_live_trading.ipynb`: read-only health diagnostic covering service status, open packages (BUG-046 gate state), recent signals, journalctl logs, and reconciler activity. Includes one-click restart cell (RESTART=False gate). Self-merged.
+- **Live trading health investigation**: operator ran the diagnostic notebook. Findings: service healthy, boot_audit firing correctly (0 open packages on boot), reconciler orphaned 1 stale package at 07:12, vwap ticks firing but returning `deviation=-0.30σ` (below 1.0σ threshold) — market is near VWAP, no setup. System confirmed healthy.
+- **VWAP threshold discussion**: operator asked about lowering `ENTRY_STD_THRESHOLD` below 1.0σ. Advised against — the two values (`ENTRY_STD_THRESHOLD` + `SL_STD_MULT`) are locked in lock-step per the existing operator directive (CP-2026-05-03-20), and going below 1.0σ/0.5 to catch today's -0.30σ tick would yield a ~$71 SL on BTC — too tight for 5m noise. Operator accepted; no changes made.
+
+### 2. Files changed
+
+- `src/bot/telegram_query_bot.py` (−28 lines, PR #404)
+- `src/units/ui/data_loaders.py` (−52 lines, PR #404)
+- `tests/test_telegram_query_bot.py` (−175 lines, PR #404)
+- `tests/test_data_loaders.py` (−79 lines, PR #404)
+- `docs/sprint-summaries/sprint-028-summary.md` (new, PR #405)
+- `notebooks/operator/diagnose_live_trading.ipynb` (new, PR #406)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+
+```
+PYTHONPATH=. pytest tests/test_data_loaders.py tests/test_telegram_query_bot.py \
+    tests/test_env_render_contract.py tests/test_boot_audit.py -q
+# → 187 passed, pre-existing failures unchanged, 0 new failures
+python scripts/secret_scan.py  # → clean
+```
+
+### 4. Remaining
+
+- **Recurring Hardening Session 3**: mode-flag plumbing audit — full trace of `mode:` from `accounts.yaml` through `RiskManager.dry_run`; verify no stale `DRY_RUN`/`ALLOW_LIVE_TRADING` env-var override paths remain.
+- **Finding 2** (from Session 2 audit): add structured logging to `_fetch_balance()` silent-zero failure path in `execute.py`.
+
+### 5. Next checkpoint
+
+**CP-2026-05-04-09** — Recurring Hardening Session 3: mode-flag plumbing audit. Read `docs/sprints/recurring-hardening-prompt.md` § Session 3 target + `docs/claude/architecture-audit-2026-05-02.md`. Trace `mode:` field from `config/accounts.yaml` → `RiskManager.__init__` → `RiskManager.dry_run` → `evaluate()`. Verify `DRY_RUN` and `ALLOW_LIVE_TRADING` env vars are fully removed (not read anywhere). File a cleanup sprint if any stale reads found.
+
+- **Telegram sent:** yes (rides on this checkpoint commit via VM wiring)
+
+---
+
 ## CP-2026-05-04-07 — BUG-050 dead close-all code cleanup COMPLETE
 
 - **Session date:** 2026-05-04
