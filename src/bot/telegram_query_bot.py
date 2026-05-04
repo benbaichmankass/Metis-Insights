@@ -15,8 +15,6 @@ from telegram import Update, BotCommand, InlineKeyboardButton, InlineKeyboardMar
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 
 # Sprint S-001 PR-C..F: route data access through the data_loaders facade.
-# Sprint S-002 M2: migrated close_all_bybit_positions to (account: dict) and
-# deleted get_bybit_client_from_env.
 # Sprint S-002 M3: get_strategy_label is account-aware; load_account_env and
 # format_target_options deleted.
 from src.units.ui import data_loaders as dl
@@ -449,32 +447,6 @@ def format_bybit_positions(account: dict) -> str:
         lines.append(f"{sym} {side} | Size: {size} | Entry: ${entry:,.2f} | PnL: ${pnl:+.2f}")
     return f"📊 *{label} Positions*\n" + "\n".join(lines)
 
-
-def close_all_bybit_positions(account: dict) -> str:
-    aid = account.get("account_id", "?")
-    client = dl.bybit_client_for(account)
-    if client is None:
-        return f"⚠️ {aid}: Bybit credentials not found."
-    resp = client.get_positions(category="linear", settleCoin="USDT")
-    positions = [p for p in resp["result"]["list"] if float(p.get("size", 0)) > 0]
-    if not positions:
-        return f"🟢 {aid}: No open positions to close."
-    closed_count = 0
-    errors = []
-    for p in positions:
-        try:
-            side = "Sell" if p["side"] == "Buy" else "Buy"
-            client.place_order(
-                category="linear", symbol=p["symbol"], side=side,
-                orderType="Market", qty=p["size"], reduceOnly=True,
-            )
-            closed_count += 1
-        except Exception as e:
-            errors.append(f"{p['symbol']}: {str(e)}")
-    msg = f"🚨 *{aid} CLOSE ALL*\n\n✅ Closed {closed_count} position(s)\n"
-    if errors:
-        msg += f"❌ Failed: {len(errors)}\nErrors:\n" + "\n".join(errors[:5])
-    return msg
 
 
 async def run_backtest_in_background(application: Application):
