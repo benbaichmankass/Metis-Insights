@@ -373,7 +373,7 @@ def _has_open_package_for_strategy(strategy_name: Optional[str]) -> Optional[str
         )
         db = Database(db_path=db_path)
         rows = db.get_order_packages_by_strategy(
-            strategy_name, status="open", limit=1,
+            strategy_name, status="open", linked_only=True, limit=1,
         )
         if rows:
             return str(rows[0].get("order_package_id") or "")

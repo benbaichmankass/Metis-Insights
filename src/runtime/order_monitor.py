@@ -851,6 +851,61 @@ def _reconcile_open_trades(db) -> Dict[str, int]:
     return summary
 
 
+def _sweep_unlinked_packages(db) -> int:
+    """Mark order_packages with status='open' and no linked_trade_id as
+    'orphaned'.
+
+    These are packages the strategy logged before dispatch, but for
+    which the risk manager rejected the signal or dispatch failed before
+    a trade was ever placed at the broker.  They are invisible to the
+    trades-table reconciler (_reconcile_open_trades) but were blocking
+    the BUG-046 gate indefinitely (BUG-049).
+
+    Only sweeps rows older than 5 minutes to avoid racing with the
+    dispatch pipeline on a package that was just logged and is about to
+    be linked.
+
+    Gated by MONITOR_RECONCILE_ENABLED (same flag as _reconcile_open_trades).
+    Best-effort — never raises.
+
+    Returns:
+        int: number of rows marked orphaned.
+    """
+    if not _reconcile_enabled():
+        return 0
+    try:
+        conn = db.connect()
+        try:
+            now_iso = datetime.now(timezone.utc).isoformat()
+            conn.execute(
+                "UPDATE order_packages "
+                "SET status = 'orphaned', "
+                "    updated_at = ?, "
+                "    meta = json_set(COALESCE(meta, '{}'), "
+                "        '$.orphaned_at', ?, "
+                "        '$.orphaned_by', 'monitor_reconciler', "
+                "        '$.orphaned_reason', "
+                "        'BUG-049 — no linked_trade_id after 5 min; package was never executed') "
+                "WHERE status = 'open' "
+                "  AND linked_trade_id IS NULL "
+                "  AND datetime(created_at) <= datetime('now', '-5 minutes')",
+                (now_iso, now_iso),
+            )
+            affected = conn.execute("SELECT changes()").fetchone()[0]
+            conn.commit()
+        finally:
+            conn.close()
+        if affected:
+            logger.info(
+                "_sweep_unlinked_packages: orphaned %d unlinked open package(s)",
+                affected,
+            )
+        return affected
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("_sweep_unlinked_packages: failed: %s", exc)
+        return 0
+
+
 def _extract_package_id(notes_raw: Optional[str]) -> Optional[str]:
     """Pull ``order_package_id`` out of the trades.notes JSON blob if
     present. Best-effort — returns None on any decode failure."""
@@ -1026,5 +1081,13 @@ def run_monitor_tick(
             summaries["__reconciler__"] = recon
     except Exception as exc:  # noqa: BLE001
         logger.warning("run_monitor_tick: reconciler raised: %s", exc)
+
+    # BUG-049: sweep order_packages that are status='open' but have no
+    # linked_trade_id (never executed). Gated by the same
+    # MONITOR_RECONCILE_ENABLED flag as _reconcile_open_trades.
+    try:
+        _sweep_unlinked_packages(db)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("run_monitor_tick: unlinked-pkg sweep raised: %s", exc)
 
     return summaries
