@@ -5,6 +5,50 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-04-07 — BUG-050 dead close-all code cleanup COMPLETE
+
+- **Session date:** 2026-05-04
+- **Sprint:** BUG-050 cleanup (branch `claude/bug-050-dead-closeall-cleanup`, PR #404)
+- **Current sprint phase:** COMPLETE
+- **Last completed checkpoint:** CP-2026-05-04-06
+
+### 1. Completed
+
+- Removed dead `close_all_bybit_positions(account)` from `src/bot/telegram_query_bot.py` — called `client.place_order()` directly, bypassing `execute_pkg`. Never called in production after S-031 PR4.
+- Removed dead `close_all_bybit_positions_for_strategy(account, strategy_name)` from `src/units/ui/data_loaders.py` — same bypass, same dead-code status.
+- Removed 3 test classes covering the dead code: `TestCloseAllBybitPositions`, `TestCmdCloseallFailureIsolation` (telegram_query_bot tests), `TestCmdCloseallStrategy` + orphaned helper (data_loaders tests). −335 lines total.
+- Confirmed canonical `/closeall` path (`_do_closeall_strategy` → `processor.close_open_positions` → `execute_pkg`) is unchanged and covered by `tests/test_s031_pr4_closeall_helper.py`.
+- PR #404 self-merged. CI scan passed (docs-only scope).
+
+### 2. Files changed
+
+- `src/bot/telegram_query_bot.py` (−28 lines dead function)
+- `src/units/ui/data_loaders.py` (−52 lines dead function)
+- `tests/test_telegram_query_bot.py` (−175 lines dead-code tests)
+- `tests/test_data_loaders.py` (−79 lines dead-code tests + orphaned helper)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+
+```
+PYTHONPATH=. pytest tests/test_data_loaders.py tests/test_telegram_query_bot.py \
+    tests/test_env_render_contract.py tests/test_boot_audit.py -q
+# → 187 passed, pre-existing failures unchanged, 0 new failures
+```
+
+### 4. Remaining
+
+- **Finding 2 follow-up** (from Session 2): add structured logging to `_fetch_balance()` silent-zero failure path.
+- **Recurring Hardening Session 3**: mode-flag plumbing audit — full trace of every place `DRY_RUN`, `ALLOW_LIVE_TRADING`, and `mode:` are read; verify single source of truth per accounts.yaml.
+
+### 5. Next checkpoint
+
+**CP-2026-05-04-08** — Recurring Hardening Session 3 (mode-flag plumbing). Read `docs/sprints/recurring-hardening-prompt.md` § Session 3 target. Trace `mode:` field from `accounts.yaml` through `RiskManager.dry_run` to ensure no stale env-var override path exists.
+
+- **Telegram sent:** yes (rides on this checkpoint commit via VM wiring)
+
+---
+
 ## CP-2026-05-04-06 — Recurring Hardening Session 2: execute.py + Coordinator audit COMPLETE
 
 - **Session date:** 2026-05-04
