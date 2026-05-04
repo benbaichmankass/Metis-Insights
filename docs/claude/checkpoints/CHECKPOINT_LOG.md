@@ -5,6 +5,92 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-04-07 — BUG-050 dead close-all code cleanup COMPLETE
+
+- **Session date:** 2026-05-04
+- **Sprint:** BUG-050 cleanup (branch `claude/bug-050-dead-closeall-cleanup`, PR #404)
+- **Current sprint phase:** COMPLETE
+- **Last completed checkpoint:** CP-2026-05-04-06
+
+### 1. Completed
+
+- Removed dead `close_all_bybit_positions(account)` from `src/bot/telegram_query_bot.py` — called `client.place_order()` directly, bypassing `execute_pkg`. Never called in production after S-031 PR4.
+- Removed dead `close_all_bybit_positions_for_strategy(account, strategy_name)` from `src/units/ui/data_loaders.py` — same bypass, same dead-code status.
+- Removed 3 test classes covering the dead code: `TestCloseAllBybitPositions`, `TestCmdCloseallFailureIsolation` (telegram_query_bot tests), `TestCmdCloseallStrategy` + orphaned helper (data_loaders tests). −335 lines total.
+- Confirmed canonical `/closeall` path (`_do_closeall_strategy` → `processor.close_open_positions` → `execute_pkg`) is unchanged and covered by `tests/test_s031_pr4_closeall_helper.py`.
+- PR #404 self-merged. CI scan passed (docs-only scope).
+
+### 2. Files changed
+
+- `src/bot/telegram_query_bot.py` (−28 lines dead function)
+- `src/units/ui/data_loaders.py` (−52 lines dead function)
+- `tests/test_telegram_query_bot.py` (−175 lines dead-code tests)
+- `tests/test_data_loaders.py` (−79 lines dead-code tests + orphaned helper)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+
+```
+PYTHONPATH=. pytest tests/test_data_loaders.py tests/test_telegram_query_bot.py \
+    tests/test_env_render_contract.py tests/test_boot_audit.py -q
+# → 187 passed, pre-existing failures unchanged, 0 new failures
+```
+
+### 4. Remaining
+
+- **Finding 2 follow-up** (from Session 2): add structured logging to `_fetch_balance()` silent-zero failure path.
+- **Recurring Hardening Session 3**: mode-flag plumbing audit — full trace of every place `DRY_RUN`, `ALLOW_LIVE_TRADING`, and `mode:` are read; verify single source of truth per accounts.yaml.
+
+### 5. Next checkpoint
+
+**CP-2026-05-04-08** — Recurring Hardening Session 3 (mode-flag plumbing). Read `docs/sprints/recurring-hardening-prompt.md` § Session 3 target. Trace `mode:` field from `accounts.yaml` through `RiskManager.dry_run` to ensure no stale env-var override path exists.
+
+- **Telegram sent:** yes (rides on this checkpoint commit via VM wiring)
+
+---
+
+## CP-2026-05-04-06 — Recurring Hardening Session 2: execute.py + Coordinator audit COMPLETE
+
+- **Session date:** 2026-05-04
+- **Sprint:** Recurring hardening session 2 (branch `claude/hardening-session-2-execute-coordinator`)
+- **Current sprint phase:** COMPLETE
+- **Last completed checkpoint:** CP-2026-05-04-05
+
+### 1. Completed
+
+- Deep-read `src/units/accounts/execute.py` and `src/core/coordinator.py` end-to-end.
+- Verified `execute_pkg` is the single canonical live-order entry point. `multi_account_execute` in coordinator routes exclusively through it. ✅
+- Confirmed `close_open_position` and `modify_open_order` in execute.py are the canonical position-management paths. ✅
+- Confirmed the production `/closeall` path goes through `processor.close_open_positions` → `execute_pkg` (S-031 PR4 clean). ✅
+- Found and documented **BUG-050**: dead legacy code `close_all_bybit_positions` (bot) and `close_all_bybit_positions_for_strategy` (data_loaders) bypass `execute_pkg` but are never called in production. Filed cleanup sprint candidate.
+- Documented 3 additional medium/low findings (silent `_fetch_balance` 0.0 return, swallowed `report_api_failure` exception, documented `safe_place_order` fallback).
+- Appended Session 2 entry to `docs/claude/audit-log.md`.
+- Appended BUG-050 to `docs/claude/bug-log.md`.
+
+### 2. Files changed
+
+- `docs/claude/audit-log.md` (Session 2 entry appended)
+- `docs/claude/bug-log.md` (BUG-050 appended)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+
+No code changes this session — docs-only audit. All existing tests remain green (90/90 from S-021 scope verified before session started).
+
+### 4. Remaining
+
+- **BUG-050 cleanup sprint**: remove dead `close_all_bybit_positions` + `close_all_bybit_positions_for_strategy` + their tests. Tier-1; no ping required.
+- **Finding 2 follow-up**: add structured logging to `_fetch_balance()` failure path.
+- **Session 3 target**: Mode flag plumbing — full trace of every place `DRY_RUN`, `ALLOW_LIVE_TRADING`, and `mode:` are read; verify single source of truth.
+
+### 5. Next checkpoint
+
+**CP-2026-05-04-07** — either (a) BUG-050 dead-code cleanup sprint (Tier 1, self-merge) or (b) Recurring Hardening Session 3: mode-flag plumbing audit. Read `docs/sprints/recurring-hardening-prompt.md` § 2A Session 3 target.
+
+- **Telegram sent:** yes (rides on this checkpoint commit via VM wiring)
+
+---
+
 ## CP-2026-05-04-05 — Sprint S-021 COMPLETE: config-drift contract + boot observability
 
 - **Session date:** 2026-05-04
