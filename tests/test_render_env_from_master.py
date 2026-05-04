@@ -270,6 +270,15 @@ class TestLiveProfile:
         assert "BYBIT_TESTNET_API_KEY" not in keys
         assert "BYBIT_TESTNET_API_SECRET" not in keys
 
+    def test_monitor_reconcile_enabled_is_true(self):
+        # BUG-042 PR 3/3 declared MONITOR_RECONCILE_ENABLED=true the
+        # canonical default in .env.example. Without it in the rendered
+        # env the reconciler is a no-op and ghost trades pile up
+        # indefinitely (BUG-041 / BUG-042 surface — observed on
+        # 2026-05-04 with trade #24). Regression guard.
+        pairs = dict(mod.build_live(FAKE_DATA))
+        assert pairs["MONITOR_RECONCILE_ENABLED"] == "true"
+
 
 # (TestVwapBtcusdLiveProfile + TestVwapBtcusdMissingCredentials removed
 # 2026-05-03 — vwap_btcusd_live profile / builder were deleted along
