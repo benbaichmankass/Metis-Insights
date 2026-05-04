@@ -5,6 +5,75 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-04-02 — Recurring hardening session 1: execute/coordinator/comms audit + 3 Tier-1 fixes
+
+- **Session date:** 2026-05-04
+- **Sprint:** Recurring hardening (bi-daily) — `docs/sprints/recurring-hardening-prompt.md` Session 1
+- **Current sprint phase:** COMPLETE — Phase 1 (E2E health check) green; Phase 2 (Session 1
+  predetermined target: verify BUG-034/039/045/032 fixes, deep-dive execute/coordinator/comms);
+  Phase 3 (summary ping + this checkpoint).
+- **Last completed checkpoint:** CP-2026-05-04-01
+- **Next checkpoint:** **CP-2026-05-04-03 — Recurring hardening session 2** — Session 2
+  predetermined target: architecture audit of `src/units/accounts/execute.py` and the Coordinator
+  translator pattern (S-008). Verify `execute_pkg` is the only live entry point and no legacy paths
+  remain. Confirm `account.place_order` + `integrator.py` + `BreakoutAPI` are dead in production
+  and file a Tier-1 cleanup sprint.
+- **Telegram sent:** yes (rides on this checkpoint commit via VM wiring)
+- **Alerts sent during session:** none
+- **Blockers:** none
+
+### 1. Completed
+
+- **Phase 1 E2E health check** — all green (sandbox; live-process checks N/A). `bybit_1`/`bybit_2`
+  `mode: live` ✅; `prop_velotrade_1` `mode: dry_run` intentional ✅; ALLOW_LIVE_TRADING/DRY_RUN
+  removed per BUG-039 ✅; working tree clean ✅.
+
+- **Phase 2 deep-dive** — read `execute.py`, `coordinator.py`, `comms_handler.py` end-to-end.
+  Import isolation: `execute` and `coordinator` clean; `comms_handler` needs `telegram` (VM-only,
+  expected). All 4 Session 1 bugs verified fixed (BUG-034 execute routing, BUG-039 mode flags,
+  BUG-045 dry_run default, BUG-032 AlertManager).
+
+- **BUG-047 fix (test assertion, Tier 1)** — `test_s028:262` asserted `"missing API credentials"`
+  but coordinator message changed to `"not fully configured: api_key_env=..."` in BUG-034/045.
+  Updated assertion to check `"not fully configured"`. 102 tests pass post-fix.
+
+- **`.env.example` doc drift fix (Tier 1)** — removed stale `MODE=LIVE`, `DRY_RUN=false`,
+  `ALLOW_LIVE_TRADING=true` and the "Live-Trading Safety Interlock" comment (now incorrect post
+  BUG-039). Replaced with correct description of the per-account `mode:` toggle. Added
+  `COMMS_PUSH_ENABLED=0` with comment (was undocumented; GitPusher.from_env() reads it).
+
+- **`docs/claude/audit-log.md` created** — first hardening session audit log.
+
+- **BUG-047 appended to bug-log.md** — test assertion drift.
+
+### 2. Files changed
+
+- `tests/test_s028_vwap_execute_routing.py` — assertion fix (BUG-047)
+- `.env.example` — removed DRY_RUN/ALLOW_LIVE_TRADING/MODE; added COMMS_PUSH_ENABLED
+- `docs/claude/audit-log.md` — new file (Session 1 findings)
+- `docs/claude/bug-log.md` — BUG-047 row
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` — this entry
+
+### 3. Tests run
+
+- `PYTHONPATH=/tmp/pyyaml_install:. pytest tests/test_s028_vwap_execute_routing.py tests/test_multi_account_execute_early_out_logs_refusal.py tests/test_multi_account_execute_per_account_mode.py tests/test_coordinator_rejection_journal.py tests/test_execute_journal_rejections.py tests/test_s027_comms_handler.py tests/test_s008_coordinator.py -q` — **102 passed** (1 failed pre-fix, 0 post-fix)
+- `python scripts/secret_scan.py` — clean
+
+### 4. Remaining
+
+- Legacy `account.place_order` / `integrator.py` / `BreakoutAPI` cleanup — Tier 1 sprint candidate,
+  deferred per cleanup-policy (dead code = separate focused PR, not hardening session).
+- Session 2 target (architecture audit of execute.py + Coordinator) not yet started.
+
+### 5. Next checkpoint
+
+**CP-2026-05-04-03** — Recurring hardening Session 2: architecture audit of `execute.py` + Coordinator.
+Read CP-2026-05-04-02 first, then `docs/sprints/recurring-hardening-prompt.md` § 2A (Session 2 target).
+Focus: verify `execute_pkg` is the only live entry point; trace every `dry_run` parameter site;
+confirm `account.place_order` / `integrator.py` / `BreakoutAPI` are production-dead → file cleanup sprint.
+
+---
+
 ## CP-2026-05-04-01 — Overnight Sonnet pickup: 6-item queue completed (PRs #389–#394)
 
 - **Session date:** 2026-05-04 (overnight autonomous Sonnet session)
