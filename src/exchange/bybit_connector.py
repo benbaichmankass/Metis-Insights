@@ -38,7 +38,7 @@ class BybitConnector:
             "apiKey": api_key,
             "secret": api_secret,
             "enableRateLimit": True,
-            "options": {"defaultType": "linear"},
+            "options": {"defaultType": "spot"},
         })
 
         if testnet:
@@ -83,7 +83,7 @@ class BybitConnector:
         """Return only positions with non-zero size.
 
         On Bybit's Unified Trading Account (UTA), linear perpetuals require
-        params={"category": "linear"} so ccxt routes to the v5 /position/list
+        params={"category": "spot"} so ccxt routes to the v5 /position/list
         endpoint for the correct contract type.  Without this explicit param,
         ccxt may fall back to the spot endpoint (even with defaultType=linear
         set at construction time) and return an empty list for open perpetual
@@ -91,7 +91,7 @@ class BybitConnector:
         schema exactly.
         """
         try:
-            positions = self.exchange.fetch_positions(params={"category": "linear"})
+            positions = self.exchange.fetch_positions(params={"category": "spot"})
             return [p for p in positions if float(p.get("contracts", 0) or 0) > 0]
         except Exception as e:
             logger.warning("Bybit: error fetching positions — %s", e)
