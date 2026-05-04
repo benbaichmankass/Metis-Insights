@@ -5,6 +5,47 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-04-03 — Ad-hoc fix session: ghost trade #24 root-cause + Colab push helper [BUG-048 WRAPPED]
+
+- **Session date:** 2026-05-04
+- **Sprint:** ad-hoc operator-driven fix (branch `claude/fix-trading-bot-push-o3J4w`); not part of the recurring-hardening cadence.
+- **Current sprint phase:** COMPLETE — operator-reported ghost trade #24 swept, root cause patched, Colab-push class-of-problem helper landed.
+- **Last completed checkpoint:** CP-2026-05-04-02
+- **Next checkpoint:** **CP-2026-05-04-04 — Recurring hardening session 2** — Session 2 predetermined target per CP-2026-05-04-02: architecture audit of `src/units/accounts/execute.py` and the Coordinator translator pattern (S-008). Verify `execute_pkg` is the only live entry point and no legacy paths remain. Confirm `account.place_order` + `integrator.py` + `BreakoutAPI` are dead in production and file a Tier-1 cleanup sprint.
+- **Telegram sent:** yes (rides on this checkpoint commit via VM wiring)
+- **Alerts sent during session:** none — but the fix surfaced the canonical `🧹 Monitor reconciler — orphaned trade swept` ping for trade #24 on the next tick after PR #398 deployed (operator-confirmed at 07:00 UTC).
+- **Blockers:** none
+
+### 1. Completed
+- Diagnosed the ghost-trade #24 surface (`vwap → bybit_2 @ 2026-05-03 23:06:10 UTC`, BTCUSDT short qty=0.01, `status='open'` in journal but `bybit_2` open=0 on the exchange). Refuted the operator's initial `*.ipynb` gitignored hypothesis (verified `*.ipynb` not in `.gitignore`; other notebooks tracked).
+- Identified the **actual** root cause: doc drift between `.env.example` (canonical, has `MONITOR_RECONCILE_ENABLED=true` post-PR #389) and both `.env` render paths (`scripts/render_env_from_master.py::build_live` + `notebooks/operator/rotate_api_keys.ipynb::PRODUCTION_DEFAULTS`), neither of which was emitting the flag — so the BUG-042 monitor-loop reconciler defaulted to `false` and silently no-op'd in production.
+- PR #397 — `notebooks/operator/push_notebook_to_repo.ipynb`. Robust Colab→repo helper that surfaces every push failure mode (swallowed stderr, wrong CWD, expired PAT, never-written source, byte-identical add). Self-merged after CI green.
+- PR #398 — emit `MONITOR_RECONCILE_ENABLED=true` from both render paths + `test_monitor_reconcile_enabled_is_true` regression guard. Self-merged after CI green.
+- Operator ran the updated rotate_api_keys.ipynb → new `.env` deployed to VM (158.178.210.252) → both services restarted → reconciler ran on next tick → trade #24 flipped to `status='orphaned' / exit_reason='reconciler'` with the canonical Telegram ping. `/last5` clean (`📭 No trades found`), `/packages` shows #24 with the 💥 orphaned marker.
+- BUG-048 logged in `docs/claude/bug-log.md` with the cross-references to BUG-042 (reconciler this fix made operational), BUG-039 / BUG-045 (single-source-of-truth drift family), and PR #389 (the .env.example flip that exposed the drift).
+
+### 2. Files changed
+- `notebooks/operator/push_notebook_to_repo.ipynb` (new, PR #397)
+- `notebooks/operator/rotate_api_keys.ipynb` (PR #398 — added `MONITOR_RECONCILE_ENABLED=true` to `PRODUCTION_DEFAULTS`)
+- `scripts/render_env_from_master.py` (PR #398 — added `("MONITOR_RECONCILE_ENABLED", "true")` to `build_live`)
+- `tests/test_render_env_from_master.py` (PR #398 — `test_monitor_reconcile_enabled_is_true` regression guard)
+- `docs/claude/bug-log.md` (BUG-048 row)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+- `PYTHONPATH=. python -m pytest tests/test_render_env_from_master.py tests/test_monitor_reconciler.py -q` — pass (68/68).
+- E2E verification on the VM: operator-confirmed `🧹 Monitor reconciler — orphaned trade swept` ping fired for trade #24 within one monitor tick of PR #398 deployment.
+
+### 4. Remaining
+- None for this session.
+- Defensive follow-up candidate (not blocking): a contract test that diffs the keys in `.env.example` against the keys emitted by `build_live(FAKE_DATA)` and fails on drift in either direction. Would have caught BUG-048 on green main. Filing as low-priority architectural-debt for a future sprint — same shape as BUG-024 / BUG-026 / BUG-039 / BUG-045 (single-source-of-truth / config-path drift family).
+- Operator never sent `reconcile_bybit2_position.ipynb` through PR #397 — possibly redundant now that the auto-reconciler handles ghosts. Sitting in the operator's Colab session; can land via the push helper any time.
+
+### 5. Next checkpoint
+**CP-2026-05-04-04 — Recurring hardening session 2** — start the architecture audit of `src/units/accounts/execute.py` and the Coordinator translator pattern (S-008) per the predetermined Session 2 target in CP-2026-05-04-02. Verify `execute_pkg` is the only live entry point. Read in order: `docs/sprints/recurring-hardening-prompt.md`, `docs/claude/architecture-audit-2026-05-02.md`, `src/units/accounts/execute.py`, `src/core/coordinator.py`, `src/runtime/pipeline.py`. The optional .env-vs-renderer drift contract test from this session's "Remaining" is a Tier-1 candidate — surface it during the audit if execute/coordinator turns out to be clean.
+
+---
+
 ## CP-2026-05-04-02 — Recurring hardening session 1: execute/coordinator/comms audit + 3 Tier-1 fixes
 
 - **Session date:** 2026-05-04
