@@ -5,8 +5,6 @@ only thing standing between a typo and a 10-BTC order. Tests here pin:
 
 * `--qty > MAX_SAFE_QTY` returns 2 (refuses to start).
 * `--qty <= 0` returns 2.
-* LIVE without `ALLOW_LIVE_TRADING=true` env returns 2 (process-level
-  interlock from the autonomous-trading rule in CLAUDE.md).
 * Disabled account in accounts.yaml → returns 2.
 * Missing API key in env → returns 2.
 * Signal shape: smoke entries always carry
@@ -14,11 +12,12 @@ only thing standing between a typo and a 10-BTC order. Tests here pin:
 * Audit log entries for OPEN attempts always tag `strategy=smoke_test`.
 * Open + close round-trip on a stubbed safe_place_order: 4 audit events
   written (open_attempt, open_result, close_attempt, close_result).
+* Dry-run: _dispatch passes client=None (not a real exchange connection).
 
 Per the CLAUDE.md § "Autonomous live-trading rule": the script does
-NOT take a `--confirm` flag. The safety rails are process-level
-(`ALLOW_LIVE_TRADING` env, `RiskManager`, `safe_place_order`
-validation, the hard qty cap), not human-in-the-loop.
+NOT take a `--confirm` flag. The safety rails are the hard qty cap and
+the per-account ``mode: live | dry_run`` field in config/accounts.yaml.
+The legacy ALLOW_LIVE_TRADING env-var interlock was removed in BUG-051.
 
 The tests stub `safe_place_order` so they never touch a real exchange.
 """
@@ -57,13 +56,38 @@ def test_qty_negative_refuses():
     assert rc == 2
 
 
-def test_live_without_allow_flag_refuses(monkeypatch):
+def test_no_allow_live_env_no_longer_blocks(monkeypatch):
+    """BUG-051: ALLOW_LIVE_TRADING env var was removed as an interlock.
+    Absence of the env var must NOT block the smoke (the per-account
+    mode in accounts.yaml is the real gate). We verify the script
+    proceeds past that point — it will then fail on missing creds."""
     monkeypatch.delenv("ALLOW_LIVE_TRADING", raising=False)
+    # Missing creds → SystemExit(2) from _account_settings, which is fine.
+    # What we're proving: it does NOT return 2 *before* _account_settings.
+    # Patch _account_settings to succeed so the script reaches _dispatch.
+    # Then patch _dispatch to return a controlled result.
     monkeypatch.setattr(smoke, "_account_settings",
                         lambda name: {"BYBIT_API_KEY": "fake",
-                                      "BYBIT_API_SECRET": "fake"})
+                                      "BYBIT_API_SECRET": "fake",
+                                      "EXCHANGE": "bybit",
+                                      "ACCOUNT_ID": name})
+    captured: dict = {}
+
+    def fake_dispatch(sig, settings, dry_run):
+        captured["reached"] = True
+        return {"status": "submitted"}
+
+    monkeypatch.setattr(smoke, "_dispatch", fake_dispatch)
+    monkeypatch.setattr(smoke, "time", __import__("unittest.mock", fromlist=["MagicMock"]).MagicMock())
+    monkeypatch.setattr(smoke, "AUDIT_PATH", __import__("pathlib").Path("/dev/null"))
+
+    # Run without --dry-run; should now reach _dispatch (not exit with 2)
+    # The second dispatch (close) will also call fake_dispatch.
     rc = smoke.main(["--account", "bybit_2", "--qty", "0.0001", "--side", "buy"])
-    assert rc == 2
+    assert captured.get("reached"), (
+        "Script exited before reaching _dispatch — ALLOW_LIVE_TRADING check "
+        "is still blocking (BUG-051 not fully fixed)"
+    )
 
 
 def test_no_confirm_flag_exists():
@@ -148,14 +172,17 @@ def test_build_smoke_signal_smoke_ids_unique():
 # ---------------------------------------------------------------------------
 
 
-def test_dispatch_dry_run_passes_safety_settings(monkeypatch):
+def test_dispatch_dry_run_uses_none_client(monkeypatch):
+    """BUG-051: dry-run passes client=None to safe_place_order.
+    No DRY_RUN or ALLOW_LIVE_TRADING keys are injected into settings
+    (those are stale env-var patterns removed per operator directive 2026-05-03)."""
     captured: dict = {}
 
     def fake_safe_place_order(order, settings, client):
         captured["order"] = order
         captured["settings"] = dict(settings)
         captured["client"] = client
-        return {"status": "skipped", "reason": "DRY_RUN"}
+        return {"status": "skipped", "reason": "no_client"}
 
     fake_orders = MagicMock()
     fake_orders.safe_place_order = fake_safe_place_order
@@ -165,9 +192,10 @@ def test_dispatch_dry_run_passes_safety_settings(monkeypatch):
     settings = {"BYBIT_API_KEY": "k", "BYBIT_API_SECRET": "s"}
     result = smoke._dispatch(sig, settings, dry_run=True)
     assert result["status"] == "skipped"
-    assert captured["settings"]["DRY_RUN"] == "true"
-    assert captured["settings"]["ALLOW_LIVE_TRADING"] == "false"
     assert captured["client"] is None
+    # Stale env-var keys must NOT appear in the settings dict
+    assert "DRY_RUN" not in captured["settings"]
+    assert "ALLOW_LIVE_TRADING" not in captured["settings"]
 
 
 def test_main_round_trip_dry_run_writes_four_audit_events(

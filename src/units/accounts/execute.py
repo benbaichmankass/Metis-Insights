@@ -6,13 +6,16 @@ an OrderPackage through a specific account.  The flow is:
   1. Check pause sentinel (set by ReturnCommands/halt).
   2. Fetch account balance via exchange_client (or use override).
   3. Size the order with the per-account risk manager.
-  4. Submit via exchange_client (or simulate when DRY_RUN=true or client is None).
+  4. Submit via exchange_client, or dry-run when account mode is dry_run
+     or client is None.
   5. Return a trade_id string.
 
 The exchange_client is injected by the Coordinator so tests can pass a
-mock without any live connection.  When client is None and DRY_RUN is
-not explicitly set, the function operates in dry-run mode and logs the
-would-be order without placing it.
+mock without any live connection.  When client is None the function
+operates in dry-run mode and logs the would-be order without placing it.
+The dry/live toggle is the per-account ``mode: live | dry_run`` field in
+``config/accounts.yaml`` — the legacy ``DRY_RUN`` env var is not read
+(removed per operator directive 2026-05-03; see BUG-053).
 """
 from __future__ import annotations
 

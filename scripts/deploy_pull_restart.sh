@@ -181,8 +181,10 @@ fi
 # flag after running so a no-op re-pull does not refire.
 #
 # Per CLAUDE.md "Autonomous live-trading rule": this fires without
-# per-trade operator confirmation. Safety is enforced by the qty cap
-# in scripts/smoke_test_trade.py + ALLOW_LIVE_TRADING in the env.
+# per-trade operator confirmation. Safety is enforced by the hard qty
+# cap in scripts/smoke_test_trade.py (MAX_SAFE_QTY=0.001 BTC) and the
+# per-account mode in config/accounts.yaml (operator directive 2026-05-03;
+# ALLOW_LIVE_TRADING env var removed per BUG-055).
 # ---------------------------------------------------------------------------
 if [ -f "${REPO_DIR}/runtime_flags/run_smoke_once.flag" ]; then
     if [ -f /etc/systemd/system/ict-smoke-once.service ]; then

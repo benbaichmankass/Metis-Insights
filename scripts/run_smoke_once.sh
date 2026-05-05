@@ -3,8 +3,9 @@
 # Run the four-step smoke against the live exchange (S-017 T7).
 #
 # Per CLAUDE.md "Autonomous live-trading rule": no per-trade operator
-# confirmation. The qty cap in scripts/smoke_test_trade.py and the
-# ALLOW_LIVE_TRADING env interlock are the safety rails.
+# confirmation. The hard qty cap in scripts/smoke_test_trade.py and the
+# per-account mode in config/accounts.yaml are the safety rails.
+# (ALLOW_LIVE_TRADING env interlock removed per BUG-055.)
 #
 # Sequence (each step exits before the next; we capture every exit code):
 #   1) bybit_1 — sub-min qty (expect rejection for size)
