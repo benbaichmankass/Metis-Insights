@@ -7,9 +7,12 @@ load_dotenv("/home/ubuntu/ict-trading-bot/.env")
 TOKEN   = os.getenv("TELEGRAM_BOT_TOKEN", "")
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 
-REQUIRED_STRINGS = ["MODE", "SYMBOL", "TIMEFRAME", "EXCHANGE"]
+# BUG-052: MODE / DRY_RUN / ALLOW_LIVE_TRADING removed per operator
+# directive 2026-05-03 — per-account `mode:` in accounts.yaml is the
+# single dry/live toggle. These env vars are no longer required or read.
+REQUIRED_STRINGS = ["SYMBOL", "TIMEFRAME", "EXCHANGE"]
 REQUIRED_FLOATS  = ["RISK_PER_TRADE", "MAX_QTY"]
-SAFETY_FLAGS     = ["DRY_RUN", "ALLOW_LIVE_TRADING", "BYBIT_TESTNET"]
+SAFETY_FLAGS     = ["BYBIT_TESTNET"]
 
 lines  = ["*ICT Trader - VM Startup Check*", ""]
 issues = []

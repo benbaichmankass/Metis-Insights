@@ -124,3 +124,55 @@ BUG-039 ✅. Working tree clean on correct branch ✅.
   - Drop legacy `account.place_order` / `integrator.py` / `BreakoutAPI` (Tier 1 cleanup sprint)
   - Session 2 target: architecture audit of `execute.py` + Coordinator translator pattern (S-008)
 **Operator pings**: 0
+
+---
+
+## 2026-05-05 — Mode flag plumbing (Session 3)
+
+**Score**: Session 3 predetermined target per `docs/sprints/recurring-hardening-prompt.md` § 2A
+**Time**: ~1h 30m
+**Phase 1**: All green (sandbox — no runtime logs; N/A for live-process checks).
+  Accounts.yaml: `bybit_1` + `bybit_2` = `mode: live` ✅; `prop_velotrade_1` = `mode: dry_run`
+  (intentional — SDK not wired, empty strategies list) ✅. Working tree clean on correct branch ✅.
+  No `DRY_RUN` / `ALLOW_LIVE_TRADING` env-var reads in production order path ✅.
+
+**Session 3 target**: Full trace of every place `DRY_RUN`, `ALLOW_LIVE_TRADING`, and `mode:` are
+read; verify single source of truth; verify operator gets pinged if any flag is in unexpected state.
+
+**Mode-flag plumbing trace (all correct ✅)**:
+- `config/accounts.yaml` → `_resolve_mode(cfg, name)` (accounts/__init__.py):
+  1. Checks `_DRY_RUN_OVERRIDES[name]` (runtime flip via Telegram `/accounts` command).
+  2. Reads `cfg["mode"]` field (accepts `live`/`dry`/`dry_run`/`paper`; default=live).
+- → `RiskManager(config, dry_run=dry_run)` → `self.dry_run = bool(dry_run)`.
+- → `account.dry_run = dry_run` (mirrored on TradingAccount for read-only observability).
+- → `Coordinator.multi_account_execute()` calls `load_accounts()` per dispatch (live override
+  takes effect on next call). Reads `account.dry_run` → `effective_dry` → passes to `execute_pkg`.
+- → `execute_pkg(dry_run=exec_dry_run)`: when True, skips exchange call; generates `dry-<uuid>` trade_id.
+- → `RiskManager.evaluate()`: if `self.dry_run`, returns `(False, "account_mode_dry_run")` immediately.
+  The coordinator receives the reason, logs a rejection row to trade_journal, emits a diagnostic ping.
+- **No env-var reads of `DRY_RUN` or `ALLOW_LIVE_TRADING` anywhere in the production order path.** ✅
+- **`set_account_dry_run` Telegram runtime flip**: updates `_DRY_RUN_OVERRIDES` → picked up by next
+  `load_accounts()` call (which happens per-dispatch in `multi_account_execute`). ✅
+
+**Findings**:
+- BUG-051 (medium): `scripts/smoke_test_trade.py` hard-blocked on `ALLOW_LIVE_TRADING` env var at
+  line 259 — live smoke silently broken on VM since BUG-039 removed this var from `.env`. Also
+  injected stale `DRY_RUN=true` / `ALLOW_LIVE_TRADING=false` into settings dict in `_dispatch()`
+  (no-op since `safe_place_order` ignores them). FIXED this session.
+- BUG-052 (low): `scripts/startup_env_check.py` listed `MODE` in `REQUIRED_STRINGS` → exits 1 and
+  sends false "Trader will NOT start" Telegram on every VM boot. Listed `DRY_RUN` + `ALLOW_LIVE_TRADING`
+  in `SAFETY_FLAGS` → always reported `NOT SET`. FIXED this session.
+- BUG-053 (low): `src/units/accounts/execute.py` module docstring (lines 9, 13) referenced stale
+  `DRY_RUN=true` as a trigger. Actual code correct; docstring lagged. FIXED this session.
+- BUG-054 (low): `scripts/print_runtime_profile.py` printed stale `DRY_RUN` and `ALLOW_LIVE_TRADING`
+  fields (always None / empty since BUG-039). FIXED this session.
+- BUG-055 (low): `scripts/deploy_pull_restart.sh` + `scripts/run_smoke_once.sh` comments described
+  `ALLOW_LIVE_TRADING` as a safety rail. FIXED this session.
+
+**Fixes shipped this session**: PR#TBD — BUG-051 through BUG-055 (all Tier 1, self-merge).
+**Issues filed**: BUG-051 through BUG-055 in `docs/claude/bug-log.md`.
+**Follow-up sprint candidates**:
+  - Add a contract test pinning that `smoke_test_trade.py` can run without `ALLOW_LIVE_TRADING`
+    in env (already addressed by the renamed `test_no_allow_live_env_no_longer_blocks` test).
+  - Session 4+: use prioritization formula (§ 2B) to pick next subsystem.
+**Operator pings**: 0

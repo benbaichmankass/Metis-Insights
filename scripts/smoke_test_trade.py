@@ -29,9 +29,12 @@ AUTONOMOUS-TRADING RULE
 Per ``CLAUDE.md`` § "Autonomous live-trading rule": the trader is
 designed to fire trades without per-trade operator confirmation.
 This script honours that — it does NOT require an interactive
-``--confirm`` flag in LIVE mode. The safety rails are entirely
-process-level (``ALLOW_LIVE_TRADING`` interlock + ``RiskManager``
-limits in ``safe_place_order`` + the hard ``qty`` cap below).
+``--confirm`` flag in LIVE mode. The safety rails are the hard ``qty``
+cap (below) and the per-account ``mode: live | dry_run`` field in
+``config/accounts.yaml`` (operator directive 2026-05-03). The legacy
+``ALLOW_LIVE_TRADING`` env-var interlock was removed in BUG-051 because
+it contradicted the per-account single-source-of-truth policy and
+prevented the smoke from running when that stale env var was absent.
 
 SAFETY GUARDS
 -------------
@@ -43,14 +46,10 @@ SAFETY GUARDS
    ``src/runtime/orders.py``. It only constructs a signal dict and
    passes it through the existing ``safe_place_order`` entry point —
    the same entry point a real strategy signal uses.
-3. Refuses if ``ALLOW_LIVE_TRADING`` env-var is unset / false in
-   live mode. This is the standing process-level interlock; the
-   smoke can't accidentally fire if the env file disables live
-   trading.
-4. Tags every audit-log entry with ``strategy="smoke_test"`` and
+3. Tags every audit-log entry with ``strategy="smoke_test"`` and
    ``meta.is_smoke=True`` so future ``/strategies`` aggregations can
    exclude them.
-5. Post-fill, attempts an opposite-side close at the same ``qty``.
+4. Post-fill, attempts an opposite-side close at the same ``qty``.
    If the close fails, prints a loud warning so the operator can
    manually flatten via ``/closeall``.
 
@@ -202,11 +201,9 @@ def _dispatch(
     from src.runtime.orders import safe_place_order
 
     if dry_run:
-        # Forced dry-run: clone settings with the kill-switch tripped so
-        # the production interlock blocks real submission. We do NOT
-        # bypass ``safe_place_order`` — the whole point is to exercise
-        # that exact code path.
-        settings = {**settings, "DRY_RUN": "true", "ALLOW_LIVE_TRADING": "false"}
+        # Forced dry-run: pass client=None so safe_place_order can't reach
+        # the exchange. We do NOT bypass safe_place_order — the whole point
+        # is to exercise that exact validation path.
         client = None
     else:
         from src.exchange.bybit_connector import BybitConnector
@@ -254,16 +251,6 @@ def main(argv: Optional[list] = None) -> int:
     if args.qty <= 0:
         logger.error("qty must be > 0; got %s", args.qty)
         return 2
-
-    if not args.dry_run:
-        allow = str(os.environ.get("ALLOW_LIVE_TRADING", "")).strip().lower()
-        if allow not in {"true", "1", "yes", "on"}:
-            logger.error(
-                "ALLOW_LIVE_TRADING is not set in the process env. "
-                "Source the per-account .env file (which sets it) before "
-                "running the LIVE smoke."
-            )
-            return 2
 
     settings = _account_settings(args.account)
     open_signal = _build_smoke_signal(args.side, args.qty, args.account, note=args.note)

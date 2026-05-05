@@ -15,12 +15,11 @@ def main():
     # Run startup validation; will raise RuntimeError if invalid
     validate_startup(settings)
 
-    # Print a simple human-readable summary
+    # Print a simple human-readable summary.
+    # BUG-054: MODE / DRY_RUN / ALLOW_LIVE_TRADING removed — the single
+    # dry/live toggle is per-account `mode:` in config/accounts.yaml.
     items = [
         f"EXCHANGE={os.environ.get('EXCHANGE', 'bybit')}",
-        f"MODE={settings.get('MODE')}",
-        f"DRY_RUN={settings.get('DRY_RUN')}",
-        f"ALLOW_LIVE_TRADING={os.environ.get('ALLOW_LIVE_TRADING', '')}",
         f"SYMBOL={settings.get('SYMBOL')}",
     ]
     print(" | ".join(items))
