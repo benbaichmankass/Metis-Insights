@@ -5,6 +5,93 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-04-09 — Recurring Hardening Session 3: mode-flag plumbing audit COMPLETE
+
+- **Session date:** 2026-05-05
+- **Sprint:** Recurring hardening session 3 (branch `claude/sharp-volta-gG894`)
+- **Current sprint phase:** COMPLETE
+- **Last completed checkpoint:** CP-2026-05-04-08
+- **Blockers:** none
+
+### 1. Completed
+
+- **Phase 1 (E2E health check):** All green. `bybit_1` + `bybit_2` = `mode: live` ✅;
+  `prop_velotrade_1` = `mode: dry_run` (intentional, empty strategies) ✅. No
+  `DRY_RUN`/`ALLOW_LIVE_TRADING` env-var reads in production order path ✅.
+
+- **Phase 2 (Mode-flag plumbing audit):** Full end-to-end trace of the dry/live toggle:
+  `config/accounts.yaml` → `_resolve_mode()` → `RiskManager.dry_run` → `evaluate()` →
+  `multi_account_execute(effective_dry)` → `execute_pkg(dry_run=)`. Single source of truth
+  is intact; runtime flip via `set_account_dry_run` + `_DRY_RUN_OVERRIDES` dict is correct.
+
+- **BUG-051 (medium) FIXED** — `scripts/smoke_test_trade.py`: removed stale
+  `ALLOW_LIVE_TRADING` env-var guard that silently broke the live smoke (var absent since
+  BUG-039). Removed no-op `DRY_RUN=true/ALLOW_LIVE_TRADING=false` settings injection in
+  `_dispatch()`. Updated docstring + 2 tests.
+- **BUG-052 (low) FIXED** — `scripts/startup_env_check.py`: removed `MODE` from
+  `REQUIRED_STRINGS` (caused false "Trader will NOT start" Telegram on every VM boot) and
+  removed `DRY_RUN`/`ALLOW_LIVE_TRADING` from `SAFETY_FLAGS`.
+- **BUG-053 (low) FIXED** — `src/units/accounts/execute.py` module docstring: updated
+  stale `DRY_RUN=true` references to correctly describe `client=None` + per-account `mode:`
+  as the gate.
+- **BUG-054 (low) FIXED** — `scripts/print_runtime_profile.py`: removed stale
+  `DRY_RUN`/`ALLOW_LIVE_TRADING` diagnostic output lines (always empty since BUG-039).
+- **BUG-055 (low) FIXED** — `scripts/deploy_pull_restart.sh` + `scripts/run_smoke_once.sh`:
+  updated comments that described `ALLOW_LIVE_TRADING` as a safety rail.
+
+- Appended BUG-051–BUG-055 to `docs/claude/bug-log.md`.
+- Appended Session 3 entry to `docs/claude/audit-log.md`.
+
+### 2. Files changed
+
+- `scripts/smoke_test_trade.py` (BUG-051: removed ALLOW_LIVE_TRADING guard + settings injection)
+- `tests/test_smoke_test_trade.py` (updated 2 tests for BUG-051)
+- `scripts/startup_env_check.py` (BUG-052: removed MODE, DRY_RUN, ALLOW_LIVE_TRADING)
+- `src/units/accounts/execute.py` (BUG-053: docstring update)
+- `scripts/print_runtime_profile.py` (BUG-054: removed stale output lines)
+- `scripts/deploy_pull_restart.sh` (BUG-055: updated comment)
+- `scripts/run_smoke_once.sh` (BUG-055: updated comment)
+- `docs/claude/bug-log.md` (BUG-051–055 appended)
+- `docs/claude/audit-log.md` (Session 3 entry appended)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+
+```
+python -m py_compile scripts/smoke_test_trade.py scripts/startup_env_check.py \
+    scripts/print_runtime_profile.py src/units/accounts/execute.py
+# → compile OK
+
+PYTHONPATH=. pytest tests/test_smoke_test_trade.py -q
+# → 14 passed
+
+python scripts/secret_scan.py
+# → clean
+```
+Pre-existing failures unchanged (43 collection errors from missing `telegram`/`yaml` deps
+in sandbox — verified by stash/restore comparison).
+
+### 4. Remaining
+
+- **Finding 2 from Session 2** (deferred): add structured logging to `_fetch_balance()`
+  silent-zero failure path in `execute.py`.
+- **Session 4+**: use prioritization formula (§ 2B of the hardening prompt) to pick next
+  subsystem. Highest-score candidates will be: Risk engine (criticality=4, open_bugs TBD)
+  and Pipeline (criticality=5).
+
+### 5. Next checkpoint
+
+**CP-2026-05-04-10** — Next recurring hardening session (session 4). Read
+`docs/sprints/recurring-hardening-prompt.md` § 2B (prioritization formula); read
+`docs/claude/audit-log.md` for `days_since_last_audit`; run
+`git log --since="14 days ago" --name-only --pretty=format:` to build the commit count;
+read `docs/claude/bug-log.md` for open bug counts per subsystem. Pick the highest-scoring
+candidate and proceed with Phase 2.
+
+- **Telegram sent:** yes (rides on this checkpoint commit via VM wiring)
+
+---
+
 ## CP-2026-05-04-08 — Session wrap: BUG-050 cleanup + live trading health diagnostic COMPLETE
 
 - **Session date:** 2026-05-04
