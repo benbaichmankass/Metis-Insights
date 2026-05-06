@@ -276,7 +276,8 @@ def test_main_dry_run_skips_enqueue(monkeypatch, tmp_path):
 
     sys.path.insert(0, str(REPO_ROOT / "scripts"))
     import send_ping
-    monkeypatch.setattr(send_ping, "PENDING_PINGS_DIR", inbox)
+    monkeypatch.setattr(send_ping, "PENDING_CLAUDE_PINGS_DIR", inbox)
+    monkeypatch.setattr(send_ping, "PENDING_PINGS_DIR", tmp_path / "trader_unused")
 
     rc = nop.main(["--pre", "abc", "--post", "def", "--dry-run"])
     assert rc == 0
@@ -296,7 +297,8 @@ def test_main_enqueues_pings_via_send_ping(monkeypatch, tmp_path):
 
     sys.path.insert(0, str(REPO_ROOT / "scripts"))
     import send_ping
-    monkeypatch.setattr(send_ping, "PENDING_PINGS_DIR", inbox)
+    monkeypatch.setattr(send_ping, "PENDING_CLAUDE_PINGS_DIR", inbox)
+    monkeypatch.setattr(send_ping, "PENDING_PINGS_DIR", tmp_path / "trader_unused")
 
     rc = nop.main(["--pre", "abc", "--post", "def"])
     assert rc == 0
@@ -333,7 +335,8 @@ def test_main_does_not_re_enqueue_already_delivered_pending_line(
 
     sys.path.insert(0, str(REPO_ROOT / "scripts"))
     import send_ping
-    monkeypatch.setattr(send_ping, "PENDING_PINGS_DIR", inbox)
+    monkeypatch.setattr(send_ping, "PENDING_CLAUDE_PINGS_DIR", inbox)
+    monkeypatch.setattr(send_ping, "PENDING_PINGS_DIR", tmp_path / "trader_unused")
 
     # First pull — line is fresh, enqueue exactly once.
     rc = nop.main(["--pre", "abc", "--post", "def"])
@@ -392,7 +395,8 @@ def test_main_force_checkpoint_runs_when_pre_equals_post(monkeypatch, tmp_path):
 
     sys.path.insert(0, str(REPO_ROOT / "scripts"))
     import send_ping
-    monkeypatch.setattr(send_ping, "PENDING_PINGS_DIR", inbox)
+    monkeypatch.setattr(send_ping, "PENDING_CLAUDE_PINGS_DIR", inbox)
+    monkeypatch.setattr(send_ping, "PENDING_PINGS_DIR", tmp_path / "trader_unused")
 
     rc = nop.main(["--pre", "abc", "--post", "abc", "--force-checkpoint"])
     assert rc == 0
@@ -410,7 +414,8 @@ def test_enqueue_writes_atomically_into_inbox(tmp_path, monkeypatch):
     import send_ping
 
     inbox = tmp_path / "pending_pings"
-    monkeypatch.setattr(send_ping, "PENDING_PINGS_DIR", inbox)
+    monkeypatch.setattr(send_ping, "PENDING_CLAUDE_PINGS_DIR", inbox)
+    monkeypatch.setattr(send_ping, "PENDING_PINGS_DIR", tmp_path / "trader_unused")
 
     # No tmp left over, dir created on demand, atomic rename to .json.
     path = send_ping.enqueue("hello operator", priority="normal")
