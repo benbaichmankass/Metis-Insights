@@ -45,15 +45,30 @@ When opening a session:
 | **Title** | Web Client V2 (Component Tabs) |
 | **Type** | roadmap (Phase 4 — Secure Web Dashboard) |
 | **Goal** | Extend the S-014 home dashboard with operator-iterable tabs: Strategies, Accounts, Model Metrics, Runtime Logs & Bugs. Backend extends with the per-tab data endpoints; web client adds tab navigation + per-tab fragments. Live trader uptime preserved end-to-end. |
-| **Status** | 📋 queued (no session has started) |
-| **Active sprint** | _none yet — kickoff in next session._ Read `docs/sprints/sprint-015-prompt.md` first; first checkpoint plans the backend endpoints + tab routing. |
-| **Active checkpoint** | _none yet._ |
+| **Status** | 🔄 Active (kickoff PR in flight) |
+| **Active sprint** | **S-015 T0 (kickoff)** — `docs/sprints/sprint-015-prompt.md` rewritten 2026-05-06 to match the M-S-015 scope and the eight-section template in `docs/claude/sprint-planning.md`. Next code work is T1 (M0 PR #1 — Tab nav scaffold). |
+| **Active checkpoint** | `CP-2026-05-06-S-015-01` — S-015 kickoff. |
 | **Risk tier** | Tier 2 mostly (web client + new API surfaces, JWT-protected backend); Tier 1 for docs/static. No live-trading code path touched. |
 | **Definition of done** | Each of the four tabs (Strategies, Accounts, Model Metrics, Runtime Logs & Bugs) renders with live data from the backend; navigation between tabs preserves auth state; loopback-only hosting; live trader uptime preserved. See `docs/sprints/sprint-015-prompt.md`. |
 
 ### Sprint backlog inside this milestone
 
-_TBD — sprint planning happens in the next session per `docs/claude/sprint-planning.md` template before any code lands._
+Per `docs/sprints/sprint-015-prompt.md` § 4 (one row per checkpoint):
+
+| #   | Checkpoint                              | Risk class | Wall-clock |
+|-----|-----------------------------------------|------------|------------|
+| T0  | Kickoff (this session)                  | docs-only  | ≤ 30 min   |
+| T1  | M0 PR #1 — Tab nav scaffold             | infra      | ≤ 60 min   |
+| T2  | M1 PR #1 — Strategies tab               | infra      | ≤ 90 min   |
+| T3  | M2 PR #1 — Accounts tab                 | infra      | ≤ 90 min   |
+| T4  | M3 PR #1 — Model Metrics tab            | infra      | ≤ 90 min   |
+| T5  | M4 PR #1 — Runtime Logs & Bugs tab      | infra      | ≤ 90 min   |
+| T5b | Mid-sprint checkpoint (after T3)        | docs-only  | ≤ 15 min   |
+| T6  | M5 PR #1 — Sprint close                 | docs-only  | ≤ 60 min   |
+
+All PRs self-merge after CI green (no PM-review gate this sprint —
+the security-critical client behaviour from S-014 M2 already lives on
+`main`, and S-015 only adds new endpoints behind the same auth gate).
 
 ---
 

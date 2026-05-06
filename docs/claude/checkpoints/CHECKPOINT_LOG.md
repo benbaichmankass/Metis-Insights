@@ -5,6 +5,137 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-06-S-015-01 — S-015 kickoff (Web Client V2 — Component Tabs prompt rewrite)
+
+- **Session date:** 2026-05-06
+- **Sprint:** S-015 — Web Client V2 (Component Tabs). **KICKOFF**
+  (no code milestone touched yet — this checkpoint stands up the
+  proper sprint prompt + activates the milestone).
+- **Active milestone:** **M-S-015** — moved from 📋 queued to 🔄
+  Active in `docs/claude/milestone-state.md`.
+- **Current sprint phase:** T0 — kickoff. Next session opens T1
+  (M0 PR #1 — Tab nav scaffold).
+- **Last completed checkpoint:** `CP-2026-05-06-bugfix-01` (BUG-057
+  Bybit `170134` precision fix; one-off, merged outside any sprint).
+  Sprint-level predecessor: `CP-2026-05-06-S-014-COMPLETE`.
+- **Next checkpoint:** **CP-YYYY-MM-DD-NN — S-015 T1 (M0 PR #1: Tab
+  nav scaffold)** — branch `claude/s015-m0-pr1-tab-nav` off
+  `origin/main`, add the four-tab nav bar to `web/templates/base.html`,
+  add four placeholder page templates (`strategies.html`, `accounts.html`,
+  `model_metrics.html`, `runtime.html`) and four matching auth-gated
+  routes inside `src/web/api/routers/ui.py`, ship tests, self-merge.
+  Read in order: this entry, `docs/sprints/sprint-015-prompt.md`,
+  `docs/claude/sprint-planning.md`, `docs/sprint-summaries/sprint-014-summary.md`
+  § "Architecture decisions".
+- **Telegram sent:** the merge of this kickoff PR on `main` triggers
+  the VM-side ping (`docs-only` shape, normal priority); the
+  `S-015 KICKOFF` title prefix is informational, not a high-priority
+  marker (those are reserved for `S-NNN SPRINT COMPLETE` /
+  `MILESTONE COMPLETE` per `decomposition-rules.md` § 2.4).
+- **Alerts sent during session:** none.
+- **Blockers:** none.
+
+### 1. Completed
+
+- **Audited the on-disk S-015 state vs the milestone**: the existing
+  `docs/sprints/sprint-015-prompt.md` was a 2026-04-30 strategy /
+  model-improvement spec written **before** S-014 was reframed as the
+  web sprint. It does not match `milestone-state.md`'s M-S-015
+  (Web Client V2 — Component Tabs). Per the S-014 closing checkpoint's
+  next-action ("confirm S-015's eight mandatory prompt sections exist;
+  if not, draft them in a kickoff PR before opening any code PR"),
+  this session rewrote the prompt.
+- **Drafted the new `sprint-015-prompt.md`** covering all eight
+  mandatory sections from `docs/claude/sprint-planning.md`:
+  Goal, Dependencies, Deliverables (9 numbered artefacts),
+  Checkpoints (T0..T6 + T5b mid-sprint), Unit boundary declaration
+  (per `CLAUDE.md` § "Architecture rules"), Risk class & merge model
+  (every PR self-merge — no PM-review gate; auth changes that S-014
+  M2 needed PM review for are already on `main`), Success criteria
+  (measurable — pytest count, secret-scan, route 200s, smoke-test
+  appendix, ROADMAP flip), Hard guardrails (live-mode invariant,
+  no live-trading code, no node toolchain, no public exposure,
+  read-only — defer write actions to S-016), Hand-off (S-014.5
+  unblocks the moment operator runs the new smoke-test appendix;
+  S-016 inherits tab routing pattern; recurring strategy-improvement
+  cadence absorbs the old strategy/model-improvement content).
+- **Confirmed UI unit already exposes every helper each tab needs**
+  (`strategy_dashboard_data`, `list_accounts`, `account_balance`,
+  `account_open_positions`, `account_last_trade`, `recent_trades_for`,
+  `latest_backtests_per_model`, `backtest_history_for`,
+  `recent_rejections`, `open_order_packages`, `recent_logs_for` —
+  see `src/units/ui/data_loaders.py` + `src/units/ui/processor.py`).
+  S-015 is therefore mostly a wiring + templating sprint, not a
+  backend-data sprint — reflected in the wall-clock estimate
+  (≤ 7 hr across 6 PRs).
+- **Updated `docs/claude/milestone-state.md`** Active milestone
+  block: status flipped 📋 queued → 🔄 Active; Active sprint
+  pointer set to S-015 T0 (this checkpoint); Active checkpoint set
+  to `CP-2026-05-06-S-015-01`. Queued window unchanged
+  (S-014.5 → S-016).
+
+### 2. Files changed
+
+- `docs/sprints/sprint-015-prompt.md` (rewritten — old strategy/model
+  improvement spec replaced with Web Client V2 — Component Tabs prompt
+  per `sprint-planning.md` template).
+- `docs/claude/milestone-state.md` (Active milestone block — status
+  + Active sprint + Active checkpoint pointers).
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry).
+
+### 3. Tests run
+
+- `python scripts/secret_scan.py` — clean (docs-only changes).
+- `python scripts/repo_inventory.py` — clean.
+- `python scripts/check_dry_run_in_diff.py` — clean (no runtime code
+  touched).
+- No new pytest tests added in this kickoff — code milestones (T1..T5)
+  are where the tests land.
+
+### 4. Remaining
+
+- Open and self-merge this kickoff PR (the docs-only / infra-class
+  rule from `sprint-planning.md` § 5 makes this auto-mergeable after
+  CI green).
+- T1 (M0 PR #1 — Tab nav scaffold) is the next session's first
+  concrete code PR.
+
+### 5. Next checkpoint
+
+**CP-YYYY-MM-DD-NN — S-015 T1 (M0 PR #1: Tab nav scaffold)** — open
+the four-tab nav scaffold per `docs/sprints/sprint-015-prompt.md` § T1.
+Read in order:
+
+1. This entry.
+2. `docs/sprints/sprint-015-prompt.md` (the rewritten prompt).
+3. `docs/claude/milestone-state.md` § "Active milestone" (now M-S-015,
+   Active sprint = S-015 T1).
+4. `docs/sprint-summaries/sprint-014-summary.md` § "Architecture
+   decisions" + § "Files in the new web tree" — T1 builds on the same
+   HTMX + Jinja2 + Chart.js stack and reuses the `auth.js` Authorization
+   header injection.
+5. `web/templates/base.html` + `web/templates/home.html` — the
+   patterns the new tab pages mirror.
+
+Concrete first action: branch `claude/s015-m0-pr1-tab-nav` off
+`origin/main`, add the four-tab nav bar to `web/templates/base.html`,
+add four placeholder page templates + four auth-gated `/strategies`,
+`/accounts`, `/model-metrics`, `/runtime` routes inside
+`src/web/api/routers/ui.py`, write tests asserting each route returns
+200 + the expected nav HTML for an authed request and either a
+redirect-to-`/login` or a 401 for an unauthed request, then self-merge.
+
+### Live-mode check
+
+✅ No live-trading code touched. `src/runtime/orders.py`,
+`src/runtime/pipeline.py`, `src/runtime/trading_mode.py`,
+`src/units/accounts/*`, `config/accounts.yaml`, and any `.env*` template
+all untouched. `scripts/check_dry_run_in_diff.py` clean. Per-account
+`mode: live` contract from BUG-056 stands. This is a docs-only kickoff
+PR; the live-mode invariant is trivially satisfied.
+
+---
+
 ## CP-2026-05-06-bugfix-01 — BUG-057 Bybit `170134` price-precision fix (one-off, merged)
 
 - **Session date:** 2026-05-06
