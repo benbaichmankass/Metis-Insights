@@ -169,6 +169,10 @@ def test_drain_pending_pings_parses_each_line(tmp_path):
     assert len(out) == 2
     assert out[0][0] == "normal" and "CP-2026-04-30-13" in out[0][1]
     assert out[1][0] == "urgent" and "need approval for X" in out[1][1]
+    # New 3-tuple shape: every survivor carries a content hash so the
+    # caller can record it after a successful enqueue.
+    assert all(len(t[2]) == 64 for t in out)
+    assert out[0][2] != out[1][2]
 
 
 def test_drain_pending_pings_skips_malformed(tmp_path):
@@ -180,6 +184,58 @@ def test_drain_pending_pings_skips_malformed(tmp_path):
 
 def test_drain_pending_pings_empty_for_missing(tmp_path):
     assert nop._drain_pending_pings(tmp_path / "missing.jsonl") == []
+
+
+def test_drain_skips_already_delivered_lines(tmp_path):
+    """Hash-based dedupe: a line whose sha256 is already in the
+    delivered set must be skipped on the next drain. This is the fix
+    for the "old pings re-fire on every merge" bug — pre-fix, the file
+    was tracked in git and every pull re-emitted every line."""
+    p = tmp_path / "pending-pings.jsonl"
+    line1 = json.dumps({"event": "x", "priority": "high", "summary": "one"})
+    line2 = json.dumps({"event": "y", "priority": "normal", "summary": "two"})
+    p.write_text(line1 + "\n" + line2 + "\n", encoding="utf-8")
+
+    # First drain — delivered set empty → both lines come through.
+    first = nop._drain_pending_pings(p, delivered=set())
+    assert len(first) == 2
+    h1, h2 = first[0][2], first[1][2]
+
+    # Mark line1 as delivered. Second drain should yield only line2.
+    second = nop._drain_pending_pings(p, delivered={h1})
+    assert len(second) == 1
+    assert second[0][2] == h2
+
+    # Both delivered — nothing comes through.
+    assert nop._drain_pending_pings(p, delivered={h1, h2}) == []
+
+
+def test_record_and_load_delivered_hashes_round_trip(tmp_path):
+    """``_record_delivered_hash`` appends; ``_load_delivered_hashes``
+    reads back the set. Append is the only write op — the dedupe log
+    grows but never rewrites itself, so multiple processes (extremely
+    unlikely on the VM, but cheap to keep safe) can't race-clobber."""
+    state = tmp_path / "delivered.txt"
+    assert nop._load_delivered_hashes(state) == set()
+
+    nop._record_delivered_hash(state, "a" * 64)
+    nop._record_delivered_hash(state, "b" * 64)
+    assert nop._load_delivered_hashes(state) == {"a" * 64, "b" * 64}
+
+    # Re-record an existing hash — `set()` semantics keep it idempotent
+    # at the read side; the file simply has a duplicate line.
+    nop._record_delivered_hash(state, "a" * 64)
+    assert nop._load_delivered_hashes(state) == {"a" * 64, "b" * 64}
+
+
+def test_line_hash_stable_across_calls():
+    raw = '{"event":"x","priority":"high"}'
+    h1 = nop._line_hash(raw)
+    h2 = nop._line_hash(raw)
+    assert h1 == h2
+    assert len(h1) == 64
+    # Different content → different hash.
+    assert nop._line_hash(raw + " ") != h1
 
 
 # ---------------------------------------------------------------------------
@@ -201,7 +257,7 @@ def test_collect_pings_orders_blocker_first(monkeypatch, tmp_path):
                         lambda pre, post: ["CP-2026-04-30-13"])
     pings = nop.collect_pings("pre", "post")
     assert pings[0][0] == "urgent"  # blocker first
-    assert any(p == "normal" for p, _ in pings)  # cp ping present
+    assert any(p == "normal" for p, _, _ in pings)  # cp ping present
 
 
 def test_main_no_advance_returns_zero(stub_post):
@@ -251,6 +307,53 @@ def test_main_enqueues_pings_via_send_ping(monkeypatch, tmp_path):
     assert "BLOCKED" in payload["body"]
 
 
+def test_main_does_not_re_enqueue_already_delivered_pending_line(
+    monkeypatch, tmp_path,
+):
+    """End-to-end regression for the "old pings re-fire on every merge"
+    bug. Same pending-pings.jsonl line, two consecutive pulls — the
+    second pull must enqueue zero pings because the first pull's hash
+    is already in the delivered log."""
+    inbox = tmp_path / "pending_pings"
+    queue = tmp_path / "queue.jsonl"
+    queue.write_text(
+        json.dumps({
+            "event": "blocker_pm", "priority": "high", "sprint": "S-014",
+            "question": "approve M2 PR",
+        }) + "\n",
+        encoding="utf-8",
+    )
+    delivered = tmp_path / "delivered.txt"
+
+    monkeypatch.setattr(nop, "CHECKPOINT_LOG", tmp_path / "log.md")
+    monkeypatch.setattr(nop, "PENDING_PINGS", queue)
+    monkeypatch.setattr(nop, "DELIVERED_HASHES", delivered)
+    monkeypatch.setattr(nop, "_blocker_pings", lambda pre, post: [])
+    monkeypatch.setattr(nop, "_diff_touched_checkpoint_log", lambda pre, post: False)
+
+    sys.path.insert(0, str(REPO_ROOT / "scripts"))
+    import send_ping
+    monkeypatch.setattr(send_ping, "PENDING_PINGS_DIR", inbox)
+
+    # First pull — line is fresh, enqueue exactly once.
+    rc = nop.main(["--pre", "abc", "--post", "def"])
+    assert rc == 0
+    first_queued = sorted(inbox.glob("*.json"))
+    assert len(first_queued) == 1, "first pull must enqueue the new line"
+    assert delivered.read_text(encoding="utf-8").strip()  # hash recorded
+
+    # Second pull — same line still in the file (it's git-tracked, the
+    # next session's PR didn't truncate it). The hash is now in the
+    # delivered log so no new ping fires.
+    rc = nop.main(["--pre", "def", "--post", "ghi"])
+    assert rc == 0
+    all_queued = sorted(inbox.glob("*.json"))
+    assert len(all_queued) == 1, (
+        "second pull must NOT re-enqueue the already-delivered line; "
+        "got %d queued files" % len(all_queued)
+    )
+
+
 def test_force_checkpoint_emits_cp_ping_without_log_diff(monkeypatch, tmp_path):
     """S-020 T3: --force-checkpoint emits a checkpoint ping even when the
     diff didn't touch CHECKPOINT_LOG.md. Used by the auto_ping_test.flag
@@ -269,7 +372,7 @@ def test_force_checkpoint_emits_cp_ping_without_log_diff(monkeypatch, tmp_path):
     monkeypatch.setattr(nop, "_diff_touched_checkpoint_log", lambda pre, post: False)
 
     pings = nop.collect_pings("pre", "post", force_checkpoint=True)
-    assert any("CP-2026-04-30-99" in body for _, body in pings)
+    assert any("CP-2026-04-30-99" in body for _, body, _ in pings)
 
 
 def test_main_force_checkpoint_runs_when_pre_equals_post(monkeypatch, tmp_path):
@@ -398,7 +501,7 @@ def test_collect_pings_includes_training_pings(monkeypatch, tmp_path):
         lambda pre, post: [("sha", "TRAINING-PLAN: smoke run")],
     )
     pings = nop.collect_pings("pre", "post")
-    assert any("TRAINING-PLAN" in body for _, body in pings)
+    assert any("TRAINING-PLAN" in body for _, body, _ in pings)
 
 
 # ---------------------------------------------------------------------------
@@ -432,7 +535,7 @@ def test_collect_pings_skips_cp_when_topmost_not_in_added_set(
     monkeypatch.setattr(nop, "_diff_added_cp_ids", lambda pre, post: [])
 
     pings = nop.collect_pings("pre", "post")
-    assert all("CP-2026-05-03-20" not in body for _, body in pings)
+    assert all("CP-2026-05-03-20" not in body for _, body, _ in pings)
 
 
 def test_collect_pings_skips_cp_when_old_id_added_but_not_topmost(
@@ -461,8 +564,8 @@ def test_collect_pings_skips_cp_when_old_id_added_but_not_topmost(
                         lambda pre, post: ["CP-2026-04-30-12"])
 
     pings = nop.collect_pings("pre", "post")
-    assert all("CP-2026-04-30-12" not in body for _, body in pings)
-    assert all("CP-2026-05-03-21" not in body for _, body in pings)
+    assert all("CP-2026-04-30-12" not in body for _, body, _ in pings)
+    assert all("CP-2026-05-03-21" not in body for _, body, _ in pings)
 
 
 def test_collect_pings_fires_cp_when_new_topmost_id_added(
@@ -486,7 +589,7 @@ def test_collect_pings_fires_cp_when_new_topmost_id_added(
                         lambda pre, post: ["CP-2026-05-03-22"])
 
     pings = nop.collect_pings("pre", "post")
-    assert any("CP-2026-05-03-22" in body for _, body in pings)
+    assert any("CP-2026-05-03-22" in body for _, body, _ in pings)
 
 
 def test_diff_added_cp_ids_returns_only_added_headers(monkeypatch):
@@ -534,4 +637,4 @@ def test_force_checkpoint_bypasses_added_id_gate(monkeypatch, tmp_path):
     monkeypatch.setattr(nop, "_diff_added_cp_ids", lambda pre, post: [])
 
     pings = nop.collect_pings("pre", "post", force_checkpoint=True)
-    assert any("CP-2026-05-03-99" in body for _, body in pings)
+    assert any("CP-2026-05-03-99" in body for _, body, _ in pings)

@@ -33,6 +33,7 @@ Usage on the VM (called from deploy_pull_restart.sh):
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import logging
 import os
@@ -41,7 +42,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Iterable, List, Optional
+from typing import Iterable, List, Optional, Tuple
 
 import requests
 
@@ -50,6 +51,12 @@ logger = logging.getLogger("notify_on_pull")
 REPO_ROOT = Path(__file__).resolve().parent.parent
 CHECKPOINT_LOG = REPO_ROOT / "docs" / "claude" / "checkpoints" / "CHECKPOINT_LOG.md"
 PENDING_PINGS = REPO_ROOT / "docs" / "claude" / "pending-pings.jsonl"
+# VM-local delivery log — every line in PENDING_PINGS that has been
+# successfully enqueued has its content sha256 recorded here. Drains
+# skip any line whose hash is already present, so old lines that ride
+# along on subsequent git pulls don't re-fire. NOT git-tracked
+# (``runtime_logs/`` is in .gitignore).
+DELIVERED_HASHES = REPO_ROOT / "runtime_logs" / "pending_pings_delivered.txt"
 
 TELEGRAM_API = "https://api.telegram.org/bot{token}/sendMessage"
 SEND_TIMEOUT_S = 10
@@ -208,21 +215,76 @@ def _training_workflow_pings(pre_sha: str, post_sha: str) -> List[tuple[str, str
 # ---------------------------------------------------------------------------
 
 
-def _drain_pending_pings(path: Path) -> List[tuple[str, str]]:
-    """Read lines from *path*, return [(priority, body)] for each.
+def _line_hash(raw: str) -> str:
+    """Stable sha256 of a stripped pending-pings.jsonl line.
 
-    The file is left in place — truncation is the responsibility of the
-    follow-up commit (so reruns are idempotent if the truncation commit
-    hasn't landed yet, the same line will re-fire). This is acceptable
-    given we expect the queue to be empty most of the time.
+    Used as the dedupe key in ``DELIVERED_HASHES``. Hashing the raw
+    JSON line (rather than the parsed body) keeps the key stable
+    across changes to the body-formatting code below — if the same
+    line appears in a future pull cycle, we recognise it.
     """
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def _load_delivered_hashes(path: Path) -> set[str]:
+    """Read the VM-local delivery log. Empty / missing file → empty set."""
+    if not path.exists():
+        return set()
+    try:
+        return {
+            line.strip()
+            for line in path.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        }
+    except OSError as exc:  # noqa: BLE001
+        logger.warning("delivered-hashes read error: %s — treating as empty", exc)
+        return set()
+
+
+def _record_delivered_hash(path: Path, h: str) -> None:
+    """Append one hash to the delivery log. Best-effort — failing here
+    is logged but not fatal (the next pull would re-fire the line, which
+    is the failure mode that pre-dates this fix; we don't want a write
+    error to break the ping path entirely)."""
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8") as fh:
+            fh.write(h + "\n")
+    except OSError as exc:  # noqa: BLE001
+        logger.warning("delivered-hashes append error: %s", exc)
+
+
+def _drain_pending_pings(
+    path: Path, delivered: Optional[set[str]] = None,
+) -> List[Tuple[str, str, str]]:
+    """Read lines from *path* and return ``[(priority, body, line_hash)]``.
+
+    Lines whose ``_line_hash`` is already in *delivered* are skipped —
+    those have been enqueued on a prior pull and must not re-fire.
+
+    The file is left in place; the dedupe via ``DELIVERED_HASHES``
+    replaces the old "truncate in a follow-up commit" contract that
+    quietly re-fired old pings on every merge. The caller is expected
+    to record each delivered hash via ``_record_delivered_hash`` once
+    enqueue succeeds.
+    """
+    if delivered is None:
+        delivered = set()
     if not path.exists():
         return []
-    out: List[tuple[str, str]] = []
+    out: List[Tuple[str, str, str]] = []
     try:
         for raw in path.read_text(encoding="utf-8").splitlines():
             raw = raw.strip()
             if not raw:
+                continue
+            h = _line_hash(raw)
+            if h in delivered:
+                logger.info(
+                    "pending-pings: skipping already-delivered line "
+                    "(hash=%s…); old entries on subsequent pulls don't re-fire.",
+                    h[:12],
+                )
                 continue
             try:
                 entry = json.loads(raw)
@@ -243,7 +305,7 @@ def _drain_pending_pings(path: Path) -> List[tuple[str, str]]:
                 v = entry.get(k)
                 if v:
                     parts.append(str(v))
-            out.append((priority, " | ".join(parts)))
+            out.append((priority, " | ".join(parts), h))
     except OSError as exc:
         logger.warning("pending-pings: read error: %s", exc)
     return out
@@ -375,18 +437,28 @@ def collect_pings(
     pre_sha: str,
     post_sha: str,
     force_checkpoint: bool = False,
-) -> List[tuple[str, str]]:
+) -> List[Tuple[str, str, Optional[str]]]:
     """Order: blockers first (urgent), then queue drain, then checkpoint.
+
+    Returns ``[(priority, body, line_hash_or_None)]``. Only drained
+    ``pending-pings.jsonl`` entries carry a ``line_hash``; blocker /
+    training / checkpoint pings naturally dedupe by their commit-range
+    gating and do not need it. The caller records each non-None hash
+    after a successful enqueue so subsequent pulls skip the same line.
 
     ``force_checkpoint=True`` emits the checkpoint ping even if the diff
     didn't touch ``CHECKPOINT_LOG.md`` — used by the deploy script's
     ``runtime_flags/auto_ping_test.flag`` path to verify the auto-ping
     leg without waiting for a real checkpoint commit.
     """
-    pings: List[tuple[str, str]] = []
-    pings.extend(_blocker_pings(pre_sha, post_sha))
-    pings.extend(_training_workflow_pings(pre_sha, post_sha))
-    pings.extend(_drain_pending_pings(PENDING_PINGS))
+    pings: List[Tuple[str, str, Optional[str]]] = []
+    for pri, body in _blocker_pings(pre_sha, post_sha):
+        pings.append((pri, body, None))
+    for pri, body in _training_workflow_pings(pre_sha, post_sha):
+        pings.append((pri, body, None))
+    delivered = _load_delivered_hashes(DELIVERED_HASHES)
+    for pri, body, h in _drain_pending_pings(PENDING_PINGS, delivered):
+        pings.append((pri, body, h))
     # Checkpoint ping only fires when the diff *added* a new CP header
     # whose CP-ID matches the file's current topmost entry. A merge
     # commit that brings an old checkpoint into main, or an in-place
@@ -395,14 +467,14 @@ def collect_pings(
     if force_checkpoint:
         cp_ping = _checkpoint_ping(post_sha)
         if cp_ping is not None:
-            pings.append(cp_ping)
+            pings.append((cp_ping[0], cp_ping[1], None))
     elif _diff_touched_checkpoint_log(pre_sha, post_sha):
         added_ids = _diff_added_cp_ids(pre_sha, post_sha)
         parsed = _latest_cp_entry(CHECKPOINT_LOG)
         if parsed is not None and added_ids and parsed[0] == added_ids[0]:
             cp_ping = _checkpoint_ping(post_sha)
             if cp_ping is not None:
-                pings.append(cp_ping)
+                pings.append((cp_ping[0], cp_ping[1], None))
         elif added_ids:
             logger.info(
                 "notify_on_pull: skipping checkpoint ping — diff added "
@@ -445,7 +517,7 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
 
     if args.dry_run:
         logger.info("Dry-run: would queue %d ping(s)", len(pings))
-        for p, body in pings:
+        for p, body, _h in pings:
             logger.info("  [%s] %s", p, body.splitlines()[0])
         return 0
 
@@ -461,12 +533,18 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
         return 1
 
     failures = 0
-    for priority, body in pings:
+    for priority, body, line_hash in pings:
         try:
             _enqueue(body, priority=priority)
         except (OSError, ValueError) as exc:
             logger.error("enqueue failed [%s]: %s", priority, exc)
             failures += 1
+            continue
+        # Record the hash *after* a successful enqueue so a transient
+        # write failure on the bot's inbox dir doesn't permanently
+        # mark a ping as delivered.
+        if line_hash is not None:
+            _record_delivered_hash(DELIVERED_HASHES, line_hash)
     if failures:
         logger.error("%d / %d pings failed to enqueue", failures, len(pings))
         return 1
