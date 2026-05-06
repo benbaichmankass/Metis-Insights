@@ -4,6 +4,13 @@ Long-lived process that listens for Telegram messages from an authorized
 chat ID and forwards them to Claude via the Anthropic API. Conversation
 history is kept per-chat in memory (resets on restart).
 
+Also drains ``runtime_logs/pending_claude_pings/`` (added 2026-05-06,
+BUG-058 follow-up) so Claude session pings — checkpoint commits,
+blocker PRs, sprint completes, training-stage transitions — ride on
+this bot rather than @bict_trading_bot. The trading bot keeps its
+own inbox (``runtime_logs/pending_pings/``) for trade-execution
+alerts via execution_diagnostics / liveness_watchdog / order_monitor.
+
 Run as a systemd service (deploy/ict-claude-bridge.service). Required env:
   TELEGRAM_CLAUDE_BOT_TOKEN  Telegram bot token (separate from main bot)
   ANTHROPIC_API_KEY          Anthropic API key
@@ -16,6 +23,7 @@ Optional:
 from __future__ import annotations
 
 import html
+import json
 import logging
 import os
 from collections import defaultdict, deque
@@ -255,6 +263,94 @@ async def cmd_schedules(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text("\n".join(lines))
 
 
+# ── Pending-claude-pings inbox (BUG-058 follow-up, 2026-05-06) ────────────
+#
+# Mirror of @bict_trading_bot's drain loop, scoped to the
+# ``runtime_logs/pending_claude_pings/`` directory. notify_on_pull.py
+# writes here for every Claude session ping (checkpoints, blockers,
+# training-stage commits, drained pending-pings.jsonl). Trade-execution
+# alerts continue to write to the trader bot's inbox.
+#
+# Schema: ``{"priority": "normal|high|urgent|low", "body": "..."}``.
+# Atomic writes: writers create ``<id>.json.tmp`` then ``rename`` to
+# ``<id>.json`` so the drainer never reads a half-written file.
+
+PENDING_CLAUDE_PINGS_DIR = REPO_ROOT / "runtime_logs" / "pending_claude_pings"
+CLAUDE_PING_DRAIN_INTERVAL_S = 5
+
+_PRIORITY_ICONS: Dict[str, str] = {
+    "urgent": "🚨 URGENT",
+    "high":   "🔔",
+    "normal": "ℹ️",
+    "low":    "·",
+}
+
+
+async def _drain_pending_claude_pings(context: ContextTypes.DEFAULT_TYPE) -> None:
+    """JobQueue task — scan the Claude inbox, send each, delete on success.
+
+    Failures (Telegram 4xx, malformed JSON) move the offending file
+    aside with a ``.broken`` suffix so the drainer doesn't loop on it.
+    Mirrors telegram_query_bot._drain_pending_pings exactly so the
+    operator sees identical send semantics on both bots — only the
+    inbox path and the bot identity differ.
+    """
+    try:
+        PENDING_CLAUDE_PINGS_DIR.mkdir(parents=True, exist_ok=True)
+        names = sorted(
+            n.name for n in PENDING_CLAUDE_PINGS_DIR.iterdir()
+            if n.name.endswith(".json") and not n.name.endswith(".tmp")
+        )
+    except OSError:
+        return
+
+    if not names:
+        return
+
+    for name in names:
+        path = PENDING_CLAUDE_PINGS_DIR / name
+        try:
+            with path.open("r", encoding="utf-8") as fh:
+                payload = json.load(fh)
+        except (OSError, json.JSONDecodeError) as exc:
+            logger.warning(
+                "claude ping inbox: malformed file %s — %s", name, exc,
+            )
+            try:
+                path.rename(path.with_suffix(path.suffix + ".broken"))
+            except OSError:
+                pass
+            continue
+
+        priority = str(payload.get("priority", "normal")).lower()
+        body = str(payload.get("body", "")).strip()
+        if not body:
+            try:
+                path.unlink()
+            except OSError:
+                pass
+            continue
+
+        prefix = _PRIORITY_ICONS.get(priority, _PRIORITY_ICONS["normal"])
+        text = f"{prefix} {body}"
+
+        try:
+            await context.bot.send_message(
+                chat_id=ALLOWED_CHAT_ID, text=text,
+                disable_web_page_preview=True,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "claude ping inbox: send failed for %s — %s", name, exc,
+            )
+            continue   # leave file in place; retry next tick
+
+        try:
+            path.unlink()
+        except OSError:
+            pass
+
+
 BOT_COMMANDS: List[BotCommand] = [
     BotCommand("start", "Show help"),
     BotCommand("reset", "Clear conversation history"),
@@ -291,10 +387,21 @@ def main() -> None:
     app.add_handler(CommandHandler("roadmap", cmd_roadmap))
     app.add_handler(CommandHandler("schedules", cmd_schedules))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, chat))
+    # Drain Claude session pings every CLAUDE_PING_DRAIN_INTERVAL_S
+    # seconds — see _drain_pending_claude_pings docstring above.
+    if app.job_queue is not None:
+        app.job_queue.run_repeating(
+            _drain_pending_claude_pings,
+            interval=CLAUDE_PING_DRAIN_INTERVAL_S,
+            first=CLAUDE_PING_DRAIN_INTERVAL_S,
+            name="drain_pending_claude_pings",
+        )
     logger.info(
-        "Claude bridge starting (model=%s, allowed_chat=%s)",
+        "Claude bridge starting (model=%s, allowed_chat=%s, "
+        "claude_ping_inbox=%s)",
         MODEL,
         ALLOWED_CHAT_ID,
+        PENDING_CLAUDE_PINGS_DIR,
     )
     app.run_polling(allowed_updates=Update.ALL_TYPES)
 

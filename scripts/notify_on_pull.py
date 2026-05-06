@@ -535,7 +535,14 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
     failures = 0
     for priority, body, line_hash in pings:
         try:
-            _enqueue(body, priority=priority)
+            # 2026-05-06 (BUG-058 follow-up): all session pings emitted
+            # by this script — blockers, training stages, drained
+            # pending-pings.jsonl entries, checkpoint commits — route
+            # through @claude_ict_comms_bot per CLAUDE.md's two-bot
+            # separation. Trade-execution alerts keep using the
+            # default "trader" target via execution_diagnostics +
+            # liveness_watchdog + order_monitor producers.
+            _enqueue(body, priority=priority, target="claude")
         except (OSError, ValueError) as exc:
             logger.error("enqueue failed [%s]: %s", priority, exc)
             failures += 1

@@ -41,27 +41,64 @@ from typing import Optional
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 PENDING_PINGS_DIR = REPO_ROOT / "runtime_logs" / "pending_pings"
+# 2026-05-06 (BUG-058 follow-up): Claude session pings (checkpoint commits,
+# blocker PRs, sprint completion, training stages, drained
+# pending-pings.jsonl) route through @claude_ict_comms_bot via this
+# separate inbox; @bict_trading_bot keeps the existing inbox for
+# trade-execution alerts (execution_diagnostics, liveness_watchdog,
+# order_monitor). Two-bot separation per CLAUDE.md.
+PENDING_CLAUDE_PINGS_DIR = REPO_ROOT / "runtime_logs" / "pending_claude_pings"
 
 VALID_PRIORITIES = ("urgent", "high", "normal", "low")
+VALID_TARGETS = ("trader", "claude")
 
 logger = logging.getLogger("send_ping")
 
 
-def enqueue(body: str, priority: str = "normal") -> Path:
+def _inbox_for(target: str) -> Path:
+    """Resolve the on-disk inbox for *target*.
+
+    ``trader`` → @bict_trading_bot's inbox (trade alerts).
+    ``claude`` → @claude_ict_comms_bot's inbox (Claude session pings).
+    """
+    if target == "trader":
+        return PENDING_PINGS_DIR
+    if target == "claude":
+        return PENDING_CLAUDE_PINGS_DIR
+    raise ValueError(
+        f"invalid target {target!r}; must be one of {VALID_TARGETS}"
+    )
+
+
+def enqueue(
+    body: str, priority: str = "normal", target: str = "trader",
+) -> Path:
     """Atomically write a ping JSON file. Returns the path of the
     final (committed) file. Atomic via tmp + rename so the bot's
-    drain loop never sees a partial write."""
+    drain loop never sees a partial write.
+
+    *target* picks which bot delivers the ping — default ``trader``
+    keeps backward-compat with every existing producer (trade alerts,
+    diagnostics, smoke tests). Claude session pings should pass
+    ``target="claude"`` so they ride on the @claude_ict_comms_bot
+    bridge per CLAUDE.md's two-bot separation.
+    """
     if priority not in VALID_PRIORITIES:
         raise ValueError(
             f"invalid priority {priority!r}; must be one of {VALID_PRIORITIES}"
+        )
+    if target not in VALID_TARGETS:
+        raise ValueError(
+            f"invalid target {target!r}; must be one of {VALID_TARGETS}"
         )
     body = (body or "").strip()
     if not body:
         raise ValueError("body must be non-empty")
 
-    PENDING_PINGS_DIR.mkdir(parents=True, exist_ok=True)
+    inbox = _inbox_for(target)
+    inbox.mkdir(parents=True, exist_ok=True)
     name = f"{int(uuid.uuid4().int % 10**12):012d}-{priority}.json"
-    path = PENDING_PINGS_DIR / name
+    path = inbox / name
     tmp = path.with_suffix(".json.tmp")
     payload = {"priority": priority, "body": body}
     with tmp.open("w", encoding="utf-8") as fh:
@@ -74,17 +111,26 @@ def main(argv: Optional[list] = None) -> int:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("body", nargs="+", help="Message body (will be joined with spaces).")
     p.add_argument("--priority", choices=VALID_PRIORITIES, default="normal")
+    p.add_argument(
+        "--target", choices=VALID_TARGETS, default="trader",
+        help="Which bot delivers the ping. 'trader' = @bict_trading_bot "
+             "(trade alerts, default); 'claude' = @claude_ict_comms_bot "
+             "(Claude session pings — checkpoints, blockers, sprint completes).",
+    )
     args = p.parse_args(list(argv) if argv is not None else None)
     logging.basicConfig(level=logging.INFO,
                         format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
     body = " ".join(args.body)
     try:
-        path = enqueue(body, priority=args.priority)
+        path = enqueue(body, priority=args.priority, target=args.target)
     except (ValueError, OSError) as exc:
         logger.error("enqueue failed: %s", exc)
         return 1
-    logger.info("queued %s (%s) — bot drains within ~5 s", path.name, args.priority)
+    logger.info(
+        "queued %s (%s, target=%s) — bot drains within ~5 s",
+        path.name, args.priority, args.target,
+    )
     print(str(path))
     return 0
 
