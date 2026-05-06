@@ -5,6 +5,130 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-06-S-014-01 — S-014 resume + M3 PR #3 (equity sparkline JS)
+
+- **Session date:** 2026-05-06
+- **Sprint:** S-014 — Web Client V1 (Home Dashboard). **Resumed** after a
+  6-day pause for hardening + BUG-056 work. M0 + M1 + M3 PR #1 + M3 PR #2
+  shipped on 2026-04-30 (PRs #183, #192, #193, #195, #196). Remaining
+  before today: M2 PR #1 + M2 PR #2 (login flow, PM-review-gated),
+  M3 PR #3 (equity sparkline, autonomous), M4 PR #1 (sprint close).
+- **Current sprint phase:** M3 PR #3 done; sprint still open (M2 + M4
+  remain).
+- **Last completed checkpoint:** `CP-2026-05-06-S0-02` (PR #413 merged,
+  M-S0 closed).
+- **Next checkpoint:** **CP-2026-05-06-S-014-02** — file the M2 PRs
+  (login flow). M2 requires PM review per the sprint prompt § Risk class
+  — open as draft + ping the operator via the work-PR / ping-PR pattern
+  in `telegram-pings.md`. Alternative: skip M2 today and go straight to
+  **M4** sprint close if PM is unreachable, deferring M2 to a follow-up.
+- **Telegram sent:** no (sandbox without TELEGRAM_BOT_TOKEN; commit fires
+  the VM-side ping on next git-sync). Title is *not* a milestone-complete
+  marker — sprint is still open.
+- **Alerts sent during session:** none.
+- **Blockers:** none. M2 needs PM review per the sprint prompt — that's a
+  process gate, not an active blocker.
+
+### Correction note (re: CP-2026-05-06-S0-02 next-action pointer)
+
+The closing CP for M-S0 said "Concrete first action: create
+`src/web/api/routers/pnl_history.py`". That was stale — the router was
+already shipped on 2026-04-30 in PR #183 (M0 PR #1). The S-014 sprint was
+**partially complete** at 5/8 PRs when the closure CP was filed. This
+checkpoint corrects `docs/claude/milestone-state.md` to enumerate the
+real sub-state and pick the right next deliverable (M3 PR #3, the only
+remaining autonomous-mergeable PR in the sprint).
+
+### 1. Completed
+
+- **Audited S-014 state.** Found M0 + M1 PR #1 + M1 PR #2 + M3 PR #1 +
+  M3 PR #2 already merged on 2026-04-30 (PRs #183, #192, #193, #195,
+  #196 — confirmed via `CP-2026-04-30-09`). Files on disk corroborate:
+  `src/web/api/routers/pnl_history.py`, `web/templates/{base,home,login}.html`,
+  `web/templates/fragments/{status,pnl}*.html`, `web/static/{css,js}/*`.
+- **Corrected `docs/claude/milestone-state.md`** — Active milestone
+  block now has the per-PR sub-state table (M0 ✅ / M1 PR #1 ✅ /
+  M1 PR #2 ✅ / M2 PR #1 ⏳ / M2 PR #2 ⏳ / M3 PR #1 ✅ / M3 PR #2 ✅ /
+  M3 PR #3 🔄 / M4 PR #1 ⏳) with the right next-checkpoint pointer.
+- **Built M3 PR #3 (equity sparkline JS).** New file
+  `web/static/js/equity_chart.js`:
+  - Fetches `/api/pnl/history?days=7` with `Authorization: Bearer
+    <token>` from `IctAuth.getToken()`.
+  - Renders cumulative-realised P&L as a Chart.js line chart into the
+    existing `<canvas id="equity-chart">` on `/home`.
+  - Refreshes every 5 minutes (`setInterval`) per the sprint prompt's
+    cadence ("daily P&L doesn't move tick-by-tick").
+  - Failure modes: 401 → clear token + redirect `/login`; 403 →
+    "Not allowlisted" empty state; empty `points: []` →
+    "No P&L history yet" empty state; network/5xx →
+    "P&L history unavailable" empty state.
+  - Exposes `window.IctEquityChart.loadEquity()` for tests / manual
+    refresh.
+  - **No vendored content** — pure first-party JS, so no SHA-256
+    banner needed (the banner rule is for vendored dropships only).
+- **Wired script tag** into `web/templates/home.html` after
+  `chart.umd.js` (defer preserves load order).
+- **Tests added** to `tests/test_web_api_ui.py`:
+  - `test_static_equity_chart_js_is_served` — `GET
+    /static/js/equity_chart.js` 200 + body asserts (URL, token key,
+    canvas id reference).
+  - Extended `test_home_page_renders_without_server_side_auth` to
+    require `/static/js/equity_chart.js` in the response body.
+- Live trader path untouched (no `src/runtime/`, no
+  `src/units/accounts/`, no `config/accounts.yaml`).
+
+### 2. Files changed
+
+- `web/static/js/equity_chart.js` (new, 138 lines)
+- `web/templates/home.html` (1-line script tag insert)
+- `tests/test_web_api_ui.py` (1 new test + 1 assertion added to
+  existing test)
+- `docs/claude/milestone-state.md` (Active milestone sub-state table
+  rewritten)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+
+- `python -c "compile(open('tests/test_web_api_ui.py').read(), 'test_web_api_ui.py', 'exec')"` — pass.
+- `node --check web/static/js/equity_chart.js` — pass (syntax ok).
+- `python scripts/secret_scan.py` — pass.
+- `python scripts/repo_inventory.py` — pass (no junk candidates).
+- `python scripts/check_dry_run_in_diff.py` — clean.
+- Sandbox lacks `fastapi` so the FastAPI test client can't run here;
+  CI on GitHub will run the real suite. The two new test functions are
+  pure HTTP-shape assertions that match the patterns in adjacent passing
+  tests (e.g. `test_static_chart_js_is_served`).
+
+### 4. Remaining
+
+- **M2 PR #1, #2** — login-flow JS + auth-aware HTMX requests. These
+  are PM-review-gated per the sprint prompt § Guardrails (8). The
+  follow-on session should open them as draft + use the ping-PR pattern
+  in `telegram-pings.md` to surface them for operator approval.
+- **M4 PR #1** — sprint close: `docs/sprint-summaries/sprint-014-summary.md`,
+  S-014 smoke-test appendix to `docs/audit/sprint-013-deployment-runbook.md`,
+  ROADMAP update, `CP — S-014 SPRINT COMPLETE` in `CHECKPOINT_LOG.md`.
+  Can be filed even if M2 is still pending PM review — note the M2
+  status explicitly in the summary doc.
+
+### 5. Next checkpoint
+
+**CP-2026-05-06-S-014-02** — option A (preferred): open M2 PR #1 + M2
+PR #2 as drafts and follow the ping-PR pattern. Option B: if PM is
+unreachable, file M4 PR #1 (sprint close) noting M2 deferred to a
+follow-on. Read in order: this entry, `docs/sprints/sprint-014-prompt.md`
+§ M2 + § Guardrails, `docs/claude/telegram-pings.md` §
+"Ping-PR vs work-PR".
+
+### Live-mode check
+
+✅ No flip away from live anywhere in the diff. Web-client-only sprint —
+no `src/runtime/`, `src/units/accounts/*`, `config/accounts.yaml`, or
+`.env*` template touched. The existing per-account `mode: live` contract
+stands. `scripts/check_dry_run_in_diff.py` → clean.
+
+---
+
 ## CP-2026-05-06-S0-02 — MILESTONE COMPLETE: M-S0 (sprint summary + state flip)
 
 - **Session date:** 2026-05-06

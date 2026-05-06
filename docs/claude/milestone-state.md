@@ -46,20 +46,24 @@ When opening a session:
 | **Type** | roadmap (Phase 4 — Secure Web Dashboard) |
 | **Goal** | Land a read-only home dashboard the operator can open from the `/webapp` Telegram link: login → home view showing per-account live/dry status, overall + per-account P&L, active strategies, uptime, git SHA, and a 7-day equity sparkline. Live trader uptime preserved end-to-end. |
 | **Status** | 🔄 in progress |
-| **Active sprint** | S-014 — Web Client V1 (Home Dashboard) |
-| **Active checkpoint** | _none yet — kickoff in next session._ Read `docs/sprints/sprint-014-prompt.md` first; first checkpoint is **M0 PR #1** (`GET /api/pnl/history` backend gap-fill). |
-| **Risk tier** | Tier 2 mostly (web client + new API endpoint over JWT-protected backend); Tier 1 for docs/static. No live-trading code path touched. |
-| **Definition of done** | Operator can open `/webapp` link, log in, and see the home dashboard rendering live data from S-013 backend + new `/api/pnl/history` endpoint. Eight PRs landed, ≤ 400 LOC each. Loopback-only hosting (public exposure deferred to S-014.5). |
+| **Active sprint** | S-014 — Web Client V1 (Home Dashboard) — **resumed** 2026-05-06 after a 6-day pause for hardening + BUG-056. |
+| **Active checkpoint** | M0 + M1 + M3 PR #1 + M3 PR #2 already shipped on 2026-04-30 (PRs #183, #192, #193, #195, #196 — see `CP-2026-04-30-09`). **Remaining**: M3 PR #3 (equity sparkline — autonomous Tier 2), M2 PR #1 + M2 PR #2 (login flow — PM-review-gated), M4 PR #1 (sprint close). M3 PR #3 is the next concrete deliverable — it depends only on the already-shipped `/api/pnl/history` endpoint. |
+| **Risk tier** | Tier 2 mostly (web client + JWT-protected backend); Tier 1 for docs/static. No live-trading code path touched. M2 PRs are PM-review per the sprint prompt. |
+| **Definition of done** | Operator can open `/webapp` link, log in, and see the home dashboard rendering live data from S-013 backend + `/api/pnl/history` endpoint (status panel + P&L panel + equity sparkline + logout). Loopback-only hosting (public exposure deferred to S-014.5). See `docs/sprints/sprint-014-prompt.md` § Definition of Done. |
 
 ### Sprint backlog inside this milestone
 
-| # | Sprint | Status |
+| # | PR group | Status |
 |---|---|---|
-| 1 | S-014 — Web Client V1 (Home Dashboard) | 🔄 in progress |
-
-(M-S-014 is a single session-sized milestone — but its sprint contains 8 PRs
-per the prompt. If the PR count grows past the per-sprint cap in
-`decomposition-rules.md` § 3.2 mid-flight, split S-014 into S-014a/S-014b.)
+| M0 PR #1 | `GET /api/pnl/history` (#183) | ✅ merged 2026-04-30 |
+| M1 PR #1 | Frontend scaffold (templates + vendored JS) (#192) | ✅ merged 2026-04-30 |
+| M1 PR #2 | FastAPI mounts + UI router (#193) | ✅ merged 2026-04-30 |
+| M2 PR #1 | Login form wired (PM REVIEW) | ⏳ pending |
+| M2 PR #2 | Auth-aware HTMX requests (PM REVIEW) | ⏳ pending |
+| M3 PR #1 | `/ui/fragments/status` (#195) | ✅ merged 2026-04-30 |
+| M3 PR #2 | `/ui/fragments/pnl` (#196) | ✅ merged 2026-04-30 |
+| M3 PR #3 | Equity sparkline JS (autonomous Tier 2) | 🔄 in progress 2026-05-06 |
+| M4 PR #1 | Sprint summary + ROADMAP + close checkpoint | ⏳ pending |
 
 ---
 
