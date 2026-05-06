@@ -20,6 +20,13 @@
  *   5. A pre-expiry timer fires 60 seconds before the JWT `exp` claim
  *      and redirects to /login (no client-side signature check — we
  *      trust the server's issuance).
+ *
+ * M2 PR #2 additions:
+ *   6. `htmx:responseError` handler — on 401, clear the token and
+ *      redirect to /login (a server-side session expired before the
+ *      pre-expiry timer fired). On 403, surface a "Not allowlisted"
+ *      toast so the operator knows the allowlist changed under them.
+ *      Other status codes are left to HTMX's default error path.
  */
 (function () {
   "use strict";
@@ -93,6 +100,39 @@
     const token = getToken();
     if (token) {
       evt.detail.headers["Authorization"] = "Bearer " + token;
+    }
+  }
+
+  const TOAST_MS = 4000;
+
+  function showToast(msg) {
+    let el = document.getElementById("ict-toast");
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "ict-toast";
+      el.className = "ict-toast";
+      el.setAttribute("role", "status");
+      el.setAttribute("aria-live", "polite");
+      document.body.appendChild(el);
+    }
+    el.textContent = msg;
+    el.classList.add("ict-toast--visible");
+    if (showToast._t) window.clearTimeout(showToast._t);
+    showToast._t = window.setTimeout(function () {
+      el.classList.remove("ict-toast--visible");
+    }, TOAST_MS);
+  }
+
+  function onResponseError(evt) {
+    const xhr = evt && evt.detail && evt.detail.xhr;
+    if (!xhr) return;
+    if (xhr.status === 401) {
+      clearToken();
+      window.location.replace(LOGIN_PATH);
+      return;
+    }
+    if (xhr.status === 403) {
+      showToast("Not allowlisted");
     }
   }
 
@@ -180,6 +220,7 @@
   }
 
   document.addEventListener("htmx:configRequest", onConfigRequest);
+  document.addEventListener("htmx:responseError", onResponseError);
   document.addEventListener("DOMContentLoaded", function () {
     gateHomePage();
     wireLogout();
@@ -187,7 +228,7 @@
     scheduleExpiryRedirect();
   });
 
-  /* Exposed for tests + M2 PR #2 (HTMX 401 handler) and login wiring. */
+  /* Exposed for tests + login wiring + HTMX response-error coverage. */
   window.IctAuth = {
     getToken: getToken,
     clearToken: clearToken,
@@ -195,10 +236,13 @@
     decodeJwtPayload: decodeJwtPayload,
     scheduleExpiryRedirect: scheduleExpiryRedirect,
     submitLogin: submitLogin,
+    onResponseError: onResponseError,
+    showToast: showToast,
     TOKEN_KEY: TOKEN_KEY,
     LOGIN_PATH: LOGIN_PATH,
     HOME_PATH: HOME_PATH,
     LOGIN_API: LOGIN_API,
     PRE_EXPIRY_MS: PRE_EXPIRY_MS,
+    TOAST_MS: TOAST_MS,
   };
 })();

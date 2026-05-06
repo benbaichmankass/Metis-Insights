@@ -136,6 +136,26 @@ button.ghost:hover { background: var(--bg-elev); color: var(--fg); }
 .pnl-account { font-weight: 600; }
 .pnl-cell { display: flex; flex-direction: column; gap: 0.15rem; font-size: 0.85rem; }
 
+.ict-toast {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  max-width: min(90vw, 320px);
+  padding: 0.6rem 0.85rem;
+  background: var(--bg-card);
+  color: var(--fg);
+  border: 1px solid var(--bad);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  font-size: 0.9rem;
+  opacity: 0;
+  transform: translateY(8px);
+  pointer-events: none;
+  transition: opacity 160ms ease, transform 160ms ease;
+  z-index: 1000;
+}
+.ict-toast--visible { opacity: 1; transform: translateY(0); }
+
 @media (max-width: 480px) {
   .app-main { padding: 0.75rem; }
   .login-card { margin: 1.5rem 0.5rem; }
