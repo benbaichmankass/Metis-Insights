@@ -1,12 +1,20 @@
-# AI Trader — Canonical Workplan (single source of truth)
+# AI Trader — Canonical Workplan (the decider)
 
 > **Authority:** This document is the canonical workplan for the
 > AI Trader project, captured verbatim from the operator on
-> **2026-05-06**. **It is the single source of truth.** When any
-> other doc, code, sprint prompt, checkpoint, ROADMAP entry, or
-> CLAUDE.md rule contradicts this file, **this file wins** —
-> the contradicting content must be brought into conformance or
-> removed.
+> **2026-05-06**. **It is the decider** for what the project is
+> building and the rules it follows. When any other doc, code,
+> sprint prompt, checkpoint, ROADMAP entry, or CLAUDE.md rule
+> contradicts this file, **this file wins** — reconcile the
+> conflict (update the contradicting doc, or consolidate it into
+> this one) in the same session.
+>
+> **This document does NOT replace the rest of the documentation.**
+> CLAUDE.md, README.md, the per-task docs under `docs/claude/`,
+> the runbooks, the bug-log, and the architecture audits all stay
+> required reading — they hold operational detail, conventions,
+> and context this workplan deliberately does not duplicate. Use
+> them as before.
 >
 > **Sprints continue.** This document does NOT replace the
 > sprint-based execution model — sprints (per
@@ -20,9 +28,14 @@
 > accepting the "done" status. If on-disk state has drifted from
 > the workplan, fix the drift before continuing other work.
 >
-> **Declutter authorization.** Anything not in this workplan is
-> out of scope and may be removed silently — no migration sprint
-> required.
+> **Consolidation, not deletion.** If documentation is bloated or
+> redundant, it's fine to consolidate — fewer docs that say the
+> same thing more clearly. But **don't delete unique content** just
+> because it isn't restated in this workplan. The workplan is the
+> constitutional layer; the other docs hold the operational
+> substance. Only remove docs that genuinely duplicate workplan
+> content or describe a state this workplan has explicitly
+> superseded.
 
 ---
 
@@ -522,6 +535,35 @@ This channel supports:
 The web app is now a **crucial priority** because it needs to
 become a stable source of truth for understanding live system
 state, recent activity, and operational health.
+
+### Repo and hosting boundary (MANDATORY)
+
+The dashboard web app **lives in a separate repository** from
+`ict-trading-bot` and **runs on Vercel** — **not** on the Oracle VM.
+Do **not** add web-app source code, build configs, or dashboard UI
+files to `ict-trading-bot`. The trader repo stays lean and focused
+on the trader / dispatcher / strategies / accounts / risk units.
+
+The dashboard is a **pure consumer** of the trader's data:
+
+- It reads a published data feed (JSON over HTTP, or
+  websocket) emitted by the dispatcher in this repo.
+- It does **not** import any code from `ict-trading-bot`.
+- It does **not** read the trader's databases, journal files, or
+  runtime logs directly.
+- It does **not** hold operator credentials beyond what the auth
+  contract exposes through the published feed.
+
+The trader repo's responsibility is to **publish a clean feed**
+(schema, auth, rate-limit) and document it. Everything from the
+feed onwards lives in the dashboard repo.
+
+When work is needed on the dashboard itself (UI, layouts, charts,
+auth flows), open a session in the **dashboard repo**, not here.
+When work is needed on what the dashboard consumes (new fields,
+new endpoints, new event types), that's a sprint in **this repo**
+that ends with the new feed shape documented for the dashboard
+session to pick up.
 
 ### Vercel app
 
