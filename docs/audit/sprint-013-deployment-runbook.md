@@ -224,3 +224,127 @@ side effects when the service is stopped.
   None of the auth secrets, the plaintext password, or the password hash
   appear in any log line — see `tests/test_web_api_auth_login.py` for the
   no-leakage contract.
+
+---
+
+## Appendix — S-014 web client smoke test (added 2026-05-06)
+
+After the S-014 PRs are on `main` and `ict-web-api.service` is restarted,
+the operator should smoke-test the dashboard end-to-end. All steps run on
+the operator's machine with an SSH tunnel forwarding 127.0.0.1:8001 from
+the VM (or directly on the VM via `ssh -L`).
+
+### Pre-conditions
+
+- `ict-web-api.service` is `Active: active (running)` (per the main
+  runbook above).
+- `JWT_SIGNING_KEY`, `WEBAPP_PASSWORD_SHA256`, `ALLOWED_EMAIL` are set in
+  `/etc/ict-trader/web-api.env`.
+- The operator knows the plaintext password whose SHA-256 hash matches
+  `WEBAPP_PASSWORD_SHA256`.
+- A local browser can reach `http://127.0.0.1:8001/`.
+
+### Step 1 — `/` redirects to `/home`, `/home` bounces to `/login`
+
+Open `http://127.0.0.1:8001/` in a fresh browser profile (no
+`localStorage` token).
+
+- **Expect:** the URL bar lands on `/login` after the redirect chain
+  (`/` → `/home` → client-side redirect to `/login`).
+- The login card renders with email + password inputs, a "Sign in"
+  button, and a hidden `#login-error` element.
+
+### Step 2 — Off-allowlist email → 403 inline error
+
+Submit the form with an email that is **not** `ALLOWED_EMAIL`. Use any
+password.
+
+- **Expect:** the inline `#login-error` shows "Not allowlisted." and the
+  URL stays on `/login`. No token is written to `localStorage` (verify
+  via DevTools → Application → Local Storage).
+
+### Step 3 — Wrong password → 401 inline error
+
+Submit the form with the correct allowlisted email but a wrong password.
+
+- **Expect:** the inline error shows "Invalid credentials." URL stays on
+  `/login`. No token written.
+
+### Step 4 — Valid login → /home renders + sparkline appears
+
+Submit the form with the correct email + password.
+
+- **Expect:** browser navigates to `/home`. `localStorage` has a key
+  `ict_session_token` containing a JWT (three dot-separated segments).
+- **Status panel** loads within 1 s with uptime, git SHA, active
+  strategies (chips), per-account live/dry pills.
+- **P&L panel** loads within 1 s with per-account realised / unrealised
+  / trades-today.
+- **Equity card** shows either:
+  - A line chart of cumulative realised P&L over the last 7 days, OR
+  - The empty-state text "No P&L history yet" (if the trade journal is
+    empty for the window).
+- Both HTMX cards re-poll every 30 s; the equity chart refreshes every
+  5 minutes (verify via the Network tab — `/ui/fragments/status` and
+  `/ui/fragments/pnl` requests every 30 s, `/api/pnl/history` every
+  300 s).
+- **No token** appears in any URL, query string, or fetch URL anywhere
+  in the Network tab. Authorization is always in the request header.
+
+### Step 5 — Logout button
+
+Click "Sign out" on the home page header.
+
+- **Expect:** browser navigates to `/login`. `localStorage` no longer
+  contains `ict_session_token`. Re-typing `/home` in the URL bar
+  immediately bounces back to `/login`.
+
+### Step 6 — 401 handling (auto-redirect)
+
+Re-log in (Step 4). Then on the VM, restart the web service to rotate
+the in-process state (or temporarily change `JWT_SIGNING_KEY` and
+`systemctl reload-or-restart ict-web-api`). Wait for the next 30-s
+HTMX poll.
+
+- **Expect:** the next HTMX response is 401. `auth.js`
+  `htmx:responseError` handler clears `localStorage` and redirects to
+  `/login`. The operator sees `/login` within ~30 s of the key change.
+
+### Step 7 — 403 handling (toast)
+
+Re-log in. On the VM, change `ALLOWED_EMAIL` to a different value and
+`reload-or-restart` the service. Wait for the next HTMX poll.
+
+- **Expect:** the next HTMX response is 403. A small toast appears at
+  the bottom-right of the page reading "Not allowlisted". The toast
+  auto-dismisses after ~4 s. The operator stays on `/home` (token is
+  still valid; only the allowlist changed). Subsequent polls keep
+  showing the toast until the operator logs out or the allowlist is
+  restored.
+
+### Step 8 — Pre-expiry redirect (optional, slow)
+
+Re-log in. Open DevTools → Application → Local Storage and copy the
+JWT. Decode the middle segment (`atob(...)`) and note the `exp` Unix
+timestamp. Wait until ~60 s before that timestamp.
+
+- **Expect:** the page navigates to `/login` automatically (the
+  `setTimeout` in `auth.js` fires `PRE_EXPIRY_MS` before `exp`). This
+  test is slow (up to 1 hour) — usually skipped unless investigating a
+  specific timer regression.
+
+### What this smoke test does NOT do
+
+- Does not exercise public-internet exposure — that's S-014.5.
+- Does not exercise the `/webapp` Telegram command end-to-end
+  (covered by the S-013 runbook above).
+- Does not benchmark the dashboard under heavy poll load — the cards
+  use cheap reads from already-warm DBs.
+
+### If anything fails
+
+Capture the failing step's HTML payload + Network tab entry + any
+`journalctl -u ict-web-api -n 200 --no-pager` lines and file a bug per
+`docs/claude/bug-log.md`. The web-API and the live trader are still
+fully decoupled; rolling back the service per the main runbook above is
+always safe.

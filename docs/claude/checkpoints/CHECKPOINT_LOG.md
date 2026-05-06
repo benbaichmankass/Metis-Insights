@@ -5,6 +5,154 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-06-S-014-COMPLETE — MILESTONE COMPLETE: M-S-014 (S-014 SPRINT COMPLETE)
+
+- **Session date:** 2026-05-06
+- **Sprint:** S-014 — Web Client V1 (Home Dashboard). **CLOSED.**
+- **Milestone:** **M-S-014 — Web Client V1. CLOSED.**
+- **Current sprint phase:** Phase 4 — Secure Web Dashboard, S-014 done.
+- **Last completed checkpoint:** `CP-2026-05-06-S-014-02` (M2 PR #1
+  in PM review at the time; subsequently approved + merged in this
+  session).
+- **Next checkpoint:** **CP-YYYY-MM-DD-NN — S-015 kickoff** —
+  open S-015 (Web Client V2 — Component Tabs) per
+  `docs/sprints/sprint-015-prompt.md`. First action: read the prompt,
+  draft the sprint plan per `docs/claude/sprint-planning.md`, file the
+  kickoff PR. Alternatively, if the operator wants S-014.5 (public
+  exposure) prioritised first, queue S-014.5 ahead of S-015 (the
+  loopback dashboard is validated by the smoke test in the runbook
+  appendix shipped in this PR).
+- **Telegram sent:** title contains `MILESTONE COMPLETE: M-S-014`
+  AND `S-014 SPRINT COMPLETE` so the VM-side ping fires
+  high-priority per `decomposition-rules.md` § 2.4. The
+  checkpoint commit on `main` is the trigger.
+- **Alerts sent during session:** ping-PR #416 already fired the
+  Telegram alert for M2 PR #1 mid-session.
+- **Blockers:** none.
+
+### 1. Completed (this session, 2026-05-06)
+
+This session shipped the remainder of S-014 + the M-S0 closure +
+mid-session corrections. End-to-end PR list:
+
+| PR | Title | Outcome |
+|---|---|---|
+| #413 | CP-2026-05-06-S0-02: MILESTONE COMPLETE: M-S0 | ✅ merged |
+| #414 | S-014 M3 PR #3: equity sparkline JS (+ S-014 state correction) | ✅ merged |
+| #415 | S-014 M2 PR #1: login form fetch + JWT pre-expiry timer | ✅ merged (PM-approved by operator) |
+| #416 | PING: S-014 M2 PR #1 awaiting PM review | ✅ merged (ping-PR) |
+| #417 | checkpoint: CP-2026-05-06-S-014-02 | ✅ merged |
+| #418 | S-014 M2 PR #2: HTMX 401/403 handler + toast | ✅ merged (PM-approved by operator) |
+| (this PR) | M4 PR #1: sprint summary + runbook appendix + ROADMAP/milestone-state flip + final checkpoint | ⏳ this checkpoint PR |
+
+This M4 PR #1 closes M-S-014 by:
+
+- Filing **`docs/sprint-summaries/sprint-014-summary.md`** with the
+  full DoD checkbox table, every PR merged across the sprint
+  (#183 → #418), architecture decisions, tests added, deferred
+  items (S-014.5, CSP), three lessons-learned bullets.
+- Appending the **S-014 web client smoke test appendix** to
+  `docs/audit/sprint-013-deployment-runbook.md` — eight numbered
+  steps the operator runs end-to-end after the PRs land:
+  / → /login redirect, off-allowlist → 403 inline, wrong password
+  → 401 inline, valid login → home + sparkline, logout, 401 auto
+  redirect, 403 toast, optional pre-expiry timer test.
+- **Flipping ROADMAP.md** S-014 row from 🔄 Active → ✅ Done; S-015
+  bumped to 🔜 Next; S-014.5 (public exposure) added as 📋 Backlog.
+- **Closing M-S-014 in `docs/claude/milestone-state.md`**: moved
+  Active → Recently closed (with closure date, final checkpoint ID,
+  summary-doc link); pulled S-015 (Web Client V2 — Component Tabs)
+  into the Active block as 📋 queued (no session started yet);
+  refreshed Queued window (S-014.5 → S-016 → next recurring).
+
+### 2. Files changed (this M4 PR)
+
+- `docs/sprint-summaries/sprint-014-summary.md` (new)
+- `docs/audit/sprint-013-deployment-runbook.md` (appended ~120 lines
+  of S-014 smoke-test appendix)
+- `ROADMAP.md` (header refresh + S-014 row → ✅ Done + S-015 → 🔜
+  Next + S-014.5 added)
+- `docs/claude/milestone-state.md` (Active block → S-015; M-S-014
+  added to Recently closed; Queued refreshed)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+
+- `python scripts/secret_scan.py` — pass.
+- `python scripts/repo_inventory.py` — pass.
+- `python scripts/check_dry_run_in_diff.py` — clean (live-mode
+  invariant ✅ across this session's seven PRs).
+- `PYTHONPATH=. pytest --collect-only -q tests` — 1728 collected,
+  45 pre-existing pyyaml collection errors (same baseline as the
+  S0 sprint and CP-2026-05-06-S-014-01).
+- M2 PR #1 + M2 PR #2 + M3 PR #3 each had `node --check` pass on
+  their JS additions before push.
+- No production / runtime code touched in this M4 PR (docs-only
+  closure ceremony).
+
+### 4. Remaining
+
+- M-S-014 is fully closed.
+- S-015 kickoff is the next session's job.
+- S-014.5 (public exposure: reverse proxy + TLS + DNS + CSP) is
+  queued; depends on the operator running the smoke-test in the
+  new runbook appendix to validate the loopback dashboard first.
+
+### 5. Next checkpoint
+
+**CP-YYYY-MM-DD-NN — S-015 kickoff** — open S-015 per
+`docs/sprints/sprint-015-prompt.md`. Read in order:
+
+1. This entry.
+2. `docs/claude/milestone-state.md` § Active milestone (now M-S-015).
+3. `docs/sprint-summaries/sprint-014-summary.md` —
+   "Architecture decisions" + "Files in the new web tree" — S-015
+   builds on the same HTMX + Jinja2 + Chart.js stack and reuses the
+   `/api/*` JWT contract.
+4. `docs/sprints/sprint-015-prompt.md`.
+5. `docs/claude/sprint-planning.md` — mandatory sprint-prompt
+   section template.
+
+Concrete first action: confirm S-015's eight mandatory prompt
+sections exist; if not, draft them in a kickoff PR before opening any
+code PR.
+
+### Live-mode check
+
+✅ No flip away from live anywhere across this session's seven PRs
+(#413, #414, #415, #416, #417, #418, this M4 PR). Web-client-only +
+docs-only changes — no `src/runtime/`, `src/units/accounts/*`,
+`config/accounts.yaml`, or `.env*` template touched. The existing
+per-account `mode: live` contract from BUG-056 stands.
+`scripts/check_dry_run_in_diff.py` → clean across all branches.
+
+### Proposed CLAUDE.md improvements for the next sprint
+
+(Per `decomposition-rules.md` § 3.4 step 5; non-binding suggestions.)
+
+1. **Add a "branch base verification" line to the resume rule.**
+   Mid-session a working branch was accidentally based on a 51-commit
+   stale local `main`. The `git-workflow.md` doc could absorb a
+   one-liner: *"Always `git fetch origin main` and create new branches
+   off `origin/main` (e.g. `git switch -C <branch> origin/main`),
+   never off local `main`."*  This would have caught the issue
+   instantly. See `sprint-014-summary.md` § Lessons learned (2).
+2. **Codify the "audit on resume" rule for paused sprints.**
+   When a milestone in `milestone-state.md` shows a "resume after
+   pause" condition, the first session action should be to audit the
+   actual on-disk state vs the sprint prompt before following the
+   stale next-action pointer in `CHECKPOINT_LOG.md`. Today the rule
+   exists implicitly; making it explicit in the resume rule prevents
+   the "stale pointer" failure mode noted in
+   `sprint-014-summary.md` § Lessons learned (1).
+
+### Operator-action pings count for this session
+
+End-to-end across 2026-05-06: **7 PRs merged** + 1 ping-PR pair (one
+draft work-PR + one merged ping-PR). M-S0 + S-014 both closed.
+
+---
+
 ## CP-2026-05-06-S-014-02 — S-014 M2 PR #1 (login flow) opened DRAFT + ping-PR fired
 
 - **Session date:** 2026-05-06

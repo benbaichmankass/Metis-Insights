@@ -41,29 +41,19 @@ When opening a session:
 
 | Field | Value |
 |---|---|
-| **Milestone ID** | M-S-014 |
-| **Title** | Web Client V1 (Home Dashboard) |
+| **Milestone ID** | M-S-015 |
+| **Title** | Web Client V2 (Component Tabs) |
 | **Type** | roadmap (Phase 4 — Secure Web Dashboard) |
-| **Goal** | Land a read-only home dashboard the operator can open from the `/webapp` Telegram link: login → home view showing per-account live/dry status, overall + per-account P&L, active strategies, uptime, git SHA, and a 7-day equity sparkline. Live trader uptime preserved end-to-end. |
-| **Status** | 🔄 in progress |
-| **Active sprint** | S-014 — Web Client V1 (Home Dashboard) — **resumed** 2026-05-06 after a 6-day pause for hardening + BUG-056. |
-| **Active checkpoint** | M0 + M1 + M3 PR #1 + M3 PR #2 already shipped on 2026-04-30 (PRs #183, #192, #193, #195, #196 — see `CP-2026-04-30-09`). **Remaining**: M3 PR #3 (equity sparkline — autonomous Tier 2), M2 PR #1 + M2 PR #2 (login flow — PM-review-gated), M4 PR #1 (sprint close). M3 PR #3 is the next concrete deliverable — it depends only on the already-shipped `/api/pnl/history` endpoint. |
-| **Risk tier** | Tier 2 mostly (web client + JWT-protected backend); Tier 1 for docs/static. No live-trading code path touched. M2 PRs are PM-review per the sprint prompt. |
-| **Definition of done** | Operator can open `/webapp` link, log in, and see the home dashboard rendering live data from S-013 backend + `/api/pnl/history` endpoint (status panel + P&L panel + equity sparkline + logout). Loopback-only hosting (public exposure deferred to S-014.5). See `docs/sprints/sprint-014-prompt.md` § Definition of Done. |
+| **Goal** | Extend the S-014 home dashboard with operator-iterable tabs: Strategies, Accounts, Model Metrics, Runtime Logs & Bugs. Backend extends with the per-tab data endpoints; web client adds tab navigation + per-tab fragments. Live trader uptime preserved end-to-end. |
+| **Status** | 📋 queued (no session has started) |
+| **Active sprint** | _none yet — kickoff in next session._ Read `docs/sprints/sprint-015-prompt.md` first; first checkpoint plans the backend endpoints + tab routing. |
+| **Active checkpoint** | _none yet._ |
+| **Risk tier** | Tier 2 mostly (web client + new API surfaces, JWT-protected backend); Tier 1 for docs/static. No live-trading code path touched. |
+| **Definition of done** | Each of the four tabs (Strategies, Accounts, Model Metrics, Runtime Logs & Bugs) renders with live data from the backend; navigation between tabs preserves auth state; loopback-only hosting; live trader uptime preserved. See `docs/sprints/sprint-015-prompt.md`. |
 
 ### Sprint backlog inside this milestone
 
-| # | PR group | Status |
-|---|---|---|
-| M0 PR #1 | `GET /api/pnl/history` (#183) | ✅ merged 2026-04-30 |
-| M1 PR #1 | Frontend scaffold (templates + vendored JS) (#192) | ✅ merged 2026-04-30 |
-| M1 PR #2 | FastAPI mounts + UI router (#193) | ✅ merged 2026-04-30 |
-| M2 PR #1 | Login form wired (PM REVIEW) | ⏳ pending |
-| M2 PR #2 | Auth-aware HTMX requests (PM REVIEW) | ⏳ pending |
-| M3 PR #1 | `/ui/fragments/status` (#195) | ✅ merged 2026-04-30 |
-| M3 PR #2 | `/ui/fragments/pnl` (#196) | ✅ merged 2026-04-30 |
-| M3 PR #3 | Equity sparkline JS (autonomous Tier 2) | 🔄 in progress 2026-05-06 |
-| M4 PR #1 | Sprint summary + ROADMAP + close checkpoint | ⏳ pending |
+_TBD — sprint planning happens in the next session per `docs/claude/sprint-planning.md` template before any code lands._
 
 ---
 
@@ -74,6 +64,7 @@ When opening a session:
 
 | Milestone | Closed | Final checkpoint | Summary doc |
 |---|---|---|---|
+| M-S-014 — Web Client V1 (Home Dashboard) | 2026-05-06 | `CP-2026-05-06-S-014-COMPLETE` | `docs/sprint-summaries/sprint-014-summary.md` |
 | M-S0 — Workflow Foundation | 2026-05-06 | `CP-2026-05-06-S0-02` | `docs/sprint-summaries/sprint-S0-summary.md` |
 
 Pre-existing roadmap progress (S-000 through S-013) is captured in `ROADMAP.md`
@@ -89,9 +80,9 @@ before the milestone can start.
 
 | Order | Milestone | Type | Gating condition |
 |---|---|---|---|
-| 1 | S-015 — Web Client V2 (Component Tabs) | roadmap | S-014 merged; backend extended for component data. |
+| 1 | S-014.5 — Web Client public exposure (reverse proxy + TLS + CSP) | roadmap | S-014 merged (✅) + loopback dashboard validated by operator (smoke test in `docs/audit/sprint-013-deployment-runbook.md` § "S-014 web client smoke test"). |
 | 2 | S-016 — Secure API Key Management | roadmap | S-015 merged; encrypted vault design approved (Tier 2 ping). |
-| 3 | S-014.5 — Web Client public exposure (reverse proxy + TLS) | roadmap | S-014 merged + loopback dashboard validated by operator. |
+| 3 | _next strategy/model improvement sprint per recurring cadence_ | auto-task | runs on its own trigger. |
 
 (See `ROADMAP.md` for the full backlog and phase grouping. This table holds
 only the next 1–3 milestones so it stays readable.)
