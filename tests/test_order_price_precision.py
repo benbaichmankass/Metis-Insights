@@ -134,3 +134,151 @@ def test_static_map_covers_all_actively_routed_symbols():
         assert sym == sym.upper()
         assert cat == cat.lower()
         assert cat in {"spot", "linear", "inverse"}
+
+
+# ---------------------------------------------------------------------------
+# BUG-057 reopen — live_instrument_diagnostic
+# ---------------------------------------------------------------------------
+
+
+def test_live_instrument_diagnostic_returns_full_record():
+    """Captures the full priceFilter + lotSizeFilter so the operator
+    can see Bybit's ground-truth precision the next time 170134 fires.
+    Bypasses the cache (always hits the wire)."""
+    class FakeClient:
+        def get_instruments_info(self, *, category, symbol):
+            return {"result": {"list": [{
+                "symbol": symbol,
+                "status": "Trading",
+                "priceFilter": {"tickSize": "0.10", "minPrice": "0.01"},
+                "lotSizeFilter": {"basePrecision": "0.000001",
+                                  "minOrderAmt": "1"},
+            }]}}
+
+    out = precision.live_instrument_diagnostic(FakeClient(), "BTCUSDT", "spot")
+    assert out is not None
+    assert out["symbol"] == "BTCUSDT"
+    assert out["category"] == "spot"
+    assert out["status"] == "Trading"
+    assert out["priceFilter"]["tickSize"] == "0.10"
+    assert out["lotSizeFilter"]["basePrecision"] == "0.000001"
+
+
+def test_live_instrument_diagnostic_returns_none_on_client_error():
+    """Diagnostics on the failure path must never amplify the failure —
+    a broken client returns None, not a raise."""
+    class BrokenClient:
+        def get_instruments_info(self, *_a, **_kw):
+            raise RuntimeError("network down")
+
+    assert precision.live_instrument_diagnostic(
+        BrokenClient(), "BTCUSDT", "spot",
+    ) is None
+
+
+def test_live_instrument_diagnostic_returns_none_for_empty_list():
+    class EmptyClient:
+        def get_instruments_info(self, *_a, **_kw):
+            return {"result": {"list": []}}
+
+    assert precision.live_instrument_diagnostic(
+        EmptyClient(), "UNKNOWN", "spot",
+    ) is None
+
+
+# ---------------------------------------------------------------------------
+# BUG-057 reopen — _log_170134_diagnostic in execute.py
+# ---------------------------------------------------------------------------
+
+
+def test_log_170134_diagnostic_emits_structured_record(caplog):
+    """The diagnostic must log a single ERROR with the
+    ``BUG-057-DIAG`` prefix, the exact SL/TP we sent, and the live
+    priceFilter/lotSizeFilter."""
+    import logging
+
+    from src.units.accounts import execute
+
+    class FakeClient:
+        def get_instruments_info(self, *, category, symbol):
+            return {"result": {"list": [{
+                "symbol": symbol, "status": "Trading",
+                "priceFilter": {"tickSize": "0.10"},
+                "lotSizeFilter": {"basePrecision": "0.000001",
+                                  "minOrderAmt": "1"},
+            }]}}
+
+    order = {
+        "symbol": "BTCUSDT", "side": "Buy", "qty": 0.002,
+        "sl": 81072.4823841, "tp": 81854.0098765,
+    }
+    account_cfg = {"account_id": "bybit_2"}
+
+    with caplog.at_level(logging.ERROR, logger="src.units.accounts.execute"):
+        execute._log_170134_diagnostic(FakeClient(), order, account_cfg, "spot")
+
+    matches = [r for r in caplog.records if "BUG-057-DIAG" in r.getMessage()]
+    assert len(matches) == 1, f"expected 1 BUG-057-DIAG record, got {len(matches)}"
+    msg = matches[0].getMessage()
+    assert "account=bybit_2" in msg
+    assert "symbol=BTCUSDT" in msg
+    assert "category=spot" in msg
+    assert "qty=0.002" in msg
+    # Raw value preserved so the operator sees what arithmetic produced
+    # (binary-float noise included).
+    assert "sl_raw=81072.4823841" in msg
+    # Quantized value matches what reaches Bybit.
+    assert "sl_sent='81072.48'" in msg
+    assert "tp_sent='81854.01'" in msg
+    # Live filters captured.
+    assert "live_priceFilter={'tickSize': '0.10'}" in msg
+    assert "live_status=Trading" in msg
+
+
+def test_log_170134_diagnostic_safe_when_instruments_info_raises(caplog):
+    """If get_instruments_info raises, the diagnostic still emits the
+    record with ``live_priceFilter=None`` rather than blowing up the
+    failure path."""
+    import logging
+
+    from src.units.accounts import execute
+
+    class BrokenClient:
+        def get_instruments_info(self, *_a, **_kw):
+            raise RuntimeError("network down")
+
+    order = {"symbol": "BTCUSDT", "qty": 0.002,
+             "sl": 81072.48, "tp": 81854.00}
+
+    with caplog.at_level(logging.ERROR, logger="src.units.accounts.execute"):
+        execute._log_170134_diagnostic(
+            BrokenClient(), order, {"account_id": "bybit_2"}, "spot",
+        )
+
+    matches = [r for r in caplog.records if "BUG-057-DIAG" in r.getMessage()]
+    assert len(matches) == 1
+    msg = matches[0].getMessage()
+    assert "live_priceFilter=None" in msg
+    assert "live_status=None" in msg
+    # The static-map tick still shows so we record what we WOULD have sent.
+    assert "static_tick=0.01" in msg
+
+
+def test_log_170134_diagnostic_never_raises_even_if_client_is_none(caplog):
+    """``client is None`` is a degenerate case the failure path must
+    survive (e.g. a torn-down session). The function logs and returns."""
+    import logging
+
+    from src.units.accounts import execute
+
+    order = {"symbol": "BTCUSDT", "qty": 0.002, "sl": 81072.48, "tp": 81854.00}
+
+    with caplog.at_level(logging.ERROR, logger="src.units.accounts.execute"):
+        execute._log_170134_diagnostic(
+            None, order, {"account_id": "bybit_2"}, "spot",
+        )
+
+    # Even with a None client, the static-map tick still resolves and
+    # the diagnostic emits.
+    matches = [r for r in caplog.records if "BUG-057-DIAG" in r.getMessage()]
+    assert len(matches) == 1

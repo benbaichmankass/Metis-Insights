@@ -92,3 +92,41 @@ def quantize_price(value: float, tick: Decimal) -> str:
     d = Decimal(str(value))
     quotient = (d / tick).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
     return str((quotient * tick).quantize(tick))
+
+
+def live_instrument_diagnostic(
+    client: Any, symbol: str, category: str,
+) -> Optional[Dict[str, Any]]:
+    """Fetch the full ``priceFilter`` + ``lotSizeFilter`` for diagnostics.
+
+    BUG-057 reopen (2026-05-06): post-#420, Bybit still rejects spot
+    BTCUSDT SL/TP values that are quantized to the static-map's 0.01
+    tick. Either the static map is wrong or the SL/TP precision rule
+    on spot Market orders differs from ``priceFilter.tickSize``. This
+    helper captures the raw filters from a fresh ``get_instruments_info``
+    call (no cache) so the next live failure logs ground-truth data
+    the operator can use to pick a fix.
+
+    Returns ``None`` if the client raises or returns an empty list.
+    Never raises — diagnostics on the failure path must not amplify
+    the failure.
+    """
+    try:
+        resp = client.get_instruments_info(category=category, symbol=symbol)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "live_instrument_diagnostic: get_instruments_info raised "
+            "for %s %s: %s", category, symbol, exc,
+        )
+        return None
+    items = ((resp or {}).get("result") or {}).get("list") or []
+    if not items:
+        return None
+    item = items[0] or {}
+    return {
+        "symbol": item.get("symbol"),
+        "category": category,
+        "status": item.get("status"),
+        "priceFilter": item.get("priceFilter") or {},
+        "lotSizeFilter": item.get("lotSizeFilter") or {},
+    }
