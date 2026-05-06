@@ -5,6 +5,144 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-06-S-014-02 — S-014 M2 PR #1 (login flow) opened DRAFT + ping-PR fired
+
+- **Session date:** 2026-05-06
+- **Sprint:** S-014 — Web Client V1 (Home Dashboard). Continuing from
+  `CP-2026-05-06-S-014-01` (M3 PR #3 merged as #414).
+- **Current sprint phase:** M2 PR #1 in PM review; M2 PR #2 + M4
+  PR #1 remain.
+- **Last completed checkpoint:** `CP-2026-05-06-S-014-01` (PR #414
+  merged, equity sparkline live).
+- **Next checkpoint:** **CP-2026-05-06-S-014-03** — work on either
+  (a) M2 PR #2 (HTMX 401-driven redirect, also PM-review-gated), or
+  (b) M4 PR #1 (sprint close — summary + ROADMAP + smoke-test
+  appendix), depending on whether the PM has cleared M2 PR #1
+  (#415) yet. Recommended: M2 PR #2 next so both PM-review PRs are
+  ready for the operator to review together; defer M4 close until
+  M2 lands.
+- **Telegram sent:** **yes** — ping-PR #416 merged at `bbace53` with
+  payload appended to `docs/claude/pending-pings.jsonl`. The VM-side
+  drainer will surface the notification on the next git-sync cycle
+  (≤ 5 min).
+- **Alerts sent during session:** the merged ping-PR is the alert.
+- **Blockers:** **PM review on PR #415** (M2 PR #1, login form fetch
+  + JWT pre-expiry timer). Per `sprint-014-prompt.md` § Guardrails
+  (8), M2 PRs cannot be self-merged. Following sessions can keep
+  working on autonomous-mergeable PRs (M3 PR #3 already shipped;
+  next autonomous candidate is M4 sprint close, but it should follow
+  M2's merge for accuracy).
+
+### 1. Completed
+
+- **Built S-014 M2 PR #1** (PR #415, **draft** for PM review):
+  extended `web/static/js/auth.js` with three new functions and an
+  expanded `IctAuth` API:
+  - `decodeJwtPayload(token)` — base64url-aware JWT payload decoder.
+    Returns `null` on any error (no DoS surface from a malformed
+    token in localStorage). No client-side signature check —
+    server is the source of truth per the auth contract.
+  - `scheduleExpiryRedirect()` — sets a `setTimeout` to clear the
+    token and replace location with `/login`, firing
+    `PRE_EXPIRY_MS` (60s) before the JWT `exp` claim.
+    Already-expired tokens are cleared and redirected immediately.
+  - `wireLoginForm()` — listens for `#login-form` submit,
+    `preventDefault`s the default form post, fetches
+    `/api/auth/login` with `Content-Type: application/json`,
+    extracts `access_token` from the JSON response, persists via
+    `setToken()`, redirects to `/home`. Surfaces failures inline:
+    401 → "Invalid credentials.", 403 → "Not allowlisted.",
+    network/5xx/malformed JSON → "Service unavailable. Try again."
+  - `IctAuth` extended: `setToken`, `decodeJwtPayload`,
+    `scheduleExpiryRedirect`, `submitLogin`, plus documented
+    constants (`TOKEN_KEY`, `LOGIN_PATH`, `HOME_PATH`,
+    `LOGIN_API`, `PRE_EXPIRY_MS`).
+- **Tests added** to `tests/test_web_api_ui.py`:
+  - `test_login_page_renders_html` extended with assertions on
+    `id="login-form"` and `id="login-error"`.
+  - `test_auth_js_wires_login_form_and_pre_expiry_timer` (new):
+    static-source contract on `/static/js/auth.js` — login
+    wiring (`/api/auth/login`, `login-form`, `access_token`,
+    `/home`) AND pre-expiry timer (`decodeJwtPayload`,
+    `scheduleExpiryRedirect`, `PRE_EXPIRY_MS`, `setTimeout`)
+    AND token storage key (`ict_session_token`).
+- **Opened PR #415 as draft** with title prefix
+  `BLOCKED (PM REVIEW):` per the ping-PR vs work-PR rules.
+- **Filed ping-PR #416** on branch `claude/ping-s014-m2-pr1`:
+  appended a single `blocker_pm` entry to
+  `docs/claude/pending-pings.jsonl` linking back to #415 + the
+  chat URL. Self-merged immediately at `bbace53` so the VM-side
+  drainer fires the Telegram notification on the next git-sync.
+- **Course-corrected branch base** mid-session: the M2 PR #1 working
+  branch was initially created off a stale local `main` (51 commits
+  behind `origin/main`); recreated via `git switch -C` against
+  `origin/main` after fetching. Local `main` was also fast-forwarded
+  to `origin/main` so future sessions don't trip on the same drift.
+
+### 2. Files changed
+
+PR #415 (M2 PR #1, draft for PM review):
+- `web/static/js/auth.js` (extended, ~+150 lines)
+- `tests/test_web_api_ui.py` (1 new test + 2 assertions added)
+
+PR #416 (ping-PR, merged):
+- `docs/claude/pending-pings.jsonl` (1 line appended)
+
+This checkpoint PR:
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+
+- `node --check web/static/js/auth.js` — syntax ok.
+- `python -c "compile(open('tests/test_web_api_ui.py').read(), ..., 'exec')"` — pass.
+- `python scripts/secret_scan.py` — pass.
+- `python scripts/check_dry_run_in_diff.py` — clean (live-mode
+  invariant ✅).
+- `python scripts/repo_inventory.py` — pass.
+- Sandbox lacks `fastapi`; CI on PR #415 + this checkpoint PR runs
+  the real test suite.
+
+### 4. Remaining
+
+- **Pending operator action:** review and (if approved) merge PR #415
+  (M2 PR #1).
+- **M2 PR #2** — HTMX 401-driven redirect + 403 toast in `auth.js`
+  (`htmx:responseError` listener). Also PM-review-gated. Can be
+  drafted in parallel with M2 PR #1's review.
+- **M4 PR #1** — sprint close: `docs/sprint-summaries/sprint-014-summary.md`,
+  S-014 smoke-test appendix to `docs/audit/sprint-013-deployment-runbook.md`,
+  ROADMAP S-014 → ✅ Done, milestone-state advance to S-015,
+  `CP — S-014 SPRINT COMPLETE` checkpoint. Should ride after M2
+  lands; if PM is unreachable, can file with M2 explicitly noted as
+  deferred to a follow-on.
+
+### 5. Next checkpoint
+
+**CP-2026-05-06-S-014-03** — file M2 PR #2 (HTMX 401 + 403 handling)
+as another draft + ping-PR pair, OR proceed to M4 PR #1 close if PM
+already approved M2 PR #1. Read in order: this entry,
+`docs/sprints/sprint-014-prompt.md` § M2 PR #2,
+`web/static/js/auth.js` (current state on `main` after the
+work-PR #415 merges).
+
+### Live-mode check
+
+✅ No flip away from live anywhere in the diffs across this session
+(PRs #414, #415, #416, this checkpoint). Web-client-only — no
+`src/runtime/`, `src/units/accounts/*`, `config/accounts.yaml`, or
+`.env*` template touched. The existing per-account `mode: live`
+contract from BUG-056 stands.
+`scripts/check_dry_run_in_diff.py` → clean across all branches.
+
+### Operator-action pings count for this session
+
+- **PR #413 → merged** (M-S0 closure, docs-only).
+- **PR #414 → merged** (M3 PR #3 equity sparkline, autonomous Tier 2).
+- **PR #415 → DRAFT** (M2 PR #1 login flow, PM-review-gated).
+- **PR #416 → merged** (ping-PR for #415; payload in pending-pings.jsonl).
+
+---
+
 ## CP-2026-05-06-S-014-01 — S-014 resume + M3 PR #3 (equity sparkline JS)
 
 - **Session date:** 2026-05-06
