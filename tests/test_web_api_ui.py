@@ -44,6 +44,15 @@ def test_static_chart_js_is_served():
     assert "Chart.js v4.4.7" in resp.text
 
 
+def test_static_equity_chart_js_is_served():
+    resp = _client().get("/static/js/equity_chart.js")
+    assert resp.status_code == 200
+    body = resp.text
+    assert "/api/pnl/history?days=7" in body
+    assert "ict_session_token" in body or "IctAuth" in body
+    assert "equity-chart" in body
+
+
 def test_login_page_renders_html():
     resp = _client().get("/login")
     assert resp.status_code == 200
@@ -67,6 +76,7 @@ def test_home_page_renders_without_server_side_auth():
     assert "/static/js/htmx.min.js" in body
     assert "/static/js/chart.umd.js" in body
     assert "/static/js/auth.js" in body
+    assert "/static/js/equity_chart.js" in body
     # Wired HTMX fragment containers — M3 surface.
     assert "/ui/fragments/status" in body
     assert "/ui/fragments/pnl" in body
