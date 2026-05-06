@@ -1,6 +1,6 @@
 # ICT Trading Bot — Product Roadmap
 
-> **Last Updated:** 2026-05-02 (S-013 closed; S-014 is next; recurring-session program added)
+> **Last Updated:** 2026-05-06 (S0 — Workflow Foundation in progress; S-013 closed; S-014 is next; recurring-session program added)
 > **Maintained by:** PM (Ben) + Tech Lead (Perplexity)
 > **Sprint prompt files:** `docs/sprints/sprint-NNN-prompt.md`
 
@@ -31,6 +31,7 @@
 | Sprint | Title | Status |
 |--------|-------|--------|
 | S-000 | Repo hygiene, CLAUDE.md hardening, checkpoint system | ✅ Done |
+| S0 | **Workflow Foundation** — master workplan, operating protocol, decomposition rules, milestone-state file (M-S0) | 🔄 In Progress |
 
 ---
 
