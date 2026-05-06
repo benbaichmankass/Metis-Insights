@@ -27,6 +27,7 @@ from typing import Any, Optional
 from src.core.coordinator import OrderPackage, is_paused
 from src.units.accounts.precision import (
     get_tick_size,
+    invalidate_tick_cache,
     live_instrument_diagnostic,
     quantize_price,
 )
@@ -271,6 +272,7 @@ def _submit_test_order(client: Any, order: dict, account_cfg: dict) -> str:
             _log_170134_diagnostic(
                 client, order, account_cfg, _bybit_category(account_cfg),
             )
+            invalidate_tick_cache(order["symbol"], _bybit_category(account_cfg))
         return f"rejected_too_small:{reason}"
     return f"rejected_too_small:unsupported exchange {exchange}"
 
@@ -389,12 +391,14 @@ def _submit_order(client: Any, order: dict, account_cfg: dict) -> str:
         # values quantized to the static-map's 0.01 tick with retCode
         # 170134. On every 170134, log the live instrument filters +
         # the exact SL/TP we sent so the next failure tells us
-        # ground-truth precision. Read-only diagnostic — no behaviour
-        # change to the order path.
+        # ground-truth precision. Then invalidate the tick cache so the
+        # next order forces a fresh live lookup rather than repeating the
+        # same bad value.
         if exchange == "bybit" and "170134" in str(exc):
             _log_170134_diagnostic(
                 client, order, account_cfg, _bybit_category(account_cfg),
             )
+            invalidate_tick_cache(order["symbol"], _bybit_category(account_cfg))
         try:
             from src.runtime.api_reporting import report_api_failure
             report_api_failure(
@@ -687,8 +691,7 @@ def close_open_position(
 ) -> dict:
     """Place a reduce-only market order to flatten an open position.
 
-    *side* is the side of the original entry (``"long"`` or ``"short"``);
-    the close order is the opposite side. *qty* is the position size
+    *side* is the side of the original entry (``"long"`` or ``"short"``);\n    the close order is the opposite side. *qty* is the position size
     to close (typically the size of the original entry).
 
     Bybit-only for v1. Returns a result dict.

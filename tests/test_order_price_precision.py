@@ -50,15 +50,32 @@ def test_quantize_price_handles_sub_tick_value():
 # ---------------------------------------------------------------------------
 
 
-def test_get_tick_size_static_btc_spot_no_network():
-    """Known pair must be served from the static map without
-    touching the client."""
+def test_get_tick_size_prefers_live_over_static():
+    """Live lookup is attempted first; the returned value is used even
+    when it differs from the static map entry."""
+    # Clear any cached entry so this test is order-independent.
+    precision._LIVE_CACHE.pop(("BTCUSDT", "spot"), None)
 
-    class ExplodingClient:
+    class LiveClient:
+        def get_instruments_info(self, *, category, symbol):
+            return {"result": {"list": [{"priceFilter": {"tickSize": "0.50"}}]}}
+
+    result = get_tick_size(LiveClient(), "BTCUSDT", "spot")
+    assert result == Decimal("0.50")
+    # Restore so subsequent tests are not contaminated.
+    precision._LIVE_CACHE.pop(("BTCUSDT", "spot"), None)
+
+
+def test_get_tick_size_falls_back_to_static_on_network_failure():
+    """Live lookup is attempted first; when it fails the static map
+    is used as a fallback. BTCUSDT spot falls back to 0.01."""
+    precision._LIVE_CACHE.pop(("BTCUSDT", "spot"), None)
+
+    class FailingClient:
         def get_instruments_info(self, **_kw):
-            raise AssertionError("static map should preempt the network call")
+            raise RuntimeError("simulated network failure")
 
-    assert get_tick_size(ExplodingClient(), "BTCUSDT", "spot") == Decimal("0.01")
+    assert get_tick_size(FailingClient(), "BTCUSDT", "spot") == Decimal("0.01")
 
 
 def test_get_tick_size_static_btc_linear():
@@ -104,6 +121,7 @@ def test_get_tick_size_falls_back_on_empty_response():
 
 
 def test_get_tick_size_normalises_case():
+    precision._LIVE_CACHE.pop(("BTCUSDT", "spot"), None)
     assert get_tick_size(None, "btcusdt", "SPOT") == Decimal("0.01")
 
 
@@ -114,12 +132,15 @@ def test_get_tick_size_normalises_case():
 
 def test_executor_kwargs_pass_bybit_decimal_check():
     """End-to-end shape: feed the production SL/TP values through
-    the helper exactly the way ``execute._submit_order`` does."""
+    the helper exactly the way ``execute._submit_order`` does.
+    Uses None client so the static-map fallback (0.01) is exercised."""
+    precision._LIVE_CACHE.pop(("BTCUSDT", "spot"), None)
     tick = get_tick_size(None, "BTCUSDT", "spot")
     sl = quantize_price(81199.1764251841, tick)
     tp = quantize_price(81899.98467877129, tick)
     # Bybit's 170134 rejects when the decimal places exceed the tick;
-    # a 2-decimal string is the contract for BTCUSDT spot.
+    # a 2-decimal string is the contract for BTCUSDT spot (static-map
+    # fallback = 0.01; live API may return a different value).
     assert sl.count(".") == 1 and len(sl.split(".")[1]) == 2
     assert tp.count(".") == 1 and len(tp.split(".")[1]) == 2
     assert sl == "81199.18"
@@ -194,10 +215,18 @@ def test_live_instrument_diagnostic_returns_none_for_empty_list():
 def test_log_170134_diagnostic_emits_structured_record(caplog):
     """The diagnostic must log a single ERROR with the
     ``BUG-057-DIAG`` prefix, the exact SL/TP we sent, and the live
-    priceFilter/lotSizeFilter."""
+    priceFilter/lotSizeFilter.
+
+    With the live-first priority fix, the FakeClient's 0.10 tick is
+    used for quantization, so sl_sent and tp_sent reflect 0.10 precision.
+    """
     import logging
 
     from src.units.accounts import execute
+
+    # Prevent contamination from a previous test that cached a different
+    # tick for BTCUSDT spot.
+    precision._LIVE_CACHE.pop(("BTCUSDT", "spot"), None)
 
     class FakeClient:
         def get_instruments_info(self, *, category, symbol):
@@ -224,24 +253,29 @@ def test_log_170134_diagnostic_emits_structured_record(caplog):
     assert "symbol=BTCUSDT" in msg
     assert "category=spot" in msg
     assert "qty=0.002" in msg
-    # Raw value preserved so the operator sees what arithmetic produced
-    # (binary-float noise included).
+    # Raw value preserved so the operator sees what arithmetic produced.
     assert "sl_raw=81072.4823841" in msg
-    # Quantized value matches what reaches Bybit.
-    assert "sl_sent='81072.48'" in msg
-    assert "tp_sent='81854.01'" in msg
+    # Quantized to the live tick (0.10) that the FakeClient returns.
+    assert "sl_sent='81072.50'" in msg
+    assert "tp_sent='81854.00'" in msg
     # Live filters captured.
     assert "live_priceFilter={'tickSize': '0.10'}" in msg
     assert "live_status=Trading" in msg
+    # Restore cache so subsequent tests are not contaminated.
+    precision._LIVE_CACHE.pop(("BTCUSDT", "spot"), None)
 
 
 def test_log_170134_diagnostic_safe_when_instruments_info_raises(caplog):
     """If get_instruments_info raises, the diagnostic still emits the
     record with ``live_priceFilter=None`` rather than blowing up the
-    failure path."""
+    failure path. The tick falls back to the static map (0.01)."""
     import logging
 
     from src.units.accounts import execute
+
+    # Clear any cached entry to ensure the live lookup is attempted
+    # (and fails), falling back to the static map value.
+    precision._LIVE_CACHE.pop(("BTCUSDT", "spot"), None)
 
     class BrokenClient:
         def get_instruments_info(self, *_a, **_kw):
@@ -260,7 +294,7 @@ def test_log_170134_diagnostic_safe_when_instruments_info_raises(caplog):
     msg = matches[0].getMessage()
     assert "live_priceFilter=None" in msg
     assert "live_status=None" in msg
-    # The static-map tick still shows so we record what we WOULD have sent.
+    # Live lookup failed, so the static-map tick (0.01) is used.
     assert "static_tick=0.01" in msg
 
 
