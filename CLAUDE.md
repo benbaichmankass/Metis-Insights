@@ -2,36 +2,51 @@
 
 Lean router for Claude Code sessions in the ICT Trading Bot repo.
 
-## CANONICAL WORKPLAN — SINGLE SOURCE OF TRUTH (read first, every session)
+## CANONICAL WORKPLAN — THE DECIDER (read first, every session)
 
-**Read `docs/claude/workplan.md` before anything else** — including the
-rest of this file. The workplan is the **single source of truth** for
-what the project is building, the merge tier model, the bot
-responsibilities, the strategy timeframe rule, the milestone roadmap
-(M0..M10), the auto-task routine, and every other architectural
-constraint.
+**Read `docs/claude/workplan.md` first, every session.** It is the
+**decider** for what the project is building, the merge tier model,
+the bot responsibilities, the strategy timeframe rule, the milestone
+roadmap (M0..M10), the auto-task routine, and every other
+architectural constraint.
 
-**The workplan overrides everything that contradicts it.** If anything
-in this CLAUDE.md, `ROADMAP.md`, `docs/claude/milestone-state.md`, the
+**Repo boundary reminder:** the dashboard web app lives in a
+**separate repo** and runs on **Vercel**, not the Oracle VM. Do not
+add web-app source code, build configs, or dashboard UI files to
+`ict-trading-bot`. This repo's job is to publish a clean data feed
+the dashboard consumes; everything from the feed onwards lives in
+the dashboard repo. See `docs/claude/workplan.md` § "Dashboard apps —
+Repo and hosting boundary" for the full rule.
+
+**The workplan does NOT replace the rest of the documentation.** This
+file (CLAUDE.md), `README.md`, the per-task docs in `docs/claude/`,
+and the rest of the repo's instructions all stay required reading —
+they hold operational detail, conventions, runbooks, and context the
+workplan does not duplicate. Continue using them.
+
+**The workplan is the decider when there's a conflict.** If anything
+in CLAUDE.md, `README.md`, `ROADMAP.md`, `docs/claude/*.md`, the
 checkpoint log, sprint prompts, code comments, or any other tracked
-file disagrees with the workplan, the **workplan wins** — silently
-update the contradicting content (or remove it) as you encounter it.
-Do not preserve outdated guidance because it was canonical at some
-prior checkpoint.
+file disagrees with the workplan, the **workplan wins**. Reconcile
+the conflict — update the contradicting doc to match the workplan,
+or consolidate it into the workplan, in this session. Don't preserve
+contradictions silently.
 
 **Verify before trusting "done".** When a milestone, sprint, task, or
 file is marked complete in any doc / checkpoint / sprint summary, do
 not accept the "done" status at face value. Verify the on-disk state
 matches what the workplan requires. If the on-disk state has drifted
 from the workplan (or never matched it), fix the drift in this
-session before continuing other work — even if some prior session
+session before continuing other work — even if a prior session
 claimed it was finished.
 
-**Declutter authorization.** Anything not in the workplan is out of
-scope and may be removed without ceremony — no migration sprint
-required. The workplan is exhaustive; if a doc, sprint, or checkpoint
-references something the workplan doesn't list, treat it as cruft
-unless the operator says otherwise.
+**Consolidation, not deletion.** If documentation is bloated or
+redundant, it's fine to consolidate — fewer docs that say the same
+thing more clearly. But **don't delete unique content** just because
+it isn't restated in the workplan. The workplan is the constitutional
+layer; the other docs hold the operational substance. Only remove
+docs that genuinely duplicate workplan content or describe a state
+the workplan has explicitly superseded.
 
 **Sprints continue.** Sprints (per `docs/claude/sprint-planning.md`)
 remain the unit of work. Sprints execute *against* the workplan; the

@@ -5,6 +5,110 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-06-10-workplan-clarification — Workplan is the decider (not a replacement); dashboard repo + Vercel hosting boundary made explicit
+
+- **Session date:** 2026-05-06
+- **Sprint:** ad-hoc (operator clarification follow-up to PR #428).
+  Out-of-band; does not consume an S-NNN slot.
+- **Active milestone:** unchanged (per the workplan, M0..M10 series;
+  next session reconciles `milestone-state.md` + `ROADMAP.md`).
+- **Last completed checkpoint:** `CP-2026-05-06-09-canonical-workplan`
+  (PR #428 — adopted workplan.md as canonical).
+- **Telegram sent:** the merge of this checkpoint commit on `main`
+  fires one ping via `@claude_ict_comms_bot` (post-BUG-059 routing,
+  no duplicate via BUG-058 dedupe).
+- **Alerts sent during session:** none (this is a follow-up).
+- **Blockers:** none.
+
+### 1. Completed
+
+**Two operator clarifications (2026-05-06, post-#428) folded into
+one PR:**
+
+#### Clarification 1 — Workplan is the *decider*, not a *replacement*
+
+The canonical workplan rule must NOT be misread as "ignore all
+other docs" or "delete anything not in the workplan." The previous
+PR's language (particularly "Declutter authorization") read more
+aggressively than intended. This PR softens the framing so future
+sessions don't nuke unique content.
+
+- **`CLAUDE.md`** top section retitled "CANONICAL WORKPLAN — THE
+  DECIDER" (was "SINGLE SOURCE OF TRUTH"). New explicit paragraph:
+  *"The workplan does NOT replace the rest of the documentation.
+  This file (CLAUDE.md), `README.md`, the per-task docs in
+  `docs/claude/`, and the rest of the repo's instructions all stay
+  required reading — they hold operational detail, conventions,
+  runbooks, and context the workplan does not duplicate. Continue
+  using them."* "Declutter authorization" bullet replaced with
+  "Consolidation, not deletion" — fewer docs that say the same
+  thing more clearly is fine, but don't delete unique content just
+  because the workplan doesn't restate it.
+- **`docs/claude/workplan.md`** preamble mirrored.
+
+#### Clarification 2 — Dashboard repo + Vercel hosting boundary
+
+Operator confirmed the dashboard web app lives in a **separate
+repo** and runs on **Vercel**, NOT the Oracle VM. This was implicit
+in the original workplan but never made explicit. Without an
+explicit rule, the trader repo risked accumulating dashboard
+source code (UI, build configs, layouts) that belong elsewhere.
+
+- **`docs/claude/workplan.md`** § "Dashboard apps" gains a new
+  "Repo and hosting boundary (MANDATORY)" subsection: dashboard
+  source lives in a separate repo, hosted on Vercel, NOT the
+  Oracle VM. Trader repo publishes a clean data feed; dashboard
+  is a pure consumer (does not import trader code, does not read
+  trader DBs / journals / runtime logs directly). When work is
+  needed on the dashboard UI, open a session in the dashboard
+  repo. When work is needed on what the dashboard consumes, that's
+  a sprint in this repo that ends with the new feed shape
+  documented for the dashboard session.
+- **`CLAUDE.md`** gains a "Repo boundary reminder" paragraph in
+  the canonical-workplan section pointing future sessions at the
+  workplan's full rule.
+
+The verify-before-trusting-done rule and monotonic sprint numbering
+(next = S-041) carry forward unchanged.
+
+### 2. Files changed
+
+- `CLAUDE.md` (top section softened + Vercel boundary reminder).
+- `docs/claude/workplan.md` (preamble softened + new "Repo and
+  hosting boundary" subsection under "Dashboard apps").
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry).
+
+### 3. Tests run
+
+- `python scripts/secret_scan.py` — clean.
+- `python scripts/check_dry_run_in_diff.py` — clean.
+- No new pytest tests added (docs-only PR).
+
+### 4. Remaining
+
+- Carry-over from `CP-2026-05-06-09-canonical-workplan` is
+  unchanged: next session reconciles `milestone-state.md`,
+  `ROADMAP.md`, and existing `docs/sprints/*.md` prompts with the
+  workplan's M0..M10 table via verify-before-trusting-done. Per
+  this clarification: the reconciliation **consolidates and
+  updates** rather than deleting unique content.
+
+### 5. Next checkpoint
+
+**CP-2026-05-NN-NN — Verify-before-trusting-done sweep:
+reconcile milestone-state + ROADMAP + sprint prompts with the
+workplan (consolidation pass)** — same as previous next-checkpoint
+pointer, but with the explicit guardrail that consolidation is the
+mode, not deletion. The next sprint to file uses **S-041**.
+
+### Live-mode check
+
+✅ No live-trading code touched. CLAUDE.md, workplan.md, and the
+checkpoint log are all docs. `scripts/check_dry_run_in_diff.py`
+clean.
+
+---
+
 ## CP-2026-05-06-09-canonical-workplan — Adopt workplan.md as single source of truth + monotonic sprint numbering rule
 
 - **Session date:** 2026-05-06
