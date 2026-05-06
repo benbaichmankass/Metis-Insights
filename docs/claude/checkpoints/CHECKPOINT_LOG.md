@@ -5,6 +5,112 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-06-bugfix-01 — BUG-057 Bybit `170134` price-precision fix (one-off, merged)
+
+- **Session date:** 2026-05-06
+- **Sprint:** none — one-off bug fix triggered by an operator paste of
+  the production rejection log. Outside any active sprint.
+- **Active milestone:** M-S-015 (Web Client V2 — Component Tabs) is
+  the next sprint per `CP-2026-05-06-S-014-COMPLETE`; this checkpoint
+  does not touch it.
+- **Last completed checkpoint:** `CP-2026-05-06-S-014-COMPLETE`
+  (S-014 closed earlier today).
+- **Telegram sent:** the commit on `main` for this PR triggers the
+  VM-side ping (`bug-fix` shape, normal priority).
+- **Blockers:** none.
+
+### 1. Completed (this session)
+
+| PR | Title | Outcome |
+|---|---|---|
+| #420 | fix(orders): quantize Bybit SL/TP to symbol tick size (170134) | ✅ merged (squash, CI scan ✅) |
+| (this PR) | docs: BUG-057 entry + this checkpoint | ⏳ this checkpoint PR |
+
+Production trace this resolves:
+
+```
+[ERROR] api_call → bybit_place_order_failed:
+  Order price has too many decimals. (ErrCode: 170134)
+  ... "stopLoss": "81199.1764251841", "takeProfit": "81899.98467877129"
+```
+
+After #420, the same SL/TP serialise as `"81199.18"` / `"81899.98"`
+(BTCUSDT spot, 0.01 tick).
+
+Mechanics:
+
+- New `src/units/accounts/precision.py` — `(symbol, category) →
+  tickSize` static map for the routed pairs, Bybit V5
+  `get_instruments_info` live lookup with process-lifetime cache for
+  misses, conservative 0.01 fallback so a flaky instruments-info
+  endpoint cannot block the order path.
+- `src/units/accounts/execute.py` — wired `quantize_price` into all
+  three Bybit submission paths (`_submit_order`,
+  `_submit_test_order`, `modify_open_order`).
+- `tests/test_order_price_precision.py` — 13 tests covering the
+  production rejection values, spot (0.01) and linear (0.10) ticks,
+  live-lookup-then-cache, broken-client fallback, empty-response
+  fallback, case normalisation.
+
+### 2. Files changed
+
+This checkpoint PR (docs-only):
+
+- `docs/claude/bug-log.md` (BUG-057 row)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+The fix PR (#420, already merged):
+
+- `src/units/accounts/precision.py` (new)
+- `src/units/accounts/execute.py` (3 quantize wirings + import)
+- `tests/test_order_price_precision.py` (new, 13 tests)
+
+### 3. Tests run
+
+- `PYTHONPATH=. pytest tests/test_order_price_precision.py -q` →
+  13 / 13 passing on the fix branch before merge.
+- `python scripts/secret_scan.py` → clean.
+- Full collect-only sweep: 1741 collected, 45 pre-existing pyyaml
+  collection errors (unchanged baseline).
+- CI on #420: `scan` job ✅.
+
+### 4. Remaining
+
+- Watch the next live BTCUSDT VWAP signal on `bybit_2` to confirm
+  the order lands without `170134`. If it does, BUG-057 is fully
+  closed; otherwise dig into whatever remains in the order path.
+- S-015 (Web Client V2) kickoff — still the next sprint per
+  `CP-2026-05-06-S-014-COMPLETE`.
+
+### 5. Next checkpoint
+
+**CP-YYYY-MM-DD-NN — S-015 kickoff** — unchanged from the previous
+checkpoint. Read in order: `CP-2026-05-06-S-014-COMPLETE`,
+`docs/claude/milestone-state.md`, `docs/sprint-summaries/sprint-014-summary.md`,
+`docs/sprints/sprint-015-prompt.md`, `docs/claude/sprint-planning.md`.
+
+### Live-mode check
+
+⚠️ #420 touched `src/units/accounts/execute.py` (the canonical
+live-order entry point). Per CLAUDE.md § Live-mode invariant rule 3,
+operator was pinged for review and explicitly approved the merge in
+this session. No `mode` flips, no `dry_run` / `paper` introductions,
+no env-var trading-mode flags touched.
+`scripts/check_dry_run_in_diff.py` → clean. This docs-only follow-up
+PR touches no runtime code.
+
+### Notes for future sessions
+
+- The local `main` in this sandbox was a 51-commit orphan timeline
+  (no shared ancestor with `origin/main`, last commit 2026-05-03,
+  PR #351 era). The fix branch was created off `origin/main`
+  directly to avoid the orphan. Same trap that
+  `CP-2026-05-06-S-014-COMPLETE` flagged in its
+  "Proposed CLAUDE.md improvements" item 1 — branch base
+  verification belongs in the resume rule.
+
+---
+
 ## CP-2026-05-06-S-014-COMPLETE — MILESTONE COMPLETE: M-S-014 (S-014 SPRINT COMPLETE)
 
 - **Session date:** 2026-05-06
