@@ -2,14 +2,56 @@
 
 Lean router for Claude Code sessions in the ICT Trading Bot repo.
 
-## First rule
+## CANONICAL WORKPLAN — SINGLE SOURCE OF TRUTH (read first, every session)
+
+**Read `docs/claude/workplan.md` before anything else** — including the
+rest of this file. The workplan is the **single source of truth** for
+what the project is building, the merge tier model, the bot
+responsibilities, the strategy timeframe rule, the milestone roadmap
+(M0..M10), the auto-task routine, and every other architectural
+constraint.
+
+**The workplan overrides everything that contradicts it.** If anything
+in this CLAUDE.md, `ROADMAP.md`, `docs/claude/milestone-state.md`, the
+checkpoint log, sprint prompts, code comments, or any other tracked
+file disagrees with the workplan, the **workplan wins** — silently
+update the contradicting content (or remove it) as you encounter it.
+Do not preserve outdated guidance because it was canonical at some
+prior checkpoint.
+
+**Verify before trusting "done".** When a milestone, sprint, task, or
+file is marked complete in any doc / checkpoint / sprint summary, do
+not accept the "done" status at face value. Verify the on-disk state
+matches what the workplan requires. If the on-disk state has drifted
+from the workplan (or never matched it), fix the drift in this
+session before continuing other work — even if some prior session
+claimed it was finished.
+
+**Declutter authorization.** Anything not in the workplan is out of
+scope and may be removed without ceremony — no migration sprint
+required. The workplan is exhaustive; if a doc, sprint, or checkpoint
+references something the workplan doesn't list, treat it as cruft
+unless the operator says otherwise.
+
+**Sprints continue.** Sprints (per `docs/claude/sprint-planning.md`)
+remain the unit of work. Sprints execute *against* the workplan; the
+workplan defines *what* to execute and *the rules* for execution.
+Sprint and checkpoint numbering is **monotonic and unique across the
+entire repo lifetime** — see `docs/claude/workplan.md` § "Sprint and
+checkpoint numbering" for the rule and the current snapshot (next
+sprint = **S-041**, highest used = S-035 with S-036..S-040 burned).
+
+## First rule (after reading the workplan)
 
 Do not load every project document by default. Start with this file, identify the task type, then read only the focused docs listed below.
 
-## Resume rule (read before anything else)
+## Resume rule (read before anything else, after the workplan)
 
 1. Read `docs/claude/checkpoints/CHECKPOINT_LOG.md` — the **most recent entry**
-   tells you exactly where to resume.
+   tells you exactly where to resume. **Verify on-disk state against the
+   workplan before accepting the "next checkpoint" pointer at face
+   value** — if the prior session's plan conflicts with the workplan,
+   the workplan wins and the next-checkpoint pointer changes.
 2. Read `docs/claude/checkpoint-workflow.md` for the rules.
 3. Only then read the task-specific docs below.
 

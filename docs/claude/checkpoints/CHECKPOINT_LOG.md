@@ -5,6 +5,150 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-06-09-canonical-workplan — Adopt workplan.md as single source of truth + monotonic sprint numbering rule
+
+- **Session date:** 2026-05-06
+- **Sprint:** ad-hoc (operator directive 2026-05-06 end-of-day —
+  adopt the new workplan as canonical source of truth and codify
+  the monotonic-numbering rule). Out-of-band; does not consume an
+  S-NNN slot.
+- **Active milestone:** **per the new workplan** (M0..M10). Old
+  M-S-NNN naming is superseded by this PR. The next session must
+  reconcile `docs/claude/milestone-state.md` and `ROADMAP.md` with
+  the workplan's M0..M10 table via verify-before-trusting-done.
+- **Last completed checkpoint:** `CP-2026-05-06-S-015-01` (S-015
+  kickoff). Today's earlier WPI kickoff PR (#427) was closed
+  without merging — superseded by this canonical-workplan PR.
+- **Telegram sent:** the merge of this checkpoint commit on
+  `main` fires one ping via `@claude_ict_comms_bot` (post-BUG-059
+  routing). No duplicate (post-BUG-058 dedupe). This is the
+  first end-of-day checkpoint to ride the corrected routing +
+  dedupe channel.
+- **Alerts sent during session:** PR #425 (BUG-057 BLOCKED draft)
+  earlier in session.
+- **Blockers:** none.
+
+### 1. Completed (this session, end-of-day)
+
+| PR | Title | Outcome |
+|---|---|---|
+| #422 | S-015 kickoff (Web Client V2 prompt) | ✅ merged |
+| #423 | BUG-058 dedupe — old pings don't re-fire on every merge | ✅ merged |
+| #424 | BUG-057 (c) diagnostic logging on Bybit 170134 | ✅ merged (operator approved) |
+| #425 | Ping-PR for #424 | ✅ merged |
+| #426 | BUG-059 — Claude pings → @claude_ict_comms_bot | ✅ merged |
+| #427 | S-WPI kickoff prompt | ❌ closed without merging (superseded) |
+| (this PR) | Canonical workplan + numbering rule | ⏳ this checkpoint PR |
+
+This PR's substantive changes:
+
+- **`docs/claude/workplan.md` (new)** — captures the operator's
+  2026-05-06 workplan **verbatim** as the single source of truth.
+  Includes the new `Sprint and checkpoint numbering` section
+  codifying the monotonic-numbering rule (sprints unique across
+  the entire repo lifetime; never reused, never re-numbered when
+  plans change; auto-task / ad-hoc / roadmap sprints all draw
+  from the same numeric sequence; current snapshot: highest used
+  = S-035, S-036..S-040 burned, **next sprint = S-041**).
+- **`CLAUDE.md`** — new top section
+  "**CANONICAL WORKPLAN — SINGLE SOURCE OF TRUTH**" before the
+  prior "First rule":
+  - Workplan must be read first, every session.
+  - Workplan overrides everything that contradicts it (silently
+    update or remove the contradicting content).
+  - **Verify-before-trusting-done**: when a task / milestone /
+    file is marked complete in any doc / checkpoint, verify the
+    on-disk state matches the workplan; if drifted, fix the
+    drift before continuing other work.
+  - **Declutter authorization**: anything not in the workplan is
+    out of scope and may be removed without ceremony.
+  - Sprints continue (per `sprint-planning.md`); workplan
+    defines *what* to build, sprints define *how* and *when*.
+  - Resume rule extended: verify on-disk state against the
+    workplan before accepting the latest checkpoint's
+    next-checkpoint pointer.
+- **`docs/claude/sprint-planning.md`** — added a "Source-of-truth
+  note" at the top deferring to `workplan.md` for the merge-tier
+  model + numbering rule + milestone roadmap. Added the
+  "Sprint numbering (binding)" section documenting **next = S-041**.
+
+### 2. Files changed
+
+- `docs/claude/workplan.md` (new — canonical workplan).
+- `CLAUDE.md` (new top section + resume-rule extension).
+- `docs/claude/sprint-planning.md` (source-of-truth note +
+  numbering section).
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry).
+
+### 3. Tests run
+
+- `python scripts/secret_scan.py` — clean.
+- `python scripts/check_dry_run_in_diff.py` — clean.
+- No new pytest tests added (docs-only PR).
+- Sprint number audit: `grep -rEho 'S-0?[0-9]{2,3}\b' docs/ src/
+  scripts/ tests/` → highest used = S-035 (architecture-audit
+  2026-05-02). S-040 is a single placeholder reference in
+  `tests/test_s031_pr5_file_reads_in_ui.py:237` ("Future work —
+  Backlog"). **Next monotonic sprint = S-041** (skip the burned
+  S-036..S-040 range to keep the convention safe).
+
+### 4. Remaining
+
+- Reconcile `docs/claude/milestone-state.md` with the workplan's
+  M0..M10 table (currently lists M-S-015 as Active; workplan has
+  the web app under M2 + M6).
+- Reconcile `ROADMAP.md` with the workplan's M0..M10 table.
+- Audit existing `docs/sprints/*.md` prompts for drift against
+  the workplan; mark superseded ones as such.
+- The next sprint to file (when one is needed) starts at
+  **S-041**.
+
+### 5. Next checkpoint
+
+**CP-2026-05-NN-NN — Verify-before-trusting-done sweep:
+reconcile milestone-state + ROADMAP + sprint prompts with the
+workplan** —
+
+1. Read `docs/claude/workplan.md` first (per the new CLAUDE.md
+   rule).
+2. Read this entry.
+3. `grep -rn "M-S-\|S-014\|S-015" docs/claude/milestone-state.md
+   ROADMAP.md docs/sprints/` to find every place the old framing
+   leaks into docs that the workplan now overrides.
+4. For each leak: verify whether the underlying work corresponds
+   to a workplan milestone (M0..M10); update the doc to use the
+   workplan's naming; verify the on-disk state matches what the
+   workplan requires for that milestone.
+5. The Active milestone in `milestone-state.md` should land on
+   the workplan's first not-yet-complete milestone after a
+   verify-before-trusting-done sweep of M0..M2.
+
+Concrete first action: branch `claude/s041-workplan-reconcile`
+off `origin/main` (S-041 = next monotonic per the new rule).
+
+### Live-mode check
+
+✅ No live-trading code touched. `CLAUDE.md`,
+`docs/claude/workplan.md`, `docs/claude/sprint-planning.md`, and
+the checkpoint log are all docs. `scripts/check_dry_run_in_diff.py`
+clean. Per-account `mode: live` contract from BUG-056 stands.
+
+### Notes for future sessions
+
+- The workplan is the **constitutional layer**. CLAUDE.md is the
+  **procedural layer**. ROADMAP.md, milestone-state.md, and
+  sprint prompts are derivative — when they conflict with the
+  workplan, the workplan wins, no migration sprint required.
+- Sprint numbers DO NOT reset when the plan changes. S-041 picks
+  up after S-035; if a future workplan revision introduces a new
+  milestone scheme, sprint numbers continue from wherever they
+  are at that moment.
+- Closed PR #427 (S-WPI kickoff) is preserved on its branch
+  (`claude/m0-workplan-integration-kickoff`) for historical
+  reference; the WPI prompt itself was never merged.
+
+---
+
 ## CP-2026-05-06-S-015-01 — S-015 kickoff (Web Client V2 — Component Tabs prompt rewrite)
 
 - **Session date:** 2026-05-06

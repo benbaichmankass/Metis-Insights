@@ -1,5 +1,20 @@
 # Sprint planning policy
 
+> **Source-of-truth note (2026-05-06):** This file is subordinate to
+> `docs/claude/workplan.md`. If anything here conflicts with the
+> workplan, the workplan wins. The workplan owns the merge-tier model,
+> the numbering rule, the milestone roadmap, and the
+> verify-before-trusting-done principle; this file owns the per-sprint
+> prompt template only.
+
+## Sprint numbering (binding)
+
+Sprint numbers are **monotonic and unique across the entire repo
+lifetime**. See `docs/claude/workplan.md` § "Sprint and checkpoint
+numbering" for the rule. As of 2026-05-06 the next sprint to file
+is **S-041** (highest used = S-035; S-036..S-040 are burned, do not
+reuse).
+
 Every sprint prompt committed under `docs/sprints/sprint-NNN-prompt.md` must
 satisfy this template before work starts. Title-only roadmaps and free-form
 prompts are no longer acceptable — they create rework, hidden dependencies,

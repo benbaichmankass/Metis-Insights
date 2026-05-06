@@ -1,0 +1,835 @@
+# AI Trader — Canonical Workplan (single source of truth)
+
+> **Authority:** This document is the canonical workplan for the
+> AI Trader project, captured verbatim from the operator on
+> **2026-05-06**. **It is the single source of truth.** When any
+> other doc, code, sprint prompt, checkpoint, ROADMAP entry, or
+> CLAUDE.md rule contradicts this file, **this file wins** —
+> the contradicting content must be brought into conformance or
+> removed.
+>
+> **Sprints continue.** This document does NOT replace the
+> sprint-based execution model — sprints (per
+> `docs/claude/sprint-planning.md`) remain the unit of work.
+> Sprints execute *against* this workplan; the workplan defines
+> *what* to execute and *the rules* for execution.
+>
+> **Verify-before-trusting-done.** When a milestone, sprint, or
+> task is marked "done" in any doc, the next session **must verify**
+> that the on-disk state actually conforms to this workplan before
+> accepting the "done" status. If on-disk state has drifted from
+> the workplan, fix the drift before continuing other work.
+>
+> **Declutter authorization.** Anything not in this workplan is
+> out of scope and may be removed silently — no migration sprint
+> required.
+
+---
+
+## Goal
+
+Maintain a portfolio of AI trading strategies that each target at
+least 1–2% weekly returns, with at least 2–3% weekly returns
+overall, while prioritizing safety, visibility, auditability, and
+controlled rollout of live behavior.
+
+## Current priorities
+
+The current phase of the project is **system hardening and
+operational visibility**, not aggressive expansion of broker /
+account infrastructure. Prop-trading infrastructure is **explicitly
+deferred** for now; it should not be built until the system is
+ready to support that trading mode in a deliberate later phase.
+The web app is now a **crucial near-term priority** because it is
+needed as a stable source of truth for understanding what the
+system is doing in real time and across sessions.
+
+## Core operating principles
+
+1. **Safety before expansion.** No new live behavior should be
+   introduced before risk controls, visibility, and validation
+   paths are in place.
+2. **Repo is the source of truth.** Plans, logs, comms artifacts,
+   workflows, and state transitions should be repo-tracked
+   wherever practical.
+3. **Claude autonomy is the default.** Claude should keep working
+   unless a task falls into a clearly defined approval category.
+4. **Visibility is mandatory.** The system should always expose
+   enough logs, dashboards, and status surfaces for the operator to
+   understand what it is doing.
+5. **Operator actions must be simple.** Any required VM action
+   should come with a one-click Colab notebook or similarly simple
+   copy-ready workflow written for a non-technical user.
+6. **Use paid compute carefully.** Claude should focus on repo
+   architecture, code changes, tests, and reviews, while Colab,
+   Google AI Studio, and Hugging Face should absorb as much
+   research and heavy compute work as possible.
+
+---
+
+## Milestone and session system
+
+Claude must always create and maintain a milestone plan, and each
+milestone must be broken into session-sized sprints and then
+further into checkpoints, regardless of whether the work is
+roadmap-based, ad hoc, or part of the recurring auto-task routine.
+
+### Sprint and checkpoint numbering (MANDATORY)
+
+Sprint numbers and checkpoint IDs are **monotonic and unique
+across the entire repo lifetime**, regardless of which workplan,
+roadmap, milestone, or sprint type they belong to. This is so the
+project can keep track of work thoroughly even when the plan
+changes mid-flight.
+
+**Sprints (`S-NNN`):**
+
+- The next sprint to file uses `(highest sprint number ever
+  assigned anywhere in the repo) + 1`. Search every tracked file
+  (docs, code, tests, summaries, comments) for `S-NNN` references
+  before picking the next number.
+- A sprint number is **fixed once assigned**. If the workplan
+  changes mid-flight and the sprint's scope or title shifts, the
+  sprint keeps its original number — only the title / scope
+  changes.
+- Numbers are **never reused**, never re-numbered, never
+  deleted. A cancelled or superseded sprint keeps its number;
+  the prompt file is annotated `SUPERSEDED by S-NNN` and left
+  in place.
+- Auto-task / ad-hoc / roadmap sprints all draw from the **same**
+  numeric sequence. There is no per-track namespace.
+- **Snapshot of the sequence as of 2026-05-06:** highest
+  *assigned-and-used* number is **S-035** (architecture-audit
+  2026-05-02). `S-040` appears once in
+  `tests/test_s031_pr5_file_reads_in_ui.py:237` as a "future
+  work" placeholder — not real work yet, but the number is
+  considered burned. **The next sprint to file is S-041** (skip
+  the burned S-036..S-040 range to keep the convention safe).
+
+**Checkpoints (`CP-YYYY-MM-DD-NN`):**
+
+- Format stays as in `docs/claude/checkpoint-workflow.md` —
+  `CP-<sprint-date>-<NN>` with optional title suffix
+  (`CP-YYYY-MM-DD-NN-<short-id>`). The date and the per-day NN
+  combine to form a globally-unique ID; the date guarantees
+  uniqueness across days, the NN guarantees uniqueness within a
+  day.
+- A checkpoint ID is **fixed once committed**. If the
+  workplan changes after the checkpoint lands, the checkpoint
+  keeps its ID — the entry body can be amended in a follow-up
+  checkpoint, never by editing the original.
+- Never reuse an NN within a date. Never reuse a checkpoint ID
+  across the repo.
+
+### Milestone types
+
+- **Roadmap milestone** — A sprint that progresses the planned
+  roadmap for the trading system, web app, operator tooling,
+  logging, AI workflows, and deployment quality.
+- **Ad-hoc milestone** — A sprint initiated by the operator to
+  handle urgent bugs, incidents, investigations, or newly
+  prioritized ideas outside the normal roadmap sequence.
+- **Auto-task milestone** — A structured recurring sprint
+  initiated by Claude's daily auto-task routine using instructions
+  stored in the repo.
+
+### Session requirements
+
+Every session-sized sprint must include:
+
+- Sprint title and purpose
+- Scope and explicit non-goals
+- Checkpoints
+- Dependencies and blockers
+- Risk tier and merge authority
+- Required validation steps
+- Required documentation updates
+- A closing summary with next-step handoff
+
+### Session closing
+
+The final checkpoint of every sprint is documentation and
+project-state maintenance. Claude must update all affected
+documentation, including but not limited to:
+
+- `README.md`
+- The roadmap
+- Sprint / task logs
+- Relevant Claude instruction files and skill markdown files
+- Bug log and lessons log where applicable
+- Architecture docs impacted by the sprint
+
+Claude should also update a central milestone / session state or
+handoff file so future sessions can resume from repo state rather
+than relying on chat continuity alone.
+
+---
+
+## Decision and merge authority
+
+Claude follows a **three-tier operating model** for merge and
+approval decisions.
+
+### Tier 1 — Claude may self-merge
+
+Claude may self-merge work that:
+
+- Does not directly change live trading behavior.
+- Is cleanup, documentation, tests, CI, observability, schemas,
+  dashboard read-path work, or isolated tooling changes.
+- Affects infrastructure only when safety can be proven by tests,
+  dry-run validation, or staging checks.
+
+### Tier 2 — Claude must ping the operator with a merge / hold decision
+
+Claude must send a structured risk-summary ping and wait for a
+decision when:
+
+- A change touches the live order path, runtime orchestration,
+  deployment timers, service behavior, or any integration that
+  could break execution even if strategy logic does not change.
+- Claude cannot fully prove safety end-to-end.
+- A change may cause restart churn, duplicate sends, sync loops,
+  or deployment instability.
+
+The ping must include:
+
+- PR title.
+- One-sentence summary.
+- One-sentence risk if broken.
+- Validation already completed.
+- Buttons for **Merge** and **Hold**.
+
+### Tier 3 — explicit operator approval required before merge
+
+Claude must not merge without explicit approval when a change
+involves:
+
+- Strategy parameters.
+- Entry or exit logic.
+- Signal thresholds.
+- Position sizing formulas.
+- Risk cap values.
+- Promotion of any strategy from dry-run to live.
+
+This preserves maximum autonomy for engineering work while
+reserving trading-behavior changes for deliberate operator review.
+
+---
+
+## VM and operator actions
+
+The operator is non-technical and the system runs on a free-tier
+Oracle VM, so any manual action must be made simple and low-risk.
+
+### Rule
+
+If Claude needs the operator to do something on the VM, Claude
+must provide:
+
+- A copy-ready Colab notebook script.
+- Short markdown headings and explanations between cells.
+- Pre-filled variables and paths.
+- Clear instructions for what success should look like.
+
+### Required pre-filled values
+
+Claude should use these exact values in any notebook or
+operator-run script:
+
+```python
+SSH_KEY_FILE = 'ict-bot-ovm-private.key'
+VM_USER = 'ubuntu'
+VM_HOST = "158.178.210.252"
+REPO_DIR = '/home/ubuntu/ict-trading-bot'
+```
+
+### Repo references
+
+- GitHub repository: `the-lizardking/ict-trading-bot`
+- Git username: `the-lizardking`
+- Git email: `ben.baichmankass@gmail.com`
+
+### Colab secret references
+
+Claude should align any updated notebooks or automation with the
+existing Colab secret names already defined for API keys, Telegram
+bot tokens, GitHub access, Hugging Face access, and SSH connection
+details so the operator is not forced to rewire secret names
+manually.
+
+---
+
+## System architecture
+
+### Trader repo
+
+Primary codebase: `the-lizardking/ict-trading-bot`.
+
+### Dispatcher / Coordinator
+
+The dispatcher is the coordination layer between strategies,
+risk / account logic, connectors, dashboards, and operator tools.
+
+Responsibilities:
+
+- Route market and account data to the correct units.
+- Accept strategy outputs and forward them to the risk layer.
+- Maintain the canonical live / dry-run execution gate.
+- Dispatch approved orders to connectors.
+- Write normalized events and status changes into the system
+  logs / database.
+
+#### Live / dry-run rule
+
+The dispatcher maintains the **only canonical** live / dry-run
+switch in the system. Strategy logic and risk logic should
+continue running in **both** live and dry-run modes so the
+platform still produces comparable signals, decisions, and logs
+even when execution is disabled.
+
+### Connections unit
+
+The connectors layer handles broker and platform API integrations
+for:
+
+- Market data pulls.
+- Account data pulls.
+- Position and trade status pulls.
+- Order submission, cancel, and close flows.
+- Data feeds for the dashboard and operator surfaces.
+
+Connector logic stays thin and standardized so broker-specific
+behavior does not leak into strategy or risk code paths.
+
+### Strategies unit
+
+The strategies unit:
+
+- Consumes live data from the dispatcher.
+- Performs signal and setup analysis.
+- Produces normalized order packages.
+- Attaches confidence scores and supporting evidence.
+- Sends outputs to the downstream decision pipeline.
+
+Subcomponents:
+
+- Strategy rules.
+- Model approval layer.
+- Data intake adapters.
+
+#### Strategy timeframe rule
+
+Strategies should read **5-minute candles for execution logic**
+and use the **1-hour timeframe for market structure context**.
+
+This timeframe rule is the current default architecture constraint
+when Claude is documenting, auditing, testing, or improving
+strategy logic.
+
+### Accounts manager
+
+The accounts manager owns account-specific behavior and metadata,
+including:
+
+- Account registry.
+- Platform mapping.
+- Strategy / account assignment.
+- Risk manager assignment.
+- Account-level configuration and restrictions.
+
+### Risk manager
+
+Each account should have a dedicated risk manager with the correct
+rules for acceptance, rejection, and position sizing, and every
+decision should be logged with a reason in the **Risk Manager
+Decision Log**.
+
+Current priority is hardening the existing live-trading risk path.
+Prop-trading-specific infrastructure is **deferred** and should
+not be built now.
+
+---
+
+## Data and logging architecture
+
+The database and logging system should support operations,
+debugging, performance review, model review, and operator
+visibility.
+
+### Required logs
+
+#### Signals Log
+
+Logs every signal produced by every strategy, including at
+minimum:
+
+- Strategy id.
+- Symbol / instrument.
+- Timeframe.
+- Timestamp.
+- Source data / feed.
+- Relevant supporting context where available.
+
+#### Order Package Log
+
+Logs every normalized order package and each lifecycle update,
+including:
+
+- Strategy id.
+- Account target.
+- Exchange / instrument.
+- Entry, stop loss, and take profit.
+- Confidence score.
+- Action type (created, updated, sent, rejected, closed).
+
+#### Risk Manager Decision Log
+
+Logs every risk-layer decision, including:
+
+- Order Package ID.
+- Account ID.
+- Decision outcome.
+- Reason code.
+- Triggered rule.
+- Position-sizing result where applicable.
+
+#### Trade Log
+
+Includes only trade records pulled from the broker / account API,
+**not** internally inferred trades.
+
+#### Messages Log
+
+Includes all messages sent to the operator, with timestamps, bot
+identity, message type, and other useful delivery context where
+practical.
+
+#### Sprint / Task Log
+
+Tracks completed roadmap sprints, ad-hoc sessions, and recurring
+auto-task sessions.
+
+#### Bug Log
+
+Maintains a running record of bugs, suspected duplicates, related
+issues, fixes, and status changes.
+
+#### Lessons Log
+
+Tracks lessons learned from implementation, debugging, validation,
+and operations that can later be turned into better workflows,
+guardrails, or skill docs.
+
+### Additional logs and registries to add
+
+To support the autonomous workflow and AI roadmap, the system
+should also include:
+
+- A **comms log** for Claude / operator communication state
+  transitions.
+- A **deployment / change log** for timer changes, service
+  changes, and operator actions.
+- A **strategy validation log** for dry-run milestones, promotion
+  gates, and review outcomes.
+- A **model registry / performance log** for current AI models,
+  their role in the pipeline, their training history, and their
+  observed performance.
+
+---
+
+## Telegram bots
+
+There are two Telegram bots with separate responsibilities.
+
+### AI Trader Bot — `@bict_trading_bot`
+
+Main operator bot for system status, health, trades, logs, and
+lightweight controls.
+
+#### Notifications
+
+For now, notifications remain **broad and comprehensive**. The
+system should continue sending notifications for:
+
+- Every entry to every log in the database.
+- Hourly snapshots.
+- Errors returned by any system component.
+- Trade and account events.
+- Other operational signals currently exposed to the operator.
+
+Notification reduction or filtering can be done later once there
+is enough real usage data to decide what is noise and what is
+useful.
+
+#### Operator commands
+
+The AI Trader Bot should support:
+
+- Toggle account live / dry-run.
+- Killswitch.
+- Close all positions.
+
+#### Information menus
+
+The AI Trader Bot should provide menus for:
+
+- Operator commands.
+- Trader snapshot.
+- Signals Log.
+- Order Package Log.
+- Trade Log.
+- System health.
+- Hourly update.
+- VM stats.
+
+### ClaudeBot — `@claude_ict_comms_bot`
+
+Communications channel for Claude to send sprint updates, merge
+review requests, required user actions, and PM-session start
+links.
+
+#### ClaudeBot workflow
+
+Built around the repo-driven communications system:
+
+1. Claude writes a structured pending request artifact in the
+   repo.
+2. The bot detects it and sends the message in Telegram.
+3. The operator responds in Telegram.
+4. The response is written back into the repo in structured form.
+5. Claude reads it on the next sync cycle and continues.
+
+#### Session sizing rule
+
+Each milestone is broken into session-sized sprints that fit one
+working session, and each session-sized sprint is broken into
+checkpoints that can be completed, validated, or cleanly paused
+before the next session begins.
+
+This channel supports:
+
+- Merge review buttons.
+- PM sprint start pings.
+- Sprint completion updates.
+- Required user action prompts.
+- Recovery alerts for stuck or stale requests.
+
+---
+
+## Dashboard apps
+
+The web app is now a **crucial priority** because it needs to
+become a stable source of truth for understanding live system
+state, recent activity, and operational health.
+
+### Vercel app
+
+The Vercel web app provides a reliable operator dashboard for:
+
+- Summary performance.
+- System live / dry-run state.
+- Error highlights.
+- Account balances and pnl.
+- Open positions.
+- Recent trades.
+- Key logs and health signals.
+
+### Mobile dashboard widget
+
+The mobile surface provides a compact status snapshot suitable
+for quick checks and lightweight monitoring.
+
+### Dashboard build order
+
+Built in two phases:
+
+1. **Read-only operations dashboard first** for visibility and
+   monitoring.
+2. **Interactive controls later** once permissions, auth, logging,
+   and operational confidence are stronger.
+
+This preserves dashboard usefulness without expanding
+execution-path risk too early.
+
+---
+
+## Auto-task routine
+
+Claude runs **one daily auto-task routine** driven by a repo
+instruction file.
+
+### Auto-task workflow
+
+1. Claude reads the active auto-task instructions doc.
+2. The doc determines what session type is active and what area
+   is in focus.
+3. Claude performs one bounded sprint with checkpoints.
+4. Claude updates logs, docs, roadmap state, and handoff
+   artifacts before ending the session.
+
+### Auto-task categories
+
+#### Audit / debug
+
+Review targeted parts of the system to:
+
+- Find bugs.
+- Verify compliance with architecture rules.
+- Simplify and declutter the repo.
+- Improve observability and docs.
+
+#### Strategy improvement
+
+Strategy-improvement sessions are clearly defined and documented.
+They focus on **one aspect of one strategy at a time**, such as:
+
+- Signal logic.
+- Entry logic.
+- Exit logic.
+- Risk behavior.
+- Market structure logic.
+- Timeframe use.
+- Missed-opportunity analysis.
+- Trade-review analysis against actual candles and market context.
+
+These sessions combine two inputs:
+
+- Review of what the strategy is already doing in the current
+  system.
+- External research and idea gathering where appropriate.
+
+#### Training / model-improvement sessions
+
+Training or model-improvement sessions are clearly described in
+the docs. They explain:
+
+- Which model currently exists.
+- What role it plays today.
+- What training data or labels are already available.
+- What gap or improvement is being targeted.
+- What output artifact should be produced from the session.
+
+#### Janitor Mode
+
+Recurring low-risk auto-task mode focused on:
+
+- Dead file audits.
+- Stale service audits.
+- Duplicate module audits.
+- Missing test audits.
+- Documentation drift audits.
+- Naming and structure cleanup.
+
+Claude completes as much of this work autonomously as possible
+and only escalates when behavior or rollout risk requires a human
+decision.
+
+---
+
+## Improvement, training, and backtesting session definitions
+
+To make strategy work repeatable, the roadmap explicitly describes
+the main research session types rather than treating them as
+generic future work.
+
+### Improvement sessions
+
+Improvement sessions focus on improving an existing strategy
+using the current repo implementation as the starting point. Each
+session defines:
+
+- The strategy under review.
+- The exact component under review (entries, exits, structure
+  filter, stop-loss logic, etc.).
+- Evidence from recent trades or logs.
+- Evidence from chart review and timeframe context.
+- The proposed hypothesis for improvement.
+- The validation method required before any live-impacting change
+  is approved.
+
+### Training sessions
+
+Training sessions focus on strengthening the AI components
+already in the system or preparing new ones in a controlled way.
+Each session defines:
+
+- The current model or candidate model.
+- Its current role in the pipeline.
+- The target improvement.
+- The required data sources.
+- The evaluation metrics.
+- The output artifact (notebook results, dataset updates,
+  experiment logs, model registry updates).
+
+### Backtesting sessions
+
+Backtesting sessions are a first-class workflow. Each backtesting
+session defines:
+
+- Which strategy is being tested.
+- What symbols and timeframes are in scope.
+- The candle timeframe for entries and the higher timeframe for
+  structure context.
+- Which market conditions or date ranges are being tested.
+- Which metrics must be recorded (win rate, average R, drawdown,
+  sample size, expectancy, trade count).
+
+Backtesting documentation also defines:
+
+- How to run a backtest.
+- Where the backtest code lives.
+- Where outputs are stored.
+- How results are summarized for the operator.
+- What criteria are required before a result can justify further
+  dry-run or live consideration.
+
+---
+
+## Repeatable operator-triggered workflows
+
+To make the system operationally useful, repeatable workflows
+should be **command-driven** rather than dependent on ad-hoc
+manual coordination.
+
+### New session command
+
+Add an operator command such as `new-session <sprint_id>` so
+Claude can initialize a targeted sprint context and confirm when
+the session is ready.
+
+### Strategy test command
+
+Add a Telegram command such as `test <strategy_name>` that writes
+a structured test request artifact to the repo for a dry-run or
+backtest workflow.
+
+Expected flow:
+
+1. The operator sends the command.
+2. The bot writes the structured request into the repo.
+3. Claude picks it up on the next cycle.
+4. Claude runs the requested validation workflow using low-cost
+   compute where possible.
+5. Claude returns a structured summary with outcomes and next
+   recommendation.
+
+### Merge review flow
+
+Tier 2 work uses the repo-based Telegram merge review flow with
+**Merge** and **Hold** buttons.
+
+### Stuck request recovery
+
+The communications system includes a documented recovery flow for
+stale requests, partial answers, malformed artifacts, and bot
+restart recovery.
+
+---
+
+## AI roadmap
+
+The AI roadmap explicitly answers the following questions:
+
+- What models currently exist in the system?
+- What type of models are they?
+- What exact function does each model serve in the trade flow?
+- What training data, prompts, or approval logic are currently
+  used?
+- How is training or evaluation history recorded?
+- How is live or dry-run model performance measured over time?
+
+### Model registry requirement
+
+A canonical model registry tracks:
+
+- Model name and version.
+- Model type.
+- Current status.
+- Pipeline role.
+- Input / output definition.
+- Training history.
+- Evaluation results.
+- Deployment status.
+
+This is the source of truth for the current AI layer in the
+project.
+
+---
+
+## Milestone roadmap
+
+The roadmap is organized into milestones; each milestone is
+divided into session-sized sprints; each session-sized sprint is
+divided into checkpoints with clear handoffs. The web app moves
+earlier because it is a critical source-of-truth requirement.
+
+| Milestone | Type        | Focus                          | Main outcome                                                                                  |
+|-----------|-------------|--------------------------------|-----------------------------------------------------------------------------------------------|
+| **M0**    | auto-claude | Workflow foundation            | Master protocol, session state files, logging conventions, handoff rules                      |
+| **M1**    | auto-claude | Comms infrastructure           | Repo-based Claude / operator comms, Telegram writeback, dedupe, docs, tests                   |
+| **M2**    | auto-claude | Web app source of truth        | Read-only dashboard backend and core status data surfaces                                     |
+| **M3**    | auto-claude | Risk controls foundation       | Hard risk caps, kill switch, status controls, order-layer refusal tests                       |
+| **M4**    | auto-claude | Repo hygiene + CI              | Janitor cleanup, canonical paths, GitHub Actions, test / lint automation                      |
+| **M5**    | auto-claude | Strategy testing workflow      | Telegram-triggered test flow, validation logging, backtest workflow docs                      |
+| **M6**    | auto-claude | Web app UI                     | Dashboard UI for pnl, status, open positions, logs, and recent actions                        |
+| **M7**    | pm-sprint   | Strategy review gate           | Review validation results and decide promote, hold, or kill                                   |
+| **M8**    | pm-sprint   | Strategy tuning                | Parameter review and approval-required strategy changes                                       |
+| **M9**    | auto-claude | AI / model roadmap             | Model registry, current-model audit, training and performance tracking                        |
+| **M10**   | auto-claude | HF / data pipeline             | Dataset publishing, artifact packaging, reproducible research workflow                        |
+
+This sequence prioritizes communications, visibility, and safety
+before deeper strategy expansion or new AI complexity.
+
+---
+
+## Practical rules for Claude
+
+### Claude must always
+
+- Read the current roadmap, milestone state, active blockers, and
+  relevant docs at the start of every session.
+- Produce or update a milestone / session plan before coding.
+- Keep PRs small and reviewable where practical.
+- Prefer file-based repo-tracked state over hidden assumptions.
+- Use tests, dry-run, staging evidence, and validation artifacts
+  before claiming safety.
+- End every session with docs, logs, and next-step handoff
+  updates.
+
+### Claude must not
+
+- Change strategy behavior silently.
+- Promote a strategy to live without approval.
+- Add secrets to the repo.
+- Make the operator do technical VM work without a simple
+  notebook or one-click workflow.
+- Assume canonical file paths or deployment details without
+  inspecting the repo first.
+
+### Claude should prefer
+
+- Free compute for research, backtests, and data processing where
+  possible.
+- Repo-driven communications over informal coordination.
+- Reversible changes, clear audit trails, and explicit rollout
+  logic.
+
+---
+
+## Key updates in this version (2026-05-06)
+
+- Prop-trading infrastructure is **deferred** until later and is
+  not part of the current build plan.
+- The web app is **elevated** to a core near-term requirement
+  because it must become the operator's stable source of truth.
+- All notifications **remain enabled** for now and can be reduced
+  later after observing real usage.
+- A formal **model registry** is now part of the AI roadmap.
+- Improvement sessions, training sessions, and backtesting
+  sessions are described as clear repeatable workflows.
+- The current strategy timeframe rule is **5-minute candles for
+  execution with 1-hour market structure context**.
+- The term **milestone** replaces the old sprint-level label,
+  while actual execution is broken down into session-sized
+  sprints and checkpoints.
