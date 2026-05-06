@@ -59,10 +59,31 @@ def test_login_page_renders_html():
     assert "text/html" in resp.headers["content-type"]
     body = resp.text
     assert "<form" in body
+    assert 'id="login-form"' in body
     assert "/api/auth/login" in body
+    assert 'id="login-error"' in body
     # Loaded via base.html — auth.js must be referenced.
     assert "/static/js/auth.js" in body
     assert "/static/css/app.css" in body
+
+
+def test_auth_js_wires_login_form_and_pre_expiry_timer():
+    """S-014 M2 PR #1 contract: auth.js must (a) intercept the /login
+    form submit, post JSON to /api/auth/login, store the access_token in
+    localStorage, and redirect to /home; (b) schedule a redirect to
+    /login PRE_EXPIRY_MS before the JWT exp claim."""
+    resp = _client().get("/static/js/auth.js")
+    assert resp.status_code == 200
+    body = resp.text
+    assert "/api/auth/login" in body
+    assert "login-form" in body
+    assert "access_token" in body
+    assert "/home" in body
+    assert "decodeJwtPayload" in body
+    assert "scheduleExpiryRedirect" in body
+    assert "PRE_EXPIRY_MS" in body
+    assert "setTimeout" in body
+    assert "ict_session_token" in body
 
 
 def test_home_page_renders_without_server_side_auth():
