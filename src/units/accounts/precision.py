@@ -9,23 +9,31 @@ exchange enforces price alignment to the symbol's
 
 Resolution order for ``get_tick_size``:
 
-  1. Static map of known ``(symbol, category) -> tickSize``.
-  2. Process-lifetime cache populated by previous live lookups.
-  3. Live ``client.get_instruments_info`` lookup (Bybit V5).
+  1. Process cache populated by previous live lookups (2-hour TTL per
+     Bybit's own recommendation for instrument-info caching).
+  2. Live ``client.get_instruments_info`` lookup (Bybit V5).
+  3. Static map of known ``(symbol, category) -> tickSize`` as a
+     fallback when the live API is unavailable.
   4. Conservative 0.01 fallback so a transient instruments-info
      outage cannot block the order path for the common
      USDT-quoted pairs.
+
+Live lookup takes priority over the static map because Bybit's tick
+sizes can change and a stale hard-coded value silently causes 170134
+rejections (BUG-057 reopen 2026-05-06).
 """
 from __future__ import annotations
 
 import logging
+import time
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Any, Dict, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
-# (symbol, category) -> tickSize string. Extend as new pairs are
-# added to ``config/accounts.yaml`` / strategy configs.
+# (symbol, category) -> tickSize string. These are fallback values only;
+# the live API takes priority. Extend as new pairs are added to
+# ``config/accounts.yaml`` / strategy configs.
 _STATIC_TICK_SIZE: Dict[Tuple[str, str], str] = {
     ("BTCUSDT", "spot"): "0.01",
     ("BTCUSDT", "linear"): "0.10",
@@ -35,7 +43,9 @@ _STATIC_TICK_SIZE: Dict[Tuple[str, str], str] = {
     ("SOLUSDT", "linear"): "0.010",
 }
 
-_LIVE_CACHE: Dict[Tuple[str, str], str] = {}
+# (symbol, category) -> (tickSize string, monotonic timestamp)
+_LIVE_CACHE: Dict[Tuple[str, str], Tuple[str, float]] = {}
+_CACHE_TTL_SECONDS: float = 7200.0  # 2 hours per Bybit's recommendation
 
 _FALLBACK_TICK = Decimal("0.01")
 
@@ -63,23 +73,37 @@ def _live_tick_size(client: Any, symbol: str, category: str) -> Optional[str]:
 def get_tick_size(client: Any, symbol: str, category: str) -> Decimal:
     """Resolve the ``tickSize`` for ``symbol`` in Bybit ``category``.
 
-    Order: static map → cached live result → live lookup → 0.01
-    fallback. The fallback degrades safely for the USDT-quoted spot
-    pairs the bot trades today (all have a 0.01 tick).
+    Order: cache (2-hour TTL) → live ``get_instruments_info`` lookup →
+    static map → 0.01 fallback. Live is preferred over the static map
+    so stale hard-coded values do not silently cause 170134 rejections.
+    Bybit's own docs recommend caching instrument info for up to 2 hours.
     """
     key = (symbol.upper(), category.lower())
-    static = _STATIC_TICK_SIZE.get(key)
-    if static:
-        return Decimal(static)
-    cached = _LIVE_CACHE.get(key)
-    if cached:
-        return Decimal(cached)
+    now = time.monotonic()
+    entry = _LIVE_CACHE.get(key)
+    if entry is not None:
+        tick_str, cached_at = entry
+        if now - cached_at < _CACHE_TTL_SECONDS:
+            return Decimal(tick_str)
+        del _LIVE_CACHE[key]
     if client is not None:
         live = _live_tick_size(client, key[0], key[1])
         if live:
-            _LIVE_CACHE[key] = live
+            _LIVE_CACHE[key] = (live, now)
             return Decimal(live)
+    static = _STATIC_TICK_SIZE.get(key)
+    if static:
+        return Decimal(static)
     return _FALLBACK_TICK
+
+
+def invalidate_tick_cache(symbol: str, category: str) -> None:
+    """Evict a cached tick size to force a fresh live lookup on the next call.
+
+    Call this immediately after a Bybit 170134 rejection so the next order
+    queries the live ``get_instruments_info`` instead of serving stale data.
+    """
+    _LIVE_CACHE.pop((symbol.upper(), category.lower()), None)
 
 
 def quantize_price(value: float, tick: Decimal) -> str:
