@@ -576,6 +576,7 @@ class Coordinator:
                 "account_id": account.name,
                 "exchange": account.exchange,
                 "api_key_env": getattr(account, "api_key_env", None),
+                "market_type": getattr(account, "market_type", "spot"),
             }
 
             assigned = list(getattr(account, "strategies", None) or [])
@@ -686,6 +687,11 @@ class Coordinator:
                 "max_dd_pct": account.risk_manager.max_dd_pct,
                 "daily_usd": account.risk_manager.max_daily_loss_usd,
                 "pos_size": account.risk_manager.max_pos_size_usd,
+                # Bybit V5 category routing (spot vs linear). Drives
+                # ``_bybit_category`` inside execute.py — without this
+                # plumb-through the executor falls back to the default
+                # (spot) and ignores any per-account override.
+                "market_type": getattr(account, "market_type", "spot"),
             }
 
             # Per-account live/dry resolution. The caller-supplied

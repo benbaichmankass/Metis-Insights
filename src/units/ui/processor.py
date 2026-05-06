@@ -1117,7 +1117,7 @@ def get_price(symbol: str = "BTCUSDT") -> Optional[float]:
     try:
         resp = requests.get(
             "https://api.bybit.com/v5/market/tickers",
-            params={"category": "linear", "symbol": symbol},
+            params={"category": "spot", "symbol": symbol},
             timeout=10,
         )
         payload = resp.json()

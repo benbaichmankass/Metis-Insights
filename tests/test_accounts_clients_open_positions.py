@@ -33,10 +33,16 @@ from src.units.ui.data_loaders import (
 
 @pytest.fixture
 def bybit_account():
+    # ``market_type: linear`` preserves the pre-2026-05-06 perp-position
+    # behaviour these tests pin: ``account_open_positions`` queries the
+    # v5 ``/position/list`` endpoint with ``category="linear"``. Spot
+    # accounts return ``[]`` without a network call (covered by
+    # ``test_spot_category_routing.py``).
     return {
         "account_id": "bybit_2",
         "exchange": "bybit",
         "api_key_env": "BYBIT_KEY_2",
+        "market_type": "linear",
     }
 
 

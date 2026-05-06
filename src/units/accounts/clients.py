@@ -207,7 +207,18 @@ def account_open_positions(
             client = bybit_client_for(account)
             if client is None:
                 return None
-            resp = client.get_positions(category="linear", settleCoin="USDT")
+            from src.units.accounts.execute import _bybit_category
+            category = _bybit_category(account)
+            if category == "spot":
+                # Spot has no derivative-style positions; "open" trades
+                # for spot accounts are tracked by the trade journal /
+                # order packages log. ``account_open_positions`` is
+                # specifically the exchange-side perp position view —
+                # return an empty list so callers do not surface a
+                # phantom "no positions" warning derived from a
+                # mis-categorised v5 ``/position/list`` query.
+                return []
+            resp = client.get_positions(category=category, settleCoin="USDT")
             raw = resp.get("result", {}).get("list", []) if isinstance(resp, dict) else []
             out = []
             for p in raw:
