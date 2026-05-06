@@ -1,9 +1,16 @@
 # Telegram pings — what triggers what, and where the wiring lives
 
-The operator has a single Telegram bot account that should receive pings
-for every meaningful sprint event. This doc is the spec; the actual
-wiring is implemented in the housekeeping session that follows the
-S-015 close.
+The system uses two bots:
+- **@bict_trading_bot** — trade alerts, system status, operator commands.
+- **@claude_ict_comms_bot** — one-way outbound channel: Claude writes sprint
+  updates, checkpoint notices, blocker pings, and merge-review requests.
+  **No operator response path exists.** The operator reads via Telegram; any
+  reply from the operator is handled through GitHub (PR comments, issue
+  updates) or a new Claude session reading repo state. This is intentional
+  design — the channel is send-only.
+
+The wiring described in this doc is **fully implemented and verified** as of
+S-042 (2026-05-06). See § "Where the wiring lives" for the confirmed status.
 
 ## Required pings
 
@@ -38,51 +45,81 @@ Two distinct paths because the sandbox can't always reach Telegram:
 
 ### Path 1 — VM-side (primary, runs on the Oracle VM)
 
-The VM already has:
+**Status: VERIFIED WORKING** as of 2026-05-06 (BUG-058 PR #423 +
+BUG-059 PR #426 deployed; `ict-claude-bridge.service` confirmed active).
+
+The VM has:
 - `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` in `/etc/ict-trader/claude.env`.
-- `ict-git-sync.timer` pulling `main` every 5 minutes.
-- `scripts/deploy_pull_restart.sh` running on each pull.
+- `ict-git-sync.timer` — pulls `main` every 5 minutes (`deploy/ict-git-sync.timer`).
+- `scripts/deploy_pull_restart.sh` — runs on each pull; calls `scripts/notify_on_pull.py`.
+- `scripts/notify_on_pull.py` — drains `docs/claude/pending-pings.jsonl` + detects
+  checkpoint/blocker/training events; enqueues via `scripts/send_ping.py` with
+  `target="claude"`.
+- `scripts/send_ping.py` — writes JSON files to `runtime_logs/pending_claude_pings/`.
+- `ict-claude-bridge.service` — drains `runtime_logs/pending_claude_pings/` every
+  ~5 s; sends to `@claude_ict_comms_bot`.
 
-**Implementation plan (housekeeping session):**
-
-1. Extend `scripts/deploy_pull_restart.sh` (or add a sibling
-   `scripts/notify_on_pull.sh` it calls) to:
-   - Compare the previous and new HEAD.
-   - If the diff touches `docs/claude/checkpoints/CHECKPOINT_LOG.md`,
-     extract the topmost CP entry's title + next-checkpoint line.
-   - If any commit in the range contains `[BLOCKED-PM]` in the message
-     subject, surface it as an urgent message *first*, before normal
-     checkpoint pings.
-   - Send via the existing `src.runtime.notify.send_via_alert_manager`.
-2. The script must be idempotent: a re-pull that doesn't advance HEAD
-   sends nothing (matches the BUG-008 fix).
-3. A 5-minute pull cadence is acceptable — operator already accepted
-   that in CP-2026-04-30-05.
-4. Tests live in `tests/test_notify_on_pull.py`: synthetic
-   CHECKPOINT_LOG diffs, blocker-keyword detection, idempotency
-   on no-advance pulls.
+End-to-end latency: ≤5 min (git-sync tick) + ≤5 s (bridge drain) = ≤5 min from push.
+Hash-based dedup (`runtime_logs/pending_pings_delivered.txt`) prevents old
+`pending-pings.jsonl` lines from re-firing on subsequent git pulls.
 
 ### Path 2 — sandbox-side (fallback, runs inside Claude Code)
 
-When Claude Code is running in this sandbox:
+When Claude Code is running in a sandbox:
 
 - `TELEGRAM_BOT_TOKEN` is **not** present in env.
 - Outbound HTTPS is restricted to pypi + github.
 
-So sandbox-side direct pings are infeasible. The fallback:
+So sandbox-side direct pings are infeasible. The fallback (and the **mandatory
+ping habit** described below):
 
-1. Append a ping-request entry to `docs/claude/pending-pings.jsonl`
-   (gitignored except for an empty `.gitkeep`).
-2. Push the commit; the VM's git-sync timer picks it up within 5 min.
-3. The VM-side script (path 1) drains `pending-pings.jsonl` and
-   forwards each entry via Telegram.
-4. After successful drain, the VM-side script truncates the file in a
-   follow-up commit (clean working-tree invariant).
+1. Append a ping-request entry to `docs/claude/pending-pings.jsonl`.
+2. Push the commit; the VM's git-sync timer picks it up within ≤5 min.
+3. The VM-side pipeline (`notify_on_pull.py` → `send_ping.py` →
+   `ict-claude-bridge.service`) drains the file and forwards each entry
+   to `@claude_ict_comms_bot`.
+4. Hash-based dedup prevents old lines from re-firing on subsequent pulls.
 
-This adds ≤ 5 min latency for sandbox-originated pings; acceptable for
-status updates. **Not acceptable for blocker pings** that need a
-fast PM response — for those, also flip the PR to draft + put `BLOCKED:`
-in the PR title so the operator's GitHub notifications fire too.
+**One-way channel:** The operator reads pings in Telegram. There is no
+response-writeback path from the operator to Claude via this channel.
+Operator decisions happen through GitHub (PR comments, issue updates) or
+a new Claude session reading repo state. This is intentional — the channel
+is send-only; no polling, no bot-command handling on the Claude side.
+
+**Latency note:** Adds ≤5 min for sandbox-originated pings; acceptable for
+status updates. For blockers also flip the PR to draft + add `BLOCKED:` in
+the PR title so GitHub notifications fire immediately in parallel.
+
+## Mandatory ping habit (established S-042, carry forward forever)
+
+Claude MUST append one line to `docs/claude/pending-pings.jsonl` at each
+of the following events before committing:
+
+| Event | When | JSON schema |
+|---|---|---|
+| **Sprint start** | T0 of every sprint | `{"event": "sprint-start", "priority": "normal", "sprint": "S-NNN", "title": "..."}` |
+| **Checkpoint** | Each intermediate checkpoint | `{"event": "checkpoint", "priority": "normal", "sprint": "S-NNN", "cp_id": "CP-...", "title": "...", "next_cp": "..."}` |
+| **Sprint complete** | Final checkpoint of every sprint | `{"event": "sprint-complete", "priority": "high", "sprint": "S-NNN", "title": "...", "summary_url": "..."}` |
+| **Blocker** | Any session that cannot proceed | `{"event": "blocker", "priority": "urgent", "sprint": "S-NNN", "question": "..."}` |
+| **Tier 2 merge review** | Any Tier 2 PR opened for operator review | `{"event": "merge-review", "priority": "high", "sprint": "S-NNN", "pr_url": "..."}` |
+
+Rules:
+- One line per event. Lines are JSONL (newline-delimited JSON).
+- The file is gitignored but tracked (`git add -f` or explicit `git add` works;
+  the GitHub API writes directly without gitignore checks).
+- The VM's hash-based dedup (`DELIVERED_HASHES`) prevents re-fire on subsequent
+  pulls — never truncate the file from Claude-side.
+- Append only — never modify or delete existing lines.
+
+Example — sprint-start (T0):
+```json
+{"event": "sprint-start", "priority": "normal", "sprint": "S-042", "title": "M1 verify ClaudeBot channel"}
+```
+
+Example — sprint-complete (T5):
+```json
+{"event": "sprint-complete", "priority": "high", "sprint": "S-042", "title": "M1 closed — ClaudeBot channel verified", "summary_url": "https://github.com/the-lizardking/ict-trading-bot/blob/main/docs/sprint-summaries/sprint-042-summary.md"}
+```
 
 ## Blocker pings — escalation contract
 
@@ -116,7 +153,7 @@ change open for review, two PRs are required, on two branches:
 |---|---|---|
 | Branch | `claude/ping-<slug>` | `claude/<sprint-or-task>-…` |
 | Title prefix | `PING:` (high priority) or `BLOCKED-PING:` (urgent) | `BLOCKED:`, `(PM REVIEW):`, normal sprint title |
-| Payload | ≤ 5 lines: append to `docs/claude/pending-pings.jsonl` *or* checkpoint-log entry | the actual code/docs change |
+| Payload | ≤5 lines: append to `docs/claude/pending-pings.jsonl` *or* checkpoint-log entry | the actual code/docs change |
 | Action | self-merge immediately → fires ping | left as **draft** → operator reviews/approves |
 | Body must include | link to the work-PR + the question / status | chat link + question / context |
 
@@ -142,6 +179,7 @@ weigh-in before continuing.
 | `pending-pings.jsonl` corrupt | Move to `pending-pings.jsonl.broken-<timestamp>`, send a single "ping queue corrupt" ping (if Telegram reachable), continue |
 | Sandbox-side write to `pending-pings.jsonl` fails | Best-effort — log and continue. The session-close `git status` check surfaces uncommitted work to the operator |
 | HEAD didn't advance | Send nothing (idempotency) |
+| Old lines re-fire on subsequent pulls | Hash-based dedup via `runtime_logs/pending_pings_delivered.txt` prevents re-fire |
 
 ## Decisions log
 
@@ -150,21 +188,27 @@ weigh-in before continuing.
   notification logic. Revisit if VM access ever becomes the bottleneck.
 - **Why JSONL queue, not direct push from the sandbox?** Sandbox can't
   reach Telegram. The queue file plus VM drain is the cheapest reliable
-  channel; round-trip ≤ 5 min matches the existing sync cadence.
+  channel; round-trip ≤5 min matches the existing sync cadence.
 - **Why 5-min pull cadence, not webhook?** The repo already has the
   pull timer; webhooks need a public endpoint and deeper change. 5 min
   is fast enough for status; blockers double-route via PR notifications.
+- **Why one-way?** ClaudeBot is a status-reporting channel. Operator
+  decisions (merge, hold, approve) happen through GitHub workflows and
+  new sessions reading repo state. Adding a response path would require
+  a polling loop or webhook that complicates the architecture without
+  adding value given the existing PR-based workflow.
 
 ## Title-prefix grep list (VM-side script)
 
-The VM-side `notify_on_pull.sh` script (or sibling) recognises these
-title prefixes when scanning the new commit range / open PRs. Adding
-a new ping = adding a prefix here.
+The VM-side `notify_on_pull.py` recognises these title prefixes when
+scanning the new commit range / open PRs. Adding a new ping = adding a
+prefix here.
 
 | Prefix | Surface |
 |---|---|
 | `[TRAINING-START]` (commit subject) | training session start |
 | `[BLOCKED-PM]` (commit subject) | blocker (urgent) |
+| `comms(response):` (commit subject) | **silently ignored** — comms response writebacks |
 | `BLOCKED:` (PR title) | blocker (urgent, also notifies via GitHub) |
 | `TRAINING-PLAN:` (PR title) | training notebook ready |
 | `TRAINING-RESULTS:` (PR title) | training run complete |
@@ -182,7 +226,11 @@ a new ping = adding a prefix here.
 - `src/runtime/notify.py::send_via_alert_manager` — the actual Telegram
   API caller; reads token + chat-id from env.
 - `scripts/deploy_pull_restart.sh` — the VM's pull-and-restart script
-  that the new ping logic plugs into.
+  that the ping logic plugs into.
+- `scripts/notify_on_pull.py` — VM-side ping fanout; drains
+  `pending-pings.jsonl` + detects blocker/training/checkpoint events.
+- `scripts/send_ping.py` — enqueue helper; `target="claude"` routes to
+  `@claude_ict_comms_bot`.
 - `docs/claude/sprint-planning.md` — references this doc for the
   per-sprint ping requirements.
 - `docs/claude/training-improvement-workflow.md` — defines the four
