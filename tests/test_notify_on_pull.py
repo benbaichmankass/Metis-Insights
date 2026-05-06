@@ -643,3 +643,114 @@ def test_force_checkpoint_bypasses_added_id_gate(monkeypatch, tmp_path):
 
     pings = nop.collect_pings("pre", "post", force_checkpoint=True)
     assert any("CP-2026-05-03-99" in body for _, body, _ in pings)
+
+
+# ---------------------------------------------------------------------------
+# S-042 — additional coverage per telegram-pings.md spec
+# ---------------------------------------------------------------------------
+
+
+def test_blocker_pings_suppresses_comms_response_commits(monkeypatch):
+    """comms(response): commits must be silently ignored and never produce
+    a blocker ping — they ride on their own comms channel and must not
+    trigger the urgent-ping path."""
+    fake_log = MagicMock(returncode=0, stdout=(
+        "abc111\tcomms(response): operator approved M2 PR\n"
+        "abc222\t[BLOCKED-PM] need API key for prop account\n"
+    ), stderr="")
+    monkeypatch.setattr(nop.subprocess, "run", lambda *a, **kw: fake_log)
+    out = nop._blocker_pings("pre", "post")
+    # Only the BLOCKED-PM commit produces a ping; comms(response): is silenced.
+    assert len(out) == 1
+    assert out[0][0] == "urgent"
+    assert "comms(response)" not in out[0][1]
+
+
+def test_checkpoint_ping_high_priority_for_complete_title(tmp_path, monkeypatch):
+    """Sprint-complete commits with 'COMPLETE' in the CP title must
+    produce a high-priority ping — same rule as 'WRAPPED' and 'SHIPPED'."""
+    log = tmp_path / "log.md"
+    log.write_text(
+        "# Checkpoint log\n\n---\n\n"
+        "## CP-2026-05-06-14 — S-042 complete: M1 closed\n\n"
+        "- **Sprint:** S-042\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(nop, "CHECKPOINT_LOG", log)
+    pri, body = nop._checkpoint_ping("abc1234")
+    assert pri == "high"
+    assert "CP-2026-05-06-14" in body
+
+
+def test_checkpoint_ping_high_priority_for_shipped_title(tmp_path, monkeypatch):
+    """Sprint-complete commits with 'SHIPPED' in the CP title must
+    produce a high-priority ping."""
+    log = tmp_path / "log.md"
+    log.write_text(
+        "# Checkpoint log\n\n---\n\n"
+        "## CP-2026-05-06-15 — S-042 SHIPPED: feature deployed\n\n"
+        "- **Sprint:** S-042\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(nop, "CHECKPOINT_LOG", log)
+    pri, _ = nop._checkpoint_ping("abc5678")
+    assert pri == "high"
+
+
+def test_drain_pending_pings_sprint_start_event(tmp_path):
+    """sprint-start event JSON must parse correctly and include sprint + title
+    in the body sent to the operator (mandatory ping habit — T0 schema)."""
+    p = tmp_path / "pending-pings.jsonl"
+    p.write_text(
+        json.dumps({
+            "event": "sprint-start",
+            "priority": "normal",
+            "sprint": "S-042",
+            "title": "M1 verify ClaudeBot channel",
+        }) + "\n",
+        encoding="utf-8",
+    )
+    out = nop._drain_pending_pings(p)
+    assert len(out) == 1
+    priority, body, _ = out[0]
+    assert priority == "normal"
+    assert "sprint-start" in body
+    assert "S-042" in body
+    assert "M1 verify ClaudeBot channel" in body
+
+
+def test_drain_pending_pings_sprint_complete_event(tmp_path):
+    """sprint-complete event JSON must include summary_url in the body
+    (mandatory ping habit — T5 schema)."""
+    p = tmp_path / "pending-pings.jsonl"
+    summary_url = (
+        "https://github.com/the-lizardking/ict-trading-bot/blob/main/"
+        "docs/sprint-summaries/sprint-042-summary.md"
+    )
+    p.write_text(
+        json.dumps({
+            "event": "sprint-complete",
+            "priority": "high",
+            "sprint": "S-042",
+            "title": "M1 closed",
+            "summary_url": summary_url,
+        }) + "\n",
+        encoding="utf-8",
+    )
+    out = nop._drain_pending_pings(p)
+    assert len(out) == 1
+    priority, body, _ = out[0]
+    assert priority == "high"
+    assert "sprint-complete" in body
+    assert "S-042" in body
+    assert summary_url in body
+
+
+def test_commit_subjects_returns_empty_on_subprocess_error(monkeypatch):
+    """_commit_subjects must return [] and not raise when git fails
+    with an OSError (e.g. git not installed or cwd doesn't exist)."""
+    def _raise(*a, **kw):
+        raise OSError("git not found")
+    monkeypatch.setattr(nop.subprocess, "run", _raise)
+    result = nop._commit_subjects("pre", "post")
+    assert result == []
