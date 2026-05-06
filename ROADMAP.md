@@ -1,6 +1,6 @@
 # ICT Trading Bot — Product Roadmap
 
-> **Last Updated:** 2026-05-06 (S0 — Workflow Foundation in progress; S-013 closed; S-014 is next; recurring-session program added)
+> **Last Updated:** 2026-05-06 (M-S0 closed; S-014 Web Client V1 is the active milestone; recurring-session program live)
 > **Maintained by:** PM (Ben) + Tech Lead (Perplexity)
 > **Sprint prompt files:** `docs/sprints/sprint-NNN-prompt.md`
 
@@ -31,7 +31,7 @@
 | Sprint | Title | Status |
 |--------|-------|--------|
 | S-000 | Repo hygiene, CLAUDE.md hardening, checkpoint system | ✅ Done |
-| S0 | **Workflow Foundation** — master workplan, operating protocol, decomposition rules, milestone-state file (M-S0) | 🔄 In Progress |
+| S0 | **Workflow Foundation** — master workplan, operating protocol, decomposition rules, milestone-state file (M-S0) | ✅ Done |
 
 ---
 
@@ -86,7 +86,7 @@
 | Sprint | Title | Status |
 |--------|-------|--------|
 | S-013 | **Secure Web Dashboard: Backend Scaffold & Home Status** — FastAPI `/api/status` + `/api/pnl`, JWT auth (HS256, 1h TTL, single-operator allowlist), runtime status producer, `/webapp` Telegram command | ✅ Done |
-| S-014 | **Web Client V1 (Home Dashboard)** — browser client consuming S-013 APIs; login flow; home view with overall P&L, system status, active strategies (HTMX + Jinja2 + Chart.js stack — design baked into `docs/sprints/sprint-014-prompt.md`) | 🔜 Next |
+| S-014 | **Web Client V1 (Home Dashboard)** — browser client consuming S-013 APIs; login flow; home view with overall P&L, system status, active strategies (HTMX + Jinja2 + Chart.js stack — design baked into `docs/sprints/sprint-014-prompt.md`) | 🔄 Active |
 | S-015 | **Web Client V2 (Component Tabs)** — Strategies, Accounts, Model Metrics, Runtime Logs & Bugs tabs | 📋 Backlog |
 
 ---
