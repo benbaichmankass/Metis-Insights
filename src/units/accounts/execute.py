@@ -25,6 +25,7 @@ import uuid
 from typing import Any, Optional
 
 from src.core.coordinator import OrderPackage, is_paused
+from src.units.accounts.precision import get_tick_size, quantize_price
 from src.units.accounts.risk import size_order_from_cfg
 
 logger = logging.getLogger(__name__)
@@ -220,14 +221,15 @@ def _submit_test_order(client: Any, order: dict, account_cfg: dict) -> str:
     try:
         if exchange == "bybit":
             category = _bybit_category(account_cfg)
+            tick = get_tick_size(client, order["symbol"], category)
             kwargs = {
                 "category": category,
                 "symbol": order["symbol"],
                 "side": order["side"],
                 "orderType": "Market",
                 "qty": str(order["qty"]),
-                "stopLoss": str(order["sl"]),
-                "takeProfit": str(order["tp"]),
+                "stopLoss": quantize_price(order["sl"], tick),
+                "takeProfit": quantize_price(order["tp"], tick),
             }
             if category == "spot":
                 # Spot place_order interprets qty as base-coin by default
@@ -350,14 +352,15 @@ def _submit_order(client: Any, order: dict, account_cfg: dict) -> str:
     try:
         if exchange == "bybit":
             category = _bybit_category(account_cfg)
+            tick = get_tick_size(client, order["symbol"], category)
             kwargs = {
                 "category": category,
                 "symbol": order["symbol"],
                 "side": order["side"],
                 "orderType": "Market",
                 "qty": str(order["qty"]),
-                "stopLoss": str(order["sl"]),
-                "takeProfit": str(order["tp"]),
+                "stopLoss": quantize_price(order["sl"], tick),
+                "takeProfit": quantize_price(order["tp"], tick),
             }
             if category == "spot":
                 # See _submit_test_order for the marketUnit rationale.
@@ -582,11 +585,12 @@ def modify_open_order(
                     "error": "set_trading_stop not supported for spot — "
                              "monitor loop must close via close_open_position"}
         try:
+            tick = get_tick_size(exchange_client, symbol, category)
             kwargs = {"category": category, "symbol": symbol}
             if sl is not None:
-                kwargs["stopLoss"] = str(sl)
+                kwargs["stopLoss"] = quantize_price(sl, tick)
             if tp is not None:
-                kwargs["takeProfit"] = str(tp)
+                kwargs["takeProfit"] = quantize_price(tp, tick)
             resp = exchange_client.set_trading_stop(**kwargs)
             ret_code = (resp or {}).get("retCode")
             if ret_code in (0, "0", None):
