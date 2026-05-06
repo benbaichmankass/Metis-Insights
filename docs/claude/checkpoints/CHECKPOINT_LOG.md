@@ -5,6 +5,164 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-06-WPI-01 — Workplan Integration sprint kickoff (M0..M10 reset)
+
+- **Session date:** 2026-05-06
+- **Sprint:** **S-WPI** — Workplan Integration. Out-of-band naming
+  (does not consume an `S-NNN` slot in the linear backlog).
+  **KICKOFF.**
+- **Active milestone:** M-S-015 stays Active until S-WPI T1 (the
+  S-015 pause/continue decision). After T1, the Active milestone
+  flips to whichever M0..M10 milestone the operator picks.
+- **Last completed checkpoint:** `CP-2026-05-06-S-015-01` (S-015
+  kickoff). Same-session predecessors that landed on `main` between
+  S-015 kickoff and this checkpoint:
+  - PR #423 — BUG-058 dedupe (commit `350cc39`).
+  - PR #424 — BUG-057 (c) diagnostic logging (operator-merged).
+  - PR #425 — ping-PR for #424 (fired Telegram for the BUG-057 draft).
+  - PR #426 — BUG-059 bot routing (commit `1c34d93`).
+- **Telegram sent:** the merge of this kickoff PR on `main` triggers
+  the VM-side ping. Post-BUG-058 + BUG-059, the ping fires **once**
+  via `@claude_ict_comms_bot` (Claude bridge) — no duplicate fire,
+  no wrong-bot routing. The S-WPI kickoff itself is the first ping
+  to land via the corrected channel.
+- **Alerts sent during session:** PR #425 (BUG-057 BLOCKED draft
+  alert) — operator answered + merged #424 in-session.
+- **Blockers:** **two open Tier 2 questions for operator** — see
+  S-WPI § 4 T1 + T2:
+  1. **S-015 pause vs continue** — new workplan puts web UI at M6
+     after risk controls / CI hardening / strategy testing. S-015 is
+     in flight. Three options on the table; recommend operator picks
+     one before T3 starts.
+  2. **5m/1h timeframe rule** — current strategies use 15m/1m.
+     Audit + Tier 3 enforcement now, or defer to a strategy
+     improvement session under M3/M5?
+
+### 1. Completed (this session, 2026-05-06)
+
+End-to-end across one extended session, four PRs merged + one draft
+filed + one kickoff prompt:
+
+| PR | Title | Outcome |
+|---|---|---|
+| #422 | S-015 kickoff: rewrite sprint-015-prompt.md for Web Client V2 | ✅ merged early in session |
+| #423 | fix(notify): hash-based dedupe so old pings don't re-fire (BUG-058) | ✅ merged |
+| #424 | BLOCKED: BUG-057 (c) diagnostic-only logging on Bybit 170134 | ✅ merged (operator-approved) |
+| #425 | PING: BUG-057 reopen — diagnostic PR #424 awaits operator merge/hold | ✅ merged (ping-PR) |
+| #426 | fix(routing): Claude session pings → @claude_ict_comms_bot, trade alerts → @bict_trading_bot (BUG-059) | ✅ merged |
+| (this PR) | S-WPI kickoff: workplan integration sprint prompt + this checkpoint | ⏳ this checkpoint PR |
+
+Pain-points addressed (mid-session, not pre-planned):
+
+- **BUG-058 (duplicate pings)** — every git pull was re-firing the
+  same 2026-05-06 S-014 blocker line. Root cause: `pending-pings.jsonl`
+  is git-tracked and `_drain_pending_pings` had no dedupe. Fix:
+  VM-local sha256-based delivered-hashes file; truncated the stale
+  S-014 line. 31/31 tests green.
+- **BUG-057 reopen (Bybit 170134 still firing post-#420)** —
+  `quantize_price` IS firing (output reaches Bybit at 2-decimal
+  shape) but Bybit STILL rejects spot SL/TP. Operator picked option
+  (c): read-only diagnostic logging that captures the live
+  `priceFilter`/`lotSizeFilter` on every 170134. PR #424 ships the
+  diagnostic; the next live failure tells us which fix to ship next.
+- **BUG-059 (wrong bot for Claude pings)** — operator asked why
+  Claude pings rode on `@bict_trading_bot` instead of
+  `@claude_ict_comms_bot`. Root cause: 100% of session pings rode
+  on the wrong bot — `notify_on_pull.py` wrote to the trading-bot
+  inbox and `claude_bridge.py` had no drain loop. Fix: split
+  inbox; `notify_on_pull.py` now passes `target="claude"`;
+  `claude_bridge.py` gained a JobQueue drainer mirroring the trader
+  bot's. 9 new tests, 63/63 green.
+
+Workplan-integration kickoff (this PR):
+
+- **Filed `docs/sprints/sprint-workplan-integration-prompt.md`**
+  covering all eight mandatory sections from
+  `docs/claude/sprint-planning.md`. Sprint codename **S-WPI**
+  (Workplan Integration). Multi-session, doc-restructure only,
+  with two Tier 2 ping decisions (S-015 pause + 5m/1h timeframe).
+- **No code touched** in this PR. The actual CLAUDE.md / ROADMAP.md /
+  milestone-state.md restructure happens in subsequent S-WPI
+  checkpoints (T3..T8) once operator answers T1 + T2.
+
+### 2. Files changed (this kickoff PR)
+
+- `docs/sprints/sprint-workplan-integration-prompt.md` (new — the
+  S-WPI sprint prompt itself).
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry).
+
+### 3. Tests run
+
+- `python scripts/secret_scan.py` — clean.
+- `python scripts/check_dry_run_in_diff.py` — clean.
+- No new pytest tests added in this kickoff (subsequent S-WPI
+  checkpoints stay docs-only too).
+- Sprint's predecessor merges all CI'd green:
+  - PR #423 → 31/31 `test_notify_on_pull.py` green.
+  - PR #424 → 19/19 `test_order_price_precision.py` green.
+  - PR #426 → 63/63 across `test_send_ping.py`,
+    `test_notify_on_pull.py`, `test_order_price_precision.py`.
+
+### 4. Remaining
+
+- **Operator decisions on T1 + T2** (S-015 pause/continue and 5m/1h
+  timeframe) before T3..T8 can fire.
+- All eight S-WPI checkpoints (T1..T9) per the prompt.
+
+### 5. Next checkpoint
+
+**CP-2026-05-NN-WPI-02 — S-WPI T1 (S-015 pause/continue decision)** —
+open a Tier 2 ping-PR + draft decision-record PR with three options:
+(a) pause S-015 at T0 immediately, (b) finish S-015 T1..T6 then pivot
+to M3, (c) absorb S-015 into M6 as-is and still pivot to M3 next.
+Read in order:
+
+1. This entry.
+2. `docs/sprints/sprint-workplan-integration-prompt.md` (the S-WPI
+   prompt).
+3. The operator's 2026-05-06 workplan message (in-session, not in
+   repo — quote the relevant fragment in the decision-record PR
+   body so future sessions can re-read).
+4. `docs/claude/milestone-state.md` § Active milestone
+   (still M-S-015 until T1 lands).
+5. `docs/sprints/sprint-015-prompt.md` (the in-flight Component
+   Tabs sprint).
+
+Concrete first action: branch `claude/wpi-t1-s015-decision` off
+`origin/main`, create `docs/claude/decisions/s015-pause-or-continue.md`
+draft with the three options + one-line recommendation per option,
+open as **DRAFT** PR, open the matching tiny ping-PR per CLAUDE.md
+ping-PR pattern.
+
+### Live-mode check
+
+✅ No live-trading code touched across the entire session. Six PRs
+(#422 docs, #423 comms infra, #424 diagnostic-only on
+`src/units/accounts/*`, #425 ping-PR docs, #426 comms infra, this
+WPI kickoff docs). PR #424 was the only one touching `src/units/`
+and it was Tier 2 ping-and-wait — operator approved + merged after
+review. `scripts/check_dry_run_in_diff.py` clean every PR.
+Per-account `mode: live` contract from BUG-056 stands.
+
+### Notes for future sessions
+
+- The new workplan introduces an out-of-band sprint codename
+  (`S-WPI`) so we don't burn an `S-NNN` slot on a doc-restructure
+  sprint. Future workplan-revision sprints should follow this
+  pattern (e.g. `S-WPI-2`, `S-WPI-3`) so the linear backlog stays
+  clean.
+- BUG-057 (c) diagnostic only fires on **Bybit 170134** — if the
+  next live failure has a different retCode, the diagnostic line
+  is silent. Watch journalctl for `BUG-057-DIAG` after the next
+  VWAP signal.
+- Post-BUG-059, every ping in this session that fired via
+  `notify_on_pull.py` rode on `@claude_ict_comms_bot`. If the
+  operator sees one slip onto `@bict_trading_bot`, that means
+  some other producer (e.g. a manual `scripts/send_ping.py` call)
+  is missing `--target claude`.
+
+---
+
 ## CP-2026-05-06-S-015-01 — S-015 kickoff (Web Client V2 — Component Tabs prompt rewrite)
 
 - **Session date:** 2026-05-06
