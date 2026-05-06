@@ -86,6 +86,28 @@ def test_auth_js_wires_login_form_and_pre_expiry_timer():
     assert "ict_session_token" in body
 
 
+def test_auth_js_wires_htmx_response_error_handler():
+    """S-014 M2 PR #2 contract: auth.js must listen for
+    ``htmx:responseError`` and on 401 clear the token + redirect to
+    /login; on 403 surface a "Not allowlisted" toast."""
+    resp = _client().get("/static/js/auth.js")
+    assert resp.status_code == 200
+    body = resp.text
+    assert "htmx:responseError" in body
+    assert "onResponseError" in body
+    assert "Not allowlisted" in body
+    assert "showToast" in body
+    assert "ict-toast" in body
+
+
+def test_app_css_includes_toast_styles():
+    resp = _client().get("/static/css/app.css")
+    assert resp.status_code == 200
+    body = resp.text
+    assert ".ict-toast" in body
+    assert ".ict-toast--visible" in body
+
+
 def test_home_page_renders_without_server_side_auth():
     """``/home`` is *not* in PUBLIC_ROUTES for documentation reasons —
     it's still served without ``require_session`` because auth.js
