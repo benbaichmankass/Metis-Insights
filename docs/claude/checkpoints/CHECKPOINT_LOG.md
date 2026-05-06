@@ -5,6 +5,148 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-06-01 — BUG-056 spot-vs-perp routing fix WRAPPED (PM REVIEW)
+
+- **Session date:** 2026-05-06
+- **Sprint:** Hotfix BUG-056 — trader was placing perpetuals instead of
+  spot for BTCUSDT. Branch `claude/fix-spot-trading-bzsbd`.
+- **Current sprint phase:** WRAPPED — draft PR open for PM review (per
+  CLAUDE.md merging rules: changes to live trading logic require PM
+  review, not auto-merge).
+- **Last completed checkpoint:** CP-2026-05-04-09
+- **Blockers:** none
+
+### 1. Completed
+
+- **BUG-056 FIXED** — operator reported the trader was placing BTCUSDT
+  perpetual contracts (Bybit V5 ``category="linear"``) when the
+  intended security is the spot cash market. Five hardcoded
+  ``category="linear"`` literals in the order path were the root cause.
+- Added `market_type: spot | linear` field to `config/accounts.yaml`
+  per account (default `spot`). Set `bybit_1` and `bybit_2` to
+  `market_type: spot` per the operator directive.
+- Added `_bybit_category(account_cfg)` helper in
+  `src/units/accounts/execute.py` (default = spot, normalises
+  `perp` / `perpetual` / `futures` aliases to `linear`, falls back to
+  spot on unknown values with a warning).
+- Threaded `market_type` through `TradingAccount.__init__`,
+  `load_accounts`, `Coordinator.multi_account_execute`'s
+  `account_cfg` dict (and the early-out `_early_account_cfg`), and
+  the YAML loader at `src/units/ui/data_loaders.py`.
+- Replaced the 5 hardcoded sites:
+  - `_submit_test_order` (smoke path) — uses resolved category +
+    `marketUnit="baseCoin"` for spot.
+  - `_submit_order` (live path) — same.
+  - `modify_open_order` — refuses cleanly for spot
+    (`set_trading_stop` is derivatives-only on Bybit V5).
+  - `close_open_position` — drops `reduceOnly` for spot, adds
+    `marketUnit="baseCoin"`.
+  - `account_open_positions` — spot returns `[]` (no
+    derivative-style positions exist; spot holdings live in the
+    wallet-balance view).
+- `src/units/ui/processor.py::get_price` — now queries the spot
+  ticker (was perpetual).
+- Added regression test suite `tests/test_spot_category_routing.py`
+  (15 tests covering: resolver normalisation, spot+linear routing
+  for `_submit_order`, spot refusal in `modify_open_order`, spot
+  `close_open_position` without `reduceOnly`, spot
+  `account_open_positions=[]`, and an end-to-end YAML→`account_cfg`
+  plumb-through via the Coordinator).
+- Pinned 2 existing fixtures to `market_type: linear` so they
+  continue to test the perp-position v5 endpoint behaviour
+  (`tests/test_accounts_clients_open_positions.py`,
+  `tests/test_s012_hotfix_balance_and_signals.py`).
+- Appended BUG-056 row to `docs/claude/bug-log.md`.
+
+### 2. Files changed
+
+- `config/accounts.yaml` (added `market_type: spot` to both bybit
+  accounts + header doc)
+- `src/units/accounts/execute.py` (helper + 4 routing-site fixes +
+  docstring)
+- `src/units/accounts/clients.py` (spot returns `[]` from
+  `account_open_positions`)
+- `src/units/accounts/account.py` (new `market_type` ctor field +
+  attribute)
+- `src/units/accounts/__init__.py` (forward `market_type` from
+  YAML to TradingAccount)
+- `src/core/coordinator.py` (forward `market_type` into
+  `account_cfg` and `_early_account_cfg`)
+- `src/units/ui/data_loaders.py` (preserve `market_type` in the
+  YAML accounts loader)
+- `src/units/ui/processor.py` (`get_price` queries spot ticker)
+- `tests/test_spot_category_routing.py` (NEW — 15 tests)
+- `tests/test_accounts_clients_open_positions.py` (fixture pin)
+- `tests/test_s012_hotfix_balance_and_signals.py` (fixture pin)
+- `docs/claude/bug-log.md` (BUG-056 row)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+
+```
+PYTHONPATH=. python -m pytest tests/test_spot_category_routing.py -q
+# → 15 passed in 0.16s
+
+PYTHONPATH=. python -m pytest tests/test_s028_vwap_execute_routing.py \
+    tests/test_accounts_clients_open_positions.py \
+    tests/test_execute_journal_rejections.py \
+    tests/test_multi_account_execute_per_account_mode.py \
+    tests/test_s008_accounts.py tests/test_s010_accounts.py \
+    tests/test_accounts_clients.py -q
+# → 88 passed, 1 pre-existing failure (TestDryRunOverrides::test_unset_accounts_keep_default — unrelated, see baseline).
+
+PYTHONPATH=. python -m pytest tests/ -q -k "execute or account or \
+    multi_account or processor or coordinator" --ignore=...
+# → 41 failed, 458 passed. Verified by stash/restore diff that the
+#   failure set EQUALS the baseline before this PR (40 failed +
+#   ``test_spot_category_routing.py`` collection error in the baseline,
+#   which becomes 0 collection errors + 15 new passes here, plus one
+#   formerly-passing fixture-pinned test that needed the linear marker
+#   — fixed by the fixture update). No new failures introduced.
+
+python scripts/secret_scan.py
+# → No obvious tracked-file secrets found.
+
+python scripts/check_dry_run_in_diff.py
+# → dry_run_in_diff: clean (no offending changes).
+```
+
+### 4. Remaining
+
+- **Operator must review the draft PR** — this PR touches
+  `src/units/accounts/*` (live trading routing) so it is held for PM
+  review per CLAUDE.md § Merging Rules. Once approved + merged, the
+  next live tick on `bybit_1` / `bybit_2` will route BTCUSDT to spot
+  instead of perp.
+- **Defensive guard (deferred):** extend
+  `scripts/check_dry_run_in_diff.py` (or a new CI guard) to fail on
+  any added `category=("linear"|"spot"|"inverse")` literal in
+  `src/units/` so a future regression cannot reintroduce the same
+  bug shape.
+- **Known limitation (documented):** spot ``modify_open_order``
+  is a no-op; the S-030 monitor loop must enforce SL/TP for spot
+  accounts via ``close_open_position`` rather than an exchange-side
+  bracket update. The current monitor loop already invokes the
+  close path on threshold breaches, so this is behaviour-neutral.
+- **Follow-up sprint candidate:** wire spot wallet-balance reads
+  into `account_open_positions` for spot accounts (currently
+  returns `[]`) so `/accounts_status` can surface held BTC as an
+  "open" position. Out of scope for this hotfix.
+
+### 5. Next checkpoint
+
+**CP-2026-05-06-02** — Once the operator approves and self-merges
+this PR, the next session resumes with the next-priority audit
+candidate (continuing the recurring-hardening cadence from
+CP-2026-05-04-09 § "Next checkpoint"). Read
+`docs/sprints/recurring-hardening-prompt.md` § 2B and
+`docs/claude/audit-log.md`.
+
+- **Telegram sent:** yes (rides on this checkpoint commit via VM
+  wiring; high-priority because the title contains `WRAPPED`).
+
+---
+
 ## CP-2026-05-04-09 — Recurring Hardening Session 3: mode-flag plumbing audit COMPLETE
 
 - **Session date:** 2026-05-05

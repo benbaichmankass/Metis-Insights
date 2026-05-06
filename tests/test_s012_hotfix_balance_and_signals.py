@@ -133,6 +133,11 @@ class TestAccountBalanceUsesApiKeyEnv:
             "exchange": "bybit",
             "api_key_env": "BYBIT_API_KEY_1",
             "env_path": None,
+            # Pin to linear so the perp-position v5 endpoint is exercised
+            # — the post-2026-05-06 default is ``spot`` (returns ``[]``
+            # without a network call). Spot routing is covered by
+            # ``test_spot_category_routing.py``.
+            "market_type": "linear",
         }
         positions = dl.account_open_positions(account)
         assert positions is not None

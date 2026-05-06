@@ -34,6 +34,37 @@ def _is_test_order(pkg: OrderPackage) -> bool:
     return bool(getattr(pkg, "meta", None) and pkg.meta.get("is_test"))
 
 
+# Bybit V5 categories. ``spot`` for spot trading (BTCUSDT cash market),
+# ``linear`` for USDT-margined perpetuals, ``inverse`` for coin-margined
+# perpetuals. The codebase only routes spot + linear today; inverse is
+# rejected by ``_bybit_category`` until an account explicitly opts in.
+_BYBIT_CATEGORY_DEFAULT = "spot"
+_BYBIT_VALID_CATEGORIES = {"spot", "linear", "inverse"}
+
+
+def _bybit_category(account_cfg: dict) -> str:
+    """Resolve the Bybit V5 ``category`` for this account.
+
+    Reads ``account_cfg["market_type"]`` (set from
+    ``config/accounts.yaml`` per the operator directive 2026-05-06 — the
+    fix for the perp-instead-of-spot bug). Default = ``"spot"`` so any
+    account that omits the field trades the cash market, matching what
+    the operator's wallet holds (BTC + USDT for ``bybit_1``, USDT for
+    ``bybit_2``).
+    """
+    raw = str(account_cfg.get("market_type") or _BYBIT_CATEGORY_DEFAULT).strip().lower()
+    if raw == "perp" or raw == "perpetual" or raw == "futures":
+        raw = "linear"
+    if raw not in _BYBIT_VALID_CATEGORIES:
+        logger.warning(
+            "_bybit_category: account=%s has unknown market_type=%r — "
+            "defaulting to %s",
+            account_cfg.get("account_id"), raw, _BYBIT_CATEGORY_DEFAULT,
+        )
+        return _BYBIT_CATEGORY_DEFAULT
+    return raw
+
+
 def execute_pkg(
     pkg: OrderPackage,
     account_cfg: dict,
@@ -188,15 +219,22 @@ def _submit_test_order(client: Any, order: dict, account_cfg: dict) -> str:
     exchange = (account_cfg.get("exchange") or "bybit").lower()
     try:
         if exchange == "bybit":
-            resp = client.place_order(
-                category="linear",
-                symbol=order["symbol"],
-                side=order["side"],
-                orderType="Market",
-                qty=str(order["qty"]),
-                stopLoss=str(order["sl"]),
-                takeProfit=str(order["tp"]),
-            ) or {}
+            category = _bybit_category(account_cfg)
+            kwargs = {
+                "category": category,
+                "symbol": order["symbol"],
+                "side": order["side"],
+                "orderType": "Market",
+                "qty": str(order["qty"]),
+                "stopLoss": str(order["sl"]),
+                "takeProfit": str(order["tp"]),
+            }
+            if category == "spot":
+                # Spot place_order interprets qty as base-coin by default
+                # for Sell and quote-coin for market Buy; risk sizing
+                # produces a base-coin qty so pin marketUnit accordingly.
+                kwargs["marketUnit"] = "baseCoin"
+            resp = client.place_order(**kwargs) or {}
             ret_code = resp.get("retCode")
             if ret_code not in (0, "0", None):
                 reason = str(resp.get("retMsg") or f"retCode={ret_code}")
@@ -311,15 +349,20 @@ def _submit_order(client: Any, order: dict, account_cfg: dict) -> str:
 
     try:
         if exchange == "bybit":
-            resp = client.place_order(
-                category="linear",
-                symbol=order["symbol"],
-                side=order["side"],
-                orderType="Market",
-                qty=str(order["qty"]),
-                stopLoss=str(order["sl"]),
-                takeProfit=str(order["tp"]),
-            )
+            category = _bybit_category(account_cfg)
+            kwargs = {
+                "category": category,
+                "symbol": order["symbol"],
+                "side": order["side"],
+                "orderType": "Market",
+                "qty": str(order["qty"]),
+                "stopLoss": str(order["sl"]),
+                "takeProfit": str(order["tp"]),
+            }
+            if category == "spot":
+                # See _submit_test_order for the marketUnit rationale.
+                kwargs["marketUnit"] = "baseCoin"
+            resp = client.place_order(**kwargs)
             return str((resp.get("result") or {}).get("orderId") or uuid.uuid4().hex)
         if exchange == "binance":
             resp = client.place_order(
@@ -503,10 +546,12 @@ def modify_open_order(
 ) -> dict:
     """Modify SL/TP on an open position on the account's exchange.
 
-    Bybit Unified Trading: ``set_trading_stop(category='linear',
-    symbol=…, stopLoss=…, takeProfit=…)``. Binance is not yet
-    supported (only the live trader's Bybit accounts are wired);
-    returns ``ok=False`` with a NotImplementedError reason.
+    Bybit Unified Trading: ``set_trading_stop(category=<resolved>,
+    symbol=…, stopLoss=…, takeProfit=…)`` — only valid for the
+    derivatives categories (``linear``/``inverse``). Spot accounts
+    return ``ok=False`` with a clear error and rely on the monitor
+    loop to enforce SL/TP via a market close. Binance is not yet
+    supported (only the live trader's Bybit accounts are wired).
 
     Best-effort. Returns a result dict instead of raising so the
     caller (the monitor loop) can record the outcome on the
@@ -526,8 +571,18 @@ def modify_open_order(
 
     exchange = (account_cfg.get("exchange") or "bybit").lower()
     if exchange == "bybit":
+        category = _bybit_category(account_cfg)
+        if category == "spot":
+            # Bybit's ``set_trading_stop`` is a derivatives-only endpoint;
+            # spot SL/TP modifications go through conditional-order amend
+            # flows that the bot does not yet track. The S-030 monitor
+            # loop enforces SL/TP for spot accounts via a close order
+            # rather than an exchange-side bracket update.
+            return {"ok": False, "exchange_response": None,
+                    "error": "set_trading_stop not supported for spot — "
+                             "monitor loop must close via close_open_position"}
         try:
-            kwargs = {"category": "linear", "symbol": symbol}
+            kwargs = {"category": category, "symbol": symbol}
             if sl is not None:
                 kwargs["stopLoss"] = str(sl)
             if tp is not None:
@@ -583,14 +638,21 @@ def close_open_position(
 
     if exchange == "bybit":
         try:
-            resp = exchange_client.place_order(
-                category="linear",
-                symbol=symbol,
-                side=close_side,
-                orderType="Market",
-                qty=str(qty),
-                reduceOnly=True,
-            ) or {}
+            category = _bybit_category(account_cfg)
+            kwargs = {
+                "category": category,
+                "symbol": symbol,
+                "side": close_side,
+                "orderType": "Market",
+                "qty": str(qty),
+            }
+            if category == "spot":
+                # Spot has no derivative-style positions to "reduce";
+                # closing a long is just a market sell of held base coin.
+                kwargs["marketUnit"] = "baseCoin"
+            else:
+                kwargs["reduceOnly"] = True
+            resp = exchange_client.place_order(**kwargs) or {}
             ret_code = resp.get("retCode")
             if ret_code in (0, "0", None):
                 order_id = (resp.get("result") or {}).get("orderId")

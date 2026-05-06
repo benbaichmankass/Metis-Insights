@@ -50,6 +50,7 @@ class TradingAccount:
         strategies: Optional[List[str]] = None,
         configured: bool = True,
         configured_reason: Optional[str] = None,
+        market_type: str = "spot",
     ) -> None:
         self.name = name
         self.exchange = exchange
@@ -71,6 +72,11 @@ class TradingAccount:
         # for the operator (e.g. "VELOTRADE_API_KEY_1 not set").
         self.configured: bool = bool(configured)
         self.configured_reason: Optional[str] = configured_reason
+        # Bybit V5 category — ``spot`` for cash market, ``linear`` for
+        # USDT-margined perps. Source of truth is ``config/accounts.yaml``
+        # ``market_type`` field; default is ``spot`` per the operator
+        # directive 2026-05-06 (the perp-instead-of-spot fix).
+        self.market_type: str = str(market_type or "spot").strip().lower()
 
     def place_order(self, order: OrderPackage, *, dry_run: Optional[bool] = None) -> str:
         """Risk-check and route *order* to the exchange.

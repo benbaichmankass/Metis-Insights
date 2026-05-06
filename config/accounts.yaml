@@ -26,6 +26,17 @@
 # the Telegram /accounts command flips it at runtime via
 # `set_account_dry_run()`.
 #
+# Bybit V5 category routing (operator directive 2026-05-06):
+#   `market_type: spot`    → Bybit spot cash market (place_order
+#                            category="spot", marketUnit="baseCoin").
+#   `market_type: linear`  → USDT-margined perpetual futures
+#                            (category="linear"). Was the previous
+#                            hardcoded behaviour; kept as an opt-in.
+# Default when the field is omitted is `spot` — the operator's wallets
+# hold real BTC/USDT and the trader should buy/sell the cash asset, not
+# linear perp contracts. Read by `_bybit_category()` in
+# `src/units/accounts/execute.py`.
+#
 # Risk caps fire bidirectionally: pos_size, daily_usd, and (S-012 PR E3a)
 # max_dd_pct (intra-day, UTC midnight reset).
 #
@@ -46,6 +57,10 @@ accounts:
     exchange: bybit
     api_key_env: BYBIT_API_KEY_1       # env var holding the actual key
     mode: live                         # see header — ONLY dry/live toggle
+    market_type: spot                  # Bybit V5 category — spot for cash
+                                       # market BTCUSDT (operator directive
+                                       # 2026-05-06: trader was placing
+                                       # perpetuals; this routes to spot).
     strategies: [turtle_soup]
     risk:
       max_dd_pct: 0.05                 # 5% max intra-day drawdown
@@ -54,14 +69,16 @@ accounts:
       risk_pct: 0.01                   # 1% balance risked per trade (S-026 G2)
       min_balance_usd: 50              # refuse to size below $50 (S-026 G2)
 
-  # bybit_2: vwap only — wallet holds USDT only, so vwap (mean-reversion
-  # against perp pair, USDT-margined) is the right fit. turtle_soup
-  # would have to size into BTC and would block on a missing base.
+  # bybit_2: vwap only. Wallet holds USDT — for spot trading the strategy
+  # buys BTCUSDT (USDT → BTC) and exits by selling back. vwap's mean-
+  # reversion edge applies to spot too; the previous comment described
+  # the mis-configured perp-route, kept here as a record of the fix.
   bybit_2:
     type: regular
     exchange: bybit
     api_key_env: BYBIT_API_KEY_2
     mode: live                         # see header — ONLY dry/live toggle
+    market_type: spot                  # see bybit_1 — spot cash market
     strategies: [vwap]
     risk:
       max_dd_pct: 0.05
