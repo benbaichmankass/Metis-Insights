@@ -1,3 +1,10 @@
+> ✅ **S-041 STATUS NOTE (2026-05-06 — verify-before-trusting-done sweep):**
+> Sprint **completed**. Closing checkpoint: CP-2026-04-30-17. Root cause identified
+> (deploy script `PRE_SYNC_HEAD` no-op early-out) and fixed; BUG-018 and BUG-022
+> fully closed. Recursive verification: CP-2026-04-30-17 commit itself fired a
+> Telegram ping confirming end-to-end green. Under workplan M0..M10, this sprint's
+> work maps to **M1** (Comms infrastructure). No further action required.
+
 # Sprint S-020 — fix the auto-ping (manual /ping_test works, auto path doesn't)
 
 **Mode:** debug-and-fix sprint. Probably 30–60 min. Operator-confirmed
