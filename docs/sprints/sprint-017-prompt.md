@@ -1,3 +1,10 @@
+> ✅ **S-041 STATUS NOTE (2026-05-06 — verify-before-trusting-done sweep):**
+> Sprint **completed**. All S-017 PRs confirmed on `main` (referenced in
+> `docs/sprints/sprint-020-prompt.md` § 2 dependencies as PRs #213–#227). Live
+> smoke trigger armed CP-2026-04-30-14; system went live through subsequent sprints.
+> Under workplan M0..M10, this sprint's work maps to **M3** (risk controls / live
+> activation). No further action required.
+
 # Sprint S-017 — Activate live trading + smoke test
 
 **Mode:** Operator-collaborative session. Hard stops at the live smoke.

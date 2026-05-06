@@ -1,3 +1,11 @@
+> ✅ **S-041 STATUS NOTE (2026-05-06 — verify-before-trusting-done sweep):**
+> Sprint **completed**. Closing checkpoint: CP-2026-05-04-04. Deliverables confirmed
+> on-disk: `tests/test_env_render_contract.py` (3 tests, 59 total pass),
+> `src/runtime/boot_audit.py`, `tests/test_boot_audit.py` (3 tests),
+> `src/main.py` insertion, and `docs/sprint-summaries/sprint-021-summary.md`.
+> Under workplan M0..M10, this sprint maps to **M3** (risk controls / config
+> hardening) and **M4** (repo hygiene + CI). No further action required.
+
 # Sprint S-021 — BUG-048 hardening: config-drift contract + boot-time observability
 
 **Mode:** Single Claude Code session, ~60–90 min wall-clock total. PM available for ad-hoc questions.

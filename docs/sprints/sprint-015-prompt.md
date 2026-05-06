@@ -1,3 +1,13 @@
+> ⚠️ **S-041 STATUS NOTE (2026-05-06 — verify-before-trusting-done sweep):**
+> Sprint filed under old `M-S-015` framing; kickoff T0 done (CP-2026-05-06-S-015-01,
+> 2026-05-06). Under workplan M0..M10, scope maps to **M6 (Web app UI)**. However,
+> `docs/claude/workplan.md` § "Dashboard apps — Repo and hosting boundary" requires
+> web app UI to live in the **separate dashboard repo** (`ict-trader-dashboard`, Vercel),
+> not `ict-trading-bot`. S-013/S-014/S-015 all predate this rule and built web UI in
+> this repo. A Tier 2 pause/continue decision is required to resolve the conflict; that
+> decision is under **operator hold** as of 2026-05-06. **Do NOT execute T1+ of this
+> sprint until the hold is lifted and the repo boundary issue is resolved.**
+
 # Sprint S-015 — Web Client V2 (Component Tabs)
 
 > **Sprint type:** Feature sprint (lean). Phase 4 web client — extends S-014's home dashboard with operator-iterable component tabs.
