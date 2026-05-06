@@ -11,6 +11,63 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-06-13-s042-kickoff — S-042 kickoff: M1 audit pass, smoke-test ping dispatched
+
+- **Session date:** 2026-05-06
+- **Sprint:** S-042 — M1: Verify and close the ClaudeBot one-way notification channel
+- **Active milestone:** M1 — Comms infrastructure (S-041 closed; M1 now active with S-042).
+- **Last completed checkpoint:** `CP-2026-05-06-12-s041-complete`.
+- **Telegram sent:** sprint-start + S-042-smoke-test pings appended to `docs/claude/pending-pings.jsonl`; VM git-sync timer will drain within ≤5 min → @claude_ict_comms_bot.
+- **Alerts sent during session:** none.
+- **Blockers:** S-015 operator hold (unchanged); BUG-057 awaiting VM diag (unchanged).
+
+### 1. Completed (T0 + T1 + T2)
+
+**T0 — Sprint start:**
+- `docs/claude/milestone-state.md` updated: S-041 CLOSED → M1 active with S-042.
+- Sprint-start ping appended to `docs/claude/pending-pings.jsonl`.
+
+**T1 — Pipeline audit (all checks pass):**
+
+| Check | Status | Evidence |
+|---|---|---|
+| `docs/claude/pending-pings.jsonl` exists | ✅ | Tracked in git; prior BUG-057 ping deduped via DELIVERED_HASHES |
+| File listed in `.gitignore` | ✅ | `.gitignore` line: `docs/claude/pending-pings.jsonl` (tracked but gitignored — explicit `git add` still works; GitHub API writes directly) |
+| `deploy/ict-git-sync.timer` in `deploy/` | ✅ | `deploy/ict-git-sync.timer` present |
+| `deploy/ict-git-sync.service` in `deploy/` | ✅ | `deploy/ict-git-sync.service` present |
+| `deploy_pull_restart.sh` calls `notify_on_pull.py` | ✅ | `python3 scripts/notify_on_pull.py "${NOTIFY_ARGS[@]}"` |
+| `notify_on_pull.py` drains `pending-pings.jsonl` | ✅ | `_drain_pending_pings` + hash-based dedup via DELIVERED_HASHES |
+| `send_ping.py` routes `target="claude"` | ✅ | `PENDING_CLAUDE_PINGS_DIR` / `_inbox_for("claude")` |
+| `deploy/ict-claude-bridge.service` in `deploy/` | ✅ | Present; confirmed active on VM per BUG-058 PR #423 + BUG-059 PR #426 (2026-05-06) |
+
+**T2 — Smoke test dispatched:**
+- Appended `{"event": "S-042-smoke-test", "priority": "normal", "sprint": "S-042"}` to `pending-pings.jsonl`.
+- VM will drain on next git-sync tick (≤5 min after merge).
+- Expected delivery: @claude_ict_comms_bot within ≤10 min of this PR merging to main.
+- `ict-claude-bridge.service` confirmed active per BUG-058/059 deployment.
+
+### 2. Files changed
+
+- `docs/claude/milestone-state.md` — Active milestone updated to S-042 / M1.
+- `docs/claude/pending-pings.jsonl` — Sprint-start + smoke-test pings appended.
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` — This entry.
+
+### 3. Remaining
+
+- T3: Update `docs/claude/telegram-pings.md` — verified status, one-way clarification, mandatory ping habit.
+- T4: Add missing test cases to `tests/test_notify_on_pull.py`.
+- T5: Sprint close — milestone-state (M1 closed, M3 queued), sprint-042-summary, sprint-complete ping.
+
+### 4. Next checkpoint
+
+**CP-2026-05-06-14-s042-complete** — sprint close.
+
+### Live-mode check
+
+✅ No live-trading code touched. Docs only. `scripts/check_dry_run_in_diff.py` clean.
+
+---
+
 ## CP-2026-05-06-12-s041-complete — S-041 complete: workplan reconciliation sweep done
 
 - **Session date:** 2026-05-06
@@ -70,8 +127,8 @@ as "Historical Sprint Ledger" with M-mapping column. Repo/hosting boundary secti
 
 ### 5. Next session
 
-Start **M1 — Comms infrastructure**: structured writeback loop (Claude artifact → bot
-detect → send → operator response → repo write). Read `docs/claude/milestone-state.md`
+Start **M1 — Comms infrastructure**: structured writeback loop (Claude artifact →
+bot detect → send → operator response → repo write). Read `docs/claude/milestone-state.md`
 § M1 and `docs/claude/workplan.md` § M1 for scope.
 
 ### Live-mode check
