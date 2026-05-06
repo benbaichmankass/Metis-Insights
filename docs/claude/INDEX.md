@@ -20,6 +20,15 @@ Remove stale instructions when they waste context.
 
 ## Files
 
+### Workflow foundation (M-S0, 2026-05-06)
+
+- `../workplan.md` (top-level): master workplan — goal, priorities, milestone types, merge tiers, VM rules.
+- `milestone-state.md`: **read second** (after `CHECKPOINT_LOG.md`). Quick-glance "where the program is right now" — active milestone, queued milestones, open blockers.
+- `operating-protocol.md`: consolidated session-wide operating rules (session shape, three-tier merge authority, live-mode invariant, ping-PR pattern).
+- `decomposition-rules.md`: normative milestone → sprint → checkpoint contract.
+
+### Session resume
+
 - `checkpoint-workflow.md`: **read first.** Resume rules, stop rules, handoff format.
 - `checkpoints/CHECKPOINT_LOG.md`: append-only log of session handoffs (source of truth for "where to resume").
 - `checkpoints/HANDOFF_TEMPLATE.md`: template every session copies into the log at the end.

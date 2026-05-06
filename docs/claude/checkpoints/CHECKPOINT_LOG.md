@@ -5,6 +5,142 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-06-S0-01 — M-S0 Workflow Foundation (S0 sprint, docs-only)
+
+- **Session date:** 2026-05-06
+- **Sprint:** S0 — Workflow Foundation (M-S0; first formally-tracked
+  milestone in `docs/claude/milestone-state.md`).
+- **Current sprint phase:** Phase 0 — Foundation & Workflow.
+- **Last completed checkpoint:** CP-2026-05-06-01 (BUG-056 spot routing
+  fix — unrelated, hotfix on a separate branch).
+- **Next checkpoint:** **CP-2026-05-06-S0-02** — close M-S0 (file the S0
+  sprint summary under `docs/sprint-summaries/sprint-S0-summary.md`,
+  flip the M-S0 row in `ROADMAP.md` to ✅ Done, move the milestone from
+  Active to Recently closed in `docs/claude/milestone-state.md`, and
+  pull S-014 into the Active milestone slot). Optional: propose 1–2
+  `CLAUDE.md` improvements that lean on the new docs.
+- **Telegram sent:** no (sandbox without `TELEGRAM_BOT_TOKEN` /
+  `TELEGRAM_CHAT_ID` — checkpoint commit will fire the VM-side ping
+  on next git-sync per `docs/claude/telegram-pings.md`).
+- **Alerts sent during session:** none.
+- **Blockers:** none.
+
+### 1. Completed
+
+- Established the repo as the source of truth for Claude's operating
+  workflow per the S0 sprint definition. Four new docs and three
+  updated docs.
+- **`docs/workplan.md`** (new) — master workplan: goal, current
+  priorities (system hardening + visibility, web app near-term,
+  prop-trading deferred), six core operating principles, milestone /
+  session system definition, three-tier merge authority, VM /
+  operator action rules with the canonical pre-filled values
+  (`SSH_KEY_FILE`, `VM_USER`, `VM_HOST`, `REPO_DIR`).
+- **`docs/claude/milestone-state.md`** (new) — central
+  milestone/session state file. Single quick-glance answer to "where
+  is the program right now?". Sections: Active milestone, Recently
+  closed milestones, Queued milestones, Standing / recurring
+  sessions, Open blockers, Update protocol. Active milestone is
+  M-S0 (this one) until the closing checkpoint flips it.
+- **`docs/claude/operating-protocol.md`** (new) — consolidated
+  Claude operating protocol. Four standing principles, session
+  shape (start / middle / end), three-tier merge authority,
+  live-mode invariant, ping-PR vs work-PR separation, VM /
+  operator-action rules, compute-delegation table, what this doc
+  explicitly does **not** override.
+- **`docs/claude/decomposition-rules.md`** (new) — normative
+  contract for milestone → sprint → checkpoint decomposition. Three
+  layers, milestone types/sizing/closure, sprint sizing/mandatory
+  sections/closure, checkpoint ID convention/contents/sizing/
+  partial-checkpoint rule/anti-patterns, decomposition flowchart,
+  worked example (M-S0 itself).
+- **`README.md`** (updated) — added a prominent "Workflow source of
+  truth" table near the top linking the seven foundational docs in
+  read order.
+- **`docs/claude/INDEX.md`** (updated) — added a "Workflow
+  foundation (M-S0, 2026-05-06)" section at the top of the file
+  list.
+- **`ROADMAP.md`** (updated) — added an S0 row under Phase 0
+  (Foundation & Workflow), refreshed the "Last Updated" header.
+
+### 2. Files changed
+
+- `docs/workplan.md` (new)
+- `docs/claude/milestone-state.md` (new)
+- `docs/claude/operating-protocol.md` (new)
+- `docs/claude/decomposition-rules.md` (new)
+- `README.md`
+- `docs/claude/INDEX.md`
+- `ROADMAP.md`
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+
+- `python scripts/secret_scan.py` — pass ("No obvious tracked-file
+  secrets found.").
+- `python scripts/repo_inventory.py` — pass (531 files scanned, no
+  junk candidates).
+- `PYTHONPATH=. pytest --collect-only -q tests` — 1728 tests
+  collected, 45 pre-existing collection errors due to
+  `ModuleNotFoundError: No module named 'yaml'` (sandbox lacks
+  `pyyaml`; spot-checked
+  `tests/test_s029_pr1_account_strategy_filter.py` confirming the
+  error is `src/core/coordinator.py` `import yaml`, unrelated to
+  this docs-only patch).
+- No production / runtime code touched, so no targeted pytest run
+  required.
+
+### 4. Remaining
+
+- The S0 sprint definition's checkpoints (1–7 from the prompt) are
+  all satisfied by this checkpoint:
+  1. ✅ Inspect repo structure / identify gaps.
+  2. ✅ Master workplan doc → `docs/workplan.md`.
+  3. ✅ Central milestone/session state file →
+     `docs/claude/milestone-state.md`.
+  4. ✅ Initial Claude operating protocol doc →
+     `docs/claude/operating-protocol.md`.
+  5. ✅ Milestone → sprint → checkpoint decomposition rules →
+     `docs/claude/decomposition-rules.md`.
+  6. ✅ README + INDEX updated to surface the new structure.
+  7. ✅ Closed with a documented next-step handoff (this entry).
+- M-S0 milestone closure remains: file the sprint summary, flip
+  ROADMAP, advance milestone-state.md to S-014. That work is
+  intentionally split into the next checkpoint
+  (CP-2026-05-06-S0-02) so the foundation docs land cleanly first
+  and the closure ceremony has its own reviewable PR.
+
+### 5. Next checkpoint
+
+**CP-2026-05-06-S0-02** — Close M-S0. Concrete first action:
+
+1. Read this entry, then `docs/claude/decomposition-rules.md` § 2.4
+   (Milestone closure) and § 3.4 (Sprint closure).
+2. Create `docs/sprint-summaries/sprint-S0-summary.md` listing the
+   PR(s) from this session, files changed, tests run, deliverables
+   (file → purpose), lessons learned (1–3 bullets).
+3. Flip the S0 row in `ROADMAP.md` from 🔄 In Progress to ✅ Done.
+4. In `docs/claude/milestone-state.md`: move M-S0 from
+   **Active milestone** to **Recently closed milestones**; pull
+   S-014 (Web Client V1) into the Active milestone slot; refresh
+   the queued-milestones rolling window.
+5. Optionally propose 1–2 `CLAUDE.md` improvements that lean on the
+   new docs (e.g. point the resume rule at `milestone-state.md` as
+   the second read; reference `operating-protocol.md` from the
+   "task routing" table).
+6. Self-merge the closure PR (Tier 1, docs-only) per the
+   operating-protocol three-tier model.
+
+Read in order: this entry, `docs/claude/decomposition-rules.md`,
+`docs/claude/milestone-state.md`, `docs/claude/operating-protocol.md`,
+`ROADMAP.md` § Phase 0.
+
+**Live-mode check:** ✅ no flip away from live anywhere in the diff.
+This sprint is docs-only — no `src/runtime/`, `src/units/accounts/`,
+`config/accounts.yaml`, or `.env*` template was touched.
+
+---
+
 ## CP-2026-05-06-01 — BUG-056 spot-vs-perp routing fix WRAPPED (PM REVIEW)
 
 - **Session date:** 2026-05-06

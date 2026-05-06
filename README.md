@@ -2,6 +2,23 @@
 
 Python-based ICT trading bot for crypto trading workflows, focused on ICT concepts such as fair value gaps (FVG), order blocks (OB), swing structure, market structure shifts, and kill zones.
 
+## Workflow source of truth
+
+The repo is the source of truth for how this program is planned and executed.
+Future Claude sessions and contributors should read these in order:
+
+| Doc | Purpose |
+|---|---|
+| [`docs/workplan.md`](docs/workplan.md) | Master workplan — goal, priorities, milestone types, merge tiers, VM rules. |
+| [`ROADMAP.md`](ROADMAP.md) | Sprint-level backlog and phase status. |
+| [`docs/claude/milestone-state.md`](docs/claude/milestone-state.md) | Quick-glance "where the program is right now" — active milestone, queued milestones, open blockers. |
+| [`docs/claude/operating-protocol.md`](docs/claude/operating-protocol.md) | Consolidated Claude operating protocol — session shape, merge authority, ping-PR pattern. |
+| [`docs/claude/decomposition-rules.md`](docs/claude/decomposition-rules.md) | Normative rules for milestone → sprint → checkpoint decomposition. |
+| [`docs/claude/sprint-planning.md`](docs/claude/sprint-planning.md) | Binding sprint-prompt template (every sprint must satisfy it). |
+| [`docs/claude/checkpoint-workflow.md`](docs/claude/checkpoint-workflow.md) | Resume rules and end-of-session handoff format. |
+| [`docs/claude/checkpoints/CHECKPOINT_LOG.md`](docs/claude/checkpoints/CHECKPOINT_LOG.md) | Append-only log of session handoffs (the source of truth for "where to resume"). |
+| [`CLAUDE.md`](CLAUDE.md) | Claude session router and standing rules (autonomous live-trading rule, architecture rules, Telegram pings). |
+
 ## Features
 
 - ICT analysis engine for market structure, swings, FVGs, and order blocks
