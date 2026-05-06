@@ -11,6 +11,95 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-06-15-s043-complete — S-043 complete: M3 closed, order-layer refusal tests done
+
+- **Session date:** 2026-05-06
+- **Sprint:** S-043 — M3: Risk controls foundation — order-layer refusal tests
+- **Active milestone:** M3 — Risk controls foundation → **CLOSED** this session. M4 next.
+- **Last completed checkpoint:** `CP-2026-05-06-14-s042-complete`.
+- **Telegram sent:** sprint-start + sprint-complete pings appended to `docs/claude/pending-pings.jsonl`.
+- **Alerts sent during session:** none.
+- **Blockers:** S-015 operator hold (unchanged); BUG-057 awaiting VM diag (unchanged).
+
+### 1. Completed (T0 + T1 + T2 + T3)
+
+**T0 — Sprint start:**
+- `docs/claude/milestone-state.md` updated: M3 IN PROGRESS, S-043 active.
+- Sprint-start ping appended to `docs/claude/pending-pings.jsonl`.
+
+**T1 — Refusal-path map + gap list:**
+- Audited every refusal path in `src/runtime/orders.py::safe_place_order`
+  (13 paths) and `src/units/accounts/risk.py::RiskManager.evaluate` (5 paths).
+- Identified gaps: non-dict order input, empty/whitespace symbol, direct
+  `evaluate()` (allow, reason) tuple coverage, `account_mode_dry_run` token,
+  smoke-test bypass under dry_run mode, halt-flag precedence, and
+  exchange-not-called invariants.
+- Full table in `docs/sprint-summaries/sprint-043-summary.md` § T1.
+
+**T2 — `tests/test_s043_order_refusal_paths.py` filed:**
+
+| Test class | Count | Pin |
+|---|---|---|
+| `TestPayloadValidationRefusals` | 6 | non-dict, missing/empty/whitespace symbol → "failed_validation" |
+| `TestHaltFlagPrecedence` | 3 | halt wins over MAX_POSITION_USD / MAX_QTY / MAX_OPEN_POSITIONS |
+| `TestRiskManagerEvaluateReasons` | 7 | (allow, reason) tuple for clean / DAILY_LOSS_CAP / POSITION_SIZE_CAP / INTRADAY_DRAWDOWN + boundary pins |
+| `TestEvaluateAccountModeDryRun` | 3 | "account_mode_dry_run" token + precedence + live-default |
+| `TestSmokeTestBypass` | 4 | smoke-test bypass beats every gate including dry_run |
+| `TestExchangeNotCalledOnRefusal` | 5 | every refusal short-circuits before client.place_order |
+
+**T3 — Sprint close:**
+- `docs/claude/milestone-state.md`: M3 CLOSED → M4 queued.
+- `docs/sprint-summaries/sprint-043-summary.md`: filed.
+- Sprint-complete ping appended to `docs/claude/pending-pings.jsonl`.
+- This checkpoint entry.
+
+### 2. M3 validation checklist
+
+| Check | Status |
+|---|---|
+| `pytest tests/test_s043_order_refusal_paths.py` | ✅ 28 passed |
+| Regression sweep (test_runtime_orders / test_order_refusal / test_per_strategy_risk / test_smoke_test_pipeline) | ✅ No new failures (10 pre-existing tracked, predate this branch) |
+| `scripts/secret_scan.py` | ✅ Clean |
+| `scripts/check_dry_run_in_diff.py` | ✅ Clean |
+| Gap list produced at T1 | ✅ |
+| All identified gaps covered at T2 | ✅ 28 new tests across 6 classes |
+
+### 3. Files changed
+
+- `tests/test_s043_order_refusal_paths.py` (new — 28 tests)
+- `docs/claude/milestone-state.md` (M3 CLOSED, M4 active, table refreshed)
+- `docs/claude/pending-pings.jsonl` (sprint-start + sprint-complete)
+- `docs/sprint-summaries/sprint-043-summary.md` (new)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+No source files in `src/` were modified — S-043 is a tests-only sprint.
+
+### 4. Remaining / Deferred
+
+- 10 pre-existing test failures in `test_runtime_orders.py` /
+  `test_per_strategy_risk.py` / `test_smoke_test_pipeline.py` reference
+  removed `DRY_RUN` / `ALLOW_LIVE_TRADING` env vars (operator directive
+  2026-05-03, BUG-039) or hit a MagicMock-numpy isolation issue. These
+  predate the branch — verified by running the suite at HEAD~. Tracked
+  for an M4 Janitor sprint.
+- S-015 pause/continue Tier 2 PR: **HOLD** (operator hold unchanged).
+- 5m/1h timeframe enforcement Tier 3 PR: **HOLD** (unchanged).
+- BUG-057: awaiting VM `journalctl` output (unchanged).
+
+### 5. Next session
+
+**M4 — Repo hygiene + CI.** Workplan order: Janitor audits, canonical
+path enforcement, complete GitHub Actions suite. The pre-existing
+legacy-env-var tests are good first cleanup targets.
+
+### Live-mode check
+
+✅ No live-trading code touched. Tests-only PR. `scripts/check_dry_run_in_diff.py`
+clean. No changes to `src/runtime/orders.py`, `src/runtime/pipeline.py`,
+`src/runtime/trading_mode.py`, `src/units/accounts/*`, or `config/accounts.yaml`.
+
+---
+
 ## CP-2026-05-06-14-s042-complete — S-042 complete: M1 closed, ClaudeBot channel verified
 
 - **Session date:** 2026-05-06
