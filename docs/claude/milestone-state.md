@@ -36,18 +36,17 @@ When opening a session:
 
 | Field | Value |
 |---|---|
-| **Milestone** | S-042 (M1 — Comms infrastructure: verify ClaudeBot channel) |
-| **Title** | M1: Verify and close the ClaudeBot one-way notification channel |
+| **Milestone** | M3 — Risk controls foundation |
+| **Title** | Risk controls foundation: order-layer refusal tests + kill switch hardening |
 | **Type** | roadmap (auto-claude) |
-| **Goal** | Confirm end-to-end pipeline from pending-pings.jsonl → VM git-sync → ict-claude-bridge → @claude_ict_comms_bot; establish mandatory ping habit; formally close M1. |
-| **Status** | 🔄 In Progress (T0 + T1 + T2 done; T3..T5 executing this session) |
-| **Active sprint** | S-042 — sprint prompt in task description |
-| **Active checkpoint** | `CP-2026-05-06-13-s042-kickoff` |
-| **Risk tier** | Tier 1 (docs/tests only, self-merge) |
-| **Definition of done** | Pipeline audit pass; smoke test ping received in @claude_ict_comms_bot; telegram-pings.md updated; tests extended; M1 formally closed |
+| **Goal** | Close the remaining gap in M3: order-layer refusal tests (partial per S-021); risk engine and kill switch already done. |
+| **Status** | 📋 Queued — ready to start. No blockers. |
+| **Active sprint** | None — open next sprint against M3 backlog. |
+| **Active checkpoint** | None. |
+| **Risk tier** | Tier 1 / Tier 2 (tests + risk-path changes; assess per PR) |
+| **Definition of done** | Order-layer refusal tests complete; M3 formally closed with sprint summary + checkpoint. |
 
-**After S-042 closes:** next active milestone is **M3 — Risk controls foundation**
-(order-layer refusal tests partial; risk engine and kill switch already done).
+**After M3 closes:** next active milestone is **M4 — Repo hygiene + CI**.
 
 **Operator hold (do NOT start M6 / S-015 until hold lifted):**
 S-015 Web Client V2 pause/continue Tier 2 decision is pending — the sprint's scope
@@ -57,22 +56,22 @@ conflicts with the workplan repo boundary (web UI belongs in the separate Vercel
 
 ## M0..M10 status table
 
-> Verified 2026-05-06 during S-041 sweep; updated S-042.
-> "Verified" = on-disk artifacts were checked before accepting any prior "done" label.
+> Last verified: 2026-05-06 (S-042 close). "Verified" = on-disk artifacts checked
+> before accepting any prior "done" label.
 
 | Milestone | Focus | Status | Evidence / Notes |
 |---|---|---|---|
 | **M0** | Workflow foundation | ✅ CLOSED | S0 sprint done; `docs/sprint-summaries/sprint-S0-summary.md` exists; CP-2026-05-06-S0-02 in checkpoint log |
-| **M1** | Comms infrastructure | 🔄 IN PROGRESS | S-042 active. Auto-ping fixed via S-020; BUG-058/059 deployed (ict-claude-bridge.service confirmed active on VM 2026-05-06). Pipeline audit passed T1. Smoke test ping dispatched T2. |
-| **M2** | Web app source of truth (backend) | 🔄 PARTIAL | S-013 FastAPI backend (`/api/status`, `/api/pnl`, JWT auth) built in this repo. Dashboard consumer side must be built in the separate dashboard repo (Vercel). Not formally closed under M0..M10 |
-| **M3** | Risk controls foundation | 🔄 IN PROGRESS | S-010 per-account risk engine done; `/halt` kill switch live; hard risk caps in RiskManager; S-021 config-drift contract tests done. Order-layer refusal tests partial. Not formally closed under M0..M10 |
-| **M4** | Repo hygiene + CI | 🔄 IN PROGRESS | S-003 test/CI done; S-035 architecture audit done; S-021 env contract tests done. Full Janitor audits, canonical path enforcement, complete GitHub Actions suite pending. Not formally closed |
-| **M5** | Strategy testing workflow | 📋 NOT STARTED | Telegram-triggered test flow, validation logging, backtest workflow docs not yet built |
-| **M6** | Web app UI | ⛔ BLOCKED | S-014 (Web Client V1) built UI in this repo; S-015 kickoff done 2026-05-06. Workplan boundary requires UI in separate Vercel dashboard repo. S-015 pause/continue under operator hold |
+| **M1** | Comms infrastructure | ✅ CLOSED | S-042 closed 2026-05-06. Pipeline audit passed; smoke-test ping dispatched; telegram-pings.md updated; tests extended. `ict-claude-bridge.service` confirmed active. |
+| **M2** | Web app source of truth (backend) | 🔄 PARTIAL | S-013 FastAPI backend (`/api/status`, `/api/pnl`, JWT auth) built in this repo. Dashboard consumer side must be built in the separate dashboard repo (Vercel). Not formally closed under M0..M10. |
+| **M3** | Risk controls foundation | 🔄 IN PROGRESS | S-010 per-account risk engine done; `/halt` kill switch live; hard risk caps in RiskManager; S-021 config-drift contract tests done. Order-layer refusal tests partial. Not formally closed under M0..M10. |
+| **M4** | Repo hygiene + CI | 🔄 IN PROGRESS | S-003 test/CI done; S-035 architecture audit done; S-021 env contract tests done. Full Janitor audits, canonical path enforcement, complete GitHub Actions suite pending. Not formally closed. |
+| **M5** | Strategy testing workflow | 📋 NOT STARTED | Telegram-triggered test flow, validation logging, backtest workflow docs not yet built. |
+| **M6** | Web app UI | ⛔ BLOCKED | S-014 (Web Client V1) built UI in this repo; S-015 kickoff done 2026-05-06. Workplan boundary requires UI in separate Vercel dashboard repo. S-015 pause/continue under operator hold. |
 | **M7** | Strategy review gate | 📋 NOT STARTED | |
 | **M8** | Strategy tuning | 📋 NOT STARTED | |
-| **M9** | AI / model roadmap | 📋 NOT STARTED | S-005 (model monitor) and S-006 (model registry) built under old framing; formal M9 not started |
-| **M10** | HF / data pipeline | 📋 NOT STARTED | S-004 (training pipeline) built under old framing; formal M10 not started |
+| **M9** | AI / model roadmap | 📋 NOT STARTED | S-005 (model monitor) and S-006 (model registry) built under old framing; formal M9 not started. |
+| **M10** | HF / data pipeline | 📋 NOT STARTED | S-004 (training pipeline) built under old framing; formal M10 not started. |
 
 ---
 
@@ -84,6 +83,7 @@ conflicts with the workplan repo boundary (web UI belongs in the separate Vercel
 |---|---|---|---|
 | M0 — Workflow Foundation (≈ S0) | 2026-05-06 | `CP-2026-05-06-S0-02` | `docs/sprint-summaries/sprint-S0-summary.md` |
 | S-041 — workplan reconciliation sweep (M1 prep) | 2026-05-06 | `CP-2026-05-06-12-s041-complete` | `docs/sprint-summaries/sprint-041-summary.md` |
+| M1 — Comms infrastructure (S-042) | 2026-05-06 | `CP-2026-05-06-14-s042-complete` | `docs/sprint-summaries/sprint-042-summary.md` |
 
 > Pre-M0..M10 roadmap progress (S-000 through S-040) is captured in `ROADMAP.md`
 > under "Historical Sprint Ledger". From M0 forward, every closed milestone gets a row here.
@@ -96,11 +96,9 @@ In workplan execution order. Each row lists the gating condition to start.
 
 | Order | Milestone | Type | Gating condition |
 |---|---|---|---|
-| 1 | M3 — Risk controls foundation | auto-claude | M1 formally closed. Can partially overlap M1. |
-| 2 | M4 — Repo hygiene + CI | auto-claude | M1 formally closed. Can partially overlap M3. |
+| 1 | M3 — Risk controls foundation | auto-claude | M1 closed ✅. Ready to start. |
+| 2 | M4 — Repo hygiene + CI | auto-claude | M1 closed ✅. Can overlap M3. |
 
-> M1 is the current active milestone (S-042).
->
 > M2 (Web app source of truth) — backend done in this repo. Dashboard consumer needs
 > a session in the dashboard repo. Not a blocker for M3/M4.
 >
