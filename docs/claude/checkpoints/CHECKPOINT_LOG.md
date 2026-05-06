@@ -11,6 +11,75 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-06-12-s041-complete — S-041 complete: workplan reconciliation sweep done
+
+- **Session date:** 2026-05-06
+- **Sprint:** S-041 — Verify-before-trusting-done workplan reconciliation sweep (docs-only)
+- **Active milestone:** M1 (Comms infrastructure) — next to action after S-041 closes.
+- **Last completed checkpoint:** `CP-2026-05-06-11-s041-kickoff`.
+- **Telegram sent:** merge of this commit on `main` fires one ping via
+  `@claude_ict_comms_bot` (post-BUG-059 routing, post-BUG-058 dedupe).
+- **Alerts sent during session:** none.
+- **Blockers:** S-015 operator hold; BUG-057 awaiting VM diag; BUG-058/059 awaiting VM deployment.
+
+### 1. Completed
+
+**T1: `docs/claude/milestone-state.md` reconciled to M0..M10.**
+Full milestone table with on-disk-verified statuses:
+- M0 ✅ CLOSED, M1/M2/M3/M4 🔄 IN PROGRESS, M5/M7–M10 📋 NOT STARTED, M6 ⛔ BLOCKED.
+
+**T2: `ROADMAP.md` restructured.**
+M0..M10 milestone table added at top. Old Phase 0–5 sprint ledger preserved verbatim
+as "Historical Sprint Ledger" with M-mapping column. Repo/hosting boundary section added.
+
+**T3: Sprint prompt status headers.**
+
+| File | Status | Commit |
+|---|---|---|
+| `sprint-015-prompt.md` | ⛔ BLOCKED (workplan boundary + operator hold) | `354471da` |
+| `sprint-017-prompt.md` | ✅ DONE (CP-2026-04-30-14) | `d183d1aa` |
+| `sprint-020-prompt.md` | ✅ DONE (CP-2026-04-30-17) | `5433d1fb` |
+| `sprint-021-prompt.md` | ✅ DONE (CP-2026-05-04-04) | `a5b15de0` |
+
+**T4: Sprint close.**
+`docs/sprint-summaries/sprint-041-summary.md` filed. This checkpoint entry.
+
+### 2. Files changed (full S-041 list)
+
+- `docs/sprints/sprint-041-prompt.md` (new)
+- `docs/claude/milestone-state.md` (rewritten — M0..M10)
+- `ROADMAP.md` (restructured — M0..M10 + historical ledger)
+- `docs/sprints/sprint-015-prompt.md` (status header — BLOCKED)
+- `docs/sprints/sprint-017-prompt.md` (status header — DONE)
+- `docs/sprints/sprint-020-prompt.md` (status header — DONE)
+- `docs/sprints/sprint-021-prompt.md` (status header — DONE)
+- `docs/sprint-summaries/sprint-041-summary.md` (new)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry; log trimmed)
+
+### 3. Tests run
+
+- `python scripts/secret_scan.py` — clean (docs-only).
+
+### 4. Remaining / Deferred
+
+- S-015 pause/continue Tier 2 PR: **HOLD** (operator hold unchanged).
+- 5m/1h timeframe enforcement Tier 3 PR: **HOLD** (operator hold unchanged).
+- BUG-057: awaiting VM `journalctl` output with `BUG-057-DIAG` lines.
+- BUG-058 + BUG-059: require operator `git pull` + service restart on VM.
+- Checkpoint log monthly archive rotation: should be set up before log grows again.
+
+### 5. Next session
+
+Start **M1 — Comms infrastructure**: structured writeback loop (Claude artifact → bot
+detect → send → operator response → repo write). Read `docs/claude/milestone-state.md`
+§ M1 and `docs/claude/workplan.md` § M1 for scope.
+
+### Live-mode check
+
+✅ No live-trading code touched. Docs-only. `scripts/check_dry_run_in_diff.py` clean.
+
+---
+
 ## CP-2026-05-06-11-s041-kickoff — S-041 kickoff: workplan reconciliation sweep (docs-only)
 
 - **Session date:** 2026-05-06
