@@ -41,24 +41,25 @@ When opening a session:
 
 | Field | Value |
 |---|---|
-| **Milestone ID** | M-S0 |
-| **Title** | Workflow Foundation |
-| **Type** | roadmap (Phase 0 — Foundation & Workflow) |
-| **Goal** | Establish repo as the source of truth for Claude's operating workflow: master workplan, milestone-state, operating protocol, decomposition rules, and visible documentation index. |
+| **Milestone ID** | M-S-014 |
+| **Title** | Web Client V1 (Home Dashboard) |
+| **Type** | roadmap (Phase 4 — Secure Web Dashboard) |
+| **Goal** | Land a read-only home dashboard the operator can open from the `/webapp` Telegram link: login → home view showing per-account live/dry status, overall + per-account P&L, active strategies, uptime, git SHA, and a 7-day equity sparkline. Live trader uptime preserved end-to-end. |
 | **Status** | 🔄 in progress |
-| **Active sprint** | S0 — Workflow Foundation (this session) |
-| **Active checkpoint** | `CP-2026-05-06-S0-01` — workflow foundation docs landed; next session picks up `CP-2026-05-06-S0-02` per the next-checkpoint pointer in `CHECKPOINT_LOG.md`. |
-| **Risk tier** | Tier 1 (docs-only, no live-trading code touched). |
-| **Definition of done** | Workflow source of truth in repo; milestones, session-sized sprints, and checkpoints explicitly defined; future sessions can resume from repo state without ambiguity; no live trading path changed. |
+| **Active sprint** | S-014 — Web Client V1 (Home Dashboard) |
+| **Active checkpoint** | _none yet — kickoff in next session._ Read `docs/sprints/sprint-014-prompt.md` first; first checkpoint is **M0 PR #1** (`GET /api/pnl/history` backend gap-fill). |
+| **Risk tier** | Tier 2 mostly (web client + new API endpoint over JWT-protected backend); Tier 1 for docs/static. No live-trading code path touched. |
+| **Definition of done** | Operator can open `/webapp` link, log in, and see the home dashboard rendering live data from S-013 backend + new `/api/pnl/history` endpoint. Eight PRs landed, ≤ 400 LOC each. Loopback-only hosting (public exposure deferred to S-014.5). |
 
 ### Sprint backlog inside this milestone
 
 | # | Sprint | Status |
 |---|---|---|
-| 1 | S0 — Workflow Foundation | 🔄 in progress |
+| 1 | S-014 — Web Client V1 (Home Dashboard) | 🔄 in progress |
 
-(M-S0 is intentionally a single session-sized sprint; on close, it becomes the
-foundation that every future milestone uses.)
+(M-S-014 is a single session-sized milestone — but its sprint contains 8 PRs
+per the prompt. If the PR count grows past the per-sprint cap in
+`decomposition-rules.md` § 3.2 mid-flight, split S-014 into S-014a/S-014b.)
 
 ---
 
@@ -69,7 +70,7 @@ foundation that every future milestone uses.)
 
 | Milestone | Closed | Final checkpoint | Summary doc |
 |---|---|---|---|
-| _(none yet — M-S0 is the first formally tracked milestone in this state file)_ | — | — | — |
+| M-S0 — Workflow Foundation | 2026-05-06 | `CP-2026-05-06-S0-02` | `docs/sprint-summaries/sprint-S0-summary.md` |
 
 Pre-existing roadmap progress (S-000 through S-013) is captured in `ROADMAP.md`
 and is **not** retro-actively migrated into this file. From M-S0 forward, every
@@ -84,9 +85,9 @@ before the milestone can start.
 
 | Order | Milestone | Type | Gating condition |
 |---|---|---|---|
-| 1 | S-014 — Web Client V1 (Home Dashboard) | roadmap | M-S0 closed; S-013 backend on `main` (already merged). |
-| 2 | S-015 — Web Client V2 (Component Tabs) | roadmap | S-014 merged; backend extended for component data. |
-| 3 | S-016 — Secure API Key Management | roadmap | S-015 merged; encrypted vault design approved (Tier 2 ping). |
+| 1 | S-015 — Web Client V2 (Component Tabs) | roadmap | S-014 merged; backend extended for component data. |
+| 2 | S-016 — Secure API Key Management | roadmap | S-015 merged; encrypted vault design approved (Tier 2 ping). |
+| 3 | S-014.5 — Web Client public exposure (reverse proxy + TLS) | roadmap | S-014 merged + loopback dashboard validated by operator. |
 
 (See `ROADMAP.md` for the full backlog and phase grouping. This table holds
 only the next 1–3 milestones so it stays readable.)

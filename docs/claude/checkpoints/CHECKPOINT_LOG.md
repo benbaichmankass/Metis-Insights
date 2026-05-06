@@ -5,6 +5,126 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-06-S0-02 — MILESTONE COMPLETE: M-S0 (sprint summary + state flip)
+
+- **Session date:** 2026-05-06
+- **Sprint:** S0 — Workflow Foundation (closure).
+- **Milestone:** **M-S0 — Workflow Foundation. CLOSED.**
+- **Current sprint phase:** Phase 0 — Foundation & Workflow → done.
+- **Last completed checkpoint:** `CP-2026-05-06-S0-01` (PR #412 merged on
+  `main` at `edd6509`).
+- **Next checkpoint:** **CP-2026-05-06-S-014-01** — open S-014 by reading
+  `docs/sprints/sprint-014-prompt.md` and beginning **M0 PR #1**:
+  `GET /api/pnl/history?days=N` (default 7, max 90) at
+  `src/web/api/routers/pnl_history.py` + tests at
+  `tests/test_web_api_pnl_history.py`. Tier 2 (new API surface, JWT-gated,
+  reads `trade_journal.db` directly per the prompt's SSoT rule).
+- **Telegram sent:** no (sandbox without `TELEGRAM_BOT_TOKEN` /
+  `TELEGRAM_CHAT_ID`; checkpoint commit fires the VM-side ping on next
+  git-sync per `docs/claude/telegram-pings.md`). Title contains
+  `MILESTONE COMPLETE: M-S0` so the ping fires high-priority per
+  `decomposition-rules.md` § 2.4.
+- **Alerts sent during session:** none.
+- **Blockers:** none.
+
+### 1. Completed
+
+- **Filed sprint summary** at `docs/sprint-summaries/sprint-S0-summary.md`
+  per `decomposition-rules.md` § 3.4 step 3. Lists PR #412, deliverables
+  table, deferred items (none), three lessons-learned bullets, and the
+  pointer to S-014.
+- **Flipped S0 row in `ROADMAP.md`** from 🔄 In Progress → ✅ Done; updated
+  the "Last Updated" header to reflect M-S0 closed + S-014 active. The
+  S-014 row was simultaneously bumped from 🔜 Next → 🔄 Active.
+- **Closed M-S0 in `docs/claude/milestone-state.md`:** moved M-S0 from
+  **Active milestone** → **Recently closed milestones** (with closure
+  date, final checkpoint ID, and summary-doc link); pulled **S-014 — Web
+  Client V1 (Home Dashboard)** into the Active milestone block with full
+  metadata (goal, status, active checkpoint pointer, risk tier, DoD).
+  Refreshed the Queued milestones rolling window — S-015 now #1, S-016
+  now #2, and added S-014.5 (public exposure follow-up) as #3 per the
+  S-014 sprint prompt's hosting note.
+- **No production code touched** — closure ceremony is docs-only.
+
+### 2. Files changed
+
+- `docs/sprint-summaries/sprint-S0-summary.md` (new)
+- `ROADMAP.md` (3 edits: header, S0 row, S-014 row)
+- `docs/claude/milestone-state.md` (Active block, Recently closed table,
+  Queued table)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+
+- `python scripts/secret_scan.py` — pass (no obvious tracked-file secrets).
+- `python scripts/repo_inventory.py` — pass (no junk candidates).
+- `PYTHONPATH=. pytest --collect-only -q tests` — 1728 collected, 45
+  pre-existing collection errors due to missing `pyyaml` in this sandbox
+  (same baseline as `CP-2026-05-06-S0-01`). Unrelated to this docs-only
+  patch.
+- No production / runtime code touched, so no targeted pytest run
+  required.
+
+### 4. Remaining
+
+- M-S0 closure is complete.
+- S-014 kickoff begins in the next session (see *Next checkpoint*).
+
+### 5. Next checkpoint
+
+**CP-2026-05-06-S-014-01** — open S-014 with **M0 PR #1**:
+`GET /api/pnl/history`. Read in order:
+
+1. This entry, then `docs/claude/checkpoints/CHECKPOINT_LOG.md`
+   `CP-2026-05-06-S0-01` for the M-S0 work context.
+2. `docs/claude/milestone-state.md` § Active milestone (now M-S-014).
+3. `docs/sprints/sprint-014-prompt.md` — full sprint spec, all 8 PRs.
+4. `docs/sprint-summaries/sprint-013-summary.md` § "Architecture
+   decisions" + § "What this sprint did NOT do" (S-013 is the backend
+   S-014 builds on).
+5. `src/web/api/main.py`, `src/web/api/auth.py`,
+   `src/web/api/routers/{status,pnl,auth}.py` — the live S-013 surface.
+
+Concrete first action: create `src/web/api/routers/pnl_history.py`
+implementing `GET /api/pnl/history?days=N` (default 7, max 90) with
+`Depends(require_session)`, reading `trade_journal.db` per request (no
+caching, no parallel store). Add `tests/test_web_api_pnl_history.py`
+covering: happy path with fixture journal across N days, empty journal
+(200 with `points: []`, not 503), missing DB (503), corrupt DB (503),
+off-allowlist (403), missing token (401), `days` clamping (≤ 0 → 422,
+> 90 → 422). Self-merge if CI green (Tier 2: new API surface but
+JWT-protected backend, no live-trading path).
+
+### Live-mode check
+
+✅ No flip away from live anywhere in the diff. This sprint is
+docs-only — `src/runtime/`, `src/units/accounts/*`,
+`config/accounts.yaml`, and `.env*` templates were not touched. The
+existing per-account `mode: live` contract from BUG-056 stands. The
+`scripts/check_dry_run_in_diff.py` CI guard will confirm.
+
+### Proposed CLAUDE.md improvements for the next sprint
+
+(Per `decomposition-rules.md` § 3.4 step 5; non-binding suggestions for
+the operator to consider folding into `CLAUDE.md` after the next
+session opens.)
+
+1. **Add `milestone-state.md` to the Resume rule.** Today the Resume
+   rule lists `CHECKPOINT_LOG.md` and `checkpoint-workflow.md` only.
+   Adding `docs/claude/milestone-state.md` as a third (and quick) read
+   would let future sessions answer "what's the active milestone?" in
+   one file rather than re-deriving it from the latest checkpoint
+   header. Suggested wording: *"3. Read `docs/claude/milestone-state.md`
+   for the active milestone, queued backlog, and any open blockers."*
+2. **Reference `operating-protocol.md` from the task-routing table.**
+   The "Any session" row currently lists `CHECKPOINT_LOG.md`,
+   `checkpoint-workflow.md`, `INDEX.md`. Adding
+   `docs/claude/operating-protocol.md` would surface the four standing
+   principles + three-tier merge model on every session start, not
+   just sprint-planning sessions.
+
+---
+
 ## CP-2026-05-06-S0-01 — M-S0 Workflow Foundation (S0 sprint, docs-only)
 
 - **Session date:** 2026-05-06
