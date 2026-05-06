@@ -25,7 +25,11 @@ import uuid
 from typing import Any, Optional
 
 from src.core.coordinator import OrderPackage, is_paused
-from src.units.accounts.precision import get_tick_size, quantize_price
+from src.units.accounts.precision import (
+    get_tick_size,
+    live_instrument_diagnostic,
+    quantize_price,
+)
 from src.units.accounts.risk import size_order_from_cfg
 
 logger = logging.getLogger(__name__)
@@ -263,6 +267,10 @@ def _submit_test_order(client: Any, order: dict, account_cfg: dict) -> str:
             "smoke_test rejected by exchange (success signal): "
             "account=%s reason=%s", order.get("account_id"), reason,
         )
+        if exchange == "bybit" and "170134" in reason:
+            _log_170134_diagnostic(
+                client, order, account_cfg, _bybit_category(account_cfg),
+            )
         return f"rejected_too_small:{reason}"
     return f"rejected_too_small:unsupported exchange {exchange}"
 
@@ -377,6 +385,16 @@ def _submit_order(client: Any, order: dict, account_cfg: dict) -> str:
             return str(resp.get("orderId") or uuid.uuid4().hex)
     except Exception as exc:
         logger.error("_submit_order(%s): %s", exchange, exc)
+        # BUG-057 reopen (2026-05-06): Bybit still rejects spot SL/TP
+        # values quantized to the static-map's 0.01 tick with retCode
+        # 170134. On every 170134, log the live instrument filters +
+        # the exact SL/TP we sent so the next failure tells us
+        # ground-truth precision. Read-only diagnostic — no behaviour
+        # change to the order path.
+        if exchange == "bybit" and "170134" in str(exc):
+            _log_170134_diagnostic(
+                client, order, account_cfg, _bybit_category(account_cfg),
+            )
         try:
             from src.runtime.api_reporting import report_api_failure
             report_api_failure(
@@ -390,6 +408,52 @@ def _submit_order(client: Any, order: dict, account_cfg: dict) -> str:
             pass
         raise RuntimeError(f"Order submission failed for {order['symbol']}: {exc}") from exc
     raise ValueError(f"Unsupported exchange: {exchange}")
+
+
+def _log_170134_diagnostic(
+    client: Any, order: dict, account_cfg: dict, category: str,
+) -> None:
+    """Emit a structured diagnostic when Bybit rejects with 170134.
+
+    Captures the live ``priceFilter`` + ``lotSizeFilter`` from a fresh
+    ``get_instruments_info`` call (no cache) and the exact SL/TP /
+    qty we just submitted. Logged at ERROR level with a stable
+    ``BUG-057-DIAG`` prefix so the operator can grep journalctl for
+    every recurrence. Best-effort — never raises (we're already in
+    the failure path).
+    """
+    try:
+        symbol = order.get("symbol")
+        sl = order.get("sl")
+        tp = order.get("tp")
+        try:
+            tick = get_tick_size(client, symbol, category)
+        except Exception:  # noqa: BLE001
+            tick = None
+        try:
+            sl_quantized = quantize_price(sl, tick) if (sl is not None and tick is not None) else None
+        except Exception:  # noqa: BLE001
+            sl_quantized = None
+        try:
+            tp_quantized = quantize_price(tp, tick) if (tp is not None and tick is not None) else None
+        except Exception:  # noqa: BLE001
+            tp_quantized = None
+        live = live_instrument_diagnostic(client, symbol, category)
+        logger.error(
+            "BUG-057-DIAG | account=%s symbol=%s category=%s "
+            "qty=%s sl_raw=%r sl_sent=%r tp_raw=%r tp_sent=%r "
+            "static_tick=%s live_priceFilter=%s live_lotSizeFilter=%s "
+            "live_status=%s",
+            account_cfg.get("account_id") or "unknown",
+            symbol, category, order.get("qty"),
+            sl, sl_quantized, tp, tp_quantized,
+            str(tick) if tick is not None else None,
+            (live or {}).get("priceFilter"),
+            (live or {}).get("lotSizeFilter"),
+            (live or {}).get("status"),
+        )
+    except Exception as diag_exc:  # noqa: BLE001
+        logger.warning("BUG-057-DIAG: diagnostic capture itself failed: %s", diag_exc)
 
 
 # ---------------------------------------------------------------------------
