@@ -1,0 +1,11 @@
+{
+  "trades": 871,
+  "expectancy_r": 0.10669373471136452,
+  "win_rate": 0.2927669345579793,
+  "sharpe": 1.7639644901468665,
+  "max_dd_r": -61.886217479593505,
+  "stacked_filters": [
+    "htf_soft",
+    "slope_filter"
+  ]
+}
