@@ -128,6 +128,12 @@ class TestSpotMarginSizing:
         notional = $1000 > collateral $200 → has borrow → check buffer.
         liquidation_distance = $200/0.02 = $10_000.
         SL distance $10_000 ≥ (1-0.30)·$10_000 = $7000 → violates → 0.0.
+
+        Pass ``available_usd=2_000`` (S-049) so the new
+        notional-vs-available cap does NOT fire (notional $1000 ≤
+        $2000 available) — that lets the buffer rule (rule 4) actually
+        get exercised on this scenario instead of being short-circuited
+        by the cap. The buffer check is the contract this test pins.
         """
         rm = RiskManager({
             "risk_pct": 1.0,
@@ -137,7 +143,9 @@ class TestSpotMarginSizing:
         })
         pkg = _pkg(direction="long", entry=50_000, sl=40_000)
         qty = rm.position_size(
-            pkg, balance_usd=200, market_type="spot-margin",
+            pkg, balance_usd=200,
+            market_type="spot-margin",
+            available_usd=2_000,
         )
         assert qty == 0.0
 
@@ -332,3 +340,298 @@ class TestDefaultsStillMatchT1Contract:
         assert rm.max_borrow_btc == DEFAULT_MAX_BORROW_BTC
         assert rm.borrow_fee_apr_pct == DEFAULT_BORROW_FEE_APR_PCT
         assert rm.liquidation_buffer_pct == DEFAULT_LIQUIDATION_BUFFER_PCT
+
+
+# ---------------------------------------------------------------------------
+# S-049 — ``available_usd`` notional-vs-available cap.
+#
+# Diagnoses + closes the live recurrence of Bybit ErrCode 170131
+# ("Insufficient balance") on ``bybit_2``: with ``isLeverage=1``
+# already in the request post-T3, the matching engine still validates
+# ``cost <= availableBalance`` before consulting borrow capacity, and
+# the pre-S-049 sizer used ``walletBalance - locked`` (free cash) —
+# zero fee headroom and no borrow capacity. The S-049 kernel cap
+# ``qty * entry <= available_usd`` clips qty so notional fits inside
+# the live exchange-side ``availableBalance`` (collateral + USDT
+# borrow capacity, less the caller's fee buffer).
+# ---------------------------------------------------------------------------
+
+
+class TestAvailableUsdCap:
+    """``available_usd`` is the live exchange-side ``availableBalance``
+    in USDT terms (collateral + USDT borrow capacity, less the
+    caller's fee headroom buffer). Distinct from ``balance_usd``
+    (collateral), which still drives the liquidation-distance math.
+    """
+
+    def test_long_clipped_when_notional_exceeds_available(self):
+        """Bug-recurrence scenario: free USDT $177, no borrow line,
+        narrow risk distance produces a qty whose notional exceeds
+        the buffered available cash.
+
+        risk_pct=0.01, balance=$177, distance=$50 → raw qty = 1.77/50
+        = 0.0354 BTC → notional = 0.0354 * $50_000 = $1770. Without
+        the cap, Bybit returns 170131. With ``available_usd=$176.12``
+        (= 177 * 0.995, no borrow), the kernel clips qty to
+        floor($176.12 / $50_000) = floor(0.00352) = 0.003
+        (qty_precision=3).
+        """
+        rm = RiskManager({
+            "risk_pct": 0.01,
+            "min_balance_usd": 50,
+            "daily_usd": 1_000_000_000,
+        })
+        pkg = _pkg(direction="long", entry=50_000, sl=49_950)
+        qty = rm.position_size(
+            pkg, balance_usd=177.0,
+            market_type="spot-margin",
+            available_usd=177.0 * 0.995,
+        )
+        assert qty == pytest.approx(0.003, rel=1e-3)
+        # Notional now fits inside the buffered available USDT.
+        assert qty * pkg.entry <= 177.0 * 0.995 + 1e-9
+
+    def test_long_uses_borrow_capacity_when_provided(self):
+        """``available_usd`` includes USDT borrow capacity → sizer can
+        place a notional that exceeds free cash.
+
+        Free $177 + borrow $400 → buffered $574.115. risk-pct math
+        produces 0.0354 BTC ($1770 notional); cap clips to
+        floor($574.115 / $50_000) = 0.011 BTC. Without the borrow
+        line (T2 contract), the cap would have hit at $176.12 →
+        0.003 BTC. So the borrow line is materially used.
+        """
+        rm = RiskManager({
+            "risk_pct": 0.01,
+            "min_balance_usd": 50,
+            "daily_usd": 1_000_000_000,
+        })
+        pkg = _pkg(direction="long", entry=50_000, sl=49_950)
+        qty = rm.position_size(
+            pkg, balance_usd=177.0,
+            market_type="spot-margin",
+            available_usd=(177.0 + 400.0) * 0.995,
+        )
+        assert qty == pytest.approx(0.011, rel=1e-3)
+
+    def test_default_available_usd_falls_back_to_balance(self):
+        """Pre-S-049 callers (no ``available_usd``) get the same qty
+        as a caller passing ``available_usd == balance_usd``.
+        Backward-compat invariant for T2's sizing contract.
+        """
+        rm = RiskManager({
+            "risk_pct": 0.01,
+            "min_balance_usd": 50,
+            "daily_usd": 1_000_000_000,
+        })
+        pkg = _pkg(direction="long", entry=50_000, sl=49_950)
+        qty_default = rm.position_size(
+            pkg, balance_usd=10_000.0, market_type="spot-margin",
+        )
+        qty_explicit_eq = rm.position_size(
+            pkg, balance_usd=10_000.0,
+            market_type="spot-margin",
+            available_usd=10_000.0,
+        )
+        assert qty_default == qty_explicit_eq
+
+    def test_short_skips_available_cap(self):
+        """Shorts don't spend USDT upfront — the constraint is the BTC
+        borrow cap (rule 1, ``max_borrow_btc``). Passing a tiny
+        ``available_usd`` on a short MUST NOT clip the qty.
+        """
+        rm = RiskManager({
+            "risk_pct": 0.01,
+            "min_balance_usd": 50,
+            "max_borrow_btc": 1.0,
+            "daily_usd": 1_000_000_000,
+        })
+        pkg = _pkg(direction="short", entry=50_000, sl=51_000)
+        qty = rm.position_size(
+            pkg, balance_usd=10_000.0,
+            market_type="spot-margin",
+            available_usd=1.0,  # would clip a long to 0
+        )
+        assert qty == pytest.approx(0.1, rel=1e-3)
+
+    def test_below_min_qty_after_clip_returns_zero(self):
+        """Clipped qty below ``min_qty`` floor refuses the trade
+        (returns 0.0, same shape as the existing ``min_balance_usd``
+        refusal — risk-manager rule, not new gate).
+        """
+        rm = RiskManager({
+            "risk_pct": 0.01,
+            "min_balance_usd": 5.0,
+            "min_qty": 0.001,
+            "daily_usd": 1_000_000_000,
+        })
+        pkg = _pkg(direction="long", entry=50_000, sl=49_950)
+        qty = rm.position_size(
+            pkg, balance_usd=10.0,
+            market_type="spot-margin",
+            available_usd=10.0 * 0.995,
+        )
+        assert qty == 0.0
+
+    def test_non_spot_margin_ignores_available_usd(self):
+        """Non-spot-margin path is bit-identical to pre-S-049: passing
+        ``available_usd`` has no effect because the cap lives inside
+        ``_apply_spot_margin_rules`` (which only fires on spot-margin).
+        """
+        rm = RiskManager({
+            "risk_pct": 0.01,
+            "min_balance_usd": 50,
+            "daily_usd": 1_000_000_000,
+        })
+        pkg = _pkg(direction="long", entry=50_000, sl=49_500)
+        qty_with = rm.position_size(
+            pkg, balance_usd=10_000.0,
+            market_type="spot",
+            available_usd=1.0,  # would clip on spot-margin
+        )
+        qty_without = rm.position_size(
+            pkg, balance_usd=10_000.0, market_type="spot",
+        )
+        assert qty_with == qty_without
+        # Sanity: unclipped qty is the standard 0.2 BTC for $1000 risk
+        # over a $500 distance.
+        assert qty_with == pytest.approx(0.2, rel=1e-3)
+
+
+# ---------------------------------------------------------------------------
+# S-049 — wallet-fetch shape: borrow-capacity fields added.
+# ---------------------------------------------------------------------------
+
+
+class TestFetchSpotCoinBalancesBorrow:
+    """``_fetch_spot_coin_balances`` now returns ``quote_borrow_usd``
+    and ``base_borrow_usd`` so the coordinator can build the live
+    ``available_usd`` primitive. Cash-spot wallets (no borrow line)
+    return 0.0 for both — backward-compatible.
+    """
+
+    @staticmethod
+    def _client_with(usdt_row: dict, base_row: dict):
+        """Fake Bybit client whose ``get_wallet_balance`` returns a
+        UTA-shaped response with the supplied coin rows."""
+        class _C:
+            def get_wallet_balance(self, **_):
+                return {
+                    "result": {
+                        "list": [{
+                            "coin": [usdt_row, base_row],
+                        }],
+                    },
+                }
+        return _C()
+
+    def test_uta_spot_margin_response_carries_borrow_capacity(self):
+        from src.units.accounts.execute import _fetch_spot_coin_balances
+        client = self._client_with(
+            usdt_row={
+                "coin": "USDT", "walletBalance": "177", "locked": "0",
+                "usdValue": "177", "availableToBorrow": "400",
+            },
+            base_row={
+                "coin": "BTC", "walletBalance": "0.001", "locked": "0",
+                "usdValue": "50", "availableToBorrow": "0.008",
+            },
+        )
+        bal = _fetch_spot_coin_balances(client, "BTCUSDT")
+        assert bal["quote_usdt"] == pytest.approx(177.0)
+        assert bal["quote_borrow_usd"] == pytest.approx(400.0)
+        # 0.008 BTC * ($50 / 0.001) = $400.
+        assert bal["base_borrow_usd"] == pytest.approx(400.0)
+
+    def test_cash_spot_response_returns_zero_borrow(self):
+        """Classic accounts (or UTA with margin off) report empty/missing
+        ``availableToBorrow`` → both borrow fields default to 0.0,
+        so the coordinator's ``available_usd`` collapses to free cash
+        × buffer (matches sell-side semantics)."""
+        from src.units.accounts.execute import _fetch_spot_coin_balances
+        client = self._client_with(
+            usdt_row={
+                "coin": "USDT", "walletBalance": "177", "locked": "0",
+                "usdValue": "177",
+                # availableToBorrow absent
+            },
+            base_row={
+                "coin": "BTC", "walletBalance": "0.001", "locked": "0",
+                "usdValue": "50",
+                "availableToBorrow": "",  # empty string
+            },
+        )
+        bal = _fetch_spot_coin_balances(client, "BTCUSDT")
+        assert bal["quote_usdt"] == pytest.approx(177.0)
+        assert bal["quote_borrow_usd"] == 0.0
+        assert bal["base_borrow_usd"] == 0.0
+
+    def test_malformed_borrow_value_falls_back_to_zero(self):
+        """Best-effort: any parse failure on ``availableToBorrow``
+        returns 0.0 so the sizer's behaviour falls back to free-cash
+        only — never larger than today.
+        """
+        from src.units.accounts.execute import _fetch_spot_coin_balances
+        client = self._client_with(
+            usdt_row={
+                "coin": "USDT", "walletBalance": "177", "locked": "0",
+                "usdValue": "177", "availableToBorrow": "not-a-number",
+            },
+            base_row={
+                "coin": "BTC", "walletBalance": "0.001", "locked": "0",
+                "usdValue": "50", "availableToBorrow": "-0.5",
+            },
+        )
+        bal = _fetch_spot_coin_balances(client, "BTCUSDT")
+        assert bal["quote_borrow_usd"] == 0.0
+        assert bal["base_borrow_usd"] == 0.0
+
+    def test_legacy_caller_unaffected(self):
+        """Existing fields keep their pre-S-049 values byte-for-byte —
+        S-049 only ADDS fields, never reshapes existing ones.
+        """
+        from src.units.accounts.execute import _fetch_spot_coin_balances
+        client = self._client_with(
+            usdt_row={
+                "coin": "USDT", "walletBalance": "200", "locked": "20",
+                "usdValue": "200",
+            },
+            base_row={
+                "coin": "BTC", "walletBalance": "0.5", "locked": "0.1",
+                "usdValue": "25000",
+            },
+        )
+        bal = _fetch_spot_coin_balances(client, "BTCUSDT")
+        # Free USDT = 200 - 20 = 180.
+        assert bal["quote_usdt"] == pytest.approx(180.0)
+        # Free BTC = 0.5 - 0.1 = 0.4.
+        assert bal["base_qty"] == pytest.approx(0.4)
+        # base_usd_value scaled to free portion: 25000 * (0.4/0.5) = 20000.
+        assert bal["base_usd_value"] == pytest.approx(20_000.0)
+
+
+# ---------------------------------------------------------------------------
+# S-049 — buy-side safety buffer constant.
+# ---------------------------------------------------------------------------
+
+
+class TestBuySafetyBuffer:
+    def test_buffer_constant_present_and_below_one(self):
+        """The buffer is the headroom factor applied to free USDT (and
+        USDT borrow capacity) before the sizer treats it as
+        ``available_usd``. Must be < 1.0 (otherwise no headroom) and
+        > 0.99 (otherwise live position size shrinks materially).
+        """
+        from src.units.accounts.execute import _SPOT_BUY_SAFETY_BUFFER
+        assert 0.99 < _SPOT_BUY_SAFETY_BUFFER < 1.0
+
+    def test_buffer_matches_sell_side(self):
+        """Sell side has ``_SPOT_SELL_SAFETY_BUFFER`` = 0.995. The buy
+        side mirrors it so both directions leave the same headroom for
+        fees + slippage.
+        """
+        from src.units.accounts.execute import (
+            _SPOT_BUY_SAFETY_BUFFER,
+            _SPOT_SELL_SAFETY_BUFFER,
+        )
+        assert _SPOT_BUY_SAFETY_BUFFER == _SPOT_SELL_SAFETY_BUFFER
