@@ -26,7 +26,7 @@ PR — current contract is "operator updates the YAML between sessions".
 """
 from __future__ import annotations
 
-from datetime import datetime, time, timezone
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
 from src.core.coordinator import OrderPackage

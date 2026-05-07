@@ -14,23 +14,23 @@ HALT_FLAG_PATH = "/tmp/trader_halt.flag"
 # context. The placeholder exists so safe_place_order's halt/news/risk-
 # cap rails can still run through when MULTI_ACCOUNT_DISPATCH=false.
 _DRY_MODE_PLACEHOLDER_QTY = 1.0
-from dotenv import load_dotenv
+from dotenv import load_dotenv  # noqa: E402
 load_dotenv()
 
-import logging
-from typing import Any, Callable, Dict, Optional
+import logging  # noqa: E402
+from typing import Any, Callable, Dict, Optional  # noqa: E402
 
-import pandas as pd
+import pandas as pd  # noqa: E402
 
-from src.runtime.notify import (
+from src.runtime.notify import (  # noqa: E402
     notify_operator,
     send_telegram_direct,
     send_via_alert_manager,
 )
-from src.runtime.orders import safe_place_order
-from src.runtime.outcomes import Level, report
-from src.units.ui.telegram_format import Section, kv_block, render_html, render_plain
-from src.web.runtime_status import write_status
+from src.runtime.orders import safe_place_order  # noqa: E402
+from src.runtime.outcomes import Level, report  # noqa: E402
+from src.units.ui.telegram_format import Section, kv_block, render_html, render_plain  # noqa: E402
+from src.web.runtime_status import write_status  # noqa: E402
 
 _OUTCOME_LEVEL_BY_STATUS: Dict[str, Level] = {
     # Happy / expected
