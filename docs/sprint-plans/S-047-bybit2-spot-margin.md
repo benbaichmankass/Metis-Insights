@@ -26,23 +26,21 @@ borrow-fee accrual is reflected in the per-account PnL and risk gates.
 
 ## 2. Dependencies
 
-- **Operator action (exchange-side, parallel to T1+):** Bybit Spot Margin
-  Trading must be *enabled* on the `bybit_2` account via the Bybit web UI
-  (Account → Margin Mode). Until that toggle is on, every `isLeverage=1`
-  order returns retCode 110007 ("MARGIN_TRADING_NOT_ENABLED") **at the
-  exchange** — that is Bybit refusing, not our pipeline refusing (per
-  § 5b). Operator notebook `notebooks/operator/enable_bybit_spot_margin.ipynb`
-  shipped in T0 captures the live parameters the risk-manager work in
-  T2 consumes; the notebook does **not** detect-and-refuse the un-toggled
-  state. T1 + T2 + T3 can ship in any order relative to the operator's
-  click; the trader will simply not trade margin on `bybit_2` until both
-  sides (code on main + Bybit toggle on) are present.
-- **Bybit margin tier capture (informational input for T2):** Spot Margin
-  uses tiered borrowing limits (per-coin, per-account). The T0 notebook
-  surfaces the live BTC borrow tier as a read-only diagnostic so T2's
-  risk-manager rules use a real `max_borrow_btc` parameter rather than
-  a fictitious one. The number lives in the risk-rule configuration
-  surface, not as a per-account flag.
+- **Operator action: none required by the sprint.** The system operates
+  margin-agnostic. Whenever the operator wants `bybit_2` to actually trade
+  margin, they click Enable Spot Margin in the Bybit web UI on their own
+  schedule. The sprint does not block on that click and does not verify
+  it. Until the click happens, every `isLeverage=1` order returns retCode
+  110007 ("MARGIN_TRADING_NOT_ENABLED") at the exchange and is logged via
+  the existing `report_api_failure` path — same handling as any other
+  exchange retCode. After the click, orders flow through. No notebook,
+  no parameter capture, no PR-thread comment.
+- **Risk-manager parameter defaults:** T2 ships sensible default values
+  in the risk-rule configuration surface (e.g. `max_borrow_btc`,
+  `borrow_fee_apr_pct`, `liquidation_buffer_pct`). The operator can edit
+  the config file directly any time; if the live exchange cap is lower
+  than our default, exchange-side validation enforces — same exchange-as-
+  source-of-truth model as everywhere else.
 - **#441 + #446 deployed:** confirmed live as of 2026-05-07 07:52 UTC
   (boot_audit log on the VM). The new sizer's direction-aware balance
   fetch is the foundation we extend in T2.
@@ -58,8 +56,8 @@ borrow-fee accrual is reflected in the per-account PnL and risk gates.
 
 | # | Deliverable | PR title | Risk |
 |---|---|---|---|
-| D1 | Operator notebook to enable Spot Margin on `bybit_2` and report the live borrow tier. | `feat(ops): notebook to enable Bybit spot margin on bybit_2` | infra |
-| D2 | `config/accounts.yaml`: declare `bybit_2` as a spot-margin account in the existing routing schema (no new `is_leverage` flag — the account's identity carries the routing, the same way `market_type: spot` already does). Spot-margin **risk-manager parameters** (`max_borrow_btc`, `borrow_fee_apr_pct`, `liquidation_buffer_pct`) land in the risk-rule configuration surface (`src/units/accounts/risk.py` / `config/risk.yaml` per the existing risk-rule shape), **not** as per-account gating flags. Compliance with `docs/claude/workplan.md` § "Live / dry-run rule": the dispatcher's `live | dry_run` switch remains the only canonical execution gate. | `feat(accounts): declare bybit_2 spot-margin in routing config` | strategy / model |
+| ~~D1~~ | ~~Operator notebook to enable Spot Margin on `bybit_2`~~ — **DELETED** in PR #455. The system operates margin-agnostic; no operator-run notebook is needed to verify or capture exchange-side state. | — | — |
+| D2 | `config/accounts.yaml`: declare `bybit_2` as a spot-margin account in the existing routing schema (no new `is_leverage` flag — the account's identity carries the routing, the same way `market_type: spot` already does). Spot-margin **risk-manager parameters** (`max_borrow_btc`, `borrow_fee_apr_pct`, `liquidation_buffer_pct`) land in the risk-rule configuration surface (`src/units/accounts/risk.py` / `config/risk.yaml` per the existing risk-rule shape) with **sensible hardcoded defaults**, **not** as per-account gating flags or operator-captured values. Compliance with `docs/claude/workplan.md` § "Live / dry-run rule": the dispatcher's `live | dry_run` switch remains the only canonical execution gate. | `feat(accounts): declare bybit_2 spot-margin in routing config` | strategy / model |
 | D3 | `RiskManager.position_size()` upgrade: on `bybit_2`, size from USDT collateral for *both* directions; sizing returns 0 (= no trade, same shape as the existing `min_balance_usd` and daily-loss-budget refusals — these are risk-manager rules, not new gates) when the configured liquidation buffer or borrow-fee budget would be violated. New regression tests cover: spot-long (no borrow), spot-short (BTC borrow), liquidation buffer triggers zero-size, fee-budget triggers zero-size, daily-loss-budget interaction. | `feat(risk): spot-margin sizing — collateral, liquidation, borrow fees` | strategy / model |
 | D4 | `execute.py`: for `bybit_2` always pass `isLeverage=1` to Bybit V5 spot `place_order` (it is a routing decision based on the account's identity, not a refusal — non-margin accounts never reach this branch because their routing differs). The existing spot-sell pre-flight is unchanged for non-margin accounts; on `bybit_2` the risk manager (D3) owns sizing decisions, so no per-account refusal lives at execute-time. New retCode handling: 110007 (margin not enabled) and 110095 (insufficient borrow available) are **logged** as exchange errors via the existing `report_api_failure` path — they are not new pre-flight gates. | `feat(exec): route spot-margin orders via isLeverage=1` | deploy / live |
 | D5 | `coordinator.multi_account_execute`: for `bybit_2`, the direction-aware balance fetch returns USDT collateral for both directions (matching the risk-manager's collateral semantics in D3). Looked up from the account's routing config in accounts.yaml; non-margin spot accounts retain the existing per-direction balance behavior. | `feat(coordinator): direction-aware balance for spot-margin accounts` | deploy / live |
@@ -73,9 +71,9 @@ Each deliverable maps to one PR. PRs land in the order T1..T7 below.
 
 ## 4. Checkpoints
 
-| # | Checkpoint title | What completes by then | Risk class | Wall-clock | Gates |
+| # | Checkpoint title | What completes by then | Risk class | Wall-clock | Unblocks |
 |---|---|---|---|---|---|
-| **T0** | Operator notebook + Bybit margin enabled on `bybit_2` | D1 merged. Operator has run the notebook, confirmed Spot Margin is `enabled`, captured the live borrow tier for BTC. | infra | 1h Claude + ~5min operator | T1, T2 |
+| ~~T0~~ | ~~Operator notebook + Bybit margin enabled on `bybit_2`~~ | **DELETED** in PR #455. The system operates margin-agnostic — no operator step is part of this sprint's deliverables. The operator clicks Enable Spot Margin in the Bybit web UI on their own schedule; the sprint does not block on or verify that click. | — | — | — |
 | **T1** | accounts.yaml routing for spot-margin | D2 merged. `bybit_2` is declared as a spot-margin account in the existing routing schema; the risk-manager spot-margin parameters live in the risk-rule configuration surface (operator-confirmed defaults). Loader tests pass; legacy non-margin accounts unchanged. **No new account-level toggle that can refuse trades** (per workplan § "Live / dry-run rule"). | strategy / model | 2h | T2, T3 |
 | **T2** | RiskManager spot-margin sizing | D3 merged. New unit tests prove: short sizing uses USDT collateral, liquidation-buffer violation produces zero-size sizing (same shape as the existing daily-loss-budget refusal — risk-manager rules, not new gates), borrow-fee budget reduces sizable amount, daily-loss-budget rule still wins on conflict. | strategy / model | 4h | T3, T4 |
 | **T3** | execute.py + coordinator wiring | D4 + D5 merged together (one diff is incoherent without the other — wiring on both sides of the boundary). Smoke test against Bybit testnet: sells round-trip with isLeverage=1 and produce the expected borrow line in the wallet. | deploy / live | 4h | T4, T5 |
@@ -111,7 +109,8 @@ No new cross-unit imports. The Coordinator stays the one translator between stra
 
 Every PR in this sprint is **Tier 2 or Tier 3** per `docs/claude/operating-protocol.md` § 4. Specifically:
 
-- **D1, D8** — Tier 1 (operator notebook, docs/runbook). Self-merge after CI green.
+- ~~**D1**~~ — DELETED (PR #455). No operator notebook in this sprint.
+- **D8** — Tier 1 (docs / runbook). Self-merge after CI green.
 - **D2, D3, D6** — Tier 3 (strategy parameters / sizing formulas / strategy logic). Draft PR + ping-PR + explicit "merge" reply required.
 - **D4, D5, D7** — Tier 2 (live order routing, runtime orchestration). Draft PR + ping-PR + Merge/Hold buttons.
 
@@ -147,12 +146,21 @@ outside that gate. Specifically:
 - **Exchange-side errors are logged, not gated.** Bybit retCode
   110007 / 110095 hit the existing `report_api_failure` path; they
   do not become new pre-flight checks.
+- **No operator-run notebook to verify or capture exchange-side
+  state.** The system operates exchange-agnostic. Risk-manager
+  parameters ship with sensible hardcoded defaults that the operator
+  can edit in config; nothing in the sprint workflow requires the
+  operator to extract a value from a notebook and paste it into a PR.
+  This avoids the "workflow gate" anti-pattern: even a read-only
+  diagnostic that conditions a downstream PR on its output is a
+  refuse-to-progress gate at the workflow layer (operator-protocol
+  § 4.4 catches this).
 
 When the operator has not yet flipped Bybit's web-UI Spot Margin
 toggle, every `isLeverage=1` order returns retCode 110007 server-side.
 That is the **exchange** refusing — our pipeline did not refuse.
-The fix is the operator clicking Enable Spot Margin in the Bybit web
-UI; **our code does not detect-and-refuse** that condition.
+The operator flips the toggle whenever convenient; **our code does
+not detect, verify, or wait for** that flip.
 
 ---
 
@@ -186,21 +194,20 @@ Sprint-specific:
 
 ## 8. Hand-off
 
-The session that picks up T0 reads:
+The session that picks up **T1** (the new starting checkpoint — T0 was deleted) reads:
 
 1. This file (S-047 plan).
-2. `docs/claude/checkpoints/CHECKPOINT_LOG.md` last entry (the close of S-047 trigger session).
-3. `docs/claude/operating-protocol.md` § 4 (merge tiers) and § 7 (operator-notebook contract).
+2. `docs/claude/checkpoints/CHECKPOINT_LOG.md` last entry.
+3. `docs/claude/operating-protocol.md` § 4 (merge tiers) and § 4.4 (the pre-ship compliance check).
 4. The today-#441 / today-#446 PRs to internalize the direction-aware balance fetch foundation (see notes in `coordinator.py::multi_account_execute` and `execute.py::_fetch_spot_coin_balances`).
 
-Pre-T0 the planning session writes the Telegram ping for the operator to
-enable Spot Margin on the Bybit web UI; the notebook in T0 only verifies
-the toggle, it does not flip it. Reason: the toggle lives **on Bybit's
-servers** (not on our VM and not in this repo), so the standard
-PR → merge → VM-autosync workflow has nothing to copy. The operator's
-one-click web-UI step is the only path to mutate that piece of
-exchange-side state. The notebook is read-only diagnostic that captures
-the parameter values the risk-manager work in T2 will consume.
+Margin-agnostic operation: the operator clicks Enable Spot Margin in the
+Bybit web UI on their own schedule. The sprint does **not** block on or
+verify that click. Until it happens, every `isLeverage=1` order returns
+retCode 110007 server-side and is logged via the existing
+`report_api_failure` path — same handling as any other exchange retCode.
+After it happens, orders flow through. No notebook, no parameter
+capture, no PR thread.
 
 ---
 

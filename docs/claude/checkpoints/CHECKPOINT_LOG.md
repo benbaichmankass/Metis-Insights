@@ -11,7 +11,61 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
-## CP-2026-05-07-09-s047-T0-complete — S-047 T0: Bybit spot-margin verification notebook + plan correction
+## CP-2026-05-07-10-s047-margin-agnostic — S-047 corrective: notebook deleted, system goes margin-agnostic
+
+- **Session date:** 2026-05-07 (continuation of `CP-2026-05-07-09`).
+- **Sprint:** S-047 — bybit_2 Spot Margin enablement.
+- **Active milestone:** M5 paused; S-047 active. **T1 is the new starting checkpoint** — original T0 deleted.
+- **Last completed checkpoint:** `CP-2026-05-07-09-s047-T0-complete` (superseded by this entry's corrective).
+- **Branch:** `claude/S-047-margin-agnostic-correction` (PR #455 self-merged after CI green).
+
+### What this entry corrects
+
+`CP-2026-05-07-09` documented PR #452 (T0 notebook) and PR #453 (plan correction stripping `is_leverage` boolean + `if not margin_enabled: refuse` branch). Operator subsequently flagged that the corrected plan still contained a **workflow gate**: it asked the operator to run a notebook to verify margin enablement and capture the BTC max-borrow tier as input to T2's risk-manager rules. Even though the notebook had no runtime impact, conditioning T1+ on operator-extracted values is the same anti-pattern in spirit.
+
+Operator's directive 2026-05-07 (verbatim):
+> *"if it's not set on the account, then the order will get rejected, thats it - the system should agnostic to this and operate under the assumption that margin trading is enabled"*
+
+### Files changed (PR #455)
+
+- `notebooks/operator/enable_bybit_spot_margin.ipynb` — **DELETED**. The system no longer needs an operator-run notebook to verify exchange-side state.
+- `docs/claude/colab-workflows.md` — row removed from "Existing operator notebooks" table.
+- `docs/sprint-plans/S-047-bybit2-spot-margin.md` — T0 row marked DELETED in checkpoint table; D1 deliverable marked DELETED; § 2 dependencies stripped of "operator action / parameter capture" language; § 5b extended with a fifth invariant (no operator-run notebooks for exchange-state capture); § 8 hand-off rewritten to reflect margin-agnostic operation.
+- `docs/claude/operating-protocol.md` § 4.4 — added a third bullet: "Does the diff put exchange-side state behind an operator-run notebook, manual capture step, or any 'operator extracts value, pastes into PR' workflow? **Workflow gates count.**" Captures both PR #450 (runtime gate) and PR #452 (workflow gate) as cautionary cases.
+- `docs/claude/milestone-state.md` — "S-047 operator action remaining" block rewritten from operator-runs-notebook to "none required."
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` — this entry.
+
+### S-047 operator action remaining: NONE
+
+The operator clicks Enable Spot Margin in the Bybit web UI on `bybit_2` (Account → Margin Mode) on their own schedule. Whether they do so before, during, or after T1 ships is irrelevant to the sprint. Until the toggle is on, every `isLeverage=1` order returns retCode 110007 server-side and is logged via the existing `report_api_failure` path. After the toggle is on, orders flow through. There is no verification step, no notebook to run, no parameter to capture, no PR comment thread to update.
+
+### Next session: S-047 T1
+
+`feat(accounts): declare bybit_2 spot-margin in routing config`. Read order:
+
+1. `CLAUDE.md`.
+2. This entry (skip CP-09; this entry supersedes the operator-action portion).
+3. `docs/claude/milestone-state.md`.
+4. `docs/claude/operating-protocol.md` § 4.4 (now 5 bullets).
+5. `docs/sprint-plans/S-047-bybit2-spot-margin.md` (post-#455 corrective).
+
+Before opening the T1 PR, run the § 4.4 check (5 bullets) and record under a `## Compliance check` heading. T2's risk-manager rules ship with sensible hardcoded defaults (operator can edit config); they do not consume operator-extracted parameters.
+
+### Live-mode check
+
+✅ no flip away from `live` anywhere in the diff. PR #455 is docs + a notebook deletion. No `src/` or `config/` changes.
+
+### Compliance check (per the now-5-bullet § 4.4)
+
+1. ✅ Refuse-to-trade outside the dispatcher? **No** — diff removes such patterns.
+2. ✅ Per-account refusal flag/branch? **No.**
+3. ✅ Workflow gate (operator-run notebook / parameter capture)? **No** — diff *deletes* exactly that pattern and adds bullet 3 to § 4.4 to prevent recurrence.
+4. ✅ Live-mode invariant: see above.
+5. ✅ CI green (lint + scan ×2 + collect + inventory).
+
+---
+
+## CP-2026-05-07-09-s047-T0-complete — S-047 T0: Bybit spot-margin verification notebook + plan correction (SUPERSEDED in part by CP-10)
 
 - **Session date:** 2026-05-07
 - **Sprint:** S-047 — bybit_2 Spot Margin enablement (live-trading priority sprint).

@@ -201,8 +201,16 @@ Minimum check before any of those:
    move the logic into the risk manager or remove it.
 2. Does the diff add a per-account flag, schema field, env var, or
    pre-flight check whose failure path refuses a trade? Same answer.
-3. Does the live-mode invariant (§ 5) pass on the diff?
-4. Are tests + lint + scan + collect + inventory green?
+3. Does the diff put exchange-side state behind an operator-run notebook,
+   manual capture step, or any "operator extracts value, pastes into PR"
+   workflow? **Workflow gates count.** The system must operate
+   exchange-agnostic — query at runtime if the live value is needed,
+   default sensibly in config (operator can edit), or just send the call
+   and let the exchange decide. A read-only diagnostic notebook whose
+   output conditions a downstream PR is still a refuse-to-progress gate
+   at the workflow layer.
+4. Does the live-mode invariant (§ 5) pass on the diff?
+5. Are tests + lint + scan + collect + inventory green?
 
 The PR body should record the check result under a `## Compliance check`
 heading the same way it records the live-mode check. Past sprints where
@@ -212,7 +220,15 @@ this check would have caught the problem before it shipped:
   plan described an `is_leverage` boolean in `accounts.yaml` and an
   "if not is_leverage: refuse" branch in `execute.py`. Both are
   refuse-to-trade decisions outside the risk manager. Caught + reverted
-  in #453 the same day, but only after the operator flagged it.
+  in #453 the same day, but only after the operator flagged it. Bullets
+  1 and 2 of this list would have caught it.
+- **S-047 T0 notebook (PR #452, 2026-05-07)** — read-only Colab notebook
+  that asked the operator to verify Bybit Spot Margin enablement and
+  capture the BTC max-borrow tier as input to T2's risk-manager rules.
+  Even though the notebook adds no runtime gate, it makes T1+ workflow
+  conditional on operator-extracted values. Deleted in PR #455. Bullet
+  3 was added in that same PR after the operator flagged this as the
+  same anti-pattern.
 
 ---
 

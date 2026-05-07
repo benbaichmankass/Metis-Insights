@@ -106,7 +106,6 @@ feature branch under review.
 | `push_notebook_to_repo.ipynb` | Stage + commit + push a notebook from Colab back to the repo | [open](https://colab.research.google.com/github/the-lizardking/ict-trading-bot/blob/main/notebooks/operator/push_notebook_to_repo.ipynb) |
 | `update_branch_protection.ipynb` | Sync GitHub branch-protection rules from the repo's canonical config | [open](https://colab.research.google.com/github/the-lizardking/ict-trading-bot/blob/main/notebooks/operator/update_branch_protection.ipynb) |
 | `debug_vwap_bybit2.ipynb` | Diagnose VWAP→bybit_2 silencing across the 13 documented gates; gated remediation for the strategy-monocle stuck-state | [open](https://colab.research.google.com/github/the-lizardking/ict-trading-bot/blob/main/notebooks/operator/debug_vwap_bybit2.ipynb) |
-| `enable_bybit_spot_margin.ipynb` | S-047 T0 — read-only verification that Bybit Spot Margin is enabled on `bybit_2` + capture of the live BTC max-borrow tier for T1's `accounts.yaml` defaults | [open](https://colab.research.google.com/github/the-lizardking/ict-trading-bot/blob/main/notebooks/operator/enable_bybit_spot_margin.ipynb) |
 
 Add a row here (with the Colab open link) when you add a notebook.
 
