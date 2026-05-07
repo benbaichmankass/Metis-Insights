@@ -7,7 +7,6 @@ network access are required.
 Skipped automatically when pandas / numpy are not installed.
 """
 
-import math
 import random
 import pytest
 

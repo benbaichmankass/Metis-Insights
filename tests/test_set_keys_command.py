@@ -5,7 +5,6 @@ import asyncio
 import sys
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
 
 
 for _mod in (

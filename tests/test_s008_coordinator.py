@@ -7,9 +7,7 @@ NotImplementedError assertions.
 from __future__ import annotations
 
 import os
-import tempfile
 import textwrap
-from typing import Any, Dict
 
 import pytest
 import yaml

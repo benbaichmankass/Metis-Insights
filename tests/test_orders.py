@@ -10,7 +10,7 @@ for _mod in ("pandas", "matplotlib", "matplotlib.pyplot", "numpy", "scipy", "skl
     sys.modules.setdefault(_mod, MagicMock())
 
 from src.runtime.orders import safe_place_order  # noqa: E402
-from src.runtime.pipeline import HALT_FLAG_PATH, run_pipeline  # noqa: E402
+from src.runtime.pipeline import run_pipeline  # noqa: E402
 
 
 class _DummyClient:

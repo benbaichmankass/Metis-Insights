@@ -10,7 +10,6 @@ import asyncio
 import os
 import sys
 import time
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 # Stub optional deps so the bot module imports in the lean sandbox.

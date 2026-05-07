@@ -17,7 +17,6 @@ from __future__ import annotations
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict
 
-import pytest
 
 from src.news.news_normalizer import (
     normalize_article,
@@ -25,7 +24,7 @@ from src.news.news_normalizer import (
     _parse_extra_keywords,
     _score_sentiment,
 )
-from src.news.news_score import score_news, NewsScoreResult
+from src.news.news_score import score_news
 
 
 # ---------------------------------------------------------------------------

@@ -7,7 +7,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.data_layer.data_loader import load_data
-from src.ict_detection.swing_points import SwingPointDetector, detect_swings
+from src.ict_detection.swing_points import SwingPointDetector
 
 def test_swing_detection():
     """Test swing point detection on Bitcoin data"""

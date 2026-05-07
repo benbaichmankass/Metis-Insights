@@ -21,7 +21,7 @@ np = pytest.importorskip("numpy")
 if not isinstance(getattr(pd, "DataFrame", None), type):
     pytest.skip("pandas is mocked by another test module", allow_module_level=True)
 
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from src.ict_detection.key_levels import KeyLevelsDetector, detect_key_levels
 

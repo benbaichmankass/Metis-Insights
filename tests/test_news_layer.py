@@ -19,9 +19,8 @@ from __future__ import annotations
 import time
 import unittest.mock as mock
 from datetime import datetime, timezone, timedelta
-from typing import Any, Dict, List
+from typing import Any, Dict
 
-import pytest
 
 from src.news.news_cache import NewsCache
 from src.news.news_normalizer import (
@@ -29,7 +28,6 @@ from src.news.news_normalizer import (
     normalize_articles,
     _score_sentiment,
     _score_relevance,
-    _score_impact,
     _freshness_minutes,
 )
 from src.news.news_score import (

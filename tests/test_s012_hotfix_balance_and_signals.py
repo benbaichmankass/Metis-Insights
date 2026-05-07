@@ -15,11 +15,9 @@ the absence of a signal-viewer command.
 from __future__ import annotations
 
 import json
-import os
 import sys
 from unittest.mock import AsyncMock, MagicMock
 
-import pytest
 
 
 # ---------------------------------------------------------------------------

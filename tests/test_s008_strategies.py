@@ -7,7 +7,6 @@ end-to-end wiring.
 from __future__ import annotations
 
 import textwrap
-from typing import Any, Dict
 
 import pandas as pd
 import pytest
@@ -84,7 +83,6 @@ def coord(units_yaml, tmp_path):
 
 def _make_candles(n: int = 50, base: float = 50_000.0, bullish: bool = True) -> pd.DataFrame:
     """Return a minimal OHLCV DataFrame with DatetimeIndex."""
-    import numpy as np
     rng = pd.date_range("2024-01-01", periods=n, freq="5min", tz="UTC")
     step = 100.0 if bullish else -100.0
     closes = [base + i * step for i in range(n)]

@@ -18,12 +18,10 @@ Tests cover:
 """
 from __future__ import annotations
 
-import json
 import logging
 import sys
 import types
 from unittest import mock
-from unittest.mock import patch
 
 import pytest
 

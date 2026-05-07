@@ -20,7 +20,6 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-import pytest
 
 
 _BASE_VALID_ENV = {

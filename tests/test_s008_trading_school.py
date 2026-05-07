@@ -9,13 +9,9 @@ Covers:
 """
 from __future__ import annotations
 
-import os
 import textwrap
-import tempfile
-from typing import Any, Dict
 
 import pytest
-import yaml
 
 from src.units.trading_school.validator import validate_metrics, trigger_backtest
 from src.core.coordinator import Coordinator, _PAUSED_ACCOUNTS

@@ -5,7 +5,6 @@ import os
 import textwrap
 
 import pytest
-import yaml
 
 import src.strategy_registry as reg
 

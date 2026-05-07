@@ -6,7 +6,6 @@ import os
 import sys
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
 
 # ---------------------------------------------------------------------------
 # Stub heavy / unavailable deps before any src import.
@@ -43,11 +42,9 @@ _ContextTypes.DEFAULT_TYPE = MagicMock
 _tgext.ContextTypes = _ContextTypes
 
 from src.bot.telegram_query_bot import (  # noqa: E402
-    HALT_FLAG_PATH,
     cmd_halt,
     cmd_resume,
     cmd_status,
-    is_halted,
 )
 
 
@@ -78,7 +75,6 @@ def test_is_halted_returns_false_when_flag_absent(tmp_path):
     flag = str(tmp_path / "trader_halt.flag")
     with patch("src.bot.telegram_query_bot.HALT_FLAG_PATH", flag):
         # reload function via a local import alias to pick up the patched path
-        from src.bot.telegram_query_bot import is_halted as _is_halted
         with patch("src.bot.telegram_query_bot.os.path.exists", wraps=os.path.exists):
             assert not os.path.exists(flag)
 
@@ -244,7 +240,7 @@ def test_cmd_status_includes_pnl_and_open_positions(tmp_path):
 for _mod in ("pandas", "matplotlib", "matplotlib.pyplot", "scipy", "sklearn"):
     sys.modules.setdefault(_mod, MagicMock())
 
-from src.runtime.pipeline import HALT_FLAG_PATH as PIPELINE_HALT_PATH, run_pipeline  # noqa: E402
+from src.runtime.pipeline import run_pipeline  # noqa: E402
 
 
 class _DummyClient:

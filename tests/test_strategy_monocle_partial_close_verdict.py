@@ -18,10 +18,9 @@ from __future__ import annotations
 
 import json
 import sys
-from typing import Any, Dict, List, Optional
-from unittest.mock import MagicMock, call, patch
+from typing import List, Optional
+from unittest.mock import MagicMock
 
-import pytest
 
 # Stub pandas before importing order_monitor (signal_notifications pulls it).
 sys.modules.setdefault("pandas", MagicMock())

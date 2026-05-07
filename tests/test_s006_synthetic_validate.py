@@ -1,7 +1,6 @@
 """Tests for scripts/s006_ict_synthetic_validate.py."""
 from __future__ import annotations
 
-import importlib.util
 import sys
 from pathlib import Path
 
@@ -19,7 +18,6 @@ from scripts.s006_ict_synthetic_validate import (
     run_synthetic_validation,
     _verdict,
     render_report,
-    N_CANDLES,
     SYMBOLS,
 )
 

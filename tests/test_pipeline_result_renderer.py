@@ -14,7 +14,6 @@ from __future__ import annotations
 import sys
 from unittest.mock import MagicMock
 
-import pytest
 
 # Stub heavy deps before pipeline import.
 for _mod in (

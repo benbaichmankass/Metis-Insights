@@ -98,7 +98,6 @@ def test_open_packages_pings_telegram(tmp_journal, monkeypatch):
     monkeypatch.setattr("src.runtime.boot_audit._load_strategy_names",
                         lambda: ["vwap", "turtle_soup"])
 
-    import importlib
     import src.runtime.boot_audit as _ba
     monkeypatch.setattr(_ba, "_send_boot_ping",
                         lambda counts, total: _fake_send(

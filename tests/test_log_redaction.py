@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import logging
 
-import pytest
 
 from src.utils.log_redact import (
     RedactingFilter,

@@ -2,10 +2,8 @@
 from __future__ import annotations
 
 import sys
-from typing import Any, Dict
 from unittest.mock import MagicMock, patch
 
-import pytest
 
 for _mod in ("dotenv", "pybit", "pybit.unified_trading"):
     sys.modules.setdefault(_mod, MagicMock())

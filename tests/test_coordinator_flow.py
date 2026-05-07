@@ -15,12 +15,8 @@ Flow under test:
 """
 from __future__ import annotations
 
-import os
-import sys
 import textwrap
-import tempfile
-from typing import Any, Dict
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 import pandas as pd
 import pytest
@@ -409,7 +405,6 @@ class TestTriggerBacktestFlow:
         assert lines[0]["symbol"] == "ETHUSDT"
 
     def test_multiple_triggers_append_lines(self, coord, tmp_path, monkeypatch):
-        import json
         queue = tmp_path / "queue.json"
         monkeypatch.setenv("BACKTEST_QUEUE_PATH", str(queue))
         coord.trigger_backtest("vwap")

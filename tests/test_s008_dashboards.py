@@ -7,7 +7,6 @@ Coordinator dashboard / alert integration.
 from __future__ import annotations
 
 import textwrap
-from typing import Any, Dict, List
 
 import pytest
 
@@ -198,7 +197,6 @@ class TestBuildStats:
         ]
 
     def test_returns_required_keys(self, monkeypatch):
-        from src.units.dashboards import stats as stats_mod
         monkeypatch.setattr("src.bot.data_loaders.account_last_trade", lambda a: None)
         monkeypatch.setattr("src.bot.data_loaders.account_balance", lambda a: None)
         monkeypatch.setattr("src.bot.data_loaders.account_open_positions", lambda a: None)
