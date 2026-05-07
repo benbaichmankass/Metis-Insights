@@ -176,7 +176,7 @@ def main() -> int:
     print(f"- Folds: **{N_FOLDS}** stratified, disjoint")
     print(f"- Recency window: **last {RECENT_MONTHS} months**")
     print(f"- Sampler seed: **{SEED}**")
-    print(f"- Slippage: 2 bps round-trip (default), plus a 0/2/10 sweep\n")
+    print("- Slippage: 2 bps round-trip (default), plus a 0/2/10 sweep\n")
 
     summaries: List[Dict[str, Any]] = []
     for symbol in SYMBOLS:

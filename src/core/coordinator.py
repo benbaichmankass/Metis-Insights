@@ -157,7 +157,7 @@ class Coordinator:
         try:
             mod = importlib.import_module(f"src.units.strategies.{strategy}")
             if not hasattr(mod, "order_package"):
-                raise AttributeError(f"module has no order_package()")
+                raise AttributeError("module has no order_package()")
             cfg = {**self._strategy_cfg(strategy), "symbol": symbol}
             pkg_dict = mod.order_package(cfg, candles_df=candles_df)
             return OrderPackage(strategy=strategy, **pkg_dict)

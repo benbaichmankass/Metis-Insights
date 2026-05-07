@@ -1,0 +1,27 @@
+# Repo-level ruff config.
+#
+# Added in S-045 T3a (PR #438). Two reasons:
+#
+# 1. Exclude `*.ipynb` from ruff. Ruff's notebook autofix re-serialises
+#    every JSON cell — escaped Unicode (`→`) becomes literal
+#    (`→`), markdown cells get auto-injected `"id"` fields, and the
+#    diff balloons far beyond the actual lint fix. Those are not
+#    behaviour-preserving for Colab consumers. Notebook hygiene is
+#    its own follow-up; ruff stays out of the .ipynb tree.
+#
+# 2. Live-mode invariant + operator-hold paths. The S-045 sprint
+#    prompt forbids touching `src/runtime/orders.py`,
+#    `src/runtime/pipeline.py`, `src/runtime/trading_mode.py`,
+#    `src/units/accounts/*`, `src/main.py`, `config/accounts.yaml`,
+#    `deploy/*` without an operator ping-PR. Even mechanical lint
+#    fixes are out of scope. We do NOT exclude these paths here
+#    (we still want CI to flag any new hits on operator-hold paths
+#    so the next session sees them) — fixes for the residual hits
+#    in those paths are tracked as a follow-up ping-PR. See
+#    `docs/sprints/sprint-045-prompt.md` § 7 "Hard guardrails".
+#
+# Future cleanup: when the broader rule set lands (S-045 T3i drops
+# `--select` in `.github/workflows/ruff-lint.yml`), ruff will use
+# its default rule set against everything not excluded here.
+
+extend-exclude = ["*.ipynb"]

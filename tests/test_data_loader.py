@@ -21,10 +21,10 @@ def test_data_loading():
     # Load data
     try:
         df = load_data('btc_1m_sample.csv')
-        print(f"\n✓ Successfully loaded data!")
+        print("\n✓ Successfully loaded data!")
         print(f"  Rows: {len(df)}")
         print(f"  Columns: {list(df.columns)}")
-        print(f"\nFirst few rows:")
+        print("\nFirst few rows:")
         print(df.head())
         
         # Validate data
