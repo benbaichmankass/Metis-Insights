@@ -11,6 +11,77 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-07-16-s047-T5-reconciler-spot-margin — S-047 T5: reconciler spot-margin awareness (D7)
+
+- **Session date:** 2026-05-07 (continuation of `CP-2026-05-07-15`).
+- **Sprint:** S-047 — bybit_2 Spot Margin enablement.
+- **Active milestone:** M5 paused; S-047 active. **T5 shipped (work-PR #477 operator-merged 2026-05-07 ~17:23 UTC); T6 queued.**
+- **Last completed checkpoint:** `CP-2026-05-07-15-s049-spot-margin-sizer-correctness` (S-049 PR #473 operator-merged + close-checkpoint #475 self-merged).
+- **Branches:** sprint-start ping-PR #476 on `claude/ping-S-047-T5-start` (self-merged); work-PR #477 on `claude/S-047-T5-reconciler-spot-margin` (Tier 2, operator-merged after explicit "merge and tell me what's next" reply); merge-review ping-PR #478 on `claude/ping-S-047-T5` (self-merged after CI green); this close-checkpoint commit on `claude/cp-2026-05-07-s047-t5-close`.
+- **Telegram sent:** ping-PR #476 (sprint-start) + #478 (merge-review) self-merged after CI green; sprint-complete ping rides on this close-checkpoint commit.
+
+### What this checkpoint completes
+
+S-047 T5 D7: teach `src/units/accounts/clients.py::account_open_positions` to recognise spot-margin accounts and synthesise exchange-side positions from the wallet snapshot, so the BUG-042 reconciler in `src/runtime/order_monitor.py::_reconcile_open_trades` matches DB-open `bybit_2` trades against live exchange state instead of orphaning them on every tick.
+
+Synthesis rules (spot-margin only — cash-spot returns `[]` byte-for-byte):
+
+- `coin.borrowAmount > 0` → `{symbol: "<COIN>USDT", side: "short", size: borrowAmount}` (the borrow IS the position; closing the trade repays it).
+- `coin.walletBalance > 0` → `{symbol: "<COIN>USDT", side: "long", size: walletBalance}`. Pragmatic — wallet base-coin holdings can stem from a manual deposit OR an open leveraged buy, but the reconciler's job is "is this DB-open trade still alive on exchange?" — false negatives (don't orphan a stale row) are safer than false positives per the BUG-042 design.
+- USDT excluded — quote coin in every spot-margin pair on the account; the long-side position is captured via the base coin's walletBalance.
+
+### Files changed (PR #477, operator-merged)
+
+- `src/units/accounts/clients.py` — new `_spot_margin_open_positions(client) -> list` helper. `account_open_positions` spot branch now checks `_is_spot_margin(account)` and routes to the new helper for spot-margin; cash-spot keeps returning `[]` byte-for-byte and does NOT call `get_wallet_balance` (perf contract preserved). Best-effort: any wallet-read exception is logged and returns `[]` (matches cash-spot empty-list semantics; reserved `None` only for the upstream creds-missing path).
+- `tests/units/accounts/test_reconciler_spot_margin.py` (NEW) — 13 tests across 3 classes:
+  - `TestSpotMarginPositionSynthesis` (8 cases): BTC borrow → short, BTC wallet → long, simultaneous both-sides, multiple base coins, empty wallet, USDT excluded, perp endpoint NOT called, wallet-read failure → [].
+  - `TestCashSpotUnchanged` (2 cases): BTC holdings on cash-spot still return [] (no synthesis); cash-spot does NOT call `get_wallet_balance` at all (unchanged perf).
+  - `TestRegressionUnchanged` (3 cases): missing creds → None, non-dict account → None, unsupported exchange → None.
+
+### Compliance check (per § 4.4 — 5 bullets)
+
+1. ✅ **No refuse-to-trade outside the dispatcher.** Reader, not gate. Dispatcher's `live | dry_run` switch remains the only canonical execution gate.
+2. ✅ **No per-account refusal flag/branch.** Routes by `_is_spot_margin(account)` — reads existing `market_type` routing label.
+3. ✅ **No operator-run notebook / capture step.** Wallet snapshot read at reconciler tick; nothing captured into config.
+4. ✅ **Live-mode invariant passes.** No edits to forbidden runtime files.
+5. ✅ **CI green.** ruff `.` clean; secret-scan clean; dry-run-in-diff clean; repo-inventory clean; 13 new tests pass; 19 existing `test_monitor_reconciler.py` tests still pass.
+
+### Live-mode check
+
+✅ no flip away from `live` anywhere in the diff. Files touched in the work-PR: `src/units/accounts/clients.py`, `tests/units/accounts/test_reconciler_spot_margin.py` (NEW). Files touched in the ping-PRs: `docs/claude/pending-pings.jsonl` (one-line appends). Files touched in this close-checkpoint commit: `docs/claude/checkpoints/CHECKPOINT_LOG.md`, `docs/claude/milestone-state.md`, `docs/claude/pending-pings.jsonl`.
+
+### Hard guardrails
+
+- ✅ `bybit_1` + `prop_velotrade_1` unchanged — both have `market_type: spot` (cash-spot), `_is_spot_margin` is False, the new branch is skipped, empty-list return is byte-for-byte identical.
+- ✅ Linear / inverse code path unchanged (19 `test_monitor_reconciler.py` tests still pass).
+- ✅ Pre-existing missing-creds → None contract preserved.
+
+### Remaining (operator action)
+
+- **None for T5.** Operator-merged PR #477 closes T5.
+- **Bybit web-UI Spot Margin toggle on `bybit_2`** — independent of T5, still required for `isLeverage=1` orders to actually be honoured by the exchange.
+
+### Next session: S-047 T6
+
+`docs(bug-log + runbook): spot-margin remediation cross-references` + end-to-end live smoke. Read order:
+
+1. `CLAUDE.md` (router).
+2. This entry (CP-16) + CP-15 + CP-14 + CP-13.
+3. `docs/claude/milestone-state.md`.
+4. `docs/claude/operating-protocol.md` § 4.4.
+5. `docs/sprint-plans/S-047-bybit2-spot-margin.md` D8 + T6 row.
+6. Bug log entries BUG-046 / BUG-048 / BUG-049 — T6 closes them with explicit S-047 cross-link.
+
+T6 deliverables:
+
+- Live smoke: 0.0005 BTC short on `bybit_2` mainnet completes one full open → monitor → close cycle. Trade journal + reconciler agree.
+- Runbook `docs/runbooks/spot-margin.md` — borrow-fee accrual visibility, manual flatten of stuck borrow positions.
+- Bug-log close entries linking BUG-046/048/049 to S-047 as the structural fix.
+
+Tier 1 (docs after smoke succeeds). Smoke harness `scripts/sprint047/spot_margin_smoke.py` already exists from T3.
+
+---
+
 ## CP-2026-05-07-15-s049-spot-margin-sizer-correctness — S-049: spot-margin sizer correctness (UTA availableBalance + buy-side fee buffer)
 
 - **Session date:** 2026-05-07 (continuation of `CP-2026-05-07-14`).

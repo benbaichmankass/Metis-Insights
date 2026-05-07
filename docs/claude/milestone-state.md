@@ -40,11 +40,11 @@ When opening a session:
 | **Title** | S-047 — VWAP true longs + shorts on bybit_2 via Bybit V5 Spot Margin |
 | **Type** | ad-hoc (live-trading priority); interleaves M1 audit and M5 per `operating-protocol.md` § 3. |
 | **Goal** | Per `docs/sprint-plans/S-047-bybit2-spot-margin.md` § 1 — VWAP takes both long + short BTCUSDT positions on `bybit_2` via Bybit V5 Spot Margin, with the RiskManager + dispatch + monitor + reconciler all treating Spot-Margin sells as borrowed-coin shorts. |
-| **Status** | 🔄 ACTIVE — **T1 / T2 / T3 / T4 shipped**; **T5 queued**. Operator merged PR #469 (T4) on 2026-05-07 ~16:24 UTC. |
-| **Active sprint** | **S-047 T5 — reconciler spot-margin awareness.** Plan row: `docs/sprint-plans/S-047-bybit2-spot-margin.md` § T5 + D7. |
-| **Active checkpoint** | T5 — `feat(monitor): spot-margin borrow-position reconciler`. The reconciler distinguishes (spot-margin / spot-cash / linear / inverse) and queries the right endpoint for each. Spot-cash and linear behaviour preserved. |
-| **Risk tier (T5)** | Tier 2 — live order routing / runtime orchestration. Draft PR + ping-PR + Merge/Hold buttons. |
-| **Definition of done (T5)** | D7 merged: `src/runtime/order_monitor.py::_reconcile_open_trades` reads the borrow-position endpoint for spot-margin accounts and the perp endpoint for derivatives accounts. Cash-spot stays a no-op there (no native positions). Regression tests for all four routing classes. Tier 2 — operator merge required. |
+| **Status** | 🔄 ACTIVE — **T1 / T2 / T3 / T4 / T5 shipped + S-049 fast-followup shipped**; **T6 queued**. Operator merged PR #477 (T5) on 2026-05-07 ~17:23 UTC. |
+| **Active sprint** | **S-047 T6 — end-to-end live smoke + runbook.** Plan row: `docs/sprint-plans/S-047-bybit2-spot-margin.md` § T6 + D8. |
+| **Active checkpoint** | T6 — `docs(bug-log + runbook): spot-margin remediation cross-references` + live smoke (0.0005 BTC short on `bybit_2` mainnet through full open → monitor → close cycle; trade journal + reconciler agree). |
+| **Risk tier (T6)** | Tier 1 (docs after smoke succeeds). Smoke harness `scripts/sprint047/spot_margin_smoke.py` already exists from T3. |
+| **Definition of done (T6)** | D8 merged: bug-log close entries link BUG-046/048/049 to S-047 as the structural fix; `docs/runbooks/spot-margin.md` written; live smoke recorded with PnL/borrow-fee analysis; CI green. |
 
 **Operator action remaining: T5 merge (when work-PR opens)** + the independent **Bybit web-UI Spot Margin toggle** on `bybit_2` (margin-agnostic — operator clicks on their own schedule; sprint does not block on it; until then `isLeverage=1` orders return retCode 110007 server-side and log via the existing `report_api_failure` path). Operator surfaced a live `170131 Insufficient balance` on `bybit_2` during the T4 session — diagnosed as most likely the toggle still being off (or UTA tier mismatch); independent of T4.
 
@@ -99,14 +99,13 @@ In execution order. Each row lists the gating condition to start. Operator merge
 
 | Order | Milestone / sprint | Type | Gating condition |
 |---|---|---|---|
-| 1 | **S-047 T5 — reconciler spot-margin awareness** (D7) | ad-hoc (live-trading) | None — ready to start. Plan: `docs/sprint-plans/S-047-bybit2-spot-margin.md` § T5. Tier 2 — will pause at operator-merge gate. |
-| 2 | **S-047 T6 — end-to-end live smoke + runbook** (D8) | ad-hoc (live-trading) | T5 closes. Live smoke needs Bybit web-UI Spot Margin toggle ON for `bybit_2`. |
-| 3 | **S-047 T7 — sprint close** (milestone-state + bug-log + summary) | docs-only (Tier 1) | T6 closes. |
-| 4 | **S-048 — M1 comms audit (telegram-bot deep dive)** | auto-claude (M1 reopen) | S-047 T7 closes. Prompt: `docs/sprints/sprint-048-prompt.md`. |
-| 5 | M5 — Strategy testing workflow | auto-claude | S-048 closes (M1 audit may surface dependencies M5 inherits). |
-| 6 | M6 — Web app UI (dashboard repo) | auto-claude | Independent — opened against `the-lizardking/ict-trader-dashboard`, not this repo. Focus order: live data feed first, then operator-control functionalities. |
-| 7 | M9 — AI / model roadmap | auto-claude | Independent of M5/M6. Could run in parallel. |
-| 8 | M10 — HF / data pipeline | auto-claude | Independent of M5/M6. Could run in parallel. |
+| 1 | **S-047 T6 — end-to-end live smoke + runbook** (D8) | ad-hoc (live-trading) | None — ready to start. Live smoke needs Bybit web-UI Spot Margin toggle ON for `bybit_2`. |
+| 2 | **S-047 T7 — sprint close** (milestone-state + bug-log + summary) | docs-only (Tier 1) | T6 closes. |
+| 3 | **S-048 — M1 comms audit (telegram-bot deep dive)** | auto-claude (M1 reopen) | S-047 T7 closes. Prompt: `docs/sprints/sprint-048-prompt.md`. |
+| 4 | M5 — Strategy testing workflow | auto-claude | S-048 closes (M1 audit may surface dependencies M5 inherits). |
+| 5 | M6 — Web app UI (dashboard repo) | auto-claude | Independent — opened against `the-lizardking/ict-trader-dashboard`, not this repo. Focus order: live data feed first, then operator-control functionalities. |
+| 6 | M9 — AI / model roadmap | auto-claude | Independent of M5/M6. Could run in parallel. |
+| 7 | M10 — HF / data pipeline | auto-claude | Independent of M5/M6. Could run in parallel. |
 
 > M2 (Web app source of truth) — backend essentially done; formal close-out
 > deferred. Not a blocker for any queued milestone.
@@ -139,6 +138,7 @@ Full spec: `docs/claude/recurring-sessions.md`.
 > - **S-047 T3 (PR #464) operator-merge gate** — operator merged PR #464 on 2026-05-07. CP-13 back-filled in CHECKPOINT_LOG.md by the T4 session (the T3 session shipped code + ping-PRs but did not author the close-checkpoint entry).
 > - **S-047 T4 (PR #469) operator-merge gate** — operator replied "merge" on 2026-05-07 ~16:24 UTC. T5 unblocked.
 > - **S-049 sizer-correctness fast-followup (PR #473) operator-merge gate** — operator replied "merge and continue" on 2026-05-07 ~17:09 UTC. Bybit ErrCode 170131 root cause closed (UTA `availableBalance` + buy-side fee buffer). Live trading on `bybit_2` no longer blocked on sizing.
+> - **S-047 T5 (PR #477) operator-merge gate** — operator replied "merge and tell me what's next" on 2026-05-07 ~17:23 UTC. Reconciler now distinguishes spot-margin from cash-spot; live `bybit_2` trades will no longer be orphaned on every reconciler tick. T6 unblocked.
 
 ---
 
