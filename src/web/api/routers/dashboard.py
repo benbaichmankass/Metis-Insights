@@ -41,7 +41,7 @@ def _bot_status() -> str:
 
 def _vm_health() -> dict[str, float]:
     try:
-        import psutil
+        import psutil  # noqa: PLC0415
         return {
             "cpu": psutil.cpu_percent(interval=0.1),
             "memory": psutil.virtual_memory().percent,
@@ -63,7 +63,8 @@ def _pnl_stats() -> tuple[float, float, int, float]:
             cur.execute(
                 """
                 SELECT
-                    COALESCE(SUM(CASE WHEN substr(COALESCE(created_at,timestamp),1,10)=? AND status!='open' THEN pnl ELSE 0 END),0),
+                    COALESCE(SUM(CASE WHEN substr(COALESCE(created_at,timestamp),1,10)=?
+                                      AND status!='open' THEN pnl ELSE 0 END),0),
                     COALESCE(SUM(CASE WHEN status!='open' THEN pnl ELSE 0 END),0),
                     COUNT(CASE WHEN status='open' THEN 1 END),
                     COUNT(CASE WHEN status!='open' THEN 1 END),
@@ -92,7 +93,7 @@ def _tail_jsonl(path: Path, n: int) -> list[dict]:
             lines = fh.readlines()
     except OSError:
         return []
-    return [json.loads(l) for l in lines[-n:] if l.strip()]
+    return [json.loads(raw) for raw in lines[-n:] if raw.strip()]
 
 
 def _tail_plain_log(path: Path, n: int) -> list[dict]:
@@ -153,7 +154,10 @@ async def get_logs() -> list[dict[str, Any]]:
             out.append(
                 {
                     "id": e.get("id", str(uuid.uuid4())),
-                    "timestamp": e.get("ts", e.get("timestamp", datetime.now(timezone.utc).isoformat())),
+                    "timestamp": e.get(
+                        "ts",
+                        e.get("timestamp", datetime.now(timezone.utc).isoformat()),
+                    ),
                     "level": level,
                     "message": e.get("message", e.get("msg", json.dumps(e))),
                 }
