@@ -36,15 +36,18 @@ When opening a session:
 
 | Field | Value |
 |---|---|
-| **Milestone** | M5 — Strategy testing workflow |
+| **Milestone** | M5 — Strategy testing workflow (paused while S-047 runs) |
 | **Title** | Strategy testing workflow: Telegram-triggered test flow, validation logging, backtest workflow docs |
 | **Type** | roadmap (auto-claude) |
 | **Goal** | Build the operator-triggered strategy validation workflow: a `/test <strategy_name>` Telegram command that writes a structured request to the repo, validation logging (signals + decisions + outcomes per workplan § Required logs), and a `docs/claude/backtest-workflow.md` runbook per workplan § Backtesting sessions. |
-| **Status** | 📋 Not started — open next sprint (S-047) against M5 backlog. |
-| **Active sprint** | None — next sprint to file is **S-047**. |
-| **Active checkpoint** | None. |
-| **Risk tier** | Tier 1 expected (tests, docs, bot command wiring). Tier 2 if validation logging touches the runtime pipeline. |
-| **Definition of done** | `/test <strategy_name>` Telegram command lands a structured request to the repo, picked up by the next session; validation logging schema defined; `docs/claude/backtest-workflow.md` runbook filed; M5 formally closed with sprint summary + checkpoint. |
+| **Status** | 📋 Not started — paused while **S-047** (live-trading priority) runs. M5 resumes after S-047 closes. |
+| **Active sprint** | **S-047** (ad-hoc, live-trading priority) — bybit_2 Spot Margin enablement so VWAP can take true longs + shorts against USDT collateral. Plan: `docs/sprint-plans/S-047-bybit2-spot-margin.md`. |
+| **Active checkpoint** | T0 ✅ done (notebook merged in PR #452, plan corrected in PR #453). **T1 queued** — `feat(accounts): declare bybit_2 spot-margin in routing config`. |
+| **Risk tier (S-047 average)** | Tier 2 / Tier 3 — touches strategy sizing, live order routing, reconciler. T0 was Tier 1 (notebook + docs). |
+| **Definition of done (S-047)** | A sell-side VWAP signal on `bybit_2` opens a true short via `category=spot, isLeverage=1`; risk manager sizes from USDT collateral with liquidation/borrow-fee parameters; `vwap.py::monitor()` closes on TP/SL/VWAP-cross; reconciler agrees with the trade journal at the end of each cycle. |
+
+**S-047 operator action remaining:**
+Operator clicks Enable Spot Margin in the Bybit web UI on `bybit_2` (Account → Margin Mode), then runs `notebooks/operator/enable_bybit_spot_margin.ipynb` from Colab to capture the live BTC max-borrow tier. T1 code work can ship in any order relative to that click — the trader simply doesn't trade margin on `bybit_2` until both sides (code on main + Bybit toggle on) are present (per S-047 plan § 5b).
 
 **Operator hold (do NOT start M6 / S-015 until hold lifted):**
 S-015 Web Client V2 pause/continue Tier 2 decision is pending — the sprint's scope
@@ -64,7 +67,7 @@ conflicts with the workplan repo boundary (web UI belongs in the separate Vercel
 | **M2** | Web app source of truth (backend) | 🔄 PARTIAL | S-013 FastAPI backend (`/api/status`, `/api/pnl`, JWT auth) built in this repo. Dashboard consumer side must be built in the separate dashboard repo (Vercel). Not formally closed under M0..M10. |
 | **M3** | Risk controls foundation | ✅ CLOSED | S-043 closed 2026-05-06. Order-layer refusal tests now complete (28 new gap-closer tests in `tests/test_s043_order_refusal_paths.py`). Risk engine + kill switch + risk caps + reason-token contract all pinned. |
 | **M4** | Repo hygiene + CI | ✅ CLOSED | S-044 (CI suite) ✅; S-045 (conftest + pytest-collect blocking + ruff default) ✅; post-S-045 follow-up (auto-sync branch protection workflow) ✅; **S-046 (2026-05-07) closed the three Janitor audits — 8 dead files removed, `src/ui/` shim consolidated into `src/units/ui/`, missing-test gap closed for `src/units/db/data_loader.py`.** Operator-hold lint residuals routed via PR #443 (DRAFT) + ping-PR #444. M4 formally closed. |
-| **M5** | Strategy testing workflow | 📋 NOT STARTED | Telegram-triggered test flow, validation logging, backtest workflow docs not yet built. **Now the active milestone — S-047 will kick it off.** |
+| **M5** | Strategy testing workflow | 📋 NOT STARTED (paused) | Telegram-triggered test flow, validation logging, backtest workflow docs not yet built. **Paused while S-047 (live-trading priority, bybit_2 Spot Margin) runs.** Resumes after S-047 close. |
 | **M6** | Web app UI | ⛔ BLOCKED | S-014 (Web Client V1) built UI in this repo; S-015 kickoff done 2026-05-06. Workplan boundary requires UI in separate Vercel dashboard repo. S-015 pause/continue under operator hold. |
 | **M7** | Strategy review gate | 📋 NOT STARTED | |
 | **M8** | Strategy tuning | 📋 NOT STARTED | |

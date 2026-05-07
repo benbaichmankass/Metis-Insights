@@ -11,6 +11,85 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-07-09-s047-T0-complete — S-047 T0: Bybit spot-margin verification notebook + plan correction
+
+- **Session date:** 2026-05-07
+- **Sprint:** S-047 — bybit_2 Spot Margin enablement (live-trading priority sprint).
+- **Active milestone:** M5 nominally active; S-047 interleaves as ad-hoc live-trading priority work per `operating-protocol.md` § 3 (milestone types).
+- **Last completed checkpoint:** `CP-2026-05-07-08-s046-complete`.
+- **Branches:** work-PR #452 on `claude/S-047-T0-margin-enable-notebook-xBvbM`; plan-correction PR #453 on `claude/S-047-T0-plan-no-gates-correction`. Trigger-session PRs #450 (S-047 plan + diagnostic notebook) + #451 (ping-PR) auto-merged at session start.
+- **Telegram sent:** ping-PR #451 self-merged at session start; this checkpoint commit is the sprint-T0-close ride-along.
+
+### 1. Completed (T0)
+
+- **D1 — `notebooks/operator/enable_bybit_spot_margin.ipynb`** (PR #452 merged): 5-cell read-only Colab notebook that captures `marginMode`, `spotMarginMode`, BTC max-borrow tier, free USDT + free BTC, and any open spot-margin borrow positions on `bybit_2`. Cell 2 stages the Python payload on the VM via SSH stdin (no shell-escape minefield) and runs it with `.env` re-sourced first (the cell-4 fix from `debug_vwap_bybit2.ipynb` — `python3 -c` over SSH does NOT inherit systemd's EnvironmentFile). The notebook does **not** flip the Bybit toggle — that lives on Bybit's servers, not in this repo, so the standard PR → merge → VM-autosync workflow has nothing to copy.
+- **`docs/claude/colab-workflows.md`** (PR #452): new row in the existing-operator-notebooks table linking to the Colab open URL on `main` (Rule 7).
+
+### 2. Compliance audit + plan correction (PR #453)
+
+The S-047 plan that auto-merged at session start (#450) described two refuse-to-trade gates **outside** the risk manager:
+
+| § | As merged in #450 | Violation |
+|---|---|---|
+| T1 D2 | "config/accounts.yaml schema: new `is_leverage` boolean" | An account-level flag future code would consult as `if not is_leverage: refuse`. That branch is a gate. |
+| T3 D4 | "`execute.py`: pass `isLeverage=1` when account is margin-enabled. Spot-sell pre-flight bypassed when borrowing." | `if not margin_enabled: refuse` branch in the live order path. |
+| § 7 | "T2 must refuse to size any short whose stop distance is closer than `liquidation_buffer_pct × liquidation_distance`." | Phrased as an external hard guardrail rather than a risk-manager parameter. |
+
+`docs/claude/workplan.md` § "Live / dry-run rule" (line 296-302) is the controlling rule:
+
+> *"The dispatcher maintains the **only canonical** live / dry-run switch in the system."*
+
+The operator caught this before any code shipped. PR #453 patched the plan in place: dropped `is_leverage` boolean, replaced T3 D4 with "for `bybit_2` always pass `isLeverage=1` (routing decision based on account identity, not refusal)", moved spot-margin parameters (`max_borrow_btc`, `borrow_fee_apr_pct`, `liquidation_buffer_pct`) into the risk-rule configuration surface, and added a new **§ 5b "Compliance with the one-canonical-gate rule"** that spells out the four invariants every PR in the sprint must respect.
+
+PR #452's cells 3+4 were softened in commit `d3ccec7` (post-PR-open) to drop "T1 cannot start until X / Pause T1 until Y" gating language — the notebook is now framed as informational data collection for T2's risk-manager rules, not a process gate.
+
+### 3. New durable rule installed
+
+Per the operator's directive 2026-05-07:
+
+> *"ALL CODE SHOULD BE CHECKED FOR COMPLIANCE BEFORE IT IS SHIPPED OR ESCALATED TO THE OPERATOR."*
+
+Added `docs/claude/operating-protocol.md` § 4.4 "Compliance check before every ship-or-escalate" — minimum check is "no new refuse-to-trade decision outside the risk manager" + "no per-account refusal flag/branch" + the live-mode invariant + green CI. PRs record the check result under a `## Compliance check` heading. The S-047-trigger-session PR #450 is captured in § 4.4 as the cautionary case.
+
+### 4. Files changed across all merged PRs this session
+
+- #450 (auto-merged at session start): `docs/sprint-plans/S-047-bybit2-spot-margin.md` (NEW), `notebooks/operator/debug_vwap_bybit2.ipynb` (NEW), `docs/claude/colab-workflows.md` (Rule 7 added).
+- #451 (ping-PR, auto-merged): `docs/claude/pending-pings.jsonl` (one-line append).
+- #452 (T0 D1): `notebooks/operator/enable_bybit_spot_margin.ipynb` (NEW), `docs/claude/colab-workflows.md` (one new row).
+- #453 (plan correction): `docs/sprint-plans/S-047-bybit2-spot-margin.md` (gate language stripped, § 5b added).
+- This close-checkpoint commit: `docs/claude/operating-protocol.md` (§ 4.4 added), `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry), `docs/claude/milestone-state.md` (S-047 in flight, T0 done, T1 queued).
+
+### 5. Remaining
+
+- **Operator action (exchange-side):** Bybit web UI on `bybit_2` → Account → Margin Mode → **Enable Spot Margin**. Then run the new notebook from Colab, confirm `marginMode=REGULAR_MARGIN` + `spotMarginEnabled=True`, capture the BTC max-borrow tier number for the T1 PR thread.
+- **T1 — `feat(accounts): declare bybit_2 spot-margin in routing config`** — can ship in any order relative to the operator's web-UI click; the trader simply doesn't trade margin on `bybit_2` until both sides are present. Per the corrected plan: declare `bybit_2` as a spot-margin account in the existing accounts.yaml routing schema (no new `is_leverage` flag); spot-margin risk parameters land in the risk-rule configuration surface, not as account-level toggles.
+
+### 6. Next session
+
+**S-047 T1 — `accounts.yaml` routing for spot-margin.** Read order:
+
+1. `CLAUDE.md` (router).
+2. This entry.
+3. `docs/claude/milestone-state.md` (current state).
+4. `docs/claude/operating-protocol.md` **§ 4.4** (the new pre-ship compliance check).
+5. `docs/sprint-plans/S-047-bybit2-spot-margin.md` § 5b (one-canonical-gate compliance) + T1 row.
+6. The corrected D2 deliverable spec.
+
+Before opening the T1 PR, run the § 4.4 check and record it in the PR body under `## Compliance check`. Specifically: confirm no `is_leverage` boolean is added; confirm any `bybit_2`-specific routing is declared in the existing routing schema (no new top-level flag); confirm risk parameters go into the risk-rule configuration surface.
+
+### Live-mode check
+
+✅ no flip away from `live` anywhere in this session. Files merged: 5 docs files + 1 notebook. No changes to `src/runtime/orders.py`, `src/runtime/pipeline.py`, `src/runtime/trading_mode.py`, `src/units/accounts/*`, or any live-routing code path.
+
+### Compliance check (per § 4.4 — the rule installed this session)
+
+1. ✅ Does the diff add a refuse-to-trade decision outside the dispatcher? **No.** All edits are docs + a read-only Colab notebook. PR #453 explicitly **removes** unauthorized gate language; PR #452 is read-only diagnostic.
+2. ✅ Does the diff add a per-account refusal flag/branch? **No.** PR #453 deletes the proposed `is_leverage` flag and the `if not margin_enabled: refuse` branch from the merged plan.
+3. ✅ Live-mode invariant: see above.
+4. ✅ All CI green on every merged PR (lint + scan ×2 + collect + inventory).
+
+---
+
 ## CP-2026-05-07-08-s046-complete — S-046 COMPLETE: M4 closed
 
 - **Session date:** 2026-05-07
