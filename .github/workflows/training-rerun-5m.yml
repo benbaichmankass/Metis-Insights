@@ -1,0 +1,91 @@
+name: training-rerun-5m
+
+# Re-runs experiment 2026-05-07-vwap-accuracy at the production 5m
+# timeframe. The original run used a local 1h archive because the
+# sandbox blocked all live market-data hosts; this workflow runs on a
+# GitHub Actions runner that has outbound internet, so it can call the
+# yfinance / Coinbase / Bybit fallback chain in
+# `scripts/training/data_loader.load_candles` to pull a real 5m series.
+#
+# Public market data only — no API keys required.
+#
+# Triggers:
+#   * push to `experiments/2026-05-07-vwap-accuracy/run_5m.py` or this
+#     workflow file (so editing either re-triggers a run).
+#   * workflow_dispatch (manual button in the Actions UI).
+#
+# Auto-commits results back to the same branch as the triggering push,
+# tagging the commit message with `[skip ci]` to prevent re-trigger
+# loops.
+
+on:
+  push:
+    paths:
+      - "experiments/2026-05-07-vwap-accuracy/run_5m.py"
+      - "experiments/2026-05-07-vwap-accuracy/fetch_data.py"
+      - ".github/workflows/training-rerun-5m.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: training-rerun-5m-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ github.ref_name }}
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install runtime deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas numpy requests pyarrow yfinance
+
+      - name: Fetch BTCUSDT 5m + 1h candles
+        run: PYTHONPATH=. python experiments/2026-05-07-vwap-accuracy/fetch_data.py
+
+      - name: Run experiment + robustness sweep
+        env:
+          VWAP_EXPERIMENT_TIMEFRAME: "5m"
+        run: PYTHONPATH=. python experiments/2026-05-07-vwap-accuracy/run_5m.py
+
+      - name: Upload run artifacts (for archival)
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: training-5m-results
+          path: |
+            experiments/2026-05-07-vwap-accuracy/results/5m/
+
+      - name: Commit results back to branch
+        if: github.event_name != 'pull_request'
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add experiments/2026-05-07-vwap-accuracy/results/5m/SUMMARY.md \
+                  experiments/2026-05-07-vwap-accuracy/results/5m/H*/summary.md \
+                  experiments/2026-05-07-vwap-accuracy/results/5m/H*/metrics.json \
+                  experiments/2026-05-07-vwap-accuracy/results/5m/robustness/robustness.json \
+                  || true
+          if git diff --cached --quiet; then
+            echo "No artifacts to commit (data fetch failed?)"
+            exit 0
+          fi
+          msg="TRAINING-RESULTS: 2026-05-07-vwap-accuracy 5m re-run [skip ci] — $RUN_URL"
+          git commit -m "$msg"
+          git push origin HEAD:${{ github.ref_name }}

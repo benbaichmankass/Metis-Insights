@@ -102,10 +102,11 @@ In execution order. Each row lists the gating condition to start. Operator merge
 | 1 | **S-047 T6 — end-to-end live smoke + runbook** (D8) | ad-hoc (live-trading) | None — ready to start. Live smoke needs Bybit web-UI Spot Margin toggle ON for `bybit_2`. |
 | 2 | **S-047 T7 — sprint close** (milestone-state + bug-log + summary) | docs-only (Tier 1) | T6 closes. |
 | 3 | **S-048 — M1 comms audit (telegram-bot deep dive)** | auto-claude (M1 reopen) | S-047 T7 closes. Prompt: `docs/sprints/sprint-048-prompt.md`. |
-| 4 | M5 — Strategy testing workflow | auto-claude | S-048 closes (M1 audit may surface dependencies M5 inherits). |
-| 5 | M6 — Web app UI (dashboard repo) | auto-claude | Independent — opened against `the-lizardking/ict-trader-dashboard`, not this repo. Focus order: live data feed first, then operator-control functionalities. |
-| 6 | M9 — AI / model roadmap | auto-claude | Independent of M5/M6. Could run in parallel. |
-| 7 | M10 — HF / data pipeline | auto-claude | Independent of M5/M6. Could run in parallel. |
+| 4 | **S-050 — VWAP Phase 2: 4 h-EMA-200 ±1 % HTF gate** (Tier 2 — `src/units/strategies/vwap.py`, PM-review) | strategy-improvement (auto-claude) | Phase 1 (PR #481, anchored VWAP) merged AND ≥ 30 days of live metrics on Phase 1 collected. Stack on top of Phase 1: skip BUYs when 4 h close < 4 h-EMA-200 × 0.99; skip SELLs when 4 h close > 4 h-EMA-200 × 1.01. Backtest projection (5m, 365 d real BTC): adds +0.43 Sharpe on top of Phase 1's +0.72 (composite vs raw baseline = +1.15 Sharpe, win rate 31.0 → 36.3 %, max DD −34 R → −22 R), at the cost of −45 % cadence. Walk-forward shows the HTF gate is regime-robust (OOS Sharpe +0.80 vs baseline OOS +0.24). Source: `experiments/2026-05-07-vwap-accuracy/RECOMMENDATIONS.md` § 5m re-run + § Recommended live change. Pipeline change: pull 4 h candles alongside the existing 5 m fetch and pass `htf_close` / `htf_ema200` into `build_vwap_signal`. Config gate via `config/strategies.yaml` `vwap.htf_trend_filter.enabled` so the operator has a one-flag rollback. |
+| 5 | M5 — Strategy testing workflow | auto-claude | S-048 closes (M1 audit may surface dependencies M5 inherits). |
+| 6 | M6 — Web app UI (dashboard repo) | auto-claude | Independent — opened against `the-lizardking/ict-trader-dashboard`, not this repo. Focus order: live data feed first, then operator-control functionalities. |
+| 7 | M9 — AI / model roadmap | auto-claude | Independent of M5/M6. Could run in parallel. |
+| 8 | M10 — HF / data pipeline | auto-claude | Independent of M5/M6. Could run in parallel. |
 
 > M2 (Web app source of truth) — backend essentially done; formal close-out
 > deferred. Not a blocker for any queued milestone.

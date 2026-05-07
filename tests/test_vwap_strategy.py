@@ -398,6 +398,182 @@ class TestBuildVwapSignal:
 
 
 # ---------------------------------------------------------------------------
+# Phase 1 — UTC-day session-anchored VWAP slice
+# (2026-05-07-vwap-accuracy training run, PR #481)
+# ---------------------------------------------------------------------------
+
+import datetime as _dt  # noqa: E402
+
+from src.units.strategies.vwap import (  # noqa: E402
+    SESSION_MIN_BARS,
+    _session_anchor_slice,
+)
+
+
+def _ts_candles(timestamps, *, close_pattern=(99, 100, 101), volume=1000.0):
+    """Build OHLCV candles with explicit UTC timestamps."""
+    rows = []
+    for i, ts in enumerate(timestamps):
+        close = close_pattern[i % len(close_pattern)]
+        rows.append({
+            "timestamp": ts,
+            "open": close - 1,
+            "high": close + 2,
+            "low": close - 2,
+            "close": close,
+            "volume": volume,
+        })
+    return pd.DataFrame(rows)
+
+
+class TestSessionAnchorSlice:
+    """`_session_anchor_slice` is the entry point for Phase 1 of the
+    VWAP-accuracy adoption — it must fall back gracefully on every
+    edge case so callers never see a regression versus the rolling
+    window when the timestamp data isn't trustworthy."""
+
+    def test_no_timestamp_column_returns_full_df(self):
+        df = pd.DataFrame([
+            {"open": 100, "high": 101, "low": 99, "close": 100, "volume": 1000},
+            {"open": 100, "high": 102, "low": 98, "close": 101, "volume": 1000},
+        ])
+        out = _session_anchor_slice(df)
+        assert len(out) == len(df)
+        assert out is df
+
+    def test_integer_index_timestamps_collapse_to_epoch_day_zero(self):
+        """Existing tests use ``timestamp: i`` for small int i. All such
+        values resolve to 1970-01-01 — a single UTC day — so the slice
+        must return the full df. Locks the no-regression contract for
+        every pre-existing fixture in this file."""
+        df = pd.DataFrame([
+            {"timestamp": i, "open": 100, "high": 101, "low": 99, "close": 100, "volume": 1000}
+            for i in range(20)
+        ])
+        out = _session_anchor_slice(df)
+        assert len(out) == len(df)
+
+    def test_timestamps_within_one_utc_day_returns_full_df(self):
+        bars = [
+            _dt.datetime(2026, 5, 7, h, 0, 0, tzinfo=_dt.timezone.utc)
+            for h in range(0, 22, 2)
+        ]
+        df = _ts_candles(bars)
+        out = _session_anchor_slice(df)
+        assert len(out) == len(df), "all bars are 2026-05-07 — slice should be the full df"
+
+    def test_timestamps_spanning_midnight_slice_to_post_midnight(self):
+        bars = [
+            _dt.datetime(2026, 5, 6, 22, 0, 0, tzinfo=_dt.timezone.utc),
+            _dt.datetime(2026, 5, 6, 22, 30, 0, tzinfo=_dt.timezone.utc),
+            _dt.datetime(2026, 5, 6, 23, 0, 0, tzinfo=_dt.timezone.utc),
+            _dt.datetime(2026, 5, 6, 23, 30, 0, tzinfo=_dt.timezone.utc),
+            _dt.datetime(2026, 5, 7, 0, 0, 0, tzinfo=_dt.timezone.utc),
+            _dt.datetime(2026, 5, 7, 0, 30, 0, tzinfo=_dt.timezone.utc),
+            _dt.datetime(2026, 5, 7, 1, 0, 0, tzinfo=_dt.timezone.utc),
+            _dt.datetime(2026, 5, 7, 1, 30, 0, tzinfo=_dt.timezone.utc),
+            _dt.datetime(2026, 5, 7, 2, 0, 0, tzinfo=_dt.timezone.utc),
+        ]
+        df = _ts_candles(bars)
+        out = _session_anchor_slice(df)
+        # 5 bars on 2026-05-07; the 4 May-6 bars must be dropped.
+        assert len(out) == 5
+        assert out["timestamp"].iloc[0].day == 7
+        assert out["timestamp"].iloc[-1] == bars[-1]
+
+    def test_too_few_post_midnight_bars_falls_back_to_full(self):
+        """When fewer than SESSION_MIN_BARS bars sit past midnight we
+        fall back to the full lookback so σ doesn't get computed from
+        a 1-2 bar sample early in the session."""
+        bars = (
+            [_dt.datetime(2026, 5, 6, 22 + i // 2, 30 * (i % 2), 0,
+                          tzinfo=_dt.timezone.utc) for i in range(4)]
+            + [_dt.datetime(2026, 5, 7, 0, 0, 0, tzinfo=_dt.timezone.utc)]
+            + [_dt.datetime(2026, 5, 7, 0, 5, 0, tzinfo=_dt.timezone.utc)]
+        )
+        df = _ts_candles(bars)
+        # only 2 bars on 2026-05-07 < SESSION_MIN_BARS (5)
+        out = _session_anchor_slice(df)
+        assert len(out) == len(df), (
+            f"expected full df fallback when post-midnight slice has "
+            f"< {SESSION_MIN_BARS} bars"
+        )
+
+    def test_zero_volume_in_session_slice_falls_back_to_full(self):
+        """A zero-volume session slice (e.g., all-volume-zero bars
+        right after a maintenance window) must fall back, not crash
+        compute_vwap downstream."""
+        bars = [
+            _dt.datetime(2026, 5, 7, h, 0, 0, tzinfo=_dt.timezone.utc)
+            for h in range(0, 8)
+        ]
+        df = _ts_candles(bars, volume=0.0)
+        # add 5 prior-day bars with real volume so the fallback is
+        # actually a meaningful different df
+        prior = [
+            _dt.datetime(2026, 5, 6, 18 + h, 0, 0, tzinfo=_dt.timezone.utc)
+            for h in range(0, 5)
+        ]
+        df_prior = _ts_candles(prior, volume=1000.0)
+        df_full = pd.concat([df_prior, df], ignore_index=True)
+        out = _session_anchor_slice(df_full)
+        assert len(out) == len(df_full), "zero-volume session must fall back"
+
+    def test_unparseable_timestamps_fall_back(self):
+        df = pd.DataFrame([
+            {"timestamp": "not-a-date", "open": 100, "high": 101, "low": 99, "close": 100, "volume": 1000}
+            for _ in range(10)
+        ])
+        out = _session_anchor_slice(df)
+        assert len(out) == len(df), "unparseable timestamps must fall back"
+
+
+class TestBuildVwapSignalAnchoring:
+    """End-to-end integration of the session-anchored slice with the
+    public ``build_vwap_signal`` API. Asserts the meta carries the
+    new audit fields and that the anchor mode actually changes the
+    computed VWAP / σ when the lookback spans midnight."""
+
+    def test_meta_records_anchor_mode_and_window_size(self):
+        df = _candles_below_vwap()  # integer timestamps → "rolling"
+        sig = build_vwap_signal(df, symbol="BTCUSDT")
+        assert sig["side"] == "buy"
+        assert sig["meta"]["vwap_anchor"] == "rolling"
+        assert sig["meta"]["vwap_window_bars"] == len(df)
+
+    def test_anchor_session_when_lookback_spans_midnight(self):
+        """When the lookback straddles UTC midnight, the anchored
+        VWAP is computed only from post-midnight bars and the meta
+        flags ``vwap_anchor='session'``."""
+        # 5 prior-day bars (uniform high price) + 6 today bars (drop)
+        bars = (
+            [_dt.datetime(2026, 5, 6, 18 + h, 0, 0, tzinfo=_dt.timezone.utc) for h in range(0, 5)]
+            + [_dt.datetime(2026, 5, 7, h, 0, 0, tzinfo=_dt.timezone.utc) for h in range(0, 6)]
+        )
+        # First 5 bars high (e.g., 110), today bars low and trending lower
+        rows = []
+        for i, ts in enumerate(bars):
+            close = 110 if i < 5 else 100 - (i - 5)
+            rows.append({
+                "timestamp": ts,
+                "open": close - 1, "high": close + 2, "low": close - 2,
+                "close": close, "volume": 1000,
+            })
+        df = pd.DataFrame(rows)
+        sig = build_vwap_signal(df, symbol="BTCUSDT")
+        assert sig["meta"]["vwap_anchor"] == "session"
+        assert sig["meta"]["vwap_window_bars"] == 6
+        # Sanity: anchored VWAP ≠ rolling VWAP because pre-midnight bars are excluded.
+        from src.units.strategies.vwap import compute_vwap
+        rolling_vwap = compute_vwap(df)
+        anchored_vwap = sig["meta"]["vwap"]
+        assert abs(rolling_vwap - anchored_vwap) > 0.5, (
+            f"anchored VWAP ({anchored_vwap}) should differ from rolling "
+            f"({rolling_vwap}) when the slice excludes prior-day high bars"
+        )
+
+
+# ---------------------------------------------------------------------------
 # Integration: STRATEGY=vwap routes to VWAP logic via run_pipeline
 # ---------------------------------------------------------------------------
 
