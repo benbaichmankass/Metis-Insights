@@ -26,6 +26,7 @@ RiskManager from balance + risk rules, not a strategy output.
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
 import pandas as pd
@@ -41,6 +42,17 @@ logger = logging.getLogger(__name__)
 
 # Minimum candles needed for a meaningful VWAP reading.
 MIN_CANDLES = 2
+
+# S-047 T4: monitor() time-decay close window. The mean-reversion thesis
+# is "price returns to vwap within a session"; if the trade has been open
+# for longer than this window without hitting TP/SL/VWAP-cross, the
+# thesis has already played out one way or the other and the position
+# should be flattened so capital recycles into the next signal. 240 min
+# (4 hours) covers ~half a US trading session at the 5m TF; operators can
+# tune via the ``monitor_hold_window_minutes`` field on the strategy cfg
+# (or ``config/strategies.yaml`` under ``strategies.vwap``) without
+# editing source.
+MONITOR_HOLD_WINDOW_MINUTES = 240
 
 # Minimum standard-deviation bands required to call a reversion signal.
 # Price must deviate at least this many std-devs from VWAP to be actionable.
@@ -351,8 +363,30 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# monitor() — S-030 PR2 (architecture-audit-2026-05-02 P1-4)
+# monitor() — S-047 T4: close on TP/SL/VWAP-cross/time-decay
 # ---------------------------------------------------------------------------
+
+
+def _parse_created_at(raw: Any) -> Optional[datetime]:
+    """Parse the ``created_at`` field from an order_packages row.
+
+    The DB unit writes ``datetime.now(timezone.utc).isoformat()``. Naïve
+    timestamps are interpreted as UTC — the trade journal never writes
+    local times. Returns ``None`` on any decode failure so a malformed
+    row is treated as "no opinion" (no time-decay close fires) rather
+    than crashing the monitor tick.
+    """
+    if raw is None:
+        return None
+    if isinstance(raw, datetime):
+        return raw if raw.tzinfo else raw.replace(tzinfo=timezone.utc)
+    if not isinstance(raw, str) or not raw:
+        return None
+    try:
+        parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
 
 
 def monitor(cfg, candles_df, open_pkg):
@@ -360,33 +394,121 @@ def monitor(cfg, candles_df, open_pkg):
 
     Per CLAUDE.md § Architecture rules § 2 the strategy unit *monitors*
     open packages — generates updates while a trade is live. The
-    monitor loop (S-030 PR3) calls this hook on every heartbeat tick
-    for each open package; the strategy decides whether to do nothing,
-    tighten the stop, move the target, or close.
+    monitor loop (S-030 PR3, ``src/runtime/order_monitor.py``) calls
+    this hook on every heartbeat tick for each open package; the
+    strategy decides whether to do nothing or close.
 
-    v1 logic — break-even SL after 1R. The mean-reversion thesis is
-    "price returns to vwap"; once the trade has captured 1R of risk
-    the original invalidation no longer holds and the SL should not
-    risk the realised profit. Future versions can add: vwap-cross
-    close, volume-spike close, time-decay close.
+    S-047 T4 close paths (in priority order — first match wins):
+
+    1. **TP-cross** — current candle close has reached the package's
+       ``tp``. Long: ``close >= tp``. Short: ``close <= tp``. The TP
+       was placed at the entry-time VWAP per ``build_vwap_signal``,
+       so this also covers the "price returned to entry-VWAP" case.
+    2. **SL-cross** — current close has hit the package's ``sl``.
+       Long: ``close <= sl``. Short: ``close >= sl``.
+    3. **VWAP-cross** — the structural mean-reversion invariant. The
+       live VWAP is recomputed from the supplied candles each tick;
+       the trade was opened because price had deviated from VWAP, so
+       once price crosses back through the live VWAP line the original
+       thesis has played out. Long entries close when the live close
+       reaches or exceeds live VWAP (price reverted from below);
+       shorts close when the live close reaches or falls below live
+       VWAP. Skipped when ``tp == vwap_live`` (TP-cross already handles
+       it) so the verdict carries the more specific reason.
+    4. **Time-decay** — open longer than
+       ``cfg.get("monitor_hold_window_minutes", MONITOR_HOLD_WINDOW_MINUTES)``.
+       The mean-reversion thesis is session-bounded; if none of the
+       above fired within the hold window, capital should recycle.
+
+    No break-even-SL move (the v1 stub it replaces) — the four close
+    paths above subsume the protection that move was reaching for.
+    Returns ``None`` (no-action) when none of the close paths trigger
+    or the inputs are invalid.
 
     Parameters
     ----------
     cfg : dict
-        Strategy config (passed through; not currently consumed in
-        v1 but the signature mirrors ``order_package`` so the monitor
-        loop can reuse the same cfg dict).
+        Strategy config (e.g. ``{"monitor_hold_window_minutes": 180}``).
+        ``None`` / missing keys fall back to the module defaults.
     candles_df : pandas.DataFrame
-        Fresh OHLCV at the strategy's timeframe.
+        Fresh OHLCV at the strategy's timeframe. Must carry ``high``,
+        ``low``, ``close``, ``volume`` columns for VWAP-cross.
     open_pkg : dict
         Current order package row from the DB unit's order_packages
-        table — keys: ``entry``, ``sl``, ``tp``, ``direction``,
-        ``symbol``, ``meta`` (str-or-dict).
+        table — keys consulted: ``entry``, ``sl``, ``tp``, ``direction``,
+        ``symbol``, ``created_at``.
 
     Returns
     -------
     None | dict
-        See ``_base.monitor_breakeven_sl`` for the exact contract.
+        ``None`` for no-action. Otherwise
+        ``{"action": "close", "reason": str, "exit_price": float}``
+        per the contract in ``order_monitor._apply_update``. The
+        runtime layer translates the verdict into a reduce-only
+        ``close_open_position`` call against the linked trade row;
+        the strategy unit never touches the exchange directly.
     """
-    from src.units.strategies._base import monitor_breakeven_sl
-    return monitor_breakeven_sl(open_pkg, candles_df)
+    if candles_df is None or len(candles_df) == 0:
+        return None
+    try:
+        current_price = float(candles_df["close"].iloc[-1])
+    except (KeyError, IndexError, ValueError, TypeError):
+        return None
+
+    try:
+        sl = float(open_pkg["sl"])
+        tp = float(open_pkg["tp"])
+        direction = str(open_pkg["direction"]).lower()
+    except (KeyError, TypeError, ValueError):
+        return None
+
+    if direction not in ("long", "short"):
+        return None
+
+    # 1. TP-cross.
+    if direction == "long" and current_price >= tp:
+        return {"action": "close", "reason": "tp_cross", "exit_price": current_price}
+    if direction == "short" and current_price <= tp:
+        return {"action": "close", "reason": "tp_cross", "exit_price": current_price}
+
+    # 2. SL-cross.
+    if direction == "long" and current_price <= sl:
+        return {"action": "close", "reason": "sl_cross", "exit_price": current_price}
+    if direction == "short" and current_price >= sl:
+        return {"action": "close", "reason": "sl_cross", "exit_price": current_price}
+
+    # 3. VWAP-cross — recompute live VWAP. Skip silently when the data
+    # can't carry a meaningful VWAP (no volume column, zero volume, etc.)
+    # rather than fail the monitor tick.
+    try:
+        vwap_live = compute_vwap(candles_df)
+    except (ValueError, KeyError):
+        vwap_live = None
+
+    if vwap_live is not None and vwap_live != tp:
+        if direction == "long" and current_price >= vwap_live:
+            return {"action": "close", "reason": "vwap_cross", "exit_price": current_price}
+        if direction == "short" and current_price <= vwap_live:
+            return {"action": "close", "reason": "vwap_cross", "exit_price": current_price}
+
+    # 4. Time-decay.
+    cfg_dict = cfg if isinstance(cfg, dict) else {}
+    hold_minutes = cfg_dict.get("monitor_hold_window_minutes", MONITOR_HOLD_WINDOW_MINUTES)
+    try:
+        hold_minutes = float(hold_minutes)
+    except (TypeError, ValueError):
+        hold_minutes = MONITOR_HOLD_WINDOW_MINUTES
+
+    if hold_minutes > 0:
+        opened_at = _parse_created_at(open_pkg.get("created_at"))
+        if opened_at is not None:
+            now_utc = datetime.now(timezone.utc)
+            age_minutes = (now_utc - opened_at).total_seconds() / 60.0
+            if age_minutes >= hold_minutes:
+                return {
+                    "action": "close",
+                    "reason": "time_decay",
+                    "exit_price": current_price,
+                }
+
+    return None
