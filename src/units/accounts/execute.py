@@ -233,14 +233,21 @@ def _submit_test_order(client: Any, order: dict, account_cfg: dict) -> str:
                 "side": order["side"],
                 "orderType": "Market",
                 "qty": str(order["qty"]),
-                "stopLoss": quantize_price(order["sl"], tick),
-                "takeProfit": quantize_price(order["tp"], tick),
             }
             if category == "spot":
                 # Spot place_order interprets qty as base-coin by default
                 # for Sell and quote-coin for market Buy; risk sizing
                 # produces a base-coin qty so pin marketUnit accordingly.
+                # Bybit V5 spot only accepts ``stopLoss``/``takeProfit``
+                # on Limit orders — passing them on a Market order
+                # returns retCode 170130 ("Data sent for parameter '' is
+                # not valid"). The S-030 monitor loop enforces SL/TP for
+                # spot via ``close_open_position`` instead. See BUG-061.
                 kwargs["marketUnit"] = "baseCoin"
+            else:
+                # Derivatives (linear/inverse) accept SL/TP on Market.
+                kwargs["stopLoss"] = quantize_price(order["sl"], tick)
+                kwargs["takeProfit"] = quantize_price(order["tp"], tick)
             resp = client.place_order(**kwargs) or {}
             ret_code = resp.get("retCode")
             if ret_code not in (0, "0", None):
@@ -369,12 +376,17 @@ def _submit_order(client: Any, order: dict, account_cfg: dict) -> str:
                 "side": order["side"],
                 "orderType": "Market",
                 "qty": str(order["qty"]),
-                "stopLoss": quantize_price(order["sl"], tick),
-                "takeProfit": quantize_price(order["tp"], tick),
             }
             if category == "spot":
                 # See _submit_test_order for the marketUnit rationale.
+                # SL/TP on spot Market is rejected by Bybit V5 with
+                # retCode 170130 — the S-030 monitor loop enforces them
+                # via ``close_open_position`` for spot. See BUG-061.
                 kwargs["marketUnit"] = "baseCoin"
+            else:
+                # Derivatives (linear/inverse) accept SL/TP on Market.
+                kwargs["stopLoss"] = quantize_price(order["sl"], tick)
+                kwargs["takeProfit"] = quantize_price(order["tp"], tick)
             resp = client.place_order(**kwargs)
             return str((resp.get("result") or {}).get("orderId") or uuid.uuid4().hex)
         if exchange == "binance":

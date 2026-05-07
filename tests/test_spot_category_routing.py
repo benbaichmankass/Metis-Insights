@@ -172,6 +172,11 @@ class TestSubmitOrderRouting:
         assert client.place_kwargs["symbol"] == "BTCUSDT"
         assert client.place_kwargs["side"] == "Buy"
         assert client.place_kwargs["orderType"] == "Market"
+        # BUG-061: Bybit V5 rejects spot Market orders that include
+        # stopLoss/takeProfit with retCode 170130. SL/TP are enforced by
+        # the S-030 monitor loop via close_open_position instead.
+        assert "stopLoss" not in client.place_kwargs
+        assert "takeProfit" not in client.place_kwargs
 
     def test_linear_account_routes_category_linear_without_marketUnit(self):
         client = _CapturingClient()
@@ -197,6 +202,10 @@ class TestSubmitOrderRouting:
         assert client.place_kwargs["category"] == "linear"
         assert "marketUnit" not in client.place_kwargs
         assert client.place_kwargs["side"] == "Sell"
+        # Derivatives still carry SL/TP on the entry — the spot-only
+        # restriction in BUG-061 must not regress the linear path.
+        assert "stopLoss" in client.place_kwargs
+        assert "takeProfit" in client.place_kwargs
 
     def test_default_account_without_market_type_is_spot(self):
         """An account_cfg with no market_type field must default to spot
