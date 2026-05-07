@@ -47,6 +47,13 @@ def _is_test_order(pkg: OrderPackage) -> bool:
 _BYBIT_CATEGORY_DEFAULT = "spot"
 _BYBIT_VALID_CATEGORIES = {"spot", "linear", "inverse"}
 
+# S-047 T1 / T3: Bybit V5 Spot Margin is a routing identity carried by
+# ``market_type: spot-margin`` in ``config/accounts.yaml``. The API
+# category is still ``spot``; the spot-margin trait is communicated to
+# Bybit via the ``isLeverage=1`` flag on ``place_order`` (T3 D4). This
+# string is matched case-insensitively against the routing label.
+_SPOT_MARGIN_LABEL = "spot-margin"
+
 # Common quote currencies used to parse base coin from spot symbols.
 _SPOT_QUOTE_CURRENCIES = ("USDT", "USDC", "BUSD", "DAI", "TUSD", "FDUSD")
 
@@ -158,10 +165,16 @@ def _bybit_category(account_cfg: dict) -> str:
     account that omits the field trades the cash market, matching what
     the operator's wallet holds (BTC + USDT for ``bybit_1``, USDT for
     ``bybit_2``).
+
+    Spot-margin accounts (S-047 T1) carry ``market_type: spot-margin``;
+    the API category is still ``spot`` — the spot-margin trait is
+    communicated via ``isLeverage=1`` (see ``_is_spot_margin``).
     """
     raw = str(account_cfg.get("market_type") or _BYBIT_CATEGORY_DEFAULT).strip().lower()
     if raw == "perp" or raw == "perpetual" or raw == "futures":
         raw = "linear"
+    if raw == _SPOT_MARGIN_LABEL:
+        return "spot"
     if raw not in _BYBIT_VALID_CATEGORIES:
         logger.warning(
             "_bybit_category: account=%s has unknown market_type=%r — "
@@ -170,6 +183,23 @@ def _bybit_category(account_cfg: dict) -> str:
         )
         return _BYBIT_CATEGORY_DEFAULT
     return raw
+
+
+def _is_spot_margin(account_cfg: dict) -> bool:
+    """Return True when *account_cfg* declares ``market_type: spot-margin``.
+
+    S-047 T3 (D4): the routing identity is carried by the ``market_type``
+    field on the account row in ``config/accounts.yaml``. Spot-margin
+    accounts share the Bybit V5 ``spot`` category but pass
+    ``isLeverage=1`` on ``place_order`` so the wallet can borrow base
+    coin (short) or quote coin (long with leverage) against USDT
+    collateral. Non-spot-margin accounts return False and follow the
+    existing cash-spot code path unchanged. Per
+    ``docs/sprint-plans/S-047-bybit2-spot-margin.md`` § 5b this is a
+    routing label, not a gate.
+    """
+    raw = str(account_cfg.get("market_type") or "").strip().lower()
+    return raw == _SPOT_MARGIN_LABEL
 
 
 def execute_pkg(
@@ -281,10 +311,18 @@ def execute_pkg(
     # fetches the live free base-coin balance, applies a small safety
     # buffer to absorb race conditions between read and submission, caps
     # qty if over, and refuses outright when no free base coin is held.
+    #
+    # S-047 T3 (D4): spot-margin accounts skip this pre-flight — they
+    # can borrow base coin to sell, so a zero free-BTC balance is not a
+    # refusal condition. RiskManager (T2 D3) owns sizing decisions for
+    # spot-margin from USDT collateral; if the borrow ceiling is hit at
+    # the exchange, retCode 110095 surfaces via ``report_api_failure``
+    # — same handling as any other exchange retCode (no new gate).
     if (
         not is_dry
         and exchange_client is not None
         and _bybit_category(account_cfg) == "spot"
+        and not _is_spot_margin(account_cfg)
         and pkg.direction == "short"
         and not _is_test_order(pkg)
     ):
@@ -418,6 +456,14 @@ def _submit_test_order(client: Any, order: dict, account_cfg: dict) -> str:
                 # not valid"). The S-030 monitor loop enforces SL/TP for
                 # spot via ``close_open_position`` instead. See BUG-061.
                 kwargs["marketUnit"] = "baseCoin"
+                if _is_spot_margin(account_cfg):
+                    # S-047 T3 (D4): route this order through Bybit V5
+                    # Spot Margin so the wallet can borrow against its
+                    # USDT collateral (BTC borrow on Sell, USDT borrow
+                    # on leveraged Buy). Until the operator flips the
+                    # web-UI Spot Margin toggle, retCode 110007 surfaces
+                    # via report_api_failure — no new gate.
+                    kwargs["isLeverage"] = 1
             else:
                 # Derivatives (linear/inverse) accept SL/TP on Market.
                 kwargs["stopLoss"] = quantize_price(order["sl"], tick)
@@ -589,6 +635,10 @@ def _submit_order(client: Any, order: dict, account_cfg: dict) -> str:
                 # retCode 170130 — the S-030 monitor loop enforces them
                 # via ``close_open_position`` for spot. See BUG-061.
                 kwargs["marketUnit"] = "baseCoin"
+                if _is_spot_margin(account_cfg):
+                    # S-047 T3 (D4): route through Bybit V5 Spot Margin.
+                    # See _submit_test_order for the rationale.
+                    kwargs["isLeverage"] = 1
             else:
                 # Derivatives (linear/inverse) accept SL/TP on Market.
                 kwargs["stopLoss"] = quantize_price(order["sl"], tick)
@@ -940,6 +990,15 @@ def close_open_position(
                 # Spot has no derivative-style positions to "reduce";
                 # closing a long is just a market sell of held base coin.
                 kwargs["marketUnit"] = "baseCoin"
+                if _is_spot_margin(account_cfg):
+                    # S-047 T3 (D4): closing a spot-margin position
+                    # repays the borrow line — the close order must
+                    # also route through Spot Margin (isLeverage=1) so
+                    # Bybit recognises it as a borrow settlement
+                    # instead of a fresh cash-spot order. T4 (vwap
+                    # monitor close logic) is the primary caller for
+                    # bybit_2.
+                    kwargs["isLeverage"] = 1
             else:
                 kwargs["reduceOnly"] = True
             resp = exchange_client.place_order(**kwargs) or {}

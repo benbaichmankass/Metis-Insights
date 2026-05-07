@@ -211,11 +211,16 @@ def size_order_from_cfg(
       - ``min_balance_usd`` (default 50)
       - ``min_qty`` (default 0.001)
       - ``qty_precision`` (default 3)
+      - ``market_type`` (default ``"spot"``) — S-047 T3 D5: forwarded
+        to ``position_size`` so direct ``account_execute`` calls (no
+        coordinator-supplied ``qty_override``) on spot-margin accounts
+        still apply the spot-margin sizing kernel.
     Plus the legacy ``risk:`` sub-keys (``max_dd_pct``, ``daily_usd``,
     ``pos_size``) which RiskManager ignores for sizing.
     """
     rm = RiskManager(account_cfg)
-    return rm.position_size(pkg, balance_usdt)
+    market_type = str(account_cfg.get("market_type") or "spot").strip().lower()
+    return rm.position_size(pkg, balance_usdt, market_type=market_type)
 
 
 # ---------------------------------------------------------------------------
