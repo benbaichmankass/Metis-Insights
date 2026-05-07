@@ -181,6 +181,39 @@ sufficient.
 > still self-merge, every Tier 2/3 case is still flag-for-PM. The routing
 > doc and this protocol agree on outcomes; they differ only in granularity.
 
+### 4.4 Compliance check before every ship-or-escalate
+
+Operator rule, 2026-05-07: **all code is checked for compliance before it
+is shipped or escalated to the operator.** "Compliance" = the diff is
+verified against `CLAUDE.md`, `docs/claude/workplan.md`, and this
+protocol. The check runs before:
+
+- a self-merge (Tier 1),
+- a request for operator approval (Tier 2 / Tier 3),
+- any "merge and continue" reply where the operator implicitly trusts
+  the diff is rule-conformant.
+
+Minimum check before any of those:
+
+1. Does the diff add a refuse-to-trade decision **outside** the dispatcher's
+   `live | dry_run` switch (the only canonical execution gate per
+   `docs/claude/workplan.md` § "Live / dry-run rule")? If yes → **stop**;
+   move the logic into the risk manager or remove it.
+2. Does the diff add a per-account flag, schema field, env var, or
+   pre-flight check whose failure path refuses a trade? Same answer.
+3. Does the live-mode invariant (§ 5) pass on the diff?
+4. Are tests + lint + scan + collect + inventory green?
+
+The PR body should record the check result under a `## Compliance check`
+heading the same way it records the live-mode check. Past sprints where
+this check would have caught the problem before it shipped:
+
+- **S-047 trigger session (PR #450, 2026-05-07)** — the merged sprint
+  plan described an `is_leverage` boolean in `accounts.yaml` and an
+  "if not is_leverage: refuse" branch in `execute.py`. Both are
+  refuse-to-trade decisions outside the risk manager. Caught + reverted
+  in #453 the same day, but only after the operator flagged it.
+
 ---
 
 ## 5. Live-mode invariant (every PR)
