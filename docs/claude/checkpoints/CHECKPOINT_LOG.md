@@ -11,6 +11,121 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-07-03-s044-complete — S-044 COMPLETE: M4 CI suite shipped
+
+- **Session date:** 2026-05-07
+- **Sprint:** S-044 — M4: Repo hygiene + CI — complete the GitHub Actions CI suite
+- **Active milestone:** M4 — Repo hygiene + CI (still in progress; CI suite ✅ done, Janitor + canonical-path remaining → S-045 candidate next).
+- **Last completed checkpoint:** `CP-2026-05-07-02-s044-kickoff`.
+- **Telegram sent:** sprint-complete ride-along on this commit (CHECKPOINT_LOG append → VM ping wiring).
+- **Alerts sent during session:** none.
+- **Blockers:** S-015 operator hold (unchanged); BUG-057 awaiting VM diag (unchanged).
+
+### 1. Completed (T0..T5)
+
+- **T0** — Sprint prompt filed at `docs/sprints/sprint-044-prompt.md`; kickoff CP prepended.
+- **T1** — `.github/workflows/pytest-collect.yml` added. Runs collect-only pytest on PRs against main.
+- **T2** — `.github/workflows/secret-scan.yml` (blocking) + `.github/workflows/repo-inventory.yml` (advisory) added. Inventory uploads a 14-day artifact.
+- **T3** — `.github/workflows/ruff-lint.yml` + `requirements-dev.txt` added. Initial rule set `--select E9,F63,F7` (passes on current main); broader rule expansion deferred to S-045 Janitor sprint.
+- **T4** — `docs/claude/ci-status-checks.md` runbook filed.
+- **T5** — `docs/sprint-summaries/sprint-044-summary.md` filed; `docs/claude/milestone-state.md` refreshed (M4 row + active milestone status); this checkpoint.
+
+### 2. M4 step-1 validation checklist
+
+| Check | Status |
+|---|---|
+| pytest-collect workflow file present + triggers on PR + push to main | ✅ (advisory — deviation from prompt; see § 4) |
+| secret-scan workflow file present + uses scripts/secret_scan.py exit code | ✅ |
+| repo-inventory workflow file present + uploads artifact + advisory only | ✅ |
+| ruff-lint workflow file present + passes on current main with E9/F63/F7 | ✅ |
+| ci-status-checks.md runbook documents all 5 PR-gating workflows + branch-protection list | ✅ |
+| `python scripts/secret_scan.py` (local) | ✅ Clean |
+| `python scripts/repo_inventory.py` (local) | ✅ Junk candidates: none |
+| `ruff check . --select E9,F63,F7` (local) | ✅ All checks passed! |
+| Unit-boundary check: no `src/`, `tests/`, `config/`, `deploy/` changes | ✅ |
+| `scripts/check_dry_run_in_diff.py` clean against main | ✅ |
+
+### 3. Files changed
+
+- `docs/sprints/sprint-044-prompt.md` (new — T0)
+- `.github/workflows/pytest-collect.yml` (new — T1)
+- `.github/workflows/secret-scan.yml` (new — T2)
+- `.github/workflows/repo-inventory.yml` (new — T2)
+- `.github/workflows/ruff-lint.yml` (new — T3)
+- `requirements-dev.txt` (new — T3)
+- `docs/claude/ci-status-checks.md` (new — T4)
+- `docs/sprint-summaries/sprint-044-summary.md` (new — T5)
+- `docs/claude/milestone-state.md` (modified — T5)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry + T0 entry)
+
+No `src/`, `tests/`, `config/`, or `deploy/` changes.
+
+### 4. Remaining / Deferred
+
+- **Branch protection wiring** — operator (or admin-token Claude) must add `secret-scan`, `ruff-lint`, `dry-run-guard` to required status checks on `main` after merge. `pytest-collect` and `repo-inventory` stay advisory pending follow-ups. Steps in `docs/claude/ci-status-checks.md` § "Branch protection wiring".
+- **Conftest.py telegram-stub cleanup → `pytest-collect` promotion to blocking.** First CI run revealed `tests/conftest.py` stubs `telegram` / `telegram.ext` as `MagicMock` without exposing `telegram.error` (the attr `src/bot/comms_handler.py` imports). 45 test files fail collection today. Fixing the stub (or installing `python-telegram-bot` and removing the stub) drops the workflow's `|| true` shim and flips it to blocking. **This was a deviation from the S-044 prompt's success criteria** — the prompt assumed `pytest-collect` would be blocking on first run; the on-disk state didn't match. Verify-before-trusting-done principle applied: shipped advisory + documented deviation rather than mass-edit `tests/conftest.py` outside the unit-boundary declaration. Janitor candidate.
+- **Ruff rule expansion** — current `main` carries 286 hits across the broader rule set. S-045 Janitor candidate.
+- **`repo-inventory` promotion** — stays advisory until ≥ 5 PRs observed; promotion is its own follow-up.
+- **Full pytest in CI** — needs sandbox-safe data layer + market connectors first; separate sprint.
+- S-015 pause/continue Tier 2 PR: **HOLD** (operator hold unchanged).
+- 5m/1h timeframe enforcement Tier 3 PR: **HOLD** (unchanged).
+- BUG-057: awaiting VM `journalctl` output (unchanged).
+
+### 5. Next session
+
+**S-045 — M4 step 2 (Janitor audits) candidate.** Workplan order: dead file audit (using S-044's repo-inventory artifact as a signal), duplicate module audit (`src/ui/` vs `src/units/ui/` — flagged in 2026-05-02 architecture audit), missing test audit (modules in `src/units/` without a `tests/test_<unit>_*.py`). Or skip ahead to **M5 — Strategy testing workflow** if the operator prioritises strategy validation; the workplan permits either order.
+
+### Live-mode check
+
+✅ No live-trading code touched in any commit on this branch. Diff vs `main` is `.github/workflows/`, `docs/`, and the new top-level `requirements-dev.txt`. `scripts/check_dry_run_in_diff.py` clean. No changes to `src/runtime/orders.py`, `src/runtime/pipeline.py`, `src/runtime/trading_mode.py`, `src/units/accounts/*`, or `config/accounts.yaml`.
+
+---
+
+## CP-2026-05-07-02-s044-kickoff — S-044 T0: M4 step 1 (CI suite) kickoff
+
+- **Session date:** 2026-05-07
+- **Sprint:** S-044 — M4: Repo hygiene + CI — complete the GitHub Actions CI suite
+- **Active milestone:** M4 — Repo hygiene + CI (in progress)
+- **Last completed checkpoint:** `CP-2026-05-07-01-bug061-spot-tpsl-blocker` (PR #435 merged) → most recent merged work; `CP-2026-05-06-15-s043-complete` is the prior sprint-close.
+- **Telegram sent:** kickoff ride-along on this commit (CHECKPOINT_LOG append → VM ping wiring).
+- **Alerts sent during session:** none.
+- **Blockers:** S-015 operator hold (unchanged); BUG-057 awaiting VM diag (unchanged).
+
+### 1. Completed
+
+- Verified S-043 closed (M3 done) and PR #435 (BUG-061) merged ✅ — clean main.
+- Verified `scripts/secret_scan.py`, `scripts/repo_inventory.py`, `scripts/check_dry_run_in_diff.py` all on `main`.
+- Confirmed only existing workflows are `dry-run-guard.yml`, `hf-cron.yml`, `training-run.yml` — no overlap with the four new workflows planned this sprint.
+- Filed `docs/sprints/sprint-044-prompt.md` with T0..T5 plan, unit-boundary declaration, hard guardrails, and success criteria.
+- Confirmed sprint number S-044 follows S-043 with no collision (highest used was S-043; S-036..S-040 burned per workplan rule).
+
+### 2. Files changed (T0)
+
+- `docs/sprints/sprint-044-prompt.md` (new)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+
+- None this checkpoint — docs-only T0. Workflow runs are validated at T1..T3.
+
+### 4. Remaining (S-044)
+
+- **T1** — Add `.github/workflows/pytest-collect.yml`, verify green on a noop PR.
+- **T2** — Add `.github/workflows/secret-scan.yml` + `.github/workflows/repo-inventory.yml`.
+- **T3** — Add `.github/workflows/ruff-lint.yml` + `requirements-dev.txt`.
+- **T4** — Add `docs/claude/ci-status-checks.md` runbook.
+- **T5** — Sprint close: `docs/sprint-summaries/sprint-044-summary.md`, `docs/claude/milestone-state.md` M4 row refresh, `CP-2026-05-07-NN-s044-complete` checkpoint.
+
+### 5. Next checkpoint
+
+**CP-2026-05-07-NN-s044-t1-pytest-collect** — Add `.github/workflows/pytest-collect.yml` running `PYTHONPATH=. pytest --collect-only -q tests/` on every PR. Mirror the checkout pattern from `dry-run-guard.yml`. Read order for the next session: this entry → `docs/sprints/sprint-044-prompt.md` § Deliverable 2 → `.github/workflows/dry-run-guard.yml` (template).
+
+### Live-mode check
+
+✅ No live-trading code touched. T0 is docs-only (sprint prompt + checkpoint append). `scripts/check_dry_run_in_diff.py` clean. No changes to `src/runtime/orders.py`, `src/runtime/pipeline.py`, `src/runtime/trading_mode.py`, `src/units/accounts/*`, or `config/accounts.yaml`.
+
+---
+
 ## CP-2026-05-07-01-bug061-spot-tpsl-blocker — BUG-061: Bybit spot Market entries no longer carry stopLoss/takeProfit
 
 - **Session date:** 2026-05-07

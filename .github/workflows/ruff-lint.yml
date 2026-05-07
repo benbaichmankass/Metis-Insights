@@ -1,0 +1,41 @@
+name: ruff-lint
+
+# Lints the repo with ruff. Initial rule set is intentionally narrow
+# (E9 + F63 + F7 — runtime-error / syntax-error categories) so the
+# workflow can land on a clean main today; broader rule expansion
+# (E402, F401, F541, F811, F821, F841 …) is a follow-up Janitor sprint
+# (S-045 or later) per the S-044 sprint prompt's rule:
+#
+#   "No reformatting of existing source code to satisfy ruff —
+#    if ruff check . flags pre-existing issues, file a follow-up
+#    sprint instead of bundling a mass-format with this CI work."
+#
+# When the broader cleanup lands, drop the --select flag and let ruff
+# enforce its default rule set.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dev dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Run ruff (narrow rule set)
+        run: ruff check . --select E9,F63,F7

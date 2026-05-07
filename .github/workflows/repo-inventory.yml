@@ -1,0 +1,47 @@
+name: repo-inventory
+
+# Runs the lightweight repo-inventory script and uploads its output
+# as a build artifact. ADVISORY ONLY — this workflow never fails the
+# PR; its purpose is to make extension counts, large files, and junk
+# candidates visible per-PR so reviewers spot drift early.
+#
+# Promotion to a blocking check is a follow-up sprint after the
+# inventory artifact has been observed across ≥ 5 PRs.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run repo inventory
+        run: |
+          mkdir -p artifacts
+          python scripts/repo_inventory.py | tee artifacts/repo-inventory.txt
+
+      - name: Upload inventory artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: repo-inventory
+          path: artifacts/repo-inventory.txt
+          retention-days: 14
+
+      # Advisory contract: never fail the workflow, even if the
+      # script returns non-zero. Replace this `if: always()` step
+      # with a real gate only after the inventory has stabilised.
+      - name: Confirm advisory status
+        if: always()
+        run: |
+          echo "::notice::repo-inventory is advisory; not gating PR merge."

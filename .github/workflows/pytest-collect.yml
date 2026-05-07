@@ -1,0 +1,68 @@
+name: pytest-collect
+
+# Runs `pytest --collect-only` against the test tree on every PR.
+# This is a structural check, not a test run: it surfaces import
+# resolution / pytest collection failures without paying the cost
+# of full test execution.
+#
+# CURRENTLY ADVISORY (S-044). The repo carries a pre-existing
+# test-isolation bug — `tests/conftest.py` stubs `telegram` /
+# `telegram.ext` as MagicMocks, so any test that transitively
+# imports `src/bot/comms_handler.py` (which does
+# `from telegram.error import TelegramError`) fails at collection.
+# Fixing that requires editing `tests/conftest.py`, which is
+# outside S-044's unit-boundary declaration. The cleanup is a
+# follow-up Janitor sprint (S-045 candidate).
+#
+# Until the conftest.py cleanup lands, this workflow uses
+# `--continue-on-collection-errors` to log every collection error
+# in one run, but does NOT fail the PR (the final step swallows the
+# exit code). Promotion to a blocking gate is its own sprint after
+# the baseline-error count drops to zero. Track in
+# `docs/claude/ci-status-checks.md`.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install runtime + test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-test.txt
+
+      - name: Collect tests (no execution; advisory)
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          # --ignore=tests/test_main_loop.py mirrors CLAUDE.md "Default
+          # verification" + sprint-completion guidance: that module imports
+          # the live trading entrypoint and is excluded from sandbox runs.
+          # --continue-on-collection-errors collects everything in one pass
+          # so the log shows the full failure surface.
+          # The trailing `|| true` is the advisory shim — drop it once
+          # the conftest.py isolation cleanup lands and the suite collects
+          # cleanly. See ci-status-checks.md § pytest-collect.
+          pytest --collect-only -q tests/ \
+            --ignore=tests/test_main_loop.py \
+            --continue-on-collection-errors || true
+
+      - name: Mark advisory status
+        if: always()
+        run: |
+          echo "::notice::pytest-collect is advisory (S-044) pending conftest.py cleanup; not gating PR merge."
