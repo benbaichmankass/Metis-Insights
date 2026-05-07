@@ -383,9 +383,9 @@ def _submit_test_order(client: Any, order: dict, account_cfg: dict) -> str:
                     order.get("qty"), order_id,
                 )
                 return str(order_id)
-            return f"rejected_too_small:no orderId in response"
+            return "rejected_too_small:no orderId in response"
         if exchange == "breakout":
-            return f"rejected_too_small:breakout exchange does not support live smoke yet"
+            return "rejected_too_small:breakout exchange does not support live smoke yet"
     except Exception as exc:  # noqa: BLE001
         reason = str(exc)
         logger.info(
