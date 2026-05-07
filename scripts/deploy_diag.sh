@@ -24,6 +24,25 @@ RUNNER_UNIT_SRC="${REPO_ROOT}/deploy/claude-vm-runner@.service"
 RUNNER_UNIT_DST="/etc/systemd/system/claude-vm-runner@.service"
 
 # ---------------------------------------------------------------------------
+# 0. /opt/ict-trading-bot symlink — required by ict-web-api.service.
+# ---------------------------------------------------------------------------
+# The web-api unit has WorkingDirectory=/opt/ict-trading-bot, but the only
+# checkout on this VM lives at /home/ubuntu/ict-trading-bot. If the symlink
+# is missing (post-reboot wipe, manual cleanup, fresh VM), the API CHDIRs to
+# a non-existent path and crashloops every 5s with status=200/CHDIR. Found
+# 2026-05-07 after the first deploy left the API in a flap loop until
+# someone manually created the link.
+
+if [[ ! -e /opt/ict-trading-bot ]]; then
+    ln -s /home/ubuntu/ict-trading-bot /opt/ict-trading-bot
+    echo "/opt/ict-trading-bot symlink created → /home/ubuntu/ict-trading-bot"
+elif [[ -L /opt/ict-trading-bot ]]; then
+    echo "/opt/ict-trading-bot symlink already present."
+else
+    echo "/opt/ict-trading-bot exists as a real directory — leaving alone."
+fi
+
+# ---------------------------------------------------------------------------
 # 1. DIAG_READ_TOKEN — preserve if set, mint if not.
 # ---------------------------------------------------------------------------
 
@@ -78,22 +97,27 @@ echo "ict-web-api.service restarted."
 sleep 1
 
 # ---------------------------------------------------------------------------
-# 4. Output the URL + token for the operator to share with PM-side Claude.
+# 4. Output the token for the operator to share with PM-side Claude.
 # ---------------------------------------------------------------------------
-
-HOST_IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
-HOST_IP="${HOST_IP:-127.0.0.1}"
+# We deliberately don't auto-detect the public host: `hostname -I` returns
+# the internal VPC IP first on Oracle Cloud, which is unreachable from
+# outside. The operator knows their VM's public IP — printing 127.0.0.1
+# for the local smoke test plus a templated external URL is unambiguous.
 
 cat <<EOF
 
 === DIAG ENDPOINT READY ===
-  URL:   http://${HOST_IP}:8001/api/diag/snapshot
   Token: ${TOKEN_OUT}
 
 Local smoke test (run on the VM):
   curl -sS -H "Authorization: Bearer ${TOKEN_OUT}" \\
        http://127.0.0.1:8001/api/diag/snapshot | head -c 800
 
-Share the URL and Token with the PM-side session. To rotate later,
-delete the DIAG_READ_TOKEN= line from ${ENV_FILE} and re-run this script.
+External access (PM-side Claude):
+  http://<VM_PUBLIC_IP>:8001/api/diag/snapshot
+  Port 8001 must be open in the VM's firewall / Oracle Cloud security
+  list for the source you're calling from.
+
+Share the token with the PM-side session. To rotate later, delete the
+DIAG_READ_TOKEN= line from ${ENV_FILE} and re-run this script.
 EOF

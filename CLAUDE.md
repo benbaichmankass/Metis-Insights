@@ -8,7 +8,7 @@ Exposes a FastAPI REST API on port 8001 consumed by the Vercel React dashboard
 ## Architecture
 ```
 VPS (systemd)
-  ├── ict-bot.service         ─── trading pipeline (pipeline.py)
+  ├── ict-trader-live.service ─── trading pipeline (pipeline.py via src/main.py)
   └── ict-web-api.service     ─── FastAPI :8001
                                    ├── /api/bot/stats    ← Vercel dashboard
                                    ├── /api/bot/logs     ← Vercel dashboard
@@ -19,6 +19,11 @@ VPS (systemd)
                                    ├── /api/diag/*       ← PM-side read-only (S-051)
                                    └── /api/health
 ```
+
+`ict-web-api.service` runs from `/opt/ict-trading-bot` (a symlink to
+`/home/ubuntu/ict-trading-bot`, the only working tree). The symlink is
+created on first run by `scripts/deploy_diag.sh`; if it goes missing,
+the API CHDIRs to a non-existent path and crashloops.
 
 ## Key Directories
 ```
@@ -107,6 +112,6 @@ uvicorn src.web.api.main:app --port 8001 --reload
 
 ## Important Notes
 - `src/web/runtime_status.py` is imported by `src/runtime/pipeline.py` — do NOT delete it
-- `heartbeat.txt` mtime determines bot status: <2 min → running, <10 min → paused, else → stopped
+- `heartbeat.txt` mtime determines bot status: <10 min → running, <30 min → paused, else → stopped. Pipeline tick cadence varies 2-15 min based on active strategies, so the previous 2-min threshold falsely reported "stopped" most of the time
 - The old HTMX UI (`web/static/`, `web/templates/`, `src/web/api/routers/ui.py`) has been removed
 - The old Streamlit UIs (`src/web/backtest_ui.py`, `src/web/config_ui.py`) have been removed
