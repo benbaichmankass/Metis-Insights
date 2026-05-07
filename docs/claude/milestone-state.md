@@ -36,17 +36,15 @@ When opening a session:
 
 | Field | Value |
 |---|---|
-| **Milestone** | M4 — Repo hygiene + CI |
-| **Title** | Repo hygiene + CI: Janitor audits, canonical path enforcement, GitHub Actions suite |
+| **Milestone** | M5 — Strategy testing workflow |
+| **Title** | Strategy testing workflow: Telegram-triggered test flow, validation logging, backtest workflow docs |
 | **Type** | roadmap (auto-claude) |
-| **Goal** | Complete the M4 gaps: full Janitor audits, canonical path enforcement across all units, complete GitHub Actions suite. **S-044 (2026-05-07) shipped the CI suite. S-045 (2026-05-07) closed the conftest test-isolation gap, promoted `pytest-collect` to blocking, expanded ruff to the default rule set, and shipped the branch-protection Colab notebook.** |
-| **Status** | 🔄 In progress — CI suite + conftest + ruff cleanup + auto-sync branch protection ✅; **S-046 (Janitor audits) IN PROGRESS** since 2026-05-07. |
-| **Active sprint** | **S-046** — M4 step 3: Janitor audits (dead-file, UI consolidation `src/ui/` → `src/units/ui/`, missing-test). |
-| **Active checkpoint** | `CP-2026-05-07-07-s046-kickoff` (T0 done; T1..T5 outstanding). |
-| **Risk tier** | Tier 1 (tests, lint, CI, docs; no live-trading logic). |
-| **Definition of done** | Janitor audits + canonical-path enforcement + GitHub Actions suite complete; M4 formally closed with sprint summary + checkpoint. **CI suite ✅ S-044; conftest + pytest-collect-blocking + ruff default ✅ S-045; Janitor + canonical-path open.** |
-
-**After M4 closes:** next active milestone is **M5 — Strategy testing workflow**.
+| **Goal** | Build the operator-triggered strategy validation workflow: a `/test <strategy_name>` Telegram command that writes a structured request to the repo, validation logging (signals + decisions + outcomes per workplan § Required logs), and a `docs/claude/backtest-workflow.md` runbook per workplan § Backtesting sessions. |
+| **Status** | 📋 Not started — open next sprint (S-047) against M5 backlog. |
+| **Active sprint** | None — next sprint to file is **S-047**. |
+| **Active checkpoint** | None. |
+| **Risk tier** | Tier 1 expected (tests, docs, bot command wiring). Tier 2 if validation logging touches the runtime pipeline. |
+| **Definition of done** | `/test <strategy_name>` Telegram command lands a structured request to the repo, picked up by the next session; validation logging schema defined; `docs/claude/backtest-workflow.md` runbook filed; M5 formally closed with sprint summary + checkpoint. |
 
 **Operator hold (do NOT start M6 / S-015 until hold lifted):**
 S-015 Web Client V2 pause/continue Tier 2 decision is pending — the sprint's scope
@@ -56,7 +54,7 @@ conflicts with the workplan repo boundary (web UI belongs in the separate Vercel
 
 ## M0..M10 status table
 
-> Last verified: 2026-05-07 (S-044 close). "Verified" = on-disk artifacts checked
+> Last verified: 2026-05-07 (S-046 close). "Verified" = on-disk artifacts checked
 > before accepting any prior "done" label.
 
 | Milestone | Focus | Status | Evidence / Notes |
@@ -65,8 +63,8 @@ conflicts with the workplan repo boundary (web UI belongs in the separate Vercel
 | **M1** | Comms infrastructure | ✅ CLOSED | S-042 closed 2026-05-06. Pipeline audit passed; smoke-test ping dispatched; telegram-pings.md updated; tests extended. `ict-claude-bridge.service` confirmed active. |
 | **M2** | Web app source of truth (backend) | 🔄 PARTIAL | S-013 FastAPI backend (`/api/status`, `/api/pnl`, JWT auth) built in this repo. Dashboard consumer side must be built in the separate dashboard repo (Vercel). Not formally closed under M0..M10. |
 | **M3** | Risk controls foundation | ✅ CLOSED | S-043 closed 2026-05-06. Order-layer refusal tests now complete (28 new gap-closer tests in `tests/test_s043_order_refusal_paths.py`). Risk engine + kill switch + risk caps + reason-token contract all pinned. |
-| **M4** | Repo hygiene + CI | 🔄 IN PROGRESS | S-003 test/CI done; S-035 architecture audit done; S-021 env contract tests done. **S-044 (2026-05-07) shipped the GitHub Actions CI suite — pytest-collect, secret-scan, repo-inventory, ruff-lint + ci-status-checks.md runbook. S-045 (2026-05-07) closed BUG-062 (test-isolation telegram/fastapi stubs), promoted `pytest-collect` from advisory → blocking, walked ruff rules T3a..T3h to drop `--select` (default rule set now), added `notebooks/operator/update_branch_protection.ipynb` as the operator-side wiring path.** Janitor audits + canonical-path enforcement still pending → S-046. Not formally closed. |
-| **M5** | Strategy testing workflow | 📋 NOT STARTED | Telegram-triggered test flow, validation logging, backtest workflow docs not yet built. |
+| **M4** | Repo hygiene + CI | ✅ CLOSED | S-044 (CI suite) ✅; S-045 (conftest + pytest-collect blocking + ruff default) ✅; post-S-045 follow-up (auto-sync branch protection workflow) ✅; **S-046 (2026-05-07) closed the three Janitor audits — 8 dead files removed, `src/ui/` shim consolidated into `src/units/ui/`, missing-test gap closed for `src/units/db/data_loader.py`.** Operator-hold lint residuals routed via PR #443 (DRAFT) + ping-PR #444. M4 formally closed. |
+| **M5** | Strategy testing workflow | 📋 NOT STARTED | Telegram-triggered test flow, validation logging, backtest workflow docs not yet built. **Now the active milestone — S-047 will kick it off.** |
 | **M6** | Web app UI | ⛔ BLOCKED | S-014 (Web Client V1) built UI in this repo; S-015 kickoff done 2026-05-06. Workplan boundary requires UI in separate Vercel dashboard repo. S-015 pause/continue under operator hold. |
 | **M7** | Strategy review gate | 📋 NOT STARTED | |
 | **M8** | Strategy tuning | 📋 NOT STARTED | |
@@ -87,6 +85,7 @@ conflicts with the workplan repo boundary (web UI belongs in the separate Vercel
 | M3 — Risk controls foundation (S-043) | 2026-05-06 | `CP-2026-05-06-15-s043-complete` | `docs/sprint-summaries/sprint-043-summary.md` |
 | S-044 — M4 CI suite | 2026-05-07 | `CP-2026-05-07-03-s044-complete` | `docs/sprint-summaries/sprint-044-summary.md` |
 | S-045 — M4 step 2: conftest + pytest-collect-blocking + ruff default | 2026-05-07 | `CP-2026-05-07-05-s045-complete` | `docs/sprint-summaries/sprint-045-summary.md` |
+| **M4 — Repo hygiene + CI (S-046)** | **2026-05-07** | `CP-2026-05-07-NN-s046-complete` | `docs/sprint-summaries/sprint-046-summary.md` |
 
 > Pre-M0..M10 roadmap progress (S-000 through S-040) is captured in `ROADMAP.md`
 > under "Historical Sprint Ledger". From M0 forward, every closed milestone gets a row here.
@@ -99,11 +98,12 @@ In workplan execution order. Each row lists the gating condition to start.
 
 | Order | Milestone | Type | Gating condition |
 |---|---|---|---|
-| 1 | M4 — Repo hygiene + CI | auto-claude | M3 closed ✅. Ready to start. |
-| 2 | M5 — Strategy testing workflow | auto-claude | M3 closed ✅. Can overlap M4. |
+| 1 | M5 — Strategy testing workflow | auto-claude | M4 closed ✅. Active — S-047 to file next. |
+| 2 | M9 — AI / model roadmap | auto-claude | Independent of M5. Could run in parallel. |
+| 3 | M10 — HF / data pipeline | auto-claude | Independent of M5. Could run in parallel. |
 
 > M2 (Web app source of truth) — backend done in this repo. Dashboard consumer needs
-> a session in the dashboard repo. Not a blocker for M4/M5.
+> a session in the dashboard repo. Not a blocker for M5.
 >
 > M6 (Web app UI) — blocked pending S-015 operator hold resolution.
 >

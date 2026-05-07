@@ -5,3 +5,4 @@
 {"event": "sprint-start", "priority": "normal", "sprint": "S-043", "title": "M3 order-layer refusal tests"}
 {"event": "sprint-complete", "priority": "high", "sprint": "S-043", "title": "M3 closed — order-layer refusal tests done", "summary_url": "https://github.com/the-lizardking/ict-trading-bot/blob/main/docs/sprint-summaries/sprint-043-summary.md"}
 {"event": "sprint-start", "priority": "normal", "sprint": "S-046", "title": "M4 step 3 — Janitor audits (close M4)"}
+{"event": "sprint-complete", "priority": "high", "sprint": "S-046", "title": "M4 closed — Janitor audits done", "summary_url": "https://github.com/the-lizardking/ict-trading-bot/blob/main/docs/sprint-summaries/sprint-046-summary.md"}
