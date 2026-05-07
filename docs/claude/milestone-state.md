@@ -40,9 +40,9 @@ When opening a session:
 | **Title** | Repo hygiene + CI: Janitor audits, canonical path enforcement, GitHub Actions suite |
 | **Type** | roadmap (auto-claude) |
 | **Goal** | Complete the M4 gaps: full Janitor audits, canonical path enforcement across all units, complete GitHub Actions suite. **S-044 (2026-05-07) shipped the CI suite. S-045 (2026-05-07) closed the conftest test-isolation gap, promoted `pytest-collect` to blocking, expanded ruff to the default rule set, and shipped the branch-protection Colab notebook.** |
-| **Status** | 🔄 In progress — CI suite + conftest + ruff cleanup ✅; Janitor audits + canonical-path enforcement remaining → S-046. |
-| **Active sprint** | None — open next sprint (S-046 Janitor) against M4 backlog. |
-| **Active checkpoint** | None. |
+| **Status** | 🔄 In progress — CI suite + conftest + ruff cleanup + auto-sync branch protection ✅; **S-046 (Janitor audits) IN PROGRESS** since 2026-05-07. |
+| **Active sprint** | **S-046** — M4 step 3: Janitor audits (dead-file, UI consolidation `src/ui/` → `src/units/ui/`, missing-test). |
+| **Active checkpoint** | `CP-2026-05-07-07-s046-kickoff` (T0 done; T1..T5 outstanding). |
 | **Risk tier** | Tier 1 (tests, lint, CI, docs; no live-trading logic). |
 | **Definition of done** | Janitor audits + canonical-path enforcement + GitHub Actions suite complete; M4 formally closed with sprint summary + checkpoint. **CI suite ✅ S-044; conftest + pytest-collect-blocking + ruff default ✅ S-045; Janitor + canonical-path open.** |
 

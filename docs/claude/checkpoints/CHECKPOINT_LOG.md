@@ -11,6 +11,55 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-07-07-s046-kickoff — S-046 kickoff: M4 step 3 (Janitor audits)
+
+- **Session date:** 2026-05-07
+- **Sprint:** S-046 — M4 step 3: Janitor audits (close M4).
+- **Active milestone:** M4 — Repo hygiene + CI (CI suite + conftest + ruff cleanup + auto-sync branch protection ✅; Janitor audits open → this sprint).
+- **Last completed checkpoint:** `CP-2026-05-07-06-s045-followup-auto-sync` (PRs #439 + #440 merged).
+- **Branch:** `claude/sprint-planning-status-ZMePk` (per harness-assigned development branch).
+- **Telegram sent:** sprint-start ride-along on this commit (CHECKPOINT_LOG append → VM ping wiring); sprint-start row added to `pending-pings.jsonl` for explicit drain.
+
+### 1. Completed (T0)
+
+- Sprint prompt filed at `docs/sprints/sprint-046-prompt.md` per the 8-section template in `docs/claude/sprint-planning.md`.
+- Sprint number S-046 confirmed monotonic: highest used = S-045; post-S-045 follow-up was unnumbered; S-046 is next.
+- Unit boundary declared (Janitor sprint: deletions + import rewrites + stub tests; no behaviour changes; T4 ping-PR carries the only operator-hold-path proposal and rides on a separate branch).
+- Live-mode invariant: ✅ untouched (`src/runtime/orders.py`, `pipeline.py`, `trading_mode.py`, `src/units/accounts/*`, `config/accounts.yaml`, `deploy/*` all on operator hold for *this* branch).
+- Sprint-start ping appended to `docs/claude/pending-pings.jsonl`.
+- This kickoff CP appended; milestone-state to be updated in the same commit.
+
+### 2. Files changed (T0)
+
+- `docs/sprints/sprint-046-prompt.md` (new)
+- `docs/claude/pending-pings.jsonl` (sprint-start row)
+- `docs/claude/milestone-state.md` (active sprint pointer + S-046 row)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+
+- None this checkpoint (docs-only T0). Subsequent checkpoints validate against `pytest --collect-only` and `ruff check .`.
+
+### 4. Remaining (T1..T5)
+
+- **T1** — Dead-file audit: pull `repo-inventory.yml` artifacts from PRs #437..#441, diff, file `docs/claude/janitor-2026-05-07-deadfiles.md`, PR safe deletions.
+- **T2** — UI consolidation: pick canonical `src/units/ui/`, fold or delete `src/ui/` (3 files), rewrite `from src.ui import …` callers, file consolidation report.
+- **T3** — Missing-test audit: walk `src/units/<unit>/`, list units without `tests/test_<unit>_*.py`, file stubs with one importable assertion each.
+- **T4** — Operator-hold ping-PR on `claude/ping-s046-ruff-residuals` (DRAFT work-PR with the 15 mechanical fixes + ruff.toml prune) plus `claude/ping-s046-ruff-residuals-ping` (self-merged ping-PR firing the Telegram notification).
+- **T5** — Sprint close: `docs/sprint-summaries/sprint-046-summary.md`, `milestone-state.md` flips M4 → CLOSED + M5 → active, sprint-complete ping, final CP.
+- S-015 pause/continue Tier 2 PR: **HOLD** (operator hold unchanged).
+- BUG-057: awaiting VM `journalctl` output (unchanged).
+
+### 5. Next checkpoint
+
+`CP-2026-05-07-NN-s046-T1-deadfiles` — T1 (dead-file audit + safe deletions PR).
+
+### Live-mode check
+
+✅ No live-trading code touched. T0 changes confined to `docs/sprints/`, `docs/claude/`. `scripts/check_dry_run_in_diff.py` clean by inspection (no diff under `src/runtime/orders.py`, `src/runtime/pipeline.py`, `src/runtime/trading_mode.py`, `src/units/accounts/*`, or `config/accounts.yaml`).
+
+---
+
 ## CP-2026-05-07-06-s045-followup-auto-sync — auto-sync branch-protection workflow
 
 - **Session date:** 2026-05-07
