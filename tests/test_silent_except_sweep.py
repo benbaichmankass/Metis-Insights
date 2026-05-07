@@ -8,9 +8,7 @@ behavior (a Telegram-eligible alert), not the implementation path.
 """
 from __future__ import annotations
 
-import sqlite3
 import sys
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest

@@ -25,11 +25,9 @@ This file pins all three fixes.
 """
 from __future__ import annotations
 
-import os
 import sys
 from unittest.mock import MagicMock
 
-import pytest
 
 
 # ---------------------------------------------------------------------------

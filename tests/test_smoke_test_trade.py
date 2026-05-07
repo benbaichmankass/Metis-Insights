@@ -83,7 +83,7 @@ def test_no_allow_live_env_no_longer_blocks(monkeypatch):
 
     # Run without --dry-run; should now reach _dispatch (not exit with 2)
     # The second dispatch (close) will also call fake_dispatch.
-    rc = smoke.main(["--account", "bybit_2", "--qty", "0.0001", "--side", "buy"])
+    smoke.main(["--account", "bybit_2", "--qty", "0.0001", "--side", "buy"])
     assert captured.get("reached"), (
         "Script exited before reaching _dispatch — ALLOW_LIVE_TRADING check "
         "is still blocking (BUG-051 not fully fixed)"
@@ -93,8 +93,6 @@ def test_no_allow_live_env_no_longer_blocks(monkeypatch):
 def test_no_confirm_flag_exists():
     """Per CLAUDE.md autonomous-trading rule: the smoke script must NOT
     take a --confirm flag (no human-in-the-loop per trade)."""
-    import argparse
-    p = argparse.ArgumentParser()
     parsed = smoke._parse_args(["--account", "bybit_2", "--qty", "0.0001",
                                 "--side", "buy"])
     assert not hasattr(parsed, "confirm"), (
@@ -224,9 +222,9 @@ def test_main_round_trip_dry_run_writes_four_audit_events(
     ])
     assert rc == 0
 
-    lines = [json.loads(l) for l in audit.read_text().splitlines() if l.strip()]
+    lines = [json.loads(ln) for ln in audit.read_text().splitlines() if ln.strip()]
     assert len(lines) == 4
-    events = [l["event"] for l in lines]
+    events = [ln["event"] for ln in lines]
     assert events == [
         "smoke_open_attempt", "smoke_open_result",
         "smoke_close_attempt", "smoke_close_result",
@@ -259,9 +257,9 @@ def test_main_returns_one_when_open_rejected(monkeypatch, tmp_path):
         "--side", "buy", "--dry-run",
     ])
     assert rc == 1
-    lines = [json.loads(l) for l in audit.read_text().splitlines() if l.strip()]
+    lines = [json.loads(ln) for ln in audit.read_text().splitlines() if ln.strip()]
     # Only open_attempt + open_result; no close_*.
-    assert [l["event"] for l in lines] == [
+    assert [ln["event"] for ln in lines] == [
         "smoke_open_attempt", "smoke_open_result",
     ]
     assert lines[1]["status"] == "failed_exchange"

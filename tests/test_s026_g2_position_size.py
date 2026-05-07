@@ -10,7 +10,6 @@ from __future__ import annotations
 import sys
 import types
 from unittest import mock
-from unittest.mock import MagicMock
 
 import pytest
 
@@ -163,7 +162,6 @@ class TestMultiAccountDispatchSizesPerAccount:
     def _stub_accounts(self, monkeypatch):
         """Return a fake load_accounts() that yields two accounts, both
         with their own RiskManager, place_order returning a dry trade-id."""
-        from src.units.accounts.account import TradingAccount
 
         rm_a = RiskManager({"risk_pct": 0.01, "min_balance_usd": 50})
         rm_b = RiskManager({"risk_pct": 0.01, "min_balance_usd": 50})
@@ -256,7 +254,7 @@ class TestMultiAccountDispatchSizesPerAccount:
         """Caller can inject a custom balance fetcher (live processor wiring path)."""
         from src.core.coordinator import Coordinator
 
-        accounts = self._stub_accounts(monkeypatch)
+        self._stub_accounts(monkeypatch)
         accounts_path = tmp_path / "accounts.yaml"
         accounts_path.write_text("accounts: {}\n")
 

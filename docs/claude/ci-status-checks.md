@@ -19,34 +19,29 @@ single command you can re-run locally.
 
 | Workflow | File | Trigger | Gate | Local equivalent |
 |---|---|---|---|---|
-| `pytest-collect` | `.github/workflows/pytest-collect.yml` | `pull_request` to `main`, `push` to `main` | advisory (S-044) | `PYTHONPATH=. pytest --collect-only -q tests/ --ignore=tests/test_main_loop.py --continue-on-collection-errors` |
+| `pytest-collect` | `.github/workflows/pytest-collect.yml` | `pull_request` to `main`, `push` to `main` | **blocking** (since S-045) | `PYTHONPATH=. pytest --collect-only -q tests/ --ignore=tests/test_main_loop.py` |
 | `secret-scan` | `.github/workflows/secret-scan.yml` | `pull_request` to `main`, `push` to `main` | **blocking** | `python scripts/secret_scan.py` |
-| `ruff-lint` | `.github/workflows/ruff-lint.yml` | `pull_request` to `main`, `push` to `main` | **blocking** | `ruff check . --select E9,F63,F7` |
+| `ruff-lint` | `.github/workflows/ruff-lint.yml` | `pull_request` to `main`, `push` to `main` | **blocking** | `ruff check .` |
 | `repo-inventory` | `.github/workflows/repo-inventory.yml` | `pull_request` to `main`, `push` to `main` | advisory | `python scripts/repo_inventory.py` |
 | `dry-run-guard` | `.github/workflows/dry-run-guard.yml` | `pull_request` to `main` | **blocking** | `python scripts/check_dry_run_in_diff.py /tmp/pr.diff` |
 | `hf-cron` | `.github/workflows/hf-cron.yml` | `schedule` (HF dataset publish) | n/a | not PR-gating |
 | `training-run` | `.github/workflows/training-run.yml` | `workflow_dispatch` | n/a | not PR-gating |
 
-**Required status checks on `main`** (post-S-044 actual): `secret-scan`,
-`ruff-lint`, `dry-run-guard`. `pytest-collect` and `repo-inventory` are
-advisory. The S-044 prompt assumed `pytest-collect` would also be
-blocking, but the test suite carries 45 pre-existing collection errors
-caused by `tests/conftest.py`'s telegram/MagicMock stub clashing with
-`src/bot/comms_handler.py`'s `from telegram.error import TelegramError`.
-Fixing that requires `tests/conftest.py` edits which are outside S-044's
-unit-boundary declaration. Promotion of `pytest-collect` to blocking is
-the closing step of the follow-up Janitor sprint.
+**Required status checks on `main`** (post-S-045): `pytest-collect`,
+`secret-scan`, `ruff-lint`, `dry-run-guard`. `repo-inventory` stays
+advisory until ≥ 5 PRs have observed the artifact and the operator
+confirms the signal is useful. Branch protection wiring is the T4
+deliverable of S-045 — see § "Branch protection wiring" below.
 
 ---
 
 ## Per-workflow details
 
-### `pytest-collect` (advisory — S-044)
+### `pytest-collect` (blocking — since S-045)
 
 - **What it does.** Installs `requirements.txt` + `requirements-test.txt`
-  on Python 3.11, then runs
-  `pytest --collect-only -q tests/ --ignore=tests/test_main_loop.py
-  --continue-on-collection-errors`. Collection-only — tests do **not**
+  on Python 3.11, then runs `pytest --collect-only -q tests/
+  --ignore=tests/test_main_loop.py`. Collection-only — tests do **not**
   execute. Surfaces: import errors, fixture name collisions, broken
   `conftest.py` setup, mis-spelled `pytest.mark.*`, missing test deps.
 - **Why collect-only.** Full pytest needs the live data layer +
@@ -56,22 +51,19 @@ the closing step of the follow-up Janitor sprint.
 - **Why ignore `tests/test_main_loop.py`.** That module imports
   `src.main`, which imports the live trading entrypoint. CLAUDE.md's
   "Default verification" section excludes it for the same reason.
-- **Why advisory today.** `tests/conftest.py` stubs `telegram` /
-  `telegram.ext` as `MagicMock` for the bot tests. But
-  `src/bot/comms_handler.py` does `from telegram.error import
-  TelegramError` — `telegram.error` isn't on the MagicMock, so any
-  test that transitively imports `comms_handler` fails to collect.
-  Today's baseline is ~45 collection errors of this shape. Fixing
-  it requires `tests/conftest.py` edits, which are outside S-044's
-  unit-boundary. The S-044 workflow logs the failures (visible in the
-  Actions run output) but does not gate the PR. The Janitor sprint
-  fixes conftest, drops the `|| true` shim from this workflow, and
-  flips the gate to blocking.
+- **History.** S-044 shipped this workflow advisory because the test
+  suite carried 52 collection errors at the time (45 telegram-stub +
+  7 fastapi-stub failures, see BUG-062). S-045 T1 fixed both stubs;
+  S-045 T2 dropped the `|| true` shim and `--continue-on-collection-errors`
+  flag. From PR #438 onward the workflow fails any PR that introduces
+  a collection regression.
 - **Debug.** Reproduce with the local equivalent above. If the failure
   is a missing dep, add it to `requirements-test.txt` (not the runtime
-  `requirements.txt`). If it's a collection error in a test module
-  the sprint touched, fix in that PR. If it's the telegram-stub baseline,
-  do not paper over it — let the Janitor sprint handle it.
+  `requirements.txt`). If it's a `sys.modules` test-isolation failure
+  ("X is not a package"), follow the BUG-062 pattern: convert any
+  `if "X" not in sys.modules:` guard into `try: import X; except
+  ImportError: stub`. Do **not** add `--continue-on-collection-errors`
+  back to the workflow — fix the import.
 
 ### `secret-scan`
 
@@ -95,20 +87,27 @@ the closing step of the follow-up Janitor sprint.
 ### `ruff-lint`
 
 - **What it does.** Installs `requirements-dev.txt` (currently
-  `ruff>=0.15.0` only), then runs `ruff check . --select E9,F63,F7`.
-  The narrow rule set covers runtime errors (E9), assertion / comparison
-  bugs (F63), and semantic errors (F7).
-- **Why narrow.** Current `main` carries 286 ruff hits across rules
-  the narrow set excludes (E402 imports-not-at-top, F401 unused-imports,
-  F541 unnecessary f-strings, F811 redefinitions, F821 undefined names,
-  F841 unused vars). The S-044 prompt explicitly forbids mass-formatting
-  in this sprint. A follow-up Janitor sprint expands the rule set after
-  cleaning each category in isolation.
-- **Debug.** Reproduce with the local equivalent above. If your PR
-  introduced an E9/F63/F7 hit, fix it. If you're trying to fix a
-  pre-existing hit outside the narrow set, that's its own PR — open it
-  separately and reference S-045 (or whichever Janitor sprint is open)
-  in the description.
+  `ruff>=0.15.0` only), then runs `ruff check .` against ruff's
+  default rule set. Repo-level config in `ruff.toml` excludes
+  `*.ipynb` (notebook re-serialization is not a behaviour-preserving
+  fix) and lists a small `lint.per-file-ignores` table for the
+  operator-hold paths (`src/runtime/pipeline.py`,
+  `src/units/accounts/*`) where mechanical lint fixes are blocked
+  on operator review.
+- **History.** S-044 shipped this workflow with the narrow rule set
+  `--select E9,F63,F7` because the broader default flagged 286
+  pre-existing hits. S-045 walked the rules in scoped per-rule
+  commits (T3a F541 → T3b E401 → T3c F811 → T3d F841 → T3e F401 →
+  T3f E402 → T3g E741 → T3h F821 → T3 cleanup E731+E701), brought
+  the count to 0 on every non-operator-hold path, and dropped
+  `--select`.
+- **Debug.** Reproduce with `ruff check .` locally. If your PR
+  introduced a new hit, either fix it or — if the hit is in an
+  operator-hold path — file a ping-PR per CLAUDE.md § "Telegram
+  Reporting". Do **not** add the path to `ruff.toml`'s ignore
+  list to silence a hit; the ignore list is reserved for the
+  S-045 ping-PR backlog and gets emptied as the operator approves
+  each fix.
 
 ### `repo-inventory` (advisory)
 
@@ -142,17 +141,24 @@ the closing step of the follow-up Janitor sprint.
 
 ## Branch protection wiring
 
-After this sprint lands, the operator (or Claude with admin token)
+After **S-045** lands, the operator (or Claude with admin token)
 should configure required checks on `main` to include:
 
+- `pytest-collect`
 - `secret-scan`
 - `ruff-lint`
 - `dry-run-guard`
 
-`pytest-collect` and `repo-inventory` stay unticked (advisory) until
-their respective baseline conditions are met (see per-workflow detail
-above). The other workflows (`hf-cron`, `training-run`) are not
-PR-triggered and do not appear in the branch-protection list.
+`repo-inventory` stays unticked (advisory) until ≥ 5 PRs have observed
+the artifact and the operator confirms the drift signal is useful. The
+other workflows (`hf-cron`, `training-run`) are not PR-triggered and
+do not appear in the branch-protection list.
+
+The S-045 T4 deliverable provides a one-click Colab notebook under
+`notebooks/operator/update_branch_protection.ipynb` that sets these
+contexts via `gh api` from an operator-supplied admin token (per
+CLAUDE.md "Always do" → "For ANY manual VM operator step, deliver a
+one-click Colab notebook").
 
 Verify with:
 

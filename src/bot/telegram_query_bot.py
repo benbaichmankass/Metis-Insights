@@ -1,9 +1,7 @@
-from src.runtime.signal_notifications import get_last_signals, format_signals
 import json
 import os
 import logging
 import re
-import sqlite3
 import asyncio
 import sys
 import subprocess
@@ -1918,7 +1916,6 @@ async def _run_and_reply(
 ) -> None:
     """Spawn the runner in a thread (it blocks on systemd-run --wait) and
     post the result back. Keeps the bot's event loop responsive."""
-    chat = update.effective_chat
     progress = await update.message.reply_text(
         f"🤖 VM runner spawned (tier {tier}). Waiting for transcript…"
     )

@@ -5,11 +5,9 @@ Coordinator.reload_units() fully offline (no exchange, no network).
 """
 from __future__ import annotations
 
-import os
 import textwrap
 
 import pytest
-import yaml
 
 from src.units import load_enabled_units, list_enabled_strategies
 from src.core.coordinator import Coordinator, _PAUSED_ACCOUNTS

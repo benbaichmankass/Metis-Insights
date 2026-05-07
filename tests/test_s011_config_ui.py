@@ -96,7 +96,7 @@ class TestLoadStrategyConfig:
 
 class TestSaveStrategyConfig:
     def test_save_preserves_unedited_fields(self, strategies_yaml):
-        cfg = load_strategy_config(strategies_yaml)
+        load_strategy_config(strategies_yaml)
         # Only update risk_pct for ict
         save_strategy_config({"ict": {"risk_pct": 2.0}}, strategies_yaml)
         updated = load_strategy_config(strategies_yaml)

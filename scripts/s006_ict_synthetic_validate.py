@@ -32,7 +32,7 @@ import argparse
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -44,7 +44,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from src.backtest.backtester import ICTBacktester
+from src.backtest.backtester import ICTBacktester  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Symbol registry
@@ -84,10 +84,10 @@ def _one_cycle(
 
     def _bar(o, c, h_override=None, l_override=None, vol=100):
         nonlocal ts
-        h = max(o, c, h_override if h_override is not None else o) + abs(price) * spread_factor
-        l = min(o, c, l_override if l_override is not None else o) - abs(price) * spread_factor
-        rows.append({"timestamp": ts, "open": o, "high": h,
-                     "low": l, "close": c, "volume": vol})
+        hi = max(o, c, h_override if h_override is not None else o) + abs(price) * spread_factor
+        lo = min(o, c, l_override if l_override is not None else o) - abs(price) * spread_factor
+        rows.append({"timestamp": ts, "open": o, "high": hi,
+                     "low": lo, "close": c, "volume": vol})
         ts += freq
 
     # ── Phase 1: 55 trending bars ──────────────────────────────────────

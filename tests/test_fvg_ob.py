@@ -8,8 +8,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.data_layer.data_loader import load_data
 from src.ict_detection.swing_points import detect_swings
-from src.ict_detection.fvg_detector import FVGDetector, detect_fvgs
-from src.ict_detection.order_blocks import OrderBlockDetector, detect_order_blocks
+from src.ict_detection.fvg_detector import FVGDetector
+from src.ict_detection.order_blocks import OrderBlockDetector
 
 
 def test_fvg_detection():

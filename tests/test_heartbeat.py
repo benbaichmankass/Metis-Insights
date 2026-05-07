@@ -13,7 +13,7 @@ import pytest
 for _mod in ("dotenv",):
     sys.modules.setdefault(_mod, MagicMock())
 
-from src.runtime.heartbeat import write_heartbeat
+from src.runtime.heartbeat import write_heartbeat  # noqa: E402
 
 
 # ---------------------------------------------------------------------------

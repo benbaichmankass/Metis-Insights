@@ -53,7 +53,6 @@ def test_dashboard_rows_service_matches_registry():
 
 def test_dashboard_rows_no_hardcoded_fallback(monkeypatch):
     """strategy_dashboard_data() uses the registry, not a hardcoded list."""
-    import types
     from src.bot import data_loaders as dl
 
     fake_reg = types.ModuleType("src.strategy_registry")

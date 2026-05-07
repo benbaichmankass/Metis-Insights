@@ -14,7 +14,6 @@ on changes, and routes close/modify decisions to the account unit.
 from __future__ import annotations
 
 import pandas as pd
-import pytest
 
 from src.units.strategies._base import monitor_breakeven_sl
 

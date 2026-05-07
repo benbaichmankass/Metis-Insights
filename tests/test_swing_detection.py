@@ -7,7 +7,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.data_layer.data_loader import load_data
-from src.ict_detection.swing_points import SwingPointDetector, detect_swings
+from src.ict_detection.swing_points import SwingPointDetector
 
 def test_swing_detection():
     """Test swing point detection on Bitcoin data"""
@@ -22,7 +22,7 @@ def test_swing_detection():
     
     # Use last 500 candles for testing (easier to visualize)
     df = df.tail(500).copy()
-    print(f"Using last 500 candles for testing")
+    print("Using last 500 candles for testing")
     print(f"Date range: {df.index[0]} to {df.index[-1]}\n")
     
     # Detect swings
@@ -43,7 +43,7 @@ def test_swing_detection():
     # Get swing point list
     swing_points = detector.get_swing_points_list(df)
     
-    print(f"\nFirst 10 swing points:")
+    print("\nFirst 10 swing points:")
     print("-" * 60)
     for i, sp in enumerate(swing_points[:10]):
         print(f"{i+1}. {sp['type'].upper():5} at {sp['timestamp']} | Price: ${sp['price']:,.2f}")

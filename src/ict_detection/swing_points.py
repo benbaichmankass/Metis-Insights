@@ -126,9 +126,7 @@ class SwingPointDetector:
         df['choch'] = None  # 'bullish_to_bearish' or 'bearish_to_bullish'
         
         # Track last swing high/low
-        last_swing_high = None
         last_swing_high_price = None
-        last_swing_low = None
         last_swing_low_price = None
         
         # Track current structure
@@ -137,12 +135,10 @@ class SwingPointDetector:
         for i in range(len(df)):
             # Update swing highs
             if df['swing_high'].iloc[i]:
-                last_swing_high = i
                 last_swing_high_price = df['high'].iloc[i]
             
             # Update swing lows
             if df['swing_low'].iloc[i]:
-                last_swing_low = i
                 last_swing_low_price = df['low'].iloc[i]
             
             # Check for BOS and CHoCH

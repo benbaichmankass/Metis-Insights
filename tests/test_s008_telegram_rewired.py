@@ -14,11 +14,9 @@ Async coroutines are driven with asyncio.new_event_loop().run_until_complete().
 from __future__ import annotations
 
 import asyncio
-import os
 import sys
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
 
 # ---------------------------------------------------------------------------
 # Stub heavy deps before any src import (same pattern as existing test file)

@@ -23,7 +23,6 @@ import tempfile
 from datetime import date
 from unittest.mock import MagicMock
 
-import pytest
 
 from src.runtime.risk_counters import inject_runtime_counters as _inject_runtime_counters
 

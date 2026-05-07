@@ -7,12 +7,9 @@ Heavy deps (telegram, pybit) are stubbed at sys.modules level.
 from __future__ import annotations
 
 import asyncio
-import os
 import sys
-import tempfile
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
-import pytest
 
 # ---------------------------------------------------------------------------
 # Stub heavy deps before any src import

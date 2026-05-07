@@ -1,9 +1,6 @@
 import pandas as pd
 import numpy as np
-import json
-import os
 from datetime import datetime
-from typing import Optional, List, Dict
 DEFAULT_CONFIG = {
     "initial_capital": 10000.0,
     "risk_per_trade_pct": 1.0,
@@ -92,7 +89,6 @@ class ICTBacktester:
         return "ranging"
     def in_session(self, ts):
         from numbers import Number
-        import numpy as np
         from datetime import datetime
 
         # Normalize numeric-like timestamps (including numpy scalars) to datetime

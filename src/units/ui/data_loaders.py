@@ -543,7 +543,6 @@ def _read_env_file(env_path: str) -> Dict[str, str]:
 from src.units.accounts.clients import (  # noqa: E402
     bybit_client_for,
     binance_conn_for,
-    resolve_credentials,
 )
 
 

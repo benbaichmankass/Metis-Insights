@@ -487,7 +487,6 @@ class TestSweepUnlinkedPackages:
     def _insert_pkg(self, db, pkg_id, *, linked_trade_id=None,
                     strategy="vwap", status="open", age_minutes=10):
         """Insert a package with a synthetic created_at in the past."""
-        import sqlite3
         conn = db.connect()
         try:
             conn.execute(

@@ -345,7 +345,7 @@ class Database:
         Returns:
             str: The order_package_id.
         """
-        from datetime import datetime, timezone
+        from datetime import timezone
         import json as _json
 
         row = dict(package_data)
@@ -386,7 +386,7 @@ class Database:
         Returns:
             int: Rows affected (0 if the id was not found).
         """
-        from datetime import datetime, timezone
+        from datetime import timezone
         import json as _json
 
         if not order_package_id:
@@ -430,7 +430,7 @@ class Database:
             int: The new row's primary key.
         """
         import json
-        from datetime import datetime, timezone
+        from datetime import timezone
 
         row = dict(signal_data or {})
         logged_at = row.pop("logged_at_utc", None) or \

@@ -11,6 +11,128 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-07-05-s045-complete — S-045 COMPLETE: M4 step 2 done
+
+- **Session date:** 2026-05-07
+- **Sprint:** S-045 — M4 step 2: conftest cleanup, promote `pytest-collect` to blocking, ruff rule expansion.
+- **Active milestone:** M4 — Repo hygiene + CI (CI suite + conftest + ruff cleanup ✅; Janitor audits remain → S-046).
+- **Last completed checkpoint:** `CP-2026-05-07-04-s045-kickoff`.
+- **Telegram sent:** sprint-complete ride-along on this commit (CHECKPOINT_LOG append → VM ping wiring).
+- **Alerts sent during session:** none.
+- **Blockers:** S-015 operator hold (unchanged); BUG-057 awaiting VM diag (unchanged); operator-hold lint residuals tracked for follow-up ping-PR (see § 4).
+
+### 1. Completed (T0..T5)
+
+- **T0** — Sprint prompt filed at `docs/sprints/sprint-045-prompt.md`; kickoff CP prepended; PR #438 opened as draft.
+- **T1** — Fixed BUG-062: extended `tests/conftest.py` telegram stub to expose `telegram.error.TelegramError` (real Exception subclass) + `telegram.constants.ChatAction` + `MessageHandler` / `filters` on `telegram.ext`; converted `tests/test_bot_web_sweep.py` `if "fastapi" not in sys.modules:` guard to `try: import fastapi; except ImportError: stub` shape. Added `email-validator>=2.0.0` to `requirements-test.txt`. `pytest --collect-only -q tests/ --ignore=tests/test_main_loop.py` now `2502 collected, 0 errors` (was `1767 collected, 45 errors`).
+- **T2** — Dropped `--continue-on-collection-errors` and `|| true` shim from `.github/workflows/pytest-collect.yml`; promoted from advisory → blocking. `docs/claude/ci-status-checks.md` updated (table + per-workflow section + required-checks list).
+- **T3 a..h** — Ruff rule cleanup, one rule per commit. F541 (21 fixes) + E401 (1) + F811 (6) + F841 (11) + F401 (157 across two scoped commits) + E402 (33 noqa annotations) + E741 (13 renames) + F821 (4) + E731 + E701 cleanup. Final `ruff check .` clean on every non-operator-hold path.
+- **T3i** — Dropped `--select` from `.github/workflows/ruff-lint.yml`; ruff now runs the default rule set. 15 residual hits in operator-hold paths suppressed via `[lint.per-file-ignores]` in new `ruff.toml` with backlog comment naming the ping-PR.
+- **T4** — `notebooks/operator/update_branch_protection.ipynb` filed. PUTs the required-status-checks contexts (`pytest-collect`, `secret-scan`, `ruff-lint`, `dry-run-guard`) via the GitHub API; `repo-inventory` deliberately not in the list. Idempotent.
+- **T5** — `docs/sprint-summaries/sprint-045-summary.md` filed; `docs/claude/milestone-state.md` refreshed (M4 row + active milestone + recently-closed-milestones rows for S-044 + S-045); this checkpoint.
+
+### 2. M4 step-2 validation checklist
+
+| Check | Status |
+|---|---|
+| `pytest --collect-only -q tests/ --ignore=tests/test_main_loop.py` returns 0 errors | ✅ (2502 collected) |
+| `pytest-collect.yml` no `--continue-on-collection-errors` / `\|\| true` | ✅ |
+| `ruff check .` (no `--select`) clean | ✅ (`All checks passed!`) |
+| `ruff-lint.yml` no `--select` flag | ✅ |
+| `ruff.toml` `[lint.per-file-ignores]` documents every operator-hold residual | ✅ (5 entries, ping-PR backlog comment) |
+| `notebooks/operator/update_branch_protection.ipynb` exists + idempotent | ✅ |
+| `docs/claude/ci-status-checks.md` reflects new gates | ✅ |
+| `docs/claude/milestone-state.md` M4 row updated | ✅ |
+| `docs/sprint-summaries/sprint-045-summary.md` filed | ✅ |
+| `python scripts/secret_scan.py` clean | ✅ |
+| `scripts/check_dry_run_in_diff.py` clean against main | ✅ |
+| Unit-boundary check: no `src/runtime/{orders,pipeline,trading_mode}.py`, `src/units/accounts/`, `src/main.py`, `config/accounts.yaml`, `deploy/` edits | ✅ |
+| BUG-062 row in bug log | ✅ |
+
+### 3. Files changed
+
+See `docs/sprint-summaries/sprint-045-summary.md` § "Files changed" for the full list. Headline counts:
+
+- 1 new sprint prompt + 1 new sprint summary + 1 new bug-log row + 1 new ruff config + 1 new operator notebook.
+- 2 CI workflow files modified (pytest-collect blocking; ruff-lint default rule set).
+- 1 test-deps file (`requirements-test.txt`) modified — added email-validator + comment refresh.
+- ~95 source/test files touched by the per-rule ruff cleanups (mechanical, behaviour-preserving).
+- 1 docs runbook + 1 milestone-state file + 1 checkpoint log modified.
+
+### 4. Remaining / Deferred
+
+- **Operator-hold lint residuals → follow-up ping-PR.** 15 mechanical ruff hits are suppressed via `[lint.per-file-ignores]` in `ruff.toml`:
+  - `src/runtime/pipeline.py` × 9 (E402)
+  - `src/units/accounts/dxtrade_client.py` × 1 (F401)
+  - `src/units/accounts/integrator.py` × 2 (F401)
+  - `src/units/accounts/prop_risk.py` × 1 (F401)
+  - `src/units/accounts/execute.py` × 2 (F541)
+
+  Per CLAUDE.md § "Telegram Reporting", a follow-up ping-PR will propose the mechanical fixes for operator review. When the operator approves, the corresponding `ruff.toml` entries get removed in the same PR. **This is NOT a blocker for S-045 closure** — the sprint succeeded with the residuals documented and CI green.
+- **Branch protection wiring** — operator must run `notebooks/operator/update_branch_protection.ipynb` once after PR #438 merges.
+- **`repo-inventory` promotion to blocking** — stays advisory until ≥ 5 PRs have observed the artifact (unchanged from S-044).
+- **Janitor audits → S-046.** Dead-file audit (using `repo-inventory.yml` artifact across PRs), duplicate-module audit (`src/ui/` vs `src/units/ui/`), missing-test audit (`src/units/` modules without `tests/test_<unit>_*.py`).
+- **`tests/test_backtester.py:test_run_capital_updated`** missing assertion (T3d found `initial = bt.capital` was never compared) — out of scope for janitor sprint.
+- S-015 pause/continue Tier 2 PR: **HOLD** (operator hold unchanged).
+- BUG-057: awaiting VM `journalctl` output (unchanged).
+
+### 5. Next session
+
+**S-046 — M4 step 3 (Janitor audits).** Or skip ahead to **M5 — Strategy testing workflow** if the operator prioritises strategy validation; the workplan permits either order.
+
+If the operator-hold ping-PR fires before S-046 starts, that takes priority — apply the approved mechanical fixes and prune `ruff.toml`'s ignore table.
+
+### Live-mode check
+
+✅ No live-trading code touched in any commit on this branch. Diff vs `main` = `tests/`, `src/` (excluding `runtime/{orders,pipeline,trading_mode}.py` and `units/accounts/*`), `scripts/`, `utils/`, top-level entry-point .py files, `notebooks/operator/update_branch_protection.ipynb`, `requirements-test.txt`, `ruff.toml` (new), `.github/workflows/{pytest-collect,ruff-lint}.yml`, `docs/`. `scripts/check_dry_run_in_diff.py` clean. No changes to `src/runtime/orders.py`, `src/runtime/pipeline.py`, `src/runtime/trading_mode.py`, `src/units/accounts/*`, `src/main.py`, `config/accounts.yaml`, or `deploy/`.
+
+---
+
+## CP-2026-05-07-04-s045-kickoff — S-045 kickoff: conftest cleanup + ruff rule expansion
+
+- **Session date:** 2026-05-07
+- **Sprint:** S-045 — M4 step 2: conftest cleanup, promote `pytest-collect` to blocking, ruff rule expansion.
+- **Active milestone:** M4 — Repo hygiene + CI (in progress; CI suite shipped S-044, this sprint closes step 2).
+- **Last completed checkpoint:** `CP-2026-05-07-03-s044-complete`.
+- **Branch:** `claude/sprint-045-conftest-ruff-cleanup-mR5iu`.
+- **Telegram sent:** sprint-start ride-along on this commit (CHECKPOINT_LOG append → VM ping wiring).
+
+### 1. Completed (T0)
+
+- Sprint prompt filed at `docs/sprints/sprint-045-prompt.md` — Tier 1, all self-merge, T0..T5 checkpoint table.
+- Unit boundary declared (Janitor sprint: mechanical ruff fixes + conftest stub fix; no behaviour changes).
+- Live-mode invariant: ✅ untouched (`src/runtime/orders.py`, `pipeline.py`, `trading_mode.py`, `src/units/accounts/*`, `config/accounts.yaml`, `deploy/*` all on operator hold).
+- This kickoff CP appended.
+
+### 2. Files changed (T0)
+
+- `docs/sprints/sprint-045-prompt.md` (new — T0)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry — T0)
+
+### 3. Tests run
+
+- None this checkpoint (docs-only T0).
+
+### 4. Remaining (T1..T5)
+
+- **T1** — Pick option A (install `python-telegram-bot` in `requirements-test.txt` + drop stub) or option B (extend MagicMock stub with `telegram.error.TelegramError`). Verify `pytest --collect-only -q tests/ --ignore=tests/test_main_loop.py` returns 0 errors.
+- **T2** — Drop `--continue-on-collection-errors` + `|| true` shim from `.github/workflows/pytest-collect.yml`. Update `docs/claude/ci-status-checks.md` to flip `pytest-collect` from advisory → blocking.
+- **T3** — Ruff rule expansion, one rule per commit: F541 → E401 → F811 → F841 → F401 → E402 → E741 → F821. Final `ruff-lint.yml` drops `--select`.
+- **T4** — Branch protection wiring (one-click Colab notebook under `notebooks/operator/` per CLAUDE.md "Always do" rule); required checks: `pytest-collect`, `secret-scan`, `ruff-lint`, `dry-run-guard`.
+- **T5** — `docs/sprint-summaries/sprint-045-summary.md` + `docs/claude/milestone-state.md` refresh + final CP.
+- S-015 pause/continue Tier 2 PR: **HOLD** (operator hold unchanged).
+- BUG-057: awaiting VM `journalctl` output (unchanged).
+
+### 5. Next checkpoint
+
+`CP-2026-05-07-NN-s045-T1-conftest-fix` — T1 (`tests/conftest.py` telegram stub fix).
+
+### Live-mode check
+
+✅ No live-trading code touched. T0 changes confined to `docs/sprints/` and `docs/claude/checkpoints/`.
+
+---
+
 ## CP-2026-05-07-03-s044-complete — S-044 COMPLETE: M4 CI suite shipped
 
 - **Session date:** 2026-05-07

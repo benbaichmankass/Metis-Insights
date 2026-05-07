@@ -20,8 +20,8 @@ import pytest
 pd = pytest.importorskip("pandas")
 np = pytest.importorskip("numpy")
 
-from src.ict_detection.order_blocks import OrderBlockDetector, detect_order_blocks
-from src.ict_detection.swing_points import SwingPointDetector
+from src.ict_detection.order_blocks import OrderBlockDetector, detect_order_blocks  # noqa: E402
+from src.ict_detection.swing_points import SwingPointDetector  # noqa: E402
 
 
 # ---------------------------------------------------------------------------

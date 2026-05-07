@@ -9,13 +9,10 @@ Heavy deps (telegram, pybit) are stubbed at sys.modules level before import.
 """
 from __future__ import annotations
 
-import os
 import re
 import sqlite3
 import sys
-import tempfile
 from datetime import datetime, timezone
-from types import ModuleType
 from unittest.mock import AsyncMock, MagicMock
 
 # ---------------------------------------------------------------------------

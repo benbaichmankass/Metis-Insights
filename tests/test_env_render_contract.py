@@ -29,7 +29,6 @@ import importlib.util
 import re
 from pathlib import Path
 
-import pytest
 
 # ---------------------------------------------------------------------------
 # Import the renderer (same pattern used by test_render_env_from_master.py)

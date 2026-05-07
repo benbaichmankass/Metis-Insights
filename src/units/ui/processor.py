@@ -1132,7 +1132,7 @@ def get_price(symbol: str = "BTCUSDT") -> Optional[float]:
 # Sprint / checkpoint readers — S-031 PR5 (architecture-audit-2026-05-02 P1-6)
 # ---------------------------------------------------------------------------
 
-import re as _re
+import re as _re  # noqa: E402
 
 _SPRINT_RE = _re.compile(r"\bS-\d{3}(?:\.\d+)?\b")
 _CP_HEADER_RE = _re.compile(r"^##\s+(CP-\d{4}-\d{2}-\d{2}-\d+)\b")
@@ -1302,7 +1302,9 @@ def get_health_summary(
             get_service_status = _gss
         except Exception as exc:  # noqa: BLE001
             logger.warning("get_health_summary: bot import failed: %s", exc)
-            get_service_status = lambda _u: "unknown"
+
+            def get_service_status(_u: str) -> str:
+                return "unknown"
 
     # Gather service statuses + freshness rows once, regardless of
     # output format.

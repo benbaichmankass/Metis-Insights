@@ -6,15 +6,15 @@ import sqlite3
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
 for _mod in ("dotenv",):
     sys.modules.setdefault(_mod, MagicMock())
 
-from src.runtime import hourly_report as hr
-from src.runtime.hourly_report import (
+from src.runtime import hourly_report as hr  # noqa: E402
+from src.runtime.hourly_report import (  # noqa: E402
     _load_audit_lines_since,
     account_snapshots,
     build_hourly_report,
@@ -24,7 +24,7 @@ from src.runtime.hourly_report import (
     summarize_ticks,
     trades_in_window,
 )
-from src.utils.signal_audit_logger import should_send_summary
+from src.utils.signal_audit_logger import should_send_summary  # noqa: E402
 
 
 @pytest.fixture(autouse=True)

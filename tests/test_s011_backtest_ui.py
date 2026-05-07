@@ -6,10 +6,8 @@ All data is hand-crafted — no CSV files, no exchange calls.
 """
 from __future__ import annotations
 
-import os
 
 import pandas as pd
-import pytest
 
 from src.web.backtest_ui import (
     _mock_backtest_df,

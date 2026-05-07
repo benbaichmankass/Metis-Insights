@@ -14,11 +14,11 @@ print("Checking account balance...")
 balance = bybit.get_balance()
 
 if balance:
-    print(f"\n💰 Balance Info:")
+    print("\n💰 Balance Info:")
     if 'USDT' in balance:
         print(f"   Total USDT: {balance['USDT'].get('total', 0)}")
         print(f"   Free USDT: {balance['USDT'].get('free', 0)}")
-    print(f"\n📊 Full balance structure:")
+    print("\n📊 Full balance structure:")
     for key in balance:
         if isinstance(balance[key], dict) and balance[key].get('total', 0) > 0:
             print(f"   {key}: {balance[key]}")

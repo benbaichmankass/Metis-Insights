@@ -3,7 +3,6 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-import pytest
 
 from src.units.accounts.dup_key_check import (
     find_duplicate_keys,

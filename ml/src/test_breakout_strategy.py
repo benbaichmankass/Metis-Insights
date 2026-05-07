@@ -6,8 +6,8 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-import pandas as pd
-from src.strategies_manager import StrategyManager
+import pandas as pd  # noqa: E402
+from src.strategies_manager import StrategyManager  # noqa: E402
 
 _HF_DATASET_REPO = "bentzbk/ict-trading-bot-btcusdt-1m"
 _HF_CSV_FILE = "btcusdt_1m.csv"

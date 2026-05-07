@@ -1,4 +1,3 @@
-import os
 import pytest
 import src.main as main_module
 

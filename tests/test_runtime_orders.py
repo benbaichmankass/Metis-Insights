@@ -1,4 +1,3 @@
-import pytest
 
 from src.runtime.orders import safe_place_order
 

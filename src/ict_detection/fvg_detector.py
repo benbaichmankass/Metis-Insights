@@ -3,8 +3,6 @@ Fair Value Gap (FVG) Detection Module
 Detects price imbalances (gaps) in the market
 """
 
-import pandas as pd
-import numpy as np
 
 
 class FVGDetector:

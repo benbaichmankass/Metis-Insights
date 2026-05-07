@@ -21,7 +21,7 @@ def download_binance_data(symbol='BTCUSDT', interval='1m', days=7):
         pd.DataFrame: OHLCV data
     """
     print(f"\n📊 Downloading {symbol} {interval} data for last {days} days...")
-    print(f"   (Free data from Binance API - no account needed)\n")
+    print("   (Free data from Binance API - no account needed)\n")
     
     # Binance API endpoint
     base_url = 'https://api.binance.com/api/v3/klines'

@@ -19,7 +19,6 @@ Scenarios covered:
 """
 from __future__ import annotations
 
-import io
 import json
 import unittest.mock as mock
 from datetime import datetime, timezone, timedelta

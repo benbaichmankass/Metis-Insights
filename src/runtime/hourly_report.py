@@ -37,7 +37,7 @@ import os
 import sqlite3
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 
 logger = logging.getLogger(__name__)
@@ -560,7 +560,7 @@ def _build_account_sections(
     account balance / delta / open positions, and the trades placed +
     closed in the last hour with realized PnL.
     """
-    from src.units.ui.telegram_format import Section, bullet_list, kv_block
+    from src.units.ui.telegram_format import Section, bullet_list
 
     placed = trades.get("placed", [])
     closed = trades.get("closed", [])

@@ -12,9 +12,7 @@ Each path must:
 4. Accept inserts that include the column.
 """
 import importlib.util
-import os
 import sqlite3
-import sys
 from pathlib import Path
 
 import pytest

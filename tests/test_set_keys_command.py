@@ -5,7 +5,6 @@ import asyncio
 import sys
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
 
 
 for _mod in (
@@ -29,7 +28,7 @@ _ctx = MagicMock()
 _ctx.DEFAULT_TYPE = MagicMock
 _tgext.ContextTypes = _ctx
 
-from src.bot.telegram_query_bot import cmd_set_keys, _COLAB_NOTEBOOK_URL
+from src.bot.telegram_query_bot import cmd_set_keys, _COLAB_NOTEBOOK_URL  # noqa: E402
 
 
 def _make_update(chat_id: str = "12345"):

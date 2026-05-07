@@ -1,17 +1,20 @@
 name: ruff-lint
 
-# Lints the repo with ruff. Initial rule set is intentionally narrow
-# (E9 + F63 + F7 — runtime-error / syntax-error categories) so the
-# workflow can land on a clean main today; broader rule expansion
-# (E402, F401, F541, F811, F821, F841 …) is a follow-up Janitor sprint
-# (S-045 or later) per the S-044 sprint prompt's rule:
+# Lints the repo with ruff. As of S-045 (PR #438) the workflow uses
+# ruff's default rule set against everything not excluded in
+# `ruff.toml` (currently: `*.ipynb`).
 #
-#   "No reformatting of existing source code to satisfy ruff —
-#    if ruff check . flags pre-existing issues, file a follow-up
-#    sprint instead of bundling a mass-format with this CI work."
+# **Pre-S-045**: workflow ran `ruff check . --select E9,F63,F7` because
+# main carried 286 hits across the broader rule set. S-045 walked the
+# rules one-per-commit (T3a F541 → T3b E401 → T3c F811 → T3d F841 →
+# T3e F401 → T3f E402 → T3g E741 → T3h F821 → T3 cleanup E731+E701)
+# and brought the count to zero on every non-operator-hold path.
+# Operator-hold residuals are explicitly suppressed via
+# `[lint.per-file-ignores]` in `ruff.toml`, with a comment block
+# tracking the ping-PR backlog.
 #
-# When the broader cleanup lands, drop the --select flag and let ruff
-# enforce its default rule set.
+# When the operator approves the residual fixes, remove the
+# matching entries from `ruff.toml` in the same PR.
 
 on:
   pull_request:
@@ -37,5 +40,5 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
 
-      - name: Run ruff (narrow rule set)
-        run: ruff check . --select E9,F63,F7
+      - name: Run ruff (default rule set)
+        run: ruff check .

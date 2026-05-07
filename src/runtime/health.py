@@ -35,7 +35,7 @@ import sqlite3
 import subprocess
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
@@ -349,7 +349,7 @@ def check_accounts_api() -> HealthCheck:
             failed.append(aid)
 
     total = len(accounts)
-    ok_count = total - len(failed)
+    total - len(failed)
     if not failed:
         return _ok(name, f"all {total} accounts API ok", total=total)
     return _warn(

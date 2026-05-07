@@ -6,7 +6,6 @@ import subprocess
 import sys
 import time
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -14,8 +13,8 @@ import pytest
 for _mod in ("dotenv",):
     sys.modules.setdefault(_mod, MagicMock())
 
-from src.runtime import health as h
-from src.runtime.health import (
+from src.runtime import health as h  # noqa: E402
+from src.runtime.health import (  # noqa: E402
     HealthCheck,
     check_accounts_api,
     check_db,

@@ -23,7 +23,7 @@ if str(REPO_ROOT) not in sys.path:
 
 # Import the CLI module via a stable path. The script lives in bin/ and is
 # importable by file path.
-import importlib.util
+import importlib.util  # noqa: E402
 
 _CLI_SPEC = importlib.util.spec_from_file_location(
     "backtest_ict_cli",

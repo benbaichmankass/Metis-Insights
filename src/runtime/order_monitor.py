@@ -383,7 +383,6 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
         # happens; if multiple match, the close-side trade-row update
         # uses the most recent.
         try:
-            close_iso = datetime.now(timezone.utc).isoformat()
             close_updates = {
                 "status": "closed",
                 "exit_reason": reason,

@@ -94,7 +94,6 @@ def test_status_per_account_block_drops_service_name(monkeypatch):
     """§A5 — the per-account block must not contain the systemd unit name.
     Build one block by calling the same render path cmd_status uses.
     """
-    from src.bot import telegram_query_bot as bot
     # cmd_status's per-account snippet is inlined; we assert by looking at the
     # current source not containing the offending `{svc}`-in-account-block.
     src_path = REPO_ROOT / "src" / "bot" / "telegram_query_bot.py"

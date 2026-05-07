@@ -3,10 +3,8 @@ Enhanced ICT Visualization - TradingView Style
 With toggles and expiration logic for FVGs and Order Blocks
 """
 
-import sys
 from pathlib import Path
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 
 from src.data_layer.data_loader import load_data
 from src.ict_detection.swing_points import detect_swings
@@ -84,7 +82,7 @@ def create_enhanced_chart():
     df = load_data('btc_1m_sample.csv')
     df = df.tail(500).copy()
     
-    print(f"Using last 500 candles")
+    print("Using last 500 candles")
     print(f"Date range: {df.index[0]} to {df.index[-1]}")
     
     # Detect all patterns
@@ -269,9 +267,9 @@ def create_enhanced_chart():
     output_file = 'ict_enhanced_chart.html'
     fig.write_html(output_file, config={'displayModeBar': True, 'displaylogo': False})
     
-    print(f"\n✓ Enhanced chart saved!")
+    print("\n✓ Enhanced chart saved!")
     print(f"   Location: {Path.cwd()}/{output_file}")
-    print(f"\n📁 To view: Open 'ict_enhanced_chart.html' in Chrome")
+    print("\n📁 To view: Open 'ict_enhanced_chart.html' in Chrome")
     
     print("\n" + "="*60)
     print("IMPROVEMENTS:")

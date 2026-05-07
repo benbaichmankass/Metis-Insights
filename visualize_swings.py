@@ -3,10 +3,8 @@ Visualization script for swing points
 Saves an interactive chart as HTML file that you can open in any browser
 """
 
-import sys
 from pathlib import Path
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 
 from src.data_layer.data_loader import load_data
 from src.ict_detection.swing_points import detect_swings
@@ -21,7 +19,7 @@ def visualize_swing_points():
     
     # Use last 500 candles (easier to see on chart)
     df = df.tail(500).copy()
-    print(f"Using last 500 candles")
+    print("Using last 500 candles")
     print(f"Date range: {df.index[0]} to {df.index[-1]}")
     
     # Detect swings
@@ -74,7 +72,7 @@ def visualize_swing_points():
                 line=dict(color='darkgreen', width=2)
             ),
             name='Swing Low',
-            text=[f"Low: ${l:,.2f}" for l in swing_lows['low']],
+            text=[f"Low: ${lo:,.2f}" for lo in swing_lows['low']],
             hovertemplate='<b>Swing Low</b><br>%{text}<br>%{x}<extra></extra>'
         ))
     
@@ -157,12 +155,12 @@ def visualize_swing_points():
     output_file = 'swing_chart.html'
     fig.write_html(output_file)
     
-    print(f"\n✓ Chart saved successfully!")
+    print("\n✓ Chart saved successfully!")
     print(f"   Location: {Path.cwd()}/{output_file}")
-    print(f"\n📁 To view:")
-    print(f"   1. Find 'swing_chart.html' in your project folder")
-    print(f"   2. Drag it to Chrome (or any browser)")
-    print(f"   3. Interact with the chart (zoom, pan, hover)")
+    print("\n📁 To view:")
+    print("   1. Find 'swing_chart.html' in your project folder")
+    print("   2. Drag it to Chrome (or any browser)")
+    print("   3. Interact with the chart (zoom, pan, hover)")
     
     print("\n" + "="*60)
     print("LEGEND:")

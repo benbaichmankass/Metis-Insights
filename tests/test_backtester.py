@@ -9,8 +9,8 @@ import pytest
 pd = pytest.importorskip("pandas")
 np = pytest.importorskip("numpy")
 
-from datetime import datetime, timedelta
-from src.backtest.backtester import ICTBacktester, DEFAULT_CONFIG
+from datetime import datetime, timedelta  # noqa: E402
+from src.backtest.backtester import ICTBacktester, DEFAULT_CONFIG  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -201,7 +201,6 @@ def test_run_trade_keys():
 def test_run_capital_updated():
     df = _make_trending_candles(400, direction="up")
     bt = ICTBacktester(df, config={"min_fvg_size_pct": 0.0, "swing_lookback": 3})
-    initial = bt.capital
     bt.run()
     # Capital should have changed if any trades executed; otherwise stays the same
     assert isinstance(bt.capital, float)

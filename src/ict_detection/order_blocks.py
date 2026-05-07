@@ -3,8 +3,6 @@ Order Block Detection Module
 Identifies institutional buying and selling zones
 """
 
-import pandas as pd
-import numpy as np
 
 
 class OrderBlockDetector:

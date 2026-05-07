@@ -15,12 +15,8 @@ Flow under test:
 """
 from __future__ import annotations
 
-import os
-import sys
 import textwrap
-import tempfile
-from typing import Any, Dict
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 import pandas as pd
 import pytest
@@ -403,18 +399,17 @@ class TestTriggerBacktestFlow:
         queue = tmp_path / "queue.json"
         monkeypatch.setenv("BACKTEST_QUEUE_PATH", str(queue))
         coord.trigger_backtest("turtle_soup", config={"symbol": "ETHUSDT"})
-        lines = [json.loads(l) for l in queue.read_text().splitlines() if l.strip()]
+        lines = [json.loads(ln) for ln in queue.read_text().splitlines() if ln.strip()]
         assert len(lines) == 1
         assert lines[0]["strategy"] == "turtle_soup"
         assert lines[0]["symbol"] == "ETHUSDT"
 
     def test_multiple_triggers_append_lines(self, coord, tmp_path, monkeypatch):
-        import json
         queue = tmp_path / "queue.json"
         monkeypatch.setenv("BACKTEST_QUEUE_PATH", str(queue))
         coord.trigger_backtest("vwap")
         coord.trigger_backtest("turtle_soup")
-        lines = [l for l in queue.read_text().splitlines() if l.strip()]
+        lines = [ln for ln in queue.read_text().splitlines() if ln.strip()]
         assert len(lines) == 2
 
     def test_trigger_pushes_alert(self, coord, tmp_path, monkeypatch):
