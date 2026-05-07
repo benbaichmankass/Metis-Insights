@@ -36,19 +36,19 @@ When opening a session:
 
 | Field | Value |
 |---|---|
-| **Milestone** | M1 — Comms infrastructure (REOPENED 2026-05-07; deep audit required against new workplan) |
-| **Title** | M1 comms infrastructure deep audit (telegram-bot vs new workplan) |
-| **Type** | roadmap (auto-claude). M1 reopen. |
-| **Goal** | Produce a structured gap-list comparing on-disk telegram-bot implementation against `docs/claude/workplan.md` § "Telegram bots" + § "Required logs" + § "Repeatable operator-triggered workflows". Output is a prioritized backlog of follow-up sprints, not a code change. |
-| **Status** | 🔄 ACTIVE — next session opens **S-048** per `docs/sprints/sprint-048-prompt.md`. Tier 1 docs-only audit. **S-047 T3 is queued behind S-048 close** (operator directive 2026-05-07: comms cleanup runs first). |
-| **Active sprint** | **S-048 — M1 comms audit.** Prompt: `docs/sprints/sprint-048-prompt.md`. No prerequisite session — ready to start. |
-| **Active checkpoint** | T1 — audit telegram-bot side (`@bict_trading_bot`) against workplan § "Telegram bots" → notifications, operator commands, info menus. See sprint prompt § 4 (D1 D2 D3 D4 D5) for the full deliverable list and § 5 for method. |
-| **Risk tier (S-048 average)** | Tier 1 (docs-only audit). Code changes the audit recommends are filed as their own follow-up sprints at the appropriate tier. |
-| **Definition of done (S-048)** | D1 audit report at `docs/audits/M1-comms-audit-<date>.md`; D2 prioritized backlog at `docs/audits/M1-comms-audit-followups.md`; D3 milestone-state.md M1 row updated to verdict; D4 ROADMAP.md M1 row mirrors verdict; D5 close-checkpoint entry; sprint summary at `docs/sprint-summaries/sprint-048-summary.md`. CI green. |
+| **Milestone** | S-047 — bybit_2 Spot Margin enablement (live-trading priority sprint) |
+| **Title** | S-047 — VWAP true longs + shorts on bybit_2 via Bybit V5 Spot Margin |
+| **Type** | ad-hoc (live-trading priority); interleaves M1 audit and M5 per `operating-protocol.md` § 3. |
+| **Goal** | Per `docs/sprint-plans/S-047-bybit2-spot-margin.md` § 1 — VWAP takes both long + short BTCUSDT positions on `bybit_2` via Bybit V5 Spot Margin, with the RiskManager + dispatch + monitor + reconciler all treating Spot-Margin sells as borrowed-coin shorts. |
+| **Status** | 🔄 ACTIVE — **T1 / T2 / T3 / T4 shipped**; **T5 queued**. Operator merged PR #469 (T4) on 2026-05-07 ~16:24 UTC. |
+| **Active sprint** | **S-047 T5 — reconciler spot-margin awareness.** Plan row: `docs/sprint-plans/S-047-bybit2-spot-margin.md` § T5 + D7. |
+| **Active checkpoint** | T5 — `feat(monitor): spot-margin borrow-position reconciler`. The reconciler distinguishes (spot-margin / spot-cash / linear / inverse) and queries the right endpoint for each. Spot-cash and linear behaviour preserved. |
+| **Risk tier (T5)** | Tier 2 — live order routing / runtime orchestration. Draft PR + ping-PR + Merge/Hold buttons. |
+| **Definition of done (T5)** | D7 merged: `src/runtime/order_monitor.py::_reconcile_open_trades` reads the borrow-position endpoint for spot-margin accounts and the perp endpoint for derivatives accounts. Cash-spot stays a no-op there (no native positions). Regression tests for all four routing classes. Tier 2 — operator merge required. |
 
-**Operator action remaining: none.** S-048 runs autonomously — Tier 1 self-merge per operating-protocol § 4. Code follow-ups land in their own sprints at their own tiers.
+**Operator action remaining: T5 merge (when work-PR opens)** + the independent **Bybit web-UI Spot Margin toggle** on `bybit_2` (margin-agnostic — operator clicks on their own schedule; sprint does not block on it; until then `isLeverage=1` orders return retCode 110007 server-side and log via the existing `report_api_failure` path). Operator surfaced a live `170131 Insufficient balance` on `bybit_2` during the T4 session — diagnosed as most likely the toggle still being off (or UTA tier mismatch); independent of T4.
 
-**Next sprint after S-048 closes: S-047 T3** — unless S-048 surfaces a P0 audit gap, in which case the P0 follow-up runs first per the prompt's hand-off rule (§ 8). S-047 T3 = `feat(exec): route spot-margin orders via isLeverage=1` + `feat(coordinator): direction-aware balance for spot-margin accounts` (D4 + D5 land together — one diff is incoherent without the other). Plan: `docs/sprint-plans/S-047-bybit2-spot-margin.md` § T3. Tier 2/3 — will pause at the operator-merge gate.
+**S-048 (M1 comms audit) status:** moved off the queue head per operator directive — see "Queued milestones" below.
 
 ---
 
@@ -95,16 +95,18 @@ When opening a session:
 
 ## Queued milestones
 
-In execution order. Each row lists the gating condition to start. **Operator directive 2026-05-07: M1 comms cleanup (S-048) runs before S-047 T3.**
+In execution order. Each row lists the gating condition to start. Operator merged S-047 T3 and T4 ahead of S-048 (M1 comms audit) on 2026-05-07; the sprint is now closing out via T5 → T6 → T7 before any other milestone work resumes.
 
 | Order | Milestone / sprint | Type | Gating condition |
 |---|---|---|---|
-| 1 | **S-048 — M1 comms audit (telegram-bot deep dive)** | auto-claude (M1 reopen) | None — ready to start. Prompt: `docs/sprints/sprint-048-prompt.md`. |
-| 2 | **S-047 T3 close** (close S-047 cleanly: D4 + D5 + sprint-summary) | ad-hoc (live-trading) | S-048 closes. **Conditional override:** if S-048 surfaces a P0 audit gap, the P0 follow-up runs before T3 per the prompt's hand-off rule (§ 8). |
-| 3 | M5 — Strategy testing workflow | auto-claude | S-047 T3 closes (M1 audit may also surface dependencies M5 inherits). |
-| 4 | M6 — Web app UI (dashboard repo) | auto-claude | Independent — opened against `the-lizardking/ict-trader-dashboard`, not this repo. Focus order: live data feed first, then operator-control functionalities. |
-| 5 | M9 — AI / model roadmap | auto-claude | Independent of M5/M6. Could run in parallel. |
-| 6 | M10 — HF / data pipeline | auto-claude | Independent of M5/M6. Could run in parallel. |
+| 1 | **S-047 T5 — reconciler spot-margin awareness** (D7) | ad-hoc (live-trading) | None — ready to start. Plan: `docs/sprint-plans/S-047-bybit2-spot-margin.md` § T5. Tier 2 — will pause at operator-merge gate. |
+| 2 | **S-047 T6 — end-to-end live smoke + runbook** (D8) | ad-hoc (live-trading) | T5 closes. Live smoke needs Bybit web-UI Spot Margin toggle ON for `bybit_2`. |
+| 3 | **S-047 T7 — sprint close** (milestone-state + bug-log + summary) | docs-only (Tier 1) | T6 closes. |
+| 4 | **S-048 — M1 comms audit (telegram-bot deep dive)** | auto-claude (M1 reopen) | S-047 T7 closes. Prompt: `docs/sprints/sprint-048-prompt.md`. |
+| 5 | M5 — Strategy testing workflow | auto-claude | S-048 closes (M1 audit may surface dependencies M5 inherits). |
+| 6 | M6 — Web app UI (dashboard repo) | auto-claude | Independent — opened against `the-lizardking/ict-trader-dashboard`, not this repo. Focus order: live data feed first, then operator-control functionalities. |
+| 7 | M9 — AI / model roadmap | auto-claude | Independent of M5/M6. Could run in parallel. |
+| 8 | M10 — HF / data pipeline | auto-claude | Independent of M5/M6. Could run in parallel. |
 
 > M2 (Web app source of truth) — backend essentially done; formal close-out
 > deferred. Not a blocker for any queued milestone.
@@ -133,7 +135,9 @@ Full spec: `docs/claude/recurring-sessions.md`.
 
 > **Resolved 2026-05-07:**
 > - **S-015 pause/continue Tier 2 hold** — operator scratched S-015 entirely. M6 now proceeds in the dashboard repo per workplan boundary.
-> - **S-047 T2 (PR #459) operator-merge gate** — operator merged PR #459 at 2026-05-07 13:28 UTC. T3 unblocked; queued behind S-048 per operator directive. CHECKPOINT_LOG.md CP-12 entry's reference to PR #459 as DRAFT is now stale (operator merged it 6 minutes after CP-12 landed); the next checkpoint entry will reflect the merged state correctly.
+> - **S-047 T2 (PR #459) operator-merge gate** — operator merged PR #459 at 2026-05-07 13:28 UTC. CHECKPOINT_LOG.md CP-12 entry's reference to PR #459 as DRAFT is now stale (operator merged it 6 minutes after CP-12 landed); CP-13 reflects the merged state correctly.
+> - **S-047 T3 (PR #464) operator-merge gate** — operator merged PR #464 on 2026-05-07. CP-13 back-filled in CHECKPOINT_LOG.md by the T4 session (the T3 session shipped code + ping-PRs but did not author the close-checkpoint entry).
+> - **S-047 T4 (PR #469) operator-merge gate** — operator replied "merge" on 2026-05-07 ~16:24 UTC. T5 unblocked.
 
 ---
 
