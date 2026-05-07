@@ -705,16 +705,32 @@ class Coordinator:
             # 1. Per-account sizing — the only place qty is decided.
             try:
                 balance = float(fetcher(account))
-                # For spot accounts, override balance with direction-aware
-                # value so the sizer never produces a qty that exceeds what
-                # the account actually holds. Spot sell → use USD value of
-                # held base coin (e.g. BTC); spot buy → use free USDT.
-                # This prevents ErrCode 170131 (Insufficient balance) from
-                # Bybit when total-portfolio balance includes both BTC
-                # and USDT but the sell order can only spend BTC.
-                _market_type = getattr(account, "market_type", "spot") or "spot"
+                # Direction-aware balance override.
+                #
+                # Cash spot (``market_type: spot``): the account holds
+                #   real BTC and USDT, and a sell order can only spend
+                #   BTC while a buy can only spend USDT. Use the
+                #   direction-aware free balance so the sizer never
+                #   produces a qty that exceeds actual holdings. Without
+                #   this override, total-portfolio balance produces
+                #   Bybit ErrCode 170131 ("Insufficient balance") on
+                #   spot Sell when the wallet holds USDT.
+                #
+                # Spot margin (``market_type: spot-margin``, S-047 T3
+                #   D5): the account holds USDT collateral and borrows
+                #   the asset it doesn't have (BTC for shorts, USDT
+                #   notional for leveraged longs). Both directions size
+                #   from USDT collateral — the same primitive the
+                #   RiskManager spot-margin kernel (S-047 T2 D3)
+                #   consumes. Per-direction free-coin readings are
+                #   irrelevant: a USDT-only wallet must still be able
+                #   to short BTC.
+                _market_type = (
+                    getattr(account, "market_type", "spot") or "spot"
+                ).lower()
+                _is_spot_margin = _market_type == "spot-margin"
                 if (
-                    _market_type.lower() == "spot"
+                    _market_type in ("spot", "spot-margin")
                     and client is not None
                     and not effective_dry
                     and not bool(getattr(pkg, "meta", None) and (pkg.meta or {}).get("is_test"))
@@ -722,14 +738,18 @@ class Coordinator:
                     try:
                         from src.units.accounts.execute import _fetch_spot_coin_balances
                         _spot_bal = _fetch_spot_coin_balances(client, pkg.symbol)
-                        if pkg.direction == "short":
+                        if _is_spot_margin:
+                            balance = _spot_bal["quote_usdt"]
+                        elif pkg.direction == "short":
                             balance = _spot_bal["base_usd_value"]
                         else:
                             balance = _spot_bal["quote_usdt"]
                         logger.debug(
                             "multi_account_execute: spot balance override "
-                            "account=%s direction=%s symbol=%s balance=%.4f",
-                            account.name, pkg.direction, pkg.symbol, balance,
+                            "account=%s market_type=%s direction=%s "
+                            "symbol=%s balance=%.4f",
+                            account.name, _market_type, pkg.direction,
+                            pkg.symbol, balance,
                         )
                     except Exception as _spot_exc:  # noqa: BLE001
                         logger.warning(
@@ -737,7 +757,14 @@ class Coordinator:
                             "failed for %s (%s): %s — using total portfolio value",
                             account.name, pkg.symbol, _spot_exc,
                         )
-                sized_qty = account.risk_manager.position_size(pkg, balance)
+                # S-047 T3 (D5): forward the routing label as a primitive
+                # so the RiskManager spot-margin kernel (T2) applies its
+                # max_borrow / borrow-fee / liquidation-buffer rules.
+                # Default ``"spot"`` keeps non-spot-margin sizing
+                # bit-identical to the pre-T3 contract.
+                sized_qty = account.risk_manager.position_size(
+                    pkg, balance, market_type=_market_type,
+                )
             except Exception as exc:  # noqa: BLE001
                 logger.exception(
                     "multi_account_execute: position_size failed for %s: %s",
