@@ -46,26 +46,22 @@ When opening a session:
 | **Risk tier** | Tier 1 expected (tests, docs, bot command wiring). Tier 2 if validation logging touches the runtime pipeline. |
 | **Definition of done** | `/test <strategy_name>` Telegram command lands a structured request to the repo, picked up by the next session; validation logging schema defined; `docs/claude/backtest-workflow.md` runbook filed; M5 formally closed with sprint summary + checkpoint. |
 
-**Operator hold (do NOT start M6 / S-015 until hold lifted):**
-S-015 Web Client V2 pause/continue Tier 2 decision is pending — the sprint's scope
-conflicts with the workplan repo boundary (web UI belongs in the separate Vercel repo).
-
 ---
 
 ## M0..M10 status table
 
-> Last verified: 2026-05-07 (S-046 close). "Verified" = on-disk artifacts checked
+> Last verified: 2026-05-07 (intra-session handoff). "Verified" = on-disk artifacts checked
 > before accepting any prior "done" label.
 
 | Milestone | Focus | Status | Evidence / Notes |
 |---|---|---|---|
 | **M0** | Workflow foundation | ✅ CLOSED | S0 sprint done; `docs/sprint-summaries/sprint-S0-summary.md` exists; CP-2026-05-06-S0-02 in checkpoint log |
 | **M1** | Comms infrastructure | ✅ CLOSED | S-042 closed 2026-05-06. Pipeline audit passed; smoke-test ping dispatched; telegram-pings.md updated; tests extended. `ict-claude-bridge.service` confirmed active. |
-| **M2** | Web app source of truth (backend) | 🔄 PARTIAL | S-013 FastAPI backend (`/api/status`, `/api/pnl`, JWT auth) built in this repo. Dashboard consumer side must be built in the separate dashboard repo (Vercel). Not formally closed under M0..M10. |
+| **M2** | Web app source of truth (backend) | 🔄 PARTIAL | S-013 FastAPI backend (`/api/status`, `/api/pnl`, JWT auth) built in this repo. S-014 added `/api/bot/{stats,logs,positions,signals}` for the Vercel dashboard + CORS middleware keyed to `DASHBOARD_ORIGIN`. Dashboard reachability fix landed 2026-05-07 (Vercel rewrite proxies `/api/bot/*` to the bot, defeats HTTPS→HTTP mixed-content block). Backend side considered effectively complete; not formally closed under M0..M10 because formal close-out paperwork was never filed. |
 | **M3** | Risk controls foundation | ✅ CLOSED | S-043 closed 2026-05-06. Order-layer refusal tests now complete (28 new gap-closer tests in `tests/test_s043_order_refusal_paths.py`). Risk engine + kill switch + risk caps + reason-token contract all pinned. |
-| **M4** | Repo hygiene + CI | ✅ CLOSED | S-044 (CI suite) ✅; S-045 (conftest + pytest-collect blocking + ruff default) ✅; post-S-045 follow-up (auto-sync branch protection workflow) ✅; **S-046 (2026-05-07) closed the three Janitor audits — 8 dead files removed, `src/ui/` shim consolidated into `src/units/ui/`, missing-test gap closed for `src/units/db/data_loader.py`.** Operator-hold lint residuals routed via PR #443 (DRAFT) + ping-PR #444. M4 formally closed. |
-| **M5** | Strategy testing workflow | 📋 NOT STARTED | Telegram-triggered test flow, validation logging, backtest workflow docs not yet built. **Now the active milestone — S-047 will kick it off.** |
-| **M6** | Web app UI | ⛔ BLOCKED | S-014 (Web Client V1) built UI in this repo; S-015 kickoff done 2026-05-06. Workplan boundary requires UI in separate Vercel dashboard repo. S-015 pause/continue under operator hold. |
+| **M4** | Repo hygiene + CI | ✅ CLOSED | S-044 (CI suite) ✅; S-045 (conftest + pytest-collect blocking + ruff default) ✅; post-S-045 follow-up (auto-sync branch protection workflow) ✅; S-046 (2026-05-07) closed the three Janitor audits — 8 dead files removed, `src/ui/` shim consolidated into `src/units/ui/`, missing-test gap closed for `src/units/db/data_loader.py`. M4 formally closed. |
+| **M5** | Strategy testing workflow | 📋 NOT STARTED | Telegram-triggered test flow, validation logging, backtest workflow docs not yet built. **Active milestone — S-047 will kick it off.** |
+| **M6** | Web app UI | 🔄 IN PROGRESS (dashboard repo) | S-014 V1 React/Vite SPA shipped 2026-05-07 in `the-lizardking/ict-trader-dashboard`. S-015 V2 plan **scratched 2026-05-07** per operator. Connection bug fix landed (dashboard PR #2) the same day — Vercel rewrite proxies `/api/bot/*` to the bot VPS, dashboard now reaches the API and renders live status. **Next webapp sprint focus (file in `ict-trader-dashboard`, not here):** (1) replace mock data feeds with live `/api/bot/*` data — the equity chart, `Active ICT Strategies` list, `Trading Conditions` panel are all hard-coded; positions and signals endpoints exist but are not yet wired into the UI; (2) build out functionalities per workplan § "AI Trader Bot — Operator commands" — Forced Stop button, killswitch, close-all-positions, account live/dry-run toggle. Phase order is read-only data first, then interactive controls (workplan § "Dashboard build order"). |
 | **M7** | Strategy review gate | 📋 NOT STARTED | |
 | **M8** | Strategy tuning | 📋 NOT STARTED | |
 | **M9** | AI / model roadmap | 📋 NOT STARTED | S-005 (model monitor) and S-006 (model registry) built under old framing; formal M9 not started. |
@@ -99,13 +95,12 @@ In workplan execution order. Each row lists the gating condition to start.
 | Order | Milestone | Type | Gating condition |
 |---|---|---|---|
 | 1 | M5 — Strategy testing workflow | auto-claude | M4 closed ✅. Active — S-047 to file next. |
-| 2 | M9 — AI / model roadmap | auto-claude | Independent of M5. Could run in parallel. |
-| 3 | M10 — HF / data pipeline | auto-claude | Independent of M5. Could run in parallel. |
+| 2 | M6 — Web app UI (dashboard repo) | auto-claude | Bot side endpoints + connectivity confirmed 2026-05-07. Next session opens against `the-lizardking/ict-trader-dashboard`, not this repo. Focus order: live data feed first, then operator-control functionalities. |
+| 3 | M9 — AI / model roadmap | auto-claude | Independent of M5/M6. Could run in parallel. |
+| 4 | M10 — HF / data pipeline | auto-claude | Independent of M5/M6. Could run in parallel. |
 
-> M2 (Web app source of truth) — backend done in this repo. Dashboard consumer needs
-> a session in the dashboard repo. Not a blocker for M5.
->
-> M6 (Web app UI) — blocked pending S-015 operator hold resolution.
+> M2 (Web app source of truth) — backend essentially done; formal close-out
+> deferred. Not a blocker for M5 or M6.
 >
 > M7–M10 follow the workplan sequence.
 
@@ -127,8 +122,10 @@ Full spec: `docs/claude/recurring-sessions.md`.
 
 | Blocker | Owner | Opened | Notes |
 |---|---|---|---|
-| S-015 pause/continue (Tier 2) | Operator | 2026-05-06 | Workplan boundary requires web UI in separate Vercel repo; pause/continue is an operator hold. Do not execute T1+ of S-015 until hold lifted. |
 | BUG-057 diagnostic review | VM logs | 2026-05-06 | Diagnostic logging shipped PR #424. Awaiting next live VWAP rejection with `BUG-057-DIAG` log lines in `journalctl`. |
+
+> **Resolved 2026-05-07:** S-015 pause/continue Tier 2 hold — operator scratched
+> S-015 entirely. M6 now proceeds in the dashboard repo per workplan boundary.
 
 ---
 
