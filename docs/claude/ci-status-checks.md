@@ -19,7 +19,7 @@ single command you can re-run locally.
 
 | Workflow | File | Trigger | Gate | Local equivalent |
 |---|---|---|---|---|
-| `pytest-collect` | `.github/workflows/pytest-collect.yml` | `pull_request` to `main`, `push` to `main` | **blocking** | `PYTHONPATH=. pytest --collect-only -q tests/ --ignore=tests/test_main_loop.py` |
+| `pytest-collect` | `.github/workflows/pytest-collect.yml` | `pull_request` to `main`, `push` to `main` | advisory (S-044) | `PYTHONPATH=. pytest --collect-only -q tests/ --ignore=tests/test_main_loop.py --continue-on-collection-errors` |
 | `secret-scan` | `.github/workflows/secret-scan.yml` | `pull_request` to `main`, `push` to `main` | **blocking** | `python scripts/secret_scan.py` |
 | `ruff-lint` | `.github/workflows/ruff-lint.yml` | `pull_request` to `main`, `push` to `main` | **blocking** | `ruff check . --select E9,F63,F7` |
 | `repo-inventory` | `.github/workflows/repo-inventory.yml` | `pull_request` to `main`, `push` to `main` | advisory | `python scripts/repo_inventory.py` |
@@ -27,23 +27,28 @@ single command you can re-run locally.
 | `hf-cron` | `.github/workflows/hf-cron.yml` | `schedule` (HF dataset publish) | n/a | not PR-gating |
 | `training-run` | `.github/workflows/training-run.yml` | `workflow_dispatch` | n/a | not PR-gating |
 
-**Required status checks on `main`** (per S-044 success criteria):
-`pytest-collect`, `secret-scan`, `ruff-lint`, `dry-run-guard`. The
-`repo-inventory` job stays advisory until ≥ 5 PRs have run it; promotion
-is a follow-up sprint.
+**Required status checks on `main`** (post-S-044 actual): `secret-scan`,
+`ruff-lint`, `dry-run-guard`. `pytest-collect` and `repo-inventory` are
+advisory. The S-044 prompt assumed `pytest-collect` would also be
+blocking, but the test suite carries 45 pre-existing collection errors
+caused by `tests/conftest.py`'s telegram/MagicMock stub clashing with
+`src/bot/comms_handler.py`'s `from telegram.error import TelegramError`.
+Fixing that requires `tests/conftest.py` edits which are outside S-044's
+unit-boundary declaration. Promotion of `pytest-collect` to blocking is
+the closing step of the follow-up Janitor sprint.
 
 ---
 
 ## Per-workflow details
 
-### `pytest-collect`
+### `pytest-collect` (advisory — S-044)
 
 - **What it does.** Installs `requirements.txt` + `requirements-test.txt`
   on Python 3.11, then runs
-  `pytest --collect-only -q tests/ --ignore=tests/test_main_loop.py`.
-  Collection-only — tests do **not** execute. Catches: import errors,
-  fixture name collisions, broken `conftest.py` setup, mis-spelled
-  `pytest.mark.*`, missing test deps.
+  `pytest --collect-only -q tests/ --ignore=tests/test_main_loop.py
+  --continue-on-collection-errors`. Collection-only — tests do **not**
+  execute. Surfaces: import errors, fixture name collisions, broken
+  `conftest.py` setup, mis-spelled `pytest.mark.*`, missing test deps.
 - **Why collect-only.** Full pytest needs the live data layer +
   market connectors and is not yet sandbox-safe. Promotion to a full
   test run is a separate sprint after the test suite is stabilised
@@ -51,11 +56,22 @@ is a follow-up sprint.
 - **Why ignore `tests/test_main_loop.py`.** That module imports
   `src.main`, which imports the live trading entrypoint. CLAUDE.md's
   "Default verification" section excludes it for the same reason.
+- **Why advisory today.** `tests/conftest.py` stubs `telegram` /
+  `telegram.ext` as `MagicMock` for the bot tests. But
+  `src/bot/comms_handler.py` does `from telegram.error import
+  TelegramError` — `telegram.error` isn't on the MagicMock, so any
+  test that transitively imports `comms_handler` fails to collect.
+  Today's baseline is ~45 collection errors of this shape. Fixing
+  it requires `tests/conftest.py` edits, which are outside S-044's
+  unit-boundary. The S-044 workflow logs the failures (visible in the
+  Actions run output) but does not gate the PR. The Janitor sprint
+  fixes conftest, drops the `|| true` shim from this workflow, and
+  flips the gate to blocking.
 - **Debug.** Reproduce with the local equivalent above. If the failure
   is a missing dep, add it to `requirements-test.txt` (not the runtime
   `requirements.txt`). If it's a collection error in a test module
-  the sprint touched, fix in that PR. If it's pre-existing, file a
-  Janitor sprint and link from the PR body.
+  the sprint touched, fix in that PR. If it's the telegram-stub baseline,
+  do not paper over it — let the Janitor sprint handle it.
 
 ### `secret-scan`
 
@@ -129,14 +145,14 @@ is a follow-up sprint.
 After this sprint lands, the operator (or Claude with admin token)
 should configure required checks on `main` to include:
 
-- `pytest-collect`
 - `secret-scan`
 - `ruff-lint`
 - `dry-run-guard`
 
-`repo-inventory` stays unticked (advisory). The other workflows
-(`hf-cron`, `training-run`) are not PR-triggered and do not appear in
-the branch-protection list.
+`pytest-collect` and `repo-inventory` stay unticked (advisory) until
+their respective baseline conditions are met (see per-workflow detail
+above). The other workflows (`hf-cron`, `training-run`) are not
+PR-triggered and do not appear in the branch-protection list.
 
 Verify with:
 

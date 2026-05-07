@@ -34,7 +34,7 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 | Check | Status |
 |---|---|
-| pytest-collect workflow file present + triggers on PR + push to main | ✅ |
+| pytest-collect workflow file present + triggers on PR + push to main | ✅ (advisory — deviation from prompt; see § 4) |
 | secret-scan workflow file present + uses scripts/secret_scan.py exit code | ✅ |
 | repo-inventory workflow file present + uploads artifact + advisory only | ✅ |
 | ruff-lint workflow file present + passes on current main with E9/F63/F7 | ✅ |
@@ -62,7 +62,8 @@ No `src/`, `tests/`, `config/`, or `deploy/` changes.
 
 ### 4. Remaining / Deferred
 
-- **Branch protection wiring** — operator (or admin-token Claude) must add `pytest-collect`, `secret-scan`, `ruff-lint` to required status checks on `main` after merge. Steps in `docs/claude/ci-status-checks.md` § "Branch protection wiring".
+- **Branch protection wiring** — operator (or admin-token Claude) must add `secret-scan`, `ruff-lint`, `dry-run-guard` to required status checks on `main` after merge. `pytest-collect` and `repo-inventory` stay advisory pending follow-ups. Steps in `docs/claude/ci-status-checks.md` § "Branch protection wiring".
+- **Conftest.py telegram-stub cleanup → `pytest-collect` promotion to blocking.** First CI run revealed `tests/conftest.py` stubs `telegram` / `telegram.ext` as `MagicMock` without exposing `telegram.error` (the attr `src/bot/comms_handler.py` imports). 45 test files fail collection today. Fixing the stub (or installing `python-telegram-bot` and removing the stub) drops the workflow's `|| true` shim and flips it to blocking. **This was a deviation from the S-044 prompt's success criteria** — the prompt assumed `pytest-collect` would be blocking on first run; the on-disk state didn't match. Verify-before-trusting-done principle applied: shipped advisory + documented deviation rather than mass-edit `tests/conftest.py` outside the unit-boundary declaration. Janitor candidate.
 - **Ruff rule expansion** — current `main` carries 286 hits across the broader rule set. S-045 Janitor candidate.
 - **`repo-inventory` promotion** — stays advisory until ≥ 5 PRs observed; promotion is its own follow-up.
 - **Full pytest in CI** — needs sandbox-safe data layer + market connectors first; separate sprint.

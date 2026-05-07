@@ -25,14 +25,25 @@ remaining"; the next sprint (S-045) picks up Janitor.
   unit-boundary declaration, hard guardrails, success criteria).
 - `CP-2026-05-07-02-s044-kickoff` prepended to CHECKPOINT_LOG.
 
-### T1 — `pytest-collect.yml`
+### T1 — `pytest-collect.yml` (shipped advisory; deviation from prompt — see below)
 - New workflow runs on `pull_request` and `push` to `main`.
 - Installs `requirements.txt` + `requirements-test.txt` on Python 3.11.
-- Runs `PYTHONPATH=. pytest --collect-only -q tests/ --ignore=tests/test_main_loop.py`.
-- Fails the PR on any collection error (import, fixture, conftest, etc.).
+- Runs `PYTHONPATH=. pytest --collect-only -q tests/ --ignore=tests/test_main_loop.py --continue-on-collection-errors`.
 - The `--ignore` matches CLAUDE.md's "Default verification" + sprint-completion
   guidance — `test_main_loop` imports the live trading entrypoint and is not
   sandbox-safe.
+- **Shipped as advisory, not blocking.** The S-044 prompt's success criteria
+  list `pytest-collect` as a required status check, but on first run we hit
+  a pre-existing baseline of ~45 collection errors, all caused by
+  `tests/conftest.py` stubbing `telegram` / `telegram.ext` as `MagicMock` —
+  any test that transitively imports `src/bot/comms_handler.py` fails because
+  `from telegram.error import TelegramError` finds no `telegram.error`
+  attribute on the MagicMock. Fixing this requires `tests/conftest.py`
+  edits, which are outside S-044's unit-boundary declaration ("No `tests/`").
+  Promotion to blocking is the closing step of the follow-up Janitor
+  sprint after `conftest.py` is cleaned up. The workflow uses
+  `--continue-on-collection-errors` and a `|| true` shim so the run still
+  surfaces the failure list in the Actions output without gating the PR.
 
 ### T2 — `secret-scan.yml` + `repo-inventory.yml`
 - `secret-scan.yml`: blocking. Runs `python scripts/secret_scan.py`; same
@@ -136,16 +147,25 @@ entirely `.github/workflows/`, `docs/`, and the new top-level
 ## Deferred items / follow-ups
 
 1. **Branch protection wiring.** After this PR merges, the operator
-   (or Claude with admin token) must add `pytest-collect`, `secret-scan`,
-   and `ruff-lint` to required status checks on `main`. Documented in
+   (or Claude with admin token) must add `secret-scan`, `ruff-lint`,
+   and `dry-run-guard` to required status checks on `main`.
+   `pytest-collect` and `repo-inventory` stay advisory pending their
+   respective follow-ups. Documented in
    `docs/claude/ci-status-checks.md` § "Branch protection wiring".
-2. **Ruff rule expansion.** Current rule set is `E9,F63,F7`. Expanding
+2. **Conftest.py telegram-stub cleanup → `pytest-collect` promotion.**
+   `tests/conftest.py` stubs `telegram` / `telegram.ext` as `MagicMock`
+   without exposing `telegram.error` (the attribute
+   `src/bot/comms_handler.py` imports). 45 test files fail collection
+   today as a result. Fixing the stub (or installing
+   `python-telegram-bot` and removing the stub) drops the workflow's
+   `|| true` shim and flips it to blocking. Janitor candidate.
+3. **Ruff rule expansion.** Current rule set is `E9,F63,F7`. Expanding
    to default (E402, F401, F541, F811, F821, F841 …) requires fixing
    286 pre-existing hits — bundle into the next Janitor sprint
    (S-045 candidate).
-3. **`repo-inventory` promotion to blocking.** Stays advisory until
+4. **`repo-inventory` promotion to blocking.** Stays advisory until
    ≥ 5 PRs have run it and the operator confirms the artifact is useful.
-4. **Full pytest run in CI.** Today's workflow is collect-only — full
+5. **Full pytest run in CI.** Today's workflow is collect-only — full
    execution needs the live data layer + market connectors stabilised
    end-to-end. Separate sprint after the test suite is sandbox-safe.
 
@@ -165,3 +185,14 @@ entirely `.github/workflows/`, `docs/`, and the new top-level
 3. **Advisory artifacts are valuable.** Making `repo-inventory`
    advisory-with-artifact (rather than blocking-or-omitted) gives
    the operator drift visibility without paying review-cycle cost.
+4. **A sprint prompt's success criteria can collide with on-disk
+   reality.** S-044's prompt assumed `pytest-collect` would be
+   blocking; first run revealed a 45-error baseline driven by a
+   pre-existing test-isolation bug. The right call was to ship the
+   workflow advisory + document the deviation, not to either
+   (a) silently mass-edit `tests/conftest.py` to satisfy the
+   prompt or (b) abandon the workflow. Future sprint prompts that
+   propose "blocking" gates should have the resuming session
+   verify on-disk state passes the gate before locking in the
+   "blocking" label — same verify-before-trusting-done principle
+   the workplan applies to "done" labels.
