@@ -180,6 +180,80 @@ def _f(x: Any, default: float = 0.0) -> float:
         return default
 
 
+def _spot_margin_open_positions(client: Any) -> list:
+    """S-047 T5 (D7) — synthesise exchange-side positions for a Bybit
+    Spot Margin account from its ``get_wallet_balance`` snapshot.
+
+    A cash-spot wallet has no on-exchange "positions" — coin holdings
+    sit as walletBalance, USDT pays for them. **Spot Margin is
+    different**: a sell with ``isLeverage=1`` borrows base coin
+    (e.g. BTC) at the exchange, which surfaces as
+    ``coin.borrowAmount > 0`` for that base coin. A leveraged buy
+    borrows USDT to fund extra base-coin acquisition; the resulting
+    base coin shows up as ``coin.walletBalance > 0`` (even though
+    USDT is the borrowed leg).
+
+    The reconciler in ``src/runtime/order_monitor.py::_reconcile_open_trades``
+    matches DB-open trades against this list using ``(symbol, side)``
+    pairs. Match semantics:
+
+      * **Short on `<COIN>USDT`**: ``COIN.borrowAmount > 0`` →
+        emit ``{symbol: "<COIN>USDT", side: "short", size: borrowAmount}``.
+        The borrow IS the position; closing the trade repays it.
+      * **Long on `<COIN>USDT`**: ``COIN.walletBalance > 0`` →
+        emit ``{symbol: "<COIN>USDT", side: "long", size: walletBalance}``.
+        Pragmatic — wallet base-coin holdings can stem from a manual
+        deposit OR a leveraged buy that hasn't been closed yet, but
+        the reconciler's job is "is this DB-open trade still alive on
+        exchange?" — and a non-zero wallet balance means **yes, it
+        could be**, so do not orphan. False negatives (don't orphan
+        a stale row) are safer than false positives (orphan a live
+        trade) per the BUG-042 design.
+
+    USDT itself is excluded from synthesis: it's the quote coin in
+    every spot-margin pair on this account; the long-side "position"
+    is captured via the base coin's walletBalance, not via USDT
+    holdings/borrows. Including USDT would emit a phantom
+    ``USDTUSDT`` row that matches nothing.
+
+    Returns ``[]`` when the wallet snapshot is empty / unparseable
+    (best-effort — same shape as the cash-spot path).
+    """
+    try:
+        resp = client.get_wallet_balance(accountType="UNIFIED") or {}
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("_spot_margin_open_positions: wallet read failed: %s", exc)
+        return []
+    coins = (
+        ((resp.get("result") or {}).get("list") or [{}])[0].get("coin", [])
+    )
+    out: list = []
+    for coin in coins:
+        ticker = (coin.get("coin") or "").upper()
+        if not ticker or ticker == "USDT":
+            continue
+        symbol = f"{ticker}USDT"
+        wallet = _f(coin.get("walletBalance"))
+        borrow = _f(coin.get("borrowAmount"))
+        if borrow > 0:
+            out.append({
+                "symbol": symbol,
+                "side": "short",
+                "size": borrow,
+                "entry_price": 0.0,
+                "unrealised_pnl": 0.0,
+            })
+        if wallet > 0:
+            out.append({
+                "symbol": symbol,
+                "side": "long",
+                "size": wallet,
+                "entry_price": 0.0,
+                "unrealised_pnl": 0.0,
+            })
+    return out
+
+
 def account_open_positions(
     account: Dict[str, Any],
 ) -> Optional[list]:
@@ -210,13 +284,28 @@ def account_open_positions(
             from src.units.accounts.execute import _bybit_category
             category = _bybit_category(account)
             if category == "spot":
-                # Spot has no derivative-style positions; "open" trades
-                # for spot accounts are tracked by the trade journal /
-                # order packages log. ``account_open_positions`` is
-                # specifically the exchange-side perp position view —
-                # return an empty list so callers do not surface a
-                # phantom "no positions" warning derived from a
-                # mis-categorised v5 ``/position/list`` query.
+                # Cash spot has no derivative-style positions; "open"
+                # trades for spot accounts are tracked by the trade
+                # journal / order packages log. ``account_open_positions``
+                # is specifically the exchange-side position view — return
+                # an empty list so callers do not surface a phantom "no
+                # positions" warning derived from a mis-categorised v5
+                # ``/position/list`` query.
+                #
+                # S-047 T5 (D7): spot-margin is the exception. A
+                # spot-margin sell with ``isLeverage=1`` borrows base
+                # coin (e.g. BTC) at the exchange — that borrow IS the
+                # exchange-side short position, surfaced via
+                # ``walletBalance.coin[i].borrowAmount > 0``. A
+                # leveraged buy borrows USDT to fund extra base coin,
+                # which shows up as base-coin ``walletBalance > 0``.
+                # Synthesise both as ``{symbol, side, size}`` rows so
+                # the BUG-042 reconciler matches DB-open spot-margin
+                # trades against live exchange state and stops orphaning
+                # them on every tick.
+                from src.units.accounts.execute import _is_spot_margin
+                if _is_spot_margin(account):
+                    return _spot_margin_open_positions(client)
                 return []
             resp = client.get_positions(category=category, settleCoin="USDT")
             raw = resp.get("result", {}).get("list", []) if isinstance(resp, dict) else []
