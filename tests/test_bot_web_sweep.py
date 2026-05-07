@@ -12,7 +12,20 @@ for _mod in ("dotenv",):
 
 # fastapi isn't a hard dep on every dev/CI host; stub for tests that
 # import the web routers.
-if "fastapi" not in sys.modules:
+#
+# S-045 T1: the original guard was `if "fastapi" not in sys.modules`,
+# which checks whether fastapi has already been imported. On a fresh
+# sandbox the check passes and the MagicMock stub is installed —
+# but then `from fastapi.testclient import TestClient` in
+# test_web_api_*.py later fails with "fastapi is not a package"
+# because pytest has already cached our stub. The correct guard is
+# "try a real import; only stub if truly absent" so CI (where
+# fastapi IS installed via requirements-test.txt) keeps the real
+# package and the web-API tests collect cleanly.
+try:  # pragma: no cover — env-dependent guard
+    import fastapi  # noqa: F401
+    import fastapi.testclient  # noqa: F401
+except ImportError:
     fastapi = MagicMock()
 
     class _APIRouter:
@@ -35,8 +48,10 @@ if "fastapi" not in sys.modules:
     sys.modules["fastapi"] = fastapi
 
 # Stub src.web.api.auth so importing pnl doesn't drag in jwt/cryptography
-# (not available in some test envs).
-if "src.web.api.auth" not in sys.modules:
+# (not available in some test envs). Same try/except shape as fastapi above.
+try:  # pragma: no cover — env-dependent guard
+    import src.web.api.auth  # noqa: F401
+except ImportError:
     auth_stub = MagicMock()
     auth_stub.require_session = lambda: {}
     sys.modules["src.web.api.auth"] = auth_stub

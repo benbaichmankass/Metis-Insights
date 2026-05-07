@@ -32,6 +32,13 @@ httpx>=0.27.0
 jinja2>=3.0.0
 pyjwt>=2.8.0
 
+# pydantic[email] needs `email-validator` as a separate package; the
+# web-API auth router uses `EmailStr` so collection of any
+# `tests/test_web_api_*.py` fails without it. Added in S-045 T1
+# alongside the conftest telegram-stub fix to take pytest-collect to
+# 0 errors.
+email-validator>=2.0.0
+
 # pyyaml is a production runtime dep (requirements.txt) but also
 # needed at test-collection time — many test modules import yaml
 # directly without a try/except guard. Listed here so the
@@ -50,16 +57,14 @@ yfinance>=0.2.0
 # python-telegram-bot>=20.0
 
 # =============================================================================
-# Known collection errors NOT fixed by adding deps (as of 2026-05-03):
+# Known collection errors NOT fixed by adding deps:
 #
-# 1. "No module named 'fastapi.testclient'" / "No module named
-#    'telegram.error'" — test-isolation bug: some test files stub
-#    `fastapi` / `telegram` as MagicMock via sys.modules.setdefault()
-#    at module scope; pytest's collection order causes the stub to win
-#    before tests that need the real package, making submodule lookups
-#    fail with "X is not a package". Fix: convert the stubs to
-#    pytest fixtures or conftest session-level patches so they only
-#    apply within the test that needs them.  Not a missing dep.
+# 1. (resolved 2026-05-07, S-045 T1) "No module named 'telegram.error'" /
+#    "No module named 'fastapi.testclient'" — see BUG-062 in
+#    `docs/claude/bug-log.md`. The conftest.py stub now exposes the full
+#    `telegram.{error,constants,ext}` surface, and `test_bot_web_sweep.py`
+#    converted its `if "fastapi" not in sys.modules` guard to the correct
+#    try/except shape so a real fastapi install (CI) is preferred.
 #
 # 2. "pyo3_runtime.PanicException: Python API call failed" on jwt /
 #    cryptography — the system-installed jwt/cryptography package has a
