@@ -349,7 +349,7 @@ def check_accounts_api() -> HealthCheck:
             failed.append(aid)
 
     total = len(accounts)
-    ok_count = total - len(failed)
+    total - len(failed)
     if not failed:
         return _ok(name, f"all {total} accounts API ok", total=total)
     return _warn(

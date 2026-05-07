@@ -196,7 +196,7 @@ class TestLiveBalanceFetcher:
         uses each row's total_usdt as the per-account balance."""
         from src.core.coordinator import Coordinator
 
-        accounts = self._stub_accounts(monkeypatch)
+        self._stub_accounts(monkeypatch)
         accounts_path = tmp_path / "accounts.yaml"
         accounts_path.write_text("accounts: {}\n")
 
