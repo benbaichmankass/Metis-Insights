@@ -21,9 +21,12 @@ import importlib
 import logging
 import os
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 import yaml
+
+if TYPE_CHECKING:
+    from src.units.accounts.account import TradingAccount
 
 logger = logging.getLogger(__name__)
 
