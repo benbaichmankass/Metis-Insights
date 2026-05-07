@@ -402,6 +402,8 @@ class RiskManager:
         self,
         package: OrderPackage,
         balance_usd: float,
+        *,
+        market_type: str = "spot",
     ) -> float:
         """Return the qty to trade for *package* given *balance_usd*.
 
@@ -424,6 +426,48 @@ class RiskManager:
         ``min_balance_usd`` — the account is too small to size into a
         meaningful position.
 
+        S-047 T2 — spot-margin sizing
+        -----------------------------
+        When *market_type* is ``"spot-margin"`` (the routing label
+        T1 shipped on `bybit_2`; passed through as a primitive by the
+        caller — RiskManager does not inspect TradingAccount), the
+        sizer additionally applies three rules on top of the existing
+        risk-based qty:
+
+          1. ``max_borrow_btc`` is a sizing **cap** — qty is clipped
+             to fit. Same shape as the `min_qty` floor below: a
+             configured boundary, not a refusal.
+          2. ``borrow_fee_apr_pct`` implies a daily fee accrual at
+             the proposed qty. If that fee exceeds the remaining
+             daily-loss budget, qty is scaled down to fit. Same
+             shape as the existing daily-loss-budget gate (S-026 G3).
+          3. ``liquidation_buffer_pct`` is checked against the SL
+             distance. The liquidation distance implied by the
+             proposed qty + USDT collateral is roughly
+             ``balance_usd / qty`` (ignoring maintenance margin for
+             a conservative estimate). When ``risk_distance`` >=
+             ``(1 - buffer) * liquidation_distance``, the SL would
+             trigger no earlier than the liquidation buffer allows
+             — refuse to size (return 0.0). Same refusal shape as
+             ``min_balance_usd``: a risk-manager rule, not a new gate.
+             Long positions whose notional fits inside USDT
+             collateral (no borrow needed) skip the buffer check —
+             no leverage, no liquidation.
+
+        For both spot-margin directions, ``balance_usd`` is interpreted
+        as USDT collateral. Longs use it to buy BTC (with optional
+        borrow when notional > collateral); shorts borrow BTC against
+        it. The single ``balance_usd`` input is the same primitive
+        the caller already passes; the caller decides which collateral
+        to use upstream (the coordinator's direction-aware balance
+        fetch in T3 will give the same number on both sides for
+        spot-margin accounts).
+
+        Non-spot-margin sizing is **bit-identical** to the pre-T2
+        contract: when *market_type* is anything other than
+        ``"spot-margin"`` (default ``"spot"``), the spot-margin
+        block is skipped entirely.
+
         Notes
         -----
         - No hard-coded max-position cap (operator directive S-026 G2).
@@ -442,6 +486,10 @@ class RiskManager:
         - **Floor rounding (S-026 G3):** the step-size rounding is
           *floor* not banker's, so the realised risk never exceeds the
           configured cap by one step.
+        - **Daily-loss-budget rule wins on conflict (S-047 T2):** the
+          existing daily-loss refusal runs **before** the spot-margin
+          block, so an exhausted budget refuses regardless of
+          spot-margin params.
         """
         if _is_test_order(package):
             return float((package.meta or {}).get("test_qty") or _DEFAULT_TEST_QTY)
@@ -487,6 +535,72 @@ class RiskManager:
             qty = _floor_to_step(scaled, self.qty_precision)
             if qty < self.min_qty:
                 return 0.0
+
+        if market_type == "spot-margin":
+            qty = self._apply_spot_margin_rules(
+                package=package,
+                balance_usd=balance_usd,
+                qty=qty,
+                risk_distance=risk_distance,
+                loss_budget_remaining=loss_budget_remaining,
+            )
+
+        return qty
+
+    def _apply_spot_margin_rules(
+        self,
+        *,
+        package: OrderPackage,
+        balance_usd: float,
+        qty: float,
+        risk_distance: float,
+        loss_budget_remaining: float,
+    ) -> float:
+        """S-047 T2 — spot-margin sizing rules layered on the base sizer.
+
+        Three rules in order: max-borrow CAP → borrow-fee SCALE →
+        liquidation-buffer REFUSAL. See ``position_size`` docstring for
+        the rationale. Returns the adjusted qty (or 0.0 on refusal).
+
+        Pulled out as a helper so the base sizing kernel stays
+        readable and the spot-margin-specific math has one place to
+        live for future tuning. Non-spot-margin callers never reach
+        this path.
+        """
+        # 1. max_borrow_btc CAP — clip qty to fit, floor to step-size.
+        if qty > self.max_borrow_btc:
+            qty = _floor_to_step(self.max_borrow_btc, self.qty_precision)
+            if qty < self.min_qty:
+                return 0.0
+
+        # 2. Borrow-fee budget SCALE — daily fee accrual at the
+        #    proposed qty must fit inside the remaining daily-loss
+        #    budget. Daily fee = notional × (apr/100) / 365.
+        apr_per_day = (self.borrow_fee_apr_pct / 100.0) / 365.0
+        if apr_per_day > 0 and package.entry > 0:
+            notional_usd = qty * package.entry
+            daily_fee_usd = notional_usd * apr_per_day
+            if daily_fee_usd > loss_budget_remaining:
+                # Solve qty * entry * apr_per_day = budget for qty.
+                scaled = loss_budget_remaining / (package.entry * apr_per_day)
+                qty = _floor_to_step(scaled, self.qty_precision)
+                if qty < self.min_qty:
+                    return 0.0
+
+        # 3. Liquidation buffer REFUSAL — SL must sit at least
+        #    liquidation_buffer_pct away from the liquidation price.
+        #    Skip when the long position is fully collateralized
+        #    (notional ≤ collateral): no borrow → no liquidation.
+        if qty > 0:
+            notional_usd = qty * package.entry
+            no_borrow_long = (
+                package.direction == "long" and notional_usd <= balance_usd
+            )
+            if not no_borrow_long:
+                liquidation_distance = balance_usd / qty
+                buffer_fraction = self.liquidation_buffer_pct / 100.0
+                if risk_distance >= (1.0 - buffer_fraction) * liquidation_distance:
+                    return 0.0
 
         return qty
 
