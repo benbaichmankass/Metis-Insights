@@ -11,6 +11,75 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-07-03-s044-complete — S-044 COMPLETE: M4 CI suite shipped
+
+- **Session date:** 2026-05-07
+- **Sprint:** S-044 — M4: Repo hygiene + CI — complete the GitHub Actions CI suite
+- **Active milestone:** M4 — Repo hygiene + CI (still in progress; CI suite ✅ done, Janitor + canonical-path remaining → S-045 candidate next).
+- **Last completed checkpoint:** `CP-2026-05-07-02-s044-kickoff`.
+- **Telegram sent:** sprint-complete ride-along on this commit (CHECKPOINT_LOG append → VM ping wiring).
+- **Alerts sent during session:** none.
+- **Blockers:** S-015 operator hold (unchanged); BUG-057 awaiting VM diag (unchanged).
+
+### 1. Completed (T0..T5)
+
+- **T0** — Sprint prompt filed at `docs/sprints/sprint-044-prompt.md`; kickoff CP prepended.
+- **T1** — `.github/workflows/pytest-collect.yml` added. Runs collect-only pytest on PRs against main.
+- **T2** — `.github/workflows/secret-scan.yml` (blocking) + `.github/workflows/repo-inventory.yml` (advisory) added. Inventory uploads a 14-day artifact.
+- **T3** — `.github/workflows/ruff-lint.yml` + `requirements-dev.txt` added. Initial rule set `--select E9,F63,F7` (passes on current main); broader rule expansion deferred to S-045 Janitor sprint.
+- **T4** — `docs/claude/ci-status-checks.md` runbook filed.
+- **T5** — `docs/sprint-summaries/sprint-044-summary.md` filed; `docs/claude/milestone-state.md` refreshed (M4 row + active milestone status); this checkpoint.
+
+### 2. M4 step-1 validation checklist
+
+| Check | Status |
+|---|---|
+| pytest-collect workflow file present + triggers on PR + push to main | ✅ |
+| secret-scan workflow file present + uses scripts/secret_scan.py exit code | ✅ |
+| repo-inventory workflow file present + uploads artifact + advisory only | ✅ |
+| ruff-lint workflow file present + passes on current main with E9/F63/F7 | ✅ |
+| ci-status-checks.md runbook documents all 5 PR-gating workflows + branch-protection list | ✅ |
+| `python scripts/secret_scan.py` (local) | ✅ Clean |
+| `python scripts/repo_inventory.py` (local) | ✅ Junk candidates: none |
+| `ruff check . --select E9,F63,F7` (local) | ✅ All checks passed! |
+| Unit-boundary check: no `src/`, `tests/`, `config/`, `deploy/` changes | ✅ |
+| `scripts/check_dry_run_in_diff.py` clean against main | ✅ |
+
+### 3. Files changed
+
+- `docs/sprints/sprint-044-prompt.md` (new — T0)
+- `.github/workflows/pytest-collect.yml` (new — T1)
+- `.github/workflows/secret-scan.yml` (new — T2)
+- `.github/workflows/repo-inventory.yml` (new — T2)
+- `.github/workflows/ruff-lint.yml` (new — T3)
+- `requirements-dev.txt` (new — T3)
+- `docs/claude/ci-status-checks.md` (new — T4)
+- `docs/sprint-summaries/sprint-044-summary.md` (new — T5)
+- `docs/claude/milestone-state.md` (modified — T5)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry + T0 entry)
+
+No `src/`, `tests/`, `config/`, or `deploy/` changes.
+
+### 4. Remaining / Deferred
+
+- **Branch protection wiring** — operator (or admin-token Claude) must add `pytest-collect`, `secret-scan`, `ruff-lint` to required status checks on `main` after merge. Steps in `docs/claude/ci-status-checks.md` § "Branch protection wiring".
+- **Ruff rule expansion** — current `main` carries 286 hits across the broader rule set. S-045 Janitor candidate.
+- **`repo-inventory` promotion** — stays advisory until ≥ 5 PRs observed; promotion is its own follow-up.
+- **Full pytest in CI** — needs sandbox-safe data layer + market connectors first; separate sprint.
+- S-015 pause/continue Tier 2 PR: **HOLD** (operator hold unchanged).
+- 5m/1h timeframe enforcement Tier 3 PR: **HOLD** (unchanged).
+- BUG-057: awaiting VM `journalctl` output (unchanged).
+
+### 5. Next session
+
+**S-045 — M4 step 2 (Janitor audits) candidate.** Workplan order: dead file audit (using S-044's repo-inventory artifact as a signal), duplicate module audit (`src/ui/` vs `src/units/ui/` — flagged in 2026-05-02 architecture audit), missing test audit (modules in `src/units/` without a `tests/test_<unit>_*.py`). Or skip ahead to **M5 — Strategy testing workflow** if the operator prioritises strategy validation; the workplan permits either order.
+
+### Live-mode check
+
+✅ No live-trading code touched in any commit on this branch. Diff vs `main` is `.github/workflows/`, `docs/`, and the new top-level `requirements-dev.txt`. `scripts/check_dry_run_in_diff.py` clean. No changes to `src/runtime/orders.py`, `src/runtime/pipeline.py`, `src/runtime/trading_mode.py`, `src/units/accounts/*`, or `config/accounts.yaml`.
+
+---
+
 ## CP-2026-05-07-02-s044-kickoff — S-044 T0: M4 step 1 (CI suite) kickoff
 
 - **Session date:** 2026-05-07
