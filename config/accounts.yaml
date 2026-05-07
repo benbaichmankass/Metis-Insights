@@ -27,11 +27,26 @@
 # `set_account_dry_run()`.
 #
 # Bybit V5 category routing (operator directive 2026-05-06):
-#   `market_type: spot`    → Bybit spot cash market (place_order
-#                            category="spot", marketUnit="baseCoin").
-#   `market_type: linear`  → USDT-margined perpetual futures
-#                            (category="linear"). Was the previous
-#                            hardcoded behaviour; kept as an opt-in.
+#   `market_type: spot`         → Bybit spot cash market (place_order
+#                                 category="spot", marketUnit="baseCoin").
+#   `market_type: linear`       → USDT-margined perpetual futures
+#                                 (category="linear"). Was the previous
+#                                 hardcoded behaviour; kept as an opt-in.
+#   `market_type: spot-margin`  → Bybit V5 Spot Margin Trading (S-047 T1).
+#                                 The account's identity carries the
+#                                 routing label; the API category is
+#                                 still `spot` but T3 (`feat(exec):
+#                                 route spot-margin orders via
+#                                 isLeverage=1`) wires `isLeverage=1` so
+#                                 the wallet can borrow base coin to
+#                                 short and borrow quote coin to long
+#                                 with leverage. This is **not** a gate
+#                                 — non-spot-margin accounts simply
+#                                 follow a different code path. Per
+#                                 `docs/claude/workplan.md` § "Live /
+#                                 dry-run rule" the dispatcher's
+#                                 `live | dry_run` switch remains the
+#                                 only canonical execution gate.
 # Default when the field is omitted is `spot` — the operator's wallets
 # hold real BTC/USDT and the trader should buy/sell the cash asset, not
 # linear perp contracts. Read by `_bybit_category()` in
@@ -69,16 +84,24 @@ accounts:
       risk_pct: 0.01                   # 1% balance risked per trade (S-026 G2)
       min_balance_usd: 50              # refuse to size below $50 (S-026 G2)
 
-  # bybit_2: vwap only. Wallet holds USDT — for spot trading the strategy
-  # buys BTCUSDT (USDT → BTC) and exits by selling back. vwap's mean-
-  # reversion edge applies to spot too; the previous comment described
-  # the mis-configured perp-route, kept here as a record of the fix.
+  # bybit_2: vwap only. Wallet holds USDT and operates as a Bybit V5
+  # Spot Margin account (S-047) so the strategy can take true longs
+  # (USDT borrow → buy BTC) and true shorts (BTC borrow → sell BTC)
+  # against USDT collateral. The `market_type: spot-margin` value is a
+  # routing identity, not a gate — when Bybit's web-UI Spot Margin
+  # toggle is off, every isLeverage=1 order returns retCode 110007
+  # server-side and is logged via the existing report_api_failure path
+  # (same handling as any other exchange retCode). The system operates
+  # margin-agnostic; nothing in this repo verifies, gates on, or waits
+  # for the operator's web-UI click.
   bybit_2:
     type: regular
     exchange: bybit
     api_key_env: BYBIT_API_KEY_2
     mode: live                         # see header — ONLY dry/live toggle
-    market_type: spot                  # see bybit_1 — spot cash market
+    market_type: spot-margin           # S-047 T1 — Bybit V5 Spot Margin
+                                       # routing label (T3 wires
+                                       # isLeverage=1 in execute.py).
     strategies: [vwap]
     risk:
       max_dd_pct: 0.05
