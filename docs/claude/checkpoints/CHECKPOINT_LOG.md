@@ -11,6 +11,51 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-07-04-s045-kickoff — S-045 kickoff: conftest cleanup + ruff rule expansion
+
+- **Session date:** 2026-05-07
+- **Sprint:** S-045 — M4 step 2: conftest cleanup, promote `pytest-collect` to blocking, ruff rule expansion.
+- **Active milestone:** M4 — Repo hygiene + CI (in progress; CI suite shipped S-044, this sprint closes step 2).
+- **Last completed checkpoint:** `CP-2026-05-07-03-s044-complete`.
+- **Branch:** `claude/sprint-045-conftest-ruff-cleanup-mR5iu`.
+- **Telegram sent:** sprint-start ride-along on this commit (CHECKPOINT_LOG append → VM ping wiring).
+
+### 1. Completed (T0)
+
+- Sprint prompt filed at `docs/sprints/sprint-045-prompt.md` — Tier 1, all self-merge, T0..T5 checkpoint table.
+- Unit boundary declared (Janitor sprint: mechanical ruff fixes + conftest stub fix; no behaviour changes).
+- Live-mode invariant: ✅ untouched (`src/runtime/orders.py`, `pipeline.py`, `trading_mode.py`, `src/units/accounts/*`, `config/accounts.yaml`, `deploy/*` all on operator hold).
+- This kickoff CP appended.
+
+### 2. Files changed (T0)
+
+- `docs/sprints/sprint-045-prompt.md` (new — T0)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry — T0)
+
+### 3. Tests run
+
+- None this checkpoint (docs-only T0).
+
+### 4. Remaining (T1..T5)
+
+- **T1** — Pick option A (install `python-telegram-bot` in `requirements-test.txt` + drop stub) or option B (extend MagicMock stub with `telegram.error.TelegramError`). Verify `pytest --collect-only -q tests/ --ignore=tests/test_main_loop.py` returns 0 errors.
+- **T2** — Drop `--continue-on-collection-errors` + `|| true` shim from `.github/workflows/pytest-collect.yml`. Update `docs/claude/ci-status-checks.md` to flip `pytest-collect` from advisory → blocking.
+- **T3** — Ruff rule expansion, one rule per commit: F541 → E401 → F811 → F841 → F401 → E402 → E741 → F821. Final `ruff-lint.yml` drops `--select`.
+- **T4** — Branch protection wiring (one-click Colab notebook under `notebooks/operator/` per CLAUDE.md "Always do" rule); required checks: `pytest-collect`, `secret-scan`, `ruff-lint`, `dry-run-guard`.
+- **T5** — `docs/sprint-summaries/sprint-045-summary.md` + `docs/claude/milestone-state.md` refresh + final CP.
+- S-015 pause/continue Tier 2 PR: **HOLD** (operator hold unchanged).
+- BUG-057: awaiting VM `journalctl` output (unchanged).
+
+### 5. Next checkpoint
+
+`CP-2026-05-07-NN-s045-T1-conftest-fix` — T1 (`tests/conftest.py` telegram stub fix).
+
+### Live-mode check
+
+✅ No live-trading code touched. T0 changes confined to `docs/sprints/` and `docs/claude/checkpoints/`.
+
+---
+
 ## CP-2026-05-07-03-s044-complete — S-044 COMPLETE: M4 CI suite shipped
 
 - **Session date:** 2026-05-07
