@@ -11,6 +11,62 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-07-12-s047-T2-risk-spot-margin-sizing — S-047 T2: RiskManager spot-margin sizing kernel
+
+- **Session date:** 2026-05-07 (continuation of `CP-2026-05-07-11`).
+- **Sprint:** S-047 — bybit_2 Spot Margin enablement.
+- **Active milestone:** M5 paused; S-047 active. **T2 shipped (work-PR draft awaiting operator merge); T3 queued.**
+- **Last completed checkpoint:** `CP-2026-05-07-11-s047-T1-spot-margin-routing` (PR #456 operator-merged 2026-05-07 13:05 UTC, unblocked T2).
+- **Branches:** work-PR #459 on `claude/S-047-T2-risk-spot-margin-sizing-MOY0f` (DRAFT, Tier 3 — never auto-merged); ping-PR #460 on `claude/ping-S-047-T2` (self-merged after CI green); this close-checkpoint commit on `claude/cp-2026-05-07-s047-t2-close`.
+- **Telegram sent:** ping-PR #460 self-merged after CI green (per § 6 ping-PR pattern).
+
+### What this checkpoint completes
+
+S-047 T2 D3: upgrade `RiskManager.position_size()` so spot-margin accounts size from USDT collateral and apply three rules layered on the existing risk-pct kernel (max-borrow CAP, borrow-fee SCALE, liquidation-buffer REFUSAL). The routing label is consumed as a primitive `market_type: str = "spot"` keyword arg on the sizer; `RiskManager` does not inspect a `TradingAccount` — the unit boundary is preserved.
+
+The sizer's zero-qty returns are the **existing** risk-manager refusal mechanism (same shape as `min_balance_usd` and the S-026 G3 daily-loss-budget rule). They are not new pre-flight gates. The dispatcher's `live | dry_run` switch remains the only canonical execution gate per `docs/claude/workplan.md` § "Live / dry-run rule".
+
+### Files changed (PR #459, DRAFT)
+
+- `src/units/accounts/risk.py` — `position_size()` gains a keyword-only `market_type: str = "spot"`. Spot-margin sizing math is isolated in a new private helper `_apply_spot_margin_rules` for readability and so future tuning has one place to live. Existing daily-loss-budget gate stays in the base kernel and runs **before** the spot-margin block, so daily-loss-budget refusal still wins on conflict.
+- `tests/units/accounts/test_risk_spot_margin.py` (NEW) — 13 tests across 3 classes:
+  - `TestSpotMarginSizing` (8 cases per S-047 § 6): long no-borrow, short with BTC borrow, liquidation-buffer violation, borrow-fee budget scaling, daily-loss-budget wins on conflict, min_qty floor respected, max_borrow_btc caps qty, balance < min_balance_usd → 0.
+  - `TestNonSpotMarginRegression` (4 cases): default `market_type` unchanged, explicit `market_type="spot"` does not trigger spot-margin kernel (max_borrow_btc not consulted), S-026 G3 floor rounding invariant, smoke-test bypass on both paths.
+  - `TestDefaultsStillMatchT1Contract` (1 case): defaults agree with T1's module constants.
+
+### Compliance check (per § 4.4 — 5 bullets)
+
+1. ✅ **No refuse-to-trade outside the dispatcher.** Diff adds zero new pre-flight gates. Two new zero-qty return paths (liquidation-buffer violation; daily-loss-budget exhausted) are the existing risk-manager refusal mechanism — same shape as `min_balance_usd` and the S-026 G3 daily-loss-budget rule already in `position_size()`.
+2. ✅ **No per-account refusal flag/branch.** No new fields on `TradingAccount`, no new env var, no new schema entry in `accounts.yaml`. RiskManager does **not** inspect a `TradingAccount`; the routing label is passed in as a primitive `market_type` kwarg. Unit boundary preserved.
+3. ✅ **No operator-run notebook / capture step.** The three risk-rule defaults T1 shipped (`max_borrow_btc=0.5`, `borrow_fee_apr_pct=10.0`, `liquidation_buffer_pct=30.0`) are the configuration surface; operator edits the constants directly or overrides per-account in the existing `risk:` block. No notebook is run, no value is captured from a live exchange query.
+4. ✅ **Live-mode invariant passes.** `scripts/check_dry_run_in_diff.py` clean. No edits to `src/runtime/orders.py`, `src/runtime/pipeline.py`, `src/runtime/trading_mode.py`, `src/units/accounts/execute.py`, `src/core/coordinator.py`, or any live-routing code path.
+5. ✅ **CI green.** ruff clean on changed files; secret-scan clean; dry-run-in-diff clean; repo-inventory clean; 13 new tests pass; pre-existing baseline failures (`test_per_strategy_risk.py`, `test_s026_g{2,3}_*` Coordinator-stub tests, `test_runtime_risk_injection`) are unchanged vs. main HEAD `a74c49e` — verified via `git stash` round-trip.
+
+### Live-mode check
+
+✅ no flip away from `live` anywhere in the diff. Files touched in the work-PR: `src/units/accounts/risk.py`, `tests/units/accounts/test_risk_spot_margin.py` (NEW). Files touched in the ping-PR: `docs/claude/pending-pings.jsonl` (one-line append). Files touched in this close-checkpoint commit: `docs/claude/checkpoints/CHECKPOINT_LOG.md`, `docs/claude/milestone-state.md`. None of these are live-routing paths.
+
+### Remaining (operator action)
+
+- **Tier 3 merge decision on PR #459.** Work-PR is DRAFT, never auto-merged. Operator's explicit "merge" reply gates T3.
+- **Bybit web UI Spot Margin toggle on `bybit_2`.** Margin-agnostic — happens on the operator's schedule, independent of T2/T3 shipping. Until the toggle is on, every `isLeverage=1` order returns retCode 110007 server-side and is logged via `report_api_failure`. T2 ships no `isLeverage=1` (that's T3).
+
+### Next session: S-047 T3
+
+`feat(exec): route spot-margin orders via isLeverage=1` + `feat(coordinator): direction-aware balance for spot-margin accounts` (D4 + D5 land together — one diff is incoherent without the other per S-047 plan T3). Read order:
+
+1. `CLAUDE.md` (router).
+2. This entry (CP-12).
+3. `docs/claude/milestone-state.md`.
+4. `docs/claude/operating-protocol.md` § 4.4 (5-bullet compliance check).
+5. `docs/sprint-plans/S-047-bybit2-spot-margin.md` D4 + D5 + T3 row + § 5b.
+6. `src/units/accounts/execute.py` — current spot-sell pre-flight + `_bybit_category` routing.
+7. `src/core/coordinator.py::multi_account_execute` — direction-aware balance fetch foundation (today-#441 / today-#446).
+
+T3 is **gated on operator's "merge" reply on the work-PR #459** — do not start until then. Tier 2 (live order routing) — draft PR + ping-PR + Merge/Hold buttons per § 4.
+
+---
+
 ## CP-2026-05-07-11-s047-T1-spot-margin-routing — S-047 T1: declare bybit_2 spot-margin in routing config
 
 - **Session date:** 2026-05-07 (continuation of `CP-2026-05-07-10`).
