@@ -13,7 +13,7 @@ import pytest
 pd = pytest.importorskip("pandas")
 np = pytest.importorskip("numpy")
 
-from src.core.signals import ICTSignalsAnalyzer, ict_signal_from_df, _validate_ohlcv
+from src.core.signals import ICTSignalsAnalyzer, ict_signal_from_df, _validate_ohlcv  # noqa: E402
 
 
 # ---------------------------------------------------------------------------

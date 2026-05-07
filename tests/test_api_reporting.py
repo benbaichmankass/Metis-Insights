@@ -9,7 +9,7 @@ import pytest
 for _mod in ("dotenv",):
     sys.modules.setdefault(_mod, MagicMock())
 
-from src.runtime.api_reporting import (
+from src.runtime.api_reporting import (  # noqa: E402
     _excerpt,
     _redact_for_telegram,
     report_api_failure,

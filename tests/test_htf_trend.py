@@ -16,7 +16,7 @@ import pytest
 pd = pytest.importorskip("pandas")
 np = pytest.importorskip("numpy")
 
-from src.ict_detection.trend import ema, htf_trend_bias
+from src.ict_detection.trend import ema, htf_trend_bias  # noqa: E402
 
 
 # ---------------------------------------------------------------------------

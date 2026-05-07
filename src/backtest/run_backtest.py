@@ -8,7 +8,7 @@ import pandas as pd
 from src.backtest.backtester import ICTBacktester
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-from src.utils.paths import repo_root as _repo_root
+from src.utils.paths import repo_root as _repo_root  # noqa: E402
 REPO_ROOT = _repo_root()
 DB_CANDIDATES = [
     os.environ.get("TRADE_JOURNAL_DB", ""),

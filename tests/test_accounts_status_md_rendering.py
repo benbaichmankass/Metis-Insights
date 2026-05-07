@@ -36,7 +36,7 @@ _ctx = MagicMock()
 _ctx.DEFAULT_TYPE = MagicMock
 _tgext.ContextTypes = _ctx
 
-from src.bot.telegram_query_bot import cmd_accounts_status
+from src.bot.telegram_query_bot import cmd_accounts_status  # noqa: E402
 
 
 def _make_update():

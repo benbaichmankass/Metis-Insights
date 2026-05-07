@@ -25,15 +25,15 @@ pd = pytest.importorskip("pandas")
 
 # S-012 PR C5: VWAP helpers moved from strategies/vwap_signal_builder.py
 # (deleted) into src/units/strategies/vwap.py.
-from src.units.strategies.vwap import (
+from src.units.strategies.vwap import (  # noqa: E402
     MIN_CANDLES,
     ENTRY_STD_THRESHOLD,
     build_vwap_signal,
     compute_vwap,
 )
-from src.runtime.orders import safe_place_order
-from src.runtime.pipeline import run_pipeline
-from src.runtime.validation import validate_startup
+from src.runtime.orders import safe_place_order  # noqa: E402
+from src.runtime.pipeline import run_pipeline  # noqa: E402
+from src.runtime.validation import validate_startup  # noqa: E402
 
 
 # ---------------------------------------------------------------------------

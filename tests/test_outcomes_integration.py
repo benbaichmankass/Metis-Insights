@@ -10,8 +10,8 @@ import pytest
 for _mod in ("pandas", "matplotlib", "matplotlib.pyplot", "numpy", "scipy", "sklearn", "dotenv"):
     sys.modules.setdefault(_mod, MagicMock())
 
-from src.runtime.outcomes import _Config, _reset_for_tests
-from src.runtime.pipeline import run_pipeline
+from src.runtime.outcomes import _Config, _reset_for_tests  # noqa: E402
+from src.runtime.pipeline import run_pipeline  # noqa: E402
 
 
 class _DummyClient:

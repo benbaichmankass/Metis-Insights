@@ -9,8 +9,8 @@ import pytest
 pd = pytest.importorskip("pandas")
 np = pytest.importorskip("numpy")
 
-from datetime import datetime, timedelta
-from src.backtest.backtester import ICTBacktester, DEFAULT_CONFIG
+from datetime import datetime, timedelta  # noqa: E402
+from src.backtest.backtester import ICTBacktester, DEFAULT_CONFIG  # noqa: E402
 
 
 # ---------------------------------------------------------------------------

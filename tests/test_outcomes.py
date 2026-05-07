@@ -23,7 +23,7 @@ import pytest
 for _mod in ("dotenv",):
     sys.modules.setdefault(_mod, MagicMock())
 
-from src.runtime.outcomes import Level, _Config, _reset_for_tests, report, send_scheduled
+from src.runtime.outcomes import Level, _Config, _reset_for_tests, report, send_scheduled  # noqa: E402
 
 
 @pytest.fixture

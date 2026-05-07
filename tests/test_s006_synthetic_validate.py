@@ -13,7 +13,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from scripts.s006_ict_synthetic_validate import (
+from scripts.s006_ict_synthetic_validate import (  # noqa: E402
     make_synthetic_ohlcv,
     run_synthetic_validation,
     _verdict,
