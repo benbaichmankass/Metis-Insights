@@ -138,6 +138,7 @@ Full spec: `docs/claude/recurring-sessions.md`.
 > - **S-047 T2 (PR #459) operator-merge gate** — operator merged PR #459 at 2026-05-07 13:28 UTC. CHECKPOINT_LOG.md CP-12 entry's reference to PR #459 as DRAFT is now stale (operator merged it 6 minutes after CP-12 landed); CP-13 reflects the merged state correctly.
 > - **S-047 T3 (PR #464) operator-merge gate** — operator merged PR #464 on 2026-05-07. CP-13 back-filled in CHECKPOINT_LOG.md by the T4 session (the T3 session shipped code + ping-PRs but did not author the close-checkpoint entry).
 > - **S-047 T4 (PR #469) operator-merge gate** — operator replied "merge" on 2026-05-07 ~16:24 UTC. T5 unblocked.
+> - **S-049 sizer-correctness fast-followup (PR #473) operator-merge gate** — operator replied "merge and continue" on 2026-05-07 ~17:09 UTC. Bybit ErrCode 170131 root cause closed (UTA `availableBalance` + buy-side fee buffer). Live trading on `bybit_2` no longer blocked on sizing.
 
 ---
 
