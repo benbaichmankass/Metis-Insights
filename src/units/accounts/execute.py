@@ -47,6 +47,56 @@ def _is_test_order(pkg: OrderPackage) -> bool:
 _BYBIT_CATEGORY_DEFAULT = "spot"
 _BYBIT_VALID_CATEGORIES = {"spot", "linear", "inverse"}
 
+# Common quote currencies used to parse base coin from spot symbols.
+_SPOT_QUOTE_CURRENCIES = ("USDT", "USDC", "BUSD", "DAI", "TUSD", "FDUSD")
+
+
+def _spot_base_coin(symbol: str) -> str:
+    """Extract base coin ticker from a spot symbol (e.g. ``BTCUSDT`` → ``BTC``)."""
+    sym = symbol.upper()
+    for quote in _SPOT_QUOTE_CURRENCIES:
+        if sym.endswith(quote):
+            return sym[: -len(quote)]
+    return sym[:-4] if len(sym) > 4 else sym
+
+
+def _fetch_spot_coin_balances(client: Any, symbol: str) -> dict:
+    """Return available base-coin qty and free USDT from Bybit UNIFIED wallet.
+
+    Fetches a fresh wallet balance snapshot to determine how much of the
+    base coin (e.g. BTC for BTCUSDT) and quote coin (USDT) the account
+    holds right now. Returns zeros on any error so the caller can safely
+    cap or refuse rather than propagating an exception into the order path.
+
+    Returned dict keys:
+        ``base_coin``      — ticker string (e.g. "BTC")
+        ``base_qty``       — wallet balance of base coin (base units)
+        ``base_usd_value`` — USD value of held base coin (used as sizer input)
+        ``quote_usdt``     — wallet balance of USDT quote coin
+    """
+    base = _spot_base_coin(symbol)
+    result: dict = {
+        "base_coin": base,
+        "base_qty": 0.0,
+        "base_usd_value": 0.0,
+        "quote_usdt": 0.0,
+    }
+    try:
+        resp = client.get_wallet_balance(accountType="UNIFIED") or {}
+        coins = (
+            ((resp.get("result") or {}).get("list") or [{}])[0].get("coin", [])
+        )
+        for coin in coins:
+            ticker = (coin.get("coin") or "").upper()
+            if ticker == base.upper():
+                result["base_qty"] = float(coin.get("walletBalance") or 0)
+                result["base_usd_value"] = float(coin.get("usdValue") or 0)
+            elif ticker == "USDT":
+                result["quote_usdt"] = float(coin.get("walletBalance") or 0)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("_fetch_spot_coin_balances(%s): %s", symbol, exc)
+    return result
+
 
 def _bybit_category(account_cfg: dict) -> str:
     """Resolve the Bybit V5 ``category`` for this account.
@@ -143,10 +193,18 @@ def execute_pkg(
     if exchange_client is None:
         is_dry = True
 
-    # 3. Fetch balance
+    # 3. Fetch balance — direction-aware for spot accounts so the sizer
+    # never produces a qty exceeding what the account actually holds.
+    # Spot sell (short): balance = USD value of held base coin.
+    # Spot buy  (long):  balance = available USDT quote balance.
+    # Derivatives / no direction context: total portfolio USD value.
     if balance_usdt is None:
         if exchange_client is not None and not is_dry:
-            balance_usdt = _fetch_balance(exchange_client, account_cfg)
+            balance_usdt = _fetch_balance(
+                exchange_client, account_cfg,
+                direction=pkg.direction,
+                symbol=pkg.symbol,
+            )
         else:
             balance_usdt = float(account_cfg.get("balance_usdt") or 10_000.0)
             logger.debug(
@@ -155,11 +213,70 @@ def execute_pkg(
 
     # 4. Risk-size — honour an explicit override from a stateful caller
     # (Coordinator.multi_account_execute) so the qty that lands at the
-    # exchange matches what the live RiskManager already approved.
+    # exchange matches what the live RiskManager already approved
+    # (preserves daily-loss-budget state). Used by
+    # ``Coordinator.multi_account_execute``.
     if qty_override is not None:
         qty = float(qty_override)
     else:
         qty = size_order_from_cfg(pkg, account_cfg, balance_usdt)
+
+    # 5. Spot-sell pre-flight balance guard.
+    # The coordinator-level sizer may use total portfolio balance (USDT +
+    # BTC converted) to compute qty. For a spot Sell the account must
+    # actually hold that qty in base coin; using total balance inflates
+    # the number and causes Bybit ErrCode 170131 ("Insufficient balance").
+    # This guard fetches the live base-coin balance, caps qty if over, and
+    # refuses outright when no base coin is held at all.
+    if (
+        not is_dry
+        and exchange_client is not None
+        and _bybit_category(account_cfg) == "spot"
+        and pkg.direction == "short"
+        and not _is_test_order(pkg)
+    ):
+        _spot_bal = _fetch_spot_coin_balances(exchange_client, pkg.symbol)
+        _available_base = _spot_bal["base_qty"]
+        _min_qty = float(
+            (account_cfg.get("risk") or {}).get("min_qty")
+            or account_cfg.get("min_qty")
+            or 0.001
+        )
+        _qty_precision = int(
+            (account_cfg.get("risk") or {}).get("qty_precision")
+            or account_cfg.get("qty_precision")
+            or 3
+        )
+        if _available_base < _min_qty:
+            raise RuntimeError(
+                f"Spot sell refused for {pkg.symbol}: insufficient "
+                f"{_spot_bal['base_coin']} balance "
+                f"(have {_available_base:.6f}, min_qty {_min_qty}). "
+                f"No base-coin position to sell."
+            )
+        if qty > _available_base:
+            from src.units.accounts.risk import _floor_to_step
+            _capped = _floor_to_step(_available_base, _qty_precision)
+            logger.warning(
+                "execute_pkg: spot sell qty capped %.6f → %.6f %s "
+                "(available base balance, account=%s symbol=%s)",
+                qty, _capped, _spot_bal["base_coin"], account_id, pkg.symbol,
+            )
+            qty = _capped
+            if qty < _min_qty:
+                raise RuntimeError(
+                    f"Spot sell refused for {pkg.symbol}: floored available "
+                    f"{_spot_bal['base_coin']} ({_available_base:.6f}) "
+                    f"rounds to {qty:.6f} which is below min_qty {_min_qty}."
+                )
+
+    # 6. Refuse zero-qty orders before hitting the exchange.
+    if qty <= 0 and not is_dry and not _is_test_order(pkg):
+        raise RuntimeError(
+            f"Order refused for {pkg.symbol}: qty=0 after sizing "
+            f"(balance={balance_usdt:.2f} USDT, direction={pkg.direction}). "
+            f"Account may be under-funded or hold no base coin to sell."
+        )
 
     side = "Buy" if pkg.direction == "long" else "Sell"
     order = {
@@ -181,7 +298,7 @@ def execute_pkg(
         pkg.entry, pkg.sl, pkg.tp, qty, is_dry,
     )
 
-    # 5. Submit or simulate
+    # 7. Submit or simulate
     if is_dry:
         trade_id = f"dry-{uuid.uuid4().hex[:12]}"
         logger.info("DRY RUN — order not placed: %s → trade_id=%s", order, trade_id)
@@ -289,11 +406,43 @@ def _submit_test_order(client: Any, order: dict, account_cfg: dict) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _fetch_balance(client: Any, account_cfg: dict) -> float:
-    """Fetch USDT balance from the exchange client."""
+def _fetch_balance(
+    client: Any,
+    account_cfg: dict,
+    *,
+    direction: Optional[str] = None,
+    symbol: Optional[str] = None,
+) -> float:
+    """Fetch balance from the exchange client, direction-aware for spot accounts.
+
+    For Bybit spot accounts the relevant balance depends on trade direction:
+    - ``direction='short'`` (sell): USD value of held base coin only.
+      Using total portfolio value here would let the sizer produce a qty
+      that exceeds actual holdings, causing ErrCode 170131 on submission.
+    - ``direction='long'`` (buy): available USDT quote balance.
+    - No direction context, or derivatives (linear/inverse): total
+      portfolio USD value — original behaviour, unchanged.
+
+    Parameters
+    ----------
+    client : exchange client
+        pybit HTTP or ccxt Bybit/Binance handle.
+    account_cfg : dict
+        Account config; ``market_type`` key selects spot vs derivatives.
+    direction : str, optional
+        ``"long"`` or ``"short"`` from the OrderPackage.
+    symbol : str, optional
+        Spot symbol (e.g. ``"BTCUSDT"``); used to identify base coin.
+    """
     exchange = (account_cfg.get("exchange") or "bybit").lower()
+    category = _bybit_category(account_cfg)
     try:
         if exchange == "bybit":
+            if category == "spot" and direction and symbol:
+                spot = _fetch_spot_coin_balances(client, symbol)
+                if direction == "short":
+                    return spot["base_usd_value"]
+                return spot["quote_usdt"]
             resp = client.get_wallet_balance(accountType="UNIFIED")
             lst = (resp.get("result") or {}).get("list") or []
             coins = lst[0].get("coin", []) if lst else []
@@ -703,7 +852,8 @@ def close_open_position(
 ) -> dict:
     """Place a reduce-only market order to flatten an open position.
 
-    *side* is the side of the original entry (``"long"`` or ``"short"``);\n    the close order is the opposite side. *qty* is the position size
+    *side* is the side of the original entry (``"long"`` or ``"short"``};
+    the close order is the opposite side. *qty* is the position size
     to close (typically the size of the original entry).
 
     Bybit-only for v1. Returns a result dict.
