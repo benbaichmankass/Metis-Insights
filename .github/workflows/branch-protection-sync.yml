@@ -1,0 +1,135 @@
+name: branch-protection-sync
+
+# Idempotently PUTs the branch-protection spec on `main` whenever this
+# workflow runs. The required-status-checks contexts are hardcoded
+# below — the source of truth for which checks gate `main` lives in
+# this file. To add or remove a required check, edit the
+# `required_contexts` list, commit, push to main; this workflow runs
+# automatically and applies the change.
+#
+# **One-time operator setup (per repo):**
+#   1. Create a fine-grained PAT scoped to ONLY this repo with the
+#      "Administration: write" permission. (Settings → Developer
+#      settings → Personal access tokens → Fine-grained tokens.)
+#   2. Add it as a repo secret named `BRANCH_PROTECTION_TOKEN`
+#      (Settings → Secrets and variables → Actions → New repository
+#      secret).
+# After that, every change to the required-checks list ships as a
+# normal git commit — no Colab, no notebook, no UI clicks.
+#
+# Why a PAT and not the default `GITHUB_TOKEN`: GitHub's
+# `GITHUB_TOKEN` cannot grant `administration:write` even when the
+# workflow declares it under `permissions:`. Branch protection
+# mutations require a PAT (fine-grained or classic) with admin scope.
+#
+# The `notebooks/operator/update_branch_protection.ipynb` notebook
+# stays in the repo as a manual fallback — useful if this workflow
+# breaks or the operator needs to reset protection from a clean
+# state — but is not part of the regular flow.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify the PAT secret is configured
+        env:
+          TOKEN: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "::error::secrets.BRANCH_PROTECTION_TOKEN is not set."
+            echo "::error::Add a fine-grained PAT with 'Administration: write' on this repo as a repo secret named BRANCH_PROTECTION_TOKEN. See the workflow file's header comment for full instructions."
+            exit 1
+          fi
+          echo "::notice::BRANCH_PROTECTION_TOKEN is set; proceeding to sync."
+
+      - name: PUT branch protection on main
+        env:
+          GH_TOKEN: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+        run: |
+          # Hardcoded source of truth for required status checks.
+          # To change: edit this list, commit, push.
+          REQUIRED_CONTEXTS='["pytest-collect","secret-scan","ruff-lint","dry-run-guard"]'
+
+          OWNER="the-lizardking"
+          REPO="ict-trading-bot"
+          BRANCH="main"
+          API="https://api.github.com/repos/${OWNER}/${REPO}/branches/${BRANCH}/protection"
+
+          # GET current protection so we can preserve any existing
+          # PR-review / restrictions / admin-enforcement values that
+          # this workflow does not own.
+          curl_get=$(mktemp)
+          http_code=$(curl -sS -o "$curl_get" -w '%{http_code}' \
+            -H "Authorization: token ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "$API")
+
+          if [ "$http_code" = "200" ]; then
+            ENFORCE_ADMINS=$(jq -r '.enforce_admins.enabled // false' "$curl_get")
+            REVIEW_ENFORCE=$(jq -c '.required_pull_request_reviews // null' "$curl_get")
+            RESTRICTIONS=$(jq -c '.restrictions // null' "$curl_get")
+            LINEAR_HISTORY=$(jq -r '.required_linear_history.enabled // false' "$curl_get")
+            ALLOW_FORCE=$(jq -r '.allow_force_pushes.enabled // false' "$curl_get")
+            ALLOW_DELETE=$(jq -r '.allow_deletions.enabled // false' "$curl_get")
+            echo "::notice::Existing protection found; preserving non-status-checks fields."
+          elif [ "$http_code" = "404" ]; then
+            ENFORCE_ADMINS=false
+            REVIEW_ENFORCE=null
+            RESTRICTIONS=null
+            LINEAR_HISTORY=false
+            ALLOW_FORCE=false
+            ALLOW_DELETE=false
+            echo "::notice::No existing protection on ${BRANCH}; creating from scratch."
+          else
+            echo "::error::GET protection returned HTTP ${http_code}:"
+            cat "$curl_get"
+            exit 1
+          fi
+          rm -f "$curl_get"
+
+          BODY=$(jq -n \
+            --argjson contexts "$REQUIRED_CONTEXTS" \
+            --argjson enforce_admins "$ENFORCE_ADMINS" \
+            --argjson review "$REVIEW_ENFORCE" \
+            --argjson restrictions "$RESTRICTIONS" \
+            --argjson linear "$LINEAR_HISTORY" \
+            --argjson force "$ALLOW_FORCE" \
+            --argjson delete "$ALLOW_DELETE" \
+            '{
+              required_status_checks: { strict: true, contexts: $contexts },
+              enforce_admins: $enforce_admins,
+              required_pull_request_reviews: $review,
+              restrictions: $restrictions,
+              required_linear_history: $linear,
+              allow_force_pushes: $force,
+              allow_deletions: $delete
+            }')
+
+          curl_put=$(mktemp)
+          put_code=$(curl -sS -o "$curl_put" -w '%{http_code}' \
+            -X PUT \
+            -H "Authorization: token ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            -d "$BODY" \
+            "$API")
+
+          if [ "$put_code" != "200" ]; then
+            echo "::error::PUT protection returned HTTP ${put_code}:"
+            cat "$curl_put"
+            rm -f "$curl_put"
+            exit 1
+          fi
+
+          FINAL=$(jq -c '.required_status_checks.contexts' "$curl_put")
+          echo "::notice::Branch protection updated. Required contexts now: ${FINAL}"
+          rm -f "$curl_put"

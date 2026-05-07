@@ -141,8 +141,17 @@ deliverable of S-045 — see § "Branch protection wiring" below.
 
 ## Branch protection wiring
 
-After **S-045** lands, the operator (or Claude with admin token)
-should configure required checks on `main` to include:
+The required-status-checks contexts on `main` are kept in sync by
+**`.github/workflows/branch-protection-sync.yml`**. The workflow runs
+on every push to `main` (and on `workflow_dispatch`); the source of
+truth for which checks gate `main` lives in the workflow file's
+`REQUIRED_CONTEXTS` shell variable. To add or remove a required
+check, edit that variable, commit, push to `main`. The workflow
+GETs the current protection (preserving any existing PR-review /
+restrictions / admin-enforcement values), then PUTs the new spec.
+Idempotent — re-running with no change is a no-op.
+
+Current required contexts on `main`:
 
 - `pytest-collect`
 - `secret-scan`
@@ -154,18 +163,44 @@ the artifact and the operator confirms the drift signal is useful. The
 other workflows (`hf-cron`, `training-run`) are not PR-triggered and
 do not appear in the branch-protection list.
 
-The S-045 T4 deliverable provides a one-click Colab notebook under
-`notebooks/operator/update_branch_protection.ipynb` that sets these
-contexts via `gh api` from an operator-supplied admin token (per
-CLAUDE.md "Always do" → "For ANY manual VM operator step, deliver a
-one-click Colab notebook").
+### One-time operator setup
 
-Verify with:
+The `branch-protection-sync.yml` workflow needs admin scope to call
+the protection API. The default `GITHUB_TOKEN` cannot grant that, so
+the workflow reads from a **fine-grained PAT** stored as a repo secret:
+
+1. Create a fine-grained PAT scoped to **only this repo** with
+   permission `Administration: Read and write` (Settings → Developer
+   settings → Personal access tokens → Fine-grained tokens →
+   Generate new token). Set a 1-year expiry and put a calendar
+   reminder to rotate.
+2. Add it as a repo secret named **`BRANCH_PROTECTION_TOKEN`**
+   (Settings → Secrets and variables → Actions → New repository
+   secret).
+3. Push any commit to `main` (or click *Run workflow* on the
+   `branch-protection-sync` workflow page) to trigger the first
+   sync.
+
+That's it. From this point on, every change to the required-checks
+list is just a git commit on `.github/workflows/branch-protection-sync.yml`.
+
+### Manual fallback
+
+If the workflow ever breaks (PAT expired, permission revoked,
+GitHub outage), `notebooks/operator/update_branch_protection.ipynb`
+is the manual one-shot — same API call, run from Colab using a token
+in Colab Secrets. Keep it as the recovery path; not part of the
+regular flow.
+
+### Verify
 
 ```bash
 gh api repos/the-lizardking/ict-trading-bot/branches/main/protection \
   | jq '.required_status_checks.contexts'
 ```
+
+Or check the most recent **branch-protection-sync** run on the Actions
+tab — its summary line lists the contexts it just applied.
 
 ---
 
