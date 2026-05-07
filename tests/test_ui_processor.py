@@ -13,7 +13,7 @@ import json
 import sys
 from unittest.mock import MagicMock, patch
 
-from src.ui import processor
+from src.units.ui import processor
 
 
 def test_get_recent_signals_returns_strategy_field(tmp_path, monkeypatch):

@@ -99,32 +99,32 @@ def _trade_status(db_path, trade_id) -> dict:
 
 class TestEmptyScope:
     def test_no_open_trades_returns_empty_list(self, tmp_journal):
-        from src.ui.processor import close_open_positions
+        from src.units.ui.processor import close_open_positions
         result = close_open_positions()
         assert result == []
 
     def test_only_closed_trades_returns_empty(self, tmp_journal):
-        from src.ui.processor import close_open_positions
+        from src.units.ui.processor import close_open_positions
         _insert_trade(tmp_journal, status="closed")
         assert close_open_positions() == []
 
     def test_only_backtest_rows_returns_empty(self, tmp_journal):
-        from src.ui.processor import close_open_positions
+        from src.units.ui.processor import close_open_positions
         _insert_trade(tmp_journal, is_backtest=1)
         assert close_open_positions() == []
 
     def test_strategy_filter_no_match_returns_empty(self, tmp_journal):
-        from src.ui.processor import close_open_positions
+        from src.units.ui.processor import close_open_positions
         _insert_trade(tmp_journal, strategy="vwap")
         assert close_open_positions(strategy="turtle_soup") == []
 
     def test_account_filter_no_match_returns_empty(self, tmp_journal):
-        from src.ui.processor import close_open_positions
+        from src.units.ui.processor import close_open_positions
         _insert_trade(tmp_journal, account_id="bybit_2")
         assert close_open_positions(account="bybit_1") == []
 
     def test_db_unreadable_returns_empty(self, tmp_path, monkeypatch):
-        from src.ui.processor import close_open_positions
+        from src.units.ui.processor import close_open_positions
         monkeypatch.setenv("TRADE_JOURNAL_DB", str(tmp_path / "missing/x.db"))
         assert close_open_positions() == []
 
@@ -140,7 +140,7 @@ class TestFilters:
         monkeypatch.setattr(dl, "list_accounts", lambda: accounts)
 
     def test_strategy_filter_case_insensitive(self, tmp_journal, monkeypatch):
-        from src.ui import processor
+        from src.units.ui import processor
         _insert_trade(tmp_journal, strategy="VWAP")
         self._stub_accounts(monkeypatch, [
             {"account_id": "bybit_2", "exchange": "bybit"},
@@ -153,7 +153,7 @@ class TestFilters:
         assert len(rows) == 1
 
     def test_account_filter_exact(self, tmp_journal, monkeypatch):
-        from src.ui import processor
+        from src.units.ui import processor
         _insert_trade(tmp_journal, account_id="bybit_1", strategy="turtle_soup")
         _insert_trade(tmp_journal, account_id="bybit_2", strategy="vwap")
         self._stub_accounts(monkeypatch, [
@@ -167,7 +167,7 @@ class TestFilters:
         assert rows[0]["account_id"] == "bybit_1"
 
     def test_combined_strategy_account(self, tmp_journal, monkeypatch):
-        from src.ui import processor
+        from src.units.ui import processor
         _insert_trade(tmp_journal, account_id="bybit_1", strategy="vwap")
         _insert_trade(tmp_journal, account_id="bybit_2", strategy="vwap")
         self._stub_accounts(monkeypatch, [
@@ -197,7 +197,7 @@ class TestDispatchThroughExecutePkg:
     def test_dispatches_to_execute_close_open_position(
         self, tmp_journal, monkeypatch,
     ):
-        from src.ui import processor
+        from src.units.ui import processor
         _insert_trade(
             tmp_journal, account_id="bybit_2", strategy="vwap",
             symbol="BTCUSDT", direction="long", qty=0.005,
@@ -248,7 +248,7 @@ class TestDispatchThroughExecutePkg:
     def test_successful_close_marks_trade_closed(
         self, tmp_journal, monkeypatch,
     ):
-        from src.ui import processor
+        from src.units.ui import processor
         trade_id = _insert_trade(
             tmp_journal, account_id="bybit_2", strategy="vwap",
         )
@@ -272,7 +272,7 @@ class TestDispatchThroughExecutePkg:
         assert "closed_at=" in (row.get("notes") or "")
 
     def test_failed_close_keeps_trade_open(self, tmp_journal, monkeypatch):
-        from src.ui import processor
+        from src.units.ui import processor
         trade_id = _insert_trade(
             tmp_journal, account_id="bybit_2", strategy="vwap",
         )
@@ -311,7 +311,7 @@ class TestFailureIsolation:
     def test_missing_account_config_yields_failure_row(
         self, tmp_journal, monkeypatch,
     ):
-        from src.ui import processor
+        from src.units.ui import processor
         _insert_trade(tmp_journal, account_id="ghost", strategy="vwap")
         self._stub_accounts(monkeypatch, [])
         rows = processor.close_open_positions(strategy="vwap")
@@ -322,7 +322,7 @@ class TestFailureIsolation:
     def test_unsupported_exchange_yields_failure_row(
         self, tmp_journal, monkeypatch,
     ):
-        from src.ui import processor
+        from src.units.ui import processor
         _insert_trade(tmp_journal, account_id="kraken_1", strategy="vwap")
         self._stub_accounts(monkeypatch, [
             {"account_id": "kraken_1", "exchange": "kraken"},
@@ -335,7 +335,7 @@ class TestFailureIsolation:
     def test_missing_credentials_yields_failure_row(
         self, tmp_journal, monkeypatch,
     ):
-        from src.ui import processor
+        from src.units.ui import processor
         _insert_trade(tmp_journal, account_id="bybit_2", strategy="vwap")
         self._stub_accounts(monkeypatch, [
             {"account_id": "bybit_2", "exchange": "bybit"},
@@ -349,7 +349,7 @@ class TestFailureIsolation:
         assert "missing creds" in (rows[0]["error"] or "")
 
     def test_one_failure_does_not_block_others(self, tmp_journal, monkeypatch):
-        from src.ui import processor
+        from src.units.ui import processor
         _insert_trade(tmp_journal, account_id="bybit_1", strategy="vwap",
                       symbol="ETHUSDT")
         _insert_trade(tmp_journal, account_id="bybit_2", strategy="vwap",

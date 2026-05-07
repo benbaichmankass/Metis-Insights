@@ -1,19 +1,22 @@
 """S-035 regression tests
-(architecture-audit-2026-05-02 § P2-10).
+(architecture-audit-2026-05-02 § P2-10) — UI shim removed in S-046 T2.
 
 Per CLAUDE.md § Architecture rules § 1 every unit lives under
 ``src/units/``. Pre-S-035 the DB unit lived at ``src/data_layer/``
 and the UI unit lived at ``src/ui/`` — both broke the convention.
-S-035 moves them to ``src/units/db/`` and ``src/units/ui/``
-respectively, and leaves back-compat shims at the legacy paths so
-existing imports + ``sys.modules`` test fixtures keep working.
+S-035 moved them to ``src/units/db/`` and ``src/units/ui/`` and
+shipped back-compat shims at the legacy paths.
+
+S-046 T2 deleted the ``src/ui/`` shim — every caller migrated to
+the canonical ``src.units.ui`` path. The ``src/data_layer/`` shim
+is retained because the DB unit had a wider blast radius and the
+S-046 audit only scoped UI consolidation.
 
 Tests pin:
   1. Canonical locations resolve (`src.units.db.database`,
      `src.units.ui.processor`, `src.units.ui.data_loaders`).
-  2. Every legacy path is a back-compat shim that resolves to the
-     SAME module object as the canonical one (so monkeypatch
-     fixtures hit a single source of truth).
+  2. The retained DB legacy path is a back-compat shim that
+     resolves to the SAME module object as the canonical one.
   3. The bot data_loaders shim chain (`src.bot.data_loaders` →
      `src.units.ui.data_loaders`) is preserved.
 """
@@ -41,15 +44,6 @@ def test_legacy_data_layer_path_resolves_to_canonical_module():
     from src.data_layer import database as legacy
     from src.units.db import database as canonical
     assert legacy is canonical
-
-
-def test_legacy_ui_path_resolves_to_canonical_module():
-    from src.ui import processor as legacy_processor
-    from src.ui import data_loaders as legacy_dl
-    from src.units.ui import processor as canonical_processor
-    from src.units.ui import data_loaders as canonical_dl
-    assert legacy_processor is canonical_processor
-    assert legacy_dl is canonical_dl
 
 
 def test_bot_data_loaders_shim_chain_preserved():

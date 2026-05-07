@@ -1200,7 +1200,7 @@ class TestCmdHourlyReplyMarkdown:
 
     def test_hourly_routes_through_ui_processor(self, monkeypatch):
         """Sprint 025 T1 — cmd_hourly must consume
-        ``src.ui.processor.get_hourly_report`` (not the runtime helper
+        ``src.units.ui.processor.get_hourly_report`` (not the runtime helper
         directly), so the bot and any future UI surface get identical
         text via the same facade."""
         monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
@@ -1215,7 +1215,7 @@ class TestCmdHourlyReplyMarkdown:
         fake_processor.get_hourly_report = fake_get_hourly_report
         fake_outcomes = MagicMock()
         fake_outcomes.send_scheduled = lambda msg: captured.setdefault("msg", msg)
-        monkeypatch.setitem(sys.modules, "src.ui.processor", fake_processor)
+        monkeypatch.setitem(sys.modules, "src.units.ui.processor", fake_processor)
         monkeypatch.setitem(sys.modules, "src.runtime.outcomes", fake_outcomes)
 
         upd = self._make_update()

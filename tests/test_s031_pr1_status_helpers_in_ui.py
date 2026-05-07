@@ -5,7 +5,7 @@ Per CLAUDE.md § Architecture rules § 5 the Telegram bot is a thin
 shell over the UI unit. Pre-PR ``src/bot/telegram_query_bot.py``
 opened ``trade_journal.db`` directly via ``fetch_today_pnl`` /
 ``fetch_open_positions_count``. Post-PR those functions are
-back-compat wrappers around new ``src.ui.processor`` helpers
+back-compat wrappers around new ``src.units.ui.processor`` helpers
 (``get_today_pnl``, ``get_open_positions_count``); the SQL lives
 in the UI unit.
 
@@ -62,14 +62,14 @@ def _insert_trade(db_path, *, ts, status="closed", pnl=0.0,
 
 class TestGetTodayPnl:
     def test_no_trades_returns_zeros(self, tmp_journal):
-        from src.ui.processor import get_today_pnl
+        from src.units.ui.processor import get_today_pnl
         result = get_today_pnl()
         assert result["trade_count"] == 0
         assert result["total_pnl_usd"] == 0.0
         assert "as_of_utc_date" in result
 
     def test_today_trades_summed(self, tmp_journal):
-        from src.ui.processor import get_today_pnl
+        from src.units.ui.processor import get_today_pnl
         today_iso = datetime.now(timezone.utc).strftime("%Y-%m-%d 12:00:00")
         _insert_trade(tmp_journal, ts=today_iso, pnl=10.5)
         _insert_trade(tmp_journal, ts=today_iso, pnl=-3.0)
@@ -79,20 +79,20 @@ class TestGetTodayPnl:
         assert result["total_pnl_usd"] == pytest.approx(7.5)
 
     def test_other_day_excluded(self, tmp_journal):
-        from src.ui.processor import get_today_pnl
+        from src.units.ui.processor import get_today_pnl
         _insert_trade(tmp_journal, ts="2025-01-01 12:00:00", pnl=999.0)
         result = get_today_pnl()
         assert result["trade_count"] == 0
 
     def test_backtest_rows_excluded(self, tmp_journal):
-        from src.ui.processor import get_today_pnl
+        from src.units.ui.processor import get_today_pnl
         today_iso = datetime.now(timezone.utc).strftime("%Y-%m-%d 12:00:00")
         _insert_trade(tmp_journal, ts=today_iso, pnl=5.0, is_backtest=1)
         result = get_today_pnl()
         assert result["trade_count"] == 0
 
     def test_account_filter(self, tmp_journal):
-        from src.ui.processor import get_today_pnl
+        from src.units.ui.processor import get_today_pnl
         today_iso = datetime.now(timezone.utc).strftime("%Y-%m-%d 12:00:00")
         _insert_trade(tmp_journal, ts=today_iso, pnl=10.0, account_id="bybit_1")
         _insert_trade(tmp_journal, ts=today_iso, pnl=20.0, account_id="bybit_2")
@@ -102,7 +102,7 @@ class TestGetTodayPnl:
         assert only_bybit_1["total_pnl_usd"] == pytest.approx(10.0)
 
     def test_db_unreachable_returns_shape_with_zeros(self, tmp_path, monkeypatch):
-        from src.ui.processor import get_today_pnl
+        from src.units.ui.processor import get_today_pnl
         # Path that can't be opened.
         monkeypatch.setenv("TRADE_JOURNAL_DB", str(tmp_path / "missing" / "x.db"))
         result = get_today_pnl()
@@ -117,17 +117,17 @@ class TestGetTodayPnl:
 
 class TestGetOpenPositionsCount:
     def test_no_trades_returns_zero(self, tmp_journal):
-        from src.ui.processor import get_open_positions_count
+        from src.units.ui.processor import get_open_positions_count
         assert get_open_positions_count() == 0
 
     def test_only_open_status_counted(self, tmp_journal):
-        from src.ui.processor import get_open_positions_count
+        from src.units.ui.processor import get_open_positions_count
         _insert_trade(tmp_journal, ts="2026-05-02 10:00:00", status="open")
         _insert_trade(tmp_journal, ts="2026-05-02 11:00:00", status="closed")
         assert get_open_positions_count() == 1
 
     def test_backtest_rows_excluded(self, tmp_journal):
-        from src.ui.processor import get_open_positions_count
+        from src.units.ui.processor import get_open_positions_count
         _insert_trade(
             tmp_journal, ts="2026-05-02 10:00:00",
             status="open", is_backtest=1,
@@ -135,7 +135,7 @@ class TestGetOpenPositionsCount:
         assert get_open_positions_count() == 0
 
     def test_account_filter(self, tmp_journal):
-        from src.ui.processor import get_open_positions_count
+        from src.units.ui.processor import get_open_positions_count
         _insert_trade(tmp_journal, ts="2026-05-02 10:00:00",
                       status="open", account_id="bybit_1")
         _insert_trade(tmp_journal, ts="2026-05-02 11:00:00",
@@ -165,7 +165,7 @@ class TestBotWrappersCallProcessor:
             sys.modules.setdefault(mod_name, types.SimpleNamespace())
         # The bot module is heavy; only import the two functions
         # we need, NOT the whole module.
-        from src.ui.processor import get_today_pnl
+        from src.units.ui.processor import get_today_pnl
         # Mirror the bot's wrapper logic to guarantee shape parity.
         result = get_today_pnl()
         as_tuple = (result["trade_count"], result["total_pnl_usd"])
