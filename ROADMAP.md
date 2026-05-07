@@ -1,6 +1,7 @@
 # ICT Trading Bot — Product Roadmap
 
-> **Last Updated:** 2026-05-06 (S-041 workplan reconciliation — M0..M10 framing adopted)
+> **Last Updated:** 2026-05-07 (workplan-status-review session — M1 reopened per operator;
+> S-047 T2 merged; S-015 scratched; M6 moved to dashboard repo; S-048 runs before S-047 T3)
 > **Canonical authority:** `docs/claude/workplan.md` (the decider). When this file
 > conflicts with the workplan, the workplan wins.
 
@@ -24,12 +25,12 @@
 | Milestone | Type | Focus | Main outcome | Status |
 |---|---|---|---|---|
 | **M0** | auto-claude | Workflow foundation | Master protocol, session state, logging conventions, handoff rules | ✅ CLOSED (S0, CP-2026-05-06-S0-02) |
-| **M1** | auto-claude | Comms infrastructure | Repo-based Claude/operator comms, Telegram writeback, dedupe, docs, tests | 🔄 IN PROGRESS (auto-ping + routing fixed; writeback loop pending) |
-| **M2** | auto-claude | Web app source of truth | Read-only dashboard backend and core status data surfaces | 🔄 PARTIAL — data-feed backend built S-013; dashboard consumer needs separate repo |
-| **M3** | auto-claude | Risk controls foundation | Hard risk caps, kill switch, status controls, order-layer refusal tests | 🔄 IN PROGRESS (risk engine S-010 done; refusal tests partial) |
-| **M4** | auto-claude | Repo hygiene + CI | Janitor cleanup, canonical paths, GitHub Actions, test/lint automation | 🔄 IN PROGRESS (S-003, S-035, S-021 done; full CI suite pending) |
-| **M5** | auto-claude | Strategy testing workflow | Telegram-triggered test flow, validation logging, backtest workflow docs | 📋 NOT STARTED |
-| **M6** | auto-claude | Web app UI | Dashboard UI for pnl, status, open positions, logs, recent actions | ⛔ BLOCKED — workplan boundary requires separate Vercel repo; S-015 under operator hold |
+| **M1** | auto-claude | Comms infrastructure | Repo-based Claude/operator comms, Telegram writeback, dedupe, docs, tests | ⚠️ REOPENED 2026-05-07 (active milestone) — S-042 closed M1 against the pre-reconciliation workplan; new workplan adopted later same day via S-041. Per workplan § "Verify-before-trusting-done", the on-disk telegram-bot implementation has not been audited against the new workplan § "Telegram bots" spec. **S-048 (M1 comms audit) is the active sprint** — see `docs/sprints/sprint-048-prompt.md`. S-047 T3 follows. |
+| **M2** | auto-claude | Web app source of truth | Read-only dashboard backend and core status data surfaces | 🔄 PARTIAL — S-013 FastAPI backend (`/api/status`, `/api/pnl`, JWT). S-014 added `/api/bot/{stats,logs,positions,signals}` + CORS keyed to `DASHBOARD_ORIGIN`. Vercel rewrite proxy fix landed 2026-05-07. Backend effectively complete; formal close-out deferred. |
+| **M3** | auto-claude | Risk controls foundation | Hard risk caps, kill switch, status controls, order-layer refusal tests | ✅ CLOSED (S-043, CP-2026-05-06-15) |
+| **M4** | auto-claude | Repo hygiene + CI | Janitor cleanup, canonical paths, GitHub Actions, test/lint automation | ✅ CLOSED (S-046, 2026-05-07) |
+| **M5** | auto-claude | Strategy testing workflow | Telegram-triggered test flow, validation logging, backtest workflow docs | 📋 NOT STARTED — paused behind S-048 (M1 audit) → S-047 T3 (close). |
+| **M6** | auto-claude | Web app UI | Dashboard UI for pnl, status, open positions, logs, recent actions | 🔄 IN PROGRESS (dashboard repo) — S-014 V1 SPA shipped in `the-lizardking/ict-trader-dashboard`; **S-015 V2 plan scratched 2026-05-07** per operator. Next session opens in dashboard repo with focus order: live data feed first, then operator-control functionalities (Forced Stop, killswitch, close-all-positions, account live/dry-run toggle) per workplan § "Dashboard build order". |
 | **M7** | pm-sprint | Strategy review gate | Review validation results: promote, hold, or kill | 📋 NOT STARTED |
 | **M8** | pm-sprint | Strategy tuning | Parameter review and approval-required strategy changes | 📋 NOT STARTED |
 | **M9** | auto-claude | AI / model roadmap | Model registry, current-model audit, training and performance tracking | 📋 NOT STARTED |
@@ -38,13 +39,22 @@
 ### Active milestone queue (next 3)
 
 Per workplan priority: **system hardening and operational visibility before expansion.**
+**Operator directive 2026-05-07:** comms cleanup runs before S-047 T3.
 
-1. **M1 — Comms infrastructure** — Complete the repo-based comms loop. BUG-058/BUG-059
-   fixed and on `main`; structured writeback loop is the remaining gap.
-2. **M3 — Risk controls foundation** — Formalize hard risk caps, complete order-layer
-   refusal tests, close open risk-path gaps.
-3. **M4 — Repo hygiene + CI** — Complete Janitor audits and full GitHub Actions
-   lint/test automation.
+1. **S-048 — M1 comms audit (telegram-bot deep dive)** — Tier 1 docs-only audit
+   reopening M1. **No prerequisite** — ready to start. Prompt:
+   `docs/sprints/sprint-048-prompt.md`. Produces a gap-list comparing on-disk
+   telegram-bot implementation against the new workplan's § "Telegram bots" + § "Required
+   logs" + § "Repeatable operator-triggered workflows". Code follow-ups filed as
+   their own sprints. Self-merges Tier 1 — autonomous-friendly.
+2. **S-047 T3 close** — Tier 2/3 ad-hoc live-trading sprint. PR #459 (T2) merged
+   2026-05-07; T3 ready (D4 isLeverage=1 routing in `execute.py` + D5 direction-aware
+   balance for spot-margin accounts in `coordinator.py`). Per operating-protocol § 2.2
+   "one task per session" T3 runs in its own session. **Conditional override:** if
+   S-048 surfaces a P0 audit gap, the P0 follow-up runs before T3 per the prompt's
+   hand-off rule (§ 8). Pauses at the operator-merge gate (Tier 3).
+3. **M5 — Strategy testing workflow** — Telegram `/test <strategy>` command,
+   validation logging, backtest runbook. Begins after S-047 T3 closes.
 
 ### Repo and hosting boundary (MANDATORY)
 
@@ -54,11 +64,10 @@ configs, or dashboard UI files to `ict-trading-bot`. This repo publishes a clean
 feed; the dashboard is a pure consumer. See `docs/claude/workplan.md` § "Dashboard apps
 — Repo and hosting boundary" for the full rule.
 
-> ⚠️ **Known conflict:** S-013, S-014, and S-015 were built in this repo before the
-> Vercel boundary rule was codified (2026-05-06). The data-feed backend (S-013) is
-> correctly placed here. The web client code (S-014 templates/static) and S-015's
-> planned tabs are in the wrong repo. Resolution is pending the S-015
-> pause/continue operator hold decision.
+> ⚠️ **Known conflict:** S-013, S-014, and (cancelled) S-015 were planned in this repo
+> before the Vercel boundary rule was codified (2026-05-06). The data-feed backend
+> (S-013, S-014 backend additions) is correctly placed here. S-014 V1 web client moved
+> to the dashboard repo where M6 now continues. S-015 V2 scratched 2026-05-07.
 
 ---
 
@@ -108,23 +117,20 @@ feed; the dashboard is a pure consumer. See `docs/claude/workplan.md` § "Dashbo
 | S-011 | Backtesting UI | ✅ Done | M5, M6 (in-repo; boundary note) |
 | S-012 | Production Wiring Audit & Full Live Activation | ✅ Done | M3, M4 |
 
-### Phase 4 — Secure Web Dashboard *(maps to M2, M6 — ⚠️ boundary note)*
-
-> S-013 FastAPI backend belongs here (data-feed publisher = correct repo). S-014 and
-> S-015 web client code is in the wrong repo per the workplan boundary rule.
+### Phase 4 — Secure Web Dashboard *(maps to M2, M6)*
 
 | Sprint | Title | Status | M-mapping |
 |---|---|---|---|
 | S-013 | Secure Web Dashboard: Backend Scaffold & Home Status | ✅ Done | M2 (data-feed publisher — correct repo) |
-| S-014 | Web Client V1 (Home Dashboard) | ✅ Done | M6 (⚠️ in this repo; boundary violation) |
-| S-015 | Web Client V2 (Component Tabs) | ⛔ Blocked — T0 kickoff 2026-05-06; pause/continue under operator hold | M6 (⚠️ boundary violation + hold) |
-| S-014.5 | Web Client public exposure (reverse proxy + TLS + CSP) | 📋 Backlog — gated on S-015 resolution | M6 (⚠️ boundary note) |
+| S-014 | Web Client V1 (Home Dashboard) — moved to `ict-trader-dashboard` | ✅ Done | M6 (dashboard repo) |
+| S-015 | Web Client V2 (Component Tabs) | ⛔ SCRATCHED 2026-05-07 per operator | — |
+| S-014.5 | Web Client public exposure (reverse proxy + TLS + CSP) | 📋 Backlog (dashboard repo) | M6 |
 
-### Phase 5 — Web Dashboard Ops Layer *(maps to M6 — ⚠️ boundary note)*
+### Phase 5 — Web Dashboard Ops Layer *(maps to M6 — dashboard repo)*
 
 | Sprint | Title | Status | M-mapping |
 |---|---|---|---|
-| S-016 | Secure API Key Management | 📋 Backlog | M6 (⚠️ boundary note) |
+| S-016 | Secure API Key Management | 📋 Backlog (dashboard repo) | M6 |
 
 ### Ad-hoc sprints (S-017 onwards)
 
@@ -136,7 +142,14 @@ feed; the dashboard is a pure consumer. See `docs/claude/workplan.md` § "Dashbo
 | S-020 | Fix auto-ping path | ✅ Done — CP-2026-04-30-17; BUG-018/022 closed | M1 |
 | S-021 | BUG-048 hardening: config-drift contract + boot-time observability | ✅ Done — CP-2026-05-04-04; 59 tests | M3, M4 |
 | S-035 | Architecture audit | ✅ Done | M4 |
-| S-041 | Workplan reconciliation sweep (this sprint) | 🔄 In Progress | Meta/docs |
+| S-041 | Workplan reconciliation sweep | ✅ Done — CP-2026-05-06-12 | Meta/docs |
+| S-042 | M1 close (telegram-bot pipeline audit) | ⚠️ DONE — but **superseded** by S-048 audit per operator 2026-05-07 (closed before new workplan adopted) | M1 |
+| S-043 | M3 close (order-layer refusal tests) | ✅ Done — CP-2026-05-06-15 | M3 |
+| S-044 | M4 step 1 (CI suite) | ✅ Done — CP-2026-05-07-03 | M4 |
+| S-045 | M4 step 2 (conftest + pytest-collect blocking + ruff default) | ✅ Done — CP-2026-05-07-05 | M4 |
+| S-046 | M4 close (Janitor audits) | ✅ Done | M4 |
+| S-047 | bybit_2 Spot Margin enablement | 🔄 IN PROGRESS (T0 deleted; T1 ✅ PR #456; T2 ✅ PR #459 merged 2026-05-07; T3 queued behind S-048; T4–T7 follow) | M3 (live-trading priority) |
+| S-048 | M1 comms audit (telegram-bot deep dive) | 🔄 ACTIVE — see `docs/sprints/sprint-048-prompt.md` | M1 reopen |
 
 > **Sprint number note:** S-036..S-040 include the burned range (see
 > `docs/claude/workplan.md` § "Sprint and checkpoint numbering"). Full sprint history
@@ -197,7 +210,8 @@ Full spec: [`docs/claude/recurring-sessions.md`](docs/claude/recurring-sessions.
 |---|---|
 | ✅ Done | Sprint/milestone completed and merged |
 | 🔜 Next | Planned as the immediate next sprint |
-| 🔄 In Progress | Currently being executed |
-| ⛔ Blocked | Cannot proceed without a decision or dependency |
+| 🔄 In Progress / Active | Currently being executed |
+| ⚠️ Reopened | Previously closed; subsequent verification revealed drift or new spec |
+| ⛔ Blocked / Scratched | Cannot proceed without a decision/dependency, or cancelled outright |
 | 📋 Backlog | Defined but not yet started |
 | 💬 Discussion | Idea raised, not yet broken into tasks |
