@@ -13,9 +13,7 @@ from __future__ import annotations
 import importlib.util
 import json
 from pathlib import Path
-from typing import Callable, Optional, Dict
-
-import pandas as pd
+from typing import Dict
 
 # Reuse the hypothesis module's helpers and baseline.
 spec = importlib.util.spec_from_file_location(
