@@ -95,6 +95,44 @@ def _coin_free(coin_row: dict) -> float:
     return max(0.0, wallet - locked)
 
 
+def _coin_borrow_usd(coin_row: dict) -> float:
+    """USD-equivalent of a coin's *free* borrow capacity (UTA Spot Margin).
+
+    Bybit V5 UTA wallet rows expose ``availableToBorrow`` per coin — the
+    remaining borrow line **at the exchange's tier**, which is the
+    primitive a leveraged spot order actually consumes against. We
+    convert that to USDT terms via the row's ``usdValue / walletBalance``
+    price ratio (the same conversion the rest of this module uses) so
+    the sizer can compare it directly against ``quote_usdt`` (already
+    in USDT).
+
+    Returns 0.0 when ``availableToBorrow`` is missing/empty/zero — that
+    matches a Classic-spot account, an account whose web-UI Spot Margin
+    toggle is OFF, or a coin not enabled for borrow. Best-effort: any
+    parse failure returns 0.0 so the sizer's behaviour falls back to
+    "free cash only", never larger than today.
+    """
+    raw = coin_row.get("availableToBorrow")
+    if raw in (None, "", "null"):
+        return 0.0
+    try:
+        borrow_qty = float(raw)
+    except (TypeError, ValueError):
+        return 0.0
+    if borrow_qty <= 0:
+        return 0.0
+    ticker = (coin_row.get("coin") or "").upper()
+    if ticker == "USDT":
+        # USDT borrow is already in USDT.
+        return borrow_qty
+    # Convert base-coin borrow qty to USDT via the row's usdValue ratio.
+    wallet_total = float(coin_row.get("walletBalance") or 0)
+    usd_total = float(coin_row.get("usdValue") or 0)
+    if wallet_total > 0 and usd_total > 0:
+        return borrow_qty * (usd_total / wallet_total)
+    return 0.0
+
+
 def _fetch_spot_coin_balances(client: Any, symbol: str) -> dict:
     """Return *free* base-coin qty and free USDT from Bybit UNIFIED wallet.
 
@@ -114,7 +152,22 @@ def _fetch_spot_coin_balances(client: Any, symbol: str) -> dict:
                              scaled from the wallet's total ``usdValue``
                              by the free/total ratio so the sizer never
                              treats locked BTC as risk capital.
-        ``quote_usdt``     — *free* USDT (walletBalance − locked)
+        ``quote_usdt``     — *free* USDT cash (walletBalance − locked).
+                             This is **collateral** for risk-of-ruin
+                             math — what an account would actually lose
+                             at liquidation.
+        ``base_borrow_usd``  — USD-equivalent of the base coin's free
+                             borrow capacity (UTA Spot Margin). 0.0 on
+                             cash spot or when the toggle is off.
+                             Sells on spot-margin can be sized against
+                             ``base_usd_value + base_borrow_usd``.
+        ``quote_borrow_usd`` — USDT borrow capacity (UTA Spot Margin).
+                             0.0 on cash spot or when the toggle is off.
+                             Buys on spot-margin can be sized against
+                             ``quote_usdt + quote_borrow_usd``.
+
+    The two ``*_borrow_usd`` fields default to 0.0, so callers that
+    don't read them keep the pre-S-049 cash-only behaviour byte-for-byte.
     """
     base = _spot_base_coin(symbol)
     result: dict = {
@@ -122,6 +175,8 @@ def _fetch_spot_coin_balances(client: Any, symbol: str) -> dict:
         "base_qty": 0.0,
         "base_usd_value": 0.0,
         "quote_usdt": 0.0,
+        "base_borrow_usd": 0.0,
+        "quote_borrow_usd": 0.0,
     }
     try:
         resp = client.get_wallet_balance(accountType="UNIFIED") or {}
@@ -141,8 +196,10 @@ def _fetch_spot_coin_balances(client: Any, symbol: str) -> dict:
                     result["base_usd_value"] = usd_total * (free / wallet_total)
                 else:
                     result["base_usd_value"] = 0.0
+                result["base_borrow_usd"] = _coin_borrow_usd(coin)
             elif ticker == "USDT":
                 result["quote_usdt"] = _coin_free(coin)
+                result["quote_borrow_usd"] = _coin_borrow_usd(coin)
     except Exception as exc:  # noqa: BLE001
         logger.warning("_fetch_spot_coin_balances(%s): %s", symbol, exc)
     return result
@@ -154,6 +211,19 @@ def _fetch_spot_coin_balances(client: Any, symbol: str) -> dict:
 # and tip a balance-equal sell into 170131. 0.5% headroom absorbs that
 # without materially shrinking realised position size.
 _SPOT_SELL_SAFETY_BUFFER = 0.995
+
+# S-049: matching headroom on the BUY side. A spot Buy submitted at
+# qty == free_usdt / price still pays exchange fees + slippage on top
+# of the notional, which Bybit charges from the same wallet — so a
+# qty notional that exactly matches free USDT trips ErrCode 170131
+# ("Insufficient balance") even with isLeverage=1 in the request
+# (the matching engine validates `availableBalance >= notional + fees`
+# before considering borrow capacity). Apply this buffer once at the
+# coordinator boundary so both cash-spot and spot-margin sizing leave
+# fee headroom; spot-margin's effective borrow is unaffected because
+# the buffer also scales the borrow-capacity component the sizer
+# consumes.
+_SPOT_BUY_SAFETY_BUFFER = 0.995
 
 
 def _bybit_category(account_cfg: dict) -> str:

@@ -736,20 +736,42 @@ class Coordinator:
                     and not bool(getattr(pkg, "meta", None) and (pkg.meta or {}).get("is_test"))
                 ):
                     try:
-                        from src.units.accounts.execute import _fetch_spot_coin_balances
+                        from src.units.accounts.execute import (
+                            _fetch_spot_coin_balances,
+                            _SPOT_BUY_SAFETY_BUFFER,
+                        )
                         _spot_bal = _fetch_spot_coin_balances(client, pkg.symbol)
                         if _is_spot_margin:
+                            # ``balance`` = collateral (free USDT). Liquidation
+                            # math in the spot-margin kernel uses this as the
+                            # numerator; it is "what the account would actually
+                            # lose at liquidation".
                             balance = _spot_bal["quote_usdt"]
+                            # S-049: ``available_usd`` = collateral + USDT
+                            # borrow capacity, less a fee headroom buffer.
+                            # This is what Bybit's matching engine actually
+                            # checks for spot Buys. ``quote_borrow_usd`` is
+                            # 0.0 on cash-spot or when the web-UI Spot Margin
+                            # toggle is off, in which case the buffered
+                            # ``balance`` is the only cap (matches sell-side
+                            # buffer semantics).
+                            available_usd = (
+                                _spot_bal["quote_usdt"]
+                                + _spot_bal["quote_borrow_usd"]
+                            ) * _SPOT_BUY_SAFETY_BUFFER
                         elif pkg.direction == "short":
                             balance = _spot_bal["base_usd_value"]
+                            available_usd = None
                         else:
                             balance = _spot_bal["quote_usdt"]
+                            available_usd = None
                         logger.debug(
                             "multi_account_execute: spot balance override "
                             "account=%s market_type=%s direction=%s "
-                            "symbol=%s balance=%.4f",
+                            "symbol=%s balance=%.4f available=%s",
                             account.name, _market_type, pkg.direction,
                             pkg.symbol, balance,
+                            f"{available_usd:.4f}" if available_usd is not None else "n/a",
                         )
                     except Exception as _spot_exc:  # noqa: BLE001
                         logger.warning(
@@ -757,13 +779,20 @@ class Coordinator:
                             "failed for %s (%s): %s — using total portfolio value",
                             account.name, pkg.symbol, _spot_exc,
                         )
+                        available_usd = None
+                else:
+                    available_usd = None
                 # S-047 T3 (D5): forward the routing label as a primitive
                 # so the RiskManager spot-margin kernel (T2) applies its
                 # max_borrow / borrow-fee / liquidation-buffer rules.
                 # Default ``"spot"`` keeps non-spot-margin sizing
-                # bit-identical to the pre-T3 contract.
+                # bit-identical to the pre-T3 contract. S-049: also pass
+                # ``available_usd`` so the kernel's notional-vs-available
+                # cap fires before Bybit returns 170131.
                 sized_qty = account.risk_manager.position_size(
-                    pkg, balance, market_type=_market_type,
+                    pkg, balance,
+                    market_type=_market_type,
+                    available_usd=available_usd,
                 )
             except Exception as exc:  # noqa: BLE001
                 logger.exception(
