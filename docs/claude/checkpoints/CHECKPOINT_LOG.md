@@ -11,6 +11,45 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-07-01-bug061-spot-tpsl-blocker — BUG-061: Bybit spot Market entries no longer carry stopLoss/takeProfit
+
+- **Session date:** 2026-05-07
+- **Sprint:** one-off bug fix (live-trading blocker — operator-paged via @bict_trading_bot)
+- **Current sprint phase:** outside the active sprint cadence (S-043 closed at CP-2026-05-06-15)
+- **Last completed checkpoint:** `CP-2026-05-06-15-s043-complete`
+- **Next checkpoint:** **CP-2026-05-07-NN** — pick up the next workplan item per `docs/claude/workplan.md` (M4 queued after M3 closed in S-043).
+- **Telegram sent:** yes — checkpoint commit on this branch fires the standing VM-side ping wiring.
+- **Alerts sent during session:** none beyond the operator's own ping that opened the session.
+- **Blockers:** none for this fix. Pre-existing pre-fix test failures (11 in `test_s030_pr4_exchange_modify_close.py` / `test_runtime_orders.py` / `test_orders.py`) verified identical with and without this PR's changes — out of scope and not regressions.
+
+### 1. Completed
+- Diagnosed the live-trading blocker: every BTCUSDT-spot `vwap` entry on `bybit_2` rejected by Bybit V5 with `retCode 170130` ("Data sent for parameter '' is not valid"). Liveness watchdog fired ("5 actionable signals fired in the last 1h, but 0 trades landed").
+- Confirmed root cause via Bybit V5 docs: `/v5/order/create` only accepts `stopLoss`/`takeProfit` on **Limit** spot orders. The codebase already encoded this restriction in `modify_open_order` (refuses spot, points at the S-030 monitor loop) but the submit paths still passed SL/TP unconditionally for every category.
+- Branched on `category` in both `_submit_order` and `_submit_test_order` in `src/units/accounts/execute.py`. Spot Market entries now omit SL/TP; linear/inverse entries keep the quantized SL/TP (BUG-057/BUG-060 contract preserved).
+- Added two regression assertions in `tests/test_spot_category_routing.py`: spot omits SL/TP; linear keeps SL/TP.
+- Appended BUG-061 row to `docs/claude/bug-log.md`.
+- Opened PR #435 as draft, CI green (`scan`), operator approved with "merge and continue" — squash-merged.
+
+### 2. Files changed
+- `src/units/accounts/execute.py`
+- `tests/test_spot_category_routing.py`
+- `docs/claude/bug-log.md`
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry, on the follow-up branch)
+
+### 3. Tests run
+- `pytest tests/test_spot_category_routing.py` — 15/15 pass (includes both new BUG-061 assertions).
+- `pytest tests/test_order_price_precision.py tests/test_smoke_test_trade.py tests/test_order_refusal.py tests/test_s043_order_refusal_paths.py` — 91/91 pass.
+- `python scripts/secret_scan.py` — clean.
+
+### 4. Remaining
+- None for the BUG-061 blocker itself. Operator should observe live trades resume on the next `vwap` actionable signal (deploy via the standing `ict-git-sync.timer` → `ict-trader-live.service` restart cycle, ≤ 5 min).
+- Follow-up architectural item (filed in BUG-061 Notes): add a Bybit-V5 contract test that constructs the exact payload for each `(category, orderType)` combo and pins which fields are allowed, so future code paths cannot accidentally include disallowed fields.
+
+### 5. Next checkpoint
+**CP-2026-05-07-02** — pick up the next workplan item (M4 per `docs/claude/workplan.md`). Read in order: `docs/claude/workplan.md` (decider), `docs/claude/milestone-state.md`, this checkpoint entry, then the M4 sprint planning doc when it's filed.
+
+---
+
 ## CP-2026-05-06-15-s043-complete — S-043 complete: M3 closed, order-layer refusal tests done
 
 - **Session date:** 2026-05-06
