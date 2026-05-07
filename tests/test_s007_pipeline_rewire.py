@@ -64,7 +64,6 @@ def test_list_live_strategies_returns_registry_names():
 def test_list_live_strategies_pipeline_fallback(monkeypatch):
     """When registry is unavailable, falls back to pipeline.STRATEGIES."""
     from src.bot import data_loaders as dl
-    import types
 
     class _Boom:
         def __getattr__(self, _name):

@@ -92,7 +92,6 @@ class ICTBacktester:
         return "ranging"
     def in_session(self, ts):
         from numbers import Number
-        import numpy as np
         from datetime import datetime
 
         # Normalize numeric-like timestamps (including numpy scalars) to datetime
