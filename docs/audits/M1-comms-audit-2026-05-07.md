@@ -1,5 +1,38 @@
 # M1 Comms Infrastructure — Static Audit (2026-05-07)
 
+> **Operator correction (2026-05-07, post-write):** the on-disk
+> "ClaudeBot is one-way; no response path; intentional" design is
+> **correct** and is the architecture the project wants. The drift this
+> audit identified is **in the workplan**, not in the implementation:
+> `docs/claude/workplan.md` § "Telegram bots / @claude_ict_comms_bot /
+> ClaudeBot workflow" describes a 5-step two-way request/response loop
+> + merge/hold buttons + recovery alerts that were never the intended
+> design. The corrected reading:
+>
+> - **ClaudeBot** is the **one-way Claude → operator notification
+>   channel** (sprint pings, blocker pings, training events, session
+>   completion). No response path. Operator decisions happen through
+>   GitHub (PR comments, merges) or fresh Claude sessions reading repo
+>   state.
+> - **The S-027 repo-driven request/response system** (the two-way
+>   structured ask/answer with merge buttons, free-text capture, git
+>   writeback) lives correctly on **`@bict_trading_bot`** as an
+>   operator-question surface. It is **not** misplaced.
+> - **`telegram-pings.md`** lines 6-10 / 195-199 are accurate and stay.
+> - **S-042's verdict** is reaffirmed as correct.
+>
+> See the corresponding revisions in
+> `docs/audits/M1-comms-audit-followups.md` § "Operator-correction
+> redlines (2026-05-07)" — three P1 entries are dropped, one is
+> reframed as a workplan-correction sprint, and the verdict on the
+> remaining P1s is unchanged.
+>
+> The body of this audit is preserved as-written for audit-trail
+> integrity; treat the operator correction above as the controlling
+> interpretation when reading the body.
+
+---
+
 > **Sprint:** S-048 (M1 reopen). Tier 1 docs-only audit.
 > **Rubric:** `docs/claude/workplan.md` § "Telegram bots", § "Data and
 > logging architecture" / "Required logs" / "Additional logs and registries

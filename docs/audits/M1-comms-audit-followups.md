@@ -1,5 +1,11 @@
 # M1 Comms Audit — Follow-up Sprint Backlog (2026-05-07)
 
+> **Operator correction (2026-05-07, post-write) — see § "Operator-
+> correction redlines" at the end of this file.** Three P1 entries
+> below are dropped because the on-disk "ClaudeBot one-way" design is
+> the correct architecture; the drift is in the workplan, not the
+> implementation.
+
 > **Source:** `docs/audits/M1-comms-audit-2026-05-07.md` (D1 of S-048).
 > **Status:** prioritized backlog. Sprint numbers (`S-NNN`) are placeholders
 > per workplan § "Sprint and checkpoint numbering" — assign at the time the
@@ -291,3 +297,109 @@ get filed and prioritized into the queue *after* S-047 T3 closes (M5
 inherits the highest-priority comms followup that gates strategy testing
 flow — likely the "S-NNN — Operator commands `/new-session` and `/test`"
 sprint, since `/test <strategy>` is the M5 dispatch surface).
+
+---
+
+## Operator-correction redlines (2026-05-07)
+
+The operator confirmed post-audit that the on-disk "ClaudeBot one-way;
+no response path; intentional" architecture is the correct design and
+should be reflected in the workplan. The audit's framing of this as a
+*drift in the implementation* is wrong; the drift is in the
+**workplan's § "ClaudeBot workflow"** spec, which mis-describes the
+intended architecture.
+
+### Dropped (no longer real follow-ups)
+
+The following P1 entries above are **dropped** as non-issues under the
+corrected interpretation:
+
+- ❌ **"Relocate the comms request/response system to
+  `@claude_ict_comms_bot`"** — the S-027 system lives correctly on
+  `@bict_trading_bot` as an operator-question surface for the trader
+  bot. Trader bot continues to host both the trade-control surface and
+  the structured ask/answer channel. ClaudeBot is intentionally narrow.
+- ❌ **"Implement merge-review (Merge / Hold) inline buttons in the
+  comms request system"** — operator merge decisions happen on GitHub
+  (PR comments + web-UI merge), not via a Telegram callback that
+  invokes `gh pr merge`. Tier 2 ping is informational only; the
+  operator clicks merge on the PR itself. Adding bot-side merge
+  authority would expand the live surface unnecessarily.
+- ❌ **"Correct S-042 documentation drift"** — S-042's verdict is
+  reaffirmed as correct. `telegram-pings.md` is accurate. No
+  correction is needed.
+
+### Reframed
+
+- ✏️ **"Unify `pending-pings.jsonl` and `comms/requests/`"** is
+  **dropped as a unification sprint**. The two surfaces are
+  intentionally distinct under the corrected architecture:
+  - `pending-pings.jsonl` → ClaudeBot one-way notification channel
+    (Claude → operator pings).
+  - `comms/requests/` → Trader-bot operator-question channel
+    (Claude ↔ operator structured ask/answer for things like
+    "which strategy do you want to test?", *not* merge decisions).
+  - The Messages Log workplan ambiguity stays (still flagged in the
+    "Required logs" row of D1) but is solved by adding an append-only
+    log to one or both surfaces, not by merging them.
+
+### Reframed: workplan correction sprint (replaces S-042 doc-drift item)
+
+#### S-NNN — Workplan correction: ClaudeBot is intentionally one-way
+
+- **Severity:** P1 (workplan doc — the canonical authority of the
+  project; correcting it is more valuable than its size suggests)
+- **Workplan ref:** `docs/claude/workplan.md` § "Telegram bots / @claude_ict_comms_bot / ClaudeBot workflow"
+- **Files in scope:**
+  - `docs/claude/workplan.md` — replace the 5-step two-way workflow
+    description + "channel must support merge-review buttons / required-
+    user-action prompts / recovery alerts" with: ClaudeBot is a one-way
+    Claude → operator notification channel; operator decisions happen
+    through GitHub (PR comments, merges) or fresh sessions; the
+    structured ask/answer comms surface lives on `@bict_trading_bot`
+    via S-027.
+  - `docs/audits/M1-comms-audit-2026-05-07.md` — annotate that the
+    body of the audit is preserved as-written; this redline section
+    governs the corrected reading. (Already done in the audit's header
+    — operator correction note.)
+  - `docs/sprint-summaries/sprint-042-summary.md` — no edit (S-042
+    verdict reaffirmed). Optional addendum noting the audit
+    reaffirmation.
+- **Tier:** 1 (docs only).
+- **Goal:** the canonical workplan no longer describes an architecture
+  the project doesn't intend to build.
+- **Out of scope:** any code change; the comms-handler stays on the
+  trader bot as it is.
+- **Acceptance:**
+  1. Workplan § "ClaudeBot workflow" describes the one-way channel.
+  2. The "channel must support merge-review buttons" / required-action
+     prompts / recovery alerts language is removed or relocated to
+     describe the trader-bot comms-handler surface accurately.
+  3. CI green.
+
+### Unchanged (still real P1 gaps)
+
+- ✅ **"Stuck-request recovery alerts"** — still real; applies to the
+  trader-bot comms-request surface. Stuck `comms/requests/` artifacts
+  should fire a Telegram alert before silent expiry. (Not a ClaudeBot
+  feature — trader-bot.)
+- ✅ **"Auto-hourly snapshot broadcast"** — still real; workplan-
+  mandated for the trader bot. Today `/hourly` is on-demand only.
+- ✅ **"Operator commands `/new-session <sprint_id>` and
+  `/test <strategy>`"** — still real; both go on the trader bot's
+  comms-handler surface (writes a `comms/requests/` artifact for
+  Claude to pick up on next sync). Not on ClaudeBot.
+
+### P2 cluster — unchanged
+
+The hygiene cluster from the original D2 stays as-written, with one
+edit: the line *"Trader-bot extras that should live on ClaudeBot:
+`/sprintlet_status`, `/sprintlet_complete`, `/checkpoint`, `/ping_test`"*
+is **dropped** — under the corrected architecture, those commands stay
+on the trader bot.
+
+### Net result
+
+Original P1 count: 7. Operator-correction-adjusted P1 count: **4** (3
+dropped, 1 reframed as workplan correction). P2 cluster: unchanged
+modulo one line.

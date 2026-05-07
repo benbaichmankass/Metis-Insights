@@ -25,7 +25,7 @@
 | Milestone | Type | Focus | Main outcome | Status |
 |---|---|---|---|---|
 | **M0** | auto-claude | Workflow foundation | Master protocol, session state, logging conventions, handoff rules | ✅ CLOSED (S0, CP-2026-05-06-S0-02) |
-| **M1** | auto-claude | Comms infrastructure | Repo-based Claude/operator comms, Telegram writeback, dedupe, docs, tests | 🔄 PARTIAL (S-048 audited 2026-05-07; M1 stays open) — verdict: trader-bot operator-control trio + 7/8 info menus present and tested; S-027 repo-driven request/response system on disk and tested but installed on the **wrong bot** (trader bot, not ClaudeBot per workplan); seven P1 follow-ups filed: relocate comms to ClaudeBot, merge/hold inline buttons, stuck-request recovery alerts, auto-hourly snapshot timer, `/new-session` + `/test` operator commands, unify `pending-pings.jsonl` with `comms/requests/`, correct S-042 doc drift. See `docs/audits/M1-comms-audit-2026-05-07.md` + `docs/audits/M1-comms-audit-followups.md`. M1 stays open until at least the relocation + merge-review-buttons + recovery-alert + unification sprints land. |
+| **M1** | auto-claude | Comms infrastructure | Repo-based Claude/operator comms, Telegram writeback, dedupe, docs, tests | 🔄 PARTIAL (S-048 audited 2026-05-07; operator-corrected) — verdict: trader-bot operator-control trio + 7/8 info menus present and tested. Operator clarified ClaudeBot is intentionally one-way; the S-027 request/response system on the trader bot is correctly placed; the drift is in the workplan, not the code. **Adjusted follow-ups: 4 P1 + 1 P2 cluster** — workplan correction (remove two-way 5-step ClaudeBot language); stuck-request recovery alerts on trader-bot comms-handler; auto-hourly snapshot timer; `/new-session` + `/test` operator commands. See `docs/audits/M1-comms-audit-2026-05-07.md` (header has the correction note) + `docs/audits/M1-comms-audit-followups.md` § "Operator-correction redlines". M1 stays open until those land. |
 | **M2** | auto-claude | Web app source of truth | Read-only dashboard backend and core status data surfaces | 🔄 PARTIAL — S-013 FastAPI backend (`/api/status`, `/api/pnl`, JWT). S-014 added `/api/bot/{stats,logs,positions,signals}` + CORS keyed to `DASHBOARD_ORIGIN`. Vercel rewrite proxy fix landed 2026-05-07. Backend effectively complete; formal close-out deferred. |
 | **M3** | auto-claude | Risk controls foundation | Hard risk caps, kill switch, status controls, order-layer refusal tests | ✅ CLOSED (S-043, CP-2026-05-06-15) |
 | **M4** | auto-claude | Repo hygiene + CI | Janitor cleanup, canonical paths, GitHub Actions, test/lint automation | ✅ CLOSED (S-046, 2026-05-07) |
@@ -49,12 +49,11 @@ Per workplan priority: **system hardening and operational visibility before expa
    `docs/sprint-plans/S-047-bybit2-spot-margin.md` § T3. Pauses at the operator-merge
    gate (Tier 3).
 2. **M1 comms followups (highest-priority entry)** — files in
-   `docs/audits/M1-comms-audit-followups.md`. Likely first entry: relocate the comms
-   request/response system from the trader bot to `@claude_ict_comms_bot` (Tier 2).
-   Other P1s: merge/hold inline buttons (Tier 3), stuck-request recovery alerts
-   (Tier 1), auto-hourly snapshot timer (Tier 2), `/new-session` + `/test` commands
-   (Tier 2), unify `pending-pings.jsonl` with `comms/requests/` (Tier 3), S-042 doc
-   correction (Tier 1).
+   `docs/audits/M1-comms-audit-followups.md`, adjusted by the operator-correction
+   redlines. Likely first entry: workplan correction sprint (remove the two-way
+   5-step ClaudeBot language; Tier 1 docs). Remaining P1s: stuck-request recovery
+   alerts on the trader-bot comms-handler (Tier 1); auto-hourly snapshot timer
+   (Tier 2); `/new-session` + `/test` operator commands (Tier 2).
 3. **M5 — Strategy testing workflow** — Telegram `/test <strategy>` command,
    validation logging, backtest runbook. Begins after the M1 `/test <strategy>`
    follow-up sprint (M5 inherits its dispatch surface from there).
