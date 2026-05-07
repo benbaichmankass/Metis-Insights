@@ -42,12 +42,12 @@ When opening a session:
 | **Goal** | Build the operator-triggered strategy validation workflow: a `/test <strategy_name>` Telegram command that writes a structured request to the repo, validation logging (signals + decisions + outcomes per workplan § Required logs), and a `docs/claude/backtest-workflow.md` runbook per workplan § Backtesting sessions. |
 | **Status** | 📋 Not started — paused while **S-047** (live-trading priority) runs. M5 resumes after S-047 closes. |
 | **Active sprint** | **S-047** (ad-hoc, live-trading priority) — bybit_2 Spot Margin enablement so VWAP can take true longs + shorts against USDT collateral. Plan: `docs/sprint-plans/S-047-bybit2-spot-margin.md`. |
-| **Active checkpoint** | T0 ✅ done (notebook merged in PR #452, plan corrected in PR #453). **T1 queued** — `feat(accounts): declare bybit_2 spot-margin in routing config`. |
-| **Risk tier (S-047 average)** | Tier 2 / Tier 3 — touches strategy sizing, live order routing, reconciler. T0 was Tier 1 (notebook + docs). |
+| **Active checkpoint** | ~~T0~~ DELETED in PR #455 (margin-agnostic correction). **T1 queued** — `feat(accounts): declare bybit_2 spot-margin in routing config`. |
+| **Risk tier (S-047 average)** | Tier 2 / Tier 3 — touches strategy sizing, live order routing, reconciler. |
 | **Definition of done (S-047)** | A sell-side VWAP signal on `bybit_2` opens a true short via `category=spot, isLeverage=1`; risk manager sizes from USDT collateral with liquidation/borrow-fee parameters; `vwap.py::monitor()` closes on TP/SL/VWAP-cross; reconciler agrees with the trade journal at the end of each cycle. |
 
-**S-047 operator action remaining:**
-Operator clicks Enable Spot Margin in the Bybit web UI on `bybit_2` (Account → Margin Mode), then runs `notebooks/operator/enable_bybit_spot_margin.ipynb` from Colab to capture the live BTC max-borrow tier. T1 code work can ship in any order relative to that click — the trader simply doesn't trade margin on `bybit_2` until both sides (code on main + Bybit toggle on) are present (per S-047 plan § 5b).
+**S-047 operator action remaining: none.**
+The system operates margin-agnostic. The operator clicks Enable Spot Margin in the Bybit web UI on their own schedule; until then, every `isLeverage=1` order returns retCode 110007 server-side and is logged via the existing `report_api_failure` path. After the click, orders flow through. No notebook, no parameter capture, no PR thread.
 
 **Operator hold (do NOT start M6 / S-015 until hold lifted):**
 S-015 Web Client V2 pause/continue Tier 2 decision is pending — the sprint's scope
