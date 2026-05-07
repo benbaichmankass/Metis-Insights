@@ -11,6 +11,75 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-07-15-s049-spot-margin-sizer-correctness — S-049: spot-margin sizer correctness (UTA availableBalance + buy-side fee buffer)
+
+- **Session date:** 2026-05-07 (continuation of `CP-2026-05-07-14`).
+- **Sprint:** S-049 — spot-margin sizer correctness (live-trading priority sprint, operator-directed in-session).
+- **Active milestone:** S-047 paused at T5 boundary; S-049 ran in-session as a Tier 2/3 fast-followup. **S-049 shipped and merged 2026-05-07; S-047 T5 resumes next.**
+- **Last completed checkpoint:** `CP-2026-05-07-14-s047-T4-vwap-monitor-close-logic`.
+- **Branches:** sprint-start ping-PR #472 on `claude/ping-S-049-start` (self-merged); work-PR #473 on `claude/S-049-spot-margin-sizer-correctness` (Tier 2/3, operator-merged after explicit "merge and continue" reply); merge-review ping-PR #474 on `claude/ping-S-049` (self-merged after CI green); this close-checkpoint commit on `claude/cp-2026-05-07-s049-close`.
+- **Telegram sent:** ping-PR #472 (sprint-start) + ping-PR #474 (merge-review) self-merged after CI green; sprint-complete ping rides on this close-checkpoint commit.
+
+### What this checkpoint completes
+
+S-049 closes the live recurrence of Bybit ErrCode 170131 ("Insufficient balance") on `bybit_2`. Operator surfaced the error mid-T4 session: even after T3 routed `isLeverage=1` correctly, the matching engine still rejected with 170131 because two distinct sizing bugs combined on the buy path.
+
+Bug A: the buy side had no fee/headroom buffer (sell side had `_SPOT_SELL_SAFETY_BUFFER = 0.995` since S-013; buy side had nothing equivalent). A qty whose notional matched free USDT to-the-dollar tripped 170131 on fees + slippage alone.
+
+Bug B: the sizer read `walletBalance - locked` per coin (free cash USDT). For a UTA Spot Margin account, the right primitive is `walletBalance - locked + availableToBorrow` — the cap Bybit's matching engine actually checks. Result: `isLeverage=1` shipped with no actual leverage in the qty.
+
+S-049 fixes both in one diff because they share the same primitive. End-to-end distinction between **collateral** (`balance_usd` — free USDT cash, drives liquidation distance + the no-borrow-long short-circuit; unchanged from T2) and **available** (`available_usd` — collateral + USDT borrow capacity, less the buy-side fee buffer; drives the new notional-vs-available cap in `_apply_spot_margin_rules` rule 3). The kernel falls back to `available_usd = balance_usd` when the kwarg is missing → bit-identical to T2 for non-spot-margin and cash-spot callers.
+
+### Files changed (PR #473, operator-merged)
+
+- `src/units/accounts/execute.py` — `_SPOT_BUY_SAFETY_BUFFER = 0.995` constant; `_coin_borrow_usd(coin_row)` helper (UTA `availableToBorrow` → USDT, returns 0.0 on missing/empty/malformed/negative for backward compat); `_fetch_spot_coin_balances` returns two new fields (`quote_borrow_usd`, `base_borrow_usd`). Existing fields keep their pre-S-049 values byte-for-byte.
+- `src/units/accounts/risk.py` — `RiskManager.position_size` gains keyword-only `available_usd: Optional[float] = None`; `_apply_spot_margin_rules` adds rule 3 (notional-vs-available cap for longs; shorts skip — they don't spend USDT upfront, BTC borrow cap from rule 1 handles them). Liquidation math (rule 4) keeps using `balance_usd` (collateral — correct primitive for "what you actually lose at liquidation").
+- `src/core/coordinator.py::multi_account_execute` — spot-margin balance fetch now builds `available_usd = (quote_usdt + quote_borrow_usd) × _SPOT_BUY_SAFETY_BUFFER` and passes it to the sizer. Cash-spot keeps `available_usd=None`. Debug log line records `available` so operator can trace sizing decisions in `journalctl`.
+- `tests/units/accounts/test_risk_spot_margin.py` — 14 new tests across 3 classes:
+  - `TestAvailableUsdCap` (6 cases): long clipped when notional exceeds available, long uses borrow capacity when provided, default falls back to balance, shorts skip the cap, below-min-qty refusal, non-spot-margin ignores the kwarg.
+  - `TestFetchSpotCoinBalancesBorrow` (4 cases): UTA borrow capacity, cash-spot zero-borrow, malformed value falls back to 0.0, legacy fields unaffected.
+  - `TestBuySafetyBuffer` (2 cases): constant present + matches sell-side buffer.
+  - 1 existing T2 test updated: `test_liquidation_buffer_violation_returns_zero` now passes `available_usd=2_000` so the new cap doesn't pre-empt the buffer rule under test (the test's contract is the buffer refusal; with `available_usd == balance_usd == $200`, the long silently scales down to no-borrow before reaching rule 4).
+
+### Compliance check (per § 4.4 — 5 bullets)
+
+1. ✅ **No refuse-to-trade outside the dispatcher.** The new cap shrinks qty (or returns 0.0 below min_qty) — same shape as the existing `min_balance_usd` and daily-loss-budget refusals. Dispatcher's `live | dry_run` switch remains the only canonical execution gate.
+2. ✅ **No per-account refusal flag/branch.** No edits to `accounts.yaml`, no new schema fields. `available_usd` is a primitive kwarg computed by the coordinator from live balance reads.
+3. ✅ **No operator-run notebook / capture step.** Borrow capacity is read directly from `get_wallet_balance` at sizing time. Cash-spot accounts read 0.0 and behave exactly as today.
+4. ✅ **Live-mode invariant passes.** `scripts/check_dry_run_in_diff.py` clean. No edits to forbidden runtime files.
+5. ✅ **CI green.** ruff `.` clean; secret-scan clean; dry-run-in-diff clean; repo-inventory clean; 25 spot-margin tests pass (11 T2 + 14 S-049).
+
+### Live-mode check
+
+✅ no flip away from `live` anywhere in the diff. Files touched in the work-PR: `src/units/accounts/execute.py`, `src/units/accounts/risk.py`, `src/core/coordinator.py`, `tests/units/accounts/test_risk_spot_margin.py`. Files touched in the ping-PRs: `docs/claude/pending-pings.jsonl` (one-line appends). Files touched in this close-checkpoint commit: `docs/claude/checkpoints/CHECKPOINT_LOG.md`, `docs/claude/milestone-state.md`, `docs/claude/pending-pings.jsonl`.
+
+### Hard guardrails
+
+- ✅ `bybit_1` + `prop_velotrade_1` unchanged — both have `market_type: spot` (cash-spot), so `available_usd=None` in coordinator and the new kernel cap is a no-op for their sizing.
+- ✅ T2 contract preserved — when `available_usd` is None or equal to `balance_usd`, the kernel produces bit-identical qty.
+- ✅ T3 routing preserved — `isLeverage=1` still ships on every spot-margin order; only the sized qty changes.
+- ✅ No edits to forbidden runtime files (`src/runtime/orders.py`, `src/runtime/notify.py`, `src/runtime/risk_counters.py`, `src/runtime/signal_writer.py`, `src/runtime/validation.py`).
+
+### Bug closes
+
+The recurring `170131 Insufficient balance` on `bybit_2` (operator-observed 2026-05-07 16:02 UTC: Buy 0.002 BTCUSDT vs $177 USDT, with `isLeverage=1` already in the request). Diagnosis traced in T4 close session; full root-cause + fix shipped here.
+
+### Next session: S-047 T5
+
+`feat(monitor): spot-margin borrow-position reconciler`. Read order:
+
+1. `CLAUDE.md` (router).
+2. This entry (CP-15) + CP-14.
+3. `docs/claude/milestone-state.md`.
+4. `docs/claude/operating-protocol.md` § 4.4.
+5. `docs/sprint-plans/S-047-bybit2-spot-margin.md` D7 + T5 row.
+6. `src/runtime/order_monitor.py::_reconcile_open_trades` — current per-account snapshot loop; T5 teaches it to query the spot-margin borrow-position endpoint when `account.market_type == "spot-margin"`.
+7. `src/units/accounts/clients.py::account_open_positions` — per-account positions fetcher.
+
+Tier 2 (live order routing / runtime orchestration). Draft PR + ping-PR + Merge/Hold buttons.
+
+---
+
 ## CP-2026-05-07-14-s047-T4-vwap-monitor-close-logic — S-047 T4: VWAP monitor close logic (TP/SL/VWAP-cross/time-decay)
 
 - **Session date:** 2026-05-07 (continuation of `CP-2026-05-07-13`).
