@@ -72,7 +72,7 @@ def visualize_swing_points():
                 line=dict(color='darkgreen', width=2)
             ),
             name='Swing Low',
-            text=[f"Low: ${l:,.2f}" for l in swing_lows['low']],
+            text=[f"Low: ${lo:,.2f}" for lo in swing_lows['low']],
             hovertemplate='<b>Swing Low</b><br>%{text}<br>%{x}<extra></extra>'
         ))
     

@@ -222,9 +222,9 @@ def test_main_round_trip_dry_run_writes_four_audit_events(
     ])
     assert rc == 0
 
-    lines = [json.loads(l) for l in audit.read_text().splitlines() if l.strip()]
+    lines = [json.loads(ln) for ln in audit.read_text().splitlines() if ln.strip()]
     assert len(lines) == 4
-    events = [l["event"] for l in lines]
+    events = [ln["event"] for ln in lines]
     assert events == [
         "smoke_open_attempt", "smoke_open_result",
         "smoke_close_attempt", "smoke_close_result",
@@ -257,9 +257,9 @@ def test_main_returns_one_when_open_rejected(monkeypatch, tmp_path):
         "--side", "buy", "--dry-run",
     ])
     assert rc == 1
-    lines = [json.loads(l) for l in audit.read_text().splitlines() if l.strip()]
+    lines = [json.loads(ln) for ln in audit.read_text().splitlines() if ln.strip()]
     # Only open_attempt + open_result; no close_*.
-    assert [l["event"] for l in lines] == [
+    assert [ln["event"] for ln in lines] == [
         "smoke_open_attempt", "smoke_open_result",
     ]
     assert lines[1]["status"] == "failed_exchange"

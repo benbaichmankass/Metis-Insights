@@ -82,11 +82,11 @@ class TestAccountsDispatchedRenderer:
         lines = sec.body.strip().split("\n")
         assert len(lines) == 3
         # Each line has a recognisable name
-        assert any("bybit_1" in l for l in lines)
-        assert any("bybit_2" in l and "ok" in l for l in lines)
-        assert any("prop_velotrade_1" in l for l in lines)
+        assert any("bybit_1" in ln for ln in lines)
+        assert any("bybit_2" in ln and "ok" in ln for ln in lines)
+        assert any("prop_velotrade_1" in ln for ln in lines)
         # No residual '?' placeholders
-        assert not any(l.startswith("?:") for l in lines)
+        assert not any(ln.startswith("?:") for ln in lines)
 
     def test_ok_row_includes_qty(self):
         secs = _sections([

@@ -69,8 +69,8 @@ def test_env_example_ict_risk_pct_has_comment():
     for line in text.splitlines():
         if "ICT_RISK_PCT" in line:
             assert "#" in line or any(
-                "#" in l and "ICT" in l
-                for l in text.splitlines()
+                "#" in ln and "ICT" in ln
+                for ln in text.splitlines()
             ), "ICT_RISK_PCT line should have an inline comment"
             return
     assert False, "ICT_RISK_PCT not found in .env.example"
