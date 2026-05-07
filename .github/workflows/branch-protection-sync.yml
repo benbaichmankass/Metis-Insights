@@ -39,18 +39,26 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
-      - name: Verify the PAT secret is configured
+      - name: Check whether the PAT secret is configured
+        id: token_check
         env:
           TOKEN: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
         run: |
+          # Skip-don't-fail when the secret isn't set yet. This keeps
+          # the workflow green on main until the operator does the
+          # one-time setup (see workflow header comment). Secrets are
+          # not available in `if:` expressions for security reasons,
+          # so we gate the actual API call on a step output instead.
           if [ -z "$TOKEN" ]; then
-            echo "::error::secrets.BRANCH_PROTECTION_TOKEN is not set."
-            echo "::error::Add a fine-grained PAT with 'Administration: write' on this repo as a repo secret named BRANCH_PROTECTION_TOKEN. See the workflow file's header comment for full instructions."
-            exit 1
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::BRANCH_PROTECTION_TOKEN secret is not set yet — skipping sync. See .github/workflows/branch-protection-sync.yml header comment for one-time setup."
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::BRANCH_PROTECTION_TOKEN is set; proceeding to sync."
           fi
-          echo "::notice::BRANCH_PROTECTION_TOKEN is set; proceeding to sync."
 
       - name: PUT branch protection on main
+        if: steps.token_check.outputs.configured == 'true'
         env:
           GH_TOKEN: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
         run: |
