@@ -58,3 +58,10 @@ strategies:
     symbols:
       - BTCUSDT
     threshold: 0.01           # VWAP deviation threshold (preserved from S-011)
+    # S-047 T4: time-decay close window for monitor() (minutes). The
+    # mean-reversion thesis is session-bounded; if TP/SL/VWAP-cross
+    # haven't fired by the end of this window the monitor closes the
+    # position so capital recycles. Tunable here; the strategy module
+    # falls back to MONITOR_HOLD_WINDOW_MINUTES (240) when this key
+    # is missing.
+    monitor_hold_window_minutes: 240

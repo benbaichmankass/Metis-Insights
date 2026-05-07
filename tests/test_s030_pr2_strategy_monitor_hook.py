@@ -136,21 +136,20 @@ class TestMonitorBreakevenSLDefensive:
 
 
 class TestVwapMonitor:
+    """S-047 T4 (2026-05-07): VWAP's monitor() no longer follows the
+    shared break-even-after-1R rule — it implements four close paths
+    (TP / SL / VWAP-cross / time-decay) plus no-action. The exhaustive
+    contract is pinned in
+    ``tests/units/strategies/test_vwap_monitor_close.py``; this class
+    keeps a single signature smoke test so the S-030 PR2 hook
+    contract (a ``monitor()`` function exists) is still asserted here.
+    turtle_soup still delegates to ``monitor_breakeven_sl`` — see
+    ``TestTurtleSoupMonitor`` below.
+    """
+
     def test_signature_matches_contract(self):
         from src.units.strategies import vwap
         assert callable(vwap.monitor)
-
-    def test_no_change_returns_none(self):
-        from src.units.strategies import vwap
-        pkg = {"entry": 100.0, "sl": 98.0, "tp": 104.0, "direction": "long"}
-        df = _candles(100.5, 101.0)  # below 1R
-        assert vwap.monitor({}, df, pkg) is None
-
-    def test_one_r_reached_returns_breakeven(self):
-        from src.units.strategies import vwap
-        pkg = {"entry": 100.0, "sl": 98.0, "tp": 104.0, "direction": "long"}
-        df = _candles(101.5, 102.0)
-        assert vwap.monitor({}, df, pkg) == {"sl": 100.0}
 
 
 class TestTurtleSoupMonitor:
