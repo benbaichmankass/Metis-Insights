@@ -1,5 +1,7 @@
 
-import os, sys, requests
+import os
+import sys
+import requests
 from dotenv import load_dotenv
 
 load_dotenv("/home/ubuntu/ict-trading-bot/.env")
