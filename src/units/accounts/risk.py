@@ -44,6 +44,19 @@ _DEFAULT_QTY_PRECISION = 3
 # Below Bybit linear perp min-lot (0.001 BTC) so the exchange rejects.
 _DEFAULT_TEST_QTY = 0.0001
 
+# Spot-margin sizing parameter defaults (S-047 T1). The risk-rule
+# configuration surface — same shape as `_DEFAULT_MIN_QTY` etc. above —
+# so the operator can either edit these constants directly or override
+# per-account via the `risk:` block in `config/accounts.yaml` (the same
+# mechanism that already exists for `min_balance_usd`, `risk_pct`, etc).
+# These are **not** per-account toggles: they are sizing inputs that
+# T2's RiskManager.position_size() upgrade consumes for spot-margin
+# accounts. Non-spot-margin accounts construct a RiskManager with the
+# same defaults but never read these values.
+DEFAULT_MAX_BORROW_BTC = 0.5            # Bybit Tier 1 spot-margin BTC max-borrow.
+DEFAULT_BORROW_FEE_APR_PCT = 10.0       # Conservative annual %, Bybit market range ≈5–15.
+DEFAULT_LIQUIDATION_BUFFER_PCT = 30.0   # Per S-047 § 7 — distance from liquidation, in %.
+
 
 def _is_test_order(pkg: "OrderPackage") -> bool:
     """Return True when *pkg* is a smoke-test order (meta.is_test=True).
@@ -236,6 +249,21 @@ class RiskManager:
         # module-level defaults apply.
         self.min_qty: float = float(config.get("min_qty", _DEFAULT_MIN_QTY))
         self.qty_precision: int = int(config.get("qty_precision", _DEFAULT_QTY_PRECISION))
+        # S-047 T1: spot-margin sizing parameters. Defaults are
+        # ship-with-config values from the module-level constants above;
+        # per-account overrides go in the `risk:` block in accounts.yaml
+        # (same surface as min_balance_usd / risk_pct). T2 consumes these
+        # in position_size() when the account routes as spot-margin.
+        # Non-spot-margin accounts hold the same defaults inertly.
+        self.max_borrow_btc: float = float(
+            config.get("max_borrow_btc", DEFAULT_MAX_BORROW_BTC)
+        )
+        self.borrow_fee_apr_pct: float = float(
+            config.get("borrow_fee_apr_pct", DEFAULT_BORROW_FEE_APR_PCT)
+        )
+        self.liquidation_buffer_pct: float = float(
+            config.get("liquidation_buffer_pct", DEFAULT_LIQUIDATION_BUFFER_PCT)
+        )
         # The single dry/live toggle in the codebase (operator directive
         # 2026-05-03). Set from accounts.yaml `mode: live | dry_run` at
         # construction; flippable at runtime via Coordinator.set_account_dry_run().
