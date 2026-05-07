@@ -43,6 +43,23 @@ logger = logging.getLogger(__name__)
 # Minimum candles needed for a meaningful VWAP reading.
 MIN_CANDLES = 2
 
+# Phase 1 of the 2026-05-07-vwap-accuracy training run (PR #481).
+# When candles carry a ``timestamp`` column, ``build_vwap_signal``
+# anchors the VWAP / σ window at the most recent UTC midnight rather
+# than using the full caller-supplied lookback. Backtest on 365 days
+# of real BTCUSDT 5m data: anchored VWAP raises Sharpe +2.74 → +3.47
+# (+0.72), win rate 31.0 % → 33.3 %, expectancy +0.16 R → +0.21 R,
+# while leaving cadence essentially unchanged (950 → 962 trades).
+# The trade-off is a slightly worse max DD (-34 R → -52 R) caused by
+# noisier σ on the small early-session sample. To bound that
+# trade-off we fall back to the full lookback when the session slice
+# would have fewer than ``SESSION_MIN_BARS`` bars (early-session) or
+# carry no volume. See
+# ``experiments/2026-05-07-vwap-accuracy/RECOMMENDATIONS.md`` § 5m
+# re-run for the full numbers, walk-forward, and the Phase 2 plan
+# (4 h-EMA-200 ±1 % HTF gate, queued in milestone-state.md).
+SESSION_MIN_BARS = 5
+
 # S-047 T4: monitor() time-decay close window. The mean-reversion thesis
 # is "price returns to vwap within a session"; if the trade has been open
 # for longer than this window without hitting TP/SL/VWAP-cross, the
@@ -164,6 +181,44 @@ def _no_trade(symbol: str, reason: str) -> Dict[str, Any]:
     }
 
 
+def _session_anchor_slice(candles_df: pd.DataFrame) -> pd.DataFrame:
+    """Return ``candles_df`` truncated to the current UTC-day session.
+
+    Phase 1 of the 2026-05-07-vwap-accuracy adoption. The slice covers
+    bars whose timestamp is at or after the most recent UTC midnight
+    (≤ the latest bar). When the slice would be too thin or carry no
+    volume, the full lookback is returned so callers fall through to
+    the rolling-window VWAP semantics that pre-dated this change.
+
+    Falls back to the input when:
+        * ``timestamp`` column is missing.
+        * Timestamps cannot be coerced to UTC datetimes.
+        * The slice would have fewer than ``SESSION_MIN_BARS`` bars
+          (early in the session — σ would be too noisy).
+        * The slice would carry zero or negative total volume.
+
+    Tests in ``tests/test_vwap_strategy.py`` lock the fallback paths.
+    """
+    if "timestamp" not in candles_df.columns:
+        return candles_df
+    try:
+        ts = pd.to_datetime(candles_df["timestamp"], utc=True, errors="coerce")
+    except (ValueError, TypeError):
+        return candles_df
+    if ts.isna().all():
+        return candles_df
+    last_ts = ts.iloc[-1]
+    if pd.isna(last_ts):
+        return candles_df
+    session_start = last_ts.floor("D")
+    sliced = candles_df.loc[ts >= session_start]
+    if len(sliced) < SESSION_MIN_BARS:
+        return candles_df
+    if "volume" in sliced.columns and float(sliced["volume"].sum()) <= 0:
+        return candles_df
+    return sliced
+
+
 def build_vwap_signal(
     candles_df: pd.DataFrame,
     symbol: str,
@@ -219,11 +274,16 @@ def build_vwap_signal(
     if candles_df["volume"].sum() <= 0:
         return _no_trade(symbol, "VWAP skipped: total candle volume is zero or negative")
 
-    vwap = compute_vwap(candles_df)
-    current_price = float(candles_df["close"].iloc[-1])
+    # Phase 1: anchor at most-recent UTC midnight when the timestamp
+    # data permits; otherwise the full caller-supplied lookback.
+    window = _session_anchor_slice(candles_df)
+    anchor = "session" if len(window) < len(candles_df) else "rolling"
+
+    vwap = compute_vwap(window)
+    current_price = float(window["close"].iloc[-1])
 
     typical_price = (
-        candles_df["high"] + candles_df["low"] + candles_df["close"]
+        window["high"] + window["low"] + window["close"]
     ) / 3.0
     std_dev = float(typical_price.std())
 
@@ -258,6 +318,8 @@ def build_vwap_signal(
         "deviation_std": deviation,
         "confidence": confidence,
         "reason": reason,
+        "vwap_anchor": anchor,
+        "vwap_window_bars": len(window),
     }
 
     if side == "none":
@@ -326,8 +388,12 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
 
     # Attempt VWAP-to-price TP; fall back to percentage-based.
     try:
-        vwap = compute_vwap(candles_df)
-        typical_price = (candles_df["high"] + candles_df["low"] + candles_df["close"]) / 3.0
+        # Phase 1: keep the order-package adapter aligned with
+        # build_vwap_signal so the dispatch path's VWAP and the
+        # strategy unit's VWAP are computed from the same window.
+        window = _session_anchor_slice(candles_df)
+        vwap = compute_vwap(window)
+        typical_price = (window["high"] + window["low"] + window["close"]) / 3.0
         std_dev = float(typical_price.std())
 
         if direction == "long":
@@ -477,11 +543,14 @@ def monitor(cfg, candles_df, open_pkg):
     if direction == "short" and current_price >= sl:
         return {"action": "close", "reason": "sl_cross", "exit_price": current_price}
 
-    # 3. VWAP-cross — recompute live VWAP. Skip silently when the data
-    # can't carry a meaningful VWAP (no volume column, zero volume, etc.)
-    # rather than fail the monitor tick.
+    # 3. VWAP-cross — recompute live VWAP. Phase 1: anchor on the
+    # current UTC session so the live VWAP shares its anchor with
+    # the entry-time VWAP that build_vwap_signal computed. Skip
+    # silently when the data can't carry a meaningful VWAP (no
+    # volume column, zero volume, etc.) rather than fail the
+    # monitor tick.
     try:
-        vwap_live = compute_vwap(candles_df)
+        vwap_live = compute_vwap(_session_anchor_slice(candles_df))
     except (ValueError, KeyError):
         vwap_live = None
 
