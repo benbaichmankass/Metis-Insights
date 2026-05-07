@@ -5,12 +5,14 @@
 > the audit recommends is filed as its own follow-up sprint at the appropriate
 > tier.
 > **Wall-clock budget:** one Claude session (~3 h).
-> **Prereq:** S-047 closes (T3 lands; sprint summary written; M5 rejoins the
-> active queue behind this audit).
+> **Prereq:** none. **This is the active sprint** — ready to start.
 > **Operator directive (2026-05-07):** "M1 is not complete — it was reviewed
 > before workflow hardening and the current state is very far from the specs
 > in the new workplan. We need a deep dive to audit the entire telegram-bot
-> functionality against the new workplan."
+> functionality against the new workplan. Run the comms audit before S-047 T3."
+> **Next sprint (after S-048 closes):** S-047 T3 (live-order routing
+> wire-up for spot-margin) — unless this audit surfaces a P0 gap, in which
+> case the P0 follow-up runs first per § 8 hand-off rules.
 
 ---
 
@@ -199,16 +201,21 @@ M1 row in the M0..M10 table flips from `⚠️ REOPENED` to one of:
 - 🔄 PARTIAL (audit found gaps; backlog filed; M1 stays open until those land),
 - 🚨 P0 GAP (audit found at least one P0; operator escalation required).
 
+Also flip Active sprint from S-048 to **S-047 T3** (the next-sprint default per
+§ 8 hand-off, unless a P0 surfaced — in which case Active sprint is the P0
+follow-up).
+
 ### D4 — `ROADMAP.md` update
 
 M1 row in the M0..M10 table mirrors D3. Audit-followup sprints from D2 added
-to the active queue in priority order.
+to the active queue in priority order. Active milestone queue (next 3) updated.
 
 ### D5 — `docs/claude/checkpoints/CHECKPOINT_LOG.md` close-checkpoint entry
 
 Standard sprint-close entry per `docs/claude/checkpoint-workflow.md`. Cite
 D1/D2 by path; cite the relevant workplan sections audited; cite the next
-sprint (the highest-priority follow-up from D2, or M5 if M1 cleared).
+sprint (S-047 T3 by default, or the highest-priority P0 follow-up if one
+surfaced).
 
 ---
 
@@ -276,7 +283,7 @@ verified later, in the follow-up sprints, not here.
 
 - [ ] D1 (`docs/audits/M1-comms-audit-<date>.md`) committed and reviewed.
 - [ ] D2 (`docs/audits/M1-comms-audit-followups.md`) committed.
-- [ ] D3 (milestone-state.md M1 row updated) reflects audit verdict.
+- [ ] D3 (milestone-state.md M1 row + Active sprint updated) reflects audit verdict.
 - [ ] D4 (ROADMAP.md M1 row + active queue) reflects audit verdict.
 - [ ] D5 (CHECKPOINT_LOG.md close entry) lands per checkpoint-workflow.md.
 - [ ] Sprint summary at `docs/sprint-summaries/sprint-048-summary.md`.
@@ -286,15 +293,19 @@ verified later, in the follow-up sprints, not here.
 
 ## 8. Hand-off
 
-The next session opens against the highest-severity entry in D2:
+The next session opens against:
 
 - **If a P0 was filed:** open the P0 follow-up immediately. Do not skip ahead
-  to M5.
-- **If only P1/P2 entries:** opener picks the highest-priority follow-up
-  from D2 *or* (operator's call) defers and starts M5 with M1 marked
-  🔄 PARTIAL.
-- **If audit cleared M1 entirely:** M5 (S-049 or higher) opens next per the
-  queued-milestones order.
+  to S-047 T3 or M5.
+- **If only P1/P2 entries (or no gaps):** **default next sprint is S-047 T3**
+  per operator directive 2026-05-07. T3 plan is in
+  `docs/sprint-plans/S-047-bybit2-spot-margin.md` § T3:
+  `feat(exec): route spot-margin orders via isLeverage=1` +
+  `feat(coordinator): direction-aware balance for spot-margin accounts`
+  (D4 + D5 land together — one diff is incoherent without the other).
+  Tier 2/3 — will pause at the operator-merge gate; that's expected.
+- **If audit cleared M1 entirely:** still go to S-047 T3 next; M5
+  rejoins the queue after T3 closes.
 
 Update `milestone-state.md` and `CHECKPOINT_LOG.md` accordingly when
 opening that next session.
