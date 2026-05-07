@@ -21,7 +21,7 @@ single command you can re-run locally.
 |---|---|---|---|---|
 | `pytest-collect` | `.github/workflows/pytest-collect.yml` | `pull_request` to `main`, `push` to `main` | **blocking** (since S-045) | `PYTHONPATH=. pytest --collect-only -q tests/ --ignore=tests/test_main_loop.py` |
 | `secret-scan` | `.github/workflows/secret-scan.yml` | `pull_request` to `main`, `push` to `main` | **blocking** | `python scripts/secret_scan.py` |
-| `ruff-lint` | `.github/workflows/ruff-lint.yml` | `pull_request` to `main`, `push` to `main` | **blocking** | `ruff check . --select E9,F63,F7` |
+| `ruff-lint` | `.github/workflows/ruff-lint.yml` | `pull_request` to `main`, `push` to `main` | **blocking** | `ruff check .` |
 | `repo-inventory` | `.github/workflows/repo-inventory.yml` | `pull_request` to `main`, `push` to `main` | advisory | `python scripts/repo_inventory.py` |
 | `dry-run-guard` | `.github/workflows/dry-run-guard.yml` | `pull_request` to `main` | **blocking** | `python scripts/check_dry_run_in_diff.py /tmp/pr.diff` |
 | `hf-cron` | `.github/workflows/hf-cron.yml` | `schedule` (HF dataset publish) | n/a | not PR-gating |
@@ -87,20 +87,27 @@ deliverable of S-045 — see § "Branch protection wiring" below.
 ### `ruff-lint`
 
 - **What it does.** Installs `requirements-dev.txt` (currently
-  `ruff>=0.15.0` only), then runs `ruff check . --select E9,F63,F7`.
-  The narrow rule set covers runtime errors (E9), assertion / comparison
-  bugs (F63), and semantic errors (F7).
-- **Why narrow.** Current `main` carries 286 ruff hits across rules
-  the narrow set excludes (E402 imports-not-at-top, F401 unused-imports,
-  F541 unnecessary f-strings, F811 redefinitions, F821 undefined names,
-  F841 unused vars). The S-044 prompt explicitly forbids mass-formatting
-  in this sprint. A follow-up Janitor sprint expands the rule set after
-  cleaning each category in isolation.
-- **Debug.** Reproduce with the local equivalent above. If your PR
-  introduced an E9/F63/F7 hit, fix it. If you're trying to fix a
-  pre-existing hit outside the narrow set, that's its own PR — open it
-  separately and reference S-045 (or whichever Janitor sprint is open)
-  in the description.
+  `ruff>=0.15.0` only), then runs `ruff check .` against ruff's
+  default rule set. Repo-level config in `ruff.toml` excludes
+  `*.ipynb` (notebook re-serialization is not a behaviour-preserving
+  fix) and lists a small `lint.per-file-ignores` table for the
+  operator-hold paths (`src/runtime/pipeline.py`,
+  `src/units/accounts/*`) where mechanical lint fixes are blocked
+  on operator review.
+- **History.** S-044 shipped this workflow with the narrow rule set
+  `--select E9,F63,F7` because the broader default flagged 286
+  pre-existing hits. S-045 walked the rules in scoped per-rule
+  commits (T3a F541 → T3b E401 → T3c F811 → T3d F841 → T3e F401 →
+  T3f E402 → T3g E741 → T3h F821 → T3 cleanup E731+E701), brought
+  the count to 0 on every non-operator-hold path, and dropped
+  `--select`.
+- **Debug.** Reproduce with `ruff check .` locally. If your PR
+  introduced a new hit, either fix it or — if the hit is in an
+  operator-hold path — file a ping-PR per CLAUDE.md § "Telegram
+  Reporting". Do **not** add the path to `ruff.toml`'s ignore
+  list to silence a hit; the ignore list is reserved for the
+  S-045 ping-PR backlog and gets emptied as the operator approves
+  each fix.
 
 ### `repo-inventory` (advisory)
 

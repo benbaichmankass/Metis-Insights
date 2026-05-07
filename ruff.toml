@@ -25,3 +25,31 @@
 # its default rule set against everything not excluded here.
 
 extend-exclude = ["*.ipynb"]
+
+# Per-file ignores for residual hits in operator-hold paths.
+# These paths cannot be edited inside this sprint per
+# `docs/sprints/sprint-045-prompt.md` § 2 (operator hold list).
+# Each entry below is a known mechanical fix that is waiting on a
+# separate operator-approved ping-PR. Once the ping-PR lands, the
+# corresponding entry in this block must be removed in the same PR.
+#
+# Tracking — S-045 T3i ping-PR backlog:
+# - src/runtime/pipeline.py — 9 × E402 (deferred imports below
+#   the matplotlib stub block; identical pattern to many test files
+#   that already carry `# noqa: E402` after T3f).
+# - src/units/accounts/dxtrade_client.py:40 — 1 × F401
+#   (unused import).
+# - src/units/accounts/integrator.py:15 + :16 — 2 × F401
+#   (unused `os` + `typing.Any`).
+# - src/units/accounts/prop_risk.py:29 — 1 × F401
+#   (unused `datetime.time`).
+# - src/units/accounts/execute.py:269 + :271 — 2 × F541
+#   (`return f"rejected_too_small:no orderId in response"` /
+#    `return f"rejected_too_small:breakout exchange does not
+#    support live smoke yet"` — neither has placeholders).
+[lint.per-file-ignores]
+"src/runtime/pipeline.py" = ["E402"]
+"src/units/accounts/dxtrade_client.py" = ["F401"]
+"src/units/accounts/integrator.py" = ["F401"]
+"src/units/accounts/prop_risk.py" = ["F401"]
+"src/units/accounts/execute.py" = ["F541"]
