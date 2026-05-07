@@ -7,21 +7,30 @@ Six variants (H1..H5 + stacked H6); each compared against a single
 baseline that calls ``build_vwap_signal`` directly (which is what
 ``src/runtime/pipeline.py`` does live).
 
-Sandbox-data note (2026-05-07)
-------------------------------
-The ``scripts.training.data_loader`` chain (yfinance / Coinbase / Bybit)
-is unreachable from this sandbox — every external host is denied. We
-fall back to a real-BTC 1h dataset cached at
-``results/_cache/BTCUSDT_1h_2191d.parquet`` (51k rows, 2017-08 → 2023-07,
-~6 years, sourced from a public CryptoRobotFr archive of Binance 1h
-spot OHLCV). Production runs at 5m, this experiment at 1h, so absolute
-metric levels are not directly comparable to the live tape — but the
-**relative ranking of variants** is what we care about, and that
-generalises across timeframes for the filters tested here. See
-RECOMMENDATIONS.md "Limitations" for the full caveat list.
+Timeframe selection
+-------------------
+``VWAP_EXPERIMENT_TIMEFRAME`` env var picks the base timeframe:
+``"1h"`` (default) or ``"5m"``. The HTF reference for H3 is always
+4h. Lookback / max-hold / slope-threshold scale with the choice so
+the experiment runs cleanly at either cadence.
+
+  * 1h base — uses the local CryptoRobotFr 6-year archive
+    (51k bars, 2017-08 → 2023-07). Triggered by the original
+    sandbox-only run on 2026-05-07.
+  * 5m base — fetches live BTCUSDT 5m + 1h candles via
+    ``scripts.training.data_loader.load_candles`` (yfinance →
+    Coinbase → Bybit). Designed to run on a GitHub Actions
+    runner since the local sandbox blocks all of those hosts.
+    See ``run_5m.py`` and ``.github/workflows/training-rerun-5m.yml``.
+
+Production runs at 5m, so the 5m variant is the source-of-truth for
+the production-adoption decision. The 1h variant remains as a
+6-year out-of-sample stress-test of the same filter set; the
+RECOMMENDATIONS.md compares both.
 """
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Callable, Dict, Optional
 
@@ -32,29 +41,48 @@ from scripts.training.backtest_helpers import simple_backtest, sl_tp_exit
 from src.units.strategies import vwap as vwap_mod
 
 SYMBOL = "BTCUSDT"
-TIMEFRAME = "1h"
-LOOKBACK_BARS = 120          # 5 days at 1h — same numeric LB as prior runs
-MAX_HOLD_BARS = 96           # 4 days at 1h — same numeric MH as prior runs
+TIMEFRAME = os.environ.get("VWAP_EXPERIMENT_TIMEFRAME", "1h")
 SL_STD_MULT = vwap_mod.SL_STD_MULT_DEFAULT  # 0.5 (production)
 ENTRY_THR = vwap_mod.ENTRY_STD_THRESHOLD     # 1.0 (production)
 
+if TIMEFRAME == "5m":
+    LOOKBACK_BARS = 120          # 10 hours at 5m — matches production
+    MAX_HOLD_BARS = 96           # 8 hours at 5m
+    H2_SLOPE_THR = 0.0015        # 0.15% over 12 5m bars (1 hour)
+    BASE_PARQUET_GLOB = "BTCUSDT_5m_*d.parquet"
+    HTF_PARQUET_GLOB = "BTCUSDT_4h_*d.parquet"
+elif TIMEFRAME == "1h":
+    LOOKBACK_BARS = 120          # 5 days at 1h — same numeric LB
+    MAX_HOLD_BARS = 96           # 4 days at 1h — same numeric MH
+    H2_SLOPE_THR = 0.005         # 0.5% over 12 1h bars (12 hours)
+    BASE_PARQUET_GLOB = "BTCUSDT_1h_*d.parquet"
+    HTF_PARQUET_GLOB = "BTCUSDT_4h_*d.parquet"
+else:
+    raise ValueError(f"Unsupported VWAP_EXPERIMENT_TIMEFRAME: {TIMEFRAME!r}")
+
 
 # ---------------------------------------------------------------------------
-# setup — load real BTC 1h candles from on-disk cache
+# setup — load real BTC candles from on-disk cache
 # ---------------------------------------------------------------------------
+
+
+def _resolve_one(cache: Path, glob: str) -> Path:
+    matches = sorted(cache.glob(glob))
+    if not matches:
+        raise RuntimeError(
+            f"Missing cached candles in {cache}: no match for {glob}. "
+            "Run fetch_data.py (or the workflow) first."
+        )
+    return matches[-1]
 
 
 def setup(ctx: dict) -> None:
     cache = Path(ctx["cache_dir"])
-    p_1h = cache / "BTCUSDT_1h_2191d.parquet"
-    p_4h = cache / "BTCUSDT_4h_2191d.parquet"
-    if not p_1h.exists() or not p_4h.exists():
-        raise RuntimeError(
-            f"Missing cached candles in {cache}. Expected "
-            "BTCUSDT_1h_2191d.parquet + BTCUSDT_4h_2191d.parquet."
-        )
-    ctx["candles_1h"] = pd.read_parquet(p_1h)
-    ctx["candles_4h"] = pd.read_parquet(p_4h)
+    p_base = _resolve_one(cache, BASE_PARQUET_GLOB)
+    p_htf = _resolve_one(cache, HTF_PARQUET_GLOB)
+    ctx["candles_1h"] = pd.read_parquet(p_base)  # name kept for back-compat
+    ctx["candles_4h"] = pd.read_parquet(p_htf)
+    print(f"timeframe={TIMEFRAME} base={p_base.name} htf={p_htf.name}")
     print(
         f"1h bars: {len(ctx['candles_1h'])} "
         f"({ctx['candles_1h']['timestamp'].min()} → {ctx['candles_1h']['timestamp'].max()})"
@@ -187,12 +215,10 @@ def H1(ctx: dict) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# H2 — VWAP slope filter (reject when slope > 0.5% over 12 bars)
+# H2 — VWAP slope filter (reject when slope > timeframe-scaled threshold
+# over the trailing 12 bars). Threshold is set in the timeframe block
+# at the top of the file (0.0015 at 5m, 0.005 at 1h).
 # ---------------------------------------------------------------------------
-
-# At 1h, 12 bars = 12 hours. BTC 12h std dev ≈ 1.5-2%; 0.5% drift over
-# 12h is ~0.3σ, comfortably "ranging". Steeper than that = trending.
-H2_SLOPE_THR = 0.005
 
 
 def H2(ctx: dict) -> dict:

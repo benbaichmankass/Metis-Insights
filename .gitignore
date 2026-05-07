@@ -103,8 +103,7 @@ experiments/**/*
 !experiments/**/PLAN.md
 !experiments/**/RECOMMENDATIONS.md
 !experiments/**/SUMMARY.md
-!experiments/**/hypotheses.py
-!experiments/**/robustness.py
+!experiments/**/*.py
 !experiments/**/results/**/*.json
 !experiments/**/results/**/*.md
 !experiments/**/results/**/*.png
