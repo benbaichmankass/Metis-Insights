@@ -19,6 +19,12 @@
 
 Use `.env`, Colab userdata, GitHub secrets, or VM environment variables.
 
+`DIAG_READ_TOKEN` (the bearer for `/api/diag/*` read-only endpoints)
+lives in `/etc/ict-trader/web-api.env` on the VM, rotated on the same
+schedule as `JWT_SIGNING_KEY`. It is a read-only-scope token; granting
+it write capability is Tier 3. See `docs/claude/vm-operator-mode.md`
+§ 9.
+
 For encrypted-at-rest master secrets, use the Google Drive SOPS workflow:
 see `docs/claude/google-drive-master-secrets.md`.
 

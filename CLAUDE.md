@@ -16,6 +16,7 @@ VPS (systemd)
                                    ├── /api/bot/signals  ← Vercel dashboard
                                    ├── /api/pnl
                                    ├── /api/status
+                                   ├── /api/diag/*       ← PM-side read-only (S-051)
                                    └── /api/health
 ```
 
@@ -32,6 +33,7 @@ src/
       auth.py           — session/token auth helpers
       routers/
         dashboard.py    — /api/bot/* endpoints (S-014)
+        diag.py         — /api/diag/* endpoints (S-051, token-gated read)
         pnl.py          — /api/pnl
         pnl_history.py  — /api/pnl/history
         status.py       — /api/status
@@ -78,6 +80,24 @@ CORS is configured in `src/web/api/main.py`. Allowed origins:
 | `DASHBOARD_ORIGIN` | Vercel app URL — added to CORS allow-list |
 | `DASHBOARD_API_TOKEN` | Optional bearer token for auth routes |
 | `TRADE_JOURNAL_DB` | Override default `trade_journal.db` path |
+| `DIAG_READ_TOKEN` | Bearer for `/api/diag/*` (read-only). Unset → endpoints return 503 |
+
+## Diagnostic API (S-051)
+
+Token-gated read-only surface for PM-side Claude / operator scripts. All
+endpoints return 503 if `DIAG_READ_TOKEN` is unset, 401 on bad bearer.
+
+| Endpoint | Returns |
+|----------|---------|
+| `GET /api/diag/snapshot?limit=N` | bundle: heartbeat, status, audit tail, order_packages, trades, vm_health, service states |
+| `GET /api/diag/audit?limit=N` | tail of `runtime_logs/signal_audit.jsonl` |
+| `GET /api/diag/journal?table={order_packages\|trades}&limit=N` | read-only SELECT |
+| `GET /api/diag/status` | heartbeat + status.json + vm_health |
+| `GET /api/diag/services` | `systemctl is-active` per allowlisted unit |
+| `GET /api/diag/journalctl?unit=<name>&lines=N` | systemd journal tail |
+| `GET /api/diag/log_file?name={audit\|status\|heartbeat\|bot_log}&lines=N` | log file tail |
+
+See `docs/claude/vm-operator-mode.md` § 9 for the trust contract.
 
 ## Running Locally
 ```bash

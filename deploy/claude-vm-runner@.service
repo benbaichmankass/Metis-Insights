@@ -67,7 +67,11 @@ ReadWritePaths=/home/ubuntu/ict-trading-bot /var/log/claude-vm /run/claude /tmp
 # Claude Code state dirs — leading "-" so missing paths are tolerated
 # (`.cache` may not exist on a fresh user; `.claude` is created by
 # `claude setup-token` and bootstrap touches both during install).
+# `.claude.json` is a single file at home root (not inside `.claude/`)
+# that the CLI updates on every session — without it listed, EROFS
+# blocks the runner before claude -p even prints. Found 2026-05-07.
 ReadWritePaths=-/home/ubuntu/.claude
+ReadWritePaths=-/home/ubuntu/.claude.json
 ReadWritePaths=-/home/ubuntu/.cache
 ReadWritePaths=-/home/ubuntu/.config/claude
 PrivateTmp=true

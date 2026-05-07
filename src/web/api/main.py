@@ -12,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from src.web.api.routers import auth as auth_router
 from src.web.api.routers import dashboard as dashboard_router
+from src.web.api.routers import diag as diag_router
 from src.web.api.routers import pnl as pnl_router
 from src.web.api.routers import pnl_fragment as pnl_fragment_router
 from src.web.api.routers import pnl_history as pnl_history_router
@@ -40,6 +41,7 @@ app.include_router(auth_router.router)
 app.include_router(status_fragment_router.router)
 app.include_router(pnl_fragment_router.router)
 app.include_router(dashboard_router.router)
+app.include_router(diag_router.router)
 
 
 @app.get("/api/health", tags=["health"])
