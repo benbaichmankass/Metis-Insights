@@ -11,6 +11,101 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-07-14-s047-T4-vwap-monitor-close-logic — S-047 T4: VWAP monitor close logic (TP/SL/VWAP-cross/time-decay)
+
+- **Session date:** 2026-05-07 (continuation of `CP-2026-05-07-13`).
+- **Sprint:** S-047 — bybit_2 Spot Margin enablement.
+- **Active milestone:** M5 paused; S-047 active. **T4 shipped (work-PR #469 operator-merged 2026-05-07 ~16:24 UTC); T5 queued.**
+- **Last completed checkpoint:** `CP-2026-05-07-13-s047-T3-spot-margin-routing-wiring` (PR #464 operator-merged 2026-05-07, unblocked T4).
+- **Branches:** sprint-start ping-PR #468 on `claude/ping-S-047-T4-start` (self-merged at session start); work-PR #469 on `claude/vwap-monitor-close-logic-5AmRo` (Tier 3, DRAFT, operator-merged after explicit "merge" reply); merge-review ping-PR #470 on `claude/ping-S-047-T4` (self-merged after CI green); this close-checkpoint commit on `claude/cp-2026-05-07-s047-t4-close`.
+- **Telegram sent:** ping-PR #468 (sprint-start) + ping-PR #470 (merge-review) self-merged after CI green; sprint-complete ping rides on this close-checkpoint commit.
+
+### What this checkpoint completes
+
+S-047 T4 D6: replace the v1 break-even-only stub in `src/units/strategies/vwap.py::monitor()` with four close paths plus the no-action path. The strategy unit produces verdicts; `src/runtime/order_monitor.py::_apply_update` translates them into reduce-only `close_open_position` calls against the linked trade row's `account_id` + `position_size` — the strategy never touches the exchange, preserving the "strategies are pure signal generators" architecture rule (CLAUDE.md § Architecture rules § 2).
+
+Close priority (first match wins): **TP-cross** (`close ≥ tp` long / `≤` short — the TP was placed at the entry-time VWAP per `build_vwap_signal`, so this also covers "price returned to entry-VWAP"); **SL-cross** (`close ≤ sl` long / `≥` short); **VWAP-cross** (live VWAP recomputed each tick; once price crosses back through, the mean-reversion thesis has played out — skipped when `tp == vwap_live` so the more specific TP-cross reason wins); **time-decay** (open longer than `cfg["monitor_hold_window_minutes"]`, default `MONITOR_HOLD_WINDOW_MINUTES = 240` minutes — operator-tunable in `config/strategies.yaml`).
+
+Spot-margin path inherits T3 D4 wiring (`isLeverage=1` + skipped pre-flight on `bybit_2`) so the new close paths flow through live order routing without further changes.
+
+### Files changed (PR #469, operator-merged)
+
+- `src/units/strategies/vwap.py` — new `monitor()` body + `MONITOR_HOLD_WINDOW_MINUTES` module constant + `_parse_created_at` defensive helper. The break-even-only delegation to `_base.monitor_breakeven_sl` is removed for vwap; turtle_soup still delegates to that helper unchanged.
+- `config/strategies.yaml` — `vwap.monitor_hold_window_minutes: 240` added so the field is operator-discoverable. Module default applies until the runtime cfg threading is wired (separate sprint).
+- `tests/units/strategies/test_vwap_monitor_close.py` (NEW) — 27 tests across 7 classes:
+  - `TestTpCrossClose` (3 cases) — long ≥ tp, long == tp, short ≤ tp.
+  - `TestSlCrossClose` (3 cases) — long at sl, long below sl, short above sl.
+  - `TestVwapCrossClose` (3 cases) — long live-vwap-cross, short live-vwap-cross, long-still-below-vwap returns None.
+  - `TestTimeDecayClose` (6 cases) — long past window, short past default 240-min window, fresh package within window, zero/negative window disables decay, TP-cross priority over time-decay, malformed `created_at` skipped silently.
+  - `TestNoActionPath` (2 cases) — long + short within deviation band → None.
+  - `TestMonitorDefensive` (8 cases) — empty df, None df, missing close column, missing pkg keys, unknown direction, zero-volume frame, cfg=None, garbage hold-window value.
+  - `TestTurtleSoupUnaffected` (2 cases) — turtle_soup still uses break-even-after-1R; verdict is `{"sl": entry}`, not a close.
+- `tests/test_s030_pr2_strategy_monitor_hook.py` — `TestVwapMonitor` class trimmed to the signature smoke test; the break-even-after-1R assertions removed (no longer the contract for vwap). Turtle_soup tests untouched.
+
+### Compliance check (per § 4.4 — 5 bullets)
+
+1. ✅ **No refuse-to-trade outside the dispatcher.** The four close paths act on already-open positions; they are not new pre-flight gates. The dispatcher's `live | dry_run` switch remains the only canonical execution gate per `docs/claude/workplan.md` § "Live / dry-run rule".
+2. ✅ **No per-account refusal flag/branch.** No edits to `accounts.yaml`, `execute.py`, `coordinator.py`, or any per-account routing surface.
+3. ✅ **No operator-run notebook / capture step.** The hold-window default is a module constant; the operator can edit `config/strategies.yaml` directly any time.
+4. ✅ **Live-mode invariant passes.** `scripts/check_dry_run_in_diff.py` clean. No edits to `src/runtime/orders.py`, `src/runtime/notify.py`, `src/runtime/risk_counters.py`, `src/runtime/signal_writer.py`, `src/runtime/validation.py`, `src/runtime/pipeline.py`, `src/runtime/trading_mode.py`, or `src/units/accounts/*`.
+5. ✅ **CI green.** `ruff check .` clean; `secret_scan.py` clean; `repo_inventory.py` clean; 27 new tests pass; 19 S-030 PR2 contract tests pass; pre-existing baseline failures in `test_vwap_strategy.py` (live-safety-gate cases) are unchanged vs. main HEAD `1c69eb6` — verified via `git stash` round-trip.
+
+### Live-mode check
+
+✅ no flip away from `live` anywhere in the diff. Files touched in the work-PR: `src/units/strategies/vwap.py`, `config/strategies.yaml`, `tests/test_s030_pr2_strategy_monitor_hook.py`, `tests/units/strategies/test_vwap_monitor_close.py` (NEW). Files touched in the ping-PRs: `docs/claude/pending-pings.jsonl` (one-line appends). Files touched in this close-checkpoint commit: `docs/claude/checkpoints/CHECKPOINT_LOG.md`, `docs/claude/milestone-state.md`, `docs/claude/pending-pings.jsonl`. None of these are live-routing paths.
+
+### Hard guardrails (per S-047 plan § 7)
+
+- ✅ `turtle_soup` strategy untouched — `TestTurtleSoupUnaffected` pins the v1 break-even-after-1R contract.
+- ✅ `bybit_1` + `prop_velotrade_1` unaffected — no edits to routing.
+- ✅ No edits to forbidden files (`src/runtime/orders.py`, `src/runtime/notify.py`, `src/runtime/risk_counters.py`, `src/runtime/signal_writer.py`, `src/runtime/validation.py`).
+
+### Out-of-scope side-quest answered inline
+
+Operator surfaced a live `170131 Insufficient balance` on `bybit_2` mid-session (Buy 0.002 BTCUSDT vs ~$177 USDT, with `isLeverage=1` already in the request). Diagnosis given inline: order is structurally correct now (T3 fixed `isLeverage=1` routing); the most likely root causes are (a) Bybit web-UI Spot Margin toggle still off on `bybit_2`, (b) account is on Classic Spot rather than UTA / Margin Trade tier, or (c) `availableBalance` is below `walletBalance` due to locked / borrowing reserves. Independent of T4 — no code change needed.
+
+### Remaining (operator action)
+
+- **None for T4.** Operator-merged PR #469 closes T4.
+- **Bybit web-UI Spot Margin toggle on `bybit_2`** — independent of T4 ship; needed to actually unblock the live `isLeverage=1` flow (see side-quest above).
+
+### Next session: S-047 T5
+
+`feat(monitor): spot-margin borrow-position reconciler`. Read order:
+
+1. `CLAUDE.md` (router).
+2. This entry (CP-14).
+3. `docs/claude/milestone-state.md`.
+4. `docs/claude/operating-protocol.md` § 4.4 (5-bullet compliance check).
+5. `docs/sprint-plans/S-047-bybit2-spot-margin.md` D7 + T5 row + § 5b + § 7.
+6. `src/runtime/order_monitor.py::_reconcile_open_trades` — current per-account snapshot loop; T5 teaches it to query the spot-margin borrow-position endpoint when `account.market_type == "spot-margin"`.
+7. `src/units/accounts/clients.py::account_open_positions` — current per-account positions fetcher.
+
+Tier 2 (live order routing / runtime orchestration). Draft PR + ping-PR + Merge/Hold buttons per § 4. T5 is gated on operator's "merge" reply on the work-PR.
+
+---
+
+## CP-2026-05-07-13-s047-T3-spot-margin-routing-wiring — S-047 T3: execute.py + coordinator spot-margin wiring (D4 + D5)
+
+- **Session date:** 2026-05-07 (continuation of `CP-2026-05-07-12`).
+- **Sprint:** S-047 — bybit_2 Spot Margin enablement.
+- **Active milestone:** M5 paused; S-047 active. **T3 shipped (work-PR #464 operator-merged 2026-05-07); T4 queued.**
+- **Last completed checkpoint:** `CP-2026-05-07-12-s047-T2-risk-spot-margin-sizing` (PR #459 operator-merged 2026-05-07 13:28 UTC, unblocked T3).
+- **Branches:** work-PR #464 on `claude/S-047-T3-exec-coordinator-margin-wiring` (operator-merged after explicit "merge" reply); ping-PR #465 (self-merged before merge); ping-PR #466 (sprint-complete-T3, self-merged after work-PR merge).
+- **Telegram sent:** #465 (merge-review) and #466 (T3-complete) fired via the standard ping-PR drain.
+
+### Brief — back-fill (entry not authored at the time)
+
+D4 (`execute.py`): pass `isLeverage=1` to every Bybit V5 spot `place_order` on `bybit_2` (Buy + Sell + close legs). Cash-spot accounts unchanged. The existing spot-sell pre-flight base-coin guard is **skipped** for spot-margin (the system can borrow the asset). retCodes 110007 (`MARGIN_TRADING_NOT_ENABLED`) and 110095 (insufficient borrow available) are logged through the existing `report_api_failure` path — no new gates.
+
+D5 (`coordinator.multi_account_execute`): for spot-margin accounts the direction-aware balance fetch returns USDT collateral for **both** directions (matching the risk-manager's collateral semantics in T2 D3). Cash-spot accounts retain the existing per-direction balance behaviour. The `market_type` primitive is forwarded to `RiskManager.position_size()` so the T2 spot-margin kernel actually fires.
+
+§ 4.4 5-bullet compliance: ✅ removes one refusal (spot-sell pre-flight for spot-margin), adds zero new gates; routing predicate not refusal flag; no operator notebook; live-mode clean; ruff/secret/dry-run/inventory clean; 25 new tests + 109 pre-existing related tests pass. Smoke harness `scripts/sprint047/spot_margin_smoke.py` runs against Bybit testnet (T6 territory). Tier 2/3 — DRAFT, never auto-merged, operator merge gated T4/T5/T6.
+
+This CP-13 entry is back-filled here so the log invariant (every session writes a checkpoint before exiting) holds for the program record. The T3 session itself shipped the code + the two ping-PRs but did not author this log entry; the T4 session (this CP-14 author) is filing it on T3's behalf with the description above derived from PR #464's commit message + the merged ping payloads in `docs/claude/pending-pings.jsonl`.
+
+---
+
 ## CP-2026-05-07-12-s047-T2-risk-spot-margin-sizing — S-047 T2: RiskManager spot-margin sizing kernel
 
 - **Session date:** 2026-05-07 (continuation of `CP-2026-05-07-11`).
