@@ -48,12 +48,39 @@ artifact when the same action needs to repeat (rollback, second VM, recovery).
 6. **Commit message convention.** When Claude opens the PR introducing a
    new operator notebook, the title prefix is `feat(ops):` so the
    notify pipeline doesn't mistake it for a code change.
+7. **Colab open link is part of every delivery (MANDATORY).** Any time
+   Claude *delivers* an operator notebook to the operator — in a chat
+   reply, Telegram ping, PR body, checkpoint handoff, or sprint summary —
+   the message **must include the Colab open URL**, not just the GitHub
+   URL. The operator clicks that link and the notebook opens in Colab
+   ready to *Runtime → Run all*; pasting only a GitHub blob/raw URL
+   forces a manual download-and-upload every time and is a workplan
+   violation. Format:
+
+   ```
+   https://colab.research.google.com/github/<owner>/<repo>/blob/<branch>/<path>
+   ```
+
+   For this repo with a notebook on `main`:
+
+   ```
+   https://colab.research.google.com/github/the-lizardking/ict-trading-bot/blob/main/notebooks/operator/<file>.ipynb
+   ```
+
+   For a notebook on a feature branch (during PR review), substitute the
+   branch name for `main`. The "Existing operator notebooks" table below
+   carries the canonical link for every notebook on `main`; copy from
+   there rather than re-deriving the URL by hand.
 
 ### Anti-patterns (don't do these)
 
 - ❌ "Run these commands on the VM:" followed by a code block. The
   operator has to copy-paste, the SSH connection details are implicit,
   and the action isn't reproducible.
+- ❌ Linking only the GitHub blob URL of an operator notebook. The
+  operator has to find the *Open in Colab* button (which doesn't always
+  exist on a draft-PR branch). Always include the
+  `colab.research.google.com/github/...` URL — see Rule 7.
 - ❌ A notebook that overwrites the entire `.env`. That clobbers
   values rotated by other notebooks. Patch the lines you own.
 - ❌ A notebook that requires the operator to type values into prompts
@@ -64,12 +91,23 @@ artifact when the same action needs to repeat (rollback, second VM, recovery).
 
 ### Existing operator notebooks
 
-| Notebook | What it does |
-|---|---|
-| `notebooks/operator/rotate_api_keys.ipynb` | Generate a fresh `.env` + `.env.live` from Colab Secrets, push to VM, restart trader + bot |
-| `notebooks/operator/enable_comms_channel.ipynb` | Idempotently flip `COMMS_PUSH_ENABLED` in the bot service `.env`, restart `ict-telegram-bot`, optional smoke test |
+Each row links to the **Colab open URL on `main`** — the link the operator
+should click. Switch the branch in the URL when the notebook is still on a
+feature branch under review.
 
-Add a row here when you add a notebook.
+| Notebook | What it does | Colab open link |
+|---|---|---|
+| `rotate_api_keys.ipynb` | Generate a fresh `.env` + `.env.live` from Colab Secrets, push to VM, restart trader + bot | [open](https://colab.research.google.com/github/the-lizardking/ict-trading-bot/blob/main/notebooks/operator/rotate_api_keys.ipynb) |
+| `enable_comms_channel.ipynb` | Idempotently flip `COMMS_PUSH_ENABLED` in the bot service `.env`, restart `ict-telegram-bot`, optional smoke test | [open](https://colab.research.google.com/github/the-lizardking/ict-trading-bot/blob/main/notebooks/operator/enable_comms_channel.ipynb) |
+| `cleanup_ghost_trades.ipynb` | One-shot manual remediation for DB-open trades whose exchange position is flat (BUG-041 family) | [open](https://colab.research.google.com/github/the-lizardking/ict-trading-bot/blob/main/notebooks/operator/cleanup_ghost_trades.ipynb) |
+| `sweep_unlinked_packages.ipynb` | Orphan `order_packages` rows with `linked_trade_id IS NULL` to unblock the BUG-046 gate (BUG-049 hotfix) | [open](https://colab.research.google.com/github/the-lizardking/ict-trading-bot/blob/main/notebooks/operator/sweep_unlinked_packages.ipynb) |
+| `diagnose_live_trading.ipynb` | Pull a structured live-trading health snapshot from the VM | [open](https://colab.research.google.com/github/the-lizardking/ict-trading-bot/blob/main/notebooks/operator/diagnose_live_trading.ipynb) |
+| `deploy_latest_main.ipynb` | One-click `git pull` on the VM and restart of every `ict-*` service | [open](https://colab.research.google.com/github/the-lizardking/ict-trading-bot/blob/main/notebooks/operator/deploy_latest_main.ipynb) |
+| `push_notebook_to_repo.ipynb` | Stage + commit + push a notebook from Colab back to the repo | [open](https://colab.research.google.com/github/the-lizardking/ict-trading-bot/blob/main/notebooks/operator/push_notebook_to_repo.ipynb) |
+| `update_branch_protection.ipynb` | Sync GitHub branch-protection rules from the repo's canonical config | [open](https://colab.research.google.com/github/the-lizardking/ict-trading-bot/blob/main/notebooks/operator/update_branch_protection.ipynb) |
+| `debug_vwap_bybit2.ipynb` | Diagnose VWAP→bybit_2 silencing across the 13 documented gates; gated remediation for the strategy-monocle stuck-state | [open](https://colab.research.google.com/github/the-lizardking/ict-trading-bot/blob/main/notebooks/operator/debug_vwap_bybit2.ipynb) |
+
+Add a row here (with the Colab open link) when you add a notebook.
 
 ---
 
