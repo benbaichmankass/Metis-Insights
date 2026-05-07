@@ -9,13 +9,140 @@ prior run and reverted).
 
 ---
 
-## TL;DR
+## TL;DR (updated 2026-05-07 with 5m results)
 
-**Adopt the 4h-EMA-200 soft trend filter (H3).** It is the only change
-tested that flips the strategy from **negative to positive Sharpe** by
-filtering the specific failure mode the σ-threshold lever could not
-address: VWAP mean-reversion entries that fight a strong higher-timeframe
-trend.
+The original draft of this doc used a 1h backtest (sandbox-only data
+constraint) and recommended the 4h-EMA-200 trend gate (H3) because it
+was the only filter that flipped a deeply unprofitable 1h baseline
+positive. **The 5m re-run on a GitHub Actions runner with real Bybit /
+Coinbase data tells a meaningfully different story** — see the new
+"5m re-run" section below. Headline: **adopt H1 (anchored VWAP) as
+the production change**, with H6 (anchored + HTF gate) as an
+optional Phase-2 layer.
+
+The original 1h analysis stays in this document because the 1h
+walk-forward over 6 years (2017-2023, including extreme regime
+shifts) is a useful stress test of the same filter set.
+
+---
+
+## 5m re-run — production-decision results
+
+**Source data:** real BTCUSDT 5m + 1h candles pulled via
+`scripts/training/data_loader.load_candles` (yfinance → Coinbase →
+Bybit fallback chain) on the GitHub Actions runner at `runs/25525069487`.
+**Period:** ~365 days, ending 2026-05-07. **All 6 hypotheses + the
+H2/H3 sweeps + a 70/30 walk-forward split executed in <5 min.**
+
+### Per-variant metrics (5m)
+
+| Variant | Trades | Win | E[R] | Sharpe | max DD | Δ Sharpe | Verdict |
+|---|---:|---:|---:|---:|---:|---:|---|
+| **baseline** (live config) | 950 | 31.0% | +0.163 R | **+2.74** | −34 R | — | already profitable |
+| **H1 — anchored VWAP (UTC)** | **962** (+1.3 %) | **33.3 %** | **+0.206 R** | **+3.47** | −52 R | **+0.72** | **ADOPT (primary)** |
+| H2 — VWAP slope filter | 847 | 31.8 % | +0.179 R | +2.88 | −25 R | +0.13 | reject — marginal |
+| H3 — HTF soft trend filter | 526 | 34.2 % | +0.279 R | +3.36 | −21 R | +0.62 | strong — Phase-2 candidate |
+| H4 — RSI(14) confirmation | 854 | 30.2 % | +0.170 R | +2.65 | −47 R | −0.10 | **REJECT** (regression) |
+| H5 — volume-spike confirmation | 636 | 31.3 % | +0.196 R | +2.61 | −34 R | −0.13 | **REJECT** (regression) |
+| **H6 — anchored + HTF stacked** | **523** (−45 %) | **36.3 %** | **+0.315 R** | **+3.90** | **−22 R** | **+1.15** | **Phase-2 — ADOPT after H1 lands** |
+
+H6 stacks H1 (anchored VWAP, picked first by Sharpe) with H3 (HTF
+EMA-200 ±1 % gate, picked second). The composite is best-in-class on
+every metric except cadence.
+
+### Critical reversal vs the original 1h finding
+
+> **H1 was rejected at 1h, but is the strongest pure-quality lift at
+> 5m.** This validates the caveat in the original draft: at 1h, the
+> UTC daily anchor only has 24 σ-samples per session — too few for a
+> stable σ. At 5m, a session has 288 bars; the σ estimate is robust
+> and the anchored VWAP becomes a *better* fair-value proxy than the
+> 120-bar rolling VWAP currently in production.
+
+Conversely, **H3's lift shrinks** at 5m (+0.62 Sharpe vs +5.30 at 1h)
+because the 5m baseline is already profitable. H3 still helps, but
+the gain isn't worth the 45 % cadence cost as a standalone change.
+Stacked on top of H1 (= H6), the marginal lift of H3 is +0.43 Sharpe
+on top of H1's +0.72 — a worthwhile Phase-2 add-on.
+
+### Walk-forward (5m, 70/30 in/out-of-sample split)
+
+| Slice | Bars | Baseline Sharpe | H3 Sharpe | Δ Sharpe |
+|---|---:|---:|---:|---:|
+| In-sample (~256 days) | first 70 % | **+3.16** | +3.46 | +0.30 |
+| Out-of-sample (~109 days, recent) | last 30 % | **+0.24** | **+0.80** | **+0.56** |
+
+The recent 109-day window has dramatically degraded baseline performance
+(+3.16 → +0.24). H3 holds up much better (3.46 → 0.80) — a 3.3× ratio
+on absolute Sharpe in the harder regime. **This is the core argument
+for keeping H3 in the production stack as Phase-2 (= H6) even though
+the in-sample baseline is already strong:** baseline is regime-fragile,
+H3 is regime-robust. We did not run an OOS walk-forward for H1 alone;
+that should be done before Phase-2 is decided.
+
+### Parameter sweeps (5m)
+
+**H2 slope-threshold sweep** (default 0.0015):
+
+| thr | trades | drop | Sharpe | E[R] | win |
+|---|---:|---:|---:|---:|---:|
+| 0.0008 | 757 | 20 % | +2.52 | +0.163 | 31.7 % |
+| 0.0010 | 796 | 16 % | +2.92 | +0.187 | 32.2 % |
+| **0.0015** | 847 | 11 % | +2.88 | +0.179 | 31.8 % |
+| 0.0020 | 885 | 7 % | +3.07 | +0.189 | 31.8 % |
+| 0.0030 | 915 | 4 % | +2.51 | +0.151 | 30.8 % |
+
+H2 has a noisy peak around thr=0.0020 (+3.07) — a non-monotonic curve
+that suggests the slope filter is fitting weakly at 5m. Doesn't justify
+shipping on its own; H1 covers the same regime-aware quality lift more
+cleanly.
+
+**H3 EMA-band sweep** (default 0.010):
+
+| band | trades | drop | Sharpe | E[R] | win |
+|---|---:|---:|---:|---:|---:|
+| 0.005 | 488 | 49 % | +2.97 | +0.255 | 33.4 % |
+| **0.010** | 526 | 45 % | +3.36 | +0.279 | 34.2 % |
+| 0.015 | 564 | 41 % | +3.33 | +0.266 | 33.7 % |
+| 0.020 | 582 | 39 % | +3.29 | +0.260 | 33.3 % |
+| 0.025 | 608 | 36 % | +3.33 | +0.259 | 33.1 % |
+| 0.030 | 634 | 33 % | +3.39 | +0.258 | 33.0 % |
+
+H3 is stable: every band from 1 % to 3 % gives Sharpe between +3.29
+and +3.39. **Loosening to 3 % band keeps Sharpe at +3.39 with only a
+33 % cadence drop** (vs 45 % at the default 1 % band). Worth tuning
+during Phase-2 rollout if the 1 % cadence is too tight in live.
+
+### Recommended production change (5m findings)
+
+**Phase 1 — adopt H1 (anchored VWAP) immediately.** Replace the
+120-bar rolling VWAP / σ pair in `build_vwap_signal` with a UTC-daily
+session-anchored VWAP and a session-to-date typical-price σ. Keep
+the 1.0 σ entry threshold and 0.5 σ SL exactly as they are.
+Expected lift: +0.72 Sharpe (2.74 → 3.47), +2.2 pp win rate,
++0.04 R / trade, **with no cadence cost** (962 trades vs 950 baseline).
+Risk note: max DD slightly worse (-52 R vs -34 R) due to noisier
+early-session σ; if that becomes a problem in live, gate the
+strategy off until N ≥ 12 bars into the session.
+
+**Phase 2 — layer in H3 (4h-EMA-200 ±1 % gate) after Phase-1 metrics
+are stable in live.** Adds +0.43 Sharpe on top of H1, takes win rate
+to 36.3 %, but cuts cadence 45 % (962 → 523 trades). Justified by the
+walk-forward result showing baseline regime-fragility. Revisit the
+H3 band parameter (0.01 → 0.02 or 0.03) if 45 % cadence drop is felt
+to be too aggressive — the band sweep shows the lift is preserved at
+looser bands.
+
+**Permanently rejected at 5m:** H4 (RSI confirmation), H5 (volume-spike
+confirmation). Both regressed Sharpe slightly while reducing cadence.
+The volume-spike thesis may still be worth re-casting as a
+position-sizing modulator (size-up on high-vol entries, size-down
+on average-vol) rather than a hard gate — that's a separate
+experiment.
+
+---
+
+## Original 1h analysis (preserved as a regime stress-test)
 
 | Variant | Trades | Win rate | E[R] | Sharpe | max DD | Verdict |
 |---|---:|---:|---:|---:|---:|---|
