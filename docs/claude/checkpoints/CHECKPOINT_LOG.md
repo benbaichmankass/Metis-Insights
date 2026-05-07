@@ -11,6 +11,66 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-07-13-s048-complete — S-048: M1 comms infrastructure deep audit (close)
+
+- **Session date:** 2026-05-07.
+- **Sprint:** S-048 — M1 comms infrastructure deep audit (telegram-bot vs new workplan). Tier 1 (docs-only audit). Self-merged per operating-protocol § 4.
+- **Active milestone:** M1 reopened on 2026-05-07; this checkpoint closes the audit sprint. M1 stays open per audit verdict (PARTIAL); next sprint = S-047 T3 per § 8 hand-off.
+- **Last completed checkpoint:** `CP-2026-05-07-12-s047-T2-risk-spot-margin-sizing`.
+- **Branches:** this close-checkpoint commit on `claude/audit-comm-channels-9UWa0` (single PR, Tier 1 self-merge).
+- **Telegram sent:** sprint-start + sprint-complete pings appended to `docs/claude/pending-pings.jsonl`.
+
+### What this checkpoint completes
+
+S-048 audited the on-disk telegram-bot + comms implementation against the new workplan's § "Telegram bots", § "Required logs" / "Additional logs and registries to add", and § "Repeatable operator-triggered workflows". Audit produced:
+
+- `docs/audits/M1-comms-audit-2026-05-07.md` (D1 — master audit report).
+- `docs/audits/M1-comms-audit-followups.md` (D2 — prioritized backlog: 7 P1 + 1 P2 cluster).
+- `docs/claude/milestone-state.md` updated (D3 — M1 row → 🔄 PARTIAL; Active sprint flipped from S-048 to S-047 T3; queue updated).
+- `ROADMAP.md` updated (D4 — M1 row mirrors verdict; queue updated; S-048 row added).
+- This entry (D5).
+- `docs/sprint-summaries/sprint-048-summary.md` (sprint summary).
+
+### Audit verdict
+
+**🔄 PARTIAL.** No P0 surfaced. The trader-bot operator-control trio (`/halt`, `/closeall`, `/toggle`) and 7 of 8 information menus are present and tested. S-027's repo-driven request/response system is on disk and tested — but installed on **`@bict_trading_bot`** (`telegram_query_bot.py:2955`) instead of **`@claude_ict_comms_bot`** per the workplan. Seven P1 follow-ups + one P2 cluster filed.
+
+The audit also surfaces an S-042 verdict drift: S-042 (closed 2026-05-06) declared "ClaudeBot is one-way send-only; no response path; intentional design" (`docs/claude/telegram-pings.md:6-10`, `:195-199`), but S-027 had already shipped the two-way response path on the trader bot at the time. S-042's evidence table audited the `pending-pings.jsonl` one-way queue only. A docs-correction sprint is filed in D2.
+
+### Files changed (single PR, Tier 1)
+
+- `docs/audits/M1-comms-audit-2026-05-07.md` (NEW) — D1.
+- `docs/audits/M1-comms-audit-followups.md` (NEW) — D2.
+- `docs/claude/milestone-state.md` — D3 (M1 row, Active milestone, Queued milestones, Recently closed milestones).
+- `ROADMAP.md` — D4 (M1 row, queue, ledger).
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` — this entry (D5).
+- `docs/claude/pending-pings.jsonl` — sprint-start + sprint-complete ping appends.
+- `docs/sprint-summaries/sprint-048-summary.md` (NEW) — sprint summary.
+
+### Compliance check (per § 4.4 — 5 bullets)
+
+1. ✅ **No refuse-to-trade outside the dispatcher.** Audit-only sprint; no code changes to risk, dispatcher, executor, or strategy modules. Zero diff in `src/runtime/`, `src/units/accounts/`, `src/core/`, or any live-trading path.
+2. ✅ **No per-account refusal flag/branch.** No code change.
+3. ✅ **No operator-run notebook / capture step.** Pure docs; no operator action required to land this sprint.
+4. ✅ **Live-mode invariant passes.** No edits to live-routing code; `scripts/check_dry_run_in_diff.py` is expected clean.
+5. ✅ **CI green expected.** Pure markdown + JSONL append; no Python touched; ruff/secret-scan/dry-run-in-diff/inventory clean.
+
+### Live-mode check
+
+✅ no flip away from `live` anywhere in the diff. All seven changed files are markdown or JSONL. None of them are live-routing paths.
+
+### Remaining (operator action)
+
+**None.** Tier 1 self-merge per operating-protocol § 4. The follow-up sprints filed in `docs/audits/M1-comms-audit-followups.md` re-queue after S-047 T3 closes; some are Tier 2/3 and will then pause at the operator-merge gate when filed.
+
+### Next session: S-047 T3
+
+Per `docs/sprints/sprint-048-prompt.md` § 8 hand-off rule, no P0 surfaced → default next sprint = **S-047 T3** (`feat(exec): route spot-margin orders via isLeverage=1` + `feat(coordinator): direction-aware balance for spot-margin accounts`). Plan: `docs/sprint-plans/S-047-bybit2-spot-margin.md` § T3. Tier 2/3 — pauses at the operator-merge gate.
+
+The M1 comms-followup queue is *not* the next sprint — operator directive 2026-05-07 made S-048 a one-shot audit; the followups re-queue *after* S-047 T3 closes (M5 inherits the `/test <strategy>` follow-up).
+
+---
+
 ## CP-2026-05-07-12-s047-T2-risk-spot-margin-sizing — S-047 T2: RiskManager spot-margin sizing kernel
 
 - **Session date:** 2026-05-07 (continuation of `CP-2026-05-07-11`).

@@ -36,19 +36,19 @@ When opening a session:
 
 | Field | Value |
 |---|---|
-| **Milestone** | M1 — Comms infrastructure (REOPENED 2026-05-07; deep audit required against new workplan) |
-| **Title** | M1 comms infrastructure deep audit (telegram-bot vs new workplan) |
-| **Type** | roadmap (auto-claude). M1 reopen. |
-| **Goal** | Produce a structured gap-list comparing on-disk telegram-bot implementation against `docs/claude/workplan.md` § "Telegram bots" + § "Required logs" + § "Repeatable operator-triggered workflows". Output is a prioritized backlog of follow-up sprints, not a code change. |
-| **Status** | 🔄 ACTIVE — next session opens **S-048** per `docs/sprints/sprint-048-prompt.md`. Tier 1 docs-only audit. **S-047 T3 is queued behind S-048 close** (operator directive 2026-05-07: comms cleanup runs first). |
-| **Active sprint** | **S-048 — M1 comms audit.** Prompt: `docs/sprints/sprint-048-prompt.md`. No prerequisite session — ready to start. |
-| **Active checkpoint** | T1 — audit telegram-bot side (`@bict_trading_bot`) against workplan § "Telegram bots" → notifications, operator commands, info menus. See sprint prompt § 4 (D1 D2 D3 D4 D5) for the full deliverable list and § 5 for method. |
-| **Risk tier (S-048 average)** | Tier 1 (docs-only audit). Code changes the audit recommends are filed as their own follow-up sprints at the appropriate tier. |
-| **Definition of done (S-048)** | D1 audit report at `docs/audits/M1-comms-audit-<date>.md`; D2 prioritized backlog at `docs/audits/M1-comms-audit-followups.md`; D3 milestone-state.md M1 row updated to verdict; D4 ROADMAP.md M1 row mirrors verdict; D5 close-checkpoint entry; sprint summary at `docs/sprint-summaries/sprint-048-summary.md`. CI green. |
+| **Milestone** | S-047 T3 — Bybit Spot Margin live-order routing wire-up |
+| **Title** | feat(exec): route spot-margin orders via isLeverage=1 + feat(coordinator): direction-aware balance for spot-margin accounts |
+| **Type** | ad-hoc (live-trading). Tier 2/3. |
+| **Goal** | Land the two co-dependent diffs that close S-047. D4 routes spot-margin orders via `isLeverage=1`; D5 makes the coordinator return direction-aware available balance for spot-margin accounts. The two diffs are incoherent independently — must land together. |
+| **Status** | 🔄 ACTIVE — opens after S-048 close. Tier 2/3 — will pause at the operator-merge gate (PR opens as draft, requires explicit approval). |
+| **Active sprint** | **S-047 T3.** Plan: `docs/sprint-plans/S-047-bybit2-spot-margin.md` § T3. |
+| **Active checkpoint** | T3 D4 — `feat(exec): route spot-margin orders via isLeverage=1`. |
+| **Risk tier** | Tier 2 / Tier 3 (live order path). Operator approval required before merge. |
+| **Definition of done (S-047 T3)** | D4 + D5 land together; tests green; smoke-test plan executed; sprint summary at `docs/sprint-summaries/sprint-047-summary.md`; bybit_2 spot-margin ready for first live VWAP signal. |
 
-**Operator action remaining: none.** S-048 runs autonomously — Tier 1 self-merge per operating-protocol § 4. Code follow-ups land in their own sprints at their own tiers.
+**Operator action remaining when S-047 T3 lands a PR: merge / hold gate** (Tier 2/3 — see operating-protocol § 4). PR opens as draft per § 4.4.
 
-**Next sprint after S-048 closes: S-047 T3** — unless S-048 surfaces a P0 audit gap, in which case the P0 follow-up runs first per the prompt's hand-off rule (§ 8). S-047 T3 = `feat(exec): route spot-margin orders via isLeverage=1` + `feat(coordinator): direction-aware balance for spot-margin accounts` (D4 + D5 land together — one diff is incoherent without the other). Plan: `docs/sprint-plans/S-047-bybit2-spot-margin.md` § T3. Tier 2/3 — will pause at the operator-merge gate.
+**M1 status update (S-048 closed 2026-05-07):** audit verdict = 🔄 PARTIAL. No P0 surfaced. Seven P1 follow-ups + one P2 cluster filed in `docs/audits/M1-comms-audit-followups.md` to be re-queued after S-047 T3 closes. M1 stays open until at least the relocation, merge-review-buttons, recovery-alert, and unification sprints land. Per § 8 hand-off: next sprint after S-048 close = S-047 T3 (default; no P0 override).
 
 ---
 
@@ -61,7 +61,7 @@ When opening a session:
 | Milestone | Focus | Status | Evidence / Notes |
 |---|---|---|---|
 | **M0** | Workflow foundation | ✅ CLOSED | S0 sprint done; `docs/sprint-summaries/sprint-S0-summary.md` exists; CP-2026-05-06-S0-02 in checkpoint log |
-| **M1** | Comms infrastructure | ⚠️ REOPENED 2026-05-07 — workflow drift (active milestone) | S-042 closed M1 on 2026-05-06 against the pre-reconciliation workplan; the new canonical workplan was adopted later that same day via S-041 (workplan-reconciliation sweep). Per workplan § "Verify-before-trusting-done", the on-disk telegram-bot implementation has **not** been audited against the new workplan § "Telegram bots" spec (two-bot model: AI Trader Bot operator commands + info menus; ClaudeBot repo-driven comms loop with merge-review buttons / sprint pings / writeback / recovery). Operator directive 2026-05-07: M1 needs a deep audit covering the entire telegram-bot functionality vs. the new workplan. **S-048 is the active sprint** — see `docs/sprints/sprint-048-prompt.md`. |
+| **M1** | Comms infrastructure | 🔄 PARTIAL (S-048 audited 2026-05-07) | S-048 audited the on-disk telegram-bot implementation against the new workplan and produced `docs/audits/M1-comms-audit-2026-05-07.md` + `docs/audits/M1-comms-audit-followups.md`. Verdict: **🔄 PARTIAL**, no P0. Operator-control trio (`/halt`, `/closeall`, `/toggle`) and 7 of 8 information menus on `@bict_trading_bot` are present and tested. S-027's repo-driven request/response system is on disk and tested — but installed on the **trader bot** (`telegram_query_bot.py:2955`) instead of `@claude_ict_comms_bot` per the workplan. Seven P1 follow-ups filed: relocate comms to ClaudeBot; merge/hold inline buttons; stuck-request recovery alerts; auto-hourly snapshot timer; `/new-session` + `/test` operator commands; unify `pending-pings.jsonl` and `comms/requests/`; correct S-042 doc drift. M1 stays open until the relocation + merge-review + recovery-alert + unification sprints land. |
 | **M2** | Web app source of truth (backend) | 🔄 PARTIAL | S-013 FastAPI backend (`/api/status`, `/api/pnl`, JWT auth). S-014 added `/api/bot/{stats,logs,positions,signals}` for the Vercel dashboard + CORS middleware keyed to `DASHBOARD_ORIGIN`. Dashboard reachability fix landed 2026-05-07 (Vercel rewrite proxies `/api/bot/*` to the bot, defeats HTTPS→HTTP mixed-content block). Backend side considered effectively complete; not formally closed under M0..M10 because the close-out paperwork was never filed. |
 | **M3** | Risk controls foundation | ✅ CLOSED | S-043 closed 2026-05-06. Order-layer refusal tests now complete (28 new gap-closer tests in `tests/test_s043_order_refusal_paths.py`). Risk engine + kill switch + risk caps + reason-token contract all pinned. |
 | **M4** | Repo hygiene + CI | ✅ CLOSED | S-044 (CI suite) ✅; S-045 (conftest + pytest-collect blocking + ruff default) ✅; post-S-045 follow-up (auto-sync branch protection workflow) ✅; S-046 (2026-05-07) closed the three Janitor audits — 8 dead files removed, `src/ui/` shim consolidated into `src/units/ui/`, missing-test gap closed for `src/units/db/data_loader.py`. M4 formally closed. |
@@ -82,11 +82,12 @@ When opening a session:
 |---|---|---|---|
 | M0 — Workflow Foundation (≈ S0) | 2026-05-06 | `CP-2026-05-06-S0-02` | `docs/sprint-summaries/sprint-S0-summary.md` |
 | S-041 — workplan reconciliation sweep | 2026-05-06 | `CP-2026-05-06-12-s041-complete` | `docs/sprint-summaries/sprint-041-summary.md` |
-| ~~M1 — Comms infrastructure (S-042)~~ | ~~2026-05-06~~ | ~~`CP-2026-05-06-14-s042-complete`~~ | ~~`docs/sprint-summaries/sprint-042-summary.md`~~ — **REOPENED 2026-05-07** (audit pending against new workplan; see M0..M10 table) |
+| ~~M1 — Comms infrastructure (S-042)~~ | ~~2026-05-06~~ | ~~`CP-2026-05-06-14-s042-complete`~~ | ~~`docs/sprint-summaries/sprint-042-summary.md`~~ — **REOPENED 2026-05-07; S-048 audit produced PARTIAL verdict; M1 stays open behind P1 follow-ups (see M0..M10 table).** |
 | M3 — Risk controls foundation (S-043) | 2026-05-06 | `CP-2026-05-06-15-s043-complete` | `docs/sprint-summaries/sprint-043-summary.md` |
 | S-044 — M4 CI suite | 2026-05-07 | `CP-2026-05-07-03-s044-complete` | `docs/sprint-summaries/sprint-044-summary.md` |
 | S-045 — M4 step 2: conftest + pytest-collect-blocking + ruff default | 2026-05-07 | `CP-2026-05-07-05-s045-complete` | `docs/sprint-summaries/sprint-045-summary.md` |
 | **M4 — Repo hygiene + CI (S-046)** | **2026-05-07** | `CP-2026-05-07-NN-s046-complete` | `docs/sprint-summaries/sprint-046-summary.md` |
+| **S-048 — M1 comms audit (deep dive vs new workplan)** | **2026-05-07** | `CP-2026-05-07-NN-s048-complete` | `docs/sprint-summaries/sprint-048-summary.md` (Tier 1 self-merge; M1 stays open per audit verdict — see M0..M10 row) |
 
 > Pre-M0..M10 roadmap progress (S-000 through S-040) is captured in `ROADMAP.md`
 > under "Historical Sprint Ledger". From M0 forward, every closed milestone gets a row here.
@@ -95,13 +96,13 @@ When opening a session:
 
 ## Queued milestones
 
-In execution order. Each row lists the gating condition to start. **Operator directive 2026-05-07: M1 comms cleanup (S-048) runs before S-047 T3.**
+In execution order. Each row lists the gating condition to start. **S-048 closed 2026-05-07 with PARTIAL verdict; no P0 surfaced; default hand-off → S-047 T3 per sprint-048-prompt § 8.**
 
 | Order | Milestone / sprint | Type | Gating condition |
 |---|---|---|---|
-| 1 | **S-048 — M1 comms audit (telegram-bot deep dive)** | auto-claude (M1 reopen) | None — ready to start. Prompt: `docs/sprints/sprint-048-prompt.md`. |
-| 2 | **S-047 T3 close** (close S-047 cleanly: D4 + D5 + sprint-summary) | ad-hoc (live-trading) | S-048 closes. **Conditional override:** if S-048 surfaces a P0 audit gap, the P0 follow-up runs before T3 per the prompt's hand-off rule (§ 8). |
-| 3 | M5 — Strategy testing workflow | auto-claude | S-047 T3 closes (M1 audit may also surface dependencies M5 inherits). |
+| 1 | **S-047 T3 close** (close S-047 cleanly: D4 + D5 + sprint-summary) | ad-hoc (live-trading) | None — ready to start. Plan: `docs/sprint-plans/S-047-bybit2-spot-margin.md` § T3. |
+| 2 | **M1 comms followups** — relocate comms to ClaudeBot, merge-review buttons, recovery alerts, auto-hourly timer, `/new-session` + `/test`, surface unification, S-042 doc correction | roadmap | S-047 T3 closes. Highest-priority entry from `docs/audits/M1-comms-audit-followups.md` runs first. M5 inherits the `/test <strategy>` deliverable from this queue. |
+| 3 | M5 — Strategy testing workflow | auto-claude | M1 `/test <strategy>` follow-up closes (M5 dispatch surface lives there). |
 | 4 | M6 — Web app UI (dashboard repo) | auto-claude | Independent — opened against `the-lizardking/ict-trader-dashboard`, not this repo. Focus order: live data feed first, then operator-control functionalities. |
 | 5 | M9 — AI / model roadmap | auto-claude | Independent of M5/M6. Could run in parallel. |
 | 6 | M10 — HF / data pipeline | auto-claude | Independent of M5/M6. Could run in parallel. |
