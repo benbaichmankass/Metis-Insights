@@ -15,8 +15,6 @@ These tests pin:
 """
 from __future__ import annotations
 
-import pytest
-
 from src.core.coordinator import OrderPackage
 from src.units.accounts.risk import RiskManager
 
