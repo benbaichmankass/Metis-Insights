@@ -5,21 +5,16 @@ name: pytest-collect
 # resolution / pytest collection failures without paying the cost
 # of full test execution.
 #
-# CURRENTLY ADVISORY (S-044). The repo carries a pre-existing
-# test-isolation bug — `tests/conftest.py` stubs `telegram` /
-# `telegram.ext` as MagicMocks, so any test that transitively
-# imports `src/bot/comms_handler.py` (which does
-# `from telegram.error import TelegramError`) fails at collection.
-# Fixing that requires editing `tests/conftest.py`, which is
-# outside S-044's unit-boundary declaration. The cleanup is a
-# follow-up Janitor sprint (S-045 candidate).
-#
-# Until the conftest.py cleanup lands, this workflow uses
-# `--continue-on-collection-errors` to log every collection error
-# in one run, but does NOT fail the PR (the final step swallows the
-# exit code). Promotion to a blocking gate is its own sprint after
-# the baseline-error count drops to zero. Track in
-# `docs/claude/ci-status-checks.md`.
+# **BLOCKING** as of S-045 (PR #438). Until S-045, the workflow rode
+# advisory because `tests/conftest.py` stubbed `telegram` /
+# `telegram.ext` as bare `MagicMock()` modules (no `telegram.error`
+# / `telegram.constants` submodules), and `tests/test_bot_web_sweep.py`
+# stubbed `fastapi` with the wrong "is it in sys.modules" guard.
+# 45 telegram-failures + 7 fastapi-failures = 52 collection errors on
+# `main`. S-045 T1 fixed both stubs (BUG-062); S-045 T2 (this file)
+# drops the `|| true` shim and `--continue-on-collection-errors`. The
+# workflow now fails any PR that introduces a collection regression.
+# See `docs/claude/ci-status-checks.md` § pytest-collect.
 
 on:
   pull_request:
@@ -46,23 +41,17 @@ jobs:
           pip install -r requirements.txt
           pip install -r requirements-test.txt
 
-      - name: Collect tests (no execution; advisory)
+      - name: Collect tests (no execution; blocking)
         env:
           PYTHONPATH: ${{ github.workspace }}
         run: |
           # --ignore=tests/test_main_loop.py mirrors CLAUDE.md "Default
           # verification" + sprint-completion guidance: that module imports
           # the live trading entrypoint and is excluded from sandbox runs.
-          # --continue-on-collection-errors collects everything in one pass
-          # so the log shows the full failure surface.
-          # The trailing `|| true` is the advisory shim — drop it once
-          # the conftest.py isolation cleanup lands and the suite collects
-          # cleanly. See ci-status-checks.md § pytest-collect.
+          # No `--continue-on-collection-errors` and no `|| true` — the
+          # workflow MUST fail on the first collection error so CI gates
+          # the PR. If a future PR introduces a regression, fix the stub
+          # / dep / import in the PR (see BUG-062 for the canonical
+          # "stub if missing" pattern).
           pytest --collect-only -q tests/ \
-            --ignore=tests/test_main_loop.py \
-            --continue-on-collection-errors || true
-
-      - name: Mark advisory status
-        if: always()
-        run: |
-          echo "::notice::pytest-collect is advisory (S-044) pending conftest.py cleanup; not gating PR merge."
+            --ignore=tests/test_main_loop.py
