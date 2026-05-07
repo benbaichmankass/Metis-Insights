@@ -11,6 +11,66 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-07-13-s047-T3-spot-margin-routing-wiring — S-047 T3: exec + coordinator spot-margin wiring (D4 + D5 land together)
+
+- **Session date:** 2026-05-07 (continuation of `CP-2026-05-07-12`).
+- **Sprint:** S-047 — bybit_2 Spot Margin enablement.
+- **Active milestone:** M5 paused; S-047 active. **T3 shipped + operator-merged; T4 queued.**
+- **Last completed checkpoint:** `CP-2026-05-07-12-s047-T2-risk-spot-margin-sizing` (PR #459 operator-merged earlier 2026-05-07).
+- **Branches:** work-PR #464 on `claude/bybit-spot-margin-routing-tZMjN` (operator-merged 2026-05-07 ~16:00 UTC); ping-PR #465 on `claude/ping-S-047-T3` (self-merged after CI green); sprint-complete ping-PR #466 on `claude/ping-S-047-T3-complete` (self-merged after CI green); this close-checkpoint commit on `claude/cp-2026-05-07-s047-t3-close`.
+- **Telegram sent:** ping-PR #465 (merge-review) self-merged; ping-PR #466 (sprint-complete) self-merged.
+
+### What this checkpoint completes
+
+S-047 T3 D4 + D5 — landed together because one diff is incoherent without the other.
+
+**D4 (`feat(exec): route spot-margin orders via isLeverage=1`)** — `_is_spot_margin(account_cfg)` predicate; `_bybit_category` maps `spot-margin` → API `spot`; `_submit_order`, `_submit_test_order`, `close_open_position` all add `isLeverage=1` for spot-margin orders (Buy + Sell + close legs); the existing spot-sell pre-flight base-coin balance guard is **skipped** for spot-margin (the system can borrow base coin to short — one fewer refusal, not a new one). retCode 110007 / 110095 flow through the existing `report_api_failure` path; no new gates.
+
+**D5 (`feat(coordinator): direction-aware balance for spot-margin accounts`)** — `multi_account_execute` returns USDT collateral as the balance for **both** directions on spot-margin accounts (cash-spot retains the pre-T3 direction-aware semantics). The routing label is forwarded as a primitive `market_type` keyword to `RiskManager.position_size`, so the T2 spot-margin sizing kernel (max_borrow CAP / borrow-fee SCALE / liquidation-buffer REFUSAL) actually fires. `size_order_from_cfg` also forwards `market_type` so the direct `account_execute` path consumes the kernel.
+
+The user observed the live 170131 bug pre-merge: `bybit_2` Buy 0.002 BTC vs $177 USDT → cash-spot `Insufficient balance`. With T3 merged + the operator's already-on Bybit web-UI Spot Margin toggle, the same kwargs now carry `isLeverage=1` and the wallet borrows USDT to complete the Buy.
+
+### Files changed (PR #464, MERGED)
+
+- `src/units/accounts/execute.py` — `_is_spot_margin` helper; `_bybit_category` recognises `spot-margin`; `isLeverage=1` added to three `place_order` call sites (`_submit_order`, `_submit_test_order`, `close_open_position`); spot-sell pre-flight bypassed for spot-margin.
+- `src/core/coordinator.py::multi_account_execute` — direction-aware balance fetch returns USDT for both directions on spot-margin; `market_type=` kwarg forwarded to `RiskManager.position_size`.
+- `src/units/accounts/risk.py::size_order_from_cfg` — forwards `market_type` from the account_cfg dict so direct `account_execute` calls also exercise the spot-margin kernel.
+- `tests/test_s047_t3_spot_margin_routing.py` (NEW) — 25 tests across 9 classes covering: `_is_spot_margin` + `_bybit_category` (7); spot-margin SHORT routing + pre-flight bypass (2); spot-margin LONG with isLeverage=1 = the user's live BUG (1); spot-margin close-short + close-long (2); cash-spot regression (3); linear regression (1); smoke-test path (2); `size_order_from_cfg` forwards market_type (2); coordinator forwards market_type kwarg (2); coordinator USDT-collateral for both directions on spot-margin + cash-spot SHORT regression (3).
+- `scripts/sprint047/spot_margin_smoke.py` (NEW) — operator-runnable Bybit testnet smoke harness: open SELL with `isLeverage=1`, poll for BTC borrowAmount, close, verify clear. 5 distinct exit codes.
+
+### Compliance check (per § 4.4 — 5 bullets)
+
+1. ✅ **No refuse-to-trade outside the dispatcher.** Diff REMOVES the spot-sell pre-flight refusal for spot-margin (one fewer gate); adds zero new ones. Exchange retCodes 110007 / 110095 flow through the existing `report_api_failure` path.
+2. ✅ **No per-account refusal flag/branch.** `_is_spot_margin` is a routing predicate (returns the value of an existing field), not a refusal gate. There is no `if _is_spot_margin: refuse` branch.
+3. ✅ **No operator-run notebook / capture step.** The Bybit web-UI Spot Margin toggle is the operator side-quest — the sprint did not block on, verify, or wait for it. (Operator confirmed mid-session that the toggle is on.)
+4. ✅ **Live-mode invariant passes.** `scripts/check_dry_run_in_diff.py` clean against `origin/main`. No edits to `src/runtime/orders.py`, `src/runtime/pipeline.py`, or `src/runtime/trading_mode.py`.
+5. ✅ **CI green.** ruff clean on changed files; secret-scan clean; dry-run-in-diff clean; repo-inventory clean; 25 new tests pass; 109 pre-existing related tests still pass; pre-existing baseline failures (`test_per_strategy_risk`, `test_s026_g{2,3}_*`, `test_runtime_risk_injection`, `test_check_dry_run_in_diff`) unchanged vs. main HEAD `de95490` — verified via `git stash` round-trip.
+
+### Live-mode check
+
+✅ no flip away from `live` anywhere in the diff. PR #464: source files in `src/units/accounts/` + `src/core/coordinator.py` + new tests + new smoke harness. PR #465 + #466: `docs/claude/pending-pings.jsonl` appends only. This close-checkpoint commit: `CHECKPOINT_LOG.md` + `milestone-state.md`. None of these are live-routing flag flips.
+
+### Operator action (resolved this session)
+
+- ✅ **Tier 2/3 merge decision on PR #464.** Operator approved merge mid-session ("You can merge — the switch on the account is already flipped"). Squash-merged with operator-approval commit message.
+- ✅ **Bybit web-UI Spot Margin toggle on `bybit_2`.** Operator confirmed already enabled. Live `isLeverage=1` orders should now flow through (as opposed to bouncing on retCode 110007).
+
+### Next session: S-047 T4
+
+`feat(vwap): close on TP/SL/VWAP-cross instead of only break-even-SL`. Read order:
+
+1. `CLAUDE.md` (router).
+2. This entry (CP-13).
+3. `docs/claude/milestone-state.md`.
+4. `docs/claude/operating-protocol.md` § 4.4 (5-bullet compliance check).
+5. `docs/sprint-plans/S-047-bybit2-spot-margin.md` § T4 row + § 6 success criteria for `tests/units/strategies/test_vwap_monitor_close.py`.
+6. `src/units/strategies/vwap.py` — current `monitor()` break-even-only stub.
+7. `src/runtime/order_monitor.py` — calls `vwap.monitor` per tick.
+
+T4 is **autonomous-start** — operator-merge gate from T3 has cleared, no further blocker until T4 opens its own work-PR. Tier 3 (strategy logic) — DRAFT + ping-PR + Merge/Hold buttons + § 4.4 compliance check before opening.
+
+---
+
 ## CP-2026-05-07-12-s047-T2-risk-spot-margin-sizing — S-047 T2: RiskManager spot-margin sizing kernel
 
 - **Session date:** 2026-05-07 (continuation of `CP-2026-05-07-11`).

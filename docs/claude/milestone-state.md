@@ -41,14 +41,12 @@ When opening a session:
 | **Type** | roadmap (auto-claude). M1 reopen. |
 | **Goal** | Produce a structured gap-list comparing on-disk telegram-bot implementation against `docs/claude/workplan.md` § "Telegram bots" + § "Required logs" + § "Repeatable operator-triggered workflows". Output is a prioritized backlog of follow-up sprints, not a code change. |
 | **Status** | 🔄 ACTIVE — next session opens **S-048** per `docs/sprints/sprint-048-prompt.md`. Tier 1 docs-only audit. **S-047 T3 is queued behind S-048 close** (operator directive 2026-05-07: comms cleanup runs first). |
-| **Active sprint** | **S-048 — M1 comms audit.** Prompt: `docs/sprints/sprint-048-prompt.md`. No prerequisite session — ready to start. |
-| **Active checkpoint** | T1 — audit telegram-bot side (`@bict_trading_bot`) against workplan § "Telegram bots" → notifications, operator commands, info menus. See sprint prompt § 4 (D1 D2 D3 D4 D5) for the full deliverable list and § 5 for method. |
-| **Risk tier (S-048 average)** | Tier 1 (docs-only audit). Code changes the audit recommends are filed as their own follow-up sprints at the appropriate tier. |
-| **Definition of done (S-048)** | D1 audit report at `docs/audits/M1-comms-audit-<date>.md`; D2 prioritized backlog at `docs/audits/M1-comms-audit-followups.md`; D3 milestone-state.md M1 row updated to verdict; D4 ROADMAP.md M1 row mirrors verdict; D5 close-checkpoint entry; sprint summary at `docs/sprint-summaries/sprint-048-summary.md`. CI green. |
+| **Active sprint** | **S-047 T4 — VWAP monitor close logic** (queued behind T3 close 2026-05-07). Plan: `docs/sprint-plans/S-047-bybit2-spot-margin.md` § T4. |
+| **Active checkpoint** | T4 — `feat(vwap): close on TP/SL/VWAP-cross instead of only break-even-SL`. T3 (D4 + D5 spot-margin exec+coordinator wiring) merged 2026-05-07 (PR #464). |
+| **Risk tier (T4)** | Tier 3 (strategy logic). Draft work-PR + ping-PR + operator merge gate. |
+| **Definition of done (T4)** | D6 merged. `tests/units/strategies/test_vwap_monitor_close.py` covers TP-cross, SL-cross, VWAP-cross, time-decay, no-action paths. Operator review required. § 4.4 5-bullet compliance check passes. |
 
-**Operator action remaining: none.** S-048 runs autonomously — Tier 1 self-merge per operating-protocol § 4. Code follow-ups land in their own sprints at their own tiers.
-
-**Next sprint after S-048 closes: S-047 T3** — unless S-048 surfaces a P0 audit gap, in which case the P0 follow-up runs first per the prompt's hand-off rule (§ 8). S-047 T3 = `feat(exec): route spot-margin orders via isLeverage=1` + `feat(coordinator): direction-aware balance for spot-margin accounts` (D4 + D5 land together — one diff is incoherent without the other). Plan: `docs/sprint-plans/S-047-bybit2-spot-margin.md` § T3. Tier 2/3 — will pause at the operator-merge gate.
+**Operator action remaining for S-047 (overall): none — toggle on, T1+T2+T3 all merged.** The remaining checkpoints (T4 / T5 / T6 / T7) are autonomous Claude work; each opens its own draft work-PR and pauses at the operator-merge gate per Tier 3 protocol. M1 audit (S-048) deferred — S-047 finishes its remaining checkpoints first.
 
 ---
 
@@ -99,12 +97,15 @@ In execution order. Each row lists the gating condition to start. **Operator dir
 
 | Order | Milestone / sprint | Type | Gating condition |
 |---|---|---|---|
-| 1 | **S-048 — M1 comms audit (telegram-bot deep dive)** | auto-claude (M1 reopen) | None — ready to start. Prompt: `docs/sprints/sprint-048-prompt.md`. |
-| 2 | **S-047 T3 close** (close S-047 cleanly: D4 + D5 + sprint-summary) | ad-hoc (live-trading) | S-048 closes. **Conditional override:** if S-048 surfaces a P0 audit gap, the P0 follow-up runs before T3 per the prompt's hand-off rule (§ 8). |
-| 3 | M5 — Strategy testing workflow | auto-claude | S-047 T3 closes (M1 audit may also surface dependencies M5 inherits). |
-| 4 | M6 — Web app UI (dashboard repo) | auto-claude | Independent — opened against `the-lizardking/ict-trader-dashboard`, not this repo. Focus order: live data feed first, then operator-control functionalities. |
-| 5 | M9 — AI / model roadmap | auto-claude | Independent of M5/M6. Could run in parallel. |
-| 6 | M10 — HF / data pipeline | auto-claude | Independent of M5/M6. Could run in parallel. |
+| 1 | **S-047 T4** — VWAP monitor close logic (D6) | ad-hoc (live-trading) | None — T3 merged 2026-05-07. Ready to start. |
+| 2 | **S-047 T5** — reconciler spot-margin awareness (D7) | ad-hoc (live-trading) | T4 closes. |
+| 3 | **S-047 T6** — end-to-end live smoke + runbook (D8) | ad-hoc (live-trading) | T5 closes. |
+| 4 | **S-047 T7** — sprint close (milestone-state, ROADMAP, summary) | ad-hoc (docs-only) | T6 closes. |
+| 5 | **S-048 — M1 comms audit (telegram-bot deep dive)** | auto-claude (M1 reopen) | S-047 T7 closes. Prompt: `docs/sprints/sprint-048-prompt.md`. |
+| 6 | M5 — Strategy testing workflow | auto-claude | S-048 closes (M1 audit may surface M5 dependencies). |
+| 7 | M6 — Web app UI (dashboard repo) | auto-claude | Independent — opened against `the-lizardking/ict-trader-dashboard`, not this repo. Focus order: live data feed first, then operator-control functionalities. |
+| 8 | M9 — AI / model roadmap | auto-claude | Independent of M5/M6. Could run in parallel. |
+| 9 | M10 — HF / data pipeline | auto-claude | Independent of M5/M6. Could run in parallel. |
 
 > M2 (Web app source of truth) — backend essentially done; formal close-out
 > deferred. Not a blocker for any queued milestone.
