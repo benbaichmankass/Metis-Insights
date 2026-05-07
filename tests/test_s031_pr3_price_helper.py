@@ -4,7 +4,7 @@
 Per CLAUDE.md § Architecture rules § 5 the Telegram bot is a thin
 shell over the UI unit. Pre-PR ``src/bot/telegram_query_bot.py::cmd_price``
 made a raw HTTP call to Bybit's public ticker endpoint. Post-PR the
-fetch lives in ``src.ui.processor.get_price`` and the bot is a
+fetch lives in ``src.units.ui.processor.get_price`` and the bot is a
 one-liner.
 
 Tests pin:
@@ -25,7 +25,7 @@ from unittest.mock import patch, MagicMock
 
 class TestGetPriceHappyPath:
     def test_returns_float_for_btcusdt(self):
-        from src.ui import processor
+        from src.units.ui import processor
 
         fake_resp = MagicMock()
         fake_resp.json.return_value = {
@@ -42,7 +42,7 @@ class TestGetPriceHappyPath:
         assert kwargs["params"]["category"] == "linear"
 
     def test_default_symbol_is_btcusdt(self):
-        from src.ui import processor
+        from src.units.ui import processor
 
         fake_resp = MagicMock()
         fake_resp.json.return_value = {
@@ -54,7 +54,7 @@ class TestGetPriceHappyPath:
         assert kwargs["params"]["symbol"] == "BTCUSDT"
 
     def test_custom_symbol_forwarded(self):
-        from src.ui import processor
+        from src.units.ui import processor
 
         fake_resp = MagicMock()
         fake_resp.json.return_value = {
@@ -74,21 +74,21 @@ class TestGetPriceHappyPath:
 
 class TestGetPriceErrorPaths:
     def test_network_exception_returns_none(self):
-        from src.ui import processor
+        from src.units.ui import processor
 
         with patch("requests.get", side_effect=ConnectionError("offline")):
             price = processor.get_price("BTCUSDT")
         assert price is None
 
     def test_timeout_returns_none(self):
-        from src.ui import processor
+        from src.units.ui import processor
 
         with patch("requests.get", side_effect=TimeoutError("slow")):
             price = processor.get_price("BTCUSDT")
         assert price is None
 
     def test_missing_result_field_returns_none(self):
-        from src.ui import processor
+        from src.units.ui import processor
 
         fake_resp = MagicMock()
         fake_resp.json.return_value = {"retCode": 10001, "retMsg": "bad"}
@@ -97,7 +97,7 @@ class TestGetPriceErrorPaths:
         assert price is None
 
     def test_empty_list_returns_none(self):
-        from src.ui import processor
+        from src.units.ui import processor
 
         fake_resp = MagicMock()
         fake_resp.json.return_value = {"result": {"list": []}}
@@ -106,7 +106,7 @@ class TestGetPriceErrorPaths:
         assert price is None
 
     def test_missing_lastprice_returns_none(self):
-        from src.ui import processor
+        from src.units.ui import processor
 
         fake_resp = MagicMock()
         fake_resp.json.return_value = {
@@ -117,7 +117,7 @@ class TestGetPriceErrorPaths:
         assert price is None
 
     def test_unparseable_lastprice_returns_none(self):
-        from src.ui import processor
+        from src.units.ui import processor
 
         fake_resp = MagicMock()
         fake_resp.json.return_value = {
@@ -128,7 +128,7 @@ class TestGetPriceErrorPaths:
         assert price is None
 
     def test_bad_json_returns_none(self):
-        from src.ui import processor
+        from src.units.ui import processor
 
         fake_resp = MagicMock()
         fake_resp.json.side_effect = ValueError("invalid json")

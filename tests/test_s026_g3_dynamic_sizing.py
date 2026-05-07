@@ -210,7 +210,7 @@ class TestLiveBalanceFetcher:
                 {"account_id": "acc_b", "total_usdt": 1_500.0},
             ]
 
-        monkeypatch.setattr("src.ui.processor.get_account_balances", _fake_live)
+        monkeypatch.setattr("src.units.ui.processor.get_account_balances", _fake_live)
 
         pkg = _pkg(entry=50_000.0, sl=49_500.0)  # distance=500
         coord = Coordinator()
@@ -241,7 +241,7 @@ class TestLiveBalanceFetcher:
         def _bork():
             raise RuntimeError("processor down")
 
-        monkeypatch.setattr("src.ui.processor.get_account_balances", _bork)
+        monkeypatch.setattr("src.units.ui.processor.get_account_balances", _bork)
 
         pkg = _pkg(entry=50_000.0, sl=49_500.0)
         # Provide an explicit override on the package so sizing still
@@ -273,7 +273,7 @@ class TestLiveBalanceFetcher:
 
         # acc_a balance is None (failed lookup); acc_b is fine.
         monkeypatch.setattr(
-            "src.ui.processor.get_account_balances",
+            "src.units.ui.processor.get_account_balances",
             lambda: [
                 {"account_id": "acc_a", "total_usdt": None},
                 {"account_id": "acc_b", "total_usdt": 5_000.0},
@@ -306,7 +306,7 @@ class TestLiveBalanceFetcher:
 
         # Live says one thing, explicit override says another.
         monkeypatch.setattr(
-            "src.ui.processor.get_account_balances",
+            "src.units.ui.processor.get_account_balances",
             lambda: [{"account_id": "acc_a", "total_usdt": 999_999.0}],
         )
 

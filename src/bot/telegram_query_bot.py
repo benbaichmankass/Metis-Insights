@@ -112,7 +112,7 @@ def is_halted() -> bool:
 def fetch_today_pnl(account_id: str | None = None) -> tuple:
     """Back-compat wrapper. S-031 PR1
     (architecture-audit-2026-05-02 P1-6) moved the SQL query into
-    ``src.ui.processor.get_today_pnl`` so the bot stops touching
+    ``src.units.ui.processor.get_today_pnl`` so the bot stops touching
     ``trade_journal.db`` directly. The tuple shape is preserved for
     existing handlers."""
     from src.units.ui.processor import get_today_pnl
@@ -1317,7 +1317,7 @@ def _signals_n_keyboard(strategy: str) -> InlineKeyboardMarkup:
 def _render_signals_block(strategy_filter: str | None, limit: int) -> str:
     """Back-compat wrapper. S-031 PR2
     (architecture-audit-2026-05-02 P1-6) moved the rendering into
-    ``src.ui.processor.get_signals_block`` — the UI unit owns the
+    ``src.units.ui.processor.get_signals_block`` — the UI unit owns the
     "what to display" decision per Architecture rule § 5; both this
     bot and the webapp render the same string.
     """
@@ -2844,7 +2844,7 @@ async def cmd_hourly(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         # Sprint 025 T1 (UI processor migration step 1, audit doc § 5):
         # /hourly used to call src.runtime.hourly_report.build_hourly_report
-        # directly. It now goes through src.ui.processor — the same facade
+        # directly. It now goes through src.units.ui.processor — the same facade
         # the webapp will consume — so the bot and any future UI surface
         # render identical text.
         msg = processor.get_hourly_report(now_utc=now, tick_interval_s=900)

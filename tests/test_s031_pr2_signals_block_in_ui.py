@@ -8,7 +8,7 @@ inlined ``_format_signal_row``, ``_SIGNAL_STATUS_EMOJI``, and
 already partially owned (``get_recent_signals``).
 
 Post-PR:
-  * ``src.ui.processor.get_signals_block(strategy_filter, limit) → str``
+  * ``src.units.ui.processor.get_signals_block(strategy_filter, limit) → str``
     is the single rendering path.
   * The bot's ``_render_signals_block`` is a one-line wrapper.
 """
@@ -19,7 +19,7 @@ from pathlib import Path
 
 import pytest
 
-from src.ui.processor import (
+from src.units.ui.processor import (
     get_signals_block,
     _format_signal_row,
     _SIGNAL_STATUS_EMOJI,

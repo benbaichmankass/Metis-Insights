@@ -52,7 +52,7 @@ class TestGetLatestSprint:
     def test_parses_topmost_entry(self, tmp_path, monkeypatch):
         log = tmp_path / "CHECKPOINT_LOG.md"
         log.write_text(CP_LOG_HAPPY, encoding="utf-8")
-        from src.ui import processor
+        from src.units.ui import processor
         with patch.object(processor, "_checkpoint_log_path",
                           return_value=str(log)):
             info = processor.get_latest_sprint()
@@ -60,7 +60,7 @@ class TestGetLatestSprint:
         assert info["sprint_id"] == "S-031"
 
     def test_missing_file_returns_unknown(self, tmp_path):
-        from src.ui import processor
+        from src.units.ui import processor
         missing = tmp_path / "missing.md"
         with patch.object(processor, "_checkpoint_log_path",
                           return_value=str(missing)):
@@ -68,7 +68,7 @@ class TestGetLatestSprint:
         assert info == {"sprint_id": "unknown", "cp_id": "unknown"}
 
     def test_no_cp_header_returns_unknown(self, tmp_path):
-        from src.ui import processor
+        from src.units.ui import processor
         empty = tmp_path / "empty.md"
         empty.write_text("# Just a heading\n\nNo CP entries.\n",
                          encoding="utf-8")
@@ -78,7 +78,7 @@ class TestGetLatestSprint:
         assert info == {"sprint_id": "unknown", "cp_id": "unknown"}
 
     def test_cp_header_without_sprint_line(self, tmp_path):
-        from src.ui import processor
+        from src.units.ui import processor
         log = tmp_path / "log.md"
         log.write_text(
             "## CP-2026-05-02-77 — header only\n\n"
@@ -101,14 +101,14 @@ class TestGetLatestCheckpointHeader:
     def test_returns_first_cp_header(self, tmp_path):
         log = tmp_path / "log.md"
         log.write_text(CP_LOG_HAPPY, encoding="utf-8")
-        from src.ui import processor
+        from src.units.ui import processor
         with patch.object(processor, "_checkpoint_log_path",
                           return_value=str(log)):
             header = processor.get_latest_checkpoint_header()
         assert header.startswith("## CP-2026-05-02-99")
 
     def test_no_cp_header_returns_none_string(self, tmp_path):
-        from src.ui import processor
+        from src.units.ui import processor
         log = tmp_path / "log.md"
         log.write_text("# heading only\n", encoding="utf-8")
         with patch.object(processor, "_checkpoint_log_path",
@@ -117,7 +117,7 @@ class TestGetLatestCheckpointHeader:
         assert header == "No checkpoint found"
 
     def test_missing_file_returns_warning_string(self, tmp_path):
-        from src.ui import processor
+        from src.units.ui import processor
         with patch.object(processor, "_checkpoint_log_path",
                           return_value=str(tmp_path / "missing.md")):
             header = processor.get_latest_checkpoint_header()
@@ -131,7 +131,7 @@ class TestGetLatestCheckpointHeader:
 
 class TestGetHealthSummary:
     def test_renders_with_active_services_and_present_files(self, tmp_path):
-        from src.ui import processor
+        from src.units.ui import processor
         # Create the three observed files so the freshness section is real.
         (tmp_path / "runtime_logs").mkdir()
         (tmp_path / "runtime_logs/runtime_status.json").write_text("{}")
@@ -153,7 +153,7 @@ class TestGetHealthSummary:
         assert "runtime_status.json (last tick)" in out
 
     def test_failed_services_get_red_icon(self, tmp_path):
-        from src.ui import processor
+        from src.units.ui import processor
         out = processor.get_health_summary(
             get_service_status=lambda u: "failed",
             repo_root=str(tmp_path),
@@ -161,7 +161,7 @@ class TestGetHealthSummary:
         assert "🔴" in out
 
     def test_unknown_status_yields_neutral_icon(self, tmp_path):
-        from src.ui import processor
+        from src.units.ui import processor
         out = processor.get_health_summary(
             get_service_status=lambda u: "unknown",
             repo_root=str(tmp_path),
@@ -169,7 +169,7 @@ class TestGetHealthSummary:
         assert "⚪️" in out
 
     def test_missing_files_render_as_missing(self, tmp_path):
-        from src.ui import processor
+        from src.units.ui import processor
         out = processor.get_health_summary(
             get_service_status=lambda u: "active",
             repo_root=str(tmp_path),
@@ -178,7 +178,7 @@ class TestGetHealthSummary:
         assert out.count("missing") >= 3
 
     def test_get_service_status_exception_does_not_raise(self, tmp_path):
-        from src.ui import processor
+        from src.units.ui import processor
 
         def boom(_unit):
             raise RuntimeError("systemctl unavailable")
@@ -196,7 +196,7 @@ class TestGetHealthSummary:
 
 class TestGetVmStats:
     def test_renders_block(self):
-        from src.ui import processor
+        from src.units.ui import processor
         out = processor.get_vm_stats()
         assert "VM stats" in out
         assert "Uptime" in out
@@ -205,14 +205,14 @@ class TestGetVmStats:
         assert "Memory" in out
 
     def test_meminfo_unreadable_renders_unknown(self):
-        from src.ui import processor
+        from src.units.ui import processor
         with patch.object(processor, "_read_meminfo_mb",
                           return_value=(0, 0)):
             out = processor.get_vm_stats()
         assert "🧠 Memory: unknown" in out
 
     def test_disk_unreadable_renders_unknown(self):
-        from src.ui import processor
+        from src.units.ui import processor
         with patch.object(processor, "_disk_usage_repo",
                           return_value=(0, 0)):
             out = processor.get_vm_stats()
@@ -240,7 +240,7 @@ ROADMAP_FIXTURE = """\
 class TestGetRoadmapSummary:
     def test_renders_summary(self, monkeypatch, tmp_path):
         # Patch processor's repo-root discovery to point at tmp_path.
-        from src.ui import processor
+        from src.units.ui import processor
         roadmap = tmp_path / "ROADMAP.md"
         roadmap.write_text(ROADMAP_FIXTURE, encoding="utf-8")
 
@@ -263,7 +263,7 @@ class TestGetRoadmapSummary:
         assert "Sprint counts" in out
 
     def test_missing_file_returns_warning(self, tmp_path):
-        from src.ui import processor
+        from src.units.ui import processor
         original_open = open
 
         def fake_open(p, *a, **kw):
@@ -284,7 +284,7 @@ class TestGetRoadmapSummary:
 
 class TestBotWrappers:
     def test_latest_sprint_wrapper_returns_tuple(self, tmp_path):
-        from src.ui import processor
+        from src.units.ui import processor
         log = tmp_path / "log.md"
         log.write_text(CP_LOG_HAPPY, encoding="utf-8")
         # Stub the bot's heavy deps before importing.
