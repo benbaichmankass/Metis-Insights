@@ -60,19 +60,54 @@ def _spot_base_coin(symbol: str) -> str:
     return sym[:-4] if len(sym) > 4 else sym
 
 
-def _fetch_spot_coin_balances(client: Any, symbol: str) -> dict:
-    """Return available base-coin qty and free USDT from Bybit UNIFIED wallet.
+def _coin_free(coin_row: dict) -> float:
+    """Truly-tradeable balance for a coin row from Bybit V5 UNIFIED wallet.
 
-    Fetches a fresh wallet balance snapshot to determine how much of the
-    base coin (e.g. BTC for BTCUSDT) and quote coin (USDT) the account
-    holds right now. Returns zeros on any error so the caller can safely
-    cap or refuse rather than propagating an exception into the order path.
+    Bybit V5 ``walletBalance`` is the *total* coin holding — it INCLUDES
+    amounts locked in open orders, recent-deposit holds, and (for UTA)
+    cross-margin commitments. A spot Sell submitted at ``walletBalance``
+    when any portion is locked returns ErrCode 170131 ("Insufficient
+    balance"). The truly-available qty is ``walletBalance − locked``.
+
+    ``availableToWithdraw`` is deprecated for UNIFIED accounts (Bybit V5
+    changelog 2024) and returns empty, so we cannot rely on it.
+
+    Falls back to ``walletBalance`` only when ``locked`` is missing/null
+    (older response shapes / non-UTA accounts). Floors at zero so a
+    momentarily negative free (locked > wallet, possible during cross-
+    margin liquidation states) doesn't propagate as a negative cap.
+    """
+    wallet = float(coin_row.get("walletBalance") or 0)
+    locked_raw = coin_row.get("locked")
+    if locked_raw in (None, "", "null"):
+        return max(0.0, wallet)
+    try:
+        locked = float(locked_raw)
+    except (TypeError, ValueError):
+        return max(0.0, wallet)
+    return max(0.0, wallet - locked)
+
+
+def _fetch_spot_coin_balances(client: Any, symbol: str) -> dict:
+    """Return *free* base-coin qty and free USDT from Bybit UNIFIED wallet.
+
+    Fetches a fresh wallet balance snapshot and computes the truly-
+    tradeable amount of the base coin (e.g. BTC for BTCUSDT) and quote
+    coin (USDT) — i.e. ``walletBalance − locked`` for each. Using the
+    locked-aware figure prevents Bybit ErrCode 170131 ("Insufficient
+    balance") on spot Sells when any portion of the holding is locked
+    in open orders or recent-deposit holds. Returns zeros on any error
+    so the caller can safely cap or refuse rather than propagating an
+    exception into the order path.
 
     Returned dict keys:
         ``base_coin``      — ticker string (e.g. "BTC")
-        ``base_qty``       — wallet balance of base coin (base units)
-        ``base_usd_value`` — USD value of held base coin (used as sizer input)
-        ``quote_usdt``     — wallet balance of USDT quote coin
+        ``base_qty``       — *free* base coin (walletBalance − locked)
+        ``base_usd_value`` — USD value of *free* base coin (sizer input);
+                             scaled from the wallet's total ``usdValue``
+                             by the free/total ratio so the sizer never
+                             treats locked BTC as risk capital.
+        ``quote_usdt``     — *free* USDT (walletBalance − locked)
     """
     base = _spot_base_coin(symbol)
     result: dict = {
@@ -89,13 +124,29 @@ def _fetch_spot_coin_balances(client: Any, symbol: str) -> dict:
         for coin in coins:
             ticker = (coin.get("coin") or "").upper()
             if ticker == base.upper():
-                result["base_qty"] = float(coin.get("walletBalance") or 0)
-                result["base_usd_value"] = float(coin.get("usdValue") or 0)
+                wallet_total = float(coin.get("walletBalance") or 0)
+                free = _coin_free(coin)
+                usd_total = float(coin.get("usdValue") or 0)
+                result["base_qty"] = free
+                # Scale total usdValue to just the free portion so the
+                # sizer doesn't risk capital that's actually locked.
+                if wallet_total > 0:
+                    result["base_usd_value"] = usd_total * (free / wallet_total)
+                else:
+                    result["base_usd_value"] = 0.0
             elif ticker == "USDT":
-                result["quote_usdt"] = float(coin.get("walletBalance") or 0)
+                result["quote_usdt"] = _coin_free(coin)
     except Exception as exc:  # noqa: BLE001
         logger.warning("_fetch_spot_coin_balances(%s): %s", symbol, exc)
     return result
+
+
+# Safety buffer applied when capping a spot-sell qty to the available
+# base-coin balance. Bybit can race us — between our pre-flight read and
+# the order matching, ``locked`` can grow (e.g. another submitted order)
+# and tip a balance-equal sell into 170131. 0.5% headroom absorbs that
+# without materially shrinking realised position size.
+_SPOT_SELL_SAFETY_BUFFER = 0.995
 
 
 def _bybit_category(account_cfg: dict) -> str:
@@ -224,10 +275,12 @@ def execute_pkg(
     # 5. Spot-sell pre-flight balance guard.
     # The coordinator-level sizer may use total portfolio balance (USDT +
     # BTC converted) to compute qty. For a spot Sell the account must
-    # actually hold that qty in base coin; using total balance inflates
-    # the number and causes Bybit ErrCode 170131 ("Insufficient balance").
-    # This guard fetches the live base-coin balance, caps qty if over, and
-    # refuses outright when no base coin is held at all.
+    # actually hold that qty in *free* base coin (walletBalance − locked);
+    # using total balance — or even walletBalance with a non-zero locked —
+    # causes Bybit ErrCode 170131 ("Insufficient balance"). This guard
+    # fetches the live free base-coin balance, applies a small safety
+    # buffer to absorb race conditions between read and submission, caps
+    # qty if over, and refuses outright when no free base coin is held.
     if (
         not is_dry
         and exchange_client is not None
@@ -237,6 +290,7 @@ def execute_pkg(
     ):
         _spot_bal = _fetch_spot_coin_balances(exchange_client, pkg.symbol)
         _available_base = _spot_bal["base_qty"]
+        _safe_available = _available_base * _SPOT_SELL_SAFETY_BUFFER
         _min_qty = float(
             (account_cfg.get("risk") or {}).get("min_qty")
             or account_cfg.get("min_qty")
@@ -247,25 +301,28 @@ def execute_pkg(
             or account_cfg.get("qty_precision")
             or 3
         )
-        if _available_base < _min_qty:
+        if _safe_available < _min_qty:
             raise RuntimeError(
-                f"Spot sell refused for {pkg.symbol}: insufficient "
+                f"Spot sell refused for {pkg.symbol}: insufficient free "
                 f"{_spot_bal['base_coin']} balance "
-                f"(have {_available_base:.6f}, min_qty {_min_qty}). "
-                f"No base-coin position to sell."
+                f"(free {_available_base:.6f} × buffer "
+                f"{_SPOT_SELL_SAFETY_BUFFER}, min_qty {_min_qty}). "
+                f"Wallet may be locked in open orders or recent deposits."
             )
-        if qty > _available_base:
+        if qty > _safe_available:
             from src.units.accounts.risk import _floor_to_step
-            _capped = _floor_to_step(_available_base, _qty_precision)
+            _capped = _floor_to_step(_safe_available, _qty_precision)
             logger.warning(
                 "execute_pkg: spot sell qty capped %.6f → %.6f %s "
-                "(available base balance, account=%s symbol=%s)",
-                qty, _capped, _spot_bal["base_coin"], account_id, pkg.symbol,
+                "(free=%.6f, buffer=%.4f, account=%s symbol=%s)",
+                qty, _capped, _spot_bal["base_coin"],
+                _available_base, _SPOT_SELL_SAFETY_BUFFER,
+                account_id, pkg.symbol,
             )
             qty = _capped
             if qty < _min_qty:
                 raise RuntimeError(
-                    f"Spot sell refused for {pkg.symbol}: floored available "
+                    f"Spot sell refused for {pkg.symbol}: floored free "
                     f"{_spot_bal['base_coin']} ({_available_base:.6f}) "
                     f"rounds to {qty:.6f} which is below min_qty {_min_qty}."
                 )
