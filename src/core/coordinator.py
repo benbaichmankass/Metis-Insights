@@ -11,9 +11,9 @@ Unit interface stubs (filled in by subsequent PRs):
 Data flow:
   Strategies.order_package() ──▶ Coordinator ──▶ Accounts.execute(pkg)
                                        │
-  Dashboards.stats() ◀────────────────┘
+  Dashboards.stats() ◄────────────────┘
                                        │
-  ReturnCommands.halt() ───────────────┘
+  ReturnCommands.halt() ─────────────┘
 """
 from __future__ import annotations
 
@@ -609,68 +609,15 @@ class Coordinator:
                 })
                 continue
 
-            # 1. Per-account sizing — the only place qty is decided.
-            try:
-                balance = float(fetcher(account))
-                sized_qty = account.risk_manager.position_size(pkg, balance)
-            except Exception as exc:  # noqa: BLE001
-                logger.exception(
-                    "multi_account_execute: position_size failed for %s: %s",
-                    account.name, exc,
-                )
-                error_msg = f"sizing_failed: {type(exc).__name__}: {exc}"
-                from src.units.accounts.execute import log_rejection_to_journal
-                log_rejection_to_journal(
-                    pkg, _early_account_cfg,
-                    reason=error_msg,
-                    status="rejected",
-                    sized_qty=0.0,
-                )
-                results.append({
-                    "name": account.name,
-                    "exchange": account.exchange,
-                    "account_type": account.account_type,
-                    "trade_id": None,
-                    "sized_qty": 0.0,
-                    "error": error_msg,
-                })
-                continue
-
-            sized_qty_by_account[account.name] = sized_qty
-
-            # 2. Refuse to forward a zero-qty order (under-balance accounts).
-            if sized_qty <= 0:
-                error_msg = (
-                    f"below_min_balance: balance={balance:.2f} USD < "
-                    f"min_balance_usd={account.risk_manager.min_balance_usd}"
-                )
-                from src.units.accounts.execute import log_rejection_to_journal
-                log_rejection_to_journal(
-                    pkg, _early_account_cfg,
-                    reason=error_msg,
-                    status="rejected",
-                    sized_qty=0.0,
-                )
-                results.append({
-                    "name": account.name,
-                    "exchange": account.exchange,
-                    "account_type": account.account_type,
-                    "trade_id": None,
-                    "sized_qty": 0.0,
-                    "error": error_msg,
-                })
-                continue
-
-            # 3. Route through execute_pkg — the canonical live entry
-            # point. Previously this called ``account.place_order``
-            # which routed via ``integrator.route_order`` →
-            # ``BybitAPI.place(dry_run=False)``, raising
-            # ``NotImplementedError("BybitAPI live placement requires
-            # an injected exchange_client; use execute_pkg() …")`` for
-            # every live signal — the VWAP "0 fills despite N signals"
-            # bug. ``execute_pkg`` is the only path that knows how to
-            # talk to the real exchange SDK (Bybit Unified Trading
-            # HTTP client, etc.).
+            # Build account_cfg, resolve effective_dry and exchange client
+            # BEFORE sizing so the direction-aware balance override (spot
+            # sell → BTC USD value, spot buy → USDT) has ``client`` and
+            # ``effective_dry`` in scope at qty-computation time.
+            # ``execute_pkg`` is the only path that knows how to talk to
+            # the real exchange SDK (Bybit Unified Trading HTTP client,
+            # etc.) — previously ``account.place_order`` was called here,
+            # causing NotImplementedError on every live signal (the VWAP
+            # "0 fills despite N signals" bug).
             from src.units.accounts.execute import execute_pkg
             from src.units.accounts.clients import (
                 bybit_client_for, binance_conn_for, velotrade_client_for,
@@ -754,6 +701,90 @@ class Coordinator:
                         f"{account.api_key_env!r} (and matching "
                         f"_SECRET) not in process env"
                     )
+
+            # 1. Per-account sizing — the only place qty is decided.
+            try:
+                balance = float(fetcher(account))
+                # For spot accounts, override balance with direction-aware
+                # value so the sizer never produces a qty that exceeds what
+                # the account actually holds. Spot sell → use USD value of
+                # held base coin (e.g. BTC); spot buy → use free USDT.
+                # This prevents ErrCode 170131 (Insufficient balance) from
+                # Bybit when total-portfolio balance includes both BTC
+                # and USDT but the sell order can only spend BTC.
+                _market_type = getattr(account, "market_type", "spot") or "spot"
+                if (
+                    _market_type.lower() == "spot"
+                    and client is not None
+                    and not effective_dry
+                    and not bool(getattr(pkg, "meta", None) and (pkg.meta or {}).get("is_test"))
+                ):
+                    try:
+                        from src.units.accounts.execute import _fetch_spot_coin_balances
+                        _spot_bal = _fetch_spot_coin_balances(client, pkg.symbol)
+                        if pkg.direction == "short":
+                            balance = _spot_bal["base_usd_value"]
+                        else:
+                            balance = _spot_bal["quote_usdt"]
+                        logger.debug(
+                            "multi_account_execute: spot balance override "
+                            "account=%s direction=%s symbol=%s balance=%.4f",
+                            account.name, pkg.direction, pkg.symbol, balance,
+                        )
+                    except Exception as _spot_exc:  # noqa: BLE001
+                        logger.warning(
+                            "multi_account_execute: spot direction-aware balance "
+                            "failed for %s (%s): %s — using total portfolio value",
+                            account.name, pkg.symbol, _spot_exc,
+                        )
+                sized_qty = account.risk_manager.position_size(pkg, balance)
+            except Exception as exc:  # noqa: BLE001
+                logger.exception(
+                    "multi_account_execute: position_size failed for %s: %s",
+                    account.name, exc,
+                )
+                error_msg = f"sizing_failed: {type(exc).__name__}: {exc}"
+                from src.units.accounts.execute import log_rejection_to_journal
+                log_rejection_to_journal(
+                    pkg, _early_account_cfg,
+                    reason=error_msg,
+                    status="rejected",
+                    sized_qty=0.0,
+                )
+                results.append({
+                    "name": account.name,
+                    "exchange": account.exchange,
+                    "account_type": account.account_type,
+                    "trade_id": None,
+                    "sized_qty": 0.0,
+                    "error": error_msg,
+                })
+                continue
+
+            sized_qty_by_account[account.name] = sized_qty
+
+            # 2. Refuse to forward a zero-qty order (under-balance accounts).
+            if sized_qty <= 0:
+                error_msg = (
+                    f"below_min_balance: balance={balance:.2f} USD < "
+                    f"min_balance_usd={account.risk_manager.min_balance_usd}"
+                )
+                from src.units.accounts.execute import log_rejection_to_journal
+                log_rejection_to_journal(
+                    pkg, _early_account_cfg,
+                    reason=error_msg,
+                    status="rejected",
+                    sized_qty=0.0,
+                )
+                results.append({
+                    "name": account.name,
+                    "exchange": account.exchange,
+                    "account_type": account.account_type,
+                    "trade_id": None,
+                    "sized_qty": 0.0,
+                    "error": error_msg,
+                })
+                continue
 
             # Captured before the try so the except blocks can pass the
             # un-mangled token to the rejection-journal helper (post-CP-13
