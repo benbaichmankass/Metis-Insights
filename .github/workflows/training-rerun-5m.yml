@@ -72,6 +72,8 @@ jobs:
 
       - name: Commit results back to branch
         if: github.event_name != 'pull_request'
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -84,9 +86,6 @@ jobs:
             echo "No artifacts to commit (data fetch failed?)"
             exit 0
           fi
-          git commit -m "TRAINING-RESULTS: 2026-05-07-vwap-accuracy 5m re-run [skip ci]
-
-Auto-committed by .github/workflows/training-rerun-5m.yml.
-Source data: live BTCUSDT 5m via load_candles fallback chain.
-Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          msg="TRAINING-RESULTS: 2026-05-07-vwap-accuracy 5m re-run [skip ci] — $RUN_URL"
+          git commit -m "$msg"
           git push origin HEAD:${{ github.ref_name }}
