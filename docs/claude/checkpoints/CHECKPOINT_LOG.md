@@ -11,6 +11,51 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-07-02-s044-kickoff — S-044 T0: M4 step 1 (CI suite) kickoff
+
+- **Session date:** 2026-05-07
+- **Sprint:** S-044 — M4: Repo hygiene + CI — complete the GitHub Actions CI suite
+- **Active milestone:** M4 — Repo hygiene + CI (in progress)
+- **Last completed checkpoint:** `CP-2026-05-07-01-bug061-spot-tpsl-blocker` (PR #435 merged) → most recent merged work; `CP-2026-05-06-15-s043-complete` is the prior sprint-close.
+- **Telegram sent:** kickoff ride-along on this commit (CHECKPOINT_LOG append → VM ping wiring).
+- **Alerts sent during session:** none.
+- **Blockers:** S-015 operator hold (unchanged); BUG-057 awaiting VM diag (unchanged).
+
+### 1. Completed
+
+- Verified S-043 closed (M3 done) and PR #435 (BUG-061) merged ✅ — clean main.
+- Verified `scripts/secret_scan.py`, `scripts/repo_inventory.py`, `scripts/check_dry_run_in_diff.py` all on `main`.
+- Confirmed only existing workflows are `dry-run-guard.yml`, `hf-cron.yml`, `training-run.yml` — no overlap with the four new workflows planned this sprint.
+- Filed `docs/sprints/sprint-044-prompt.md` with T0..T5 plan, unit-boundary declaration, hard guardrails, and success criteria.
+- Confirmed sprint number S-044 follows S-043 with no collision (highest used was S-043; S-036..S-040 burned per workplan rule).
+
+### 2. Files changed (T0)
+
+- `docs/sprints/sprint-044-prompt.md` (new)
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### 3. Tests run
+
+- None this checkpoint — docs-only T0. Workflow runs are validated at T1..T3.
+
+### 4. Remaining (S-044)
+
+- **T1** — Add `.github/workflows/pytest-collect.yml`, verify green on a noop PR.
+- **T2** — Add `.github/workflows/secret-scan.yml` + `.github/workflows/repo-inventory.yml`.
+- **T3** — Add `.github/workflows/ruff-lint.yml` + `requirements-dev.txt`.
+- **T4** — Add `docs/claude/ci-status-checks.md` runbook.
+- **T5** — Sprint close: `docs/sprint-summaries/sprint-044-summary.md`, `docs/claude/milestone-state.md` M4 row refresh, `CP-2026-05-07-NN-s044-complete` checkpoint.
+
+### 5. Next checkpoint
+
+**CP-2026-05-07-NN-s044-t1-pytest-collect** — Add `.github/workflows/pytest-collect.yml` running `PYTHONPATH=. pytest --collect-only -q tests/` on every PR. Mirror the checkout pattern from `dry-run-guard.yml`. Read order for the next session: this entry → `docs/sprints/sprint-044-prompt.md` § Deliverable 2 → `.github/workflows/dry-run-guard.yml` (template).
+
+### Live-mode check
+
+✅ No live-trading code touched. T0 is docs-only (sprint prompt + checkpoint append). `scripts/check_dry_run_in_diff.py` clean. No changes to `src/runtime/orders.py`, `src/runtime/pipeline.py`, `src/runtime/trading_mode.py`, `src/units/accounts/*`, or `config/accounts.yaml`.
+
+---
+
 ## CP-2026-05-07-01-bug061-spot-tpsl-blocker — BUG-061: Bybit spot Market entries no longer carry stopLoss/takeProfit
 
 - **Session date:** 2026-05-07
