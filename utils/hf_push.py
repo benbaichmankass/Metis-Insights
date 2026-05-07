@@ -1,4 +1,3 @@
-from huggingface_hub import HfApi
 from datasets import Dataset
 import pandas as pd
 def push_ict_signals(csv_path="signals.csv", repo="bentzbk/ict-signals-dataset"):

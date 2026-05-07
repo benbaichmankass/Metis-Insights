@@ -7,7 +7,7 @@ risk_pct, timeframe, symbols, and other strategy-level params.
 from __future__ import annotations
 
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from src.utils.paths import repo_root as _repo_root
 

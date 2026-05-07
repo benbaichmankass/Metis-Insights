@@ -3,10 +3,8 @@ Visualization script for swing points
 Saves an interactive chart as HTML file that you can open in any browser
 """
 
-import sys
 from pathlib import Path
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 
 from src.data_layer.data_loader import load_data
 from src.ict_detection.swing_points import detect_swings

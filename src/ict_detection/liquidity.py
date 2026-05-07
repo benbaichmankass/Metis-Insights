@@ -3,8 +3,6 @@ Liquidity Detection Module
 Identifies liquidity pools, sweeps, and equal highs/lows
 """
 
-import pandas as pd
-import numpy as np
 
 
 class LiquidityDetector:

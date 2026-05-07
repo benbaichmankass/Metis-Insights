@@ -1,7 +1,6 @@
 import os
 import ccxt
 import pandas as pd
-from datetime import datetime
 
 
 def _read_testnet_flag() -> bool:

@@ -1,9 +1,6 @@
 import pandas as pd
 import numpy as np
-import json
-import os
 from datetime import datetime
-from typing import Optional, List, Dict
 DEFAULT_CONFIG = {
     "initial_capital": 10000.0,
     "risk_per_trade_pct": 1.0,

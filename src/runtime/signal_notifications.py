@@ -18,7 +18,6 @@ Surviving surface:
   to append to ``signals.db``).
 * ``fetch_df`` — internal helper used by ``get_last_signals``.
 """
-import sqlite3
 import pandas as pd
 
 

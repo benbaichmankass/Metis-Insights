@@ -3,10 +3,8 @@ Enhanced ICT Visualization - TradingView Style
 With toggles and expiration logic for FVGs and Order Blocks
 """
 
-import sys
 from pathlib import Path
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 
 from src.data_layer.data_loader import load_data
 from src.ict_detection.swing_points import detect_swings

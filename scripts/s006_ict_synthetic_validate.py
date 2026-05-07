@@ -32,7 +32,7 @@ import argparse
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 
 import numpy as np
 import pandas as pd

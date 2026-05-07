@@ -4,7 +4,6 @@ Handles loading OHLCV data from CSV files and preparing it for analysis
 """
 
 import pandas as pd
-from datetime import datetime
 from pathlib import Path
 
 

@@ -1,9 +1,7 @@
-from src.runtime.signal_notifications import get_last_signals, format_signals
 import json
 import os
 import logging
 import re
-import sqlite3
 import asyncio
 import sys
 import subprocess

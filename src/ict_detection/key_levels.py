@@ -3,9 +3,7 @@ Key Levels Detection Module
 Identifies important price reference points (daily/weekly highs, session opens)
 """
 
-import pandas as pd
 import numpy as np
-from datetime import time
 
 
 class KeyLevelsDetector:

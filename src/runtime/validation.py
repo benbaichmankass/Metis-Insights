@@ -7,7 +7,6 @@ Exchange-aware: only the keys for the configured exchange are required.
 from __future__ import annotations
 
 import os
-from typing import Any
 
 
 def _env(key: str) -> str:
