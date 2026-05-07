@@ -42,7 +42,7 @@ When opening a session:
 | **Goal** | Build the operator-triggered strategy validation workflow: a `/test <strategy_name>` Telegram command that writes a structured request to the repo, validation logging (signals + decisions + outcomes per workplan § Required logs), and a `docs/claude/backtest-workflow.md` runbook per workplan § Backtesting sessions. |
 | **Status** | 📋 Not started — paused while **S-047** (live-trading priority) runs. M5 resumes after S-047 closes. |
 | **Active sprint** | **S-047** (ad-hoc, live-trading priority) — bybit_2 Spot Margin enablement so VWAP can take true longs + shorts against USDT collateral. Plan: `docs/sprint-plans/S-047-bybit2-spot-margin.md`. |
-| **Active checkpoint** | ~~T0~~ DELETED in PR #455 (margin-agnostic correction). **T1 queued** — `feat(accounts): declare bybit_2 spot-margin in routing config`. |
+| **Active checkpoint** | ~~T0~~ DELETED in PR #455 (margin-agnostic correction). ~~T1~~ shipped 2026-05-07 (PR #456 DRAFT — `feat(accounts): declare bybit_2 spot-margin in routing config`, awaiting operator merge reply). **T2 queued** — `feat(risk): spot-margin sizing — collateral, liquidation, borrow fees`, gated on operator merge of #456. |
 | **Risk tier (S-047 average)** | Tier 2 / Tier 3 — touches strategy sizing, live order routing, reconciler. |
 | **Definition of done (S-047)** | A sell-side VWAP signal on `bybit_2` opens a true short via `category=spot, isLeverage=1`; risk manager sizes from USDT collateral with liquidation/borrow-fee parameters; `vwap.py::monitor()` closes on TP/SL/VWAP-cross; reconciler agrees with the trade journal at the end of each cycle. |
 

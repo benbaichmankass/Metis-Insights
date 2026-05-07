@@ -11,6 +11,63 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-07-11-s047-T1-spot-margin-routing — S-047 T1: declare bybit_2 spot-margin in routing config
+
+- **Session date:** 2026-05-07 (continuation of `CP-2026-05-07-10`).
+- **Sprint:** S-047 — bybit_2 Spot Margin enablement.
+- **Active milestone:** M5 paused; S-047 active. **T1 shipped (work-PR draft awaiting operator merge); T2 queued.**
+- **Last completed checkpoint:** `CP-2026-05-07-10-s047-margin-agnostic`.
+- **Branches:** work-PR #456 on `claude/accounts-yaml-spot-margin-uCbil` (DRAFT, Tier 3 — never auto-merged); ping-PR #457 on `claude/ping-S-047-T1` (self-merged after CI green); this close-checkpoint commit on `claude/cp-2026-05-07-s047-t1-close`.
+- **Telegram sent:** ping-PR #457 self-merged after CI green (per § 6 ping-PR pattern).
+
+### What this checkpoint completes
+
+S-047 T1 D2: extend the existing `market_type` routing field to declare `bybit_2` as a Bybit V5 Spot Margin account, and land three spot-margin risk-rule defaults on `RiskManager` so T2's `position_size()` upgrade has the parameters it needs.
+
+The routing label is **identity, not a gate**: non-spot-margin accounts follow a different code path; the dispatcher's `live | dry_run` switch remains the only canonical execution gate per `docs/claude/workplan.md` § "Live / dry-run rule".
+
+### Files changed (PR #456, DRAFT)
+
+- `config/accounts.yaml` — `bybit_2.market_type: spot` → `spot-margin`. Header documentation extended with the third routing value (`spot` / `linear` / `spot-margin`). `bybit_1` and `prop_velotrade_1` unchanged. **No new top-level `is_leverage` flag.**
+- `src/units/accounts/risk.py` — three new module-level constants (`DEFAULT_MAX_BORROW_BTC=0.5`, `DEFAULT_BORROW_FEE_APR_PCT=10.0`, `DEFAULT_LIQUIDATION_BUFFER_PCT=30.0`). `RiskManager.__init__` exposes them via the existing config-dict-with-fallback pattern — same surface as `min_balance_usd` / `risk_pct`. The defaults are values, not gates.
+- `tests/test_s047_t1_spot_margin_routing.py` (NEW) — 21 tests across 4 classes:
+  - production-`accounts.yaml` routing assertions (bybit_2 = spot-margin, bybit_1 unchanged, prop_velotrade_1 unchanged, no `is_leverage` flag anywhere)
+  - loaded-account shape (market_type attribute, strategies unchanged, no auto-flip to dry_run)
+  - RiskManager defaults (module constants + cfg overrides + the 30 % liquidation buffer per § 7)
+  - end-to-end synthetic-YAML loader regression for the spot vs spot-margin distinction
+
+### Compliance check (per § 4.4 — 5 bullets)
+
+1. ✅ **No refuse-to-trade outside the dispatcher.** Diff adds zero new gates. The label routes; the params will be sized into qty in T2.
+2. ✅ **No per-account refusal flag/branch.** No `is_leverage` boolean. No `if account.is_leverage: refuse` branch. No edits to `execute.py` or `coordinator.py`. Test enforces no `is_leverage` on the production YAML.
+3. ✅ **No operator-run notebook / capture step.** The three risk parameters ship with hardcoded defaults in `risk.py`. Operator edits the constants or per-account `risk:` block — same pattern as `min_balance_usd`. No notebook is run, no value is captured from a live exchange query.
+4. ✅ **Live-mode invariant passes.** `scripts/check_dry_run_in_diff.py` clean. No edits to `src/runtime/orders.py`, `src/runtime/pipeline.py`, `src/runtime/trading_mode.py`, `src/units/accounts/execute.py`, `src/core/coordinator.py`, or any live-routing code path.
+5. ✅ **CI green.** ruff `.` clean; secret-scan clean; dry-run-in-diff clean; repo-inventory clean; 21 new tests pass; zero new pytest collection errors vs. baseline (pre-existing pandas / PyO3 collection failures unaffected).
+
+### Live-mode check
+
+✅ no flip away from `live` anywhere in the diff. Files touched in the work-PR: `config/accounts.yaml`, `src/units/accounts/risk.py`, `tests/test_s047_t1_spot_margin_routing.py` (NEW). Files touched in the ping-PR: `docs/claude/pending-pings.jsonl` (one-line append). Files touched in this close-checkpoint commit: `docs/claude/checkpoints/CHECKPOINT_LOG.md`, `docs/claude/milestone-state.md`. None of these are live-routing paths.
+
+### Remaining (operator action)
+
+- **Tier 3 merge decision on PR #456.** Work-PR is DRAFT, never auto-merged. Operator's explicit "merge" reply gates T2.
+- **Bybit web UI Spot Margin toggle on `bybit_2`.** Margin-agnostic — happens on the operator's schedule, independent of T1+ shipping. Until the toggle is on, every `isLeverage=1` order returns retCode 110007 server-side and is logged via `report_api_failure`. T1 ships no `isLeverage=1` (that's T3); T1 ships only the routing label and the risk-rule defaults.
+
+### Next session: S-047 T2
+
+`feat(risk): spot-margin sizing — collateral, liquidation, borrow fees`. Read order:
+
+1. `CLAUDE.md` (router).
+2. This entry (CP-11).
+3. `docs/claude/milestone-state.md`.
+4. `docs/claude/operating-protocol.md` § 4.4 (5-bullet compliance check).
+5. `docs/sprint-plans/S-047-bybit2-spot-margin.md` § 5b + T2 row.
+6. `src/units/accounts/risk.py` — the three new attrs (`max_borrow_btc`, `borrow_fee_apr_pct`, `liquidation_buffer_pct`) are already on every `RiskManager` instance; T2 wires them into `position_size()` for spot-margin accounts only (gated by `account.market_type == "spot-margin"` upstream of the call site).
+
+T2 is **gated on operator's "merge" reply on the work-PR #456** — do not start until then.
+
+---
+
 ## CP-2026-05-07-10-s047-margin-agnostic — S-047 corrective: notebook deleted, system goes margin-agnostic
 
 - **Session date:** 2026-05-07 (continuation of `CP-2026-05-07-09`).
