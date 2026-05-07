@@ -32,9 +32,14 @@ def _bot_status() -> str:
     if not _HEARTBEAT.exists():
         return "stopped"
     age = time.time() - _HEARTBEAT.stat().st_mtime
-    if age < 120:
-        return "running"
+    # Heartbeat is written by src/runtime/heartbeat.py after each pipeline
+    # tick. Observed tick cadence varies 2-15 min depending on which
+    # strategies are active and whether VWAP/turtle_soup just produced a
+    # signal — the previous 120s/600s thresholds reported "stopped" most
+    # of the time on a healthy trader. Found 2026-05-07.
     if age < 600:
+        return "running"
+    if age < 1800:
         return "paused"
     return "stopped"
 

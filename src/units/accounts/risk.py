@@ -410,6 +410,7 @@ class RiskManager:
         *,
         market_type: str = "spot",
         available_usd: Optional[float] = None,
+        total_account_usd: Optional[float] = None,
     ) -> float:
         """Return the qty to trade for *package* given *balance_usd*.
 
@@ -512,7 +513,21 @@ class RiskManager:
         if _is_test_order(package):
             return float((package.meta or {}).get("test_qty") or _DEFAULT_TEST_QTY)
 
-        if balance_usd < self.min_balance_usd:
+        # S-052: the min_balance_usd gate ("is this account big enough?")
+        # checks the operator's *total* account equity, not free
+        # quote-coin balance. With spot/spot-margin, ``balance_usd``
+        # carries free USDT (the sizer's collateral input — see the
+        # direction-aware override in coordinator.py), which under-counts
+        # capital held as locked USDT, free BTC, or locked BTC. Pass
+        # ``total_account_usd`` (Bybit wallet ``totalEquity`` —
+        # free+locked across all coins, excluding borrow capacity) to
+        # gate against the right thing. When None — the pre-S-052
+        # contract — fall back to ``balance_usd`` so callers that
+        # haven't been updated keep current behaviour byte-for-byte.
+        gate_balance = (
+            total_account_usd if total_account_usd is not None else balance_usd
+        )
+        if gate_balance < self.min_balance_usd:
             return 0.0
 
         # Per-strategy allocation (set by the multiplexer in pipeline.py).

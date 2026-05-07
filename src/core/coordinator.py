@@ -765,13 +765,23 @@ class Coordinator:
                         else:
                             balance = _spot_bal["quote_usdt"]
                             available_usd = None
+                        # S-052: total account equity (free + locked across
+                        # all coins, in USD, excluding borrow). RiskManager
+                        # uses this for the min_balance_usd gate so a
+                        # wallet with $120 total but only $40 free USDT
+                        # isn't refused as "too small". None when the
+                        # exchange didn't return totalEquity — gate
+                        # falls back to ``balance`` (pre-S-052 contract).
+                        total_account_usd = _spot_bal.get("total_account_usd")
                         logger.debug(
                             "multi_account_execute: spot balance override "
                             "account=%s market_type=%s direction=%s "
-                            "symbol=%s balance=%.4f available=%s",
+                            "symbol=%s balance=%.4f available=%s "
+                            "total_account=%s",
                             account.name, _market_type, pkg.direction,
                             pkg.symbol, balance,
                             f"{available_usd:.4f}" if available_usd is not None else "n/a",
+                            f"{total_account_usd:.4f}" if total_account_usd is not None else "n/a",
                         )
                     except Exception as _spot_exc:  # noqa: BLE001
                         logger.warning(
@@ -780,8 +790,10 @@ class Coordinator:
                             account.name, pkg.symbol, _spot_exc,
                         )
                         available_usd = None
+                        total_account_usd = None
                 else:
                     available_usd = None
+                    total_account_usd = None
                 # S-047 T3 (D5): forward the routing label as a primitive
                 # so the RiskManager spot-margin kernel (T2) applies its
                 # max_borrow / borrow-fee / liquidation-buffer rules.
@@ -793,6 +805,7 @@ class Coordinator:
                     pkg, balance,
                     market_type=_market_type,
                     available_usd=available_usd,
+                    total_account_usd=total_account_usd,
                 )
             except Exception as exc:  # noqa: BLE001
                 logger.exception(

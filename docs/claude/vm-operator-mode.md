@@ -204,5 +204,48 @@ unit is killed and the bot posts the truncated transcript with a
   *vehicle* for executing those steps, not a replacement for the
   procedure.
 - The web sandbox session. This session (and any future web session)
-  cannot SSH into the VM. The bridge from PM-side actions to VM-side
-  actions is the Telegram bot, by design.
+  cannot SSH into the VM and has no mutation authority on it. The
+  bridge from PM-side actions to VM-side actions is the Telegram bot,
+  by design. PM-side sessions can read VM state via the diagnostic
+  surface — see § 9.
+
+## 9. PM-side / web-sandbox read access
+
+PM-side Claude sessions (web sandbox, developer laptop) **cannot** SSH
+into the VM and **cannot** take any mutating action against it directly
+— restarts, config edits, code pushes to the VM filesystem, key
+rotations, service control, all forbidden. There is no SSH key issued
+to a PM-side session and there will not be one.
+
+They **can** read the VM's diagnostic surface at
+`https://<vm-host>:8001/api/diag/*`, gated by the bearer token
+`DIAG_READ_TOKEN`. The surface is strictly read-only by construction:
+GET routes only, parameterized SELECTs against `trade_journal.db`
+opened with `mode=ro`, hard-coded allowlists for systemd units and log
+file aliases, no shell-out except a fixed-argument `journalctl` /
+`systemctl is-active` invocation against allowlisted unit names.
+
+| Endpoint | Returns |
+|---|---|
+| `GET /api/diag/snapshot` | one-shot bundle: heartbeat, status.json, audit tail, recent `order_packages` + `trades`, vm_health, service states |
+| `GET /api/diag/audit?limit=N` | tail of `runtime_logs/signal_audit.jsonl` |
+| `GET /api/diag/journal?table={order_packages\|trades}&limit=N` | read-only SELECT |
+| `GET /api/diag/status` | heartbeat + status.json + vm_health |
+| `GET /api/diag/services` | `systemctl is-active` for every allowlisted unit |
+| `GET /api/diag/journalctl?unit=<allowlisted>&lines=N` | systemd journal tail |
+| `GET /api/diag/log_file?name={audit\|status\|heartbeat\|bot_log}&lines=N` | tail of allowlisted log file |
+
+Every mutation — without exception — still goes through the Telegram
+`/vm_write` path with explicit operator confirmation. Adding a mutating
+route to `src/web/api/routers/diag.py` from a sandbox session is
+**Tier 3** (immutable from sandbox, same trust class as
+`src/runtime/orders.py`).
+
+`DIAG_READ_TOKEN` lives in `/etc/ict-trader/web-api.env` (mode `0640`,
+owner `root:ubuntu`) and rotates on the same schedule as
+`JWT_SIGNING_KEY`. It is never pasted into chat; the operator hands the
+URL + token to a PM-side session via a gitignored local file or shares
+it through the Telegram operator chat for one-shot use.
+
+If `DIAG_READ_TOKEN` is unset on the VM, the diag endpoints return
+`503 diag_disabled` — the feature is opt-in.

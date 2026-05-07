@@ -165,9 +165,19 @@ def _fetch_spot_coin_balances(client: Any, symbol: str) -> dict:
                              0.0 on cash spot or when the toggle is off.
                              Buys on spot-margin can be sized against
                              ``quote_usdt + quote_borrow_usd``.
+        ``total_account_usd`` — Bybit ``totalEquity`` for the wallet:
+                             free + locked across all coins, in USD,
+                             excluding borrow capacity. Used by
+                             ``RiskManager.position_size`` for the
+                             ``min_balance_usd`` gate ("is this account
+                             big enough to bother sizing into?"). None
+                             when the field is missing/unparseable so
+                             the gate falls back to ``balance_usd`` —
+                             same semantics as the pre-S-052 contract.
 
     The two ``*_borrow_usd`` fields default to 0.0, so callers that
     don't read them keep the pre-S-049 cash-only behaviour byte-for-byte.
+    ``total_account_usd`` defaults to None for the same reason.
     """
     base = _spot_base_coin(symbol)
     result: dict = {
@@ -177,12 +187,25 @@ def _fetch_spot_coin_balances(client: Any, symbol: str) -> dict:
         "quote_usdt": 0.0,
         "base_borrow_usd": 0.0,
         "quote_borrow_usd": 0.0,
+        "total_account_usd": None,
     }
     try:
         resp = client.get_wallet_balance(accountType="UNIFIED") or {}
-        coins = (
-            ((resp.get("result") or {}).get("list") or [{}])[0].get("coin", [])
-        )
+        wallet_list = (resp.get("result") or {}).get("list") or [{}]
+        wallet = wallet_list[0]
+        # Top-level totalEquity is the operator's full position-able
+        # capital in USD — free + locked across every coin in the
+        # wallet, excluding borrow capacity. The min_balance_usd gate
+        # is a "is this account big enough?" question and applies to
+        # total equity, not free quote-coin (S-052: distinguishes from
+        # the sizer's collateral input which remains free USDT).
+        te_raw = wallet.get("totalEquity")
+        if te_raw not in (None, "", "null"):
+            try:
+                result["total_account_usd"] = float(te_raw)
+            except (TypeError, ValueError):
+                pass
+        coins = wallet.get("coin", [])
         for coin in coins:
             ticker = (coin.get("coin") or "").upper()
             if ticker == base.upper():
