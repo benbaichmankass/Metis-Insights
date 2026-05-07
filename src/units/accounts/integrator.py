@@ -12,8 +12,7 @@ from __future__ import annotations
 
 import uuid
 import logging
-import os
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from src.units.accounts.account import TradingAccount
