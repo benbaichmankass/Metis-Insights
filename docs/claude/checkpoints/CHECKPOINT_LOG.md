@@ -11,6 +11,58 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-07-06-s045-followup-auto-sync — auto-sync branch-protection workflow
+
+- **Session date:** 2026-05-07
+- **Sprint:** post-S-045 follow-up (no formal sprint number — janitor improvement on top of S-045's T4 deliverable).
+- **Active milestone:** M4 — Repo hygiene + CI (CI suite + conftest + ruff cleanup + auto-sync branch protection ✅; Janitor audits remain → S-046).
+- **Last completed checkpoint:** `CP-2026-05-07-05-s045-complete`.
+- **Telegram sent:** session-end ride-along on this commit.
+
+### 1. Completed
+
+- **PR #439 merged** (squash → `d5b6318`). Replaces the S-045 T4 Colab-notebook flow with a GitHub Actions workflow (`.github/workflows/branch-protection-sync.yml`) that runs on every push to `main` and on `workflow_dispatch`. The required-status-checks contexts are hardcoded in the workflow's `REQUIRED_CONTEXTS` shell variable; to add or remove a check, edit the variable, commit, push.
+- Soft-skip on missing secret: if `secrets.BRANCH_PROTECTION_TOKEN` is unset, a preflight step writes `configured=false` to GITHUB_OUTPUT and the actual API call is gated on `if: steps.token_check.outputs.configured == 'true'`. The workflow stays green until the operator does the one-time PAT setup; runs the sync the moment the secret is added.
+- Notebook (`notebooks/operator/update_branch_protection.ipynb`) repurposed as the manual fallback. Header + footer markdown cells updated to reflect the new role.
+- `docs/claude/ci-status-checks.md` § "Branch protection wiring" rewritten — auto-sync workflow described first, one-time operator setup spelled out (3 numbered steps), notebook moved to a "Manual fallback" subsection.
+
+### 2. Files changed (PR #439)
+
+- `.github/workflows/branch-protection-sync.yml` — new
+- `notebooks/operator/update_branch_protection.ipynb` — modified (header + footer markdown cells)
+- `docs/claude/ci-status-checks.md` — modified
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` — modified (this entry)
+
+### 3. Tests run
+
+- All 5 PR checks green on PR #439 (collect, lint, scan, scan, inventory) — `dry-run-guard` clean.
+- `ruff check .` → All checks passed!
+
+### 4. Remaining / Deferred
+
+- **Operator one-time setup for `branch-protection-sync.yml`.** Create a fine-grained PAT scoped to ONLY this repo with `Administration: Read and write`; add as repo secret `BRANCH_PROTECTION_TOKEN`. Until done, the workflow soft-skips with a notice (no red X). Steps in `docs/claude/ci-status-checks.md` § "One-time operator setup".
+- **Operator-hold lint residuals → ping-PR.** 15 mechanical hits suppressed via `[lint.per-file-ignores]` in `ruff.toml`. Same status as S-045 close.
+- **`repo-inventory` promotion to blocking** — unchanged.
+- **Janitor audits → S-046** — unchanged.
+- S-015 pause/continue Tier 2 PR: HOLD (operator hold unchanged).
+- BUG-057: awaiting VM `journalctl` output (unchanged).
+
+### 5. Next session
+
+**S-046** — M4 step 3 (Janitor audits): dead-file / duplicate-module (`src/ui/` vs `src/units/ui/`) / missing-test audits. Or M5 — Strategy testing workflow if the operator prioritises strategy validation.
+
+If the operator-hold ping-PR fires before S-046 starts, that takes priority.
+
+### Live-mode check
+
+✅ No live-trading code touched in any commit on this branch. CI infra + docs only.
+
+### Open PRs at session end
+
+None. PRs #438 (S-045) and #439 (auto-sync follow-up) both merged to `main`.
+
+---
+
 ## CP-2026-05-07-05-s045-complete — S-045 COMPLETE: M4 step 2 done
 
 - **Session date:** 2026-05-07
