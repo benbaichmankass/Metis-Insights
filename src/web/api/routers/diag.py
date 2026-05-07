@@ -118,9 +118,10 @@ def _heartbeat_snapshot() -> dict[str, Any]:
         return {"present": False, "mtime": None, "age_seconds": None, "label": "stopped"}
     mtime = _HEARTBEAT.stat().st_mtime
     age = time.time() - mtime
-    if age < 120:
+    # Thresholds match dashboard._bot_status — see comment there for rationale.
+    if age < 600:
         label = "running"
-    elif age < 600:
+    elif age < 1800:
         label = "paused"
     else:
         label = "stopped"
