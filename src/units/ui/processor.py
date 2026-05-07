@@ -1302,7 +1302,9 @@ def get_health_summary(
             get_service_status = _gss
         except Exception as exc:  # noqa: BLE001
             logger.warning("get_health_summary: bot import failed: %s", exc)
-            get_service_status = lambda _u: "unknown"
+
+            def get_service_status(_u: str) -> str:
+                return "unknown"
 
     # Gather service statuses + freshness rows once, regardless of
     # output format.
