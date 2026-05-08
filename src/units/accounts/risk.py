@@ -671,9 +671,19 @@ class RiskManager:
         #        borrow line. The next short over-sizes ~6× and
         #        Bybit rejects with 170131. Capping qty against the
         #        live base-side availability stops that.
+        # S-054: gate on ``>= 0`` so ZERO capacity refuses the trade
+        # rather than bypassing the cap. Pre-S-054 the guard was ``>
+        # 0``, which silently let an order through whenever the
+        # caller's capacity computation collapsed to 0 — the canonical
+        # case being a USDT-only wallet shorting BTC (the
+        # ``base_borrow_usd`` ratio conversion in
+        # ``_fetch_spot_coin_balances`` returned 0 because
+        # ``walletBalance(BTC) == 0``). Zero capacity now refuses
+        # cleanly via the ``min_qty`` floor; the matching engine never
+        # sees the order.
         if (
             package.entry > 0
-            and available_usd > 0
+            and available_usd >= 0
             and qty * package.entry > available_usd
         ):
             scaled = available_usd / package.entry

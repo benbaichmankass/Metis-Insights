@@ -797,3 +797,249 @@ class TestBuySafetyBuffer:
             _SPOT_SELL_SAFETY_BUFFER,
         )
         assert _SPOT_BUY_SAFETY_BUFFER == _SPOT_SELL_SAFETY_BUFFER
+
+
+# ---------------------------------------------------------------------------
+# S-054 — zero-capacity refusal + raw-qty borrow primitive.
+#
+# Field measurement on bybit_2 (2026-05-08, issue #523): a USDT-only
+# wallet (no free BTC) ran a tight loop of 0.006-0.007 BTC SHORT
+# entries, every one rejected by Bybit with retCode 170131
+# ("Insufficient balance"). The cause was two compounding bugs in the
+# SHORT-side sizing path:
+#
+#   A. ``_coin_borrow_usd`` (in execute.py) tried to convert the
+#      base coin's ``availableToBorrow`` qty → USD via the wallet
+#      row's ``usdValue / walletBalance`` ratio. On a USDT-only
+#      wallet ``walletBalance(BTC) == 0`` so the ratio collapses
+#      to 0 — even when Bybit reported a real borrow line.
+#   B. ``_apply_spot_margin_rules`` rule 3 was gated on
+#      ``available_usd > 0``. With Bug A's 0, the cap silently
+#      bypassed and the raw risk-pct qty went to Bybit.
+#
+# S-054 fixes:
+#   1. ``_fetch_spot_coin_balances`` exposes raw ``base_borrow_qty``
+#      (BTC units). Coordinator multiplies by ``pkg.entry`` to derive
+#      the SHORT-side ``available_usd`` — works on USDT-only wallets.
+#   2. Rule 3 gates on ``available_usd >= 0`` so zero capacity
+#      refuses the trade (returns 0.0 via the ``min_qty`` floor)
+#      rather than bypassing the cap.
+# ---------------------------------------------------------------------------
+
+
+class TestZeroCapacityRefuses:
+    """Rule 3's ``available_usd == 0`` case must REFUSE (return 0.0),
+    not bypass the cap. Pre-S-054 the ``> 0`` guard let the order
+    through with the raw risk-pct qty, which is what tripped the
+    bybit_2 reject loop.
+    """
+
+    def test_zero_available_usd_refuses(self):
+        """``available_usd=0.0`` (no free base coin, no borrow line) →
+        rule 3 refuses with 0.0. Pre-S-054 the cap was bypassed and
+        the raw risk-pct qty went to the exchange.
+        """
+        rm = RiskManager({
+            "risk_pct": 0.01,
+            "min_balance_usd": 50,
+            "max_borrow_btc": 1.0,
+            "daily_usd": 1_000_000_000,
+        })
+        pkg = _pkg(
+            direction="short",
+            entry=80_000.0, sl=80_135.0,    # distance ≈ $135 (field shape)
+        )
+        qty = rm.position_size(
+            pkg, balance_usd=89.0,
+            market_type="spot-margin",
+            available_usd=0.0,
+            total_account_usd=89.0,
+        )
+        assert qty == 0.0
+
+    def test_zero_available_usd_refuses_long(self):
+        """Symmetric on the long side — zero quote-side capacity
+        refuses regardless of direction.
+        """
+        rm = RiskManager({
+            "risk_pct": 0.01,
+            "min_balance_usd": 50,
+            "daily_usd": 1_000_000_000,
+        })
+        pkg = _pkg(direction="long", entry=80_000.0, sl=79_865.0)
+        qty = rm.position_size(
+            pkg, balance_usd=89.0,
+            market_type="spot-margin",
+            available_usd=0.0,
+            total_account_usd=89.0,
+        )
+        assert qty == 0.0
+
+    def test_positive_available_usd_still_caps_normally(self):
+        """Sanity: the change from ``> 0`` to ``>= 0`` doesn't perturb
+        the existing positive-capacity path. Same scenario as
+        ``TestAvailableUsdCap.test_short_clipped_by_base_side_available``,
+        re-asserted to pin behaviour through the gate refactor.
+        """
+        rm = RiskManager({
+            "risk_pct": 0.01,
+            "min_balance_usd": 50,
+            "max_borrow_btc": 1.0,
+            "daily_usd": 1_000_000_000,
+        })
+        pkg = _pkg(direction="short", entry=50_000, sl=51_000)
+        qty = rm.position_size(
+            pkg, balance_usd=10_000.0,
+            market_type="spot-margin",
+            available_usd=2_500.0,
+        )
+        assert qty == pytest.approx(0.05, rel=1e-3)
+
+
+class TestFetchSpotCoinBalancesBorrowQty:
+    """``_fetch_spot_coin_balances`` exposes raw ``base_borrow_qty``
+    (BTC units) so the coordinator can derive a USD cap via
+    ``base_borrow_qty * pkg.entry`` instead of the ratio path that
+    collapses on USDT-only wallets.
+    """
+
+    @staticmethod
+    def _client_with(usdt_row: dict, base_row: dict):
+        class _C:
+            def get_wallet_balance(self, **_):
+                return {
+                    "result": {
+                        "list": [{"coin": [usdt_row, base_row]}],
+                    },
+                }
+        return _C()
+
+    def test_usdt_only_wallet_carries_base_borrow_qty(self):
+        """USDT-only wallet (BTC walletBalance=0) — ``base_borrow_usd``
+        legitimately collapses to 0 (no price ratio derivable), but
+        ``base_borrow_qty`` carries the raw availableToBorrow so the
+        coordinator can multiply by ``pkg.entry``.
+        """
+        from src.units.accounts.execute import _fetch_spot_coin_balances
+        client = self._client_with(
+            usdt_row={
+                "coin": "USDT", "walletBalance": "89", "locked": "0",
+                "usdValue": "89", "availableToBorrow": "200",
+            },
+            base_row={
+                "coin": "BTC", "walletBalance": "0", "locked": "0",
+                "usdValue": "0", "availableToBorrow": "0.5",
+            },
+        )
+        bal = _fetch_spot_coin_balances(client, "BTCUSDT")
+        # Pre-S-054 ``base_borrow_usd`` collapsed to 0 (USD-ratio path).
+        # Post-S-054 ``base_borrow_qty`` carries the raw 0.5 BTC line.
+        assert bal["base_borrow_qty"] == pytest.approx(0.5)
+        assert bal["base_borrow_usd"] == 0.0    # ratio path still collapses
+        # Other fields unchanged.
+        assert bal["base_qty"] == 0.0
+        assert bal["base_usd_value"] == 0.0
+        assert bal["quote_usdt"] == pytest.approx(89.0)
+
+    def test_btc_present_carries_both_qty_and_usd(self):
+        """When walletBalance(BTC) > 0, both qty and USD are populated
+        — backward compatible with the S-049 contract.
+        """
+        from src.units.accounts.execute import _fetch_spot_coin_balances
+        client = self._client_with(
+            usdt_row={
+                "coin": "USDT", "walletBalance": "177", "locked": "0",
+                "usdValue": "177",
+            },
+            base_row={
+                "coin": "BTC", "walletBalance": "0.001", "locked": "0",
+                "usdValue": "50", "availableToBorrow": "0.008",
+            },
+        )
+        bal = _fetch_spot_coin_balances(client, "BTCUSDT")
+        assert bal["base_borrow_qty"] == pytest.approx(0.008)
+        # 0.008 BTC × ($50 / 0.001) = $400 — S-049 contract preserved.
+        assert bal["base_borrow_usd"] == pytest.approx(400.0)
+
+    def test_missing_borrow_field_returns_zero_qty(self):
+        """``availableToBorrow`` missing/empty → both qty and USD
+        default to 0.0. Cash-spot backward compat.
+        """
+        from src.units.accounts.execute import _fetch_spot_coin_balances
+        client = self._client_with(
+            usdt_row={
+                "coin": "USDT", "walletBalance": "177", "locked": "0",
+                "usdValue": "177",
+            },
+            base_row={
+                "coin": "BTC", "walletBalance": "0.001", "locked": "0",
+                "usdValue": "50",   # availableToBorrow absent
+            },
+        )
+        bal = _fetch_spot_coin_balances(client, "BTCUSDT")
+        assert bal["base_borrow_qty"] == 0.0
+        assert bal["base_borrow_usd"] == 0.0
+
+
+class TestUsdtOnlyWalletShortReproducer:
+    """End-to-end kernel-level reproducer of the bybit_2 reject loop
+    (issue #523, 2026-05-08). Without S-054, the kernel sized 0.006
+    BTC at $80k (≈ $480 notional) on a wallet with $89 net equity and
+    no free BTC — Bybit returned 170131 every minute. Post-S-054 the
+    same scenario refuses cleanly via the zero-capacity rule.
+    """
+
+    def test_reject_loop_fixed(self):
+        """Field-shape scenario: USDT-only wallet, $89 net equity,
+        BTC borrow line ratio-converted to 0 → caller passes
+        ``available_usd=0`` → kernel refuses. Pre-S-054: cap bypass +
+        Bybit reject every tick.
+        """
+        rm = RiskManager({
+            "risk_pct": 0.01,
+            "min_balance_usd": 50,
+            "max_borrow_btc": 1.0,
+            "daily_usd": 1_000_000_000,
+        })
+        pkg = _pkg(
+            direction="short",
+            entry=80_314.5, sl=80_450.34,    # field-observed values
+        )
+        qty = rm.position_size(
+            pkg, balance_usd=89.0,
+            market_type="spot-margin",
+            available_usd=0.0,
+            total_account_usd=89.0,
+        )
+        assert qty == 0.0
+
+    def test_borrow_line_visible_via_qty_admits_short(self):
+        """Same wallet shape but ``available_usd`` derived from the
+        raw borrow qty × entry — non-zero capacity, sizing math works
+        as before. Pins that the fix doesn't accidentally refuse all
+        USDT-only-wallet shorts; only refuses when capacity truly is
+        zero.
+        """
+        rm = RiskManager({
+            "risk_pct": 0.01,
+            "min_balance_usd": 50,
+            "max_borrow_btc": 1.0,
+            "daily_usd": 1_000_000_000,
+        })
+        pkg = _pkg(
+            direction="short",
+            entry=80_000.0, sl=80_135.0,
+        )
+        # Coordinator's S-054 derivation: (base_qty + base_borrow_qty)
+        # × entry × buffer. base_qty=0, base_borrow_qty=0.02 BTC,
+        # entry=$80k → $1592 capacity post-buffer.
+        derived_avail = (0.0 + 0.02) * 80_000.0 * 0.995
+        qty = rm.position_size(
+            pkg, balance_usd=89.0,
+            market_type="spot-margin",
+            available_usd=derived_avail,
+            total_account_usd=89.0,
+        )
+        # Risk-pct math: 89 × 0.01 / 135 ≈ 0.0066 → floor 0.006 BTC
+        # ($480 notional). Within the $1592 cap → no clip → 0.006 BTC.
+        assert qty == pytest.approx(0.006, abs=1e-3)
