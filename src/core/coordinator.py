@@ -795,34 +795,102 @@ class Coordinator:
                             # exhaust as positions accumulate and 170131
                             # would surface even with the correct
                             # collateral input.
+                            # S-056 (operator-confirmed 2026-05-08):
+                            # spot-margin accounts are by design
+                            # always 100 % USDT at idle — every
+                            # position closes back to USDT — so
+                            # ``walletBalance(BTC)=0`` is structural,
+                            # not a "no margin" signal. Bybit V5's
+                            # wallet API empties ``availableToBorrow``
+                            # for any coin row with walletBalance=0,
+                            # zeroing the API-derived borrow capacity
+                            # even when margin is enabled and there's
+                            # USDT collateral. When that happens we
+                            # fall back to the operator-configured
+                            # ``risk.spot_margin_ltv`` (default 0.5,
+                            # see ``DEFAULT_SPOT_MARGIN_LTV``) applied
+                            # to the USDT collateral. The fallback is
+                            # capped by ``risk.max_borrow_btc`` (the
+                            # exchange tier ceiling) so it can never
+                            # exceed the operator's configured limit.
+                            ltv = float(getattr(
+                                account.risk_manager, "spot_margin_ltv",
+                                0.0,
+                            ) or 0.0)
+                            usdt_collateral = float(
+                                _spot_bal.get("quote_usdt") or 0.0
+                            )
+                            # Fallback borrow capacity in USD —
+                            # symmetric for long and short.
+                            fallback_usd = usdt_collateral * ltv
                             if pkg.direction == "long":
-                                available_usd = (
+                                api_avail_usd = (
                                     _spot_bal["quote_usdt"]
                                     + _spot_bal["quote_borrow_usd"]
-                                ) * _SPOT_BUY_SAFETY_BUFFER
+                                )
+                                # Use the API-derived value when it's
+                                # populated; otherwise fall back to
+                                # collateral×LTV. ``max(api, fallback)``
+                                # keeps the more permissive value when
+                                # both are non-zero, but the fallback
+                                # only matters when the API one is 0.
+                                effective_usd = max(
+                                    api_avail_usd,
+                                    usdt_collateral + fallback_usd,
+                                )
+                                available_usd = (
+                                    effective_usd * _SPOT_BUY_SAFETY_BUFFER
+                                )
                             else:
-                                # S-054: convert base-coin capacity
-                                # to USD via the order's entry price,
-                                # not the wallet row's
-                                # ``usdValue / walletBalance`` ratio.
-                                # The ratio path collapses to 0 on a
-                                # USDT-only wallet (walletBalance=0
-                                # for the base coin), zeroing
-                                # ``available_usd`` and silently
-                                # bypassing rule 3's notional cap —
-                                # exactly the pattern that produced
-                                # bybit_2's 170131 reject loop on
-                                # 2026-05-08. Using ``pkg.entry`` as
-                                # the conversion price gives a stable
-                                # cap regardless of whether free BTC
-                                # is held on the wallet.
-                                base_capacity_qty = (
+                                # Short: API path adds free BTC + BTC
+                                # borrow capacity (in qty), converted
+                                # to USD via pkg.entry (S-054). When
+                                # the API field is empty fall back to
+                                # collateral×LTV / pkg.entry.
+                                api_base_qty = (
                                     _spot_bal["base_qty"]
                                     + _spot_bal.get("base_borrow_qty", 0.0)
                                 )
+                                api_avail_usd = api_base_qty * pkg.entry
+                                # Cap fallback BTC qty at max_borrow_btc
+                                # so it can't exceed the operator's
+                                # configured tier ceiling.
+                                max_borrow_btc = float(getattr(
+                                    account.risk_manager,
+                                    "max_borrow_btc", 0.0,
+                                ) or 0.0)
+                                fallback_btc_qty = (
+                                    fallback_usd / pkg.entry
+                                    if pkg.entry > 0 else 0.0
+                                )
+                                if max_borrow_btc > 0:
+                                    fallback_btc_qty = min(
+                                        fallback_btc_qty, max_borrow_btc,
+                                    )
+                                fallback_usd_capped = (
+                                    fallback_btc_qty * pkg.entry
+                                )
+                                effective_usd = max(
+                                    api_avail_usd, fallback_usd_capped,
+                                )
                                 available_usd = (
-                                    base_capacity_qty * pkg.entry
-                                ) * _SPOT_BUY_SAFETY_BUFFER
+                                    effective_usd * _SPOT_BUY_SAFETY_BUFFER
+                                )
+                                if (
+                                    api_avail_usd <= 0.0
+                                    and fallback_usd_capped > 0.0
+                                ):
+                                    logger.info(
+                                        "multi_account_execute: spot-margin "
+                                        "SHORT capacity fallback fired for "
+                                        "%s (%s) — API availableToBorrow "
+                                        "empty; using usdt_collateral=%.2f "
+                                        "× ltv=%.2f → %.6f BTC "
+                                        "(max_borrow_btc cap=%.6f)",
+                                        account.name, pkg.symbol,
+                                        usdt_collateral, ltv,
+                                        fallback_btc_qty, max_borrow_btc,
+                                    )
                         elif pkg.direction == "short":
                             balance = _spot_bal["base_usd_value"]
                             available_usd = None

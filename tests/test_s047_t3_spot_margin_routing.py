@@ -1000,12 +1000,28 @@ class TestUsdtOnlyWalletShortCoordinator:
         # to clip against.
         assert kwargs["available_usd"] > 0.0
 
-    def test_short_zero_capacity_when_borrow_line_zero(self):
-        """When the wallet has no free BTC AND the borrow line is 0
-        (margin disabled, classic spot, etc.), available_usd
-        legitimately collapses to 0. The kernel's S-054 zero-capacity
-        rule then refuses cleanly upstream — no exchange call, no
-        170131 ping every minute.
+    def test_short_zero_api_capacity_falls_back_to_ltv_collateral(self):
+        """S-056 (operator-confirmed 2026-05-08): the bot's spot-margin
+        wallet is by design always 100 % USDT at idle — every
+        position closes back to USDT — so ``walletBalance(BTC)=0``
+        is structural, not a "no margin" signal. Bybit V5 empties
+        ``availableToBorrow`` for any coin row with walletBalance=0,
+        zeroing the API-derived capacity even when margin IS enabled
+        and there's USDT collateral.
+
+        Pre-S-056: the coordinator returned ``available_usd=0`` and
+        the risk kernel refused to size — the trader went silent on
+        every signal even though the operator's margin tier had
+        plenty of room.
+
+        Post-S-056: the coordinator falls back to
+        ``usdt_collateral × spot_margin_ltv`` (default 0.5,
+        per-account override in ``risk.spot_margin_ltv``). For
+        $89 collateral that's $44.5 of BTC borrow capacity; rule 3
+        clips qty to fit, the order fires.
+
+        Capped by ``risk.max_borrow_btc`` so the fallback can never
+        exceed the operator's configured tier ceiling.
         """
         from src.core.coordinator import Coordinator
 
@@ -1015,7 +1031,7 @@ class TestUsdtOnlyWalletShortCoordinator:
             "base_usd_value": 0.0,
             "quote_usdt": 89.0,
             "quote_borrow_usd": 0.0,
-            "base_borrow_qty": 0.0,
+            "base_borrow_qty": 0.0,    # API empty
             "base_borrow_usd": 0.0,
             "total_account_usd": 89.0,
         }
@@ -1043,4 +1059,9 @@ class TestUsdtOnlyWalletShortCoordinator:
                 balance_fetcher=lambda a: 99_999.0,
             )
         _positional, kwargs = mock_size.call_args
-        assert abs(kwargs["available_usd"]) < 1e-9
+        # $89 × 0.5 LTV = $44.5 fallback capacity, × 0.995 buffer.
+        expected = 89.0 * 0.5 * 0.995
+        assert kwargs["available_usd"] == pytest.approx(expected, rel=1e-6)
+        # Critical regression guard: the fallback must produce a
+        # NON-ZERO cap so the trade can size into a real position.
+        assert kwargs["available_usd"] > 0.0
