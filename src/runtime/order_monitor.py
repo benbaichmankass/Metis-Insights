@@ -983,6 +983,86 @@ def _sweep_unlinked_packages(db) -> int:
         return 0
 
 
+# Trade statuses that mean "this trade is no longer live on the
+# exchange". A linked order_packages row stuck at status='open' against
+# a trade in any of these states is the cascade-leak we have to clear,
+# otherwise the strategy-monocle gate
+# (pipeline.py::_has_open_package_for_strategy) silently blocks every
+# future signal for the strategy.
+_TERMINAL_TRADE_STATUSES = (
+    "orphaned",
+    "exchange_rejected",
+    "closed",
+    "rejected",
+    "rejected_too_small",
+)
+
+
+def _sweep_stuck_linked_packages(db) -> int:
+    """Force-close ``order_packages`` rows whose linked trade has
+    reached a terminal status but whose own ``status`` is still
+    ``'open'``.
+
+    Background — the primary path is ``_mark_orphaned``'s package
+    cascade. That cascade is now retried + audit-logged on failure,
+    but:
+
+      1. A bug elsewhere (e.g. partial close path forgetting to
+         cascade) can still drop a package row in the same stuck
+         state.
+      2. The strategy-monocle gate at
+         ``pipeline.py::_has_open_package_for_strategy`` (and the
+         per-strategy ``vwap.py::_has_open_vwap_package``) reads
+         ``status='open' AND linked_trade_id IS NOT NULL`` — so a
+         single stuck row blocks *every* future signal for that
+         strategy.
+
+    This sweep is the second line of defence: idempotent, gated by
+    ``MONITOR_RECONCILE_ENABLED``, runs once per monitor tick.
+
+    Returns:
+        int: number of rows force-closed this tick.
+    """
+    if not _reconcile_enabled():
+        return 0
+    try:
+        conn = db.connect()
+        try:
+            now_iso = datetime.now(timezone.utc).isoformat()
+            placeholders = ",".join("?" * len(_TERMINAL_TRADE_STATUSES))
+            conn.execute(
+                "UPDATE order_packages "
+                "SET status = 'closed', "
+                "    close_reason = 'stuck_cascade_recovered', "
+                "    updated_at = ?, "
+                "    meta = json_set(COALESCE(meta, '{}'), "
+                "        '$.stuck_recovered_at', ?, "
+                "        '$.stuck_recovered_by', 'monitor_reconciler', "
+                "        '$.stuck_recovered_reason', "
+                "        'linked trade reached terminal status while package stayed open') "
+                "WHERE status = 'open' "
+                "  AND linked_trade_id IS NOT NULL "
+                f"  AND linked_trade_id IN ("
+                f"      SELECT id FROM trades WHERE status IN ({placeholders})"
+                f"  )",
+                (now_iso, now_iso, *_TERMINAL_TRADE_STATUSES),
+            )
+            affected = conn.execute("SELECT changes()").fetchone()[0]
+            conn.commit()
+        finally:
+            conn.close()
+        if affected:
+            logger.info(
+                "_sweep_stuck_linked_packages: force-closed %d stuck "
+                "linked package(s) — strategy gate cleared",
+                affected,
+            )
+        return affected
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("_sweep_stuck_linked_packages: failed: %s", exc)
+        return 0
+
+
 # ---------------------------------------------------------------------------
 # Borrow-orphan reconciler — S-055 fail-safe
 # ---------------------------------------------------------------------------
@@ -1346,6 +1426,14 @@ def _mark_orphaned(db, row: Dict[str, Any]) -> None:
     (``orphaned_at`` / ``orphaned_by`` / ``orphaned_reason``) so an
     operator can grep / SQL on the same field for both manual and
     automated sweeps.
+
+    The package cascade is retried once (two attempts total) before
+    giving up. A final failure writes a sticky ``orphan_cascade_failed``
+    audit row via ``log_signal`` — without it the strategy-monocle gate
+    in ``pipeline.py::_has_open_package_for_strategy`` stays stuck open
+    and every future signal for the strategy is silently blocked.
+    The companion ``_sweep_stuck_linked_packages`` watchdog is the
+    second line of defence.
     """
     now = datetime.now(timezone.utc).isoformat()
     notes = _decode_notes(row.get("notes"))
@@ -1360,18 +1448,76 @@ def _mark_orphaned(db, row: Dict[str, Any]) -> None:
         "notes": json.dumps(notes, ensure_ascii=False)[:500],
     })
     pkg_id = _extract_package_id(row.get("notes"))
-    if pkg_id:
+    if not pkg_id:
+        return
+
+    last_exc: Optional[BaseException] = None
+    for attempt in (1, 2):
         try:
             db.update_order_package(pkg_id, {
                 "status": "closed",
                 "close_reason": "reconciler",
             })
+            last_exc = None
+            break
         except Exception as exc:  # noqa: BLE001
+            last_exc = exc
             logger.warning(
-                "_mark_orphaned: package cascade failed for pkg_id=%s "
-                "linked to trade_id=%s: %s",
-                pkg_id, row.get("id"), exc,
+                "_mark_orphaned: package cascade failed (attempt %d/2) "
+                "for pkg_id=%s linked to trade_id=%s: %s",
+                attempt, pkg_id, row.get("id"), exc,
             )
+
+    if last_exc is not None:
+        _emit_orphan_cascade_failed_audit(
+            pkg_id=pkg_id,
+            trade_id=row.get("id"),
+            account_id=row.get("account_id"),
+            symbol=row.get("symbol"),
+            direction=row.get("direction"),
+            error=str(last_exc),
+        )
+
+
+def _emit_orphan_cascade_failed_audit(
+    *,
+    pkg_id: str,
+    trade_id: Any,
+    account_id: Any,
+    symbol: Any,
+    direction: Any,
+    error: str,
+) -> None:
+    """Sticky audit row for a package cascade that failed twice.
+
+    Without this row the cascade loss is silent: the trade is marked
+    ``orphaned`` but the package row stays ``status='open'``, leaving
+    the strategy-monocle gate stuck and every future signal blocked
+    until manual intervention. Best-effort — never raises.
+    """
+    try:
+        from src.utils.signal_audit_logger import log_signal
+        log_signal({
+            "event": "outcome",
+            "action": "orphan_cascade_failed",
+            "status": "failed",
+            "order_package_id": pkg_id,
+            "db_trade_id": trade_id,
+            "account_id": account_id,
+            "symbol": symbol,
+            "direction": direction,
+            "reason": (
+                "package cascade failed twice — strategy gate may stay "
+                "stuck until _sweep_stuck_linked_packages or operator "
+                "clears it"
+            ),
+            "error": error,
+        })
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "_emit_orphan_cascade_failed_audit: write failed for pkg_id=%s: %s",
+            pkg_id, exc,
+        )
 
 
 def _decode_notes(notes_raw: Optional[str]) -> Dict[str, Any]:
@@ -1504,6 +1650,17 @@ def run_monitor_tick(
         _sweep_unlinked_packages(db)
     except Exception as exc:  # noqa: BLE001
         logger.warning("run_monitor_tick: unlinked-pkg sweep raised: %s", exc)
+
+    # Sweep order_packages that are status='open' AND linked to a trade
+    # that has already reached a terminal status (orphaned,
+    # exchange_rejected, closed, rejected, rejected_too_small). These
+    # are the cascade-leak rows that keep the strategy-monocle gate
+    # stuck and silently block every future signal for the strategy.
+    # Gated by MONITOR_RECONCILE_ENABLED (helper checks).
+    try:
+        _sweep_stuck_linked_packages(db)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("run_monitor_tick: stuck-linked-pkg sweep raised: %s", exc)
 
     # S-055: sweep spot-margin accounts for outstanding ``borrowAmount``
     # that no DB-open trade backs (the operator-confirmed fail-safe for
