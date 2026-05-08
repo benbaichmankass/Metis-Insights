@@ -70,6 +70,15 @@ def _pkg(strategy: str = "vwap") -> OrderPackage:
     )
 
 
+@pytest.fixture(autouse=True)
+def _stub_account_creds(monkeypatch):
+    """Plant env vars for the accounts.yaml ``api_key_env`` values so
+    PR #507's ``configured=False`` filter doesn't drop these accounts
+    before they reach the early-out branches under test."""
+    for name in ("BYBIT_KEY_1", "BYBIT_KEY_2"):
+        monkeypatch.setenv(name, "test-value")
+
+
 @pytest.fixture()
 def accounts_yaml(tmp_path):
     p = tmp_path / "accounts.yaml"
