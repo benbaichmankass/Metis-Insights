@@ -95,22 +95,22 @@ def _coin_free(coin_row: dict) -> float:
     return max(0.0, wallet - locked)
 
 
-def _coin_borrow_usd(coin_row: dict) -> float:
-    """USD-equivalent of a coin's *free* borrow capacity (UTA Spot Margin).
+def _coin_borrow_qty(coin_row: dict) -> float:
+    """Raw ``availableToBorrow`` qty for *coin_row* (no USD conversion).
 
-    Bybit V5 UTA wallet rows expose ``availableToBorrow`` per coin — the
-    remaining borrow line **at the exchange's tier**, which is the
-    primitive a leveraged spot order actually consumes against. We
-    convert that to USDT terms via the row's ``usdValue / walletBalance``
-    price ratio (the same conversion the rest of this module uses) so
-    the sizer can compare it directly against ``quote_usdt`` (already
-    in USDT).
+    Bybit V5 UTA wallet rows expose ``availableToBorrow`` per coin —
+    the remaining borrow line at the exchange's tier (e.g. 0.5 BTC for
+    Tier 1 BTC). Returns the parsed float, or 0.0 when the field is
+    missing/empty/non-positive/unparseable. Floors at 0.0 so a stray
+    negative value doesn't propagate.
 
-    Returns 0.0 when ``availableToBorrow`` is missing/empty/zero — that
-    matches a Classic-spot account, an account whose web-UI Spot Margin
-    toggle is OFF, or a coin not enabled for borrow. Best-effort: any
-    parse failure returns 0.0 so the sizer's behaviour falls back to
-    "free cash only", never larger than today.
+    S-054: split out from ``_coin_borrow_usd`` so callers that need a
+    USD value can multiply by an explicit price (e.g. the order's
+    ``pkg.entry``) instead of relying on the wallet row's
+    ``usdValue / walletBalance`` ratio — that ratio collapses to 0
+    whenever ``walletBalance == 0`` (a USDT-only wallet shorting BTC
+    is the canonical case), which silently zeroed out the SHORT-side
+    cap and let oversize orders trip Bybit ErrCode 170131.
     """
     raw = coin_row.get("availableToBorrow")
     if raw in (None, "", "null"):
@@ -119,6 +119,23 @@ def _coin_borrow_usd(coin_row: dict) -> float:
         borrow_qty = float(raw)
     except (TypeError, ValueError):
         return 0.0
+    return max(0.0, borrow_qty)
+
+
+def _coin_borrow_usd(coin_row: dict) -> float:
+    """USD-equivalent of a coin's *free* borrow capacity (UTA Spot Margin).
+
+    Best-effort USD conversion using the row's
+    ``usdValue / walletBalance`` price ratio. Returns 0.0 when the
+    conversion can't be done (USDT-only wallet shorting BTC: BTC row
+    has ``walletBalance == 0`` so no ratio is derivable). For shorts
+    on such wallets, callers should use ``_coin_borrow_qty`` and
+    multiply by the order's entry price — the coordinator does this
+    in the spot-margin SHORT branch (S-054). Kept as a helper for
+    long-side / USDT borrow sizing where ``walletBalance(USDT) > 0``
+    is the common case.
+    """
+    borrow_qty = _coin_borrow_qty(coin_row)
     if borrow_qty <= 0:
         return 0.0
     ticker = (coin_row.get("coin") or "").upper()
@@ -183,15 +200,27 @@ def _fetch_spot_coin_balances(client: Any, symbol: str) -> dict:
                              This is **collateral** for risk-of-ruin
                              math — what an account would actually lose
                              at liquidation.
+        ``base_borrow_qty``  — *raw* base-coin borrow capacity in coin
+                             units (e.g. BTC). 0.0 on cash spot or when
+                             the toggle is off. S-054: callers convert
+                             to USD via ``pkg.entry`` (works on
+                             USDT-only wallets, where the
+                             ``base_borrow_usd`` ratio conversion
+                             collapses to 0).
         ``base_borrow_usd``  — USD-equivalent of the base coin's free
                              borrow capacity (UTA Spot Margin). 0.0 on
-                             cash spot or when the toggle is off.
-                             Sells on spot-margin can be sized against
-                             ``base_usd_value + base_borrow_usd``.
+                             cash spot or when the toggle is off, AND
+                             0.0 on a USDT-only wallet (no
+                             ``walletBalance(BTC)`` to derive a price
+                             ratio from — use ``base_borrow_qty *
+                             pkg.entry`` instead). S-054 superseded this
+                             field for the SHORT-side notional cap.
         ``quote_borrow_usd`` — USDT borrow capacity (UTA Spot Margin).
                              0.0 on cash spot or when the toggle is off.
                              Buys on spot-margin can be sized against
-                             ``quote_usdt + quote_borrow_usd``.
+                             ``quote_usdt + quote_borrow_usd`` — USDT
+                             needs no price conversion so this is the
+                             same primitive as the raw qty.
         ``base_borrowed_qty``  — *outstanding* base-coin borrow in coin
                              units (S-055). Non-zero only when a
                              spot-margin SHORT is open against this
@@ -213,10 +242,11 @@ def _fetch_spot_coin_balances(client: Any, symbol: str) -> dict:
                              the gate falls back to ``balance_usd`` —
                              same semantics as the pre-S-052 contract.
 
-    The two ``*_borrow_usd`` and ``*_borrowed_qty`` fields default to
-    0.0, so callers that don't read them keep the pre-S-049 / pre-S-055
-    cash-only behaviour byte-for-byte. ``total_account_usd`` defaults
-    to None for the same reason.
+    The borrow-capacity (``*_borrow_qty`` / ``*_borrow_usd``) and
+    consumed-borrow (``*_borrowed_qty``) fields default to 0.0, so
+    callers that don't read them keep the pre-S-049 / pre-S-054 /
+    pre-S-055 cash-only behaviour byte-for-byte.
+    ``total_account_usd`` defaults to None for the same reason.
     """
     base = _spot_base_coin(symbol)
     result: dict = {
@@ -224,6 +254,7 @@ def _fetch_spot_coin_balances(client: Any, symbol: str) -> dict:
         "base_qty": 0.0,
         "base_usd_value": 0.0,
         "quote_usdt": 0.0,
+        "base_borrow_qty": 0.0,
         "base_borrow_usd": 0.0,
         "quote_borrow_usd": 0.0,
         "base_borrowed_qty": 0.0,
@@ -260,6 +291,7 @@ def _fetch_spot_coin_balances(client: Any, symbol: str) -> dict:
                     result["base_usd_value"] = usd_total * (free / wallet_total)
                 else:
                     result["base_usd_value"] = 0.0
+                result["base_borrow_qty"] = _coin_borrow_qty(coin)
                 result["base_borrow_usd"] = _coin_borrow_usd(coin)
                 result["base_borrowed_qty"] = _coin_borrowed_qty(coin)
             elif ticker == "USDT":

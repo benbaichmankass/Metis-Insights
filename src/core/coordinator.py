@@ -801,9 +801,27 @@ class Coordinator:
                                     + _spot_bal["quote_borrow_usd"]
                                 ) * _SPOT_BUY_SAFETY_BUFFER
                             else:
+                                # S-054: convert base-coin capacity
+                                # to USD via the order's entry price,
+                                # not the wallet row's
+                                # ``usdValue / walletBalance`` ratio.
+                                # The ratio path collapses to 0 on a
+                                # USDT-only wallet (walletBalance=0
+                                # for the base coin), zeroing
+                                # ``available_usd`` and silently
+                                # bypassing rule 3's notional cap —
+                                # exactly the pattern that produced
+                                # bybit_2's 170131 reject loop on
+                                # 2026-05-08. Using ``pkg.entry`` as
+                                # the conversion price gives a stable
+                                # cap regardless of whether free BTC
+                                # is held on the wallet.
+                                base_capacity_qty = (
+                                    _spot_bal["base_qty"]
+                                    + _spot_bal.get("base_borrow_qty", 0.0)
+                                )
                                 available_usd = (
-                                    _spot_bal["base_usd_value"]
-                                    + _spot_bal["base_borrow_usd"]
+                                    base_capacity_qty * pkg.entry
                                 ) * _SPOT_BUY_SAFETY_BUFFER
                         elif pkg.direction == "short":
                             balance = _spot_bal["base_usd_value"]
