@@ -33,6 +33,7 @@ Remove stale instructions when they waste context.
 - `checkpoints/CHECKPOINT_LOG.md`: append-only log of session handoffs (source of truth for "where to resume").
 - `checkpoints/HANDOFF_TEMPLATE.md`: template every session copies into the log at the end.
 - `session-workflow.md`: start/middle/end checklist.
+- `session-handoff.md`: bounded sprint-continuation routine (when one Claude session can't finish a sprint). Pairs with `automation/session_handoff/` and `.github/workflows/continue-work.yml`.
 - `repo-map.md`: high-level structure and entry points. **Updated S-008:** includes 9-unit Coordinator table and key file locations.
 - `debug-memory.md`: recurring bugs and known fixes.
 - `cleanup-policy.md`: safe deletion rules.

@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "sprint_id": "S-061-session-handoff",
+  "sprint_title": "Session handoff + continue-work workflow",
+  "branch": "claude/session-handoff-workflow-00IP8",
+  "created_at": "2026-05-08T14:30:00Z",
+  "created_by": "claude",
+  "handoff_reason": "natural_checkpoint",
+  "handoff_reason_note": "First checkpoint of the sprint — schema and workflow scaffolding landed; next session wires up the helper script and tests.",
+  "checkpoint_summary": "Sprint S-061 introduces a bounded session-handoff workflow so a long Claude Code session can stop at a clean checkpoint and a fresh session can resume the same sprint from a structured artifact. This checkpoint completed the schema, the example file, and the continue-work workflow scaffolding. The helper script and tests are next.",
+  "completed_items": [
+    "Added automation/session_handoff/schema/handoff.schema.json",
+    "Added example_handoff.json (this file)",
+    "Added .github/workflows/continue-work.yml scaffolding"
+  ],
+  "open_items": [
+    "Implement scripts/session_handoff/close_session.py",
+    "Add tests for handoff validation",
+    "Write docs/claude/session-handoff.md operator doc"
+  ],
+  "next_actions": [
+    {
+      "title": "Implement the close_session.py helper",
+      "detail": "Validate next_session.json against the schema, commit, push, then trigger the continue-work workflow via repository_dispatch when run with --dispatch.",
+      "owner": "claude"
+    },
+    {
+      "title": "Add tests/test_session_handoff_validate.py",
+      "detail": "Cover malformed JSON, missing required fields, ready_for_continue=false rejection, and a happy-path validation."
+    }
+  ],
+  "blocked_items": [],
+  "files_to_review": [
+    "automation/session_handoff/schema/handoff.schema.json",
+    ".github/workflows/continue-work.yml",
+    "docs/claude/session-workflow.md",
+    "docs/claude/checkpoint-workflow.md"
+  ],
+  "commands_to_run": [
+    "PYTHONPATH=. pytest tests/test_session_handoff_validate.py -q",
+    "python scripts/session_handoff/validate_handoff.py automation/session_handoff/next_session.json"
+  ],
+  "tests_required": [
+    "tests/test_session_handoff_validate.py",
+    "tests/test_workflow_yaml_valid.py"
+  ],
+  "guardrails": [
+    "Do not modify any code under src/runtime/ or src/units/ in this sprint.",
+    "Do not change live-trading flags or strategy parameters.",
+    "Do not introduce a database — repo files are the source of truth.",
+    "Do not extend this routine into perpetual self-directed planning."
+  ],
+  "continuation_prompt": "You are resuming sprint S-061-session-handoff on branch claude/session-handoff-workflow-00IP8. Read automation/session_handoff/next_session.json first; it lists completed_items, next_actions, files_to_review, and guardrails. Pick up the first entry of next_actions and stop at the next safe checkpoint. Do not start a new sprint.",
+  "ready_for_continue": true,
+  "sprint_plan_ref": null,
+  "previous_handoff_ref": null,
+  "history": [
+    {
+      "at": "2026-05-08T14:30:00Z",
+      "event": "created",
+      "actor": "claude",
+      "run_url": null,
+      "note": "Initial example artifact for sprint S-061."
+    }
+  ]
+}

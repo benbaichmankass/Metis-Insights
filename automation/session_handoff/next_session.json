@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "sprint_id": "S-061-session-handoff",
+  "sprint_title": "Session handoff + continue-work workflow",
+  "branch": "claude/session-handoff-workflow-00IP8",
+  "created_at": "2026-05-08T00:00:00Z",
+  "created_by": "claude",
+  "handoff_reason": "natural_checkpoint",
+  "handoff_reason_note": "Initial scaffolding of the sprint. Schema, workflow, helper, tests, and docs all landed in one PR; this file is parked as the seed handoff for the next iteration of the routine.",
+  "checkpoint_summary": "Sprint S-061 introduces a bounded session-handoff routine. With this PR landed, the repo has a JSON schema, a live next_session.json, an example handoff, a continue-work GitHub Actions workflow, a helper script Claude can run at session end, validation tests, and operator docs. The routine is sprint-bounded by design.",
+  "completed_items": [
+    "Added automation/session_handoff/ tree (schema, example, README, this live file)",
+    "Added .github/workflows/continue-work.yml (workflow_dispatch + repository_dispatch)",
+    "Added scripts/session_handoff/{validate_handoff.py,close_session.py}",
+    "Added tests/test_session_handoff_validate.py and tests/test_session_handoff_close_helper.py",
+    "Added docs/claude/session-handoff.md operator doc"
+  ],
+  "open_items": [],
+  "next_actions": [
+    {
+      "title": "Exercise the routine end-to-end on the next real long sprint",
+      "detail": "Use this scaffolding for the first sprint that legitimately needs cross-session continuation. Tune handoff_reason values and the continuation_prompt template based on what worked.",
+      "owner": "operator"
+    }
+  ],
+  "blocked_items": [],
+  "files_to_review": [
+    "automation/session_handoff/README.md",
+    "automation/session_handoff/schema/handoff.schema.json",
+    ".github/workflows/continue-work.yml",
+    "scripts/session_handoff/close_session.py",
+    "scripts/session_handoff/validate_handoff.py",
+    "docs/claude/session-handoff.md"
+  ],
+  "commands_to_run": [
+    "python scripts/session_handoff/validate_handoff.py automation/session_handoff/next_session.json",
+    "PYTHONPATH=. pytest tests/test_session_handoff_validate.py tests/test_session_handoff_close_helper.py tests/test_workflow_yaml_valid.py -q"
+  ],
+  "tests_required": [
+    "tests/test_session_handoff_validate.py",
+    "tests/test_session_handoff_close_helper.py",
+    "tests/test_workflow_yaml_valid.py"
+  ],
+  "guardrails": [
+    "Do not modify code under src/runtime/ or src/units/ in this sprint.",
+    "Do not change live-trading flags, strategy parameters, or account modes.",
+    "Do not introduce a database — repo files are the source of truth.",
+    "Do not extend this routine into perpetual self-directed planning. It is sprint-bounded."
+  ],
+  "continuation_prompt": "You are resuming sprint S-061-session-handoff on branch claude/session-handoff-workflow-00IP8. Read automation/session_handoff/next_session.json first; it lists completed_items, next_actions, files_to_review, and guardrails. Pick up the first entry of next_actions and stop at the next safe checkpoint. Do not start a new sprint.",
+  "ready_for_continue": true,
+  "sprint_plan_ref": null,
+  "previous_handoff_ref": null,
+  "history": [
+    {
+      "at": "2026-05-08T00:00:00Z",
+      "event": "created",
+      "actor": "claude",
+      "run_url": null,
+      "note": "Seed handoff written as part of the S-061 implementation PR."
+    }
+  ]
+}
