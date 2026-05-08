@@ -46,27 +46,26 @@ When opening a session:
 | **Risk tier (T6)** | Tier 1 (docs after smoke succeeds). Smoke harness `scripts/sprint047/spot_margin_smoke.py` already exists from T3. |
 | **Definition of done (T6)** | D8 merged: bug-log close entries link BUG-046/048/049 to S-047 as the structural fix; `docs/runbooks/spot-margin.md` written; live smoke recorded with PnL/borrow-fee analysis; CI green. |
 
-**Operator action remaining: T5 merge (when work-PR opens)** + the independent **Bybit web-UI Spot Margin toggle** on `bybit_2` (margin-agnostic — operator clicks on their own schedule; sprint does not block on it; until then `isLeverage=1` orders return retCode 110007 server-side and log via the existing `report_api_failure` path). Operator surfaced a live `170131 Insufficient balance` on `bybit_2` during the T4 session — diagnosed as most likely the toggle still being off (or UTA tier mismatch); independent of T4.
-
-**S-048 (M1 comms audit) status:** moved off the queue head per operator directive — see "Queued milestones" below.
+**S-048 (M1 comms audit) status:** ✅ CLOSED (fresh re-issue) on this branch — see `docs/audits/M1-comms-audit-2026-05-07-fresh.md`. M1 → 🔄 PARTIAL with four P1 follow-ups + one P2 hygiene cluster (full backlog in `docs/audits/M1-comms-audit-followups-fresh.md`). Per operator directive, the four P1 follow-ups land in the same session as the audit close — see PR description for landed-file inventory.
 
 ---
 
 ## M0..M10 status table
 
-> Last verified: 2026-05-07 (workplan-status-review session — operator-directed M1 reopen,
-> S-047 T2 merge confirmation, S-015 scratch + M6 status update). "Verified" = on-disk
-> artifacts checked before accepting any prior "done" label.
+> Last verified: 2026-05-08 (S-048 fresh re-issue session — operator-directed
+> M1 audit redo with corrections baked in; P1 follow-ups landing same-session
+> per operator directive). "Verified" = on-disk artifacts checked before
+> accepting any prior "done" label.
 
 | Milestone | Focus | Status | Evidence / Notes |
 |---|---|---|---|
 | **M0** | Workflow foundation | ✅ CLOSED | S0 sprint done; `docs/sprint-summaries/sprint-S0-summary.md` exists; CP-2026-05-06-S0-02 in checkpoint log |
-| **M1** | Comms infrastructure | ⚠️ REOPENED 2026-05-07 — workflow drift (active milestone) | S-042 closed M1 on 2026-05-06 against the pre-reconciliation workplan; the new canonical workplan was adopted later that same day via S-041 (workplan-reconciliation sweep). Per workplan § "Verify-before-trusting-done", the on-disk telegram-bot implementation has **not** been audited against the new workplan § "Telegram bots" spec (two-bot model: AI Trader Bot operator commands + info menus; ClaudeBot repo-driven comms loop with merge-review buttons / sprint pings / writeback / recovery). Operator directive 2026-05-07: M1 needs a deep audit covering the entire telegram-bot functionality vs. the new workplan. **S-048 is the active sprint** — see `docs/sprints/sprint-048-prompt.md`. |
+| **M1** | Comms infrastructure | 🔄 PARTIAL — S-048 audit complete, 4 P1 follow-ups landing same-session | S-048 fresh re-issue closed on `claude/update-roadmap-status-ZnLM9` (this PR). Audit verdict: PARTIAL, no P0. Source: `docs/audits/M1-comms-audit-2026-05-07-fresh.md`. P1 follow-ups: P1-A workplan correction, P1-B stuck-request recovery, P1-C auto-hourly snapshot, P1-D `/new_session` + `/test` commands. P2 hygiene cluster filed for a future Janitor sprint. |
 | **M2** | Web app source of truth (backend) | 🔄 PARTIAL | S-013 FastAPI backend (`/api/status`, `/api/pnl`, JWT auth). S-014 added `/api/bot/{stats,logs,positions,signals}` for the Vercel dashboard + CORS middleware keyed to `DASHBOARD_ORIGIN`. Dashboard reachability fix landed 2026-05-07 (Vercel rewrite proxies `/api/bot/*` to the bot, defeats HTTPS→HTTP mixed-content block). Backend side considered effectively complete; not formally closed under M0..M10 because the close-out paperwork was never filed. |
 | **M3** | Risk controls foundation | ✅ CLOSED | S-043 closed 2026-05-06. Order-layer refusal tests now complete (28 new gap-closer tests in `tests/test_s043_order_refusal_paths.py`). Risk engine + kill switch + risk caps + reason-token contract all pinned. |
-| **M4** | Repo hygiene + CI | ✅ CLOSED | S-044 (CI suite) ✅; S-045 (conftest + pytest-collect blocking + ruff default) ✅; post-S-045 follow-up (auto-sync branch protection workflow) ✅; S-046 (2026-05-07) closed the three Janitor audits — 8 dead files removed, `src/ui/` shim consolidated into `src/units/ui/`, missing-test gap closed for `src/units/db/data_loader.py`. M4 formally closed. |
-| **M5** | Strategy testing workflow | 📋 NOT STARTED (paused) | Telegram-triggered test flow, validation logging, backtest workflow docs not yet built. **Paused** behind S-048 (M1 audit) → S-047 T3 (close) → then resumes. |
-| **M6** | Web app UI | 🔄 IN PROGRESS (dashboard repo) | S-014 V1 React/Vite SPA shipped 2026-05-07 in `the-lizardking/ict-trader-dashboard`. **S-015 V2 plan scratched 2026-05-07** per operator. Dashboard connection fix (Vercel rewrite of `/api/bot/*` to bot VPS) landed the same day; dashboard now renders live status. **Next webapp sprint focus (file in `ict-trader-dashboard`, not here):** (1) replace mock data feeds with live `/api/bot/*` data — equity chart, `Active ICT Strategies` list, `Trading Conditions` panel are hard-coded; positions and signals endpoints exist but are not yet wired into the UI; (2) operator functionalities per workplan § "AI Trader Bot — Operator commands" — Forced Stop button, killswitch, close-all-positions, account live/dry-run toggle. Phase order: read-only data first, then interactive controls (workplan § "Dashboard build order"). |
+| **M4** | Repo hygiene + CI | ✅ CLOSED | S-044 (CI suite) ✅; S-045 (conftest + pytest-collect blocking + ruff default) ✅; post-S-045 follow-up (auto-sync branch protection workflow) ✅; S-046 (2026-05-07) closed the three Janitor audits. M4 formally closed. |
+| **M5** | Strategy testing workflow | 📋 NOT STARTED (paused) | Telegram-triggered test flow, validation logging, backtest workflow docs not yet built. **Paused** behind S-047 T6. The bot-side dispatch surface for `/test <strategy>` is now in place via M1 P1-D — M5 only needs to wire the artifact consumer. |
+| **M6** | Web app UI | 🔄 IN PROGRESS (dashboard repo) | S-014 V1 React/Vite SPA shipped 2026-05-07 in `the-lizardking/ict-trader-dashboard`. **S-015 V2 plan scratched 2026-05-07** per operator. Dashboard connection fix (Vercel rewrite of `/api/bot/*` to bot VPS) landed the same day. **In active session 2026-05-08** on dashboard branch `claude/update-roadmap-status-ZnLM9` — wiring mock-data feeds (equity chart, Active ICT Strategies, Trading Conditions) to live `/api/bot/*` data; positions and signals to follow. |
 | **M7** | Strategy review gate | 📋 NOT STARTED | |
 | **M8** | Strategy tuning | 📋 NOT STARTED | |
 | **M9** | AI / model roadmap | 📋 NOT STARTED | S-005 (model monitor) and S-006 (model registry) built under old framing; formal M9 not started. |
@@ -82,11 +81,10 @@ When opening a session:
 |---|---|---|---|
 | M0 — Workflow Foundation (≈ S0) | 2026-05-06 | `CP-2026-05-06-S0-02` | `docs/sprint-summaries/sprint-S0-summary.md` |
 | S-041 — workplan reconciliation sweep | 2026-05-06 | `CP-2026-05-06-12-s041-complete` | `docs/sprint-summaries/sprint-041-summary.md` |
-| ~~M1 — Comms infrastructure (S-042)~~ | ~~2026-05-06~~ | ~~`CP-2026-05-06-14-s042-complete`~~ | ~~`docs/sprint-summaries/sprint-042-summary.md`~~ — **REOPENED 2026-05-07** (audit pending against new workplan; see M0..M10 table) |
+| ~~M1 — Comms infrastructure (S-042)~~ | ~~2026-05-06~~ | ~~`CP-2026-05-06-14-s042-complete`~~ | ~~`docs/sprint-summaries/sprint-042-summary.md`~~ — **REOPENED 2026-05-07; audited fresh 2026-05-08 → 🔄 PARTIAL via `CP-2026-05-07-17-s048-fresh-m1-audit`** |
 | M3 — Risk controls foundation (S-043) | 2026-05-06 | `CP-2026-05-06-15-s043-complete` | `docs/sprint-summaries/sprint-043-summary.md` |
-| S-044 — M4 CI suite | 2026-05-07 | `CP-2026-05-07-03-s044-complete` | `docs/sprint-summaries/sprint-044-summary.md` |
-| S-045 — M4 step 2: conftest + pytest-collect-blocking + ruff default | 2026-05-07 | `CP-2026-05-07-05-s045-complete` | `docs/sprint-summaries/sprint-045-summary.md` |
 | **M4 — Repo hygiene + CI (S-046)** | **2026-05-07** | `CP-2026-05-07-NN-s046-complete` | `docs/sprint-summaries/sprint-046-summary.md` |
+| **S-048 — M1 comms audit (fresh re-issue)** | **2026-05-08** | `CP-2026-05-07-17-s048-fresh-m1-audit` | `docs/sprint-summaries/sprint-048-summary.md` |
 
 > Pre-M0..M10 roadmap progress (S-000 through S-040) is captured in `ROADMAP.md`
 > under "Historical Sprint Ledger". From M0 forward, every closed milestone gets a row here.
@@ -95,23 +93,20 @@ When opening a session:
 
 ## Queued milestones
 
-In execution order. Each row lists the gating condition to start. Operator merged S-047 T3 and T4 ahead of S-048 (M1 comms audit) on 2026-05-07; the sprint is now closing out via T5 → T6 → T7 before any other milestone work resumes.
+In execution order. Each row lists the gating condition to start.
 
 | Order | Milestone / sprint | Type | Gating condition |
 |---|---|---|---|
 | 1 | **S-047 T6 — end-to-end live smoke + runbook** (D8) | ad-hoc (live-trading) | None — ready to start. Live smoke needs Bybit web-UI Spot Margin toggle ON for `bybit_2`. |
 | 2 | **S-047 T7 — sprint close** (milestone-state + bug-log + summary) | docs-only (Tier 1) | T6 closes. |
-| 3 | **S-048 — M1 comms audit (telegram-bot deep dive)** | auto-claude (M1 reopen) | S-047 T7 closes. Prompt: `docs/sprints/sprint-048-prompt.md`. |
-| 4 | **S-050 — VWAP Phase 2: 4 h-EMA-200 ±1 % HTF gate** (Tier 2 — `src/units/strategies/vwap.py`, PM-review) | strategy-improvement (auto-claude) | Phase 1 (PR #481, anchored VWAP) merged AND ≥ 30 days of live metrics on Phase 1 collected. Stack on top of Phase 1: skip BUYs when 4 h close < 4 h-EMA-200 × 0.99; skip SELLs when 4 h close > 4 h-EMA-200 × 1.01. Backtest projection (5m, 365 d real BTC): adds +0.43 Sharpe on top of Phase 1's +0.72 (composite vs raw baseline = +1.15 Sharpe, win rate 31.0 → 36.3 %, max DD −34 R → −22 R), at the cost of −45 % cadence. Walk-forward shows the HTF gate is regime-robust (OOS Sharpe +0.80 vs baseline OOS +0.24). Source: `experiments/2026-05-07-vwap-accuracy/RECOMMENDATIONS.md` § 5m re-run + § Recommended live change. Pipeline change: pull 4 h candles alongside the existing 5 m fetch and pass `htf_close` / `htf_ema200` into `build_vwap_signal`. Config gate via `config/strategies.yaml` `vwap.htf_trend_filter.enabled` so the operator has a one-flag rollback. |
-| 5 | M5 — Strategy testing workflow | auto-claude | S-048 closes (M1 audit may surface dependencies M5 inherits). |
-| 6 | M6 — Web app UI (dashboard repo) | auto-claude | Independent — opened against `the-lizardking/ict-trader-dashboard`, not this repo. Focus order: live data feed first, then operator-control functionalities. |
-| 7 | M9 — AI / model roadmap | auto-claude | Independent of M5/M6. Could run in parallel. |
-| 8 | M10 — HF / data pipeline | auto-claude | Independent of M5/M6. Could run in parallel. |
+| 3 | **S-050 — VWAP Phase 2: 4 h-EMA-200 ±1 % HTF gate** (Tier 2, PM-review) | strategy-improvement | Phase 1 merged + ≥ 30 days live metrics. |
+| 4 | M5 — Strategy testing workflow | auto-claude | S-047 closes. `/test <strategy>` bot-side dispatch surface now in place via M1 P1-D; M5 wires the artifact consumer. |
+| 5 | M6 — Web app UI (dashboard repo) | auto-claude | **In active session 2026-05-08** in `the-lizardking/ict-trader-dashboard`. |
+| 6 | M9 — AI / model roadmap | auto-claude | Independent of M5/M6. Could run in parallel. |
+| 7 | M10 — HF / data pipeline | auto-claude | Independent of M5/M6. Could run in parallel. |
 
 > M2 (Web app source of truth) — backend essentially done; formal close-out
 > deferred. Not a blocker for any queued milestone.
->
-> M7–M10 follow the workplan sequence after M5.
 
 ---
 
@@ -133,13 +128,9 @@ Full spec: `docs/claude/recurring-sessions.md`.
 |---|---|---|---|
 | BUG-057 diagnostic review | VM logs | 2026-05-06 | Diagnostic logging shipped PR #424. Awaiting next live VWAP rejection with `BUG-057-DIAG` log lines in `journalctl`. |
 
-> **Resolved 2026-05-07:**
-> - **S-015 pause/continue Tier 2 hold** — operator scratched S-015 entirely. M6 now proceeds in the dashboard repo per workplan boundary.
-> - **S-047 T2 (PR #459) operator-merge gate** — operator merged PR #459 at 2026-05-07 13:28 UTC. CHECKPOINT_LOG.md CP-12 entry's reference to PR #459 as DRAFT is now stale (operator merged it 6 minutes after CP-12 landed); CP-13 reflects the merged state correctly.
-> - **S-047 T3 (PR #464) operator-merge gate** — operator merged PR #464 on 2026-05-07. CP-13 back-filled in CHECKPOINT_LOG.md by the T4 session (the T3 session shipped code + ping-PRs but did not author the close-checkpoint entry).
-> - **S-047 T4 (PR #469) operator-merge gate** — operator replied "merge" on 2026-05-07 ~16:24 UTC. T5 unblocked.
-> - **S-049 sizer-correctness fast-followup (PR #473) operator-merge gate** — operator replied "merge and continue" on 2026-05-07 ~17:09 UTC. Bybit ErrCode 170131 root cause closed (UTA `availableBalance` + buy-side fee buffer). Live trading on `bybit_2` no longer blocked on sizing.
-> - **S-047 T5 (PR #477) operator-merge gate** — operator replied "merge and tell me what's next" on 2026-05-07 ~17:23 UTC. Reconciler now distinguishes spot-margin from cash-spot; live `bybit_2` trades will no longer be orphaned on every reconciler tick. T6 unblocked.
+> **Resolved 2026-05-07/08:**
+> - **S-047 T1..T5 + S-049 fast-followup** all operator-merged 2026-05-07.
+> - **PR #463 (stale S-048 audit) + PR #467 (contradictory S-047 T3 close-checkpoint)** — both closed 2026-05-07/08 in favour of the fresh S-048 re-issue on `claude/update-roadmap-status-ZnLM9`.
 
 ---
 
