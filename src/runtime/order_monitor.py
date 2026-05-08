@@ -1115,10 +1115,31 @@ def _is_spot_margin_cfg(cfg: Dict[str, Any]) -> bool:
 def _account_has_recent_trade(
     db, account_id: str, *, grace_seconds: float, now: datetime,
 ) -> bool:
-    """True when *account_id* has any trade row younger than the grace
-    window. Caller already holds the live snapshot; this is a defensive
-    "did we just place / close something here?" check that mirrors the
-    PR #501 grace logic in ``_reconcile_open_trades``.
+    """True when *account_id* has any potentially-borrow-bearing trade
+    row younger than the grace window.
+
+    The grace window exists to shield the borrow reconciler from
+    racing freshly-PLACED trades that may not have surfaced as
+    ``status='open'`` to the SQL read yet (Bybit's open-positions
+    index lag, status-write races on a fast close, etc.).
+
+    Pre-placement rejections (``status`` in ``rejected``,
+    ``exchange_rejected``, ``rejected_too_small``) never reached the
+    exchange and so never created a borrow — they have no claim on
+    the grace window. Counting them would mean a single exchange
+    rejection pauses borrow reconciliation for the full grace
+    window, and repeat rejections keep extending the pause; an
+    unrelated orphan borrow from an earlier run then sits stuck.
+
+    ``closed`` and ``orphaned`` rows DO stay inside the grace
+    window — they were live at the exchange (so a borrow may exist)
+    and the post-close repay verify may still be racing the read.
+
+    Bybit ErrCode 170131 trade-875 (2026-05-08, 12:58 UTC) is the
+    pinning case: the rejection landed in ``trades`` as
+    ``status='exchange_rejected'`` and would have stalled the borrow
+    reconciler for the next minute even though no borrow was
+    created.
     """
     if grace_seconds <= 0:
         return False
@@ -1129,6 +1150,9 @@ def _account_has_recent_trade(
             row = conn.execute(
                 "SELECT created_at FROM trades "
                 "WHERE account_id=? AND COALESCE(is_backtest,0)=0 "
+                "  AND status NOT IN ("
+                "      'rejected', 'exchange_rejected', 'rejected_too_small'"
+                "  ) "
                 "ORDER BY id DESC LIMIT 1",
                 (account_id,),
             ).fetchone()
