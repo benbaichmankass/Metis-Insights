@@ -1,0 +1,274 @@
+name: operator-actions
+
+# PM-side / web-sandbox bridge for a small, auditable set of mutating
+# VM operations. Every action is gated by a fixed allowlist; there is
+# no freeform-command input by design.
+#
+# Trust contract (full text in docs/claude/operator-actions.md):
+#   * Allowlisted actions only — the `case` arms below are exhaustive
+#     and reject anything else with exit 2.
+#   * One wrapper script per action. The workflow does not embed
+#     remote shell beyond invoking the script by absolute path.
+#   * GitHub-hosted ubuntu-latest runner is the control plane. The VM
+#     never orchestrates its own reboot path (would self-decapitate).
+#   * Tier-2 actions (restart-bot-service, reboot-vm) require a
+#     non-empty `reason` so the audit artifact records intent.
+#   * Every run uploads a JSON artifact with pre-state, action output,
+#     and post-state. Read it from the run page.
+#   * Strategy parameters, risk caps, and account-mode flags are
+#     **never** mutated by this workflow. Those remain Tier-3.
+#
+# Required repo secrets (Settings → Secrets and variables → Actions):
+#   * VM_SSH_KEY        — contents of ict-bot-ovm-private.key
+#   * DIAG_READ_TOKEN   — bearer for the read-only diag surface
+#                         (used for post-action /api/diag/services
+#                         verification only)
+#
+# Optional repo variables:
+#   * VM_SSH_HOST       — defaults to 158.178.210.252
+#   * VM_SSH_USER       — defaults to ubuntu
+#
+# Required VM sudoers (granted by deploy/claude-vm-runner.sudoers /
+# vm_bootstrap.sh — NOT mutated by this workflow):
+#   * NOPASSWD systemctl    — already present
+#   * NOPASSWD shutdown -r  — manual one-time add for reboot-vm; see
+#                             docs/claude/operator-actions.md § Setup
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Operator action (allowlisted)"
+        required: true
+        type: choice
+        options:
+          - status-check
+          - pull-latest-logs
+          - restart-bot-service
+          - reboot-vm
+      reason:
+        description: "Why this action is being run (audit trail; required for Tier-2)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+# Serialise. Two operator actions on the same VM at the same time is
+# never desired and likely buggy.
+concurrency:
+  group: operator-actions
+  cancel-in-progress: false
+
+jobs:
+  operator-action:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '158.178.210.252' }}
+      VM_SSH_USER: ${{ vars.VM_SSH_USER || 'ubuntu' }}
+      ACTION: ${{ inputs.action }}
+      REASON: ${{ inputs.reason }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - name: Checkout (for wrapper scripts inside repo)
+        uses: actions/checkout@v4
+
+      - name: Validate action and tier policy
+        run: |
+          set -euo pipefail
+          case "${ACTION}" in
+            status-check|pull-latest-logs)
+              echo "tier=1" >>"$GITHUB_ENV"
+              ;;
+            restart-bot-service|reboot-vm)
+              echo "tier=2" >>"$GITHUB_ENV"
+              if [ -z "${REASON// }" ]; then
+                echo "::error::Tier-2 action '${ACTION}' requires a non-empty 'reason' input."
+                exit 1
+              fi
+              ;;
+            *)
+              echo "::error::Unknown action '${ACTION}'. Allowlist is enforced; this should be unreachable via the choice input."
+              exit 2
+              ;;
+          esac
+          echo ">>> Resolved tier: $(grep tier= "$GITHUB_ENV" | tail -1)"
+
+      - name: Set up SSH key
+        env:
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VM_SSH_KEY}" ]; then
+            echo "::error::VM_SSH_KEY secret is unset. Add it under Settings → Secrets → Actions."
+            exit 1
+          fi
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "${VM_SSH_KEY}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -t rsa,ecdsa,ed25519 "${VM_SSH_HOST}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Capture pre-action snapshot
+        env:
+          DIAG_READ_TOKEN: ${{ secrets.DIAG_READ_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DIAG_READ_TOKEN}" ]; then
+            echo "::warning::DIAG_READ_TOKEN unset — pre/post diag verification will be skipped."
+            echo '{"diag_skipped": true}' > pre-state.json
+            exit 0
+          fi
+          ssh -i ~/.ssh/id_rsa \
+              -o BatchMode=yes \
+              -o StrictHostKeyChecking=accept-new \
+              -o ConnectTimeout=15 \
+              "${VM_SSH_USER}@${VM_SSH_HOST}" \
+              "curl -sS --fail --max-time 15 \
+                    -H 'Authorization: Bearer ${DIAG_READ_TOKEN}' \
+                    'http://127.0.0.1:8001/api/diag/status'" \
+              > pre-state.json || echo '{"diag_unreachable": true}' > pre-state.json
+
+      - name: Execute action wrapper on VM
+        id: exec
+        run: |
+          set -euo pipefail
+          # Each action maps to ONE script under scripts/ops/. The
+          # remote command is fixed-form; the only variable piece is
+          # the script name resolved from the validated `ACTION`.
+          case "${ACTION}" in
+            status-check)        SCRIPT="status_check.sh" ;;
+            pull-latest-logs)    SCRIPT="pull_logs.sh" ;;
+            restart-bot-service) SCRIPT="restart_bot.sh" ;;
+            reboot-vm)           SCRIPT="reboot_vm.sh" ;;
+            *)
+              echo "::error::Allowlist regression: '${ACTION}' was not mapped to a wrapper script."
+              exit 2
+              ;;
+          esac
+          echo ">>> Running scripts/ops/${SCRIPT} on ${VM_SSH_HOST}"
+          # Capture both stdout and exit code; never let the SSH wrap
+          # swallow the wrapper's exit status.
+          set +e
+          ssh -i ~/.ssh/id_rsa \
+              -o BatchMode=yes \
+              -o StrictHostKeyChecking=accept-new \
+              -o ConnectTimeout=15 \
+              "${VM_SSH_USER}@${VM_SSH_HOST}" \
+              "bash /home/ubuntu/ict-trading-bot/scripts/ops/${SCRIPT}" \
+              > action-output.txt 2>&1
+          rc=$?
+          set -e
+          echo "exit_code=${rc}" >>"$GITHUB_OUTPUT"
+          echo ">>> Wrapper exit code: ${rc}"
+          # Truncate preview to keep run-log readable.
+          if [ "$(wc -c <action-output.txt)" -gt 4000 ]; then
+            head -c 4000 action-output.txt
+            echo ""
+            echo "... (truncated; full output in artifact)"
+          else
+            cat action-output.txt
+          fi
+          # reboot-vm intentionally returns nonzero from SSH because
+          # the connection drops as the VM reboots. Treat that as
+          # success-with-reconnect-pending.
+          if [ "${ACTION}" = "reboot-vm" ] && [ "${rc}" -ne 0 ]; then
+            echo ">>> reboot-vm: SSH disconnect is expected. Continuing to post-check."
+            exit 0
+          fi
+          exit "${rc}"
+
+      - name: Wait for VM to come back (reboot-vm only)
+        if: inputs.action == 'reboot-vm'
+        run: |
+          set -euo pipefail
+          echo ">>> Waiting up to 5 min for ${VM_SSH_HOST} to accept SSH again..."
+          deadline=$(( $(date +%s) + 300 ))
+          until ssh -i ~/.ssh/id_rsa \
+                    -o BatchMode=yes \
+                    -o StrictHostKeyChecking=accept-new \
+                    -o ConnectTimeout=10 \
+                    "${VM_SSH_USER}@${VM_SSH_HOST}" \
+                    "true" 2>/dev/null; do
+            if [ "$(date +%s)" -ge "$deadline" ]; then
+              echo "::error::VM did not return within 5 min of reboot. Manual recovery required."
+              exit 1
+            fi
+            sleep 10
+          done
+          echo ">>> VM reachable again."
+
+      - name: Capture post-action snapshot
+        if: always()
+        env:
+          DIAG_READ_TOKEN: ${{ secrets.DIAG_READ_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DIAG_READ_TOKEN}" ]; then
+            echo '{"diag_skipped": true}' > post-state.json
+            exit 0
+          fi
+          # The web-api may take a few seconds to come back after
+          # reboot-vm; retry briefly.
+          attempts=6
+          while [ "${attempts}" -gt 0 ]; do
+            if ssh -i ~/.ssh/id_rsa \
+                   -o BatchMode=yes \
+                   -o StrictHostKeyChecking=accept-new \
+                   -o ConnectTimeout=10 \
+                   "${VM_SSH_USER}@${VM_SSH_HOST}" \
+                   "curl -sS --fail --max-time 15 \
+                         -H 'Authorization: Bearer ${DIAG_READ_TOKEN}' \
+                         'http://127.0.0.1:8001/api/diag/status'" \
+                   > post-state.json 2>/dev/null; then
+              break
+            fi
+            attempts=$(( attempts - 1 ))
+            sleep 5
+          done
+          if [ "${attempts}" -eq 0 ]; then
+            echo '{"diag_unreachable_after_action": true}' > post-state.json
+            echo "::warning::Post-action diag fetch failed; see post-state.json."
+          fi
+
+      - name: Build audit bundle
+        if: always()
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, pathlib
+          def load(p):
+              try:
+                  return json.loads(pathlib.Path(p).read_text())
+              except Exception as e:
+                  return {"_load_error": str(e)}
+          bundle = {
+              "action": os.environ["ACTION"],
+              "reason": os.environ.get("REASON", ""),
+              "tier": os.environ.get("tier", ""),
+              "run_url": os.environ["RUN_URL"],
+              "exit_code": os.environ.get("EXIT_CODE", ""),
+              "pre_state": load("pre-state.json"),
+              "post_state": load("post-state.json"),
+              "action_output_excerpt": pathlib.Path("action-output.txt").read_text()[-4000:]
+                  if pathlib.Path("action-output.txt").exists() else "",
+          }
+          pathlib.Path("audit-bundle.json").write_text(json.dumps(bundle, indent=2, default=str))
+          print("Audit bundle bytes:", pathlib.Path("audit-bundle.json").stat().st_size)
+          PY
+        env:
+          EXIT_CODE: ${{ steps.exec.outputs.exit_code }}
+
+      - name: Upload artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: operator-action-${{ inputs.action }}-${{ github.run_id }}
+          path: |
+            audit-bundle.json
+            pre-state.json
+            post-state.json
+            action-output.txt
+          retention-days: 30
+          if-no-files-found: warn

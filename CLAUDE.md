@@ -143,9 +143,17 @@ below are the contract.
 
 **Workarounds shipped:**
 
-- **VM diag access** — issue-driven, see § "Reaching `/api/diag/*`
-  from a PM-side / web-sandbox session" above and the full doc at
-  `docs/claude/diag-relay.md`.
+- **VM diag access (read-only)** — issue-driven, see § "Reaching
+  `/api/diag/*` from a PM-side / web-sandbox session" above and the
+  full doc at `docs/claude/diag-relay.md`.
+- **VM operator actions (narrow mutating)** —
+  `.github/workflows/operator-actions.yml` exposes a fixed
+  allowlist (`status-check`, `pull-latest-logs`,
+  `restart-bot-service`, `reboot-vm`). Tier-1 actions are
+  autonomous; Tier-2 actions require an operator ping first. Full
+  contract: `docs/claude/operator-actions.md`. **Never** route
+  strategy / risk / account-mode changes through this workflow —
+  those remain Tier-3 PRs.
 - **Repo label creation** — `.github/workflows/bootstrap-labels.yml`
   self-creates the labels other workflows filter on. Edit the
   `LABELS` array in that file and merge; the next push runs the
@@ -154,6 +162,8 @@ below are the contract.
   Workflows that need to be Claude-driven from a session must use
   an `issues.opened` (or `pull_request.opened`) trigger filtered to
   a label. Pattern is the diag relay (`vm-diag-snapshot.yml`).
+  `operator-actions.yml` is intentionally `workflow_dispatch`-only
+  so the operator's "Run workflow" click is part of the Tier-2 ack.
 
 ## Running Locally
 ```bash

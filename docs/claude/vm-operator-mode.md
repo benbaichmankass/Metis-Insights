@@ -274,3 +274,24 @@ to `src/web/api/routers/diag.py` from a sandbox session remains
 
 See `docs/claude/diag-relay.md` for the full operator and
 session-side flow + failure modes.
+
+### 9.b Sandbox sessions reach a *narrow mutating surface* via operator-actions
+
+A separate workflow `operator-actions.yml` extends the PM-side
+bridge with a fixed allowlist of mutating actions: `status-check`,
+`pull-latest-logs`, `restart-bot-service`, `reboot-vm`. There is no
+freeform-command input. The contract — tiers, ping format, reboot
+doctrine, sudoers requirements — lives in
+`docs/claude/operator-actions.md`.
+
+This is **not** a relaxation of the immutability rules above:
+
+- All Tier-3 paths (strategy params, risk caps, account `mode`
+  flips, live order code, key rotation) remain immutable from any
+  sandbox session, regardless of the workflow being available.
+- `restart-bot-service` and `reboot-vm` are Tier-2 in the
+  PM-dispatch sense — Claude must ping the operator before
+  triggering them. That ping is the same trust gate as `/vm_write`
+  on the Telegram side.
+- The workflow itself is the audit trail (artifact + run log + a
+  repo-side record under `runtime_logs/operator_actions/`).

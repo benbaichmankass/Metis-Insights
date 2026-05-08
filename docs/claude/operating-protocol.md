@@ -287,6 +287,25 @@ The operator is non-technical. The VM is a free-tier Oracle box. Therefore:
 
 - Never ship a markdown CLI checklist when a notebook is appropriate.
 
+### 7.1 PM-side dispatch — the operator-actions workflow
+
+A small, allowlisted set of mutating VM actions is also reachable
+from PM-side / web-sandbox sessions via
+`.github/workflows/operator-actions.yml`. The full per-action
+contract, tier mapping, audit trail, and reboot doctrine live in
+`docs/claude/operator-actions.md`. Short version:
+
+- **Tier 1 (autonomous):** `status-check`, `pull-latest-logs`.
+- **Tier 2 (ping operator first):** `restart-bot-service`,
+  `reboot-vm`. Use the ping format in
+  `docs/claude/operator-actions.md` § 7.
+- **Reboot is last resort.** Always try `status-check` →
+  `restart-bot-service` first; escalate only when lower-blast-radius
+  paths fail.
+- **Out of scope for this workflow regardless of approval:**
+  strategy params, risk caps, account `mode` flips, code edits,
+  key rotation. Those remain Tier-3 PRs (§ 4.3).
+
 ---
 
 ## 8. Compute delegation
