@@ -487,6 +487,106 @@ def _post_close_repay(
     }
 
 
+# Threshold below which a residual base-coin walletBalance is treated
+# as flat. Same precision rationale as ``_BORROW_REPAY_EPSILON``: BTC's
+# 8-decimal lot step at $80k is ~$0.0008 per satoshi, well under any
+# trade size we'd actually re-route. USDT is 2-decimal so the same
+# threshold is also safely below the dust line for the quote side.
+_FLAT_INVARIANT_EPSILON = 1e-6
+
+
+def _post_close_flat_check(
+    client: Any,
+    account_cfg: Dict[str, Any],
+    *,
+    symbol: str,
+    side: str,
+) -> Optional[Dict[str, Any]]:
+    """Verify the flat-USDT invariant after a successful close.
+
+    Idle-state invariant for spot accounts (operator confirmed
+    2026-05-08): 100 % USDT, 0 base coin, 0 borrows. ``_post_close_repay``
+    handles the borrow leg; this helper handles the **base-coin
+    walletBalance** leg — partial fills, qty-rounding leftovers, and
+    "long forgot to fully sell back" scenarios all leave a stale base
+    coin balance that the borrow-orphan reconciler can't see.
+
+    When detected, the helper emits a sticky ``post_close_not_flat``
+    audit row via ``signal_audit_logger.log_signal`` so the operator
+    can grep ``runtime_logs/signal_audit.jsonl`` rather than
+    discovering the leak hours later when the next signal misbehaves.
+    Detection only — no auto-flatten, since a follow-up market sell
+    could race manual operator action.
+
+    Returns ``None`` when the account isn't a spot/spot-margin Bybit
+    account or when the wallet refetch fails (best-effort — never
+    raises). Returns ``{"flat", "coin", "residual_qty",
+    "epsilon"}`` otherwise.
+    """
+    if client is None:
+        return None
+    exchange = (account_cfg.get("exchange") or "bybit").lower()
+    if exchange != "bybit":
+        return None
+    # Derivatives accounts close via reduceOnly — there's no walletBalance
+    # flow to verify. Only spot + spot-margin care about this invariant.
+    category = _bybit_category(account_cfg)
+    if category != "spot":
+        return None
+
+    try:
+        spot = _fetch_spot_coin_balances(client, symbol)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "_post_close_flat_check: wallet refetch failed for %s: %s",
+            symbol, exc,
+        )
+        return None
+
+    coin = spot.get("base_coin") or _spot_base_coin(symbol)
+    residual = float(spot.get("base_qty") or 0.0)
+    flat = residual <= _FLAT_INVARIANT_EPSILON
+
+    if not flat:
+        logger.warning(
+            "_post_close_flat_check: account=%s symbol=%s side=%s — "
+            "residual %s walletBalance=%s > epsilon %s; emitting "
+            "post_close_not_flat audit row.",
+            account_cfg.get("account_id"), symbol, side,
+            coin, residual, _FLAT_INVARIANT_EPSILON,
+        )
+        try:
+            from src.utils.signal_audit_logger import log_signal
+            log_signal({
+                "event": "outcome",
+                "action": "post_close_not_flat",
+                "status": "warn",
+                "account_id": account_cfg.get("account_id"),
+                "symbol": symbol,
+                "side": side,
+                "coin": coin,
+                "residual_qty": residual,
+                "epsilon": _FLAT_INVARIANT_EPSILON,
+                "reason": (
+                    "post-close base-coin walletBalance > epsilon — "
+                    "flat-USDT invariant violated; partial fill or "
+                    "qty-rounding leftover suspected"
+                ),
+            })
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "_post_close_flat_check: audit write failed for %s/%s: %s",
+                account_cfg.get("account_id"), symbol, exc,
+            )
+
+    return {
+        "flat": flat,
+        "coin": coin,
+        "residual_qty": residual,
+        "epsilon": _FLAT_INVARIANT_EPSILON,
+    }
+
+
 def _bybit_category(account_cfg: dict) -> str:
     """Resolve the Bybit V5 ``category`` for this account.
 
@@ -1387,9 +1487,29 @@ def close_open_position(
                         "raised for account=%s symbol=%s: %s",
                         account_cfg.get("account_id"), symbol, exc,
                     )
+                # Flat-USDT invariant verify: after the close + repay,
+                # the spot wallet should be back to ~0 base coin (long
+                # sold its BTC back; short closed and Bybit auto-repay
+                # cleared the BTC borrow + bought back any rounding
+                # leftover). Detection-only — emits an audit row when
+                # non-flat so the operator sees the leak instead of
+                # discovering it on the next signal.
+                flat_outcome: Optional[Dict[str, Any]] = None
+                try:
+                    flat_outcome = _post_close_flat_check(
+                        exchange_client, account_cfg,
+                        symbol=symbol, side=direction,
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning(
+                        "close_open_position: post-close flat-check "
+                        "raised for account=%s symbol=%s: %s",
+                        account_cfg.get("account_id"), symbol, exc,
+                    )
                 return {"ok": True, "exchange_response": resp,
                         "exchange_order_id": order_id, "error": None,
-                        "repay": repay_outcome}
+                        "repay": repay_outcome,
+                        "flat_check": flat_outcome}
             err = str(resp.get("retMsg") or f"retCode={ret_code}")
             return {"ok": False, "exchange_response": resp,
                     "exchange_order_id": None, "error": err}
