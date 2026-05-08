@@ -11,7 +11,6 @@ Outputs:
 from __future__ import annotations
 
 import json
-import os
 import sys
 import time
 from dataclasses import dataclass, asdict
@@ -142,26 +141,24 @@ def backtest(
             i += step
             continue
         # Walk forward
-        j = i
         end = min(i + max_hold, n - 1)
         exit_price = float(closes[end])
-        reason = "timeout"
         hold = end - i
         if d == "long":
             for k in range(i + 1, end + 1):
                 if lows[k] <= sl:
-                    exit_price, reason, hold = sl, "sl", k - i
+                    exit_price, _reason, hold = sl, "sl", k - i
                     break
                 if highs[k] >= tp:
-                    exit_price, reason, hold = tp, "tp", k - i
+                    exit_price, _reason, hold = tp, "tp", k - i
                     break
         else:
             for k in range(i + 1, end + 1):
                 if highs[k] >= sl:
-                    exit_price, reason, hold = sl, "sl", k - i
+                    exit_price, _reason, hold = sl, "sl", k - i
                     break
                 if lows[k] <= tp:
-                    exit_price, reason, hold = tp, "tp", k - i
+                    exit_price, _reason, hold = tp, "tp", k - i
                     break
         if d == "long":
             r_mult = (exit_price - entry) / risk
@@ -205,9 +202,8 @@ def _make_vwap_signal_fn(
     """
     ts_pd = pd.to_datetime(candles["timestamp"], utc=True)
     ts_naive = ts_pd.dt.tz_localize(None).to_numpy()  # ns
-    o = candles["open"].to_numpy()
     h = candles["high"].to_numpy()
-    l = candles["low"].to_numpy()
+    lo = candles["low"].to_numpy()
     c = candles["close"].to_numpy()
     v = candles["volume"].to_numpy()
 
@@ -215,7 +211,6 @@ def _make_vwap_signal_fn(
     # whose timestamp >= floor(ts_i, 'D')). All comparisons in tz-naive ns.
     midnight_naive = ts_pd.dt.floor("D").dt.tz_localize(None).to_numpy()
     session_start_idx = np.searchsorted(ts_naive, midnight_naive, side="left")
-    ts_pd_iloc = ts_pd
 
     def _build(i: int, _df: pd.DataFrame) -> Optional[Dict]:
         # Session-anchored slice
@@ -227,7 +222,7 @@ def _make_vwap_signal_fn(
         if v[sl_lo:i + 1].sum() <= 0:
             return None
         sub_h = h[sl_lo:i + 1]
-        sub_l = l[sl_lo:i + 1]
+        sub_l = lo[sl_lo:i + 1]
         sub_c = c[sl_lo:i + 1]
         sub_v = v[sl_lo:i + 1]
         tp = (sub_h + sub_l + sub_c) / 3.0
@@ -312,31 +307,32 @@ def _make_turtle_signal_fn(
     """Vectorised turtle_soup signal precompute + per-i lookup."""
     p = {**T_DEFAULTS, **(params or {})}
     h = candles["high"].to_numpy()
-    l = candles["low"].to_numpy()
-    o = candles["open"].to_numpy()
+    lo = candles["low"].to_numpy()
+    op = candles["open"].to_numpy()
     c = candles["close"].to_numpy()
 
     # ATR (Wilder-ish, simple rolling mean of TR)
-    prev_c = np.roll(c, 1); prev_c[0] = c[0]
-    tr = np.maximum.reduce([h - l, np.abs(h - prev_c), np.abs(l - prev_c)])
+    prev_c = np.roll(c, 1)
+    prev_c[0] = c[0]
+    tr = np.maximum.reduce([h - lo, np.abs(h - prev_c), np.abs(lo - prev_c)])
     atr_period = int(p["atr_period"])
     atr = pd.Series(tr).rolling(atr_period, min_periods=atr_period).mean().to_numpy()
 
     # Prior swing references over `lookback` bars (excluding current bar)
     lb = int(p["sweep_lookback"])
     s_h = pd.Series(h)
-    s_l = pd.Series(l)
+    s_l = pd.Series(lo)
     prev_high_ref = s_h.rolling(lb).max().shift(1).to_numpy()
     prev_low_ref = s_l.rolling(lb).min().shift(1).to_numpy()
 
-    rng = h - l
-    body = np.abs(c - o)
+    rng = h - lo
+    body = np.abs(c - op)
     body_to_range = np.where(rng > 0, body / rng, 0.0)
     sweep_buffer_bps = float(p["min_sweep_buffer_bps"])
     sweep_buffer = np.maximum(c * (sweep_buffer_bps / 10000.0), np.nan_to_num(atr, nan=0.0) * 0.05)
 
     bullish_setup = (
-        (l < (prev_low_ref - sweep_buffer))
+        (lo < (prev_low_ref - sweep_buffer))
         & (c > prev_low_ref)
         & (body_to_range >= float(p["min_body_to_range"]))
     )
@@ -358,7 +354,7 @@ def _make_turtle_signal_fn(
             return None
 
         if bool(bullish_setup[i]):
-            sweep_extreme = float(l[i])
+            sweep_extreme = float(lo[i])
             level = float(prev_low_ref[i])
             entry = float(c[i])
             sl = min(sweep_extreme, level) - float(atr[i]) * atr_stop_mult
@@ -447,13 +443,13 @@ def main() -> None:
         return m
 
     # V0 baseline (full-period)
-    print(f"\n[V0 baseline]      ", end="", flush=True)
+    print("\n[V0 baseline]      ", end="", flush=True)
     v0 = run_vwap("V0", lambda d: _make_vwap_signal_fn(d), btc5)
     print(fmt_metrics(v0))
     all_results["vwap"]["V0_baseline"] = asdict(v0)
 
     # V1 — H6 Phase-2 HTF gate
-    print(f"[V1 HTF 4h±1%]     ", end="", flush=True)
+    print("[V1 HTF 4h±1%]     ", end="", flush=True)
     v1 = run_vwap("V1", lambda d: _make_vwap_signal_fn(d, htf_close_lookup=htf_4h_ema200, htf_band=0.01), btc5)
     print(fmt_metrics(v1))
     all_results["vwap"]["V1_htf_4h_ema200_band0.01"] = asdict(v1)
@@ -518,7 +514,7 @@ def main() -> None:
         return backtest(df, f, LOOKBACK_15M, MAX_HOLD_15M, STEP_15M)
 
     # T0 baseline (defaults)
-    print(f"\n[T0 baseline]      ", end="", flush=True)
+    print("\n[T0 baseline]      ", end="", flush=True)
     t0_m = run_turtle("T0", lambda d: _make_turtle_signal_fn(d), btc15)
     print(fmt_metrics(t0_m))
     all_results["turtle_soup"]["T0_baseline"] = asdict(t0_m)
@@ -569,7 +565,7 @@ def main() -> None:
     all_results["turtle_soup"]["T5_tp"] = t5
 
     # T6 — HTF 4h EMA-50 alignment
-    print(f"\n[T6 HTF 4h EMA-50 align]   ", end="", flush=True)
+    print("\n[T6 HTF 4h EMA-50 align]   ", end="", flush=True)
     t6 = run_turtle("T6", lambda d: _make_turtle_signal_fn(d, htf_close_lookup=htf_4h_ema50_15m, htf_align_ema_period=50), btc15)
     print(fmt_metrics(t6))
     all_results["turtle_soup"]["T6_htf_align"] = asdict(t6)

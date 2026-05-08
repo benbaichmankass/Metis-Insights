@@ -5,19 +5,17 @@ on the same 38-month dataset, including walk-forward.
 """
 from __future__ import annotations
 
+import importlib.util
 import json
 import sys
 import time
 from dataclasses import asdict
 from pathlib import Path
 
-import pandas as pd
-
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
 # Re-use the engine from run.py — register in sys.modules so dataclasses works
-import importlib.util
 spec = importlib.util.spec_from_file_location("run_mod", HERE / "run.py")
 run_mod = importlib.util.module_from_spec(spec)
 sys.modules["run_mod"] = run_mod
