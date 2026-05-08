@@ -104,6 +104,17 @@ endpoints return 503 if `DIAG_READ_TOKEN` is unset, 401 on bad bearer.
 
 See `docs/claude/vm-operator-mode.md` § 9 for the trust contract.
 
+### Reaching `/api/diag/*` from a PM-side / web-sandbox session
+
+The web sandbox can't egress to `158.178.210.252:8001`. The
+`vm-diag-snapshot` GitHub Actions workflow is the relay: open an
+issue titled `[diag-request] <path>` with label `vm-diag-request`,
+the workflow runs the diag fetch over SSH + curl, posts the JSON
+back as an issue comment, and closes the issue. Full flow + failure
+modes in `docs/claude/diag-relay.md`. Don't paste the
+`DIAG_READ_TOKEN` into chat or commit it; it lives in repo secrets
+(`VM_SSH_KEY`, `DIAG_READ_TOKEN`) and on the VM only.
+
 ## Running Locally
 ```bash
 pip install -r requirements.txt

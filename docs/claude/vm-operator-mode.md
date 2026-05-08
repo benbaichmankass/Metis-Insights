@@ -249,3 +249,28 @@ it through the Telegram operator chat for one-shot use.
 
 If `DIAG_READ_TOKEN` is unset on the VM, the diag endpoints return
 `503 diag_disabled` — the feature is opt-in.
+
+### 9.a Sandbox sessions reach the diag surface via GitHub Actions
+
+A Claude Code on the web session **cannot egress to the VM at all**
+(the platform allowlist accepts `*.github.com`, `*.vercel.app`,
+`*.anthropic.com`, etc., not `158.178.210.252:*`). The bridge is a
+GitHub Actions workflow `vm-diag-snapshot` that:
+
+1. Triggers on `issues.opened` filtered to label `vm-diag-request`
+   (or on operator-driven `workflow_dispatch`).
+2. SSH-tunnels to the VM with a key from repo secret `VM_SSH_KEY`.
+3. Runs the *fixed-form* command
+   `curl -sS --fail -H 'Authorization: Bearer …' http://127.0.0.1:8001/api/diag/<path>`.
+4. Posts the JSON back as an issue comment from
+   `github-actions[bot]` and closes the issue.
+
+The trust contract is unchanged: only the GET endpoints in this
+section are reachable through the relay (the path is regex-validated
+against `^[A-Za-z0-9/?&=_.-]+$` before interpolation), and the
+relay can't ship any non-curl command. Adding a mutating endpoint
+to `src/web/api/routers/diag.py` from a sandbox session remains
+**Tier 3** (immutable from sandbox).
+
+See `docs/claude/diag-relay.md` for the full operator and
+session-side flow + failure modes.
