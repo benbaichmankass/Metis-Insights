@@ -463,21 +463,21 @@ class TestSessionAnchorSlice:
         assert len(out) == len(df), "all bars are 2026-05-07 — slice should be the full df"
 
     def test_timestamps_spanning_midnight_slice_to_post_midnight(self):
-        bars = [
-            _dt.datetime(2026, 5, 6, 22, 0, 0, tzinfo=_dt.timezone.utc),
-            _dt.datetime(2026, 5, 6, 22, 30, 0, tzinfo=_dt.timezone.utc),
-            _dt.datetime(2026, 5, 6, 23, 0, 0, tzinfo=_dt.timezone.utc),
-            _dt.datetime(2026, 5, 6, 23, 30, 0, tzinfo=_dt.timezone.utc),
-            _dt.datetime(2026, 5, 7, 0, 0, 0, tzinfo=_dt.timezone.utc),
-            _dt.datetime(2026, 5, 7, 0, 30, 0, tzinfo=_dt.timezone.utc),
-            _dt.datetime(2026, 5, 7, 1, 0, 0, tzinfo=_dt.timezone.utc),
-            _dt.datetime(2026, 5, 7, 1, 30, 0, tzinfo=_dt.timezone.utc),
-            _dt.datetime(2026, 5, 7, 2, 0, 0, tzinfo=_dt.timezone.utc),
-        ]
+        # 4 May-6 bars + (SESSION_MIN_BARS + 1) May-7 bars at 5m so the
+        # post-midnight slice exceeds the threshold (raised to 50 in
+        # the 2026-05-08 hotfix to keep σ stable) and the slice is
+        # actually returned instead of the full-df fallback.
+        post_midnight_bars = SESSION_MIN_BARS + 1
+        bars = (
+            [_dt.datetime(2026, 5, 6, 22 + h // 2, 30 * (h % 2), 0,
+                          tzinfo=_dt.timezone.utc) for h in range(4)]
+            + [_dt.datetime(2026, 5, 7, 0, 0, 0, tzinfo=_dt.timezone.utc)
+               + _dt.timedelta(minutes=5 * i)
+               for i in range(post_midnight_bars)]
+        )
         df = _ts_candles(bars)
         out = _session_anchor_slice(df)
-        # 5 bars on 2026-05-07; the 4 May-6 bars must be dropped.
-        assert len(out) == 5
+        assert len(out) == post_midnight_bars
         assert out["timestamp"].iloc[0].day == 7
         assert out["timestamp"].iloc[-1] == bars[-1]
 
@@ -502,20 +502,24 @@ class TestSessionAnchorSlice:
     def test_zero_volume_in_session_slice_falls_back_to_full(self):
         """A zero-volume session slice (e.g., all-volume-zero bars
         right after a maintenance window) must fall back, not crash
-        compute_vwap downstream."""
-        bars = [
-            _dt.datetime(2026, 5, 7, h, 0, 0, tzinfo=_dt.timezone.utc)
-            for h in range(0, 8)
-        ]
-        df = _ts_candles(bars, volume=0.0)
-        # add 5 prior-day bars with real volume so the fallback is
-        # actually a meaningful different df
-        prior = [
-            _dt.datetime(2026, 5, 6, 18 + h, 0, 0, tzinfo=_dt.timezone.utc)
-            for h in range(0, 5)
-        ]
-        df_prior = _ts_candles(prior, volume=1000.0)
-        df_full = pd.concat([df_prior, df], ignore_index=True)
+        compute_vwap downstream.
+
+        The post-midnight slice must clear ``SESSION_MIN_BARS`` so the
+        bar-count fallback is *not* what's exercising the test — we
+        want the volume-fallback path specifically.
+        """
+        post_midnight = SESSION_MIN_BARS + 5
+        zero_vol = _ts_candles(
+            [_dt.datetime(2026, 5, 7, 0, 0, 0, tzinfo=_dt.timezone.utc)
+             + _dt.timedelta(minutes=5 * i) for i in range(post_midnight)],
+            volume=0.0,
+        )
+        prior = _ts_candles(
+            [_dt.datetime(2026, 5, 6, 23, 0, 0, tzinfo=_dt.timezone.utc)
+             + _dt.timedelta(minutes=5 * i) for i in range(5)],
+            volume=1000.0,
+        )
+        df_full = pd.concat([prior, zero_vol], ignore_index=True)
         out = _session_anchor_slice(df_full)
         assert len(out) == len(df_full), "zero-volume session must fall back"
 
@@ -545,15 +549,29 @@ class TestBuildVwapSignalAnchoring:
         """When the lookback straddles UTC midnight, the anchored
         VWAP is computed only from post-midnight bars and the meta
         flags ``vwap_anchor='session'``."""
-        # 5 prior-day bars (uniform high price) + 6 today bars (drop)
-        bars = (
-            [_dt.datetime(2026, 5, 6, 18 + h, 0, 0, tzinfo=_dt.timezone.utc) for h in range(0, 5)]
-            + [_dt.datetime(2026, 5, 7, h, 0, 0, tzinfo=_dt.timezone.utc) for h in range(0, 6)]
-        )
-        # First 5 bars high (e.g., 110), today bars low and trending lower
+        # Prior-day bars (uniform high price) + post-midnight bars
+        # exceeding ``SESSION_MIN_BARS`` (raised to 50 in the
+        # 2026-05-08 hotfix) so the slice is taken rather than
+        # falling back. Post-midnight bars trend lower so the
+        # anchored VWAP is meaningfully below the rolling VWAP.
+        post_midnight_count = SESSION_MIN_BARS + 5
+        prior_bars = [
+            _dt.datetime(2026, 5, 6, 18, 0, 0, tzinfo=_dt.timezone.utc)
+            + _dt.timedelta(minutes=5 * i)
+            for i in range(5)
+        ]
+        post_bars = [
+            _dt.datetime(2026, 5, 7, 0, 0, 0, tzinfo=_dt.timezone.utc)
+            + _dt.timedelta(minutes=5 * i)
+            for i in range(post_midnight_count)
+        ]
+        bars = prior_bars + post_bars
         rows = []
         for i, ts in enumerate(bars):
-            close = 110 if i < 5 else 100 - (i - 5)
+            # Prior-day bars uniformly high; post-midnight bars trend
+            # downward so the slice's typical-price mean diverges
+            # from the full-df mean.
+            close = 110.0 if i < 5 else 100.0 - 0.2 * (i - 5)
             rows.append({
                 "timestamp": ts,
                 "open": close - 1, "high": close + 2, "low": close - 2,
@@ -562,7 +580,7 @@ class TestBuildVwapSignalAnchoring:
         df = pd.DataFrame(rows)
         sig = build_vwap_signal(df, symbol="BTCUSDT")
         assert sig["meta"]["vwap_anchor"] == "session"
-        assert sig["meta"]["vwap_window_bars"] == 6
+        assert sig["meta"]["vwap_window_bars"] == post_midnight_count
         # Sanity: anchored VWAP ≠ rolling VWAP because pre-midnight bars are excluded.
         from src.units.strategies.vwap import compute_vwap
         rolling_vwap = compute_vwap(df)
