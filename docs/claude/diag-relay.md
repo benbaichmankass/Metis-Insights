@@ -136,6 +136,36 @@ when any step errors. Common causes:
 | run never starts | label name typo on issue | label must be exactly `vm-diag-request` |
 | run starts but never replies | github-actions bot lacks `issues: write` | workflow already declares it; check repo Actions permissions |
 
+### When the relay itself is down — self-heal
+
+If every diag request comes back with `❌ vm-diag-snapshot run failed`
+and the underlying run shows `Process completed with exit code 7`,
+that's `curl: (7) Failed to connect to 127.0.0.1` — the FastAPI
+process serving `/api/diag/*` (`ict-web-api.service`) is down on the
+VM. The diag relay can't fix itself; the operator-actions allowlist
+doesn't include a web-api restart; and the sandbox session has no
+`workflow_dispatch` MCP to fire it anyway.
+
+The companion workflow `vm-web-api-recover.yml` (PR added it under
+`/.github/workflows/`) closes that loop. Same trigger pattern as
+this relay — `issues.opened` filtered to label `vm-web-api-recover`:
+
+```
+mcp__github__issue_write(method='create',
+    title='[vm-recover] restart ict-web-api',
+    labels=['vm-web-api-recover'],
+    body='<one-sentence reason — e.g. relay #N exited 7 twice in a row>')
+```
+
+The workflow SSHes to the VM, runs `scripts/ops/restart_web_api.sh`
+(fixed-form: `systemctl restart ict-web-api.service` + 30 s wait
+for `is-active=active` + `/api/health` probe), then comments the
+output back to the issue and closes it. Total round-trip ~30 s.
+
+After the comment lands, retry the original diag request — the
+relay should now succeed. The web-api restart has zero effect on
+the trader process; only the dashboard / diag surface bounces.
+
 ## When NOT to use this
 
 - **Anything mutating.** The diag surface is read-only by design;
