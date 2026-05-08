@@ -109,10 +109,12 @@ secret.
   (the same key the operator's Colab notebook uses).
 - repo secret `DIAG_READ_TOKEN` — bearer from
   `/etc/ict-trader/web-api.env` on the VM.
-- repo label `vm-diag-request` — created during the same setup;
-  `bootstrap_diag_relay.sh` (in `scripts/`) is idempotent if you
-  need to recreate it.
-- workflow `.github/workflows/vm-diag-snapshot.yml` — committed in
+- repo label `vm-diag-request` — auto-created by
+  `.github/workflows/bootstrap-labels.yml`, which runs on every
+  merge that touches its own file. To recreate manually if it ever
+  gets deleted: Actions → bootstrap-labels → Run workflow.
+- workflows `.github/workflows/vm-diag-snapshot.yml` and
+  `.github/workflows/bootstrap-labels.yml` — committed in
   PR #486 + #487.
 
 To rotate `DIAG_READ_TOKEN`: edit `/etc/ict-trader/web-api.env` on

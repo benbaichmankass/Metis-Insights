@@ -44,7 +44,7 @@ Remove stale instructions when they waste context.
 - `ml-training-policy.md`: ML training boundaries.
 - `training-improvement-workflow.md`: 4-stage autonomous "improve a strategy / model" cycle (research → notebook → Colab run → recommendations PR).
 - `deployment-ops.md`: Oracle/live bot operations.
-- `diag-relay.md`: how a PM-side / web-sandbox session fetches `/api/diag/*` data via the `vm-diag-snapshot` GitHub Actions relay (open a labelled issue → workflow comments JSON back → close). Read this before debugging VM-side state from a sandbox.
+- `diag-relay.md`: how a PM-side / web-sandbox session fetches `/api/diag/*` data via the `vm-diag-snapshot` GitHub Actions relay (open a labelled issue → workflow comments JSON back → close). Read this before debugging VM-side state from a sandbox. The session-capabilities matrix that explains *why* the relay exists is in the root `CLAUDE.md` § "PM-side session capabilities".
 - `git-workflow.md`: branch, commit, push rules.
 - `security-secrets.md`: credential rules.
 - `google-drive-master-secrets.md`: SOPS-encrypted master secrets workflow — fill, encrypt, render lean .env files.
