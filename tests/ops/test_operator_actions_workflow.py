@@ -13,7 +13,6 @@ documented in `docs/claude/operator-actions.md`:
 
 from __future__ import annotations
 
-import os
 import re
 import shutil
 import stat
