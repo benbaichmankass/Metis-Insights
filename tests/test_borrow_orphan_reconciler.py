@@ -37,7 +37,6 @@ import sys
 import types
 from datetime import datetime, timedelta, timezone
 from unittest import mock
-from unittest.mock import MagicMock, patch
 
 import pytest
 

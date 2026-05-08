@@ -1201,10 +1201,13 @@ def _reconcile_orphan_borrows(db) -> Dict[str, int]:
 
     # Lazy-import the execute helpers so that test harnesses with no
     # pybit installed (CI containers etc.) don't pay the import cost
-    # when the reconciler is disabled.
+    # when the reconciler is disabled. We read ``borrowAmount`` from
+    # the raw wallet response below instead of going via
+    # ``_fetch_spot_coin_balances`` — the reconciler walks every coin
+    # row, not just the ``BTCUSDT`` base/quote pair the helper
+    # synthesises.
     from src.units.accounts.execute import (
         _BORROW_REPAY_EPSILON,
-        _fetch_spot_coin_balances,
         _spot_margin_repay,
     )
 
