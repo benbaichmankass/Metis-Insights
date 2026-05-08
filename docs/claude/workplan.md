@@ -9,6 +9,18 @@
 > conflict (update the contradicting doc, or consolidate it into
 > this one) in the same session.
 >
+> **2026-05-08 correction (S-048 P1-A):** § "Telegram bots /
+> @claude_ict_comms_bot / ClaudeBot workflow" was rewritten in
+> this revision. The earlier wording described a 5-step two-way
+> request/response loop on ClaudeBot with merge/hold buttons,
+> required-action prompts, and recovery alerts. That description
+> was inconsistent with the intended architecture and with the
+> on-disk implementation; the operator confirmed on 2026-05-07
+> that ClaudeBot is intentionally one-way and the S-027 two-way
+> request/response system correctly lives on the trader bot.
+> See `docs/audits/M1-comms-audit-2026-05-07-fresh.md` for the
+> full audit context.
+>
 > **This document does NOT replace the rest of the documentation.**
 > CLAUDE.md, README.md, the per-task docs under `docs/claude/`,
 > the runbooks, the bug-log, and the architecture audits all stay
@@ -205,13 +217,19 @@ decision when:
 - A change may cause restart churn, duplicate sends, sync loops,
   or deployment instability.
 
-The ping must include:
+The ping rides on the one-way ClaudeBot channel (see § "Telegram
+bots / @claude_ict_comms_bot") and must include:
 
 - PR title.
 - One-sentence summary.
 - One-sentence risk if broken.
 - Validation already completed.
-- Buttons for **Merge** and **Hold**.
+- Link to the PR.
+
+The operator's Merge / Hold decision is registered on **GitHub**
+(PR review + web-UI merge or `gh pr merge`), not via a Telegram
+callback. Adding bot-side merge authority would expand the live
+surface unnecessarily.
 
 ### Tier 3 — explicit operator approval required before merge
 
@@ -440,7 +458,8 @@ To support the autonomous workflow and AI roadmap, the system
 should also include:
 
 - A **comms log** for Claude / operator communication state
-  transitions.
+  transitions on the trader-bot S-027 ask/answer surface
+  (already implemented at `comms/log.ndjson`).
 - A **deployment / change log** for timer changes, service
   changes, and operator actions.
 - A **strategy validation log** for dry-run milestones, promotion
@@ -453,12 +472,21 @@ should also include:
 
 ## Telegram bots
 
-There are two Telegram bots with separate responsibilities.
+There are two Telegram bots with separate, **deliberately distinct**
+responsibilities. The architecture is **two surfaces, two purposes**;
+do not collapse them.
 
 ### AI Trader Bot — `@bict_trading_bot`
 
-Main operator bot for system status, health, trades, logs, and
-lightweight controls.
+The trader bot is the operator's primary interface for:
+
+- All trade-execution alerts and operational notifications.
+- Trade controls (killswitch, close-all, live/dry-run toggle).
+- Status / log read surfaces.
+- The S-027 **two-way structured ask/answer channel** for
+  operator-question flows (e.g. "which strategy do you want to
+  test?"). Inline-keyboard menus, free-text capture, git
+  writeback.
 
 #### Notifications
 
@@ -477,15 +505,19 @@ useful.
 
 #### Operator commands
 
-The AI Trader Bot should support:
+The AI Trader Bot supports:
 
 - Toggle account live / dry-run.
 - Killswitch.
 - Close all positions.
+- `/new_session <sprint_id>` (writes a `comms/requests/REQ-…json`
+  artifact for Claude to read on next sync).
+- `/test <strategy_name>` (writes a structured test-request artifact;
+  M5 owns the consumer side).
 
 #### Information menus
 
-The AI Trader Bot should provide menus for:
+The AI Trader Bot provides menus for:
 
 - Operator commands.
 - Trader snapshot.
@@ -496,22 +528,62 @@ The AI Trader Bot should provide menus for:
 - Hourly update.
 - VM stats.
 
+#### Two-way comms surface (S-027)
+
+Repo-driven structured ask/answer:
+
+1. Claude writes a `comms/requests/REQ-…json` artifact in the repo.
+2. The trader bot delivers it as an inline-keyboard Telegram menu.
+3. The operator answers (button tap or "Other" → free text).
+4. The bot writes the answer back into the artifact and commits
+   with the `comms(response):` prefix.
+5. Claude reads the answered artifact on its next sync cycle.
+
+This surface is for **operator-question flows** — not for merge
+decisions, which happen on GitHub.
+
+#### Stuck-request recovery
+
+If a request stays in `sent` past its `stuck_alert_threshold` or
+hits its TTL without an answer, the bot fires a Telegram alert
+with the request id and age. Requests that hit `expires_at`
+without an answer transition to `EXPIRED` only after the alert
+fires — never silently.
+
 ### ClaudeBot — `@claude_ict_comms_bot`
 
-Communications channel for Claude to send sprint updates, merge
-review requests, required user actions, and PM-session start
-links.
+ClaudeBot is the **deliberately one-way Claude → operator
+notification channel**. Used for:
 
-#### ClaudeBot workflow
+- Sprint-start pings.
+- Sprint-completion updates.
+- Checkpoint commits.
+- Blocker pings (urgent).
+- Training-stage notifications.
+- Tier 2 merge-review *announcements* (informational nudge with a
+  link to the PR; the merge decision itself happens on GitHub).
+- A small set of housekeeping commands: `/audit`,
+  `/improve_strategy`, `/train_model` (which log to
+  `runtime_logs/recurring_sessions.jsonl` and reply with starter
+  prompts the operator pastes into a fresh Claude session);
+  `/roadmap`, `/schedules`, `/start`, `/reset`, `/model`.
 
-Built around the repo-driven communications system:
+#### One-way design — no response path
 
-1. Claude writes a structured pending request artifact in the
-   repo.
-2. The bot detects it and sends the message in Telegram.
-3. The operator responds in Telegram.
-4. The response is written back into the repo in structured form.
-5. Claude reads it on the next sync cycle and continues.
+ClaudeBot has **no response path back to Claude**. Operator
+decisions flow through:
+
+- **GitHub** (PR comments, reviews, merges) for merge decisions,
+  Tier 2 / Tier 3 approvals, and structured discussion.
+- **A new Claude session** that reads repo state for context
+  changes, re-prioritization, and design conversations.
+- **The trader-bot S-027 ask/answer surface** for structured
+  operator-question flows initiated by Claude.
+
+This is intentional — adding bot-side response handling on
+ClaudeBot would duplicate the S-027 surface and expand the live
+process surface without adding value over the existing
+GitHub + S-027 paths.
 
 #### Session sizing rule
 
@@ -519,14 +591,6 @@ Each milestone is broken into session-sized sprints that fit one
 working session, and each session-sized sprint is broken into
 checkpoints that can be completed, validated, or cleanly paused
 before the next session begins.
-
-This channel supports:
-
-- Merge review buttons.
-- PM sprint start pings.
-- Sprint completion updates.
-- Required user action prompts.
-- Recovery alerts for stuck or stale requests.
 
 ---
 
@@ -736,36 +800,46 @@ manual coordination.
 
 ### New session command
 
-Add an operator command such as `new-session <sprint_id>` so
-Claude can initialize a targeted sprint context and confirm when
-the session is ready.
+The operator command `/new_session <sprint_id>` (on the trader
+bot) writes a structured `comms/requests/REQ-…-new-session.json`
+artifact so Claude can initialize a targeted sprint context on
+its next sync.
 
 ### Strategy test command
 
-Add a Telegram command such as `test <strategy_name>` that writes
-a structured test request artifact to the repo for a dry-run or
-backtest workflow.
+The Telegram command `/test <strategy_name>` (on the trader bot)
+writes a structured `comms/requests/REQ-…-test-strategy.json`
+artifact for a dry-run or backtest workflow.
 
 Expected flow:
 
 1. The operator sends the command.
-2. The bot writes the structured request into the repo.
-3. Claude picks it up on the next cycle.
+2. The trader bot writes the structured request into the repo.
+3. Claude (or M5's backtest workflow) picks it up on the next cycle.
 4. Claude runs the requested validation workflow using low-cost
    compute where possible.
-5. Claude returns a structured summary with outcomes and next
-   recommendation.
+5. Claude returns a structured summary by writing the answer back
+   into the same artifact via the S-027 writeback path.
 
 ### Merge review flow
 
-Tier 2 work uses the repo-based Telegram merge review flow with
-**Merge** and **Hold** buttons.
+Tier 2 work uses **two surfaces in parallel**:
+
+- ClaudeBot fires a one-way *announcement* ping with a link to
+  the PR (informational; gives the operator a Telegram nudge so
+  the PR doesn't sit unseen).
+- The actual Merge / Hold decision happens on **GitHub** (PR
+  review + web-UI merge or `gh pr merge`).
+
+There is no Telegram-callback merge button. Adding one would
+expand the live surface unnecessarily and duplicate functionality
+that GitHub already provides natively.
 
 ### Stuck request recovery
 
-The communications system includes a documented recovery flow for
-stale requests, partial answers, malformed artifacts, and bot
-restart recovery.
+The trader-bot S-027 surface fires Telegram alerts before
+silently expiring stuck requests. See § "Telegram bots /
+@bict_trading_bot / Stuck-request recovery" above.
 
 ---
 
@@ -859,7 +933,7 @@ before deeper strategy expansion or new AI complexity.
 
 ---
 
-## Key updates in this version (2026-05-06)
+## Key updates in this version (2026-05-06, with 2026-05-08 correction)
 
 - Prop-trading infrastructure is **deferred** until later and is
   not part of the current build plan.
@@ -875,3 +949,7 @@ before deeper strategy expansion or new AI complexity.
 - The term **milestone** replaces the old sprint-level label,
   while actual execution is broken down into session-sized
   sprints and checkpoints.
+- **2026-05-08:** § "Telegram bots / @claude_ict_comms_bot /
+  ClaudeBot workflow" rewritten — ClaudeBot is intentionally
+  one-way; the two-way ask/answer surface lives on the trader
+  bot via S-027; merge decisions happen on GitHub.
