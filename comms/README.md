@@ -60,15 +60,30 @@ comms/
 
 ## Stuck request? How to recover
 
-1. **You missed a Telegram menu.** It's still in `comms/requests/`.
-   The bot will *not* re-send unless you ask it to (idempotency).
-   The recovery commands live in the bot itself (PR 2). Until then,
-   manually edit the file's `delivery.send_attempts` to `0` and
-   `status` back to `pending` — the next bot poll resends it.
-2. **The bot sent garbage / wrong question.** Set `status: "cancelled"`
+The bot fires Telegram alerts so silent expiry never happens (M1
+P1-B). Two paths surface a stuck or stale request:
+
+1. **Stuck-request alert** — if a request stays in `sent` past its
+   `stuck_alert_threshold` (default 24h, override per-request as a
+   top-level integer field; min 60 s), the bot fires a *one-time*
+   advisory Telegram alert with the request id and a hint. The
+   alert does not advance state; reply in Telegram, or edit the
+   artifact and set `status` back to `pending` to re-deliver. The
+   alert won't repeat — `delivery.stuck_alert_sent_at` is persisted
+   on the artifact so subsequent poll cycles stay silent.
+2. **Expiry alert** — a request that hits `expires_at` without a
+   complete answer fires a final Telegram alert *before* the bot
+   transitions it to `expired`. A transient Telegram failure does
+   not block the transition (silent expiry is worse than a missed
+   alert), but the `request_expired` event in `comms/log.ndjson`
+   plus the request's own `history[]` remain the auditable record.
+
+Other recovery scenarios:
+
+3. **The bot sent garbage / wrong question.** Set `status: "cancelled"`
    in the JSON file, commit, push. The artifact moves to `archive/` on
    the next bot poll and is no longer in scope.
-3. **The bot crashed mid-write.** Look for `.REQ-*.json.*.tmp` files in
+4. **The bot crashed mid-write.** Look for `.REQ-*.json.*.tmp` files in
    `comms/requests/`. Safe to delete — writes are atomic, so a leftover
    tmp file means the final replace never happened. The original
    artifact (if any) is intact.

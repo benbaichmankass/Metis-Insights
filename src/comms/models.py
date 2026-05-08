@@ -18,6 +18,13 @@ from .state import ANSWER_STATUS, STATUS
 
 SCHEMA_VERSION: int = 1
 
+# Default stuck-request alert threshold, seconds. M1 P1-B — the bot
+# fires a one-time stuck-request alert to the operator after a request
+# has been in ``sent`` past this many seconds. Override per-request via
+# ``Request.stuck_alert_threshold``.
+DEFAULT_STUCK_ALERT_THRESHOLD_S: int = 86400  # 24h
+MIN_STUCK_ALERT_THRESHOLD_S: int = 60        # mirrors schema minimum
+
 REQUEST_ID_RE = re.compile(r"^REQ-[0-9]{8}-[0-9]{6}-[a-z0-9]{4,12}$")
 ID_RE = re.compile(r"^[a-z0-9_]{1,40}$")
 
@@ -213,6 +220,7 @@ class Request:
     created_at: str = field(default_factory=_utcnow_iso)
     schema_version: int = SCHEMA_VERSION
     expires_at: Optional[str] = None
+    stuck_alert_threshold: Optional[int] = None
     topic: Optional[str] = None
     context: Optional[str] = None
     default_on_timeout: str = "expire"
@@ -247,12 +255,54 @@ class Request:
             raise CommsValidationError(
                 f"default_on_timeout invalid: {self.default_on_timeout!r}"
             )
+        if self.stuck_alert_threshold is not None:
+            if (
+                not isinstance(self.stuck_alert_threshold, int)
+                or isinstance(self.stuck_alert_threshold, bool)
+                or self.stuck_alert_threshold < MIN_STUCK_ALERT_THRESHOLD_S
+            ):
+                raise CommsValidationError(
+                    f"stuck_alert_threshold must be an integer "
+                    f">= {MIN_STUCK_ALERT_THRESHOLD_S}, got "
+                    f"{self.stuck_alert_threshold!r}"
+                )
 
     def required_question_ids(self) -> list[str]:
         return [q.question_id for q in self.questions if q.required]
 
     def is_terminal(self) -> bool:
         return self.status in STATUS.TERMINAL
+
+    def effective_stuck_alert_threshold_s(self) -> int:
+        """Resolve the per-request threshold against the package default."""
+        return (
+            self.stuck_alert_threshold
+            if self.stuck_alert_threshold is not None
+            else DEFAULT_STUCK_ALERT_THRESHOLD_S
+        )
+
+    def is_stuck(self, *, now: Optional[datetime] = None) -> bool:
+        """True iff the request has been in ``sent`` past the threshold.
+
+        ``sent_at`` lives in ``delivery``; if it's missing (test
+        fixtures, malformed artifacts) the request is treated as
+        not-stuck so we never alert on a request whose age we don't
+        know.
+        """
+        sent_at_raw = self.delivery.get("sent_at") if self.delivery else None
+        if not sent_at_raw:
+            return False
+        try:
+            sent_at = datetime.fromisoformat(sent_at_raw)
+        except (TypeError, ValueError):
+            return False
+        if sent_at.tzinfo is None:
+            sent_at = sent_at.replace(tzinfo=timezone.utc)
+        now = now or datetime.now(timezone.utc)
+        return (now - sent_at).total_seconds() >= self.effective_stuck_alert_threshold_s()
+
+    def stuck_alert_already_sent(self) -> bool:
+        return bool((self.delivery or {}).get("stuck_alert_sent_at"))
 
     def is_expired(self, *, now: Optional[datetime] = None) -> bool:
         if not self.expires_at:
@@ -285,6 +335,8 @@ class Request:
         }
         if self.expires_at is not None:
             d["expires_at"] = self.expires_at
+        if self.stuck_alert_threshold is not None:
+            d["stuck_alert_threshold"] = self.stuck_alert_threshold
         if self.topic is not None:
             d["topic"] = self.topic
         if self.context is not None:
@@ -306,6 +358,7 @@ class Request:
             schema_version=int(data.get("schema_version", SCHEMA_VERSION)),
             created_at=data.get("created_at") or _utcnow_iso(),
             expires_at=data.get("expires_at"),
+            stuck_alert_threshold=data.get("stuck_alert_threshold"),
             source_actor=source.get("actor", "claude"),
             session_id=source.get("session_id"),
             branch=source.get("branch"),
