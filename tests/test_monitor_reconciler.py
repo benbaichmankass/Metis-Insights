@@ -33,12 +33,14 @@ from __future__ import annotations
 
 import json
 import textwrap
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 import pytest
 
 from src.runtime.order_monitor import (
     _exchange_position_set,
+    _parse_created_at,
     _reconcile_open_trades,
     _sweep_unlinked_packages,
 )
@@ -77,13 +79,26 @@ def _insert_trade(
     direction="long",
     status="open",
     notes_pkg_id=None,
+    created_at=None,
+    age_seconds=None,
 ):
     """Insert an open trade and return its DB id. Mirrors the shape
     written by ``_log_trade_to_journal`` so the reconciler reads
-    realistic rows."""
+    realistic rows.
+
+    By default rows are backdated 1 hour into the past so they're
+    older than the reconciler's grace window — tests that want to
+    pin freshness behaviour pass ``age_seconds`` (or an explicit
+    ``created_at``) directly.
+    """
     notes = {"trade_id": "t-stub"}
     if notes_pkg_id:
         notes["order_package_id"] = notes_pkg_id
+    if created_at is None:
+        secs = 3600 if age_seconds is None else int(age_seconds)
+        created_at = (
+            datetime.now(timezone.utc) - timedelta(seconds=secs)
+        ).isoformat()
     db.insert_trade({
         "timestamp": "2026-05-03T20:00:00+00:00",
         "symbol": symbol,
@@ -99,6 +114,7 @@ def _insert_trade(
         "strategy_name": "vwap",
         "account_id": account_id,
         "notes": json.dumps(notes),
+        "created_at": created_at,
     })
     conn = db.connect()
     try:
@@ -327,7 +343,8 @@ def test_disabled_flag_is_noop(tmp_db, monkeypatch):
     assert summary == {
         "checked": 0, "orphaned": 0,
         "skipped_dry": 0, "skipped_no_creds": 0,
-        "skipped_no_cfg": 0, "errors": 0,
+        "skipped_no_cfg": 0, "skipped_recent": 0,
+        "errors": 0,
     }
 
 
@@ -543,3 +560,197 @@ class TestSweepUnlinkedPackages:
         assert affected == 0
         rows = tmp_db.get_order_packages_by_strategy("vwap")
         assert rows[0]["status"] == "open"
+
+
+# ---------------------------------------------------------------------------
+# Grace window — race against Bybit's open-positions index lag
+# (sibling of S-053; see docs/claude/debug-memory.md 2026-05-08 entry
+# "monitor reconciler races freshly-placed trades")
+# ---------------------------------------------------------------------------
+
+
+class TestReconcilerGraceWindow:
+    """A trade with ``created_at`` newer than the grace threshold must not
+    be orphan-stamped, even when ``account_open_positions()`` returns an
+    empty list. Bybit's market-order index lag (38 ms – several seconds)
+    would otherwise false-positive freshly-placed real positions.
+    """
+
+    def test_recent_trade_skipped_when_exchange_flat(
+        self, tmp_db, tmp_path, monkeypatch,
+    ):
+        """Headline contract: a 1-second-old trade must NOT be orphaned
+        when the exchange returns no positions."""
+        monkeypatch.setattr(
+            "src.runtime.execution_diagnostics.PENDING_PINGS_DIR",
+            tmp_path / "pings",
+        )
+        # Default grace = 60 s; a 1 s old row is well inside the window.
+        trade_id = _insert_trade(tmp_db, age_seconds=1)
+
+        with patch(
+            "src.units.accounts.clients.account_open_positions",
+            return_value=[],
+        ):
+            summary = _reconcile_open_trades(tmp_db)
+
+        assert summary["orphaned"] == 0
+        assert summary["skipped_recent"] == 1
+        assert _read_trade(tmp_db, trade_id)["status"] == "open"
+
+    def test_old_trade_still_orphaned_when_exchange_flat(
+        self, tmp_db, tmp_path, monkeypatch,
+    ):
+        """A trade older than the grace threshold remains eligible for
+        orphan-stamping — the fix is targeted, not a wholesale disable."""
+        monkeypatch.setattr(
+            "src.runtime.execution_diagnostics.PENDING_PINGS_DIR",
+            tmp_path / "pings",
+        )
+        # 5 minutes > default 60 s window.
+        trade_id = _insert_trade(tmp_db, age_seconds=300)
+
+        with patch(
+            "src.units.accounts.clients.account_open_positions",
+            return_value=[],
+        ):
+            summary = _reconcile_open_trades(tmp_db)
+
+        assert summary["orphaned"] == 1
+        assert summary["skipped_recent"] == 0
+        assert _read_trade(tmp_db, trade_id)["status"] == "orphaned"
+
+    def test_grace_window_env_override_tightens_window(
+        self, tmp_db, tmp_path, monkeypatch,
+    ):
+        """RECONCILER_GRACE_SECONDS=10 makes a 30 s old row eligible."""
+        monkeypatch.setenv("RECONCILER_GRACE_SECONDS", "10")
+        monkeypatch.setattr(
+            "src.runtime.execution_diagnostics.PENDING_PINGS_DIR",
+            tmp_path / "pings",
+        )
+        trade_id = _insert_trade(tmp_db, age_seconds=30)
+
+        with patch(
+            "src.units.accounts.clients.account_open_positions",
+            return_value=[],
+        ):
+            summary = _reconcile_open_trades(tmp_db)
+
+        assert summary["orphaned"] == 1
+        assert _read_trade(tmp_db, trade_id)["status"] == "orphaned"
+
+    def test_grace_window_env_override_widens_window(
+        self, tmp_db, tmp_path, monkeypatch,
+    ):
+        """RECONCILER_GRACE_SECONDS=600 shields a 5 min old row."""
+        monkeypatch.setenv("RECONCILER_GRACE_SECONDS", "600")
+        monkeypatch.setattr(
+            "src.runtime.execution_diagnostics.PENDING_PINGS_DIR",
+            tmp_path / "pings",
+        )
+        trade_id = _insert_trade(tmp_db, age_seconds=300)
+
+        with patch(
+            "src.units.accounts.clients.account_open_positions",
+            return_value=[],
+        ):
+            summary = _reconcile_open_trades(tmp_db)
+
+        assert summary["orphaned"] == 0
+        assert summary["skipped_recent"] == 1
+        assert _read_trade(tmp_db, trade_id)["status"] == "open"
+
+    def test_grace_window_zero_disables_protection(
+        self, tmp_db, tmp_path, monkeypatch,
+    ):
+        """Operator escape hatch: setting the env var to 0 reverts to
+        pre-fix behaviour for debugging."""
+        monkeypatch.setenv("RECONCILER_GRACE_SECONDS", "0")
+        monkeypatch.setattr(
+            "src.runtime.execution_diagnostics.PENDING_PINGS_DIR",
+            tmp_path / "pings",
+        )
+        trade_id = _insert_trade(tmp_db, age_seconds=1)
+
+        with patch(
+            "src.units.accounts.clients.account_open_positions",
+            return_value=[],
+        ):
+            summary = _reconcile_open_trades(tmp_db)
+
+        assert summary["orphaned"] == 1
+        assert _read_trade(tmp_db, trade_id)["status"] == "orphaned"
+
+    def test_invalid_env_falls_back_to_default(
+        self, tmp_db, tmp_path, monkeypatch,
+    ):
+        """A garbage env value must not turn off the protection — fall
+        back to the 60 s default."""
+        monkeypatch.setenv("RECONCILER_GRACE_SECONDS", "not-a-number")
+        monkeypatch.setattr(
+            "src.runtime.execution_diagnostics.PENDING_PINGS_DIR",
+            tmp_path / "pings",
+        )
+        trade_id = _insert_trade(tmp_db, age_seconds=1)
+
+        with patch(
+            "src.units.accounts.clients.account_open_positions",
+            return_value=[],
+        ):
+            summary = _reconcile_open_trades(tmp_db)
+
+        assert summary["orphaned"] == 0
+        assert summary["skipped_recent"] == 1
+        assert _read_trade(tmp_db, trade_id)["status"] == "open"
+
+    def test_recent_row_does_not_trigger_exchange_call(
+        self, tmp_db, tmp_path, monkeypatch,
+    ):
+        """If every row is fresh, the reconciler should never reach the
+        exchange — saves an API hit on every tick after a fresh trade."""
+        monkeypatch.setattr(
+            "src.runtime.execution_diagnostics.PENDING_PINGS_DIR",
+            tmp_path / "pings",
+        )
+        _insert_trade(tmp_db, age_seconds=1)
+
+        with patch(
+            "src.units.accounts.clients.account_open_positions",
+            side_effect=AssertionError(
+                "exchange must not be called when all rows are within grace"
+            ),
+        ):
+            summary = _reconcile_open_trades(tmp_db)
+
+        assert summary["skipped_recent"] == 1
+        assert summary["orphaned"] == 0
+
+
+class TestParseCreatedAt:
+    """``_parse_created_at`` must accept both formats the trades schema
+    produces — SQLite's ``CURRENT_TIMESTAMP`` (space-separated, no tz)
+    and explicit ISO 8601 with tz suffix.
+    """
+
+    def test_sqlite_default_format(self):
+        dt = _parse_created_at("2026-05-08 08:42:23")
+        assert dt is not None
+        assert dt.tzinfo is timezone.utc
+        assert dt.year == 2026 and dt.month == 5 and dt.day == 8
+
+    def test_iso_with_tz(self):
+        dt = _parse_created_at("2026-05-08T08:42:23.284050+00:00")
+        assert dt is not None
+        assert dt.tzinfo is not None
+        assert dt.utcoffset() == timedelta(0)
+
+    def test_none_returns_none(self):
+        assert _parse_created_at(None) is None
+
+    def test_empty_string_returns_none(self):
+        assert _parse_created_at("") is None
+        assert _parse_created_at("   ") is None
+
+    def test_garbage_returns_none(self):
+        assert _parse_created_at("not-a-date") is None

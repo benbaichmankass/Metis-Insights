@@ -641,10 +641,19 @@ def _send_modify_to_exchange(matched_trade: Dict[str, Any], *,
 
 _ORPHAN_PING_CAP = 10
 
+# Default grace window: a freshly-placed trade is not eligible for
+# orphan-stamping until ``created_at`` is at least this many seconds in
+# the past. Shields against the Bybit open-positions index lag —
+# market orders can take up to a few seconds to surface there even
+# after the order-create call has returned an exchange order id. The
+# 60 s default matches the post-PR #495 heartbeat cadence; operator
+# can tune via ``RECONCILER_GRACE_SECONDS``.
+_DEFAULT_RECONCILER_GRACE_SECONDS = 60
+
 # Reconcile-only side of the schema: what we can pull from the trades
 # row to match against the exchange snapshot.
 _RECONCILE_TRADE_COLS = (
-    "id", "account_id", "symbol", "direction", "notes"
+    "id", "account_id", "symbol", "direction", "notes", "created_at"
 )
 
 
@@ -654,6 +663,49 @@ def _reconcile_enabled() -> bool:
     the trader. Default ``false`` for PR 2; PR 3 flips it on."""
     raw = os.environ.get("MONITOR_RECONCILE_ENABLED", "false")
     return str(raw).strip().lower() == "true"
+
+
+def _grace_window_seconds() -> float:
+    """Read ``RECONCILER_GRACE_SECONDS`` at call time so an operator
+    tweak takes effect on the next tick. Falls back to
+    ``_DEFAULT_RECONCILER_GRACE_SECONDS`` on missing / unparseable
+    values; clamped to ``>= 0``.
+    """
+    raw = os.environ.get("RECONCILER_GRACE_SECONDS")
+    if raw is None or str(raw).strip() == "":
+        return float(_DEFAULT_RECONCILER_GRACE_SECONDS)
+    try:
+        return max(0.0, float(raw))
+    except (TypeError, ValueError):
+        return float(_DEFAULT_RECONCILER_GRACE_SECONDS)
+
+
+def _parse_created_at(value: Any) -> Optional[datetime]:
+    """Best-effort parse of a ``trades.created_at`` value into a tz-aware
+    UTC ``datetime``. Returns ``None`` for missing or unparseable input.
+
+    Handles both formats the schema produces:
+      * ``"2026-05-08 08:42:23"`` — SQLite ``CURRENT_TIMESTAMP`` default
+        (UTC, no tz suffix).
+      * ``"2026-05-08T08:42:23.284050+00:00"`` — explicit ISO 8601 with
+        tz, e.g. when the caller stamps ``created_at`` itself.
+    """
+    if value is None:
+        return None
+    s = str(value).strip()
+    if not s:
+        return None
+    if "T" not in s and " " in s:
+        # Normalise SQLite's space separator to ISO-8601's 'T'.
+        s = s.replace(" ", "T", 1)
+    try:
+        dt = datetime.fromisoformat(s)
+    except ValueError:
+        return None
+    if dt.tzinfo is None:
+        # SQLite CURRENT_TIMESTAMP is documented as UTC.
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
 
 
 def _load_account_cfgs_for_reconcile() -> Dict[str, Dict[str, Any]]:
@@ -739,6 +791,7 @@ def _reconcile_open_trades(db) -> Dict[str, int]:
         "skipped_dry": 0,
         "skipped_no_creds": 0,
         "skipped_no_cfg": 0,
+        "skipped_recent": 0,
         "errors": 0,
     }
     if not _reconcile_enabled():
@@ -752,7 +805,7 @@ def _reconcile_open_trades(db) -> Dict[str, int]:
         try:
             conn.row_factory = __import__("sqlite3").Row
             rows = conn.execute(
-                "SELECT id, account_id, symbol, direction, notes "
+                "SELECT id, account_id, symbol, direction, notes, created_at "
                 "FROM trades WHERE status='open' AND COALESCE(is_backtest,0)=0"
             ).fetchall()
         finally:
@@ -768,9 +821,32 @@ def _reconcile_open_trades(db) -> Dict[str, int]:
     summary["checked"] = len(rows)
     cfgs = _load_account_cfgs_for_reconcile()
 
+    # Grace window — a trade younger than this is shielded from
+    # orphan-stamping. Bybit's open-positions API can lag the
+    # order-create response by hundreds of ms (sometimes seconds);
+    # without this filter the reconciler races freshly-placed market
+    # orders and stamps real positions ``orphaned`` before the
+    # exchange has indexed them.
+    grace_seconds = _grace_window_seconds()
+    now = datetime.now(timezone.utc)
+    ripe_rows: List[Any] = []
+    for r in rows:
+        created = _parse_created_at(r["created_at"])
+        if (
+            grace_seconds > 0
+            and created is not None
+            and (now - created).total_seconds() < grace_seconds
+        ):
+            summary["skipped_recent"] += 1
+            continue
+        ripe_rows.append(r)
+
+    if not ripe_rows:
+        return summary
+
     # 2. Group by account_id.
     by_account: Dict[str, List[Dict[str, Any]]] = {}
-    for r in rows:
+    for r in ripe_rows:
         aid = str(r["account_id"] or "unknown")
         by_account.setdefault(aid, []).append(dict(r))
 
@@ -842,10 +918,10 @@ def _reconcile_open_trades(db) -> Dict[str, int]:
     if summary["orphaned"] or summary["errors"]:
         logger.info(
             "_reconcile_open_trades: checked=%d orphaned=%d skipped_dry=%d "
-            "skipped_no_creds=%d skipped_no_cfg=%d errors=%d",
+            "skipped_no_creds=%d skipped_no_cfg=%d skipped_recent=%d errors=%d",
             summary["checked"], summary["orphaned"], summary["skipped_dry"],
             summary["skipped_no_creds"], summary["skipped_no_cfg"],
-            summary["errors"],
+            summary["skipped_recent"], summary["errors"],
         )
     return summary
 
