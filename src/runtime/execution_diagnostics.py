@@ -132,6 +132,81 @@ def enqueue_orphan_reconciliation(
         return None
 
 
+def enqueue_all_accounts_failed_dispatch(
+    *,
+    strategy: str,
+    symbol: str,
+    side: str,
+    results: list,
+    priority: str = "high",
+) -> Optional[Path]:
+    """Aggregate ping for "tried to dispatch this signal, NOTHING landed".
+
+    Background — when a strategy fires a signal and every account in
+    ``multi_account_execute`` errors (or is below balance / refused
+    by the risk gate), the operator sees N per-account pings. If the
+    bot is consistently in this state (e.g. after a Bybit ErrCode
+    170131 cascade — trade 875 / 876, 2026-05-08), the per-account
+    spam mixes with normal noise and the "trader is silent" signal
+    is missed.
+
+    This helper emits one high-priority roll-up after each fully-
+    failed dispatch round, summarising the failure reasons inline
+    so the operator can see at a glance whether it's a transient
+    creds issue, a market-wide rejection, or a balance-floor
+    exhaustion.
+
+    *results* is the list returned by ``multi_account_execute``.
+    Each entry has ``name``, ``error``, ``trade_id`` keys.
+
+    Returns the queued path on success, ``None`` on enqueue failure.
+    Never raises — the dispatch round already returned its results.
+    """
+    try:
+        if not results:
+            return None
+        attempted = len(results)
+        placed = sum(1 for r in results if r.get("trade_id") is not None)
+
+        # Summarise reasons with the account name. Cap to 5 lines so
+        # the body stays under Telegram's 4096-char limit even with
+        # very long SDK exception messages.
+        lines = []
+        for r in results[:5]:
+            name = str(r.get("name") or "?")
+            err = str(r.get("error") or "no_trade_placed")
+            # Trim long reason strings — operator will see the full
+            # detail in the per-account ping if needed.
+            err_short = err[:120] + ("…" if len(err) > 120 else "")
+            lines.append(f"  • {name}: {err_short}")
+        suppressed = attempted - len(lines)
+        if suppressed > 0:
+            lines.append(f"  • … and {suppressed} more")
+
+        body = (
+            "🚨 ALL accounts failed to dispatch\n"
+            f"Strategy: {strategy} | Symbol: {symbol} | Side: {side}\n"
+            f"Accounts attempted: {attempted} | Trades placed: {placed}\n"
+            "Failures:\n" + "\n".join(lines)
+        )[:1024]
+        payload = {"priority": priority, "body": body}
+        PENDING_PINGS_DIR.mkdir(parents=True, exist_ok=True)
+        name = f"{int(uuid.uuid4().int % 10**12):012d}-allfail.json"
+        path = PENDING_PINGS_DIR / name
+        tmp = path.with_suffix(".json.tmp")
+        with tmp.open("w", encoding="utf-8") as fh:
+            json.dump(payload, fh, ensure_ascii=False)
+        os.replace(tmp, path)
+        return path
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "execution_diagnostics: all-accounts-failed enqueue failed for "
+            "strategy=%s symbol=%s: %s",
+            strategy, symbol, exc,
+        )
+        return None
+
+
 def enqueue_orphan_rollup(
     *,
     suppressed_count: int,

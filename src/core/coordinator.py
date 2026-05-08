@@ -1026,6 +1026,32 @@ class Coordinator:
                     "sized_qty": sized_qty,
                     "error": f"{type(exc).__name__}: {exc}",
                 })
+
+        # Aggregate "trader is silent" signal: if the dispatch round
+        # touched at least one account but none of them placed a
+        # trade, emit a single high-priority roll-up ping. The
+        # per-account pings already exist for individual diagnosis;
+        # this one surfaces the cascade-into-silence pattern that
+        # the operator missed during the trade 875 / 876 incident
+        # (2026-05-08, Bybit ErrCode 170131).
+        if results and not any(r.get("trade_id") is not None for r in results):
+            try:
+                from src.runtime.execution_diagnostics import (
+                    enqueue_all_accounts_failed_dispatch,
+                )
+                enqueue_all_accounts_failed_dispatch(
+                    strategy=getattr(pkg, "strategy", "unknown"),
+                    symbol=getattr(pkg, "symbol", "?"),
+                    side=("buy" if getattr(pkg, "direction", "")
+                          == "long" else "sell"),
+                    results=results,
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "multi_account_execute: all-failed roll-up enqueue "
+                    "raised: %s", exc,
+                )
+
         return results
 
     def reload_accounts(self, accounts_path: Optional[str] = None) -> Dict[str, Any]:
