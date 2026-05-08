@@ -95,22 +95,73 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -t rsa,ecdsa,ed25519 "${VM_SSH_HOST}" >> ~/.ssh/known_hosts 2>/dev/null
 
-      - name: Run restart_web_api wrapper on VM
+      - name: Restart ict-web-api.service on VM
         id: exec
         run: |
           set -euo pipefail
+          # Prefer the wrapper script when it is on the VM (richer
+          # audit + health probe + journalctl tail). Fall back to a
+          # fixed-form inline restart when it is not — this matters
+          # for bootstrap runs *before* the PR that ships the wrapper
+          # has merged + auto-deployed. The fallback covers exactly
+          # the same systemctl invocation; it just lacks the audit
+          # JSON record and the embedded journalctl dump.
+          read -r -d '' REMOTE_SCRIPT <<'REMOTE' || true
+          set -euo pipefail
+          WRAPPER=/home/ubuntu/ict-trading-bot/scripts/ops/restart_web_api.sh
+          UNIT=ict-web-api.service
+          if [ -x "$WRAPPER" ]; then
+            echo ">>> Using wrapper: $WRAPPER"
+            bash "$WRAPPER"
+            exit $?
+          fi
+          echo ">>> Wrapper not present on VM yet — running inline fallback restart of $UNIT"
+          pre=$(systemctl is-active "$UNIT" 2>/dev/null || echo unknown)
+          echo "pre-restart is-active: $pre"
+          sudo systemctl restart "$UNIT"
+          # Allow up to 30 s for systemd to settle.
+          deadline=$(( $(date +%s) + 30 ))
+          post=unknown
+          while [ "$(date +%s)" -lt "$deadline" ]; do
+            post=$(systemctl is-active "$UNIT" 2>/dev/null || echo unknown)
+            if [ "$post" = active ]; then break; fi
+            sleep 2
+          done
+          echo "post-restart is-active: $post"
+          # /api/health probe — only declare success when serving.
+          health=unknown
+          if [ "$post" = active ]; then
+            hd=$(( $(date +%s) + 15 ))
+            while [ "$(date +%s)" -lt "$hd" ]; do
+              if curl -sS --fail --max-time 5 -o /dev/null http://127.0.0.1:8001/api/health; then
+                health=ok
+                break
+              fi
+              health=unreachable
+              sleep 2
+            done
+          fi
+          echo "post-restart /api/health: $health"
+          echo
+          echo "===== last 30 lines of journalctl -u $UNIT ====="
+          sudo journalctl -u "$UNIT" -n 30 --no-pager 2>/dev/null || true
+          if [ "$post" = active ] && [ "$health" = ok ]; then
+            exit 0
+          fi
+          exit 1
+          REMOTE
           set +e
           ssh -i ~/.ssh/id_rsa \
               -o BatchMode=yes \
               -o StrictHostKeyChecking=accept-new \
               -o ConnectTimeout=15 \
               "${VM_SSH_USER}@${VM_SSH_HOST}" \
-              "bash /home/ubuntu/ict-trading-bot/scripts/ops/restart_web_api.sh" \
+              "bash -s" <<<"$REMOTE_SCRIPT" \
               > action-output.txt 2>&1
           rc=$?
           set -e
           echo "exit_code=${rc}" >>"$GITHUB_OUTPUT"
-          echo ">>> Wrapper exit code: ${rc}"
+          echo ">>> Remote exit code: ${rc}"
           # Truncate preview to keep run-log readable.
           if [ "$(wc -c <action-output.txt)" -gt 4000 ]; then
             head -c 4000 action-output.txt
