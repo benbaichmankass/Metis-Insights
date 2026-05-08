@@ -230,28 +230,56 @@ This is the binding rule:
   is notified anyway. "Nothing for you to do" is information, not
   silence.
 
-**Notification surface (today's minimum):**
-- Workflow run page on GitHub (linked from `audit-bundle.json`'s
-  `run_url`).
-- 30-day workflow artifact with the full pre/post bundle.
-- Repo-side `runtime_logs/operator_actions/<ts>-<action>.json`
-  picked up by the next `ict-git-sync` cycle and visible via the
-  diag relay.
+**Notification surface (implemented):**
 
-**Notification surface (recommended near-term enhancement):**
-A proactive Telegram message on every Tier-2 completion, sent from
-the workflow's final step. The infra exists (`scripts/notify_on_pull.py`,
-`docs/claude/telegram-pings.md`); a follow-up sprint should wire a
-small step into `operator-actions.yml` that posts a one-line summary
-+ run URL using the same `TELEGRAM_BOT_TOKEN` already in the bot's
-environment. Tier-1 runs should additionally batch-notify (e.g.
-once-per-N-runs or only on state changes) so a daily auto-driven
-`status-check` cron doesn't bury the operator's signal in noise.
+1. **Telegram via `@claude_ict_comms_bot`.** The workflow's final
+   step SSHs to the VM and invokes
+   `scripts/ops/notify_run.sh <action> <exit_code> <run_url> <reason:b64>`,
+   which queues a JSON payload in `runtime_logs/pending_claude_pings/`.
+   `ict-claude-bridge.service` drains the queue within ~5 s and
+   posts a one-message summary to the operator chat. No new GitHub
+   secret was added — the Telegram bot token + chat ID stay on the
+   VM where they already lived (`/etc/ict-trader/claude.env`).
+2. **Workflow run page** on GitHub, linked from the Telegram
+   message via `run_url`.
+3. **30-day workflow artifact** with the full pre/post bundle.
+4. **Repo-side audit record** at
+   `runtime_logs/operator_actions/<ts>-<action>.json`, picked up by
+   the next `ict-git-sync` cycle and visible via the diag relay.
 
-Until that lands, autonomous dispatchers (Perplexity in particular)
-must include in their own out-of-band channel a one-line summary +
-the workflow run URL after every dispatch. Doc-only enforcement;
-doc-honesty is the trust contract.
+**Telegram message format** (rendered verbatim from `notify_run.sh`):
+
+```
+[ops] <action>: <result>
+reason: <operator-typed reason>     ← only if non-empty
+run: <github actions run url>
+tier: <1 or 2>
+```
+
+**Priority routing** (mapped from action + exit code in
+`notify_run.sh`, fed to `send_ping.py --priority`):
+
+| Action | Exit | Priority |
+|---|---|---|
+| Tier 1 (`status-check`, `pull-latest-logs`) | 0 (ok) | `low` |
+| Tier 1 | non-zero | `high` |
+| `restart-bot-service` | 0 (ok) | `normal` |
+| `restart-bot-service` | 3 (deferred — vm-runner active) | `normal` |
+| `restart-bot-service` | other | `urgent` |
+| `reboot-vm` | 0 / 255 (scheduled, SSH dropped) | `high` |
+| `reboot-vm` | other | `urgent` |
+
+**Failure-of-notification semantics:** the notify step uses
+`continue-on-error: true`. A failed ping never flips a successful
+action to failed. The artifact + run-log + repo-side audit record
+remain the canonical trail; Telegram is the proactive layer on top.
+
+**Tier-1 noise note:** every Tier-1 run notifies today, by design.
+If a daily auto-driven `status-check` cron starts to bury signal,
+the followup is a state-change-only filter (e.g. only ping when the
+result diverges from the last queued ping for the same action),
+**not** dropping the always-notify principle. File it as a
+follow-up doc PR if it ever becomes a problem.
 
 ---
 
