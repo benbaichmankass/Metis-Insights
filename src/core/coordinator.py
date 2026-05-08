@@ -888,11 +888,28 @@ class Coordinator:
 
             sized_qty_by_account[account.name] = sized_qty
 
-            # 2. Refuse to forward a zero-qty order (under-balance accounts).
+            # 2. Refuse to forward a zero-qty order. This branch fires
+            # for ANY sized_qty <= 0 outcome from the RiskManager —
+            # not only true "balance below floor" cases. Pre-fix the
+            # error template hardcoded ``below_min_balance`` which was
+            # misleading whenever the actual cause was the spot-margin
+            # ``available_usd`` cap (Bybit V5 returning
+            # ``availableToBorrow=0`` for the base coin on a USDT-only
+            # wallet — see ``_fetch_spot_coin_balances`` and the test
+            # ``test_short_zero_capacity_when_borrow_line_zero``), the
+            # daily-loss-budget gate, or the liquidation-buffer
+            # refusal. Operators saw "balance=186.87 < 50.0" and
+            # couldn't tell the comparison was a lie.
             if sized_qty <= 0:
-                error_msg = (
-                    f"below_min_balance: balance={balance:.2f} USD < "
-                    f"min_balance_usd={account.risk_manager.min_balance_usd}"
+                error_msg = _explain_zero_sized_qty(
+                    balance=balance,
+                    available_usd=available_usd,
+                    total_account_usd=total_account_usd,
+                    risk_manager=account.risk_manager,
+                    direction=getattr(pkg, "direction", "?"),
+                    market_type=str(
+                        getattr(account, "market_type", "spot") or "spot"
+                    ).lower(),
                 )
                 from src.units.accounts.execute import log_rejection_to_journal
                 log_rejection_to_journal(
@@ -1617,6 +1634,89 @@ def _log_new_order_package(pkg: "OrderPackage") -> Optional[str]:
             getattr(pkg, "strategy", "?"), getattr(pkg, "symbol", "?"), exc,
         )
         return None
+
+
+def _explain_zero_sized_qty(
+    *,
+    balance: float,
+    available_usd: Optional[float],
+    total_account_usd: Optional[float],
+    risk_manager: Any,
+    direction: str,
+    market_type: str,
+) -> str:
+    """Synthesise an operator-actionable reason string for a
+    ``sized_qty <= 0`` outcome.
+
+    Pre-fix the rejection site hardcoded ``below_min_balance`` which
+    was misleading whenever the actual cause was the spot-margin
+    ``available_usd`` cap, the daily-loss-budget gate, or the
+    liquidation-buffer refusal — operators saw "balance=186.87 < 50.0"
+    and couldn't tell the comparison was a lie.
+
+    Returns a structured-token-prefixed reason whose first segment
+    matches one of the known refusal causes (so log-grepping stays
+    practical) followed by the relevant inputs:
+
+      * ``below_min_balance:`` — total equity is below the configured
+        floor.
+      * ``zero_exchange_capacity:`` — the spot-margin
+        ``available_usd`` collapsed to 0, typically because Bybit V5
+        returned ``availableToBorrow=0`` for the order's spending
+        side (a USDT-only wallet shorting BTC is the canonical case
+        — see ``test_short_zero_capacity_when_borrow_line_zero``).
+        Operator action: seed the base coin into the wallet, or
+        check the per-coin margin tier on the exchange.
+      * ``risk_refused:`` — generic catch-all (daily-loss budget,
+        liquidation buffer, or any other RiskManager rule).
+        Includes balance + available_usd + total_account_usd so the
+        operator can reproduce.
+    """
+    min_balance_usd = float(getattr(risk_manager, "min_balance_usd", 0.0) or 0.0)
+    gate_balance = (
+        float(total_account_usd) if total_account_usd is not None else float(balance)
+    )
+
+    # 1. Below-min-balance gate — mirror RiskManager.position_size's
+    #    own check at risk.py:541 so the message is accurate when
+    #    that's the cause.
+    if gate_balance < min_balance_usd:
+        return (
+            f"below_min_balance: gate_balance={gate_balance:.2f} USD < "
+            f"min_balance_usd={min_balance_usd:.2f}"
+        )
+
+    # 2. Spot-margin zero-capacity refusal — the canonical bybit_2
+    #    USDT-only-wallet-shorting-BTC case.
+    if (
+        market_type == "spot-margin"
+        and available_usd is not None
+        and float(available_usd) <= 0.0
+    ):
+        side_word = "base-coin" if direction == "short" else "USDT"
+        return (
+            f"zero_exchange_capacity: market_type=spot-margin "
+            f"direction={direction} available_usd=0.00 — Bybit returned "
+            f"zero {side_word} borrow capacity (check exchange margin "
+            f"tier or seed the coin); balance={balance:.2f}"
+        )
+
+    # 3. Generic refusal — daily-loss budget, liquidation buffer,
+    #    or any future RiskManager rule. Surface the inputs the
+    #    operator needs to reproduce.
+    avail_str = (
+        f"{float(available_usd):.2f}" if available_usd is not None else "n/a"
+    )
+    total_str = (
+        f"{float(total_account_usd):.2f}" if total_account_usd is not None else "n/a"
+    )
+    return (
+        f"risk_refused: sized_qty=0 with balance={balance:.2f} "
+        f"available_usd={avail_str} total_account_usd={total_str} "
+        f"min_balance_usd={min_balance_usd:.2f} direction={direction} "
+        f"market_type={market_type} — check daily-loss budget / "
+        f"liquidation buffer / max_borrow"
+    )
 
 
 def _emit_execution_failure_ping(
