@@ -74,37 +74,42 @@ def write_heartbeat(
 
 # ── Liveness label ──────────────────────────────────────────────────────────
 #
-# Two consumers care about translating a heartbeat age into a label:
-# the dashboard (`/api/bot/stats`) and the diag surface
-# (`/api/diag/status` + `/api/diag/snapshot`). They previously
-# hard-coded `< 600s → running, < 1800s → paused, else stopped`. With
-# the production tick interval at 900 s (15 min), the 600 s running
-# threshold falsely flagged every healthy trader as "paused" for the
-# last 5 minutes of every cycle — a third of the time. Convention now
-# matches `scripts/check_heartbeat.py`, which uses
-# `tick_interval × HEARTBEAT_GRACE_FACTOR` (default 2.0) as the alarm
-# threshold:
+# Two consumers translate a heartbeat age into a label: the dashboard
+# (`/api/bot/stats`) and the diag surface (`/api/diag/status` +
+# `/api/diag/snapshot`). The basis used to be the *tick* interval
+# (heartbeat written once per tick), which meant labelling an entire
+# tick cycle's worth of normal idleness as "paused" near the end of
+# each cycle. After 2026-05-08 the heartbeat is refreshed *between
+# ticks* every ``HEARTBEAT_INTERVAL_SECONDS`` (default 60 s, see
+# ``src/main.py``), so the right basis for the label is that cadence,
+# not the tick:
 #
-#   age < tick_interval × 1.2  → "running"  (one cycle hasn't elapsed)
-#   age < tick_interval × 2.0  → "paused"   (one cycle missed; may recover)
-#   age ≥ tick_interval × 2.0  → "stopped"  (alarm-worthy; check_heartbeat
-#                                            has likely paged by now)
+#   age < cadence × 3   → "running"  (≤ 2 missed beats — well within
+#                                     normal jitter, even mid-tick)
+#   age < cadence × 10  → "paused"   (~10 missed beats — the process
+#                                     is unresponsive but may recover)
+#   age ≥ cadence × 10  → "stopped"  (alarm-worthy)
 #
-# Both bounds are env-driven so changing TICK_INTERVAL_SECONDS keeps
-# all three thresholds (run / pause / stop / alarm) in sync.
+# Both bounds are env-driven so changing HEARTBEAT_INTERVAL_SECONDS
+# keeps all three thresholds in sync. ``scripts/check_heartbeat.py``
+# still uses ``TICK_INTERVAL_SECONDS × HEARTBEAT_GRACE_FACTOR`` for
+# its alarm threshold; that's a separate watchdog and is left at
+# its current convention pending a follow-up alignment.
 
-_DEFAULT_TICK_INTERVAL_SEC = 900
-_RUNNING_FACTOR = 1.2
-_PAUSED_FACTOR = 2.0
+_DEFAULT_HEARTBEAT_INTERVAL_SEC = 60
+_RUNNING_FACTOR = 3
+_PAUSED_FACTOR = 10
 
 
-def _tick_interval_seconds() -> int:
-    raw = os.environ.get("TICK_INTERVAL_SECONDS", str(_DEFAULT_TICK_INTERVAL_SEC))
+def _heartbeat_interval_seconds() -> int:
+    raw = os.environ.get(
+        "HEARTBEAT_INTERVAL_SECONDS", str(_DEFAULT_HEARTBEAT_INTERVAL_SEC)
+    )
     try:
         value = int(float(raw))
     except (TypeError, ValueError):
-        return _DEFAULT_TICK_INTERVAL_SEC
-    return value if value > 0 else _DEFAULT_TICK_INTERVAL_SEC
+        return _DEFAULT_HEARTBEAT_INTERVAL_SEC
+    return value if value > 0 else _DEFAULT_HEARTBEAT_INTERVAL_SEC
 
 
 def heartbeat_thresholds() -> tuple[int, int]:
@@ -113,8 +118,8 @@ def heartbeat_thresholds() -> tuple[int, int]:
     Caller-friendly tuple for routers that want to label the heartbeat
     age. See module docstring for the convention.
     """
-    tick = _tick_interval_seconds()
-    return int(tick * _RUNNING_FACTOR), int(tick * _PAUSED_FACTOR)
+    cadence = _heartbeat_interval_seconds()
+    return cadence * _RUNNING_FACTOR, cadence * _PAUSED_FACTOR
 
 
 def heartbeat_label(age_seconds: float) -> str:

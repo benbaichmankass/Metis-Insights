@@ -173,7 +173,13 @@ def main() -> None:
     telegram_client = _build_telegram_client()
 
     loop = str(os.environ.get("LOOP", "true")).strip().lower() not in {"false", "0", "no"}
-    interval = int(os.environ.get("TICK_INTERVAL_SECONDS", "900"))
+    # 2026-05-08 operator directive: re-evaluate every minute, on
+    # 5-min candles. Strategies are unchanged — they still operate on
+    # 5-min bars — but a 1-min tick gives up to 4 min faster reaction
+    # to a fresh candle close. Override per environment via
+    # TICK_INTERVAL_SECONDS in the systemd unit / .env if a slower
+    # cadence is needed (e.g. backtests, reduced API budget).
+    interval = int(os.environ.get("TICK_INTERVAL_SECONDS", "60"))
 
     if not loop:
         logger.info("LOOP=false: running single tick.")
@@ -182,6 +188,7 @@ def main() -> None:
 
     logger.info("Starting continuous loop. TICK_INTERVAL_SECONDS=%s", interval)
     tick_count = 0
+    last_tick_status = "starting"
     while True:
         tick_count += 1
         try:
@@ -203,7 +210,8 @@ def main() -> None:
             # alive". Writes after a successful tick, not before — so a
             # tick that crashes mid-run doesn't refresh the heartbeat and
             # the watchdog will alert.
-            write_heartbeat(status="ok", tick=tick_count)
+            last_tick_status = "ok"
+            write_heartbeat(status=last_tick_status, tick=tick_count)
         except Exception as exc:
             logger.exception("Tick failed with unhandled exception: %s", exc)
             report(
@@ -216,7 +224,8 @@ def main() -> None:
             # distinguish "process is running but ticks failing" from
             # "process is dead". The 'error' status is what the watchdog
             # surfaces.
-            write_heartbeat(status="error", tick=tick_count)
+            last_tick_status = "error"
+            write_heartbeat(status=last_tick_status, tick=tick_count)
         now_utc = datetime.now(timezone.utc)
         # BUG-032: a one-shot demo flag the operator drops on the VM after
         # deploy (`touch runtime_flags/send_hourly_demo`). When present, the
@@ -303,8 +312,33 @@ def main() -> None:
                 reason=f"{type(exc).__name__}: {exc}",
             )
 
-        logger.info("Sleeping %s seconds until next tick.", interval)
-        time.sleep(interval)
+        # Refresh the heartbeat between ticks so the dashboard / diag
+        # liveness signal is "is this process responsive *right now*"
+        # rather than "did the last tick complete in the last 15 min".
+        # Cadence is HEARTBEAT_INTERVAL_SECONDS (default 60 s — one
+        # write per minute is free on a loopback FS). A pipeline hang
+        # still stops the heartbeat because we run inline on the main
+        # thread; a daemon-thread writer would falsely report alive.
+        heartbeat_interval = int(
+            os.environ.get("HEARTBEAT_INTERVAL_SECONDS", "60")
+        )
+        if heartbeat_interval <= 0:
+            heartbeat_interval = 60
+        logger.info(
+            "Sleeping %s seconds until next tick (heartbeat every %s s).",
+            interval, heartbeat_interval,
+        )
+        end_time = time.monotonic() + interval
+        while True:
+            remaining = end_time - time.monotonic()
+            if remaining <= 0:
+                break
+            time.sleep(min(heartbeat_interval, remaining))
+            if time.monotonic() < end_time:
+                # Status reflects the last completed tick — refreshes
+                # mtime so liveness checks see a fresh signal without
+                # losing the "ok / error" state of the most recent run.
+                write_heartbeat(status="ok", tick=tick_count)
 
 
 if __name__ == "__main__":

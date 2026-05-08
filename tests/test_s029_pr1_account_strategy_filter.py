@@ -1,17 +1,28 @@
-"""Regression: ``Coordinator.multi_account_execute`` must filter packages
+"""Regression: ``Coordinator.multi_account_execute`` must dispatch only
 to accounts whose ``strategies`` list contains the package's strategy.
 
-Pre-fix (architecture-audit-2026-05-02 § P0-1):
-``account.strategies`` was loaded from ``accounts.yaml`` but never
-consulted in dispatch. Every signal fanned out to every account, so a
-vwap package landed in a turtle_soup-only wallet and vice versa.
+History:
+  * Pre-S-029 (architecture-audit-2026-05-02 § P0-1):
+    ``account.strategies`` was loaded from ``accounts.yaml`` but never
+    consulted in dispatch. Every signal fanned out to every account.
+  * S-029 PR1: filter inside the per-account loop and write a
+    ``skipped_not_assigned`` rejection row to ``trades`` for every
+    skipped (account, tick) pair.
+  * 2026-05-08 operator directive: filter the *list* upfront, do not
+    write a rejection row. With multi-strategy + multi-account fan-out
+    at 1-min ticks, the per-tick ``skipped_not_assigned`` rows became
+    O(strategies × accounts × ticks) noise that buried real refusals.
+    The accounts.yaml ``strategies:`` map is the audit trail.
 
-Post-fix: skipped accounts produce a ``skipped_not_assigned`` result.
-Accounts without an assigned-strategies list (legacy test fixtures)
-remain unfiltered to preserve back-compat.
+Post-2026-05-08 contract:
+  * Skipped accounts do **not** appear in ``results``.
+  * Skipped accounts do **not** produce a ``trades`` row.
+  * Accounts without a ``strategies`` list keep the unfiltered
+    behaviour (legacy fixtures + tests that don't declare the map).
 """
 from __future__ import annotations
 
+import sqlite3
 import textwrap
 from unittest.mock import patch
 
@@ -47,18 +58,6 @@ _ACCOUNTS_YAML = textwrap.dedent("""\
 """)
 
 
-def _pkg(strategy: str) -> OrderPackage:
-    return OrderPackage(
-        strategy=strategy,
-        symbol="BTCUSDT",
-        direction="long" if strategy == "vwap" else "short",
-        entry=50_000.0,
-        sl=49_500.0,
-        tp=51_000.0,
-        meta={"strategy_name": strategy},
-    )
-
-
 @pytest.fixture()
 def accounts_yaml(tmp_path):
     p = tmp_path / "accounts.yaml"
@@ -67,15 +66,21 @@ def accounts_yaml(tmp_path):
 
 
 @pytest.fixture()
-def coord(tmp_path):
-    units_yaml = tmp_path / "units.yaml"
-    units_yaml.write_text("units: {}\n")
-    return Coordinator(units_path=str(units_yaml))
+def tmp_journal(tmp_path, monkeypatch):
+    db = tmp_path / "trade_journal.db"
+    monkeypatch.setenv("TRADE_JOURNAL_DB", str(db))
+    return str(db)
+
+
+@pytest.fixture()
+def coord(tmp_journal):
+    return Coordinator()
 
 
 @pytest.fixture()
 def stub_execute_pkg():
-    """Stub the canonical live entry point so tests don't need exchange creds."""
+    """The dispatch path is irrelevant — we're testing the filter, not the
+    exchange call. Returns a stable trade_id so the result rows look real."""
     with patch(
         "src.units.accounts.execute.execute_pkg",
         side_effect=lambda pkg, account_cfg, **kw: f"dry-{account_cfg['account_id']}",
@@ -83,11 +88,38 @@ def stub_execute_pkg():
         yield m
 
 
+def _pkg(strategy: str) -> OrderPackage:
+    return OrderPackage(
+        symbol="BTCUSDT",
+        direction="long",
+        entry=50_000.0,
+        sl=49_500.0,
+        tp=51_000.0,
+        confidence=1.0,
+        strategy=strategy,
+        meta={"strategy_name": strategy, "is_test": True, "test_qty": 0.001},
+    )
+
+
+def _trade_rows(db_path: str) -> list[dict]:
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    try:
+        return [dict(r) for r in conn.execute(
+            "SELECT account_id, strategy_name, status, entry_reason "
+            "FROM trades"
+        ).fetchall()]
+    finally:
+        conn.close()
+
+
 class TestStrategyFilterRouting:
-    """Each strategy must only route to its assigned accounts."""
+    """A package only routes to accounts whose ``strategies`` list
+    contains it. Skipped accounts are *invisible* to the dispatch:
+    no result row, no trades row."""
 
     def test_vwap_signal_routes_only_to_vwap_account(
-        self, coord, accounts_yaml, stub_execute_pkg,
+        self, coord, accounts_yaml, tmp_journal, stub_execute_pkg,
     ):
         results = coord.multi_account_execute(
             _pkg("vwap"),
@@ -96,20 +128,21 @@ class TestStrategyFilterRouting:
             balance_fetcher=lambda _a: 10_000.0,
         )
 
-        # Both accounts produce a result row (so the operator can see
-        # the skip), but only bybit_2 actually executes.
-        ok = [r for r in results if r["error"] is None]
-        skipped = [r for r in results if r["error"] and "skipped_not_assigned" in r["error"]]
+        assert len(results) == 1, (
+            f"vwap package must reach exactly the vwap account; got {results!r}"
+        )
+        assert results[0]["name"] == "bybit_2"
+        assert results[0]["error"] is None
 
-        assert len(ok) == 1
-        assert ok[0]["name"] == "bybit_2"
-        assert len(skipped) == 1
-        assert skipped[0]["name"] == "bybit_1"
-        assert "vwap" in skipped[0]["error"]
-        assert "turtle_soup" in skipped[0]["error"]
+        # bybit_1 must not produce a trade row of any kind for this dispatch.
+        rows = _trade_rows(tmp_journal)
+        bybit_1_rows = [r for r in rows if r["account_id"] == "bybit_1"]
+        assert bybit_1_rows == [], (
+            f"filtered account must not write to trades; got {bybit_1_rows!r}"
+        )
 
     def test_turtle_soup_signal_routes_only_to_turtle_soup_account(
-        self, coord, accounts_yaml, stub_execute_pkg,
+        self, coord, accounts_yaml, tmp_journal, stub_execute_pkg,
     ):
         results = coord.multi_account_execute(
             _pkg("turtle_soup"),
@@ -118,19 +151,20 @@ class TestStrategyFilterRouting:
             balance_fetcher=lambda _a: 10_000.0,
         )
 
-        ok = [r for r in results if r["error"] is None]
-        skipped = [r for r in results if r["error"] and "skipped_not_assigned" in r["error"]]
+        assert len(results) == 1
+        assert results[0]["name"] == "bybit_1"
+        assert results[0]["error"] is None
 
-        assert len(ok) == 1
-        assert ok[0]["name"] == "bybit_1"
-        assert len(skipped) == 1
-        assert skipped[0]["name"] == "bybit_2"
+        rows = _trade_rows(tmp_journal)
+        bybit_2_rows = [r for r in rows if r["account_id"] == "bybit_2"]
+        assert bybit_2_rows == []
 
-    def test_unknown_strategy_skipped_on_every_account(
-        self, coord, accounts_yaml, stub_execute_pkg,
+    def test_unknown_strategy_dispatches_to_no_account(
+        self, coord, accounts_yaml, tmp_journal, stub_execute_pkg,
     ):
-        """A package whose strategy doesn't appear on any account.strategies
-        list is silently skipped on every account — no exchange calls."""
+        """A package whose strategy doesn't appear on any account's
+        ``strategies`` list is filtered everywhere — empty results,
+        no exchange calls, no trades rows."""
         results = coord.multi_account_execute(
             _pkg("phantom_strategy"),
             accounts_path=accounts_yaml,
@@ -138,9 +172,9 @@ class TestStrategyFilterRouting:
             balance_fetcher=lambda _a: 10_000.0,
         )
 
-        skipped = [r for r in results if r["error"] and "skipped_not_assigned" in r["error"]]
-        assert len(skipped) == 2
+        assert results == []
         assert stub_execute_pkg.call_count == 0
+        assert _trade_rows(tmp_journal) == []
 
 
 class TestBackCompatNoStrategiesList:
@@ -186,5 +220,5 @@ class TestBackCompatNoStrategiesList:
             balance_fetcher=lambda _a: 10_000.0,
         )
 
-        assert all(r["error"] is None for r in results)
-        assert {r["name"] for r in results} == {"bybit_legacy_a", "bybit_legacy_b"}
+        names = sorted(r["name"] for r in results)
+        assert names == ["bybit_legacy_a", "bybit_legacy_b"]

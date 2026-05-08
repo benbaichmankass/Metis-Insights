@@ -553,61 +553,56 @@ class Coordinator:
         if order_package_id and isinstance(pkg.meta, dict):
             pkg.meta["order_package_id"] = order_package_id
 
+        # Per-account strategy filter (CLAUDE.md § Architecture rules
+        # § 3, 2026-05-08 reversal of S-029-PR1). Each account in
+        # accounts.yaml declares ``strategies: [...]`` — the package's
+        # strategy must be on that list for the account to enter
+        # dispatch. Accounts that don't match are filtered upfront,
+        # *before* the loop body — so they don't appear in
+        # ``results`` and don't generate per-tick rejection rows in
+        # the trades table.
+        #
+        # History: pre-S-029 every signal fanned out to every account
+        # regardless of assignment, landing vwap packages in
+        # turtle_soup-only wallets. S-029 PR1 added the filter inside
+        # the loop and wrote a `skipped_not_assigned` rejection row
+        # per skipped (account, tick) pair so the operator could see
+        # which accounts had been considered. With multi-strategy +
+        # multi-account fan-out at 1-min ticks, those rejection rows
+        # became O(strategies × accounts × ticks-per-day) noise that
+        # buried real refusals. Operator directive 2026-05-08:
+        # filter the list, don't log a refusal — the strategies map in
+        # accounts.yaml is the audit trail.
+        #
+        # Accounts with no ``strategies`` list (legacy fixtures, unit
+        # tests that don't declare the mapping) keep the unfiltered
+        # behaviour so test-only paths don't have to change.
+        def _strategy_matches(account_obj) -> bool:
+            assigned = list(getattr(account_obj, "strategies", None) or [])
+            if not assigned:
+                return True  # legacy / no-mapping account
+            if not pkg.strategy:
+                return True  # legacy package without a strategy tag
+            return pkg.strategy in assigned
+
+        accounts = [a for a in accounts if _strategy_matches(a)]
+
         results = []
         for account in accounts:
             if account_type and account.account_type != account_type:
                 continue
 
-            # 0. Per-account strategy filter (CLAUDE.md § Architecture
-            # rules § 3). Each account in accounts.yaml declares
-            # ``strategies: [...]`` — the package's strategy must be on
-            # that list or the account is skipped. Pre-fix
-            # (architecture-audit-2026-05-02 P0-1) every signal fanned
-            # out to every account regardless of assignment, so vwap
-            # signals landed in turtle_soup-only wallets and vice
-            # versa. The filter is opt-in by data shape: if an account
-            # has no strategies list (legacy fixtures) the filter is
-            # bypassed and the package routes — preserves test-fixture
-            # behaviour where unit tests don't bother declaring the
-            # mapping.
-            # Pre-build a minimal account_cfg for refusal-journal writes
-            # in the early-out branches below. Mirrors the richer
-            # account_cfg constructed inside the dispatch try block.
-            # ``getattr`` keeps legacy/test fixtures (where the account
-            # object may not carry ``api_key_env``) routing cleanly.
+            # Pre-build a minimal account_cfg for the sizing_failed /
+            # below_min_balance refusal-journal writes downstream.
+            # Mirrors the richer account_cfg built below; ``getattr``
+            # keeps legacy/test fixtures (where the account object
+            # may not carry ``api_key_env``) routing cleanly.
             _early_account_cfg = {
                 "account_id": account.name,
                 "exchange": account.exchange,
                 "api_key_env": getattr(account, "api_key_env", None),
                 "market_type": getattr(account, "market_type", "spot"),
             }
-
-            assigned = list(getattr(account, "strategies", None) or [])
-            if assigned and pkg.strategy and pkg.strategy not in assigned:
-                error_msg = (
-                    f"skipped_not_assigned: pkg.strategy={pkg.strategy!r} "
-                    f"not in account.strategies={assigned!r}"
-                )
-                # Land a refusal row so /packages can pair every open
-                # package with a journal reason — pre-fix the package
-                # was logged but no trade row was written, leaving the
-                # operator with an "open with no linked trade" mystery.
-                from src.units.accounts.execute import log_rejection_to_journal
-                log_rejection_to_journal(
-                    pkg, _early_account_cfg,
-                    reason=error_msg,
-                    status="rejected",
-                    sized_qty=0.0,
-                )
-                results.append({
-                    "name": account.name,
-                    "exchange": account.exchange,
-                    "account_type": account.account_type,
-                    "trade_id": None,
-                    "sized_qty": 0.0,
-                    "error": error_msg,
-                })
-                continue
 
             # Build account_cfg, resolve effective_dry and exchange client
             # BEFORE sizing so the direction-aware balance override (spot
