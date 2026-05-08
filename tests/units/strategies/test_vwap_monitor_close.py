@@ -187,9 +187,12 @@ class TestVwapCrossClose:
         # Frame: 95, 96, 96.5. Live vwap ~95.83. Last close 96.5 >
         # live vwap → would normally cross, but pick a frame where
         # close is still below the live vwap to assert the no-action
-        # branch. Use 90, 100, 92 — live vwap ~94, close 92 below → no
-        # cross. tp 105, sl 88 — neither hit either.
-        df = _candles_with_close([90.0, 100.0, 92.0])
+        # branch. Use 90, 100, 91 — live vwap ~93.7, close 91 below → no
+        # cross. tp 105, sl 88 — neither hit either. (Last close 91 is
+        # +0.5R from entry; staying below +1R keeps the SL-to-BE
+        # fallback dormant so this test exercises the pure no-action
+        # path on the VWAP-cross branch.)
+        df = _candles_with_close([90.0, 100.0, 91.0])
         pkg = _pkg(direction="long", entry=90.0, sl=88.0, tp=105.0)
         assert vwap.monitor({}, df, pkg) is None
 
@@ -203,13 +206,16 @@ class TestTimeDecayClose:
     """Closes when the position is older than the hold window even if
     TP / SL / VWAP-cross have not fired yet."""
 
-    # Frame design: closes [90, 100, 92] gives live vwap ≈ 94. For a
-    # long entry, last close 92 is *below* live vwap → no VWAP-cross
-    # (price has not yet reverted). tp 105 / sl 88 keep TP and SL out
-    # of the way too. This is the realistic time-decay scenario:
-    # price is still in the deviation band when the hold window
-    # expires.
-    LONG_NO_TRIGGER_CLOSES = [90.0, 100.0, 92.0]
+    # Frame design: closes [90, 100, 91] gives live vwap ≈ 93.7. For
+    # a long entry, last close 91 is *below* live vwap → no
+    # VWAP-cross (price has not yet reverted). tp 105 / sl 88 keep
+    # TP and SL out of the way too. Last close 91 is +0.5R from
+    # entry; under +1R it also stays out of the SL-to-break-even
+    # fallback so these tests exercise pure time-decay and no-action
+    # branches without crossing into BE territory. This is the
+    # realistic time-decay scenario: price is still in the deviation
+    # band when the hold window expires.
+    LONG_NO_TRIGGER_CLOSES = [90.0, 100.0, 91.0]
     LONG_PKG_KW = {"direction": "long", "entry": 90.0, "sl": 88.0, "tp": 105.0}
     SHORT_NO_TRIGGER_CLOSES = [110.0, 100.0, 108.0]
     SHORT_PKG_KW = {"direction": "short", "entry": 110.0, "sl": 112.0, "tp": 95.0}
@@ -282,8 +288,10 @@ class TestNoActionPath:
         # Build pkg WITHOUT triggering vwap-cross at the boundary:
         # close 95 == vwap 95 means current_price >= vwap_live for a
         # long → vwap-cross WOULD fire. To exercise the strict
-        # no-action path, drop close just below live vwap.
-        df = _candles_with_close([90.0, 100.0, 92.0])
+        # no-action path, drop close just below live vwap. Last close
+        # 91 is +0.5R from entry, which keeps the SL-to-BE fallback
+        # dormant too (BE only fires at +1R or beyond).
+        df = _candles_with_close([90.0, 100.0, 91.0])
         pkg = _pkg(direction="long", entry=90.0, sl=88.0, tp=110.0)
         assert vwap.monitor({}, df, pkg) is None
 
@@ -328,30 +336,120 @@ class TestMonitorDefensive:
 
     def test_zero_volume_frame_skips_vwap_cross_branch(self):
         # Zero volume → compute_vwap raises; monitor swallows and
-        # falls through. With closes that don't hit TP / SL and a fresh
-        # package, the result should be None (not a vwap_cross close).
-        df = _candles_with_close([100.0, 100.5, 101.0], volume=0.0)
+        # falls through. With closes that don't hit TP / SL and a
+        # fresh package, the result should be None (not a vwap_cross
+        # close). Last close 100.8 is +0.8R from entry — under the
+        # +1R SL-to-BE threshold so the fallback stays dormant too.
+        df = _candles_with_close([100.0, 100.5, 100.8], volume=0.0)
         pkg = _pkg(direction="long", entry=100.0, sl=99.0, tp=105.0)
         assert vwap.monitor({}, df, pkg) is None
 
     def test_cfg_none_falls_back_to_default(self):
         # cfg=None → must not crash on .get(); time-decay default
         # MONITOR_HOLD_WINDOW_MINUTES applies. Fresh package + frame
-        # in deviation territory → None.
-        df = _candles_with_close([90.0, 100.0, 92.0])
+        # in deviation territory (last close +0.5R from entry, under
+        # the +1R SL-to-BE trigger) → None.
+        df = _candles_with_close([90.0, 100.0, 91.0])
         pkg = _pkg(direction="long", entry=90.0, sl=88.0, tp=105.0)
         assert vwap.monitor(None, df, pkg) is None
 
     def test_invalid_hold_window_falls_back_to_default(self):
         # Garbage cfg value → fall back to module default rather than
         # crash. Default is 240 min; package is 30 min old → still
-        # within the window → no time-decay close.
-        df = _candles_with_close([90.0, 100.0, 92.0])
+        # within the window → no time-decay close. Last close 91 is
+        # +0.5R, below the SL-to-BE trigger.
+        df = _candles_with_close([90.0, 100.0, 91.0])
         pkg = _pkg(
             direction="long", entry=90.0, sl=88.0, tp=105.0,
             created_at=_iso_minutes_ago(30),
         )
         assert vwap.monitor({"monitor_hold_window_minutes": "abc"}, df, pkg) is None
+
+
+# ---------------------------------------------------------------------------
+# 6. SL-to-break-even fallback (strategy position awareness)
+# ---------------------------------------------------------------------------
+
+
+class TestSlToBreakeven:
+    """Defence-in-depth fallback: when price has moved >= 1R in the
+    trade's favour but none of the four close paths fired, slide SL to
+    entry to lock in partial profit. Last in the priority chain so any
+    close verdict on the same tick wins.
+
+    Frames are constructed so the live VWAP sits *beyond* the current
+    price (long: VWAP above price; short: VWAP below price), keeping
+    the VWAP-cross branch dormant. TP / SL distances are picked so
+    neither close fires either, which leaves SL-to-BE as the only
+    plausible verdict.
+    """
+
+    def test_long_at_one_r_returns_breakeven_sl(self):
+        # entry 100, sl 99, tp 110. 1R = 1. Last close 101 (= entry +1R).
+        # Frame [105, 105, 101] gives live vwap ~103.7 — well above 101,
+        # so VWAP-cross does not fire. TP at 110 is out of reach; SL at
+        # 99 is unchallenged. Only BE remains.
+        df = _candles_with_close([105.0, 105.0, 101.0])
+        pkg = _pkg(direction="long", entry=100.0, sl=99.0, tp=110.0)
+        verdict = vwap.monitor({}, df, pkg)
+        assert verdict == {"sl": 100.0}
+
+    def test_long_beyond_one_r_returns_breakeven_sl(self):
+        # entry 100, sl 99, tp 110. Price 102 (= +2R). VWAP frame keeps
+        # vwap above current price so vwap-cross stays dormant.
+        df = _candles_with_close([108.0, 108.0, 102.0])
+        pkg = _pkg(direction="long", entry=100.0, sl=99.0, tp=110.0)
+        verdict = vwap.monitor({}, df, pkg)
+        assert verdict == {"sl": 100.0}
+
+    def test_short_at_one_r_returns_breakeven_sl(self):
+        # entry 100, sl 101, tp 90. 1R = 1. Last close 99 (= entry -1R).
+        # Frame [95, 95, 99] gives live vwap ~96.3 — below 99, so the
+        # short VWAP-cross (price <= vwap) does NOT fire. TP at 90 is
+        # out of reach; SL at 101 is unchallenged. Only BE remains.
+        df = _candles_with_close([95.0, 95.0, 99.0])
+        pkg = _pkg(direction="short", entry=100.0, sl=101.0, tp=90.0)
+        verdict = vwap.monitor({}, df, pkg)
+        assert verdict == {"sl": 100.0}
+
+    def test_long_below_one_r_no_breakeven(self):
+        # Price 100.5 = +0.5R. Below the BE threshold → None.
+        # Same frame shape as the positive case so VWAP-cross stays
+        # dormant.
+        df = _candles_with_close([105.0, 105.0, 100.5])
+        pkg = _pkg(direction="long", entry=100.0, sl=99.0, tp=110.0)
+        assert vwap.monitor({}, df, pkg) is None
+
+    def test_long_already_at_breakeven_idempotent(self):
+        # SL already at entry (=BE). The shared helper must not re-emit
+        # the same value tick after tick — returns None for "no change".
+        df = _candles_with_close([105.0, 105.0, 102.0])
+        pkg = _pkg(direction="long", entry=100.0, sl=100.0, tp=110.0)
+        assert vwap.monitor({}, df, pkg) is None
+
+    def test_be_does_not_override_tp_cross(self):
+        # Price has both reached TP AND moved >= 1R. TP-cross is
+        # listed first in priority order; reason must be tp_cross,
+        # the verdict must be a close (not a sl-move).
+        df = _candles_with_close([100.0, 101.0, 105.5])
+        pkg = _pkg(direction="long", entry=100.0, sl=99.0, tp=105.0)
+        verdict = vwap.monitor({}, df, pkg)
+        assert verdict is not None
+        assert verdict.get("action") == "close"
+        assert verdict.get("reason") == "tp_cross"
+
+    def test_be_does_not_override_time_decay(self):
+        # Aged past hold window AND >= 1R reached. Time-decay must win
+        # — the position closes rather than locking BE for one more
+        # tick.
+        df = _candles_with_close([105.0, 105.0, 101.0])
+        pkg = _pkg(
+            direction="long", entry=100.0, sl=99.0, tp=110.0,
+            created_at=_iso_minutes_ago(99999),
+        )
+        verdict = vwap.monitor({"monitor_hold_window_minutes": 60}, df, pkg)
+        assert verdict is not None
+        assert verdict.get("reason") == "time_decay"
 
 
 # ---------------------------------------------------------------------------
