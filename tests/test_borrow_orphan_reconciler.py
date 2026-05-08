@@ -437,3 +437,138 @@ def test_repay_failure_recorded_as_error(tmp_db, monkeypatch):
     assert len(captured_audit) == 1
     assert captured_audit[0]["status"] == "failed"
     assert "Server unavailable" in (captured_audit[0]["error"] or "")
+
+
+# ---------------------------------------------------------------------------
+# Post-rejection state reset — pre-placement rejections must not pause
+# the borrow reconciler. Bybit ErrCode 170131 trade-875 (2026-05-08
+# 12:58 UTC) is the pinning case: the rejection landed as
+# ``status='exchange_rejected'`` and would have stalled the next 60 s
+# of borrow reconciliation, even though no borrow could possibly have
+# been created (Bybit's auto-borrow on spot-margin shorts is atomic
+# with order placement — a rejected order means no borrow).
+# ---------------------------------------------------------------------------
+
+
+class TestRejectionDoesNotPauseBorrowReconciler:
+    """``status`` in {``rejected``, ``exchange_rejected``,
+    ``rejected_too_small``} represents pre-placement refusals — the
+    order never reached the exchange, so no borrow can exist. These
+    rows must NOT count as "recent activity" for grace-window
+    purposes.
+
+    Defence boundary: ``closed`` and ``orphaned`` rows DO stay
+    inside the grace window — they were live at the exchange (so a
+    borrow may exist) and the post-close repay verify may still be
+    racing the read. See ``test_freshly_placed_trade_blocks_repay``
+    above for that contract.
+    """
+
+    @pytest.mark.parametrize(
+        "rejected_status",
+        ["exchange_rejected", "rejected", "rejected_too_small"],
+    )
+    def test_recent_pre_placement_rejection_does_not_block_repay(
+        self, tmp_db, monkeypatch, rejected_status,
+    ):
+        """A 5-second-old ``status='exchange_rejected'`` (or sibling)
+        row must NOT shield an unrelated orphan borrow from being
+        repaid. Without this, a rejection cascade locks the
+        reconciler out for 60 s every miss.
+        """
+        # Simulate trade 875: a fresh rejection on the spot-margin
+        # account.
+        _insert_trade(
+            tmp_db, account_id="bybit_2",
+            symbol="BTCUSDT", direction="short",
+            status=rejected_status, age_seconds=5,
+        )
+        client = _RepayClient(wallet_response=_wallet_with([
+            {"coin": "BTC", "walletBalance": "0", "borrowAmount": "0.001"},
+        ]))
+        monkeypatch.setattr(
+            "src.runtime.order_monitor._build_client_for_cfg",
+            lambda cfg: client,
+        )
+        summary = _reconcile_orphan_borrows(tmp_db)
+        # The fresh rejection must NOT count as "recent activity" —
+        # the orphan borrow gets repaid promptly.
+        assert summary["repaid"] == 1
+        assert summary["skipped_recent"] == 0
+        assert client.repay_calls == [{"coin": "BTC", "qty": "0.001"}]
+
+    def test_recent_closed_trade_still_shields_borrow(
+        self, tmp_db, monkeypatch,
+    ):
+        """Defence boundary: ``status='closed'`` aged 5 s still
+        triggers the freshness shield. A closed trade WAS live at
+        the exchange so its post-close repay may still be racing
+        the read — the protection from
+        ``test_freshly_placed_trade_blocks_repay`` must remain
+        intact after the rejection-status fix.
+        """
+        _insert_trade(
+            tmp_db, account_id="bybit_2",
+            symbol="BTCUSDT", direction="short",
+            status="closed", age_seconds=5,
+        )
+        client = _RepayClient(wallet_response=_wallet_with([
+            {"coin": "BTC", "walletBalance": "0", "borrowAmount": "0.001"},
+        ]))
+        monkeypatch.setattr(
+            "src.runtime.order_monitor._build_client_for_cfg",
+            lambda cfg: client,
+        )
+        summary = _reconcile_orphan_borrows(tmp_db)
+        assert summary["repaid"] == 0
+        assert summary["skipped_recent"] == 1
+        assert client.repay_calls == []
+
+    def test_recent_orphaned_trade_still_shields_borrow(
+        self, tmp_db, monkeypatch,
+    ):
+        """``status='orphaned'`` similarly stays inside the grace
+        window — the trade reached the exchange and may have a
+        borrow that the post-orphan repay verify is still racing.
+        """
+        _insert_trade(
+            tmp_db, account_id="bybit_2",
+            symbol="BTCUSDT", direction="short",
+            status="orphaned", age_seconds=5,
+        )
+        client = _RepayClient(wallet_response=_wallet_with([
+            {"coin": "BTC", "walletBalance": "0", "borrowAmount": "0.001"},
+        ]))
+        monkeypatch.setattr(
+            "src.runtime.order_monitor._build_client_for_cfg",
+            lambda cfg: client,
+        )
+        summary = _reconcile_orphan_borrows(tmp_db)
+        assert summary["repaid"] == 0
+        assert summary["skipped_recent"] == 1
+        assert client.repay_calls == []
+
+    def test_repeated_rejections_do_not_extend_grace_pause(
+        self, tmp_db, monkeypatch,
+    ):
+        """Three rejections in a row must not stack into a
+        180-second pause. Each rejection still doesn't qualify as
+        "recent placement"; the borrow reconciler runs on the very
+        next tick.
+        """
+        for offset in (15, 10, 5):
+            _insert_trade(
+                tmp_db, account_id="bybit_2",
+                symbol="BTCUSDT", direction="short",
+                status="exchange_rejected", age_seconds=offset,
+            )
+        client = _RepayClient(wallet_response=_wallet_with([
+            {"coin": "BTC", "walletBalance": "0", "borrowAmount": "0.001"},
+        ]))
+        monkeypatch.setattr(
+            "src.runtime.order_monitor._build_client_for_cfg",
+            lambda cfg: client,
+        )
+        summary = _reconcile_orphan_borrows(tmp_db)
+        assert summary["repaid"] == 1
+        assert client.repay_calls == [{"coin": "BTC", "qty": "0.001"}]
