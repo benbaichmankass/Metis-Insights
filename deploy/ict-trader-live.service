@@ -8,6 +8,14 @@ Type=simple
 User=ubuntu
 WorkingDirectory=/home/ubuntu/ict-trading-bot
 EnvironmentFile=/home/ubuntu/ict-trading-bot/.env
+# 2026-05-08 operator directive: tick every minute (still on 5-min
+# candles — strategy timeframe unchanged). HEARTBEAT_INTERVAL stays
+# at 60 s so liveness signal fires in lock-step with the tick. Both
+# can be overridden in /home/ubuntu/ict-trading-bot/.env if a future
+# operator wants a slower cadence; the values here are unit-level
+# defaults that win when the .env doesn't set them.
+Environment=TICK_INTERVAL_SECONDS=60
+Environment=HEARTBEAT_INTERVAL_SECONDS=60
 ExecStart=/usr/bin/python3 -u -B -m src.main
 Restart=always
 RestartSec=10

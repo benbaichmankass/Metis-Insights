@@ -146,7 +146,7 @@ def build_settings_from_env() -> dict:
         "risk_per_trade":     float(_env("RISK_PER_TRADE")),
         "max_qty":            float(_env("MAX_QTY")),
         "log_level":          _env("LOG_LEVEL") or "INFO",
-        "tick_interval":      int(_env("TICK_INTERVAL_SECONDS") or "900"),
+        "tick_interval":      int(_env("TICK_INTERVAL_SECONDS") or "60"),
         "loop":               _env("LOOP").lower() == "true",
         # Hard order-layer risk guards — uppercase keys match safe_place_order() lookups.
         # None when unset; safe_place_order() skips the guard when value is None.

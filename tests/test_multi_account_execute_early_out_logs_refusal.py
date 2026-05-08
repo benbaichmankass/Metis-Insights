@@ -1,25 +1,23 @@
 """Regression: ``Coordinator.multi_account_execute`` must land a refusal
-row in ``trade_journal.db::trades`` for every package that was logged but
-not dispatched.
+row in ``trade_journal.db::trades`` for every package that *enters*
+dispatch but is refused by a downstream gate.
 
-Pre-fix the dispatcher had three early-out branches that produced a
+Pre-fix the dispatcher had early-out branches that produced a
 result-row with an ``error`` field but skipped the
-``log_rejection_to_journal`` call:
+``log_rejection_to_journal`` call. Without a matching ``trades`` row
+the operator's ``/packages`` view rendered the package as "open with
+no linked trade" and no rejection counterpart explained why.
 
-* ``skipped_not_assigned`` — pkg.strategy not in account.strategies
+Two refusal kinds are exercised here:
+
 * ``sizing_failed`` — risk_manager.position_size raised
 * ``below_min_balance`` — sized_qty <= 0
 
-When any of those fired, ``_log_new_order_package`` had already
-inserted a row into ``order_packages``. With no matching ``trades`` row
-the operator's ``/packages`` view rendered the package as "open with
-no linked trade" and no rejection counterpart explained why — exactly
-the symptom that surfaced for VWAP → bybit_2 packages whose dispatch
-was suppressed by the per-account strategy filter / sizing path.
-
-Post-fix every early-out branch writes ``status='rejected'`` with the
-matching reason token so ``/packages`` can pair every open package
-with a journal reason.
+Note: ``skipped_not_assigned`` *used* to be a third refusal path
+covered here. As of 2026-05-08 the per-account strategy filter runs
+*before* the dispatch loop and removes unmatched accounts from
+``results`` entirely (no rejection row written). See
+``test_s029_pr1_account_strategy_filter.py`` for that contract.
 """
 from __future__ import annotations
 
@@ -116,40 +114,6 @@ def stub_execute_pkg():
         yield m
 
 
-class TestStrategyFilterLogsRefusal:
-    """``skipped_not_assigned`` — pkg.strategy not in account.strategies.
-
-    The unassigned account must produce both a result row (so the
-    operator sees the skip) AND a ``trades`` row with
-    ``status='rejected'`` so ``/packages`` can pair the open package
-    with the refusal reason.
-    """
-
-    def test_vwap_to_turtle_soup_only_account_logs_rejection(
-        self, coord, accounts_yaml, tmp_journal, stub_execute_pkg,
-    ):
-        results = coord.multi_account_execute(
-            _pkg("vwap"),
-            accounts_path=accounts_yaml,
-            dry_run=True,
-            balance_fetcher=lambda _a: 10_000.0,
-        )
-
-        # Existing contract: skipped account produces a result row.
-        skipped = [r for r in results
-                   if r["error"] and "skipped_not_assigned" in r["error"]]
-        assert len(skipped) == 1
-        assert skipped[0]["name"] == "bybit_1"
-
-        # New contract: every skipped account also lands a rejection row.
-        rows = _refusal_rows(tmp_journal)
-        assert len(rows) == 1
-        row = rows[0]
-        assert row["account_id"] == "bybit_1"
-        assert row["strategy_name"] == "vwap"
-        assert "skipped_not_assigned" in row["entry_reason"]
-
-
 class TestSizingFailedLogsRefusal:
     """``sizing_failed`` — RiskManager.position_size raised.
 
@@ -161,8 +125,9 @@ class TestSizingFailedLogsRefusal:
     def test_position_size_raises_logs_rejection(
         self, coord, accounts_yaml, tmp_journal, stub_execute_pkg,
     ):
-        # Force position_size to raise on every account so both rows
-        # land in the rejection journal.
+        # Force position_size to raise — only bybit_2 reaches the sizer
+        # for a vwap package (per-account strategy pre-filter; see
+        # test_s029_pr1_account_strategy_filter.py).
         with patch(
             "src.units.accounts.risk.RiskManager.position_size",
             side_effect=ValueError("test_sizing_explosion"),
@@ -175,10 +140,6 @@ class TestSizingFailedLogsRefusal:
             )
 
         rows = _refusal_rows(tmp_journal)
-        # Both accounts hit sizing_failed (the strategy filter still
-        # skips bybit_1 first → its row reads skipped_not_assigned;
-        # bybit_2 reaches sizing_failed). So we expect at least one
-        # sizing_failed row keyed to bybit_2.
         sizing = [r for r in rows
                   if "sizing_failed" in (r["entry_reason"] or "")]
         assert len(sizing) == 1
@@ -194,8 +155,8 @@ class TestBelowMinBalanceLogsRefusal:
         self, coord, accounts_yaml, tmp_journal, stub_execute_pkg,
     ):
         # balance below min_balance_usd → position_size returns 0.0 →
-        # below_min_balance early-out fires for bybit_2 (the vwap-
-        # assigned account; bybit_1 hits skipped_not_assigned first).
+        # below_min_balance early-out fires for bybit_2 (the only
+        # account left after the per-account strategy pre-filter).
         coord.multi_account_execute(
             _pkg("vwap"),
             accounts_path=accounts_yaml,

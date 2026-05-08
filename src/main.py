@@ -173,7 +173,13 @@ def main() -> None:
     telegram_client = _build_telegram_client()
 
     loop = str(os.environ.get("LOOP", "true")).strip().lower() not in {"false", "0", "no"}
-    interval = int(os.environ.get("TICK_INTERVAL_SECONDS", "900"))
+    # 2026-05-08 operator directive: re-evaluate every minute, on
+    # 5-min candles. Strategies are unchanged — they still operate on
+    # 5-min bars — but a 1-min tick gives up to 4 min faster reaction
+    # to a fresh candle close. Override per environment via
+    # TICK_INTERVAL_SECONDS in the systemd unit / .env if a slower
+    # cadence is needed (e.g. backtests, reduced API budget).
+    interval = int(os.environ.get("TICK_INTERVAL_SECONDS", "60"))
 
     if not loop:
         logger.info("LOOP=false: running single tick.")
