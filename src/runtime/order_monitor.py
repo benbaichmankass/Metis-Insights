@@ -713,9 +713,10 @@ def _load_account_cfgs_for_reconcile() -> Dict[str, Dict[str, Any]]:
 
     Account dicts carry the keys ``account_open_positions`` reads
     (``account_id``, ``exchange``, ``api_key_env``, ``api_secret_env``,
-    ``mode``). Best-effort — any read failure returns an empty dict so
-    the reconciler runs as a no-op rather than orphaning trades on a
-    config-load error.
+    ``mode``) plus ``market_type`` so the S-055 borrow-orphan
+    reconciler can filter to spot-margin accounts. Best-effort — any
+    read failure returns an empty dict so the reconciler runs as a
+    no-op rather than orphaning trades on a config-load error.
     """
     try:
         import yaml  # type: ignore
@@ -745,6 +746,7 @@ def _load_account_cfgs_for_reconcile() -> Dict[str, Dict[str, Any]]:
             "api_key_env": cfg.get("api_key_env"),
             "api_secret_env": cfg.get("api_secret_env"),
             "mode": cfg.get("mode") or "live",
+            "market_type": cfg.get("market_type") or "spot",
         }
     return out
 
@@ -981,6 +983,341 @@ def _sweep_unlinked_packages(db) -> int:
         return 0
 
 
+# ---------------------------------------------------------------------------
+# Borrow-orphan reconciler — S-055 fail-safe
+# ---------------------------------------------------------------------------
+#
+# Operator-confirmed Tier-2 ask, 2026-05-08: spot-margin accounts can
+# leave outstanding ``borrowAmount > 0`` on coins even when no DB-open
+# trade backs them. Causes seen in the wild:
+#
+#   * a SHORT was placed and closed across a process restart without
+#     the post-close auto-repay invoking;
+#   * Bybit's auto-repay returned a partial result (e.g. on a partial
+#     fill mid-config-change) and left a stub borrow line.
+#
+# A stuck BTC borrow consumes the borrow line and the next short
+# refuses with S-054's zero-capacity rule. The fail-safe is to detect
+# "borrow > 0 + no DB-open trade for that side + no fresh trade in
+# grace window" and call the V5 repay endpoint.
+#
+# Behaviour:
+#   1. For each spot-margin account in accounts.yaml (live mode, creds
+#      resolvable):
+#        a. Fetch the wallet via ``get_wallet_balance`` (UNIFIED).
+#        b. For each coin row with ``borrowAmount > epsilon``:
+#             - USDT borrow → underwrites a long-side position;
+#               cross-reference open-trades for ``direction='long'``.
+#             - Non-USDT borrow → underwrites a short on
+#               ``<COIN>USDT``; cross-reference open-trades for
+#               ``direction='short'`` AND ``symbol LIKE '<COIN>%'``.
+#        c. If no matching open trade row → call ``_spot_margin_repay``.
+#   2. Skip the account if any of its trades (any status) was
+#      created within ``RECONCILER_GRACE_SECONDS`` — same window
+#      shape as ``_reconcile_open_trades`` (PR #501). Protects against
+#      a freshly-placed trade that hasn't surfaced as ``status='open'``
+#      to the SQL read yet.
+#   3. Emit one structured audit row per repay via
+#      ``signal_audit_logger.log_signal`` with action
+#      ``borrow_orphan_repaid``.
+#
+# Best-effort: every step is wrapped, one bad account never aborts the
+# sweep, repay failures degrade to a logger.warning + a future-tick
+# retry. The ``MONITOR_RECONCILE_ENABLED`` flag gates the whole module
+# (same as ``_reconcile_open_trades``).
+
+
+def _is_spot_margin_cfg(cfg: Dict[str, Any]) -> bool:
+    """Return True when *cfg* declares ``market_type: spot-margin``."""
+    return str(cfg.get("market_type") or "").strip().lower() == "spot-margin"
+
+
+def _account_has_recent_trade(
+    db, account_id: str, *, grace_seconds: float, now: datetime,
+) -> bool:
+    """True when *account_id* has any trade row younger than the grace
+    window. Caller already holds the live snapshot; this is a defensive
+    "did we just place / close something here?" check that mirrors the
+    PR #501 grace logic in ``_reconcile_open_trades``.
+    """
+    if grace_seconds <= 0:
+        return False
+    try:
+        conn = db.connect()
+        try:
+            conn.row_factory = __import__("sqlite3").Row
+            row = conn.execute(
+                "SELECT created_at FROM trades "
+                "WHERE account_id=? AND COALESCE(is_backtest,0)=0 "
+                "ORDER BY id DESC LIMIT 1",
+                (account_id,),
+            ).fetchone()
+        finally:
+            conn.close()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "_account_has_recent_trade: read failed for %s: %s",
+            account_id, exc,
+        )
+        return False
+    if row is None:
+        return False
+    created = _parse_created_at(row["created_at"])
+    if created is None:
+        return False
+    return (now - created).total_seconds() < grace_seconds
+
+
+def _open_trades_for_account(db, account_id: str) -> List[Dict[str, Any]]:
+    """Return ``status='open'`` non-backtest trades for *account_id*.
+    Empty list on any read failure — best-effort.
+    """
+    try:
+        conn = db.connect()
+        try:
+            conn.row_factory = __import__("sqlite3").Row
+            rows = conn.execute(
+                "SELECT id, symbol, direction "
+                "FROM trades "
+                "WHERE account_id=? AND status='open' "
+                "  AND COALESCE(is_backtest,0)=0",
+                (account_id,),
+            ).fetchall()
+        finally:
+            conn.close()
+        return [dict(r) for r in rows]
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "_open_trades_for_account: read failed for %s: %s",
+            account_id, exc,
+        )
+        return []
+
+
+def _open_trade_backs_borrow(
+    open_trades: List[Dict[str, Any]],
+    *,
+    coin: str,
+) -> bool:
+    """Match shape mirrors ``_spot_margin_open_positions`` in
+    ``clients.py``: a USDT borrow is underwritten by ANY open long;
+    a non-USDT borrow is underwritten by an open short on
+    ``<coin>USDT``.
+    """
+    coin_u = (coin or "").upper()
+    if not coin_u:
+        return False
+    if coin_u == "USDT":
+        return any(
+            str(t.get("direction") or "").lower() == "long"
+            for t in open_trades
+        )
+    expected_symbol_prefix = coin_u
+    return any(
+        str(t.get("direction") or "").lower() == "short"
+        and str(t.get("symbol") or "").upper().startswith(expected_symbol_prefix)
+        for t in open_trades
+    )
+
+
+def _build_client_for_cfg(cfg: Dict[str, Any]):
+    """Return a Bybit client for *cfg*, or ``None`` when creds are
+    missing / the exchange isn't bybit. The borrow reconciler is
+    Bybit-only because UTA Spot Margin is a Bybit-specific surface.
+    """
+    if (cfg.get("exchange") or "").lower() != "bybit":
+        return None
+    try:
+        from src.units.accounts.clients import bybit_client_for
+        return bybit_client_for(cfg)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "_build_client_for_cfg(%s): %s", cfg.get("account_id"), exc,
+        )
+        return None
+
+
+def _emit_borrow_orphan_audit(
+    *,
+    account_id: str,
+    coin: str,
+    qty: float,
+    repay_outcome: Dict[str, Any],
+    reason: str,
+) -> None:
+    """Append a ``borrow_orphan_repaid`` row to
+    ``runtime_logs/signal_audit.jsonl``. Best-effort — never raises.
+    """
+    try:
+        from src.utils.signal_audit_logger import log_signal
+        log_signal({
+            "event": "outcome",
+            "action": "borrow_orphan_repaid",
+            "status": "ok" if repay_outcome.get("ok") else "failed",
+            "account_id": account_id,
+            "coin": coin,
+            "qty": qty,
+            "reason": reason,
+            "error": repay_outcome.get("error"),
+        })
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "_emit_borrow_orphan_audit: write failed for %s/%s: %s",
+            account_id, coin, exc,
+        )
+
+
+def _reconcile_orphan_borrows(db) -> Dict[str, int]:
+    """S-055 — sweep spot-margin accounts for outstanding borrows that
+    don't correspond to an open trade row, and force a repay.
+
+    Returns a summary
+    ``{checked, repaid, skipped_recent, skipped_no_creds,
+       skipped_holding_trade, errors}``. The outer
+    ``run_monitor_tick`` includes this in the per-tick log when
+    non-trivial.
+
+    No-op when ``MONITOR_RECONCILE_ENABLED`` is unset/false (same gate
+    as ``_reconcile_open_trades``). Best-effort end-to-end — each
+    step is wrapped so one bad account never aborts the whole sweep.
+    """
+    summary = {
+        "checked": 0,
+        "repaid": 0,
+        "skipped_recent": 0,
+        "skipped_no_creds": 0,
+        "skipped_holding_trade": 0,
+        "errors": 0,
+    }
+    if not _reconcile_enabled():
+        return summary
+
+    cfgs = _load_account_cfgs_for_reconcile()
+    if not cfgs:
+        return summary
+
+    grace_seconds = _grace_window_seconds()
+    now = datetime.now(timezone.utc)
+
+    # Lazy-import the execute helpers so that test harnesses with no
+    # pybit installed (CI containers etc.) don't pay the import cost
+    # when the reconciler is disabled.
+    from src.units.accounts.execute import (
+        _BORROW_REPAY_EPSILON,
+        _fetch_spot_coin_balances,
+        _spot_margin_repay,
+    )
+
+    for aid, cfg in cfgs.items():
+        if not _is_spot_margin_cfg(cfg):
+            continue
+        if str(cfg.get("mode") or "live").lower() in {
+            "dry", "dry_run", "dry-run", "paper",
+        }:
+            continue
+
+        summary["checked"] += 1
+
+        client = _build_client_for_cfg(cfg)
+        if client is None:
+            summary["skipped_no_creds"] += 1
+            continue
+
+        # The bot trades a single base symbol per spot-margin account
+        # today (BTCUSDT on bybit_2). Reading the wallet via that
+        # symbol gives us the canonical (base, USDT) borrow primitives;
+        # ETH-side / SOL-side borrows surface in the per-coin loop
+        # below by walking the raw wallet response.
+        try:
+            resp = client.get_wallet_balance(accountType="UNIFIED") or {}
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "_reconcile_orphan_borrows: wallet read failed for %s: %s",
+                aid, exc,
+            )
+            summary["errors"] += 1
+            continue
+
+        coins = (
+            ((resp.get("result") or {}).get("list") or [{}])[0].get("coin", [])
+        )
+        # Pre-compute the per-account checks we'll need for every
+        # outstanding-borrow coin so the inner loop stays cheap.
+        recent = _account_has_recent_trade(
+            db, aid, grace_seconds=grace_seconds, now=now,
+        )
+        open_trades = _open_trades_for_account(db, aid)
+
+        for coin in coins:
+            ticker = (coin.get("coin") or "").upper()
+            if not ticker:
+                continue
+            try:
+                outstanding = float(coin.get("borrowAmount") or 0.0)
+            except (TypeError, ValueError):
+                continue
+            if outstanding <= _BORROW_REPAY_EPSILON:
+                continue
+
+            if recent:
+                summary["skipped_recent"] += 1
+                continue
+            if _open_trade_backs_borrow(open_trades, coin=ticker):
+                summary["skipped_holding_trade"] += 1
+                continue
+
+            # Orphan borrow → repay.
+            try:
+                repay_result = _spot_margin_repay(
+                    client, coin=ticker, qty=outstanding,
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "_reconcile_orphan_borrows: repay raised for %s/%s: %s",
+                    aid, ticker, exc,
+                )
+                summary["errors"] += 1
+                continue
+
+            if repay_result.get("ok"):
+                summary["repaid"] += 1
+                _emit_borrow_orphan_audit(
+                    account_id=aid,
+                    coin=ticker,
+                    qty=outstanding,
+                    repay_outcome=repay_result,
+                    reason=(
+                        "no DB-open trade backs this borrow + outside "
+                        "grace window"
+                    ),
+                )
+            else:
+                summary["errors"] += 1
+                _emit_borrow_orphan_audit(
+                    account_id=aid,
+                    coin=ticker,
+                    qty=outstanding,
+                    repay_outcome=repay_result,
+                    reason="repay attempt failed — will retry next tick",
+                )
+
+    if (
+        summary["repaid"]
+        or summary["errors"]
+        or summary["skipped_recent"]
+        or summary["skipped_holding_trade"]
+    ):
+        logger.info(
+            "_reconcile_orphan_borrows: checked=%d repaid=%d "
+            "skipped_recent=%d skipped_holding_trade=%d "
+            "skipped_no_creds=%d errors=%d",
+            summary["checked"], summary["repaid"],
+            summary["skipped_recent"], summary["skipped_holding_trade"],
+            summary["skipped_no_creds"], summary["errors"],
+        )
+    return summary
+
+
 def _extract_package_id(notes_raw: Optional[str]) -> Optional[str]:
     """Pull ``order_package_id`` out of the trades.notes JSON blob if
     present. Best-effort — returns None on any decode failure."""
@@ -1164,5 +1501,17 @@ def run_monitor_tick(
         _sweep_unlinked_packages(db)
     except Exception as exc:  # noqa: BLE001
         logger.warning("run_monitor_tick: unlinked-pkg sweep raised: %s", exc)
+
+    # S-055: sweep spot-margin accounts for outstanding ``borrowAmount``
+    # that no DB-open trade backs (the operator-confirmed fail-safe for
+    # stale borrow lines from prior runs / partial fills / mid-config
+    # changes). Same MONITOR_RECONCILE_ENABLED gate as the open-trades
+    # reconciler. Best-effort — never raises.
+    try:
+        borrow_recon = _reconcile_orphan_borrows(db)
+        if borrow_recon.get("repaid") or borrow_recon.get("errors"):
+            summaries["__borrow_reconciler__"] = borrow_recon
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("run_monitor_tick: borrow reconciler raised: %s", exc)
 
     return summaries
