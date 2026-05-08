@@ -88,6 +88,8 @@ def enqueue_orphan_reconciliation(
     db_trade_id: Any,
     linked_package_id: Optional[str],
     reason: str = "reconciler",
+    classification: Optional[str] = None,
+    classification_note: Optional[str] = None,
     priority: str = "high",
 ) -> Optional[Path]:
     """Drop a Telegram-ready JSON ping for a monitor-loop orphan match.
@@ -101,19 +103,30 @@ def enqueue_orphan_reconciliation(
     seeing the close, and the DB row has been re-tagged
     ``status='orphaned'`` with ``exit_reason='reconciler'``.
 
+    *classification* is an optional tag distinguishing "this trade
+    can ONLY have been closed by an external action" (spot-margin —
+    no exchange-side SL/TP path exists) from "could be either SL/TP
+    or operator close" (derivatives). Surfaced in the body so the
+    operator knows whether to investigate or just acknowledge.
+
     The body is operator-actionable (`/last5` will show the linked
     trade) and intentionally lean — no SDK exception payloads, no
     balance values, just identifiers.
     """
     try:
-        body = (
-            "🧹 Monitor reconciler — orphaned trade swept\n"
-            f"Account: {account}\n"
-            f"Symbol: {symbol} | Side: {side}\n"
-            f"DB trade id: {db_trade_id}\n"
-            f"Package: {linked_package_id or '(unlinked)'}\n"
-            f"Reason: {reason}"
-        )[:1024]
+        lines = [
+            "🧹 Monitor reconciler — orphaned trade swept",
+            f"Account: {account}",
+            f"Symbol: {symbol} | Side: {side}",
+            f"DB trade id: {db_trade_id}",
+            f"Package: {linked_package_id or '(unlinked)'}",
+            f"Reason: {reason}",
+        ]
+        if classification:
+            lines.append(f"Classification: {classification}")
+        if classification_note:
+            lines.append(f"Note: {classification_note}")
+        body = "\n".join(lines)[:1024]
         payload = {"priority": priority, "body": body}
         PENDING_PINGS_DIR.mkdir(parents=True, exist_ok=True)
         name = f"{int(uuid.uuid4().int % 10**12):012d}-reconciler.json"
