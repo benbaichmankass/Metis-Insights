@@ -35,11 +35,12 @@ DOC = REPO_ROOT / "docs" / "claude" / "operator-actions.md"
 EXPECTED_ACTIONS = {
     "status-check": "status_check.sh",
     "pull-latest-logs": "pull_logs.sh",
+    "pull-and-deploy": "pull_and_deploy.sh",
     "restart-bot-service": "restart_bot.sh",
     "reboot-vm": "reboot_vm.sh",
 }
 
-TIER_2_ACTIONS = {"restart-bot-service", "reboot-vm"}
+TIER_2_ACTIONS = {"pull-and-deploy", "restart-bot-service", "reboot-vm"}
 
 
 @pytest.fixture(scope="module")
