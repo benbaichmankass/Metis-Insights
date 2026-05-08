@@ -135,11 +135,16 @@ Multiple code paths look at multiple files for the same data:
 - Status: **open** (not yet fixed). Tracked for separate PR. Fix shape: small grace window (e.g. ≥30 s since `created_at`) before a trade is eligible for orphan-stamping, OR consume the `place_order` response directly so we know whether the order actually got an exchange ID.
 - Check: trade_id field on the trade row + matching Bybit order ID in journalctl. If both exist, the orphan stamp is a false positive.
 
-### 2026-05-08: post-restart VWAP tick over-sizes vs. pre-restart sibling
+### 2026-05-08: post-restart VWAP tick over-sizes vs. pre-restart sibling (S-053)
 - Symptom: same VWAP signal pre-/post-service-restart sized 0.0090 BTC the first time and 0.0580 BTC the second time (6.4× bigger). Bybit rejected the second order with `170131 insufficient balance`.
-- Cause: under investigation. Suspects: stale `available_usd` cache in the spot-margin sizer's borrow-capacity calc, or `_fetch_spot_coin_balances` returning different `totalEquity` / `quote_borrow_usd` values across the restart.
-- Status: **open** — see the new-session prompt at the end of CHECKPOINT_LOG.md (or whatever handoff doc the operator is using).
-- Check: pull `journalctl?unit=ict-trader-live&lines=200` around the restart and compare the two ticks' `_fetch_spot_coin_balances` debug log lines (`balance=`, `available=`, `total_account=`).
+- Cause: the "restart" was incidental — the bug fires whenever an open spot-margin SHORT exists on the wallet. After a successful borrow-and-sell short, Bybit credits the sale proceeds to the operator's free USDT line (~+$719 on a 0.009 BTC short at $79850). The next call to `_fetch_spot_coin_balances` legitimately sees `quote_usdt ≈ $854.63` while the operator's net equity is unchanged at $194 (the BTC borrow liability nets the proceeds). The coordinator's spot-margin override was passing `quote_usdt` as `balance_usd` to the sizer; the sizer treated the inflated cash as fresh risk capital and the next short's qty came out 6× too big. Two compounding sub-bugs:
+  1. **Wrong collateral primitive**: `quote_usdt` (free USDT) is not borrow-state-invariant. The right primitive is `totalEquity` from Bybit's UNIFIED wallet (free + locked across all coins, in USD, net of borrow liability).
+  2. **Missing SHORT-side notional cap**: `_apply_spot_margin_rules` rule 3 (S-049) only fired for longs — `package.direction == "long"` guard. So even after fixing the collateral, an exhausted BTC borrow line could still trip 170131. Pre-S-053 the SHORT-side fall-back was `max_borrow_btc` (rule 1, a static per-account cap of 0.5 BTC) — useless for "live remaining BTC borrow capacity".
+- Fix (PR S-053):
+  1. `coordinator.py` spot-margin override now passes `total_account_usd` as `balance` (with fall-back to `quote_usdt` when Bybit's response lacks `totalEquity`). Direction-aware `available_usd`: longs get `(quote_usdt + quote_borrow_usd) × buffer`, shorts get `(base_usd_value + base_borrow_usd) × buffer`.
+  2. `risk.py::_apply_spot_margin_rules` rule 3 now fires for both directions — the `package.direction == "long"` guard is dropped.
+- Check: regression tests in `tests/units/accounts/test_risk_spot_margin.py::TestPostRestartStableSizing` and `tests/test_s047_t3_spot_margin_routing.py::TestSpotMarginUsesNetEquity`. In production, pull `journalctl?unit=ict-trader-live&lines=200` and verify two consecutive VWAP-fire ticks produce qtys whose ratio is explained only by `risk_distance` variance (no 6× jumps).
+- Note: the strategy-monocle gate would normally prevent a second tick from firing while the first short is open. It misses the second tick only because the monitor reconciler races the freshly-placed trade and stamps it `orphaned` (separate bug, still open). The S-053 fix is robust to that interaction — if the monocle re-fires, the sizer no longer over-sizes.
 
 ## PM-side / web-sandbox session conventions (2026-05-08)
 

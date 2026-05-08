@@ -448,17 +448,20 @@ class RiskManager:
              the proposed qty. If that fee exceeds the remaining
              daily-loss budget, qty is scaled down to fit. Same
              shape as the existing daily-loss-budget gate (S-026 G3).
-          3. **(S-049)** ``available_usd`` notional cap — for longs,
-             ``qty * entry`` must fit inside the live exchange-side
-             ``availableBalance`` (free USDT collateral + free USDT
-             borrow capacity, less a fee headroom buffer applied by
-             the caller). When the rule's `qty * entry > available_usd`,
-             qty is scaled down to ``available_usd / entry`` and
-             floor-rounded. This is what stops Bybit ErrCode 170131
-             ("Insufficient balance") at the matching engine: the
-             pre-S-049 sizer used ``walletBalance - locked`` per coin
-             as the upper bound, which excludes the borrow line and
-             leaves zero fee headroom on a balance-equal order.
+          3. **(S-049 long + S-053 short)** ``available_usd``
+             notional cap — ``qty * entry`` must fit inside the live
+             exchange-side availability for whichever side the order
+             spends. The caller sets ``available_usd`` direction-
+             awarely: longs see ``free_usdt + usdt_borrow_capacity``,
+             shorts see ``free_base_usd + base_borrow_capacity``;
+             both are post-fee-buffer. When ``qty * entry >
+             available_usd``, qty is scaled to ``available_usd /
+             entry`` and floor-rounded. This is what stops Bybit
+             ErrCode 170131 ("Insufficient balance") at the matching
+             engine. S-049 shipped the long-side cap; S-053 closes
+             the symmetric SHORT-side gap that let an open spot-
+             margin short inflate free USDT (sale proceeds) and
+             over-size the next tick by ~6×.
           4. ``liquidation_buffer_pct`` is checked against the SL
              distance. The liquidation distance implied by the
              proposed qty + USDT collateral is roughly
@@ -472,15 +475,23 @@ class RiskManager:
              collateral (no borrow needed) skip the buffer check —
              no leverage, no liquidation.
 
-        ``balance_usd`` is interpreted as USDT **collateral** (free
-        cash) — what the account would actually lose at liquidation.
-        ``available_usd`` (S-049) is collateral *plus* borrow capacity
-        in USDT, which is the primitive Bybit's matching engine
-        actually checks before accepting a leveraged spot order.
-        Liquidation math always uses ``balance_usd``; sizing caps use
-        ``available_usd``. When ``available_usd`` is None (the default
-        and the pre-S-049 contract), it falls back to ``balance_usd``,
-        making the new rule a no-op — sizing is bit-identical to T2.
+        ``balance_usd`` is interpreted as the wallet's **net equity in
+        USD** — what the account would actually lose at liquidation.
+        For spot-margin specifically the caller passes Bybit's
+        ``totalEquity`` (S-053): free USDT + free base coin in USD,
+        net of any open borrow liability. Stable across borrow state,
+        unlike free USDT alone, which inflates by the sale proceeds
+        of the borrowed coin after a successful short. Pre-S-053 the
+        sizer received free USDT and over-sized 6× on the next tick
+        once a short was open.
+
+        ``available_usd`` (S-049 + S-053) is the live exchange-side
+        availability for the side the order spends — direction-aware.
+        Bybit validates ``cost ≤ availableBalance`` before consulting
+        borrow capacity; sizing caps use this primitive so the order
+        never exceeds what the matching engine accepts. Liquidation
+        math always uses ``balance_usd``. When ``available_usd`` is
+        None, it falls back to ``balance_usd`` (pre-S-049 contract).
 
         Non-spot-margin sizing is **bit-identical** to the pre-T2
         contract: when *market_type* is anything other than
@@ -598,19 +609,22 @@ class RiskManager:
         risk_distance: float,
         loss_budget_remaining: float,
     ) -> float:
-        """S-047 T2 + S-049 — spot-margin sizing rules layered on the base sizer.
+        """S-047 T2 + S-049 + S-053 — spot-margin sizing rules layered
+        on the base sizer.
 
         Four rules in order: max-borrow CAP → borrow-fee SCALE →
-        notional-vs-available CAP (S-049) → liquidation-buffer REFUSAL.
-        See ``position_size`` docstring for the rationale. Returns the
-        adjusted qty (or 0.0 on refusal).
+        notional-vs-available CAP (S-049 long, S-053 short) →
+        liquidation-buffer REFUSAL. See ``position_size`` docstring
+        for the rationale. Returns the adjusted qty (or 0.0 on
+        refusal).
 
-        ``balance_usd`` is collateral (free USDT cash, used for
-        liquidation distance math). ``available_usd`` is collateral +
-        borrow capacity in USDT (used for the notional cap). Pre-S-049
-        callers pass them as the same number, which makes the new cap
-        a no-op when borrow capacity is zero (cash-spot or margin
-        toggle off).
+        ``balance_usd`` is the wallet's net equity (used for
+        liquidation distance math). ``available_usd`` is the live
+        exchange-side availability for the order's spending side
+        (used for the notional cap): USDT-side for longs, base-side
+        for shorts. Pre-S-049 callers pass ``available_usd ==
+        balance_usd``, which makes the new cap a no-op when borrow
+        capacity is zero.
         """
         # 1. max_borrow_btc CAP — clip qty to fit, floor to step-size.
         if qty > self.max_borrow_btc:
@@ -632,21 +646,33 @@ class RiskManager:
                 if qty < self.min_qty:
                     return 0.0
 
-        # 3. (S-049) Notional-vs-available CAP for longs. Bybit's
-        #    matching engine validates ``cost ≤ availableBalance``
-        #    before considering borrow capacity. The pre-S-049 sizer
-        #    used `walletBalance - locked` (free cash), so a qty
-        #    notional exactly matching free USDT tripped 170131 on
-        #    fees alone. The caller now passes
-        #    ``available_usd = (free_usdt + USDT_borrow_capacity) ×
-        #    fee_buffer``; clip qty so notional fits inside it.
+        # 3. Notional-vs-available CAP. Bybit's matching engine
+        #    validates ``cost ≤ availableBalance`` before considering
+        #    additional borrow capacity. The cap is direction-aware —
+        #    the caller (Coordinator.multi_account_execute) sets
+        #    ``available_usd`` to whichever side of the wallet the
+        #    order spends:
         #
-        #    Shorts skip this rule — they don't spend USDT upfront,
-        #    so the constraint is the BTC borrow cap (covered by
-        #    ``max_borrow_btc`` in rule 1).
+        #      LONG  (S-049): free_usdt + usdt_borrow_capacity, less
+        #        a fee headroom buffer. Pre-S-049 the sizer used
+        #        `walletBalance - locked` (free cash), so a qty
+        #        notional exactly matching free USDT tripped 170131
+        #        on fees alone.
+        #
+        #      SHORT (S-053): base_usd_value + base_borrow_capacity,
+        #        less the same buffer. Pre-S-053 the SHORT branch
+        #        skipped this rule on the assumption that
+        #        ``max_borrow_btc`` (rule 1) and the post-trade USDT
+        #        proceeds were sufficient — both wrong: rule 1 is a
+        #        per-account static cap (not live remaining borrow),
+        #        and after one open spot-margin short the matching
+        #        engine credits sale proceeds to free USDT (inflating
+        #        ``balance_usd``) while shrinking the live BTC
+        #        borrow line. The next short over-sizes ~6× and
+        #        Bybit rejects with 170131. Capping qty against the
+        #        live base-side availability stops that.
         if (
-            package.direction == "long"
-            and package.entry > 0
+            package.entry > 0
             and available_usd > 0
             and qty * package.entry > available_usd
         ):

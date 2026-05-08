@@ -736,38 +736,65 @@ class Coordinator:
                             _SPOT_BUY_SAFETY_BUFFER,
                         )
                         _spot_bal = _fetch_spot_coin_balances(client, pkg.symbol)
+                        # S-052: total account equity (free + locked across
+                        # all coins, in USD, net of any open borrow
+                        # liability). RiskManager uses this for the
+                        # min_balance_usd gate so a wallet with $120 total
+                        # but only $40 free USDT isn't refused as "too
+                        # small". None when the exchange didn't return
+                        # totalEquity — gate falls back to ``balance``
+                        # (pre-S-052 contract).
+                        total_account_usd = _spot_bal.get("total_account_usd")
                         if _is_spot_margin:
-                            # ``balance`` = collateral (free USDT). Liquidation
-                            # math in the spot-margin kernel uses this as the
-                            # numerator; it is "what the account would actually
-                            # lose at liquidation".
-                            balance = _spot_bal["quote_usdt"]
-                            # S-049: ``available_usd`` = collateral + USDT
-                            # borrow capacity, less a fee headroom buffer.
-                            # This is what Bybit's matching engine actually
-                            # checks for spot Buys. ``quote_borrow_usd`` is
-                            # 0.0 on cash-spot or when the web-UI Spot Margin
-                            # toggle is off, in which case the buffered
-                            # ``balance`` is the only cap (matches sell-side
-                            # buffer semantics).
-                            available_usd = (
-                                _spot_bal["quote_usdt"]
-                                + _spot_bal["quote_borrow_usd"]
-                            ) * _SPOT_BUY_SAFETY_BUFFER
+                            # S-053: spot-margin collateral is the wallet's
+                            # NET equity, not free USDT. After a borrow-and-
+                            # sell short, Bybit credits the sale proceeds to
+                            # free USDT (~+$700 on a 0.009 BTC short at
+                            # $79850), inflating ``quote_usdt`` while net
+                            # equity is unchanged (the BTC borrow liability
+                            # offsets the proceeds). Pre-S-053 the sizer
+                            # treated that inflated cash as fresh risk
+                            # capital and the next short over-sized ~6× —
+                            # Bybit then rejected with 170131. ``totalEquity``
+                            # is borrow-state-invariant and is the correct
+                            # collateral input. Falls back to ``quote_usdt``
+                            # only when Bybit didn't return totalEquity
+                            # (pre-S-052 wallet shape) so the spot-margin
+                            # path keeps a sensible default.
+                            balance = (
+                                total_account_usd
+                                if total_account_usd is not None
+                                else _spot_bal["quote_usdt"]
+                            )
+                            # ``available_usd`` is direction-aware (S-049
+                            # long, S-053 short): it is the live exchange-
+                            # side availability for the side this order
+                            # spends. Bybit validates ``cost ≤
+                            # availableBalance`` before consulting borrow
+                            # capacity.
+                            #   long  → free_usdt + usdt_borrow_capacity
+                            #   short → free_base_usd + base_borrow_capacity
+                            # Both pre-fee-buffered. Without the SHORT
+                            # branch (pre-S-053) the BTC borrow line could
+                            # exhaust as positions accumulate and 170131
+                            # would surface even with the correct
+                            # collateral input.
+                            if pkg.direction == "long":
+                                available_usd = (
+                                    _spot_bal["quote_usdt"]
+                                    + _spot_bal["quote_borrow_usd"]
+                                ) * _SPOT_BUY_SAFETY_BUFFER
+                            else:
+                                available_usd = (
+                                    _spot_bal["base_usd_value"]
+                                    + _spot_bal["base_borrow_usd"]
+                                ) * _SPOT_BUY_SAFETY_BUFFER
                         elif pkg.direction == "short":
                             balance = _spot_bal["base_usd_value"]
                             available_usd = None
                         else:
                             balance = _spot_bal["quote_usdt"]
                             available_usd = None
-                        # S-052: total account equity (free + locked across
-                        # all coins, in USD, excluding borrow). RiskManager
-                        # uses this for the min_balance_usd gate so a
-                        # wallet with $120 total but only $40 free USDT
-                        # isn't refused as "too small". None when the
-                        # exchange didn't return totalEquity — gate
-                        # falls back to ``balance`` (pre-S-052 contract).
-                        total_account_usd = _spot_bal.get("total_account_usd")
                         logger.debug(
                             "multi_account_execute: spot balance override "
                             "account=%s market_type=%s direction=%s "
