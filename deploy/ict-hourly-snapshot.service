@@ -1,0 +1,26 @@
+# ============================================
+# ICT HOURLY SNAPSHOT SYSTEMD SERVICE (M1 P1-C)
+# Fires scripts/send_hourly_now.py once an hour.
+# Save to: /etc/systemd/system/ict-hourly-snapshot.service
+# ============================================
+
+[Unit]
+Description=ICT hourly snapshot — send build_hourly_report through send_scheduled
+After=network.target ict-trader-live.service
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/ict-trading-bot
+# Tolerate a missing .env on a fresh bootstrap (mirrors ict-git-sync.service).
+EnvironmentFile=-/home/ubuntu/ict-trading-bot/.env
+Environment=PYTHONPATH=/home/ubuntu/ict-trading-bot
+# 75 = EX_TEMPFAIL: another instance holds the flock — treat as success
+# so systemd doesn't mark the unit failed on a race we already handled.
+SuccessExitStatus=0 75
+ExecStart=/usr/bin/python3 /home/ubuntu/ict-trading-bot/scripts/send_hourly_now.py
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

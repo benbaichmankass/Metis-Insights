@@ -193,7 +193,7 @@ class CommsPoller:
                 continue
 
     async def poll_once(self, application: Application) -> None:
-        """One pass: deliver pending, expire stale, archive terminal."""
+        """One pass: deliver pending, alert stuck, alert+expire stale, archive terminal."""
         if self.chat_id is None:
             logger.warning("CommsPoller: no chat_id configured; skipping cycle")
             return
@@ -206,14 +206,34 @@ class CommsPoller:
             except Exception:  # noqa: BLE001
                 logger.exception("CommsPoller: failed to deliver %s", request.request_id)
 
-        # 2. Expire stale awaiting-response requests.
+        # 2. Stuck-request + expiry sweep (M1 P1-B).
+        #    A request that sits in `sent` past its
+        #    ``stuck_alert_threshold`` fires a one-time advisory alert;
+        #    a request that hits ``expires_at`` fires a final alert
+        #    BEFORE transitioning to EXPIRED so silent expiry is
+        #    impossible.
         for request in self.store.list_awaiting_response():
-            if request.is_expired():
-                try:
-                    self.store.transition(request, to_status=STATUS.EXPIRED, actor="bot", note="ttl elapsed")
-                    log_event("request_expired", request_id=request.request_id, actor="bot")
-                except Exception:  # noqa: BLE001
-                    logger.exception("CommsPoller: failed to expire %s", request.request_id)
+            try:
+                if request.is_expired():
+                    await self._alert_expired(bot, request)
+                    self.store.transition(
+                        request,
+                        to_status=STATUS.EXPIRED,
+                        actor="bot",
+                        note="ttl elapsed",
+                    )
+                    log_event(
+                        "request_expired",
+                        request_id=request.request_id,
+                        actor="bot",
+                    )
+                elif request.is_stuck() and not request.stuck_alert_already_sent():
+                    await self._alert_stuck(bot, request)
+            except Exception:  # noqa: BLE001
+                logger.exception(
+                    "CommsPoller: stuck/expiry sweep failed for %s",
+                    request.request_id,
+                )
 
         # 3. Archive terminal artifacts.
         for request in list(self.store.list_active()):
@@ -222,6 +242,63 @@ class CommsPoller:
                     self.store.archive(request)
                 except Exception:  # noqa: BLE001
                     logger.exception("CommsPoller: failed to archive %s", request.request_id)
+
+    async def _alert_stuck(self, bot, request: Request) -> None:
+        """Fire the one-time stuck-request alert for ``request``.
+
+        Persists ``delivery.stuck_alert_sent_at`` after a successful
+        send so subsequent poll cycles don't re-alert. A failed
+        Telegram send leaves the marker unset, so the next cycle
+        retries — which is the right behaviour for an advisory
+        notification (we'd rather double-alert than silently drop).
+        """
+        sent_at = (request.delivery or {}).get("sent_at") or "(unknown)"
+        threshold_h = request.effective_stuck_alert_threshold_s() / 3600
+        text = (
+            f"⚠️ Comms request {request.request_id} is stuck in 'sent' "
+            f"for >= {threshold_h:.1f}h (sent_at {sent_at}). Reply in "
+            f"Telegram, or edit the artifact and set status back to "
+            f"'pending' to re-deliver."
+        )
+        try:
+            await bot.send_message(chat_id=self.chat_id, text=text)
+        except TelegramError as exc:
+            logger.error(
+                "CommsPoller stuck-alert: telegram error for %s: %s",
+                request.request_id, exc,
+            )
+            return
+        delivery = dict(request.delivery)
+        delivery["stuck_alert_sent_at"] = _utcnow_iso()
+        request.delivery = delivery
+        self.store.save(request)
+        log_event(
+            "stuck_alert_sent",
+            request_id=request.request_id,
+            actor="bot",
+            details={"threshold_s": request.effective_stuck_alert_threshold_s()},
+        )
+
+    async def _alert_expired(self, bot, request: Request) -> None:
+        """Fire a final alert just before the EXPIRED transition.
+
+        Best-effort: a Telegram send failure does not block the
+        transition — silent expiry is bad, but a transient network
+        blip should not strand a request in ``sent`` forever. The
+        transition log entry plus ``request_expired`` event remain
+        the auditable record either way.
+        """
+        text = (
+            f"⏰ Comms request {request.request_id} expired without an "
+            f"answer (expires_at {request.expires_at}). Marking EXPIRED."
+        )
+        try:
+            await bot.send_message(chat_id=self.chat_id, text=text)
+        except TelegramError as exc:
+            logger.error(
+                "CommsPoller expiry-alert: telegram error for %s: %s",
+                request.request_id, exc,
+            )
 
     async def _deliver(self, bot, request: Request) -> None:
         """Send each question as its own message; mark the request sent on success."""

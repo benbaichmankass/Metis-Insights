@@ -1,0 +1,22 @@
+# ============================================
+# ICT HOURLY SNAPSHOT SYSTEMD TIMER (M1 P1-C)
+# Triggers ict-hourly-snapshot.service once per hour.
+# Save to: /etc/systemd/system/ict-hourly-snapshot.timer
+# ============================================
+
+[Unit]
+Description=Trigger ict-hourly-snapshot every hour
+Requires=ict-hourly-snapshot.service
+
+[Timer]
+# Fire on the top of every hour. RandomizedDelaySec spreads load so a
+# fleet of VMs doesn't hit Telegram simultaneously, and the script's own
+# flock guards against a missed-tick replay racing the next on-time
+# firing.
+OnCalendar=hourly
+RandomizedDelaySec=60
+Persistent=true
+Unit=ict-hourly-snapshot.service
+
+[Install]
+WantedBy=timers.target

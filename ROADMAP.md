@@ -1,9 +1,9 @@
 # ICT Trading Bot — Product Roadmap
 
-> **Last Updated:** 2026-05-08 (S-048 fresh M1 audit re-issue session — operator-directed.
-> M1 → 🔄 PARTIAL with no P0; four P1 follow-ups landing same-session per directive.
-> S-048 fresh PR closes the 2026-05-07 audit redo with corrections baked into the body
-> rather than tacked on as redlines.)
+> **Last Updated:** 2026-05-08 (M1 P1-A..D follow-ups + M2 formal close-out
+> session on `claude/review-roadmap-hIO75`. M1 → ✅ CLOSED with P1-A landing
+> on the prior session and P1-B/C/D + M2 paperwork landing here. P2 comms
+> hygiene cluster remains filed for a future Janitor sprint.)
 > **Canonical authority:** `docs/claude/workplan.md` (the decider). When this file
 > conflicts with the workplan, the workplan wins.
 
@@ -27,8 +27,8 @@
 | Milestone | Type | Focus | Main outcome | Status |
 |---|---|---|---|---|
 | **M0** | auto-claude | Workflow foundation | Master protocol, session state, logging conventions, handoff rules | ✅ CLOSED (S0, CP-2026-05-06-S0-02) |
-| **M1** | auto-claude | Comms infrastructure | Repo-based Claude/operator comms, Telegram writeback, dedupe, docs, tests | 🔄 PARTIAL — S-048 fresh re-issue closed 2026-05-08; verdict PARTIAL, no P0. Four P1 follow-ups (P1-A workplan correction, P1-B stuck-request recovery, P1-C auto-hourly snapshot, P1-D `/new_session`+`/test` commands) landing same-session per operator directive on `claude/update-roadmap-status-ZnLM9`. P2 hygiene cluster filed for a future Janitor sprint. Sources: `docs/audits/M1-comms-audit-2026-05-07-fresh.md` + `docs/audits/M1-comms-audit-followups-fresh.md`. |
-| **M2** | auto-claude | Web app source of truth | Read-only dashboard backend and core status data surfaces | 🔄 PARTIAL — S-013 FastAPI backend (`/api/status`, `/api/pnl`, JWT). S-014 added `/api/bot/{stats,logs,positions,signals}` + CORS keyed to `DASHBOARD_ORIGIN`. Vercel rewrite proxy fix landed 2026-05-07. Backend effectively complete; formal close-out deferred. |
+| **M1** | auto-claude | Comms infrastructure | Repo-based Claude/operator comms, Telegram writeback, dedupe, docs, tests | ✅ CLOSED 2026-05-08 — S-048 fresh re-issue (audit verdict PARTIAL, no P0) closed on `claude/update-roadmap-status-ZnLM9`. Four P1 follow-ups landed: P1-A workplan correction (same-session with audit), P1-D `/new_session`+`/test` commands, P1-B stuck-request recovery alerts (one-time stuck alert + final pre-EXPIRED alert), P1-C auto-hourly snapshot timer (`deploy/ict-hourly-snapshot.{timer,service}`). P2 hygiene cluster filed for a future Janitor sprint. Sources: `docs/audits/M1-comms-audit-2026-05-07-fresh.md` + `docs/audits/M1-comms-audit-followups-fresh.md`. |
+| **M2** | auto-claude | Web app source of truth | Read-only dashboard backend and core status data surfaces | ✅ CLOSED 2026-05-08 — S-013 FastAPI backend (`/api/status`, `/api/pnl`, JWT) + S-014 dashboard endpoints (`/api/bot/{stats,logs,positions,signals}`) + CORS keyed to `DASHBOARD_ORIGIN` + Vercel rewrite proxy fix (2026-05-07). Backend was effectively complete since S-014; this is the paperwork-only formal close. |
 | **M3** | auto-claude | Risk controls foundation | Hard risk caps, kill switch, status controls, order-layer refusal tests | ✅ CLOSED (S-043, CP-2026-05-06-15) |
 | **M4** | auto-claude | Repo hygiene + CI | Janitor cleanup, canonical paths, GitHub Actions, test/lint automation | ✅ CLOSED (S-046, 2026-05-07) |
 | **M5** | auto-claude | Strategy testing workflow | Telegram-triggered test flow, validation logging, backtest workflow docs | 📋 NOT STARTED — paused behind S-047 T6. The bot-side `/test` dispatch surface is now in place via M1 P1-D; M5 only wires the artifact consumer. |
