@@ -296,9 +296,16 @@ contract, tier mapping, audit trail, and reboot doctrine live in
 `docs/claude/operator-actions.md`. Short version:
 
 - **Tier 1 (autonomous):** `status-check`, `pull-latest-logs`.
-- **Tier 2 (ping operator first):** `restart-bot-service`,
-  `reboot-vm`. Use the ping format in
-  `docs/claude/operator-actions.md` § 7.
+- **Tier 2 (PM-side Claude pings operator first):**
+  `restart-bot-service`, `reboot-vm`. Use the ping format in
+  `docs/claude/operator-actions.md` § 7. Other dispatchers
+  (operator, Perplexity) are autonomous on Tier-2 per the
+  dispatcher trust contract in `docs/claude/operator-actions.md`
+  § 3.5.
+- **Transparency rule (always-notify):** every operator-actions
+  run notifies the operator regardless of dispatcher or tier. See
+  `docs/claude/operator-actions.md` § 5.5. Autonomy is not
+  silence.
 - **Reboot is last resort.** Always try `status-check` →
   `restart-bot-service` first; escalate only when lower-blast-radius
   paths fail.

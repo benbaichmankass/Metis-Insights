@@ -200,3 +200,32 @@ def test_doc_calls_out_docker_omission() -> None:
     the doc is updated alongside the workflow."""
     text = DOC.read_text()
     assert "Docker is intentionally absent" in text or "Docker is not canonical" in text
+
+
+def test_doc_includes_dispatcher_trust_contract() -> None:
+    """§ 3.5 must enumerate every dispatcher class and what tier they
+    can dispatch autonomously. Drift here means the next session
+    re-derives the trust contract from chat — not acceptable."""
+    text = DOC.read_text()
+    assert "Dispatcher trust contract" in text, (
+        "operator-actions.md must keep § 3.5 'Dispatcher trust contract'."
+    )
+    for dispatcher in ("Operator", "Perplexity", "PM-side Claude"):
+        assert dispatcher in text, (
+            f"Dispatcher '{dispatcher}' must appear in the trust-contract table."
+        )
+
+
+def test_doc_includes_transparency_rule() -> None:
+    """§ 5.5 codifies the operator's 2026-05-08 directive: every run
+    notifies the operator, regardless of dispatcher or tier.
+    'Autonomy is complemented by full transparency.'"""
+    text = DOC.read_text()
+    assert "Transparency rule" in text, (
+        "operator-actions.md must keep § 5.5 'Transparency rule (always-notify)'."
+    )
+    # Collapse whitespace so the principle still matches across line wraps.
+    collapsed = re.sub(r"\s+", " ", text.lower())
+    assert "autonomy is complemented by full transparency" in collapsed, (
+        "The transparency principle must be quoted verbatim."
+    )
