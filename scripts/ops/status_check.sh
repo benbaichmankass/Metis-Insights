@@ -10,8 +10,16 @@
 #   - last 5 lines of signal_audit.jsonl
 #
 # Exit codes:
-#   0 — all canonical services active
-#   1 — at least one canonical service is not active
+#   0 — all canonical services active (infra healthy)
+#   1 — at least one canonical service is not active OR heartbeat missing
+#
+# Note: trading-level errors visible in journalctl (e.g. insufficient balance,
+# order rejections) do NOT affect the exit code. Exit code reflects infra
+# health only, not trading P&L or strategy state.
+#
+# Systemctl calls are wrapped in `timeout 8` to guard against D-Bus hangs
+# that can occur on VMs that need a kernel update (shows as
+# "*** System restart required ***" at SSH login).
 
 set -euo pipefail
 
@@ -32,7 +40,7 @@ log "Collecting service status…"
 echo "===== systemctl is-active ====="
 overall_ok=0
 for unit in "${CANONICAL_UNITS[@]}"; do
-    state="$(systemctl is-active "${unit}" 2>/dev/null || echo "unknown")"
+    state="$(timeout 8 systemctl is-active "${unit}" 2>/dev/null || echo "unknown")"
     printf '%-32s %s\n' "${unit}" "${state}"
     if [ "${state}" != "active" ]; then
         overall_ok=1
@@ -41,7 +49,7 @@ done
 
 # claude bridge is optional — report but don't fail on it.
 if [ -f /etc/systemd/system/ict-claude-bridge.service ]; then
-    state="$(systemctl is-active ict-claude-bridge.service 2>/dev/null || echo "unknown")"
+    state="$(timeout 8 systemctl is-active ict-claude-bridge.service 2>/dev/null || echo "unknown")"
     printf '%-32s %s (optional)\n' "ict-claude-bridge.service" "${state}"
 fi
 
@@ -52,8 +60,8 @@ if [ -f "${HEARTBEAT}" ]; then
     mtime="$(stat -c %Y "${HEARTBEAT}")"
     now="$(date +%s)"
     age=$(( now - mtime ))
-    printf 'path:    %s\n' "${HEARTBEAT}"
-    printf 'mtime:   %s\n' "$(date -u -d "@${mtime}" +%Y-%m-%dT%H:%M:%SZ)"
+    printf 'path: %s\n' "${HEARTBEAT}"
+    printf 'mtime: %s\n' "$(date -u -d "@${mtime}" +%Y-%m-%dT%H:%M:%SZ)"
     printf 'age_sec: %d\n' "${age}"
 else
     echo "MISSING: ${HEARTBEAT}"
@@ -62,8 +70,11 @@ fi
 
 echo
 echo "===== journalctl -u ict-trader-live -n 20 ====="
-journalctl -u ict-trader-live.service -n 20 --no-pager 2>/dev/null || \
-    echo "(journalctl unavailable)"
+# timeout 10 guards against D-Bus hangs; errors in journal output (e.g.
+# RuntimeError, insufficient balance) are informational only and do NOT
+# affect the exit code below.
+timeout 10 journalctl -u ict-trader-live.service -n 20 --no-pager 2>/dev/null || \
+    echo "(journalctl unavailable or timed out)"
 
 echo
 echo "===== tail -n 5 runtime_logs/signal_audit.jsonl ====="
