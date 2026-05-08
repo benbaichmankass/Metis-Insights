@@ -58,7 +58,21 @@ MIN_CANDLES = 2
 # ``experiments/2026-05-07-vwap-accuracy/RECOMMENDATIONS.md`` § 5m
 # re-run for the full numbers, walk-forward, and the Phase 2 plan
 # (4 h-EMA-200 ±1 % HTF gate, queued in milestone-state.md).
-SESSION_MIN_BARS = 5
+#
+# 2026-05-08 hotfix: raised from 5 to 50 after live observation.
+# At 5 bars the slice σ is computed from a 25 min sample at 5m TF —
+# small enough that |deviation_std| collapses below the 1.0σ entry
+# threshold for ~the first 4 h of every UTC day, silently suppressing
+# signals the rolling-window code would have caught. Operator-observed
+# symptom: VWAP went quiet from 03:00 +0300 (= 00:00 UTC) onward on
+# 2026-05-08, immediately after PR #481 deployed. Reproduced offline
+# with 5/45 ticks flipping side between old and new in the 0.5–2 h
+# post-midnight window. 50 bars ≈ 4 h of 5m data — long enough for σ
+# to stabilise. Behaviour outside the post-midnight window is
+# unchanged because the slice equals the full lookback there. The
+# Phase 2 (S-050) HTF gate plan is unaffected; that decision still
+# waits on 30 days of live metrics.
+SESSION_MIN_BARS = 50
 
 # S-047 T4: monitor() time-decay close window. The mean-reversion thesis
 # is "price returns to vwap within a session"; if the trade has been open

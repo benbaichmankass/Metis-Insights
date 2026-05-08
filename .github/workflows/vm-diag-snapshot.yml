@@ -1,0 +1,144 @@
+name: vm-diag-snapshot
+
+# PM-side / web-sandbox bridge to the VM's diagnostic surface.
+#
+# The Claude Code on the web sandbox cannot egress to the Oracle VM
+# directly (158.178.210.252:8001 isn't on the platform allowlist).
+# GitHub-hosted runners can. This workflow opens an SSH tunnel-less
+# shell to the VM, hits the read-only diag endpoint via curl on
+# 127.0.0.1, and uploads the JSON as a workflow artifact for the
+# session to fetch via the GitHub MCP.
+#
+# Trust contract (matches docs/claude/vm-operator-mode.md § 9):
+#   * Read-only — only allowlisted GET paths under /api/diag/* run.
+#   * Token-gated — DIAG_READ_TOKEN authenticates against the FastAPI
+#     bearer-token check. The VM returns 503 if the token is unset.
+#   * No mutating commands shipped over SSH; the only command we run
+#     is a fixed-form `curl ... /api/diag/<path>`.
+#
+# Required repo secrets (Settings → Secrets and variables → Actions):
+#   * VM_SSH_KEY        — contents of ict-bot-ovm-private.key
+#   * DIAG_READ_TOKEN   — bearer token from /etc/ict-trader/web-api.env
+#
+# Optional repo variable:
+#   * VM_SSH_HOST       — defaults to 158.178.210.252 (the prod VM)
+#   * VM_SSH_USER       — defaults to ubuntu
+
+on:
+  workflow_dispatch:
+    inputs:
+      diag_path:
+        description: "Diag endpoint (must start with /api/diag/). e.g. snapshot?limit=200"
+        required: false
+        default: "snapshot?limit=200"
+      label:
+        description: "Optional artifact label (alphanumerics + dashes only)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vm-diag-snapshot
+  cancel-in-progress: false
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Validate inputs
+        env:
+          DIAG_PATH: ${{ inputs.diag_path }}
+          LABEL: ${{ inputs.label }}
+        run: |
+          set -euo pipefail
+          # Strip optional leading /api/diag/ so callers can pass either
+          # "snapshot?limit=200" or "/api/diag/snapshot?limit=200".
+          path="${DIAG_PATH#/api/diag/}"
+          path="${path#/}"
+          # Allow only safe path characters: alnum, slash, ?, =, &, _, -, .
+          if ! printf '%s' "$path" | grep -qE '^[A-Za-z0-9/?&=_.-]+$'; then
+            echo "::error::Rejected diag_path (illegal characters): $DIAG_PATH"
+            exit 1
+          fi
+          if ! printf '%s' "$LABEL" | grep -qE '^[A-Za-z0-9-]*$'; then
+            echo "::error::Rejected label (alnum + dashes only): $LABEL"
+            exit 1
+          fi
+          echo "diag_path_safe=$path" >>"$GITHUB_ENV"
+
+      - name: Set up SSH key
+        env:
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+          VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '158.178.210.252' }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VM_SSH_KEY}" ]; then
+            echo "::error::VM_SSH_KEY secret is unset. Add it under Settings → Secrets → Actions."
+            exit 1
+          fi
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "${VM_SSH_KEY}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          # Trust the host key on first contact. Tightening to a pinned
+          # fingerprint is a follow-up if/when the operator rotates the host.
+          ssh-keyscan -t rsa,ecdsa,ed25519 "${VM_SSH_HOST}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Fetch diag endpoint
+        env:
+          DIAG_READ_TOKEN: ${{ secrets.DIAG_READ_TOKEN }}
+          VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '158.178.210.252' }}
+          VM_SSH_USER: ${{ vars.VM_SSH_USER || 'ubuntu' }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DIAG_READ_TOKEN}" ]; then
+            echo "::error::DIAG_READ_TOKEN secret is unset. Add it under Settings → Secrets → Actions."
+            exit 1
+          fi
+          # The token never appears in the runner log — it's only
+          # interpolated into the SSH-side curl invocation, which
+          # streams the *response* back to stdout. The shell echoes
+          # the command itself with set +x kept off, and GitHub also
+          # masks any value matching a registered secret automatically.
+          ssh -i ~/.ssh/id_rsa \
+              -o BatchMode=yes \
+              -o StrictHostKeyChecking=accept-new \
+              -o ConnectTimeout=15 \
+              "${VM_SSH_USER}@${VM_SSH_HOST}" \
+              "curl -sS --fail --max-time 20 \
+                    -H 'Authorization: Bearer ${DIAG_READ_TOKEN}' \
+                    'http://127.0.0.1:8001/api/diag/${diag_path_safe}'" \
+              > diag-output.json
+          # Sanity check: the response should be JSON.
+          python3 -c "import json,sys; json.load(open('diag-output.json')); print('valid json,', __import__('os').path.getsize('diag-output.json'), 'bytes')"
+
+      - name: Pretty-print diag response (run-log preview)
+        run: |
+          set -euo pipefail
+          # Show the first ~4 KB of the response in the run log so the
+          # operator can spot-check without downloading the artifact.
+          # Sensitive bearer is never present in /api/diag/* responses
+          # (the surface returns audit / journal / status only), so this
+          # is safe to log.
+          python3 - <<'PY'
+          import json, sys
+          with open("diag-output.json") as f:
+              data = json.load(f)
+          preview = json.dumps(data, indent=2, default=str)
+          if len(preview) > 4000:
+              print(preview[:4000])
+              print(f"... ({len(preview) - 4000} more chars in artifact)")
+          else:
+              print(preview)
+          PY
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vm-diag-snapshot${{ inputs.label && format('-{0}', inputs.label) || '' }}-${{ github.run_id }}
+          path: diag-output.json
+          retention-days: 7
+          if-no-files-found: error
