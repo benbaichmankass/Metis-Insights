@@ -889,7 +889,7 @@ def _log_trade_to_journal(
             entry_reason = f"{status.upper()}: {reason} | {base_entry_reason}"
         else:
             entry_reason = base_entry_reason
-        db.insert_trade({
+        trade_row_id = db.insert_trade({
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "symbol": pkg.symbol,
             "direction": pkg.direction,
@@ -907,6 +907,25 @@ def _log_trade_to_journal(
             ),
             "notes": json.dumps(notes_payload, ensure_ascii=False)[:500],
         })
+        # Wire the package → trade link so the strategy_monocle gate
+        # (pipeline.py::_has_open_package_for_strategy, linked_only=True)
+        # actually finds an open package to gate on. Only on the
+        # successful-entry path: rejection rows must not stamp a
+        # linked_trade_id (the trade was never live; gating on it
+        # would suppress legitimate retries forever).
+        if status == "open" and trade_row_id is not None:
+            pkg_id = (pkg.meta or {}).get("order_package_id")
+            if pkg_id:
+                try:
+                    db.update_order_package(pkg_id, {
+                        "linked_trade_id": int(trade_row_id),
+                    })
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning(
+                        "execute_pkg: linked_trade_id update failed "
+                        "(pkg_id=%s trade_id=%s): %s",
+                        pkg_id, trade_row_id, exc,
+                    )
         return True
     except Exception as exc:  # noqa: BLE001
         logger.warning(

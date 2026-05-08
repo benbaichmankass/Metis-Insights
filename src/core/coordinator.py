@@ -1524,6 +1524,12 @@ def _log_new_order_package(pkg: "OrderPackage") -> Optional[str]:
     Returns the generated ``order_package_id`` on success, ``None`` on
     any error (logged but never re-raised — observability writes must
     never crash the order path).
+
+    Also writes the resolved id back to ``pkg.meta["order_package_id"]``
+    so downstream code (``execute_pkg`` → ``_log_trade_to_journal``) can
+    stamp ``order_packages.linked_trade_id`` on a successful entry —
+    that wiring is what makes the strategy_monocle gate's
+    ``linked_only=True`` filter actually find anything to gate on.
     """
     try:
         import json as _json
@@ -1556,6 +1562,10 @@ def _log_new_order_package(pkg: "OrderPackage") -> Optional[str]:
             "status": "open",
             "meta": meta_for_log,
         })
+        # Stamp the id back onto pkg.meta so the executor can read it.
+        if pkg.meta is None:
+            pkg.meta = {}
+        pkg.meta["order_package_id"] = order_package_id
         return order_package_id
     except Exception as exc:  # noqa: BLE001
         logger.warning(
