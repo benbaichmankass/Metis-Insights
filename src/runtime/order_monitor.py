@@ -751,6 +751,61 @@ def _load_account_cfgs_for_reconcile() -> Dict[str, Dict[str, Any]]:
     return out
 
 
+def _classify_orphan_close(account_cfg: Dict[str, Any]) -> Dict[str, Optional[str]]:
+    """Classify a DB-open / exchange-flat orphan to help the operator
+    distinguish "operator manually closed" from "fill anomaly /
+    exchange-side risk action" at a glance.
+
+    Field reality, 2026-05-08: the live trader (bybit_2) is
+    ``market_type: spot-margin`` and runs vwap. Spot-margin has **no
+    exchange-side SL/TP path** — Bybit V5's ``set_trading_stop`` is
+    derivatives-only (see the modify_open_order docstring), and the
+    monitor loop is what enforces brackets via
+    ``close_open_position``. So a spot-margin DB-open / exchange-flat
+    row is *guaranteed* to be one of:
+
+      1. Operator manually closed via the exchange UI.
+      2. Bybit risk engine forced a close (margin call, liquidation,
+         exchange-side risk action).
+
+    Either case warrants an "investigate" tag rather than the generic
+    "reconciler" reason. SL/TP firing is impossible on this path.
+
+    For derivatives accounts (``market_type: linear`` /
+    ``inverse``), an SL/TP fire is a perfectly valid orphan source —
+    the strategy gate cleared the exchange-side SL but the DB row
+    didn't update. Disambiguating SL/TP-fire vs operator-close on
+    derivatives needs an extra exchange API call (Bybit V5
+    ``get_closed_pnl``); that's deferred to a follow-up. For now,
+    derivatives orphans get ``classification=unknown``.
+
+    Returns
+    -------
+    dict
+        ``{"classification": <tag>, "note": <human-readable>}``. Tags:
+          * ``"spot_margin_external_close"`` — operator manual close
+            or exchange risk action (no SL/TP path exists).
+          * ``"unknown"`` — derivatives or unrecognised market_type;
+            operator must check exchange UI to disambiguate.
+    """
+    market_type = str(account_cfg.get("market_type") or "").strip().lower()
+    if market_type == "spot-margin":
+        return {
+            "classification": "spot_margin_external_close",
+            "note": (
+                "no exchange-side SL/TP path on spot-margin — operator "
+                "manual close or exchange risk action; check exchange UI"
+            ),
+        }
+    return {
+        "classification": "unknown",
+        "note": (
+            "derivatives orphan — could be SL/TP fire OR operator close; "
+            "check exchange recent trades to disambiguate"
+        ),
+    }
+
+
 def _exchange_position_set(positions: Optional[List[Dict[str, Any]]]) -> set:
     """Convert the exchange's ``account_open_positions`` output to a set
     of ``(symbol, normalised_side)`` tuples for O(1) lookup.
@@ -903,12 +958,15 @@ def _reconcile_open_trades(db) -> Dict[str, int]:
 
             # Diagnostic ping (per-orphan cap + roll-up).
             if orphan_pings_emitted < _ORPHAN_PING_CAP:
+                cls_info = _classify_orphan_close(cfg)
                 enqueue_orphan_reconciliation(
                     account=aid,
                     symbol=str(sym),
                     side=side,
                     db_trade_id=row.get("id"),
                     linked_package_id=_extract_package_id(row.get("notes")),
+                    classification=cls_info.get("classification"),
+                    classification_note=cls_info.get("note"),
                 )
                 orphan_pings_emitted += 1
             else:

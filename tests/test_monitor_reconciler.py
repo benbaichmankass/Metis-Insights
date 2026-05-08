@@ -39,6 +39,7 @@ from unittest.mock import patch
 import pytest
 
 from src.runtime.order_monitor import (
+    _classify_orphan_close,
     _exchange_position_set,
     _mark_orphaned,
     _parse_created_at,
@@ -1041,3 +1042,148 @@ class TestSweepStuckLinkedPackages:
         assert affected == 0
         # Package row untouched.
         assert _read_package(tmp_db, "pkg-disabled")["status"] == "open"
+
+
+# ---------------------------------------------------------------------------
+# Manual-close detection — distinguish "operator manually closed via
+# exchange UI / exchange-side risk action" from "fill anomaly /
+# unknown" so the operator knows whether to investigate or just
+# acknowledge the orphan ping.
+#
+# Field reality, 2026-05-08: the live trader (bybit_2) is
+# market_type=spot-margin, where Bybit's set_trading_stop is
+# unsupported. Spot-margin orphans are *guaranteed* to be operator
+# manual or exchange risk action — there's no SL/TP fire path.
+# ---------------------------------------------------------------------------
+
+
+class TestClassifyOrphanClose:
+    def test_spot_margin_classified_as_external_close(self):
+        cfg = {"account_id": "bybit_2", "market_type": "spot-margin"}
+        out = _classify_orphan_close(cfg)
+        assert out["classification"] == "spot_margin_external_close"
+        assert "no exchange-side SL/TP path" in out["note"]
+        assert "exchange UI" in out["note"]
+
+    def test_linear_derivatives_classified_unknown(self):
+        cfg = {"account_id": "bybit_3", "market_type": "linear"}
+        out = _classify_orphan_close(cfg)
+        assert out["classification"] == "unknown"
+        assert "derivatives" in out["note"]
+
+    def test_inverse_derivatives_classified_unknown(self):
+        cfg = {"account_id": "bybit_4", "market_type": "inverse"}
+        out = _classify_orphan_close(cfg)
+        assert out["classification"] == "unknown"
+
+    def test_cash_spot_classified_unknown(self):
+        """Cash spot doesn't borrow and doesn't have spot-margin's
+        guaranteed-no-SL/TP-fire property — fall through to unknown.
+        """
+        cfg = {"account_id": "bybit_1", "market_type": "spot"}
+        out = _classify_orphan_close(cfg)
+        assert out["classification"] == "unknown"
+
+    def test_missing_market_type_classified_unknown(self):
+        out = _classify_orphan_close({"account_id": "bybit_x"})
+        assert out["classification"] == "unknown"
+
+    def test_market_type_case_insensitive(self):
+        """``market_type: SPOT-MARGIN`` (operator typo) must still
+        classify as spot-margin so the operator gets the right hint.
+        """
+        cfg = {"account_id": "bybit_2", "market_type": "SPOT-MARGIN"}
+        out = _classify_orphan_close(cfg)
+        assert out["classification"] == "spot_margin_external_close"
+
+    def test_market_type_with_whitespace(self):
+        """Defensive: trailing whitespace in YAML must not flip the
+        classification to unknown.
+        """
+        cfg = {"account_id": "bybit_2", "market_type": " spot-margin "}
+        out = _classify_orphan_close(cfg)
+        assert out["classification"] == "spot_margin_external_close"
+
+
+class TestOrphanReconcilerEmitsClassification:
+    """Wiring contract: _reconcile_open_trades must pass the
+    classification + note through to enqueue_orphan_reconciliation
+    so the body the operator sees has the manual-vs-anomaly hint.
+    """
+
+    def test_spot_margin_orphan_ping_carries_external_close_tag(
+        self, tmp_db, tmp_path, monkeypatch,
+    ):
+        # The fixture's _fake_cfg_loader has bybit_2 as a regular
+        # account; for this test override the cfg loader to mark
+        # bybit_2 as spot-margin.
+        monkeypatch.setattr(
+            "src.runtime.order_monitor._load_account_cfgs_for_reconcile",
+            lambda: {
+                "bybit_2": {
+                    "account_id": "bybit_2",
+                    "exchange": "bybit",
+                    "api_key_env": "BYBIT_KEY_2",
+                    "api_secret_env": None,
+                    "mode": "live",
+                    "market_type": "spot-margin",
+                },
+            },
+        )
+        trade_id = _insert_trade(tmp_db, account_id="bybit_2")
+
+        pings_dir = tmp_path / "pings"
+        monkeypatch.setattr(
+            "src.runtime.execution_diagnostics.PENDING_PINGS_DIR",
+            pings_dir,
+        )
+        with patch(
+            "src.units.accounts.clients.account_open_positions",
+            return_value=[],
+        ):
+            summary = _reconcile_open_trades(tmp_db)
+
+        assert summary["orphaned"] == 1
+        assert _read_trade(tmp_db, trade_id)["status"] == "orphaned"
+
+        queued = sorted(pings_dir.glob("*.json"))
+        assert len(queued) == 1
+        body = json.loads(queued[0].read_text())["body"]
+        assert "Classification: spot_margin_external_close" in body
+        assert "no exchange-side SL/TP path" in body
+
+    def test_derivatives_orphan_ping_carries_unknown_classification(
+        self, tmp_db, tmp_path, monkeypatch,
+    ):
+        monkeypatch.setattr(
+            "src.runtime.order_monitor._load_account_cfgs_for_reconcile",
+            lambda: {
+                "bybit_2": {
+                    "account_id": "bybit_2",
+                    "exchange": "bybit",
+                    "api_key_env": "BYBIT_KEY_2",
+                    "api_secret_env": None,
+                    "mode": "live",
+                    "market_type": "linear",
+                },
+            },
+        )
+        _insert_trade(tmp_db, account_id="bybit_2")
+
+        pings_dir = tmp_path / "pings"
+        monkeypatch.setattr(
+            "src.runtime.execution_diagnostics.PENDING_PINGS_DIR",
+            pings_dir,
+        )
+        with patch(
+            "src.units.accounts.clients.account_open_positions",
+            return_value=[],
+        ):
+            _reconcile_open_trades(tmp_db)
+
+        queued = sorted(pings_dir.glob("*.json"))
+        assert len(queued) == 1
+        body = json.loads(queued[0].read_text())["body"]
+        assert "Classification: unknown" in body
+        # The note must guide the operator to the right action.
+        assert "derivatives" in body
