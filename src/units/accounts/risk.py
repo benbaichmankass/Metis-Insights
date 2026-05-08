@@ -56,6 +56,19 @@ _DEFAULT_TEST_QTY = 0.0001
 DEFAULT_MAX_BORROW_BTC = 0.5            # Bybit Tier 1 spot-margin BTC max-borrow.
 DEFAULT_BORROW_FEE_APR_PCT = 10.0       # Conservative annual %, Bybit market range ≈5–15.
 DEFAULT_LIQUIDATION_BUFFER_PCT = 30.0   # Per S-047 § 7 — distance from liquidation, in %.
+# Spot-margin LTV (loan-to-value) used as the FALLBACK borrow ratio
+# when Bybit V5's wallet API returns ``availableToBorrow=0`` for the
+# order's spending-side coin. Operator-confirmed (2026-05-08): the
+# bot's wallet is by design always 100 % USDT at idle — every position
+# closes back to USDT — so ``walletBalance(BTC)=0`` is structural,
+# not a "no margin" signal. When margin is enabled (account
+# ``market_type: spot-margin``) the borrow capacity is real even
+# when the API field is empty; fall back to
+# ``USDT_collateral × spot_margin_ltv``. Conservative default 0.5
+# (half of Bybit's ~80 % retail tier) leaves headroom for fees
+# and intratrade price moves so the matching engine never trips
+# 170131 on the cap.
+DEFAULT_SPOT_MARGIN_LTV = 0.5
 
 
 def _is_test_order(pkg: "OrderPackage") -> bool:
@@ -269,6 +282,14 @@ class RiskManager:
         self.liquidation_buffer_pct: float = float(
             config.get("liquidation_buffer_pct", DEFAULT_LIQUIDATION_BUFFER_PCT)
         )
+        # Spot-margin LTV fallback (see DEFAULT_SPOT_MARGIN_LTV). Read
+        # by ``Coordinator.multi_account_execute`` when computing
+        # ``available_usd`` and the API's ``availableToBorrow`` is
+        # empty/zero. Operator can tune per-account in accounts.yaml
+        # ``risk.spot_margin_ltv`` — clamp to (0, 1) so a typo
+        # can't request 100 %+ leverage.
+        ltv = float(config.get("spot_margin_ltv", DEFAULT_SPOT_MARGIN_LTV))
+        self.spot_margin_ltv: float = max(0.0, min(1.0, ltv))
         # The single dry/live toggle in the codebase (operator directive
         # 2026-05-03). Set from accounts.yaml `mode: live | dry_run` at
         # construction; flippable at runtime via Coordinator.set_account_dry_run().
