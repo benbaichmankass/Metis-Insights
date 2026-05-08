@@ -1,7 +1,9 @@
 # ICT Trading Bot — Product Roadmap
 
-> **Last Updated:** 2026-05-07 (workplan-status-review session — M1 reopened per operator;
-> S-047 T2 merged; S-015 scratched; M6 moved to dashboard repo; S-048 runs before S-047 T3)
+> **Last Updated:** 2026-05-08 (S-048 fresh M1 audit re-issue session — operator-directed.
+> M1 → 🔄 PARTIAL with no P0; four P1 follow-ups landing same-session per directive.
+> S-048 fresh PR closes the 2026-05-07 audit redo with corrections baked into the body
+> rather than tacked on as redlines.)
 > **Canonical authority:** `docs/claude/workplan.md` (the decider). When this file
 > conflicts with the workplan, the workplan wins.
 
@@ -25,12 +27,12 @@
 | Milestone | Type | Focus | Main outcome | Status |
 |---|---|---|---|---|
 | **M0** | auto-claude | Workflow foundation | Master protocol, session state, logging conventions, handoff rules | ✅ CLOSED (S0, CP-2026-05-06-S0-02) |
-| **M1** | auto-claude | Comms infrastructure | Repo-based Claude/operator comms, Telegram writeback, dedupe, docs, tests | ⚠️ REOPENED 2026-05-07 (active milestone) — S-042 closed M1 against the pre-reconciliation workplan; new workplan adopted later same day via S-041. Per workplan § "Verify-before-trusting-done", the on-disk telegram-bot implementation has not been audited against the new workplan § "Telegram bots" spec. **S-048 (M1 comms audit) is the active sprint** — see `docs/sprints/sprint-048-prompt.md`. S-047 T3 follows. |
+| **M1** | auto-claude | Comms infrastructure | Repo-based Claude/operator comms, Telegram writeback, dedupe, docs, tests | 🔄 PARTIAL — S-048 fresh re-issue closed 2026-05-08; verdict PARTIAL, no P0. Four P1 follow-ups (P1-A workplan correction, P1-B stuck-request recovery, P1-C auto-hourly snapshot, P1-D `/new_session`+`/test` commands) landing same-session per operator directive on `claude/update-roadmap-status-ZnLM9`. P2 hygiene cluster filed for a future Janitor sprint. Sources: `docs/audits/M1-comms-audit-2026-05-07-fresh.md` + `docs/audits/M1-comms-audit-followups-fresh.md`. |
 | **M2** | auto-claude | Web app source of truth | Read-only dashboard backend and core status data surfaces | 🔄 PARTIAL — S-013 FastAPI backend (`/api/status`, `/api/pnl`, JWT). S-014 added `/api/bot/{stats,logs,positions,signals}` + CORS keyed to `DASHBOARD_ORIGIN`. Vercel rewrite proxy fix landed 2026-05-07. Backend effectively complete; formal close-out deferred. |
 | **M3** | auto-claude | Risk controls foundation | Hard risk caps, kill switch, status controls, order-layer refusal tests | ✅ CLOSED (S-043, CP-2026-05-06-15) |
 | **M4** | auto-claude | Repo hygiene + CI | Janitor cleanup, canonical paths, GitHub Actions, test/lint automation | ✅ CLOSED (S-046, 2026-05-07) |
-| **M5** | auto-claude | Strategy testing workflow | Telegram-triggered test flow, validation logging, backtest workflow docs | 📋 NOT STARTED — paused behind S-048 (M1 audit) → S-047 T3 (close). |
-| **M6** | auto-claude | Web app UI | Dashboard UI for pnl, status, open positions, logs, recent actions | 🔄 IN PROGRESS (dashboard repo) — S-014 V1 SPA shipped in `the-lizardking/ict-trader-dashboard`; **S-015 V2 plan scratched 2026-05-07** per operator. Next session opens in dashboard repo with focus order: live data feed first, then operator-control functionalities (Forced Stop, killswitch, close-all-positions, account live/dry-run toggle) per workplan § "Dashboard build order". |
+| **M5** | auto-claude | Strategy testing workflow | Telegram-triggered test flow, validation logging, backtest workflow docs | 📋 NOT STARTED — paused behind S-047 T6. The bot-side `/test` dispatch surface is now in place via M1 P1-D; M5 only wires the artifact consumer. |
+| **M6** | auto-claude | Web app UI | Dashboard UI for pnl, status, open positions, logs, recent actions | 🔄 IN PROGRESS (dashboard repo) — S-014 V1 SPA shipped in `the-lizardking/ict-trader-dashboard`. **In active session 2026-05-08** on dashboard branch `claude/update-roadmap-status-ZnLM9` — wiring mock-data feeds (equity chart, Active ICT Strategies, Trading Conditions) to live `/api/bot/*` data; positions and signals to follow. |
 | **M7** | pm-sprint | Strategy review gate | Review validation results: promote, hold, or kill | 📋 NOT STARTED |
 | **M8** | pm-sprint | Strategy tuning | Parameter review and approval-required strategy changes | 📋 NOT STARTED |
 | **M9** | auto-claude | AI / model roadmap | Model registry, current-model audit, training and performance tracking | 📋 NOT STARTED |
@@ -38,23 +40,11 @@
 
 ### Active milestone queue (next 3)
 
-Per workplan priority: **system hardening and operational visibility before expansion.**
-**Operator directive 2026-05-07:** comms cleanup runs before S-047 T3.
+Per `docs/claude/milestone-state.md` "Queued milestones":
 
-1. **S-048 — M1 comms audit (telegram-bot deep dive)** — Tier 1 docs-only audit
-   reopening M1. **No prerequisite** — ready to start. Prompt:
-   `docs/sprints/sprint-048-prompt.md`. Produces a gap-list comparing on-disk
-   telegram-bot implementation against the new workplan's § "Telegram bots" + § "Required
-   logs" + § "Repeatable operator-triggered workflows". Code follow-ups filed as
-   their own sprints. Self-merges Tier 1 — autonomous-friendly.
-2. **S-047 T3 close** — Tier 2/3 ad-hoc live-trading sprint. PR #459 (T2) merged
-   2026-05-07; T3 ready (D4 isLeverage=1 routing in `execute.py` + D5 direction-aware
-   balance for spot-margin accounts in `coordinator.py`). Per operating-protocol § 2.2
-   "one task per session" T3 runs in its own session. **Conditional override:** if
-   S-048 surfaces a P0 audit gap, the P0 follow-up runs before T3 per the prompt's
-   hand-off rule (§ 8). Pauses at the operator-merge gate (Tier 3).
-3. **M5 — Strategy testing workflow** — Telegram `/test <strategy>` command,
-   validation logging, backtest runbook. Begins after S-047 T3 closes.
+1. **S-047 T6 — end-to-end live smoke + runbook (D8)** — Tier 1 docs after smoke. Smoke harness exists from T3. Live smoke needs the Bybit web-UI Spot Margin toggle ON for `bybit_2`.
+2. **S-047 T7 — sprint close** — docs-only (milestone-state + bug-log + summary).
+3. **M5 — Strategy testing workflow** — Telegram `/test <strategy>` artifact consumer + validation logging + backtest runbook. Bot-side dispatch surface ready via M1 P1-D.
 
 ### Repo and hosting boundary (MANDATORY)
 
@@ -63,11 +53,6 @@ The dashboard web app **lives in a separate repository** (`ict-trader-dashboard`
 configs, or dashboard UI files to `ict-trading-bot`. This repo publishes a clean data
 feed; the dashboard is a pure consumer. See `docs/claude/workplan.md` § "Dashboard apps
 — Repo and hosting boundary" for the full rule.
-
-> ⚠️ **Known conflict:** S-013, S-014, and (cancelled) S-015 were planned in this repo
-> before the Vercel boundary rule was codified (2026-05-06). The data-feed backend
-> (S-013, S-014 backend additions) is correctly placed here. S-014 V1 web client moved
-> to the dashboard repo where M6 now continues. S-015 V2 scratched 2026-05-07.
 
 ---
 
@@ -110,7 +95,7 @@ feed; the dashboard is a pure consumer. See `docs/claude/workplan.md` § "Dashbo
 | S-009 | Deferred Wiring: Colab Backtest + App Config | ✅ Done | M5, M4 |
 | S-010 | Per-Account Risk Engine | ✅ Done | M3 |
 
-### Phase 3.5 — Web UIs *(maps to M2, M6 — ⚠️ built in this repo; see boundary note above)*
+### Phase 3.5 — Web UIs *(maps to M2, M6 — built in this repo before the boundary rule)*
 
 | Sprint | Title | Status | M-mapping |
 |---|---|---|---|
@@ -121,58 +106,32 @@ feed; the dashboard is a pure consumer. See `docs/claude/workplan.md` § "Dashbo
 
 | Sprint | Title | Status | M-mapping |
 |---|---|---|---|
-| S-013 | Secure Web Dashboard: Backend Scaffold & Home Status | ✅ Done | M2 (data-feed publisher — correct repo) |
+| S-013 | Secure Web Dashboard: Backend Scaffold & Home Status | ✅ Done | M2 (data-feed publisher) |
 | S-014 | Web Client V1 (Home Dashboard) — moved to `ict-trader-dashboard` | ✅ Done | M6 (dashboard repo) |
 | S-015 | Web Client V2 (Component Tabs) | ⛔ SCRATCHED 2026-05-07 per operator | — |
-| S-014.5 | Web Client public exposure (reverse proxy + TLS + CSP) | 📋 Backlog (dashboard repo) | M6 |
-
-### Phase 5 — Web Dashboard Ops Layer *(maps to M6 — dashboard repo)*
-
-| Sprint | Title | Status | M-mapping |
-|---|---|---|---|
-| S-016 | Secure API Key Management | 📋 Backlog (dashboard repo) | M6 |
 
 ### Ad-hoc sprints (S-017 onwards)
 
 | Sprint | Title | Status | M-mapping |
 |---|---|---|---|
-| S-017 | Activate live trading + smoke test | ✅ Done — all PRs on `main`; CP-2026-04-30-14 | M3 |
-| S-018 | Fix Telegram pings + auto-install systemd units | ✅ Done | M1 |
-| S-019 | Bot-side ping inbox | ✅ Done (partial; deferred auto-ping to S-020) | M1 |
-| S-020 | Fix auto-ping path | ✅ Done — CP-2026-04-30-17; BUG-018/022 closed | M1 |
-| S-021 | BUG-048 hardening: config-drift contract + boot-time observability | ✅ Done — CP-2026-05-04-04; 59 tests | M3, M4 |
+| S-017 | Activate live trading + smoke test | ✅ Done | M3 |
+| S-021 | BUG-048 hardening: config-drift contract + boot-time observability | ✅ Done | M3, M4 |
 | S-035 | Architecture audit | ✅ Done | M4 |
-| S-041 | Workplan reconciliation sweep | ✅ Done — CP-2026-05-06-12 | Meta/docs |
-| S-042 | M1 close (telegram-bot pipeline audit) | ⚠️ DONE — but **superseded** by S-048 audit per operator 2026-05-07 (closed before new workplan adopted) | M1 |
-| S-043 | M3 close (order-layer refusal tests) | ✅ Done — CP-2026-05-06-15 | M3 |
-| S-044 | M4 step 1 (CI suite) | ✅ Done — CP-2026-05-07-03 | M4 |
-| S-045 | M4 step 2 (conftest + pytest-collect blocking + ruff default) | ✅ Done — CP-2026-05-07-05 | M4 |
+| S-041 | Workplan reconciliation sweep | ✅ Done | Meta/docs |
+| S-042 | M1 close (telegram-bot pipeline audit) | ⚠️ Superseded — closed pre-reconciliation; see S-048 below | M1 |
+| S-043 | M3 close (order-layer refusal tests) | ✅ Done | M3 |
+| S-044 | M4 step 1 (CI suite) | ✅ Done | M4 |
+| S-045 | M4 step 2 (conftest + pytest-collect blocking + ruff default) | ✅ Done | M4 |
 | S-046 | M4 close (Janitor audits) | ✅ Done | M4 |
-| S-047 | bybit_2 Spot Margin enablement | 🔄 IN PROGRESS (T0 deleted; T1 ✅ PR #456; T2 ✅ PR #459 merged 2026-05-07; T3 queued behind S-048; T4–T7 follow) | M3 (live-trading priority) |
-| S-048 | M1 comms audit (telegram-bot deep dive) | 🔄 ACTIVE — see `docs/sprints/sprint-048-prompt.md` | M1 reopen |
+| S-047 | bybit_2 Spot Margin enablement | 🔄 IN PROGRESS (T1–T5 ✅ + S-049 fast-followup ✅; T6 active) | M3 (live-trading priority) |
+| S-048 | M1 comms audit (fresh re-issue) | ✅ Done 2026-05-08 — `CP-2026-05-07-17-s048-fresh-m1-audit` | M1 (PARTIAL) |
+| S-049 | Spot-margin sizer correctness fast-followup (UTA availableBalance + buy-side fee buffer) | ✅ Done | M3 |
 
 > **Sprint number note:** S-036..S-040 include the burned range (see
-> `docs/claude/workplan.md` § "Sprint and checkpoint numbering"). Full sprint history
-> in git log and `docs/claude/checkpoints/CHECKPOINT_LOG.md`.
-
----
-
-## S-008 Sprint Record
-
-**Completed:** 2026-04-29 | **Checkpoint:** `CP-2026-04-29-58`
-**PRs merged:** #120–#128 (9 PRs) | **Tests added:** 178
-
-| Unit | Key File | Tests |
-|---|---|---|
-| Coordinator (TRANSLATOR) | `src/core/coordinator.py` | — |
-| Strategies | `src/units/strategies/{ict,vwap,breakout_confirmation,killzone}.py` | 27 |
-| Accounts | `src/units/accounts/{risk,execute}.py` | 23 |
-| Dashboards | `src/units/dashboards/{alerts,stats}.py` | 25 |
-| Telegram Bot rewired | `src/bot/telegram_query_bot.py` | 19 |
-| Trading School | `src/units/trading_school/validator.py` | 23 |
-| Integration Tests | `tests/test_coordinator_flow.py` | 25 |
-
-**Deferred to S-009:** `trigger_backtest()` Colab wiring; App unit config operations.
+> `docs/claude/workplan.md` § "Sprint and checkpoint numbering"). The
+> ad-hoc S-049 sized-fix landed mid-S-047 and uses its own number; the
+> next available sprint number after S-049 is **S-051** (S-050 reserved
+> for VWAP Phase 2 per `milestone-state.md`).
 
 ---
 
@@ -191,8 +150,7 @@ Full spec: [`docs/claude/recurring-sessions.md`](docs/claude/recurring-sessions.
 ## Items Under Consideration (Not Yet Scheduled)
 
 - **Recurring-Session Triggers + `/roadmap` Command** — Telegram commands `/audit`,
-  `/improve_strategy`, `/train_model`, `/roadmap`. Required to operationalize the
-  recurring-session program.
+  `/improve_strategy`, `/train_model`, `/roadmap`. Already implemented on ClaudeBot.
 - **Exchange Failover / Multi-Exchange Support** — resilience via secondary exchange.
 - **Deployment Automation** — CI/CD pipeline for deploying approved code to Oracle VM.
 
@@ -210,7 +168,7 @@ Full spec: [`docs/claude/recurring-sessions.md`](docs/claude/recurring-sessions.
 |---|---|
 | ✅ Done | Sprint/milestone completed and merged |
 | 🔜 Next | Planned as the immediate next sprint |
-| 🔄 In Progress / Active | Currently being executed |
+| 🔄 In Progress / Active / Partial | Currently being executed or partial |
 | ⚠️ Reopened | Previously closed; subsequent verification revealed drift or new spec |
 | ⛔ Blocked / Scratched | Cannot proceed without a decision/dependency, or cancelled outright |
 | 📋 Backlog | Defined but not yet started |
