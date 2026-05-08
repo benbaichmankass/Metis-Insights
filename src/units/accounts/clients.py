@@ -254,6 +254,125 @@ def _spot_margin_open_positions(client: Any) -> list:
     return out
 
 
+def _bybit_order_status_lookup(
+    client: Any,
+    *,
+    category: str,
+    order_id: str,
+) -> Optional[Dict[str, Any]]:
+    """Look up a single Bybit order by ``orderId``.
+
+    Tries ``get_open_orders`` first (live / partially filled orders are
+    only there) and falls back to ``get_order_history`` for filled,
+    cancelled, or rejected ones. Returns the raw inner record dict on
+    success, ``None`` when the orderId isn't present in either endpoint
+    (genuinely unknown — Bybit denies any record).
+
+    Wrapped at the call site by :func:`account_order_status` which
+    converts the raw record into the normalised ``{order_id, status,
+    filled_qty, avg_price, exec_time}`` shape and turns API failures
+    into ``None`` so callers can distinguish "not found" from "couldn't
+    read".
+    """
+    open_resp = client.get_open_orders(category=category, orderId=order_id) or {}
+    open_list = ((open_resp.get("result") or {}).get("list") or [])
+    for rec in open_list:
+        if str(rec.get("orderId") or "") == str(order_id):
+            return rec
+    hist_resp = client.get_order_history(category=category, orderId=order_id) or {}
+    hist_list = ((hist_resp.get("result") or {}).get("list") or [])
+    for rec in hist_list:
+        if str(rec.get("orderId") or "") == str(order_id):
+            return rec
+    return None
+
+
+def account_order_status(
+    account: Dict[str, Any],
+    order_id: str,
+) -> Optional[Dict[str, Any]]:
+    """Look up a single order on the exchange by its order id.
+
+    SSOT-from-Bybit primitive (issue #502): the reconciler uses this
+    to ask Bybit "what is the status of THIS order?" rather than
+    matching DB-open trades against an aggregate ``(symbol, side)``
+    view. Per-orderId reconciliation is robust to open-positions index
+    lag and disambiguates multi-leg accounts where two strategies hold
+    a position on the same ``(symbol, side)``.
+
+    Return contract:
+      * ``{"order_id", "status", "filled_qty", "avg_price",
+        "exec_time"}`` on a successful lookup. ``status`` is the raw
+        Bybit ``orderStatus`` string (e.g. ``"New"``, ``"PartiallyFilled"``,
+        ``"Filled"``, ``"Cancelled"``, ``"Rejected"``).
+      * ``None`` on **read failure** (creds missing, network /
+        exchange-side error, unsupported exchange) — same conservative
+        semantic as :func:`account_open_positions`. The reconciler
+        treats ``None`` as "skip this row this tick", never as
+        "orphan it".
+      * ``{"order_id": ..., "status": "not_found", ...}`` is returned
+        when *both* ``get_open_orders`` and ``get_order_history``
+        return empty for the orderId. This is the genuine "Bybit
+        denies any record of this order" verdict and the reconciler
+        is allowed to orphan-stamp on it.
+
+    Currently only ``bybit`` is implemented — ``binance`` returns
+    ``None`` so the reconciler skips Binance accounts (they are not
+    in production yet).
+    """
+    if not isinstance(account, dict) or not order_id:
+        return None
+    ex = (account.get("exchange") or "unknown").lower()
+    if ex != "bybit":
+        # Binance / others: not yet wired through this primitive. Returning
+        # None makes the reconciler skip the row (conservative). When the
+        # operator turns on a Binance account, lift this guard and add the
+        # connector-side lookup.
+        return None
+    try:
+        client = bybit_client_for(account)
+        if client is None:
+            return None
+        from src.units.accounts.execute import _bybit_category
+        category = _bybit_category(account)
+        rec = _bybit_order_status_lookup(
+            client, category=category, order_id=str(order_id),
+        )
+        if rec is None:
+            return {
+                "order_id": str(order_id),
+                "status": "not_found",
+                "filled_qty": 0.0,
+                "avg_price": 0.0,
+                "exec_time": None,
+            }
+        # Bybit V5 surface: cumExecQty / avgPrice / updatedTime are the
+        # canonical fill-side fields. Fall back to executed_qty /
+        # exec_time on older response shapes.
+        return {
+            "order_id": str(rec.get("orderId") or order_id),
+            "status": str(rec.get("orderStatus") or ""),
+            "filled_qty": _f(rec.get("cumExecQty")),
+            "avg_price": _f(rec.get("avgPrice")),
+            "exec_time": rec.get("updatedTime") or rec.get("createdTime"),
+        }
+    except Exception as exc:  # noqa: BLE001
+        aid = account.get("account_id") or "unknown"
+        logger.warning(
+            "account_order_status(account=%s order_id=%s): %s",
+            aid, order_id, exc,
+        )
+        try:
+            from src.runtime.api_reporting import report_api_failure
+            report_api_failure(
+                exchange=ex, op="get_order_status", account_id=str(aid),
+                error=f"{type(exc).__name__}: {exc}", exception=exc,
+            )
+        except Exception:  # noqa: BLE001
+            pass
+        return None
+
+
 def account_open_positions(
     account: Dict[str, Any],
 ) -> Optional[list]:
