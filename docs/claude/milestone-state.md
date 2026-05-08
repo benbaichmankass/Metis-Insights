@@ -46,7 +46,9 @@ When opening a session:
 | **Risk tier (T6)** | Tier 1 (docs after smoke succeeds). Smoke harness `scripts/sprint047/spot_margin_smoke.py` already exists from T3. |
 | **Definition of done (T6)** | D8 merged: bug-log close entries link BUG-046/048/049 to S-047 as the structural fix; `docs/runbooks/spot-margin.md` written; live smoke recorded with PnL/borrow-fee analysis; CI green. |
 
-**S-048 (M1 comms audit) status:** ✅ CLOSED (fresh re-issue) on this branch — see `docs/audits/M1-comms-audit-2026-05-07-fresh.md`. M1 → 🔄 PARTIAL with four P1 follow-ups + one P2 hygiene cluster (full backlog in `docs/audits/M1-comms-audit-followups-fresh.md`). Per operator directive, the four P1 follow-ups land in the same session as the audit close — see PR description for landed-file inventory.
+**S-048 (M1 comms audit) status:** ✅ CLOSED (fresh re-issue) on `claude/update-roadmap-status-ZnLM9` — see `docs/audits/M1-comms-audit-2026-05-07-fresh.md`.
+
+**M1 P1-A..D follow-ups status:** ✅ CLOSED 2026-05-08 on `claude/review-roadmap-hIO75`. P1-A (workplan correction) was already landed pre-branch on `update-roadmap-status-ZnLM9`; P1-D (`/new_session` + `/test`), P1-B (stuck-request recovery alerts), P1-C (auto-hourly snapshot timer) all shipped here. P2 hygiene cluster remains filed for a future Janitor sprint per `docs/audits/M1-comms-audit-followups-fresh.md`. **M1 → ✅ CLOSED.**
 
 ---
 
@@ -60,8 +62,8 @@ When opening a session:
 | Milestone | Focus | Status | Evidence / Notes |
 |---|---|---|---|
 | **M0** | Workflow foundation | ✅ CLOSED | S0 sprint done; `docs/sprint-summaries/sprint-S0-summary.md` exists; CP-2026-05-06-S0-02 in checkpoint log |
-| **M1** | Comms infrastructure | 🔄 PARTIAL — S-048 audit complete, 4 P1 follow-ups landing same-session | S-048 fresh re-issue closed on `claude/update-roadmap-status-ZnLM9` (this PR). Audit verdict: PARTIAL, no P0. Source: `docs/audits/M1-comms-audit-2026-05-07-fresh.md`. P1 follow-ups: P1-A workplan correction, P1-B stuck-request recovery, P1-C auto-hourly snapshot, P1-D `/new_session` + `/test` commands. P2 hygiene cluster filed for a future Janitor sprint. |
-| **M2** | Web app source of truth (backend) | 🔄 PARTIAL | S-013 FastAPI backend (`/api/status`, `/api/pnl`, JWT auth). S-014 added `/api/bot/{stats,logs,positions,signals}` for the Vercel dashboard + CORS middleware keyed to `DASHBOARD_ORIGIN`. Dashboard reachability fix landed 2026-05-07 (Vercel rewrite proxies `/api/bot/*` to the bot, defeats HTTPS→HTTP mixed-content block). Backend side considered effectively complete; not formally closed under M0..M10 because the close-out paperwork was never filed. |
+| **M1** | Comms infrastructure | ✅ CLOSED | S-048 fresh audit closed on `claude/update-roadmap-status-ZnLM9`. Audit verdict: PARTIAL, no P0. P1-A (workplan correction) landed there same-session. P1-B (stuck-request recovery alerts), P1-C (auto-hourly snapshot timer), P1-D (`/new_session` + `/test` commands) closed 2026-05-08 on `claude/review-roadmap-hIO75`. P2 hygiene cluster filed for a future Janitor sprint per `docs/audits/M1-comms-audit-followups-fresh.md`. |
+| **M2** | Web app source of truth (backend) | ✅ CLOSED | S-013 FastAPI backend (`/api/status`, `/api/pnl`, JWT auth). S-014 added `/api/bot/{stats,logs,positions,signals}` for the Vercel dashboard + CORS middleware keyed to `DASHBOARD_ORIGIN`. Dashboard reachability fix landed 2026-05-07 (Vercel rewrite proxies `/api/bot/*` to the bot, defeats HTTPS→HTTP mixed-content block). M2 formally closed 2026-05-08 alongside the M1 P1-A..D follow-ups — backend work was already shipped, this close-out is paperwork-only (no new code). The diagnostic surface (`/api/diag/*`) is a separate workstream and stays out of M2 scope. |
 | **M3** | Risk controls foundation | ✅ CLOSED | S-043 closed 2026-05-06. Order-layer refusal tests now complete (28 new gap-closer tests in `tests/test_s043_order_refusal_paths.py`). Risk engine + kill switch + risk caps + reason-token contract all pinned. |
 | **M4** | Repo hygiene + CI | ✅ CLOSED | S-044 (CI suite) ✅; S-045 (conftest + pytest-collect blocking + ruff default) ✅; post-S-045 follow-up (auto-sync branch protection workflow) ✅; S-046 (2026-05-07) closed the three Janitor audits. M4 formally closed. |
 | **M5** | Strategy testing workflow | 📋 NOT STARTED (paused) | Telegram-triggered test flow, validation logging, backtest workflow docs not yet built. **Paused** behind S-047 T6. The bot-side dispatch surface for `/test <strategy>` is now in place via M1 P1-D — M5 only needs to wire the artifact consumer. |
@@ -85,6 +87,8 @@ When opening a session:
 | M3 — Risk controls foundation (S-043) | 2026-05-06 | `CP-2026-05-06-15-s043-complete` | `docs/sprint-summaries/sprint-043-summary.md` |
 | **M4 — Repo hygiene + CI (S-046)** | **2026-05-07** | `CP-2026-05-07-NN-s046-complete` | `docs/sprint-summaries/sprint-046-summary.md` |
 | **S-048 — M1 comms audit (fresh re-issue)** | **2026-05-08** | `CP-2026-05-07-17-s048-fresh-m1-audit` | `docs/sprint-summaries/sprint-048-summary.md` |
+| **M1 P1-A..D follow-ups + M2 close-out** | **2026-05-08** | (this PR's checkpoint) | `docs/sprint-summaries/m1-p1-followups-and-m2-close-summary.md` |
+| **M2 — Web app source of truth (backend)** | **2026-05-08** | (this PR's checkpoint) | (paperwork-only close — work already shipped under S-013 + S-014) |
 
 > Pre-M0..M10 roadmap progress (S-000 through S-040) is captured in `ROADMAP.md`
 > under "Historical Sprint Ledger". From M0 forward, every closed milestone gets a row here.
@@ -105,8 +109,9 @@ In execution order. Each row lists the gating condition to start.
 | 6 | M9 — AI / model roadmap | auto-claude | Independent of M5/M6. Could run in parallel. |
 | 7 | M10 — HF / data pipeline | auto-claude | Independent of M5/M6. Could run in parallel. |
 
-> M2 (Web app source of truth) — backend essentially done; formal close-out
-> deferred. Not a blocker for any queued milestone.
+> M2 (Web app source of truth) — closed 2026-05-08 (paperwork-only;
+> backend had already shipped under S-013 + S-014). Not a blocker for
+> any queued milestone.
 
 ---
 
