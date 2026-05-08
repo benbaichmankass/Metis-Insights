@@ -40,8 +40,10 @@ import pytest
 
 from src.runtime.order_monitor import (
     _exchange_position_set,
+    _mark_orphaned,
     _parse_created_at,
     _reconcile_open_trades,
+    _sweep_stuck_linked_packages,
     _sweep_unlinked_packages,
 )
 from src.units.db.database import Database
@@ -754,3 +756,288 @@ class TestParseCreatedAt:
 
     def test_garbage_returns_none(self):
         assert _parse_created_at("not-a-date") is None
+
+
+# ---------------------------------------------------------------------------
+# Orphan-cascade hardening — retry + sticky audit row when the package
+# update keeps failing. Without this the strategy-monocle gate at
+# pipeline.py::_has_open_package_for_strategy stays stuck open and every
+# future signal for the strategy is silently blocked.
+# ---------------------------------------------------------------------------
+
+
+class _FlakyDB:
+    """Wraps a real Database, intercepting ``update_order_package`` to
+    fail a configured number of times before delegating through. Lets
+    the cascade-retry tests exercise both the success-on-retry and the
+    permanent-failure paths without monkeypatching production code.
+    """
+
+    def __init__(self, real_db, fail_first_n: int):
+        self._real = real_db
+        self._fail_remaining = fail_first_n
+        self.update_order_package_calls = 0
+
+    # Pass-through everything except update_order_package.
+    def __getattr__(self, name):
+        return getattr(self._real, name)
+
+    def update_order_package(self, pkg_id, updates):
+        self.update_order_package_calls += 1
+        if self._fail_remaining > 0:
+            self._fail_remaining -= 1
+            raise RuntimeError("simulated package-update failure")
+        return self._real.update_order_package(pkg_id, updates)
+
+
+class TestMarkOrphanedCascadeRetry:
+    """``_mark_orphaned`` must:
+      1. Retry the package cascade once on transient failure.
+      2. Write a sticky ``orphan_cascade_failed`` audit row when both
+         attempts fail — without it the strategy gate stays stuck.
+    """
+
+    def test_cascade_retry_succeeds_on_second_attempt(
+        self, tmp_db, tmp_path, monkeypatch,
+    ):
+        pkg_id = "pkg-flaky-001"
+        _insert_package(tmp_db, pkg_id=pkg_id)
+        trade_id = _insert_trade(tmp_db, notes_pkg_id=pkg_id)
+        tmp_db.update_order_package(pkg_id, {"linked_trade_id": trade_id})
+
+        # Redirect the audit JSONL writer at a temp dir so we can
+        # assert on it without polluting the repo runtime_logs.
+        audit_dir = tmp_path / "runtime_logs"
+        audit_dir.mkdir()
+        audit_file = audit_dir / "signal_audit.jsonl"
+        monkeypatch.setattr(
+            "src.utils.signal_audit_logger.SIGNAL_FILE", audit_file,
+        )
+
+        flaky = _FlakyDB(tmp_db, fail_first_n=1)
+        # Read the trade row in the same shape _reconcile_open_trades
+        # would hand it to _mark_orphaned.
+        conn = tmp_db.connect()
+        try:
+            conn.row_factory = __import__("sqlite3").Row
+            row = dict(conn.execute(
+                "SELECT id, account_id, symbol, direction, notes, created_at "
+                "FROM trades WHERE id=?",
+                (trade_id,),
+            ).fetchone())
+        finally:
+            conn.close()
+
+        _mark_orphaned(flaky, row)
+
+        # Two attempts: first fails, second succeeds.
+        assert flaky.update_order_package_calls == 2
+        # Trade row marked orphaned (the trade-side update is wrapped
+        # by neither attempt — it's a separate single write).
+        assert _read_trade(tmp_db, trade_id)["status"] == "orphaned"
+        # Package row got the cascade on retry.
+        pkg = _read_package(tmp_db, pkg_id)
+        assert pkg["status"] == "closed"
+        assert pkg["close_reason"] == "reconciler"
+        # No sticky audit row — the retry succeeded.
+        if audit_file.exists():
+            lines = [
+                json.loads(ln) for ln in audit_file.read_text().splitlines()
+                if ln.strip()
+            ]
+            assert not any(
+                e.get("action") == "orphan_cascade_failed" for e in lines
+            )
+
+    def test_cascade_fails_twice_writes_sticky_audit_row(
+        self, tmp_db, tmp_path, monkeypatch,
+    ):
+        pkg_id = "pkg-flaky-002"
+        _insert_package(tmp_db, pkg_id=pkg_id)
+        trade_id = _insert_trade(
+            tmp_db, notes_pkg_id=pkg_id, symbol="BTCUSDT", direction="long",
+        )
+        tmp_db.update_order_package(pkg_id, {"linked_trade_id": trade_id})
+
+        audit_dir = tmp_path / "runtime_logs"
+        audit_dir.mkdir()
+        audit_file = audit_dir / "signal_audit.jsonl"
+        monkeypatch.setattr(
+            "src.utils.signal_audit_logger.SIGNAL_FILE", audit_file,
+        )
+        # Disable the SQL dual-write so the test stays focused on the
+        # JSONL audit row and doesn't fight Database init paths.
+        monkeypatch.setenv("SIGNAL_DUAL_WRITE_DISABLED", "true")
+
+        flaky = _FlakyDB(tmp_db, fail_first_n=2)
+        conn = tmp_db.connect()
+        try:
+            conn.row_factory = __import__("sqlite3").Row
+            row = dict(conn.execute(
+                "SELECT id, account_id, symbol, direction, notes, created_at "
+                "FROM trades WHERE id=?",
+                (trade_id,),
+            ).fetchone())
+        finally:
+            conn.close()
+
+        _mark_orphaned(flaky, row)
+
+        # Two attempts, both failed → no third retry.
+        assert flaky.update_order_package_calls == 2
+        # Trade row is still orphaned (cascade failure does not undo
+        # the trade-side update).
+        assert _read_trade(tmp_db, trade_id)["status"] == "orphaned"
+        # Package row stuck open — that's the cascade leak the audit
+        # row exists to flag.
+        pkg = _read_package(tmp_db, pkg_id)
+        assert pkg["status"] == "open"
+
+        # Sticky audit row written — operator-greppable.
+        assert audit_file.exists(), "audit JSONL must be created"
+        events = [
+            json.loads(ln) for ln in audit_file.read_text().splitlines()
+            if ln.strip()
+        ]
+        cascade_failed = [
+            e for e in events if e.get("action") == "orphan_cascade_failed"
+        ]
+        assert len(cascade_failed) == 1
+        evt = cascade_failed[0]
+        assert evt["status"] == "failed"
+        assert evt["order_package_id"] == pkg_id
+        assert evt["db_trade_id"] == trade_id
+        assert evt["symbol"] == "BTCUSDT"
+        assert evt["direction"] == "long"
+        assert evt["account_id"] == "bybit_2"
+        assert "simulated package-update failure" in evt["error"]
+
+
+# ---------------------------------------------------------------------------
+# _sweep_stuck_linked_packages — the second line of defence against the
+# strategy-monocle gate getting stuck. Sweeps order_packages that are
+# status='open' AND linked to a terminally-statused trade.
+# ---------------------------------------------------------------------------
+
+
+class TestSweepStuckLinkedPackages:
+    def _insert_linked_pkg(
+        self, db, *, pkg_id, linked_trade_id, status="open", strategy="vwap",
+    ):
+        """Insert a package linked to ``linked_trade_id`` at the given
+        status. Mirrors the shape ``insert_order_package`` produces.
+        """
+        conn = db.connect()
+        try:
+            conn.execute(
+                "INSERT INTO order_packages "
+                "(order_package_id, strategy_name, symbol, direction, "
+                "entry, sl, tp, confidence, status, linked_trade_id, "
+                "created_at, updated_at) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,"
+                "datetime('now'), datetime('now'))",
+                (pkg_id, strategy, "BTCUSDT", "long",
+                 80000.0, 79500.0, 80500.0, 0.42, status, linked_trade_id),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+    def test_sweep_force_closes_stuck_package_with_orphaned_trade(
+        self, tmp_db, monkeypatch,
+    ):
+        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
+        # Trade in terminal 'orphaned' state but the linked package is
+        # still 'open' — the cascade-leak scenario.
+        trade_id = _insert_trade(tmp_db, status="orphaned")
+        self._insert_linked_pkg(
+            tmp_db, pkg_id="pkg-stuck-001", linked_trade_id=trade_id,
+        )
+
+        affected = _sweep_stuck_linked_packages(tmp_db)
+        assert affected == 1
+
+        pkg = _read_package(tmp_db, "pkg-stuck-001")
+        assert pkg["status"] == "closed"
+        assert pkg["close_reason"] == "stuck_cascade_recovered"
+
+    def test_sweep_skips_package_whose_linked_trade_is_open(
+        self, tmp_db, monkeypatch,
+    ):
+        """The defence-in-depth must NOT touch packages whose linked
+        trade is still status='open' — that's the live-position case
+        and force-closing it would lose track of a real exchange
+        position.
+        """
+        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
+        trade_id = _insert_trade(tmp_db, status="open")
+        self._insert_linked_pkg(
+            tmp_db, pkg_id="pkg-live-001", linked_trade_id=trade_id,
+        )
+
+        affected = _sweep_stuck_linked_packages(tmp_db)
+        assert affected == 0
+
+        pkg = _read_package(tmp_db, "pkg-live-001")
+        assert pkg["status"] == "open"
+        assert pkg["close_reason"] is None
+
+    def test_sweep_handles_each_terminal_status(
+        self, tmp_db, monkeypatch,
+    ):
+        """Pin the full terminal-status set the sweep must handle.
+        Drift in this list is the most likely way the gate gets stuck
+        again, so it's worth pinning.
+        """
+        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
+        for i, terminal in enumerate(
+            ("orphaned", "exchange_rejected", "closed", "rejected",
+             "rejected_too_small")
+        ):
+            trade_id = _insert_trade(tmp_db, status=terminal)
+            self._insert_linked_pkg(
+                tmp_db, pkg_id=f"pkg-term-{i}", linked_trade_id=trade_id,
+            )
+
+        affected = _sweep_stuck_linked_packages(tmp_db)
+        assert affected == 5
+        for i in range(5):
+            pkg = _read_package(tmp_db, f"pkg-term-{i}")
+            assert pkg["status"] == "closed"
+            assert pkg["close_reason"] == "stuck_cascade_recovered"
+
+    def test_sweep_is_idempotent(self, tmp_db, monkeypatch):
+        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
+        trade_id = _insert_trade(tmp_db, status="orphaned")
+        self._insert_linked_pkg(
+            tmp_db, pkg_id="pkg-idem-001", linked_trade_id=trade_id,
+        )
+
+        first = _sweep_stuck_linked_packages(tmp_db)
+        second = _sweep_stuck_linked_packages(tmp_db)
+        assert first == 1
+        # Once the package is closed the SQL filter no longer matches.
+        assert second == 0
+
+    def test_sweep_skips_unlinked_packages(self, tmp_db, monkeypatch):
+        """Defence boundary: an open package with no linked_trade_id is
+        the ``_sweep_unlinked_packages`` jurisdiction, not this one.
+        """
+        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
+        self._insert_linked_pkg(
+            tmp_db, pkg_id="pkg-unlinked", linked_trade_id=None,
+        )
+        affected = _sweep_stuck_linked_packages(tmp_db)
+        assert affected == 0
+
+    def test_sweep_noop_when_reconcile_disabled(self, tmp_db, monkeypatch):
+        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "false")
+        trade_id = _insert_trade(tmp_db, status="orphaned")
+        self._insert_linked_pkg(
+            tmp_db, pkg_id="pkg-disabled", linked_trade_id=trade_id,
+        )
+
+        affected = _sweep_stuck_linked_packages(tmp_db)
+        assert affected == 0
+        # Package row untouched.
+        assert _read_package(tmp_db, "pkg-disabled")["status"] == "open"
