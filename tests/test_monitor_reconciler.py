@@ -46,6 +46,7 @@ from src.runtime.order_monitor import (
     _reconcile_open_trades,
     _sweep_stuck_linked_packages,
     _sweep_unlinked_packages,
+    _watchdog_stuck_strategies,
 )
 from src.units.db.database import Database
 
@@ -1187,3 +1188,243 @@ class TestOrphanReconcilerEmitsClassification:
         assert "Classification: unknown" in body
         # The note must guide the operator to the right action.
         assert "derivatives" in body
+
+
+# ---------------------------------------------------------------------------
+# Stuck-strategy watchdog — final fallback when the orphan reconciler
+# AND the linked-package sweep both missed a stuck row. Force-closes
+# the package, cascades the trade row to orphaned, and emits a
+# high-priority operator alert. Operator-confirmed full automatic
+# reset is approved (2026-05-08).
+# ---------------------------------------------------------------------------
+
+
+class TestStuckStrategyWatchdog:
+    """``_watchdog_stuck_strategies`` finds packages with
+    ``status='open' AND linked_trade_id IS NOT NULL`` whose
+    ``updated_at`` is older than the configured threshold (default
+    30 min, env ``STUCK_STRATEGY_THRESHOLD_MINUTES``).
+    """
+
+    def _insert_pkg_with_age(
+        self, db, *, pkg_id, linked_trade_id, age_minutes,
+        strategy="vwap", status="open", meta=None,
+    ):
+        """Insert a package with a backdated ``updated_at``."""
+        meta_json = json.dumps(meta or {})
+        conn = db.connect()
+        try:
+            conn.execute(
+                "INSERT INTO order_packages "
+                "(order_package_id, strategy_name, symbol, direction, "
+                " entry, sl, tp, confidence, status, linked_trade_id, "
+                " meta, created_at, updated_at) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?, "
+                " datetime('now', ? || ' minutes'), "
+                " datetime('now', ? || ' minutes'))",
+                (pkg_id, strategy, "BTCUSDT", "long",
+                 80000.0, 79500.0, 80500.0, 0.42, status, linked_trade_id,
+                 meta_json, f"-{age_minutes}", f"-{age_minutes}"),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+    def test_force_clears_package_older_than_threshold(
+        self, tmp_db, tmp_path, monkeypatch,
+    ):
+        """Headline contract: a package stuck > 30 min with a still-
+        open linked trade is force-closed, the trade is orphaned,
+        and a high-priority alert is emitted.
+        """
+        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
+        trade_id = _insert_trade(tmp_db, status="open")
+        self._insert_pkg_with_age(
+            tmp_db, pkg_id="pkg-stuck-watchdog-1",
+            linked_trade_id=trade_id, age_minutes=45,
+        )
+
+        pings_dir = tmp_path / "pings"
+        monkeypatch.setattr(
+            "src.runtime.execution_diagnostics.PENDING_PINGS_DIR",
+            pings_dir,
+        )
+        summary = _watchdog_stuck_strategies(tmp_db)
+
+        assert summary["checked"] == 1
+        assert summary["auto_cleared"] == 1
+        assert summary["alerted"] == 1
+        assert summary["errors"] == 0
+
+        pkg = _read_package(tmp_db, "pkg-stuck-watchdog-1")
+        assert pkg["status"] == "closed"
+        assert pkg["close_reason"] == "stuck_strategy_watchdog"
+
+        trade = _read_trade(tmp_db, trade_id)
+        assert trade["status"] == "orphaned"
+        assert trade["exit_reason"] == "stuck_strategy_watchdog"
+
+        # High-priority Telegram-ready alert with the watchdog body.
+        queued = sorted(pings_dir.glob("*.json"))
+        assert len(queued) == 1
+        evt = json.loads(queued[0].read_text())
+        assert evt["priority"] == "high"
+        assert "Stuck-strategy watchdog" in evt["body"]
+        assert "pkg-stuck-watchdog-1" in evt["body"]
+        assert "force-cleared" in evt["body"]
+
+    def test_recent_package_not_touched(self, tmp_db, monkeypatch):
+        """Defence boundary: a package stuck only 5 min (under the
+        30 min default) must NOT be touched. The orphan reconciler
+        + stuck-linked sweep are the first lines of defence; the
+        watchdog only fires after they've had ample time to act.
+        """
+        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
+        trade_id = _insert_trade(tmp_db, status="open")
+        self._insert_pkg_with_age(
+            tmp_db, pkg_id="pkg-fresh", linked_trade_id=trade_id,
+            age_minutes=5,
+        )
+        summary = _watchdog_stuck_strategies(tmp_db)
+        assert summary["checked"] == 0
+        assert summary["auto_cleared"] == 0
+        assert summary["alerted"] == 0
+        assert _read_package(tmp_db, "pkg-fresh")["status"] == "open"
+        assert _read_trade(tmp_db, trade_id)["status"] == "open"
+
+    def test_unlinked_package_not_touched(self, tmp_db, monkeypatch):
+        """Defence boundary: packages with NULL ``linked_trade_id``
+        belong to ``_sweep_unlinked_packages``, not the watchdog.
+        Even when they are stuck >> threshold, the watchdog does not
+        match them — the strategy gate isn't blocked by them
+        anyway (the gate's WHERE requires ``linked_trade_id IS NOT
+        NULL``).
+        """
+        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
+        self._insert_pkg_with_age(
+            tmp_db, pkg_id="pkg-unlinked-old",
+            linked_trade_id=None, age_minutes=120,
+        )
+        summary = _watchdog_stuck_strategies(tmp_db)
+        assert summary["checked"] == 0
+        assert summary["auto_cleared"] == 0
+
+    def test_already_closed_package_not_touched(self, tmp_db, monkeypatch):
+        """A package that's already ``status='closed'`` is past the
+        watchdog's job — natural idempotency on the SQL match.
+        """
+        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
+        trade_id = _insert_trade(tmp_db, status="closed")
+        self._insert_pkg_with_age(
+            tmp_db, pkg_id="pkg-already-closed",
+            linked_trade_id=trade_id, age_minutes=60,
+            status="closed",
+        )
+        summary = _watchdog_stuck_strategies(tmp_db)
+        assert summary["checked"] == 0
+
+    def test_terminal_linked_trade_does_not_re_orphan(
+        self, tmp_db, monkeypatch,
+    ):
+        """If the linked trade is ALREADY in a terminal status
+        (orphaned / closed / rejected_too_small / etc.), the
+        watchdog still force-closes the package but does NOT
+        rewrite the trade's status (which would lose information).
+        Only ``status='open'`` trades get cascaded.
+        """
+        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
+        trade_id = _insert_trade(tmp_db, status="orphaned")
+        self._insert_pkg_with_age(
+            tmp_db, pkg_id="pkg-trade-already-orphaned",
+            linked_trade_id=trade_id, age_minutes=60,
+        )
+        summary = _watchdog_stuck_strategies(tmp_db)
+        assert summary["auto_cleared"] == 1
+        # Package force-closed.
+        assert _read_package(
+            tmp_db, "pkg-trade-already-orphaned",
+        )["status"] == "closed"
+        # Trade status preserved as 'orphaned' — not overwritten.
+        trade = _read_trade(tmp_db, trade_id)
+        assert trade["status"] == "orphaned"
+
+    def test_threshold_env_override(self, tmp_db, monkeypatch):
+        """Operator can lower the threshold via env var without a
+        trader restart. With a 5 min override, a 10 min old package
+        becomes eligible.
+        """
+        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
+        monkeypatch.setenv("STUCK_STRATEGY_THRESHOLD_MINUTES", "5")
+        trade_id = _insert_trade(tmp_db, status="open")
+        self._insert_pkg_with_age(
+            tmp_db, pkg_id="pkg-tight-threshold",
+            linked_trade_id=trade_id, age_minutes=10,
+        )
+        summary = _watchdog_stuck_strategies(tmp_db)
+        assert summary["auto_cleared"] == 1
+        assert _read_package(
+            tmp_db, "pkg-tight-threshold",
+        )["status"] == "closed"
+
+    def test_invalid_env_falls_back_to_default(self, tmp_db, monkeypatch):
+        """A garbage env value must NOT lower the threshold — fall
+        back to 30 min so a typo can't accidentally trigger an
+        aggressive sweep.
+        """
+        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
+        monkeypatch.setenv("STUCK_STRATEGY_THRESHOLD_MINUTES", "not-a-number")
+        trade_id = _insert_trade(tmp_db, status="open")
+        # 10 min is well under the 30 min default — should NOT fire.
+        self._insert_pkg_with_age(
+            tmp_db, pkg_id="pkg-garbage-env",
+            linked_trade_id=trade_id, age_minutes=10,
+        )
+        summary = _watchdog_stuck_strategies(tmp_db)
+        assert summary["checked"] == 0
+        assert _read_package(tmp_db, "pkg-garbage-env")["status"] == "open"
+
+    def test_noop_when_reconcile_disabled(self, tmp_db, monkeypatch):
+        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "false")
+        trade_id = _insert_trade(tmp_db, status="open")
+        self._insert_pkg_with_age(
+            tmp_db, pkg_id="pkg-disabled-flag",
+            linked_trade_id=trade_id, age_minutes=120,
+        )
+        summary = _watchdog_stuck_strategies(tmp_db)
+        assert summary == {
+            "checked": 0, "alerted": 0, "auto_cleared": 0, "errors": 0,
+        }
+        assert _read_package(
+            tmp_db, "pkg-disabled-flag",
+        )["status"] == "open"
+
+    def test_idempotent_across_consecutive_ticks(
+        self, tmp_db, tmp_path, monkeypatch,
+    ):
+        """The first tick force-closes the package + emits the
+        alert. The second tick must be a complete no-op — the
+        package is now ``status='closed'`` so the WHERE no longer
+        matches, AND no fresh alert ping is queued.
+        """
+        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
+        trade_id = _insert_trade(tmp_db, status="open")
+        self._insert_pkg_with_age(
+            tmp_db, pkg_id="pkg-idem", linked_trade_id=trade_id,
+            age_minutes=45,
+        )
+        pings_dir = tmp_path / "pings"
+        monkeypatch.setattr(
+            "src.runtime.execution_diagnostics.PENDING_PINGS_DIR",
+            pings_dir,
+        )
+
+        first = _watchdog_stuck_strategies(tmp_db)
+        second = _watchdog_stuck_strategies(tmp_db)
+
+        assert first["alerted"] == 1
+        assert first["auto_cleared"] == 1
+        assert second == {
+            "checked": 0, "alerted": 0, "auto_cleared": 0, "errors": 0,
+        }
+        # Only ONE ping queued across both ticks.
+        assert len(list(pings_dir.glob("*.json"))) == 1

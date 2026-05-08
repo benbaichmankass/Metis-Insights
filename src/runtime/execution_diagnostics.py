@@ -220,6 +220,61 @@ def enqueue_all_accounts_failed_dispatch(
         return None
 
 
+def enqueue_stuck_strategy_alert(
+    *,
+    strategy: str,
+    symbol: str,
+    order_package_id: str,
+    db_trade_id: Any,
+    stuck_minutes: int,
+    auto_cleared: bool,
+    priority: str = "high",
+) -> Optional[Path]:
+    """High-priority watchdog ping when the strategy-monocle gate has
+    been blocked by a single package for too long.
+
+    This is the last line of defence after the orphan reconciler,
+    `_sweep_stuck_linked_packages`, and the strategy's own monitor()
+    loop have all had a chance to clear the package and didn't. By
+    the time this fires, something has gone meaningfully sideways —
+    the operator must investigate.
+
+    *auto_cleared* is True when the watchdog also force-closed the
+    package + cascaded the linked trade row in the same tick. False
+    when alerting was idempotency-only (the package was already
+    flagged on a previous tick).
+    """
+    try:
+        verb = "force-cleared" if auto_cleared else "still stuck"
+        body = (
+            "🚨 Stuck-strategy watchdog\n"
+            f"Strategy: {strategy} | Symbol: {symbol}\n"
+            f"Package: {order_package_id}\n"
+            f"DB trade id: {db_trade_id}\n"
+            f"Stuck for: {stuck_minutes} min\n"
+            f"Action: {verb}\n"
+            "Investigate: the orphan reconciler + stuck-linked sweep "
+            "did NOT catch this — possible exchange-side stale "
+            "position or reconciler skip path."
+        )[:1024]
+        payload = {"priority": priority, "body": body}
+        PENDING_PINGS_DIR.mkdir(parents=True, exist_ok=True)
+        name = f"{int(uuid.uuid4().int % 10**12):012d}-stuckstrat.json"
+        path = PENDING_PINGS_DIR / name
+        tmp = path.with_suffix(".json.tmp")
+        with tmp.open("w", encoding="utf-8") as fh:
+            json.dump(payload, fh, ensure_ascii=False)
+        os.replace(tmp, path)
+        return path
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "execution_diagnostics: stuck-strategy enqueue failed for "
+            "strategy=%s pkg=%s: %s",
+            strategy, order_package_id, exc,
+        )
+        return None
+
+
 def enqueue_orphan_rollup(
     *,
     suppressed_count: int,

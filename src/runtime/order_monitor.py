@@ -1122,6 +1122,214 @@ def _sweep_stuck_linked_packages(db) -> int:
 
 
 # ---------------------------------------------------------------------------
+# Stuck-strategy watchdog — last line of defence
+# ---------------------------------------------------------------------------
+#
+# When the orphan reconciler, `_sweep_stuck_linked_packages`, AND the
+# strategy's own monitor() loop have all had a chance to clear a
+# package and none did, the strategy-monocle gate at
+# pipeline.py::_has_open_package_for_strategy stays blocked
+# indefinitely — every future signal for that strategy is silently
+# dropped. The watchdog catches this terminal-class failure mode by
+# escalating a high-priority operator alert AND force-closing the
+# stuck row + cascading the linked trade to ``orphaned``.
+#
+# Idempotent: each affected package is flagged on its first sighting
+# (``meta.stuck_alert_emitted_at``); subsequent ticks won't re-fire
+# the alert. The force-close itself is naturally idempotent — once
+# ``status='closed'`` the row no longer matches the watchdog's
+# WHERE clause.
+#
+# Threshold: ``STUCK_STRATEGY_THRESHOLD_MINUTES`` env var. Default
+# 30 — well above the orphan reconciler's grace window (60 s) and
+# well above the longest expected monitor tick interval (15 min).
+# Operator can tune via env without restart.
+
+_DEFAULT_STUCK_STRATEGY_THRESHOLD_MINUTES = 30
+
+
+def _stuck_strategy_threshold_minutes() -> float:
+    """Read ``STUCK_STRATEGY_THRESHOLD_MINUTES`` at call time so an
+    operator can tune the threshold without a trader restart. Falls
+    back to the 30-minute default on any unparseable / missing
+    value; clamped to ``>= 1`` minute (a sub-minute threshold would
+    fight every reconciler tick).
+    """
+    raw = os.environ.get("STUCK_STRATEGY_THRESHOLD_MINUTES")
+    if raw is None or str(raw).strip() == "":
+        return float(_DEFAULT_STUCK_STRATEGY_THRESHOLD_MINUTES)
+    try:
+        return max(1.0, float(raw))
+    except (TypeError, ValueError):
+        return float(_DEFAULT_STUCK_STRATEGY_THRESHOLD_MINUTES)
+
+
+def _watchdog_stuck_strategies(db) -> Dict[str, int]:
+    """Detect + recover packages stuck at ``status='open'`` AND
+    ``linked_trade_id IS NOT NULL`` for longer than the configured
+    threshold.
+
+    For each stuck package on its first sighting:
+
+      1. Stamp ``meta.stuck_alert_emitted_at`` so the alert is
+         idempotent across ticks.
+      2. Emit a high-priority ``enqueue_stuck_strategy_alert`` ping.
+      3. Force-close the package (``status='closed'``,
+         ``close_reason='stuck_strategy_watchdog'``).
+      4. Cascade the linked trade row to ``status='orphaned'`` if it's
+         still ``open`` — the gate clears immediately on the next
+         tick.
+
+    Operator-confirmed (2026-05-08): full automatic reset is
+    approved, so the auto-clear is not gated by a separate flag.
+    The whole helper is gated by ``MONITOR_RECONCILE_ENABLED``.
+
+    Returns a summary
+    ``{checked, alerted, auto_cleared, errors}`` so the caller can
+    log a per-tick line when non-zero.
+    """
+    summary = {
+        "checked": 0,
+        "alerted": 0,
+        "auto_cleared": 0,
+        "errors": 0,
+    }
+    if not _reconcile_enabled():
+        return summary
+
+    threshold_minutes = _stuck_strategy_threshold_minutes()
+
+    try:
+        conn = db.connect()
+        try:
+            conn.row_factory = __import__("sqlite3").Row
+            rows = conn.execute(
+                "SELECT order_package_id, strategy_name, symbol, "
+                "       linked_trade_id, updated_at, meta "
+                "FROM order_packages "
+                "WHERE status = 'open' "
+                "  AND linked_trade_id IS NOT NULL "
+                "  AND datetime(updated_at) <= datetime('now', ? || ' minutes')",
+                (f"-{int(threshold_minutes)}",),
+            ).fetchall()
+        finally:
+            conn.close()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("_watchdog_stuck_strategies: read failed: %s", exc)
+        summary["errors"] += 1
+        return summary
+
+    if not rows:
+        return summary
+
+    summary["checked"] = len(rows)
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    # Lazy import — keeps the module load cheap and avoids a circular
+    # via execution_diagnostics's own log path.
+    from src.runtime.execution_diagnostics import enqueue_stuck_strategy_alert
+
+    for row in rows:
+        pkg_id = row["order_package_id"]
+        strategy = row["strategy_name"]
+        symbol = row["symbol"]
+        trade_id = row["linked_trade_id"]
+        meta = _decode_notes(row["meta"])
+        already_alerted = bool(meta.get("stuck_alert_emitted_at"))
+
+        # Stamp the meta + force-close the package + orphan the
+        # linked trade. Best-effort end-to-end so a single broken
+        # row does not block the rest of the watchdog.
+        try:
+            updated_meta = dict(meta)
+            updated_meta.setdefault("stuck_alert_emitted_at", now_iso)
+            updated_meta["stuck_force_cleared_at"] = now_iso
+            updated_meta["stuck_force_cleared_by"] = "stuck_strategy_watchdog"
+            db.update_order_package(pkg_id, {
+                "status": "closed",
+                "close_reason": "stuck_strategy_watchdog",
+                "meta": updated_meta,
+            })
+            summary["auto_cleared"] += 1
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "_watchdog_stuck_strategies: package force-close failed "
+                "for pkg_id=%s: %s",
+                pkg_id, exc,
+            )
+            summary["errors"] += 1
+
+        # Cascade the linked trade if it's still open. We only orphan
+        # rows that are status='open' — anything else has already
+        # been settled by another path.
+        try:
+            db_conn = db.connect()
+            try:
+                db_conn.row_factory = __import__("sqlite3").Row
+                trade_row = db_conn.execute(
+                    "SELECT id, status, notes FROM trades WHERE id=?",
+                    (trade_id,),
+                ).fetchone()
+            finally:
+                db_conn.close()
+            if trade_row and str(trade_row["status"]) == "open":
+                trade_notes = _decode_notes(trade_row["notes"])
+                trade_notes.update({
+                    "orphaned_at": now_iso,
+                    "orphaned_by": "stuck_strategy_watchdog",
+                    "orphaned_reason": (
+                        "watchdog — package stuck > "
+                        f"{int(threshold_minutes)} min; gate was blocked"
+                    ),
+                })
+                db.update_trade(int(trade_row["id"]), {
+                    "status": "orphaned",
+                    "exit_reason": "stuck_strategy_watchdog",
+                    "notes": json.dumps(trade_notes, ensure_ascii=False)[:500],
+                })
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "_watchdog_stuck_strategies: trade cascade failed for "
+                "trade_id=%s: %s",
+                trade_id, exc,
+            )
+            summary["errors"] += 1
+
+        # Emit the alert only on first sighting — subsequent ticks
+        # would have caught the row at "force-closed" already
+        # (excluded by the WHERE), so this branch is mostly a
+        # safety check rather than an idempotency gate. Kept for
+        # the rare case where the SELECT raced a partial close.
+        if not already_alerted:
+            try:
+                enqueue_stuck_strategy_alert(
+                    strategy=str(strategy or "unknown"),
+                    symbol=str(symbol or "?"),
+                    order_package_id=str(pkg_id),
+                    db_trade_id=trade_id,
+                    stuck_minutes=int(threshold_minutes),
+                    auto_cleared=True,
+                )
+                summary["alerted"] += 1
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "_watchdog_stuck_strategies: alert enqueue failed "
+                    "for pkg_id=%s: %s",
+                    pkg_id, exc,
+                )
+                summary["errors"] += 1
+
+    if summary["auto_cleared"] or summary["alerted"]:
+        logger.info(
+            "_watchdog_stuck_strategies: checked=%d alerted=%d "
+            "auto_cleared=%d errors=%d (threshold=%d min)",
+            summary["checked"], summary["alerted"], summary["auto_cleared"],
+            summary["errors"], int(threshold_minutes),
+        )
+    return summary
+
+
+# ---------------------------------------------------------------------------
 # Borrow-orphan reconciler — S-055 fail-safe
 # ---------------------------------------------------------------------------
 #
@@ -1743,6 +1951,21 @@ def run_monitor_tick(
         _sweep_stuck_linked_packages(db)
     except Exception as exc:  # noqa: BLE001
         logger.warning("run_monitor_tick: stuck-linked-pkg sweep raised: %s", exc)
+
+    # Last line of defence: stuck-strategy watchdog. Catches packages
+    # the orphan reconciler + linked-package sweep both missed (e.g.
+    # the linked trade is genuinely status='open' but the strategy
+    # somehow can't progress). Force-clears the package + cascades
+    # the trade row + emits a high-priority operator alert.
+    # Gated by MONITOR_RECONCILE_ENABLED (helper checks).
+    try:
+        watchdog_summary = _watchdog_stuck_strategies(db)
+        if watchdog_summary.get("alerted") or watchdog_summary.get("errors"):
+            summaries["__stuck_strategy_watchdog__"] = watchdog_summary
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "run_monitor_tick: stuck-strategy watchdog raised: %s", exc,
+        )
 
     # S-055: sweep spot-margin accounts for outstanding ``borrowAmount``
     # that no DB-open trade backs (the operator-confirmed fail-safe for
