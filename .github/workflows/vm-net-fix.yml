@@ -5,24 +5,26 @@ name: vm-net-fix
 #
 # Diagnoses + fixes the class of outage tracked in #537 / #542 / #545:
 #   - bot service is healthy (uvicorn bound to 0.0.0.0:8001)
-#   - vm-net-diag confirms ufw is active and silently dropping inbound 8001
 #   - dashboard sees every /api/bot/* call as httpStatus=0 (timeout)
+#
+# v2: applies BOTH ufw allow AND iptables -I INPUT ACCEPT, since #549
+# revealed that ufw is `Status: inactive` on this VM (so its rule list
+# is irrelevant) and the actual block is on iptables INPUT (or the
+# Oracle Cloud Security List, which only manual console action can fix).
+# Both fixes are idempotent on the rule side; iptables-save is invoked
+# at the end so the rule survives reboots.
 #
 # Triggers:
 #   1. workflow_dispatch — operator clicks "Run workflow".
-#   2. issues.opened with label `vm-net-fix-request` — automated path
-#      from a Claude session.
+#   2. issues.opened with label `vm-net-fix-request` — automated path.
 #
 # Trust contract:
-#   - Mutates VM-local firewall state (ufw allow 8001/tcp). Reversible
-#     via `sudo ufw delete allow 8001/tcp` on the VM.
+#   - Mutates VM-local firewall state. Reversible via:
+#       sudo ufw delete allow 8001/tcp
+#       sudo iptables -D INPUT -p tcp --dport 8001 -j ACCEPT
+#       sudo netfilter-persistent save
 #   - Does NOT touch any cloud-side security list / NSG.
-#   - Does NOT mutate /etc/sudoers.d/* (the in-repo
-#     deploy/claude-vm-runner.sudoers update is separate and is only
-#     applied via a manual vm_bootstrap.sh re-run).
-#   - Idempotent: ufw "allow" is a no-op if the rule already exists.
-#   - Post-fix verification proves the fix worked from the public
-#     internet (curl from the GH runner) before reporting success.
+#   - Does NOT mutate /etc/sudoers.d/*.
 
 on:
   workflow_dispatch:
@@ -79,7 +81,7 @@ jobs:
           set +e
           curl -sS --max-time 8 \
             -o /dev/null \
-            -w 'http_code=%{http_code} exitcode=%{exitcode} time=%{time_total}\n' \
+            -w 'http_code=%{http_code} time=%{time_total}\n' \
             "http://${VM_SSH_HOST}:${DASHBOARD_PORT}/api/health" \
             > pre_probe.txt 2>&1
           rc=$?
@@ -88,7 +90,7 @@ jobs:
           echo "Pre-fix probe (rc=$rc):"
           cat pre_probe.txt
 
-      - name: Apply ufw allow 8001/tcp on VM
+      - name: Apply firewall opens on VM (ufw + iptables)
         id: apply
         run: |
           set -euo pipefail
@@ -99,80 +101,83 @@ jobs:
               "${VM_SSH_USER}@${VM_SSH_HOST}" 'bash -s' <<'REMOTE' > apply.txt 2>&1
           set +e
           PORT=8001
+          PUBLIC_IP=158.178.210.252
 
-          echo "===== sudo -n -l (enumerate sudo allowances, first 50 lines) ====="
-          sudo -n -l 2>&1 | head -50
+          echo "===== ufw (idempotent allow) ====="
+          sudo -n ufw status verbose 2>&1 | head -3
+          sudo -n ufw allow "$PORT/tcp" comment 'ict-web-api dashboard' 2>&1
+          sudo -n ufw reload 2>&1 | head -3
           echo
 
-          echo "===== ufw status BEFORE ====="
-          sudo -n ufw status verbose 2>&1
-          UFW_PRE_RC=$?
-          echo "(sudo ufw status exit: $UFW_PRE_RC)"
+          echo "===== iptables INPUT chain BEFORE ====="
+          sudo -n iptables -L INPUT -n -v --line-numbers 2>&1 | head -30
+          echo
+          echo "===== iptables -S INPUT (rule form) ====="
+          sudo -n iptables -S INPUT 2>&1 | head -30
           echo
 
-          if [ "$UFW_PRE_RC" -ne 0 ]; then
-            echo "===== sudo -n ufw failed; attempting iptables fallback ====="
-            sudo -n iptables -I INPUT -p tcp --dport "$PORT" -j ACCEPT 2>&1
-            IPT_RC=$?
-            echo "(sudo iptables -I exit: $IPT_RC)"
-            if [ "$IPT_RC" -eq 0 ]; then
-              sudo -n netfilter-persistent save 2>&1 || echo "(netfilter-persistent save failed; rule is live but won't persist across reboot)"
-              echo
-              echo "===== iptables -L INPUT (after) ====="
-              sudo -n iptables -L INPUT -n -v --line-numbers 2>&1 | head -20
-              echo
-              echo "FIX_METHOD=iptables"
-            else
-              echo "ERROR: neither sudo ufw nor sudo iptables is permitted."
-              echo "ubuntu user needs one of these in /etc/sudoers.d/:"
-              echo "  ubuntu ALL=(root) NOPASSWD: /usr/sbin/ufw"
-              echo "  ubuntu ALL=(root) NOPASSWD: /usr/sbin/iptables, /usr/sbin/netfilter-persistent"
-              echo "FIX_METHOD=NONE"
-              exit 10
-            fi
+          # Idempotent: only insert if a matching ACCEPT rule isn't already
+          # present at any position. -C returns 0 if the rule exists.
+          if sudo -n iptables -C INPUT -p tcp --dport "$PORT" -j ACCEPT 2>/dev/null; then
+            echo "===== iptables ACCEPT rule for $PORT already present, skipping insert ====="
           else
-            echo "===== sudo ufw allow $PORT/tcp ====="
-            sudo -n ufw allow "$PORT/tcp" comment 'ict-web-api dashboard' 2>&1
-            ALLOW_RC=$?
-            echo "(sudo ufw allow exit: $ALLOW_RC)"
-            echo
-
-            echo "===== sudo ufw reload ====="
-            sudo -n ufw reload 2>&1
-            RELOAD_RC=$?
-            echo "(sudo ufw reload exit: $RELOAD_RC)"
-            echo
-
-            echo "===== ufw status AFTER ====="
-            sudo -n ufw status verbose 2>&1
-            echo
-            echo "FIX_METHOD=ufw"
+            echo "===== iptables -I INPUT 1 -p tcp --dport $PORT -j ACCEPT ====="
+            sudo -n iptables -I INPUT 1 -p tcp --dport "$PORT" -j ACCEPT 2>&1
+            echo "(insert exit: $?)"
           fi
-
           echo
-          echo "===== loopback-via-public-IP curl AFTER (proves rule effective) ====="
+
+          echo "===== iptables INPUT chain AFTER ====="
+          sudo -n iptables -L INPUT -n -v --line-numbers 2>&1 | head -30
+          echo
+
+          echo "===== persist via netfilter-persistent save ====="
+          sudo -n netfilter-persistent save 2>&1 || \
+            sudo -n bash -c 'iptables-save > /etc/iptables/rules.v4' 2>&1 || \
+            echo "(persistence not available — rule is live but won't survive reboot)"
+          echo
+
+          echo "===== ip6tables INPUT (best-effort, IPv6 may also need opening) ====="
+          if sudo -n ip6tables -C INPUT -p tcp --dport "$PORT" -j ACCEPT 2>/dev/null; then
+            echo "(ip6tables ACCEPT already present)"
+          else
+            sudo -n ip6tables -I INPUT 1 -p tcp --dport "$PORT" -j ACCEPT 2>&1
+          fi
+          echo
+
+          echo "===== ss -tln | grep $PORT ====="
+          ss -tln | grep ":$PORT" || echo "(no socket bound to :$PORT — service may have stopped)"
+          echo
+
+          echo "===== loopback-via-public-IP curl AFTER ====="
           curl -sS --max-time 8 \
             -o /tmp/h_after \
             -w 'http=%{http_code} time=%{time_total}s\n' \
-            "http://158.178.210.252:$PORT/api/health" 2>&1 || echo "(curl exit $?)"
+            "http://$PUBLIC_IP:$PORT/api/health" 2>&1 || echo "(curl exit $?)"
           head -c 300 /tmp/h_after 2>/dev/null; echo
+          echo
+
+          echo "===== loopback (127.0.0.1) curl AFTER (sanity) ====="
+          curl -sS --max-time 5 \
+            -o /tmp/h_loop \
+            -w 'http=%{http_code} time=%{time_total}s\n' \
+            "http://127.0.0.1:$PORT/api/health" 2>&1 || echo "(curl exit $?)"
+          head -c 200 /tmp/h_loop 2>/dev/null; echo
           REMOTE
           rc=$?
           echo "APPLY_RC=$rc" >> "$GITHUB_ENV"
-          echo "==== apply.txt (truncated to 4000 bytes) ===="
-          head -c 4000 apply.txt
-          # Don't fail the workflow yet — let the post-probe step decide.
+          echo "==== apply.txt (truncated to 6000 bytes) ===="
+          head -c 6000 apply.txt
           exit 0
 
       - name: Probe post-fix public reachability from runner
         id: post_probe
         run: |
           set +e
-          # Briefly retry — ufw reload can take a second to settle.
           for i in 1 2 3; do
             curl -sS --max-time 8 \
               -o post_body.txt \
-              -w 'attempt=%{exitcode==0?1:0} http_code=%{http_code} exitcode=%{exitcode} time=%{time_total}\n' \
+              -w 'http_code=%{http_code} time=%{time_total}\n' \
               "http://${VM_SSH_HOST}:${DASHBOARD_PORT}/api/health" \
               > "post_probe_${i}.txt" 2>&1
             rc=$?
@@ -201,7 +206,7 @@ jobs:
               try { return fs.readFileSync(p, 'utf8').slice(0, max); } catch { return '(missing)'; }
             };
             const preProbe = safeRead('pre_probe.txt');
-            const apply = safeRead('apply.txt', 12_000);
+            const apply = safeRead('apply.txt', 14_000);
             const post1 = safeRead('post_probe_1.txt');
             const post2 = safeRead('post_probe_2.txt');
             const post3 = safeRead('post_probe_3.txt');
@@ -213,7 +218,7 @@ jobs:
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
             const verdict = ok
               ? 'SUCCESS — port 8001 is now reachable from the public internet.'
-              : 'NOT YET — post-fix probe still failing; see apply log below for the sudo allowances.';
+              : 'NOT YET — VM-local firewall opens applied but external probe still failing. If the VM-self loopback-via-public-IP test ALSO times out, the block is in Oracle Cloud Security List (only fixable in the Oracle console).';
             const body = [
               `**vm-net-fix** ${ok ? 'SUCCESS' : 'INCOMPLETE'}. Run: ${runUrl}`,
               ``,
@@ -255,5 +260,5 @@ jobs:
       - name: Fail the run if post-probe still failing
         if: env.POST_RC != '0'
         run: |
-          echo "::error::Post-fix probe rc=${POST_RC}. Public reachability not restored. See apply log in the issue comment."
+          echo "::error::Post-fix probe rc=${POST_RC}. Public reachability not restored."
           exit 1
