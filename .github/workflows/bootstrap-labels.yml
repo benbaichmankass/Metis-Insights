@@ -1,0 +1,72 @@
+name: bootstrap-labels
+
+# Self-creates the repo labels that other workflows filter on.
+#
+# Why this exists:
+#   - The `vm-diag-snapshot` workflow filters on `issues.opened` with
+#     label `vm-diag-request`. The label has to exist before any
+#     issue can be tagged with it.
+#   - Claude Code on the web has no `mcp__github__create_label` tool,
+#     so a sandbox session can't bootstrap the label itself. The
+#     workflow's GITHUB_TOKEN (with `issues: write`) can.
+#
+# Triggers:
+#   * push to main when this file itself changes — runs once on the
+#     PR merge that adds / updates this workflow, no operator click.
+#   * workflow_dispatch — re-run by hand if a label gets deleted.
+#
+# Adding labels:
+#   Edit the LABELS array below and merge. The next run will create
+#   any new entries idempotently; existing labels are left alone.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/bootstrap-labels.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write     # required for /labels REST API
+
+concurrency:
+  group: bootstrap-labels
+  cancel-in-progress: false
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Sync labels
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const LABELS = [
+              {
+                name: 'vm-diag-request',
+                color: '0e8a16',
+                description: 'Triggers the vm-diag-snapshot workflow (PM-side diag relay).',
+              },
+            ];
+            for (const l of LABELS) {
+              try {
+                await github.rest.issues.getLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: l.name,
+                });
+                core.info(`label '${l.name}' exists — leaving as-is`);
+              } catch (e) {
+                if (e.status !== 404) throw e;
+                await github.rest.issues.createLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: l.name,
+                  color: l.color,
+                  description: l.description,
+                });
+                core.info(`created label '${l.name}'`);
+              }
+            }

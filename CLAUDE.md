@@ -104,6 +104,57 @@ endpoints return 503 if `DIAG_READ_TOKEN` is unset, 401 on bad bearer.
 
 See `docs/claude/vm-operator-mode.md` § 9 for the trust contract.
 
+### Reaching `/api/diag/*` from a PM-side / web-sandbox session
+
+The web sandbox can't egress to `158.178.210.252:8001`. The
+`vm-diag-snapshot` GitHub Actions workflow is the relay: open an
+issue titled `[diag-request] <path>` with label `vm-diag-request`,
+the workflow runs the diag fetch over SSH + curl, posts the JSON
+back as an issue comment, and closes the issue. Full flow + failure
+modes in `docs/claude/diag-relay.md`. Don't paste the
+`DIAG_READ_TOKEN` into chat or commit it; it lives in repo secrets
+(`VM_SSH_KEY`, `DIAG_READ_TOKEN`) and on the VM only.
+
+## PM-side session capabilities (Claude Code on the web)
+
+What the sandbox session can and can't do directly. Future sessions
+should not re-derive this — if the contract changes, edit here.
+
+**MCP tools available** — `mcp__github__*` (subset: issue
+read/write, PR read/write/merge, file read/create/update, branch
+create, secret scanning, **but no `create_label`, no `run_workflow`,
+no artifact download, no run-log read**), Google Drive (file search
++ read), Hugging Face (hub search, doc fetch), Bigdata.com (market
+data), Gmail (read-only labels).
+
+**Network from inside the sandbox** — outbound is allowlisted to
+`*.github.com`, `*.vercel.app`, `*.anthropic.com`, and a small set
+of platform-managed hosts. Arbitrary IPs (incl. the Oracle VM) are
+firewalled. `dangerouslyDisableSandbox: true` does **not** help —
+the egress restriction is enforced one layer below the Bash sandbox.
+
+**No custom MCP servers.** Claude Code on the web doesn't honour
+project `.mcp.json` and can't run `claude mcp add`. To get richer
+GitHub powers (workflow_dispatch, run artifacts, label CRUD), the
+operator has to either (a) wait for Anthropic to expand the hosted
+GitHub MCP, or (b) move the ops session to Claude Code desktop / CLI
+and install `github/github-mcp-server`. Until then, the workarounds
+below are the contract.
+
+**Workarounds shipped:**
+
+- **VM diag access** — issue-driven, see § "Reaching `/api/diag/*`
+  from a PM-side / web-sandbox session" above and the full doc at
+  `docs/claude/diag-relay.md`.
+- **Repo label creation** — `.github/workflows/bootstrap-labels.yml`
+  self-creates the labels other workflows filter on. Edit the
+  `LABELS` array in that file and merge; the next push runs the
+  sync. No `create_label` MCP needed.
+- **Workflow dispatch** — there's no general-purpose workaround.
+  Workflows that need to be Claude-driven from a session must use
+  an `issues.opened` (or `pull_request.opened`) trigger filtered to
+  a label. Pattern is the diag relay (`vm-diag-snapshot.yml`).
+
 ## Running Locally
 ```bash
 pip install -r requirements.txt
