@@ -260,6 +260,49 @@ jobs:
         env:
           EXIT_CODE: ${{ steps.exec.outputs.exit_code }}
 
+      # ────────────────────────────────────────────────────────────
+      # Transparency notify — routes through @claude_ict_comms_bot.
+      # Fires for every action regardless of dispatcher / tier /
+      # outcome per docs/claude/operator-actions.md § 5.5.
+      # Notify failures never break the workflow; the artifact + run
+      # log remain the canonical audit trail.
+      # ────────────────────────────────────────────────────────────
+      - name: Notify operator via Claude bot channel
+        if: always()
+        continue-on-error: true
+        env:
+          NOTIFY_EXIT_CODE: ${{ steps.exec.outputs.exit_code }}
+        run: |
+          set -uo pipefail
+          # Default to 99 if the action step never produced an exit
+          # code (e.g. pre-flight failure). The notify script maps
+          # any non-allowlisted code to "FAILED".
+          exit_code="${NOTIFY_EXIT_CODE:-99}"
+          if [ -z "${exit_code}" ]; then
+            exit_code=99
+          fi
+          # Base64-encode the operator-typed reason so it survives
+          # transport through the SSH command line without quoting
+          # surprises (single quotes, backticks, $-expansion).
+          # notify_run.sh decodes the 4th arg if it ends with the
+          # `:b64` suffix; otherwise treats it as a plain string.
+          if [ -n "${REASON}" ]; then
+            reason_arg="$(printf '%s' "${REASON}" | base64 -w0):b64"
+          else
+            reason_arg=""
+          fi
+          ssh -i ~/.ssh/id_rsa \
+              -o BatchMode=yes \
+              -o StrictHostKeyChecking=accept-new \
+              -o ConnectTimeout=15 \
+              "${VM_SSH_USER}@${VM_SSH_HOST}" \
+              "bash /home/ubuntu/ict-trading-bot/scripts/ops/notify_run.sh \
+                    '${ACTION}' \
+                    '${exit_code}' \
+                    '${RUN_URL}' \
+                    '${reason_arg}'" \
+              || echo "::warning::notify_run.sh failed; transparency ping not delivered. Audit bundle still uploaded."
+
       - name: Upload artifact
         if: always()
         uses: actions/upload-artifact@v4

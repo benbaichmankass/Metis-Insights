@@ -171,7 +171,9 @@ def test_wrapper_uses_strict_mode_and_sources_lib(script: str) -> None:
         assert "_lib.sh" in text, f"{script} must source the shared _lib.sh."
 
 
-@pytest.mark.parametrize("script", list(EXPECTED_ACTIONS.values()) + ["_lib.sh"])
+@pytest.mark.parametrize(
+    "script", list(EXPECTED_ACTIONS.values()) + ["_lib.sh", "notify_run.sh"]
+)
 def test_wrapper_parses_with_bash_n(script: str) -> None:
     """`bash -n` is a syntax check; it does not execute the script."""
     if shutil.which("bash") is None:
@@ -228,4 +230,64 @@ def test_doc_includes_transparency_rule() -> None:
     collapsed = re.sub(r"\s+", " ", text.lower())
     assert "autonomy is complemented by full transparency" in collapsed, (
         "The transparency principle must be quoted verbatim."
+    )
+
+
+def test_notify_run_script_exists_and_is_executable() -> None:
+    path = OPS_DIR / "notify_run.sh"
+    assert path.exists(), f"Missing notify wrapper: {path}"
+    assert path.stat().st_mode & stat.S_IXUSR, f"{path} is not executable"
+
+
+def test_notify_run_uses_send_ping_with_claude_target() -> None:
+    """The transparency rule routes every ping through the Claude
+    bot channel, not the trader bot. send_ping.py --target claude
+    is the canonical producer."""
+    text = (OPS_DIR / "notify_run.sh").read_text()
+    assert "send_ping.py" in text or "send_ping" in text, (
+        "notify_run.sh must call the canonical scripts/send_ping.py producer."
+    )
+    assert "--target" in text and "claude" in text, (
+        "notify_run.sh must route to the Claude bot channel "
+        "(--target claude), not the trader bot."
+    )
+
+
+def test_notify_run_handles_every_allowlisted_action() -> None:
+    """Adding a new action without a notify-priority mapping would
+    silently drop into the 'unknown action' arm, which alerts as
+    urgent and confuses the operator. Force the mapping to be kept
+    in sync with the allowlist."""
+    text = (OPS_DIR / "notify_run.sh").read_text()
+    for action in EXPECTED_ACTIONS:
+        # Each action name must appear in a `case` arm in notify_run.sh.
+        assert re.search(rf'\b{re.escape(action)}\b', text), (
+            f"notify_run.sh must explicitly map action '{action}' to "
+            f"a priority. Update the case statement when extending the "
+            f"allowlist."
+        )
+
+
+def test_workflow_invokes_notify_step() -> None:
+    """The transparency rule is doc + code now — the workflow must
+    actually have the notify step, with `if: always()` so failures
+    still notify."""
+    text = WORKFLOW.read_text()
+    assert "Notify operator via Claude bot channel" in text, (
+        "operator-actions.yml must include the transparency-rule "
+        "notify step (see docs/claude/operator-actions.md § 5.5)."
+    )
+    assert "notify_run.sh" in text, (
+        "Notify step must invoke scripts/ops/notify_run.sh."
+    )
+    # `if: always()` is what makes failures notify too. `continue-on-error`
+    # ensures a failed ping doesn't flip a successful action to failed.
+    notify_block = text.split("Notify operator via Claude bot channel", 1)[1]
+    notify_block = notify_block.split("- name:", 1)[0]
+    assert "if: always()" in notify_block, (
+        "Notify step must run with `if: always()` so failures notify too."
+    )
+    assert "continue-on-error: true" in notify_block, (
+        "Notify step must `continue-on-error: true` so a notify failure "
+        "doesn't flip an otherwise-successful action."
     )
