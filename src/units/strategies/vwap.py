@@ -34,6 +34,7 @@ import pandas as pd
 from src.units.strategies._base import (
     derive_sl_tp,
     last_close,
+    monitor_breakeven_sl,
     require_candles,
     side_to_direction,
 )
@@ -369,6 +370,43 @@ def build_vwap_signal(
     }
 
 
+def _has_open_vwap_package() -> bool:
+    """Best-effort self-suppression check — is there already an open
+    + linked vwap order package in the trade journal?
+
+    Mirrors the pipeline-level strategy-monocle gate
+    (``src.runtime.pipeline._has_open_package_for_strategy``), pulled
+    inside the strategy module so a bypassed gate (DB read failure,
+    linked_trade_id wiring regression) doesn't re-open the floodgates
+    of duplicate entries every tick. Belt-and-braces, not a
+    replacement.
+
+    Best-effort: any failure (missing DB file, schema mismatch,
+    sqlite locked) returns ``False`` so a journal outage degrades
+    to "no defence-in-depth" rather than "strategy stops generating
+    signals". The pipeline gate remains the primary line of defence.
+    Honours ``TRADE_JOURNAL_DB`` so tests using ``tmp_path`` journals
+    don't cross-contaminate with the production file.
+    """
+    try:
+        import os as _os
+        from src.units.db.database import Database
+        from src.utils.paths import repo_root as _repo_root
+
+        db_path = _os.environ.get("TRADE_JOURNAL_DB") or _os.path.join(
+            str(_repo_root()), "trade_journal.db"
+        )
+        if not _os.path.exists(db_path):
+            return False
+        db = Database(db_path=db_path)
+        rows = db.get_order_packages_by_strategy(
+            "vwap", status="open", linked_only=True, limit=1,
+        )
+        return bool(rows)
+    except Exception:  # noqa: BLE001
+        return False
+
+
 def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
     """Build a VWAP OrderPackage dict.
 
@@ -387,9 +425,19 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
     Raises
     ------
     ValueError
-        When candles_df is absent or signal is non-actionable (side="none").
+        When candles_df is absent, signal is non-actionable
+        (side="none"), or a linked open vwap package already exists
+        (self-suppression — see ``_has_open_vwap_package``). The
+        pipeline catches ValueError as "no actionable signal" and
+        records the tick as flat without dispatching.
     """
     candles_df = require_candles(candles_df, "vwap")
+
+    if _has_open_vwap_package():
+        raise ValueError(
+            "Strategy 'vwap': linked open package already exists; "
+            "deferring entry until monitor() closes it."
+        )
 
     symbol = cfg.get("symbol") or cfg.get("SYMBOL") or "BTCUSDT"
 
@@ -499,11 +547,15 @@ def monitor(cfg, candles_df, open_pkg):
        ``cfg.get("monitor_hold_window_minutes", MONITOR_HOLD_WINDOW_MINUTES)``.
        The mean-reversion thesis is session-bounded; if none of the
        above fired within the hold window, capital should recycle.
+    5. **SL-to-break-even** — defence-in-depth fallback. When price
+       has moved >= 1R in our favour but none of the close paths
+       fired, slide SL to entry to lock in partial profit. Delegates
+       to ``_base.monitor_breakeven_sl`` so vwap and turtle_soup
+       share the rule. Last in the priority chain so any close
+       verdict above wins on the same tick.
 
-    No break-even-SL move (the v1 stub it replaces) — the four close
-    paths above subsume the protection that move was reaching for.
-    Returns ``None`` (no-action) when none of the close paths trigger
-    or the inputs are invalid.
+    Returns ``None`` (no-action) when nothing triggers or the inputs
+    are invalid.
 
     Parameters
     ----------
@@ -521,12 +573,14 @@ def monitor(cfg, candles_df, open_pkg):
     Returns
     -------
     None | dict
-        ``None`` for no-action. Otherwise
-        ``{"action": "close", "reason": str, "exit_price": float}``
-        per the contract in ``order_monitor._apply_update``. The
-        runtime layer translates the verdict into a reduce-only
-        ``close_open_position`` call against the linked trade row;
-        the strategy unit never touches the exchange directly.
+        ``None`` for no-action. Close paths return
+        ``{"action": "close", "reason": str, "exit_price": float}``;
+        the BE path returns ``{"sl": float}``. Both shapes are
+        consumed by ``order_monitor._apply_update`` — close verdicts
+        translate to a reduce-only ``close_open_position`` call,
+        ``sl`` updates rewrite the package row (and, when
+        ``MONITOR_APPLY_TO_EXCHANGE`` is on, the live order's stop).
+        The strategy unit never touches the exchange directly.
     """
     if candles_df is None or len(candles_df) == 0:
         return None
@@ -594,4 +648,14 @@ def monitor(cfg, candles_df, open_pkg):
                     "exit_price": current_price,
                 }
 
-    return None
+    # 5. SL-to-break-even — defence-in-depth fallback that runs only
+    #    when none of the four close paths fire. Once price has moved
+    #    >= 1R in our favour the original invalidation level no longer
+    #    needs to be defended; sliding SL to entry locks in the gain
+    #    while leaving the position open to ride toward TP/VWAP. Last
+    #    in the priority chain so a close verdict (TP/SL/VWAP-cross/
+    #    time-decay) always wins on the same tick — BE never converts
+    #    a would-be exit into "still in market". The shared helper in
+    #    ``_base`` is idempotent: once SL is at entry the next +1R
+    #    tick is a no-op rather than re-writing the same value.
+    return monitor_breakeven_sl(open_pkg, candles_df)
