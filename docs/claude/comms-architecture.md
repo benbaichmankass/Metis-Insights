@@ -302,7 +302,59 @@ req = Request(
 RequestStore().create(req)
 ```
 
-## 11. References
+## 11. Operator-initiated commands (M1 P1-D)
+
+The trader bot exposes two operator commands that queue work for
+downstream consumers by writing a comms request artifact. Both are
+schema-compliant ``REQ-*.json`` files; the only difference from a
+Claude-authored request is ``source.actor == "operator"`` and the
+shape of the question — operator-initiated artifacts are commands,
+not questions to the operator.
+
+### `/new_session <sprint_id>`
+
+Queues a Claude-session bootstrap. The next Claude session reads
+``comms/requests/REQ-…-ns<sprint>.json`` (operator-initiated, free-text
+question, ``required: false``) and picks up the requested sprint.
+
+  - **Source:** operator. **Task:** ``new_session:<sprint_id>``.
+  - **Topic:** ``"New session: <sprint_id>"``.
+  - **Default-on-timeout:** ``close`` (so an unconsumed bootstrap
+    request never re-fires as an operator notification).
+  - **Consumer:** Claude (next-session bootstrap; consumption logic
+    lives in CLAUDE.md / sprint prompts, deliberately out of scope
+    for the bot).
+
+### `/test <strategy>`
+
+Queues a backtest for the M5 workflow. The artifact has one
+``required: true`` free-text question (``results``); M5 fills it in
+via the existing ``apply_answer`` writeback path so the result lands
+back in the same artifact and propagates through git.
+
+  - **Source:** operator. **Task:** ``test_strategy:<strategy>``.
+  - **Topic:** ``"Strategy test: <strategy>"``.
+  - **Default-on-timeout:** ``expire`` (a backtest that doesn't run
+    inside the TTL is treated as failed; M5 owns the alerting).
+  - **Consumer:** M5 backtest workflow (separate sprint; not yet
+    implemented).
+
+### Wiring
+
+  - Templates: [`src/comms/templates.py`](../../src/comms/templates.py)
+    — `make_new_session_request`, `make_test_strategy_request`,
+    `commit_subject_for`.
+  - Handlers: ``cmd_new_session`` and ``cmd_test_strategy`` in
+    [`src/bot/telegram_query_bot.py`](../../src/bot/telegram_query_bot.py).
+    Both use ``RequestStore.create`` for persistence and
+    ``GitPusher.commit_and_push`` (gated by ``COMMS_PUSH_ENABLED``)
+    for propagation.
+  - Commit-subject prefix: ``comms(ask):`` — distinct from the
+    response-writeback prefix ``comms(response):`` so the
+    notify-on-pull filter and downstream consumers can tell the two
+    apart.
+
+## 12. References
 
 - Sprint prompt: telegram-communication-infrastructure (S-027).
 - [`docs/claude/telegram-pings.md`](telegram-pings.md) — existing

@@ -17,7 +17,11 @@ from telegram.ext import Application, CommandHandler, CallbackQueryHandler, Cont
 # format_target_options deleted.
 from src.units.ui import data_loaders as dl
 from src.bot.vm_runner import handle_vm_command, RunnerResult, MAX_PROMPT_CHARS
-from src.bot.comms_handler import install_comms_handlers
+from src.bot.comms_handler import (
+    GitPusher,
+    GitPushError,
+    install_comms_handlers,
+)
 
 load_dotenv()
 
@@ -654,6 +658,8 @@ BOT_COMMAND_SPECS: list[BotCommandSpec] = [
     BotCommandSpec("checkpoint", "Latest entry from CHECKPOINT_LOG.md", "sprint"),
     BotCommandSpec("sprintlet_status", "Manual sprint milestone update", "sprint"),
     BotCommandSpec("sprintlet_complete", "Manual sprint-complete signal", "sprint"),
+    BotCommandSpec("new_session", "Queue a new Claude session for a sprint: /new_session <sprint_id>", "sprint"),
+    BotCommandSpec("test", "Queue a backtest for a strategy (M5): /test <strategy>", "sprint"),
 ]
 
 
@@ -1642,6 +1648,131 @@ async def cmd_sprintlet_complete(update: Update, context: ContextTypes.DEFAULT_T
     await update.message.reply_text(
         f"🎉 {sprint_id} COMPLETE. Latest checkpoint: {cp_id}."
     )
+
+
+# ── Operator-initiated comms requests (M1 P1-D) ────────────────────────────
+#
+# /new_session and /test queue work for downstream consumers (Claude,
+# the M5 backtest workflow) by writing a comms/requests/REQ-…json
+# artifact and committing it via the same GitPusher the comms response
+# writeback uses. Templates live in src.comms.templates.
+
+async def _queue_comms_ask(
+    update: Update,
+    *,
+    request,
+    summary: str,
+) -> None:
+    """Persist + commit an operator-initiated comms request.
+
+    Shared by ``cmd_new_session`` and ``cmd_test_strategy``. The git push
+    is gated by ``COMMS_PUSH_ENABLED`` per ``GitPusher.from_env``, so
+    local/dev runs no-op the push. Telegram ack always includes the
+    request id (P1-D acceptance).
+    """
+    from src.comms import RequestStore
+    from src.comms.models import CommsValidationError
+    from src.comms.templates import commit_subject_for
+
+    repo_root = Path(REPO_ROOT)
+    store = RequestStore(repo_root / "comms")
+    try:
+        path = store.create(request)
+    except (CommsValidationError, FileExistsError) as exc:
+        logger.error("comms ask: store.create failed: %s", exc)
+        await update.message.reply_text(
+            f"⚠️ Could not write comms request: {exc}"
+        )
+        return
+
+    try:
+        pusher = GitPusher.from_env(repo_root)
+        pusher.commit_and_push(
+            files=[path],
+            message=commit_subject_for(request),
+        )
+    except GitPushError as exc:
+        # Artifact is on disk; push retry is a separate concern. Surface
+        # the failure so the operator knows the queue may not have
+        # propagated yet, but don't tear down the artifact.
+        logger.warning("comms ask: push failed for %s: %s", request.request_id, exc)
+        await update.message.reply_text(
+            f"⚠️ Wrote `{request.request_id}` but push failed: {exc}\n"
+            f"{summary}",
+            parse_mode="Markdown",
+        )
+        return
+
+    await update.message.reply_text(
+        f"✅ Queued `{request.request_id}`.\n{summary}",
+        parse_mode="Markdown",
+    )
+
+
+async def cmd_new_session(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Queue a new-Claude-session command. Usage: ``/new_session <sprint_id>``.
+
+    Writes ``comms/requests/REQ-…-ns<sprint>.json`` so the next Claude
+    session can read it on startup and bootstrap onto the requested
+    sprint. The artifact is operator-initiated; consumption lives in
+    CLAUDE.md / sprint prompts (out of scope here per the M1 P1-D
+    audit).
+    """
+    if not is_authorised(update):
+        return
+    args = list(context.args or [])
+    if not args:
+        await update.message.reply_text(
+            "Usage: `/new_session <sprint_id>` (e.g. `/new_session S-099`)",
+            parse_mode="Markdown",
+        )
+        return
+    sprint_id = args[0].strip()
+
+    from src.comms.models import CommsValidationError
+    from src.comms.templates import make_new_session_request
+    try:
+        request = make_new_session_request(sprint_id)
+    except CommsValidationError as exc:
+        await update.message.reply_text(f"⚠️ Invalid sprint id: {exc}")
+        return
+
+    summary = f"Claude will pick up `{sprint_id}` on the next sync."
+    await _queue_comms_ask(update, request=request, summary=summary)
+
+
+async def cmd_test_strategy(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Queue a strategy-backtest request. Usage: ``/test <strategy>``.
+
+    Writes ``comms/requests/REQ-…-ts<strategy>.json`` for the M5
+    backtest workflow to consume. M5 writes the results back via the
+    existing comms ``apply_answer`` writeback path; the consumer side
+    is out of scope for P1-D (separate M5 sprint).
+    """
+    if not is_authorised(update):
+        return
+    args = list(context.args or [])
+    if not args:
+        await update.message.reply_text(
+            "Usage: `/test <strategy>` (e.g. `/test vwap`)",
+            parse_mode="Markdown",
+        )
+        return
+    strategy = args[0].strip()
+
+    from src.comms.models import CommsValidationError
+    from src.comms.templates import make_test_strategy_request
+    try:
+        request = make_test_strategy_request(strategy)
+    except CommsValidationError as exc:
+        await update.message.reply_text(f"⚠️ Invalid strategy: {exc}")
+        return
+
+    summary = (
+        f"M5 backtest workflow will run `{strategy}` and write results "
+        "back into the artifact."
+    )
+    await _queue_comms_ask(update, request=request, summary=summary)
 
 
 # ── Pending-pings inbox (S-019) ────────────────────────────────────────────
@@ -2985,6 +3116,8 @@ def main():
     application.add_handler(CommandHandler("sprintlet_status", cmd_sprintlet_status))
     application.add_handler(CommandHandler("sprintlet_complete", cmd_sprintlet_complete))
     application.add_handler(CommandHandler("checkpoint", cmd_checkpoint))
+    application.add_handler(CommandHandler("new_session", cmd_new_session))
+    application.add_handler(CommandHandler("test", cmd_test_strategy))
     application.add_handler(CommandHandler("health", cmd_health))
     application.add_handler(CommandHandler("vmstats", cmd_vmstats))
     application.add_handler(CommandHandler("ping_test", cmd_ping_test))
