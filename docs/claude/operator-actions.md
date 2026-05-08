@@ -72,10 +72,15 @@ read-only.
 Post-action: Claude reads the artifact, summarises in the relevant
 issue / PR / Telegram thread, then stops.
 
-### Tier 2 — ping the operator first
+### Tier 2 — pre-dispatch ping (PM-side Claude only)
 
-Claude **must not** dispatch these without an operator ack. The ack
-flow is:
+Tier-2 actions:
+
+- `restart-bot-service`
+- `reboot-vm`
+
+**For PM-side Claude (web sandbox / dev laptop):** must not dispatch
+without an operator ack. The ack flow is:
 
 1. Claude opens an issue (or appends to an open ping thread) using
    the message format in § 7.
@@ -85,15 +90,15 @@ flow is:
    or the operator triggers the workflow with the agreed `action` +
    `reason`.
 
-Tier-2 actions:
+**For autonomous dispatchers (operator, Perplexity):** the
+pre-dispatch ping is waived (§ 3.5). The post-dispatch notification
+is **not** waived — see § 5.5.
 
-- `restart-bot-service`
-- `reboot-vm`
-
-Why ping first: even though the action itself is narrowly scoped,
-the *blast radius* of restarting the live trader (open positions
-held by the trader process, in-flight orders) is not provable from
-inside the workflow. The operator owns that judgement.
+Why the PM-side ping is required: even though the action itself is
+narrowly scoped, the *blast radius* of restarting the live trader
+(open positions held by the trader process, in-flight orders) is
+not provable from inside the workflow. PM-side Claude does not own
+that judgement; an autonomous dispatcher does, by trust contract.
 
 ### Tier 3 — never via this workflow
 
@@ -108,6 +113,42 @@ Out of scope for `operator-actions` regardless of approval:
   the VM-runner protocol; **disabling/masking is Tier 3** there too)
 
 If you want any of these, you do not want this workflow. Open a PR.
+
+---
+
+## 3.5 Dispatcher trust contract
+
+The tier rules above describe the **action's** blast radius. Whether
+a given dispatcher must ping the operator before triggering an action
+depends on the dispatcher's trust class. Three classes exist today:
+
+| Dispatcher | Tier-1 (`status-check`, `pull-latest-logs`) | Tier-2 (`restart-bot-service`, `reboot-vm`) |
+|---|---|---|
+| **Operator** (Ben, in browser) | autonomous (you're the human) | autonomous (you're the human) |
+| **Perplexity** (granted 2026-05-08) | autonomous | autonomous |
+| **PM-side Claude** (web sandbox / dev laptop) | autonomous | **must ping operator first** (§ 7 format) |
+| **VM-resident Claude** (`/vm`, `/vm_write`) | n/a — uses the Telegram dispatcher path, not this workflow | n/a — same |
+
+Two corollaries that read as drift but are intentional:
+
+1. **Perplexity ≠ Claude on this axis.** Perplexity's autonomy grant
+   for Tier-2 was an explicit operator decision on 2026-05-08 based
+   on Perplexity's separate trust contract; it is **not** a
+   precedent for PM-side Claude sessions, which still ping for
+   Tier-2.
+2. **The action's tier is unchanged regardless of dispatcher.** A
+   Tier-2 action is Tier-2 because of its blast radius, not because
+   of who triggers it. The dispatcher table only changes the
+   pre-dispatch handshake, not the post-dispatch verification or
+   audit requirements (§ 5, § 6, § 5.5) — those apply to **every**
+   run.
+
+Adding a fourth dispatcher to this table requires a PR that
+documents:
+- the dispatcher's trust contract (where their authorization comes
+  from)
+- which tier(s) they're autonomous for
+- what their notification path back to the operator is (§ 5.5)
 
 ---
 
@@ -165,6 +206,52 @@ Every workflow run produces:
 Retention: GitHub artifact retention is 30 days. Repo-side
 `runtime_logs/operator_actions/*.json` records are retained
 indefinitely (they are tiny — < 1 KB each).
+
+### 5.5 Transparency rule (always-notify)
+
+**Operator directive, 2026-05-08:** *autonomy is complemented by full
+transparency.* Every operator-actions run notifies the operator,
+**regardless of dispatcher class or action tier**, and regardless of
+whether operator action was needed.
+
+This is the binding rule:
+
+- A Tier-1 action dispatched autonomously by Perplexity → operator
+  is notified.
+- A Tier-2 action dispatched autonomously by Perplexity → operator
+  is notified (the pre-dispatch ping is what's waived for an
+  autonomous dispatcher; the post-dispatch update is **not**).
+- A Tier-2 action dispatched by PM-side Claude after operator ack
+  → operator is notified again on completion (the pre-dispatch
+  approval doesn't substitute for a completion update).
+- An action that fails or is deferred (exit 1 / exit 3) → operator
+  is notified, with the failure reason.
+- An action whose result requires no operator follow-up → operator
+  is notified anyway. "Nothing for you to do" is information, not
+  silence.
+
+**Notification surface (today's minimum):**
+- Workflow run page on GitHub (linked from `audit-bundle.json`'s
+  `run_url`).
+- 30-day workflow artifact with the full pre/post bundle.
+- Repo-side `runtime_logs/operator_actions/<ts>-<action>.json`
+  picked up by the next `ict-git-sync` cycle and visible via the
+  diag relay.
+
+**Notification surface (recommended near-term enhancement):**
+A proactive Telegram message on every Tier-2 completion, sent from
+the workflow's final step. The infra exists (`scripts/notify_on_pull.py`,
+`docs/claude/telegram-pings.md`); a follow-up sprint should wire a
+small step into `operator-actions.yml` that posts a one-line summary
++ run URL using the same `TELEGRAM_BOT_TOKEN` already in the bot's
+environment. Tier-1 runs should additionally batch-notify (e.g.
+once-per-N-runs or only on state changes) so a daily auto-driven
+`status-check` cron doesn't bury the operator's signal in noise.
+
+Until that lands, autonomous dispatchers (Perplexity in particular)
+must include in their own out-of-band channel a one-line summary +
+the workflow run URL after every dispatch. Doc-only enforcement;
+doc-honesty is the trust contract.
 
 ---
 
