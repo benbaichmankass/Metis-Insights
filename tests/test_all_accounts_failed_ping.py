@@ -26,7 +26,6 @@ from typing import Any, Dict, List
 import pytest
 
 from src.runtime.execution_diagnostics import (
-    PENDING_PINGS_DIR,
     enqueue_all_accounts_failed_dispatch,
 )
 
@@ -196,8 +195,6 @@ class TestMultiAccountExecuteWiring:
         # Drive the wiring logic directly with a stubbed coordinator
         # method shape — the reason pattern is a defence-in-depth
         # *post-loop* check; we simulate the post-loop shape.
-        from src.core import coordinator as coord_mod
-
         results = [
             {"name": "bybit_2", "trade_id": None, "error": "RuntimeError"},
             {"name": "bybit_3", "trade_id": None,
@@ -300,8 +297,6 @@ class TestEndToEndAllAccountsFailed:
         # is empty, and the roll-up should NOT fire — that's a
         # defence boundary, pin it. For the positive case we need a
         # different driver — see the post-loop-direct test above.
-        from src.units.accounts import load_accounts as _real_load
-
         monkeypatch.setattr(
             "src.units.accounts.load_accounts",
             lambda path=None: [],
