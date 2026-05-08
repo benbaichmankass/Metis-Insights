@@ -51,6 +51,14 @@ warning and exits 0 — record `Telegram sent: no (no creds)` in the log entry.
 If you skip this step, the checkpoint entry is incomplete — re-open the session
 and run it before exiting.
 
+## Cross-session sprint continuation
+
+For sprints that legitimately need more than one Claude session, see
+[`docs/claude/session-handoff.md`](session-handoff.md). It documents
+the bounded handoff routine: write a structured artifact, commit,
+push, dispatch the `continue-work` workflow, exit. Use it instead of
+silently extending a long session.
+
 ## Alert path — when blocked on user input
 
 Whenever the sprinter needs Ben's input to continue — a question that can't be

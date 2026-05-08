@@ -1,0 +1,186 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ict-trading-bot.local/schema/session_handoff/handoff.schema.json",
+  "title": "Session Handoff",
+  "description": "Machine-readable continuation artifact for a single bounded sprint that spans multiple Claude Code sessions. The current sprint's live handoff lives at automation/session_handoff/next_session.json; one file per sprint. This is NOT an autonomous roadmap — every handoff is scoped to a pre-planned sprint and ends when that sprint ends.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "sprint_id",
+    "sprint_title",
+    "branch",
+    "created_at",
+    "created_by",
+    "handoff_reason",
+    "checkpoint_summary",
+    "completed_items",
+    "open_items",
+    "next_actions",
+    "blocked_items",
+    "files_to_review",
+    "commands_to_run",
+    "tests_required",
+    "guardrails",
+    "continuation_prompt",
+    "ready_for_continue"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1,
+      "description": "Bumped only on breaking schema changes. Validators must refuse unknown versions."
+    },
+    "sprint_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$",
+      "description": "Stable ID for the sprint this handoff belongs to. Example: S-061-session-handoff."
+    },
+    "sprint_title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "Short human-readable sprint title."
+    },
+    "branch": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "Git branch the next session must check out to continue. Usually the same branch this file is committed on."
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "UTC ISO-8601 timestamp the handoff file was written."
+    },
+    "created_by": {
+      "type": "string",
+      "enum": ["claude", "operator", "system"],
+      "description": "Who authored this handoff."
+    },
+    "handoff_reason": {
+      "type": "string",
+      "enum": [
+        "context_limit_near",
+        "session_too_long",
+        "fragmented_state",
+        "blocked_on_input",
+        "natural_checkpoint",
+        "operator_requested",
+        "other"
+      ],
+      "description": "Why the current session stopped at this checkpoint."
+    },
+    "handoff_reason_note": {
+      "type": ["string", "null"],
+      "maxLength": 1000,
+      "description": "Optional free-text elaboration on handoff_reason. Required when handoff_reason is 'other'."
+    },
+    "checkpoint_summary": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4000,
+      "description": "1-3 paragraph plain-language summary of where the sprint stands at this checkpoint."
+    },
+    "completed_items": {
+      "type": "array",
+      "description": "Concrete units of work finished during the originating session(s).",
+      "items": {"type": "string", "minLength": 1, "maxLength": 500}
+    },
+    "open_items": {
+      "type": "array",
+      "description": "Sprint work that is still outstanding but not blocked.",
+      "items": {"type": "string", "minLength": 1, "maxLength": 500}
+    },
+    "next_actions": {
+      "type": "array",
+      "description": "Ordered list of the very next concrete steps the resuming session should take.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["title"],
+        "properties": {
+          "title": {"type": "string", "minLength": 1, "maxLength": 300},
+          "detail": {"type": ["string", "null"], "maxLength": 2000},
+          "owner": {"type": ["string", "null"], "maxLength": 80}
+        }
+      }
+    },
+    "blocked_items": {
+      "type": "array",
+      "description": "Items that cannot proceed without external input. Each item names what is needed.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["title", "blocker"],
+        "properties": {
+          "title": {"type": "string", "minLength": 1, "maxLength": 300},
+          "blocker": {"type": "string", "minLength": 1, "maxLength": 1000},
+          "needs_from": {
+            "type": ["string", "null"],
+            "enum": ["operator", "external_service", "merge", "review", "other", null]
+          }
+        }
+      }
+    },
+    "files_to_review": {
+      "type": "array",
+      "description": "Repo paths the resuming session should read first.",
+      "items": {"type": "string", "minLength": 1, "maxLength": 500}
+    },
+    "commands_to_run": {
+      "type": "array",
+      "description": "Optional shell commands the resuming session should re-run to re-establish state. No secrets, no destructive defaults.",
+      "items": {"type": "string", "minLength": 1, "maxLength": 1000}
+    },
+    "tests_required": {
+      "type": "array",
+      "description": "Tests that must pass before this sprint is considered done. Pytest node-ids or shell commands.",
+      "items": {"type": "string", "minLength": 1, "maxLength": 500}
+    },
+    "guardrails": {
+      "type": "array",
+      "description": "Things the resuming session must NOT do. Encoded as plain-language imperatives.",
+      "items": {"type": "string", "minLength": 1, "maxLength": 500}
+    },
+    "continuation_prompt": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 8000,
+      "description": "Self-contained briefing the resuming session should be primed with. Should reference this file and the sprint plan, not duplicate them."
+    },
+    "ready_for_continue": {
+      "type": "boolean",
+      "description": "False if the artifact is still being assembled; the continue-work workflow refuses to run a handoff with ready_for_continue=false."
+    },
+    "sprint_plan_ref": {
+      "type": ["string", "null"],
+      "maxLength": 500,
+      "description": "Optional repo path or URL pointing at the authoritative sprint plan (e.g. docs/sprint-plans/...)."
+    },
+    "previous_handoff_ref": {
+      "type": ["string", "null"],
+      "maxLength": 500,
+      "description": "Optional repo path or commit SHA of the prior handoff in this sprint, for chain-of-custody."
+    },
+    "history": {
+      "type": "array",
+      "description": "Append-only audit trail. Each entry records a continue-work workflow run.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["at", "event"],
+        "properties": {
+          "at": {"type": "string", "format": "date-time"},
+          "event": {
+            "type": "string",
+            "enum": ["created", "updated", "continue_dispatched", "continue_validated", "continue_failed", "sprint_closed"]
+          },
+          "actor": {"type": ["string", "null"]},
+          "run_url": {"type": ["string", "null"]},
+          "note": {"type": ["string", "null"]}
+        }
+      }
+    }
+  }
+}

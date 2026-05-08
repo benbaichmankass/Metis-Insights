@@ -1,0 +1,244 @@
+name: continue-work
+
+# Bounded sprint-continuation entrypoint.
+#
+# When a Claude Code session can't comfortably finish its sprint in
+# one window (context-limit near, session too long, fragmented state,
+# blocked, or natural checkpoint), it writes a structured handoff
+# artifact to automation/session_handoff/next_session.json, commits,
+# pushes, and triggers this workflow. The next session resumes the
+# same sprint from that artifact.
+#
+# This workflow does NOT run Claude inside the runner. The runner's
+# job is to:
+#   1. Validate the referenced handoff file exists and conforms.
+#   2. Surface its key fields in the run log so the next session (or
+#      a human operator) can pick up the work with one click.
+#   3. Append a `continue_dispatched` (or `continue_failed`) entry to
+#      the handoff file's history, commit it back to the branch, and
+#      upload the file as a build artifact.
+#
+# Trust contract:
+#   * Sprint-bounded only — the handoff file's `ready_for_continue`
+#     must be `true`. A closed sprint (`ready_for_continue: false`)
+#     is rejected by design.
+#   * Repo is the source of truth — no hidden state lives outside
+#     the handoff JSON.
+#   * No live-trading mutations — this workflow never touches
+#     src/runtime/, src/units/, strategy params, or the VM.
+#   * Auditable — every dispatch appends an event to history[] and
+#     uploads the validated file as an artifact.
+#
+# Triggers:
+#   * workflow_dispatch — operator clicks "Run workflow" with sprint
+#     metadata. This is the primary path.
+#   * repository_dispatch (event_type=continue-work) — used by the
+#     in-repo helper `scripts/session_handoff/close_session.py
+#     --dispatch` so a finishing session can hand off without an
+#     operator click.
+#
+# Required repo permissions: contents:write (to commit history[]
+# updates back to the handoff branch).
+
+on:
+  workflow_dispatch:
+    inputs:
+      sprint_id:
+        description: "Sprint id (must match the handoff file's sprint_id)"
+        required: true
+        type: string
+      handoff_file:
+        description: "Path to the handoff JSON in this repo"
+        required: false
+        type: string
+        default: "automation/session_handoff/next_session.json"
+      branch:
+        description: "Branch to check out (defaults to the branch this dispatch runs from)"
+        required: false
+        type: string
+        default: ""
+  repository_dispatch:
+    types: [continue-work]
+
+permissions:
+  contents: write
+
+# Serialise per-sprint. Two continue-work runs for the same sprint at
+# the same time would race on the history[] commit.
+concurrency:
+  group: continue-work-${{ github.event.inputs.sprint_id || github.event.client_payload.sprint_id || 'unknown' }}
+  cancel-in-progress: false
+
+jobs:
+  continue-work:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SPRINT_ID: ${{ github.event.inputs.sprint_id || github.event.client_payload.sprint_id }}
+      HANDOFF_FILE: ${{ github.event.inputs.handoff_file || github.event.client_payload.handoff_file || 'automation/session_handoff/next_session.json' }}
+      INPUT_BRANCH: ${{ github.event.inputs.branch || github.event.client_payload.branch || '' }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - name: Validate inputs
+        run: |
+          set -euo pipefail
+          if [ -z "${SPRINT_ID// }" ]; then
+            echo "::error::sprint_id is required."
+            exit 1
+          fi
+          # Path containment guard — never let a dispatch read outside
+          # the repo.
+          case "${HANDOFF_FILE}" in
+            /*|*..*)
+              echo "::error::handoff_file must be a repo-relative path with no '..' components."
+              exit 1
+              ;;
+          esac
+          # Branch name surface guard — alphanumerics + ./_/-/forward-slash.
+          if [ -n "${INPUT_BRANCH// }" ]; then
+            case "${INPUT_BRANCH}" in
+              *[!A-Za-z0-9._/-]*)
+                echo "::error::branch contains characters outside [A-Za-z0-9._/-]."
+                exit 1
+                ;;
+            esac
+          fi
+
+      - name: Resolve target branch
+        id: branch
+        run: |
+          set -euo pipefail
+          if [ -n "${INPUT_BRANCH// }" ]; then
+            ref="${INPUT_BRANCH}"
+          else
+            # workflow_dispatch defaults to github.ref_name; for
+            # repository_dispatch, fall back to the default branch.
+            if [ -n "${{ github.ref_name }}" ] && [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+              ref="${{ github.ref_name }}"
+            else
+              ref="${{ github.event.repository.default_branch }}"
+            fi
+          fi
+          echo "ref=${ref}" >> "$GITHUB_OUTPUT"
+          echo ">>> Target branch: ${ref}"
+
+      - name: Checkout target branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.branch.outputs.ref }}
+          fetch-depth: 0
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install validator deps
+        run: |
+          set -euo pipefail
+          python -m pip install --quiet --upgrade pip
+          python -m pip install --quiet jsonschema==4.23.0
+
+      - name: Validate handoff file
+        id: validate
+        env:
+          BRANCH_REF: ${{ steps.branch.outputs.ref }}
+        run: |
+          set -euo pipefail
+          if [ ! -f "${HANDOFF_FILE}" ]; then
+            echo "::error::handoff_file '${HANDOFF_FILE}' not found on branch '${BRANCH_REF}'."
+            exit 1
+          fi
+          python scripts/session_handoff/validate_handoff.py \
+              --schema automation/session_handoff/schema/handoff.schema.json \
+              --expect-sprint-id "${SPRINT_ID}" \
+              --require-ready \
+              "${HANDOFF_FILE}"
+
+      - name: Surface continuation context
+        run: |
+          set -euo pipefail
+          echo "### Continuation context for ${SPRINT_ID}" >> "$GITHUB_STEP_SUMMARY"
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json, os, pathlib
+          data = json.loads(pathlib.Path(os.environ["HANDOFF_FILE"]).read_text())
+          def section(title, value):
+              print(f"\n#### {title}\n")
+              if isinstance(value, list):
+                  if not value:
+                      print("_(none)_")
+                      return
+                  for item in value:
+                      if isinstance(item, dict):
+                          t = item.get("title") or item.get("blocker") or json.dumps(item)
+                          print(f"- {t}")
+                      else:
+                          print(f"- {item}")
+              elif isinstance(value, str):
+                  print(value)
+              else:
+                  print(f"`{value}`")
+          print(f"- **sprint_title**: {data.get('sprint_title')}")
+          print(f"- **branch**: `{data.get('branch')}`")
+          print(f"- **handoff_reason**: `{data.get('handoff_reason')}`")
+          print(f"- **created_at**: `{data.get('created_at')}`")
+          section("Checkpoint summary", data.get("checkpoint_summary", ""))
+          section("Next actions", data.get("next_actions", []))
+          section("Open items", data.get("open_items", []))
+          section("Blocked items", data.get("blocked_items", []))
+          section("Files to review", data.get("files_to_review", []))
+          section("Guardrails", data.get("guardrails", []))
+          print("\n#### Continuation prompt\n")
+          print("```text")
+          print(data.get("continuation_prompt", ""))
+          print("```")
+          PY
+
+      - name: Append history event and commit
+        env:
+          BRANCH_REF: ${{ steps.branch.outputs.ref }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os, datetime, pathlib
+          path = pathlib.Path(os.environ["HANDOFF_FILE"])
+          data = json.loads(path.read_text())
+          history = data.setdefault("history", [])
+          history.append({
+              "at": datetime.datetime.now(datetime.timezone.utc)
+                      .isoformat(timespec="seconds").replace("+00:00", "Z"),
+              "event": "continue_dispatched",
+              "actor": "github-actions",
+              "run_url": os.environ["RUN_URL"],
+              "note": f"continue-work workflow run for sprint {os.environ['SPRINT_ID']}.",
+          })
+          path.write_text(json.dumps(data, indent=2) + "\n")
+          PY
+          if git diff --quiet -- "${HANDOFF_FILE}"; then
+            echo ">>> No change to handoff history (likely a no-op rerun)."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "${HANDOFF_FILE}"
+          git commit -m "chore(session-handoff): record continue-work dispatch for ${SPRINT_ID}"
+          # Retry push briefly to absorb transient network errors.
+          for attempt in 1 2 3 4; do
+            if git push origin "HEAD:${BRANCH_REF}"; then
+              exit 0
+            fi
+            delay=$((2 ** attempt))
+            echo "::warning::Push attempt ${attempt} failed; retrying in ${delay}s"
+            sleep "${delay}"
+          done
+          echo "::error::Failed to push history update after 4 attempts."
+          exit 1
+
+      - name: Upload handoff artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: continue-work-${{ env.SPRINT_ID }}-${{ github.run_id }}
+          path: ${{ env.HANDOFF_FILE }}
+          retention-days: 30
+          if-no-files-found: warn
