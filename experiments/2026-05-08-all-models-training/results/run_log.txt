@@ -1,0 +1,72 @@
+[V0 baseline]      trades=10137  win=24.37%  E[R]=-0.0072  Sharpe=-0.39  DD=-152.4R  hold=16.4b
+[V1 HTF 4h±1%]     trades= 5164  win=25.93%  E[R]=+0.0657  Sharpe=+2.47  DD=-59.8R  hold=16.2b
+[V2 HTF band sweep]
+  band=0.005: trades= 4904  win=25.98%  E[R]=+0.0638  Sharpe=+2.35  DD=-56.5R  hold=16.1b
+  band=0.010: trades= 5164  win=25.93%  E[R]=+0.0657  Sharpe=+2.47  DD=-59.8R  hold=16.2b
+  band=0.015: trades= 5505  win=26.07%  E[R]=+0.0662  Sharpe=+2.57  DD=-56.1R  hold=16.3b
+  band=0.020: trades= 5840  win=26.16%  E[R]=+0.0705  Sharpe=+2.82  DD=-55.2R  hold=16.2b
+  band=0.030: trades= 6494  win=25.65%  E[R]=+0.0465  Sharpe=+1.98  DD=-79.7R  hold=16.1b
+[V3 HTF timeframe variant @ band=0.01]
+  1h_ema200: trades= 5533  win=26.44%  E[R]=+0.0832  Sharpe=+3.23  DD=-50.6R  hold=15.4b
+  4h_ema200: trades= 5164  win=25.93%  E[R]=+0.0657  Sharpe=+2.47  DD=-59.8R  hold=16.2b
+  1d_ema50: trades= 5214  win=25.39%  E[R]=+0.0379  Sharpe=+1.45  DD=-79.0R  hold=16.0b
+[V5 SL multiplier sweep, baseline (no HTF)]
+  sl_mult=0.40: trades=10687  win=21.46%  E[R]=+0.0318  Sharpe=+1.56  DD=-178.5R  hold=14.4b
+  sl_mult=0.50: trades=10137  win=24.37%  E[R]=-0.0072  Sharpe=-0.39  DD=-152.4R  hold=16.4b
+  sl_mult=0.60: trades= 9656  win=27.99%  E[R]=+0.0104  Sharpe=+0.59  DD=-111.6R  hold=18.4b
+  sl_mult=0.75: trades= 9043  win=31.80%  E[R]=-0.0155  Sharpe=-0.97  DD=-215.2R  hold=21.0b
+  sl_mult=1.00: trades= 8193  win=37.53%  E[R]=-0.0238  Sharpe=-1.64  DD=-257.4R  hold=24.9b
+[V6 entry threshold sweep, baseline (no HTF)]
+  thr=0.80: trades=11558  win=26.03%  E[R]=+0.0050  Sharpe=+0.30  DD=-138.4R  hold=15.7b
+  thr=1.00: trades=10137  win=24.37%  E[R]=-0.0072  Sharpe=-0.39  DD=-152.4R  hold=16.4b
+  thr=1.20: trades= 8789  win=23.67%  E[R]=+0.0038  Sharpe=+0.18  DD=-134.3R  hold=17.2b
+  thr=1.50: trades= 6542  win=22.09%  E[R]=+0.0051  Sharpe=+0.21  DD=-109.8R  hold=18.1b
+  thr=2.00: trades= 3390  win=20.29%  E[R]=+0.0370  Sharpe=+0.98  DD=-79.4R  hold=18.3b
+[VWAP walk-forward 70/30]
+  V0_baseline: IS  trades= 7084  win=24.18%  E[R]=-0.0128  Sharpe=-0.58  DD=-152.4R  hold=16.0b
+  V0_baseline: OOS trades= 3039  win=24.88%  E[R]=+0.0074  Sharpe=+0.22  DD=-58.8R  hold=17.6b
+  V1_htf: IS  trades= 3576  win=26.23%  E[R]=+0.0796  Sharpe=+2.48  DD=-59.8R  hold=15.8b
+  V1_htf: OOS trades= 1577  win=25.30%  E[R]=+0.0354  Sharpe=+0.74  DD=-54.3R  hold=17.1b
+trades=   33  win=51.52%  E[R]=+0.1591  Sharpe=+0.80  DD=-4.8R  hold=10.6b
+[T1 sweep_lookback]
+  lookback= 30: trades=   47  win=36.17%  E[R]=-0.1862  Sharpe=-1.17  DD=-12.3R  hold=9.5b
+  lookback= 45: trades=   40  win=45.00%  E[R]=+0.0331  Sharpe=+0.19  DD=-6.2R  hold=10.8b
+  lookback= 60: trades=   33  win=51.52%  E[R]=+0.1591  Sharpe=+0.80  DD=-4.8R  hold=10.6b
+  lookback= 90: trades=   29  win=55.17%  E[R]=+0.2697  Sharpe=+1.30  DD=-5.0R  hold=9.4b
+  lookback=120: trades=   21  win=71.43%  E[R]=+0.6071  Sharpe=+2.67  DD=-1.0R  hold=6.0b
+[T2 min_body_to_range]
+  body_to_range=0.50: trades=   76  win=42.11%  E[R]=-0.0309  Sharpe=-0.24  DD=-9.8R  hold=9.4b
+  body_to_range=0.55: trades=   52  win=46.15%  E[R]=+0.0564  Sharpe=+0.36  DD=-7.1R  hold=10.4b
+  body_to_range=0.60: trades=   33  win=51.52%  E[R]=+0.1591  Sharpe=+0.80  DD=-4.8R  hold=10.6b
+  body_to_range=0.65: trades=   16  win=37.50%  E[R]=-0.1562  Sharpe=-0.56  DD=-8.0R  hold=10.9b
+  body_to_range=0.70: trades=   10  win=60.00%  E[R]=+0.3500  Sharpe=+0.95  DD=-2.0R  hold=4.1b
+  body_to_range=0.75: trades=    5  win=40.00%  E[R]=-0.1000  Sharpe=-0.18  DD=-1.0R  hold=2.4b
+[T3 min_sweep_buffer_bps]
+  buffer_bps= 4: trades=   99  win=41.41%  E[R]=-0.0722  Sharpe=-0.65  DD=-11.0R  hold=10.4b
+  buffer_bps= 8: trades=   48  win=50.00%  E[R]=+0.1004  Sharpe=+0.62  DD=-5.7R  hold=10.5b
+  buffer_bps=12: trades=   33  win=51.52%  E[R]=+0.1591  Sharpe=+0.80  DD=-4.8R  hold=10.6b
+  buffer_bps=18: trades=   13  win=76.92%  E[R]=+0.7033  Sharpe=+2.60  DD=-1.0R  hold=14.9b
+  buffer_bps=25: trades=    5  win=20.00%  E[R]=-0.5500  Sharpe=-1.22  DD=-3.0R  hold=21.8b
+[T4 atr_stop_mult]
+  atr_mult=0.25: trades=   32  win=56.25%  E[R]=+0.2656  Sharpe=+1.33  DD=-4.8R  hold=9.7b
+  atr_mult=0.30: trades=   32  win=56.25%  E[R]=+0.2656  Sharpe=+1.33  DD=-4.8R  hold=9.7b
+  atr_mult=0.35: trades=   33  win=51.52%  E[R]=+0.1591  Sharpe=+0.80  DD=-4.8R  hold=10.6b
+  atr_mult=0.45: trades=   32  win=43.75%  E[R]=-0.0077  Sharpe=-0.04  DD=-4.7R  hold=18.8b
+  atr_mult=0.60: trades=   23  win=52.17%  E[R]=+0.1476  Sharpe=+0.63  DD=-3.0R  hold=17.0b
+[T5 tp1_at_r]
+  tp1_R=1.00: trades=   36  win=58.33%  E[R]=+0.1637  Sharpe=+0.98  DD=-6.0R  hold=8.6b
+  tp1_R=1.25: trades=   33  win=51.52%  E[R]=+0.1591  Sharpe=+0.80  DD=-4.8R  hold=10.6b
+  tp1_R=1.50: trades=   25  win=44.00%  E[R]=+0.0680  Sharpe=+0.27  DD=-3.0R  hold=15.0b
+  tp1_R=2.00: trades=   34  win=44.12%  E[R]=+0.2723  Sharpe=+1.10  DD=-4.0R  hold=19.3b
+trades=   10  win=40.00%  E[R]=-0.1000  Sharpe=-0.27  DD=-3.8R  hold=11.6b
+[T7 ATR regime]
+  atr_min=off: trades=   33  win=51.52%  E[R]=+0.1591  Sharpe=+0.80  DD=-4.8R  hold=10.6b
+  atr_min=0.0025: trades=   32  win=53.12%  E[R]=+0.1953  Sharpe=+0.97  DD=-4.8R  hold=10.7b
+  atr_min=0.0050: trades=    9  win=22.22%  E[R]=-0.5000  Sharpe=-1.51  DD=-6.0R  hold=20.4b
+  atr_min=0.0075: trades=    1  win=0.00%  E[R]=-1.0000  Sharpe=+0.00  DD=+0.0R  hold=1.0b
+  atr_min=0.0100: trades=    1  win=0.00%  E[R]=-1.0000  Sharpe=+0.00  DD=+0.0R  hold=1.0b
+[Turtle walk-forward 70/30]
+  T0_baseline: IS  trades=   23  win=47.83%  E[R]=+0.0761  Sharpe=+0.32  DD=-4.8R  hold=11.2b
+  T0_baseline: OOS trades=    6  win=50.00%  E[R]=+0.1250  Sharpe=+0.25  DD=-2.0R  hold=13.7b
+  T6_htf_align: IS  trades=    7  win=28.57%  E[R]=-0.3571  Sharpe=-0.86  DD=-3.8R  hold=13.6b
+  T6_htf_align: OOS trades=    1  win=0.00%  E[R]=-1.0000  Sharpe=+0.00  DD=+0.0R  hold=15.0b

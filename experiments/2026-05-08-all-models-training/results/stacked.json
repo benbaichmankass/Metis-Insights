@@ -1,0 +1,248 @@
+{
+  "VS0_baseline": {
+    "trades": 10137,
+    "win_rate": 0.243661832889415,
+    "expectancy_r": -0.007235035679181836,
+    "sharpe": -0.39126745466421087,
+    "max_dd_r": -152.43523702031027,
+    "avg_hold_bars": 16.448061556673572
+  },
+  "VS1_htf1h_band020": {
+    "trades": 6870,
+    "win_rate": 0.25589519650655024,
+    "expectancy_r": 0.04241242695581175,
+    "sharpe": 1.860862739377999,
+    "max_dd_r": -58.84408151392013,
+    "avg_hold_bars": 15.73391557496361
+  },
+  "VS2_VS1_sl040": {
+    "trades": 7236,
+    "win_rate": 0.2244333886124931,
+    "expectancy_r": 0.0744626562072773,
+    "sharpe": 2.9886139161426115,
+    "max_dd_r": -113.27205464032409,
+    "avg_hold_bars": 13.698866777224985
+  },
+  "VS3_VS2_thr20": {
+    "trades": 2157,
+    "win_rate": 0.1789522484932777,
+    "expectancy_r": 0.12911842141216529,
+    "sharpe": 2.333011751771064,
+    "max_dd_r": -42.36888520205399,
+    "avg_hold_bars": 15.369958275382476
+  },
+  "V1_orig_4h_band010": {
+    "trades": 5164,
+    "win_rate": 0.2592951200619675,
+    "expectancy_r": 0.06573642614564079,
+    "sharpe": 2.470233627495065,
+    "max_dd_r": -59.8467389517473,
+    "avg_hold_bars": 16.18009295120062
+  },
+  "walk_forward": {
+    "VS0_baseline": {
+      "in_sample": {
+        "trades": 7084,
+        "win_rate": 0.24181253529079616,
+        "expectancy_r": -0.012762114254609198,
+        "sharpe": -0.5755625474595079,
+        "max_dd_r": -152.43523702031027,
+        "avg_hold_bars": 15.988989271597967
+      },
+      "out_of_sample": {
+        "trades": 3039,
+        "win_rate": 0.24876604146100692,
+        "expectancy_r": 0.007404105642310826,
+        "sharpe": 0.22045535459587073,
+        "max_dd_r": -58.812586347874245,
+        "avg_hold_bars": 17.5534715366897
+      }
+    },
+    "VS1_htf1h_band020": {
+      "in_sample": {
+        "trades": 4756,
+        "win_rate": 0.25273338940285955,
+        "expectancy_r": 0.037616845885130396,
+        "sharpe": 1.3670812377329962,
+        "max_dd_r": -58.84408151392013,
+        "avg_hold_bars": 15.16421362489487
+      },
+      "out_of_sample": {
+        "trades": 2104,
+        "win_rate": 0.26425855513307983,
+        "expectancy_r": 0.05730219785786852,
+        "sharpe": 1.4041768153315652,
+        "max_dd_r": -55.58377204820581,
+        "avg_hold_bars": 17.104087452471482
+      }
+    },
+    "VS2_VS1_sl040": {
+      "in_sample": {
+        "trades": 4979,
+        "win_rate": 0.22735489054026914,
+        "expectancy_r": 0.09868846430714506,
+        "sharpe": 3.236721911866726,
+        "max_dd_r": -80.19675824941004,
+        "avg_hold_bars": 13.224743924482828
+      },
+      "out_of_sample": {
+        "trades": 2246,
+        "win_rate": 0.2195013357079252,
+        "expectancy_r": 0.02823901276729471,
+        "sharpe": 0.6522393356641786,
+        "max_dd_r": -68.05223848911857,
+        "avg_hold_bars": 14.821905609973285
+      }
+    },
+    "VS3_VS2_thr20": {
+      "in_sample": {
+        "trades": 1501,
+        "win_rate": 0.17055296469020653,
+        "expectancy_r": 0.08426415051665326,
+        "sharpe": 1.289953221243747,
+        "max_dd_r": -42.36888520205399,
+        "avg_hold_bars": 14.528314457028648
+      },
+      "out_of_sample": {
+        "trades": 658,
+        "win_rate": 0.19756838905775076,
+        "expectancy_r": 0.22304469572336977,
+        "sharpe": 2.1622972714042143,
+        "max_dd_r": -33.45399400213585,
+        "avg_hold_bars": 17.303951367781156
+      }
+    },
+    "V1_orig_4h_band010": {
+      "in_sample": {
+        "trades": 3576,
+        "win_rate": 0.26230425055928414,
+        "expectancy_r": 0.07961836988909604,
+        "sharpe": 2.4754996226339316,
+        "max_dd_r": -59.8467389517473,
+        "avg_hold_bars": 15.796140939597315
+      },
+      "out_of_sample": {
+        "trades": 1550,
+        "win_rate": 0.25870967741935486,
+        "expectancy_r": 0.0527555698268031,
+        "sharpe": 1.0966943296292548,
+        "max_dd_r": -54.349012750016186,
+        "avg_hold_bars": 17.353548387096776
+      }
+    }
+  },
+  "TS0_baseline": {
+    "trades": 33,
+    "win_rate": 0.5151515151515151,
+    "expectancy_r": 0.1590909090909087,
+    "sharpe": 0.8003267306650395,
+    "max_dd_r": -4.750000000000002,
+    "avg_hold_bars": 10.606060606060606
+  },
+  "TS1_atr_30": {
+    "trades": 32,
+    "win_rate": 0.5625,
+    "expectancy_r": 0.265625000000001,
+    "sharpe": 1.3250033738897187,
+    "max_dd_r": -4.75,
+    "avg_hold_bars": 9.71875
+  },
+  "TS2_atr30_tp20": {
+    "trades": 34,
+    "win_rate": 0.4411764705882353,
+    "expectancy_r": 0.24372233306316612,
+    "sharpe": 0.998961788423949,
+    "max_dd_r": -4.0,
+    "avg_hold_bars": 20.705882352941178
+  },
+  "TS3_atr30_tp20_body055": {
+    "trades": 48,
+    "win_rate": 0.3958333333333333,
+    "expectancy_r": 0.14975203697446263,
+    "sharpe": 0.7405985322986067,
+    "max_dd_r": -9.35167289889056,
+    "avg_hold_bars": 17.604166666666668
+  },
+  "TS4_atr30_tp20_body055_regime": {
+    "trades": 41,
+    "win_rate": 0.4146341463414634,
+    "expectancy_r": 0.15442517235077832,
+    "sharpe": 0.7203971821118531,
+    "max_dd_r": -5.0,
+    "avg_hold_bars": 21.121951219512194
+  },
+  "turtle_walk_forward": {
+    "TS0_baseline": {
+      "in_sample": {
+        "trades": 23,
+        "win_rate": 0.4782608695652174,
+        "expectancy_r": 0.0760869565217387,
+        "sharpe": 0.3175264481385584,
+        "max_dd_r": -4.750000000000002,
+        "avg_hold_bars": 11.217391304347826
+      },
+      "out_of_sample": {
+        "trades": 6,
+        "win_rate": 0.5,
+        "expectancy_r": 0.12499999999999871,
+        "sharpe": 0.24845199749997432,
+        "max_dd_r": -2.0,
+        "avg_hold_bars": 13.666666666666666
+      }
+    },
+    "TS1_atr_30": {
+      "in_sample": {
+        "trades": 24,
+        "win_rate": 0.5,
+        "expectancy_r": 0.12500000000000144,
+        "sharpe": 0.5328701692569743,
+        "max_dd_r": -4.75,
+        "avg_hold_bars": 10.75
+      },
+      "out_of_sample": {
+        "trades": 4,
+        "win_rate": 0.75,
+        "expectancy_r": 0.6874999999999963,
+        "sharpe": 1.2222222222222183,
+        "max_dd_r": 0.0,
+        "avg_hold_bars": 8.25
+      }
+    },
+    "TS2_atr30_tp20": {
+      "in_sample": {
+        "trades": 22,
+        "win_rate": 0.36363636363636365,
+        "expectancy_r": 0.05196477420636094,
+        "sharpe": 0.1772124206735011,
+        "max_dd_r": -4.0,
+        "avg_hold_bars": 23.59090909090909
+      },
+      "out_of_sample": {
+        "trades": 6,
+        "win_rate": 0.3333333333333333,
+        "expectancy_r": -0.30944428473204905,
+        "sharpe": -0.6211282497661688,
+        "max_dd_r": -3.0,
+        "avg_hold_bars": 27.333333333333332
+      }
+    },
+    "TS3_atr30_tp20_body055": {
+      "in_sample": {
+        "trades": 34,
+        "win_rate": 0.3235294117647059,
+        "expectancy_r": -0.05101202919825381,
+        "sharpe": -0.22363959732401978,
+        "max_dd_r": -9.35167289889056,
+        "avg_hold_bars": 16.705882352941178
+      },
+      "out_of_sample": {
+        "trades": 12,
+        "win_rate": 0.4166666666666667,
+        "expectancy_r": 0.1602088972929029,
+        "sharpe": 0.3793521479914105,
+        "max_dd_r": -3.077493232485165,
+        "avg_hold_bars": 19.25
+      }
+    }
+  }
+}
