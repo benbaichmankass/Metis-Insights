@@ -135,7 +135,14 @@ def load_accounts(config_path: str = _DEFAULT_ACCOUNTS_YAML) -> "List":
             api_key_env=api_key_env,
             risk_manager=rm,
             account_type=account_type,
-            strategies=list(cfg.get("strategies", []) or []),
+            # Preserve the None / [] distinction so the coordinator can
+            # tell "no mapping declared" (legacy fallthrough) from
+            # "explicitly empty" (block all). Yaml ``strategies: []``
+            # ⇒ ``[]``; yaml that omits the key entirely ⇒ ``None``.
+            strategies=(
+                None if "strategies" not in cfg
+                else list(cfg.get("strategies") or [])
+            ),
             configured=configured,
             configured_reason=configured_reason,
             market_type=cfg.get("market_type", "spot"),

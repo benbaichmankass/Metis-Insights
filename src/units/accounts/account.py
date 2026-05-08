@@ -63,7 +63,16 @@ class TradingAccount:
         # /accounts_status so the operator can verify each wallet is
         # routed to the right model. accounts.yaml is the source of
         # truth; this is just the rendering hook.
-        self.strategies: List[str] = list(strategies or [])
+        # Preserve the None / [] distinction from accounts.yaml so the
+        # coordinator's per-account strategy filter can tell "legacy
+        # account, no mapping declared" (None → fall through to allow)
+        # from "explicitly assigned no strategies" ([] → block all).
+        # Pre-fix this collapsed both forms to ``[]`` and ``[]`` was
+        # treated as "legacy fallthrough", which silently routed live
+        # signals to scaffolded accounts like ``prop_velotrade_1``.
+        self.strategies: Optional[List[str]] = (
+            None if strategies is None else list(strategies)
+        )
         # Velotrade phase-2: ``configured`` reflects whether the
         # account's env-var credentials are populated. False accounts
         # still load (so /accounts_status can list them) but every
@@ -125,6 +134,6 @@ class TradingAccount:
             "configured": self.configured,
             "configured_reason": self.configured_reason,
             "open_positions": len(self.positions),
-            "strategies": list(self.strategies),
+            "strategies": list(self.strategies or []),
             **risk_report,
         }

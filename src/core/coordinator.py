@@ -574,18 +574,34 @@ class Coordinator:
         # filter the list, don't log a refusal — the strategies map in
         # accounts.yaml is the audit trail.
         #
-        # Accounts with no ``strategies`` list (legacy fixtures, unit
-        # tests that don't declare the mapping) keep the unfiltered
-        # behaviour so test-only paths don't have to change.
-        def _strategy_matches(account_obj) -> bool:
-            assigned = list(getattr(account_obj, "strategies", None) or [])
-            if not assigned:
+        # Three rules, in order:
+        #   1. ``configured == False`` → drop. Scaffolded accounts (e.g.
+        #      ``prop_velotrade_1``) load with ``configured=False`` when
+        #      env-var creds are missing; they exist for /accounts_status
+        #      visibility but must never enter live dispatch. Pre-fix
+        #      these were producing per-tick ``below_min_balance``
+        #      rejection rows since the strategy filter let them
+        #      through and the risk gate then refused on $0 balance.
+        #   2. ``strategies`` declared but empty (`[]`) → drop. Yaml
+        #      ``strategies: []`` is the operator's belt-and-braces "do
+        #      not route here yet" — same intent as (1), but explicit
+        #      via config rather than implicit via missing creds.
+        #   3. ``strategies is None`` → fall through to allow. Means the
+        #      account didn't declare a mapping at all (legacy
+        #      fixtures, unit tests that don't set the field).
+        def _eligible_for_dispatch(account_obj) -> bool:
+            if not getattr(account_obj, "configured", True):
+                return False
+            assigned = getattr(account_obj, "strategies", None)
+            if assigned is None:
                 return True  # legacy / no-mapping account
+            if not assigned:
+                return False  # explicit empty: block all strategies
             if not pkg.strategy:
                 return True  # legacy package without a strategy tag
             return pkg.strategy in assigned
 
-        accounts = [a for a in accounts if _strategy_matches(a)]
+        accounts = [a for a in accounts if _eligible_for_dispatch(a)]
 
         results = []
         for account in accounts:
