@@ -251,6 +251,12 @@ _ACCOUNTS_YAML = textwrap.dedent("""\
 @pytest.fixture()
 def coord_and_yaml(tmp_path, monkeypatch):
     monkeypatch.setenv("TRADE_JOURNAL_DB", str(tmp_path / "trade_journal.db"))
+    # Post-PR-#507 the coordinator filters out accounts where
+    # ``configured=False`` (env-var creds missing). The fixture's
+    # accounts.yaml declares ``api_key_env: BYBIT_KEY_2`` so we have
+    # to plant the var to make the loader mark the account configured.
+    monkeypatch.setenv("BYBIT_KEY_2", "test-value")
+    monkeypatch.setenv("BYBIT_KEY_2_SECRET", "test-secret")
     units_yaml = tmp_path / "units.yaml"
     units_yaml.write_text("units: {}\n")
     accounts_yaml = tmp_path / "accounts.yaml"
