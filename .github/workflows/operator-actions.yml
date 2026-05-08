@@ -44,6 +44,7 @@ on:
         options:
           - status-check
           - pull-latest-logs
+          - pull-and-deploy
           - restart-bot-service
           - reboot-vm
       reason:
@@ -63,7 +64,10 @@ concurrency:
 jobs:
   operator-action:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # 10 min covers status-check / restart-bot-service / reboot-vm.
+    # pull-and-deploy can pip-install on a cold cache, so allow more
+    # headroom; deploy_pull_restart.sh takes ~2-4 min on a typical run.
+    timeout-minutes: 15
     env:
       VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '158.178.210.252' }}
       VM_SSH_USER: ${{ vars.VM_SSH_USER || 'ubuntu' }}
@@ -81,7 +85,7 @@ jobs:
             status-check|pull-latest-logs)
               echo "tier=1" >>"$GITHUB_ENV"
               ;;
-            restart-bot-service|reboot-vm)
+            pull-and-deploy|restart-bot-service|reboot-vm)
               echo "tier=2" >>"$GITHUB_ENV"
               if [ -z "${REASON// }" ]; then
                 echo "::error::Tier-2 action '${ACTION}' requires a non-empty 'reason' input."
@@ -140,6 +144,7 @@ jobs:
           case "${ACTION}" in
             status-check)        SCRIPT="status_check.sh" ;;
             pull-latest-logs)    SCRIPT="pull_logs.sh" ;;
+            pull-and-deploy)     SCRIPT="pull_and_deploy.sh" ;;
             restart-bot-service) SCRIPT="restart_bot.sh" ;;
             reboot-vm)           SCRIPT="reboot_vm.sh" ;;
             *)
