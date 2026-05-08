@@ -11,7 +11,122 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
-## CP-2026-05-07-16-s047-T5-reconciler-spot-margin — S-047 T5: reconciler spot-margin awareness (D7)
+## CP-2026-05-08-01-ad-hoc-operator-actions — Ad-hoc sprint: operator-actions workflow + transparency notify
+
+- **Session date:** 2026-05-08
+- **Sprint:** Ad-hoc (out-of-band; triggered by fresh operator sprint prompt). Not on the workplan; **active milestone S-047 unchanged** — T6 still queued. M1 audit and M5 still interleaved per `operating-protocol.md` § 3.
+- **Active milestone:** S-047 (untouched by this sprint).
+- **Last completed checkpoint:** `CP-2026-05-07-17-s048-fresh-m1-audit` (per file in `docs/claude/checkpoints/`).
+- **Branches:**
+  - `claude/operator-actions-workflow-5UOBu` → PR #499 (operator-merged after operator review of the Tier-2 surface introduction)
+  - `claude/operator-actions-transparency-5UOBu` → PR #513 (self-merged Tier-1 docs)
+  - `claude/operator-actions-notify-5UOBu` → PR #515 (operator-merged after explicit "merge once green" auth; rebased on main mid-flight to drop redundant transparency commit superseded by squash-merge of #513)
+  - this close-checkpoint on `claude/cp-2026-05-08-01-ops-sprint-close`
+- **Telegram sent:** Tier-2 smoke (`restart-bot-service`) of PR #515 fired the first real `[ops]` notify through `@claude_ict_comms_bot` — verified end-to-end at ~13:00 UTC. Sprint-complete ping rides on this close-checkpoint commit.
+- **Alerts during session:** Tier-2 notify smoke (`normal` priority) confirmed delivery within ~5 s of run completion.
+
+### What this sprint shipped
+
+A new mutating bridge for PM-side / web-sandbox sessions to drive a **fixed allowlist** of VM operator actions via GitHub Actions, plus the dispatcher trust contract and transparency notify wiring. This is a **structural addition** — it does not change live trading behaviour, strategy code, risk caps, or any per-account `mode` flag. Tier-3 immutability preserved throughout.
+
+### PRs merged (in order)
+
+1. **PR #499** — `feat(ops): operator-actions GitHub workflow + allowlisted VM mutating bridge`
+   - `.github/workflows/operator-actions.yml` (new) — `workflow_dispatch`-only with a 4-action choice input (`status-check`, `pull-latest-logs`, `restart-bot-service`, `reboot-vm`) + `reason` input. No freeform-command input.
+   - `scripts/ops/_lib.sh, status_check.sh, pull_logs.sh, restart_bot.sh, reboot_vm.sh` (new) — one wrapper per action; shared `_lib.sh` for logging + repo-side audit records under `runtime_logs/operator_actions/`.
+   - `docs/claude/operator-actions.md` (new) — canonical contract: allowlist, tier mapping, audit trail (3 layers), verification matrix, reboot doctrine, runner-architecture rationale (GitHub-hosted to avoid self-decapitation), required VM sudoers (`/etc/sudoers.d/ict-operator-actions` for `reboot-vm`).
+   - `tests/ops/test_operator_actions_workflow.py` (new) — 25-ish parametric tests asserting allowlist parity across workflow / wrappers / docs, rejecting freeform-command inputs, `bash -n` on every wrapper.
+   - Cross-references added in `CLAUDE.md`, `docs/claude/operating-protocol.md` § 7.1, `docs/claude/vm-operator-mode.md` § 9.b.
+
+2. **PR #513** — `docs(ops): dispatcher trust contract + always-notify transparency rule`
+   - `docs/claude/operator-actions.md` § 3.5 (new) — Dispatcher trust contract: enumerates Operator / Perplexity / PM-side Claude. **Perplexity granted autonomous Tier-2 dispatch authority on 2026-05-08** (operator decision); PM-side Claude still pings before Tier-2.
+   - `docs/claude/operator-actions.md` § 5.5 (new) — Transparency rule: every operator-actions run notifies the operator regardless of dispatcher class or action tier. *"Autonomy is complemented by full transparency."* The pre-dispatch ping is what's waived for an autonomous dispatcher; the post-dispatch update is **not**.
+   - § 3 Tier-2 wording tightened to "PM-side Claude only" (other dispatchers no longer fall under "must ping first").
+   - `docs/claude/operating-protocol.md` § 7.1 cross-references both clauses.
+   - Tests assert § 3.5 and § 5.5 remain present so future doc cleanups can't silently delete them.
+
+3. **PR #515** — `feat(ops): wire operator-actions transparency notify via @claude_ict_comms_bot`
+   - `scripts/ops/notify_run.sh` (new) — invoked over SSH from the workflow's final step. Maps `(action, exit_code)` → `(result_label, priority)`, calls `scripts/send_ping.py --target claude` with a one-message summary.
+   - `.github/workflows/operator-actions.yml` — new "Notify operator via Claude bot channel" step with `if: always()` (failures notify too) + `continue-on-error: true` (notify failure never flips a successful action). Operator-typed reason is base64-encoded with `:b64` suffix to survive shell-quoting hazards over SSH.
+   - **Zero new GitHub secrets.** Reuses the existing VM-side `/etc/ict-trader/claude.env` token via the existing `ict-claude-bridge.service` drain queue at `runtime_logs/pending_claude_pings/`.
+   - `docs/claude/operator-actions.md` § 5.5 rewritten — "implemented" not "recommended"; documents the priority routing table and Telegram message format.
+
+### End-to-end verification
+
+| Action | Smoke method | Result |
+|---|---|---|
+| `status-check` | operator dispatched manually 2026-05-08 ~10:30 UTC | ✅ all canonical units active, heartbeat fresh |
+| `pull-latest-logs` | operator dispatched manually 2026-05-08 ~10:35 UTC | ✅ all 4 sections populated |
+| `reboot-vm` | dispatched 2026-05-08 ~10:55 UTC after a real D-Bus hang post-PR-499 merge — doubled as recovery and smoke | ✅ VM came back in ~2 min; sudoers entry installed at `/etc/sudoers.d/ict-operator-actions` (mode 0440) with `ubuntu ALL=(ALL) NOPASSWD: /sbin/shutdown -r *` |
+| `restart-bot-service` | dispatched 2026-05-08 ~13:00 UTC with reason `PR #515 smoke: verify Tier-2 notify path end-to-end` | ✅ wrapper exit 0, post-state `active`, Telegram `[ops] restart-bot-service: ok` arrived in `@claude_ict_comms_bot` ~5 s later |
+
+The transparency notify path is now verified for at least one Tier-2 action under realistic conditions.
+
+### Operator-driven side effects on `main` outside this session's PRs
+
+- `ff70c04 fix(ops): add timeout guards to status_check.sh; clarify exit-code contract` — operator-side patch on `main` to add `timeout 8` / `timeout 10` around `systemctl` / `journalctl` calls in `scripts/ops/status_check.sh` after observing the D-Bus hang during the post-PR-499 smoke. Patch was authored outside this session and clarifies that exit code reflects infra health only (trading-level errors in journalctl don't flip it). PR #515 was rebased on top of this patch.
+
+### Compliance check (per § 4.4 — 5 bullets)
+
+1. ✅ **No refuse-to-trade outside the dispatcher.** No runtime gates added; this is infra/control-plane work.
+2. ✅ **No per-account flag/branch.** Dispatcher table operates on session class, not account.
+3. ✅ **No operator-run notebook / capture step.** Operator's manual VM step (sudoers entry for reboot) is one-shot configuration, not a per-trade capture.
+4. ✅ **Live-mode invariant passes.** Zero edits to `src/runtime/orders.py`, `src/runtime/pipeline.py`, `src/runtime/trading_mode.py`, `src/units/accounts/*`, `config/strategies.yaml`, `config/risk_caps.yaml`, `config/accounts.yaml`.
+5. ✅ **CI green.** ruff clean, secret-scan clean, repo-inventory clean, pytest-collect clean, all 32 ops tests passing on every PR head.
+
+### Live-mode check
+
+✅ no flip away from live anywhere in the diff.
+
+### Durable state changes (read on next session)
+
+- **Perplexity now has autonomous Tier-2 dispatch authority for `operator-actions`.** Codified in `docs/claude/operator-actions.md` § 3.5. PM-side Claude (this session class, web sandbox, dev laptop) still pings before Tier-2.
+- **Reboot sudoers entry installed on the VM.** `reboot-vm` will now actually succeed (previously exited 1 with a clear sudoers error).
+- **Transparency rule active.** Every operator-actions run pings the operator via `@claude_ict_comms_bot`. If a future Tier-1 cron starts to be noisy, the documented follow-up is a state-change-only filter — **not** dropping the always-notify principle.
+
+### 1. Completed
+
+- PR #499 merged (operator-actions workflow + 4 wrapper scripts + canonical doc + tests + xrefs).
+- PR #513 merged (dispatcher trust contract + transparency rule + Tier-2 wording fix).
+- PR #515 merged (transparency notify wired to `@claude_ict_comms_bot`).
+- All 4 actions smoke-tested end-to-end. Transparency notify verified live.
+
+### 2. Files changed (cumulative across the three PRs)
+
+- `.github/workflows/operator-actions.yml` (new)
+- `scripts/ops/_lib.sh, status_check.sh, pull_logs.sh, restart_bot.sh, reboot_vm.sh, notify_run.sh` (new)
+- `docs/claude/operator-actions.md` (new — canonical contract)
+- `docs/claude/operating-protocol.md` (modified — § 7.1 xrefs)
+- `docs/claude/vm-operator-mode.md` (modified — § 9.b)
+- `CLAUDE.md` (modified — PM-side capabilities bullet)
+- `tests/ops/__init__.py, test_operator_actions_workflow.py` (new)
+
+### 3. Tests run
+
+- `pytest tests/ops/` — 32 passed, 3 skipped (PyYAML unavailable in local pytest venv; present in CI) on each of #499, #513, #515 head.
+- `ruff check .` — clean.
+- `bash -n` on every wrapper — clean.
+- Local smoke of `notify_run.sh` against a mock `send_ping.py` — 7 input combinations validated (T1 ok, T1 degraded, T2 ok with reason, T2 deferred, T2 failed, reboot scheduled, reason with single quote).
+- CI on each PR — lint + collect + scan + scan + inventory all green.
+- Live VM smoke — see "End-to-end verification" table above.
+
+### 4. Remaining
+
+- None for this ad-hoc sprint. Implementation gap from PR #513 (notify mechanism unimplemented) closed by PR #515.
+- Optional follow-up filed inline in `docs/claude/operator-actions.md` § 5.5: state-change-only filter for Tier-1 noise *if* a future autonomous cron makes routine `status-check` runs spammy. **Do not implement preemptively.**
+
+### 5. Next checkpoint
+
+**Resume S-047 T6** — the queued sprint per `docs/claude/milestone-state.md` Active milestone. This ad-hoc sprint did not touch S-047 state.
+
+Read in order:
+1. `docs/claude/milestone-state.md` § Active milestone (S-047 status).
+2. `docs/sprint-plans/S-047-bybit2-spot-margin.md` for T6 scope.
+3. `docs/claude/checkpoints/CP-2026-05-07-17-s048-fresh-m1-audit.md` (last archive-style CP).
+
+If a future session needs to extend operator-actions (new action, new dispatcher class), read `docs/claude/operator-actions.md` first; the test file `tests/ops/test_operator_actions_workflow.py` enforces allowlist parity so the doc + workflow + wrappers can't drift silently.
+
+---
 
 - **Session date:** 2026-05-07 (continuation of `CP-2026-05-07-15`).
 - **Sprint:** S-047 — bybit_2 Spot Margin enablement.
