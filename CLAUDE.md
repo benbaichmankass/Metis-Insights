@@ -163,6 +163,6 @@ uvicorn src.web.api.main:app --port 8001 --reload
 
 ## Important Notes
 - `src/web/runtime_status.py` is imported by `src/runtime/pipeline.py` — do NOT delete it
-- `heartbeat.txt` mtime determines bot status: <10 min → running, <30 min → paused, else → stopped. Pipeline tick cadence varies 2-15 min based on active strategies, so the previous 2-min threshold falsely reported "stopped" most of the time
+- `heartbeat.txt` mtime determines bot status. Thresholds are derived from `TICK_INTERVAL_SECONDS` (default 900 s = 15 min): age `< tick × 1.2` → running, `< tick × 2.0` → paused, else stopped. Helper at `src/runtime/heartbeat.py::heartbeat_label`. Convention matches `scripts/check_heartbeat.py` grace factor (2.0). Two prior bumps were needed: 2 min → 10 min in 2026-05-07 (10 min still underflowed because tick cadence stabilized at 15 min, so the bot was labelled "paused" 1/3 of the time on a healthy run).
 - The old HTMX UI (`web/static/`, `web/templates/`, `src/web/api/routers/ui.py`) has been removed
 - The old Streamlit UIs (`src/web/backtest_ui.py`, `src/web/config_ui.py`) have been removed

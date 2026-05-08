@@ -29,19 +29,14 @@ _SIGNAL_TAIL = 50
 
 
 def _bot_status() -> str:
+    from src.runtime.heartbeat import heartbeat_label  # local import keeps router cheap
     if not _HEARTBEAT.exists():
         return "stopped"
     age = time.time() - _HEARTBEAT.stat().st_mtime
-    # Heartbeat is written by src/runtime/heartbeat.py after each pipeline
-    # tick. Observed tick cadence varies 2-15 min depending on which
-    # strategies are active and whether VWAP/turtle_soup just produced a
-    # signal — the previous 120s/600s thresholds reported "stopped" most
-    # of the time on a healthy trader. Found 2026-05-07.
-    if age < 600:
-        return "running"
-    if age < 1800:
-        return "paused"
-    return "stopped"
+    # Thresholds derived from TICK_INTERVAL_SECONDS — see
+    # src/runtime/heartbeat.py for the running/paused/stopped convention
+    # (matches scripts/check_heartbeat.py grace factor of 2.0).
+    return heartbeat_label(age)
 
 
 def _vm_health() -> dict[str, float]:

@@ -114,22 +114,16 @@ def _normalize_unit(unit: str) -> str:
 
 
 def _heartbeat_snapshot() -> dict[str, Any]:
+    from src.runtime.heartbeat import heartbeat_label  # local import to keep router cheap
     if not _HEARTBEAT.exists():
         return {"present": False, "mtime": None, "age_seconds": None, "label": "stopped"}
     mtime = _HEARTBEAT.stat().st_mtime
     age = time.time() - mtime
-    # Thresholds match dashboard._bot_status — see comment there for rationale.
-    if age < 600:
-        label = "running"
-    elif age < 1800:
-        label = "paused"
-    else:
-        label = "stopped"
     return {
         "present": True,
         "mtime": datetime.fromtimestamp(mtime, tz=timezone.utc).isoformat(),
         "age_seconds": round(age, 2),
-        "label": label,
+        "label": heartbeat_label(age),
     }
 
 

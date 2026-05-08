@@ -51,7 +51,12 @@ on:
         required: false
         default: ""
   issues:
-    types: [opened, labeled]
+    # Only `opened` — when a session opens an issue *with* the label,
+    # GitHub fires both `opened` and `labeled` and the workflow would
+    # run twice. The session-driven path always opens-with-label, so
+    # `opened` alone is sufficient. If a human ever needs to label an
+    # already-open issue, they can use workflow_dispatch instead.
+    types: [opened]
 
 permissions:
   contents: read
