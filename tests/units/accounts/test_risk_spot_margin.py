@@ -160,6 +160,10 @@ class TestSpotMarginSizing:
         the daily-loss gate. apr=36.5% → 0.1%/day. Fee at qty=4 is
         4·$50_000·0.001 = $200 > $100 budget → scale to fit:
         qty = 100 / ($50_000 · 0.001) = 2 BTC. Floor 2.000.
+
+        S-053: pass an explicit oversized ``available_usd`` so the
+        new SHORT-side notional cap (rule 3) doesn't fire — this
+        test isolates rule 2 (borrow-fee scaling).
         """
         rm = RiskManager({
             "risk_pct": 0.01,
@@ -172,6 +176,7 @@ class TestSpotMarginSizing:
         pkg = _pkg(direction="short", entry=50_000, sl=49_975)
         qty = rm.position_size(
             pkg, balance_usd=10_000, market_type="spot-margin",
+            available_usd=1_000_000_000.0,
         )
         assert qty == pytest.approx(2.0, rel=1e-3)
         assert qty > 0  # scaled, not refused
@@ -435,10 +440,18 @@ class TestAvailableUsdCap:
         )
         assert qty_default == qty_explicit_eq
 
-    def test_short_skips_available_cap(self):
-        """Shorts don't spend USDT upfront — the constraint is the BTC
-        borrow cap (rule 1, ``max_borrow_btc``). Passing a tiny
-        ``available_usd`` on a short MUST NOT clip the qty.
+    def test_short_clipped_by_base_side_available(self):
+        """S-053: shorts ALSO clip against ``available_usd``. The
+        caller now passes a base-side primitive (free_base_usd +
+        base_borrow_capacity, post-fee-buffer) for shorts, so the
+        cap stops Bybit from rejecting with 170131 once an open
+        spot-margin short has consumed part of the BTC borrow line.
+
+        risk_pct=0.01, balance=$10_000, distance=$1000 → raw qty
+        = 100/1000 = 0.1 BTC ($5_000 notional). With
+        ``available_usd=2_500`` (e.g. $500 free BTC + $2_000
+        borrow capacity, less buffer), the cap clips qty to
+        floor($2_500 / $50_000) = 0.05 BTC.
         """
         rm = RiskManager({
             "risk_pct": 0.01,
@@ -450,7 +463,27 @@ class TestAvailableUsdCap:
         qty = rm.position_size(
             pkg, balance_usd=10_000.0,
             market_type="spot-margin",
-            available_usd=1.0,  # would clip a long to 0
+            available_usd=2_500.0,
+        )
+        assert qty == pytest.approx(0.05, rel=1e-3)
+        assert qty * pkg.entry <= 2_500.0 + 1e-9
+
+    def test_short_uncapped_when_available_covers_notional(self):
+        """When the base-side availability comfortably exceeds the
+        risk-sized notional, the cap doesn't fire — sizing falls
+        through to the standard risk_pct math.
+        """
+        rm = RiskManager({
+            "risk_pct": 0.01,
+            "min_balance_usd": 50,
+            "max_borrow_btc": 1.0,
+            "daily_usd": 1_000_000_000,
+        })
+        pkg = _pkg(direction="short", entry=50_000, sl=51_000)
+        qty = rm.position_size(
+            pkg, balance_usd=10_000.0,
+            market_type="spot-margin",
+            available_usd=1_000_000.0,
         )
         assert qty == pytest.approx(0.1, rel=1e-3)
 
@@ -496,6 +529,135 @@ class TestAvailableUsdCap:
         # Sanity: unclipped qty is the standard 0.2 BTC for $1000 risk
         # over a $500 distance.
         assert qty_with == pytest.approx(0.2, rel=1e-3)
+
+
+# ---------------------------------------------------------------------------
+# S-053 — post-restart-stable-sizing contract.
+#
+# Before the fix: when an open spot-margin SHORT had already credited
+# its borrowed-coin sale proceeds to free USDT, the coordinator passed
+# the inflated free-USDT figure as ``balance_usd`` and the next short
+# sized ~6× too big — Bybit rejected with 170131. The ratio observed
+# in the field on 2026-05-08 was 0.058 / 0.009 = 6.4× across two
+# consecutive ticks on the same wallet.
+#
+# These tests pin the new contract directly at the kernel level so a
+# future refactor of the coordinator/override doesn't regress it:
+#
+#   1. ``balance_usd`` represents wallet *net equity*. When the same
+#      net equity is fed twice (the only thing that should be stable
+#      across an open borrow position), qty is unchanged.
+#   2. The new SHORT-side ``available_usd`` cap clips qty when the
+#      live BTC borrow line shrinks — no Bybit 170131.
+# ---------------------------------------------------------------------------
+
+
+class TestPostRestartStableSizing:
+    """S-053 — successive shorts on the same net-equity wallet must
+    produce qtys whose only variance is risk-distance, NOT a 6× jump
+    caused by Bybit crediting borrow proceeds to the operator's free
+    USDT line.
+    """
+
+    def test_short_qty_stable_across_open_short(self):
+        """Pre-S-053 reproducer: identical wallet net equity →
+        identical qty on consecutive ticks, even when the operator's
+        free USDT has been inflated by an open short's sale proceeds.
+        Field measurement on 2026-05-08: pre-fix the second tick
+        sized 6.4× the first because the caller passed inflated
+        free USDT as ``balance_usd``.
+
+        The kernel's contract: sizing math is a pure function of
+        ``balance_usd``. The fix lives one layer up — the coordinator
+        now passes ``total_account_usd`` (Bybit ``totalEquity``), which
+        is borrow-state-invariant, instead of free USDT. This test
+        pins that as long as the caller passes the same net equity
+        twice, the kernel returns the same qty.
+        """
+        rm = RiskManager({
+            "risk_pct": 0.01,
+            "min_balance_usd": 50,
+            "max_borrow_btc": 1.0,
+            "daily_usd": 1_000_000_000,
+        })
+        pkg = _pkg(
+            direction="short",
+            entry=79_850.0, sl=79_922.74,    # risk_distance ≈ 72.74
+        )
+        # available_usd large enough that the SHORT-side cap doesn't
+        # fire on either tick — isolates the test to the
+        # net-equity-stability contract.
+        large_available = 1_000_000.0
+        qty_1 = rm.position_size(
+            pkg, balance_usd=194.0,
+            market_type="spot-margin",
+            available_usd=large_available,
+            total_account_usd=194.0,
+        )
+        qty_2 = rm.position_size(
+            pkg, balance_usd=194.0,
+            market_type="spot-margin",
+            available_usd=large_available,
+            total_account_usd=194.0,
+        )
+        assert qty_1 == qty_2
+        # Sanity: with risk_pct=0.01, 194 × 0.01 / 72.74 ≈ 0.0267 →
+        # floor(qty_precision=3) = 0.026.
+        assert qty_1 == pytest.approx(0.026, abs=1e-3)
+
+    def test_short_clipped_when_btc_borrow_line_exhausted(self):
+        """When repeated shorts have consumed the BTC borrow line,
+        the SHORT-side ``available_usd`` cap clips qty so the order
+        fits Bybit's matching engine. Returns 0.0 (refusal) only
+        when the clipped qty falls below ``min_qty``.
+        """
+        rm = RiskManager({
+            "risk_pct": 0.01,
+            "min_balance_usd": 50,
+            "min_qty": 0.001,
+            "max_borrow_btc": 1.0,
+            "daily_usd": 1_000_000_000,
+        })
+        pkg = _pkg(
+            direction="short",
+            entry=80_000.0, sl=80_080.0,    # distance $80
+        )
+        # Risk math wants qty = 10_000 × 0.01 / 80 = 1.25 BTC.
+        # Borrow line has only $400 remaining (≈ 0.005 BTC at $80k).
+        qty = rm.position_size(
+            pkg, balance_usd=10_000.0,
+            market_type="spot-margin",
+            available_usd=400.0,
+            total_account_usd=10_000.0,
+        )
+        # 400 / 80_000 = 0.005 → floor 0.005.
+        assert qty == pytest.approx(0.005, abs=1e-3)
+        # Submitted notional fits inside the live availability.
+        assert qty * pkg.entry <= 400.0 + 1e-9
+
+    def test_total_account_usd_preferred_over_inflated_balance(self):
+        """The min_balance_usd gate's S-052 contract — total equity
+        wins over the (possibly inflated) ``balance_usd`` — also
+        means the gate fires correctly on a wallet whose free USDT
+        looks artificially fat post-borrow. This pins the
+        ordering: gate uses total_account_usd, sizing uses
+        balance_usd, both are net-equity primitives in S-053.
+        """
+        rm = RiskManager({
+            "risk_pct": 0.01,
+            "min_balance_usd": 100.0,
+            "daily_usd": 1_000_000_000,
+        })
+        pkg = _pkg(direction="short", entry=80_000, sl=80_500)
+        # Net equity below the gate, free USDT inflated by sale
+        # proceeds — must REFUSE, not size off the inflated cash.
+        qty = rm.position_size(
+            pkg, balance_usd=80.0,    # net equity
+            market_type="spot-margin",
+            available_usd=10_000.0,
+            total_account_usd=80.0,
+        )
+        assert qty == 0.0
 
 
 # ---------------------------------------------------------------------------

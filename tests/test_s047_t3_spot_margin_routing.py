@@ -722,3 +722,182 @@ class TestSpotMarginBalanceForBothDirections:
         balance_arg = positional[1]
         # SHORT on cash-spot uses base_usd_value, not quote_usdt.
         assert abs(balance_arg - 2_500.0) < 1e-6
+
+
+# ---------------------------------------------------------------------------
+# S-053 — spot-margin sizing must use net equity (Bybit ``totalEquity``),
+#         NOT free USDT, as the collateral input. Bybit credits the sale
+#         proceeds of a borrowed-coin SHORT to the operator's free USDT;
+#         pre-S-053 the next short read that inflated cash and over-sized
+#         ~6×, tripping retCode 170131. Net equity is borrow-state-
+#         invariant and is the correct primitive.
+# ---------------------------------------------------------------------------
+
+
+class TestSpotMarginUsesNetEquity:
+    """The coordinator's spot-balance override must pass net equity
+    (``total_account_usd``) to ``position_size``, not the post-borrow-
+    inflated ``quote_usdt``. Falls back to ``quote_usdt`` only when
+    Bybit's response lacks ``totalEquity`` (legacy wallet shape).
+    """
+
+    def _account_stub(self):
+        from src.units.accounts.risk import RiskManager
+
+        acc = MagicMock()
+        acc.name = "bybit_2"
+        acc.exchange = "bybit"
+        acc.api_key_env = "BYBIT_API_KEY_FAKE"
+        acc.account_type = "regular"
+        acc.market_type = "spot-margin"
+        acc.dry_run = False
+        acc.cached_balance_usd = 99_999.0
+        acc.strategies = ["vwap"]
+        acc.risk_manager = RiskManager({
+            "risk_pct": 0.01,
+            "min_balance_usd": 50,
+        })
+        return acc
+
+    def test_post_restart_short_sizes_off_net_equity(self):
+        """Reproducer for the 2026-05-08 0.009 → 0.058 BTC over-sizing
+        bug. The wallet starts with $135.97 USDT + $58.16 BTC =
+        $194.13 net equity. After the first 0.009 BTC short, Bybit
+        credits ~$719 of USDT proceeds to free USDT, so a fresh
+        ``_fetch_spot_coin_balances`` returns ``quote_usdt = $854.63``
+        while ``totalEquity`` is unchanged at $194.13 (the BTC borrow
+        liability nets out the proceeds). The sizer must size off
+        $194.13, not $854.63.
+        """
+        from src.core.coordinator import Coordinator
+
+        # Wallet snapshot AFTER one open 0.009 BTC short.
+        spot_balances_post_short = {
+            "base_coin": "BTC",
+            "base_qty": 0.000729,
+            "base_usd_value": 58.16,
+            # Inflated free USDT — sale proceeds of the borrowed BTC.
+            "quote_usdt": 854.63,
+            "quote_borrow_usd": 0.0,
+            "base_borrow_usd": 1_000.0,
+            "total_account_usd": 194.13,    # net equity, stable
+        }
+        acc = self._account_stub()
+        with patch(
+            "src.units.accounts.risk.RiskManager.position_size",
+            return_value=0.0,
+        ) as mock_size, patch(
+            "src.units.accounts.load_accounts",
+            return_value=[acc],
+        ), patch(
+            "src.core.coordinator._log_new_order_package",
+            return_value="pkg-fake",
+        ), patch(
+            "src.units.accounts.clients.bybit_client_for",
+            return_value=MagicMock(),
+        ), patch(
+            "src.units.accounts.execute._fetch_spot_coin_balances",
+            return_value=spot_balances_post_short,
+        ):
+            coord = Coordinator()
+            coord.multi_account_execute(
+                _short_pkg(),
+                accounts_path="/dev/null",
+                balance_fetcher=lambda a: 99_999.0,
+            )
+        positional, kwargs = mock_size.call_args
+        balance_arg = positional[1]
+        # Sized off net equity, NOT inflated free USDT.
+        assert abs(balance_arg - 194.13) < 1e-6
+        # available_usd is the SHORT-side primitive: free BTC USD +
+        # base borrow capacity, post-buffer.
+        expected_avail = (58.16 + 1_000.0) * 0.995
+        assert abs(kwargs["available_usd"] - expected_avail) < 1e-3
+        # total_account_usd forwarded for the min_balance_usd gate.
+        assert abs(kwargs["total_account_usd"] - 194.13) < 1e-6
+
+    def test_long_uses_quote_side_available(self):
+        """LONG retains the S-049 contract: ``available_usd`` is
+        ``free_usdt + usdt_borrow_capacity`` post-buffer.
+        """
+        from src.core.coordinator import Coordinator
+
+        spot_balances = {
+            "base_coin": "BTC",
+            "base_qty": 0.000729,
+            "base_usd_value": 58.16,
+            "quote_usdt": 135.97,
+            "quote_borrow_usd": 500.0,
+            "base_borrow_usd": 1_000.0,
+            "total_account_usd": 194.13,
+        }
+        acc = self._account_stub()
+        with patch(
+            "src.units.accounts.risk.RiskManager.position_size",
+            return_value=0.0,
+        ) as mock_size, patch(
+            "src.units.accounts.load_accounts",
+            return_value=[acc],
+        ), patch(
+            "src.core.coordinator._log_new_order_package",
+            return_value="pkg-fake",
+        ), patch(
+            "src.units.accounts.clients.bybit_client_for",
+            return_value=MagicMock(),
+        ), patch(
+            "src.units.accounts.execute._fetch_spot_coin_balances",
+            return_value=spot_balances,
+        ):
+            coord = Coordinator()
+            coord.multi_account_execute(
+                _long_pkg(),
+                accounts_path="/dev/null",
+                balance_fetcher=lambda a: 99_999.0,
+            )
+        _positional, kwargs = mock_size.call_args
+        expected_avail = (135.97 + 500.0) * 0.995
+        assert abs(kwargs["available_usd"] - expected_avail) < 1e-3
+
+    def test_falls_back_to_quote_usdt_when_total_equity_missing(self):
+        """Pre-S-052 wallet shape (no ``total_account_usd``) → the
+        coordinator falls back to ``quote_usdt`` so the spot-margin
+        path keeps a sensible default. The fallback only kicks in
+        when Bybit's response is missing ``totalEquity``.
+        """
+        from src.core.coordinator import Coordinator
+
+        # Note: dict missing ``total_account_usd`` (legacy shape).
+        spot_balances = {
+            "base_coin": "BTC",
+            "base_qty": 0.0,
+            "base_usd_value": 0.0,
+            "quote_usdt": 177.0,
+            "quote_borrow_usd": 0.0,
+            "base_borrow_usd": 0.0,
+        }
+        acc = self._account_stub()
+        with patch(
+            "src.units.accounts.risk.RiskManager.position_size",
+            return_value=0.0,
+        ) as mock_size, patch(
+            "src.units.accounts.load_accounts",
+            return_value=[acc],
+        ), patch(
+            "src.core.coordinator._log_new_order_package",
+            return_value="pkg-fake",
+        ), patch(
+            "src.units.accounts.clients.bybit_client_for",
+            return_value=MagicMock(),
+        ), patch(
+            "src.units.accounts.execute._fetch_spot_coin_balances",
+            return_value=spot_balances,
+        ):
+            coord = Coordinator()
+            coord.multi_account_execute(
+                _short_pkg(),
+                accounts_path="/dev/null",
+                balance_fetcher=lambda a: 99_999.0,
+            )
+        positional, _kwargs = mock_size.call_args
+        balance_arg = positional[1]
+        assert abs(balance_arg - 177.0) < 1e-6
