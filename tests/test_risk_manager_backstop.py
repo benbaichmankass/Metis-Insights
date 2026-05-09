@@ -14,7 +14,6 @@ any trade whose stop_loss or take_profit_1 has been crossed.
 from __future__ import annotations
 
 import json
-import textwrap
 from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
