@@ -32,7 +32,7 @@ from __future__ import annotations
 
 import math
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any, Dict, Mapping, Optional
 from src.core.coordinator import OrderPackage
 
 
@@ -423,6 +423,80 @@ class RiskManager:
         """
         self._maybe_roll_daily()
         self.daily_pnl += pnl_usd
+
+    @staticmethod
+    def check_position_breach(
+        trade: Mapping[str, Any],
+        current_price: float,
+    ) -> Optional[Dict[str, str]]:
+        """Detect whether *current_price* has breached the trade row's
+        ``stop_loss`` or ``take_profit_1`` in the adverse direction.
+
+        Backstop for the strategy's own ``monitor()`` loop and the
+        exchange-side bracket. On Bybit spot-margin the entry order
+        cannot carry a server-side SL/TP (Bybit V5 retCode 170130 on
+        Market orders, see ``execute.py::_submit_order``), so the only
+        layers protecting an open spot-margin trade are (a) the
+        strategy ``monitor()`` returning a close verdict and (b) this
+        check. When this returns a breach verdict the caller is
+        expected to send an emergency close.
+
+        Pure / stateless / static — does not touch ``self``. Lives on
+        ``RiskManager`` because the user-facing operator concept is
+        "the risk manager monitors my open positions" and keeping the
+        helper here means future per-account tunables (e.g., a breach
+        buffer, breach hysteresis) have an obvious home.
+
+        Parameters
+        ----------
+        trade : Mapping
+            Trade row. Reads ``direction`` (``"long"`` / ``"short"``),
+            ``stop_loss``, ``take_profit_1``. Missing levels are
+            silently skipped — no breach is reported for that side.
+        current_price : float
+            Latest market price for the trade's symbol.
+
+        Returns
+        -------
+        Optional[Dict[str, str]]
+            ``{"reason": "risk_manager_sl_breach"}`` when SL is
+            breached, ``{"reason": "risk_manager_tp_breach"}`` when
+            TP1 is breached, ``None`` otherwise. SL is checked first
+            so a price that has crossed both levels in one tick (gap)
+            reports SL — the more conservative outcome.
+        """
+        direction = str(trade.get("direction") or "").lower()
+        if direction not in {"long", "short"}:
+            return None
+
+        try:
+            price = float(current_price)
+        except (TypeError, ValueError):
+            return None
+
+        sl_raw = trade.get("stop_loss")
+        tp_raw = trade.get("take_profit_1")
+        try:
+            sl = float(sl_raw) if sl_raw is not None else None
+        except (TypeError, ValueError):
+            sl = None
+        try:
+            tp = float(tp_raw) if tp_raw is not None else None
+        except (TypeError, ValueError):
+            tp = None
+
+        if direction == "short":
+            if sl is not None and price >= sl:
+                return {"reason": "risk_manager_sl_breach"}
+            if tp is not None and price <= tp:
+                return {"reason": "risk_manager_tp_breach"}
+        else:  # long
+            if sl is not None and price <= sl:
+                return {"reason": "risk_manager_sl_breach"}
+            if tp is not None and price >= tp:
+                return {"reason": "risk_manager_tp_breach"}
+
+        return None
 
     def position_size(
         self,
