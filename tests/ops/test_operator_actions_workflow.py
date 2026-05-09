@@ -63,16 +63,77 @@ def test_workflow_file_exists() -> None:
     assert WORKFLOW.exists(), f"Missing workflow: {WORKFLOW}"
 
 
-def test_workflow_dispatch_only(workflow_dict: dict) -> None:
-    """Workflow must be triggerable only via workflow_dispatch.
+def test_only_two_dispatch_paths(workflow_dict: dict) -> None:
+    """Workflow has exactly two dispatch paths: workflow_dispatch +
+    label-filtered issues.opened.
 
-    No issue/PR/push triggers — Tier-2 dispatch should require the
-    operator's deliberate "Run workflow" click.
+    No push / pull_request / schedule / workflow_call — those would
+    let a code change auto-trigger a Tier-2 mutation, which violates
+    the audit contract.
     """
     on = workflow_dict["on"]
     assert isinstance(on, dict)
-    assert set(on.keys()) == {"workflow_dispatch"}, (
-        f"operator-actions must be workflow_dispatch-only; got triggers: {list(on)}"
+    assert set(on.keys()) == {"workflow_dispatch", "issues"}, (
+        f"operator-actions allows exactly workflow_dispatch + issues; "
+        f"got triggers: {list(on)}"
+    )
+
+
+def test_issues_trigger_is_opened_only(workflow_dict: dict) -> None:
+    """The issues trigger must filter to types: [opened]. Listening
+    on edited / labeled would let an operator-action issue's body
+    be tampered with after the fact and re-trigger.
+    """
+    issues_trigger = workflow_dict["on"]["issues"]
+    assert isinstance(issues_trigger, dict)
+    assert issues_trigger.get("types") == ["opened"], (
+        f"issues trigger must be types: [opened]; got: {issues_trigger}"
+    )
+
+
+def test_issue_dispatch_is_label_filtered() -> None:
+    """The job-level `if:` must filter issue-driven dispatches to
+    label `operator-action`. Without this filter, ANY opened issue
+    would attempt to dispatch — a clear blast-radius regression.
+
+    Read the YAML as raw text rather than parsed because GitHub
+    Actions `if:` expressions don't round-trip cleanly through
+    PyYAML safe_load (the `${{ }}` is preserved but multi-line
+    pipes get re-flowed).
+    """
+    raw = WORKFLOW.read_text()
+    assert (
+        "github.event_name == 'issues'" in raw
+        and "contains(github.event.issue.labels.*.name, 'operator-action')" in raw
+    ), (
+        "operator-actions.yml must gate issue-driven dispatch behind "
+        "the label `operator-action`. Update bootstrap-labels.yml + the "
+        "job-level `if:` if you intend to change this."
+    )
+
+
+def test_issue_body_uses_env_not_inline_interpolation() -> None:
+    """The issue body parser must consume ISSUE_BODY via env, not via
+    inline ${{ github.event.issue.body }} interpolation inside a
+    `run:` block — otherwise a backtick or $(…) in the issue body
+    becomes shell injection on the runner.
+    """
+    raw = WORKFLOW.read_text()
+    # The env: line is fine. Inline interpolation in run: would look
+    # like a literal `${{ github.event.issue.body }}` inside a shell
+    # heredoc / variable assignment. Guard against that.
+    assert "ISSUE_BODY: ${{ github.event.issue.body }}" in raw, (
+        "Expected ISSUE_BODY to ride through env, not inline ${{ }}."
+    )
+    # Reject the unsafe pattern: the literal `${{ github.event.issue.body }}`
+    # appearing in a shell heredoc.
+    inline_unsafe = re.search(
+        r"<<['\"]?BODY['\"]?\n[^A-Z]*\$\{\{\s*github\.event\.issue\.body\s*\}\}",
+        raw,
+    )
+    assert inline_unsafe is None, (
+        "Detected unsafe inline interpolation of github.event.issue.body "
+        "inside a shell heredoc. Pass the body through env: ISSUE_BODY instead."
     )
 
 

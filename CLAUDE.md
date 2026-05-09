@@ -161,10 +161,20 @@ below are the contract.
   full doc at `docs/claude/diag-relay.md`.
 - **VM operator actions (narrow mutating)** —
   `.github/workflows/operator-actions.yml` exposes a fixed
-  allowlist (`status-check`, `pull-latest-logs`,
+  allowlist (`status-check`, `pull-latest-logs`, `pull-and-deploy`,
   `restart-bot-service`, `reboot-vm`). Tier-1 actions are
-  autonomous; Tier-2 actions require an operator ping first. Full
-  contract: `docs/claude/operator-actions.md`. **Never** route
+  autonomous; Tier-2 actions require an operator ack first
+  (in-conversation approval is sufficient). Two dispatch paths,
+  identical allowlist + audit:
+  - `workflow_dispatch` — operator clicks "Run workflow" in the
+    Actions UI.
+  - **Issue-driven** — open a labelled issue (`operator-action`)
+    with body `action: <name>\nreason: <text>`. Workflow runs,
+    comments back, closes the issue. Use this when the sandbox needs
+    to dispatch autonomously after operator ack. Body parsing rides
+    through env (`ISSUE_BODY`), not inline interpolation.
+
+  Full contract: `docs/claude/operator-actions.md`. **Never** route
   strategy / risk / account-mode changes through this workflow —
   those remain Tier-3 PRs.
 - **Web-API self-heal (autonomous, single-purpose)** —
@@ -184,9 +194,10 @@ below are the contract.
 - **Workflow dispatch** — there's no general-purpose workaround.
   Workflows that need to be Claude-driven from a session must use
   an `issues.opened` (or `pull_request.opened`) trigger filtered to
-  a label. Pattern is the diag relay (`vm-diag-snapshot.yml`).
-  `operator-actions.yml` is intentionally `workflow_dispatch`-only
-  so the operator's "Run workflow" click is part of the Tier-2 ack.
+  a label. Pattern is the diag relay (`vm-diag-snapshot.yml`),
+  `vm-web-api-recover.yml`, and now `operator-actions.yml` (whose
+  Tier-2 ack is the operator's in-conversation approval — Claude
+  carries that approval into the issue body).
 
 ## Running Locally
 ```bash

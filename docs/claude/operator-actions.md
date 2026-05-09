@@ -24,8 +24,20 @@ behaviour, with pre/post verification baked into the workflow.
 
 It does **not** replace the operator. Tier-2 actions (anything that
 restarts a live runtime or reboots the box) still require the
-operator to either click "Run workflow" themselves, or to approve
-Claude's request and fire the dispatch on Claude's behalf — see § 4.
+operator to either click "Run workflow" themselves, **or to grant
+explicit in-conversation Tier-2 approval that Claude carries into the
+issue-driven dispatch** — see § 4.
+
+Two dispatch paths, identical allowlist + audit:
+
+- **`workflow_dispatch`** — operator clicks "Run workflow" in the
+  Actions UI. The original path; still available.
+- **Issue-driven** — sandbox session opens an issue with label
+  `operator-action`, body encoding `action: <name>` + `reason: <text>`.
+  The workflow runs, posts the result back as an issue comment, and
+  closes the issue. Same allowlist enforcement, same audit artifact.
+  Required when the sandbox needs to dispatch autonomously and `gh`
+  / `run_workflow` MCP tools are unavailable.
 
 ---
 
@@ -97,11 +109,21 @@ without an operator ack. The ack flow is:
 
 1. Claude opens an issue (or appends to an open ping thread) using
    the message format in § 7.
-2. Operator replies "Approve" (or clicks the action workflow's "Run
-   workflow" button themselves — equivalent intent).
-3. Either Claude (if a future MCP tool grants `workflow_dispatch`)
-   or the operator triggers the workflow with the agreed `action` +
-   `reason`.
+2. Operator replies "Approve" — **or grants the ack inline in
+   conversation**, which is equivalent intent. The conversation log
+   itself is the audit trail for the ack; the issue body Claude
+   subsequently opens captures the dispatched action + reason.
+3. Dispatch path:
+   - **Issue-driven (preferred when sandbox lacks a `run_workflow`
+     tool):** Claude opens an issue with label `operator-action` and a
+     body that encodes the agreed `action:` + `reason:`. Workflow runs,
+     posts result back, closes the issue. Same allowlist + audit as
+     `workflow_dispatch`.
+   - **Operator-click:** operator triggers `workflow_dispatch` from
+     the Actions UI with the agreed `action` + `reason`.
+
+Either path lands the same audit bundle. The ack must precede the
+dispatch by Claude in either case.
 
 **For autonomous dispatchers (operator, Perplexity):** the
 pre-dispatch ping is waived (§ 3.5). The post-dispatch notification
@@ -349,6 +371,42 @@ For `reboot-vm` add a fifth line:
 ```
 Lower-blast-radius alternatives tried: <list, e.g. "restart-bot-service x1, no recovery">
 ```
+
+### 7.1 Issue-driven dispatch — body format
+
+Once the operator has acked the action, Claude opens an issue with
+label `operator-action`. Body must contain (any line order):
+
+```
+action: <one of: status-check | pull-latest-logs | pull-and-deploy | restart-bot-service | reboot-vm>
+reason: <one line, free text — captured in the audit bundle and the transparency notify ping>
+```
+
+The `Resolve action + reason` step in `operator-actions.yml` parses
+both lines case-insensitively from the first match. Tier-2 actions
+**must** include a non-empty `reason`; the workflow rejects
+empty-reason Tier-2 dispatches with exit 1 in the validation step.
+
+The issue title is informational only — recommended form:
+
+```
+[operator-action] <action> — <one-line reason>
+```
+
+The workflow comments back on the issue with the run URL + wrapper
+exit code + truncated action output, then closes the issue
+(`completed` on success, `not_planned` on failure).
+
+Recommended path for Claude (web sandbox):
+
+```
+mcp__github__issue_write(method='create',
+    title='[operator-action] pull-and-deploy — <reason>',
+    labels=['operator-action'],
+    body='action: pull-and-deploy\nreason: <reason>')
+```
+
+Then poll the issue's comments for the github-actions[bot] reply.
 
 ---
 
