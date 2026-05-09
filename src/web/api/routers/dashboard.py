@@ -35,6 +35,17 @@ _BOT_LOG = _REPO_ROOT / "bot.log"
 _LOG_TAIL = 100
 _SIGNAL_TAIL = 50
 
+# trades.direction values seen in the wild and their dashboard-side
+# wire equivalents. The dashboard's Position type expects
+# "buy"/"sell"; the DB column historically stores "long"/"short".
+_SIDE_MAP = {"buy": "buy", "sell": "sell", "long": "buy", "short": "sell"}
+
+
+def _normalise_side(direction: Any) -> str:
+    if not isinstance(direction, str):
+        return str(direction or "")
+    return _SIDE_MAP.get(direction.strip().lower(), direction.strip().lower())
+
 
 def _bot_status() -> str:
     from src.runtime.heartbeat import heartbeat_label  # local import keeps router cheap
@@ -187,8 +198,8 @@ async def get_positions() -> list[dict[str, Any]]:
             cur = conn.cursor()
             cur.execute(
                 """
-                SELECT id, account_id, symbol, side, qty, entry_price,
-                       COALESCE(pnl, 0), created_at
+                SELECT id, account_id, symbol, direction, position_size,
+                       entry_price, COALESCE(pnl, 0), created_at
                 FROM trades
                 WHERE status = 'open'
                   AND COALESCE(is_backtest, 0) = 0
@@ -199,14 +210,19 @@ async def get_positions() -> list[dict[str, Any]]:
             rows = cur.fetchall()
         finally:
             conn.close()
-    except Exception:  # noqa: BLE001
+    except sqlite3.Error:
+        # Structural failures (missing column, locked DB, corrupt file)
+        # are silent today — log loudly so the next regression is caught
+        # before it ships. Endpoint stays best-effort: returns [] so the
+        # dashboard's PositionsPanel keeps rendering.
+        logger.exception("dashboard: /positions sqlite read failed")
         return []
     return [
         {
             "id": str(r[0]),
             "account": r[1],
             "symbol": r[2],
-            "side": r[3],
+            "side": _normalise_side(r[3]),
             "qty": r[4],
             "entryPrice": r[5],
             "unrealizedPnl": round(float(r[6]), 2),

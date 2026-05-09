@@ -128,3 +128,130 @@ def test_get_signals_does_not_fabricate_confidence_zero(
     body = resp.json()
     assert len(body) == 1
     assert body[0]["confidence"] == 0.0
+
+
+# ---------------------------------------------------------------------------
+# /api/bot/positions — schema regression guard
+#
+# The endpoint historically queried ``side`` and ``qty`` columns that
+# don't exist on the canonical ``trades`` schema (the columns are
+# ``direction`` and ``position_size``). The error was silently swallowed
+# by a blanket ``except Exception``, so the dashboard's PositionsPanel
+# rendered "No open positions" regardless of how many trades were live.
+# These tests run the endpoint's real SQL against the canonical schema
+# so any future drift fails loudly.
+# ---------------------------------------------------------------------------
+
+
+import sqlite3  # noqa: E402
+
+
+def _make_canonical_trades_db(path: Path) -> None:
+    """Materialise the canonical trades schema (subset relevant to
+    /positions). Mirrors src/units/db/database.py::create_tables."""
+    conn = sqlite3.connect(str(path))
+    conn.executescript(
+        """
+        CREATE TABLE trades (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp TEXT NOT NULL,
+            symbol TEXT NOT NULL,
+            direction TEXT NOT NULL,
+            entry_price REAL NOT NULL,
+            position_size REAL NOT NULL,
+            pnl REAL,
+            status TEXT DEFAULT 'open',
+            is_backtest INTEGER DEFAULT 0,
+            account_id TEXT NOT NULL DEFAULT 'live',
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );
+        """
+    )
+    conn.commit()
+    conn.close()
+
+
+def _insert_trade(path: Path, **fields):
+    conn = sqlite3.connect(str(path))
+    cols = ", ".join(fields.keys())
+    placeholders = ", ".join("?" for _ in fields)
+    conn.execute(
+        f"INSERT INTO trades ({cols}) VALUES ({placeholders})",
+        list(fields.values()),
+    )
+    conn.commit()
+    conn.close()
+
+
+def test_positions_returns_open_trade_against_canonical_schema(
+    client: TestClient, isolate_paths: Path
+) -> None:
+    """Regression for the side/qty schema mismatch — the endpoint must
+    return an open trade when the DB matches the canonical schema."""
+    db = isolate_paths / "trade_journal.db"
+    _make_canonical_trades_db(db)
+    _insert_trade(
+        db,
+        timestamp="2026-05-09T10:00:00Z",
+        symbol="BTCUSDT",
+        direction="long",
+        entry_price=60000.0,
+        position_size=0.001,
+        status="open",
+        is_backtest=0,
+        account_id="bybit_2",
+        created_at="2026-05-09T10:00:00Z",
+    )
+    resp = client.get("/api/bot/positions")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert len(body) == 1
+    assert body[0] == {
+        "id": "1",
+        "account": "bybit_2",
+        "symbol": "BTCUSDT",
+        "side": "buy",  # direction='long' normalises to wire-side 'buy'
+        "qty": 0.001,
+        "entryPrice": 60000.0,
+        "unrealizedPnl": 0.0,
+        "openedAt": "2026-05-09T10:00:00Z",
+    }
+
+
+@pytest.mark.parametrize(
+    "direction,expected_side",
+    [("long", "buy"), ("short", "sell"), ("buy", "buy"), ("sell", "sell")],
+)
+def test_positions_normalises_side(
+    client: TestClient, isolate_paths: Path, direction: str, expected_side: str
+) -> None:
+    db = isolate_paths / "trade_journal.db"
+    _make_canonical_trades_db(db)
+    _insert_trade(
+        db, timestamp="2026-05-09T10:00:00Z", symbol="BTCUSDT",
+        direction=direction, entry_price=60000.0, position_size=0.001,
+        status="open", is_backtest=0, account_id="bybit_2",
+    )
+    resp = client.get("/api/bot/positions")
+    assert resp.json()[0]["side"] == expected_side
+
+
+def test_positions_excludes_closed_and_backtest_trades(
+    client: TestClient, isolate_paths: Path
+) -> None:
+    db = isolate_paths / "trade_journal.db"
+    _make_canonical_trades_db(db)
+    # Closed live trade — excluded.
+    _insert_trade(
+        db, timestamp="2026-05-09T09:00:00Z", symbol="BTCUSDT",
+        direction="long", entry_price=60000.0, position_size=0.001,
+        status="closed", is_backtest=0, account_id="bybit_2",
+    )
+    # Open backtest trade — excluded.
+    _insert_trade(
+        db, timestamp="2026-05-09T09:30:00Z", symbol="ETHUSDT",
+        direction="short", entry_price=3000.0, position_size=0.1,
+        status="open", is_backtest=1, account_id="backtest",
+    )
+    resp = client.get("/api/bot/positions")
+    assert resp.json() == []
