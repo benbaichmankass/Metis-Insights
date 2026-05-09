@@ -57,7 +57,9 @@ jobs:
               {
                 name: 'operator-action',
                 color: 'd93f0b',
-                description: 'Triggers operator-actions workflow via the issue-driven dispatch path. Body must include `action: <name>` and (for Tier-2) `reason: <text>`.',
+                // GitHub caps label descriptions at 100 chars — keep this short or
+                // the createLabel call returns 422 and the whole step fails.
+                description: 'Issue-driven dispatch for operator-actions.yml allowlist (action: <name>, reason: <text>).',
               },
             ];
             for (const l of LABELS) {
