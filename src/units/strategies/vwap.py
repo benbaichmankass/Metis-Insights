@@ -635,10 +635,10 @@ def monitor(cfg, candles_df, open_pkg):
         ``{"action": "close", "reason": str, "exit_price": float}``;
         the BE path returns ``{"sl": float}``. Both shapes are
         consumed by ``order_monitor._apply_update`` — close verdicts
-        translate to a reduce-only ``close_open_position`` call,
-        ``sl`` updates rewrite the package row (and, when
-        ``MONITOR_APPLY_TO_EXCHANGE`` is on, the live order's stop).
-        The strategy unit never touches the exchange directly.
+        translate to a reduce-only ``close_open_position`` call;
+        ``sl`` updates rewrite the package row and the live order's
+        stop on the exchange. The strategy unit never touches the
+        exchange directly.
     """
     if candles_df is None or len(candles_df) == 0:
         return None
