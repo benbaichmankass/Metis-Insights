@@ -287,3 +287,58 @@ def test_services_returns_one_entry_per_canonical_unit(client, fake_runtime):
     assert len(body) == len(diag_router._CANONICAL_UNITS)
     units_returned = [entry["unit"] for entry in body]
     assert units_returned == list(diag_router._CANONICAL_UNITS)
+
+
+# ---------------------------------------------------------------------------
+# /api/diag/db_info — DB metadata for trader-vs-web-api cross-reference
+# ---------------------------------------------------------------------------
+
+
+def test_db_info_missing_db_returns_present_false(client, fake_runtime):
+    """No DB file at the configured path → ``exists=False``, empty
+    tables list, no row counts. Mirrors ``_journal_select``'s
+    early-return-empty contract for the same condition."""
+    # fake_runtime points _DB_PATH at a tmp path but we never created
+    # the file, so it shouldn't exist.
+    resp = client.get("/api/diag/db_info", headers=_bearer(_TOKEN))
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["exists"] is False
+    assert body["tables"] == []
+    assert body["row_counts"] == {}
+
+
+def test_db_info_returns_inode_size_tables_and_counts(client, fake_runtime):
+    """Happy path — populated DB returns inode + size + per-table
+    row counts. Operator can compare inode across services to confirm
+    they read the same file."""
+    db = sqlite3.connect(str(fake_runtime["db_path"]))
+    try:
+        db.execute(
+            "CREATE TABLE trades (id INTEGER PRIMARY KEY, status TEXT)"
+        )
+        db.execute(
+            "CREATE TABLE order_packages (order_package_id TEXT PRIMARY KEY)"
+        )
+        db.execute("INSERT INTO trades(id, status) VALUES (1, 'open')")
+        db.execute("INSERT INTO trades(id, status) VALUES (2, 'closed')")
+        db.execute("INSERT INTO order_packages(order_package_id) VALUES ('pkg-a')")
+        db.commit()
+    finally:
+        db.close()
+
+    resp = client.get("/api/diag/db_info", headers=_bearer(_TOKEN))
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["exists"] is True
+    assert body["size_bytes"] is not None and body["size_bytes"] > 0
+    assert body["inode"] is not None
+    assert sorted(body["tables"]) == ["order_packages", "trades"]
+    assert body["row_counts"] == {"trades": 2, "order_packages": 1}
+    assert body["error_per_table"] == {}
+    assert body["load_error"] is None
+
+
+def test_db_info_401_without_token(client, fake_runtime):
+    resp = client.get("/api/diag/db_info")
+    assert resp.status_code == 401
