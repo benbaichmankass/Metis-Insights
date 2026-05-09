@@ -1572,8 +1572,9 @@ class TestStuckStrategyWatchdog:
         self, tmp_db, tmp_path, monkeypatch,
     ):
         """Headline contract: a package stuck > 30 min with a still-
-        open linked trade is force-closed, the trade is orphaned,
-        and a high-priority alert is emitted.
+        open linked trade AND no matching exchange-side position is
+        force-closed, the trade is orphaned, and a high-priority
+        alert is emitted.
         """
         monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
         trade_id = _insert_trade(tmp_db, status="open")
@@ -1587,7 +1588,14 @@ class TestStuckStrategyWatchdog:
             "src.runtime.execution_diagnostics.PENDING_PINGS_DIR",
             pings_dir,
         )
-        summary = _watchdog_stuck_strategies(tmp_db)
+        # Position cross-check (2026-05-09): mock empty list so
+        # the watchdog reaches the genuine-orphan branch and
+        # force-clears as before.
+        with patch(
+            "src.units.accounts.clients.account_open_positions",
+            return_value=[],
+        ):
+            summary = _watchdog_stuck_strategies(tmp_db)
 
         assert summary["checked"] == 1
         assert summary["auto_cleared"] == 1
@@ -1676,7 +1684,11 @@ class TestStuckStrategyWatchdog:
             tmp_db, pkg_id="pkg-trade-already-orphaned",
             linked_trade_id=trade_id, age_minutes=60,
         )
-        summary = _watchdog_stuck_strategies(tmp_db)
+        with patch(
+            "src.units.accounts.clients.account_open_positions",
+            return_value=[],
+        ):
+            summary = _watchdog_stuck_strategies(tmp_db)
         assert summary["auto_cleared"] == 1
         # Package force-closed.
         assert _read_package(
@@ -1698,7 +1710,11 @@ class TestStuckStrategyWatchdog:
             tmp_db, pkg_id="pkg-tight-threshold",
             linked_trade_id=trade_id, age_minutes=10,
         )
-        summary = _watchdog_stuck_strategies(tmp_db)
+        with patch(
+            "src.units.accounts.clients.account_open_positions",
+            return_value=[],
+        ):
+            summary = _watchdog_stuck_strategies(tmp_db)
         assert summary["auto_cleared"] == 1
         assert _read_package(
             tmp_db, "pkg-tight-threshold",
@@ -1730,7 +1746,10 @@ class TestStuckStrategyWatchdog:
         )
         summary = _watchdog_stuck_strategies(tmp_db)
         assert summary == {
-            "checked": 0, "alerted": 0, "auto_cleared": 0, "errors": 0,
+            "checked": 0, "alerted": 0, "auto_cleared": 0,
+            "deferred_position_alive": 0,
+            "skipped_position_read_failed": 0,
+            "errors": 0,
         }
         assert _read_package(
             tmp_db, "pkg-disabled-flag",
@@ -1756,13 +1775,146 @@ class TestStuckStrategyWatchdog:
             pings_dir,
         )
 
-        first = _watchdog_stuck_strategies(tmp_db)
-        second = _watchdog_stuck_strategies(tmp_db)
+        with patch(
+            "src.units.accounts.clients.account_open_positions",
+            return_value=[],
+        ):
+            first = _watchdog_stuck_strategies(tmp_db)
+            second = _watchdog_stuck_strategies(tmp_db)
 
         assert first["alerted"] == 1
         assert first["auto_cleared"] == 1
         assert second == {
-            "checked": 0, "alerted": 0, "auto_cleared": 0, "errors": 0,
+            "checked": 0, "alerted": 0, "auto_cleared": 0,
+            "deferred_position_alive": 0,
+            "skipped_position_read_failed": 0,
+            "errors": 0,
         }
         # Only ONE ping queued across both ticks.
         assert len(list(pings_dir.glob("*.json"))) == 1
+
+    def test_position_alive_defers_force_clear(
+        self, tmp_db, tmp_path, monkeypatch,
+    ):
+        """The 2026-05-09 fix (#582 — vwap orphan churn): when the
+        exchange reports the package's (symbol, direction) is still
+        alive, the watchdog must NOT force-clear the package — the
+        trade is patient (e.g. vwap mean-reversion waiting for
+        price to reach VWAP), not stuck. Operator gets a single
+        alert with auto_cleared=False so they know we backed off.
+        """
+        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
+        trade_id = _insert_trade(tmp_db, status="open")
+        self._insert_pkg_with_age(
+            tmp_db, pkg_id="pkg-position-alive",
+            linked_trade_id=trade_id, age_minutes=45,
+        )
+        pings_dir = tmp_path / "pings"
+        monkeypatch.setattr(
+            "src.runtime.execution_diagnostics.PENDING_PINGS_DIR",
+            pings_dir,
+        )
+        # Exchange reports a long BTCUSDT position — matches the
+        # package's symbol+direction (the test fixture inserts long).
+        with patch(
+            "src.units.accounts.clients.account_open_positions",
+            return_value=[
+                {"symbol": "BTCUSDT", "side": "long", "size": 0.001},
+            ],
+        ):
+            summary = _watchdog_stuck_strategies(tmp_db)
+
+        assert summary["checked"] == 1
+        assert summary["deferred_position_alive"] == 1
+        assert summary["auto_cleared"] == 0
+        assert summary["alerted"] == 1
+        assert summary["errors"] == 0
+
+        # Package still open — NOT force-cleared.
+        pkg = _read_package(tmp_db, "pkg-position-alive")
+        assert pkg["status"] == "open"
+        # Trade still open — NOT cascaded.
+        trade = _read_trade(tmp_db, trade_id)
+        assert trade["status"] == "open"
+
+        # One alert fired with auto_cleared=False so the operator
+        # sees we backed off rather than nuking the position.
+        queued = sorted(pings_dir.glob("*.json"))
+        assert len(queued) == 1
+        evt = json.loads(queued[0].read_text())
+        assert "force-cleared" not in evt["body"]
+
+    def test_position_alive_alert_idempotent_across_ticks(
+        self, tmp_db, tmp_path, monkeypatch,
+    ):
+        """Position-alive defer path: the meta-stamp on the first
+        tick bumps ``updated_at`` so the row falls out of the
+        watchdog's WHERE for one full threshold period (30 min by
+        default). Back-to-back ticks therefore see the row exactly
+        once: first tick defers + alerts, second tick is a complete
+        no-op. The alert fires only ONCE in the pings dir.
+
+        After the threshold elapses, the row re-enters the WHERE
+        and the watchdog re-checks position state. If the position
+        is still alive, defer again (no alert this time —
+        ``stuck_alert_emitted_at`` is sticky). If the position has
+        gone flat, force-clear as a true orphan.
+        """
+        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
+        trade_id = _insert_trade(tmp_db, status="open")
+        self._insert_pkg_with_age(
+            tmp_db, pkg_id="pkg-defer-idem",
+            linked_trade_id=trade_id, age_minutes=45,
+        )
+        pings_dir = tmp_path / "pings"
+        monkeypatch.setattr(
+            "src.runtime.execution_diagnostics.PENDING_PINGS_DIR",
+            pings_dir,
+        )
+        with patch(
+            "src.units.accounts.clients.account_open_positions",
+            return_value=[
+                {"symbol": "BTCUSDT", "side": "long", "size": 0.001},
+            ],
+        ):
+            first = _watchdog_stuck_strategies(tmp_db)
+            second = _watchdog_stuck_strategies(tmp_db)
+
+        assert first["alerted"] == 1
+        assert first["deferred_position_alive"] == 1
+        # Second tick: meta-stamp bumped updated_at so the row no
+        # longer matches WHERE (>30 min stale). Complete no-op.
+        assert second["checked"] == 0
+        assert second["alerted"] == 0
+        assert second["deferred_position_alive"] == 0
+        # Only ONE ping queued across both ticks.
+        assert len(list(pings_dir.glob("*.json"))) == 1
+
+    def test_position_read_failure_defers_conservatively(
+        self, tmp_db, monkeypatch,
+    ):
+        """If ``account_open_positions`` returns None (read failure
+        — creds, network, exchange error), the watchdog must defer
+        force-clearing rather than nuke the package on a half-known
+        view of exchange state.
+        """
+        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
+        trade_id = _insert_trade(tmp_db, status="open")
+        self._insert_pkg_with_age(
+            tmp_db, pkg_id="pkg-read-failure",
+            linked_trade_id=trade_id, age_minutes=45,
+        )
+        with patch(
+            "src.units.accounts.clients.account_open_positions",
+            return_value=None,
+        ):
+            summary = _watchdog_stuck_strategies(tmp_db)
+
+        assert summary["checked"] == 1
+        assert summary["skipped_position_read_failed"] == 1
+        assert summary["auto_cleared"] == 0
+        assert summary["deferred_position_alive"] == 0
+        # Package + trade left untouched — wait for the next tick
+        # when the read might succeed.
+        assert _read_package(tmp_db, "pkg-read-failure")["status"] == "open"
+        assert _read_trade(tmp_db, trade_id)["status"] == "open"
