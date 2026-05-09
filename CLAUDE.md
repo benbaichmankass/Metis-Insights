@@ -14,6 +14,9 @@ VPS (systemd)
                                    ├── /api/bot/logs     ← Vercel dashboard
                                    ├── /api/bot/positions← Vercel dashboard
                                    ├── /api/bot/signals  ← Vercel dashboard
+                                   ├── /api/bot/liquidity← Vercel dashboard (S-064)
+                                   ├── /api/bot/config   ← Vercel dashboard (S-064)
+                                   ├── /api/pnl/history  ← Vercel dashboard (S-063, no-session)
                                    ├── /api/pnl
                                    ├── /api/status
                                    ├── /api/diag/*       ← PM-side read-only (S-051)
@@ -37,10 +40,12 @@ src/
       main.py           — FastAPI app, CORS middleware, router mounts
       auth.py           — session/token auth helpers
       routers/
-        dashboard.py    — /api/bot/* endpoints (S-014)
+        dashboard.py    — /api/bot/{stats,logs,positions,signals} (S-014)
+        bot_config.py   — /api/bot/config (S-064)
+        liquidity.py    — /api/bot/liquidity (S-064)
         diag.py         — /api/diag/* endpoints (S-051, token-gated read)
         pnl.py          — /api/pnl
-        pnl_history.py  — /api/pnl/history
+        pnl_history.py  — /api/pnl/history (S-063, no-session)
         status.py       — /api/status
     runtime_status.py   — writes runtime_logs/status.json (DO NOT DELETE—imported by pipeline)
 runtime_logs/
@@ -51,7 +56,9 @@ trade_journal.db        — SQLite: trades, order_packages
 
 ## Dashboard REST API (S-014)
 
-All endpoints are unauthenticated GET routes in `src/web/api/routers/dashboard.py`.
+Unauthenticated GET routes — Tier 1 read surface. See
+`docs/api-tier-policy.md` for the complete tier inventory (Tier 1 / 2 /
+2.5 / 3) and the rules for adding routes.
 
 | Endpoint | Returns | Data source |
 |----------|---------|-------------|
@@ -59,6 +66,9 @@ All endpoints are unauthenticated GET routes in `src/web/api/routers/dashboard.p
 | `GET /api/bot/logs` | `LogEntry[]` | `runtime_logs/signal_audit.jsonl`, fallback `bot.log` |
 | `GET /api/bot/positions` | open positions | `trade_journal.db` WHERE status='open' |
 | `GET /api/bot/signals` | recent ICT detections | `runtime_logs/signal_audit.jsonl` filtered to buy/sell |
+| `GET /api/bot/liquidity?symbol=X` | per-symbol liquidity zones (S-064) | `runtime_logs/liquidity_state.json` (pipeline writes per-tick) |
+| `GET /api/bot/config` | effective config view (S-064) | `config/accounts.yaml` + `config/strategies.yaml` + `runtime_logs/runtime_status.json`; secrets redacted |
+| `GET /api/pnl/history?days=N` | `PnlHistoryPoint[]` (S-063) | `trade_journal.db` (closed trades, realised PnL per UTC day) |
 
 ### `BotStats` shape
 ```json
