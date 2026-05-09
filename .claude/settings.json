@@ -1,5 +1,21 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "_comment": "Repo-shared allowlist for the VM-side claude-vm-runner. Scoped to read-only diagnostic commands + the two narrow self-heal restart paths (ict-web-api.service via vm-web-api-recover.yml, ict-trader-live.service via operator-actions.yml::restart-bot-service). Per docs/claude/operator-actions.md and docs/claude/diag-relay.md, restarting ict-web-api has no trading blast radius (read-only API). Adding entries: mirror the audit pattern in scripts/ops/*.sh — narrow as possible.",
+    "allow": [
+      "Bash(sudo systemctl restart ict-web-api.service)",
+      "Bash(sudo systemctl restart ict-trader-live.service)",
+      "Bash(sudo systemctl is-active:*)",
+      "Bash(systemctl is-active:*)",
+      "Bash(sudo systemctl status:*)",
+      "Bash(systemctl status:*)",
+      "Bash(sudo systemctl show:*)",
+      "Bash(sudo journalctl -u ict-web-api.service:*)",
+      "Bash(sudo journalctl -u ict-trader-live.service:*)",
+      "Bash(sudo journalctl -u ict-git-sync.service:*)",
+      "Bash(sqlite3 /home/ubuntu/ict-trading-bot/trade_journal.db:*)"
+    ]
+  },
   "hooks": {
     "Stop": [
       {

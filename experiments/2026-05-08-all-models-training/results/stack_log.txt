@@ -1,0 +1,42 @@
+VWAP — stacked variants
+------------------------------------------------------------------------
+VS0_baseline                     trades=10137  win=24.37%  E[R]=-0.0072  Sharpe=-0.39  DD=-152.4R  hold=16.4b
+VS1_htf1h_band020                trades= 6870  win=25.59%  E[R]=+0.0424  Sharpe=+1.86  DD=-58.8R  hold=15.7b
+VS2_VS1_sl040                    trades= 7236  win=22.44%  E[R]=+0.0745  Sharpe=+2.99  DD=-113.3R  hold=13.7b
+VS3_VS2_thr20                    trades= 2157  win=17.90%  E[R]=+0.1291  Sharpe=+2.33  DD=-42.4R  hold=15.4b
+V1_orig_4h_band010               trades= 5164  win=25.93%  E[R]=+0.0657  Sharpe=+2.47  DD=-59.8R  hold=16.2b
+
+VWAP — walk-forward 70/30 on stacked variants
+------------------------------------------------------------------------
+  VS0_baseline              IS  trades= 7084  win=24.18%  E[R]=-0.0128  Sharpe=-0.58  DD=-152.4R  hold=16.0b
+  VS0_baseline              OOS trades= 3039  win=24.88%  E[R]=+0.0074  Sharpe=+0.22  DD=-58.8R  hold=17.6b
+  VS1_htf1h_band020         IS  trades= 4756  win=25.27%  E[R]=+0.0376  Sharpe=+1.37  DD=-58.8R  hold=15.2b
+  VS1_htf1h_band020         OOS trades= 2104  win=26.43%  E[R]=+0.0573  Sharpe=+1.40  DD=-55.6R  hold=17.1b
+  VS2_VS1_sl040             IS  trades= 4979  win=22.74%  E[R]=+0.0987  Sharpe=+3.24  DD=-80.2R  hold=13.2b
+  VS2_VS1_sl040             OOS trades= 2246  win=21.95%  E[R]=+0.0282  Sharpe=+0.65  DD=-68.1R  hold=14.8b
+  VS3_VS2_thr20             IS  trades= 1501  win=17.06%  E[R]=+0.0843  Sharpe=+1.29  DD=-42.4R  hold=14.5b
+  VS3_VS2_thr20             OOS trades=  658  win=19.76%  E[R]=+0.2230  Sharpe=+2.16  DD=-33.5R  hold=17.3b
+  V1_orig_4h_band010        IS  trades= 3576  win=26.23%  E[R]=+0.0796  Sharpe=+2.48  DD=-59.8R  hold=15.8b
+  V1_orig_4h_band010        OOS trades= 1550  win=25.87%  E[R]=+0.0528  Sharpe=+1.10  DD=-54.3R  hold=17.4b
+
+Turtle Soup — stacked variants (best params from sweeps)
+------------------------------------------------------------------------
+TS0_baseline                     trades=   33  win=51.52%  E[R]=+0.1591  Sharpe=+0.80  DD=-4.8R  hold=10.6b
+TS1_atr_30                       trades=   32  win=56.25%  E[R]=+0.2656  Sharpe=+1.33  DD=-4.8R  hold=9.7b
+TS2_atr30_tp20                   trades=   34  win=44.12%  E[R]=+0.2437  Sharpe=+1.00  DD=-4.0R  hold=20.7b
+TS3_atr30_tp20_body055           trades=   48  win=39.58%  E[R]=+0.1498  Sharpe=+0.74  DD=-9.4R  hold=17.6b
+TS4_atr30_tp20_body055_regime    trades=   41  win=41.46%  E[R]=+0.1544  Sharpe=+0.72  DD=-5.0R  hold=21.1b
+
+Turtle Soup — walk-forward 70/30
+------------------------------------------------------------------------
+  TS0_baseline              IS  trades=   23  win=47.83%  E[R]=+0.0761  Sharpe=+0.32  DD=-4.8R  hold=11.2b
+  TS0_baseline              OOS trades=    6  win=50.00%  E[R]=+0.1250  Sharpe=+0.25  DD=-2.0R  hold=13.7b
+  TS1_atr_30                IS  trades=   24  win=50.00%  E[R]=+0.1250  Sharpe=+0.53  DD=-4.8R  hold=10.8b
+  TS1_atr_30                OOS trades=    4  win=75.00%  E[R]=+0.6875  Sharpe=+1.22  DD=+0.0R  hold=8.2b
+  TS2_atr30_tp20            IS  trades=   22  win=36.36%  E[R]=+0.0520  Sharpe=+0.18  DD=-4.0R  hold=23.6b
+  TS2_atr30_tp20            OOS trades=    6  win=33.33%  E[R]=-0.3094  Sharpe=-0.62  DD=-3.0R  hold=27.3b
+  TS3_atr30_tp20_body055    IS  trades=   34  win=32.35%  E[R]=-0.0510  Sharpe=-0.22  DD=-9.4R  hold=16.7b
+  TS3_atr30_tp20_body055    OOS trades=   12  win=41.67%  E[R]=+0.1602  Sharpe=+0.38  DD=-3.1R  hold=19.2b
+
+Wrote /home/user/ict-trading-bot/experiments/2026-05-08-all-models-training/results/stacked.json
+Wall-clock: 0.15 min

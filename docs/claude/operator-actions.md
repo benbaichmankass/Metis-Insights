@@ -31,15 +31,17 @@ Claude's request and fire the dispatch on Claude's behalf — see § 4.
 
 ## 2. Allowlist
 
-Exactly four actions. Adding a fifth requires a PR that updates this
-doc, the workflow's `inputs.action.options` list, and the wrapper
-mapping in both `operator-actions.yml` and the test in
+Exactly five actions. Adding a sixth requires a PR that updates this
+doc, the workflow's `inputs.action.options` list, the wrapper mapping
+in `operator-actions.yml`, the priority case in
+`scripts/ops/notify_run.sh`, and the `EXPECTED_ACTIONS` constant in
 `tests/ops/test_operator_actions_workflow.py`.
 
 | Action | Tier | Wrapper | Mutates? |
 |---|---|---|---|
 | `status-check` | 1 | `scripts/ops/status_check.sh` | no |
 | `pull-latest-logs` | 1 | `scripts/ops/pull_logs.sh` | no |
+| `pull-and-deploy` | 2 | `scripts/ops/pull_and_deploy.sh` | git worktree + systemd units |
 | `restart-bot-service` | 2 | `scripts/ops/restart_bot.sh` | systemd unit only |
 | `reboot-vm` | 2 (last resort) | `scripts/ops/reboot_vm.sh` | full host |
 
@@ -76,8 +78,19 @@ issue / PR / Telegram thread, then stops.
 
 Tier-2 actions:
 
+- `pull-and-deploy`
 - `restart-bot-service`
 - `reboot-vm`
+
+`pull-and-deploy` is a thin wrapper around `scripts/deploy_pull_restart.sh`
+(the canonical script the `ict-git-sync` timer also calls). It fetches
+`origin/main`, hard-resets the VM worktree to it, optionally reinstalls
+deps, and bounces `ict-trader-live.service` + `ict-telegram-bot.service`.
+Use this when you've just merged a fix and want it on the VM **now**
+rather than waiting for the next git-sync tick. It does **not** mutate
+anything that wasn't already authorized through the upstream PR + Tier
+gates — the merge gates are still where strategy / risk / live-routing
+changes get authorized.
 
 **For PM-side Claude (web sandbox / dev laptop):** must not dispatch
 without an operator ack. The ack flow is:
@@ -122,7 +135,7 @@ The tier rules above describe the **action's** blast radius. Whether
 a given dispatcher must ping the operator before triggering an action
 depends on the dispatcher's trust class. Three classes exist today:
 
-| Dispatcher | Tier-1 (`status-check`, `pull-latest-logs`) | Tier-2 (`restart-bot-service`, `reboot-vm`) |
+| Dispatcher | Tier-1 (`status-check`, `pull-latest-logs`) | Tier-2 (`pull-and-deploy`, `restart-bot-service`, `reboot-vm`) |
 |---|---|---|
 | **Operator** (Ben, in browser) | autonomous (you're the human) | autonomous (you're the human) |
 | **Perplexity** (granted 2026-05-08) | autonomous | autonomous |
@@ -263,6 +276,9 @@ tier: <1 or 2>
 |---|---|---|
 | Tier 1 (`status-check`, `pull-latest-logs`) | 0 (ok) | `low` |
 | Tier 1 | non-zero | `high` |
+| `pull-and-deploy` | 0 (ok) | `normal` |
+| `pull-and-deploy` | 3 (deferred — vm-runner active) | `normal` |
+| `pull-and-deploy` | other | `urgent` |
 | `restart-bot-service` | 0 (ok) | `normal` |
 | `restart-bot-service` | 3 (deferred — vm-runner active) | `normal` |
 | `restart-bot-service` | other | `urgent` |
@@ -289,14 +305,20 @@ follow-up doc PR if it ever becomes a problem.
 |---|---|---|---|---|
 | `status-check` | none | `systemctl is-active` for canonical units + heartbeat age + audit tail | wrapper exits 0 if all canonical units active, 1 otherwise | exit 1 = at least one unit not `active`; investigate before any restart |
 | `pull-latest-logs` | none | dump journalctl + signal_audit + status.json | wrapper exits 0 if all readable | exit 1 = log paths missing → investigate diag relay first |
+| `pull-and-deploy` | capture pre-deploy `git rev-parse HEAD` + unit `is-active` | invoke `scripts/deploy_pull_restart.sh` (fetch + hard-reset + dep install + restart trader & telegram bot) | poll `is-active` until "active" or 60 s timeout; dump 30 journal lines; record HEAD diff in audit | exit 3 → vm-runner active, deferred. exit 1 → deploy or restart failed; HEAD may be advanced even if restart didn't complete — see `audit-bundle.json` for the head transition |
 | `restart-bot-service` | capture pre-state via `is-active` + `status` | `systemctl restart ict-trader-live.service` | poll `is-active` until "active" or 30 s timeout; dump 30 journal lines | exit 1 → unit failed to come back; ping operator with journal tail |
 | `reboot-vm` | dump uptime + canonical unit states + 10 journal lines | `shutdown -r +1` | workflow polls SSH for ≤ 5 min; post-fetch `/api/diag/status` | SSH not back in 5 min → manual recovery required (Oracle Cloud Console) |
 
-The `restart-bot-service` wrapper additionally **defers** if any
-`claude-vm-runner@*.service` unit is currently active, mirroring the
-guard in `scripts/deploy_pull_restart.sh` — exit 3, no restart
-attempted. Re-dispatch the action a few minutes later when the `/vm`
-invocation has finished.
+The `restart-bot-service` and `pull-and-deploy` wrappers additionally
+**defer** if any `claude-vm-runner@*.service` unit is currently active,
+mirroring the guard in `scripts/deploy_pull_restart.sh` — exit 3, no
+restart / deploy attempted. Re-dispatch the action a few minutes later
+when the `/vm` invocation has finished.
+
+`pull-and-deploy` runs the wrapper's vm-runner check **before** the
+git fetch/reset, so a deferred run leaves the worktree exactly as it
+was — no half-deployed state where HEAD has advanced but services
+still run the old code.
 
 ---
 
@@ -312,6 +334,14 @@ Risk if not done: <one sentence — what breaks if we hold>
 Expected impact: <one sentence — what changes when this runs>
 Verification plan: <one line — what artifact / diag call confirms success>
 [Approve] [Hold]
+```
+
+For `pull-and-deploy` add a fifth line so the operator knows what's
+landing on the VM:
+
+```
+HEAD currently on VM: <pre-deploy SHA — get from /api/diag/status if you have it>
+HEAD will land:       <origin/main SHA + one-line PR title>
 ```
 
 For `reboot-vm` add a fifth line:

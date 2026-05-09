@@ -526,7 +526,45 @@ def vwap_signal_builder(settings: dict) -> Dict[str, Any]:
         symbol, timeframe, len(candles_df),
     )
 
-    return build_vwap_signal(candles_df, symbol=symbol)
+    # Phase 2 HTF trend gate (training run 2026-05-08-all-models-training).
+    # When ``htf_trend_filter.enabled`` is true in strategies.yaml, fetch
+    # HTF candles, compute the EMA, and pass close + EMA into
+    # build_vwap_signal so the strategy can block fades against trend.
+    # Failure to fetch HTF data degrades to "no gate" rather than
+    # blocking the entire strategy — the audit log records the missing
+    # input via the absent htf_* meta keys.
+    htf_close: Optional[float] = None
+    htf_ema: Optional[float] = None
+    htf_band_pct: Optional[float] = None
+    htf_filter_cfg = vwap_cfg.get("htf_trend_filter") or {}
+    if htf_filter_cfg.get("enabled"):
+        htf_tf = str(htf_filter_cfg.get("htf_timeframe") or "4h")
+        ema_period = int(htf_filter_cfg.get("ema_period") or 200)
+        htf_band_pct = float(htf_filter_cfg.get("band_pct") or 0.02)
+        try:
+            htf_df = fetch_candles(
+                symbol, htf_tf, exchange_client=exchange,
+                limit=max(ema_period * 2, 250),
+            )
+            if htf_df is not None and not htf_df.empty and "close" in htf_df.columns:
+                ema_series = htf_df["close"].ewm(span=ema_period, adjust=False).mean()
+                if pd.notna(ema_series.iloc[-1]):
+                    htf_close = float(htf_df["close"].iloc[-1])
+                    htf_ema = float(ema_series.iloc[-1])
+        except Exception as exc:  # noqa: BLE001 — degrade to no-gate
+            logger.warning(
+                "VWAP HTF fetch failed for symbol=%s tf=%s: %s — degrading to no-gate",
+                symbol, htf_tf, exc,
+            )
+
+    kwargs: Dict[str, Any] = {"symbol": symbol}
+    if htf_close is not None and htf_ema is not None:
+        kwargs["htf_close"] = htf_close
+        kwargs["htf_ema"] = htf_ema
+        if htf_band_pct is not None:
+            kwargs["htf_band_pct"] = htf_band_pct
+
+    return build_vwap_signal(candles_df, **kwargs)
 
 
 def _coerce_ohlcv_with_dt_index(raw: Any) -> pd.DataFrame:

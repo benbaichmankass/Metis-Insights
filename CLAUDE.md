@@ -154,6 +154,16 @@ below are the contract.
   contract: `docs/claude/operator-actions.md`. **Never** route
   strategy / risk / account-mode changes through this workflow —
   those remain Tier-3 PRs.
+- **Web-API self-heal (autonomous, single-purpose)** —
+  `.github/workflows/vm-web-api-recover.yml` is the issue-driven
+  recovery path for `ict-web-api.service`. When the diag relay
+  starts returning curl exit 7 (`Failed to connect to 127.0.0.1`),
+  the FastAPI process serving `/api/diag/*` is down and Claude is
+  blinded. Open a labelled issue (`vm-web-api-recover`) to fire a
+  fixed-form `systemctl restart ict-web-api.service` + health
+  probe; the workflow comments back and closes. Restart-only, no
+  edits, no other unit touched. Wrapper:
+  `scripts/ops/restart_web_api.sh`.
 - **Repo label creation** — `.github/workflows/bootstrap-labels.yml`
   self-creates the labels other workflows filter on. Edit the
   `LABELS` array in that file and merge; the next push runs the

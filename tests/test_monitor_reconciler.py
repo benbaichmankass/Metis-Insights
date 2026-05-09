@@ -21,12 +21,16 @@ from unittest.mock import patch
 import pytest
 
 from src.runtime.order_monitor import (
+    _classify_orphan_close,
     _exchange_position_set,
     _extract_trade_id_from_notes,
     _is_numeric_order_id,
+    _mark_orphaned,
     _parse_created_at,
     _reconcile_open_trades,
+    _sweep_stuck_linked_packages,
     _sweep_unlinked_packages,
+    _watchdog_stuck_strategies,
 )
 from src.units.db.database import Database
 
@@ -1076,3 +1080,689 @@ class TestParseCreatedAt:
 
     def test_garbage_returns_none(self):
         assert _parse_created_at("not-a-date") is None
+
+
+# ---------------------------------------------------------------------------
+# Orphan-cascade hardening — retry + sticky audit row when the package
+# update keeps failing. Without this the strategy-monocle gate at
+# pipeline.py::_has_open_package_for_strategy stays stuck open and every
+# future signal for the strategy is silently blocked.
+# ---------------------------------------------------------------------------
+
+
+class _FlakyDB:
+    """Wraps a real Database, intercepting ``update_order_package`` to
+    fail a configured number of times before delegating through. Lets
+    the cascade-retry tests exercise both the success-on-retry and the
+    permanent-failure paths without monkeypatching production code.
+    """
+
+    def __init__(self, real_db, fail_first_n: int):
+        self._real = real_db
+        self._fail_remaining = fail_first_n
+        self.update_order_package_calls = 0
+
+    # Pass-through everything except update_order_package.
+    def __getattr__(self, name):
+        return getattr(self._real, name)
+
+    def update_order_package(self, pkg_id, updates):
+        self.update_order_package_calls += 1
+        if self._fail_remaining > 0:
+            self._fail_remaining -= 1
+            raise RuntimeError("simulated package-update failure")
+        return self._real.update_order_package(pkg_id, updates)
+
+
+class TestMarkOrphanedCascadeRetry:
+    """``_mark_orphaned`` must:
+      1. Retry the package cascade once on transient failure.
+      2. Write a sticky ``orphan_cascade_failed`` audit row when both
+         attempts fail — without it the strategy gate stays stuck.
+    """
+
+    def test_cascade_retry_succeeds_on_second_attempt(
+        self, tmp_db, tmp_path, monkeypatch,
+    ):
+        pkg_id = "pkg-flaky-001"
+        _insert_package(tmp_db, pkg_id=pkg_id)
+        trade_id = _insert_trade(tmp_db, notes_pkg_id=pkg_id)
+        tmp_db.update_order_package(pkg_id, {"linked_trade_id": trade_id})
+
+        # Redirect the audit JSONL writer at a temp dir so we can
+        # assert on it without polluting the repo runtime_logs.
+        audit_dir = tmp_path / "runtime_logs"
+        audit_dir.mkdir()
+        audit_file = audit_dir / "signal_audit.jsonl"
+        monkeypatch.setattr(
+            "src.utils.signal_audit_logger.SIGNAL_FILE", audit_file,
+        )
+
+        flaky = _FlakyDB(tmp_db, fail_first_n=1)
+        # Read the trade row in the same shape _reconcile_open_trades
+        # would hand it to _mark_orphaned.
+        conn = tmp_db.connect()
+        try:
+            conn.row_factory = __import__("sqlite3").Row
+            row = dict(conn.execute(
+                "SELECT id, account_id, symbol, direction, notes, created_at "
+                "FROM trades WHERE id=?",
+                (trade_id,),
+            ).fetchone())
+        finally:
+            conn.close()
+
+        _mark_orphaned(flaky, row)
+
+        # Two attempts: first fails, second succeeds.
+        assert flaky.update_order_package_calls == 2
+        # Trade row marked orphaned (the trade-side update is wrapped
+        # by neither attempt — it's a separate single write).
+        assert _read_trade(tmp_db, trade_id)["status"] == "orphaned"
+        # Package row got the cascade on retry.
+        pkg = _read_package(tmp_db, pkg_id)
+        assert pkg["status"] == "closed"
+        assert pkg["close_reason"] == "reconciler"
+        # No sticky audit row — the retry succeeded.
+        if audit_file.exists():
+            lines = [
+                json.loads(ln) for ln in audit_file.read_text().splitlines()
+                if ln.strip()
+            ]
+            assert not any(
+                e.get("action") == "orphan_cascade_failed" for e in lines
+            )
+
+    def test_cascade_fails_twice_writes_sticky_audit_row(
+        self, tmp_db, tmp_path, monkeypatch,
+    ):
+        pkg_id = "pkg-flaky-002"
+        _insert_package(tmp_db, pkg_id=pkg_id)
+        trade_id = _insert_trade(
+            tmp_db, notes_pkg_id=pkg_id, symbol="BTCUSDT", direction="long",
+        )
+        tmp_db.update_order_package(pkg_id, {"linked_trade_id": trade_id})
+
+        audit_dir = tmp_path / "runtime_logs"
+        audit_dir.mkdir()
+        audit_file = audit_dir / "signal_audit.jsonl"
+        monkeypatch.setattr(
+            "src.utils.signal_audit_logger.SIGNAL_FILE", audit_file,
+        )
+        # Disable the SQL dual-write so the test stays focused on the
+        # JSONL audit row and doesn't fight Database init paths.
+        monkeypatch.setenv("SIGNAL_DUAL_WRITE_DISABLED", "true")
+
+        flaky = _FlakyDB(tmp_db, fail_first_n=2)
+        conn = tmp_db.connect()
+        try:
+            conn.row_factory = __import__("sqlite3").Row
+            row = dict(conn.execute(
+                "SELECT id, account_id, symbol, direction, notes, created_at "
+                "FROM trades WHERE id=?",
+                (trade_id,),
+            ).fetchone())
+        finally:
+            conn.close()
+
+        _mark_orphaned(flaky, row)
+
+        # Two attempts, both failed → no third retry.
+        assert flaky.update_order_package_calls == 2
+        # Trade row is still orphaned (cascade failure does not undo
+        # the trade-side update).
+        assert _read_trade(tmp_db, trade_id)["status"] == "orphaned"
+        # Package row stuck open — that's the cascade leak the audit
+        # row exists to flag.
+        pkg = _read_package(tmp_db, pkg_id)
+        assert pkg["status"] == "open"
+
+        # Sticky audit row written — operator-greppable.
+        assert audit_file.exists(), "audit JSONL must be created"
+        events = [
+            json.loads(ln) for ln in audit_file.read_text().splitlines()
+            if ln.strip()
+        ]
+        cascade_failed = [
+            e for e in events if e.get("action") == "orphan_cascade_failed"
+        ]
+        assert len(cascade_failed) == 1
+        evt = cascade_failed[0]
+        assert evt["status"] == "failed"
+        assert evt["order_package_id"] == pkg_id
+        assert evt["db_trade_id"] == trade_id
+        assert evt["symbol"] == "BTCUSDT"
+        assert evt["direction"] == "long"
+        assert evt["account_id"] == "bybit_2"
+        assert "simulated package-update failure" in evt["error"]
+
+
+# ---------------------------------------------------------------------------
+# _sweep_stuck_linked_packages — the second line of defence against the
+# strategy-monocle gate getting stuck. Sweeps order_packages that are
+# status='open' AND linked to a terminally-statused trade.
+# ---------------------------------------------------------------------------
+
+
+class TestSweepStuckLinkedPackages:
+    def _insert_linked_pkg(
+        self, db, *, pkg_id, linked_trade_id, status="open", strategy="vwap",
+    ):
+        """Insert a package linked to ``linked_trade_id`` at the given
+        status. Mirrors the shape ``insert_order_package`` produces.
+        """
+        conn = db.connect()
+        try:
+            conn.execute(
+                "INSERT INTO order_packages "
+                "(order_package_id, strategy_name, symbol, direction, "
+                "entry, sl, tp, confidence, status, linked_trade_id, "
+                "created_at, updated_at) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,"
+                "datetime('now'), datetime('now'))",
+                (pkg_id, strategy, "BTCUSDT", "long",
+                 80000.0, 79500.0, 80500.0, 0.42, status, linked_trade_id),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+    def test_sweep_force_closes_stuck_package_with_orphaned_trade(
+        self, tmp_db, monkeypatch,
+    ):
+        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
+        # Trade in terminal 'orphaned' state but the linked package is
+        # still 'open' — the cascade-leak scenario.
+        trade_id = _insert_trade(tmp_db, status="orphaned")
+        self._insert_linked_pkg(
+            tmp_db, pkg_id="pkg-stuck-001", linked_trade_id=trade_id,
+        )
+
+        affected = _sweep_stuck_linked_packages(tmp_db)
+        assert affected == 1
+
+        pkg = _read_package(tmp_db, "pkg-stuck-001")
+        assert pkg["status"] == "closed"
+        assert pkg["close_reason"] == "stuck_cascade_recovered"
+
+    def test_sweep_skips_package_whose_linked_trade_is_open(
+        self, tmp_db, monkeypatch,
+    ):
+        """The defence-in-depth must NOT touch packages whose linked
+        trade is still status='open' — that's the live-position case
+        and force-closing it would lose track of a real exchange
+        position.
+        """
+        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
+        trade_id = _insert_trade(tmp_db, status="open")
+        self._insert_linked_pkg(
+            tmp_db, pkg_id="pkg-live-001", linked_trade_id=trade_id,
+        )
+
+        affected = _sweep_stuck_linked_packages(tmp_db)
+        assert affected == 0
+
+        pkg = _read_package(tmp_db, "pkg-live-001")
+        assert pkg["status"] == "open"
+        assert pkg["close_reason"] is None
+
+    def test_sweep_handles_each_terminal_status(
+        self, tmp_db, monkeypatch,
+    ):
+        """Pin the full terminal-status set the sweep must handle.
+        Drift in this list is the most likely way the gate gets stuck
+        again, so it's worth pinning.
+        """
+        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
+        for i, terminal in enumerate(
+            ("orphaned", "exchange_rejected", "closed", "rejected",
+             "rejected_too_small")
+        ):
+            trade_id = _insert_trade(tmp_db, status=terminal)
+            self._insert_linked_pkg(
+                tmp_db, pkg_id=f"pkg-term-{i}", linked_trade_id=trade_id,
+            )
+
+        affected = _sweep_stuck_linked_packages(tmp_db)
+        assert affected == 5
+        for i in range(5):
+            pkg = _read_package(tmp_db, f"pkg-term-{i}")
+            assert pkg["status"] == "closed"
+            assert pkg["close_reason"] == "stuck_cascade_recovered"
+
+    def test_sweep_is_idempotent(self, tmp_db, monkeypatch):
+        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
+        trade_id = _insert_trade(tmp_db, status="orphaned")
+        self._insert_linked_pkg(
+            tmp_db, pkg_id="pkg-idem-001", linked_trade_id=trade_id,
+        )
+
+        first = _sweep_stuck_linked_packages(tmp_db)
+        second = _sweep_stuck_linked_packages(tmp_db)
+        assert first == 1
+        # Once the package is closed the SQL filter no longer matches.
+        assert second == 0
+
+    def test_sweep_skips_unlinked_packages(self, tmp_db, monkeypatch):
+        """Defence boundary: an open package with no linked_trade_id is
+        the ``_sweep_unlinked_packages`` jurisdiction, not this one.
+        """
+        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
+        self._insert_linked_pkg(
+            tmp_db, pkg_id="pkg-unlinked", linked_trade_id=None,
+        )
+        affected = _sweep_stuck_linked_packages(tmp_db)
+        assert affected == 0
+
+    def test_sweep_noop_when_reconcile_disabled(self, tmp_db, monkeypatch):
+        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "false")
+        trade_id = _insert_trade(tmp_db, status="orphaned")
+        self._insert_linked_pkg(
+            tmp_db, pkg_id="pkg-disabled", linked_trade_id=trade_id,
+        )
+
+        affected = _sweep_stuck_linked_packages(tmp_db)
+        assert affected == 0
+        # Package row untouched.
+        assert _read_package(tmp_db, "pkg-disabled")["status"] == "open"
+
+
+# ---------------------------------------------------------------------------
+# Manual-close detection — distinguish "operator manually closed via
+# exchange UI / exchange-side risk action" from "fill anomaly /
+# unknown" so the operator knows whether to investigate or just
+# acknowledge the orphan ping.
+#
+# Field reality, 2026-05-08: the live trader (bybit_2) is
+# market_type=spot-margin, where Bybit's set_trading_stop is
+# unsupported. Spot-margin orphans are *guaranteed* to be operator
+# manual or exchange risk action — there's no SL/TP fire path.
+# ---------------------------------------------------------------------------
+
+
+class TestClassifyOrphanClose:
+    def test_spot_margin_classified_as_external_close(self):
+        cfg = {"account_id": "bybit_2", "market_type": "spot-margin"}
+        out = _classify_orphan_close(cfg)
+        assert out["classification"] == "spot_margin_external_close"
+        assert "no exchange-side SL/TP path" in out["note"]
+        assert "exchange UI" in out["note"]
+
+    def test_linear_derivatives_classified_unknown(self):
+        cfg = {"account_id": "bybit_3", "market_type": "linear"}
+        out = _classify_orphan_close(cfg)
+        assert out["classification"] == "unknown"
+        assert "derivatives" in out["note"]
+
+    def test_inverse_derivatives_classified_unknown(self):
+        cfg = {"account_id": "bybit_4", "market_type": "inverse"}
+        out = _classify_orphan_close(cfg)
+        assert out["classification"] == "unknown"
+
+    def test_cash_spot_classified_unknown(self):
+        """Cash spot doesn't borrow and doesn't have spot-margin's
+        guaranteed-no-SL/TP-fire property — fall through to unknown.
+        """
+        cfg = {"account_id": "bybit_1", "market_type": "spot"}
+        out = _classify_orphan_close(cfg)
+        assert out["classification"] == "unknown"
+
+    def test_missing_market_type_classified_unknown(self):
+        out = _classify_orphan_close({"account_id": "bybit_x"})
+        assert out["classification"] == "unknown"
+
+    def test_market_type_case_insensitive(self):
+        """``market_type: SPOT-MARGIN`` (operator typo) must still
+        classify as spot-margin so the operator gets the right hint.
+        """
+        cfg = {"account_id": "bybit_2", "market_type": "SPOT-MARGIN"}
+        out = _classify_orphan_close(cfg)
+        assert out["classification"] == "spot_margin_external_close"
+
+    def test_market_type_with_whitespace(self):
+        """Defensive: trailing whitespace in YAML must not flip the
+        classification to unknown.
+        """
+        cfg = {"account_id": "bybit_2", "market_type": " spot-margin "}
+        out = _classify_orphan_close(cfg)
+        assert out["classification"] == "spot_margin_external_close"
+
+
+class TestOrphanReconcilerEmitsClassification:
+    """Wiring contract: _reconcile_open_trades must pass the
+    classification + note through to enqueue_orphan_reconciliation
+    so the body the operator sees has the manual-vs-anomaly hint.
+    """
+
+    def test_spot_margin_orphan_ping_carries_external_close_tag(
+        self, tmp_db, tmp_path, monkeypatch,
+    ):
+        # The fixture's _fake_cfg_loader has bybit_2 as a regular
+        # account; for this test override the cfg loader to mark
+        # bybit_2 as spot-margin.
+        monkeypatch.setattr(
+            "src.runtime.order_monitor._load_account_cfgs_for_reconcile",
+            lambda: {
+                "bybit_2": {
+                    "account_id": "bybit_2",
+                    "exchange": "bybit",
+                    "api_key_env": "BYBIT_KEY_2",
+                    "api_secret_env": None,
+                    "mode": "live",
+                    "market_type": "spot-margin",
+                },
+            },
+        )
+        # Under the SSOT model an "orphan close" surfaces as the
+        # ``filled, position flat`` verdict (Bybit confirmed the
+        # fill but the position is gone — exchange closed it). The
+        # classification ping piggybacks on that verdict, so mock
+        # the per-orderId lookup to return Filled and the positions
+        # endpoint to return an empty list.
+        order_id = "2100000000000000001"
+        trade_id = _insert_trade(
+            tmp_db, account_id="bybit_2", trade_id=order_id,
+        )
+
+        pings_dir = tmp_path / "pings"
+        monkeypatch.setattr(
+            "src.runtime.execution_diagnostics.PENDING_PINGS_DIR",
+            pings_dir,
+        )
+        with patch(
+            "src.units.accounts.clients.account_order_status",
+            return_value=_filled_status(order_id),
+        ), patch(
+            "src.units.accounts.clients.account_open_positions",
+            return_value=[],
+        ):
+            summary = _reconcile_open_trades(tmp_db)
+
+        assert summary["closed"] == 1
+        assert _read_trade(tmp_db, trade_id)["status"] == "closed"
+
+        queued = sorted(pings_dir.glob("*.json"))
+        assert len(queued) == 1
+        body = json.loads(queued[0].read_text())["body"]
+        assert "Classification: spot_margin_external_close" in body
+        assert "no exchange-side SL/TP path" in body
+
+    def test_derivatives_orphan_ping_carries_unknown_classification(
+        self, tmp_db, tmp_path, monkeypatch,
+    ):
+        monkeypatch.setattr(
+            "src.runtime.order_monitor._load_account_cfgs_for_reconcile",
+            lambda: {
+                "bybit_2": {
+                    "account_id": "bybit_2",
+                    "exchange": "bybit",
+                    "api_key_env": "BYBIT_KEY_2",
+                    "api_secret_env": None,
+                    "mode": "live",
+                    "market_type": "linear",
+                },
+            },
+        )
+        order_id = "2100000000000000002"
+        _insert_trade(tmp_db, account_id="bybit_2", trade_id=order_id)
+
+        pings_dir = tmp_path / "pings"
+        monkeypatch.setattr(
+            "src.runtime.execution_diagnostics.PENDING_PINGS_DIR",
+            pings_dir,
+        )
+        with patch(
+            "src.units.accounts.clients.account_order_status",
+            return_value=_filled_status(order_id),
+        ), patch(
+            "src.units.accounts.clients.account_open_positions",
+            return_value=[],
+        ):
+            _reconcile_open_trades(tmp_db)
+
+        queued = sorted(pings_dir.glob("*.json"))
+        assert len(queued) == 1
+        body = json.loads(queued[0].read_text())["body"]
+        assert "Classification: unknown" in body
+        # The note must guide the operator to the right action.
+        assert "derivatives" in body
+
+
+# ---------------------------------------------------------------------------
+# Stuck-strategy watchdog — final fallback when the orphan reconciler
+# AND the linked-package sweep both missed a stuck row. Force-closes
+# the package, cascades the trade row to orphaned, and emits a
+# high-priority operator alert. Operator-confirmed full automatic
+# reset is approved (2026-05-08).
+# ---------------------------------------------------------------------------
+
+
+class TestStuckStrategyWatchdog:
+    """``_watchdog_stuck_strategies`` finds packages with
+    ``status='open' AND linked_trade_id IS NOT NULL`` whose
+    ``updated_at`` is older than the configured threshold (default
+    30 min, env ``STUCK_STRATEGY_THRESHOLD_MINUTES``).
+    """
+
+    def _insert_pkg_with_age(
+        self, db, *, pkg_id, linked_trade_id, age_minutes,
+        strategy="vwap", status="open", meta=None,
+    ):
+        """Insert a package with a backdated ``updated_at``."""
+        meta_json = json.dumps(meta or {})
+        conn = db.connect()
+        try:
+            conn.execute(
+                "INSERT INTO order_packages "
+                "(order_package_id, strategy_name, symbol, direction, "
+                " entry, sl, tp, confidence, status, linked_trade_id, "
+                " meta, created_at, updated_at) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?, "
+                " datetime('now', ? || ' minutes'), "
+                " datetime('now', ? || ' minutes'))",
+                (pkg_id, strategy, "BTCUSDT", "long",
+                 80000.0, 79500.0, 80500.0, 0.42, status, linked_trade_id,
+                 meta_json, f"-{age_minutes}", f"-{age_minutes}"),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+    def test_force_clears_package_older_than_threshold(
+        self, tmp_db, tmp_path, monkeypatch,
+    ):
+        """Headline contract: a package stuck > 30 min with a still-
+        open linked trade is force-closed, the trade is orphaned,
+        and a high-priority alert is emitted.
+        """
+        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
+        trade_id = _insert_trade(tmp_db, status="open")
+        self._insert_pkg_with_age(
+            tmp_db, pkg_id="pkg-stuck-watchdog-1",
+            linked_trade_id=trade_id, age_minutes=45,
+        )
+
+        pings_dir = tmp_path / "pings"
+        monkeypatch.setattr(
+            "src.runtime.execution_diagnostics.PENDING_PINGS_DIR",
+            pings_dir,
+        )
+        summary = _watchdog_stuck_strategies(tmp_db)
+
+        assert summary["checked"] == 1
+        assert summary["auto_cleared"] == 1
+        assert summary["alerted"] == 1
+        assert summary["errors"] == 0
+
+        pkg = _read_package(tmp_db, "pkg-stuck-watchdog-1")
+        assert pkg["status"] == "closed"
+        assert pkg["close_reason"] == "stuck_strategy_watchdog"
+
+        trade = _read_trade(tmp_db, trade_id)
+        assert trade["status"] == "orphaned"
+        assert trade["exit_reason"] == "stuck_strategy_watchdog"
+
+        # High-priority Telegram-ready alert with the watchdog body.
+        queued = sorted(pings_dir.glob("*.json"))
+        assert len(queued) == 1
+        evt = json.loads(queued[0].read_text())
+        assert evt["priority"] == "high"
+        assert "Stuck-strategy watchdog" in evt["body"]
+        assert "pkg-stuck-watchdog-1" in evt["body"]
+        assert "force-cleared" in evt["body"]
+
+    def test_recent_package_not_touched(self, tmp_db, monkeypatch):
+        """Defence boundary: a package stuck only 5 min (under the
+        30 min default) must NOT be touched. The orphan reconciler
+        + stuck-linked sweep are the first lines of defence; the
+        watchdog only fires after they've had ample time to act.
+        """
+        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
+        trade_id = _insert_trade(tmp_db, status="open")
+        self._insert_pkg_with_age(
+            tmp_db, pkg_id="pkg-fresh", linked_trade_id=trade_id,
+            age_minutes=5,
+        )
+        summary = _watchdog_stuck_strategies(tmp_db)
+        assert summary["checked"] == 0
+        assert summary["auto_cleared"] == 0
+        assert summary["alerted"] == 0
+        assert _read_package(tmp_db, "pkg-fresh")["status"] == "open"
+        assert _read_trade(tmp_db, trade_id)["status"] == "open"
+
+    def test_unlinked_package_not_touched(self, tmp_db, monkeypatch):
+        """Defence boundary: packages with NULL ``linked_trade_id``
+        belong to ``_sweep_unlinked_packages``, not the watchdog.
+        Even when they are stuck >> threshold, the watchdog does not
+        match them — the strategy gate isn't blocked by them
+        anyway (the gate's WHERE requires ``linked_trade_id IS NOT
+        NULL``).
+        """
+        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
+        self._insert_pkg_with_age(
+            tmp_db, pkg_id="pkg-unlinked-old",
+            linked_trade_id=None, age_minutes=120,
+        )
+        summary = _watchdog_stuck_strategies(tmp_db)
+        assert summary["checked"] == 0
+        assert summary["auto_cleared"] == 0
+
+    def test_already_closed_package_not_touched(self, tmp_db, monkeypatch):
+        """A package that's already ``status='closed'`` is past the
+        watchdog's job — natural idempotency on the SQL match.
+        """
+        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
+        trade_id = _insert_trade(tmp_db, status="closed")
+        self._insert_pkg_with_age(
+            tmp_db, pkg_id="pkg-already-closed",
+            linked_trade_id=trade_id, age_minutes=60,
+            status="closed",
+        )
+        summary = _watchdog_stuck_strategies(tmp_db)
+        assert summary["checked"] == 0
+
+    def test_terminal_linked_trade_does_not_re_orphan(
+        self, tmp_db, monkeypatch,
+    ):
+        """If the linked trade is ALREADY in a terminal status
+        (orphaned / closed / rejected_too_small / etc.), the
+        watchdog still force-closes the package but does NOT
+        rewrite the trade's status (which would lose information).
+        Only ``status='open'`` trades get cascaded.
+        """
+        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
+        trade_id = _insert_trade(tmp_db, status="orphaned")
+        self._insert_pkg_with_age(
+            tmp_db, pkg_id="pkg-trade-already-orphaned",
+            linked_trade_id=trade_id, age_minutes=60,
+        )
+        summary = _watchdog_stuck_strategies(tmp_db)
+        assert summary["auto_cleared"] == 1
+        # Package force-closed.
+        assert _read_package(
+            tmp_db, "pkg-trade-already-orphaned",
+        )["status"] == "closed"
+        # Trade status preserved as 'orphaned' — not overwritten.
+        trade = _read_trade(tmp_db, trade_id)
+        assert trade["status"] == "orphaned"
+
+    def test_threshold_env_override(self, tmp_db, monkeypatch):
+        """Operator can lower the threshold via env var without a
+        trader restart. With a 5 min override, a 10 min old package
+        becomes eligible.
+        """
+        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
+        monkeypatch.setenv("STUCK_STRATEGY_THRESHOLD_MINUTES", "5")
+        trade_id = _insert_trade(tmp_db, status="open")
+        self._insert_pkg_with_age(
+            tmp_db, pkg_id="pkg-tight-threshold",
+            linked_trade_id=trade_id, age_minutes=10,
+        )
+        summary = _watchdog_stuck_strategies(tmp_db)
+        assert summary["auto_cleared"] == 1
+        assert _read_package(
+            tmp_db, "pkg-tight-threshold",
+        )["status"] == "closed"
+
+    def test_invalid_env_falls_back_to_default(self, tmp_db, monkeypatch):
+        """A garbage env value must NOT lower the threshold — fall
+        back to 30 min so a typo can't accidentally trigger an
+        aggressive sweep.
+        """
+        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
+        monkeypatch.setenv("STUCK_STRATEGY_THRESHOLD_MINUTES", "not-a-number")
+        trade_id = _insert_trade(tmp_db, status="open")
+        # 10 min is well under the 30 min default — should NOT fire.
+        self._insert_pkg_with_age(
+            tmp_db, pkg_id="pkg-garbage-env",
+            linked_trade_id=trade_id, age_minutes=10,
+        )
+        summary = _watchdog_stuck_strategies(tmp_db)
+        assert summary["checked"] == 0
+        assert _read_package(tmp_db, "pkg-garbage-env")["status"] == "open"
+
+    def test_noop_when_reconcile_disabled(self, tmp_db, monkeypatch):
+        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "false")
+        trade_id = _insert_trade(tmp_db, status="open")
+        self._insert_pkg_with_age(
+            tmp_db, pkg_id="pkg-disabled-flag",
+            linked_trade_id=trade_id, age_minutes=120,
+        )
+        summary = _watchdog_stuck_strategies(tmp_db)
+        assert summary == {
+            "checked": 0, "alerted": 0, "auto_cleared": 0, "errors": 0,
+        }
+        assert _read_package(
+            tmp_db, "pkg-disabled-flag",
+        )["status"] == "open"
+
+    def test_idempotent_across_consecutive_ticks(
+        self, tmp_db, tmp_path, monkeypatch,
+    ):
+        """The first tick force-closes the package + emits the
+        alert. The second tick must be a complete no-op — the
+        package is now ``status='closed'`` so the WHERE no longer
+        matches, AND no fresh alert ping is queued.
+        """
+        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
+        trade_id = _insert_trade(tmp_db, status="open")
+        self._insert_pkg_with_age(
+            tmp_db, pkg_id="pkg-idem", linked_trade_id=trade_id,
+            age_minutes=45,
+        )
+        pings_dir = tmp_path / "pings"
+        monkeypatch.setattr(
+            "src.runtime.execution_diagnostics.PENDING_PINGS_DIR",
+            pings_dir,
+        )
+
+        first = _watchdog_stuck_strategies(tmp_db)
+        second = _watchdog_stuck_strategies(tmp_db)
+
+        assert first["alerted"] == 1
+        assert first["auto_cleared"] == 1
+        assert second == {
+            "checked": 0, "alerted": 0, "auto_cleared": 0, "errors": 0,
+        }
+        # Only ONE ping queued across both ticks.
+        assert len(list(pings_dir.glob("*.json"))) == 1

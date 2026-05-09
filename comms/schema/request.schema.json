@@ -27,6 +27,12 @@
       "format": "date-time",
       "description": "Optional UTC ISO-8601. If set and now > expires_at without a complete answer, status transitions to expired."
     },
+    "stuck_alert_threshold": {
+      "type": ["integer", "null"],
+      "minimum": 60,
+      "default": 86400,
+      "description": "Seconds a request may sit in 'sent' before the bot fires a one-time stuck-request alert to the operator (M1 P1-B). Defaults to 24h. The alert is purely advisory — it does not advance state. Silent expiry is impossible; the bot fires a final alert before transitioning to EXPIRED."
+    },
     "source": {
       "type": "object",
       "required": ["actor"],
@@ -75,7 +81,12 @@
         "sent_at": {"type": ["string", "null"], "format": "date-time"},
         "telegram_chat_id": {"type": ["string", "null"]},
         "telegram_message_id": {"type": ["integer", "null"]},
-        "send_attempts": {"type": "integer", "minimum": 0, "default": 0}
+        "send_attempts": {"type": "integer", "minimum": 0, "default": 0},
+        "stuck_alert_sent_at": {
+          "type": ["string", "null"],
+          "format": "date-time",
+          "description": "When the bot last fired the stuck-request alert for this artifact (M1 P1-B). Set once per request lifetime; prevents re-alerting in subsequent poll cycles."
+        }
       }
     },
     "response": {

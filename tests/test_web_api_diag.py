@@ -157,20 +157,52 @@ def test_audit_returns_tail(client, fake_runtime):
     assert body[1]["reason"] == "below_min_balance"
 
 
-def test_journal_returns_rows_in_desc_id_order(client, fake_runtime):
+def test_journal_order_packages_returns_rows_newest_updated_first(client, fake_runtime):
+    # Mirror the real schema (database.py): TEXT primary key, updated_at
+    # is the chronological ordering field. The endpoint must use
+    # datetime(updated_at) DESC — alphabetic ordering of pkg-<hash> ids
+    # is essentially random.
     db = sqlite3.connect(str(fake_runtime["db_path"]))
     db.execute(
-        "CREATE TABLE order_packages (id INTEGER PRIMARY KEY, status TEXT, strategy_name TEXT)"
+        "CREATE TABLE order_packages ("
+        "order_package_id TEXT PRIMARY KEY, status TEXT, strategy_name TEXT, "
+        "updated_at TEXT NOT NULL)"
     )
     db.executemany(
-        "INSERT INTO order_packages (id, status, strategy_name) VALUES (?, ?, ?)",
-        [(1, "closed", "vwap"), (2, "open", "vwap"), (3, "closed", "vwap")],
+        "INSERT INTO order_packages "
+        "(order_package_id, status, strategy_name, updated_at) VALUES (?, ?, ?, ?)",
+        [
+            ("pkg-aaa", "closed", "vwap", "2026-05-09T01:00:00+00:00"),
+            ("pkg-bbb", "open", "vwap", "2026-05-09T03:00:00+00:00"),
+            ("pkg-ccc", "closed", "vwap", "2026-05-09T02:00:00+00:00"),
+        ],
     )
     db.commit()
     db.close()
 
     resp = client.get(
         "/api/diag/journal?table=order_packages&limit=10",
+        headers=_bearer(_TOKEN),
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert [r["order_package_id"] for r in body] == ["pkg-bbb", "pkg-ccc", "pkg-aaa"]
+
+
+def test_journal_trades_returns_rows_in_desc_id_order(client, fake_runtime):
+    db = sqlite3.connect(str(fake_runtime["db_path"]))
+    db.execute(
+        "CREATE TABLE trades (id INTEGER PRIMARY KEY, status TEXT, symbol TEXT)"
+    )
+    db.executemany(
+        "INSERT INTO trades (id, status, symbol) VALUES (?, ?, ?)",
+        [(1, "closed", "BTCUSDT"), (2, "open", "BTCUSDT"), (3, "closed", "BTCUSDT")],
+    )
+    db.commit()
+    db.close()
+
+    resp = client.get(
+        "/api/diag/journal?table=trades&limit=10",
         headers=_bearer(_TOKEN),
     )
     assert resp.status_code == 200

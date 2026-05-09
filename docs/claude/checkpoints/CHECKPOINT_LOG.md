@@ -11,7 +11,193 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
-## CP-2026-05-07-16-s047-T5-reconciler-spot-margin — S-047 T5: reconciler spot-margin awareness (D7)
+## CP-2026-05-09-01-all-models-training — All-models training run + S-050 ship (VWAP HTF gate + turtle ATR stop tightening)
+
+- **Session date:** 2026-05-08 → 2026-05-09
+- **Sprint:** Ad-hoc autonomous training session (out-of-band; operator brief: "long, comprehensive training session for all models in the pipeline"). Not on the workplan; **active milestone S-047 T6 unchanged**. Closes `S-050` early.
+- **Active milestone:** S-047 (untouched).
+- **Last completed checkpoint:** `CP-2026-05-08-01-ad-hoc-operator-actions`.
+- **Branches:**
+  - `claude/train-all-models-HMw1x` → PR #558 (operator-merged as squash `9a7bdf3` on 2026-05-09)
+  - `claude/train-all-models-paperwork-HMw1x` → this close-checkpoint
+- **Telegram sent:** none (training run + paperwork — no live-trading impact prior to operator deploy).
+- **Alerts during session:** PR #558 ruff-lint failed once on the experiment scripts (F841 unused vars + E741 ambiguous `l`/`o` names) — fixed inline (rename `l → lo`, `o → op`, drop unused locals); CI green on second run.
+
+### What this sprint shipped
+
+1. **Experiment artefacts** (`experiments/2026-05-08-all-models-training/`)
+   - 38-month BTCUSDT 5 m dataset (Jan 2023 → Feb 2026, 332 k bars from `qashdev/btc` mirror of Binance Vision); Bybit / Coinbase / yfinance firewalled from this sandbox.
+   - Hypothesis grid: 6 VWAP variants (V0–V6) + 8 turtle_soup variants (T0–T7) + per-parameter sweeps + 4 stacked variants + leak-free 70/30 walk-forward.
+   - Vectorised backtest engine (`scripts/run.py`, `scripts/run_stack.py`) — full grid runs in ~30 s.
+   - `PLAN.md`, `RECOMMENDATIONS.md`, `SUMMARY.md`; per-variant metrics in `results/all_metrics.json` + `results/stacked.json`.
+
+2. **VWAP Phase 2 — HTF EMA-200 gate (S-050)**
+   - `src/units/strategies/vwap.py`: new `HTF_BAND_PCT_DEFAULT = 0.02`; `build_vwap_signal` accepts optional `htf_close`, `htf_ema`, `htf_band_pct` kwargs. Gate fires between side-resolution and meta-build; HTF state (close, EMA, band, blocked-bool) recorded in `meta` for the audit log.
+   - `src/runtime/pipeline.py`: when `vwap.htf_trend_filter.enabled` is true in `strategies.yaml`, fetch HTF candles, compute EMA on the configured period, thread close + EMA into `build_vwap_signal`. Fetch failure degrades to no-gate (WARNING log) rather than blocking the strategy.
+   - `config/strategies.yaml`: new `strategies.vwap.htf_trend_filter` map. Default band 0.020 (raised from the originally-proposed 0.010 — band sweep showed +0.35 Sharpe + 13 % cadence recovery at no other-metric cost).
+   - `tests/test_vwap_strategy.py`: 9 new tests in `TestHtfTrendGate` covering each gate arm.
+   - Expected impact (38-month backtest): full-sample Sharpe **−0.39 → +2.47**, walk-forward OOS **+0.22 → +1.10**, cadence drop ≈ 49 % (only counter-trend fades against a strong HTF trend).
+
+3. **Turtle Soup — `atr_stop_mult` 0.35 → 0.30**
+   - `src/units/strategies/turtle_soup.py`: `_DEFAULTS["atr_stop_mult"]` updated, with provenance comment.
+   - `config/strategies.yaml`: explicit `atr_stop_mult: 0.30` line.
+   - First systematic tuning run on record for turtle_soup. Sweep over {0.25, 0.30, 0.35, 0.45, 0.60} showed monotonic quality peak in 0.25–0.30; 0.30 is the high-cadence edge of that band.
+   - Expected impact: full-sample Sharpe **+0.80 → +1.33**, walk-forward OOS **+0.25 → +1.22** (OOS *better* than IS — regime-robust). Cadence essentially unchanged (33 → 32 trades over 38 months).
+
+### S-050 gate waiver (operator decision)
+
+S-050 was originally gated on "Phase 1 merged + ≥ 30 days live metrics" per `milestone-state.md`. Operator authorised landing without the live-metrics gate after the training run showed the 38-month baseline is structurally unprofitable (Sharpe **−0.39**) — Phase-2 is no longer a quality lift, it is the difference between profitable and not. The 30-day gate now applies to the **Phase-3 follow-up** instead (HTF reference 4 h → 1 h EMA-200; expected +0.4 Sharpe lift on top of Phase-2 per the V3 result).
+
+### Live-deploy readiness
+
+Operator merged PR #558 on 2026-05-09 but no deploy yet. Next checks once deployed:
+
+- VWAP signals carry `meta.htf_close`, `meta.htf_ema`, `meta.htf_band_pct`, `meta.htf_blocked` on every tick.
+- Expect non-zero `htf_blocked: true` count in the audit log (~50 % of would-be signals based on backtest cadence drop).
+- If HTF candle fetch fails: WARNING log `VWAP HTF fetch failed for symbol=...` and the strategy degrades to no-gate (Phase-1 behaviour) — by design, never blocks the strategy outright.
+
+### Bug-log entries
+
+- VWAP — adoption of the HTF EMA-200 ±2 % trend gate (S-050) and the band-tuning result. Cross-references: `experiments/2026-05-08-all-models-training/RECOMMENDATIONS.md`, `experiments/2026-05-07-vwap-accuracy/RECOMMENDATIONS.md` (origin), PR #558 squash `9a7bdf3`.
+- Turtle Soup — adoption of `atr_stop_mult=0.30`. Cross-references: `experiments/2026-05-08-all-models-training/RECOMMENDATIONS.md` § T4, PR #558 squash `9a7bdf3`.
+
+Both filed in this paperwork PR (`docs/claude/bug-log.md`).
+
+### Follow-ups parked for the operator
+
+- Phase-3 (1 h EMA-200 HTF reference) — gated on ≥ 30 days of Phase-2 live metrics.
+- ETHUSDT turtle re-validation — needs an ETH archive reachable from the sandbox (production turtle runs on BTC + ETH; only BTC tested in this run).
+- Volume-confidence sizing modulator (V4 in the experiment) — recast as size-up/size-down of trade R-mult on volume-spike entries; belongs to the accounts-layer team, not strategy.
+- Funding-cost-aware expectancy in `scripts/training/backtest_helpers.py` — perception fix only; modest 50 bps/trade adjustment at typical 0.01 %/8 h funding × 4 h hold.
+
+### Definition-of-done
+
+- [x] PR #558 merged to main (squash `9a7bdf3`).
+- [x] CI green on the merge commit (lint + scan + scan + collect + inventory).
+- [x] All 78 relevant tests pass locally; 9 new HTF-gate tests added; pre-existing-on-main env / startup failures (`TestVwapPipelineRouting`, `TestLiveSafetyGate`) flagged but unrelated to this work.
+- [x] `milestone-state.md` updated — S-050 added to recently-closed, removed from queued, Phase-3 follow-up added to queued at the bottom.
+- [x] Bug-log entries added for both changes.
+- [x] Prior `experiments/2026-05-07-vwap-accuracy/RECOMMENDATIONS.md` annotated to mark Phase-2 shipped.
+- [ ] Operator deploys to VPS and observes ≥ 24 h of audit-log output to confirm `htf_blocked` counts are within expected envelope.
+
+---
+
+## CP-2026-05-08-01-ad-hoc-operator-actions — Ad-hoc sprint: operator-actions workflow + transparency notify
+
+- **Session date:** 2026-05-08
+- **Sprint:** Ad-hoc (out-of-band; triggered by fresh operator sprint prompt). Not on the workplan; **active milestone S-047 unchanged** — T6 still queued. M1 audit and M5 still interleaved per `operating-protocol.md` § 3.
+- **Active milestone:** S-047 (untouched by this sprint).
+- **Last completed checkpoint:** `CP-2026-05-07-17-s048-fresh-m1-audit` (per file in `docs/claude/checkpoints/`).
+- **Branches:**
+  - `claude/operator-actions-workflow-5UOBu` → PR #499 (operator-merged after operator review of the Tier-2 surface introduction)
+  - `claude/operator-actions-transparency-5UOBu` → PR #513 (self-merged Tier-1 docs)
+  - `claude/operator-actions-notify-5UOBu` → PR #515 (operator-merged after explicit "merge once green" auth; rebased on main mid-flight to drop redundant transparency commit superseded by squash-merge of #513)
+  - this close-checkpoint on `claude/cp-2026-05-08-01-ops-sprint-close`
+- **Telegram sent:** Tier-2 smoke (`restart-bot-service`) of PR #515 fired the first real `[ops]` notify through `@claude_ict_comms_bot` — verified end-to-end at ~13:00 UTC. Sprint-complete ping rides on this close-checkpoint commit.
+- **Alerts during session:** Tier-2 notify smoke (`normal` priority) confirmed delivery within ~5 s of run completion.
+
+### What this sprint shipped
+
+A new mutating bridge for PM-side / web-sandbox sessions to drive a **fixed allowlist** of VM operator actions via GitHub Actions, plus the dispatcher trust contract and transparency notify wiring. This is a **structural addition** — it does not change live trading behaviour, strategy code, risk caps, or any per-account `mode` flag. Tier-3 immutability preserved throughout.
+
+### PRs merged (in order)
+
+1. **PR #499** — `feat(ops): operator-actions GitHub workflow + allowlisted VM mutating bridge`
+   - `.github/workflows/operator-actions.yml` (new) — `workflow_dispatch`-only with a 4-action choice input (`status-check`, `pull-latest-logs`, `restart-bot-service`, `reboot-vm`) + `reason` input. No freeform-command input.
+   - `scripts/ops/_lib.sh, status_check.sh, pull_logs.sh, restart_bot.sh, reboot_vm.sh` (new) — one wrapper per action; shared `_lib.sh` for logging + repo-side audit records under `runtime_logs/operator_actions/`.
+   - `docs/claude/operator-actions.md` (new) — canonical contract: allowlist, tier mapping, audit trail (3 layers), verification matrix, reboot doctrine, runner-architecture rationale (GitHub-hosted to avoid self-decapitation), required VM sudoers (`/etc/sudoers.d/ict-operator-actions` for `reboot-vm`).
+   - `tests/ops/test_operator_actions_workflow.py` (new) — 25-ish parametric tests asserting allowlist parity across workflow / wrappers / docs, rejecting freeform-command inputs, `bash -n` on every wrapper.
+   - Cross-references added in `CLAUDE.md`, `docs/claude/operating-protocol.md` § 7.1, `docs/claude/vm-operator-mode.md` § 9.b.
+
+2. **PR #513** — `docs(ops): dispatcher trust contract + always-notify transparency rule`
+   - `docs/claude/operator-actions.md` § 3.5 (new) — Dispatcher trust contract: enumerates Operator / Perplexity / PM-side Claude. **Perplexity granted autonomous Tier-2 dispatch authority on 2026-05-08** (operator decision); PM-side Claude still pings before Tier-2.
+   - `docs/claude/operator-actions.md` § 5.5 (new) — Transparency rule: every operator-actions run notifies the operator regardless of dispatcher class or action tier. *"Autonomy is complemented by full transparency."* The pre-dispatch ping is what's waived for an autonomous dispatcher; the post-dispatch update is **not**.
+   - § 3 Tier-2 wording tightened to "PM-side Claude only" (other dispatchers no longer fall under "must ping first").
+   - `docs/claude/operating-protocol.md` § 7.1 cross-references both clauses.
+   - Tests assert § 3.5 and § 5.5 remain present so future doc cleanups can't silently delete them.
+
+3. **PR #515** — `feat(ops): wire operator-actions transparency notify via @claude_ict_comms_bot`
+   - `scripts/ops/notify_run.sh` (new) — invoked over SSH from the workflow's final step. Maps `(action, exit_code)` → `(result_label, priority)`, calls `scripts/send_ping.py --target claude` with a one-message summary.
+   - `.github/workflows/operator-actions.yml` — new "Notify operator via Claude bot channel" step with `if: always()` (failures notify too) + `continue-on-error: true` (notify failure never flips a successful action). Operator-typed reason is base64-encoded with `:b64` suffix to survive shell-quoting hazards over SSH.
+   - **Zero new GitHub secrets.** Reuses the existing VM-side `/etc/ict-trader/claude.env` token via the existing `ict-claude-bridge.service` drain queue at `runtime_logs/pending_claude_pings/`.
+   - `docs/claude/operator-actions.md` § 5.5 rewritten — "implemented" not "recommended"; documents the priority routing table and Telegram message format.
+
+### End-to-end verification
+
+| Action | Smoke method | Result |
+|---|---|---|
+| `status-check` | operator dispatched manually 2026-05-08 ~10:30 UTC | ✅ all canonical units active, heartbeat fresh |
+| `pull-latest-logs` | operator dispatched manually 2026-05-08 ~10:35 UTC | ✅ all 4 sections populated |
+| `reboot-vm` | dispatched 2026-05-08 ~10:55 UTC after a real D-Bus hang post-PR-499 merge — doubled as recovery and smoke | ✅ VM came back in ~2 min; sudoers entry installed at `/etc/sudoers.d/ict-operator-actions` (mode 0440) with `ubuntu ALL=(ALL) NOPASSWD: /sbin/shutdown -r *` |
+| `restart-bot-service` | dispatched 2026-05-08 ~13:00 UTC with reason `PR #515 smoke: verify Tier-2 notify path end-to-end` | ✅ wrapper exit 0, post-state `active`, Telegram `[ops] restart-bot-service: ok` arrived in `@claude_ict_comms_bot` ~5 s later |
+
+The transparency notify path is now verified for at least one Tier-2 action under realistic conditions.
+
+### Operator-driven side effects on `main` outside this session's PRs
+
+- `ff70c04 fix(ops): add timeout guards to status_check.sh; clarify exit-code contract` — operator-side patch on `main` to add `timeout 8` / `timeout 10` around `systemctl` / `journalctl` calls in `scripts/ops/status_check.sh` after observing the D-Bus hang during the post-PR-499 smoke. Patch was authored outside this session and clarifies that exit code reflects infra health only (trading-level errors in journalctl don't flip it). PR #515 was rebased on top of this patch.
+
+### Compliance check (per § 4.4 — 5 bullets)
+
+1. ✅ **No refuse-to-trade outside the dispatcher.** No runtime gates added; this is infra/control-plane work.
+2. ✅ **No per-account flag/branch.** Dispatcher table operates on session class, not account.
+3. ✅ **No operator-run notebook / capture step.** Operator's manual VM step (sudoers entry for reboot) is one-shot configuration, not a per-trade capture.
+4. ✅ **Live-mode invariant passes.** Zero edits to `src/runtime/orders.py`, `src/runtime/pipeline.py`, `src/runtime/trading_mode.py`, `src/units/accounts/*`, `config/strategies.yaml`, `config/risk_caps.yaml`, `config/accounts.yaml`.
+5. ✅ **CI green.** ruff clean, secret-scan clean, repo-inventory clean, pytest-collect clean, all 32 ops tests passing on every PR head.
+
+### Live-mode check
+
+✅ no flip away from live anywhere in the diff.
+
+### Durable state changes (read on next session)
+
+- **Perplexity now has autonomous Tier-2 dispatch authority for `operator-actions`.** Codified in `docs/claude/operator-actions.md` § 3.5. PM-side Claude (this session class, web sandbox, dev laptop) still pings before Tier-2.
+- **Reboot sudoers entry installed on the VM.** `reboot-vm` will now actually succeed (previously exited 1 with a clear sudoers error).
+- **Transparency rule active.** Every operator-actions run pings the operator via `@claude_ict_comms_bot`. If a future Tier-1 cron starts to be noisy, the documented follow-up is a state-change-only filter — **not** dropping the always-notify principle.
+
+### 1. Completed
+
+- PR #499 merged (operator-actions workflow + 4 wrapper scripts + canonical doc + tests + xrefs).
+- PR #513 merged (dispatcher trust contract + transparency rule + Tier-2 wording fix).
+- PR #515 merged (transparency notify wired to `@claude_ict_comms_bot`).
+- All 4 actions smoke-tested end-to-end. Transparency notify verified live.
+
+### 2. Files changed (cumulative across the three PRs)
+
+- `.github/workflows/operator-actions.yml` (new)
+- `scripts/ops/_lib.sh, status_check.sh, pull_logs.sh, restart_bot.sh, reboot_vm.sh, notify_run.sh` (new)
+- `docs/claude/operator-actions.md` (new — canonical contract)
+- `docs/claude/operating-protocol.md` (modified — § 7.1 xrefs)
+- `docs/claude/vm-operator-mode.md` (modified — § 9.b)
+- `CLAUDE.md` (modified — PM-side capabilities bullet)
+- `tests/ops/__init__.py, test_operator_actions_workflow.py` (new)
+
+### 3. Tests run
+
+- `pytest tests/ops/` — 32 passed, 3 skipped (PyYAML unavailable in local pytest venv; present in CI) on each of #499, #513, #515 head.
+- `ruff check .` — clean.
+- `bash -n` on every wrapper — clean.
+- Local smoke of `notify_run.sh` against a mock `send_ping.py` — 7 input combinations validated (T1 ok, T1 degraded, T2 ok with reason, T2 deferred, T2 failed, reboot scheduled, reason with single quote).
+- CI on each PR — lint + collect + scan + scan + inventory all green.
+- Live VM smoke — see "End-to-end verification" table above.
+
+### 4. Remaining
+
+- None for this ad-hoc sprint. Implementation gap from PR #513 (notify mechanism unimplemented) closed by PR #515.
+- Optional follow-up filed inline in `docs/claude/operator-actions.md` § 5.5: state-change-only filter for Tier-1 noise *if* a future autonomous cron makes routine `status-check` runs spammy. **Do not implement preemptively.**
+
+### 5. Next checkpoint
+
+**Resume S-047 T6** — the queued sprint per `docs/claude/milestone-state.md` Active milestone. This ad-hoc sprint did not touch S-047 state.
+
+Read in order:
+1. `docs/claude/milestone-state.md` § Active milestone (S-047 status).
+2. `docs/sprint-plans/S-047-bybit2-spot-margin.md` for T6 scope.
+3. `docs/claude/checkpoints/CP-2026-05-07-17-s048-fresh-m1-audit.md` (last archive-style CP).
+
+If a future session needs to extend operator-actions (new action, new dispatcher class), read `docs/claude/operator-actions.md` first; the test file `tests/ops/test_operator_actions_workflow.py` enforces allowlist parity so the doc + workflow + wrappers can't drift silently.
+
+---
 
 - **Session date:** 2026-05-07 (continuation of `CP-2026-05-07-15`).
 - **Sprint:** S-047 — bybit_2 Spot Margin enablement.

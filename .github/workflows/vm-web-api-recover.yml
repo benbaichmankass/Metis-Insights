@@ -1,0 +1,262 @@
+name: vm-web-api-recover
+
+# Self-heal bridge for the read-only diag surface.
+#
+# Why this exists (separate from operator-actions.yml):
+#   The vm-diag-snapshot relay (PM-side read access) depends on
+#   ict-web-api.service being up. When that service is down, every
+#   diag request fails with curl exit 7 and Claude on the web sandbox
+#   is silently blinded. The operator-actions allowlist (status-check,
+#   pull-latest-logs, restart-bot-service, reboot-vm) doesn't include
+#   a path to restart the web API specifically. Even if it did, the
+#   workflow_dispatch-only trigger is unreachable from the sandbox
+#   (no run_workflow MCP tool is exposed today).
+#
+#   This workflow closes that loop with the SAME issue-driven trigger
+#   pattern as vm-diag-snapshot.yml: open a labelled issue, the
+#   workflow runs, posts the result back, closes the issue. The
+#   sandbox session can drive it autonomously when the relay starts
+#   exit-7'ing. No operator click required.
+#
+# Trust contract:
+#   * The wrapper (scripts/ops/restart_web_api.sh) is fixed-form:
+#     `systemctl restart ict-web-api.service` + post-checks. No
+#     freeform shell. The workflow does not embed any remote command
+#     beyond invoking the wrapper by absolute path.
+#   * Restart-only — no edits, no token rotation, no deploys.
+#   * Blast radius is limited to the FastAPI process serving the
+#     dashboard + diag endpoints. The trader (ict-trader-live.service)
+#     is NOT touched. Strategy / risk / account-mode flags are NOT
+#     touched.
+#   * Triggered by `issues.opened` filtered to label
+#     `vm-web-api-recover`. The label is created idempotently by
+#     bootstrap-labels.yml.
+#
+# Required repo secrets:
+#   * VM_SSH_KEY        — same key as vm-diag-snapshot
+#                         (contents of ict-bot-ovm-private.key)
+#
+# Optional repo variables:
+#   * VM_SSH_HOST       — defaults to 158.178.210.252
+#   * VM_SSH_USER       — defaults to ubuntu
+#
+# To use from a sandbox session:
+#   mcp__github__issue_write(method='create',
+#       title='[vm-recover] restart ict-web-api',
+#       labels=['vm-web-api-recover'],
+#       body='<reason — captured for audit>')
+# Then poll the issue's comments for the github-actions[bot] reply.
+
+on:
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Why this run is happening (audit only)."
+        required: false
+        default: "manual operator dispatch"
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write   # required to comment + close the request issue
+
+# Serialise — never restart the same unit twice concurrently. Shares
+# the same target as operator-actions, so the group covers both
+# workflows when GitHub schedules them.
+concurrency:
+  group: vm-web-api-recover
+  cancel-in-progress: false
+
+jobs:
+  recover:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'vm-web-api-recover'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '158.178.210.252' }}
+      VM_SSH_USER: ${{ vars.VM_SSH_USER || 'ubuntu' }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - name: Set up SSH key
+        env:
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VM_SSH_KEY}" ]; then
+            echo "::error::VM_SSH_KEY secret is unset. Add it under Settings → Secrets → Actions."
+            exit 1
+          fi
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "${VM_SSH_KEY}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -t rsa,ecdsa,ed25519 "${VM_SSH_HOST}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Restart ict-web-api.service on VM
+        id: exec
+        run: |
+          set -euo pipefail
+          # Prefer the wrapper script when it is on the VM (richer
+          # audit + health probe + journalctl tail). Fall back to a
+          # fixed-form inline restart when it is not — this matters
+          # for bootstrap runs *before* the PR that ships the wrapper
+          # has merged + auto-deployed. The fallback covers exactly
+          # the same systemctl invocation; it just lacks the audit
+          # JSON record and the embedded journalctl dump.
+          read -r -d '' REMOTE_SCRIPT <<'REMOTE' || true
+          set -euo pipefail
+          WRAPPER=/home/ubuntu/ict-trading-bot/scripts/ops/restart_web_api.sh
+          UNIT=ict-web-api.service
+          if [ -x "$WRAPPER" ]; then
+            echo ">>> Using wrapper: $WRAPPER"
+            bash "$WRAPPER"
+            exit $?
+          fi
+          echo ">>> Wrapper not present on VM yet — running inline fallback restart of $UNIT"
+          pre=$(systemctl is-active "$UNIT" 2>/dev/null || echo unknown)
+          echo "pre-restart is-active: $pre"
+          sudo systemctl restart "$UNIT"
+          # Allow up to 30 s for systemd to settle.
+          deadline=$(( $(date +%s) + 30 ))
+          post=unknown
+          while [ "$(date +%s)" -lt "$deadline" ]; do
+            post=$(systemctl is-active "$UNIT" 2>/dev/null || echo unknown)
+            if [ "$post" = active ]; then break; fi
+            sleep 2
+          done
+          echo "post-restart is-active: $post"
+          # /api/health probe — only declare success when serving.
+          health=unknown
+          if [ "$post" = active ]; then
+            hd=$(( $(date +%s) + 15 ))
+            while [ "$(date +%s)" -lt "$hd" ]; do
+              if curl -sS --fail --max-time 5 -o /dev/null http://127.0.0.1:8001/api/health; then
+                health=ok
+                break
+              fi
+              health=unreachable
+              sleep 2
+            done
+          fi
+          echo "post-restart /api/health: $health"
+          echo
+          echo "===== last 30 lines of journalctl -u $UNIT ====="
+          sudo journalctl -u "$UNIT" -n 30 --no-pager 2>/dev/null || true
+          if [ "$post" = active ] && [ "$health" = ok ]; then
+            exit 0
+          fi
+          exit 1
+          REMOTE
+          set +e
+          ssh -i ~/.ssh/id_rsa \
+              -o BatchMode=yes \
+              -o StrictHostKeyChecking=accept-new \
+              -o ConnectTimeout=15 \
+              "${VM_SSH_USER}@${VM_SSH_HOST}" \
+              "bash -s" <<<"$REMOTE_SCRIPT" \
+              > action-output.txt 2>&1
+          rc=$?
+          set -e
+          echo "exit_code=${rc}" >>"$GITHUB_OUTPUT"
+          echo ">>> Remote exit code: ${rc}"
+          # Truncate preview to keep run-log readable.
+          if [ "$(wc -c <action-output.txt)" -gt 4000 ]; then
+            head -c 4000 action-output.txt
+            echo ""
+            echo "... (truncated; see issue comment / artifact for full output)"
+          else
+            cat action-output.txt
+          fi
+          exit "${rc}"
+
+      - name: Upload action output
+        if: always() && github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: vm-web-api-recover-${{ github.run_id }}
+          path: action-output.txt
+          retention-days: 14
+          if-no-files-found: warn
+
+      # ────────────────────────────────────────────────────────────
+      # Issue-driven path: comment back with status + close the issue.
+      # ────────────────────────────────────────────────────────────
+
+      - name: Reply to issue with success
+        if: github.event_name == 'issues' && success()
+        uses: actions/github-script@v7
+        env:
+          EXIT_CODE: ${{ steps.exec.outputs.exit_code }}
+        with:
+          script: |
+            const fs = require('fs');
+            const output = fs.readFileSync('action-output.txt', 'utf8');
+            const MAX_BODY = 50_000;
+            const tail = output.length > MAX_BODY
+              ? output.slice(-MAX_BODY)
+              : output;
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const truncationNote = output.length > MAX_BODY
+              ? `\n_(Showing last ${MAX_BODY} of ${output.length} bytes; full output on the run page.)_\n`
+              : '';
+            const body =
+              `✅ **vm-web-api-recover** completed.\n` +
+              `Run: ${runUrl}\n` +
+              `Wrapper exit code: ${process.env.EXIT_CODE}\n` +
+              truncationNote +
+              `\n\`\`\`\n${tail}\n\`\`\``;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              state: 'closed',
+              state_reason: 'completed'
+            });
+
+      - name: Reply to issue with failure
+        if: github.event_name == 'issues' && failure()
+        uses: actions/github-script@v7
+        env:
+          EXIT_CODE: ${{ steps.exec.outputs.exit_code }}
+        with:
+          script: |
+            const fs = require('fs');
+            let output = '';
+            try {
+              output = fs.readFileSync('action-output.txt', 'utf8');
+            } catch (_) {
+              output = '(no action-output.txt — failure happened before SSH ran)';
+            }
+            const MAX_BODY = 50_000;
+            const tail = output.length > MAX_BODY ? output.slice(-MAX_BODY) : output;
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body =
+              `❌ **vm-web-api-recover run failed.**\n` +
+              `Run: ${runUrl}\n` +
+              `Wrapper exit code: ${process.env.EXIT_CODE || '(set up failed before exec)'}\n\n` +
+              `Common causes: VM_SSH_KEY secret unset/corrupted; SSH host unreachable; ` +
+              `unit failed to come back active within 30 s; /api/health not 200 within 15 s of activation. ` +
+              `If the wrapper itself ran, the journalctl tail it printed will be in the output below.\n` +
+              `\n\`\`\`\n${tail}\n\`\`\``;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              state: 'closed',
+              state_reason: 'not_planned'
+            });

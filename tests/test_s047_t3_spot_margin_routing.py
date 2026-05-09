@@ -772,6 +772,10 @@ class TestSpotMarginUsesNetEquity:
         from src.core.coordinator import Coordinator
 
         # Wallet snapshot AFTER one open 0.009 BTC short.
+        # S-054: SHORT-side capacity is now expressed in raw BTC qty
+        # (``base_qty + base_borrow_qty``) and converted via
+        # ``pkg.entry`` — so the stub carries the qty primitives, not
+        # the USD equivalents.
         spot_balances_post_short = {
             "base_coin": "BTC",
             "base_qty": 0.000729,
@@ -779,6 +783,8 @@ class TestSpotMarginUsesNetEquity:
             # Inflated free USDT — sale proceeds of the borrowed BTC.
             "quote_usdt": 854.63,
             "quote_borrow_usd": 0.0,
+            # Tier-1 BTC borrow remaining ≈ 0.02 BTC (≈ $1k at $50k).
+            "base_borrow_qty": 0.02,
             "base_borrow_usd": 1_000.0,
             "total_account_usd": 194.13,    # net equity, stable
         }
@@ -809,9 +815,10 @@ class TestSpotMarginUsesNetEquity:
         balance_arg = positional[1]
         # Sized off net equity, NOT inflated free USDT.
         assert abs(balance_arg - 194.13) < 1e-6
-        # available_usd is the SHORT-side primitive: free BTC USD +
-        # base borrow capacity, post-buffer.
-        expected_avail = (58.16 + 1_000.0) * 0.995
+        # S-054: available_usd is the SHORT-side primitive in BTC qty
+        # space, converted via ``pkg.entry``: (base_qty +
+        # base_borrow_qty) × entry × buffer.
+        expected_avail = (0.000729 + 0.02) * _short_pkg().entry * 0.995
         assert abs(kwargs["available_usd"] - expected_avail) < 1e-3
         # total_account_usd forwarded for the min_balance_usd gate.
         assert abs(kwargs["total_account_usd"] - 194.13) < 1e-6
@@ -901,3 +908,160 @@ class TestSpotMarginUsesNetEquity:
         positional, _kwargs = mock_size.call_args
         balance_arg = positional[1]
         assert abs(balance_arg - 177.0) < 1e-6
+
+
+# ---------------------------------------------------------------------------
+# S-054 — coordinator computes SHORT-side ``available_usd`` via raw
+#         borrow qty × ``pkg.entry``, NOT via the wallet row's
+#         ``usdValue/walletBalance`` ratio. The ratio path collapses to
+#         0 on a USDT-only wallet (walletBalance(BTC)=0), zeroing the
+#         cap and producing the bybit_2 reject loop on 2026-05-08.
+# ---------------------------------------------------------------------------
+
+
+class TestUsdtOnlyWalletShortCoordinator:
+    """The coordinator's spot-margin override must compute SHORT-side
+    ``available_usd`` from raw BTC capacity (free + borrow qty) ×
+    ``pkg.entry``. This is the ONLY derivation that gives a non-zero
+    cap on a USDT-only wallet — the canonical bybit_2 shape that
+    produced the 2026-05-08 reject loop.
+    """
+
+    def _account_stub(self):
+        from src.units.accounts.risk import RiskManager
+        acc = MagicMock()
+        acc.name = "bybit_2"
+        acc.exchange = "bybit"
+        acc.api_key_env = "BYBIT_API_KEY_FAKE"
+        acc.account_type = "regular"
+        acc.market_type = "spot-margin"
+        acc.dry_run = False
+        acc.cached_balance_usd = 99_999.0
+        acc.strategies = ["vwap"]
+        acc.risk_manager = RiskManager({
+            "risk_pct": 0.01,
+            "min_balance_usd": 50,
+        })
+        return acc
+
+    def test_short_uses_entry_price_for_borrow_capacity(self):
+        """Bybit_2 reproducer (2026-05-08, issue #523). USDT-only
+        wallet with $89 net equity, BTC borrow line 0.5 BTC. Pre-S-054
+        the coordinator computed ``available_usd = (base_usd_value +
+        base_borrow_usd) × buffer = (0 + 0) × 0.995 = 0`` and rule 3
+        bypassed the cap. Post-S-054 the coordinator computes
+        ``(base_qty + base_borrow_qty) × pkg.entry × buffer``,
+        producing a meaningful cap.
+        """
+        from src.core.coordinator import Coordinator
+
+        # USDT-only wallet shape: 0 free BTC, walletBalance(BTC)=0
+        # collapses base_borrow_usd to 0 — but base_borrow_qty carries
+        # the raw 0.5 BTC line.
+        spot_balances = {
+            "base_coin": "BTC",
+            "base_qty": 0.0,
+            "base_usd_value": 0.0,
+            "quote_usdt": 89.0,
+            "quote_borrow_usd": 200.0,
+            "base_borrow_qty": 0.5,
+            "base_borrow_usd": 0.0,    # ratio path collapses
+            "total_account_usd": 89.0,
+        }
+        acc = self._account_stub()
+        with patch(
+            "src.units.accounts.risk.RiskManager.position_size",
+            return_value=0.0,
+        ) as mock_size, patch(
+            "src.units.accounts.load_accounts",
+            return_value=[acc],
+        ), patch(
+            "src.core.coordinator._log_new_order_package",
+            return_value="pkg-fake",
+        ), patch(
+            "src.units.accounts.clients.bybit_client_for",
+            return_value=MagicMock(),
+        ), patch(
+            "src.units.accounts.execute._fetch_spot_coin_balances",
+            return_value=spot_balances,
+        ):
+            coord = Coordinator()
+            coord.multi_account_execute(
+                _short_pkg(),
+                accounts_path="/dev/null",
+                balance_fetcher=lambda a: 99_999.0,
+            )
+        _positional, kwargs = mock_size.call_args
+        # Post-S-054: (0 + 0.5) × $50_000 × 0.995 = $24_875.
+        expected_avail = (0.0 + 0.5) * _short_pkg().entry * 0.995
+        assert abs(kwargs["available_usd"] - expected_avail) < 1e-3
+        # Pre-S-054 this would have been 0.0. Sanity-check the new
+        # value is well clear of zero so rule 3 actually has something
+        # to clip against.
+        assert kwargs["available_usd"] > 0.0
+
+    def test_short_zero_api_capacity_falls_back_to_ltv_collateral(self):
+        """S-056 (operator-confirmed 2026-05-08): the bot's spot-margin
+        wallet is by design always 100 % USDT at idle — every
+        position closes back to USDT — so ``walletBalance(BTC)=0``
+        is structural, not a "no margin" signal. Bybit V5 empties
+        ``availableToBorrow`` for any coin row with walletBalance=0,
+        zeroing the API-derived capacity even when margin IS enabled
+        and there's USDT collateral.
+
+        Pre-S-056: the coordinator returned ``available_usd=0`` and
+        the risk kernel refused to size — the trader went silent on
+        every signal even though the operator's margin tier had
+        plenty of room.
+
+        Post-S-056: the coordinator falls back to
+        ``usdt_collateral × spot_margin_ltv`` (default 0.5,
+        per-account override in ``risk.spot_margin_ltv``). For
+        $89 collateral that's $44.5 of BTC borrow capacity; rule 3
+        clips qty to fit, the order fires.
+
+        Capped by ``risk.max_borrow_btc`` so the fallback can never
+        exceed the operator's configured tier ceiling.
+        """
+        from src.core.coordinator import Coordinator
+
+        spot_balances = {
+            "base_coin": "BTC",
+            "base_qty": 0.0,
+            "base_usd_value": 0.0,
+            "quote_usdt": 89.0,
+            "quote_borrow_usd": 0.0,
+            "base_borrow_qty": 0.0,    # API empty
+            "base_borrow_usd": 0.0,
+            "total_account_usd": 89.0,
+        }
+        acc = self._account_stub()
+        with patch(
+            "src.units.accounts.risk.RiskManager.position_size",
+            return_value=0.0,
+        ) as mock_size, patch(
+            "src.units.accounts.load_accounts",
+            return_value=[acc],
+        ), patch(
+            "src.core.coordinator._log_new_order_package",
+            return_value="pkg-fake",
+        ), patch(
+            "src.units.accounts.clients.bybit_client_for",
+            return_value=MagicMock(),
+        ), patch(
+            "src.units.accounts.execute._fetch_spot_coin_balances",
+            return_value=spot_balances,
+        ):
+            coord = Coordinator()
+            coord.multi_account_execute(
+                _short_pkg(),
+                accounts_path="/dev/null",
+                balance_fetcher=lambda a: 99_999.0,
+            )
+        _positional, kwargs = mock_size.call_args
+        # $89 × 0.5 LTV = $44.5 fallback capacity, × 0.995 buffer.
+        expected = 89.0 * 0.5 * 0.995
+        assert kwargs["available_usd"] == pytest.approx(expected, rel=1e-6)
+        # Critical regression guard: the fallback must produce a
+        # NON-ZERO cap so the trade can size into a real position.
+        assert kwargs["available_usd"] > 0.0

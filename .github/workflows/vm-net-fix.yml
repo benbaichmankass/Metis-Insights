@@ -1,0 +1,264 @@
+name: vm-net-fix
+
+# Tier-2 mutating action: open the dashboard API port (TCP/8001) on the
+# trading-bot VM's local firewall, then verify external reachability.
+#
+# Diagnoses + fixes the class of outage tracked in #537 / #542 / #545:
+#   - bot service is healthy (uvicorn bound to 0.0.0.0:8001)
+#   - dashboard sees every /api/bot/* call as httpStatus=0 (timeout)
+#
+# v2: applies BOTH ufw allow AND iptables -I INPUT ACCEPT, since #549
+# revealed that ufw is `Status: inactive` on this VM (so its rule list
+# is irrelevant) and the actual block is on iptables INPUT (or the
+# Oracle Cloud Security List, which only manual console action can fix).
+# Both fixes are idempotent on the rule side; iptables-save is invoked
+# at the end so the rule survives reboots.
+#
+# Triggers:
+#   1. workflow_dispatch — operator clicks "Run workflow".
+#   2. issues.opened with label `vm-net-fix-request` — automated path.
+#
+# Trust contract:
+#   - Mutates VM-local firewall state. Reversible via:
+#       sudo ufw delete allow 8001/tcp
+#       sudo iptables -D INPUT -p tcp --dport 8001 -j ACCEPT
+#       sudo netfilter-persistent save
+#   - Does NOT touch any cloud-side security list / NSG.
+#   - Does NOT mutate /etc/sudoers.d/*.
+
+on:
+  workflow_dispatch:
+    inputs:
+      port:
+        description: "Port to open (default 8001)"
+        required: false
+        default: "8001"
+      reason:
+        description: "Why this action is being run (audit trail)"
+        required: true
+        default: "open dashboard port — outage recovery"
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: vm-net-fix
+  cancel-in-progress: false
+
+jobs:
+  fix:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'vm-net-fix-request'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '158.178.210.252' }}
+      VM_SSH_USER: ${{ vars.VM_SSH_USER || 'ubuntu' }}
+      DASHBOARD_PORT: ${{ inputs.port || '8001' }}
+    steps:
+      - name: Set up SSH key
+        env:
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VM_SSH_KEY}" ]; then
+            echo "::error::VM_SSH_KEY secret is unset."
+            exit 1
+          fi
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "${VM_SSH_KEY}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -t rsa,ecdsa,ed25519 "${VM_SSH_HOST}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Probe pre-fix public reachability from runner
+        id: pre_probe
+        run: |
+          set +e
+          curl -sS --max-time 8 \
+            -o /dev/null \
+            -w 'http_code=%{http_code} time=%{time_total}\n' \
+            "http://${VM_SSH_HOST}:${DASHBOARD_PORT}/api/health" \
+            > pre_probe.txt 2>&1
+          rc=$?
+          set -e
+          echo "PRE_RC=$rc" >> "$GITHUB_ENV"
+          echo "Pre-fix probe (rc=$rc):"
+          cat pre_probe.txt
+
+      - name: Apply firewall opens on VM (ufw + iptables)
+        id: apply
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/id_rsa \
+              -o BatchMode=yes \
+              -o StrictHostKeyChecking=accept-new \
+              -o ConnectTimeout=15 \
+              "${VM_SSH_USER}@${VM_SSH_HOST}" 'bash -s' <<'REMOTE' > apply.txt 2>&1
+          set +e
+          PORT=8001
+          PUBLIC_IP=158.178.210.252
+
+          echo "===== ufw (idempotent allow) ====="
+          sudo -n ufw status verbose 2>&1 | head -3
+          sudo -n ufw allow "$PORT/tcp" comment 'ict-web-api dashboard' 2>&1
+          sudo -n ufw reload 2>&1 | head -3
+          echo
+
+          echo "===== iptables INPUT chain BEFORE ====="
+          sudo -n iptables -L INPUT -n -v --line-numbers 2>&1 | head -30
+          echo
+          echo "===== iptables -S INPUT (rule form) ====="
+          sudo -n iptables -S INPUT 2>&1 | head -30
+          echo
+
+          # Idempotent: only insert if a matching ACCEPT rule isn't already
+          # present at any position. -C returns 0 if the rule exists.
+          if sudo -n iptables -C INPUT -p tcp --dport "$PORT" -j ACCEPT 2>/dev/null; then
+            echo "===== iptables ACCEPT rule for $PORT already present, skipping insert ====="
+          else
+            echo "===== iptables -I INPUT 1 -p tcp --dport $PORT -j ACCEPT ====="
+            sudo -n iptables -I INPUT 1 -p tcp --dport "$PORT" -j ACCEPT 2>&1
+            echo "(insert exit: $?)"
+          fi
+          echo
+
+          echo "===== iptables INPUT chain AFTER ====="
+          sudo -n iptables -L INPUT -n -v --line-numbers 2>&1 | head -30
+          echo
+
+          echo "===== persist via netfilter-persistent save ====="
+          sudo -n netfilter-persistent save 2>&1 || \
+            sudo -n bash -c 'iptables-save > /etc/iptables/rules.v4' 2>&1 || \
+            echo "(persistence not available — rule is live but won't survive reboot)"
+          echo
+
+          echo "===== ip6tables INPUT (best-effort, IPv6 may also need opening) ====="
+          if sudo -n ip6tables -C INPUT -p tcp --dport "$PORT" -j ACCEPT 2>/dev/null; then
+            echo "(ip6tables ACCEPT already present)"
+          else
+            sudo -n ip6tables -I INPUT 1 -p tcp --dport "$PORT" -j ACCEPT 2>&1
+          fi
+          echo
+
+          echo "===== ss -tln | grep $PORT ====="
+          ss -tln | grep ":$PORT" || echo "(no socket bound to :$PORT — service may have stopped)"
+          echo
+
+          echo "===== loopback-via-public-IP curl AFTER ====="
+          curl -sS --max-time 8 \
+            -o /tmp/h_after \
+            -w 'http=%{http_code} time=%{time_total}s\n' \
+            "http://$PUBLIC_IP:$PORT/api/health" 2>&1 || echo "(curl exit $?)"
+          head -c 300 /tmp/h_after 2>/dev/null; echo
+          echo
+
+          echo "===== loopback (127.0.0.1) curl AFTER (sanity) ====="
+          curl -sS --max-time 5 \
+            -o /tmp/h_loop \
+            -w 'http=%{http_code} time=%{time_total}s\n' \
+            "http://127.0.0.1:$PORT/api/health" 2>&1 || echo "(curl exit $?)"
+          head -c 200 /tmp/h_loop 2>/dev/null; echo
+          REMOTE
+          rc=$?
+          echo "APPLY_RC=$rc" >> "$GITHUB_ENV"
+          echo "==== apply.txt (truncated to 6000 bytes) ===="
+          head -c 6000 apply.txt
+          exit 0
+
+      - name: Probe post-fix public reachability from runner
+        id: post_probe
+        run: |
+          set +e
+          for i in 1 2 3; do
+            curl -sS --max-time 8 \
+              -o post_body.txt \
+              -w 'http_code=%{http_code} time=%{time_total}\n' \
+              "http://${VM_SSH_HOST}:${DASHBOARD_PORT}/api/health" \
+              > "post_probe_${i}.txt" 2>&1
+            rc=$?
+            if [ "$rc" -eq 0 ]; then
+              echo "POST_RC=0" >> "$GITHUB_ENV"
+              break
+            fi
+            sleep 2
+          done
+          [ -z "${POST_RC:-}" ] && echo "POST_RC=$rc" >> "$GITHUB_ENV"
+          echo "Post-fix probe attempts:"
+          cat post_probe_1.txt 2>/dev/null
+          cat post_probe_2.txt 2>/dev/null
+          cat post_probe_3.txt 2>/dev/null
+          echo
+          echo "Body (first 300 bytes):"
+          head -c 300 post_body.txt 2>/dev/null
+
+      - name: Reply to issue with combined result
+        if: github.event_name == 'issues' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const safeRead = (p, max = 50_000) => {
+              try { return fs.readFileSync(p, 'utf8').slice(0, max); } catch { return '(missing)'; }
+            };
+            const preProbe = safeRead('pre_probe.txt');
+            const apply = safeRead('apply.txt', 14_000);
+            const post1 = safeRead('post_probe_1.txt');
+            const post2 = safeRead('post_probe_2.txt');
+            const post3 = safeRead('post_probe_3.txt');
+            const postBody = safeRead('post_body.txt', 500);
+            const preRc = process.env.PRE_RC;
+            const applyRc = process.env.APPLY_RC;
+            const postRc = process.env.POST_RC;
+            const ok = postRc === '0';
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const verdict = ok
+              ? 'SUCCESS — port 8001 is now reachable from the public internet.'
+              : 'NOT YET — VM-local firewall opens applied but external probe still failing. If the VM-self loopback-via-public-IP test ALSO times out, the block is in Oracle Cloud Security List (only fixable in the Oracle console).';
+            const body = [
+              `**vm-net-fix** ${ok ? 'SUCCESS' : 'INCOMPLETE'}. Run: ${runUrl}`,
+              ``,
+              `**Verdict:** ${verdict}`,
+              ``,
+              `### Pre-fix public probe (curl exit ${preRc})`,
+              '```',
+              preProbe,
+              '```',
+              ``,
+              `### VM-side apply (ssh exit ${applyRc})`,
+              '```',
+              apply,
+              '```',
+              ``,
+              `### Post-fix public probe (curl exit ${postRc})`,
+              '```',
+              `attempt 1: ${post1}`,
+              `attempt 2: ${post2}`,
+              `attempt 3: ${post3}`,
+              ``,
+              `Body: ${postBody}`,
+              '```',
+            ].join('\n');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              state: 'closed',
+              state_reason: ok ? 'completed' : 'not_planned',
+            });
+
+      - name: Fail the run if post-probe still failing
+        if: env.POST_RC != '0'
+        run: |
+          echo "::error::Post-fix probe rc=${POST_RC}. Public reachability not restored."
+          exit 1

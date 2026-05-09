@@ -721,9 +721,10 @@ def _load_account_cfgs_for_reconcile() -> Dict[str, Dict[str, Any]]:
 
     Account dicts carry the keys ``account_open_positions`` reads
     (``account_id``, ``exchange``, ``api_key_env``, ``api_secret_env``,
-    ``mode``). Best-effort — any read failure returns an empty dict so
-    the reconciler runs as a no-op rather than orphaning trades on a
-    config-load error.
+    ``mode``) plus ``market_type`` so the S-055 borrow-orphan
+    reconciler can filter to spot-margin accounts. Best-effort — any
+    read failure returns an empty dict so the reconciler runs as a
+    no-op rather than orphaning trades on a config-load error.
     """
     try:
         import yaml  # type: ignore
@@ -753,8 +754,64 @@ def _load_account_cfgs_for_reconcile() -> Dict[str, Dict[str, Any]]:
             "api_key_env": cfg.get("api_key_env"),
             "api_secret_env": cfg.get("api_secret_env"),
             "mode": cfg.get("mode") or "live",
+            "market_type": cfg.get("market_type") or "spot",
         }
     return out
+
+
+def _classify_orphan_close(account_cfg: Dict[str, Any]) -> Dict[str, Optional[str]]:
+    """Classify a DB-open / exchange-flat orphan to help the operator
+    distinguish "operator manually closed" from "fill anomaly /
+    exchange-side risk action" at a glance.
+
+    Field reality, 2026-05-08: the live trader (bybit_2) is
+    ``market_type: spot-margin`` and runs vwap. Spot-margin has **no
+    exchange-side SL/TP path** — Bybit V5's ``set_trading_stop`` is
+    derivatives-only (see the modify_open_order docstring), and the
+    monitor loop is what enforces brackets via
+    ``close_open_position``. So a spot-margin DB-open / exchange-flat
+    row is *guaranteed* to be one of:
+
+      1. Operator manually closed via the exchange UI.
+      2. Bybit risk engine forced a close (margin call, liquidation,
+         exchange-side risk action).
+
+    Either case warrants an "investigate" tag rather than the generic
+    "reconciler" reason. SL/TP firing is impossible on this path.
+
+    For derivatives accounts (``market_type: linear`` /
+    ``inverse``), an SL/TP fire is a perfectly valid orphan source —
+    the strategy gate cleared the exchange-side SL but the DB row
+    didn't update. Disambiguating SL/TP-fire vs operator-close on
+    derivatives needs an extra exchange API call (Bybit V5
+    ``get_closed_pnl``); that's deferred to a follow-up. For now,
+    derivatives orphans get ``classification=unknown``.
+
+    Returns
+    -------
+    dict
+        ``{"classification": <tag>, "note": <human-readable>}``. Tags:
+          * ``"spot_margin_external_close"`` — operator manual close
+            or exchange risk action (no SL/TP path exists).
+          * ``"unknown"`` — derivatives or unrecognised market_type;
+            operator must check exchange UI to disambiguate.
+    """
+    market_type = str(account_cfg.get("market_type") or "").strip().lower()
+    if market_type == "spot-margin":
+        return {
+            "classification": "spot_margin_external_close",
+            "note": (
+                "no exchange-side SL/TP path on spot-margin — operator "
+                "manual close or exchange risk action; check exchange UI"
+            ),
+        }
+    return {
+        "classification": "unknown",
+        "note": (
+            "derivatives orphan — could be SL/TP fire OR operator close; "
+            "check exchange recent trades to disambiguate"
+        ),
+    }
 
 
 def _exchange_position_set(positions: Optional[List[Dict[str, Any]]]) -> set:
@@ -974,6 +1031,29 @@ def _reconcile_open_trades(db) -> Dict[str, int]:
                     row.get("id"), aid, sym, exc,
                 )
                 summary["errors"] += 1
+                continue
+
+            # Diagnostic ping (per-close cap + roll-up). In the SSOT
+            # model "closed" means Bybit reports filled + position
+            # flat — i.e. the exchange closed the trade (TP/SL on
+            # derivatives, manual / margin-engine action on spot-
+            # margin), not the bot's manage loop. Same operator-
+            # actionability bar as a legacy "orphan close" so we
+            # carry the classification metadata from #544.
+            if orphan_pings_emitted < _ORPHAN_PING_CAP:
+                cls_info = _classify_orphan_close(cfg)
+                enqueue_orphan_reconciliation(
+                    account=aid,
+                    symbol=str(sym),
+                    side=side,
+                    db_trade_id=row.get("id"),
+                    linked_package_id=_extract_package_id(row.get("notes")),
+                    classification=cls_info.get("classification"),
+                    classification_note=cls_info.get("note"),
+                )
+                orphan_pings_emitted += 1
+            else:
+                orphan_pings_suppressed += 1
 
     if orphan_pings_suppressed:
         enqueue_orphan_rollup(suppressed_count=orphan_pings_suppressed)
@@ -1048,6 +1128,656 @@ def _sweep_unlinked_packages(db) -> int:
     except Exception as exc:  # noqa: BLE001
         logger.warning("_sweep_unlinked_packages: failed: %s", exc)
         return 0
+
+
+# Trade statuses that mean "this trade is no longer live on the
+# exchange". A linked order_packages row stuck at status='open' against
+# a trade in any of these states is the cascade-leak we have to clear,
+# otherwise the strategy-monocle gate
+# (pipeline.py::_has_open_package_for_strategy) silently blocks every
+# future signal for the strategy.
+_TERMINAL_TRADE_STATUSES = (
+    "orphaned",
+    "exchange_rejected",
+    "closed",
+    "rejected",
+    "rejected_too_small",
+)
+
+
+def _sweep_stuck_linked_packages(db) -> int:
+    """Force-close ``order_packages`` rows whose linked trade has
+    reached a terminal status but whose own ``status`` is still
+    ``'open'``.
+
+    Background — the primary path is ``_mark_orphaned``'s package
+    cascade. That cascade is now retried + audit-logged on failure,
+    but:
+
+      1. A bug elsewhere (e.g. partial close path forgetting to
+         cascade) can still drop a package row in the same stuck
+         state.
+      2. The strategy-monocle gate at
+         ``pipeline.py::_has_open_package_for_strategy`` (and the
+         per-strategy ``vwap.py::_has_open_vwap_package``) reads
+         ``status='open' AND linked_trade_id IS NOT NULL`` — so a
+         single stuck row blocks *every* future signal for that
+         strategy.
+
+    This sweep is the second line of defence: idempotent, gated by
+    ``MONITOR_RECONCILE_ENABLED``, runs once per monitor tick.
+
+    Returns:
+        int: number of rows force-closed this tick.
+    """
+    if not _reconcile_enabled():
+        return 0
+    try:
+        conn = db.connect()
+        try:
+            now_iso = datetime.now(timezone.utc).isoformat()
+            placeholders = ",".join("?" * len(_TERMINAL_TRADE_STATUSES))
+            conn.execute(
+                "UPDATE order_packages "
+                "SET status = 'closed', "
+                "    close_reason = 'stuck_cascade_recovered', "
+                "    updated_at = ?, "
+                "    meta = json_set(COALESCE(meta, '{}'), "
+                "        '$.stuck_recovered_at', ?, "
+                "        '$.stuck_recovered_by', 'monitor_reconciler', "
+                "        '$.stuck_recovered_reason', "
+                "        'linked trade reached terminal status while package stayed open') "
+                "WHERE status = 'open' "
+                "  AND linked_trade_id IS NOT NULL "
+                f"  AND linked_trade_id IN ("
+                f"      SELECT id FROM trades WHERE status IN ({placeholders})"
+                f"  )",
+                (now_iso, now_iso, *_TERMINAL_TRADE_STATUSES),
+            )
+            affected = conn.execute("SELECT changes()").fetchone()[0]
+            conn.commit()
+        finally:
+            conn.close()
+        if affected:
+            logger.info(
+                "_sweep_stuck_linked_packages: force-closed %d stuck "
+                "linked package(s) — strategy gate cleared",
+                affected,
+            )
+        return affected
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("_sweep_stuck_linked_packages: failed: %s", exc)
+        return 0
+
+
+# ---------------------------------------------------------------------------
+# Stuck-strategy watchdog — last line of defence
+# ---------------------------------------------------------------------------
+#
+# When the orphan reconciler, `_sweep_stuck_linked_packages`, AND the
+# strategy's own monitor() loop have all had a chance to clear a
+# package and none did, the strategy-monocle gate at
+# pipeline.py::_has_open_package_for_strategy stays blocked
+# indefinitely — every future signal for that strategy is silently
+# dropped. The watchdog catches this terminal-class failure mode by
+# escalating a high-priority operator alert AND force-closing the
+# stuck row + cascading the linked trade to ``orphaned``.
+#
+# Idempotent: each affected package is flagged on its first sighting
+# (``meta.stuck_alert_emitted_at``); subsequent ticks won't re-fire
+# the alert. The force-close itself is naturally idempotent — once
+# ``status='closed'`` the row no longer matches the watchdog's
+# WHERE clause.
+#
+# Threshold: ``STUCK_STRATEGY_THRESHOLD_MINUTES`` env var. Default
+# 30 — well above the orphan reconciler's grace window (60 s) and
+# well above the longest expected monitor tick interval (15 min).
+# Operator can tune via env without restart.
+
+_DEFAULT_STUCK_STRATEGY_THRESHOLD_MINUTES = 30
+
+
+def _stuck_strategy_threshold_minutes() -> float:
+    """Read ``STUCK_STRATEGY_THRESHOLD_MINUTES`` at call time so an
+    operator can tune the threshold without a trader restart. Falls
+    back to the 30-minute default on any unparseable / missing
+    value; clamped to ``>= 1`` minute (a sub-minute threshold would
+    fight every reconciler tick).
+    """
+    raw = os.environ.get("STUCK_STRATEGY_THRESHOLD_MINUTES")
+    if raw is None or str(raw).strip() == "":
+        return float(_DEFAULT_STUCK_STRATEGY_THRESHOLD_MINUTES)
+    try:
+        return max(1.0, float(raw))
+    except (TypeError, ValueError):
+        return float(_DEFAULT_STUCK_STRATEGY_THRESHOLD_MINUTES)
+
+
+def _watchdog_stuck_strategies(db) -> Dict[str, int]:
+    """Detect + recover packages stuck at ``status='open'`` AND
+    ``linked_trade_id IS NOT NULL`` for longer than the configured
+    threshold.
+
+    For each stuck package on its first sighting:
+
+      1. Stamp ``meta.stuck_alert_emitted_at`` so the alert is
+         idempotent across ticks.
+      2. Emit a high-priority ``enqueue_stuck_strategy_alert`` ping.
+      3. Force-close the package (``status='closed'``,
+         ``close_reason='stuck_strategy_watchdog'``).
+      4. Cascade the linked trade row to ``status='orphaned'`` if it's
+         still ``open`` — the gate clears immediately on the next
+         tick.
+
+    Operator-confirmed (2026-05-08): full automatic reset is
+    approved, so the auto-clear is not gated by a separate flag.
+    The whole helper is gated by ``MONITOR_RECONCILE_ENABLED``.
+
+    Returns a summary
+    ``{checked, alerted, auto_cleared, errors}`` so the caller can
+    log a per-tick line when non-zero.
+    """
+    summary = {
+        "checked": 0,
+        "alerted": 0,
+        "auto_cleared": 0,
+        "errors": 0,
+    }
+    if not _reconcile_enabled():
+        return summary
+
+    threshold_minutes = _stuck_strategy_threshold_minutes()
+
+    try:
+        conn = db.connect()
+        try:
+            conn.row_factory = __import__("sqlite3").Row
+            rows = conn.execute(
+                "SELECT order_package_id, strategy_name, symbol, "
+                "       linked_trade_id, updated_at, meta "
+                "FROM order_packages "
+                "WHERE status = 'open' "
+                "  AND linked_trade_id IS NOT NULL "
+                "  AND datetime(updated_at) <= datetime('now', ? || ' minutes')",
+                (f"-{int(threshold_minutes)}",),
+            ).fetchall()
+        finally:
+            conn.close()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("_watchdog_stuck_strategies: read failed: %s", exc)
+        summary["errors"] += 1
+        return summary
+
+    if not rows:
+        return summary
+
+    summary["checked"] = len(rows)
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    # Lazy import — keeps the module load cheap and avoids a circular
+    # via execution_diagnostics's own log path.
+    from src.runtime.execution_diagnostics import enqueue_stuck_strategy_alert
+
+    for row in rows:
+        pkg_id = row["order_package_id"]
+        strategy = row["strategy_name"]
+        symbol = row["symbol"]
+        trade_id = row["linked_trade_id"]
+        meta = _decode_notes(row["meta"])
+        already_alerted = bool(meta.get("stuck_alert_emitted_at"))
+
+        # Stamp the meta + force-close the package + orphan the
+        # linked trade. Best-effort end-to-end so a single broken
+        # row does not block the rest of the watchdog.
+        try:
+            updated_meta = dict(meta)
+            updated_meta.setdefault("stuck_alert_emitted_at", now_iso)
+            updated_meta["stuck_force_cleared_at"] = now_iso
+            updated_meta["stuck_force_cleared_by"] = "stuck_strategy_watchdog"
+            db.update_order_package(pkg_id, {
+                "status": "closed",
+                "close_reason": "stuck_strategy_watchdog",
+                "meta": updated_meta,
+            })
+            summary["auto_cleared"] += 1
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "_watchdog_stuck_strategies: package force-close failed "
+                "for pkg_id=%s: %s",
+                pkg_id, exc,
+            )
+            summary["errors"] += 1
+
+        # Cascade the linked trade if it's still open. We only orphan
+        # rows that are status='open' — anything else has already
+        # been settled by another path.
+        try:
+            db_conn = db.connect()
+            try:
+                db_conn.row_factory = __import__("sqlite3").Row
+                trade_row = db_conn.execute(
+                    "SELECT id, status, notes FROM trades WHERE id=?",
+                    (trade_id,),
+                ).fetchone()
+            finally:
+                db_conn.close()
+            if trade_row and str(trade_row["status"]) == "open":
+                trade_notes = _decode_notes(trade_row["notes"])
+                trade_notes.update({
+                    "orphaned_at": now_iso,
+                    "orphaned_by": "stuck_strategy_watchdog",
+                    "orphaned_reason": (
+                        "watchdog — package stuck > "
+                        f"{int(threshold_minutes)} min; gate was blocked"
+                    ),
+                })
+                db.update_trade(int(trade_row["id"]), {
+                    "status": "orphaned",
+                    "exit_reason": "stuck_strategy_watchdog",
+                    "notes": json.dumps(trade_notes, ensure_ascii=False)[:500],
+                })
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "_watchdog_stuck_strategies: trade cascade failed for "
+                "trade_id=%s: %s",
+                trade_id, exc,
+            )
+            summary["errors"] += 1
+
+        # Emit the alert only on first sighting — subsequent ticks
+        # would have caught the row at "force-closed" already
+        # (excluded by the WHERE), so this branch is mostly a
+        # safety check rather than an idempotency gate. Kept for
+        # the rare case where the SELECT raced a partial close.
+        if not already_alerted:
+            try:
+                enqueue_stuck_strategy_alert(
+                    strategy=str(strategy or "unknown"),
+                    symbol=str(symbol or "?"),
+                    order_package_id=str(pkg_id),
+                    db_trade_id=trade_id,
+                    stuck_minutes=int(threshold_minutes),
+                    auto_cleared=True,
+                )
+                summary["alerted"] += 1
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "_watchdog_stuck_strategies: alert enqueue failed "
+                    "for pkg_id=%s: %s",
+                    pkg_id, exc,
+                )
+                summary["errors"] += 1
+
+    if summary["auto_cleared"] or summary["alerted"]:
+        logger.info(
+            "_watchdog_stuck_strategies: checked=%d alerted=%d "
+            "auto_cleared=%d errors=%d (threshold=%d min)",
+            summary["checked"], summary["alerted"], summary["auto_cleared"],
+            summary["errors"], int(threshold_minutes),
+        )
+    return summary
+
+
+# ---------------------------------------------------------------------------
+# Borrow-orphan reconciler — S-055 fail-safe
+# ---------------------------------------------------------------------------
+#
+# Operator-confirmed Tier-2 ask, 2026-05-08: spot-margin accounts can
+# leave outstanding ``borrowAmount > 0`` on coins even when no DB-open
+# trade backs them. Causes seen in the wild:
+#
+#   * a SHORT was placed and closed across a process restart without
+#     the post-close auto-repay invoking;
+#   * Bybit's auto-repay returned a partial result (e.g. on a partial
+#     fill mid-config-change) and left a stub borrow line.
+#
+# A stuck BTC borrow consumes the borrow line and the next short
+# refuses with S-054's zero-capacity rule. The fail-safe is to detect
+# "borrow > 0 + no DB-open trade for that side + no fresh trade in
+# grace window" and call the V5 repay endpoint.
+#
+# Behaviour:
+#   1. For each spot-margin account in accounts.yaml (live mode, creds
+#      resolvable):
+#        a. Fetch the wallet via ``get_wallet_balance`` (UNIFIED).
+#        b. For each coin row with ``borrowAmount > epsilon``:
+#             - USDT borrow → underwrites a long-side position;
+#               cross-reference open-trades for ``direction='long'``.
+#             - Non-USDT borrow → underwrites a short on
+#               ``<COIN>USDT``; cross-reference open-trades for
+#               ``direction='short'`` AND ``symbol LIKE '<COIN>%'``.
+#        c. If no matching open trade row → call ``_spot_margin_repay``.
+#   2. Skip the account if any of its trades (any status) was
+#      created within ``RECONCILER_GRACE_SECONDS`` — same window
+#      shape as ``_reconcile_open_trades`` (PR #501). Protects against
+#      a freshly-placed trade that hasn't surfaced as ``status='open'``
+#      to the SQL read yet.
+#   3. Emit one structured audit row per repay via
+#      ``signal_audit_logger.log_signal`` with action
+#      ``borrow_orphan_repaid``.
+#
+# Best-effort: every step is wrapped, one bad account never aborts the
+# sweep, repay failures degrade to a logger.warning + a future-tick
+# retry. The ``MONITOR_RECONCILE_ENABLED`` flag gates the whole module
+# (same as ``_reconcile_open_trades``).
+
+
+def _is_spot_margin_cfg(cfg: Dict[str, Any]) -> bool:
+    """Return True when *cfg* declares ``market_type: spot-margin``."""
+    return str(cfg.get("market_type") or "").strip().lower() == "spot-margin"
+
+
+def _account_has_recent_trade(
+    db, account_id: str, *, grace_seconds: float, now: datetime,
+) -> bool:
+    """True when *account_id* has any potentially-borrow-bearing trade
+    row younger than the grace window.
+
+    The grace window exists to shield the borrow reconciler from
+    racing freshly-PLACED trades that may not have surfaced as
+    ``status='open'`` to the SQL read yet (Bybit's open-positions
+    index lag, status-write races on a fast close, etc.).
+
+    Pre-placement rejections (``status`` in ``rejected``,
+    ``exchange_rejected``, ``rejected_too_small``) never reached the
+    exchange and so never created a borrow — they have no claim on
+    the grace window. Counting them would mean a single exchange
+    rejection pauses borrow reconciliation for the full grace
+    window, and repeat rejections keep extending the pause; an
+    unrelated orphan borrow from an earlier run then sits stuck.
+
+    ``closed`` and ``orphaned`` rows DO stay inside the grace
+    window — they were live at the exchange (so a borrow may exist)
+    and the post-close repay verify may still be racing the read.
+
+    Bybit ErrCode 170131 trade-875 (2026-05-08, 12:58 UTC) is the
+    pinning case: the rejection landed in ``trades`` as
+    ``status='exchange_rejected'`` and would have stalled the borrow
+    reconciler for the next minute even though no borrow was
+    created.
+    """
+    if grace_seconds <= 0:
+        return False
+    try:
+        conn = db.connect()
+        try:
+            conn.row_factory = __import__("sqlite3").Row
+            row = conn.execute(
+                "SELECT created_at FROM trades "
+                "WHERE account_id=? AND COALESCE(is_backtest,0)=0 "
+                "  AND status NOT IN ("
+                "      'rejected', 'exchange_rejected', 'rejected_too_small'"
+                "  ) "
+                "ORDER BY id DESC LIMIT 1",
+                (account_id,),
+            ).fetchone()
+        finally:
+            conn.close()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "_account_has_recent_trade: read failed for %s: %s",
+            account_id, exc,
+        )
+        return False
+    if row is None:
+        return False
+    created = _parse_created_at(row["created_at"])
+    if created is None:
+        return False
+    return (now - created).total_seconds() < grace_seconds
+
+
+def _open_trades_for_account(db, account_id: str) -> List[Dict[str, Any]]:
+    """Return ``status='open'`` non-backtest trades for *account_id*.
+    Empty list on any read failure — best-effort.
+    """
+    try:
+        conn = db.connect()
+        try:
+            conn.row_factory = __import__("sqlite3").Row
+            rows = conn.execute(
+                "SELECT id, symbol, direction "
+                "FROM trades "
+                "WHERE account_id=? AND status='open' "
+                "  AND COALESCE(is_backtest,0)=0",
+                (account_id,),
+            ).fetchall()
+        finally:
+            conn.close()
+        return [dict(r) for r in rows]
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "_open_trades_for_account: read failed for %s: %s",
+            account_id, exc,
+        )
+        return []
+
+
+def _open_trade_backs_borrow(
+    open_trades: List[Dict[str, Any]],
+    *,
+    coin: str,
+) -> bool:
+    """Match shape mirrors ``_spot_margin_open_positions`` in
+    ``clients.py``: a USDT borrow is underwritten by ANY open long;
+    a non-USDT borrow is underwritten by an open short on
+    ``<coin>USDT``.
+    """
+    coin_u = (coin or "").upper()
+    if not coin_u:
+        return False
+    if coin_u == "USDT":
+        return any(
+            str(t.get("direction") or "").lower() == "long"
+            for t in open_trades
+        )
+    expected_symbol_prefix = coin_u
+    return any(
+        str(t.get("direction") or "").lower() == "short"
+        and str(t.get("symbol") or "").upper().startswith(expected_symbol_prefix)
+        for t in open_trades
+    )
+
+
+def _build_client_for_cfg(cfg: Dict[str, Any]):
+    """Return a Bybit client for *cfg*, or ``None`` when creds are
+    missing / the exchange isn't bybit. The borrow reconciler is
+    Bybit-only because UTA Spot Margin is a Bybit-specific surface.
+    """
+    if (cfg.get("exchange") or "").lower() != "bybit":
+        return None
+    try:
+        from src.units.accounts.clients import bybit_client_for
+        return bybit_client_for(cfg)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "_build_client_for_cfg(%s): %s", cfg.get("account_id"), exc,
+        )
+        return None
+
+
+def _emit_borrow_orphan_audit(
+    *,
+    account_id: str,
+    coin: str,
+    qty: float,
+    repay_outcome: Dict[str, Any],
+    reason: str,
+) -> None:
+    """Append a ``borrow_orphan_repaid`` row to
+    ``runtime_logs/signal_audit.jsonl``. Best-effort — never raises.
+    """
+    try:
+        from src.utils.signal_audit_logger import log_signal
+        log_signal({
+            "event": "outcome",
+            "action": "borrow_orphan_repaid",
+            "status": "ok" if repay_outcome.get("ok") else "failed",
+            "account_id": account_id,
+            "coin": coin,
+            "qty": qty,
+            "reason": reason,
+            "error": repay_outcome.get("error"),
+        })
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "_emit_borrow_orphan_audit: write failed for %s/%s: %s",
+            account_id, coin, exc,
+        )
+
+
+def _reconcile_orphan_borrows(db) -> Dict[str, int]:
+    """S-055 — sweep spot-margin accounts for outstanding borrows that
+    don't correspond to an open trade row, and force a repay.
+
+    Returns a summary
+    ``{checked, repaid, skipped_recent, skipped_no_creds,
+       skipped_holding_trade, errors}``. The outer
+    ``run_monitor_tick`` includes this in the per-tick log when
+    non-trivial.
+
+    No-op when ``MONITOR_RECONCILE_ENABLED`` is unset/false (same gate
+    as ``_reconcile_open_trades``). Best-effort end-to-end — each
+    step is wrapped so one bad account never aborts the whole sweep.
+    """
+    summary = {
+        "checked": 0,
+        "repaid": 0,
+        "skipped_recent": 0,
+        "skipped_no_creds": 0,
+        "skipped_holding_trade": 0,
+        "errors": 0,
+    }
+    if not _reconcile_enabled():
+        return summary
+
+    cfgs = _load_account_cfgs_for_reconcile()
+    if not cfgs:
+        return summary
+
+    grace_seconds = _grace_window_seconds()
+    now = datetime.now(timezone.utc)
+
+    # Lazy-import the execute helpers so that test harnesses with no
+    # pybit installed (CI containers etc.) don't pay the import cost
+    # when the reconciler is disabled. We read ``borrowAmount`` from
+    # the raw wallet response below instead of going via
+    # ``_fetch_spot_coin_balances`` — the reconciler walks every coin
+    # row, not just the ``BTCUSDT`` base/quote pair the helper
+    # synthesises.
+    from src.units.accounts.execute import (
+        _BORROW_REPAY_EPSILON,
+        _spot_margin_repay,
+    )
+
+    for aid, cfg in cfgs.items():
+        if not _is_spot_margin_cfg(cfg):
+            continue
+        if str(cfg.get("mode") or "live").lower() in {
+            "dry", "dry_run", "dry-run", "paper",
+        }:
+            continue
+
+        summary["checked"] += 1
+
+        client = _build_client_for_cfg(cfg)
+        if client is None:
+            summary["skipped_no_creds"] += 1
+            continue
+
+        # The bot trades a single base symbol per spot-margin account
+        # today (BTCUSDT on bybit_2). Reading the wallet via that
+        # symbol gives us the canonical (base, USDT) borrow primitives;
+        # ETH-side / SOL-side borrows surface in the per-coin loop
+        # below by walking the raw wallet response.
+        try:
+            resp = client.get_wallet_balance(accountType="UNIFIED") or {}
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "_reconcile_orphan_borrows: wallet read failed for %s: %s",
+                aid, exc,
+            )
+            summary["errors"] += 1
+            continue
+
+        coins = (
+            ((resp.get("result") or {}).get("list") or [{}])[0].get("coin", [])
+        )
+        # Pre-compute the per-account checks we'll need for every
+        # outstanding-borrow coin so the inner loop stays cheap.
+        recent = _account_has_recent_trade(
+            db, aid, grace_seconds=grace_seconds, now=now,
+        )
+        open_trades = _open_trades_for_account(db, aid)
+
+        for coin in coins:
+            ticker = (coin.get("coin") or "").upper()
+            if not ticker:
+                continue
+            try:
+                outstanding = float(coin.get("borrowAmount") or 0.0)
+            except (TypeError, ValueError):
+                continue
+            if outstanding <= _BORROW_REPAY_EPSILON:
+                continue
+
+            if recent:
+                summary["skipped_recent"] += 1
+                continue
+            if _open_trade_backs_borrow(open_trades, coin=ticker):
+                summary["skipped_holding_trade"] += 1
+                continue
+
+            # Orphan borrow → repay.
+            try:
+                repay_result = _spot_margin_repay(
+                    client, coin=ticker, qty=outstanding,
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "_reconcile_orphan_borrows: repay raised for %s/%s: %s",
+                    aid, ticker, exc,
+                )
+                summary["errors"] += 1
+                continue
+
+            if repay_result.get("ok"):
+                summary["repaid"] += 1
+                _emit_borrow_orphan_audit(
+                    account_id=aid,
+                    coin=ticker,
+                    qty=outstanding,
+                    repay_outcome=repay_result,
+                    reason=(
+                        "no DB-open trade backs this borrow + outside "
+                        "grace window"
+                    ),
+                )
+            else:
+                summary["errors"] += 1
+                _emit_borrow_orphan_audit(
+                    account_id=aid,
+                    coin=ticker,
+                    qty=outstanding,
+                    repay_outcome=repay_result,
+                    reason="repay attempt failed — will retry next tick",
+                )
+
+    if (
+        summary["repaid"]
+        or summary["errors"]
+        or summary["skipped_recent"]
+        or summary["skipped_holding_trade"]
+    ):
+        logger.info(
+            "_reconcile_orphan_borrows: checked=%d repaid=%d "
+            "skipped_recent=%d skipped_holding_trade=%d "
+            "skipped_no_creds=%d errors=%d",
+            summary["checked"], summary["repaid"],
+            summary["skipped_recent"], summary["skipped_holding_trade"],
+            summary["skipped_no_creds"], summary["errors"],
+        )
+    return summary
 
 
 def _extract_package_id(notes_raw: Optional[str]) -> Optional[str]:
@@ -1153,6 +1883,14 @@ def _mark_orphaned(db, row: Dict[str, Any]) -> None:
     (``orphaned_at`` / ``orphaned_by`` / ``orphaned_reason``) so an
     operator can grep / SQL on the same field for both manual and
     automated sweeps.
+
+    The package cascade is retried once (two attempts total) before
+    giving up. A final failure writes a sticky ``orphan_cascade_failed``
+    audit row via ``log_signal`` — without it the strategy-monocle gate
+    in ``pipeline.py::_has_open_package_for_strategy`` stays stuck open
+    and every future signal for the strategy is silently blocked.
+    The companion ``_sweep_stuck_linked_packages`` watchdog is the
+    second line of defence.
     """
     now = datetime.now(timezone.utc).isoformat()
     notes = _decode_notes(row.get("notes"))
@@ -1167,18 +1905,76 @@ def _mark_orphaned(db, row: Dict[str, Any]) -> None:
         "notes": json.dumps(notes, ensure_ascii=False)[:500],
     })
     pkg_id = _extract_package_id(row.get("notes"))
-    if pkg_id:
+    if not pkg_id:
+        return
+
+    last_exc: Optional[BaseException] = None
+    for attempt in (1, 2):
         try:
             db.update_order_package(pkg_id, {
                 "status": "closed",
                 "close_reason": "reconciler",
             })
+            last_exc = None
+            break
         except Exception as exc:  # noqa: BLE001
+            last_exc = exc
             logger.warning(
-                "_mark_orphaned: package cascade failed for pkg_id=%s "
-                "linked to trade_id=%s: %s",
-                pkg_id, row.get("id"), exc,
+                "_mark_orphaned: package cascade failed (attempt %d/2) "
+                "for pkg_id=%s linked to trade_id=%s: %s",
+                attempt, pkg_id, row.get("id"), exc,
             )
+
+    if last_exc is not None:
+        _emit_orphan_cascade_failed_audit(
+            pkg_id=pkg_id,
+            trade_id=row.get("id"),
+            account_id=row.get("account_id"),
+            symbol=row.get("symbol"),
+            direction=row.get("direction"),
+            error=str(last_exc),
+        )
+
+
+def _emit_orphan_cascade_failed_audit(
+    *,
+    pkg_id: str,
+    trade_id: Any,
+    account_id: Any,
+    symbol: Any,
+    direction: Any,
+    error: str,
+) -> None:
+    """Sticky audit row for a package cascade that failed twice.
+
+    Without this row the cascade loss is silent: the trade is marked
+    ``orphaned`` but the package row stays ``status='open'``, leaving
+    the strategy-monocle gate stuck and every future signal blocked
+    until manual intervention. Best-effort — never raises.
+    """
+    try:
+        from src.utils.signal_audit_logger import log_signal
+        log_signal({
+            "event": "outcome",
+            "action": "orphan_cascade_failed",
+            "status": "failed",
+            "order_package_id": pkg_id,
+            "db_trade_id": trade_id,
+            "account_id": account_id,
+            "symbol": symbol,
+            "direction": direction,
+            "reason": (
+                "package cascade failed twice — strategy gate may stay "
+                "stuck until _sweep_stuck_linked_packages or operator "
+                "clears it"
+            ),
+            "error": error,
+        })
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "_emit_orphan_cascade_failed_audit: write failed for pkg_id=%s: %s",
+            pkg_id, exc,
+        )
 
 
 def _decode_notes(notes_raw: Optional[str]) -> Dict[str, Any]:
@@ -1311,5 +2107,43 @@ def run_monitor_tick(
         _sweep_unlinked_packages(db)
     except Exception as exc:  # noqa: BLE001
         logger.warning("run_monitor_tick: unlinked-pkg sweep raised: %s", exc)
+
+    # Sweep order_packages that are status='open' AND linked to a trade
+    # that has already reached a terminal status (orphaned,
+    # exchange_rejected, closed, rejected, rejected_too_small). These
+    # are the cascade-leak rows that keep the strategy-monocle gate
+    # stuck and silently block every future signal for the strategy.
+    # Gated by MONITOR_RECONCILE_ENABLED (helper checks).
+    try:
+        _sweep_stuck_linked_packages(db)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("run_monitor_tick: stuck-linked-pkg sweep raised: %s", exc)
+
+    # Last line of defence: stuck-strategy watchdog. Catches packages
+    # the orphan reconciler + linked-package sweep both missed (e.g.
+    # the linked trade is genuinely status='open' but the strategy
+    # somehow can't progress). Force-clears the package + cascades
+    # the trade row + emits a high-priority operator alert.
+    # Gated by MONITOR_RECONCILE_ENABLED (helper checks).
+    try:
+        watchdog_summary = _watchdog_stuck_strategies(db)
+        if watchdog_summary.get("alerted") or watchdog_summary.get("errors"):
+            summaries["__stuck_strategy_watchdog__"] = watchdog_summary
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "run_monitor_tick: stuck-strategy watchdog raised: %s", exc,
+        )
+
+    # S-055: sweep spot-margin accounts for outstanding ``borrowAmount``
+    # that no DB-open trade backs (the operator-confirmed fail-safe for
+    # stale borrow lines from prior runs / partial fills / mid-config
+    # changes). Same MONITOR_RECONCILE_ENABLED gate as the open-trades
+    # reconciler. Best-effort — never raises.
+    try:
+        borrow_recon = _reconcile_orphan_borrows(db)
+        if borrow_recon.get("repaid") or borrow_recon.get("errors"):
+            summaries["__borrow_reconciler__"] = borrow_recon
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("run_monitor_tick: borrow reconciler raised: %s", exc)
 
     return summaries

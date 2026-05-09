@@ -88,6 +88,8 @@ def enqueue_orphan_reconciliation(
     db_trade_id: Any,
     linked_package_id: Optional[str],
     reason: str = "reconciler",
+    classification: Optional[str] = None,
+    classification_note: Optional[str] = None,
     priority: str = "high",
 ) -> Optional[Path]:
     """Drop a Telegram-ready JSON ping for a monitor-loop orphan match.
@@ -101,19 +103,30 @@ def enqueue_orphan_reconciliation(
     seeing the close, and the DB row has been re-tagged
     ``status='orphaned'`` with ``exit_reason='reconciler'``.
 
+    *classification* is an optional tag distinguishing "this trade
+    can ONLY have been closed by an external action" (spot-margin —
+    no exchange-side SL/TP path exists) from "could be either SL/TP
+    or operator close" (derivatives). Surfaced in the body so the
+    operator knows whether to investigate or just acknowledge.
+
     The body is operator-actionable (`/last5` will show the linked
     trade) and intentionally lean — no SDK exception payloads, no
     balance values, just identifiers.
     """
     try:
-        body = (
-            "🧹 Monitor reconciler — orphaned trade swept\n"
-            f"Account: {account}\n"
-            f"Symbol: {symbol} | Side: {side}\n"
-            f"DB trade id: {db_trade_id}\n"
-            f"Package: {linked_package_id or '(unlinked)'}\n"
-            f"Reason: {reason}"
-        )[:1024]
+        lines = [
+            "🧹 Monitor reconciler — orphaned trade swept",
+            f"Account: {account}",
+            f"Symbol: {symbol} | Side: {side}",
+            f"DB trade id: {db_trade_id}",
+            f"Package: {linked_package_id or '(unlinked)'}",
+            f"Reason: {reason}",
+        ]
+        if classification:
+            lines.append(f"Classification: {classification}")
+        if classification_note:
+            lines.append(f"Note: {classification_note}")
+        body = "\n".join(lines)[:1024]
         payload = {"priority": priority, "body": body}
         PENDING_PINGS_DIR.mkdir(parents=True, exist_ok=True)
         name = f"{int(uuid.uuid4().int % 10**12):012d}-reconciler.json"
@@ -128,6 +141,136 @@ def enqueue_orphan_reconciliation(
             "execution_diagnostics: orphan-ping enqueue failed for "
             "account=%s symbol=%s db_trade_id=%s: %s",
             account, symbol, db_trade_id, exc,
+        )
+        return None
+
+
+def enqueue_all_accounts_failed_dispatch(
+    *,
+    strategy: str,
+    symbol: str,
+    side: str,
+    results: list,
+    priority: str = "high",
+) -> Optional[Path]:
+    """Aggregate ping for "tried to dispatch this signal, NOTHING landed".
+
+    Background — when a strategy fires a signal and every account in
+    ``multi_account_execute`` errors (or is below balance / refused
+    by the risk gate), the operator sees N per-account pings. If the
+    bot is consistently in this state (e.g. after a Bybit ErrCode
+    170131 cascade — trade 875 / 876, 2026-05-08), the per-account
+    spam mixes with normal noise and the "trader is silent" signal
+    is missed.
+
+    This helper emits one high-priority roll-up after each fully-
+    failed dispatch round, summarising the failure reasons inline
+    so the operator can see at a glance whether it's a transient
+    creds issue, a market-wide rejection, or a balance-floor
+    exhaustion.
+
+    *results* is the list returned by ``multi_account_execute``.
+    Each entry has ``name``, ``error``, ``trade_id`` keys.
+
+    Returns the queued path on success, ``None`` on enqueue failure.
+    Never raises — the dispatch round already returned its results.
+    """
+    try:
+        if not results:
+            return None
+        attempted = len(results)
+        placed = sum(1 for r in results if r.get("trade_id") is not None)
+
+        # Summarise reasons with the account name. Cap to 5 lines so
+        # the body stays under Telegram's 4096-char limit even with
+        # very long SDK exception messages.
+        lines = []
+        for r in results[:5]:
+            name = str(r.get("name") or "?")
+            err = str(r.get("error") or "no_trade_placed")
+            # Trim long reason strings — operator will see the full
+            # detail in the per-account ping if needed.
+            err_short = err[:120] + ("…" if len(err) > 120 else "")
+            lines.append(f"  • {name}: {err_short}")
+        suppressed = attempted - len(lines)
+        if suppressed > 0:
+            lines.append(f"  • … and {suppressed} more")
+
+        body = (
+            "🚨 ALL accounts failed to dispatch\n"
+            f"Strategy: {strategy} | Symbol: {symbol} | Side: {side}\n"
+            f"Accounts attempted: {attempted} | Trades placed: {placed}\n"
+            "Failures:\n" + "\n".join(lines)
+        )[:1024]
+        payload = {"priority": priority, "body": body}
+        PENDING_PINGS_DIR.mkdir(parents=True, exist_ok=True)
+        name = f"{int(uuid.uuid4().int % 10**12):012d}-allfail.json"
+        path = PENDING_PINGS_DIR / name
+        tmp = path.with_suffix(".json.tmp")
+        with tmp.open("w", encoding="utf-8") as fh:
+            json.dump(payload, fh, ensure_ascii=False)
+        os.replace(tmp, path)
+        return path
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "execution_diagnostics: all-accounts-failed enqueue failed for "
+            "strategy=%s symbol=%s: %s",
+            strategy, symbol, exc,
+        )
+        return None
+
+
+def enqueue_stuck_strategy_alert(
+    *,
+    strategy: str,
+    symbol: str,
+    order_package_id: str,
+    db_trade_id: Any,
+    stuck_minutes: int,
+    auto_cleared: bool,
+    priority: str = "high",
+) -> Optional[Path]:
+    """High-priority watchdog ping when the strategy-monocle gate has
+    been blocked by a single package for too long.
+
+    This is the last line of defence after the orphan reconciler,
+    `_sweep_stuck_linked_packages`, and the strategy's own monitor()
+    loop have all had a chance to clear the package and didn't. By
+    the time this fires, something has gone meaningfully sideways —
+    the operator must investigate.
+
+    *auto_cleared* is True when the watchdog also force-closed the
+    package + cascaded the linked trade row in the same tick. False
+    when alerting was idempotency-only (the package was already
+    flagged on a previous tick).
+    """
+    try:
+        verb = "force-cleared" if auto_cleared else "still stuck"
+        body = (
+            "🚨 Stuck-strategy watchdog\n"
+            f"Strategy: {strategy} | Symbol: {symbol}\n"
+            f"Package: {order_package_id}\n"
+            f"DB trade id: {db_trade_id}\n"
+            f"Stuck for: {stuck_minutes} min\n"
+            f"Action: {verb}\n"
+            "Investigate: the orphan reconciler + stuck-linked sweep "
+            "did NOT catch this — possible exchange-side stale "
+            "position or reconciler skip path."
+        )[:1024]
+        payload = {"priority": priority, "body": body}
+        PENDING_PINGS_DIR.mkdir(parents=True, exist_ok=True)
+        name = f"{int(uuid.uuid4().int % 10**12):012d}-stuckstrat.json"
+        path = PENDING_PINGS_DIR / name
+        tmp = path.with_suffix(".json.tmp")
+        with tmp.open("w", encoding="utf-8") as fh:
+            json.dump(payload, fh, ensure_ascii=False)
+        os.replace(tmp, path)
+        return path
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "execution_diagnostics: stuck-strategy enqueue failed for "
+            "strategy=%s pkg=%s: %s",
+            strategy, order_package_id, exc,
         )
         return None
 

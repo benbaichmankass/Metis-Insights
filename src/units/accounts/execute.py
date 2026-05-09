@@ -22,7 +22,7 @@ from __future__ import annotations
 import logging
 import os
 import uuid
-from typing import Any, Optional
+from typing import Any, Dict, Optional
 
 from src.core.coordinator import OrderPackage, is_paused
 from src.units.accounts.precision import (
@@ -95,22 +95,22 @@ def _coin_free(coin_row: dict) -> float:
     return max(0.0, wallet - locked)
 
 
-def _coin_borrow_usd(coin_row: dict) -> float:
-    """USD-equivalent of a coin's *free* borrow capacity (UTA Spot Margin).
+def _coin_borrow_qty(coin_row: dict) -> float:
+    """Raw ``availableToBorrow`` qty for *coin_row* (no USD conversion).
 
-    Bybit V5 UTA wallet rows expose ``availableToBorrow`` per coin — the
-    remaining borrow line **at the exchange's tier**, which is the
-    primitive a leveraged spot order actually consumes against. We
-    convert that to USDT terms via the row's ``usdValue / walletBalance``
-    price ratio (the same conversion the rest of this module uses) so
-    the sizer can compare it directly against ``quote_usdt`` (already
-    in USDT).
+    Bybit V5 UTA wallet rows expose ``availableToBorrow`` per coin —
+    the remaining borrow line at the exchange's tier (e.g. 0.5 BTC for
+    Tier 1 BTC). Returns the parsed float, or 0.0 when the field is
+    missing/empty/non-positive/unparseable. Floors at 0.0 so a stray
+    negative value doesn't propagate.
 
-    Returns 0.0 when ``availableToBorrow`` is missing/empty/zero — that
-    matches a Classic-spot account, an account whose web-UI Spot Margin
-    toggle is OFF, or a coin not enabled for borrow. Best-effort: any
-    parse failure returns 0.0 so the sizer's behaviour falls back to
-    "free cash only", never larger than today.
+    S-054: split out from ``_coin_borrow_usd`` so callers that need a
+    USD value can multiply by an explicit price (e.g. the order's
+    ``pkg.entry``) instead of relying on the wallet row's
+    ``usdValue / walletBalance`` ratio — that ratio collapses to 0
+    whenever ``walletBalance == 0`` (a USDT-only wallet shorting BTC
+    is the canonical case), which silently zeroed out the SHORT-side
+    cap and let oversize orders trip Bybit ErrCode 170131.
     """
     raw = coin_row.get("availableToBorrow")
     if raw in (None, "", "null"):
@@ -119,6 +119,23 @@ def _coin_borrow_usd(coin_row: dict) -> float:
         borrow_qty = float(raw)
     except (TypeError, ValueError):
         return 0.0
+    return max(0.0, borrow_qty)
+
+
+def _coin_borrow_usd(coin_row: dict) -> float:
+    """USD-equivalent of a coin's *free* borrow capacity (UTA Spot Margin).
+
+    Best-effort USD conversion using the row's
+    ``usdValue / walletBalance`` price ratio. Returns 0.0 when the
+    conversion can't be done (USDT-only wallet shorting BTC: BTC row
+    has ``walletBalance == 0`` so no ratio is derivable). For shorts
+    on such wallets, callers should use ``_coin_borrow_qty`` and
+    multiply by the order's entry price — the coordinator does this
+    in the spot-margin SHORT branch (S-054). Kept as a helper for
+    long-side / USDT borrow sizing where ``walletBalance(USDT) > 0``
+    is the common case.
+    """
+    borrow_qty = _coin_borrow_qty(coin_row)
     if borrow_qty <= 0:
         return 0.0
     ticker = (coin_row.get("coin") or "").upper()
@@ -131,6 +148,33 @@ def _coin_borrow_usd(coin_row: dict) -> float:
     if wallet_total > 0 and usd_total > 0:
         return borrow_qty * (usd_total / wallet_total)
     return 0.0
+
+
+def _coin_borrowed_qty(coin_row: dict) -> float:
+    """S-055 — *outstanding* borrow qty for *coin_row*, in coin units.
+
+    Bybit V5 UTA wallet rows expose ``borrowAmount`` per coin — the
+    portion of the borrow line currently consumed (i.e., a debt the
+    account owes the exchange). This is distinct from
+    ``availableToBorrow`` (remaining capacity to borrow more) — the two
+    sum to the per-tier ceiling. Returns the parsed float or 0.0 when
+    the field is missing/empty/non-positive/unparseable. Floors at
+    0.0 so a stray negative value doesn't propagate.
+
+    Used by the borrow-orphan reconciler in
+    ``src/runtime/order_monitor.py`` and by the post-close repay
+    verify in ``close_open_position`` — both need to know "how much
+    of this coin does the account currently owe?". The same field
+    already drives the spot-margin reconciler's short-position
+    synthesis in ``clients.py::_spot_margin_open_positions``.
+    """
+    raw = coin_row.get("borrowAmount")
+    if raw in (None, "", "null"):
+        return 0.0
+    try:
+        return max(0.0, float(raw))
+    except (TypeError, ValueError):
+        return 0.0
 
 
 def _fetch_spot_coin_balances(client: Any, symbol: str) -> dict:
@@ -156,15 +200,38 @@ def _fetch_spot_coin_balances(client: Any, symbol: str) -> dict:
                              This is **collateral** for risk-of-ruin
                              math — what an account would actually lose
                              at liquidation.
+        ``base_borrow_qty``  — *raw* base-coin borrow capacity in coin
+                             units (e.g. BTC). 0.0 on cash spot or when
+                             the toggle is off. S-054: callers convert
+                             to USD via ``pkg.entry`` (works on
+                             USDT-only wallets, where the
+                             ``base_borrow_usd`` ratio conversion
+                             collapses to 0).
         ``base_borrow_usd``  — USD-equivalent of the base coin's free
                              borrow capacity (UTA Spot Margin). 0.0 on
-                             cash spot or when the toggle is off.
-                             Sells on spot-margin can be sized against
-                             ``base_usd_value + base_borrow_usd``.
+                             cash spot or when the toggle is off, AND
+                             0.0 on a USDT-only wallet (no
+                             ``walletBalance(BTC)`` to derive a price
+                             ratio from — use ``base_borrow_qty *
+                             pkg.entry`` instead). S-054 superseded this
+                             field for the SHORT-side notional cap.
         ``quote_borrow_usd`` — USDT borrow capacity (UTA Spot Margin).
                              0.0 on cash spot or when the toggle is off.
                              Buys on spot-margin can be sized against
-                             ``quote_usdt + quote_borrow_usd``.
+                             ``quote_usdt + quote_borrow_usd`` — USDT
+                             needs no price conversion so this is the
+                             same primitive as the raw qty.
+        ``base_borrowed_qty``  — *outstanding* base-coin borrow in coin
+                             units (S-055). Non-zero only when a
+                             spot-margin SHORT is open against this
+                             wallet. Used by the post-close repay
+                             verify and the orphan-borrow reconciler
+                             to detect "we owe BTC but no DB-open
+                             trade backs it" → call repay.
+        ``quote_borrowed_qty`` — *outstanding* USDT borrow in USDT
+                             (S-055). Non-zero only when a leveraged
+                             LONG is open. Same role as
+                             ``base_borrowed_qty`` for the long side.
         ``total_account_usd`` — Bybit ``totalEquity`` for the wallet:
                              free + locked across all coins, in USD,
                              excluding borrow capacity. Used by
@@ -175,8 +242,10 @@ def _fetch_spot_coin_balances(client: Any, symbol: str) -> dict:
                              the gate falls back to ``balance_usd`` —
                              same semantics as the pre-S-052 contract.
 
-    The two ``*_borrow_usd`` fields default to 0.0, so callers that
-    don't read them keep the pre-S-049 cash-only behaviour byte-for-byte.
+    The borrow-capacity (``*_borrow_qty`` / ``*_borrow_usd``) and
+    consumed-borrow (``*_borrowed_qty``) fields default to 0.0, so
+    callers that don't read them keep the pre-S-049 / pre-S-054 /
+    pre-S-055 cash-only behaviour byte-for-byte.
     ``total_account_usd`` defaults to None for the same reason.
     """
     base = _spot_base_coin(symbol)
@@ -185,8 +254,11 @@ def _fetch_spot_coin_balances(client: Any, symbol: str) -> dict:
         "base_qty": 0.0,
         "base_usd_value": 0.0,
         "quote_usdt": 0.0,
+        "base_borrow_qty": 0.0,
         "base_borrow_usd": 0.0,
         "quote_borrow_usd": 0.0,
+        "base_borrowed_qty": 0.0,
+        "quote_borrowed_qty": 0.0,
         "total_account_usd": None,
     }
     try:
@@ -219,10 +291,13 @@ def _fetch_spot_coin_balances(client: Any, symbol: str) -> dict:
                     result["base_usd_value"] = usd_total * (free / wallet_total)
                 else:
                     result["base_usd_value"] = 0.0
+                result["base_borrow_qty"] = _coin_borrow_qty(coin)
                 result["base_borrow_usd"] = _coin_borrow_usd(coin)
+                result["base_borrowed_qty"] = _coin_borrowed_qty(coin)
             elif ticker == "USDT":
                 result["quote_usdt"] = _coin_free(coin)
                 result["quote_borrow_usd"] = _coin_borrow_usd(coin)
+                result["quote_borrowed_qty"] = _coin_borrowed_qty(coin)
     except Exception as exc:  # noqa: BLE001
         logger.warning("_fetch_spot_coin_balances(%s): %s", symbol, exc)
     return result
@@ -247,6 +322,269 @@ _SPOT_SELL_SAFETY_BUFFER = 0.995
 # the buffer also scales the borrow-capacity component the sizer
 # consumes.
 _SPOT_BUY_SAFETY_BUFFER = 0.995
+
+# S-055: any borrow under this many coin-units is treated as already
+# repaid. Bybit's V5 wallet read frequently returns borrowAmount values
+# like 0.00000017 BTC after auto-repay has effectively settled the
+# liability — repaying 1.7e-7 fails with retCode 170213 ("repay qty
+# below precision") and noisy alerts ensue. The threshold is per-coin:
+# 1e-6 covers BTC (8-decimal precision is the exchange contract; one
+# satoshi at $80k is ~$0.0008) and is well under the lot-step we
+# trade in. USDT precision is 2 decimals, so the same threshold is
+# safely below "anything we owe" for the quote side too.
+_BORROW_REPAY_EPSILON = 1e-6
+
+
+def _spot_margin_repay(
+    client: Any,
+    *,
+    coin: str,
+    qty: Optional[float] = None,
+) -> dict:
+    """Repay an outstanding spot-margin borrow for *coin* (S-055).
+
+    Wraps Bybit's V5 ``/v5/account/repay`` endpoint via pybit's
+    ``HTTP.repay``. The endpoint is the UTA spot-margin manual
+    repay surface — passing ``coin`` + ``qty`` (in coin units)
+    settles that much of the named borrow line. Bybit also exposes a
+    "repay all" form (``qty`` omitted), which we forward when the
+    caller passes ``qty=None``.
+
+    Best-effort by design: any failure (network error, non-zero
+    retCode, missing client) is swallowed into a ``logger.warning``
+    and returned as ``{"ok": False, ...}``. The caller (post-close
+    verify + standalone reconciler) is a fail-safe — a transient repay
+    failure must NEVER crash the trader. The next reconciler tick
+    re-attempts.
+
+    Note on endpoint choice: the prompt referenced
+    ``/v5/spot-margin-trade/repay``; the canonical UTA Spot Margin
+    repay path is ``/v5/account/repay`` (pybit's ``HTTP.repay``). The
+    legacy ``/v5/spot-cross-margin-trade/repay`` is for **non-UTA**
+    accounts and would 401 on a UNIFIED wallet. We're UNIFIED on
+    every Bybit account in the bot, so ``HTTP.repay`` is the right
+    surface.
+
+    Returns
+    -------
+    dict
+        ``{"ok": bool, "exchange_response": <raw>, "error": <str|None>}``.
+        Same shape as ``close_open_position`` so callers can
+        interrogate the result uniformly.
+    """
+    if client is None:
+        return {"ok": False, "exchange_response": None,
+                "error": "no exchange_client (missing creds?)"}
+    coin_ticker = (coin or "").upper().strip()
+    if not coin_ticker:
+        return {"ok": False, "exchange_response": None,
+                "error": "coin ticker is empty"}
+    kwargs: Dict[str, Any] = {"coin": coin_ticker}
+    if qty is not None:
+        try:
+            qty_f = float(qty)
+        except (TypeError, ValueError):
+            return {"ok": False, "exchange_response": None,
+                    "error": f"qty {qty!r} is not numeric"}
+        if qty_f <= 0:
+            return {"ok": False, "exchange_response": None,
+                    "error": f"qty {qty_f} must be > 0"}
+        # Bybit takes qty as a string for repay (matches place_order).
+        kwargs["qty"] = str(qty_f)
+    try:
+        resp = client.repay(**kwargs) or {}
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "_spot_margin_repay: bybit raised for coin=%s qty=%s: %s",
+            coin_ticker, qty, exc,
+        )
+        return {"ok": False, "exchange_response": None,
+                "error": f"{type(exc).__name__}: {exc}"}
+    ret_code = resp.get("retCode")
+    if ret_code in (0, "0", None):
+        logger.info(
+            "_spot_margin_repay: repaid coin=%s qty=%s (retCode=%s)",
+            coin_ticker, kwargs.get("qty", "all"), ret_code,
+        )
+        return {"ok": True, "exchange_response": resp, "error": None}
+    err = str(resp.get("retMsg") or f"retCode={ret_code}")
+    logger.warning(
+        "_spot_margin_repay: bybit retCode=%s for coin=%s qty=%s — %s",
+        ret_code, coin_ticker, qty, err,
+    )
+    return {"ok": False, "exchange_response": resp, "error": err}
+
+
+def _post_close_repay(
+    client: Any,
+    account_cfg: Dict[str, Any],
+    *,
+    symbol: str,
+    side: str,
+) -> Optional[Dict[str, Any]]:
+    """Verify + force-repay outstanding borrow after a successful close.
+
+    *side* is the original entry direction (``"long"``/``"short"``).
+    Spot-margin wires:
+
+      - Closing a SHORT (entry was Sell with isLeverage=1) repays the
+        base-coin borrow line (e.g. BTC). After Bybit's auto-repay
+        completes ``borrowAmount(BTC)`` should be ~0.
+      - Closing a LONG (entry was leveraged Buy with isLeverage=1)
+        repays the USDT borrow line.
+
+    Field reality, S-055: bybit_2 left ``borrowAmount(BTC) > 0`` even
+    when ``trade_journal.db`` showed no open trade — Bybit's
+    auto-repay didn't always clear the line, especially mid-config-
+    change or across process restarts. This helper is the verify-then-
+    force-repay leg of the fail-safe (the orphan-borrow reconciler is
+    the periodic catch-up).
+
+    Returns
+    -------
+    Optional[dict]
+        ``None`` when the account isn't spot-margin or no borrow is
+        outstanding (the common, no-op path).
+        ``{"ok", "coin", "qty", "exchange_response", "error"}`` when
+        a repay was attempted. Best-effort — never raises.
+    """
+    if client is None:
+        return None
+    if not _is_spot_margin(account_cfg):
+        return None
+    direction = (side or "").lower()
+    if direction not in {"long", "short"}:
+        return None
+    try:
+        spot = _fetch_spot_coin_balances(client, symbol)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "_post_close_repay: wallet refetch failed for %s: %s",
+            symbol, exc,
+        )
+        return None
+    if direction == "short":
+        coin = spot.get("base_coin") or _spot_base_coin(symbol)
+        outstanding = float(spot.get("base_borrowed_qty") or 0.0)
+    else:
+        coin = "USDT"
+        outstanding = float(spot.get("quote_borrowed_qty") or 0.0)
+    if outstanding <= _BORROW_REPAY_EPSILON:
+        return None
+    logger.info(
+        "_post_close_repay: account=%s symbol=%s side=%s — outstanding "
+        "%s borrow %s > epsilon %s, calling repay.",
+        account_cfg.get("account_id"), symbol, direction,
+        coin, outstanding, _BORROW_REPAY_EPSILON,
+    )
+    repay_result = _spot_margin_repay(client, coin=coin, qty=outstanding)
+    return {
+        "ok": bool(repay_result.get("ok")),
+        "coin": coin,
+        "qty": outstanding,
+        "exchange_response": repay_result.get("exchange_response"),
+        "error": repay_result.get("error"),
+    }
+
+
+# Threshold below which a residual base-coin walletBalance is treated
+# as flat. Same precision rationale as ``_BORROW_REPAY_EPSILON``: BTC's
+# 8-decimal lot step at $80k is ~$0.0008 per satoshi, well under any
+# trade size we'd actually re-route. USDT is 2-decimal so the same
+# threshold is also safely below the dust line for the quote side.
+_FLAT_INVARIANT_EPSILON = 1e-6
+
+
+def _post_close_flat_check(
+    client: Any,
+    account_cfg: Dict[str, Any],
+    *,
+    symbol: str,
+    side: str,
+) -> Optional[Dict[str, Any]]:
+    """Verify the flat-USDT invariant after a successful close.
+
+    Idle-state invariant for spot accounts (operator confirmed
+    2026-05-08): 100 % USDT, 0 base coin, 0 borrows. ``_post_close_repay``
+    handles the borrow leg; this helper handles the **base-coin
+    walletBalance** leg — partial fills, qty-rounding leftovers, and
+    "long forgot to fully sell back" scenarios all leave a stale base
+    coin balance that the borrow-orphan reconciler can't see.
+
+    When detected, the helper emits a sticky ``post_close_not_flat``
+    audit row via ``signal_audit_logger.log_signal`` so the operator
+    can grep ``runtime_logs/signal_audit.jsonl`` rather than
+    discovering the leak hours later when the next signal misbehaves.
+    Detection only — no auto-flatten, since a follow-up market sell
+    could race manual operator action.
+
+    Returns ``None`` when the account isn't a spot/spot-margin Bybit
+    account or when the wallet refetch fails (best-effort — never
+    raises). Returns ``{"flat", "coin", "residual_qty",
+    "epsilon"}`` otherwise.
+    """
+    if client is None:
+        return None
+    exchange = (account_cfg.get("exchange") or "bybit").lower()
+    if exchange != "bybit":
+        return None
+    # Derivatives accounts close via reduceOnly — there's no walletBalance
+    # flow to verify. Only spot + spot-margin care about this invariant.
+    category = _bybit_category(account_cfg)
+    if category != "spot":
+        return None
+
+    try:
+        spot = _fetch_spot_coin_balances(client, symbol)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "_post_close_flat_check: wallet refetch failed for %s: %s",
+            symbol, exc,
+        )
+        return None
+
+    coin = spot.get("base_coin") or _spot_base_coin(symbol)
+    residual = float(spot.get("base_qty") or 0.0)
+    flat = residual <= _FLAT_INVARIANT_EPSILON
+
+    if not flat:
+        logger.warning(
+            "_post_close_flat_check: account=%s symbol=%s side=%s — "
+            "residual %s walletBalance=%s > epsilon %s; emitting "
+            "post_close_not_flat audit row.",
+            account_cfg.get("account_id"), symbol, side,
+            coin, residual, _FLAT_INVARIANT_EPSILON,
+        )
+        try:
+            from src.utils.signal_audit_logger import log_signal
+            log_signal({
+                "event": "outcome",
+                "action": "post_close_not_flat",
+                "status": "warn",
+                "account_id": account_cfg.get("account_id"),
+                "symbol": symbol,
+                "side": side,
+                "coin": coin,
+                "residual_qty": residual,
+                "epsilon": _FLAT_INVARIANT_EPSILON,
+                "reason": (
+                    "post-close base-coin walletBalance > epsilon — "
+                    "flat-USDT invariant violated; partial fill or "
+                    "qty-rounding leftover suspected"
+                ),
+            })
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "_post_close_flat_check: audit write failed for %s/%s: %s",
+                account_cfg.get("account_id"), symbol, exc,
+            )
+
+    return {
+        "flat": flat,
+        "coin": coin,
+        "residual_qty": residual,
+        "epsilon": _FLAT_INVARIANT_EPSILON,
+    }
 
 
 def _bybit_category(account_cfg: dict) -> str:
@@ -1075,6 +1413,17 @@ def close_open_position(
     the close order is the opposite side. *qty* is the position size
     to close (typically the size of the original entry).
 
+    S-055: on a spot-margin account, after a successful close we
+    refetch the wallet and verify ``borrowAmount(closed-side coin)``
+    has cleared. If a residual borrow > ``_BORROW_REPAY_EPSILON``
+    remains (Bybit auto-repay didn't fully settle, partial fill, etc),
+    we call ``_spot_margin_repay`` as a fail-safe. The repay verify
+    is best-effort — its outcome is added to the returned dict under
+    ``repay`` but never overrides the close's ``ok`` status (a close
+    that filled at the exchange but had a stuck borrow is still a
+    valid close; the standalone reconciler will re-attempt the
+    repay on the next sweep).
+
     Bybit-only for v1. Returns a result dict.
     """
     if exchange_client is None:
@@ -1123,8 +1472,44 @@ def close_open_position(
                     account_cfg.get("account_id"), symbol, close_side, qty,
                     order_id,
                 )
+                # S-055 fail-safe: verify the borrow line cleared and
+                # force-repay any residual. Best-effort — wrapped so a
+                # transient repay failure can't unwind the close itself.
+                repay_outcome: Optional[Dict[str, Any]] = None
+                try:
+                    repay_outcome = _post_close_repay(
+                        exchange_client, account_cfg,
+                        symbol=symbol, side=direction,
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning(
+                        "close_open_position: post-close repay verify "
+                        "raised for account=%s symbol=%s: %s",
+                        account_cfg.get("account_id"), symbol, exc,
+                    )
+                # Flat-USDT invariant verify: after the close + repay,
+                # the spot wallet should be back to ~0 base coin (long
+                # sold its BTC back; short closed and Bybit auto-repay
+                # cleared the BTC borrow + bought back any rounding
+                # leftover). Detection-only — emits an audit row when
+                # non-flat so the operator sees the leak instead of
+                # discovering it on the next signal.
+                flat_outcome: Optional[Dict[str, Any]] = None
+                try:
+                    flat_outcome = _post_close_flat_check(
+                        exchange_client, account_cfg,
+                        symbol=symbol, side=direction,
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning(
+                        "close_open_position: post-close flat-check "
+                        "raised for account=%s symbol=%s: %s",
+                        account_cfg.get("account_id"), symbol, exc,
+                    )
                 return {"ok": True, "exchange_response": resp,
-                        "exchange_order_id": order_id, "error": None}
+                        "exchange_order_id": order_id, "error": None,
+                        "repay": repay_outcome,
+                        "flat_check": flat_outcome}
             err = str(resp.get("retMsg") or f"retCode={ret_code}")
             return {"ok": False, "exchange_response": resp,
                     "exchange_order_id": None, "error": err}
