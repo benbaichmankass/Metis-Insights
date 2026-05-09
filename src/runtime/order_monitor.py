@@ -1908,6 +1908,246 @@ def _reconcile_orphan_borrows(db) -> Dict[str, int]:
     return summary
 
 
+# ---------------------------------------------------------------------------
+# Orphan-position reconciler — S-060 fail-safe
+# ---------------------------------------------------------------------------
+#
+# S-055 catches the borrow leg of an orphaned trade. S-060 catches the
+# **position leg** — non-USDT coin balances on a spot-margin account
+# that no DB-open trade backs. The canonical scenario (verified live
+# 2026-05-09): the stuck-strategy watchdog force-clears a vwap LONG
+# package after 30 min, the linked trade row goes to ``orphaned``,
+# but the BTC the leveraged buy purchased stays in the wallet
+# forever — capital sunk into stranded inventory.
+#
+# Without this reconciler each orphaned LONG permanently drains
+# ~position_size × entry of USDT into stranded base coin, every cycle.
+# Operator directive (2026-05-09): "it should do its best to always
+# convert everything up to USDT, but that doesn't need to be a blocker
+# for placing a trade."  S-058 covered the second half (residue isn't
+# a dispatch blocker); S-060 covers the first.
+#
+# Same gating as S-055 (``MONITOR_RECONCILE_ENABLED``) and same
+# best-effort shape. Bybit-only for v1 — UTA Spot Margin is the only
+# wallet API we have a sell primitive for.
+
+
+def _open_trade_backs_position(
+    open_trades: List[Dict[str, Any]],
+    *,
+    coin: str,
+) -> bool:
+    """Match shape mirrors ``_spot_margin_open_positions`` in
+    ``clients.py`` (long-side branch): a non-USDT
+    ``walletBalance > 0`` for ``<COIN>`` is underwritten by an open
+    long on ``<COIN>USDT``. The orphan-position reconciler skips any
+    coin where such a backing trade is present so it never
+    liquidates an active vwap long mid-flight.
+    """
+    coin_u = (coin or "").upper()
+    if not coin_u or coin_u == "USDT":
+        return False
+    expected_symbol_prefix = coin_u
+    return any(
+        str(t.get("direction") or "").lower() == "long"
+        and str(t.get("symbol") or "").upper().startswith(expected_symbol_prefix)
+        for t in open_trades
+    )
+
+
+def _emit_position_orphan_audit(
+    *,
+    account_id: str,
+    coin: str,
+    symbol: str,
+    qty: float,
+    sell_outcome: Dict[str, Any],
+    reason: str,
+) -> None:
+    """Append a ``position_orphan_liquidated`` row to
+    ``runtime_logs/signal_audit.jsonl``. Best-effort — never raises.
+    """
+    try:
+        from src.utils.signal_audit_logger import log_signal
+        log_signal({
+            "event": "outcome",
+            "action": "position_orphan_liquidated",
+            "status": "ok" if sell_outcome.get("ok") else "failed",
+            "account_id": account_id,
+            "coin": coin,
+            "symbol": symbol,
+            "qty": qty,
+            "reason": reason,
+            "error": sell_outcome.get("error"),
+        })
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "_emit_position_orphan_audit: write failed for %s/%s: %s",
+            account_id, coin, exc,
+        )
+
+
+def _reconcile_orphan_positions(db) -> Dict[str, int]:
+    """S-060 — sweep spot-margin accounts for non-USDT coin
+    balances that don't correspond to an open trade row, and force a
+    market sell back to USDT.
+
+    Companion to S-055's ``_reconcile_orphan_borrows``: borrows are
+    the short leg, base-coin balances are the long leg. Both can
+    drift when the stuck-strategy watchdog (or any other path)
+    force-clears a trade leaving the exchange-side leg open.
+
+    Returns a summary
+    ``{checked, sold, skipped_recent, skipped_no_creds,
+       skipped_holding_trade, errors}``. The outer
+    ``run_monitor_tick`` includes this in the per-tick log when
+    non-trivial.
+
+    No-op when ``MONITOR_RECONCILE_ENABLED`` is unset/false (same
+    gate as ``_reconcile_open_trades``). Best-effort end-to-end —
+    each step is wrapped so one bad account never aborts the whole
+    sweep.
+    """
+    summary = {
+        "checked": 0,
+        "sold": 0,
+        "skipped_recent": 0,
+        "skipped_no_creds": 0,
+        "skipped_holding_trade": 0,
+        "errors": 0,
+    }
+    if not _reconcile_enabled():
+        return summary
+
+    cfgs = _load_account_cfgs_for_reconcile()
+    if not cfgs:
+        return summary
+
+    grace_seconds = _grace_window_seconds()
+    now = datetime.now(timezone.utc)
+
+    # Lazy-import the close primitive so test harnesses without pybit
+    # don't pay the import cost when the reconciler is disabled.
+    # ``close_open_position`` already routes through Spot Margin
+    # (``isLeverage=1``) when the account cfg says so, so the sell
+    # also settles any matching USDT borrow alongside the position
+    # sale.
+    from src.units.accounts.execute import (
+        _BORROW_REPAY_EPSILON,
+        close_open_position,
+    )
+
+    for aid, cfg in cfgs.items():
+        if not _is_spot_margin_cfg(cfg):
+            continue
+        if str(cfg.get("mode") or "live").lower() in {
+            "dry", "dry_run", "dry-run", "paper",
+        }:
+            continue
+
+        summary["checked"] += 1
+
+        client = _build_client_for_cfg(cfg)
+        if client is None:
+            summary["skipped_no_creds"] += 1
+            continue
+
+        try:
+            resp = client.get_wallet_balance(accountType="UNIFIED") or {}
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "_reconcile_orphan_positions: wallet read failed for %s: %s",
+                aid, exc,
+            )
+            summary["errors"] += 1
+            continue
+
+        coins = (
+            ((resp.get("result") or {}).get("list") or [{}])[0].get("coin", [])
+        )
+        # Pre-compute the per-account checks we'll need for every
+        # coin row so the inner loop stays cheap.
+        recent = _account_has_recent_trade(
+            db, aid, grace_seconds=grace_seconds, now=now,
+        )
+        open_trades = _open_trades_for_account(db, aid)
+
+        for coin in coins:
+            ticker = (coin.get("coin") or "").upper()
+            if not ticker or ticker == "USDT":
+                # USDT is the quote coin — never an orphan position.
+                continue
+            try:
+                balance = float(coin.get("walletBalance") or 0.0)
+            except (TypeError, ValueError):
+                continue
+            if balance <= _BORROW_REPAY_EPSILON:
+                continue
+
+            if recent:
+                summary["skipped_recent"] += 1
+                continue
+            if _open_trade_backs_position(open_trades, coin=ticker):
+                summary["skipped_holding_trade"] += 1
+                continue
+
+            # Orphan position → market sell back to USDT. The symbol
+            # is the canonical ``<COIN>USDT`` pair the bot trades.
+            symbol = f"{ticker}USDT"
+            try:
+                sell_result = close_open_position(
+                    client, cfg,
+                    symbol=symbol, side="long", qty=balance,
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "_reconcile_orphan_positions: sell raised for %s/%s: %s",
+                    aid, ticker, exc,
+                )
+                summary["errors"] += 1
+                continue
+
+            if sell_result.get("ok"):
+                summary["sold"] += 1
+                _emit_position_orphan_audit(
+                    account_id=aid,
+                    coin=ticker,
+                    symbol=symbol,
+                    qty=balance,
+                    sell_outcome=sell_result,
+                    reason=(
+                        "no DB-open long backs this base-coin balance "
+                        "+ outside grace window"
+                    ),
+                )
+            else:
+                summary["errors"] += 1
+                _emit_position_orphan_audit(
+                    account_id=aid,
+                    coin=ticker,
+                    symbol=symbol,
+                    qty=balance,
+                    sell_outcome=sell_result,
+                    reason="sell attempt failed — will retry next tick",
+                )
+
+    if (
+        summary["sold"]
+        or summary["errors"]
+        or summary["skipped_recent"]
+        or summary["skipped_holding_trade"]
+    ):
+        logger.info(
+            "_reconcile_orphan_positions: checked=%d sold=%d "
+            "skipped_recent=%d skipped_holding_trade=%d "
+            "skipped_no_creds=%d errors=%d",
+            summary["checked"], summary["sold"],
+            summary["skipped_recent"], summary["skipped_holding_trade"],
+            summary["skipped_no_creds"], summary["errors"],
+        )
+    return summary
+
+
 def _extract_package_id(notes_raw: Optional[str]) -> Optional[str]:
     """Pull ``order_package_id`` out of the trades.notes JSON blob if
     present. Best-effort — returns None on any decode failure."""
@@ -2273,5 +2513,18 @@ def run_monitor_tick(
             summaries["__borrow_reconciler__"] = borrow_recon
     except Exception as exc:  # noqa: BLE001
         logger.warning("run_monitor_tick: borrow reconciler raised: %s", exc)
+
+    # S-060: companion of S-055 for the position leg — sweep
+    # spot-margin accounts for non-USDT coin balances that no DB-open
+    # long backs (e.g. BTC stranded by the stuck-strategy watchdog
+    # force-clearing a vwap long after 30 min). Sells the residue
+    # back to USDT so capital doesn't accumulate in stranded
+    # inventory. Same MONITOR_RECONCILE_ENABLED gate as the rest.
+    try:
+        position_recon = _reconcile_orphan_positions(db)
+        if position_recon.get("sold") or position_recon.get("errors"):
+            summaries["__position_reconciler__"] = position_recon
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("run_monitor_tick: position reconciler raised: %s", exc)
 
     return summaries
