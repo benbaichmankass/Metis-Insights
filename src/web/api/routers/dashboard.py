@@ -250,9 +250,15 @@ async def get_signals() -> list[dict[str, Any]]:
         confidence = e.get("confidence")
         if confidence is None:
             confidence = e.get("score")
+        # The pipeline writes the entry price under any of three field
+        # names depending on the call site (src/runtime/pipeline.py:218,
+        # :524, :1142). Cover all three so the dashboard never sees a
+        # spurious None just because the writer chose a different alias.
         price = e.get("price")
         if price is None:
             price = e.get("entry_price")
+        if price is None:
+            price = e.get("entry")
         out.append(
             {
                 "id": e.get("id", str(uuid.uuid4())),
