@@ -76,6 +76,21 @@ def _report_pipeline_outcome(result: Dict[str, Any], signal: Dict[str, Any]) -> 
 logger = logging.getLogger(__name__)
 
 
+def _publish_liquidity_state(symbol: str, candles_df: Any) -> None:
+    """S-064 prereq: persist per-symbol liquidity zones to runtime_logs.
+
+    Best-effort hook called from each signal builder right after
+    ``fetch_candles``. The web API consumes the resulting JSON via
+    ``GET /api/bot/liquidity``. Never raises into the tick loop —
+    ``write_state`` swallows + logs.
+    """
+    try:
+        from src.runtime.liquidity_state import write_state
+        write_state(symbol, candles_df)
+    except Exception:
+        logger.exception("liquidity state publish failed for symbol=%s", symbol)
+
+
 def default_signal_builder(settings: dict) -> Dict[str, Any]:
     return {
         "symbol": settings.get("SYMBOL", settings.get("symbol", "BTCUSDT")),
@@ -421,6 +436,8 @@ def turtle_soup_signal_builder(settings: dict) -> Dict[str, Any]:
             "Check that the exchange connection is configured and the symbol is valid."
         )
 
+    _publish_liquidity_state(symbol, candles_df)
+
     cfg: Dict[str, Any] = {"symbol": symbol, "timeframe": timeframe}
     # Merge per-strategy params from config/strategies.yaml when available.
     try:
@@ -585,6 +602,8 @@ def vwap_signal_builder(settings: dict) -> Dict[str, Any]:
             f"VWAP strategy: candle data for symbol={symbol} timeframe={timeframe} "
             "contains all-NaN columns after parsing. Data may be malformed."
         )
+
+    _publish_liquidity_state(symbol, candles_df)
 
     logger.info(
         "VWAP signal builder: symbol=%s timeframe=%s candles=%d",
