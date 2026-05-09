@@ -127,7 +127,7 @@ fi
 # revision and the timer happens not to advance HEAD on its next tick,
 # the running Python processes will hold the previous in-memory copy
 # until the next deploy. That is a rare path and is handled by a manual
-# `sudo systemctl restart ict-trader-live ict-telegram-bot`.
+# `sudo systemctl restart ict-trader-live ict-telegram-bot ict-web-api`.
 #
 # Defense in depth: even when HEAD advances, skip the restart if any
 # claude-vm-runner@*.service unit is currently active — the next
@@ -167,6 +167,16 @@ fi
 echo ">>> Restarting services..."
 "${SYSTEMCTL[@]}" restart ict-trader-live.service
 "${SYSTEMCTL[@]}" restart ict-telegram-bot.service
+# ict-web-api.service serves /api/* (dashboard + diag). Without this
+# restart, FastAPI route changes (new endpoint, schema fix, response
+# shape) only land in production when the operator manually triggers
+# vm-web-api-recover.yml — which is how the 2026-05-09 24+h-stale-code
+# incident happened (web-api running since 2026-05-08 17:16 missed
+# every restart in this script). Same "only if installed" pattern as
+# ict-claude-bridge below so dev hosts without the unit stay quiet.
+if [ -f /etc/systemd/system/ict-web-api.service ]; then
+    "${SYSTEMCTL[@]}" restart ict-web-api.service
+fi
 # ict-claude-bridge.service is the Anthropic-API relay bot
 # (@claude_ict_comms_bot) — restart only if installed so dev hosts that
 # don't run it stay quiet.
@@ -199,5 +209,8 @@ fi
 echo ">>> Service status:"
 "${SYSTEMCTL[@]}" status ict-trader-live.service --no-pager
 "${SYSTEMCTL[@]}" status ict-telegram-bot.service --no-pager
+if [ -f /etc/systemd/system/ict-web-api.service ]; then
+    "${SYSTEMCTL[@]}" status ict-web-api.service --no-pager
+fi
 
 echo "===== DEPLOY COMPLETE: $(date) ====="
