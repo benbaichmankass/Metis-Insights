@@ -143,8 +143,29 @@ def _build_monitor_ohlcv_fetcher(settings: dict):
         logger.warning("monitor: ohlcv exchange init failed (%s)", exc)
         return None
 
-    def _fetch(symbol, timeframe):
-        if not symbol or not timeframe:
+    # Per-strategy default timeframes — fallback when a package's meta
+    # JSON lacks ``timeframe``. Pre-2026-05-09 every package row was
+    # written without the key, so the closure would short-circuit to
+    # ``None`` and ``monitor()`` never received candles. Loading the
+    # map here once per fetcher build keeps the hot path cheap.
+    # Best-effort: a config-load failure leaves the map empty, which
+    # means falsy-timeframe packages still short-circuit (no regression
+    # vs the prior contract).
+    try:
+        from src.units.strategies import load_strategy_config
+        _per_strategy_tf = {
+            name: (cfg or {}).get("timeframe")
+            for name, cfg in (load_strategy_config() or {}).items()
+        }
+    except Exception:  # noqa: BLE001
+        _per_strategy_tf = {}
+
+    def _fetch(symbol, timeframe, strategy_name=None):
+        if not symbol:
+            return None
+        if not timeframe and strategy_name:
+            timeframe = _per_strategy_tf.get(strategy_name)
+        if not timeframe:
             return None
         return fetch_candles(
             symbol, timeframe,
