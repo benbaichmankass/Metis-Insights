@@ -236,6 +236,35 @@ def test_positions_normalises_side(
     assert resp.json()[0]["side"] == expected_side
 
 
+@pytest.mark.parametrize(
+    "writer_field",
+    ["price", "entry_price", "entry"],
+)
+def test_signals_price_fallback_chain(
+    client: TestClient, isolate_paths: Path, writer_field: str
+) -> None:
+    """The pipeline writes the entry price under different field names
+    depending on the call site (src/runtime/pipeline.py:218, :524, :1142).
+    The /signals reader must surface the price regardless of which alias
+    the writer chose. Regression for the bug originally flagged in #627."""
+    audit = isolate_paths / "signal_audit.jsonl"
+    row = {
+        "event": "pipeline_result",
+        "ts": "2026-05-09T10:00:00Z",
+        "symbol": "BTCUSDT",
+        "side": "buy",
+        "signal_type": "fvg_bullish",
+        "confidence": 0.82,
+        writer_field: 80000.0,
+    }
+    audit.write_text(json.dumps(row) + "\n", encoding="utf-8")
+    resp = client.get("/api/bot/signals")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert len(body) == 1
+    assert body[0]["price"] == 80000.0
+
+
 def test_positions_excludes_closed_and_backtest_trades(
     client: TestClient, isolate_paths: Path
 ) -> None:
