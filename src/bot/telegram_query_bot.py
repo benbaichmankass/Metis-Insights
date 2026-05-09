@@ -1745,9 +1745,14 @@ async def cmd_test_strategy(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Queue a strategy-backtest request. Usage: ``/test <strategy>``.
 
     Writes ``comms/requests/REQ-…-ts<strategy>.json`` for the M5
-    backtest workflow to consume. M5 writes the results back via the
-    existing comms ``apply_answer`` writeback path; the consumer side
-    is out of scope for P1-D (separate M5 sprint).
+    backtest consumer (``src.bot.test_strategy_consumer``) to pick up
+    on the next poll cycle. The consumer runs the backtest, writes a
+    formatted summary back via ``apply_answer``, and persists a row
+    to ``runtime_logs/validation.jsonl``.
+
+    The strategy name is validated against ``config/strategies.yaml``
+    at dispatch time so a typo (``/test vwapp``) gets rejected
+    immediately rather than after a full poll cycle.
     """
     if not is_authorised(update):
         return
@@ -1762,6 +1767,24 @@ async def cmd_test_strategy(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     from src.comms.models import CommsValidationError
     from src.comms.templates import make_test_strategy_request
+    from src.strategy_registry import load_strategies
+    try:
+        registered = {s["name"] for s in load_strategies()}
+    except Exception as exc:  # noqa: BLE001
+        # Registry read failure must not silently accept any string.
+        logger.error("cmd_test_strategy: registry read failed: %s", exc)
+        await update.message.reply_text(
+            f"⚠️ Could not read strategy registry: {exc}"
+        )
+        return
+    if strategy not in registered:
+        roster = ", ".join(sorted(registered)) or "(none registered)"
+        await update.message.reply_text(
+            f"⚠️ Unknown strategy `{strategy}`. Registered: {roster}",
+            parse_mode="Markdown",
+        )
+        return
+
     try:
         request = make_test_strategy_request(strategy)
     except CommsValidationError as exc:
@@ -1769,7 +1792,7 @@ async def cmd_test_strategy(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     summary = (
-        f"M5 backtest workflow will run `{strategy}` and write results "
+        f"M5 backtest consumer will run `{strategy}` and write results "
         "back into the artifact."
     )
     await _queue_comms_ask(update, request=request, summary=summary)

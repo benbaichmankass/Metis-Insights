@@ -88,6 +88,21 @@ Other recovery scenarios:
    tmp file means the final replace never happened. The original
    artifact (if any) is intact.
 
+## Auto-consumed tasks
+
+Most artifacts in `requests/` are operator-facing — the bot delivers
+them to Telegram and waits on a human reply. A small set of tasks
+are instead consumed automatically inside the bot's poll loop:
+
+| Task prefix | Consumer | Notes |
+|---|---|---|
+| `test_strategy:<name>` | `src/bot/test_strategy_consumer.py` (M5) | Runs the ICT backtester, persists to `backtest_results`, writes a formatted summary back via `apply_answer`, appends one row to `runtime_logs/validation.jsonl`. Operator sees the artifact transition straight to `answered` in the same poll cycle it was minted. |
+| `new_session:<sprint>` | (none — Claude-side bootstrap) | Read by the next Claude session on startup; not consumed by the bot. |
+
+The auto-consumer pass is the first step of `CommsPoller.poll_once`.
+Tasks that don't match any auto-consumer fall through to the
+deliver/expire/archive sweep unchanged.
+
 ## Safety
 
 - **No secrets in this directory.** The bot enforces an HTML-escape on
