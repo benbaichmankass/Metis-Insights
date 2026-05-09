@@ -182,6 +182,77 @@ def _journal_select(table: str, limit: int) -> list[dict[str, Any]]:
         return []
 
 
+def _db_info_payload() -> dict[str, Any]:
+    """Return DB metadata for diagnostic cross-referencing of trader vs
+    web-api. Resolves the same ``_DB_PATH`` the journal endpoint reads,
+    plus inode + size + table list + per-table row count.
+
+    The 2026-05-09 ``order_packages returns []`` mystery surfaced
+    because the existing ``journal`` endpoint silently swallows
+    ``sqlite3.Error`` (returns ``[]``) — so a "no such table" or schema
+    mismatch is indistinguishable from "table empty". This endpoint
+    surfaces the per-query error verbatim so the operator can tell
+    them apart, and includes inode + size so two services suspected of
+    reading different files can be compared definitively.
+
+    Best-effort: every step is wrapped so a single failure never
+    aborts the whole payload. ``error_per_table`` is only populated
+    when a SELECT raised; missing keys mean the count succeeded.
+    """
+    payload: dict[str, Any] = {
+        "db_path": str(_DB_PATH),
+        "db_path_resolved": None,
+        "exists": False,
+        "size_bytes": None,
+        "inode": None,
+        "tables": [],
+        "row_counts": {},
+        "error_per_table": {},
+        "load_error": None,
+    }
+    try:
+        payload["db_path_resolved"] = str(_DB_PATH.resolve())
+    except Exception as exc:  # noqa: BLE001
+        payload["load_error"] = f"resolve: {type(exc).__name__}: {exc}"
+        return payload
+
+    if not _DB_PATH.exists():
+        return payload
+    payload["exists"] = True
+    try:
+        st = os.stat(_DB_PATH)
+        payload["size_bytes"] = st.st_size
+        payload["inode"] = st.st_ino
+    except OSError as exc:
+        payload["load_error"] = f"stat: {type(exc).__name__}: {exc}"
+
+    try:
+        conn = sqlite3.connect(f"file:{_DB_PATH}?mode=ro", uri=True)
+        try:
+            tables = [
+                r[0]
+                for r in conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table' "
+                    "ORDER BY name"
+                ).fetchall()
+            ]
+            payload["tables"] = tables
+            for tbl in tables:
+                try:
+                    cur = conn.execute(f"SELECT COUNT(*) FROM {tbl}")
+                    payload["row_counts"][tbl] = int(cur.fetchone()[0])
+                except sqlite3.Error as exc:
+                    payload["error_per_table"][tbl] = (
+                        f"{type(exc).__name__}: {exc}"
+                    )
+        finally:
+            conn.close()
+    except sqlite3.Error as exc:
+        payload["load_error"] = f"connect: {type(exc).__name__}: {exc}"
+
+    return payload
+
+
 def _vm_health() -> dict[str, float]:
     try:
         import psutil  # noqa: PLC0415
@@ -282,6 +353,19 @@ async def get_journal(
 ) -> list[dict[str, Any]]:
     _require_diag_token(request)
     return _journal_select(table, _clamp(limit, _DEFAULT_LIMIT, _MAX_LIMIT))
+
+
+@router.get("/db_info")
+async def get_db_info(request: Request) -> dict[str, Any]:
+    """Diagnostic — resolved DB path, inode, table list, row counts.
+
+    Companion to ``/journal``. Surfaces the per-table error string when
+    a SELECT raises (``journal`` swallows it as ``[]``). Trader vs
+    web-api inode mismatch on the same logical path is the canonical
+    signature for the 2026-05-09 ``order_packages returns []`` mystery.
+    """
+    _require_diag_token(request)
+    return _db_info_payload()
 
 
 @router.get("/status")
