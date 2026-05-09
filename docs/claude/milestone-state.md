@@ -36,15 +36,24 @@ When opening a session:
 
 | Field | Value |
 |---|---|
-| **Milestone** | M6 — Web app UI (dashboard build-out, sprint E — S-065) |
-| **Title** | S-065 — Dashboard sprint E: controls phase 1 (halt + live/dry toggle) + minimal session/login flow |
-| **Type** | auto-claude (M6 dashboard UI + first Tier-3 bot mutating endpoints + Tier-2 session). Parent: 5-sprint dashboard plan S-061..S-065 approved by operator on 2026-05-09. |
-| **Goal** | Per `docs/sprints/sprint-065-prompt.md` — stand up the minimal email + shared-secret login flow on the dashboard wired to `POST /api/auth/login`; ship the first Tier-3 bot endpoint (halt) gated behind JWT + per-action confirm token; dashboard surfaces a halt button on the Settings tab that's previously read-only. |
-| **Status** | 🔜 NEXT 2026-05-09 — S-064 closed (bot prereq PR #597 + bot main PR + dashboard PR all merged). |
-| **Active sprint** | **S-065 — Sprint E.** Plan: `docs/sprints/sprint-065-prompt.md`. |
-| **Active checkpoint** | (none yet — sprint to be opened by next session) |
-| **Risk tier** | Tier 2 (login flow) + Tier 3 (halt control). First sprint that adds risk surface to the dashboard. |
-| **Definition of done** | Per `sprint-065-prompt.md` checkpoints. End of the dashboard build-out arc. |
+| **Milestone** | (between sprints — Janitor S-066 closing, M5 next per workplan) |
+| **Title** | S-066 — Janitor: M1 P2 hygiene cluster close-out (docs only) |
+| **Type** | auto-claude. Backlog cleanup deferred from M1 close. Tier 1, docs only. |
+| **Goal** | Reconcile `docs/audits/M1-comms-audit-followups-fresh.md` § P2 against ground truth: three items already done (test pin existed under different name; README "Stuck request" section already references P1-B bot-side alerts; restart-recovery is architecturally safe by design). Two items explicitly carved out: schema-drift envelope (real residual code work, needs its own focused sprint) and command-name cosmetics (low ROI, keep deferred). Comms log retention decision left to a future ops sprint. |
+| **Status** | 🔄 IN PROGRESS 2026-05-09 — branch `claude/bot-S-066-janitor-comms-hygiene`, single docs-only PR. |
+| **Active sprint** | **S-066 — Janitor.** No prompt file (audit doc + this milestone-state entry are the sprint). |
+| **Active checkpoint** | (none — single-PR sprint) |
+| **Risk tier** | Tier 1, docs only. |
+| **Definition of done** | Audit doc reconciled, milestone-state advanced, queue restored. |
+
+> **S-065 deferred (2026-05-09):** dashboard sprint E (controls phase 1
+> + login flow) deferred per operator. Login scope decision was
+> escalated from option (a) email + shared secret to option (c) Google
+> OAuth, which needs operator-side Google Cloud Console setup
+> (CLIENT_ID + CLIENT_SECRET + authorised redirect URIs). When the
+> operator is ready to do GCP setup, S-065 reopens with OAuth as the
+> auth source; the JWT contract on the bot side stays as designed in
+> `docs/sprints/sprint-065-prompt.md`.
 
 > **S-064 close-out (2026-05-09):** dashboard side ships
 > `LiquidityMapsTab` + `SettingsTab` consuming the two new bot Tier-1
@@ -124,7 +133,8 @@ When opening a session:
 | **S-061 — Dashboard sprint A (data-contract gap + nullable types)** | **2026-05-09** | (squash `a8eaad4`) | `docs/sprints/sprint-061-prompt.md` |
 | **S-062 — Dashboard sprint B (Models + Time & Price tabs)** | **2026-05-09** | dashboard PR #8 squash `06ca19c` | `docs/sprints/sprint-062-prompt.md` |
 | **S-063 — Dashboard sprint C (Performance tab + persistent equity; bot drops `/api/pnl/history` JWT gate, flattens response)** | **2026-05-09** | dashboard PR #9 squash `be85d10`; bot PR #595 squash `87d5ee1` | `docs/sprints/sprint-063-prompt.md` |
-| **S-064 — Dashboard sprint D (Liquidity Maps + Settings tabs; new bot endpoints `/api/bot/{liquidity,config}`; pipeline writes per-tick `runtime_logs/liquidity_state.json` via prereq hook)** | **2026-05-09** | bot prereq PR #597 + bot main PR + dashboard PR | `docs/sprints/sprint-064-prompt.md` |
+| **S-064 — Dashboard sprint D (Liquidity Maps + Settings tabs; new bot endpoints `/api/bot/{liquidity,config}`; pipeline writes per-tick `runtime_logs/liquidity_state.json` via prereq hook)** | **2026-05-09** | bot prereq PR #597 squash `1eb816b`; bot main PR #601 squash `14fe5d7a`; dashboard PR #10 squash `b7963b26` | `docs/sprints/sprint-064-prompt.md` |
+| **S-066 — Janitor: M1 P2 hygiene cluster close-out (docs only)** | **2026-05-09** | (this PR's checkpoint) | `docs/audits/M1-comms-audit-followups-fresh.md` § P2 |
 
 > Pre-M0..M10 roadmap progress (S-000 through S-040) is captured in `ROADMAP.md`
 > under "Historical Sprint Ledger". From M0 forward, every closed milestone gets a row here.
