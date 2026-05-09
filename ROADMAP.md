@@ -1,8 +1,10 @@
 # ICT Trading Bot — Product Roadmap
 
-> **Last Updated:** 2026-05-09 (S-061 dashboard build-out sprint A — close
-> ict-trading-bot#556 data-contract gap + nullable types in the Vercel
-> dashboard). S-061..S-065 form a 5-sprint sequence to bring the dashboard
+> **Last Updated:** 2026-05-09 (S-063 dashboard build-out sprint C — drop the
+> JWT gate on `/api/pnl/history` so the Vercel dashboard's Performance tab
+> can consume daily P&L without a login flow; flatten response to
+> `PnlHistoryPoint[]`). S-061 + S-062 closed earlier the same day; S-064
+> active next. S-061..S-065 form a 5-sprint sequence to bring the dashboard
 > up to spec; see `docs/sprints/sprint-061-prompt.md` for the parent plan.
 > **Canonical authority:** `docs/claude/workplan.md` (the decider). When this file
 > conflicts with the workplan, the workplan wins.
@@ -130,11 +132,11 @@ feed; the dashboard is a pure consumer. See `docs/claude/workplan.md` § "Dashbo
 | S-058 | Spot-margin dispatch tolerance (totalEquity fallback so non-USDT residue does not brick dispatch) | ✅ Done 2026-05-09 (PR #575) | M3 |
 | S-059 | Stuck-strategy watchdog respects exchange-side position state | ✅ Done 2026-05-09 (PR #582) | M3 |
 | S-060 | Orphan-position reconciler — auto-liquidate stranded base-coin balances back to USDT | ✅ Done 2026-05-09 (PR #586) | M3 |
-| **S-061** | **Dashboard build-out sprint A — close #556 data-contract gap (vmHealth + signal pattern/confidence null-on-missing) + dashboard nullable types** | 🔄 In progress 2026-05-09 (parent: 5-sprint dashboard plan S-061..S-065) | M2, M6 |
-| S-062 | Dashboard build-out sprint B — Models tab + Time & Price tab | 📋 Backlog (queued behind S-061 close) | M6 |
-| S-063 | Dashboard build-out sprint C — Performance tab + persistent equity history (auth decision in-sprint) | 📋 Backlog | M2, M6 |
-| S-064 | Dashboard build-out sprint D — Liquidity Maps + Settings (read-only) | 📋 Backlog | M2, M6 |
-| S-065 | Dashboard build-out sprint E — controls phase 1 (halt + live/dry toggle, Tier 2/3) | 📋 Backlog | M3, M6 |
+| S-061 | Dashboard build-out sprint A — close #556 data-contract gap (vmHealth + signal pattern/confidence null-on-missing) + dashboard nullable types | ✅ Done 2026-05-09 (dashboard PR #7 + bot PR #590 squash `a8eaad4`) | M2, M6 |
+| S-062 | Dashboard build-out sprint B — Models tab + Time & Price tab | ✅ Done 2026-05-09 (dashboard PR #8 squash `06ca19c`) | M6 |
+| **S-063** | **Dashboard build-out sprint C — Performance tab + persistent equity history; bot drops JWT gate on `/api/pnl/history` (option (a)), flattens to `PnlHistoryPoint[]`, files `docs/api-tier-policy.md`** | ✅ Done 2026-05-09 (dashboard PR #9 squash `be85d10`; bot PR on `claude/bot-S-063-pnl-history-auth-Rrj7J`) | M2, M6 |
+| S-064 | Dashboard build-out sprint D — Liquidity Maps + Settings (read-only); needs new bot endpoints `/api/bot/liquidity` + `/api/bot/config` | 🔜 Next | M2, M6 |
+| S-065 | Dashboard build-out sprint E — controls phase 1 (halt + live/dry toggle, Tier 2/3) + minimal session/login flow | 📋 Backlog | M3, M6 |
 
 > **Sprint number note:** S-036..S-040 burned per
 > `docs/claude/workplan.md` § "Sprint and checkpoint numbering".
