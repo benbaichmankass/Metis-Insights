@@ -1,9 +1,9 @@
 # ICT Trading Bot — Product Roadmap
 
-> **Last Updated:** 2026-05-08 (M1 P1-A..D follow-ups + M2 formal close-out
-> session on `claude/review-roadmap-hIO75`. M1 → ✅ CLOSED with P1-A landing
-> on the prior session and P1-B/C/D + M2 paperwork landing here. P2 comms
-> hygiene cluster remains filed for a future Janitor sprint.)
+> **Last Updated:** 2026-05-09 (S-061 dashboard build-out sprint A — close
+> ict-trading-bot#556 data-contract gap + nullable types in the Vercel
+> dashboard). S-061..S-065 form a 5-sprint sequence to bring the dashboard
+> up to spec; see `docs/sprints/sprint-061-prompt.md` for the parent plan.
 > **Canonical authority:** `docs/claude/workplan.md` (the decider). When this file
 > conflicts with the workplan, the workplan wins.
 
@@ -126,12 +126,23 @@ feed; the dashboard is a pure consumer. See `docs/claude/workplan.md` § "Dashbo
 | S-047 | bybit_2 Spot Margin enablement | 🔄 IN PROGRESS (T1–T5 ✅ + S-049 fast-followup ✅; T6 active) | M3 (live-trading priority) |
 | S-048 | M1 comms audit (fresh re-issue) | ✅ Done 2026-05-08 — `CP-2026-05-07-17-s048-fresh-m1-audit` | M1 (PARTIAL) |
 | S-049 | Spot-margin sizer correctness fast-followup (UTA availableBalance + buy-side fee buffer) | ✅ Done | M3 |
+| S-050 | VWAP Phase 2 — HTF gate (Sharpe lift on top of 38-month baseline) | ✅ Done 2026-05-09 (PR #558) | M3, M9 |
+| S-058 | Spot-margin dispatch tolerance (totalEquity fallback so non-USDT residue does not brick dispatch) | ✅ Done 2026-05-09 (PR #575) | M3 |
+| S-059 | Stuck-strategy watchdog respects exchange-side position state | ✅ Done 2026-05-09 (PR #582) | M3 |
+| S-060 | Orphan-position reconciler — auto-liquidate stranded base-coin balances back to USDT | ✅ Done 2026-05-09 (PR #586) | M3 |
+| **S-061** | **Dashboard build-out sprint A — close #556 data-contract gap (vmHealth + signal pattern/confidence null-on-missing) + dashboard nullable types** | 🔄 In progress 2026-05-09 (parent: 5-sprint dashboard plan S-061..S-065) | M2, M6 |
+| S-062 | Dashboard build-out sprint B — Models tab + Time & Price tab | 📋 Backlog (queued behind S-061 close) | M6 |
+| S-063 | Dashboard build-out sprint C — Performance tab + persistent equity history (auth decision in-sprint) | 📋 Backlog | M2, M6 |
+| S-064 | Dashboard build-out sprint D — Liquidity Maps + Settings (read-only) | 📋 Backlog | M2, M6 |
+| S-065 | Dashboard build-out sprint E — controls phase 1 (halt + live/dry toggle, Tier 2/3) | 📋 Backlog | M3, M6 |
 
-> **Sprint number note:** S-036..S-040 include the burned range (see
-> `docs/claude/workplan.md` § "Sprint and checkpoint numbering"). The
-> ad-hoc S-049 sized-fix landed mid-S-047 and uses its own number; the
-> next available sprint number after S-049 is **S-051** (S-050 reserved
-> for VWAP Phase 2 per `milestone-state.md`).
+> **Sprint number note:** S-036..S-040 burned per
+> `docs/claude/workplan.md` § "Sprint and checkpoint numbering".
+> S-049 ad-hoc fast-followup landed mid-S-047. S-050 VWAP Phase 2
+> shipped early (PR #558, 2026-05-09). S-051..S-057 used by hardening
+> work between 2026-05-08 and 2026-05-09. S-058..S-060 ship the
+> spot-margin reconciler triad on 2026-05-09. **The next available
+> sprint number after S-065 is S-066.**
 
 ---
 

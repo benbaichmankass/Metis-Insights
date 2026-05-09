@@ -36,15 +36,19 @@ When opening a session:
 
 | Field | Value |
 |---|---|
-| **Milestone** | S-047 — bybit_2 Spot Margin enablement (live-trading priority sprint) |
-| **Title** | S-047 — VWAP true longs + shorts on bybit_2 via Bybit V5 Spot Margin |
-| **Type** | ad-hoc (live-trading priority); interleaves M1 audit and M5 per `operating-protocol.md` § 3. |
-| **Goal** | Per `docs/sprint-plans/S-047-bybit2-spot-margin.md` § 1 — VWAP takes both long + short BTCUSDT positions on `bybit_2` via Bybit V5 Spot Margin, with the RiskManager + dispatch + monitor + reconciler all treating Spot-Margin sells as borrowed-coin shorts. |
-| **Status** | 🔄 ACTIVE — **T1 / T2 / T3 / T4 / T5 shipped + S-049 fast-followup shipped**; **T6 queued**. Operator merged PR #477 (T5) on 2026-05-07 ~17:23 UTC. |
-| **Active sprint** | **S-047 T6 — end-to-end live smoke + runbook.** Plan row: `docs/sprint-plans/S-047-bybit2-spot-margin.md` § T6 + D8. |
-| **Active checkpoint** | T6 — `docs(bug-log + runbook): spot-margin remediation cross-references` + live smoke (0.0005 BTC short on `bybit_2` mainnet through full open → monitor → close cycle; trade journal + reconciler agree). |
-| **Risk tier (T6)** | Tier 1 (docs after smoke succeeds). Smoke harness `scripts/sprint047/spot_margin_smoke.py` already exists from T3. |
-| **Definition of done (T6)** | D8 merged: bug-log close entries link BUG-046/048/049 to S-047 as the structural fix; `docs/runbooks/spot-margin.md` written; live smoke recorded with PnL/borrow-fee analysis; CI green. |
+| **Milestone** | M6 — Web app UI (dashboard build-out, sprint A — S-061) |
+| **Title** | S-061 — Dashboard sprint A: close #556 data-contract gap + nullable types |
+| **Type** | auto-claude (M6 dashboard UI + M2 backend contract follow-up). Parent: 5-sprint dashboard plan S-061..S-065 approved by operator on 2026-05-09. |
+| **Goal** | Per `docs/sprints/sprint-061-prompt.md` — extend `pipeline.py log_signal()` to carry pattern/confidence/price; switch `dashboard.py` to null-on-missing for vmHealth + signal fields; widen dashboard types to nullable; ship aligned PRs in both repos. |
+| **Status** | 🔄 ACTIVE 2026-05-09 — bot + dashboard branches pushed to `claude/vercel-sprint-planning-vjcdP`; PRs queued. |
+| **Active sprint** | **S-061 — Sprint A.** Plan: `docs/sprints/sprint-061-prompt.md`. |
+| **Active checkpoint** | CP-2026-05-09-NN-s061-prs-up — open both PRs against the renamed `benbaichmankass/{ict-trading-bot,ict-trader-dashboard}` org and file the close-out summary. |
+| **Risk tier** | Tier 1 (read-path bot endpoints, read-only dashboard types). |
+| **Definition of done** | Both PRs open with green build/tests; ROADMAP + this file updated; `docs/sprints/sprint-062-prompt.md` filed for the next session. |
+
+> **Parallel:** S-047 T6 (bybit_2 Spot Margin live smoke + runbook) is still
+> the live-trading priority and runs on its own branch. S-061..S-065 do not
+> block S-047 T6 — both progress in parallel.
 
 **S-048 (M1 comms audit) status:** ✅ CLOSED (fresh re-issue) on `claude/update-roadmap-status-ZnLM9` — see `docs/audits/M1-comms-audit-2026-05-07-fresh.md`.
 
