@@ -267,6 +267,7 @@ def build_vwap_signal(
     htf_close: Optional[float] = None,
     htf_ema: Optional[float] = None,
     htf_band_pct: float = HTF_BAND_PCT_DEFAULT,
+    timeframe: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Compute a VWAP mean-reversion signal from OHLCV candle data.
 
@@ -380,6 +381,14 @@ def build_vwap_signal(
         "vwap_anchor": anchor,
         "vwap_window_bars": len(window),
     }
+    # The order_monitor's ohlcv_fetcher reads ``timeframe`` off the
+    # package's meta to fetch fresh candles for monitor() — without it
+    # _build_monitor_ohlcv_fetcher short-circuits to None and monitor()
+    # never receives candles, so no TP/SL/VWAP-cross/time-decay close
+    # ever fires (positions sit open until the watchdog cascades them
+    # at +30 min). Caller threads the configured timeframe through.
+    if timeframe:
+        base_meta["timeframe"] = str(timeframe)
     if htf_close is not None and htf_ema is not None:
         base_meta["htf_close"] = float(htf_close)
         base_meta["htf_ema"] = float(htf_ema)

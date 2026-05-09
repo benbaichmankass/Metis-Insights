@@ -387,8 +387,18 @@ def _has_open_package_for_strategy(strategy_name: Optional[str]) -> Optional[str
             )
         )
         db = Database(db_path=db_path)
+        # 2026-05-09 — dropped ``linked_only=True``. With the filter on,
+        # a multi-account dispatch where every account refused on
+        # ``zero_exchange_capacity`` left the package row at
+        # status='open', linked_trade_id=NULL — and the next tick's gate
+        # query filtered it out, letting the dispatch retry every
+        # minute. The result was 50+ rejection rows per cluster in
+        # ``trades`` until ``_sweep_unlinked_packages`` orphaned the
+        # row at +5 min. Treating any open row (linked or not) as
+        # gate-blocking turns the rejection cadence from 1/min into
+        # 1 per 5-min sweep window.
         rows = db.get_order_packages_by_strategy(
-            strategy_name, status="open", linked_only=True, limit=1,
+            strategy_name, status="open", limit=1,
         )
         if rows:
             return str(rows[0].get("order_package_id") or "")
@@ -641,7 +651,7 @@ def vwap_signal_builder(settings: dict) -> Dict[str, Any]:
                 symbol, htf_tf, exc,
             )
 
-    kwargs: Dict[str, Any] = {"symbol": symbol}
+    kwargs: Dict[str, Any] = {"symbol": symbol, "timeframe": timeframe}
     if htf_close is not None and htf_ema is not None:
         kwargs["htf_close"] = htf_close
         kwargs["htf_ema"] = htf_ema
