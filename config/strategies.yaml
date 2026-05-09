@@ -35,7 +35,10 @@ strategies:
     min_sweep_buffer_bps: 12
     min_body_to_range: 0.60
     atr_period: 14
-    atr_stop_mult: 0.35
+    # 2026-05-08 training run tightened 0.35 → 0.30 (single-knob lift,
+    # +0.53 Sharpe full-sample, +0.97 OOS, no cadence cost). See
+    # experiments/2026-05-08-all-models-training/RECOMMENDATIONS.md.
+    atr_stop_mult: 0.30
     be_at_r: 0.75
     tp1_at_r: 1.25
     tp2_at_r: 3.0

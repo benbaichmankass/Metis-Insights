@@ -43,12 +43,25 @@ from src.units.strategies._base import require_candles
 # Defaults mirror strategies/turtle_soup_mtf_v1.py:38-55. Any caller may
 # override via cfg.get(<name>); the runtime pipeline merges
 # config/strategies.yaml turtle_soup params into cfg in PR C3.
+#
+# 2026-05-08 — atr_stop_mult tightened 0.35 → 0.30 per the
+# all-models training run (`experiments/2026-05-08-all-models-training`).
+# 38-month BTCUSDT 15m backtest (Jan 2023 → Feb 2026): full-sample
+# Sharpe +0.80 → +1.33, win rate 51.5 % → 56.3 %, expectancy
+# +0.16 R → +0.27 R per trade, walk-forward OOS Sharpe +0.25 → +1.22
+# (OOS *better* than IS — regime-robust). Cadence essentially unchanged
+# (33 → 32 trades over 38 months). Mechanism: 0.35 set the stop slightly
+# past the post-sweep wick, capturing legitimate sweep depth as a
+# "stop run" rather than a fakeout invalidation; 0.30 trims that to
+# just past the actual swing extreme. Sweep was monotonic 0.25 → 0.30 →
+# 0.35 → 0.45 with a clear quality peak in the 0.25-0.30 band; 0.30 sits
+# at the high-cadence edge of that band so the cadence cost is zero.
 _DEFAULTS: Dict[str, Any] = {
     "sweep_lookback_15m": 60,
     "min_sweep_buffer_bps": 12,
     "min_body_to_range": 0.60,
     "atr_period": 14,
-    "atr_stop_mult": 0.35,
+    "atr_stop_mult": 0.30,
     "tp1_at_r": 1.25,
     "tp2_at_r": 3.0,
 }
