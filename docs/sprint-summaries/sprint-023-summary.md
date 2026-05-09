@@ -65,9 +65,9 @@ env vars, this would have kept the bot from finding them.
 
 | # | Title | Net LOC |
 |---|---|---|
-| [#243](https://github.com/the-lizardking/ict-trading-bot/pull/243) | S-023 PR1: render script writes per-account env vars from accounts.yaml | +511 |
-| [#244](https://github.com/the-lizardking/ict-trading-bot/pull/244) | S-023 PR2: specific `/accounts_status` diagnostics | +646 |
-| [#245](https://github.com/the-lizardking/ict-trading-bot/pull/245) | S-023 PR3: API failure pings with direct response | +587 |
+| [#243](https://github.com/benbaichmankass/ict-trading-bot/pull/243) | S-023 PR1: render script writes per-account env vars from accounts.yaml | +511 |
+| [#244](https://github.com/benbaichmankass/ict-trading-bot/pull/244) | S-023 PR2: specific `/accounts_status` diagnostics | +646 |
+| [#245](https://github.com/benbaichmankass/ict-trading-bot/pull/245) | S-023 PR3: API failure pings with direct response | +587 |
 
 **Total net change:** ~+1,750 LOC across 3 PRs (code + tests + docs), all
 self-merged after green tests.

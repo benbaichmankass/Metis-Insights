@@ -195,7 +195,7 @@ regular flow.
 ### Verify
 
 ```bash
-gh api repos/the-lizardking/ict-trading-bot/branches/main/protection \
+gh api repos/benbaichmankass/ict-trading-bot/branches/main/protection \
   | jq '.required_status_checks.contexts'
 ```
 

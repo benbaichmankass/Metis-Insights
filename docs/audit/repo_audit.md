@@ -1,7 +1,7 @@
 # Repository Audit
 
 ## 1. Overview
-- **Repository**: the-lizardking/ict-trading-bot
+- **Repository**: benbaichmankass/ict-trading-bot
 - **Primary Language**: Python
 - **Branch**: claude/analyze-repo-structure-6CcZK
 

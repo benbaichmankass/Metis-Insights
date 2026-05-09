@@ -277,8 +277,8 @@ REPO_DIR = '/home/ubuntu/ict-trading-bot'
 
 ### Repo references
 
-- GitHub repository: `the-lizardking/ict-trading-bot`
-- Git username: `the-lizardking`
+- GitHub repository: `benbaichmankass/ict-trading-bot`
+- Git username: `benbaichmankass`
 - Git email: `ben.baichmankass@gmail.com`
 
 ### Colab secret references
@@ -295,7 +295,7 @@ manually.
 
 ### Trader repo
 
-Primary codebase: `the-lizardking/ict-trading-bot`.
+Primary codebase: `benbaichmankass/ict-trading-bot`.
 
 ### Dispatcher / Coordinator
 

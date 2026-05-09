@@ -25,15 +25,15 @@
 
 | PR | Title |
 |---|---|
-| [#173](https://github.com/the-lizardking/ict-trading-bot/pull/173) | S-013 kickoff: sprint prompt, plan, ROADMAP update, kickoff checkpoint |
-| [#174](https://github.com/the-lizardking/ict-trading-bot/pull/174) | S-013 M0 PR #1: clear 17 pre-existing failing tests |
-| [#175](https://github.com/the-lizardking/ict-trading-bot/pull/175) | S-013 M1 PR #1: runtime status producer |
-| [#176](https://github.com/the-lizardking/ict-trading-bot/pull/176) | S-013 M2 PR #1: GET /api/status (no-op auth) |
-| [#177](https://github.com/the-lizardking/ict-trading-bot/pull/177) | S-013 M2 PR #2: GET /api/pnl (no-op auth) |
-| [#178](https://github.com/the-lizardking/ict-trading-bot/pull/178) | S-013 M3 PR #1: POST /api/auth/login + JWT helpers (PM REVIEW) |
-| [#179](https://github.com/the-lizardking/ict-trading-bot/pull/179) | S-013 session checkpoint: CP-2026-04-30-02 |
-| [#180](https://github.com/the-lizardking/ict-trading-bot/pull/180) | S-013 M3 PR #2: flip require_session to enforcement (PM REVIEW) |
-| [#181](https://github.com/the-lizardking/ict-trading-bot/pull/181) | S-013 M4 PR #1: VM staging deployment runbook |
+| [#173](https://github.com/benbaichmankass/ict-trading-bot/pull/173) | S-013 kickoff: sprint prompt, plan, ROADMAP update, kickoff checkpoint |
+| [#174](https://github.com/benbaichmankass/ict-trading-bot/pull/174) | S-013 M0 PR #1: clear 17 pre-existing failing tests |
+| [#175](https://github.com/benbaichmankass/ict-trading-bot/pull/175) | S-013 M1 PR #1: runtime status producer |
+| [#176](https://github.com/benbaichmankass/ict-trading-bot/pull/176) | S-013 M2 PR #1: GET /api/status (no-op auth) |
+| [#177](https://github.com/benbaichmankass/ict-trading-bot/pull/177) | S-013 M2 PR #2: GET /api/pnl (no-op auth) |
+| [#178](https://github.com/benbaichmankass/ict-trading-bot/pull/178) | S-013 M3 PR #1: POST /api/auth/login + JWT helpers (PM REVIEW) |
+| [#179](https://github.com/benbaichmankass/ict-trading-bot/pull/179) | S-013 session checkpoint: CP-2026-04-30-02 |
+| [#180](https://github.com/benbaichmankass/ict-trading-bot/pull/180) | S-013 M3 PR #2: flip require_session to enforcement (PM REVIEW) |
+| [#181](https://github.com/benbaichmankass/ict-trading-bot/pull/181) | S-013 M4 PR #1: VM staging deployment runbook |
 | #182 | S-013 M4 PR #2: /webapp Telegram + sprint summary + final checkpoint (this PR) |
 
 **Total:** 10 PRs (1 kickoff + 1 M0 + 1 M1 + 2 M2 + 2 M3 + 1 mid-sprint checkpoint + 2 M4).

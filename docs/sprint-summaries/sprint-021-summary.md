@@ -3,7 +3,7 @@
 **Dates:** 2026-05-04 (single session; continues from CP-2026-05-04-04 which delivered the BUG-049 code fix)
 **Checkpoints:** CP-2026-05-04-04 → CP-2026-05-04-05
 **Branch:** `claude/fix-trading-bot-push-o3J4w`
-**PR:** [#402](https://github.com/the-lizardking/ict-trading-bot/pull/402)
+**PR:** [#402](https://github.com/benbaichmankass/ict-trading-bot/pull/402)
 **Outcome:** ✅ 2 hardening PRs shipped; 7 new tests; zero behaviour change to live trading.
 
 ## Context

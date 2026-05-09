@@ -1,3 +1,3 @@
-{"event":"checkpoint_appended","priority":"normal","cp_id":"CP-YYYY-MM-DD-NN","sprint":"S-NNN","title":"<short title>","next_cp":"CP-…","commit_url":"https://github.com/the-lizardking/ict-trading-bot/commit/<sha>"}
-{"event":"blocker_pm","priority":"urgent","sprint":"S-NNN","question":"<one-line>","pr_url":"https://github.com/the-lizardking/ict-trading-bot/pull/<NNN>","chat_url":"https://claude.ai/code/session_<id>"}
-{"event":"sprint_complete","priority":"high","sprint":"S-NNN","prs_merged":<n>,"drafts_left":<n>,"summary_url":"https://github.com/the-lizardking/ict-trading-bot/blob/main/docs/backtests/sprint-NNN/summary.md"}
+{"event":"checkpoint_appended","priority":"normal","cp_id":"CP-YYYY-MM-DD-NN","sprint":"S-NNN","title":"<short title>","next_cp":"CP-…","commit_url":"https://github.com/benbaichmankass/ict-trading-bot/commit/<sha>"}
+{"event":"blocker_pm","priority":"urgent","sprint":"S-NNN","question":"<one-line>","pr_url":"https://github.com/benbaichmankass/ict-trading-bot/pull/<NNN>","chat_url":"https://claude.ai/code/session_<id>"}
+{"event":"sprint_complete","priority":"high","sprint":"S-NNN","prs_merged":<n>,"drafts_left":<n>,"summary_url":"https://github.com/benbaichmankass/ict-trading-bot/blob/main/docs/backtests/sprint-NNN/summary.md"}

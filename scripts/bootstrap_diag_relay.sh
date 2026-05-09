@@ -20,7 +20,7 @@
 #   bash scripts/bootstrap_diag_relay.sh
 set -euo pipefail
 
-REPO="${REPO:-the-lizardking/ict-trading-bot}"
+REPO="${REPO:-benbaichmankass/ict-trading-bot}"
 LABEL="vm-diag-request"
 LABEL_COLOR="0e8a16"           # green — matches "open / read-only"
 LABEL_DESC="Issues that drive the PM-side VM diag relay (auto-created + auto-closed by the vm-diag-snapshot workflow)."

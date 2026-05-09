@@ -10,7 +10,7 @@
 
 Date: 2026-04-27
 Owner: Ben Baichman-Kass
-Project: `the-lizardking/ict-trading-bot`
+Project: `benbaichmankass/ict-trading-bot`
 
 ## Sprint Objective
 
@@ -83,7 +83,7 @@ Claude-sized prompt:
 ```text
 Focused stabilization PR for repo:
 
-https://github.com/the-lizardking/ict-trading-bot
+https://github.com/benbaichmankass/ict-trading-bot
 
 Context:
 A separate VWAP dry-run staging service ran from `/home/ubuntu/ict-trading-bot-vwap-staging` with:
@@ -185,7 +185,7 @@ Claude-sized prompt:
 ```text
 Security hardening task for repo:
 
-https://github.com/the-lizardking/ict-trading-bot
+https://github.com/benbaichmankass/ict-trading-bot
 
 Context:
 During a staging one-shot VWAP dry-run smoke test, the app logged Telegram API URLs containing the bot token. The log lines came from httpx and included URLs like:
@@ -258,7 +258,7 @@ Prompt:
 ```text
 Focused logging cleanup task for repo:
 
-https://github.com/the-lizardking/ict-trading-bot
+https://github.com/benbaichmankass/ict-trading-bot
 
 Context:
 VWAP dry-run logs printed `LIVE BYBIT`, which is confusing because the service was safely dry-run:

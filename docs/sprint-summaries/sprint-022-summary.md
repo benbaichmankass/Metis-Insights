@@ -41,12 +41,12 @@
 
 | # | Title | Net LOC |
 |---|---|---|
-| [#236](https://github.com/the-lizardking/ict-trading-bot/pull/236) | S-022 PR1: outcomes.report() foundation + tick-loop & pipeline wiring | +943 |
-| [#237](https://github.com/the-lizardking/ict-trading-bot/pull/237) | S-022 PR2: hourly summary report (replaces 2x/day blurb) | +1098 |
-| [#238](https://github.com/the-lizardking/ict-trading-bot/pull/238) | S-022 PR3: health module + hourly-report integration | +950 |
-| [#239](https://github.com/the-lizardking/ict-trading-bot/pull/239) | S-022 PR4: silent-except sweep (runtime/core/units) | +380 |
-| [#240](https://github.com/the-lizardking/ict-trading-bot/pull/240) | S-022 PR5: heartbeat watcher + standalone watchdog | +696 |
-| [#241](https://github.com/the-lizardking/ict-trading-bot/pull/241) | S-022 PR6: bot/web silent-except sweep | +282 |
+| [#236](https://github.com/benbaichmankass/ict-trading-bot/pull/236) | S-022 PR1: outcomes.report() foundation + tick-loop & pipeline wiring | +943 |
+| [#237](https://github.com/benbaichmankass/ict-trading-bot/pull/237) | S-022 PR2: hourly summary report (replaces 2x/day blurb) | +1098 |
+| [#238](https://github.com/benbaichmankass/ict-trading-bot/pull/238) | S-022 PR3: health module + hourly-report integration | +950 |
+| [#239](https://github.com/benbaichmankass/ict-trading-bot/pull/239) | S-022 PR4: silent-except sweep (runtime/core/units) | +380 |
+| [#240](https://github.com/benbaichmankass/ict-trading-bot/pull/240) | S-022 PR5: heartbeat watcher + standalone watchdog | +696 |
+| [#241](https://github.com/benbaichmankass/ict-trading-bot/pull/241) | S-022 PR6: bot/web silent-except sweep | +282 |
 
 **Total net change:** ~+4,300 LOC across 6 PRs (code + tests + docs), all
 self-merged after green tests.

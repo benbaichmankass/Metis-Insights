@@ -788,11 +788,11 @@ def _commands_across_help_categories() -> list[str]:
 # Hardcoded so the message works even if the bot can't reach the repo.
 # Update this constant if the repo or notebook path moves.
 _COLAB_NOTEBOOK_URL = (
-    "https://colab.research.google.com/github/the-lizardking/ict-trading-bot/"
+    "https://colab.research.google.com/github/benbaichmankass/ict-trading-bot/"
     "blob/main/notebooks/operator/rotate_api_keys.ipynb"
 )
 _COLAB_DOC_URL = (
-    "https://github.com/the-lizardking/ict-trading-bot/blob/main/"
+    "https://github.com/benbaichmankass/ict-trading-bot/blob/main/"
     "docs/operator/colab-key-rotation.md"
 )
 

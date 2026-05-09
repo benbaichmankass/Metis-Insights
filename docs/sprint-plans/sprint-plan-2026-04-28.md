@@ -2,8 +2,8 @@
 
 **Sprint start:** 2026-04-28
 **Owner:** Ben Baichman-Kass
-**Project:** [the-lizardking/ict-trading-bot](https://github.com/the-lizardking/ict-trading-bot)
-**Previous sprint:** [`sprint-plan-2026-04-27.md`](https://github.com/the-lizardking/ict-trading-bot/tree/main/docs/sprint-plans) — VWAP Stabilization (completed)
+**Project:** [benbaichmankass/ict-trading-bot](https://github.com/benbaichmankass/ict-trading-bot)
+**Previous sprint:** [`sprint-plan-2026-04-27.md`](https://github.com/benbaichmankass/ict-trading-bot/tree/main/docs/sprint-plans) — VWAP Stabilization (completed)
 
 ---
 

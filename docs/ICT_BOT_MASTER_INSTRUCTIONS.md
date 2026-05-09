@@ -10,7 +10,7 @@
 
 **ICT Trading Bot** is an automated cryptocurrency trading system that runs on an Oracle Cloud VM and executes trades on Bybit mainnet. The bot implements multiple trading strategies (ICT/FVG, VWAP, breakout confirmation) and is controlled via a Telegram interface.
 
-- **GitHub repo:** [the-lizardking/ict-trading-bot](https://github.com/the-lizardking/ict-trading-bot)
+- **GitHub repo:** [benbaichmankass/ict-trading-bot](https://github.com/benbaichmankass/ict-trading-bot)
 - **Live VM:** `158.178.210.252` (Oracle Cloud, Ubuntu)
 - **Exchange:** Bybit mainnet (live trading active)
 - **Current status as of 2026-04-28:** M7 complete — ICT strategy live with PF 1.4, WR 56%
@@ -25,9 +25,9 @@
 | VM User | `ubuntu` |
 | SSH Key File | `ict-bot-ovm-private.key` |
 | Repo dir on VM | `/home/ubuntu/ict-trading-bot` |
-| Git username | `the-lizardking` |
+| Git username | `benbaichmankass` |
 | Git email | `ben.baichmankass@gmail.com` |
-| GitHub repo | `https://github.com/the-lizardking/ict-trading-bot` |
+| GitHub repo | `https://github.com/benbaichmankass/ict-trading-bot` |
 
 **⚠️ NEVER paste API keys, Telegram tokens, or Bybit credentials into any chat, notebook, or code block.** Secrets live in encrypted Drive files and `.env` on the VM only.
 

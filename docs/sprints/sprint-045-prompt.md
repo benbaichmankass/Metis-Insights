@@ -88,7 +88,7 @@ This is a Janitor sprint by definition — it touches a lot of files for cleanup
 - ✅ `pytest --collect-only -q tests/ --ignore=tests/test_main_loop.py` passes with **0 collection errors** locally and in CI.
 - ✅ `.github/workflows/pytest-collect.yml` no longer carries `--continue-on-collection-errors` or `|| true`; the workflow fails the PR on any collection error.
 - ✅ `ruff check .` (no `--select`) passes on `main` post-sprint.
-- ✅ `gh api repos/the-lizardking/ict-trading-bot/branches/main/protection | jq '.required_status_checks.contexts'` lists `pytest-collect`, `secret-scan`, `ruff-lint`, `dry-run-guard`.
+- ✅ `gh api repos/benbaichmankass/ict-trading-bot/branches/main/protection | jq '.required_status_checks.contexts'` lists `pytest-collect`, `secret-scan`, `ruff-lint`, `dry-run-guard`.
 - ✅ `docs/claude/ci-status-checks.md` reflects all four required, `repo-inventory` advisory.
 - ✅ `docs/claude/milestone-state.md` M4 row reflects "CI suite + conftest + ruff cleanup done; Janitor audits remaining → S-046 candidate".
 - ❌ No `requirements.txt` change.

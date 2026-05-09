@@ -26,15 +26,15 @@
 
 | PR | Title |
 |---|---|
-| [#183](https://github.com/the-lizardking/ict-trading-bot/pull/183) | S-014 M0 PR #1: GET /api/pnl/history for equity sparkline |
-| [#190](https://github.com/the-lizardking/ict-trading-bot/pull/190) | S-014 side fix: /signals Markdown parse failure → plain text |
-| [#192](https://github.com/the-lizardking/ict-trading-bot/pull/192) | S-014 M1 PR #1: frontend scaffold (templates + vendored HTMX/Chart.js) |
-| [#193](https://github.com/the-lizardking/ict-trading-bot/pull/193) | S-014 M1 PR #2: FastAPI mounts for UI router + static tree |
-| [#195](https://github.com/the-lizardking/ict-trading-bot/pull/195) | S-014 M3 PR #1: GET /ui/fragments/status (auth-gated) |
-| [#196](https://github.com/the-lizardking/ict-trading-bot/pull/196) | S-014 M3 PR #2: GET /ui/fragments/pnl (auth-gated) |
-| [#414](https://github.com/the-lizardking/ict-trading-bot/pull/414) | S-014 M3 PR #3: equity sparkline JS (+ S-014 state correction) |
-| [#415](https://github.com/the-lizardking/ict-trading-bot/pull/415) | S-014 M2 PR #1: login form fetch + JWT pre-expiry timer (PM-approved) |
-| [#418](https://github.com/the-lizardking/ict-trading-bot/pull/418) | S-014 M2 PR #2: HTMX 401/403 handler + toast (PM-approved) |
+| [#183](https://github.com/benbaichmankass/ict-trading-bot/pull/183) | S-014 M0 PR #1: GET /api/pnl/history for equity sparkline |
+| [#190](https://github.com/benbaichmankass/ict-trading-bot/pull/190) | S-014 side fix: /signals Markdown parse failure → plain text |
+| [#192](https://github.com/benbaichmankass/ict-trading-bot/pull/192) | S-014 M1 PR #1: frontend scaffold (templates + vendored HTMX/Chart.js) |
+| [#193](https://github.com/benbaichmankass/ict-trading-bot/pull/193) | S-014 M1 PR #2: FastAPI mounts for UI router + static tree |
+| [#195](https://github.com/benbaichmankass/ict-trading-bot/pull/195) | S-014 M3 PR #1: GET /ui/fragments/status (auth-gated) |
+| [#196](https://github.com/benbaichmankass/ict-trading-bot/pull/196) | S-014 M3 PR #2: GET /ui/fragments/pnl (auth-gated) |
+| [#414](https://github.com/benbaichmankass/ict-trading-bot/pull/414) | S-014 M3 PR #3: equity sparkline JS (+ S-014 state correction) |
+| [#415](https://github.com/benbaichmankass/ict-trading-bot/pull/415) | S-014 M2 PR #1: login form fetch + JWT pre-expiry timer (PM-approved) |
+| [#418](https://github.com/benbaichmankass/ict-trading-bot/pull/418) | S-014 M2 PR #2: HTMX 401/403 handler + toast (PM-approved) |
 | (this PR) | S-014 M4 PR #1: sprint summary + smoke-test appendix + ROADMAP/milestone-state flip |
 
 Plus mid-sprint admin: PR #191, #194, #197 (checkpoints, 2026-04-30); PR #413, #416, #417 (ping-PR + checkpoints, 2026-05-06).

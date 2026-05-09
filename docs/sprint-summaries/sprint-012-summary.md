@@ -32,27 +32,27 @@
 
 | PR | Title |
 |---|---|
-| [#147](https://github.com/the-lizardking/ict-trading-bot/pull/147) | S-012 Phase A: production wiring audit (docs only) |
-| [#148](https://github.com/the-lizardking/ict-trading-bot/pull/148) | S-012: append CP-2026-04-29-62 — Phase A done |
-| [#149](https://github.com/the-lizardking/ict-trading-bot/pull/149) | S-012 PR B1: rewrite config/strategies.yaml — turtle_soup + vwap only |
-| [#150](https://github.com/the-lizardking/ict-trading-bot/pull/150) | S-012 PR B2: rewrite config/units.yaml — match B1 roster |
-| [#151](https://github.com/the-lizardking/ict-trading-bot/pull/151) | S-012 PR B3: collapse units.accounts → accounts.yaml |
-| [#152](https://github.com/the-lizardking/ict-trading-bot/pull/152) | S-012 PR B4: update tests to new production roster + heal B3 fixtures |
-| [#153](https://github.com/the-lizardking/ict-trading-bot/pull/153) | S-012 PR C1: port turtle_soup into src/units/strategies/ |
-| [#154](https://github.com/the-lizardking/ict-trading-bot/pull/154) | S-012 PR C2: unit tests for turtle_soup module |
-| [#155](https://github.com/the-lizardking/ict-trading-bot/pull/155) | S-012 PR C3: wire turtle_soup into runtime pipeline |
-| [#156](https://github.com/the-lizardking/ict-trading-bot/pull/156) | S-012 PR C4: drop service: field + PM § 8 #1 shared-state audit |
-| [#157](https://github.com/the-lizardking/ict-trading-bot/pull/157) | S-012 PR C5: delete out-of-scope strategies + strategies_manager.py |
-| [#158](https://github.com/the-lizardking/ict-trading-bot/pull/158) | S-012 PR C6: reconcile entrypoints, delete automated_trading_loop.py |
-| [#159](https://github.com/the-lizardking/ict-trading-bot/pull/159) | S-012 PR D2: single-process consolidation regression test |
-| [#160](https://github.com/the-lizardking/ict-trading-bot/pull/160) | S-012 PR D3: harden Telegram start-services + phantom regression test |
-| [#161](https://github.com/the-lizardking/ict-trading-bot/pull/161) | S-012 PR E1: hard live-mode interlock |
-| [#162](https://github.com/the-lizardking/ict-trading-bot/pull/162) | S-012 PR E2: document /accounts dry/live toggle + defaults |
-| [#163](https://github.com/the-lizardking/ict-trading-bot/pull/163) | S-012 PR E3: risk-cap firing tests for both turtle_soup and vwap |
-| [#164](https://github.com/the-lizardking/ict-trading-bot/pull/164) | S-012 PR E3a: implement max_dd_pct intra-day UTC reset |
-| [#165](https://github.com/the-lizardking/ict-trading-bot/pull/165) | S-012 PR E4: strategy-attributed signal audit log |
-| [#166](https://github.com/the-lizardking/ict-trading-bot/pull/166) | S-012 PR F1: full-suite verification + initial sprint summary |
-| [#167](https://github.com/the-lizardking/ict-trading-bot/pull/167) | S-012 PR F4: deployment runbook |
+| [#147](https://github.com/benbaichmankass/ict-trading-bot/pull/147) | S-012 Phase A: production wiring audit (docs only) |
+| [#148](https://github.com/benbaichmankass/ict-trading-bot/pull/148) | S-012: append CP-2026-04-29-62 — Phase A done |
+| [#149](https://github.com/benbaichmankass/ict-trading-bot/pull/149) | S-012 PR B1: rewrite config/strategies.yaml — turtle_soup + vwap only |
+| [#150](https://github.com/benbaichmankass/ict-trading-bot/pull/150) | S-012 PR B2: rewrite config/units.yaml — match B1 roster |
+| [#151](https://github.com/benbaichmankass/ict-trading-bot/pull/151) | S-012 PR B3: collapse units.accounts → accounts.yaml |
+| [#152](https://github.com/benbaichmankass/ict-trading-bot/pull/152) | S-012 PR B4: update tests to new production roster + heal B3 fixtures |
+| [#153](https://github.com/benbaichmankass/ict-trading-bot/pull/153) | S-012 PR C1: port turtle_soup into src/units/strategies/ |
+| [#154](https://github.com/benbaichmankass/ict-trading-bot/pull/154) | S-012 PR C2: unit tests for turtle_soup module |
+| [#155](https://github.com/benbaichmankass/ict-trading-bot/pull/155) | S-012 PR C3: wire turtle_soup into runtime pipeline |
+| [#156](https://github.com/benbaichmankass/ict-trading-bot/pull/156) | S-012 PR C4: drop service: field + PM § 8 #1 shared-state audit |
+| [#157](https://github.com/benbaichmankass/ict-trading-bot/pull/157) | S-012 PR C5: delete out-of-scope strategies + strategies_manager.py |
+| [#158](https://github.com/benbaichmankass/ict-trading-bot/pull/158) | S-012 PR C6: reconcile entrypoints, delete automated_trading_loop.py |
+| [#159](https://github.com/benbaichmankass/ict-trading-bot/pull/159) | S-012 PR D2: single-process consolidation regression test |
+| [#160](https://github.com/benbaichmankass/ict-trading-bot/pull/160) | S-012 PR D3: harden Telegram start-services + phantom regression test |
+| [#161](https://github.com/benbaichmankass/ict-trading-bot/pull/161) | S-012 PR E1: hard live-mode interlock |
+| [#162](https://github.com/benbaichmankass/ict-trading-bot/pull/162) | S-012 PR E2: document /accounts dry/live toggle + defaults |
+| [#163](https://github.com/benbaichmankass/ict-trading-bot/pull/163) | S-012 PR E3: risk-cap firing tests for both turtle_soup and vwap |
+| [#164](https://github.com/benbaichmankass/ict-trading-bot/pull/164) | S-012 PR E3a: implement max_dd_pct intra-day UTC reset |
+| [#165](https://github.com/benbaichmankass/ict-trading-bot/pull/165) | S-012 PR E4: strategy-attributed signal audit log |
+| [#166](https://github.com/benbaichmankass/ict-trading-bot/pull/166) | S-012 PR F1: full-suite verification + initial sprint summary |
+| [#167](https://github.com/benbaichmankass/ict-trading-bot/pull/167) | S-012 PR F4: deployment runbook |
 | #168 | S-012 PR F5: finalize sprint summary + close CHECKPOINT_LOG (this PR) |
 
 **Total:** 22 PRs (one audit + one Phase-A checkpoint + four configs +

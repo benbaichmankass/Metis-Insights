@@ -6,7 +6,7 @@ the ICT trading bot repo. Copy-paste the block below verbatim.
 ---
 
 You are picking up an autonomous overnight session on
-`the-lizardking/ict-trading-bot`. The previous session closed at
+`benbaichmankass/ict-trading-bot`. The previous session closed at
 **CP-2026-05-03-22** — read it first via
 `docs/claude/checkpoints/CHECKPOINT_LOG.md` (most recent entry on
 top) so you know what landed and what's deferred.

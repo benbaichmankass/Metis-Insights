@@ -37,13 +37,13 @@
 
 | # | Title |
 |---|---|
-| [#247](https://github.com/the-lizardking/ict-trading-bot/pull/247) | docs/operator: step-by-step API key setup + fill-in template |
-| [#248](https://github.com/the-lizardking/ict-trading-bot/pull/248) | operator: Colab key-rotation notebook + `/set_keys` command |
-| [#249](https://github.com/the-lizardking/ict-trading-bot/pull/249) | operator: SSH key as uploaded file, not Colab Secret |
-| [#250](https://github.com/the-lizardking/ict-trading-bot/pull/250) | operator: notebook reads SSH key from Drive (preferred), falls back to /content |
-| [#251](https://github.com/the-lizardking/ict-trading-bot/pull/251) | operator: fix Drive-mount race + automatic file-picker fallback |
-| [#252](https://github.com/the-lizardking/ict-trading-bot/pull/252) | operator: notebook writes .env (systemd target) + escape underscores in /accounts_status |
-| [#253](https://github.com/the-lizardking/ict-trading-bot/pull/253) | operator: notebook restarts telegram bot too + /accounts_status uses HTML mode |
+| [#247](https://github.com/benbaichmankass/ict-trading-bot/pull/247) | docs/operator: step-by-step API key setup + fill-in template |
+| [#248](https://github.com/benbaichmankass/ict-trading-bot/pull/248) | operator: Colab key-rotation notebook + `/set_keys` command |
+| [#249](https://github.com/benbaichmankass/ict-trading-bot/pull/249) | operator: SSH key as uploaded file, not Colab Secret |
+| [#250](https://github.com/benbaichmankass/ict-trading-bot/pull/250) | operator: notebook reads SSH key from Drive (preferred), falls back to /content |
+| [#251](https://github.com/benbaichmankass/ict-trading-bot/pull/251) | operator: fix Drive-mount race + automatic file-picker fallback |
+| [#252](https://github.com/benbaichmankass/ict-trading-bot/pull/252) | operator: notebook writes .env (systemd target) + escape underscores in /accounts_status |
+| [#253](https://github.com/benbaichmankass/ict-trading-bot/pull/253) | operator: notebook restarts telegram bot too + /accounts_status uses HTML mode |
 
 7 PRs over the span of the operator's first end-to-end run. Each PR
 shipped, the operator tried it, the next bug surfaced, the next PR fixed

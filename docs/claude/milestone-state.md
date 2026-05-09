@@ -67,7 +67,7 @@ When opening a session:
 | **M3** | Risk controls foundation | ✅ CLOSED | S-043 closed 2026-05-06. Order-layer refusal tests now complete (28 new gap-closer tests in `tests/test_s043_order_refusal_paths.py`). Risk engine + kill switch + risk caps + reason-token contract all pinned. |
 | **M4** | Repo hygiene + CI | ✅ CLOSED | S-044 (CI suite) ✅; S-045 (conftest + pytest-collect blocking + ruff default) ✅; post-S-045 follow-up (auto-sync branch protection workflow) ✅; S-046 (2026-05-07) closed the three Janitor audits. M4 formally closed. |
 | **M5** | Strategy testing workflow | 📋 NOT STARTED (paused) | Telegram-triggered test flow, validation logging, backtest workflow docs not yet built. **Paused** behind S-047 T6. The bot-side dispatch surface for `/test <strategy>` is now in place via M1 P1-D — M5 only needs to wire the artifact consumer. |
-| **M6** | Web app UI | 🔄 IN PROGRESS (dashboard repo) | S-014 V1 React/Vite SPA shipped 2026-05-07 in `the-lizardking/ict-trader-dashboard`. **S-015 V2 plan scratched 2026-05-07** per operator. Dashboard connection fix (Vercel rewrite of `/api/bot/*` to bot VPS) landed the same day. **In active session 2026-05-08** on dashboard branch `claude/update-roadmap-status-ZnLM9` — wiring mock-data feeds (equity chart, Active ICT Strategies, Trading Conditions) to live `/api/bot/*` data; positions and signals to follow. |
+| **M6** | Web app UI | 🔄 IN PROGRESS (dashboard repo) | S-014 V1 React/Vite SPA shipped 2026-05-07 in `benbaichmankass/ict-trader-dashboard`. **S-015 V2 plan scratched 2026-05-07** per operator. Dashboard connection fix (Vercel rewrite of `/api/bot/*` to bot VPS) landed the same day. **In active session 2026-05-08** on dashboard branch `claude/update-roadmap-status-ZnLM9` — wiring mock-data feeds (equity chart, Active ICT Strategies, Trading Conditions) to live `/api/bot/*` data; positions and signals to follow. |
 | **M7** | Strategy review gate | 📋 NOT STARTED | |
 | **M8** | Strategy tuning | 📋 NOT STARTED | |
 | **M9** | AI / model roadmap | 📋 NOT STARTED | S-005 (model monitor) and S-006 (model registry) built under old framing; formal M9 not started. |
@@ -105,7 +105,7 @@ In execution order. Each row lists the gating condition to start.
 | 1 | **S-047 T6 — end-to-end live smoke + runbook** (D8) | ad-hoc (live-trading) | None — ready to start. Live smoke needs Bybit web-UI Spot Margin toggle ON for `bybit_2`. |
 | 2 | **S-047 T7 — sprint close** (milestone-state + bug-log + summary) | docs-only (Tier 1) | T6 closes. |
 | 3 | M5 — Strategy testing workflow | auto-claude | S-047 closes. `/test <strategy>` bot-side dispatch surface now in place via M1 P1-D; M5 wires the artifact consumer. |
-| 4 | M6 — Web app UI (dashboard repo) | auto-claude | **In active session 2026-05-08** in `the-lizardking/ict-trader-dashboard`. |
+| 4 | M6 — Web app UI (dashboard repo) | auto-claude | **In active session 2026-05-08** in `benbaichmankass/ict-trader-dashboard`. |
 | 5 | M9 — AI / model roadmap | auto-claude | Independent of M5/M6. Could run in parallel. |
 | 6 | M10 — HF / data pipeline | auto-claude | Independent of M5/M6. Could run in parallel. |
 | 7 | **S-050-followup — Phase-3 HTF reference 4h → 1h EMA-200** (Tier 2, PM-review) | strategy-improvement | ≥ 30 days of Phase-2 live metrics on the HTF gate (S-050 shipped 2026-05-09). Expected +0.4 Sharpe lift on top of Phase-2 per V3 in `experiments/2026-05-08-all-models-training/`. |
