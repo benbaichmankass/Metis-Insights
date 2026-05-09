@@ -32,6 +32,8 @@ so the dashboard doesn't have to know the VPS IP.
 | `GET /api/bot/positions` | `src/web/api/routers/dashboard.py` | Open positions from `trade_journal.db`. |
 | `GET /api/bot/signals` | `src/web/api/routers/dashboard.py` | Recent ICT detections from `signal_audit.jsonl`. |
 | `GET /api/pnl/history?days=N` | `src/web/api/routers/pnl_history.py` | **Added S-063 (2026-05-09).** Per-day realised P&L for the dashboard Performance tab. Returns `PnlHistoryPoint[]` (`{date, pnl, trades}`). `days` clamped to 1..90. |
+| `GET /api/bot/liquidity?symbol=X&limit=N&sweeps_limit=N` | `src/web/api/routers/liquidity.py` | **Added S-064 (2026-05-09).** Per-symbol liquidity zones (equal highs / lows / recent sweeps) for the dashboard Liquidity Maps tab. Reads `runtime_logs/liquidity_state.json` (written per tick by the pipeline; see S-064 prereq). `limit` / `sweeps_limit` clamped to 1..100. Empty / missing file → 200 with empty arrays. |
+| `GET /api/bot/config` | `src/web/api/routers/bot_config.py` | **Added S-064 (2026-05-09).** Read-only effective config view (accounts, strategies, risk caps, halt flag, live/dry per account) for the dashboard Settings tab. Allowlist for accounts; recursive secret-key denylist for strategy params. Never echoes `api_key_env` / `api_secret_env` field values. |
 | `GET /` | UI surface | Login redirect target. |
 | `GET /login` | UI surface | Login page. |
 | `GET /static/*` | `app.mount("/static", ...)` | Static assets. |

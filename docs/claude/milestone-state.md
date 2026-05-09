@@ -36,26 +36,42 @@ When opening a session:
 
 | Field | Value |
 |---|---|
-| **Milestone** | M6 — Web app UI (dashboard build-out, sprint D — S-064) |
-| **Title** | S-064 — Dashboard sprint D: Liquidity Maps + Settings (read-only) |
-| **Type** | auto-claude (M6 dashboard UI + two new Tier-1 bot read endpoints). Parent: 5-sprint dashboard plan S-061..S-065 approved by operator on 2026-05-09. |
-| **Goal** | Per `docs/sprints/sprint-064-prompt.md` — build the Liquidity Maps tab (consumes a new `/api/bot/liquidity` zones endpoint: equal highs/lows + recent sweeps) and the Settings tab (read-only; consumes a new `/api/bot/config` endpoint surfacing strategy + risk config). Mutating controls (halt/start/restart) deferred to S-065. |
-| **Status** | 🔜 NEXT 2026-05-09 — S-063 closed (bot PR on `claude/bot-S-063-pnl-history-auth-Rrj7J`). |
-| **Active sprint** | **S-064 — Sprint D.** Plan: `docs/sprints/sprint-064-prompt.md`. |
+| **Milestone** | M6 — Web app UI (dashboard build-out, sprint E — S-065) |
+| **Title** | S-065 — Dashboard sprint E: controls phase 1 (halt + live/dry toggle) + minimal session/login flow |
+| **Type** | auto-claude (M6 dashboard UI + first Tier-3 bot mutating endpoints + Tier-2 session). Parent: 5-sprint dashboard plan S-061..S-065 approved by operator on 2026-05-09. |
+| **Goal** | Per `docs/sprints/sprint-065-prompt.md` — stand up the minimal email + shared-secret login flow on the dashboard wired to `POST /api/auth/login`; ship the first Tier-3 bot endpoint (halt) gated behind JWT + per-action confirm token; dashboard surfaces a halt button on the Settings tab that's previously read-only. |
+| **Status** | 🔜 NEXT 2026-05-09 — S-064 closed (bot prereq PR #597 + bot main PR + dashboard PR all merged). |
+| **Active sprint** | **S-065 — Sprint E.** Plan: `docs/sprints/sprint-065-prompt.md`. |
 | **Active checkpoint** | (none yet — sprint to be opened by next session) |
-| **Risk tier** | Tier 1 (two new read-only bot endpoints; read-only dashboard tabs). |
-| **Definition of done** | Per `sprint-064-prompt.md` checkpoints. Files `sprint-065-prompt.md` for the controls-phase-1 sprint. |
+| **Risk tier** | Tier 2 (login flow) + Tier 3 (halt control). First sprint that adds risk surface to the dashboard. |
+| **Definition of done** | Per `sprint-065-prompt.md` checkpoints. End of the dashboard build-out arc. |
 
-> **S-063 close-out (2026-05-09):** dashboard side shipped earlier in
-> the day as PR #9 (squash `be85d10`) and added the localStorage equity
-> buffer + Performance tab. Bot side this session dropped
-> `Depends(require_session)` on `GET /api/pnl/history`, flattened the
-> response to `PnlHistoryPoint[]` (`{date, pnl, trades}` per row, field
-> rename `realized_usd` → `pnl`), and filed `docs/api-tier-policy.md`
-> as the human-facing tier inventory. `ict-trading-bot#557` (closed-
-> trades endpoint with pattern attribution) is **still open / not
-> started** — Performance tab's per-strategy breakdown stays empty
-> until that lands; not blocking S-064.
+> **S-064 close-out (2026-05-09):** dashboard side ships
+> `LiquidityMapsTab` + `SettingsTab` consuming the two new bot Tier-1
+> endpoints. Bot side ships in two PRs:
+>
+> 1. **Prereq PR** (`claude/bot-S-064-prereq-liquidity-state-writer`) —
+>    `src/runtime/liquidity_state.py` writes
+>    `runtime_logs/liquidity_state.json` per tick from the existing
+>    `LiquidityDetector` (which had been unit-tested but never invoked
+>    from the runtime). One-line hook from `turtle_soup_signal_builder`
+>    + `vwap_signal_builder` after `fetch_candles`. 13 new tests
+>    covering pure detection, atomic per-symbol merge, and the
+>    no-raise-into-tick-loop contract.
+> 2. **Main PR** — `GET /api/bot/liquidity?symbol=X&limit=N` reads
+>    that file; `GET /api/bot/config` re-reads YAMLs + overlays the
+>    pipeline's runtime live/dry state from `runtime_status.json` with
+>    allowlist (accounts) + recursive secret-key denylist (strategy
+>    params). 22 new tests across both endpoints, including a
+>    secret-redaction battery covering api_key / api_secret / token /
+>    signing_key / password / hash / credential field names at any
+>    nesting depth. `docs/api-tier-policy.md` + `CLAUDE.md` updated
+>    with both routes.
+>
+> `ict-trading-bot#557` (closed-trades endpoint with pattern
+> attribution) is **still open / not started** — Performance tab's
+> per-strategy breakdown stays empty until that lands; not blocking
+> S-065.
 
 > **Parallel:** S-047 T6 (bybit_2 Spot Margin live smoke + runbook) is still
 > the live-trading priority and runs on its own branch. S-061..S-065 do not
@@ -107,7 +123,8 @@ When opening a session:
 | **2026-05-08 all-models training run + S-050 (VWAP Phase 2)** | **2026-05-09** | `CP-2026-05-09-01-all-models-training` | `experiments/2026-05-08-all-models-training/RECOMMENDATIONS.md` (PR #558 squashed as `9a7bdf3`) |
 | **S-061 — Dashboard sprint A (data-contract gap + nullable types)** | **2026-05-09** | (squash `a8eaad4`) | `docs/sprints/sprint-061-prompt.md` |
 | **S-062 — Dashboard sprint B (Models + Time & Price tabs)** | **2026-05-09** | dashboard PR #8 squash `06ca19c` | `docs/sprints/sprint-062-prompt.md` |
-| **S-063 — Dashboard sprint C (Performance tab + persistent equity; bot drops `/api/pnl/history` JWT gate, flattens response)** | **2026-05-09** | dashboard PR #9 squash `be85d10`; bot PR on `claude/bot-S-063-pnl-history-auth-Rrj7J` | `docs/sprints/sprint-063-prompt.md` |
+| **S-063 — Dashboard sprint C (Performance tab + persistent equity; bot drops `/api/pnl/history` JWT gate, flattens response)** | **2026-05-09** | dashboard PR #9 squash `be85d10`; bot PR #595 squash `87d5ee1` | `docs/sprints/sprint-063-prompt.md` |
+| **S-064 — Dashboard sprint D (Liquidity Maps + Settings tabs; new bot endpoints `/api/bot/{liquidity,config}`; pipeline writes per-tick `runtime_logs/liquidity_state.json` via prereq hook)** | **2026-05-09** | bot prereq PR #597 + bot main PR + dashboard PR | `docs/sprints/sprint-064-prompt.md` |
 
 > Pre-M0..M10 roadmap progress (S-000 through S-040) is captured in `ROADMAP.md`
 > under "Historical Sprint Ledger". From M0 forward, every closed milestone gets a row here.
