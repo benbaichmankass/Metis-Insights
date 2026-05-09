@@ -144,6 +144,32 @@ _ENTRY_STD_THRESHOLD = ENTRY_STD_THRESHOLD
 SL_STD_MULT_DEFAULT = 0.5
 
 
+# Phase 2 of the 2026-05-07-vwap-accuracy training run + the
+# 2026-05-08-all-models-training validation: HTF EMA trend gate.
+# When the runtime supplies an HTF close + EMA pair (default: 4h
+# EMA-200), the strategy rejects mean-reversion fades that point
+# against the higher-timeframe trend. The gate band is
+# operator-configurable via ``config/strategies.yaml`` under
+# ``strategies.vwap.htf_trend_filter`` — runtime falls back to this
+# default when the config map is missing.
+#
+# 2026-05-08 run set the band to 0.020 (vs 0.010 in the original
+# Phase-2 design): full-sample Sharpe rose +0.35 with a 13 % cadence
+# recovery vs band 0.010 on a 38-month BTCUSDT 5m dataset, walk-
+# forward IS/OOS both stable. See
+# ``experiments/2026-05-08-all-models-training/RECOMMENDATIONS.md``
+# § "VWAP — full results" for the band sweep.
+#
+# Gate semantics (BUY = mean-reversion long, SELL = short):
+#   * BUY  blocked when ``htf_close < htf_ema * (1 - band_pct)``
+#     — strong downtrend; fades into a falling knife.
+#   * SELL blocked when ``htf_close > htf_ema * (1 + band_pct)``
+#     — strong uptrend; fades get run over.
+#   * Within the ±band region (consolidation / mild counter-trend
+#     pullback), both sides pass through unchanged.
+HTF_BAND_PCT_DEFAULT = 0.02
+
+
 def compute_vwap(candles_df: pd.DataFrame) -> float:
     """Return VWAP for the supplied candle window.
 
@@ -238,6 +264,9 @@ def build_vwap_signal(
     candles_df: pd.DataFrame,
     symbol: str,
     sl_std_mult: float = SL_STD_MULT_DEFAULT,
+    htf_close: Optional[float] = None,
+    htf_ema: Optional[float] = None,
+    htf_band_pct: float = HTF_BAND_PCT_DEFAULT,
 ) -> Dict[str, Any]:
     """Compute a VWAP mean-reversion signal from OHLCV candle data.
 
@@ -314,6 +343,21 @@ def build_vwap_signal(
         side = "none"
         reason = f"price {current_price:.4f} within {ENTRY_STD_THRESHOLD} std-dev of VWAP {vwap:.4f} — no signal"
 
+    # Phase 2 HTF trend gate. When the runtime supplies htf_close + htf_ema,
+    # block fades pointing against a strong higher-timeframe trend.
+    htf_blocked = False
+    if side != "none" and htf_close is not None and htf_ema is not None and htf_ema > 0:
+        if side == "buy" and htf_close < htf_ema * (1.0 - htf_band_pct):
+            htf_blocked = True
+        elif side == "sell" and htf_close > htf_ema * (1.0 + htf_band_pct):
+            htf_blocked = True
+        if htf_blocked:
+            side = "none"
+            reason = (
+                f"htf_trend_block: side={'buy' if deviation < 0 else 'sell'} "
+                f"htf_close={htf_close:.4f} htf_ema={htf_ema:.4f} band={htf_band_pct:.4f}"
+            )
+
     logger.info(
         "VWAP signal: symbol=%s vwap=%.4f price=%.4f std=%.4f deviation=%.2f side=%s",
         symbol, vwap, current_price, std_dev, deviation, side,
@@ -336,6 +380,11 @@ def build_vwap_signal(
         "vwap_anchor": anchor,
         "vwap_window_bars": len(window),
     }
+    if htf_close is not None and htf_ema is not None:
+        base_meta["htf_close"] = float(htf_close)
+        base_meta["htf_ema"] = float(htf_ema)
+        base_meta["htf_band_pct"] = float(htf_band_pct)
+        base_meta["htf_blocked"] = bool(htf_blocked)
 
     if side == "none":
         return {

@@ -35,7 +35,10 @@ strategies:
     min_sweep_buffer_bps: 12
     min_body_to_range: 0.60
     atr_period: 14
-    atr_stop_mult: 0.35
+    # 2026-05-08 training run tightened 0.35 → 0.30 (single-knob lift,
+    # +0.53 Sharpe full-sample, +0.97 OOS, no cadence cost). See
+    # experiments/2026-05-08-all-models-training/RECOMMENDATIONS.md.
+    atr_stop_mult: 0.30
     be_at_r: 0.75
     tp1_at_r: 1.25
     tp2_at_r: 3.0
@@ -65,3 +68,17 @@ strategies:
     # falls back to MONITOR_HOLD_WINDOW_MINUTES (240) when this key
     # is missing.
     monitor_hold_window_minutes: 240
+
+    # Phase 2 HTF trend gate (S-050; experiments/2026-05-08-all-models-training).
+    # Blocks BUY (mean-reversion long) when 4 h close < EMA-200 × (1 - band_pct);
+    # blocks SELL when 4 h close > EMA-200 × (1 + band_pct). The ±band_pct
+    # region passes through unchanged. 38-month BTCUSDT 5 m backtest
+    # (Jan 2023 → Feb 2026): full-sample Sharpe -0.39 → +2.47, walk-forward
+    # OOS +0.22 → +1.10. Operator-controllable kill-switch via ``enabled``.
+    htf_trend_filter:
+      enabled: true
+      htf_timeframe: "4h"
+      ema_period: 200
+      # 0.020 = 2% band (band sweep showed +0.35 Sharpe + 13% cadence
+      # recovery vs the originally-proposed 0.010; see PLAN.md V2 results).
+      band_pct: 0.02
