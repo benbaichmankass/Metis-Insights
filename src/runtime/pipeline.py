@@ -1038,6 +1038,14 @@ def run_pipeline(
                 "symbol": signal.get("symbol"),
                 "side": signal.get("side"),
                 "qty": signal.get("qty"),
+                # Carry the structural pattern + confidence the strategy
+                # emitter set on the signal. Without these, the dashboard
+                # /api/bot/signals consumer can't tell which ICT pattern
+                # fired or how confident the model was — see
+                # ict-trading-bot#556 + ict-trader-dashboard#5.
+                "pattern": signal.get("signal_type") or signal.get("pattern"),
+                "confidence": signal.get("confidence"),
+                "price": signal.get("entry") or signal.get("entry_price") or signal.get("price"),
                 "status": result.get("status"),
                 "reason": result.get("reason"),
             }
