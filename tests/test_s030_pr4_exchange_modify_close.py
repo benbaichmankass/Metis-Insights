@@ -1,17 +1,20 @@
 """S-030 PR4 regression tests — exchange-side modify/close helpers
-+ env-gated wiring in the monitor loop.
+wired into the monitor loop.
 
 Pre-PR3, monitor verdicts updated only the DB. PR4 adds:
   * ``modify_open_order`` / ``close_open_position`` in execute.py —
     Bybit Unified Trading helpers wrapping ``set_trading_stop`` and
     a reduce-only ``place_order``.
-  * Env-gated wiring in ``order_monitor._apply_update`` — when
-    ``MONITOR_APPLY_TO_EXCHANGE=true`` the loop also dispatches the
-    verdict to the live exchange.
+  * Direct wiring in ``order_monitor._apply_update`` — every monitor
+    verdict that produces a matched trade row also dispatches the
+    update to the live exchange.
 
-The default (env unset) is **shadow mode** — DB-only — preserving
-PR3's risk profile. Operator flips the env on the trader's systemd
-unit when ready.
+The original PR4 wiring was env-gated on ``MONITOR_APPLY_TO_EXCHANGE``
+("shadow mode" = DB-only). Operator directive 2026-05-03 deleted that
+gate (per-account ``RiskManager.dry_run`` is the only dry/live toggle
+in the codebase, and on 2026-05-09 the gate stranded a vwap close
+because monitor flipped DB to ``status='closed'`` while the live
+position kept consuming margin).
 """
 from __future__ import annotations
 
@@ -233,32 +236,14 @@ def _candles(close_price):
     })
 
 
-class TestMonitorEnvGate:
-    def test_env_default_off_shadow_mode_close(self, tmp_db, monkeypatch):
-        """Default: MONITOR_APPLY_TO_EXCHANGE unset → no exchange call."""
-        monkeypatch.delenv("MONITOR_APPLY_TO_EXCHANGE", raising=False)
-        _seed(tmp_db)
+class TestExchangeDispatch:
+    """The 2026-05-03 operator directive removed the
+    ``MONITOR_APPLY_TO_EXCHANGE`` "shadow-mode" env-gate. The monitor
+    loop now always dispatches to the exchange when there's a matched
+    trade row; per-account ``RiskManager.dry_run`` is the single
+    dry/live toggle."""
 
-        send_close_calls = []
-        with patch(
-            "src.runtime.order_monitor._send_close_to_exchange",
-            side_effect=lambda t: send_close_calls.append(t),
-        ), patch(
-            "src.units.strategies.vwap.monitor",
-            return_value={"action": "close", "reason": "test"},
-        ):
-            om.run_monitor_tick(
-                strategies=["vwap"],
-                ohlcv_fetcher=lambda s, t: _candles(99.0),
-            )
-
-        # Shadow mode — DB closed but no exchange call.
-        assert send_close_calls == []
-        rows = tmp_db.get_order_packages_by_strategy("vwap")
-        assert rows[0]["status"] == "closed"
-
-    def test_env_on_close_dispatches_to_exchange(self, tmp_db, monkeypatch):
-        monkeypatch.setenv("MONITOR_APPLY_TO_EXCHANGE", "true")
+    def test_close_dispatches_to_exchange(self, tmp_db, monkeypatch):
         _seed(tmp_db)
 
         captured = []
@@ -278,8 +263,7 @@ class TestMonitorEnvGate:
         assert captured[0]["account_id"] == "bybit_2"
         assert captured[0]["symbol"] == "BTCUSDT"
 
-    def test_env_on_modify_dispatches_to_exchange(self, tmp_db, monkeypatch):
-        monkeypatch.setenv("MONITOR_APPLY_TO_EXCHANGE", "true")
+    def test_modify_dispatches_to_exchange(self, tmp_db, monkeypatch):
         _seed(tmp_db)
 
         captured = []
@@ -303,13 +287,12 @@ class TestMonitorEnvGate:
         assert captured[0]["sl"] == 100.0
         assert captured[0]["tp"] is None
 
-    def test_env_on_modify_with_no_open_trade_skips_exchange(
+    def test_modify_with_no_open_trade_skips_exchange(
         self, tmp_db, monkeypatch,
     ):
         """If there's a package but no matching open trade row, the
         monitor still updates the DB but doesn't try to call the
         exchange (no account_id to dispatch to)."""
-        monkeypatch.setenv("MONITOR_APPLY_TO_EXCHANGE", "true")
         # Only insert a package, NOT a trade row.
         tmp_db.insert_order_package({
             "order_package_id": "pkg-orphan", "strategy_name": "vwap",
@@ -334,18 +317,3 @@ class TestMonitorEnvGate:
         # DB row updated even though exchange wasn't touched.
         rows = tmp_db.get_order_packages_by_strategy("vwap")
         assert rows[0]["sl"] == 100.0
-
-
-class TestApplyToExchangeFlag:
-    @pytest.mark.parametrize("value,expected", [
-        ("true", True), ("True", True), ("1", True), ("yes", True),
-        ("on", True), ("false", False), ("0", False),
-        ("no", False), ("", False), ("garbage", False),
-    ])
-    def test_flag_parsing(self, value, expected, monkeypatch):
-        monkeypatch.setenv("MONITOR_APPLY_TO_EXCHANGE", value)
-        assert om._apply_to_exchange_enabled() is expected
-
-    def test_unset_default_off(self, monkeypatch):
-        monkeypatch.delenv("MONITOR_APPLY_TO_EXCHANGE", raising=False)
-        assert om._apply_to_exchange_enabled() is False

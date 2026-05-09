@@ -413,10 +413,19 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
             )
             matched_trade = None
 
-        # Exchange-side close — env-gated. Operator flips
-        # MONITOR_APPLY_TO_EXCHANGE=true on the trader's systemd unit
-        # when ready to leave shadow mode.
-        if _apply_to_exchange_enabled() and matched_trade:
+        # Exchange-side close. Operator directive 2026-05-03: per-account
+        # ``RiskManager.dry_run`` is the only dry/live toggle in the
+        # codebase. The prior ``MONITOR_APPLY_TO_EXCHANGE`` env-gate
+        # violated that contract — DB-only "shadow mode" was a soak-test
+        # scaffold from S-052 that survived past its sell-by, and on
+        # 2026-05-09 it stranded vwap/bybit_2 trade #1049: monitor
+        # fired tp_cross, DB flipped to status='closed', the live BTC
+        # position kept consuming margin until the orphan-position
+        # reconciler swept it. The gate is gone; live mode is the only
+        # mode. Per-account dry_run still suppresses the order at the
+        # ``_send_close_to_exchange`` boundary when the account is
+        # paper.
+        if matched_trade:
             ex_result = _send_close_to_exchange(matched_trade)
             logger.info(
                 "order_monitor: exchange close for pkg=%s account=%s → %s",
@@ -452,33 +461,33 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
         summary.errors.append(f"{pkg_id}: update-write failed")
         return
 
-    # Exchange-side modify — env-gated. Same shadow-mode contract as
-    # the close path above. Looks up the matched trade row to get
-    # account_id + symbol; bypasses the exchange call when no trade
-    # row matches (the package may have been dispatched but the
+    # Exchange-side modify. The prior shadow-mode env-gate
+    # (``MONITOR_APPLY_TO_EXCHANGE``) is gone — see the matching
+    # comment in the close path above. Looks up the matched trade row
+    # to get account_id + symbol; bypasses the exchange call when no
+    # trade row matches (the package may have been dispatched but the
     # account_id linkage hasn't been wired in yet).
-    if _apply_to_exchange_enabled():
-        try:
-            rows = db.get_trades(filters={
-                "strategy_name": open_pkg.get("strategy_name"),
-                "symbol": open_pkg.get("symbol"),
-                "status": "open",
-            }, limit=1) or []
-            if rows:
-                ex_result = _send_modify_to_exchange(
-                    rows[0],
-                    sl=updates.get("sl"),
-                    tp=updates.get("tp"),
-                )
-                logger.info(
-                    "order_monitor: exchange modify for pkg=%s account=%s → %s",
-                    pkg_id, rows[0].get("account_id"), ex_result,
-                )
-        except Exception as exc:  # noqa: BLE001
-            logger.warning(
-                "order_monitor: exchange modify lookup failed for %s: %s",
-                pkg_id, exc,
+    try:
+        rows = db.get_trades(filters={
+            "strategy_name": open_pkg.get("strategy_name"),
+            "symbol": open_pkg.get("symbol"),
+            "status": "open",
+        }, limit=1) or []
+        if rows:
+            ex_result = _send_modify_to_exchange(
+                rows[0],
+                sl=updates.get("sl"),
+                tp=updates.get("tp"),
             )
+            logger.info(
+                "order_monitor: exchange modify for pkg=%s account=%s → %s",
+                pkg_id, rows[0].get("account_id"), ex_result,
+            )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "order_monitor: exchange modify lookup failed for %s: %s",
+            pkg_id, exc,
+        )
 
 
 def _close_trade_by_match(db, *, strategy: Optional[str], symbol: Optional[str],
@@ -510,17 +519,6 @@ def _close_trade_by_match(db, *, strategy: Optional[str], symbol: Optional[str],
 # ---------------------------------------------------------------------------
 # Exchange-side wiring (S-030 PR4) — env-gated
 # ---------------------------------------------------------------------------
-
-
-def _apply_to_exchange_enabled() -> bool:
-    """``MONITOR_APPLY_TO_EXCHANGE`` is the operator-controlled flag
-    that flips PR3's "shadow mode" (DB-only) into live mode (also
-    talks to the exchange). Defaults to **False** so an unconfigured
-    deploy never accidentally modifies live orders. Operator sets the
-    env on the trader's systemd unit when ready.
-    """
-    raw = os.environ.get("MONITOR_APPLY_TO_EXCHANGE", "false")
-    return str(raw).strip().lower() in {"true", "1", "yes", "on"}
 
 
 def _build_account_client(account_id):
