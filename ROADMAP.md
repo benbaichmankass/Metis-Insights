@@ -1,13 +1,13 @@
 # ICT Trading Bot — Product Roadmap
 
-> **Last Updated:** 2026-05-09 (S-064 dashboard build-out sprint D — Liquidity
-> Maps + Settings tabs. Two new Tier-1 bot endpoints — `/api/bot/liquidity`
-> reads a per-tick liquidity-state file written by a small pipeline hook
-> shipped as a prereq; `/api/bot/config` returns a redacted view of the
-> effective config. S-061..S-063 closed earlier the same day; S-065 active
-> next — that's the controls phase + minimal session/login flow).
-> S-061..S-065 form a 5-sprint sequence to bring the dashboard up to
-> spec; see `docs/sprints/sprint-061-prompt.md` for the parent plan.
+> **Last Updated:** 2026-05-09 (S-064 closed — Liquidity Maps + Settings
+> tabs + two new bot Tier-1 endpoints; S-065 deferred behind operator
+> Google Cloud Console setup for OAuth login (option (c) picked over the
+> originally-planned shared-secret option (a)); S-066 Janitor pass closing
+> out the M1 P2 hygiene cluster honestly. S-061..S-064 closed today form
+> sprints A..D of the dashboard build-out arc; S-065 (sprint E) reopens
+> when OAuth CREDS land. See `docs/sprints/sprint-061-prompt.md` for the
+> parent plan.
 > **Canonical authority:** `docs/claude/workplan.md` (the decider). When this file
 > conflicts with the workplan, the workplan wins.
 
@@ -137,8 +137,9 @@ feed; the dashboard is a pure consumer. See `docs/claude/workplan.md` § "Dashbo
 | S-061 | Dashboard build-out sprint A — close #556 data-contract gap (vmHealth + signal pattern/confidence null-on-missing) + dashboard nullable types | ✅ Done 2026-05-09 (dashboard PR #7 + bot PR #590 squash `a8eaad4`) | M2, M6 |
 | S-062 | Dashboard build-out sprint B — Models tab + Time & Price tab | ✅ Done 2026-05-09 (dashboard PR #8 squash `06ca19c`) | M6 |
 | **S-063** | **Dashboard build-out sprint C — Performance tab + persistent equity history; bot drops JWT gate on `/api/pnl/history` (option (a)), flattens to `PnlHistoryPoint[]`, files `docs/api-tier-policy.md`** | ✅ Done 2026-05-09 (dashboard PR #9 squash `be85d10`; bot PR #595 squash `87d5ee1`) | M2, M6 |
-| **S-064** | **Dashboard build-out sprint D — Liquidity Maps + Settings (read-only); ships two new Tier-1 bot endpoints `/api/bot/liquidity` (reads per-tick `runtime_logs/liquidity_state.json` written by the prereq pipeline hook) + `/api/bot/config` (redacted YAML view + runtime live/dry overlay)** | ✅ Done 2026-05-09 (bot prereq PR #597 + bot main PR + dashboard PR) | M2, M6 |
-| S-065 | Dashboard build-out sprint E — controls phase 1 (halt + live/dry toggle, Tier 2/3) + minimal session/login flow | 🔜 Next | M3, M6 |
+| **S-064** | **Dashboard build-out sprint D — Liquidity Maps + Settings (read-only); ships two new Tier-1 bot endpoints `/api/bot/liquidity` (reads per-tick `runtime_logs/liquidity_state.json` written by the prereq pipeline hook) + `/api/bot/config` (redacted YAML view + runtime live/dry overlay)** | ✅ Done 2026-05-09 (bot prereq PR #597 squash `1eb816b`; bot main PR #601 squash `14fe5d7a`; dashboard PR #10 squash `b7963b26`) | M2, M6 |
+| S-065 | Dashboard build-out sprint E — controls phase 1 (halt + live/dry toggle, Tier 2/3) + minimal session/login flow | ⏸ Deferred 2026-05-09 — login scope escalated to Google OAuth (option (c)); blocked on operator-side Google Cloud Console setup | M3, M6 |
+| **S-066** | **Janitor — M1 P2 hygiene cluster close-out (docs only). Reconciled `M1-comms-audit-followups-fresh.md` § P2 against ground truth: 3 items already done, 2 carved out (schema-drift envelope + command-name cosmetics) for explicit follow-up.** | ✅ Done 2026-05-09 (this PR) | M1 |
 
 > **Sprint number note:** S-036..S-040 burned per
 > `docs/claude/workplan.md` § "Sprint and checkpoint numbering".

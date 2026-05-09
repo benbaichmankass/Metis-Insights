@@ -164,28 +164,60 @@ time comes.
 
 ### P2 cluster — comms hygiene
 
+> **Status (2026-05-09 Janitor pass):** four of the five items closed
+> at audit time, three of those because the work landed in P1-B / P1-C
+> and one because the test pin already existed under a different name.
+> The schema-drift envelope (item 1) is the only piece of residual code
+> work; it remains carved out for an explicit follow-up.
+
 A single Tier 1 docs / cleanup sprint covering all of:
 
-- **Schema-drift envelope:** add a small shared envelope (priority,
+- ⏸ **Schema-drift envelope:** add a small shared envelope (priority,
   event-id, timestamp) across `pending-pings.jsonl` events and
   `comms/requests/` artifacts so consumer code can be unified. Surfaces
-  themselves stay distinct per the corrected architecture.
-- **Comms log retention:** decide whether `comms/log.ndjson` should be
+  themselves stay distinct per the corrected architecture. **Status
+  2026-05-09:** **carved out**, not closed. The two surfaces both have
+  `priority` + `event` already, but neither carries a stable `event_id`
+  or `timestamp`. Real residual work; the two emitters
+  (`docs/claude/pending-pings.jsonl` writers in
+  `src/bot/telegram_query_bot.py` + the comms request writer in
+  `src/comms/`) are decoupled, so a fully-shared envelope means
+  changing both. Promote to its own focused sprint when consumer-side
+  code starts wanting unified dedup keying. Not blocking anything as
+  of the Janitor pass.
+- ⏸ **Comms log retention:** decide whether `comms/log.ndjson` should be
   tracked in git, rotated, or backed up. Currently gitignored at
-  `comms/.gitignore`.
-- **Missing test pins:**
-  - Pin the `comms(response):` exclusion in `notify_on_pull.py`
-    (no `test_comms_response_commits_ignored_in_generic_drain`).
-  - Pin trader-bot restart recovery for inflight comms callbacks.
-- **Documentation tidy-up:** `comms/README.md` § "Stuck request? How
-  to recover" — once P1-B lands, replace the manual-edit instructions
-  with the new bot-side alerts (already part of P1-B, but the README
-  edit can ride this hygiene sprint if not already done).
-- **Command-name cosmetics:** `/sprintlet_status`,
+  `comms/.gitignore`. **Status 2026-05-09:** **carved out**, not closed.
+  This is a policy call (track? archive to S3? rotate locally?) that
+  needs operator input — not a code smell. File a runbook / ops sprint
+  if the file size starts mattering operationally; it's append-only and
+  the VM has room.
+- ✅ **Missing test pins:**
+  - **Done.** The `comms(response):` exclusion in `notify_on_pull.py`
+    is pinned by `tests/test_notify_on_pull.py::test_blocker_pings_suppresses_comms_response_commits`
+    (line 653, landed in S-048). The audit doc named the test
+    `test_comms_response_commits_ignored_in_generic_drain` —
+    different name, same coverage.
+  - **Architecturally safe; no test needed.** Trader-bot restart
+    recovery for inflight comms callbacks: `CommsPoller`
+    (`src/comms/comms_handler.py`) holds no in-memory state beyond
+    `(store, chat_id)` and re-derives the work queue from
+    `comms/requests/` on every poll. Restart = next-poll resync, no
+    callback to lose. Logged here as "verified safe by architecture"
+    rather than left as a missing pin.
+- ✅ **Documentation tidy-up:** `comms/README.md` § "Stuck request? How
+  to recover" — already replaced with the P1-B bot-side alert
+  description. **Done as part of the P1-B landing PR;** the audit doc
+  was filed before that PR merged.
+- ⏸ **Command-name cosmetics:** `/sprintlet_status`,
   `/sprintlet_complete`, `/checkpoint`, `/ping_test` on the trader
   bot — names suggest ClaudeBot affordances, but under the corrected
   architecture they correctly stay on the trader bot. Optional rename
-  pass for clarity.
+  pass for clarity. **Status 2026-05-09:** **carved out**, not closed.
+  Mechanical (find/replace in `src/bot/telegram_query_bot.py`'s
+  `CommandHandler` registrations + docstrings, ~20 touches) but low
+  ROI — current names work and aren't ambiguous in operator usage.
+  Promote if a broader bot-UX pass surfaces.
 
 - **Severity:** P2.
 - **Tier:** 1.
