@@ -3,10 +3,16 @@
 Exposes four read-only endpoints consumed by the Vercel React dashboard.
 No authentication is required for GET requests — all data is operational
 telemetry with no secrets. Restrict network-level access via firewall.
+
+Contract note (S-061, ict-trading-bot#556): every optional field is
+serialized as JSON ``null`` when the source value is missing. The
+dashboard distinguishes "really 0" from "not measured" on this — fall-
+through to a fabricated ``0`` or ``"unknown"`` here is a contract bug.
 """
 from __future__ import annotations
 
 import json
+import logging
 import os
 import sqlite3
 import time
@@ -16,6 +22,8 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/bot", tags=["dashboard"])
 
@@ -39,7 +47,9 @@ def _bot_status() -> str:
     return heartbeat_label(age)
 
 
-def _vm_health() -> dict[str, float]:
+def _vm_health() -> dict[str, float | None]:
+    # Per-field None on failure so the dashboard can render `—` for a
+    # missing reading and tell it apart from a real 0% measurement.
     try:
         import psutil  # noqa: PLC0415
         return {
@@ -47,8 +57,9 @@ def _vm_health() -> dict[str, float]:
             "memory": psutil.virtual_memory().percent,
             "disk": psutil.disk_usage("/").percent,
         }
-    except Exception:  # noqa: BLE001
-        return {"cpu": 0.0, "memory": 0.0, "disk": 0.0}
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("dashboard vm_health: psutil sample failed: %s", exc)
+        return {"cpu": None, "memory": None, "disk": None}
 
 
 def _pnl_stats() -> tuple[float, float, int, float]:
@@ -213,15 +224,28 @@ async def get_signals() -> list[dict[str, Any]]:
         side = str(e.get("side", e.get("direction", ""))).lower()
         if side not in ("buy", "sell", "long", "short"):
             continue
+        # Pass through missing fields as None — the dashboard treats
+        # null as "not provided by the writer" and renders accordingly,
+        # versus 0/"unknown" which it would render as a real value.
+        # Writer-side fix lives in src/runtime/pipeline.py log_signal().
+        pattern = e.get("pattern")
+        if pattern in (None, ""):
+            pattern = e.get("signal_type")
+        confidence = e.get("confidence")
+        if confidence is None:
+            confidence = e.get("score")
+        price = e.get("price")
+        if price is None:
+            price = e.get("entry_price")
         out.append(
             {
                 "id": e.get("id", str(uuid.uuid4())),
                 "timestamp": e.get("ts", e.get("timestamp", "")),
                 "symbol": e.get("symbol", "BTCUSDT"),
                 "side": side,
-                "pattern": e.get("pattern", e.get("signal_type", "unknown")),
-                "confidence": e.get("confidence", e.get("score", 0)),
-                "price": e.get("price", e.get("entry_price", 0)),
+                "pattern": pattern,
+                "confidence": confidence,
+                "price": price,
             }
         )
     return out
