@@ -16,6 +16,7 @@ VPS (systemd)
                                    ├── /api/bot/signals  ← Vercel dashboard
                                    ├── /api/bot/liquidity← Vercel dashboard (S-064)
                                    ├── /api/bot/config   ← Vercel dashboard (S-064)
+                                   ├── /api/bot/trades/closed ← Vercel dashboard (#557)
                                    ├── /api/pnl/history  ← Vercel dashboard (S-063, no-session)
                                    ├── /api/pnl
                                    ├── /api/status
@@ -43,6 +44,7 @@ src/
         dashboard.py    — /api/bot/{stats,logs,positions,signals} (S-014)
         bot_config.py   — /api/bot/config (S-064)
         liquidity.py    — /api/bot/liquidity (S-064)
+        trades_closed.py — /api/bot/trades/closed (#557)
         diag.py         — /api/diag/* endpoints (S-051, token-gated read)
         pnl.py          — /api/pnl
         pnl_history.py  — /api/pnl/history (S-063, no-session)
@@ -68,6 +70,7 @@ Unauthenticated GET routes — Tier 1 read surface. See
 | `GET /api/bot/signals` | recent ICT detections | `runtime_logs/signal_audit.jsonl` filtered to buy/sell |
 | `GET /api/bot/liquidity?symbol=X` | per-symbol liquidity zones (S-064) | `runtime_logs/liquidity_state.json` (pipeline writes per-tick) |
 | `GET /api/bot/config` | effective config view (S-064) | `config/accounts.yaml` + `config/strategies.yaml` + `runtime_logs/runtime_status.json`; secrets redacted |
+| `GET /api/bot/trades/closed?limit=N&since=ISO_TS` | `ClosedTrade[]` (#557) | `trade_journal.db::trades` filtered to closed + non-backtest, joined to `order_packages` for the closed-at proxy |
 | `GET /api/pnl/history?days=N` | `PnlHistoryPoint[]` (S-063) | `trade_journal.db` (closed trades, realised PnL per UTC day) |
 
 ### `BotStats` shape

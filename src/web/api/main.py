@@ -20,6 +20,7 @@ from src.web.api.routers import pnl_fragment as pnl_fragment_router
 from src.web.api.routers import pnl_history as pnl_history_router
 from src.web.api.routers import status as status_router
 from src.web.api.routers import status_fragment as status_fragment_router
+from src.web.api.routers import trades_closed as trades_closed_router
 
 app = FastAPI(title="ICT Trading Bot — Dashboard API", version="0.2.0")
 
@@ -45,6 +46,7 @@ app.include_router(pnl_fragment_router.router)
 app.include_router(dashboard_router.router)
 app.include_router(bot_config_router.router)
 app.include_router(liquidity_router.router)
+app.include_router(trades_closed_router.router)
 app.include_router(diag_router.router)
 
 
