@@ -599,56 +599,64 @@ def _send_modify_to_exchange(matched_trade: Dict[str, Any], *,
 
 
 # ---------------------------------------------------------------------------
-# Monitor-loop write-back reconciler — BUG-042 PR 2
+# Monitor-loop write-back reconciler — SSOT-from-Bybit (issue #502)
 # (CLAUDE.md § Architecture rules § 5 "Live by default + tell-me-if-not")
 # ---------------------------------------------------------------------------
 #
-# The trade lifecycle is a two-sided contract: ``execute_pkg`` writes
-# ``status='open'`` to the DB on placement, and the exchange
-# independently closes positions on TP / SL / manual flatten. Without
-# a reconciler the two views silently diverge — closed positions
-# linger as ``status='open'`` in the trade journal forever (BUG-041's
-# pre-#357 ghost-row pattern). The cleanup notebook (PR #367) is the
-# manual one-shot remediation; this is the always-on automated
-# equivalent.
+# Per-orderId reconciliation. Each DB-open trade is matched against
+# ITS specific Bybit order via ``account_order_status`` (issue #502).
+# That replaces the legacy aggregate ``(symbol, side)`` match, which
+# was vulnerable to Bybit's open-positions index lag and ambiguous on
+# multi-leg accounts.
 #
-# Behaviour:
-#   1. SELECT id, account_id, symbol, direction FROM trades
-#      WHERE status='open' AND is_backtest=0.
-#   2. Group by account_id.
-#   3. Per account: load the matching account dict from accounts.yaml,
-#      skip dry-run accounts (no exchange to read), and call
-#      ``account_open_positions``.
-#   4. For each DB-open row whose (symbol, side) is NOT in the
-#      exchange's open-positions list:
-#        - UPDATE trades SET status='orphaned',
-#          exit_reason='reconciler', updated_at=NOW()
-#        - Cascade: UPDATE order_packages SET status='closed',
-#          close_reason='reconciler', updated_at=NOW()
-#          WHERE linked_trade_id=?
-#        - Enqueue one diagnostic ping per orphan (cap at 10 per
-#          tick + one roll-up for the rest).
+# Decision matrix (DB-open + Bybit response):
+#   order open / partially filled  → leave DB row 'open'
+#   order filled, position open    → leave DB row 'open' (cross-check
+#                                     via ``account_open_positions``)
+#   order filled, position closed  → mark 'closed' with the REAL exit
+#                                     price + exec time from order
+#                                     history (fixes the PnL gap the
+#                                     legacy reconciler-close path
+#                                     left as ``exit_price=NULL``)
+#   order not found anywhere       → mark 'orphaned' (genuine — Bybit
+#                                     denies any record)
+#   read failure                   → skip (conservative)
 #
-# Skip rules (no orphan sweep on this account):
+# Skip rules (per-row or per-account, no orphan stamp):
 #   - account.mode != 'live' (dry-run / paper) — no exchange to read.
-#   - account_open_positions returned None (creds missing or
-#     exchange-side error) — don't orphan rows just because we
-#     couldn't read.
+#   - account_order_status returned None — don't orphan rows just
+#     because we couldn't read.
+#   - account in DB but absent from accounts.yaml — operator can clean
+#     up manually.
+#   - trades whose ``notes.trade_id`` is non-numeric (``rejected-…``,
+#     ``exchange_rejected-…``) — they were never live exchange orders.
+#   - trades with ``created_at`` newer than ``RECONCILER_GRACE_SECONDS``
+#     — backstop in case the order-create response is itself behind
+#     on Bybit's side. After SSOT soak the default can drop to ~5 s.
+#
+# Cascade on close / orphan: the linked ``order_packages`` row is also
+# updated (close_reason = 'reconciler_filled' or 'reconciler').
 #
 # Gated by env var ``MONITOR_RECONCILE_ENABLED`` (default ``false``).
-# PR 3 of the BUG-042 sprint flips the default to ``true`` after a
-# soak window confirms the dry-mode behaviour is stable.
 
 _ORPHAN_PING_CAP = 10
 
 # Default grace window: a freshly-placed trade is not eligible for
 # orphan-stamping until ``created_at`` is at least this many seconds in
-# the past. Shields against the Bybit open-positions index lag —
-# market orders can take up to a few seconds to surface there even
-# after the order-create call has returned an exchange order id. The
-# 60 s default matches the post-PR #495 heartbeat cadence; operator
-# can tune via ``RECONCILER_GRACE_SECONDS``.
+# the past. Backstop against any residual Bybit order-create race —
+# the SSOT path (issue #502) does its own per-orderId lookup that is
+# consistent on the create-response side, so after a few days of soak
+# the operator can drop this from 60 s to ~5 s. Operator tunes via
+# ``RECONCILER_GRACE_SECONDS``.
 _DEFAULT_RECONCILER_GRACE_SECONDS = 60
+
+# Bybit V5 ``orderStatus`` values that mean "order is still live on
+# the exchange and has not reached a terminal state". A DB row whose
+# orderId reports any of these stays ``status='open'`` regardless of
+# the position view.
+_BYBIT_LIVE_ORDER_STATUSES = frozenset({
+    "new", "partiallyfilled", "untriggered", "active", "created", "triggered",
+})
 
 # Reconcile-only side of the schema: what we can pull from the trades
 # row to match against the exchange snapshot.
@@ -831,12 +839,20 @@ def _exchange_position_set(positions: Optional[List[Dict[str, Any]]]) -> set:
 
 
 def _reconcile_open_trades(db) -> Dict[str, int]:
-    """Sweep DB-open trades whose exchange counterpart is flat.
+    """SSOT-from-Bybit reconciler (issue #502).
+
+    Each DB-open trade is reconciled against its specific Bybit order
+    via :func:`src.units.accounts.clients.account_order_status`. The
+    cross-check against the aggregate position view
+    (:func:`account_open_positions`) is only used to disambiguate the
+    "order filled, position still open" vs. "order filled, position
+    flat" case.
 
     Returns a summary dict
-    ``{checked, orphaned, skipped_dry, skipped_no_creds, skipped_no_cfg,
-       errors}`` so the caller (run_monitor_tick) can emit an INFO log
-    line for every tick that touched at least one row.
+    ``{checked, orphaned, closed, skipped_dry, skipped_no_creds,
+       skipped_no_cfg, skipped_recent, skipped_non_numeric, errors}``
+    so the caller (``run_monitor_tick``) can emit an INFO log line
+    for every tick that touched at least one row.
 
     No-op when ``MONITOR_RECONCILE_ENABLED`` is unset or false. Best-
     effort — every step is wrapped; one bad row never aborts the
@@ -845,18 +861,17 @@ def _reconcile_open_trades(db) -> Dict[str, int]:
     summary = {
         "checked": 0,
         "orphaned": 0,
+        "closed": 0,
         "skipped_dry": 0,
         "skipped_no_creds": 0,
         "skipped_no_cfg": 0,
         "skipped_recent": 0,
+        "skipped_non_numeric": 0,
         "errors": 0,
     }
     if not _reconcile_enabled():
         return summary
 
-    # 1. Pull open trade rows. Inline SQL — no Database helper exists
-    # for "all open across accounts" and writing one would be premature
-    # API surface for a single caller.
     try:
         conn = db.connect()
         try:
@@ -878,12 +893,6 @@ def _reconcile_open_trades(db) -> Dict[str, int]:
     summary["checked"] = len(rows)
     cfgs = _load_account_cfgs_for_reconcile()
 
-    # Grace window — a trade younger than this is shielded from
-    # orphan-stamping. Bybit's open-positions API can lag the
-    # order-create response by hundreds of ms (sometimes seconds);
-    # without this filter the reconciler races freshly-placed market
-    # orders and stamps real positions ``orphaned`` before the
-    # exchange has indexed them.
     grace_seconds = _grace_window_seconds()
     now = datetime.now(timezone.utc)
     ripe_rows: List[Any] = []
@@ -901,14 +910,15 @@ def _reconcile_open_trades(db) -> Dict[str, int]:
     if not ripe_rows:
         return summary
 
-    # 2. Group by account_id.
     by_account: Dict[str, List[Dict[str, Any]]] = {}
     for r in ripe_rows:
         aid = str(r["account_id"] or "unknown")
         by_account.setdefault(aid, []).append(dict(r))
 
-    # 3. Per-account exchange snapshot + orphan sweep.
-    from src.units.accounts.clients import account_open_positions
+    from src.units.accounts.clients import (
+        account_open_positions,
+        account_order_status,
+    )
     from src.runtime.execution_diagnostics import (
         enqueue_orphan_reconciliation,
         enqueue_orphan_rollup,
@@ -920,43 +930,116 @@ def _reconcile_open_trades(db) -> Dict[str, int]:
     for aid, trade_rows in by_account.items():
         cfg = cfgs.get(aid)
         if cfg is None:
-            # Account in DB but not in accounts.yaml — could be a
-            # disabled / removed account. Don't orphan its rows; the
-            # operator can clean up manually.
             summary["skipped_no_cfg"] += len(trade_rows)
             continue
         if str(cfg.get("mode") or "live").lower() in {"dry", "dry_run", "dry-run", "paper"}:
             summary["skipped_dry"] += len(trade_rows)
             continue
 
-        positions = account_open_positions(cfg)
-        if positions is None:
-            # Creds missing / exchange-side error → skip (don't orphan
-            # rows just because we couldn't read).
-            summary["skipped_no_creds"] += len(trade_rows)
-            continue
+        # Lazy positions cross-check cache: at most ONE call to
+        # ``account_open_positions`` per account per tick. The sentinel
+        # ``...`` means "not fetched yet"; ``None`` means "fetch
+        # failed". Subsequent rows on the same account that need the
+        # cross-check reuse the cached set.
+        positions_cache: Any = ...
 
-        live_set = _exchange_position_set(positions)
         for row in trade_rows:
+            trade_id_str = _extract_trade_id_from_notes(row.get("notes"))
+            if trade_id_str is None or not _is_numeric_order_id(trade_id_str):
+                # Non-numeric (``rejected-…``, ``exchange_rejected-…``,
+                # ``dry-…``) or missing — never a live exchange order.
+                summary["skipped_non_numeric"] += 1
+                continue
+
+            order_status = account_order_status(cfg, trade_id_str)
+            if order_status is None:
+                # Read failure → skip conservatively.
+                summary["skipped_no_creds"] += 1
+                continue
+
+            status_str = str(order_status.get("status") or "").lower()
+            filled_qty = float(order_status.get("filled_qty") or 0.0)
+
+            if status_str in _BYBIT_LIVE_ORDER_STATUSES:
+                # Order still live on Bybit — leave the DB row alone.
+                continue
+
+            # Order is in a terminal state OR genuinely unknown.
+            #
+            # Two paths to "orphan":
+            #   * status == 'not_found' — Bybit denies any record of
+            #     this orderId.
+            #   * terminal state with zero fills — Cancelled / Rejected
+            #     before any qty executed; no real position ever opened.
+            if status_str == "not_found" or filled_qty <= 0:
+                try:
+                    _mark_orphaned(db, row)
+                    summary["orphaned"] += 1
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning(
+                        "_reconcile_open_trades: mark_orphaned failed for "
+                        "trade_id=%s account=%s symbol=%s: %s",
+                        row.get("id"), aid, row.get("symbol"), exc,
+                    )
+                    summary["errors"] += 1
+                    continue
+                if orphan_pings_emitted < _ORPHAN_PING_CAP:
+                    enqueue_orphan_reconciliation(
+                        account=aid,
+                        symbol=str(row.get("symbol")),
+                        side=str(row.get("direction") or "").lower(),
+                        db_trade_id=row.get("id"),
+                        linked_package_id=_extract_package_id(row.get("notes")),
+                    )
+                    orphan_pings_emitted += 1
+                else:
+                    orphan_pings_suppressed += 1
+                continue
+
+            # Filled (or PartiallyFilledCanceled with fills > 0). Cross-
+            # check the position to decide between "still in market"
+            # and "TP / SL / manual flatten closed it".
+            if positions_cache is ...:
+                pos = account_open_positions(cfg)
+                positions_cache = (
+                    None if pos is None else _exchange_position_set(pos)
+                )
+            if positions_cache is None:
+                # Position-read failed → skip conservatively (don't
+                # close on a half-known view).
+                summary["skipped_no_creds"] += 1
+                continue
+
             sym = row["symbol"]
             side = str(row["direction"] or "").lower()
-            if (sym, side) in live_set:
-                # Still live on exchange — leave it alone.
+            if (sym, side) in positions_cache:
+                # Order filled, position still open — trade is alive.
                 continue
-            # Orphan match: DB-open + exchange-flat.
+
+            # Order filled, position flat → trade closed by exchange
+            # (TP / SL / manual flatten). Mark closed with REAL exit
+            # price + exec time from order history (closes the PnL
+            # gap the legacy reconciler-close path left as
+            # exit_price=NULL).
             try:
-                _mark_orphaned(db, row)
-                summary["orphaned"] += 1
+                _close_trade_from_order_status(db, row, order_status)
+                summary["closed"] += 1
             except Exception as exc:  # noqa: BLE001
                 logger.warning(
-                    "_reconcile_open_trades: mark_orphaned failed for "
+                    "_reconcile_open_trades: close write failed for "
                     "trade_id=%s account=%s symbol=%s: %s",
                     row.get("id"), aid, sym, exc,
                 )
                 summary["errors"] += 1
                 continue
 
-            # Diagnostic ping (per-orphan cap + roll-up).
+            # Diagnostic ping (per-close cap + roll-up). In the SSOT
+            # model "closed" means Bybit reports filled + position
+            # flat — i.e. the exchange closed the trade (TP/SL on
+            # derivatives, manual / margin-engine action on spot-
+            # margin), not the bot's manage loop. Same operator-
+            # actionability bar as a legacy "orphan close" so we
+            # carry the classification metadata from #544.
             if orphan_pings_emitted < _ORPHAN_PING_CAP:
                 cls_info = _classify_orphan_close(cfg)
                 enqueue_orphan_reconciliation(
@@ -975,13 +1058,19 @@ def _reconcile_open_trades(db) -> Dict[str, int]:
     if orphan_pings_suppressed:
         enqueue_orphan_rollup(suppressed_count=orphan_pings_suppressed)
 
-    if summary["orphaned"] or summary["errors"]:
+    if (
+        summary["orphaned"]
+        or summary["closed"]
+        or summary["errors"]
+    ):
         logger.info(
-            "_reconcile_open_trades: checked=%d orphaned=%d skipped_dry=%d "
-            "skipped_no_creds=%d skipped_no_cfg=%d skipped_recent=%d errors=%d",
-            summary["checked"], summary["orphaned"], summary["skipped_dry"],
-            summary["skipped_no_creds"], summary["skipped_no_cfg"],
-            summary["skipped_recent"], summary["errors"],
+            "_reconcile_open_trades: checked=%d orphaned=%d closed=%d "
+            "skipped_dry=%d skipped_no_creds=%d skipped_no_cfg=%d "
+            "skipped_recent=%d skipped_non_numeric=%d errors=%d",
+            summary["checked"], summary["orphaned"], summary["closed"],
+            summary["skipped_dry"], summary["skipped_no_creds"],
+            summary["skipped_no_cfg"], summary["skipped_recent"],
+            summary["skipped_non_numeric"], summary["errors"],
         )
     return summary
 
@@ -1703,6 +1792,84 @@ def _extract_package_id(notes_raw: Optional[str]) -> Optional[str]:
     if not isinstance(notes, dict):
         return None
     return notes.get("order_package_id") or notes.get("trade_id")
+
+
+def _extract_trade_id_from_notes(notes_raw: Optional[str]) -> Optional[str]:
+    """Pull the exchange's order id out of ``trades.notes.trade_id``.
+
+    Returns the stripped string when present, ``None`` otherwise.
+    """
+    if not notes_raw:
+        return None
+    try:
+        notes = json.loads(notes_raw)
+    except Exception:  # noqa: BLE001
+        return None
+    if not isinstance(notes, dict):
+        return None
+    tid = notes.get("trade_id")
+    if tid is None:
+        return None
+    s = str(tid).strip()
+    return s or None
+
+
+def _is_numeric_order_id(trade_id: str) -> bool:
+    """A real Bybit V5 orderId is a digit-only string (UUID-shaped on
+    a few endpoints, but the executor stamps the digit form). The
+    journal also stores synthesised ids like ``rejected-<hex>`` and
+    ``dry-<hex>`` for never-placed orders — those are non-numeric and
+    must be skipped by the SSOT reconciler.
+    """
+    return bool(trade_id) and trade_id.isdigit()
+
+
+def _close_trade_from_order_status(
+    db, row: Dict[str, Any], order_status: Dict[str, Any],
+) -> None:
+    """Mark a trade row 'closed' using the real fill price + exec time
+    from Bybit's order history. Cascades the linked ``order_packages``
+    row (close_reason='reconciler_filled').
+
+    Replaces the legacy reconciler-close path that left
+    ``exit_price=NULL`` and forced downstream PnL math to depend on
+    ghost-row cleanup.
+    """
+    avg_price = float(order_status.get("avg_price") or 0.0)
+    exec_time = order_status.get("exec_time")
+    closed_at = (
+        str(exec_time) if exec_time
+        else datetime.now(timezone.utc).isoformat()
+    )
+    notes = _decode_notes(row.get("notes"))
+    notes.update({
+        "closed_at": closed_at,
+        "closed_by": "monitor_reconciler",
+        "closed_reason":
+            "reconciler — Bybit reports order filled and position flat",
+    })
+    updates: Dict[str, Any] = {
+        "status": "closed",
+        "exit_reason": "reconciler_filled",
+        "notes": json.dumps(notes, ensure_ascii=False)[:500],
+    }
+    if avg_price > 0:
+        updates["exit_price"] = avg_price
+    db.update_trade(int(row["id"]), updates)
+
+    pkg_id = _extract_package_id(row.get("notes"))
+    if pkg_id:
+        try:
+            db.update_order_package(pkg_id, {
+                "status": "closed",
+                "close_reason": "reconciler_filled",
+            })
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "_close_trade_from_order_status: package cascade failed "
+                "for pkg_id=%s linked to trade_id=%s: %s",
+                pkg_id, row.get("id"), exc,
+            )
 
 
 def _mark_orphaned(db, row: Dict[str, Any]) -> None:
