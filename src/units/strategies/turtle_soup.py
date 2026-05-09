@@ -48,22 +48,53 @@ from src.units.strategies._base import require_candles
 # all-models training run (`experiments/2026-05-08-all-models-training`).
 # 38-month BTCUSDT 15m backtest (Jan 2023 → Feb 2026): full-sample
 # Sharpe +0.80 → +1.33, win rate 51.5 % → 56.3 %, expectancy
-# +0.16 R → +0.27 R per trade, walk-forward OOS Sharpe +0.25 → +1.22
-# (OOS *better* than IS — regime-robust). Cadence essentially unchanged
-# (33 → 32 trades over 38 months). Mechanism: 0.35 set the stop slightly
-# past the post-sweep wick, capturing legitimate sweep depth as a
-# "stop run" rather than a fakeout invalidation; 0.30 trims that to
-# just past the actual swing extreme. Sweep was monotonic 0.25 → 0.30 →
-# 0.35 → 0.45 with a clear quality peak in the 0.25-0.30 band; 0.30 sits
-# at the high-cadence edge of that band so the cadence cost is zero.
+# +0.16 R → +0.27 R per trade, walk-forward OOS Sharpe +0.25 → +1.22.
+#
+# 2026-05-09 — turtle-soup-signal-fix: cadence pair (C2+C3) shipped on
+# top of the 0.30 ATR-stop baseline. Operator symptom was zero signals
+# over recent sessions; Phase-1 diagnosis showed inherent backtest
+# cadence at production params was ~0.9 trades/month → ~65 % chance of
+# zero in any random 14-day window. Phase-2 sweep
+# (`experiments/2026-05-08-all-models-training/results/phase2_sweep.json`)
+# tested cadence-loosening combinations on the same Jan 2023 → Feb 2026
+# window:
+#
+#     variant                trades  E[R]    Sharpe  IS-Sh  OOS-Sh
+#     baseline (shipped)        32   +0.266  +1.33   +0.53  +1.22
+#     C2 buffer 12→10           43   +0.204  +1.18   +0.27  +2.33  fail (E[R] -23 %)
+#     C2b buffer 12→8           45   +0.074  +0.44   -0.00  +1.01  fail (Sharpe collapse)
+#     C3 tp1 1.25→1.0           28   +0.283  +1.54   +0.62  +63.5  fail (cadence -13 %)
+#     C2+C3 (shipped)           37   +0.241  +1.49   +0.72  +2.48  pass
+#     C2b+C3                    41   -0.145  -0.94   -1.03  +1.00  fail (negative)
+#
+# C2+C3 is the only variant that lifted cadence (+16 %) with expectancy
+# essentially flat (-0.025 R, within noise on n=37) and Sharpe IS+OOS
+# both up. The pair must ship together — C2 alone fails the expectancy
+# gate, C3 alone fails the cadence gate. Mechanism: the buffer
+# loosening admits cleaner mid-depth sweeps that 12 bps was rejecting;
+# the tighter TP banks profits faster and frees the cooldown earlier
+# so subsequent setups can fire.
+#
+# 2026-05-09 — setup_lookback_bars: structural cadence fix orthogonal
+# to the threshold tweak above. The pre-fix detector inspected only
+# the most recent bar (iloc[-1]); the production pipeline ticks faster
+# than 15 m, so on most ticks iloc[-1] was a forming bar whose body /
+# range hadn't crystalised yet. K=4 covers a 1-hour scan-back — enough
+# to catch a setup that closed within the last hour without
+# reactivating stale signals (the strategy_monocle gate downstream
+# guards against re-emitting the same setup). The backtest scanner
+# already assumes full bar visibility, so this knob's cadence lift is
+# not measurable via the harness; it closes the production-vs-
+# backtest gap rather than moving the backtest itself.
 _DEFAULTS: Dict[str, Any] = {
     "sweep_lookback_15m": 60,
-    "min_sweep_buffer_bps": 12,
+    "min_sweep_buffer_bps": 10,
     "min_body_to_range": 0.60,
     "atr_period": 14,
     "atr_stop_mult": 0.30,
-    "tp1_at_r": 1.25,
+    "tp1_at_r": 1.00,
     "tp2_at_r": 3.0,
+    "setup_lookback_bars": 4,
 }
 
 
@@ -87,9 +118,14 @@ def _add_atr(df: pd.DataFrame, period: int) -> pd.DataFrame:
 
 
 def _detect_setup(df: pd.DataFrame, params: Dict[str, Any]) -> pd.DataFrame:
-    """Append bullish_setup / bearish_setup columns.
+    """Append bullish_setup / bearish_setup columns plus per-stage gate
+    columns for telemetry.
 
-    Mirrors ``TurtleSoupMTFv1.detect_setup``.
+    Per-stage columns (``bull_swept``, ``bull_reverted``, ``bear_swept``,
+    ``bear_reverted``, ``body_ok``) let ``order_package`` and the audit
+    layer count which gate is rejecting each candidate without
+    re-evaluating the maths. Setup logic mirrors
+    ``TurtleSoupMTFv1.detect_setup``.
     """
     lookback = int(params["sweep_lookback_15m"])
     min_body_to_range = float(params["min_body_to_range"])
@@ -109,17 +145,45 @@ def _detect_setup(df: pd.DataFrame, params: Dict[str, Any]) -> pd.DataFrame:
         out["atr"].fillna(0) * 0.05,
     )
 
-    out["bullish_setup"] = (
-        (out["low"] < (out["prev_low_ref"] - sweep_buffer))
-        & (out["close"] > out["prev_low_ref"])
-        & (out["body_to_range"] >= min_body_to_range)
-    )
-    out["bearish_setup"] = (
-        (out["high"] > (out["prev_high_ref"] + sweep_buffer))
-        & (out["close"] < out["prev_high_ref"])
-        & (out["body_to_range"] >= min_body_to_range)
-    )
+    out["bull_swept"] = out["low"] < (out["prev_low_ref"] - sweep_buffer)
+    out["bull_reverted"] = out["close"] > out["prev_low_ref"]
+    out["bear_swept"] = out["high"] > (out["prev_high_ref"] + sweep_buffer)
+    out["bear_reverted"] = out["close"] < out["prev_high_ref"]
+    out["body_ok"] = out["body_to_range"] >= min_body_to_range
+
+    out["bullish_setup"] = out["bull_swept"] & out["bull_reverted"] & out["body_ok"]
+    out["bearish_setup"] = out["bear_swept"] & out["bear_reverted"] & out["body_ok"]
     return out
+
+
+def _stage_rejection_counts(enriched: pd.DataFrame, window_bars: int) -> Dict[str, int]:
+    """Count per-stage rejections over the last ``window_bars`` bars.
+
+    Buckets are mutually exclusive and ordered by gate position:
+      * ``swept``                       — bars whose price pierced a swing extreme
+      * ``passed_sweep_failed_revert``  — swept bars that didn't close back inside
+      * ``passed_revert_failed_body``   — swept+reverted bars whose body was too small
+      * ``full_setup``                  — bars satisfying every gate (= candidates)
+    """
+    if window_bars <= 0:
+        window_bars = 1
+    win = enriched.iloc[-window_bars:]
+    swept = (win["bull_swept"].fillna(False) | win["bear_swept"].fillna(False))
+    swept_count = int(swept.sum())
+    after_revert = (
+        (win["bull_swept"].fillna(False) & win["bull_reverted"].fillna(False))
+        | (win["bear_swept"].fillna(False) & win["bear_reverted"].fillna(False))
+    )
+    after_revert_count = int(after_revert.sum())
+    full = (win["bullish_setup"].fillna(False) | win["bearish_setup"].fillna(False))
+    full_count = int(full.sum())
+    return {
+        "window_bars": int(len(win)),
+        "swept": swept_count,
+        "passed_sweep_failed_revert": swept_count - after_revert_count,
+        "passed_revert_failed_body": after_revert_count - full_count,
+        "full_setup": full_count,
+    }
 
 
 def _resolve_params(cfg: Dict[str, Any]) -> Dict[str, Any]:
@@ -162,20 +226,42 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
         )
 
     enriched = _detect_setup(candles_df, params)
-    last = enriched.iloc[-1]
+
+    # Scan the last K bars (most-recent first) for the freshest setup.
+    # Pre-fix this checked only iloc[-1], which lost setups that closed
+    # between pipeline ticks; see _DEFAULTS comment block for full
+    # rationale. The strategy_monocle gate downstream prevents
+    # re-emitting the same setup once an order is open.
+    setup_window = max(1, int(params.get("setup_lookback_bars", 1)))
+    setup_window = min(setup_window, len(enriched))
+
+    last = None
+    bars_back = None
+    for k in range(setup_window):
+        bar = enriched.iloc[-1 - k]
+        if bool(bar.get("bullish_setup", False)) or bool(bar.get("bearish_setup", False)):
+            last = bar
+            bars_back = k
+            break
+
+    stage_rejections = _stage_rejection_counts(enriched, setup_window)
+
+    if last is None:
+        err = ValueError(
+            f"Strategy 'turtle_soup': no setup in the last {setup_window} bars "
+            f"(non-actionable)."
+        )
+        err.stage_rejections = stage_rejections  # type: ignore[attr-defined]
+        raise err
 
     if bool(last.get("bullish_setup", False)):
         direction = "long"
         sweep_extreme = float(last["low"])
         level = float(last["prev_low_ref"])
-    elif bool(last.get("bearish_setup", False)):
+    else:
         direction = "short"
         sweep_extreme = float(last["high"])
         level = float(last["prev_high_ref"])
-    else:
-        raise ValueError(
-            "Strategy 'turtle_soup': no setup on the latest bar (non-actionable)."
-        )
 
     entry = float(last["close"])
     atr = float(last["atr"]) if pd.notna(last["atr"]) else 0.0
@@ -228,6 +314,8 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
             "tp2": round(float(tp2), 8),
             "body_to_range": body_to_range,
             "setup_tf": str(cfg.get("timeframe", "15m")),
+            "bars_back_of_setup": int(bars_back or 0),
+            "stage_rejections": stage_rejections,
         },
     }
 

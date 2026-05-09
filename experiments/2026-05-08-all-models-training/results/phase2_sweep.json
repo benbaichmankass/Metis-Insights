@@ -1,0 +1,150 @@
+{
+  "window": {
+    "start": "2023-01-01",
+    "end": "2026-03-01"
+  },
+  "baseline_params": {
+    "sweep_lookback": 60,
+    "min_body_to_range": 0.6,
+    "min_sweep_buffer_bps": 12,
+    "atr_period": 14,
+    "atr_stop_mult": 0.3,
+    "tp1_at_r": 1.25
+  },
+  "full_sample": {
+    "baseline (shipped)": {
+      "trades": 32,
+      "win_rate": 0.5625,
+      "expectancy_r": 0.265625000000001,
+      "sharpe": 1.3250033738897187,
+      "max_dd_r": -4.75,
+      "avg_hold_bars": 9.71875
+    },
+    "C2 buffer 12->10": {
+      "trades": 43,
+      "win_rate": 0.5348837209302325,
+      "expectancy_r": 0.20348837209302476,
+      "sharpe": 1.1750903620991222,
+      "max_dd_r": -5.249999999999947,
+      "avg_hold_bars": 9.418604651162791
+    },
+    "C2b buffer 12->8": {
+      "trades": 45,
+      "win_rate": 0.4888888888888889,
+      "expectancy_r": 0.07383662068108625,
+      "sharpe": 0.44073207294832345,
+      "max_dd_r": -5.749999999999998,
+      "avg_hold_bars": 10.088888888888889
+    },
+    "C3 tp1 1.25->1.0": {
+      "trades": 28,
+      "win_rate": 0.6428571428571429,
+      "expectancy_r": 0.282946670268387,
+      "sharpe": 1.5373261774463765,
+      "max_dd_r": -4.0,
+      "avg_hold_bars": 7.857142857142857
+    },
+    "C2+C3": {
+      "trades": 37,
+      "win_rate": 0.6216216216216216,
+      "expectancy_r": 0.24114883155445502,
+      "sharpe": 1.4940891103094978,
+      "max_dd_r": -6.0,
+      "avg_hold_bars": 6.72972972972973
+    },
+    "C2b+C3": {
+      "trades": 41,
+      "win_rate": 0.43902439024390244,
+      "expectancy_r": -0.14456956266710086,
+      "sharpe": -0.9357115447813232,
+      "max_dd_r": -10.0,
+      "avg_hold_bars": 6.414634146341464
+    }
+  },
+  "walk_forward": {
+    "baseline (shipped)": {
+      "in_sample": {
+        "trades": 24,
+        "win_rate": 0.5,
+        "expectancy_r": 0.12500000000000144,
+        "sharpe": 0.5328701692569743
+      },
+      "out_of_sample": {
+        "trades": 4,
+        "win_rate": 0.75,
+        "expectancy_r": 0.6874999999999963,
+        "sharpe": 1.2222222222222183
+      }
+    },
+    "C2 buffer 12->10": {
+      "in_sample": {
+        "trades": 32,
+        "win_rate": 0.46875,
+        "expectancy_r": 0.054687500000001554,
+        "sharpe": 0.27118538930330427
+      },
+      "out_of_sample": {
+        "trades": 6,
+        "win_rate": 0.8333333333333334,
+        "expectancy_r": 0.8750000000000004,
+        "sharpe": 2.3333333333333335
+      }
+    },
+    "C2b buffer 12->8": {
+      "in_sample": {
+        "trades": 36,
+        "win_rate": 0.4444444444444444,
+        "expectancy_r": -4.3175339846533866e-17,
+        "sharpe": -2.2846242400925246e-16
+      },
+      "out_of_sample": {
+        "trades": 9,
+        "win_rate": 0.6666666666666666,
+        "expectancy_r": 0.3691831034054315,
+        "sharpe": 1.011517911821959
+      }
+    },
+    "C3 tp1 1.25->1.0": {
+      "in_sample": {
+        "trades": 23,
+        "win_rate": 0.5652173913043478,
+        "expectancy_r": 0.13043478260869565,
+        "sharpe": 0.6170650134055817
+      },
+      "out_of_sample": {
+        "trades": 5,
+        "win_rate": 1.0,
+        "expectancy_r": 0.984501353502967,
+        "sharpe": 63.5217632514839
+      }
+    },
+    "C2+C3": {
+      "in_sample": {
+        "trades": 30,
+        "win_rate": 0.5666666666666667,
+        "expectancy_r": 0.13333333333333333,
+        "sharpe": 0.724490771389156
+      },
+      "out_of_sample": {
+        "trades": 7,
+        "win_rate": 0.8571428571428571,
+        "expectancy_r": 0.7032152525021192,
+        "sharpe": 2.475421454630763
+      }
+    },
+    "C2b+C3": {
+      "in_sample": {
+        "trades": 34,
+        "win_rate": 0.4117647058823529,
+        "expectancy_r": -0.17647058823529413,
+        "sharpe": -1.0299098434883929
+      },
+      "out_of_sample": {
+        "trades": 9,
+        "win_rate": 0.6666666666666666,
+        "expectancy_r": 0.3333333333333333,
+        "sharpe": 1.0
+      }
+    }
+  }
+}

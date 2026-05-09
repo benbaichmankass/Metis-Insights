@@ -32,7 +32,15 @@ strategies:
     # Strategy-specific (mirrors the legacy class defaults at
     # strategies/turtle_soup_mtf_v1.py:38-55)
     sweep_lookback_15m: 60
-    min_sweep_buffer_bps: 12
+    # 2026-05-09 turtle-soup-signal-fix: cadence pair (C2+C3) shipped on
+    # the 0.30 ATR-stop baseline. Phase-2 backtest
+    # (experiments/2026-05-08-all-models-training/results/phase2_sweep.json):
+    # baseline 32 trades / Sharpe +1.33 → C2+C3 37 trades / Sharpe +1.49,
+    # OOS Sharpe +1.22 → +2.48, E[R] +0.266 → +0.241 R per trade
+    # (essentially flat). Pair must ship together — buffer alone failed
+    # the expectancy gate, tp1 alone cut cadence. Full sweep table in
+    # src/units/strategies/turtle_soup.py::_DEFAULTS comment block.
+    min_sweep_buffer_bps: 10
     min_body_to_range: 0.60
     atr_period: 14
     # 2026-05-08 training run tightened 0.35 → 0.30 (single-knob lift,
@@ -40,12 +48,21 @@ strategies:
     # experiments/2026-05-08-all-models-training/RECOMMENDATIONS.md.
     atr_stop_mult: 0.30
     be_at_r: 0.75
-    tp1_at_r: 1.25
+    # 2026-05-09 turtle-soup-signal-fix: tightened 1.25 → 1.00 R as part
+    # of the C2+C3 cadence pair (see min_sweep_buffer_bps comment above).
+    tp1_at_r: 1.00
     tp2_at_r: 3.0
     partial_close_pct: 0.25
     trail_atr_mult: 1.2
     max_entry_wait_bars_1m: 20
     entry_tf: "1m"
+    # 2026-05-09 turtle-soup-signal-fix: structural cadence fix. The
+    # detector now scans the last K bars (most-recent first) for a
+    # setup instead of only iloc[-1]. K=4 covers a 1-hour scan-back at
+    # 15 m, enough to catch a setup that closed between pipeline ticks
+    # without reactivating stale signals (the strategy_monocle gate
+    # downstream guards against re-emitting an open setup).
+    setup_lookback_bars: 4
 
   vwap:
     model: null
