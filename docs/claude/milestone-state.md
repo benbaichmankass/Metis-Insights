@@ -36,15 +36,26 @@ When opening a session:
 
 | Field | Value |
 |---|---|
-| **Milestone** | M6 — Web app UI (dashboard build-out, sprint A — S-061) |
-| **Title** | S-061 — Dashboard sprint A: close #556 data-contract gap + nullable types |
-| **Type** | auto-claude (M6 dashboard UI + M2 backend contract follow-up). Parent: 5-sprint dashboard plan S-061..S-065 approved by operator on 2026-05-09. |
-| **Goal** | Per `docs/sprints/sprint-061-prompt.md` — extend `pipeline.py log_signal()` to carry pattern/confidence/price; switch `dashboard.py` to null-on-missing for vmHealth + signal fields; widen dashboard types to nullable; ship aligned PRs in both repos. |
-| **Status** | 🔄 ACTIVE 2026-05-09 — bot + dashboard branches pushed to `claude/vercel-sprint-planning-vjcdP`; PRs queued. |
-| **Active sprint** | **S-061 — Sprint A.** Plan: `docs/sprints/sprint-061-prompt.md`. |
-| **Active checkpoint** | CP-2026-05-09-NN-s061-prs-up — open both PRs against the renamed `benbaichmankass/{ict-trading-bot,ict-trader-dashboard}` org and file the close-out summary. |
-| **Risk tier** | Tier 1 (read-path bot endpoints, read-only dashboard types). |
-| **Definition of done** | Both PRs open with green build/tests; ROADMAP + this file updated; `docs/sprints/sprint-062-prompt.md` filed for the next session. |
+| **Milestone** | M6 — Web app UI (dashboard build-out, sprint D — S-064) |
+| **Title** | S-064 — Dashboard sprint D: Liquidity Maps + Settings (read-only) |
+| **Type** | auto-claude (M6 dashboard UI + two new Tier-1 bot read endpoints). Parent: 5-sprint dashboard plan S-061..S-065 approved by operator on 2026-05-09. |
+| **Goal** | Per `docs/sprints/sprint-064-prompt.md` — build the Liquidity Maps tab (consumes a new `/api/bot/liquidity` zones endpoint: equal highs/lows + recent sweeps) and the Settings tab (read-only; consumes a new `/api/bot/config` endpoint surfacing strategy + risk config). Mutating controls (halt/start/restart) deferred to S-065. |
+| **Status** | 🔜 NEXT 2026-05-09 — S-063 closed (bot PR on `claude/bot-S-063-pnl-history-auth-Rrj7J`). |
+| **Active sprint** | **S-064 — Sprint D.** Plan: `docs/sprints/sprint-064-prompt.md`. |
+| **Active checkpoint** | (none yet — sprint to be opened by next session) |
+| **Risk tier** | Tier 1 (two new read-only bot endpoints; read-only dashboard tabs). |
+| **Definition of done** | Per `sprint-064-prompt.md` checkpoints. Files `sprint-065-prompt.md` for the controls-phase-1 sprint. |
+
+> **S-063 close-out (2026-05-09):** dashboard side shipped earlier in
+> the day as PR #9 (squash `be85d10`) and added the localStorage equity
+> buffer + Performance tab. Bot side this session dropped
+> `Depends(require_session)` on `GET /api/pnl/history`, flattened the
+> response to `PnlHistoryPoint[]` (`{date, pnl, trades}` per row, field
+> rename `realized_usd` → `pnl`), and filed `docs/api-tier-policy.md`
+> as the human-facing tier inventory. `ict-trading-bot#557` (closed-
+> trades endpoint with pattern attribution) is **still open / not
+> started** — Performance tab's per-strategy breakdown stays empty
+> until that lands; not blocking S-064.
 
 > **Parallel:** S-047 T6 (bybit_2 Spot Margin live smoke + runbook) is still
 > the live-trading priority and runs on its own branch. S-061..S-065 do not
@@ -94,6 +105,9 @@ When opening a session:
 | **M1 P1-A..D follow-ups + M2 close-out** | **2026-05-08** | (this PR's checkpoint) | `docs/sprint-summaries/m1-p1-followups-and-m2-close-summary.md` |
 | **M2 — Web app source of truth (backend)** | **2026-05-08** | (this PR's checkpoint) | (paperwork-only close — work already shipped under S-013 + S-014) |
 | **2026-05-08 all-models training run + S-050 (VWAP Phase 2)** | **2026-05-09** | `CP-2026-05-09-01-all-models-training` | `experiments/2026-05-08-all-models-training/RECOMMENDATIONS.md` (PR #558 squashed as `9a7bdf3`) |
+| **S-061 — Dashboard sprint A (data-contract gap + nullable types)** | **2026-05-09** | (squash `a8eaad4`) | `docs/sprints/sprint-061-prompt.md` |
+| **S-062 — Dashboard sprint B (Models + Time & Price tabs)** | **2026-05-09** | dashboard PR #8 squash `06ca19c` | `docs/sprints/sprint-062-prompt.md` |
+| **S-063 — Dashboard sprint C (Performance tab + persistent equity; bot drops `/api/pnl/history` JWT gate, flattens response)** | **2026-05-09** | dashboard PR #9 squash `be85d10`; bot PR on `claude/bot-S-063-pnl-history-auth-Rrj7J` | `docs/sprints/sprint-063-prompt.md` |
 
 > Pre-M0..M10 roadmap progress (S-000 through S-040) is captured in `ROADMAP.md`
 > under "Historical Sprint Ledger". From M0 forward, every closed milestone gets a row here.

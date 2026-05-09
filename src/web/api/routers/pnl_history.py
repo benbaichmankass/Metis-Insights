@@ -1,13 +1,27 @@
 """S-014 M0 PR #1 — GET /api/pnl/history.
 
-Per-day realised P&L history backing the home-dashboard equity sparkline.
+Per-day realised P&L history backing the Vercel dashboard's Performance
+tab (daily bars + cumulative line + drawdown).
 
 Reads ``trade_journal.db`` directly (single source of truth — no caching,
 no parallel store). One row per UTC date in the requested window, even
-on days with zero closed trades (so the sparkline x-axis is contiguous).
+on days with zero closed trades (so the chart x-axis is contiguous).
 
-Empty journal or missing DB file → ``points: []`` (200, not 503).
+Empty journal or missing DB file → ``[]`` (200, not 503).
 SQLite error on an existing file → 503.
+
+**S-063 (2026-05-09): Tier-1 read surface — no session required.**
+Operator decision option (a): drop ``require_session`` on this endpoint
+only. Smallest blast radius, read-only data, the dashboard can hit it
+without a login flow until S-065 stands one up. Every mutating route
+keeps the gate. See ``docs/api-tier-policy.md`` for the full
+Tier-1/Tier-2 split.
+
+**S-063: response shape change.** Returns a flat ``PnlHistoryPoint[]``
+matching the dashboard's TypeScript contract — ``[{date, pnl, trades},
+...]`` ordered oldest → newest. Field rename: ``realized_usd`` → ``pnl``.
+The previous wrapper (``{schema_version, days, points, as_of_utc}``) had
+no other consumers.
 """
 from __future__ import annotations
 
@@ -16,14 +30,12 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, status
 
-from src.web.api.auth import require_session
 from src.web.api.routers import pnl as pnl_module
 
 router = APIRouter(prefix="/api", tags=["pnl"])
 
-SCHEMA_VERSION = 1
 DEFAULT_DAYS = 7
 MAX_DAYS = 90
 
@@ -35,8 +47,8 @@ def _query_history(
     realised trades in the window (or no DB).
 
     Zero-fill applies *within* the window once at least one day has data, so
-    Chart.js gets a contiguous x-axis. With nothing to show, return ``[]``
-    so the sparkline can render an explicit empty state.
+    the chart gets a contiguous x-axis. With nothing to show, return ``[]``
+    so the dashboard can render an explicit empty state.
     """
     if not db_path.exists():
         return []
@@ -72,7 +84,7 @@ def _query_history(
         realized, trades = rows.get(d, (0.0, 0))
         points.append({
             "date": d,
-            "realized_usd": round(realized, 2),
+            "pnl": round(realized, 2),
             "trades": trades,
         })
     return points
@@ -82,11 +94,11 @@ def build_pnl_history(
     days: int,
     db_path: Optional[Path] = None,
     now_utc: Optional[datetime] = None,
-) -> Dict[str, Any]:
+) -> List[Dict[str, Any]]:
     db_path = db_path or pnl_module._resolve_db_path()
     now = now_utc or datetime.now(timezone.utc)
     try:
-        points = _query_history(db_path, days, now.date())
+        return _query_history(db_path, days, now.date())
     except sqlite3.Error as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -95,17 +107,10 @@ def build_pnl_history(
                 "reason": f"db error: {exc.__class__.__name__}",
             },
         )
-    return {
-        "schema_version": SCHEMA_VERSION,
-        "days": days,
-        "points": points,
-        "as_of_utc": now.replace(microsecond=0).isoformat().replace("+00:00", "Z"),
-    }
 
 
 @router.get("/pnl/history")
 async def get_pnl_history(
     days: int = Query(DEFAULT_DAYS, ge=1, le=MAX_DAYS),
-    _session: dict = Depends(require_session),
-) -> Dict[str, Any]:
+) -> List[Dict[str, Any]]:
     return build_pnl_history(days)

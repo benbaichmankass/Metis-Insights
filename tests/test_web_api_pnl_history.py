@@ -1,7 +1,12 @@
-"""S-014 M0 PR #1 — GET /api/pnl/history."""
+"""S-014 M0 PR #1 — GET /api/pnl/history.
+
+S-063 (2026-05-09): no-session endpoint, returns a flat
+``PnlHistoryPoint[]`` matching the dashboard's TypeScript contract
+(``[{date, pnl, trades}, ...]``). Field rename: ``realized_usd`` →
+``pnl``.
+"""
 from __future__ import annotations
 
-import hashlib
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
@@ -9,33 +14,14 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from src.web.api import auth as auth_module
 from src.web.api import main as api_main
 from src.web.api.routers import pnl as pnl_router
 from src.web.api.routers import pnl_history as pnl_history_router
 
-_ALLOWED_EMAIL = "ben.baichmankass@gmail.com"
-_PASSWORD = "correct horse battery staple"
-_PASSWORD_HASH = hashlib.sha256(_PASSWORD.encode("utf-8")).hexdigest()
-_SIGNING_KEY = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-
 
 @pytest.fixture
-def env(monkeypatch):
-    monkeypatch.setenv("JWT_SIGNING_KEY", _SIGNING_KEY)
-    monkeypatch.setenv("ALLOWED_EMAIL", _ALLOWED_EMAIL)
-    monkeypatch.setenv("WEBAPP_PASSWORD_SHA256", _PASSWORD_HASH)
-
-
-@pytest.fixture
-def client(env):
+def client():
     return TestClient(api_main.app, raise_server_exceptions=False)
-
-
-def _bearer(token: str = "") -> dict:
-    if not token:
-        token = auth_module.issue_token(_ALLOWED_EMAIL)
-    return {"Authorization": f"Bearer {token}"}
 
 
 def _make_journal(path: Path) -> Path:
@@ -92,26 +78,24 @@ def test_history_default_window_is_seven_with_data(journal, client, monkeypatch)
         "status": "closed", "is_backtest": 0, "account_id": "main",
         "created_at": "2026-04-30T08:00:00Z",
     })
-    resp = client.get("/api/pnl/history", headers=_bearer())
+    resp = client.get("/api/pnl/history")
     assert resp.status_code == 200
-    body = resp.json()
-    assert body["schema_version"] == 1
-    assert body["days"] == 7
-    assert len(body["points"]) == 7
+    points = resp.json()
+    assert isinstance(points, list)
+    assert len(points) == 7
     # Window: 2026-04-24 .. 2026-04-30 (inclusive, contiguous).
-    assert body["points"][0]["date"] == "2026-04-24"
-    assert body["points"][-1]["date"] == "2026-04-30"
-    assert body["as_of_utc"] == "2026-04-30T12:00:00Z"
+    assert points[0]["date"] == "2026-04-24"
+    assert points[-1]["date"] == "2026-04-30"
+    # Per-row contract: every row carries date + pnl (+ trades count).
+    for p in points:
+        assert set(p.keys()) >= {"date", "pnl", "trades"}
 
 
-def test_history_empty_journal_returns_empty_points(journal, client, monkeypatch):
+def test_history_empty_journal_returns_empty_array(journal, client, monkeypatch):
     monkeypatch.setattr(pnl_history_router, "datetime", _FrozenDatetime)
-    resp = client.get("/api/pnl/history", headers=_bearer())
+    resp = client.get("/api/pnl/history")
     assert resp.status_code == 200
-    body = resp.json()
-    assert body["days"] == 7
-    assert body["points"] == []
-    assert body["as_of_utc"].endswith("Z")
+    assert resp.json() == []
 
 
 def test_history_aggregates_realized_per_day_ignores_open_and_backtest(
@@ -159,14 +143,14 @@ def test_history_aggregates_realized_per_day_ignores_open_and_backtest(
         "created_at": "2026-04-23T09:00:00Z",
     })
 
-    resp = client.get("/api/pnl/history?days=7", headers=_bearer())
+    resp = client.get("/api/pnl/history?days=7")
     assert resp.status_code == 200
-    by_date = {p["date"]: p for p in resp.json()["points"]}
+    by_date = {p["date"]: p for p in resp.json()}
 
-    assert by_date["2026-04-30"]["realized_usd"] == pytest.approx(10.25)
+    assert by_date["2026-04-30"]["pnl"] == pytest.approx(10.25)
     assert by_date["2026-04-30"]["trades"] == 2
-    assert by_date["2026-04-29"] == {"date": "2026-04-29", "realized_usd": 0.0, "trades": 0}
-    assert by_date["2026-04-28"]["realized_usd"] == pytest.approx(-7.00)
+    assert by_date["2026-04-29"] == {"date": "2026-04-29", "pnl": 0.0, "trades": 0}
+    assert by_date["2026-04-28"]["pnl"] == pytest.approx(-7.00)
     assert by_date["2026-04-28"]["trades"] == 1
     assert "2026-04-23" not in by_date
 
@@ -179,55 +163,64 @@ def test_history_custom_days_param(journal, client, monkeypatch):
         "status": "closed", "is_backtest": 0, "account_id": "main",
         "created_at": "2026-04-01T00:00:00Z",
     })
-    resp = client.get("/api/pnl/history?days=30", headers=_bearer())
+    resp = client.get("/api/pnl/history?days=30")
     assert resp.status_code == 200
-    body = resp.json()
-    assert body["days"] == 30
-    assert len(body["points"]) == 30
-    assert body["points"][0]["date"] == "2026-04-01"
-    assert body["points"][-1]["date"] == "2026-04-30"
+    points = resp.json()
+    assert len(points) == 30
+    assert points[0]["date"] == "2026-04-01"
+    assert points[-1]["date"] == "2026-04-30"
 
 
 def test_history_days_clamped_low(client):
-    resp = client.get("/api/pnl/history?days=0", headers=_bearer())
+    resp = client.get("/api/pnl/history?days=0")
     assert resp.status_code == 422
 
 
 def test_history_days_clamped_high(client):
-    resp = client.get("/api/pnl/history?days=91", headers=_bearer())
+    resp = client.get("/api/pnl/history?days=91")
     assert resp.status_code == 422
 
 
-def test_history_missing_db_returns_empty_points_not_503(tmp_path, monkeypatch, client):
+def test_history_missing_db_returns_empty_array_not_503(tmp_path, monkeypatch, client):
     monkeypatch.setattr(
         pnl_router, "_resolve_db_path", lambda: tmp_path / "does-not-exist.db"
     )
-    resp = client.get("/api/pnl/history", headers=_bearer())
+    resp = client.get("/api/pnl/history")
     assert resp.status_code == 200
-    body = resp.json()
-    assert body["points"] == []
-    assert body["days"] == 7
+    assert resp.json() == []
 
 
 def test_history_corrupt_db_returns_503(tmp_path, monkeypatch, client):
     bogus = tmp_path / "bogus.db"
     bogus.write_text("not a sqlite database")
     monkeypatch.setattr(pnl_router, "_resolve_db_path", lambda: bogus)
-    resp = client.get("/api/pnl/history", headers=_bearer())
+    resp = client.get("/api/pnl/history")
     assert resp.status_code == 503
     assert resp.json()["detail"]["error"] == "pnl_history_unavailable"
 
 
-def test_history_without_token_returns_401(journal, client):
-    resp = client.get("/api/pnl/history")
-    assert resp.status_code == 401
-    assert resp.json()["detail"]["error"] == "invalid_session"
+# ---------------------------------------------------------------------------
+# S-063: no-session contract. The Vercel dashboard hits this endpoint without
+# a JWT (option (a) — drop the gate on the read-only path only). Every
+# mutating route keeps `require_session`. See docs/api-tier-policy.md.
+# ---------------------------------------------------------------------------
 
 
-def test_history_off_allowlist_email_returns_403(journal, client):
-    forged = auth_module.issue_token("attacker@example.com")
-    resp = client.get(
-        "/api/pnl/history", headers={"Authorization": f"Bearer {forged}"}
-    )
-    assert resp.status_code == 403
-    assert resp.json()["detail"]["error"] == "email_not_allowlisted"
+def test_history_without_session_returns_200(journal, client, monkeypatch):
+    """Tier-1 read surface: no Authorization header, still 200."""
+    monkeypatch.setattr(pnl_history_router, "datetime", _FrozenDatetime)
+    _insert(journal, {
+        "timestamp": "2026-04-30", "symbol": "BTCUSDT", "direction": "long",
+        "entry_price": 50_000, "position_size": 0.01, "pnl": 3.50,
+        "status": "closed", "is_backtest": 0, "account_id": "main",
+        "created_at": "2026-04-30T08:00:00Z",
+    })
+    resp = client.get("/api/pnl/history?days=30")
+    assert resp.status_code == 200
+    points = resp.json()
+    assert isinstance(points, list)
+    assert len(points) == 30
+    by_date = {p["date"]: p for p in points}
+    assert by_date["2026-04-30"]["pnl"] == pytest.approx(3.50)
+    # No auth env vars were configured for this test — the route must not
+    # touch the auth machinery at all.
