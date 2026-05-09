@@ -314,6 +314,12 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
             "tp2": round(float(tp2), 8),
             "body_to_range": body_to_range,
             "setup_tf": str(cfg.get("timeframe", "15m")),
+            # Canonical key the order_monitor's ohlcv_fetcher reads to
+            # pull fresh candles for monitor(). Without it the fetcher
+            # short-circuits to None, monitor() never receives candles,
+            # and the BE-SL verdict can't fire — positions sit open
+            # until the +30 min watchdog cascades them.
+            "timeframe": str(cfg.get("timeframe", "15m")),
             "bars_back_of_setup": int(bars_back or 0),
             "stage_rejections": stage_rejections,
         },

@@ -155,20 +155,28 @@ def test_db_read_failure_returns_none_silently(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# BUG-049: unlinked open packages must NOT block the gate
+# 2026-05-09 — unlinked open packages now BLOCK the gate
 # ---------------------------------------------------------------------------
+#
+# Reverses the BUG-049 contract above. With ``linked_only=True`` on the
+# gate, a multi-account dispatch where every account refused on
+# ``zero_exchange_capacity`` left the package row at status='open',
+# linked_trade_id=NULL — and the next tick's gate query filtered it out,
+# so dispatch retried every minute. Production trades 1003–1045 on
+# 2026-05-09 are 50+ rejection rows from that loop. Treating any open
+# row (linked or not) as gate-blocking caps the rejection cadence at
+# 1 per ``_sweep_unlinked_packages`` cycle (5 min) instead of 1/min.
 
 
-def test_unlinked_open_package_does_not_block(tmp_journal):
-    """A package with status='open' but linked_trade_id IS NULL was never
-    executed at the broker. It must NOT block new signals (BUG-049).
-
-    Before the fix, _has_open_package_for_strategy queried all open
-    packages regardless of linked_trade_id, so never-executed packages
-    silenced the strategy indefinitely."""
+def test_unlinked_open_package_blocks(tmp_journal):
+    """A package with status='open' but ``linked_trade_id IS NULL`` is an
+    in-flight dispatch (or a dispatch that just failed across every
+    account on ``zero_exchange_capacity``). It MUST block subsequent
+    ticks — the +5 min ``_sweep_unlinked_packages`` releases stale
+    rows so the gate isn't permanently stuck."""
     _insert_pkg(tmp_journal, pkg_id="pkg-unlinked", strategy="vwap",
                 linked_trade_id=None)
-    assert _has_open_package_for_strategy("vwap") is None
+    assert _has_open_package_for_strategy("vwap") == "pkg-unlinked"
 
 
 def test_linked_open_package_still_blocks(tmp_journal):
@@ -180,12 +188,14 @@ def test_linked_open_package_still_blocks(tmp_journal):
     assert result == "pkg-linked"
 
 
-def test_mix_unlinked_and_linked_blocks_on_linked(tmp_journal):
-    """When both unlinked and linked open packages exist, the gate returns
-    the linked one's id (a real broker position) and blocks."""
+def test_mix_unlinked_and_linked_both_block(tmp_journal):
+    """When both unlinked and linked open packages exist, the gate
+    returns *some* row id (whichever is newest by updated_at) and the
+    dispatch is blocked. Either id is fine — both represent in-flight
+    state that the strategy should not pile on top of."""
     _insert_pkg(tmp_journal, pkg_id="pkg-unlinked", strategy="vwap",
                 linked_trade_id=None)
     _insert_pkg(tmp_journal, pkg_id="pkg-linked", strategy="vwap",
                 linked_trade_id=99)
     result = _has_open_package_for_strategy("vwap")
-    assert result == "pkg-linked"
+    assert result in {"pkg-unlinked", "pkg-linked"}
