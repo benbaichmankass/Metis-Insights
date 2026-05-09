@@ -14,17 +14,24 @@ an extra pass — it owns no timer, no task, and no chat. The poller
 already runs every 60 s and already brokers the request lifecycle;
 adding a second loop would just duplicate plumbing.
 
-Out of scope for P1 (tracked in P2 — hardening):
+Hardening (P2):
 
-  * Subprocess execution + per-run timeout. P1 runs ``ICTBacktester``
-    inline. A multi-MB CSV will block the poll loop for the duration
-    of the run; for the small fixture we ship today this is < 1 s.
-  * Single-flight lock per request_id. P1 runs each PENDING artifact
-    exactly once per cycle; the ``apply_answer`` ANSWERED transition
-    is the durable guard against a re-run.
-  * ``M5_CONSUMER_ENABLED`` env gate. P1 is wired in unconditionally
-    so the closed loop is exercised on every test run; P2 adds the
-    gate before the VM rollout.
+  * **Subprocess execution + per-run timeout.** The default runner
+    spawns ``python -m src.backtest.run_backtest_m5 <strategy>`` and
+    waits up to ``M5_BACKTEST_TIMEOUT_S`` seconds (default 120). A
+    multi-MB CSV no longer blocks the comms poll loop, and a runaway
+    backtest is bounded by a wall-clock timeout.
+  * **Single-flight lock per ``request_id``.** Belt-and-suspenders on
+    top of the comms state machine: the artifact transitions to
+    SENT before the runner fires, but a fast in-flight set guards
+    re-entry from a delayed timer or a second ``scan_and_run`` call
+    in the same event-loop tick.
+  * **``M5_CONSUMER_ENABLED`` env gate.** ``install_comms_handlers``
+    only wires the default consumer when the env var is set; tests
+    construct ``BacktestConsumer`` directly and bypass the gate.
+  * **Structured error envelope.** Subprocess timeouts and non-zero
+    exits surface to the operator answer + the validation log with
+    truncated stderr (no full traceback in the Telegram bubble).
 
 The consumer ignores any artifact that does not match
 ``test_strategy:`` — operator-initiated requests like
@@ -32,8 +39,12 @@ The consumer ignores any artifact that does not match
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
+import subprocess
+import sys
+import threading
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -55,6 +66,22 @@ logger = logging.getLogger(__name__)
 # (e.g. ``test_data:``) doesn't accidentally fall through.
 _TASK_PREFIX = f"{TEST_STRATEGY_TASK_PREFIX}:"
 
+# Env-gate flag for ``install_comms_handlers``. The default consumer
+# is only installed when this evaluates true; explicit
+# ``BacktestConsumer(...)`` construction bypasses the gate so tests
+# can exercise the closed loop without flipping a process env var.
+M5_CONSUMER_ENABLED_ENV = "M5_CONSUMER_ENABLED"
+
+# Subprocess wall-clock cap. Mirrors the docstring; override per
+# environment without redeploying via ``M5_BACKTEST_TIMEOUT_S``.
+DEFAULT_BACKTEST_TIMEOUT_S = 120
+_BACKTEST_TIMEOUT_ENV = "M5_BACKTEST_TIMEOUT_S"
+
+# How much stderr we ferry to the operator on a subprocess error.
+# The full text still lands in the validation log via the wrapping
+# error string. Keep this short enough to render in a Telegram bubble.
+_STDERR_TRUNCATE_CHARS = 800
+
 
 @dataclass
 class BacktestRunResult:
@@ -71,45 +98,110 @@ class BacktestRunResult:
     db_row_id: Optional[int]
 
 
+class BacktestRunnerError(RuntimeError):
+    """Base class for runner failures the consumer expects to handle.
+
+    Subclasses carry a stable ``label`` so the validation log gets a
+    canonical ``outcome`` instead of the raw error class name (which
+    can shift if we refactor or swap the runner).
+    """
+
+    label = "error"
+
+    def __init__(self, message: str, *, exit_code: Optional[int] = None) -> None:
+        super().__init__(message)
+        self.exit_code = exit_code
+
+
+class BacktestTimeout(BacktestRunnerError):
+    label = "timeout"
+
+
+class BacktestSubprocessFailure(BacktestRunnerError):
+    label = "subprocess_failure"
+
+
 # ---------------------------------------------------------------------------
-# Default backtest runner — a thin wrapper around
-# ``src/backtest/run_backtest.py`` that returns the result dict instead
-# of writing it via the script's own sqlite3 connection.
+# Default backtest runner — subprocess invocation of run_backtest_m5.
+
+def _backtest_timeout_s() -> int:
+    raw = os.environ.get(_BACKTEST_TIMEOUT_ENV)
+    if not raw:
+        return DEFAULT_BACKTEST_TIMEOUT_S
+    try:
+        n = int(raw)
+        return n if n > 0 else DEFAULT_BACKTEST_TIMEOUT_S
+    except ValueError:
+        return DEFAULT_BACKTEST_TIMEOUT_S
+
+
+def _truncate(text: str, *, limit: int = _STDERR_TRUNCATE_CHARS) -> str:
+    text = (text or "").strip()
+    if len(text) <= limit:
+        return text
+    return text[:limit] + "…"
+
 
 def default_run_backtest(strategy: str) -> BacktestRunResult:
-    """Run the ICT backtester against the configured CSV and persist.
+    """Spawn ``run_backtest_m5`` and parse its JSON envelope.
 
-    Returns the same headline-metrics dict that
-    ``run_backtest.summarize`` produces. Persistence goes through
-    ``Database.save_backtest_results`` so the row also lands in the
-    canonical ``trade_journal.db`` table (the script's
-    ``ensure_tables`` path is for the standalone CLI only).
+    Wall-clock bounded by ``M5_BACKTEST_TIMEOUT_S`` (default 120s).
+    Raises:
 
-    Raises any exception from the underlying backtester verbatim —
-    the consumer wraps the call in its own try/except and converts
-    failures to a structured error answer.
+      * ``BacktestTimeout`` — the subprocess exceeded the timeout.
+      * ``BacktestSubprocessFailure`` — the subprocess exited
+        non-zero, or its stdout did not contain a parseable JSON
+        envelope. Carries truncated stderr in the message.
+
+    The consumer wraps these into the operator answer + validation
+    log so the artifact reaches ANSWERED on every path.
     """
-    # Import lazily so test fixtures can stub this function without
-    # paying the pandas import cost.
-    from src.backtest.run_backtest import load_data, summarize
-    from src.backtest.backtester import ICTBacktester
-    from src.units.db.database import Database
+    cmd = [sys.executable, "-m", "src.backtest.run_backtest_m5", strategy]
+    timeout = _backtest_timeout_s()
+    try:
+        proc = subprocess.run(  # noqa: S603 — fixed argv, no shell.
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise BacktestTimeout(
+            f"backtest exceeded {timeout}s (strategy={strategy})"
+        ) from exc
 
-    df, source_path = load_data()
-    bt = ICTBacktester(df, {})
-    trades = bt.run()
-    start_date = str(df["timestamp"].iloc[0].date())
-    end_date = str(df["timestamp"].iloc[-1].date())
-    summary = summarize(trades, start_date, end_date, strategy)
-    summary["data_source"] = str(source_path)
-    # Database.save_backtest_results inserts every column it gets —
-    # ``data_source`` is not on the table, so strip it before writing
-    # but keep it on the in-memory summary for the validation log.
-    persistable = {k: v for k, v in summary.items() if k != "data_source"}
-    db_path = os.environ.get("TRADE_JOURNAL_DB") or "trade_journal.db"
-    db = Database(db_path=db_path)
-    row_id = db.save_backtest_results(persistable)
-    return BacktestRunResult(summary=summary, db_row_id=row_id)
+    if proc.returncode != 0:
+        stderr = _truncate(proc.stderr)
+        raise BacktestSubprocessFailure(
+            f"backtest subprocess exit={proc.returncode}: {stderr or '(empty stderr)'}",
+            exit_code=proc.returncode,
+        )
+
+    # The script prints status lines on stdout and the JSON envelope
+    # as the last line. Pick the last non-empty line.
+    lines = [ln for ln in (proc.stdout or "").splitlines() if ln.strip()]
+    if not lines:
+        raise BacktestSubprocessFailure(
+            "backtest subprocess produced empty stdout (no JSON envelope)"
+        )
+    try:
+        payload = json.loads(lines[-1])
+    except json.JSONDecodeError as exc:
+        raise BacktestSubprocessFailure(
+            f"backtest subprocess stdout not JSON: {exc}; tail={_truncate(lines[-1], limit=200)!r}"
+        ) from exc
+
+    summary = payload.get("summary") or {}
+    db_row_id = payload.get("db_row_id")
+    if not isinstance(summary, dict):
+        raise BacktestSubprocessFailure(
+            f"backtest subprocess JSON missing 'summary' dict (got {type(summary).__name__})"
+        )
+    return BacktestRunResult(
+        summary=summary,
+        db_row_id=int(db_row_id) if isinstance(db_row_id, int) else None,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -132,6 +224,14 @@ class BacktestConsumer:
     ) -> None:
         self.runner = runner or default_run_backtest
         self._validation_log_base = validation_log_base
+        # In-flight set of request_ids — guards against re-entry of
+        # the same artifact across overlapping ``scan_and_run`` calls
+        # (e.g. a delayed-timer callback while a backtest subprocess
+        # is still running). Single-process today; the lock makes the
+        # check/insert atomic across event-loop ticks and any future
+        # thread-pool runner.
+        self._in_flight: set[str] = set()
+        self._lock = threading.Lock()
 
     def scan_and_run(self, store: RequestStore) -> int:
         """Run one consumer pass; return the number of artifacts processed.
@@ -139,7 +239,8 @@ class BacktestConsumer:
         Idempotent in the sense that ``apply_answer`` transitions the
         artifact past PENDING on completion, so a second pass within
         the same poll cycle (or a re-entrancy from a delayed timer)
-        won't re-run a finished artifact.
+        won't re-run a finished artifact. The in-flight set provides
+        an additional fast guard for overlapping passes.
         """
         # Import here so the comms_handler module can pull this
         # consumer in without a circular import on apply_answer.
@@ -152,8 +253,21 @@ class BacktestConsumer:
             strategy = _strategy_from_task(request.task)
             if not strategy:
                 continue
-            self._run_one(store, request, strategy, apply_answer)
-            processed += 1
+            request_id = request.request_id
+            with self._lock:
+                if request_id in self._in_flight:
+                    logger.info(
+                        "BacktestConsumer: %s already in flight; skipping",
+                        request_id,
+                    )
+                    continue
+                self._in_flight.add(request_id)
+            try:
+                self._run_one(store, request, strategy, apply_answer)
+                processed += 1
+            finally:
+                with self._lock:
+                    self._in_flight.discard(request_id)
         return processed
 
     def _run_one(
@@ -289,18 +403,19 @@ class BacktestConsumer:
                 request.request_id,
             )
 
-        log_validation(
-            {
-                "event": "backtest_run",
-                "request_id": request.request_id,
-                "strategy": strategy,
-                "outcome": "error",
-                "started_at_utc": started_at,
-                "completed_at_utc": completed_at,
-                "error": f"{type(error).__name__}: {error}",
-            },
-            base=self._validation_log_base,
-        )
+        outcome = error.label if isinstance(error, BacktestRunnerError) else "error"
+        payload: dict = {
+            "event": "backtest_run",
+            "request_id": request.request_id,
+            "strategy": strategy,
+            "outcome": outcome,
+            "started_at_utc": started_at,
+            "completed_at_utc": completed_at,
+            "error": f"{type(error).__name__}: {error}",
+        }
+        if isinstance(error, BacktestRunnerError) and error.exit_code is not None:
+            payload["exit_code"] = error.exit_code
+        log_validation(payload, base=self._validation_log_base)
 
 
 # ---------------------------------------------------------------------------

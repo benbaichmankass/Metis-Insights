@@ -23,14 +23,19 @@ _tg.Update = MagicMock
 _tg.InlineKeyboardButton = lambda *a, **kw: SimpleNamespace(args=a, kwargs=kw)
 _tg.InlineKeyboardMarkup = lambda rows: SimpleNamespace(inline_keyboard=rows)
 
+# tests/conftest.py establishes a shared ``_StubTelegramError`` on
+# ``telegram.error.TelegramError``. Reuse it (s052 pattern) so
+# comms_handler's frozen import binding stays consistent across the
+# whole suite — overriding here re-binds the name AFTER comms_handler
+# captured it, which strands the ``except TelegramError`` clause
+# whenever another file raises a different class.
 _tg_err = sys.modules["telegram.error"]
+_FakeTelegramError = getattr(_tg_err, "TelegramError", None)
+if not isinstance(_FakeTelegramError, type) or not issubclass(_FakeTelegramError, BaseException):
+    class _FakeTelegramError(Exception):  # type: ignore[no-redef]
+        pass
 
-
-class _FakeTelegramError(Exception):
-    pass
-
-
-_tg_err.TelegramError = _FakeTelegramError
+    _tg_err.TelegramError = _FakeTelegramError
 _tg.error = _tg_err
 
 _tg_ext = sys.modules["telegram.ext"]

@@ -27,8 +27,15 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 # ---------------------------------------------------------------------------
-# Stub telegram + telegram.ext before importing comms_handler — same
-# pattern as tests/test_s027_comms_handler.py.
+# Stub telegram + telegram.ext before importing comms_handler. The
+# canonical stubs (incl. ``telegram.error.TelegramError``) are
+# established by ``tests/conftest.py``; this block only fills in the
+# extra symbols this file needs (rich InlineKeyboard / Application).
+#
+# Critical: do NOT override ``telegram.error.TelegramError`` here —
+# rebinding it after conftest pollutes comms_handler's frozen import,
+# which then mismatches the class raised in other test files (see
+# the s052 expiry test).
 # ---------------------------------------------------------------------------
 for _mod in ("telegram", "telegram.ext", "telegram.error", "dotenv", "requests"):
     sys.modules.setdefault(_mod, MagicMock())
@@ -37,14 +44,7 @@ _tg = sys.modules["telegram"]
 _tg.Update = MagicMock
 _tg.InlineKeyboardButton = lambda *a, **kw: SimpleNamespace(args=a, kwargs=kw)
 _tg.InlineKeyboardMarkup = lambda rows: SimpleNamespace(inline_keyboard=rows)
-
-
-class _FakeTelegramError(Exception):
-    pass
-
-
-sys.modules["telegram.error"].TelegramError = _FakeTelegramError
-sys.modules["telegram"].error = sys.modules["telegram.error"]
+_tg.error = sys.modules["telegram.error"]
 
 _tg_ext = sys.modules["telegram.ext"]
 _tg_ext.Application = MagicMock

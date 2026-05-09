@@ -698,8 +698,22 @@ def install_comms_handlers(
         # Lazy import keeps the comms_handler module importable in
         # contexts that don't have the backtester deps available
         # (e.g. minimal CI test images).
-        from src.bot.test_strategy_consumer import BacktestConsumer as _BC
-        backtest_consumer = _BC()
+        from src.bot.test_strategy_consumer import (
+            BacktestConsumer as _BC,
+            M5_CONSUMER_ENABLED_ENV,
+        )
+        # P2 env gate: only auto-install the consumer when the
+        # operator has explicitly enabled it on this VM (default off
+        # so a fresh checkout / dev box never auto-runs backtests).
+        if os.environ.get(M5_CONSUMER_ENABLED_ENV, "0").strip().lower() in {
+            "1", "true", "yes", "on",
+        }:
+            backtest_consumer = _BC()
+        else:
+            logger.info(
+                "install_comms_handlers: %s not set; M5 backtest consumer disabled",
+                M5_CONSUMER_ENABLED_ENV,
+            )
 
     poller = CommsPoller(
         store=store,

@@ -28,7 +28,14 @@ for _mod in (
 ):
     sys.modules.setdefault(_mod, MagicMock())
 
-sys.modules["telegram.error"].TelegramError = type("TelegramError", (Exception,), {})
+# Don't override telegram.error.TelegramError — tests/conftest.py
+# already set it. Re-binding pollutes comms_handler's frozen import
+# and breaks unrelated tests (e.g. s052 expiry path).
+_tg_err = sys.modules["telegram.error"]
+if not isinstance(getattr(_tg_err, "TelegramError", None), type) or not issubclass(
+    _tg_err.TelegramError, BaseException
+):
+    _tg_err.TelegramError = type("TelegramError", (Exception,), {})
 sys.modules["telegram.ext"].filters = MagicMock()
 sys.modules["telegram.ext"].MessageHandler = MagicMock
 sys.modules["telegram.ext"].CommandHandler = MagicMock
