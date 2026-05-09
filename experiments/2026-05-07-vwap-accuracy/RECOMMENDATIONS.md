@@ -1,5 +1,20 @@
 # VWAP accuracy improvement — recommendations
 
+> **Status update — 2026-05-09:** Phase 1 (anchored UTC daily VWAP)
+> shipped in PR #481 (2026-05-08). **Phase 2 (HTF EMA-200 ±band gate)
+> shipped in PR #558 squash `9a7bdf3` (2026-05-09)** after the
+> [`2026-05-08-all-models-training`](../2026-05-08-all-models-training/RECOMMENDATIONS.md)
+> run validated the change on a 38-month dataset and the operator
+> waived the "≥ 30 days live metrics" gate. The shipped Phase-2 uses
+> **band 0.020** (not 0.010 as proposed below) — band sweep on 38
+> months showed +0.35 Sharpe + 13 % cadence recovery vs 0.010 at no
+> other-metric cost. The Phase-3 candidate (HTF reference 4 h → 1 h
+> EMA-200) is queued in `docs/claude/milestone-state.md` and still
+> gated on ≥ 30 days of Phase-2 live metrics. The follow-up sprints
+> list at the bottom of this doc is preserved as the original record
+> but is partially superseded — see the 2026-05-08 run for the current
+> ledger.
+
 **Run id:** `2026-05-07-vwap-accuracy`
 **Plan:** `experiments/2026-05-07-vwap-accuracy/PLAN.md`
 **Strategy under review:** `src/units/strategies/vwap.py` (BTCUSDT, 5m live)

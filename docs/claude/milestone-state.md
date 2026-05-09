@@ -89,6 +89,7 @@ When opening a session:
 | **S-048 — M1 comms audit (fresh re-issue)** | **2026-05-08** | `CP-2026-05-07-17-s048-fresh-m1-audit` | `docs/sprint-summaries/sprint-048-summary.md` |
 | **M1 P1-A..D follow-ups + M2 close-out** | **2026-05-08** | (this PR's checkpoint) | `docs/sprint-summaries/m1-p1-followups-and-m2-close-summary.md` |
 | **M2 — Web app source of truth (backend)** | **2026-05-08** | (this PR's checkpoint) | (paperwork-only close — work already shipped under S-013 + S-014) |
+| **2026-05-08 all-models training run + S-050 (VWAP Phase 2)** | **2026-05-09** | `CP-2026-05-09-01-all-models-training` | `experiments/2026-05-08-all-models-training/RECOMMENDATIONS.md` (PR #558 squashed as `9a7bdf3`) |
 
 > Pre-M0..M10 roadmap progress (S-000 through S-040) is captured in `ROADMAP.md`
 > under "Historical Sprint Ledger". From M0 forward, every closed milestone gets a row here.
@@ -103,15 +104,24 @@ In execution order. Each row lists the gating condition to start.
 |---|---|---|---|
 | 1 | **S-047 T6 — end-to-end live smoke + runbook** (D8) | ad-hoc (live-trading) | None — ready to start. Live smoke needs Bybit web-UI Spot Margin toggle ON for `bybit_2`. |
 | 2 | **S-047 T7 — sprint close** (milestone-state + bug-log + summary) | docs-only (Tier 1) | T6 closes. |
-| 3 | **S-050 — VWAP Phase 2: 4 h-EMA-200 ±1 % HTF gate** (Tier 2, PM-review) | strategy-improvement | Phase 1 merged + ≥ 30 days live metrics. |
-| 4 | M5 — Strategy testing workflow | auto-claude | S-047 closes. `/test <strategy>` bot-side dispatch surface now in place via M1 P1-D; M5 wires the artifact consumer. |
-| 5 | M6 — Web app UI (dashboard repo) | auto-claude | **In active session 2026-05-08** in `the-lizardking/ict-trader-dashboard`. |
-| 6 | M9 — AI / model roadmap | auto-claude | Independent of M5/M6. Could run in parallel. |
-| 7 | M10 — HF / data pipeline | auto-claude | Independent of M5/M6. Could run in parallel. |
+| 3 | M5 — Strategy testing workflow | auto-claude | S-047 closes. `/test <strategy>` bot-side dispatch surface now in place via M1 P1-D; M5 wires the artifact consumer. |
+| 4 | M6 — Web app UI (dashboard repo) | auto-claude | **In active session 2026-05-08** in `the-lizardking/ict-trader-dashboard`. |
+| 5 | M9 — AI / model roadmap | auto-claude | Independent of M5/M6. Could run in parallel. |
+| 6 | M10 — HF / data pipeline | auto-claude | Independent of M5/M6. Could run in parallel. |
+| 7 | **S-050-followup — Phase-3 HTF reference 4h → 1h EMA-200** (Tier 2, PM-review) | strategy-improvement | ≥ 30 days of Phase-2 live metrics on the HTF gate (S-050 shipped 2026-05-09). Expected +0.4 Sharpe lift on top of Phase-2 per V3 in `experiments/2026-05-08-all-models-training/`. |
 
 > M2 (Web app source of truth) — closed 2026-05-08 (paperwork-only;
 > backend had already shipped under S-013 + S-014). Not a blocker for
 > any queued milestone.
+>
+> S-050 (VWAP Phase 2 HTF gate) — shipped early on 2026-05-09 via PR
+> #558 after the 2026-05-08 all-models training run showed the
+> 38-month baseline was structurally unprofitable (Sharpe -0.39).
+> The originally-gated "≥ 30 days live metrics" condition was
+> waived by operator decision — Phase-2 was no longer a quality
+> lift but the difference between profitable and not. The 30-day
+> gate now applies to the Phase-3 follow-up instead (HTF reference
+> 4h → 1h EMA-200).
 
 ---
 
