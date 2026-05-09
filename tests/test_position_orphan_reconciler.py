@@ -441,6 +441,78 @@ def test_dry_run_account_is_skipped(tmp_db, monkeypatch):
 # ---------------------------------------------------------------------------
 
 
+def test_qty_floored_to_base_precision(tmp_db, monkeypatch):
+    """S-060 follow-up (verified live 2026-05-09): the
+    ``walletBalance`` field carries 8 decimals (post-fee fractional
+    dust), but Bybit V5 spot rejects qty with > 6 decimals as
+    ``retCode 170137``. The reconciler must floor to
+    ``_SPOT_BASE_PRECISION`` before submitting.
+
+    Concrete case from the live error trace: walletBalance =
+    0.00230135 → sell qty must be 0.002301 (6 decimals, not 8).
+    """
+    client = _SellClient(wallet_response=_wallet_with([
+        {"coin": "BTC", "walletBalance": "0.00230135", "borrowAmount": "0"},
+    ]))
+    monkeypatch.setattr(
+        "src.runtime.order_monitor._build_client_for_cfg",
+        lambda cfg: client,
+    )
+
+    captured_qty = []
+
+    def _fake_close(client_arg, cfg_arg, *, symbol, side, qty):
+        captured_qty.append(qty)
+        return {"ok": True, "exchange_order_id": "stub", "error": None}
+
+    monkeypatch.setattr(
+        "src.units.accounts.execute.close_open_position",
+        _fake_close,
+    )
+    captured_audit = []
+    monkeypatch.setattr(
+        "src.utils.signal_audit_logger.log_signal",
+        lambda payload: captured_audit.append(payload),
+    )
+
+    summary = _reconcile_orphan_positions(tmp_db)
+    assert summary["sold"] == 1
+    # Floored to 6 decimals — the trailing 35 of 0.00230135 dropped.
+    assert captured_qty == [pytest.approx(0.002301, abs=1e-9)]
+    # Audit row carries the floored qty (what was actually submitted),
+    # not the raw wallet balance — the operator wants to see the real
+    # action.
+    assert captured_audit[0]["qty"] == pytest.approx(0.002301, abs=1e-9)
+
+
+def test_dust_below_base_precision_is_skipped(tmp_db, monkeypatch):
+    """If the wallet has only sub-step dust (e.g. 5e-7 BTC), flooring
+    to 6 decimals collapses it to 0. The reconciler must skip rather
+    than spin on a guaranteed Bybit rejection every tick.
+    """
+    client = _SellClient(wallet_response=_wallet_with([
+        # 5e-7 BTC: above _BORROW_REPAY_EPSILON (1e-6), but rounds
+        # to zero at 6-decimal precision.
+        {"coin": "BTC", "walletBalance": "0.00000050", "borrowAmount": "0"},
+    ]))
+    monkeypatch.setattr(
+        "src.runtime.order_monitor._build_client_for_cfg",
+        lambda cfg: client,
+    )
+    sell_calls = []
+    monkeypatch.setattr(
+        "src.units.accounts.execute.close_open_position",
+        lambda *a, **kw: (
+            sell_calls.append((a, kw)),
+            {"ok": True},
+        )[1],
+    )
+    summary = _reconcile_orphan_positions(tmp_db)
+    assert summary["sold"] == 0
+    assert summary["errors"] == 0
+    assert sell_calls == []
+
+
 def test_sell_failure_recorded_as_error(tmp_db, monkeypatch):
     """When ``close_open_position`` returns ``ok=False`` (Bybit
     rejected the order — below min size, market closed, etc.) the

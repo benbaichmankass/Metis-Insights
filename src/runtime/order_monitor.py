@@ -658,6 +658,16 @@ _BYBIT_LIVE_ORDER_STATUSES = frozenset({
     "new", "partiallyfilled", "untriggered", "active", "created", "triggered",
 })
 
+# Bybit V5 spot ``basePrecision`` for the USDT-quoted pairs the bot
+# trades — number of decimal places allowed in the order ``qty``
+# field. Bybit rejects orders with more decimals as
+# ``retCode 170137`` (verified live 2026-05-09 against an 8-decimal
+# walletBalance read). 6 is conservative across BTCUSDT / ETHUSDT /
+# SOLUSDT etc; if a future symbol is tighter, switch this to a live
+# ``get_instruments_info`` lookup analogous to ``precision.py``'s
+# tickSize cache.
+_SPOT_BASE_PRECISION = 6
+
 # Reconcile-only side of the schema: what we can pull from the trades
 # row to match against the exchange snapshot.
 _RECONCILE_TRADE_COLS = (
@@ -2036,6 +2046,7 @@ def _reconcile_orphan_positions(db) -> Dict[str, int]:
         _BORROW_REPAY_EPSILON,
         close_open_position,
     )
+    from src.units.accounts.risk import _floor_to_step
 
     for aid, cfg in cfgs.items():
         if not _is_spot_margin_cfg(cfg):
@@ -2093,11 +2104,29 @@ def _reconcile_orphan_positions(db) -> Dict[str, int]:
 
             # Orphan position → market sell back to USDT. The symbol
             # is the canonical ``<COIN>USDT`` pair the bot trades.
+            #
+            # Bybit V5 spot rejects qty with too many decimals
+            # (retCode 170137). The wallet's ``walletBalance`` carries
+            # 8 decimals (post-fee fractional dust); the symbol's
+            # ``basePrecision`` is typically 6 for ``BTCUSDT`` /
+            # ``ETHUSDT`` / etc. Floor to 6 decimals — the residual
+            # ~1e-6 of dust is below the exchange's min order step
+            # and would be rejected on its own anyway. The static 6
+            # is conservative across all USDT-quoted spot pairs Bybit
+            # currently lists; if a future symbol has a tighter
+            # basePrecision the live ``get_instruments_info`` lookup
+            # can be added here as a follow-up.
             symbol = f"{ticker}USDT"
+            sell_qty = _floor_to_step(balance, _SPOT_BASE_PRECISION)
+            if sell_qty <= _BORROW_REPAY_EPSILON:
+                # Below-step dust — Bybit would reject and the residual
+                # is too small to matter. Skip silently rather than
+                # spin on a guaranteed failure every tick.
+                continue
             try:
                 sell_result = close_open_position(
                     client, cfg,
-                    symbol=symbol, side="long", qty=balance,
+                    symbol=symbol, side="long", qty=sell_qty,
                 )
             except Exception as exc:  # noqa: BLE001
                 logger.warning(
@@ -2113,7 +2142,7 @@ def _reconcile_orphan_positions(db) -> Dict[str, int]:
                     account_id=aid,
                     coin=ticker,
                     symbol=symbol,
-                    qty=balance,
+                    qty=sell_qty,
                     sell_outcome=sell_result,
                     reason=(
                         "no DB-open long backs this base-coin balance "
@@ -2126,7 +2155,7 @@ def _reconcile_orphan_positions(db) -> Dict[str, int]:
                     account_id=aid,
                     coin=ticker,
                     symbol=symbol,
-                    qty=balance,
+                    qty=sell_qty,
                     sell_outcome=sell_result,
                     reason="sell attempt failed — will retry next tick",
                 )
