@@ -1258,29 +1258,57 @@ def _watchdog_stuck_strategies(db) -> Dict[str, int]:
     ``linked_trade_id IS NOT NULL`` for longer than the configured
     threshold.
 
-    For each stuck package on its first sighting:
+    For each stuck package, cross-check with the exchange-side
+    position view via :func:`account_open_positions` (cached per
+    account per tick) before deciding what to do:
 
-      1. Stamp ``meta.stuck_alert_emitted_at`` so the alert is
-         idempotent across ticks.
-      2. Emit a high-priority ``enqueue_stuck_strategy_alert`` ping.
-      3. Force-close the package (``status='closed'``,
-         ``close_reason='stuck_strategy_watchdog'``).
-      4. Cascade the linked trade row to ``status='orphaned'`` if it's
-         still ``open`` — the gate clears immediately on the next
-         tick.
+      * **Position alive at exchange** (the ``(symbol, direction)``
+        pair shows up in the exchange's position list, including
+        the spot-margin synthesised view from
+        ``walletBalance > 0`` / ``borrowAmount > 0``) → **defer**.
+        The trade is patient, not stuck — vwap holds for hours
+        waiting for mean reversion. Stamp the meta to silence
+        future ticks; emit the alert ONCE on first sighting (with
+        ``auto_cleared=False`` so the operator knows we did NOT
+        cascade); leave the package + trade rows alone.
+
+      * **Position flat at exchange** (read succeeded, no matching
+        position) → genuine orphan. Force-close the package
+        (``status='closed'``, ``close_reason='stuck_strategy_watchdog'``),
+        cascade the linked trade row to ``status='orphaned'``, emit
+        the high-priority alert. Same behaviour as before this
+        check was added.
+
+      * **Position read failed** (creds missing / network /
+        exchange error) → defer conservatively. Better to leave a
+        stale package one more tick than force-clear blind on a
+        half-known view of the world.
+
+    Pre-2026-05-09 the watchdog blindly force-cleared after 30 min
+    regardless of position state, which produced a feedback loop
+    on vwap/bybit_2 (mean-reversion holds longer than 30 min →
+    every signal got force-cleared at 30 min → BTC accumulated as
+    orphaned residue → next signal dispatched against the smaller
+    USDT cash → repeat). See #574 / #582.
 
     Operator-confirmed (2026-05-08): full automatic reset is
-    approved, so the auto-clear is not gated by a separate flag.
+    approved when the trade is genuinely orphaned. The position-
+    aware refinement (2026-05-09) keeps that automatic-reset
+    contract — only the ``position-alive`` branch is new.
+
     The whole helper is gated by ``MONITOR_RECONCILE_ENABLED``.
 
     Returns a summary
-    ``{checked, alerted, auto_cleared, errors}`` so the caller can
+    ``{checked, alerted, auto_cleared, deferred_position_alive,
+       skipped_position_read_failed, errors}`` so the caller can
     log a per-tick line when non-zero.
     """
     summary = {
         "checked": 0,
         "alerted": 0,
         "auto_cleared": 0,
+        "deferred_position_alive": 0,
+        "skipped_position_read_failed": 0,
         "errors": 0,
     }
     if not _reconcile_enabled():
@@ -1293,7 +1321,7 @@ def _watchdog_stuck_strategies(db) -> Dict[str, int]:
         try:
             conn.row_factory = __import__("sqlite3").Row
             rows = conn.execute(
-                "SELECT order_package_id, strategy_name, symbol, "
+                "SELECT order_package_id, strategy_name, symbol, direction, "
                 "       linked_trade_id, updated_at, meta "
                 "FROM order_packages "
                 "WHERE status = 'open' "
@@ -1317,18 +1345,125 @@ def _watchdog_stuck_strategies(db) -> Dict[str, int]:
     # Lazy import — keeps the module load cheap and avoids a circular
     # via execution_diagnostics's own log path.
     from src.runtime.execution_diagnostics import enqueue_stuck_strategy_alert
+    from src.units.accounts.clients import account_open_positions
+
+    # Account cfgs + per-account positions cache. We need cfgs to call
+    # ``account_open_positions``; the cache prevents N redundant API
+    # calls when several stuck packages share the same account.
+    # Sentinel ``...`` means "not fetched"; ``None`` means "fetch
+    # failed".
+    cfgs = _load_account_cfgs_for_reconcile()
+    positions_cache: Dict[str, Any] = {}
 
     for row in rows:
         pkg_id = row["order_package_id"]
         strategy = row["strategy_name"]
         symbol = row["symbol"]
+        direction = str(row["direction"] or "").lower()
         trade_id = row["linked_trade_id"]
         meta = _decode_notes(row["meta"])
         already_alerted = bool(meta.get("stuck_alert_emitted_at"))
 
-        # Stamp the meta + force-close the package + orphan the
-        # linked trade. Best-effort end-to-end so a single broken
-        # row does not block the rest of the watchdog.
+        # Look up the linked trade FIRST — we need its account_id
+        # for the position cross-check and we'll need the row again
+        # for the cascade write below. One DB read; two uses.
+        trade_row = None
+        try:
+            db_conn = db.connect()
+            try:
+                db_conn.row_factory = __import__("sqlite3").Row
+                trade_row = db_conn.execute(
+                    "SELECT id, status, notes, account_id "
+                    "FROM trades WHERE id=?",
+                    (trade_id,),
+                ).fetchone()
+            finally:
+                db_conn.close()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "_watchdog_stuck_strategies: trade lookup failed for "
+                "trade_id=%s: %s",
+                trade_id, exc,
+            )
+            summary["errors"] += 1
+            # Without the trade row we can't position-check; defer
+            # rather than force-clearing blind.
+            continue
+
+        # Position cross-check: if Bybit reports the package's
+        # (symbol, direction) is still alive on the exchange, the
+        # trade is NOT actually stuck — just patient (vwap waits
+        # hours for mean reversion to bring price back to VWAP). A
+        # blind force-clear here cascades a perfectly good trade to
+        # ``orphaned`` and strands the position at the exchange,
+        # which is the bug surfaced in #574 / #582.
+        #
+        # Read failure or missing cfg → defer conservatively (don't
+        # force-clear on a half-known view of the world). The
+        # operator can act manually if Bybit stays unreachable.
+        aid = str(trade_row["account_id"] or "") if trade_row else ""
+        cfg = cfgs.get(aid) if aid else None
+
+        position_alive: Optional[bool] = None  # None = unknown / skip
+        if cfg is not None and direction:
+            if aid not in positions_cache:
+                positions_cache[aid] = account_open_positions(cfg)
+            pos = positions_cache[aid]
+            if pos is None:
+                position_alive = None  # read failure → conservative
+            else:
+                live_set = _exchange_position_set(pos)
+                position_alive = (str(symbol), direction) in live_set
+
+        if position_alive is True:
+            # Trade is alive at the exchange — leave the package
+            # alone. Emit the alert ONCE so the operator knows the
+            # strategy hasn't progressed (e.g. price never reached
+            # SL/TP for vwap), but do NOT cascade.
+            summary["deferred_position_alive"] += 1
+            try:
+                # Stamp the meta so subsequent ticks skip the alert.
+                if not already_alerted:
+                    updated_meta = dict(meta)
+                    updated_meta["stuck_alert_emitted_at"] = now_iso
+                    updated_meta["stuck_position_alive_seen_at"] = now_iso
+                    db.update_order_package(pkg_id, {"meta": updated_meta})
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "_watchdog_stuck_strategies: meta-stamp failed for "
+                    "pkg_id=%s: %s",
+                    pkg_id, exc,
+                )
+                summary["errors"] += 1
+            if not already_alerted:
+                try:
+                    enqueue_stuck_strategy_alert(
+                        strategy=str(strategy or "unknown"),
+                        symbol=str(symbol or "?"),
+                        order_package_id=str(pkg_id),
+                        db_trade_id=trade_id,
+                        stuck_minutes=int(threshold_minutes),
+                        auto_cleared=False,
+                    )
+                    summary["alerted"] += 1
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning(
+                        "_watchdog_stuck_strategies: alert enqueue failed "
+                        "for pkg_id=%s: %s",
+                        pkg_id, exc,
+                    )
+                    summary["errors"] += 1
+            continue
+
+        if position_alive is None:
+            # Read failure (or no cfg). Defer to next tick — better
+            # to let a stale package linger one more cycle than to
+            # force-clear blind on an exchange we can't see.
+            summary["skipped_position_read_failed"] += 1
+            continue
+
+        # Position is genuinely flat at the exchange — true orphan.
+        # Force-close the package + cascade the trade as before.
         try:
             updated_meta = dict(meta)
             updated_meta.setdefault("stuck_alert_emitted_at", now_iso)
@@ -1348,19 +1483,8 @@ def _watchdog_stuck_strategies(db) -> Dict[str, int]:
             )
             summary["errors"] += 1
 
-        # Cascade the linked trade if it's still open. We only orphan
-        # rows that are status='open' — anything else has already
-        # been settled by another path.
+        # Cascade the linked trade if it's still open.
         try:
-            db_conn = db.connect()
-            try:
-                db_conn.row_factory = __import__("sqlite3").Row
-                trade_row = db_conn.execute(
-                    "SELECT id, status, notes FROM trades WHERE id=?",
-                    (trade_id,),
-                ).fetchone()
-            finally:
-                db_conn.close()
             if trade_row and str(trade_row["status"]) == "open":
                 trade_notes = _decode_notes(trade_row["notes"])
                 trade_notes.update({
@@ -1384,11 +1508,7 @@ def _watchdog_stuck_strategies(db) -> Dict[str, int]:
             )
             summary["errors"] += 1
 
-        # Emit the alert only on first sighting — subsequent ticks
-        # would have caught the row at "force-closed" already
-        # (excluded by the WHERE), so this branch is mostly a
-        # safety check rather than an idempotency gate. Kept for
-        # the rare case where the SELECT raced a partial close.
+        # Emit the alert on first sighting.
         if not already_alerted:
             try:
                 enqueue_stuck_strategy_alert(
@@ -1408,11 +1528,19 @@ def _watchdog_stuck_strategies(db) -> Dict[str, int]:
                 )
                 summary["errors"] += 1
 
-    if summary["auto_cleared"] or summary["alerted"]:
+    if (
+        summary["auto_cleared"]
+        or summary["alerted"]
+        or summary["deferred_position_alive"]
+        or summary["skipped_position_read_failed"]
+    ):
         logger.info(
             "_watchdog_stuck_strategies: checked=%d alerted=%d "
-            "auto_cleared=%d errors=%d (threshold=%d min)",
+            "auto_cleared=%d deferred_position_alive=%d "
+            "skipped_position_read_failed=%d errors=%d (threshold=%d min)",
             summary["checked"], summary["alerted"], summary["auto_cleared"],
+            summary["deferred_position_alive"],
+            summary["skipped_position_read_failed"],
             summary["errors"], int(threshold_minutes),
         )
     return summary
