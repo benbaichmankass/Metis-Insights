@@ -6,17 +6,18 @@ name: vm-web-api-recover
 #   The vm-diag-snapshot relay (PM-side read access) depends on
 #   ict-web-api.service being up. When that service is down, every
 #   diag request fails with curl exit 7 and Claude on the web sandbox
-#   is silently blinded. The operator-actions allowlist (status-check,
-#   pull-latest-logs, restart-bot-service, reboot-vm) doesn't include
-#   a path to restart the web API specifically. Even if it did, the
-#   workflow_dispatch-only trigger is unreachable from the sandbox
-#   (no run_workflow MCP tool is exposed today).
+#   is silently blinded. The operator-actions allowlist
+#   (status-check, pull-latest-logs, pull-and-deploy,
+#   restart-bot-service, reboot-vm) doesn't include a path to restart
+#   the web API specifically — restart-bot-service targets the
+#   trader, not the API.
 #
-#   This workflow closes that loop with the SAME issue-driven trigger
-#   pattern as vm-diag-snapshot.yml: open a labelled issue, the
-#   workflow runs, posts the result back, closes the issue. The
-#   sandbox session can drive it autonomously when the relay starts
-#   exit-7'ing. No operator click required.
+#   Like operator-actions.yml (which gained an issue-driven trigger
+#   alongside its workflow_dispatch path), this workflow uses the
+#   issue-driven pattern from vm-diag-snapshot.yml: open a labelled
+#   issue, the workflow runs, posts the result back, closes the
+#   issue. The sandbox session can drive it autonomously when the
+#   relay starts exit-7'ing. No operator click required.
 #
 # Trust contract:
 #   * The wrapper (scripts/ops/restart_web_api.sh) is fixed-form:

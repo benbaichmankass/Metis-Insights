@@ -54,6 +54,11 @@ jobs:
                 color: 'b60205',
                 description: 'Triggers vm-web-api-recover workflow — self-heal restart of ict-web-api.service when the diag relay is exit-7-ing.',
               },
+              {
+                name: 'operator-action',
+                color: 'd93f0b',
+                description: 'Triggers operator-actions workflow via the issue-driven dispatch path. Body must include `action: <name>` and (for Tier-2) `reason: <text>`.',
+              },
             ];
             for (const l of LABELS) {
               try {
