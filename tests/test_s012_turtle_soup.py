@@ -77,8 +77,30 @@ class TestTurtleSoupHappyPath:
 
     def test_meta_contains_secondary_target_and_diagnostics(self):
         pkg = order_package({"symbol": "BTCUSDT"}, candles_df=_bullish_sweep_frame())
-        for key in ("level", "sweep_extreme", "atr", "risk_per_unit", "tp2", "body_to_range", "setup_tf"):
+        for key in (
+            "level", "sweep_extreme", "atr", "risk_per_unit", "tp2",
+            "body_to_range", "setup_tf",
+            "bars_back_of_setup", "stage_rejections",
+        ):
             assert key in pkg["meta"], f"missing meta key: {key}"
+
+    def test_meta_stage_rejections_shape(self):
+        pkg = order_package({"symbol": "BTCUSDT"}, candles_df=_bullish_sweep_frame())
+        sr = pkg["meta"]["stage_rejections"]
+        for key in (
+            "window_bars", "swept",
+            "passed_sweep_failed_revert", "passed_revert_failed_body",
+            "full_setup",
+        ):
+            assert key in sr, f"missing stage_rejections key: {key}"
+        # Default scan window is 4 bars on a >=80-bar fixture.
+        assert sr["window_bars"] == 4
+        # The fixture's last bar is a full setup.
+        assert sr["full_setup"] >= 1
+
+    def test_setup_on_iloc_minus_one_reports_zero_bars_back(self):
+        pkg = order_package({"symbol": "BTCUSDT"}, candles_df=_bullish_sweep_frame())
+        assert pkg["meta"]["bars_back_of_setup"] == 0
 
     def test_long_sl_below_entry_below_tp(self):
         pkg = order_package({"symbol": "BTCUSDT"}, candles_df=_bullish_sweep_frame())
@@ -129,6 +151,39 @@ class TestTurtleSoupNoSignal:
         with pytest.raises(ValueError, match="non-actionable"):
             order_package({"symbol": "BTCUSDT"}, candles_df=df)
 
+    def test_no_setup_exception_carries_stage_rejections(self):
+        """The pipeline reads exc.stage_rejections to populate the audit log."""
+        try:
+            order_package({"symbol": "BTCUSDT"}, candles_df=_flat_frame())
+        except ValueError as exc:
+            sr = getattr(exc, "stage_rejections", None)
+            assert sr is not None, "ValueError must carry stage_rejections attribute"
+            assert sr["window_bars"] >= 1
+            # Flat fixture has no sweeps at all.
+            assert sr["swept"] == 0
+            assert sr["full_setup"] == 0
+        else:
+            raise AssertionError("expected ValueError on flat market")
+
+    def test_low_body_no_setup_exception_attributes_to_body_gate(self):
+        df = _bullish_sweep_frame()
+        last = df.index[-1]
+        # Compress the body so body_to_range is far below 0.60 but the sweep
+        # and reversal gates still pass.
+        df.loc[last, "open"] = 50_045.0
+        df.loc[last, "close"] = 50_050.0
+        try:
+            order_package({"symbol": "BTCUSDT"}, candles_df=df)
+        except ValueError as exc:
+            sr = getattr(exc, "stage_rejections", None)
+            assert sr is not None
+            # Sweep + reversal gates should have passed; body gate killed it.
+            assert sr["swept"] >= 1
+            assert sr["passed_revert_failed_body"] >= 1
+            assert sr["full_setup"] == 0
+        else:
+            raise AssertionError("expected ValueError when body gate fails")
+
 
 # ---------------------------------------------------------------------------
 # Edge cases — input validation
@@ -177,6 +232,43 @@ class TestTurtleSoupEdgeCases:
 # ---------------------------------------------------------------------------
 # Cfg parameter overrides
 # ---------------------------------------------------------------------------
+
+
+class TestTurtleSoupSetupWindow:
+    """The multi-bar setup-lookback window catches a setup that closed
+    a few bars ago (production pipeline tick that landed on a forming
+    bar, where iloc[-1] no longer satisfies body_to_range)."""
+
+    @staticmethod
+    def _frame_with_setup_at_offset(offset_back: int, n: int = 80, base: float = 50_000.0) -> pd.DataFrame:
+        """Build a frame whose setup bar is at iloc[-1 - offset_back]."""
+        df = _flat_frame(n, base).copy()
+        setup_idx = df.index[-1 - offset_back]
+        df.loc[setup_idx, "low"] = base - 500.0
+        df.loc[setup_idx, "high"] = base + 100.0
+        df.loc[setup_idx, "open"] = base - 400.0
+        df.loc[setup_idx, "close"] = base + 50.0
+        return df
+
+    def test_setup_3_bars_back_caught_by_default_k4(self):
+        df = self._frame_with_setup_at_offset(3)
+        pkg = order_package({"symbol": "BTCUSDT"}, candles_df=df)
+        assert pkg["direction"] == "long"
+        assert pkg["meta"]["bars_back_of_setup"] == 3
+
+    def test_setup_3_bars_back_missed_when_window_is_1(self):
+        df = self._frame_with_setup_at_offset(3)
+        with pytest.raises(ValueError, match="non-actionable"):
+            order_package(
+                {"symbol": "BTCUSDT", "setup_lookback_bars": 1},
+                candles_df=df,
+            )
+
+    def test_setup_5_bars_back_missed_under_default_k4(self):
+        """K=4 must NOT reach back past the 1-hour scan window."""
+        df = self._frame_with_setup_at_offset(5)
+        with pytest.raises(ValueError, match="non-actionable"):
+            order_package({"symbol": "BTCUSDT"}, candles_df=df)
 
 
 class TestTurtleSoupCfgOverrides:

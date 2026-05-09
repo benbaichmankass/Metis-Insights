@@ -433,12 +433,26 @@ def turtle_soup_signal_builder(settings: dict) -> Dict[str, Any]:
     try:
         pkg = order_package(cfg, candles_df=candles_df)
     except ValueError as exc:
-        # No setup on the latest bar — return a flat signal, not an error.
-        logger.info("Turtle Soup: no actionable signal (%s)", exc)
+        # No setup in the lookback window — return a flat signal, not an error.
+        # Surface per-stage rejection counts when the detector attached
+        # them so the audit log can answer "which gate killed this
+        # candidate". See src/units/strategies/turtle_soup.py for the
+        # gate ordering (sweep depth → reversal close → body strength).
+        stage_rejections = getattr(exc, "stage_rejections", None)
+        logger.info(
+            "Turtle Soup: no actionable signal (%s) stage_rejections=%s",
+            exc, stage_rejections,
+        )
+        meta: Dict[str, Any] = {
+            "strategy_name": "turtle_soup",
+            "reason": str(exc),
+        }
+        if stage_rejections is not None:
+            meta["stage_rejections"] = stage_rejections
         return {
             "symbol": symbol,
             "side": "none",
-            "meta": {"strategy_name": "turtle_soup", "reason": str(exc)},
+            "meta": meta,
         }
 
     side = "buy" if pkg["direction"] == "long" else "sell"
@@ -453,6 +467,13 @@ def turtle_soup_signal_builder(settings: dict) -> Dict[str, Any]:
         "entry_price": pkg["entry"],
         "stop_loss": pkg["sl"],
         "take_profit": pkg["tp"],
+        # Set ``pattern`` at the top level so the pipeline-result audit
+        # row (`signal.get("signal_type") or signal.get("pattern")`)
+        # has a non-null value the dashboard can filter on. Other
+        # builders rely on the strategy-registry prefix lookup; turtle
+        # soup pre-fix emitted with no pattern, which made
+        # /api/bot/signals?pattern=... blind to its rows.
+        "pattern": "turtle_soup",
         "meta": {
             **(pkg.get("meta") or {}),
             "strategy_name": "turtle_soup",
