@@ -2461,9 +2461,17 @@ def run_monitor_tick(
             candles = None
             if ohlcv_fetcher is not None:
                 try:
+                    # Pass strategy_name so the fetcher can fall back to
+                    # the per-strategy timeframe from strategies.yaml
+                    # when ``meta.timeframe`` is missing — needed for
+                    # legacy package rows written before the meta key
+                    # was added (2026-05-09). Without the fallback those
+                    # rows never receive candles and monitor() can't
+                    # emit a close verdict.
                     candles = ohlcv_fetcher(
                         normalised.get("symbol"),
                         (normalised.get("meta") or {}).get("timeframe"),
+                        strategy_name,
                     )
                 except Exception as exc:  # noqa: BLE001
                     logger.warning(

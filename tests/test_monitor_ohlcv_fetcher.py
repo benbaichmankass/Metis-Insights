@@ -121,10 +121,10 @@ def test_fetcher_returns_none_when_exchange_init_raises(monkeypatch):
 def test_fetcher_short_circuits_on_missing_inputs(
     monkeypatch, fake_exchange, symbol, timeframe,
 ):
-    """Open packages predating per-strategy timeframe wiring may not
-    carry ``meta.timeframe``. The closure should treat that as a
-    no-data tick rather than calling ``fetch_candles`` with falsy
-    args."""
+    """Without a strategy_name, a falsy symbol/timeframe pair has no
+    fallback — the closure short-circuits to ``None`` rather than
+    calling ``fetch_candles`` with falsy args. The strategy_name
+    fallback path is tested separately below."""
     monkeypatch.setattr(
         "src.runtime.pipeline._build_killzone_exchange",
         lambda settings: fake_exchange,
@@ -143,6 +143,52 @@ def test_fetcher_short_circuits_on_missing_inputs(
 
     assert fetcher(symbol, timeframe) is None
     assert called == []
+
+
+def test_fetcher_falls_back_to_strategy_yaml_timeframe(
+    monkeypatch, fake_exchange,
+):
+    """When ``meta.timeframe`` is missing (legacy package rows pre-
+    2026-05-09), the fetcher must fall back to the per-strategy
+    timeframe from ``config/strategies.yaml``. Without this fallback
+    the closure short-circuits to ``None``, ``monitor()`` never
+    receives candles, and the position sits open until the watchdog
+    cascades it (or operator intervention)."""
+    monkeypatch.setattr(
+        "src.runtime.pipeline._build_killzone_exchange",
+        lambda settings: fake_exchange,
+    )
+    monkeypatch.setattr(
+        "src.units.strategies.load_strategy_config",
+        lambda: {"vwap": {"timeframe": "5m"}, "turtle_soup": {"timeframe": "15m"}},
+    )
+
+    seen = {}
+
+    def _spy(symbol, timeframe, *, settings=None, exchange_client=None, limit):
+        seen["symbol"] = symbol
+        seen["timeframe"] = timeframe
+        return pd.DataFrame()
+
+    monkeypatch.setattr("src.runtime.market_data.fetch_candles", _spy)
+
+    fetcher = main_module._build_monitor_ohlcv_fetcher({})
+    assert fetcher is not None
+
+    # vwap legacy row → falls back to 5m
+    out = fetcher("BTCUSDT", None, "vwap")
+    assert out is not None
+    assert seen == {"symbol": "BTCUSDT", "timeframe": "5m"}
+
+    # turtle_soup legacy row → falls back to 15m
+    seen.clear()
+    fetcher("BTCUSDT", None, "turtle_soup")
+    assert seen == {"symbol": "BTCUSDT", "timeframe": "15m"}
+
+    # Unknown strategy → no fallback → short-circuits to None
+    seen.clear()
+    assert fetcher("BTCUSDT", None, "unknown_strategy") is None
+    assert seen == {}
 
 
 def test_fetcher_propagates_none_from_fetch_candles(monkeypatch, fake_exchange):
