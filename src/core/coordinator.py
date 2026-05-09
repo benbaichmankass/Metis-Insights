@@ -795,13 +795,8 @@ class Coordinator:
                             # exhaust as positions accumulate and 170131
                             # would surface even with the correct
                             # collateral input.
-                            # S-056 (operator-confirmed 2026-05-08):
-                            # spot-margin accounts are by design
-                            # always 100 % USDT at idle — every
-                            # position closes back to USDT — so
-                            # ``walletBalance(BTC)=0`` is structural,
-                            # not a "no margin" signal. Bybit V5's
-                            # wallet API empties ``availableToBorrow``
+                            # S-056 (2026-05-08) + S-058 (2026-05-09):
+                            # Bybit V5 empties ``availableToBorrow``
                             # for any coin row with walletBalance=0,
                             # zeroing the API-derived borrow capacity
                             # even when margin is enabled and there's
@@ -809,10 +804,27 @@ class Coordinator:
                             # fall back to the operator-configured
                             # ``risk.spot_margin_ltv`` (default 0.5,
                             # see ``DEFAULT_SPOT_MARGIN_LTV``) applied
-                            # to the USDT collateral. The fallback is
-                            # capped by ``risk.max_borrow_btc`` (the
-                            # exchange tier ceiling) so it can never
-                            # exceed the operator's configured limit.
+                            # to the account's collateral, capped by
+                            # ``risk.max_borrow_btc`` (the exchange
+                            # tier ceiling).
+                            #
+                            # Pre-S-058 the fallback used ``quote_usdt``
+                            # (free USDT cash) as the collateral input,
+                            # on the assumption that spot-margin wallets
+                            # are always 100 % USDT at idle. That broke
+                            # whenever residue from an orphaned position
+                            # left equity in a non-USDT coin: ``quote_usdt``
+                            # collapsed to 0, the fallback collapsed to 0,
+                            # and every new dispatch refused with
+                            # ``zero_exchange_capacity`` even though there
+                            # was real collateral on the account. Fix:
+                            # use ``total_account_usd`` (Bybit
+                            # ``totalEquity``) as the collateral basis,
+                            # falling back to ``quote_usdt`` only when
+                            # totalEquity isn't returned. Bybit's per-coin
+                            # collateral ratio is conservatively ignored
+                            # (the LTV ``×`` already buffers under the
+                            # exchange's typical 80 % retail tier).
                             ltv = float(getattr(
                                 account.risk_manager, "spot_margin_ltv",
                                 0.0,
@@ -820,9 +832,14 @@ class Coordinator:
                             usdt_collateral = float(
                                 _spot_bal.get("quote_usdt") or 0.0
                             )
+                            collateral_usd = (
+                                float(total_account_usd)
+                                if total_account_usd is not None
+                                else usdt_collateral
+                            )
                             # Fallback borrow capacity in USD —
                             # symmetric for long and short.
-                            fallback_usd = usdt_collateral * ltv
+                            fallback_usd = collateral_usd * ltv
                             if pkg.direction == "long":
                                 api_avail_usd = (
                                     _spot_bal["quote_usdt"]
