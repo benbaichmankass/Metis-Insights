@@ -116,6 +116,46 @@ def _build_exchange_adapter(settings: dict):
     return BybitExchangeAdapter(connector, symbol)
 
 
+def _build_monitor_ohlcv_fetcher(settings: dict):
+    """Build the ``(symbol, timeframe) -> DataFrame | None`` fetcher
+    that ``run_monitor_tick`` needs to feed strategy ``monitor()``
+    hooks fresh candles.
+
+    Without this the monitor loop calls every strategy with
+    ``candles_df=None`` and the strategies short-circuit at their
+    first guard, never producing TP / SL / VWAP-cross / time-decay
+    close verdicts. The bot then leans on the +30 min stuck-strategy
+    watchdog and the borrow reconciler as a de-facto exit, which is
+    what surfaced the recurring vwap/BTCUSDT stuck cascades (PR #566).
+
+    Built fresh per tick so the connector matches what
+    ``pipeline._build_vwap_signal`` / ``_build_turtle_soup_signal``
+    do for signal generation. Returns ``None`` instead of raising
+    on init failure so the caller's ``run_monitor_tick`` falls back
+    to the prior no-change behaviour.
+    """
+    from src.runtime.market_data import fetch_candles
+    from src.runtime.pipeline import _build_killzone_exchange
+
+    try:
+        exchange = _build_killzone_exchange(settings)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("monitor: ohlcv exchange init failed (%s)", exc)
+        return None
+
+    def _fetch(symbol, timeframe):
+        if not symbol or not timeframe:
+            return None
+        return fetch_candles(
+            symbol, timeframe,
+            settings=settings,
+            exchange_client=exchange,
+            limit=200,
+        )
+
+    return _fetch
+
+
 def run_one_tick(settings: dict, exchange_client, telegram_client) -> dict:
     """Run a single pipeline tick and return the result."""
     result = run_pipeline(
@@ -202,7 +242,9 @@ def main() -> None:
             # verdicts to the DB unit. Best-effort; never raises.
             try:
                 from src.runtime.order_monitor import run_monitor_tick
-                run_monitor_tick()
+                run_monitor_tick(
+                    ohlcv_fetcher=_build_monitor_ohlcv_fetcher(settings),
+                )
             except Exception:  # noqa: BLE001
                 logger.exception("order_monitor tick failed")
 
