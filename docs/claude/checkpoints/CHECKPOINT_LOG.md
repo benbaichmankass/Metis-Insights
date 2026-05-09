@@ -11,6 +11,77 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-09-01-all-models-training — All-models training run + S-050 ship (VWAP HTF gate + turtle ATR stop tightening)
+
+- **Session date:** 2026-05-08 → 2026-05-09
+- **Sprint:** Ad-hoc autonomous training session (out-of-band; operator brief: "long, comprehensive training session for all models in the pipeline"). Not on the workplan; **active milestone S-047 T6 unchanged**. Closes `S-050` early.
+- **Active milestone:** S-047 (untouched).
+- **Last completed checkpoint:** `CP-2026-05-08-01-ad-hoc-operator-actions`.
+- **Branches:**
+  - `claude/train-all-models-HMw1x` → PR #558 (operator-merged as squash `9a7bdf3` on 2026-05-09)
+  - `claude/train-all-models-paperwork-HMw1x` → this close-checkpoint
+- **Telegram sent:** none (training run + paperwork — no live-trading impact prior to operator deploy).
+- **Alerts during session:** PR #558 ruff-lint failed once on the experiment scripts (F841 unused vars + E741 ambiguous `l`/`o` names) — fixed inline (rename `l → lo`, `o → op`, drop unused locals); CI green on second run.
+
+### What this sprint shipped
+
+1. **Experiment artefacts** (`experiments/2026-05-08-all-models-training/`)
+   - 38-month BTCUSDT 5 m dataset (Jan 2023 → Feb 2026, 332 k bars from `qashdev/btc` mirror of Binance Vision); Bybit / Coinbase / yfinance firewalled from this sandbox.
+   - Hypothesis grid: 6 VWAP variants (V0–V6) + 8 turtle_soup variants (T0–T7) + per-parameter sweeps + 4 stacked variants + leak-free 70/30 walk-forward.
+   - Vectorised backtest engine (`scripts/run.py`, `scripts/run_stack.py`) — full grid runs in ~30 s.
+   - `PLAN.md`, `RECOMMENDATIONS.md`, `SUMMARY.md`; per-variant metrics in `results/all_metrics.json` + `results/stacked.json`.
+
+2. **VWAP Phase 2 — HTF EMA-200 gate (S-050)**
+   - `src/units/strategies/vwap.py`: new `HTF_BAND_PCT_DEFAULT = 0.02`; `build_vwap_signal` accepts optional `htf_close`, `htf_ema`, `htf_band_pct` kwargs. Gate fires between side-resolution and meta-build; HTF state (close, EMA, band, blocked-bool) recorded in `meta` for the audit log.
+   - `src/runtime/pipeline.py`: when `vwap.htf_trend_filter.enabled` is true in `strategies.yaml`, fetch HTF candles, compute EMA on the configured period, thread close + EMA into `build_vwap_signal`. Fetch failure degrades to no-gate (WARNING log) rather than blocking the strategy.
+   - `config/strategies.yaml`: new `strategies.vwap.htf_trend_filter` map. Default band 0.020 (raised from the originally-proposed 0.010 — band sweep showed +0.35 Sharpe + 13 % cadence recovery at no other-metric cost).
+   - `tests/test_vwap_strategy.py`: 9 new tests in `TestHtfTrendGate` covering each gate arm.
+   - Expected impact (38-month backtest): full-sample Sharpe **−0.39 → +2.47**, walk-forward OOS **+0.22 → +1.10**, cadence drop ≈ 49 % (only counter-trend fades against a strong HTF trend).
+
+3. **Turtle Soup — `atr_stop_mult` 0.35 → 0.30**
+   - `src/units/strategies/turtle_soup.py`: `_DEFAULTS["atr_stop_mult"]` updated, with provenance comment.
+   - `config/strategies.yaml`: explicit `atr_stop_mult: 0.30` line.
+   - First systematic tuning run on record for turtle_soup. Sweep over {0.25, 0.30, 0.35, 0.45, 0.60} showed monotonic quality peak in 0.25–0.30; 0.30 is the high-cadence edge of that band.
+   - Expected impact: full-sample Sharpe **+0.80 → +1.33**, walk-forward OOS **+0.25 → +1.22** (OOS *better* than IS — regime-robust). Cadence essentially unchanged (33 → 32 trades over 38 months).
+
+### S-050 gate waiver (operator decision)
+
+S-050 was originally gated on "Phase 1 merged + ≥ 30 days live metrics" per `milestone-state.md`. Operator authorised landing without the live-metrics gate after the training run showed the 38-month baseline is structurally unprofitable (Sharpe **−0.39**) — Phase-2 is no longer a quality lift, it is the difference between profitable and not. The 30-day gate now applies to the **Phase-3 follow-up** instead (HTF reference 4 h → 1 h EMA-200; expected +0.4 Sharpe lift on top of Phase-2 per the V3 result).
+
+### Live-deploy readiness
+
+Operator merged PR #558 on 2026-05-09 but no deploy yet. Next checks once deployed:
+
+- VWAP signals carry `meta.htf_close`, `meta.htf_ema`, `meta.htf_band_pct`, `meta.htf_blocked` on every tick.
+- Expect non-zero `htf_blocked: true` count in the audit log (~50 % of would-be signals based on backtest cadence drop).
+- If HTF candle fetch fails: WARNING log `VWAP HTF fetch failed for symbol=...` and the strategy degrades to no-gate (Phase-1 behaviour) — by design, never blocks the strategy outright.
+
+### Bug-log entries
+
+- VWAP — adoption of the HTF EMA-200 ±2 % trend gate (S-050) and the band-tuning result. Cross-references: `experiments/2026-05-08-all-models-training/RECOMMENDATIONS.md`, `experiments/2026-05-07-vwap-accuracy/RECOMMENDATIONS.md` (origin), PR #558 squash `9a7bdf3`.
+- Turtle Soup — adoption of `atr_stop_mult=0.30`. Cross-references: `experiments/2026-05-08-all-models-training/RECOMMENDATIONS.md` § T4, PR #558 squash `9a7bdf3`.
+
+Both filed in this paperwork PR (`docs/claude/bug-log.md`).
+
+### Follow-ups parked for the operator
+
+- Phase-3 (1 h EMA-200 HTF reference) — gated on ≥ 30 days of Phase-2 live metrics.
+- ETHUSDT turtle re-validation — needs an ETH archive reachable from the sandbox (production turtle runs on BTC + ETH; only BTC tested in this run).
+- Volume-confidence sizing modulator (V4 in the experiment) — recast as size-up/size-down of trade R-mult on volume-spike entries; belongs to the accounts-layer team, not strategy.
+- Funding-cost-aware expectancy in `scripts/training/backtest_helpers.py` — perception fix only; modest 50 bps/trade adjustment at typical 0.01 %/8 h funding × 4 h hold.
+
+### Definition-of-done
+
+- [x] PR #558 merged to main (squash `9a7bdf3`).
+- [x] CI green on the merge commit (lint + scan + scan + collect + inventory).
+- [x] All 78 relevant tests pass locally; 9 new HTF-gate tests added; pre-existing-on-main env / startup failures (`TestVwapPipelineRouting`, `TestLiveSafetyGate`) flagged but unrelated to this work.
+- [x] `milestone-state.md` updated — S-050 added to recently-closed, removed from queued, Phase-3 follow-up added to queued at the bottom.
+- [x] Bug-log entries added for both changes.
+- [x] Prior `experiments/2026-05-07-vwap-accuracy/RECOMMENDATIONS.md` annotated to mark Phase-2 shipped.
+- [ ] Operator deploys to VPS and observes ≥ 24 h of audit-log output to confirm `htf_blocked` counts are within expected envelope.
+
+---
+
 ## CP-2026-05-08-01-ad-hoc-operator-actions — Ad-hoc sprint: operator-actions workflow + transparency notify
 
 - **Session date:** 2026-05-08
