@@ -443,6 +443,27 @@ def turtle_soup_signal_builder(settings: dict) -> Dict[str, Any]:
             "Turtle Soup: no actionable signal (%s) stage_rejections=%s",
             exc, stage_rejections,
         )
+        # The multiplexer absorbs per-strategy ``side=none`` signals
+        # and emits one combined ``strategy=multiplexed`` row per tick,
+        # so the per-strategy meta we attach below is invisible in the
+        # audit JSONL on flat ticks. Land a dedicated turtle-only row
+        # (``event=turtle_soup_eval``) directly so the stage_rejections
+        # data the operator needs to tune cadence is queryable in
+        # ``signal_audit.jsonl`` regardless of multiplexer routing.
+        # Best-effort — never let an audit failure break the strategy.
+        try:
+            log_signal(
+                {
+                    "event": "turtle_soup_eval",
+                    "strategy": "turtle_soup",
+                    "symbol": symbol,
+                    "side": "none",
+                    "reason": str(exc),
+                    "stage_rejections": stage_rejections,
+                }
+            )
+        except Exception:  # noqa: BLE001
+            logger.exception("Turtle Soup: dedicated audit emit failed")
         meta: Dict[str, Any] = {
             "strategy_name": "turtle_soup",
             "reason": str(exc),
@@ -460,6 +481,29 @@ def turtle_soup_signal_builder(settings: dict) -> Dict[str, Any]:
         "Turtle Soup: %s signal at %s (entry=%s sl=%s tp=%s confidence=%.3f)",
         side, symbol, pkg["entry"], pkg["sl"], pkg["tp"], pkg["confidence"],
     )
+    # Mirror of the no-signal path's dedicated audit row: every
+    # turtle eval lands a row keyed off ``event=turtle_soup_eval`` so
+    # the operator can reconstruct cadence + stage rejections per
+    # tick even when the multiplexer routes a different strategy's
+    # signal through the main pipeline_result row.
+    pkg_meta = pkg.get("meta") or {}
+    try:
+        log_signal(
+            {
+                "event": "turtle_soup_eval",
+                "strategy": "turtle_soup",
+                "symbol": symbol,
+                "side": side,
+                "entry": pkg["entry"],
+                "sl": pkg["sl"],
+                "tp": pkg["tp"],
+                "confidence": pkg["confidence"],
+                "bars_back_of_setup": pkg_meta.get("bars_back_of_setup"),
+                "stage_rejections": pkg_meta.get("stage_rejections"),
+            }
+        )
+    except Exception:  # noqa: BLE001
+        logger.exception("Turtle Soup: dedicated audit emit failed")
     return {
         "symbol": symbol,
         "side": side,
@@ -475,7 +519,7 @@ def turtle_soup_signal_builder(settings: dict) -> Dict[str, Any]:
         # /api/bot/signals?pattern=... blind to its rows.
         "pattern": "turtle_soup",
         "meta": {
-            **(pkg.get("meta") or {}),
+            **pkg_meta,
             "strategy_name": "turtle_soup",
             "confidence": pkg["confidence"],
             "direction": pkg["direction"],
