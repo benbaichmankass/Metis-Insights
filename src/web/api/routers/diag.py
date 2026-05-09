@@ -40,7 +40,7 @@ _STATUS_JSON = _RUNTIME_LOGS / "status.json"
 _BOT_LOG = _REPO_ROOT / "bot.log"
 
 _JOURNAL_TABLES: dict[str, str] = {
-    "order_packages": "id",
+    "order_packages": "datetime(updated_at)",
     "trades": "id",
 }
 
