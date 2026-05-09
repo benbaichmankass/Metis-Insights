@@ -280,6 +280,80 @@ class TestLongSideLtvFallback:
         expected = 500.0 * _SPOT_BUY_SAFETY_BUFFER
         assert kwargs["available_usd"] == pytest.approx(expected, rel=1e-6)
 
+    def test_long_residue_in_base_coin_does_not_brick_dispatch(self):
+        """S-058 — the headline #574 incident.
+
+        Spot-margin wallet held $185 of equity but it was sitting in
+        BTC (residue from an orphaned LONG whose USDT borrow leg got
+        repaid by the S-055 reconciler but whose BTC asset was never
+        sold back to USDT). Pre-S-058 the fallback collateral input
+        was ``quote_usdt`` (= $0 here) so available_usd collapsed to
+        0 and every new vwap dispatch refused with
+        ``zero_exchange_capacity`` — even though the account has
+        $185 of real collateral against the USDT borrow line.
+
+        After S-058 the fallback uses ``total_account_usd`` so the
+        residue still counts as collateral.
+        """
+        spot_balances = {
+            "base_coin": "BTC",
+            "base_qty": 0.00231,           # ~$185 of BTC
+            "base_usd_value": 185.08,
+            "quote_usdt": 0.0,              # ← drained by orphaned LONG
+            "quote_borrow_usd": 0.0,        # ← Bybit zeros this when
+                                            #    walletBalance(USDT)=0
+            "base_borrow_qty": 0.0,
+            "base_borrow_usd": 0.0,
+            "total_account_usd": 185.08,    # ← but totalEquity is intact
+        }
+        kwargs = _drive(
+            pkg=_long_pkg(),
+            spot_balances=spot_balances,
+            acc=_account_stub(ltv=0.5),
+        )
+        # collateral_usd = 185.08, fallback_usd = 92.54.
+        # api_avail_usd = 0 + 0 = 0.
+        # effective = max(0, usdt_collateral=0 + 92.54) = 92.54.
+        expected = 92.54 * _SPOT_BUY_SAFETY_BUFFER
+        assert kwargs["available_usd"] == pytest.approx(expected, rel=1e-3)
+        assert kwargs["available_usd"] > 0.0
+
+    def test_short_residue_in_non_base_coin_uses_total_equity_fallback(self):
+        """S-058 — short path with residue in a non-base coin.
+
+        Equity is $185 (e.g. residue in ETH or another coin Bybit
+        treats as collateral); ``base_qty=0`` so the API path's
+        ``base_borrow_qty + base_qty`` term is empty. Pre-S-058 the
+        fallback used ``quote_usdt`` (=0), zeroing capacity. After
+        S-058 the fallback uses ``total_account_usd`` so the short
+        can still size against the collateralised borrow line.
+
+        (Residue in BTC itself is already covered by the API path —
+        ``base_qty`` flows directly into ``api_base_qty``.)
+        """
+        spot_balances = {
+            "base_coin": "BTC",
+            "base_qty": 0.0,                # no BTC residue
+            "base_usd_value": 0.0,
+            "quote_usdt": 0.0,              # no USDT cash
+            "quote_borrow_usd": 0.0,
+            "base_borrow_qty": 0.0,         # API empty
+            "base_borrow_usd": 0.0,
+            "total_account_usd": 185.08,    # equity held in some
+                                            # other coin (ETH, etc.)
+        }
+        kwargs = _drive(
+            pkg=_short_pkg(entry=80_000.0),
+            spot_balances=spot_balances,
+            acc=_account_stub(ltv=0.5, max_borrow_btc=0.5),
+        )
+        # collateral_usd = 185.08, fallback_usd = 92.54,
+        # fallback_btc_qty = 92.54 / 80k = 0.001157 BTC (under cap),
+        # effective_usd = 0.001157 × 80k = 92.54.
+        expected = 92.54 * _SPOT_BUY_SAFETY_BUFFER
+        assert kwargs["available_usd"] == pytest.approx(expected, rel=1e-3)
+        assert kwargs["available_usd"] > 0.0
+
 
 # ---------------------------------------------------------------------------
 # Defence boundary: non-spot-margin accounts unchanged
