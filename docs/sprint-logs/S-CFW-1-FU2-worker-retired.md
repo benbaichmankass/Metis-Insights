@@ -230,3 +230,45 @@
 - [x] Roadmap status was checked.
 - [x] Contradictions were recorded.
 - [x] Remaining unknowns were stated clearly.
+
+## Verification Record (appended 2026-05-10)
+
+Operator-actions runs that closed the loop on this sprint:
+
+- **Issue #755** (`pull-latest-logs`, 2026-05-10 17:38) — first
+  attempt, ran on a VM checkout that had not yet pulled
+  `bc585e7`. Output ended at `runtime_logs/status.json` instead
+  of the new tunnel-URL section, confirming the new
+  `pull_logs.sh` was not yet on disk.
+- **Issue #756** (`pull-and-deploy`, 2026-05-10 17:41) — VM
+  pre-deploy HEAD already at `bc585e7` (auto-deploy on push had
+  caught it between the two issues). `deploy_pull_restart.sh`
+  confirmed `HEAD unchanged (already at origin/main)` and
+  bounced `ict-trader-live.service`.
+- **Issue #757** (`pull-latest-logs`, 2026-05-10 17:44) — re-ran
+  with the updated script. The new
+  `===== runtime_logs/cloudflared_tunnel_url.txt =====` section
+  surfaced the live URL.
+
+**Live tunnel URL (2026-05-10):**
+`https://planners-lbs-blind-trainer.trycloudflare.com`
+
+This is the same URL recorded in the 2026-05-10 wrap-up note,
+so the tunnel has been continuously up since the original
+`setup-cloudflare-tunnel` run earlier in the day. The
+dashboard's Vercel rewrite (per the wrap-up) already points at
+this URL, so no `vercel.json` change is required as part of
+S-CFW-1-FU2 — the dashboard is reading live data through the
+existing path.
+
+**Outstanding follow-ups (operator-driven, not blockers):**
+
+- Optional: delete the deprecated Worker
+  (`ict-trader-bot-proxy`) via the Cloudflare dashboard. Keeps
+  `ben-baichmankass.workers.dev` subdomain as a free asset.
+- When the next `setup-cloudflare-tunnel` run produces a new
+  URL, the dashboard's `vercel.json` will need updating until
+  one of the deferred items lands (named tunnel + CF zone, or
+  tunnel-URL auto-refresh).
+
+This sprint is now **CLOSED**.
