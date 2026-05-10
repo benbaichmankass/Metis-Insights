@@ -1,9 +1,8 @@
-"""Regression evaluator (WS4).
+"""Regression evaluator (WS4 + WS4-FU).
 
-First-cut metrics for the constant-prediction baseline: MSE, MAE.
-Reads `model_state['constant']` so it is paired specifically with
-`ConstantPredictionTrainer`. A general predict() interface is filed
-for a follow-up.
+Predictor-resolved (S-AI-WS4-FU): no longer reads trainer-specific
+state keys; uses `Evaluator._resolve_predictor(model_state)` to get
+a `Predictor` and then calls `.predict(row)` per evaluation row.
 """
 from __future__ import annotations
 
@@ -23,16 +22,16 @@ class RegressionEvaluator(Evaluator):
         if not target:
             raise ValueError("evaluator_config.target_column is required")
         wanted = list(config.get("metrics") or ["mse", "mae"])
-        prediction = model_state.get("constant")
-        if prediction is None:
-            raise ValueError(
-                "model_state.constant missing — incompatible trainer output"
-            )
-        diffs = [
-            row[target] - prediction
-            for row in rows
-            if row.get(target) is not None
-        ]
+        predictor = self._resolve_predictor(model_state)
+
+        diffs: list[float] = []
+        for row in rows:
+            value = row.get(target)
+            if value is None:
+                continue
+            prediction = predictor.predict(row)
+            diffs.append(float(value) - prediction)
+
         if not diffs:
             return {m: 0.0 for m in wanted} | {"n_eval": 0.0}
         n = len(diffs)

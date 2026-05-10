@@ -1,193 +1,162 @@
 # Training Center
 
 > **Status:** Canonical (training-center scope). Adopted in **S-AI-WS4**
-> (2026-05-10).
+> (2026-05-10). Updated in **S-AI-WS4-FU** (2026-05-10):
+> Predictor abstraction + split strategies + `compare` subcommand.
 >
 > **Authority:** Subordinate to
-> [`docs/architecture/ai-model-platform.md`](../architecture/ai-model-platform.md)
-> (AI-scope canonical) and
-> [`docs/ARCHITECTURE-CANONICAL.md`](../ARCHITECTURE-CANONICAL.md)
-> (system-wide).
+> [`docs/architecture/ai-model-platform.md`](../architecture/ai-model-platform.md).
 >
-> **Companion:** [`model-registry-policy.md`](model-registry-policy.md)
-> covers the registry state machine + promotion rules.
+> **Companion:** [`model-registry-policy.md`](model-registry-policy.md).
 
 ## Purpose
 
 Describes the repo-native training factory: directory layout, the
-`TrainingManifest` YAML schema, the trainer / evaluator / experiment
-runner contracts, and the umbrella CLI.
+`TrainingManifest` YAML schema, the trainer / evaluator /
+experiment-runner contracts, the `Predictor` abstraction (WS4-FU),
+the split strategies (WS4-FU), and the umbrella CLI.
 
 ## Directory layout
 
 ```
 ml/
-  datasets/                  # WS3 — dataset framework + builders
-  trainers/                  # WS4 — Trainer ABC + concrete baselines
-  evaluators/                # WS4 — Evaluator ABC + concrete metrics
-  experiments/               # WS4 — runner that ties the pipeline together
-  registry/                  # WS4 — filesystem model registry
-  promotion/                 # WS4 — documented promotion gates
-  configs/                   # WS4 — YAML manifests (committed examples + per-run files)
-  manifest.py                # WS4 — TrainingManifest schema
-  cli.py + __main__.py       # WS4 — `python -m ml`
+  datasets/      # WS3 + WS5-A — dataset framework + builders
+  predictors/    # WS4-FU — Predictor ABC + concrete predictors
+  trainers/      # WS4 + WS5-A — Trainer ABC + concrete trainers
+  evaluators/    # WS4 + WS5-A — Evaluator ABC + concrete evaluators
+  experiments/   # WS4 — runner + WS4-FU splitters
+  registry/      # WS4 — filesystem registry
+  promotion/     # WS4 — documented promotion gates
+  configs/       # WS4 + WS5-A + WS4-FU — YAML manifests
+  manifest.py    # WS4 — TrainingManifest schema
+  cli.py + __main__.py  # WS4 + WS4-FU — `python -m ml`
 ```
-
-The legacy `ml/config/` and `ml/src/` trees are untouched (vestigial
-from S-004/S-005/S-006); WS4 does not migrate them. They are flagged
-as a Known Gap in the AI-platform doc.
 
 ## Training manifest
 
-Schema at [`ml/manifest.py`](../../ml/manifest.py)
-(`TrainingManifest`). Stored as YAML; loaded into a frozen dataclass
-with invariant checks at construction time.
-
-```yaml
-manifest_version: v1
-model_id: backtest-pnl-mean-baseline-v0
-model_family: regression_baseline
-trainer: ml.trainers.constant_baseline.ConstantPredictionTrainer
-trainer_config:
-  target_column: total_pnl_pct
-dataset:
-  family: backtest_results
-  symbol_scope: all
-  timeframe: all
-  version: v001
-evaluator: ml.evaluators.regression.RegressionEvaluator
-evaluator_config:
-  target_column: total_pnl_pct
-  metrics: [mse, mae]
-  holdout_fraction: 0.2
-target_deployment_stage: research_only
-notes: |
-  Smallest possible baseline; demo of the WS4 round-trip.
-```
-
-### Mandatory fields
+Schema in [`ml/manifest.py`](../../ml/manifest.py)
+(`TrainingManifest`). Fields:
 
 | Field | Notes |
 |---|---|
 | `manifest_version` | Currently `v1`. |
 | `model_id` | Unique identity in the registry. |
-| `model_family` | Free-form; informational. |
-| `trainer` | Fully-qualified Python callable resolvable via `importlib.import_module(...).<attr>`. |
-| `trainer_config` | Mapping passed to `Trainer.fit(rows, config)`. |
-| `dataset` | `{family, symbol_scope, timeframe, version}` referencing a WS3 dataset artifact. |
-| `evaluator` | Fully-qualified Python callable. |
-| `evaluator_config` | Mapping passed to `Evaluator.score(state, rows, config)`. |
-| `target_deployment_stage` | One of `research_only`, `candidate`, `backtest_approved`, `shadow`, `advisory`, `limited_live`, `live_approved`. |
+| `model_family` | Free-form. |
+| `trainer` / `trainer_config` | Fully-qualified trainer + its kwargs. |
+| `dataset` | `{family, symbol_scope, timeframe, version}`. |
+| `evaluator` / `evaluator_config` | Fully-qualified evaluator + its kwargs. Includes split config (see below). |
+| `target_deployment_stage` | One of `research_only`..`live_approved`. |
 | `notes` | Free-form. |
 
-## Trainer / Evaluator contracts
+## Predictor abstraction (WS4-FU)
 
-### Trainer
-
-```python
-class Trainer(ABC):
-    @abstractmethod
-    def fit(
-        self,
-        rows: Iterable[Mapping[str, Any]],
-        config: Mapping[str, Any],
-    ) -> Mapping[str, Any]:
-        """Return a JSON-serialisable model state dict."""
-```
-
-### Evaluator
+Each trainer pairs itself with a `Predictor` subclass via
+`PREDICTOR_CLASS`:
 
 ```python
-class Evaluator(ABC):
-    @abstractmethod
-    def score(
-        self,
-        model_state: Mapping[str, Any],
-        rows: Iterable[Mapping[str, Any]],
-        config: Mapping[str, Any],
-    ) -> Mapping[str, float]:
-        """Return decision-useful metrics."""
+class ConstantPredictionTrainer(Trainer):
+    PREDICTOR_CLASS = ConstantPredictor
+    def fit(self, rows, config) -> Mapping: ...
 ```
 
-### Pairing
+Evaluators consume predictions via
+`Evaluator._resolve_predictor(state)`:
 
-Each evaluator may assume a specific trainer's state shape. The
-manifest is the contract: pairing a trainer with an incompatible
-evaluator is a manifest authoring error and surfaces at
-`Evaluator.score` time. WS5 will expand the trainer / evaluator
-family; a general predict() interface is filed as a follow-up.
+```python
+class RegressionEvaluator(Evaluator):
+    def score(self, model_state, rows, config):
+        predictor = self._resolve_predictor(model_state)
+        for row in rows:
+            prediction = predictor.predict(row)
+            ...
+```
+
+Resolution dispatches via `state['trainer']` qualname →
+`trainer_cls.PREDICTOR_CLASS(state)`. Concrete predictors live in
+[`ml/predictors/`](../../ml/predictors/):
+
+| Predictor | Pairs with |
+|---|---|
+| `ConstantPredictor` | `ConstantPredictionTrainer` |
+| `PerGroupPredictor` | `PerStrategyWinRateTrainer` (configurable `feature_column`) |
+
+## Split strategies (WS4-FU)
+
+Dispatched from `evaluator_config.split_strategy`. Default
+`holdout` matches the WS4 behavior so existing manifests work
+unchanged.
+
+| Strategy | Behavior | Config |
+|---|---|---|
+| `holdout` | Stable suffix split. | `holdout_fraction: float in (0,1)` (default 0.2) |
+| `time_aware_holdout` | Sort by `time_column` (default `created_at`), then suffix split. | `holdout_fraction`, `time_column` |
+| `walk_forward` | Rolling-origin folds. Returns the LAST fold for single-split mode. Aggregated walk-forward (averaging metrics across folds) is filed as a follow-up. | `n_folds: int >= 2`, `min_train_fraction: float in (0,1)`, `time_column` |
+
+Implementation in
+[`ml/experiments/splitters.py`](../../ml/experiments/splitters.py).
 
 ## Experiment runner
 
-[`ml/experiments/runner.py::run_experiment(...)`](../../ml/experiments/runner.py)
-is the orchestrator. Steps:
+[`ml/experiments/runner.py::run_experiment(...)`](../../ml/experiments/runner.py).
+Steps:
 
-1. Load and validate the manifest.
-2. Locate the dataset under
+1. Load + validate manifest.
+2. Locate dataset under
    `<datasets_root>/<family>/<scope>/<tf>/<version>/data.jsonl`.
-3. Holdout-split (last `evaluator_config.holdout_fraction` of rows
-   = test; order-preserving for backtest_results).
-4. Resolve trainer + evaluator callables via `importlib`.
-5. `Trainer.fit(train_rows, trainer_config)` → `model_state`.
-6. `Evaluator.score(model_state, eval_rows, evaluator_config)` → `metrics`.
-7. Write the artifact triple under
+3. Split via `splitters.split(rows, evaluator_config)`.
+4. Resolve trainer + evaluator via `importlib`.
+5. `trainer.fit(...)` → `model_state` (carries `trainer` qualname).
+6. `evaluator.score(state, rows, config)` → `metrics` (uses
+   `_resolve_predictor` internally).
+7. Write artifact triple under
    `<experiments_root>/<model_id>/<run_id>/`:
-   - `manifest.json`
-   - `model_state.json`
-   - `metrics.json`
-8. (default) Register in the model registry as `candidate`. Disable
-   with `register=False`.
-
-Each artifact triple is tied to a specific `code_revision`
-(`git rev-parse HEAD` by default; overridable). The registry entry
-holds the manifest snapshot, the model state path, the metrics, and
-the code revision — enough lineage to reproduce later.
+   `manifest.json`, `model_state.json`, `metrics.json`.
+8. Register in registry as `candidate` (default).
 
 ## CLI
 
-Umbrella entry point: `python -m ml`. See
-[`ml/cli.py`](../../ml/cli.py).
+```
+python -m ml build-dataset ...           # passthrough to ml.datasets
+python -m ml validate-dataset <path>     # passthrough
+python -m ml list-families               # passthrough
+python -m ml train <manifest>            # train + evaluate + register
+python -m ml promote <id> <new-status>   # operator-gated transition
+python -m ml list-models [--status S]    # registry enumeration
+python -m ml list-trainers               # introspection
+python -m ml list-evaluators             # introspection
+python -m ml compare <id-a> <id-b>       # WS4-FU side-by-side metric diff
+```
 
-| Subcommand | Purpose |
-|---|---|
-| `build-dataset ...` | Passthrough to `python -m ml.datasets build` (WS3). |
-| `validate-dataset <path>` | Passthrough to `python -m ml.datasets validate`. |
-| `list-families` | Passthrough to `python -m ml.datasets list-families`. |
-| `train <manifest>` | Run the orchestrator end to end. |
-| `promote <model_id> <new_status>` | State transition with operator gate. Requires `--by` and `--reason`; transitions with documented gates require `--gates-acknowledged`. |
-| `list-models [--status S]` | Enumerate registry entries. |
-| `list-trainers` / `list-evaluators` | Introspection helpers. |
+The `compare` subcommand surfaces shared-metric deltas (`b - a`)
+plus per-side-only metric lists, all as JSON for automation.
 
-### End-to-end demo
+## End-to-end demo
 
 ```
-python -m ml.datasets build backtest_results \
+python -m ml.datasets build trade_outcomes \
   --output-dir ./datasets-out --version v001 \
   --source trade_journal.db -- db_path=/path/to/trade_journal.db
 
-python -m ml train ml/configs/baseline-backtest-mean.yaml \
+python -m ml train ml/configs/baseline-trade-outcome-winrate.yaml \
+  --datasets-root ./datasets-out
+python -m ml train ml/configs/baseline-trade-outcome-global.yaml \
   --datasets-root ./datasets-out
 
-python -m ml list-models --status candidate
+python -m ml compare \
+  trade-outcome-winrate-baseline-v0 \
+  trade-outcome-global-baseline-v0
 ```
-
-The last step shows the freshly-registered candidate. Promotion is a
-separate explicit step — see
-[`model-registry-policy.md`](model-registry-policy.md).
 
 ## Out of scope (deferred)
 
-- Walk-forward / time-aware split strategies (current splitter is
-  a stable holdout suffix). Filed for a follow-up.
-- General `predict()` interface decoupling trainer state from
-  evaluator. Filed for a follow-up.
-- A `compare` subcommand for side-by-side metric diffs across two
-  registry entries. Filed for a follow-up.
-- Heavy training jobs (the current trainer is a constant baseline).
-  Real model families come in WS5.
+- Aggregated walk-forward (metrics averaged across folds).
+- Per-strategy detail metrics artifact alongside scalar metrics.
+- Registry concurrent-writer locking.
+- `python -m ml.datasets publish` HF subcommand.
 
 ## Update rule
 
-This doc must be reviewed in the same PR as any change to the
-manifest schema, the runner pipeline, the CLI surface, or the
-directory layout above.
+Review this doc in the same PR as any change to the manifest
+schema, trainer / evaluator / predictor contracts, runner pipeline,
+split strategies, registry status state machine / promotion gates,
+or the CLI surface.

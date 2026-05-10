@@ -6,83 +6,92 @@
 
 ## Decomposition
 
-WS5 lands as a series of per-baseline sub-sprints. Each baseline:
-1. Adds its dataset family builder (if not already buildable).
-2. Adds its trainer + evaluator.
-3. Round-trips end-to-end through the WS4 training-center harness.
+WS5 lands as per-baseline sub-sprints. Each:
+1. Adds its dataset family builder if not yet buildable.
+2. Adds trainer + evaluator (paired via `PREDICTOR_CLASS`).
+3. Round-trips through the WS4 training-center harness.
 4. Lands a manifest under `ml/configs/`.
-5. Documents the leakage discipline for that family.
+5. Documents leakage discipline.
 
 | Sub-sprint | Baseline | Dataset prereq | Status |
 |---|---|---|---|
 | **S-AI-WS5-A** | Outcome probability (per-strategy historical winrate) | `trade_outcomes` | ✅ DONE 2026-05-10 |
-| S-AI-WS5-B | Regime classifier | `market_raw` | 📋 queued |
+| S-AI-WS5-B | Regime classifier | `market_raw` | 📋 queued (see design note below) |
 | S-AI-WS5-C | Setup quality scorer | `setup_labels` | 📋 queued |
-| S-AI-WS5-D | Execution quality model | `trade_outcomes` (with execution metadata) | 📋 queued |
-| S-AI-WS5-E | Post-trade review model | `review_journal` | 📋 queued (depends on M7) |
-| S-AI-WS5-F | Prop mission policy assist | `account_context` | 📋 queued (deterministic-first per master plan) |
+| S-AI-WS5-D | Execution quality | `trade_outcomes` + execution metadata | 📋 queued |
+| S-AI-WS5-E | Post-trade review | `review_journal` | 📋 queued |
+| S-AI-WS5-F | Prop mission policy | `account_context` | 📋 queued |
 
-## Objective
+## S-AI-WS5-A — Outcome probability (closed)
 
-Prove the system with simple, strong baselines before introducing
-advanced open-source model families.
+Closed 2026-05-10. Decision-useful question: "does the historical
+win rate per strategy carry signal for the next closed trade?"
 
-## Tasks (per baseline)
+Paired sanity baseline shipped in S-AI-WS4-FU as
+[`ml/configs/baseline-trade-outcome-global.yaml`](../../../ml/configs/baseline-trade-outcome-global.yaml)
+— use `python -m ml compare` to test whether the per-strategy
+feature beats the global mean.
 
-1. Define labels and the leakage discipline.
-2. Build the dataset family (if not already buildable).
-3. Train via the WS4 manifest path.
-4. Evaluate by regime, symbol group, timeframe where relevant.
-5. Compare against a heuristic / rule baseline.
-6. Publish a run summary into `ml/reports/` (when applicable).
+Deliverables: `ml/datasets/families/trade_outcomes.py`,
+`ml/trainers/per_strategy_winrate.py`,
+`ml/evaluators/classification.py`,
+`ml/configs/baseline-trade-outcome-winrate.yaml`,
+plus tests + docs. See
+[`docs/sprint-logs/S-AI-WS5-A.md`](../../sprint-logs/S-AI-WS5-A.md).
+
+## S-AI-WS5-B — Regime classifier (design notes)
+
+**Status: queued. Needs an operator-driven decision on
+`market_raw` data acquisition.**
+
+### `market_raw` multi-source design (operator directive 2026-05-10)
+
+The operator's directive: "we should have a running list of various
+sources to choose from — we should have capacity to intake different
+types from different sources and normalize it to the training
+center format."
+
+Design sketch for the WS5-B builder:
+
+- Builder is a **pluggable adapter framework**, not a single
+  hard-coded source. Each adapter normalises a specific source
+  into the canonical `market_raw` row shape.
+- Adapter interface (proposed):
+  ```python
+  class MarketRawAdapter(ABC):
+      source: ClassVar[str]   # e.g. "yfinance", "bybit_v5", "csv"
+      timeframe_support: ClassVar[tuple[str, ...]]  # e.g. ("1d", "1h")
+      @abstractmethod
+      def iter_bars(self, **kwargs) -> Iterator[Mapping[str, Any]]: ...
+  ```
+- Canonical `market_raw` row shape (proposed):
+  `{ts, symbol, timeframe, open, high, low, close, volume, source}`
+  where `ts` is an ISO 8601 UTC string and `source` records the
+  adapter that produced the row. Source-specific extra columns
+  go into a sidecar `source_metadata.json` keyed by row id.
+- First adapters to ship together:
+  - `csv` — reads operator-staged CSVs (no network).
+  - `yfinance` — free public source for daily / hourly bars.
+  - `bybit_v5_offvm` — reuses the existing exchange connector but
+    is hard-locked off the Oracle live VM (WS9 rule). Activated
+    only when the build runs on an off-VM host with read-only
+    API credentials.
+- Each adapter records its name + version in dataset
+  `metadata.notes`, plus the request parameters (symbol, range)
+  so the dataset is reproducible.
+- Leakage discipline: `market_raw` carries no labels (`label_version: n/a`,
+  `leakage_test_status: n/a`). Downstream `setup_labels` /
+  `regime_labels` builders that use `market_raw` are responsible
+  for their own leakage tests.
+
+When this lands, it follows the same dataset-builder pattern as
+`backtest_results` and `trade_outcomes`; the difference is the
+adapter dispatch instead of a single SQLite source.
 
 ## Acceptance (per baseline)
 
-- [ ] Each baseline has a dataset, trainer, evaluator, and summary.
+- [ ] Each baseline has a dataset, trainer, evaluator, summary.
 - [ ] No advanced model family is introduced before a baseline
   exists for the same task.
 - [ ] Each baseline produces decision-useful metrics, not only
   generic ML metrics.
-
-## S-AI-WS5-A — Outcome probability
-
-**Closed 2026-05-10.** Decision-useful question: "does the historical
-win rate per strategy carry signal for the next closed trade?"
-
-Deliverables:
-- New: [`ml/datasets/families/trade_outcomes.py`](../../../ml/datasets/families/trade_outcomes.py) +
-  registry registration. Read-only against `trade_journal.db`.
-- New: [`ml/trainers/per_strategy_winrate.py`](../../../ml/trainers/per_strategy_winrate.py) +
-  re-export.
-- New: [`ml/evaluators/classification.py`](../../../ml/evaluators/classification.py) +
-  re-export. Headline metrics: accuracy, precision, recall, f1,
-  brier, n_eval.
-- New: [`ml/configs/baseline-trade-outcome-winrate.yaml`](../../../ml/configs/baseline-trade-outcome-winrate.yaml).
-- New: [`tests/ml/datasets/test_trade_outcomes.py`](../../../tests/ml/datasets/test_trade_outcomes.py),
-  [`test_per_strategy_winrate.py`](../../../tests/ml/test_per_strategy_winrate.py).
-- Updated: dataset taxonomy + schema docs + AI-platform doc +
-  AI-TRADERS-ROADMAP + ROADMAP.
-- Sprint log:
-  [`docs/sprint-logs/S-AI-WS5-A.md`](../../sprint-logs/S-AI-WS5-A.md).
-
-Acceptance:
-- [x] Dataset built and validated against synthetic SQLite (5
-  fixture rows → 3 emitted, OPEN / backtest / null-pnl skipped).
-- [x] Trainer + evaluator unit-tested.
-- [x] End-to-end round trip via
-  [`tests/ml/test_experiments_runner.py`](../../../tests/ml/test_experiments_runner.py)
-  pattern (manifest can be wired through the WS4 runner with
-  `--datasets-root` pointing at the tmp_path build).
-- [x] Decision-useful framing: per-strategy rate vs global-only
-  baseline is the natural comparison; the same harness can run
-  the WS4 `ConstantPredictionTrainer` with `target_column=won`
-  for the global-only sanity check.
-
-## Out of scope (deferred per sub-sprint hand-off)
-
-- WS5-B onwards (other baselines).
-- Walk-forward / time-aware splitters (current splitter is
-  stable-suffix holdout from WS4).
-- Generic `predict()` interface to decouple trainer state from
-  evaluator (still hard-coupled per baseline).
-- A `compare` CLI subcommand (filed for a follow-up).

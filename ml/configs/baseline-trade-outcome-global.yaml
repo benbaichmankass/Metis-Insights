@@ -1,0 +1,35 @@
+# Example training manifest — global-only sanity baseline (WS4-FU).
+#
+# Predicts the global mean of `won` for every row, ignoring strategy.
+# Run alongside the per-strategy baseline to test whether
+# strategy_name actually carries signal:
+#
+#   python -m ml train ml/configs/baseline-trade-outcome-global.yaml \
+#     --datasets-root ./datasets-out
+#   python -m ml train ml/configs/baseline-trade-outcome-winrate.yaml \
+#     --datasets-root ./datasets-out
+#   python -m ml compare \
+#     trade-outcome-global-baseline-v0 \
+#     trade-outcome-winrate-baseline-v0
+
+manifest_version: v1
+model_id: trade-outcome-global-baseline-v0
+model_family: classification_baseline
+trainer: ml.trainers.constant_baseline.ConstantPredictionTrainer
+trainer_config:
+  target_column: won
+dataset:
+  family: trade_outcomes
+  symbol_scope: all
+  timeframe: all
+  version: v001
+evaluator: ml.evaluators.classification.ClassificationEvaluator
+evaluator_config:
+  target_column: won
+  threshold: 0.5
+  holdout_fraction: 0.2
+target_deployment_stage: research_only
+notes: |
+  WS4-FU sanity baseline: global mean of `won` as a single constant
+  prediction. Compare against `trade-outcome-winrate-baseline-v0`
+  to test whether per-strategy signal beats global-only.

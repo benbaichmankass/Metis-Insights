@@ -1,21 +1,12 @@
-"""Classification evaluator (WS5-A).
+"""Classification evaluator (WS5-A + WS4-FU).
 
-Paired with `PerStrategyWinRateTrainer`. Reads the trainer's
-`per_group_rate` table to score each evaluation row, then computes
-headline classification metrics. Operates on binary labels: the
-`target_column` is interpreted truthy / falsy.
+Predictor-resolved (S-AI-WS4-FU): no longer reads trainer-specific
+state keys; uses `Evaluator._resolve_predictor(model_state)` to get
+a `Predictor` returning a probability in `[0, 1]`.
 
-Metrics:
-  - accuracy
-  - precision    (positive class only)
-  - recall       (positive class only)
-  - f1           (positive class only)
-  - brier        (mean squared error of probability vs label)
-  - n_eval       (count of scored rows)
-
-Undefined precision / recall / f1 (zero positives) report as 0.0
-rather than NaN; the registry stores `Mapping[str, float]` and NaN
-breaks JSON round-trips.
+Metrics: accuracy, precision, recall, f1, brier, n_eval. Scalar-only
+(per-strategy detail lives in a future evaluation_detail.json
+artifact, filed as a follow-up).
 """
 from __future__ import annotations
 
@@ -33,18 +24,7 @@ class ClassificationEvaluator(Evaluator):
     ) -> Mapping[str, float]:
         target = config.get("target_column", "won")
         threshold = float(config.get("threshold", 0.5))
-        feature = model_state.get("feature_column")
-        if feature is None:
-            raise ValueError(
-                "model_state.feature_column missing — incompatible trainer"
-            )
-        per_group_rate = model_state.get("per_group_rate")
-        if per_group_rate is None:
-            raise ValueError(
-                "model_state.per_group_rate missing — incompatible trainer"
-            )
-        global_rate = float(model_state.get("global_rate", 0.5))
-        unknown_bucket = model_state.get("unknown_bucket", "")
+        predictor = self._resolve_predictor(model_state)
 
         tp = fp = fn = tn = 0
         sq_err = 0.0
@@ -54,13 +34,13 @@ class ClassificationEvaluator(Evaluator):
             if target_value is None:
                 continue
             label = 1 if bool(target_value) else 0
-            key_value = row.get(feature)
-            key = (
-                str(key_value).strip()
-                if key_value is not None and str(key_value).strip()
-                else unknown_bucket
-            )
-            prob = float(per_group_rate.get(key, global_rate))
+            prob = predictor.predict(row)
+            # Clamp into [0,1] so a regression-style predictor used
+            # for classification doesn't break Brier.
+            if prob < 0.0:
+                prob = 0.0
+            elif prob > 1.0:
+                prob = 1.0
             predicted = 1 if prob >= threshold else 0
             if predicted == 1 and label == 1:
                 tp += 1
