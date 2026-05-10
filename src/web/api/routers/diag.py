@@ -138,7 +138,14 @@ def _status_json_payload() -> dict[str, Any] | None:
     try:
         with _STATUS_JSON.open(encoding="utf-8") as fh:
             return json.load(fh)
-    except (OSError, json.JSONDecodeError):
+    except (OSError, json.JSONDecodeError) as exc:
+        # S-067 borderline: was silently `return None`. Keep the
+        # `None` sentinel (callers branch on it) but log so a
+        # corrupt status.json is visible in bot.log next time.
+        logger.warning(
+            "diag: status_json read failed: %s: %s",
+            type(exc).__name__, exc,
+        )
         return None
 
 
@@ -148,7 +155,13 @@ def _audit_tail(limit: int) -> list[dict[str, Any]]:
     try:
         with _AUDIT_LOG.open(encoding="utf-8", errors="replace") as fh:
             lines = fh.readlines()
-    except OSError:
+    except OSError as exc:
+        # S-067 borderline: was silently `return []`. Log so a
+        # signal_audit.jsonl read failure surfaces.
+        logger.warning(
+            "diag: audit_tail read failed: %s: %s",
+            type(exc).__name__, exc,
+        )
         return []
     out: list[dict[str, Any]] = []
     for raw in lines[-limit:]:
