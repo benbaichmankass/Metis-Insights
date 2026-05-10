@@ -1,0 +1,45 @@
+# Example training manifest — outcome probability baseline (WS5-A).
+#
+# Predicts whether the next closed trade is a winner using the
+# historical win rate per strategy. Per-strategy rate falls back to
+# the global rate for unseen strategies. Threshold for binary
+# classification: 0.5.
+#
+# Run end-to-end:
+#
+#   python -m ml.datasets build trade_outcomes \
+#     --output-dir ./datasets-out --version v001 \
+#     --source trade_journal.db -- db_path=/abs/path/to/trade_journal.db
+#
+#   python -m ml train ml/configs/baseline-trade-outcome-winrate.yaml \
+#     --datasets-root ./datasets-out
+#
+# Decision-utility: a decision-useful baseline against this dataset
+# tells the operator whether a strategy's historical win rate, alone,
+# is informative for the next trade. If `f1` and `accuracy` here
+# materially beat a global-only baseline (use the constant-mean
+# trainer with target_column=won as a sanity check), the
+# `strategy_name` feature is carrying signal.
+
+manifest_version: v1
+model_id: trade-outcome-winrate-baseline-v0
+model_family: classification_baseline
+trainer: ml.trainers.per_strategy_winrate.PerStrategyWinRateTrainer
+trainer_config:
+  target_column: won
+  feature_column: strategy_name
+dataset:
+  family: trade_outcomes
+  symbol_scope: all
+  timeframe: all
+  version: v001
+evaluator: ml.evaluators.classification.ClassificationEvaluator
+evaluator_config:
+  target_column: won
+  threshold: 0.5
+  holdout_fraction: 0.2
+target_deployment_stage: research_only
+notes: |
+  WS5-A first-baseline demo. Per-strategy historical winrate
+  predictor against the trade_outcomes family. Not a candidate
+  for any live tier.
