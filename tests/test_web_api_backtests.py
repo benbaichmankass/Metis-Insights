@@ -129,7 +129,8 @@ class TestHappyPath:
         assert len(body) == 1
         row = body[0]
         assert row == {
-            "id": row_id,
+            # ``id`` stringified to match trades_closed.py + positions.
+            "id": str(row_id),
             "strategy": "vwap",
             "runDate": "2026-05-09",
             "startDate": "2026-04-01",
@@ -153,7 +154,7 @@ class TestHappyPath:
         resp = client.get("/api/bot/backtests")
         assert resp.status_code == 200
         body = resp.json()
-        assert [r["id"] for r in body] == [third, second, first]
+        assert [r["id"] for r in body] == [str(third), str(second), str(first)]
 
     def test_empty_db_returns_empty_list(self, db, client):
         resp = client.get("/api/bot/backtests")
