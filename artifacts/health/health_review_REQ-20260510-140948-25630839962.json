@@ -1,0 +1,51 @@
+{
+  "request_id": "REQ-20260510-140948-25630839962",
+  "reviewed_at": "2026-05-10T14:30:00+00:00",
+  "reviewer": "claude",
+  "overall_assessment": "caution",
+  "findings": {
+    "heartbeat": {
+      "status": "ok",
+      "note": "heartbeat.txt age=36s at snapshot time (last write 14:09:07 UTC, snapshot 14:09:43 UTC). tick=3 confirmed live. Fresh."
+    },
+    "ticks": {
+      "status": "watch",
+      "note": "tick=3 after approx 3h of process uptime on a 24/7 Bybit account. No tick log files found in 1440m lookback. Count may be correct for a low-frequency strategy; verify against configured candle interval."
+    },
+    "signals": {
+      "status": "ok",
+      "note": "No signal log files in 1440m window. Consistent with low tick count and no entry conditions met."
+    },
+    "orders": {
+      "status": "ok",
+      "note": "No order log files in 1440m window. No open or pending orders observed."
+    },
+    "trades": {
+      "status": "ok",
+      "note": "No trade log files in 1440m window. No completed trades in the lookback period."
+    },
+    "monitoring": {
+      "status": "concern",
+      "note": "No monitor log files and no watchdog log files present at all. Cannot confirm monitoring/watchdog subsystems are active and logging."
+    },
+    "sizing": {
+      "status": "ok",
+      "note": "No trades in period. N/A."
+    },
+    "api_errors": {
+      "status": "ok",
+      "note": "Telegram API polling healthy (HTTP 200, ~10s interval throughout window). Bot reinitialised at 14:06 UTC (normal getMe/setMyCommands/deleteWebhook sequence). Two sendMessage calls at 14:06:49 and 14:08:54. No Bybit exchange API calls visible (consistent with no trade activity). Historical: Telegram conflict Apr 19 (resolved); Bad Gateway May 7 (transient, resolved); BadRequest 'Message thread not found' May 8 (one-off, not recurring)."
+    }
+  },
+  "anomalies": [
+    "CRITICAL — Anthropic API credit balance exhausted (BadRequestError 400, req_011Cau2Cn3Z4y895VAHouAt4): layer-1 automated health analysis is completely non-functional. All 10 check categories returned 'warn — layer-1 verdict unavailable'. Every future health run will produce the same result until credits are replenished. The automated monitoring layer is currently blind. Immediate operator action required.",
+    "FAIL — Pipeline smoke test exited rc=127: 'timeout: failed to run command python: No such file or directory'. The health check script invokes the bare python binary which is absent on this Ubuntu host (only python3 is installed). This is a health-check infrastructure defect — NOT a trading system failure. All four core trading processes are running normally. Fix: change smoke test invocation from python to python3 in the health check workflow/script.",
+    "WATCH — All four core processes (src.main, src.bot.claude_bridge, uvicorn src.web.api.main, src.bot.telegram_query_bot) show only ~3h 11m uptime at snapshot time despite VM uptime of 2d 3h 42m. A process restart occurred at approximately 11:00 UTC today. Root cause not visible in the snapshot; review systemd/supervisor/PM2 logs.",
+    "WATCH — tick=3 after approximately 3h on a 24/7 crypto exchange (bybit_2) is very low. Confirm this matches the expected cadence for the configured strategy timeframe.",
+    "WATCH — No monitoring or watchdog log files found anywhere in the snapshot. Cannot confirm these subsystems are active. If they exist, their logs are absent.",
+    "INFO — VM resources are healthy: disk 22% used (9.7G/45G), memory 365Mi available out of 956Mi, load average 0.03/0.08/0.04.",
+    "INFO — Historical Telegram getUpdates conflict errors from Apr 19 are resolved and not relevant to this run."
+  ],
+  "recommended_action": "1. IMMEDIATE: Replenish Anthropic API credits to restore automated layer-1 health analysis — the monitoring layer is currently non-functional. 2. Fix smoke test: update the health check workflow/script to invoke python3 instead of python (rc=127 will clear). 3. Investigate the process restart at ~11:00 UTC today — check systemd/supervisor/PM2 logs for restart cause and confirm clean recovery. 4. Verify tick=3 in 3h is the expected cadence for the configured strategy timeframe. 5. Check monitoring/watchdog subsystem status and confirm it is logging correctly.",
+  "operator_attention_required": true
+}
