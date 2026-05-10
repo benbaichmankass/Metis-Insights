@@ -7,8 +7,6 @@
 > **AI-specific** architecture. The system-wide canonical authority
 > remains [`docs/ARCHITECTURE-CANONICAL.md`](../ARCHITECTURE-CANONICAL.md);
 > when this doc and an older note disagree on AI scope, this doc wins.
-> When this doc and `ARCHITECTURE-CANONICAL.md` overlap on non-AI
-> system design, the canonical doc wins.
 >
 > **Owns:** ROADMAP.md milestones **M9** (AI / model roadmap) and
 > **M10** (HF / data pipeline).
@@ -19,6 +17,7 @@
 > - [`docs/pipeline/stage-contracts.md`](../pipeline/stage-contracts.md) — per-stage I/O, owner files, logging requirements (WS2).
 > - [`docs/data/dataset-taxonomy.md`](../data/dataset-taxonomy.md), [`dataset-schema.md`](../data/dataset-schema.md), [`versioning-policy.md`](../data/versioning-policy.md) — data layer (WS3).
 > - [`docs/integrations/huggingface-datasets.md`](../integrations/huggingface-datasets.md) — HF publishing workflow (WS3).
+> - [`docs/ml/training-center.md`](../ml/training-center.md), [`docs/ml/model-registry-policy.md`](../ml/model-registry-policy.md) — training factory + registry (WS4).
 > - [`docs/sprint-plans/ai-traders/`](../sprint-plans/ai-traders/) — per-workstream sprint plans.
 
 ## Purpose
@@ -61,8 +60,8 @@ to a permissive bypass.
 |---|---|---|
 | 1. Data | Market, account, news, labels, backtests, post-trade reviews | `runtime_logs/`, `trade_journal.db`, `experiments/`, `ml/datasets/` (WS3) |
 | 2. Feature / context | Engineered features, regime context, account-state context, prop-firm mission context | future `ml/features/`, [`docs/data/dataset-schema.md`](../data/dataset-schema.md) |
-| 3. Model | Specialist models | Regime classifier, setup quality scorer, outcome probability, execution quality, post-trade review, prop mission policy assist |
-| 4. Orchestration | Combines specialist outputs into a trade candidate or veto | future coordinator extension hooked off `src/core/coordinator.py` |
+| 3. Model | Specialist models | Regime classifier, setup quality scorer, outcome probability, execution quality, post-trade review, prop mission policy assist; **trainer / evaluator framework live (WS4)** |
+| 4. Orchestration | Combines specialist outputs into a trade candidate or veto | future coordinator extension hooked off `src/core/coordinator.py`; **model registry live (WS4)** |
 | 5. Control (deterministic) | Risk rules, hard caps, account restrictions, broker validation, order packaging, audit logs, kill-switch | `src/units/accounts/risk.py`, `src/units/accounts/prop_risk.py`, `src/runtime/risk_counters.py`, `src/runtime/orders.py`, `src/runtime/closed_flat_invariant.py` |
 
 Layer 5 is the immutable safety floor. Layers 1–4 are where model
@@ -75,24 +74,15 @@ path**. No model is wired into live decisioning.
 
 ### Live (in production)
 
-| Concern | Owner files | Notes |
-|---|---|---|
-| Trading entrypoint | `src/main.py` → `src/runtime/pipeline.py` | Tick loop + heartbeat |
-| Strategy modules | `src/units/strategies/` (`turtle_soup.py`, `vwap.py`, …) | All rule-based |
-| Strategy registry | `src/strategy_registry.py` | Driven by `config/strategies.yaml` |
-| Coordinator | `src/core/coordinator.py` | Deterministic translator (S-008 9-unit architecture); not a model |
-| ICT detection | `src/ict_detection/` | Rule-based signal detection components |
-| News veto | `src/news/news_pipeline.py` | Rule-based |
-| Risk gating | `src/units/accounts/risk.py`, `src/units/accounts/prop_risk.py`, `src/runtime/risk_counters.py` | Per-account caps; prop-firm rules |
-| Order validation | `src/runtime/orders.py::safe_place_order`, `src/runtime/validation.py` | Hard refusal paths for invalid / disallowed orders |
-| Closed-flat invariant | `src/runtime/closed_flat_invariant.py` | Alert-only soak (env-gated, default off) |
-| Broker execution | `src/units/accounts/execute.py`; connectors `src/exchange/{bybit,binance}_connector.py` | Per-account dry/live via `config/accounts.yaml` |
-| Kill-switch | `HALT_FLAG_PATH = /tmp/trader_halt.flag`, consumed in `pipeline.py` | File-based |
-| Logging | `runtime_logs/signal_audit.jsonl`, `validation.jsonl`, `status.json`, `heartbeat.txt` | Structured |
-| Persistence | `trade_journal.db` (SQLite) — `trades`, `order_packages`, `backtest_results` | M5 writes `backtest_results` |
-| Operator control | `src/bot/telegram_query_bot.py`, FastAPI `src/web/api/`, comms artifacts under `comms/` | Tier 1 / 2 / 3 surface per `docs/api-tier-policy.md` |
+Unchanged since WS1 audit. Trading entrypoint: `src/main.py` →
+`src/runtime/pipeline.py`. Strategies in `src/units/strategies/`,
+risk gating in `src/units/accounts/risk.py`, order validation in
+`src/runtime/orders.py`, broker execution in
+`src/units/accounts/execute.py`, persistence in
+`trade_journal.db`. Operator surface: `src/bot/telegram_query_bot.py`,
+FastAPI `src/web/api/`, comms artifacts under `comms/`.
 
-### Research and validation (experimental)
+### Research and validation (experimental, WS1–WS4 additions)
 
 | Concern | Owner files | Notes |
 |---|---|---|
@@ -100,31 +90,32 @@ path**. No model is wired into live decisioning.
 | Multi-symbol / multi-timeframe runs | `experiments/` | Evidence capture |
 | Concept generation | `notebooks/` | Colab + local |
 | M5 strategy testing flow | `src/bot/test_strategy_consumer.py`, `runtime_logs/validation.jsonl` | Auto-consumed `test_strategy:<name>` requests |
-| ML scaffolding | `ml/config/`, `ml/src/collect_data.py`, `ml/src/test_breakout_strategy.py` | **Vestigial** legacy from S-004/S-005/S-006; not wired into the live path. WS4 will rebuild this directory. |
-| Pipeline types | `src/pipeline/types.py`, `tests/pipeline/test_types.py` | Adopted 2026-05-10 (S-AI-WS2). Frozen-dataclass `TradeCandidate`, `ExecutionIntent`, `StageDecision`, `StageName`, `Direction`, `RejectionSource`. Additive: not yet wired into the live path; migration of `OrderPackage` deferred to a Tier 2 sprint. |
-| Dataset framework | `ml/datasets/` (`metadata`, `builder`, `validate`, `cli`, `families/backtest_results`), `tests/ml/datasets/` | **Adopted 2026-05-10 (S-AI-WS3).** Stdlib-only reproducible builder framework + first concrete family (`backtest_results`, read-only against `trade_journal.db`). Append-only versioning per [`docs/data/versioning-policy.md`](../data/versioning-policy.md). |
+| ML scaffolding (legacy) | `ml/config/`, `ml/src/collect_data.py`, `ml/src/test_breakout_strategy.py` | Vestigial S-004/S-005/S-006; not wired into anything WS1–WS4. WS10 cleanup or per-family rebuild. |
+| Pipeline types (WS2) | `src/pipeline/types.py`, `tests/pipeline/test_types.py` | Frozen-dataclass `TradeCandidate`, `ExecutionIntent`, `StageDecision`, `StageName`, `Direction`, `RejectionSource`. Live path migration deferred to a Tier 2 sprint. |
+| Dataset framework (WS3) | `ml/datasets/{metadata, builder, validate, cli}`, `families/backtest_results`, `tests/ml/datasets/` | Stdlib-only reproducible builders; first family `backtest_results` reads `trade_journal.db` read-only. Append-only versioning. |
+| Training center (WS4) | `ml/{manifest, cli, __main__}.py`, `ml/{trainers, evaluators, experiments, registry, promotion, configs}/`, `tests/ml/test_{training_manifest, model_registry, experiments_runner}.py` | **Adopted 2026-05-10 (S-AI-WS4).** YAML training manifests + Trainer/Evaluator ABCs + filesystem registry with status state machine + experiments runner that round-trips train+evaluate+register. First demo trainer + evaluator (`ConstantPredictionTrainer` / `RegressionEvaluator`) ship as the WS4 acceptance proof. |
 
 ### Planned (not yet implemented)
 
-- Specialist models (none in production).
-- Additional dataset builders (`market_raw`, `market_features`,
-  `setup_labels`, `trade_outcomes`, `account_context`,
-  `review_journal`).
-- Hugging Face publication CLI subcommand (manual flow documented
-  in WS3).
-- Model registry with promotion stages (none).
-- Shadow-mode / advisory-mode execution paths (none).
-- Feature drift / outcome drift monitoring (none).
-- Architecture-change checklist + PR template enforcement (none; WS10).
+- Specialist models with real predictive value (none in production).
+- Builders for the remaining six dataset families.
+- Hugging Face publication CLI subcommand (manual flow documented).
+- Shadow-mode / advisory-mode execution paths in the live trader
+  (registry tier exists; runtime hook does not yet).
+- Feature drift / outcome drift monitoring (WS8).
+- Architecture-change checklist + PR template enforcement (WS10).
 - Migration of live runtime call sites onto the WS2 types.
+- Walk-forward / time-aware dataset splitters (current splitter
+  is a stable holdout suffix).
+- Generic `predict()` interface decoupling trainer state from
+  evaluator.
 
 ### Forbidden (live-runtime safety floor)
 
 - AI output bypassing risk caps, broker validation, prop-firm
   restrictions, or kill-switch.
 - Heavy training jobs running on the Oracle live VM (WS9 rule).
-- Heavy dataset builds (full historical pull, multi-symbol
-  multi-timeframe) running on the Oracle live VM.
+- Heavy dataset builds running on the Oracle live VM.
 - Live model influence introduced without staged promotion + explicit
   operator approval (WS7 rule).
 - Schema / boundary changes shipped without updating this doc.
@@ -132,38 +123,39 @@ path**. No model is wired into live decisioning.
   execution-packaging code may emit one (`src/runtime/orders.py`).
 - Auto-publication of any dataset to Hugging Face. Publication is
   always an explicit operator action.
+- Editing past `StatusEvent` entries in the model registry. The
+  promotion history is append-only (S-AI-WS4 rule).
+- Promoting a model to `live-approved` or `champion` without
+  operator-issued approval recorded in `--by` + `--reason`.
 
 ## Target State
 
 The target architecture extends the existing pipeline with a model
 layer and orchestration hook, **without weakening the deterministic
-floor**.
+floor**. Stage names are locked in
+[`src/pipeline/types.py`](../../src/pipeline/types.py); per-stage I/O
+in [`docs/pipeline/stage-contracts.md`](../pipeline/stage-contracts.md);
+datasets in [`ml/datasets/`](../../ml/datasets/); training factory in
+[`ml/`](../../ml/) per
+[`training-center.md`](../ml/training-center.md).
 
-### Stage map (current pipeline → target with AI)
-
-Stage names are **locked** in [`src/pipeline/types.py`](../../src/pipeline/types.py)
-(`StageName` enum) as of S-AI-WS2. Per-stage I/O, owner files, and
-logging requirements live in
-[`docs/pipeline/stage-contracts.md`](../pipeline/stage-contracts.md).
+### Stage map
 
 | # | Stage (`StageName`) | Today (deterministic) | Target (deterministic vs model-assisted) | Owning paths (current + planned) |
 |---|---|---|---|---|
-| 1 | `INGEST` — Market and account ingest | Connectors + market-data helpers | **Deterministic.** No model. | `src/exchange/`, `src/runtime/market_data.py` |
-| 2 | `NORMALIZE` — Normalization | Internal candle / tick representation | **Deterministic.** No model. | `src/runtime/market_data.py` |
-| 3 | `CONTEXT` — Context assembly | Implicit (per-strategy) | **Deterministic + model-assisted.** Regime + account + mission features assembled here. | future `ml/features/`, `src/units/accounts/` |
-| 4 | `SETUP` — Setup detection | Rule-based strategies | **Deterministic** today. Optional model-assist later (setup quality scorer). | `src/units/strategies/`, `src/ict_detection/` |
-| 5 | `SCORE` — Opportunity scoring | Implicit | **Model-assisted.** Outcome probability + setup quality combine into a candidate score. | future model layer + `src/core/coordinator.py` extension |
-| 6 | `RISK` — Risk gating | Per-account caps + prop rules + counters | **Deterministic only.** Models cannot influence this stage. | `src/units/accounts/risk.py`, `prop_risk.py`, `src/runtime/risk_counters.py` |
-| 7 | `PACKAGE` — Execution packaging | Order construction + validation | **Deterministic.** Optional model-assist for execution quality / slippage estimation outside the validation path. | `src/runtime/orders.py`, `src/runtime/validation.py` |
-| 8 | `ROUTE` — Broker routing | Per-account dry/live | **Deterministic.** | `src/units/accounts/execute.py`, `src/exchange/` |
-| 9 | `CAPTURE` — Post-trade capture | Trade journal + audit log | **Deterministic** ingest; model-assisted enrichment downstream. | `trade_journal.db`, `runtime_logs/signal_audit.jsonl` |
-| 10 | `REVIEW` — Review and feedback | Manual / ad hoc | **Model-assisted.** Post-trade review model classifies error patterns; feeds back into datasets. | future `ml/reports/`, `runtime_logs/` |
+| 1 | `INGEST` | Connectors + market-data helpers | Deterministic | `src/exchange/`, `src/runtime/market_data.py` |
+| 2 | `NORMALIZE` | Internal candle / tick representation | Deterministic | `src/runtime/market_data.py` |
+| 3 | `CONTEXT` | Implicit (per-strategy) | Deterministic + model-assisted | future `ml/features/`, `src/units/accounts/` |
+| 4 | `SETUP` | Rule-based strategies | Deterministic today; optional model-assist later | `src/units/strategies/`, `src/ict_detection/` |
+| 5 | `SCORE` | Implicit | Model-assisted | future model layer + `src/core/coordinator.py` extension |
+| 6 | `RISK` | Per-account caps + prop rules + counters | Deterministic only | `src/units/accounts/risk.py`, `prop_risk.py`, `src/runtime/risk_counters.py` |
+| 7 | `PACKAGE` | Order construction + validation | Deterministic | `src/runtime/orders.py`, `src/runtime/validation.py` |
+| 8 | `ROUTE` | Per-account dry/live | Deterministic | `src/units/accounts/execute.py`, `src/exchange/` |
+| 9 | `CAPTURE` | Trade journal + audit log | Deterministic ingest; model-assisted enrichment | `trade_journal.db`, `runtime_logs/signal_audit.jsonl` |
+| 10 | `REVIEW` | Manual / ad hoc | Model-assisted | future `ml/reports/`, `runtime_logs/` |
 
 **Invariant:** stages 6, 7, and 8 must remain rejection-capable for
-any upstream output regardless of source. Risk gating and broker
-validation may reject the output of any model. The
-`RejectionSource.DETERMINISTIC` value (in `src/pipeline/types.py`) is
-immutable: no upstream allow can override it.
+any upstream output regardless of source.
 
 ### Component diagram (target)
 
@@ -173,7 +165,7 @@ flowchart LR
         D1[market data\n<small>src/exchange, runtime/market_data</small>]
         D2[account state\n<small>src/units/accounts</small>]
         D3[news / events\n<small>src/news</small>]
-        D4[backtests\n<small>experiments/, ml/datasets/</small>]
+        D4[backtests + datasets\n<small>experiments/, ml/datasets/</small>]
         D5[trade journal\n<small>trade_journal.db</small>]
         D6[review journal\n<small>future docs/ml/</small>]
     end
@@ -190,24 +182,26 @@ flowchart LR
         M3[outcome probability]
         M4[execution quality]
         M5[post-trade review]
-        M6[(optional) prop mission policy assist]
+        TRAINER[Trainer / Evaluator + Registry\n<small>ml/{trainers,evaluators,registry}</small>]
     end
 
     subgraph ORCH["4. Orchestration layer"]
         O1[coordinator\n<small>src/core/coordinator.py</small>\n<small>+ TradeCandidate (src/pipeline/types)</small>]
+        REG[Model registry\n<small>ml/registry-store/</small>]
     end
 
     subgraph CTRL["5. Control layer (deterministic, immutable safety floor)"]
-        C1[risk gating\n<small>units/accounts/risk.py</small>]
-        C2[prop rules\n<small>units/accounts/prop_risk.py</small>]
-        C3[order validation → ExecutionIntent\n<small>runtime/orders.py</small>]
-        C4[broker routing\n<small>units/accounts/execute.py</small>]
-        C5[kill-switch\n<small>HALT_FLAG_PATH</small>]
+        C1[risk gating]
+        C2[prop rules]
+        C3[order validation → ExecutionIntent]
+        C4[broker routing]
+        C5[kill-switch]
     end
 
     DATA --> FEAT
     FEAT --> MODEL
     MODEL --> ORCH
+    REG -.tier metadata.-> ORCH
     ORCH -->|TradeCandidate| CTRL
     CTRL -->|StageDecision VETO\nDETERMINISTIC| ORCH
     CTRL --> EXEC[broker / dry-run]
@@ -216,57 +210,36 @@ flowchart LR
     D6 -.feedback.-> DATA
 ```
 
-The arrow from CTRL back to ORCH is the rejection path: deterministic
-rules can veto a candidate even if every model approved it.
-
-### Where each workstream lands
-
-| Workstream | Affects layer(s) | Sprint plan |
-|---|---|---|
-| WS1 | Cross-cutting (this doc) | [ws1-architecture-baseline.md](../sprint-plans/ai-traders/ws1-architecture-baseline.md) |
-| WS2 | Stage contracts across all five layers | [ws2-canonical-pipeline.md](../sprint-plans/ai-traders/ws2-canonical-pipeline.md) |
-| WS3 | Layer 1 + 2 | [ws3-data-foundation.md](../sprint-plans/ai-traders/ws3-data-foundation.md) |
-| WS4 | Layer 3 + meta (training center) | [ws4-training-center.md](../sprint-plans/ai-traders/ws4-training-center.md) |
-| WS5 | Layer 3 (specialist baselines) | [ws5-baseline-models.md](../sprint-plans/ai-traders/ws5-baseline-models.md) |
-| WS6 | Layer 3 (open-source families) | [ws6-open-source-models.md](../sprint-plans/ai-traders/ws6-open-source-models.md) |
-| WS7 | Layer 4 + 5 boundary (deployment tiers) | [ws7-deployment-tiers.md](../sprint-plans/ai-traders/ws7-deployment-tiers.md) |
-| WS8 | Cross-cutting (monitoring + feedback) | [ws8-monitoring-feedback.md](../sprint-plans/ai-traders/ws8-monitoring-feedback.md) |
-| WS9 | Runtime split (Oracle vs HF) | [ws9-runtime-split.md](../sprint-plans/ai-traders/ws9-runtime-split.md) |
-| WS10 | Doc enforcement | [ws10-arch-doc-enforcement.md](../sprint-plans/ai-traders/ws10-arch-doc-enforcement.md) |
-
 ## Known Gaps (as of 2026-05-10)
 
-- **`ml/` is partly vestigial.** WS3 added `ml/datasets/` (live).
-  `ml/config/` and `ml/src/` still hold legacy S-004/S-005/S-006
-  scaffolding. Master plan target structure (`ml/features/`,
-  `ml/labels/`, `ml/trainers/`, `ml/evaluators/`, `ml/experiments/`,
-  `ml/registry/`, `ml/promotion/`, `ml/configs/`, `ml/reports/`)
-  is not yet present. WS4 owns the rest.
-- **No model registry.** `S-006 Model Registry & Versioning` is
-  marked done in the historical ledger but no registry artifact
-  exists in the current repo. WS4 / WS7 deliver the canonical
-  registry.
+- **Legacy `ml/config/` and `ml/src/`.** Vestigial S-004/S-005/S-006
+  scaffolding. `ml/datasets/`, `ml/trainers/`, `ml/evaluators/`,
+  `ml/registry/`, `ml/promotion/`, `ml/experiments/`, `ml/configs/`
+  are live (WS3 + WS4); the legacy dirs are not wired into anything
+  and are flagged for WS10 cleanup or per-family rebuild.
+- **No specialist models** with real predictive value. WS5 lands
+  the first baselines.
 - **Most dataset families are scaffolded but not buildable.** Only
-  `backtest_results` is live as of WS3. The rest (`market_raw`,
-  `market_features`, `setup_labels`, `trade_outcomes`,
-  `account_context`, `review_journal`) need dedicated builder
-  sprints.
+  `backtest_results` is live as of WS3.
 - **Hugging Face publication is manual.** A CLI subcommand for
   `python -m ml.datasets publish ...` is filed for a follow-up.
-- **No shadow-mode path.** All model influence is currently
-  hypothetical. WS7 introduces shadow / advisory tiers before any
-  live influence.
+- **No shadow-mode runtime hook.** The registry has a tier system
+  (WS4); the live trader does not yet consume any model signal in
+  any tier. WS7 introduces the runtime hook.
 - **No feature / outcome drift monitoring.** WS8 owns this.
-- **Existing `docs/architecture.md` is partly stale** (the S-008
-  9-unit translator section is current; the “Target Structure” block
-  predates the canonical doc). Not blocking; flagged for cleanup
-  alongside WS10.
+- **Existing `docs/architecture.md` is partly stale.** Not
+  blocking; flagged for cleanup alongside WS10.
 - **WS2 types not yet adopted by the live path.** Strategies still
   emit `OrderPackage`; the coordinator path still routes those.
-  Migration onto `TradeCandidate` / `ExecutionIntent` is gated on
-  operator approval and filed as a Tier 2 follow-up.
+  Migration onto `TradeCandidate` / `ExecutionIntent` is filed as a
+  Tier 2 follow-up.
 - **Architecture-change checklist + PR template not yet enforced.**
   WS10 owns this.
+- **Holdout splitter is order-preserving suffix only.** Walk-forward
+  / time-aware splitters land in a follow-up to WS4.
+- **Trainer↔evaluator coupling is hard.** `RegressionEvaluator`
+  reads `model_state["constant"]` directly; a generic `predict()`
+  interface is filed for a follow-up.
 
 ## Architecture Update Rule
 
@@ -275,18 +248,13 @@ any of the following change:
 
 - Layer boundaries (data, feature/context, model, orchestration,
   control).
-- Stage names or stage I/O contracts (also touches
-  [`src/pipeline/types.py`](../../src/pipeline/types.py) and
-  [`docs/pipeline/stage-contracts.md`](../pipeline/stage-contracts.md)).
-- Dataset families or schemas (also touches
-  [`docs/data/dataset-taxonomy.md`](../data/dataset-taxonomy.md)
-  and [`docs/data/dataset-schema.md`](../data/dataset-schema.md)).
-- Versioning / retention policy (also touches
-  [`docs/data/versioning-policy.md`](../data/versioning-policy.md)).
-- Hugging Face publishing workflow (also touches
-  [`docs/integrations/huggingface-datasets.md`](../integrations/huggingface-datasets.md)).
-- Model registry status categories or promotion rules (also touches
-  `docs/ml/model-registry-policy.md` once it exists).
+- Stage names or stage I/O contracts.
+- Dataset families or schemas.
+- Versioning / retention policy.
+- Hugging Face publishing workflow.
+- **Training-center directory layout, manifest schema, runner
+  pipeline, or the model-registry status state machine /
+  promotion gates.**
 - Deployment stage list (research → candidate → backtest-approved
   → shadow → advisory → limited live → live-approved).
 - Oracle vs Hugging Face runtime responsibilities.
@@ -299,6 +267,7 @@ follow-up.
 
 | Date | Sprint | Change | Files | Operator impact |
 |---|---|---|---|---|
-| 2026-05-10 | S-AI-WS1 (WS1) | Doc created. Records the AI-specific architecture, current-state audit, target state, stage map, Mermaid diagram, and known gaps. Linked from `ARCHITECTURE-CANONICAL.md`. | `docs/architecture/ai-model-platform.md` (new), `docs/ARCHITECTURE-CANONICAL.md` (link added), `docs/sprint-plans/ai-traders/ws1-architecture-baseline.md` (status → in progress, sprint id S-AI-WS1), `docs/AI-TRADERS-ROADMAP.md` (change log + WS1 status), `ROADMAP.md` (WS1 status row + S-AI-WS1 ledger entry) | None at this stage — doc-only; live runtime untouched. |
-| 2026-05-10 | S-AI-WS2 (WS2) | Stage names locked. Typed schemas (`TradeCandidate`, `ExecutionIntent`, `StageDecision`, `StageName`, `Direction`, `RejectionSource`) land in `src/pipeline/types.py` with frozen-dataclass invariants and `tests/pipeline/test_types.py` coverage. Per-stage I/O + owner-files + logging spec lives in `docs/pipeline/stage-contracts.md`. Stage map in this doc switched to `StageName` enum names + cross-reference. Mermaid diagram annotated with type producer/consumer. Known Gaps updated: "stage names not yet locked" struck; new entry "WS2 types not yet adopted by the live path" added. | `src/pipeline/__init__.py` (new), `src/pipeline/types.py` (new), `tests/pipeline/__init__.py` (new), `tests/pipeline/test_types.py` (new), `docs/pipeline/stage-contracts.md` (new), `docs/architecture/ai-model-platform.md`, `docs/sprint-plans/ai-traders/ws2-canonical-pipeline.md`, `docs/AI-TRADERS-ROADMAP.md`, `ROADMAP.md`, `docs/sprint-logs/S-AI-WS2.md` (new) | None — additive types; no live runtime call site changed. Migration onto these types is filed as a Tier 2 follow-up. |
-| 2026-05-10 | S-AI-WS3 (WS3) | Data foundation lands. Reproducible dataset framework under `ml/datasets/` (metadata + builder ABC + registry + validator + CLI). First concrete family `backtest_results` reads `trade_journal.db::backtest_results` read-only and emits versioned JSONL + metadata under `<family>/<scope>/<tf>/vNNN/`. Append-only versioning policy. HF publication is manual / operator-driven — no auto-push, no `huggingface_hub` dependency. Live (in production) and Known Gaps tables in this doc refreshed. | `ml/datasets/*` (new), `ml/datasets/families/backtest_results.py` (new), `tests/ml/datasets/*` (new), `docs/data/dataset-taxonomy.md` (new), `docs/data/dataset-schema.md` (new), `docs/data/versioning-policy.md` (new), `docs/integrations/huggingface-datasets.md` (new), `docs/architecture/ai-model-platform.md`, `docs/sprint-plans/ai-traders/ws3-data-foundation.md`, `docs/AI-TRADERS-ROADMAP.md`, `ROADMAP.md`, `docs/sprint-logs/S-AI-WS3.md` (new) | None — additive; stdlib only. Builder is read-only against `trade_journal.db` (`mode=ro` URI). |
+| 2026-05-10 | S-AI-WS1 (WS1) | Doc created. Records the AI-specific architecture, current-state audit, target state, stage map, Mermaid diagram, and known gaps. Linked from `ARCHITECTURE-CANONICAL.md`. | `docs/architecture/ai-model-platform.md` (new), + WS1 cross-links. | None — doc-only. |
+| 2026-05-10 | S-AI-WS2 (WS2) | Stage names locked. Typed schemas in `src/pipeline/types.py`. Per-stage I/O at `docs/pipeline/stage-contracts.md`. | `src/pipeline/*`, `tests/pipeline/*`, `docs/pipeline/stage-contracts.md`, this doc. | None — additive types. |
+| 2026-05-10 | S-AI-WS3 (WS3) | Data foundation lands. Reproducible dataset framework under `ml/datasets/`; first family `backtest_results` reads `trade_journal.db` read-only. | `ml/datasets/*`, `tests/ml/datasets/*`, `docs/data/*`, `docs/integrations/huggingface-datasets.md`, this doc. | None — additive; live runtime untouched. |
+| 2026-05-10 | S-AI-WS4 (WS4) | Training center lands. YAML manifest schema + Trainer/Evaluator ABCs + filesystem model registry (state machine + transition log) + experiments runner + umbrella CLI (`python -m ml`). First demo trainer/evaluator (`ConstantPredictionTrainer` / `RegressionEvaluator`) round-trips train+evaluate+register against a `backtest_results` dataset. Layer 3 + Layer 4 (registry portion) move from "planned" to "experimental". | `ml/{manifest, cli, __main__}.py`, `ml/{trainers, evaluators, experiments, registry, promotion, configs}/`, `tests/ml/test_{training_manifest, model_registry, experiments_runner}.py`, `docs/ml/{training-center, model-registry-policy}.md`, this doc. | None — additive; live runtime untouched. |
