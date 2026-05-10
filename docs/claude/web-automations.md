@@ -48,7 +48,7 @@ from a Claude Code session that has the repo + VM access.
 | Field | Value |
 |---|---|
 | **Name** | `ICT bi-daily hardening audit` |
-| **Repository** | `the-lizardking/ict-trading-bot` |
+| **Repository** | `benbaichmankass/ict-trading-bot` |
 | **Trigger** | Schedule, cron `0 6 1-31/2 * *` (every other day, 06:00 UTC) |
 | **Connectors** | none (GitHub repo is enough) |
 | **Permissions** | GitHub repo: read + write |
@@ -72,7 +72,7 @@ End with the standard summary ping per Phase 3.
 | Field | Value |
 |---|---|
 | **Name** | `ICT weekly strategy improvement review` |
-| **Repository** | `the-lizardking/ict-trading-bot` |
+| **Repository** | `benbaichmankass/ict-trading-bot` |
 | **Trigger** | Schedule, cron `0 6 * * 1` (Mondays, 06:00 UTC) |
 | **Connectors** | none |
 | **Permissions** | GitHub repo: read + write |
@@ -94,7 +94,7 @@ End with the standard summary ping per Phase 3.
 | Field | Value |
 |---|---|
 | **Name** | `ICT weekly model training review` |
-| **Repository** | `the-lizardking/ict-trading-bot` |
+| **Repository** | `benbaichmankass/ict-trading-bot` |
 | **Trigger** | Schedule, cron `0 6 * * 4` (Thursdays, 06:00 UTC) |
 | **Connectors** | none |
 | **Permissions** | GitHub repo: read + write |
