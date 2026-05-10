@@ -13,10 +13,12 @@ jobs:
   trigger-health-review:
     # Standard "merged PR" pattern: GitHub has no direct merged event,
     # so we filter on closed + merged == true. The label gates this to
-    # PRs the snapshot workflow created.
+    # PRs the snapshot workflow created — must match the label applied
+    # in `.github/workflows/health-snapshot-pr.yml` and the Claude
+    # routine UI's filter.
     if: >
       github.event.pull_request.merged == true
-      && contains(github.event.pull_request.labels.*.name, 'health-check-review')
+      && contains(github.event.pull_request.labels.*.name, 'health-snapshot-routine')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -57,11 +59,11 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Trigger Claude review routine (API)
-        # Direct POST to the Claude routine's API endpoint replaces the
-        # older delivery path (PR-closed webhook → Claude routine
-        # listener → label filter). One hop, retried on transient
-        # failure, with full context in the body — no payload scraping
-        # needed on the receiving side.
+        # Backup delivery channel: a direct POST to the Claude routine's
+        # API endpoint runs in parallel with the routine UI's
+        # webhook-based subscription. Either path firing is sufficient
+        # to start the review; running both gives redundancy if one
+        # delivery channel fails.
         #
         # Both URL and bearer token live in repo secrets so the routine
         # can be rotated (or migrated to a new endpoint) without a code
@@ -127,6 +129,6 @@ jobs:
           PR_NUM="${{ github.event.pull_request.number }}"
           PR_URL="${{ github.event.pull_request.html_url }}"
           PYTHONPATH=. python scripts/notify_session.py alert \
-            --summary "Claude health review routine fired — PR #${PR_NUM} merged with health-check-review label" \
+            --summary "Claude health review routine fired — PR #${PR_NUM} merged with health-snapshot-routine label" \
             --link "$PR_URL" \
             || echo "telegram alert failed (non-fatal)"
