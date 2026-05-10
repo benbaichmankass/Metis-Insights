@@ -134,20 +134,22 @@ only repo-level setting required by the new design.
 
 ## Required GitHub secrets
 
+These are the actual secret names used by the action; they match the
+repo's existing secret store:
+
 | Name | Purpose |
 |---|---|
-| `VM_SSH_PRIVATE_KEY`        | SSH key for `ubuntu@158.178.210.252` (the bot VM) |
+| `VM_SSH_KEY`                | OpenSSH private key for `ubuntu@158.178.210.252` (the bot VM) |
 | `ANTHROPIC_API_KEY`         | Claude Haiku 4.5 calls in layer 1 |
-| `CLAUDE_TELEGRAM_BOT_TOKEN` | **Claude bot** (not the trader's bot) — layer-1 alerts, PR-open ping, merge handoff ping |
-| `CLAUDE_TELEGRAM_CHAT_ID`   | Same |
+| `CLAUDE_TELEGRAM_BOT_TOKEN` | **Claude bot token** (separate from the trader's bot) — layer-1 alerts, PR-open ping, merge handoff ping |
+| `TELEGRAM_CHAT_ID`          | Shared chat id (same chat receives trader-bot and Claude-bot messages — only the bot token differs) |
 
-The action's Telegram pings are intentionally routed via the Claude bot
-so operator/Claude review noise stays on its own channel, separate from
-the trader's `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` (which the trader
-itself uses for live trading alerts and continues to read directly from
-its own env on the VM — the action does not touch those).
+The action's Telegram pings are intentionally routed via the Claude
+bot token so review-pipeline noise comes from a separate sender than
+the trader's live alerts. The `TELEGRAM_CHAT_ID` is shared because
+both bots post into the same operator chat.
 
-The Claude-bot secrets are optional — every alert step tolerates a
+The Telegram secrets are optional — every alert step tolerates a
 missing token silently. If they are unset, the workflow still runs and
 the PR is still created; only the Telegram pings are skipped.
 
@@ -156,9 +158,9 @@ the PR is still created; only the Telegram pings are skipped.
 Three options, in increasing scope:
 
 1. **Pause Telegram noise but keep collecting** — leave both workflows
-   enabled but unset `CLAUDE_TELEGRAM_BOT_TOKEN`/`CLAUDE_TELEGRAM_CHAT_ID`.
-   The PR-open / merge-handoff pings and layer-1 WARNING/CRITICAL alerts
-   all skip silently. The PR audit trail still lands.
+   enabled but unset `CLAUDE_TELEGRAM_BOT_TOKEN`. The PR-open / merge-
+   handoff pings and layer-1 WARNING/CRITICAL alerts all skip silently.
+   The PR audit trail still lands.
 2. **Stop opening new PRs but keep the existing one** — disable
    workflow 1 from the Actions UI (`Actions → Health Snapshot PR →
    Disable`). Workflow 2 still fires if you merge the open PR.
