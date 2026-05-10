@@ -35,6 +35,6 @@ def vm_health() -> Dict[str, Any]:
             "memory": psutil.virtual_memory().percent,
             "disk": psutil.disk_usage("/").percent,
         }
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001  # allow-silent: psutil import + sampling failures both surface as None per field by design (S-067 contract); the warning log keeps the failure visible.
         logger.warning("vm_health: psutil sample failed: %s", exc)
         return {"cpu": None, "memory": None, "disk": None}
