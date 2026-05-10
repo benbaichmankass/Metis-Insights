@@ -14,11 +14,14 @@ Failure modes:
 - 503 ``diag_disabled`` if ``DIAG_READ_TOKEN`` is unset (feature off).
 - 401 ``missing_token`` / ``invalid_token`` on bad bearer.
 - 400 ``unknown_<thing>`` on requests outside the allowlists.
+- 503 ``journal_unavailable`` on a structural sqlite3.Error inside
+  ``_journal_select`` (S-067 — was previously a silent ``[]``).
 """
 from __future__ import annotations
 
 import hmac
 import json
+import logging
 import os
 import sqlite3
 import subprocess
@@ -28,6 +31,8 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request, status
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/diag", tags=["diag"])
 
@@ -163,6 +168,9 @@ def _journal_select(table: str, limit: int) -> list[dict[str, Any]]:
             detail={"error": "unknown_table", "allowed": sorted(_JOURNAL_TABLES.keys())},
         )
     if not _DB_PATH.exists():
+        # Genuine "DB hasn't been created yet" — distinct from "DB
+        # reachable but broken". Keep the empty-list shape here so a
+        # fresh install doesn't 503 out of the gate.
         return []
     order_col = _JOURNAL_TABLES[table]
     try:
@@ -178,8 +186,22 @@ def _journal_select(table: str, limit: int) -> list[dict[str, Any]]:
             return [dict(r) for r in cur.fetchall()]
         finally:
             conn.close()
-    except sqlite3.Error:
-        return []
+    except sqlite3.Error as exc:
+        # S-067: "no such table" / schema mismatch / locked DB / corrupt
+        # file used to be silently swallowed and surfaced as ``[]`` —
+        # indistinguishable from "table empty". The /db_info endpoint
+        # was added in #624 specifically to work around this; this is
+        # the actual fix. Operator scripts and off-VM Claude sessions
+        # now see a real 503 instead of a misleading empty result.
+        logger.exception("diag: _journal_select(table=%s) sqlite read failed", table)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={
+                "error": "journal_unavailable",
+                "table": table,
+                "reason": f"sqlite error: {type(exc).__name__}",
+            },
+        )
 
 
 def _db_info_payload() -> dict[str, Any]:
@@ -188,12 +210,12 @@ def _db_info_payload() -> dict[str, Any]:
     plus inode + size + table list + per-table row count.
 
     The 2026-05-09 ``order_packages returns []`` mystery surfaced
-    because the existing ``journal`` endpoint silently swallows
+    because the existing ``journal`` endpoint silently swallowed
     ``sqlite3.Error`` (returns ``[]``) — so a "no such table" or schema
-    mismatch is indistinguishable from "table empty". This endpoint
-    surfaces the per-query error verbatim so the operator can tell
-    them apart, and includes inode + size so two services suspected of
-    reading different files can be compared definitively.
+    mismatch was indistinguishable from "table empty". S-067 fixed the
+    journal endpoint itself; this endpoint stays as the
+    failure-surfacing companion (it returns the per-table error string
+    even when the journal endpoint already 503s on the same condition).
 
     Best-effort: every step is wrapped so a single failure never
     aborts the whole payload. ``error_per_table`` is only populated
@@ -253,7 +275,13 @@ def _db_info_payload() -> dict[str, Any]:
     return payload
 
 
-def _vm_health() -> dict[str, float]:
+def _vm_health() -> dict[str, float | None]:
+    # S-067: the previous fallback returned ``{"cpu": 0.0, "memory":
+    # 0.0, "disk": 0.0}`` on psutil failure, which an operator looking
+    # at /diag/snapshot or /diag/status couldn't distinguish from real
+    # zero readings. Mirror dashboard.py::_vm_health: log a warning and
+    # return ``None`` per field so the wire shape carries a clear
+    # "measurement unavailable" signal.
     try:
         import psutil  # noqa: PLC0415
         return {
@@ -261,8 +289,9 @@ def _vm_health() -> dict[str, float]:
             "memory": psutil.virtual_memory().percent,
             "disk": psutil.disk_usage("/").percent,
         }
-    except Exception:  # noqa: BLE001
-        return {"cpu": 0.0, "memory": 0.0, "disk": 0.0}
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("diag: vm_health: psutil sample failed: %s", exc)
+        return {"cpu": None, "memory": None, "disk": None}
 
 
 def _is_active_batch(units: list[str]) -> dict[str, str]:
