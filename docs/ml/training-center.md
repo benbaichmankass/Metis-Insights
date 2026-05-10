@@ -219,6 +219,7 @@ stable identifiers in `model_registry/`).
 | [`baseline-setup-quality.yaml`](../../ml/configs/baseline-setup-quality.yaml) | WS5-C | `PerStrategyWinRateTrainer` (numeric_mean) | `RegressionEvaluator` | Per-`setup_type` mean R-multiple on `setup_labels`. |
 | [`baseline-setup-quality-audit.yaml`](../../ml/configs/baseline-setup-quality-audit.yaml) | WS5-C-FU | `PerStrategyWinRateTrainer` (numeric_mean) | `RegressionEvaluator` | Per-`audit_pattern` mean R-multiple on `setup_labels_audit` (audit-joined source — paired comparison against the v1 `setup_type` baseline). |
 | [`baseline-execution-quality.yaml`](../../ml/configs/baseline-execution-quality.yaml) | WS5-D | `PerStrategyWinRateTrainer` (numeric_mean) | `RegressionEvaluator` | Per-strategy mean entry slippage (bps, signed; positive = trader paid worse) on `execution_quality` (trades ↔ order_packages join). |
+| [`baseline-post-trade-review.yaml`](../../ml/configs/baseline-post-trade-review.yaml) | WS5-E | `PerStrategyWinRateTrainer` (numeric_mean) | `RegressionEvaluator` | Per-`setup` mean reviewer decision-grade score (A=4..F=0) on `review_journal` (parses health-review JSON from answered comms requests). |
 
 When a baseline lands clean and the operator wants the
 "compare-against-marginal" sanity check, ship a paired global-mean

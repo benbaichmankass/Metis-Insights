@@ -1,0 +1,69 @@
+# Example training manifest — post-trade review baseline (WS5-E).
+#
+# Predicts the expected per-trade decision grade (A/B/C/D/F mapped
+# to 4/3/2/1/0) given the strategy `setup` recorded by the
+# health-review skill. Per-bucket sample mean using
+# `PerStrategyWinRateTrainer` with `target_kind: numeric_mean`
+# (the same trainer used by WS5-C and WS5-D).
+#
+# Source: `review_journal` family — reads answered comms requests
+# (`comms/requests/REQ-*.json` + `comms/archive/REQ-*.json`),
+# extracts the embedded health-review JSON payload from the
+# free-text answer, and emits one row per
+# `trade_decision_grades[]` entry.
+#
+# Run end-to-end:
+#
+#   python -m ml.datasets build review_journal \
+#     --output-dir ./datasets-out --version v001 \
+#     --source comms-artifacts \
+#     -- comms_root=/abs/path/to/repo/comms \
+#        include_archive=true
+#
+#   python -m ml train ml/configs/baseline-post-trade-review.yaml \
+#     --datasets-root ./datasets-out
+#
+# Decision-utility: per-setup mean decision grade tells the
+# operator which setups the reviewer rates higher on average.
+# This is a different signal than the P&L-based labels (WS5-A
+# winrate, WS5-C r_multiple) — a setup can grade well even on a
+# stop-out (textbook execution that simply lost) and grade poorly
+# on a small win (lucky outcome from bad process).
+#
+# Empty-state: until the operator answers health-review prompts
+# with the JSON template, the family yields zero rows. The
+# manifest will fail the row-count check; that's the expected
+# "data not yet flowing" signal, not a code defect.
+
+manifest_version: v1
+model_id: post-trade-review-baseline-v0
+model_family: regression_baseline
+trainer: ml.trainers.per_strategy_winrate.PerStrategyWinRateTrainer
+trainer_config:
+  target_column: decision_grade_score
+  feature_column: setup
+  target_kind: numeric_mean
+dataset:
+  family: review_journal
+  symbol_scope: all
+  timeframe: all
+  version: v001
+evaluator: ml.evaluators.regression.RegressionEvaluator
+evaluator_config:
+  target_column: decision_grade_score
+  metrics: [mse, mae]
+  split_strategy: time_aware_holdout
+  time_column: reviewed_at
+  holdout_fraction: 0.2
+target_deployment_stage: research_only
+notes: |
+  WS5-E baseline. Per-`setup` mean decision-grade score
+  (A=4..F=0) over answered health-review responses. Time-aware
+  holdout — eval is the latest 20 % of reviews by `reviewed_at`.
+  Not a candidate for any live tier.
+  Leakage discipline: `decision_grade`, `decision_grade_score`,
+  `entry_quality`, `exit_quality`, `risk_management`, `rationale`,
+  and `alternative_action` are all reviewer outputs; only
+  signal-time / outcome-side metadata (`setup`, `symbol`,
+  `direction`, `entry_price`, `stop_loss`, `take_profit_1`,
+  `position_size`, `exit_reason`) may be used as features.
