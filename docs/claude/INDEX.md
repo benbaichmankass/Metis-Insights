@@ -45,6 +45,7 @@ Remove stale instructions when they waste context.
 - `ml-training-policy.md`: ML training boundaries.
 - `training-improvement-workflow.md`: 4-stage autonomous "improve a strategy / model" cycle (research → notebook → Colab run → recommendations PR).
 - `deployment-ops.md`: Oracle/live bot operations.
+- `../runbooks/health-check.md`: two-workflow PR-mediated health-check pipeline (layer-1 Haiku triage + layer-2 Claude routine review). Covers required secrets (`VM_SSH_KEY`, `ANTHROPIC_API_KEY`, `CLAUDE_ROUTINE_URL`, `CLAUDE_ROUTINE_TOKEN`, `CLAUDE_TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`), the merged-PR + label trigger, layer-1 fallback to UNKNOWN-status stub, and idempotency rules. Read before touching `.github/workflows/health-snapshot-pr.yml`, `.github/workflows/health-review-trigger.yml`, or `scripts/{collect_health_snapshot.sh,run_health_check.py,write_health_review_request.py}`.
 - `diag-relay.md`: how a PM-side / web-sandbox session fetches `/api/diag/*` data via the `vm-diag-snapshot` GitHub Actions relay (open a labelled issue → workflow comments JSON back → close). Read this before debugging VM-side state from a sandbox. The session-capabilities matrix that explains *why* the relay exists is in the root `CLAUDE.md` § "PM-side session capabilities".
 - `git-workflow.md`: branch, commit, push rules.
 - `security-secrets.md`: credential rules.
