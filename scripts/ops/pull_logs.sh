@@ -53,6 +53,19 @@ if [ -f "${STATUS}" ]; then
 else
     echo "(no status.json yet)"
 fi
+echo
+
+# Cloudflare quick-tunnel URL — written by setup_cloudflare_tunnel.sh
+# on every (re)start. Surfaced in the bundle so the operator-actions
+# issue comment carries the current public hostname for the dashboard's
+# Vercel rewrite, without needing a separate VM trip.
+echo "===== runtime_logs/cloudflared_tunnel_url.txt ====="
+TUNNEL_URL="${REPO_DIR}/runtime_logs/cloudflared_tunnel_url.txt"
+if [ -f "${TUNNEL_URL}" ]; then
+    cat "${TUNNEL_URL}"
+else
+    echo "(no cloudflared tunnel URL recorded — tunnel may not be running)"
+fi
 
 record_audit "pull-latest-logs" "ok" \
     "{\"journal_lines\": ${JOURNAL_LINES}, \"audit_lines\": ${AUDIT_LINES}}" >/dev/null || true

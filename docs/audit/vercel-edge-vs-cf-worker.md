@@ -1,7 +1,9 @@
 # Vercel Edge / Vercel rewrites vs. Cloudflare Workers for plain-HTTP upstream
 
-> **Status:** Investigation note (S-CFW-1, 2026-05-10).
-> **Companion to:** [`docs/sprint-logs/S-CFW-1-cloudflare-worker.md`](../sprint-logs/S-CFW-1-cloudflare-worker.md), [`cf-worker/README.md`](../../cf-worker/README.md).
+> **Status:** Investigation note. Originally written 2026-05-10
+> in S-CFW-1; **revised 2026-05-10 in S-CFW-1-FU2** after the
+> Worker path was empirically retired.
+> **Companion to:** [`docs/sprint-logs/S-CFW-1-cloudflare-worker.md`](../sprint-logs/S-CFW-1-cloudflare-worker.md), [`docs/sprint-logs/S-CFW-1-FU2-worker-retired.md`](../sprint-logs/S-CFW-1-FU2-worker-retired.md), [`cf-worker/README.md`](../../cf-worker/README.md).
 
 ## TL;DR
 
@@ -10,9 +12,46 @@
 - A Vercel Edge Function attempt (route handler that proxied to
   the same upstream) also failed; it was reverted in the
   dashboard repo the same day.
-- Cloudflare Workers' `fetch` API has no equivalent restriction
-  on plain HTTP to arbitrary IP+port, which is why
-  [`cf-worker/`](../../cf-worker/) is the path forward.
+- We then tried a Cloudflare Worker at `*.workers.dev`
+  (S-CFW-1) hoping its `fetch` had no IP-target restriction.
+  **It does.** First live test (2026-05-10, after the Worker
+  was deployed at `ict-trader-bot-proxy.ben-baichmankass.workers.dev`)
+  returned Cloudflare error 1003 ("Direct IP Access Not
+  Allowed") for `/api/health`. The Worker's `fetch()` to a raw
+  IPv4 host is rejected at Cloudflare's edge.
+- **Net result:** the Vercel rewrite to the existing
+  `*.trycloudflare.com` quick tunnel (HTTPS hostname behind
+  Cloudflare's edge) is the only currently-working path. The
+  Worker layer was retired in S-CFW-1-FU2.
+
+## CF error 1003 — what we hit (added 2026-05-10 in S-CFW-1-FU2)
+
+When the deployed Worker called
+`fetch("http://158.178.210.252:8001/api/health")`, Cloudflare's
+edge intercepted the outbound subrequest and returned an HTML
+error page with `error code: 1003`.
+
+Cloudflare error 1003: **"Direct IP Access Not Allowed:
+Cloudflare account does not have direct IP access enabled."**
+
+This is documented for inbound requests to Cloudflare-fronted
+IPs, but it also fires on **outbound Worker subrequests whose
+target host is a raw IPv4 address**. The restriction is enforced
+at CF's edge before the request leaves Cloudflare's network. It
+applies to Free / Pro / Business plans; Enterprise can request
+the override.
+
+The Worker's `/__worker/health` (which doesn't proxy upstream)
+returned the expected JSON, confirming the Worker code was
+healthy — the failure is specifically the IP-target subrequest.
+
+The original TL;DR claim ("Cloudflare Workers' fetch has no
+such restriction") was **wrong**. The restriction is narrower
+than Vercel's (Workers can fetch to arbitrary HTTPS / HTTP
+**hostnames**, including custom ports), but it still blocks
+raw IPv4 targets. Workers are useful behind any HTTPS hostname
+(named tunnel, custom domain, or another CF-fronted service),
+not behind a bare-IP origin.
 
 ## What we observed
 
@@ -62,24 +101,34 @@ The practical effect: from the dashboard's Vercel deployment,
 upstream must be an HTTPS hostname owned by something other than
 Vercel.
 
-## Why Cloudflare Workers can
+## What Cloudflare Workers can and can't do (revised 2026-05-10)
 
 Cloudflare Workers' `fetch` is implemented on Cloudflare's
-network and has no analogous restriction:
+network. Important distinctions, learned the hard way in
+S-CFW-1-FU2:
 
-- Plain HTTP (port 80, port 8001, any open TCP port that
-  Cloudflare's edge routes to via HTTP) is supported.
-  ([CF Workers fetch reference](https://developers.cloudflare.com/workers/runtime-apis/fetch/) —
-  the Worker fetcher does what the standard Fetch API allows
-  plus CF-specific options; there is no plan-tier restriction
-  on the destination scheme for outbound `fetch`.)
-- Workers' egress is from Cloudflare's edge IPs, not from the
-  user's own colo, so destinations on the public internet are
-  reachable as long as the destination accepts the connection.
+- ✅ **HTTPS hostname** (any port that the destination
+  accepts): supported.
+- ✅ **Plain HTTP hostname** on a custom port (e.g.
+  `http://example.com:8001`): supported.
+- ❌ **Raw IPv4 host** (e.g. `http://158.178.210.252:8001`):
+  **NOT supported**. CF returns error 1003 ("Direct IP Access
+  Not Allowed"). Enforced at CF's edge before the request
+  leaves Cloudflare's network.
 
-The Oracle VM accepts `:8001` from anywhere (verified
-2026-05-10), so Worker → VM works without any VM-side
-firewall change.
+The IPv4-host restriction is the one that killed our Worker
+plan. We had assumed (incorrectly) that "Workers can fetch
+arbitrary URLs" extended to bare IPs. It doesn't — the host
+must resolve through DNS, not be presented as a literal address.
+
+The Oracle VM at `158.178.210.252` accepts `:8001` from anywhere
+(verified 2026-05-10), so the **VM** would respond — but the
+request never leaves Cloudflare's edge to reach it. To use a
+Worker as the fronting layer we would need an HTTPS hostname
+the Worker could call (named tunnel, custom domain, or another
+CF-fronted service). With neither available, the Worker layer
+adds no value over calling the existing quick tunnel directly
+from Vercel.
 
 ## Architectural alternatives considered
 
@@ -88,23 +137,30 @@ firewall change.
 | **Vercel rewrite → VM directly** | Failed 2026-05-10. Vercel won't proxy plain HTTP. |
 | **Vercel Edge Function → VM directly** | Failed 2026-05-10. Same restriction at the function-runtime layer. |
 | **Vercel Serverless (Node) Function → VM** | Hobby plan blocks outbound to arbitrary IPs; no allowlist exposed. |
-| **Cloudflare quick tunnel + Vercel rewrite to `*.trycloudflare.com`** | Works today, but the URL is ephemeral — every cloudflared restart picks a new hostname, requiring a `vercel.json` redeploy. Live but fragile. |
+| **Cloudflare quick tunnel + Vercel rewrite to `*.trycloudflare.com`** | **Live path 2026-05-10.** URL is ephemeral — every cloudflared restart picks a new hostname, requiring a `vercel.json` redeploy. Operator updates the rewrite when the URL rotates. |
 | **Cloudflare named tunnel + Vercel rewrite to `bot.<our-domain>`** | Cleanest, but blocked on us not having a CF zone. |
-| **Cloudflare Worker at `*.workers.dev` → VM (or → quick tunnel)** | Works, no domain needed, hostname stable forever. **Path chosen in S-CFW-1.** |
+| **Cloudflare Worker at `*.workers.dev` → VM directly** | **Tried in S-CFW-1, retired in S-CFW-1-FU2.** Worker deploys cleanly but its outbound `fetch()` to a raw IPv4 host is rejected by Cloudflare with error 1003. Worker URL is stable, but the Worker itself can't reach the VM. |
+| **Cloudflare Worker → CF-fronted hostname (e.g. quick tunnel) → VM** | Architecturally works (Worker → HTTPS hostname is allowed), but adds a moving piece: Worker's `ORIGIN` env var must be re-set when the quick tunnel URL rotates. Same coupling as Vercel-direct without measurable benefit unless we add tunnel-URL auto-refresh. Not pursued. |
 
 ## Out-of-scope but related
 
 - **Vercel Pro plan / Enterprise** documents an outbound
   network allowlist that would unblock the rewrite path. Cost
-  is $20/user/month minimum; not justified for a dashboard with
-  a known-good Workers alternative.
-- **Cloudflare Tunnel on the VM (no domain)** — `cloudflared`
-  also supports a "no DNS" mode where the tunnel exposes a
-  stable `<id>.cfargotunnel.com` hostname **without** needing a
-  zone. This is technically a third stable-URL option. Worth
-  re-evaluating in a follow-up if the Worker hits limits;
-  documented here for completeness so the next investigator
-  doesn't re-derive it.
+  is $20/user/month minimum; not justified.
+- **Cloudflare Tunnel "no zone" mode (`<id>.cfargotunnel.com`)**
+  — the original S-CFW-1 investigation note claimed cloudflared
+  exposes a stable `<id>.cfargotunnel.com` hostname without a
+  zone. **This was wrong.** Per Cloudflare Zero Trust docs, the
+  `<id>.cfargotunnel.com` form is reachable only after a
+  Public Hostname route is configured in Zero Trust, which
+  requires a CF zone for the public hostname. Without a zone
+  there is no stable hostname option short of switching to a
+  third-party reverse-proxy service or paying for Vercel Pro.
+- **Tunnel-URL auto-refresh** — could write a small VM-side hook
+  that runs `wrangler secret put ORIGIN` (or hits the Cloudflare
+  API directly) every time `setup_cloudflare_tunnel.sh` produces
+  a new URL. Only worth doing if we revive the Worker layer for
+  some other reason; not on the table today.
 
 ## Sources
 
