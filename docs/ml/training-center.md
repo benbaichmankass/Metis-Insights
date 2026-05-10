@@ -3,6 +3,8 @@
 > **Status:** Canonical (training-center scope). Adopted in **S-AI-WS4**
 > (2026-05-10). Updated in **S-AI-WS4-FU** (2026-05-10):
 > Predictor abstraction + split strategies + `compare` subcommand.
+> Updated in **S-AI-WS5-B-PART-2 PR 2B** (2026-05-10): multiclass
+> predictor + multiclass evaluator + regime classifier baseline.
 >
 > **Authority:** Subordinate to
 > [`docs/architecture/ai-model-platform.md`](../architecture/ai-model-platform.md).
@@ -79,6 +81,22 @@ Resolution dispatches via `state['trainer']` qualname →
 |---|---|
 | `ConstantPredictor` | `ConstantPredictionTrainer` |
 | `PerGroupPredictor` | `PerStrategyWinRateTrainer` (configurable `feature_column`) |
+| `PerBucketMulticlassPredictor` | `RegimeClassifierTrainer` (S-AI-WS5-B-PART-2 PR 2B; emits class-label + per-class probabilities; falls back to training-set marginal for unseen buckets) |
+
+### Multiclass predictor surface (PR 2B)
+
+[`MulticlassPredictor`](../../ml/predictors/multiclass.py) is a
+`Predictor` subclass that adds:
+
+- `predict_label(row) -> str` — discrete class prediction.
+- `predict_proba(row) -> Mapping[str, float]` — per-class
+  probabilities (sum to 1).
+
+The default `predict(row)` returns the probability of the
+predicted class so existing single-float consumers don't break.
+`MulticlassClassificationEvaluator` narrows to
+`MulticlassPredictor` and raises `TypeError` against any other
+predictor.
 
 ## Split strategies (WS4-FU)
 
@@ -145,6 +163,29 @@ python -m ml train ml/configs/baseline-trade-outcome-global.yaml \
 python -m ml compare \
   trade-outcome-winrate-baseline-v0 \
   trade-outcome-global-baseline-v0
+```
+
+### Regime classifier demo (PR 2B)
+
+```
+# 1. Build market_raw bars (CSV adapter shown).
+python -m ml.datasets build market_raw \
+  --output-dir ./datasets-out --version v001 \
+  --source ./bars.csv \
+  --symbol-scope BTCUSDT --timeframe 1h \
+  -- adapter=csv csv_path=./bars.csv
+
+# 2. Derive market_features.
+python -m ml.datasets build market_features \
+  --output-dir ./datasets-out --version v001 \
+  --source ./datasets-out/market_raw/BTCUSDT/1h/v001 \
+  --symbol-scope BTCUSDT --timeframe 1h \
+  -- market_raw_path=./datasets-out/market_raw/BTCUSDT/1h/v001 \
+     vol_window_n=20 forward_window_m=5
+
+# 3. Train + evaluate the 3-class baseline.
+python -m ml train ml/configs/baseline-regime-classifier.yaml \
+  --datasets-root ./datasets-out
 ```
 
 ## Out of scope (deferred)

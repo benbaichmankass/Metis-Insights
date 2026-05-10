@@ -1,0 +1,71 @@
+# Example training manifest — 3-class regime classifier baseline
+# (WS5-B-PART-2 PR 2B).
+#
+# Simplest baseline: per-bucket modal class. Bucket bars by their
+# rolling-vol feature (`vol_bucket` ∈ {vol_b0, vol_b1, vol_b2}) and
+# learn the empirical class distribution per bucket. Falls back to
+# the training-set marginal class distribution for unseen buckets.
+#
+# Run end-to-end (after building a market_raw dataset and a
+# market_features dataset that derives from it):
+#
+#   # 1. Build the market_raw bars (CSV adapter shown; bybit_v5_offvm
+#   #    works the same once the operator stages credentials on a
+#   #    non-VM build host).
+#   python -m ml.datasets build market_raw \
+#     --output-dir ./datasets-out --version v001 \
+#     --source bars-btcusdt-1h.csv \
+#     --symbol-scope BTCUSDT --timeframe 1h \
+#     -- adapter=csv csv_path=./bars-btcusdt-1h.csv
+#
+#   # 2. Derive market_features from the market_raw dataset.
+#   python -m ml.datasets build market_features \
+#     --output-dir ./datasets-out --version v001 \
+#     --source ./datasets-out/market_raw/BTCUSDT/1h/v001 \
+#     --symbol-scope BTCUSDT --timeframe 1h \
+#     -- market_raw_path=./datasets-out/market_raw/BTCUSDT/1h/v001 \
+#        vol_window_n=20 forward_window_m=5 \
+#        vol_threshold=0.005 trend_threshold=0.005 \
+#        n_vol_buckets=3
+#
+#   # 3. Train + evaluate the classifier.
+#   python -m ml train ml/configs/baseline-regime-classifier.yaml \
+#     --datasets-root ./datasets-out
+#
+# Decision-utility: this baseline tells the operator how much
+# signal `vol_bucket` alone carries about the next-window regime.
+# If `accuracy` and `weighted_f1` against this manifest materially
+# beat a constant-marginal baseline (todo: ship a marginal-only
+# sanity manifest), discretized vol is informative for regime
+# forecasting on this dataset.
+
+manifest_version: v1
+model_id: regime-classifier-baseline-v0
+model_family: classification_baseline
+trainer: ml.trainers.regime_classifier.RegimeClassifierTrainer
+trainer_config:
+  target_column: regime_label
+  feature_column: vol_bucket
+  unknown_bucket: ""
+  class_labels:
+    - trend
+    - range
+    - volatile
+dataset:
+  family: market_features
+  symbol_scope: BTCUSDT
+  timeframe: 1h
+  version: v001
+evaluator: ml.evaluators.multiclass_classification.MulticlassClassificationEvaluator
+evaluator_config:
+  target_column: regime_label
+  split_strategy: time_aware_holdout
+  time_column: ts
+  holdout_fraction: 0.2
+target_deployment_stage: research_only
+notes: |
+  WS5-B-PART-2 PR 2B baseline. 3-class regime classifier
+  (trend / range / volatile) with `vol_bucket` as the sole
+  feature. Time-aware holdout — eval is the latest 20 % of bars
+  to mirror the live deployment shape.
+  Not a candidate for any live tier.

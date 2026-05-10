@@ -161,7 +161,6 @@ class TestMarketRawBuilder:
             commit_sha="deadbeef",
             adapter="csv",
             csv_path=csv_path,
-            symbol="BTCUSDT",
         )
         assert paths.root == out / "market_raw" / "BTCUSDT" / "1h" / "v001"
         assert paths.metadata.is_file()

@@ -29,7 +29,18 @@ class MarketRawBuilder(DatasetBuilder):
         self,
         *,
         adapter: str = "csv",
+        symbol_scope: str | None = None,
+        timeframe: str | None = None,
         **adapter_kwargs: Any,
     ) -> Iterator[Mapping[str, Any]]:
         adapter_inst = get_adapter(adapter)
+        # Auto-forward path-layout scope into adapter kwargs so the
+        # operator doesn't have to pass `symbol` / `timeframe` twice
+        # (once at the builder level for the path, once at the adapter
+        # level for the row stamp). Operator-supplied adapter kwargs
+        # win — set via setdefault.
+        if symbol_scope is not None and symbol_scope != self.default_symbol_scope:
+            adapter_kwargs.setdefault("symbol", symbol_scope)
+        if timeframe is not None and timeframe != self.default_timeframe:
+            adapter_kwargs.setdefault("timeframe", timeframe)
         yield from adapter_inst.iter_bars(**adapter_kwargs)
