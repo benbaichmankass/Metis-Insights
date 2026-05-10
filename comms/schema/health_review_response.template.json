@@ -5,14 +5,17 @@
   "reviewer": "claude",
   "overall_assessment": "healthy | caution | investigate",
   "findings": {
-    "heartbeat":  {"status": "ok | watch | concern", "note": "..."},
-    "ticks":      {"status": "ok | watch | concern", "note": "..."},
-    "signals":    {"status": "ok | watch | concern", "note": "..."},
-    "orders":     {"status": "ok | watch | concern", "note": "..."},
-    "trades":     {"status": "ok | watch | concern", "note": "..."},
-    "monitoring": {"status": "ok | watch | concern", "note": "..."},
-    "sizing":     {"status": "ok | watch | concern", "note": "..."},
-    "api_errors": {"status": "ok | watch | concern", "note": "..."}
+    "heartbeat":         {"status": "ok | watch | concern", "note": "..."},
+    "ticks":             {"status": "ok | watch | concern", "note": "..."},
+    "signals":           {"status": "ok | watch | concern", "note": "..."},
+    "orders":            {"status": "ok | watch | concern", "note": "..."},
+    "trades":            {"status": "ok | watch | concern", "note": "..."},
+    "monitoring":        {"status": "ok | watch | concern", "note": "..."},
+    "sizing":            {"status": "ok | watch | concern", "note": "..."},
+    "api_errors":        {"status": "ok | watch | concern", "note": "..."},
+    "state_consistency": {"status": "ok | watch | concern", "note": "..."},
+    "alert_delivery":    {"status": "ok | watch | concern", "note": "..."},
+    "strategy_silence":  {"status": "ok | watch | concern", "note": "..."}
   },
   "anomalies": [
     "free-form list of notable items the reviewer flagged"
