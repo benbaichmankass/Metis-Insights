@@ -16,6 +16,35 @@
 > `the-lizardking/ict-trading-bot` references in historical sprint
 > summaries are preserved as record.
 
+## Project-level skills (`/health-review`)
+
+This repo ships a **project-level Claude Code skill** at
+[`.claude/skills/health-review/SKILL.md`](.claude/skills/health-review/SKILL.md).
+It is the manual replacement for the autonomous Claude routine — when
+the operator types `/health-review` (or asks for "the health review"
+/ "the layer-2 review"), Claude reads `artifacts/health/latest.json`
+and `artifacts/health/health_snapshot.txt` from the current `main`
+HEAD and emits a JSON response per
+[`comms/schema/health_review_response.template.json`](comms/schema/health_review_response.template.json).
+
+**This is NOT a code-quality audit** — do not invoke it for
+codebase review, security scan, or dependency check. Use the `review`
+or `security-review` skills for those instead. The
+[`SessionStart` hook in `.claude/settings.json`](.claude/settings.json)
+emits the same directive into every web-session's context at init so
+this can't be missed.
+
+When to invoke `/health-review`:
+- A Telegram ping arrives saying *"auto-merge queued — run /health-review for the layer-2 review"*.
+- A `comms/requests/REQ-*.json` file is sitting unanswered on `main`.
+- The operator asks for the health review, the layer-2 review, or to
+  sanity-check the live bot's runtime state.
+
+The full review procedure (inputs, decision rubric, output schema,
+"don't write files / don't ask scoping questions") lives in the skill
+file. See also [`docs/runbooks/health-check.md`](docs/runbooks/health-check.md)
+for the two-workflow (collect → review) design.
+
 ## Project Overview
 Automated ICT (Inner Circle Trader) futures trading bot running on a VPS.
 Exposes a FastAPI REST API on port 8001 consumed by the Vercel React dashboard
