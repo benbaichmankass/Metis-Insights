@@ -2,7 +2,15 @@
 
 **Master plan:** [`docs/AI-TRADERS-ROADMAP.md`](../../AI-TRADERS-ROADMAP.md)
 **Milestone:** M9
-**Status:** 📋 Not started
+**Sprint id:** **S-AI-WS1** (started 2026-05-10)
+**Status:** 🔄 IN PROGRESS
+
+> **Sprint id note:** the next free numeric id at the time of
+> kickoff was S-067, but S-067 is already in flight as the
+> silent-empty error-path audit (see
+> [`docs/sprints/sprint-067-prompt.md`](../../sprints/sprint-067-prompt.md)).
+> WS1 uses the themed `S-AI-WS1` id, matching the
+> `S-CANON-*` and `S-AI-ROADMAP` precedent.
 
 ## Objective
 
@@ -45,20 +53,31 @@ architecture before building new model infrastructure.
 
 ## Acceptance
 
-- A single architecture doc exists and reflects both current repo reality
-  and the desired future state.
-- The doc names which parts are live, staged, planned, forbidden.
-- The doc explicitly states deterministic risk controls are outside the AI
-  layer.
-- The doc is linked from the main repo docs navigation.
+- [x] A single architecture doc exists and reflects both current repo
+  reality and the desired future state.
+- [x] The doc names which parts are live, staged, planned, forbidden.
+- [x] The doc explicitly states deterministic risk controls are outside
+  the AI layer.
+- [x] The doc is linked from `docs/ARCHITECTURE-CANONICAL.md`.
 
-## Out of scope
+## Out of scope (deferred to later workstreams)
 
-- Building any new pipeline code.
-- Building any new model code.
+- Building any new pipeline code (WS2).
+- Building any new model code (WS5+).
 - Touching live runtime files.
+- Reconciling the 8-step pipeline in `ARCHITECTURE-CANONICAL.md`
+  with the 10-stage map in `ai-model-platform.md` — WS2 owns this.
 
 ## Risks
 
-- Audit drift if WS2 starts before WS1 lands. Mitigation: WS2 cannot open a
-  PR until WS1 lands `docs/architecture/ai-model-platform.md` on `main`.
+- Audit drift if WS2 starts before WS1 lands. **Mitigation in
+  effect:** WS2 cannot open a PR until WS1 lands `ai-model-platform.md`
+  on `main`.
+
+## Deliverables (this sprint)
+
+- `docs/architecture/ai-model-platform.md` — new canonical AI-scope doc.
+- `docs/ARCHITECTURE-CANONICAL.md` — link added, no other change.
+- This file — sprint id and status updated.
+- `docs/AI-TRADERS-ROADMAP.md` — change-log row, WS1 status update.
+- `ROADMAP.md` — WS1 status row, S-AI-WS1 ledger entry.
