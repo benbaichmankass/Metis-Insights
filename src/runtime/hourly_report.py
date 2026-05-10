@@ -233,8 +233,19 @@ def _save_balance_snapshots(data: Dict[str, Any]) -> None:
         logger.warning("hourly_report: balance snapshot write failed: %s", exc)
 
 
-def account_snapshots() -> List[Dict[str, Any]]:
-    """Return one dict per account: balance, 1h delta, API ok/err, open pos count."""
+def account_snapshots() -> Optional[List[Dict[str, Any]]]:
+    """Return one dict per account: balance, 1h delta, API ok/err, open pos count.
+
+    Sentinel semantics (S-067 follow-up D2 — see
+    docs/audits/silent-empty-reporting-2026-05-10.md § Phase-2 #2):
+
+    * ``[]`` — no accounts configured **or** ``data_loaders`` import
+      failed (optional dependency; legitimate per the audit).
+    * ``None`` — ``list_accounts()`` raised. The renderer surfaces
+      this as "Accounts — data unavailable" rather than collapsing
+      to "no accounts configured".
+    * ``List[...]`` populated — normal path.
+    """
     try:
         from src.bot.data_loaders import (
             account_balance,
@@ -247,9 +258,9 @@ def account_snapshots() -> List[Dict[str, Any]]:
 
     try:
         accounts = list_accounts()
-    except Exception as exc:  # noqa: BLE001
+    except (OSError, RuntimeError, AttributeError) as exc:
         logger.warning("hourly_report: list_accounts failed: %s", exc)
-        return []
+        return None
 
     prev = _load_balance_snapshots()
     now_iso = datetime.now(timezone.utc).isoformat()
@@ -552,13 +563,18 @@ def _build_strategy_sections(
 def _build_account_sections(
     *,
     trades: Dict[str, Any],
-    accounts: List[Dict[str, Any]],
+    accounts: Optional[List[Dict[str, Any]]],
 ):
     """Sections for the accounts-focused hourly report.
 
     Mirrors the strategy report but groups detail by account: per-
     account balance / delta / open positions, and the trades placed +
     closed in the last hour with realized PnL.
+
+    ``accounts is None`` is the "data unavailable" sentinel from
+    ``account_snapshots`` (S-067 follow-up D2). Render an explicit
+    "data unavailable" section rather than collapsing to "no accounts
+    configured".
     """
     from src.units.ui.telegram_format import Section, bullet_list
 
@@ -596,9 +612,25 @@ def _build_account_sections(
         trades_body_lines.append("(no trades in window)")
 
     # 2. Per-account section
+    if accounts is None:
+        return [
+            Section(summary=trades_summary,
+                    body="\n".join(trades_body_lines), priority=10),
+            Section(
+                summary="Accounts — data unavailable",
+                body=(
+                    "list_accounts() raised — see bot.log for the "
+                    "underlying error. Per-account balance and open-"
+                    "position counts could not be loaded for this "
+                    "report cycle."
+                ),
+                priority=20,
+            ),
+        ]
+
     acct_lines = []
     api_errors = 0
-    for a in accounts or []:
+    for a in accounts:
         aid = a["account_id"]
         if not a.get("api_ok"):
             acct_lines.append(f"{aid}: API ERROR")
@@ -616,7 +648,7 @@ def _build_account_sections(
             f"{aid}: bal {bal} | 1h {delta} | {op_str} | API OK"
         )
     accounts_summary = (
-        f"Accounts — {len(accounts or [])} configured"
+        f"Accounts — {len(accounts)} configured"
         + (f" / {api_errors} API errors" if api_errors else "")
     )
 
