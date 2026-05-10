@@ -102,6 +102,14 @@ case "${action}" in
             *) result="FAILED (exit ${exit_code})"; priority="urgent" ;;
         esac
         ;;
+    enable-m5-consumer|disable-m5-consumer)
+        tier=2
+        case "${exit_code}" in
+            0) result="ok"; priority="normal" ;;
+            3) result="deferred — vm-runner active, retry later"; priority="normal" ;;
+            *) result="FAILED (exit ${exit_code})"; priority="urgent" ;;
+        esac
+        ;;
     *)
         # Unknown action — still notify but flag it as a contract drift.
         tier=0

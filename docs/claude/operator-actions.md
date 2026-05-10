@@ -58,6 +58,8 @@ in `operator-actions.yml`, the priority case in
 | `reboot-vm` | 2 (last resort) | `scripts/ops/reboot_vm.sh` | full host |
 | `enable-closed-flat-invariant` | 2 | `scripts/ops/enable_closed_flat_invariant.sh` | `.env` (`CLOSED_FLAT_INVARIANT_ENABLED=true`) + restart `ict-trader-live.service` |
 | `disable-closed-flat-invariant` | 2 | `scripts/ops/disable_closed_flat_invariant.sh` | `.env` (remove `CLOSED_FLAT_INVARIANT_ENABLED`) + restart `ict-trader-live.service` |
+| `enable-m5-consumer` | 2 | `scripts/ops/enable_m5_consumer.sh` | `.env` (`M5_CONSUMER_ENABLED=1`) + restart `ict-telegram-bot.service` |
+| `disable-m5-consumer` | 2 | `scripts/ops/disable_m5_consumer.sh` | `.env` (`M5_CONSUMER_ENABLED=0`) + restart `ict-telegram-bot.service` |
 
 **Docker is intentionally absent.** The repo's canonical runtime is
 systemd (`deploy/*.service` units installed via
@@ -97,6 +99,8 @@ Tier-2 actions:
 - `reboot-vm`
 - `enable-closed-flat-invariant`
 - `disable-closed-flat-invariant`
+- `enable-m5-consumer`
+- `disable-m5-consumer`
 
 `pull-and-deploy` is a thin wrapper around `scripts/deploy_pull_restart.sh`
 (the canonical script the `ict-git-sync` timer also calls). It fetches
@@ -161,7 +165,7 @@ The tier rules above describe the **action's** blast radius. Whether
 a given dispatcher must ping the operator before triggering an action
 depends on the dispatcher's trust class. Three classes exist today:
 
-| Dispatcher | Tier-1 (`status-check`, `pull-latest-logs`) | Tier-2 (`pull-and-deploy`, `restart-bot-service`, `reboot-vm`, `enable-closed-flat-invariant`, `disable-closed-flat-invariant`) |
+| Dispatcher | Tier-1 (`status-check`, `pull-latest-logs`) | Tier-2 (`pull-and-deploy`, `restart-bot-service`, `reboot-vm`, `enable-closed-flat-invariant`, `disable-closed-flat-invariant`, `enable-m5-consumer`, `disable-m5-consumer`) |
 |---|---|---|
 | **Operator** (Ben, in browser) | autonomous (you're the human) | autonomous (you're the human) |
 | **Perplexity** (granted 2026-05-08) | autonomous | autonomous |
@@ -316,6 +320,12 @@ tier: <1 or 2>
 | `disable-closed-flat-invariant` | 0 (ok) | `normal` |
 | `disable-closed-flat-invariant` | 3 (deferred — vm-runner active) | `normal` |
 | `disable-closed-flat-invariant` | other | `urgent` |
+| `enable-m5-consumer` | 0 (ok) | `normal` |
+| `enable-m5-consumer` | 3 (deferred — vm-runner active) | `normal` |
+| `enable-m5-consumer` | other | `urgent` |
+| `disable-m5-consumer` | 0 (ok) | `normal` |
+| `disable-m5-consumer` | 3 (deferred — vm-runner active) | `normal` |
+| `disable-m5-consumer` | other | `urgent` |
 
 **Failure-of-notification semantics:** the notify step uses
 `continue-on-error: true`. A failed ping never flips a successful
@@ -342,6 +352,8 @@ follow-up doc PR if it ever becomes a problem.
 | `reboot-vm` | dump uptime + canonical unit states + 10 journal lines | `shutdown -r +1` | workflow polls SSH for ≤ 5 min; post-fetch `/api/diag/status` | SSH not back in 5 min → manual recovery required (Oracle Cloud Console) |
 | `enable-closed-flat-invariant` | snapshot current `CLOSED_FLAT_INVARIANT_ENABLED` line in `.env` + unit `is-active` | atomic write to `.env` setting `CLOSED_FLAT_INVARIANT_ENABLED=true`; `systemctl restart ict-trader-live.service` | grep `.env` for the post-edit value; poll `is-active` until "active" or 30 s timeout; dump 30 journal lines | exit 3 → vm-runner active, deferred. exit 1 → env-file verification mismatch or unit failed to come back; rollback via `disable-closed-flat-invariant` |
 | `disable-closed-flat-invariant` | snapshot current `CLOSED_FLAT_INVARIANT_ENABLED` line in `.env` + unit `is-active` | atomic strip of the env line + its comment header from `.env`; `systemctl restart ict-trader-live.service` | confirm `.env` no longer contains the key; poll `is-active` until "active" or 30 s timeout; dump 30 journal lines | exit 3 → vm-runner active, deferred. exit 1 → env-file still contains the key or unit failed to come back; investigate before re-enabling |
+| `enable-m5-consumer` | snapshot current `M5_CONSUMER_ENABLED` line in `.env` + `ict-telegram-bot.service` `is-active` | atomic write to `.env` setting `M5_CONSUMER_ENABLED=1`; `systemctl restart ict-telegram-bot.service` | grep `.env` for the post-edit value; poll `is-active` until "active" or 30 s timeout; dump 30 journal lines | exit 3 → vm-runner active, deferred. exit 1 → env-file verification mismatch or unit failed to come back; rollback via `disable-m5-consumer` |
+| `disable-m5-consumer` | snapshot current `M5_CONSUMER_ENABLED` line in `.env` + `ict-telegram-bot.service` `is-active` | atomic write to `.env` setting `M5_CONSUMER_ENABLED=0`; `systemctl restart ict-telegram-bot.service` | confirm `.env` value is `0`; poll `is-active` until "active" or 30 s timeout; dump 30 journal lines | exit 3 → vm-runner active, deferred. exit 1 → unit failed to come back; investigate before re-enabling |
 
 The `restart-bot-service` and `pull-and-deploy` wrappers additionally
 **defer** if any `claude-vm-runner@*.service` unit is currently active,

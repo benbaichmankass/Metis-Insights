@@ -65,6 +65,8 @@ on:
           - reboot-vm
           - enable-closed-flat-invariant
           - disable-closed-flat-invariant
+          - enable-m5-consumer
+          - disable-m5-consumer
       reason:
         description: "Why this action is being run (audit trail; required for Tier-2)"
         required: false
@@ -151,7 +153,7 @@ jobs:
             status-check|pull-latest-logs)
               echo "tier=1" >>"$GITHUB_ENV"
               ;;
-            pull-and-deploy|restart-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant)
+            pull-and-deploy|restart-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|enable-m5-consumer|disable-m5-consumer)
               echo "tier=2" >>"$GITHUB_ENV"
               if [ -z "${REASON// }" ]; then
                 echo "::error::Tier-2 action '${ACTION}' requires a non-empty 'reason' input."
@@ -215,6 +217,8 @@ jobs:
             reboot-vm)                       SCRIPT="reboot_vm.sh" ;;
             enable-closed-flat-invariant)    SCRIPT="enable_closed_flat_invariant.sh" ;;
             disable-closed-flat-invariant)   SCRIPT="disable_closed_flat_invariant.sh" ;;
+            enable-m5-consumer)              SCRIPT="enable_m5_consumer.sh" ;;
+            disable-m5-consumer)             SCRIPT="disable_m5_consumer.sh" ;;
             *)
               echo "::error::Allowlist regression: '${ACTION}' was not mapped to a wrapper script."
               exit 2
