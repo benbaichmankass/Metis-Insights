@@ -11,6 +11,63 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-10-05-s047-t6-t7-close — S-047 (bybit_2 Spot Margin) closed end-to-end + post-canon followups
+
+- **Session date:** 2026-05-10
+- **Sprint:** S-047 T6 + T7 (closing the bybit_2 Spot Margin sprint that started 2026-05-06); plus S-CANON-1 follow-ups (FU-1 workplan superseded, FU-2 closed-flat invariant tick-loop wiring, FU-3 branch-protection PAT) shipped in the same long session.
+- **Active milestone:** (between sprints — S-047 closed; M5 next per workplan queue).
+- **Last completed checkpoint:** `CP-2026-05-10-04-s067-phase2-followups`.
+- **Next checkpoint:** next session picks **M5 — Strategy testing workflow**. First action: resolve PR #640's merge conflicts on `main`. Read `docs/claude/milestone-state.md` § Queued milestones (M5 is now row 1) and `docs/sprints/sprint-065-prompt.md` for context.
+- **Telegram sent:** auto-pinged via this PR's CHECKPOINT_LOG.md merge.
+- **Alerts during session:** none requiring intervention. CI was green on every PR (PRs #679, #681, #684, #686, this PR).
+- **Blockers:** none.
+
+### What this session shipped
+
+**Tier 1 docs (S-CANON-FU-1, S-047 T6 + T7) — all merged or merging:**
+
+| # | Item | PR |
+|---|---|---|
+| 1 | Legacy `docs/claude/workplan.md` + `docs/workplan.md` superseded by canonical doc set | #679 (squashed `754f60f`) |
+| 2 | S-CANON-FU-3 sprint logs + ROADMAP rows + ci-status-checks status subsection | #679 (same squash) |
+| 3 | Record `BRANCH_PROTECTION_TOKEN` added — trigger first sync run | #684 (squashed `841c80b`) |
+| 4 | S-047 T6 — `docs/runbooks/spot-margin.md` + BUG-066 family-root-cause entry | #686 (this session) |
+| 5 | S-047 T7 — sprint close (`docs/sprint-logs/S-047.md`, milestone-state, ROADMAP, this CP) | this PR |
+
+**Tier 2 (operator-acked inline):**
+
+| # | Item | PR |
+|---|---|---|
+| 1 | S-CANON-FU-2 — closed-flat invariant wired into `run_monitor_tick`, gated by `CLOSED_FLAT_INVARIANT_ENABLED` (default false) | #679 |
+| 2 | enable/disable-closed-flat-invariant operator actions (allowlisted) | #681 (squashed `d400bac`) |
+
+**Operator-driven runs (issue-dispatched):**
+
+| # | Action | Issue | Result |
+|---|---|---|---|
+| 1 | `pull-and-deploy` → sync `d400bac` to VM | #682 | ✅ ok |
+| 2 | `enable-closed-flat-invariant` → start 7-day alert-only soak | #683 | ✅ ok (soak in progress) |
+
+### Files changed in this CP (T7)
+- `docs/sprint-logs/S-047.md` (new)
+- `docs/claude/milestone-state.md`
+- `ROADMAP.md`
+- `docs/claude/checkpoints/CHECKPOINT_LOG.md` (this entry)
+
+### Tests run
+- `ruff check .` — clean.
+- `python scripts/secret_scan.py` — clean.
+- `pytest --collect-only` — N/A on the sandbox (Python 3.13 vs binary deps); CI runs Python 3.11 + pinned reqs and was green on every PR this session.
+
+### Remaining
+- T6 mainnet smoke acceptance row in `docs/sprint-logs/S-047.md` is marked TBD until the operator runs the 0.0005 BTC short on `bybit_2`. The sprint is otherwise paperwork-complete; the smoke acceptance can be appended to the sprint log without reopening the sprint.
+- 7-day closed-flat invariant alert-only soak is running on the VM (started 2026-05-10 via issue #683). Watch `runtime_logs/invariant_violations.jsonl`; expected count is zero.
+
+### Next checkpoint
+**CP-YYYY-MM-DD-NN — M5 P3+ — strategy testing artifact consumer.** First action: `gh pr view 640` and resolve the merge conflicts on `main`. Then read `docs/sprints/sprint-065-prompt.md` and `docs/claude/milestone-state.md` § Queued milestones (M5 is row 1).
+
+---
+
 ## CP-2026-05-10-03-s067-followups-wrap-up — S-067 follow-up queue closed (10 items shipped + 4 phase-2 fixes filed)
 
 - **Session date:** 2026-05-10
