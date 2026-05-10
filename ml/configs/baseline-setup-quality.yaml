@@ -1,0 +1,53 @@
+# Example training manifest — setup-quality baseline (WS5-C).
+#
+# Predicts the expected R-multiple for the next trade given its
+# `setup_type`. Per-bucket sample mean (configurable feature).
+# Reuses `PerStrategyWinRateTrainer` with `target_kind: numeric_mean`
+# (S-AI-WS5-C extension): per-group mean of any numeric column,
+# not just per-group win rate.
+#
+# Run end-to-end:
+#
+#   python -m ml.datasets build setup_labels \
+#     --output-dir ./datasets-out --version v001 \
+#     --source trade_journal.db \
+#     -- db_path=/abs/path/to/trade_journal.db \
+#        risk_pct=1.0 r_cap=3.0
+#
+#   python -m ml train ml/configs/baseline-setup-quality.yaml \
+#     --datasets-root ./datasets-out
+#
+# Decision-utility: a positive `mae` improvement against a global-
+# mean sanity baseline (todo: ship paired sanity manifest) tells
+# the operator that `setup_type` actually carries directional
+# signal about expected R. If MAE matches the global baseline,
+# setup_type alone is uninformative on this dataset.
+
+manifest_version: v1
+model_id: setup-quality-baseline-v0
+model_family: regression_baseline
+trainer: ml.trainers.per_strategy_winrate.PerStrategyWinRateTrainer
+trainer_config:
+  target_column: r_multiple
+  feature_column: setup_type
+  target_kind: numeric_mean
+dataset:
+  family: setup_labels
+  symbol_scope: all
+  timeframe: all
+  version: v001
+evaluator: ml.evaluators.regression.RegressionEvaluator
+evaluator_config:
+  target_column: r_multiple
+  metrics: [mse, mae]
+  split_strategy: time_aware_holdout
+  time_column: created_at
+  holdout_fraction: 0.2
+target_deployment_stage: research_only
+notes: |
+  WS5-C baseline. Per-setup_type mean R-multiple. Time-aware
+  holdout — eval is the latest 20 % of trades by `created_at`.
+  Not a candidate for any live tier.
+  Leakage discipline: `pnl`, `pnl_percent`, and `r_multiple` are
+  all outcomes; only metadata columns (`setup_type`, `killzone`,
+  `bias`, `direction`) may be used as features.

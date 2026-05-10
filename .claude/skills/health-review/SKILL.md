@@ -168,6 +168,23 @@ The grade is independent of dollar outcome — a small win on a bad
 setup is still graded poorly; a stop-out on a textbook setup is
 still graded fairly.
 
+**These grades are downstream training input for the AI-traders
+baseline pipeline** ([`docs/AI-TRADERS-ROADMAP.md`](../../../docs/AI-TRADERS-ROADMAP.md)).
+The current consumers:
+
+- The `trade_outcomes` family ([`ml/datasets/families/trade_outcomes.py`](../../../ml/datasets/families/trade_outcomes.py))
+  joins these grades to closed trades for the WS5-A outcome
+  probability baseline.
+- The `setup_labels` family ([`ml/datasets/families/setup_labels.py`](../../../ml/datasets/families/setup_labels.py))
+  uses them for the WS5-C setup-quality scorer.
+- Future post-trade-review (WS5-E) and prop-mission-policy
+  (WS5-F) baselines will read them directly.
+
+So this section is not optional decoration — it is the labelled
+feedstock that retrains the next baseline run. Grade as if the
+operator will inspect every row, because the model layer
+eventually will.
+
 Use the trade's `signal_logic` blob (in `trades.notes` or the
 `order_packages.signal_logic` JSON) to anchor the call. That blob
 carries the entry rationale (VWAP std-dev, HTF EMA / band, sweep
