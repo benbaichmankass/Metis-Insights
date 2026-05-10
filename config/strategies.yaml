@@ -99,3 +99,17 @@ strategies:
       # 0.020 = 2% band (band sweep showed +0.35 Sharpe + 13% cadence
       # recovery vs the originally-proposed 0.010; see PLAN.md V2 results).
       band_pct: 0.02
+
+    # Shadow-mode predictors (S-AI-WS7-PART-4). List of registered
+    # model_ids that should score every vwap signal as a side-channel
+    # observation. Each model is loaded via
+    # ml.shadow.factory.resolve_predictors, wrapped in ShadowPredictor,
+    # and called inside vwap.order_package(). The score does NOT
+    # influence the deterministic decision (verified by
+    # tests/test_vwap_shadow.py::test_no_predictor_keys_unchanged).
+    # Models must be promoted past `backtest_approved` (i.e. at
+    # `shadow`, `advisory`, `limited_live`, or `live_approved`) for
+    # the factory to load them; entries failing the stage gate are
+    # logged and skipped without crashing the strategy.
+    # Empty list (default) = no shadow side-channel.
+    shadow_model_ids: []

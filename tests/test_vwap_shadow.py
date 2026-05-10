@@ -207,3 +207,122 @@ class TestBuildShadowFeatureRow:
         )
         assert row["setup_type"] == ""
         assert row["killzone"] == ""
+
+
+class TestVwapConfigDrivenShadow:
+    """PART-4: vwap reads `shadow_model_ids` from cfg + resolves them
+    via the registry-backed factory."""
+
+    def _register_model(self, root: Path, model_id: str, stage: str = "shadow"):
+        from ml.registry.model_registry import ModelRegistry
+
+        state_path = root / f"{model_id}_state.json"
+        state_path.write_text(
+            json.dumps(
+                {
+                    "trainer": "ml.trainers.constant_baseline."
+                               "ConstantPredictionTrainer",
+                    "constant": 0.5,
+                }
+            )
+        )
+        registry_root = root / "registry-store"
+        registry = ModelRegistry(registry_root)
+        registry.register(
+            model_id=model_id,
+            manifest={"manifest_version": "v1"},
+            model_state_path=str(state_path),
+            metrics={"mae": 0.1},
+            code_revision="x",
+        )
+        ladder = [
+            "candidate", "backtest_approved", "shadow",
+            "advisory", "limited_live", "live_approved",
+        ]
+        for step in ladder:
+            registry.promote_stage(
+                model_id, step, by="op", reason=f"to-{step}",
+            )
+            if step == stage:
+                break
+        return registry_root
+
+    def test_shadow_model_ids_resolves_three_concurrently(
+        self, tmp_path: Path
+    ):
+        """Operator's PART-4 spec: wire all three WS5 models
+        concurrently against vwap. Verify three audit lines per
+        tick."""
+        registry_root = self._register_model(tmp_path, "wr-baseline")
+        self._register_model(tmp_path, "rmult-baseline")
+        self._register_model(tmp_path, "slip-baseline")
+        log_path = tmp_path / "shadow_audit.jsonl"
+
+        cfg = {
+            "shadow_model_ids": [
+                "wr-baseline", "rmult-baseline", "slip-baseline",
+            ],
+            "_shadow_registry_root": str(registry_root),
+            "_shadow_log_path": str(log_path),
+        }
+        package = order_package(cfg, _candles_below_vwap())
+        # Package shape unchanged.
+        assert sorted(package.keys()) == sorted(
+            ["symbol", "direction", "entry", "sl", "tp", "confidence", "meta"]
+        )
+        # One audit line per predictor.
+        lines = [
+            json.loads(line)
+            for line in log_path.read_text().splitlines()
+            if line
+        ]
+        assert len(lines) == 3
+        assert {entry["model_id"] for entry in lines} == {
+            "wr-baseline", "rmult-baseline", "slip-baseline",
+        }
+
+    def test_unpromoted_model_skipped_not_crashed(self, tmp_path: Path):
+        """A model_id stuck at `research_only` is logged + skipped.
+        Other models in the list still fire normally."""
+        registry_root = self._register_model(tmp_path, "ok-shadow")
+        self._register_model(tmp_path, "stuck-research", stage="research_only")
+        log_path = tmp_path / "shadow_audit.jsonl"
+
+        cfg = {
+            "shadow_model_ids": ["ok-shadow", "stuck-research"],
+            "_shadow_registry_root": str(registry_root),
+            "_shadow_log_path": str(log_path),
+        }
+        package = order_package(cfg, _candles_below_vwap())
+        assert "shadow_score" not in package
+        lines = [
+            json.loads(line)
+            for line in log_path.read_text().splitlines()
+            if line
+        ]
+        assert len(lines) == 1
+        assert lines[0]["model_id"] == "ok-shadow"
+
+    def test_empty_shadow_model_ids_no_op(self, tmp_path: Path):
+        cfg = {"shadow_model_ids": []}
+        package = order_package(cfg, _candles_below_vwap())
+        assert sorted(package.keys()) == sorted(
+            ["symbol", "direction", "entry", "sl", "tp", "confidence", "meta"]
+        )
+
+    def test_singular_predictor_still_works(self, tmp_path: Path):
+        """PART-3 backward-compat: cfg["_shadow_predictor"] (singular)
+        still wires through the new plural path."""
+        from ml.predictors import ConstantPredictor
+
+        log_path = tmp_path / "audit.jsonl"
+        predictor = ShadowPredictor(
+            ConstantPredictor(state={"constant": 0.5}),
+            model_id="legacy-singular", stage="shadow",
+            log_path=log_path,
+        )
+        cfg = {"_shadow_predictor": predictor}
+        order_package(cfg, _candles_below_vwap())
+        lines = log_path.read_text().splitlines()
+        assert len(lines) == 1
+        assert json.loads(lines[0])["model_id"] == "legacy-singular"
