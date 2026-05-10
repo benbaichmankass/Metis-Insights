@@ -57,6 +57,7 @@
 ## Documentation Updated
 - Rules doc updates:
 - Architecture doc updates:
+- Trade pipeline doc updates (`docs/TRADE-PIPELINE.md`):
 - Roadmap updates:
 - GitHub Actions doc updates:
 - Subsystem doc updates:
@@ -84,6 +85,7 @@
 ## Wrap-Up Check
 - [ ] Code was inspected directly, not inferred only from summaries.
 - [ ] Documentation was reviewed and updated as part of the sprint.
+- [ ] If this sprint touched any pipeline stage, `docs/TRADE-PIPELINE.md` was updated and the dashboard's Trade Process tab was visually verified.
 - [ ] Roadmap status was checked.
 - [ ] Contradictions were recorded.
 - [ ] Remaining unknowns were stated clearly.
