@@ -1,0 +1,50 @@
+{
+  "request_id": "REQ-20260510-141944-25631054588",
+  "reviewed_at": "2026-05-10T14:35:00+00:00",
+  "reviewer": "claude",
+  "run_id": "25631054588",
+  "machine_status": "WARNING",
+  "overall_assessment": "caution",
+  "findings": {
+    "heartbeat": {
+      "status": "ok",
+      "note": "Heartbeat fresh. mtime=2026-05-10T14:18:58Z, age=42s at snapshot time. Last entry: '2026-05-10T14:18:58+00:00 ok tick=4'. Main loop is alive and ticking. No stale heartbeat."
+    },
+    "ticks": {
+      "status": "watch",
+      "note": "No tick log files found in lookback window (1440 min). Heartbeat tick=4 confirms main loop executes, but no tick log files were located by the snapshot script. Possible causes: (a) market session gating has not fired in 24h, (b) tick log path differs from snapshot collection path, (c) tick logging not yet active. Non-alarming on its own but should be confirmed with operator."
+    },
+    "signals": {
+      "status": "watch",
+      "note": "No signal logs in 1440 min. Consistent with tick absence — no ticks means no signal generation. Not independently alarming; follows from tick watch status."
+    },
+    "orders": {
+      "status": "ok",
+      "note": "No order logs in 1440 min. No unexpected or spurious order attempts detected. Consistent with inactive signal layer."
+    },
+    "trades": {
+      "status": "ok",
+      "note": "No trade logs in 1440 min. No live trades executed. Consistent with no signals or orders."
+    },
+    "monitoring": {
+      "status": "watch",
+      "note": "No monitor logs and no watchdog logs found at all — the MONITORING section is entirely empty. Watchdog/monitor should emit log output even with no trading activity. Either the monitoring layer is not running, its log path differs from the snapshot collection path, or it was never started in the current process group. Warrants investigation."
+    },
+    "sizing": {
+      "status": "ok",
+      "note": "No live trades to size-check. Smoke test used qty=0.001 (within default). No position sizing anomalies detectable."
+    },
+    "api_errors": {
+      "status": "ok",
+      "note": "All Telegram API calls in the snapshot window return HTTP 200. The ERRORS section contains only historical entries: 2026-04-19 bot conflict (pre-restart, resolved), 2026-05-07 Bad Gateway (transient network), 2026-05-08 thread-not-found (deleted Telegram thread). No errors in the current session."
+    }
+  },
+  "anomalies": [
+    "CRITICAL INFRA: Anthropic API credit balance is zero. Layer-1 automated analysis (claude-haiku-4-5-20251001) offline for all runs. Must be replenished for automated snapshot grading to resume. OPERATOR ATTENTION REQUIRED.",
+    "bybit_2 exchange client is NoneType — pipeline smoke hit AttributeError: 'NoneType' object has no attribute 'place_order' at src/runtime/orders.py line 183. Plumbing handled this correctly (rc=1, valid rejection, full path exercised per smoke contract). However, if bybit_2 is intended as a live trading account its exchange client is not initialised — API credentials may not be loaded into the environment. Operator must confirm whether bybit_2 is active or intentionally unconfigured.",
+    "No tick or signal log files in 1440 min despite src.main running (heartbeat tick=4 in ~4h uptime is low). Could reflect market session gating or strategy inactivity window, but should be explicitly confirmed by operator.",
+    "No monitor/watchdog logs found at all. Monitoring layer may not be logging to the path the snapshot script searches, or may not have been started in the current session."
+  ],
+  "recommended_action": "1. IMMEDIATE: Top up Anthropic API credits to restore layer-1 analysis. 2. Confirm bybit_2 account status — if active trading account, investigate why exchange client is None (API keys not sourced into service environment?). 3. Confirm tick/signal log absence is expected given market hours or strategy session config. 4. Investigate monitoring/watchdog log paths — completely empty monitoring section is anomalous. 5. Confirm git pull was performed on VM post-PR-703 (this resolves the prior rc=127 CRITICAL and evidence suggests it was).",
+  "operator_attention_required": true
+}

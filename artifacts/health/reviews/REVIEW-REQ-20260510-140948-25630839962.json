@@ -1,0 +1,49 @@
+{
+  "request_id": "REQ-20260510-140948-25630839962",
+  "reviewed_at": "2026-05-10T14:35:00+00:00",
+  "reviewer": "claude",
+  "run_id": "25630839962",
+  "machine_status": "CRITICAL",
+  "overall_assessment": "investigate",
+  "findings": {
+    "heartbeat": {
+      "status": "watch",
+      "note": "Snapshot artifact for this specific run is not independently accessible — only the subsequent run's snapshot (25631054588) is in main. No heartbeat data directly verifiable for run 25630839962."
+    },
+    "ticks": {
+      "status": "watch",
+      "note": "Layer-1 verdict unavailable (Anthropic API credit exhaustion). No independent tick data accessible for this run."
+    },
+    "signals": {
+      "status": "watch",
+      "note": "Layer-1 verdict unavailable. No independent signal data for this run."
+    },
+    "orders": {
+      "status": "watch",
+      "note": "Layer-1 verdict unavailable. No independent order data for this run."
+    },
+    "trades": {
+      "status": "watch",
+      "note": "Layer-1 verdict unavailable. No independent trade data for this run."
+    },
+    "monitoring": {
+      "status": "watch",
+      "note": "Layer-1 verdict unavailable. No independent monitoring data for this run."
+    },
+    "sizing": {
+      "status": "ok",
+      "note": "No trades context available for this run. Position sizing not assessable."
+    },
+    "api_errors": {
+      "status": "concern",
+      "note": "Anthropic API returned HTTP 400 BadRequestError: credit balance too low. Layer-1 claude-haiku-4-5-20251001 call failed. This is a systemic infrastructure issue, not a trading exchange API error."
+    }
+  },
+  "anomalies": [
+    "CRITICAL INFRA: Anthropic API credit balance is zero. Layer-1 automated analysis (claude-haiku-4-5-20251001) is completely offline. Both this run and run 25631054588 are affected. No automated snapshot grading will occur until credits are replenished. OPERATOR ATTENTION REQUIRED.",
+    "Pipeline smoke test exited rc=127 (command not found). scripts/run_pipeline_health_test.sh or smoke_test_trade.py was not on the VM PATH when the workflow SSH'd in. Root cause: git pull had not yet been performed on the VM after PR #703 merged (PR #703 introduced run_pipeline_health_test.sh and the pipeline-test feature). This is a health-check tooling gap, NOT a live trading pipeline failure.",
+    "Self-resolution evidence: subsequent run 25631054588 (PR #717) executed the smoke successfully (rc=1 not rc=127), confirming a git pull was performed between the two runs."
+  ],
+  "recommended_action": "1. IMMEDIATE: Top up Anthropic API credits to restore layer-1 automated analysis — this is the critical systemic blocker for all future health runs. 2. Confirm git pull was run on VM after PR #703 merge (evidence strongly suggests it was, given next run rc=1 success). 3. No live trading impact from this run's CRITICAL — rc=127 affected health-check tooling only. 4. Review run 25631054588 findings (REVIEW-REQ-20260510-141944-25631054588.json) for current system state.",
+  "operator_attention_required": true
+}
