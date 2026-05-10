@@ -52,12 +52,93 @@ If the user invoked it with an all-digits workflow run id: glob
 `comms/requests/REQ-*-<run_id>.json` (the suffix matches the GitHub
 `run_id`).
 
+## Mandatory pre-review step — fetch the live 6-hour log window
+
+**The snapshot alone is not enough.** The collector at
+`scripts/collect_health_snapshot.sh` only greps `*.log` files for
+ticks/signals/orders/trades, but the live pipeline writes to
+`runtime_logs/signal_audit.jsonl` (NDJSON, not `.log`). As a result,
+the snapshot's `=== TICKS / SIGNALS / ORDERS / TRADES ===` sections
+will frequently say "no … logs in last 1440m" even when the bot is
+actively trading. This is a known collector limitation, not a bot
+outage — and it means a snapshot-only review will always under-report
+activity.
+
+So before grading, **always pull the live audit + journal tables via
+the diag relay** (see `docs/claude/diag-relay.md`). This is the main
+substance of the layer-2 review: Claude must look at the actual
+signals, orders, and trades produced over the recent window and
+sanity-check both the technical pipeline (does each signal that
+should have produced an order actually produce one? do orders that
+fill become trades?) and the decision quality (are the signals
+reasonable for the current market context? are the position sizes,
+sides, and SL/TP wired through correctly?).
+
+Open a single `[diag-request]` issue per query, then poll
+`mcp__github__issue_read` for the workflow's reply comment. Required
+pulls:
+
+1. **6-hour audit tail** — `audit?limit=600` (≈100 events/hr cap).
+   Tail of `runtime_logs/signal_audit.jsonl`. Filter the returned
+   NDJSON to events whose `ts` is within the last 6h.
+2. **Recent order packages** — `journal?table=order_packages&limit=100`.
+   Compare against the audit tail: every `signal → order` transition
+   should produce a row here.
+3. **Recent trades** — `journal?table=trades&limit=100`. Same idea
+   for `order → fill → trade`.
+4. **Status snapshot** — `status` (heartbeat + status.json + vm_health).
+   Cross-check against the embedded HEARTBEAT block.
+
+If the relay returns curl exit 7 (`Failed to connect to 127.0.0.1`),
+the web-api is down — fire `vm-web-api-recover` and retry once. If
+it still fails, downgrade gracefully: emit the review with a
+`concern` on `api_errors` and `operator_attention_required: true`,
+note that the 6h log review could not be performed, and stop. Do
+not fabricate findings from the snapshot alone.
+
+### Sanity-check rubric for the 6-hour window
+
+Beyond freshness counts, judge **decision quality**:
+
+- **Signal → order plumbing.** For every signal in the audit tail
+  with `outcome=actionable` (or equivalent), there should be a
+  corresponding `order_packages` row within seconds. Gaps → `concern`
+  on `orders`.
+- **Order → trade plumbing.** Every filled order should have a row
+  in `trades`. Orphaned orders (filled with no trade row, or trade
+  rows with no parent order) → `concern` on `trades`.
+- **Side / size sanity.** Spot-check 3–5 orders: does the side match
+  the signal direction? Is the qty within the per-account cap in
+  `config/accounts.yaml`? Is leverage reasonable (no `qty=1` BTC
+  on a $200 account)?
+- **SL/TP wiring.** Each order should carry SL and TP metadata
+  (visible in `order_packages.metadata` or signal_audit). Missing
+  → `watch`; systematic absence → `concern`.
+- **Repeated rejections.** Multiple consecutive `failed_exchange`
+  / `failed_risk_gate` / `borrow_unavailable` events on the same
+  symbol → `concern` on `orders` (something upstream is wedged).
+- **Monitoring cadence.** `run_monitor_tick` events should appear
+  on the documented cadence. Long gaps → `concern` on `monitoring`.
+- **Signal reasonableness.** This is the qualitative check. Are
+  signals firing at sensible times (not 100 in 5 minutes, not 0 over
+  6 hours during active sessions)? Are the strategies named in the
+  audit consistent with what's enabled in `config/strategies.yaml`?
+  Anomalies here go in the free-form `anomalies` array.
+
+The pipeline-test result in `artifacts/health/pipeline_test.json` is
+an out-of-band dry-run of `safe_place_order`. A `warn` with note
+"plumbing-on-rejection path exercised" is the **expected** outcome
+when no exchange client is wired into the smoke; do not grade it
+as `concern`.
+
 ## Decision procedure
 
-Cross-check the layer-1 output against the raw snapshot. When layer 1
-fell back to `UNKNOWN` (Anthropic credit issue, `--skip-llm`, network),
-the snapshot is the source of truth — grade it yourself using the
-rubric in `.claude/health_check_prompt.md`.
+Cross-check the layer-1 output against the raw snapshot **and the
+live diag pulls from the pre-review step**. When layer 1 fell back
+to `UNKNOWN` (Anthropic credit issue, `--skip-llm`, network), the
+snapshot + diag pulls are the source of truth — grade them yourself
+using the rubric in `.claude/health_check_prompt.md` plus the
+sanity-check rubric above.
 
 Map findings to the layer-2 dimensions (these differ from layer 1):
 
@@ -118,16 +199,26 @@ Schema reminder:
 
 ## Notes guidance
 
-- Each `note` ≤ 120 chars. Reference specifics from the snapshot
-  (filenames, ages, counts, error classes) so the operator can verify
-  quickly.
-- Empty sections in the snapshot grade `watch` with a "no recent
-  activity" note rather than `ok`.
-- Don't fabricate data — if a section is absent from the snapshot,
-  say so in the note rather than guessing.
+- Each `note` ≤ 120 chars. Reference specifics from the snapshot or
+  live diag pulls (counts, ages, error classes, sample symbols / qtys)
+  so the operator can verify quickly.
+- Prefer counts from the live diag tail (`audit?limit=600` over the
+  last 6h) over the snapshot's TICKS/SIGNALS/ORDERS/TRADES sections —
+  the snapshot collector is known to under-report (see pre-review
+  step above).
+- An empty section in the snapshot is **not** automatically `watch`
+  if the diag tail shows activity in the same window — grade by what
+  the diag tail says, and add an anomaly noting the snapshot/diag
+  disagreement so the collector bug stays visible.
+- Don't fabricate data — if a diag pull failed and you couldn't
+  verify a dimension, say so in the note (e.g. "audit pull failed,
+  graded from snapshot only").
 
 ## What NOT to do
 
+- Don't skip the 6-hour log review. The pre-review step is the
+  substance of this routine; emitting a verdict from the snapshot
+  alone is the failure mode this skill exists to prevent.
 - Don't write any files. The response is plain-text JSON in the
   conversation. The operator pastes it into the comms request's
   answer per `comms/schema/response.schema.json`.
