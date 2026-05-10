@@ -43,6 +43,14 @@ Workflow files map to permission tiers (see
   declared labels are: `vm-diag-request`, `vm-web-api-recover`,
   `operator-action`, `vm-cloud-fix-request`, `vm-net-diag-request`,
   `vm-net-fix-request`.
+- **Job IDs match workflow names** for every CI guard. The GitHub
+  status-context name comes from the job ID, so each guard's job
+  matches the workflow file name (`pytest-collect`, `secret-scan`,
+  `ruff-lint`, `dry-run-guard`, `env-gate-guard`,
+  `silent-empty-guard`, `repo-inventory`). `REQUIRED_CONTEXTS` in
+  `branch-protection-sync.yml` is the source of truth for which
+  contexts gate `main`; it is currently
+  `["pytest-collect","secret-scan","ruff-lint","dry-run-guard"]`.
 - Issue-driven mutating workflows take the issue body verbatim through
   the `ISSUE_BODY` env var; do **not** interpolate
   `${{ github.event.issue.body }}` directly into shell.

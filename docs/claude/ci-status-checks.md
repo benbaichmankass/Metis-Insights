@@ -33,6 +33,19 @@ advisory until ≥ 5 PRs have observed the artifact and the operator
 confirms the signal is useful. Branch protection wiring is the T4
 deliverable of S-045 — see § "Branch protection wiring" below.
 
+> **Status-context naming (post 2026-05-10 audit):** the GitHub
+> status-context name comes from the workflow's **job ID**, not the
+> file name. Each guard workflow now uses a unique job ID that
+> matches its workflow name (`pytest-collect.yml` → job
+> `pytest-collect`, `secret-scan.yml` → `secret-scan`,
+> `ruff-lint.yml` → `ruff-lint`, `dry-run-guard.yml` → `dry-run-guard`,
+> `env-gate-guard.yml` → `env-gate-guard`,
+> `silent-empty-guard.yml` → `silent-empty-guard`,
+> `repo-inventory.yml` → `repo-inventory`). Before this change the
+> guard workflows shared the job ID `scan`, so a 4-way collision
+> would have made `REQUIRED_CONTEXTS` match wrongly once
+> `BRANCH_PROTECTION_TOKEN` got configured.
+
 ---
 
 ## Per-workflow details

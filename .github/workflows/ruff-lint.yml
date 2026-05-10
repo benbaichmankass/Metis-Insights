@@ -23,7 +23,7 @@ on:
     branches: [main]
 
 jobs:
-  lint:
+  ruff-lint:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

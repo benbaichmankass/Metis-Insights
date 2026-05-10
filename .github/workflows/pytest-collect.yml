@@ -23,7 +23,7 @@ on:
     branches: [main]
 
 jobs:
-  collect:
+  pytest-collect:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
