@@ -406,17 +406,39 @@ def health_summary(
         try:
             from src.runtime.health import run_all_checks
             health_checks = run_all_checks()
-        except Exception as exc:  # noqa: BLE001
+        except (ImportError, ModuleNotFoundError, OSError, RuntimeError, AttributeError) as exc:
+            # S-067 follow-up D4 — see
+            # docs/audits/silent-empty-reporting-2026-05-10.md § Phase-2 #4.
+            # Returning [] read as "all checks healthy" downstream.
+            # Synthesize an "unknown" sentinel so the Health section
+            # surfaces the failure rather than rendering "no critical /
+            # no warn". SimpleNamespace avoids needing HealthCheck —
+            # its module may itself have failed to import.
+            import types
             logger.warning("hourly_report: run_all_checks failed: %s", exc)
-            health_checks = []
+            health_checks = [
+                types.SimpleNamespace(
+                    name="health_checks",
+                    status="unknown",
+                    detail=(
+                        f"run_all_checks failed: {type(exc).__name__}: {exc}. "
+                        "See bot.log for the underlying error."
+                    ),
+                ),
+            ]
 
     checks_critical = any(c.status == "critical" for c in health_checks)
     checks_warn = any(c.status == "warn" for c in health_checks)
+    # "unknown" is the D4 sentinel for "we couldn't run the checks at
+    # all". It signals warn-level uncertainty (not critical — the
+    # checks themselves might have been clean), but the report MUST
+    # NOT render as "ok / all checks healthy".
+    checks_unknown = any(c.status == "unknown" for c in health_checks)
 
     overall = "ok"
     if has_critical or tick_stale or checks_critical:
         overall = "degraded"
-    elif has_error or checks_warn:
+    elif has_error or checks_warn or checks_unknown:
         overall = "warn"
 
     return {
@@ -525,7 +547,8 @@ def _build_strategy_sections(
         + ("  STALE" if health["tick_stale"] else ""),
     ]
     for c in (health.get("checks") or []):
-        marker = {"ok": "OK", "warn": "WARN", "critical": "CRIT"}.get(
+        marker = {"ok": "OK", "warn": "WARN", "critical": "CRIT",
+                  "unknown": "UNK"}.get(
             getattr(c, "status", "?"), "?"
         )
         health_lines.append(
