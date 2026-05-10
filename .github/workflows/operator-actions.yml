@@ -65,6 +65,8 @@ on:
           - reboot-vm
           - enable-closed-flat-invariant
           - disable-closed-flat-invariant
+          - setup-cloudflare-tunnel
+          - teardown-cloudflare-tunnel
           - enable-m5-consumer
           - disable-m5-consumer
       reason:
@@ -153,7 +155,7 @@ jobs:
             status-check|pull-latest-logs)
               echo "tier=1" >>"$GITHUB_ENV"
               ;;
-            pull-and-deploy|restart-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|enable-m5-consumer|disable-m5-consumer)
+            pull-and-deploy|restart-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|enable-m5-consumer|disable-m5-consumer|setup-cloudflare-tunnel|teardown-cloudflare-tunnel)
               echo "tier=2" >>"$GITHUB_ENV"
               if [ -z "${REASON// }" ]; then
                 echo "::error::Tier-2 action '${ACTION}' requires a non-empty 'reason' input."
@@ -219,6 +221,8 @@ jobs:
             disable-closed-flat-invariant)   SCRIPT="disable_closed_flat_invariant.sh" ;;
             enable-m5-consumer)              SCRIPT="enable_m5_consumer.sh" ;;
             disable-m5-consumer)             SCRIPT="disable_m5_consumer.sh" ;;
+            setup-cloudflare-tunnel)         SCRIPT="setup_cloudflare_tunnel.sh" ;;
+            teardown-cloudflare-tunnel)      SCRIPT="teardown_cloudflare_tunnel.sh" ;;
             *)
               echo "::error::Allowlist regression: '${ACTION}' was not mapped to a wrapper script."
               exit 2

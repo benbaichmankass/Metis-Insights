@@ -1,0 +1,57 @@
+{
+  "action_required": "Manual review required \u2014 automated layer-1 analysis was not produced for this run. The raw snapshot is the source of truth for the layer-2 review.",
+  "checks": {
+    "api": {
+      "note": "layer-1 verdict unavailable",
+      "status": "warn"
+    },
+    "errors": {
+      "note": "layer-1 verdict unavailable",
+      "status": "warn"
+    },
+    "heartbeat": {
+      "note": "layer-1 verdict unavailable",
+      "status": "warn"
+    },
+    "monitoring": {
+      "note": "layer-1 verdict unavailable",
+      "status": "warn"
+    },
+    "orders": {
+      "note": "layer-1 verdict unavailable",
+      "status": "warn"
+    },
+    "pipeline": {
+      "note": "order rejected by safe_place_order (plumbing-on-rejection path exercised) (rc=1, 0.122s)",
+      "status": "warn"
+    },
+    "processes": {
+      "note": "layer-1 verdict unavailable",
+      "status": "warn"
+    },
+    "resources": {
+      "note": "layer-1 verdict unavailable",
+      "status": "warn"
+    },
+    "signals": {
+      "note": "layer-1 verdict unavailable",
+      "status": "warn"
+    },
+    "ticks": {
+      "note": "layer-1 verdict unavailable",
+      "status": "warn"
+    },
+    "trades": {
+      "note": "layer-1 verdict unavailable",
+      "status": "warn"
+    }
+  },
+  "error": {
+    "message": "Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011Cau2xkktS57CGVyDa3rJ1'}",
+    "type": "BadRequestError"
+  },
+  "model": "claude-haiku-4-5-20251001",
+  "status": "WARNING",
+  "summary": "Layer-1 analysis unavailable: BadRequestError: Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or",
+  "timestamp": "2026-05-10T14:19:44.278061+00:00"
+}

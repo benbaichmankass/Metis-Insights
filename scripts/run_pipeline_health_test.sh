@@ -30,9 +30,12 @@
 #   HEALTH_TEST_ACCOUNT  account name in config/accounts.yaml (default: bybit_2)
 #   HEALTH_TEST_QTY      order qty in BTC, hard-capped at 0.001 by smoke (default: 0.001)
 #   HEALTH_TEST_TIMEOUT  hard kill in seconds (default: 90 — covers open + sleep(2) + close)
+#   HEALTH_TEST_PYTHON   python interpreter (default: python3 — the VM's systemd units
+#                        invoke /usr/bin/python3 explicitly; bare `python` is not on PATH
+#                        for the SSH session and exits rc=127 ("command not found")).
 set -uo pipefail
 
-# Run from repo root so `python scripts/smoke_test_trade.py` resolves
+# Run from repo root so `python3 scripts/smoke_test_trade.py` resolves
 # its REPO_ROOT path-helper exactly the way the live bot's systemd
 # unit does.
 cd "$(dirname "$0")/.."
@@ -40,6 +43,7 @@ cd "$(dirname "$0")/.."
 ACCOUNT="${HEALTH_TEST_ACCOUNT:-bybit_2}"
 QTY="${HEALTH_TEST_QTY:-0.001}"
 TIMEOUT="${HEALTH_TEST_TIMEOUT:-90}"
+PY="${HEALTH_TEST_PYTHON:-python3}"
 
 # Source the .env the systemd unit's `EnvironmentFile=` would have
 # loaded. smoke_test_trade.py reads BYBIT credentials directly out of
@@ -59,7 +63,7 @@ trap 'rm -f "$LOG_FILE"' EXIT
 
 start_ts=$(date +%s.%N)
 set +e
-timeout "$TIMEOUT" python scripts/smoke_test_trade.py \
+timeout "$TIMEOUT" "$PY" scripts/smoke_test_trade.py \
     --dry-run \
     --account "$ACCOUNT" \
     --qty "$QTY" \
@@ -75,13 +79,14 @@ case "$RC" in
   1)   STATUS="warn"; NOTE="order rejected by safe_place_order (plumbing-on-rejection path exercised)" ;;
   2)   STATUS="fail"; NOTE="smoke_test_trade.py exited rc=2 — script-level error (see tail)" ;;
   124) STATUS="fail"; NOTE="smoke_test_trade.py timed out after ${TIMEOUT}s" ;;
+  127) STATUS="fail"; NOTE="interpreter '${PY}' not found on PATH (rc=127); set HEALTH_TEST_PYTHON to an absolute path" ;;
   *)   STATUS="fail"; NOTE="smoke_test_trade.py exited unexpectedly rc=${RC}" ;;
 esac
 
 # Hand the case-derived strings to python via env so json.dumps escapes
 # the tail content correctly even if it contains quotes or newlines.
 export ACCOUNT DURATION LOG_FILE NOTE RC STATUS
-python3 - <<'PYEOF'
+"$PY" - <<'PYEOF'
 import json
 import os
 
