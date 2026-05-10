@@ -23,8 +23,6 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-import pytest
-
 from src.runtime import _closed_flat_wiring as wiring
 
 
