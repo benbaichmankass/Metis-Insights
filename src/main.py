@@ -116,6 +116,169 @@ def _build_exchange_adapter(settings: dict):
     return BybitExchangeAdapter(connector, symbol)
 
 
+def _apply_per_account_leverage() -> None:
+    """Pre-flight: set per-symbol leverage for every linear-perp account.
+
+    PR 3 cutover (spot-margin → USDT-margined perpetuals). Bybit V5
+    requires `/v5/position/set-leverage` to be called per (symbol,
+    account) before placing linear orders; the value persists until
+    explicitly changed. Idempotent on retCode=110043 (already set),
+    so re-calling on every boot is safe.
+
+    Iterates `config/accounts.yaml`:
+      - skips accounts with `market_type` ≠ `linear`
+      - skips accounts missing creds (resolve_credentials returns None)
+      - reads `risk.leverage` (or `leverage`) from the account's YAML
+      - reads the per-strategy symbols from `config/strategies.yaml`
+        for the strategies that account is wired to
+      - calls `client.set_leverage(symbol, leverage)` for each pair
+
+    Best-effort — a failure on one account does not block the others
+    or block boot. A retCode-110043 (already set) is treated as
+    success; everything else is logged as a warning. The trader loop
+    will surface the consequence (an immediate Bybit order rejection
+    with a clear retMsg) if a real leverage problem is left
+    unresolved.
+    """
+    try:
+        from src.units.accounts import load_accounts
+        from src.units.accounts.clients import resolve_credentials
+        from src.units.strategies import load_strategy_config
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("set_leverage pre-flight: import failed (%s)", exc)
+        return
+
+    try:
+        accounts = load_accounts()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("set_leverage pre-flight: load_accounts failed (%s)", exc)
+        return
+
+    try:
+        strategies_cfg = load_strategy_config() or {}
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("set_leverage pre-flight: load_strategy_config failed (%s)", exc)
+        strategies_cfg = {}
+
+    bybit_testnet_raw = str(os.environ.get("BYBIT_TESTNET", "true")).strip().lower()
+    testnet = bybit_testnet_raw not in {"false", "0", "no"}
+
+    for account in accounts:
+        market_type = (getattr(account, "market_type", "spot") or "spot").lower()
+        if market_type != "linear":
+            continue
+
+        if getattr(account, "exchange", "").lower() != "bybit":
+            # Velotrade / future non-bybit derivatives have their own
+            # leverage primitives; this helper is bybit-specific.
+            continue
+
+        leverage = _resolve_account_leverage(account)
+        if leverage <= 0:
+            logger.warning(
+                "set_leverage pre-flight: account=%s has market_type=linear "
+                "but no usable `leverage` config — skipping",
+                account.name,
+            )
+            continue
+
+        creds = resolve_credentials({
+            "api_key_env": getattr(account, "api_key_env", ""),
+            "api_secret_env": None,  # let resolve_credentials derive
+            "exchange": "bybit",
+        })
+        if not creds:
+            logger.warning(
+                "set_leverage pre-flight: account=%s creds not resolvable "
+                "(env vars unset) — skipping",
+                account.name,
+            )
+            continue
+        api_key, api_secret = creds
+
+        symbols = _symbols_for_account(account, strategies_cfg)
+        if not symbols:
+            logger.warning(
+                "set_leverage pre-flight: account=%s has no symbols (no "
+                "strategies or empty symbol lists) — skipping",
+                account.name,
+            )
+            continue
+
+        try:
+            connector = BybitConnector(
+                api_key=api_key, api_secret=api_secret, testnet=testnet,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "set_leverage pre-flight: connector init failed for %s (%s)",
+                account.name, exc,
+            )
+            continue
+
+        for symbol in symbols:
+            try:
+                resp = connector.set_leverage(symbol, leverage)
+                logger.info(
+                    "set_leverage pre-flight: account=%s symbol=%s x%d ok "
+                    "(retCode=%s)",
+                    account.name, symbol, leverage,
+                    (resp or {}).get("retCode"),
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "set_leverage pre-flight: account=%s symbol=%s x%d "
+                    "failed (%s) — order placement may be rejected until "
+                    "leverage is set",
+                    account.name, symbol, leverage, exc,
+                )
+
+
+def _resolve_account_leverage(account) -> int:
+    """Pull integer leverage from an account's YAML config.
+
+    Preferred path: ``risk.leverage`` (groups it with other risk
+    caps). Fallback: top-level ``leverage`` on the account object.
+    Returns 0 when neither is set or the value can't be coerced to
+    a positive int.
+    """
+    candidates = []
+    rm = getattr(account, "risk_manager", None)
+    if rm is not None:
+        candidates.append(getattr(rm, "leverage", None))
+    # ``account`` is a TradingAccount; doesn't carry leverage today.
+    # Fall through to RiskManager attribute which we'll wire in
+    # accounts.yaml as ``risk.leverage``.
+    for raw in candidates:
+        if raw is None:
+            continue
+        try:
+            value = int(raw)
+        except (TypeError, ValueError):
+            continue
+        if value > 0:
+            return value
+    return 0
+
+
+def _symbols_for_account(account, strategies_cfg: dict) -> list:
+    """Return the union of symbols the account's strategies trade.
+
+    Reads ``strategies_cfg`` (from ``load_strategy_config()``); each
+    strategy entry carries a ``symbols`` list. The account's
+    ``strategies`` attribute lists the strategy names that account is
+    wired to. We take the union.
+    """
+    strat_names = getattr(account, "strategies", None) or []
+    symbols = []
+    for name in strat_names:
+        cfg = (strategies_cfg or {}).get(name) or {}
+        for sym in (cfg.get("symbols") or []):
+            if sym and sym not in symbols:
+                symbols.append(str(sym))
+    return symbols
+
+
 def _build_monitor_ohlcv_fetcher(settings: dict):
     """Build the ``(symbol, timeframe) -> DataFrame | None`` fetcher
     that ``run_monitor_tick`` needs to feed strategy ``monitor()``
@@ -263,6 +426,12 @@ def main() -> None:
         report_open_packages_on_boot()
     except Exception as exc:  # noqa: BLE001
         logger.warning("boot_audit skipped: %s", exc)
+
+    # PR 3 cutover: set per-symbol leverage on every linear-perp account
+    # before the first tick. Best-effort; logs warnings on failure and
+    # never blocks boot. Idempotent on Bybit's retCode=110043 ("leverage
+    # not modified") so re-calling on every restart is normal.
+    _apply_per_account_leverage()
 
     exchange_client = _build_exchange_adapter(settings)
     telegram_client = _build_telegram_client()

@@ -108,6 +108,59 @@ class BybitConnector:
             print(f"Error placing order: {e}")
             return None
 
+    def set_leverage(self, symbol, leverage, category="linear"):
+        """Set per-symbol leverage on Bybit V5 before placing linear perp orders.
+
+        PR 3 (spot-margin → perpetuals cutover): linear perpetuals require
+        ``/v5/position/set-leverage`` to be set once per (symbol, account)
+        before any order. Bybit returns retCode=110043 ("leverage not
+        modified") when the value is already what we asked for — this is
+        idempotent success, not an error, so callers can re-invoke on every
+        boot without consequence. Other retCodes propagate.
+
+        Unified Trading Account (UTA): set buyLeverage and sellLeverage
+        symmetrically; both must equal the same value or Bybit rejects.
+
+        Args:
+            symbol: Bybit symbol (e.g., "BTCUSDT" — no slash for V5).
+            leverage: Integer leverage (1-100). 3x is the operator default.
+            category: "linear" for USDT-margined perps. "inverse" not used.
+
+        Returns:
+            dict: ccxt response with ``retCode`` / ``retMsg``. Caller should
+                  treat retCode in (0, 110043) as success.
+        """
+        try:
+            # ccxt exposes set_leverage as ``set_leverage(leverage, symbol, params)``.
+            # The V5 endpoint requires buyLeverage + sellLeverage as strings.
+            params = {
+                "category": category,
+                "buyLeverage": str(int(leverage)),
+                "sellLeverage": str(int(leverage)),
+            }
+            resp = self.exchange.set_leverage(int(leverage), symbol, params=params)
+            mode = "TESTNET" if self.testnet else "LIVE"
+            logger.info(
+                "[%s] set_leverage: %s x%d (category=%s) -> %s",
+                mode, symbol, leverage, category, resp,
+            )
+            return resp
+        except Exception as e:
+            # Idempotent case: ccxt may raise on retCode=110043 ("leverage
+            # not modified"). Detect by message substring and surface as
+            # success — re-applying the same leverage every boot is normal.
+            msg = str(e)
+            if "110043" in msg or "leverage not modified" in msg.lower():
+                logger.info(
+                    "set_leverage: %s x%d already set (retCode=110043, idempotent)",
+                    symbol, leverage,
+                )
+                return {"retCode": 110043, "retMsg": "leverage not modified"}
+            logger.warning(
+                "Bybit: set_leverage(%s, x%d) failed — %s", symbol, leverage, e,
+            )
+            raise
+
 
 if __name__ == "__main__":
     print("BybitConnector loaded")

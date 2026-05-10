@@ -27,6 +27,9 @@ Hard limits (from accounts.yaml ``risk`` section):
 Sizing inputs (also from the ``risk`` section):
   - risk_pct: fraction of balance risked per trade (operator default 0.01)
   - min_balance_usd: refuse to size below this balance (operator default 50)
+  - leverage: per-account leverage for linear-perp accounts (PR 3
+    cutover). 0 means "not configured" — set_leverage is skipped at
+    startup. Cash spot and spot-margin accounts ignore this field.
 """
 from __future__ import annotations
 
@@ -53,6 +56,13 @@ _DEFAULT_TEST_QTY = 0.0001
 # T2's RiskManager.position_size() upgrade consumes for spot-margin
 # accounts. Non-spot-margin accounts construct a RiskManager with the
 # same defaults but never read these values.
+#
+# **PR 3 cutover note (2026-05-10):** these defaults are scheduled for
+# deletion in the follow-up cleanup PR once the operator confirms
+# bybit_2 is trading reliably on linear perps. The linear path in
+# coordinator.py does not consume any of these values; they only fire
+# when ``market_type == "spot-margin"`` (which no account uses
+# post-cutover).
 DEFAULT_MAX_BORROW_BTC = 0.5            # Bybit Tier 1 spot-margin BTC max-borrow.
 DEFAULT_BORROW_FEE_APR_PCT = 10.0       # Conservative annual %, Bybit market range ≈5–15.
 DEFAULT_LIQUIDATION_BUFFER_PCT = 30.0   # Per S-047 § 7 — distance from liquidation, in %.
@@ -267,6 +277,15 @@ class RiskManager:
         # module-level defaults apply.
         self.min_qty: float = float(config.get("min_qty", _DEFAULT_MIN_QTY))
         self.qty_precision: int = int(config.get("qty_precision", _DEFAULT_QTY_PRECISION))
+        # PR 3 cutover: per-account leverage for linear-perp accounts.
+        # When the account has `market_type: linear`,
+        # main.py::_apply_per_account_leverage reads this attribute and
+        # calls `/v5/position/set-leverage` once per (symbol, account)
+        # at boot. 0 means "not configured" → set_leverage is skipped;
+        # the exchange uses whatever leverage was last set
+        # (Bybit-side persistent setting). Cash spot and spot-margin
+        # accounts can leave this at 0.
+        self.leverage: int = int(config.get("leverage", 0) or 0)
         # S-047 T1: spot-margin sizing parameters. Defaults are
         # ship-with-config values from the module-level constants above;
         # per-account overrides go in the `risk:` block in accounts.yaml
@@ -517,7 +536,9 @@ class RiskManager:
         Non-spot-margin sizing is **bit-identical** to the pre-T2
         contract: when *market_type* is anything other than
         ``"spot-margin"`` (default ``"spot"``), the spot-margin
-        block is skipped entirely.
+        block is skipped entirely. PR 3 cutover: linear perp accounts
+        (``market_type: linear``) pass through here unchanged — same
+        risk-based sizing math as cash spot.
 
         Notes
         -----
@@ -646,6 +667,11 @@ class RiskManager:
         for shorts. Pre-S-049 callers pass ``available_usd ==
         balance_usd``, which makes the new cap a no-op when borrow
         capacity is zero.
+
+        **PR 3 cutover (2026-05-10):** this entire method is dead code
+        for the live system once bybit_2 leaves spot-margin. Scheduled
+        for deletion in the follow-up cleanup PR after operator
+        confirms bybit_2 is trading reliably on linear perps.
         """
         # 1. max_borrow_btc CAP — clip qty to fit, floor to step-size.
         if qty > self.max_borrow_btc:
@@ -763,4 +789,3 @@ class RiskManager:
                 or (dd is not None and dd >= self.max_dd_pct)
             ),
         }
-
