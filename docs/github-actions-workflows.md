@@ -39,7 +39,10 @@ Workflow files map to permission tiers (see
 ## Conventions
 
 - All trigger-only-by-issue workflows use a corresponding label and
-  rely on `bootstrap-labels.yml` to create labels idempotently.
+  rely on `bootstrap-labels.yml` to create labels idempotently. The
+  declared labels are: `vm-diag-request`, `vm-web-api-recover`,
+  `operator-action`, `vm-cloud-fix-request`, `vm-net-diag-request`,
+  `vm-net-fix-request`.
 - Issue-driven mutating workflows take the issue body verbatim through
   the `ISSUE_BODY` env var; do **not** interpolate
   `${{ github.event.issue.body }}` directly into shell.
