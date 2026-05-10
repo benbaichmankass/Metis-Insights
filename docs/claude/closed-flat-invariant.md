@@ -118,6 +118,44 @@ gated by `CLOSED_FLAT_INVARIANT_ENABLED` (default `false`).
 Splitting the wiring into a separate PR lets the operator review
 the design + tests first without committing to tick-loop changes.
 
+### Wiring applied — post-canon-followups (2026-05-10)
+
+The 3-line wiring patch from
+`docs/claude/closed-flat-invariant-phase2-wiring.md` is now applied
+to `src/runtime/order_monitor.py::run_monitor_tick`, immediately
+after the orphan-position reconciler block and before the final
+`return summaries`. The call site uses
+`src.runtime._closed_flat_wiring.maybe_run_closed_flat_check`,
+which:
+
+* reads `CLOSED_FLAT_INVARIANT_ENABLED` (default `false`) — no-op
+  when unset;
+* when enabled, builds the account resolver from
+  `_load_account_cfgs_for_reconcile` and calls
+  `closed_flat_invariant.check(...)` with the
+  `runtime_logs/invariant_violations.jsonl` violations log and the
+  `outcomes.report` alerter as defaults;
+* never raises — the orphan reconciler in the same tick is the
+  eventual safety net during the soak.
+
+The env var is **not** set in any deploy or config file. The
+operator flips `CLOSED_FLAT_INVARIANT_ENABLED=true` directly on
+the VM after merging this DRAFT, then begins the 7-day soak
+described in § Soak plan.
+
+Verification:
+
+* `tests/test_closed_flat_wiring.py` — helper-level gate behavior
+  (env off / on, no-violation, violation, never-raise, resolver shape).
+* `tests/test_closed_flat_wiring_call_site.py` — pins that
+  `run_monitor_tick` invokes the helper at the documented post-
+  orphan-reconciler hook and that the gate short-circuit holds at
+  the integration point.
+
+Rollback: revert the 9-line block added to
+`src/runtime/order_monitor.py::run_monitor_tick` (the block
+is bracketed by the `# S-067 follow-up #3 Phase-2` comment).
+
 ## Output: `runtime_logs/invariant_violations.jsonl`
 
 One JSON object per line, one violation per object:
