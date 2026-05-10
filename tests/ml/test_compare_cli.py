@@ -4,11 +4,12 @@ from __future__ import annotations
 import io
 import json
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
 
+import pytest
+
 from ml.cli import main
-from ml.registry.model_registry import ModelRegistry
+from ml.registry.model_registry import ModelRegistry, RegistryError
 
 
 def _seed_registry(tmp_path: Path) -> Path:
@@ -54,18 +55,14 @@ def test_compare_basic(tmp_path: Path):
     diffs = {d["metric"]: d for d in payload["metric_diffs"]}
     assert diffs["accuracy"]["a"] == 0.6
     assert diffs["accuracy"]["b"] == 0.7
-    assert diffs["accuracy"]["delta"] == 0.1
-    assert diffs["f1"]["delta"] == 0.65 - 0.5
+    assert diffs["accuracy"]["delta"] == pytest.approx(0.1)
+    assert diffs["f1"]["delta"] == pytest.approx(0.65 - 0.5)
     assert payload["a_only_metrics"] == ["a_only"]
     assert payload["b_only_metrics"] == ["b_only"]
 
 
 def test_compare_missing_model(tmp_path: Path):
     reg_root = _seed_registry(tmp_path)
-    # Compare against a missing id should raise via ModelRegistry.get
-    import pytest
-    from ml.registry.model_registry import RegistryError
-
     with pytest.raises(RegistryError):
         _capture_main([
             "compare", "model-a", "missing",
