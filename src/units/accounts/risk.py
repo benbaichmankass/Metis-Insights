@@ -29,7 +29,7 @@ Sizing inputs (also from the ``risk`` section):
   - min_balance_usd: refuse to size below this balance (operator default 50)
   - leverage: per-account leverage for linear-perp accounts (PR 3
     cutover). 0 means "not configured" — set_leverage is skipped at
-    startup. Cash spot and spot-margin accounts ignore this field.
+    startup. Cash spot accounts ignore this field.
 """
 from __future__ import annotations
 
@@ -47,38 +47,12 @@ _DEFAULT_QTY_PRECISION = 3
 # Below Bybit linear perp min-lot (0.001 BTC) so the exchange rejects.
 _DEFAULT_TEST_QTY = 0.0001
 
-# Spot-margin sizing parameter defaults (S-047 T1). The risk-rule
-# configuration surface — same shape as `_DEFAULT_MIN_QTY` etc. above —
-# so the operator can either edit these constants directly or override
-# per-account via the `risk:` block in `config/accounts.yaml` (the same
-# mechanism that already exists for `min_balance_usd`, `risk_pct`, etc).
-# These are **not** per-account toggles: they are sizing inputs that
-# T2's RiskManager.position_size() upgrade consumes for spot-margin
-# accounts. Non-spot-margin accounts construct a RiskManager with the
-# same defaults but never read these values.
-#
-# **PR 3 cutover note (2026-05-10):** these defaults are scheduled for
-# deletion in the follow-up cleanup PR once the operator confirms
-# bybit_2 is trading reliably on linear perps. The linear path in
-# coordinator.py does not consume any of these values; they only fire
-# when ``market_type == "spot-margin"`` (which no account uses
-# post-cutover).
-DEFAULT_MAX_BORROW_BTC = 0.5            # Bybit Tier 1 spot-margin BTC max-borrow.
-DEFAULT_BORROW_FEE_APR_PCT = 10.0       # Conservative annual %, Bybit market range ≈5–15.
-DEFAULT_LIQUIDATION_BUFFER_PCT = 30.0   # Per S-047 § 7 — distance from liquidation, in %.
-# Spot-margin LTV (loan-to-value) used as the FALLBACK borrow ratio
-# when Bybit V5's wallet API returns ``availableToBorrow=0`` for the
-# order's spending-side coin. Operator-confirmed (2026-05-08): the
-# bot's wallet is by design always 100 % USDT at idle — every position
-# closes back to USDT — so ``walletBalance(BTC)=0`` is structural,
-# not a "no margin" signal. When margin is enabled (account
-# ``market_type: spot-margin``) the borrow capacity is real even
-# when the API field is empty; fall back to
-# ``USDT_collateral × spot_margin_ltv``. Conservative default 0.5
-# (half of Bybit's ~80 % retail tier) leaves headroom for fees
-# and intratrade price moves so the matching engine never trips
-# 170131 on the cap.
-DEFAULT_SPOT_MARGIN_LTV = 0.5
+# PR 5 (2026-05-10): spot-margin sizing-parameter defaults
+# (DEFAULT_MAX_BORROW_BTC / DEFAULT_BORROW_FEE_APR_PCT /
+# DEFAULT_LIQUIDATION_BUFFER_PCT / DEFAULT_SPOT_MARGIN_LTV) were
+# removed alongside the spot-margin sizing kernel. They only fired
+# when ``market_type == "spot-margin"`` (no production account post
+# PR 3 — bybit_2 now trades USDT-margined linear perps at 3×).
 
 
 def _is_test_order(pkg: "OrderPackage") -> bool:
@@ -234,10 +208,11 @@ def size_order_from_cfg(
       - ``min_balance_usd`` (default 50)
       - ``min_qty`` (default 0.001)
       - ``qty_precision`` (default 3)
-      - ``market_type`` (default ``"spot"``) — S-047 T3 D5: forwarded
-        to ``position_size`` so direct ``account_execute`` calls (no
-        coordinator-supplied ``qty_override``) on spot-margin accounts
-        still apply the spot-margin sizing kernel.
+      - ``market_type`` (default ``"spot"``) — forwarded to
+        ``position_size``. Retained from S-047 T3 D5; with the
+        spot-margin kernel removed in PR 5 it no longer triggers any
+        extra rules, but the parameter is kept so direct
+        ``account_execute`` callers stay source-compatible.
     Plus the legacy ``risk:`` sub-keys (``max_dd_pct``, ``daily_usd``,
     ``pos_size``) which RiskManager ignores for sizing.
     """
@@ -283,32 +258,9 @@ class RiskManager:
         # calls `/v5/position/set-leverage` once per (symbol, account)
         # at boot. 0 means "not configured" → set_leverage is skipped;
         # the exchange uses whatever leverage was last set
-        # (Bybit-side persistent setting). Cash spot and spot-margin
-        # accounts can leave this at 0.
+        # (Bybit-side persistent setting). Cash spot accounts can
+        # leave this at 0.
         self.leverage: int = int(config.get("leverage", 0) or 0)
-        # S-047 T1: spot-margin sizing parameters. Defaults are
-        # ship-with-config values from the module-level constants above;
-        # per-account overrides go in the `risk:` block in accounts.yaml
-        # (same surface as min_balance_usd / risk_pct). T2 consumes these
-        # in position_size() when the account routes as spot-margin.
-        # Non-spot-margin accounts hold the same defaults inertly.
-        self.max_borrow_btc: float = float(
-            config.get("max_borrow_btc", DEFAULT_MAX_BORROW_BTC)
-        )
-        self.borrow_fee_apr_pct: float = float(
-            config.get("borrow_fee_apr_pct", DEFAULT_BORROW_FEE_APR_PCT)
-        )
-        self.liquidation_buffer_pct: float = float(
-            config.get("liquidation_buffer_pct", DEFAULT_LIQUIDATION_BUFFER_PCT)
-        )
-        # Spot-margin LTV fallback (see DEFAULT_SPOT_MARGIN_LTV). Read
-        # by ``Coordinator.multi_account_execute`` when computing
-        # ``available_usd`` and the API's ``availableToBorrow`` is
-        # empty/zero. Operator can tune per-account in accounts.yaml
-        # ``risk.spot_margin_ltv`` — clamp to (0, 1) so a typo
-        # can't request 100 %+ leverage.
-        ltv = float(config.get("spot_margin_ltv", DEFAULT_SPOT_MARGIN_LTV))
-        self.spot_margin_ltv: float = max(0.0, min(1.0, ltv))
         # The single dry/live toggle in the codebase (operator directive
         # 2026-05-03). Set from accounts.yaml `mode: live | dry_run` at
         # construction; flippable at runtime via Coordinator.set_account_dry_run().
@@ -473,72 +425,14 @@ class RiskManager:
         ``min_balance_usd`` — the account is too small to size into a
         meaningful position.
 
-        S-047 T2 / S-049 — spot-margin sizing
-        -------------------------------------
-        When *market_type* is ``"spot-margin"`` (the routing label
-        T1 shipped on `bybit_2`; passed through as a primitive by the
-        caller — RiskManager does not inspect TradingAccount), the
-        sizer additionally applies four rules on top of the existing
-        risk-based qty:
-
-          1. ``max_borrow_btc`` is a sizing **cap** — qty is clipped
-             to fit. Same shape as the `min_qty` floor below: a
-             configured boundary, not a refusal.
-          2. ``borrow_fee_apr_pct`` implies a daily fee accrual at
-             the proposed qty. If that fee exceeds the remaining
-             daily-loss budget, qty is scaled down to fit. Same
-             shape as the existing daily-loss-budget gate (S-026 G3).
-          3. **(S-049 long + S-053 short)** ``available_usd``
-             notional cap — ``qty * entry`` must fit inside the live
-             exchange-side availability for whichever side the order
-             spends. The caller sets ``available_usd`` direction-
-             awarely: longs see ``free_usdt + usdt_borrow_capacity``,
-             shorts see ``free_base_usd + base_borrow_capacity``;
-             both are post-fee-buffer. When ``qty * entry >
-             available_usd``, qty is scaled to ``available_usd /
-             entry`` and floor-rounded. This is what stops Bybit
-             ErrCode 170131 ("Insufficient balance") at the matching
-             engine. S-049 shipped the long-side cap; S-053 closes
-             the symmetric SHORT-side gap that let an open spot-
-             margin short inflate free USDT (sale proceeds) and
-             over-size the next tick by ~6×.
-          4. ``liquidation_buffer_pct`` is checked against the SL
-             distance. The liquidation distance implied by the
-             proposed qty + USDT collateral is roughly
-             ``balance_usd / qty`` (ignoring maintenance margin for
-             a conservative estimate). When ``risk_distance`` >=
-             ``(1 - buffer) * liquidation_distance``, the SL would
-             trigger no earlier than the liquidation buffer allows
-             — refuse to size (return 0.0). Same refusal shape as
-             ``min_balance_usd``: a risk-manager rule, not a new gate.
-             Long positions whose notional fits inside USDT
-             collateral (no borrow needed) skip the buffer check —
-             no leverage, no liquidation.
-
-        ``balance_usd`` is interpreted as the wallet's **net equity in
-        USD** — what the account would actually lose at liquidation.
-        For spot-margin specifically the caller passes Bybit's
-        ``totalEquity`` (S-053): free USDT + free base coin in USD,
-        net of any open borrow liability. Stable across borrow state,
-        unlike free USDT alone, which inflates by the sale proceeds
-        of the borrowed coin after a successful short. Pre-S-053 the
-        sizer received free USDT and over-sized 6× on the next tick
-        once a short was open.
-
-        ``available_usd`` (S-049 + S-053) is the live exchange-side
-        availability for the side the order spends — direction-aware.
-        Bybit validates ``cost ≤ availableBalance`` before consulting
-        borrow capacity; sizing caps use this primitive so the order
-        never exceeds what the matching engine accepts. Liquidation
-        math always uses ``balance_usd``. When ``available_usd`` is
-        None, it falls back to ``balance_usd`` (pre-S-049 contract).
-
-        Non-spot-margin sizing is **bit-identical** to the pre-T2
-        contract: when *market_type* is anything other than
-        ``"spot-margin"`` (default ``"spot"``), the spot-margin
-        block is skipped entirely. PR 3 cutover: linear perp accounts
-        (``market_type: linear``) pass through here unchanged — same
-        risk-based sizing math as cash spot.
+        ``available_usd`` is retained in the signature for backward
+        compatibility with callers updated to pass it (a remnant of
+        the pre-PR-5 spot-margin notional cap). With spot-margin
+        sizing removed it is unused — sizing is the same for cash
+        spot and linear perp accounts (the only two market_types in
+        production post-PR 3). PR 3 cutover: linear perp accounts
+        (``market_type: linear``) pass through here — same risk-based
+        sizing math as cash spot.
 
         Notes
         -----
@@ -558,17 +452,13 @@ class RiskManager:
         - **Floor rounding (S-026 G3):** the step-size rounding is
           *floor* not banker's, so the realised risk never exceeds the
           configured cap by one step.
-        - **Daily-loss-budget rule wins on conflict (S-047 T2):** the
-          existing daily-loss refusal runs **before** the spot-margin
-          block, so an exhausted budget refuses regardless of
-          spot-margin params.
         """
         if _is_test_order(package):
             return float((package.meta or {}).get("test_qty") or _DEFAULT_TEST_QTY)
 
         # S-052: the min_balance_usd gate ("is this account big enough?")
         # checks the operator's *total* account equity, not free
-        # quote-coin balance. With spot/spot-margin, ``balance_usd``
+        # quote-coin balance. With spot accounts, ``balance_usd``
         # carries free USDT (the sizer's collateral input — see the
         # direction-aware override in coordinator.py), which under-counts
         # capital held as locked USDT, free BTC, or locked BTC. Pass
@@ -622,136 +512,12 @@ class RiskManager:
             if qty < self.min_qty:
                 return 0.0
 
-        if market_type == "spot-margin":
-            # S-049: ``available_usd`` is the live exchange-side
-            # availableBalance (collateral + borrow capacity, less the
-            # caller's fee buffer). Falls back to ``balance_usd`` so
-            # callers that don't pass it keep the pre-S-049 contract.
-            eff_available_usd = (
-                float(available_usd) if available_usd is not None else balance_usd
-            )
-            qty = self._apply_spot_margin_rules(
-                package=package,
-                balance_usd=balance_usd,
-                available_usd=eff_available_usd,
-                qty=qty,
-                risk_distance=risk_distance,
-                loss_budget_remaining=loss_budget_remaining,
-            )
-
-        return qty
-
-    def _apply_spot_margin_rules(
-        self,
-        *,
-        package: OrderPackage,
-        balance_usd: float,
-        available_usd: float,
-        qty: float,
-        risk_distance: float,
-        loss_budget_remaining: float,
-    ) -> float:
-        """S-047 T2 + S-049 + S-053 — spot-margin sizing rules layered
-        on the base sizer.
-
-        Four rules in order: max-borrow CAP → borrow-fee SCALE →
-        notional-vs-available CAP (S-049 long, S-053 short) →
-        liquidation-buffer REFUSAL. See ``position_size`` docstring
-        for the rationale. Returns the adjusted qty (or 0.0 on
-        refusal).
-
-        ``balance_usd`` is the wallet's net equity (used for
-        liquidation distance math). ``available_usd`` is the live
-        exchange-side availability for the order's spending side
-        (used for the notional cap): USDT-side for longs, base-side
-        for shorts. Pre-S-049 callers pass ``available_usd ==
-        balance_usd``, which makes the new cap a no-op when borrow
-        capacity is zero.
-
-        **PR 3 cutover (2026-05-10):** this entire method is dead code
-        for the live system once bybit_2 leaves spot-margin. Scheduled
-        for deletion in the follow-up cleanup PR after operator
-        confirms bybit_2 is trading reliably on linear perps.
-        """
-        # 1. max_borrow_btc CAP — clip qty to fit, floor to step-size.
-        if qty > self.max_borrow_btc:
-            qty = _floor_to_step(self.max_borrow_btc, self.qty_precision)
-            if qty < self.min_qty:
-                return 0.0
-
-        # 2. Borrow-fee budget SCALE — daily fee accrual at the
-        #    proposed qty must fit inside the remaining daily-loss
-        #    budget. Daily fee = notional × (apr/100) / 365.
-        apr_per_day = (self.borrow_fee_apr_pct / 100.0) / 365.0
-        if apr_per_day > 0 and package.entry > 0:
-            notional_usd = qty * package.entry
-            daily_fee_usd = notional_usd * apr_per_day
-            if daily_fee_usd > loss_budget_remaining:
-                # Solve qty * entry * apr_per_day = budget for qty.
-                scaled = loss_budget_remaining / (package.entry * apr_per_day)
-                qty = _floor_to_step(scaled, self.qty_precision)
-                if qty < self.min_qty:
-                    return 0.0
-
-        # 3. Notional-vs-available CAP. Bybit's matching engine
-        #    validates ``cost ≤ availableBalance`` before considering
-        #    additional borrow capacity. The cap is direction-aware —
-        #    the caller (Coordinator.multi_account_execute) sets
-        #    ``available_usd`` to whichever side of the wallet the
-        #    order spends:
-        #
-        #      LONG  (S-049): free_usdt + usdt_borrow_capacity, less
-        #        a fee headroom buffer. Pre-S-049 the sizer used
-        #        `walletBalance - locked` (free cash), so a qty
-        #        notional exactly matching free USDT tripped 170131
-        #        on fees alone.
-        #
-        #      SHORT (S-053): base_usd_value + base_borrow_capacity,
-        #        less the same buffer. Pre-S-053 the SHORT branch
-        #        skipped this rule on the assumption that
-        #        ``max_borrow_btc`` (rule 1) and the post-trade USDT
-        #        proceeds were sufficient — both wrong: rule 1 is a
-        #        per-account static cap (not live remaining borrow),
-        #        and after one open spot-margin short the matching
-        #        engine credits sale proceeds to free USDT (inflating
-        #        ``balance_usd``) while shrinking the live BTC
-        #        borrow line. The next short over-sizes ~6× and
-        #        Bybit rejects with 170131. Capping qty against the
-        #        live base-side availability stops that.
-        # S-054: gate on ``>= 0`` so ZERO capacity refuses the trade
-        # rather than bypassing the cap. Pre-S-054 the guard was ``>
-        # 0``, which silently let an order through whenever the
-        # caller's capacity computation collapsed to 0 — the canonical
-        # case being a USDT-only wallet shorting BTC (the
-        # ``base_borrow_usd`` ratio conversion in
-        # ``_fetch_spot_coin_balances`` returned 0 because
-        # ``walletBalance(BTC) == 0``). Zero capacity now refuses
-        # cleanly via the ``min_qty`` floor; the matching engine never
-        # sees the order.
-        if (
-            package.entry > 0
-            and available_usd >= 0
-            and qty * package.entry > available_usd
-        ):
-            scaled = available_usd / package.entry
-            qty = _floor_to_step(scaled, self.qty_precision)
-            if qty < self.min_qty:
-                return 0.0
-
-        # 4. Liquidation buffer REFUSAL — SL must sit at least
-        #    liquidation_buffer_pct away from the liquidation price.
-        #    Skip when the long position is fully collateralized
-        #    (notional ≤ collateral): no borrow → no liquidation.
-        if qty > 0:
-            notional_usd = qty * package.entry
-            no_borrow_long = (
-                package.direction == "long" and notional_usd <= balance_usd
-            )
-            if not no_borrow_long:
-                liquidation_distance = balance_usd / qty
-                buffer_fraction = self.liquidation_buffer_pct / 100.0
-                if risk_distance >= (1.0 - buffer_fraction) * liquidation_distance:
-                    return 0.0
+        # PR 5 (2026-05-10): spot-margin sizing kernel removed.
+        # ``market_type == "spot-margin"`` no longer triggers any extra
+        # rules — bybit_2 routes through linear perps post-PR 3 and no
+        # other account uses spot-margin. ``available_usd`` is still
+        # accepted to preserve the caller signature but is unused.
+        del available_usd  # parameter retained for backward compat
 
         return qty
 
