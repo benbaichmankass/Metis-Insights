@@ -217,6 +217,7 @@ stable identifiers in `model_registry/`).
 | [`baseline-trade-outcome-global.yaml`](../../ml/configs/baseline-trade-outcome-global.yaml) | WS4-FU | `ConstantPredictionTrainer` | `ClassificationEvaluator` | Global-mean sanity baseline on `trade_outcomes` (paired sibling to the winrate manifest). |
 | [`baseline-regime-classifier.yaml`](../../ml/configs/baseline-regime-classifier.yaml) | WS5-B-PART-2 PR 2B | `RegimeClassifierTrainer` | `MulticlassClassificationEvaluator` | 3-class regime label (trend / range / volatile) on `market_features` with `vol_bucket` as feature. |
 | [`baseline-setup-quality.yaml`](../../ml/configs/baseline-setup-quality.yaml) | WS5-C | `PerStrategyWinRateTrainer` (numeric_mean) | `RegressionEvaluator` | Per-`setup_type` mean R-multiple on `setup_labels`. |
+| [`baseline-setup-quality-audit.yaml`](../../ml/configs/baseline-setup-quality-audit.yaml) | WS5-C-FU | `PerStrategyWinRateTrainer` (numeric_mean) | `RegressionEvaluator` | Per-`audit_pattern` mean R-multiple on `setup_labels_audit` (audit-joined source — paired comparison against the v1 `setup_type` baseline). |
 
 When a baseline lands clean and the operator wants the
 "compare-against-marginal" sanity check, ship a paired global-mean
