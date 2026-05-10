@@ -119,20 +119,21 @@ jobs:
 
       - name: Run automated health analysis (layer 1)
         id: analyze
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          # Route the action's Telegram pings through the Claude bot,
-          # not the trader's bot. The chat id is shared across both bots.
-          # The underlying helper still reads TELEGRAM_BOT_TOKEN /
-          # TELEGRAM_CHAT_ID from env, so we alias here.
-          TELEGRAM_BOT_TOKEN: ${{ secrets.CLAUDE_TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        # --skip-llm: operator decision 2026-05-10 — layer 1 is
+        # disabled because the operator does layer-2 reviews manually
+        # via the /health-review slash command. The script writes the
+        # UNKNOWN-stub directly without calling Anthropic. The
+        # pipeline-test result is still merged into checks.pipeline
+        # via --pipeline-test, and the snapshot is still uploaded as
+        # a forensic artifact. To re-enable LLM grading, drop the
+        # --skip-llm flag (no other change required).
         run: |
           set -euo pipefail
           PYTHONPATH=. python scripts/run_health_check.py \
             artifacts/health/health_snapshot.txt \
             --out-dir artifacts/health \
-            --pipeline-test artifacts/health/pipeline_test.json
+            --pipeline-test artifacts/health/pipeline_test.json \
+            --skip-llm
 
       - name: Emit Claude review request (layer 2)
         id: review_request
@@ -213,22 +214,31 @@ jobs:
             comms/requests/REQ-*.json
 
       - name: Auto-merge the review PR
-        # Squash-merges the labelled PR. The autonomous Claude routine
-        # subscribes to PR-closed-with-label and the
-        # health-review-trigger.yml backup workflow does the same — but
-        # the operator's effective workflow today is to read the
-        # Telegram ping below and run `/health-review` manually.
-        # --delete-branch is omitted so auto/health-check-review
-        # survives for the next run (matches `delete-branch: false`
-        # on the create-pr step). Token mirrors the create-pr fallback
-        # chain.
+        # `gh pr merge --auto --squash` enables GitHub auto-merge: the
+        # merge is queued and only fires once branch protection is
+        # satisfied (mergeable + required checks pass + no conflicts).
+        # Required because:
+        #   1. PAT-created PRs DO trigger downstream PR-check workflows
+        #      (ruff-lint, pytest-collect, env-gate-guard, etc.) — but
+        #      those checks register a few seconds AFTER the PR is
+        #      open. An immediate `gh pr merge --squash` (no --auto)
+        #      races the check registration and is rejected by branch
+        #      protection. --auto waits.
+        #   2. Right after a force-push to auto/health-check-review,
+        #      mergeable_state may briefly be `dirty` while GitHub
+        #      recomputes; --auto retries through that window.
+        # Requires "Allow auto-merge" enabled in repo Settings →
+        # General. Squash keeps main's history linear; --delete-branch
+        # is omitted so auto/health-check-review survives for the next
+        # run (matches `delete-branch: false` on the create-pr step).
+        # Token mirrors the create-pr fallback chain.
         id: automerge
         if: steps.cpr.outputs.pull-request-number != ''
         env:
           GH_TOKEN: ${{ secrets.HEALTH_REVIEW_PAT || secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          gh pr merge --squash \
+          gh pr merge --auto --squash \
             --repo "${{ github.repository }}" \
             "${{ steps.cpr.outputs.pull-request-number }}"
 
@@ -240,6 +250,13 @@ jobs:
         # produced. The autonomous routine is left wired (it's still
         # subscribed to the PR-merge event) but is not the operator's
         # primary path right now; operator decision 2026-05-10.
+        #
+        # Note: --auto QUEUES the merge, so this step's
+        # `steps.automerge.outcome == "success"` only confirms the
+        # queue request was accepted, not that the merge has happened.
+        # The actual merge happens later when checks pass; the next
+        # PR-merge event fires the routine subscription / trigger
+        # workflow, not this notify step.
         id: notify
         if: always() && steps.cpr.outputs.pull-request-number != ''
         env:
@@ -255,9 +272,9 @@ jobs:
           PIPELINE="${{ steps.analyze.outputs.pipeline_status }}"
           REQ_ID="${{ steps.review_request.outputs.request_id }}"
           if [ "${MERGE_OUTCOME:-skipped}" = "success" ]; then
-            phrase="auto-merged — run /health-review ${REQ_ID} for the layer-2 review"
+            phrase="auto-merge queued — once it lands, run /health-review ${REQ_ID} for the layer-2 review"
           else
-            phrase="open (auto-merge ${MERGE_OUTCOME:-skipped}) — merge the PR, then run /health-review ${REQ_ID}"
+            phrase="open (auto-merge queue ${MERGE_OUTCOME:-skipped}) — merge the PR, then run /health-review ${REQ_ID}"
           fi
           # Capture the helper's exit code so the issue-driven path can
           # surface "Telegram ping arrived?" in the trigger-issue
@@ -309,8 +326,7 @@ jobs:
               if (j.error) {
                 layer1Error =
                   `\n⚠️ Layer-1 fallback fired — \`${j.error.type}\`: ${j.error.message}\n` +
-                  `(verdict UNKNOWN means the Anthropic call did not succeed; ` +
-                  `check ANTHROPIC_API_KEY secret + billing.)`;
+                  `(verdict UNKNOWN means layer 1 was skipped or the Anthropic call did not succeed.)`;
               }
               const p = (j.checks && j.checks.pipeline) || null;
               if (p) {
@@ -331,8 +347,8 @@ jobs:
             const reqId = process.env.REQUEST_ID || '<unknown>';
             const mergeOutcome = process.env.MERGE_OUTCOME || 'skipped';
             const mergeLine = mergeOutcome === 'success'
-              ? `✅ PR auto-merged. Run \`/health-review ${reqId}\` from any Claude Code session on this repo for the layer-2 review.`
-              : `⚠️ Auto-merge step ${mergeOutcome} — merge the PR, then run \`/health-review ${reqId}\`.`;
+              ? `✅ Auto-merge queued. Once the PR lands on \`main\`, run \`/health-review ${reqId}\` from any Claude Code session on this repo for the layer-2 review.`
+              : `⚠️ Auto-merge queue ${mergeOutcome} — merge the PR, then run \`/health-review ${reqId}\`.`;
             const prLine = process.env.PR_NUMBER
               ? `PR #${process.env.PR_NUMBER} (${process.env.PR_OPERATION || 'opened/updated'}): ${process.env.PR_URL}`
               : '⚠️ No PR was opened/updated (peter-evans step produced no number).';
@@ -377,7 +393,8 @@ jobs:
               `- peter-evans/create-pull-request denied: either enable Settings → Actions → General → ` +
               `"Allow GitHub Actions to create and approve pull requests", or set the \`HEALTH_REVIEW_PAT\` ` +
               `secret to a fine-grained PAT with Contents:write + Pull requests:write on this repo.\n` +
-              `- Auto-merge step failed: same token requirements as create-pull-request; needs Pull requests:write.\n`;
+              `- Auto-merge queue rejected: enable "Allow auto-merge" in Settings → General. Same token ` +
+              `requirements as create-pull-request; needs Pull requests:write.\n`;
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
