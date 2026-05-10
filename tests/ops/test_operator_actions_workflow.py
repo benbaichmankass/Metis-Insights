@@ -38,9 +38,17 @@ EXPECTED_ACTIONS = {
     "pull-and-deploy": "pull_and_deploy.sh",
     "restart-bot-service": "restart_bot.sh",
     "reboot-vm": "reboot_vm.sh",
+    "enable-closed-flat-invariant": "enable_closed_flat_invariant.sh",
+    "disable-closed-flat-invariant": "disable_closed_flat_invariant.sh",
 }
 
-TIER_2_ACTIONS = {"pull-and-deploy", "restart-bot-service", "reboot-vm"}
+TIER_2_ACTIONS = {
+    "pull-and-deploy",
+    "restart-bot-service",
+    "reboot-vm",
+    "enable-closed-flat-invariant",
+    "disable-closed-flat-invariant",
+}
 
 
 @pytest.fixture(scope="module")

@@ -56,6 +56,8 @@ in `operator-actions.yml`, the priority case in
 | `pull-and-deploy` | 2 | `scripts/ops/pull_and_deploy.sh` | git worktree + systemd units |
 | `restart-bot-service` | 2 | `scripts/ops/restart_bot.sh` | systemd unit only |
 | `reboot-vm` | 2 (last resort) | `scripts/ops/reboot_vm.sh` | full host |
+| `enable-closed-flat-invariant` | 2 | `scripts/ops/enable_closed_flat_invariant.sh` | `.env` (`CLOSED_FLAT_INVARIANT_ENABLED=true`) + restart `ict-trader-live.service` |
+| `disable-closed-flat-invariant` | 2 | `scripts/ops/disable_closed_flat_invariant.sh` | `.env` (remove `CLOSED_FLAT_INVARIANT_ENABLED`) + restart `ict-trader-live.service` |
 
 **Docker is intentionally absent.** The repo's canonical runtime is
 systemd (`deploy/*.service` units installed via
@@ -93,6 +95,8 @@ Tier-2 actions:
 - `pull-and-deploy`
 - `restart-bot-service`
 - `reboot-vm`
+- `enable-closed-flat-invariant`
+- `disable-closed-flat-invariant`
 
 `pull-and-deploy` is a thin wrapper around `scripts/deploy_pull_restart.sh`
 (the canonical script the `ict-git-sync` timer also calls). It fetches
@@ -157,7 +161,7 @@ The tier rules above describe the **action's** blast radius. Whether
 a given dispatcher must ping the operator before triggering an action
 depends on the dispatcher's trust class. Three classes exist today:
 
-| Dispatcher | Tier-1 (`status-check`, `pull-latest-logs`) | Tier-2 (`pull-and-deploy`, `restart-bot-service`, `reboot-vm`) |
+| Dispatcher | Tier-1 (`status-check`, `pull-latest-logs`) | Tier-2 (`pull-and-deploy`, `restart-bot-service`, `reboot-vm`, `enable-closed-flat-invariant`, `disable-closed-flat-invariant`) |
 |---|---|---|
 | **Operator** (Ben, in browser) | autonomous (you're the human) | autonomous (you're the human) |
 | **Perplexity** (granted 2026-05-08) | autonomous | autonomous |
@@ -306,6 +310,12 @@ tier: <1 or 2>
 | `restart-bot-service` | other | `urgent` |
 | `reboot-vm` | 0 / 255 (scheduled, SSH dropped) | `high` |
 | `reboot-vm` | other | `urgent` |
+| `enable-closed-flat-invariant` | 0 (ok) | `normal` |
+| `enable-closed-flat-invariant` | 3 (deferred — vm-runner active) | `normal` |
+| `enable-closed-flat-invariant` | other | `urgent` |
+| `disable-closed-flat-invariant` | 0 (ok) | `normal` |
+| `disable-closed-flat-invariant` | 3 (deferred — vm-runner active) | `normal` |
+| `disable-closed-flat-invariant` | other | `urgent` |
 
 **Failure-of-notification semantics:** the notify step uses
 `continue-on-error: true`. A failed ping never flips a successful
@@ -330,6 +340,8 @@ follow-up doc PR if it ever becomes a problem.
 | `pull-and-deploy` | capture pre-deploy `git rev-parse HEAD` + unit `is-active` | invoke `scripts/deploy_pull_restart.sh` (fetch + hard-reset + dep install + restart trader & telegram bot) | poll `is-active` until "active" or 60 s timeout; dump 30 journal lines; record HEAD diff in audit | exit 3 → vm-runner active, deferred. exit 1 → deploy or restart failed; HEAD may be advanced even if restart didn't complete — see `audit-bundle.json` for the head transition |
 | `restart-bot-service` | capture pre-state via `is-active` + `status` | `systemctl restart ict-trader-live.service` | poll `is-active` until "active" or 30 s timeout; dump 30 journal lines | exit 1 → unit failed to come back; ping operator with journal tail |
 | `reboot-vm` | dump uptime + canonical unit states + 10 journal lines | `shutdown -r +1` | workflow polls SSH for ≤ 5 min; post-fetch `/api/diag/status` | SSH not back in 5 min → manual recovery required (Oracle Cloud Console) |
+| `enable-closed-flat-invariant` | snapshot current `CLOSED_FLAT_INVARIANT_ENABLED` line in `.env` + unit `is-active` | atomic write to `.env` setting `CLOSED_FLAT_INVARIANT_ENABLED=true`; `systemctl restart ict-trader-live.service` | grep `.env` for the post-edit value; poll `is-active` until "active" or 30 s timeout; dump 30 journal lines | exit 3 → vm-runner active, deferred. exit 1 → env-file verification mismatch or unit failed to come back; rollback via `disable-closed-flat-invariant` |
+| `disable-closed-flat-invariant` | snapshot current `CLOSED_FLAT_INVARIANT_ENABLED` line in `.env` + unit `is-active` | atomic strip of the env line + its comment header from `.env`; `systemctl restart ict-trader-live.service` | confirm `.env` no longer contains the key; poll `is-active` until "active" or 30 s timeout; dump 30 journal lines | exit 3 → vm-runner active, deferred. exit 1 → env-file still contains the key or unit failed to come back; investigate before re-enabling |
 
 The `restart-bot-service` and `pull-and-deploy` wrappers additionally
 **defer** if any `claude-vm-runner@*.service` unit is currently active,
