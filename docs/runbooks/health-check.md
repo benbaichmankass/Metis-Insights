@@ -1,108 +1,137 @@
-# Runbook — System Health Check (two-layer)
+# Runbook — System Health Check (two-workflow, PR-mediated)
 
-The ICT trading bot has a two-layer health-check pipeline driven by the
-GitHub Action [`.github/workflows/health-check.yml`](../../.github/workflows/health-check.yml).
+The ICT trading bot's health-check pipeline runs as a **pair of GitHub
+Actions** that gate Claude's manual review behind a merged, labeled PR:
 
-| Layer | What it does | Where it lives | Cadence |
-|-------|--------------|----------------|---------|
-| 1 — Automated machine check | Bash collector → Claude Haiku 4.5 → JSON verdict | [`scripts/collect_health_snapshot.sh`](../../scripts/collect_health_snapshot.sh), [`scripts/run_health_check.py`](../../scripts/run_health_check.py) | every 6h (schedule) + manual |
-| 2 — Mandatory Claude review | Schema-valid `comms/requests/REQ-*.json` asking Claude to sanity-review the same run | [`scripts/write_health_review_request.py`](../../scripts/write_health_review_request.py) | every layer-1 run, no exceptions |
+| Workflow | What it does | When |
+|---|---|---|
+| 1. [`health-snapshot-pr.yml`](../../.github/workflows/health-snapshot-pr.yml) | Collects a VM snapshot, runs the layer-1 machine check, emits the layer-2 review request, and opens/updates a PR labeled `health-check-review`. | Cron `0 */6 * * *` + `workflow_dispatch` |
+| 2. [`health-review-trigger.yml`](../../.github/workflows/health-review-trigger.yml) | Fires on `pull_request.closed`, gated by `merged == true` **and** the `health-check-review` label. Confirms the merge, lists the review-request files that just landed on `main`, and pings the Claude review handoff. | On every PR merge into `main` (filtered by label) |
 
-The two layers are independent. Layer 1 is a fast machine triage that
-fires Telegram alerts on `WARNING`/`CRITICAL`. Layer 2 produces a
-structured ask for a human/Claude reviewer to look at the same logs and
-file findings — it runs **on every execution**, including healthy ones,
-because a clean machine check is not a substitute for a sanity review.
+The layered design is unchanged — layer 1 is automated machine triage,
+layer 2 is a mandatory Claude review **on every run**, including healthy
+ones. What changed is the *delivery* of layer 2: instead of committing
+the review request straight to `main`, it now goes through an operator
+review/merge step.
 
-## What the workflow does, step by step
+## Why merged-PR + label is the trigger
 
-1. SSH to the production VM with the `VM_SSH_PRIVATE_KEY` secret.
-2. Runs [`scripts/collect_health_snapshot.sh`](../../scripts/collect_health_snapshot.sh)
-   over SSH and captures stdout to `health_snapshot.txt`. The collector
-   is read-only — it does not touch runtime state, strategy logic, or
-   any open positions.
-3. Layer 1 — calls [`scripts/run_health_check.py`](../../scripts/run_health_check.py)
-   which sends the snapshot to Claude Haiku 4.5 with the system prompt
-   in [`.claude/health_check_prompt.md`](../../.claude/health_check_prompt.md),
-   parses a strict-JSON verdict, and writes:
-   - `runtime_logs/health_checks/health_check_<UTC-ISO>.json` (per-run)
-   - `runtime_logs/health_checks/latest.json` (overwrites each run)
-   - On `WARNING`/`CRITICAL`, a Telegram alert via the bot's existing
-     `src.runtime.notify.send_telegram_direct` helper.
-4. Layer 2 — calls [`scripts/write_health_review_request.py`](../../scripts/write_health_review_request.py)
-   which writes a schema-valid request to
-   `comms/requests/REQ-YYYYMMDD-HHMMSS-<run-slug>.json`. The slug is
-   derived from the GitHub `run_id`, so re-running the same workflow
-   run is a no-op (idempotent — see below).
-5. Telegram ping ("Health review pending — REQ-…") via
-   [`scripts/notify_session.py`](../../scripts/notify_session.py)
-   so the operator (and any subscribed Claude session) knows there is a
-   fresh review to action. This fires on **every** run, not just bad
-   ones.
-6. On schedule runs, the new comms request is committed back to the
-   default branch so the VM picks it up on its next `ict-git-sync`
-   pull. `workflow_dispatch` runs are dry-run by default — toggle the
-   `skip_commit_back: false` input if you want a manual trigger to
-   commit-back.
-7. The full snapshot, layer-1 report, and `latest.json` are uploaded
-   as a GitHub Actions artifact (`health-check-<run-id>`, retention 30
-   days).
+GitHub does not emit a dedicated "merged" event. The standard pattern
+is `pull_request.closed` filtered by `github.event.pull_request.merged
+== true`. The label `health-check-review` is the operational filter:
+any other PR that closes against `main` is ignored, even if the title
+or the changed paths look similar. The label is applied automatically
+by `peter-evans/create-pull-request` in workflow 1, so the operator
+never has to remember to set it.
+
+This matters because:
+
+- The operator gets a **single auditable artifact** — the PR — to glance
+  at before allowing layer 2 to land. Closing without merging is a
+  legitimate "skip this run" outcome.
+- The trader is never affected by churn on the snapshot branch; only
+  the merge writes to `main`, so the VM's git-sync timer only sees
+  approved review requests.
+- Re-running the workflow is **idempotent** (see below) and never
+  duplicates a PR.
+
+## What the label means
+
+`health-check-review` is the operational filter on workflow 2. **Only**
+workflow 1 should apply it. The handoff in workflow 2 is gated on it,
+so adding the label by hand to an unrelated PR would falsely trigger
+the handoff. If you need to dry-run the trigger, prefer
+`workflow_dispatch` on workflow 1 with `skip_commit_back: false`…
+actually that flag belongs to the old single-workflow design and no
+longer exists — the new model has no dry-run knob because the artifact
+lives on a branch, not on `main`, until you choose to merge.
+
+The `automated` label is informational only — it is not part of any
+filter.
+
+## Manually forcing a run
+
+```bash
+# Trigger workflow 1 right now (from the GitHub UI):
+#   Actions → Health Snapshot PR → Run workflow
+# Or via gh CLI:
+gh workflow run "Health Snapshot PR"
+
+# Open the resulting PR:
+gh pr list --label health-check-review --state open
+```
+
+Merging the PR fires workflow 2. To **skip** a run after the PR is
+open, just close it without merging — nothing leaves the snapshot
+branch.
+
+## Idempotency / dedupe
+
+Workflow 1 always pushes to a single fixed branch: `auto/health-check-review`.
+`peter-evans/create-pull-request` updates the open PR if one exists,
+opens a new PR otherwise.
+
+Within the artifact set:
+
+- `artifacts/health/health_snapshot.txt` and `artifacts/health/latest.json`
+  are overwritten on every run — the PR always shows the latest.
+- `artifacts/health/health_check_<UTC-ISO>.json` is per-run and piles
+  up in the PR; useful for forensic comparison if a PR sits open over
+  multiple cycles.
+- `comms/requests/REQ-*.json` filenames are keyed by the GitHub `run_id`
+  (12-char numeric slug), so each run gets a unique file. A re-run of
+  the **same** workflow run is a no-op (the writer skips with `already
+  exists`). A new scheduled run gets a fresh `run_id`.
+
+If an open PR sits unmerged across several scheduled runs, every run's
+`REQ-*.json` accumulates in the PR. Merging once delivers all of them
+to `main` atomically; workflow 2 lists which ones just landed.
+
+If you want a fresh PR instead of updating the existing one, close the
+open one (without merging) and let the next scheduled run reopen it.
 
 ## How a Claude review actually happens
 
-The comms request is delivered through the **existing** comms channel
+Unchanged from the prior design — the merged `comms/requests/REQ-*.json`
+flows through the **existing** comms channel
 (see [`comms/README.md`](../../comms/README.md) and
-[`docs/claude/comms-architecture.md`](../claude/comms-architecture.md)).
-No new infrastructure was added.
+[`docs/claude/comms-architecture.md`](../claude/comms-architecture.md)):
 
-- The Telegram bot picks up `comms/requests/REQ-*.json` on its next
-  poll, delivers a notification, and flips status to `sent`.
-- The reviewer (Claude or operator) reads the `context` field, which
-  contains the inlined machine verdict, run id, branch, commit, and
-  pointers to the Actions artifacts.
-- They reply with a JSON blob matching
-  [`comms/schema/health_review_response.template.json`](../../comms/schema/health_review_response.template.json).
-- The bot files the answer under `.response.answers[0].free_text` and
-  flips status to `answered` (then `acknowledged` once the next Claude
-  session sees it).
+1. The PR is merged → `comms/requests/REQ-*.json` is on `main`.
+2. The VM's `ict-git-sync` timer pulls the new request.
+3. The Telegram bot picks it up on its next poll, delivers the
+   notification, and flips status to `sent`.
+4. The reviewer (Claude or operator) reads the `context` field, which
+   already contains the inlined machine verdict, run id, branch,
+   commit, and pointers to the Actions artifacts.
+5. They reply with a JSON blob matching
+   [`comms/schema/health_review_response.template.json`](../../comms/schema/health_review_response.template.json).
+6. The bot files the answer under `.response.answers[0].free_text` and
+   flips status to `answered`.
 
 ## Pending vs completed reviews — quick check
 
 ```bash
-# pending or in-flight (not yet answered):
+# pending review PRs (not yet merged):
+gh pr list --label health-check-review --state open
+
+# review requests on main that haven't been answered yet:
 ls comms/requests/REQ-*.json | xargs -I{} jq -r 'select(.status != "answered" and .status != "acknowledged") | "\(.status)  \(.request_id)  \(.topic)"' {}
 
 # answered but not yet acknowledged:
 ls comms/requests/REQ-*.json | xargs -I{} jq -r 'select(.status == "answered") | "\(.request_id)  \(.response.answers[0].received_at)"' {}
-
-# any health-review request specifically:
-ls comms/requests/REQ-*.json | xargs grep -l '"task": "claude_health_review:'
 ```
 
-## Idempotency / dedupe
+## Required GitHub repository setting
 
-The `request_id` is `REQ-<YYYYMMDD>-<HHMMSS>-<slug>` where the slug is
-the last 12 chars of the GitHub `run_id`. A retry of the same run hits
-the same filename and the writer skips it (`already exists`). A fresh
-schedule run gets a fresh `run_id`, so there's a 1:1 mapping between
-workflow runs and review requests — no thundering-herd if the workflow
-is rerun.
+`peter-evans/create-pull-request` cannot open PRs unless
+**Settings → Actions → General → Workflow permissions** has:
 
-## Disabling / pausing
+- [x] **Allow GitHub Actions to create and approve pull requests**
 
-Two options:
-
-1. **Pause Telegram noise but keep the audit trail** — flip the
-   `Notify operator that a Claude review is pending` step to `if: false`
-   in the workflow. Layer 1 alerts on WARNING/CRITICAL still fire.
-2. **Stop the workflow entirely** — disable the workflow from the
-   GitHub Actions UI (`Actions → System Health Check → Disable`). The
-   schedule pauses; manual `workflow_dispatch` still works.
-
-Do **not** delete the `comms/requests/REQ-*.json` files manually; the
-state machine in `src/comms/state.py` will reclaim them via the
-`expired`/`cancelled` lifecycle. Stale files are also archived
-automatically per `comms/README.md`.
+Without this setting, workflow 1 will create the branch and push the
+commit, but the PR-creation step will fail with a 403. This is the
+only repo-level setting required by the new design.
 
 ## Required GitHub secrets
 
@@ -110,21 +139,40 @@ automatically per `comms/README.md`.
 |---|---|
 | `VM_SSH_PRIVATE_KEY` | SSH key for `ubuntu@158.178.210.252` (the bot VM) |
 | `ANTHROPIC_API_KEY`  | Claude Haiku 4.5 calls in layer 1 |
-| `TELEGRAM_BOT_TOKEN` | Operator alerts (layer 1 + layer 2 ping) |
+| `TELEGRAM_BOT_TOKEN` | Operator alerts (PR-open ping + merge handoff ping) |
 | `TELEGRAM_CHAT_ID`   | Same |
 
-The Telegram secrets are optional for layer 1 — the analyzer skips the
-alert silently if either is missing. Layer 2's "review pending" ping
-likewise tolerates a missing token.
+The Telegram secrets are optional — every alert step tolerates a missing
+token silently.
+
+## Disabling / pausing
+
+Three options, in increasing scope:
+
+1. **Pause Telegram noise but keep collecting** — leave both workflows
+   enabled but unset `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID`. Layer 1
+   alerts on `WARNING`/`CRITICAL` and the PR-open / merge-handoff pings
+   all skip silently. The PR audit trail still lands.
+2. **Stop opening new PRs but keep the existing one** — disable
+   workflow 1 from the Actions UI (`Actions → Health Snapshot PR →
+   Disable`). Workflow 2 still fires if you merge the open PR.
+3. **Stop the whole pipeline** — disable both workflows. The trader is
+   unaffected (no part of it imports from `comms/`).
+
+Do **not** delete `comms/requests/REQ-*.json` manually — the comms
+state machine in `src/comms/state.py` reclaims them via the
+`expired`/`cancelled` lifecycle.
 
 ## Safety scope
 
-Per the design contract:
+Unchanged from the prior design:
 
 - The collector is **read-only**. It does not write to any path under
   `src/runtime/`, `src/units/`, or any open-positions store.
 - The trader does not import from `comms/` (see the safety note in
-  [`comms/README.md`](../../comms/README.md)) — so a malformed review
+  [`comms/README.md`](../../comms/README.md)) — a malformed review
   request cannot influence live strategy behavior.
 - The Action runs out-of-band on GitHub-hosted runners; the only
   side-effect on the VM is reading log files over SSH.
+- The PR gate adds an explicit operator approval step before any
+  review request reaches `main`, narrowing the blast radius further.
