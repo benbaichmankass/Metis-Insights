@@ -4,8 +4,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
-
 from ml.datasets.metadata import DatasetMetadata, LeakageStatus
 from ml.datasets.validate import validate_dataset
 
