@@ -14,3 +14,12 @@ Sprint plans for the ICT trading bot, in chronological order.
 
 ## Audit docs
 Mid-sprint audits use the suffix `YYYY-MM-DD-audit.md`.
+
+## Workstream plans
+
+Long-running roadmap workstreams use the `<theme>/wsN-<slug>.md` layout
+under this directory rather than a single dated sprint file. Active
+themes:
+
+- [`ai-traders/`](ai-traders/) — workstreams WS1–WS10 implementing
+  [`docs/AI-TRADERS-ROADMAP.md`](../AI-TRADERS-ROADMAP.md) (M9 + M10).
