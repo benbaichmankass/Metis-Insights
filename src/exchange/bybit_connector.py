@@ -109,17 +109,27 @@ class BybitConnector:
             return None
 
     def set_leverage(self, symbol, leverage, category="linear"):
-        """Set per-symbol leverage on Bybit V5 before placing linear perp orders.
+        """Set per-symbol leverage on Bybit V5 via the V5 endpoint directly.
 
-        PR 3 (spot-margin → perpetuals cutover): linear perpetuals require
-        ``/v5/position/set-leverage`` to be set once per (symbol, account)
-        before any order. Bybit returns retCode=110043 ("leverage not
-        modified") when the value is already what we asked for — this is
-        idempotent success, not an error, so callers can re-invoke on every
-        boot without consequence. Other retCodes propagate.
+        PR 4 fix (2026-05-10): PR 3's first take used ccxt's high-level
+        ``exchange.set_leverage(leverage, symbol, params={...})``. On
+        unified-trading-account (UTA) keys, that path failed every call
+        with ``retCode=10003 "API key is invalid."`` — not because the
+        key was actually invalid (orders placed seconds later against
+        the same client object succeeded), but because ccxt's wrapper
+        routed the request through a non-V5 endpoint that Bybit signs
+        differently. The result: the helper was a no-op, the trader
+        used whatever leverage was last set on the account from the
+        Bybit UI (could have been anything from 1× to 100×), and the
+        operator had no way to enforce a policy value.
 
-        Unified Trading Account (UTA): set buyLeverage and sellLeverage
-        symmetrically; both must equal the same value or Bybit rejects.
+        This implementation calls the V5 endpoint directly via ccxt's
+        auto-generated ``private_post_v5_position_set_leverage``
+        method, which signs against the right path. Idempotent on
+        retCode=110043 (leverage already matches).
+
+        UTA contract: buyLeverage and sellLeverage must be the same
+        string-typed integer value or Bybit rejects with 110044.
 
         Args:
             symbol: Bybit symbol (e.g., "BTCUSDT" — no slash for V5).
@@ -127,29 +137,50 @@ class BybitConnector:
             category: "linear" for USDT-margined perps. "inverse" not used.
 
         Returns:
-            dict: ccxt response with ``retCode`` / ``retMsg``. Caller should
-                  treat retCode in (0, 110043) as success.
+            dict: Bybit V5 response. retCode==0 → newly set; ==110043
+                  → already set (treated as success). Other retCodes
+                  raise.
         """
         try:
-            # ccxt exposes set_leverage as ``set_leverage(leverage, symbol, params)``.
-            # The V5 endpoint requires buyLeverage + sellLeverage as strings.
-            params = {
+            # private_post_v5_position_set_leverage is auto-generated
+            # by ccxt from the bybit API definition. ccxt signs against
+            # the V5 path correctly, which avoids the retCode=10003
+            # rejection the high-level set_leverage() helper triggers.
+            resp = self.exchange.private_post_v5_position_set_leverage({
                 "category": category,
+                "symbol": symbol,
                 "buyLeverage": str(int(leverage)),
                 "sellLeverage": str(int(leverage)),
-            }
-            resp = self.exchange.set_leverage(int(leverage), symbol, params=params)
+            })
+            ret_code = None
+            ret_msg = None
+            if isinstance(resp, dict):
+                ret_code = resp.get("retCode")
+                # Some ccxt versions normalise retCode to int, others
+                # leave it as string. Coerce.
+                try:
+                    ret_code = int(ret_code) if ret_code is not None else None
+                except (TypeError, ValueError):
+                    pass
+                ret_msg = resp.get("retMsg")
             mode = "TESTNET" if self.testnet else "LIVE"
-            logger.info(
-                "[%s] set_leverage: %s x%d (category=%s) -> %s",
-                mode, symbol, leverage, category, resp,
+            if ret_code in (0, 110043):
+                logger.info(
+                    "[%s] set_leverage: %s x%d (category=%s) retCode=%s msg=%s",
+                    mode, symbol, leverage, category, ret_code, ret_msg,
+                )
+                return resp
+            # Anything else is a real failure. Don't swallow.
+            raise RuntimeError(
+                f"Bybit set-leverage rejected: retCode={ret_code} retMsg={ret_msg} "
+                f"full={resp}"
             )
-            return resp
         except Exception as e:
-            # Idempotent case: ccxt may raise on retCode=110043 ("leverage
-            # not modified"). Detect by message substring and surface as
-            # success — re-applying the same leverage every boot is normal.
             msg = str(e)
+            # Idempotent case can also arrive as an exception from ccxt
+            # depending on version. Detect by retCode substring and
+            # surface as success — re-applying the same leverage on
+            # every boot is the expected pattern.
             if "110043" in msg or "leverage not modified" in msg.lower():
                 logger.info(
                     "set_leverage: %s x%d already set (retCode=110043, idempotent)",
