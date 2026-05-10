@@ -1,0 +1,64 @@
+name: Silent-empty guard
+
+# Pings the operator (and fails the PR check) when a pull request adds
+# a broad except handler in a protected read-path file without an
+# explicit `# allow-silent: <reason>` justification.
+# See scripts/check_silent_empty_in_diff.py and
+# docs/audits/silent-empty-2026-05-10.md.
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compute diff against base
+        run: |
+          git fetch origin "${{ github.base_ref }}" --depth=1
+          git diff "origin/${{ github.base_ref }}"...HEAD > /tmp/pr.diff
+          wc -l /tmp/pr.diff
+
+      - name: Scan for new broad except handlers in protected paths
+        id: scan
+        run: |
+          set +e
+          python scripts/check_silent_empty_in_diff.py /tmp/pr.diff
+          echo "exit=$?" >> "$GITHUB_OUTPUT"
+          set -e
+
+      - name: Notify operator on hit
+        if: steps.scan.outputs.exit != '0'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
+            echo "::warning::Telegram secrets not configured; skipping ping."
+            exit 0
+          fi
+          MESSAGE=$(cat <<EOF
+          🚨 silent-empty guard: PR #${{ github.event.pull_request.number }}
+          ${{ github.event.pull_request.html_url }}
+          A broad except handler was added in a protected read-path file.
+          Either narrow the exception type and re-raise/503, or add an
+          explicit \`# allow-silent: <reason>\` comment on the except line.
+          See docs/audits/silent-empty-2026-05-10.md.
+          EOF
+          )
+          curl -sS -X POST \
+            "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -d "chat_id=${TELEGRAM_CHAT_ID}" \
+            -d "text=${MESSAGE}" >/dev/null
+
+      - name: Fail the check on hit
+        if: steps.scan.outputs.exit != '0'
+        run: |
+          echo "::error::silent-empty guard tripped — see job output."
+          exit 1
