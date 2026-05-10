@@ -143,9 +143,9 @@ async def get_backtests(
             return []
         logger.exception("backtests: sqlite operational error")
         return []
-    except sqlite3.Error:
+    except sqlite3.Error:  # allow-silent: tier-1 dashboard read; logged via logger.exception, dashboard treats [] as "no data" — same contract as trades_closed.py
         logger.exception("backtests: sqlite read failed")
         return []
-    except Exception:  # noqa: BLE001
+    except Exception:  # noqa: BLE001  # allow-silent: tier-1 dashboard read; logged via logger.exception — never 500 the dashboard tab on an unexpected error
         logger.exception("backtests: unexpected error")
         return []
