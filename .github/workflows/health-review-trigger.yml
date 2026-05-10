@@ -19,10 +19,6 @@ jobs:
       && contains(github.event.pull_request.labels.*.name, 'health-check-review')
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    env:
-      # Routine trigger URL is not sensitive without the bearer token,
-      # so it lives in the workflow rather than as a separate secret.
-      CLAUDE_ROUTINE_URL: https://api.anthropic.com/v1/claude_code/routines/trig_015diTGEy9jATecSPMFmPyNF/fire
     steps:
       - name: Checkout merged code
         uses: actions/checkout@v4
@@ -66,8 +62,20 @@ jobs:
         # listener → label filter). One hop, retried on transient
         # failure, with full context in the body — no payload scraping
         # needed on the receiving side.
+        #
+        # Both URL and bearer token live in repo secrets so the routine
+        # can be rotated (or migrated to a new endpoint) without a code
+        # change — just rotate the secret.
+        env:
+          CLAUDE_ROUTINE_URL: ${{ secrets.CLAUDE_ROUTINE_URL }}
+          CLAUDE_ROUTINE_TOKEN: ${{ secrets.CLAUDE_ROUTINE_TOKEN }}
         run: |
           set -euo pipefail
+          if [ -z "${CLAUDE_ROUTINE_URL:-}" ] || [ -z "${CLAUDE_ROUTINE_TOKEN:-}" ]; then
+            echo "::error::CLAUDE_ROUTINE_URL and CLAUDE_ROUTINE_TOKEN must both be set as repo secrets."
+            exit 1
+          fi
+
           PR_URL="${{ github.event.pull_request.html_url }}"
           PR_NUM="${{ github.event.pull_request.number }}"
           MERGE_SHA="${{ github.event.pull_request.merge_commit_sha }}"
@@ -103,7 +111,7 @@ jobs:
           curl --fail-with-body --silent --show-error \
                --retry 5 --retry-all-errors --retry-delay 5 \
                -X POST "$CLAUDE_ROUTINE_URL" \
-               -H "Authorization: Bearer ${{ secrets.CLAUDE_ROUTINE_TOKEN }}" \
+               -H "Authorization: Bearer $CLAUDE_ROUTINE_TOKEN" \
                -H "Content-Type: application/json" \
                -d "$body"
           echo  # trailing newline for log readability

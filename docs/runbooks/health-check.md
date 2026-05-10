@@ -46,7 +46,7 @@ webhook. Trade-off summary:
 |---|---|---|
 | Failure modes | Visible in the Action log; retried up to 5× with `--retry-all-errors`; failure marks the run red. | Silent if the webhook delivery is dropped or the routine's listener mis-filters. |
 | Context delivery | Body carries `pr_url`, `pr_number`, `merge_sha`, `review_files[]`, repo — the routine doesn't have to scrape the GitHub event payload. | Routine has to parse the GitHub event and re-fetch the merge diff. |
-| Setup | One repo secret (`CLAUDE_ROUTINE_TOKEN`); the URL is in the workflow. | Routine subscribes to webhook; filter logic lives in the routine. |
+| Setup | Two repo secrets (`CLAUDE_ROUTINE_URL`, `CLAUDE_ROUTINE_TOKEN`); both rotatable without a code change. | Routine subscribes to webhook; filter logic lives in the routine. |
 | Approval gate | Same — PR merge is still the gate; the API call only happens **after** the merged + labeled filter passes. | Same. |
 
 The POST body shape:
@@ -170,7 +170,8 @@ repo's existing secret store:
 |---|---|
 | `VM_SSH_KEY`                | OpenSSH private key for `ubuntu@158.178.210.252` (the bot VM) |
 | `ANTHROPIC_API_KEY`         | Claude Haiku 4.5 calls in layer 1 |
-| `CLAUDE_ROUTINE_TOKEN`      | Bearer token for the Claude review routine API endpoint (used by workflow 2 to fire layer 2) |
+| `CLAUDE_ROUTINE_URL`        | Full POST URL of the Claude review routine API endpoint (used by workflow 2) |
+| `CLAUDE_ROUTINE_TOKEN`      | Bearer token for the Claude review routine API endpoint |
 | `CLAUDE_TELEGRAM_BOT_TOKEN` | **Claude bot token** (separate from the trader's bot) — layer-1 alerts, PR-open ping, routine-fired ping |
 | `TELEGRAM_CHAT_ID`          | Shared chat id (same chat receives trader-bot and Claude-bot messages — only the bot token differs) |
 
@@ -180,8 +181,13 @@ the trader's live alerts. The `TELEGRAM_CHAT_ID` is shared because
 both bots post into the same operator chat.
 
 The Telegram secrets are optional — every alert step tolerates a
-missing token silently. `CLAUDE_ROUTINE_TOKEN` is **not** optional;
-workflow 2 will fail (loudly) if the POST is unauthenticated.
+missing token silently. `CLAUDE_ROUTINE_URL` and `CLAUDE_ROUTINE_TOKEN`
+are **not** optional; workflow 2 fails (loudly) at the first step if
+either is unset.
+
+Both routine secrets are designed to be rotated independently — the
+workflow reads them at runtime, so updating either one in repo settings
+takes effect on the next workflow run with no code change.
 
 ## Disabling / pausing
 
