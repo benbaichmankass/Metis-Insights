@@ -6,13 +6,14 @@ Actions** that gate Claude's manual review behind a merged, labeled PR:
 | Workflow | What it does | When |
 |---|---|---|
 | 1. [`health-snapshot-pr.yml`](../../.github/workflows/health-snapshot-pr.yml) | Collects a VM snapshot, runs the layer-1 machine check, emits the layer-2 review request, and opens/updates a PR labeled `health-check-review`. | Cron `0 */6 * * *` + `workflow_dispatch` |
-| 2. [`health-review-trigger.yml`](../../.github/workflows/health-review-trigger.yml) | Fires on `pull_request.closed`, gated by `merged == true` **and** the `health-check-review` label. Confirms the merge, lists the review-request files that just landed on `main`, and pings the Claude review handoff. | On every PR merge into `main` (filtered by label) |
+| 2. [`health-review-trigger.yml`](../../.github/workflows/health-review-trigger.yml) | Fires on `pull_request.closed`, gated by `merged == true` **and** the `health-check-review` label. Confirms the merge, lists the review-request files that just landed on `main`, and **POSTs to the Claude review routine's API endpoint** to start layer 2. | On every PR merge into `main` (filtered by label) |
 
 The layered design is unchanged — layer 1 is automated machine triage,
 layer 2 is a mandatory Claude review **on every run**, including healthy
 ones. What changed is the *delivery* of layer 2: instead of committing
 the review request straight to `main`, it now goes through an operator
-review/merge step.
+review/merge step, and the Claude routine is then triggered by a direct
+API call rather than by listening on a PR webhook.
 
 ## Why merged-PR + label is the trigger
 
@@ -34,6 +35,33 @@ This matters because:
   approved review requests.
 - Re-running the workflow is **idempotent** (see below) and never
   duplicates a PR.
+
+## Why an API call (not a routine webhook subscription)
+
+Workflow 2 fires the Claude review routine via a direct POST to its
+API endpoint instead of having the routine subscribe to GitHub's PR
+webhook. Trade-off summary:
+
+| Hop | API trigger | Webhook trigger |
+|---|---|---|
+| Failure modes | Visible in the Action log; retried up to 5× with `--retry-all-errors`; failure marks the run red. | Silent if the webhook delivery is dropped or the routine's listener mis-filters. |
+| Context delivery | Body carries `pr_url`, `pr_number`, `merge_sha`, `review_files[]`, repo — the routine doesn't have to scrape the GitHub event payload. | Routine has to parse the GitHub event and re-fetch the merge diff. |
+| Setup | Two repo secrets (`CLAUDE_ROUTINE_URL`, `CLAUDE_ROUTINE_TOKEN`); both rotatable without a code change. | Routine subscribes to webhook; filter logic lives in the routine. |
+| Approval gate | Same — PR merge is still the gate; the API call only happens **after** the merged + labeled filter passes. | Same. |
+
+The POST body shape:
+
+```json
+{
+  "event": "health_review_pr_merged",
+  "repo": "benbaichmankass/ict-trading-bot",
+  "pr_url": "https://github.com/.../pull/N",
+  "pr_number": N,
+  "merge_sha": "<sha>",
+  "branch": "main",
+  "review_files": ["comms/requests/REQ-...\.json", ...]
+}
+```
 
 ## What the label means
 
@@ -60,9 +88,9 @@ gh workflow run "Health Snapshot PR"
 gh pr list --label health-check-review --state open
 ```
 
-Merging the PR fires workflow 2. To **skip** a run after the PR is
-open, just close it without merging — nothing leaves the snapshot
-branch.
+Merging the PR fires workflow 2, which POSTs to the Claude routine. To
+**skip** a run after the PR is open, just close it without merging —
+nothing leaves the snapshot branch and the routine is never called.
 
 ## Idempotency / dedupe
 
@@ -84,29 +112,30 @@ Within the artifact set:
 
 If an open PR sits unmerged across several scheduled runs, every run's
 `REQ-*.json` accumulates in the PR. Merging once delivers all of them
-to `main` atomically; workflow 2 lists which ones just landed.
+to `main` atomically; workflow 2 lists which ones just landed and ships
+the whole list to the routine in `review_files[]`.
+
+The routine API call is retried up to 5 times by `curl --retry-all-errors`,
+so transient 5xx / network blips don't drop the trigger.
 
 If you want a fresh PR instead of updating the existing one, close the
 open one (without merging) and let the next scheduled run reopen it.
 
 ## How a Claude review actually happens
 
-Unchanged from the prior design — the merged `comms/requests/REQ-*.json`
-flows through the **existing** comms channel
-(see [`comms/README.md`](../../comms/README.md) and
-[`docs/claude/comms-architecture.md`](../claude/comms-architecture.md)):
-
 1. The PR is merged → `comms/requests/REQ-*.json` is on `main`.
-2. The VM's `ict-git-sync` timer pulls the new request.
-3. The Telegram bot picks it up on its next poll, delivers the
-   notification, and flips status to `sent`.
-4. The reviewer (Claude or operator) reads the `context` field, which
-   already contains the inlined machine verdict, run id, branch,
-   commit, and pointers to the Actions artifacts.
-5. They reply with a JSON blob matching
-   [`comms/schema/health_review_response.template.json`](../../comms/schema/health_review_response.template.json).
-6. The bot files the answer under `.response.answers[0].free_text` and
-   flips status to `answered`.
+2. Workflow 2 fires, lists the newly-added review request files, and
+   POSTs to the Claude routine API endpoint with the merged-PR
+   metadata and the list of new request files.
+3. The Claude routine wakes up, fetches the request files (and any
+   linked artifacts), performs the layer-2 sanity review, and writes
+   its findings back. It also marks the request status appropriately
+   in the comms state machine (see `comms/README.md`).
+4. The VM's `ict-git-sync` timer pulls any state changes the routine
+   commits.
+
+The response shape the routine produces is documented in
+[`comms/schema/health_review_response.template.json`](../../comms/schema/health_review_response.template.json).
 
 ## Pending vs completed reviews — quick check
 
@@ -130,7 +159,7 @@ ls comms/requests/REQ-*.json | xargs -I{} jq -r 'select(.status == "answered") |
 
 Without this setting, workflow 1 will create the branch and push the
 commit, but the PR-creation step will fail with a 403. This is the
-only repo-level setting required by the new design.
+only repo-level setting required by the design.
 
 ## Required GitHub secrets
 
@@ -141,7 +170,9 @@ repo's existing secret store:
 |---|---|
 | `VM_SSH_KEY`                | OpenSSH private key for `ubuntu@158.178.210.252` (the bot VM) |
 | `ANTHROPIC_API_KEY`         | Claude Haiku 4.5 calls in layer 1 |
-| `CLAUDE_TELEGRAM_BOT_TOKEN` | **Claude bot token** (separate from the trader's bot) — layer-1 alerts, PR-open ping, merge handoff ping |
+| `CLAUDE_ROUTINE_URL`        | Full POST URL of the Claude review routine API endpoint (used by workflow 2) |
+| `CLAUDE_ROUTINE_TOKEN`      | Bearer token for the Claude review routine API endpoint |
+| `CLAUDE_TELEGRAM_BOT_TOKEN` | **Claude bot token** (separate from the trader's bot) — layer-1 alerts, PR-open ping, routine-fired ping |
 | `TELEGRAM_CHAT_ID`          | Shared chat id (same chat receives trader-bot and Claude-bot messages — only the bot token differs) |
 
 The action's Telegram pings are intentionally routed via the Claude
@@ -150,20 +181,26 @@ the trader's live alerts. The `TELEGRAM_CHAT_ID` is shared because
 both bots post into the same operator chat.
 
 The Telegram secrets are optional — every alert step tolerates a
-missing token silently. If they are unset, the workflow still runs and
-the PR is still created; only the Telegram pings are skipped.
+missing token silently. `CLAUDE_ROUTINE_URL` and `CLAUDE_ROUTINE_TOKEN`
+are **not** optional; workflow 2 fails (loudly) at the first step if
+either is unset.
+
+Both routine secrets are designed to be rotated independently — the
+workflow reads them at runtime, so updating either one in repo settings
+takes effect on the next workflow run with no code change.
 
 ## Disabling / pausing
 
 Three options, in increasing scope:
 
 1. **Pause Telegram noise but keep collecting** — leave both workflows
-   enabled but unset `CLAUDE_TELEGRAM_BOT_TOKEN`. The PR-open / merge-
-   handoff pings and layer-1 WARNING/CRITICAL alerts all skip silently.
-   The PR audit trail still lands.
+   enabled but unset `CLAUDE_TELEGRAM_BOT_TOKEN`. The PR-open / routine-
+   fired pings and layer-1 WARNING/CRITICAL alerts all skip silently.
+   The PR audit trail still lands and the routine is still called.
 2. **Stop opening new PRs but keep the existing one** — disable
    workflow 1 from the Actions UI (`Actions → Health Snapshot PR →
-   Disable`). Workflow 2 still fires if you merge the open PR.
+   Disable`). Workflow 2 still fires (and POSTs to the routine) if you
+   merge the open PR.
 3. **Stop the whole pipeline** — disable both workflows. The trader is
    unaffected (no part of it imports from `comms/`).
 

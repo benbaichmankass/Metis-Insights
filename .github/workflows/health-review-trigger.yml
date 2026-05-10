@@ -49,17 +49,77 @@ jobs:
             echo "Review requests now on main:"
             echo "$added"
           fi
-          # Persist for downstream steps.
+          # Persist as a multi-line action output for downstream steps.
           {
             echo "added<<__END__"
             echo "$added"
             echo "__END__"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Notify Claude review handoff
+      - name: Trigger Claude review routine (API)
+        # Direct POST to the Claude routine's API endpoint replaces the
+        # older delivery path (PR-closed webhook → Claude routine
+        # listener → label filter). One hop, retried on transient
+        # failure, with full context in the body — no payload scraping
+        # needed on the receiving side.
+        #
+        # Both URL and bearer token live in repo secrets so the routine
+        # can be rotated (or migrated to a new endpoint) without a code
+        # change — just rotate the secret.
         env:
-          # Route the action's Telegram via the Claude bot, not the
-          # trader's bot. Chat id is shared across both bots.
+          CLAUDE_ROUTINE_URL: ${{ secrets.CLAUDE_ROUTINE_URL }}
+          CLAUDE_ROUTINE_TOKEN: ${{ secrets.CLAUDE_ROUTINE_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CLAUDE_ROUTINE_URL:-}" ] || [ -z "${CLAUDE_ROUTINE_TOKEN:-}" ]; then
+            echo "::error::CLAUDE_ROUTINE_URL and CLAUDE_ROUTINE_TOKEN must both be set as repo secrets."
+            exit 1
+          fi
+
+          PR_URL="${{ github.event.pull_request.html_url }}"
+          PR_NUM="${{ github.event.pull_request.number }}"
+          MERGE_SHA="${{ github.event.pull_request.merge_commit_sha }}"
+          ADDED="${{ steps.requests.outputs.added }}"
+
+          review_files_json=$(printf '%s' "$ADDED" \
+            | jq -R -s 'split("\n") | map(select(length>0))')
+
+          body=$(jq -n \
+            --arg event       "health_review_pr_merged" \
+            --arg repo        "${{ github.repository }}" \
+            --arg pr_url      "$PR_URL" \
+            --argjson pr_number "$PR_NUM" \
+            --arg merge_sha   "$MERGE_SHA" \
+            --arg branch      "main" \
+            --argjson review_files "$review_files_json" \
+            '{
+              event: $event,
+              repo: $repo,
+              pr_url: $pr_url,
+              pr_number: $pr_number,
+              merge_sha: $merge_sha,
+              branch: $branch,
+              review_files: $review_files
+            }')
+
+          echo "Posting body:"
+          echo "$body"
+
+          # --fail-with-body so HTTP errors fail the step but still
+          # surface the response body in the log for diagnosis.
+          # --retry-all-errors absorbs transient flakes (curl 7.71+).
+          curl --fail-with-body --silent --show-error \
+               --retry 5 --retry-all-errors --retry-delay 5 \
+               -X POST "$CLAUDE_ROUTINE_URL" \
+               -H "Authorization: Bearer $CLAUDE_ROUTINE_TOKEN" \
+               -H "Content-Type: application/json" \
+               -d "$body"
+          echo  # trailing newline for log readability
+
+      - name: Notify operator that the Claude routine fired
+        if: success()
+        env:
+          # Claude bot, shared chat id.
           TELEGRAM_BOT_TOKEN: ${{ secrets.CLAUDE_TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
@@ -67,6 +127,6 @@ jobs:
           PR_NUM="${{ github.event.pull_request.number }}"
           PR_URL="${{ github.event.pull_request.html_url }}"
           PYTHONPATH=. python scripts/notify_session.py alert \
-            --summary "Claude health review handoff — PR #${PR_NUM} merged with health-check-review label; review requests live on main" \
+            --summary "Claude health review routine fired — PR #${PR_NUM} merged with health-check-review label" \
             --link "$PR_URL" \
             || echo "telegram alert failed (non-fatal)"
