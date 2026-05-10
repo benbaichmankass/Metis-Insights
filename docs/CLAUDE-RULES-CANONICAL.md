@@ -78,6 +78,49 @@ Claude is the implementation lead for repo work. Claude is expected to:
 If code and docs disagree, Claude must record the mismatch in the sprint
 log and update the docs as part of the sprint.
 
+## Ship-Autonomously Rule
+
+A sprint is **not done** when the code lands on `main`. A sprint is
+done when the change is **active in production** — for VM-deployed
+work, that means the VM has been updated and (if applicable)
+restarted so the new code/config is live.
+
+Claude must:
+
+1. **Treat VM activation as in-scope.** If a sprint adds a feature
+   that needs a VM env-var, a service restart, or a deploy, the
+   sprint includes wiring that activation through the operator-actions
+   workflow (`scripts/ops/*.sh` + an allowlist entry in
+   `.github/workflows/operator-actions.yml`). Do not punt the
+   activation to a manual SSH session in a runbook.
+2. **Use the issue-driven dispatch path autonomously.** Tier-1 ops
+   actions (read-only) fire without approval; Tier-2 ops actions
+   (mutating: deploy, restart, env-var toggles) fire after a single
+   in-conversation operator ack — open the labelled issue from the
+   sandbox, watch the workflow comment back, confirm the result.
+   See `docs/claude/operator-actions.md` for the full contract.
+3. **Never write a runbook step that says "operator: SSH to the VM
+   and run X"** when the same X can be allowlisted as a wrapper
+   script. If the wrapper script doesn't exist yet, write it in the
+   same sprint that needs it.
+4. **Verify activation, don't assume.** After firing the action,
+   read the workflow's audit artifact (or the diag relay) to
+   confirm the post-state matches expectations. Only mark the
+   sprint complete when the on-disk + in-memory state is verified.
+
+The exception is when an action genuinely cannot be allowlisted —
+e.g. a one-time bootstrap that needs sudoers to be edited, an
+Oracle Cloud Console manipulation, a secret rotation. Those go in
+the runbook with explicit "operator-only" framing and a justification
+for why no autonomous path exists. Default is the autonomous path;
+manual SSH is the documented exception.
+
+**Anti-pattern:** "I shipped the code and tests; you (operator)
+need to flip the env var on the VM and restart the bot." This
+strands the milestone half-shipped, hides activation latency, and
+puts manual toil on the operator that the operator-actions
+workflow exists to eliminate.
+
 ## Permission Tiers
 
 The permission model is explicit and must be used consistently.

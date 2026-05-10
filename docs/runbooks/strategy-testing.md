@@ -56,7 +56,7 @@ auto-install the consumer pass into `CommsPoller.poll_once`.
 
 | Env var | Default | Purpose |
 |---|---|---|
-| `M5_CONSUMER_ENABLED` | unset (`0`) | Auto-install the consumer when the bot boots. Set to `1`/`true`/`yes`/`on` to enable. **Kill switch:** unset on the VM and restart the trader-bot service. |
+| `M5_CONSUMER_ENABLED` | unset (`0`) | Auto-install the consumer when the bot boots. Set to `1`/`true`/`yes`/`on` to enable. **Activation + kill switch:** the operator-actions workflow (`enable-m5-consumer` / `disable-m5-consumer`) — see "Activation" and "Kill switch" sections below. |
 | `M5_BACKTEST_TIMEOUT_S` | `120` | Wall-clock cap per subprocess run, in seconds. A multi-MB CSV that exceeds this surfaces as `outcome=timeout`. |
 | `BACKTEST_DATA_PATH` | `data/backtest_candles.csv` (or `data/candles.csv`) | Override the candle CSV the runner reads. |
 | `TRADE_JOURNAL_DB` | `trade_journal.db` | Override the SQLite path; the run row lands in `backtest_results`. |
@@ -93,28 +93,31 @@ NDJSON row per backtest run, append-only, no rotation (matches
 
 ### Tail it
 
-```bash
-ssh ict-trader-vm 'tail -n 20 /home/ubuntu/ict-trading-bot/runtime_logs/validation.jsonl' | jq .
+The dashboard's **Backtests tab** is the canonical surface
+(`GET /api/bot/backtests`, M5 P4) — every run shows up there with
+the headline metrics + a `db_row_id` pointer.
+
+For raw NDJSON, use the diag relay (Tier-1 read, no SSH):
+
+```text
+Title:  [diag-request] log_file?name=audit&lines=100
+Label:  vm-diag-request
 ```
 
-Or via the diag relay (Tier-1 read):
-
-```bash
-gh issue create -R benbaichmankass/ict-trading-bot \
-  --title '[diag-request] log_file?name=audit&lines=100' \
-  --label vm-diag-request
-```
-
-(The `audit` log_file alias still points at `signal_audit.jsonl`; the
-relay's allowlist gets a `validation` alias when the dashboard tab in
-P4 lands. Until then, SSH or the underlying file_tail is the path.)
+The `audit` alias today still points at `signal_audit.jsonl`; M5
+follow-up sprint will allowlist a `validation` alias for the
+relay. Until then the file_tail underlying that endpoint is the
+canonical path; never SSH the VM for a log read.
 
 ### Pull a row by id
 
-```bash
-ssh ict-trader-vm 'sqlite3 /home/ubuntu/ict-trading-bot/trade_journal.db \
-  "SELECT * FROM backtest_results WHERE id = 42"'
-```
+`backtest_results` is exposed via the same Tier-1 endpoint
+(`/api/bot/backtests`); the dashboard's Backtests tab lets you
+filter by strategy and surfaces the `id` per row. For an ad-hoc
+SQL query, use the `pull-latest-logs` operator action (which
+includes a DB snapshot in its artifact bundle) or the diag relay's
+`/api/diag/journal?table=backtest_results` endpoint — both surface
+the row without an SSH session.
 
 ---
 
@@ -141,8 +144,15 @@ audit trail (what lands in the validation log).
   - **Telegram reply:** `M5 backtest failed — <strategy>` … `error:
     BacktestTimeout: backtest exceeded <N>s …`.
   - **Validation log:** `outcome=timeout`, no `exit_code`.
-  - **Fix:** raise `M5_BACKTEST_TIMEOUT_S` on the systemd unit and
-    restart, OR shrink the input CSV.
+  - **Fix:** raise `M5_BACKTEST_TIMEOUT_S` in
+    `/home/ubuntu/ict-trading-bot/.env` then dispatch the
+    `restart-bot-service` operator action (issue-driven). Or shrink
+    the input CSV. The env-var bump is a Tier-3 config tweak — file a
+    PR rather than mutating the .env directly when changing it
+    permanently. Today the operator can also flip it ad-hoc by
+    editing the .env via a one-shot script if a runaway run is
+    blocking; surface a sprint to allowlist a dedicated action if
+    this becomes recurring.
 
 ### 3. Subprocess non-zero exit (data, code, env)
 
@@ -202,19 +212,62 @@ audit trail (what lands in the validation log).
 
 ---
 
+## Activation
+
+**The consumer is activated through the operator-actions workflow,
+not a manual SSH session.** The runtime config (env-file edit +
+systemd restart) lives entirely on the VM; Claude or the operator
+fires it from this side via a labelled issue or the workflow UI.
+
+### Autonomous (Claude Code session)
+
+Open a labelled issue — the workflow runs end-to-end (atomic .env
+edit, restart, journal tail, audit artifact + Telegram notify) and
+closes the issue with a result comment. No SSH needed.
+
+```text
+Title:  [operator-action] enable-m5-consumer
+Label:  operator-action
+Body:
+  action: enable-m5-consumer
+  reason: <why now — e.g. M5 milestone activation, post-deploy smoke>
+```
+
+The `mcp__github__issue_write` MCP tool is the autonomous path.
+
+### Operator (UI click)
+
+Run `operator-actions` workflow → action `enable-m5-consumer`,
+reason field non-empty. Same script, same audit trail.
+
+### What the script does
+
+`scripts/ops/enable_m5_consumer.sh` (atomic, idempotent):
+
+1. Confirms passwordless sudo for `systemctl`.
+2. Defers if any `claude-vm-runner@*.service` is active (so a `/vm`
+   runner mid-flight isn't killed).
+3. Writes `M5_CONSUMER_ENABLED=1` into `/home/ubuntu/ict-trading-bot/.env`
+   via tmpfile + `mv` (no half-written state on a crash).
+4. `systemctl restart ict-telegram-bot.service`.
+5. Polls `is-active` for up to 30 s; dumps the last 30 journal lines.
+6. Records the run under `runtime_logs/operator_actions/`.
+
+Exit 0 = consumer is live; exit 3 = deferred (vm-runner active —
+re-issue later); exit 1 = env-edit verification mismatch or unit
+failed to come back.
+
 ## Kill switch
 
-```bash
-# 1. Unset the gate.
-ssh ict-trader-vm 'sudo systemctl edit --full ict-trader-telegram-bot.service'
-# Remove `Environment=M5_CONSUMER_ENABLED=1` from the unit; save.
+Same machinery, opposite direction — `disable-m5-consumer` flips
+`M5_CONSUMER_ENABLED=0` and restarts the bot:
 
-# 2. Restart so the consumer un-installs.
-ssh ict-trader-vm 'sudo systemctl restart ict-trader-telegram-bot.service'
-
-# 3. Verify.
-ssh ict-trader-vm 'sudo systemctl show ict-trader-telegram-bot.service \
-  | grep -i M5_CONSUMER_ENABLED'   # should be empty
+```text
+Title:  [operator-action] disable-m5-consumer
+Label:  operator-action
+Body:
+  action: disable-m5-consumer
+  reason: <why — e.g. emergency stop, runaway backtests, debug>
 ```
 
 After the kill switch, any subsequent `/test <strategy>` still mints
@@ -224,23 +277,19 @@ re-enabled or it expires per its TTL.
 
 ---
 
-## Smoke test (read-only)
+## Smoke test
 
-Verify the closed loop without queueing real work:
+The end-to-end smoke is `/test vwap` in Telegram once the consumer
+is enabled — the artifact rounds-trips to `answered` in one poll
+cycle, lands a row in `backtest_results`, and writes one row to
+`runtime_logs/validation.jsonl`. Confirm via the diag-relay
+(`vm-diag-snapshot` → `/api/diag/snapshot`) and the dashboard's
+Backtests tab. No SSH session needed.
 
-```bash
-ssh ict-trader-vm 'cd /home/ubuntu/ict-trading-bot && \
-  python -c "
-import json
-from src.bot.test_strategy_consumer import default_run_backtest
-result = default_run_backtest(\"vwap\")
-print(json.dumps({\"db_row_id\": result.db_row_id, \"summary\": result.summary}, indent=2))
-"'
-```
-
-Lands a row in `backtest_results`, prints the JSON envelope, no comms
-or Telegram side-effects. The validation log is **not** written by
-this path — only the consumer wraps a run with a log entry.
+For a code-side regression test (no comms, no Telegram, no
+validation-log write), run `tests/test_m5_consumer.py` locally —
+the in-repo fixtures cover the happy path, error path, and poller
+wiring.
 
 ---
 
@@ -252,8 +301,9 @@ this path — only the consumer wraps a run with a log entry.
 | See the registered strategies | Type `/test bogus` — the rejection lists them |
 | Read the latest run row | `sqlite3 trade_journal.db 'SELECT * FROM backtest_results ORDER BY id DESC LIMIT 1'` |
 | Read the last 10 audit rows | `tail -n 10 runtime_logs/validation.jsonl \| jq .` |
-| Disable the consumer | unset `M5_CONSUMER_ENABLED`, restart bot |
-| Raise the timeout | bump `M5_BACKTEST_TIMEOUT_S` on the unit, restart |
+| Activate the consumer | `[operator-action] enable-m5-consumer` issue (or workflow UI) |
+| Disable the consumer | `[operator-action] disable-m5-consumer` issue (or workflow UI) |
+| Raise the timeout | edit `/home/ubuntu/ict-trading-bot/.env` (`M5_BACKTEST_TIMEOUT_S=…`), then `[operator-action] restart-bot-service` |
 | Cancel a pending request | edit `comms/requests/REQ-….json`, set `status: cancelled`, commit, push |
 
 ---
