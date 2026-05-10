@@ -1,21 +1,18 @@
 # AI Traders Models Roadmap
 
-> **Status:** Master plan adopted 2026-05-10. Through S-AI-WS4-FU.
+> **Status:** Master plan adopted 2026-05-10. Through S-AI-WS5-B-PART-1.
 >
 > **AI-scope canonical doc:**
 > [`docs/architecture/ai-model-platform.md`](architecture/ai-model-platform.md).
-> **Stage contracts:**
-> [`docs/pipeline/stage-contracts.md`](pipeline/stage-contracts.md).
+> **Stage contracts:** [`docs/pipeline/stage-contracts.md`](pipeline/stage-contracts.md).
 > **Pipeline types:** [`src/pipeline/types.py`](../src/pipeline/types.py).
-> **Data layer:** [`docs/data/`](data/) +
-> [`ml/datasets/`](../ml/datasets/).
+> **Data layer:** [`docs/data/`](data/) + [`ml/datasets/`](../ml/datasets/).
+> **`market_raw` adapters:**
+> [`docs/ml/market-raw-adapters.md`](ml/market-raw-adapters.md).
 > **Training center + registry + Predictor + splitters + compare:**
-> [`docs/ml/training-center.md`](ml/training-center.md) +
-> [`docs/ml/model-registry-policy.md`](ml/model-registry-policy.md) +
-> [`ml/`](../ml/).
+> [`docs/ml/`](ml/) + [`ml/`](../ml/).
 > **First specialist baseline:**
-> [`ml/configs/baseline-trade-outcome-winrate.yaml`](../ml/configs/baseline-trade-outcome-winrate.yaml)
-> + [`ml/configs/baseline-trade-outcome-global.yaml`](../ml/configs/baseline-trade-outcome-global.yaml).
+> `ml/configs/baseline-trade-outcome-{winrate,global}.yaml`.
 
 ---
 
@@ -27,7 +24,7 @@
 | WS2 | Canonical trade pipeline | M9 | ✅ DONE 2026-05-10 (S-AI-WS2) | [ws2-canonical-pipeline.md](sprint-plans/ai-traders/ws2-canonical-pipeline.md) |
 | WS3 | Data foundation | M10 | ✅ DONE 2026-05-10 (S-AI-WS3) | [ws3-data-foundation.md](sprint-plans/ai-traders/ws3-data-foundation.md) |
 | WS4 | Training center | M9 | ✅ DONE 2026-05-10 (S-AI-WS4 + S-AI-WS4-FU) | [ws4-training-center.md](sprint-plans/ai-traders/ws4-training-center.md) + [ws4-followups.md](sprint-plans/ai-traders/ws4-followups.md) |
-| WS5 | Baseline models | M9 | 🔄 IN PROGRESS — sub-sprint A (outcome probability) closed 2026-05-10 (S-AI-WS5-A); B–F queued | [ws5-baseline-models.md](sprint-plans/ai-traders/ws5-baseline-models.md) |
+| WS5 | Baseline models | M9 | 🔄 IN PROGRESS — sub-sprints A + B-PART-1 closed 2026-05-10 | [ws5-baseline-models.md](sprint-plans/ai-traders/ws5-baseline-models.md) |
 | WS6 | Open-source model layer | M9 | 📋 Not started | [ws6-open-source-models.md](sprint-plans/ai-traders/ws6-open-source-models.md) |
 | WS7 | Deployment tiers | M9 | 📋 Not started | [ws7-deployment-tiers.md](sprint-plans/ai-traders/ws7-deployment-tiers.md) |
 | WS8 | Monitoring and feedback loops | M9 | 📋 Not started | [ws8-monitoring-feedback.md](sprint-plans/ai-traders/ws8-monitoring-feedback.md) |
@@ -38,21 +35,21 @@
 
 ## Recommended implementation order
 
-1. WS1 (S-AI-WS1) ✅
-2. WS2 (S-AI-WS2) ✅
-3. WS3 (S-AI-WS3) ✅
-4. WS4 (S-AI-WS4) + WS4 follow-ups (S-AI-WS4-FU) ✅
-5. WS5 baselines (sub-sprints A..F) — A done; **B (regime
-   classifier) is next, blocked on operator decision on which
-   `market_raw` adapter ships first**.
-6. Shadow mode (WS7) → WS6 (open-source) → WS8 + WS10.
+1. WS1–WS4 + WS4-FU — ✅ done.
+2. WS5-A (outcome probability) — ✅ done.
+3. **WS5-B-PART-1 (`market_raw` adapter framework) — ✅ done
+   2026-05-10.**
+4. **WS5-B-PART-2 (regime classifier + Bybit off-VM fetch wiring) —
+   🔜 next.**
+5. WS5-C..F (other baselines).
+6. Shadow mode (WS7) → WS6 → WS8 + WS10.
 
 ---
 
 ## Non-negotiable rules
 
 - Live trading safety > feature growth.
-- No heavy training on the Oracle live VM.
+- No heavy training on the Oracle live VM (WS9).
 - No model in live strategy logic without staged promotion +
   operator approval.
 - AI output cannot bypass risk caps, broker validation, or
@@ -66,6 +63,8 @@
   approval recorded in `--by` + `--reason` (S-AI-WS4).
 - No outcome columns as features against `won` on
   `trade_outcomes` (S-AI-WS5-A).
+- **No `ICT_OFFVM_BUILD_HOST=1` on the Oracle live VM**
+  (S-AI-WS5-B-PART-1).
 
 ---
 
@@ -78,5 +77,6 @@
 | 2026-05-10 | S-AI-WS2 | WS2: stage names locked; typed schemas. | None. |
 | 2026-05-10 | S-AI-WS3 | WS3: dataset framework + `backtest_results`. | None. |
 | 2026-05-10 | S-AI-WS4 | WS4: training center. | None. |
-| 2026-05-10 | S-AI-WS5-A | WS5-A: outcome probability baseline + `trade_outcomes` family + leakage discipline. | None. |
-| 2026-05-10 | S-AI-WS4-FU | WS4 follow-ups: Predictor abstraction + time-aware + walk-forward splitters + `compare` CLI + global-only sanity baseline + `market_raw` multi-source design pinned. | None — additive; refactor preserves WS4 + WS5-A behavior. |
+| 2026-05-10 | S-AI-WS5-A | WS5-A: outcome probability + `trade_outcomes`. | None. |
+| 2026-05-10 | S-AI-WS4-FU | WS4 follow-ups: Predictor + splitters + `compare` + global-only baseline. | None. |
+| 2026-05-10 | S-AI-WS5-B-PART-1 | WS5-B Part 1: `market_raw` multi-source adapter framework (CSV adapter live; Bybit off-VM scaffold env-gated; fetch wiring filed for operator). New non-negotiable: no `ICT_OFFVM_BUILD_HOST=1` on the live VM. | None — additive; Bybit shell raises NotImplementedError until operator wires the fetch. |

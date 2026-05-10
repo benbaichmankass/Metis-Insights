@@ -197,6 +197,103 @@ class TestRunMonitorTick:
         assert trades[0]["exit_reason"] == "vwap_cross"
         assert trades[0]["exit_price"] == 99.5
 
+    def test_close_path_books_pnl_and_pnl_percent(self, tmp_db):
+        """Regression for the 2026-05-10 layer-2 finding: 38 closed trades
+        had status='closed' + exit_price set but pnl=NULL because the
+        monitor close path only wrote status / exit_reason / exit_price.
+        """
+        _seed_open_pkg(tmp_db, pkg_id="pkg-pnl", entry=100.0, sl=95.0, tp=110.0)
+        trade_id = tmp_db.insert_trade({
+            "timestamp": "2026-05-10T01:00:00+00:00",
+            "symbol": "BTCUSDT",
+            "direction": "long",
+            "entry_price": 100.0,
+            "stop_loss": 95.0,
+            "take_profit_1": 110.0,
+            "position_size": 2.0,
+            "setup_type": "vwap",
+            "entry_reason": "vwap signal",
+            "status": "open",
+            "is_backtest": 0,
+            "strategy_name": "vwap",
+            "account_id": "bybit_2",
+        })
+
+        with patch(
+            "src.units.strategies.vwap.monitor",
+            return_value={"action": "close", "reason": "tp_cross",
+                          "exit_price": 110.0},
+        ):
+            om.run_monitor_tick(
+                strategies=["vwap"],
+                ohlcv_fetcher=lambda s, t: _candles(110.0),
+            )
+
+        trade = tmp_db.get_trades(filters={"id": trade_id})[0]
+        assert trade["status"] == "closed"
+        assert trade["exit_price"] == 110.0
+        # gross_pnl = (110 - 100) * 2.0 = 20.0; pnl_percent = 10%
+        assert trade["pnl"] is not None
+        assert trade["pnl_percent"] is not None
+        assert trade["pnl"] == pytest.approx(20.0, abs=0.01)
+        assert trade["pnl_percent"] == pytest.approx(10.0, abs=0.001)
+
+    def test_close_path_books_pnl_for_short(self, tmp_db):
+        """Short side of the PnL formula — short profits when exit < entry."""
+        _seed_open_pkg(
+            tmp_db, pkg_id="pkg-pnl-short",
+            direction="short", entry=100.0, sl=105.0, tp=90.0,
+        )
+        trade_id = tmp_db.insert_trade({
+            "timestamp": "2026-05-10T01:00:00+00:00",
+            "symbol": "BTCUSDT",
+            "direction": "short",
+            "entry_price": 100.0,
+            "stop_loss": 105.0,
+            "take_profit_1": 90.0,
+            "position_size": 2.0,
+            "setup_type": "vwap",
+            "entry_reason": "vwap signal",
+            "status": "open",
+            "is_backtest": 0,
+            "strategy_name": "vwap",
+            "account_id": "bybit_2",
+        })
+
+        with patch(
+            "src.units.strategies.vwap.monitor",
+            return_value={"action": "close", "reason": "tp_cross",
+                          "exit_price": 90.0},
+        ):
+            om.run_monitor_tick(
+                strategies=["vwap"],
+                ohlcv_fetcher=lambda s, t: _candles(90.0),
+            )
+
+        trade = tmp_db.get_trades(filters={"id": trade_id})[0]
+        # gross_pnl = (100 - 90) * 2.0 = 20.0
+        assert trade["pnl"] == pytest.approx(20.0, abs=0.01)
+        assert trade["pnl_percent"] == pytest.approx(10.0, abs=0.001)
+
+    def test_close_path_skips_pnl_when_exit_price_missing(self, tmp_db):
+        """Verdict without exit_price → status flips, pnl stays NULL."""
+        _seed_open_pkg(tmp_db, pkg_id="pkg-no-exit-px")
+        trade_id = _seed_open_trade(tmp_db)
+
+        with patch(
+            "src.units.strategies.vwap.monitor",
+            return_value={"action": "close", "reason": "manual_close"},
+        ):
+            om.run_monitor_tick(
+                strategies=["vwap"],
+                ohlcv_fetcher=lambda s, t: _candles(100.0),
+            )
+
+        trade = tmp_db.get_trades(filters={"id": trade_id})[0]
+        assert trade["status"] == "closed"
+        assert trade["pnl"] is None
+        assert trade["pnl_percent"] is None
+
     def test_unknown_verdict_shape_is_logged_no_change(self, tmp_db, caplog):
         _seed_open_pkg(tmp_db, pkg_id="pkg-weird")
 

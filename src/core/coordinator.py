@@ -37,6 +37,17 @@ _ACCOUNTS_YAML = os.path.join(_REPO_ROOT, "config", "accounts.yaml")
 # In-process pause sentinels (PR #122 will replace with persistent flags).
 _PAUSED_ACCOUNTS: set[str] = set()
 
+# Circuit breaker for exchange-side rejection storms — defends against the
+# 2026-05-10 Bybit ErrCode 170131 retry-loop where a wedged borrow gate
+# kept rejecting every order without any backoff (20/58 trades / 9 h on
+# bybit_2 spot-margin Buy). After this many consecutive ``exchange_rejected``
+# results on the same account, the coordinator auto-flips the account to
+# ``mode: dry_run`` via ``set_account_dry_run`` and emits a critical alert.
+# In-process counters; restart resets them. A successful placement on the
+# same account zeroes the counter.
+_EXCHANGE_REJECTION_PAUSE_THRESHOLD = 3
+_EXCHANGE_REJECTION_COUNTS: Dict[str, int] = {}
+
 
 # ---------------------------------------------------------------------------
 # Public data types
@@ -1074,6 +1085,9 @@ class Coordinator:
                     "sized_qty": sized_qty,
                     "error": None,
                 })
+                # Reset the consecutive exchange-rejection counter on a
+                # clean placement — the borrow gate is open again.
+                _EXCHANGE_REJECTION_COUNTS.pop(account.name, None)
             except RiskBreach as exc:
                 _emit_execution_failure_ping(
                     account=account.name,
@@ -1128,6 +1142,33 @@ class Coordinator:
                     "sized_qty": sized_qty,
                     "error": f"{type(exc).__name__}: {exc}",
                 })
+                # Circuit breaker: N consecutive exchange_rejected results
+                # ⇒ auto-flip the account to dry_run + critical alert.
+                # Prevents the 2026-05-10 Bybit ErrCode 170131 retry-loop
+                # cascade. Counter is reset on the success branch above.
+                _count = _EXCHANGE_REJECTION_COUNTS.get(account.name, 0) + 1
+                _EXCHANGE_REJECTION_COUNTS[account.name] = _count
+                if _count >= _EXCHANGE_REJECTION_PAUSE_THRESHOLD:
+                    try:
+                        self.set_account_dry_run(account.name, True)
+                        _EXCHANGE_REJECTION_COUNTS[account.name] = 0
+                        self.push_alert(
+                            f"Account '{account.name}' auto-paused after "
+                            f"{_count} consecutive exchange rejections "
+                            f"(last: {type(exc).__name__}: {str(exc)[:120]}). "
+                            f"Mode flipped to dry_run; investigate before "
+                            f"re-enabling.",
+                            source="accounts",
+                            level="critical",
+                            account=account.name,
+                            consecutive_rejections=_count,
+                        )
+                    except Exception as alert_exc:  # noqa: BLE001
+                        logger.warning(
+                            "multi_account_execute: auto-pause on %s "
+                            "raised: %s",
+                            account.name, alert_exc,
+                        )
 
         # Aggregate "trader is silent" signal: if the dispatch round
         # touched at least one account but none of them placed a

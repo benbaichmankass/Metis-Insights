@@ -425,6 +425,30 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
         # mode. Per-account dry_run still suppresses the order at the
         # ``_send_close_to_exchange`` boundary when the account is
         # paper.
+        # Realised-PnL booking. The trade-row write above only stamped
+        # status/exit_reason/exit_price; the database-layer docstring
+        # contract (src/units/db/database.py § "the monitor loop updates
+        # it on close") expects pnl + pnl_percent on the same close.
+        # The 2026-05-10 layer-2 review surfaced 38 closed trades with
+        # pnl=NULL because this second write was never wired. Gross
+        # PnL only — fees are settled by the exchange-truth-attribution
+        # reconciler, not here.
+        exit_price_for_pnl = (verdict or {}).get("exit_price")
+        if matched_trade and exit_price_for_pnl is not None:
+            pnl_updates = _compute_close_pnl(
+                matched_trade, float(exit_price_for_pnl),
+            )
+            trade_id = matched_trade.get("id")
+            if pnl_updates and trade_id is not None:
+                try:
+                    db.update_trade(int(trade_id), pnl_updates)
+                    matched_trade = {**matched_trade, **pnl_updates}
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning(
+                        "order_monitor: trades pnl update failed for %s: %s",
+                        pkg_id, exc,
+                    )
+
         if matched_trade:
             ex_result = _send_close_to_exchange(matched_trade)
             logger.info(
@@ -488,6 +512,39 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
             "order_monitor: exchange modify lookup failed for %s: %s",
             pkg_id, exc,
         )
+
+
+def _compute_close_pnl(matched_trade: Dict[str, Any],
+                       exit_price: float) -> Dict[str, Any]:
+    """Realised gross PnL + PnL% for a closed trade row.
+
+    Mirrors the gross-PnL formula in src/backtest/backtester.py so the
+    live + backtest accounting line up. Returns {"pnl", "pnl_percent"}
+    when the matched row carries entry_price + position_size + a known
+    direction; returns {} otherwise so callers can skip the second
+    write without raising.
+
+    Fees are not deducted here — the exchange-truth-attribution
+    reconciler is responsible for net-of-fees PnL.
+    """
+    try:
+        entry = float(matched_trade["entry_price"])
+        size = float(matched_trade["position_size"])
+    except (KeyError, TypeError, ValueError):
+        return {}
+    direction = str(matched_trade.get("direction") or "").lower()
+    if direction == "long":
+        gross_pnl = (exit_price - entry) * size
+    elif direction == "short":
+        gross_pnl = (entry - exit_price) * size
+    else:
+        return {}
+    notional = entry * size
+    pnl_percent = (gross_pnl / notional * 100.0) if notional else 0.0
+    return {
+        "pnl": round(gross_pnl, 2),
+        "pnl_percent": round(pnl_percent, 4),
+    }
 
 
 def _close_trade_by_match(db, *, strategy: Optional[str], symbol: Optional[str],
