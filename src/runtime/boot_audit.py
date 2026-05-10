@@ -14,6 +14,10 @@ Design constraints
   dynamic content in legacy Markdown blows up on unbalanced delimiters
   (BUG-009, BUG-030, BUG-031).
 - Silent on clean restart (0 open packages → log only, no Telegram noise).
+- Per-strategy query failure records ``None`` (not ``0``) and triggers a
+  Telegram ping so the operator sees "(query failed)" rather than a
+  silent "all clear" — see docs/audits/silent-empty-reporting-2026-05-10.md
+  § Phase-2 #1.
 - Scopes query to *linked* packages (``linked_trade_id IS NOT NULL``) — the
   same ``linked_only=True`` contract the BUG-046 gate uses. Unlinked packages
   were never placed at the broker and are handled by the reconciler sweep.
@@ -23,7 +27,7 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
     pass
@@ -48,11 +52,12 @@ def _load_strategy_names() -> list[str]:
         return []
 
 
-def report_open_packages_on_boot() -> dict[str, int]:
+def report_open_packages_on_boot() -> dict[str, Optional[int]]:
     """Log (and optionally Telegram-ping) open linked packages per strategy.
 
-    Returns a ``{strategy_name: open_count}`` dict for testability.
-    Never raises — all exceptions are caught and logged.
+    Returns a ``{strategy_name: open_count_or_None}`` dict for testability.
+    A value of ``None`` signals "query failed" (vs ``0`` = "no open
+    packages"). Never raises — all exceptions are caught and logged.
     """
     try:
         db = _resolve_db()
@@ -61,7 +66,7 @@ def report_open_packages_on_boot() -> dict[str, int]:
         return {}
 
     strategies = _load_strategy_names()
-    counts: dict[str, int] = {}
+    counts: dict[str, Optional[int]] = {}
 
     for strategy in strategies:
         try:
@@ -71,25 +76,39 @@ def report_open_packages_on_boot() -> dict[str, int]:
             counts[strategy] = len(rows) if rows else 0
         except Exception as exc:  # noqa: BLE001
             logger.warning("boot_audit: query failed for strategy=%s: %s", strategy, exc)
-            counts[strategy] = 0
+            counts[strategy] = None
 
-    total = sum(counts.values())
+    total = sum(n for n in counts.values() if n is not None)
+    failed = [s for s, n in counts.items() if n is None]
+    counts_str = ", ".join(
+        f"{s}=(query failed)" if n is None else f"{s}={n}"
+        for s, n in counts.items()
+    ) or "no strategies"
     logger.info(
-        "boot_audit: %d open package(s) on boot — %s",
-        total,
-        ", ".join(f"{s}={n}" for s, n in counts.items()) or "no strategies",
+        "boot_audit: %d open package(s), %d query failure(s) on boot — %s",
+        total, len(failed), counts_str,
     )
 
-    if total > 0:
+    if total > 0 or failed:
         _send_boot_ping(counts, total)
 
     return counts
 
 
-def _send_boot_ping(counts: dict[str, int], total: int) -> None:
+def _send_boot_ping(counts: dict[str, Optional[int]], total: int) -> None:
     lines = ["Trader restart — resuming monitoring"]
+    failed: list[str] = []
     for strategy, n in counts.items():
-        lines.append(f"{strategy}: {n} open package(s)")
+        if n is None:
+            lines.append(f"{strategy}: (query failed)")
+            failed.append(strategy)
+        else:
+            lines.append(f"{strategy}: {n} open package(s)")
+    if failed:
+        lines.append(
+            f"WARNING: per-strategy query failed for {len(failed)} strategy "
+            f"({', '.join(failed)}) — check bot.log for details."
+        )
     lines.append(f"Total: {total} open package(s) carried forward.")
     lines.append(
         "Bybit holds SL/TP at the broker for every open position; "
