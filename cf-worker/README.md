@@ -1,4 +1,27 @@
-# `cf-worker/` — Cloudflare Worker proxy for the bot's API
+# `cf-worker/` — Cloudflare Worker proxy (DEPRECATED 2026-05-10)
+
+> **Status: retired in S-CFW-1-FU2.** This Worker was deployed
+> at `https://ict-trader-bot-proxy.ben-baichmankass.workers.dev`
+> on 2026-05-10 and immediately failed end-to-end probes with
+> Cloudflare error 1003 on `/api/health`. CF Workers' `fetch()`
+> does **not** allow raw IPv4 hosts — only DNS hostnames — so
+> the Worker can't reach `http://158.178.210.252:8001`. The
+> `*.trycloudflare.com` quick tunnel remains the live path for
+> the dashboard's Vercel rewrite. See
+> [`docs/audit/vercel-edge-vs-cf-worker.md`](../docs/audit/vercel-edge-vs-cf-worker.md)
+> for the full investigation, and
+> [`docs/sprint-logs/S-CFW-1-FU2-worker-retired.md`](../docs/sprint-logs/S-CFW-1-FU2-worker-retired.md)
+> for the retirement decision.
+>
+> The code, workflow, and runbook below are kept as historical
+> record for the next session that re-evaluates this path. To
+> revive: either (a) get a CF zone and use a named tunnel as
+> the Worker's `ORIGIN` (DNS hostname, IP-restriction stops
+> applying), or (b) build a tunnel-URL auto-refresh hook so the
+> Worker's `ORIGIN` env var stays current with the rotating
+> quick-tunnel URL.
+
+---
 
 Stable `*.workers.dev` hostname that proxies `/api/*` to the Oracle
 VM's FastAPI on `http://158.178.210.252:8001`. Replaces the
