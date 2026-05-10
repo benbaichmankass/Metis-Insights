@@ -37,9 +37,48 @@ The Worker strips Cloudflare-managed headers (`cf-*`, `host`,
 FastAPI app sees clean headers. Upstream errors return `502` with
 a JSON body identifying the upstream URL.
 
-## Deploy runbook
+## Deploy runbook (primary: GitHub Actions)
 
-Operator-driven; the sandbox cannot run `wrangler login`.
+The `cf-worker-deploy` workflow at
+[`.github/workflows/cf-worker-deploy.yml`](../.github/workflows/cf-worker-deploy.yml)
+runs `wrangler deploy` from CI, so neither the operator nor the
+sandbox needs to `wrangler login` locally.
+
+**One-time setup (operator-side):**
+
+1. **Create a Cloudflare API token.** Cloudflare dashboard →
+   "My Profile" → "API Tokens" → "Create Token" → use the
+   "Edit Cloudflare Workers" template, **or** create a custom
+   token with these permissions:
+   - `Account → Workers Scripts → Edit` (required)
+   - `Account → Account Settings → Read` (lets wrangler list
+     accounts)
+   No Zone permissions are needed for `*.workers.dev` deploys.
+   Add Zone permissions only if/when we move to a custom domain.
+2. **Find your Account ID.** Cloudflare dashboard → right
+   sidebar → "Account ID".
+3. **Add both as repo secrets** (Settings → Secrets and
+   variables → Actions → New repository secret):
+   - `CLOUDFLARE_API_TOKEN`
+   - `CLOUDFLARE_ACCOUNT_ID`
+
+**To deploy:**
+
+- **From the Actions UI:** Run the `cf-worker-deploy` workflow
+  via "Run workflow". The job summary contains the deployed
+  URL + a probe of `/api/health` end-to-end.
+- **From a sandbox session (issue-driven):** open an issue in
+  this repo with the `cf-worker-deploy` label. The workflow
+  runs, comments the deployed URL back on the issue, and
+  closes it. Mirrors the pattern used by
+  `vm-diag-snapshot.yml` / `operator-actions.yml`.
+
+The workflow fails clearly if either secret is unset — see
+the "Verify required secrets" step in the workflow file.
+
+## Deploy runbook (fallback: workstation `wrangler`)
+
+Use only if CI is broken or for `wrangler dev` local testing.
 
 1. From a workstation:
    ```bash
@@ -133,10 +172,11 @@ The dashboard's polling rate is well below this; if it ever
 bites, switch to the Paid plan ($5/mo) via the Cloudflare
 dashboard — no code change required.
 
-## Why not host this in CI
+## Auto-deploy on push (deferred)
 
-A future sprint may add a GitHub Action that runs `wrangler
-deploy` on changes under `cf-worker/**`, gated by a
-`CLOUDFLARE_API_TOKEN` repo secret. Out of scope here — keeping
-the operator workflow manual until the Worker has been live for
-a cycle.
+The current CI workflow is **manually dispatched** —
+either via the Actions UI button or via an issue with the
+`cf-worker-deploy` label. A future sprint may add a
+`push: paths: cf-worker/**` trigger so doc-and-code edits to the
+Worker auto-deploy. Held back for now to make every production
+deploy intentional while the Worker bedds in.
