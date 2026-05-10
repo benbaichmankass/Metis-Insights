@@ -53,8 +53,12 @@ if pkill -f "cloudflared tunnel --url http://localhost:${LOCAL_PORT}" 2>/dev/nul
 fi
 
 # 3. Strip the @reboot crontab entry. Always-run; safe if the line
-#    isn't there.
-( crontab -l 2>/dev/null | grep -v 'cloudflared tunnel --url http://localhost:8001' ) | crontab - || true
+#    isn't there. Same pipefail dance as the setup wrapper — see the
+#    comment block in setup_cloudflare_tunnel.sh for why the naive
+#    `( crontab -l | grep -v ... ) | crontab -` form fails.
+EXISTING_CRONTAB="$(crontab -l 2>/dev/null || true)"
+FILTERED_CRONTAB="$(printf '%s\n' "${EXISTING_CRONTAB}" | grep -v 'cloudflared tunnel --url http://localhost:8001' || true)"
+printf '%s\n' "${FILTERED_CRONTAB}" | crontab -
 log "Stripped @reboot crontab entry (if present)."
 
 # 4. Drop the stale URL file so consumers don't read a tunnel that no
