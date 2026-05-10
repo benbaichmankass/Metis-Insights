@@ -60,6 +60,8 @@ in `operator-actions.yml`, the priority case in
 | `disable-closed-flat-invariant` | 2 | `scripts/ops/disable_closed_flat_invariant.sh` | `.env` (remove `CLOSED_FLAT_INVARIANT_ENABLED`) + restart `ict-trader-live.service` |
 | `enable-m5-consumer` | 2 | `scripts/ops/enable_m5_consumer.sh` | `.env` (`M5_CONSUMER_ENABLED=1`) + restart `ict-telegram-bot.service` |
 | `disable-m5-consumer` | 2 | `scripts/ops/disable_m5_consumer.sh` | `.env` (`M5_CONSUMER_ENABLED=0`) + restart `ict-telegram-bot.service` |
+| `setup-cloudflare-tunnel` | 2 | `scripts/ops/setup_cloudflare_tunnel.sh` | downloads `cloudflared` to `~/.local/bin`, launches a quick tunnel for `http://localhost:8001`, writes the URL to `runtime_logs/cloudflared_tunnel_url.txt`, installs an `@reboot` crontab entry |
+| `teardown-cloudflare-tunnel` | 2 | `scripts/ops/teardown_cloudflare_tunnel.sh` | stops the cloudflared process, strips the `@reboot` crontab entry, removes the URL file (binary stays on disk) |
 
 **Docker is intentionally absent.** The repo's canonical runtime is
 systemd (`deploy/*.service` units installed via
@@ -165,7 +167,7 @@ The tier rules above describe the **action's** blast radius. Whether
 a given dispatcher must ping the operator before triggering an action
 depends on the dispatcher's trust class. Three classes exist today:
 
-| Dispatcher | Tier-1 (`status-check`, `pull-latest-logs`) | Tier-2 (`pull-and-deploy`, `restart-bot-service`, `reboot-vm`, `enable-closed-flat-invariant`, `disable-closed-flat-invariant`, `enable-m5-consumer`, `disable-m5-consumer`) |
+| Dispatcher | Tier-1 (`status-check`, `pull-latest-logs`) | Tier-2 (`pull-and-deploy`, `restart-bot-service`, `reboot-vm`, `enable-closed-flat-invariant`, `disable-closed-flat-invariant`, `enable-m5-consumer`, `disable-m5-consumer`, `setup-cloudflare-tunnel`, `teardown-cloudflare-tunnel`) |
 |---|---|---|
 | **Operator** (Ben, in browser) | autonomous (you're the human) | autonomous (you're the human) |
 | **Perplexity** (granted 2026-05-08) | autonomous | autonomous |
