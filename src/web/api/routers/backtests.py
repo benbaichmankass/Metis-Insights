@@ -61,7 +61,12 @@ def _coerce_int(value: Any) -> Optional[int]:
 
 def _row_to_wire(row: sqlite3.Row) -> Dict[str, Any]:
     return {
-        "id": int(row["id"]),
+        # ``id`` is stringified to match the rest of this API surface
+        # (``trades_closed.py`` and the ``positions`` endpoint both
+        # serialise integer DB ids as strings). Keeping the convention
+        # uniform lets the dashboard treat ``id`` the same way across
+        # every list endpoint.
+        "id": str(row["id"]),
         # ``strategy_version`` is the column the M5 consumer stamps
         # with the strategy name (see run_backtest_m5.py); surface
         # under the friendlier ``strategy`` key for the dashboard.
