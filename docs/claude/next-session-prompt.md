@@ -23,7 +23,8 @@ ledger (10 items shipped, 4 Phase-2 follow-ups filed).
 ## Hard constraints (unchanged from last session)
 
 - **Tier 1 by default; Tier 2 = DRAFT + ping operator.** See
-  `docs/claude/workplan.md` § Decision and merge authority.
+  `docs/CLAUDE-RULES-CANONICAL.md` § Permission Tiers (canonical
+  authority since 2026-05-10).
 - **One PR per item.** Don't bundle.
 - **Self-merge Tier 1 after CI green.**
 - **Live-mode invariant.** No edits to `src/runtime/{orders,pipeline,

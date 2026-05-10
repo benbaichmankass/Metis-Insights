@@ -4,9 +4,13 @@ Quick reference for every GitHub Actions workflow on this repo.
 Read this first when a PR check goes red — most failures map to a
 single command you can re-run locally.
 
-> **Authority:** `docs/claude/workplan.md` is the decider for what
-> the project ships. This runbook documents how the CI suite shipped
-> in **S-044** gates work that lands on `main`.
+> **Authority:** the S-CANON-1 canonical doc set
+> (`docs/CLAUDE-RULES-CANONICAL.md`,
+> `docs/ARCHITECTURE-CANONICAL.md`, `ROADMAP.md`, current sprint
+> log) is authoritative as of 2026-05-10. This runbook documents
+> how the CI suite shipped in **S-044** gates work that lands on
+> `main`. The legacy `docs/claude/workplan.md` is preserved for
+> historical context only.
 >
 > **Scope:** workflows under `.github/workflows/` only. Manual
 > verification commands (`scripts/secret_scan.py`,
@@ -208,12 +212,36 @@ regular flow.
 ### Verify
 
 ```bash
-gh api repos/the-lizardking/ict-trading-bot/branches/main/protection \
+gh api repos/benbaichmankass/ict-trading-bot/branches/main/protection \
   | jq '.required_status_checks.contexts'
 ```
 
 Or check the most recent **branch-protection-sync** run on the Actions
 tab — its summary line lists the contexts it just applied.
+
+### Status (2026-05-10, post-canon-followups)
+
+The four required contexts (`pytest-collect`, `secret-scan`,
+`ruff-lint`, `dry-run-guard`) match the actual job IDs in the
+corresponding workflow files (verified against
+`.github/workflows/{pytest-collect,secret-scan,ruff-lint,dry-run-guard}.yml`
+after the unique-job-id rename in PR #671). The
+`branch-protection-sync.yml` workflow is correct and ready to fire
+the moment `BRANCH_PROTECTION_TOKEN` is configured. While the
+secret is unset, the workflow no-ops (`token_check` step prints a
+notice and skips the PUT) and the protection on `main` is whatever
+GitHub's last manual / Colab apply put there.
+
+When the operator sets `BRANCH_PROTECTION_TOKEN` and dispatches a
+run, the final step's notice should print:
+
+```
+::notice::Branch protection updated. Required contexts now: ["pytest-collect","secret-scan","ruff-lint","dry-run-guard"]
+```
+
+The advisory guards (`repo-inventory`, `silent-empty-guard`,
+`env-gate-guard`) still run on every PR but do not block the
+merge button.
 
 ---
 

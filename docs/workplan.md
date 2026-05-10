@@ -1,6 +1,16 @@
 # AI Trader — Project Structure & Workplan
 
-> **Status:** authoritative master workplan for the ICT Trading Bot.
+> **Status:** Superseded 2026-05-10 by the S-CANON-1 canonical
+> doc set. Authority order is now:
+> 1. docs/CLAUDE-RULES-CANONICAL.md
+> 2. docs/ARCHITECTURE-CANONICAL.md
+> 3. ROADMAP.md
+> 4. current sprint log under docs/sprint-logs/
+>
+> This file is preserved for historical context. Do not treat it
+> as authoritative on policy or sequencing.
+
+> **Status (historical):** authoritative master workplan for the ICT Trading Bot.
 > **Owner:** PM (Ben).
 > **Last updated:** 2026-05-06 (S0 — Workflow Foundation).
 > **Related docs:** `ROADMAP.md` (sprint-level backlog), `docs/claude/operating-protocol.md`

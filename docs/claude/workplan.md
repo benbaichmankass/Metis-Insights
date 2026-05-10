@@ -1,5 +1,15 @@
 # AI Trader — Canonical Workplan (the decider)
 
+> **Status:** Superseded 2026-05-10 by the S-CANON-1 canonical
+> doc set. Authority order is now:
+> 1. docs/CLAUDE-RULES-CANONICAL.md
+> 2. docs/ARCHITECTURE-CANONICAL.md
+> 3. ROADMAP.md
+> 4. current sprint log under docs/sprint-logs/
+>
+> This file is preserved for historical context. Do not treat it
+> as authoritative on policy or sequencing.
+
 > **Authority:** This document is the canonical workplan for the
 > AI Trader project, captured verbatim from the operator on
 > **2026-05-06**. **It is the decider** for what the project is

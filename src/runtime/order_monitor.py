@@ -2562,4 +2562,13 @@ def run_monitor_tick(
     except Exception as exc:  # noqa: BLE001
         logger.warning("run_monitor_tick: position reconciler raised: %s", exc)
 
+    # S-067 follow-up #3 Phase-2: closed → exchange-flat invariant check.
+    # Gated by ``CLOSED_FLAT_INVARIANT_ENABLED`` env (default false).
+    # Alert-only — promotion to auto-flatten is a separate Tier-2 PR after
+    # a 7-day soak. The helper never raises; the orphan reconciler above
+    # remains the eventual safety net during the soak window. See
+    # ``docs/claude/closed-flat-invariant.md`` for the full design.
+    from src.runtime._closed_flat_wiring import maybe_run_closed_flat_check
+    maybe_run_closed_flat_check(db, summaries)
+
     return summaries
