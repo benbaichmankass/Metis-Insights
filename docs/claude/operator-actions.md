@@ -62,6 +62,7 @@ in `operator-actions.yml`, the priority case in
 | `disable-m5-consumer` | 2 | `scripts/ops/disable_m5_consumer.sh` | `.env` (`M5_CONSUMER_ENABLED=0`) + restart `ict-telegram-bot.service` |
 | `setup-cloudflare-tunnel` | 2 | `scripts/ops/setup_cloudflare_tunnel.sh` | downloads `cloudflared` to `~/.local/bin`, launches a quick tunnel for `http://localhost:8001`, writes the URL to `runtime_logs/cloudflared_tunnel_url.txt`, installs an `@reboot` crontab entry |
 | `teardown-cloudflare-tunnel` | 2 | `scripts/ops/teardown_cloudflare_tunnel.sh` | stops the cloudflared process, strips the `@reboot` crontab entry, removes the URL file (binary stays on disk) |
+| `backfill-pnl-nulls` | 2 | `scripts/ops/backfill_pnl_nulls_action.sh` | `UPDATE trades SET pnl, pnl_percent WHERE status='closed' AND pnl IS NULL AND <complete inputs>` in `trade_journal.db`. No service touched. Idempotent (SQL guard `WHERE pnl IS NULL`). Filters: `status='closed'`, `COALESCE(is_backtest,0)=0`, full price/size triple, known direction. |
 
 **Docker is intentionally absent.** The repo's canonical runtime is
 systemd (`deploy/*.service` units installed via
@@ -103,6 +104,7 @@ Tier-2 actions:
 - `disable-closed-flat-invariant`
 - `enable-m5-consumer`
 - `disable-m5-consumer`
+- `backfill-pnl-nulls`
 
 `pull-and-deploy` is a thin wrapper around `scripts/deploy_pull_restart.sh`
 (the canonical script the `ict-git-sync` timer also calls). It fetches
@@ -167,7 +169,7 @@ The tier rules above describe the **action's** blast radius. Whether
 a given dispatcher must ping the operator before triggering an action
 depends on the dispatcher's trust class. Three classes exist today:
 
-| Dispatcher | Tier-1 (`status-check`, `pull-latest-logs`) | Tier-2 (`pull-and-deploy`, `restart-bot-service`, `reboot-vm`, `enable-closed-flat-invariant`, `disable-closed-flat-invariant`, `enable-m5-consumer`, `disable-m5-consumer`, `setup-cloudflare-tunnel`, `teardown-cloudflare-tunnel`) |
+| Dispatcher | Tier-1 (`status-check`, `pull-latest-logs`) | Tier-2 (`pull-and-deploy`, `restart-bot-service`, `reboot-vm`, `enable-closed-flat-invariant`, `disable-closed-flat-invariant`, `enable-m5-consumer`, `disable-m5-consumer`, `setup-cloudflare-tunnel`, `teardown-cloudflare-tunnel`, `backfill-pnl-nulls`) |
 |---|---|---|
 | **Operator** (Ben, in browser) | autonomous (you're the human) | autonomous (you're the human) |
 | **Perplexity** (granted 2026-05-08) | autonomous | autonomous |
@@ -328,6 +330,8 @@ tier: <1 or 2>
 | `disable-m5-consumer` | 0 (ok) | `normal` |
 | `disable-m5-consumer` | 3 (deferred — vm-runner active) | `normal` |
 | `disable-m5-consumer` | other | `urgent` |
+| `backfill-pnl-nulls` | 0 (ok / noop) | `normal` |
+| `backfill-pnl-nulls` | other | `urgent` |
 
 **Failure-of-notification semantics:** the notify step uses
 `continue-on-error: true`. A failed ping never flips a successful
@@ -356,6 +360,7 @@ follow-up doc PR if it ever becomes a problem.
 | `disable-closed-flat-invariant` | snapshot current `CLOSED_FLAT_INVARIANT_ENABLED` line in `.env` + unit `is-active` | atomic strip of the env line + its comment header from `.env`; `systemctl restart ict-trader-live.service` | confirm `.env` no longer contains the key; poll `is-active` until "active" or 30 s timeout; dump 30 journal lines | exit 3 → vm-runner active, deferred. exit 1 → env-file still contains the key or unit failed to come back; investigate before re-enabling |
 | `enable-m5-consumer` | snapshot current `M5_CONSUMER_ENABLED` line in `.env` + `ict-telegram-bot.service` `is-active` | atomic write to `.env` setting `M5_CONSUMER_ENABLED=1`; `systemctl restart ict-telegram-bot.service` | grep `.env` for the post-edit value; poll `is-active` until "active" or 30 s timeout; dump 30 journal lines | exit 3 → vm-runner active, deferred. exit 1 → env-file verification mismatch or unit failed to come back; rollback via `disable-m5-consumer` |
 | `disable-m5-consumer` | snapshot current `M5_CONSUMER_ENABLED` line in `.env` + `ict-telegram-bot.service` `is-active` | atomic write to `.env` setting `M5_CONSUMER_ENABLED=0`; `systemctl restart ict-telegram-bot.service` | confirm `.env` value is `0`; poll `is-active` until "active" or 30 s timeout; dump 30 journal lines | exit 3 → vm-runner active, deferred. exit 1 → unit failed to come back; investigate before re-enabling |
+| `backfill-pnl-nulls` | count rows in `trade_journal.db::trades` matching `status='closed' AND pnl IS NULL AND <complete inputs>` | `python3 scripts/ops/backfill_pnl_nulls.py --apply` (re-uses the helper added in PR #739) — recomputes gross PnL via `(exit_price − entry_price) × position_size` (signed by direction), writes pnl + pnl_percent | re-count candidate rows (should be 0 unless degenerate inputs were skipped); helper's own stdout lists every touched row id | exit 0 + post_count=0 → clean. exit 0 + post_count>0 → some rows skipped for degenerate inputs (unknown direction, zero notional); helper output names them. exit 1 → script failed; no service touched, no rollback needed |
 
 The `restart-bot-service` and `pull-and-deploy` wrappers additionally
 **defer** if any `claude-vm-runner@*.service` unit is currently active,

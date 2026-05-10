@@ -1,7 +1,7 @@
 # AI Model Platform — Architecture
 
 > **Status:** Canonical (AI scope). Adopted **S-AI-WS1**
-> (2026-05-10). Refreshed through **S-AI-WS5-B-PART-2 (PR 2A)**.
+> (2026-05-10). Refreshed through **S-AI-WS5-B-PART-2 PR 2B**.
 >
 > **Authority:** Canonical for AI-specific architecture. System-wide
 > canonical: [`docs/ARCHITECTURE-CANONICAL.md`](../ARCHITECTURE-CANONICAL.md).
@@ -35,8 +35,8 @@ outside the AI layer.** Model-unavailable degrades to deterministic.
 | Layer | Owns | Examples |
 |---|---|---|
 | 1. Data | Market, account, news, labels, backtests | `ml/datasets/` (WS3 + WS5-A + WS5-B-PART-1) |
-| 2. Feature / context | Engineered features, regime / account / mission context | future `ml/features/` |
-| 3. Model | Specialist models | trainer/evaluator/predictor framework live (WS4 + WS4-FU); first baseline (WS5-A) |
+| 2. Feature / context | Engineered features, regime / account / mission context | `ml/datasets/families/market_features.py` (WS5-B-PART-2 PR 2B); future `ml/features/` for richer derivations |
+| 3. Model | Specialist models | trainer/evaluator/predictor framework live (WS4 + WS4-FU); first baseline (WS5-A); regime-classifier baseline (WS5-B-PART-2 PR 2B) |
 | 4. Orchestration | Combines specialist outputs | future coordinator extension; model registry live (WS4) |
 | 5. Control (deterministic) | Risk rules, hard caps, broker validation, kill-switch | unchanged |
 
@@ -54,7 +54,9 @@ Layer 5 is the immutable safety floor.
 | Dataset framework (WS3) | `ml/datasets/` | Three buildable families. |
 | `backtest_results` (WS3) | `ml/datasets/families/backtest_results.py` | Read-only against `trade_journal.db`. |
 | `trade_outcomes` (WS5-A) | `ml/datasets/families/trade_outcomes.py` | Derived `won = pnl > 0` label. |
-| `market_raw` (WS5-B-PART-1 + PART-2 PR 2A) | `ml/datasets/families/market_raw.py` + `ml/datasets/adapters/{base, csv, bybit_offvm, registry}.py` | Pluggable adapter framework (S-AI-WS5-B-PART-1). CSV adapter live; Bybit off-VM env-gated (`ICT_OFFVM_BUILD_HOST=1`) and **wired via ccxt's `fetch_ohlcv` with paginated `since` cursor in S-AI-WS5-B-PART-2 PR 2A** — operator runs the build on a non-VM host with `BYBIT_API_KEY` / `BYBIT_API_SECRET` staged; CI tests mock the exchange. |
+| `market_raw` (WS5-B-PART-1) | `ml/datasets/families/market_raw.py` + `ml/datasets/adapters/{base, csv, bybit_offvm, registry}.py` | **Adopted 2026-05-10 (S-AI-WS5-B-PART-1).** Pluggable adapter framework. CSV adapter live; Bybit off-VM env-gated (`ICT_OFFVM_BUILD_HOST=1`); fetch wiring lands in S-AI-WS5-B-PART-2 PR 2A. |
+| `market_features` (WS5-B-PART-2 PR 2B) | `ml/datasets/families/market_features.py` | **Adopted 2026-05-10.** Derives `log_return`, `rolling_log_return_vol`, `vol_bucket`, forward-window stats, and a 3-class `regime_label` from a built `market_raw` dataset. Forward-window labels guarantee no feature/label leakage by construction; `leakage_test_status: passed`. |
+| Regime classifier baseline (WS5-B-PART-2 PR 2B) | `ml/trainers/regime_classifier.py`, `ml/evaluators/multiclass_classification.py`, `ml/predictors/{multiclass, per_bucket_multiclass}.py`, `ml/configs/baseline-regime-classifier.yaml` | **Adopted 2026-05-10.** Per-bucket modal multinomial classifier targeting `regime_label`. `MulticlassPredictor` ABC + per-class probabilities; `MulticlassClassificationEvaluator` reports accuracy + per-class precision/recall/f1 + macro/weighted f1. Trainer enforces leakage discipline at `fit(...)` time. |
 | Training center (WS4) | `ml/{manifest, cli, __main__}.py`, `ml/{trainers, evaluators, experiments, registry, promotion, configs}/` | YAML manifests + ABCs + filesystem registry + runner + CLI. |
 | Predictor abstraction (WS4-FU) | `ml/predictors/` | Decouples evaluators from trainer state shape. |
 | Time-aware splitters (WS4-FU) | `ml/experiments/splitters.py` | `holdout` / `time_aware_holdout` / `walk_forward`. |
@@ -64,12 +66,9 @@ Layer 5 is the immutable safety floor.
 
 ### Planned
 
-- Builders for `market_features`, `setup_labels`, `account_context`,
-  `review_journal`.
-- WS5-B-PART-2 onwards (regime classifier + `market_features`
-  derived family; setup quality scorer; exec quality; post-trade
-  review; prop mission policy). Bybit off-VM fetch wiring landed in
-  PR 2A; the classifier baseline lands in PR 2B.
+- Builders for `setup_labels`, `account_context`, `review_journal`.
+- WS5-C onwards (setup quality scorer; exec quality; post-trade
+  review; prop mission policy).
 - Aggregated walk-forward.
 - Per-strategy detail metrics artifact.
 - HF publication CLI subcommand.
@@ -101,6 +100,11 @@ Layer 5 is the immutable safety floor.
   (S-AI-WS5-A leakage discipline).
 - **Setting `ICT_OFFVM_BUILD_HOST=1` on the Oracle live VM**
   (S-AI-WS5-B-PART-1 rule). Build hosts only.
+- Consuming `regime_label`, `forward_log_return`, or
+  `forward_log_return_vol` as features when targeting
+  `regime_label` against the `market_features` family
+  (S-AI-WS5-B-PART-2 PR 2B leakage discipline). The
+  `RegimeClassifierTrainer` enforces this at `fit(...)` time.
 
 ## Architecture Update Rule
 
@@ -120,4 +124,4 @@ Oracle / HF responsibilities, or anything in `Forbidden` changes.
 | 2026-05-10 | S-AI-WS5-A | First baseline + `trade_outcomes` + leakage rule. | None. |
 | 2026-05-10 | S-AI-WS4-FU | Predictor abstraction + splitters + `compare` CLI + global-only sanity baseline + market_raw multi-source design pinned. | None. |
 | 2026-05-10 | S-AI-WS5-B-PART-1 | `market_raw` adapter framework + CSV adapter + Bybit off-VM scaffold (env-gated; fetch wiring filed). New Forbidden rule: don't set `ICT_OFFVM_BUILD_HOST=1` on the live VM. | None — additive; Bybit shell raises NotImplementedError until operator wires the fetch. |
-| 2026-05-10 | S-AI-WS5-B-PART-2 (PR 2A) | Bybit off-VM `_fetch_bars` wired via ccxt; paginated `since` cursor; canonical-row normalisation; CI mocks the exchange. Builder framework auto-forwards `symbol_scope` / `timeframe` into `iter_rows` kwargs. | None on the live VM (env-gate retained). Off-VM build hosts now produce real `bybit_v5_offvm` market_raw datasets when the operator stages credentials. |
+| 2026-05-10 | S-AI-WS5-B-PART-2 PR 2B | `market_features` family (rolling vol + 3-class regime label, forward-window leakage discipline) + `RegimeClassifierTrainer` (per-bucket modal) + `MulticlassPredictor` + `MulticlassClassificationEvaluator` + `baseline-regime-classifier.yaml` manifest. New Forbidden rule: don't use forward-window or label columns as features against `regime_label`. | None — additive; research-only baseline. |
