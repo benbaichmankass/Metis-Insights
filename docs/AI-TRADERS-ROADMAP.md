@@ -10,20 +10,18 @@
 > 3. [`ROADMAP.md`](../ROADMAP.md)
 > 4. The current sprint log in [`docs/sprint-logs/`](sprint-logs/)
 >
-> This doc is the **scope-specific master plan** for the AI / ML lifecycle
-> work and is owned by M9 + M10. When it disagrees with the canonical docs
-> above, the canonical docs win.
->
 > **AI-scope canonical doc:**
 > [`docs/architecture/ai-model-platform.md`](architecture/ai-model-platform.md)
 > (S-AI-WS1). **Stage contracts:**
 > [`docs/pipeline/stage-contracts.md`](pipeline/stage-contracts.md)
 > (S-AI-WS2). **Pipeline types:**
 > [`src/pipeline/types.py`](../src/pipeline/types.py) (S-AI-WS2).
-> **Data layer:** [`docs/data/dataset-taxonomy.md`](data/dataset-taxonomy.md),
-> [`dataset-schema.md`](data/dataset-schema.md),
-> [`versioning-policy.md`](data/versioning-policy.md) +
+> **Data layer:** [`docs/data/`](data/) +
 > [`ml/datasets/`](../ml/datasets/) (S-AI-WS3).
+> **Training center + registry:**
+> [`docs/ml/training-center.md`](ml/training-center.md) +
+> [`docs/ml/model-registry-policy.md`](ml/model-registry-policy.md) +
+> [`ml/`](../ml/) (S-AI-WS4).
 
 ---
 
@@ -45,10 +43,7 @@ layer and cannot be bypassed by model output.
 - Hugging Face is the primary external AI platform for open models, datasets,
   artifacts, and training workflows.
 - The Oracle VM remains the live runtime first and only hosts lightweight
-  support compute, not serious training workloads. Always Free resources are
-  limited and contention with the live trader is an operational risk.
-- Google AI Studio is optional for ad hoc research or model comparison; it is
-  not a required part of the production architecture.
+  support compute, not serious training workloads.
 - No model may bypass deterministic risk guards, broker validation, account
   restrictions, or operator kill-switch logic already enforced by the live
   trader.
@@ -62,36 +57,7 @@ layer and cannot be bypassed by model output.
 3. Start with baselines before advanced model families.
 4. Make datasets and training reproducible.
 5. Require promotion gates before any live influence.
-6. Update the architecture docs as part of the Definition of Done for every
-   major milestone.
-
----
-
-## Target architecture
-
-Five layers, full description in
-[`docs/architecture/ai-model-platform.md`](architecture/ai-model-platform.md).
-Per-stage I/O in
-[`docs/pipeline/stage-contracts.md`](pipeline/stage-contracts.md). Data
-layer in [`docs/data/`](data/).
-
-### Architectural position
-
-Do **not** build one “master model to rule them all.” Use one coordinator
-that consumes outputs from specialist models and deterministic rules. The
-coordinator may rank, combine, or veto opportunities, but the final live
-system must remain inspectable and modular so any model can be replaced
-without redesigning the whole platform.
-
----
-
-## What success looks like
-
-The repo can produce a full AI model lifecycle on demand: build a dataset,
-version it, train a candidate, evaluate it, compare it to a champion,
-register it, stage it in shadow or advisory mode, and promote it only after
-passing explicit gates. Architecture documentation stays aligned with reality
-and no AI work weakens the existing safety posture of the live trader.
+6. Update the architecture docs as part of the Definition of Done.
 
 ---
 
@@ -101,9 +67,9 @@ and no AI work weakens the existing safety posture of the live trader.
 |---|---|---|---|---|
 | WS1 | Architecture baseline | M9 | ✅ DONE 2026-05-10 (S-AI-WS1) | [ws1-architecture-baseline.md](sprint-plans/ai-traders/ws1-architecture-baseline.md) |
 | WS2 | Canonical trade pipeline | M9 | ✅ DONE 2026-05-10 (S-AI-WS2) | [ws2-canonical-pipeline.md](sprint-plans/ai-traders/ws2-canonical-pipeline.md) |
-| WS3 | Data foundation | M10 | ✅ DONE 2026-05-10 (S-AI-WS3) — see [`data/`](data/) + [`ml/datasets/`](../ml/datasets/) | [ws3-data-foundation.md](sprint-plans/ai-traders/ws3-data-foundation.md) |
-| WS4 | Training center | M9 | 🔜 Next | [ws4-training-center.md](sprint-plans/ai-traders/ws4-training-center.md) |
-| WS5 | Baseline models | M9 | 📋 Not started | [ws5-baseline-models.md](sprint-plans/ai-traders/ws5-baseline-models.md) |
+| WS3 | Data foundation | M10 | ✅ DONE 2026-05-10 (S-AI-WS3) | [ws3-data-foundation.md](sprint-plans/ai-traders/ws3-data-foundation.md) |
+| WS4 | Training center | M9 | ✅ DONE 2026-05-10 (S-AI-WS4) | [ws4-training-center.md](sprint-plans/ai-traders/ws4-training-center.md) |
+| WS5 | Baseline models | M9 | 🔜 Next | [ws5-baseline-models.md](sprint-plans/ai-traders/ws5-baseline-models.md) |
 | WS6 | Open-source model layer | M9 | 📋 Not started | [ws6-open-source-models.md](sprint-plans/ai-traders/ws6-open-source-models.md) |
 | WS7 | Deployment tiers | M9 | 📋 Not started | [ws7-deployment-tiers.md](sprint-plans/ai-traders/ws7-deployment-tiers.md) |
 | WS8 | Monitoring and feedback loops | M9 | 📋 Not started | [ws8-monitoring-feedback.md](sprint-plans/ai-traders/ws8-monitoring-feedback.md) |
@@ -124,78 +90,35 @@ and no AI work weakens the existing safety posture of the live trader.
 **Closed:** S-AI-WS2, 2026-05-10. Stage names locked in
 [`src/pipeline/types.py`](../src/pipeline/types.py); per-stage I/O
 in [`docs/pipeline/stage-contracts.md`](pipeline/stage-contracts.md).
-Live-path migration filed as a Tier 2 follow-up.
 
 ---
 
 ### Workstream 3 — Data foundation
 
-**Closed:** S-AI-WS3, 2026-05-10. Reproducible dataset framework under
-[`ml/datasets/`](../ml/datasets/) with `DatasetMetadata` + `DatasetBuilder`
-+ `validate_dataset` + CLI. First buildable family
-([`backtest_results`](../ml/datasets/families/backtest_results.py)) reads
-`trade_journal.db` read-only and emits versioned JSONL + metadata.
-Manual HF publication flow documented in
-[`docs/integrations/huggingface-datasets.md`](integrations/huggingface-datasets.md);
-no `huggingface_hub` dep added.
-
-**Acceptance** (all met)
-
-- [x] Documented dataset taxonomy.
-- [x] At least one dataset family generated and published
-  repeatably.
-- [x] Dataset metadata carries enough lineage to reproduce a
-  training run later.
-
-**Buildable families:** `backtest_results` (live as of S-AI-WS3).
-**Scaffolded but not yet buildable:** `market_raw`,
-`market_features`, `setup_labels`, `trade_outcomes`,
-`account_context`, `review_journal` — each filed as a follow-up so
-leakage tests can be designed per family.
+**Closed:** S-AI-WS3, 2026-05-10. Reproducible dataset framework
+at [`ml/datasets/`](../ml/datasets/); first family
+`backtest_results` reads `trade_journal.db` read-only. Manual HF
+publication flow.
 
 ---
 
 ### Workstream 4 — Training center
 
-**Objective.** Repo-native training center that behaves like a repeatable
-factory for training, evaluation, registration, and promotion.
+**Closed:** S-AI-WS4, 2026-05-10. Repo-native training factory:
+YAML manifest schema + Trainer/Evaluator ABCs + filesystem model
+registry (state machine + transition log) + experiments runner +
+umbrella CLI (`python -m ml`). Demo trainer/evaluator
+(`ConstantPredictionTrainer` + `RegressionEvaluator`) round-trips
+against the `backtest_results` dataset family. See
+[`docs/ml/training-center.md`](ml/training-center.md) and
+[`docs/ml/model-registry-policy.md`](ml/model-registry-policy.md).
 
-**Required structure** (adapt to existing `ml/` layout)
+**Acceptance** (all met)
 
-```text
-ml/
-  datasets/      # ✅ S-AI-WS3
-  features/
-  labels/
-  trainers/
-  evaluators/
-  experiments/
-  registry/
-  promotion/
-  configs/
-  reports/
-```
-
-**Tasks**
-
-- Training-manifest format (YAML): model family, dataset version, feature
-  set, label spec, objective, evaluation suite, target deployment stage.
-- CLI / Make entry points: `build-dataset`, `train`, `evaluate`, `compare`,
-  `register`, `promote`. (`build-dataset` is already provided by
-  `python -m ml.datasets build` from S-AI-WS3.)
-- Experiment-tracking metadata, file-based first version is fine.
-- Model-registry file or folder with statuses: `candidate`, `champion`,
-  `paper`, `advisory`, `live-approved`.
-- Promotion checklist: leakage checks, walk-forward, transaction-cost-aware
-  evaluation, rollback notes.
-- All training artifacts tied to a specific dataset version and code
-  revision.
-
-**Acceptance**
-
-- Documented training center exists.
-- At least one model trains and evaluates via a repeatable command path.
-- Model-registry metadata supports promotion-state tracking.
+- [x] Documented training center exists.
+- [x] At least one model trains and evaluates via a repeatable
+  command path.
+- [x] Model-registry metadata supports promotion-state tracking.
 
 ---
 
@@ -240,12 +163,8 @@ baseline systems are stable.
 **Tasks**
 
 - `model-inventory.md` listing candidate open-source models by task.
-- Separate model families by use case:
-  - text models for news, journaling, operator notes,
-  - embedding models for retrieval / similarity,
-  - tabular / time-series models for market prediction,
-  - optional larger reasoning models only for research or offline
-    orchestration support.
+- Separate model families by use case (text / embedding /
+  tabular-time-series / optional reasoning).
 - Prefer PEFT, LoRA, adapter-style tuning before full fine-tuning.
 - Approval criteria before adopting a new model family: measurable gain over
   baseline, manageable latency, acceptable infra cost, safe rollback path.
@@ -266,6 +185,11 @@ baseline systems are stable.
 **Objective.** All models move through staged influence levels instead of
 jumping from training to live trading.
 
+The registry tier system is live (S-AI-WS4). The runtime hook —
+shadow-mode execution path that consumes a model in `live-approved`
+or `advisory` state without affecting live execution — is what WS7
+adds on top.
+
 **Stages**
 
 1. Research only
@@ -278,19 +202,20 @@ jumping from training to live trading.
 
 **Tasks**
 
-- Stage metadata in the model registry.
-- Shadow-mode execution path: model scores opportunities without affecting
-  live execution.
-- Advisory mode: model outputs annotate or veto only if the operator chooses
-  that stage.
-- Explicit approval before any model influences strategy behavior in live
-  mode.
+- Stage metadata in the model registry. (Done in WS4.)
+- Shadow-mode execution path: model scores opportunities without
+  affecting live execution.
+- Advisory mode: model outputs annotate or veto only if the operator
+  chooses that stage.
+- Explicit approval before any model influences strategy behavior in
+  live mode.
 - Deterministic fallback behavior when a model is unavailable.
 - Logs for model version, score, final decision path.
 
 **Acceptance**
 
-- A new model can run in shadow mode without changing live trading behavior.
+- A new model can run in shadow mode without changing live trading
+  behavior.
 - Stage promotion requires documented evidence.
 - Every live-influencing model has a fallback / disable path.
 
@@ -303,13 +228,11 @@ jumping from training to live trading.
 **Tasks**
 
 - Log model version and config for each scored opportunity.
-- Track model confidence, downstream decision, realized outcome, veto
-  impact.
+- Track model confidence, downstream decision, realized outcome,
+  veto impact.
 - Feature drift and outcome drift monitoring.
-- Strategy / model attribution: was the move from the strategy, the model,
-  the filter, or execution conditions?
-- Retraining trigger policy based on drift, stale data, degraded business
-  metrics.
+- Strategy / model attribution.
+- Retraining trigger policy.
 - Post-trade review workflow that feeds back into datasets.
 
 **Acceptance**
@@ -332,10 +255,8 @@ heavier AI lifecycle work.
   preprocessing, inference, and only very small CPU-safe experiments.
 - Oracle VM **must not** host heavy training, large backtests, or any
   long-running job that could starve the live process.
-- Hugging Face hosts datasets, open-source model workflows, artifacts, model
-  storage, and heavier training-related operations.
-- Jobs that are unpredictable in memory or CPU usage do not belong on the
-  Oracle live box.
+- Hugging Face hosts datasets, open-source model workflows, artifacts,
+  model storage, and heavier training-related operations.
 
 **Acceptance**
 
@@ -372,21 +293,19 @@ doc does not drift away from the codebase.
 
 ## Recommended repo deliverables
 
-- `docs/architecture/ai-model-platform.md` — ✅ created in S-AI-WS1.
-- `docs/pipeline/stage-contracts.md` — ✅ created in S-AI-WS2.
-- `src/pipeline/types.py` — ✅ created in S-AI-WS2.
-- `docs/data/dataset-taxonomy.md`, `dataset-schema.md`,
-  `versioning-policy.md` — ✅ created in S-AI-WS3.
-- `docs/integrations/huggingface-datasets.md` — ✅ created in
-  S-AI-WS3.
-- `ml/datasets/` (framework + first family) — ✅ created in
-  S-AI-WS3.
+- `docs/architecture/ai-model-platform.md` — ✅ S-AI-WS1.
+- `docs/pipeline/stage-contracts.md` — ✅ S-AI-WS2.
+- `src/pipeline/types.py` — ✅ S-AI-WS2.
+- `docs/data/{dataset-taxonomy,dataset-schema,versioning-policy}.md`,
+  `docs/integrations/huggingface-datasets.md`,
+  `ml/datasets/` — ✅ S-AI-WS3.
+- `docs/ml/training-center.md`,
+  `docs/ml/model-registry-policy.md`,
+  `ml/{trainers, evaluators, experiments, registry, promotion,
+  configs, manifest, cli, __main__}` — ✅ S-AI-WS4.
 - `docs/architecture/ARCHITECTURE-CHANGE-CHECKLIST.md` — WS10.
 - `docs/architecture/model-inventory.md` — WS6.
-- `docs/ml/training-center.md` — WS4.
-- `docs/ml/model-registry-policy.md` — WS4.
-- `ml/configs/`, `ml/features/`, `ml/trainers/`, `ml/evaluators/`,
-  `ml/registry/`, `ml/reports/` — WS4.
+- `ml/{features, labels, reports}/` — WS5+.
 
 ---
 
@@ -398,9 +317,11 @@ doc does not drift away from the codebase.
    (S-AI-WS2).**
 3. WS3 — dataset taxonomy, schema docs, first reproducible dataset builder.
    **✅ done (S-AI-WS3).**
-4. WS4 — training center structure + command path. **🔜 next.**
-5. First baseline model end to end (subset of WS5).
-6. Model registry + promotion stages (subset of WS4 / WS7).
+4. WS4 — training center structure + command path. **✅ done
+   (S-AI-WS4).**
+5. First baseline model end to end (subset of WS5). **🔜 next.**
+6. Model registry + promotion stages. (WS4 lands the registry; WS7
+   wires runtime hooks.)
 7. Shadow-mode deployment path (subset of WS7).
 8. Additional baseline models (rest of WS5).
 9. Open-source model inventory + first Hugging Face integrated workflow
@@ -423,6 +344,10 @@ doc does not drift away from the codebase.
   architecture docs.
 - Do **not** auto-publish datasets to Hugging Face. Publication is
   always an operator-driven action (S-AI-WS3 rule).
+- Do **not** edit past `StatusEvent` entries in the model registry.
+  Promotion history is append-only (S-AI-WS4 rule).
+- Do **not** promote any model to `live-approved` or `champion` without
+  operator-issued approval recorded in `--by` + `--reason` (S-AI-WS4 rule).
 
 ---
 
@@ -459,7 +384,8 @@ a clean next step.
 
 | Date | Sprint | Change | Files | Operator impact |
 |---|---|---|---|---|
-| 2026-05-10 | S-AI-ROADMAP | Master plan adopted; M9 + M10 expanded into WS1–WS10; sprint-plan stubs seeded for WS1–WS10. | `docs/AI-TRADERS-ROADMAP.md`, `ROADMAP.md`, `docs/sprint-plans/ai-traders/*` | None — docs only. |
-| 2026-05-10 | S-AI-WS1 | WS1 complete. Canonical AI-scope doc at `docs/architecture/ai-model-platform.md`; linked from `ARCHITECTURE-CANONICAL.md`. | `docs/architecture/ai-model-platform.md`, `docs/ARCHITECTURE-CANONICAL.md`, `docs/sprint-plans/ai-traders/ws1-architecture-baseline.md`, `docs/AI-TRADERS-ROADMAP.md`, `ROADMAP.md`, `docs/sprint-logs/S-AI-WS1.md` | None — doc-only. |
-| 2026-05-10 | S-AI-WS2 | WS2 complete. Stage names locked in `src/pipeline/types.py`; per-stage I/O + owners + logging at `docs/pipeline/stage-contracts.md`; tests in `tests/pipeline/test_types.py`. | `src/pipeline/*`, `tests/pipeline/*`, `docs/pipeline/stage-contracts.md`, `docs/architecture/ai-model-platform.md`, `docs/sprint-plans/ai-traders/ws2-canonical-pipeline.md`, `docs/AI-TRADERS-ROADMAP.md`, `ROADMAP.md`, `docs/sprint-logs/S-AI-WS2.md` | None — additive types. |
-| 2026-05-10 | S-AI-WS3 | WS3 complete. Reproducible dataset framework under `ml/datasets/` (metadata + builder ABC + registry + validator + CLI); first buildable family `backtest_results` reads `trade_journal.db` read-only via `mode=ro` URI. Append-only versioning policy. Manual HF publication flow. Stdlib only; no new deps. | `ml/datasets/*`, `tests/ml/datasets/*`, `docs/data/{dataset-taxonomy,dataset-schema,versioning-policy}.md`, `docs/integrations/huggingface-datasets.md`, `docs/architecture/ai-model-platform.md`, `docs/sprint-plans/ai-traders/ws3-data-foundation.md`, `docs/AI-TRADERS-ROADMAP.md`, `ROADMAP.md`, `docs/sprint-logs/S-AI-WS3.md` | None — additive; live runtime untouched. Builder is read-only against `trade_journal.db`. |
+| 2026-05-10 | S-AI-ROADMAP | Master plan adopted; M9 + M10 expanded into WS1–WS10. | `docs/AI-TRADERS-ROADMAP.md`, `ROADMAP.md`, `docs/sprint-plans/ai-traders/*` | None — docs only. |
+| 2026-05-10 | S-AI-WS1 | WS1 complete. Canonical AI-scope doc at `docs/architecture/ai-model-platform.md`. | + WS1 cross-links. | None — doc-only. |
+| 2026-05-10 | S-AI-WS2 | WS2 complete. Stage names locked in `src/pipeline/types.py`. | `src/pipeline/*`, `tests/pipeline/*`, `docs/pipeline/stage-contracts.md`, + cross-links. | None — additive types. |
+| 2026-05-10 | S-AI-WS3 | WS3 complete. Reproducible dataset framework + `backtest_results` builder. | `ml/datasets/*`, `tests/ml/datasets/*`, `docs/data/*`, `docs/integrations/huggingface-datasets.md`, + cross-links. | None — additive; live runtime untouched. |
+| 2026-05-10 | S-AI-WS4 | WS4 complete. YAML manifest schema + Trainer/Evaluator ABCs + filesystem model registry (state machine + transition log) + experiments runner + umbrella CLI. Demo trainer/evaluator round-trips train+evaluate+register. | `ml/{manifest, cli, __main__}.py`, `ml/{trainers, evaluators, experiments, registry, promotion, configs}/`, `tests/ml/test_*.py`, `docs/ml/{training-center, model-registry-policy}.md`, + cross-links. | None — additive; no live runtime call site changed. |
