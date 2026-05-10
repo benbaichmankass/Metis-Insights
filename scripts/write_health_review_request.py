@@ -7,8 +7,10 @@ that asks Claude — via the existing operator/Claude comms channel — to
 do a manual sanity review of the same run.
 
 This runs **on every health-check execution**, not only WARNING/CRITICAL
-ones. The user's design rule: Claude review is a mandatory second-stage
-sanity check, not a fallback.
+ones, and not only when layer 1 produced a real verdict (an ``UNKNOWN``
+stub from the layer-1 fallback path is also accepted as input). The
+user's design rule: Claude review is a mandatory second-stage sanity
+check, not a conditional fallback.
 
 Idempotency
 -----------
@@ -47,6 +49,11 @@ _REQUESTS_DIR = _REPO_ROOT / "comms" / "requests"
 _TEMPLATE_PATH = _REPO_ROOT / "comms" / "schema" / "health_review_response.template.json"
 _RUNBOOK_REL = "docs/runbooks/health-check.md"
 
+# Statuses that warrant a "high" priority tag in the comms request.
+# UNKNOWN is included because an unverified run deserves an operator's
+# eye even more than a verified WARNING.
+_HIGH_PRIORITY_STATUSES = frozenset({"WARNING", "CRITICAL", "UNKNOWN"})
+
 
 def _slug_from_run_id(run_id: str) -> str:
     """Schema requires ``[a-z0-9]{4,12}``. Run ids are numeric integers,
@@ -82,7 +89,7 @@ def build_request(
     request_id = f"REQ-{now.strftime('%Y%m%d')}-{now.strftime('%H%M%S')}-{slug}"
 
     machine_status = (machine_report or {}).get("status", "UNKNOWN")
-    priority = "high" if machine_status in {"WARNING", "CRITICAL"} else "normal"
+    priority = "high" if machine_status in _HIGH_PRIORITY_STATUSES else "normal"
 
     # Compose context — this is the only free-form text the schema lets
     # us carry, so we inline machine result + paths + run identity.

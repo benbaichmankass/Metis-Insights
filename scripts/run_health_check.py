@@ -7,19 +7,27 @@ asks Claude Haiku 4.5 to classify it against the schema in
 ``runtime_logs/health_checks/health_check_<UTC-ISO>.json`` plus a stable
 ``runtime_logs/health_checks/latest.json`` symlink-ish copy.
 
-A WARNING/CRITICAL machine result fires a Telegram alert via the bot's
+A non-HEALTHY machine result fires a Telegram alert via the bot's
 existing ``src.runtime.notify.send_telegram_direct`` helper.
 
 This script is **only** the machine layer. The Claude review (layer 2)
 is requested separately by ``scripts/write_health_review_request.py``,
 unconditionally on every workflow run — see ``docs/runbooks/health-check.md``.
 
+Fallback behaviour
+------------------
+If the Anthropic call itself fails (rate limit, billing, network, or
+malformed JSON in the response), we synthesize an ``UNKNOWN``-status
+stub report instead of erroring out, write it to disk, and still fire a
+Telegram alert. This preserves the design contract that the layer-2
+Claude review request is emitted on **every** run — even when layer 1
+is unavailable, the routine still gets the raw snapshot.
+
 Exit codes:
-  0 — analysis ran and a report was written (any verdict status, and
-      whether or not the Telegram alert succeeded). Telegram failure
-      logs to stderr but does NOT fail the step, because the layer-2
-      Claude review request must run on every execution regardless.
-  1 — could not read snapshot, call Claude, or parse the response.
+  0 — a report was written (any verdict status, including UNKNOWN, and
+      whether or not the Telegram alert succeeded).
+  1 — could not read snapshot or prompt file; fundamentally broken
+      input. The downstream layer-2 step is skipped.
 
 Env vars:
   ANTHROPIC_API_KEY   required
@@ -44,6 +52,13 @@ _PROMPT_PATH = _REPO_ROOT / ".claude" / "health_check_prompt.md"
 _OUT_DIR = _REPO_ROOT / "runtime_logs" / "health_checks"
 _DEFAULT_MODEL = "claude-haiku-4-5-20251001"
 _MAX_SNAPSHOT_CHARS = 60_000  # tail-truncate to keep token cost bounded
+
+# Section keys mirrored in .claude/health_check_prompt.md so the stub
+# report keeps the same shape consumers expect.
+_CHECK_KEYS = (
+    "processes", "heartbeat", "ticks", "signals", "orders",
+    "trades", "monitoring", "api", "errors", "resources",
+)
 
 
 # ---------------------------------------------------------------------------
@@ -82,15 +97,44 @@ def call_claude(snapshot: str, model: str, prompt: str) -> Dict[str, Any]:
     return json.loads(raw)
 
 
+def build_unknown_stub(exc: BaseException) -> Dict[str, Any]:
+    """Synthesize a layer-1 report when the Anthropic call fails.
+
+    Mirrors the model's expected output shape exactly so downstream
+    consumers (write_health_review_request.py, the routine, the
+    artifact uploader) handle it without special-casing.
+    """
+    return {
+        "status": "UNKNOWN",
+        "summary": (
+            f"Layer-1 analysis unavailable: {type(exc).__name__}: {exc}"
+        )[:240],
+        "checks": {
+            k: {"status": "warn", "note": "layer-1 verdict unavailable"}
+            for k in _CHECK_KEYS
+        },
+        "action_required": (
+            "Manual review required — automated layer-1 analysis was "
+            "not produced for this run. The raw snapshot is the source "
+            "of truth for the layer-2 review."
+        ),
+        "error": {
+            "type": type(exc).__name__,
+            "message": str(exc)[:500],
+        },
+    }
+
+
 # ---------------------------------------------------------------------------
 # Telegram alert (reuses the same stdlib-only helper the bot uses)
 # ---------------------------------------------------------------------------
 
 
 def maybe_alert(report: Dict[str, Any], run_url: str | None) -> None:
-    """Best-effort Telegram alert on WARNING/CRITICAL. Never raises;
-    failures are logged to stderr only — the layer-2 review request
-    must run on every execution regardless of alert delivery."""
+    """Best-effort Telegram alert on any non-HEALTHY status (WARNING,
+    CRITICAL, UNKNOWN). Never raises; failures are logged to stderr
+    only — the layer-2 review request must run on every execution
+    regardless of alert delivery."""
     status = report.get("status", "")
     if status == "HEALTHY":
         return
@@ -105,7 +149,11 @@ def maybe_alert(report: Dict[str, Any], run_url: str | None) -> None:
         print(f"[run_health_check] notify-import-failed: {exc}", file=sys.stderr)
         return
 
-    icon = {"WARNING": "\U0001F7E1", "CRITICAL": "\U0001F534"}.get(status, "⚠️")
+    icon = {
+        "WARNING": "\U0001F7E1",
+        "CRITICAL": "\U0001F534",
+        "UNKNOWN": "⚪",
+    }.get(status, "⚠️")
     summary = str(report.get("summary", ""))[:200]
     action = str(report.get("action_required") or "").strip()
     parts = [f"{icon} ICT bot health: {status}", summary]
@@ -163,8 +211,12 @@ def main(argv: list[str] | None = None) -> int:
     try:
         report = call_claude(snapshot, args.model, prompt)
     except Exception as exc:  # noqa: BLE001
-        print(f"[run_health_check] claude-call-failed: {exc}", file=sys.stderr)
-        return 1
+        # Layer 1 unavailable — synthesize an UNKNOWN-status stub and
+        # carry on so the layer-2 review request still gets emitted.
+        # See module docstring ("Fallback behaviour") for rationale.
+        print(f"[run_health_check] claude-call-failed, using UNKNOWN stub: {exc}",
+              file=sys.stderr)
+        report = build_unknown_stub(exc)
 
     now = _dt.datetime.now(_dt.timezone.utc)
     report["timestamp"] = now.isoformat()
@@ -178,9 +230,12 @@ def main(argv: list[str] | None = None) -> int:
     out_path.write_text(payload + "\n", encoding="utf-8")
     latest_path.write_text(payload + "\n", encoding="utf-8")
 
-    icon = {"HEALTHY": "\U0001F7E2", "WARNING": "\U0001F7E1", "CRITICAL": "\U0001F534"}.get(
-        report.get("status", ""), "⚪"
-    )
+    icon = {
+        "HEALTHY": "\U0001F7E2",
+        "WARNING": "\U0001F7E1",
+        "CRITICAL": "\U0001F534",
+        "UNKNOWN": "⚪",
+    }.get(report.get("status", ""), "⚪")
     print(f"{icon} {report.get('status', 'UNKNOWN')}: {report.get('summary', '')}")
     print(f"report: {out_path}")
     print(f"latest: {latest_path}")
