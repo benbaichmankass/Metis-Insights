@@ -8,8 +8,6 @@ the dashboard falls back to log-derived rows.
 from __future__ import annotations
 
 import json
-import sqlite3
-from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -17,96 +15,23 @@ from fastapi.testclient import TestClient
 from src.web.api import main as api_main
 from src.web.api.routers import trades_closed as trades_closed_router
 
+# S-067 follow-up #1: shared canonical-schema fixture.
+from tests.fixtures.real_schema_db import (
+    insert_order_package as _insert_package,
+    insert_trade as _insert_trade,
+    make_canonical_db,
+)
+
 
 @pytest.fixture
 def client():
     return TestClient(api_main.app, raise_server_exceptions=False)
 
 
-def _make_db(path: Path) -> None:
-    """Materialise the live DB schema (subset relevant to this endpoint)
-    in a temp sqlite file. Mirrors src/units/db/database.py."""
-    conn = sqlite3.connect(str(path))
-    conn.executescript(
-        """
-        CREATE TABLE trades (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            timestamp TEXT NOT NULL,
-            symbol TEXT NOT NULL,
-            direction TEXT NOT NULL,
-            entry_price REAL NOT NULL,
-            exit_price REAL,
-            stop_loss REAL,
-            position_size REAL NOT NULL,
-            exit_reason TEXT,
-            pnl REAL,
-            pnl_percent REAL,
-            status TEXT DEFAULT 'open',
-            notes TEXT,
-            is_backtest INTEGER DEFAULT 0,
-            strategy_name TEXT,
-            account_id TEXT NOT NULL DEFAULT 'live',
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP
-        );
-        CREATE TABLE order_packages (
-            order_package_id TEXT PRIMARY KEY,
-            strategy_name TEXT NOT NULL,
-            symbol TEXT NOT NULL,
-            direction TEXT NOT NULL,
-            entry REAL NOT NULL,
-            sl REAL NOT NULL,
-            tp REAL NOT NULL,
-            created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL,
-            status TEXT NOT NULL DEFAULT 'open',
-            linked_trade_id INTEGER,
-            close_reason TEXT
-        );
-        """
-    )
-    conn.commit()
-    conn.close()
-
-
-def _insert_trade(path: Path, **fields):
-    conn = sqlite3.connect(str(path))
-    cols = ", ".join(fields.keys())
-    placeholders = ", ".join("?" for _ in fields)
-    cur = conn.execute(
-        f"INSERT INTO trades ({cols}) VALUES ({placeholders})",
-        list(fields.values()),
-    )
-    conn.commit()
-    trade_id = cur.lastrowid
-    conn.close()
-    return trade_id
-
-
-def _insert_package(path: Path, **fields):
-    # Required columns the schema marks NOT NULL — fill defaults.
-    fields.setdefault("strategy_name", "turtle_soup")
-    fields.setdefault("symbol", "BTCUSDT")
-    fields.setdefault("direction", "long")
-    fields.setdefault("entry", 60000.0)
-    fields.setdefault("sl", 59000.0)
-    fields.setdefault("tp", 62000.0)
-    fields.setdefault("created_at", "2026-05-08T10:00:00Z")
-    fields.setdefault("status", "closed")
-    conn = sqlite3.connect(str(path))
-    cols = ", ".join(fields.keys())
-    placeholders = ", ".join("?" for _ in fields)
-    conn.execute(
-        f"INSERT INTO order_packages ({cols}) VALUES ({placeholders})",
-        list(fields.values()),
-    )
-    conn.commit()
-    conn.close()
-
-
 @pytest.fixture
 def db(tmp_path, monkeypatch):
     path = tmp_path / "trade_journal.db"
-    _make_db(path)
+    make_canonical_db(path)
     monkeypatch.setattr(trades_closed_router, "_DB_PATH", path)
     return path
 

@@ -23,6 +23,14 @@ import sys
 from unittest.mock import MagicMock
 
 
+# S-067 follow-up #1: register the shared real-schema sqlite fixture
+# module so the ``real_schema_db`` pytest fixture is auto-discovered
+# in every test file in this directory tree. New tests should prefer
+# this over rolling a per-file ``CREATE TABLE`` so a future production
+# schema change fails the regression test instead of silently passing.
+pytest_plugins = ("tests.fixtures.real_schema_db",)
+
+
 # ---------------------------------------------------------------------------
 # Optional-dep stubs — only inserted if the real module isn't installed
 # in this venv. Tests that genuinely need the real package can override

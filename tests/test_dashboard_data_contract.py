@@ -143,44 +143,17 @@ def test_get_signals_does_not_fabricate_confidence_zero(
 # ---------------------------------------------------------------------------
 
 
-import sqlite3  # noqa: E402
-
-
-def _make_canonical_trades_db(path: Path) -> None:
-    """Materialise the canonical trades schema (subset relevant to
-    /positions). Mirrors src/units/db/database.py::create_tables."""
-    conn = sqlite3.connect(str(path))
-    conn.executescript(
-        """
-        CREATE TABLE trades (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            timestamp TEXT NOT NULL,
-            symbol TEXT NOT NULL,
-            direction TEXT NOT NULL,
-            entry_price REAL NOT NULL,
-            position_size REAL NOT NULL,
-            pnl REAL,
-            status TEXT DEFAULT 'open',
-            is_backtest INTEGER DEFAULT 0,
-            account_id TEXT NOT NULL DEFAULT 'live',
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP
-        );
-        """
-    )
-    conn.commit()
-    conn.close()
-
-
-def _insert_trade(path: Path, **fields):
-    conn = sqlite3.connect(str(path))
-    cols = ", ".join(fields.keys())
-    placeholders = ", ".join("?" for _ in fields)
-    conn.execute(
-        f"INSERT INTO trades ({cols}) VALUES ({placeholders})",
-        list(fields.values()),
-    )
-    conn.commit()
-    conn.close()
+# S-067 follow-up #1: schema construction + insert helpers moved to
+# tests/fixtures/real_schema_db.py so other endpoint tests can reuse
+# the same canonical-schema materialisation. Re-exported under their
+# legacy names below for backward compatibility — the original helpers
+# only created the subset relevant to /positions; the shared fixture
+# now creates the full schema (which is a strict superset, so all
+# existing assertions still hold).
+from tests.fixtures.real_schema_db import (  # noqa: E402
+    insert_trade as _insert_trade,
+    make_canonical_db as _make_canonical_trades_db,
+)
 
 
 def test_positions_returns_open_trade_against_canonical_schema(
