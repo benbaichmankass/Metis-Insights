@@ -122,6 +122,66 @@ def _cmd_shadow_inspect(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_shadow_drift(args: argparse.Namespace) -> int:
+    from datetime import timedelta
+
+    from .shadow.drift import compute_drift
+
+    # Cutoffs anchored to "now" — reference covers the OLDER
+    # `reference_days` ending at the start of the current window;
+    # current covers the most recent `current_days`. This avoids
+    # overlap.
+    now = datetime.now(timezone.utc)
+    current_start = now - timedelta(days=args.current_days)
+    reference_start = current_start - timedelta(days=args.reference_days)
+    all_records = list(filter_records(
+        iter_records(args.log),
+        model_id=args.model_id,
+        stage=args.stage,
+    ))
+    reference_scores = [
+        r.score for r in all_records
+        if reference_start <= r.predicted_at_utc < current_start
+    ]
+    current_scores = [
+        r.score for r in all_records
+        if r.predicted_at_utc >= current_start
+    ]
+    if not reference_scores or not current_scores:
+        print(json.dumps({
+            "model_id": args.model_id,
+            "stage": args.stage,
+            "reference_count": len(reference_scores),
+            "current_count": len(current_scores),
+            "verdict": "insufficient_data",
+            "reference_window_start": reference_start.isoformat(),
+            "current_window_start": current_start.isoformat(),
+        }, indent=2))
+        return 0
+    report = compute_drift(
+        reference_scores, current_scores,
+        bins=args.bins, score_min=args.score_min, score_max=args.score_max,
+    )
+    print(json.dumps({
+        "model_id": args.model_id,
+        "stage": args.stage,
+        "reference_window_start": reference_start.isoformat(),
+        "current_window_start": current_start.isoformat(),
+        "reference_count": report.reference.count,
+        "current_count": report.current.count,
+        "reference_mean": report.reference.mean,
+        "current_mean": report.current.mean,
+        "reference_stdev": report.reference.stdev,
+        "current_stdev": report.current.stdev,
+        "ks": report.ks,
+        "ks_verdict": report.ks_verdict,
+        "psi": report.psi,
+        "psi_verdict": report.psi_verdict,
+        "overall_verdict": report.overall_verdict,
+    }, indent=2))
+    return 0
+
+
 def _cmd_shadow_stats(args: argparse.Namespace) -> int:
     records = filter_records(
         iter_records(args.log),
@@ -230,6 +290,46 @@ def _build_parser() -> argparse.ArgumentParser:
         help="ISO-8601 timestamp; only aggregate records at/after this UTC instant",
     )
 
+    p_shd = sub.add_parser(
+        "shadow-drift",
+        help=(
+            "window-over-window drift report for one model_id "
+            "(WS8-PART-3): KS + PSI + summary stats"
+        ),
+    )
+    p_shd.add_argument("--log", type=Path, default=_DEFAULT_SHADOW_LOG)
+    p_shd.add_argument(
+        "--model-id", required=True,
+        help="model_id to slice on (drift is per-model)",
+    )
+    p_shd.add_argument("--stage", default=None)
+    p_shd.add_argument(
+        "--reference-days", type=float, default=30.0,
+        help=(
+            "size of the reference window in days, measured backwards "
+            "from --reference-end (default 30)"
+        ),
+    )
+    p_shd.add_argument(
+        "--current-days", type=float, default=7.0,
+        help=(
+            "size of the current window in days, measured backwards "
+            "from now (default 7)"
+        ),
+    )
+    p_shd.add_argument(
+        "--bins", type=int, default=10,
+        help="histogram bins for PSI (default 10)",
+    )
+    p_shd.add_argument(
+        "--score-min", type=float, default=0.0,
+        help="lower bound for histogram clamp (default 0.0)",
+    )
+    p_shd.add_argument(
+        "--score-max", type=float, default=1.0,
+        help="upper bound for histogram clamp (default 1.0)",
+    )
+
     return parser
 
 
@@ -258,6 +358,7 @@ def main(argv: list[str] | None = None) -> int:
         "compare": _cmd_compare,
         "shadow-inspect": _cmd_shadow_inspect,
         "shadow-stats": _cmd_shadow_stats,
+        "shadow-drift": _cmd_shadow_drift,
     }
     handler = dispatch.get(args.cmd)
     if handler is None:

@@ -24,7 +24,12 @@
 # `--select` in `.github/workflows/ruff-lint.yml`), ruff will use
 # its default rule set against everything not excluded here.
 
-extend-exclude = ["*.ipynb"]
+extend-exclude = [
+    "*.ipynb",
+    # S-AI-WS10-FU: bash git hooks (no .py extension). Ruff would
+    # otherwise try to lex them as Python and fail with syntax errors.
+    "scripts/git-hooks/",
+]
 
 # S-046 T4 (PR pending operator approval) — the per-file-ignores
 # table is empty. Every residual ruff hit in operator-hold paths

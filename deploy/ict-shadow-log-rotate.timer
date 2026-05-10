@@ -1,0 +1,17 @@
+# Daily timer for ict-shadow-log-rotate.service (S-AI-WS7-FU).
+#
+# DISABLED BY DEFAULT. The operator opts in with:
+#   sudo systemctl enable --now ict-shadow-log-rotate.timer
+#
+# Fires once a day at a randomised offset to avoid stampeding
+# rotation across multiple VMs that share log mount points.
+[Unit]
+Description=Daily rotation of ict-trading-bot shadow-prediction audit log
+
+[Timer]
+OnCalendar=daily
+RandomizedDelaySec=15m
+Persistent=true
+
+[Install]
+WantedBy=timers.target
