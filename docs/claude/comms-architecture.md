@@ -327,17 +327,29 @@ question, ``required: false``) and picks up the requested sprint.
 
 ### `/test <strategy>`
 
-Queues a backtest for the M5 workflow. The artifact has one
-``required: true`` free-text question (``results``); M5 fills it in
-via the existing ``apply_answer`` writeback path so the result lands
-back in the same artifact and propagates through git.
+Queues a backtest for the M5 consumer. The artifact has one
+``required: true`` free-text question (``results``); the consumer
+runs the backtest and fills in the answer via the existing
+``apply_answer`` writeback path so the result lands back in the
+same artifact and propagates through git.
 
   - **Source:** operator. **Task:** ``test_strategy:<strategy>``.
   - **Topic:** ``"Strategy test: <strategy>"``.
   - **Default-on-timeout:** ``expire`` (a backtest that doesn't run
-    inside the TTL is treated as failed; M5 owns the alerting).
-  - **Consumer:** M5 backtest workflow (separate sprint; not yet
-    implemented).
+    inside the TTL is treated as failed; the consumer surfaces a
+    structured error answer before that point).
+  - **Dispatch validation:** ``cmd_test_strategy`` rejects unknown
+    strategy names against ``config/strategies.yaml`` at dispatch
+    time — `/test bogus` never mints an artifact.
+  - **Consumer:** ``src/bot/test_strategy_consumer.py::BacktestConsumer``
+    (M5 P1 #637, hardening in P2 #639). Bolted into
+    ``CommsPoller.poll_once`` as a 4th pass; auto-installed only
+    when ``M5_CONSUMER_ENABLED`` is truthy. Spawns
+    ``python -m src.backtest.run_backtest_m5`` with
+    ``M5_BACKTEST_TIMEOUT_S`` (default 120 s); persists to
+    ``backtest_results`` and writes one NDJSON row per run to
+    ``runtime_logs/validation.jsonl``. **Operator runbook:**
+    [`docs/runbooks/strategy-testing.md`](../runbooks/strategy-testing.md).
 
 ### Wiring
 

@@ -68,8 +68,9 @@ src/
     runtime_status.py   — writes runtime_logs/status.json (DO NOT DELETE—imported by pipeline)
 runtime_logs/
   signal_audit.jsonl    — structured pipeline audit log (primary log source for dashboard)
+  validation.jsonl      — M5 backtest-run audit log (one NDJSON row per /test invocation)
   heartbeat.txt         — mtime used to detect if bot is alive
-trade_journal.db        — SQLite: trades, order_packages
+trade_journal.db        — SQLite: trades, order_packages, backtest_results (M5)
 ```
 
 ## Dashboard REST API (S-014)
@@ -115,6 +116,10 @@ CORS is configured in `src/web/api/main.py`. Allowed origins:
 | `DASHBOARD_API_TOKEN` | Optional bearer token for auth routes |
 | `TRADE_JOURNAL_DB` | Override default `trade_journal.db` path |
 | `DIAG_READ_TOKEN` | Bearer for `/api/diag/*` (read-only). Unset → endpoints return 503 |
+| `M5_CONSUMER_ENABLED` | Auto-install the M5 backtest consumer in the comms poll loop. Default off; set to `1`/`true` on the VM systemd unit. Operator runbook: `docs/runbooks/strategy-testing.md` |
+| `M5_BACKTEST_TIMEOUT_S` | Wall-clock cap per backtest subprocess (default 120s) |
+| `BACKTEST_DATA_PATH` | Override the candle CSV the M5 backtest runner reads |
+| `VALIDATION_LOG_PATH` | Override the M5 validation NDJSON path (default `runtime_logs/validation.jsonl`) |
 
 ## Diagnostic API (S-051)
 
