@@ -14,6 +14,15 @@ This script is **only** the machine layer. The Claude review (layer 2)
 is requested separately by ``scripts/write_health_review_request.py``,
 unconditionally on every workflow run — see ``docs/runbooks/health-check.md``.
 
+``--skip-llm`` mode
+-------------------
+When the operator has decided to do layer-2 reviews manually via the
+``/health-review`` slash command (operator decision 2026-05-10), there
+is no point burning Anthropic credits on layer-1 each cycle. Pass
+``--skip-llm`` and the script bypasses the Anthropic call entirely
+and synthesises a ``UNKNOWN``-status stub directly. Same shape as the
+exception-fallback path so downstream consumers don't change.
+
 Pipeline test integration
 -------------------------
 ``--pipeline-test PATH`` accepts the JSON written by
@@ -48,7 +57,7 @@ Exit codes:
       input. The downstream layer-2 step is skipped.
 
 Env vars:
-  ANTHROPIC_API_KEY   required
+  ANTHROPIC_API_KEY   required when --skip-llm is NOT passed
   HEALTH_CHECK_MODEL  override model id (default: claude-haiku-4-5-20251001)
   TELEGRAM_BOT_TOKEN  optional — if absent, alert step is skipped silently
   TELEGRAM_CHAT_ID    optional
@@ -117,18 +126,22 @@ def call_claude(snapshot: str, model: str, prompt: str) -> Dict[str, Any]:
     return json.loads(raw)
 
 
-def build_unknown_stub(exc: BaseException) -> Dict[str, Any]:
-    """Synthesize a layer-1 report when the Anthropic call fails.
+def _build_stub(reason: str, *, exc_type: str = "Skipped") -> Dict[str, Any]:
+    """Synthesize a layer-1 report without calling Anthropic.
+
+    Used by both:
+      * the exception-fallback path (when call_claude raises) — caller
+        passes ``reason=str(exc)``, ``exc_type=type(exc).__name__``
+      * the ``--skip-llm`` path — caller passes a static reason string
 
     Mirrors the model's expected output shape exactly so downstream
     consumers (write_health_review_request.py, the routine, the
-    artifact uploader) handle it without special-casing.
+    artifact uploader, the layer-2 slash command) handle it without
+    special-casing.
     """
     return {
         "status": "UNKNOWN",
-        "summary": (
-            f"Layer-1 analysis unavailable: {type(exc).__name__}: {exc}"
-        )[:240],
+        "summary": f"Layer-1 analysis unavailable: {exc_type}: {reason}"[:240],
         "checks": {
             k: {"status": "warn", "note": "layer-1 verdict unavailable"}
             for k in _CHECK_KEYS
@@ -139,10 +152,15 @@ def build_unknown_stub(exc: BaseException) -> Dict[str, Any]:
             "of truth for the layer-2 review."
         ),
         "error": {
-            "type": type(exc).__name__,
-            "message": str(exc)[:500],
+            "type": exc_type,
+            "message": reason[:500],
         },
     }
+
+
+def build_unknown_stub(exc: BaseException) -> Dict[str, Any]:
+    """Back-compat wrapper around _build_stub for the exception path."""
+    return _build_stub(str(exc), exc_type=type(exc).__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -283,6 +301,19 @@ def main(argv: list[str] | None = None) -> int:
         ),
     )
     p.add_argument(
+        "--skip-llm",
+        action="store_true",
+        default=os.environ.get("HEALTH_CHECK_SKIP_LLM", "").strip().lower()
+        in {"1", "true", "yes"},
+        help=(
+            "Skip the Anthropic API call entirely — synthesise the "
+            "UNKNOWN-stub directly. Use when the operator is doing "
+            "layer-2 reviews manually via the /health-review slash "
+            "command and there's no point burning credits on layer 1. "
+            "Can also be set via HEALTH_CHECK_SKIP_LLM=1."
+        ),
+    )
+    p.add_argument(
         "--run-url",
         default=os.environ.get("GITHUB_SERVER_URL", "")
         + (
@@ -304,15 +335,32 @@ def main(argv: list[str] | None = None) -> int:
     snapshot = args.snapshot.read_text(encoding="utf-8", errors="replace")
     prompt = _PROMPT_PATH.read_text(encoding="utf-8")
 
-    try:
-        report = call_claude(snapshot, args.model, prompt)
-    except Exception as exc:  # noqa: BLE001
-        # Layer 1 unavailable — synthesize an UNKNOWN-status stub and
-        # carry on so the layer-2 review request still gets emitted.
-        # See module docstring ("Fallback behaviour") for rationale.
-        print(f"[run_health_check] claude-call-failed, using UNKNOWN stub: {exc}",
-              file=sys.stderr)
-        report = build_unknown_stub(exc)
+    if args.skip_llm:
+        # Operator opted out of layer-1 LLM grading. Skip the Anthropic
+        # call entirely and produce the UNKNOWN stub directly. The
+        # snapshot is still uploaded as a forensic artifact and the
+        # pipeline-test result is still merged below.
+        print(
+            "[run_health_check] --skip-llm set: bypassing Anthropic call",
+            file=sys.stderr,
+        )
+        report = _build_stub(
+            "Layer-1 LLM call skipped via --skip-llm. Run /health-review "
+            "from any Claude Code session on this repo for the layer-2 review.",
+            exc_type="LayerOneSkipped",
+        )
+    else:
+        try:
+            report = call_claude(snapshot, args.model, prompt)
+        except Exception as exc:  # noqa: BLE001
+            # Layer 1 unavailable — synthesize an UNKNOWN-status stub and
+            # carry on so the layer-2 review request still gets emitted.
+            # See module docstring ("Fallback behaviour") for rationale.
+            print(
+                f"[run_health_check] claude-call-failed, using UNKNOWN stub: {exc}",
+                file=sys.stderr,
+            )
+            report = build_unknown_stub(exc)
 
     # Merge the active pipeline-test result. This must happen AFTER
     # call_claude / build_unknown_stub so we override whatever default
