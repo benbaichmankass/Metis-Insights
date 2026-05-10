@@ -88,7 +88,11 @@ trails (`docs/`, `ROADMAP.md`, `CLAUDE.md` root pointer).
 ## End-to-End Trade Pipeline
 
 The trade pipeline is implemented in `src/runtime/pipeline.py` and
-driven from `src/main.py`. The intended sequence is:
+driven from `src/main.py`. The intended sequence is summarised below;
+the **canonical step-by-step map**, with files, inputs/outputs, and
+failure modes for every stage, lives in
+[`TRADE-PIPELINE.md`](TRADE-PIPELINE.md). The dashboard's **Trade
+Process** tab fetches that document at runtime — keep it current.
 
 ### Step 1 — Market data intake
 Exchange connectors (`src/exchange/bybit_connector.py`,
@@ -312,6 +316,13 @@ This document must be reviewed whenever a sprint changes:
 - GitHub Actions automation,
 - or any canonical file path used as part of the operating model.
 
+When the change touches any stage of the trade pipeline (any block in
+[`TRADE-PIPELINE.md`](TRADE-PIPELINE.md)), that document must be
+updated in the same sprint and the dashboard's **Trade Process** tab
+visually verified after merge to `main`. The dashboard fetches the
+pipeline doc directly from this repo, so a stale doc means a stale
+operator UI.
+
 For AI-scope changes (data → feature → model → orchestration →
 control layer boundaries, dataset families, model registry, deployment
 tiers, Oracle/HF split) the corresponding doc to update is
@@ -334,6 +345,8 @@ Confirmed against the repo on 2026-05-10:
 - [x] systemd files: `deploy/ict-*.{service,timer}`
 - [x] Existing GitHub Actions: enumerated in
       [`github-actions-workflows.md`](github-actions-workflows.md)
+- [x] Trade pipeline canonical map:
+      [`TRADE-PIPELINE.md`](TRADE-PIPELINE.md)
 - [x] AI-scope architecture doc:
       [`architecture/ai-model-platform.md`](architecture/ai-model-platform.md)
       (S-AI-WS1, 2026-05-10)
