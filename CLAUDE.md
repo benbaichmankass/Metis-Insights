@@ -88,6 +88,7 @@ Unauthenticated GET routes — Tier 1 read surface. See
 | `GET /api/bot/liquidity?symbol=X` | per-symbol liquidity zones (S-064) | `runtime_logs/liquidity_state.json` (pipeline writes per-tick) |
 | `GET /api/bot/config` | effective config view (S-064) | `config/accounts.yaml` + `config/strategies.yaml` + `runtime_logs/runtime_status.json`; secrets redacted |
 | `GET /api/bot/trades/closed?limit=N&since=ISO_TS` | `ClosedTrade[]` (#557) | `trade_journal.db::trades` filtered to closed + non-backtest, joined to `order_packages` for the closed-at proxy |
+| `GET /api/bot/backtests?limit=N&strategy=X&since=ISO_TS` | `Backtest[]` (M5 P4) | `trade_journal.db::backtest_results` rows from the M5 consumer + standalone harness; newest-first by `created_at` |
 | `GET /api/pnl/history?days=N` | `PnlHistoryPoint[]` (S-063) | `trade_journal.db` (closed trades, realised PnL per UTC day) |
 
 ### `BotStats` shape
