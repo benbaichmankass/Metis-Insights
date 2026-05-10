@@ -32,11 +32,13 @@ the Accounts layer.
 """
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, Dict, Optional
 
 import numpy as np
 import pandas as pd
 
+from src.runtime.shadow_adapter import with_shadow_preds
 from src.units.strategies._base import require_candles
 
 
@@ -299,7 +301,7 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
         sweep_depth_atr = 0.0
     confidence = round(min(0.5 * body_to_range + 0.5 * min(sweep_depth_atr, 1.0), 1.0), 4)
 
-    return {
+    package = {
         "symbol": symbol,
         "direction": direction,
         "entry": round(entry, 8),
@@ -323,6 +325,69 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
             "bars_back_of_setup": int(bars_back or 0),
             "stage_rejections": stage_rejections,
         },
+    }
+
+    return with_shadow_preds(
+        package,
+        predictors=_resolve_shadow_predictors(cfg),
+        feature_row=_build_shadow_feature_row(package),
+    )
+
+
+def _resolve_shadow_predictors(cfg: Dict[str, Any]) -> list:
+    """Pick the shadow predictors for this tick from cfg.
+
+    Same 3-mode resolution priority as `vwap._resolve_shadow_predictors`
+    (S-AI-WS7-PART-4): explicit plural injection wins, then singular
+    legacy injection, then config-driven `shadow_model_ids` resolved
+    via the registry-backed factory.
+    """
+    if "_shadow_predictors" in cfg:
+        return list(cfg["_shadow_predictors"] or [])
+    single = cfg.get("_shadow_predictor")
+    if single is not None:
+        return [single]
+    ids = cfg.get("shadow_model_ids") or []
+    if not ids:
+        return []
+    from ml.registry.model_registry import ModelRegistry
+    from ml.shadow.factory import (
+        DEFAULT_LOG_PATH,
+        DEFAULT_REGISTRY_ROOT,
+        resolve_predictors,
+    )
+
+    registry_root = Path(
+        cfg.get("_shadow_registry_root") or DEFAULT_REGISTRY_ROOT
+    )
+    log_path = Path(cfg.get("_shadow_log_path") or DEFAULT_LOG_PATH)
+    return resolve_predictors(
+        ids,
+        ModelRegistry(registry_root),
+        log_path=log_path,
+    )
+
+
+def _build_shadow_feature_row(package: Dict[str, Any]) -> Dict[str, Any]:
+    """Project the order package to a signal-time feature dict.
+
+    Mirrors `vwap._build_shadow_feature_row` (S-AI-WS7-PART-3) — the
+    feature row is what the predictor sees, not what the live trader
+    sees. Outcome columns (`pnl`, `r_multiple`) are explicitly
+    excluded; predictors trained on WS5-A/C/D feature surface receive
+    the same shape across strategies. Setup-specific values from
+    `meta` are preserved as-is so per-strategy specialised models can
+    discriminate.
+    """
+    meta = package.get("meta") or {}
+    return {
+        "strategy_name": "turtle_soup",
+        "setup_type":    meta.get("setup_tf", ""),
+        "timeframe":     meta.get("timeframe", ""),
+        "direction":     package.get("direction", ""),
+        "confidence":    float(package.get("confidence", 0.0) or 0.0),
+        "atr":           float(meta.get("atr", 0.0) or 0.0),
+        "body_to_range": float(meta.get("body_to_range", 0.0) or 0.0),
     }
 
 
