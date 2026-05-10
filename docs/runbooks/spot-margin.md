@@ -249,6 +249,7 @@ Use this when:
 | `closed_flat_invariant` Telegram alert fires | Check `runtime_logs/invariant_violations.jsonl` for the trade_id; cross-reference DB row + wallet | Phase-1 expectation is 0 alerts. Any non-zero is a bug surface in the close path |
 | `pybit.UnifiedException: Cross-margin liability limit` on a fresh short | Bybit Spot Margin not enabled OR liability cap hit | Check Bybit web-UI Spot Margin settings; confirm `bybit_2` toggle is ON |
 | Borrow line stable but `accruedInterest` climbing without a close | Strategy's `monitor()` isn't closing — VWAP HTF gate may be holding | Inspect `runtime_logs/signal_audit.jsonl` for the strategy's recent `monitor()` verdicts; if always `None`, the strategy has no exit logic for current conditions — file a Tier-3 ping |
+| Bybit `ErrCode 170131` (Insufficient balance) on `Buy isLeverage=1` (LONG spot-margin) | The borrow gate is wedged — RiskManager's USDT view disagrees with what Bybit will accept. The coordinator's circuit breaker auto-flips the account to `dry_run` after 3 consecutive `exchange_rejected` (see `_EXCHANGE_REJECTION_PAUSE_THRESHOLD` in `src/core/coordinator.py`); `accounts auto-paused` critical alert fires on Telegram | Investigate the USDT-view mismatch before flipping the account back to live: stale balance read, locked USDT in open orders not subtracted, or borrow-pool actually exhausted at Bybit. Manual unpause: `/account_mode bybit_2 live` once you've confirmed available USDT > intended notional. |
 
 ---
 

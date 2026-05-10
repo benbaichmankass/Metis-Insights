@@ -81,6 +81,11 @@ jobs:
                 color: '0e8a16',
                 description: 'Triggers health-snapshot-pr workflow from a sandbox session (issue-driven dispatch).',
               },
+              {
+                name: 'cf-worker-deploy',
+                color: '1d76db',
+                description: 'Triggers cf-worker-deploy workflow — wrangler deploy of cf-worker/ from CI.',
+              },
             ];
             for (const l of LABELS) {
               try {
