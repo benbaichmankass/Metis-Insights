@@ -1,4 +1,4 @@
-"""Tests for `market_raw` adapters + builder (S-AI-WS5-B-PART-1)."""
+"""Tests for `market_raw` adapters + builder (S-AI-WS5-B-PART-1 + PART-2)."""
 from __future__ import annotations
 
 import json
@@ -14,6 +14,7 @@ from ml.datasets.adapters import (
 from ml.datasets.adapters.bybit_offvm import (
     OFFVM_ENV,
     OffVmGuardrailViolation,
+    _iso_to_ms,
 )
 from ml.datasets.families.market_raw import MarketRawBuilder
 from ml.datasets.validate import validate_dataset
@@ -132,19 +133,287 @@ class TestBybitOffvmEnvGate:
                 )
             )
 
-    def test_with_env_raises_not_implemented(self, monkeypatch):
+    def test_with_env_invokes_fetch(self, monkeypatch):
+        # Past the guardrail, the adapter now actually calls the
+        # exchange (S-AI-WS5-B-PART-2). Mock the exchange so CI never
+        # touches the network.
         monkeypatch.setenv(OFFVM_ENV, "1")
+        fake = _FakeBybitExchange(
+            pages=[
+                [
+                    [_iso_to_ms("2025-01-01T00:00:00Z"), 1.0, 2.0, 0.5, 1.5, 100.0],
+                    [_iso_to_ms("2025-01-01T01:00:00Z"), 1.5, 2.5, 1.0, 2.0, 200.0],
+                ],
+            ],
+        )
+        monkeypatch.setattr(
+            BybitOffvmMarketRawAdapter,
+            "_build_exchange",
+            classmethod(lambda cls, **kw: fake),
+        )
         adapter = BybitOffvmMarketRawAdapter()
-        # Past the guardrail, the actual fetch is filed for a follow-up.
-        with pytest.raises(NotImplementedError):
+        rows = list(
+            adapter.iter_bars(
+                symbol="BTCUSDT",
+                timeframe="1h",
+                start="2025-01-01T00:00:00Z",
+                end="2025-01-01T02:00:00Z",
+            )
+        )
+        assert len(rows) == 2
+        assert rows[0]["ts"] == "2025-01-01T00:00:00Z"
+        assert rows[0]["symbol"] == "BTCUSDT"
+        assert rows[0]["timeframe"] == "1h"
+        assert rows[0]["source"] == "bybit_v5_offvm"
+
+
+class _FakeBybitExchange:
+    """Records fetch_ohlcv calls and replays canned pages.
+
+    Tests construct one of these and patch
+    `BybitOffvmMarketRawAdapter._build_exchange` to return it; the
+    real ccxt client is never instantiated.
+    """
+
+    def __init__(self, pages):
+        self._pages = list(pages)
+        self.calls: list[dict] = []
+
+    def fetch_ohlcv(self, symbol, *, timeframe, since, limit):
+        self.calls.append(
+            {"symbol": symbol, "timeframe": timeframe, "since": since, "limit": limit}
+        )
+        if not self._pages:
+            return []
+        return self._pages.pop(0)
+
+
+class TestBybitOffvmFetch:
+    """Wiring of `_fetch_bars` past the env-gate (S-AI-WS5-B-PART-2 PR 2A)."""
+
+    def test_paginates_until_end(self, monkeypatch):
+        monkeypatch.setenv(OFFVM_ENV, "1")
+        page_a = [
+            [_iso_to_ms("2025-01-01T00:00:00Z"), 1, 2, 0, 1.5, 10],
+            [_iso_to_ms("2025-01-01T01:00:00Z"), 1.5, 2.5, 1, 2, 20],
+        ]
+        page_b = [
+            [_iso_to_ms("2025-01-01T02:00:00Z"), 2, 3, 1.5, 2.5, 30],
+            [_iso_to_ms("2025-01-01T03:00:00Z"), 2.5, 3.5, 2, 3, 40],
+        ]
+        fake = _FakeBybitExchange(pages=[page_a, page_b, []])
+        monkeypatch.setattr(
+            BybitOffvmMarketRawAdapter,
+            "_build_exchange",
+            classmethod(lambda cls, **kw: fake),
+        )
+        rows = list(
+            BybitOffvmMarketRawAdapter().iter_bars(
+                symbol="BTCUSDT",
+                timeframe="1h",
+                start="2025-01-01T00:00:00Z",
+                end="2025-01-02T00:00:00Z",
+            )
+        )
+        assert [r["ts"] for r in rows] == [
+            "2025-01-01T00:00:00Z",
+            "2025-01-01T01:00:00Z",
+            "2025-01-01T02:00:00Z",
+            "2025-01-01T03:00:00Z",
+        ]
+        # First call uses the start-ms cursor; second call advances to the
+        # last yielded bar + 1 bar (1h = 3_600_000 ms).
+        assert fake.calls[0]["since"] == _iso_to_ms("2025-01-01T00:00:00Z")
+        assert fake.calls[1]["since"] == _iso_to_ms("2025-01-01T02:00:00Z")
+        assert fake.calls[0]["timeframe"] == "1h"
+        assert fake.calls[0]["symbol"] == "BTCUSDT"
+
+    def test_stops_at_end_window(self, monkeypatch):
+        monkeypatch.setenv(OFFVM_ENV, "1")
+        # Returns four bars but `end` cuts off after the second.
+        page = [
+            [_iso_to_ms("2025-01-01T00:00:00Z"), 1, 2, 0, 1.5, 10],
+            [_iso_to_ms("2025-01-01T01:00:00Z"), 1.5, 2.5, 1, 2, 20],
+            [_iso_to_ms("2025-01-01T02:00:00Z"), 2, 3, 1.5, 2.5, 30],
+            [_iso_to_ms("2025-01-01T03:00:00Z"), 2.5, 3.5, 2, 3, 40],
+        ]
+        fake = _FakeBybitExchange(pages=[page])
+        monkeypatch.setattr(
+            BybitOffvmMarketRawAdapter,
+            "_build_exchange",
+            classmethod(lambda cls, **kw: fake),
+        )
+        rows = list(
+            BybitOffvmMarketRawAdapter().iter_bars(
+                symbol="BTCUSDT",
+                timeframe="1h",
+                start="2025-01-01T00:00:00Z",
+                end="2025-01-01T02:00:00Z",
+            )
+        )
+        assert len(rows) == 2
+        assert rows[-1]["ts"] == "2025-01-01T01:00:00Z"
+
+    def test_empty_first_page_returns_no_rows(self, monkeypatch):
+        monkeypatch.setenv(OFFVM_ENV, "1")
+        fake = _FakeBybitExchange(pages=[[]])
+        monkeypatch.setattr(
+            BybitOffvmMarketRawAdapter,
+            "_build_exchange",
+            classmethod(lambda cls, **kw: fake),
+        )
+        rows = list(
+            BybitOffvmMarketRawAdapter().iter_bars(
+                symbol="BTCUSDT",
+                timeframe="1h",
+                start="2025-01-01T00:00:00Z",
+                end="2025-01-02T00:00:00Z",
+            )
+        )
+        assert rows == []
+
+    def test_unknown_timeframe_raises(self, monkeypatch):
+        monkeypatch.setenv(OFFVM_ENV, "1")
+        with pytest.raises(ValueError, match="unsupported timeframe"):
             list(
-                adapter.iter_bars(
+                BybitOffvmMarketRawAdapter().iter_bars(
                     symbol="BTCUSDT",
-                    timeframe="1h",
-                    start="2025-01-01",
-                    end="2025-01-02",
+                    timeframe="2h",
+                    start="2025-01-01T00:00:00Z",
+                    end="2025-01-02T00:00:00Z",
                 )
             )
+
+    def test_inverted_window_raises(self, monkeypatch):
+        monkeypatch.setenv(OFFVM_ENV, "1")
+        with pytest.raises(ValueError, match="must be after start"):
+            list(
+                BybitOffvmMarketRawAdapter().iter_bars(
+                    symbol="BTCUSDT",
+                    timeframe="1h",
+                    start="2025-01-02T00:00:00Z",
+                    end="2025-01-01T00:00:00Z",
+                )
+            )
+
+    def test_canonical_row_shape(self, monkeypatch):
+        monkeypatch.setenv(OFFVM_ENV, "1")
+        page = [
+            [_iso_to_ms("2025-01-01T00:00:00Z"), 1.0, 2.0, 0.5, 1.5, 100.0],
+        ]
+        fake = _FakeBybitExchange(pages=[page])
+        monkeypatch.setattr(
+            BybitOffvmMarketRawAdapter,
+            "_build_exchange",
+            classmethod(lambda cls, **kw: fake),
+        )
+        row = next(
+            BybitOffvmMarketRawAdapter().iter_bars(
+                symbol="BTCUSDT",
+                timeframe="1h",
+                start="2025-01-01T00:00:00Z",
+                end="2025-01-01T02:00:00Z",
+            )
+        )
+        # Canonical shape: exact key set + types per CANONICAL_SCHEMA.
+        from ml.datasets.adapters.base import CANONICAL_SCHEMA
+
+        assert set(row.keys()) == set(CANONICAL_SCHEMA.keys())
+        for name, expected in CANONICAL_SCHEMA.items():
+            assert isinstance(row[name], expected), (
+                f"{name} expected {expected}; got {type(row[name])}"
+            )
+        assert row["source"] == "bybit_v5_offvm"
+
+    def test_credentials_threaded_to_exchange_builder(self, monkeypatch):
+        monkeypatch.setenv(OFFVM_ENV, "1")
+        monkeypatch.setenv("BYBIT_API_KEY", "env-key")
+        monkeypatch.setenv("BYBIT_API_SECRET", "env-secret")
+        captured: dict = {}
+
+        def fake_builder(cls, *, api_key, api_secret, testnet):
+            captured["api_key"] = api_key
+            captured["api_secret"] = api_secret
+            captured["testnet"] = testnet
+            return _FakeBybitExchange(pages=[[]])
+
+        monkeypatch.setattr(
+            BybitOffvmMarketRawAdapter,
+            "_build_exchange",
+            classmethod(fake_builder),
+        )
+        list(
+            BybitOffvmMarketRawAdapter().iter_bars(
+                symbol="BTCUSDT",
+                timeframe="1h",
+                start="2025-01-01T00:00:00Z",
+                end="2025-01-02T00:00:00Z",
+            )
+        )
+        assert captured == {
+            "api_key": "env-key",
+            "api_secret": "env-secret",
+            "testnet": False,
+        }
+
+    def test_explicit_credentials_override_env(self, monkeypatch):
+        monkeypatch.setenv(OFFVM_ENV, "1")
+        monkeypatch.setenv("BYBIT_API_KEY", "env-key")
+        monkeypatch.setenv("BYBIT_API_SECRET", "env-secret")
+        captured: dict = {}
+
+        def fake_builder(cls, *, api_key, api_secret, testnet):
+            captured["api_key"] = api_key
+            captured["api_secret"] = api_secret
+            captured["testnet"] = testnet
+            return _FakeBybitExchange(pages=[[]])
+
+        monkeypatch.setattr(
+            BybitOffvmMarketRawAdapter,
+            "_build_exchange",
+            classmethod(fake_builder),
+        )
+        list(
+            BybitOffvmMarketRawAdapter().iter_bars(
+                symbol="BTCUSDT",
+                timeframe="1h",
+                start="2025-01-01T00:00:00Z",
+                end="2025-01-02T00:00:00Z",
+                api_key="kw-key",
+                api_secret="kw-secret",
+                testnet=True,
+            )
+        )
+        assert captured == {
+            "api_key": "kw-key",
+            "api_secret": "kw-secret",
+            "testnet": True,
+        }
+
+    def test_pre_window_bars_dropped(self, monkeypatch):
+        # Defensive against ccxt occasionally returning a few bars
+        # before the requested `since`.
+        monkeypatch.setenv(OFFVM_ENV, "1")
+        page = [
+            [_iso_to_ms("2024-12-31T23:00:00Z"), 1, 2, 0, 1, 5],  # before start
+            [_iso_to_ms("2025-01-01T00:00:00Z"), 1, 2, 0, 1.5, 10],
+        ]
+        fake = _FakeBybitExchange(pages=[page, []])
+        monkeypatch.setattr(
+            BybitOffvmMarketRawAdapter,
+            "_build_exchange",
+            classmethod(lambda cls, **kw: fake),
+        )
+        rows = list(
+            BybitOffvmMarketRawAdapter().iter_bars(
+                symbol="BTCUSDT",
+                timeframe="1h",
+                start="2025-01-01T00:00:00Z",
+                end="2025-01-01T02:00:00Z",
+            )
+        )
+        assert len(rows) == 1
+        assert rows[0]["ts"] == "2025-01-01T00:00:00Z"
 
 
 class TestMarketRawBuilder:
@@ -161,7 +430,6 @@ class TestMarketRawBuilder:
             commit_sha="deadbeef",
             adapter="csv",
             csv_path=csv_path,
-            symbol="BTCUSDT",
         )
         assert paths.root == out / "market_raw" / "BTCUSDT" / "1h" / "v001"
         assert paths.metadata.is_file()

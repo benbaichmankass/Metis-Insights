@@ -1,6 +1,6 @@
 # AI Traders Models Roadmap
 
-> **Status:** Master plan adopted 2026-05-10. Through S-AI-WS5-B-PART-1.
+> **Status:** Master plan adopted 2026-05-10. Through S-AI-WS5-B-PART-2 (PR 2A).
 >
 > **AI-scope canonical doc:**
 > [`docs/architecture/ai-model-platform.md`](architecture/ai-model-platform.md).
@@ -24,7 +24,7 @@
 | WS2 | Canonical trade pipeline | M9 | ✅ DONE 2026-05-10 (S-AI-WS2) | [ws2-canonical-pipeline.md](sprint-plans/ai-traders/ws2-canonical-pipeline.md) |
 | WS3 | Data foundation | M10 | ✅ DONE 2026-05-10 (S-AI-WS3) | [ws3-data-foundation.md](sprint-plans/ai-traders/ws3-data-foundation.md) |
 | WS4 | Training center | M9 | ✅ DONE 2026-05-10 (S-AI-WS4 + S-AI-WS4-FU) | [ws4-training-center.md](sprint-plans/ai-traders/ws4-training-center.md) + [ws4-followups.md](sprint-plans/ai-traders/ws4-followups.md) |
-| WS5 | Baseline models | M9 | 🔄 IN PROGRESS — sub-sprints A + B-PART-1 closed 2026-05-10 | [ws5-baseline-models.md](sprint-plans/ai-traders/ws5-baseline-models.md) |
+| WS5 | Baseline models | M9 | 🔄 IN PROGRESS — sub-sprints A + B-PART-1 + B-PART-2 PR 2A closed 2026-05-10 | [ws5-baseline-models.md](sprint-plans/ai-traders/ws5-baseline-models.md) |
 | WS6 | Open-source model layer | M9 | 📋 Not started | [ws6-open-source-models.md](sprint-plans/ai-traders/ws6-open-source-models.md) |
 | WS7 | Deployment tiers | M9 | 📋 Not started | [ws7-deployment-tiers.md](sprint-plans/ai-traders/ws7-deployment-tiers.md) |
 | WS8 | Monitoring and feedback loops | M9 | 📋 Not started | [ws8-monitoring-feedback.md](sprint-plans/ai-traders/ws8-monitoring-feedback.md) |
@@ -39,10 +39,12 @@
 2. WS5-A (outcome probability) — ✅ done.
 3. **WS5-B-PART-1 (`market_raw` adapter framework) — ✅ done
    2026-05-10.**
-4. **WS5-B-PART-2 (regime classifier + Bybit off-VM fetch wiring) —
-   🔜 next.**
-5. WS5-C..F (other baselines).
-6. Shadow mode (WS7) → WS6 → WS8 + WS10.
+4. **WS5-B-PART-2 PR 2A (Bybit off-VM fetch wiring via ccxt) — ✅
+   done 2026-05-10.**
+5. **WS5-B-PART-2 PR 2B (`market_features` family + 3-class regime
+   classifier baseline + multiclass evaluator) — 🔜 next.**
+6. WS5-C..F (other baselines).
+7. Shadow mode (WS7) → WS6 → WS8 + WS10.
 
 ---
 
@@ -80,3 +82,4 @@
 | 2026-05-10 | S-AI-WS5-A | WS5-A: outcome probability + `trade_outcomes`. | None. |
 | 2026-05-10 | S-AI-WS4-FU | WS4 follow-ups: Predictor + splitters + `compare` + global-only baseline. | None. |
 | 2026-05-10 | S-AI-WS5-B-PART-1 | WS5-B Part 1: `market_raw` multi-source adapter framework (CSV adapter live; Bybit off-VM scaffold env-gated; fetch wiring filed for operator). New non-negotiable: no `ICT_OFFVM_BUILD_HOST=1` on the live VM. | None — additive; Bybit shell raises NotImplementedError until operator wires the fetch. |
+| 2026-05-10 | S-AI-WS5-B-PART-2 PR 2A | WS5-B Part 2A: Bybit off-VM `_fetch_bars` wired via ccxt's `fetch_ohlcv`; paginated `since` cursor; canonical-row normalisation; CI mocks the exchange. Builder framework auto-forwards `symbol_scope` / `timeframe` into `iter_rows` kwargs. | None on the live VM (env-gate retained). Off-VM build hosts can now produce real `bybit_v5_offvm` market_raw datasets when `BYBIT_API_KEY` / `BYBIT_API_SECRET` and `ICT_OFFVM_BUILD_HOST=1` are staged. |

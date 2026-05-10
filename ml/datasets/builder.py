@@ -137,6 +137,13 @@ class DatasetBuilder(ABC):
 
         schema_tokens = {name: _type_token(t) for name, t in self.schema.items()}
         allowed_fields = set(self.schema.keys())
+        # Forward post-resolution scope into iter_rows so builders that
+        # need to stamp rows with the canonical scope (e.g. market_raw
+        # adapters) don't have to be passed redundantly. setdefault, so
+        # operator-supplied kwargs win.
+        iter_rows_kwargs = dict(iter_rows_kwargs)
+        iter_rows_kwargs.setdefault("symbol_scope", symbol_scope)
+        iter_rows_kwargs.setdefault("timeframe", timeframe)
         row_count = self._write_rows(paths.data, allowed_fields, iter_rows_kwargs)
 
         metadata = DatasetMetadata(

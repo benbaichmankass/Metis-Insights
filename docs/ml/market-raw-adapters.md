@@ -62,30 +62,63 @@ set that env var; market_raw builds are meant to run on a
 separate build host (developer laptop, HF Space, or a CI runner
 with operator-supplied read-only credentials).
 
-In S-AI-WS5-B-PART-1 the adapter ships:
+What the adapter ships:
 
 - the class with the **WS9 env-gate** (refuses to run without
-  the explicit opt-in env var);
-- a `NotImplementedError` on the actual fetch path;
-- this doc and a follow-up filing for the operator to wire the
-  exchange call.
+  the explicit opt-in env var); **S-AI-WS5-B-PART-1**.
+- the live Bybit V5 fetch path via ccxt's `fetch_ohlcv` — paginated
+  by `since` (ms) over `[start, end]`, normalised to the canonical
+  row shape; tests mock the exchange object so CI never hits the
+  network. **S-AI-WS5-B-PART-2 (PR 2A)**.
 
-### Bybit off-VM wiring (filed for the operator)
+### Bybit off-VM build runbook (operator)
 
 When the operator next builds `market_raw` on a non-VM host:
 
-1. Stage read-only Bybit V5 credentials on the build host (env or
-   config file). **Do not** commit them.
-2. Set `ICT_OFFVM_BUILD_HOST=1` on the same host. Verify the host
-   is NOT the Oracle live VM.
-3. Wire `BybitOffvmMarketRawAdapter._fetch_bars(...)` (a follow-up
-   patch) to call `src/exchange/bybit_connector.py::get_klines`
-   (or the equivalent kline endpoint), translate each candle into
-   the canonical row shape, and yield.
-4. Re-run
-   `python -m ml.datasets build market_raw -- adapter=bybit_v5_offvm symbol=BTCUSDT timeframe=1h start=...`.
+1. Verify the host is NOT the Oracle live VM. The env-gate is a
+   tripwire, not a substitute for human judgement.
+2. Stage read-only Bybit V5 credentials in the build-host env:
+   - `BYBIT_API_KEY`, `BYBIT_API_SECRET` (read-only).
+   - `BYBIT_TESTNET=true` to point at the sandbox.
+   The klines endpoint is public so credentials are technically
+   optional, but authenticated reads get higher rate limits and
+   identifiable usage in Bybit's audit. **Do not** commit them.
+3. Set `ICT_OFFVM_BUILD_HOST=1` on the same host.
+4. `pip install ccxt` (lazy-imported by the adapter).
+5. Run:
 
-The wiring patch is the first thing in S-AI-WS5-B-PART-2.
+   ```
+   python -m ml.datasets build market_raw \
+     --output-dir ./datasets-out --version v001 \
+     --source bybit_v5 \
+     --symbol-scope BTCUSDT --timeframe 1h \
+     -- adapter=bybit_v5_offvm \
+        start=2024-01-01T00:00:00Z end=2025-01-01T00:00:00Z
+   ```
+
+   `symbol` and `timeframe` are auto-forwarded from
+   `--symbol-scope` / `--timeframe` (S-AI-WS5-B-PART-2 PR 2A); pass
+   them explicitly via `-- ...` only when you intentionally want to
+   stamp rows differently from the path-layout scope.
+
+### Implementation notes (PR 2A)
+
+- ccxt is **lazy-imported** in `_build_exchange`. A build host
+  without ccxt still hits the env-gate first; the import error is
+  raised only when the gate has been opened.
+- The exchange object is constructed via the `_build_exchange`
+  classmethod. Tests monkeypatch this hook to inject a fake
+  exchange, so no network or ccxt dependency is required for CI.
+- Pagination: `fetch_ohlcv(symbol, timeframe=tf, since=cursor,
+  limit=1000)`. Cursor advances to the last bar's `ts + bar_ms`.
+  Defensive guards: drop pre-`start` bars (ccxt occasionally
+  returns a small prefix), break if `since` doesn't advance, halt
+  when a bar reaches `end_ms`.
+- Supported timeframes: `1m`, `5m`, `15m`, `1h`, `4h`, `1d`. Other
+  ccxt-supported timeframes are easy to add — extend `_TIMEFRAME_MS`
+  and update this list.
+- Volume normalisation: `None` is coerced to `0.0` (ccxt sometimes
+  emits null volume on illiquid bars).
 
 ## Adding a new adapter
 

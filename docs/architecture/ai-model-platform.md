@@ -1,7 +1,7 @@
 # AI Model Platform — Architecture
 
 > **Status:** Canonical (AI scope). Adopted **S-AI-WS1**
-> (2026-05-10). Refreshed through **S-AI-WS5-B-PART-1**.
+> (2026-05-10). Refreshed through **S-AI-WS5-B-PART-2 (PR 2A)**.
 >
 > **Authority:** Canonical for AI-specific architecture. System-wide
 > canonical: [`docs/ARCHITECTURE-CANONICAL.md`](../ARCHITECTURE-CANONICAL.md).
@@ -54,7 +54,7 @@ Layer 5 is the immutable safety floor.
 | Dataset framework (WS3) | `ml/datasets/` | Three buildable families. |
 | `backtest_results` (WS3) | `ml/datasets/families/backtest_results.py` | Read-only against `trade_journal.db`. |
 | `trade_outcomes` (WS5-A) | `ml/datasets/families/trade_outcomes.py` | Derived `won = pnl > 0` label. |
-| `market_raw` (WS5-B-PART-1) | `ml/datasets/families/market_raw.py` + `ml/datasets/adapters/{base, csv, bybit_offvm, registry}.py` | **Adopted 2026-05-10 (S-AI-WS5-B-PART-1).** Pluggable adapter framework. CSV adapter live; Bybit off-VM scaffold env-gated (`ICT_OFFVM_BUILD_HOST=1`); actual exchange call filed for the operator to wire on a non-VM host. |
+| `market_raw` (WS5-B-PART-1 + PART-2 PR 2A) | `ml/datasets/families/market_raw.py` + `ml/datasets/adapters/{base, csv, bybit_offvm, registry}.py` | Pluggable adapter framework (S-AI-WS5-B-PART-1). CSV adapter live; Bybit off-VM env-gated (`ICT_OFFVM_BUILD_HOST=1`) and **wired via ccxt's `fetch_ohlcv` with paginated `since` cursor in S-AI-WS5-B-PART-2 PR 2A** — operator runs the build on a non-VM host with `BYBIT_API_KEY` / `BYBIT_API_SECRET` staged; CI tests mock the exchange. |
 | Training center (WS4) | `ml/{manifest, cli, __main__}.py`, `ml/{trainers, evaluators, experiments, registry, promotion, configs}/` | YAML manifests + ABCs + filesystem registry + runner + CLI. |
 | Predictor abstraction (WS4-FU) | `ml/predictors/` | Decouples evaluators from trainer state shape. |
 | Time-aware splitters (WS4-FU) | `ml/experiments/splitters.py` | `holdout` / `time_aware_holdout` / `walk_forward`. |
@@ -66,9 +66,10 @@ Layer 5 is the immutable safety floor.
 
 - Builders for `market_features`, `setup_labels`, `account_context`,
   `review_journal`.
-- WS5-B-PART-2 onwards (regime classifier + actual Bybit off-VM
-  fetch wiring; setup quality scorer; exec quality; post-trade
-  review; prop mission policy).
+- WS5-B-PART-2 onwards (regime classifier + `market_features`
+  derived family; setup quality scorer; exec quality; post-trade
+  review; prop mission policy). Bybit off-VM fetch wiring landed in
+  PR 2A; the classifier baseline lands in PR 2B.
 - Aggregated walk-forward.
 - Per-strategy detail metrics artifact.
 - HF publication CLI subcommand.
@@ -119,3 +120,4 @@ Oracle / HF responsibilities, or anything in `Forbidden` changes.
 | 2026-05-10 | S-AI-WS5-A | First baseline + `trade_outcomes` + leakage rule. | None. |
 | 2026-05-10 | S-AI-WS4-FU | Predictor abstraction + splitters + `compare` CLI + global-only sanity baseline + market_raw multi-source design pinned. | None. |
 | 2026-05-10 | S-AI-WS5-B-PART-1 | `market_raw` adapter framework + CSV adapter + Bybit off-VM scaffold (env-gated; fetch wiring filed). New Forbidden rule: don't set `ICT_OFFVM_BUILD_HOST=1` on the live VM. | None — additive; Bybit shell raises NotImplementedError until operator wires the fetch. |
+| 2026-05-10 | S-AI-WS5-B-PART-2 (PR 2A) | Bybit off-VM `_fetch_bars` wired via ccxt; paginated `since` cursor; canonical-row normalisation; CI mocks the exchange. Builder framework auto-forwards `symbol_scope` / `timeframe` into `iter_rows` kwargs. | None on the live VM (env-gate retained). Off-VM build hosts now produce real `bybit_v5_offvm` market_raw datasets when the operator stages credentials. |
