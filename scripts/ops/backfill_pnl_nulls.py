@@ -38,7 +38,7 @@ import argparse
 import os
 import sqlite3
 import sys
-from typing import Any, Dict, List
+from typing import Dict, List
 
 
 def _connect(db_path: str) -> sqlite3.Connection:
