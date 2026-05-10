@@ -16,6 +16,7 @@ from src.web.api.routers import dashboard as dashboard_router
 from src.web.api.routers import diag as diag_router
 from src.web.api.routers import liquidity as liquidity_router
 from src.web.api.routers import pnl as pnl_router
+from src.web.api.routers import pnl_exchange as pnl_exchange_router
 from src.web.api.routers import pnl_fragment as pnl_fragment_router
 from src.web.api.routers import pnl_history as pnl_history_router
 from src.web.api.routers import status as status_router
@@ -47,6 +48,7 @@ app.include_router(dashboard_router.router)
 app.include_router(bot_config_router.router)
 app.include_router(liquidity_router.router)
 app.include_router(trades_closed_router.router)
+app.include_router(pnl_exchange_router.router)
 app.include_router(diag_router.router)
 
 
