@@ -20,10 +20,18 @@ names, not secrets, surfacing them tells an attacker exactly which
 env vars to look for. The endpoint also never returns the
 ``runtime_logs/`` path or any DB path; the operator can read those
 from the architecture doc instead.
+
+**S-067:** when a YAML file is missing or malformed the endpoint
+still returns 200 (per the operator-needs-visibility intent) but
+now surfaces the per-file failure as a top-level
+``config_load_errors`` array. Pre-S-067 the failure was silently
+swallowed and the Settings tab rendered as "no strategies / no
+accounts configured".
 """
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 from datetime import datetime, timezone
@@ -31,6 +39,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/bot", tags=["bot"])
 
@@ -71,11 +81,20 @@ def _redact_recursive(value: Any) -> Any:
     return value
 
 
-def _read_yaml(path: Path) -> Dict[str, Any]:
-    """Best-effort YAML read. Missing / unreadable / malformed → ``{}``.
+def _read_yaml(
+    path: Path,
+    errors: Optional[List[Dict[str, Any]]] = None,
+) -> Dict[str, Any]:
+    """Best-effort YAML read. Missing file → ``{}`` silently (a
+    fresh install or test env with no config files is a normal
+    case; not an error). Unreadable / malformed YAML → ``{}`` plus
+    a warning log + an entry in *errors* if provided.
 
-    The endpoint must never 500 on a missing config — the operator
-    needs visibility precisely when something is off.
+    The endpoint must never 500 on a config-load failure (the
+    operator needs visibility precisely when something is off), but
+    pre-S-067 it also dropped the failure invisibly, so a malformed
+    yaml looked identical to "no strategies configured". This helper
+    now logs and surfaces the failure when given a collector list.
     """
     if not path.exists():
         return {}
@@ -83,9 +102,28 @@ def _read_yaml(path: Path) -> Dict[str, Any]:
         import yaml
         with path.open(encoding="utf-8") as fh:
             raw = yaml.safe_load(fh) or {}
-    except Exception:
+    except Exception as exc:  # noqa: BLE001
+        # S-067: was silently `return {}`. Now logs + surfaces.
+        logger.warning(
+            "bot_config: yaml read failed for %s: %s: %s",
+            path, type(exc).__name__, exc,
+        )
+        if errors is not None:
+            errors.append({
+                "path": str(path),
+                "error": f"{type(exc).__name__}: {exc}",
+            })
         return {}
-    return raw if isinstance(raw, dict) else {}
+    if isinstance(raw, dict):
+        return raw
+    # Loaded successfully but not a dict (e.g. a top-level list /
+    # scalar) — unusable here. Treat as a load error too.
+    if errors is not None:
+        errors.append({
+            "path": str(path),
+            "error": f"yaml top-level is {type(raw).__name__}, expected dict",
+        })
+    return {}
 
 
 def _read_runtime_live_state() -> Dict[str, bool]:
@@ -136,8 +174,14 @@ def build_config(
     h_path = halt_flag_path if halt_flag_path is not None else _HALT_FLAG_PATH
     now = now_utc or datetime.now(timezone.utc)
 
-    accounts_raw = _read_yaml(a_path)
-    strategies_raw = _read_yaml(s_path)
+    # S-067: collect per-file load errors so the dashboard can surface
+    # "config corrupt" instead of silently rendering an empty Settings
+    # tab. Failures still degrade non-fatally — the rest of the
+    # payload populates from whatever loaded successfully.
+    config_load_errors: List[Dict[str, Any]] = []
+
+    accounts_raw = _read_yaml(a_path, errors=config_load_errors)
+    strategies_raw = _read_yaml(s_path, errors=config_load_errors)
     # Override the module-level paths so the runtime-status reader
     # picks up monkeypatched paths in tests.
     saved = _RUNTIME_STATUS_JSON
@@ -168,6 +212,7 @@ def build_config(
         },
         "accounts": accounts,
         "strategies": strategies,
+        "config_load_errors": config_load_errors,
     }
 
 
