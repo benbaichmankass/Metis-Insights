@@ -21,7 +21,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException, status
 
 logger = logging.getLogger(__name__)
 
@@ -74,14 +74,23 @@ def _vm_health() -> dict[str, float | None]:
 
 
 def _pnl_stats() -> tuple[float, float, int, float]:
-    """Returns (pnl24h, totalPnL, openTrades, winRate)."""
+    """Returns (pnl24h, totalPnL, openTrades, winRate).
+
+    Raises ``sqlite3.Error`` on a structural DB failure (missing
+    table / column, locked DB, corrupt file). The early-return-zeroes
+    branch fires only when the DB file genuinely does not exist —
+    that's a legitimate "no trades yet" case on a fresh install,
+    distinct from "DB present but unreadable". ``get_stats`` catches
+    the raised error and surfaces it as a 503 so the dashboard renders
+    a real outage badge instead of fabricated zero metrics.
+    """
     if not _DB_PATH.exists():
         return 0.0, 0.0, 0, 0.0
+    conn = sqlite3.connect(str(_DB_PATH))
     try:
-        conn = sqlite3.connect(str(_DB_PATH))
+        cur = conn.cursor()
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         try:
-            cur = conn.cursor()
-            today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
             cur.execute(
                 """
                 SELECT
@@ -97,13 +106,19 @@ def _pnl_stats() -> tuple[float, float, int, float]:
                 (today,),
             )
             row = cur.fetchone()
-            pnl24h, total_pnl, open_trades, closed, winners = row
-            win_rate = (winners / closed * 100.0) if closed else 0.0
-            return float(pnl24h), float(total_pnl), int(open_trades), round(win_rate, 1)
-        finally:
-            conn.close()
-    except Exception:  # noqa: BLE001
-        return 0.0, 0.0, 0, 0.0
+        except sqlite3.Error:
+            # S-067: structural failures (missing column, locked DB,
+            # corrupt file) used to be silently swallowed under a
+            # blanket ``except Exception`` and surfaced to the
+            # dashboard as fabricated `(0, 0, 0, 0)`. Log loudly and
+            # re-raise so ``get_stats`` can convert to 503.
+            logger.exception("dashboard: _pnl_stats sqlite read failed")
+            raise
+        pnl24h, total_pnl, open_trades, closed, winners = row
+        win_rate = (winners / closed * 100.0) if closed else 0.0
+        return float(pnl24h), float(total_pnl), int(open_trades), round(win_rate, 1)
+    finally:
+        conn.close()
 
 
 def _tail_jsonl(path: Path, n: int) -> list[dict]:
@@ -152,7 +167,19 @@ def _tail_plain_log(path: Path, n: int) -> list[dict]:
 
 @router.get("/stats")
 async def get_stats() -> dict[str, Any]:
-    pnl24h, total_pnl, open_trades, win_rate = _pnl_stats()
+    try:
+        pnl24h, total_pnl, open_trades, win_rate = _pnl_stats()
+    except sqlite3.Error as exc:
+        # S-067: the DB is reachable-but-broken. Surface a real outage
+        # rather than a fabricated `pnl24h: 0` that an operator would
+        # read as "no trades today".
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={
+                "error": "stats_unavailable",
+                "reason": f"db error: {type(exc).__name__}",
+            },
+        )
     return {
         "pnl24h": round(pnl24h, 2),
         "totalPnL": round(total_pnl, 2),
