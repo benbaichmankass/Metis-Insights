@@ -58,19 +58,12 @@ def _bot_status() -> str:
     return heartbeat_label(age)
 
 
-def _vm_health() -> dict[str, float | None]:
-    # Per-field None on failure so the dashboard can render `—` for a
-    # missing reading and tell it apart from a real 0% measurement.
-    try:
-        import psutil  # noqa: PLC0415
-        return {
-            "cpu": psutil.cpu_percent(interval=0.1),
-            "memory": psutil.virtual_memory().percent,
-            "disk": psutil.disk_usage("/").percent,
-        }
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("dashboard vm_health: psutil sample failed: %s", exc)
-        return {"cpu": None, "memory": None, "disk": None}
+# S-067 follow-up #9: vm_health implementation moved to
+# src/web/api/_vm_health.py to remove the diag.py / dashboard.py
+# fork. Re-exported under the legacy ``_vm_health`` name so
+# tests (e.g. tests/test_dashboard_data_contract.py monkeypatching
+# ``dashboard_router._vm_health``) keep working without modification.
+from src.web.api._vm_health import vm_health as _vm_health  # noqa: E402
 
 
 def _pnl_stats() -> tuple[float, float, int, float]:

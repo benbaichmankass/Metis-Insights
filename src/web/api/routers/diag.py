@@ -290,23 +290,13 @@ def _db_info_payload() -> dict[str, Any]:
     return payload
 
 
-def _vm_health() -> dict[str, float | None]:
-    # S-067: the previous fallback returned ``{"cpu": 0.0, "memory":
-    # 0.0, "disk": 0.0}`` on psutil failure, which an operator looking
-    # at /diag/snapshot or /diag/status couldn't distinguish from real
-    # zero readings. Mirror dashboard.py::_vm_health: log a warning and
-    # return ``None`` per field so the wire shape carries a clear
-    # "measurement unavailable" signal.
-    try:
-        import psutil  # noqa: PLC0415
-        return {
-            "cpu": psutil.cpu_percent(interval=0.1),
-            "memory": psutil.virtual_memory().percent,
-            "disk": psutil.disk_usage("/").percent,
-        }
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("diag: vm_health: psutil sample failed: %s", exc)
-        return {"cpu": None, "memory": None, "disk": None}
+# S-067 follow-up #9: vm_health implementation moved to
+# src/web/api/_vm_health.py to remove the diag.py / dashboard.py
+# fork. Re-exported under the legacy ``_vm_health`` name so
+# tests (e.g. tests/test_web_api_diag.py + the monkeypatching in
+# the S-067 silent-empty regression tests) keep working without
+# modification.
+from src.web.api._vm_health import vm_health as _vm_health  # noqa: E402
 
 
 def _is_active_batch(units: list[str]) -> dict[str, str]:
