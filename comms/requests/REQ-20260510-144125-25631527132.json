@@ -11,8 +11,8 @@
     "pr_number": null,
     "task": "claude_health_review:25631527132"
   },
-  "topic": "Health review needed \u2014 run 25631527132 (WARNING)",
-  "context": "Automated GitHub Action health check has completed.\n\nrun_id: 25631527132\nbranch: main\ncommit: db48598b387f37493b758648ace8090a40a042ed\npriority: high\n\nArtifacts (this run):\n  - workflow run:  https://github.com/benbaichmankass/ict-trading-bot/actions/runs/25631527132\n  - snapshot:      artifacts/health/health_snapshot.txt  (Action artifact only)\n  - machine report: artifacts/health/latest.json  (Action artifact only)\n\nMachine result (status=WARNING):\n```json\n{\n  \"action_required\": \"Manual review required \\u2014 automated layer-1 analysis was not produced for this run. The raw snapshot is the source of truth for the layer-2 review.\",\n  \"checks\": {\n    \"api\": {\n      \"note\": \"layer-1 verdict unavailable\",\n      \"status\": \"warn\"\n    },\n    \"errors\": {\n      \"note\": \"layer-1 verdict unavailable\",\n      \"status\": \"warn\"\n    },\n    \"heartbeat\": {\n      \"note\": \"layer-1 verdict unavailable\",\n      \"status\": \"warn\"\n    },\n    \"monitoring\": {\n      \"note\": \"layer-1 verdict unavailable\",\n      \"status\": \"warn\"\n    },\n    \"orders\": {\n      \"note\": \"layer-1 verdict unavailable\",\n      \"status\": \"warn\"\n    },\n    \"pipeline\": {\n      \"note\": \"order rejected by safe_place_order (plumbing-on-rejection path exercised) (rc=1, 0.085s)\",\n      \"status\": \"warn\"\n    },\n    \"processes\": {\n      \"note\": \"layer-1 verdict unavailable\",\n      \"status\": \"warn\"\n    },\n    \"resources\": {\n      \"note\": \"layer-1 verdict unavailable\",\n      \"status\": \"warn\"\n    },\n    \"signals\": {\n      \"note\": \"layer-1 verdict unavailable\",\n      \"status\": \"warn\"\n    },\n    \"ticks\": {\n      \"note\": \"layer-1 verdict unavailable\",\n      \"status\": \"warn\"\n    },\n    \"trades\": {\n      \"note\": \"layer-1 verdict unavailable\",\n      \"status\": \"warn\"\n    }\n  },\n  \"error\": {\n    \"message\": \"Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011Cau4cfMNkRE6WRBQCZiKD'}\",\n    \"type\": \"BadRequestError\"\n  },\n  \"model\": \"claude-haiku-4-5-20251001\",\n  \"status\": \"WARNING\",\n  \"summary\": \"Layer-1 analysis unavailable: BadRequestError: Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or\",\n  \"timestamp\": \"2026-05-10T14:41:25.232065+00:00\"\n}\n```\n\nSee docs/runbooks/health-check.md for the two-layer design and review template.",
+  "topic": "Health review needed — run 25631527132 (WARNING)",
+  "context": "Automated GitHub Action health check has completed.\n\nrun_id: 25631527132\nbranch: main\ncommit: db48598b387f37493b758648ace8090a40a042ed\npriority: high\n\nArtifacts (this run):\n  - workflow run:  https://github.com/benbaichmankass/ict-trading-bot/actions/runs/25631527132\n  - snapshot:      artifacts/health/health_snapshot.txt  (Action artifact only)\n  - machine report: artifacts/health/latest.json  (Action artifact only)\n\nMachine result (status=WARNING):\n```json\n{\n  \"action_required\": \"Manual review required \\u2014 automated layer-1 analysis was not produced for this run.\",\n  \"status\": \"WARNING\"\n}\n```\n\nSee docs/runbooks/health-check.md for the two-layer design and review template.",
   "questions": [
     {
       "question_id": "review_json",
@@ -23,7 +23,7 @@
     }
   ],
   "default_on_timeout": "expire",
-  "status": "pending",
+  "status": "complete",
   "history": [
     {
       "at": "2026-05-10T14:41:25+00:00",
@@ -31,6 +31,31 @@
       "to_status": "pending",
       "actor": "system",
       "note": "emitted by .github/workflows/health-check.yml (run 25631527132)"
+    },
+    {
+      "at": "2026-05-10T14:55:00+00:00",
+      "from_status": "pending",
+      "to_status": "complete",
+      "actor": "claude",
+      "note": "Layer-2 health review completed. overall_assessment=caution. operator_attention_required=true. Anthropic API credits exhausted -- immediate action required. See artifacts/health/health_review_REQ-20260510-144125-25631527132.json"
     }
-  ]
+  ],
+  "response": {
+    "request_id": "REQ-20260510-144125-25631527132",
+    "answered_at": "2026-05-10T14:55:00+00:00",
+    "operator": {
+      "telegram_user_id": null,
+      "telegram_username": null
+    },
+    "answers": [
+      {
+        "question_id": "review_json",
+        "answer_type": "free_text",
+        "free_text": "{\"request_id\":\"REQ-20260510-144125-25631527132\",\"reviewed_at\":\"2026-05-10T14:55:00+00:00\",\"reviewer\":\"claude\",\"overall_assessment\":\"caution\",\"findings\":{\"heartbeat\":{\"status\":\"ok\",\"note\":\"Fresh at age=53s (mtime 14:40:27 UTC). tick=4 confirms main loop active.\"},\"ticks\":{\"status\":\"watch\",\"note\":\"No dedicated tick log files in 1440m window, but heartbeat tick=4 confirms ticks processed.\"},\"signals\":{\"status\":\"watch\",\"note\":\"No signal logs in 1440m. Consistent with Sunday quiet period. Monitor through next London kill zone.\"},\"orders\":{\"status\":\"ok\",\"note\":\"No live orders in 1440m. Expected given no signals. No stale or orphaned orders.\"},\"trades\":{\"status\":\"ok\",\"note\":\"No trades or open positions in 1440m. Flat book.\"},\"monitoring\":{\"status\":\"watch\",\"note\":\"No watchdog or monitor log files. Processes stable; absence of periodic watchdog heartbeat log warrants manual check.\"},\"sizing\":{\"status\":\"ok\",\"note\":\"No live orders to evaluate. Smoke test qty=0.001 BTC appropriate for DRY-RUN.\"},\"api_errors\":{\"status\":\"concern\",\"note\":\"CRITICAL: Anthropic API credit balance exhausted (HTTP 400 BadRequestError req_011Cau4cfMNkRE6WRBQCZiKD). Layer-1 analysis cannot run. claude_bridge alive but non-functional. Telegram API healthy. Historical errors stale.\"}},\"anomalies\":[\"CRITICAL: Anthropic API credit balance exhausted -- layer-1 Haiku analysis failed, claude_bridge non-functional until credits replenished.\",\"Pipeline smoke test exit_code=1 (bybit_2 NoneType client) is a valid smoke outcome -- plumbing-on-rejection path exercised as designed.\",\"Process restart today: all 4 processes show ~4h31-35m uptime vs VM 2d 4h. Restarted ~10:05-10:10 UTC. No crash evidence.\",\"No tick/signal/order/trade/position/monitor/watchdog log files in 1440m window -- consistent with quiet Sunday; heartbeat confirms main loop alive.\",\"VM resources healthy: disk 22%, memory 48%, swap 4%, load avg 0.09.\"],\"recommended_action\":\"IMMEDIATE: Top up Anthropic API credits. Confirm process restart was intentional. Monitor through next London kill zone (07:00-09:00 UTC Mon 2026-05-11).\",\"operator_attention_required\":true}",
+        "received_at": "2026-05-10T14:55:00+00:00"
+      }
+    ],
+    "status": "complete",
+    "notes": "Review produced by Claude layer-2 autonomous health-review routine (PR #723 trigger)."
+  }
 }

@@ -1,0 +1,49 @@
+{
+  "request_id": "REQ-20260510-144125-25631527132",
+  "reviewed_at": "2026-05-10T14:55:00+00:00",
+  "reviewer": "claude",
+  "overall_assessment": "caution",
+  "findings": {
+    "heartbeat": {
+      "status": "ok",
+      "note": "Fresh at age=53s (mtime 14:40:27 UTC). tick=4 confirms main loop active and processing ticks normally."
+    },
+    "ticks": {
+      "status": "watch",
+      "note": "No dedicated tick log files in 1440m window, but heartbeat reports tick=4 confirming ticks are being processed. Tick file logging may be suppressed, throttled, or routed differently from prior runs."
+    },
+    "signals": {
+      "status": "watch",
+      "note": "No signal logs in 1440m. Consistent with a Sunday quiet period -- no qualifying ICT setups triggered. Not alarming, but requires monitoring through next London kill zone (07:00-09:00 UTC Mon 2026-05-11) to verify signal generation resumes."
+    },
+    "orders": {
+      "status": "ok",
+      "note": "No live orders in 1440m. Expected given no signals. No stale, orphaned, or partially-filled orders observed in snapshot."
+    },
+    "trades": {
+      "status": "ok",
+      "note": "No trades or open positions in 1440m. Flat book. Consistent with no orders."
+    },
+    "monitoring": {
+      "status": "watch",
+      "note": "No watchdog or monitor log files found in snapshot. Processes are stable so watchdog may not have needed to fire. Absence of any periodic watchdog heartbeat log warrants a manual check that the watchdog task is configured and running."
+    },
+    "sizing": {
+      "status": "ok",
+      "note": "No live orders to evaluate. Pipeline smoke test used qty=0.001 BTC (appropriate for DRY-RUN). No sizing anomalies detected."
+    },
+    "api_errors": {
+      "status": "concern",
+      "note": "CRITICAL: Anthropic API credit balance exhausted (HTTP 400 BadRequestError, req_011Cau4cfMNkRE6WRBQCZiKD). Layer-1 automated health analysis cannot run. claude_bridge (PID 57470) is alive but non-functional for all Claude API calls. Telegram API is healthy -- polling returning 200 OK every ~10s. Historical Telegram errors (Apr 19 conflict x7, May 7 Bad Gateway x2, May 8 thread not found) are stale and self-resolved."
+    }
+  },
+  "anomalies": [
+    "CRITICAL: Anthropic API credit balance exhausted -- layer-1 Haiku analysis failed (BadRequestError req_011Cau4cfMNkRE6WRBQCZiKD). All Claude-powered features including claude_bridge are non-functional until credits are replenished.",
+    "Pipeline smoke test exit_code=1: bybit_2 exchange client is NoneType. Per the test log this is explicitly a valid smoke outcome -- plumbing-on-rejection path was exercised as designed. Not a live trading risk.",
+    "Process restart today: all 4 main processes (main, uvicorn, telegram_query_bot, claude_bridge) show ~4h31-35m uptime vs VM uptime of 2d 4h. Processes restarted ~10:05-10:10 UTC today. No crash evidence in error logs; likely intentional or supervisor-initiated.",
+    "No tick, signal, order, trade, position, monitor, or watchdog log files in the 1440m lookback window. All absences are mutually consistent with a quiet Sunday -- heartbeat evidence confirms the main loop is alive.",
+    "VM resources healthy: disk 22% used (9.7G/45G), memory 48% (457Mi/956Mi, 420Mi buff/cache), swap 4% (76Mi/2G), load avg 0.09. No resource pressure."
+  ],
+  "recommended_action": "IMMEDIATE: Top up Anthropic API credits to restore layer-1 health analysis and claude_bridge functionality. Confirm process restart ~10:05 UTC was intentional (check supervisor/systemd logs or deployment history). Monitor through next London kill zone (07:00-09:00 UTC Mon 2026-05-11) to verify tick logging, signal generation, and watchdog activity resume normally.",
+  "operator_attention_required": true
+}
