@@ -1,18 +1,16 @@
-"""Dataset family registry (WS3 + WS5-A).
-
-Maps `family` strings to concrete `DatasetBuilder` subclasses. New
-families register themselves here so the CLI can dispatch by name.
-"""
+"""Dataset family registry (WS3 + WS5-A + WS5-B-PART-1)."""
 from __future__ import annotations
 
 from typing import Mapping, Type
 
 from .builder import DatasetBuilder
 from .families.backtest_results import BacktestResultsBuilder
+from .families.market_raw import MarketRawBuilder
 from .families.trade_outcomes import TradeOutcomesBuilder
 
 FAMILY_REGISTRY: Mapping[str, Type[DatasetBuilder]] = {
     BacktestResultsBuilder.family: BacktestResultsBuilder,
+    MarketRawBuilder.family: MarketRawBuilder,
     TradeOutcomesBuilder.family: TradeOutcomesBuilder,
 }
 
