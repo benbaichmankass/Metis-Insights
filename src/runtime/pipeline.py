@@ -658,7 +658,35 @@ def vwap_signal_builder(settings: dict) -> Dict[str, Any]:
         if htf_band_pct is not None:
             kwargs["htf_band_pct"] = htf_band_pct
 
-    return build_vwap_signal(candles_df, **kwargs)
+    sig = build_vwap_signal(candles_df, **kwargs)
+    # Mirror turtle_soup's per-tick audit row (event=turtle_soup_eval at
+    # L482-491 / L518-531 of this file). VWAP previously emitted nothing
+    # on flat ticks, leaving operators with no way to distinguish
+    # "evaluating but no signal" from "strategy not running" — the very
+    # gap that turned an 8h silence on 2026-05-10 into a multi-hour
+    # debug session. Best-effort; never let an audit failure break the
+    # strategy.
+    try:
+        _sig = sig or {}
+        _meta = _sig.get("meta") or {}
+        log_signal({
+            "event": "vwap_eval",
+            "strategy": "vwap",
+            "symbol": symbol,
+            "timeframe": timeframe,
+            "side": _sig.get("side", "none"),
+            "entry": _sig.get("entry_price") or _sig.get("price"),
+            "stop_loss": _sig.get("stop_loss"),
+            "take_profit": _sig.get("take_profit"),
+            "confidence": _sig.get("confidence") or _meta.get("confidence"),
+            "vwap": _meta.get("vwap"),
+            "deviation_std": _meta.get("deviation_std"),
+            "htf_blocked": _meta.get("htf_blocked"),
+            "reason": _meta.get("reason") or _sig.get("reason"),
+        })
+    except Exception:  # noqa: BLE001
+        logger.exception("VWAP: dedicated audit emit failed")
+    return sig
 
 
 def _coerce_ohlcv_with_dt_index(raw: Any) -> pd.DataFrame:

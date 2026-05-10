@@ -90,6 +90,27 @@ def _read_strategy_names(strategies_yaml: Path) -> List[str]:
 def _read_live_per_account(
     accounts_yaml: Path, overrides: Optional[Dict[str, bool]] = None
 ) -> Dict[str, bool]:
+    """Per-account live=True/False projection for the dashboard.
+
+    Resolution order MUST match ``src.units.accounts._resolve_mode`` —
+    the canonical resolver the executor uses:
+
+      1. Runtime override (Telegram ``/accounts dry|live <name>``) wins.
+      2. YAML ``mode`` field — ``live`` | ``dry`` | ``dry_run`` | ``paper``.
+      3. Default ``live`` per the Autonomous live-trading rule
+         (``CLAUDE.md``).
+
+    Pre-fix this function defaulted every account to dry whenever the
+    override dict didn't carry an entry (``not overrides.get(name, True)``).
+    That was correct under the original S-012 "dry by default" baseline,
+    but the policy flipped to live-by-default and this resolver was
+    never updated — so the dashboard rendered every YAML-live account
+    as ``runtime: dry`` regardless of what the executor was actually
+    doing. The 2026-05-10 incident chain (operator panicked at the
+    dashboard, escalated as "VWAP missed because of a dry gate") was
+    rooted in this single off-by-default. Mirror the canonical
+    resolver so the dashboard agrees with the executor.
+    """
     try:
         import yaml
         with accounts_yaml.open(encoding="utf-8") as fh:
@@ -99,13 +120,16 @@ def _read_live_per_account(
                                 path=str(accounts_yaml))
         return {}
     overrides = overrides or {}
-    # Per S-012 PR E2 / PM § 8 #4: every account starts dry by default.
-    # `/accounts live <name>` flips it; the override dict is the source
-    # of truth at runtime.
-    return {
-        name: not overrides.get(name, True)
-        for name in (raw.get("accounts") or {}).keys()
-    }
+    out: Dict[str, bool] = {}
+    for name, cfg in (raw.get("accounts") or {}).items():
+        if name in overrides:
+            # Override is dry_run=True/False; live = not dry_run.
+            out[name] = not bool(overrides[name])
+            continue
+        cfg = cfg or {}
+        raw_mode = str(cfg.get("mode", "live")).strip().lower()
+        out[name] = raw_mode not in {"dry", "dry_run", "dry-run", "paper"}
+    return out
 
 
 def _atomic_write_json(path: Path, payload: Dict[str, Any]) -> None:
