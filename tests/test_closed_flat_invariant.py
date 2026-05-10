@@ -468,3 +468,46 @@ def test_backtest_trades_excluded(trades_db, tmp_path):
         alerter=alerter,
     )
     assert violations == []
+
+
+# ---------------------------------------------------------------------------
+# S-CFI-FIX — defensive db-type check on _fetch_recently_closed
+# ---------------------------------------------------------------------------
+#
+# Regression for the PR #658 leak: nine zero-byte files named
+# "<sqlite3.Connection object at 0x...>" landed at the repo root because
+# the `else: sqlite3.connect(str(db))` branch happily stringified
+# whatever was passed and let sqlite3 create a file at that path.
+
+
+def test_fetch_recently_closed_rejects_unsupported_db_type(tmp_path, monkeypatch):
+    """Unsupported db argument types must raise TypeError, not silently
+    create a file at repr(db). Run from a clean cwd to assert no
+    spurious file appears."""
+    monkeypatch.chdir(tmp_path)
+
+    class _NotADb:
+        pass
+
+    with pytest.raises(TypeError, match="must be a sqlite3.Connection"):
+        inv._fetch_recently_closed(_NotADb(), cutoff_iso="2026-05-10T00:00:00+00:00")
+
+    # No file was created at the repr() of the bad object, anywhere
+    # under the temp cwd.
+    leaked = list(tmp_path.glob("<*>")) + list(tmp_path.glob("*Connection*"))
+    assert leaked == []
+
+
+def test_fetch_recently_closed_accepts_path_like(trades_db, tmp_path):
+    """Path-like (str / pathlib.Path) inputs still work after the
+    type-tightening."""
+    # Pre-condition: trades_db fixture returns a Path. Both forms
+    # should produce the same (empty, fresh DB) result.
+    rows_from_path = inv._fetch_recently_closed(
+        trades_db, cutoff_iso="2099-01-01T00:00:00+00:00",
+    )
+    rows_from_str = inv._fetch_recently_closed(
+        str(trades_db), cutoff_iso="2099-01-01T00:00:00+00:00",
+    )
+    assert rows_from_path == []
+    assert rows_from_str == []
