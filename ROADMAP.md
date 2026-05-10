@@ -43,7 +43,7 @@
 | **M2** | auto-claude | Web app source of truth | Read-only dashboard backend and core status data surfaces | ✅ CLOSED 2026-05-08 — S-013 FastAPI backend (`/api/status`, `/api/pnl`, JWT) + S-014 dashboard endpoints (`/api/bot/{stats,logs,positions,signals}`) + CORS keyed to `DASHBOARD_ORIGIN` + Vercel rewrite proxy fix (2026-05-07). Backend was effectively complete since S-014; this is the paperwork-only formal close. |
 | **M3** | auto-claude | Risk controls foundation | Hard risk caps, kill switch, status controls, order-layer refusal tests | ✅ CLOSED (S-043, CP-2026-05-06-15) |
 | **M4** | auto-claude | Repo hygiene + CI | Janitor cleanup, canonical paths, GitHub Actions, test/lint automation | ✅ CLOSED (S-046, 2026-05-07) |
-| **M5** | auto-claude | Strategy testing workflow | Telegram-triggered test flow, validation logging, backtest workflow docs | ✅ CLOSED 2026-05-10 — P1 #637 (consumer + validation log + dispatch guard), P2 #639 (subprocess + timeout + lock + env gate), P3 (this PR — runbook + close-out docs). Optional P4 (dashboard backtest-history surface) tracked separately. Runbook: [`docs/runbooks/strategy-testing.md`](docs/runbooks/strategy-testing.md). |
+| **M5** | auto-claude | Strategy testing workflow | Telegram-triggered test flow, validation logging, backtest workflow docs | ✅ CLOSED 2026-05-10 — P1 #637 (consumer + validation log + dispatch guard), P2 #639 (subprocess + timeout + lock + env gate), P3 #640 (runbook + close-out docs), P4 #689 (`GET /api/bot/backtests` Tier-1 read) + dashboard `#12` (Backtests tab). End-to-end shipped: operator dispatch → consumer → validation log → runbook → dashboard surface. Runbook: [`docs/runbooks/strategy-testing.md`](docs/runbooks/strategy-testing.md). |
 | **M6** | auto-claude | Web app UI | Dashboard UI for pnl, status, open positions, logs, recent actions | 🔄 IN PROGRESS (dashboard repo) — S-014 V1 SPA shipped in `benbaichmankass/ict-trader-dashboard` (originally cut on the legacy `the-lizardking/...` namespace). Active wiring of mock-data feeds (equity chart, Active ICT Strategies, Trading Conditions) to live `/api/bot/*` data; positions and signals to follow. |
 | **M7** | pm-sprint | Strategy review gate | Review validation results: promote, hold, or kill | 📋 NOT STARTED |
 | **M8** | pm-sprint | Strategy tuning | Parameter review and approval-required strategy changes | 📋 NOT STARTED |
@@ -55,7 +55,7 @@
 Per `docs/claude/milestone-state.md` "Queued milestones":
 
 1. **M6 — Web app UI (dashboard repo)** — Vercel SPA wiring of mock-data feeds (equity chart, Active ICT Strategies, Trading Conditions) to live `/api/bot/*` data; positions and signals to follow.
-2. **M5 P4 (optional) — backtest-history dashboard surface** — Tier-1 `GET /api/bot/backtests` + dashboard tab. Carved out of M5 close so the milestone could ship; ship when the dashboard repo is ready for the new tab.
+2. **(M5 P4 closed 2026-05-10)** — bot #689 + dashboard `#12` shipped the backtest-history surface end-to-end.
 3. **Closed-flat invariant auto-flatten promotion** — gated on ≥ 7 days clean alert-only soak (started 2026-05-10).
 
 ### Repo and hosting boundary (MANDATORY)
