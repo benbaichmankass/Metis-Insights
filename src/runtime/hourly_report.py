@@ -316,13 +316,30 @@ def account_snapshots() -> Optional[List[Dict[str, Any]]]:
 # ---------------------------------------------------------------------------
 
 
-def strategy_snapshots() -> List[Dict[str, Any]]:
+def strategy_snapshots() -> Optional[List[Dict[str, Any]]]:
+    """Return per-strategy daily snapshots, or a sentinel.
+
+    Sentinel semantics (S-067 follow-up D3 — see
+    docs/audits/silent-empty-reporting-2026-05-10.md § Phase-2 #3):
+
+    * ``[]`` — no strategies reported activity **or** ``data_loaders``
+      import failed (optional dependency; legitimate per the audit).
+    * ``None`` — ``strategy_dashboard_data()`` raised. The renderer
+      surfaces this as "Strategies (today) — data unavailable"
+      rather than collapsing to "(none active)".
+    * ``List[...]`` populated — normal path.
+    """
     try:
         from src.bot.data_loaders import strategy_dashboard_data
-        return strategy_dashboard_data() or []
     except Exception as exc:  # noqa: BLE001
-        logger.warning("hourly_report: strategy_dashboard_data failed: %s", exc)
+        logger.warning("hourly_report: data_loaders unavailable: %s", exc)
         return []
+
+    try:
+        return strategy_dashboard_data() or []
+    except (OSError, RuntimeError, AttributeError) as exc:
+        logger.warning("hourly_report: strategy_dashboard_data failed: %s", exc)
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -477,7 +494,7 @@ def _overall_glyph(overall: str) -> str:
 def _build_strategy_sections(
     *,
     ticks: Dict[str, Any],
-    strategies: List[Dict[str, Any]],
+    strategies: Optional[List[Dict[str, Any]]],
     outcomes: Dict[str, Any],
     health: Dict[str, Any],
 ):
@@ -486,6 +503,11 @@ def _build_strategy_sections(
     Each section's *summary* is the short headline the operator sees
     at-a-glance ("Performance — 3 errors in past hour"). The *body*
     is the detail collapsed inside an expandable blockquote.
+
+    ``strategies is None`` is the "data unavailable" sentinel from
+    ``strategy_snapshots`` (S-067 follow-up D3). Render an explicit
+    "data unavailable" Strategies section rather than collapsing to
+    "(none active)".
     """
     from src.units.ui.telegram_format import Section, bullet_list, kv_block
 
@@ -502,15 +524,31 @@ def _build_strategy_sections(
         perf_rows.append(("Signals by strategy",
                           ", ".join(f"{k}×{v}" for k, v in sorted(sigs.items()))))
 
-    strat_lines = []
-    for s in strategies or []:
-        name = s.get("strategy") or "unknown"
-        sigs_today = s.get("signals_today") or 0
-        pnl = s.get("pnl")
-        opn = s.get("open_pos") or 0
-        strat_lines.append(
-            f"{name}: {sigs_today} signals, {opn} open, "
-            f"PnL {_fmt_money(pnl, sign=True)}"
+    if strategies is None:
+        strat_section = Section(
+            summary="Strategies (today) — data unavailable",
+            body=(
+                "strategy_dashboard_data() raised — see bot.log for "
+                "the underlying error. Per-strategy signals/open/PnL "
+                "could not be loaded for this report cycle."
+            ),
+            priority=20,
+        )
+    else:
+        strat_lines = []
+        for s in strategies:
+            name = s.get("strategy") or "unknown"
+            sigs_today = s.get("signals_today") or 0
+            pnl = s.get("pnl")
+            opn = s.get("open_pos") or 0
+            strat_lines.append(
+                f"{name}: {sigs_today} signals, {opn} open, "
+                f"PnL {_fmt_money(pnl, sign=True)}"
+            )
+        strat_section = Section(
+            summary=f"Strategies (today) — {len(strategies)} active",
+            body=bullet_list(strat_lines, empty="(none active)"),
+            priority=20,
         )
 
     err_summary = (
@@ -546,11 +584,7 @@ def _build_strategy_sections(
 
     return [
         Section(summary=perf_summary, body=kv_block(perf_rows), priority=10),
-        Section(
-            summary=f"Strategies (today) — {len(strategies or [])} active",
-            body=bullet_list(strat_lines, empty="(none active)"),
-            priority=20,
-        ),
+        strat_section,
         Section(
             summary=err_summary, body="\n".join(err_body_lines), priority=30,
         ),
