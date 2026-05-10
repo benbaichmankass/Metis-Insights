@@ -1,0 +1,22 @@
+{
+  "_comment": "Template documenting the JSON Claude returns when reviewing a comms/requests/REQ-*.json health-review request. The reviewer pastes a populated copy of this object into the request's free-text answer; the Telegram bot then files it under .response.answers[0].free_text in the standard way (see comms/schema/response.schema.json). This file is documentation only — it is not validated as a JSON Schema.",
+  "request_id": "REQ-YYYYMMDD-HHMMSS-<slug>",
+  "reviewed_at": "YYYY-MM-DDTHH:MM:SS+00:00",
+  "reviewer": "claude",
+  "overall_assessment": "healthy | caution | investigate",
+  "findings": {
+    "heartbeat":  {"status": "ok | watch | concern", "note": "..."},
+    "ticks":      {"status": "ok | watch | concern", "note": "..."},
+    "signals":    {"status": "ok | watch | concern", "note": "..."},
+    "orders":     {"status": "ok | watch | concern", "note": "..."},
+    "trades":     {"status": "ok | watch | concern", "note": "..."},
+    "monitoring": {"status": "ok | watch | concern", "note": "..."},
+    "sizing":     {"status": "ok | watch | concern", "note": "..."},
+    "api_errors": {"status": "ok | watch | concern", "note": "..."}
+  },
+  "anomalies": [
+    "free-form list of notable items the reviewer flagged"
+  ],
+  "recommended_action": "what to do next, or 'none'",
+  "operator_attention_required": false
+}
