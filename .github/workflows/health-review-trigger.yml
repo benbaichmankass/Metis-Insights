@@ -59,23 +59,28 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Trigger Claude review routine (API)
-        # Backup delivery channel: a direct POST to the Claude routine's
-        # API endpoint runs in parallel with the routine UI's
-        # webhook-based subscription. Either path firing is sufficient
-        # to start the review; running both gives redundancy if one
-        # delivery channel fails.
+        # Optional backup delivery channel: a direct POST to the
+        # Claude routine's API endpoint, running alongside the
+        # routine UI's webhook subscription. Either path firing is
+        # sufficient to start the review; running both gives
+        # redundancy when an autonomous routine is in play.
         #
-        # Both URL and bearer token live in repo secrets so the routine
-        # can be rotated (or migrated to a new endpoint) without a code
-        # change — just rotate the secret.
+        # Operator decision 2026-05-10 — the routine UI subscription
+        # is the single trigger and layer-2 reviews are produced
+        # manually via /health-review. The CLAUDE_ROUTINE_URL/_TOKEN
+        # secrets are intentionally unset; this step is a graceful
+        # no-op until they are restored. To re-enable the API
+        # backup, set both secrets and the curl call resumes.
+        id: routine_post
         env:
           CLAUDE_ROUTINE_URL: ${{ secrets.CLAUDE_ROUTINE_URL }}
           CLAUDE_ROUTINE_TOKEN: ${{ secrets.CLAUDE_ROUTINE_TOKEN }}
         run: |
           set -euo pipefail
           if [ -z "${CLAUDE_ROUTINE_URL:-}" ] || [ -z "${CLAUDE_ROUTINE_TOKEN:-}" ]; then
-            echo "::error::CLAUDE_ROUTINE_URL and CLAUDE_ROUTINE_TOKEN must both be set as repo secrets."
-            exit 1
+            echo "::notice::CLAUDE_ROUTINE_URL/_TOKEN unset — routine API trigger skipped (operator decision 2026-05-10: routine UI subscription is the active trigger)."
+            echo "posted=false" >>"$GITHUB_OUTPUT"
+            exit 0
           fi
 
           PR_URL="${{ github.event.pull_request.html_url }}"
@@ -117,9 +122,14 @@ jobs:
                -H "Content-Type: application/json" \
                -d "$body"
           echo  # trailing newline for log readability
+          echo "posted=true" >>"$GITHUB_OUTPUT"
 
       - name: Notify operator that the Claude routine fired
-        if: success()
+        # Only fires when the curl actually posted. When the secrets
+        # are unset the upstream step exits cleanly with posted=false
+        # and this notify step is skipped — no spurious "routine
+        # fired" Telegram message lands.
+        if: success() && steps.routine_post.outputs.posted == 'true'
         env:
           # Claude bot, shared chat id.
           TELEGRAM_BOT_TOKEN: ${{ secrets.CLAUDE_TELEGRAM_BOT_TOKEN }}
@@ -129,6 +139,6 @@ jobs:
           PR_NUM="${{ github.event.pull_request.number }}"
           PR_URL="${{ github.event.pull_request.html_url }}"
           PYTHONPATH=. python scripts/notify_session.py alert \
-            --summary "Claude health review routine fired — PR #${PR_NUM} merged with health-snapshot-routine label" \
+            --summary "Claude health review routine API fired — PR #${PR_NUM} merged with health-snapshot-routine label" \
             --link "$PR_URL" \
             || echo "telegram alert failed (non-fatal)"
