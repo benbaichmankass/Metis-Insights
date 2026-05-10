@@ -1,0 +1,63 @@
+# Example training manifest — execution-quality baseline (WS5-D).
+#
+# Predicts the expected entry slippage (in basis points, signed)
+# given the strategy that produced the order. Per-bucket sample
+# mean using `PerStrategyWinRateTrainer` with
+# `target_kind: numeric_mean` (the same trainer used by WS5-C
+# `baseline-setup-quality.yaml`).
+#
+# Source: `execution_quality` family — `trades` JOIN
+# `order_packages` on `linked_trade_id`. Row carries the intended
+# entry (signal time) and the actual fill price; the label is the
+# signed delta in bps (positive = trader paid worse than intended,
+# capped at ±200 bps default).
+#
+# Run end-to-end:
+#
+#   python -m ml.datasets build execution_quality \
+#     --output-dir ./datasets-out --version v001 \
+#     --source trade_journal.db \
+#     -- db_path=/abs/path/to/trade_journal.db \
+#        slippage_cap_bps=200.0
+#
+#   python -m ml train ml/configs/baseline-execution-quality.yaml \
+#     --datasets-root ./datasets-out
+#
+# Decision-utility: per-strategy mean entry slippage tells the
+# operator which strategies systematically pay execution cost
+# above the rest. A positive MAE improvement against a
+# global-mean sanity baseline (paired global manifest is filed
+# for follow-up) means strategy identity carries signal about
+# expected slippage.
+
+manifest_version: v1
+model_id: execution-quality-baseline-v0
+model_family: regression_baseline
+trainer: ml.trainers.per_strategy_winrate.PerStrategyWinRateTrainer
+trainer_config:
+  target_column: entry_slippage_bps
+  feature_column: strategy_name
+  target_kind: numeric_mean
+dataset:
+  family: execution_quality
+  symbol_scope: all
+  timeframe: all
+  version: v001
+evaluator: ml.evaluators.regression.RegressionEvaluator
+evaluator_config:
+  target_column: entry_slippage_bps
+  metrics: [mse, mae]
+  split_strategy: time_aware_holdout
+  time_column: trade_created_at
+  holdout_fraction: 0.2
+target_deployment_stage: research_only
+notes: |
+  WS5-D baseline. Per-strategy mean entry slippage (bps,
+  capped). Time-aware holdout — eval is the latest 20 % of
+  trades by `trade_created_at`. Not a candidate for any live
+  tier.
+  Leakage discipline: `entry_slippage_bps`, `fill_latency_seconds`,
+  and `actual_entry` are all execution outcomes; only
+  signal-time metadata (`strategy_name`, `symbol`, `direction`,
+  `setup_type`, `killzone`, `bias`, `intended_entry`,
+  `confidence`) may be used as features.
