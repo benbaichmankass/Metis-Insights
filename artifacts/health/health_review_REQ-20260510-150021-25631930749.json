@@ -1,0 +1,50 @@
+{
+  "request_id": "REQ-20260510-150021-25631930749",
+  "reviewed_at": "2026-05-10T15:12:00+00:00",
+  "reviewer": "claude",
+  "overall_assessment": "caution",
+  "findings": {
+    "heartbeat": {
+      "status": "ok",
+      "note": "Fresh: age 51s at snapshot time (14:59:27 UTC). tick=1 confirms at least one tick processed since last restart. Heartbeat file alive and healthy."
+    },
+    "ticks": {
+      "status": "watch",
+      "note": "No tick log files found in 1440-min lookback despite heartbeat showing tick=1. All four bot processes have ~1hr uptime; logs may not have accumulated yet or the snapshot script search pattern does not match the current tick log path. Verify on VM."
+    },
+    "signals": {
+      "status": "watch",
+      "note": "No signal logs in 24hrs. Consistent with minimal tick activity post-restart. Strategy evaluation is unverifiable from this snapshot alone."
+    },
+    "orders": {
+      "status": "ok",
+      "note": "No real orders in 24hrs. Expected when no signals fire. Smoke test rejection (safe_place_order with bybit_2 client=None) is test infrastructure, not a live order failure."
+    },
+    "trades": {
+      "status": "ok",
+      "note": "No trades in 24hrs. Consistent with no orders."
+    },
+    "monitoring": {
+      "status": "watch",
+      "note": "No monitor or watchdog log files found in lookback window. Watchdog should generate periodic activity logs; absence may indicate it is not running or its log path is not covered by the snapshot collector."
+    },
+    "sizing": {
+      "status": "ok",
+      "note": "No live orders submitted; position sizing path was not exercised. Nothing to evaluate."
+    },
+    "api_errors": {
+      "status": "ok",
+      "note": "All Telegram API calls in snapshot window return HTTP 200 OK at consistent 10s intervals. Historical errors are stale and non-repeating: 2026-04-19 duplicate-instance conflict (resolved), 2026-05-07 Bad Gateway x2 (transient), 2026-05-08 MessageThread not found (single, minor). No current errors."
+    }
+  },
+  "anomalies": [
+    "Process restart ~14:00 UTC today: all four bot processes (src.main, claude_bridge, uvicorn api, telegram_query_bot) show ~1hr 6min uptime on a 2d 4hr VM. Cause of restart not determinable from snapshot — check systemd/supervisor/deployment logs.",
+    "tick=1 in heartbeat: only one tick processed since restart; bot is in early post-restart state, not steady-state operation.",
+    "No tick log files found in 1440-min lookback despite heartbeat confirming tick activity — log file path or naming pattern may not be covered by the snapshot collector search.",
+    "No watchdog or monitor log files found — watchdog liveness unverifiable from this snapshot.",
+    "Pipeline test exit_code=1 (status=warn) is EXPECTED and benign: smoke correctly exercised the safe_place_order rejection path with bybit_2 client=None. Test log states 'This is a valid smoke outcome — plumbing-on-rejection still exercised the full path.'",
+    "Layer-1 LLM analysis skipped via --skip-llm flag; all machine-check verdicts defaulted to warn. This layer-2 Claude review is the sole authoritative analysis for this run."
+  ],
+  "recommended_action": "1) Identify cause of ~14:00 UTC process restart today (check systemd/supervisor logs or deployment activity). 2) Verify tick log file path on VM and confirm snapshot collector covers it. 3) Confirm watchdog is running and check its log output path. No trading halt or position change needed — pipeline plumbing intact, heartbeat fresh, no open positions detected, no capital at risk.",
+  "operator_attention_required": false
+}
