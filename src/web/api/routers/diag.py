@@ -32,6 +32,8 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request, status
 
+from src.web.runtime_status import _resolve_git_sha
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/diag", tags=["diag"])
@@ -436,6 +438,27 @@ async def get_journalctl(
 ) -> dict[str, Any]:
     _require_diag_token(request)
     return _journalctl_tail(unit, _clamp(lines, _DEFAULT_JOURNAL_LINES, _MAX_JOURNAL_LINES))
+
+
+@router.get("/version")
+async def get_version(request: Request) -> dict[str, Any]:
+    """Diagnostic — git SHA + captured timestamp of the running web-api
+    process. Used by ``scripts/deploy_pull_restart.sh`` to assert that
+    a post-deploy restart actually rolled the running code forward
+    (the 2026-05-09 24h-stale-code incident shipped because nothing
+    in the deploy chain confirmed the running web-api had rebooted).
+
+    Returns ``git_sha`` resolved by the same helper that powers
+    ``runtime_logs/status.json::git_sha`` so the value is consistent
+    between read sources. ``"unknown"`` is a legitimate value on
+    sandbox / dev hosts without git available; the deploy script
+    treats ``unknown`` as a soft failure.
+    """
+    _require_diag_token(request)
+    return {
+        "git_sha": _resolve_git_sha(),
+        "captured_at": datetime.now(timezone.utc).isoformat(),
+    }
 
 
 @router.get("/log_file")

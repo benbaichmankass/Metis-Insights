@@ -151,14 +151,54 @@ There is no virtualenv on the production VM. Attempting `source .venv/bin/activa
 fails with "No such file or directory". The deploy script uses `/usr/bin/python3 -m pip`
 to match the live runtime.
 
-### Services restarted (in order)
+### Services restarted (S-067 follow-up #5: enumeration)
 
-1. `ict-trader-live.service` — the live ICT trader
-2. `ict-telegram-bot.service` — Telegram notification bot
+The script no longer carries a fixed unit list. Instead:
 
-**Not restarted:**
-- `ict-vwap-dry-run.service` — intentionally stopped, pending sprint completion
-- `ict-git-sync.service` — this is the service running the script itself
+```
+mapfile -t ICT_UNITS < <(systemctl list-units --all --type=service --plain --no-legend 'ict-*.service' | awk '{print $1}')
+```
+
+Every unit matching `ict-*.service` that systemd knows about is
+restarted, *unless* its name appears in `DEPLOY_RESTART_SKIP` (a
+space-separated env var). The default skip-list is:
+
+```
+ict-smoke-once.service        # oneshot — gated by run_smoke_once.flag
+ict-env-check.service         # oneshot — bootup-only
+ict-hourly-snapshot.service   # timer-driven
+ict-heartbeat.service         # timer-driven
+ict-git-sync.service          # would refuse to restart from inside its own run
+```
+
+**Why enumeration?** The 2026-05-09 24+h-stale-code incident shipped
+because `ict-web-api.service` was added to the deploy unit inventory
+*after* the script was last touched, and the script's explicit list
+silently missed it. Enumeration closes that class of bug — any new
+`ict-*.service` file dropped under `/etc/systemd/system/` is
+automatically restarted on the next deploy.
+
+**Override:** `DEPLOY_RESTART_SKIP="ict-foo.service ict-bar.service"`
+fully replaces the default. To add to the default rather than replace,
+include the defaults explicitly in the value.
+
+### Post-deploy version round-trip assertion
+
+After the restarts, the script asserts that `/api/diag/version` on
+the local web-api advertises the same git SHA as `git rev-parse
+--short HEAD`. If the SHA disagrees after up to 6 retries (5 s
+each), the script exits 4 — the deploy fails loudly rather than
+silently leaving stale code running. Same incident class as the
+2026-05-09 stale-code event.
+
+The assertion is a no-op (logs and continues) when:
+- `curl` isn't installed.
+- `ict-web-api.service` isn't installed.
+- `DIAG_READ_TOKEN` is unset and `/etc/ict-trading-bot/diag_token`
+  isn't readable.
+
+Set `DIAG_READ_TOKEN` in the script's environment, or write the token
+to `/etc/ict-trading-bot/diag_token` (root-owned, mode 0600).
 
 ### No-op fast path
 
