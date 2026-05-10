@@ -360,6 +360,121 @@ def test_health_summary_warn_check_demotes_to_warn():
 
 
 # ---------------------------------------------------------------------------
+# D4: run_all_checks failure → "unknown" sentinel, overall demotes to warn.
+# (see docs/audits/silent-empty-reporting-2026-05-10.md § Phase-2 #4)
+# ---------------------------------------------------------------------------
+
+
+def test_health_summary_synthesizes_unknown_when_run_all_checks_fails(monkeypatch):
+    """When the run_all_checks import fails, the health report carries an
+    'unknown' HealthCheck sentinel rather than an empty list (which used
+    to read as 'all checks healthy' downstream)."""
+    import sys as _sys
+    saved = _sys.modules.pop("src.runtime.health", None)
+
+    class _BoomLoader:
+        def __getattr__(self, name):
+            raise AttributeError("simulated module-load failure")
+
+    _sys.modules["src.runtime.health"] = _BoomLoader()  # type: ignore[assignment]
+    try:
+        now = datetime(2026, 5, 1, 14, 0, tzinfo=timezone.utc)
+        h = health_summary(
+            last_tick_ts=now.isoformat(),
+            outcomes={"warn_count": 0, "error_count": 0, "critical_count": 0},
+            tick_interval_s=900,
+            now_utc=now,
+            health_checks=None,  # forces the run_all_checks path
+        )
+    finally:
+        if saved is not None:
+            _sys.modules["src.runtime.health"] = saved
+        else:
+            _sys.modules.pop("src.runtime.health", None)
+
+    checks = h["checks"]
+    assert len(checks) == 1, "must synthesize one unknown sentinel"
+    assert checks[0].status == "unknown", (
+        "must carry the 'unknown' sentinel rather than an empty list"
+    )
+    assert "run_all_checks failed" in checks[0].detail
+    assert h["overall"] == "warn", (
+        "unknown checks must demote overall from 'ok' to 'warn' (not "
+        "leave it as 'ok' = silent all-clear)"
+    )
+
+
+def test_health_summary_unknown_check_does_not_force_critical():
+    """An 'unknown' sentinel must NOT escalate to 'degraded' — the checks
+    themselves might have been clean. It signals warn-level uncertainty."""
+    import types
+    now = datetime(2026, 5, 1, 14, 0, tzinfo=timezone.utc)
+    unknown = types.SimpleNamespace(
+        name="health_checks", status="unknown",
+        detail="run_all_checks failed",
+    )
+    h = health_summary(
+        last_tick_ts=now.isoformat(),
+        outcomes={"warn_count": 0, "error_count": 0, "critical_count": 0},
+        tick_interval_s=900,
+        now_utc=now,
+        health_checks=[unknown],
+    )
+    assert h["overall"] == "warn", (
+        "unknown sentinel demotes to warn (not degraded)"
+    )
+
+
+def test_health_summary_critical_takes_precedence_over_unknown():
+    """A real critical check next to an unknown sentinel still flips overall
+    to 'degraded' — checks_critical aggregation tolerates the sentinel."""
+    from src.runtime.health import HealthCheck
+    import types
+    now = datetime(2026, 5, 1, 14, 0, tzinfo=timezone.utc)
+    h = health_summary(
+        last_tick_ts=now.isoformat(),
+        outcomes={"warn_count": 0, "error_count": 0, "critical_count": 0},
+        tick_interval_s=900,
+        now_utc=now,
+        health_checks=[
+            HealthCheck("service", "critical", "service down"),
+            types.SimpleNamespace(
+                name="health_checks", status="unknown",
+                detail="aux check loader failed",
+            ),
+        ],
+    )
+    assert h["overall"] == "degraded"
+
+
+def test_render_report_renders_unknown_marker():
+    """Renderer must surface the 'UNK' marker for unknown-status checks
+    rather than silently dropping them or rendering '?'."""
+    import types
+    now = datetime(2026, 5, 1, 14, 0, tzinfo=timezone.utc)
+    unknown = types.SimpleNamespace(
+        name="health_checks", status="unknown",
+        detail="run_all_checks failed: ImportError: missing dep",
+    )
+    report = {
+        "now_utc": now,
+        "ticks": {"ticks_ok": 0, "ticks_err": 0, "signals_total": 0,
+                  "signals_by_strategy": {}, "last_tick_ts": None},
+        "trades": {"placed": [], "closed": [], "realized_pnl": 0.0},
+        "accounts": [],
+        "strategies": [],
+        "outcomes": {"top_errors": []},
+        "health": {"tick_age_s": 60, "tick_stale": False, "tick_interval_s": 900,
+                   "warn_count": 0, "error_count": 0, "critical_count": 0,
+                   "overall": "warn", "checks": [unknown]},
+    }
+    txt = render_report(report)
+    assert "[UNK]" in txt, "Renderer must render UNK marker for unknown status"
+    assert "health_checks" in txt
+    assert "run_all_checks failed" in txt
+
+
+# ---------------------------------------------------------------------------
 # Renderer + top-level assembler
 # ---------------------------------------------------------------------------
 
