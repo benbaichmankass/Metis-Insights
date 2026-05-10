@@ -101,6 +101,13 @@ class Coordinator:
         self._units_path = units_path
         self._accounts_path = accounts_path
         self._cfg: Dict[str, Any] = {}
+        # S-AI-WS7-PART-6: Coordinator-side cache of resolved
+        # ShadowPredictor lists, keyed by strategy name. Lazily
+        # populated on first dispatch; invalidated by
+        # ``reload_strategy_config`` so a YAML edit re-resolves on
+        # the next tick. Lifts the per-tick factory call out of the
+        # strategy hot path.
+        self._shadow_predictors_cache: Dict[str, list] = {}
         self._reload()
 
     def _reload(self) -> None:
@@ -172,7 +179,15 @@ class Coordinator:
             mod = importlib.import_module(f"src.units.strategies.{strategy}")
             if not hasattr(mod, "order_package"):
                 raise AttributeError("module has no order_package()")
-            cfg = {**self._strategy_cfg(strategy), "symbol": symbol}
+            cfg = {
+                **self._strategy_cfg(strategy),
+                "symbol": symbol,
+                # S-AI-WS7-PART-6: inject pre-resolved shadow
+                # predictor list (resolution mode 1 in
+                # vwap/turtle_soup). The strategy's per-tick factory
+                # call short-circuits when this key is present.
+                "_shadow_predictors": self._get_shadow_predictors(strategy),
+            }
             pkg_dict = mod.order_package(cfg, candles_df=candles_df)
             return OrderPackage(strategy=strategy, **pkg_dict)
         except ImportError:
@@ -196,6 +211,55 @@ class Coordinator:
             if isinstance(s, dict) and s.get("name") == name:
                 return s
         return {"name": name}
+
+    def _get_shadow_predictors(self, name: str) -> list:
+        """Resolve and cache shadow predictors for *name* (S-AI-WS7-PART-6).
+
+        Reads ``shadow_model_ids`` from the strategy's config. When
+        non-empty, calls ``ml.shadow.factory.resolve_predictors`` once
+        and memoises the result; subsequent ticks hit the cache and
+        pay zero factory cost. ``reload_strategy_config`` clears the
+        cache so a YAML edit re-resolves on the next tick.
+
+        Returns an empty list when the strategy has no
+        ``shadow_model_ids``, when the field is empty, or when every
+        listed id fails the factory's stage gate. Per-id failures
+        within ``resolve_predictors(strict=False)`` are logged and
+        skipped — one bad id never poisons the rest of the list.
+
+        The returned list is the same object stored in the cache; the
+        dispatcher should not mutate it.
+        """
+        if name in self._shadow_predictors_cache:
+            return self._shadow_predictors_cache[name]
+        cfg = self._strategy_cfg(name)
+        ids = cfg.get("shadow_model_ids") or []
+        if not ids:
+            self._shadow_predictors_cache[name] = []
+            return self._shadow_predictors_cache[name]
+        # Lazy import: ml.shadow imports the registry, which is
+        # heavier than the strategy hot path needs unless shadow
+        # mode is actually wired.
+        from pathlib import Path as _Path
+
+        from ml.registry.model_registry import ModelRegistry
+        from ml.shadow.factory import (
+            DEFAULT_LOG_PATH,
+            DEFAULT_REGISTRY_ROOT,
+            resolve_predictors,
+        )
+
+        registry_root = _Path(
+            cfg.get("_shadow_registry_root") or DEFAULT_REGISTRY_ROOT
+        )
+        log_path = _Path(cfg.get("_shadow_log_path") or DEFAULT_LOG_PATH)
+        predictors = resolve_predictors(
+            ids,
+            ModelRegistry(registry_root),
+            log_path=log_path,
+        )
+        self._shadow_predictors_cache[name] = predictors
+        return predictors
 
     # ------------------------------------------------------------------
     # Unit 2 → Accounts
@@ -1281,6 +1345,11 @@ class Coordinator:
             cfg = load_strategy_config(path)
         except FileNotFoundError:
             return {"reloaded": False, "error": f"strategies.yaml not found: {path}"}
+
+        # S-AI-WS7-PART-6: drop the resolved-predictor cache so a
+        # YAML edit (adding / removing / changing shadow_model_ids)
+        # is picked up on the next dispatch.
+        self._shadow_predictors_cache.clear()
 
         summary = {
             "reloaded": True,
