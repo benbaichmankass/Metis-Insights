@@ -26,7 +26,7 @@ def _stage_market_raw(
     source: str = "csv",
 ) -> Path:
     """Write a synthetic market_raw data.jsonl + metadata.json."""
-    from datetime import datetime, timedelta, timezone
+    from datetime import datetime, timedelta
 
     base = datetime.fromisoformat(base_ts_iso.replace("Z", "+00:00"))
     root = tmp_path / "market_raw" / symbol / timeframe / "v001"
