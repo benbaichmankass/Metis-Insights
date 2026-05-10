@@ -38,10 +38,32 @@ jobs:
 
       - name: Set up SSH key
         run: |
+          set -eu
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
-          printf '%s\n' "${{ secrets.VM_SSH_KEY }}" > ~/.ssh/id_rsa
+          # Strip CRs defensively — if the secret was pasted from a
+          # Windows clipboard or a UI that converted line endings,
+          # libcrypto rejects \r inside the PEM body.
+          printf '%s\n' "${{ secrets.VM_SSH_KEY }}" | tr -d '\r' > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
+
+          # Validate the key parses BEFORE any SSH attempt. Gives a
+          # clear error message in the log instead of libcrypto's
+          # "error in libcrypto" and SSH's "Permission denied".
+          if ! ssh-keygen -y -f ~/.ssh/id_rsa > /dev/null 2>&1; then
+            echo "::error::VM_SSH_KEY is not a parseable OpenSSH private key."
+            echo "Most common causes:"
+            echo "  1. CRLF line endings (already stripped above — rule out)"
+            echo "  2. PuTTY .ppk format pasted instead of OpenSSH PEM"
+            echo "  3. Public key (id_rsa.pub) pasted instead of the private key"
+            echo "  4. Encrypted key with a passphrase (CI cannot unlock)"
+            echo "  5. Truncated paste — missing -----BEGIN-----/-----END----- markers"
+            echo "First and last lines of the written file (markers only, body not printed):"
+            head -1 ~/.ssh/id_rsa 2>/dev/null || true
+            tail -1 ~/.ssh/id_rsa 2>/dev/null || true
+            echo "Verify locally with: ssh-keygen -y -f <your-key-file>"
+            exit 1
+          fi
           ssh-keyscan -H "$VM_HOST" >> ~/.ssh/known_hosts 2>/dev/null
 
       - name: Collect snapshot from VM
