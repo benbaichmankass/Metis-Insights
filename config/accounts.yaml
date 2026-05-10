@@ -63,6 +63,19 @@
 # notional cap on sizing per the operator directive; ``pos_size`` is
 # kept only for the post-sizing approval gate
 # (RiskManager.approve(order)).
+#
+# Spot-margin LTV (PR 2 / 2026-05-10 incident chain):
+#   risk.spot_margin_ltv — fallback fraction of collateral the bot is
+#   willing to assume as borrow capacity when Bybit's V5
+#   ``availableToBorrow`` field is 0. Defaults to 0.5 (in
+#   ``DEFAULT_SPOT_MARGIN_LTV``); the spot-margin sizer only consults
+#   this when the API path returns 0. On 2026-05-10 the API returned 0
+#   transiently and the 0.5 fallback halved bybit_2's effective
+#   capacity (≈$77 of a $154 wallet), causing a 20-row sized_qty=0
+#   rejection cascade. Bybit's standard spot-margin tier supports up to
+#   80% LTV; setting this on a per-account basis lets the operator
+#   configure the fallback to track their actual tier without changing
+#   the global default.
 
 accounts:
   # bybit_1: turtle_soup only — operator-confirmed wallet holds BTC + USDT
@@ -109,6 +122,15 @@ accounts:
       pos_size: 500
       risk_pct: 0.01
       min_balance_usd: 50
+      # PR 2 (2026-05-10 incident chain): bump fallback LTV from the
+      # global default (0.5) to 0.8 so a transient Bybit API hiccup
+      # — `availableToBorrow=0` flicker, see S-056 / S-058 — only
+      # halves usable capacity to 80% of collateral instead of 50%.
+      # Bybit's standard spot-margin tier supports up to 80%; this
+      # tracks reality for this account without touching the global
+      # default. See pipeline._recent_refusal_for_strategy for the
+      # cooldown gate that backs this up.
+      spot_margin_ltv: 0.8
 
   # prop_velotrade_1: NOT FULLY CONFIGURED — Velotrade DXtrade prop firm
   # scaffold. Phase-2 (this commit) wires the integration infrastructure
