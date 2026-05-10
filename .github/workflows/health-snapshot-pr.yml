@@ -163,10 +163,11 @@ jobs:
             - **Request id**: `${{ steps.review_request.outputs.request_id }}`
             - **Workflow run**: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
-            **This PR is auto-merged by the workflow** to fire
-            `.github/workflows/health-review-trigger.yml` (filtered on
-            the `health-check-review` label) without operator action.
-            See [`docs/runbooks/health-check.md`](docs/runbooks/health-check.md)
+            **This PR is auto-merged by the workflow.** The Claude review
+            routine subscribes to `pull_request closed` events filtered on
+            `merged == true` and the `health-snaphot-routine` label, so
+            merging here fires the routine without operator action. See
+            [`docs/runbooks/health-check.md`](docs/runbooks/health-check.md)
             for the two-workflow design.
 
             Files in this PR:
@@ -174,16 +175,19 @@ jobs:
             - `artifacts/health/latest.json` — machine verdict
             - `artifacts/health/health_check_<ts>.json` — per-run verdict copy
             - `comms/requests/${{ steps.review_request.outputs.request_id }}.json` — schema-valid review request
+          # `health-snaphot-routine` (yes, missing `s`) is the literal
+          # label the Claude routine filter is configured for. Keep
+          # both sides in sync if/when correcting the typo.
           labels: |
-            health-check-review
+            health-snaphot-routine
             automated
           add-paths: |
             artifacts/health/**
             comms/requests/REQ-*.json
 
       - name: Auto-merge the review PR
-        # The labelled PR fires health-review-trigger.yml on merge.
-        # Merging here closes the loop without operator gating.
+        # Merging the labelled PR fires the Claude review routine
+        # (configured to subscribe to PR-closed-with-label events).
         # Squash keeps main's history linear; --delete-branch is omitted
         # so auto/health-check-review survives for the next run (matches
         # `delete-branch: false` on the create-pr step). Token mirrors
@@ -280,8 +284,8 @@ jobs:
             }
             const mergeOutcome = process.env.MERGE_OUTCOME || 'skipped';
             const mergeLine = mergeOutcome === 'success'
-              ? '✅ PR auto-merged — `health-review-trigger.yml` fired.'
-              : `⚠️ Auto-merge step ${mergeOutcome} — manual merge required to fire \`health-review-trigger.yml\`.`;
+              ? '✅ PR auto-merged — Claude review routine fired.'
+              : `⚠️ Auto-merge step ${mergeOutcome} — manual merge required to fire the Claude review routine.`;
             const prLine = process.env.PR_NUMBER
               ? `PR #${process.env.PR_NUMBER} (${process.env.PR_OPERATION || 'opened/updated'}): ${process.env.PR_URL}`
               : '⚠️ No PR was opened/updated (peter-evans step produced no number).';
