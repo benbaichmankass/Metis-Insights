@@ -86,6 +86,11 @@ jobs:
                 color: '1d76db',
                 description: 'Triggers cf-worker-deploy workflow — wrangler deploy of cf-worker/ from CI.',
               },
+              {
+                name: 'provision-training-vm',
+                color: 'd73a4a',
+                description: 'Triggers provision-training-vm workflow — Always Free Ampere A1 VM for the model training center (S-AI-WS9). Tier-3.',
+              },
             ];
             for (const l of LABELS) {
               try {

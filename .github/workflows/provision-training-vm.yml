@@ -1,0 +1,287 @@
+name: provision-training-vm
+
+# Tier-3 mutating action: provision a new Always Free Ampere A1
+# VM in the same OCI compartment + subnet as the live trader VM,
+# bootstrap it as the model training center (S-AI-WS9), and post
+# the public IP / instance OCID back to the operator.
+#
+# Provisioning is destructive in the sense that it CREATES new
+# infrastructure (uses OCI Always Free quota; consumes ~1 OCPU /
+# 6 GB). It does NOT touch the live trader VM in any way. The new
+# VM ships with ict-trainer.service installed but DISABLED — the
+# operator opts in to training cycles explicitly.
+#
+# Triggers:
+#   1. workflow_dispatch — operator clicks "Run workflow".
+#   2. issues.opened with label `provision-training-vm`.
+#      Issue body must contain `confirm: yes`.
+#
+# Required repo secrets:
+#   * VM_SSH_KEY            — private key for the live trader VM. Used
+#                              to SSH into the live VM (IMDS discovery)
+#                              AND its public half is injected into
+#                              the new VM's authorized_keys.
+#   * OCI_CLI_USER          — User OCID
+#   * OCI_CLI_FINGERPRINT   — API key fingerprint
+#   * OCI_CLI_TENANCY       — Tenancy OCID
+#   * OCI_CLI_REGION        — Region identifier (e.g. eu-paris-1)
+#   * OCI_CLI_KEY_CONTENT   — PEM private key content
+#
+# Required repo variables (Settings → Secrets and variables →
+# Actions → Variables):
+#   * VM_SSH_HOST           — live trader VM's public IP (used for
+#                              IMDS query). Defaults to 158.178.210.252.
+#   * VM_SSH_USER           — defaults to ubuntu.
+#
+# Idempotency: scripts/ops/provision_training_vm.py refuses to
+# create a duplicate if a non-TERMINATED instance with display
+# name `ict-trainer-vm` already exists in the compartment.
+
+on:
+  workflow_dispatch:
+    inputs:
+      display_name:
+        description: "Instance display name"
+        required: false
+        default: "ict-trainer-vm"
+      reason:
+        description: "Why this is being run (audit trail)"
+        required: true
+        default: "S-AI-WS9 — provision the model training center VM"
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: provision-training-vm
+  cancel-in-progress: false
+
+jobs:
+  provision:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'provision-training-vm'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '158.178.210.252' }}
+      VM_SSH_USER: ${{ vars.VM_SSH_USER || 'ubuntu' }}
+      DISPLAY_NAME: ${{ github.event.inputs.display_name || 'ict-trainer-vm' }}
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Parse confirmation (issue path)
+        if: github.event_name == 'issues'
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          set -euo pipefail
+          if ! grep -qE '^confirm:\s*yes\s*$' <<<"$ISSUE_BODY"; then
+            echo "::error::Issue body must contain a line `confirm: yes` on its own."
+            exit 1
+          fi
+          echo "Confirmation present."
+
+      - name: Set up SSH key (and derive public half)
+        env:
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VM_SSH_KEY}" ]; then
+            echo "::error::VM_SSH_KEY secret is unset."
+            exit 1
+          fi
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "${VM_SSH_KEY}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -t rsa,ecdsa,ed25519 "${VM_SSH_HOST}" >> ~/.ssh/known_hosts 2>/dev/null
+          # Derive the public half — gets injected into the new VM.
+          ssh-keygen -y -f ~/.ssh/id_rsa > ~/.ssh/id_rsa.pub
+          chmod 644 ~/.ssh/id_rsa.pub
+          echo "Public key fingerprint: $(ssh-keygen -lf ~/.ssh/id_rsa.pub | awk '{print $2}')"
+
+      - name: Discover OCI compartment + subnet via live-VM IMDS
+        id: imds
+        run: |
+          set -euo pipefail
+          ssh -o StrictHostKeyChecking=accept-new \
+              -o ConnectTimeout=10 \
+              "${VM_SSH_USER}@${VM_SSH_HOST}" \
+              'curl -sS -H "Authorization: Bearer Oracle" --max-time 5 http://169.254.169.254/opc/v2/instance/' \
+              > imds.json
+          instance_id=$(python3 -c 'import json; print(json.load(open("imds.json"))["id"])')
+          compartment_id=$(python3 -c 'import json; print(json.load(open("imds.json"))["compartmentId"])')
+          region=$(python3 -c 'import json; print(json.load(open("imds.json"))["regionInfo"]["regionIdentifier"])')
+          echo "compartment_id=${compartment_id}" >> "$GITHUB_OUTPUT"
+          echo "region=${region}" >> "$GITHUB_OUTPUT"
+          echo "live_instance_id=${instance_id}" >> "$GITHUB_OUTPUT"
+          echo "Live trader: instance=${instance_id} compartment=${compartment_id} region=${region}"
+
+      - name: Validate OCI secrets are configured
+        env:
+          OCI_CLI_USER: ${{ secrets.OCI_CLI_USER }}
+          OCI_CLI_FINGERPRINT: ${{ secrets.OCI_CLI_FINGERPRINT }}
+          OCI_CLI_TENANCY: ${{ secrets.OCI_CLI_TENANCY }}
+          OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION }}
+          OCI_CLI_KEY_CONTENT: ${{ secrets.OCI_CLI_KEY_CONTENT }}
+        run: |
+          set -euo pipefail
+          missing=0
+          for v in OCI_CLI_USER OCI_CLI_FINGERPRINT OCI_CLI_TENANCY OCI_CLI_REGION OCI_CLI_KEY_CONTENT; do
+            if [ -z "${!v}" ]; then
+              echo "::error::repo secret ${v} is unset"
+              missing=1
+            fi
+          done
+          if [ "${missing}" -ne 0 ]; then
+            exit 1
+          fi
+          echo "All OCI secrets present."
+
+      - name: Set up Python + OCI SDK
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install oci sdk
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install --quiet 'oci>=2.119,<3'
+
+      - name: Look up live-VM subnet via OCI API
+        id: subnet
+        env:
+          OCI_CLI_USER: ${{ secrets.OCI_CLI_USER }}
+          OCI_CLI_FINGERPRINT: ${{ secrets.OCI_CLI_FINGERPRINT }}
+          OCI_CLI_TENANCY: ${{ secrets.OCI_CLI_TENANCY }}
+          OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION || steps.imds.outputs.region }}
+          OCI_CLI_KEY_CONTENT: ${{ secrets.OCI_CLI_KEY_CONTENT }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os
+          import oci
+          cfg = {
+              "user": os.environ["OCI_CLI_USER"],
+              "key_content": os.environ["OCI_CLI_KEY_CONTENT"],
+              "fingerprint": os.environ["OCI_CLI_FINGERPRINT"],
+              "tenancy": os.environ["OCI_CLI_TENANCY"],
+              "region": os.environ["OCI_CLI_REGION"],
+          }
+          oci.config.validate_config(cfg)
+          compute = oci.core.ComputeClient(cfg)
+          vnet = oci.core.VirtualNetworkClient(cfg)
+          live_inst = "${{ steps.imds.outputs.live_instance_id }}"
+          comp = "${{ steps.imds.outputs.compartment_id }}"
+          atts = compute.list_vnic_attachments(
+              compartment_id=comp, instance_id=live_inst,
+          ).data
+          if not atts:
+              raise SystemExit("no VNIC attachments on live VM")
+          vnic = vnet.get_vnic(atts[0].vnic_id).data
+          subnet_id = vnic.subnet_id
+          print(f"subnet_id={subnet_id}")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as fh:
+              fh.write(f"subnet_id={subnet_id}\n")
+          PY
+
+      - name: Provision new VM
+        id: provision
+        env:
+          OCI_CLI_USER: ${{ secrets.OCI_CLI_USER }}
+          OCI_CLI_FINGERPRINT: ${{ secrets.OCI_CLI_FINGERPRINT }}
+          OCI_CLI_TENANCY: ${{ secrets.OCI_CLI_TENANCY }}
+          OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION || steps.imds.outputs.region }}
+          OCI_CLI_KEY_CONTENT: ${{ secrets.OCI_CLI_KEY_CONTENT }}
+          COMPARTMENT_ID: ${{ steps.imds.outputs.compartment_id }}
+          SUBNET_ID: ${{ steps.subnet.outputs.subnet_id }}
+          DISPLAY_NAME: ${{ env.DISPLAY_NAME }}
+          CLOUD_INIT_PATH: deploy/training-vm-cloud-init.yaml
+        run: |
+          set -uo pipefail
+          export SSH_AUTHORIZED_KEY="$(cat ~/.ssh/id_rsa.pub)"
+          python3 scripts/ops/provision_training_vm.py > result.jsonl 2>err.txt
+          rc=$?
+          echo "rc=${rc}" >> "$GITHUB_OUTPUT"
+          echo "---stdout (jsonl)---"
+          cat result.jsonl || true
+          echo "---stderr---"
+          cat err.txt || true
+          exit 0  # never fail the workflow; the JSONL carries the outcome
+
+      - name: Compose result summary
+        id: summary
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os
+          events = []
+          with open("result.jsonl") as fh:
+              for line in fh:
+                  line = line.strip()
+                  if not line: continue
+                  try: events.append(json.loads(line))
+                  except Exception: continue
+          # The final event with a known terminal status wins.
+          terminals = {"ready", "already_exists", "quota_would_exceed",
+                       "provisioning_failed", "service_error",
+                       "unexpected_error", "config_error"}
+          final = next((e for e in reversed(events) if e["status"] in terminals), None)
+          if final is None:
+              final = {"status": "no_terminal_event_seen"}
+          summary = ["### Training-VM provision result", ""]
+          summary.append(f"**Status:** `{final['status']}`")
+          for k, v in final.items():
+              if k == "status": continue
+              if isinstance(v, dict):
+                  v = json.dumps(v)
+              summary.append(f"- **{k}**: `{v}`")
+          summary.append("")
+          summary.append("<details><summary>Full event stream</summary>")
+          summary.append("")
+          summary.append("```json")
+          for e in events:
+              summary.append(json.dumps(e))
+          summary.append("```")
+          summary.append("</details>")
+          body = "\n".join(summary)
+          with open("summary.md", "w") as fh:
+              fh.write(body)
+          # Stash the terminal status for downstream steps.
+          with open(os.environ["GITHUB_OUTPUT"], "a") as fh:
+              fh.write(f"terminal_status={final['status']}\n")
+          PY
+
+      - name: Post comment + close (issue path)
+        if: github.event_name == 'issues'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const body = fs.readFileSync('summary.md', 'utf8');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              state: 'closed',
+            });
+
+      - name: Emit summary as workflow_dispatch annotation
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          echo "::notice title=Training-VM provision::See job summary below."
+          {
+            echo ""
+            cat summary.md
+          } >> "$GITHUB_STEP_SUMMARY"

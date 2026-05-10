@@ -318,6 +318,43 @@ The full AI-platform architecture (five-layer model, leakage rules,
 forbidden behaviors, model registry append-only invariant) lives in
 [`docs/architecture/ai-model-platform.md`](architecture/ai-model-platform.md).
 
+### Two-VM topology (S-AI-WS9)
+
+The "no heavy training on the Oracle live VM" non-negotiable
+([`AI-TRADERS-ROADMAP.md`](AI-TRADERS-ROADMAP.md)) is now enforced
+by **topology**, not just policy. Two Always Free Ampere A1 VMs
+run side-by-side in the same compartment + VCN:
+
+| VM | Role | Systemd units | Marker file |
+|---|---|---|---|
+| **Live trader VM** | Deterministic trade execution; FastAPI dashboard surface | `ict-trader-live.service`, `ict-web-api.service` | (none today; pre-WS9) |
+| **Training-center VM** | Model training, dataset builds, registry writes, experiment runs | `ict-trainer.service` (disabled by default), `ict-trainer.timer` (disabled by default) | `/etc/ict-trainer-vm.role` → `training-center` |
+
+The training-center VM is provisioned via
+[`.github/workflows/provision-training-vm.yml`](../.github/workflows/provision-training-vm.yml)
++ [`scripts/ops/provision_training_vm.py`](../scripts/ops/provision_training_vm.py).
+Cloud-init bootstraps it from
+[`deploy/training-vm-cloud-init.yaml`](../deploy/training-vm-cloud-init.yaml)
+with the repo cloned to `/home/ubuntu/ict-trading-bot` and the
+trainer systemd unit installed but **disabled** — the operator
+opts in to training cycles explicitly, so the Always Free quota
+isn't consumed by idle compute.
+
+**Cross-VM data flow** (filed for follow-up — not yet wired):
+- Live VM owns `trade_journal.db`. The training center needs
+  read access for label feedstock. Options: scheduled rsync from
+  live VM, or read via the `/api/diag/*` surface over HTTPS. No
+  decision yet.
+- Training center owns the registry-store + experiment runs.
+  Promoted models flow back to the live VM via
+  `git pull` + the operator's deploy workflow (existing
+  `operator-actions.yml::pull-and-deploy`).
+
+**Cross-VM SSH**: both VMs accept the same `VM_SSH_KEY` (operator
+chose key-reuse — same private key, simpler rotation). If the
+threat model later requires isolated keys, the workflow accepts
+a `TRAINER_VM_SSH_KEY` secret override.
+
 ## Evidence and Documentation Flow
 
 Every major code change must produce or update at least one of:
@@ -418,6 +455,7 @@ filtered to architecture-level deltas only.
 | 2026-05-10 | S-AI-WS7-PART-2..6 | Shadow harness complete. `src/runtime/shadow_adapter.py::with_shadow_pred` + `with_shadow_preds` helpers (per-predictor failure isolation). `ml/shadow/factory.py` resolves `shadow_model_ids` against the registry with a stage gate (`{shadow, advisory, limited_live, live_approved}` allowed; `{research_only, candidate, backtest_approved}` refused). Both production strategies (`vwap` + `turtle_soup`) wired. `Coordinator._shadow_predictors_cache` lifts the factory call to O(reloads). | `src/runtime/shadow_adapter.py`, `ml/shadow/*`, `src/units/strategies/vwap.py`, `src/units/strategies/turtle_soup.py`, `src/core/coordinator.py`, `config/strategies.yaml` | None unless operator sets a non-empty `shadow_model_ids`. |
 | 2026-05-10 | S-AI-WS8-PART-1 | Shadow-predictions audit log gains an operator surface: `ml/shadow/inspector.py` (streaming reader + filters + per-(model_id, stage) aggregate + text formatters) + `python -m ml shadow-inspect`/`shadow-stats` CLI subcommands. | `ml/shadow/inspector.py`, `ml/cli.py` | None — diagnostic tooling, read-only. |
 | 2026-05-10 | S-AI-WS10 | Architecture-doc enforcement scaffold. New `docs/architecture/ARCHITECTURE-CHANGE-CHECKLIST.md`, `.github/PULL_REQUEST_TEMPLATE.md` with arch-impact checkboxes, advisory `.github/workflows/arch-doc-guard.yml` (soft `::warning`, never fails). | `docs/architecture/ARCHITECTURE-CHANGE-CHECKLIST.md`, `.github/PULL_REQUEST_TEMPLATE.md`, `.github/workflows/arch-doc-guard.yml`, `scripts/arch_doc_guard.py`, this file | None — informational. |
+| 2026-05-10 | S-AI-WS9 | Two-VM topology: training-center VM provisioning via OCI Always Free Ampere A1. New `scripts/ops/provision_training_vm.py`, `.github/workflows/provision-training-vm.yml` (dispatch + issue-trigger), `deploy/training-vm-cloud-init.yaml`, operator runbook. Makes "no heavy training on the live VM" enforced by topology, not just policy. New VM bootstraps with `ict-trainer.service` DISABLED — operator opts in. | `scripts/ops/provision_training_vm.py`, `.github/workflows/provision-training-vm.yml`, `deploy/training-vm-cloud-init.yaml`, `docs/runbooks/training-vm.md`, this file | Operator triggers workflow once to spin up the trainer VM; no impact on live trader. |
 
 ---
 
@@ -438,3 +476,5 @@ milestone.
 | **No automated audit-log rotation for `shadow_predictions.jsonl`** | Becomes important only once shadow mode is actually active. Same pattern as `signal_audit.jsonl`. | Filed in WS7-PART-6 sprint log. |
 | **No open-source model layer (HF transformers as `Predictor`)** | WS6 not started. Defer until the WS8 feedback loop is observable. | WS6. |
 | **`arch-doc-guard` is advisory, not blocking** | Hard-failing would push the team to bypass it. Upgrade path is a follow-up workstream once the workflow is fluent. | Filed in S-AI-WS10 sprint log. |
+| **Trainer VM ↔ live VM data flow not yet wired** | WS9 ships the trainer VM topology but cross-VM `trade_journal.db` access (rsync vs diag-API-over-HTTPS) is filed for the operator to decide post-provision. | WS9 follow-up. |
+| **`ict-trainer.service` body not yet implemented** | The systemd unit is installed but its `ExecStart=scripts/ops/run_training_cycle.sh` script doesn't exist yet — starting the unit fails loudly, which is the intended safety. Build the actual training-cycle script once cadence is decided. | WS9 follow-up. |
