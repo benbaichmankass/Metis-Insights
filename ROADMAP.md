@@ -1,6 +1,6 @@
 # ICT Trading Bot — Product Roadmap
 
-> **Last Updated:** 2026-05-10 (through S-AI-WS5-B-PART-1).
+> **Last Updated:** 2026-05-10 (through S-AI-WS5-B-PART-2 PR 2A + PR 2B).
 >
 > **Canonical authority:**
 > 1. [`docs/CLAUDE-RULES-CANONICAL.md`](docs/CLAUDE-RULES-CANONICAL.md)
@@ -35,8 +35,8 @@
 | **M6** | auto-claude | Web app UI | 🔄 IN PROGRESS (dashboard repo) |
 | **M7** | pm-sprint | Strategy review gate | 📋 NOT STARTED |
 | **M8** | pm-sprint | Strategy tuning | 📋 NOT STARTED |
-| **M9** | auto-claude | AI / model roadmap | 🔄 IN PROGRESS — WS1+WS2+WS4+WS4-FU+WS5-A closed; WS5-B-PART-1 closed 2026-05-10. |
-| **M10** | auto-claude | HF / data pipeline | 🔄 IN PROGRESS — WS3 closed; WS5-B-PART-1 adds `market_raw` (third buildable family); WS9 continuous. |
+| **M9** | auto-claude | AI / model roadmap | 🔄 IN PROGRESS — WS1+WS2+WS4+WS4-FU+WS5-A closed; WS5-B-PART-1 + PART-2 (PR 2A + PR 2B) closed 2026-05-10. |
+| **M10** | auto-claude | HF / data pipeline | 🔄 IN PROGRESS — WS3 closed; WS5-B-PART-1 adds `market_raw`; WS5-B-PART-2 PR 2A wires Bybit off-VM fetch; PR 2B adds `market_features` (fourth buildable family); WS9 continuous. |
 
 ### M9 / M10 — AI traders workstreams (WS1–WS10)
 
@@ -53,7 +53,7 @@
 | **WS2** | Canonical trade pipeline | ✅ DONE | [ws2-canonical-pipeline.md](docs/sprint-plans/ai-traders/ws2-canonical-pipeline.md) |
 | **WS3** | Data foundation | ✅ DONE | [ws3-data-foundation.md](docs/sprint-plans/ai-traders/ws3-data-foundation.md) |
 | **WS4** | Training center | ✅ DONE (S-AI-WS4 + S-AI-WS4-FU) | [ws4-training-center.md](docs/sprint-plans/ai-traders/ws4-training-center.md) + [ws4-followups.md](docs/sprint-plans/ai-traders/ws4-followups.md) |
-| **WS5** | Baseline models | 🔄 IN PROGRESS (S-AI-WS5-A + S-AI-WS5-B-PART-1 done; PART-2 next; C–F queued) | [ws5-baseline-models.md](docs/sprint-plans/ai-traders/ws5-baseline-models.md) |
+| **WS5** | Baseline models | 🔄 IN PROGRESS (S-AI-WS5-A + S-AI-WS5-B-PART-1 + PART-2 (PR 2A + PR 2B) done; C–F queued) | [ws5-baseline-models.md](docs/sprint-plans/ai-traders/ws5-baseline-models.md) |
 | **WS6** | Open-source model layer | 📋 NOT STARTED | [ws6-open-source-models.md](docs/sprint-plans/ai-traders/ws6-open-source-models.md) |
 | **WS7** | Deployment tiers | 📋 NOT STARTED | [ws7-deployment-tiers.md](docs/sprint-plans/ai-traders/ws7-deployment-tiers.md) |
 | **WS8** | Monitoring and feedback loops | 📋 NOT STARTED | [ws8-monitoring-feedback.md](docs/sprint-plans/ai-traders/ws8-monitoring-feedback.md) |
@@ -113,6 +113,8 @@ Full detail preserved in git history. Recent AI-traders sprints:
 | S-AI-WS5-A | Outcome probability baseline | ✅ Done (`#730` `6a9f5a0`) | M9 |
 | S-AI-WS4-FU | WS4 follow-ups | ✅ Done (`#732` `8a69e97`) | M9 |
 | **S-AI-WS5-B-PART-1** | **WS5-B Part 1 — `market_raw` multi-source adapter framework.** Canonical row shape pinned. CSV adapter live; Bybit off-VM scaffold (env-gated) with the actual exchange call filed for operator wiring. WS9 enforced via `ICT_OFFVM_BUILD_HOST=1` env-gate. Logged in `docs/sprint-logs/S-AI-WS5-B-PART-1.md`. | ✅ Done 2026-05-10 (`#733`) | M10 |
+| **S-AI-WS5-B-PART-2 PR 2A** | **WS5-B Part 2 PR 2A — Bybit off-VM fetch wiring.** `BybitOffvmMarketRawAdapter._fetch_bars` wired via ccxt's `fetch_ohlcv`; paginated `since` cursor over `[start, end]`; CI mocks the exchange. Builder framework auto-forwards `symbol_scope` / `timeframe` into `iter_rows` kwargs. Env-gate retained. Logged in `docs/sprint-logs/S-AI-WS5-B-PART-2-PR-2A.md`. | ✅ Done 2026-05-10 (`#742`) | M10 |
+| **S-AI-WS5-B-PART-2 PR 2B** | **WS5-B Part 2 PR 2B — Regime classifier baseline.** `market_features` family (rolling vol + 3-class regime label, forward-window leakage discipline) + `RegimeClassifierTrainer` (per-bucket modal) + `MulticlassPredictor` + `MulticlassClassificationEvaluator` + `baseline-regime-classifier.yaml` manifest. New non-negotiable: no forward-window / label columns as features against `regime_label`. Logged in `docs/sprint-logs/S-AI-WS5-B-PART-2-PR-2B.md`. | ✅ Done 2026-05-10 (this PR) | M9 |
 | **S-CFW-1** | **Cloudflare Worker proxy.** Stable `*.workers.dev` hostname fronting `/api/*` to the VM, replacing the ephemeral quick-tunnel hostname for the dashboard's Vercel rewrite. Includes Vercel-Edge-vs-Worker investigation note (`docs/audit/vercel-edge-vs-cf-worker.md`). Worker code + runbook in `cf-worker/`; `wrangler deploy` is operator-driven. Logged in `docs/sprint-logs/S-CFW-1-cloudflare-worker.md`. | 🔄 PARTIAL 2026-05-10 (operator-gated `wrangler deploy` pending) | infra |
 
 > **Sprint number note:** S-067 is in flight as the silent-empty

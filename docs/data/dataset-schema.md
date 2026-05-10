@@ -1,7 +1,8 @@
 # Dataset Schema
 
 > **Status:** Canonical (data scope). Updated through
-> **S-AI-WS5-B-PART-1** (2026-05-10): `market_raw` schema added.
+> **S-AI-WS5-B-PART-2 PR 2B** (2026-05-10): `market_features`
+> schema + leakage discipline added.
 >
 > **Authority:** Subordinate to
 > [`docs/architecture/ai-model-platform.md`](../architecture/ai-model-platform.md).
@@ -100,10 +101,53 @@ tests.
 The builder records the adapter name and its kwargs in
 `metadata.notes` so the build is reproducible.
 
+### `market_features`
+
+Builder: [`MarketFeaturesBuilder`](../../ml/datasets/families/market_features.py).
+Source: a built `market_raw` dataset directory (passed via
+`market_raw_path=<dir>`). Configurable knobs: `vol_window_n`
+(default 20), `forward_window_m` (default 5), `vol_threshold`
+(default 0.005), `trend_threshold` (default 0.005), `n_vol_buckets`
+(default 3).
+
+| Field | Type | Notes |
+|---|---|---|
+| `ts` | str | Bar timestamp (copied from `market_raw`). |
+| `symbol` | str | |
+| `timeframe` | str | |
+| `log_return` | float | `ln(close[t] / close[t-1])`. |
+| `rolling_log_return_vol` | float | stdev of `log_return` over `[t - vol_window_n + 1 .. t]`. |
+| `vol_bucket` | str | Quantile bucket of `rolling_log_return_vol` over the dataset; labels `vol_b0`..`vol_b{n_vol_buckets-1}`. |
+| `forward_log_return` | float | **Label-side.** `ln(close[t + forward_window_m] / close[t])`. |
+| `forward_log_return_vol` | float | **Label-side.** stdev of `log_return` over `[t + 1 .. t + forward_window_m]`. |
+| `regime_label` | str | **Label.** One of `trend`, `range`, `volatile`. |
+| `source` | str | Copied from `market_raw` (the upstream adapter name). |
+
+`label_version: regime-3class-v1`,
+`leakage_test_status: passed` (window separation guarantees no
+leakage by construction; see below).
+
+**Leakage discipline.** The feature window
+`[t - vol_window_n + 1 .. t]` (inclusive of bar `t`) and the
+label window `[t + 1 .. t + forward_window_m]` (strictly after
+`t`) do not overlap. Feature-side fields (`log_return`,
+`rolling_log_return_vol`, `vol_bucket`) cannot leak the label.
+The forward fields (`forward_log_return`,
+`forward_log_return_vol`) and `regime_label` itself MUST NOT be
+used as features by any trainer targeting `regime_label`.
+`RegimeClassifierTrainer` enforces this with a fit-time
+`ValueError`.
+
+`vol_bucket` quantile thresholds are derived over the entire
+dataset (train + eval combined). Acceptable for a research-only
+baseline; promotion-ready variants should compute thresholds on
+the train split only and freeze them into `model_state`. Filed
+as a follow-up.
+
 ### Other families (placeholder)
 
-`market_features`, `setup_labels`, `account_context`,
-`review_journal` do not yet have buildable implementations.
+`setup_labels`, `account_context`, `review_journal` do not yet
+have buildable implementations.
 
 ## Validation
 

@@ -10,6 +10,14 @@ base class resolves it dynamically from `model_state['trainer']`
 """
 from .base import Predictor
 from .constant import ConstantPredictor
+from .multiclass import MulticlassPredictor
+from .per_bucket_multiclass import PerBucketMulticlassPredictor
 from .per_group import PerGroupPredictor
 
-__all__ = ["ConstantPredictor", "PerGroupPredictor", "Predictor"]
+__all__ = [
+    "ConstantPredictor",
+    "MulticlassPredictor",
+    "PerBucketMulticlassPredictor",
+    "PerGroupPredictor",
+    "Predictor",
+]
