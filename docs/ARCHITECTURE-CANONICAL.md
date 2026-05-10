@@ -398,3 +398,43 @@ Confirmed against the repo on 2026-05-10:
 - [x] AI-scope architecture doc:
       [`architecture/ai-model-platform.md`](architecture/ai-model-platform.md)
       (S-AI-WS1, 2026-05-10)
+
+---
+
+## Change log
+
+Architecture-impacting changes (per the rubric in
+[`architecture/ARCHITECTURE-CHANGE-CHECKLIST.md`](architecture/ARCHITECTURE-CHANGE-CHECKLIST.md))
+land a row here. Per-PR ledger sits in
+[`ROADMAP.md`](../ROADMAP.md); the table below is curated and
+filtered to architecture-level deltas only.
+
+| Date | Sprint | Change | Files touched | Operator impact |
+|---|---|---|---|---|
+| 2026-05-10 | S-CANON-1 | Canonical-doc adoption: this file supersedes the older `docs/architecture.md` and the architecture sections of root `CLAUDE.md`. Companion rules doc + sprint-log template + canonical workflows doc all stand. | `docs/ARCHITECTURE-CANONICAL.md`, `docs/CLAUDE-RULES-CANONICAL.md`, `docs/SPRINT-LOG-TEMPLATE-CANONICAL.md`, `docs/github-actions-workflows.md` | None — informational. |
+| 2026-05-10 | S-AI-WS1..WS4 | AI platform baseline: pipeline stage contracts (`docs/pipeline/stage-contracts.md`), typed dataclasses (`src/pipeline/types.py`), dataset framework (`ml/datasets/`), training center + registry + Predictor + splitters + compare (`ml/`). | `ml/`, `src/pipeline/`, `docs/pipeline/`, `docs/architecture/ai-model-platform.md` | None — research-only. |
+| 2026-05-10 | S-AI-WS5-A..F | Six baseline models registered + paired manifests. None promoted past `candidate`. | `ml/configs/*.yaml`, `ml/trainers/`, `ml/datasets/families/`, `ml/registry-store/` | None — research-only. |
+| 2026-05-10 | S-AI-WS7-PART-1 | Model registry gains `target_deployment_stage` + canonical stage ladder (`research_only` → `candidate` → `backtest_approved` → `shadow` → `advisory` → `limited_live` → `live_approved`). Append-only `StatusEvent` history; `promote_stage()` requires `--by` + `--reason`. | `ml/registry/`, `ml/promotion/` | None — registry unread by runtime. |
+| 2026-05-10 | S-AI-WS7-PART-2..6 | Shadow harness complete. `src/runtime/shadow_adapter.py::with_shadow_pred` + `with_shadow_preds` helpers (per-predictor failure isolation). `ml/shadow/factory.py` resolves `shadow_model_ids` against the registry with a stage gate (`{shadow, advisory, limited_live, live_approved}` allowed; `{research_only, candidate, backtest_approved}` refused). Both production strategies (`vwap` + `turtle_soup`) wired. `Coordinator._shadow_predictors_cache` lifts the factory call to O(reloads). | `src/runtime/shadow_adapter.py`, `ml/shadow/*`, `src/units/strategies/vwap.py`, `src/units/strategies/turtle_soup.py`, `src/core/coordinator.py`, `config/strategies.yaml` | None unless operator sets a non-empty `shadow_model_ids`. |
+| 2026-05-10 | S-AI-WS8-PART-1 | Shadow-predictions audit log gains an operator surface: `ml/shadow/inspector.py` (streaming reader + filters + per-(model_id, stage) aggregate + text formatters) + `python -m ml shadow-inspect`/`shadow-stats` CLI subcommands. | `ml/shadow/inspector.py`, `ml/cli.py` | None — diagnostic tooling, read-only. |
+| 2026-05-10 | S-AI-WS10 | Architecture-doc enforcement scaffold. New `docs/architecture/ARCHITECTURE-CHANGE-CHECKLIST.md`, `.github/PULL_REQUEST_TEMPLATE.md` with arch-impact checkboxes, advisory `.github/workflows/arch-doc-guard.yml` (soft `::warning`, never fails). | `docs/architecture/ARCHITECTURE-CHANGE-CHECKLIST.md`, `.github/PULL_REQUEST_TEMPLATE.md`, `.github/workflows/arch-doc-guard.yml`, `scripts/arch_doc_guard.py`, this file | None — informational. |
+
+---
+
+## Known gaps
+
+Deliberate omissions and queued work. An entry here is a
+**contract** between the team and future maintainers: the
+architecture doc does not yet reflect this state, by design,
+because the work is in flight or out of scope for the current
+milestone.
+
+| Gap | Why deferred | Tracking |
+|---|---|---|
+| **WS5 baselines not yet promoted past `candidate`** | All six are registered and ready, but promotion to `shadow` requires a real `trade_journal.db` and the deployment unlock. Operator-blocked. | WS7 operator-unlock item; ROADMAP.md. |
+| **`shadow_model_ids` empty in production YAML** | The harness is wired but inert. Production rollout = YAML edit + a promoted model in the registry. | Same as above. |
+| **No dashboard endpoint over `runtime_logs/shadow_predictions.jsonl`** | CLI inspector ships in WS8-PART-1; dashboard route lands in WS8-PART-2. | WS8-PART-2. |
+| **No drift detector** | Needs `trade_outcomes` to be populated post-deploy so shadow scores can be compared against realised outcomes. | WS8-PART-3. |
+| **No automated audit-log rotation for `shadow_predictions.jsonl`** | Becomes important only once shadow mode is actually active. Same pattern as `signal_audit.jsonl`. | Filed in WS7-PART-6 sprint log. |
+| **No open-source model layer (HF transformers as `Predictor`)** | WS6 not started. Defer until the WS8 feedback loop is observable. | WS6. |
+| **`arch-doc-guard` is advisory, not blocking** | Hard-failing would push the team to bypass it. Upgrade path is a follow-up workstream once the workflow is fluent. | Filed in S-AI-WS10 sprint log. |
