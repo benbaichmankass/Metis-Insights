@@ -59,8 +59,11 @@ jobs:
         id: analyze
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          # Route the action's Telegram pings through the Claude bot,
+          # not the trader's bot. The underlying helper still reads
+          # TELEGRAM_BOT_TOKEN/_CHAT_ID, so we alias here.
+          TELEGRAM_BOT_TOKEN: ${{ secrets.CLAUDE_TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.CLAUDE_TELEGRAM_CHAT_ID }}
         run: |
           set -euo pipefail
           PYTHONPATH=. python scripts/run_health_check.py \
@@ -117,8 +120,9 @@ jobs:
       - name: Notify operator that a review PR is open
         if: always() && steps.cpr.outputs.pull-request-number != ''
         env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          # Same alias as layer 1 — Claude bot, not trader bot.
+          TELEGRAM_BOT_TOKEN: ${{ secrets.CLAUDE_TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.CLAUDE_TELEGRAM_CHAT_ID }}
         run: |
           set -eu
           PR_NUM="${{ steps.cpr.outputs.pull-request-number }}"

@@ -58,8 +58,10 @@ jobs:
 
       - name: Notify Claude review handoff
         env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          # Route the action's Telegram via the Claude bot, not the
+          # trader's bot.
+          TELEGRAM_BOT_TOKEN: ${{ secrets.CLAUDE_TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.CLAUDE_TELEGRAM_CHAT_ID }}
         run: |
           set -eu
           PR_NUM="${{ github.event.pull_request.number }}"
