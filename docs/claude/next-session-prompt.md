@@ -8,7 +8,8 @@ verbatim into a fresh session.
 
 You are picking up an autonomous session on `benbaichmankass/ict-trading-bot`.
 Sprint **S-067 — silent-empty error path audit & hardening** closed
-on 2026-05-10 (PRs #642, #643, #644, #645, #646, #647 all merged).
+on 2026-05-10 (PRs #642, #643, #644, #645, #646, #647 all merged;
+#648 filed this prompt).
 This session works through the **S-067 follow-up queue** filed in
 `docs/sprint-summaries/sprint-067-summary.md` § Hand-off.
 
@@ -33,6 +34,9 @@ This session works through the **S-067 follow-up queue** filed in
    chain in parallel.
 5. `docs/sprints/sprint-067-prompt.md` § 8 Hand-off — same priority
    list, primary source.
+6. `docs/claude/bug-log-pending/README.md` — staging convention for
+   bug-log entries that overflow the MCP API size limit. Item #10
+   below uses this.
 
 ## Hard constraints
 
@@ -303,39 +307,31 @@ Steps:
 Tier 1 / cleanup. Self-merge.
 PR title: `refactor(api): consolidate forked _vm_health helpers`.
 
-### 10. **Deferred from S-067 CP-5:** bug-log BUG-065 entry (Tier 1)
+### 10. **Deferred from S-067 CP-5:** fold-in `bug-log-pending/BUG-065.md` (Tier 1)
 
 **Goal:** the S-067 close PR (#647) couldn't push a bug-log entry
 because the file is ≈ 100 KB and the GitHub MCP
 `create_or_update_file` API requires the full file content embedded
-in a single tool-call payload. A session with local clone access
-(or with smaller working-set) can fold it in.
+in a single tool-call payload. The full row was staged at
+`docs/claude/bug-log-pending/BUG-065.md` (PR #649) per the new
+bug-log-pending convention; this item folds it into the canonical
+log.
 
 Steps:
 
-1. Clone the repo locally (or operate via `gh` CLI on a host with
-   git auth).
-2. Insert a single new row at line 41 of `docs/claude/bug-log.md`
-   (immediately after the table header), following the BUG-064 /
-   BUG-063 verbosity precedent.
-3. Compose the row from `docs/audits/silent-empty-2026-05-10.md`:
-   - **ID:** BUG-065
-   - **Date:** 2026-05-10
-   - **Sprint:** S-067 (silent-empty error path audit & hardening)
-   - **Area:** api / read-path / error handling
-   - **Symptom:** read-path endpoints surfacing structural failures
-     as fabricated zeroes / `[]` / `{}` / `None` (PR #627 + #629
-     are canonical examples; 5 more sites found in the 2026-05-10
-     audit).
-   - **Root cause:** broad `except Exception` / `except sqlite3.Error`
-     blocks returning shape-correct sentinels without logging.
-   - **Fix (PR):** #642, #643, #644, #645, #646, #647.
-   - **Concern:** `data` / `config` / observability.
-   - **Notes:** lessons-learned summary + cross-references to the
-     audit doc and `docs/sprints/sprint-067-prompt.md` § 8 hand-off.
+1. Read `docs/claude/bug-log-pending/README.md` § Fold-in workflow.
+2. Open `docs/claude/bug-log.md`. Locate the table header (around
+   line 41 — verify before inserting).
+3. Copy the row from `docs/claude/bug-log-pending/BUG-065.md` (the
+   single `| BUG-065 | ... |` line) and insert it immediately after
+   the table header.
+4. Run `grep -F "BUG-065" docs/claude/bug-log.md | wc -l` — should
+   return at least 1.
+5. `git rm docs/claude/bug-log-pending/BUG-065.md`.
+6. Commit + PR + self-merge. PR title:
+   `docs(bug-log): fold-in BUG-065 from pending`.
 
 Tier 1 / docs-only. Self-merge.
-PR title: `docs(bug-log): BUG-065 entry for the silent-empty error path class`.
 
 ## Stop conditions
 
@@ -364,6 +360,10 @@ PR title: `docs(bug-log): BUG-065 entry for the silent-empty error path class`.
 - `docs/claude/milestone-state.md` has S-067 in Recently closed.
 - `docs/claude/checkpoints/CP-2026-05-10-01-s067-complete.md` is
   the standalone closing checkpoint.
+- `docs/claude/next-session-prompt.md` carries this prompt (PR #648).
+- `docs/claude/bug-log-pending/{README,BUG-065}.md` (PR #649) stage
+  the deferred bug-log entry per the new convention; item #10 above
+  folds it in.
 
 ## What you must NOT touch this run
 
