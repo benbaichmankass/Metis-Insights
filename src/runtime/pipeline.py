@@ -411,6 +411,105 @@ def _has_open_package_for_strategy(strategy_name: Optional[str]) -> Optional[str
         return None
 
 
+# Default cooldown (seconds) after a strategy was internally refused
+# (sized_qty=0 from RiskManager) before the dispatcher will re-attempt
+# the same strategy. Tuned to one full 5 m candle so VWAP / turtle_soup
+# get a fresh bar of market data before retrying — the most common
+# transient cause of a sized_qty=0 refusal is Bybit V5 returning
+# ``availableToBorrow=0`` for the borrow side of a spot-margin order
+# (S-056 / S-058) and that field repopulates on the exchange's own
+# cadence, not ours. Pre-fix the strategy_monocle gate only blocked
+# on *open* packages, so a refused signal re-fired every minute and
+# accumulated 20 ``status='rejected'`` rows over 1 h on 2026-05-10
+# (per the trade-journal evidence FU-20260510-002 originally
+# mislabelled as a 170131 cluster). Operator override via
+# ``STRATEGY_REFUSAL_COOLDOWN_SECONDS`` in the systemd unit.
+_DEFAULT_REFUSAL_COOLDOWN_SECONDS = 300
+
+
+def _refusal_cooldown_seconds() -> int:
+    raw = os.environ.get("STRATEGY_REFUSAL_COOLDOWN_SECONDS")
+    if raw is None:
+        return _DEFAULT_REFUSAL_COOLDOWN_SECONDS
+    try:
+        v = int(str(raw).strip())
+    except (TypeError, ValueError):
+        return _DEFAULT_REFUSAL_COOLDOWN_SECONDS
+    return v if v >= 0 else _DEFAULT_REFUSAL_COOLDOWN_SECONDS
+
+
+def _recent_refusal_for_strategy(
+    strategy_name: Optional[str],
+    cooldown_seconds: Optional[int] = None,
+) -> Optional[Dict[str, Any]]:
+    """Return ``{"order_package_id", "age_seconds", "cooldown_seconds"}``
+    when *strategy_name* has a ``status='rejected'`` order_packages row
+    updated within the cooldown window, else ``None``.
+
+    Belt-and-braces companion to ``_has_open_package_for_strategy``.
+    The open-package gate already blocks dispatch while a strategy has
+    an outstanding live position; this gate blocks dispatch while a
+    strategy's most-recent attempt was *internally refused*
+    (``sized_qty=0`` → ``log_rejection_to_journal(status='rejected')``
+    in coordinator.multi_account_execute). The two together prevent
+    both kinds of duplicate dispatch — including the
+    sized_qty=0 cascade FU-20260510-002 captured.
+
+    Best-effort — DB-read failure returns ``None`` (i.e. "no
+    cooldown known") rather than refusing every dispatch on a
+    transient SQLite hiccup. Tradeoff matches the open-package
+    helper's contract.
+    """
+    if not strategy_name:
+        return None
+    cooldown = cooldown_seconds if cooldown_seconds is not None else _refusal_cooldown_seconds()
+    if cooldown <= 0:
+        return None
+    try:
+        from datetime import datetime, timezone
+        from src.units.db.database import Database
+        import os as _os
+        db_path = (
+            _os.environ.get("TRADE_JOURNAL_DB")
+            or _os.path.join(
+                _os.path.abspath(
+                    _os.path.join(_os.path.dirname(__file__), "..", "..")
+                ),
+                "trade_journal.db",
+            )
+        )
+        db = Database(db_path=db_path)
+        rows = db.get_order_packages_by_strategy(
+            strategy_name, status="rejected", limit=1,
+        )
+        if not rows:
+            return None
+        row = rows[0]
+        updated = row.get("updated_at") or row.get("created_at")
+        if not updated:
+            return None
+        try:
+            ts = datetime.fromisoformat(str(updated).replace("Z", "+00:00"))
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
+        except (TypeError, ValueError):
+            return None
+        age_seconds = (datetime.now(timezone.utc) - ts).total_seconds()
+        if age_seconds < 0 or age_seconds > cooldown:
+            return None
+        return {
+            "order_package_id": str(row.get("order_package_id") or ""),
+            "age_seconds": float(age_seconds),
+            "cooldown_seconds": int(cooldown),
+        }
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "_recent_refusal_for_strategy(%s): DB read failed — %s",
+            strategy_name, exc,
+        )
+        return None
+
+
 def turtle_soup_signal_builder(settings: dict) -> Dict[str, Any]:
     """Sweep + reversal at 15m. S-012 PR C3 wires it into the multiplexer.
 
@@ -1014,6 +1113,56 @@ def run_pipeline(
                         "reason": "open_package_exists",
                         "strategy": _gate_strategy,
                         "open_package_id": _existing_open,
+                        "signal": signal,
+                    }
+                    _report_pipeline_outcome(result, signal)
+                    return result
+                # Refusal cooldown — second strategy_monocle gate. Prevents
+                # the dispatcher from re-firing the same signal every tick
+                # when the most recent attempt was internally refused
+                # (``sized_qty=0`` from RiskManager → log_rejection_to_journal
+                # ``status='rejected'``). 2026-05-10 produced 20 such rows
+                # in 1 h on bybit_2/vwap because the open-package gate above
+                # only catches outstanding live positions, not refused
+                # ones. Cooldown defaults to 300 s (~one 5 m candle); the
+                # most common transient cause of refusal is Bybit V5
+                # returning ``availableToBorrow=0`` (S-056 / S-058) and
+                # repopulating on the exchange's cadence rather than ours.
+                # Operator override: ``STRATEGY_REFUSAL_COOLDOWN_SECONDS``.
+                _recent_refusal = _recent_refusal_for_strategy(_gate_strategy)
+                if _recent_refusal is not None:
+                    logger.info(
+                        "strategy_monocle: skipping dispatch — strategy=%s "
+                        "refused %.0fs ago (cooldown=%ds, last_pkg=%s)",
+                        _gate_strategy,
+                        _recent_refusal["age_seconds"],
+                        _recent_refusal["cooldown_seconds"],
+                        _recent_refusal["order_package_id"],
+                    )
+                    # Land a dedicated audit row so the operator can
+                    # reconstruct cooldown cadence without grepping the
+                    # info-level pipeline.log. Best-effort — never let
+                    # an audit failure bypass the gate.
+                    try:
+                        log_signal({
+                            "event": "cooldown_blocked",
+                            "strategy": _gate_strategy,
+                            "symbol": signal.get("symbol"),
+                            "side": signal.get("side"),
+                            "age_seconds": _recent_refusal["age_seconds"],
+                            "cooldown_seconds": _recent_refusal["cooldown_seconds"],
+                            "last_refused_package_id": _recent_refusal["order_package_id"],
+                        })
+                    except Exception:  # noqa: BLE001
+                        logger.exception(
+                            "strategy_monocle: cooldown audit emit failed",
+                        )
+                    result = {
+                        "status": "skipped",
+                        "reason": "recent_refusal_cooldown",
+                        "strategy": _gate_strategy,
+                        "last_refused_package_id": _recent_refusal["order_package_id"],
+                        "cooldown_age_seconds": _recent_refusal["age_seconds"],
                         "signal": signal,
                     }
                     _report_pipeline_outcome(result, signal)
