@@ -63,6 +63,34 @@ The POST body shape:
 }
 ```
 
+## Layer-1 fallback (Anthropic call fails)
+
+If the Anthropic call in layer 1 fails for any reason — rate limit,
+billing, network, malformed JSON in the response — the workflow does
+**not** abort. Instead, `scripts/run_health_check.py` synthesizes an
+`UNKNOWN`-status stub report:
+
+```json
+{
+  "status": "UNKNOWN",
+  "summary": "Layer-1 analysis unavailable: <ErrorClass>: <message>",
+  "checks": { "<each section>": {"status": "warn", "note": "layer-1 verdict unavailable"} },
+  "action_required": "Manual review required — ...",
+  "error": {"type": "...", "message": "..."}
+}
+```
+
+The stub is written to `artifacts/health/latest.json` exactly like a
+real verdict, the layer-2 review request is emitted with
+`priority: high` (UNKNOWN is treated like WARNING/CRITICAL for the
+operator's eye), the PR is opened, and the Telegram alert fires with
+the ⚪ icon naming the underlying error class. The Claude routine
+then reviews the **raw snapshot** — which is always present — as the
+source of truth.
+
+This preserves the design contract that layer 2 runs on every
+execution, even when layer 1 is temporarily unavailable.
+
 ## What the label means
 
 `health-check-review` is the operational filter on workflow 2. **Only**
@@ -183,7 +211,9 @@ both bots post into the same operator chat.
 The Telegram secrets are optional — every alert step tolerates a
 missing token silently. `CLAUDE_ROUTINE_URL` and `CLAUDE_ROUTINE_TOKEN`
 are **not** optional; workflow 2 fails (loudly) at the first step if
-either is unset.
+either is unset. `ANTHROPIC_API_KEY` is **soft-required** — if it is
+unset or out of credits, layer 1 falls back to an `UNKNOWN`-status stub
+and the rest of the run continues (see *Layer-1 fallback* above).
 
 Both routine secrets are designed to be rotated independently — the
 workflow reads them at runtime, so updating either one in repo settings
@@ -195,8 +225,8 @@ Three options, in increasing scope:
 
 1. **Pause Telegram noise but keep collecting** — leave both workflows
    enabled but unset `CLAUDE_TELEGRAM_BOT_TOKEN`. The PR-open / routine-
-   fired pings and layer-1 WARNING/CRITICAL alerts all skip silently.
-   The PR audit trail still lands and the routine is still called.
+   fired pings and layer-1 alerts all skip silently. The PR audit
+   trail still lands and the routine is still called.
 2. **Stop opening new PRs but keep the existing one** — disable
    workflow 1 from the Actions UI (`Actions → Health Snapshot PR →
    Disable`). Workflow 2 still fires (and POSTs to the routine) if you
