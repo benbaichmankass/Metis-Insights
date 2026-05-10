@@ -1,9 +1,10 @@
-"""Dataset family registry (WS3 + WS5-A + WS5-B-PART-1 + WS5-B-PART-2 + WS5-C + WS5-C-FU + WS5-D + WS5-E)."""
+"""Dataset family registry (WS3 + WS5-A + WS5-B-PART-1 + WS5-B-PART-2 + WS5-C + WS5-C-FU + WS5-D + WS5-E + WS5-F)."""
 from __future__ import annotations
 
 from typing import Mapping, Type
 
 from .builder import DatasetBuilder
+from .families.account_context import AccountContextBuilder
 from .families.backtest_results import BacktestResultsBuilder
 from .families.execution_quality import ExecutionQualityBuilder
 from .families.market_features import MarketFeaturesBuilder
@@ -14,6 +15,7 @@ from .families.setup_labels_audit import SetupLabelsAuditBuilder
 from .families.trade_outcomes import TradeOutcomesBuilder
 
 FAMILY_REGISTRY: Mapping[str, Type[DatasetBuilder]] = {
+    AccountContextBuilder.family: AccountContextBuilder,
     BacktestResultsBuilder.family: BacktestResultsBuilder,
     ExecutionQualityBuilder.family: ExecutionQualityBuilder,
     MarketFeaturesBuilder.family: MarketFeaturesBuilder,

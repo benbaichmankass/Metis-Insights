@@ -1,0 +1,63 @@
+# Example training manifest — prop mission policy baseline (WS5-F).
+#
+# Predicts whether a signal will be taken (vs rejected by the
+# prop-mission gate or the exchange) using the per-strategy
+# historical acceptance rate. Per-bucket sample mean of the
+# `was_taken` boolean — same chassis as WS5-A's winrate manifest,
+# different label semantics (acceptance, not P&L outcome).
+#
+# Source: `account_context` family — trades JOIN
+# `config/accounts.yaml` for prop-typed accounts. Rejected signals
+# (status='rejected' / 'exchange_rejected') are the labelled
+# negatives; taken signals (status='open' / 'closed') are the
+# positives. Per-trade equity / drawdown snapshots are NOT yet
+# recorded in the trade journal — the static mission rules from
+# YAML are attached to every row as features.
+#
+# Run end-to-end:
+#
+#   python -m ml.datasets build account_context \
+#     --output-dir ./datasets-out --version v001 \
+#     --source trade_journal.db \
+#     -- db_path=/abs/path/to/trade_journal.db \
+#        accounts_yaml_path=/abs/path/to/config/accounts.yaml
+#
+#   python -m ml train ml/configs/baseline-prop-mission-policy.yaml \
+#     --datasets-root ./datasets-out
+#
+# Decision-utility: per-strategy mean acceptance rate tells the
+# operator which strategies the prop-mission gate rejects most
+# often. A strategy with a low acceptance rate combined with high
+# `r_multiple` (cross-reference WS5-C) is one the gate is leaving
+# value on the table for; one with a high acceptance rate and a
+# low `r_multiple` is one the gate is too lax on.
+
+manifest_version: v1
+model_id: prop-mission-policy-baseline-v0
+model_family: classification_baseline
+trainer: ml.trainers.per_strategy_winrate.PerStrategyWinRateTrainer
+trainer_config:
+  target_column: was_taken
+  feature_column: strategy_name
+dataset:
+  family: account_context
+  symbol_scope: all
+  timeframe: all
+  version: v001
+evaluator: ml.evaluators.classification.ClassificationEvaluator
+evaluator_config:
+  target_column: was_taken
+  threshold: 0.5
+  holdout_fraction: 0.2
+target_deployment_stage: research_only
+notes: |
+  WS5-F baseline. Per-strategy mean acceptance rate (was_taken
+  ratio) on `account_context`. Holdout 0.2. Not a candidate for
+  any live tier.
+  Leakage discipline: `pnl`, `pnl_percent`, `position_size`, and
+  `skip_reason` are post-decision outcomes; only signal-time
+  metadata (`strategy_name`, `setup_type`, `symbol`, `direction`,
+  `killzone`, `bias`) and mission-rule columns
+  (`account_state`, `target_profit_pct`, `max_dd_pct`,
+  `daily_usd_cap`, `pos_size_cap`, `risk_pct_setting`,
+  `overnight_restricted`) may be used as features.
