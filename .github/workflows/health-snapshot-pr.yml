@@ -193,9 +193,12 @@ jobs:
 
             **This PR auto-merges.** Once it lands on `main`, run
             `/health-review` from any Claude Code session on this repo
-            to produce the layer-2 review JSON (the autonomous routine
-            is currently paused — see operator decision 2026-05-10).
-            See [`docs/runbooks/health-check.md`](docs/runbooks/health-check.md)
+            to produce the layer-2 review JSON. The slash command
+            auto-picks the latest `comms/requests/REQ-*.json` — you
+            don't need to pass the request id unless you're reviewing
+            an older run. (Operator decision 2026-05-10: the
+            autonomous routine is paused, layer-2 is manual.) See
+            [`docs/runbooks/health-check.md`](docs/runbooks/health-check.md)
             for the full two-workflow design.
 
             Files in this PR:
@@ -247,16 +250,14 @@ jobs:
         # action-oriented — when auto-merge succeeds, the operator's
         # next step is to run `/health-review` from any Claude Code
         # session on this repo so the layer-2 review JSON gets
-        # produced. The autonomous routine is left wired (it's still
-        # subscribed to the PR-merge event) but is not the operator's
-        # primary path right now; operator decision 2026-05-10.
+        # produced. The slash command auto-picks the latest request
+        # so the REQ-id is informational only (parenthetical at the
+        # end of the message), not part of the imperative.
         #
         # Note: --auto QUEUES the merge, so this step's
         # `steps.automerge.outcome == "success"` only confirms the
         # queue request was accepted, not that the merge has happened.
-        # The actual merge happens later when checks pass; the next
-        # PR-merge event fires the routine subscription / trigger
-        # workflow, not this notify step.
+        # The actual merge happens later when checks pass.
         id: notify
         if: always() && steps.cpr.outputs.pull-request-number != ''
         env:
@@ -272,16 +273,16 @@ jobs:
           PIPELINE="${{ steps.analyze.outputs.pipeline_status }}"
           REQ_ID="${{ steps.review_request.outputs.request_id }}"
           if [ "${MERGE_OUTCOME:-skipped}" = "success" ]; then
-            phrase="auto-merge queued — once it lands, run /health-review ${REQ_ID} for the layer-2 review"
+            phrase="auto-merge queued — once it lands, run /health-review for the layer-2 review"
           else
-            phrase="open (auto-merge queue ${MERGE_OUTCOME:-skipped}) — merge the PR, then run /health-review ${REQ_ID}"
+            phrase="open (auto-merge queue ${MERGE_OUTCOME:-skipped}) — merge the PR, then run /health-review"
           fi
           # Capture the helper's exit code so the issue-driven path can
           # surface "Telegram ping arrived?" in the trigger-issue
           # comment without making telegram failure fatal to the run.
           set +e
           PYTHONPATH=. python scripts/notify_session.py alert \
-            --summary "Health review PR #${PR_NUM} ${phrase} (machine: ${STATUS:-UNKNOWN}, pipeline: ${PIPELINE:-unknown})" \
+            --summary "Health review PR #${PR_NUM} ${phrase} (machine: ${STATUS:-UNKNOWN}, pipeline: ${PIPELINE:-unknown}, latest req: ${REQ_ID})" \
             --link "$PR_URL"
           tg_rc=$?
           set -e
@@ -347,8 +348,8 @@ jobs:
             const reqId = process.env.REQUEST_ID || '<unknown>';
             const mergeOutcome = process.env.MERGE_OUTCOME || 'skipped';
             const mergeLine = mergeOutcome === 'success'
-              ? `✅ Auto-merge queued. Once the PR lands on \`main\`, run \`/health-review ${reqId}\` from any Claude Code session on this repo for the layer-2 review.`
-              : `⚠️ Auto-merge queue ${mergeOutcome} — merge the PR, then run \`/health-review ${reqId}\`.`;
+              ? `✅ Auto-merge queued. Once the PR lands on \`main\`, run \`/health-review\` from any Claude Code session on this repo for the layer-2 review (latest REQ: \`${reqId}\`).`
+              : `⚠️ Auto-merge queue ${mergeOutcome} — merge the PR, then run \`/health-review\` (latest REQ: \`${reqId}\`).`;
             const prLine = process.env.PR_NUMBER
               ? `PR #${process.env.PR_NUMBER} (${process.env.PR_OPERATION || 'opened/updated'}): ${process.env.PR_URL}`
               : '⚠️ No PR was opened/updated (peter-evans step produced no number).';
