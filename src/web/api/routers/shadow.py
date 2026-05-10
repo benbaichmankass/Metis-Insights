@@ -22,12 +22,13 @@ from __future__ import annotations
 
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 
+from ml.shadow.drift import compute_drift
 from ml.shadow.inspector import (
     aggregate,
     filter_records,
@@ -106,6 +107,79 @@ def predictions(
         for r in records
     ]
     return _envelope(log, rows)
+
+
+@router.get("/drift")
+def drift(
+    model_id: str = Query(..., description="model_id to slice on (drift is per-model)"),
+    stage: str | None = Query(default=None),
+    reference_days: float = Query(default=30.0, gt=0, le=365),
+    current_days: float = Query(default=7.0, gt=0, le=365),
+    bins: int = Query(default=10, ge=2, le=100),
+    score_min: float = Query(default=0.0),
+    score_max: float = Query(default=1.0),
+) -> dict[str, Any]:
+    """Window-over-window drift report (S-AI-WS8-PART-3).
+
+    Reference window = the ``reference_days`` immediately before
+    the current window. Current window = the most recent
+    ``current_days``. Both windows are non-overlapping and
+    anchored at "now".
+
+    Returns the summary stats for each window, KS statistic + PSI
+    score + per-metric verdict, and an ``overall_verdict``
+    (worst of the two). When either window is empty,
+    ``verdict == "insufficient_data"`` and no metrics are
+    computed.
+    """
+    if score_max <= score_min:
+        raise HTTPException(
+            status_code=400,
+            detail=f"score_max ({score_max}) must be > score_min ({score_min})",
+        )
+    log = _log_path()
+    now = datetime.now(timezone.utc)
+    current_start = now - timedelta(days=current_days)
+    reference_start = current_start - timedelta(days=reference_days)
+    all_records = list(filter_records(
+        iter_records(log), model_id=model_id, stage=stage,
+    ))
+    reference_scores = [
+        r.score for r in all_records
+        if reference_start <= r.predicted_at_utc < current_start
+    ]
+    current_scores = [
+        r.score for r in all_records
+        if r.predicted_at_utc >= current_start
+    ]
+    base_envelope = {
+        "log_present": log.is_file(),
+        "log_path": str(log),
+        "model_id": model_id,
+        "stage": stage,
+        "reference_window_start": reference_start.isoformat(),
+        "current_window_start": current_start.isoformat(),
+        "reference_count": len(reference_scores),
+        "current_count": len(current_scores),
+    }
+    if not reference_scores or not current_scores:
+        return {**base_envelope, "verdict": "insufficient_data"}
+    report = compute_drift(
+        reference_scores, current_scores,
+        bins=bins, score_min=score_min, score_max=score_max,
+    )
+    return {
+        **base_envelope,
+        "verdict": report.overall_verdict,
+        "reference_mean": report.reference.mean,
+        "current_mean": report.current.mean,
+        "reference_stdev": report.reference.stdev,
+        "current_stdev": report.current.stdev,
+        "ks": report.ks,
+        "ks_verdict": report.ks_verdict,
+        "psi": report.psi,
+        "psi_verdict": report.psi_verdict,
+    }
 
 
 @router.get("/stats")
