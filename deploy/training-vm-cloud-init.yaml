@@ -1,0 +1,124 @@
+#cloud-config
+# Cloud-init bootstrap for the ICT training-center VM (S-AI-WS9).
+#
+# This file is injected via OCI instance metadata `user_data`
+# (base64-encoded by scripts/ops/provision_training_vm.py).
+# Cloud-init applies on first boot. Anything in this file should
+# be IDEMPOTENT so a re-run on the same image is harmless.
+#
+# What we set up:
+#   - apt: python3.11, python3-pip, python3-venv, git, curl, jq
+#   - User: `ubuntu` already exists on the official Canonical image
+#     (the standard OCI user); no need to create it. SSH key is
+#     injected separately via OCI metadata (`ssh_authorized_keys`).
+#   - Project tree under /home/ubuntu/ict-trading-bot (parallel to
+#     the live VM layout). Cloned read-only; the training workflow
+#     pulls when it runs.
+#   - Systemd: `ict-trainer.service` UNIT FILE INSTALLED, but
+#     `enabled=false` and `started=false` by default. The operator
+#     opts in explicitly once the training cadence is decided.
+#     This keeps the VM idle by default — Always Free quota
+#     stays free.
+#   - Marker file: /etc/ict-trainer-vm.role with content
+#     `training-center`. Any future ops script can grep for this
+#     to distinguish the trainer from the live trader.
+
+package_update: true
+package_upgrade: false  # leave kernel patching to operator cadence
+
+packages:
+  - python3.11
+  - python3.11-venv
+  - python3-pip
+  - git
+  - curl
+  - jq
+  - rsync
+
+write_files:
+  - path: /etc/ict-trainer-vm.role
+    permissions: '0644'
+    owner: root:root
+    content: |
+      training-center
+      # ICT training-center VM marker (S-AI-WS9).
+      # If you see this file you are on the trainer, NOT the live trader.
+      # The live trader has /etc/ict-trader-vm.role with content `live-trader`
+      # (added separately when that VM was set up; absent on old images).
+
+  - path: /etc/systemd/system/ict-trainer.service
+    permissions: '0644'
+    owner: root:root
+    content: |
+      # ICT model training center service (S-AI-WS9).
+      #
+      # DISABLED BY DEFAULT. The operator opts in with:
+      #   sudo systemctl enable --now ict-trainer.service
+      #
+      # Defers to scripts/ops/run_training_cycle.sh inside the cloned
+      # repo. That script is the operator-facing entrypoint; it can
+      # call ml.cli, run experiment manifests, sync from the live VM,
+      # etc. The script does NOT yet exist on `main` — it's a
+      # placeholder filed for a follow-up PR. Until the script lands,
+      # `systemctl start ict-trainer.service` will fail loudly and
+      # the unit will stay inactive, which is the intended safety.
+      [Unit]
+      Description=ICT model training center (S-AI-WS9)
+      After=network-online.target
+      Wants=network-online.target
+
+      [Service]
+      Type=oneshot
+      User=ubuntu
+      WorkingDirectory=/home/ubuntu/ict-trading-bot
+      ExecStart=/bin/bash scripts/ops/run_training_cycle.sh
+      StandardOutput=journal
+      StandardError=journal
+
+      [Install]
+      WantedBy=multi-user.target
+
+  - path: /etc/systemd/system/ict-trainer.timer
+    permissions: '0644'
+    owner: root:root
+    content: |
+      # Optional timer for periodic training cycles. Also disabled
+      # by default. Operator enables with:
+      #   sudo systemctl enable --now ict-trainer.timer
+      [Unit]
+      Description=Periodic ICT model training cycle
+
+      [Timer]
+      OnCalendar=daily
+      RandomizedDelaySec=1h
+      Persistent=true
+
+      [Install]
+      WantedBy=timers.target
+
+runcmd:
+  # Idempotent repo clone. If the directory already exists (e.g.
+  # cloud-init re-run on an image with prior state) skip the clone.
+  - |
+    if [ ! -d /home/ubuntu/ict-trading-bot/.git ]; then
+      sudo -u ubuntu git clone \
+        https://github.com/benbaichmankass/ict-trading-bot.git \
+        /home/ubuntu/ict-trading-bot
+    fi
+  - chown -R ubuntu:ubuntu /home/ubuntu/ict-trading-bot
+  # Reload systemd so the unit + timer files are discovered, but
+  # do NOT enable or start them. Operator opt-in is the contract.
+  - systemctl daemon-reload
+  # Sanity check: print Python + repo state to /var/log/cloud-init-output.log
+  - python3.11 --version
+  - sudo -u ubuntu sh -c "cd /home/ubuntu/ict-trading-bot && git log -1 --oneline"
+
+final_message: |
+  ICT training-center VM bootstrap complete (S-AI-WS9).
+  Role marker: /etc/ict-trainer-vm.role
+  Repo: /home/ubuntu/ict-trading-bot
+  ict-trainer.service: installed, disabled.
+  ict-trainer.timer: installed, disabled.
+  Live trader status: this VM is NOT the live trader.
+  Operator enables training with:
+    sudo systemctl enable --now ict-trainer.service
