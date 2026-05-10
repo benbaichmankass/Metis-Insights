@@ -124,9 +124,21 @@ def _fetch_recently_closed(
     elif hasattr(db, "connect"):
         conn = db.connect()
         owned = True
-    else:
-        conn = sqlite3.connect(str(db))
+    elif isinstance(db, (str, os.PathLike)):
+        # S-CFI-FIX: only path-likes fall through to sqlite3.connect.
+        # Anything else used to land here too, and sqlite3 happily
+        # opened a database file at the object's repr() — leaving
+        # zero-byte files like "<sqlite3.Connection object at 0x...>"
+        # at whatever cwd the caller had. PR #658 leaked nine of
+        # those into the repo root.
+        conn = sqlite3.connect(os.fspath(db))
         owned = True
+    else:
+        raise TypeError(
+            "closed_flat_invariant._fetch_recently_closed: db must be a "
+            "sqlite3.Connection, a Database wrapper with .connect(), or "
+            f"a path-like (str / os.PathLike); got {type(db).__name__}"
+        )
     try:
         conn.row_factory = sqlite3.Row
         # Subquery handles the closed-at fallback. The notes JSON
