@@ -1,0 +1,26 @@
+# ICT shadow-prediction audit log rotation (S-AI-WS7-FU).
+#
+# DISABLED BY DEFAULT. The operator opts in with:
+#   sudo systemctl enable --now ict-shadow-log-rotate.timer
+#
+# Rotates runtime_logs/shadow_predictions.jsonl when it exceeds
+# size or age thresholds. Always exits 0 — log rotation must not
+# crash the system. Errors are journaled.
+#
+# Runs as the same user that writes the log (ubuntu, by convention).
+# Reads the working tree at /opt/ict-trading-bot/ (symlink to the
+# canonical clone). Idempotent — re-runs are safe.
+[Unit]
+Description=ICT shadow-prediction audit log rotation
+After=local-fs.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/opt/ict-trading-bot
+ExecStart=/usr/bin/python3 scripts/ops/rotate_shadow_log.py --gzip
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
