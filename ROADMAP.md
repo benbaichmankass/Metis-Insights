@@ -10,6 +10,10 @@
 > 3. This file (`ROADMAP.md`)
 > 4. The current sprint log in `docs/sprint-logs/`
 >
+> **Scope-specific master plans** (owned by individual milestones):
+> - M9 + M10 — [`docs/AI-TRADERS-ROADMAP.md`](docs/AI-TRADERS-ROADMAP.md)
+>   (AI traders models roadmap; expanded into WS1–WS10 below)
+>
 > Older `docs/claude/workplan.md` and `docs/workplan.md` are kept as
 > historical context. When they disagree with the canonical docs above,
 > the canonical docs win.
@@ -47,8 +51,41 @@
 | **M6** | auto-claude | Web app UI | Dashboard UI for pnl, status, open positions, logs, recent actions | 🔄 IN PROGRESS (dashboard repo) — S-014 V1 SPA shipped in `benbaichmankass/ict-trader-dashboard` (originally cut on the legacy `the-lizardking/...` namespace). Active wiring of mock-data feeds (equity chart, Active ICT Strategies, Trading Conditions) to live `/api/bot/*` data; positions and signals to follow. |
 | **M7** | pm-sprint | Strategy review gate | Review validation results: promote, hold, or kill | 📋 NOT STARTED |
 | **M8** | pm-sprint | Strategy tuning | Parameter review and approval-required strategy changes | 📋 NOT STARTED |
-| **M9** | auto-claude | AI / model roadmap | Model registry, current-model audit, training and performance tracking | 📋 NOT STARTED |
-| **M10** | auto-claude | HF / data pipeline | Dataset publishing, artifact packaging, reproducible research workflow | 📋 NOT STARTED |
+| **M9** | auto-claude | AI / model roadmap | Model registry, current-model audit, training and performance tracking. **Expanded by [`docs/AI-TRADERS-ROADMAP.md`](docs/AI-TRADERS-ROADMAP.md) into WS1, WS2, WS4, WS5, WS6, WS7, WS8, WS10 (see table below).** | 📋 NOT STARTED |
+| **M10** | auto-claude | HF / data pipeline | Dataset publishing, artifact packaging, reproducible research workflow. **Expanded by [`docs/AI-TRADERS-ROADMAP.md`](docs/AI-TRADERS-ROADMAP.md) into WS3 + WS9 (see table below).** | 📋 NOT STARTED |
+
+### M9 / M10 — AI traders workstreams (WS1–WS10)
+
+> Master plan: [`docs/AI-TRADERS-ROADMAP.md`](docs/AI-TRADERS-ROADMAP.md).
+> Sprint plans: [`docs/sprint-plans/ai-traders/`](docs/sprint-plans/ai-traders/).
+>
+> Implementation order: WS1 → WS2 → WS3 → WS4 → first WS5 baseline →
+> registry+promotion (WS4/WS7) → shadow mode (WS7) → rest of WS5 → WS6
+> → WS8 + WS10. WS9 is a continuous policy enforced from WS3 onwards.
+
+| WS | Title | Owns | Status | Sprint plan |
+|---|---|---|---|---|
+| **WS1** | Architecture baseline | M9 | 📋 NOT STARTED | [ws1-architecture-baseline.md](docs/sprint-plans/ai-traders/ws1-architecture-baseline.md) |
+| **WS2** | Canonical trade pipeline | M9 | 📋 NOT STARTED — blocked on WS1 | [ws2-canonical-pipeline.md](docs/sprint-plans/ai-traders/ws2-canonical-pipeline.md) |
+| **WS3** | Data foundation | M10 | 📋 NOT STARTED — can run parallel to WS2 once WS1 lands | [ws3-data-foundation.md](docs/sprint-plans/ai-traders/ws3-data-foundation.md) |
+| **WS4** | Training center | M9 | 📋 NOT STARTED — blocked on WS3 | [ws4-training-center.md](docs/sprint-plans/ai-traders/ws4-training-center.md) |
+| **WS5** | Baseline models | M9 | 📋 NOT STARTED — blocked on WS4 | [ws5-baseline-models.md](docs/sprint-plans/ai-traders/ws5-baseline-models.md) |
+| **WS6** | Open-source model layer | M9 | 📋 NOT STARTED — blocked on first WS5 baseline | [ws6-open-source-models.md](docs/sprint-plans/ai-traders/ws6-open-source-models.md) |
+| **WS7** | Deployment tiers | M9 | 📋 NOT STARTED — overlaps WS4 registry work | [ws7-deployment-tiers.md](docs/sprint-plans/ai-traders/ws7-deployment-tiers.md) |
+| **WS8** | Monitoring and feedback loops | M9 | 📋 NOT STARTED — schedule after first model in shadow mode | [ws8-monitoring-feedback.md](docs/sprint-plans/ai-traders/ws8-monitoring-feedback.md) |
+| **WS9** | Oracle / Hugging Face runtime split | M10 | 🔄 CONTINUOUS — policy of record from WS3 onwards | [ws9-runtime-split.md](docs/sprint-plans/ai-traders/ws9-runtime-split.md) |
+| **WS10** | Architecture-doc enforcement | M9 | 📋 NOT STARTED — schedule near WS8 / final close | [ws10-arch-doc-enforcement.md](docs/sprint-plans/ai-traders/ws10-arch-doc-enforcement.md) |
+
+**Non-negotiable rules** (apply to every WS sprint):
+
+- Do not weaken the live trading safety posture.
+- Do not run heavy training jobs on the Oracle live VM.
+- Do not introduce a model into live strategy logic without staged
+  promotion and explicit operator approval.
+- Do not let AI output bypass risk caps, broker validation, or
+  mission-aware account restrictions.
+- Architecture-changing code must update the architecture docs in the
+  same PR.
 
 ### Active milestone queue (next 3)
 
@@ -57,6 +94,10 @@ Per `docs/claude/milestone-state.md` "Queued milestones":
 1. **M6 — Web app UI (dashboard repo)** — Vercel SPA wiring of mock-data feeds (equity chart, Active ICT Strategies, Trading Conditions) to live `/api/bot/*` data; positions and signals to follow.
 2. **M5 P4 (optional) — backtest-history dashboard surface** — Tier-1 `GET /api/bot/backtests` + dashboard tab. Carved out of M5 close so the milestone could ship; ship when the dashboard repo is ready for the new tab.
 3. **Closed-flat invariant auto-flatten promotion** — gated on ≥ 7 days clean alert-only soak (started 2026-05-10).
+
+> **AI-traders queue note:** WS1 (architecture baseline) is the on-ramp
+> for M9 + M10 and is doc-only. It can be scheduled in parallel with the
+> queue above without competing for live-runtime risk surface.
 
 ### Repo and hosting boundary (MANDATORY)
 
@@ -152,6 +193,7 @@ feed; the dashboard is a pure consumer. See `docs/claude/workplan.md` § "Dashbo
 | **S-CANON-FU-1** | **Mark legacy `docs/claude/workplan.md` and `docs/workplan.md` superseded by the S-CANON-1 canonical doc set.** Top-of-file banner on both; updates to `milestone-state.md`, `ci-status-checks.md`, `next-session-prompt.md`, `bug-log-pending/README.md` to cite the canonical rules doc instead of the workplan. Historical body text preserved intact. Logged in `docs/sprint-logs/S-CANON-FU-1-workplan-superseded.md`. | ✅ Done 2026-05-10 (this PR) | Meta/docs |
 | **S-CANON-FU-2** | **Wire `closed_flat_invariant.check` into `run_monitor_tick`** behind `CLOSED_FLAT_INVARIANT_ENABLED` env (default false). Applies the documented 3-line patch from `docs/claude/closed-flat-invariant-phase2-wiring.md`; adds `tests/test_closed_flat_wiring_call_site.py` to pin the call-site behavior. Tier 2 — DRAFT pending operator ack; env stays unset on the VM until the operator flips it for the 7-day alert-only soak. Logged in `docs/sprint-logs/S-CANON-FU-2-cfi-wiring.md`. | 🔄 DRAFT 2026-05-10 (this PR, awaiting operator ack) | M3 |
 | **S-CANON-FU-3** | **Enable branch-protection-sync on `main`.** Workflow file is correct and `REQUIRED_CONTEXTS=["pytest-collect","secret-scan","ruff-lint","dry-run-guard"]` matches the actual job IDs (verified). Operator-gated work remaining: create the fine-grained PAT, add `BRANCH_PROTECTION_TOKEN` secret, dispatch one run, open a trivial-doc test PR. Doc updates: stale owner-ref fix in `ci-status-checks.md` § Verify + new status subsection. Logged in `docs/sprint-logs/S-CANON-FU-3-branch-protection.md`. | 🔄 PARTIAL 2026-05-10 (this PR) — operator-gated steps pending | M4 |
+| **S-AI-ROADMAP** | **AI traders models roadmap adopted.** New master plan at `docs/AI-TRADERS-ROADMAP.md` expands M9 + M10 into WS1–WS10. Seeds sprint-plan files for each workstream under `docs/sprint-plans/ai-traders/`. Doc-only; live runtime untouched. | 🔄 IN PROGRESS 2026-05-10 (this PR) | M9, M10 |
 
 > **Sprint number note:** S-036..S-040 burned per
 > `docs/claude/workplan.md` § "Sprint and checkpoint numbering".
@@ -187,6 +229,11 @@ Full spec: [`docs/claude/recurring-sessions.md`](docs/claude/recurring-sessions.
 ## Sprint File Naming Convention
 
 `docs/sprints/sprint-NNN-prompt.md`
+
+AI-traders workstream sprint plans live under
+`docs/sprint-plans/ai-traders/wsN-<slug>.md`. When a workstream is
+scheduled as one or more concrete sprints, record the `S-NNN` mapping in
+the workstream file.
 
 ---
 
