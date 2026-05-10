@@ -10,7 +10,7 @@ various sources to choose from — we should have capacity to intake
 different types from different sources and normalize it to the
 training center format."
 """
-from .base import CANONICAL_COLUMNS, MarketRawAdapter
+from .base import CANONICAL_COLUMNS, CANONICAL_SCHEMA, MarketRawAdapter
 from .bybit_offvm import BybitOffvmMarketRawAdapter
 from .csv import CsvMarketRawAdapter
 from .registry import ADAPTER_REGISTRY, get_adapter, list_adapters
@@ -19,6 +19,7 @@ __all__ = [
     "ADAPTER_REGISTRY",
     "BybitOffvmMarketRawAdapter",
     "CANONICAL_COLUMNS",
+    "CANONICAL_SCHEMA",
     "CsvMarketRawAdapter",
     "MarketRawAdapter",
     "get_adapter",
