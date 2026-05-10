@@ -20,6 +20,7 @@ from src.web.api.routers import pnl as pnl_router
 from src.web.api.routers import pnl_exchange as pnl_exchange_router
 from src.web.api.routers import pnl_fragment as pnl_fragment_router
 from src.web.api.routers import pnl_history as pnl_history_router
+from src.web.api.routers import shadow as shadow_router
 from src.web.api.routers import status as status_router
 from src.web.api.routers import status_fragment as status_fragment_router
 from src.web.api.routers import trades_closed as trades_closed_router
@@ -52,6 +53,7 @@ app.include_router(trades_closed_router.router)
 app.include_router(backtests_router.router)
 app.include_router(pnl_exchange_router.router)
 app.include_router(diag_router.router)
+app.include_router(shadow_router.router)
 
 
 @app.get("/api/health", tags=["health"])

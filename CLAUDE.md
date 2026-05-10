@@ -63,6 +63,8 @@ VPS (systemd)
                                    ├── /api/bot/config   ← Vercel dashboard (S-064)
                                    ├── /api/bot/trades/closed ← Vercel dashboard (#557)
                                    ├── /api/bot/backtests← Vercel dashboard (M5 P4)
+                                   ├── /api/bot/shadow/predictions ← Vercel dashboard (S-AI-WS8-PART-2)
+                                   ├── /api/bot/shadow/stats       ← Vercel dashboard (S-AI-WS8-PART-2)
                                    ├── /api/pnl/history  ← Vercel dashboard (S-063, no-session)
                                    ├── /api/pnl
                                    ├── /api/status
@@ -92,6 +94,7 @@ src/
         liquidity.py    — /api/bot/liquidity (S-064)
         trades_closed.py — /api/bot/trades/closed (#557)
         backtests.py    — /api/bot/backtests (M5 P4)
+        shadow.py       — /api/bot/shadow/{predictions,stats} (S-AI-WS8-PART-2)
         diag.py         — /api/diag/* endpoints (S-051, token-gated read)
         pnl.py          — /api/pnl
         pnl_history.py  — /api/pnl/history (S-063, no-session)
@@ -120,6 +123,8 @@ Unauthenticated GET routes — Tier 1 read surface. See
 | `GET /api/bot/config` | effective config view (S-064) | `config/accounts.yaml` + `config/strategies.yaml` + `runtime_logs/runtime_status.json`; secrets redacted |
 | `GET /api/bot/trades/closed?limit=N&since=ISO_TS` | `ClosedTrade[]` (#557) | `trade_journal.db::trades` filtered to closed + non-backtest, joined to `order_packages` for the closed-at proxy |
 | `GET /api/bot/backtests?limit=N&strategy=X` | `BacktestRun[]` (M5 P4) | `trade_journal.db::backtest_results` (M5 consumer writes one row per `/test <strategy>`); newest-first by id; headline metrics only |
+| `GET /api/bot/shadow/predictions?limit=N&model_id=X&stage=X&since=ISO` | envelope `{log_present, log_path, records[], count}` (S-AI-WS8-PART-2) | `runtime_logs/shadow_predictions.jsonl` (WS7 audit log); newest-first; reuses `ml.shadow.inspector` |
+| `GET /api/bot/shadow/stats?model_id=X&stage=X&since=ISO` | envelope `{log_present, log_path, records[], count}` per-`(model_id, stage)` aggregate (S-AI-WS8-PART-2) | same log; aggregated via `ml.shadow.inspector.aggregate` |
 | `GET /api/pnl/history?days=N` | `PnlHistoryPoint[]` (S-063) | `trade_journal.db` (closed trades, realised PnL per UTC day) |
 
 ### `BotStats` shape
