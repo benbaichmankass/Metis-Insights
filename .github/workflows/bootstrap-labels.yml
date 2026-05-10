@@ -91,6 +91,16 @@ jobs:
                 color: 'd73a4a',
                 description: 'Triggers provision-training-vm workflow — Always Free Ampere A1 VM for the model training center (S-AI-WS9). Tier-3.',
               },
+              {
+                name: 'doc-audit-now',
+                color: 'cfd3d7',
+                description: 'Triggers doc-audit-weekly workflow on demand. Audits ARCHITECTURE-CANONICAL.md verification checklist for drift.',
+              },
+              {
+                name: 'doc-drift',
+                color: 'fbca04',
+                description: 'Marker label on issues opened by doc-audit-weekly when the architecture doc references stale paths.',
+              },
             ];
             for (const l of LABELS) {
               try {

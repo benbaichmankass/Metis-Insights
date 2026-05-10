@@ -1,0 +1,139 @@
+name: doc-audit-weekly
+
+# Weekly architecture-doc drift detector (S-AI-WS10 follow-up).
+#
+# Runs scripts/ops/audit_verification_checklist.py against the
+# current main HEAD. If any [x] line in
+# docs/ARCHITECTURE-CANONICAL.md § "Verification Checklist" names a
+# path that no longer exists, files an issue tagged `doc-drift`.
+#
+# Triggers:
+#   1. schedule — Mondays at 12:00 UTC (chosen for low-traffic
+#      weekday morning).
+#   2. workflow_dispatch — operator clicks "Run workflow" for an
+#      on-demand audit.
+#   3. issues.opened with label `doc-audit-now` — Claude sessions
+#      fire an audit autonomously by opening a labelled issue.
+#
+# Idempotency: the issue title encodes the audit date so re-running
+# on the same day reuses the same title (GitHub allows duplicates,
+# so the workflow first searches for an open issue with the
+# computed title and skips creation if one exists).
+
+on:
+  schedule:
+    - cron: "0 12 * * 1"  # Mondays 12:00 UTC
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Why run on-demand (audit trail)"
+        required: false
+        default: "manual operator audit"
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: doc-audit-weekly
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    if: |
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'doc-audit-now'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run audit
+        id: audit
+        run: |
+          python scripts/ops/audit_verification_checklist.py > audit.json
+          echo "---audit.json---"
+          cat audit.json
+          missing=$(python -c 'import json; print(len(json.load(open("audit.json"))["missing"]))')
+          echo "missing=${missing}" >> "$GITHUB_OUTPUT"
+
+      - name: File issue on drift
+        if: steps.audit.outputs.missing != '0'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const report = JSON.parse(fs.readFileSync('audit.json', 'utf8'));
+            const today = report.audited_at_utc.slice(0, 10);
+            const title = `[doc-drift] Architecture verification checklist out of sync (${today})`;
+            // Avoid duplicate-on-same-day: search for an open issue
+            // with the exact title before creating.
+            const existing = await github.rest.search.issuesAndPullRequests({
+              q: `repo:${context.repo.owner}/${context.repo.repo} is:issue is:open in:title "${title}"`,
+            });
+            if (existing.data.total_count > 0) {
+              core.info(`already-open issue with same title; skipping create.`);
+              return;
+            }
+            const rows = report.missing.map(m =>
+              `- line ${m.line}: \`${m.path}\` — ${m.description}`
+            ).join('\n');
+            const body = [
+              "Weekly architecture-doc audit found that the Verification",
+              "Checklist in `docs/ARCHITECTURE-CANONICAL.md` no longer",
+              "matches the codebase.",
+              "",
+              `**Audited at**: ${report.audited_at_utc}`,
+              `**Doc**: ${report.doc_path}`,
+              `**Checked**: ${report.checked} \`[x]\` lines`,
+              `**Drifted**: ${report.missing.length}`,
+              "",
+              "## Missing paths",
+              "",
+              rows,
+              "",
+              "## What to do",
+              "",
+              "Either update the doc (the path actually moved / was",
+              "renamed) or restore the file (the path was deleted in error).",
+              "Close this issue once resolved.",
+            ].join('\n');
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body,
+              labels: ['doc-drift'],
+            });
+
+      - name: Comment on triggering issue
+        if: github.event_name == 'issues'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const report = JSON.parse(fs.readFileSync('audit.json', 'utf8'));
+            const summary = report.missing.length === 0
+              ? `Audit clean — ${report.checked} verified, 0 drift.`
+              : `Audit found ${report.missing.length} drift(s) out of ${report.checked} checks. See newly-created \`doc-drift\` issue.`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: summary,
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              state: 'closed',
+            });
