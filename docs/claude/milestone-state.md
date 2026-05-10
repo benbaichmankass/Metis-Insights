@@ -36,26 +36,37 @@ When opening a session:
 
 | Field | Value |
 |---|---|
-| **Milestone** | (between sprints — S-067 just closed 2026-05-10; S-047 T6 next per workplan queue) |
+| **Milestone** | (between sprints — S-067 + Phase-2 follow-ups closed 2026-05-10; S-047 T6 next per workplan queue) |
 | **Title** | S-067 — Silent-empty error path audit & hardening |
-| **Type** | ad-hoc, triggered by 2026-05-10 24h trade-performance review. Tier 1 / infra (every PR self-merged). |
+| **Type** | ad-hoc, triggered by 2026-05-10 24h trade-performance review. Tier 1 / infra (every PR self-merged) + 2 Tier 2 PRs (operator-acked) for the Phase-2 close-out. |
 | **Goal** | Audit every `except Exception` / `except sqlite3.Error` / bare-except site under `src/web/api/`, `src/web/runtime_status.py`, `src/units/db/`, and the read-path slice of `src/runtime/`; convert trust-corroding sentinels to loud failures; add log calls to borderline sites; ship a CI guard so the pattern can't come back. Generalises the bug class hardened in PRs #627 (`/positions` returned `[]` for endpoint lifetime) and #629 (`/signals` dropped `price`). |
-| **Status** | ✅ CLOSED 2026-05-10 — 5 work-PRs merged (#642, #643, #644, #645, #646) + this CP-5 sprint-close PR. |
-| **Active sprint** | (none — S-067 closed) |
-| **Active checkpoint** | `CP-2026-05-10-01-s067-complete` (this PR) |
-| **Risk tier** | Tier 1 / infra throughout. No live-order-path edits, no env-gate changes, no config edits. |
-| **Definition of done** | Audit doc filed; every § 1 trust-corroding site fixed with regression test; every § 2 borderline site logged; CI lint guard wired; sprint summary, bug-log entry, testing-policy update, milestone-state advance — all shipped. |
+| **Status** | ✅ CLOSED 2026-05-10 — sprint (5 work-PRs #642/#643/#644/#645/#646 + sprint-close PR), follow-up queue (10 PRs #650-#660), and Phase-2 close-out (8 PRs #661/#663/#664/#666/#668/#669/#672/#675) all merged. |
+| **Active sprint** | (none — S-067 Phase-2 closed) |
+| **Active checkpoint** | `CP-2026-05-10-04-s067-phase2-followups` (standalone file in `docs/claude/checkpoints/` pending fold-in into `CHECKPOINT_LOG.md` by the next session with local clone access) |
+| **Risk tier** | Tier 1 / infra throughout for the original sprint + 6 of 8 Phase-2 PRs. The 2 Tier-2 Phase-2 PRs (closed-flat invariant wiring helper #672, env-gate survivor regressions #675) shipped under operator ack 2026-05-10. |
+| **Definition of done** | Audit doc filed; every § 1 trust-corroding site fixed with regression test; every § 2 borderline site logged; CI lint guard wired; sprint summary, bug-log entry, testing-policy update, milestone-state advance — all shipped. Phase-2 narrowings + FIFO P&L + closed-flat wiring helper + env-gate survivor regressions all merged. |
+
+> **Phase-2 close-out (2026-05-10 evening):** the 4 Phase-2 follow-ups
+> filed in `CP-2026-05-10-03` plus items A and B from the original
+> follow-up backlog all shipped under operator ack. 8 PRs merged in
+> the same session: D1 (#661), D2 (#663), D3 (#664), D4 (#666), C
+> (#668), wrap-up CP (#669), A (#672), B (#675). Items A and B carry
+> small operator-applied patch documents
+> (`docs/claude/closed-flat-invariant-phase2-wiring.md`,
+> `docs/claude/env-gate-purge-phase2-annotations.md`) for the
+> remaining 1-3 line in-place edits to `order_monitor.py` /
+> `pipeline.py` that the autonomous session couldn't push because of
+> the ~100KB MCP `create_or_update_file` round-trip limit.
 
 > **S-067 hand-off (2026-05-10):** the next session should pick the next
 > queued milestone (S-047 T6 — live smoke + runbook) per workplan order.
 > If picking from the S-067 follow-up list instead (per
 > `docs/sprints/sprint-067-prompt.md` § 8 / `docs/sprint-summaries/sprint-067-summary.md`
-> § Hand-off), priority is: (1) test fixture extraction, (2) verify
-> `/api/bot/trades/closed` end-to-end (already exists in
-> `src/web/api/routers/trades_closed.py`), (3) closed → exchange-flat
-> invariant reconciler (Tier 2 — needs operator ack pre-merge), then the
-> Tier-2 process-wide env-gate purge / Tier-1 deploy contract / exchange-fills
-> attribution / daily one-trade audit chain.
+> § Hand-off), the original 4 Phase-2 follow-ups (D + C) shipped in
+> the 2026-05-10 evening close-out. **First action of the next
+> session with local clone access:** apply the 2 patch docs above
+> + fold `CP-2026-05-10-04-s067-phase2-followups.md` into
+> `CHECKPOINT_LOG.md`.
 
 > **S-065 deferred (2026-05-09):** dashboard sprint E (controls phase 1
 > + login flow) deferred per operator. Login scope decision was
@@ -106,10 +117,11 @@ When opening a session:
 
 ## M0..M10 status table
 
-> Last verified: 2026-05-10 (S-067 sprint close — read-path silent-empty
-> patterns swept across `src/web/api/`, `src/web/runtime_status.py`,
-> `src/units/db/`, and the read-path slice of `src/runtime/`; CI lint
-> guard added). Prior verification: 2026-05-08 (S-048 fresh re-issue).
+> Last verified: 2026-05-10 (S-067 Phase-2 close-out — 8 PRs merged
+> covering the 4 D narrowings, FIFO P&L, the wrap-up CP, the
+> closed-flat invariant wiring helper, and the env-gate survivor
+> regressions). Prior verification: 2026-05-10 (S-067 sprint close +
+> follow-up queue close).
 > "Verified" = on-disk artifacts checked before accepting any prior
 > "done" label.
 
@@ -117,10 +129,10 @@ When opening a session:
 |---|---|---|---|
 | **M0** | Workflow foundation | ✅ CLOSED | S0 sprint done; `docs/sprint-summaries/sprint-S0-summary.md` exists; CP-2026-05-06-S0-02 in checkpoint log |
 | **M1** | Comms infrastructure | ✅ CLOSED | S-048 fresh audit closed on `claude/update-roadmap-status-ZnLM9`. Audit verdict: PARTIAL, no P0. P1-A (workplan correction) landed there same-session. P1-B (stuck-request recovery alerts), P1-C (auto-hourly snapshot timer), P1-D (`/new_session` + `/test` commands) closed 2026-05-08 on `claude/review-roadmap-hIO75`. P2 hygiene cluster filed for a future Janitor sprint per `docs/audits/M1-comms-audit-followups-fresh.md`. |
-| **M2** | Web app source of truth (backend) | ✅ CLOSED | S-013 FastAPI backend (`/api/status`, `/api/pnl`, JWT auth). S-014 added `/api/bot/{stats,logs,positions,signals}` for the Vercel dashboard + CORS middleware keyed to `DASHBOARD_ORIGIN`. Dashboard reachability fix landed 2026-05-07 (Vercel rewrite proxies `/api/bot/*` to the bot, defeats HTTPS→HTTP mixed-content block). M2 formally closed 2026-05-08 alongside the M1 P1-A..D follow-ups — backend work was already shipped, this close-out is paperwork-only (no new code). The diagnostic surface (`/api/diag/*`) is a separate workstream and stays out of M2 scope. **S-067 (2026-05-10)** swept silent-empty error paths across the M2 surface (`/api/bot/{stats,logs,positions,signals,config}`, `/api/diag/*`, `/api/pnl*`) — read-path integrity hardened, CI lint guard added. |
-| **M3** | Risk controls foundation | ✅ CLOSED | S-043 closed 2026-05-06. Order-layer refusal tests now complete (28 new gap-closer tests in `tests/test_s043_order_refusal_paths.py`). Risk engine + kill switch + risk caps + reason-token contract all pinned. |
-| **M4** | Repo hygiene + CI | ✅ CLOSED | S-044 (CI suite) ✅; S-045 (conftest + pytest-collect blocking + ruff default) ✅; post-S-045 follow-up (auto-sync branch protection workflow) ✅; S-046 (2026-05-07) closed the three Janitor audits. **S-067 (2026-05-10)** added the `silent-empty-guard` workflow + `scripts/check_silent_empty_in_diff.py` lint script — read-path discipline now enforced in CI alongside `dry-run-guard`, `ruff-lint`, `secret-scan`. M4 formally closed. |
-| **M5** | Strategy testing workflow | 📋 NOT STARTED (paused) | Telegram-triggered test flow, validation logging, backtest workflow docs not yet built. **Paused** behind S-047 T6. The bot-side dispatch surface for `/test <strategy>` is now in place via M1 P1-D — M5 only needs to wire the artifact consumer. |
+| **M2** | Web app source of truth (backend) | ✅ CLOSED | S-013 FastAPI backend (`/api/status`, `/api/pnl`, JWT auth). S-014 added `/api/bot/{stats,logs,positions,signals}` for the Vercel dashboard + CORS middleware keyed to `DASHBOARD_ORIGIN`. Dashboard reachability fix landed 2026-05-07 (Vercel rewrite proxies `/api/bot/*` to the bot, defeats HTTPS→HTTP mixed-content block). M2 formally closed 2026-05-08 alongside the M1 P1-A..D follow-ups — backend work was already shipped, this close-out is paperwork-only (no new code). The diagnostic surface (`/api/diag/*`) is a separate workstream and stays out of M2 scope. **S-067 (2026-05-10)** swept silent-empty error paths across the M2 surface (`/api/bot/{stats,logs,positions,signals,config}`, `/api/diag/*`, `/api/pnl*`) — read-path integrity hardened, CI lint guard added. **S-067 Phase-2 (2026-05-10 close-out)** added FIFO realised + unrealised P&L to `/api/bot/pnl/exchange` (#668) — strictly additive wire-shape; existing dashboard readers unaffected. |
+| **M3** | Risk controls foundation | ✅ CLOSED | S-043 closed 2026-05-06. Order-layer refusal tests now complete (28 new gap-closer tests in `tests/test_s043_order_refusal_paths.py`). Risk engine + kill switch + risk caps + reason-token contract all pinned. **S-067 Phase-2 B (2026-05-10)** added per-survivor static-AST regression tests pinning that `MULTI_ACCOUNT_DISPATCH` and `MONITOR_RECONCILE_ENABLED` env gates do **not** bypass `RiskManager.evaluate` (#675). |
+| **M4** | Repo hygiene + CI | ✅ CLOSED | S-044 (CI suite) ✅; S-045 (conftest + pytest-collect blocking + ruff default) ✅; post-S-045 follow-up (auto-sync branch protection workflow) ✅; S-046 (2026-05-07) closed the three Janitor audits. **S-067 (2026-05-10)** added the `silent-empty-guard` workflow + `scripts/check_silent_empty_in_diff.py` lint script — read-path discipline now enforced in CI alongside `dry-run-guard`, `ruff-lint`, `secret-scan`. **S-067 Phase-2 (2026-05-10)** added the env-gate-guard workflow (#659) + the env-gate survivor static-AST tests (#675). M4 formally closed. |
+| **M5** | Strategy testing workflow | 📋 NOT STARTED (paused) | Telegram-triggered test flow, validation logging, backtest workflow docs not yet built. **Paused** behind S-047 T6. The bot-side dispatch surface for `/test <strategy>` is now in place via M1 P1-D — M5 only needs to wire the artifact consumer. PR #640 (M5 P3 close-out) open with merge conflicts on `main`; awaiting operator/local-clone resolution. |
 | **M6** | Web app UI | 🔄 IN PROGRESS (dashboard repo) | S-014 V1 React/Vite SPA shipped 2026-05-07 in `the-lizardking/ict-trader-dashboard`. **S-015 V2 plan scratched 2026-05-07** per operator. Dashboard connection fix (Vercel rewrite of `/api/bot/*` to bot VPS) landed the same day. **In active session 2026-05-08** on dashboard branch `claude/update-roadmap-status-ZnLM9` — wiring mock-data feeds (equity chart, Active ICT Strategies, Trading Conditions) to live `/api/bot/*` data; positions and signals to follow. |
 | **M7** | Strategy review gate | 📋 NOT STARTED | |
 | **M8** | Strategy tuning | 📋 NOT STARTED | |
@@ -151,6 +163,7 @@ When opening a session:
 | **S-066 — Janitor: M1 P2 hygiene cluster close-out (docs only)** | **2026-05-09** | (this PR's checkpoint) | `docs/audits/M1-comms-audit-followups-fresh.md` § P2 |
 | **S-067 — Silent-empty error path audit & hardening** (5 work-PRs + sprint-close PR; trust-corroding fixes + log-only borderline batch + CI lint guard; BUG-065) | **2026-05-10** | `CP-2026-05-10-01-s067-complete` (folded into `CHECKPOINT_LOG.md`) | `docs/sprint-summaries/sprint-067-summary.md` |
 | **S-067 follow-up queue (10 items)** — fixture extraction (#650), trades-closed verify (#650 + dashboard #11), deploy restart contract + `/api/diag/version` (#651), exchange-fills attribution Phase 1 (#652), BUG-065 fold-in (#653), `_vm_health` consolidation (#654), daily one-trade audit auto-task (#655), hourly_report/boot_audit audit (#656), closed-flat invariant Phase 1 Tier 2 (#658), env-gate purge Phase 1 Tier 2 (#659). 4 Phase-2 follow-ups filed; one operator ack collected mid-session for the two Tier 2 DRAFTs. | **2026-05-10** | `CP-2026-05-10-03-s067-followups-wrap-up` | (no sprint summary — queue closure documented in CP) |
+| **S-067 Phase-2 close-out (8 PRs)** — D1 boot_audit None-on-failure (#661), D2 list_accounts narrowing (#663), D3 strategy_dashboard narrowing (#664), D4 run_all_checks unknown sentinel (#666), C exchange-fills FIFO realised + unrealised P&L (#668), wrap-up CP (#669), A closed-flat invariant wiring helper + patch doc Tier 2 (#672), B env-gate survivor regressions + patch doc Tier 2 (#675). Items A + B include patch documents for the small in-place edits to `order_monitor.py` and `pipeline.py` that the autonomous session's MCP push couldn't apply directly (file size limit). | **2026-05-10** | `CP-2026-05-10-04-s067-phase2-followups` (standalone file pending fold-in) | `docs/claude/checkpoints/CP-2026-05-10-04-s067-phase2-followups.md` |
 
 > Pre-M0..M10 roadmap progress (S-000 through S-040) is captured in `ROADMAP.md`
 > under "Historical Sprint Ledger". From M0 forward, every closed milestone gets a row here.
@@ -165,12 +178,17 @@ In execution order. Each row lists the gating condition to start.
 |---|---|---|---|
 | 1 | **S-047 T6 — end-to-end live smoke + runbook** (D8) | ad-hoc (live-trading) | None — ready to start. Live smoke needs Bybit web-UI Spot Margin toggle ON for `bybit_2`. |
 | 2 | **S-047 T7 — sprint close** (milestone-state + bug-log + summary) | docs-only (Tier 1) | T6 closes. |
-| 3 | M5 — Strategy testing workflow | auto-claude | S-047 closes. `/test <strategy>` bot-side dispatch surface now in place via M1 P1-D; M5 wires the artifact consumer. |
+| 3 | M5 — Strategy testing workflow | auto-claude | S-047 closes. `/test <strategy>` bot-side dispatch surface now in place via M1 P1-D; M5 wires the artifact consumer. PR #640 (M5 P3 close-out) open with conflicts on `main`; resolve as the first action when M5 picks up. |
 | 4 | M6 — Web app UI (dashboard repo) | auto-claude | **In active session 2026-05-08** in `the-lizardking/ict-trader-dashboard`. |
 | 5 | M9 — AI / model roadmap | auto-claude | Independent of M5/M6. Could run in parallel. |
 | 6 | M10 — HF / data pipeline | auto-claude | Independent of M5/M6. Could run in parallel. |
 | 7 | **S-050-followup — Phase-3 HTF reference 4h → 1h EMA-200** (Tier 2, PM-review) | strategy-improvement | ≥ 30 days of Phase-2 live metrics on the HTF gate (S-050 shipped 2026-05-09). Expected +0.4 Sharpe lift on top of Phase-2 per V3 in `experiments/2026-05-08-all-models-training/`. |
-| 8 | **S-067 Phase-2 follow-ups** (4 items filed in `CP-2026-05-10-03`): closed-flat invariant tick-loop wiring + auto-flatten flag (Tier 2); env-gate purge Phase-2 annotations (Tier 2); FIFO lot-matching for exchange P&L (Tier 1); 4 borderline narrowings in hourly_report/boot_audit (Tier 1). | mixed Tier 1 + Tier 2 | Phase-1 of all four items shipped 2026-05-10. Independent of S-047. Pick from this list when read-path / observability work is up. |
+| 8 | **Closed-flat invariant auto-flatten promotion** (Tier 2) | observability → live action | ≥ 7 days clean alert-only soak after operator applies the wiring patch + flips `CLOSED_FLAT_INVARIANT_ENABLED=true` per `docs/claude/closed-flat-invariant-phase2-wiring.md`. After clean soak, file the per-account `closed_flat_auto_flatten` flag PR. |
+
+> S-067 Phase-2 follow-ups (the original row 8) — closed 2026-05-10
+> evening with the 8-PR Phase-2 close-out. Replaced in row 8 above with
+> the auto-flatten promotion follow-on (gated on the 7-day soak after
+> the operator applies the closed-flat invariant wiring patch).
 
 > M2 (Web app source of truth) — closed 2026-05-08 (paperwork-only;
 > backend had already shipped under S-013 + S-014). Not a blocker for
