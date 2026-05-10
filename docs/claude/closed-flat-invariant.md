@@ -139,9 +139,23 @@ which:
   eventual safety net during the soak.
 
 The env var is **not** set in any deploy or config file. The
-operator flips `CLOSED_FLAT_INVARIANT_ENABLED=true` directly on
-the VM after merging this DRAFT, then begins the 7-day soak
-described in § Soak plan.
+soak is started and rolled back via the canonical operator-actions
+GitHub workflow — no SSH-from-laptop required:
+
+* **Start the soak:** dispatch `enable-closed-flat-invariant`
+  (Tier 2). Wrapper:
+  `scripts/ops/enable_closed_flat_invariant.sh` — atomic write
+  of `CLOSED_FLAT_INVARIANT_ENABLED=true` to
+  `/home/ubuntu/ict-trading-bot/.env`, then
+  `systemctl restart ict-trader-live.service`.
+* **Roll back:** dispatch `disable-closed-flat-invariant`. Strips
+  the env line from `.env` and restarts the trader. Symmetric
+  companion of the enable action.
+
+Both actions are allowlisted in
+`.github/workflows/operator-actions.yml` and follow the same
+audit + Telegram-notify shape as `restart-bot-service`. See
+`docs/claude/operator-actions.md` for the dispatch flow.
 
 Verification:
 
@@ -152,9 +166,16 @@ Verification:
   orphan-reconciler hook and that the gate short-circuit holds at
   the integration point.
 
-Rollback: revert the 9-line block added to
-`src/runtime/order_monitor.py::run_monitor_tick` (the block
-is bracketed by the `# S-067 follow-up #3 Phase-2` comment).
+Rollback paths, in order of cost:
+
+1. **Soft rollback (preferred):** dispatch
+   `disable-closed-flat-invariant`. Tick-loop call site stays in
+   place; the helper short-circuits on the missing env var and the
+   trader returns to pre-soak behaviour after the restart.
+2. **Hard rollback (only if the wrapper itself is at fault):**
+   revert the 9-line block added to
+   `src/runtime/order_monitor.py::run_monitor_tick` (the block
+   is bracketed by the `# S-067 follow-up #3 Phase-2` comment).
 
 ## Output: `runtime_logs/invariant_violations.jsonl`
 
@@ -179,16 +200,21 @@ line.
 1. Land this PR (module + tests + memo, no tick-loop wiring).
 2. Operator reviews; approves.
 3. Land the wiring PR (small, just adds the call site + the env
-   gate).
-4. On the live VM, set `CLOSED_FLAT_INVARIANT_ENABLED=true` (still
-   alert-only — there's no auto-flatten path yet).
+   gate). [done — PR #679, 2026-05-10]
+4. Dispatch the `enable-closed-flat-invariant` operator action
+   (Tier 2). The action atomically sets
+   `CLOSED_FLAT_INVARIANT_ENABLED=true` in
+   `/home/ubuntu/ict-trading-bot/.env` and restarts
+   `ict-trader-live.service`. Still alert-only — there's no
+   auto-flatten path yet.
 5. 7-day soak. Operator monitors `runtime_logs/invariant_violations.jsonl`
    and Telegram alerts.
 6. **If clean for 7 days:** file the phase-2 PR adding the
    per-account auto-flatten flag.
 7. **If alerts fire:** investigate root cause first; the alert
    itself proves the invariant is working as designed but means
-   the close path has bugs to fix.
+   the close path has bugs to fix. Soft rollback during
+   investigation: dispatch `disable-closed-flat-invariant`.
 
 ## Trade #1049 retrospective
 
