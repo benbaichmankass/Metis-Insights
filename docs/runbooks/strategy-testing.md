@@ -313,4 +313,4 @@ wiring.
 - [`comms/README.md`](../../comms/README.md) — operator-facing comms TL;DR (auto-consumer table at the top).
 - [`docs/claude/comms-architecture.md`](../claude/comms-architecture.md) § 11 — the artifact contract.
 - [`docs/runbooks/live-smoke-test.md`](live-smoke-test.md) — analogous shape for the live-trade smoke pipeline.
-- M5 PRs: #637 (P1 closed loop), #639 (P2 hardening), this PR (P3 docs), and the queued P4 dashboard surface.
+- M5 PRs: #637 (P1 closed loop), #639 (P2 hardening), #640 (P3 docs), #689 (P4 — `GET /api/bot/backtests` Tier-1 endpoint) + dashboard `#12` (Backtests tab consuming the feed). Wire-shape correction trail: #699 stringified `id` for cross-endpoint consistency with `trades_closed` + `positions`; companion dashboard PRs `#14` + `#17` aligned `BacktestRun` types accordingly.
