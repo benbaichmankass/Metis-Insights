@@ -5,6 +5,9 @@
 > Predictor abstraction + split strategies + `compare` subcommand.
 > Updated in **S-AI-WS5-B-PART-2 PR 2B** (2026-05-10): multiclass
 > predictor + multiclass evaluator + regime classifier baseline.
+> Updated in **S-AI-WS5-C** (2026-05-10): `setup_labels` family +
+> setup-quality scorer + numeric-mean trainer extension + training
+> session workflow.
 >
 > **Authority:** Subordinate to
 > [`docs/architecture/ai-model-platform.md`](../architecture/ai-model-platform.md).
@@ -80,8 +83,23 @@ Resolution dispatches via `state['trainer']` qualname →
 | Predictor | Pairs with |
 |---|---|
 | `ConstantPredictor` | `ConstantPredictionTrainer` |
-| `PerGroupPredictor` | `PerStrategyWinRateTrainer` (configurable `feature_column`) |
+| `PerGroupPredictor` | `PerStrategyWinRateTrainer` (configurable `feature_column`; binary `won` target by default; supports continuous `numeric_mean` target via `target_kind` for the WS5-C setup-quality scorer) |
 | `PerBucketMulticlassPredictor` | `RegimeClassifierTrainer` (S-AI-WS5-B-PART-2 PR 2B; emits class-label + per-class probabilities; falls back to training-set marginal for unseen buckets) |
+
+### Trainer `target_kind` knob (WS5-C)
+
+`PerStrategyWinRateTrainer` accepts a `target_kind` config flag:
+
+- `binary` (default, WS5-A behavior): coerces `target_column` to
+  `{0, 1}` via `bool(value)`; `per_group_rate` is the per-group win
+  rate. Backward-compat: existing manifests don't need to change.
+- `numeric_mean` (WS5-C): casts `target_column` to `float`;
+  `per_group_rate` is the per-group sample mean of the target.
+  Used by the setup-quality scorer against `r_multiple`. Pairs
+  with `RegressionEvaluator` (not `ClassificationEvaluator`).
+
+The `target_kind` value is recorded in `model_state` so registry
+entries are unambiguous about what each baseline learned.
 
 ### Multiclass predictor surface (PR 2B)
 
@@ -148,6 +166,63 @@ python -m ml compare <id-a> <id-b>       # WS4-FU side-by-side metric diff
 The `compare` subcommand surfaces shared-metric deltas (`b - a`)
 plus per-side-only metric lists, all as JSON for automation.
 
+## Training session workflow
+
+When the operator runs a training session (or when a future
+session needs to retrain a baseline against fresh data), follow
+this workflow rather than reinventing:
+
+1. **Refresh the labelled feedstock.** The `/health-review` skill
+   produces per-trade `trade_decision_grades[]` against the live
+   6-hour window. These grades are the labelled training signal
+   that the per-trade baselines (WS5-A outcome probability,
+   WS5-C setup quality, future WS5-E post-trade review,
+   WS5-F prop mission policy) consume. Run `/health-review` on
+   the latest `comms/requests/REQ-*.json` so the grades land on
+   `main` before the training run.
+2. **Build the dataset(s) the baseline needs.** See
+   [`docs/data/dataset-taxonomy.md`](../data/dataset-taxonomy.md)
+   for the family roster. Each builder writes a versioned
+   artifact under `<output>/<family>/<scope>/<tf>/<version>/`.
+   Heavy / network-attached builds (`market_raw` via Bybit) MUST
+   run off the live VM with `ICT_OFFVM_BUILD_HOST=1`.
+3. **Train + evaluate via a YAML manifest.** Use one of the
+   established manifests under `ml/configs/` (listed below), or
+   add a new one following the `TrainingManifest` schema. Don't
+   skip the manifest — the experiment runner is what writes the
+   reproducible artifact triple (`manifest.json`,
+   `model_state.json`, `metrics.json`) and registers the run in
+   the model registry as a `candidate`.
+4. **Compare baselines.** `python -m ml compare <id-a> <id-b>`
+   surfaces shared-metric deltas as JSON. Pair every non-trivial
+   baseline with a sanity baseline (the trainer-paired global-mean
+   variant) so the operator can verify the feature actually carries
+   signal.
+5. **Promotion is operator-gated.** Even a clean training run
+   lands at `target_deployment_stage: research_only`. Promotion
+   to `staged` / `live-approved` / `champion` requires
+   `python -m ml promote --by <name> --reason <text>` and
+   operator approval. The registry is append-only; past
+   `StatusEvent` entries are NEVER edited.
+
+### Established baseline manifests
+
+Pick the one that matches the task. Add new manifests rather than
+editing these in place (operators rely on their `model_id`s as
+stable identifiers in `model_registry/`).
+
+| Manifest | Sprint | Trainer | Evaluator | What it learns |
+|---|---|---|---|---|
+| [`baseline-trade-outcome-winrate.yaml`](../../ml/configs/baseline-trade-outcome-winrate.yaml) | WS5-A | `PerStrategyWinRateTrainer` | `ClassificationEvaluator` | Per-strategy historical win rate against `won` on `trade_outcomes`. |
+| [`baseline-trade-outcome-global.yaml`](../../ml/configs/baseline-trade-outcome-global.yaml) | WS4-FU | `ConstantPredictionTrainer` | `ClassificationEvaluator` | Global-mean sanity baseline on `trade_outcomes` (paired sibling to the winrate manifest). |
+| [`baseline-regime-classifier.yaml`](../../ml/configs/baseline-regime-classifier.yaml) | WS5-B-PART-2 PR 2B | `RegimeClassifierTrainer` | `MulticlassClassificationEvaluator` | 3-class regime label (trend / range / volatile) on `market_features` with `vol_bucket` as feature. |
+| [`baseline-setup-quality.yaml`](../../ml/configs/baseline-setup-quality.yaml) | WS5-C | `PerStrategyWinRateTrainer` (numeric_mean) | `RegressionEvaluator` | Per-`setup_type` mean R-multiple on `setup_labels`. |
+
+When a baseline lands clean and the operator wants the
+"compare-against-marginal" sanity check, ship a paired global-mean
+manifest alongside it (the WS5-A winrate + WS4-FU global pair is
+the reference example).
+
 ## End-to-end demo
 
 ```
@@ -185,6 +260,21 @@ python -m ml.datasets build market_features \
 
 # 3. Train + evaluate the 3-class baseline.
 python -m ml train ml/configs/baseline-regime-classifier.yaml \
+  --datasets-root ./datasets-out
+```
+
+### Setup-quality scorer demo (WS5-C)
+
+```
+# 1. Build setup_labels from trade_journal.db.
+python -m ml.datasets build setup_labels \
+  --output-dir ./datasets-out --version v001 \
+  --source trade_journal.db \
+  -- db_path=/abs/path/to/trade_journal.db \
+     risk_pct=1.0 r_cap=3.0
+
+# 2. Train + evaluate the per-setup_type R-multiple baseline.
+python -m ml train ml/configs/baseline-setup-quality.yaml \
   --datasets-root ./datasets-out
 ```
 

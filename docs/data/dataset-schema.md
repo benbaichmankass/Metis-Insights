@@ -1,8 +1,8 @@
 # Dataset Schema
 
 > **Status:** Canonical (data scope). Updated through
-> **S-AI-WS5-B-PART-2 PR 2B** (2026-05-10): `market_features`
-> schema + leakage discipline added.
+> **S-AI-WS5-C** (2026-05-10): `setup_labels` schema + leakage
+> discipline added.
 >
 > **Authority:** Subordinate to
 > [`docs/architecture/ai-model-platform.md`](../architecture/ai-model-platform.md).

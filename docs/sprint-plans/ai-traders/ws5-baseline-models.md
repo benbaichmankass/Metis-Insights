@@ -2,7 +2,7 @@
 
 **Master plan:** [`docs/AI-TRADERS-ROADMAP.md`](../../AI-TRADERS-ROADMAP.md)
 **Milestone:** M9
-**Status:** 🔄 IN PROGRESS — sub-sprints A + B-Part-1 + B-Part-2 (PR 2A + PR 2B) closed 2026-05-10.
+**Status:** 🔄 IN PROGRESS — sub-sprints A + B-Part-1 + B-Part-2 (PR 2A + PR 2B) + C closed 2026-05-10.
 
 ## Decomposition
 
@@ -16,7 +16,7 @@ classifier).
 | **S-AI-WS5-B-PART-1** | `market_raw` multi-source adapter framework + CSV adapter + Bybit off-VM scaffold | (this sprint adds the prereq builder) | ✅ DONE 2026-05-10 |
 | S-AI-WS5-B-PART-2 PR 2A | Bybit off-VM `_fetch_bars` wiring (ccxt) | `market_raw` (now buildable via CSV + Bybit off-VM) | ✅ DONE 2026-05-10 |
 | S-AI-WS5-B-PART-2 PR 2B | 3-class regime classifier + `market_features` family + multiclass evaluator | `market_features` (this PR adds it) | ✅ DONE 2026-05-10 |
-| S-AI-WS5-C | Setup quality scorer | `setup_labels` | 📋 queued |
+| S-AI-WS5-C | Setup quality scorer (per-`setup_type` mean R-multiple) | `setup_labels` (this sprint adds it) | ✅ DONE 2026-05-10 |
 | S-AI-WS5-D | Execution quality | `trade_outcomes` + execution metadata | 📋 queued |
 | S-AI-WS5-E | Post-trade review | `review_journal` | 📋 queued |
 | S-AI-WS5-F | Prop mission policy | `account_context` | 📋 queued |
@@ -124,6 +124,47 @@ Deliverables:
   `training-center.md`, `ai-model-platform.md`,
   `AI-TRADERS-ROADMAP.md`, `ROADMAP.md`. Sprint log:
   `docs/sprint-logs/S-AI-WS5-B-PART-2-PR-2B.md`.
+
+## S-AI-WS5-C — Setup quality scorer (closed)
+
+Closed 2026-05-10. First regression baseline on the AI-traders
+track. Operator picks (2026-05-10): smallest scope (CLOSED trade
+journal source) + continuous R-multiple label + reuse the
+existing `PerStrategyWinRateTrainer` with a small extension.
+
+Deliverables:
+
+- [`ml/datasets/families/setup_labels.py`](../../../ml/datasets/families/setup_labels.py)
+  — `SetupLabelsBuilder`. Reads
+  `trade_journal.db::trades` (CLOSED, non-backtest, non-empty
+  `setup_type`); emits `r_multiple = pnl_percent / risk_pct`
+  capped at `±r_cap` (defaults `risk_pct=1.0`, `r_cap=3.0`).
+  Reuses the same leakage-discipline rule as `trade_outcomes`.
+- [`ml/trainers/per_strategy_winrate.py`](../../../ml/trainers/per_strategy_winrate.py)
+  — generalised with new `target_kind` config knob.
+  `binary` (default; WS5-A behavior; bool-coerce label) and
+  `numeric_mean` (per-bucket sample mean of the cast float
+  target) are both supported. State shape unchanged for
+  backward compat.
+- [`ml/configs/baseline-setup-quality.yaml`](../../../ml/configs/baseline-setup-quality.yaml)
+  — manifest pairing the trainer with `RegressionEvaluator`,
+  targeting `r_multiple` with `setup_type` as the feature.
+  `split_strategy: time_aware_holdout`, `time_column: created_at`.
+- Tests (27 new cases, 158 passing in `tests/ml/`):
+  `tests/ml/datasets/test_setup_labels.py` (10) + `tests/ml/test_setup_quality.py`
+  (10) covering the trainer extension, predictor resolution,
+  end-to-end pipeline, and manifest parse.
+- Docs: `dataset-taxonomy.md`, `dataset-schema.md`,
+  `training-center.md` (added "Training session workflow"
+  section anchored on the `/health-review` skill's per-trade
+  decision grades as labelled feedstock + table of established
+  manifests), `ai-model-platform.md`, `ARCHITECTURE-CANONICAL.md`
+  (new "AI-traders training workflow" section connecting the
+  health-review skill, dataset families, established manifests,
+  and the promotion gate), `.claude/skills/health-review/SKILL.md`
+  (extended `trade_decision_grades` section to flag downstream
+  consumers explicitly), `AI-TRADERS-ROADMAP.md`, `ROADMAP.md`.
+  Sprint log: `docs/sprint-logs/S-AI-WS5-C.md`.
 
 ## Acceptance (per baseline)
 

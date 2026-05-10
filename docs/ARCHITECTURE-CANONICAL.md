@@ -270,6 +270,54 @@ inventory/labels (`repo-inventory`, `bootstrap-labels`,
 | AI-platform doc | [`docs/architecture/ai-model-platform.md`](architecture/ai-model-platform.md) | AI-specific architecture (M9 + M10). Subordinate canonical doc; covers the model layer + deployment tiers + Oracle/HF runtime split. |
 | GitHub Actions | `.github/workflows/` | All CI / VM ops / training workflows |
 
+## AI-traders training workflow (separate from live trading)
+
+Live trading is fully deterministic — no model is in the live
+path. The AI-traders training pipeline is a **separate concern**
+that produces research-only baselines under `ml/`. Operator-driven
+training sessions follow the established workflow:
+
+1. **Collect feedstock.** The `/health-review` skill emits per-trade
+   `trade_decision_grades[]` against the live 6-hour window. These
+   labelled grades flow into the `trade_outcomes` family
+   ([`ml/datasets/families/trade_outcomes.py`](../ml/datasets/families/trade_outcomes.py))
+   and the `setup_labels` family
+   ([`ml/datasets/families/setup_labels.py`](../ml/datasets/families/setup_labels.py))
+   as their primary label source.
+2. **Build datasets.** `python -m ml.datasets build <family>` writes
+   versioned artifacts under `<output>/<family>/<scope>/<tf>/<version>/`
+   with mandatory metadata + leakage discipline. Buildable families:
+   `trade_outcomes`, `backtest_results`, `market_raw`,
+   `market_features`, `setup_labels`. Family taxonomy:
+   [`docs/data/dataset-taxonomy.md`](data/dataset-taxonomy.md).
+3. **Train baselines.** `python -m ml train <manifest>` runs a YAML
+   manifest end-to-end (split → fit → evaluate → register). Established
+   manifests:
+   - [`ml/configs/baseline-trade-outcome-winrate.yaml`](../ml/configs/baseline-trade-outcome-winrate.yaml)
+     (WS5-A; per-strategy historical winrate).
+   - [`ml/configs/baseline-trade-outcome-global.yaml`](../ml/configs/baseline-trade-outcome-global.yaml)
+     (WS4-FU; global-mean sanity baseline).
+   - [`ml/configs/baseline-regime-classifier.yaml`](../ml/configs/baseline-regime-classifier.yaml)
+     (WS5-B-PART-2; 3-class regime classifier on `market_features`).
+   - [`ml/configs/baseline-setup-quality.yaml`](../ml/configs/baseline-setup-quality.yaml)
+     (WS5-C; setup-quality scorer on `setup_labels`).
+4. **Compare runs.** `python -m ml compare <id-a> <id-b>` surfaces
+   shared-metric deltas as JSON.
+5. **Promotion is gated.** Even a clean training run lands at
+   `target_deployment_stage: research_only`. Promotion to `live-approved`
+   or `champion` requires `python -m ml promote --by <name> --reason <text>`
+   and operator approval.
+
+Training sessions MUST use these established baselines + manifests
+rather than reinventing. Adding a new baseline follows the
+"Adding a new family" / "Adding a new trainer" rules in
+[`docs/data/dataset-taxonomy.md`](data/dataset-taxonomy.md) and
+[`docs/ml/training-center.md`](ml/training-center.md).
+
+The full AI-platform architecture (five-layer model, leakage rules,
+forbidden behaviors, model registry append-only invariant) lives in
+[`docs/architecture/ai-model-platform.md`](architecture/ai-model-platform.md).
+
 ## Evidence and Documentation Flow
 
 Every major code change must produce or update at least one of:
