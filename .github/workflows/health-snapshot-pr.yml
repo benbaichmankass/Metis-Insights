@@ -117,14 +117,39 @@ jobs:
             --snapshot-path artifacts/health/health_snapshot.txt \
             --report-path artifacts/health/latest.json
 
+      # Upload BEFORE peter-evans/create-pull-request. That action does
+      # `git reset --hard origin/main` after pushing the review branch,
+      # which wipes artifacts/health/** from the working tree. If
+      # upload-artifact runs after, it logs "No files were found" and
+      # produces no forensic bundle. Uploading here guarantees the
+      # bundle exists regardless of whether PR creation succeeds.
+      - name: Upload run artifacts (forensic)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: health-check-${{ github.run_id }}
+          if-no-files-found: warn
+          retention-days: 30
+          path: |
+            artifacts/health/**
+
       - name: Create or update review PR
         id: cpr
         # peter-evans/create-pull-request@v7 — pinned major; updates the
         # same PR if auto/health-check-review is already open.
-        # Requires "Allow GitHub Actions to create and approve pull
-        # requests" in Settings → Actions → General.
+        #
+        # Token resolution:
+        #   1. HEALTH_REVIEW_PAT (if set) — a fine-grained PAT with
+        #      Contents:write + Pull requests:write on this repo. Use
+        #      this when the org/repo has "Allow GitHub Actions to
+        #      create and approve pull requests" disabled (which makes
+        #      the default GITHUB_TOKEN raise "GitHub Actions is not
+        #      permitted to create or approve pull requests").
+        #   2. Otherwise GITHUB_TOKEN, which requires the above
+        #      Settings → Actions → General toggle to be on.
         uses: peter-evans/create-pull-request@v7
         with:
+          token: ${{ secrets.HEALTH_REVIEW_PAT || secrets.GITHUB_TOKEN }}
           base: main
           branch: auto/health-check-review
           delete-branch: false
@@ -180,16 +205,6 @@ jobs:
           if [ "$tg_rc" -ne 0 ]; then
             echo "::warning::telegram alert failed (rc=${tg_rc}, non-fatal)"
           fi
-
-      - name: Upload run artifacts (forensic)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: health-check-${{ github.run_id }}
-          if-no-files-found: warn
-          retention-days: 30
-          path: |
-            artifacts/health/**
 
       # ────────────────────────────────────────────────────────────
       # Issue-driven path: comment back on the trigger issue with the
@@ -276,8 +291,9 @@ jobs:
               `- \`VM_SSH_KEY\` secret unset or unparseable (CRLF / .ppk / encrypted key).\n` +
               `- VM unreachable from the GitHub-hosted runner (network or sshd).\n` +
               `- \`scripts/collect_health_snapshot.sh\` returned non-zero on the VM.\n` +
-              `- peter-evans/create-pull-request denied: Settings → Actions → General → ` +
-              `"Allow GitHub Actions to create and approve pull requests" must be on.\n`;
+              `- peter-evans/create-pull-request denied: either enable Settings → Actions → General → ` +
+              `"Allow GitHub Actions to create and approve pull requests", or set the \`HEALTH_REVIEW_PAT\` ` +
+              `secret to a fine-grained PAT with Contents:write + Pull requests:write on this repo.\n`;
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
