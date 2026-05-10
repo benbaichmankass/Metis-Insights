@@ -88,13 +88,16 @@
   workflow files. Confirmed `branch-protection-sync.yml`
   preserves non-status-checks fields via the GET-then-PUT shape.
 - Gaps not yet verified (operator-gated):
-  - The fine-grained PAT (Administration: write, scoped to this
-    repo only) has not been created yet.
-  - `BRANCH_PROTECTION_TOKEN` repo secret is not set.
-  - No `workflow_dispatch` run of `branch-protection-sync` has
-    been triggered.
-  - No test PR has been opened to confirm the merge button is
-    gated on the four required checks.
+  - ~~The fine-grained PAT (Administration: write, scoped to this
+    repo only) has not been created yet.~~ **Done 2026-05-10** —
+    operator confirmed the PAT exists and `BRANCH_PROTECTION_TOKEN`
+    is set as a repo secret.
+  - The first `branch-protection-sync` run with the token in place
+    will fire automatically when this PR merges to `main` (the
+    workflow's `push: branches: [main]` trigger).
+  - Test PR confirming merge-button gating still pending — will
+    open immediately after this PR's `branch-protection-sync` run
+    posts the expected "Required contexts now: [...]" notice.
 
 ## Operator runbook (pending action)
 1. Create a fine-grained PAT scoped to **only**
