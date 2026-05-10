@@ -68,6 +68,17 @@ _PROTECTED_PREFIXES: Tuple[str, ...] = (
 )
 _PROTECTED_FILES: Tuple[str, ...] = (
     "src/web/runtime_status.py",
+    # S-067 follow-up #8: hourly_report + boot_audit are reporting-layer
+    # surfaces with the same trust contract as the web-api read-path —
+    # they MUST NEVER raise (a crash silences the operator's only
+    # window into bot state) but the broad-except pattern still risks
+    # the silent-empty class. The audit at
+    # docs/audits/silent-empty-reporting-2026-05-10.md classifies every
+    # site as legitimate (every one logs); this entry pins the lint
+    # guard so any *new* broad-except in either file requires either
+    # a narrow type or `# allow-silent: <reason>`.
+    "src/runtime/hourly_report.py",
+    "src/runtime/boot_audit.py",
 )
 
 # Files we deliberately ignore. Tests legitimately patch broad-except

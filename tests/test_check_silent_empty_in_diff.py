@@ -43,6 +43,10 @@ def _diff(path: str, hunk: str, *, start_line: int = 10) -> str:
         "src/web/api/routers/diag.py",
         "src/units/db/database.py",
         "src/web/runtime_status.py",
+        # S-067 follow-up #8: hourly_report + boot_audit added to
+        # _PROTECTED_FILES; pin the extension here.
+        "src/runtime/hourly_report.py",
+        "src/runtime/boot_audit.py",
     ],
 )
 def test_flags_broad_exception_in_protected_path(path: str) -> None:
