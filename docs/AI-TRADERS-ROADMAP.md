@@ -17,7 +17,10 @@
 > **AI-scope canonical doc:**
 > [`docs/architecture/ai-model-platform.md`](architecture/ai-model-platform.md)
 > (created in S-AI-WS1, 2026-05-10) is the canonical AI architecture
-> reference and the durable artifact of WS1.
+> reference. **Stage contracts:**
+> [`docs/pipeline/stage-contracts.md`](pipeline/stage-contracts.md)
+> (S-AI-WS2). **Pipeline types:**
+> [`src/pipeline/types.py`](../src/pipeline/types.py).
 
 ---
 
@@ -82,6 +85,8 @@ Five layers:
 Full layer + stage description with current-state audit and Mermaid
 diagram lives in
 [`docs/architecture/ai-model-platform.md`](architecture/ai-model-platform.md).
+Per-stage I/O contracts live in
+[`docs/pipeline/stage-contracts.md`](pipeline/stage-contracts.md).
 
 ### Architectural position
 
@@ -112,8 +117,8 @@ more sprints under M9 or M10 in `ROADMAP.md`. Sprint plans live under
 | WS | Title | M | Status | Sprint plan |
 |---|---|---|---|---|
 | WS1 | Architecture baseline | M9 | ✅ DONE 2026-05-10 (S-AI-WS1) — see [`architecture/ai-model-platform.md`](architecture/ai-model-platform.md) | [ws1-architecture-baseline.md](sprint-plans/ai-traders/ws1-architecture-baseline.md) |
-| WS2 | Canonical trade pipeline | M9 | 📋 Not started | [ws2-canonical-pipeline.md](sprint-plans/ai-traders/ws2-canonical-pipeline.md) |
-| WS3 | Data foundation | M10 | 📋 Not started | [ws3-data-foundation.md](sprint-plans/ai-traders/ws3-data-foundation.md) |
+| WS2 | Canonical trade pipeline | M9 | ✅ DONE 2026-05-10 (S-AI-WS2) — see [`pipeline/stage-contracts.md`](pipeline/stage-contracts.md) | [ws2-canonical-pipeline.md](sprint-plans/ai-traders/ws2-canonical-pipeline.md) |
+| WS3 | Data foundation | M10 | 🔜 Next | [ws3-data-foundation.md](sprint-plans/ai-traders/ws3-data-foundation.md) |
 | WS4 | Training center | M9 | 📋 Not started | [ws4-training-center.md](sprint-plans/ai-traders/ws4-training-center.md) |
 | WS5 | Baseline models | M9 | 📋 Not started | [ws5-baseline-models.md](sprint-plans/ai-traders/ws5-baseline-models.md) |
 | WS6 | Open-source model layer | M9 | 📋 Not started | [ws6-open-source-models.md](sprint-plans/ai-traders/ws6-open-source-models.md) |
@@ -132,30 +137,8 @@ lists.
 **Objective.** Create a clear source of truth for the current and target AI
 trading architecture before building new model infrastructure.
 
-**Tasks**
-
-- Audit the current repo: live trading path, strategy modules, runtime
-  pipeline, risk-manager path, broker adapters, bot-control path, deployment
-  flow, current research / backtest utilities.
-- Create or update the canonical architecture doc at
-  `docs/architecture/ai-model-platform.md`.
-- Add a `Current State` section, a `Target State` section, a Mermaid
-  component diagram, and a stage-ownership table.
-- Add an `Architecture Change Log` section that must be updated whenever
-  model boundaries, data schemas, or deployment stages change.
-- Update the main architecture index / README so the doc is discoverable.
-
-**Acceptance**
-
-- A single architecture doc reflects current reality and desired future
-  state.
-- The doc names which parts are live, staged, planned, forbidden.
-- The doc explicitly states that deterministic risk controls are outside the
-  AI layer.
-- The doc is linked from the main repo docs navigation.
-
-**Closed:** S-AI-WS1, 2026-05-10. Acceptance criteria all met. See the
-sprint plan for the deliverable list and the change log row below.
+**Closed:** S-AI-WS1, 2026-05-10. Acceptance criteria all met. Durable
+artifact: [`docs/architecture/ai-model-platform.md`](architecture/ai-model-platform.md).
 
 ---
 
@@ -164,35 +147,32 @@ sprint plan for the deliverable list and the change log row below.
 **Objective.** Turn the trade lifecycle into a formally defined pipeline so
 model work can plug in cleanly.
 
+**Closed:** S-AI-WS2, 2026-05-10. Stage names locked in
+[`src/pipeline/types.py`](../src/pipeline/types.py); per-stage I/O
+in [`docs/pipeline/stage-contracts.md`](pipeline/stage-contracts.md).
+Canonical `TradeCandidate` and `ExecutionIntent` ship with
+frozen-dataclass invariant checks. Live-path migration filed as a
+Tier 2 follow-up.
+
 **Default pipeline stages**
 
-1. Market and account ingest
-2. Normalization
-3. Context assembly
-4. Setup detection
-5. Opportunity scoring
-6. Risk gating
-7. Execution packaging
-8. Broker routing
-9. Post-trade capture
-10. Review and feedback
+1. `INGEST` — Market and account ingest
+2. `NORMALIZE` — Normalization
+3. `CONTEXT` — Context assembly
+4. `SETUP` — Setup detection
+5. `SCORE` — Opportunity scoring
+6. `RISK` — Risk gating
+7. `PACKAGE` — Execution packaging
+8. `ROUTE` — Broker routing
+9. `CAPTURE` — Post-trade capture
+10. `REVIEW` — Review and feedback
 
-**Tasks**
+**Acceptance** (all met)
 
-- Typed schemas (dataclass / pydantic) for stage inputs and outputs.
-- Canonical `TradeCandidate` and `ExecutionIntent` objects.
-- Define where deterministic rule checks happen and where model scores may
-  influence decisions.
-- Strict rule: risk and broker validation may reject outputs from any model.
-- Per-stage logging requirements.
-- Test scaffolding for stage contracts.
-
-**Acceptance**
-
-- Every pipeline stage has a documented owner and I/O contract.
-- Repo contains shared types or schemas for trade candidates and execution
+- [x] Every pipeline stage has a documented owner and I/O contract.
+- [x] Repo contains shared types or schemas for trade candidates and execution
   intents.
-- Explicit rule: models cannot place or modify orders outside the validated
+- [x] Explicit rule: models cannot place or modify orders outside the validated
   execution-packaging path.
 
 ---
@@ -452,6 +432,8 @@ doc does not drift away from the codebase.
 ## Recommended repo deliverables
 
 - `docs/architecture/ai-model-platform.md` — ✅ created in S-AI-WS1.
+- `docs/pipeline/stage-contracts.md` — ✅ created in S-AI-WS2.
+- `src/pipeline/types.py` — ✅ created in S-AI-WS2.
 - `docs/architecture/ARCHITECTURE-CHANGE-CHECKLIST.md` — WS10.
 - `docs/architecture/model-inventory.md` — WS6.
 - `docs/data/dataset-taxonomy.md` — WS3.
@@ -462,8 +444,8 @@ doc does not drift away from the codebase.
   `ml/evaluators/`, `ml/registry/`, `ml/reports/` — WS4.
 
 Exact paths may be adjusted to match the real repo structure (the existing
-`ml/` tree currently only contains `ml/config/` and `ml/src/`); WS1 records
-this fact and WS4 owns rebuilding the directory.
+`ml/` tree currently only contains `ml/config/` and `ml/src/`); WS4 owns
+rebuilding the directory.
 
 ---
 
@@ -471,8 +453,10 @@ this fact and WS4 owns rebuilding the directory.
 
 1. WS1 — architecture audit + canonical architecture doc. **✅ done
    (S-AI-WS1).**
-2. WS2 — canonical trade pipeline + stage contracts. **🔜 next.**
+2. WS2 — canonical trade pipeline + stage contracts. **✅ done
+   (S-AI-WS2).**
 3. WS3 — dataset taxonomy, schema docs, first reproducible dataset builder.
+   **🔜 next.**
 4. WS4 — training center structure + command path.
 5. First baseline model end to end (subset of WS5).
 6. Model registry + promotion stages (subset of WS4 / WS7).
@@ -534,3 +518,4 @@ a clean next step.
 |---|---|---|---|---|
 | 2026-05-10 | S-AI-ROADMAP | Master plan adopted; M9 + M10 expanded into WS1–WS10; sprint-plan stubs seeded for WS1–WS10 (WS1–WS4 expanded, WS5–WS10 stub-only). | `docs/AI-TRADERS-ROADMAP.md`, `ROADMAP.md`, `docs/sprint-plans/ai-traders/*` | None at this stage — docs only; live runtime untouched. |
 | 2026-05-10 | S-AI-WS1 | WS1 complete. New canonical AI-scope doc at `docs/architecture/ai-model-platform.md` (current-state audit + target state + 5-layer model + stage map + Mermaid diagram + Architecture Change Log + Known Gaps). Linked from `ARCHITECTURE-CANONICAL.md`. WS1 sprint plan updated with sprint id and acceptance check-offs. Sprint log filed at `docs/sprint-logs/S-AI-WS1.md`. | `docs/architecture/ai-model-platform.md` (new), `docs/ARCHITECTURE-CANONICAL.md`, `docs/sprint-plans/ai-traders/ws1-architecture-baseline.md`, `docs/AI-TRADERS-ROADMAP.md`, `ROADMAP.md`, `docs/sprint-logs/S-AI-WS1.md` (new) | None — doc-only. |
+| 2026-05-10 | S-AI-WS2 | WS2 complete. Stage names locked in `src/pipeline/types.py` (`StageName` enum). Canonical `TradeCandidate`, `ExecutionIntent`, `StageDecision` frozen-dataclass schemas with `__post_init__` invariant checks. Per-stage I/O + owner files + logging + migration plan in `docs/pipeline/stage-contracts.md`. Test coverage in `tests/pipeline/test_types.py`. AI-platform doc stage map switched to locked names; Known Gaps + Change Log refreshed. Sprint log filed at `docs/sprint-logs/S-AI-WS2.md`. | `src/pipeline/__init__.py` (new), `src/pipeline/types.py` (new), `tests/pipeline/__init__.py` (new), `tests/pipeline/test_types.py` (new), `docs/pipeline/stage-contracts.md` (new), `docs/architecture/ai-model-platform.md`, `docs/sprint-plans/ai-traders/ws2-canonical-pipeline.md`, `docs/AI-TRADERS-ROADMAP.md`, `ROADMAP.md`, `docs/sprint-logs/S-AI-WS2.md` (new) | None — additive; no live runtime call site changed. Migration onto these types is filed as a Tier 2 follow-up. |

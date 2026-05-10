@@ -16,6 +16,7 @@
 > **Companion docs:**
 > - [`docs/ARCHITECTURE-CANONICAL.md`](../ARCHITECTURE-CANONICAL.md) — system-wide architecture (trade pipeline, comms, deploy).
 > - [`docs/AI-TRADERS-ROADMAP.md`](../AI-TRADERS-ROADMAP.md) — AI traders master plan, WS1–WS10 workstreams.
+> - [`docs/pipeline/stage-contracts.md`](../pipeline/stage-contracts.md) — per-stage I/O, owner files, logging requirements (WS2).
 > - [`docs/sprint-plans/ai-traders/`](../sprint-plans/ai-traders/) — per-workstream sprint plans.
 
 ## Purpose
@@ -98,6 +99,7 @@ path**. No model is wired into live decisioning.
 | Concept generation | `notebooks/` | Colab + local |
 | M5 strategy testing flow | `src/bot/test_strategy_consumer.py`, `runtime_logs/validation.jsonl` | Auto-consumed `test_strategy:<name>` requests |
 | ML scaffolding | `ml/config/`, `ml/src/collect_data.py`, `ml/src/test_breakout_strategy.py` | **Vestigial.** Inherited from S-004/S-005/S-006; minimal and not wired into the live path. WS4 will rebuild this directory. |
+| Pipeline types | `src/pipeline/types.py`, `tests/pipeline/test_types.py` | **Adopted 2026-05-10 (S-AI-WS2).** Frozen-dataclass `TradeCandidate`, `ExecutionIntent`, `StageDecision`, `StageName`, `Direction`, `RejectionSource`. Additive: not yet wired into the live path; migration of `OrderPackage` deferred to a Tier 2 sprint. |
 
 ### Planned (not yet implemented)
 
@@ -108,6 +110,7 @@ path**. No model is wired into live decisioning.
 - Feature drift / outcome drift monitoring (none).
 - Hugging Face–integrated training workflow (none).
 - Architecture-change checklist + PR template enforcement (none; WS10).
+- Migration of live runtime call sites onto the WS2 types.
 
 ### Forbidden (live-runtime safety floor)
 
@@ -117,6 +120,8 @@ path**. No model is wired into live decisioning.
 - Live model influence introduced without staged promotion + explicit
   operator approval (WS7 rule).
 - Schema / boundary changes shipped without updating this doc.
+- Constructing `ExecutionIntent` from a model code path. Only the
+  execution-packaging code may emit one (`src/runtime/orders.py`).
 
 ## Target State
 
@@ -126,26 +131,29 @@ floor**.
 
 ### Stage map (current pipeline → target with AI)
 
-Stage names follow `docs/AI-TRADERS-ROADMAP.md` § Workstream 2. The
-final stage names + I/O contracts will be locked in WS2; this map
-shows the intent.
+Stage names are **locked** in [`src/pipeline/types.py`](../../src/pipeline/types.py)
+(`StageName` enum) as of S-AI-WS2. Per-stage I/O, owner files, and
+logging requirements live in
+[`docs/pipeline/stage-contracts.md`](../pipeline/stage-contracts.md).
 
-| Stage | Today (deterministic) | Target (deterministic vs model-assisted) | Owning paths (current + planned) |
-|---|---|---|---|
-| 1. Market and account ingest | Connectors + market-data helpers | **Deterministic.** No model. | `src/exchange/`, `src/runtime/market_data.py` |
-| 2. Normalization | Internal candle / tick representation | **Deterministic.** No model. | `src/runtime/market_data.py` |
-| 3. Context assembly | Implicit (per-strategy) | **Deterministic + model-assisted.** Regime + account + mission features assembled here. | future `ml/features/`, `src/units/accounts/` |
-| 4. Setup detection | Rule-based strategies | **Deterministic** today. Optional model-assist later (setup quality scorer). | `src/units/strategies/`, `src/ict_detection/` |
-| 5. Opportunity scoring | Implicit | **Model-assisted.** Outcome probability + setup quality combine into a candidate score. | future model layer + `src/core/coordinator.py` extension |
-| 6. Risk gating | Per-account caps + prop rules + counters | **Deterministic only.** Models cannot influence this stage. | `src/units/accounts/risk.py`, `prop_risk.py`, `src/runtime/risk_counters.py` |
-| 7. Execution packaging | Order construction + validation | **Deterministic.** Optional model-assist for execution quality / slippage estimation outside the validation path. | `src/runtime/orders.py`, `src/runtime/validation.py` |
-| 8. Broker routing | Per-account dry/live | **Deterministic.** | `src/units/accounts/execute.py`, `src/exchange/` |
-| 9. Post-trade capture | Trade journal + audit log | **Deterministic** ingest; model-assisted enrichment downstream. | `trade_journal.db`, `runtime_logs/signal_audit.jsonl` |
-| 10. Review and feedback | Manual / ad hoc | **Model-assisted.** Post-trade review model classifies error patterns; feeds back into datasets. | future `ml/reports/`, `runtime_logs/` |
+| # | Stage (`StageName`) | Today (deterministic) | Target (deterministic vs model-assisted) | Owning paths (current + planned) |
+|---|---|---|---|---|
+| 1 | `INGEST` — Market and account ingest | Connectors + market-data helpers | **Deterministic.** No model. | `src/exchange/`, `src/runtime/market_data.py` |
+| 2 | `NORMALIZE` — Normalization | Internal candle / tick representation | **Deterministic.** No model. | `src/runtime/market_data.py` |
+| 3 | `CONTEXT` — Context assembly | Implicit (per-strategy) | **Deterministic + model-assisted.** Regime + account + mission features assembled here. | future `ml/features/`, `src/units/accounts/` |
+| 4 | `SETUP` — Setup detection | Rule-based strategies | **Deterministic** today. Optional model-assist later (setup quality scorer). | `src/units/strategies/`, `src/ict_detection/` |
+| 5 | `SCORE` — Opportunity scoring | Implicit | **Model-assisted.** Outcome probability + setup quality combine into a candidate score. | future model layer + `src/core/coordinator.py` extension |
+| 6 | `RISK` — Risk gating | Per-account caps + prop rules + counters | **Deterministic only.** Models cannot influence this stage. | `src/units/accounts/risk.py`, `prop_risk.py`, `src/runtime/risk_counters.py` |
+| 7 | `PACKAGE` — Execution packaging | Order construction + validation | **Deterministic.** Optional model-assist for execution quality / slippage estimation outside the validation path. | `src/runtime/orders.py`, `src/runtime/validation.py` |
+| 8 | `ROUTE` — Broker routing | Per-account dry/live | **Deterministic.** | `src/units/accounts/execute.py`, `src/exchange/` |
+| 9 | `CAPTURE` — Post-trade capture | Trade journal + audit log | **Deterministic** ingest; model-assisted enrichment downstream. | `trade_journal.db`, `runtime_logs/signal_audit.jsonl` |
+| 10 | `REVIEW` — Review and feedback | Manual / ad hoc | **Model-assisted.** Post-trade review model classifies error patterns; feeds back into datasets. | future `ml/reports/`, `runtime_logs/` |
 
 **Invariant:** stages 6, 7, and 8 must remain rejection-capable for
 any upstream output regardless of source. Risk gating and broker
-validation may reject the output of any model.
+validation may reject the output of any model. The
+`RejectionSource.DETERMINISTIC` value (in `src/pipeline/types.py`) is
+immutable: no upstream allow can override it.
 
 ### Component diagram (target)
 
@@ -176,13 +184,13 @@ flowchart LR
     end
 
     subgraph ORCH["4. Orchestration layer"]
-        O1[coordinator\n<small>src/core/coordinator.py</small>]
+        O1[coordinator\n<small>src/core/coordinator.py</small>\n<small>+ TradeCandidate (src/pipeline/types)</small>]
     end
 
     subgraph CTRL["5. Control layer (deterministic, immutable safety floor)"]
         C1[risk gating\n<small>units/accounts/risk.py</small>]
         C2[prop rules\n<small>units/accounts/prop_risk.py</small>]
-        C3[order validation\n<small>runtime/orders.py</small>]
+        C3[order validation → ExecutionIntent\n<small>runtime/orders.py</small>]
         C4[broker routing\n<small>units/accounts/execute.py</small>]
         C5[kill-switch\n<small>HALT_FLAG_PATH</small>]
     end
@@ -190,8 +198,8 @@ flowchart LR
     DATA --> FEAT
     FEAT --> MODEL
     MODEL --> ORCH
-    ORCH -->|trade candidate| CTRL
-    CTRL -->|may reject any candidate| ORCH
+    ORCH -->|TradeCandidate| CTRL
+    CTRL -->|StageDecision VETO\nDETERMINISTIC| ORCH
     CTRL --> EXEC[broker / dry-run]
     EXEC --> D5
     D5 --> D6
@@ -238,9 +246,10 @@ rules can veto a candidate even if every model approved it.
   9-unit translator section is current; the “Target Structure” block
   predates the canonical doc). Not blocking; flagged for cleanup
   alongside WS10.
-- **Stage names not yet locked.** This doc uses the master-plan
-  10-stage list while `ARCHITECTURE-CANONICAL.md` documents an
-  8-step pipeline. WS2 reconciles and lands typed stage contracts.
+- **WS2 types not yet adopted by the live path.** Strategies still
+  emit `OrderPackage`; the coordinator path still routes those.
+  Migration onto `TradeCandidate` / `ExecutionIntent` is gated on
+  operator approval and filed as a Tier 2 follow-up.
 - **Architecture-change checklist + PR template not yet enforced.**
   WS10 owns this.
 
@@ -251,7 +260,9 @@ any of the following change:
 
 - Layer boundaries (data, feature/context, model, orchestration,
   control).
-- Stage names or stage I/O contracts (also touches WS2 artifacts).
+- Stage names or stage I/O contracts (also touches
+  [`src/pipeline/types.py`](../../src/pipeline/types.py) and
+  [`docs/pipeline/stage-contracts.md`](../pipeline/stage-contracts.md)).
 - Dataset families or schemas (also touches
   `docs/data/dataset-schema.md` once it exists).
 - Model registry status categories or promotion rules (also touches
@@ -269,3 +280,4 @@ follow-up.
 | Date | Sprint | Change | Files | Operator impact |
 |---|---|---|---|---|
 | 2026-05-10 | S-AI-WS1 (WS1) | Doc created. Records the AI-specific architecture, current-state audit, target state, stage map, Mermaid diagram, and known gaps. Linked from `ARCHITECTURE-CANONICAL.md`. | `docs/architecture/ai-model-platform.md` (new), `docs/ARCHITECTURE-CANONICAL.md` (link added), `docs/sprint-plans/ai-traders/ws1-architecture-baseline.md` (status → in progress, sprint id S-AI-WS1), `docs/AI-TRADERS-ROADMAP.md` (change log + WS1 status), `ROADMAP.md` (WS1 status row + S-AI-WS1 ledger entry) | None at this stage — doc-only; live runtime untouched. |
+| 2026-05-10 | S-AI-WS2 (WS2) | Stage names locked. Typed schemas (`TradeCandidate`, `ExecutionIntent`, `StageDecision`, `StageName`, `Direction`, `RejectionSource`) land in `src/pipeline/types.py` with frozen-dataclass invariants and `tests/pipeline/test_types.py` coverage. Per-stage I/O + owner-files + logging spec lives in `docs/pipeline/stage-contracts.md`. Stage map in this doc switched to `StageName` enum names + cross-reference. Mermaid diagram annotated with type producer/consumer. Known Gaps updated: "stage names not yet locked" struck; new entry "WS2 types not yet adopted by the live path" added. | `src/pipeline/__init__.py` (new), `src/pipeline/types.py` (new), `tests/pipeline/__init__.py` (new), `tests/pipeline/test_types.py` (new), `docs/pipeline/stage-contracts.md` (new), `docs/architecture/ai-model-platform.md`, `docs/sprint-plans/ai-traders/ws2-canonical-pipeline.md`, `docs/AI-TRADERS-ROADMAP.md`, `ROADMAP.md`, `docs/sprint-logs/S-AI-WS2.md` (new) | None — additive types; no live runtime call site changed. Migration onto these types is filed as a Tier 2 follow-up. |
