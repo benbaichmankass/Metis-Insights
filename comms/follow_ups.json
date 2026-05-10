@@ -1,0 +1,70 @@
+{
+  "_comment": "Follow-up log read by .claude/skills/health-review/SKILL.md as part of the layer-2 review. Each entry tracks something a prior review surfaced that wasn't fully resolved at the time, with a trigger condition the next /health-review run must evaluate. See SKILL.md § 'Mandatory pre-review step' for how this list is consumed. Schema documented at comms/schema/follow_ups.schema.json.",
+  "schema_version": 1,
+  "follow_ups": [
+    {
+      "id": "FU-20260510-001",
+      "opened_at": "2026-05-10T17:15:00+00:00",
+      "opened_by": "claude",
+      "source": "REQ-20260510-150021-25631930749",
+      "related_prs": [741],
+      "title": "Verify bybit_2 circuit breaker fires on next 170131 cluster",
+      "description": "PR #741 added _EXCHANGE_REJECTION_PAUSE_THRESHOLD=3 in src/core/coordinator.py. The breaker auto-flips an account to dry_run via set_account_dry_run after 3 consecutive exchange_rejected. The 2026-05-10 review observed a 34% rejection rate (20/58 trades) with no backoff; tests pin the contract but the live behaviour has not yet been observed.",
+      "expected_check": "If the diag tail in this review window contains any trade with status='rejected' on bybit_2, count consecutive rejections. After ≥3 consecutive, the next dispatch should appear as a dry-run (no exchange call). Cross-reference src/units/accounts._DRY_RUN_OVERRIDES via /api/diag/snapshot — bybit_2.dry_run should flip to True. A critical-level alert in runtime_logs should reference 'auto-paused after N consecutive exchange rejections'.",
+      "trigger_condition": "Any trade in the 6h review window has status='rejected' on bybit_2.",
+      "resolution_criteria": "Close after a single observed cluster where the breaker fired correctly, OR after 30 days with no rejections (pin closure to absence-of-evidence).",
+      "status": "open",
+      "snoozed_until": null,
+      "closed_at": null,
+      "closed_reason": null
+    },
+    {
+      "id": "FU-20260510-002",
+      "opened_at": "2026-05-10T17:15:00+00:00",
+      "opened_by": "claude",
+      "source": "REQ-20260510-150021-25631930749",
+      "related_prs": [741],
+      "title": "RiskManager-vs-Bybit USDT-view mismatch on spot-margin LONG",
+      "description": "20/58 bybit_2 spot-margin Buy orders on 2026-05-10 were rejected with Bybit ErrCode 170131 ('Insufficient balance', isLeverage=1) despite RiskManager-approved sizing. The design comment at src/units/accounts/execute.py:746-751 says RiskManager owns sizing for spot-margin from USDT collateral; the live evidence shows RiskManager's USDT view diverges from Bybit's. A LONG-side pre-flight check was deferred from PR #741 because the right semantics are unclear: stale balance read, locked USDT in open orders not subtracted, or actual borrow-pool exhaustion.",
+      "expected_check": "When the breaker auto-pauses bybit_2 (FU-20260510-001), capture the same wallet snapshot RiskManager used and Bybit's accountInfo + spot-margin borrow capacity at the moment of rejection. Compare. Identify which number the gap is in.",
+      "trigger_condition": "First observation of FU-20260510-001 firing, OR any future 170131 cluster on a spot-margin account.",
+      "resolution_criteria": "Close with a follow-up PR adding the pre-flight check OR an explicit decision that the circuit breaker alone is sufficient.",
+      "status": "open",
+      "snoozed_until": null,
+      "closed_at": null,
+      "closed_reason": null
+    },
+    {
+      "id": "FU-20260510-003",
+      "opened_at": "2026-05-10T17:15:00+00:00",
+      "opened_by": "claude",
+      "source": "REQ-20260510-150021-25631930749",
+      "related_prs": [],
+      "title": "ETHUSDT silence on turtle_soup despite config",
+      "description": "config/strategies.yaml configures turtle_soup for BTCUSDT + ETHUSDT, but the 2026-05-10 audit window contained zero ETHUSDT events (orders or eval) over ~75 minutes. Could be a per-symbol cadence mismatch, a market-data fetch failure for ETHUSDT, or the multiplexer dropping the second symbol. Not yet investigated.",
+      "expected_check": "Filter the audit tail for symbol=='ETHUSDT'. Count turtle_soup_eval events. If the count is zero across the 6h window, raise to anomalies. If non-zero, this follow-up can be closed.",
+      "trigger_condition": "Any /health-review run.",
+      "resolution_criteria": "Close after a single review where ETHUSDT turtle_soup_eval count > 0, OR after a code change confirms turtle_soup is correctly multi-symbol.",
+      "status": "open",
+      "snoozed_until": null,
+      "closed_at": null,
+      "closed_reason": null
+    },
+    {
+      "id": "FU-20260510-004",
+      "opened_at": "2026-05-10T17:15:00+00:00",
+      "opened_by": "claude",
+      "source": "REQ-20260510-150021-25631930749",
+      "related_prs": [],
+      "title": "scripts/collect_health_snapshot.sh under-reports activity",
+      "description": "The collector greps *.log for ticks/signals/orders/trades but the live pipeline writes runtime_logs/signal_audit.jsonl (NDJSON, not .log). All snapshots since the format switch have empty TICKS/SIGNALS/ORDERS/TRADES sections even when the bot is actively trading. PR #738 mitigates this by mandating diag-relay pulls in the layer-2 review, but the collector itself is still wrong.",
+      "expected_check": "Diff snapshot section counts vs. diag-relay counts in the same window. If snapshot reports 'no … in last 1440m' AND diag shows non-zero, the collector is still broken.",
+      "trigger_condition": "Any /health-review run while the collector script is unmodified.",
+      "resolution_criteria": "Close once collect_health_snapshot.sh is patched to read signal_audit.jsonl and snapshot/diag counts agree.",
+      "status": "open",
+      "snoozed_until": null,
+      "closed_at": null,
+      "closed_reason": null
+    }
+  ]
+}

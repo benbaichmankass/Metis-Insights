@@ -1,0 +1,22 @@
+{
+  "_comment": "Schema for comms/follow_ups.json — the layer-2 review's running list of unresolved items. Read by .claude/skills/health-review/SKILL.md alongside artifacts/health/latest.json. Each entry tracks something a prior review surfaced that wasn't fully resolved at the time, with a trigger condition the next /health-review run must evaluate. This file is documentation only — it is not validated as a JSON Schema.",
+  "schema_version": 1,
+  "follow_ups": [
+    {
+      "id": "FU-YYYYMMDD-NNN",
+      "opened_at": "ISO-8601 UTC timestamp",
+      "opened_by": "claude | operator | <other-reviewer>",
+      "source": "REQ-YYYYMMDD-HHMMSS-<run_id> | <free-text>",
+      "related_prs": [0],
+      "title": "≤ 80 chars",
+      "description": "≤ 600 chars — what was observed, what's unknown, and why the original reviewer didn't fully resolve it.",
+      "expected_check": "≤ 400 chars — the concrete evaluation the next /health-review run must perform against its diag/audit data.",
+      "trigger_condition": "≤ 200 chars — when this follow-up applies (e.g. 'any /health-review run', 'when bybit_2 has a rejection in window').",
+      "resolution_criteria": "≤ 300 chars — what evidence justifies closing.",
+      "status": "open | snoozed | closed",
+      "snoozed_until": "ISO-8601 UTC timestamp or null",
+      "closed_at": "ISO-8601 UTC timestamp or null",
+      "closed_reason": "≤ 200 chars or null"
+    }
+  ]
+}

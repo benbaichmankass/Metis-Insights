@@ -39,6 +39,12 @@ every cycle by squash-merging a labelled PR. Read these files:
   specific request id as the skill argument.
 - `.claude/health_check_prompt.md` — severity rubric for layer 1.
 - `comms/schema/health_review_response.template.json` — output shape.
+- `comms/follow_ups.json` — running list of unresolved items earlier
+  reviews flagged but couldn't fully resolve (e.g. waiting for a
+  trigger condition to fire, deferred design decisions). Read every
+  open entry; check whether its `trigger_condition` applies to this
+  review window. Schema lives at
+  `comms/schema/follow_ups.schema.json`.
 
 ## Argument handling
 
@@ -95,6 +101,34 @@ it still fails, downgrade gracefully: emit the review with a
 `concern` on `api_errors` and `operator_attention_required: true`,
 note that the 6h log review could not be performed, and stop. Do
 not fabricate findings from the snapshot alone.
+
+### Follow-up log evaluation
+
+After fetching the diag pulls and before grading, read
+`comms/follow_ups.json`. For each entry with `status: "open"` (and
+`snoozed_until` in the past or null):
+
+1. Evaluate `trigger_condition` against this review window's diag
+   data. Examples: "any rejection on bybit_2 in the 6h window",
+   "any /health-review run", "next time the breaker fires."
+2. If the trigger applies, perform the `expected_check`. Whatever
+   you find — verified-good, verified-bad, or inconclusive — folds
+   into the regular findings + `anomalies` array, prefixed with the
+   `id` (e.g. `"FU-20260510-001: bybit_2 had 2 rejections, no breaker
+   trip yet (threshold is 3)"`).
+3. If the trigger doesn't apply (the conditions in this window
+   don't match), skip silently — don't pad anomalies with
+   "FU-X not triggered."
+4. If the diag evidence satisfies `resolution_criteria`, surface it
+   in `recommended_action` with phrasing like *"Close FU-XXX
+   (resolved by …)."* The operator decides; don't auto-edit the
+   file.
+
+Do not write to `comms/follow_ups.json` from this skill. New
+follow-ups discovered during a review go in the response's
+`anomalies` array with a clear "open as new follow-up" hint in
+`recommended_action`; the operator (or a separate skill) is
+responsible for editing the file.
 
 ### Sanity-check rubric for the 6-hour window
 
