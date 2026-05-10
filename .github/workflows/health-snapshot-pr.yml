@@ -92,6 +92,31 @@ jobs:
               > artifacts/health/health_snapshot.txt
           echo "snapshot bytes: $(wc -c < artifacts/health/health_snapshot.txt)"
 
+      - name: Run pipeline test on VM
+        # Active pipeline check: invokes the live trader's smoke harness
+        # (scripts/smoke_test_trade.py --dry-run) over SSH and writes
+        # the structured result to artifacts/health/pipeline_test.json.
+        # The smoke uses safe_place_order(client=None) so no live order
+        # leaves the VM. Output is consumed by run_health_check.py
+        # --pipeline-test on the next step, which merges it into
+        # checks.pipeline of the layer-1 report.
+        #
+        # continue-on-error so a transient SSH blip / smoke timeout
+        # doesn't block the rest of the workflow. The Python layer
+        # records the absence as `warn` on checks.pipeline so the LLM
+        # still grades the snapshot normally.
+        id: pipeline_test
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/id_rsa \
+              -o StrictHostKeyChecking=yes \
+              -o ConnectTimeout=20 \
+              "$VM_USER@$VM_HOST" "bash $VM_REPO/scripts/run_pipeline_health_test.sh" \
+              > artifacts/health/pipeline_test.json
+          echo "pipeline test result:"
+          cat artifacts/health/pipeline_test.json
+
       - name: Run automated health analysis (layer 1)
         id: analyze
         env:
@@ -106,7 +131,8 @@ jobs:
           set -euo pipefail
           PYTHONPATH=. python scripts/run_health_check.py \
             artifacts/health/health_snapshot.txt \
-            --out-dir artifacts/health
+            --out-dir artifacts/health \
+            --pipeline-test artifacts/health/pipeline_test.json
 
       - name: Emit Claude review request (layer 2)
         id: review_request
@@ -160,6 +186,7 @@ jobs:
             Automated health-check artifacts and Claude review request.
 
             - **Machine status**: `${{ steps.analyze.outputs.status }}`
+            - **Pipeline test**: `${{ steps.analyze.outputs.pipeline_status }}` — ${{ steps.analyze.outputs.pipeline_note }}
             - **Request id**: `${{ steps.review_request.outputs.request_id }}`
             - **Workflow run**: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
@@ -172,7 +199,8 @@ jobs:
 
             Files in this PR:
             - `artifacts/health/health_snapshot.txt` — raw VM snapshot
-            - `artifacts/health/latest.json` — machine verdict
+            - `artifacts/health/pipeline_test.json` — active pipeline-test result
+            - `artifacts/health/latest.json` — machine verdict (snapshot grade + pipeline-test escalation)
             - `artifacts/health/health_check_<ts>.json` — per-run verdict copy
             - `comms/requests/${{ steps.review_request.outputs.request_id }}.json` — schema-valid review request
           # `health-snapshot-routine` is the literal label the Claude
@@ -214,6 +242,7 @@ jobs:
           PR_NUM="${{ steps.cpr.outputs.pull-request-number }}"
           PR_URL="${{ steps.cpr.outputs.pull-request-url }}"
           STATUS="${{ steps.analyze.outputs.status }}"
+          PIPELINE="${{ steps.analyze.outputs.pipeline_status }}"
           if [ "${MERGE_OUTCOME:-skipped}" = "success" ]; then
             phrase="auto-merged — Claude review routine fired"
           else
@@ -224,7 +253,7 @@ jobs:
           # comment without making telegram failure fatal to the run.
           set +e
           PYTHONPATH=. python scripts/notify_session.py alert \
-            --summary "Health review PR #${PR_NUM} ${phrase} (machine: ${STATUS:-UNKNOWN})" \
+            --summary "Health review PR #${PR_NUM} ${phrase} (machine: ${STATUS:-UNKNOWN}, pipeline: ${PIPELINE:-unknown})" \
             --link "$PR_URL"
           tg_rc=$?
           set -e
@@ -249,6 +278,7 @@ jobs:
           PR_NUMBER: ${{ steps.cpr.outputs.pull-request-number }}
           PR_OPERATION: ${{ steps.cpr.outputs.pull-request-operation }}
           ANALYZE_STATUS: ${{ steps.analyze.outputs.status }}
+          PIPELINE_STATUS: ${{ steps.analyze.outputs.pipeline_status }}
           MERGE_OUTCOME: ${{ steps.automerge.outcome }}
           TELEGRAM_EXIT: ${{ steps.notify.outputs.telegram_exit_code }}
         with:
@@ -258,6 +288,7 @@ jobs:
             let verdict = process.env.ANALYZE_STATUS || 'UNKNOWN';
             let summary = '(no summary)';
             let layer1Error = '';
+            let pipelineLine = '';
             try {
               const raw = fs.readFileSync('artifacts/health/latest.json', 'utf8');
               const j = JSON.parse(raw);
@@ -268,6 +299,10 @@ jobs:
                   `\n⚠️ Layer-1 fallback fired — \`${j.error.type}\`: ${j.error.message}\n` +
                   `(verdict UNKNOWN means the Anthropic call did not succeed; ` +
                   `check ANTHROPIC_API_KEY secret + billing.)`;
+              }
+              const p = (j.checks && j.checks.pipeline) || null;
+              if (p) {
+                pipelineLine = `\nPipeline test: \`${p.status}\` — ${p.note}`;
               }
             } catch (e) {
               summary = `(could not parse artifacts/health/latest.json: ${e.message})`;
@@ -295,6 +330,7 @@ jobs:
               `${mergeLine}\n` +
               `Layer-1 verdict: \`${verdict}\`\n` +
               `Layer-1 summary: ${summary}` +
+              pipelineLine +
               layer1Error +
               `\n${tgLine}`;
             await github.rest.issues.createComment({
@@ -324,6 +360,7 @@ jobs:
               `- \`VM_SSH_KEY\` secret unset or unparseable (CRLF / .ppk / encrypted key).\n` +
               `- VM unreachable from the GitHub-hosted runner (network or sshd).\n` +
               `- \`scripts/collect_health_snapshot.sh\` returned non-zero on the VM.\n` +
+              `- \`scripts/run_pipeline_health_test.sh\` missing on the VM (deploy via git pull) or smoke creds unset.\n` +
               `- peter-evans/create-pull-request denied: either enable Settings → Actions → General → ` +
               `"Allow GitHub Actions to create and approve pull requests", or set the \`HEALTH_REVIEW_PAT\` ` +
               `secret to a fine-grained PAT with Contents:write + Pull requests:write on this repo.\n` +
