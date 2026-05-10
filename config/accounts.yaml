@@ -26,31 +26,30 @@
 # the Telegram /accounts command flips it at runtime via
 # `set_account_dry_run()`.
 #
-# Bybit V5 category routing (operator directive 2026-05-06):
+# Bybit V5 category routing (operator directives 2026-05-06 + 2026-05-10):
 #   `market_type: spot`         → Bybit spot cash market (place_order
 #                                 category="spot", marketUnit="baseCoin").
+#                                 Wallet holds real BTC + USDT and the
+#                                 trader buys/sells the cash asset.
 #   `market_type: linear`       → USDT-margined perpetual futures
-#                                 (category="linear"). Was the previous
-#                                 hardcoded behaviour; kept as an opt-in.
-#   `market_type: spot-margin`  → Bybit V5 Spot Margin Trading (S-047 T1).
-#                                 The account's identity carries the
-#                                 routing label; the API category is
-#                                 still `spot` but T3 (`feat(exec):
-#                                 route spot-margin orders via
-#                                 isLeverage=1`) wires `isLeverage=1` so
-#                                 the wallet can borrow base coin to
-#                                 short and borrow quote coin to long
-#                                 with leverage. This is **not** a gate
-#                                 — non-spot-margin accounts simply
-#                                 follow a different code path. Per
-#                                 `docs/claude/workplan.md` § "Live /
-#                                 dry-run rule" the dispatcher's
-#                                 `live | dry_run` switch remains the
-#                                 only canonical execution gate.
-# Default when the field is omitted is `spot` — the operator's wallets
-# hold real BTC/USDT and the trader should buy/sell the cash asset, not
-# linear perp contracts. Read by `_bybit_category()` in
-# `src/units/accounts/execute.py`.
+#                                 (category="linear"). Wallet holds
+#                                 USDT collateral and trades perp
+#                                 contracts at configured leverage.
+#                                 Bybit V5 requires `/v5/position/set-
+#                                 leverage` to be called per (symbol,
+#                                 account) before the first order;
+#                                 main.py::_apply_per_account_leverage
+#                                 handles this at boot. Idempotent on
+#                                 retCode=110043.
+#
+# Default when the field is omitted is `spot`. Read by `_bybit_category()`
+# in `src/units/accounts/execute.py`.
+#
+# PR 3 cutover (2026-05-10): bybit_2 migrated from spot-margin to linear
+# perpetuals at 3× leverage. The spot-margin path is dormant — no
+# account routes to it post-cutover — and scheduled for deletion in
+# the follow-up cleanup PR once bybit_2 is confirmed trading reliably.
+# See `commits` for the migration audit and cutover rationale.
 #
 # Risk caps fire bidirectionally: pos_size, daily_usd, and (S-012 PR E3a)
 # max_dd_pct (intra-day, UTC midnight reset).
@@ -58,24 +57,17 @@
 # S-026 G2 sizing inputs (operator-confirmed defaults):
 #   risk_pct         — fraction of balance risked per trade (1 % live).
 #   min_balance_usd  — refuse to size below this balance ($50).
+#   leverage         — per-account leverage for linear accounts (PR 3
+#                      cutover). Read by RiskManager.leverage and
+#                      applied via /v5/position/set-leverage at boot.
+#                      0 (or missing) skips set-leverage; the exchange
+#                      uses whatever leverage was last set. Cash spot
+#                      accounts ignore this field.
 # These feed RiskManager.position_size(pkg, balance) — the single
 # qty-deciding function in the codebase. There is no max-position
 # notional cap on sizing per the operator directive; ``pos_size`` is
 # kept only for the post-sizing approval gate
 # (RiskManager.approve(order)).
-#
-# Spot-margin LTV (PR 2 / 2026-05-10 incident chain):
-#   risk.spot_margin_ltv — fallback fraction of collateral the bot is
-#   willing to assume as borrow capacity when Bybit's V5
-#   ``availableToBorrow`` field is 0. Defaults to 0.5 (in
-#   ``DEFAULT_SPOT_MARGIN_LTV``); the spot-margin sizer only consults
-#   this when the API path returns 0. On 2026-05-10 the API returned 0
-#   transiently and the 0.5 fallback halved bybit_2's effective
-#   capacity (≈$77 of a $154 wallet), causing a 20-row sized_qty=0
-#   rejection cascade. Bybit's standard spot-margin tier supports up to
-#   80% LTV; setting this on a per-account basis lets the operator
-#   configure the fallback to track their actual tier without changing
-#   the global default.
 
 accounts:
   # bybit_1: turtle_soup only — operator-confirmed wallet holds BTC + USDT
@@ -97,24 +89,28 @@ accounts:
       risk_pct: 0.01                   # 1% balance risked per trade (S-026 G2)
       min_balance_usd: 50              # refuse to size below $50 (S-026 G2)
 
-  # bybit_2: vwap only. Wallet holds USDT and operates as a Bybit V5
-  # Spot Margin account (S-047) so the strategy can take true longs
-  # (USDT borrow → buy BTC) and true shorts (BTC borrow → sell BTC)
-  # against USDT collateral. The `market_type: spot-margin` value is a
-  # routing identity, not a gate — when Bybit's web-UI Spot Margin
-  # toggle is off, every isLeverage=1 order returns retCode 110007
-  # server-side and is logged via the existing report_api_failure path
-  # (same handling as any other exchange retCode). The system operates
-  # margin-agnostic; nothing in this repo verifies, gates on, or waits
-  # for the operator's web-UI click.
+  # bybit_2: vwap only on Bybit V5 USDT-margined linear perpetuals at 3×
+  # leverage. PR 3 cutover (2026-05-10) — migrated from spot-margin
+  # because the spot-margin sizing path required client-side modelling of
+  # Bybit's borrow-capacity flapping (`availableToBorrow=0` transient
+  # zeros, S-056 / S-058), free-USDT-lock-in semantics on open positions,
+  # and LTV-fallback math that produced cascading sized_qty=0 refusals
+  # under perfectly normal market conditions. Linear perpetuals trade
+  # one wallet number (`walletBalance` USDT) with explicit leverage —
+  # the sizer reduces to standard risk-distance math, and the bot stops
+  # tracking exchange-side margin state from the client side.
+  #
+  # Same wallet, same API key as the previous spot-margin config.
+  # Operator runs unified trading account; set-leverage with
+  # `category=linear` works directly.
   bybit_2:
     type: regular
     exchange: bybit
     api_key_env: BYBIT_API_KEY_2
     mode: live                         # see header — ONLY dry/live toggle
-    market_type: spot-margin           # S-047 T1 — Bybit V5 Spot Margin
-                                       # routing label (T3 wires
-                                       # isLeverage=1 in execute.py).
+    market_type: linear                # PR 3 — Bybit V5 USDT-margined
+                                       # linear perpetuals. Was
+                                       # spot-margin pre-cutover.
     strategies: [vwap]
     risk:
       max_dd_pct: 0.05
@@ -122,15 +118,14 @@ accounts:
       pos_size: 500
       risk_pct: 0.01
       min_balance_usd: 50
-      # PR 2 (2026-05-10 incident chain): bump fallback LTV from the
-      # global default (0.5) to 0.8 so a transient Bybit API hiccup
-      # — `availableToBorrow=0` flicker, see S-056 / S-058 — only
-      # halves usable capacity to 80% of collateral instead of 50%.
-      # Bybit's standard spot-margin tier supports up to 80%; this
-      # tracks reality for this account without touching the global
-      # default. See pipeline._recent_refusal_for_strategy for the
-      # cooldown gate that backs this up.
-      spot_margin_ltv: 0.8
+      # PR 3 cutover: 3× leverage on linear perps. main.py at boot
+      # calls /v5/position/set-leverage with this value for every
+      # symbol the account's strategies trade (BTCUSDT for vwap).
+      # Idempotent on retCode=110043 ("leverage not modified") so
+      # restarts are safe. To change leverage live: edit this value,
+      # restart the trader; the set-leverage call will apply the new
+      # value at boot.
+      leverage: 3
 
   # prop_velotrade_1: NOT FULLY CONFIGURED — Velotrade DXtrade prop firm
   # scaffold. Phase-2 (this commit) wires the integration infrastructure
