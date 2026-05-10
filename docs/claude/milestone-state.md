@@ -36,15 +36,26 @@ When opening a session:
 
 | Field | Value |
 |---|---|
-| **Milestone** | (between sprints — Janitor S-066 closing, M5 next per workplan) |
-| **Title** | S-066 — Janitor: M1 P2 hygiene cluster close-out (docs only) |
-| **Type** | auto-claude. Backlog cleanup deferred from M1 close. Tier 1, docs only. |
-| **Goal** | Reconcile `docs/audits/M1-comms-audit-followups-fresh.md` § P2 against ground truth: three items already done (test pin existed under different name; README "Stuck request" section already references P1-B bot-side alerts; restart-recovery is architecturally safe by design). Two items explicitly carved out: schema-drift envelope (real residual code work, needs its own focused sprint) and command-name cosmetics (low ROI, keep deferred). Comms log retention decision left to a future ops sprint. |
-| **Status** | 🔄 IN PROGRESS 2026-05-09 — branch `claude/bot-S-066-janitor-comms-hygiene`, single docs-only PR. |
-| **Active sprint** | **S-066 — Janitor.** No prompt file (audit doc + this milestone-state entry are the sprint). |
-| **Active checkpoint** | (none — single-PR sprint) |
-| **Risk tier** | Tier 1, docs only. |
-| **Definition of done** | Audit doc reconciled, milestone-state advanced, queue restored. |
+| **Milestone** | (between sprints — S-067 just closed 2026-05-10; S-047 T6 next per workplan queue) |
+| **Title** | S-067 — Silent-empty error path audit & hardening |
+| **Type** | ad-hoc, triggered by 2026-05-10 24h trade-performance review. Tier 1 / infra (every PR self-merged). |
+| **Goal** | Audit every `except Exception` / `except sqlite3.Error` / bare-except site under `src/web/api/`, `src/web/runtime_status.py`, `src/units/db/`, and the read-path slice of `src/runtime/`; convert trust-corroding sentinels to loud failures; add log calls to borderline sites; ship a CI guard so the pattern can't come back. Generalises the bug class hardened in PRs #627 (`/positions` returned `[]` for endpoint lifetime) and #629 (`/signals` dropped `price`). |
+| **Status** | ✅ CLOSED 2026-05-10 — 5 work-PRs merged (#642, #643, #644, #645, #646) + this CP-5 sprint-close PR. |
+| **Active sprint** | (none — S-067 closed) |
+| **Active checkpoint** | `CP-2026-05-10-01-s067-complete` (this PR) |
+| **Risk tier** | Tier 1 / infra throughout. No live-order-path edits, no env-gate changes, no config edits. |
+| **Definition of done** | Audit doc filed; every § 1 trust-corroding site fixed with regression test; every § 2 borderline site logged; CI lint guard wired; sprint summary, bug-log entry, testing-policy update, milestone-state advance — all shipped. |
+
+> **S-067 hand-off (2026-05-10):** the next session should pick the next
+> queued milestone (S-047 T6 — live smoke + runbook) per workplan order.
+> If picking from the S-067 follow-up list instead (per
+> `docs/sprints/sprint-067-prompt.md` § 8 / `docs/sprint-summaries/sprint-067-summary.md`
+> § Hand-off), priority is: (1) test fixture extraction, (2) verify
+> `/api/bot/trades/closed` end-to-end (already exists in
+> `src/web/api/routers/trades_closed.py`), (3) closed → exchange-flat
+> invariant reconciler (Tier 2 — needs operator ack pre-merge), then the
+> Tier-2 process-wide env-gate purge / Tier-1 deploy contract / exchange-fills
+> attribution / daily one-trade audit chain.
 
 > **S-065 deferred (2026-05-09):** dashboard sprint E (controls phase 1
 > + login flow) deferred per operator. Login scope decision was
@@ -78,9 +89,10 @@ When opening a session:
 >    with both routes.
 >
 > `ict-trading-bot#557` (closed-trades endpoint with pattern
-> attribution) is **still open / not started** — Performance tab's
-> per-strategy breakdown stays empty until that lands; not blocking
-> S-065.
+> attribution) — **partially shipped already** (discovered during the
+> S-067 audit; see `src/web/api/routers/trades_closed.py`). Verify
+> end-to-end + retire the dashboard's `deriveClosedTradesFromLogs`
+> regex fallback in a follow-up.
 
 > **Parallel:** S-047 T6 (bybit_2 Spot Margin live smoke + runbook) is still
 > the live-trading priority and runs on its own branch. S-061..S-065 do not
@@ -94,18 +106,20 @@ When opening a session:
 
 ## M0..M10 status table
 
-> Last verified: 2026-05-08 (S-048 fresh re-issue session — operator-directed
-> M1 audit redo with corrections baked in; P1 follow-ups landing same-session
-> per operator directive). "Verified" = on-disk artifacts checked before
-> accepting any prior "done" label.
+> Last verified: 2026-05-10 (S-067 sprint close — read-path silent-empty
+> patterns swept across `src/web/api/`, `src/web/runtime_status.py`,
+> `src/units/db/`, and the read-path slice of `src/runtime/`; CI lint
+> guard added). Prior verification: 2026-05-08 (S-048 fresh re-issue).
+> "Verified" = on-disk artifacts checked before accepting any prior
+> "done" label.
 
 | Milestone | Focus | Status | Evidence / Notes |
 |---|---|---|---|
 | **M0** | Workflow foundation | ✅ CLOSED | S0 sprint done; `docs/sprint-summaries/sprint-S0-summary.md` exists; CP-2026-05-06-S0-02 in checkpoint log |
 | **M1** | Comms infrastructure | ✅ CLOSED | S-048 fresh audit closed on `claude/update-roadmap-status-ZnLM9`. Audit verdict: PARTIAL, no P0. P1-A (workplan correction) landed there same-session. P1-B (stuck-request recovery alerts), P1-C (auto-hourly snapshot timer), P1-D (`/new_session` + `/test` commands) closed 2026-05-08 on `claude/review-roadmap-hIO75`. P2 hygiene cluster filed for a future Janitor sprint per `docs/audits/M1-comms-audit-followups-fresh.md`. |
-| **M2** | Web app source of truth (backend) | ✅ CLOSED | S-013 FastAPI backend (`/api/status`, `/api/pnl`, JWT auth). S-014 added `/api/bot/{stats,logs,positions,signals}` for the Vercel dashboard + CORS middleware keyed to `DASHBOARD_ORIGIN`. Dashboard reachability fix landed 2026-05-07 (Vercel rewrite proxies `/api/bot/*` to the bot, defeats HTTPS→HTTP mixed-content block). M2 formally closed 2026-05-08 alongside the M1 P1-A..D follow-ups — backend work was already shipped, this close-out is paperwork-only (no new code). The diagnostic surface (`/api/diag/*`) is a separate workstream and stays out of M2 scope. |
+| **M2** | Web app source of truth (backend) | ✅ CLOSED | S-013 FastAPI backend (`/api/status`, `/api/pnl`, JWT auth). S-014 added `/api/bot/{stats,logs,positions,signals}` for the Vercel dashboard + CORS middleware keyed to `DASHBOARD_ORIGIN`. Dashboard reachability fix landed 2026-05-07 (Vercel rewrite proxies `/api/bot/*` to the bot, defeats HTTPS→HTTP mixed-content block). M2 formally closed 2026-05-08 alongside the M1 P1-A..D follow-ups — backend work was already shipped, this close-out is paperwork-only (no new code). The diagnostic surface (`/api/diag/*`) is a separate workstream and stays out of M2 scope. **S-067 (2026-05-10)** swept silent-empty error paths across the M2 surface (`/api/bot/{stats,logs,positions,signals,config}`, `/api/diag/*`, `/api/pnl*`) — read-path integrity hardened, CI lint guard added. |
 | **M3** | Risk controls foundation | ✅ CLOSED | S-043 closed 2026-05-06. Order-layer refusal tests now complete (28 new gap-closer tests in `tests/test_s043_order_refusal_paths.py`). Risk engine + kill switch + risk caps + reason-token contract all pinned. |
-| **M4** | Repo hygiene + CI | ✅ CLOSED | S-044 (CI suite) ✅; S-045 (conftest + pytest-collect blocking + ruff default) ✅; post-S-045 follow-up (auto-sync branch protection workflow) ✅; S-046 (2026-05-07) closed the three Janitor audits. M4 formally closed. |
+| **M4** | Repo hygiene + CI | ✅ CLOSED | S-044 (CI suite) ✅; S-045 (conftest + pytest-collect blocking + ruff default) ✅; post-S-045 follow-up (auto-sync branch protection workflow) ✅; S-046 (2026-05-07) closed the three Janitor audits. **S-067 (2026-05-10)** added the `silent-empty-guard` workflow + `scripts/check_silent_empty_in_diff.py` lint script — read-path discipline now enforced in CI alongside `dry-run-guard`, `ruff-lint`, `secret-scan`. M4 formally closed. |
 | **M5** | Strategy testing workflow | 📋 NOT STARTED (paused) | Telegram-triggered test flow, validation logging, backtest workflow docs not yet built. **Paused** behind S-047 T6. The bot-side dispatch surface for `/test <strategy>` is now in place via M1 P1-D — M5 only needs to wire the artifact consumer. |
 | **M6** | Web app UI | 🔄 IN PROGRESS (dashboard repo) | S-014 V1 React/Vite SPA shipped 2026-05-07 in `the-lizardking/ict-trader-dashboard`. **S-015 V2 plan scratched 2026-05-07** per operator. Dashboard connection fix (Vercel rewrite of `/api/bot/*` to bot VPS) landed the same day. **In active session 2026-05-08** on dashboard branch `claude/update-roadmap-status-ZnLM9` — wiring mock-data feeds (equity chart, Active ICT Strategies, Trading Conditions) to live `/api/bot/*` data; positions and signals to follow. |
 | **M7** | Strategy review gate | 📋 NOT STARTED | |
@@ -135,6 +149,7 @@ When opening a session:
 | **S-063 — Dashboard sprint C (Performance tab + persistent equity; bot drops `/api/pnl/history` JWT gate, flattens response)** | **2026-05-09** | dashboard PR #9 squash `be85d10`; bot PR #595 squash `87d5ee1` | `docs/sprints/sprint-063-prompt.md` |
 | **S-064 — Dashboard sprint D (Liquidity Maps + Settings tabs; new bot endpoints `/api/bot/{liquidity,config}`; pipeline writes per-tick `runtime_logs/liquidity_state.json` via prereq hook)** | **2026-05-09** | bot prereq PR #597 squash `1eb816b`; bot main PR #601 squash `14fe5d7a`; dashboard PR #10 squash `b7963b26` | `docs/sprints/sprint-064-prompt.md` |
 | **S-066 — Janitor: M1 P2 hygiene cluster close-out (docs only)** | **2026-05-09** | (this PR's checkpoint) | `docs/audits/M1-comms-audit-followups-fresh.md` § P2 |
+| **S-067 — Silent-empty error path audit & hardening** (5 work-PRs + sprint-close PR; trust-corroding fixes + log-only borderline batch + CI lint guard; BUG-065) | **2026-05-10** | `CP-2026-05-10-01-s067-complete` | `docs/sprint-summaries/sprint-067-summary.md` |
 
 > Pre-M0..M10 roadmap progress (S-000 through S-040) is captured in `ROADMAP.md`
 > under "Historical Sprint Ledger". From M0 forward, every closed milestone gets a row here.
@@ -154,6 +169,7 @@ In execution order. Each row lists the gating condition to start.
 | 5 | M9 — AI / model roadmap | auto-claude | Independent of M5/M6. Could run in parallel. |
 | 6 | M10 — HF / data pipeline | auto-claude | Independent of M5/M6. Could run in parallel. |
 | 7 | **S-050-followup — Phase-3 HTF reference 4h → 1h EMA-200** (Tier 2, PM-review) | strategy-improvement | ≥ 30 days of Phase-2 live metrics on the HTF gate (S-050 shipped 2026-05-09). Expected +0.4 Sharpe lift on top of Phase-2 per V3 in `experiments/2026-05-08-all-models-training/`. |
+| 8 | **S-067 follow-ups** (test fixture extraction → trades_closed verify → closed-flat invariant Tier-2 → env-gate purge Tier-2 → deploy contract universalisation → exchange-fills attribution → daily one-trade audit → hourly_report/boot_audit audit → vm_health helper consolidation) | mixed Tier 1 + Tier 2 | Independent of S-047. Pick from this list when read-path / observability work is up. Full hand-off: `docs/sprint-summaries/sprint-067-summary.md` § Hand-off. |
 
 > M2 (Web app source of truth) — closed 2026-05-08 (paperwork-only;
 > backend had already shipped under S-013 + S-014). Not a blocker for
