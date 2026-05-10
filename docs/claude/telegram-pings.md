@@ -118,7 +118,7 @@ Example — sprint-start (T0):
 
 Example — sprint-complete (T5):
 ```json
-{"event": "sprint-complete", "priority": "high", "sprint": "S-042", "title": "M1 closed — ClaudeBot channel verified", "summary_url": "https://github.com/the-lizardking/ict-trading-bot/blob/main/docs/sprint-summaries/sprint-042-summary.md"}
+{"event": "sprint-complete", "priority": "high", "sprint": "S-042", "title": "M1 closed — ClaudeBot channel verified", "summary_url": "https://github.com/benbaichmankass/ict-trading-bot/blob/main/docs/sprint-summaries/sprint-042-summary.md"}
 ```
 
 ## Blocker pings — escalation contract
