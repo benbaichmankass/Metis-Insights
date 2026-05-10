@@ -125,6 +125,87 @@ Beyond freshness counts, judge **decision quality**:
   audit consistent with what's enabled in `config/strategies.yaml`?
   Anomalies here go in the free-form `anomalies` array.
 
+### Per-trade decision grading (training-data feedstock)
+
+For **every closed (or rejected) trade** in the 6-hour window,
+emit a structured grade in `trade_decision_grades[]` so future
+training sessions have a labelled feedback signal beyond raw P&L.
+The grade is independent of dollar outcome — a small win on a bad
+setup is still graded poorly; a stop-out on a textbook setup is
+still graded fairly.
+
+Use the trade's `signal_logic` blob (in `trades.notes` or the
+`order_packages.signal_logic` JSON) to anchor the call. That blob
+carries the entry rationale (VWAP std-dev, HTF EMA / band, sweep
+buffer, ATR multiplier, etc.) — judge the trade against its own
+stated edge and the post-hoc fill / exit data we have.
+
+**Letter grade rubric (one per trade):**
+- `A` — Textbook. Setup-config aligned, HTF unblocked, R:R ≥ 1.5,
+  hit TP cleanly, no premature exit. The kind of trade we want
+  more of.
+- `B` — Good. Same as A but with one minor deviation (slightly
+  low confidence, R:R ~1.0, TP1 partial only, fill slippage).
+- `C` — Acceptable. Setup fired correctly and risk was contained
+  (e.g., stopped at SL with the documented multiplier), but the
+  EV looks marginal in retrospect.
+- `D` — Poor. Setup fired but went against HTF or had thin
+  confidence; only saved by mean reversion or noise.
+- `F` — Bad. Should not have fired at all (config mismatch,
+  htf_blocked=true overridden, oversized, against published
+  bias). Or should have stayed in (premature trail-stop on what
+  would clearly have run further given the same signal logic).
+
+**Three standardized categorical labels (per trade):**
+- `entry_quality`: one of
+  `optimal | acceptable | late | early | should_skip | unknown`
+- `exit_quality`: one of
+  `optimal | tp_appropriate | sl_appropriate | premature_exit |
+  held_too_long | unknown`
+- `risk_management`: one of
+  `correct | oversize | undersize | sl_too_tight | sl_too_wide |
+  unknown`
+
+These three labels are the training-friendly fields; the letter
+grade is a single rolled-up summary for human scanning.
+
+**Per-trade entry shape (one object per trade):**
+
+```json
+{
+  "trade_id": 1135,
+  "timestamp": "2026-05-10T10:14:38+00:00",
+  "symbol": "BTCUSDT",
+  "direction": "long",
+  "setup": "vwap",
+  "entry_price": 80725.9,
+  "exit_price": 80794.7,
+  "stop_loss": 80700.41,
+  "take_profit_1": 80784.64,
+  "position_size": 0.002,
+  "exit_reason": "tp_cross",
+  "decision_grade": "A",
+  "entry_quality": "optimal",
+  "exit_quality": "tp_appropriate",
+  "risk_management": "correct",
+  "rationale": "≤ 240 chars — why this grade given signal_logic + outcome",
+  "alternative_action": "≤ 160 chars — what we'd do differently next time, or 'none'"
+}
+```
+
+Use `unknown` honestly when the diag bundle didn't carry enough
+context to grade a dimension (e.g., truncated `signal_logic`,
+missing exit price). **Do not fabricate** a grade where the data
+doesn't support one — `unknown` + a short rationale is the
+contract.
+
+When the 6-hour window contains many trades, prefer per-trade
+grades for closes + at least one representative grade per
+rejection cluster. If there are >20 trades, batch the lowest-grade
+cohort first (Cs, Ds, Fs) so the operator and the training
+pipeline see the negative signal up front; aggregate the As / Bs
+in a single summary entry that lists the trade ids covered.
+
 The pipeline-test result in `artifacts/health/pipeline_test.json` is
 an out-of-band dry-run of `safe_place_order`. A `warn` with note
 "plumbing-on-rejection path exercised" is the **expected** outcome
@@ -192,10 +273,35 @@ Schema reminder:
     "api_errors": {"status": "ok | watch | concern", "note": "..."}
   },
   "anomalies": ["...free-form list..."],
+  "trade_decision_grades": [
+    {
+      "trade_id": 0,
+      "timestamp": "YYYY-MM-DDTHH:MM:SS+00:00",
+      "symbol": "BTCUSDT",
+      "direction": "long | short",
+      "setup": "vwap | turtle_soup | ...",
+      "entry_price": 0.0,
+      "exit_price": 0.0,
+      "stop_loss": 0.0,
+      "take_profit_1": 0.0,
+      "position_size": 0.0,
+      "exit_reason": "tp_cross | sl_hit | trail | manual | rejected | ...",
+      "decision_grade": "A | B | C | D | F",
+      "entry_quality": "optimal | acceptable | late | early | should_skip | unknown",
+      "exit_quality": "optimal | tp_appropriate | sl_appropriate | premature_exit | held_too_long | unknown",
+      "risk_management": "correct | oversize | undersize | sl_too_tight | sl_too_wide | unknown",
+      "rationale": "≤ 240 chars",
+      "alternative_action": "≤ 160 chars, or 'none'"
+    }
+  ],
   "recommended_action": "what to do next, or 'none'",
   "operator_attention_required": false
 }
 ```
+
+`trade_decision_grades` is REQUIRED. Pass an empty array (`[]`) only
+when the 6-hour window genuinely contained no closed or rejected
+trades.
 
 ## Notes guidance
 

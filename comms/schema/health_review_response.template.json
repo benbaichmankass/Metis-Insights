@@ -17,6 +17,28 @@
   "anomalies": [
     "free-form list of notable items the reviewer flagged"
   ],
+  "trade_decision_grades": [
+    {
+      "_comment": "One entry per closed or rejected trade in the 6-hour review window. Required field; pass [] only when the window genuinely contained zero trades. Letter grade is independent of dollar P&L — small wins on bad setups still grade poorly, stop-outs on textbook setups still grade fairly. The three categorical labels (entry_quality, exit_quality, risk_management) are the training-friendly fields; the letter grade is a rolled-up summary. See .claude/skills/health-review/SKILL.md § 'Per-trade decision grading' for the full rubric.",
+      "trade_id": 0,
+      "timestamp": "YYYY-MM-DDTHH:MM:SS+00:00",
+      "symbol": "BTCUSDT",
+      "direction": "long | short",
+      "setup": "vwap | turtle_soup | ...",
+      "entry_price": 0.0,
+      "exit_price": 0.0,
+      "stop_loss": 0.0,
+      "take_profit_1": 0.0,
+      "position_size": 0.0,
+      "exit_reason": "tp_cross | sl_hit | trail | manual | rejected | ...",
+      "decision_grade": "A | B | C | D | F",
+      "entry_quality": "optimal | acceptable | late | early | should_skip | unknown",
+      "exit_quality": "optimal | tp_appropriate | sl_appropriate | premature_exit | held_too_long | unknown",
+      "risk_management": "correct | oversize | undersize | sl_too_tight | sl_too_wide | unknown",
+      "rationale": "<= 240 chars — why this grade given signal_logic + outcome",
+      "alternative_action": "<= 160 chars — what we'd do differently next time, or 'none'"
+    }
+  ],
   "recommended_action": "what to do next, or 'none'",
   "operator_attention_required": false
 }
