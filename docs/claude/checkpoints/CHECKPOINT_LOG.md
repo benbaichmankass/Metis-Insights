@@ -11,6 +11,129 @@ Newest entry on top. Every session **must** add one entry before exiting.
 
 ---
 
+## CP-2026-05-10-03-s067-followups-wrap-up — S-067 follow-up queue closed (10 items shipped + 4 phase-2 fixes filed)
+
+- **Session date:** 2026-05-10
+- **Sprint:** S-067 follow-up queue (post-sprint backlog from `docs/claude/next-session-prompt.md`).
+- **Active milestone:** S-047 T6 (untouched — operator-gated on Bybit Spot Margin toggle, runs in parallel).
+- **Last completed checkpoint:** `CP-2026-05-10-02-s067-followups-complete` (now folded in below as merged).
+- **Next checkpoint:** next session picks from § Queued milestones — S-047 T6 is workplan-priority #1; the 4 Phase-2 follow-ups filed during this session are the next-most-actionable Tier-1 backlog.
+- **Telegram sent:** auto-pinged via this PR's CHECKPOINT_LOG.md merge (notify_on_pull.py picks up the diff).
+- **Alerts during session:** PR #650 lint failed once (F401 unused imports — fixed inline). PR #654 silent-empty-guard tripped on the new `_vm_health.py` (added `# allow-silent: …` annotation). PR #653 scan failed once on a transient runner — passed on retrigger. All three resolved within minutes.
+- **Blockers:** none.
+
+### What this session shipped
+
+**Tier 1 (8 items — all merged):**
+
+| # | Item | PR |
+|---|---|---|
+| 1 | Test fixture extraction (`tests/fixtures/real_schema_db.py`) | #650 |
+| 2 | `/api/bot/trades/closed` end-to-end + dashboard fallback deprecation | bot #650, dashboard #11 |
+| 5 | Deploy restart contract universalisation + `/api/diag/version` | #651 |
+| 6 | Exchange-fills P&L attribution (Phase 1) | #652 |
+| 10 | Fold-in BUG-065 from `bug-log-pending/` | #653 |
+| 9 | `_vm_health` helper consolidation (one source of truth) | #654 |
+| 7 | Daily one-trade audit auto-task instructions | #655 |
+| 8 | `hourly_report` + `boot_audit` silent-empty audit | #656 |
+
+**Tier 2 (2 items — DRAFT filed, operator-acked, merged):**
+
+| # | Item | PR |
+|---|---|---|
+| 3 | Closed → exchange-flat invariant reconciler (Phase 1: module + tests + memo, no tick-loop wiring) | #658 |
+| 4 | Process-wide env-gate purge (Phase 1: audit + lint guard + workflow, no source-edit) | #659 |
+
+**Closing artefacts:**
+* CP-2026-05-10-02 (standalone) → PR #657 merged.
+* This wrap-up checkpoint (CP-2026-05-10-03) folds CP-2026-05-10-01 + CP-2026-05-10-02 into the canonical CHECKPOINT_LOG.md and deletes the standalone files.
+
+### Phase-2 follow-ups filed during this session
+
+Each is one Tier-1 PR (or Tier-2 + operator ack, where flagged):
+
+1. **Item #3 Phase-2** (Tier 2) — wire `closed_flat_invariant.check()` into the tick loop + add per-account auto-flatten flag in `config/accounts.yaml`. 7-day alert-only soak required first.
+2. **Item #4 Phase-2** (Tier 2) — annotate the two surviving env-gate call sites (`MULTI_ACCOUNT_DISPATCH`, `MONITOR_RECONCILE_ENABLED`) with `# allow-silent: <reason>` + per-survivor regression tests asserting "can't suppress live writes".
+3. **Item #6 Phase-2** (Tier 1) — true P&L attribution via FIFO lot-matching over the exchange fills store. Phase-1 ships fee + flow aggregates only.
+4. **Item #8 Phase-2** (Tier 1, four small PRs) — narrow the 4 borderline broad-except sites in `hourly_report.py` (`list_accounts`, `strategy_dashboard_data`, `run_all_checks`) + `boot_audit.py` (`get_order_packages_by_strategy`); surface "data unavailable" rather than collapsing to empty/zero.
+
+### Files changed (this wrap-up PR)
+
+**New:** none.
+
+**Modified:**
+* `docs/claude/checkpoints/CHECKPOINT_LOG.md` — this entry + folded-in CP-2026-05-10-01 + CP-2026-05-10-02.
+* `docs/claude/milestone-state.md` — S-067 follow-up queue moved to Recently closed.
+* `docs/claude/next-session-prompt.md` — replaced (the prior queue is empty).
+
+**Deleted:**
+* `docs/claude/checkpoints/CP-2026-05-10-01-s067-complete.md` (folded into canonical log).
+* `docs/claude/checkpoints/CP-2026-05-10-02-s067-followups-complete.md` (folded into canonical log).
+
+### Tests run
+
+* Per-PR pytest sanity on each work-PR's branch (60 / 54 / 21 / 46 / 19 / 27 tests across the suite).
+* Aggregate over the sprint: ~250 net-new test cases, all green at merge.
+* `ruff check .` clean across every PR.
+* `silent-empty-guard` clean across every PR (one allow-silent annotation added intentionally on `_vm_health.py`).
+* `env-gate-guard` (new this session, item #4) clean.
+
+### Lessons learned
+
+1. **Auto-ping mechanics are CHECKPOINT_LOG.md-keyed.** Standalone CP files in `docs/claude/checkpoints/CP-*.md` do NOT trigger `notify_on_pull.py` — only `CHECKPOINT_LOG.md` diff lines do. This session's wrap-up restores that contract. The local-clone-fold-in is the safe path; the previous session's "too large for MCP API" workaround should remain a last resort.
+2. **Tier-2 split-PR pattern works.** Items #3 and #4 each shipped as a Phase-1 doc/scaffold PR (mergeable on operator ack with no live-order-path edits) + a Phase-2 follow-up PR (the actual annotations / wiring). The operator can review the design before committing to source edits on the protected paths. Recommend the same shape for any future Tier-2 work.
+3. **CI scan failures are mostly transient.** PR #653 had a "scan" failure that passed on a no-op retrigger commit. Cost was ~1 min vs. the time to debug a phantom regression. Default response: re-run before deep dive.
+4. **The shared real-schema fixture (item #1) immediately paid off.** Items #3 and #6 both used it for their tests with zero per-test schema duplication. Future test files should default to the shared fixture; the migration path is one import line.
+
+---
+
+## CP-2026-05-10-02-s067-followups-complete — S-067 follow-up queue Tier-1 complete (precursor to CP-2026-05-10-03)
+
+> **Folded in 2026-05-10** by CP-2026-05-10-03. Standalone file
+> `docs/claude/checkpoints/CP-2026-05-10-02-s067-followups-complete.md`
+> deleted in the same PR.
+
+- **Session date:** 2026-05-10
+- **Sprint:** S-067 follow-ups (post-sprint queue from `docs/claude/next-session-prompt.md`).
+- **Predecessor checkpoint:** `CP-2026-05-10-01-s067-complete.md` (sprint close — folded in below).
+- **Telegram sent:** no (CP filed as standalone — see CP-2026-05-10-03 for the corrected pattern).
+- **Blockers:** none.
+
+Eight Tier-1 items shipped from the queue: items #1, #2, #5, #6, #7, #8, #9, #10 (PRs #650 — #656 + dashboard #11). Items #3 and #4 were filed as DRAFT pending operator ack; both were subsequently merged via #658 and #659 — see CP-2026-05-10-03 for full ledger.
+
+This checkpoint is preserved here for the audit trail. The canonical "what shipped" record lives in CP-2026-05-10-03 above; the original standalone file is removed in the same PR.
+
+---
+
+## CP-2026-05-10-01-s067-complete — S-067 sprint complete
+
+> **Folded in 2026-05-10** by CP-2026-05-10-03. Standalone file
+> `docs/claude/checkpoints/CP-2026-05-10-01-s067-complete.md`
+> deleted in the same PR.
+
+- **Session date:** 2026-05-10
+- **Sprint:** S-067 — silent-empty error path audit & hardening
+- **Current sprint phase:** CP-5 — sprint close
+- **Last completed checkpoint:** CP-4 (CI lint guard, PR #646 merged)
+- **Next checkpoint:** next session picks the next item from `milestone-state.md` § Queued milestones.
+- **Telegram sent:** no (sandbox session, no creds in env)
+- **Blockers:** none
+
+### Completed
+
+* All 5 sprint PRs merged to `main` (#642, #643, #644, #645, #646).
+* Audit doc `docs/audits/silent-empty-2026-05-10.md` filed in CP-1.
+* 5 trust-corroding sites converted to loud failures (CP-2 + CP-3).
+* 7 borderline sites annotated with appropriate log calls (CP-3 borderline).
+* CI lint guard `scripts/check_silent_empty_in_diff.py` + `.github/workflows/silent-empty-guard.yml` shipped (CP-4) with 13 unit tests + `# allow-silent: <reason>` override.
+* CP-5 (PR #647): `docs/claude/bug-log.md` BUG-065 added (initially staged in `bug-log-pending/`, folded in by item #10 → PR #653); `docs/claude/testing-policy.md` endpoint error-path section added; `docs/sprint-summaries/sprint-067-summary.md` filed; `docs/claude/milestone-state.md` advanced (S-067 in Recently closed).
+
+### Note on the standalone-file workaround
+
+Per the original closing note: "the canonical append-only log is too large (≈ 112 KB) to round-trip safely through the GitHub MCP `create_or_update_file` API in a single call. This standalone checkpoint file mirrors the `CP-2026-05-07-17-s048-fresh-m1-audit.md` precedent." That workaround is now retired by the wrap-up PR (CP-2026-05-10-03) which has local clone access — fold-in is the canonical close.
+
+---
+
 ## CP-2026-05-09-01-all-models-training — All-models training run + S-050 ship (VWAP HTF gate + turtle ATR stop tightening)
 
 - **Session date:** 2026-05-08 → 2026-05-09
