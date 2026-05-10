@@ -42,6 +42,7 @@ Rules:
 PYTHONPATH=. pytest --collect-only -q tests
 PYTHONPATH=. pytest -q tests
 python scripts/secret_scan.py
+python scripts/check_silent_empty_in_diff.py < /tmp/pr.diff   # S-067 CP-4
 ```
 
 ## Remote checks
@@ -66,6 +67,48 @@ Run focused:
 ```bash
 PYTHONPATH=. pytest tests/test_vwap_strategy.py -q
 ```
+
+## Endpoint error-path testing (S-067)
+
+Every new endpoint under `src/web/api/`, `src/web/runtime_status.py`, and
+`src/units/db/` must have explicit tests for **all three return paths**:
+
+1. **Success with data** — the ordinary 2xx with the wire shape.
+2. **Legitimate empty** — e.g. DB file does not exist yet on a fresh
+   install. Returns the wire-shape sentinel (empty list / dict / `None`)
+   without logging — this is normal.
+3. **Loud failure** — logged via `logger.exception` / `logger.warning`,
+   raised (or converted to `HTTPException 503`). The dashboard sees a real
+   outage badge, not fabricated zero metrics.
+
+The regression-test pattern from `tests/test_dashboard_data_contract.py`
+(via PR #627) materialises the production schema in a tmp sqlite DB and
+runs the endpoint's actual SQL against it — the only thing that catches
+"SQL references a column that doesn't exist anymore" before the bug ships.
+Reuse the pattern for every new read endpoint.
+
+The **canonical example for endpoints whose job is reporting failures** is
+`src/web/api/routers/diag.py::_db_info_payload`. Every nested step is
+wrapped so a single failure never aborts the whole payload, and the
+failure string is surfaced into the response (`load_error`,
+`error_per_table[tbl]`) rather than swallowed. Mirror this shape when
+building a new diag / debug surface.
+
+**Anti-patterns to avoid:**
+
+* `except Exception: return []` (or `{}` / `None` / fabricated zeroes)
+  in a read-path helper. The caller can't distinguish failure from "no
+  data yet". CI guard `scripts/check_silent_empty_in_diff.py` rejects
+  new instances under the protected paths above.
+* Test that asserts the wrong empty (e.g. `assert resp.json() == []` on
+  a path that should 503 on a schema mismatch). Add a companion test
+  that triggers the structural failure and asserts the loud failure shape.
+* `if X not in sys.modules:` guards in test stub setup — see BUG-062.
+
+If an `except` block must legitimately swallow (fan-out across optional
+sources, never-raise contracts, tick-loop best-effort writers), annotate
+the except line with `# allow-silent: <reason>` so the CI guard skips it
+and the override is reviewable in code.
 
 ## Missing dependencies
 
