@@ -41,7 +41,20 @@ When opening a session:
 
 | Field | Value |
 |---|---|
-| **Milestone** | (between sprints — S-067 + Phase-2 follow-ups closed 2026-05-10; S-047 T6 next per workplan queue) |
+| **Milestone** | (between sprints — S-047 closed 2026-05-10 with T6 + T7; M5 next per workplan queue) |
+| **Title** | S-047 — bybit_2 Spot Margin enablement |
+| **Type** | ad-hoc (live-trading priority on M3). T1–T5 shipped 2026-05-07 on the operator-merged branch chain. T6 + T7 closed 2026-05-10. |
+| **Goal** | Enable Bybit V5 Spot Margin trading on `bybit_2` end-to-end — config routing, risk-manager sizing, exchange wiring, strategy close-path, reconciler awareness, mainnet smoke, operator runbook. Close out the BUG-046 / BUG-049 / BUG-048 family at the structural level. |
+| **Status** | ✅ CLOSED 2026-05-10 — T6 (`docs/runbooks/spot-margin.md` + BUG-066 family-root-cause entry) shipped in PR #686; T7 (this PR) closes the paperwork. |
+| **Active sprint** | (none — S-047 closed) |
+| **Active checkpoint** | `CP-2026-05-10-05-s047-t6-t7-close` (this PR) |
+| **Risk tier** | Tier 1 / 2 / 3 mixed across deliverables — full breakdown in `docs/sprint-logs/S-047.md` § Tier. T1–T5 operator-acked at land time; T6 + T7 are docs-only. |
+| **Definition of done** | All 7 deliverables (T1..T7) merged. Mainnet smoke acceptance recorded in the sprint log. M5 unblocked. |
+
+> **Previous sprint context (preserved for handoff):** S-067 — Silent-empty error path audit & hardening — closed 2026-05-10. The 8 Phase-2 close-out PRs (#661, #663, #664, #666, #668, #669, #672, #675) shipped that day.
+
+| Field (S-067 archive) | Value |
+|---|---|
 | **Title** | S-067 — Silent-empty error path audit & hardening |
 | **Type** | ad-hoc, triggered by 2026-05-10 24h trade-performance review. Tier 1 / infra (every PR self-merged) + 2 Tier 2 PRs (operator-acked) for the Phase-2 close-out. |
 | **Goal** | Audit every `except Exception` / `except sqlite3.Error` / bare-except site under `src/web/api/`, `src/web/runtime_status.py`, `src/units/db/`, and the read-path slice of `src/runtime/`; convert trust-corroding sentinels to loud failures; add log calls to borderline sites; ship a CI guard so the pattern can't come back. Generalises the bug class hardened in PRs #627 (`/positions` returned `[]` for endpoint lifetime) and #629 (`/signals` dropped `price`). |
@@ -167,6 +180,8 @@ When opening a session:
 | **S-064 — Dashboard sprint D (Liquidity Maps + Settings tabs; new bot endpoints `/api/bot/{liquidity,config}`; pipeline writes per-tick `runtime_logs/liquidity_state.json` via prereq hook)** | **2026-05-09** | bot prereq PR #597 squash `1eb816b`; bot main PR #601 squash `14fe5d7a`; dashboard PR #10 squash `b7963b26` | `docs/sprints/sprint-064-prompt.md` |
 | **S-066 — Janitor: M1 P2 hygiene cluster close-out (docs only)** | **2026-05-09** | (this PR's checkpoint) | `docs/audits/M1-comms-audit-followups-fresh.md` § P2 |
 | **S-067 — Silent-empty error path audit & hardening** (5 work-PRs + sprint-close PR; trust-corroding fixes + log-only borderline batch + CI lint guard; BUG-065) | **2026-05-10** | `CP-2026-05-10-01-s067-complete` (folded into `CHECKPOINT_LOG.md`) | `docs/sprint-summaries/sprint-067-summary.md` |
+| **S-CANON-1 + S-CANON-FU-1/2/3** — Canonical doc set adoption + post-canon follow-ups (legacy workplan superseded; closed-flat invariant tick-loop wiring + Phase-1 alert-only soak; branch-protection PAT enabled) | **2026-05-10** | (this session) | `docs/sprint-logs/S-CANON-1.md`, `docs/sprint-logs/S-CANON-FU-1-workplan-superseded.md`, `docs/sprint-logs/S-CANON-FU-2-cfi-wiring.md`, `docs/sprint-logs/S-CANON-FU-3-branch-protection.md` |
+| **S-047 — bybit_2 Spot Margin enablement** (T1 routing + T2 sizing + T3 wiring + T4 VWAP monitor + T5 reconciler + T6 runbook + BUG-066 + T7 close) | **2026-05-10** | `CP-2026-05-10-05-s047-t6-t7-close` (this PR) | `docs/sprint-logs/S-047.md` |
 | **S-067 follow-up queue (10 items)** — fixture extraction (#650), trades-closed verify (#650 + dashboard #11), deploy restart contract + `/api/diag/version` (#651), exchange-fills attribution Phase 1 (#652), BUG-065 fold-in (#653), `_vm_health` consolidation (#654), daily one-trade audit auto-task (#655), hourly_report/boot_audit audit (#656), closed-flat invariant Phase 1 Tier 2 (#658), env-gate purge Phase 1 Tier 2 (#659). 4 Phase-2 follow-ups filed; one operator ack collected mid-session for the two Tier 2 DRAFTs. | **2026-05-10** | `CP-2026-05-10-03-s067-followups-wrap-up` | (no sprint summary — queue closure documented in CP) |
 | **S-067 Phase-2 close-out (8 PRs)** — D1 boot_audit None-on-failure (#661), D2 list_accounts narrowing (#663), D3 strategy_dashboard narrowing (#664), D4 run_all_checks unknown sentinel (#666), C exchange-fills FIFO realised + unrealised P&L (#668), wrap-up CP (#669), A closed-flat invariant wiring helper + patch doc Tier 2 (#672), B env-gate survivor regressions + patch doc Tier 2 (#675). Items A + B include patch documents for the small in-place edits to `order_monitor.py` and `pipeline.py` that the autonomous session's MCP push couldn't apply directly (file size limit). | **2026-05-10** | `CP-2026-05-10-04-s067-phase2-followups` (standalone file pending fold-in) | `docs/claude/checkpoints/CP-2026-05-10-04-s067-phase2-followups.md` |
 
@@ -181,14 +196,12 @@ In execution order. Each row lists the gating condition to start.
 
 | Order | Milestone / sprint | Type | Gating condition |
 |---|---|---|---|
-| 1 | **S-047 T6 — end-to-end live smoke + runbook** (D8) | ad-hoc (live-trading) | None — ready to start. Live smoke needs Bybit web-UI Spot Margin toggle ON for `bybit_2`. |
-| 2 | **S-047 T7 — sprint close** (milestone-state + bug-log + summary) | docs-only (Tier 1) | T6 closes. |
-| 3 | M5 — Strategy testing workflow | auto-claude | S-047 closes. `/test <strategy>` bot-side dispatch surface now in place via M1 P1-D; M5 wires the artifact consumer. PR #640 (M5 P3 close-out) open with conflicts on `main`; resolve as the first action when M5 picks up. |
-| 4 | M6 — Web app UI (dashboard repo) | auto-claude | **In active session 2026-05-08** in `the-lizardking/ict-trader-dashboard`. |
-| 5 | M9 — AI / model roadmap | auto-claude | Independent of M5/M6. Could run in parallel. |
-| 6 | M10 — HF / data pipeline | auto-claude | Independent of M5/M6. Could run in parallel. |
-| 7 | **S-050-followup — Phase-3 HTF reference 4h → 1h EMA-200** (Tier 2, PM-review) | strategy-improvement | ≥ 30 days of Phase-2 live metrics on the HTF gate (S-050 shipped 2026-05-09). Expected +0.4 Sharpe lift on top of Phase-2 per V3 in `experiments/2026-05-08-all-models-training/`. |
-| 8 | **Closed-flat invariant auto-flatten promotion** (Tier 2) | observability → live action | ≥ 7 days clean alert-only soak after operator applies the wiring patch + flips `CLOSED_FLAT_INVARIANT_ENABLED=true` per `docs/claude/closed-flat-invariant-phase2-wiring.md`. After clean soak, file the per-account `closed_flat_auto_flatten` flag PR. |
+| 1 | M5 — Strategy testing workflow | auto-claude | None — ready to start. `/test <strategy>` bot-side dispatch surface in place via M1 P1-D; M5 wires the artifact consumer. PR #640 (M5 P3 close-out) open with conflicts on `main`; resolve as the first action when M5 picks up. |
+| 2 | M6 — Web app UI (dashboard repo) | auto-claude | **In active session 2026-05-08** in `benbaichmankass/ict-trader-dashboard`. |
+| 3 | M9 — AI / model roadmap | auto-claude | Independent of M5/M6. Could run in parallel. |
+| 4 | M10 — HF / data pipeline | auto-claude | Independent of M5/M6. Could run in parallel. |
+| 5 | **S-050-followup — Phase-3 HTF reference 4h → 1h EMA-200** (Tier 2, PM-review) | strategy-improvement | ≥ 30 days of Phase-2 live metrics on the HTF gate (S-050 shipped 2026-05-09). Expected +0.4 Sharpe lift on top of Phase-2 per V3 in `experiments/2026-05-08-all-models-training/`. |
+| 6 | **Closed-flat invariant auto-flatten promotion** (Tier 2 → Tier 3 for the per-account flag) | observability → live action | ≥ 7 days clean alert-only soak. Soak started 2026-05-10 via the `enable-closed-flat-invariant` operator action (S-CANON-FU-2 wiring landed in PR #679). After clean soak, file the per-account `closed_flat_auto_flatten` flag PR. |
 
 > S-067 Phase-2 follow-ups (the original row 8) — closed 2026-05-10
 > evening with the 8-PR Phase-2 close-out. Replaced in row 8 above with
