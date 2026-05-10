@@ -39,11 +39,12 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Dict, Optional
 
 import pandas as pd
 
-from src.runtime.shadow_adapter import with_shadow_pred
+from src.runtime.shadow_adapter import with_shadow_preds
 from src.units.strategies._base import (
     derive_sl_tp,
     last_close,
@@ -559,10 +560,56 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
         "confidence": round(confidence, 4),
         "meta": {**meta, "signal": signal},
     }
-    return with_shadow_pred(
+    return with_shadow_preds(
         package,
-        predictor=cfg.get("_shadow_predictor"),
+        predictors=_resolve_shadow_predictors(cfg),
         feature_row=_build_shadow_feature_row(package),
+    )
+
+
+def _resolve_shadow_predictors(cfg: Dict[str, Any]) -> list:
+    """Pick the shadow predictors for this tick from cfg.
+
+    Resolution order (first non-empty wins):
+
+    1. ``cfg["_shadow_predictors"]`` — explicit plural injection
+       (test path; also accepted in production as a pre-resolved
+       cache from the dispatcher).
+    2. ``cfg["_shadow_predictor"]`` — single-predictor injection
+       (PART-3 backwards-compat for tests). Wrapped in a list.
+    3. ``cfg["shadow_model_ids"]`` resolved via
+       ``ml.shadow.factory.resolve_predictors`` against the
+       registry root in ``cfg["_shadow_registry_root"]`` (defaults
+       to ``ml.shadow.factory.DEFAULT_REGISTRY_ROOT``). Per-model
+       errors are logged and skipped — one bad model_id never
+       breaks the others, never breaks the strategy tick.
+    4. Empty list → no shadow side-channel.
+    """
+    if "_shadow_predictors" in cfg:
+        return list(cfg["_shadow_predictors"] or [])
+    single = cfg.get("_shadow_predictor")
+    if single is not None:
+        return [single]
+    ids = cfg.get("shadow_model_ids") or []
+    if not ids:
+        return []
+    # Lazy import keeps ml.shadow off the strategy's hot import path
+    # for the no-shadow case.
+    from ml.shadow.factory import (
+        DEFAULT_LOG_PATH,
+        DEFAULT_REGISTRY_ROOT,
+        resolve_predictors,
+    )
+    from ml.registry.model_registry import ModelRegistry
+
+    registry_root = Path(
+        cfg.get("_shadow_registry_root") or DEFAULT_REGISTRY_ROOT
+    )
+    log_path = Path(cfg.get("_shadow_log_path") or DEFAULT_LOG_PATH)
+    return resolve_predictors(
+        ids,
+        ModelRegistry(registry_root),
+        log_path=log_path,
     )
 
 
