@@ -242,6 +242,93 @@ def test_account_snapshots_safe_when_data_loaders_unavailable(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
+# Strategy snapshots — D3 None-sentinel regression
+# (see docs/audits/silent-empty-reporting-2026-05-10.md § Phase-2 #3)
+# ---------------------------------------------------------------------------
+
+
+def test_strategy_snapshots_returns_none_on_runtime_error(monkeypatch):
+    """``strategy_dashboard_data`` raising RuntimeError → None sentinel.
+
+    S-067 follow-up D3: a call-time failure now returns ``None``
+    (data unavailable) rather than ``[]`` (no strategies active).
+    """
+    from src.runtime.hourly_report import strategy_snapshots
+    sys.modules.pop("src.bot.data_loaders", None)
+    bad = MagicMock()
+    bad.strategy_dashboard_data.side_effect = RuntimeError("loader broken")
+    sys.modules["src.bot.data_loaders"] = bad
+    assert strategy_snapshots() is None
+
+
+def test_strategy_snapshots_returns_none_on_oserror(monkeypatch):
+    """OSError from strategy_dashboard_data → None sentinel."""
+    from src.runtime.hourly_report import strategy_snapshots
+    sys.modules.pop("src.bot.data_loaders", None)
+    bad = MagicMock()
+    bad.strategy_dashboard_data.side_effect = OSError("filesystem hiccup")
+    sys.modules["src.bot.data_loaders"] = bad
+    assert strategy_snapshots() is None
+
+
+def test_strategy_snapshots_returns_empty_on_no_data(monkeypatch):
+    """Empty list return from data_loaders stays the empty path."""
+    from src.runtime.hourly_report import strategy_snapshots
+    sys.modules.pop("src.bot.data_loaders", None)
+    fake = MagicMock()
+    fake.strategy_dashboard_data = lambda: []
+    sys.modules["src.bot.data_loaders"] = fake
+    assert strategy_snapshots() == []
+
+
+def test_render_strategy_section_data_unavailable():
+    """When ``strategies is None``, renderer surfaces 'data unavailable'."""
+    now = datetime(2026, 5, 1, 14, 0, tzinfo=timezone.utc)
+    report = {
+        "now_utc": now,
+        "ticks": {"ticks_ok": 0, "ticks_err": 0, "signals_total": 0,
+                  "signals_by_strategy": {}, "last_tick_ts": None},
+        "trades": {"placed": [], "closed": [], "realized_pnl": 0.0},
+        "accounts": [],
+        "strategies": None,  # D3 sentinel
+        "outcomes": {"top_errors": []},
+        "health": {"tick_age_s": 60, "tick_stale": False, "tick_interval_s": 900,
+                   "warn_count": 0, "error_count": 0, "critical_count": 0,
+                   "overall": "ok", "checks": []},
+    }
+    txt = render_report(report)
+    assert "Strategies (today) — data unavailable" in txt
+    assert "strategy_dashboard_data() raised" in txt
+    # The "(none active)" wording must NOT appear — it would
+    # collapse the unavailable sentinel into the empty-list path.
+    assert "(none active)" not in txt
+
+
+def test_assemble_hourly_data_with_failing_strategy_dashboard(tmp_path, monkeypatch):
+    """End-to-end: strategy_dashboard_data raising → wire-shape carries None,
+    build_hourly_report renders the 'data unavailable' section."""
+    monkeypatch.setattr(hr, "SIGNAL_AUDIT_FILE", tmp_path / "missing.jsonl")
+    monkeypatch.setattr(hr, "OUTCOMES_FILE", tmp_path / "missing-outcomes.jsonl")
+    monkeypatch.setattr(hr, "RUNTIME_LOGS", tmp_path)
+    monkeypatch.setattr(hr, "BALANCE_SNAPSHOT_FILE", tmp_path / "snap.json")
+    monkeypatch.setattr(hr, "_trade_journal_path", lambda: None)
+
+    sys.modules.pop("src.bot.data_loaders", None)
+    bad = MagicMock()
+    bad.list_accounts = lambda: []
+    bad.account_balance = lambda *_: None
+    bad.account_open_positions = lambda *_: None
+    bad.strategy_dashboard_data.side_effect = RuntimeError("loader broken")
+    sys.modules["src.bot.data_loaders"] = bad
+
+    from src.runtime.hourly_report import assemble_hourly_data
+    data = assemble_hourly_data(now_utc=datetime(2026, 5, 1, 14, 0, tzinfo=timezone.utc))
+    assert data["strategies"] is None, "strategies wire-shape carries None sentinel"
+    txt = build_hourly_report(now_utc=datetime(2026, 5, 1, 14, 0, tzinfo=timezone.utc))
+    assert "Strategies (today) — data unavailable" in txt
+
+
+# ---------------------------------------------------------------------------
 # Outcomes in window
 # ---------------------------------------------------------------------------
 
