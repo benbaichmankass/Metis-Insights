@@ -193,7 +193,41 @@ def run_one_tick(settings: dict, exchange_client, telegram_client) -> dict:
         level=Level.INFO,
         symbol=(result or {}).get("signal", {}).get("symbol"),
     )
+    _drain_critical_alerts(telegram_client)
     return result
+
+
+def _drain_critical_alerts(telegram_client) -> None:
+    """Forward queued critical alerts to Telegram, then drain.
+
+    The coordinator's circuit breaker (PR #741) and other callers push
+    alerts onto the in-process queue at
+    ``src.units.dashboards.alerts``; pre-this-PR the queue had no
+    autonomous consumer, so ``level="critical"`` items (e.g.
+    "Account auto-paused after N consecutive exchange rejections")
+    only surfaced when the operator manually issued ``/alerts`` on
+    Telegram. The 2026-05-10 incident chain (operator missed an
+    8-hour VWAP silence; circuit-breaker behaviour ambiguous because
+    the would-be alert was queued but never sent) was rooted in this
+    silent queue.
+
+    Drain on every tick so operator notification latency is bounded
+    by ``TICK_INTERVAL_SECONDS``. Best-effort — never let a
+    notification failure break the trader loop.
+    """
+    try:
+        from src.units.dashboards.alerts import pop_alerts
+        for alert in pop_alerts():
+            if str(alert.get("level", "")).lower() != "critical":
+                continue
+            source = alert.get("source") or "unknown"
+            msg = alert.get("message") or ""
+            try:
+                telegram_client.send_message(f"[CRITICAL][{source}] {msg}")
+            except Exception:  # noqa: BLE001
+                logger.exception("alert_drainer: telegram send failed")
+    except Exception:  # noqa: BLE001
+        logger.exception("alert_drainer: pop_alerts failed")
 
 
 def main() -> None:
