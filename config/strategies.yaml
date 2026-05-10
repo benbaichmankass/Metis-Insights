@@ -64,6 +64,12 @@ strategies:
     # downstream guards against re-emitting an open setup).
     setup_lookback_bars: 4
 
+    # Shadow-mode predictors (S-AI-WS7-PART-5; mirrors vwap PART-4).
+    # See the comment block on `vwap.shadow_model_ids` for the full
+    # contract — registry-backed factory + stage gate + per-model
+    # error isolation. Empty list (default) = no shadow side-channel.
+    shadow_model_ids: []
+
   vwap:
     model: null
     signal_prefixes: [vwap]
