@@ -1,0 +1,70 @@
+name: Health Review Trigger
+
+on:
+  pull_request:
+    branches: [main]
+    types: [closed]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  trigger-health-review:
+    # Standard "merged PR" pattern: GitHub has no direct merged event,
+    # so we filter on closed + merged == true. The label gates this to
+    # PRs the snapshot workflow created.
+    if: >
+      github.event.pull_request.merged == true
+      && contains(github.event.pull_request.labels.*.name, 'health-check-review')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout merged code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          fetch-depth: 2
+
+      - name: Show trigger context
+        run: |
+          set -eu
+          echo "Merged PR #${{ github.event.pull_request.number }}"
+          echo "Title:        ${{ github.event.pull_request.title }}"
+          echo "Labels:       ${{ join(github.event.pull_request.labels.*.name, ', ') }}"
+          echo "Merge commit: ${{ github.event.pull_request.merge_commit_sha }}"
+
+      - name: List review requests landed by this merge
+        id: requests
+        run: |
+          set -eu
+          # Files added under comms/requests/ as part of this merge.
+          added=$(git diff --name-only --diff-filter=A \
+            "${{ github.event.pull_request.base.sha }}" \
+            "${{ github.event.pull_request.merge_commit_sha }}" \
+            | grep -E '^comms/requests/REQ-.*\.json$' || true)
+          if [ -z "$added" ]; then
+            echo "(no comms/requests/REQ-*.json files were added)"
+          else
+            echo "Review requests now on main:"
+            echo "$added"
+          fi
+          # Persist for downstream steps.
+          {
+            echo "added<<__END__"
+            echo "$added"
+            echo "__END__"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Notify Claude review handoff
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          set -eu
+          PR_NUM="${{ github.event.pull_request.number }}"
+          PR_URL="${{ github.event.pull_request.html_url }}"
+          PYTHONPATH=. python scripts/notify_session.py alert \
+            --summary "Claude health review handoff — PR #${PR_NUM} merged with health-check-review label; review requests live on main" \
+            --link "$PR_URL" \
+            || echo "telegram alert failed (non-fatal)"

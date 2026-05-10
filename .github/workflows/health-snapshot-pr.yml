@@ -1,0 +1,140 @@
+name: Health Snapshot PR
+
+on:
+  schedule:
+    # Every 6 hours, on the hour.
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write        # commit artifacts to the auto/health-check-review branch
+  pull-requests: write   # peter-evans/create-pull-request
+
+concurrency:
+  group: health-snapshot-pr
+  cancel-in-progress: false
+
+jobs:
+  health-snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      VM_HOST: 158.178.210.252
+      VM_USER: ubuntu
+      VM_REPO: /home/ubuntu/ict-trading-bot
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Anthropic SDK
+        # Action only needs the Anthropic SDK; src.runtime.notify is
+        # stdlib-only. Skipping requirements.txt keeps the runner fast.
+        run: pip install --no-cache-dir 'anthropic>=0.40.0'
+
+      - name: Set up SSH key
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "${{ secrets.VM_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H "$VM_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Collect snapshot from VM
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/health
+          ssh -i ~/.ssh/id_rsa \
+              -o StrictHostKeyChecking=yes \
+              -o ConnectTimeout=20 \
+              "$VM_USER@$VM_HOST" "bash $VM_REPO/scripts/collect_health_snapshot.sh" \
+              > artifacts/health/health_snapshot.txt
+          echo "snapshot bytes: $(wc -c < artifacts/health/health_snapshot.txt)"
+
+      - name: Run automated health analysis (layer 1)
+        id: analyze
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          set -euo pipefail
+          PYTHONPATH=. python scripts/run_health_check.py \
+            artifacts/health/health_snapshot.txt \
+            --out-dir artifacts/health
+
+      - name: Emit Claude review request (layer 2)
+        id: review_request
+        run: |
+          set -euo pipefail
+          PYTHONPATH=. python scripts/write_health_review_request.py \
+            --report artifacts/health/latest.json \
+            --snapshot-path artifacts/health/health_snapshot.txt \
+            --report-path artifacts/health/latest.json
+
+      - name: Create or update review PR
+        id: cpr
+        # peter-evans/create-pull-request@v7 — pinned major; updates the
+        # same PR if auto/health-check-review is already open.
+        # Requires "Allow GitHub Actions to create and approve pull
+        # requests" in Settings → Actions → General.
+        uses: peter-evans/create-pull-request@v7
+        with:
+          base: main
+          branch: auto/health-check-review
+          delete-branch: false
+          commit-message: |
+            chore(health-check): refresh review artifacts ${{ steps.review_request.outputs.request_id }}
+          title: "Health check review request"
+          body: |
+            Automated health-check artifacts and Claude review request.
+
+            - **Machine status**: `${{ steps.analyze.outputs.status }}`
+            - **Request id**: `${{ steps.review_request.outputs.request_id }}`
+            - **Workflow run**: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+            **Merging this PR triggers the Claude review handoff** via
+            `.github/workflows/health-review-trigger.yml`. See
+            [`docs/runbooks/health-check.md`](docs/runbooks/health-check.md)
+            for the two-workflow design.
+
+            Files in this PR:
+            - `artifacts/health/health_snapshot.txt` — raw VM snapshot
+            - `artifacts/health/latest.json` — machine verdict
+            - `artifacts/health/health_check_<ts>.json` — per-run verdict copy
+            - `comms/requests/${{ steps.review_request.outputs.request_id }}.json` — schema-valid review request
+          labels: |
+            health-check-review
+            automated
+          add-paths: |
+            artifacts/health/**
+            comms/requests/REQ-*.json
+
+      - name: Notify operator that a review PR is open
+        if: always() && steps.cpr.outputs.pull-request-number != ''
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          set -eu
+          PR_NUM="${{ steps.cpr.outputs.pull-request-number }}"
+          PR_URL="${{ steps.cpr.outputs.pull-request-url }}"
+          STATUS="${{ steps.analyze.outputs.status }}"
+          PYTHONPATH=. python scripts/notify_session.py alert \
+            --summary "Health review PR #${PR_NUM} open (machine: ${STATUS:-UNKNOWN}) — merge to trigger Claude review" \
+            --link "$PR_URL" \
+            || echo "telegram alert failed (non-fatal)"
+
+      - name: Upload run artifacts (forensic)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: health-check-${{ github.run_id }}
+          if-no-files-found: warn
+          retention-days: 30
+          path: |
+            artifacts/health/**
