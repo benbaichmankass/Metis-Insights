@@ -190,12 +190,12 @@ jobs:
             - **Request id**: `${{ steps.review_request.outputs.request_id }}`
             - **Workflow run**: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
-            **This PR is auto-merged by the workflow.** The Claude review
-            routine subscribes to `pull_request closed` events filtered on
-            `merged == true` and the `health-snapshot-routine` label, so
-            merging here fires the routine without operator action. See
-            [`docs/runbooks/health-check.md`](docs/runbooks/health-check.md)
-            for the two-workflow design.
+            **This PR auto-merges.** Once it lands on `main`, run
+            `/health-review` from any Claude Code session on this repo
+            to produce the layer-2 review JSON (the autonomous routine
+            is currently paused — see operator decision 2026-05-10).
+            See [`docs/runbooks/health-check.md`](docs/runbooks/health-check.md)
+            for the full two-workflow design.
 
             Files in this PR:
             - `artifacts/health/health_snapshot.txt` — raw VM snapshot
@@ -213,12 +213,15 @@ jobs:
             comms/requests/REQ-*.json
 
       - name: Auto-merge the review PR
-        # Merging the labelled PR fires the Claude review routine
-        # (configured to subscribe to PR-closed-with-label events).
-        # Squash keeps main's history linear; --delete-branch is omitted
-        # so auto/health-check-review survives for the next run (matches
-        # `delete-branch: false` on the create-pr step). Token mirrors
-        # the create-pr fallback chain.
+        # Squash-merges the labelled PR. The autonomous Claude routine
+        # subscribes to PR-closed-with-label and the
+        # health-review-trigger.yml backup workflow does the same — but
+        # the operator's effective workflow today is to read the
+        # Telegram ping below and run `/health-review` manually.
+        # --delete-branch is omitted so auto/health-check-review
+        # survives for the next run (matches `delete-branch: false`
+        # on the create-pr step). Token mirrors the create-pr fallback
+        # chain.
         id: automerge
         if: steps.cpr.outputs.pull-request-number != ''
         env:
@@ -229,7 +232,14 @@ jobs:
             --repo "${{ github.repository }}" \
             "${{ steps.cpr.outputs.pull-request-number }}"
 
-      - name: Notify operator that the trigger fired
+      - name: Notify operator (run /health-review)
+        # The operator-facing ping. Wording is deliberately
+        # action-oriented — when auto-merge succeeds, the operator's
+        # next step is to run `/health-review` from any Claude Code
+        # session on this repo so the layer-2 review JSON gets
+        # produced. The autonomous routine is left wired (it's still
+        # subscribed to the PR-merge event) but is not the operator's
+        # primary path right now; operator decision 2026-05-10.
         id: notify
         if: always() && steps.cpr.outputs.pull-request-number != ''
         env:
@@ -243,10 +253,11 @@ jobs:
           PR_URL="${{ steps.cpr.outputs.pull-request-url }}"
           STATUS="${{ steps.analyze.outputs.status }}"
           PIPELINE="${{ steps.analyze.outputs.pipeline_status }}"
+          REQ_ID="${{ steps.review_request.outputs.request_id }}"
           if [ "${MERGE_OUTCOME:-skipped}" = "success" ]; then
-            phrase="auto-merged — Claude review routine fired"
+            phrase="auto-merged — run /health-review ${REQ_ID} for the layer-2 review"
           else
-            phrase="open (auto-merge ${MERGE_OUTCOME:-skipped}) — manual merge required"
+            phrase="open (auto-merge ${MERGE_OUTCOME:-skipped}) — merge the PR, then run /health-review ${REQ_ID}"
           fi
           # Capture the helper's exit code so the issue-driven path can
           # surface "Telegram ping arrived?" in the trigger-issue
@@ -280,6 +291,7 @@ jobs:
           ANALYZE_STATUS: ${{ steps.analyze.outputs.status }}
           PIPELINE_STATUS: ${{ steps.analyze.outputs.pipeline_status }}
           MERGE_OUTCOME: ${{ steps.automerge.outcome }}
+          REQUEST_ID: ${{ steps.review_request.outputs.request_id }}
           TELEGRAM_EXIT: ${{ steps.notify.outputs.telegram_exit_code }}
         with:
           script: |
@@ -316,10 +328,11 @@ jobs:
             } else {
               tgLine = `⚠️ Telegram ping exited rc=${tgExit} (non-fatal).`;
             }
+            const reqId = process.env.REQUEST_ID || '<unknown>';
             const mergeOutcome = process.env.MERGE_OUTCOME || 'skipped';
             const mergeLine = mergeOutcome === 'success'
-              ? '✅ PR auto-merged — Claude review routine fired.'
-              : `⚠️ Auto-merge step ${mergeOutcome} — manual merge required to fire the Claude review routine.`;
+              ? `✅ PR auto-merged. Run \`/health-review ${reqId}\` from any Claude Code session on this repo for the layer-2 review.`
+              : `⚠️ Auto-merge step ${mergeOutcome} — merge the PR, then run \`/health-review ${reqId}\`.`;
             const prLine = process.env.PR_NUMBER
               ? `PR #${process.env.PR_NUMBER} (${process.env.PR_OPERATION || 'opened/updated'}): ${process.env.PR_URL}`
               : '⚠️ No PR was opened/updated (peter-evans step produced no number).';
