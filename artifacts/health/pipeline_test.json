@@ -1,0 +1,8 @@
+{
+  "account": "bybit_2",
+  "duration_seconds": 0.006,
+  "exit_code": 127,
+  "note": "smoke_test_trade.py exited unexpectedly rc=127",
+  "status": "fail",
+  "tail": "timeout: failed to run command \u2018python\u2019: No such file or directory"
+}
