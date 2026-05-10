@@ -4,9 +4,14 @@
 > for future Claude sessions. Read this **after** `checkpoints/CHECKPOINT_LOG.md`
 > (which tells you where to resume tactically) but **before** opening any sprint plan.
 >
-> **Authority:** `docs/claude/workplan.md` is the decider. This file tracks execution
-> state against the workplan's M0..M10 roadmap. When this file conflicts with the
-> workplan, the workplan wins.
+> **Authority:** the S-CANON-1 canonical doc set
+> (`docs/CLAUDE-RULES-CANONICAL.md`, `docs/ARCHITECTURE-CANONICAL.md`,
+> `ROADMAP.md`, current sprint log) is authoritative as of
+> 2026-05-10. This file tracks execution state against the M0..M10
+> roadmap captured in those docs. The legacy
+> `docs/claude/workplan.md` is preserved for historical context but
+> is no longer the decider. When this file conflicts with the
+> canonical set, the canonical set wins.
 >
 > **Update rule:** the closing checkpoint of every sprint updates this file.
 > If the file is stale, the resuming session should refresh it before doing

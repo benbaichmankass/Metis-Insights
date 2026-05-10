@@ -55,7 +55,10 @@ For each `BUG-NNN.md` in this directory:
 4. Delete the staged file: `git rm docs/claude/bug-log-pending/BUG-NNN.md`.
 5. Commit as a single PR titled
    `docs(bug-log): fold-in BUG-NNN from pending`. Tier 1 / docs-only
-   per `docs/claude/workplan.md` § Decision and merge authority.
+   per `docs/CLAUDE-RULES-CANONICAL.md` § Permission Tiers (canonical
+   authority since 2026-05-10; the legacy
+   `docs/claude/workplan.md` § Decision and merge authority is
+   preserved as historical context).
 6. If multiple pending entries are folded in the same session, do them
    in one PR and prefix the title with the count
    (`docs(bug-log): fold-in BUG-065 + BUG-066 from pending`).

@@ -4,9 +4,13 @@ Quick reference for every GitHub Actions workflow on this repo.
 Read this first when a PR check goes red — most failures map to a
 single command you can re-run locally.
 
-> **Authority:** `docs/claude/workplan.md` is the decider for what
-> the project ships. This runbook documents how the CI suite shipped
-> in **S-044** gates work that lands on `main`.
+> **Authority:** the S-CANON-1 canonical doc set
+> (`docs/CLAUDE-RULES-CANONICAL.md`,
+> `docs/ARCHITECTURE-CANONICAL.md`, `ROADMAP.md`, current sprint
+> log) is authoritative as of 2026-05-10. This runbook documents
+> how the CI suite shipped in **S-044** gates work that lands on
+> `main`. The legacy `docs/claude/workplan.md` is preserved for
+> historical context only.
 >
 > **Scope:** workflows under `.github/workflows/` only. Manual
 > verification commands (`scripts/secret_scan.py`,
