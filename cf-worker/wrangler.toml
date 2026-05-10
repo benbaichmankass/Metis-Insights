@@ -1,0 +1,14 @@
+name = "ict-trader-bot-proxy"
+main = "src/index.js"
+compatibility_date = "2024-12-01"
+
+# ORIGIN is the upstream the Worker proxies to. Default points at the
+# Oracle VM's FastAPI (`ict-web-api.service` on :8001). The operator can
+# override per-environment via `wrangler secret put ORIGIN` or the
+# Cloudflare dashboard without editing this file.
+[vars]
+ORIGIN = "http://158.178.210.252:8001"
+
+# Free-tier limits (100k req/day, 10ms CPU per request) are well above
+# the dashboard's polling rate. If the proxy ever needs more headroom,
+# move to the Workers Paid plan via the dashboard — no code change.
