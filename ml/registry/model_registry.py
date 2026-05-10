@@ -1,9 +1,15 @@
-"""Filesystem model registry (WS4).
+"""Filesystem model registry (WS4 + WS7-PART-1).
 
 One JSON file per model id under the registry root. Status is the
-backing state machine; `_ALLOWED_TRANSITIONS` enforces the legal
-edges. Promotion gates (the actual content of `reason`) live
-in `ml.promotion.checklist`.
+legacy WS4 backing state machine (5 states); `_ALLOWED_TRANSITIONS`
+enforces the legal edges. WS7 introduces a second, orthogonal
+`target_deployment_stage` field (7 stages from `ml.manifest`)
+representing where in the deployment pipeline the model
+currently sits; `_STAGE_TRANSITIONS` enforces those edges and
+`stage_history` records the events.
+
+Promotion gates (the actual content of `reason`) live in
+`ml.promotion.checklist`.
 """
 from __future__ import annotations
 
@@ -12,6 +18,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
+
+from ..manifest import VALID_DEPLOYMENT_STAGES
 
 VALID_STATUSES: tuple[str, ...] = (
     "candidate",
@@ -30,6 +38,22 @@ _ALLOWED_TRANSITIONS: dict[str, frozenset[str]] = {
     "live-approved": frozenset({"champion", "advisory"}),
     "champion": frozenset({"candidate"}),
 }
+
+# WS7 deployment-stage transitions. Every forward edge has a
+# rollback edge so an operator can demote a model that misbehaves.
+# `live_approved` has no further forward — once there, the only
+# legal move is back to `advisory` for re-evaluation.
+_STAGE_TRANSITIONS: dict[str, frozenset[str]] = {
+    "research_only": frozenset({"candidate"}),
+    "candidate": frozenset({"backtest_approved", "research_only"}),
+    "backtest_approved": frozenset({"shadow", "candidate"}),
+    "shadow": frozenset({"advisory", "backtest_approved"}),
+    "advisory": frozenset({"limited_live", "shadow"}),
+    "limited_live": frozenset({"live_approved", "advisory"}),
+    "live_approved": frozenset({"advisory"}),
+}
+
+_DEFAULT_STAGE = "research_only"
 
 
 class RegistryError(ValueError):
@@ -69,6 +93,41 @@ class StatusEvent:
 
 
 @dataclass(frozen=True)
+class StageEvent:
+    """WS7 deployment-stage transition event.
+
+    Parallel structure to `StatusEvent` but on the orthogonal
+    `target_deployment_stage` axis. Kept as its own type so the two
+    histories stay easy to read in audit dumps.
+    """
+
+    from_stage: str | None
+    to_stage: str
+    by: str
+    reason: str
+    at: datetime
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "from_stage": self.from_stage,
+            "to_stage": self.to_stage,
+            "by": self.by,
+            "reason": self.reason,
+            "at": self.at.isoformat(),
+        }
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> "StageEvent":
+        return cls(
+            from_stage=payload.get("from_stage"),
+            to_stage=payload["to_stage"],
+            by=payload["by"],
+            reason=payload.get("reason", ""),
+            at=datetime.fromisoformat(payload["at"]),
+        )
+
+
+@dataclass(frozen=True)
 class RegistryEntry:
     model_id: str
     status: str
@@ -79,6 +138,8 @@ class RegistryEntry:
     created_at: datetime
     history: tuple[StatusEvent, ...] = field(default_factory=tuple)
     notes: str = ""
+    target_deployment_stage: str = _DEFAULT_STAGE
+    stage_history: tuple[StageEvent, ...] = field(default_factory=tuple)
 
     def __post_init__(self) -> None:
         if self.status not in VALID_STATUSES:
@@ -87,6 +148,12 @@ class RegistryEntry:
             )
         if not isinstance(self.model_id, str) or not self.model_id.strip():
             raise RegistryError("model_id must be a non-empty string")
+        if self.target_deployment_stage not in VALID_DEPLOYMENT_STAGES:
+            raise RegistryError(
+                f"target_deployment_stage must be one of "
+                f"{VALID_DEPLOYMENT_STAGES}; got "
+                f"{self.target_deployment_stage!r}"
+            )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -99,6 +166,8 @@ class RegistryEntry:
             "created_at": self.created_at.isoformat(),
             "history": [e.to_dict() for e in self.history],
             "notes": self.notes,
+            "target_deployment_stage": self.target_deployment_stage,
+            "stage_history": [e.to_dict() for e in self.stage_history],
         }
 
     @classmethod
@@ -115,6 +184,13 @@ class RegistryEntry:
                 StatusEvent.from_dict(e) for e in payload.get("history", [])
             ),
             notes=payload.get("notes", ""),
+            target_deployment_stage=payload.get(
+                "target_deployment_stage", _DEFAULT_STAGE
+            ),
+            stage_history=tuple(
+                StageEvent.from_dict(e)
+                for e in payload.get("stage_history", [])
+            ),
         )
 
 
@@ -168,6 +244,12 @@ class ModelRegistry:
             reason="initial registration",
             at=now,
         )
+        stage = manifest.get("target_deployment_stage", _DEFAULT_STAGE)
+        if stage not in VALID_DEPLOYMENT_STAGES:
+            raise RegistryError(
+                f"manifest.target_deployment_stage must be one of "
+                f"{VALID_DEPLOYMENT_STAGES}; got {stage!r}"
+            )
         entry = RegistryEntry(
             model_id=model_id,
             status="candidate",
@@ -178,6 +260,8 @@ class ModelRegistry:
             created_at=now,
             history=(event,),
             notes=notes,
+            target_deployment_stage=stage,
+            stage_history=(),
         )
         self._write(entry)
         return entry
@@ -219,6 +303,73 @@ class ModelRegistry:
             created_at=current.created_at,
             history=current.history + (event,),
             notes=current.notes,
+            target_deployment_stage=current.target_deployment_stage,
+            stage_history=current.stage_history,
+        )
+        self._write(updated)
+        return updated
+
+    def promote_stage(
+        self,
+        model_id: str,
+        new_stage: str,
+        *,
+        by: str,
+        reason: str,
+    ) -> RegistryEntry:
+        """WS7 deployment-stage promotion.
+
+        Walks the model along the
+        `research_only → candidate → backtest_approved → shadow →
+        advisory → limited_live → live_approved` ladder defined in
+        `ml.manifest.VALID_DEPLOYMENT_STAGES`, enforcing the
+        `_STAGE_TRANSITIONS` edges (forward + one-step rollback).
+        Recorded as a `StageEvent` on `stage_history`.
+
+        Refuses no-op transitions explicitly so audit-log entries
+        always represent real state changes.
+        """
+        if new_stage not in VALID_DEPLOYMENT_STAGES:
+            raise RegistryError(
+                f"new_stage must be one of {VALID_DEPLOYMENT_STAGES}; "
+                f"got {new_stage!r}"
+            )
+        if not isinstance(by, str) or not by.strip():
+            raise RegistryError("by must be a non-empty string")
+        if not isinstance(reason, str) or not reason.strip():
+            raise RegistryError("reason must be a non-empty string")
+        current = self.get(model_id)
+        if new_stage == current.target_deployment_stage:
+            raise RegistryError(
+                f"stage already {new_stage!r}; refusing no-op transition"
+            )
+        allowed = _STAGE_TRANSITIONS.get(
+            current.target_deployment_stage, frozenset()
+        )
+        if new_stage not in allowed:
+            raise RegistryError(
+                f"stage transition {current.target_deployment_stage!r} -> "
+                f"{new_stage!r} not allowed; allowed: {sorted(allowed)}"
+            )
+        event = StageEvent(
+            from_stage=current.target_deployment_stage,
+            to_stage=new_stage,
+            by=by,
+            reason=reason,
+            at=_now_utc(),
+        )
+        updated = RegistryEntry(
+            model_id=current.model_id,
+            status=current.status,
+            manifest=current.manifest,
+            model_state_path=current.model_state_path,
+            metrics=current.metrics,
+            code_revision=current.code_revision,
+            created_at=current.created_at,
+            history=current.history,
+            notes=current.notes,
+            target_deployment_stage=new_stage,
+            stage_history=current.stage_history + (event,),
         )
         self._write(updated)
         return updated
