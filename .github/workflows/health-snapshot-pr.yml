@@ -16,7 +16,7 @@ on:
 
 permissions:
   contents: write        # commit artifacts to the auto/health-check-review branch
-  pull-requests: write   # peter-evans/create-pull-request
+  pull-requests: write   # peter-evans/create-pull-request + auto-merge
   issues: write          # comment back on + close the trigger issue
 
 concurrency:
@@ -163,9 +163,10 @@ jobs:
             - **Request id**: `${{ steps.review_request.outputs.request_id }}`
             - **Workflow run**: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
-            **Merging this PR triggers the Claude review handoff** via
-            `.github/workflows/health-review-trigger.yml`. See
-            [`docs/runbooks/health-check.md`](docs/runbooks/health-check.md)
+            **This PR is auto-merged by the workflow** to fire
+            `.github/workflows/health-review-trigger.yml` (filtered on
+            the `health-check-review` label) without operator action.
+            See [`docs/runbooks/health-check.md`](docs/runbooks/health-check.md)
             for the two-workflow design.
 
             Files in this PR:
@@ -180,24 +181,47 @@ jobs:
             artifacts/health/**
             comms/requests/REQ-*.json
 
-      - name: Notify operator that a review PR is open
+      - name: Auto-merge the review PR
+        # The labelled PR fires health-review-trigger.yml on merge.
+        # Merging here closes the loop without operator gating.
+        # Squash keeps main's history linear; --delete-branch is omitted
+        # so auto/health-check-review survives for the next run (matches
+        # `delete-branch: false` on the create-pr step). Token mirrors
+        # the create-pr fallback chain.
+        id: automerge
+        if: steps.cpr.outputs.pull-request-number != ''
+        env:
+          GH_TOKEN: ${{ secrets.HEALTH_REVIEW_PAT || secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh pr merge --squash \
+            --repo "${{ github.repository }}" \
+            "${{ steps.cpr.outputs.pull-request-number }}"
+
+      - name: Notify operator that the trigger fired
         id: notify
         if: always() && steps.cpr.outputs.pull-request-number != ''
         env:
           # Same alias as layer 1 — Claude bot token, shared chat id.
           TELEGRAM_BOT_TOKEN: ${{ secrets.CLAUDE_TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          MERGE_OUTCOME: ${{ steps.automerge.outcome }}
         run: |
           set -eu
           PR_NUM="${{ steps.cpr.outputs.pull-request-number }}"
           PR_URL="${{ steps.cpr.outputs.pull-request-url }}"
           STATUS="${{ steps.analyze.outputs.status }}"
+          if [ "${MERGE_OUTCOME:-skipped}" = "success" ]; then
+            phrase="auto-merged — Claude review routine fired"
+          else
+            phrase="open (auto-merge ${MERGE_OUTCOME:-skipped}) — manual merge required"
+          fi
           # Capture the helper's exit code so the issue-driven path can
           # surface "Telegram ping arrived?" in the trigger-issue
           # comment without making telegram failure fatal to the run.
           set +e
           PYTHONPATH=. python scripts/notify_session.py alert \
-            --summary "Health review PR #${PR_NUM} open (machine: ${STATUS:-UNKNOWN}) — merge to trigger Claude review" \
+            --summary "Health review PR #${PR_NUM} ${phrase} (machine: ${STATUS:-UNKNOWN})" \
             --link "$PR_URL"
           tg_rc=$?
           set -e
@@ -222,6 +246,7 @@ jobs:
           PR_NUMBER: ${{ steps.cpr.outputs.pull-request-number }}
           PR_OPERATION: ${{ steps.cpr.outputs.pull-request-operation }}
           ANALYZE_STATUS: ${{ steps.analyze.outputs.status }}
+          MERGE_OUTCOME: ${{ steps.automerge.outcome }}
           TELEGRAM_EXIT: ${{ steps.notify.outputs.telegram_exit_code }}
         with:
           script: |
@@ -253,6 +278,10 @@ jobs:
             } else {
               tgLine = `⚠️ Telegram ping exited rc=${tgExit} (non-fatal).`;
             }
+            const mergeOutcome = process.env.MERGE_OUTCOME || 'skipped';
+            const mergeLine = mergeOutcome === 'success'
+              ? '✅ PR auto-merged — `health-review-trigger.yml` fired.'
+              : `⚠️ Auto-merge step ${mergeOutcome} — manual merge required to fire \`health-review-trigger.yml\`.`;
             const prLine = process.env.PR_NUMBER
               ? `PR #${process.env.PR_NUMBER} (${process.env.PR_OPERATION || 'opened/updated'}): ${process.env.PR_URL}`
               : '⚠️ No PR was opened/updated (peter-evans step produced no number).';
@@ -260,6 +289,7 @@ jobs:
               `✅ **health-snapshot-pr** completed.\n` +
               `Run: ${runUrl}\n` +
               `${prLine}\n` +
+              `${mergeLine}\n` +
               `Layer-1 verdict: \`${verdict}\`\n` +
               `Layer-1 summary: ${summary}` +
               layer1Error +
@@ -293,7 +323,8 @@ jobs:
               `- \`scripts/collect_health_snapshot.sh\` returned non-zero on the VM.\n` +
               `- peter-evans/create-pull-request denied: either enable Settings → Actions → General → ` +
               `"Allow GitHub Actions to create and approve pull requests", or set the \`HEALTH_REVIEW_PAT\` ` +
-              `secret to a fine-grained PAT with Contents:write + Pull requests:write on this repo.\n`;
+              `secret to a fine-grained PAT with Contents:write + Pull requests:write on this repo.\n` +
+              `- Auto-merge step failed: same token requirements as create-pull-request; needs Pull requests:write.\n`;
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
