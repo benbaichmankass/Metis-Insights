@@ -71,7 +71,7 @@ def test_no_open_packages_logs_only(tmp_journal, monkeypatch, caplog):
     with caplog.at_level(logging.INFO, logger="src.runtime.boot_audit"):
         result = report_open_packages_on_boot()
 
-    total = sum(result.values())
+    total = sum(v for v in result.values() if v is not None)
     assert total == 0, f"Expected 0 open packages, got {result}"
     assert not telegram_calls, "Telegram must NOT be called when there are no open packages"
     assert "0 open package" in caplog.text.lower() or "boot_audit" in caplog.text
@@ -155,3 +155,109 @@ def test_db_unavailable_no_raise(tmp_path, monkeypatch):
     result = report_open_packages_on_boot()
 
     assert isinstance(result, dict), "Must return a dict even on DB failure"
+
+
+# ---------------------------------------------------------------------------
+# Contract 4: per-strategy query failure → None sentinel + ping fires
+# (S-067 follow-up item D1 — see docs/audits/silent-empty-reporting-2026-05-10.md
+#  § Phase-2 #1.)
+# ---------------------------------------------------------------------------
+
+
+def test_query_failure_records_none(tmp_journal, monkeypatch):
+    """Per-strategy query exception → counts[strategy] is None, no raise."""
+    monkeypatch.setattr(
+        "src.runtime.boot_audit._load_strategy_names",
+        lambda: ["vwap", "turtle_soup"],
+    )
+
+    # Force the per-strategy query to raise for one strategy and succeed
+    # (returning empty) for the other.
+    def _raise_for_vwap(self, strategy, *, status, linked_only):
+        if strategy == "vwap":
+            raise RuntimeError("simulated DB query failure")
+        return []
+
+    from src.units.db.database import Database
+    monkeypatch.setattr(Database, "get_order_packages_by_strategy", _raise_for_vwap)
+
+    # Stub the ping path so we don't need the live send_telegram_direct.
+    import src.runtime.boot_audit as _ba
+    monkeypatch.setattr(_ba, "_send_boot_ping", lambda counts, total: None)
+
+    from src.runtime.boot_audit import report_open_packages_on_boot
+    result = report_open_packages_on_boot()
+
+    assert result["vwap"] is None, (
+        "Query failure must record None (not 0) so the wire shape "
+        "distinguishes failure from 'no open packages'."
+    )
+    assert result["turtle_soup"] == 0, "Successful empty query records 0"
+
+
+def test_query_failure_pings_telegram(tmp_journal, monkeypatch):
+    """When total=0 but a strategy query failed, ping fires (not silent)."""
+    monkeypatch.setattr(
+        "src.runtime.boot_audit._load_strategy_names",
+        lambda: ["vwap"],
+    )
+
+    def _always_raise(self, strategy, *, status, linked_only):
+        raise RuntimeError("simulated DB query failure")
+
+    from src.units.db.database import Database
+    monkeypatch.setattr(Database, "get_order_packages_by_strategy", _always_raise)
+
+    ping_calls: list[tuple] = []
+    import src.runtime.boot_audit as _ba
+    monkeypatch.setattr(
+        _ba, "_send_boot_ping",
+        lambda counts, total: ping_calls.append((counts, total)),
+    )
+
+    from src.runtime.boot_audit import report_open_packages_on_boot
+    result = report_open_packages_on_boot()
+
+    assert result == {"vwap": None}
+    assert len(ping_calls) == 1, (
+        "Query failure must trigger the ping even when total=0 — "
+        "the operator otherwise sees a silent all-clear."
+    )
+    counts, total = ping_calls[0]
+    assert total == 0
+    assert counts["vwap"] is None
+
+
+def test_query_failure_renders_in_ping_body(tmp_journal, monkeypatch):
+    """The ping body must surface '(query failed)' for the failed strategy."""
+    monkeypatch.setattr(
+        "src.runtime.boot_audit._load_strategy_names",
+        lambda: ["vwap", "turtle_soup"],
+    )
+
+    def _raise_for_vwap(self, strategy, *, status, linked_only):
+        if strategy == "vwap":
+            raise RuntimeError("simulated DB query failure")
+        return []
+
+    from src.units.db.database import Database
+    monkeypatch.setattr(Database, "get_order_packages_by_strategy", _raise_for_vwap)
+
+    sent_messages: list[str] = []
+
+    def _fake_send(msg, *, parse_mode=None):
+        sent_messages.append(msg)
+
+    monkeypatch.setattr("src.runtime.notify.send_telegram_direct", _fake_send,
+                        raising=False)
+
+    from src.runtime.boot_audit import report_open_packages_on_boot
+    report_open_packages_on_boot()
+
+    assert sent_messages, "Telegram ping must be sent on query failure"
+    body = sent_messages[0]
+    assert "vwap" in body
+    assert "(query failed)" in body, (
+        f"Ping body must render the failed strategy as '(query failed)'; got:\n{body}"
+    )
+    assert "WARNING" in body, "Ping body must include a WARNING line on failure"
