@@ -13,6 +13,9 @@ name: HF Train
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   train:
     runs-on: ubuntu-latest
