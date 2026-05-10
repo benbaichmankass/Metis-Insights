@@ -164,25 +164,68 @@ if "${SYSTEMCTL[@]}" list-units 'claude-vm-runner@*.service' --state=active --no
     exit 0
 fi
 
-echo ">>> Restarting services..."
-"${SYSTEMCTL[@]}" restart ict-trader-live.service
-"${SYSTEMCTL[@]}" restart ict-telegram-bot.service
-# ict-web-api.service serves /api/* (dashboard + diag). Without this
-# restart, FastAPI route changes (new endpoint, schema fix, response
-# shape) only land in production when the operator manually triggers
-# vm-web-api-recover.yml — which is how the 2026-05-09 24+h-stale-code
-# incident happened (web-api running since 2026-05-08 17:16 missed
-# every restart in this script). Same "only if installed" pattern as
-# ict-claude-bridge below so dev hosts without the unit stay quiet.
-if [ -f /etc/systemd/system/ict-web-api.service ]; then
-    "${SYSTEMCTL[@]}" restart ict-web-api.service
+# ---------------------------------------------------------------------------
+# S-067 follow-up #5: enumerate ict-* services from systemd rather than
+# carrying a fixed list. The 2026-05-09 24+h-stale-code incident
+# happened because ict-web-api.service was added to the deploy unit
+# inventory after the script was last touched, and the script's
+# explicit list silently missed it. Enumeration closes that class of
+# bug — any new ict-*.service file dropped under /etc/systemd/system/
+# is automatically restarted on the next deploy.
+#
+# Skip-list (DEPLOY_RESTART_SKIP, space-separated unit names) is the
+# escape hatch for one-shot units (ict-smoke-once.service has a
+# dedicated trigger below) and any unit the operator wants to manage
+# out-of-band. The default skip-list covers the units that should not
+# be restarted on every deploy.
+#
+# ict-smoke-once.service is a oneshot — restarting it would re-run the
+# smoke test on every deploy; gated below by the run_smoke_once.flag
+# instead.
+# ict-env-check.service is a oneshot run on bootup; re-running on
+# every deploy is wasteful and may produce confusing duplicate alerts.
+# ict-hourly-snapshot.service is gated by its timer.
+# ict-heartbeat.service is gated by its timer.
+# ict-git-sync.service is the sync timer's payload — restarting it
+# from inside its own run causes systemd to refuse the request.
+# ---------------------------------------------------------------------------
+DEFAULT_SKIP="ict-smoke-once.service ict-env-check.service ict-hourly-snapshot.service ict-heartbeat.service ict-git-sync.service"
+SKIP_LIST="${DEPLOY_RESTART_SKIP:-${DEFAULT_SKIP}}"
+
+# list-units --all surfaces inactive units too; --type=service excludes
+# .timer/.socket/etc. so we don't try to "restart" a timer (systemctl
+# refuses). Some platforms emit padding spaces — awk handles both.
+mapfile -t ICT_UNITS < <(
+    "${SYSTEMCTL[@]}" list-units --all --type=service --plain --no-legend 'ict-*.service' \
+        2>/dev/null | awk '{print $1}' | sort -u
+)
+
+if [ "${#ICT_UNITS[@]}" -eq 0 ]; then
+    echo ">>> WARNING: systemctl list-units returned no ict-*.service units."
+    echo ">>>   Is this a dev host without the deploy/*.service files installed?"
 fi
-# ict-claude-bridge.service is the Anthropic-API relay bot
-# (@claude_ict_comms_bot) — restart only if installed so dev hosts that
-# don't run it stay quiet.
-if [ -f /etc/systemd/system/ict-claude-bridge.service ]; then
-    "${SYSTEMCTL[@]}" restart ict-claude-bridge.service
-fi
+
+echo ">>> Restarting services (enumeration: ${#ICT_UNITS[@]} ict-* unit(s))..."
+RESTARTED_UNITS=()
+for unit in "${ICT_UNITS[@]}"; do
+    skip=0
+    for skip_unit in ${SKIP_LIST}; do
+        if [ "${unit}" = "${skip_unit}" ]; then
+            skip=1
+            break
+        fi
+    done
+    if [ "${skip}" -eq 1 ]; then
+        echo ">>>   skip ${unit} (in DEPLOY_RESTART_SKIP)"
+        continue
+    fi
+    if "${SYSTEMCTL[@]}" restart "${unit}"; then
+        echo ">>>   restarted ${unit}"
+        RESTARTED_UNITS+=("${unit}")
+    else
+        echo ">>>   WARNING: restart ${unit} failed (continuing)"
+    fi
+done
 
 # ---------------------------------------------------------------------------
 # S-017 T7: one-shot smoke trigger. If a sandbox/operator session committed
@@ -207,10 +250,66 @@ if [ -f "${REPO_DIR}/runtime_flags/run_smoke_once.flag" ]; then
 fi
 
 echo ">>> Service status:"
-"${SYSTEMCTL[@]}" status ict-trader-live.service --no-pager
-"${SYSTEMCTL[@]}" status ict-telegram-bot.service --no-pager
-if [ -f /etc/systemd/system/ict-web-api.service ]; then
-    "${SYSTEMCTL[@]}" status ict-web-api.service --no-pager
+for unit in "${RESTARTED_UNITS[@]}"; do
+    "${SYSTEMCTL[@]}" status "${unit}" --no-pager || true
+done
+
+# ---------------------------------------------------------------------------
+# S-067 follow-up #5: post-deploy version round-trip assertion.
+#
+# Hits /api/diag/version on the local web-api and checks that its
+# reported git_sha matches POST_SYNC_HEAD's short SHA. Catches the
+# 2026-05-09 incident class — web-api advertised "running" via systemd
+# but its in-process git SHA was 24+h stale because nothing in the
+# deploy chain restarted it.
+#
+# Soft failure: if web-api isn't installed, DIAG_READ_TOKEN isn't
+# set, or curl is missing, we log and move on. Hard failure: the
+# endpoint is reachable AND advertises a different SHA than HEAD.
+# ---------------------------------------------------------------------------
+WEB_API_HOST="${WEB_API_HOST:-127.0.0.1}"
+WEB_API_PORT="${WEB_API_PORT:-8001}"
+DIAG_TOKEN_FILE="${DIAG_TOKEN_FILE:-/etc/ict-trading-bot/diag_token}"
+DIAG_TOKEN="${DIAG_READ_TOKEN:-}"
+if [ -z "${DIAG_TOKEN}" ] && [ -r "${DIAG_TOKEN_FILE}" ]; then
+    DIAG_TOKEN="$(cat "${DIAG_TOKEN_FILE}")"
+fi
+
+if ! command -v curl >/dev/null 2>&1; then
+    echo ">>> Skipping post-deploy version assertion (curl not installed)."
+elif [ ! -f /etc/systemd/system/ict-web-api.service ]; then
+    echo ">>> Skipping post-deploy version assertion (ict-web-api.service not installed)."
+elif [ -z "${DIAG_TOKEN}" ]; then
+    echo ">>> Skipping post-deploy version assertion (DIAG_READ_TOKEN unset and ${DIAG_TOKEN_FILE} not readable)."
+else
+    echo ">>> Asserting web-api git_sha matches HEAD..."
+    EXPECTED_SHA="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
+    # Allow up to 30 s for the freshly-restarted web-api to come up.
+    ASSERT_OK=0
+    for attempt in 1 2 3 4 5 6; do
+        sleep 5
+        VERSION_JSON="$(curl -fsS --max-time 5 \
+            -H "Authorization: Bearer ${DIAG_TOKEN}" \
+            "http://${WEB_API_HOST}:${WEB_API_PORT}/api/diag/version" 2>/dev/null || true)"
+        if [ -z "${VERSION_JSON}" ]; then
+            echo ">>>   attempt ${attempt}: /api/diag/version not yet reachable"
+            continue
+        fi
+        REPORTED_SHA="$(printf '%s' "${VERSION_JSON}" \
+            | /usr/bin/python3 -c 'import json,sys; print(json.load(sys.stdin).get("git_sha","unknown"))' 2>/dev/null || echo parse_error)"
+        if [ "${REPORTED_SHA}" = "${EXPECTED_SHA}" ]; then
+            echo ">>>   web-api git_sha=${REPORTED_SHA} matches HEAD — OK"
+            ASSERT_OK=1
+            break
+        fi
+        echo ">>>   attempt ${attempt}: web-api reports git_sha=${REPORTED_SHA}, expected ${EXPECTED_SHA}"
+    done
+    if [ "${ASSERT_OK}" -ne 1 ]; then
+        echo ">>> ERROR: post-deploy version round-trip failed."
+        echo ">>>   expected SHA: ${EXPECTED_SHA}"
+        echo ">>>   This usually means ict-web-api.service didn't actually restart."
+        exit 4
+    fi
 fi
 
 echo "===== DEPLOY COMPLETE: $(date) ====="

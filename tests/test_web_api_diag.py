@@ -342,3 +342,56 @@ def test_db_info_returns_inode_size_tables_and_counts(client, fake_runtime):
 def test_db_info_401_without_token(client, fake_runtime):
     resp = client.get("/api/diag/db_info")
     assert resp.status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# /api/diag/version — post-deploy round-trip assertion target
+#
+# S-067 follow-up #5 — the 2026-05-09 24+h-stale-code incident shipped
+# because nothing in the deploy chain confirmed the running web-api
+# process had actually picked up the new commit. This endpoint is what
+# scripts/deploy_pull_restart.sh now hits to assert the running git
+# SHA matches HEAD.
+# ---------------------------------------------------------------------------
+
+
+def test_version_returns_git_sha_and_captured_at(client, fake_runtime, monkeypatch):
+    monkeypatch.setattr(diag_router, "_resolve_git_sha", lambda: "abc1234")
+    resp = client.get("/api/diag/version", headers=_bearer(_TOKEN))
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["git_sha"] == "abc1234"
+    assert "captured_at" in body
+    # ISO-8601 UTC.
+    assert body["captured_at"].endswith("+00:00") or body["captured_at"].endswith("Z")
+
+
+def test_version_returns_unknown_when_resolver_fails(client, fake_runtime, monkeypatch):
+    """``_resolve_git_sha`` returns ``"unknown"`` on a sandbox host
+    without git. The deploy script treats ``unknown`` as a soft
+    failure rather than a SHA mismatch."""
+    monkeypatch.setattr(diag_router, "_resolve_git_sha", lambda: "unknown")
+    resp = client.get("/api/diag/version", headers=_bearer(_TOKEN))
+    assert resp.status_code == 200
+    assert resp.json()["git_sha"] == "unknown"
+
+
+def test_version_401_without_token(client, fake_runtime):
+    resp = client.get("/api/diag/version")
+    assert resp.status_code == 401
+
+
+def test_version_401_on_bad_token(client, fake_runtime):
+    resp = client.get("/api/diag/version", headers=_bearer("not-the-token"))
+    assert resp.status_code == 401
+
+
+def test_version_503_when_diag_token_unset(monkeypatch, fake_runtime):
+    monkeypatch.delenv("DIAG_READ_TOKEN", raising=False)
+    monkeypatch.setenv("JWT_SIGNING_KEY", "x" * 64)
+    monkeypatch.setenv("ALLOWED_EMAIL", "test@example.com")
+    monkeypatch.setenv("WEBAPP_PASSWORD_SHA256", "deadbeef")
+    client = TestClient(api_main.app, raise_server_exceptions=False)
+    resp = client.get("/api/diag/version", headers=_bearer(_TOKEN))
+    assert resp.status_code == 503
+    assert resp.json()["detail"]["error"] == "diag_disabled"
