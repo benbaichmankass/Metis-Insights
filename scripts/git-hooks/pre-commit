@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+# .git/hooks/pre-commit — local mirror of the arch-doc-guard
+# (S-AI-WS10 follow-up).
+#
+# INSTALL: `bash scripts/install-hooks.sh` symlinks this into
+# .git/hooks/pre-commit. Opt-in by design — CI carries the
+# authoritative check; the local hook is only for fast feedback
+# before push.
+#
+# Behavior:
+#   - Runs scripts/arch_doc_guard.py on staged files.
+#   - If a ::warning fires (high-impact paths touched without
+#     arch-doc update), prints the warning to stderr and exits 1.
+#     The commit IS BLOCKED locally — that's the difference from CI
+#     where the same check is advisory-only. Operators install this
+#     precisely because they want stronger local enforcement; they
+#     can bypass with `git commit --no-verify` if needed.
+#   - Otherwise exits 0 — commit proceeds normally.
+#
+# Pure stdlib bash + Python; no third-party pre-commit framework
+# required.
+
+set -uo pipefail
+
+# Resolve repo root from the hook's symlink location (so the hook
+# also works from .git/worktrees/ paths).
+repo_root="$(git rev-parse --show-toplevel 2>/dev/null)"
+if [ -z "${repo_root}" ]; then
+  echo "pre-commit: not in a git repo; skipping arch-doc-guard." >&2
+  exit 0
+fi
+
+guard="${repo_root}/scripts/arch_doc_guard.py"
+if [ ! -f "${guard}" ]; then
+  # Older revision predates the guard; harmless skip.
+  exit 0
+fi
+
+# Gather staged files (relative paths, NUL-safe via -z).
+staged_files="$(git diff --cached --name-only -z | tr '\0' '\n' | tr '\n' ' ')"
+if [ -z "${staged_files}" ]; then
+  # Nothing staged (amend with no content changes, etc.).
+  exit 0
+fi
+
+output="$(python3 "${guard}" --changed-files="${staged_files}" 2>&1)"
+if printf '%s\n' "${output}" | grep -q '^::warning'; then
+  {
+    echo ""
+    echo "pre-commit: arch-doc-guard flagged this commit."
+    echo "${output}"
+    echo ""
+    echo "If the change IS architectural, update"
+    echo "  docs/ARCHITECTURE-CANONICAL.md (and add a Change-log row)"
+    echo "or a companion arch doc in the same commit."
+    echo ""
+    echo "If the change is NOT architectural, bypass with:"
+    echo "  git commit --no-verify"
+    echo ""
+    echo "See docs/architecture/ARCHITECTURE-CHANGE-CHECKLIST.md"
+  } >&2
+  exit 1
+fi
+
+exit 0
