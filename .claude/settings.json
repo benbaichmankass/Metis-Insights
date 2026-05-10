@@ -17,6 +17,18 @@
     ]
   },
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "_comment": "Project-level skill announcement. Forces every web-session to know /health-review exists and what its scope is, so we never repeat the 'Claude treats /health-review as a code-quality audit' confusion (operator feedback 2026-05-10). The hook simply prints a directive to stdout — Claude Code on the web injects stdout into the session-init context, so Claude reads it before the first user prompt. The cat fallback ('|| true') keeps the hook from failing the session if the skill file is ever missing.",
+            "type": "command",
+            "command": "echo '=== PROJECT-LEVEL SKILL: /health-review ==='; echo 'When the operator types /health-review or asks for \"the health review\" or \"the layer-2 review\", READ .claude/skills/health-review/SKILL.md and follow it exactly. The skill reviews the LIVE BOT runtime artifacts on main HEAD (artifacts/health/latest.json + health_snapshot.txt) and emits a JSON response per comms/schema/health_review_response.template.json. It is NOT a code review or codebase audit. Do NOT ask scoping questions like \"both repos, full audit?\" and do NOT fall back to the review or security-review skills.'; echo ''; echo 'Skill file:'; ls -la .claude/skills/health-review/SKILL.md 2>/dev/null || echo '(missing — should never happen on main)'",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
     "Stop": [
       {
         "hooks": [
