@@ -120,6 +120,80 @@ Merging the PR fires workflow 2, which POSTs to the Claude routine. To
 **skip** a run after the PR is open, just close it without merging —
 nothing leaves the snapshot branch and the routine is never called.
 
+## Triggering from a sandbox session (smoke-testing the pipeline)
+
+A Claude Code session running on the web sandbox cannot call
+`workflow_dispatch` directly — the hosted GitHub MCP server omits the
+`actions` toolset (see CLAUDE.md → "PM-side session capabilities"). To
+let the sandbox fire workflow 1 end-to-end without an operator click,
+`health-snapshot-pr.yml` exposes a third trigger: `issues.opened`
+filtered to label `health-snapshot-trigger`. The label is created by
+[`bootstrap-labels.yml`](../../.github/workflows/bootstrap-labels.yml).
+
+### Path B — issue-driven (web sandbox, autonomous)
+
+This is the standing pattern. From a sandbox session:
+
+```text
+mcp__github__issue_write(method='create',
+    title='[health-smoke] e2e smoke test',
+    labels=['health-snapshot-trigger'],
+    body='Triggering Health Snapshot PR end-to-end.')
+```
+
+The workflow runs as if you'd clicked "Run workflow" in the Actions UI,
+opens or updates the review PR on `auto/health-check-review`, and then
+the final two steps comment back on the trigger issue with:
+
+- the **workflow run URL**,
+- the **resulting PR URL** (or a warning if no PR was opened/updated),
+- the **layer-1 verdict** read from `artifacts/health/latest.json`
+  (`HEALTHY` / `WARNING` / `CRITICAL` / `UNKNOWN`),
+- the layer-1 `summary` and (when the fallback fired) the underlying
+  `error.type` + `error.message`,
+- the **Telegram step exit code** — `0` means the Claude-bot ping was
+  delivered, anything else means the helper failed (non-fatal).
+
+…and then close the issue (`completed` on success, `not_planned` on
+failure). The sandbox session reads the comment via
+`mcp__github__issue_read` and verifies the PR contents via
+`mcp__github__get_file_contents` against `artifacts/health/latest.json`
+on branch `auto/health-check-review`.
+
+**Verifying the layer-1 fallback didn't silently fire:** look at the
+`Layer-1 verdict` line in the issue comment. `UNKNOWN` plus a
+`Layer-1 fallback fired — <ErrorClass>: <message>` block means the
+Anthropic call did not succeed; check the `ANTHROPIC_API_KEY` secret
+and Anthropic billing before re-running. A real verdict (HEALTHY /
+WARNING / CRITICAL) confirms layer 1 reached Claude.
+
+### Path A — local Claude Code with `actions` MCP toolset
+
+If you're running this from Claude Code CLI / desktop instead of the
+web sandbox, you can install
+[`github/github-mcp-server`](https://github.com/github/github-mcp-server)
+locally and start it with `GITHUB_TOOLSETS=actions,repos,issues,pull_requests`
+(or `all`). That gives the session direct
+`mcp__github__run_workflow` / `list_workflow_runs` /
+`get_workflow_run_logs` access, and the smoke test can be driven
+without going through an issue:
+
+```text
+mcp__github__run_workflow(
+    owner='benbaichmankass',
+    repo='ict-trading-bot',
+    workflow_id='health-snapshot-pr.yml',
+    ref='main')
+# then poll list_workflow_runs / get_workflow_run, fetch failure logs
+# via get_workflow_run_logs if conclusion != 'success'.
+```
+
+Both paths exercise the same workflow code — Path B is the durable
+fallback for the web sandbox; Path A is the cleaner option once the
+session has `actions:write` on its MCP server. Use whichever is
+available; both leave the same audit trail (run URL, PR, Telegram
+ping).
+
 ## Idempotency / dedupe
 
 Workflow 1 always pushes to a single fixed branch: `auto/health-check-review`.

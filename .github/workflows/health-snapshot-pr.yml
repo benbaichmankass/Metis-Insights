@@ -5,10 +5,19 @@ on:
     # Every 6 hours, on the hour.
     - cron: '0 */6 * * *'
   workflow_dispatch:
+  # Issue-driven trigger so a Claude Code on the web sandbox session
+  # (which lacks `actions:write` on the hosted GitHub MCP server) can
+  # fire the smoke test autonomously by opening a labelled issue.
+  # Mirrors the pattern used by vm-diag-snapshot.yml /
+  # vm-web-api-recover.yml / operator-actions.yml. See
+  # docs/runbooks/health-check.md § "Triggering from a sandbox session".
+  issues:
+    types: [opened]
 
 permissions:
   contents: write        # commit artifacts to the auto/health-check-review branch
   pull-requests: write   # peter-evans/create-pull-request
+  issues: write          # comment back on + close the trigger issue
 
 concurrency:
   group: health-snapshot-pr
@@ -16,6 +25,12 @@ concurrency:
 
 jobs:
   health-snapshot:
+    # Schedule + workflow_dispatch always run. Issue events run only
+    # when the opener tagged the issue with `health-snapshot-trigger`,
+    # so unrelated issues don't kick off the VM-side collector.
+    if: |
+      github.event_name != 'issues' ||
+      contains(github.event.issue.labels.*.name, 'health-snapshot-trigger')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -141,6 +156,7 @@ jobs:
             comms/requests/REQ-*.json
 
       - name: Notify operator that a review PR is open
+        id: notify
         if: always() && steps.cpr.outputs.pull-request-number != ''
         env:
           # Same alias as layer 1 — Claude bot token, shared chat id.
@@ -151,10 +167,19 @@ jobs:
           PR_NUM="${{ steps.cpr.outputs.pull-request-number }}"
           PR_URL="${{ steps.cpr.outputs.pull-request-url }}"
           STATUS="${{ steps.analyze.outputs.status }}"
+          # Capture the helper's exit code so the issue-driven path can
+          # surface "Telegram ping arrived?" in the trigger-issue
+          # comment without making telegram failure fatal to the run.
+          set +e
           PYTHONPATH=. python scripts/notify_session.py alert \
             --summary "Health review PR #${PR_NUM} open (machine: ${STATUS:-UNKNOWN}) — merge to trigger Claude review" \
-            --link "$PR_URL" \
-            || echo "telegram alert failed (non-fatal)"
+            --link "$PR_URL"
+          tg_rc=$?
+          set -e
+          echo "telegram_exit_code=${tg_rc}" >>"$GITHUB_OUTPUT"
+          if [ "$tg_rc" -ne 0 ]; then
+            echo "::warning::telegram alert failed (rc=${tg_rc}, non-fatal)"
+          fi
 
       - name: Upload run artifacts (forensic)
         if: always()
@@ -165,3 +190,104 @@ jobs:
           retention-days: 30
           path: |
             artifacts/health/**
+
+      # ────────────────────────────────────────────────────────────
+      # Issue-driven path: comment back on the trigger issue with the
+      # run URL, the resulting PR URL, the layer-1 verdict, and
+      # whether the Claude-bot Telegram ping fired. Then close the
+      # issue. Only runs for `issues` events; schedule + dispatch
+      # paths skip these steps.
+      # ────────────────────────────────────────────────────────────
+
+      - name: Reply to trigger issue with success
+        if: github.event_name == 'issues' && success()
+        uses: actions/github-script@v7
+        env:
+          PR_URL: ${{ steps.cpr.outputs.pull-request-url }}
+          PR_NUMBER: ${{ steps.cpr.outputs.pull-request-number }}
+          PR_OPERATION: ${{ steps.cpr.outputs.pull-request-operation }}
+          ANALYZE_STATUS: ${{ steps.analyze.outputs.status }}
+          TELEGRAM_EXIT: ${{ steps.notify.outputs.telegram_exit_code }}
+        with:
+          script: |
+            const fs = require('fs');
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            let verdict = process.env.ANALYZE_STATUS || 'UNKNOWN';
+            let summary = '(no summary)';
+            let layer1Error = '';
+            try {
+              const raw = fs.readFileSync('artifacts/health/latest.json', 'utf8');
+              const j = JSON.parse(raw);
+              verdict = j.status || verdict;
+              summary = j.summary || summary;
+              if (j.error) {
+                layer1Error =
+                  `\n⚠️ Layer-1 fallback fired — \`${j.error.type}\`: ${j.error.message}\n` +
+                  `(verdict UNKNOWN means the Anthropic call did not succeed; ` +
+                  `check ANTHROPIC_API_KEY secret + billing.)`;
+              }
+            } catch (e) {
+              summary = `(could not parse artifacts/health/latest.json: ${e.message})`;
+            }
+            const tgExit = process.env.TELEGRAM_EXIT;
+            let tgLine;
+            if (tgExit === undefined || tgExit === '') {
+              tgLine = 'ℹ️ Telegram step skipped (no PR was opened/updated).';
+            } else if (tgExit === '0') {
+              tgLine = '✅ Telegram ping (Claude bot) sent.';
+            } else {
+              tgLine = `⚠️ Telegram ping exited rc=${tgExit} (non-fatal).`;
+            }
+            const prLine = process.env.PR_NUMBER
+              ? `PR #${process.env.PR_NUMBER} (${process.env.PR_OPERATION || 'opened/updated'}): ${process.env.PR_URL}`
+              : '⚠️ No PR was opened/updated (peter-evans step produced no number).';
+            const body =
+              `✅ **health-snapshot-pr** completed.\n` +
+              `Run: ${runUrl}\n` +
+              `${prLine}\n` +
+              `Layer-1 verdict: \`${verdict}\`\n` +
+              `Layer-1 summary: ${summary}` +
+              layer1Error +
+              `\n${tgLine}`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              state: 'closed',
+              state_reason: 'completed',
+            });
+
+      - name: Reply to trigger issue with failure
+        if: github.event_name == 'issues' && failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body =
+              `❌ **health-snapshot-pr run failed.**\n` +
+              `Run: ${runUrl}\n\n` +
+              `Inspect the run logs to identify the failing step. Common causes:\n` +
+              `- \`VM_SSH_KEY\` secret unset or unparseable (CRLF / .ppk / encrypted key).\n` +
+              `- VM unreachable from the GitHub-hosted runner (network or sshd).\n` +
+              `- \`scripts/collect_health_snapshot.sh\` returned non-zero on the VM.\n` +
+              `- peter-evans/create-pull-request denied: Settings → Actions → General → ` +
+              `"Allow GitHub Actions to create and approve pull requests" must be on.\n`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              state: 'closed',
+              state_reason: 'not_planned',
+            });

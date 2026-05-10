@@ -76,6 +76,11 @@ jobs:
                 color: 'b60205',
                 description: 'Triggers vm-net-fix workflow — open VM-local firewall (ufw + iptables) for the dashboard API port.',
               },
+              {
+                name: 'health-snapshot-trigger',
+                color: '0e8a16',
+                description: 'Triggers health-snapshot-pr workflow from a sandbox session (issue-driven dispatch).',
+              },
             ];
             for (const l of LABELS) {
               try {
