@@ -141,8 +141,23 @@ echo "${TUNNEL_URL}" > "${URL_FILE}"
 
 # 7. Install an @reboot crontab entry so the tunnel survives a VM reboot.
 #    Idempotent — strip the prior entry first, then append the current one.
+#
+#    The naive form `( crontab -l | grep -v ... ; echo $LINE ) | crontab -`
+#    blows up on a fresh user account: `crontab -l` returns 1 when no
+#    crontab exists, `grep -v` returns 1 on empty input, and `set -o
+#    pipefail` (inherited by the subshell) propagates the failure into
+#    `set -e`, killing the script BEFORE the trailing `echo` runs.
+#    Issue #721 (this wrapper's first run) hit exactly this — the
+#    tunnel came up, the URL was logged, then the script exited 1
+#    here without installing the crontab entry.
+#
+#    Fix: capture each stage with explicit `|| true` so pipefail
+#    semantics don't propagate, then assemble the final crontab body
+#    in a single printf piped to `crontab -`.
 CRON_LINE="@reboot ${CLOUDFLARED} tunnel --url http://localhost:${LOCAL_PORT} --logfile ${LOG_FILE} >> ${LOG_FILE} 2>&1 &"
-( crontab -l 2>/dev/null | grep -v 'cloudflared tunnel --url http://localhost:8001' ; echo "${CRON_LINE}" ) | crontab -
+EXISTING_CRONTAB="$(crontab -l 2>/dev/null || true)"
+FILTERED_CRONTAB="$(printf '%s\n' "${EXISTING_CRONTAB}" | grep -v 'cloudflared tunnel --url http://localhost:8001' || true)"
+printf '%s\n%s\n' "${FILTERED_CRONTAB}" "${CRON_LINE}" | crontab -
 log "Installed @reboot crontab entry."
 
 # 8. Quick health probe via the tunnel itself (proves end-to-end works).
