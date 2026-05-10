@@ -1,0 +1,66 @@
+name: Env-gate guard
+
+# Pings the operator (and fails the PR check) when a pull request adds
+# an env-var read in a protected source path whose name matches the
+# BUG-039 suspect patterns (MULTI_ACCOUNT_*, MONITOR_*, DISPATCH_*,
+# *_APPLY_TO_*, *_DRY_*, *_ENABLED) without an explicit
+# `# allow-silent: <reason>` justification.
+# See scripts/check_env_gate_in_diff.py and
+# docs/audits/env-gate-purge-2026-05-10.md.
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compute diff against base
+        run: |
+          git fetch origin "${{ github.base_ref }}" --depth=1
+          git diff "origin/${{ github.base_ref }}"...HEAD > /tmp/pr.diff
+          wc -l /tmp/pr.diff
+
+      - name: Scan for new env-gates in protected paths
+        id: scan
+        run: |
+          set +e
+          python scripts/check_env_gate_in_diff.py /tmp/pr.diff
+          echo "exit=$?" >> "$GITHUB_OUTPUT"
+          set -e
+
+      - name: Notify operator on hit
+        if: steps.scan.outputs.exit != '0'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
+            echo "::warning::Telegram secrets not configured; skipping ping."
+            exit 0
+          fi
+          MESSAGE=$(cat <<EOF
+          🚨 env-gate guard: PR #${{ github.event.pull_request.number }}
+          ${{ github.event.pull_request.html_url }}
+          An env-var matching the BUG-039 suspect patterns was added.
+          Either remove it (RiskManager.dry_run is the only switch),
+          or add an explicit \`# allow-silent: <reason>\` comment.
+          See docs/audits/env-gate-purge-2026-05-10.md.
+          EOF
+          )
+          curl -sS -X POST \
+            "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -d "chat_id=${TELEGRAM_CHAT_ID}" \
+            -d "text=${MESSAGE}" >/dev/null
+
+      - name: Fail the check on hit
+        if: steps.scan.outputs.exit != '0'
+        run: |
+          echo "::error::env-gate guard tripped — see job output."
+          exit 1

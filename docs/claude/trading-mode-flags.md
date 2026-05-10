@@ -1,21 +1,68 @@
 # Trading-mode flags
 
-> **DEPRECATED — 2026-05-03 (BUG-039 / operator directive)**
->
-> `src/runtime/trading_mode.py` was **deleted**. The env vars
-> `ALLOW_LIVE_TRADING`, `DRY_RUN`, and `MODE` were **removed** from
-> `safe_place_order`, `validate_startup`, `build_settings_from_env`, and
-> the env-render notebooks.  The `--allow-live` CLI flag was also removed.
->
-> **The single dry/live toggle is now `mode: live | dry_run` per account
-> in `config/accounts.yaml`** — applied via `RiskManager.dry_run`
+> **The single dry/live toggle is `mode: live | dry_run` per account in
+> `config/accounts.yaml`** — applied via `RiskManager.dry_run`
 > (checked inside `RiskManager.evaluate()`, reason
-> `"account_mode_dry_run"`).  See CLAUDE.md § "Autonomous live-trading
-> rule" and BUG-039 in `docs/claude/bug-log.md` for the full rationale.
->
-> The content below is retained as **historical context** explaining why
-> the old multi-flag system was collapsed.  Do not treat it as current
-> specification.
+> `"account_mode_dry_run"`). There is no process-level interlock,
+> no strategy-level toggle, and no env-variable toggle. See
+> CLAUDE.md § "Autonomous live-trading rule" and BUG-039 in
+> `docs/claude/bug-log.md` for the full rationale.
+
+## Removed env vars (BUG-039 + follow-ups)
+
+These were the legacy switches; **none remain in the codebase**:
+
+| Name | Removed by | Why |
+|---|---|---|
+| `DRY_RUN` | BUG-039 (2026-05-03) | Replaced by per-account `mode`. |
+| `ALLOW_LIVE_TRADING` | BUG-039 (2026-05-03) | Same. |
+| `MODE` (`LIVE` / `BACKTEST`) | BUG-039 (2026-05-03) | Replaced by per-account `mode`. |
+| `MONITOR_APPLY_TO_EXCHANGE` | PR #630 (2026-05-09) | Could silently downgrade live → dry. |
+
+## Surviving env vars matching the suspect patterns
+
+S-067 follow-up #4 (`docs/audits/env-gate-purge-2026-05-10.md`)
+audited every `MULTI_ACCOUNT_*`, `MONITOR_*`, `DISPATCH_*`,
+`*_APPLY_TO_*`, `*_DRY_*`, `*_ENABLED` site under `src/`. Only
+two survive, both with explicit operational purposes that **cannot
+suppress live exchange writes**:
+
+| Env var | File:line | Default | Purpose |
+|---|---|---|---|
+| `MULTI_ACCOUNT_DISPATCH` | `src/runtime/pipeline.py:194` | `true` | Operator escape hatch — pin to legacy single-client path for single-account smoke deployments that don't load Coordinator. **Both branches route through `RiskManager.evaluate`**, so flipping this does not bypass the live/dry contract. |
+| `MONITOR_RECONCILE_ENABLED` | `src/runtime/order_monitor.py:680` | `false` | SSOT-from-Bybit reconciler gate (issue #502). Default off — explicit operator opt-in for the post-S-055 reconciler. **Reads only**, no order placement. |
+
+Both are documented in the audit. The phase-2 follow-up PR (Tier 2,
+operator-ack required) will add inline `# allow-silent: …`
+annotations + per-survivor regression tests asserting the
+"can't suppress live writes" contract.
+
+## How to add a new mode-controlling switch
+
+> **Default answer: don't.** Reach for the per-account
+> `RiskManager.dry_run` first.
+
+If a new env-var gate is genuinely required:
+
+1. Document it in this file under § Surviving env vars with a
+   plain-English statement of why it cannot suppress live writes.
+2. Add an inline `# allow-silent: <reason>` comment on the
+   `os.environ.get("…")` line so the
+   `.github/workflows/env-gate-guard.yml` CI check accepts the
+   new gate. Without the comment, the guard fails the PR.
+3. Add a regression test asserting the gate does not bypass
+   `RiskManager.evaluate`.
+4. Tier 2 PR — requires operator ack pre-merge.
+
+The CI guard's source: `scripts/check_env_gate_in_diff.py`.
+
+---
+
+## Historical context (deprecated, retained for archeology)
+
+The content below describes the pre-BUG-039 multi-flag system. It
+is **not** current specification. See § Removed env vars above for
+the current state.
 
 ---
 
