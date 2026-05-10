@@ -8,6 +8,12 @@
 > disagree, this doc wins.
 > **Companion:** [`CLAUDE-RULES-CANONICAL.md`](CLAUDE-RULES-CANONICAL.md)
 > covers Claude's operating rules; this doc covers system design only.
+> **AI scope:** AI-specific architecture (data → feature → model →
+> orchestration → deterministic control) is documented in
+> [`architecture/ai-model-platform.md`](architecture/ai-model-platform.md)
+> and is owned by ROADMAP.md milestones M9 + M10. When that doc and
+> this one overlap on AI scope, the AI-platform doc wins for AI-only
+> design questions; this doc remains canonical for system-wide design.
 
 ## Purpose
 
@@ -257,6 +263,7 @@ inventory/labels (`repo-inventory`, `bootstrap-labels`,
 | Scripts / ops | `scripts/`, `scripts/ops/` | Deploy, diag, ops wrappers |
 | Tests | `tests/` | Unit + integration |
 | Docs | `docs/` | Canonical docs (this dir), claude operating notes, sprint logs |
+| AI-platform doc | [`docs/architecture/ai-model-platform.md`](architecture/ai-model-platform.md) | AI-specific architecture (M9 + M10). Subordinate canonical doc; covers the model layer + deployment tiers + Oracle/HF runtime split. |
 | GitHub Actions | `.github/workflows/` | All CI / VM ops / training workflows |
 
 ## Evidence and Documentation Flow
@@ -264,7 +271,7 @@ inventory/labels (`repo-inventory`, `bootstrap-labels`,
 Every major code change must produce or update at least one of:
 - a sprint log (`docs/sprint-logs/<id>.md`),
 - the roadmap (`ROADMAP.md`),
-- a canonical doc (this doc, the rules doc, or
+- a canonical doc (this doc, the rules doc, the AI-platform doc, or
   `docs/github-actions-workflows.md`),
 - subsystem docs under `docs/claude/`, `docs/operator/`, etc.,
 - evidence in `tests/`, `experiments/`, or `runtime_logs/`.
@@ -289,6 +296,10 @@ roadmap rather than silently ignored:
   [`github-actions-workflows.md`](github-actions-workflows.md)).
 - **Empty / spurious sqlite-connection-named files** in the repo root
   (`<sqlite3.Connection object at 0x...>`). Diagnosed in this audit.
+- **AI-scope known gaps** — see
+  [`architecture/ai-model-platform.md`](architecture/ai-model-platform.md)
+  § Known Gaps. The current `ml/` tree is vestigial; WS3–WS10 deliver
+  the target dataset / training / registry / monitoring stack.
 
 ## Architecture Update Rule
 
@@ -300,6 +311,11 @@ This document must be reviewed whenever a sprint changes:
 - operator communication behavior,
 - GitHub Actions automation,
 - or any canonical file path used as part of the operating model.
+
+For AI-scope changes (data → feature → model → orchestration →
+control layer boundaries, dataset families, model registry, deployment
+tiers, Oracle/HF split) the corresponding doc to update is
+[`architecture/ai-model-platform.md`](architecture/ai-model-platform.md).
 
 ## Verification Checklist (current state)
 
@@ -318,3 +334,6 @@ Confirmed against the repo on 2026-05-10:
 - [x] systemd files: `deploy/ict-*.{service,timer}`
 - [x] Existing GitHub Actions: enumerated in
       [`github-actions-workflows.md`](github-actions-workflows.md)
+- [x] AI-scope architecture doc:
+      [`architecture/ai-model-platform.md`](architecture/ai-model-platform.md)
+      (S-AI-WS1, 2026-05-10)

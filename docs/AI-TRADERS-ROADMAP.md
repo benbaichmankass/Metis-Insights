@@ -13,6 +13,11 @@
 > This doc is the **scope-specific master plan** for the AI / ML lifecycle
 > work and is owned by M9 + M10. When it disagrees with the canonical docs
 > above, the canonical docs win.
+>
+> **AI-scope canonical doc:**
+> [`docs/architecture/ai-model-platform.md`](architecture/ai-model-platform.md)
+> (created in S-AI-WS1, 2026-05-10) is the canonical AI architecture
+> reference and the durable artifact of WS1.
 
 ---
 
@@ -74,6 +79,10 @@ Five layers:
    restrictions, broker validation, order packaging, audit logs, kill-switch
    behavior.
 
+Full layer + stage description with current-state audit and Mermaid
+diagram lives in
+[`docs/architecture/ai-model-platform.md`](architecture/ai-model-platform.md).
+
 ### Architectural position
 
 Do **not** build one “master model to rule them all.” Use one coordinator
@@ -100,18 +109,18 @@ The ten workstreams below are the unit of planning. Each one ships as one or
 more sprints under M9 or M10 in `ROADMAP.md`. Sprint plans live under
 [`docs/sprint-plans/ai-traders/`](sprint-plans/ai-traders/).
 
-| WS | Title | M | Sprint plan |
-|---|---|---|---|
-| WS1 | Architecture baseline | M9 | [ws1-architecture-baseline.md](sprint-plans/ai-traders/ws1-architecture-baseline.md) |
-| WS2 | Canonical trade pipeline | M9 | [ws2-canonical-pipeline.md](sprint-plans/ai-traders/ws2-canonical-pipeline.md) |
-| WS3 | Data foundation | M10 | [ws3-data-foundation.md](sprint-plans/ai-traders/ws3-data-foundation.md) |
-| WS4 | Training center | M9 | [ws4-training-center.md](sprint-plans/ai-traders/ws4-training-center.md) |
-| WS5 | Baseline models | M9 | [ws5-baseline-models.md](sprint-plans/ai-traders/ws5-baseline-models.md) |
-| WS6 | Open-source model layer | M9 | [ws6-open-source-models.md](sprint-plans/ai-traders/ws6-open-source-models.md) |
-| WS7 | Deployment tiers | M9 | [ws7-deployment-tiers.md](sprint-plans/ai-traders/ws7-deployment-tiers.md) |
-| WS8 | Monitoring and feedback loops | M9 | [ws8-monitoring-feedback.md](sprint-plans/ai-traders/ws8-monitoring-feedback.md) |
-| WS9 | Oracle / Hugging Face runtime split | M10 | [ws9-runtime-split.md](sprint-plans/ai-traders/ws9-runtime-split.md) |
-| WS10 | Architecture-doc enforcement | M9 | [ws10-arch-doc-enforcement.md](sprint-plans/ai-traders/ws10-arch-doc-enforcement.md) |
+| WS | Title | M | Status | Sprint plan |
+|---|---|---|---|---|
+| WS1 | Architecture baseline | M9 | ✅ DONE 2026-05-10 (S-AI-WS1) — see [`architecture/ai-model-platform.md`](architecture/ai-model-platform.md) | [ws1-architecture-baseline.md](sprint-plans/ai-traders/ws1-architecture-baseline.md) |
+| WS2 | Canonical trade pipeline | M9 | 📋 Not started | [ws2-canonical-pipeline.md](sprint-plans/ai-traders/ws2-canonical-pipeline.md) |
+| WS3 | Data foundation | M10 | 📋 Not started | [ws3-data-foundation.md](sprint-plans/ai-traders/ws3-data-foundation.md) |
+| WS4 | Training center | M9 | 📋 Not started | [ws4-training-center.md](sprint-plans/ai-traders/ws4-training-center.md) |
+| WS5 | Baseline models | M9 | 📋 Not started | [ws5-baseline-models.md](sprint-plans/ai-traders/ws5-baseline-models.md) |
+| WS6 | Open-source model layer | M9 | 📋 Not started | [ws6-open-source-models.md](sprint-plans/ai-traders/ws6-open-source-models.md) |
+| WS7 | Deployment tiers | M9 | 📋 Not started | [ws7-deployment-tiers.md](sprint-plans/ai-traders/ws7-deployment-tiers.md) |
+| WS8 | Monitoring and feedback loops | M9 | 📋 Not started | [ws8-monitoring-feedback.md](sprint-plans/ai-traders/ws8-monitoring-feedback.md) |
+| WS9 | Oracle / Hugging Face runtime split | M10 | 🔄 Continuous (policy of record from WS3 onwards) | [ws9-runtime-split.md](sprint-plans/ai-traders/ws9-runtime-split.md) |
+| WS10 | Architecture-doc enforcement | M9 | 📋 Not started | [ws10-arch-doc-enforcement.md](sprint-plans/ai-traders/ws10-arch-doc-enforcement.md) |
 
 Workstream details are inlined below; sprint plans hold the executable task
 lists.
@@ -144,6 +153,9 @@ trading architecture before building new model infrastructure.
 - The doc explicitly states that deterministic risk controls are outside the
   AI layer.
 - The doc is linked from the main repo docs navigation.
+
+**Closed:** S-AI-WS1, 2026-05-10. Acceptance criteria all met. See the
+sprint plan for the deliverable list and the change log row below.
 
 ---
 
@@ -439,31 +451,27 @@ doc does not drift away from the codebase.
 
 ## Recommended repo deliverables
 
-- `docs/architecture/ai-model-platform.md`
-- `docs/architecture/ARCHITECTURE-CHANGE-CHECKLIST.md`
-- `docs/architecture/model-inventory.md`
-- `docs/data/dataset-taxonomy.md`
-- `docs/data/dataset-schema.md`
-- `docs/ml/training-center.md`
-- `docs/ml/model-registry-policy.md`
-- `ml/configs/`
-- `ml/datasets/`
-- `ml/features/`
-- `ml/trainers/`
-- `ml/evaluators/`
-- `ml/registry/`
-- `ml/reports/`
+- `docs/architecture/ai-model-platform.md` — ✅ created in S-AI-WS1.
+- `docs/architecture/ARCHITECTURE-CHANGE-CHECKLIST.md` — WS10.
+- `docs/architecture/model-inventory.md` — WS6.
+- `docs/data/dataset-taxonomy.md` — WS3.
+- `docs/data/dataset-schema.md` — WS3.
+- `docs/ml/training-center.md` — WS4.
+- `docs/ml/model-registry-policy.md` — WS4.
+- `ml/configs/`, `ml/datasets/`, `ml/features/`, `ml/trainers/`,
+  `ml/evaluators/`, `ml/registry/`, `ml/reports/` — WS4.
 
 Exact paths may be adjusted to match the real repo structure (the existing
-`ml/` tree currently only contains `ml/config/` and `ml/src/`); WS1 owns
-resolving the final layout and recording it in the architecture doc.
+`ml/` tree currently only contains `ml/config/` and `ml/src/`); WS1 records
+this fact and WS4 owns rebuilding the directory.
 
 ---
 
 ## Recommended implementation order
 
-1. WS1 — architecture audit + canonical architecture doc.
-2. WS2 — canonical trade pipeline + stage contracts.
+1. WS1 — architecture audit + canonical architecture doc. **✅ done
+   (S-AI-WS1).**
+2. WS2 — canonical trade pipeline + stage contracts. **🔜 next.**
 3. WS3 — dataset taxonomy, schema docs, first reproducible dataset builder.
 4. WS4 — training center structure + command path.
 5. First baseline model end to end (subset of WS5).
@@ -522,6 +530,7 @@ a clean next step.
 
 ## Change log
 
-| Date | Change | Files | Operator impact |
-|---|---|---|---|
-| 2026-05-10 | Master plan adopted; M9 + M10 expanded into WS1–WS10; sprint-plan stubs seeded for WS1–WS10 (WS1–WS4 expanded, WS5–WS10 stub-only). | `docs/AI-TRADERS-ROADMAP.md`, `ROADMAP.md`, `docs/sprint-plans/ai-traders/*` | None at this stage — docs only; live runtime untouched. |
+| Date | Sprint | Change | Files | Operator impact |
+|---|---|---|---|---|
+| 2026-05-10 | S-AI-ROADMAP | Master plan adopted; M9 + M10 expanded into WS1–WS10; sprint-plan stubs seeded for WS1–WS10 (WS1–WS4 expanded, WS5–WS10 stub-only). | `docs/AI-TRADERS-ROADMAP.md`, `ROADMAP.md`, `docs/sprint-plans/ai-traders/*` | None at this stage — docs only; live runtime untouched. |
+| 2026-05-10 | S-AI-WS1 | WS1 complete. New canonical AI-scope doc at `docs/architecture/ai-model-platform.md` (current-state audit + target state + 5-layer model + stage map + Mermaid diagram + Architecture Change Log + Known Gaps). Linked from `ARCHITECTURE-CANONICAL.md`. WS1 sprint plan updated with sprint id and acceptance check-offs. Sprint log filed at `docs/sprint-logs/S-AI-WS1.md`. | `docs/architecture/ai-model-platform.md` (new), `docs/ARCHITECTURE-CANONICAL.md`, `docs/sprint-plans/ai-traders/ws1-architecture-baseline.md`, `docs/AI-TRADERS-ROADMAP.md`, `ROADMAP.md`, `docs/sprint-logs/S-AI-WS1.md` (new) | None — doc-only. |
