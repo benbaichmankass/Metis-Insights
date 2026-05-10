@@ -58,7 +58,9 @@ jobs:
 
       - name: Notify Claude review handoff
         env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          # Route the action's Telegram via the Claude bot, not the
+          # trader's bot. Chat id is shared across both bots.
+          TELEGRAM_BOT_TOKEN: ${{ secrets.CLAUDE_TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           set -eu
