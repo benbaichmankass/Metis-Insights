@@ -1,0 +1,46 @@
+name: arch-doc-guard
+
+# Architecture-doc guard (S-AI-WS10). When a PR changes high-impact
+# subsystems (pipeline, coordinator, ml/* model boundary, strategy
+# units, web API, config schemas) without updating the architecture
+# doc, this workflow emits a ::warning annotation visible on the
+# PR's check summary.
+#
+# The job always exits 0. By design — see
+# docs/architecture/ARCHITECTURE-CHANGE-CHECKLIST.md § "How the
+# guard fires" for the rationale. A future workstream can upgrade
+# to hard-fail once the team is fluent with the workflow.
+#
+# Heuristic + path patterns live in scripts/arch_doc_guard.py
+# (pure Python, stdlib-only, no external deps).
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  arch-doc-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Compute changed files
+        id: changed
+        run: |
+          base="${{ github.event.pull_request.base.sha }}"
+          head="${{ github.event.pull_request.head.sha }}"
+          files=$(git diff --name-only "$base" "$head" | tr '\n' ' ')
+          echo "files=$files" >> "$GITHUB_OUTPUT"
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run guard
+        run: |
+          python scripts/arch_doc_guard.py \
+            --changed-files="${{ steps.changed.outputs.files }}"
