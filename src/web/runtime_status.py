@@ -57,8 +57,17 @@ def _resolve_git_sha() -> str:
         )
         if out.returncode == 0 and out.stdout.strip():
             return out.stdout.strip()
-    except Exception:
-        pass
+    except Exception as exc:  # noqa: BLE001
+        # S-067 borderline: was silently `pass`. Keep best-effort
+        # behaviour (the env-var fallback is intentional) but
+        # debug-log so a misconfigured PATH or missing git binary
+        # in a sandbox env is visible if someone goes looking. Debug
+        # not warning because git absence in test envs is normal
+        # noise we don't want flooding the operator's bot.log.
+        logger.debug(
+            "runtime_status: git_sha resolution failed: %s: %s",
+            type(exc).__name__, exc,
+        )
     return os.environ.get("GIT_SHA", "unknown")
 
 

@@ -137,7 +137,14 @@ def _read_runtime_live_state() -> Dict[str, bool]:
     try:
         with _RUNTIME_STATUS_JSON.open(encoding="utf-8") as fh:
             raw = json.load(fh)
-    except (OSError, json.JSONDecodeError):
+    except (OSError, json.JSONDecodeError) as exc:
+        # S-067 borderline: was silently `return {}`. Keep the
+        # empty-dict shape (caller branches on emptiness) but log
+        # so a corrupt runtime_status.json surfaces in bot.log.
+        logger.warning(
+            "bot_config: runtime_status read failed: %s: %s",
+            type(exc).__name__, exc,
+        )
         return {}
     live = raw.get("live") if isinstance(raw, dict) else None
     if not isinstance(live, dict):

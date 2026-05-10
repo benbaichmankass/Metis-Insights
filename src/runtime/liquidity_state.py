@@ -171,7 +171,15 @@ def _load_all(path: Path) -> Dict[str, Dict[str, Any]]:
     try:
         with path.open(encoding="utf-8") as fh:
             raw = json.load(fh)
-    except (OSError, json.JSONDecodeError):
+    except (OSError, json.JSONDecodeError) as exc:
+        # S-067 borderline: was silently `return {}`. Log so a
+        # corrupted liquidity_state.json (which would silently
+        # blank the dashboard's Liquidity Maps tab) is visible in
+        # bot.log.
+        logger.warning(
+            "liquidity_state: load_all read failed: %s: %s",
+            type(exc).__name__, exc,
+        )
         return {}
     if not isinstance(raw, dict):
         return {}

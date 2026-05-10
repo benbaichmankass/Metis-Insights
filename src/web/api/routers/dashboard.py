@@ -128,7 +128,16 @@ def _tail_jsonl(path: Path, n: int) -> list[dict]:
     try:
         with path.open(encoding="utf-8", errors="replace") as fh:
             lines = fh.readlines()
-    except OSError:
+    except OSError as exc:
+        # S-067 borderline: was silently `return []`. Keep the
+        # empty-list shape (the dashboard's logs/signals panels
+        # branch on length and want to render a "no entries" stub
+        # rather than blow up) but log so the next debugging
+        # session sees the underlying read failure.
+        logger.warning(
+            "dashboard: tail_jsonl(%s) read failed: %s: %s",
+            path, type(exc).__name__, exc,
+        )
         return []
     return [json.loads(raw) for raw in lines[-n:] if raw.strip()]
 
@@ -139,7 +148,12 @@ def _tail_plain_log(path: Path, n: int) -> list[dict]:
     try:
         with path.open(encoding="utf-8", errors="replace") as fh:
             raw_lines = fh.readlines()
-    except OSError:
+    except OSError as exc:
+        # S-067 borderline: same shape as _tail_jsonl above.
+        logger.warning(
+            "dashboard: tail_plain_log(%s) read failed: %s: %s",
+            path, type(exc).__name__, exc,
+        )
         return []
     entries = []
     for line in raw_lines[-n:]:
