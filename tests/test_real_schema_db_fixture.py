@@ -14,7 +14,6 @@ import pytest
 from tests.fixtures.real_schema_db import (
     insert_order_package,
     insert_trade,
-    make_canonical_db,
 )
 
 

@@ -8,7 +8,6 @@ the dashboard falls back to log-derived rows.
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
