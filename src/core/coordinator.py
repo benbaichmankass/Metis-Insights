@@ -791,32 +791,26 @@ class Coordinator:
             # 1. Per-account sizing — the only place qty is decided.
             try:
                 balance = float(fetcher(account))
-                # Direction-aware balance override.
+                # Direction-aware balance override for cash spot.
                 #
                 # Cash spot (``market_type: spot``): the account holds
-                #   real BTC and USDT, and a sell order can only spend
-                #   BTC while a buy can only spend USDT. Use the
-                #   direction-aware free balance so the sizer never
-                #   produces a qty that exceeds actual holdings. Without
-                #   this override, total-portfolio balance produces
-                #   Bybit ErrCode 170131 ("Insufficient balance") on
-                #   spot Sell when the wallet holds USDT.
+                # real BTC and USDT, and a sell order can only spend
+                # BTC while a buy can only spend USDT. Use the
+                # direction-aware free balance so the sizer never
+                # produces a qty that exceeds actual holdings. Without
+                # this override, total-portfolio balance produces
+                # Bybit ErrCode 170131 ("Insufficient balance") on
+                # spot Sell when the wallet holds USDT.
                 #
-                # Spot margin (``market_type: spot-margin``, S-047 T3
-                #   D5): the account holds USDT collateral and borrows
-                #   the asset it doesn't have (BTC for shorts, USDT
-                #   notional for leveraged longs). Both directions size
-                #   from USDT collateral — the same primitive the
-                #   RiskManager spot-margin kernel (S-047 T2 D3)
-                #   consumes. Per-direction free-coin readings are
-                #   irrelevant: a USDT-only wallet must still be able
-                #   to short BTC.
+                # PR 5 (2026-05-10): the spot-margin branch was deleted.
+                # bybit_2 migrated to linear perps in PR 3 and no other
+                # account uses spot-margin; the override now only
+                # fires for ``market_type: spot``.
                 _market_type = (
                     getattr(account, "market_type", "spot") or "spot"
                 ).lower()
-                _is_spot_margin = _market_type == "spot-margin"
                 if (
-                    _market_type in ("spot", "spot-margin")
+                    _market_type == "spot"
                     and client is not None
                     and not effective_dry
                     and not bool(getattr(pkg, "meta", None) and (pkg.meta or {}).get("is_test"))
@@ -824,7 +818,6 @@ class Coordinator:
                     try:
                         from src.units.accounts.execute import (
                             _fetch_spot_coin_balances,
-                            _SPOT_BUY_SAFETY_BUFFER,
                         )
                         _spot_bal = _fetch_spot_coin_balances(client, pkg.symbol)
                         # S-052: total account equity (free + locked across
@@ -836,167 +829,18 @@ class Coordinator:
                         # totalEquity — gate falls back to ``balance``
                         # (pre-S-052 contract).
                         total_account_usd = _spot_bal.get("total_account_usd")
-                        if _is_spot_margin:
-                            # S-053: spot-margin collateral is the wallet's
-                            # NET equity, not free USDT. After a borrow-and-
-                            # sell short, Bybit credits the sale proceeds to
-                            # free USDT (~+$700 on a 0.009 BTC short at
-                            # $79850), inflating ``quote_usdt`` while net
-                            # equity is unchanged (the BTC borrow liability
-                            # offsets the proceeds). Pre-S-053 the sizer
-                            # treated that inflated cash as fresh risk
-                            # capital and the next short over-sized ~6× —
-                            # Bybit then rejected with 170131. ``totalEquity``
-                            # is borrow-state-invariant and is the correct
-                            # collateral input. Falls back to ``quote_usdt``
-                            # only when Bybit didn't return totalEquity
-                            # (pre-S-052 wallet shape) so the spot-margin
-                            # path keeps a sensible default.
-                            balance = (
-                                total_account_usd
-                                if total_account_usd is not None
-                                else _spot_bal["quote_usdt"]
-                            )
-                            # ``available_usd`` is direction-aware (S-049
-                            # long, S-053 short): it is the live exchange-
-                            # side availability for the side this order
-                            # spends. Bybit validates ``cost ≤
-                            # availableBalance`` before consulting borrow
-                            # capacity.
-                            #   long  → free_usdt + usdt_borrow_capacity
-                            #   short → free_base_usd + base_borrow_capacity
-                            # Both pre-fee-buffered. Without the SHORT
-                            # branch (pre-S-053) the BTC borrow line could
-                            # exhaust as positions accumulate and 170131
-                            # would surface even with the correct
-                            # collateral input.
-                            # S-056 (2026-05-08) + S-058 (2026-05-09):
-                            # Bybit V5 empties ``availableToBorrow``
-                            # for any coin row with walletBalance=0,
-                            # zeroing the API-derived borrow capacity
-                            # even when margin is enabled and there's
-                            # USDT collateral. When that happens we
-                            # fall back to the operator-configured
-                            # ``risk.spot_margin_ltv`` (default 0.5,
-                            # see ``DEFAULT_SPOT_MARGIN_LTV``) applied
-                            # to the account's collateral, capped by
-                            # ``risk.max_borrow_btc`` (the exchange
-                            # tier ceiling).
-                            #
-                            # Pre-S-058 the fallback used ``quote_usdt``
-                            # (free USDT cash) as the collateral input,
-                            # on the assumption that spot-margin wallets
-                            # are always 100 % USDT at idle. That broke
-                            # whenever residue from an orphaned position
-                            # left equity in a non-USDT coin: ``quote_usdt``
-                            # collapsed to 0, the fallback collapsed to 0,
-                            # and every new dispatch refused with
-                            # ``zero_exchange_capacity`` even though there
-                            # was real collateral on the account. Fix:
-                            # use ``total_account_usd`` (Bybit
-                            # ``totalEquity``) as the collateral basis,
-                            # falling back to ``quote_usdt`` only when
-                            # totalEquity isn't returned. Bybit's per-coin
-                            # collateral ratio is conservatively ignored
-                            # (the LTV ``×`` already buffers under the
-                            # exchange's typical 80 % retail tier).
-                            ltv = float(getattr(
-                                account.risk_manager, "spot_margin_ltv",
-                                0.0,
-                            ) or 0.0)
-                            usdt_collateral = float(
-                                _spot_bal.get("quote_usdt") or 0.0
-                            )
-                            collateral_usd = (
-                                float(total_account_usd)
-                                if total_account_usd is not None
-                                else usdt_collateral
-                            )
-                            # Fallback borrow capacity in USD —
-                            # symmetric for long and short.
-                            fallback_usd = collateral_usd * ltv
-                            if pkg.direction == "long":
-                                api_avail_usd = (
-                                    _spot_bal["quote_usdt"]
-                                    + _spot_bal["quote_borrow_usd"]
-                                )
-                                # Use the API-derived value when it's
-                                # populated; otherwise fall back to
-                                # collateral×LTV. ``max(api, fallback)``
-                                # keeps the more permissive value when
-                                # both are non-zero, but the fallback
-                                # only matters when the API one is 0.
-                                effective_usd = max(
-                                    api_avail_usd,
-                                    usdt_collateral + fallback_usd,
-                                )
-                                available_usd = (
-                                    effective_usd * _SPOT_BUY_SAFETY_BUFFER
-                                )
-                            else:
-                                # Short: API path adds free BTC + BTC
-                                # borrow capacity (in qty), converted
-                                # to USD via pkg.entry (S-054). When
-                                # the API field is empty fall back to
-                                # collateral×LTV / pkg.entry.
-                                api_base_qty = (
-                                    _spot_bal["base_qty"]
-                                    + _spot_bal.get("base_borrow_qty", 0.0)
-                                )
-                                api_avail_usd = api_base_qty * pkg.entry
-                                # Cap fallback BTC qty at max_borrow_btc
-                                # so it can't exceed the operator's
-                                # configured tier ceiling.
-                                max_borrow_btc = float(getattr(
-                                    account.risk_manager,
-                                    "max_borrow_btc", 0.0,
-                                ) or 0.0)
-                                fallback_btc_qty = (
-                                    fallback_usd / pkg.entry
-                                    if pkg.entry > 0 else 0.0
-                                )
-                                if max_borrow_btc > 0:
-                                    fallback_btc_qty = min(
-                                        fallback_btc_qty, max_borrow_btc,
-                                    )
-                                fallback_usd_capped = (
-                                    fallback_btc_qty * pkg.entry
-                                )
-                                effective_usd = max(
-                                    api_avail_usd, fallback_usd_capped,
-                                )
-                                available_usd = (
-                                    effective_usd * _SPOT_BUY_SAFETY_BUFFER
-                                )
-                                if (
-                                    api_avail_usd <= 0.0
-                                    and fallback_usd_capped > 0.0
-                                ):
-                                    logger.info(
-                                        "multi_account_execute: spot-margin "
-                                        "SHORT capacity fallback fired for "
-                                        "%s (%s) — API availableToBorrow "
-                                        "empty; using usdt_collateral=%.2f "
-                                        "× ltv=%.2f → %.6f BTC "
-                                        "(max_borrow_btc cap=%.6f)",
-                                        account.name, pkg.symbol,
-                                        usdt_collateral, ltv,
-                                        fallback_btc_qty, max_borrow_btc,
-                                    )
-                        elif pkg.direction == "short":
+                        if pkg.direction == "short":
                             balance = _spot_bal["base_usd_value"]
-                            available_usd = None
                         else:
                             balance = _spot_bal["quote_usdt"]
-                            available_usd = None
+                        available_usd = None
                         logger.debug(
                             "multi_account_execute: spot balance override "
                             "account=%s market_type=%s direction=%s "
-                            "symbol=%s balance=%.4f available=%s "
+                            "symbol=%s balance=%.4f "
                             "total_account=%s",
                             account.name, _market_type, pkg.direction,
                             pkg.symbol, balance,
-                            f"{available_usd:.4f}" if available_usd is not None else "n/a",
                             f"{total_account_usd:.4f}" if total_account_usd is not None else "n/a",
                         )
                     except Exception as _spot_exc:  # noqa: BLE001
@@ -1010,13 +854,12 @@ class Coordinator:
                 else:
                     available_usd = None
                     total_account_usd = None
-                # S-047 T3 (D5): forward the routing label as a primitive
-                # so the RiskManager spot-margin kernel (T2) applies its
-                # max_borrow / borrow-fee / liquidation-buffer rules.
-                # Default ``"spot"`` keeps non-spot-margin sizing
-                # bit-identical to the pre-T3 contract. S-049: also pass
-                # ``available_usd`` so the kernel's notional-vs-available
-                # cap fires before Bybit returns 170131.
+                # Forward the routing label as a primitive (legacy
+                # interface — see ``size_order_from_cfg``). With the
+                # spot-margin sizing kernel removed (PR 5) this is a
+                # no-op for sizing math, but the parameter is retained
+                # so existing tests / direct callers stay
+                # source-compatible.
                 sized_qty = account.risk_manager.position_size(
                     pkg, balance,
                     market_type=_market_type,
@@ -1052,13 +895,9 @@ class Coordinator:
             # for ANY sized_qty <= 0 outcome from the RiskManager —
             # not only true "balance below floor" cases. Pre-fix the
             # error template hardcoded ``below_min_balance`` which was
-            # misleading whenever the actual cause was the spot-margin
-            # ``available_usd`` cap (Bybit V5 returning
-            # ``availableToBorrow=0`` for the base coin on a USDT-only
-            # wallet — see ``_fetch_spot_coin_balances`` and the test
-            # ``test_short_zero_capacity_when_borrow_line_zero``), the
-            # daily-loss-budget gate, or the liquidation-buffer
-            # refusal. Operators saw "balance=186.87 < 50.0" and
+            # misleading whenever the actual cause was the
+            # daily-loss-budget gate or any other RiskManager refusal.
+            # Operators saw "balance=186.87 < 50.0" and
             # couldn't tell the comparison was a lie.
             if sized_qty <= 0:
                 error_msg = _explain_zero_sized_qty(
@@ -1844,10 +1683,10 @@ def _explain_zero_sized_qty(
     ``sized_qty <= 0`` outcome.
 
     Pre-fix the rejection site hardcoded ``below_min_balance`` which
-    was misleading whenever the actual cause was the spot-margin
-    ``available_usd`` cap, the daily-loss-budget gate, or the
-    liquidation-buffer refusal — operators saw "balance=186.87 < 50.0"
-    and couldn't tell the comparison was a lie.
+    was misleading whenever the actual cause was the daily-loss-budget
+    gate or any other RiskManager refusal — operators saw
+    "balance=186.87 < 50.0" and couldn't tell the comparison was a
+    lie.
 
     Returns a structured-token-prefixed reason whose first segment
     matches one of the known refusal causes (so log-grepping stays
@@ -1855,17 +1694,12 @@ def _explain_zero_sized_qty(
 
       * ``below_min_balance:`` — total equity is below the configured
         floor.
-      * ``zero_exchange_capacity:`` — the spot-margin
-        ``available_usd`` collapsed to 0, typically because Bybit V5
-        returned ``availableToBorrow=0`` for the order's spending
-        side (a USDT-only wallet shorting BTC is the canonical case
-        — see ``test_short_zero_capacity_when_borrow_line_zero``).
-        Operator action: seed the base coin into the wallet, or
-        check the per-coin margin tier on the exchange.
-      * ``risk_refused:`` — generic catch-all (daily-loss budget,
-        liquidation buffer, or any other RiskManager rule).
-        Includes balance + available_usd + total_account_usd so the
-        operator can reproduce.
+      * ``risk_refused:`` — generic catch-all (daily-loss budget or
+        any other RiskManager rule). Includes balance +
+        total_account_usd so the operator can reproduce.
+
+    PR 5 (2026-05-10): the ``zero_exchange_capacity`` token was
+    removed alongside the spot-margin code paths.
     """
     min_balance_usd = float(getattr(risk_manager, "min_balance_usd", 0.0) or 0.0)
     gate_balance = (
@@ -1881,24 +1715,9 @@ def _explain_zero_sized_qty(
             f"min_balance_usd={min_balance_usd:.2f}"
         )
 
-    # 2. Spot-margin zero-capacity refusal — the canonical bybit_2
-    #    USDT-only-wallet-shorting-BTC case.
-    if (
-        market_type == "spot-margin"
-        and available_usd is not None
-        and float(available_usd) <= 0.0
-    ):
-        side_word = "base-coin" if direction == "short" else "USDT"
-        return (
-            f"zero_exchange_capacity: market_type=spot-margin "
-            f"direction={direction} available_usd=0.00 — Bybit returned "
-            f"zero {side_word} borrow capacity (check exchange margin "
-            f"tier or seed the coin); balance={balance:.2f}"
-        )
-
-    # 3. Generic refusal — daily-loss budget, liquidation buffer,
-    #    or any future RiskManager rule. Surface the inputs the
-    #    operator needs to reproduce.
+    # 2. Generic refusal — daily-loss budget or any future
+    #    RiskManager rule. Surface the inputs the operator needs
+    #    to reproduce.
     avail_str = (
         f"{float(available_usd):.2f}" if available_usd is not None else "n/a"
     )
