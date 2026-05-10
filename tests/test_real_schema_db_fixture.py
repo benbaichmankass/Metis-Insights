@@ -1,0 +1,148 @@
+"""Tests for the shared real-schema sqlite fixture.
+
+S-067 follow-up #1 — verifies the fixture produces a DB with the
+canonical production schema (so any future column rename in
+``src/units/db/database.py`` would also fail any test that uses the
+fixture, instead of silently being out-of-sync).
+"""
+from __future__ import annotations
+
+import sqlite3
+
+import pytest
+
+from tests.fixtures.real_schema_db import (
+    insert_order_package,
+    insert_trade,
+    make_canonical_db,
+)
+
+
+# Mirror the canonical schema columns asserted by these tests against
+# what production code creates. Update this list ONLY when production
+# adds/removes columns; that's exactly the schema-drift sentinel we
+# want.
+_EXPECTED_TRADES_COLS = {
+    "id", "timestamp", "symbol", "direction", "entry_price",
+    "exit_price", "stop_loss", "take_profit_1", "take_profit_2",
+    "take_profit_3", "position_size", "setup_type", "killzone",
+    "bias", "entry_reason", "exit_reason", "pnl", "pnl_percent",
+    "status", "notes", "is_backtest", "strategy_name", "account_id",
+    "created_at",
+}
+
+_EXPECTED_ORDER_PACKAGES_COLS = {
+    "order_package_id", "strategy_name", "symbol", "direction",
+    "entry", "sl", "tp", "confidence", "signal_logic", "created_at",
+    "updated_at", "status", "linked_trade_id", "close_reason", "meta",
+}
+
+
+def _columns(conn: sqlite3.Connection, table: str) -> set[str]:
+    return {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
+
+
+def test_make_canonical_db_creates_trades_table_with_full_schema(real_schema_db):
+    db = real_schema_db()
+    conn = sqlite3.connect(str(db))
+    try:
+        assert _columns(conn, "trades") == _EXPECTED_TRADES_COLS
+    finally:
+        conn.close()
+
+
+def test_make_canonical_db_creates_order_packages_with_full_schema(real_schema_db):
+    db = real_schema_db()
+    conn = sqlite3.connect(str(db))
+    try:
+        assert _columns(conn, "order_packages") == _EXPECTED_ORDER_PACKAGES_COLS
+    finally:
+        conn.close()
+
+
+def test_factory_pre_populates_trades(real_schema_db):
+    db = real_schema_db(trades=[
+        {"timestamp": "2026-05-09T10:00:00Z", "symbol": "BTCUSDT",
+         "direction": "long", "entry_price": 60000.0,
+         "position_size": 0.001, "status": "open", "is_backtest": 0},
+    ])
+    conn = sqlite3.connect(str(db))
+    try:
+        rows = list(conn.execute(
+            "SELECT symbol, direction, status FROM trades"
+        ))
+    finally:
+        conn.close()
+    assert rows == [("BTCUSDT", "long", "open")]
+
+
+def test_factory_pre_populates_order_packages(real_schema_db):
+    db = real_schema_db(order_packages=[
+        {"order_package_id": "pkg-1", "linked_trade_id": 42,
+         "updated_at": "2026-05-09T10:42:00Z"},
+    ])
+    conn = sqlite3.connect(str(db))
+    try:
+        rows = list(conn.execute(
+            "SELECT order_package_id, linked_trade_id FROM order_packages"
+        ))
+    finally:
+        conn.close()
+    assert rows == [("pkg-1", 42)]
+
+
+def test_insert_trade_returns_row_id(real_schema_db):
+    db = real_schema_db()
+    rid = insert_trade(
+        db, timestamp="2026-05-09T10:00:00Z", symbol="BTCUSDT",
+        direction="long", entry_price=60000.0, position_size=0.001,
+        status="open", is_backtest=0,
+    )
+    assert rid == 1
+    rid2 = insert_trade(
+        db, timestamp="2026-05-09T10:01:00Z", symbol="ETHUSDT",
+        direction="short", entry_price=3000.0, position_size=0.1,
+        status="open", is_backtest=0,
+    )
+    assert rid2 == 2
+
+
+def test_insert_order_package_requires_id(real_schema_db):
+    db = real_schema_db()
+    with pytest.raises(ValueError, match="order_package_id"):
+        insert_order_package(db, linked_trade_id=1, updated_at="2026-05-09T10:00:00Z")
+
+
+def test_factory_creates_isolated_dbs(real_schema_db):
+    db1 = real_schema_db(name="a.db")
+    db2 = real_schema_db(name="b.db")
+    assert db1 != db2
+    insert_trade(
+        db1, timestamp="2026-05-09T10:00:00Z", symbol="BTCUSDT",
+        direction="long", entry_price=60000.0, position_size=0.001,
+        status="open", is_backtest=0,
+    )
+    conn = sqlite3.connect(str(db2))
+    try:
+        rows = list(conn.execute("SELECT COUNT(*) FROM trades"))
+    finally:
+        conn.close()
+    assert rows == [(0,)]
+
+
+def test_make_canonical_db_creates_signals_table(real_schema_db):
+    """Signals + backtest_results + strategy_versions are also created
+    by the canonical builder; assert at least signals exists since the
+    S-034 SQL log lives there."""
+    db = real_schema_db()
+    conn = sqlite3.connect(str(db))
+    try:
+        cur = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        )
+        tables = {row[0] for row in cur}
+    finally:
+        conn.close()
+    assert "signals" in tables
+    assert "backtest_results" in tables
+    assert "strategy_versions" in tables
