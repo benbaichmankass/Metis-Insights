@@ -165,7 +165,7 @@ jobs:
 
             **This PR is auto-merged by the workflow.** The Claude review
             routine subscribes to `pull_request closed` events filtered on
-            `merged == true` and the `health-snaphot-routine` label, so
+            `merged == true` and the `health-snapshot-routine` label, so
             merging here fires the routine without operator action. See
             [`docs/runbooks/health-check.md`](docs/runbooks/health-check.md)
             for the two-workflow design.
@@ -175,11 +175,10 @@ jobs:
             - `artifacts/health/latest.json` — machine verdict
             - `artifacts/health/health_check_<ts>.json` — per-run verdict copy
             - `comms/requests/${{ steps.review_request.outputs.request_id }}.json` — schema-valid review request
-          # `health-snaphot-routine` (yes, missing `s`) is the literal
-          # label the Claude routine filter is configured for. Keep
-          # both sides in sync if/when correcting the typo.
+          # `health-snapshot-routine` is the literal label the Claude
+          # routine filter is configured for. Keep both sides in sync.
           labels: |
-            health-snaphot-routine
+            health-snapshot-routine
             automated
           add-paths: |
             artifacts/health/**
