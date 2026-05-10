@@ -17,6 +17,8 @@
 > - [`docs/ARCHITECTURE-CANONICAL.md`](../ARCHITECTURE-CANONICAL.md) — system-wide architecture (trade pipeline, comms, deploy).
 > - [`docs/AI-TRADERS-ROADMAP.md`](../AI-TRADERS-ROADMAP.md) — AI traders master plan, WS1–WS10 workstreams.
 > - [`docs/pipeline/stage-contracts.md`](../pipeline/stage-contracts.md) — per-stage I/O, owner files, logging requirements (WS2).
+> - [`docs/data/dataset-taxonomy.md`](../data/dataset-taxonomy.md), [`dataset-schema.md`](../data/dataset-schema.md), [`versioning-policy.md`](../data/versioning-policy.md) — data layer (WS3).
+> - [`docs/integrations/huggingface-datasets.md`](../integrations/huggingface-datasets.md) — HF publishing workflow (WS3).
 > - [`docs/sprint-plans/ai-traders/`](../sprint-plans/ai-traders/) — per-workstream sprint plans.
 
 ## Purpose
@@ -57,8 +59,8 @@ to a permissive bypass.
 
 | Layer | Owns | Examples |
 |---|---|---|
-| 1. Data | Market, account, news, labels, backtests, post-trade reviews | `runtime_logs/`, `trade_journal.db`, `experiments/`, future `ml/datasets/` |
-| 2. Feature / context | Engineered features, regime context, account-state context, prop-firm mission context | future `ml/features/`, future `docs/data/dataset-schema.md` |
+| 1. Data | Market, account, news, labels, backtests, post-trade reviews | `runtime_logs/`, `trade_journal.db`, `experiments/`, `ml/datasets/` (WS3) |
+| 2. Feature / context | Engineered features, regime context, account-state context, prop-firm mission context | future `ml/features/`, [`docs/data/dataset-schema.md`](../data/dataset-schema.md) |
 | 3. Model | Specialist models | Regime classifier, setup quality scorer, outcome probability, execution quality, post-trade review, prop mission policy assist |
 | 4. Orchestration | Combines specialist outputs into a trade candidate or veto | future coordinator extension hooked off `src/core/coordinator.py` |
 | 5. Control (deterministic) | Risk rules, hard caps, account restrictions, broker validation, order packaging, audit logs, kill-switch | `src/units/accounts/risk.py`, `src/units/accounts/prop_risk.py`, `src/runtime/risk_counters.py`, `src/runtime/orders.py`, `src/runtime/closed_flat_invariant.py` |
@@ -98,17 +100,21 @@ path**. No model is wired into live decisioning.
 | Multi-symbol / multi-timeframe runs | `experiments/` | Evidence capture |
 | Concept generation | `notebooks/` | Colab + local |
 | M5 strategy testing flow | `src/bot/test_strategy_consumer.py`, `runtime_logs/validation.jsonl` | Auto-consumed `test_strategy:<name>` requests |
-| ML scaffolding | `ml/config/`, `ml/src/collect_data.py`, `ml/src/test_breakout_strategy.py` | **Vestigial.** Inherited from S-004/S-005/S-006; minimal and not wired into the live path. WS4 will rebuild this directory. |
-| Pipeline types | `src/pipeline/types.py`, `tests/pipeline/test_types.py` | **Adopted 2026-05-10 (S-AI-WS2).** Frozen-dataclass `TradeCandidate`, `ExecutionIntent`, `StageDecision`, `StageName`, `Direction`, `RejectionSource`. Additive: not yet wired into the live path; migration of `OrderPackage` deferred to a Tier 2 sprint. |
+| ML scaffolding | `ml/config/`, `ml/src/collect_data.py`, `ml/src/test_breakout_strategy.py` | **Vestigial** legacy from S-004/S-005/S-006; not wired into the live path. WS4 will rebuild this directory. |
+| Pipeline types | `src/pipeline/types.py`, `tests/pipeline/test_types.py` | Adopted 2026-05-10 (S-AI-WS2). Frozen-dataclass `TradeCandidate`, `ExecutionIntent`, `StageDecision`, `StageName`, `Direction`, `RejectionSource`. Additive: not yet wired into the live path; migration of `OrderPackage` deferred to a Tier 2 sprint. |
+| Dataset framework | `ml/datasets/` (`metadata`, `builder`, `validate`, `cli`, `families/backtest_results`), `tests/ml/datasets/` | **Adopted 2026-05-10 (S-AI-WS3).** Stdlib-only reproducible builder framework + first concrete family (`backtest_results`, read-only against `trade_journal.db`). Append-only versioning per [`docs/data/versioning-policy.md`](../data/versioning-policy.md). |
 
 ### Planned (not yet implemented)
 
 - Specialist models (none in production).
-- Reproducible dataset builders (none).
+- Additional dataset builders (`market_raw`, `market_features`,
+  `setup_labels`, `trade_outcomes`, `account_context`,
+  `review_journal`).
+- Hugging Face publication CLI subcommand (manual flow documented
+  in WS3).
 - Model registry with promotion stages (none).
 - Shadow-mode / advisory-mode execution paths (none).
 - Feature drift / outcome drift monitoring (none).
-- Hugging Face–integrated training workflow (none).
 - Architecture-change checklist + PR template enforcement (none; WS10).
 - Migration of live runtime call sites onto the WS2 types.
 
@@ -117,11 +123,15 @@ path**. No model is wired into live decisioning.
 - AI output bypassing risk caps, broker validation, prop-firm
   restrictions, or kill-switch.
 - Heavy training jobs running on the Oracle live VM (WS9 rule).
+- Heavy dataset builds (full historical pull, multi-symbol
+  multi-timeframe) running on the Oracle live VM.
 - Live model influence introduced without staged promotion + explicit
   operator approval (WS7 rule).
 - Schema / boundary changes shipped without updating this doc.
 - Constructing `ExecutionIntent` from a model code path. Only the
   execution-packaging code may emit one (`src/runtime/orders.py`).
+- Auto-publication of any dataset to Hugging Face. Publication is
+  always an explicit operator action.
 
 ## Target State
 
@@ -163,7 +173,7 @@ flowchart LR
         D1[market data\n<small>src/exchange, runtime/market_data</small>]
         D2[account state\n<small>src/units/accounts</small>]
         D3[news / events\n<small>src/news</small>]
-        D4[backtests\n<small>experiments/</small>]
+        D4[backtests\n<small>experiments/, ml/datasets/</small>]
         D5[trade journal\n<small>trade_journal.db</small>]
         D6[review journal\n<small>future docs/ml/</small>]
     end
@@ -226,18 +236,23 @@ rules can veto a candidate even if every model approved it.
 
 ## Known Gaps (as of 2026-05-10)
 
-- **`ml/` is vestigial.** Only `ml/config/` plus two scripts under
-  `ml/src/`. The master plan target structure (`ml/datasets/`,
-  `ml/features/`, `ml/labels/`, `ml/trainers/`, `ml/evaluators/`,
-  `ml/experiments/`, `ml/registry/`, `ml/promotion/`, `ml/configs/`,
-  `ml/reports/`) is not yet present. WS4 owns rebuilding this tree.
+- **`ml/` is partly vestigial.** WS3 added `ml/datasets/` (live).
+  `ml/config/` and `ml/src/` still hold legacy S-004/S-005/S-006
+  scaffolding. Master plan target structure (`ml/features/`,
+  `ml/labels/`, `ml/trainers/`, `ml/evaluators/`, `ml/experiments/`,
+  `ml/registry/`, `ml/promotion/`, `ml/configs/`, `ml/reports/`)
+  is not yet present. WS4 owns the rest.
 - **No model registry.** `S-006 Model Registry & Versioning` is
   marked done in the historical ledger but no registry artifact
   exists in the current repo. WS4 / WS7 deliver the canonical
   registry.
-- **No reproducible dataset builders.** Backtest evidence lives in
-  `experiments/<sprint>/results/*.json` but is not generated by a
-  versioned, schema-validated dataset pipeline. WS3 owns this.
+- **Most dataset families are scaffolded but not buildable.** Only
+  `backtest_results` is live as of WS3. The rest (`market_raw`,
+  `market_features`, `setup_labels`, `trade_outcomes`,
+  `account_context`, `review_journal`) need dedicated builder
+  sprints.
+- **Hugging Face publication is manual.** A CLI subcommand for
+  `python -m ml.datasets publish ...` is filed for a follow-up.
 - **No shadow-mode path.** All model influence is currently
   hypothetical. WS7 introduces shadow / advisory tiers before any
   live influence.
@@ -264,7 +279,12 @@ any of the following change:
   [`src/pipeline/types.py`](../../src/pipeline/types.py) and
   [`docs/pipeline/stage-contracts.md`](../pipeline/stage-contracts.md)).
 - Dataset families or schemas (also touches
-  `docs/data/dataset-schema.md` once it exists).
+  [`docs/data/dataset-taxonomy.md`](../data/dataset-taxonomy.md)
+  and [`docs/data/dataset-schema.md`](../data/dataset-schema.md)).
+- Versioning / retention policy (also touches
+  [`docs/data/versioning-policy.md`](../data/versioning-policy.md)).
+- Hugging Face publishing workflow (also touches
+  [`docs/integrations/huggingface-datasets.md`](../integrations/huggingface-datasets.md)).
 - Model registry status categories or promotion rules (also touches
   `docs/ml/model-registry-policy.md` once it exists).
 - Deployment stage list (research → candidate → backtest-approved
@@ -281,3 +301,4 @@ follow-up.
 |---|---|---|---|---|
 | 2026-05-10 | S-AI-WS1 (WS1) | Doc created. Records the AI-specific architecture, current-state audit, target state, stage map, Mermaid diagram, and known gaps. Linked from `ARCHITECTURE-CANONICAL.md`. | `docs/architecture/ai-model-platform.md` (new), `docs/ARCHITECTURE-CANONICAL.md` (link added), `docs/sprint-plans/ai-traders/ws1-architecture-baseline.md` (status → in progress, sprint id S-AI-WS1), `docs/AI-TRADERS-ROADMAP.md` (change log + WS1 status), `ROADMAP.md` (WS1 status row + S-AI-WS1 ledger entry) | None at this stage — doc-only; live runtime untouched. |
 | 2026-05-10 | S-AI-WS2 (WS2) | Stage names locked. Typed schemas (`TradeCandidate`, `ExecutionIntent`, `StageDecision`, `StageName`, `Direction`, `RejectionSource`) land in `src/pipeline/types.py` with frozen-dataclass invariants and `tests/pipeline/test_types.py` coverage. Per-stage I/O + owner-files + logging spec lives in `docs/pipeline/stage-contracts.md`. Stage map in this doc switched to `StageName` enum names + cross-reference. Mermaid diagram annotated with type producer/consumer. Known Gaps updated: "stage names not yet locked" struck; new entry "WS2 types not yet adopted by the live path" added. | `src/pipeline/__init__.py` (new), `src/pipeline/types.py` (new), `tests/pipeline/__init__.py` (new), `tests/pipeline/test_types.py` (new), `docs/pipeline/stage-contracts.md` (new), `docs/architecture/ai-model-platform.md`, `docs/sprint-plans/ai-traders/ws2-canonical-pipeline.md`, `docs/AI-TRADERS-ROADMAP.md`, `ROADMAP.md`, `docs/sprint-logs/S-AI-WS2.md` (new) | None — additive types; no live runtime call site changed. Migration onto these types is filed as a Tier 2 follow-up. |
+| 2026-05-10 | S-AI-WS3 (WS3) | Data foundation lands. Reproducible dataset framework under `ml/datasets/` (metadata + builder ABC + registry + validator + CLI). First concrete family `backtest_results` reads `trade_journal.db::backtest_results` read-only and emits versioned JSONL + metadata under `<family>/<scope>/<tf>/vNNN/`. Append-only versioning policy. HF publication is manual / operator-driven — no auto-push, no `huggingface_hub` dependency. Live (in production) and Known Gaps tables in this doc refreshed. | `ml/datasets/*` (new), `ml/datasets/families/backtest_results.py` (new), `tests/ml/datasets/*` (new), `docs/data/dataset-taxonomy.md` (new), `docs/data/dataset-schema.md` (new), `docs/data/versioning-policy.md` (new), `docs/integrations/huggingface-datasets.md` (new), `docs/architecture/ai-model-platform.md`, `docs/sprint-plans/ai-traders/ws3-data-foundation.md`, `docs/AI-TRADERS-ROADMAP.md`, `ROADMAP.md`, `docs/sprint-logs/S-AI-WS3.md` (new) | None — additive; stdlib only. Builder is read-only against `trade_journal.db` (`mode=ro` URI). |
