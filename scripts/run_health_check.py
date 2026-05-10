@@ -14,6 +14,24 @@ This script is **only** the machine layer. The Claude review (layer 2)
 is requested separately by ``scripts/write_health_review_request.py``,
 unconditionally on every workflow run — see ``docs/runbooks/health-check.md``.
 
+Pipeline test integration
+-------------------------
+``--pipeline-test PATH`` accepts the JSON written by
+``scripts/run_pipeline_health_test.sh`` (an active dry-run smoke run
+on the VM). When provided, its ``{status, note}`` is merged into
+``report.checks.pipeline`` as the authoritative grade for that
+dimension — a real pipeline run beats the LLM's snapshot inference.
+Severity is escalated post-hoc:
+
+  * ``pipeline.status == "fail"`` → overall ``status`` becomes
+    ``CRITICAL`` (unless already CRITICAL).
+  * ``pipeline.status == "warn"`` → overall ``status`` upgrades from
+    ``HEALTHY`` to ``WARNING``.
+
+A missing/unparseable pipeline-test file is recorded as
+``{"status": "warn", "note": "<reason>"}`` so the verdict still
+captures the gap.
+
 Fallback behaviour
 ------------------
 If the Anthropic call itself fails (rate limit, billing, network, or
@@ -44,7 +62,7 @@ import os
 import re
 import sys
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Tuple
 
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -54,10 +72,12 @@ _DEFAULT_MODEL = "claude-haiku-4-5-20251001"
 _MAX_SNAPSHOT_CHARS = 60_000  # tail-truncate to keep token cost bounded
 
 # Section keys mirrored in .claude/health_check_prompt.md so the stub
-# report keeps the same shape consumers expect.
+# report keeps the same shape consumers expect. ``pipeline`` is the
+# active dry-run smoke result merged in from --pipeline-test; the LLM
+# does not produce it directly (the workflow injects it post-hoc).
 _CHECK_KEYS = (
     "processes", "heartbeat", "ticks", "signals", "orders",
-    "trades", "monitoring", "api", "errors", "resources",
+    "trades", "monitoring", "api", "errors", "resources", "pipeline",
 )
 
 
@@ -126,6 +146,68 @@ def build_unknown_stub(exc: BaseException) -> Dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# Pipeline-test integration
+# ---------------------------------------------------------------------------
+
+
+def _load_pipeline_test(path: Path) -> Tuple[str, str]:
+    """Return ``(status, note)`` for the pipeline-test result at *path*.
+
+    Defensive against every failure mode the workflow can hit (file
+    absent because SSH timed out / the wrapper crashed, JSON malformed,
+    keys missing) — none of those should fail layer 1; they just
+    surface as a ``warn`` on ``checks.pipeline`` so the operator sees
+    the gap in the Telegram alert and on the PR.
+    """
+    if not path.is_file():
+        return (
+            "warn",
+            f"pipeline test output missing at {path} — "
+            f"check the 'Run pipeline test on VM' workflow step",
+        )
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception as exc:  # noqa: BLE001
+        return ("warn", f"pipeline test output unparseable: {exc}")
+
+    status = str(payload.get("status") or "warn").strip().lower()
+    if status not in {"ok", "warn", "fail"}:
+        status = "warn"
+    note = str(payload.get("note") or "(no note)").strip()[:240]
+    # Surface duration + exit_code in the note so the operator can spot
+    # a slowly-degrading pipeline (e.g. duration creeping up tick over
+    # tick) without opening pipeline_test.json by hand.
+    extras = []
+    if "exit_code" in payload:
+        extras.append(f"rc={payload['exit_code']}")
+    if "duration_seconds" in payload:
+        extras.append(f"{payload['duration_seconds']}s")
+    if extras:
+        note = f"{note} ({', '.join(extras)})"
+    return status, note[:240]
+
+
+_STATUS_RANK = {"HEALTHY": 0, "WARNING": 1, "CRITICAL": 2, "UNKNOWN": 0}
+
+
+def _escalate_status(current: str, pipeline_status: str) -> str:
+    """Bump ``current`` LLM verdict if the pipeline-test grade is worse.
+
+    A failing pipeline run is more authoritative than a HEALTHY
+    snapshot inference — the LLM may not have enough log evidence to
+    notice an exception thrown by an order-placement code path that
+    only fires when a strategy actually wants to trade. Mirrors the
+    severity ladder in .claude/health_check_prompt.md.
+    """
+    cur_rank = _STATUS_RANK.get(current, 0)
+    if pipeline_status == "fail":
+        return "CRITICAL" if cur_rank < _STATUS_RANK["CRITICAL"] else current
+    if pipeline_status == "warn":
+        return "WARNING" if cur_rank < _STATUS_RANK["WARNING"] else current
+    return current
+
+
+# ---------------------------------------------------------------------------
 # Telegram alert (reuses the same stdlib-only helper the bot uses)
 # ---------------------------------------------------------------------------
 
@@ -157,6 +239,9 @@ def maybe_alert(report: Dict[str, Any], run_url: str | None) -> None:
     summary = str(report.get("summary", ""))[:200]
     action = str(report.get("action_required") or "").strip()
     parts = [f"{icon} ICT bot health: {status}", summary]
+    pipeline = (report.get("checks") or {}).get("pipeline") or {}
+    if pipeline.get("status") in {"warn", "fail"}:
+        parts.append(f"Pipeline: {pipeline.get('status')} — {pipeline.get('note')}")
     if action:
         parts.append(f"Action: {action}")
     if run_url:
@@ -185,6 +270,17 @@ def main(argv: list[str] | None = None) -> int:
         type=Path,
         default=_OUT_DIR,
         help="directory for the JSON report (default: %(default)s)",
+    )
+    p.add_argument(
+        "--pipeline-test",
+        type=Path,
+        default=None,
+        help=(
+            "JSON output from scripts/run_pipeline_health_test.sh. When "
+            "provided, its {status, note} is merged into "
+            "report.checks.pipeline and the overall verdict is "
+            "escalated if the pipeline test failed/warned."
+        ),
     )
     p.add_argument(
         "--run-url",
@@ -218,6 +314,27 @@ def main(argv: list[str] | None = None) -> int:
               file=sys.stderr)
         report = build_unknown_stub(exc)
 
+    # Merge the active pipeline-test result. This must happen AFTER
+    # call_claude / build_unknown_stub so we override whatever default
+    # the LLM (or the stub) put in checks.pipeline with the real grade
+    # from the VM-side smoke run.
+    if args.pipeline_test is not None:
+        pt_status, pt_note = _load_pipeline_test(args.pipeline_test)
+        report.setdefault("checks", {})["pipeline"] = {
+            "status": pt_status, "note": pt_note,
+        }
+        before = report.get("status", "UNKNOWN")
+        after = _escalate_status(before, pt_status)
+        if after != before:
+            report["status"] = after
+            # Surface the escalation in the summary so the operator
+            # immediately sees why the verdict diverged from a
+            # HEALTHY-looking snapshot.
+            existing_summary = str(report.get("summary") or "").rstrip(".")
+            report["summary"] = (
+                f"{existing_summary} (pipeline-test {pt_status}: {pt_note})"
+            )[:240]
+
     now = _dt.datetime.now(_dt.timezone.utc)
     report["timestamp"] = now.isoformat()
     report["model"] = args.model
@@ -237,16 +354,23 @@ def main(argv: list[str] | None = None) -> int:
         "UNKNOWN": "⚪",
     }.get(report.get("status", ""), "⚪")
     print(f"{icon} {report.get('status', 'UNKNOWN')}: {report.get('summary', '')}")
+    pipeline = (report.get("checks") or {}).get("pipeline") or {}
+    if pipeline:
+        print(f"   pipeline: {pipeline.get('status')} — {pipeline.get('note')}")
     print(f"report: {out_path}")
     print(f"latest: {latest_path}")
 
-    # Forward path to GitHub Actions output if present.
+    # Forward path + status to GitHub Actions outputs. ``pipeline_*``
+    # outputs let the workflow embed the smoke result in the PR body
+    # and the operator notification without re-parsing latest.json.
     gh_out = os.environ.get("GITHUB_OUTPUT")
     if gh_out:
         with open(gh_out, "a", encoding="utf-8") as fh:
             fh.write(f"report_path={out_path}\n")
             fh.write(f"latest_path={latest_path}\n")
             fh.write(f"status={report.get('status', 'UNKNOWN')}\n")
+            fh.write(f"pipeline_status={pipeline.get('status', 'unknown')}\n")
+            fh.write(f"pipeline_note={pipeline.get('note', '')}\n")
 
     maybe_alert(report, args.run_url or None)
     return 0

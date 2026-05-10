@@ -25,7 +25,8 @@ schema is:
     "monitoring": {"status": "ok" | "warn" | "fail", "note": "..."},
     "api":        {"status": "ok" | "warn" | "fail", "note": "..."},
     "errors":     {"status": "ok" | "warn" | "fail", "note": "..."},
-    "resources":  {"status": "ok" | "warn" | "fail", "note": "..."}
+    "resources":  {"status": "ok" | "warn" | "fail", "note": "..."},
+    "pipeline":   {"status": "ok" | "warn" | "fail", "note": "..."}
   },
   "action_required": "what an operator should do, or null"
 }
@@ -33,6 +34,17 @@ schema is:
 
 Every key in `checks` must be present. Do not add other top-level keys.
 Do not include the timestamp — the workflow injects it post-hoc.
+
+## The `pipeline` check (special)
+
+The `pipeline` entry is the result of an active dry-run smoke run that
+the workflow performs on the VM in parallel with this snapshot. The
+workflow **overwrites** whatever you put in `checks.pipeline` with the
+real smoke result before the report is finalised, and escalates the
+overall `status` if the smoke failed. Still emit the key with your
+best-guess grade based on snapshot evidence (recent ORDERS / TRADES
+entries) so the schema stays consistent if the smoke step was skipped
+or its output is missing.
 
 ## Severity rubric
 

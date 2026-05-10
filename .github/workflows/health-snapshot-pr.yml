@@ -16,7 +16,7 @@ on:
 
 permissions:
   contents: write        # commit artifacts to the auto/health-check-review branch
-  pull-requests: write   # peter-evans/create-pull-request
+  pull-requests: write   # peter-evans/create-pull-request + auto-merge
   issues: write          # comment back on + close the trigger issue
 
 concurrency:
@@ -92,6 +92,31 @@ jobs:
               > artifacts/health/health_snapshot.txt
           echo "snapshot bytes: $(wc -c < artifacts/health/health_snapshot.txt)"
 
+      - name: Run pipeline test on VM
+        # Active pipeline check: invokes the live trader's smoke harness
+        # (scripts/smoke_test_trade.py --dry-run) over SSH and writes
+        # the structured result to artifacts/health/pipeline_test.json.
+        # The smoke uses safe_place_order(client=None) so no live order
+        # leaves the VM. Output is consumed by run_health_check.py
+        # --pipeline-test on the next step, which merges it into
+        # checks.pipeline of the layer-1 report.
+        #
+        # continue-on-error so a transient SSH blip / smoke timeout
+        # doesn't block the rest of the workflow. The Python layer
+        # records the absence as `warn` on checks.pipeline so the LLM
+        # still grades the snapshot normally.
+        id: pipeline_test
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/id_rsa \
+              -o StrictHostKeyChecking=yes \
+              -o ConnectTimeout=20 \
+              "$VM_USER@$VM_HOST" "bash $VM_REPO/scripts/run_pipeline_health_test.sh" \
+              > artifacts/health/pipeline_test.json
+          echo "pipeline test result:"
+          cat artifacts/health/pipeline_test.json
+
       - name: Run automated health analysis (layer 1)
         id: analyze
         env:
@@ -106,7 +131,8 @@ jobs:
           set -euo pipefail
           PYTHONPATH=. python scripts/run_health_check.py \
             artifacts/health/health_snapshot.txt \
-            --out-dir artifacts/health
+            --out-dir artifacts/health \
+            --pipeline-test artifacts/health/pipeline_test.json
 
       - name: Emit Claude review request (layer 2)
         id: review_request
@@ -117,14 +143,39 @@ jobs:
             --snapshot-path artifacts/health/health_snapshot.txt \
             --report-path artifacts/health/latest.json
 
+      # Upload BEFORE peter-evans/create-pull-request. That action does
+      # `git reset --hard origin/main` after pushing the review branch,
+      # which wipes artifacts/health/** from the working tree. If
+      # upload-artifact runs after, it logs "No files were found" and
+      # produces no forensic bundle. Uploading here guarantees the
+      # bundle exists regardless of whether PR creation succeeds.
+      - name: Upload run artifacts (forensic)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: health-check-${{ github.run_id }}
+          if-no-files-found: warn
+          retention-days: 30
+          path: |
+            artifacts/health/**
+
       - name: Create or update review PR
         id: cpr
         # peter-evans/create-pull-request@v7 — pinned major; updates the
         # same PR if auto/health-check-review is already open.
-        # Requires "Allow GitHub Actions to create and approve pull
-        # requests" in Settings → Actions → General.
+        #
+        # Token resolution:
+        #   1. HEALTH_REVIEW_PAT (if set) — a fine-grained PAT with
+        #      Contents:write + Pull requests:write on this repo. Use
+        #      this when the org/repo has "Allow GitHub Actions to
+        #      create and approve pull requests" disabled (which makes
+        #      the default GITHUB_TOKEN raise "GitHub Actions is not
+        #      permitted to create or approve pull requests").
+        #   2. Otherwise GITHUB_TOKEN, which requires the above
+        #      Settings → Actions → General toggle to be on.
         uses: peter-evans/create-pull-request@v7
         with:
+          token: ${{ secrets.HEALTH_REVIEW_PAT || secrets.GITHUB_TOKEN }}
           base: main
           branch: auto/health-check-review
           delete-branch: false
@@ -135,44 +186,74 @@ jobs:
             Automated health-check artifacts and Claude review request.
 
             - **Machine status**: `${{ steps.analyze.outputs.status }}`
+            - **Pipeline test**: `${{ steps.analyze.outputs.pipeline_status }}` — ${{ steps.analyze.outputs.pipeline_note }}
             - **Request id**: `${{ steps.review_request.outputs.request_id }}`
             - **Workflow run**: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
-            **Merging this PR triggers the Claude review handoff** via
-            `.github/workflows/health-review-trigger.yml`. See
+            **This PR is auto-merged by the workflow.** The Claude review
+            routine subscribes to `pull_request closed` events filtered on
+            `merged == true` and the `health-snapshot-routine` label, so
+            merging here fires the routine without operator action. See
             [`docs/runbooks/health-check.md`](docs/runbooks/health-check.md)
             for the two-workflow design.
 
             Files in this PR:
             - `artifacts/health/health_snapshot.txt` — raw VM snapshot
-            - `artifacts/health/latest.json` — machine verdict
+            - `artifacts/health/pipeline_test.json` — active pipeline-test result
+            - `artifacts/health/latest.json` — machine verdict (snapshot grade + pipeline-test escalation)
             - `artifacts/health/health_check_<ts>.json` — per-run verdict copy
             - `comms/requests/${{ steps.review_request.outputs.request_id }}.json` — schema-valid review request
+          # `health-snapshot-routine` is the literal label the Claude
+          # routine filter is configured for. Keep both sides in sync.
           labels: |
-            health-check-review
+            health-snapshot-routine
             automated
           add-paths: |
             artifacts/health/**
             comms/requests/REQ-*.json
 
-      - name: Notify operator that a review PR is open
+      - name: Auto-merge the review PR
+        # Merging the labelled PR fires the Claude review routine
+        # (configured to subscribe to PR-closed-with-label events).
+        # Squash keeps main's history linear; --delete-branch is omitted
+        # so auto/health-check-review survives for the next run (matches
+        # `delete-branch: false` on the create-pr step). Token mirrors
+        # the create-pr fallback chain.
+        id: automerge
+        if: steps.cpr.outputs.pull-request-number != ''
+        env:
+          GH_TOKEN: ${{ secrets.HEALTH_REVIEW_PAT || secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh pr merge --squash \
+            --repo "${{ github.repository }}" \
+            "${{ steps.cpr.outputs.pull-request-number }}"
+
+      - name: Notify operator that the trigger fired
         id: notify
         if: always() && steps.cpr.outputs.pull-request-number != ''
         env:
           # Same alias as layer 1 — Claude bot token, shared chat id.
           TELEGRAM_BOT_TOKEN: ${{ secrets.CLAUDE_TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          MERGE_OUTCOME: ${{ steps.automerge.outcome }}
         run: |
           set -eu
           PR_NUM="${{ steps.cpr.outputs.pull-request-number }}"
           PR_URL="${{ steps.cpr.outputs.pull-request-url }}"
           STATUS="${{ steps.analyze.outputs.status }}"
+          PIPELINE="${{ steps.analyze.outputs.pipeline_status }}"
+          if [ "${MERGE_OUTCOME:-skipped}" = "success" ]; then
+            phrase="auto-merged — Claude review routine fired"
+          else
+            phrase="open (auto-merge ${MERGE_OUTCOME:-skipped}) — manual merge required"
+          fi
           # Capture the helper's exit code so the issue-driven path can
           # surface "Telegram ping arrived?" in the trigger-issue
           # comment without making telegram failure fatal to the run.
           set +e
           PYTHONPATH=. python scripts/notify_session.py alert \
-            --summary "Health review PR #${PR_NUM} open (machine: ${STATUS:-UNKNOWN}) — merge to trigger Claude review" \
+            --summary "Health review PR #${PR_NUM} ${phrase} (machine: ${STATUS:-UNKNOWN}, pipeline: ${PIPELINE:-unknown})" \
             --link "$PR_URL"
           tg_rc=$?
           set -e
@@ -180,16 +261,6 @@ jobs:
           if [ "$tg_rc" -ne 0 ]; then
             echo "::warning::telegram alert failed (rc=${tg_rc}, non-fatal)"
           fi
-
-      - name: Upload run artifacts (forensic)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: health-check-${{ github.run_id }}
-          if-no-files-found: warn
-          retention-days: 30
-          path: |
-            artifacts/health/**
 
       # ────────────────────────────────────────────────────────────
       # Issue-driven path: comment back on the trigger issue with the
@@ -207,6 +278,8 @@ jobs:
           PR_NUMBER: ${{ steps.cpr.outputs.pull-request-number }}
           PR_OPERATION: ${{ steps.cpr.outputs.pull-request-operation }}
           ANALYZE_STATUS: ${{ steps.analyze.outputs.status }}
+          PIPELINE_STATUS: ${{ steps.analyze.outputs.pipeline_status }}
+          MERGE_OUTCOME: ${{ steps.automerge.outcome }}
           TELEGRAM_EXIT: ${{ steps.notify.outputs.telegram_exit_code }}
         with:
           script: |
@@ -215,6 +288,7 @@ jobs:
             let verdict = process.env.ANALYZE_STATUS || 'UNKNOWN';
             let summary = '(no summary)';
             let layer1Error = '';
+            let pipelineLine = '';
             try {
               const raw = fs.readFileSync('artifacts/health/latest.json', 'utf8');
               const j = JSON.parse(raw);
@@ -225,6 +299,10 @@ jobs:
                   `\n⚠️ Layer-1 fallback fired — \`${j.error.type}\`: ${j.error.message}\n` +
                   `(verdict UNKNOWN means the Anthropic call did not succeed; ` +
                   `check ANTHROPIC_API_KEY secret + billing.)`;
+              }
+              const p = (j.checks && j.checks.pipeline) || null;
+              if (p) {
+                pipelineLine = `\nPipeline test: \`${p.status}\` — ${p.note}`;
               }
             } catch (e) {
               summary = `(could not parse artifacts/health/latest.json: ${e.message})`;
@@ -238,6 +316,10 @@ jobs:
             } else {
               tgLine = `⚠️ Telegram ping exited rc=${tgExit} (non-fatal).`;
             }
+            const mergeOutcome = process.env.MERGE_OUTCOME || 'skipped';
+            const mergeLine = mergeOutcome === 'success'
+              ? '✅ PR auto-merged — Claude review routine fired.'
+              : `⚠️ Auto-merge step ${mergeOutcome} — manual merge required to fire the Claude review routine.`;
             const prLine = process.env.PR_NUMBER
               ? `PR #${process.env.PR_NUMBER} (${process.env.PR_OPERATION || 'opened/updated'}): ${process.env.PR_URL}`
               : '⚠️ No PR was opened/updated (peter-evans step produced no number).';
@@ -245,8 +327,10 @@ jobs:
               `✅ **health-snapshot-pr** completed.\n` +
               `Run: ${runUrl}\n` +
               `${prLine}\n` +
+              `${mergeLine}\n` +
               `Layer-1 verdict: \`${verdict}\`\n` +
               `Layer-1 summary: ${summary}` +
+              pipelineLine +
               layer1Error +
               `\n${tgLine}`;
             await github.rest.issues.createComment({
@@ -276,8 +360,11 @@ jobs:
               `- \`VM_SSH_KEY\` secret unset or unparseable (CRLF / .ppk / encrypted key).\n` +
               `- VM unreachable from the GitHub-hosted runner (network or sshd).\n` +
               `- \`scripts/collect_health_snapshot.sh\` returned non-zero on the VM.\n` +
-              `- peter-evans/create-pull-request denied: Settings → Actions → General → ` +
-              `"Allow GitHub Actions to create and approve pull requests" must be on.\n`;
+              `- \`scripts/run_pipeline_health_test.sh\` missing on the VM (deploy via git pull) or smoke creds unset.\n` +
+              `- peter-evans/create-pull-request denied: either enable Settings → Actions → General → ` +
+              `"Allow GitHub Actions to create and approve pull requests", or set the \`HEALTH_REVIEW_PAT\` ` +
+              `secret to a fine-grained PAT with Contents:write + Pull requests:write on this repo.\n` +
+              `- Auto-merge step failed: same token requirements as create-pull-request; needs Pull requests:write.\n`;
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
