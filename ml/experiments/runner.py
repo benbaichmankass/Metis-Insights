@@ -1,10 +1,11 @@
-"""Experiment runner (WS4).
+"""Experiment runner (WS4 + WS4-FU).
 
 Loads a `TrainingManifest`, reads the dataset produced by WS3,
-splits train/eval, runs the configured trainer + evaluator, writes
-the artifact triple (manifest.json, model_state.json, metrics.json)
-under `<experiments_root>/<model_id>/<runid>/`, and (by default)
-registers the result in the model registry as a `candidate`.
+dispatches to a split strategy via `evaluator_config.split_strategy`
+(default `holdout` — stable WS4 behavior), runs trainer + evaluator,
+writes the artifact triple under
+`<experiments_root>/<model_id>/<runid>/`, and (by default) registers
+the result in the model registry as a `candidate`.
 """
 from __future__ import annotations
 
@@ -18,6 +19,7 @@ from typing import Any, Mapping
 
 from ..manifest import TrainingManifest
 from ..registry.model_registry import ModelRegistry, RegistryEntry
+from .splitters import split as split_rows
 
 
 @dataclass(frozen=True)
@@ -67,24 +69,6 @@ def _load_jsonl(path: Path) -> list[dict[str, Any]]:
     return rows
 
 
-def _split_holdout(
-    rows: list[dict[str, Any]], fraction: float
-) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """Stable holdout split (last `fraction` of rows = test).
-
-    Order-preserving keeps the `backtest_results` family deterministic.
-    Shuffled / time-aware splits land in a follow-up sprint.
-    """
-    if fraction <= 0 or fraction >= 1:
-        raise ValueError(f"holdout fraction must be in (0,1); got {fraction}")
-    n = len(rows)
-    if n < 2:
-        raise ValueError(f"need at least 2 rows to split; got {n}")
-    n_test = max(1, int(round(n * fraction)))
-    n_test = min(n_test, n - 1)
-    return rows[: n - n_test], rows[n - n_test :]
-
-
 def run_experiment(
     *,
     manifest_path: Path,
@@ -107,8 +91,7 @@ def run_experiment(
     if not rows:
         raise ValueError(f"dataset at {data_path} is empty")
 
-    fraction = float(manifest.evaluator_config.get("holdout_fraction", 0.2))
-    train_rows, eval_rows = _split_holdout(rows, fraction=fraction)
+    train_rows, eval_rows = split_rows(rows, manifest.evaluator_config)
 
     trainer_cls = _resolve_callable(manifest.trainer)
     evaluator_cls = _resolve_callable(manifest.evaluator)

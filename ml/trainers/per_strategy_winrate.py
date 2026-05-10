@@ -1,22 +1,15 @@
-"""Per-strategy historical-winrate baseline (WS5-A).
-
-For each unique value of the configured `feature_column` (default
-`strategy_name`), compute the mean of the `target_column` (default
-`won`, a 0/1 label). Predicts that mean as the win probability for
-a new row. Falls back to the global mean for unseen feature values.
-
-Intentionally simple: the goal is to round-trip the WS5 baseline
-harness end-to-end, not to be predictively useful in production.
-Real models follow.
-"""
+"""Per-strategy historical-winrate baseline trainer (WS5-A + WS4-FU)."""
 from __future__ import annotations
 
 from typing import Any, Iterable, Mapping
 
+from ..predictors.per_group import PerGroupPredictor
 from .base import Trainer
 
 
 class PerStrategyWinRateTrainer(Trainer):
+    PREDICTOR_CLASS = PerGroupPredictor
+
     def fit(
         self,
         rows: Iterable[Mapping[str, Any]],

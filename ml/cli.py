@@ -1,4 +1,4 @@
-"""Umbrella CLI for the AI traders ML lifecycle (WS4).
+"""Umbrella CLI for the AI traders ML lifecycle (WS4 + WS4-FU).
 
 Subcommands:
   build-dataset ...          — passthrough to ml.datasets `build`
@@ -9,6 +9,7 @@ Subcommands:
   list-models [--status S]   — enumerate registry entries
   list-trainers              — introspection helper
   list-evaluators            — introspection helper
+  compare <id-a> <id-b>      — side-by-side metric diff (WS4-FU)
 """
 from __future__ import annotations
 
@@ -52,10 +53,7 @@ def _cmd_promote(args: argparse.Namespace) -> int:
         )
         return 2
     updated = registry.promote(
-        args.model_id,
-        args.new_status,
-        by=args.by,
-        reason=args.reason,
+        args.model_id, args.new_status, by=args.by, reason=args.reason,
     )
     print(json.dumps(updated.to_dict(), indent=2, sort_keys=True))
     return 0
@@ -71,11 +69,48 @@ def _cmd_list_models(args: argparse.Namespace) -> int:
 
 def _cmd_list_trainers(_args: argparse.Namespace) -> int:
     print("ml.trainers.constant_baseline.ConstantPredictionTrainer")
+    print("ml.trainers.per_strategy_winrate.PerStrategyWinRateTrainer")
     return 0
 
 
 def _cmd_list_evaluators(_args: argparse.Namespace) -> int:
     print("ml.evaluators.regression.RegressionEvaluator")
+    print("ml.evaluators.classification.ClassificationEvaluator")
+    return 0
+
+
+def _cmd_compare(args: argparse.Namespace) -> int:
+    registry = ModelRegistry(Path(args.registry_root))
+    a = registry.get(args.model_id_a)
+    b = registry.get(args.model_id_b)
+    common = sorted(set(a.metrics) & set(b.metrics))
+    metric_diffs = []
+    for metric in common:
+        va = float(a.metrics[metric])
+        vb = float(b.metrics[metric])
+        metric_diffs.append({
+            "metric": metric,
+            "a": va,
+            "b": vb,
+            "delta": vb - va,
+        })
+    a_only = sorted(set(a.metrics) - set(b.metrics))
+    b_only = sorted(set(b.metrics) - set(a.metrics))
+    print(json.dumps({
+        "model_a": {
+            "id": a.model_id,
+            "status": a.status,
+            "code_revision": a.code_revision,
+        },
+        "model_b": {
+            "id": b.model_id,
+            "status": b.status,
+            "code_revision": b.code_revision,
+        },
+        "metric_diffs": metric_diffs,
+        "a_only_metrics": a_only,
+        "b_only_metrics": b_only,
+    }, indent=2, sort_keys=True))
     return 0
 
 
@@ -106,6 +141,11 @@ def _build_parser() -> argparse.ArgumentParser:
     sub.add_parser("list-trainers")
     sub.add_parser("list-evaluators")
 
+    p_cmp = sub.add_parser("compare")
+    p_cmp.add_argument("model_id_a")
+    p_cmp.add_argument("model_id_b")
+    p_cmp.add_argument("--registry-root", default="./ml/registry-store")
+
     return parser
 
 
@@ -131,6 +171,7 @@ def main(argv: list[str] | None = None) -> int:
         "list-models": _cmd_list_models,
         "list-trainers": _cmd_list_trainers,
         "list-evaluators": _cmd_list_evaluators,
+        "compare": _cmd_compare,
     }
     handler = dispatch.get(args.cmd)
     if handler is None:
