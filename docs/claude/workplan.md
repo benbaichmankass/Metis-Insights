@@ -523,7 +523,9 @@ The AI Trader Bot supports:
 - `/new_session <sprint_id>` (writes a `comms/requests/REQ-…json`
   artifact for Claude to read on next sync).
 - `/test <strategy_name>` (writes a structured test-request artifact;
-  M5 owns the consumer side).
+  the M5 consumer runs the backtest in the same poll cycle and writes
+  the result back via `apply_answer` — see § "Strategy test command"
+  below for the closed-loop flow).
 
 #### Information menus
 
@@ -818,18 +820,30 @@ its next sync.
 ### Strategy test command
 
 The Telegram command `/test <strategy_name>` (on the trader bot)
-writes a structured `comms/requests/REQ-…-test-strategy.json`
-artifact for a dry-run or backtest workflow.
+writes a structured `comms/requests/REQ-…-ts<strategy>.json`
+artifact and the M5 backtest consumer (shipped 2026-05-09) runs it
+inside the same comms-poll cycle.
 
-Expected flow:
+Closed-loop flow:
 
-1. The operator sends the command.
-2. The trader bot writes the structured request into the repo.
-3. Claude (or M5's backtest workflow) picks it up on the next cycle.
-4. Claude runs the requested validation workflow using low-cost
-   compute where possible.
-5. Claude returns a structured summary by writing the answer back
-   into the same artifact via the S-027 writeback path.
+1. The operator sends the command. ``cmd_test_strategy`` validates
+   the strategy name against ``config/strategies.yaml`` and rejects
+   unknowns immediately with the registered roster.
+2. The trader bot writes the structured request into
+   ``comms/requests/`` and pushes via ``COMMS_PUSH_ENABLED``.
+3. The next ``CommsPoller.poll_once`` tick runs
+   ``BacktestConsumer.scan_and_run`` (gated by
+   ``M5_CONSUMER_ENABLED``).
+4. The consumer spawns
+   ``python -m src.backtest.run_backtest_m5 <strategy>`` with a
+   ``M5_BACKTEST_TIMEOUT_S`` wall clock (default 120s); the
+   subprocess persists a row to ``backtest_results`` and prints a
+   JSON envelope.
+5. The consumer writes a formatted summary back via
+   ``apply_answer`` (PENDING → SENT → ANSWERED) and appends one
+   NDJSON row to ``runtime_logs/validation.jsonl``.
+
+Operator runbook: [`docs/runbooks/strategy-testing.md`](../runbooks/strategy-testing.md).
 
 ### Merge review flow
 

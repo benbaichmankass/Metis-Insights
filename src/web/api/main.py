@@ -11,6 +11,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.web.api.routers import auth as auth_router
+from src.web.api.routers import backtests as backtests_router
 from src.web.api.routers import bot_config as bot_config_router
 from src.web.api.routers import dashboard as dashboard_router
 from src.web.api.routers import diag as diag_router
@@ -48,6 +49,7 @@ app.include_router(dashboard_router.router)
 app.include_router(bot_config_router.router)
 app.include_router(liquidity_router.router)
 app.include_router(trades_closed_router.router)
+app.include_router(backtests_router.router)
 app.include_router(pnl_exchange_router.router)
 app.include_router(diag_router.router)
 

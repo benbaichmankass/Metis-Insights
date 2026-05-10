@@ -33,6 +33,7 @@ VPS (systemd)
                                    ├── /api/bot/liquidity← Vercel dashboard (S-064)
                                    ├── /api/bot/config   ← Vercel dashboard (S-064)
                                    ├── /api/bot/trades/closed ← Vercel dashboard (#557)
+                                   ├── /api/bot/backtests← Vercel dashboard (M5 P4)
                                    ├── /api/pnl/history  ← Vercel dashboard (S-063, no-session)
                                    ├── /api/pnl
                                    ├── /api/status
@@ -61,6 +62,7 @@ src/
         bot_config.py   — /api/bot/config (S-064)
         liquidity.py    — /api/bot/liquidity (S-064)
         trades_closed.py — /api/bot/trades/closed (#557)
+        backtests.py    — /api/bot/backtests (M5 P4)
         diag.py         — /api/diag/* endpoints (S-051, token-gated read)
         pnl.py          — /api/pnl
         pnl_history.py  — /api/pnl/history (S-063, no-session)
@@ -68,8 +70,9 @@ src/
     runtime_status.py   — writes runtime_logs/status.json (DO NOT DELETE—imported by pipeline)
 runtime_logs/
   signal_audit.jsonl    — structured pipeline audit log (primary log source for dashboard)
+  validation.jsonl      — M5 backtest-run audit log (one NDJSON row per /test invocation)
   heartbeat.txt         — mtime used to detect if bot is alive
-trade_journal.db        — SQLite: trades, order_packages
+trade_journal.db        — SQLite: trades, order_packages, backtest_results (M5)
 ```
 
 ## Dashboard REST API (S-014)
@@ -87,6 +90,7 @@ Unauthenticated GET routes — Tier 1 read surface. See
 | `GET /api/bot/liquidity?symbol=X` | per-symbol liquidity zones (S-064) | `runtime_logs/liquidity_state.json` (pipeline writes per-tick) |
 | `GET /api/bot/config` | effective config view (S-064) | `config/accounts.yaml` + `config/strategies.yaml` + `runtime_logs/runtime_status.json`; secrets redacted |
 | `GET /api/bot/trades/closed?limit=N&since=ISO_TS` | `ClosedTrade[]` (#557) | `trade_journal.db::trades` filtered to closed + non-backtest, joined to `order_packages` for the closed-at proxy |
+| `GET /api/bot/backtests?limit=N&strategy=X` | `BacktestRun[]` (M5 P4) | `trade_journal.db::backtest_results` (M5 consumer writes one row per `/test <strategy>`); newest-first by id; headline metrics only |
 | `GET /api/pnl/history?days=N` | `PnlHistoryPoint[]` (S-063) | `trade_journal.db` (closed trades, realised PnL per UTC day) |
 
 ### `BotStats` shape
@@ -115,6 +119,10 @@ CORS is configured in `src/web/api/main.py`. Allowed origins:
 | `DASHBOARD_API_TOKEN` | Optional bearer token for auth routes |
 | `TRADE_JOURNAL_DB` | Override default `trade_journal.db` path |
 | `DIAG_READ_TOKEN` | Bearer for `/api/diag/*` (read-only). Unset → endpoints return 503 |
+| `M5_CONSUMER_ENABLED` | Auto-install the M5 backtest consumer in the comms poll loop. Default off; set to `1`/`true` on the VM systemd unit. Operator runbook: `docs/runbooks/strategy-testing.md` |
+| `M5_BACKTEST_TIMEOUT_S` | Wall-clock cap per backtest subprocess (default 120s) |
+| `BACKTEST_DATA_PATH` | Override the candle CSV the M5 backtest runner reads |
+| `VALIDATION_LOG_PATH` | Override the M5 validation NDJSON path (default `runtime_logs/validation.jsonl`) |
 
 ## Diagnostic API (S-051)
 
