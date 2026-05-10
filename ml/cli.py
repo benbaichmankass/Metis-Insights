@@ -1,27 +1,37 @@
-"""Umbrella CLI for the AI traders ML lifecycle (WS4 + WS4-FU).
+"""Umbrella CLI for the AI traders ML lifecycle (WS4 + WS4-FU + WS8).
 
 Subcommands:
-  build-dataset ...          — passthrough to ml.datasets `build`
-  validate-dataset <path>    — passthrough to ml.datasets `validate`
-  list-families              — passthrough to ml.datasets `list-families`
-  train <manifest>           — run an experiment, register as candidate
-  promote <id> <status>      — state transition with operator gates
-  list-models [--status S]   — enumerate registry entries
-  list-trainers              — introspection helper
-  list-evaluators            — introspection helper
-  compare <id-a> <id-b>      — side-by-side metric diff (WS4-FU)
+  build-dataset ...           — passthrough to ml.datasets `build`
+  validate-dataset <path>     — passthrough to ml.datasets `validate`
+  list-families               — passthrough to ml.datasets `list-families`
+  train <manifest>            — run an experiment, register as candidate
+  promote <id> <status>       — state transition with operator gates
+  list-models [--status S]    — enumerate registry entries
+  list-trainers               — introspection helper
+  list-evaluators             — introspection helper
+  compare <id-a> <id-b>       — side-by-side metric diff (WS4-FU)
+  shadow-inspect              — tail shadow_predictions.jsonl with filters (WS8-PART-1)
+  shadow-stats                — per-(model_id, stage) aggregate over the audit log (WS8-PART-1)
 """
 from __future__ import annotations
 
 import argparse
 import json
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 from .datasets.cli import main as datasets_main
 from .experiments.runner import run_experiment
 from .promotion import gates_for
 from .registry.model_registry import ModelRegistry
+from .shadow.inspector import (
+    aggregate,
+    filter_records,
+    format_inspect_table,
+    format_stats_table,
+    iter_records,
+)
 
 
 def _cmd_train(args: argparse.Namespace) -> int:
@@ -76,6 +86,55 @@ def _cmd_list_trainers(_args: argparse.Namespace) -> int:
 def _cmd_list_evaluators(_args: argparse.Namespace) -> int:
     print("ml.evaluators.regression.RegressionEvaluator")
     print("ml.evaluators.classification.ClassificationEvaluator")
+    return 0
+
+
+_DEFAULT_SHADOW_LOG = Path("runtime_logs/shadow_predictions.jsonl")
+
+
+def _parse_since(raw: str | None) -> datetime | None:
+    if raw is None:
+        return None
+    try:
+        ts = datetime.fromisoformat(raw)
+    except ValueError as exc:
+        raise SystemExit(
+            f"--since must be ISO-8601 (e.g. '2026-05-10' or "
+            f"'2026-05-10T12:00:00+00:00'); got {raw!r} ({exc})"
+        ) from exc
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=timezone.utc)
+    return ts
+
+
+def _cmd_shadow_inspect(args: argparse.Namespace) -> int:
+    records = filter_records(
+        iter_records(args.log),
+        model_id=args.model_id,
+        stage=args.stage,
+        since=_parse_since(args.since),
+    )
+    table = format_inspect_table(records, limit=args.limit)
+    if not table:
+        print("(no shadow predictions matched)")
+        return 0
+    print(table)
+    return 0
+
+
+def _cmd_shadow_stats(args: argparse.Namespace) -> int:
+    records = filter_records(
+        iter_records(args.log),
+        model_id=args.model_id,
+        stage=args.stage,
+        since=_parse_since(args.since),
+    )
+    stats = aggregate(records)
+    table = format_stats_table(stats)
+    if not table:
+        print("(no shadow predictions matched)")
+        return 0
+    print(table)
     return 0
 
 
@@ -146,6 +205,31 @@ def _build_parser() -> argparse.ArgumentParser:
     p_cmp.add_argument("model_id_b")
     p_cmp.add_argument("--registry-root", default="./ml/registry-store")
 
+    p_shi = sub.add_parser(
+        "shadow-inspect",
+        help="tail shadow_predictions.jsonl with filters (WS8-PART-1)",
+    )
+    p_shi.add_argument("--log", type=Path, default=_DEFAULT_SHADOW_LOG)
+    p_shi.add_argument("--limit", type=int, default=50)
+    p_shi.add_argument("--model-id", default=None)
+    p_shi.add_argument("--stage", default=None)
+    p_shi.add_argument(
+        "--since", default=None,
+        help="ISO-8601 timestamp; only show records at/after this UTC instant",
+    )
+
+    p_shs = sub.add_parser(
+        "shadow-stats",
+        help="per-(model_id, stage) aggregate over the audit log (WS8-PART-1)",
+    )
+    p_shs.add_argument("--log", type=Path, default=_DEFAULT_SHADOW_LOG)
+    p_shs.add_argument("--model-id", default=None)
+    p_shs.add_argument("--stage", default=None)
+    p_shs.add_argument(
+        "--since", default=None,
+        help="ISO-8601 timestamp; only aggregate records at/after this UTC instant",
+    )
+
     return parser
 
 
@@ -172,6 +256,8 @@ def main(argv: list[str] | None = None) -> int:
         "list-trainers": _cmd_list_trainers,
         "list-evaluators": _cmd_list_evaluators,
         "compare": _cmd_compare,
+        "shadow-inspect": _cmd_shadow_inspect,
+        "shadow-stats": _cmd_shadow_stats,
     }
     handler = dispatch.get(args.cmd)
     if handler is None:
