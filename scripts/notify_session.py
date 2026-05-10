@@ -26,7 +26,7 @@ Usage:
 
     PYTHONPATH=. python scripts/notify_session.py alert \\
         --summary "M0 ready for review" \\
-        --link "https://github.com/the-lizardking/ict-trading-bot/pull/86"
+        --link "https://github.com/benbaichmankass/ict-trading-bot/pull/86"
 
 This script does not handle secrets itself. It only formats and forwards.
 """

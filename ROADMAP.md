@@ -1,15 +1,23 @@
 # ICT Trading Bot — Product Roadmap
 
-> **Last Updated:** 2026-05-09 (S-064 closed — Liquidity Maps + Settings
-> tabs + two new bot Tier-1 endpoints; S-065 deferred behind operator
-> Google Cloud Console setup for OAuth login (option (c) picked over the
-> originally-planned shared-secret option (a)); S-066 Janitor pass closing
-> out the M1 P2 hygiene cluster honestly. S-061..S-064 closed today form
-> sprints A..D of the dashboard build-out arc; S-065 (sprint E) reopens
-> when OAuth CREDS land. See `docs/sprints/sprint-061-prompt.md` for the
-> parent plan.
-> **Canonical authority:** `docs/claude/workplan.md` (the decider). When this file
-> conflicts with the workplan, the workplan wins.
+> **Last Updated:** 2026-05-10 (S-CANON-1 — canonical doc rebase + audit
+> + spurious-file cleanup + stale owner-ref correction across active
+> docs/scripts/workflows). See `docs/sprint-logs/S-CANON-1.md`.
+>
+> **Canonical authority (adopted 2026-05-10):**
+> 1. [`docs/CLAUDE-RULES-CANONICAL.md`](docs/CLAUDE-RULES-CANONICAL.md)
+> 2. [`docs/ARCHITECTURE-CANONICAL.md`](docs/ARCHITECTURE-CANONICAL.md)
+> 3. This file (`ROADMAP.md`)
+> 4. The current sprint log in `docs/sprint-logs/`
+>
+> Older `docs/claude/workplan.md` and `docs/workplan.md` are kept as
+> historical context. When they disagree with the canonical docs above,
+> the canonical docs win.
+>
+> Prior history: S-061..S-064 closed the dashboard build-out arc (sprints
+> A..D); S-065 deferred behind operator Google Cloud Console setup for
+> OAuth login (option (c)); S-066 Janitor pass closed out the M1 P2
+> hygiene cluster.
 
 ---
 
@@ -36,7 +44,7 @@
 | **M3** | auto-claude | Risk controls foundation | Hard risk caps, kill switch, status controls, order-layer refusal tests | ✅ CLOSED (S-043, CP-2026-05-06-15) |
 | **M4** | auto-claude | Repo hygiene + CI | Janitor cleanup, canonical paths, GitHub Actions, test/lint automation | ✅ CLOSED (S-046, 2026-05-07) |
 | **M5** | auto-claude | Strategy testing workflow | Telegram-triggered test flow, validation logging, backtest workflow docs | 📋 NOT STARTED — paused behind S-047 T6. The bot-side `/test` dispatch surface is now in place via M1 P1-D; M5 only wires the artifact consumer. |
-| **M6** | auto-claude | Web app UI | Dashboard UI for pnl, status, open positions, logs, recent actions | 🔄 IN PROGRESS (dashboard repo) — S-014 V1 SPA shipped in `the-lizardking/ict-trader-dashboard`. **In active session 2026-05-08** on dashboard branch `claude/update-roadmap-status-ZnLM9` — wiring mock-data feeds (equity chart, Active ICT Strategies, Trading Conditions) to live `/api/bot/*` data; positions and signals to follow. |
+| **M6** | auto-claude | Web app UI | Dashboard UI for pnl, status, open positions, logs, recent actions | 🔄 IN PROGRESS (dashboard repo) — S-014 V1 SPA shipped in `benbaichmankass/ict-trader-dashboard` (originally cut on the legacy `the-lizardking/...` namespace). Active wiring of mock-data feeds (equity chart, Active ICT Strategies, Trading Conditions) to live `/api/bot/*` data; positions and signals to follow. |
 | **M7** | pm-sprint | Strategy review gate | Review validation results: promote, hold, or kill | 📋 NOT STARTED |
 | **M8** | pm-sprint | Strategy tuning | Parameter review and approval-required strategy changes | 📋 NOT STARTED |
 | **M9** | auto-claude | AI / model roadmap | Model registry, current-model audit, training and performance tracking | 📋 NOT STARTED |
@@ -140,6 +148,7 @@ feed; the dashboard is a pure consumer. See `docs/claude/workplan.md` § "Dashbo
 | **S-064** | **Dashboard build-out sprint D — Liquidity Maps + Settings (read-only); ships two new Tier-1 bot endpoints `/api/bot/liquidity` (reads per-tick `runtime_logs/liquidity_state.json` written by the prereq pipeline hook) + `/api/bot/config` (redacted YAML view + runtime live/dry overlay)** | ✅ Done 2026-05-09 (bot prereq PR #597 squash `1eb816b`; bot main PR #601 squash `14fe5d7a`; dashboard PR #10 squash `b7963b26`) | M2, M6 |
 | S-065 | Dashboard build-out sprint E — controls phase 1 (halt + live/dry toggle, Tier 2/3) + minimal session/login flow | ⏸ Deferred 2026-05-09 — login scope escalated to Google OAuth (option (c)); blocked on operator-side Google Cloud Console setup | M3, M6 |
 | **S-066** | **Janitor — M1 P2 hygiene cluster close-out (docs only). Reconciled `M1-comms-audit-followups-fresh.md` § P2 against ground truth: 3 items already done, 2 carved out (schema-drift envelope + command-name cosmetics) for explicit follow-up.** | ✅ Done 2026-05-09 (this PR) | M1 |
+| **S-CANON-1** | **Canonical-docs rebase + repo audit + stale owner-ref correction.** New canonical set: `docs/CLAUDE-RULES-CANONICAL.md`, `docs/ARCHITECTURE-CANONICAL.md`, `docs/SPRINT-LOG-TEMPLATE-CANONICAL.md`, `docs/github-actions-workflows.md`. Removed 9 spurious tracked files at repo root from PR #658 (`<sqlite3.Connection object at 0x…>`). Updated `the-lizardking` → `benbaichmankass` in active code/docs/workflows; preserved historical sprint summaries unchanged. Logged in `docs/sprint-logs/S-CANON-1.md`. | ✅ Done 2026-05-10 (this PR) | Meta/docs |
 
 > **Sprint number note:** S-036..S-040 burned per
 > `docs/claude/workplan.md` § "Sprint and checkpoint numbering".

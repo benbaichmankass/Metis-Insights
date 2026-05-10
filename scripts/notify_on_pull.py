@@ -69,7 +69,7 @@ PRIORITY_PREFIX = {
 }
 
 BLOCKER_TAG = "[BLOCKED-PM]"
-GITHUB_COMMIT_URL = "https://github.com/the-lizardking/ict-trading-bot/commit/{sha}"
+GITHUB_COMMIT_URL = "https://github.com/benbaichmankass/ict-trading-bot/commit/{sha}"
 
 # S-027 PR2 — comms response commits use this prefix. The notify pipeline
 # is opt-in (only matches BLOCKER_TAG, TRAINING_TAGS, and

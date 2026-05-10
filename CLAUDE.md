@@ -1,5 +1,21 @@
 # ICT Trading Bot — CLAUDE.md
 
+> **Canonical documentation (adopted 2026-05-10 in S-CANON-1):**
+> - [`docs/CLAUDE-RULES-CANONICAL.md`](docs/CLAUDE-RULES-CANONICAL.md) — Claude operating rules, permission tiers, workflow routing.
+> - [`docs/ARCHITECTURE-CANONICAL.md`](docs/ARCHITECTURE-CANONICAL.md) — system architecture, trade pipeline, comms pipeline, deployment flow.
+> - [`ROADMAP.md`](ROADMAP.md) — current work plan and status.
+> - [`docs/SPRINT-LOG-TEMPLATE-CANONICAL.md`](docs/SPRINT-LOG-TEMPLATE-CANONICAL.md) — mandatory sprint-log format.
+> - [`docs/github-actions-workflows.md`](docs/github-actions-workflows.md) — canonical GitHub Actions reference.
+>
+> When this file disagrees with a canonical doc, the canonical doc wins.
+> This file is now scoped to the **dashboard-API quick reference** only;
+> Claude operating rules and full architecture have moved to the
+> canonical docs above.
+>
+> **Repo identity:** `benbaichmankass/ict-trading-bot`. Older
+> `the-lizardking/ict-trading-bot` references in historical sprint
+> summaries are preserved as record.
+
 ## Project Overview
 Automated ICT (Inner Circle Trader) futures trading bot running on a VPS.
 Exposes a FastAPI REST API on port 8001 consumed by the Vercel React dashboard

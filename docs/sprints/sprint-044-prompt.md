@@ -70,7 +70,7 @@ Stop relying on local `pytest` runs and operator-driven `python scripts/secret_s
 ## 6. Success criteria
 
 - ✅ All four new workflows appear in `.github/workflows/` and execute green on a noop test PR opened from `claude/sprint-044-ci-suite-wQmR4`.
-- ✅ `gh api repos/the-lizardking/ict-trading-bot/branches/main/protection` (or the equivalent Settings → Branches view) lists `pytest-collect`, `secret-scan`, and `ruff-lint` as required status checks. (`repo-inventory` stays advisory — informational artifact only.)
+- ✅ `gh api repos/benbaichmankass/ict-trading-bot/branches/main/protection` (or the equivalent Settings → Branches view) lists `pytest-collect`, `secret-scan`, and `ruff-lint` as required status checks. (`repo-inventory` stays advisory — informational artifact only.)
 - ✅ `docs/claude/ci-status-checks.md` exists and documents one row per workflow with the trigger, the gate, and the debug command.
 - ✅ `docs/claude/milestone-state.md` M4 row reflects "CI suite shipped (S-044); Janitor + canonical-path remaining" at sprint close.
 - ✅ `docs/sprint-summaries/sprint-044-summary.md` exists with the PR list, checkpoint IDs, and a 1–3 bullet "lessons learned".

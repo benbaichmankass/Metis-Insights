@@ -5,7 +5,7 @@ you need to push new keys to the trading VM you just open the notebook
 and click `Runtime → Run all`.
 
 **Open in Colab:**
-[`notebooks/operator/rotate_api_keys.ipynb`](https://colab.research.google.com/github/the-lizardking/ict-trading-bot/blob/main/notebooks/operator/rotate_api_keys.ipynb)
+[`notebooks/operator/rotate_api_keys.ipynb`](https://colab.research.google.com/github/benbaichmankass/ict-trading-bot/blob/main/notebooks/operator/rotate_api_keys.ipynb)
 
 **One-time setup:** ~10 minutes (set Colab Secrets, paste SSH key).
 **Each rotation:** ~30 seconds (open Colab, Run all, done).
