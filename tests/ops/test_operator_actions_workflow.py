@@ -40,6 +40,10 @@ EXPECTED_ACTIONS = {
     "reboot-vm": "reboot_vm.sh",
     "enable-closed-flat-invariant": "enable_closed_flat_invariant.sh",
     "disable-closed-flat-invariant": "disable_closed_flat_invariant.sh",
+    "enable-m5-consumer": "enable_m5_consumer.sh",
+    "disable-m5-consumer": "disable_m5_consumer.sh",
+    "setup-cloudflare-tunnel": "setup_cloudflare_tunnel.sh",
+    "teardown-cloudflare-tunnel": "teardown_cloudflare_tunnel.sh",
 }
 
 TIER_2_ACTIONS = {
@@ -48,6 +52,10 @@ TIER_2_ACTIONS = {
     "reboot-vm",
     "enable-closed-flat-invariant",
     "disable-closed-flat-invariant",
+    "enable-m5-consumer",
+    "disable-m5-consumer",
+    "setup-cloudflare-tunnel",
+    "teardown-cloudflare-tunnel",
 }
 
 
