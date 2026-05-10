@@ -96,7 +96,7 @@ def test_set_keys_silent_when_unauthorised():
 def test_set_keys_url_points_at_correct_repo_and_path():
     """URL must match the open-in-Colab format pointing at the repo's
     notebooks/operator/rotate_api_keys.ipynb."""
-    assert "github/the-lizardking/ict-trading-bot" in _COLAB_NOTEBOOK_URL
+    assert "github/benbaichmankass/ict-trading-bot" in _COLAB_NOTEBOOK_URL
     assert "notebooks/operator/rotate_api_keys.ipynb" in _COLAB_NOTEBOOK_URL
     assert _COLAB_NOTEBOOK_URL.startswith("https://colab.research.google.com/")
 

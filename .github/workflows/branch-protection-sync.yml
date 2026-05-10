@@ -66,7 +66,7 @@ jobs:
           # To change: edit this list, commit, push.
           REQUIRED_CONTEXTS='["pytest-collect","secret-scan","ruff-lint","dry-run-guard"]'
 
-          OWNER="the-lizardking"
+          OWNER="benbaichmankass"
           REPO="ict-trading-bot"
           BRANCH="main"
           API="https://api.github.com/repos/${OWNER}/${REPO}/branches/${BRANCH}/protection"

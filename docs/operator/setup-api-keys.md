@@ -17,7 +17,7 @@ The fill-in template lives at:
 
 Copy it from the repo (raw GitHub link will work):
 ```bash
-curl -sLO https://raw.githubusercontent.com/the-lizardking/ict-trading-bot/main/docs/operator/account-keys.fill-in.yaml
+curl -sLO https://raw.githubusercontent.com/benbaichmankass/ict-trading-bot/main/docs/operator/account-keys.fill-in.yaml
 ```
 
 This contains only the per-account credential blocks. You'll merge
@@ -75,7 +75,7 @@ On your local laptop (NOT on the VM):
 ```bash
 # 1. Get the template.
 cd ~/secure/ict-bot     # or wherever you keep your master file
-curl -sLO https://raw.githubusercontent.com/the-lizardking/ict-trading-bot/main/docs/operator/account-keys.fill-in.yaml
+curl -sLO https://raw.githubusercontent.com/benbaichmankass/ict-trading-bot/main/docs/operator/account-keys.fill-in.yaml
 
 # 2. Open it in an editor. NEVER paste these values into chat / GitHub.
 nano account-keys.fill-in.yaml

@@ -64,7 +64,7 @@ artifact when the same action needs to repeat (rollback, second VM, recovery).
    For this repo with a notebook on `main`:
 
    ```
-   https://colab.research.google.com/github/the-lizardking/ict-trading-bot/blob/main/notebooks/operator/<file>.ipynb
+   https://colab.research.google.com/github/benbaichmankass/ict-trading-bot/blob/main/notebooks/operator/<file>.ipynb
    ```
 
    For a notebook on a feature branch (during PR review), substitute the
@@ -97,15 +97,15 @@ feature branch under review.
 
 | Notebook | What it does | Colab open link |
 |---|---|---|
-| `rotate_api_keys.ipynb` | Generate a fresh `.env` + `.env.live` from Colab Secrets, push to VM, restart trader + bot | [open](https://colab.research.google.com/github/the-lizardking/ict-trading-bot/blob/main/notebooks/operator/rotate_api_keys.ipynb) |
-| `enable_comms_channel.ipynb` | Idempotently flip `COMMS_PUSH_ENABLED` in the bot service `.env`, restart `ict-telegram-bot`, optional smoke test | [open](https://colab.research.google.com/github/the-lizardking/ict-trading-bot/blob/main/notebooks/operator/enable_comms_channel.ipynb) |
-| `cleanup_ghost_trades.ipynb` | One-shot manual remediation for DB-open trades whose exchange position is flat (BUG-041 family) | [open](https://colab.research.google.com/github/the-lizardking/ict-trading-bot/blob/main/notebooks/operator/cleanup_ghost_trades.ipynb) |
-| `sweep_unlinked_packages.ipynb` | Orphan `order_packages` rows with `linked_trade_id IS NULL` to unblock the BUG-046 gate (BUG-049 hotfix) | [open](https://colab.research.google.com/github/the-lizardking/ict-trading-bot/blob/main/notebooks/operator/sweep_unlinked_packages.ipynb) |
-| `diagnose_live_trading.ipynb` | Pull a structured live-trading health snapshot from the VM | [open](https://colab.research.google.com/github/the-lizardking/ict-trading-bot/blob/main/notebooks/operator/diagnose_live_trading.ipynb) |
-| `deploy_latest_main.ipynb` | One-click `git pull` on the VM and restart of every `ict-*` service | [open](https://colab.research.google.com/github/the-lizardking/ict-trading-bot/blob/main/notebooks/operator/deploy_latest_main.ipynb) |
-| `push_notebook_to_repo.ipynb` | Stage + commit + push a notebook from Colab back to the repo | [open](https://colab.research.google.com/github/the-lizardking/ict-trading-bot/blob/main/notebooks/operator/push_notebook_to_repo.ipynb) |
-| `update_branch_protection.ipynb` | Sync GitHub branch-protection rules from the repo's canonical config | [open](https://colab.research.google.com/github/the-lizardking/ict-trading-bot/blob/main/notebooks/operator/update_branch_protection.ipynb) |
-| `debug_vwap_bybit2.ipynb` | Diagnose VWAP→bybit_2 silencing across the 13 documented gates; gated remediation for the strategy-monocle stuck-state | [open](https://colab.research.google.com/github/the-lizardking/ict-trading-bot/blob/main/notebooks/operator/debug_vwap_bybit2.ipynb) |
+| `rotate_api_keys.ipynb` | Generate a fresh `.env` + `.env.live` from Colab Secrets, push to VM, restart trader + bot | [open](https://colab.research.google.com/github/benbaichmankass/ict-trading-bot/blob/main/notebooks/operator/rotate_api_keys.ipynb) |
+| `enable_comms_channel.ipynb` | Idempotently flip `COMMS_PUSH_ENABLED` in the bot service `.env`, restart `ict-telegram-bot`, optional smoke test | [open](https://colab.research.google.com/github/benbaichmankass/ict-trading-bot/blob/main/notebooks/operator/enable_comms_channel.ipynb) |
+| `cleanup_ghost_trades.ipynb` | One-shot manual remediation for DB-open trades whose exchange position is flat (BUG-041 family) | [open](https://colab.research.google.com/github/benbaichmankass/ict-trading-bot/blob/main/notebooks/operator/cleanup_ghost_trades.ipynb) |
+| `sweep_unlinked_packages.ipynb` | Orphan `order_packages` rows with `linked_trade_id IS NULL` to unblock the BUG-046 gate (BUG-049 hotfix) | [open](https://colab.research.google.com/github/benbaichmankass/ict-trading-bot/blob/main/notebooks/operator/sweep_unlinked_packages.ipynb) |
+| `diagnose_live_trading.ipynb` | Pull a structured live-trading health snapshot from the VM | [open](https://colab.research.google.com/github/benbaichmankass/ict-trading-bot/blob/main/notebooks/operator/diagnose_live_trading.ipynb) |
+| `deploy_latest_main.ipynb` | One-click `git pull` on the VM and restart of every `ict-*` service | [open](https://colab.research.google.com/github/benbaichmankass/ict-trading-bot/blob/main/notebooks/operator/deploy_latest_main.ipynb) |
+| `push_notebook_to_repo.ipynb` | Stage + commit + push a notebook from Colab back to the repo | [open](https://colab.research.google.com/github/benbaichmankass/ict-trading-bot/blob/main/notebooks/operator/push_notebook_to_repo.ipynb) |
+| `update_branch_protection.ipynb` | Sync GitHub branch-protection rules from the repo's canonical config | [open](https://colab.research.google.com/github/benbaichmankass/ict-trading-bot/blob/main/notebooks/operator/update_branch_protection.ipynb) |
+| `debug_vwap_bybit2.ipynb` | Diagnose VWAP→bybit_2 silencing across the 13 documented gates; gated remediation for the strategy-monocle stuck-state | [open](https://colab.research.google.com/github/benbaichmankass/ict-trading-bot/blob/main/notebooks/operator/debug_vwap_bybit2.ipynb) |
 
 Add a row here (with the Colab open link) when you add a notebook.
 

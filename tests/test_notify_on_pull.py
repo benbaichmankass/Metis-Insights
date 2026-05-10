@@ -724,7 +724,7 @@ def test_drain_pending_pings_sprint_complete_event(tmp_path):
     (mandatory ping habit — T5 schema)."""
     p = tmp_path / "pending-pings.jsonl"
     summary_url = (
-        "https://github.com/the-lizardking/ict-trading-bot/blob/main/"
+        "https://github.com/benbaichmankass/ict-trading-bot/blob/main/"
         "docs/sprint-summaries/sprint-042-summary.md"
     )
     p.write_text(

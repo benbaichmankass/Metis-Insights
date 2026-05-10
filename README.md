@@ -81,7 +81,7 @@ Startup validation is implemented in `src/runtime/validation.py`, and the runtim
 Example:
 
 ```bash
-git clone https://github.com/the-lizardking/ict-trading-bot.git
+git clone https://github.com/benbaichmankass/ict-trading-bot.git
 cd ict-trading-bot
 cp .env.example .env
 pip install -r requirements.txt

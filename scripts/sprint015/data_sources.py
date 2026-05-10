@@ -36,7 +36,7 @@ import requests
 logger = logging.getLogger(__name__)
 
 REQUEST_TIMEOUT_S = 15
-USER_AGENT = "ict-trading-bot/sprint015 (+https://github.com/the-lizardking/ict-trading-bot)"
+USER_AGENT = "ict-trading-bot/sprint015 (+https://github.com/benbaichmankass/ict-trading-bot)"
 
 # Coinbase + Kraken use distinct timeframe spellings; normalise here.
 _COINBASE_GRANULARITY = {"1m": 60, "5m": 300, "15m": 900, "1h": 3600, "1d": 86400}
