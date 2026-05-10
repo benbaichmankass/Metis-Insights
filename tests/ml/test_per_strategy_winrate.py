@@ -1,10 +1,18 @@
-"""Tests for `PerStrategyWinRateTrainer` + `ClassificationEvaluator`."""
+"""Tests for `PerStrategyWinRateTrainer` + `ClassificationEvaluator`.
+
+Updated 2026-05-10 (S-AI-WS4-FU): mock state dicts now include a
+`trainer` qualname so the predictor-resolved evaluator can dispatch.
+The live `fit()` output already includes this; only the unit-test
+mock states needed updating.
+"""
 from __future__ import annotations
 
 import pytest
 
 from ml.evaluators.classification import ClassificationEvaluator
 from ml.trainers.per_strategy_winrate import PerStrategyWinRateTrainer
+
+_TRAINER = "ml.trainers.per_strategy_winrate.PerStrategyWinRateTrainer"
 
 
 def _row(strategy_name: str, won: bool) -> dict:
@@ -21,11 +29,14 @@ class TestPerStrategyWinRateTrainer:
             _row("turtle", False),
         ]
         trainer = PerStrategyWinRateTrainer()
-        state = trainer.fit(rows, {"target_column": "won", "feature_column": "strategy_name"})
+        state = trainer.fit(
+            rows, {"target_column": "won", "feature_column": "strategy_name"}
+        )
         assert state["per_group_rate"]["vwap"] == pytest.approx(2 / 3)
         assert state["per_group_rate"]["turtle"] == pytest.approx(0.5)
         assert state["global_rate"] == pytest.approx(3 / 5)
         assert state["n_train"] == 5
+        assert state["trainer"] == _TRAINER
 
     def test_fit_uses_unknown_bucket(self):
         rows = [
@@ -38,7 +49,6 @@ class TestPerStrategyWinRateTrainer:
             rows,
             {"target_column": "won", "feature_column": "strategy_name"},
         )
-        # empty strategy collapses to default unknown bucket (also "")
         assert state["per_group_rate"][""] == pytest.approx(0.5)
         assert state["per_group_rate"]["vwap"] == pytest.approx(1.0)
 
@@ -68,14 +78,19 @@ class TestPerStrategyWinRateTrainer:
 
 
 class TestClassificationEvaluator:
-    def test_score_perfect(self):
-        # State predicts 1.0 for vwap and 0.0 for turtle.
-        state = {
+    def _state(self, **overrides):
+        base = {
+            "trainer": _TRAINER,
             "feature_column": "strategy_name",
             "per_group_rate": {"vwap": 1.0, "turtle": 0.0},
             "global_rate": 0.5,
             "unknown_bucket": "",
         }
+        base.update(overrides)
+        return base
+
+    def test_score_perfect(self):
+        state = self._state()
         rows = [
             _row("vwap", True),
             _row("vwap", True),
@@ -94,13 +109,7 @@ class TestClassificationEvaluator:
         assert metrics["n_eval"] == 4
 
     def test_score_constant_predictor(self):
-        # All groups predict 0.5 — the >= threshold rule produces all-1.
-        state = {
-            "feature_column": "strategy_name",
-            "per_group_rate": {"vwap": 0.5},
-            "global_rate": 0.5,
-            "unknown_bucket": "",
-        }
+        state = self._state(per_group_rate={"vwap": 0.5})
         rows = [
             _row("vwap", True),
             _row("vwap", False),
@@ -111,19 +120,17 @@ class TestClassificationEvaluator:
         )
         assert metrics["accuracy"] == pytest.approx(0.5)
         assert metrics["precision"] == pytest.approx(0.5)
-        assert metrics["recall"] == pytest.approx(1.0)  # all predicted 1
+        assert metrics["recall"] == pytest.approx(1.0)
         assert metrics["brier"] == pytest.approx(0.25)
 
     def test_score_unknown_strategy_uses_global(self):
-        state = {
-            "feature_column": "strategy_name",
-            "per_group_rate": {"vwap": 1.0},
-            "global_rate": 0.6,
-            "unknown_bucket": "",
-        }
+        state = self._state(
+            per_group_rate={"vwap": 1.0},
+            global_rate=0.6,
+        )
         rows = [
-            _row("unseen", True),  # unseen strategy → global 0.6 → predicted 1 → correct
-            _row("unseen", False),  # → predicted 1 → incorrect
+            _row("unseen", True),
+            _row("unseen", False),
         ]
         evaluator = ClassificationEvaluator()
         metrics = evaluator.score(
@@ -133,21 +140,20 @@ class TestClassificationEvaluator:
         assert metrics["n_eval"] == 2
 
     def test_score_empty_rows(self):
-        state = {
-            "feature_column": "strategy_name",
-            "per_group_rate": {},
-            "global_rate": 0.5,
-            "unknown_bucket": "",
-        }
+        state = self._state(per_group_rate={})
         evaluator = ClassificationEvaluator()
         metrics = evaluator.score(state, [], {"target_column": "won"})
         assert metrics["n_eval"] == 0
         assert metrics["accuracy"] == 0.0
 
-    def test_score_missing_state_keys(self):
+    def test_score_missing_trainer_qualname(self):
         evaluator = ClassificationEvaluator()
         with pytest.raises(ValueError):
-            evaluator.score({}, [{"won": True}], {"target_column": "won"})
+            evaluator.score(
+                {"feature_column": "strategy_name"},  # no `trainer` key
+                [{"won": True}],
+                {"target_column": "won"},
+            )
 
 
 def test_round_trip_trainer_to_evaluator():
