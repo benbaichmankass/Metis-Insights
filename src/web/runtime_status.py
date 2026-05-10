@@ -124,7 +124,18 @@ def build_status(
         try:
             from src.units.accounts import get_dry_run_overrides
             dry_run_overrides = get_dry_run_overrides()
-        except Exception:
+        except Exception as exc:  # noqa: BLE001
+            # S-067: was silently `dry_run_overrides = {}`. A failure
+            # here makes the runtime-status file misreport every
+            # account as ``live`` (since the helper that translates
+            # overrides flips dry/live per-account from the override
+            # dict). Same risk class as PR #630
+            # (``MONITOR_APPLY_TO_EXCHANGE`` survivor) where a
+            # process-wide gate silently lost money. Pipe through the
+            # existing ``_swallow_runtime_status`` helper so the
+            # operator gets a deduplicated Telegram alert via
+            # ``outcomes.report``.
+            _swallow_runtime_status("dry_run_overrides_read_failed", exc)
             dry_run_overrides = {}
     return {
         "schema_version": SCHEMA_VERSION,
