@@ -21,6 +21,11 @@ The store is intentionally separate from ``trade_journal.db``:
 The :func:`upsert_fills` helper is **idempotent** — the same fill
 inserted twice produces a single row, keyed by Bybit's ``exec_id``.
 This makes the puller safe to re-run on overlapping windows.
+
+Phase-2 (S-067 follow-up C) adds FIFO lot-matching P&L attribution
+via :func:`fifo_pnl_by_symbol` / :func:`_fifo_match` — realised
+matched-lot PnL plus unrealised mark-to-last-fill on residual open
+lots. The Phase-1 aggregate helpers are unchanged.
 """
 from __future__ import annotations
 
@@ -162,12 +167,11 @@ def aggregate_by_symbol(
 ) -> list[dict[str, Any]]:
     """Per-symbol fee + gross-volume aggregate over the last *days*.
 
-    True P&L attribution requires lot-matching (FIFO buy/sell pairing)
-    which is filed as a Phase-2 follow-up. Phase-1 surfaces the
-    fee totals + gross flow, which is enough to (a) reconcile fee
-    expectations against ``trade_journal.db::trades.pnl`` and (b)
-    flag missing fills (zero-volume symbols where ``trade_journal.db``
-    has executed orders).
+    Phase-1 of S-067 follow-up #6 — fee totals + gross flow only.
+    True P&L attribution lives in :func:`fifo_pnl_by_symbol`
+    (Phase-2). The endpoint
+    (``src/web/api/routers/pnl_exchange.py``) merges the two sets of
+    fields into a single response.
     """
     if days <= 0:
         return []
@@ -235,3 +239,133 @@ def aggregate_summary(
         "symbol_count": int(row[2] or 0),
         "window_days": days,
     }
+
+
+# ---------------------------------------------------------------------------
+# FIFO lot-matching P&L (Phase-2 of S-067 follow-up #6)
+# ---------------------------------------------------------------------------
+#
+# Walks the fills stream per-symbol in time order and pairs opposing-side
+# fills FIFO (first buy lot is matched against the first sell, etc.).
+# Realised P&L = sum((sell_price - buy_price) * matched_qty) for long lots,
+# sum((short_price - cover_price) * matched_qty) for short lots, minus all
+# fees in the window. Unrealised P&L marks remaining open lots against the
+# last observed fill price for the symbol — a defensible mark-price proxy
+# for the read-path; a real mark-price feed is not in this PR's scope.
+#
+# Wire-shape additions are strictly additive:
+#   summary  ← total_realized_pnl, total_unrealized_pnl
+#   by_symbol[i] ← realized_pnl, unrealized_pnl, open_qty_signed,
+#                  last_price
+
+
+_EPS = 1e-12  # qty rounding tolerance
+
+
+def _fifo_match(
+    fills: Iterable[tuple[str, float, float, float]],
+) -> tuple[float, float, float, float]:
+    """FIFO lot-matching engine for one symbol's fills stream.
+
+    ``fills`` is an iterable of ``(side, price, qty, fee)`` tuples,
+    sorted ascending by exec_time. Returns ``(realized_pnl,
+    unrealized_pnl, open_qty_signed, last_price)`` where:
+
+    * ``realized_pnl`` = matched buy/sell pair PnL minus all fees
+      seen in the window. Fees are always realised (the operator
+      pays them on every fill regardless of close timing).
+    * ``unrealized_pnl`` = ``(last_price - lot_price) * lot_qty`` for
+      each remaining open lot, summed. Long lots contribute
+      positively when ``last_price > lot_price``; short lots
+      (negative qty) contribute positively when
+      ``last_price < lot_price``.
+    * ``open_qty_signed`` = net residual position size (positive =
+      long, negative = short, ~0 = flat).
+    * ``last_price`` = the most recent fill price (mark proxy).
+    """
+    queue: list[list[float]] = []  # [signed_qty, price] FIFO; lists for in-place edits.
+    realized = 0.0
+    last_price = 0.0
+    for side, price, qty, fee in fills:
+        last_price = price
+        # Fees reduce realised P&L on every fill regardless of close
+        # timing — the operator pays them either way.
+        realized -= fee
+        signed = qty if side == "buy" else -qty
+        # Match against queue head while the head has opposite sign.
+        while queue and abs(signed) > _EPS and queue[0][0] * signed < 0:
+            head_qty, head_price = queue[0]
+            match = min(abs(signed), abs(head_qty))
+            if head_qty > 0:
+                # Long lot being closed by a sell.
+                realized += (price - head_price) * match
+            else:
+                # Short lot being covered by a buy.
+                realized += (head_price - price) * match
+            new_head_qty = (
+                head_qty - match if head_qty > 0 else head_qty + match
+            )
+            if abs(new_head_qty) < _EPS:
+                queue.pop(0)
+            else:
+                queue[0][0] = new_head_qty
+            signed = signed + match if signed < 0 else signed - match
+        if abs(signed) > _EPS:
+            queue.append([signed, price])
+
+    open_qty_signed = sum(q for q, _ in queue)
+    unrealized = sum((last_price - p) * q for q, p in queue)
+    return realized, unrealized, open_qty_signed, last_price
+
+
+def fifo_pnl_by_symbol(
+    days: int,
+    path: Optional[Path] = None,
+    *,
+    now: Optional[datetime] = None,
+) -> list[dict[str, Any]]:
+    """Per-symbol realised + unrealised P&L over the last *days*.
+
+    Phase-2 of S-067 follow-up #6. Returns one row per symbol with
+    fields keyed for additive merge into ``aggregate_by_symbol``'s
+    output (the endpoint does the merge — see
+    ``src/web/api/routers/pnl_exchange.py``).
+    """
+    if days <= 0:
+        return []
+    p = path or get_fills_db_path()
+    if not p.exists():
+        return []
+    cutoff = ((now or datetime.now(timezone.utc)) - timedelta(days=days)).isoformat()
+    conn = sqlite3.connect(str(p))
+    try:
+        cur = conn.execute(
+            """
+            SELECT symbol, side, price, qty, fee
+            FROM exchange_fills
+            WHERE datetime(exec_time) >= datetime(?)
+            ORDER BY symbol, datetime(exec_time), exec_id
+            """,
+            (cutoff,),
+        )
+        rows = cur.fetchall()
+    finally:
+        conn.close()
+
+    by_symbol: dict[str, list[tuple[str, float, float, float]]] = {}
+    for symbol, side, price, qty, fee in rows:
+        by_symbol.setdefault(symbol, []).append(
+            (str(side).lower(), float(price), float(qty), float(fee or 0.0))
+        )
+
+    out: list[dict[str, Any]] = []
+    for symbol in sorted(by_symbol):
+        realized, unrealized, open_qty, last_price = _fifo_match(by_symbol[symbol])
+        out.append({
+            "symbol": symbol,
+            "realized_pnl": realized,
+            "unrealized_pnl": unrealized,
+            "open_qty_signed": open_qty,
+            "last_price": last_price,
+        })
+    return out
