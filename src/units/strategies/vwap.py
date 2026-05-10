@@ -22,6 +22,18 @@ Strategies are pure signal generators (see ``_base.py`` docstring): no
 ``dry_run`` flag, no execution awareness, **no qty** — quantity is an
 account-side decision (S-026 G1) computed by the per-account
 RiskManager from balance + risk rules, not a strategy output.
+
+Shadow-mode hook (S-AI-WS7-PART-3)
+----------------------------------
+``order_package`` threads its return value through
+``src.runtime.shadow_adapter.with_shadow_pred`` unconditionally. When
+``cfg["_shadow_predictor"]`` is set, the adapter calls the predictor
+on a signal-time feature row built by ``_build_shadow_feature_row``
+and emits a JSONL audit line; when the field is absent, the adapter
+is a single-branch passthrough. Per the WS7 non-negotiable, the
+predictor's score CANNOT influence the returned package — this is
+verified by ``with_shadow_pred``'s defence-in-depth tests + the
+``test_vwap_shadow.py`` integration tests in this sprint.
 """
 from __future__ import annotations
 
@@ -31,6 +43,7 @@ from typing import Any, Dict, Optional
 
 import pandas as pd
 
+from src.runtime.shadow_adapter import with_shadow_pred
 from src.units.strategies._base import (
     derive_sl_tp,
     last_close,
@@ -537,7 +550,7 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
         confidence = 0.5
 
     meta = signal.get("meta") or {}
-    return {
+    package = {
         "symbol": symbol,
         "direction": direction,
         "entry": round(entry, 8),
@@ -545,6 +558,33 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
         "tp": round(float(tp), 8),
         "confidence": round(confidence, 4),
         "meta": {**meta, "signal": signal},
+    }
+    return with_shadow_pred(
+        package,
+        predictor=cfg.get("_shadow_predictor"),
+        feature_row=_build_shadow_feature_row(package),
+    )
+
+
+def _build_shadow_feature_row(package: Dict[str, Any]) -> Dict[str, Any]:
+    """Project a vwap order package into a signal-time feature row.
+
+    Only signal-time fields go into the row — `entry`, `sl`, `tp` are
+    set at signal time and are fair game; `pnl` / `pnl_percent` /
+    `r_multiple` would be outcomes (not present here yet, but listed
+    for clarity). The row matches the WS5-C / WS5-D feature surface
+    so a shadow-mode predictor trained on either family can score
+    vwap signals natively.
+    """
+    meta = package.get("meta") or {}
+    return {
+        "strategy_name": "vwap",
+        "symbol": package.get("symbol", ""),
+        "direction": package.get("direction", ""),
+        "confidence": float(package.get("confidence") or 0.0),
+        "setup_type": str(meta.get("setup_type") or ""),
+        "killzone": str(meta.get("killzone") or ""),
+        "bias": str(meta.get("bias") or ""),
     }
 
 
