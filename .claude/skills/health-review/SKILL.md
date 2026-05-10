@@ -285,6 +285,36 @@ Map findings to the layer-2 dimensions (these differ from layer 1):
   drift, capacity-zero rejections.)
 - `api_errors` — 4xx/5xx burst rates, repeated tracebacks. Combines
   layer 1's `api` + `errors` checks.
+- `state_consistency` — for each account in `config/accounts.yaml`,
+  compare YAML `mode` against the runtime `live` field in
+  `runtime_logs/runtime_status.json` (and, when accessible, the
+  Telegram process's `accounts_status` reply). Drift between the
+  YAML declaration and any runtime view → `concern`. The two
+  most common causes: (a) the runtime override dict has been
+  mutated by a circuit-breaker auto-trip (look for the matching
+  alert in `alert_delivery`); (b) the dashboard's read-projection
+  defaulted dry because of a stale resolver bug — recheck once the
+  runtime_status.py default-flip fix has landed.
+- `alert_delivery` — verify the in-process `AlertsQueue`
+  (`src/units/dashboards/alerts.py`) is being drained. Check (i)
+  the diag tail / journalctl for any `alert_drainer:` log lines in
+  the 6h window, (ii) whether known-trip events (auto-pauses,
+  capacity-zero clusters, exception storms) have a corresponding
+  Telegram message logged in `bot.log`. If known critical events
+  fired but no drain log accompanied them → `concern` with note
+  "alerts queued, drainer silent — operator unnotified".
+- `strategy_silence` — every strategy enabled in
+  `config/strategies.yaml` should produce per-tick audit events
+  in `runtime_logs/signal_audit.jsonl` (`turtle_soup_eval`,
+  `vwap_eval`, etc.). Count by `event` over the 6h window. Any
+  enabled strategy with **zero `*_eval` events** for more than
+  one hour during an active session → `concern` with the
+  strategy name and the silence duration. This is the dimension
+  the 2026-05-10 incident exposed: VWAP went silent for 8h, but
+  because VWAP wasn't writing per-tick audit events at all the
+  silence was indistinguishable from "no signal." Fixed in PR
+  that adds `vwap_eval`; if a future strategy is added without
+  an audit emitter, this check is what catches it.
 
 Status grades:
 - `ok`       — no anomaly worth flagging.
@@ -314,14 +344,17 @@ Schema reminder:
   "reviewer": "claude",
   "overall_assessment": "healthy | caution | investigate",
   "findings": {
-    "heartbeat":  {"status": "ok | watch | concern", "note": "..."},
-    "ticks":      {"status": "ok | watch | concern", "note": "..."},
-    "signals":    {"status": "ok | watch | concern", "note": "..."},
-    "orders":     {"status": "ok | watch | concern", "note": "..."},
-    "trades":     {"status": "ok | watch | concern", "note": "..."},
-    "monitoring": {"status": "ok | watch | concern", "note": "..."},
-    "sizing":     {"status": "ok | watch | concern", "note": "..."},
-    "api_errors": {"status": "ok | watch | concern", "note": "..."}
+    "heartbeat":          {"status": "ok | watch | concern", "note": "..."},
+    "ticks":              {"status": "ok | watch | concern", "note": "..."},
+    "signals":            {"status": "ok | watch | concern", "note": "..."},
+    "orders":             {"status": "ok | watch | concern", "note": "..."},
+    "trades":             {"status": "ok | watch | concern", "note": "..."},
+    "monitoring":         {"status": "ok | watch | concern", "note": "..."},
+    "sizing":             {"status": "ok | watch | concern", "note": "..."},
+    "api_errors":         {"status": "ok | watch | concern", "note": "..."},
+    "state_consistency":  {"status": "ok | watch | concern", "note": "..."},
+    "alert_delivery":     {"status": "ok | watch | concern", "note": "..."},
+    "strategy_silence":   {"status": "ok | watch | concern", "note": "..."}
   },
   "anomalies": ["...free-form list..."],
   "trade_decision_grades": [
