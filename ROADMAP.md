@@ -112,7 +112,8 @@ Full detail preserved in git history. Recent AI-traders sprints:
 | S-AI-WS4 | Training center | ✅ Done (`#719` `b910fd3`) | M9 |
 | S-AI-WS5-A | Outcome probability baseline | ✅ Done (`#730` `6a9f5a0`) | M9 |
 | S-AI-WS4-FU | WS4 follow-ups | ✅ Done (`#732` `8a69e97`) | M9 |
-| **S-AI-WS5-B-PART-1** | **WS5-B Part 1 — `market_raw` multi-source adapter framework.** Canonical row shape pinned. CSV adapter live; Bybit off-VM scaffold (env-gated) with the actual exchange call filed for operator wiring. WS9 enforced via `ICT_OFFVM_BUILD_HOST=1` env-gate. Logged in `docs/sprint-logs/S-AI-WS5-B-PART-1.md`. | ✅ Done 2026-05-10 (this PR) | M10 |
+| **S-AI-WS5-B-PART-1** | **WS5-B Part 1 — `market_raw` multi-source adapter framework.** Canonical row shape pinned. CSV adapter live; Bybit off-VM scaffold (env-gated) with the actual exchange call filed for operator wiring. WS9 enforced via `ICT_OFFVM_BUILD_HOST=1` env-gate. Logged in `docs/sprint-logs/S-AI-WS5-B-PART-1.md`. | ✅ Done 2026-05-10 (`#733`) | M10 |
+| **S-CFW-1** | **Cloudflare Worker proxy.** Stable `*.workers.dev` hostname fronting `/api/*` to the VM, replacing the ephemeral quick-tunnel hostname for the dashboard's Vercel rewrite. Includes Vercel-Edge-vs-Worker investigation note (`docs/audit/vercel-edge-vs-cf-worker.md`). Worker code + runbook in `cf-worker/`; `wrangler deploy` is operator-driven. Logged in `docs/sprint-logs/S-CFW-1-cloudflare-worker.md`. | 🔄 PARTIAL 2026-05-10 (operator-gated `wrangler deploy` pending) | infra |
 
 > **Sprint number note:** S-067 is in flight as the silent-empty
 > audit; AI traders track uses themed `S-AI-*` ids with
@@ -136,6 +137,19 @@ Full detail preserved in git history. Recent AI-traders sprints:
 - Exchange Failover / Multi-Exchange Support.
 - Deployment Automation.
 - Tier 2 follow-up: live-path migration onto WS2 types.
+- **Cloudflare named tunnel migration** — replace the
+  `*.workers.dev` Worker proxy (S-CFW-1) with a named tunnel at
+  `bot.<our-domain>`. **Prereq:** operator adds a domain to
+  Cloudflare (zone with nameservers pointed at CF). When met,
+  ~30 min sprint per the wrap-up estimate.
+- **CFI auto-flatten promotion** — if `runtime_logs/invariant_violations.jsonl`
+  stays at zero through 2026-05-17 (7-day soak from the
+  alert-only enable on 2026-05-10, issue #683), file the PR that
+  promotes the invariant from alert-only to auto-flatten.
+- **Worker CI deploy** — GitHub Action that runs `wrangler
+  deploy` on `cf-worker/**` changes, gated by
+  `CLOUDFLARE_API_TOKEN` repo secret. Deferred until the Worker
+  has been live for one cycle.
 - Per-family dataset builders for `market_features`, `setup_labels`,
   `account_context`, `review_journal`.
 - `python -m ml.datasets publish` HF subcommand.
