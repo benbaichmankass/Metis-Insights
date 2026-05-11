@@ -1,16 +1,21 @@
-# VM operator mode — the contract
+# Live trader VM operator mode — the contract
 
-This doc binds any Claude Code session that runs **on the Oracle VM**
-(`158.178.210.252`, `eu-paris-1`, `VM.Standard.E2.1.Micro`) and any
-Telegram-dispatched invocation that reaches that VM.
+> **Scope:** This doc governs **only** the live trader VM
+> (`instance-20260414-1555` — `158.178.210.252`, `eu-paris-1`,
+> `VM.Standard.E2.1.Micro`) and any Telegram-dispatched invocation
+> that reaches it. The trainer VM (`ict-trainer-vm`) is governed by
+> a separate, more permissive contract at
+> [`trainer-vm-mode.md`](trainer-vm-mode.md). A session is either
+> live-VM scope (this doc) or trainer-VM scope (the other doc) —
+> never both. When in doubt, default to this doc.
 
-It is the operator manual for "Claude on the VM." It is **not** a feature
-spec — features live in sprint prompts. The rules below override any
-session prompt that conflicts.
+It is the operator manual for "Claude on the live VM." It is **not** a
+feature spec — features live in sprint prompts. The rules below
+override any session prompt that conflicts.
 
 > If you are reading this from the web sandbox or a developer laptop,
 > these tiers do **not** apply to you. They apply only when the working
-> tree is on the VM and the runner unit is the parent process.
+> tree is on the live VM and the runner unit is the parent process.
 
 ---
 
@@ -208,6 +213,10 @@ unit is killed and the bot posts the truncated transcript with a
   bridge from PM-side actions to VM-side actions is the Telegram bot,
   by design. PM-side sessions can read VM state via the diagnostic
   surface — see § 9.
+- **The trainer VM contract.** Anything Claude does against the
+  trainer VM (`ict-trainer-vm`) is governed by
+  [`trainer-vm-mode.md`](trainer-vm-mode.md), not this doc. The two
+  contracts are mutually exclusive — they apply to different VMs.
 
 ## 9. PM-side / web-sandbox read access
 
