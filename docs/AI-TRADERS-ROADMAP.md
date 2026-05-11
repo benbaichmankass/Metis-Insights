@@ -7,6 +7,15 @@
 > register the WS5 baselines so the shadow harness has something
 > live to score against.
 >
+> **2026-05-11 authority-model update:** Trainer-VM scope (`ict-trainer-vm`)
+> is now autonomous-Claude per [`docs/claude/trainer-vm-mode.md`](claude/trainer-vm-mode.md).
+> Operator-approval gates **only** apply at the live-VM YAML wiring
+> step (adding model ids to `shadow_model_ids` in a strategy YAML);
+> registry-stage promotions up to `live_approved` are autonomous.
+> The "operator-blocked" status above is now Claude-blocked — once
+> the trainer VM is provisioned (issue #823), Claude can train +
+> register without further operator action.
+>
 > **AI-scope canonical doc:**
 > [`docs/architecture/ai-model-platform.md`](architecture/ai-model-platform.md).
 > **Stage contracts:** [`docs/pipeline/stage-contracts.md`](pipeline/stage-contracts.md).
@@ -31,7 +40,7 @@
 | WS4 | Training center | M9 | ✅ DONE 2026-05-10 (S-AI-WS4 + S-AI-WS4-FU) | [ws4-training-center.md](sprint-plans/ai-traders/ws4-training-center.md) + [ws4-followups.md](sprint-plans/ai-traders/ws4-followups.md) |
 | WS5 | Baseline models | M9 | ✅ DONE 2026-05-10 — A + B-PART-1 + B-PART-2 (PR 2A + 2B) + C (+ C-FU) + D + E + F all closed | [ws5-baseline-models.md](sprint-plans/ai-traders/ws5-baseline-models.md) |
 | WS6 | Open-source model layer | M9 | 📋 Not started | [ws6-open-source-models.md](sprint-plans/ai-traders/ws6-open-source-models.md) |
-| WS7 | Deployment tiers | M9 | 🔄 IN PROGRESS (shadow harness complete) — PART-1 (registry stage gate) + PART-2 (`with_shadow_pred` adapter) + PART-3 (vwap wiring) + PART-4 (multi-predictor + `shadow_model_ids` YAML source) + PART-5 (turtle_soup adoption) + PART-6 (Coordinator-side cache) all done 2026-05-10. **Operator-blocked**: train + register the WS5 baselines so `shadow_model_ids` has something to load. | [ws7-deployment-tiers.md](sprint-plans/ai-traders/ws7-deployment-tiers.md) |
+| WS7 | Deployment tiers | M9 | 🔄 IN PROGRESS (shadow harness complete) — PART-1 (registry stage gate) + PART-2 (`with_shadow_pred` adapter) + PART-3 (vwap wiring) + PART-4 (multi-predictor + `shadow_model_ids` YAML source) + PART-5 (turtle_soup adoption) + PART-6 (Coordinator-side cache) all done 2026-05-10. **Claude-blocked**: provision trainer VM (issue #823) then train + register the WS5 baselines so `shadow_model_ids` has something to load. | [ws7-deployment-tiers.md](sprint-plans/ai-traders/ws7-deployment-tiers.md) |
 | WS8 | Monitoring and feedback loops | M9 | 📋 Not started — first deliverable is observability over `runtime_logs/shadow_predictions.jsonl` (WS7's audit-log output) | [ws8-monitoring-feedback.md](sprint-plans/ai-traders/ws8-monitoring-feedback.md) |
 | WS9 | Oracle / Hugging Face runtime split | M10 | 🔄 Continuous | [ws9-runtime-split.md](sprint-plans/ai-traders/ws9-runtime-split.md) |
 | WS10 | Architecture-doc enforcement | M9 | 📋 Not started | [ws10-arch-doc-enforcement.md](sprint-plans/ai-traders/ws10-arch-doc-enforcement.md) |
@@ -58,8 +67,12 @@
    (turtle_soup adoption) + PART-6 (Coordinator-side cache) all
    shipped. Both production strategies (vwap + turtle_soup) can
    load N concurrent shadow predictors from YAML without any code
-   change. **Operator unlock**: train + register the WS5 baselines
-   to give the harness something to load.
+   change. **Claude-unlock (2026-05-11):** once the trainer VM is
+   provisioned (tracked in #823), Claude trains + registers the
+   WS5 baselines autonomously and promotes them through the
+   ladder up to `live_approved`. Adding any of those model ids
+   to a strategy's `shadow_model_ids` field — the actual
+   live-trading switch — remains operator-controlled.
 9. WS8 (monitoring) — first up. Highest leverage given shadow
    harness is live but unobservable today: `shadow_predictions.jsonl`
    audit log has no reader. First PR target: CLI inspector
@@ -78,8 +91,14 @@
 
 - Live trading safety > feature growth.
 - No heavy training on the Oracle live VM (WS9).
-- No model in live strategy logic without staged promotion +
-  operator approval.
+- **No model id added to a strategy's `shadow_model_ids` YAML field
+  without operator approval** (2026-05-11 clarification). This is
+  the live-trading wiring step — the live `Coordinator` reads the
+  YAML and loads the listed models. Registry stage promotion
+  (`research_only → … → live_approved`) is autonomous-Claude on
+  the trainer VM and does **not** wire anything; it's metadata.
+  See [`docs/claude/trainer-vm-mode.md`](claude/trainer-vm-mode.md) § 5
+  for the full step-by-step.
 - AI output cannot bypass risk caps, broker validation, or
   mission-aware account restrictions.
 - Architecture-changing code updates the architecture docs in
@@ -87,8 +106,13 @@
 - No auto-publishing datasets to HF (S-AI-WS3).
 - No editing past `StatusEvent` entries in the registry
   (S-AI-WS4 — append-only).
-- No promoting to `live-approved` or `champion` without operator
-  approval recorded in `--by` + `--reason` (S-AI-WS4).
+- Registry promotions still require `--by` + `--reason` for
+  audit (S-AI-WS4). Autonomous-Claude promotions use
+  `--by=claude-trainer` with the training-summary rationale in
+  `--reason`. Promotions past `advisory` (i.e. to `limited_live`
+  or `live_approved`) additionally require a sprint-log entry
+  under `docs/sprint-logs/S-AI-WS5-PROMOTION-*` per the trainer
+  charter § 3.b.
 - No outcome columns as features against `won` on
   `trade_outcomes` (S-AI-WS5-A).
 - **No `ICT_OFFVM_BUILD_HOST=1` on the Oracle live VM**
@@ -131,3 +155,4 @@
 | 2026-05-10 | S-AI-WS7-PART-4 | WS7-PART-4: multi-predictor concurrent + config-driven source. New `with_shadow_preds` plural helper (per-predictor failure isolation). New `ml/shadow/factory.py` resolves `shadow_model_ids` against the registry with a stage gate (`{shadow, advisory, limited_live, live_approved}` allowed; `{research_only, candidate, backtest_approved}` refused). New optional `shadow_model_ids: []` field on the vwap YAML block. Production rollout is a YAML edit, not a code change. | None unless operator opts in by setting `shadow_model_ids` to a non-empty list. |
 | 2026-05-10 | S-AI-WS7-PART-5 | WS7-PART-5: turtle_soup adoption — same pattern as PART-3+4 ported to the second production strategy. Strategy-specific feature row exposes `atr` + `body_to_range`. WS7 acceptance criterion now satisfied for both production strategies. | None unless operator opts in. |
 | 2026-05-10 | S-AI-WS7-PART-6 | WS7-PART-6: Coordinator-side cache. `Coordinator._shadow_predictors_cache` populated lazily per strategy; dispatcher injects the cached list as `cfg["_shadow_predictors"]` (resolution mode 1 in both strategies). `reload_strategy_config` clears the cache. Factory cost moves from O(ticks) to O(reloads). | None — cache is a transparent perf optimisation. |
+| 2026-05-11 | S-AUTH-SPLIT | Authority-model clarification: trainer VM is autonomous-Claude per new `docs/claude/trainer-vm-mode.md`; operator-approval gate on model promotions now applies only at the `shadow_model_ids` YAML wiring step on the live VM, not at registry stage promotion. Sibling doc `docs/claude/vm-operator-mode.md` scoped explicitly to the live VM. CLAUDE.md surfaces the split at the top. | None on live VM behaviour. Claude can now train + register + promote autonomously once the trainer VM is up. |

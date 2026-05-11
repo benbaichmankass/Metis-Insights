@@ -1,20 +1,26 @@
 name: provision-training-vm
 
-# Tier-3 mutating action: provision a new Always Free Ampere A1
-# VM in the same OCI compartment + subnet as the live trader VM,
-# bootstrap it as the model training center (S-AI-WS9), and post
-# the public IP / instance OCID back to the operator.
+# Trainer-VM provisioning workflow (S-AI-WS9).
 #
-# Provisioning is destructive in the sense that it CREATES new
-# infrastructure (uses OCI Always Free quota; consumes ~1 OCPU /
-# 6 GB). It does NOT touch the live trader VM in any way. The new
-# VM ships with ict-trainer.service installed but DISABLED — the
-# operator opts in to training cycles explicitly.
+# **Authority:** docs/claude/trainer-vm-mode.md — fully
+# autonomous-Claude within trainer scope. Provisioning is "Tier-3
+# mutating" only in the sense that it CREATES new infrastructure
+# (uses OCI Always Free quota; consumes ~1 OCPU / 6 GB). It does NOT
+# touch the live trader VM in any way. The new VM ships with
+# ict-trainer.service installed but disabled by cloud-init — Claude
+# enables it autonomously when the first training cycle is ready.
 #
 # Triggers:
 #   1. workflow_dispatch — operator clicks "Run workflow".
 #   2. issues.opened with label `provision-training-vm`.
 #      Issue body must contain `confirm: yes`.
+#
+#      The `confirm: yes` line is an audit-trail formality, not a
+#      human-attention gate. Claude (the autonomous trainer-VM
+#      caller per trainer-vm-mode.md § 3.b) includes it in the issue
+#      body it authors. The line's value is provenance — it's the
+#      grep-able signal that this run was deliberate, not a stray
+#      labelled-issue event.
 #
 # Required repo secrets:
 #   * VM_SSH_KEY            — private key for the live trader VM. Used
