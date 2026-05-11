@@ -36,6 +36,17 @@ WorkingDirectory=/opt/ict-trading-bot
 Environment=PYTHONPATH=/opt/ict-trading-bot
 Environment=DASHBOARD_ORIGIN=https://bentzbk-ict-trader-dashboard.vercel.app
 EnvironmentFile=/etc/ict-trader/web-api.env
+# Also load the trader's .env so DATA_DIR (and any other operator-
+# managed overrides) align between writer (trader) and reader (web-
+# api). 2026-05-11 incident: trader had EnvironmentFile=.env and
+# read DATA_DIR=data/ from it; web-api had no such file and inherited
+# DATA_DIR=/data/bot-data from the systemd drop-in. Writer wrote to
+# /home/ubuntu/ict-trading-bot/data/runtime_logs/; reader looked at
+# /data/bot-data/runtime_logs/. Heartbeat never showed up to the
+# dashboard. Loading the same .env on both services keeps the two
+# views in sync — flip DATA_DIR in .env, both services follow.
+# Leading `-` so a missing .env doesn't fail the start.
+EnvironmentFile=-/home/ubuntu/ict-trading-bot/.env
 ExecStart=/usr/bin/python3 -m uvicorn src.web.api.main:app --host 0.0.0.0 --port 8001
 Restart=always
 RestartSec=5
