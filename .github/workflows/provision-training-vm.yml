@@ -208,7 +208,19 @@ jobs:
           SUBNET_ID: ${{ steps.subnet.outputs.subnet_id }}
           DISPLAY_NAME: ${{ env.DISPLAY_NAME }}
           CLOUD_INIT_PATH: deploy/training-vm-cloud-init.yaml
+        # GitHub Actions injects `bash -e` into every `run:` block by
+        # default. The previous version of this step assumed `set -uo
+        # pipefail` (no -e) would let the `exit 0` at the bottom
+        # always run; in practice -e was already on, so when
+        # provision_training_vm.py exited non-zero, bash aborted at
+        # that line and the `cat err.txt` that prints the script's
+        # stderr to the run log NEVER ran. Result: the workflow
+        # showed "exit code 1" with no diagnostic. Fixed by
+        # explicitly disabling -e for this step. The script's own
+        # logic (rc=$?, JSONL outcome) is the source of truth for
+        # status, not the shell exit code.
         run: |
+          set +e
           set -uo pipefail
           export SSH_AUTHORIZED_KEY="$(cat ~/.ssh/id_rsa.pub)"
           python3 scripts/ops/provision_training_vm.py > result.jsonl 2>err.txt
