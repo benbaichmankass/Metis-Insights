@@ -1,0 +1,87 @@
+name: oci-storage-verify
+
+# Read-only health check for the OCI block-storage setup. SSHes to the
+# live VM, reports `df -h /data`, the bot-data directory contents, the
+# fstab entry, and DATA_DIR resolution for each trader service. Posts
+# the output to the run summary.
+#
+# Uses the production-oci environment because that is where the
+# VM_SSH_PRIVATE_KEY secret lives. Approval is harmless for a
+# read-only check; if the operator wants unattended polling, copy
+# VM_SSH_PRIVATE_KEY to repo scope and drop the environment line.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  VM_HOST: 158.178.210.252
+  VM_USER: ubuntu
+
+jobs:
+  verify:
+    name: ssh and report /data state
+    runs-on: ubuntu-latest
+    environment: production-oci
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install VM SSH key
+        env:
+          KEY_CONTENT: ${{ secrets.VM_SSH_PRIVATE_KEY }}
+        run: |
+          if [[ -z "${KEY_CONTENT:-}" ]]; then
+            echo "::error::VM_SSH_PRIVATE_KEY secret is empty on the production-oci environment."
+            exit 1
+          fi
+          install -d -m 0700 "$HOME/.ssh"
+          printf '%s\n' "$KEY_CONTENT" > "$HOME/.ssh/ict-bot-ovm-private.key"
+          chmod 0600 "$HOME/.ssh/ict-bot-ovm-private.key"
+          echo "VM_SSH_KEY_PATH=$HOME/.ssh/ict-bot-ovm-private.key" >> "$GITHUB_ENV"
+
+      - name: Collect VM state
+        id: collect
+        run: |
+          out=$(bash scripts/oci_vm_ssh.sh 'bash -s' <<'REMOTE'
+          set +e
+          echo "===== df -h /data ====="
+          df -h /data 2>&1 || echo "(df failed)"
+          echo
+          echo "===== ls -la /data/bot-data ====="
+          ls -la /data/bot-data 2>&1 || echo "(ls failed)"
+          echo
+          echo "===== /etc/fstab (lines for /data) ====="
+          grep -E "\s/data\s" /etc/fstab 2>&1 || echo "(no fstab entry)"
+          echo
+          echo "===== mountpoint /data ====="
+          mountpoint /data 2>&1
+          echo
+          echo "===== systemd DATA_DIR for trader services ====="
+          for svc in ict-trader-live ict-web-api ict-claude-bridge ict-telegram-bot; do
+              if systemctl list-unit-files "${svc}.service" >/dev/null 2>&1; then
+                  active=$(systemctl is-active "$svc" 2>&1)
+                  data_dir=$(systemctl show -p Environment --value "$svc" 2>/dev/null | tr ' ' '\n' | grep '^DATA_DIR=' || echo 'DATA_DIR=(unset)')
+                  printf '  %-20s active=%-10s %s\n' "$svc" "$active" "$data_dir"
+              else
+                  printf '  %-20s (not installed)\n' "$svc"
+              fi
+          done
+          echo
+          echo "===== /data size ====="
+          du -sh /data /data/bot-data 2>&1 || true
+          REMOTE
+          )
+          rc=$?
+          {
+            echo "## oci-storage verify ($(date -u +%Y-%m-%dT%H:%M:%SZ))"
+            echo
+            echo '```'
+            printf '%s\n' "$out"
+            echo '```'
+            echo
+            echo "ssh exit code: $rc"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+          exit $rc
