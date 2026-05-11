@@ -4,13 +4,21 @@ import json
 import logging
 import os
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any, Dict
+
+from src.utils.paths import runtime_logs_dir
 
 logger = logging.getLogger(__name__)
 
-BASE = Path(__file__).resolve().parents[2] / "runtime_logs"
-BASE.mkdir(parents=True, exist_ok=True)
+# Writer path resolved through runtime_logs_dir() so DATA_DIR /
+# RUNTIME_LOGS_DIR overrides apply consistently with the heartbeat +
+# runtime_status writers. Pre-2026-05-11 this was hardcoded to
+# ``Path(__file__).resolve().parents[2] / "runtime_logs"``, which
+# diverged from runtime_logs_dir() the moment the OCI block-storage
+# drop-in went in: liveness_watchdog + hourly_report read from the
+# DATA_DIR-resolved path and found nothing while audit was being
+# written at the repo path.
+BASE = runtime_logs_dir()
 SIGNAL_FILE = BASE / "signal_audit.jsonl"
 SUMMARY_FILE = BASE / "summary_markers.json"
 
