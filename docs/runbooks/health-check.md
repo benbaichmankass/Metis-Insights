@@ -194,6 +194,28 @@ session has `actions:write` on its MCP server. Use whichever is
 available; both leave the same audit trail (run URL, PR, Telegram
 ping).
 
+### Operator-facing Telegram ping format (PR #816)
+
+The "Notify operator (run /health-review)" step in
+`health-snapshot-pr.yml` now leads with a deterministic green/red
+light derived from snapshot facts WITHOUT calling layer 1 (which is
+`--skip-llm` per operator decision 2026-05-10):
+
+- `✅ Health snapshot green — no urgent action — run /health-review at your convenience (PR #N, auto-merge queued; pipeline: warn; req: REQ-…)`
+- `🚨 Health snapshot red — RUN /health-review NOW — heartbeat stale (420s) (PR #N, auto-merge queued; pipeline: warn; req: REQ-…)`
+
+The preflight rubric (`Compute preflight verdict (green/red light)`
+step):
+
+- **green** if heartbeat age `<180s` AND snapshot file `>256B` AND
+  pipeline-test status in `{ok, warn}`
+- **red** otherwise, with the first failing check as the reason
+
+Both branches still post the ping; only the urgency framing changes.
+Layer 2 (the `/health-review` slash command) remains the authority on
+what's actually wrong — green never blocks an actual problem from
+surfacing in the layer-2 review, it just defers the urgency.
+
 ## Idempotency / dedupe
 
 Workflow 1 always pushes to a single fixed branch: `auto/health-check-review`.

@@ -203,7 +203,7 @@ endpoints return 503 if `DIAG_READ_TOKEN` is unset, 401 on bad bearer.
 | `GET /api/diag/journal?table={order_packages\|trades}&limit=N` | read-only SELECT |
 | `GET /api/diag/status` | heartbeat + status.json + vm_health |
 | `GET /api/diag/services` | `systemctl is-active` per allowlisted unit |
-| `GET /api/diag/journalctl?unit=<name>&lines=N` | systemd journal tail |
+| `GET /api/diag/journalctl?unit=<name>&lines=N&since=<iso>&until=<iso>` | systemd journal tail; `since`/`until` accept strict ISO-8601 (`2026-05-10T21:13:00Z`) and forward to `journalctl --since`/`--until` for historical-window pulls (PR #821, FU-20260511-001) |
 | `GET /api/diag/log_file?name={audit\|status\|heartbeat\|bot_log}&lines=N` | log file tail |
 
 See `docs/claude/vm-operator-mode.md` § 9 for the trust contract.

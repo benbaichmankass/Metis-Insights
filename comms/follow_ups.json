@@ -135,16 +135,16 @@
       "opened_at": "2026-05-11T07:00:00+00:00",
       "opened_by": "claude",
       "source": "operator-chat-2026-05-11",
-      "related_prs": [],
+      "related_prs": [821],
       "title": "Diag journalctl endpoint can't address historical windows",
       "description": "FU-005 and FU-008 closed without evidence because the diag-relay journalctl endpoint is tail-only (-n N, max 2000). At the live-trader's log rate the 2000-line tail reaches back ~20-30 minutes, while time-bounded follow-ups (FU-008 was 7 days, FU-005 needed the first post-PR4 boot) routinely need 8-24h. The 55KB GitHub comment cap further truncates even the tail we DO retrieve. Two viable enhancements: (a) add ?since=<ISO8601> and ?until=<ISO8601> params to the journalctl endpoint, mapping to journalctl --since/--until; (b) chunk responses across multiple issue comments when the JSON exceeds 50KB. Both would also help future incident forensics — any post-mortem more than ~30 min old is currently unreachable from the PM-side session.",
       "expected_check": "When a future health-review needs evidence older than ~30 min, observe whether the new endpoint variants allow direct retrieval.",
       "trigger_condition": "Any /health-review run that needs to evidence a time-bounded follow-up older than 30 minutes.",
       "resolution_criteria": "Close after a PR adds ?since= support to /api/diag/journalctl (and ideally to /api/diag/audit + /api/diag/journal as well, since they share the same 55KB truncation pattern).",
-      "status": "open",
+      "status": "closed",
       "snoozed_until": null,
-      "closed_at": null,
-      "closed_reason": null
+      "closed_at": "2026-05-11T07:30:00+00:00",
+      "closed_reason": "Resolved by PR #821 (merged 2026-05-11). /api/diag/journalctl now accepts optional ?since= / ?until= ISO-8601 params and forwards to journalctl's native --since/--until. Strict shape regex (_ISO_TIMESTAMP_RE) blocks injection. The audit + journal endpoints still share the same 55KB truncation pattern; if a future review needs historical-window pulls from those, open a fresh follow-up to extend the same param family there. FU-005 is now resolvable: a single journalctl?unit=ict-trader-live&since=<recent-boot-iso>&lines=2000 pull surfaces the set_leverage trace."
     }
   ]
 }
