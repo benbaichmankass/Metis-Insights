@@ -222,6 +222,25 @@ grep_recent '(api|HTTP|http)|\b429\b|\b5[0-9]{2}\b' 50 "no api/http lines"
 echo "=== ERRORS ==="
 grep_recent 'error|exception|failed|crash|traceback' 50 "no error lines"
 
+echo "=== STORAGE ==="
+# OCI block-storage health (PR #853 / S-?-OCI). Surfaces /data mount,
+# /data/bot-data presence, fstab persistence, and DATA_DIR env on the
+# trader services so the layer-2 review notices if the mount or
+# drop-ins drift. Non-fatal: the trailing `|| true` keeps a missing or
+# unmounted /data from aborting the snapshot.
+storage_script="$REPO_DIR/scripts/verify_storage_setup.sh"
+if [ -x "$storage_script" ] || [ -f "$storage_script" ]; then
+  bash "$storage_script" 2>&1 || true
+else
+  echo "verify_storage_setup.sh missing at $storage_script"
+  echo "-- df -h /data --"
+  df -h /data 2>&1 || echo "(df failed)"
+  echo "-- mountpoint /data --"
+  mountpoint /data 2>&1 || true
+  echo "-- ls /data/bot-data --"
+  ls -ld /data/bot-data 2>&1 || true
+fi
+
 echo "=== VM ==="
 echo "-- disk --"
 df -h "$REPO_DIR" 2>/dev/null || df -h
