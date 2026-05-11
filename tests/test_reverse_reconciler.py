@@ -384,3 +384,179 @@ def test_adopt_orphan_position_writes_expected_columns(tmp_db):
     assert row["setup_type"] == "adopted_orphan"
     assert row["strategy_name"] == "orphan_adopt"
     assert row["entry_reason"] == "reverse_reconciler_adopted_orphan_position"
+
+
+# ────────────────────────────────────────────────────────────────────
+# Close-on-disappear — adopted_orphan rows whose exchange position
+# is no longer reported by Bybit get their journal row closed.
+#
+# Motivating gap (operator question, 2026-05-11): the forward
+# reconciler (_reconcile_open_trades) skips rows with no numeric
+# trade_id in notes — which is every adopted_orphan row. So a
+# row adopted in one tick would never close even after the
+# exchange position is gone. The reverse reconciler is the only
+# place we have both the journal-open set AND the live exchange-
+# position set, so the close pass lives here.
+# ────────────────────────────────────────────────────────────────────
+
+
+def _adopt_via_reverse(tmp_db, monkeypatch, position):
+    """Test helper: drive one tick that adopts the given Bybit position."""
+    monkeypatch.setenv("ORPHAN_POSITION_POLICY", "adopt")
+    monkeypatch.setattr(
+        "src.runtime.execution_diagnostics.enqueue_exchange_orphan_adoption",
+        lambda **kw: None,
+    )
+    with patch(
+        "src.units.accounts.clients.account_open_positions",
+        return_value=[position],
+    ):
+        _reconcile_orphan_exchange_positions(tmp_db)
+
+
+def test_close_disappear_closes_adopted_when_position_gone(tmp_db, monkeypatch):
+    """Adopt a position in tick 1, then tick 2 sees Bybit return [] →
+    the adopted row is closed with exit_reason='adopted_orphan_disappeared'.
+    exit_price stays NULL because we don't have a Bybit-side fill for an
+    order we never placed."""
+    _adopt_via_reverse(tmp_db, monkeypatch, _bybit_position())
+    assert _open_trade_count(tmp_db) == 1
+
+    with patch(
+        "src.units.accounts.clients.account_open_positions",
+        return_value=[],
+    ):
+        summary = _reconcile_orphan_exchange_positions(tmp_db)
+
+    assert summary["closed_disappeared"] == 1
+    assert summary["errors"] == 0
+    assert _open_trade_count(tmp_db) == 0
+
+    conn = tmp_db.connect()
+    try:
+        conn.row_factory = __import__("sqlite3").Row
+        row = conn.execute(
+            "SELECT * FROM trades WHERE strategy_name='orphan_adopt'"
+        ).fetchone()
+    finally:
+        conn.close()
+    assert row["status"] == "closed"
+    assert row["exit_reason"] == "adopted_orphan_disappeared"
+    assert row["exit_price"] is None
+    notes = json.loads(row["notes"])
+    assert notes["closed_by"] == "reverse_reconciler"
+    assert "closed_at" in notes
+
+
+def test_close_disappear_leaves_matched_open(tmp_db, monkeypatch):
+    """Adopt a position, then the same position is still reported on the
+    next tick — the adopted row stays open, no spurious close."""
+    pos = _bybit_position()
+    _adopt_via_reverse(tmp_db, monkeypatch, pos)
+
+    with patch(
+        "src.units.accounts.clients.account_open_positions",
+        return_value=[pos],
+    ):
+        summary = _reconcile_orphan_exchange_positions(tmp_db)
+
+    assert summary["closed_disappeared"] == 0
+    assert _open_trade_count(tmp_db) == 1
+
+
+def test_close_disappear_partial(tmp_db, monkeypatch):
+    """Two adopted orphans; one's position is still on Bybit, one's is
+    gone — only the disappeared one closes."""
+    monkeypatch.setenv("ORPHAN_POSITION_POLICY", "adopt")
+    monkeypatch.setattr(
+        "src.runtime.execution_diagnostics.enqueue_exchange_orphan_adoption",
+        lambda **kw: None,
+    )
+    # Tick 1: both positions present → both get adopted in one pass.
+    with patch(
+        "src.units.accounts.clients.account_open_positions",
+        return_value=[
+            _bybit_position(symbol="BTCUSDT", side="Buy", size=0.003, entry=80725.9),
+            _bybit_position(symbol="ETHUSDT", side="Sell", size=0.1, entry=2500.5),
+        ],
+    ):
+        _reconcile_orphan_exchange_positions(tmp_db)
+    assert _open_trade_count(tmp_db) == 2
+
+    # Tick 2: only BTCUSDT remains on Bybit; ETHUSDT short is gone.
+    with patch(
+        "src.units.accounts.clients.account_open_positions",
+        return_value=[_bybit_position(
+            symbol="BTCUSDT", side="Buy", size=0.003, entry=80725.9,
+        )],
+    ):
+        summary = _reconcile_orphan_exchange_positions(tmp_db)
+
+    assert summary["closed_disappeared"] == 1
+    assert _open_trade_count(tmp_db) == 1
+    # The remaining open row must be the BTCUSDT one.
+    conn = tmp_db.connect()
+    try:
+        conn.row_factory = __import__("sqlite3").Row
+        row = conn.execute(
+            "SELECT symbol FROM trades WHERE status='open'"
+        ).fetchone()
+    finally:
+        conn.close()
+    assert row["symbol"] == "BTCUSDT"
+
+
+def test_close_disappear_does_not_touch_non_adopted_rows(tmp_db, monkeypatch):
+    """The forward reconciler handles vwap / turtle_soup rows via their
+    trade_id. close-on-disappear must NOT close those even if the
+    exchange position is missing — a real strategy-owned trade with a
+    momentarily missing position read should be left for the forward
+    reconciler's per-order-id check."""
+    monkeypatch.setenv("ORPHAN_POSITION_POLICY", "adopt")
+    monkeypatch.setattr(
+        "src.runtime.execution_diagnostics.enqueue_exchange_orphan_adoption",
+        lambda **kw: None,
+    )
+    # Real vwap trade — not an adopted_orphan.
+    _insert_open_trade(tmp_db, symbol="BTCUSDT", direction="long")
+
+    with patch(
+        "src.units.accounts.clients.account_open_positions",
+        return_value=[],
+    ):
+        summary = _reconcile_orphan_exchange_positions(tmp_db)
+
+    assert summary["closed_disappeared"] == 0
+    assert _open_trade_count(tmp_db) == 1
+
+
+def test_position_read_failure_does_not_close_adopted(tmp_db, monkeypatch):
+    """account_open_positions returns None on a transient creds failure;
+    the close pass must NOT fire (otherwise a single missed read would
+    eat an adopted orphan that's still very much alive on Bybit)."""
+    _adopt_via_reverse(tmp_db, monkeypatch, _bybit_position())
+    assert _open_trade_count(tmp_db) == 1
+
+    with patch(
+        "src.units.accounts.clients.account_open_positions",
+        return_value=None,
+    ):
+        summary = _reconcile_orphan_exchange_positions(tmp_db)
+
+    assert summary["closed_disappeared"] == 0
+    assert _open_trade_count(tmp_db) == 1
+
+
+def test_close_disappear_idempotent(tmp_db, monkeypatch):
+    """After a close-on-disappear tick, a second tick with the same
+    empty positions list is a no-op (the row is now status='closed' and
+    the close query filters status='open')."""
+    _adopt_via_reverse(tmp_db, monkeypatch, _bybit_position())
+    with patch(
+        "src.units.accounts.clients.account_open_positions",
+        return_value=[],
+    ):
+        _reconcile_orphan_exchange_positions(tmp_db)
+        summary2 = _reconcile_orphan_exchange_positions(tmp_db)
+    assert summary2["closed_disappeared"] == 0
+    assert summary2["errors"] == 0
