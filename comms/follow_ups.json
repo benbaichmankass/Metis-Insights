@@ -93,10 +93,10 @@
       "expected_check": "Pull journal?table=order_packages&limit=20 from the diag relay. Find the two packages by trade_id. Check (a) initial status of each, (b) what status the 21:12 package was in at 21:14:45 (the moment the second dispatch ran), (c) whether linked_trade_id was populated correctly. Also pull journalctl around 21:14 — look for any _has_open_package_for_strategy warning ('DB read failed'). If the bypass cause is identifiable, surface it in recommended_action and propose a fix.",
       "trigger_condition": "Any /health-review run (the diag tail covering 2026-05-10 21:00-22:00 still contains the relevant rows for several days).",
       "resolution_criteria": "Close with either (a) a fix PR that prevents the same class of bypass, OR (b) an explicit decision that the gap is acceptable post-PR 3 (the cooldown gate from PR 2 #777 may catch similar cases with a different mechanism).",
-      "status": "open",
+      "status": "closed",
       "snoozed_until": null,
-      "closed_at": null,
-      "closed_reason": null
+      "closed_at": "2026-05-10T23:20:00+00:00",
+      "closed_reason": "Resolved by evidence — no monocle bypass occurred. journal?table=order_packages pull (issue #810) shows pkg-b43560af1c1f4d66 (the 21:12 spot-margin package, linked_trade_id=1140) was closed by the monitor_reconciler at 21:13:31 UTC with close_reason='stuck_cascade_recovered' and meta reason='linked trade reached terminal status while package stayed open' — i.e. operator manual_closeall on trade 1140 → trade row reached terminal status → reconciler closed the orphaned-open package. By the time the linear dispatch fired at 21:14:44 (pkg-e23467c60e064a25, linked_trade_id=1141) there was no open vwap package on bybit_2; _has_open_package_for_strategy correctly returned False. The handoff was clean: the apparent 'two open packages' was actually a closed-then-reopened sequence mediated by the reconciler. No fix PR required."
     },
     {
       "id": "FU-20260510-007",

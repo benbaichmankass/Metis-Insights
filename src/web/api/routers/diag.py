@@ -43,7 +43,7 @@ _DB_PATH = Path(os.environ.get("TRADE_JOURNAL_DB", str(_REPO_ROOT / "trade_journ
 _RUNTIME_LOGS = _REPO_ROOT / "runtime_logs"
 _AUDIT_LOG = _RUNTIME_LOGS / "signal_audit.jsonl"
 _HEARTBEAT = _RUNTIME_LOGS / "heartbeat.txt"
-_STATUS_JSON = _RUNTIME_LOGS / "status.json"
+_STATUS_JSON = _RUNTIME_LOGS / "runtime_status.json"
 _BOT_LOG = _REPO_ROOT / "bot.log"
 
 _JOURNAL_TABLES: dict[str, str] = {
@@ -439,7 +439,7 @@ async def get_version(request: Request) -> dict[str, Any]:
     in the deploy chain confirmed the running web-api had rebooted).
 
     Returns ``git_sha`` resolved by the same helper that powers
-    ``runtime_logs/status.json::git_sha`` so the value is consistent
+    ``runtime_logs/runtime_status.json::git_sha`` so the value is consistent
     between read sources. ``"unknown"`` is a legitimate value on
     sandbox / dev hosts without git available; the deploy script
     treats ``unknown`` as a soft failure.

@@ -76,7 +76,12 @@ accounts:
     type: regular
     exchange: bybit
     api_key_env: BYBIT_API_KEY_1       # env var holding the actual key
-    mode: live                         # see header — ONLY dry/live toggle
+    mode: dry_run                      # 2026-05-10 health-review: gate_balance=$0
+                                       # — trade 1142 (turtle_soup short) was
+                                       # rejected for below_min_balance. Flip
+                                       # to dry_run until the wallet is funded
+                                       # so signals don't get routed at an
+                                       # unfunded live account.
     market_type: spot                  # Bybit V5 category — spot for cash
                                        # market BTCUSDT (operator directive
                                        # 2026-05-06: trader was placing
