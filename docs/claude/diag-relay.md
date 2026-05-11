@@ -40,8 +40,18 @@ result comment.
 `<path>` can be any of the read-only diag endpoints documented in
 `vm-operator-mode.md` § 9 — `snapshot?limit=N`, `audit?limit=N`,
 `journal?table={order_packages|trades}&limit=N`, `status`,
-`services`, `journalctl?unit=<allowlisted>&lines=N`,
+`services`, `journalctl?unit=<allowlisted>&lines=N[&since=<iso>][&until=<iso>]`,
 `log_file?name={audit|status|heartbeat|bot_log}&lines=N`.
+
+`journalctl` `since` / `until` accept strict ISO-8601 timestamps
+(`2026-05-10T21:13:00Z`, `2026-05-10T21:13:00+00:00`, or
+`2026-05-10 21:13:00`) and forward to `journalctl --since` / `--until`
+on the VM. Without them the endpoint is tail-only and reaches back
+~20-30 minutes at the live-trader's log rate; with them, any
+historical window the systemd journal still retains is reachable. The
+55KB GitHub issue-comment cap still applies, so very large windows
+should pair `since=` with a tight `until=` to keep the response
+under the cap. Added in PR #821 (FU-20260511-001).
 
 ## TL;DR — fetching from outside a session (operator)
 
