@@ -242,6 +242,55 @@ def test_journalctl_allowlisted_unit_returns_shape(client, fake_runtime):
     assert "lines" in body
 
 
+def test_journalctl_since_param_accepts_iso_8601(client, fake_runtime):
+    # FU-20260511-001: ?since= forwards to journalctl --since for
+    # historical-window pulls. Smoke-tests every accepted shape.
+    for ts in (
+        "2026-05-10T21:13:00",
+        "2026-05-10T21:13:00Z",
+        "2026-05-10T21:13:00+00:00",
+        "2026-05-10 21:13:00",
+    ):
+        resp = client.get(
+            f"/api/diag/journalctl?unit=ict-bot&lines=10&since={ts}",
+            headers=_bearer(_TOKEN),
+        )
+        assert resp.status_code == 200, f"rejected {ts!r}: {resp.text}"
+
+
+def test_journalctl_since_param_rejects_garbage(client, fake_runtime):
+    # Shape validation — anything not ISO-8601-ish is a 400, not a
+    # subprocess argv smuggling vector. Out-of-range numeric components
+    # (month=13, etc.) are intentionally NOT rejected here — the shape
+    # regex is defense-in-depth against injection; journalctl itself
+    # rejects out-of-range values and returns available=False cleanly.
+    for ts in (
+        "yesterday",
+        "; rm -rf /",
+        "$(touch /tmp/pwn)",
+        "2026-05-10",  # date-only, no time
+        "--since=cheat",
+    ):
+        resp = client.get(
+            "/api/diag/journalctl",
+            params={"unit": "ict-bot", "since": ts},
+            headers=_bearer(_TOKEN),
+        )
+        assert resp.status_code == 400, f"accepted {ts!r}"
+        assert resp.json()["detail"]["error"] == "invalid_timestamp"
+
+
+def test_journalctl_until_param_validated_too(client, fake_runtime):
+    # Same regex on the until end of the window.
+    resp = client.get(
+        "/api/diag/journalctl",
+        params={"unit": "ict-bot", "until": "tomorrow"},
+        headers=_bearer(_TOKEN),
+    )
+    assert resp.status_code == 400
+    assert resp.json()["detail"]["param"] == "until"
+
+
 def test_log_file_unknown_name_400(client, fake_runtime):
     resp = client.get(
         "/api/diag/log_file?name=/etc/passwd",

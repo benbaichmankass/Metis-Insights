@@ -23,6 +23,7 @@ import hmac
 import json
 import logging
 import os
+import re
 import sqlite3
 import subprocess
 import time
@@ -74,6 +75,18 @@ _DEFAULT_JOURNAL_LINES = 200
 _MAX_JOURNAL_LINES = 2000
 _JOURNALCTL_TIMEOUT_S = 10
 _SYSTEMCTL_TIMEOUT_S = 5
+
+# Strict ISO-8601 form accepted by /api/diag/journalctl?since=… / ?until=…
+# before forwarding to journalctl --since/--until. Matches:
+#   2026-05-10T21:13:00            (naive UTC, journalctl assumes local)
+#   2026-05-10T21:13:00Z           (explicit UTC)
+#   2026-05-10T21:13:00+00:00      (explicit offset)
+#   2026-05-10 21:13:00            (space-separated, journalctl-native)
+# Rejects everything else — defence in depth even though the subprocess
+# is invoked via argv list (no shell). FU-20260511-001.
+_ISO_TIMESTAMP_RE = re.compile(
+    r"^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(Z|[+-]\d{2}:?\d{2})?$"
+)
 
 
 def _diag_token() -> str | None:
@@ -319,19 +332,33 @@ def _is_active_batch(units: list[str]) -> dict[str, str]:
     }
 
 
-def _journalctl_tail(unit: str, lines: int) -> dict[str, Any]:
+def _journalctl_tail(
+    unit: str,
+    lines: int,
+    since: str | None = None,
+    until: str | None = None,
+) -> dict[str, Any]:
     canonical = _normalize_unit(unit)
+    cmd = [
+        "journalctl",
+        "-u",
+        canonical,
+        "-n",
+        str(lines),
+        "--no-pager",
+        "--output=short-iso",
+    ]
+    # ?since / ?until support — passes through to journalctl's native
+    # --since/--until flags. The endpoint route validates the format
+    # with _ISO_TIMESTAMP_RE before reaching this helper, so by the
+    # time we get here the strings are safe to forward.
+    if since:
+        cmd.extend(["--since", since])
+    if until:
+        cmd.extend(["--until", until])
     try:
         proc = subprocess.run(
-            [
-                "journalctl",
-                "-u",
-                canonical,
-                "-n",
-                str(lines),
-                "--no-pager",
-                "--output=short-iso",
-            ],
+            cmd,
             capture_output=True,
             text=True,
             timeout=_JOURNALCTL_TIMEOUT_S,
@@ -425,9 +452,38 @@ async def get_journalctl(
     request: Request,
     unit: str,
     lines: int = _DEFAULT_JOURNAL_LINES,
+    since: str | None = None,
+    until: str | None = None,
 ) -> dict[str, Any]:
+    """Tail systemd-journal lines for an allowlisted unit.
+
+    ``since`` / ``until`` accept ISO-8601 timestamps (``2026-05-10T21:13:00Z``
+    or ``2026-05-10 21:13:00``) and forward to journalctl's native
+    ``--since`` / ``--until`` flags. Format is strictly validated against
+    ``_ISO_TIMESTAMP_RE`` before being passed to the subprocess argv —
+    arbitrary strings are rejected with HTTP 400. Without these params
+    the endpoint preserves the pre-FU-20260511-001 tail-only behaviour
+    (max 2000 lines, recent end of the journal). FU-005 / FU-008 style
+    historical-window evidence needs ``?since=`` to reach back hours.
+    """
     _require_diag_token(request)
-    return _journalctl_tail(unit, _clamp(lines, _DEFAULT_JOURNAL_LINES, _MAX_JOURNAL_LINES))
+    for label, value in (("since", since), ("until", until)):
+        if value is not None and not _ISO_TIMESTAMP_RE.match(value):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "error": "invalid_timestamp",
+                    "param": label,
+                    "expected": "ISO-8601 like 2026-05-10T21:13:00Z",
+                    "got": value,
+                },
+            )
+    return _journalctl_tail(
+        unit,
+        _clamp(lines, _DEFAULT_JOURNAL_LINES, _MAX_JOURNAL_LINES),
+        since=since,
+        until=until,
+    )
 
 
 @router.get("/version")
