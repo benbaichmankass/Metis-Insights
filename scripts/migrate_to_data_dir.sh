@@ -25,10 +25,10 @@
 
 set -euo pipefail
 
-DRY_RUN=1
+DRYRUN=1
 for arg in "$@"; do
     case "$arg" in
-        --execute|-x) DRY_RUN=0 ;;
+        --execute|-x) DRYRUN=0 ;;
         --help|-h)
             sed -n '2,30p' "$0"
             exit 0
@@ -44,7 +44,7 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TARGET="${DATA_DIR:-/data/bot-data}"
 SUBDIRS=(data runtime_logs runtime_state artifacts)
 
-if [ $DRY_RUN -eq 1 ]; then
+if [ $DRYRUN -eq 1 ]; then
     printf '*** DRY RUN — pass --execute to actually copy. ***\n\n'
 fi
 
@@ -70,7 +70,7 @@ for sub in "${SUBDIRS[@]}"; do
     fi
 
     if [ ! -d "$dst" ]; then
-        if [ $DRY_RUN -eq 1 ]; then
+        if [ $DRYRUN -eq 1 ]; then
             printf '%-15s would mkdir %s\n' "$sub" "$dst"
         else
             mkdir -p "$dst"
@@ -78,7 +78,7 @@ for sub in "${SUBDIRS[@]}"; do
         fi
     fi
 
-    if [ $DRY_RUN -eq 1 ]; then
+    if [ $DRYRUN -eq 1 ]; then
         # 'sub' is an awk builtin — pass the name as 'name' instead.
         rsync -an --itemize-changes "$src/" "$dst/" \
             | awk -v name="$sub" '{print name": "$0}'
@@ -89,7 +89,7 @@ for sub in "${SUBDIRS[@]}"; do
 done
 
 printf '\n'
-if [ $DRY_RUN -eq 1 ]; then
+if [ $DRYRUN -eq 1 ]; then
     printf 'Dry run done. Re-run with --execute to copy.\n'
 else
     printf 'Migration done.\n'
