@@ -161,6 +161,66 @@ if [ -n "${ALT_ROOT}" ] && [ "${ALT_ROOT}" != "${REPO_DIR}/runtime_logs" ]; then
     done
 fi
 
+# 2026-05-11 heartbeat-freeze round 2: the python resolver
+# (src/utils/paths.py::runtime_logs_dir) anchors relative DATA_DIR
+# under repo_root, NOT the calling process's CWD. The shell ALT_ROOT
+# above does naive concatenation, so its missing/present judgement
+# disagrees with python's view when DATA_DIR is relative. Show the
+# absolute candidate explicitly + /proc/<pid>/cwd + drop-in contents
+# so the next round of diagnosis doesn't need three roundtrips.
+echo
+echo "--- python-resolver-shaped candidate (repo_root + DATA_DIR) ---"
+if [ -n "${data_dir}" ]; then
+    data_dir_trim="${data_dir%/}"
+    case "${data_dir_trim}" in
+        /*) python_alt_root="${data_dir_trim}/runtime_logs" ;;
+        *)  python_alt_root="${REPO_DIR}/${data_dir_trim}/runtime_logs" ;;
+    esac
+    echo "absolute candidate: ${python_alt_root}"
+    for f in \
+        "${python_alt_root}/heartbeat.txt" \
+        "${python_alt_root}/runtime_status.json" \
+        "${python_alt_root}/signal_audit.jsonl"; do
+        if [ -e "${f}" ]; then
+            stat -c '%n  type=%F  size=%s  mtime=%y' "${f}" 2>/dev/null || \
+                ls -la "${f}"
+        else
+            printf '%s  (missing)\n' "${f}"
+        fi
+    done
+    echo
+    echo "--- ls ${python_alt_root}/ (parent must exist for writes) ---"
+    ls -la "${python_alt_root}/" 2>&1 | head -30
+else
+    echo "(DATA_DIR unset; python resolver would return repo-relative paths)"
+fi
+
+echo
+echo "--- trader CWD (from /proc/<pid>/cwd) ---"
+if [ -n "${TRADER_PID}" ] && [ -r "/proc/${TRADER_PID}/cwd" ]; then
+    cwd="$(readlink "/proc/${TRADER_PID}/cwd" 2>/dev/null || true)"
+    if [ -n "${cwd}" ]; then
+        echo "${cwd}"
+    else
+        echo "(cwd readlink returned empty)"
+    fi
+else
+    echo "(trader pid not found or /proc/<pid>/cwd unreadable)"
+fi
+
+echo
+echo "--- systemd drop-ins for ict-trader-live ---"
+DROPIN_DIR="/etc/systemd/system/ict-trader-live.service.d"
+if [ -d "${DROPIN_DIR}" ]; then
+    for f in "${DROPIN_DIR}"/*; do
+        [ -e "$f" ] || continue
+        echo "===== ${f} ====="
+        cat "${f}" 2>&1 || echo "(unreadable)"
+    done
+else
+    echo "(no drop-in dir at ${DROPIN_DIR})"
+fi
+
 if [ "${overall_ok}" -eq 0 ]; then
     record_audit "status-check" "ok" "{\"all_active\": true}" >/dev/null || true
     log "All canonical services active."
