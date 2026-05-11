@@ -167,6 +167,15 @@ jobs:
         run: |
           bash scripts/oci_vm_ssh.sh "cd $REPO_DIR && bash scripts/migrate_to_data_dir.sh --execute"
 
+      - name: Migrate journal DB (stops services, copies, leaves stopped)
+        if: ${{ inputs.mode == 'execute' }}
+        run: |
+          # Idempotent: no-op if destination DB is newer than source
+          # (re-runs after a successful migration just pass through).
+          # On integrity_check failure the script restarts services on
+          # the old path so the trader stays alive.
+          bash scripts/oci_vm_ssh.sh "cd $REPO_DIR && sudo -E bash scripts/migrate_journal_db.sh"
+
       - name: Install systemd DATA_DIR drop-ins
         if: ${{ inputs.mode == 'execute' }}
         run: |
@@ -180,7 +189,9 @@ jobs:
               fi
           done
           sudo systemctl daemon-reload
-          # Restart only services that already had units installed.
+          # Restart picks up the new env vars (DATA_DIR + TRADE_JOURNAL_DB).
+          # If migrate_journal_db.sh just stopped these services, the
+          # restart is a clean cold-start onto the new DB path.
           for svc in ict-trader-live ict-web-api ict-claude-bridge; do
               if systemctl is-enabled "$svc" >/dev/null 2>&1; then
                   sudo systemctl restart "$svc" || true
