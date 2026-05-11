@@ -24,11 +24,11 @@ SIZE_GB="${OCI_VOLUME_SIZE_GB:-100}"
 AD="${OCI_AVAILABILITY_DOMAIN:-Eu-Paris-1-AD-3}"
 REGION="${OCI_CLI_REGION:-eu-paris-1}"
 COMPARTMENT_OCID="${OCI_COMPARTMENT_OCID:-${OCI_CLI_TENANCY:-}}"
-DRY_RUN=false
+DRYRUN=false
 
 for arg in "$@"; do
     case "$arg" in
-        --dry-run) DRY_RUN=true ;;
+        --dry-run) DRYRUN=true ;;
         -h|--help) sed -n '2,21p' "$0"; exit 0 ;;
         *) echo "unknown arg: $arg" >&2; exit 64 ;;
     esac
@@ -69,7 +69,7 @@ create_cmd=(oci bv volume create
     --region "$REGION"
     --wait-for-state AVAILABLE)
 
-if $DRY_RUN; then
+if $DRYRUN; then
     printf 'DRY-RUN: %s\n' "${create_cmd[*]}"
     exit 0
 fi

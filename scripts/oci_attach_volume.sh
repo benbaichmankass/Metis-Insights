@@ -21,11 +21,11 @@ VOLUME_NAME="${OCI_VOLUME_NAME:-ict-bot-data-vol}"
 REGION="${OCI_CLI_REGION:-eu-paris-1}"
 COMPARTMENT_OCID="${OCI_COMPARTMENT_OCID:-${OCI_CLI_TENANCY:-}}"
 ATTACH_TYPE="${OCI_ATTACH_TYPE:-paravirtualized}"
-DRY_RUN=false
+DRYRUN=false
 
 for arg in "$@"; do
     case "$arg" in
-        --dry-run) DRY_RUN=true ;;
+        --dry-run) DRYRUN=true ;;
         -h|--help) sed -n '2,16p' "$0"; exit 0 ;;
         *) echo "unknown arg: $arg" >&2; exit 64 ;;
     esac
@@ -81,7 +81,7 @@ attach_cmd=(oci compute volume-attachment attach
     --region "$REGION"
     --wait-for-state ATTACHED)
 
-if $DRY_RUN; then
+if $DRYRUN; then
     printf 'DRY-RUN: %s\n' "${attach_cmd[*]}"
     exit 0
 fi

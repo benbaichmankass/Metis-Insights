@@ -13,11 +13,11 @@ set -euo pipefail
 
 COMPARTMENT_OCID="${OCI_COMPARTMENT_OCID:-${OCI_CLI_TENANCY:-}}"
 REGION="${OCI_CLI_REGION:-eu-paris-1}"
-DRY_RUN=false
+DRYRUN=false
 
 for arg in "$@"; do
     case "$arg" in
-        --dry-run) DRY_RUN=true ;;
+        --dry-run) DRYRUN=true ;;
         -h|--help) sed -n '2,12p' "$0"; exit 0 ;;
         *) echo "unknown arg: $arg" >&2; exit 64 ;;
     esac
@@ -35,7 +35,7 @@ cmd=(oci bv volume list
     --query 'data[*].{name:"display-name",id:id,sizeGB:"size-in-gbs",ad:"availability-domain"}'
     --output table)
 
-if $DRY_RUN; then
+if $DRYRUN; then
     printf 'DRY-RUN: %s\n' "${cmd[*]}"
     exit 0
 fi

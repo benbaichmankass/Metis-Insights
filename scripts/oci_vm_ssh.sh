@@ -15,12 +15,12 @@ set -euo pipefail
 VM_HOST="${VM_HOST:-158.178.210.252}"
 VM_USER="${VM_USER:-ubuntu}"
 SSH_KEY="${VM_SSH_KEY_PATH:-${HOME}/.ssh/ict-bot-ovm-private.key}"
-DRY_RUN=false
+DRYRUN=false
 
 POSITIONAL=()
 for arg in "$@"; do
     case "$arg" in
-        --dry-run) DRY_RUN=true ;;
+        --dry-run) DRYRUN=true ;;
         -h|--help) sed -n '2,12p' "$0"; exit 0 ;;
         *) POSITIONAL+=("$arg") ;;
     esac
@@ -44,7 +44,7 @@ ssh_cmd=(ssh
     "${VM_USER}@${VM_HOST}"
     "${POSITIONAL[@]}")
 
-if $DRY_RUN; then
+if $DRYRUN; then
     printf 'DRY-RUN: %s\n' "${ssh_cmd[*]}"
     exit 0
 fi
