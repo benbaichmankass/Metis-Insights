@@ -12,9 +12,10 @@ name: provision-training-vm-auto-retry
 #      compartment OCID. (Same path provision-training-vm.yml uses.)
 #   2. Asks OCI whether any non-TERMINATED `ict-trainer-vm` already
 #      exists in that compartment.
-#   3. If it exists → emits a `::notice::` and exits. The cron keeps
-#      firing on schedule but each tick is a sub-30-second no-op, so
-#      cost is negligible.
+#   3. If it exists → opens a one-time GitHub issue announcing the
+#      VM is up (so the operator gets an email/notification via their
+#      repo subscription), then exits. Subsequent ticks detect the
+#      existing notification issue and stay silent.
 #   4. If it doesn't exist → dispatches `provision-training-vm.yml`
 #      via workflow_dispatch. That workflow runs the same idempotent
 #      provision script; if capacity is still out, it'll fail with the
@@ -28,9 +29,9 @@ name: provision-training-vm-auto-retry
 #
 # Authority: docs/claude/trainer-vm-mode.md — autonomous-Claude
 # trainer-VM scope. The retry never touches the live VM (read-only
-# IMDS curl + OCI list_instances), never modifies the existing
-# provision workflow, and never escalates if capacity is permanently
-# out (the operator can disable it at any time).
+# IMDS curl + OCI list_instances + OCI get_vnic), never modifies the
+# existing provision workflow, and never escalates if capacity is
+# permanently out (the operator can disable it at any time).
 
 on:
   schedule:
@@ -40,6 +41,7 @@ on:
 permissions:
   contents: read
   actions: write   # createWorkflowDispatch needs this
+  issues: write    # one-time notification issue on first success
 
 concurrency:
   group: provision-training-vm-auto-retry
@@ -56,6 +58,7 @@ jobs:
       - name: Set up SSH key (for IMDS lookup)
         env:
           VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+          VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '158.178.210.252' }}
         run: |
           set -euo pipefail
           if [ -z "${VM_SSH_KEY}" ]; then
@@ -66,9 +69,7 @@ jobs:
           chmod 700 ~/.ssh
           printf '%s\n' "${VM_SSH_KEY}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -t rsa,ecdsa,ed25519 "${VM_SSH_HOST:-158.178.210.252}" >> ~/.ssh/known_hosts 2>/dev/null
-        env:
-          VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '158.178.210.252' }}
+          ssh-keyscan -t rsa,ecdsa,ed25519 "${VM_SSH_HOST}" >> ~/.ssh/known_hosts 2>/dev/null
 
       - name: Discover compartment via live-VM IMDS
         id: imds
@@ -130,12 +131,28 @@ jobs:
           live = [i for i in insts if i.lifecycle_state not in ("TERMINATED", "TERMINATING")]
           if live:
               inst = live[0]
+              # Best-effort fetch of the public IP from the primary VNIC.
+              # Failure here is non-fatal — we still report exists=true
+              # and the operator can look the IP up in OCI Console.
+              public_ip = ""
+              try:
+                  atts = compute.list_vnic_attachments(
+                      compartment_id=os.environ["COMPARTMENT_ID"],
+                      instance_id=inst.id,
+                  ).data
+                  if atts:
+                      vnet = oci.core.VirtualNetworkClient(cfg)
+                      vnic = vnet.get_vnic(atts[0].vnic_id).data
+                      public_ip = vnic.public_ip or ""
+              except Exception as exc:  # noqa: BLE001
+                  print(f"::warning::VNIC lookup failed: {exc!r}")
               print(f"::notice title=Trainer VM exists::display_name=ict-trainer-vm "
-                    f"id={inst.id} state={inst.lifecycle_state}")
+                    f"id={inst.id} state={inst.lifecycle_state} public_ip={public_ip or '(none)'}")
               with open(os.environ["GITHUB_OUTPUT"], "a") as fh:
                   fh.write("exists=true\n")
                   fh.write(f"instance_id={inst.id}\n")
                   fh.write(f"state={inst.lifecycle_state}\n")
+                  fh.write(f"public_ip={public_ip}\n")
               sys.exit(0)
           print("::notice::No live trainer VM found; will dispatch provision-training-vm.")
           with open(os.environ["GITHUB_OUTPUT"], "a") as fh:
@@ -158,3 +175,62 @@ jobs:
               }
             });
             core.notice('Dispatched provision-training-vm.yml — check Actions for the result run.');
+
+      - name: Open "trainer VM is up" notification (first detection only)
+        if: steps.check.outputs.exists == 'true'
+        uses: actions/github-script@v7
+        env:
+          INSTANCE_ID: ${{ steps.check.outputs.instance_id }}
+          STATE: ${{ steps.check.outputs.state }}
+          PUBLIC_IP: ${{ steps.check.outputs.public_ip }}
+        with:
+          script: |
+            // Idempotency guard: only one notification issue per provisioning.
+            // Identified by the `[trainer-vm-up]` title prefix; the operator
+            // closes the issue when they've acknowledged, but a still-open
+            // one means we've already notified.
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const search = await github.rest.search.issuesAndPullRequests({
+              q: `repo:${owner}/${repo} is:issue is:open in:title "[trainer-vm-up]"`,
+            });
+            if (search.data.total_count > 0) {
+              core.notice(`Notification issue already open: #${search.data.items[0].number} — skipping.`);
+              return;
+            }
+            const publicIp = process.env.PUBLIC_IP || '(public IP not yet assigned — check OCI Console)';
+            const body = [
+              'The trainer VM has been successfully provisioned.',
+              '',
+              '| Field | Value |',
+              '|---|---|',
+              `| Display name | \`ict-trainer-vm\` |`,
+              `| Instance OCID | \`${process.env.INSTANCE_ID}\` |`,
+              `| Lifecycle state | \`${process.env.STATE}\` |`,
+              `| Public IP | \`${publicIp}\` |`,
+              `| Detected at | ${new Date().toISOString()} |`,
+              '',
+              '### Next steps',
+              '',
+              'Per [`docs/claude/trainer-vm-mode.md`](../blob/main/docs/claude/trainer-vm-mode.md) — every step below is autonomous-Claude:',
+              '',
+              `1. SSH in: \`ssh -i ~/.ssh/ict-bot-ovm-private.key ubuntu@${publicIp.includes('(') ? '<public-ip>' : publicIp}\``,
+              '2. Verify bootstrap: `cat /etc/ict-trainer-vm.role` should print `training-center`.',
+              '3. Pull `trade_journal.db` from the live VM for label feedstock (rsync or `/api/diag/journal`).',
+              '4. Train + register the WS5 baselines: `python -m ml.train ml/configs/baseline-*.yaml` then `python -m ml.registry register ...`.',
+              '5. Enable the training-cycle systemd unit: `sudo systemctl enable --now ict-trainer.service`.',
+              '',
+              '### What happens now',
+              '',
+              '- The `provision-training-vm-auto-retry` cron stays scheduled but every subsequent 10-minute tick will be a sub-30-second no-op (the existence check short-circuits).',
+              '- Close this issue once you\'ve acknowledged. No code action triggers from the close — the cron is independent of the issue state.',
+              '',
+              '_Filed automatically by the auto-retry workflow on first detection of `exists=true`._',
+            ].join('\n');
+            const issue = await github.rest.issues.create({
+              owner,
+              repo,
+              title: '[trainer-vm-up] ict-trainer-vm is provisioned',
+              body,
+            });
+            core.notice(`Notification issue created: #${issue.data.number}`);
