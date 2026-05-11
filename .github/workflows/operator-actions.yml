@@ -67,6 +67,8 @@ on:
           - disable-closed-flat-invariant
           - setup-cloudflare-tunnel
           - teardown-cloudflare-tunnel
+          - setup-tailscale-funnel
+          - teardown-tailscale-funnel
           - enable-m5-consumer
           - disable-m5-consumer
           - backfill-pnl-nulls
@@ -156,7 +158,7 @@ jobs:
             status-check|pull-latest-logs)
               echo "tier=1" >>"$GITHUB_ENV"
               ;;
-            pull-and-deploy|restart-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|enable-m5-consumer|disable-m5-consumer|setup-cloudflare-tunnel|teardown-cloudflare-tunnel|backfill-pnl-nulls)
+            pull-and-deploy|restart-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|enable-m5-consumer|disable-m5-consumer|setup-cloudflare-tunnel|teardown-cloudflare-tunnel|setup-tailscale-funnel|teardown-tailscale-funnel|backfill-pnl-nulls)
               echo "tier=2" >>"$GITHUB_ENV"
               if [ -z "${REASON// }" ]; then
                 echo "::error::Tier-2 action '${ACTION}' requires a non-empty 'reason' input."
@@ -224,6 +226,8 @@ jobs:
             disable-m5-consumer)             SCRIPT="disable_m5_consumer.sh" ;;
             setup-cloudflare-tunnel)         SCRIPT="setup_cloudflare_tunnel.sh" ;;
             teardown-cloudflare-tunnel)      SCRIPT="teardown_cloudflare_tunnel.sh" ;;
+            setup-tailscale-funnel)          SCRIPT="setup_tailscale_funnel.sh" ;;
+            teardown-tailscale-funnel)       SCRIPT="teardown_tailscale_funnel.sh" ;;
             backfill-pnl-nulls)              SCRIPT="backfill_pnl_nulls_action.sh" ;;
             *)
               echo "::error::Allowlist regression: '${ACTION}' was not mapped to a wrapper script."
