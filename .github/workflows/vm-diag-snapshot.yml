@@ -64,7 +64,15 @@ permissions:
 
 concurrency:
   group: vm-diag-snapshot
-  cancel-in-progress: false
+  # 2026-05-11 FU-20260511-005: bumped from false → true. With
+  # cancel-in-progress: false, a single hung SSH/curl step held the
+  # lane and subsequent diag-request issues queued indefinitely (no
+  # comment, no failure ping). Issues #941 / #942 / #947 in that
+  # session never received a result. Preemption gives us
+  # "always-fresh" semantics — a newer diag-request always wins —
+  # and the cancelled-run handler below posts a re-open hint on the
+  # preempted issue so neither side is silently dropped.
+  cancel-in-progress: true
 
 jobs:
   snapshot:
@@ -252,6 +260,32 @@ jobs:
               repo: context.repo.repo,
               issue_number: context.issue.number,
               body: `❌ **vm-diag-snapshot run failed.**\nRun: ${runUrl}\n\nCheck the run logs for the failing step. Common causes: VM_SSH_KEY/DIAG_READ_TOKEN secret unset, malformed key, VM web-api down, token mismatch with /etc/ict-trader/web-api.env.`
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              state: 'closed',
+              state_reason: 'not_planned'
+            });
+
+      # Concurrency-cancel handler (FU-20260511-005). When
+      # cancel-in-progress: true preempts this run because a newer
+      # diag-request arrived, GitHub marks the run "cancelled" — which
+      # is neither success() nor failure(). Without this step the
+      # preempted issue stays commentless and looks identical to a
+      # wedge. With it, the operator sees "preempted, re-open to retry."
+      - name: Reply to issue when run was cancelled
+        if: github.event_name == 'issues' && cancelled()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `⏭ **vm-diag-snapshot run cancelled** — a newer diag-request preempted this one (concurrency.cancel-in-progress=true).\nRun: ${runUrl}\n\nRe-open this issue (or open a fresh one with the same title) to retry. If multiple back-to-back diag pulls are needed, space them ~90 s apart so each completes before the next arrives.`
             });
             await github.rest.issues.update({
               owner: context.repo.owner,

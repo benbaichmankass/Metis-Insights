@@ -71,6 +71,12 @@ _CANONICAL_UNITS: tuple[str, ...] = (
     "ict-heartbeat.service",
     "ict-git-sync.service",
     "ict-git-sync.timer",
+    # 2026-05-11 — external liveness watchdog (PR #950). Both the
+    # oneshot service and its driving timer need to be queryable so
+    # the operator (and Claude sessions) can verify the dead-man
+    # switch is firing on cadence and inspect its decisions.
+    "ict-liveness-watchdog.service",
+    "ict-liveness-watchdog.timer",
 )
 
 _LOG_FILES: dict[str, Path] = {
