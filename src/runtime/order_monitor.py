@@ -972,6 +972,14 @@ def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
         "adopted": 0,
         "closed": 0,
         "detect_only": 0,
+        # Adopted-orphan trade rows whose exchange position has since
+        # disappeared (operator closed on Bybit, exchange-side SL/TP
+        # fired, etc.). The forward reconciler (_reconcile_open_trades)
+        # can't close these because they lack a numeric trade_id in
+        # `notes` (we never owned the order). Tracked separately from
+        # the policy=close summary key so the operator can distinguish
+        # "active-trading close" from "journal cleanup close".
+        "closed_disappeared": 0,
         "errors": 0,
     }
     if not _reconcile_enabled():
@@ -997,24 +1005,25 @@ def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
         summary["checked_accounts"] += 1
         positions = account_open_positions(cfg)
         if positions is None:
-            # Read failure — skip this account. _reconcile_open_trades
-            # observed the same condition and bumped skipped_no_creds;
-            # we don't have a parallel bucket here (per-account skip is
-            # implicit) but errors stays zero so the operator can tell
-            # a transient creds-read from a real orphan adoption.
-            continue
-        if not positions:
+            # Read failure — skip this account ENTIRELY (no adopt + no
+            # close-on-disappear). _reconcile_open_trades observed the
+            # same condition and bumped skipped_no_creds. Conservative
+            # by design: we don't close an adopted_orphan row on the
+            # basis of a transient creds-read failure.
             continue
 
         # Read DB-open trades for this account in one batch so we don't
-        # round-trip per position. The forward reconciler reads ALL
-        # status='open' trades; we can scope to this account.
+        # round-trip per position. Done BEFORE the positions=[] short-
+        # circuit because we still need this list for the close-on-
+        # disappear pass below (an account with zero Bybit positions but
+        # an adopted_orphan row still open in the journal is the exact
+        # case the close pass exists to handle).
         try:
             conn = db.connect()
             try:
                 conn.row_factory = __import__("sqlite3").Row
                 open_rows = conn.execute(
-                    "SELECT symbol, direction FROM trades "
+                    "SELECT id, symbol, direction, strategy_name FROM trades "
                     "WHERE status='open' AND COALESCE(is_backtest,0)=0 "
                     "  AND account_id=?",
                     (aid,),
@@ -1037,6 +1046,72 @@ def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
                          "sell": "short", "short": "short"}.get(side)
             if sym and canonical:
                 known.add((sym, canonical))
+
+        # Build the set of exchange-side (symbol, canonical_side) pairs
+        # ONCE so both the adopt pass and the close-on-disappear pass
+        # can use it without re-canonicalising.
+        exchange_positions: set = set()
+        for _p in positions:
+            _sym = _p.get("symbol")
+            _side_raw = str(_p.get("side") or "").lower()
+            _cs = {"buy": "long", "long": "long",
+                   "sell": "short", "short": "short"}.get(_side_raw)
+            if _sym and _cs:
+                exchange_positions.add((_sym, _cs))
+
+        # Close-on-disappear pass: every adopted_orphan row whose
+        # (symbol, direction) is NOT in the current exchange positions
+        # gets its trade row marked closed. The forward reconciler
+        # (_reconcile_open_trades) can't do this because adopted_orphan
+        # rows lack a numeric trade_id in `notes` (we don't own the
+        # order). exit_price stays NULL — we don't have a Bybit-side
+        # fill record for an order we never placed. The operator's
+        # exchange-side SL/TP (or manual close) is the source of truth
+        # for the actual exit; the journal close is bookkeeping.
+        now_iso = datetime.now(timezone.utc).isoformat()
+        for r in open_rows:
+            if str(r["strategy_name"] or "") != "orphan_adopt":
+                continue
+            sym = r["symbol"]
+            side = str(r["direction"] or "").lower()
+            canonical = {"buy": "long", "long": "long",
+                         "sell": "short", "short": "short"}.get(side)
+            if not sym or not canonical:
+                continue
+            if (sym, canonical) in exchange_positions:
+                # Still alive on Bybit — leave it open.
+                continue
+            try:
+                db.update_trade(int(r["id"]), {
+                    "status": "closed",
+                    "exit_reason": "adopted_orphan_disappeared",
+                    "notes": json.dumps({
+                        "closed_at": now_iso,
+                        "closed_by": "reverse_reconciler",
+                        "closed_reason": (
+                            "Bybit no longer reports the adopted position; "
+                            "exchange-side SL/TP or manual close took it out"
+                        ),
+                    }, ensure_ascii=False)[:500],
+                })
+                summary["closed_disappeared"] += 1
+                logger.warning(
+                    "_reconcile_orphan_exchange_positions: CLOSED disappeared "
+                    "adopted orphan — trade_id=%s account=%s symbol=%s side=%s",
+                    r["id"], aid, sym, canonical,
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "_reconcile_orphan_exchange_positions: close-disappeared "
+                    "failed for trade_id=%s account=%s symbol=%s: %s",
+                    r.get("id"), aid, sym, exc,
+                )
+                summary["errors"] += 1
+
+        if not positions:
+            # No exchange positions to walk for the adopt pass; the
+            # close-on-disappear pass above already ran.
+            continue
 
         for p in positions:
             summary["checked_positions"] += 1
@@ -1139,14 +1214,17 @@ def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
         summary["orphans_found"]
         or summary["adopted"]
         or summary["closed"]
+        or summary["closed_disappeared"]
         or summary["errors"]
     ):
         logger.info(
             "_reconcile_orphan_exchange_positions: accounts=%d positions=%d "
-            "orphans=%d adopted=%d closed=%d detect_only=%d errors=%d",
+            "orphans=%d adopted=%d closed=%d closed_disappeared=%d "
+            "detect_only=%d errors=%d",
             summary["checked_accounts"], summary["checked_positions"],
             summary["orphans_found"], summary["adopted"], summary["closed"],
-            summary["detect_only"], summary["errors"],
+            summary["closed_disappeared"], summary["detect_only"],
+            summary["errors"],
         )
     return summary
 
@@ -2270,7 +2348,11 @@ def run_monitor_tick(
     # produce spurious reverse-orphan adoptions on the same tick.
     try:
         reverse_recon = _reconcile_orphan_exchange_positions(db)
-        if reverse_recon.get("orphans_found") or reverse_recon.get("errors"):
+        if (
+            reverse_recon.get("orphans_found")
+            or reverse_recon.get("closed_disappeared")
+            or reverse_recon.get("errors")
+        ):
             summaries["__reverse_reconciler__"] = reverse_recon
     except Exception as exc:  # noqa: BLE001
         logger.warning(
