@@ -30,9 +30,9 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 
-logger = logging.getLogger(__name__)
-
 from src.utils.paths import artifacts_dir
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/bot/health", tags=["health"])
 
