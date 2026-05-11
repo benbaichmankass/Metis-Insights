@@ -16,6 +16,20 @@ EnvironmentFile=/home/ubuntu/ict-trading-bot/.env
 # defaults that win when the .env doesn't set them.
 Environment=TICK_INTERVAL_SECONDS=60
 Environment=HEARTBEAT_INTERVAL_SECONDS=60
+# Enable the DB→Bybit reconciler (src/runtime/order_monitor.py::
+# _reconcile_open_trades) on every monitor tick. Without this flag
+# the reconciler is gated off and the trade journal can drift from
+# exchange truth — e.g. trade 1145 on 2026-05-11 stayed open in DB
+# while the Bybit position had already closed. Pair with the reverse
+# reconciler (_reconcile_orphan_exchange_positions) which runs in the
+# same tick and ADOPTs any Bybit position that has no journal row.
+Environment=MONITOR_RECONCILE_ENABLED=true
+# Reverse-reconciler policy when a Bybit position has no matching
+# open trade row. detect_only = alert + log, no mutation. adopt =
+# insert a new trade row so the monitor manages it from the next
+# tick. close = submit a market close. See
+# src/runtime/order_monitor.py::ORPHAN_POSITION_POLICY for semantics.
+Environment=ORPHAN_POSITION_POLICY=adopt
 ExecStart=/usr/bin/python3 -u -B -m src.main
 Restart=always
 RestartSec=10
