@@ -25,12 +25,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
+from src.utils.paths import runtime_logs_dir
+
 
 logger = logging.getLogger(__name__)
 
 
-_REPO_ROOT = Path(__file__).resolve().parents[2]
-HEARTBEAT_FILE = _REPO_ROOT / "runtime_logs" / "heartbeat.txt"
+HEARTBEAT_FILE = runtime_logs_dir() / "heartbeat.txt"
 
 
 def write_heartbeat(

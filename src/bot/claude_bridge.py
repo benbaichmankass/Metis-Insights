@@ -275,7 +275,9 @@ async def cmd_schedules(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
 # Atomic writes: writers create ``<id>.json.tmp`` then ``rename`` to
 # ``<id>.json`` so the drainer never reads a half-written file.
 
-PENDING_CLAUDE_PINGS_DIR = REPO_ROOT / "runtime_logs" / "pending_claude_pings"
+from src.utils.paths import runtime_logs_dir  # noqa: E402
+
+PENDING_CLAUDE_PINGS_DIR = runtime_logs_dir() / "pending_claude_pings"
 CLAUDE_PING_DRAIN_INTERVAL_S = 5
 
 _PRIORITY_ICONS: Dict[str, str] = {

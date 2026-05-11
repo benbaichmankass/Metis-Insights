@@ -44,10 +44,11 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable, Iterable, List, Optional
 
+from src.utils.paths import runtime_logs_dir
+
 logger = logging.getLogger(__name__)
 
-_REPO_ROOT = Path(__file__).resolve().parents[2]
-_DEFAULT_VIOLATIONS_LOG = _REPO_ROOT / "runtime_logs" / "invariant_violations.jsonl"
+_DEFAULT_VIOLATIONS_LOG = runtime_logs_dir() / "invariant_violations.jsonl"
 
 # Anything <= this absolute residual qty is treated as exchange-flat.
 # Bybit occasionally returns dust like 1e-9 on a fully-flattened

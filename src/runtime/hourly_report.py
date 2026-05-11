@@ -43,8 +43,10 @@ from typing import Any, Dict, List, Optional
 logger = logging.getLogger(__name__)
 
 
+from src.utils.paths import runtime_logs_dir  # noqa: E402
+
 _REPO_ROOT = Path(__file__).resolve().parents[2]
-RUNTIME_LOGS = _REPO_ROOT / "runtime_logs"
+RUNTIME_LOGS = runtime_logs_dir()
 SIGNAL_AUDIT_FILE = RUNTIME_LOGS / "signal_audit.jsonl"
 OUTCOMES_FILE = RUNTIME_LOGS / "outcomes.jsonl"
 BALANCE_SNAPSHOT_FILE = RUNTIME_LOGS / "balance_snapshots.json"

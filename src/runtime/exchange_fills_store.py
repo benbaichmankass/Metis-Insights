@@ -37,10 +37,11 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Optional
 
+from src.utils.paths import runtime_state_dir
+
 logger = logging.getLogger(__name__)
 
-_REPO_ROOT = Path(__file__).resolve().parents[2]
-_DEFAULT_FILLS_DB_PATH = _REPO_ROOT / "runtime_state" / "exchange_fills.sqlite"
+_DEFAULT_FILLS_DB_PATH = runtime_state_dir() / "exchange_fills.sqlite"
 
 
 def get_fills_db_path() -> Path:

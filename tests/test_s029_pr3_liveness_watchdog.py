@@ -34,19 +34,17 @@ def tmp_dirs(tmp_path, monkeypatch):
     """Tmp signal-audit + tmp trade journal + tmp pending-pings + tmp state."""
     audit = tmp_path / "signal_audit.jsonl"
     db = tmp_path / "trade_journal.db"
-    # _enqueue_liveness_ping writes to ``_REPO_ROOT / runtime_logs / pending_pings``;
-    # the monkeypatch below sets _REPO_ROOT to tmp_path.
+    # _enqueue_liveness_ping writes to ``runtime_logs_dir() / pending_pings``;
+    # RUNTIME_LOGS_DIR redirects that root to tmp_path.
     pending = tmp_path / "runtime_logs" / "pending_pings"
     state = tmp_path / "liveness_watchdog_state.json"
 
+    monkeypatch.setenv("RUNTIME_LOGS_DIR", str(tmp_path / "runtime_logs"))
     monkeypatch.setattr(
         "src.runtime.liveness_watchdog._SIGNAL_AUDIT", audit,
     )
     monkeypatch.setattr(
         "src.runtime.liveness_watchdog._STATE_FILE", state,
-    )
-    monkeypatch.setattr(
-        "src.runtime.liveness_watchdog._REPO_ROOT", tmp_path,
     )
     monkeypatch.setenv("TRADE_JOURNAL_DB", str(db))
     return {

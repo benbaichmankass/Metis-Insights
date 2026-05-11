@@ -29,10 +29,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from src.utils.paths import runtime_logs_dir
+
 logger = logging.getLogger(__name__)
 
-_REPO_ROOT = Path(__file__).resolve().parents[2]
-LIQUIDITY_STATE_PATH = _REPO_ROOT / "runtime_logs" / "liquidity_state.json"
+LIQUIDITY_STATE_PATH = runtime_logs_dir() / "liquidity_state.json"
 SCHEMA_VERSION = 1
 
 # Cap how many pools / sweeps we persist per symbol so the file stays small

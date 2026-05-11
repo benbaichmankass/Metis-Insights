@@ -43,10 +43,11 @@ import os
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+from src.utils.paths import runtime_state_dir
+
 logger = logging.getLogger(__name__)
 
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
-_DEFAULT_PROP_STATE_PATH = _REPO_ROOT / "runtime_state" / "prop_state.json"
+_DEFAULT_PROP_STATE_PATH = runtime_state_dir() / "prop_state.json"
 
 # Module-level override so callers can redirect without environment
 # manipulation. ``None`` falls back to ``PROP_STATE_PATH`` env var, then
