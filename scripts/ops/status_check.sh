@@ -85,6 +85,82 @@ else
     echo "(no audit log yet)"
 fi
 
+# ---------------------------------------------------------------------------
+# Runtime-data path diagnostic (added 2026-05-11 after the heartbeat
+# writer froze silently and we couldn't tell whether it was failing or
+# writing to a different path).
+#
+# What we want to know on each status check:
+#   1. Is DATA_DIR / RUNTIME_LOGS_DIR set on the trader process? If yes
+#      and the readers (diag.py / dashboard.py) still hardcode the repo
+#      path, that explains a writer-vs-reader divergence.
+#   2. What's actually in runtime_logs/ on disk? (file vs symlink vs
+#      missing, mtimes for the three canonical signals.)
+#   3. If DATA_DIR resolves to an alternative root, dump that root too.
+#
+# Read-only; no behaviour changes. Failures here never affect exit code.
+# ---------------------------------------------------------------------------
+echo
+echo "===== runtime-data path diagnostic ====="
+TRADER_PID="$(pgrep -f 'python3 -u -B -m src.main' | head -n 1 2>/dev/null || true)"
+if [ -n "${TRADER_PID}" ] && [ -r "/proc/${TRADER_PID}/environ" ]; then
+    echo "trader pid: ${TRADER_PID}"
+    env_match="$(tr '\0' '\n' < "/proc/${TRADER_PID}/environ" 2>/dev/null \
+        | grep -E '^(DATA_DIR|RUNTIME_LOGS_DIR|RUNTIME_STATE_DIR|ARTIFACTS_DIR)=' \
+        || true)"
+    if [ -n "${env_match}" ]; then
+        echo "${env_match}"
+    else
+        echo "(no DATA_DIR / RUNTIME_LOGS_DIR / RUNTIME_STATE_DIR / ARTIFACTS_DIR in trader env)"
+    fi
+else
+    echo "(trader pid not found or /proc unreadable — env dump skipped)"
+fi
+
+echo
+echo "--- runtime_logs canonical files (repo path) ---"
+for f in \
+    "${REPO_DIR}/runtime_logs/heartbeat.txt" \
+    "${REPO_DIR}/runtime_logs/runtime_status.json" \
+    "${REPO_DIR}/runtime_logs/signal_audit.jsonl"; do
+    if [ -e "${f}" ]; then
+        stat -c '%n  type=%F  size=%s  mtime=%y' "${f}" 2>/dev/null || \
+            ls -la "${f}"
+    else
+        printf '%s  (missing)\n' "${f}"
+    fi
+done
+
+# If a non-repo root resolves from env, dump that side too so we can
+# diff the two views side-by-side without a second roundtrip.
+ALT_ROOT=""
+if [ -n "${TRADER_PID}" ] && [ -r "/proc/${TRADER_PID}/environ" ]; then
+    runtime_logs_override="$(tr '\0' '\n' < "/proc/${TRADER_PID}/environ" \
+        | awk -F= '$1=="RUNTIME_LOGS_DIR"{print $2; exit}')"
+    data_dir="$(tr '\0' '\n' < "/proc/${TRADER_PID}/environ" \
+        | awk -F= '$1=="DATA_DIR"{print $2; exit}')"
+    if [ -n "${runtime_logs_override}" ]; then
+        ALT_ROOT="${runtime_logs_override}"
+    elif [ -n "${data_dir}" ]; then
+        ALT_ROOT="${data_dir}/runtime_logs"
+    fi
+fi
+if [ -n "${ALT_ROOT}" ] && [ "${ALT_ROOT}" != "${REPO_DIR}/runtime_logs" ]; then
+    echo
+    echo "--- runtime_logs alternative root (env-resolved) ${ALT_ROOT} ---"
+    for f in \
+        "${ALT_ROOT}/heartbeat.txt" \
+        "${ALT_ROOT}/runtime_status.json" \
+        "${ALT_ROOT}/signal_audit.jsonl"; do
+        if [ -e "${f}" ]; then
+            stat -c '%n  type=%F  size=%s  mtime=%y' "${f}" 2>/dev/null || \
+                ls -la "${f}"
+        else
+            printf '%s  (missing)\n' "${f}"
+        fi
+    done
+fi
+
 if [ "${overall_ok}" -eq 0 ]; then
     record_audit "status-check" "ok" "{\"all_active\": true}" >/dev/null || true
     log "All canonical services active."
