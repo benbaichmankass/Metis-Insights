@@ -51,11 +51,13 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
+from src.utils.paths import runtime_logs_dir
+
 logger = logging.getLogger(__name__)
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
-_SIGNAL_AUDIT = _REPO_ROOT / "runtime_logs" / "signal_audit.jsonl"
-_STATE_FILE = _REPO_ROOT / "runtime_logs" / "liveness_watchdog_state.json"
+_SIGNAL_AUDIT = runtime_logs_dir() / "signal_audit.jsonl"
+_STATE_FILE = runtime_logs_dir() / "liveness_watchdog_state.json"
 
 DEFAULT_SIGNAL_THRESHOLD = 5
 DEFAULT_LOOKBACK_HOURS = 1
@@ -239,7 +241,7 @@ def _enqueue_liveness_ping(result: LivenessResult) -> bool:
     """
     try:
         import uuid
-        pending_dir = _REPO_ROOT / "runtime_logs" / "pending_pings"
+        pending_dir = runtime_logs_dir() / "pending_pings"
         pending_dir.mkdir(parents=True, exist_ok=True)
         body = (
             "🔇 Liveness watchdog\n"

@@ -33,10 +33,11 @@ import uuid
 from pathlib import Path
 from typing import Any, Optional
 
+from src.utils.paths import runtime_logs_dir
+
 logger = logging.getLogger(__name__)
 
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-PENDING_PINGS_DIR = _REPO_ROOT / "runtime_logs" / "pending_pings"
+PENDING_PINGS_DIR = runtime_logs_dir() / "pending_pings"
 
 
 def enqueue_execution_failure(

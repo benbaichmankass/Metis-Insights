@@ -18,10 +18,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from src.utils.paths import runtime_logs_dir
+
 logger = logging.getLogger(__name__)
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
-STATUS_PATH = _REPO_ROOT / "runtime_logs" / "runtime_status.json"
+STATUS_PATH = runtime_logs_dir() / "runtime_status.json"
 SCHEMA_VERSION = 1
 _START_MONOTONIC = time.monotonic()
 

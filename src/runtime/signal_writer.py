@@ -1,11 +1,16 @@
 import sqlite3
 from datetime import datetime, timezone
-from src.runtime.signal_notifications import ensure_signals_table, insert_signal
 
-DB_PATH = "data/trades.db"
+from src.runtime.signal_notifications import ensure_signals_table, insert_signal
+from src.utils.paths import data_dir
+
+
+def _db_path() -> str:
+    return str(data_dir() / "trades.db")
+
 
 def write_signal(symbol, signal_type, direction=None, price=None, timeframe=None, reason=None, metadata="{}"):
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(_db_path())
     ensure_signals_table(conn)
     insert_signal(
         conn=conn,

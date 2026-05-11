@@ -30,12 +30,13 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 
+from src.utils.paths import artifacts_dir
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/bot/health", tags=["health"])
 
-_REPO_ROOT = Path(__file__).resolve().parents[4]
-_HEALTH_DIR = _REPO_ROOT / "artifacts" / "health"
+_HEALTH_DIR = artifacts_dir() / "health"
 _LATEST = _HEALTH_DIR / "latest.json"
 _SNAPSHOT_TXT = _HEALTH_DIR / "health_snapshot.txt"
 _HISTORY_PATTERN = re.compile(r"^health_check_(\d{8}T\d{6}Z)\.json$")

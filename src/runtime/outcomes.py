@@ -51,6 +51,16 @@ from typing import Any, Deque, Dict, Optional
 logger = logging.getLogger(__name__)
 
 
+def _outcomes_default(name: str) -> Path:
+    """Resolve outcomes_log / pending_queue default relative to runtime_logs.
+
+    Lazy import avoids a hard dependency at module-import time, which
+    keeps ``outcomes`` importable in stripped-down test environments.
+    """
+    from src.utils.paths import runtime_logs_dir
+    return runtime_logs_dir() / name
+
+
 # ---------------------------------------------------------------------------
 # Public types
 # ---------------------------------------------------------------------------
@@ -77,10 +87,10 @@ class _Config:
     rate_limit_window_s: float = 300.0   # 5 min per-fingerprint
     hourly_cap: int = 30                 # global ERROR/CRITICAL per rolling hour
     outcomes_log: Path = field(
-        default_factory=lambda: Path("runtime_logs/outcomes.jsonl")
+        default_factory=lambda: _outcomes_default("outcomes.jsonl")
     )
     pending_queue: Path = field(
-        default_factory=lambda: Path("runtime_logs/outcomes_pending.jsonl")
+        default_factory=lambda: _outcomes_default("outcomes_pending.jsonl")
     )
 
     @classmethod
