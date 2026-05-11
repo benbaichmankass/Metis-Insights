@@ -142,7 +142,7 @@ def _apply_per_account_leverage() -> None:
     """
     try:
         from src.units.accounts import load_accounts
-        from src.units.accounts.clients import resolve_credentials
+        from src.units.accounts.clients import bybit_client_for
         from src.units.strategies import load_strategy_config
     except Exception as exc:  # noqa: BLE001
         logger.warning("set_leverage pre-flight: import failed (%s)", exc)
@@ -159,9 +159,6 @@ def _apply_per_account_leverage() -> None:
     except Exception as exc:  # noqa: BLE001
         logger.warning("set_leverage pre-flight: load_strategy_config failed (%s)", exc)
         strategies_cfg = {}
-
-    bybit_testnet_raw = str(os.environ.get("BYBIT_TESTNET", "true")).strip().lower()
-    testnet = bybit_testnet_raw not in {"false", "0", "no"}
 
     for account in accounts:
         market_type = (getattr(account, "market_type", "spot") or "spot").lower()
@@ -182,19 +179,39 @@ def _apply_per_account_leverage() -> None:
             )
             continue
 
-        creds = resolve_credentials({
+        # Use the SAME pybit HTTP client factory that order placement uses
+        # (src/units/accounts/clients.py::bybit_client_for). Three prior
+        # implementations of set-leverage all returned retCode=10003 from
+        # the SAME credentials that successfully placed orders via this
+        # pybit client (see FU-20260510-005):
+        #   * PR #781 — ccxt high-level `set_leverage`
+        #   * PR #782 — ccxt private_post_v5_position_set_leverage
+        #   * PR #903 — hand-rolled direct V5 signed POST in BybitConnector
+        # Root cause was never identified in the signing math (all three
+        # passed unit tests against Bybit's documented spec), but pybit's
+        # internal V5 signer demonstrably DOES work on the same key for
+        # set-leverage. Routing through it eliminates the parallel auth
+        # path and the every-boot WARNING.
+        account_cfg = {
             "api_key_env": getattr(account, "api_key_env", ""),
-            "api_secret_env": None,  # let resolve_credentials derive
             "exchange": "bybit",
-        })
-        if not creds:
+            "env_path": getattr(account, "env_path", ""),
+        }
+        try:
+            client = bybit_client_for(account_cfg)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "set_leverage pre-flight: client init failed for %s (%s)",
+                account.name, exc,
+            )
+            continue
+        if client is None:
             logger.warning(
                 "set_leverage pre-flight: account=%s creds not resolvable "
                 "(env vars unset) — skipping",
                 account.name,
             )
             continue
-        api_key, api_secret = creds
 
         symbols = _symbols_for_account(account, strategies_cfg)
         if not symbols:
@@ -205,27 +222,42 @@ def _apply_per_account_leverage() -> None:
             )
             continue
 
-        try:
-            connector = BybitConnector(
-                api_key=api_key, api_secret=api_secret, testnet=testnet,
-            )
-        except Exception as exc:  # noqa: BLE001
-            logger.warning(
-                "set_leverage pre-flight: connector init failed for %s (%s)",
-                account.name, exc,
-            )
-            continue
-
         for symbol in symbols:
             try:
-                resp = connector.set_leverage(symbol, leverage)
-                logger.info(
-                    "set_leverage pre-flight: account=%s symbol=%s x%d ok "
-                    "(retCode=%s)",
+                resp = client.set_leverage(
+                    category="linear",
+                    symbol=symbol,
+                    buyLeverage=str(int(leverage)),
+                    sellLeverage=str(int(leverage)),
+                ) or {}
+                ret_code = resp.get("retCode")
+                # Bybit V5: 0 = newly set; 110043 = "leverage not modified"
+                # (already at the target value) — idempotent success.
+                if ret_code in (0, "0", 110043, "110043"):
+                    logger.info(
+                        "set_leverage pre-flight: account=%s symbol=%s x%d ok "
+                        "(retCode=%s)",
+                        account.name, symbol, leverage, ret_code,
+                    )
+                    continue
+                logger.warning(
+                    "set_leverage pre-flight: account=%s symbol=%s x%d "
+                    "rejected (retCode=%s retMsg=%s) — order placement may "
+                    "be rejected until leverage is set",
                     account.name, symbol, leverage,
-                    (resp or {}).get("retCode"),
+                    ret_code, resp.get("retMsg"),
                 )
             except Exception as exc:  # noqa: BLE001
+                # pybit raises on retCode != 0 for some endpoints; absorb
+                # 110043 here too (same idempotent-already-set semantics).
+                msg = str(exc)
+                if "110043" in msg or "leverage not modified" in msg.lower():
+                    logger.info(
+                        "set_leverage pre-flight: account=%s symbol=%s x%d "
+                        "already set (retCode=110043, idempotent)",
+                        account.name, symbol, leverage,
+                    )
+                    continue
                 logger.warning(
                     "set_leverage pre-flight: account=%s symbol=%s x%d "
                     "failed (%s) — order placement may be rejected until "
