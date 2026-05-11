@@ -1,0 +1,31 @@
+# ============================================
+# ICT LIVENESS WATCHDOG SYSTEMD TIMER
+# Fires ict-liveness-watchdog.service every 60 s.
+#
+# This is the external dead-man switch for the live trader. When the
+# heartbeat file goes stale (trader process wedged, write_heartbeat
+# silently failing, systemd-killed without restart), the watchdog
+# fires a direct Telegram alert within ~5-6 min of the actual stall.
+# A separate ict-heartbeat.timer (once-daily at 13:00 UTC) is the
+# operator status digest — these two are distinct.
+#
+# Save to: /etc/systemd/system/ict-liveness-watchdog.timer
+# (installed + enabled automatically by scripts/install_systemd_units.sh)
+# ============================================
+
+[Unit]
+Description=ICT Liveness Watchdog — fires every 60 s
+Requires=ict-liveness-watchdog.service
+
+[Timer]
+# Initial fire 60 s after boot so the trader has had a chance to write
+# its first heartbeat after a fresh reboot.
+OnBootSec=60s
+# Subsequent fires every 60 s relative to last activation.
+OnUnitActiveSec=60s
+AccuracySec=10s
+Persistent=true
+Unit=ict-liveness-watchdog.service
+
+[Install]
+WantedBy=timers.target

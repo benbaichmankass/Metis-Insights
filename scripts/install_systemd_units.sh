@@ -75,4 +75,33 @@ if [ "$changed" -eq 1 ]; then
 else
     echo ">>> install_systemd_units: nothing to refresh."
 fi
+
+# Auto-enable + start any timers shipped under deploy/. Service units
+# are left alone — they're either oneshots fired by their timer, or
+# long-running units managed by deploy_pull_restart.sh's restart step.
+# Idempotent: enable --now on an already-enabled-and-active timer is
+# a no-op.
+#
+# Why this exists: ict-liveness-watchdog.timer (2026-05-11 silent-
+# failure incident) needs to start the moment the file lands on the VM.
+# Before this step the operator had to SSH and run `systemctl enable
+# --now ict-liveness-watchdog.timer` by hand, defeating the autonomous-
+# deploy contract this script was added for.
+shopt -s nullglob
+for timer_path in deploy/*.timer; do
+    timer_name=$(basename "$timer_path")
+    if [[ "$timer_name" == *@* ]]; then
+        continue
+    fi
+    if "${SUDO[@]}" systemctl is-enabled "$timer_name" >/dev/null 2>&1 \
+        && "${SUDO[@]}" systemctl is-active "$timer_name" >/dev/null 2>&1; then
+        continue
+    fi
+    echo ">>> install_systemd_units: enable --now $timer_name"
+    if ! "${SUDO[@]}" systemctl enable --now "$timer_name" 2>&1; then
+        echo ">>> install_systemd_units: WARN could not enable $timer_name (no systemd? not yet installed?)"
+    fi
+done
+shopt -u nullglob
+
 exit 0

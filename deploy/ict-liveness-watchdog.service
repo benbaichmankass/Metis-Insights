@@ -1,0 +1,35 @@
+# ============================================
+# ICT LIVENESS WATCHDOG SYSTEMD SERVICE
+# Runs scripts/check_heartbeat.py once per timer fire.
+#
+# Triggered by ict-liveness-watchdog.timer (every 60 s on the live VM).
+# Pings Telegram on first stale-heartbeat detection and on recovery.
+# Auto-restart of ict-trader-live.service is OPT-IN via the
+# LIVENESS_AUTO_RESTART_AFTER environment variable (set to a positive
+# integer = consecutive stale checks before restart; 0/unset = alert-
+# only). RestartSec=10 on the trader unit means a stuck process gets
+# bounced cleanly without manual SSH.
+#
+# Save to: /etc/systemd/system/ict-liveness-watchdog.service
+# (installed automatically by scripts/install_systemd_units.sh during
+#  deploy_pull_restart.sh)
+# ============================================
+
+[Unit]
+Description=ICT Trading Bot — Liveness Watchdog (heartbeat + autoheal)
+After=network-online.target ict-trader-live.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/ict-trading-bot
+EnvironmentFile=/home/ubuntu/ict-trading-bot/.env
+# --interval 60 + --grace 5 → alert when heartbeat > 300 s stale (5 min).
+# Covers a normal RestartSec=10 + ~30 s startup without false positives.
+ExecStart=/usr/bin/python3 -u scripts/check_heartbeat.py --interval 60 --grace 5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
