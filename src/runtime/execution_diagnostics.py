@@ -146,6 +146,71 @@ def enqueue_orphan_reconciliation(
         return None
 
 
+def enqueue_exchange_orphan_adoption(
+    *,
+    account: str,
+    symbol: str,
+    side: str,
+    size: float,
+    entry_price: float,
+    db_trade_id: Optional[int],
+    policy: str,
+    note: Optional[str] = None,
+    priority: str = "high",
+) -> Optional[Path]:
+    """Drop a Telegram-ready JSON ping for an EXCHANGE-SIDE orphan
+    adoption — the reverse direction of :func:`enqueue_orphan_reconciliation`.
+
+    Forward orphan (existing): DB shows a trade open, exchange doesn't.
+    Reverse orphan (this one):  Exchange shows a position, DB doesn't.
+
+    Fired by ``order_monitor._reconcile_orphan_exchange_positions``
+    when ``account_open_positions`` reports a Bybit position for which
+    there is no matching ``trades`` row with ``status='open'``. The
+    2026-05-11 incident (BTCUSDT bybit_2 vwap LONG opened at 07:17:27Z,
+    journal row vanished, position remained live on Bybit) is the
+    motivating case: without this ping the operator finds out only by
+    coincidence that the bot has stopped tracking a real position.
+
+    *policy* is the resolved ORPHAN_POSITION_POLICY (``detect_only`` /
+    ``adopt`` / ``close``) so the alert text matches what actually
+    happened — e.g. an ``adopt`` ping confirms a new trade row was
+    inserted, while ``detect_only`` makes clear that the operator
+    must decide.
+    """
+    try:
+        icon = {"adopt": "🪝", "close": "🛑", "detect_only": "👁"}.get(
+            policy, "❓"
+        )
+        lines = [
+            f"{icon} Exchange-side orphan position — policy={policy}",
+            f"Account: {account}",
+            f"Symbol: {symbol} | Side: {side} | Size: {size}",
+            f"Entry (Bybit avgPrice): {entry_price}",
+        ]
+        if db_trade_id is not None:
+            lines.append(f"DB trade id (adopted): {db_trade_id}")
+        if note:
+            lines.append(f"Note: {note}")
+        body = "\n".join(lines)[:1024]
+        payload = {"priority": priority, "body": body}
+        PENDING_PINGS_DIR.mkdir(parents=True, exist_ok=True)
+        name = f"{int(uuid.uuid4().int % 10**12):012d}-exch-orphan.json"
+        path = PENDING_PINGS_DIR / name
+        tmp = path.with_suffix(".json.tmp")
+        with tmp.open("w", encoding="utf-8") as fh:
+            json.dump(payload, fh, ensure_ascii=False)
+        os.replace(tmp, path)
+        return path
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "execution_diagnostics: exchange-orphan ping enqueue failed for "
+            "account=%s symbol=%s side=%s: %s",
+            account, symbol, side, exc,
+        )
+        return None
+
+
 def enqueue_all_accounts_failed_dispatch(
     *,
     strategy: str,
