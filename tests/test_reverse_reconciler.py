@@ -16,8 +16,6 @@ walk from.
 from __future__ import annotations
 
 import json
-import textwrap
-from datetime import datetime, timezone
 from unittest.mock import patch
 
 import pytest
