@@ -15,6 +15,7 @@ from src.web.api.routers import backtests as backtests_router
 from src.web.api.routers import bot_config as bot_config_router
 from src.web.api.routers import dashboard as dashboard_router
 from src.web.api.routers import diag as diag_router
+from src.web.api.routers import health_snapshots as health_snapshots_router
 from src.web.api.routers import liquidity as liquidity_router
 from src.web.api.routers import pnl as pnl_router
 from src.web.api.routers import pnl_exchange as pnl_exchange_router
@@ -23,6 +24,7 @@ from src.web.api.routers import pnl_history as pnl_history_router
 from src.web.api.routers import shadow as shadow_router
 from src.web.api.routers import status as status_router
 from src.web.api.routers import status_fragment as status_fragment_router
+from src.web.api.routers import trade_scores as trade_scores_router
 from src.web.api.routers import trades_closed as trades_closed_router
 
 app = FastAPI(title="ICT Trading Bot — Dashboard API", version="0.2.0")
@@ -54,6 +56,8 @@ app.include_router(backtests_router.router)
 app.include_router(pnl_exchange_router.router)
 app.include_router(diag_router.router)
 app.include_router(shadow_router.router)
+app.include_router(health_snapshots_router.router)
+app.include_router(trade_scores_router.router)
 
 
 @app.get("/api/health", tags=["health"])

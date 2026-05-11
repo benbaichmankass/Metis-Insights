@@ -233,7 +233,8 @@ async def get_positions() -> list[dict[str, Any]]:
             cur.execute(
                 """
                 SELECT id, account_id, symbol, direction, position_size,
-                       entry_price, COALESCE(pnl, 0), created_at
+                       entry_price, COALESCE(pnl, 0), created_at,
+                       stop_loss, take_profit_1, strategy_name
                 FROM trades
                 WHERE status = 'open'
                   AND COALESCE(is_backtest, 0) = 0
@@ -245,10 +246,6 @@ async def get_positions() -> list[dict[str, Any]]:
         finally:
             conn.close()
     except sqlite3.Error:
-        # Structural failures (missing column, locked DB, corrupt file)
-        # are silent today — log loudly so the next regression is caught
-        # before it ships. Endpoint stays best-effort: returns [] so the
-        # dashboard's PositionsPanel keeps rendering.
         logger.exception("dashboard: /positions sqlite read failed")
         return []
     return [
@@ -261,6 +258,9 @@ async def get_positions() -> list[dict[str, Any]]:
             "entryPrice": r[5],
             "unrealizedPnl": round(float(r[6]), 2),
             "openedAt": r[7],
+            "stopLoss": float(r[8]) if r[8] is not None else None,
+            "takeProfit": float(r[9]) if r[9] is not None else None,
+            "pattern": r[10] if r[10] else None,
         }
         for r in rows
     ]
