@@ -22,9 +22,53 @@ AUDIT_LINES="${AUDIT_LINES:-200}"
 
 log "Collecting recent logs…"
 
-echo "===== journalctl -u ict-trader-live -n ${JOURNAL_LINES} ====="
-journalctl -u ict-trader-live.service -n "${JOURNAL_LINES}" --no-pager 2>/dev/null || \
-    echo "(journalctl unavailable for ict-trader-live)"
+# Section ordering is intentional: operator-actions truncates this
+# bundle to the last 50 KB before posting back to the issue comment
+# (the issue API caps at 65 KB). The MOST diagnostically useful
+# content has to live at the BOTTOM of the bundle so it survives
+# truncation. Order, lowest-priority first → highest-priority last:
+#
+#   1. status.json + cloudflared URL  (tiny + rarely useful)
+#   2. journalctl ict-web-api          (web-api context)
+#   3. journalctl ict-telegram-bot     (telegram-side errors)
+#   4. signal_audit.jsonl tail         (pipeline behaviour)
+#   5. journalctl ict-trader-live      (the bot's own python log — what
+#                                       you almost always actually need)
+#
+# Pre-2026-05-11 the order was inverted and an incident's bot.log was
+# truncated out of the 50 KB window. Don't rearrange without measuring
+# the truncation cutoff.
+
+echo "===== runtime_logs/status.json ====="
+STATUS="${REPO_DIR}/runtime_logs/status.json"
+if [ -f "${STATUS}" ]; then
+    cat "${STATUS}"
+else
+    echo "(no status.json yet)"
+fi
+echo
+
+# Cloudflare quick-tunnel URL — written by setup_cloudflare_tunnel.sh
+# on every (re)start.
+echo "===== runtime_logs/cloudflared_tunnel_url.txt ====="
+TUNNEL_URL="${REPO_DIR}/runtime_logs/cloudflared_tunnel_url.txt"
+if [ -f "${TUNNEL_URL}" ]; then
+    cat "${TUNNEL_URL}"
+else
+    echo "(no cloudflared tunnel URL recorded — tunnel may not be running)"
+fi
+echo
+
+echo "===== runtime_logs/heartbeat.txt + runtime_status.json (mtimes) ====="
+HEARTBEAT="${REPO_DIR}/runtime_logs/heartbeat.txt"
+RUNTIME_STATUS="${REPO_DIR}/runtime_logs/runtime_status.json"
+for f in "${HEARTBEAT}" "${RUNTIME_STATUS}"; do
+    if [ -f "$f" ]; then
+        stat -c '%n  mtime=%y  size=%s' "$f" 2>/dev/null || ls -la "$f"
+    else
+        echo "$f  (missing)"
+    fi
+done
 echo
 
 echo "===== journalctl -u ict-web-api -n ${JOURNAL_LINES} ====="
@@ -46,26 +90,10 @@ else
 fi
 echo
 
-echo "===== runtime_logs/status.json ====="
-STATUS="${REPO_DIR}/runtime_logs/status.json"
-if [ -f "${STATUS}" ]; then
-    cat "${STATUS}"
-else
-    echo "(no status.json yet)"
-fi
-echo
-
-# Cloudflare quick-tunnel URL — written by setup_cloudflare_tunnel.sh
-# on every (re)start. Surfaced in the bundle so the operator-actions
-# issue comment carries the current public hostname for the dashboard's
-# Vercel rewrite, without needing a separate VM trip.
-echo "===== runtime_logs/cloudflared_tunnel_url.txt ====="
-TUNNEL_URL="${REPO_DIR}/runtime_logs/cloudflared_tunnel_url.txt"
-if [ -f "${TUNNEL_URL}" ]; then
-    cat "${TUNNEL_URL}"
-else
-    echo "(no cloudflared tunnel URL recorded — tunnel may not be running)"
-fi
+# Last on purpose — see ordering note at top of section.
+echo "===== journalctl -u ict-trader-live -n ${JOURNAL_LINES} ====="
+journalctl -u ict-trader-live.service -n "${JOURNAL_LINES}" --no-pager 2>/dev/null || \
+    echo "(journalctl unavailable for ict-trader-live)"
 
 record_audit "pull-latest-logs" "ok" \
     "{\"journal_lines\": ${JOURNAL_LINES}, \"audit_lines\": ${AUDIT_LINES}}" >/dev/null || true
