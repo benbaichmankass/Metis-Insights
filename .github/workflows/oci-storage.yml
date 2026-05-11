@@ -40,22 +40,29 @@ jobs:
     name: preflight (read-only)
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      # OCI CLI reads these env vars natively (since 2.5.x); no
+      # ~/.oci/config file needed.
+      OCI_CLI_USER: ${{ secrets.OCI_CLI_USER }}
+      OCI_CLI_TENANCY: ${{ secrets.OCI_CLI_TENANCY }}
+      OCI_CLI_FINGERPRINT: ${{ secrets.OCI_CLI_FINGERPRINT }}
+      OCI_CLI_KEY_CONTENT: ${{ secrets.OCI_CLI_KEY_CONTENT }}
+      OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION }}
+      OCI_COMPARTMENT_OCID: ${{ secrets.OCI_CLI_TENANCY }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install OCI CLI
-        uses: oracle-actions/setup-oci-cli@v1.3.2
+      - uses: actions/setup-python@v5
         with:
-          user: ${{ secrets.OCI_CLI_USER }}
-          tenancy: ${{ secrets.OCI_CLI_TENANCY }}
-          region: ${{ secrets.OCI_CLI_REGION }}
-          fingerprint: ${{ secrets.OCI_CLI_FINGERPRINT }}
-          privatekey: ${{ secrets.OCI_CLI_KEY_CONTENT }}
+          python-version: '3.11'
+
+      - name: Install OCI CLI
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install oci-cli
+          oci --version
 
       - name: List volumes
-        env:
-          OCI_COMPARTMENT_OCID: ${{ secrets.OCI_CLI_TENANCY }}
-          OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION }}
         run: bash scripts/oci_volume_status.sh
 
   storage-setup:
@@ -65,20 +72,25 @@ jobs:
     environment: production-oci
     timeout-minutes: 30
     env:
-      OCI_COMPARTMENT_OCID: ${{ secrets.OCI_CLI_TENANCY }}
+      OCI_CLI_USER: ${{ secrets.OCI_CLI_USER }}
+      OCI_CLI_TENANCY: ${{ secrets.OCI_CLI_TENANCY }}
+      OCI_CLI_FINGERPRINT: ${{ secrets.OCI_CLI_FINGERPRINT }}
+      OCI_CLI_KEY_CONTENT: ${{ secrets.OCI_CLI_KEY_CONTENT }}
       OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION }}
+      OCI_COMPARTMENT_OCID: ${{ secrets.OCI_CLI_TENANCY }}
       OCI_VOLUME_SIZE_GB: ${{ inputs.volume_size_gb }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install OCI CLI
-        uses: oracle-actions/setup-oci-cli@v1.3.2
+      - uses: actions/setup-python@v5
         with:
-          user: ${{ secrets.OCI_CLI_USER }}
-          tenancy: ${{ secrets.OCI_CLI_TENANCY }}
-          region: ${{ secrets.OCI_CLI_REGION }}
-          fingerprint: ${{ secrets.OCI_CLI_FINGERPRINT }}
-          privatekey: ${{ secrets.OCI_CLI_KEY_CONTENT }}
+          python-version: '3.11'
+
+      - name: Install OCI CLI
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install oci-cli
+          oci --version
 
       - name: Install VM SSH key
         env:
