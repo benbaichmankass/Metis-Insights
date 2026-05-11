@@ -96,6 +96,8 @@ src/
         trades_closed.py — /api/bot/trades/closed (#557)
         backtests.py    — /api/bot/backtests (M5 P4)
         shadow.py       — /api/bot/shadow/{predictions,stats} (S-AI-WS8-PART-2)
+        health_snapshots.py — /api/bot/health/{latest,history,snapshot,services} (#820, 2026-05-11)
+        trade_scores.py — /api/bot/trades/scores (#820, 2026-05-11)
         diag.py         — /api/diag/* endpoints (S-051, token-gated read)
         pnl.py          — /api/pnl
         pnl_history.py  — /api/pnl/history (S-063, no-session)
@@ -127,6 +129,11 @@ Unauthenticated GET routes — Tier 1 read surface. See
 | `GET /api/bot/shadow/predictions?limit=N&model_id=X&stage=X&since=ISO` | envelope `{log_present, log_path, records[], count}` (S-AI-WS8-PART-2) | `runtime_logs/shadow_predictions.jsonl` (WS7 audit log); newest-first; reuses `ml.shadow.inspector` |
 | `GET /api/bot/shadow/stats?model_id=X&stage=X&since=ISO` | envelope `{log_present, log_path, records[], count}` per-`(model_id, stage)` aggregate (S-AI-WS8-PART-2) | same log; aggregated via `ml.shadow.inspector.aggregate` |
 | `GET /api/bot/shadow/drift?model_id=X&stage=X&reference_days=N&current_days=N&bins=N&score_min=F&score_max=F` | drift envelope `{log_present, log_path, model_id, stage, reference_window_start, current_window_start, reference_count, current_count, verdict, ks, ks_verdict, psi, psi_verdict, reference_mean, current_mean, reference_stdev, current_stdev}` (S-AI-WS8-PART-3) | same log; window-over-window score-distribution comparison via `ml.shadow.drift.compute_drift` (KS + PSI) |
+| `GET /api/bot/health/latest` | `{present, path, snapshot}` envelope wrapping the most recent `artifacts/health/latest.json` (#820, 2026-05-11) | `artifacts/health/latest.json` |
+| `GET /api/bot/health/history?hours=N&include_payload=BOOL` | `{present, dir, hours, snapshots[]}` — newest-first timestamped snapshots (#820, 2026-05-11). `hours` clamped 1..336 (default 24); `include_payload=true` embeds each snapshot's full JSON | `artifacts/health/health_check_<TS>.json` files |
+| `GET /api/bot/health/snapshot?lines=N` | `{present, path, lines[]}` tail of the raw text snapshot (#820, 2026-05-11) | `artifacts/health/health_snapshot.txt` |
+| `GET /api/bot/health/services` | `{systemctl_available, services: [{unit, state, sub_state, active_enter_iso}, ...]}` for the allowlisted bot units (#820, 2026-05-11) | `systemctl show` against `ict-trader-live.service` + `ict-web-api.service` |
+| `GET /api/bot/trades/scores?limit=N&include_open=BOOL` | `{log_present, log_path, shadow_record_count, trades: [{trade_id, symbol, status, opened_at, closed_at, scores[]}, ...]}` — per-trade shadow-prediction score aggregates within each trade's open window (#820, 2026-05-11) | `trade_journal.db::trades` JOIN `runtime_logs/shadow_predictions.jsonl` |
 | `GET /api/pnl/history?days=N` | `PnlHistoryPoint[]` (S-063) | `trade_journal.db` (closed trades, realised PnL per UTC day) |
 
 ### `BotStats` shape
@@ -141,6 +148,30 @@ Unauthenticated GET routes — Tier 1 read surface. See
   "vmHealth": { "cpu": 32.1, "memory": 48.5, "disk": 21.0 }
 }
 ```
+
+### `Position` shape (`/api/bot/positions`)
+```json
+{
+  "id": "42",
+  "account": "bybit_2",
+  "symbol": "BTCUSDT",
+  "side": "buy",
+  "qty": 0.001,
+  "entryPrice": 80700,
+  "unrealizedPnl": 12.45,
+  "openedAt": "2026-05-11T03:00:00Z",
+  "stopLoss": 80300,
+  "takeProfit": 81450,
+  "pattern": "vwap"
+}
+```
+
+`stopLoss` / `takeProfit` / `pattern` were added in #820 (2026-05-11) so the
+dashboard's live overview chart can render TP/SL price-lines and the
+positions table can show the active strategy. Each is **nullable** —
+older rows or rows where the writer didn't populate the field serialize
+as `null`. Renderers must treat null as "not provided" (em-dash) rather
+than `0` / `"unknown"`.
 
 ## CORS
 CORS is configured in `src/web/api/main.py`. Allowed origins:
