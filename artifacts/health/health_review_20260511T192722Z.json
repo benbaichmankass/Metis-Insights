@@ -1,0 +1,148 @@
+{
+  "request_id": "REQ-20260511-192722-25692301993",
+  "reviewed_at": "2026-05-11T19:50:00+00:00",
+  "reviewer": "claude",
+  "overall_assessment": "caution",
+  "findings": {
+    "heartbeat": {
+      "status": "concern",
+      "note": "Last heartbeat 2026-05-11T10:01:30Z (tick=53), age ~9.43h at snapshot. All processes restarted ~17:40Z; no new heartbeat in 1h47m since restart. Tick ingestion may be stalled post-restart."
+    },
+    "ticks": {
+      "status": "concern",
+      "note": "Zero tick events in 1440m lookback. Trading occurred until 15:12Z implying ticks were flowing earlier. Post-restart (~17:40Z) zero ticks registered in 1h47m. Market may be closed or data feed lost on restart."
+    },
+    "signals": {
+      "status": "concern",
+      "note": "Zero signal-eval events in 1440m. Audit log (signal_audit.jsonl) last event 14:27:41Z (smoke_open_result), 4.9h stale at snapshot. Signal audit logging appears non-functional regardless of whether trading is active."
+    },
+    "orders": {
+      "status": "ok",
+      "note": "6 order packages, all closed, all BTCUSDT long via vwap. Last package closed 15:12Z. No stuck or open packages. Normal lifecycle observed."
+    },
+    "trades": {
+      "status": "ok",
+      "note": "8 trades today (all BTCUSDT long). Net day PnL: +$6.86. 4 of 6 strategy trades profitable. 2 adopted_orphan at $0.00. Zero open positions. DB integrity OK."
+    },
+    "monitoring": {
+      "status": "concern",
+      "note": "Zero monitor/watchdog events in 1440m lookback. No periodic watchdog pings or alerts logged in 24h window."
+    },
+    "sizing": {
+      "status": "ok",
+      "note": "No explicit sizing data in snapshot. All orders via vwap on bybit_2. No concurrent open positions. No oversizing signals apparent."
+    },
+    "api_errors": {
+      "status": "ok",
+      "note": "Telegram API polling clean: 200 OK every 10s from 19:19-19:27Z. Error log shows only stale entries: Apr-19 Conflict and May 7-8 network issues. No current errors."
+    },
+    "state_consistency": {
+      "status": "ok",
+      "note": "DB integrity check passed. 0 open positions. 1150 trades / 715 packages consistent. DB last write 15:13Z aligns with last trade close at 15:12Z."
+    },
+    "alert_delivery": {
+      "status": "ok",
+      "note": "Telegram polling active and healthy. Claude bridge (PID 97508) running. No delivery failures in current log window."
+    },
+    "strategy_silence": {
+      "status": "watch",
+      "note": "No new orders or trades since 15:12Z (4h+ silence). Post-restart (~17:40Z) the engine has run 1h47m with zero activity. Could be market hours or data feed broken post-restart."
+    },
+    "db_integrity": {
+      "status": "ok",
+      "note": "SQLite integrity_check: ok. DB 4.7MB on /data ext4 (93G free). All systemd services have correct DATA_DIR + TRADE_JOURNAL_DB env vars."
+    },
+    "audit_log_freshness": {
+      "status": "watch",
+      "note": "Audit JSONL last event 14:27:41Z (smoke_open_result), 4.9h stale. Zero events in last hour. May indicate audit logging broken post-restart."
+    }
+  },
+  "anomalies": [
+    "All 4 processes (src.main, uvicorn, claude_bridge, telegram_query_bot) show ~01:46 uptime at 19:27Z, indicating a coordinated restart at ~17:40Z. Cause unknown — no crash logs visible in snapshot.",
+    "Heartbeat stale 9.43h. The heartbeat.txt was last written at 10:01Z (tick=53) by the pre-restart process. The post-restart process has not written any heartbeat in 1h47m, suggesting tick ingest did not reconnect.",
+    "Zero ticks and zero signals in 1440m while 8 trades occurred today — tick/signal audit logging appears non-functional independently of whether trading is active.",
+    "Zero monitoring/watchdog events in 1440m — watchdog completely silent.",
+    "Pipeline smoke test: exchange client is None (AttributeError on place_order). Expected for dry-run mode but worth noting if live client is also None post-restart.",
+    "Two adjacent trades (1148 at -$1.61, 1149 at +$3.58) only 3 min apart at 14:29-14:33Z: quick stop-out followed by re-entry. Acceptable but monitor for chasing patterns."
+  ],
+  "trade_decision_grades": [
+    {
+      "trade_id": 1147,
+      "timestamp": "2026-05-11T13:38:00+00:00",
+      "symbol": "BTCUSDT",
+      "direction": "long",
+      "setup": "vwap",
+      "entry_price": 0.0,
+      "exit_price": 0.0,
+      "stop_loss": 0.0,
+      "take_profit_1": 0.0,
+      "position_size": 0.0,
+      "exit_reason": "unknown",
+      "decision_grade": "B",
+      "entry_quality": "unknown",
+      "exit_quality": "unknown",
+      "risk_management": "unknown",
+      "rationale": "VWAP long win +$4.01. No price/size data in snapshot. Profitable outcome consistent with strategy intent. Default B for strategy-followed winning trade.",
+      "alternative_action": "none — insufficient price data to suggest specific improvement"
+    },
+    {
+      "trade_id": 1148,
+      "timestamp": "2026-05-11T14:29:57+00:00",
+      "symbol": "BTCUSDT",
+      "direction": "long",
+      "setup": "vwap",
+      "entry_price": 0.0,
+      "exit_price": 0.0,
+      "stop_loss": 0.0,
+      "take_profit_1": 0.0,
+      "position_size": 0.0,
+      "exit_reason": "sl_hit",
+      "decision_grade": "B",
+      "entry_quality": "unknown",
+      "exit_quality": "sl_appropriate",
+      "risk_management": "unknown",
+      "rationale": "VWAP long loss -$1.61, closed in ~2.5 min (14:29-14:32). Quick stop-out. Loss small and contained; stop hit correctly. B absent context for why setup triggered.",
+      "alternative_action": "Review VWAP entry quality for rapid-reversal setups at this time of day"
+    },
+    {
+      "trade_id": 1149,
+      "timestamp": "2026-05-11T14:33:31+00:00",
+      "symbol": "BTCUSDT",
+      "direction": "long",
+      "setup": "vwap",
+      "entry_price": 0.0,
+      "exit_price": 0.0,
+      "stop_loss": 0.0,
+      "take_profit_1": 0.0,
+      "position_size": 0.0,
+      "exit_reason": "unknown",
+      "decision_grade": "B",
+      "entry_quality": "unknown",
+      "exit_quality": "unknown",
+      "risk_management": "unknown",
+      "rationale": "VWAP long win +$3.58, re-entry 1 min after prior stop-out, held ~39 min. Recovery re-entry that worked. Grade B; monitor if rapid back-to-back re-entries recur.",
+      "alternative_action": "Verify re-entry cooldown rules — back-to-back entry within 1 min of stop-out may be chasing"
+    },
+    {
+      "trade_id": 1150,
+      "timestamp": "2026-05-11T15:12:07+00:00",
+      "symbol": "BTCUSDT",
+      "direction": "long",
+      "setup": "adopted_orphan",
+      "entry_price": 0.0,
+      "exit_price": 0.0,
+      "stop_loss": 0.0,
+      "take_profit_1": 0.0,
+      "position_size": 0.0,
+      "exit_reason": "unknown",
+      "decision_grade": "B",
+      "entry_quality": "unknown",
+      "exit_quality": "unknown",
+      "risk_management": "unknown",
+      "rationale": "Adopted orphan closed at $0.00 PnL (breakeven). Orphan adoption is a recovery mechanism, not a strategy signal. Breakeven closure is the best expected outcome.",
+      "alternative_action": "none — orphan adoption at breakeven is correct behavior"
+    }
+  ],
+  "recommended_action": "OPERATOR ACTION NEEDED: (1) Check systemd journal for why all 4 processes restarted at ~17:40Z (journalctl -u ict-trader-live --since '17:30' --until '18:00'). (2) Verify tick data feed reconnected post-restart — no heartbeat in 1h47m strongly suggests the WebSocket/data connection did not re-establish. Manual reconnect or service restart may be needed. (3) Investigate why signal/tick/monitoring audit logging is silent even when trading was active earlier. (4) If no heartbeat or new trade by 21:00Z, manually restart the trader service.",
+  "operator_attention_required": true
+}
