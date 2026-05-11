@@ -245,6 +245,63 @@ jobs:
             --repo "${{ github.repository }}" \
             "${{ steps.cpr.outputs.pull-request-number }}"
 
+      - name: Compute preflight verdict (green/red light)
+        # Deterministic green/red light derived from the snapshot facts
+        # WITHOUT calling layer 1. Lets the operator-facing ping say
+        # "✅ no urgent action" vs "🚨 run /health-review NOW" based on
+        # facts that don't need an LLM:
+        #   - heartbeat age < cadence×3 (180s with the 60s heartbeat)
+        #   - snapshot file present and non-trivial in size
+        #   - pipeline-test status in {ok, warn} (warn covers the
+        #     plumbing-on-rejection path which is the expected outcome
+        #     when no exchange client is wired into the smoke).
+        # If all three pass → green light. Otherwise → red light, with
+        # the first failing check as the reason. Both branches still
+        # post the ping; only the urgency framing differs.
+        id: preflight
+        if: always() && steps.cpr.outputs.pull-request-number != ''
+        run: |
+          set -eu
+          python3 - <<'PY' >>"$GITHUB_OUTPUT"
+          import json, os, re, sys
+          from pathlib import Path
+
+          snap = Path("artifacts/health/health_snapshot.txt")
+          pt   = Path("artifacts/health/pipeline_test.json")
+
+          reason = None
+          # 1. snapshot present + non-trivial
+          if not snap.exists() or snap.stat().st_size < 256:
+              reason = "snapshot missing or truncated"
+          # 2. heartbeat age < 180s
+          if reason is None:
+              text = snap.read_text(encoding="utf-8", errors="replace")
+              m = re.search(r"^age_seconds:\s*(\d+)", text, re.MULTILINE)
+              if not m:
+                  reason = "heartbeat age not found in snapshot"
+              else:
+                  age = int(m.group(1))
+                  if age >= 180:
+                      reason = f"heartbeat stale ({age}s, threshold 180s)"
+          # 3. pipeline-test status acceptable
+          if reason is None and pt.exists():
+              try:
+                  status = json.loads(pt.read_text()).get("status", "")
+                  if status not in ("ok", "warn"):
+                      reason = f"pipeline-test status={status}"
+              except json.JSONDecodeError:
+                  reason = "pipeline_test.json unparseable"
+          # If pt missing, we treat it as warn-equivalent (collector path
+          # didn't run; not a red on its own).
+
+          if reason is None:
+              print("light=green")
+              print("light_reason=heartbeat fresh, pipeline-test acceptable")
+          else:
+              print("light=red")
+              print(f"light_reason={reason}")
+          PY
+
       - name: Notify operator (run /health-review)
         # The operator-facing ping. Wording is deliberately
         # action-oriented — when auto-merge succeeds, the operator's
@@ -253,6 +310,13 @@ jobs:
         # produced. The slash command auto-picks the latest request
         # so the REQ-id is informational only (parenthetical at the
         # end of the message), not part of the imperative.
+        #
+        # The leading green/red light comes from the preflight step
+        # above — it tells the operator at a glance whether they
+        # should drop what they're doing to run /health-review, or
+        # whether they can leave it for later. Green never blocks an
+        # actual problem (the layer-2 review is still the authority),
+        # it just defers the urgency.
         #
         # Note: --auto QUEUES the merge, so this step's
         # `steps.automerge.outcome == "success"` only confirms the
@@ -265,6 +329,8 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.CLAUDE_TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           MERGE_OUTCOME: ${{ steps.automerge.outcome }}
+          LIGHT: ${{ steps.preflight.outputs.light }}
+          LIGHT_REASON: ${{ steps.preflight.outputs.light_reason }}
         run: |
           set -eu
           PR_NUM="${{ steps.cpr.outputs.pull-request-number }}"
@@ -272,17 +338,24 @@ jobs:
           STATUS="${{ steps.analyze.outputs.status }}"
           PIPELINE="${{ steps.analyze.outputs.pipeline_status }}"
           REQ_ID="${{ steps.review_request.outputs.request_id }}"
-          if [ "${MERGE_OUTCOME:-skipped}" = "success" ]; then
-            phrase="auto-merge queued — once it lands, run /health-review for the layer-2 review"
+          if [ "${LIGHT:-red}" = "green" ]; then
+            light_emoji="✅"
+            urgency="no urgent action — run /health-review at your convenience"
           else
-            phrase="open (auto-merge queue ${MERGE_OUTCOME:-skipped}) — merge the PR, then run /health-review"
+            light_emoji="🚨"
+            urgency="RUN /health-review NOW — ${LIGHT_REASON:-preflight tripped}"
+          fi
+          if [ "${MERGE_OUTCOME:-skipped}" = "success" ]; then
+            merge_phrase="auto-merge queued"
+          else
+            merge_phrase="auto-merge ${MERGE_OUTCOME:-skipped}; merge manually"
           fi
           # Capture the helper's exit code so the issue-driven path can
           # surface "Telegram ping arrived?" in the trigger-issue
           # comment without making telegram failure fatal to the run.
           set +e
           PYTHONPATH=. python scripts/notify_session.py alert \
-            --summary "Health review PR #${PR_NUM} ${phrase} (machine: ${STATUS:-UNKNOWN}, pipeline: ${PIPELINE:-unknown}, latest req: ${REQ_ID})" \
+            --summary "${light_emoji} Health snapshot ${LIGHT:-red} — ${urgency} (PR #${PR_NUM}, ${merge_phrase}; pipeline: ${PIPELINE:-unknown}; req: ${REQ_ID})" \
             --link "$PR_URL"
           tg_rc=$?
           set -e

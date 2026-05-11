@@ -48,15 +48,29 @@ every cycle by squash-merging a labelled PR. Read these files:
 
 ## Argument handling
 
-If the user invoked the skill with no argument: pick the most recent
-`comms/requests/REQ-*.json` (newest `created_at`).
+**Default (no argument): review every pending request since the last
+review.** Pick every `comms/requests/REQ-*.json` file whose `status`
+field is `"pending"`, sort by `created_at` ascending, and produce one
+response object per request. This prevents earlier snapshots from
+being silently dropped when a later one supersedes them (the workflow
+fires every 6h on a cron; a slow review window can accumulate 2–3
+pending requests, and each represents a separate machine snapshot the
+operator deserves a verdict on). If there are no pending requests,
+say so in plain text and stop.
+
+A single diag-relay fetch covers all of them — "current live state"
+is shared. Findings, anomalies, and trade grades are computed once
+and replicated across each per-request response, with `request_id`
+and `reviewed_at` distinct per entry. See § Output for the array
+shape.
 
 If the user invoked it with a `REQ-YYYYMMDD-HHMMSS-<digits>` argument:
-read `comms/requests/<that-id>.json` directly.
+read `comms/requests/<that-id>.json` directly and emit a single
+response object (legacy single-request mode).
 
 If the user invoked it with an all-digits workflow run id: glob
 `comms/requests/REQ-*-<run_id>.json` (the suffix matches the GitHub
-`run_id`).
+`run_id`) and emit a single response object.
 
 ## Mandatory pre-review step — fetch the live 6-hour log window
 
@@ -328,12 +342,27 @@ Status grades:
 
 ## Output
 
-Emit a single JSON object — no prose, no markdown fences, no leading
-or trailing whitespace beyond the JSON. Conform to
+**Single-request mode** (the user passed an explicit `REQ-…` or run
+id): emit a single JSON object — no prose, no markdown fences, no
+leading or trailing whitespace beyond the JSON. Conform to
 `comms/schema/health_review_response.template.json` exactly. Populate
 every field. Use the request's `request_id` verbatim. Set
 `reviewed_at` to the current UTC ISO-8601 timestamp. Set `reviewer`
 to `claude`.
+
+**Multi-request mode** (default — N pending requests since last
+review): emit a single JSON array containing N response objects, one
+per pending request, sorted by request `created_at` ascending. Each
+element conforms to the same schema as single-request mode. The
+shared fields (`findings`, `anomalies`, `trade_decision_grades`,
+`recommended_action`, `operator_attention_required`) are computed
+once from the single diag-relay pull and replicated verbatim across
+every entry; only `request_id` and `reviewed_at` differ per element
+(every element uses the same `reviewed_at` — they were all reviewed
+in the same pass).
+
+When N=1, emit the single object form (not a one-element array) so
+the response stays byte-identical to the legacy shape.
 
 Schema reminder:
 
