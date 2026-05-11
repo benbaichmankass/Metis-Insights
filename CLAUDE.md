@@ -100,7 +100,7 @@ src/
         pnl.py          — /api/pnl
         pnl_history.py  — /api/pnl/history (S-063, no-session)
         status.py       — /api/status
-    runtime_status.py   — writes runtime_logs/status.json (DO NOT DELETE—imported by pipeline)
+    runtime_status.py   — writes runtime_logs/runtime_status.json (DO NOT DELETE—imported by pipeline)
 runtime_logs/
   signal_audit.jsonl    — structured pipeline audit log (primary log source for dashboard)
   validation.jsonl      — M5 backtest-run audit log (one NDJSON row per /test invocation)
