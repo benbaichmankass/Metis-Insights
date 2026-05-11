@@ -22,8 +22,15 @@ jobs:
           fetch-depth: 0
 
       - name: Compute diff against base
+        # `git fetch --depth=1` would SHALLOW origin/main back to its
+        # latest tip — overriding the full history that
+        # `actions/checkout@v4 fetch-depth: 0` just gave us. Without
+        # the merge base, `git diff origin/main...HEAD` fails with
+        # "no merge base" and the step aborts under `bash -e`. We've
+        # already fetched everything; the explicit fetch here is just
+        # for freshness of the base ref tip, no depth limit needed.
         run: |
-          git fetch origin "${{ github.base_ref }}" --depth=1
+          git fetch origin "${{ github.base_ref }}"
           git diff "origin/${{ github.base_ref }}"...HEAD > /tmp/pr.diff
           wc -l /tmp/pr.diff
 
