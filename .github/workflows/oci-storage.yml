@@ -193,6 +193,17 @@ jobs:
           bash scripts/oci_vm_ssh.sh 'bash -s' <<'REMOTE'
           set -euo pipefail
           SRC=/home/ubuntu/ict-trading-bot/deploy/dropins/data-dir.conf
+          # Gate on the unit file existing on disk (matches the same
+          # gate migrate_journal_db.sh uses to decide whether to stop
+          # the service). Do NOT gate on `systemctl is-enabled` —
+          # `is-enabled` returns exit 1 for "linked" units (those
+          # installed via `systemctl link <abs-path>` rather than
+          # `enable`), which on this VM applies to ict-web-api and
+          # ict-claude-bridge. Run #6 silently skipped them, leaving
+          # both inactive after migrate_journal_db.sh stopped them
+          # for the DB copy. The list-unit-files gate is the right
+          # one — if the unit file exists at all, it's installed enough
+          # to be the target of a restart.
           for svc in ict-trader-live ict-web-api ict-claude-bridge; do
               if systemctl list-unit-files "${svc}.service" >/dev/null 2>&1; then
                   sudo install -d "/etc/systemd/system/${svc}.service.d"
@@ -203,9 +214,27 @@ jobs:
           # Restart picks up the new env vars (DATA_DIR + TRADE_JOURNAL_DB).
           # If migrate_journal_db.sh just stopped these services, the
           # restart is a clean cold-start onto the new DB path.
+          # `systemctl start` is idempotent — no-op on a running unit,
+          # cold-start on a stopped one. `restart` is also fine but
+          # `start` is the more conservative verb when we know some
+          # units are intentionally stopped by the previous step.
           for svc in ict-trader-live ict-web-api ict-claude-bridge; do
-              if systemctl is-enabled "$svc" >/dev/null 2>&1; then
+              if systemctl list-unit-files "${svc}.service" >/dev/null 2>&1; then
                   sudo systemctl restart "$svc" || true
+              fi
+          done
+          # Belt-and-braces: if any of the three is still inactive
+          # after restart (e.g. unit refused to start), fail loudly
+          # so the workflow doesn't quietly leave the trader half-up.
+          for svc in ict-trader-live ict-web-api ict-claude-bridge; do
+              if systemctl list-unit-files "${svc}.service" >/dev/null 2>&1; then
+                  state=$(systemctl is-active "$svc" 2>&1 || true)
+                  if [ "$state" != "active" ]; then
+                      echo "::error::$svc is $state after restart attempt" >&2
+                      systemctl status --no-pager "$svc" || true
+                      journalctl -u "$svc" -n 50 --no-pager || true
+                      exit 5
+                  fi
               fi
           done
           REMOTE
