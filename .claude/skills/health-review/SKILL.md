@@ -28,8 +28,8 @@ every cycle by squash-merging a labelled PR. Read these files:
   `LayerOneSkipped` — that's expected, not a problem.
 - `artifacts/health/health_snapshot.txt` — raw VM snapshot. Sectioned
   with `=== NAME ===` headers (META, PROCESSES, HEARTBEAT, TICKS,
-  SIGNALS, ORDERS, TRADES, POSITIONS, MONITORING, API, ERRORS, VM,
-  END). This is the source of truth.
+  SIGNALS, ORDERS, TRADES, POSITIONS, MONITORING, API, ERRORS,
+  STORAGE, DB, AUDIT_LOG, VM, END). This is the source of truth.
 - `artifacts/health/pipeline_test.json` (when present) — active
   dry-run smoke result from the live trader's
   `scripts/smoke_test_trade.py --dry-run`.
@@ -329,6 +329,33 @@ Map findings to the layer-2 dimensions (these differ from layer 1):
   silence was indistinguishable from "no signal." Fixed in PR
   that adds `vwap_eval`; if a future strategy is added without
   an audit emitter, this check is what catches it.
+- `db_integrity` — read the `=== DB ===` block in the snapshot.
+  `integrity_check` should be `ok`; any other value (`malformed
+  disk image`, `index <N> has wrong # of entries`, etc.) is an
+  immediate `concern` with `operator_attention_required: true`.
+  Also weigh:
+  - `age_seconds` — for a live trader this should be small (single
+    digits during active sessions, ≤ a few minutes during quiet
+    windows). An age > 1h while signals/ticks are firing in the
+    diag pull means the trader has stopped writing to the journal
+    → `concern`.
+  - `<table>_total` counts — should be non-decreasing run over run.
+    A drop indicates accidental truncation or a restore from an
+    older snapshot.
+  - `-wal` / `-shm` size — large WAL files (> 100 MB) with a small
+    main DB suggest a stuck checkpoint; surface as `watch`.
+  Grade `watch` for soft signals (large WAL, mtime modestly stale);
+  reserve `concern` for integrity failures or hours-stale mtimes.
+- `audit_log_freshness` — read the `=== AUDIT_LOG ===` block.
+  `events_last_hour` should be > 0 during any active trading
+  session (every tick writes a `pipeline_result` event). Zero
+  events while the heartbeat is fresh → `concern` (writer crash or
+  silent path divergence). `age_seconds > 600` while
+  `heartbeat.age_seconds < 60` → same `concern`. If both the
+  audit log and heartbeat are stale, that's `heartbeat`'s
+  responsibility — don't double-report. The `last_event` line
+  helps spot a writer that "looks" fresh because of a `touch` but
+  has no real events flowing.
 
 Status grades:
 - `ok`       — no anomaly worth flagging.
@@ -373,17 +400,19 @@ Schema reminder:
   "reviewer": "claude",
   "overall_assessment": "healthy | caution | investigate",
   "findings": {
-    "heartbeat":          {"status": "ok | watch | concern", "note": "..."},
-    "ticks":              {"status": "ok | watch | concern", "note": "..."},
-    "signals":            {"status": "ok | watch | concern", "note": "..."},
-    "orders":             {"status": "ok | watch | concern", "note": "..."},
-    "trades":             {"status": "ok | watch | concern", "note": "..."},
-    "monitoring":         {"status": "ok | watch | concern", "note": "..."},
-    "sizing":             {"status": "ok | watch | concern", "note": "..."},
-    "api_errors":         {"status": "ok | watch | concern", "note": "..."},
-    "state_consistency":  {"status": "ok | watch | concern", "note": "..."},
-    "alert_delivery":     {"status": "ok | watch | concern", "note": "..."},
-    "strategy_silence":   {"status": "ok | watch | concern", "note": "..."}
+    "heartbeat":           {"status": "ok | watch | concern", "note": "..."},
+    "ticks":               {"status": "ok | watch | concern", "note": "..."},
+    "signals":             {"status": "ok | watch | concern", "note": "..."},
+    "orders":              {"status": "ok | watch | concern", "note": "..."},
+    "trades":              {"status": "ok | watch | concern", "note": "..."},
+    "monitoring":          {"status": "ok | watch | concern", "note": "..."},
+    "sizing":              {"status": "ok | watch | concern", "note": "..."},
+    "api_errors":          {"status": "ok | watch | concern", "note": "..."},
+    "state_consistency":   {"status": "ok | watch | concern", "note": "..."},
+    "alert_delivery":      {"status": "ok | watch | concern", "note": "..."},
+    "strategy_silence":    {"status": "ok | watch | concern", "note": "..."},
+    "db_integrity":        {"status": "ok | watch | concern", "note": "..."},
+    "audit_log_freshness": {"status": "ok | watch | concern", "note": "..."}
   },
   "anomalies": ["...free-form list..."],
   "trade_decision_grades": [
