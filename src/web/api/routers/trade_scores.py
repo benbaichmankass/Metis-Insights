@@ -101,7 +101,11 @@ def _shadow_records_safe() -> list:
         return []
     try:
         return list(iter_records(_SHADOW_LOG))
-    except Exception:  # noqa: BLE001
+    except (OSError, ValueError):
+        # OSError = file read failure (permissions, missing midway through tail).
+        # ValueError = inspector's malformed-record signal. Both are
+        # legitimate "no data this tick"; the endpoint stays best-effort and
+        # the dashboard shows an em-dash per trade.
         logger.exception("trade_scores: failed to read shadow predictions log")
         return []
 
