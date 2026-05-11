@@ -16,6 +16,38 @@
 > `the-lizardking/ict-trading-bot` references in historical sprint
 > summaries are preserved as record.
 
+## VM authority split (adopted 2026-05-11)
+
+Two VMs, two trust contracts. A Claude session is acting on exactly
+one of them at a time.
+
+| VM | Role | Trust contract | Default posture |
+|---|---|---|---|
+| `instance-20260414-1555` (`158.178.210.252`) | **Live trader** — runs `ict-trader-live.service`, holds money-at-risk | [`docs/claude/vm-operator-mode.md`](docs/claude/vm-operator-mode.md) | **Restricted.** Tier-1 read autonomous; Tier-2 mutations need operator ack (Telegram `/vm_write` or PM-side issue → `operator-actions.yml`); Tier-3 paths (live order code, risk caps, account-mode flips, key rotation) are hard-blocked regardless of approval. |
+| `ict-trainer-vm` (`VM.Standard.A1.Flex`, Ampere A1) | **Training center** — runs the ML lifecycle (datasets, training, registry, eval), no live trade authority of its own | [`docs/claude/trainer-vm-mode.md`](docs/claude/trainer-vm-mode.md) | **Autonomous.** Claude provisions, SSHes, installs, syncs read-only DB from live, runs training cycles, writes the registry up to `live_approved` stage, terminates + re-provisions — all without operator-in-the-loop. |
+
+The separation works because **the live trader has no path to load
+a model unless the operator edits `shadow_model_ids` in the strategy
+YAML on the live VM**. The registry stage is metadata; the YAML edit
+is the actual live-trading switch. Claude can autonomously promote a
+model to `live_approved` in the registry; only the operator can wire
+it into a strategy. See trainer-vm-mode.md § 5 for the full step-by-step.
+
+**Hard limits that survive the split** (apply on either VM):
+
+- Never SSH into the **live** VM from a trainer-scoped session.
+- Never merge a PR to `main` that touches `config/strategies.yaml`,
+  `config/accounts.yaml`, `config/risk_caps.yaml`,
+  `src/runtime/orders.py`, `src/runtime/risk_counters.py`, or any
+  unit file the live VM consumes. Open the PR, mark it draft,
+  ping the operator.
+- Never copy production secrets to the trainer.
+- Never provision past the OCI Always Free 4-OCPU / 24-GB tenancy
+  ceiling. Live trader holds 1 / 6; trainer holds 1 / 6; up to 2 / 12
+  remains for side-cars.
+
+When in doubt about scope, default to the **live-VM** rules and ask.
+
 ## Project-level skills (`/health-review`)
 
 This repo ships a **project-level Claude Code skill** at
