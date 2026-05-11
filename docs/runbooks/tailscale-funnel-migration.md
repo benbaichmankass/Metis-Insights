@@ -22,7 +22,7 @@ public HTTPS URL** of the form `https://ict-trader-live.<tailnet>.ts.net`
 that survives Tailscale daemon restarts, VM reboots, and key
 rotations. Free for the one-VM-one-port use case.
 
-## Operator setup (one-time)
+## Operator setup (one-time, browser-only — no VM SSH required)
 
 1. **Sign up for Tailscale** at https://login.tailscale.com (free).
    Recommended: sign in with the same email you use for ops.
@@ -36,49 +36,68 @@ rotations. Free for the one-VM-one-port use case.
    - Pre-approved: **yes** (only matters if device approval is on)
    - Tags: none
    - Expiration: **90 days** (max)
-   Copy the `tskey-auth-...` value — you'll paste it once in step 5.
-4. **Approve Funnel for the device** (you do this after the device
-   first appears in your tailnet, i.e., after the first run of
-   `setup-tailscale-funnel` puts the VM in the tailnet) —
-   admin console → Machines → `ict-trader-live` → "Edit Funnel"
-   → enable for this device.
-5. **Put the auth key on the VM** (NOT in repo secrets — stays
-   local-only):
-   ```bash
-   ssh ubuntu@158.178.210.252
-   sudo mkdir -p /etc/ict-trader
-   sudo install -m 600 /dev/null /etc/ict-trader/tailscale.env
-   echo 'TS_AUTHKEY=tskey-auth-...' | sudo tee /etc/ict-trader/tailscale.env
-   ```
+   Copy the `tskey-auth-...` value — you'll paste it once in step 4.
+4. **Add the auth key as a GitHub Actions secret** —
+   github.com/benbaichmankass/ict-trading-bot → Settings →
+   Secrets and variables → Actions → "New repository secret":
+   - Name: `TS_AUTHKEY`
+   - Value: `tskey-auth-...` (paste from step 3)
+
+   The operator-actions workflow reads this secret only when
+   dispatching `setup-tailscale-funnel`, passes it to the VM as a
+   one-shot SSH env var, the wrapper consumes it once for
+   `tailscale up`, and immediately unsets it. The key never lands on
+   disk on the VM, never logs, never commits.
+5. **Approve Funnel for the device** — do this AFTER the first
+   successful run of `setup-tailscale-funnel`. The first run adds
+   the VM to your tailnet but Funnel is opt-in per-machine. So:
+     a. Dispatch `setup-tailscale-funnel` once (steps below).
+        It will succeed at `tailscale up` and fail-fast at the
+        Funnel step with a clear "Funnel not enabled for device"
+        error — that's the cue to do (b).
+     b. Admin console → Machines → `ict-trader-live` → "Edit Funnel"
+        → enable for this device.
+     c. Re-dispatch `setup-tailscale-funnel`. It's idempotent, so
+        the second run skips re-installing/re-authenticating and
+        just enables the Funnel exposure. The workflow comments
+        back with the public HTTPS URL.
 
 ## Dispatch the migration
 
-Once the prereqs above are in place, the migration is two operator
-actions plus a dashboard PR. From a Claude PM-side session, all three
-can be driven via labelled issues — no operator clicks needed past
-step 5.
+Once prereqs 1-4 are done, the migration is three labelled-issue
+dispatches plus a dashboard PR. Every step is GitHub-Action-driven;
+no VM SSH from the operator at any point. Each action requires
+operator approval before the workflow runs (per the operator-actions
+contract — the dispatching agent opens the issue, but only the
+operator can merge / approve the workflow run if the repo gating
+is enabled).
 
 ```text
-1.  operator-action: setup-tailscale-funnel
-        → installs tailscale on the VM, authenticates via TS_AUTHKEY,
-          enables Funnel on :8001, writes the public URL to
-          runtime_logs/tailscale_funnel_url.txt, prints the URL in
-          the workflow comment.
+1.  operator-action: setup-tailscale-funnel  (first run)
+        → installs tailscale on the VM, authenticates via the
+          TS_AUTHKEY secret passed over SSH, fails-fast at Funnel
+          enablement.
+        → operator does step 5(b) of "Operator setup" above
+          (admin-console click to enable Funnel for the device).
 
-2.  dashboard PR: patch ict-trader-dashboard/vercel.json
+2.  operator-action: setup-tailscale-funnel  (second run)
+        → idempotent re-run; this time Funnel succeeds. Workflow
+          comments back the public URL of the form
+          https://ict-trader-live.<tailnet>.ts.net.
+
+3.  dashboard PR: patch ict-trader-dashboard/vercel.json
         → set the rewrite destination to
-          https://<vm-hostname>.<tailnet>.ts.net/api/bot/:path*
-          (the URL printed in step 1).
+          https://<that-url>/api/bot/:path*
         → merge to main; Vercel auto-deploys.
 
-3.  operator-action: teardown-cloudflare-tunnel
+4.  operator-action: teardown-cloudflare-tunnel
         → stops the cloudflared quick-tunnel process and removes
           the @reboot crontab entry. The trycloudflare URL stops
           serving immediately. (Keep this step LAST, so we don't
           have a window where neither path is up.)
 ```
 
-After step 3, the dashboard talks to the bot over a stable HTTPS URL
+After step 4, the dashboard talks to the bot over a stable HTTPS URL
 that survives reboots and Tailscale daemon restarts. The next time
 this breaks, it's a real Tailscale outage (rare, Tailscale's edge has
 99.99%+ uptime SLA), not a "URL changed".

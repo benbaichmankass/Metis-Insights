@@ -12,7 +12,8 @@
 # every-restart-breaks-the-dashboard failure mode tracked in
 # scripts/ops/setup_cloudflare_tunnel.sh "named-tunnel follow-up".
 #
-# Prerequisites (operator does ONCE before invoking this action):
+# Prerequisites (operator does ONCE before invoking this action, all
+# from the browser — no VM SSH required):
 #   1. Sign up for Tailscale at https://login.tailscale.com (free).
 #   2. Admin console → Settings → DNS → "HTTPS Certificates" → Enable.
 #      (Funnel requires HTTPS to be enabled for the tailnet.)
@@ -21,14 +22,20 @@
 #        - Ephemeral:   no
 #        - Pre-approved: yes (if device approval is on)
 #        - Tags:        none required
-#        - Expiration:  90 days (the max)
-#   4. SSH to the live VM (158.178.210.252) and run:
-#        sudo mkdir -p /etc/ict-trader
-#        sudo install -m 600 /dev/null /etc/ict-trader/tailscale.env
-#        echo 'TS_AUTHKEY=tskey-auth-...' | sudo tee /etc/ict-trader/tailscale.env
-#      (The auth key NEVER lands in repo secrets — it stays on the VM.)
-#   5. Admin console → Machines → <ict-trader-live> → "Edit Funnel"
-#      → Enable for this device. (Funnel is opt-in per-machine.)
+#        - Expiration:  90 days (max)
+#   4. Add the auth key as a GitHub Actions secret:
+#        github.com/benbaichmankass/ict-trading-bot → Settings → Secrets and variables
+#        → Actions → "New repository secret":
+#          Name:   TS_AUTHKEY
+#          Value:  tskey-auth-... (paste from step 3)
+#      The workflow passes this secret to the VM over the existing
+#      SSH channel for the duration of one wrapper invocation; the
+#      key is NEVER written to disk on the VM and NEVER committed.
+#   5. After the FIRST successful run of this action, the device
+#      appears in the tailnet. Then in admin console → Machines →
+#      `ict-trader-live` → "Edit Funnel" → enable for this device.
+#      (Funnel is opt-in per-machine; this is a one-time click.)
+#      Re-run the action after enabling; it's idempotent.
 #
 # Once prerequisites are in place, this wrapper is idempotent:
 #   - if tailscale is already installed, skip the install
@@ -51,9 +58,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/ops/_lib.sh
 source "${SCRIPT_DIR}/_lib.sh"
 
-ENV_FILE="/etc/ict-trader/tailscale.env"
 LOCAL_PORT=8001
 URL_FILE="${REPO_DIR}/runtime_logs/tailscale_funnel_url.txt"
+# TS_AUTHKEY comes in via the SSH env channel from operator-actions.yml.
+# It is consumed once (for `tailscale up`) and then unset; nothing touches
+# disk, nothing logs the value.
 
 # Defense in depth — don't churn the tunnel mid-runner.
 if pgrep -af 'claude-vm-runner@' >/dev/null 2>&1; then
@@ -85,23 +94,17 @@ fi
 
 # 3. Authenticate if not already.
 if ! tailscale status --json 2>/dev/null | grep -q '"BackendState":"Running"'; then
-    log "tailscale not authenticated — reading auth key from ${ENV_FILE}."
-    if [ ! -r "${ENV_FILE}" ]; then
-        log "ERROR: ${ENV_FILE} missing or unreadable. See script header for setup steps."
-        record_audit "setup-tailscale-funnel" "error" \
-            '{"reason": "env file missing"}' >/dev/null || true
-        exit 1
-    fi
-    # shellcheck disable=SC1090
-    source <(sudo -n cat "${ENV_FILE}")
+    log "tailscale not authenticated — reading TS_AUTHKEY from SSH env."
     if [ -z "${TS_AUTHKEY:-}" ]; then
-        log "ERROR: TS_AUTHKEY not set in ${ENV_FILE}."
+        log "ERROR: TS_AUTHKEY env var unset. The operator-actions workflow must"
+        log "       pass it through from the GitHub Actions secret of the same name."
+        log "       Add the secret at: Settings → Secrets and variables → Actions."
         record_audit "setup-tailscale-funnel" "error" \
-            '{"reason": "TS_AUTHKEY unset"}' >/dev/null || true
+            '{"reason": "TS_AUTHKEY unset in SSH env"}' >/dev/null || true
         exit 1
     fi
     sudo -n tailscale up --authkey="${TS_AUTHKEY}" --hostname=ict-trader-live --accept-routes=false --ssh=false
-    # Scrub key from this shell.
+    # Scrub key from this shell immediately after consuming it.
     unset TS_AUTHKEY
 fi
 
