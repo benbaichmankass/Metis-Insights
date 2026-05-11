@@ -1,0 +1,160 @@
+name: provision-training-vm-auto-retry
+
+# Cron-driven retry loop for trainer-VM provisioning.
+#
+# Always Free Ampere A1 capacity in `eu-paris-1` is intermittently
+# unavailable — OCI returns 500 / "Out of host capacity" on
+# LaunchInstance. Manual retries are tedious; this workflow does it
+# for us.
+#
+# Cadence: every 10 minutes. Each tick:
+#   1. SSHes into the live trader VM, reads IMDS to discover the
+#      compartment OCID. (Same path provision-training-vm.yml uses.)
+#   2. Asks OCI whether any non-TERMINATED `ict-trainer-vm` already
+#      exists in that compartment.
+#   3. If it exists → emits a `::notice::` and exits. The cron keeps
+#      firing on schedule but each tick is a sub-30-second no-op, so
+#      cost is negligible.
+#   4. If it doesn't exist → dispatches `provision-training-vm.yml`
+#      via workflow_dispatch. That workflow runs the same idempotent
+#      provision script; if capacity is still out, it'll fail with the
+#      same Out-of-Capacity error (now visible thanks to PR #838) and
+#      this retry loop will try again in 10 minutes.
+#
+# Stopping: there's no explicit stop. Once provisioning succeeds, the
+# existence check turns every subsequent tick into a no-op. To stop
+# the retries entirely, disable this workflow in Settings → Actions,
+# or delete the schedule trigger.
+#
+# Authority: docs/claude/trainer-vm-mode.md — autonomous-Claude
+# trainer-VM scope. The retry never touches the live VM (read-only
+# IMDS curl + OCI list_instances), never modifies the existing
+# provision workflow, and never escalates if capacity is permanently
+# out (the operator can disable it at any time).
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write   # createWorkflowDispatch needs this
+
+concurrency:
+  group: provision-training-vm-auto-retry
+  cancel-in-progress: false
+
+jobs:
+  retry:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up SSH key (for IMDS lookup)
+        env:
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VM_SSH_KEY}" ]; then
+            echo "::error::VM_SSH_KEY secret is unset; cannot reach live-VM IMDS."
+            exit 1
+          fi
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "${VM_SSH_KEY}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -t rsa,ecdsa,ed25519 "${VM_SSH_HOST:-158.178.210.252}" >> ~/.ssh/known_hosts 2>/dev/null
+        env:
+          VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '158.178.210.252' }}
+
+      - name: Discover compartment via live-VM IMDS
+        id: imds
+        env:
+          VM_SSH_USER: ${{ vars.VM_SSH_USER || 'ubuntu' }}
+          VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '158.178.210.252' }}
+        run: |
+          set -euo pipefail
+          ssh -o StrictHostKeyChecking=accept-new \
+              -o ConnectTimeout=10 \
+              "${VM_SSH_USER}@${VM_SSH_HOST}" \
+              'curl -sS -H "Authorization: Bearer Oracle" --max-time 5 http://169.254.169.254/opc/v2/instance/' \
+              > imds.json
+          compartment_id=$(python3 -c 'import json; print(json.load(open("imds.json"))["compartmentId"])')
+          region=$(python3 -c 'import json; print(json.load(open("imds.json"))["regionInfo"]["regionIdentifier"])')
+          echo "compartment_id=${compartment_id}" >> "$GITHUB_OUTPUT"
+          echo "region=${region}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Python + OCI SDK
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install oci sdk
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install --quiet 'oci>=2.119,<3'
+
+      - name: Check whether ict-trainer-vm already exists
+        id: check
+        env:
+          OCI_CLI_USER: ${{ secrets.OCI_CLI_USER }}
+          OCI_CLI_FINGERPRINT: ${{ secrets.OCI_CLI_FINGERPRINT }}
+          OCI_CLI_TENANCY: ${{ secrets.OCI_CLI_TENANCY }}
+          OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION || steps.imds.outputs.region }}
+          OCI_CLI_KEY_CONTENT: ${{ secrets.OCI_CLI_KEY_CONTENT }}
+          COMPARTMENT_ID: ${{ steps.imds.outputs.compartment_id }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os, sys
+          import oci
+          cfg = {
+              "user": os.environ["OCI_CLI_USER"],
+              "key_content": os.environ["OCI_CLI_KEY_CONTENT"],
+              "fingerprint": os.environ["OCI_CLI_FINGERPRINT"],
+              "tenancy": os.environ["OCI_CLI_TENANCY"],
+              "region": os.environ["OCI_CLI_REGION"],
+          }
+          oci.config.validate_config(cfg)
+          compute = oci.core.ComputeClient(cfg)
+          insts = compute.list_instances(
+              compartment_id=os.environ["COMPARTMENT_ID"],
+              display_name="ict-trainer-vm",
+          ).data
+          # Anything not TERMINATED/TERMINATING counts as "exists"
+          # — PROVISIONING / STARTING / RUNNING / STOPPED / STOPPING
+          # all mean a real VM is consuming a slot.
+          live = [i for i in insts if i.lifecycle_state not in ("TERMINATED", "TERMINATING")]
+          if live:
+              inst = live[0]
+              print(f"::notice title=Trainer VM exists::display_name=ict-trainer-vm "
+                    f"id={inst.id} state={inst.lifecycle_state}")
+              with open(os.environ["GITHUB_OUTPUT"], "a") as fh:
+                  fh.write("exists=true\n")
+                  fh.write(f"instance_id={inst.id}\n")
+                  fh.write(f"state={inst.lifecycle_state}\n")
+              sys.exit(0)
+          print("::notice::No live trainer VM found; will dispatch provision-training-vm.")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as fh:
+              fh.write("exists=false\n")
+          PY
+
+      - name: Dispatch provision workflow (capacity retry)
+        if: steps.check.outputs.exists == 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const dispatched = await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'provision-training-vm.yml',
+              ref: 'main',
+              inputs: {
+                display_name: 'ict-trainer-vm',
+                reason: 'auto-retry capacity loop (provision-training-vm-auto-retry)'
+              }
+            });
+            core.notice('Dispatched provision-training-vm.yml — check Actions for the result run.');
