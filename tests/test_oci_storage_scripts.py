@@ -1,9 +1,13 @@
-"""Syntax and executable-flag smoke tests for OCI storage automation scripts.
+"""Syntax and shebang smoke tests for OCI storage automation scripts.
 
 These run in CI without the OCI CLI installed, so they only verify:
-  - the scripts exist and are executable,
+  - the scripts exist,
+  - they start with a bash shebang,
   - `bash -n` parses cleanly,
   - `--help` exits 0 (no side effects).
+
+The workflow invokes every script as `bash scripts/foo.sh ...`, so the
+executable bit is not required.
 """
 from __future__ import annotations
 
@@ -32,10 +36,13 @@ HELP_SCRIPTS = [
 
 
 @pytest.mark.parametrize("rel", SCRIPTS)
-def test_script_present_and_executable(rel: str) -> None:
+def test_script_has_bash_shebang(rel: str) -> None:
     path = ROOT / rel
     assert path.is_file(), f"missing: {rel}"
-    assert path.stat().st_mode & 0o111, f"not executable: {rel}"
+    first = path.read_text(encoding="utf-8").splitlines()[0]
+    assert first.startswith("#!") and "bash" in first, (
+        f"{rel} missing bash shebang (got {first!r})"
+    )
 
 
 @pytest.mark.parametrize("rel", SCRIPTS)
