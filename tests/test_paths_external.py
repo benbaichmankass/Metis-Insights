@@ -140,3 +140,60 @@ def test_describe_roots_default_is_repo_relative(paths_module):
     report = paths_module.describe_roots()
     for sub in ("data", "runtime_logs", "runtime_state", "artifacts"):
         assert "repo-relative" in report[sub], report[sub]
+
+
+# ────────────────────────────────────────────────────────────────────
+# Relative-path anchoring (2026-05-11 incident)
+#
+# The live VM had ``DATA_DIR=data/`` in /home/ubuntu/ict-trading-bot/.env.
+# Before this fix, that produced ``Path("data/runtime_logs")`` — a
+# relative path whose actual location depended on each caller's CWD.
+# Result: trader writes used trader's CWD; web-api reads used web-api's
+# CWD; status-check diagnostic used the operator-action wrapper's CWD.
+# Heartbeat writer-vs-reader path divergence even though both consumers
+# called the same ``runtime_logs_dir()`` helper.
+#
+# Fix: anchor any relative DATA_DIR / RUNTIME_LOGS_DIR / etc. against
+# repo_root() so the resolved path is absolute and CWD-independent.
+# ────────────────────────────────────────────────────────────────────
+
+
+def test_relative_umbrella_anchors_to_repo_root(paths_module, monkeypatch):
+    """A relative ``DATA_DIR`` resolves under repo_root, not CWD."""
+    monkeypatch.setenv("DATA_DIR", "data/")
+    resolved = paths_module.runtime_logs_dir()
+    assert resolved.is_absolute(), (
+        f"runtime_logs_dir() must be absolute when DATA_DIR is relative; "
+        f"got {resolved}"
+    )
+    assert resolved == Path(paths_module.repo_root()) / "data" / "runtime_logs"
+
+
+def test_relative_umbrella_unaffected_by_cwd(paths_module, monkeypatch, tmp_path):
+    """Changing CWD between resolution calls must not move the path."""
+    monkeypatch.setenv("DATA_DIR", "data/")
+    monkeypatch.chdir(tmp_path)  # CWD is now tmp_path, NOT repo_root
+    resolved = paths_module.runtime_logs_dir()
+    assert resolved.is_absolute()
+    # Critical: resolved path lives under repo_root, NOT under tmp_path.
+    assert str(tmp_path) not in str(resolved), (
+        f"runtime_logs_dir() must be CWD-independent; got {resolved} "
+        f"while CWD={tmp_path}"
+    )
+
+
+def test_relative_per_root_override_anchors_to_repo_root(paths_module, monkeypatch):
+    """A relative ``RUNTIME_LOGS_DIR`` override also resolves under repo_root."""
+    monkeypatch.setenv("RUNTIME_LOGS_DIR", "logs-relative")
+    resolved = paths_module.runtime_logs_dir()
+    assert resolved.is_absolute()
+    assert resolved == Path(paths_module.repo_root()) / "logs-relative"
+
+
+def test_absolute_umbrella_unchanged(paths_module, monkeypatch, tmp_path):
+    """An absolute ``DATA_DIR`` is honoured as-is (no double-anchor)."""
+    monkeypatch.setenv("DATA_DIR", str(tmp_path / "abs-root"))
+    resolved = paths_module.runtime_logs_dir()
+    assert resolved == tmp_path / "abs-root" / "runtime_logs"
+    # Sanity: tmp_path is NOT inside repo_root.
+    assert not str(resolved).startswith(paths_module.repo_root())
