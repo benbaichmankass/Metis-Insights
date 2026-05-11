@@ -2,19 +2,24 @@ name: oci-storage-verify
 
 # Read-only health check for the OCI block-storage setup. SSHes to the
 # live VM, reports `df -h /data`, the bot-data directory contents, the
-# fstab entry, and DATA_DIR resolution for each trader service. Posts
-# the output to the run summary.
+# fstab entry, mountpoint, and DATA_DIR resolution for each trader
+# service. Writes the report to:
+#   - the run summary (visible on the Actions page),
+#   - a GitHub Issue tagged `oci-verify` (machine-readable, fetchable
+#     by Claude via MCP without needing to scrape the rendered run
+#     page).
 #
-# Uses the production-oci environment because that is where the
-# VM_SSH_PRIVATE_KEY secret lives. Approval is harmless for a
-# read-only check; if the operator wants unattended polling, copy
-# VM_SSH_PRIVATE_KEY to repo scope and drop the environment line.
+# Not gated by an environment. Read-only checks shouldn't need
+# manual approval. Reads `VM_SSH_PRIVATE_KEY` from repository-scope
+# secrets (operator must add it at Settings → Secrets and variables →
+# Actions → New repository secret).
 
 on:
   workflow_dispatch:
 
 permissions:
   contents: read
+  issues: write
 
 env:
   VM_HOST: 158.178.210.252
@@ -24,7 +29,6 @@ jobs:
   verify:
     name: ssh and report /data state
     runs-on: ubuntu-latest
-    environment: production-oci
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
@@ -34,7 +38,7 @@ jobs:
           KEY_CONTENT: ${{ secrets.VM_SSH_PRIVATE_KEY }}
         run: |
           if [[ -z "${KEY_CONTENT:-}" ]]; then
-            echo "::error::VM_SSH_PRIVATE_KEY secret is empty on the production-oci environment."
+            echo "::error::VM_SSH_PRIVATE_KEY secret is empty. Add it at repository scope (Settings → Secrets and variables → Actions → New repository secret). Same value as the one already on the production-oci environment."
             exit 1
           fi
           install -d -m 0700 "$HOME/.ssh"
@@ -42,10 +46,12 @@ jobs:
           chmod 0600 "$HOME/.ssh/ict-bot-ovm-private.key"
           echo "VM_SSH_KEY_PATH=$HOME/.ssh/ict-bot-ovm-private.key" >> "$GITHUB_ENV"
 
-      - name: Collect VM state
-        id: collect
+      - name: SSH and capture VM state
+        id: ssh
+        continue-on-error: true
         run: |
-          out=$(bash scripts/oci_vm_ssh.sh 'bash -s' <<'REMOTE'
+          set +e
+          bash scripts/oci_vm_ssh.sh 'bash -s' > /tmp/ssh-output.txt 2>&1 <<'REMOTE'
           set +e
           echo "===== df -h /data ====="
           df -h /data 2>&1 || echo "(df failed)"
@@ -73,15 +79,61 @@ jobs:
           echo "===== /data size ====="
           du -sh /data /data/bot-data 2>&1 || true
           REMOTE
-          )
           rc=$?
+          echo "ssh_rc=$rc" >> "$GITHUB_OUTPUT"
+          echo "ssh exit code: $rc"
+          # Always succeed at this step; the build-report and issue
+          # steps need to run regardless. A non-zero rc is surfaced by
+          # the final "Fail if SSH errored" step.
+          exit 0
+
+      - name: Build report
+        id: report
+        run: |
+          rc="${{ steps.ssh.outputs.ssh_rc }}"
           {
             echo "## oci-storage verify ($(date -u +%Y-%m-%dT%H:%M:%SZ))"
             echo
+            echo "- run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo "- commit: \`${GITHUB_SHA}\`"
+            echo
             echo '```'
-            printf '%s\n' "$out"
+            cat /tmp/ssh-output.txt 2>/dev/null || echo "(no output captured)"
             echo '```'
             echo
-            echo "ssh exit code: $rc"
-          } | tee -a "$GITHUB_STEP_SUMMARY"
-          exit $rc
+            echo "ssh exit code: \`${rc:-?}\`"
+          } | tee -a "$GITHUB_STEP_SUMMARY" > /tmp/verify-report.md
+
+      - name: Open verify report issue
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          # Ensure the label exists (idempotent — ignore "already exists" error).
+          gh label create oci-verify \
+            --color "0075ca" \
+            --description "OCI storage verify report (auto-generated)" \
+            --repo "$GITHUB_REPOSITORY" 2>/dev/null || true
+          title="oci-storage verify $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          if [[ ! -s /tmp/verify-report.md ]]; then
+            echo "(no report file; writing minimal placeholder)"
+            printf 'verify run %s did not produce a report.\n' "$GITHUB_RUN_ID" > /tmp/verify-report.md
+          fi
+          url=$(gh issue create \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "$title" \
+            --body-file /tmp/verify-report.md \
+            --label oci-verify)
+          echo "issue: $url"
+          {
+            echo
+            echo "### report issue"
+            echo "$url"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fail if SSH errored
+        if: steps.ssh.outputs.ssh_rc != '0'
+        run: |
+          echo "::error::SSH step exited with code ${{ steps.ssh.outputs.ssh_rc }}"
+          exit 1
