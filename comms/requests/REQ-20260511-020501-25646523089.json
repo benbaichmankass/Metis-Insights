@@ -11,7 +11,7 @@
     "pr_number": null,
     "task": "claude_health_review:25646523089"
   },
-  "topic": "Health review needed \u2014 run 25646523089 (WARNING)",
+  "topic": "Health review needed — run 25646523089 (WARNING)",
   "context": "Automated GitHub Action health check has completed.\n\nrun_id: 25646523089\nbranch: main\ncommit: 6f07e73ed8ff609353005b9a76e9239f194ae922\npriority: high\n\nArtifacts (this run):\n  - workflow run:  https://github.com/benbaichmankass/ict-trading-bot/actions/runs/25646523089\n  - snapshot:      artifacts/health/health_snapshot.txt  (Action artifact only)\n  - machine report: artifacts/health/latest.json  (Action artifact only)\n\nMachine result (status=WARNING):\n```json\n{\n  \"action_required\": \"Manual review required \\u2014 automated layer-1 analysis was not produced for this run. The raw snapshot is the source of truth for the layer-2 review.\",\n  \"checks\": {\n    \"api\": {\n      \"note\": \"layer-1 verdict unavailable\",\n      \"status\": \"warn\"\n    },\n    \"errors\": {\n      \"note\": \"layer-1 verdict unavailable\",\n      \"status\": \"warn\"\n    },\n    \"heartbeat\": {\n      \"note\": \"layer-1 verdict unavailable\",\n      \"status\": \"warn\"\n    },\n    \"monitoring\": {\n      \"note\": \"layer-1 verdict unavailable\",\n      \"status\": \"warn\"\n    },\n    \"orders\": {\n      \"note\": \"layer-1 verdict unavailable\",\n      \"status\": \"warn\"\n    },\n    \"pipeline\": {\n      \"note\": \"order rejected by safe_place_order (plumbing-on-rejection path exercised) (rc=1, 0.133s)\",\n      \"status\": \"warn\"\n    },\n    \"processes\": {\n      \"note\": \"layer-1 verdict unavailable\",\n      \"status\": \"warn\"\n    },\n    \"resources\": {\n      \"note\": \"layer-1 verdict unavailable\",\n      \"status\": \"warn\"\n    },\n    \"signals\": {\n      \"note\": \"layer-1 verdict unavailable\",\n      \"status\": \"warn\"\n    },\n    \"ticks\": {\n      \"note\": \"layer-1 verdict unavailable\",\n      \"status\": \"warn\"\n    },\n    \"trades\": {\n      \"note\": \"layer-1 verdict unavailable\",\n      \"status\": \"warn\"\n    }\n  },\n  \"error\": {\n    \"message\": \"Layer-1 LLM call skipped via --skip-llm. Run /health-review from any Claude Code session on this repo for the layer-2 review.\",\n    \"type\": \"LayerOneSkipped\"\n  },\n  \"model\": \"claude-haiku-4-5-20251001\",\n  \"status\": \"WARNING\",\n  \"summary\": \"Layer-1 analysis unavailable: LayerOneSkipped: Layer-1 LLM call skipped via --skip-llm. Run /health-review from any Claude Code session on this repo for the layer-2 review (pipeline-test warn: order rejected by safe_place_order (plumbing-on\",\n  \"timestamp\": \"2026-05-11T02:05:01.641936+00:00\"\n}\n```\n\nSee docs/runbooks/health-check.md for the two-layer design and review template.",
   "questions": [
     {
@@ -23,7 +23,15 @@
     }
   ],
   "default_on_timeout": "expire",
-  "status": "pending",
+  "status": "completed",
+  "response": {
+    "answers": [
+      {
+        "question_id": "review_json",
+        "free_text": "artifacts/health/reviews/REVIEW-REQ-20260511-020501-25646523089.json"
+      }
+    ]
+  },
   "history": [
     {
       "at": "2026-05-11T02:05:01+00:00",
@@ -31,6 +39,13 @@
       "to_status": "pending",
       "actor": "system",
       "note": "emitted by .github/workflows/health-check.yml (run 25646523089)"
+    },
+    {
+      "at": "2026-05-11T02:25:00+00:00",
+      "from_status": "pending",
+      "to_status": "completed",
+      "actor": "claude",
+      "note": "Layer-2 review completed. overall_assessment=caution. operator_attention_required=false. Full review at artifacts/health/reviews/REVIEW-REQ-20260511-020501-25646523089.json"
     }
   ]
 }

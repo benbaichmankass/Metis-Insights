@@ -1,0 +1,63 @@
+{
+  "request_id": "REQ-20260511-020501-25646523089",
+  "reviewed_at": "2026-05-11T02:25:00+00:00",
+  "reviewer": "claude",
+  "overall_assessment": "caution",
+  "findings": {
+    "heartbeat": {
+      "status": "ok",
+      "note": "Fresh — mtime 02:04:04 UTC, snapshot at 02:04:58 UTC (54s age). tick=167 confirms engine is counting ticks. heartbeat.txt is current; no separate heartbeat .log files noted but this does not affect verdict."
+    },
+    "ticks": {
+      "status": "watch",
+      "note": "Snapshot reports 'no tick logs in last 1440m' — this is the known FU-004 collector bug (collector reads *.log, bot writes signal_audit.jsonl). Empty section is a collector artifact, not an actual tick gap. Heartbeat tick counter is incrementing normally."
+    },
+    "signals": {
+      "status": "watch",
+      "note": "Zero signal logs in snapshot — same FU-004 collector artifact. Cannot evaluate signal frequency or ETHUSDT turtle_soup activity (FU-003) without diag relay access to signal_audit.jsonl."
+    },
+    "orders": {
+      "status": "watch",
+      "note": "No order logs in snapshot — same FU-004 artifact. bybit_2 first-24h linear perp validation (FU-007) cannot be completed from snapshot data alone."
+    },
+    "trades": {
+      "status": "watch",
+      "note": "No trade records accessible — FU-004 collector bug. No trade decision grades can be produced. Genuine data absence for this layer-2 pass. Trade grading deferred until collect_health_snapshot.sh is patched."
+    },
+    "monitoring": {
+      "status": "watch",
+      "note": "No monitor or watchdog log output in snapshot. Pattern is persistent across multiple reviews. Not escalating at this time but continued watchdog silence should prompt direct process inspection to confirm it is actually guarding."
+    },
+    "sizing": {
+      "status": "watch",
+      "note": "Cannot evaluate without trade records. bybit_2 pipeline smoke shows NoneType connector — raises question of whether configured 3x leverage (FU-005) is being applied to live orders. Deferred to FU-005 and FU-007 investigation."
+    },
+    "api_errors": {
+      "status": "ok",
+      "note": "No new errors in the 24h window. Telegram bot polling clean with HTTP 200s at ~10s cadence through full snapshot period (01:56–02:05 UTC). Historical errors in log (Apr 19 Telegram conflict, May 7 Bad Gateway, May 8 thread-not-found) are old, non-recurring, and self-resolved."
+    },
+    "state_consistency": {
+      "status": "watch",
+      "note": "FU-006 (strategy_monocle bypass on 2026-05-10) and FU-008 (unexplained second restart at 21:16 UTC May 10) both unresolved and within their evaluation windows. Cannot assess state consistency without journalctl and order_packages diag data."
+    },
+    "alert_delivery": {
+      "status": "ok",
+      "note": "Telegram getUpdates polling healthy throughout snapshot window. Alert delivery channel is operational."
+    },
+    "strategy_silence": {
+      "status": "watch",
+      "note": "FU-003 (ETHUSDT turtle_soup silence) still open. Unverifiable from snapshot data due to FU-004 collector bug. Requires diag relay access to signal_audit.jsonl to confirm or deny ETHUSDT evaluation events."
+    }
+  },
+  "anomalies": [
+    "bybit_2 pipeline smoke: AttributeError 'NoneType' object has no attribute 'place_order' (src/runtime/orders.py:183) — Bybit connector client is None at health-check probe time. May be a pre-connect probe timing artifact OR a live initialization failure post-PR3 linear perp migration. Needs investigation alongside FU-007 (bybit_2 first 24h validation).",
+    "Layer-1 analysis skipped via --skip-llm flag — all 11 machine-level checks defaulted to WARN with 'layer-1 verdict unavailable'. This layer-2 review is the sole authoritative verdict for run 25646523089.",
+    "collect_health_snapshot.sh under-reports activity (FU-004 open): tick/signal/order/trade/position sections report empty because collector greps *.log while bot writes NDJSON to signal_audit.jsonl — empty sections are collector artifacts, not actual pipeline gaps.",
+    "Monitoring/watchdog log silence — 'no monitor logs' and 'no watchdog logs' in snapshot. Pattern is persistent across multiple reviews. Watchdog process is running but producing no log output.",
+    "Core process uptime ~3h07m at snapshot time (02:04:58 UTC) implies a process restart at approximately 23:00 UTC May 10, consistent with the post-PR3 deploy and second restart documented in FU-007 and FU-008.",
+    "6 open follow-ups (FU-003, FU-004, FU-005, FU-006, FU-007, FU-008) all within their evaluation windows but cannot be assessed without diag relay access to journalctl, signal_audit.jsonl, and order_packages table."
+  ],
+  "trade_decision_grades": [],
+  "recommended_action": "1) Investigate bybit_2 NoneType connector: pull journalctl for 'BybitConnector' initialization lines after ~23:00 UTC May 10 restart — determine if NoneType is a pre-connect probe timing artifact or a live initialization failure post-PR3 migration. 2) Patch collect_health_snapshot.sh to read signal_audit.jsonl (FU-004) — blocking evaluation of FU-003, FU-007, and all per-trade grading. 3) Pull diag relay data to close FU-005 (set_leverage retCode 0/110043), FU-006 (monocle bypass root cause via order_packages history), and FU-008 (restart cause via journalctl 21:13–21:17 window) before journalctl retention expires. 4) Inspect watchdog process directly to confirm it is actively guarding despite producing no log output.",
+  "operator_attention_required": false
+}
