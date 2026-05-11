@@ -45,10 +45,10 @@
       "expected_check": "Filter the audit tail for symbol=='ETHUSDT'. Count turtle_soup_eval events. If the count is zero across the 6h window, raise to anomalies. If non-zero, this follow-up can be closed.",
       "trigger_condition": "Any /health-review run.",
       "resolution_criteria": "Close after a single review where ETHUSDT turtle_soup_eval count > 0, OR after a code change confirms turtle_soup is correctly multi-symbol.",
-      "status": "open",
+      "status": "closed",
       "snoozed_until": null,
-      "closed_at": null,
-      "closed_reason": null
+      "closed_at": "2026-05-11T08:00:00+00:00",
+      "closed_reason": "Root cause identified + ETHUSDT dropped from config per operator decision. The per-tick pipeline (src/runtime/pipeline.py:532 turtle_soup_signal_builder, :688 vwap_signal_builder) resolves `symbol` from settings['SYMBOL'] (default BTCUSDT) and never iterates the strategies.yaml `symbols:` list. The list IS read at boot by _symbols_for_account for the leverage pre-flight loop, but per-tick signal generation is single-symbol. So ETHUSDT silence wasn't a fetch failure or multiplexer bug — the strategy was never actually invoked against ETHUSDT. Operator decision 2026-05-11: drop ETHUSDT from turtle_soup config since multi-symbol isn't needed yet. Re-opening would require a real per-symbol multiplexer (one tick per (symbol, strategy), per-symbol audit events, per-symbol sized_qty) — substantive design change, not blocking current operations."
     },
     {
       "id": "FU-20260510-004",
