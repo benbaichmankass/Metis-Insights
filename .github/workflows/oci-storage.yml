@@ -1,0 +1,190 @@
+name: oci-storage
+
+# Fully automated OCI block-storage setup for the live trading VM.
+# Every mutating step is gated by the production-oci environment, which
+# the repo admin configures to require manual approval. The default
+# mode is dry-run so accidental dispatches do not change OCI state.
+#
+# See docs/automation/oci-storage-setup.md for the operator runbook.
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Mode: "dry-run" prints planned commands; "execute" creates/attaches/mounts.'
+        type: choice
+        options: [dry-run, execute]
+        default: dry-run
+      volume_size_gb:
+        description: 'Volume size (GB)'
+        type: string
+        default: '100'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: oci-storage
+  cancel-in-progress: false
+
+env:
+  OCI_VOLUME_NAME: ict-bot-data-vol
+  OCI_AVAILABILITY_DOMAIN: Eu-Paris-1-AD-3
+  VM_INSTANCE_NAME: instance-20260414-1555
+  VM_HOST: 158.178.210.252
+  VM_USER: ubuntu
+  REPO_DIR: /home/ubuntu/ict-trading-bot
+
+jobs:
+  preflight:
+    name: preflight (read-only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install OCI CLI
+        uses: oracle-actions/setup-oci-cli@v1.3.2
+        with:
+          user: ${{ secrets.OCI_CLI_USER }}
+          tenancy: ${{ secrets.OCI_CLI_TENANCY }}
+          region: ${{ secrets.OCI_CLI_REGION }}
+          fingerprint: ${{ secrets.OCI_CLI_FINGERPRINT }}
+          privatekey: ${{ secrets.OCI_CLI_KEY_CONTENT }}
+
+      - name: List volumes
+        env:
+          OCI_COMPARTMENT_OCID: ${{ secrets.OCI_CLI_TENANCY }}
+          OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION }}
+        run: bash scripts/oci_volume_status.sh
+
+  storage-setup:
+    name: create / attach / mount / migrate
+    needs: preflight
+    runs-on: ubuntu-latest
+    environment: production-oci
+    timeout-minutes: 30
+    env:
+      OCI_COMPARTMENT_OCID: ${{ secrets.OCI_CLI_TENANCY }}
+      OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION }}
+      OCI_VOLUME_SIZE_GB: ${{ inputs.volume_size_gb }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install OCI CLI
+        uses: oracle-actions/setup-oci-cli@v1.3.2
+        with:
+          user: ${{ secrets.OCI_CLI_USER }}
+          tenancy: ${{ secrets.OCI_CLI_TENANCY }}
+          region: ${{ secrets.OCI_CLI_REGION }}
+          fingerprint: ${{ secrets.OCI_CLI_FINGERPRINT }}
+          privatekey: ${{ secrets.OCI_CLI_KEY_CONTENT }}
+
+      - name: Install VM SSH key
+        env:
+          KEY_CONTENT: ${{ secrets.VM_SSH_PRIVATE_KEY }}
+        run: |
+          if [[ -z "${KEY_CONTENT:-}" ]]; then
+            echo "::error::VM_SSH_PRIVATE_KEY secret is empty. Add it to the production-oci environment (same key as ict-bot-ovm-private.key)."
+            exit 1
+          fi
+          install -d -m 0700 "$HOME/.ssh"
+          printf '%s\n' "$KEY_CONTENT" > "$HOME/.ssh/ict-bot-ovm-private.key"
+          chmod 0600 "$HOME/.ssh/ict-bot-ovm-private.key"
+          echo "VM_SSH_KEY_PATH=$HOME/.ssh/ict-bot-ovm-private.key" >> "$GITHUB_ENV"
+
+      - name: Create volume
+        id: create
+        run: |
+          if [[ "${{ inputs.mode }}" == 'dry-run' ]]; then
+            bash scripts/oci_create_volume.sh --dry-run
+          else
+            bash scripts/oci_create_volume.sh
+          fi
+
+      - name: Attach volume
+        run: |
+          if [[ "${{ inputs.mode }}" == 'dry-run' ]]; then
+            bash scripts/oci_attach_volume.sh --dry-run
+          else
+            bash scripts/oci_attach_volume.sh
+          fi
+
+      - name: Probe VM connectivity
+        run: bash scripts/oci_vm_ssh.sh 'uname -a && lsblk'
+
+      - name: Format + mount + fstab
+        if: ${{ inputs.mode == 'execute' }}
+        run: |
+          bash scripts/oci_vm_ssh.sh 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          # Prefer the stable OCI symlink; fall back to /dev/sdb if the
+          # iSCSI/paravirt naming differs on this kernel.
+          DEV=""
+          for candidate in /dev/oracleoci/oraclevdb /dev/sdb /dev/sdc; do
+              if [[ -b "$candidate" ]]; then DEV="$candidate"; break; fi
+          done
+          if [[ -z "$DEV" ]]; then
+              echo "ERROR: no candidate block device found" >&2
+              lsblk >&2
+              exit 1
+          fi
+          echo "device: $DEV"
+          if ! sudo blkid "$DEV" >/dev/null 2>&1; then
+              echo "formatting $DEV ext4"
+              sudo mkfs.ext4 -F -L bot-data "$DEV"
+          else
+              echo "$DEV already has a filesystem; reusing."
+          fi
+          sudo mkdir -p /data
+          if ! mountpoint -q /data; then
+              sudo mount "$DEV" /data
+          fi
+          UUID=$(sudo blkid -s UUID -o value "$DEV")
+          if ! grep -q "$UUID" /etc/fstab; then
+              echo "UUID=$UUID /data ext4 defaults,nofail,x-systemd.device-timeout=30 0 2" | sudo tee -a /etc/fstab
+          fi
+          sudo install -d -m 2775 -o ubuntu -g ubuntu /data/bot-data
+          df -h /data
+          REMOTE
+
+      - name: Repo migration (rsync repo data -> /data/bot-data)
+        if: ${{ inputs.mode == 'execute' }}
+        run: |
+          bash scripts/oci_vm_ssh.sh "cd $REPO_DIR && bash scripts/migrate_to_data_dir.sh --execute"
+
+      - name: Install systemd DATA_DIR drop-ins
+        if: ${{ inputs.mode == 'execute' }}
+        run: |
+          bash scripts/oci_vm_ssh.sh 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          SRC=/home/ubuntu/ict-trading-bot/deploy/dropins/data-dir.conf
+          for svc in ict-trader-live ict-web-api ict-claude-bridge; do
+              if systemctl list-unit-files "${svc}.service" >/dev/null 2>&1; then
+                  sudo install -d "/etc/systemd/system/${svc}.service.d"
+                  sudo install -m 0644 "$SRC" "/etc/systemd/system/${svc}.service.d/data-dir.conf"
+              fi
+          done
+          sudo systemctl daemon-reload
+          # Restart only services that already had units installed.
+          for svc in ict-trader-live ict-web-api ict-claude-bridge; do
+              if systemctl is-enabled "$svc" >/dev/null 2>&1; then
+                  sudo systemctl restart "$svc" || true
+              fi
+          done
+          REMOTE
+
+      - name: Verify
+        if: ${{ inputs.mode == 'execute' }}
+        run: |
+          bash scripts/oci_vm_ssh.sh "cd $REPO_DIR && bash scripts/verify_storage_setup.sh"
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## oci-storage run"
+            echo "- mode: \`${{ inputs.mode }}\`"
+            echo "- volume: \`$OCI_VOLUME_NAME\` (${{ inputs.volume_size_gb }} GB, $OCI_AVAILABILITY_DOMAIN)"
+            echo "- instance: \`$VM_INSTANCE_NAME\` ($VM_HOST)"
+          } >> "$GITHUB_STEP_SUMMARY"
