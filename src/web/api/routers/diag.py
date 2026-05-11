@@ -343,6 +343,36 @@ def _is_active_batch(units: list[str]) -> dict[str, str]:
     }
 
 
+def _normalize_journalctl_timestamp(ts: str) -> str:
+    """Convert a validated ISO-8601 string into journalctl's universal form.
+
+    journalctl 245 (Ubuntu 20.04) rejects ISO-8601 with the ``T`` separator
+    or trailing ``Z`` — it expects ``YYYY-MM-DD HH:MM:SS`` and optionally a
+    timezone word like ``UTC``. journalctl 252+ accepts both forms, but the
+    live VM still runs the older binary, so passing ``2026-05-11T15:40:00Z``
+    verbatim returns rc=1 with no log lines (issue #930).
+
+    Normalize:
+      ``2026-05-11T15:40:00Z``        → ``2026-05-11 15:40:00 UTC``
+      ``2026-05-11T15:40:00+00:00``   → ``2026-05-11 15:40:00 UTC``
+      ``2026-05-11T15:40:00-05:00``   → ``2026-05-11 15:40:00 -05:00``
+      ``2026-05-11T15:40:00``         → ``2026-05-11 15:40:00`` (naive, local)
+      ``2026-05-11 15:40:00``         → ``2026-05-11 15:40:00`` (passthrough)
+
+    The input is already validated by _ISO_TIMESTAMP_RE at the route layer,
+    so we know it's well-formed.
+    """
+    # T → space
+    out = ts.replace("T", " ", 1)
+    # Z (or +00:00 / +0000) → UTC suffix (journalctl-native)
+    if out.endswith("Z"):
+        out = out[:-1] + " UTC"
+    elif out.endswith("+00:00") or out.endswith("+0000"):
+        # Strip the offset, replace with the UTC word
+        out = out.rsplit("+", 1)[0].rstrip() + " UTC"
+    return out
+
+
 def _journalctl_tail(
     unit: str,
     lines: int,
@@ -361,12 +391,13 @@ def _journalctl_tail(
     ]
     # ?since / ?until support — passes through to journalctl's native
     # --since/--until flags. The endpoint route validates the format
-    # with _ISO_TIMESTAMP_RE before reaching this helper, so by the
-    # time we get here the strings are safe to forward.
+    # with _ISO_TIMESTAMP_RE before reaching this helper. Normalize
+    # to journalctl's universal "YYYY-MM-DD HH:MM:SS [UTC]" form so
+    # older journalctl versions (Ubuntu 20.04 ships 245) also accept it.
     if since:
-        cmd.extend(["--since", since])
+        cmd.extend(["--since", _normalize_journalctl_timestamp(since)])
     if until:
-        cmd.extend(["--until", until])
+        cmd.extend(["--until", _normalize_journalctl_timestamp(until)])
     try:
         proc = subprocess.run(
             cmd,
@@ -380,13 +411,26 @@ def _journalctl_tail(
     except subprocess.TimeoutExpired:
         return {"unit": canonical, "available": False, "reason": "timeout", "lines": []}
     output = proc.stdout or ""
+    stderr = (proc.stderr or "").strip()
     out_lines = output.splitlines()[-lines:] if output else []
-    return {
+    # journalctl rc=1 has overloaded semantics:
+    #   * rc=0, stdout=N lines      → matches found
+    #   * rc=1, stdout="", stderr="" → query valid, just no matching entries
+    #   * rc=1, stdout="", stderr=X → real failure (bad args, perm, etc.)
+    #   * rc=0, stdout=""           → unit has no entries at all
+    # Treat empty-stderr rc=1 as "available, just empty" so a legitimate
+    # zero-match window doesn't get misreported as a unit-unavailable
+    # failure (issue #930).
+    available = proc.returncode == 0 or (proc.returncode == 1 and not stderr)
+    result: dict[str, Any] = {
         "unit": canonical,
-        "available": proc.returncode == 0,
+        "available": available,
         "returncode": proc.returncode,
         "lines": out_lines,
     }
+    if not available and stderr:
+        result["stderr"] = stderr[:500]  # truncate; defensive
+    return result
 
 
 # ---------------------------------------------------------------------------
