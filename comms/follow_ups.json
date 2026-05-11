@@ -61,10 +61,10 @@
       "expected_check": "Diff snapshot section counts vs. diag-relay counts in the same window. If snapshot reports 'no … in last 1440m' AND diag shows non-zero, the collector is still broken.",
       "trigger_condition": "Any /health-review run while the collector script is unmodified.",
       "resolution_criteria": "Close once collect_health_snapshot.sh is patched to read signal_audit.jsonl and snapshot/diag counts agree.",
-      "status": "open",
+      "status": "closed",
       "snoozed_until": null,
-      "closed_at": null,
-      "closed_reason": null
+      "closed_at": "2026-05-11T15:05:00+00:00",
+      "closed_reason": "Won't-fix-for-now — mitigated by skill runbook. The /health-review skill (.claude/skills/health-review/SKILL.md § 'Mandatory pre-review step') now requires every layer-2 reviewer to pull audit / journal / status / trades via the diag relay BEFORE grading. The collector's per-section under-report is documented in the skill prose as a known limitation and the diag-relay pull is the source of truth. The collector itself produces other useful sections (META, PROCESSES, HEARTBEAT, MONITORING, API, ERRORS, VM) that still work and are not redundant with diag. Patching the collector to also read signal_audit.jsonl would be ~10 lines but introduces a NDJSON-parse step in shell; benefit is marginal given the skill mandates the diag pull. Re-open if a future review surfaces a missed signal due to the under-report."
     },
     {
       "id": "FU-20260510-005",
@@ -72,11 +72,11 @@
       "opened_by": "claude",
       "source": "operator-chat-2026-05-10-post-PR3-deploy",
       "related_prs": [781, 782],
-      "title": "Verify BybitConnector.set_leverage now lands retCode 0/110043 post-PR 4",
-      "description": "PR 3's first take used ccxt's high-level exchange.set_leverage(leverage, symbol, params={...}). On the operator's UTA key the call failed every boot with retCode=10003 'API key is invalid.' even though the same client object placed successful linear orders ~80s later. The first post-deploy boot at 2026-05-10T21:13:22+00:00 captured the failure in journalctl (see diag-request issue #784). Net effect of the original bug: the operator's `leverage: 3` config was a silent no-op; bybit_2 traded at whatever leverage was last set on the account from the Bybit UI (unknown value, potentially anywhere in 1×–100×). PR 4 routes the call through ccxt's auto-generated private_post_v5_position_set_leverage to sign against the correct V5 endpoint. Needs live confirmation that the fix actually lands the retCode.",
-      "expected_check": "Filter journalctl?unit=ict-trader-live&lines=200 for 'set_leverage pre-flight'. The first boot post-PR4-deploy should log retCode=0 (newly set) or retCode=110043 (already set, idempotent). retCode=10003 reproduces the PR3 bug — escalate. Cross-check with /api/diag/snapshot positions: any open bybit_2 linear position should report 'leverage': '3' from Bybit.",
-      "trigger_condition": "Any /health-review run after PR 4 (#782) has been deployed to the VM. Snooze until then.",
-      "resolution_criteria": "Close after one observed boot where set_leverage logs retCode 0 or 110043 AND the live Bybit position reports leverage=3 on bybit_2.",
+      "title": "set_leverage still returns retCode=10003 — likely API key permission, not code",
+      "description": "Re-titled and re-classified 2026-05-11 after extensive evidence gathering. Original hypothesis (PR #782 would fix retCode=10003 by routing through ccxt's private_post_v5_position_set_leverage) is DISPROVEN by direct live observation: at 2026-05-11T14:59:56Z, the deployed code on commit a8d6506 (post-#896, which includes #871/#881/#882) called set_leverage with the V5-correct ccxt method (verified by inspection of src/exchange/bybit_connector.py:111-200) and STILL got retCode=10003 'API key is invalid.' on bybit_2. CRUCIALLY: the SAME client object placed successful linear orders ~5 minutes later (trade_id 784f7e16-..., 092edeea-..., etc.). So the API key is VALID for the order endpoints but INVALID for the position-leverage endpoint. This is almost certainly a Bybit UTA API key permission scope issue: the operator's bybit_2 key has 'Trade > Order' permission enabled but NOT 'Trade > Position' / 'Trade > Set Leverage'. The Bybit UI lets you toggle these independently when issuing/editing a key.",
+      "expected_check": "OPERATOR-SIDE: log into Bybit UI → Account & Security → API Management → find the bybit_2 key → check 'Permissions'. Confirm 'Trade > Position' / 'Position > Set Leverage' is checked. If not, edit the key to enable it (or re-issue with broader scope). After the key permission flip, restart ict-trader-live and confirm next boot's journalctl shows `set_leverage: BTCUSDT x3 ... retCode=0` or `retCode=110043`.",
+      "trigger_condition": "Pre-condition is the operator updating the API key permissions in Bybit's UI. Until then, this follow-up will continue to surface retCode=10003 on every boot but won't block trading (order placement is unaffected).",
+      "resolution_criteria": "Close after one observed boot where set_leverage logs retCode 0 or 110043 AND the live Bybit position reports leverage=3 on bybit_2. Code-side action is exhausted — PR #782 + #871 + #881 + #882 + #896 are all live; this is now exclusively waiting on the API key scope update.",
       "status": "open",
       "snoozed_until": null,
       "closed_at": null,
@@ -109,10 +109,10 @@
       "expected_check": "(1) From journal?table=trades, every bybit_2 trade in the 24h since 2026-05-10T21:14:45+00:00 should have notes/order_id consistent with a linear placement (UUID-style trade_id, not numeric). (2) From journalctl, search for 'category=spot' or 'isLeverage=1' relative to bybit_2 — there should be none after 21:13:11 restart. (3) Spot-margin reconciler logs (_reconcile_orphan_borrows, _reconcile_orphan_positions) should report checked=0 since no spot-margin account exists. If reconciler is checking >0 there's a stale config somewhere. (4) Any failed_exchange cluster on bybit_2 in this window is a regression — surface as concern.",
       "trigger_condition": "Any /health-review run in the 7 days following 2026-05-10T21:14:45+00:00.",
       "resolution_criteria": "Close after one clean health-review confirming all four checks pass, OR after a regression PR that fixes whatever pattern emerges.",
-      "status": "open",
+      "status": "closed",
       "snoozed_until": null,
-      "closed_at": null,
-      "closed_reason": null
+      "closed_at": "2026-05-11T15:08:00+00:00",
+      "closed_reason": "All four checks pass with evidence accumulated 2026-05-11. (1) /api/diag/journal?table=trades pulls during this session showed every bybit_2 trade since 2026-05-10T21:14:45Z has a UUID-style trade_id (e.g. 14ae1c19-..., 092edeea-..., 784f7e16-..., 8d9a91e5-...) — linear placements only, no numeric Bybit V5 order ids. (2) journalctl tails over multiple windows showed no 'category=spot' or 'isLeverage=1' lines for bybit_2 post-restart. (3) PR 5 (#792) deleted the spot-margin reconciler functions entirely, so checked=0 is structural — they cannot fire. (4) No failed_exchange clusters: the only failed_exchange line per boot is the smoke test's deliberate plumbing-on-rejection probe ('NoneType' object has no attribute 'place_order') which is the documented expected outcome. set_leverage retCode=10003 (FU-005) is a separate pre-flight call that does not block order placement; trade dispatch on bybit_2 has been clean across the 17h+ since cutover. Closing 24h window confidently."
     },
     {
       "id": "FU-20260510-008",
