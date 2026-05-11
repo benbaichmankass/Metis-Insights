@@ -27,7 +27,17 @@ WorkingDirectory=/home/ubuntu/ict-trading-bot
 EnvironmentFile=/home/ubuntu/ict-trading-bot/.env
 # --interval 60 + --grace 5 → alert when heartbeat > 300 s stale (5 min).
 # Covers a normal RestartSec=10 + ~30 s startup without false positives.
-ExecStart=/usr/bin/python3 -u scripts/check_heartbeat.py --interval 60 --grace 5
+#
+# --auto-restart-after 3 → after 3 consecutive stale checks (so total
+# stall ≈ 5 min grace + 3 × 60 s ≈ 8 min), the watchdog dispatches
+# `sudo -n systemctl restart ict-trader-live.service` and Telegrams
+# the systemctl exit code. The 3-check streak gate is independent of
+# alert deduping (stale_streak in state json) so dedup of repeat
+# alerts doesn't suppress escalation. last_autoheal_streak gates
+# re-fires so we won't get a restart-loop on a persistently broken
+# trader; the trader-side systemd Restart=always with RestartSec=10
+# handles the actual recovery.
+ExecStart=/usr/bin/python3 -u scripts/check_heartbeat.py --interval 60 --grace 5 --auto-restart-after 3
 StandardOutput=journal
 StandardError=journal
 
