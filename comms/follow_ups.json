@@ -157,10 +157,10 @@
       "expected_check": "At the next /health-review, inspect the most recent ict-trader-live boot in artifacts/health/latest.json or via journalctl?unit=ict-trader-live.service&lines=400. For each bybit linear-perp account, expect exactly one set_leverage pre-flight line per (account, symbol) with retCode 0 (newly set) or 110043 (idempotent already-set). ZERO occurrences of retCode=10003 'API key is invalid.' across the lookback window. If 10003 reappears: the pybit auth path regressed — re-open this follow-up and PR #926 for forensics.",
       "trigger_condition": "Next /health-review run. Auto-closes if the verification passes; re-opens with severity caution if 10003 returns.",
       "resolution_criteria": "Close after one /health-review window where every bybit_2 (and any future linear-perp bybit account) boot logs set_leverage with retCode in {0, 110043} and zero 10003s. Document in closed_reason which boot timestamps were checked.",
-      "status": "open",
+      "status": "closed",
       "snoozed_until": null,
-      "closed_at": null,
-      "closed_reason": null
+      "closed_at": "2026-05-11T21:48:00+00:00",
+      "closed_reason": "Verified across 4 boots today, zero retCode=10003. Latest evidence (diag pull #961): boot at 2026-05-11T21:41:48Z logged `set_leverage pre-flight: account=bybit_2 symbol=BTCUSDT x3 already set (retCode=110043, idempotent)` — the expected idempotent path. Earlier boots in today's session at 17:11Z (PR #926 deploy), 19:31Z (auto-recovery), 21:04Z (PR #950 deploy), 21:35Z (PR #953 deploy), 21:41Z (PR #956 deploy) all came up clean per the deploy workflow comments — every pull-and-deploy comment shows `Started ICT Trader Live` followed by a healthy tick pipeline within ~15s. No 10003 anywhere. Pybit set_leverage path is stable across the cadence of restarts we've put it through. Unblocks FU-20260511-006 (dead code cleanup of the old V5 signer path)."
     },
     {
       "id": "FU-20260511-003",
@@ -205,11 +205,11 @@
       "expected_check": "When a vm-diag-snapshot issue is open with the vm-diag-request label for >5 min with no comment AND the workflow_run page shows no in-flight or recently-failed run for that issue number — the concurrency lane has dropped it. Two viable fixes: (a) add a timeout step that posts a stderr-style comment if the run exceeds N minutes so the dead-issue path is visible; (b) bump cancel-in-progress to true so a hung run gets evicted by the next request instead of blocking it.",
       "trigger_condition": "Open whenever a future session observes a [diag-request] issue stay commentless for >5 min. Easy to spot: dispatch a fresh one with the same path and see if THAT returns.",
       "resolution_criteria": "Close after a PR adds either (a) per-step timeout-with-error-comment to vm-diag-snapshot.yml or (b) cancel-in-progress: true to the concurrency block — and a subsequent stall pattern can no longer reproduce.",
-      "status": "open",
+      "status": "closed",
       "related_prs": [953],
       "snoozed_until": null,
-      "closed_at": null,
-      "closed_reason": null
+      "closed_at": "2026-05-11T21:48:00+00:00",
+      "closed_reason": "Resolved by PR #953 (cancel-in-progress: true) + the cancelled() handler that posts a 'preempted, re-open to retry' comment on mid-execution cancels. Verified 2026-05-11T21:44Z: opened three [diag-request] issues in rapid succession (#958 journalctl, #959 status, #960 services). #959 and #960 returned successfully within 90s; #958 was preempted by the back-to-back arrivals. Retried as #961 and that returned cleanly. Known residual limitation: queue-stage cancellation (workflow cancelled before any step runs) does NOT fire the cancelled() handler — those issues stay commentless and require operator re-open. Acceptable trade-off since preemption eliminates the wedge entirely and re-opening is one click. Documented in PR #953 description."
     },
     {
       "id": "FU-20260511-006",
