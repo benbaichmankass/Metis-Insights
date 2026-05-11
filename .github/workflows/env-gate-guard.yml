@@ -26,8 +26,10 @@ jobs:
           fetch-depth: 0
 
       - name: Compute diff against base
+        # See note in dry-run-guard.yml — the previous `--depth=1`
+        # shallowed origin/main and broke the three-dot merge-base.
         run: |
-          git fetch origin "${{ github.base_ref }}" --depth=1
+          git fetch origin "${{ github.base_ref }}"
           git diff "origin/${{ github.base_ref }}"...HEAD > /tmp/pr.diff
           wc -l /tmp/pr.diff
 
