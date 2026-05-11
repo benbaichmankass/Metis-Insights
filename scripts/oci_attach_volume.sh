@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # scripts/oci_attach_volume.sh — attach the data volume to the live VM.
 #
-# Idempotent: looks up instance + volume by display-name; if a current
-# attachment already exists in ATTACHED state, returns 0 without retrying.
+# Idempotent: looks up instance + volume; if a current attachment
+# already exists in ATTACHED state, returns 0 without retrying.
 #
 # Usage:
 #   ./scripts/oci_attach_volume.sh
@@ -12,11 +12,13 @@
 #   OCI_COMPARTMENT_OCID  — defaults to OCI_CLI_TENANCY.
 #   OCI_CLI_REGION        — defaults to eu-paris-1.
 #   OCI_VOLUME_NAME       — defaults to ict-bot-data-vol.
-#   VM_INSTANCE_NAME      — defaults to instance-20260414-1555.
+#   VM_INSTANCE_OCID      — preferred. Exact instance OCID; skips name lookup.
+#   VM_INSTANCE_NAME      — fallback. Display name to resolve in compartment.
 #   OCI_ATTACH_TYPE       — defaults to paravirtualized.
 set -euo pipefail
 
-VM_NAME="${VM_INSTANCE_NAME:-instance-20260414-1555}"
+VM_OCID="${VM_INSTANCE_OCID:-}"
+VM_NAME="${VM_INSTANCE_NAME:-}"
 VOLUME_NAME="${OCI_VOLUME_NAME:-ict-bot-data-vol}"
 REGION="${OCI_CLI_REGION:-eu-paris-1}"
 COMPARTMENT_OCID="${OCI_COMPARTMENT_OCID:-${OCI_CLI_TENANCY:-}}"
@@ -36,17 +38,25 @@ if [[ -z "$COMPARTMENT_OCID" ]]; then
     exit 2
 fi
 
-echo "Resolving instance OCID for '$VM_NAME'..."
-instance_id=$(oci compute instance list \
-    --compartment-id "$COMPARTMENT_OCID" \
-    --region "$REGION" \
-    --query "data[?\"display-name\"=='${VM_NAME}' && \"lifecycle-state\"=='RUNNING'].id | [0]" \
-    --raw-output)
-if [[ -z "$instance_id" || "$instance_id" == "null" ]]; then
-    echo "ERROR: no RUNNING instance named '$VM_NAME'." >&2
-    exit 3
+if [[ -n "$VM_OCID" ]]; then
+    echo "Using provided VM_INSTANCE_OCID: $VM_OCID"
+    instance_id="$VM_OCID"
+elif [[ -n "$VM_NAME" ]]; then
+    echo "Resolving instance OCID for '$VM_NAME'..."
+    instance_id=$(oci compute instance list \
+        --compartment-id "$COMPARTMENT_OCID" \
+        --region "$REGION" \
+        --query "data[?\"display-name\"=='${VM_NAME}' && \"lifecycle-state\"=='RUNNING'].id | [0]" \
+        --raw-output)
+    if [[ -z "$instance_id" || "$instance_id" == "null" ]]; then
+        echo "ERROR: no RUNNING instance named '$VM_NAME'." >&2
+        exit 3
+    fi
+    echo "  instance: $instance_id"
+else
+    echo "ERROR: set VM_INSTANCE_OCID (preferred) or VM_INSTANCE_NAME." >&2
+    exit 2
 fi
-echo "  instance: $instance_id"
 
 echo "Resolving volume OCID for '$VOLUME_NAME'..."
 volume_id=$(oci bv volume list \

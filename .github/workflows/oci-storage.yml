@@ -30,7 +30,9 @@ concurrency:
 env:
   OCI_VOLUME_NAME: ict-bot-data-vol
   OCI_AVAILABILITY_DOMAIN: Eu-Paris-1-AD-3
-  VM_INSTANCE_NAME: instance-20260414-1555
+  # Pin the target by OCID (display-names can drift / be wrong); the
+  # script honors VM_INSTANCE_OCID first, VM_INSTANCE_NAME as fallback.
+  VM_INSTANCE_OCID: ocid1.instance.oc1.eu-paris-1.anrwiljrnpsiupacbpuojiksc3dl4twmqlxndtc36jgx5sjq3452vflqr32q
   VM_HOST: 158.178.210.252
   VM_USER: ubuntu
   REPO_DIR: /home/ubuntu/ict-trading-bot
@@ -198,5 +200,5 @@ jobs:
             echo "## oci-storage run"
             echo "- mode: \`${{ inputs.mode }}\`"
             echo "- volume: \`$OCI_VOLUME_NAME\` (${{ inputs.volume_size_gb }} GB, $OCI_AVAILABILITY_DOMAIN)"
-            echo "- instance: \`$VM_INSTANCE_NAME\` ($VM_HOST)"
+            echo "- instance: \`$VM_INSTANCE_OCID\` ($VM_HOST)"
           } >> "$GITHUB_STEP_SUMMARY"
