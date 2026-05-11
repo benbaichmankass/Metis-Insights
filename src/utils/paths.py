@@ -99,12 +99,30 @@ def _resolve_root(subdir: str) -> Path:
     env_name = _ENV_PER_ROOT.get(subdir)
     if env_name and (override := os.environ.get(env_name)):
         candidate = Path(override).expanduser()
+        if not candidate.is_absolute():
+            # Same anchor-to-repo_root rationale as the umbrella branch
+            # below — a relative per-root override would be CWD-dependent.
+            candidate = Path(repo_root()) / candidate
         candidate.mkdir(parents=True, exist_ok=True)
         return candidate
 
     umbrella = os.environ.get(_ENV_UMBRELLA)
     if umbrella:
-        candidate = Path(umbrella).expanduser() / subdir
+        # 2026-05-11 incident: the live VM's .env had ``DATA_DIR=data/``
+        # (a relative path). Without the is_absolute() check, this used
+        # to return ``Path("data/runtime_logs")`` — a relative path
+        # whose actual location depended on each consumer's CWD at the
+        # moment of read/write. Trader writes used the trader's CWD;
+        # web-api reads used the web-api's CWD; status-check diagnostic
+        # used the operator-action wrapper's CWD. Result: writer-vs-
+        # reader path divergence even though both consumers called the
+        # SAME ``runtime_logs_dir()`` helper. Anchor relative umbrella
+        # paths to repo_root so the resolved path is absolute and
+        # process-CWD-independent.
+        umbrella_root = Path(umbrella).expanduser()
+        if not umbrella_root.is_absolute():
+            umbrella_root = Path(repo_root()) / umbrella_root
+        candidate = umbrella_root / subdir
         candidate.mkdir(parents=True, exist_ok=True)
         return candidate
 
