@@ -145,6 +145,65 @@ the apt/git error and re-trigger the workflow after fixing
 already exists, so you'll need to terminate first OR SSH in and
 fix manually — both autonomous-Claude under the trainer charter).
 
+## First action — WS5 baseline kickoff (autonomous-Claude)
+
+After verifying the bootstrap, the very first thing Claude does is
+train every WS5 baseline manifest and promote each to `shadow` in
+the model registry. Until something is at `shadow` or higher, the
+WS7 factory's `LIVE_INFLUENCE_STAGES` gate refuses to load it, so
+this step is the unblock for the shadow harness.
+
+Single command:
+
+```bash
+# On the trainer VM, as ubuntu:
+bash scripts/ops/train_and_register_ws5_baselines.sh
+```
+
+What it does (per JSONL audit row in
+`runtime_logs/trainer/ws5_baseline_kickoff.jsonl`):
+
+1. For each `ml/configs/baseline-*.yaml`:
+   1. Runs `python -m ml train` (auto-registers at
+      `research_only`).
+   2. Walks the promotion ladder up to `shadow` by calling
+      `python -m ml promote <model_id> <next_stage> --by claude-trainer
+      --reason "..." --gates-acknowledged` once per step.
+2. Emits a JSONL `manifest_done` event with the final model_id +
+   stage, then advances to the next manifest.
+3. Short-circuits on the first training or promotion failure
+   (overall_rc=1).
+
+**Knobs (env vars):**
+
+- `TARGET_STAGE` — defaults to `shadow`. Override to push further
+  (e.g. `advisory`). Per the trainer charter § 3.a, autonomous up
+  to `live_approved`. Stage transitions past `advisory` additionally
+  require a sprint-log entry under `docs/sprint-logs/S-AI-WS5-PROMOTION-*`
+  per § 3.b — this script doesn't write that log; Claude does it
+  manually before bumping `TARGET_STAGE`.
+- `PROMOTION_BY` — defaults to `claude-trainer`. Recorded on every
+  `StatusEvent` row the registry appends.
+- `PROMOTION_REASON` — defaults to a structured boilerplate citing
+  the charter. Override to attach a specific sprint or session id.
+- `MANIFESTS` — defaults to every `baseline-*.yaml` under
+  `ml/configs/`. Space-separated override to target a subset.
+- `LOG_PATH`, `REPO_ROOT`, `VENV_DIR`, `DATASETS_ROOT`,
+  `EXPERIMENTS_ROOT`, `REGISTRY_ROOT` — paths, see the script's
+  header docstring for defaults.
+
+**Idempotency note:** every run produces a fresh set of model_ids
+(the registry is append-only by WS4 rule). Don't run this twice by
+accident — the trainer ends up with N×9 baseline rows, all at
+`shadow`. The next operator-side step (adding to `shadow_model_ids`
+in a strategy YAML on the live VM) is the chance to pick the
+intended row.
+
+After this completes, run `python -m ml list-models --status shadow`
+to see the registered set. The model_ids are what the operator
+copies into `config/strategies.yaml::shadow_model_ids` on the live
+VM to wire them in.
+
 ## Enable training cycles (autonomous-Claude)
 
 The trainer service is installed but disabled by cloud-init.
@@ -166,6 +225,13 @@ The training cycle pulls `main`, builds a venv if needed, iterates
 the manifests under `ml/configs/` (or `TRAINING_MANIFESTS` if set),
 emits JSONL events to `runtime_logs/training_cycle.jsonl`, and
 short-circuits on the first manifest failure with overall_rc=1.
+
+The recurring cycle stops at `research_only` — that's the source
+of fresh candidates over time. The "First action" bootstrap above
+is what walks each one up to `shadow` so the WS7 harness can load
+them; the recurring cycle then keeps producing more candidates the
+operator can promote (or that a future "auto-promote on metric
+threshold" follow-up can promote autonomously).
 
 ## Cross-VM data sync (autonomous-Claude, read-only)
 
@@ -235,6 +301,25 @@ SSH in (autonomous-Claude) and check
 OCI Security List for the subnet doesn't include TCP/22 ingress.
 Use the existing `vm-cloud-fix.yml` pattern (or run it directly
 with `--port 22`) to add the rule — autonomous-Claude.
+
+### Bootstrap script: `manifest_failed` at `phase: train`
+
+`python -m ml train` exited non-zero on a baseline manifest. Most
+common cause: `DATASETS_ROOT` is empty — the trainer assumes the
+dataset has been built first. Run the dataset build commands from
+each baseline's manifest comments, or run `python -m ml build-dataset
+<family>` for the families the manifest references, then re-run
+the bootstrap.
+
+### Bootstrap script: `promote_failed` with `gates: ...`
+
+A specific promotion transition has additional gates that
+`--gates-acknowledged` couldn't bypass. Check
+`ml/promotion.py::gates_for` for the transition; some transitions
+(typically `backtest_approved → shadow` and beyond) require a
+metric threshold proof to be documented in the reason. Re-run with
+`PROMOTION_REASON` updated to include the proof, or lower
+`TARGET_STAGE` to a stage that doesn't require the gate.
 
 ## Related runbooks
 
