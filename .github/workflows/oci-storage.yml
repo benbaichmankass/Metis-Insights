@@ -127,6 +127,17 @@ jobs:
       - name: Probe VM connectivity
         run: bash scripts/oci_vm_ssh.sh 'uname -a && lsblk'
 
+      - name: Sync VM repo to current main
+        # The ict-git-sync.timer eventually pulls new commits, but the
+        # cadence is on the order of minutes and a freshly-merged
+        # workflow change (e.g. a new migration script) can otherwise
+        # race ahead of the timer — the VM-side script wouldn't exist
+        # yet, and the step would fail with `No such file or directory`.
+        # Force a fast-forward pull up front so every subsequent
+        # VM-side step sees the same code as this workflow file.
+        run: |
+          bash scripts/oci_vm_ssh.sh "cd $REPO_DIR && git fetch --quiet origin main && git reset --quiet --hard origin/main && git --no-pager log -1 --oneline"
+
       - name: Format + mount + fstab
         if: ${{ inputs.mode == 'execute' }}
         run: |
