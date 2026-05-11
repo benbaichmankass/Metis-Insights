@@ -92,6 +92,20 @@ jobs:
             raw="${raw#\[diag-request\] }"
             raw="${raw#\[diag-request\]}"
             raw="${raw# }"
+            # GitHub stores `&` in issue titles as the HTML entity
+            # `&amp;` (verified 2026-05-11 — the title coming from the
+            # webhook payload contains literal "&amp;", not "&"). Any
+            # path with a `&` query separator therefore fails the
+            # validation regex below (the `;` of `amp;` is rejected,
+            # and decoded-then-re-encoded paths look wrong to curl).
+            # Decode the common entities here so issue-driven callers
+            # don't have to URL-encode every separator. `&amp;` first
+            # so a literal `&` in the body of any other entity doesn't
+            # get re-substituted.
+            raw="${raw//&amp;/&}"
+            raw="${raw//&lt;/<}"
+            raw="${raw//&gt;/>}"
+            raw="${raw//&quot;/\"}"
             DIAG_PATH="${raw:-snapshot?limit=200}"
           else
             DIAG_PATH="${DISPATCH_PATH}"
@@ -102,7 +116,14 @@ jobs:
           path="${DIAG_PATH#/api/diag/}"
           path="${path#/}"
 
-          if ! printf '%s' "$path" | grep -qE '^[A-Za-z0-9/?&=_.-]+$'; then
+          # Allowed chars: alphanumeric, slash, query separators (`?` `&` `=`),
+          # safe path/symbol chars (`_.-`), ISO-8601 colon (`:`) for
+          # journalctl ?since=/?until=, and URL-encoding (`%`) for any
+          # caller that prefers to URL-encode rather than rely on the
+          # HTML-entity decode above. Still rejects shell metachars
+          # (space, $, `, ;, &&, etc.) so an issue title can't smuggle
+          # commands into the ssh + curl invocation below.
+          if ! printf '%s' "$path" | grep -qE '^[A-Za-z0-9/?&=_.:%-]+$'; then
             echo "::error::Rejected diag_path (illegal characters): $DIAG_PATH"
             exit 1
           fi

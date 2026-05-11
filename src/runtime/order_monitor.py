@@ -892,6 +892,323 @@ def _exchange_position_set(positions: Optional[List[Dict[str, Any]]]) -> set:
     return out
 
 
+_VALID_ORPHAN_POLICIES = {"detect_only", "adopt", "close"}
+
+
+def _orphan_position_policy() -> str:
+    """Read ``ORPHAN_POSITION_POLICY`` at call time.
+
+    One of ``detect_only`` / ``adopt`` / ``close``. Default is
+    ``detect_only`` — the safest behaviour for an unknown deployment.
+    The live trader's systemd unit sets ``adopt`` per operator
+    decision 2026-05-11 (the reverse reconciler should insert a trade
+    row so the journal regains visibility, without auto-trading the
+    position closed).
+
+    Unknown values fall back to ``detect_only`` rather than raising
+    so a typo in the unit file doesn't crash the trader; the audit
+    log captures the rejected value.
+    """
+    raw = str(os.environ.get("ORPHAN_POSITION_POLICY", "detect_only")).strip().lower()
+    if raw in _VALID_ORPHAN_POLICIES:
+        return raw
+    logger.warning(
+        "ORPHAN_POSITION_POLICY=%r is not one of %s — falling back to detect_only",
+        raw, sorted(_VALID_ORPHAN_POLICIES),
+    )
+    return "detect_only"
+
+
+def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
+    """Reverse reconciler — finds Bybit positions with no journal row.
+
+    Counterpart to :func:`_reconcile_open_trades`:
+
+    * ``_reconcile_open_trades``  →  for each DB-open trade, ask Bybit
+      "still alive?"  (catches DB drift: trade row stayed open after
+      Bybit closed the position).
+    * this function              →  for each Bybit-open position, ask
+      DB "do you have a row for this?"  (catches the reverse drift:
+      position is live on Bybit but the journal lost track of it —
+      the 2026-05-11 incident, trade 1145 BTCUSDT bybit_2 vwap LONG).
+
+    Policy (``ORPHAN_POSITION_POLICY`` env, see :func:`_orphan_position_policy`):
+
+    * ``detect_only`` — emit an operator alert + audit entry, do NOT
+      mutate the DB or send any exchange order. Safest starting
+      configuration; lets the operator review the alert format and
+      decide policy from observed orphans.
+    * ``adopt`` — INSERT a new ``trades`` row with status='open',
+      ``setup_type='adopted_orphan'``, ``strategy_name='orphan_adopt'``,
+      ``entry_price`` = Bybit ``avgPrice``, ``position_size`` =
+      Bybit ``size``. SL/TP fields stay NULL — exchange-side
+      conditionals are the operator's responsibility on an adopted
+      orphan. The bot's forward reconciler picks the row up on the
+      next tick and closes it cleanly when Bybit reports the
+      position flat (TP/SL/manual fire). The bot's monitor() hook
+      will not fire because ``orphan_adopt`` is not a registered
+      strategy — that's deliberate; we don't pretend to know the
+      entry rationale.
+    * ``close`` — submit a market close via ``safe_place_order``
+      to flatten the position immediately. Tier-3 sensitive
+      (active trading from a reconciler); requires explicit env
+      flip after operator review.
+
+    Gated by ``MONITOR_RECONCILE_ENABLED`` (same flag as
+    :func:`_reconcile_open_trades`). Best-effort — every step is
+    wrapped; one bad position never aborts the sweep.
+
+    Returns
+    -------
+    dict
+        ``{checked_accounts, checked_positions, orphans_found,
+        adopted, closed, detect_only, errors}`` — caller emits an
+        INFO line whenever any non-zero count surfaces.
+    """
+    summary = {
+        "checked_accounts": 0,
+        "checked_positions": 0,
+        "orphans_found": 0,
+        "adopted": 0,
+        "closed": 0,
+        "detect_only": 0,
+        "errors": 0,
+    }
+    if not _reconcile_enabled():
+        return summary
+
+    policy = _orphan_position_policy()
+    cfgs = _load_account_cfgs_for_reconcile()
+    if not cfgs:
+        return summary
+
+    from src.units.accounts.clients import account_open_positions
+    from src.runtime.execution_diagnostics import (
+        enqueue_exchange_orphan_adoption,
+    )
+
+    for aid, cfg in cfgs.items():
+        # Reverse reconciler only runs on live accounts. Dry/paper
+        # accounts have no real exchange-side positions to orphan, and
+        # bybit_client_for() would yield a no-creds client in dry mode.
+        if str(cfg.get("mode") or "live").lower() in {"dry", "dry_run", "dry-run", "paper"}:
+            continue
+
+        summary["checked_accounts"] += 1
+        positions = account_open_positions(cfg)
+        if positions is None:
+            # Read failure — skip this account. _reconcile_open_trades
+            # observed the same condition and bumped skipped_no_creds;
+            # we don't have a parallel bucket here (per-account skip is
+            # implicit) but errors stays zero so the operator can tell
+            # a transient creds-read from a real orphan adoption.
+            continue
+        if not positions:
+            continue
+
+        # Read DB-open trades for this account in one batch so we don't
+        # round-trip per position. The forward reconciler reads ALL
+        # status='open' trades; we can scope to this account.
+        try:
+            conn = db.connect()
+            try:
+                conn.row_factory = __import__("sqlite3").Row
+                open_rows = conn.execute(
+                    "SELECT symbol, direction FROM trades "
+                    "WHERE status='open' AND COALESCE(is_backtest,0)=0 "
+                    "  AND account_id=?",
+                    (aid,),
+                ).fetchall()
+            finally:
+                conn.close()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "_reconcile_orphan_exchange_positions: open-trades read "
+                "failed for account=%s: %s", aid, exc,
+            )
+            summary["errors"] += 1
+            continue
+
+        known: set = set()
+        for r in open_rows:
+            sym = r["symbol"]
+            side = str(r["direction"] or "").lower()
+            canonical = {"buy": "long", "long": "long",
+                         "sell": "short", "short": "short"}.get(side)
+            if sym and canonical:
+                known.add((sym, canonical))
+
+        for p in positions:
+            summary["checked_positions"] += 1
+            sym = p.get("symbol")
+            side_raw = str(p.get("side") or "").lower()
+            canonical_side = {
+                "buy": "long", "long": "long",
+                "sell": "short", "short": "short",
+            }.get(side_raw)
+            if not sym or not canonical_side:
+                # Unrecognised position shape — skip, don't orphan.
+                continue
+            if (sym, canonical_side) in known:
+                continue
+
+            # Orphan found.
+            summary["orphans_found"] += 1
+            size = float(p.get("size") or 0.0)
+            entry_price = float(p.get("entry_price") or 0.0)
+
+            db_trade_id: Optional[int] = None
+            note: Optional[str] = None
+
+            if policy == "adopt":
+                try:
+                    db_trade_id = _adopt_orphan_position(
+                        db=db,
+                        account_id=aid,
+                        symbol=str(sym),
+                        direction=canonical_side,
+                        size=size,
+                        entry_price=entry_price,
+                    )
+                    summary["adopted"] += 1
+                    logger.warning(
+                        "_reconcile_orphan_exchange_positions: ADOPTED "
+                        "exchange orphan — account=%s symbol=%s side=%s "
+                        "size=%s entry=%s as trade_id=%s",
+                        aid, sym, canonical_side, size, entry_price,
+                        db_trade_id,
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning(
+                        "_reconcile_orphan_exchange_positions: ADOPT failed "
+                        "for account=%s symbol=%s side=%s: %s",
+                        aid, sym, canonical_side, exc,
+                    )
+                    summary["errors"] += 1
+                    note = f"adopt failed: {type(exc).__name__}"
+
+            elif policy == "close":
+                # Deliberately deferred — the close path is the
+                # tier-3-sensitive variant (active trading from a
+                # reconciler). It needs an integration test that
+                # confirms safe_place_order receives a reduceOnly
+                # close at the right size + side, and the operator
+                # alert lands BEFORE the close is dispatched in case
+                # the close itself fails. Surface as detect_only +
+                # note until that wiring lands.
+                summary["detect_only"] += 1
+                note = (
+                    "policy=close requested but the close path is not yet "
+                    "implemented — treated as detect_only; see "
+                    "src/runtime/order_monitor.py::_reconcile_orphan_exchange_positions"
+                )
+                logger.warning(
+                    "_reconcile_orphan_exchange_positions: close policy "
+                    "stub fired — orphan not closed; falling back to "
+                    "detect_only for account=%s symbol=%s side=%s",
+                    aid, sym, canonical_side,
+                )
+
+            else:  # detect_only
+                summary["detect_only"] += 1
+                logger.warning(
+                    "_reconcile_orphan_exchange_positions: DETECTED "
+                    "exchange orphan (detect_only) — account=%s symbol=%s "
+                    "side=%s size=%s entry=%s",
+                    aid, sym, canonical_side, size, entry_price,
+                )
+
+            try:
+                enqueue_exchange_orphan_adoption(
+                    account=aid,
+                    symbol=str(sym),
+                    side=canonical_side,
+                    size=size,
+                    entry_price=entry_price,
+                    db_trade_id=db_trade_id,
+                    policy=policy if policy != "close" else "detect_only",
+                    note=note,
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "_reconcile_orphan_exchange_positions: alert enqueue "
+                    "failed for account=%s symbol=%s: %s", aid, sym, exc,
+                )
+
+    if (
+        summary["orphans_found"]
+        or summary["adopted"]
+        or summary["closed"]
+        or summary["errors"]
+    ):
+        logger.info(
+            "_reconcile_orphan_exchange_positions: accounts=%d positions=%d "
+            "orphans=%d adopted=%d closed=%d detect_only=%d errors=%d",
+            summary["checked_accounts"], summary["checked_positions"],
+            summary["orphans_found"], summary["adopted"], summary["closed"],
+            summary["detect_only"], summary["errors"],
+        )
+    return summary
+
+
+def _adopt_orphan_position(
+    *,
+    db,
+    account_id: str,
+    symbol: str,
+    direction: str,
+    size: float,
+    entry_price: float,
+) -> int:
+    """Insert a ``trades`` row tracking an exchange-side orphan position.
+
+    Used by :func:`_reconcile_orphan_exchange_positions` when
+    ``ORPHAN_POSITION_POLICY=adopt``. The row is intentionally
+    minimal:
+
+    * ``setup_type='adopted_orphan'`` distinguishes it from real
+      strategy entries on every dashboard / report.
+    * ``strategy_name='orphan_adopt'`` — not a registered strategy,
+      so the monitor() loop never fires on it. The forward reconciler
+      will close the row when Bybit reports the position flat.
+    * ``stop_loss``, ``take_profit_*`` left NULL. The operator's
+      exchange-side conditional orders remain the actual risk control;
+      the bot does not synthesize stops for a position whose original
+      entry rationale it doesn't know.
+
+    Returns the new ``trades.id``.
+    """
+    now_iso = datetime.now(timezone.utc).isoformat()
+    notes_payload = json.dumps(
+        {
+            "adopted_at": now_iso,
+            "adopted_by": "reverse_reconciler",
+            "adopted_reason": (
+                "Bybit reported open position with no matching "
+                "trades.status='open' row"
+            ),
+            "exchange_entry_price": entry_price,
+            "exchange_size": size,
+        },
+        ensure_ascii=False,
+    )[:500]
+    trade_data = {
+        "timestamp": now_iso,
+        "symbol": symbol,
+        "direction": direction,
+        "entry_price": entry_price,
+        "position_size": size,
+        "setup_type": "adopted_orphan",
+        "entry_reason": "reverse_reconciler_adopted_orphan_position",
+        "status": "open",
+        "notes": notes_payload,
+        "is_backtest": 0,
+        "strategy_name": "orphan_adopt",
+        "account_id": account_id,
+    }
+    return int(db.insert_trade(trade_data))
+
+
 def _reconcile_open_trades(db) -> Dict[str, int]:
     """SSOT-from-Bybit reconciler (issue #502).
 
@@ -1942,6 +2259,23 @@ def run_monitor_tick(
             summaries["__reconciler__"] = recon
     except Exception as exc:  # noqa: BLE001
         logger.warning("run_monitor_tick: reconciler raised: %s", exc)
+
+    # 2026-05-11 incident PR: reverse reconciler. Walks the OTHER
+    # direction — every exchange-side open position is checked for a
+    # matching trades.status='open' row, and an orphan (Bybit-known,
+    # journal-unknown) is either alerted, ADOPTed into the journal,
+    # or market-closed depending on ORPHAN_POSITION_POLICY. Same
+    # MONITOR_RECONCILE_ENABLED gate; runs after the forward reconciler
+    # so the journal mutations from forward-orphan closures don't
+    # produce spurious reverse-orphan adoptions on the same tick.
+    try:
+        reverse_recon = _reconcile_orphan_exchange_positions(db)
+        if reverse_recon.get("orphans_found") or reverse_recon.get("errors"):
+            summaries["__reverse_reconciler__"] = reverse_recon
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "run_monitor_tick: reverse reconciler raised: %s", exc,
+        )
 
     # BUG-049: sweep order_packages that are status='open' but have no
     # linked_trade_id (never executed). Gated by the same

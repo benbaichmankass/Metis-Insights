@@ -69,7 +69,16 @@ def write_heartbeat(
             target.write_text(line + "\n", encoding="utf-8")
         return True
     except Exception as exc:  # noqa: BLE001
-        logger.warning("write_heartbeat failed: %s", exc)
+        # logger.exception over logger.warning: when the heartbeat
+        # writer goes silently broken (incident 2026-05-11 — mtime froze
+        # at 10:01:30Z across two trader processes), the operator needs
+        # the exception class + stacktrace in bot.log/journal to root-
+        # cause without re-instrumenting. Path is included so a per-
+        # filesystem permission/rename failure points at the right dir.
+        logger.exception(
+            "write_heartbeat failed: target=%s exc=%s",
+            target, type(exc).__name__,
+        )
         return False
 
 
