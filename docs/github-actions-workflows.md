@@ -42,7 +42,7 @@ Workflow files map to permission tiers (see
   rely on `bootstrap-labels.yml` to create labels idempotently. The
   declared labels are: `vm-diag-request`, `vm-web-api-recover`,
   `operator-action`, `vm-cloud-fix-request`, `vm-net-diag-request`,
-  `vm-net-fix-request`.
+  `vm-net-fix-request`, `health-snapshot-trigger`, `oci-verify`.
 - **Job IDs match workflow names** for every CI guard. The GitHub
   status-context name comes from the job ID, so each guard's job
   matches the workflow file name (`pytest-collect`, `secret-scan`,
@@ -54,11 +54,16 @@ Workflow files map to permission tiers (see
 - Issue-driven mutating workflows take the issue body verbatim through
   the `ISSUE_BODY` env var; do **not** interpolate
   `${{ github.event.issue.body }}` directly into shell.
-- All VM SSH workflows use the `VM_SSH_KEY` repo secret. Mutating
-  actions log a JSON artifact with pre-/post-state.
-- Secrets used: `VM_SSH_KEY`, `DIAG_READ_TOKEN`,
+- All read-only VM SSH workflows use the `VM_SSH_KEY` repo secret.
+  The single mutating OCI storage workflow uses `VM_SSH_PRIVATE_KEY`
+  on the `production-oci` environment (same key material; the
+  scope split is what carries the approval gate).
+- Mutating actions log a JSON artifact with pre-/post-state.
+- Secrets used: `VM_SSH_KEY` (repo), `VM_SSH_PRIVATE_KEY`
+  (env `production-oci`), `DIAG_READ_TOKEN`,
   `BRANCH_PROTECTION_TOKEN`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`,
-  plus the Oracle Cloud (`OCI_CLI_*`) set used only by `vm-cloud-fix`.
+  plus the Oracle Cloud (`OCI_CLI_*`) set used by `oci-storage` and
+  `vm-cloud-fix`.
 
 ## Workflow Catalogue
 
@@ -78,7 +83,7 @@ Workflow files map to permission tiers (see
 
 | File | Trigger | Purpose | Tier |
 |---|---|---|---|
-| `bootstrap-labels.yml` | `push` to `main` (paths: this file), `workflow_dispatch` | Creates required labels (`vm-diag-request`, `operator-action`, `vm-web-api-recover`, etc.) idempotently. | 1 |
+| `bootstrap-labels.yml` | `push` to `main` (paths: this file), `workflow_dispatch` | Creates required labels (`vm-diag-request`, `operator-action`, `vm-web-api-recover`, `oci-verify`, etc.) idempotently. | 1 |
 | `branch-protection-sync.yml` | (push / dispatch) | Idempotently PUTs the branch-protection spec for `main`. Required-status-checks contexts are hardcoded in this file. | 2 |
 
 ### VM operations (PM-side / sandbox bridges)
@@ -91,6 +96,21 @@ Workflow files map to permission tiers (see
 | `vm-net-diag.yml` | `workflow_dispatch`, `issues.opened` (label `vm-net-diag-request`) | Read-only network diagnostics; checks 8001 reachability. | 1 | Read only |
 | `vm-net-fix.yml` | `workflow_dispatch`, `issues.opened` (label `vm-net-fix-request`) | Opens TCP/8001 via `ufw` + `iptables -I INPUT ACCEPT`; verifies. | 2 | Local firewall only |
 | `vm-cloud-fix.yml` | `workflow_dispatch`, `issues.opened` (label `vm-cloud-fix-request`) | Adds Oracle Cloud Security List ingress rule for the dashboard API port. | 3 (cloud-side change) | OCI ingress rule |
+
+### OCI block storage
+
+| File | Trigger | Purpose | Tier | Allowed actions |
+|---|---|---|---|---|
+| `oci-storage.yml` | `workflow_dispatch` (input `mode = dry-run | execute`) | Provisions / re-checks the OCI block volume (`ict-bot-data-vol`) for the live trading VM: create → attach → mkfs → mount → fstab → rsync migrate → install systemd drop-ins → restart services → verify. Mutating job uses `environment: production-oci` (one approval per dispatch). | 2 | All helper scripts under `scripts/oci_*.sh` and `scripts/migrate_to_data_dir.sh`; SSH to the live VM. |
+| `oci-storage-verify.yml` | `workflow_dispatch` | Read-only health check of the OCI storage state. SSHes the VM, runs `scripts/verify_storage_setup.sh`, posts the report to a labelled GitHub Issue (`oci-verify`) and to the run summary. **No env gate** — read-only checks shouldn't pause for approval. | 1 | Read only over SSH. |
+
+The storage state is **also** included in every 6-hourly
+`health-snapshot-pr.yml` snapshot via the `=== STORAGE ===` section in
+`scripts/collect_health_snapshot.sh`. The `/health-review` skill picks
+it up automatically; no separate cron is needed.
+
+The full runbook lives at
+[`docs/automation/oci-storage-setup.md`](automation/oci-storage-setup.md).
 
 ### Training / data
 
@@ -118,6 +138,12 @@ Workflow files map to permission tiers (see
 - **Triggering a Tier-2 operator action** — confirm operator approval
   in conversation, then open an issue with label `operator-action` and
   body `action: <name>\nreason: <text>`. Allowed names listed above.
+- **Checking OCI storage state** — in a session with hosted GitHub MCP,
+  ask the operator to dispatch `oci-storage-verify` (one button, no
+  approval); Claude then reads the resulting `oci-verify`-labelled issue
+  for the report. The 6-hourly health snapshot already includes the
+  `=== STORAGE ===` block, so a fresh dispatch is only needed when
+  responding to a suspected mount regression.
 - **Adding a CI check** — edit/create a workflow under
   `.github/workflows/`, then if it should be a required status check,
   add it to the `required_contexts` array in
@@ -141,14 +167,15 @@ Workflow files map to permission tiers (see
 
 ## Required secrets quick reference
 
-| Secret | Used by |
-|---|---|
-| `VM_SSH_KEY` | All VM SSH workflows |
-| `DIAG_READ_TOKEN` | `vm-diag-snapshot`, post-action verification in `operator-actions` |
-| `BRANCH_PROTECTION_TOKEN` (PAT, fine-grained, `administration:write`) | `branch-protection-sync` |
-| `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | `dry-run-guard`, `env-gate-guard`, `silent-empty-guard`, `training-run` (operator pings) |
-| `OCI_CLI_USER`, `OCI_CLI_FINGERPRINT`, `OCI_CLI_TENANCY`, `OCI_CLI_REGION`, `OCI_CLI_KEY_CONTENT` | `vm-cloud-fix` |
-| `HF_TOKEN` (where present) | `hf-cron`, `training-run` (HF dataset publishing) |
+| Secret | Scope | Used by |
+|---|---|---|
+| `VM_SSH_KEY` | repo | All read-only VM SSH workflows (`vm-diag-snapshot`, `vm-net-diag`, `health-snapshot-pr`, `oci-storage-verify`, etc.) |
+| `VM_SSH_PRIVATE_KEY` | env `production-oci` | `oci-storage` mutating job only (env scope carries the approval gate) |
+| `DIAG_READ_TOKEN` | repo | `vm-diag-snapshot`, post-action verification in `operator-actions` |
+| `BRANCH_PROTECTION_TOKEN` (PAT, fine-grained, `administration:write`) | repo | `branch-protection-sync` |
+| `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | repo | `dry-run-guard`, `env-gate-guard`, `silent-empty-guard`, `training-run` (operator pings) |
+| `OCI_CLI_USER`, `OCI_CLI_FINGERPRINT`, `OCI_CLI_TENANCY`, `OCI_CLI_REGION`, `OCI_CLI_KEY_CONTENT` | repo | `vm-cloud-fix`, `oci-storage` |
+| `HF_TOKEN` (where present) | repo | `hf-cron`, `training-run` (HF dataset publishing) |
 
 ## Optional repo variables
 
