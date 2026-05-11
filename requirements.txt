@@ -37,5 +37,11 @@ httpx>=0.27.0
 pyjwt>=2.8.0
 email-validator>=2.0.0
 
+# /api/bot/stats vmHealth sampler. Without this, src/web/api/_vm_health.py
+# logs "psutil sample failed: No module named 'psutil'" every poll and
+# vmHealth.{cpu,memory,disk} serialize as null. Dashboard renders em-dashes
+# — degraded UX rather than hard break.
+psutil>=5.9.0
+
 # Claude Telegram bridge (ict-claude-bridge.service, optional/disabled by default).
 anthropic>=0.40.0
