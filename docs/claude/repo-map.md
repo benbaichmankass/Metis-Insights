@@ -56,6 +56,7 @@ requires restarting **every** unit that reads them.
 | `ict-telegram-bot.service` | `.env` | every `cmd_*` handler — including `/accounts_status` |
 | `ict-web-api.service` | `/etc/ict-trader/web-api.env` | dashboard `/api/*` endpoints |
 | `ict-heartbeat.service` | `.env.live` | daily heartbeat ping |
+| `ict-liveness-watchdog.service` (+ `.timer`) | `.env` | per-minute dead-man switch (`scripts/check_heartbeat.py`); Telegrams + autoheals trader on stall. Runbook: `docs/runbooks/liveness-watchdog.md` |
 | `ict-git-sync.timer` + `.service` | n/a | pulls main every 5 min, runs `deploy_pull_restart.sh` |
 
 The Colab key-rotation notebook restarts trader + telegram bot.

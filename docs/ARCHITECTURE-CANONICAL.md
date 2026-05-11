@@ -142,6 +142,25 @@ The runtime records:
 - runtime status (`runtime_logs/status.json`),
 - trades and order packages (SQLite `trade_journal.db`).
 
+### Step 7.1 — External liveness watchdog (2026-05-11)
+The heartbeat file is also watched externally by
+[`ict-liveness-watchdog.{service,timer}`](../deploy/), a separate
+systemd unit that runs `scripts/check_heartbeat.py` every 60 s.
+This is the per-minute dead-man switch on top of the in-process
+heartbeat:
+
+- Telegram `[CRITICAL] Trader heartbeat stale` after 5 min of
+  stale mtime.
+- Autoheal: after 3 consecutive stale checks (~8 min total stall),
+  the watchdog dispatches `sudo -n systemctl restart ict-trader-live.service`
+  and Telegrams the systemctl exit code. Opt-in via
+  `--auto-restart-after N` (currently ON with N=3).
+- Stdlib-only — runs even when the trader's venv is wedged.
+- Full operator runbook: [`docs/runbooks/liveness-watchdog.md`](runbooks/liveness-watchdog.md).
+
+Distinct from `ict-heartbeat.{service,timer}`, which is the
+once-daily operator status digest at 13:00 UTC.
+
 ### Step 8 — Operator visibility and control
 The Telegram bot (`src/bot/telegram_query_bot.py`) plus the FastAPI
 diag surface (`src/web/api/routers/diag.py`) expose status, halt and
@@ -218,7 +237,8 @@ final pre-expiry alert (M1 P1-B) prevent silent expiry.
 | Trader service | `deploy/ict-trader-live.service` |
 | Web API service | `deploy/ict-web-api.service` |
 | Telegram bot service | `deploy/ict-telegram-bot.service` |
-| Heartbeat timer | `deploy/ict-heartbeat.{service,timer}` |
+| Heartbeat timer | `deploy/ict-heartbeat.{service,timer}` — once-daily operator status digest (13:00 UTC) |
+| Liveness watchdog | `deploy/ict-liveness-watchdog.{service,timer}` — per-minute dead-man switch on `heartbeat.txt` mtime; alerts within 5 min and autoheals trader after 8 min stall (PRs #950/#956). Runbook: `docs/runbooks/liveness-watchdog.md` |
 | Hourly snapshot | `deploy/ict-hourly-snapshot.{service,timer}` |
 | Smoke once | `deploy/ict-smoke-once.service` |
 | Claude bridge | `deploy/ict-claude-bridge.service` |
