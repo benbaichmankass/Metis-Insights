@@ -12,9 +12,13 @@
 
 ## Pre-conditions
 
-- The OCI block volume has been created and attached to the instance (Tier 1 action, one-time, **not part of this runbook** — see `docs/architecture/oci-block-storage.md` for the rationale).
+- The OCI block volume has been created and attached to the instance. As of S-OCI (PRs #853–#875) this is automated end-to-end via [`.github/workflows/oci-storage.yml`](../../.github/workflows/oci-storage.yml) (`mode = execute`). Run [`docs/automation/oci-storage-setup.md`](../automation/oci-storage-setup.md) instead of doing the steps below by hand on a fresh VM; the workflow drives sections 1–6 with idempotent operations and a single `production-oci` approval gate.
 - `/data/bot-data/` exists as a mount point on the VM.
 - The repo at `/home/ubuntu/ict-trading-bot` is on a commit ≥ `7b5ec02` (PR 1 merged).
+
+The rest of this runbook is the **manual fallback** — useful when
+you're debugging a single step, recovering from a partial run, or
+working on a VM where the workflow hasn't been wired up yet.
 
 ## 1. Verify the mount
 
@@ -25,6 +29,10 @@ ls -ld /data/bot-data                # should be owned by ubuntu:ubuntu, perms 7
 ```
 
 If `mountpoint` exits non-zero, **stop here** and resolve the mount first. The rest of the runbook assumes the volume is up.
+
+For the automated equivalent of this section plus everything that
+follows, dispatch `oci-storage-verify` from the Actions tab and read
+the resulting `oci-verify`-labelled issue.
 
 ## 2. Run the preflight
 
@@ -77,6 +85,10 @@ The drop-in adds three directives without modifying the base unit:
 - `ExecStartPre=scripts/check_data_dir.sh` — preflight gates every restart.
 - `Environment=DATA_DIR=/data/bot-data` — opts the trader's path helpers in.
 
+`ict-telegram-bot` is intentionally **not** in the loop — it has no
+DATA_DIR-resident state. The verify workflow flags it as
+`DATA_DIR=(unset)` and that is expected.
+
 ## 5. Restart the trader
 
 ```bash
@@ -106,6 +118,8 @@ date -u
 
 If `lsof` shows the trader still holding the **old** `/home/ubuntu/ict-trading-bot/runtime_logs/` paths, the drop-in didn't take effect — `daemon-reload` was skipped, or there's a typo in `data-dir.conf`. Re-check, restart, repeat.
 
+The one-shot equivalent of all of section 6 is `scripts/verify_storage_setup.sh` (or dispatching the `oci-storage-verify` workflow).
+
 ## Rollback procedure
 
 If anything looks wrong (warnings in `journalctl`, dashboard 500s, missing files), revert in this order:
@@ -130,6 +144,9 @@ The migrate script **never deleted** the source files, so the repo subdirs still
 
 The data that was written to `/data/bot-data/` during the brief flip-on window is not lost — it's still on the volume. Decide later whether to merge it back into the repo subdirs (rare) or keep it as a snapshot.
 
+For the full automated rollback (including OCI detach) see
+[`docs/automation/oci-storage-setup.md`](../automation/oci-storage-setup.md) § 4.
+
 ## What to monitor in the first 24 hours
 
 - `runtime_logs/heartbeat.txt` mtime on the mount, every 60 s. Use `watch -n 30 ls -la /data/bot-data/runtime_logs/heartbeat.txt`.
@@ -137,6 +154,7 @@ The data that was written to `/data/bot-data/` during the brief flip-on window i
 - Disk usage on the volume (`df -h /data/bot-data`) — sanity check that growth rate matches what the repo subdirs were doing.
 - `/api/bot/health/latest` returns the snapshot bundle (proves `artifacts_dir()` is reading the right place).
 - Hourly Telegram report fires at the top of the hour (proves `runtime_logs/outcomes.jsonl` aggregation works against the mount).
+- The 6-hourly health-snapshot PR includes a `=== STORAGE ===` section; spot-check it for fstab persistence and DATA_DIR drift across all three trader services.
 
 ## Common failure modes and quick fixes
 
@@ -149,7 +167,8 @@ The data that was written to `/data/bot-data/` during the brief flip-on window i
 
 ## Cross-references
 
+- [`docs/automation/oci-storage-setup.md`](../automation/oci-storage-setup.md) — the automated provisioning + verify pipeline (workflow-driven).
 - [`docs/architecture/oci-block-storage.md`](../architecture/oci-block-storage.md) — why this exists.
 - [`docs/security/permissions-tiers.md`](../security/permissions-tiers.md) — who can run which step.
 - [`deploy/dropins/README.md`](../../deploy/dropins/README.md) — drop-in installation reference.
-- [`scripts/check_data_dir.sh`](../../scripts/check_data_dir.sh) and [`scripts/migrate_to_data_dir.sh`](../../scripts/migrate_to_data_dir.sh) — the tools this runbook drives.
+- [`scripts/check_data_dir.sh`](../../scripts/check_data_dir.sh), [`scripts/migrate_to_data_dir.sh`](../../scripts/migrate_to_data_dir.sh), [`scripts/verify_storage_setup.sh`](../../scripts/verify_storage_setup.sh) — the tools this runbook drives.
