@@ -14,7 +14,7 @@
 # Args:
 #   action     — operator-actions allowlisted name (status-check,
 #                pull-latest-logs, pull-and-deploy, restart-bot-service,
-#                reboot-vm)
+#                reboot-vm, set-account-mode, …)
 #   exit_code  — wrapper exit code captured by the workflow
 #   run_url    — GitHub Actions run URL for click-through
 #   reason     — operator-supplied reason input (Tier-2; may be empty)
@@ -27,6 +27,7 @@
 #   Tier 2 failed   → urgent  (exit 1)
 #   reboot-vm scheduled → high  (recovery uncertainty)
 #   pull-and-deploy ok → normal  (same shape as restart-bot-service)
+#   set-account-mode ok → normal  (audited mode flip)
 #
 # Failures inside this script never propagate. The operator-actions
 # workflow already records the action's success/failure via its own
@@ -111,6 +112,29 @@ case "${action}" in
         esac
         ;;
     setup-cloudflare-tunnel|teardown-cloudflare-tunnel)
+        tier=2
+        case "${exit_code}" in
+            0) result="ok"; priority="normal" ;;
+            3) result="deferred — vm-runner active, retry later"; priority="normal" ;;
+            *) result="FAILED (exit ${exit_code})"; priority="urgent" ;;
+        esac
+        ;;
+    setup-tailscale-funnel|teardown-tailscale-funnel)
+        tier=2
+        case "${exit_code}" in
+            0) result="ok"; priority="normal" ;;
+            3) result="deferred — vm-runner active, retry later"; priority="normal" ;;
+            *) result="FAILED (exit ${exit_code})"; priority="urgent" ;;
+        esac
+        ;;
+    backfill-pnl-nulls)
+        tier=2
+        case "${exit_code}" in
+            0) result="ok"; priority="normal" ;;
+            *) result="FAILED (exit ${exit_code})"; priority="urgent" ;;
+        esac
+        ;;
+    set-account-mode)
         tier=2
         case "${exit_code}" in
             0) result="ok"; priority="normal" ;;

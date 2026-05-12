@@ -44,6 +44,7 @@ EXPECTED_ACTIONS = {
     "disable-m5-consumer": "disable_m5_consumer.sh",
     "setup-cloudflare-tunnel": "setup_cloudflare_tunnel.sh",
     "teardown-cloudflare-tunnel": "teardown_cloudflare_tunnel.sh",
+    "set-account-mode": "set_account_mode.sh",
 }
 
 TIER_2_ACTIONS = {
@@ -56,6 +57,7 @@ TIER_2_ACTIONS = {
     "disable-m5-consumer",
     "setup-cloudflare-tunnel",
     "teardown-cloudflare-tunnel",
+    "set-account-mode",
 }
 
 
