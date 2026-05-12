@@ -1,0 +1,224 @@
+name: vwap-backtest
+
+# Issue-driven / dispatch trigger that SSHes into the live VM, runs the
+# VWAP HTF-filter comparison backtest, and comments results back on the
+# issue so a PM-side Claude Code session can read them.
+#
+# Two trigger paths:
+#   1. issues.opened with label `vwap-backtest-trigger` (session-driven)
+#   2. workflow_dispatch (operator-click, produces artifact)
+#
+# Issue body (optional, all keys have defaults):
+#   compare: true          # default true — run all four configs
+#   htf_timeframe: 1h      # used only when compare: false
+#   ema_period: 50         # used only when compare: false
+#   band_pct: 0.02         # used only when compare: false
+#
+# Required secrets:
+#   VM_SSH_KEY   — SSH private key for ubuntu@158.178.210.252
+#
+# Optional repo variables:
+#   VM_SSH_HOST  — defaults to 158.178.210.252
+#   VM_SSH_USER  — defaults to ubuntu
+
+on:
+  workflow_dispatch:
+    inputs:
+      compare:
+        description: "Run all four HTF configs side-by-side"
+        type: boolean
+        default: true
+      htf_timeframe:
+        description: "HTF timeframe (1h, 4h, 1d) — used only when compare=false"
+        default: "4h"
+      ema_period:
+        description: "EMA period — used only when compare=false"
+        default: "200"
+      band_pct:
+        description: "Band pct (e.g. 0.02) — used only when compare=false"
+        default: "0.02"
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: vwap-backtest
+  cancel-in-progress: false
+
+jobs:
+  backtest:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'vwap-backtest-trigger'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Parse issue body
+        if: github.event_name == 'issues'
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          set -euo pipefail
+
+          # Extract key: value pairs from the issue body.
+          # grep -m1 returns first match; || echo sets a safe default.
+          COMPARE=$(printf '%s' "${ISSUE_BODY}" | grep -m1 -i '^compare:' | awk '{print $2}' || true)
+          HTF_TF=$(printf '%s' "${ISSUE_BODY}" | grep -m1 -i '^htf_timeframe:' | awk '{print $2}' || true)
+          EMA_PERIOD=$(printf '%s' "${ISSUE_BODY}" | grep -m1 -i '^ema_period:' | awk '{print $2}' || true)
+          BAND_PCT=$(printf '%s' "${ISSUE_BODY}" | grep -m1 -i '^band_pct:' | awk '{print $2}' || true)
+
+          # Defaults
+          [ -z "${COMPARE}" ]    && COMPARE="true"
+          [ -z "${HTF_TF}" ]     && HTF_TF="4h"
+          [ -z "${EMA_PERIOD}" ] && EMA_PERIOD="200"
+          [ -z "${BAND_PCT}" ]   && BAND_PCT="0.02"
+
+          # Validate: compare must be true/false, others alphanumeric+dot
+          if ! printf '%s' "${COMPARE}" | grep -qiE '^(true|false)$'; then
+            COMPARE="true"
+          fi
+          if ! printf '%s' "${HTF_TF}" | grep -qE '^[0-9]+[hmHMdD]$'; then
+            HTF_TF="4h"
+          fi
+          if ! printf '%s' "${EMA_PERIOD}" | grep -qE '^[0-9]+$'; then
+            EMA_PERIOD="200"
+          fi
+          if ! printf '%s' "${BAND_PCT}" | grep -qE '^0?\.[0-9]+$'; then
+            BAND_PCT="0.02"
+          fi
+
+          echo "bt_compare=${COMPARE}" >> "$GITHUB_ENV"
+          echo "bt_htf_tf=${HTF_TF}" >> "$GITHUB_ENV"
+          echo "bt_ema_period=${EMA_PERIOD}" >> "$GITHUB_ENV"
+          echo "bt_band_pct=${BAND_PCT}" >> "$GITHUB_ENV"
+
+      - name: Set params from dispatch inputs
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          echo "bt_compare=${{ inputs.compare }}" >> "$GITHUB_ENV"
+          echo "bt_htf_tf=${{ inputs.htf_timeframe }}" >> "$GITHUB_ENV"
+          echo "bt_ema_period=${{ inputs.ema_period }}" >> "$GITHUB_ENV"
+          echo "bt_band_pct=${{ inputs.band_pct }}" >> "$GITHUB_ENV"
+
+      - name: Set up SSH key
+        env:
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+          VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '158.178.210.252' }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VM_SSH_KEY}" ]; then
+            echo "::error::VM_SSH_KEY secret is unset."
+            exit 1
+          fi
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${VM_SSH_KEY}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -t rsa,ecdsa,ed25519 "${VM_SSH_HOST}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Run VWAP backtest on VM
+        env:
+          VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '158.178.210.252' }}
+          VM_SSH_USER: ${{ vars.VM_SSH_USER || 'ubuntu' }}
+        run: |
+          set -euo pipefail
+
+          # Build CLI args safely — all values were validated above.
+          if [ "${bt_compare}" = "true" ]; then
+            CLI_ARGS="--compare"
+          else
+            CLI_ARGS="--htf-timeframe ${bt_htf_tf} --ema-period ${bt_ema_period} --band-pct ${bt_band_pct}"
+          fi
+
+          # Run the script: stderr goes to a temp file (printed to Actions log),
+          # stdout (the single JSON line) is captured as the result.
+          ssh -i ~/.ssh/id_rsa \
+              -o BatchMode=yes \
+              -o StrictHostKeyChecking=accept-new \
+              -o ConnectTimeout=20 \
+              "${VM_SSH_USER}@${VM_SSH_HOST}" \
+              "cd /opt/ict-trading-bot && \
+               source venv/bin/activate && \
+               python -m src.backtest.run_backtest_vwap ${CLI_ARGS} \
+                 2>/tmp/vwap_bt_err.txt; \
+               EXIT=\$?; \
+               cat /tmp/vwap_bt_err.txt >&2; \
+               exit \$EXIT" \
+              > backtest-result.json
+
+          # Validate the output is parseable JSON
+          python3 -c "
+          import json, os, sys
+          data = json.load(open('backtest-result.json'))
+          print('valid JSON,', os.path.getsize('backtest-result.json'), 'bytes', file=sys.stderr)
+          "
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vwap-backtest-${{ github.run_id }}
+          path: backtest-result.json
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: Comment results on issue
+        if: github.event_name == 'issues'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const data = JSON.parse(fs.readFileSync('backtest-result.json', 'utf8'));
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+
+            let body = `**VWAP HTF Backtest Results**\nRun: ${runUrl}\n\n`;
+
+            if (data.comparison) {
+              body += `| Config | Trades | Win% | Total R | Avg R/trade | Blocked |\n`;
+              body += `|--------|--------|------|---------|-------------|----------|\n`;
+              for (const r of data.comparison) {
+                const blocked = r.htf_blocked_count ?? 0;
+                body += `| ${r.label} | ${r.total_trades} | ${r.win_rate_pct}% | ${r.total_r} | ${r.avg_r_per_trade} | ${blocked} |\n`;
+              }
+              body += `\n<details><summary>Full JSON</summary>\n\n\`\`\`json\n`;
+              const full = JSON.stringify(data, null, 2);
+              body += full.length <= 40000 ? full : full.slice(0, 40000) + '\n... (truncated)';
+              body += `\n\`\`\`\n</details>`;
+            } else {
+              body += `\`\`\`json\n${JSON.stringify(data, null, 2)}\n\`\`\``;
+            }
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body.slice(0, 65000),
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              state: 'closed',
+              state_reason: 'completed',
+            });
+
+      - name: Comment failure on issue
+        if: github.event_name == 'issues' && failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `❌ **VWAP backtest failed.**\nRun: ${runUrl}\n\nCommon causes: VM_SSH_KEY secret unset; no backtest CSV on the VM (set \`BACKTEST_DATA_PATH\` or place file at \`data/backtest_candles.csv\`); Python environment issue.`,
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              state: 'closed',
+              state_reason: 'not_planned',
+            });

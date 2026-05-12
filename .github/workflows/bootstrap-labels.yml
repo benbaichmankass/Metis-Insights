@@ -101,6 +101,11 @@ jobs:
                 color: 'fbca04',
                 description: 'Marker label on issues opened by doc-audit-weekly when the architecture doc references stale paths.',
               },
+              {
+                name: 'vwap-backtest-trigger',
+                color: '0075ca',
+                description: 'Triggers vwap-backtest workflow — HTF trend-filter comparison backtest on the live VM.',
+              },
             ];
             for (const l of LABELS) {
               try {
