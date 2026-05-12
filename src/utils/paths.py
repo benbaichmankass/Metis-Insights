@@ -30,6 +30,22 @@ Two responsibilities:
    See ``docs/architecture/oci-block-storage.md`` for the migration
    contract and ``docs/runbooks/mounted-storage.md`` for the ops
    procedure.
+
+Canonical-path enforcement (2026-05-12, post-incident):
+  ``DATA_DIR`` is expected to be an absolute path on every deployment
+  that uses the OCI block-storage mount. The canonical value is
+  ``/data/bot-data`` (matching the systemd drop-ins under
+  ``deploy/*.service.d/data-dir.conf``). A relative ``DATA_DIR``
+  resolves to a repo-anchored path, which on the live VM produces a
+  WRITER-vs-READER split between consumers — the trader writes to
+  ``/home/ubuntu/ict-trading-bot/data/runtime_logs/`` while the
+  systemd-managed reader processes look at ``/data/bot-data/...``.
+  This module emits a CRITICAL log on every consumer process startup
+  when ``DATA_DIR`` is set and relative, so the misalignment is
+  visible in journalctl. The trader still starts (Prime Directive
+  — see docs/CLAUDE-RULES-CANONICAL.md § Prime Directive); the
+  ``scripts/ops/fix_data_dir.sh`` operator-action wrapper is the
+  remediation wire.
 """
 
 from __future__ import annotations
@@ -67,7 +83,7 @@ def repo_root() -> str:
         current = parent
 
 
-# ── Runtime data roots ─────────────────────────────────────────────────
+# ── Runtime data roots ────────────────────────────────────────────
 #
 # Four logical roots in use today (see audit in PR description):
 #
@@ -88,6 +104,102 @@ _ENV_PER_ROOT = {
     "runtime_state": "RUNTIME_STATE_DIR",
     "artifacts": "ARTIFACTS_DIR",
 }
+
+# Module-level guard so the relative-DATA_DIR alert fires exactly once
+# per process — not once per _resolve_root call.
+_RELATIVE_DATA_DIR_ALERTED = False
+
+# The canonical absolute path the systemd drop-ins declare
+# (deploy/*.service.d/data-dir.conf). Used by the alert message so the
+# operator gets a copy-paste-ready fix.
+_CANONICAL_DATA_DIR_HINT = "/data/bot-data"
+
+
+def _swallow_paths_warning(status: str, **ctx) -> None:
+    """Report a path-resolver anomaly through the existing
+    outcomes.report pipeline so the operator gets a Telegram alert
+    via the per-fingerprint-deduped channel.
+
+    Best-effort: a failure here never breaks path resolution; the
+    canonical log line below is the primary signal.
+    """
+    try:
+        from src.runtime.outcomes import Level, report
+        report(
+            "paths_resolver",
+            status,
+            level=Level.WARN,
+            **ctx,
+        )
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _alert_on_relative_data_dir(umbrella: str, resolved: Path) -> None:
+    """Emit a one-shot CRITICAL log + outcomes ping when DATA_DIR is
+    relative.
+
+    The 2026-05-12 silent-flip incident traced back to .env carrying
+    ``DATA_DIR=data/`` (relative). The trader resolved it to
+    ``<repo>/data/runtime_logs/`` while the systemd drop-in declares
+    the canonical absolute path is ``/data/bot-data``. Readers and
+    writers ended up on different paths — a split-brain that
+    presented as 'heartbeat-writer silent failure' and an apparent
+    'bybit_2 silent flip'.
+
+    This alert is the structural prevention: every consumer process
+    that starts with a relative DATA_DIR now leaves a CRITICAL line
+    in journalctl and queues a Telegram ping. The remediation wire
+    is the ``fix-data-dir`` operator-action (see
+    ``scripts/ops/fix_data_dir.sh``).
+    """
+    global _RELATIVE_DATA_DIR_ALERTED
+    if _RELATIVE_DATA_DIR_ALERTED:
+        return
+    _RELATIVE_DATA_DIR_ALERTED = True
+    logger.critical(
+        "paths: DATA_DIR=%r is RELATIVE. Resolving to %s (anchored to "
+        "repo_root). This is almost certainly wrong on the live VM where "
+        "systemd drop-ins declare DATA_DIR=%s. Reader-vs-writer split-brain "
+        "is the likely failure mode. Fix: dispatch the fix-data-dir "
+        "operator-action (scripts/ops/fix_data_dir.sh) which strips the "
+        ".env override so the systemd value wins.",
+        umbrella, resolved, _CANONICAL_DATA_DIR_HINT,
+    )
+    _swallow_paths_warning(
+        "data_dir_relative",
+        umbrella=umbrella,
+        resolved=str(resolved),
+        canonical_hint=_CANONICAL_DATA_DIR_HINT,
+    )
+
+
+def _alert_on_data_dir_mismatch(umbrella: str) -> None:
+    """Emit a CRITICAL log + outcomes ping when DATA_DIR is absolute
+    but doesn't match the canonical drop-in value.
+
+    An absolute override is fine if the operator chose it deliberately
+    (e.g. test deployments on a different volume); but on the live VM
+    a mismatch typically means the .env carries a stale value from a
+    prior migration. Same remediation wire as the relative case.
+    """
+    global _RELATIVE_DATA_DIR_ALERTED  # share the dedupe latch
+    if _RELATIVE_DATA_DIR_ALERTED:
+        return
+    _RELATIVE_DATA_DIR_ALERTED = True
+    logger.warning(
+        "paths: DATA_DIR=%r is absolute but differs from the canonical "
+        "systemd-declared value %s. This may be intentional (test deploy, "
+        "alternative mount) — but on the live VM it usually means the .env "
+        "carries a stale value. If unexpected, dispatch the fix-data-dir "
+        "operator-action to strip the .env override.",
+        umbrella, _CANONICAL_DATA_DIR_HINT,
+    )
+    _swallow_paths_warning(
+        "data_dir_non_canonical",
+        umbrella=umbrella,
+        canonical_hint=_CANONICAL_DATA_DIR_HINT,
+    )
 
 
 def _resolve_root(subdir: str) -> Path:
@@ -119,9 +231,26 @@ def _resolve_root(subdir: str) -> Path:
         # SAME ``runtime_logs_dir()`` helper. Anchor relative umbrella
         # paths to repo_root so the resolved path is absolute and
         # process-CWD-independent.
+        #
+        # 2026-05-12 incident (this fix): anchoring made the path
+        # absolute but it was still the WRONG absolute path —
+        # ``<repo>/data/runtime_logs/`` instead of the canonical
+        # ``/data/bot-data/runtime_logs/`` the systemd drop-ins
+        # declare. Reader-vs-writer split-brain continued because
+        # consumers driven by the systemd drop-in's DATA_DIR (e.g.
+        # health-snapshot collector, watchdog) looked at the
+        # canonical path while consumers reading the .env relative
+        # value resolved here. The alert below makes the
+        # misalignment loud; the fix-data-dir operator-action is
+        # the remediation wire.
         umbrella_root = Path(umbrella).expanduser()
         if not umbrella_root.is_absolute():
+            _alert_on_relative_data_dir(
+                umbrella, Path(repo_root()) / umbrella_root,
+            )
             umbrella_root = Path(repo_root()) / umbrella_root
+        elif str(umbrella_root) != _CANONICAL_DATA_DIR_HINT:
+            _alert_on_data_dir_mismatch(umbrella)
         candidate = umbrella_root / subdir
         candidate.mkdir(parents=True, exist_ok=True)
         return candidate
