@@ -16,6 +16,33 @@
 > `the-lizardking/ict-trading-bot` references in historical sprint
 > summaries are preserved as record.
 
+## Prime Directive (adopted 2026-05-12)
+
+The trader runs 24/7. It is always producing data. Live trading is
+the priority. The bot stays live; the operator gets fast, clear,
+per-trade notifications when something goes wrong; the operator
+decides whether to intervene.
+
+- **One switch per account.** `set-account-mode` operator action
+  (PR #978) is the only path that may write `config/accounts.yaml`
+  `mode:`. The operator controls it.
+- **The system never switches itself off.** No auto-flip, no breaker
+  that toggles mode, no "safety" default that goes dry on boot.
+- **Transient issues route through RiskManager**, per-trade. The
+  account stays live; individual trades get refused with cause.
+- **Every rejection is its own Telegram ping.** Not aggregate.
+- **Boot always starts the trader live (per YAML).** No
+  refuse-to-start logic.
+
+Full text + enforcement: [`docs/CLAUDE-RULES-CANONICAL.md`](docs/CLAUDE-RULES-CANONICAL.md) § Prime Directive.
+Architecture contract: [`docs/ARCHITECTURE-CANONICAL.md`](docs/ARCHITECTURE-CANONICAL.md) § Mode Mutation Contract.
+
+Driven by the 2026-05-12 silent-flip incident where bybit_2 ended up
+live=false at runtime despite YAML declaring `mode: live`, with no
+operator action. The doc-level codification is in this commit; the
+code-level enforcement (deleting `_DRY_RUN_OVERRIDES`, the breaker
+auto-flip, etc.) ships in the safeguards PR follow-on.
+
 ## VM authority split (adopted 2026-05-11)
 
 Two VMs, two trust contracts. A Claude session is acting on exactly
@@ -23,7 +50,7 @@ one of them at a time.
 
 | VM | Role | Trust contract | Default posture |
 |---|---|---|---|
-| `instance-20260414-1555` (`158.178.210.252`) | **Live trader** — runs `ict-trader-live.service`, holds money-at-risk | [`docs/claude/vm-operator-mode.md`](docs/claude/vm-operator-mode.md) | **Restricted.** Tier-1 read autonomous; Tier-2 mutations need operator ack (Telegram `/vm_write` or PM-side issue → `operator-actions.yml`); Tier-3 paths (live order code, risk caps, account-mode flips, key rotation) are hard-blocked regardless of approval. |
+| `instance-20260414-1555` (`158.178.210.252`) | **Live trader** — runs `ict-trader-live.service`, holds money-at-risk | [`docs/claude/vm-operator-mode.md`](docs/claude/vm-operator-mode.md) | **Restricted.** Tier-1 read autonomous; Tier-2 mutations need operator ack (Telegram `/vm_write` or PM-side issue → `operator-actions.yml`); Tier-3 paths (live order code, risk caps, key rotation) are hard-blocked. **Account-mode flips have a sanctioned wire: `set-account-mode` operator action; code paths that flip mode outside that action are Tier-3 violations.** |
 | `ict-trainer-vm` (`VM.Standard.A1.Flex`, Ampere A1) | **Training center** — runs the ML lifecycle (datasets, training, registry, eval), no live trade authority of its own | [`docs/claude/trainer-vm-mode.md`](docs/claude/trainer-vm-mode.md) | **Autonomous.** Claude provisions, SSHes, installs, syncs read-only DB from live, runs training cycles, writes the registry up to `live_approved` stage, terminates + re-provisions — all without operator-in-the-loop. |
 
 The separation works because **the live trader has no path to load
@@ -285,21 +312,22 @@ below are the contract.
 - **VM operator actions (narrow mutating)** —
   `.github/workflows/operator-actions.yml` exposes a fixed
   allowlist (`status-check`, `pull-latest-logs`, `pull-and-deploy`,
-  `restart-bot-service`, `reboot-vm`). Tier-1 actions are
-  autonomous; Tier-2 actions require an operator ack first
-  (in-conversation approval is sufficient). Two dispatch paths,
-  identical allowlist + audit:
+  `restart-bot-service`, `reboot-vm`, `set-account-mode`, …).
+  Tier-1 actions are autonomous; Tier-2 actions require an operator
+  ack first (in-conversation approval is sufficient). Two dispatch
+  paths, identical allowlist + audit:
   - `workflow_dispatch` — operator clicks "Run workflow" in the
     Actions UI.
   - **Issue-driven** — open a labelled issue (`operator-action`)
-    with body `action: <name>\nreason: <text>`. Workflow runs,
-    comments back, closes the issue. Use this when the sandbox needs
-    to dispatch autonomously after operator ack. Body parsing rides
-    through env (`ISSUE_BODY`), not inline interpolation.
+    with body `action: <name>\nreason: <text>` (plus `account:` +
+    `mode:` lines for `set-account-mode`). Workflow runs, comments
+    back, closes the issue. Body parsing rides through env
+    (`ISSUE_BODY`), not inline interpolation.
 
-  Full contract: `docs/claude/operator-actions.md`. **Never** route
-  strategy / risk / account-mode changes through this workflow —
-  those remain Tier-3 PRs.
+  Full contract: `docs/claude/operator-actions.md`. **Account-mode
+  flips have one sanctioned wire (`set-account-mode`); strategy
+  parameter changes, risk caps, and live order code remain Tier-3
+  PRs.**
 - **Web-API self-heal (autonomous, single-purpose)** —
   `.github/workflows/vm-web-api-recover.yml` is the issue-driven
   recovery path for `ict-web-api.service`. When the diag relay
@@ -331,6 +359,6 @@ uvicorn src.web.api.main:app --port 8001 --reload
 ## Important Notes
 - `src/web/runtime_status.py` is imported by `src/runtime/pipeline.py` — do NOT delete it
 - `heartbeat.txt` mtime is the canonical "is the trader process responsive" signal. Refreshed every `HEARTBEAT_INTERVAL_SECONDS` (default 60 s) from inside `src/main.py`'s sleep loop — so it fires between ticks too, not just at tick completion. A pipeline hang stops the heartbeat (the loop is on the main thread, no daemon) so liveness still reflects pipeline health. Thresholds derived from the same cadence: `< cadence × 3` → running, `< cadence × 10` → paused, else stopped. Helper at `src/runtime/heartbeat.py::heartbeat_label`. Prior history: 2 min threshold (way too tight for a 15-min tick) → 10 min in 2026-05-07 → 18 min (tick × 1.2) on 2026-05-08 → finally cadence-based with 60 s heartbeat the same day, after the tick-coupled basis kept under-counting healthy idleness.
-- **External liveness watchdog (`ict-liveness-watchdog.{service,timer}`, 2026-05-11)** is the per-minute dead-man switch on top of the in-process heartbeat. Runs `scripts/check_heartbeat.py` every 60 s; Telegrams `[CRITICAL] Trader heartbeat stale` after 5 min of stale mtime; auto-restarts `ict-trader-live.service` after 8 min total stall (autoheal opt-in via `--auto-restart-after 3`, currently ON). Stdlib-only so it works even when the trader's venv is wedged. Full operator runbook: [`docs/runbooks/liveness-watchdog.md`](docs/runbooks/liveness-watchdog.md). Not to be confused with `ict-heartbeat.{service,timer}` which is the once-daily operator status digest at 13:00 UTC (`scripts/daily_heartbeat.py`).
+- **External liveness watchdog (`ict-liveness-watchdog.{service,timer}`, 2026-05-11)** is the per-minute dead-man switch on top of the in-process heartbeat. Runs `scripts/check_heartbeat.py` every 60 s; Telegrams `[CRITICAL] Trader heartbeat stale` after 5 min of stale mtime; auto-restarts `ict-trader-live.service` after 8 min total stall (autoheal opt-in via `--auto-restart-after 3`, currently ON). Stdlib-only so it works even when the trader's venv is wedged. Full operator runbook: [`docs/runbooks/liveness-watchdog.md`](docs/runbooks/liveness-watchdog.md). Not to be confused with `ict-heartbeat.{service,timer}` which is the once-daily operator status digest at 13:00 UTC (`scripts/daily_heartbeat.py`). **Note (2026-05-12 incident):** the watchdog correctly auto-restarted the trader after the 16h heartbeat-writer silent failure, but the new process retained whatever state was making bybit_2 dry. The Prime Directive (above) addresses the conceptual root cause: no auto-flip code paths should exist. The watchdog's restart behaviour is unchanged — restarting is fine; what was wrong was the flip itself.
 - The old HTMX UI (`web/static/`, `web/templates/`, `src/web/api/routers/ui.py`) has been removed
 - The old Streamlit UIs (`src/web/backtest_ui.py`, `src/web/config_ui.py`) have been removed

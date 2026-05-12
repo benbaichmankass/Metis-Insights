@@ -62,6 +62,89 @@ preserved unchanged because they document history.
 - Any sprint that changes code, workflow, deployment, or architecture
   must review and update the canonical docs before closing.
 
+## Prime Directive: Live-Trading Stability (2026-05-12)
+
+This rule sits above all others in this document. When any other rule
+appears to permit something that violates the Prime Directive, the
+Prime Directive wins.
+
+**The trader runs 24/7.** It is always producing data. Live trading is
+the priority. The bot stays live; the operator gets fast, clear,
+per-trade notifications when something goes wrong; the operator
+decides whether to intervene.
+
+### The five rules
+
+1. **One switch per account.** There is exactly one sanctioned path
+   that may write `config/accounts.yaml` `mode:`: the
+   `set-account-mode` operator action (PR #978, 2026-05-12,
+   `scripts/ops/set_account_mode.sh`). The OPERATOR controls it.
+   Every other code path that could write to mode — runtime override
+   dicts, auto-flipping breakers, "safety" defaults that go dry on
+   boot — is a Tier-3 violation regardless of how convenient it
+   looks.
+
+2. **The system never switches itself off.** Auto-flip code is
+   incorrect. Watchdogs, breakers, error-cluster detectors, and any
+   other "safety mechanism" that responds to a runtime condition by
+   changing account mode is the failure mode, not the safety
+   mechanism. The 2026-05-12 silent-flip incident demonstrated this:
+   the system "protected" itself into a dry state, the operator wasn't
+   clearly notified, and the bot sat off-live for hours. Wrong shape.
+
+3. **Transient issues route through RiskManager per-trade.** When
+   exchange rejections cluster, when risk signals trip, when data
+   quality degrades — `RiskManager.approve()` returns
+   `reject(reason=…, trade=…)` for that one trade. The account mode
+   is never touched. The next signal is evaluated fresh on the next
+   tick.
+
+4. **Every rejection is its own Telegram ping.** Per-trade: account,
+   symbol, side, qty, reason, exchange error if any. Not aggregate.
+   The operator sees each refusal as it happens so they can intervene
+   fast. "Account paused" summary messages are the wrong shape — they
+   hide rate-of-trouble information.
+
+5. **Boot always starts the trader live (per YAML).** No
+   "refuse-to-start until ack." No "raise on mismatch." Whatever
+   weirdness existed in the previous process is gone; YAML wins; the
+   trader comes up live. If state is inconsistent vs. YAML, log
+   loudly and Telegram-alert — but the trader runs.
+
+### What this rules out (queued for the safeguards PR follow-on)
+
+The doc-level contract is in this commit; the code-level deletions
+ship in a separate PR that landed after PR #978:
+
+- `_DRY_RUN_OVERRIDES` runtime dict in `src/units/accounts/__init__.py`
+  — delete entirely. `_resolve_mode()` reads YAML directly.
+- `set_account_dry_run()` function — delete. The only mutation wire
+  is `set-account-mode`.
+- Breaker auto-flip in `src/core/coordinator.py:1048-1068` — delete.
+  The rejection counter remains as RiskManager input only.
+- Telegram `/accounts dry|live <name>` handler — refactor to dispatch
+  the `set-account-mode` action so exactly one mutation path exists.
+- Any "raise on boot if mismatch" logic — must not exist.
+
+### Mechanically enforced
+
+The `set-account-mode` operator action is the allowlisted, audited,
+Telegram-notified mutation wire. The CI guards (`dry-run-guard.yml`
++ the safeguards-PR follow-up rule) block new code from writing to
+account modes outside this wire. Bypassing either is a Tier-3
+violation; the PR will be refused.
+
+### Operator-facing summary
+
+When something goes wrong:
+- The trader stays live.
+- You get a Telegram per affected trade with: account, symbol, side,
+  qty, reason, raw exchange error.
+- You decide whether to flip the account dry (`set-account-mode`
+  action), tweak risk caps, or wait it out.
+- Claude executes whatever you decide; no manual loops where you
+  have to flip switches Claude could flip itself once you authorize.
+
 ## Claude's Role
 
 Claude is the implementation lead for repo work. Claude is expected to:
@@ -95,10 +178,11 @@ Claude must:
    activation to a manual SSH session in a runbook.
 2. **Use the issue-driven dispatch path autonomously.** Tier-1 ops
    actions (read-only) fire without approval; Tier-2 ops actions
-   (mutating: deploy, restart, env-var toggles) fire after a single
-   in-conversation operator ack — open the labelled issue from the
-   sandbox, watch the workflow comment back, confirm the result.
-   See `docs/claude/operator-actions.md` for the full contract.
+   (mutating: deploy, restart, env-var toggles, **mode flips via
+   `set-account-mode`**) fire after a single in-conversation operator
+   ack — open the labelled issue from the sandbox, watch the workflow
+   comment back, confirm the result. See
+   `docs/claude/operator-actions.md` for the full contract.
 3. **Never write a runbook step that says "operator: SSH to the VM
    and run X"** when the same X can be allowlisted as a wrapper
    script. If the wrapper script doesn't exist yet, write it in the
@@ -119,7 +203,11 @@ manual SSH is the documented exception.
 need to flip the env var on the VM and restart the bot." This
 strands the milestone half-shipped, hides activation latency, and
 puts manual toil on the operator that the operator-actions
-workflow exists to eliminate.
+workflow exists to eliminate. The 2026-05-12 directive added a
+related anti-pattern: any safeguard that requires the operator to
+flip switches Claude could flip itself (once explicitly authorized)
+creates loops. Build the switch, take the explicit authorization,
+flip it.
 
 ## Permission Tiers
 
@@ -129,7 +217,7 @@ The permission model is explicit and must be used consistently.
 |---|---|---|---|---|
 | **Tier 1** | Safe autonomous work | Docs, tests, repo hygiene, CI, GitHub Actions updates, non-live-path refactors, validation tooling, communication infrastructure that does not alter trading behavior | Alter strategy logic, alter risk meaning, promote to live | No approval required if validated |
 | **Tier 2** | Potential production-impact work with bounded scope | Prepare changes touching runtime flow, deploy flow, timers, bot writeback, order path, or services; run strongest safe validation; draft concise risk summary | Merge if the change can affect live trading behavior and is not fully proven safe | **Approval required before merge** |
-| **Tier 3** | Strategy and risk authority boundary | Analyze, test, prepare docs, and propose exact code changes | Merge or silently ship changes to strategy logic, risk caps, sizing formulas, thresholds, live promotion, or other trading-policy decisions | **Explicit product approval required before merge** |
+| **Tier 3** | Strategy and risk authority boundary | Analyze, test, prepare docs, and propose exact code changes | Merge or silently ship changes to strategy logic, risk caps, sizing formulas, thresholds, live promotion, **or any code path that writes `config/accounts.yaml` `mode:` outside the `set-account-mode` operator action** | **Explicit product approval required before merge** |
 
 ### Tier 1 examples
 
@@ -156,6 +244,9 @@ The permission model is explicit and must be used consistently.
   `src/runtime/health.py`).
 - Kill-switch mechanics and `HALT_FLAG_PATH` handling.
 - Changes that need staging or dry-run proof before merge.
+- Operator-actions allowlist extensions (including
+  `set-account-mode` itself — the wrapper is Tier-2 work, the
+  runtime dispatch of an existing wrapper is also Tier-2).
 
 ### Tier 3 examples
 
@@ -163,7 +254,10 @@ The permission model is explicit and must be used consistently.
 - Signal thresholds and entry/exit logic in `src/units/strategies/`.
 - Position sizing formulas in `src/units/accounts/risk.py`.
 - Risk cap values in `config/accounts.yaml` (`risk:` blocks).
-- Switching an account from `mode: dry_run` to `mode: live`.
+- Account-mode flips (`config/accounts.yaml` `mode:`) via any code
+  path other than the `set-account-mode` operator action. The
+  operator dispatching `set-account-mode` is fine; Claude proposing
+  a PR that adds a *new* code path that writes to mode is Tier-3.
 - Changing what conditions permit or block trading
   (news veto, halt logic, mode interlock).
 
@@ -211,6 +305,7 @@ deciding what is or is not possible.
 | GitHub Actions usage and workflow automation | [`github-actions-workflows.md`](github-actions-workflows.md) |
 | Telegram comms architecture | [`claude/comms-architecture.md`](claude/comms-architecture.md) |
 | Operator-actions / VM dispatch | [`claude/operator-actions.md`](claude/operator-actions.md) |
+| Mode mutation contract | [`ARCHITECTURE-CANONICAL.md`](ARCHITECTURE-CANONICAL.md) § Mode Mutation Contract |
 | Deployment & ops | [`claude/deployment-ops.md`](claude/deployment-ops.md), [`DEPLOYMENT_LIVE_TRADING.md`](../DEPLOYMENT_LIVE_TRADING.md) |
 | API tier policy | [`api-tier-policy.md`](api-tier-policy.md) |
 | Trading mode flags | [`claude/trading-mode-flags.md`](claude/trading-mode-flags.md) |
@@ -282,3 +377,7 @@ note rather than silently editing it.
 - This rules doc and `ARCHITECTURE-CANONICAL.md` should be reviewed at
   the start of every sprint until the milestone roadmap (M0..M10) is
   closed.
+- Safeguards PR (follow-on to PR #978): deletes the code-level
+  auto-flip vectors enumerated under § Prime Directive · "What this
+  rules out." Doc-level contract is in this commit; code-level
+  enforcement ships separately so the diff stays reviewable.
