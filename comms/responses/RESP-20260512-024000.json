@@ -1,0 +1,162 @@
+[
+  {
+    "request_id": "REQ-20260511-020501-25646523089",
+    "reviewed_at": "2026-05-12T02:40:00+00:00",
+    "reviewer": "claude",
+    "overall_assessment": "investigate",
+    "findings": {
+      "heartbeat": {"status": "watch", "note": "Stale 57591s (mtime 2026-05-11T10:01:30Z) at snapshot; resumed 02:05:03Z per status pull. FU-20260511-008 active."},
+      "ticks": {"status": "ok", "note": "last_tick 02:03:48Z (recent). Cadence ~7min from dry_run trade timestamps. Snapshot no-events is collector limitation."},
+      "signals": {"status": "ok", "note": "VWAP long signals every ~7min, htf_blocked=false, R:R 4-9:1. Confirmed via journal DB; audit writer broken separately."},
+      "orders": {"status": "concern", "note": "3x exchange_rejected ErrCode 110007 on bybit_2 at 00:12-00:15Z triggered circuit breaker. 7 orphaned packages."},
+      "trades": {"status": "ok", "note": "3 closed (TP x2, SL x1) from 13:38-14:33Z May 11. 3 exchange_rejected. 50+ dry_run rejected. 0 open positions."},
+      "monitoring": {"status": "watch", "note": "Reconciler active (orphan ops at 12:30Z and 15:12Z May 11). run_monitor_tick absent from snapshot (collector limit)."},
+      "sizing": {"status": "watch", "note": "ErrCode 110007 cluster: qty=0.01 BTC at ~$81,600 (~$272 required margin at 3x). bybit_2 balance may be insufficient."},
+      "api_errors": {"status": "ok", "note": "Telegram polling clean (200 OK every 10s). Old errors Apr 19 and May 7-8 only. No current API issues."},
+      "state_consistency": {"status": "concern", "note": "bybit_2 auto-paused by circuit breaker ~00:15Z. bybit_1 and prop_velotrade_1 also live=False (pre-existing dry_run)."},
+      "alert_delivery": {"status": "watch", "note": "Circuit breaker fired ~00:15Z. Journalctl not pulled; Telegram alert delivery unconfirmed. Check Telegram manually."},
+      "strategy_silence": {"status": "concern", "note": "Zero *_eval audit events in 6h (audit writer broken since 14:27Z May 11). Strategies ARE running per journal DB."},
+      "db_integrity": {"status": "watch", "note": "Collector checks stale /home/ubuntu/ DB (4.6MB, 10.8h stale). Active /data/bot-data/ DB is fresh (5.3MB, 02:01Z, ok)."},
+      "audit_log_freshness": {"status": "concern", "note": "signal_audit.jsonl last event 14:27:41Z May 11 (smoke_open_result, 11.5h stale). events_last_hour=0. Writer broken."}
+    },
+    "anomalies": [
+      "CRITICAL: signal_audit.jsonl writer broken since 14:27Z May 11 (~11.5h). PID 104141 (started ~22:21Z) not writing audit events; journal DB writer functional. Likely code regression or permission issue at git SHA 2243506. Open new follow-up.",
+      "CONCERN: bybit_2 auto-paused by circuit breaker after 3x ErrCode 110007 ('ab not enough for new order') at 00:12-00:15Z May 12. Account in dry_run since. Operator must: (a) check bybit_2 available balance; (b) reset circuit breaker when ready to resume live trading.",
+      "FU-20260511-008 TRIGGERED: heartbeat stale 16h (mtime 10:01:30Z May 11, age 57591s at snapshot 02:01:21Z) while process PID 104141 alive. Fetch journalctl?unit=ict-trader-live.service&since=2026-05-11T10:00:00Z&lines=2000 to diagnose.",
+      "1 open order_package (pkg-652c4689a76f4e72, created 02:10:18Z) has sized_qty_by_account={} — all accounts dry_run. Monocle will block next VWAP dispatch until reconciler closes this package.",
+      "7 orphaned order_packages accumulated (bybit_2 dry_run, no linked trades). Reconciler should close these; confirm run_monitor_tick events are firing.",
+      "Snapshot DB section reads stale secondary copy at /home/ubuntu/ict-trading-bot/ (4.6MB, 10.8h) not active /data/bot-data/ DB (5.3MB, fresh). Collector script path bug — known issue.",
+      "FU-20260511-006 triggered: BybitConnector.set_leverage + _v5_signed_post confirmed dead code now FU-002 baked. Recommend opening cleanup PR.",
+      "FU-20260511-004 still open: Tailscale Funnel migration parked. No dashboard outage this cycle; quick-tunnel working."
+    ],
+    "trade_decision_grades": [
+      {"trade_id": 1147, "timestamp": "2026-05-11T13:38:00+00:00", "symbol": "BTCUSDT", "direction": "long", "setup": "vwap", "entry_price": 80765.7, "exit_price": 81211.3, "stop_loss": 80680.69, "take_profit_1": 80971.07, "position_size": 0.009, "exit_reason": "tp_cross", "decision_grade": "A", "entry_quality": "optimal", "exit_quality": "tp_appropriate", "risk_management": "correct", "rationale": "TP hit and ran $240 past TP1 (monitor market-closed on TP cross, positive slippage). R:R 5.24:1 realised. Signal logic not in trades table but outcome textbook.", "alternative_action": "none"},
+      {"trade_id": 1148, "timestamp": "2026-05-11T14:29:57+00:00", "symbol": "BTCUSDT", "direction": "long", "setup": "vwap", "entry_price": 80751.0, "exit_price": 80572.6, "stop_loss": 80665.15, "take_profit_1": 80994.09, "position_size": 0.009, "exit_reason": "sl_cross", "decision_grade": "C", "entry_quality": "acceptable", "exit_quality": "sl_appropriate", "risk_management": "correct", "rationale": "SL correctly set ($85 below entry). Exit filled $92 below SL (80572 vs 80665) — 2x slippage vs SL gap. Risk contained but execution imprecise.", "alternative_action": "Investigate SL execution path for slippage >1x SL gap; consider tighter monitor polling or limit-order SL."},
+      {"trade_id": 1149, "timestamp": "2026-05-11T14:33:31+00:00", "symbol": "BTCUSDT", "direction": "long", "setup": "vwap", "entry_price": 80534.2, "exit_price": 80982.3, "stop_loss": 80446.36, "take_profit_1": 80974.49, "position_size": 0.008, "exit_reason": "tp_cross", "decision_grade": "A", "entry_quality": "optimal", "exit_quality": "tp_appropriate", "risk_management": "correct", "rationale": "Clean TP fill at 80982 (+$7.81 above TP1=80974). R:R 5.01:1. Textbook VWAP mean-reversion long. SL and TP properly wired.", "alternative_action": "none"},
+      {"trade_id": 1151, "timestamp": "2026-05-12T00:12:52+00:00", "symbol": "BTCUSDT", "direction": "long", "setup": "vwap", "entry_price": 81611.3, "exit_price": null, "stop_loss": null, "take_profit_1": null, "position_size": 0.01, "exit_reason": "rejected", "decision_grade": "D", "entry_quality": "unknown", "exit_quality": "unknown", "risk_management": "oversize", "rationale": "Rep. for cluster 1151-1153. 3x ErrCode 110007 at qty=0.01 BTC (~$81,600, ~$272 margin at 3x): exceeded available balance. Auto-tripped circuit breaker.", "alternative_action": "Pre-flight balance check before dispatch; lower qty cap or top up bybit_2 margin before re-enabling live."},
+      {"trade_id": 1207, "timestamp": "2026-05-12T02:03:47+00:00", "symbol": "BTCUSDT", "direction": "long", "setup": "vwap", "entry_price": 81234.0, "exit_price": null, "stop_loss": 81114.68, "take_profit_1": 81716.34, "position_size": 0.006, "exit_reason": "rejected", "decision_grade": "B", "entry_quality": "acceptable", "exit_quality": "unknown", "risk_management": "correct", "rationale": "Rep. of 50+ dry_run batch (1154-1207). Price 2.02 std-devs below VWAP, htf_blocked=false, R:R ~4:1. SL/TP correct. Rejected only by account_mode_dry_run.", "alternative_action": "Reset circuit breaker only after confirming bybit_2 balance and ErrCode 110007 root cause resolved."}
+    ],
+    "recommended_action": "1. Check bybit_2 available margin (ErrCode 110007 cluster at qty=0.01 BTC, ~$272 margin at 3x). 2. Reset circuit breaker only after confirming adequate balance. 3. Investigate signal_audit.jsonl writer failure in PID 104141 (git SHA 2243506) — compare pipeline.py audit write path vs prior commit. 4. Fetch journalctl?unit=ict-trader-live.service&since=2026-05-11T10:00:00Z&lines=2000 to diagnose heartbeat writer failure (FU-20260511-008). 5. Open cleanup PR for BybitConnector dead code (FU-20260511-006).",
+    "operator_attention_required": true
+  },
+  {
+    "request_id": "REQ-20260511-085809-25660439566",
+    "reviewed_at": "2026-05-12T02:40:00+00:00",
+    "reviewer": "claude",
+    "overall_assessment": "investigate",
+    "findings": {
+      "heartbeat": {"status": "watch", "note": "Stale 57591s (mtime 2026-05-11T10:01:30Z) at snapshot; resumed 02:05:03Z per status pull. FU-20260511-008 active."},
+      "ticks": {"status": "ok", "note": "last_tick 02:03:48Z (recent). Cadence ~7min from dry_run trade timestamps. Snapshot no-events is collector limitation."},
+      "signals": {"status": "ok", "note": "VWAP long signals every ~7min, htf_blocked=false, R:R 4-9:1. Confirmed via journal DB; audit writer broken separately."},
+      "orders": {"status": "concern", "note": "3x exchange_rejected ErrCode 110007 on bybit_2 at 00:12-00:15Z triggered circuit breaker. 7 orphaned packages."},
+      "trades": {"status": "ok", "note": "3 closed (TP x2, SL x1) from 13:38-14:33Z May 11. 3 exchange_rejected. 50+ dry_run rejected. 0 open positions."},
+      "monitoring": {"status": "watch", "note": "Reconciler active (orphan ops at 12:30Z and 15:12Z May 11). run_monitor_tick absent from snapshot (collector limit)."},
+      "sizing": {"status": "watch", "note": "ErrCode 110007 cluster: qty=0.01 BTC at ~$81,600 (~$272 margin at 3x). bybit_2 balance may be insufficient."},
+      "api_errors": {"status": "ok", "note": "Telegram polling clean (200 OK every 10s). Old errors Apr 19 and May 7-8 only. No current API issues."},
+      "state_consistency": {"status": "concern", "note": "bybit_2 auto-paused by circuit breaker ~00:15Z. bybit_1 and prop_velotrade_1 also live=False (pre-existing dry_run)."},
+      "alert_delivery": {"status": "watch", "note": "Circuit breaker fired ~00:15Z. Journalctl not pulled; Telegram alert delivery unconfirmed. Check Telegram manually."},
+      "strategy_silence": {"status": "concern", "note": "Zero *_eval audit events in 6h (audit writer broken since 14:27Z May 11). Strategies ARE running per journal DB."},
+      "db_integrity": {"status": "watch", "note": "Collector checks stale /home/ubuntu/ DB (4.6MB, 10.8h stale). Active /data/bot-data/ DB is fresh (5.3MB, 02:01Z, ok)."},
+      "audit_log_freshness": {"status": "concern", "note": "signal_audit.jsonl last event 14:27:41Z May 11 (smoke_open_result, 11.5h stale). events_last_hour=0. Writer broken."}
+    },
+    "anomalies": [
+      "CRITICAL: signal_audit.jsonl writer broken since 14:27Z May 11 (~11.5h). PID 104141 (started ~22:21Z) not writing audit events; journal DB writer functional. Likely code regression or permission issue at git SHA 2243506. Open new follow-up.",
+      "CONCERN: bybit_2 auto-paused by circuit breaker after 3x ErrCode 110007 ('ab not enough for new order') at 00:12-00:15Z May 12. Account in dry_run since. Operator must: (a) check bybit_2 available balance; (b) reset circuit breaker when ready to resume live trading.",
+      "FU-20260511-008 TRIGGERED: heartbeat stale 16h (mtime 10:01:30Z May 11, age 57591s at snapshot 02:01:21Z) while process PID 104141 alive. Fetch journalctl?unit=ict-trader-live.service&since=2026-05-11T10:00:00Z&lines=2000 to diagnose.",
+      "1 open order_package (pkg-652c4689a76f4e72, created 02:10:18Z) has sized_qty_by_account={} — all accounts dry_run. Monocle will block next VWAP dispatch until reconciler closes this package.",
+      "7 orphaned order_packages accumulated (bybit_2 dry_run, no linked trades). Reconciler should close these; confirm run_monitor_tick events are firing.",
+      "Snapshot DB section reads stale secondary copy at /home/ubuntu/ict-trading-bot/ (4.6MB, 10.8h) not active /data/bot-data/ DB (5.3MB, fresh). Collector script path bug — known issue.",
+      "FU-20260511-006 triggered: BybitConnector.set_leverage + _v5_signed_post confirmed dead code now FU-002 baked. Recommend opening cleanup PR.",
+      "FU-20260511-004 still open: Tailscale Funnel migration parked. No dashboard outage this cycle; quick-tunnel working."
+    ],
+    "trade_decision_grades": [
+      {"trade_id": 1147, "timestamp": "2026-05-11T13:38:00+00:00", "symbol": "BTCUSDT", "direction": "long", "setup": "vwap", "entry_price": 80765.7, "exit_price": 81211.3, "stop_loss": 80680.69, "take_profit_1": 80971.07, "position_size": 0.009, "exit_reason": "tp_cross", "decision_grade": "A", "entry_quality": "optimal", "exit_quality": "tp_appropriate", "risk_management": "correct", "rationale": "TP hit and ran $240 past TP1 (monitor market-closed on TP cross, positive slippage). R:R 5.24:1 realised. Signal logic not in trades table but outcome textbook.", "alternative_action": "none"},
+      {"trade_id": 1148, "timestamp": "2026-05-11T14:29:57+00:00", "symbol": "BTCUSDT", "direction": "long", "setup": "vwap", "entry_price": 80751.0, "exit_price": 80572.6, "stop_loss": 80665.15, "take_profit_1": 80994.09, "position_size": 0.009, "exit_reason": "sl_cross", "decision_grade": "C", "entry_quality": "acceptable", "exit_quality": "sl_appropriate", "risk_management": "correct", "rationale": "SL correctly set ($85 below entry). Exit filled $92 below SL (80572 vs 80665) — 2x slippage vs SL gap. Risk contained but execution imprecise.", "alternative_action": "Investigate SL execution path for slippage >1x SL gap; consider tighter monitor polling or limit-order SL."},
+      {"trade_id": 1149, "timestamp": "2026-05-11T14:33:31+00:00", "symbol": "BTCUSDT", "direction": "long", "setup": "vwap", "entry_price": 80534.2, "exit_price": 80982.3, "stop_loss": 80446.36, "take_profit_1": 80974.49, "position_size": 0.008, "exit_reason": "tp_cross", "decision_grade": "A", "entry_quality": "optimal", "exit_quality": "tp_appropriate", "risk_management": "correct", "rationale": "Clean TP fill at 80982 (+$7.81 above TP1=80974). R:R 5.01:1. Textbook VWAP mean-reversion long. SL and TP properly wired.", "alternative_action": "none"},
+      {"trade_id": 1151, "timestamp": "2026-05-12T00:12:52+00:00", "symbol": "BTCUSDT", "direction": "long", "setup": "vwap", "entry_price": 81611.3, "exit_price": null, "stop_loss": null, "take_profit_1": null, "position_size": 0.01, "exit_reason": "rejected", "decision_grade": "D", "entry_quality": "unknown", "exit_quality": "unknown", "risk_management": "oversize", "rationale": "Rep. for cluster 1151-1153. 3x ErrCode 110007 at qty=0.01 BTC (~$81,600, ~$272 margin at 3x): exceeded available balance. Auto-tripped circuit breaker.", "alternative_action": "Pre-flight balance check before dispatch; lower qty cap or top up bybit_2 margin before re-enabling live."},
+      {"trade_id": 1207, "timestamp": "2026-05-12T02:03:47+00:00", "symbol": "BTCUSDT", "direction": "long", "setup": "vwap", "entry_price": 81234.0, "exit_price": null, "stop_loss": 81114.68, "take_profit_1": 81716.34, "position_size": 0.006, "exit_reason": "rejected", "decision_grade": "B", "entry_quality": "acceptable", "exit_quality": "unknown", "risk_management": "correct", "rationale": "Rep. of 50+ dry_run batch (1154-1207). Price 2.02 std-devs below VWAP, htf_blocked=false, R:R ~4:1. SL/TP correct. Rejected only by account_mode_dry_run.", "alternative_action": "Reset circuit breaker only after confirming bybit_2 balance and ErrCode 110007 root cause resolved."}
+    ],
+    "recommended_action": "1. Check bybit_2 available margin (ErrCode 110007 cluster at qty=0.01 BTC, ~$272 margin at 3x). 2. Reset circuit breaker only after confirming adequate balance. 3. Investigate signal_audit.jsonl writer failure in PID 104141 (git SHA 2243506) — compare pipeline.py audit write path vs prior commit. 4. Fetch journalctl?unit=ict-trader-live.service&since=2026-05-11T10:00:00Z&lines=2000 to diagnose heartbeat writer failure (FU-20260511-008). 5. Open cleanup PR for BybitConnector dead code (FU-20260511-006).",
+    "operator_attention_required": true
+  },
+  {
+    "request_id": "REQ-20260511-192722-25692301993",
+    "reviewed_at": "2026-05-12T02:40:00+00:00",
+    "reviewer": "claude",
+    "overall_assessment": "investigate",
+    "findings": {
+      "heartbeat": {"status": "watch", "note": "Stale 57591s (mtime 2026-05-11T10:01:30Z) at snapshot; resumed 02:05:03Z per status pull. FU-20260511-008 active."},
+      "ticks": {"status": "ok", "note": "last_tick 02:03:48Z (recent). Cadence ~7min from dry_run trade timestamps. Snapshot no-events is collector limitation."},
+      "signals": {"status": "ok", "note": "VWAP long signals every ~7min, htf_blocked=false, R:R 4-9:1. Confirmed via journal DB; audit writer broken separately."},
+      "orders": {"status": "concern", "note": "3x exchange_rejected ErrCode 110007 on bybit_2 at 00:12-00:15Z triggered circuit breaker. 7 orphaned packages."},
+      "trades": {"status": "ok", "note": "3 closed (TP x2, SL x1) from 13:38-14:33Z May 11. 3 exchange_rejected. 50+ dry_run rejected. 0 open positions."},
+      "monitoring": {"status": "watch", "note": "Reconciler active (orphan ops at 12:30Z and 15:12Z May 11). run_monitor_tick absent from snapshot (collector limit)."},
+      "sizing": {"status": "watch", "note": "ErrCode 110007 cluster: qty=0.01 BTC at ~$81,600 (~$272 margin at 3x). bybit_2 balance may be insufficient."},
+      "api_errors": {"status": "ok", "note": "Telegram polling clean (200 OK every 10s). Old errors Apr 19 and May 7-8 only. No current API issues."},
+      "state_consistency": {"status": "concern", "note": "bybit_2 auto-paused by circuit breaker ~00:15Z. bybit_1 and prop_velotrade_1 also live=False (pre-existing dry_run)."},
+      "alert_delivery": {"status": "watch", "note": "Circuit breaker fired ~00:15Z. Journalctl not pulled; Telegram alert delivery unconfirmed. Check Telegram manually."},
+      "strategy_silence": {"status": "concern", "note": "Zero *_eval audit events in 6h (audit writer broken since 14:27Z May 11). Strategies ARE running per journal DB."},
+      "db_integrity": {"status": "watch", "note": "Collector checks stale /home/ubuntu/ DB (4.6MB, 10.8h stale). Active /data/bot-data/ DB is fresh (5.3MB, 02:01Z, ok)."},
+      "audit_log_freshness": {"status": "concern", "note": "signal_audit.jsonl last event 14:27:41Z May 11 (smoke_open_result, 11.5h stale). events_last_hour=0. Writer broken."}
+    },
+    "anomalies": [
+      "CRITICAL: signal_audit.jsonl writer broken since 14:27Z May 11 (~11.5h). PID 104141 (started ~22:21Z) not writing audit events; journal DB writer functional. Likely code regression or permission issue at git SHA 2243506. Open new follow-up.",
+      "CONCERN: bybit_2 auto-paused by circuit breaker after 3x ErrCode 110007 ('ab not enough for new order') at 00:12-00:15Z May 12. Account in dry_run since. Operator must: (a) check bybit_2 available balance; (b) reset circuit breaker when ready to resume live trading.",
+      "FU-20260511-008 TRIGGERED: heartbeat stale 16h (mtime 10:01:30Z May 11, age 57591s at snapshot 02:01:21Z) while process PID 104141 alive. Fetch journalctl?unit=ict-trader-live.service&since=2026-05-11T10:00:00Z&lines=2000 to diagnose.",
+      "1 open order_package (pkg-652c4689a76f4e72, created 02:10:18Z) has sized_qty_by_account={} — all accounts dry_run. Monocle will block next VWAP dispatch until reconciler closes this package.",
+      "7 orphaned order_packages accumulated (bybit_2 dry_run, no linked trades). Reconciler should close these; confirm run_monitor_tick events are firing.",
+      "Snapshot DB section reads stale secondary copy at /home/ubuntu/ict-trading-bot/ (4.6MB, 10.8h) not active /data/bot-data/ DB (5.3MB, fresh). Collector script path bug — known issue.",
+      "FU-20260511-006 triggered: BybitConnector.set_leverage + _v5_signed_post confirmed dead code now FU-002 baked. Recommend opening cleanup PR.",
+      "FU-20260511-004 still open: Tailscale Funnel migration parked. No dashboard outage this cycle; quick-tunnel working."
+    ],
+    "trade_decision_grades": [
+      {"trade_id": 1147, "timestamp": "2026-05-11T13:38:00+00:00", "symbol": "BTCUSDT", "direction": "long", "setup": "vwap", "entry_price": 80765.7, "exit_price": 81211.3, "stop_loss": 80680.69, "take_profit_1": 80971.07, "position_size": 0.009, "exit_reason": "tp_cross", "decision_grade": "A", "entry_quality": "optimal", "exit_quality": "tp_appropriate", "risk_management": "correct", "rationale": "TP hit and ran $240 past TP1 (monitor market-closed on TP cross, positive slippage). R:R 5.24:1 realised. Signal logic not in trades table but outcome textbook.", "alternative_action": "none"},
+      {"trade_id": 1148, "timestamp": "2026-05-11T14:29:57+00:00", "symbol": "BTCUSDT", "direction": "long", "setup": "vwap", "entry_price": 80751.0, "exit_price": 80572.6, "stop_loss": 80665.15, "take_profit_1": 80994.09, "position_size": 0.009, "exit_reason": "sl_cross", "decision_grade": "C", "entry_quality": "acceptable", "exit_quality": "sl_appropriate", "risk_management": "correct", "rationale": "SL correctly set ($85 below entry). Exit filled $92 below SL (80572 vs 80665) — 2x slippage vs SL gap. Risk contained but execution imprecise.", "alternative_action": "Investigate SL execution path for slippage >1x SL gap; consider tighter monitor polling or limit-order SL."},
+      {"trade_id": 1149, "timestamp": "2026-05-11T14:33:31+00:00", "symbol": "BTCUSDT", "direction": "long", "setup": "vwap", "entry_price": 80534.2, "exit_price": 80982.3, "stop_loss": 80446.36, "take_profit_1": 80974.49, "position_size": 0.008, "exit_reason": "tp_cross", "decision_grade": "A", "entry_quality": "optimal", "exit_quality": "tp_appropriate", "risk_management": "correct", "rationale": "Clean TP fill at 80982 (+$7.81 above TP1=80974). R:R 5.01:1. Textbook VWAP mean-reversion long. SL and TP properly wired.", "alternative_action": "none"},
+      {"trade_id": 1151, "timestamp": "2026-05-12T00:12:52+00:00", "symbol": "BTCUSDT", "direction": "long", "setup": "vwap", "entry_price": 81611.3, "exit_price": null, "stop_loss": null, "take_profit_1": null, "position_size": 0.01, "exit_reason": "rejected", "decision_grade": "D", "entry_quality": "unknown", "exit_quality": "unknown", "risk_management": "oversize", "rationale": "Rep. for cluster 1151-1153. 3x ErrCode 110007 at qty=0.01 BTC (~$81,600, ~$272 margin at 3x): exceeded available balance. Auto-tripped circuit breaker.", "alternative_action": "Pre-flight balance check before dispatch; lower qty cap or top up bybit_2 margin before re-enabling live."},
+      {"trade_id": 1207, "timestamp": "2026-05-12T02:03:47+00:00", "symbol": "BTCUSDT", "direction": "long", "setup": "vwap", "entry_price": 81234.0, "exit_price": null, "stop_loss": 81114.68, "take_profit_1": 81716.34, "position_size": 0.006, "exit_reason": "rejected", "decision_grade": "B", "entry_quality": "acceptable", "exit_quality": "unknown", "risk_management": "correct", "rationale": "Rep. of 50+ dry_run batch (1154-1207). Price 2.02 std-devs below VWAP, htf_blocked=false, R:R ~4:1. SL/TP correct. Rejected only by account_mode_dry_run.", "alternative_action": "Reset circuit breaker only after confirming bybit_2 balance and ErrCode 110007 root cause resolved."}
+    ],
+    "recommended_action": "1. Check bybit_2 available margin (ErrCode 110007 cluster at qty=0.01 BTC, ~$272 margin at 3x). 2. Reset circuit breaker only after confirming adequate balance. 3. Investigate signal_audit.jsonl writer failure in PID 104141 (git SHA 2243506) — compare pipeline.py audit write path vs prior commit. 4. Fetch journalctl?unit=ict-trader-live.service&since=2026-05-11T10:00:00Z&lines=2000 to diagnose heartbeat writer failure (FU-20260511-008). 5. Open cleanup PR for BybitConnector dead code (FU-20260511-006).",
+    "operator_attention_required": true
+  },
+  {
+    "request_id": "REQ-20260512-020131-25708699987",
+    "reviewed_at": "2026-05-12T02:40:00+00:00",
+    "reviewer": "claude",
+    "overall_assessment": "investigate",
+    "findings": {
+      "heartbeat": {"status": "watch", "note": "Stale 57591s (mtime 2026-05-11T10:01:30Z) at snapshot; resumed 02:05:03Z per status pull. FU-20260511-008 active."},
+      "ticks": {"status": "ok", "note": "last_tick 02:03:48Z (recent). Cadence ~7min from dry_run trade timestamps. Snapshot no-events is collector limitation."},
+      "signals": {"status": "ok", "note": "VWAP long signals every ~7min, htf_blocked=false, R:R 4-9:1. Confirmed via journal DB; audit writer broken separately."},
+      "orders": {"status": "concern", "note": "3x exchange_rejected ErrCode 110007 on bybit_2 at 00:12-00:15Z triggered circuit breaker. 7 orphaned packages."},
+      "trades": {"status": "ok", "note": "3 closed (TP x2, SL x1) from 13:38-14:33Z May 11. 3 exchange_rejected. 50+ dry_run rejected. 0 open positions."},
+      "monitoring": {"status": "watch", "note": "Reconciler active (orphan ops at 12:30Z and 15:12Z May 11). run_monitor_tick absent from snapshot (collector limit)."},
+      "sizing": {"status": "watch", "note": "ErrCode 110007 cluster: qty=0.01 BTC at ~$81,600 (~$272 margin at 3x). bybit_2 balance may be insufficient."},
+      "api_errors": {"status": "ok", "note": "Telegram polling clean (200 OK every 10s). Old errors Apr 19 and May 7-8 only. No current API issues."},
+      "state_consistency": {"status": "concern", "note": "bybit_2 auto-paused by circuit breaker ~00:15Z. bybit_1 and prop_velotrade_1 also live=False (pre-existing dry_run)."},
+      "alert_delivery": {"status": "watch", "note": "Circuit breaker fired ~00:15Z. Journalctl not pulled; Telegram alert delivery unconfirmed. Check Telegram manually."},
+      "strategy_silence": {"status": "concern", "note": "Zero *_eval audit events in 6h (audit writer broken since 14:27Z May 11). Strategies ARE running per journal DB."},
+      "db_integrity": {"status": "watch", "note": "Collector checks stale /home/ubuntu/ DB (4.6MB, 10.8h stale). Active /data/bot-data/ DB is fresh (5.3MB, 02:01Z, ok)."},
+      "audit_log_freshness": {"status": "concern", "note": "signal_audit.jsonl last event 14:27:41Z May 11 (smoke_open_result, 11.5h stale). events_last_hour=0. Writer broken."}
+    },
+    "anomalies": [
+      "CRITICAL: signal_audit.jsonl writer broken since 14:27Z May 11 (~11.5h). PID 104141 (started ~22:21Z) not writing audit events; journal DB writer functional. Likely code regression or permission issue at git SHA 2243506. Open new follow-up.",
+      "CONCERN: bybit_2 auto-paused by circuit breaker after 3x ErrCode 110007 ('ab not enough for new order') at 00:12-00:15Z May 12. Account in dry_run since. Operator must: (a) check bybit_2 available balance; (b) reset circuit breaker when ready to resume live trading.",
+      "FU-20260511-008 TRIGGERED: heartbeat stale 16h (mtime 10:01:30Z May 11, age 57591s at snapshot 02:01:21Z) while process PID 104141 alive. Fetch journalctl?unit=ict-trader-live.service&since=2026-05-11T10:00:00Z&lines=2000 to diagnose.",
+      "1 open order_package (pkg-652c4689a76f4e72, created 02:10:18Z) has sized_qty_by_account={} — all accounts dry_run. Monocle will block next VWAP dispatch until reconciler closes this package.",
+      "7 orphaned order_packages accumulated (bybit_2 dry_run, no linked trades). Reconciler should close these; confirm run_monitor_tick events are firing.",
+      "Snapshot DB section reads stale secondary copy at /home/ubuntu/ict-trading-bot/ (4.6MB, 10.8h) not active /data/bot-data/ DB (5.3MB, fresh). Collector script path bug — known issue.",
+      "FU-20260511-006 triggered: BybitConnector.set_leverage + _v5_signed_post confirmed dead code now FU-002 baked. Recommend opening cleanup PR.",
+      "FU-20260511-004 still open: Tailscale Funnel migration parked. No dashboard outage this cycle; quick-tunnel working."
+    ],
+    "trade_decision_grades": [
+      {"trade_id": 1147, "timestamp": "2026-05-11T13:38:00+00:00", "symbol": "BTCUSDT", "direction": "long", "setup": "vwap", "entry_price": 80765.7, "exit_price": 81211.3, "stop_loss": 80680.69, "take_profit_1": 80971.07, "position_size": 0.009, "exit_reason": "tp_cross", "decision_grade": "A", "entry_quality": "optimal", "exit_quality": "tp_appropriate", "risk_management": "correct", "rationale": "TP hit and ran $240 past TP1 (monitor market-closed on TP cross, positive slippage). R:R 5.24:1 realised. Signal logic not in trades table but outcome textbook.", "alternative_action": "none"},
+      {"trade_id": 1148, "timestamp": "2026-05-11T14:29:57+00:00", "symbol": "BTCUSDT", "direction": "long", "setup": "vwap", "entry_price": 80751.0, "exit_price": 80572.6, "stop_loss": 80665.15, "take_profit_1": 80994.09, "position_size": 0.009, "exit_reason": "sl_cross", "decision_grade": "C", "entry_quality": "acceptable", "exit_quality": "sl_appropriate", "risk_management": "correct", "rationale": "SL correctly set ($85 below entry). Exit filled $92 below SL (80572 vs 80665) — 2x slippage vs SL gap. Risk contained but execution imprecise.", "alternative_action": "Investigate SL execution path for slippage >1x SL gap; consider tighter monitor polling or limit-order SL."},
+      {"trade_id": 1149, "timestamp": "2026-05-11T14:33:31+00:00", "symbol": "BTCUSDT", "direction": "long", "setup": "vwap", "entry_price": 80534.2, "exit_price": 80982.3, "stop_loss": 80446.36, "take_profit_1": 80974.49, "position_size": 0.008, "exit_reason": "tp_cross", "decision_grade": "A", "entry_quality": "optimal", "exit_quality": "tp_appropriate", "risk_management": "correct", "rationale": "Clean TP fill at 80982 (+$7.81 above TP1=80974). R:R 5.01:1. Textbook VWAP mean-reversion long. SL and TP properly wired.", "alternative_action": "none"},
+      {"trade_id": 1151, "timestamp": "2026-05-12T00:12:52+00:00", "symbol": "BTCUSDT", "direction": "long", "setup": "vwap", "entry_price": 81611.3, "exit_price": null, "stop_loss": null, "take_profit_1": null, "position_size": 0.01, "exit_reason": "rejected", "decision_grade": "D", "entry_quality": "unknown", "exit_quality": "unknown", "risk_management": "oversize", "rationale": "Rep. for cluster 1151-1153. 3x ErrCode 110007 at qty=0.01 BTC (~$81,600, ~$272 margin at 3x): exceeded available balance. Auto-tripped circuit breaker.", "alternative_action": "Pre-flight balance check before dispatch; lower qty cap or top up bybit_2 margin before re-enabling live."},
+      {"trade_id": 1207, "timestamp": "2026-05-12T02:03:47+00:00", "symbol": "BTCUSDT", "direction": "long", "setup": "vwap", "entry_price": 81234.0, "exit_price": null, "stop_loss": 81114.68, "take_profit_1": 81716.34, "position_size": 0.006, "exit_reason": "rejected", "decision_grade": "B", "entry_quality": "acceptable", "exit_quality": "unknown", "risk_management": "correct", "rationale": "Rep. of 50+ dry_run batch (1154-1207). Price 2.02 std-devs below VWAP, htf_blocked=false, R:R ~4:1. SL/TP correct. Rejected only by account_mode_dry_run.", "alternative_action": "Reset circuit breaker only after confirming bybit_2 balance and ErrCode 110007 root cause resolved."}
+    ],
+    "recommended_action": "1. Check bybit_2 available margin (ErrCode 110007 cluster at qty=0.01 BTC, ~$272 margin at 3x). 2. Reset circuit breaker only after confirming adequate balance. 3. Investigate signal_audit.jsonl writer failure in PID 104141 (git SHA 2243506) — compare pipeline.py audit write path vs prior commit. 4. Fetch journalctl?unit=ict-trader-live.service&since=2026-05-11T10:00:00Z&lines=2000 to diagnose heartbeat writer failure (FU-20260511-008). 5. Open cleanup PR for BybitConnector dead code (FU-20260511-006).",
+    "operator_attention_required": true
+  }
+]
