@@ -123,3 +123,22 @@ def test_order_package_sl_matches_build_vwap_signal(monkeypatch) -> None:
         f"order_package tp {pkg['tp']} does not match "
         f"build_vwap_signal take_profit {signal['take_profit']}"
     )
+
+
+def test_atr_floor_sl_distance_gte_atr(monkeypatch) -> None:
+    """build_vwap_signal must expose atr/sl_distance in meta and sl_distance >= atr."""
+    monkeypatch.setattr(
+        "src.units.strategies.vwap._has_open_vwap_package", lambda: False
+    )
+    df = _candles_below_vwap()
+    signal = build_vwap_signal(df, symbol="BTCUSDT")
+    assert signal["side"] == "buy"
+
+    meta = signal["meta"]
+    assert "atr" in meta, "meta must carry atr for audit"
+    assert "sl_distance" in meta, "meta must carry sl_distance for audit"
+    assert meta["atr"] > 0, "ATR must be positive for real OHLCV data"
+    assert meta["sl_distance"] >= meta["atr"], (
+        f"sl_distance {meta['sl_distance']} must be >= atr {meta['atr']} "
+        "(ATR floor must not be violated)"
+    )

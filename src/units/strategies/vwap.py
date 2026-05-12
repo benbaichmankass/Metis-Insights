@@ -155,7 +155,13 @@ _ENTRY_STD_THRESHOLD = ENTRY_STD_THRESHOLD
 # ``sl_std_mult`` arg to ``build_vwap_signal`` or the matching entry in
 # ``config/strategies.yaml`` (consumed by the pipeline-side
 # vwap_signal_builder when it wires it through).
-SL_STD_MULT_DEFAULT = 0.5
+#
+# 2026-05-12: raised 0.5 → 0.75. The 0.5 value produced stops tight
+# enough that live price noise was triggering sl_cross before the
+# mean-reversion thesis played out. New boundary R:R at 1.0σ entry:
+# 1.0σ / 0.75σ = 1.33:1 (reward:risk). An ATR-based floor in
+# build_vwap_signal provides an additional noise guard.
+SL_STD_MULT_DEFAULT = 0.75
 
 
 # Phase 2 of the 2026-05-07-vwap-accuracy training run + the
@@ -272,6 +278,25 @@ def _session_anchor_slice(candles_df: pd.DataFrame) -> pd.DataFrame:
     if "volume" in sliced.columns and float(sliced["volume"].sum()) <= 0:
         return candles_df
     return sliced
+
+
+def _compute_atr(candles_df: pd.DataFrame, period: int = 14) -> float:
+    """Average True Range over the trailing ``period`` bars.
+
+    Returns 0.0 when data is insufficient (< 2 rows) so callers can
+    treat a zero ATR as "no floor applies" without branching.
+    """
+    if len(candles_df) < 2:
+        return 0.0
+    high = candles_df["high"]
+    low = candles_df["low"]
+    close = candles_df["close"]
+    prev_close = close.shift(1)
+    tr = pd.concat(
+        [(high - low), (high - prev_close).abs(), (low - prev_close).abs()],
+        axis=1,
+    ).max(axis=1)
+    return float(tr.iloc[1:].tail(period).mean())
 
 
 def build_vwap_signal(
@@ -420,10 +445,16 @@ def build_vwap_signal(
     # G5 — populate entry/sl/tp so multi-account dispatch can fan this out.
     entry_price = current_price
     take_profit = vwap
+    # ATR floor: stop must be at least 1 ATR away from entry so a single
+    # noisy candle cannot immediately trigger sl_cross on a valid signal.
+    atr = _compute_atr(window)
+    sl_distance = sl_std_mult * std_dev
+    if atr > 0:
+        sl_distance = max(sl_distance, atr)
     if side == "buy":
-        stop_loss = entry_price - sl_std_mult * std_dev
+        stop_loss = entry_price - sl_distance
     else:  # "sell"
-        stop_loss = entry_price + sl_std_mult * std_dev
+        stop_loss = entry_price + sl_distance
 
     return {
         "symbol": symbol,
@@ -435,6 +466,8 @@ def build_vwap_signal(
         "meta": {
             **base_meta,
             "sl_std_mult": sl_std_mult,
+            "atr": round(float(atr), 8),
+            "sl_distance": round(float(sl_distance), 8),
             "entry_price": float(entry_price),
             "stop_loss": float(stop_loss),
             "take_profit": float(take_profit),
