@@ -52,6 +52,7 @@ EXPECTED_ACTIONS = {
     "setup-cloudflare-tunnel": "setup_cloudflare_tunnel.sh",
     "teardown-cloudflare-tunnel": "teardown_cloudflare_tunnel.sh",
     "set-account-mode": "set_account_mode.sh",
+    "fix-data-dir": "fix_data_dir.sh",
 }
 
 TIER_2_ACTIONS = {
@@ -65,6 +66,7 @@ TIER_2_ACTIONS = {
     "setup-cloudflare-tunnel",
     "teardown-cloudflare-tunnel",
     "set-account-mode",
+    "fix-data-dir",
 }
 
 
@@ -89,13 +91,6 @@ def test_workflow_file_exists() -> None:
 
 
 def test_only_two_dispatch_paths(workflow_dict: dict) -> None:
-    """Workflow has exactly two dispatch paths: workflow_dispatch +
-    label-filtered issues.opened.
-
-    No push / pull_request / schedule / workflow_call — those would
-    let a code change auto-trigger a Tier-2 mutation, which violates
-    the audit contract.
-    """
     on = workflow_dict["on"]
     assert isinstance(on, dict)
     assert set(on.keys()) == {"workflow_dispatch", "issues"}, (
@@ -105,10 +100,6 @@ def test_only_two_dispatch_paths(workflow_dict: dict) -> None:
 
 
 def test_issues_trigger_is_opened_only(workflow_dict: dict) -> None:
-    """The issues trigger must filter to types: [opened]. Listening
-    on edited / labeled would let an operator-action issue's body
-    be tampered with after the fact and re-trigger.
-    """
     issues_trigger = workflow_dict["on"]["issues"]
     assert isinstance(issues_trigger, dict)
     assert issues_trigger.get("types") == ["opened"], (
@@ -117,15 +108,6 @@ def test_issues_trigger_is_opened_only(workflow_dict: dict) -> None:
 
 
 def test_issue_dispatch_is_label_filtered() -> None:
-    """The job-level `if:` must filter issue-driven dispatches to
-    label `operator-action`. Without this filter, ANY opened issue
-    would attempt to dispatch — a clear blast-radius regression.
-
-    Read the YAML as raw text rather than parsed because GitHub
-    Actions `if:` expressions don't round-trip cleanly through
-    PyYAML safe_load (the `${{ }}` is preserved but multi-line
-    pipes get re-flowed).
-    """
     raw = WORKFLOW.read_text()
     assert (
         "github.event_name == 'issues'" in raw
@@ -138,20 +120,10 @@ def test_issue_dispatch_is_label_filtered() -> None:
 
 
 def test_issue_body_uses_env_not_inline_interpolation() -> None:
-    """The issue body parser must consume ISSUE_BODY via env, not via
-    inline ${{ github.event.issue.body }} interpolation inside a
-    `run:` block — otherwise a backtick or $(…) in the issue body
-    becomes shell injection on the runner.
-    """
     raw = WORKFLOW.read_text()
-    # The env: line is fine. Inline interpolation in run: would look
-    # like a literal `${{ github.event.issue.body }}` inside a shell
-    # heredoc / variable assignment. Guard against that.
     assert "ISSUE_BODY: ${{ github.event.issue.body }}" in raw, (
         "Expected ISSUE_BODY to ride through env, not inline ${{ }}."
     )
-    # Reject the unsafe pattern: the literal `${{ github.event.issue.body }}`
-    # appearing in a shell heredoc.
     inline_unsafe = re.search(
         r"<<['\"]?BODY['\"]?\n[^A-Z]*\$\{\{\s*github\.event\.issue\.body\s*\}\}",
         raw,
@@ -175,11 +147,6 @@ def test_action_input_is_choice_with_full_allowlist(workflow_dict: dict) -> None
 
 
 def test_no_freeform_command_input(workflow_dict: dict) -> None:
-    """Reject any input named like a generic shell command surface.
-
-    The whole point of operator-actions is the allowlist; an input
-    like `command` / `script` / `cmd` would defeat it.
-    """
     inputs = workflow_dict["on"]["workflow_dispatch"]["inputs"]
     forbidden = {"command", "cmd", "script", "shell", "exec", "run"}
     bad = forbidden & set(inputs.keys())
@@ -187,11 +154,6 @@ def test_no_freeform_command_input(workflow_dict: dict) -> None:
 
 
 def test_no_freeform_command_input_regex_fallback() -> None:
-    """Same check, but works even when PyYAML isn't installed.
-
-    Catches the most likely reintroduction: a top-level
-    `inputs.command:` block.
-    """
     text = WORKFLOW.read_text()
     assert not re.search(r"^\s+command:\s*$", text, re.MULTILINE), (
         "Found a `command:` input — operator-actions allows no freeform shell."
@@ -199,10 +161,8 @@ def test_no_freeform_command_input_regex_fallback() -> None:
 
 
 def test_workflow_maps_each_action_to_a_wrapper_script() -> None:
-    """The case-arm in `Execute action wrapper` step must list every action."""
     text = WORKFLOW.read_text()
     for action, script in EXPECTED_ACTIONS.items():
-        # Looking for: "<action>) ... SCRIPT=\"<script>\""
         pattern = rf'{re.escape(action)}\)\s*SCRIPT="{re.escape(script)}"'
         assert re.search(pattern, text), (
             f"Workflow does not map action '{action}' to wrapper '{script}'. "
@@ -211,9 +171,7 @@ def test_workflow_maps_each_action_to_a_wrapper_script() -> None:
 
 
 def test_workflow_validates_action_choice_explicitly() -> None:
-    """The validate step must have a default `*)` arm rejecting unknown actions."""
     text = WORKFLOW.read_text()
-    # The validation case statement should reject unknowns with exit 2.
     assert re.search(r"\*\)\s*\n\s*echo \"::error::Unknown action", text), (
         "Validate step must reject unknown actions explicitly with `*) … exit 2`."
     )
@@ -221,7 +179,6 @@ def test_workflow_validates_action_choice_explicitly() -> None:
 
 def test_workflow_requires_reason_for_tier2_actions() -> None:
     text = WORKFLOW.read_text()
-    # The validate step should branch tier-2 actions and require REASON.
     for action in TIER_2_ACTIONS:
         assert action in text, f"Tier-2 action '{action}' missing from workflow"
     assert "Tier-2 action" in text and "non-empty 'reason'" in text, (
@@ -230,27 +187,14 @@ def test_workflow_requires_reason_for_tier2_actions() -> None:
 
 
 def test_no_appleboy_or_other_third_party_ssh_action() -> None:
-    """We deliberately reuse the diag-relay SSH pattern. Reviewers
-    shouldn't have to evaluate a new dependency on a marketplace
-    action; if someone adds one in a refactor, the test should
-    flag it for explicit discussion.
-    """
     text = WORKFLOW.read_text()
     assert "appleboy/ssh-action" not in text
-    # Same idea — block other common SSH marketplace actions.
     for forbidden in ("garygrossgarten/github-action-ssh", "shimataro/ssh-key-action"):
         assert forbidden not in text
 
 
 @pytest.mark.parametrize("action,script", list(EXPECTED_ACTIONS.items()))
 def test_each_wrapper_exists(action: str, script: str) -> None:
-    """Every action in the allowlist has a wrapper file on disk.
-
-    Note: the exec bit is NOT required — operator-actions.yml invokes
-    wrappers via `bash <path>` (see REMOTE_CMD in the Execute step),
-    not by exec'ing the file directly. `bash -n` covers syntax
-    validity in test_wrapper_parses_with_bash_n.
-    """
     path = OPS_DIR / script
     assert path.exists(), f"Missing wrapper for action '{action}': {path}"
 
@@ -267,7 +211,6 @@ def test_wrapper_uses_strict_mode_and_sources_lib(script: str) -> None:
     "script", list(EXPECTED_ACTIONS.values()) + ["_lib.sh", "notify_run.sh"]
 )
 def test_wrapper_parses_with_bash_n(script: str) -> None:
-    """`bash -n` is a syntax check; it does not execute the script."""
     if shutil.which("bash") is None:
         pytest.skip("bash not available in this test env")
     result = subprocess.run(
@@ -290,16 +233,11 @@ def test_doc_lists_every_action(action: str) -> None:
 
 
 def test_doc_calls_out_docker_omission() -> None:
-    """If a future PR re-adds Docker, this test should fail loudly so
-    the doc is updated alongside the workflow."""
     text = DOC.read_text()
     assert "Docker is intentionally absent" in text or "Docker is not canonical" in text
 
 
 def test_doc_includes_dispatcher_trust_contract() -> None:
-    """§ 3.5 must enumerate every dispatcher class and what tier they
-    can dispatch autonomously. Drift here means the next session
-    re-derives the trust contract from chat — not acceptable."""
     text = DOC.read_text()
     assert "Dispatcher trust contract" in text, (
         "operator-actions.md must keep § 3.5 'Dispatcher trust contract'."
@@ -311,14 +249,10 @@ def test_doc_includes_dispatcher_trust_contract() -> None:
 
 
 def test_doc_includes_transparency_rule() -> None:
-    """§ 5.5 codifies the operator's 2026-05-08 directive: every run
-    notifies the operator, regardless of dispatcher or tier.
-    'Autonomy is complemented by full transparency.'"""
     text = DOC.read_text()
     assert "Transparency rule" in text, (
         "operator-actions.md must keep § 5.5 'Transparency rule (always-notify)'."
     )
-    # Collapse whitespace so the principle still matches across line wraps.
     collapsed = re.sub(r"\s+", " ", text.lower())
     assert "autonomy is complemented by full transparency" in collapsed, (
         "The transparency principle must be quoted verbatim."
@@ -326,16 +260,11 @@ def test_doc_includes_transparency_rule() -> None:
 
 
 def test_notify_run_script_exists() -> None:
-    """notify_run.sh exists. Same exec-bit caveat as the wrappers:
-    operator-actions.yml invokes it via `bash <path>` over SSH."""
     path = OPS_DIR / "notify_run.sh"
     assert path.exists(), f"Missing notify wrapper: {path}"
 
 
 def test_notify_run_uses_send_ping_with_claude_target() -> None:
-    """The transparency rule routes every ping through the Claude
-    bot channel, not the trader bot. send_ping.py --target claude
-    is the canonical producer."""
     text = (OPS_DIR / "notify_run.sh").read_text()
     assert "send_ping.py" in text or "send_ping" in text, (
         "notify_run.sh must call the canonical scripts/send_ping.py producer."
@@ -347,13 +276,8 @@ def test_notify_run_uses_send_ping_with_claude_target() -> None:
 
 
 def test_notify_run_handles_every_allowlisted_action() -> None:
-    """Adding a new action without a notify-priority mapping would
-    silently drop into the 'unknown action' arm, which alerts as
-    urgent and confuses the operator. Force the mapping to be kept
-    in sync with the allowlist."""
     text = (OPS_DIR / "notify_run.sh").read_text()
     for action in EXPECTED_ACTIONS:
-        # Each action name must appear in a `case` arm in notify_run.sh.
         assert re.search(rf'\b{re.escape(action)}\b', text), (
             f"notify_run.sh must explicitly map action '{action}' to "
             f"a priority. Update the case statement when extending the "
@@ -362,9 +286,6 @@ def test_notify_run_handles_every_allowlisted_action() -> None:
 
 
 def test_workflow_invokes_notify_step() -> None:
-    """The transparency rule is doc + code now — the workflow must
-    actually have the notify step, with `if: always()` so failures
-    still notify."""
     text = WORKFLOW.read_text()
     assert "Notify operator via Claude bot channel" in text, (
         "operator-actions.yml must include the transparency-rule "
@@ -373,8 +294,6 @@ def test_workflow_invokes_notify_step() -> None:
     assert "notify_run.sh" in text, (
         "Notify step must invoke scripts/ops/notify_run.sh."
     )
-    # `if: always()` is what makes failures notify too. `continue-on-error`
-    # ensures a failed ping doesn't flip a successful action to failed.
     notify_block = text.split("Notify operator via Claude bot channel", 1)[1]
     notify_block = notify_block.split("- name:", 1)[0]
     assert "if: always()" in notify_block, (

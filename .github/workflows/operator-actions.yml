@@ -23,8 +23,8 @@ name: operator-actions
 #   * GitHub-hosted ubuntu-latest runner is the control plane. The VM
 #     never orchestrates its own reboot path (would self-decapitate).
 #   * Tier-2 actions (pull-and-deploy, restart-bot-service, reboot-vm,
-#     set-account-mode, …) require a non-empty `reason` so the audit
-#     artifact records intent.
+#     set-account-mode, fix-data-dir, …) require a non-empty `reason`
+#     so the audit artifact records intent.
 #   * The issue body for issue-driven dispatch passes through env
 #     (`ISSUE_BODY`), never inline `${{ }}` interpolation, so an
 #     attacker-controlled issue body cannot inject shell into the
@@ -32,11 +32,12 @@ name: operator-actions
 #   * Every run uploads a JSON artifact with pre-state, action output,
 #     and post-state. Read it from the run page; for issue-driven
 #     runs the same summary lands as a comment on the originating issue.
-#   * Strategy parameters, risk caps, and the `mode:` field of
-#     `config/accounts.yaml` are mutated **only** by the explicit,
-#     named, Telegram-notified `set-account-mode` action below. All
-#     other Tier-3 paths (live order code, key rotation, etc.) remain
-#     off-limits to this workflow.
+#   * Strategy parameters, risk caps, the `mode:` field of
+#     `config/accounts.yaml`, and the runtime data-dir alignment
+#     are mutated **only** by their explicit, named,
+#     Telegram-notified actions (`set-account-mode` and
+#     `fix-data-dir`). All other Tier-3 paths (live order code,
+#     key rotation, etc.) remain off-limits to this workflow.
 #
 # Required repo secrets (Settings → Secrets and variables → Actions):
 #   * VM_SSH_KEY        — contents of ict-bot-ovm-private.key
@@ -77,6 +78,7 @@ on:
           - disable-m5-consumer
           - backfill-pnl-nulls
           - set-account-mode
+          - fix-data-dir
       reason:
         description: "Why this action is being run (audit trail; required for Tier-2)"
         required: false
@@ -192,7 +194,7 @@ jobs:
             status-check|pull-latest-logs)
               echo "tier=1" >>"$GITHUB_ENV"
               ;;
-            pull-and-deploy|restart-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|enable-m5-consumer|disable-m5-consumer|setup-cloudflare-tunnel|teardown-cloudflare-tunnel|setup-tailscale-funnel|teardown-tailscale-funnel|backfill-pnl-nulls|set-account-mode)
+            pull-and-deploy|restart-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|enable-m5-consumer|disable-m5-consumer|setup-cloudflare-tunnel|teardown-cloudflare-tunnel|setup-tailscale-funnel|teardown-tailscale-funnel|backfill-pnl-nulls|set-account-mode|fix-data-dir)
               echo "tier=2" >>"$GITHUB_ENV"
               if [ -z "${REASON// }" ]; then
                 echo "::error::Tier-2 action '${ACTION}' requires a non-empty 'reason' input."
@@ -292,6 +294,7 @@ jobs:
             teardown-tailscale-funnel)       SCRIPT="teardown_tailscale_funnel.sh" ;;
             backfill-pnl-nulls)              SCRIPT="backfill_pnl_nulls_action.sh" ;;
             set-account-mode)                SCRIPT="set_account_mode.sh" ;;
+            fix-data-dir)                    SCRIPT="fix_data_dir.sh" ;;
             *)
               echo "::error::Allowlist regression: '${ACTION}' was not mapped to a wrapper script."
               exit 2
