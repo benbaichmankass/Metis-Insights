@@ -9,11 +9,11 @@ Unit interface stubs (filled in by subsequent PRs):
   PR #122 → account_execute()      DONE — src/units/accounts/execute.py
 
 Data flow:
-  Strategies.order_package() ──▶ Coordinator ──▶ Accounts.execute(pkg)
+  Strategies.order_package() ─▶ Coordinator ─▶ Accounts.execute(pkg)
                                        │
   Dashboards.stats() ◄────────────────┘
                                        │
-  ReturnCommands.halt() ─────────────┘
+  ReturnCommands.halt() ───────────┘
 """
 from __future__ import annotations
 
@@ -841,8 +841,38 @@ class Coordinator:
                         available_usd = None
                         total_account_usd = None
                 else:
-                    available_usd = None
-                    total_account_usd = None
+                    if (
+                        _market_type == "linear"
+                        and client is not None
+                        and not effective_dry
+                        and not bool(
+                            getattr(pkg, "meta", None)
+                            and (pkg.meta or {}).get("is_test")
+                        )
+                    ):
+                        try:
+                            from src.units.accounts.execute import (
+                                _fetch_linear_available_balance,
+                            )
+                            available_usd = _fetch_linear_available_balance(client)
+                            total_account_usd = None
+                            logger.debug(
+                                "multi_account_execute: linear available-balance "
+                                "account=%s available_usd=%s",
+                                account.name,
+                                f"{available_usd:.4f}" if available_usd is not None else "n/a",
+                            )
+                        except Exception as _lin_exc:  # noqa: BLE001
+                            logger.warning(
+                                "multi_account_execute: linear available-balance "
+                                "fetch failed for %s: %s — sizing without ceiling",
+                                account.name, _lin_exc,
+                            )
+                            available_usd = None
+                            total_account_usd = None
+                    else:
+                        available_usd = None
+                        total_account_usd = None
                 # Forward the routing label as a primitive (legacy
                 # interface — see ``size_order_from_cfg``). With the
                 # spot-margin sizing kernel removed (PR 5) this is a
