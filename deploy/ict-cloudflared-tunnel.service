@@ -1,0 +1,63 @@
+# systemd unit — Cloudflare named tunnel for the dashboard API.
+#
+# Save to: /etc/systemd/system/ict-cloudflared-tunnel.service
+#
+# Why this exists (T1, audit doc 2026-05-12 § 6):
+#   The CF quick-tunnel (scripts/ops/setup_cloudflare_tunnel.sh) generates
+#   an ephemeral *.trycloudflare.com hostname that rotates every time
+#   cloudflared restarts. Each rotation breaks vercel.json and forces a
+#   dashboard PR. PRs ict-trader-dashboard#22/#23/#25/#29/#30 are five
+#   rotation-chasing patches in two days. The named-tunnel architecture
+#   pins a STABLE hostname — vercel.json never needs to change again.
+#
+# Architecture:
+#   Browser → Vercel edge → https://<stable>.cfargotunnel.com
+#                                   (or <hostname>.<cf-zone>.com)
+#                         → cloudflared (this unit, Restart=always)
+#                         → http://localhost:8001 (ict-web-api.service)
+#
+# Config:
+#   /etc/ict-trader/cloudflared/config.yml         — ingress mapping
+#   /etc/ict-trader/cloudflared/<tunnel-id>.json   — credentials (chmod 600)
+#   /etc/ict-trader/cloudflared/tunnel-url.txt     — stable HTTPS URL,
+#                                                    written by setup_named_cloudflare_tunnel.sh
+#
+# To apply after autosync:
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now ict-cloudflared-tunnel
+#
+# Why Restart=always: the quick-tunnel + nohup pattern died silently
+# on every crash with no operator signal. The 2026-05-12 outage is the
+# direct consequence. Restart=always + RestartSec=10 + watchdog
+# (T5 in the audit doc) close that hole.
+
+[Unit]
+Description=ICT Trading Bot — Cloudflare named tunnel (dashboard API edge)
+Documentation=file:///home/ubuntu/ict-trading-bot/docs/runbooks/cloudflare-named-tunnel.md
+After=network-online.target ict-web-api.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+# cloudflared lives under ~/.local/bin per the existing quick-tunnel
+# wrapper convention. setup_named_cloudflare_tunnel.sh ensures it's
+# installed before this unit is enabled.
+ExecStart=/home/ubuntu/.local/bin/cloudflared --no-autoupdate \
+    tunnel --config /etc/ict-trader/cloudflared/config.yml run
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+# Hardening — cloudflared only needs outbound network + read of its
+# config dir.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadOnlyPaths=/etc/ict-trader/cloudflared
+
+[Install]
+WantedBy=multi-user.target
