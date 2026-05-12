@@ -11,10 +11,8 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from src.units.strategies.vwap import (
-    SL_STD_MULT_DEFAULT,
     build_vwap_signal,
     order_package,
 )
