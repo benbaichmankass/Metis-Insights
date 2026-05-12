@@ -35,17 +35,20 @@ from ml.shadow.inspector import (
     iter_records,
 )
 
+from src.utils.paths import runtime_logs_dir
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/bot/shadow", tags=["shadow"])
 
-_REPO_ROOT = Path(__file__).resolve().parents[4]
-_DEFAULT_LOG = _REPO_ROOT / "runtime_logs" / "shadow_predictions.jsonl"
-
 
 def _log_path() -> Path:
+    # Aligned with the WS7 writer (which respects runtime_logs_dir()).
+    # SHADOW_PREDICTIONS_LOG remains an explicit per-path override for
+    # operator overrides + tests; absent that, fall through the shared
+    # helper so DATA_DIR / RUNTIME_LOGS_DIR overrides apply.
     override = os.environ.get("SHADOW_PREDICTIONS_LOG")
-    return Path(override) if override else _DEFAULT_LOG
+    return Path(override) if override else runtime_logs_dir() / "shadow_predictions.jsonl"
 
 
 def _parse_since(raw: str | None) -> datetime | None:

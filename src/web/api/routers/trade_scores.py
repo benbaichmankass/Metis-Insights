@@ -24,13 +24,17 @@ from fastapi import APIRouter, Query
 
 from ml.shadow.inspector import iter_records
 
+from src.utils.paths import runtime_logs_dir
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/bot/trades", tags=["bot"])
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
 _DB_PATH = Path(os.environ.get("TRADE_JOURNAL_DB", str(_REPO_ROOT / "trade_journal.db")))
-_SHADOW_LOG = _REPO_ROOT / "runtime_logs" / "shadow_predictions.jsonl"
+# Aligned with the WS7 shadow-predictions writer (which respects
+# runtime_logs_dir()).
+_SHADOW_LOG = runtime_logs_dir() / "shadow_predictions.jsonl"
 
 
 def _parse_iso(raw: Any) -> datetime | None:

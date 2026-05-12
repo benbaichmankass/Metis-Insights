@@ -31,13 +31,14 @@ router = APIRouter(prefix="/api/bot", tags=["dashboard"])
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
 _DB_PATH = Path(os.environ.get("TRADE_JOURNAL_DB", str(_REPO_ROOT / "trade_journal.db")))
-# audit + bot.log writers still hardcode the repo path; keep readers
-# at repo path to match. See diag.py for the full divergence note.
-_AUDIT_LOG = _REPO_ROOT / "runtime_logs" / "signal_audit.jsonl"
+# All runtime-log paths route through runtime_logs_dir() so DATA_DIR /
+# RUNTIME_LOGS_DIR overrides apply consistently with the writers
+# (heartbeat.py, signal_audit_logger.py, runtime_status.py — all
+# migrated 2026-05-11). Reader/writer divergence here was the
+# 2026-05-11 incident family (Signals tab blank, Bot Status stuck
+# "stopped"); T2 closes it.
+_AUDIT_LOG = runtime_logs_dir() / "signal_audit.jsonl"
 _BOT_LOG = _REPO_ROOT / "bot.log"
-# Heartbeat writer respects runtime_logs_dir() (DATA_DIR-aware); reader
-# must too, else the dashboard's "Bot Status" label sticks at "stopped"
-# (incident 2026-05-11).
 _HEARTBEAT = runtime_logs_dir() / "heartbeat.txt"
 _LOG_TAIL = 100
 _SIGNAL_TAIL = 50

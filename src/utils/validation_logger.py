@@ -31,20 +31,23 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-logger = logging.getLogger(__name__)
+from src.utils.paths import runtime_logs_dir
 
-# Resolve relative to the repo root the same way signal_audit_logger
-# does. ``src/utils/validation_logger.py`` → repo root is parents[2].
-_DEFAULT_BASE = Path(__file__).resolve().parents[2] / "runtime_logs"
+logger = logging.getLogger(__name__)
 
 
 def _log_path(base: Optional[Path] = None) -> Path:
+    # ``base`` is the test override; in production the path resolves
+    # through runtime_logs_dir() so DATA_DIR / RUNTIME_LOGS_DIR overrides
+    # match every other runtime-log writer. VALIDATION_LOG_PATH remains
+    # an explicit-file override for the M5 backtest consumer (matches
+    # TRADE_JOURNAL_DB's pattern).
     if base is not None:
         return Path(base) / "validation.jsonl"
     override = os.environ.get("VALIDATION_LOG_PATH")
     if override:
         return Path(override)
-    return _DEFAULT_BASE / "validation.jsonl"
+    return runtime_logs_dir() / "validation.jsonl"
 
 
 def log_validation(event: Dict[str, Any], *, base: Optional[Path] = None) -> None:

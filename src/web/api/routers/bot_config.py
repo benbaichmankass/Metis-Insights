@@ -40,6 +40,8 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter
 
+from src.utils.paths import runtime_logs_dir
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/bot", tags=["bot"])
@@ -47,7 +49,11 @@ router = APIRouter(prefix="/api/bot", tags=["bot"])
 _REPO_ROOT = Path(__file__).resolve().parents[4]
 _ACCOUNTS_YAML = _REPO_ROOT / "config" / "accounts.yaml"
 _STRATEGIES_YAML = _REPO_ROOT / "config" / "strategies.yaml"
-_RUNTIME_STATUS_JSON = _REPO_ROOT / "runtime_logs" / "runtime_status.json"
+# Aligned with the writer in src/web/runtime_status.py:26 — both go
+# through runtime_logs_dir() so DATA_DIR / RUNTIME_LOGS_DIR overrides
+# apply consistently. Hardcoding here masked the runtime-status drift
+# on 2026-05-11 (Settings tab showed stale per-account mode).
+_RUNTIME_STATUS_JSON = runtime_logs_dir() / "runtime_status.json"
 _HALT_FLAG_PATH = "/tmp/trader_halt.flag"
 
 # Account fields the endpoint is allowed to surface. Anything outside
