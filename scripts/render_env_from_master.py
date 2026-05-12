@@ -4,10 +4,10 @@ Decrypt a SOPS-encrypted master secrets file and render a lean .env file
 for the trader. Never prints secret values.
 
 Usage:
-    python scripts/render_env_from_master.py \
-        --master /path/to/master-secrets.sops.yaml \
-        --age-key-file /path/to/age-keys.txt \
-        --out .env \
+    python scripts/render_env_from_master.py \\
+        --master /path/to/master-secrets.sops.yaml \\
+        --age-key-file /path/to/age-keys.txt \\
+        --out .env \\
         [--sops-bin sops]
 
 Operator directive 2026-05-03 — there is one canonical render path.
@@ -17,6 +17,18 @@ selection, and per-account API-key env vars (driven by
 ALLOW_LIVE_TRADING — the single dry/live toggle in the codebase is
 per-account ``mode: live | dry_run`` inside ``config/accounts.yaml``,
 applied at runtime via ``RiskManager.dry_run``.
+
+Operator directive 2026-05-12 — ENV is not a canonical source. The
+canonical documents are ARCHITECTURE-CANONICAL.md, README, and
+CLAUDE.md. Deployment paths (DATA_DIR, TRADE_JOURNAL_DB, etc.) live
+in the systemd drop-ins (see deploy/*.service.d/data-dir.conf which
+declares ``Environment=DATA_DIR=/data/bot-data``); the .env layer
+MUST NOT contradict them. Per the path-bifurcation incident, the
+render script no longer emits DATA_DIR from runtime_defaults — the
+systemd drop-in is authoritative. If a future render needs to
+override DATA_DIR for a specific deployment (e.g. a non-VM smoke
+env), that override is configured at the systemd layer, not the
+.env layer.
 """
 from __future__ import annotations
 
@@ -101,14 +113,39 @@ def decrypt_master(master_path: Path, age_key_file: Path, sops_bin: str) -> dict
 
 
 def _runtime_defaults(data: dict) -> list[tuple[str, str]]:
+    """Render the runtime_defaults: block from master secrets.
+
+    Operator directive 2026-05-12: deployment paths (DATA_DIR,
+    TRADE_JOURNAL_DB) are NOT rendered into .env. They live in the
+    systemd drop-ins at deploy/*.service.d/data-dir.conf (canonical:
+    ``Environment=DATA_DIR=/data/bot-data``). The .env layer would
+    win over the drop-in due to systemd's EnvironmentFile ordering,
+    which is exactly the path-bifurcation bug the 2026-05-12
+    incident exposed. Strategy + risk + trading symbol/timeframe
+    remain in the rendered .env because those are runtime defaults,
+    not deployment paths.
+
+    Removed from the previous mapping:
+      ``("DATA_DIR", "data_dir")``  — see directive above.
+    """
     rd = data.get("runtime_defaults") or {}
     pairs = []
     mapping = [
         ("SYMBOL", "symbol"),
         ("TIMEFRAME", "timeframe"),
-        ("DATA_DIR", "data_dir"),
+        # NOTE: DATA_DIR is intentionally NOT in this mapping per the
+        # 2026-05-12 operator directive. It lives in the systemd
+        # drop-in. Re-introducing it here re-creates the
+        # path-bifurcation bug. If a future deployment needs to
+        # override DATA_DIR, do it via a per-deployment systemd
+        # drop-in, not via the rendered .env.
         ("MODEL_DIR", "model_dir"),
         ("LOG_DIR", "log_dir"),
+        # DB_PATH similarly references a deployment path; keeping it
+        # rendered for now because TRADE_JOURNAL_DB (the canonical
+        # name the bot actually reads) is also in the systemd
+        # drop-in. If DB_PATH ends up overriding TRADE_JOURNAL_DB
+        # silently, this mapping line is the suspect.
         ("DB_PATH", "db_path"),
     ]
     for env_key, yaml_key in mapping:
@@ -271,6 +308,9 @@ def build_live(
     ALLOW_LIVE_TRADING fields in the rendered file. The single dry/live
     toggle is per-account ``mode: live | dry_run`` in
     ``config/accounts.yaml``, applied via ``RiskManager.dry_run``.
+
+    Operator directive 2026-05-12 — DATA_DIR is no longer rendered
+    here (see _runtime_defaults docstring).
     """
     pairs: list[tuple[str, str]] = [
         ("ENVIRONMENT", "production"),

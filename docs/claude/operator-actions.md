@@ -64,6 +64,7 @@ Adding an action requires a PR that updates this doc, the workflow's
 | `teardown-cloudflare-tunnel` | 2 | `scripts/ops/teardown_cloudflare_tunnel.sh` | stops the cloudflared process, strips the `@reboot` crontab entry, removes the URL file (binary stays on disk) |
 | `backfill-pnl-nulls` | 2 | `scripts/ops/backfill_pnl_nulls_action.sh` | `UPDATE trades SET pnl, pnl_percent WHERE status='closed' AND pnl IS NULL AND <complete inputs>` in `trade_journal.db`. No service touched. Idempotent (SQL guard `WHERE pnl IS NULL`). Filters: `status='closed'`, `COALESCE(is_backtest,0)=0`, full price/size triple, known direction. |
 | `set-account-mode` | 2 | `scripts/ops/set_account_mode.sh` | in-place edit of `config/accounts.yaml` `mode:` for the named account + restart `ict-trader-live.service`. Added 2026-05-12 in response to the silent-flip incident (see § 2.1). |
+| `fix-data-dir` | 2 | `scripts/ops/fix_data_dir.sh` | strips `DATA_DIR=` / `TRADE_JOURNAL_DB=` overrides from `.env` (backup retained), rsyncs `/home/ubuntu/ict-trading-bot/data/{runtime_logs,runtime_state,artifacts,data}/` → `/data/bot-data/<same>/` to align with the systemd drop-in's canonical mount, renames the legacy split path with a `MIGRATED-<ts>` suffix, then restarts every canonical unit. Added 2026-05-12 in response to the path-bifurcation incident (see § 2.2). |
 
 **Docker is intentionally absent.** The repo's canonical runtime is
 systemd (`deploy/*.service` units installed via
@@ -98,6 +99,48 @@ this workflow:
 - Disabling/masking `ict-trader-live.service`
 
 If you want any of those, you do not want this workflow. Open a PR.
+
+### 2.2 fix-data-dir and the canonical-source rule
+
+`fix-data-dir` is the second named exception, scoped narrowly to
+**deployment alignment** of the runtime data directory. It addresses
+the 2026-05-12 path-bifurcation incident: the VM's `.env` carried
+`DATA_DIR=data/` (a relative path predating the OCI block-storage
+migration), so `src/utils/paths.py` resolved it to
+`/home/ubuntu/ict-trading-bot/data/runtime_logs/`. Meanwhile every
+reader process driven by the systemd drop-ins (canonical:
+`Environment=DATA_DIR=/data/bot-data`) looked at
+`/data/bot-data/runtime_logs/`. The result was a writer/reader
+split-brain that manifested as a phantom heartbeat-writer silent
+failure, a phantom mode-flip on `bybit_2` (stale runtime_status
+being read by every consumer except the trader), and a real
+ict-web-api + ict-claude-bridge crashloop (those units couldn't
+find the files at canonical paths).
+
+The operator directive that drove this exception:
+
+> *"ENV is not the canonical source of anything. There's
+> architecture and there's the README, and there's the CLAUDE.md
+> — those are the canonical documents. If the ENV doesn't comply
+> with anything, then the ENV needs to be changed. The ENV is a
+> product of our work; it is not what decides how the work gets
+> done."*
+
+`fix-data-dir` enforces that rule mechanically: it strips the
+conflicting `.env` overrides so the systemd drop-in's declaration
+wins on the next service start, then migrates the data that landed
+at the wrong path. The companion CI alert is in `src/utils/paths.py`
+(`_alert_on_relative_data_dir`): every process that boots with a
+relative `DATA_DIR` emits a CRITICAL log line + outcomes ping so
+the misalignment is visible the moment it re-emerges. The
+`scripts/render_env_from_master.py` companion fix removes `DATA_DIR`
+from `_runtime_defaults` so future renders don't re-introduce the
+override.
+
+This carve-out covers **only** the `DATA_DIR=` and
+`TRADE_JOURNAL_DB=` env-var overrides in `.env`. Every other Tier-3
+path (strategy params, risk caps, live order code, key rotation,
+unit disable/mask) stays off-limits as documented in § 2.1.
 
 ---
 
@@ -134,6 +177,7 @@ Tier-2 actions:
 - `disable-m5-consumer`
 - `backfill-pnl-nulls`
 - `set-account-mode`
+- `fix-data-dir`
 
 `pull-and-deploy` is a thin wrapper around `scripts/deploy_pull_restart.sh`
 (the canonical script the `ict-git-sync` timer also calls). It fetches
@@ -149,6 +193,12 @@ changes get authorized.
 per-account `mode:` field. The pre-dispatch ping format in § 7
 includes a `Target:` line listing the account + new mode so the
 operator can confirm intent before the action fires.
+
+`fix-data-dir` is the explicit, audited path for aligning the VM's
+`.env` to the systemd drop-in's canonical `DATA_DIR=/data/bot-data`.
+It stops every canonical unit, strips the `.env` override, migrates
+any split-path content, and brings the services back up. See § 2.2
+for the trust-contract rationale.
 
 **For PM-side Claude (web sandbox / dev laptop):** must not dispatch
 without an operator ack. The ack flow is:
@@ -192,12 +242,15 @@ Out of scope for `operator-actions` regardless of approval:
 - Disabling/masking `ict-trader-live.service` (stopping is Tier-2 in
   the VM-runner protocol; **disabling/masking is Tier 3** there too)
 
-**Exception:** `set-account-mode` is the named, audited path for
-flipping the `mode:` field of `config/accounts.yaml`. See § 2.1
-for the trust-contract rationale; everything else above stays
-Tier-3.
+**Exceptions** (named, audited carve-outs only):
 
-If you want any of these, you do not want this workflow. Open a PR.
+- `set-account-mode` for the `mode:` field of `config/accounts.yaml`.
+  Rationale + contract in § 2.1.
+- `fix-data-dir` for the `DATA_DIR=` / `TRADE_JOURNAL_DB=` overrides
+  in `.env`. Rationale + contract in § 2.2.
+
+Everything else above stays Tier-3. If you want any of those, you
+do not want this workflow. Open a PR.
 
 ---
 
@@ -219,7 +272,7 @@ Tier-2 set for the table above is `pull-and-deploy`,
 `enable-closed-flat-invariant`, `disable-closed-flat-invariant`,
 `enable-m5-consumer`, `disable-m5-consumer`,
 `setup-cloudflare-tunnel`, `teardown-cloudflare-tunnel`,
-`backfill-pnl-nulls`, and `set-account-mode`.
+`backfill-pnl-nulls`, `set-account-mode`, and `fix-data-dir`.
 
 Two corollaries that read as drift but are intentional:
 
@@ -327,6 +380,10 @@ This is the binding rule:
 - `set-account-mode` always notifies with the target `account=<id>=<mode>`
   prepended to the reason so the operator can verify intent at a
   glance — see notify_run.sh.
+- `fix-data-dir` always notifies on completion; the wrapper's
+  post-state log lists the canonical heartbeat freshness +
+  `/api/health` probe outcome so the operator can confirm the
+  alignment took without opening the run page.
 
 **Notification surface (implemented):**
 
@@ -386,6 +443,9 @@ tier: <1 or 2>
 | `set-account-mode` | 0 (ok) | `normal` |
 | `set-account-mode` | 3 (deferred — vm-runner active) | `normal` |
 | `set-account-mode` | other | `urgent` |
+| `fix-data-dir` | 0 (ok) | `normal` |
+| `fix-data-dir` | 3 (deferred — vm-runner active) | `normal` |
+| `fix-data-dir` | other | `urgent` |
 
 **Failure-of-notification semantics:** the notify step uses
 `continue-on-error: true`. A failed ping never flips a successful
@@ -416,12 +476,14 @@ follow-up doc PR if it ever becomes a problem.
 | `disable-m5-consumer` | snapshot current `M5_CONSUMER_ENABLED` line in `.env` + `ict-telegram-bot.service` `is-active` | atomic write to `.env` setting `M5_CONSUMER_ENABLED=0`; `systemctl restart ict-telegram-bot.service` | confirm `.env` value is `0`; poll `is-active` until "active" or 30 s timeout; dump 30 journal lines | exit 3 → vm-runner active, deferred. exit 1 → unit failed to come back; investigate before re-enabling |
 | `backfill-pnl-nulls` | count rows in `trade_journal.db::trades` matching `status='closed' AND pnl IS NULL AND <complete inputs>` | `python3 scripts/ops/backfill_pnl_nulls.py --apply` (re-uses the helper added in PR #739) — recomputes gross PnL via `(exit_price − entry_price) × position_size` (signed by direction), writes pnl + pnl_percent | re-count candidate rows (should be 0 unless degenerate inputs were skipped); helper's own stdout lists every touched row id | exit 0 + post_count=0 → clean. exit 0 + post_count>0 → some rows skipped for degenerate inputs (unknown direction, zero notional); helper output names them. exit 1 → script failed; no service touched, no rollback needed |
 | `set-account-mode` | read pre-edit `mode:` value for `<ACCOUNT_ID>` from `config/accounts.yaml`; defer if `claude-vm-runner@*.service` active | targeted single-line regex edit of `config/accounts.yaml` setting `mode: <MODE>` for `<ACCOUNT_ID>`; `systemctl restart ict-trader-live.service` (clears in-memory `_DRY_RUN_OVERRIDES`) | verify post-edit `mode:` matches; poll `is-active` until "active" or 30 s timeout; dump 30 journal lines; probe `runtime_logs/runtime_status.json` `live[<ACCOUNT_ID>]` for the dashboard projection | exit 3 → vm-runner active, deferred. exit 1 → invalid input (account or mode), YAML edit didn't stick, or unit failed to come back; YAML edit is in-place so if the restart fails the file is already mutated — inspect `runtime_logs/operator_actions/*.json` for the pre/post values |
+| `fix-data-dir` | snapshot `.env` `DATA_DIR=` / `TRADE_JOURNAL_DB=` lines + per-unit `is-active` state + file inventories at both candidate roots (split path under `<repo>/data/` and canonical `/data/bot-data/`); defer if `claude-vm-runner@*.service` active | stop ict-trader-live + ict-web-api + ict-claude-bridge + ict-telegram-bot; back up `.env` to `.env.bak`; atomic tmp+rename strip of `DATA_DIR=` / `TRADE_JOURNAL_DB=` lines; verify canonical mount writable; `rsync -a` `<repo>/data/{runtime_logs,runtime_state,artifacts,data}/` → `/data/bot-data/<same>/`; rename `<repo>/data` → `<repo>/data.MIGRATED-<utc-ts>` (preserved for forensics); `systemctl daemon-reload`; start all four units in dependency order | poll each unit's `is-active` until "active" or 30 s timeout, dump 30 journal lines per unit; verify canonical heartbeat freshness `mtime < 180 s`; probe `http://127.0.0.1:8001/api/health` for 200 OK | exit 3 → vm-runner active, deferred. exit 1 → env-strip verification failed, canonical mount missing, rsync failed, or a unit didn't return to active. `.env.bak` is the rollback (one-time restore: `cp .env.bak .env && systemctl restart <units>`); the migrated split-path is intact under the `MIGRATED-<ts>` suffix |
 
-The `restart-bot-service`, `pull-and-deploy`, and `set-account-mode`
-wrappers all **defer** if any `claude-vm-runner@*.service` unit is
-currently active, mirroring the guard in `scripts/deploy_pull_restart.sh`
-— exit 3, no restart / deploy / edit attempted. Re-dispatch the action
-a few minutes later when the `/vm` invocation has finished.
+The `restart-bot-service`, `pull-and-deploy`, `set-account-mode`,
+and `fix-data-dir` wrappers all **defer** if any
+`claude-vm-runner@*.service` unit is currently active, mirroring
+the guard in `scripts/deploy_pull_restart.sh` — exit 3, no
+restart / deploy / edit attempted. Re-dispatch the action a few
+minutes later when the `/vm` invocation has finished.
 
 `pull-and-deploy` runs the wrapper's vm-runner check **before** the
 git fetch/reset, so a deferred run leaves the worktree exactly as it
@@ -464,6 +526,12 @@ For `set-account-mode` add a fifth line so the target is explicit:
 Target: account=<ACCOUNT_ID> mode=<live|dry_run> (prev: <pre-mode-from-yaml>)
 ```
 
+For `fix-data-dir` add a fifth line summarising the misalignment:
+
+```
+Current .env DATA_DIR: <value, or 'unset'>; canonical (systemd drop-in): /data/bot-data
+```
+
 ### 7.1 Issue-driven dispatch — body format
 
 Once the operator has acked the action, Claude opens an issue with
@@ -480,6 +548,10 @@ For `set-account-mode`, two additional lines are required:
 account: <ACCOUNT_ID as keyed in config/accounts.yaml, e.g. bybit_2>
 mode: <live|dry_run>
 ```
+
+For `fix-data-dir`, no additional lines are needed — the wrapper
+is fully parameter-free (its target is always the systemd-declared
+canonical path).
 
 The `Resolve action + reason` step in `operator-actions.yml` parses
 the lines case-insensitively from the first match. Tier-2 actions
@@ -512,6 +584,12 @@ mcp__github__issue_write(method='create',
     title='[operator-action] set-account-mode — flip bybit_2 to live',
     labels=['operator-action'],
     body='action: set-account-mode\naccount: bybit_2\nmode: live\nreason: <reason>')
+
+# fix-data-dir variant:
+mcp__github__issue_write(method='create',
+    title='[operator-action] fix-data-dir — strip stale .env override',
+    labels=['operator-action'],
+    body='action: fix-data-dir\nreason: <reason>')
 ```
 
 Then poll the issue's comments for the github-actions[bot] reply.
@@ -572,8 +650,8 @@ All already in place except the optional reboot sudoers entry.
 
 `restart-bot-service` works today: `ubuntu` already has
 `NOPASSWD: /bin/systemctl` from the existing deploy flow.
-`set-account-mode` reuses the same sudoers entry for its post-edit
-restart.
+`set-account-mode` and `fix-data-dir` reuse the same sudoers entry
+for their post-edit restarts.
 
 `reboot-vm` requires one additional sudoers entry. Edit
 `/etc/sudoers.d/ict-operator-actions` (create if missing) on the VM,
@@ -600,9 +678,9 @@ will not silently do nothing.
   workflow with its own gates.
 - Not a strategy or risk-config pathway. Anything that mutates
   trading behaviour goes through a PR, period — with the named
-  exception of `set-account-mode` for the `mode:` field of
-  `config/accounts.yaml` (see § 2.1 for the rationale and trust
-  contract).
+  exceptions of `set-account-mode` for the `mode:` field of
+  `config/accounts.yaml` (§ 2.1) and `fix-data-dir` for the
+  `DATA_DIR=` / `TRADE_JOURNAL_DB=` overrides in `.env` (§ 2.2).
 - Not a replacement for the Telegram `/vm` dispatcher. That path
   remains the way the operator triggers freeform agentic VM work.
   Operator-actions is the **inverse**: a PM-side session triggering
