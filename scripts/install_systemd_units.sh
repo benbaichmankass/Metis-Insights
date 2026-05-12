@@ -14,6 +14,8 @@
 #     systemd template (i.e. doesn't contain `@`), compare against
 #     `/etc/systemd/system/<name>`. If different (or missing), copy
 #     the new version in.
+#   - Installs unit drop-ins from deploy/dropins/ for units that need
+#     them (see drop-in section below for the explicit mapping).
 #   - `daemon-reload` ONCE at the end if any change happened.
 #   - DOES NOT enable / start / restart anything. The regular
 #     `deploy_pull_restart.sh` flow handles restarts of the long-
@@ -62,6 +64,33 @@ for unit_path in deploy/*.service deploy/*.timer; do
     fi
 done
 shopt -u nullglob
+
+# ---------------------------------------------------------------------------
+# Install unit drop-ins from deploy/dropins/.
+#
+# Listed explicitly (one variable per drop-in) so installs are transparent
+# and auditable. Each drop-in is idempotently compared before copying.
+#
+# Why the watchdog needs its own drop-in:
+#   check_heartbeat.py resolves DEFAULT_HEARTBEAT at module load time using
+#   DATA_DIR. Without a drop-in, the watchdog inherits only .env (which has
+#   no DATA_DIR after the fix-data-dir strip), falls back to
+#   <repo>/runtime_logs/heartbeat.txt, and perpetually reads a stale
+#   heartbeat even when the trader is healthy (2026-05-12 incident).
+#   No service restart needed after installing the drop-in — the watchdog
+#   is a oneshot fired by its timer; the next tick picks up the new env.
+# ---------------------------------------------------------------------------
+_WATCHDOG_DROPIN_SRC="${REPO_DIR}/deploy/dropins/watchdog-data-dir.conf"
+_WATCHDOG_DROPIN_DST="${SYSTEMD_DIR}/ict-liveness-watchdog.service.d/data-dir.conf"
+if [ -f "${_WATCHDOG_DROPIN_SRC}" ]; then
+    if [ ! -e "${_WATCHDOG_DROPIN_DST}" ] || ! cmp -s "${_WATCHDOG_DROPIN_SRC}" "${_WATCHDOG_DROPIN_DST}"; then
+        echo ">>> install_systemd_units: dropin watchdog-data-dir.conf → ${_WATCHDOG_DROPIN_DST}"
+        "${SUDO[@]}" mkdir -p "$(dirname "${_WATCHDOG_DROPIN_DST}")"
+        "${SUDO[@]}" cp "${_WATCHDOG_DROPIN_SRC}" "${_WATCHDOG_DROPIN_DST}"
+        "${SUDO[@]}" chmod 0644 "${_WATCHDOG_DROPIN_DST}"
+        changed=1
+    fi
+fi
 
 if [ "$changed" -eq 1 ]; then
     echo ">>> install_systemd_units: daemon-reload"

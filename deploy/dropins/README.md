@@ -7,11 +7,12 @@ live VM consumes** — drop-ins are a parallel, additive layer.
 
 ## What's here
 
-| File | Purpose |
-|---|---|
-| [`data-dir.conf`](./data-dir.conf) | Binds a service to the `/data/bot-data` mount: `RequiresMountsFor`, `ExecStartPre=check_data_dir.sh`, `Environment=DATA_DIR=...`. |
+| File | Target service | Purpose |
+|---|---|---|
+| [`data-dir.conf`](./data-dir.conf) | `ict-trader-live`, `ict-web-api`, `ict-claude-bridge` | Binds to `/data/bot-data` mount: `RequiresMountsFor`, `ExecStartPre=check_data_dir.sh`, `Environment=DATA_DIR=...`. Installed manually (one-time). |
+| [`watchdog-data-dir.conf`](./watchdog-data-dir.conf) | `ict-liveness-watchdog` | Minimal `Environment=DATA_DIR=/data/bot-data` only — no mount guard since the watchdog should alert, not block, when the mount is absent. **Auto-installed by `scripts/install_systemd_units.sh` on every pull-and-deploy.** |
 
-## How to install (one-time, per service)
+## How to install data-dir.conf (one-time, per service)
 
 For each service that should read/write to the mount (`ict-trader-live`,
 `ict-web-api`, `ict-claude-bridge`):
@@ -25,6 +26,15 @@ sudo systemctl restart ict-trader-live
 ```
 
 Repeat for `ict-web-api` and `ict-claude-bridge`.
+
+## How watchdog-data-dir.conf gets installed
+
+`scripts/install_systemd_units.sh` (called by every `pull-and-deploy`)
+automatically installs `watchdog-data-dir.conf` to
+`/etc/systemd/system/ict-liveness-watchdog.service.d/data-dir.conf`
+if missing or changed. No manual step required. No service restart
+needed — the watchdog is a oneshot fired by its timer; the next timer
+tick (≤60 s) picks up the new environment.
 
 ## How to undo
 
@@ -45,6 +55,10 @@ systemctl cat ict-trader-live.service
 
 # DATA_DIR is set in the service's environment.
 systemctl show ict-trader-live.service | grep DATA_DIR
+
+# Verify watchdog drop-in is installed and active.
+systemctl cat ict-liveness-watchdog.service | grep DATA_DIR
+systemctl show ict-liveness-watchdog.service | grep DATA_DIR
 
 # Process is reading from the mount.
 sudo lsof -p "$(systemctl show -p MainPID --value ict-trader-live)" \
