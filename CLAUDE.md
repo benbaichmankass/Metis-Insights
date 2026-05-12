@@ -16,6 +16,22 @@
 > `the-lizardking/ict-trading-bot` references in historical sprint
 > summaries are preserved as record.
 
+## Dashboard consumer (adopted 2026-05-12)
+
+The FastAPI on `:8001` is consumed by a **Streamlit dashboard** hosted on
+Streamlit Community Cloud, repo `benbaichmankass/ict-trader-dashboard`,
+entry point `streamlit_app.py`. The Streamlit Python server makes the
+upstream HTTP call directly — there is no Vercel rewrite, no Cloudflare
+tunnel, no `cf-worker`. The previous React+Vercel+CF stack was retired
+in [ict-trader-dashboard#32](https://github.com/benbaichmankass/ict-trader-dashboard/pull/32);
+the rationale lives in [`docs/audit/vercel-edge-vs-cf-worker.md`](docs/audit/vercel-edge-vs-cf-worker.md).
+
+**For Claude sessions touching the bot API:** the consumer name has
+changed (Streamlit, not Vercel) but the contract has not. Same endpoints,
+same shapes, same nullability rules. CORS isn't load-bearing for
+Streamlit (the upstream call is server-to-server) but `DASHBOARD_ORIGIN`
+in the systemd unit can stay set for now — it's a no-op, not harmful.
+
 ## Prime Directive (adopted 2026-05-12)
 
 The trader runs 24/7. It is always producing data. Live trading is
@@ -106,7 +122,7 @@ for the two-workflow (collect → review) design.
 
 ## Project Overview
 Automated ICT (Inner Circle Trader) futures trading bot running on a VPS.
-Exposes a FastAPI REST API on port 8001 consumed by the Vercel React dashboard
+Exposes a FastAPI REST API on port 8001 consumed by the Streamlit dashboard
 (`ict-trader-dashboard`).
 
 ## Architecture
@@ -114,18 +130,18 @@ Exposes a FastAPI REST API on port 8001 consumed by the Vercel React dashboard
 VPS (systemd)
   ├── ict-trader-live.service ─── trading pipeline (pipeline.py via src/main.py)
   └── ict-web-api.service     ─── FastAPI :8001
-                                   ├── /api/bot/stats    ← Vercel dashboard
-                                   ├── /api/bot/logs     ← Vercel dashboard
-                                   ├── /api/bot/positions← Vercel dashboard
-                                   ├── /api/bot/signals  ← Vercel dashboard
-                                   ├── /api/bot/liquidity← Vercel dashboard (S-064)
-                                   ├── /api/bot/config   ← Vercel dashboard (S-064)
-                                   ├── /api/bot/trades/closed ← Vercel dashboard (#557)
-                                   ├── /api/bot/backtests← Vercel dashboard (M5 P4)
-                                   ├── /api/bot/shadow/predictions ← Vercel dashboard (S-AI-WS8-PART-2)
-                                   ├── /api/bot/shadow/stats       ← Vercel dashboard (S-AI-WS8-PART-2)
-                                   ├── /api/bot/shadow/drift       ← Vercel dashboard (S-AI-WS8-PART-3)
-                                   ├── /api/pnl/history  ← Vercel dashboard (S-063, no-session)
+                                   ├── /api/bot/stats    ← Streamlit dashboard
+                                   ├── /api/bot/logs     ← Streamlit dashboard
+                                   ├── /api/bot/positions← Streamlit dashboard
+                                   ├── /api/bot/signals  ← Streamlit dashboard
+                                   ├── /api/bot/liquidity← Streamlit dashboard (S-064)
+                                   ├── /api/bot/config   ← Streamlit dashboard (S-064)
+                                   ├── /api/bot/trades/closed ← Streamlit dashboard (#557)
+                                   ├── /api/bot/backtests← Streamlit dashboard (M5 P4)
+                                   ├── /api/bot/shadow/predictions ← (S-AI-WS8-PART-2)
+                                   ├── /api/bot/shadow/stats       ← (S-AI-WS8-PART-2)
+                                   ├── /api/bot/shadow/drift       ← (S-AI-WS8-PART-3)
+                                   ├── /api/pnl/history  ← Streamlit dashboard (S-063, no-session)
                                    ├── /api/pnl
                                    ├── /api/status
                                    ├── /api/diag/*       ← PM-side read-only (S-051)
@@ -136,6 +152,17 @@ VPS (systemd)
 `/home/ubuntu/ict-trading-bot`, the only working tree). The symlink is
 created on first run by `scripts/deploy_diag.sh`; if it goes missing,
 the API CHDIRs to a non-existent path and crashloops.
+
+The dashboard consumer is the **Streamlit** app at `benbaichmankass/ict-trader-dashboard`
+(`streamlit_app.py` on Streamlit Community Cloud). The Python server
+makes the upstream call to `http://158.178.210.252:8001` directly —
+no tunnel, no Vercel rewrite. Pre-2026-05-12 architectures (React on
+Vercel → CF named tunnel) are retired; see
+[ict-trader-dashboard/CLAUDE.md](https://github.com/benbaichmankass/ict-trader-dashboard/blob/main/CLAUDE.md)
+and [`docs/audit/vercel-edge-vs-cf-worker.md`](docs/audit/vercel-edge-vs-cf-worker.md).
+If the operator tears down `ict-cloudflared-tunnel.service` on the VM
+(via `teardown-cloudflare-tunnel` operator action), nothing downstream
+relies on it.
 
 ## Key Directories
 ```
@@ -234,14 +261,18 @@ than `0` / `"unknown"`.
 
 ## CORS
 CORS is configured in `src/web/api/main.py`. Allowed origins:
-- `http://localhost:5173` (Vite dev)
-- `http://localhost:3000`
-- Value of `DASHBOARD_ORIGIN` env var (set to Vercel URL on the VPS)
+- `http://localhost:5173` (Vite dev) — legacy; no longer used by the live dashboard, harmless to leave in the list.
+- `http://localhost:3000` — legacy.
+- Value of `DASHBOARD_ORIGIN` env var (set to Vercel URL on the VPS).
+
+**Note (2026-05-12):** the Streamlit dashboard makes its upstream call
+server-side, so CORS isn't load-bearing for it. The env var + middleware
+stay in place for any future browser-direct consumer.
 
 ## Environment Variables
 | Variable | Purpose |
 |----------|---------|
-| `DASHBOARD_ORIGIN` | Vercel app URL — added to CORS allow-list |
+| `DASHBOARD_ORIGIN` | Legacy Vercel app URL — added to CORS allow-list. No-op for the Streamlit dashboard but kept for future browser-direct consumers. |
 | `DASHBOARD_API_TOKEN` | Optional bearer token for auth routes |
 | `TRADE_JOURNAL_DB` | Override default `trade_journal.db` path |
 | `DIAG_READ_TOKEN` | Bearer for `/api/diag/*` (read-only). Unset → endpoints return 503 |
@@ -362,3 +393,4 @@ uvicorn src.web.api.main:app --port 8001 --reload
 - **External liveness watchdog (`ict-liveness-watchdog.{service,timer}`, 2026-05-11)** is the per-minute dead-man switch on top of the in-process heartbeat. Runs `scripts/check_heartbeat.py` every 60 s; Telegrams `[CRITICAL] Trader heartbeat stale` after 5 min of stale mtime; auto-restarts `ict-trader-live.service` after 8 min total stall (autoheal opt-in via `--auto-restart-after 3`, currently ON). Stdlib-only so it works even when the trader's venv is wedged. Full operator runbook: [`docs/runbooks/liveness-watchdog.md`](docs/runbooks/liveness-watchdog.md). Not to be confused with `ict-heartbeat.{service,timer}` which is the once-daily operator status digest at 13:00 UTC (`scripts/daily_heartbeat.py`). **Note (2026-05-12 incident):** the watchdog correctly auto-restarted the trader after the 16h heartbeat-writer silent failure, but the new process retained whatever state was making bybit_2 dry. The Prime Directive (above) addresses the conceptual root cause: no auto-flip code paths should exist. The watchdog's restart behaviour is unchanged — restarting is fine; what was wrong was the flip itself.
 - The old HTMX UI (`web/static/`, `web/templates/`, `src/web/api/routers/ui.py`) has been removed
 - The old Streamlit UIs (`src/web/backtest_ui.py`, `src/web/config_ui.py`) have been removed
+- The old `cf-worker/` directory has been removed (2026-05-12). It was a deprecated Cloudflare Worker proxy that never worked (CF error 1003: Workers can't fetch raw IPv4). With the dashboard now on Streamlit, no tunnel is needed at all. The `ict-cloudflared-tunnel.service` on the VM can be torn down via the existing `teardown-cloudflare-tunnel` operator action whenever you want — nothing depends on it anymore.
