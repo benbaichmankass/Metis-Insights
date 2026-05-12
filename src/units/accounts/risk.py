@@ -1,7 +1,7 @@
 """Per-account risk manager — units layer (S-008 PR #122 / S-010 PR #1 /
 S-012 PR E3a max_dd_pct enforcement / S-026 G2 single-sizer contract /
 S-026 G3 floor-rounding + daily-loss-budget gate /
-2026-05-12 margin pre-flight cap to surface 110007 as a RiskManager refusal).
+S-047 margin ceiling using live available_usd from exchange).
 
 Two interfaces:
   - Functional (S-008): size_order() / size_order_from_cfg() — kept as a
@@ -47,13 +47,6 @@ _DEFAULT_QTY_PRECISION = 3
 # Default smoke-test qty when meta.is_test=True but meta.test_qty is missing.
 # Below Bybit linear perp min-lot (0.001 BTC) so the exchange rejects.
 _DEFAULT_TEST_QTY = 0.0001
-
-# 2026-05-12 margin pre-flight (see RiskManager.position_size). Headroom
-# for fees + Bybit's maintenance-margin buffer so the available-balance
-# math doesn't put us right at the edge where one tick of unrealized PnL
-# would push the resulting position into a margin-call state.
-# 0.9 = use up to 90% of available margin for a new position.
-_MARGIN_SAFETY_BUFFER = 0.9
 
 
 def _is_test_order(pkg: "OrderPackage") -> bool:
@@ -240,32 +233,22 @@ class RiskManager:
         S-026 G2: this is the **only** function in the codebase that
         decides position size.
 
-        2026-05-12 — margin pre-flight cap:
-        ---------------------------------
-        After risk-based sizing and the daily-loss-budget gate, an
-        additional check verifies the resulting position can actually
-        be OPENED with the account's available margin. The
-        2026-05-12 incident exposed the gap: risk-based sizing
-        produced a $729 notional against a $158 wallet at 3x
-        leverage; required IM was $243, wallet had $158, Bybit
-        returned ErrCode 110007 ("ab not enough for new order").
-        Now:
+        Margin ceiling (``available_usd`` parameter):
+        ---------------------------------------------
+        When the coordinator supplies the live available-margin figure
+        from the exchange (USDT ``availableToWithdraw`` for linear-perp
+        accounts, None for spot / dry-run / fetch failure), the sizer
+        scales the risk-based qty down to the maximum that can actually
+        be opened:
 
-            max_qty_by_margin = (balance_usd * effective_leverage *
-                                 _MARGIN_SAFETY_BUFFER) / package.entry
+            max_qty_by_margin = (available_usd * effective_leverage)
+                                 / package.entry
 
-        where ``effective_leverage`` is ``self.leverage`` for linear-
-        perp accounts and ``1`` for cash spot. When the risk-based qty
-        exceeds ``max_qty_by_margin``, qty is floor-rounded down to
-        fit. When even the min_qty would exceed available margin, the
-        sizer returns 0.0 — the executor sees a per-trade refusal
-        (with a verbatim reason via the standard refusal wire) instead
-        of dispatching a guaranteed-to-fail order. Per the Prime
-        Directive in docs/CLAUDE-RULES-CANONICAL.md, this surfaces the
-        condition as a per-trade RiskManager refusal (account stays
-        live, operator gets Telegram per trade) rather than as a
-        Bybit-side ErrCode that the (now-deleted) breaker would have
-        used to flip the account dry.
+        No arbitrary safety buffer — the exchange figure is exact.
+        When available_usd is None the margin ceiling is skipped and
+        risk_pct sizing is the only gate. When even min_qty won't fit,
+        returns 0.0 so the executor surfaces a per-trade refusal
+        instead of dispatching a guaranteed-to-fail order.
 
         Smoke-test orders (``meta.is_test=True``) bypass risk-based
         sizing and use ``meta.test_qty`` (default _DEFAULT_TEST_QTY).
@@ -306,28 +289,17 @@ class RiskManager:
             if qty < self.min_qty:
                 return 0.0
 
-        # === 2026-05-12 margin pre-flight cap ===
-        # Verify the resulting position can actually be opened with the
-        # account's available margin. If risk-based qty exceeds what
-        # (balance × leverage × buffer) can support, scale down. If even
-        # min_qty wouldn't fit, refuse the trade.
-        effective_leverage = self.leverage if self.leverage > 0 else 1
-        if package.entry > 0:
-            max_qty_by_margin = (
-                balance_usd * effective_leverage * _MARGIN_SAFETY_BUFFER
-            ) / package.entry
+        # Margin ceiling: when the coordinator supplies the live
+        # available-margin figure from the exchange, scale down to what
+        # can actually be opened. Skipped when available_usd is None.
+        if available_usd is not None and package.entry > 0:
+            effective_leverage = self.leverage if self.leverage > 0 else 1
+            max_qty_by_margin = (available_usd * effective_leverage) / package.entry
             if qty > max_qty_by_margin:
                 capped = _floor_to_step(max_qty_by_margin, self.qty_precision)
                 if capped < self.min_qty:
-                    # Account too small to open even the min_qty lot at
-                    # this entry price with the configured leverage.
-                    # Refuse the trade — the operator gets a per-trade
-                    # Telegram via the standard refusal wire instead of
-                    # a downstream Bybit ErrCode 110007.
                     return 0.0
                 qty = capped
-
-        del available_usd  # parameter retained for backward compat
 
         return qty
 
