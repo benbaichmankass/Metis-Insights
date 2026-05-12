@@ -43,9 +43,9 @@ Two dispatch paths, identical allowlist + audit:
 
 ## 2. Allowlist
 
-Exactly five actions. Adding a sixth requires a PR that updates this
-doc, the workflow's `inputs.action.options` list, the wrapper mapping
-in `operator-actions.yml`, the priority case in
+Adding an action requires a PR that updates this doc, the workflow's
+`inputs.action.options` list, the wrapper mapping in
+`operator-actions.yml`, the priority case in
 `scripts/ops/notify_run.sh`, and the `EXPECTED_ACTIONS` constant in
 `tests/ops/test_operator_actions_workflow.py`.
 
@@ -63,6 +63,7 @@ in `operator-actions.yml`, the priority case in
 | `setup-cloudflare-tunnel` | 2 | `scripts/ops/setup_cloudflare_tunnel.sh` | downloads `cloudflared` to `~/.local/bin`, launches a quick tunnel for `http://localhost:8001`, writes the URL to `runtime_logs/cloudflared_tunnel_url.txt`, installs an `@reboot` crontab entry |
 | `teardown-cloudflare-tunnel` | 2 | `scripts/ops/teardown_cloudflare_tunnel.sh` | stops the cloudflared process, strips the `@reboot` crontab entry, removes the URL file (binary stays on disk) |
 | `backfill-pnl-nulls` | 2 | `scripts/ops/backfill_pnl_nulls_action.sh` | `UPDATE trades SET pnl, pnl_percent WHERE status='closed' AND pnl IS NULL AND <complete inputs>` in `trade_journal.db`. No service touched. Idempotent (SQL guard `WHERE pnl IS NULL`). Filters: `status='closed'`, `COALESCE(is_backtest,0)=0`, full price/size triple, known direction. |
+| `set-account-mode` | 2 | `scripts/ops/set_account_mode.sh` | in-place edit of `config/accounts.yaml` `mode:` for the named account + restart `ict-trader-live.service`. Added 2026-05-12 in response to the silent-flip incident (see § 2.1). |
 
 **Docker is intentionally absent.** The repo's canonical runtime is
 systemd (`deploy/*.service` units installed via
@@ -70,6 +71,33 @@ systemd (`deploy/*.service` units installed via
 predates the systemd switch and is not part of the live deploy. If
 Docker ever becomes canonical, add `restart-docker-stack` here and
 to the workflow at the same time.
+
+### 2.1 set-account-mode and the Tier-3 boundary
+
+`set-account-mode` is a **deliberate, named exception** to the
+Tier-3 rule that strategy / risk / account-mode changes never flow
+through this workflow. It exists because the 2026-05-12 silent-flip
+incident demonstrated that the only previously-available paths to
+flip an account from `live` to `dry_run` (the in-process breaker
+in `src/core/coordinator.py`, the Telegram `/accounts` command, an
+operator SSH session) could mutate the runtime override dict
+without an audit record that surfaced cleanly to the operator. Per
+the Prime Directive in [`docs/CLAUDE-RULES-CANONICAL.md`](../CLAUDE-RULES-CANONICAL.md)
+(2026-05-12), live is the only default; any transition off live
+must be operator-driven and audited via this allowlisted, Telegram-
+notified path.
+
+This carve-out covers **only** the `mode:` field of
+`config/accounts.yaml`. Every other Tier-3 path stays off-limits to
+this workflow:
+
+- Strategy parameter changes (`config/strategies.yaml`)
+- Risk caps (`src/runtime/risk_counters.py`, `config/risk_caps.yaml`)
+- Live order code (`src/runtime/orders.py`)
+- Anthropic / exchange / Telegram key rotation
+- Disabling/masking `ict-trader-live.service`
+
+If you want any of those, you do not want this workflow. Open a PR.
 
 ---
 
@@ -105,6 +133,7 @@ Tier-2 actions:
 - `enable-m5-consumer`
 - `disable-m5-consumer`
 - `backfill-pnl-nulls`
+- `set-account-mode`
 
 `pull-and-deploy` is a thin wrapper around `scripts/deploy_pull_restart.sh`
 (the canonical script the `ict-git-sync` timer also calls). It fetches
@@ -115,6 +144,11 @@ rather than waiting for the next git-sync tick. It does **not** mutate
 anything that wasn't already authorized through the upstream PR + Tier
 gates — the merge gates are still where strategy / risk / live-routing
 changes get authorized.
+
+`set-account-mode` is the explicit, audited path for flipping a
+per-account `mode:` field. The pre-dispatch ping format in § 7
+includes a `Target:` line listing the account + new mode so the
+operator can confirm intent before the action fires.
 
 **For PM-side Claude (web sandbox / dev laptop):** must not dispatch
 without an operator ack. The ack flow is:
@@ -153,11 +187,15 @@ Out of scope for `operator-actions` regardless of approval:
 
 - Strategy parameter changes (`config/strategies.yaml`)
 - Risk caps (`src/runtime/risk_counters.py`, `config/risk_caps.yaml`)
-- Per-account dry-run → live promotion (`config/accounts.yaml`)
 - Live order code (`src/runtime/orders.py`)
 - Anthropic / exchange / Telegram key rotation
 - Disabling/masking `ict-trader-live.service` (stopping is Tier-2 in
   the VM-runner protocol; **disabling/masking is Tier 3** there too)
+
+**Exception:** `set-account-mode` is the named, audited path for
+flipping the `mode:` field of `config/accounts.yaml`. See § 2.1
+for the trust-contract rationale; everything else above stays
+Tier-3.
 
 If you want any of these, you do not want this workflow. Open a PR.
 
@@ -169,12 +207,19 @@ The tier rules above describe the **action's** blast radius. Whether
 a given dispatcher must ping the operator before triggering an action
 depends on the dispatcher's trust class. Three classes exist today:
 
-| Dispatcher | Tier-1 (`status-check`, `pull-latest-logs`) | Tier-2 (`pull-and-deploy`, `restart-bot-service`, `reboot-vm`, `enable-closed-flat-invariant`, `disable-closed-flat-invariant`, `enable-m5-consumer`, `disable-m5-consumer`, `setup-cloudflare-tunnel`, `teardown-cloudflare-tunnel`, `backfill-pnl-nulls`) |
+| Dispatcher | Tier-1 | Tier-2 |
 |---|---|---|
 | **Operator** (Ben, in browser) | autonomous (you're the human) | autonomous (you're the human) |
 | **Perplexity** (granted 2026-05-08) | autonomous | autonomous |
 | **PM-side Claude** (web sandbox / dev laptop) | autonomous | **must ping operator first** (§ 7 format) |
 | **VM-resident Claude** (`/vm`, `/vm_write`) | n/a — uses the Telegram dispatcher path, not this workflow | n/a — same |
+
+Tier-2 set for the table above is `pull-and-deploy`,
+`restart-bot-service`, `reboot-vm`,
+`enable-closed-flat-invariant`, `disable-closed-flat-invariant`,
+`enable-m5-consumer`, `disable-m5-consumer`,
+`setup-cloudflare-tunnel`, `teardown-cloudflare-tunnel`,
+`backfill-pnl-nulls`, and `set-account-mode`.
 
 Two corollaries that read as drift but are intentional:
 
@@ -235,7 +280,10 @@ Every workflow run produces:
 1. **An artifact** (`operator-action-<action>-<run_id>.zip`)
    containing:
    - `audit-bundle.json` — structured: action, reason, tier, exit
-     code, pre-state, post-state, output excerpt
+     code, pre-state, post-state, output excerpt. For
+     `set-account-mode` the bundle also carries `account_id` and
+     `mode` at the top level so the audit reads cleanly without
+     scanning the action-output excerpt.
    - `pre-state.json` — the diag `/api/diag/status` bundle from
      before the action (or `diag_skipped` / `diag_unreachable`)
    - `post-state.json` — same, after the action
@@ -276,6 +324,9 @@ This is the binding rule:
 - An action whose result requires no operator follow-up → operator
   is notified anyway. "Nothing for you to do" is information, not
   silence.
+- `set-account-mode` always notifies with the target `account=<id>=<mode>`
+  prepended to the reason so the operator can verify intent at a
+  glance — see notify_run.sh.
 
 **Notification surface (implemented):**
 
@@ -332,6 +383,9 @@ tier: <1 or 2>
 | `disable-m5-consumer` | other | `urgent` |
 | `backfill-pnl-nulls` | 0 (ok / noop) | `normal` |
 | `backfill-pnl-nulls` | other | `urgent` |
+| `set-account-mode` | 0 (ok) | `normal` |
+| `set-account-mode` | 3 (deferred — vm-runner active) | `normal` |
+| `set-account-mode` | other | `urgent` |
 
 **Failure-of-notification semantics:** the notify step uses
 `continue-on-error: true`. A failed ping never flips a successful
@@ -361,12 +415,13 @@ follow-up doc PR if it ever becomes a problem.
 | `enable-m5-consumer` | snapshot current `M5_CONSUMER_ENABLED` line in `.env` + `ict-telegram-bot.service` `is-active` | atomic write to `.env` setting `M5_CONSUMER_ENABLED=1`; `systemctl restart ict-telegram-bot.service` | grep `.env` for the post-edit value; poll `is-active` until "active" or 30 s timeout; dump 30 journal lines | exit 3 → vm-runner active, deferred. exit 1 → env-file verification mismatch or unit failed to come back; rollback via `disable-m5-consumer` |
 | `disable-m5-consumer` | snapshot current `M5_CONSUMER_ENABLED` line in `.env` + `ict-telegram-bot.service` `is-active` | atomic write to `.env` setting `M5_CONSUMER_ENABLED=0`; `systemctl restart ict-telegram-bot.service` | confirm `.env` value is `0`; poll `is-active` until "active" or 30 s timeout; dump 30 journal lines | exit 3 → vm-runner active, deferred. exit 1 → unit failed to come back; investigate before re-enabling |
 | `backfill-pnl-nulls` | count rows in `trade_journal.db::trades` matching `status='closed' AND pnl IS NULL AND <complete inputs>` | `python3 scripts/ops/backfill_pnl_nulls.py --apply` (re-uses the helper added in PR #739) — recomputes gross PnL via `(exit_price − entry_price) × position_size` (signed by direction), writes pnl + pnl_percent | re-count candidate rows (should be 0 unless degenerate inputs were skipped); helper's own stdout lists every touched row id | exit 0 + post_count=0 → clean. exit 0 + post_count>0 → some rows skipped for degenerate inputs (unknown direction, zero notional); helper output names them. exit 1 → script failed; no service touched, no rollback needed |
+| `set-account-mode` | read pre-edit `mode:` value for `<ACCOUNT_ID>` from `config/accounts.yaml`; defer if `claude-vm-runner@*.service` active | targeted single-line regex edit of `config/accounts.yaml` setting `mode: <MODE>` for `<ACCOUNT_ID>`; `systemctl restart ict-trader-live.service` (clears in-memory `_DRY_RUN_OVERRIDES`) | verify post-edit `mode:` matches; poll `is-active` until "active" or 30 s timeout; dump 30 journal lines; probe `runtime_logs/runtime_status.json` `live[<ACCOUNT_ID>]` for the dashboard projection | exit 3 → vm-runner active, deferred. exit 1 → invalid input (account or mode), YAML edit didn't stick, or unit failed to come back; YAML edit is in-place so if the restart fails the file is already mutated — inspect `runtime_logs/operator_actions/*.json` for the pre/post values |
 
-The `restart-bot-service` and `pull-and-deploy` wrappers additionally
-**defer** if any `claude-vm-runner@*.service` unit is currently active,
-mirroring the guard in `scripts/deploy_pull_restart.sh` — exit 3, no
-restart / deploy attempted. Re-dispatch the action a few minutes later
-when the `/vm` invocation has finished.
+The `restart-bot-service`, `pull-and-deploy`, and `set-account-mode`
+wrappers all **defer** if any `claude-vm-runner@*.service` unit is
+currently active, mirroring the guard in `scripts/deploy_pull_restart.sh`
+— exit 3, no restart / deploy / edit attempted. Re-dispatch the action
+a few minutes later when the `/vm` invocation has finished.
 
 `pull-and-deploy` runs the wrapper's vm-runner check **before** the
 git fetch/reset, so a deferred run leaves the worktree exactly as it
@@ -403,20 +458,36 @@ For `reboot-vm` add a fifth line:
 Lower-blast-radius alternatives tried: <list, e.g. "restart-bot-service x1, no recovery">
 ```
 
+For `set-account-mode` add a fifth line so the target is explicit:
+
+```
+Target: account=<ACCOUNT_ID> mode=<live|dry_run> (prev: <pre-mode-from-yaml>)
+```
+
 ### 7.1 Issue-driven dispatch — body format
 
 Once the operator has acked the action, Claude opens an issue with
 label `operator-action`. Body must contain (any line order):
 
 ```
-action: <one of: status-check | pull-latest-logs | pull-and-deploy | restart-bot-service | reboot-vm>
+action: <one of the allowlist names>
 reason: <one line, free text — captured in the audit bundle and the transparency notify ping>
 ```
 
+For `set-account-mode`, two additional lines are required:
+
+```
+account: <ACCOUNT_ID as keyed in config/accounts.yaml, e.g. bybit_2>
+mode: <live|dry_run>
+```
+
 The `Resolve action + reason` step in `operator-actions.yml` parses
-both lines case-insensitively from the first match. Tier-2 actions
+the lines case-insensitively from the first match. Tier-2 actions
 **must** include a non-empty `reason`; the workflow rejects
 empty-reason Tier-2 dispatches with exit 1 in the validation step.
+For `set-account-mode`, the same step also enforces non-empty
+`account:` + `mode:`, validates `mode` is `live` or `dry_run`, and
+gates `account` on `[A-Za-z0-9_-]+`.
 
 The issue title is informational only — recommended form:
 
@@ -435,6 +506,12 @@ mcp__github__issue_write(method='create',
     title='[operator-action] pull-and-deploy — <reason>',
     labels=['operator-action'],
     body='action: pull-and-deploy\nreason: <reason>')
+
+# set-account-mode variant:
+mcp__github__issue_write(method='create',
+    title='[operator-action] set-account-mode — flip bybit_2 to live',
+    labels=['operator-action'],
+    body='action: set-account-mode\naccount: bybit_2\nmode: live\nreason: <reason>')
 ```
 
 Then poll the issue's comments for the github-actions[bot] reply.
@@ -495,6 +572,8 @@ All already in place except the optional reboot sudoers entry.
 
 `restart-bot-service` works today: `ubuntu` already has
 `NOPASSWD: /bin/systemctl` from the existing deploy flow.
+`set-account-mode` reuses the same sudoers entry for its post-edit
+restart.
 
 `reboot-vm` requires one additional sudoers entry. Edit
 `/etc/sudoers.d/ict-operator-actions` (create if missing) on the VM,
@@ -520,7 +599,10 @@ will not silently do nothing.
   trigger a deploy from a workflow should write a *separate*
   workflow with its own gates.
 - Not a strategy or risk-config pathway. Anything that mutates
-  trading behaviour goes through a PR, period.
+  trading behaviour goes through a PR, period — with the named
+  exception of `set-account-mode` for the `mode:` field of
+  `config/accounts.yaml` (see § 2.1 for the rationale and trust
+  contract).
 - Not a replacement for the Telegram `/vm` dispatcher. That path
   remains the way the operator triggers freeform agentic VM work.
   Operator-actions is the **inverse**: a PM-side session triggering
@@ -530,6 +612,9 @@ will not silently do nothing.
 
 ## 12. Cross-references
 
+- `docs/CLAUDE-RULES-CANONICAL.md` — Prime Directive: live is the
+  only default; `set-account-mode` is the explicit, named, audited
+  path for any transition off live.
 - `docs/claude/vm-operator-mode.md` § 9 — PM-side read-only diag
   contract (the bridge that **predates** this one and shares the
   same SSH wiring).
