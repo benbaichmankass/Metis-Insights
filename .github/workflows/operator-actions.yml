@@ -22,8 +22,9 @@ name: operator-actions
 #     remote shell beyond invoking the script by absolute path.
 #   * GitHub-hosted ubuntu-latest runner is the control plane. The VM
 #     never orchestrates its own reboot path (would self-decapitate).
-#   * Tier-2 actions (pull-and-deploy, restart-bot-service, reboot-vm)
-#     require a non-empty `reason` so the audit artifact records intent.
+#   * Tier-2 actions (pull-and-deploy, restart-bot-service, reboot-vm,
+#     set-account-mode, …) require a non-empty `reason` so the audit
+#     artifact records intent.
 #   * The issue body for issue-driven dispatch passes through env
 #     (`ISSUE_BODY`), never inline `${{ }}` interpolation, so an
 #     attacker-controlled issue body cannot inject shell into the
@@ -31,8 +32,11 @@ name: operator-actions
 #   * Every run uploads a JSON artifact with pre-state, action output,
 #     and post-state. Read it from the run page; for issue-driven
 #     runs the same summary lands as a comment on the originating issue.
-#   * Strategy parameters, risk caps, and account-mode flags are
-#     **never** mutated by this workflow. Those remain Tier-3.
+#   * Strategy parameters, risk caps, and the `mode:` field of
+#     `config/accounts.yaml` are mutated **only** by the explicit,
+#     named, Telegram-notified `set-account-mode` action below. All
+#     other Tier-3 paths (live order code, key rotation, etc.) remain
+#     off-limits to this workflow.
 #
 # Required repo secrets (Settings → Secrets and variables → Actions):
 #   * VM_SSH_KEY        — contents of ict-bot-ovm-private.key
@@ -72,17 +76,30 @@ on:
           - enable-m5-consumer
           - disable-m5-consumer
           - backfill-pnl-nulls
+          - set-account-mode
       reason:
         description: "Why this action is being run (audit trail; required for Tier-2)"
         required: false
         default: ""
+      account_id:
+        description: "Target account name (set-account-mode only; e.g. bybit_2)"
+        required: false
+        default: ""
+      mode:
+        description: "Target mode (set-account-mode only)"
+        required: false
+        type: choice
+        default: live
+        options:
+          - live
+          - dry_run
   # Issue-driven trigger — mirrors vm-web-api-recover.yml. A sandbox
   # session opens an issue with label `operator-action`, the body
-  # encodes `action:` + `reason:`, this workflow runs, posts the
-  # result back as a comment, and closes the issue. This is the
-  # canonical autonomous-dispatch path; no operator click required.
-  # Label `operator-action` is created idempotently by
-  # bootstrap-labels.yml.
+  # encodes `action:` + `reason:` (+ `account:` + `mode:` for
+  # set-account-mode), this workflow runs, posts the result back as
+  # a comment, and closes the issue. This is the canonical
+  # autonomous-dispatch path; no operator click required. Label
+  # `operator-action` is created idempotently by bootstrap-labels.yml.
   issues:
     types: [opened]
 
@@ -116,10 +133,13 @@ jobs:
 
       - name: Resolve action + reason
         # Both event types funnel into ACTION + REASON in $GITHUB_ENV
-        # so every downstream step is event-shape-agnostic.
+        # so every downstream step is event-shape-agnostic. For
+        # set-account-mode, ACCOUNT_ID + MODE are also resolved here.
         env:
           DISPATCH_ACTION: ${{ inputs.action }}
           DISPATCH_REASON: ${{ inputs.reason }}
+          DISPATCH_ACCOUNT_ID: ${{ inputs.account_id }}
+          DISPATCH_MODE: ${{ inputs.mode }}
           # ISSUE_BODY rides through env (NOT inline interpolation) so
           # an attacker-controlled issue body cannot inject shell.
           ISSUE_BODY: ${{ github.event.issue.body }}
@@ -129,10 +149,14 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             action="${DISPATCH_ACTION}"
             reason="${DISPATCH_REASON}"
+            account_id="${DISPATCH_ACCOUNT_ID}"
+            mode="${DISPATCH_MODE}"
           else
             # Issue body convention:
             #   action: pull-and-deploy
             #   reason: <free text — single line, anything after the colon>
+            #   account: <bybit_2>      (set-account-mode only)
+            #   mode: <live|dry_run>    (set-account-mode only)
             # Lines may be in any order; only the first match wins.
             action=$(printf '%s\n' "${ISSUE_BODY}" \
                      | grep -i -m1 '^[[:space:]]*action[[:space:]]*:' \
@@ -142,6 +166,14 @@ jobs:
                      | grep -i -m1 '^[[:space:]]*reason[[:space:]]*:' \
                      | sed -E 's/^[[:space:]]*[Rr]eason[[:space:]]*:[[:space:]]*//' \
                      | sed -E 's/[[:space:]]+$//' || true)
+            account_id=$(printf '%s\n' "${ISSUE_BODY}" \
+                     | grep -i -m1 '^[[:space:]]*account[[:space:]]*:' \
+                     | sed -E 's/^[[:space:]]*[Aa]ccount[[:space:]]*:[[:space:]]*//' \
+                     | tr -d '[:space:]' || true)
+            mode=$(printf '%s\n' "${ISSUE_BODY}" \
+                     | grep -i -m1 '^[[:space:]]*mode[[:space:]]*:' \
+                     | sed -E 's/^[[:space:]]*[Mm]ode[[:space:]]*:[[:space:]]*//' \
+                     | tr -d '[:space:]' || true)
             if [ -z "${action}" ]; then
               echo "::error::Issue body must contain a line of the form 'action: <name>'. Title was: ${ISSUE_TITLE}"
               exit 1
@@ -149,7 +181,9 @@ jobs:
           fi
           echo "ACTION=${action}" >>"$GITHUB_ENV"
           echo "REASON=${reason}" >>"$GITHUB_ENV"
-          echo ">>> Resolved ACTION=${action} REASON=${reason} (event=${{ github.event_name }})"
+          echo "ACCOUNT_ID=${account_id}" >>"$GITHUB_ENV"
+          echo "MODE=${mode}" >>"$GITHUB_ENV"
+          echo ">>> Resolved ACTION=${action} REASON=${reason} ACCOUNT_ID=${account_id} MODE=${mode} (event=${{ github.event_name }})"
 
       - name: Validate action and tier policy
         run: |
@@ -158,7 +192,7 @@ jobs:
             status-check|pull-latest-logs)
               echo "tier=1" >>"$GITHUB_ENV"
               ;;
-            pull-and-deploy|restart-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|enable-m5-consumer|disable-m5-consumer|setup-cloudflare-tunnel|teardown-cloudflare-tunnel|setup-tailscale-funnel|teardown-tailscale-funnel|backfill-pnl-nulls)
+            pull-and-deploy|restart-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|enable-m5-consumer|disable-m5-consumer|setup-cloudflare-tunnel|teardown-cloudflare-tunnel|setup-tailscale-funnel|teardown-tailscale-funnel|backfill-pnl-nulls|set-account-mode)
               echo "tier=2" >>"$GITHUB_ENV"
               if [ -z "${REASON// }" ]; then
                 echo "::error::Tier-2 action '${ACTION}' requires a non-empty 'reason' input."
@@ -170,6 +204,28 @@ jobs:
               exit 2
               ;;
           esac
+          # set-account-mode requires account_id + mode; validate both.
+          if [ "${ACTION}" = "set-account-mode" ]; then
+            if [ -z "${ACCOUNT_ID// }" ]; then
+              echo "::error::set-account-mode requires 'account_id' (workflow_dispatch input) or 'account: <name>' (issue body)."
+              exit 1
+            fi
+            if [ -z "${MODE// }" ]; then
+              echo "::error::set-account-mode requires 'mode' (workflow_dispatch input) or 'mode: <live|dry_run>' (issue body)."
+              exit 1
+            fi
+            case "${MODE}" in
+              live|dry_run) ;;
+              *)
+                echo "::error::set-account-mode mode must be 'live' or 'dry_run' (got '${MODE}')."
+                exit 1
+                ;;
+            esac
+            if ! printf '%s' "${ACCOUNT_ID}" | grep -Eq '^[A-Za-z0-9_-]+$'; then
+              echo "::error::set-account-mode account_id '${ACCOUNT_ID}' contains invalid characters (allowed: A-Z a-z 0-9 _ -)."
+              exit 1
+            fi
+          fi
           echo ">>> Resolved tier: $(grep tier= "$GITHUB_ENV" | tail -1)"
 
       - name: Set up SSH key
@@ -235,6 +291,7 @@ jobs:
             setup-tailscale-funnel)          SCRIPT="setup_tailscale_funnel.sh" ;;
             teardown-tailscale-funnel)       SCRIPT="teardown_tailscale_funnel.sh" ;;
             backfill-pnl-nulls)              SCRIPT="backfill_pnl_nulls_action.sh" ;;
+            set-account-mode)                SCRIPT="set_account_mode.sh" ;;
             *)
               echo "::error::Allowlist regression: '${ACTION}' was not mapped to a wrapper script."
               exit 2
@@ -243,9 +300,8 @@ jobs:
           echo ">>> Running scripts/ops/${SCRIPT} on ${VM_SSH_HOST}"
           # Build the remote command. For setup-tailscale-funnel,
           # prepend TS_AUTHKEY=... so the wrapper sees it as an env
-          # var. We pipe through `printf %q` to keep the substitution
-          # shell-safe; tskey-auth-... strings are alphanumeric + dashes
-          # in practice but defense-in-depth costs nothing.
+          # var. For set-account-mode, prepend ACCOUNT_ID + MODE.
+          # We pipe through `printf %q` to keep substitutions shell-safe.
           REMOTE_CMD="bash /home/ubuntu/ict-trading-bot/scripts/ops/${SCRIPT}"
           if [ "${ACTION}" = "setup-tailscale-funnel" ]; then
             if [ -z "${TS_AUTHKEY}" ]; then
@@ -254,6 +310,9 @@ jobs:
               exit 1
             fi
             REMOTE_CMD="TS_AUTHKEY=$(printf '%q' "${TS_AUTHKEY}") ${REMOTE_CMD}"
+          fi
+          if [ "${ACTION}" = "set-account-mode" ]; then
+            REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID}") MODE=$(printf '%q' "${MODE}") ${REMOTE_CMD}"
           fi
           # Capture both stdout and exit code; never let the SSH wrap
           # swallow the wrapper's exit status.
@@ -353,6 +412,8 @@ jobs:
           bundle = {
               "action": os.environ["ACTION"],
               "reason": os.environ.get("REASON", ""),
+              "account_id": os.environ.get("ACCOUNT_ID", ""),
+              "mode": os.environ.get("MODE", ""),
               "tier": os.environ.get("tier", ""),
               "run_url": os.environ["RUN_URL"],
               "exit_code": os.environ.get("EXIT_CODE", ""),
@@ -388,13 +449,26 @@ jobs:
           if [ -z "${exit_code}" ]; then
             exit_code=99
           fi
-          # Base64-encode the operator-typed reason so it survives
-          # transport through the SSH command line without quoting
-          # surprises (single quotes, backticks, $-expansion).
-          # notify_run.sh decodes the 4th arg if it ends with the
-          # `:b64` suffix; otherwise treats it as a plain string.
-          if [ -n "${REASON}" ]; then
-            reason_arg="$(printf '%s' "${REASON}" | base64 -w0):b64"
+          # Build the reason notify_run.sh receives. For
+          # set-account-mode we prepend the target so a glance at
+          # Telegram tells the operator WHICH account + WHICH mode
+          # without opening the run page.
+          notify_reason="${REASON}"
+          if [ "${ACTION}" = "set-account-mode" ]; then
+            target_descr="target ${ACCOUNT_ID}=${MODE}"
+            if [ -n "${notify_reason}" ]; then
+              notify_reason="${target_descr} | ${notify_reason}"
+            else
+              notify_reason="${target_descr}"
+            fi
+          fi
+          # Base64-encode so the reason survives transport through
+          # the SSH command line without quoting surprises (single
+          # quotes, backticks, $-expansion). notify_run.sh decodes
+          # the 4th arg if it ends with the `:b64` suffix; otherwise
+          # treats it as a plain string.
+          if [ -n "${notify_reason}" ]; then
+            reason_arg="$(printf '%s' "${notify_reason}" | base64 -w0):b64"
           else
             reason_arg=""
           fi
