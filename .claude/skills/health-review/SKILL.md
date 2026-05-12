@@ -1,43 +1,49 @@
 ---
 name: health-review
-description: Layer-2 review of the LIVE ICT TRADING BOT's runtime health (NOT a code review or codebase audit). Reads the most recent machine-side health snapshot at artifacts/health/latest.json plus artifacts/health/health_snapshot.txt and emits a JSON response matching comms/schema/health_review_response.template.json. Use when the operator says "run the health review", "/health-review", "do the layer-2 review", or after a Telegram ping that says "auto-merge queued — run /health-review for the layer-2 review". Do NOT invoke this skill for code-quality audits, security reviews, or repo-scope assessments — those are separate skills (review, security-review).
+description: Layer-2 review of the LIVE ICT TRADING BOT's runtime health (NOT a code review or codebase audit). The operator pulls a snapshot artifact from the health-snapshot workflow's run page and pastes it into the chat; this skill grades it and emits a JSON response matching comms/schema/health_review_response.template.json. Use when the operator says "run the health review", "/health-review", or "do the layer-2 review". Do NOT invoke this skill for code-quality audits, security reviews, or repo-scope assessments — those are separate skills (review, security-review).
 ---
 
 # /health-review — manual layer-2 review of the live ICT bot's runtime
 
 **This skill reviews the live trading bot's runtime state, not the codebase.**
-It is the manual replacement for the autonomous Claude routine described
-in [`docs/runbooks/health-check.md`](../../../docs/runbooks/health-check.md)
-§ "How a Claude review actually happens". Use this when the operator
-wants to reply to a `comms/requests/REQ-*.json` health-review request
-without copy-pasting the prompt out of Telegram.
+It runs only when the operator manually invokes it, with a fresh
+snapshot pasted into the chat.
 
 If the user asked for a *code* review, *codebase audit*, *security
 review*, or *dependency check* — STOP. This is the wrong skill.
 Direct them to the `review` or `security-review` skill instead.
 
-## Inputs (all on the current `main` HEAD of this repo)
+## Where the inputs come from (2026-05-12 onwards)
 
-The workflow `health-snapshot-pr.yml` lands fresh artifacts on `main`
-every cycle by squash-merging a labelled PR. Read these files:
+The [`health-snapshot.yml`](../../../.github/workflows/health-snapshot.yml)
+workflow runs daily on cron (and on `workflow_dispatch` / labelled
+issues), SSHes to the VM, and uploads `health-snapshot-<run_id>` as an
+Action artifact. The operator downloads the artifact ZIP from the
+Actions UI and pastes the contents into the chat when they invoke
+`/health-review`. See [`docs/runbooks/health-check.md`](../../../docs/runbooks/health-check.md)
+for the full flow.
 
-- `artifacts/health/latest.json` — layer-1 machine verdict
-  (`status` / `summary` / 11 `checks` / optional `error` block).
-  When the operator has set `--skip-llm` (current default per
-  decision 2026-05-10), `status` is `UNKNOWN` and `error.type` is
-  `LayerOneSkipped` — that's expected, not a problem.
-- `artifacts/health/health_snapshot.txt` — raw VM snapshot. Sectioned
-  with `=== NAME ===` headers (META, PROCESSES, HEARTBEAT, TICKS,
-  SIGNALS, ORDERS, TRADES, POSITIONS, MONITORING, API, ERRORS,
-  STORAGE, DB, AUDIT_LOG, VM, END). This is the source of truth.
-- `artifacts/health/pipeline_test.json` (when present) — active
-  dry-run smoke result from the live trader's
-  `scripts/smoke_test_trade.py --dry-run`.
-- `comms/requests/REQ-*.json` — review request files. Each carries the
-  topic, run metadata, and the embedded machine verdict. Pick the
-  most recent one (newest `created_at`) unless the user passed a
-  specific request id as the skill argument.
-- `.claude/health_check_prompt.md` — severity rubric for layer 1.
+There is **no longer** a Layer-1 LLM verdict, no auto-generated
+`comms/requests/REQ-*.json`, no PR auto-merge, and no Telegram ping.
+The snapshot text is the only input — paired with what this skill
+can pull live via the diag relay.
+
+## Inputs expected in chat
+
+- `health_snapshot.txt` (required) — raw VM snapshot. Sectioned with
+  `=== NAME ===` headers (META, PROCESSES, HEARTBEAT, TICKS, SIGNALS,
+  ORDERS, TRADES, POSITIONS, MONITORING, API, ERRORS, STORAGE, DB,
+  AUDIT_LOG, VM, END). This is the source of truth.
+- `pipeline_test.json` (optional, recommended) — active dry-run smoke
+  result. `warn` with note "plumbing-on-rejection path exercised" is
+  the expected outcome when no exchange client is wired in.
+
+If the operator hasn't pasted a snapshot, **stop and ask them to
+paste it** — referencing the runbook (`docs/runbooks/health-check.md`)
+for how to fetch one. Don't try to synthesize a review from nothing.
+
+## Other files this skill reads from the repo
+
 - `comms/schema/health_review_response.template.json` — output shape.
 - `comms/follow_ups.json` — running list of unresolved items earlier
   reviews flagged but couldn't fully resolve (e.g. waiting for a
@@ -45,32 +51,21 @@ every cycle by squash-merging a labelled PR. Read these files:
   open entry; check whether its `trigger_condition` applies to this
   review window. Schema lives at
   `comms/schema/follow_ups.schema.json`.
+- `config/accounts.yaml`, `config/strategies.yaml` — for the
+  per-account / per-strategy sanity checks.
 
 ## Argument handling
 
-**Default (no argument): review every pending request since the last
-review.** Pick every `comms/requests/REQ-*.json` file whose `status`
-field is `"pending"`, sort by `created_at` ascending, and produce one
-response object per request. This prevents earlier snapshots from
-being silently dropped when a later one supersedes them (the workflow
-fires every 6h on a cron; a slow review window can accumulate 2–3
-pending requests, and each represents a separate machine snapshot the
-operator deserves a verdict on). If there are no pending requests,
-say so in plain text and stop.
+The skill takes no required arguments. It runs once per invocation,
+against whatever the operator pasted. The legacy multi-request mode
+(reviewing N pending `comms/requests/REQ-*.json` files in one pass)
+has been removed — that path was tied to the deleted auto-emission
+flow.
 
-A single diag-relay fetch covers all of them — "current live state"
-is shared. Findings, anomalies, and trade grades are computed once
-and replicated across each per-request response, with `request_id`
-and `reviewed_at` distinct per entry. See § Output for the array
-shape.
-
-If the user invoked it with a `REQ-YYYYMMDD-HHMMSS-<digits>` argument:
-read `comms/requests/<that-id>.json` directly and emit a single
-response object (legacy single-request mode).
-
-If the user invoked it with an all-digits workflow run id: glob
-`comms/requests/REQ-*-<run_id>.json` (the suffix matches the GitHub
-`run_id`) and emit a single response object.
+If the operator passed an explicit free-form note as `$ARGUMENTS`
+(e.g. `/health-review focus on bybit_2 rejections`), treat it as a
+hint about what to weight in the review; don't fail if it's
+unrecognized.
 
 ## Mandatory pre-review step — fetch the live 6-hour log window
 
@@ -279,12 +274,12 @@ as `concern`.
 
 ## Decision procedure
 
-Cross-check the layer-1 output against the raw snapshot **and the
-live diag pulls from the pre-review step**. When layer 1 fell back
-to `UNKNOWN` (Anthropic credit issue, `--skip-llm`, network), the
-snapshot + diag pulls are the source of truth — grade them yourself
-using the rubric in `.claude/health_check_prompt.md` plus the
-sanity-check rubric above.
+Grade the snapshot + the live diag pulls from the pre-review step
+directly. There is no Layer-1 verdict to cross-check against — the
+Layer-1 LLM path was removed in the 2026-05-12 cleanup; this skill
+is the only grader. Use the sanity-check rubric above (signal→order,
+order→trade, side/size sanity, SL/TP wiring, repeated rejections,
+monitoring cadence, signal reasonableness).
 
 Map findings to the layer-2 dimensions (these differ from layer 1):
 

@@ -1,0 +1,190 @@
+name: Health Snapshot
+
+# Operator-driven flow (adopted 2026-05-12):
+#   1. Cron / dispatch fires this workflow on a schedule.
+#   2. It SSHes to the VM, runs collect_health_snapshot.sh, and runs
+#      the pipeline-test smoke harness (active dry-run).
+#   3. Both outputs land in the run's `artifacts/health/` uploaded
+#      bundle. Operator downloads the bundle from the Actions UI and
+#      pastes the contents into a Claude session for the manual
+#      /health-review.
+#
+# What used to be here, and why it's gone:
+#   - Layer-1 LLM call (scripts/run_health_check.py): the operator
+#     decided to do reviews manually, so calling Anthropic on every
+#     cron produced WARNING reports with no useful signal — every check
+#     came back "layer-1 verdict unavailable" because --skip-llm was
+#     set. The whole layer-1 path has been deleted.
+#   - Layer-2 comms-request emission (scripts/write_health_review_request.py):
+#     each run wrote a comms/requests/REQ-*.json that the bot delivered
+#     to Telegram. With no autonomous reviewer wired up, the operator
+#     got pinged every 6h about a request nobody was going to answer.
+#     Each request then expired and pinged AGAIN. Two noise sources for
+#     zero actionable signal. Removed.
+#   - The auto-merging review PR (peter-evans/create-pull-request +
+#     auto-merge): existed solely to commit the layer-1 verdict +
+#     comms request to main so `/health-review` could read them from
+#     HEAD. With layer-1 gone and the comms request gone, there's
+#     nothing PR-worthy left; the snapshot lives as an Action artifact
+#     instead.
+#   - The Telegram "auto-merge queued — run /health-review NOW" ping:
+#     also gone with the PR machinery.
+#
+# Net effect: this workflow is now a passive snapshot-collector. No
+# noise emitted; no operator-facing Telegram; no merge required. The
+# /health-review skill (.claude/skills/health-review/SKILL.md) was
+# updated in the same PR to read pasted-by-operator inputs instead of
+# repo-resident artifacts.
+
+on:
+  schedule:
+    # Once daily at 02:00 UTC. Operator's review cadence (manual,
+    # convenience-driven) is the limiting factor — running every 6h
+    # produced 4 unread snapshots/day. One per day matches the operator
+    # cadence and keeps Actions-minute usage low.
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+  # Issue-driven trigger so a Claude Code on the web sandbox session
+  # (which lacks `actions:write` on the hosted GitHub MCP server) can
+  # fire the snapshot autonomously by opening a labelled issue. Mirrors
+  # vm-diag-snapshot.yml / vm-web-api-recover.yml / operator-actions.yml.
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write   # for the issue-driven path: comment back + close
+
+concurrency:
+  group: health-snapshot
+  cancel-in-progress: false
+
+jobs:
+  health-snapshot:
+    if: |
+      github.event_name != 'issues' ||
+      contains(github.event.issue.labels.*.name, 'health-snapshot-trigger')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      VM_HOST: 158.178.210.252
+      VM_USER: ubuntu
+      VM_REPO: /home/ubuntu/ict-trading-bot
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up SSH key
+        run: |
+          set -eu
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          # Strip CRs defensively — paste from a Windows clipboard or
+          # a UI that converted line endings will otherwise wreck the
+          # PEM body.
+          printf '%s\n' "${{ secrets.VM_SSH_KEY }}" | tr -d '\r' > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          if ! ssh-keygen -y -f ~/.ssh/id_rsa > /dev/null 2>&1; then
+            echo "::error::VM_SSH_KEY is not a parseable OpenSSH private key."
+            exit 1
+          fi
+          ssh-keyscan -H "$VM_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Collect snapshot from VM
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/health
+          ssh -i ~/.ssh/id_rsa \
+              -o StrictHostKeyChecking=yes \
+              -o ConnectTimeout=20 \
+              "$VM_USER@$VM_HOST" "bash $VM_REPO/scripts/collect_health_snapshot.sh" \
+              > artifacts/health/health_snapshot.txt
+          echo "snapshot bytes: $(wc -c < artifacts/health/health_snapshot.txt)"
+
+      - name: Run pipeline test on VM
+        # Active dry-run smoke via scripts/smoke_test_trade.py --dry-run
+        # on the VM. Uses safe_place_order(client=None) — no live
+        # order leaves the VM. continue-on-error so a transient SSH
+        # blip / smoke timeout doesn't block the snapshot upload.
+        id: pipeline_test
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/id_rsa \
+              -o StrictHostKeyChecking=yes \
+              -o ConnectTimeout=20 \
+              "$VM_USER@$VM_HOST" "bash $VM_REPO/scripts/run_pipeline_health_test.sh" \
+              > artifacts/health/pipeline_test.json
+          echo "pipeline test result:"
+          cat artifacts/health/pipeline_test.json
+
+      - name: Upload run artifacts
+        # The artifact is the deliverable. Operator downloads it from
+        # the Actions UI when they want to run /health-review.
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: health-snapshot-${{ github.run_id }}
+          if-no-files-found: warn
+          retention-days: 30
+          path: |
+            artifacts/health/**
+
+      # ────────────────────────────────────────────────────────────
+      # Issue-driven path: comment the run URL + artifact link back
+      # on the trigger issue, then close it. Schedule + dispatch paths
+      # skip these steps.
+      # ────────────────────────────────────────────────────────────
+
+      - name: Reply to trigger issue with success
+        if: github.event_name == 'issues' && success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body =
+              `✅ **health-snapshot** completed.\n` +
+              `Run: ${runUrl}\n\n` +
+              `Snapshot + pipeline-test artifacts are uploaded under ` +
+              `\`health-snapshot-${context.runId}\` on the run page. ` +
+              `Download and paste into a Claude session for the manual ` +
+              `\`/health-review\`.`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              state: 'closed',
+              state_reason: 'completed',
+            });
+
+      - name: Reply to trigger issue with failure
+        if: github.event_name == 'issues' && failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body =
+              `❌ **health-snapshot** failed.\n` +
+              `Run: ${runUrl}\n\n` +
+              `Common causes: VM_SSH_KEY secret unset/corrupted; VM ` +
+              `unreachable from the GitHub-hosted runner; ` +
+              `collect_health_snapshot.sh returned non-zero on the VM.`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              state: 'closed',
+              state_reason: 'not_planned',
+            });
