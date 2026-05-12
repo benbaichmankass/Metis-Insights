@@ -260,6 +260,22 @@
       "closed_reason": null
     },
     {
+      "id": "FU-20260512-002",
+      "opened_at": "2026-05-12T16:50:00+00:00",
+      "opened_by": "claude",
+      "source": "operator-chat-2026-05-12-vwap-sl-fixes",
+      "related_prs": [1030, 1031],
+      "title": "Verify VWAP SL fixes reduce sl_cross rate (PRs #1030 + #1031)",
+      "description": "PRs #1030 and #1031 fixed three VWAP SL issues deployed 2026-05-12: (1) order_package() SL was always falling back to flat 2% stop instead of the std-dev-based SL from build_vwap_signal(); (2) SL_STD_MULT_DEFAULT raised 0.5→0.75; (3) ATR(14) floor added to stop distance. Before these fixes, every VWAP trade had a 2% flat stop — which may have been too tight relative to live price noise. Expected post-fix outcome: a lower sl_cross rate and a higher tp_cross + vwap_cross share of VWAP trade closes. Need live trade data from at least a few days post-deploy to confirm.",
+      "expected_check": "From journal?table=trades (filter strategy='vwap', status='closed', closed_at > 2026-05-12T17:00:00Z): count close_reason values. sl_cross share should be noticeably lower than the pre-fix baseline. tp_cross + vwap_cross share should be higher. If sl_cross is still dominant (> 60% of closes), consider raising SL_STD_MULT_DEFAULT further (toward 1.0) or re-evaluating the ATR multiplier. Surface count breakdown in anomalies regardless of verdict so the trend is visible across reviews.",
+      "trigger_condition": "Any /health-review run on or after 2026-05-15T00:00:00+00:00 (allow 3 days of live data to accumulate).",
+      "resolution_criteria": "Close after one review where sl_cross < 50% of VWAP closes over a ≥72h post-fix window, OR after a deliberate operator decision to accept a higher sl_cross rate given the fixed-width ATR floor.",
+      "status": "open",
+      "snoozed_until": "2026-05-15T00:00:00+00:00",
+      "closed_at": null,
+      "closed_reason": null
+    },
+    {
       "id": "FU-20260511-008",
       "opened_at": "2026-05-11T21:15:00+00:00",
       "opened_by": "claude",
