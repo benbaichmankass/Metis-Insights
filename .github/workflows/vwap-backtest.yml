@@ -6,7 +6,8 @@ name: vwap-backtest
 #
 # Two trigger paths:
 #   1. issues.opened with label `vwap-backtest-trigger` (session-driven)
-#   2. workflow_dispatch (operator-click, produces artifact)
+#   2. issues.opened with title starting `[vwap-backtest]` (label-free fallback)
+#   3. workflow_dispatch (operator-click, produces artifact)
 #
 # Issue body (optional, all keys have defaults):
 #   compare: true          # default true — run all four configs
@@ -52,7 +53,10 @@ jobs:
   backtest:
     if: |
       github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'vwap-backtest-trigger'))
+      (github.event_name == 'issues' && (
+        contains(github.event.issue.labels.*.name, 'vwap-backtest-trigger') ||
+        startsWith(github.event.issue.title, '[vwap-backtest]')
+      ))
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
