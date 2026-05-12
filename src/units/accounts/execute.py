@@ -296,6 +296,28 @@ def _fetch_spot_coin_balances(client: Any, symbol: str) -> dict:
     return result
 
 
+def _fetch_linear_available_balance(client: Any) -> Optional[float]:
+    """Return the USDT available margin for new linear-perp orders.
+
+    Fetches a fresh UNIFIED wallet balance and returns the USDT coin's
+    ``availableToWithdraw`` — the actual free collateral Bybit will
+    allow for new-position initial margin. Returns None on any error.
+    """
+    try:
+        resp = client.get_wallet_balance(accountType="UNIFIED") or {}
+        wallet_list = (resp.get("result") or {}).get("list") or [{}]
+        coins = (wallet_list[0] if wallet_list else {}).get("coin", [])
+        for coin in coins:
+            if (coin.get("coin") or "").upper() == "USDT":
+                raw = coin.get("availableToWithdraw")
+                if raw not in (None, "", "null"):
+                    return max(0.0, float(raw))
+        return None
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("_fetch_linear_available_balance: %s", exc)
+        return None
+
+
 # Safety buffer applied when capping a spot-sell qty to the available
 # base-coin balance. Bybit can race us — between our pre-flight read and
 # the order matching, ``locked`` can grow (e.g. another submitted order)
