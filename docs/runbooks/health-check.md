@@ -7,37 +7,67 @@
 ## What this is
 
 A single GitHub Actions workflow — [`health-snapshot.yml`](../../.github/workflows/health-snapshot.yml)
-— that periodically grabs a runtime-state snapshot from the live VM
-and uploads it as an Action artifact. The operator downloads the
-artifact when they want a sanity-check, then runs `/health-review`
-in a Claude Code session with the pasted contents.
+— that periodically grabs a runtime-state snapshot from the live VM,
+classifies the result with a small deterministic rule set, posts ONE
+informational Telegram message, and uploads the snapshot as an Action
+artifact. The operator downloads the artifact when they want a deeper
+sanity-check and runs `/health-review` in a Claude Code session with
+the pasted contents.
 
 ```
 cron  ──►  health-snapshot.yml  ──►  SSH to VM
                                     └─ scripts/collect_health_snapshot.sh
                                     └─ scripts/run_pipeline_health_test.sh
+                                    └─ deterministic ok/watch/concern classifier
+                                    └─ ONE Telegram message (informational)
                                     └─ actions/upload-artifact  (artifacts/health/**)
                                                   │
                                                   ▼
-                                       Actions UI download (operator)
+                                       Actions UI download (operator,
+                                       only if status warrants a deeper look)
                                                   │
                                                   ▼
                                        /health-review (Claude session)
 ```
 
 No Layer-1 LLM call. No `comms/requests/REQ-*.json` artifact. No PR
-auto-merge. No Telegram ping. The snapshot is the deliverable; the
-operator decides when to look at it.
+auto-merge. No expiry-spam. The Telegram is purely informational
+(`✅ Health snapshot — heartbeat fresh, pipeline test clean` on a
+healthy run) and the snapshot artifact is there if the operator wants
+to dig deeper.
 
 ## Cadence
 
-`cron: '0 2 * * *'` — once daily at 02:00 UTC. The prior schedule (4x
-daily) produced unread snapshots; matching the cron to the operator's
-review cadence keeps Actions-minute usage low and noise zero.
+`cron: '0 */6 * * *'` — every 6 hours on the hour. The Telegram
+message graded `ok` is the heartbeat that the snapshot itself ran and
+the bot looks healthy; `watch` flags a soft anomaly (e.g. heartbeat
+180–600s old); `concern` flags an actual problem (heartbeat stale
+> 10 min, snapshot missing/truncated, pipeline-test fail).
 
 The workflow also accepts `workflow_dispatch` for manual ad-hoc runs
 and `issues.opened` with the `health-snapshot-trigger` label for
-sandbox-session-driven invocations.
+sandbox-session-driven invocations. The issue-driven path replies on
+the issue (and skips Telegram) so a sandbox session can poll the
+issue comment for results.
+
+## Status classifier (deterministic, no LLM)
+
+The "Compute status" step in `health-snapshot.yml` evaluates:
+
+| Signal | Rule | If true |
+|---|---|---|
+| Snapshot missing / < 256 bytes | filesystem stat | `concern` |
+| `heartbeat age >= 600s` | `age_seconds:` line in snapshot | `concern` |
+| `heartbeat age >= 180s` (but < 600s) | same | `watch` |
+| `pipeline_test.json.status == "fail"` | JSON parse | `concern` |
+| `pipeline_test.json.status == "warn"` AND note doesn't contain "plumbing-on-rejection" | JSON parse | `watch` |
+| Everything else | (default) | `ok` |
+
+The "plumbing-on-rejection path exercised" pipeline-test `warn` is the
+**documented expected outcome** when no live exchange client is wired
+into the smoke — it does NOT degrade the status. This is the
+single biggest source of the old false-WARNING noise; the rule above
+silences it explicitly.
 
 ## Files produced
 

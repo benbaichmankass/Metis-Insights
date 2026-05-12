@@ -38,11 +38,11 @@ name: Health Snapshot
 
 on:
   schedule:
-    # Once daily at 02:00 UTC. Operator's review cadence (manual,
-    # convenience-driven) is the limiting factor — running every 6h
-    # produced 4 unread snapshots/day. One per day matches the operator
-    # cadence and keeps Actions-minute usage low.
-    - cron: '0 2 * * *'
+    # Every 6 hours, on the hour. Operator wants the periodic status
+    # ping but graded HONESTLY — see the "Compute status + notify"
+    # step below for the deterministic ok/watch/concern classifier.
+    # No more synthetic WARNING from a skipped Layer-1 LLM call.
+    - cron: '0 */6 * * *'
   workflow_dispatch:
   # Issue-driven trigger so a Claude Code on the web sandbox session
   # (which lacks `actions:write` on the hosted GitHub MCP server) can
@@ -129,6 +129,116 @@ jobs:
           retention-days: 30
           path: |
             artifacts/health/**
+
+      - name: Compute status (deterministic, no LLM)
+        # Honest status from facts that don't need an LLM:
+        #   - heartbeat age < 180s (cadence × 3 with the 60s heartbeat)
+        #   - snapshot file present + non-trivial in size
+        #   - pipeline-test status in {ok, warn-plumbing}. "warn" with
+        #     note "plumbing-on-rejection path exercised" is the
+        #     EXPECTED outcome when no exchange client is wired into
+        #     the smoke — it is NOT a concern, it is success.
+        # Emits a single emoji + one-line summary. No fabricated
+        # WARNING when the bot is genuinely fine.
+        id: status
+        if: always()
+        run: |
+          set -eu
+          python3 - <<'PY' >>"$GITHUB_OUTPUT"
+          import json, re
+          from pathlib import Path
+
+          snap = Path("artifacts/health/health_snapshot.txt")
+          pt   = Path("artifacts/health/pipeline_test.json")
+
+          # Default: ok. Downgrade to watch on soft anomalies; downgrade
+          # to concern on actual brokenness.
+          level = "ok"
+          reasons: list[str] = []
+
+          # 1. Snapshot present.
+          if not snap.exists() or snap.stat().st_size < 256:
+              level = "concern"
+              reasons.append("snapshot missing or truncated")
+          else:
+              text = snap.read_text(encoding="utf-8", errors="replace")
+              # 2. Heartbeat age.
+              m = re.search(r"^age_seconds:\s*(\d+)", text, re.MULTILINE)
+              if not m:
+                  if level == "ok":
+                      level = "watch"
+                  reasons.append("heartbeat age not found")
+              else:
+                  age = int(m.group(1))
+                  if age >= 600:
+                      level = "concern"
+                      reasons.append(f"heartbeat stale ({age}s)")
+                  elif age >= 180:
+                      if level == "ok":
+                          level = "watch"
+                      reasons.append(f"heartbeat aging ({age}s)")
+              # 3. Pipeline test result.
+              if pt.exists():
+                  try:
+                      pj = json.loads(pt.read_text(encoding="utf-8"))
+                      st = (pj.get("status") or "").lower()
+                      note = pj.get("note") or ""
+                      if st == "fail":
+                          level = "concern"
+                          reasons.append(f"pipeline test fail: {note}")
+                      elif st == "warn" and "plumbing-on-rejection" not in note:
+                          # "warn" with the expected plumbing note is
+                          # NOT a problem — it's the documented
+                          # outcome when no exchange client is wired
+                          # into the smoke.
+                          if level == "ok":
+                              level = "watch"
+                          reasons.append(f"pipeline test warn: {note}")
+                  except json.JSONDecodeError:
+                      if level == "ok":
+                          level = "watch"
+                      reasons.append("pipeline_test.json unparseable")
+
+          # Summary line: short, no jargon, no fake urgency on ok.
+          if level == "ok":
+              summary = "heartbeat fresh, pipeline test clean"
+          else:
+              summary = "; ".join(reasons) if reasons else level
+          emoji = {"ok": "✅", "watch": "🟡", "concern": "🚨"}[level]
+          print(f"level={level}")
+          print(f"emoji={emoji}")
+          # Wrap multiline-safe summary in a heredoc so it survives
+          # GITHUB_OUTPUT serialisation.
+          print("summary<<__SUMMARY__")
+          print(summary)
+          print("__SUMMARY__")
+          PY
+
+      - name: Notify operator (informational, only on schedule + dispatch)
+        # ONE Telegram message per run, framed as an informational
+        # status check — not a "review required" alert. Skip for the
+        # issue-driven path because the issue comment-back is the
+        # delivery channel there.
+        if: |
+          always()
+          && steps.status.outputs.level != ''
+          && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.CLAUDE_TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          STATUS_EMOJI: ${{ steps.status.outputs.emoji }}
+          STATUS_LEVEL: ${{ steps.status.outputs.level }}
+          STATUS_SUMMARY: ${{ steps.status.outputs.summary }}
+        run: |
+          set +e
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          # The summary line carries the level naturally — no extra
+          # "ACTION REQUIRED" framing when the bot is fine. Operator
+          # opens the run page only if they want the artifact.
+          PYTHONPATH=. python scripts/notify_session.py alert \
+            --summary "${STATUS_EMOJI} Health snapshot — ${STATUS_SUMMARY}" \
+            --link "${RUN_URL}" \
+            || echo "::warning::telegram notify failed (non-fatal)"
 
       # ────────────────────────────────────────────────────────────
       # Issue-driven path: comment the run URL + artifact link back
