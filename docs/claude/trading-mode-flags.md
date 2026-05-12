@@ -1,12 +1,33 @@
 # Trading-mode flags
 
 > **The single dry/live toggle is `mode: live | dry_run` per account in
-> `config/accounts.yaml`** — applied via `RiskManager.dry_run`
-> (checked inside `RiskManager.evaluate()`, reason
+> `config/accounts.yaml`.** Mutated via the `set-account-mode` operator
+> action (PR #978, 2026-05-12) — the only sanctioned path. Applied via
+> `RiskManager.dry_run` (checked inside `RiskManager.evaluate()`, reason
 > `"account_mode_dry_run"`). There is no process-level interlock,
 > no strategy-level toggle, and no env-variable toggle. See
-> CLAUDE.md § "Autonomous live-trading rule" and BUG-039 in
-> `docs/claude/bug-log.md` for the full rationale.
+> [`docs/CLAUDE-RULES-CANONICAL.md`](../CLAUDE-RULES-CANONICAL.md)
+> § Prime Directive and
+> [`docs/ARCHITECTURE-CANONICAL.md`](../ARCHITECTURE-CANONICAL.md)
+> § Mode Mutation Contract for the binding rules.
+
+## Prime Directive recap (2026-05-12)
+
+The trader runs 24/7 in YAML-declared mode. The system never
+switches itself off. There is exactly ONE switch (`set-account-mode`),
+and the OPERATOR controls it. Transient runtime issues route through
+the RiskManager as per-trade `reject(reason=…)` calls with a per-trade
+Telegram, **not** as account-mode flips. Full text:
+[`docs/CLAUDE-RULES-CANONICAL.md`](../CLAUDE-RULES-CANONICAL.md)
+§ Prime Directive.
+
+The 2026-05-12 silent-flip incident drove this rule: an in-process
+auto-flip put `bybit_2` in dry without operator action, the operator
+wasn't clearly notified, and the bot sat off-live for hours. The
+sanctioned path that exists now (`set-account-mode`) is audited,
+Telegram-notified, and the only allowed mutation surface. Code paths
+that write to account mode outside this wire are Tier-3 violations
+regardless of intent.
 
 ## Removed env vars (BUG-039 + follow-ups)
 
@@ -37,32 +58,135 @@ operator-ack required) will add inline `# allow-silent: …`
 annotations + per-survivor regression tests asserting the
 "can't suppress live writes" contract.
 
+## Per-account override (current and queued)
+
+**Source of truth:** `config/accounts.yaml` `mode:` per account.
+`_resolve_mode(cfg, name)` in `src/units/accounts/__init__.py` reads
+it on every call. Accepts case-insensitive `live` / `dry` / `dry_run`
+/ `dry-run` / `paper`. Default = `live` per Prime Directive.
+
+**Sanctioned mutation path:** `set-account-mode` operator action
+(`scripts/ops/set_account_mode.sh`, allowlisted in
+`.github/workflows/operator-actions.yml`). Edits YAML, restarts the
+trader, Telegrams the operator with the diff. Dispatch via labelled
+issue (`operator-action`) with body:
+
+```
+action: set-account-mode
+account: <name from accounts.yaml>
+mode: <live|dry_run>
+reason: <one-line audit text>
+```
+
+Doc: [`docs/claude/operator-actions.md`](operator-actions.md) § 2.1
++ § 7.1.
+
+**Queued for deletion in the safeguards PR (follow-on to PR #978):**
+
+- `_DRY_RUN_OVERRIDES` dict in `src/units/accounts/__init__.py`
+  (lines ~33-43). Currently used as an in-memory shim that
+  `_resolve_mode()` consults before YAML. After the safeguards PR:
+  deleted; `_resolve_mode()` reads YAML directly with no override
+  layer.
+- `set_account_dry_run()` function in `src/units/accounts/__init__.py`
+  (lines ~36-38). After the safeguards PR: deleted. The only
+  mutation wire is `set-account-mode`.
+- Telegram `/accounts dry|live <name>` handler in
+  `src/bot/telegram_query_bot.py` and `/set_all_live` companion.
+  Currently call `set_account_dry_run()` directly. After the
+  safeguards PR: refactored to dispatch the `set-account-mode`
+  operator action so exactly one mutation path exists on disk.
+- Breaker auto-flip in `src/core/coordinator.py:1048-1068`
+  ("after 3 consecutive exchange rejections →
+  `set_account_dry_run(account, True)`"). After the safeguards PR:
+  deleted. The rejection counter remains as RiskManager input only,
+  feeding per-trade `reject(reason=…)` decisions without ever
+  touching account mode.
+
+## Runtime flag files
+
+| Path | Set by | Effect |
+|---|---|---|
+| `/tmp/trader_halt.flag` | Telegram `/halt` | `safe_place_order` returns `{"status": "halted"}` for every order until the file is removed (`/resume`). |
+
+The halt flag is a **kill-switch**, not a mode flip. It pauses order
+placement universally and is intentionally separate from the
+per-account `mode:` field. Removing the flag via `/resume` returns
+the bot to YAML-driven behaviour.
+
+## Files that read/write trading-mode flags
+
+| File | Lines | Reads | Notes |
+|---|---|---|---|
+| `src/units/accounts/__init__.py` | `_resolve_mode`, `load_accounts` | `config/accounts.yaml` `mode:` | Source of truth. After the safeguards PR, this is the only reader; the override layer is gone. |
+| `src/web/runtime_status.py` | `_read_live_per_account` | accounts.yaml + (legacy) override dict | Mirrors `_resolve_mode`. After the safeguards PR follow-on, the override-dict arg becomes vestigial. |
+| `src/runtime/orders.py` | `safe_place_order` | nothing mode-related directly | Routes via `RiskManager.evaluate()`; the manager's `dry_run` flag is set from the resolved mode. |
+| `src/runtime/validation.py` | `validate_startup` | nothing mode-related | Boot-time. Per the Prime Directive: boot always starts the trader live (per YAML); no refuse-to-start logic. |
+| `src/main.py` | `main()` | indirectly via `load_accounts()` | Reads YAML at boot, every restart. |
+| `src/units/accounts/execute.py` | `_submit_order` | `RiskManager.dry_run` | Final gate before the exchange call. |
+| `src/bot/telegram_query_bot.py` | `cmd_set_all_live`, `cmd_accounts` | `set_account_dry_run()` (legacy) | Scheduled for refactor to dispatch `set-account-mode` in the safeguards PR. |
+| `scripts/ops/set_account_mode.sh` | wrapper body | `config/accounts.yaml` | The sanctioned mutation wire. Edits YAML in place, restarts the trader, audits the diff. |
+
+## How to flip an account's mode
+
+Dispatch the operator action. There is exactly one way:
+
+**Via the Actions UI** (operator clicks):
+1. Actions → operator-actions → Run workflow.
+2. Pick `set-account-mode`, fill `account_id`, `mode`, `reason`. Run.
+3. Workflow Telegrams the result; audit artifact attached to the run.
+
+**Via labelled issue** (autonomous dispatch after explicit operator ack):
+```
+Title: [operator-action] set-account-mode — <reason>
+Labels: operator-action
+Body:
+  action: set-account-mode
+  account: bybit_2
+  mode: live
+  reason: <one-line audit text>
+```
+The workflow comments back on the issue with the run URL + result + audit
+bundle, then closes the issue.
+
 ## How to add a new mode-controlling switch
 
-> **Default answer: don't.** Reach for the per-account
-> `RiskManager.dry_run` first.
+> **You don't.** The Prime Directive is unambiguous: there is exactly
+> one mode switch per account, and the operator controls it via
+> `set-account-mode`. New switches are Tier-3 violations regardless
+> of how convenient they look.
 
-If a new env-var gate is genuinely required:
+If you believe the project genuinely needs a new toggle that affects
+live-trading behaviour, the path is **not** "add a flag, add a guard,
+add a default":
 
-1. Document it in this file under § Surviving env vars with a
-   plain-English statement of why it cannot suppress live writes.
-2. Add an inline `# allow-silent: <reason>` comment on the
-   `os.environ.get("…")` line so the
-   `.github/workflows/env-gate-guard.yml` CI check accepts the
-   new gate. Without the comment, the guard fails the PR.
-3. Add a regression test asserting the gate does not bypass
-   `RiskManager.evaluate`.
-4. Tier 2 PR — requires operator ack pre-merge.
+1. Open an issue tagging the operator. Describe what runtime
+   condition the new control is meant to address.
+2. If the answer is "refuse individual trades when condition X is
+   true," the right place is `RiskManager.approve()` returning
+   `reject(reason=“X”, trade=…)` for the specific trade in the
+   specific condition. Each rejection emits its own per-trade
+   Telegram. The account mode is never touched.
+3. If the answer is "durably change which accounts trade," the
+   right path is `set-account-mode` (existing).
+4. **Do not** add a new env var, a new override dict, a new
+   process-level interlock, or a new "kill-this-account-only"
+   surface. Those add ways the system can be confused; the Prime
+   Directive exists to prevent that confusion.
 
-The CI guard's source: `scripts/check_env_gate_in_diff.py`.
+The CI guard `scripts/check_dry_run_in_diff.py` (run by
+`.github/workflows/dry-run-guard.yml`) Telegrams the operator when a
+PR introduces a code path that could put any account in dry without
+the sanctioned mutation. The safeguards-PR follow-on tightens this
+to block-on-fail.
 
 ---
 
 ## Historical context (deprecated, retained for archeology)
 
-The content below describes the pre-BUG-039 multi-flag system. It
-is **not** current specification. See § Removed env vars above for
-the current state.
+The content below describes the pre-BUG-039 multi-flag system and the
+pre-2026-05-12 override-dict layer. It is **not** current
+specification.
 
 ---
 
@@ -104,7 +228,7 @@ two configurations:
 Everything else passes. In particular, **all flags unset** is a valid
 live config.
 
-## Per-account override
+## Per-account override (legacy text — pre-2026-05-12)
 
 `config/accounts.yaml` does **not** carry a per-account `dry_run` field.
 The override is in-memory and lives in
@@ -112,31 +236,7 @@ The override is in-memory and lives in
 `/accounts dry|live <name>` command). Use `/set_all_live` to flip every
 account out of dry-run in one call.
 
-## Runtime flag files
-
-| Path | Set by | Effect |
-|---|---|---|
-| `/tmp/trader_halt.flag` | Telegram `/halt` | `safe_place_order` returns `{"status": "halted"}` for every order until the file is removed (`/resume`). |
-
-## Files that read/write trading-mode flags
-
-| File | Lines | Reads | Notes |
-|---|---|---|---|
-| `src/runtime/trading_mode.py` | entire file | `ALLOW_LIVE_TRADING`, `DRY_RUN` | Single source of truth. |
-| `src/runtime/orders.py` | `safe_place_order` (≈170-180) | `DRY_RUN`, `ALLOW_LIVE_TRADING` | Routes via `trading_mode.is_live_truthy` / `is_dry_truthy`. |
-| `src/runtime/validation.py` | `validate_startup` (≈130-150) + `build_settings_from_env` (≈170-200) | `DRY_RUN`, `ALLOW_LIVE_TRADING`, `MODE` | Routes via `trading_mode`. |
-| `src/main.py` | `main()` | reads via `build_settings_from_env` | Indirect. |
-| `src/runtime/pipeline.py` | `build_exchange_client` | reads `MODE` indirectly | Indirect. |
-| `src/bot/telegram_query_bot.py` | `cmd_set_all_live`, `cmd_accounts` (`/accounts dry|live`) | per-account `dry_run` toggle | Operator UI. |
-| `src/units/accounts/__init__.py` | `set_account_dry_run`, `_DRY_RUN_OVERRIDES` | per-account `dry_run` toggle | Storage. |
-
-## How to add a new mode-controlling switch
-
-1. Stop. Reach for the existing flags first. New switches multiply
-   ways the system can be confused.
-2. If genuinely required, add the flag to `src/runtime/trading_mode.py`,
-   default-live, and route every consumer through the helper. Do **not**
-   add a fresh `os.environ.get("...").lower() == "true"` site.
-3. Update **this file** with the new flag.
-4. Add a regex to `scripts/check_dry_run_in_diff.py` so future PRs that
-   would set the flag to a non-live value ping the operator.
+*This text described the pre-Mode-Mutation-Contract design. After the
+safeguards PR follow-on to PR #978, `_DRY_RUN_OVERRIDES` and
+`set_account_dry_run()` are deleted, and the only mutation path is
+`set-account-mode`. See the current section above.*

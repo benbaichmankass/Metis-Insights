@@ -28,6 +28,10 @@ longer match the implementation.
 ## Architectural Principles
 
 - Live trading stability takes precedence over feature growth.
+- The trader runs 24/7 in YAML-declared mode; the system never
+  switches itself off. (Operator-facing rule:
+  [`CLAUDE-RULES-CANONICAL.md`](CLAUDE-RULES-CANONICAL.md) § Prime
+  Directive. Code-level contract: § Mode Mutation Contract below.)
 - Research, staging, and live trading must remain clearly separable.
 - Operator communications must remain isolated from core trading logic.
 - Deployment behavior must be explicit and documented.
@@ -35,6 +39,57 @@ longer match the implementation.
   path, validation path, and logging path.
 - Duplicate files, unclear canonical entrypoints, and undocumented side
   effects are architecture problems and are treated as such.
+
+## Mode Mutation Contract (2026-05-12)
+
+The per-account live/dry mode is governed by exactly one contract
+from 2026-05-12 onward. See
+[`CLAUDE-RULES-CANONICAL.md`](CLAUDE-RULES-CANONICAL.md) § Prime
+Directive for the operator-facing rule; this section is the
+system-design counterpart.
+
+1. **Source of truth.** `config/accounts.yaml` `mode:` per account.
+   `_resolve_mode(cfg, name)` in `src/units/accounts/__init__.py`
+   reads it on every call.
+2. **Only mutation path.** The `set-account-mode` operator action
+   (`scripts/ops/set_account_mode.sh`, allowlisted in
+   `.github/workflows/operator-actions.yml`, landed in PR #978).
+   Edits YAML, restarts the trader, Telegram-pings the operator with
+   the diff via `scripts/ops/notify_run.sh`.
+3. **No runtime override layer.** The `_DRY_RUN_OVERRIDES` dict and
+   `set_account_dry_run()` function in `src/units/accounts/__init__.py`
+   are scheduled for deletion in the safeguards PR follow-on to
+   PR #978. After that PR lands, mode comes from YAML every call,
+   with no in-memory shim.
+4. **No auto-flip.** No code path inside `src/` may flip a mode
+   under any condition. The 2026-05-12 silent-flip incident drove
+   this: the breaker auto-flip in `src/core/coordinator.py:1048-1068`
+   ("3 consecutive exchange rejections → set_account_dry_run(True)")
+   protected the system into a dry state, but the operator wasn't
+   clearly notified and the bot sat off-live for hours. The auto-flip
+   is queued for deletion; the rejection counter remains as
+   RiskManager input only.
+5. **Transient issues route through RiskManager.** When exchange
+   rejections cluster, data quality degrades, or risk signals
+   trip, `RiskManager.approve()` returns
+   `reject(reason=…, trade=…)` for an individual trade. The account
+   mode is never touched. The next signal is evaluated fresh.
+6. **Every rejection is its own Telegram ping.** Per-trade:
+   account, symbol, side, qty, reason, raw exchange error if any.
+   Not aggregate. The operator sees each refusal as it happens so
+   they can intervene fast.
+7. **Boot always starts the trader live (per YAML).** `src/main.py`
+   reads `accounts.yaml`, resolves modes, and starts ticking. No
+   refuse-to-start logic. If state is inconsistent vs. YAML, log
+   loudly and Telegram-alert — but the trader runs.
+8. **Mechanically enforced.** CI guards (`dry-run-guard.yml` plus the
+   follow-on safeguards-PR rule) block new code from writing to
+   account modes outside the sanctioned wire.
+
+The Telegram `/accounts dry|live <name>` command currently writes to
+the override dict; that handler is scheduled for refactor in the
+safeguards PR to dispatch `set-account-mode` instead, so there is
+exactly one mutation surface on disk.
 
 ## System Layers
 
@@ -121,6 +176,12 @@ to allow the signal:
   consumed in `pipeline.py`),
 - news veto via `src/news/news_pipeline.py`.
 
+Post-Mode-Mutation-Contract (2026-05-12, see § above): the
+RiskManager is also the place that consumes runtime-distress signals
+(exchange rejection clusters, etc.) and refuses individual trades for
+cause. Account mode is never touched as a side effect of a rejection;
+the trader stays live and the next signal is evaluated fresh.
+
 ### Step 5 — Runtime order validation
 `src/runtime/orders.py::safe_place_order` validates quantities, sizing,
 and execution prerequisites. Hard refusal paths exist for invalid or
@@ -130,8 +191,10 @@ disallowed orders. Closed-flat invariant lives in
 ### Step 6 — Broker execution
 Only after the steps above does the broker-specific executor send a
 live order or simulate one in dry-run mode. Per-account dry/live mode
-is set in `config/accounts.yaml` (`mode: live | dry_run`). This is the
-only canonical execution gate; there is no process-level interlock.
+is set in `config/accounts.yaml` (`mode: live | dry_run`) and is the
+only canonical execution gate; the **only** sanctioned mutation path
+for that field is the `set-account-mode` operator action (§ Mode
+Mutation Contract).
 
 ### Step 7 — Logging and state updates
 The runtime records:
@@ -161,6 +224,11 @@ heartbeat:
 Distinct from `ict-heartbeat.{service,timer}`, which is the
 once-daily operator status digest at 13:00 UTC.
 
+The watchdog *restarts* the trader — it does not change the account
+mode, and the Mode Mutation Contract does not regulate it. Restarts
+are expected and safe; the Prime Directive forbids only the
+mode-flip part of an automated response.
+
 ### Step 8 — Operator visibility and control
 The Telegram bot (`src/bot/telegram_query_bot.py`) plus the FastAPI
 diag surface (`src/web/api/routers/diag.py`) expose status, halt and
@@ -180,7 +248,7 @@ documented in [`api-tier-policy.md`](api-tier-policy.md).
 5. **Repo port** — strategy modules under `src/units/strategies/`,
    wired into `config/strategies.yaml`.
 6. **Dry-run / staging** — per-account `mode: dry_run` in
-   `config/accounts.yaml`.
+   `config/accounts.yaml`, mutated only via `set-account-mode`.
 7. **Promotion decision** — Tier 3, requires explicit operator approval.
 
 ## Operator Communication Pipeline
@@ -226,7 +294,9 @@ final pre-expiry alert (M1 P1-B) prevent silent expiry.
 6. Operator-driven actions go through
    `.github/workflows/operator-actions.yml`
    (allowlisted: `status-check`, `pull-latest-logs`, `pull-and-deploy`,
-   `restart-bot-service`, `reboot-vm`).
+   `restart-bot-service`, `reboot-vm`, `set-account-mode`, plus
+   env-toggle and tunnel actions; full list in
+   [`claude/operator-actions.md`](claude/operator-actions.md)).
 
 ### Components
 | Concern | File |
@@ -238,7 +308,7 @@ final pre-expiry alert (M1 P1-B) prevent silent expiry.
 | Web API service | `deploy/ict-web-api.service` |
 | Telegram bot service | `deploy/ict-telegram-bot.service` |
 | Heartbeat timer | `deploy/ict-heartbeat.{service,timer}` — once-daily operator status digest (13:00 UTC) |
-| Liveness watchdog | `deploy/ict-liveness-watchdog.{service,timer}` — per-minute dead-man switch on `heartbeat.txt` mtime; alerts within 5 min and autoheals trader after 8 min stall (PRs #950/#956). Runbook: `docs/runbooks/liveness-watchdog.md` |
+| Liveness watchdog | `deploy/ict-liveness-watchdog.{service,timer}` — per-minute dead-man switch on `heartbeat.txt` mtime; alerts within 5 min and autoheals trader after 8 min stall (PRs #950/#956). Runbook: `docs/runbooks/liveness-watchdog.md`. Restarts only; does not change account mode. |
 | Hourly snapshot | `deploy/ict-hourly-snapshot.{service,timer}` |
 | Smoke once | `deploy/ict-smoke-once.service` |
 | Claude bridge | `deploy/ict-claude-bridge.service` |
@@ -246,6 +316,7 @@ final pre-expiry alert (M1 P1-B) prevent silent expiry.
 | Deploy script | `scripts/deploy_diag.sh`, `scripts/deploy_pull_restart.sh` |
 | VM bootstrap | `scripts/vm_bootstrap.sh` |
 | Web API restart wrapper | `scripts/ops/restart_web_api.sh` |
+| Mode-flip wrapper | `scripts/ops/set_account_mode.sh` (PR #978, 2026-05-12) |
 
 Rollback / recovery steps and the live-trading deploy procedure live in
 [`DEPLOYMENT_LIVE_TRADING.md`](../DEPLOYMENT_LIVE_TRADING.md) and
@@ -275,16 +346,16 @@ inventory/labels (`repo-inventory`, `bootstrap-labels`,
 | Runtime pipeline | `src/runtime/` | `pipeline.py`, `orders.py`, `validation.py`, `health.py`, `heartbeat.py`, `outcomes.py` |
 | Strategies | `src/units/strategies/` | Strategy modules; wired via `config/strategies.yaml` |
 | Strategy registry | `src/strategy_registry.py` | Single source of truth for which strategies exist |
-| Account / risk | `src/units/accounts/` | `risk.py`, `prop_risk.py`, `execute.py`, `__init__.py` (`load_accounts`) |
+| Account / risk | `src/units/accounts/` | `risk.py`, `prop_risk.py`, `execute.py`, `__init__.py` (`load_accounts`). After the safeguards PR follow-on, `_DRY_RUN_OVERRIDES` and `set_account_dry_run()` are deleted; `_resolve_mode()` reads YAML directly. |
 | Exchange connectors | `src/exchange/` | Bybit, Binance |
 | ICT detection | `src/ict_detection/` | Reusable signal-detection components |
 | News layer | `src/news/` | `news_pipeline.py` |
 | Bot / comms code | `src/bot/`, `src/comms/` | Telegram handlers, comms store, schemas |
 | Web API | `src/web/api/` | FastAPI app + routers; runtime status writer at `src/web/runtime_status.py` |
 | Comms artifacts | `comms/` | Operator request/response artifacts and schemas |
-| Config | `config/` | `accounts.yaml`, `strategies.yaml`, `units.yaml`, env templates |
+| Config | `config/` | `accounts.yaml`, `strategies.yaml`, `units.yaml`, env templates. `accounts.yaml` `mode:` mutated only via `set-account-mode`. |
 | Deploy | `deploy/` | systemd unit + timer files |
-| Scripts / ops | `scripts/`, `scripts/ops/` | Deploy, diag, ops wrappers |
+| Scripts / ops | `scripts/`, `scripts/ops/` | Deploy, diag, ops wrappers (incl. `set_account_mode.sh`) |
 | Tests | `tests/` | Unit + integration |
 | Docs | `docs/` | Canonical docs (this dir), claude operating notes, sprint logs |
 | AI-platform doc | [`docs/architecture/ai-model-platform.md`](architecture/ai-model-platform.md) | AI-specific architecture (M9 + M10). Subordinate canonical doc; covers the model layer + deployment tiers + Oracle/HF runtime split. |
@@ -465,6 +536,11 @@ Confirmed against the repo on 2026-05-10:
 - [x] AI-scope architecture doc:
       [`architecture/ai-model-platform.md`](architecture/ai-model-platform.md)
       (S-AI-WS1, 2026-05-10)
+- [x] Mode Mutation Contract (§ above): `set-account-mode` operator
+      action shipped in PR #978 (2026-05-12). Doc-level contract in
+      this commit; code-level cleanup of `_DRY_RUN_OVERRIDES` +
+      `set_account_dry_run` + the breaker auto-flip pending in the
+      safeguards PR follow-on.
 
 ---
 
@@ -495,6 +571,7 @@ filtered to architecture-level deltas only.
 | 2026-05-11 | S-AI-WS9-AUTORETRY | Inter-process contract: new `.github/workflows/provision-training-vm-auto-retry.yml` fires every 10 min, checks via OCI whether `ict-trainer-vm` exists, dispatches the provision workflow if not. On first detection of `exists=true`, files a one-shot `[trainer-vm-up]` GitHub issue so the operator gets a notification via repo subscription. Bypasses the "OCI Always Free A1 capacity is intermittent" wall without operator polling. | `.github/workflows/provision-training-vm-auto-retry.yml` (NEW) | None — autonomous retry until the trainer VM lands. |
 | 2026-05-11 | S-AI-WS5-BOOTSTRAP | New `scripts/ops/train_and_register_ws5_baselines.sh` — the trainer's "first action" once the VM is up. Trains every `baseline-*.yaml`, walks each new model id up the promotion ladder to `TARGET_STAGE` (default `shadow`, the minimum the WS7 factory will load). Emits JSONL to `runtime_logs/trainer/ws5_baseline_kickoff.jsonl`. Distinct from the recurring `run_training_cycle.sh`. | `scripts/ops/train_and_register_ws5_baselines.sh`, `tests/test_train_and_register_ws5_baselines_sh.py`, `docs/runbooks/training-vm.md` | None until the trainer VM is up + the operator runs the script there. |
 | 2026-05-11 | S-AI-WS10-CLOSEOUT | WS10 explicitly closed. Change log refreshed to reflect today's S-AUTH-SPLIT, S-AI-WS9-AUTORETRY, S-AI-WS5-BOOTSTRAP plus the previously-missing S-AI-WS8-PART-2/3, S-AI-WS7-FU, S-AI-WS9-FU, S-AI-WS10-FU rows. Known Gaps section pruned (resolved entries removed; new gaps added) so the section reflects today's queue. Roadmap WS10 row marked DONE. | `docs/ARCHITECTURE-CANONICAL.md`, `docs/AI-TRADERS-ROADMAP.md`, `docs/sprint-plans/ai-traders/ws10-arch-doc-enforcement.md` | None — the close-out is itself the verification that WS10 prevents drift. |
+| 2026-05-12 | (post-S-CANON) | **Mode Mutation Contract enshrined** (§ above). `set-account-mode` operator action (PR #978) becomes the only path to mutate `config/accounts.yaml` `mode:`. Prime Directive added to CLAUDE-RULES-CANONICAL.md. Follow-on safeguards PR queued to remove the remaining auto-flip vectors: `_DRY_RUN_OVERRIDES` + `set_account_dry_run()` in `src/units/accounts/__init__.py`, the breaker auto-flip in `src/core/coordinator.py:1048-1068`, and the Telegram `/accounts dry\|live` handler (refactored to dispatch `set-account-mode`). | `docs/CLAUDE-RULES-CANONICAL.md`, `docs/ARCHITECTURE-CANONICAL.md`, `docs/claude/trading-mode-flags.md`, `CLAUDE.md`, `.github/workflows/operator-actions.yml` (PR #978), `scripts/ops/set_account_mode.sh` (PR #978), `docs/claude/operator-actions.md` (PR #978) | The trader stays live by design. Operator dispatches `set-account-mode` to flip mode; per-trade Telegram on every RiskManager rejection arrives in the safeguards PR. |
 
 ---
 
@@ -508,6 +585,8 @@ milestone.
 
 | Gap | Why deferred | Tracking |
 |---|---|---|
+| **Auto-flip code paths still in `src/`** | The doc-level Mode Mutation Contract is in place (§ above). The code-level deletion (the `_DRY_RUN_OVERRIDES` dict + `set_account_dry_run()` function in `src/units/accounts/__init__.py`, the breaker auto-flip in `src/core/coordinator.py:1048-1068`, and the Telegram `/accounts dry\|live` handler refactor) is the safeguards PR follow-on, kept separate from PR #978 so the diff stays reviewable. | Safeguards PR (2026-05-12 follow-up to PR #978). |
+| **Per-trade RiskManager rejection → per-trade Telegram** | The Prime Directive (§ rules doc) requires every refusal to emit its own Telegram with account/symbol/side/qty/reason/exchange-error. Today's path uses aggregate alerts when conditions cluster. The per-trade wiring ships in the safeguards PR. | Safeguards PR. |
 | **WS5 baselines not yet at `shadow` in any registry** | `train_and_register_ws5_baselines.sh` is shipped on `main` (2026-05-11) and walks each baseline to `shadow` autonomously. Blocked only on the trainer VM coming up; the auto-retry workflow loops every 10 min until OCI Always Free A1 capacity lands. | WS5 / WS7 unlock; tracked by the open `[provision-training-vm]` issue chain and the auto-retry workflow. |
 | **`shadow_model_ids` empty in production strategy YAML** | Operator step. Once a baseline lands at `shadow` on the trainer VM, the operator copies the model_id into `config/strategies.yaml` on the **live** VM and reloads. This is the only step that crosses the trainer→live boundary. | WS7 acceptance. |
 | **Trainer VM not yet provisioned** | OCI Always Free Ampere A1 in `eu-paris-1` returns 500 / "Out of host capacity" intermittently. `.github/workflows/provision-training-vm-auto-retry.yml` is firing on a 10-minute cron with idempotent existence check; resolves itself when capacity opens. | S-AI-WS9; tracked by the `[trainer-vm-up]` notification issue that the auto-retry files on first success. |
