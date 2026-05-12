@@ -1,349 +1,167 @@
-# Runbook — System Health Check (two-workflow, PR-mediated)
+# Health-check runbook
 
-The ICT trading bot's health-check pipeline runs as a **pair of GitHub
-Actions** that gate Claude's manual review behind a merged, labeled PR:
+> **Adopted 2026-05-12 (noise-cleanup).** Replaces the prior two-layer
+> PR-mediated routine. See "What changed" below for the migration
+> details and which files were removed.
 
-| Workflow | What it does | When |
+## What this is
+
+A single GitHub Actions workflow — [`health-snapshot.yml`](../../.github/workflows/health-snapshot.yml)
+— that periodically grabs a runtime-state snapshot from the live VM,
+classifies the result with a small deterministic rule set, posts ONE
+informational Telegram message, and uploads the snapshot as an Action
+artifact. The operator downloads the artifact when they want a deeper
+sanity-check and runs `/health-review` in a Claude Code session with
+the pasted contents.
+
+```
+cron  ──►  health-snapshot.yml  ──►  SSH to VM
+                                    └─ scripts/collect_health_snapshot.sh
+                                    └─ scripts/run_pipeline_health_test.sh
+                                    └─ deterministic ok/watch/concern classifier
+                                    └─ ONE Telegram message (informational)
+                                    └─ actions/upload-artifact  (artifacts/health/**)
+                                                  │
+                                                  ▼
+                                       Actions UI download (operator,
+                                       only if status warrants a deeper look)
+                                                  │
+                                                  ▼
+                                       /health-review (Claude session)
+```
+
+No Layer-1 LLM call. No `comms/requests/REQ-*.json` artifact. No PR
+auto-merge. No expiry-spam. The Telegram is purely informational
+(`✅ Health snapshot — heartbeat fresh, pipeline test clean` on a
+healthy run) and the snapshot artifact is there if the operator wants
+to dig deeper.
+
+## Cadence
+
+`cron: '0 */6 * * *'` — every 6 hours on the hour. The Telegram
+message graded `ok` is the heartbeat that the snapshot itself ran and
+the bot looks healthy; `watch` flags a soft anomaly (e.g. heartbeat
+180–600s old); `concern` flags an actual problem (heartbeat stale
+> 10 min, snapshot missing/truncated, pipeline-test fail).
+
+The workflow also accepts `workflow_dispatch` for manual ad-hoc runs
+and `issues.opened` with the `health-snapshot-trigger` label for
+sandbox-session-driven invocations. The issue-driven path replies on
+the issue (and skips Telegram) so a sandbox session can poll the
+issue comment for results.
+
+## Status classifier (deterministic, no LLM)
+
+The "Compute status" step in `health-snapshot.yml` evaluates:
+
+| Signal | Rule | If true |
 |---|---|---|
-| 1. [`health-snapshot-pr.yml`](../../.github/workflows/health-snapshot-pr.yml) | Collects a VM snapshot, runs the layer-1 machine check, emits the layer-2 review request, and opens/updates a PR labeled `health-check-review`. | Cron `0 */6 * * *` + `workflow_dispatch` |
-| 2. [`health-review-trigger.yml`](../../.github/workflows/health-review-trigger.yml) | Fires on `pull_request.closed`, gated by `merged == true` **and** the `health-check-review` label. Confirms the merge, lists the review-request files that just landed on `main`, and **POSTs to the Claude review routine's API endpoint** to start layer 2. | On every PR merge into `main` (filtered by label) |
+| Snapshot missing / < 256 bytes | filesystem stat | `concern` |
+| `heartbeat age >= 600s` | `age_seconds:` line in snapshot | `concern` |
+| `heartbeat age >= 180s` (but < 600s) | same | `watch` |
+| `pipeline_test.json.status == "fail"` | JSON parse | `concern` |
+| `pipeline_test.json.status == "warn"` AND note doesn't contain "plumbing-on-rejection" | JSON parse | `watch` |
+| Everything else | (default) | `ok` |
 
-The layered design is unchanged — layer 1 is automated machine triage,
-layer 2 is a mandatory Claude review **on every run**, including healthy
-ones. What changed is the *delivery* of layer 2: instead of committing
-the review request straight to `main`, it now goes through an operator
-review/merge step, and the Claude routine is then triggered by a direct
-API call rather than by listening on a PR webhook.
+The "plumbing-on-rejection path exercised" pipeline-test `warn` is the
+**documented expected outcome** when no live exchange client is wired
+into the smoke — it does NOT degrade the status. This is the
+single biggest source of the old false-WARNING noise; the rule above
+silences it explicitly.
 
-## Why merged-PR + label is the trigger
+## Files produced
 
-GitHub does not emit a dedicated "merged" event. The standard pattern
-is `pull_request.closed` filtered by `github.event.pull_request.merged
-== true`. The label `health-check-review` is the operational filter:
-any other PR that closes against `main` is ignored, even if the title
-or the changed paths look similar. The label is applied automatically
-by `peter-evans/create-pull-request` in workflow 1, so the operator
-never has to remember to set it.
+Each run uploads `health-snapshot-<run_id>` containing:
 
-This matters because:
-
-- The operator gets a **single auditable artifact** — the PR — to glance
-  at before allowing layer 2 to land. Closing without merging is a
-  legitimate "skip this run" outcome.
-- The trader is never affected by churn on the snapshot branch; only
-  the merge writes to `main`, so the VM's git-sync timer only sees
-  approved review requests.
-- Re-running the workflow is **idempotent** (see below) and never
-  duplicates a PR.
-
-## Why an API call (not a routine webhook subscription)
-
-Workflow 2 fires the Claude review routine via a direct POST to its
-API endpoint instead of having the routine subscribe to GitHub's PR
-webhook. Trade-off summary:
-
-| Hop | API trigger | Webhook trigger |
+| File | Source | Notes |
 |---|---|---|
-| Failure modes | Visible in the Action log; retried up to 5× with `--retry-all-errors`; failure marks the run red. | Silent if the webhook delivery is dropped or the routine's listener mis-filters. |
-| Context delivery | Body carries `pr_url`, `pr_number`, `merge_sha`, `review_files[]`, repo — the routine doesn't have to scrape the GitHub event payload. | Routine has to parse the GitHub event and re-fetch the merge diff. |
-| Setup | Two repo secrets (`CLAUDE_ROUTINE_URL`, `CLAUDE_ROUTINE_TOKEN`); both rotatable without a code change. | Routine subscribes to webhook; filter logic lives in the routine. |
-| Approval gate | Same — PR merge is still the gate; the API call only happens **after** the merged + labeled filter passes. | Same. |
+| `health_snapshot.txt` | `scripts/collect_health_snapshot.sh` on the VM | Sectioned with `=== NAME ===` headers (META, PROCESSES, HEARTBEAT, TICKS, SIGNALS, ORDERS, TRADES, POSITIONS, MONITORING, API, ERRORS, STORAGE, DB, AUDIT_LOG, VM, END). Source of truth for layer-2 review. |
+| `pipeline_test.json` | `scripts/run_pipeline_health_test.sh` on the VM | Active dry-run smoke (`safe_place_order(client=None)`). Status field is `ok \| warn \| fail`. `warn` with note "plumbing-on-rejection path exercised" is the expected outcome when no exchange client is wired in. |
 
-The POST body shape:
+Retention: 30 days. Older snapshots fall out of the Actions storage
+automatically.
 
-```json
-{
-  "event": "health_review_pr_merged",
-  "repo": "benbaichmankass/ict-trading-bot",
-  "pr_url": "https://github.com/.../pull/N",
-  "pr_number": N,
-  "merge_sha": "<sha>",
-  "branch": "main",
-  "review_files": ["comms/requests/REQ-...\.json", ...]
-}
+## Running a manual review
+
+1. Open the [Actions tab](https://github.com/benbaichmankass/ict-trading-bot/actions/workflows/health-snapshot.yml).
+2. Pick the most recent successful run (or dispatch a fresh one with `workflow_dispatch`).
+3. Scroll to **Artifacts** at the bottom of the run page → download `health-snapshot-<run_id>.zip`.
+4. Extract. Open a Claude Code session on this repo.
+5. Paste the contents of `health_snapshot.txt` (and optionally `pipeline_test.json`) into the chat. Invoke `/health-review`.
+
+The skill at [`.claude/skills/health-review/SKILL.md`](../../.claude/skills/health-review/SKILL.md) carries the full review rubric (heartbeat / ticks / signals / orders / trades / monitoring / sizing / api_errors / state_consistency / alert_delivery / strategy_silence / db_integrity / audit_log_freshness) and the per-trade decision-grading rubric.
+
+## Triggering from a sandbox session
+
+A PM-side Claude Code on the web session can fire the snapshot via a labelled issue:
+
+```
+mcp__github__issue_write(
+  method='create',
+  title='[health-snapshot] manual run',
+  labels=['health-snapshot-trigger'],
+  body='manual snapshot for layer-2 review'
+)
 ```
 
-## Layer-1 fallback (Anthropic call fails)
+The workflow runs, comments back the artifact URL on the issue, and closes it. The session then downloads the artifact via the comment-provided link.
 
-If the Anthropic call in layer 1 fails for any reason — rate limit,
-billing, network, malformed JSON in the response — the workflow does
-**not** abort. Instead, `scripts/run_health_check.py` synthesizes an
-`UNKNOWN`-status stub report:
+## Required secrets
 
-```json
-{
-  "status": "UNKNOWN",
-  "summary": "Layer-1 analysis unavailable: <ErrorClass>: <message>",
-  "checks": { "<each section>": {"status": "warn", "note": "layer-1 verdict unavailable"} },
-  "action_required": "Manual review required — ...",
-  "error": {"type": "...", "message": "..."}
-}
-```
-
-The stub is written to `artifacts/health/latest.json` exactly like a
-real verdict, the layer-2 review request is emitted with
-`priority: high` (UNKNOWN is treated like WARNING/CRITICAL for the
-operator's eye), the PR is opened, and the Telegram alert fires with
-the ⚪ icon naming the underlying error class. The Claude routine
-then reviews the **raw snapshot** — which is always present — as the
-source of truth.
-
-This preserves the design contract that layer 2 runs on every
-execution, even when layer 1 is temporarily unavailable.
-
-## What the label means
-
-`health-check-review` is the operational filter on workflow 2. **Only**
-workflow 1 should apply it. The handoff in workflow 2 is gated on it,
-so adding the label by hand to an unrelated PR would falsely trigger
-the handoff. The artifact lives on a branch (`auto/health-check-review`)
-and only reaches `main` when an operator merges the PR — there is no
-dry-run knob in the new model because closing the PR without merging
-is already the dry-run.
-
-The `automated` label is informational only — it is not part of any
-filter.
-
-## Manually forcing a run
-
-```bash
-# Trigger workflow 1 right now (from the GitHub UI):
-#   Actions → Health Snapshot PR → Run workflow
-# Or via gh CLI:
-gh workflow run "Health Snapshot PR"
-
-# Open the resulting PR:
-gh pr list --label health-check-review --state open
-```
-
-Merging the PR fires workflow 2, which POSTs to the Claude routine. To
-**skip** a run after the PR is open, just close it without merging —
-nothing leaves the snapshot branch and the routine is never called.
-
-## Triggering from a sandbox session (smoke-testing the pipeline)
-
-A Claude Code session running on the web sandbox cannot call
-`workflow_dispatch` directly — the hosted GitHub MCP server omits the
-`actions` toolset (see CLAUDE.md → "PM-side session capabilities"). To
-let the sandbox fire workflow 1 end-to-end without an operator click,
-`health-snapshot-pr.yml` exposes a third trigger: `issues.opened`
-filtered to label `health-snapshot-trigger`. The label is created by
-[`bootstrap-labels.yml`](../../.github/workflows/bootstrap-labels.yml).
-
-### Path B — issue-driven (web sandbox, autonomous)
-
-This is the standing pattern. From a sandbox session:
-
-```text
-mcp__github__issue_write(method='create',
-    title='[health-smoke] e2e smoke test',
-    labels=['health-snapshot-trigger'],
-    body='Triggering Health Snapshot PR end-to-end.')
-```
-
-The workflow runs as if you'd clicked "Run workflow" in the Actions UI,
-opens or updates the review PR on `auto/health-check-review`, and then
-the final two steps comment back on the trigger issue with:
-
-- the **workflow run URL**,
-- the **resulting PR URL** (or a warning if no PR was opened/updated),
-- the **layer-1 verdict** read from `artifacts/health/latest.json`
-  (`HEALTHY` / `WARNING` / `CRITICAL` / `UNKNOWN`),
-- the layer-1 `summary` and (when the fallback fired) the underlying
-  `error.type` + `error.message`,
-- the **Telegram step exit code** — `0` means the Claude-bot ping was
-  delivered, anything else means the helper failed (non-fatal).
-
-…and then close the issue (`completed` on success, `not_planned` on
-failure). The sandbox session reads the comment via
-`mcp__github__issue_read` and verifies the PR contents via
-`mcp__github__get_file_contents` against `artifacts/health/latest.json`
-on branch `auto/health-check-review`.
-
-**Verifying the layer-1 fallback didn't silently fire:** look at the
-`Layer-1 verdict` line in the issue comment. `UNKNOWN` plus a
-`Layer-1 fallback fired — <ErrorClass>: <message>` block means the
-Anthropic call did not succeed; check the `ANTHROPIC_API_KEY` secret
-and Anthropic billing before re-running. A real verdict (HEALTHY /
-WARNING / CRITICAL) confirms layer 1 reached Claude.
-
-### Path A — local Claude Code with `actions` MCP toolset
-
-If you're running this from Claude Code CLI / desktop instead of the
-web sandbox, you can install
-[`github/github-mcp-server`](https://github.com/github/github-mcp-server)
-locally and start it with `GITHUB_TOOLSETS=actions,repos,issues,pull_requests`
-(or `all`). That gives the session direct
-`mcp__github__run_workflow` / `list_workflow_runs` /
-`get_workflow_run_logs` access, and the smoke test can be driven
-without going through an issue:
-
-```text
-mcp__github__run_workflow(
-    owner='benbaichmankass',
-    repo='ict-trading-bot',
-    workflow_id='health-snapshot-pr.yml',
-    ref='main')
-# then poll list_workflow_runs / get_workflow_run, fetch failure logs
-# via get_workflow_run_logs if conclusion != 'success'.
-```
-
-Both paths exercise the same workflow code — Path B is the durable
-fallback for the web sandbox; Path A is the cleaner option once the
-session has `actions:write` on its MCP server. Use whichever is
-available; both leave the same audit trail (run URL, PR, Telegram
-ping).
-
-### Operator-facing Telegram ping format (PR #816)
-
-The "Notify operator (run /health-review)" step in
-`health-snapshot-pr.yml` now leads with a deterministic green/red
-light derived from snapshot facts WITHOUT calling layer 1 (which is
-`--skip-llm` per operator decision 2026-05-10):
-
-- `✅ Health snapshot green — no urgent action — run /health-review at your convenience (PR #N, auto-merge queued; pipeline: warn; req: REQ-…)`
-- `🚨 Health snapshot red — RUN /health-review NOW — heartbeat stale (420s) (PR #N, auto-merge queued; pipeline: warn; req: REQ-…)`
-
-The preflight rubric (`Compute preflight verdict (green/red light)`
-step):
-
-- **green** if heartbeat age `<180s` AND snapshot file `>256B` AND
-  pipeline-test status in `{ok, warn}`
-- **red** otherwise, with the first failing check as the reason
-
-Both branches still post the ping; only the urgency framing changes.
-Layer 2 (the `/health-review` slash command) remains the authority on
-what's actually wrong — green never blocks an actual problem from
-surfacing in the layer-2 review, it just defers the urgency.
-
-## Idempotency / dedupe
-
-Workflow 1 always pushes to a single fixed branch: `auto/health-check-review`.
-`peter-evans/create-pull-request` updates the open PR if one exists,
-opens a new PR otherwise.
-
-Within the artifact set:
-
-- `artifacts/health/health_snapshot.txt` and `artifacts/health/latest.json`
-  are overwritten on every run — the PR always shows the latest.
-- `artifacts/health/health_check_<UTC-ISO>.json` is per-run and piles
-  up in the PR; useful for forensic comparison if a PR sits open over
-  multiple cycles.
-- `comms/requests/REQ-*.json` filenames are keyed by the GitHub `run_id`
-  (12-char numeric slug), so each run gets a unique file. A re-run of
-  the **same** workflow run is a no-op (the writer skips with `already
-  exists`). A new scheduled run gets a fresh `run_id`.
-
-If an open PR sits unmerged across several scheduled runs, every run's
-`REQ-*.json` accumulates in the PR. Merging once delivers all of them
-to `main` atomically; workflow 2 lists which ones just landed and ships
-the whole list to the routine in `review_files[]`.
-
-The routine API call is retried up to 5 times by `curl --retry-all-errors`,
-so transient 5xx / network blips don't drop the trigger.
-
-If you want a fresh PR instead of updating the existing one, close the
-open one (without merging) and let the next scheduled run reopen it.
-
-## How a Claude review actually happens
-
-1. The PR is merged → `comms/requests/REQ-*.json` is on `main`.
-2. Workflow 2 fires, lists the newly-added review request files, and
-   POSTs to the Claude routine API endpoint with the merged-PR
-   metadata and the list of new request files.
-3. The Claude routine wakes up, fetches the request files (and any
-   linked artifacts), performs the layer-2 sanity review, and writes
-   its findings back. It also marks the request status appropriately
-   in the comms state machine (see `comms/README.md`).
-4. The VM's `ict-git-sync` timer pulls any state changes the routine
-   commits.
-
-The response shape the routine produces is documented in
-[`comms/schema/health_review_response.template.json`](../../comms/schema/health_review_response.template.json).
-
-## Pending vs completed reviews — quick check
-
-```bash
-# pending review PRs (not yet merged):
-gh pr list --label health-check-review --state open
-
-# review requests on main that haven't been answered yet:
-ls comms/requests/REQ-*.json | xargs -I{} jq -r 'select(.status != "answered" and .status != "acknowledged") | "\(.status)  \(.request_id)  \(.topic)"' {}
-
-# answered but not yet acknowledged:
-ls comms/requests/REQ-*.json | xargs -I{} jq -r 'select(.status == "answered") | "\(.request_id)  \(.response.answers[0].received_at)"' {}
-```
-
-## Required GitHub repository setting
-
-`peter-evans/create-pull-request` cannot open PRs unless
-**Settings → Actions → General → Workflow permissions** has:
-
-- [x] **Allow GitHub Actions to create and approve pull requests**
-
-Without this setting, workflow 1 will create the branch and push the
-commit, but the PR-creation step will fail with a 403. This is the
-only repo-level setting required by the design.
-
-## Required GitHub secrets
-
-These are the actual secret names used by the action; they match the
-repo's existing secret store:
-
-| Name | Purpose |
+| Secret | Purpose |
 |---|---|
-| `VM_SSH_KEY`                | OpenSSH private key for `ubuntu@158.178.210.252` (the bot VM) |
-| `ANTHROPIC_API_KEY`         | Claude Haiku 4.5 calls in layer 1 |
-| `CLAUDE_ROUTINE_URL`        | Full POST URL of the Claude review routine API endpoint (used by workflow 2) |
-| `CLAUDE_ROUTINE_TOKEN`      | Bearer token for the Claude review routine API endpoint |
-| `CLAUDE_TELEGRAM_BOT_TOKEN` | **Claude bot token** (separate from the trader's bot) — layer-1 alerts, PR-open ping, routine-fired ping |
-| `TELEGRAM_CHAT_ID`          | Shared chat id (same chat receives trader-bot and Claude-bot messages — only the bot token differs) |
+| `VM_SSH_KEY` | SSH private key for `ubuntu@158.178.210.252`. Reused from the other VM-touching workflows (operator-actions, vm-diag-snapshot, vm-web-api-recover). |
 
-The action's Telegram pings are intentionally routed via the Claude
-bot token so review-pipeline noise comes from a separate sender than
-the trader's live alerts. The `TELEGRAM_CHAT_ID` is shared because
-both bots post into the same operator chat.
+Optional repo variables `VM_SSH_HOST`, `VM_SSH_USER` can override the
+defaults; the workflow uses the canonical Oracle VM by default.
 
-The Telegram secrets are optional — every alert step tolerates a
-missing token silently. `CLAUDE_ROUTINE_URL` and `CLAUDE_ROUTINE_TOKEN`
-are **not** optional; workflow 2 fails (loudly) at the first step if
-either is unset. `ANTHROPIC_API_KEY` is **soft-required** — if it is
-unset or out of credits, layer 1 falls back to an `UNKNOWN`-status stub
-and the rest of the run continues (see *Layer-1 fallback* above).
+## What changed (2026-05-12 cleanup)
 
-Both routine secrets are designed to be rotated independently — the
-workflow reads them at runtime, so updating either one in repo settings
-takes effect on the next workflow run with no code change.
+Before this cleanup, the health-check pipeline was a four-stage
+two-layer system that produced more noise than signal:
 
-## Disabling / pausing
+1. `health-snapshot-pr.yml` (the predecessor) — cron every 6h.
+2. → `scripts/run_health_check.py` called Anthropic for a Layer-1
+   machine verdict. Operator disabled this 2026-05-10 via `--skip-llm`,
+   so every run synthesised an `UNKNOWN` stub with WARNING status.
+3. → `scripts/write_health_review_request.py` minted a
+   `comms/requests/REQ-*.json` that the Telegram bot would deliver
+   asking for a Layer-2 manual review. Nobody answered them, so they
+   expired, firing a second Telegram ping per request on expiry.
+4. → A `peter-evans/create-pull-request` PR was opened with the
+   artifacts + comms request, auto-merged, and `health-review-trigger.yml`
+   fired on merge to ping the operator one more time.
 
-Three options, in increasing scope:
+Net effect: every 6h the operator got at minimum two Telegram messages
+(new request + queued auto-merge) plus the trickle of expiry pings as
+old unanswered requests aged out. No actionable signal.
 
-1. **Pause Telegram noise but keep collecting** — leave both workflows
-   enabled but unset `CLAUDE_TELEGRAM_BOT_TOKEN`. The PR-open / routine-
-   fired pings and layer-1 alerts all skip silently. The PR audit
-   trail still lands and the routine is still called.
-2. **Stop opening new PRs but keep the existing one** — disable
-   workflow 1 from the Actions UI (`Actions → Health Snapshot PR →
-   Disable`). Workflow 2 still fires (and POSTs to the routine) if you
-   merge the open PR.
-3. **Stop the whole pipeline** — disable both workflows. The trader is
-   unaffected (no part of it imports from `comms/`).
+The 2026-05-12 cleanup deleted:
 
-Do **not** delete `comms/requests/REQ-*.json` manually — the comms
-state machine in `src/comms/state.py` reclaims them via the
-`expired`/`cancelled` lifecycle.
+- `scripts/run_health_check.py` (Layer-1 LLM call + UNKNOWN stub builder)
+- `scripts/write_health_review_request.py` (comms-request emitter)
+- `.claude/health_check_prompt.md` (Layer-1 LLM severity rubric)
+- `.github/workflows/health-review-trigger.yml` (post-merge ping)
+- `.github/workflows/health-snapshot-pr.yml` (replaced with the leaner `health-snapshot.yml`)
+- 8 stale `comms/requests/REQ-*.json` files in the backlog.
 
-## Safety scope
+And added a gate in `src/bot/comms_handler.py::_deliver` /
+`_alert_expired` that silently drains any in-flight backlog with topic
+matching `"Health review*"` — no Telegram fire, but the normal
+EXPIRED + archive lifecycle still runs so the audit log is preserved.
 
-Unchanged from the prior design:
+## Re-enabling Layer-1 (if ever needed)
 
-- The collector is **read-only**. It does not write to any path under
-  `src/runtime/`, `src/units/`, or any open-positions store.
-- The trader does not import from `comms/` (see the safety note in
-  [`comms/README.md`](../../comms/README.md)) — a malformed review
-  request cannot influence live strategy behavior.
-- The Action runs out-of-band on GitHub-hosted runners; the only
-  side-effect on the VM is reading log files over SSH.
-- The PR gate adds an explicit operator approval step before any
-  review request reaches `main`, narrowing the blast radius further.
+Don't, at least not with the same pattern. If a future operator wants
+automated grading, the right answer is a different design — the
+deleted Layer-1 was firing the `--skip-llm` fallback unconditionally
+and producing zero useful output. Start by:
+
+1. Decide what an automated verdict should look like (deterministic
+   rules over the snapshot? smaller LLM? scoring against thresholds?).
+2. Write the new grader.
+3. Wire it into `health-snapshot.yml` as a step that fails the
+   workflow if the verdict is CRITICAL — the workflow failure is the
+   signal; no separate comms request needed.
+
+Don't bring back the comms-request + Telegram fanout.

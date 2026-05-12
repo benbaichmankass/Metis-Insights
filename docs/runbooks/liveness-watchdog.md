@@ -11,11 +11,11 @@ health check picked it up.
 | | This runbook | `health-check.md` |
 |---|---|---|
 | Scope | Per-minute liveness of the trader process | 6-hourly full audit of the trading pipeline |
-| Trigger | `ict-liveness-watchdog.timer` (`OnUnitActiveSec=60s`) | `health-snapshot-pr.yml` cron `0 */6 * * *` |
-| What it watches | `heartbeat.txt` mtime | 11-point machine snapshot + Claude review |
-| Alert latency | ~5 min from stall | up to 6 h from stall |
-| Recovery action | optional `systemctl restart` after ~8 min stall | none (operator decides) |
-| Code | `scripts/check_heartbeat.py` (stdlib-only) | layer 1: `scripts/run_health_check.py` ; layer 2: `/health-review` skill |
+| Trigger | `ict-liveness-watchdog.timer` (`OnUnitActiveSec=60s`) | `health-snapshot.yml` cron `0 */6 * * *` |
+| What it watches | `heartbeat.txt` mtime | full VM snapshot + deterministic ok/watch/concern grade |
+| Alert latency | ~5 min from stall | up to 6 h from stall (informational Telegram per cycle) |
+| Recovery action | optional `systemctl restart` after ~8 min stall | none (operator decides; manual `/health-review` for deep dive) |
+| Code | `scripts/check_heartbeat.py` (stdlib-only) | `scripts/collect_health_snapshot.sh` + `/health-review` skill |
 
 Both layers coexist. The watchdog is the **fast** alert; the 6-hourly
 health check is the **deep** audit. If the watchdog Telegrams you, the

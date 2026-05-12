@@ -66,6 +66,24 @@ logger = logging.getLogger(__name__)
 DEFAULT_POLL_INTERVAL = 60.0
 COMMS_CALLBACK_PREFIX = "comms:"
 OTHER_CHOICE_ID = "__OTHER__"
+
+
+def _is_health_review_topic(topic: Optional[str]) -> bool:
+    """True if a comms request's topic identifies it as a health-review
+    request (now-deprecated, see 2026-05-12 cleanup).
+
+    The health-snapshot workflow used to mint these every cron tick with
+    a topic of ``"Health review needed — run <run_id> (<STATUS>)"``.
+    That entire flow has been removed; the operator now pulls the
+    snapshot artifact from the Action UI directly. This guard keeps any
+    in-flight backlog silent (no Telegram noise on deliver or expiry)
+    while the bot's normal lifecycle drains them.
+
+    Conservative substring match — ``topic`` is operator-set free-form
+    text but the workflow's emitter (deleted in the same PR) is the
+    only known producer, so the prefix is stable across the backlog.
+    """
+    return bool(topic) and topic.lower().startswith("health review")
 COMMS_COMMIT_PREFIX = "comms(response):"
 
 # Keys into context.user_data for the "Other" free-text capture flow.
@@ -307,7 +325,19 @@ class CommsPoller:
         blip should not strand a request in ``sent`` forever. The
         transition log entry plus ``request_expired`` event remain
         the auditable record either way.
+
+        Health-review topics short-circuit silently. The health-snapshot
+        workflow no longer creates these requests (see 2026-05-12
+        cleanup); any in-flight backlog should drain to EXPIRED without
+        firing Telegram noise. Audit trail (transition log + request_expired
+        event) is preserved.
         """
+        if _is_health_review_topic(request.topic):
+            logger.debug(
+                "CommsPoller expiry-alert: skipping Telegram for health-review topic (%s)",
+                request.request_id,
+            )
+            return
         text = (
             f"⏰ Comms request {request.request_id} expired without an "
             f"answer (expires_at {request.expires_at}). Marking EXPIRED."
@@ -321,7 +351,34 @@ class CommsPoller:
             )
 
     async def _deliver(self, bot, request: Request) -> None:
-        """Send each question as its own message; mark the request sent on success."""
+        """Send each question as its own message; mark the request sent on success.
+
+        Health-review topics short-circuit: the health-snapshot workflow
+        no longer creates these requests (operator-driven flow per
+        2026-05-12 cleanup — operator pulls the snapshot artifact from
+        the Action UI and pastes into Claude directly). Any in-flight
+        backlog gets marked sent without Telegram noise so the poll
+        loop stops re-trying it; expiry then routes through
+        _alert_expired which is also silent for this topic.
+        """
+        if _is_health_review_topic(request.topic):
+            logger.info(
+                "CommsPoller deliver: skipping Telegram for health-review topic "
+                "(%s); marking sent without notification.",
+                request.request_id,
+            )
+            self.store.mark_sent(
+                request,
+                telegram_chat_id=str(self.chat_id),
+                telegram_message_id=None,
+            )
+            log_event(
+                "request_sent",
+                request_id=request.request_id,
+                actor="bot",
+                details={"questions": len(request.questions), "skipped_telegram": True},
+            )
+            return
         last_message_id: Optional[int] = None
         total = len(request.questions)
         for idx, question in enumerate(request.questions):
