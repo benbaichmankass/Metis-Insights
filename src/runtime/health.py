@@ -39,6 +39,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
+from src.utils.paths import runtime_logs_dir
+
 
 logger = logging.getLogger(__name__)
 
@@ -291,9 +293,14 @@ def check_tick_freshness(
     if audit_path is not None:
         path = audit_path
     else:
-        heartbeat = _REPO_ROOT / "runtime_logs" / "heartbeat.txt"
+        # Aligned with the writers (heartbeat.py, signal_audit_logger.py)
+        # which both resolve through runtime_logs_dir(). The 2026-05-11
+        # silent-freeze incident traced to this reader hardcoding the
+        # repo path while the writer landed under DATA_DIR.
+        logs_dir = runtime_logs_dir()
+        heartbeat = logs_dir / "heartbeat.txt"
         path = heartbeat if heartbeat.exists() else (
-            _REPO_ROOT / "runtime_logs" / "signal_audit.jsonl"
+            logs_dir / "signal_audit.jsonl"
         )
     if not path.exists():
         return _critical(

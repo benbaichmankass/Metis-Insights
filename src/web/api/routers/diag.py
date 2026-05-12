@@ -42,19 +42,14 @@ router = APIRouter(prefix="/api/diag", tags=["diag"])
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
 _DB_PATH = Path(os.environ.get("TRADE_JOURNAL_DB", str(_REPO_ROOT / "trade_journal.db")))
-_RUNTIME_LOGS = _REPO_ROOT / "runtime_logs"
-# Audit log + bot.log writers still hardcode the repo path (see
-# src/utils/signal_audit_logger.py); keep these readers at the repo
-# path so the existing audit stream remains visible until that writer
-# is migrated to runtime_logs_dir().
-_AUDIT_LOG = _RUNTIME_LOGS / "signal_audit.jsonl"
+# Every runtime-log reader resolves through runtime_logs_dir() so DATA_DIR /
+# RUNTIME_LOGS_DIR overrides match the writers (heartbeat.py,
+# signal_audit_logger.py, runtime_status.py). The 2026-05-11 silent
+# freeze (trader wrote /data/bot-data/runtime_logs/heartbeat.txt while
+# diag read /home/ubuntu/ict-trading-bot/runtime_logs/heartbeat.txt) is
+# the canonical incident this PR (T2) closes.
+_AUDIT_LOG = runtime_logs_dir() / "signal_audit.jsonl"
 _BOT_LOG = _REPO_ROOT / "bot.log"
-# Heartbeat + runtime_status writers DO respect runtime_logs_dir(), so
-# their files land under DATA_DIR when the systemd drop-in is installed
-# (deploy/dropins/data-dir.conf). Reading from the repo path here was
-# the 2026-05-11 silent freeze: trader wrote /data/bot-data/runtime_logs/
-# heartbeat.txt while diag read /home/ubuntu/ict-trading-bot/
-# runtime_logs/heartbeat.txt and reported "stopped" forever.
 _HEARTBEAT = runtime_logs_dir() / "heartbeat.txt"
 _STATUS_JSON = runtime_logs_dir() / "runtime_status.json"
 

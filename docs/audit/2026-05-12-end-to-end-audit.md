@@ -287,11 +287,21 @@ When a trade should happen and doesn't:
 
 ## Reconstruction Recommendations (Ranked)
 
-### 1. **Unified Path Resolution Audit (S, Bug class: path divergence × 6 files)**
+### 1. **Unified Path Resolution Audit (S, Bug class: path divergence × 6 files) — DONE (T2)**
 **Effort:** S  
-**Action:** Audit every read/write pair (signal audit, heartbeat, runtime status, liquidity state, bot.log, trade_journal.db). Ensure all use `runtime_logs_dir()` or consistent anchor. Removes need for separate patches per file.  
-**Supersedes:** PRs #871, #882, #881 (all path-related one-off fixes).  
-**Test:** Set `DATA_DIR=/tmp/bot-data` in test; verify all writers and readers point to same paths.
+**Action:** Every runtime-log reader now routes through `src.utils.paths` (`runtime_logs_dir()` / `artifacts_dir()`). Anti-pattern lint guard in `tests/test_runtime_paths_alignment.py` blocks future regressions at the `pytest-collect` CI gate (tokenize-aware so docstring references to incident history don't false-fire).  
+**Files migrated (readers):**
+- `src/web/api/routers/dashboard.py` — `_AUDIT_LOG`, `_HEARTBEAT`
+- `src/web/api/routers/diag.py` — `_AUDIT_LOG`, `_HEARTBEAT`, `_STATUS_JSON`
+- `src/web/api/routers/bot_config.py` — `_RUNTIME_STATUS_JSON`
+- `src/web/api/routers/shadow.py` — `_log_path()`
+- `src/web/api/routers/trade_scores.py` — `_SHADOW_LOG`
+- `src/runtime/health.py` — `tick_check_heartbeat`
+- `src/utils/validation_logger.py` — `_log_path()` fallback (writer also; in T2 scope as the M5 path-divergence risk had not yet hit but matched the pattern exactly)
+
+**Sprint log:** `docs/sprint-logs/T2-unified-path-resolution.md`  
+**Supersedes:** PRs #871, #882, #881, and the 2026-05-11 dashboard.py:36 / heartbeat reader / runtime_status reader divergences — six one-off fixes in two weeks; all one bug class.  
+**Verification:** `pytest tests/test_runtime_paths_alignment.py -v` → 7/7 (6 alignment tests under default / DATA_DIR / RUNTIME_LOGS_DIR overrides + 1 lint guard).
 
 ### 2. **Structured Audit Logging for Signal Lifecycle (M, Bug class: observability gap)**
 **Effort:** M  
