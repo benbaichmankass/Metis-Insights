@@ -26,19 +26,20 @@
 #   2. Stop + disable the quick-tunnel @reboot crontab line if present
 #      (the quick tunnel becomes redundant once the named tunnel runs).
 #   3. Create or fetch the named tunnel via CF API:
-#        POST /accounts/{account_id}/cfd_tunnel { name, config_src: cloudflare }
+#        POST /accounts/{account_id}/cfd_tunnel { name, config_src: local }
 #      Tunnel name is fixed: ict-trader-bot-tunnel.
-#   4. Decode the tunnel's account-level token into credentials JSON
-#      at /etc/ict-trader/cloudflared/<tunnel-id>.json (chmod 600,
-#      owned by ubuntu).
+#   4. Store the raw tunnel token in /etc/ict-trader/cloudflared/tunnel.env
+#      (chmod 600). The --token flag (via cloudflared-token.conf drop-in)
+#      uses this directly — no base64 decode needed.
 #   5. Write /etc/ict-trader/cloudflared/config.yml with the ingress
-#      mapping /api/* → http://localhost:8001 + catch-all 404.
+#      mapping → http://localhost:8001. No credentials-file — auth via
+#      --token in the drop-in.
 #   6. If TUNNEL_HOSTNAME is set, POST a CNAME route via DNS API. Skip
 #      gracefully if the zone is missing or the token lacks DNS edit.
 #   7. Install + enable + start ict-cloudflared-tunnel.service.
-#   8. Probe /api/health via the public URL. Loud failure on probe
-#      timeout (gives the operator a clean signal vs. the silent
-#      quick-tunnel pattern).
+#   8. Probe /api/health locally (origin check) then via the public URL.
+#      Loud failure on probe timeout (gives the operator a clean signal
+#      vs. the silent quick-tunnel pattern).
 #   9. Persist the public URL to runtime_logs/cloudflared_tunnel_url.txt
 #      so the diag relay can surface it. Echo it on stdout for the
 #      workflow comment.
@@ -134,8 +135,7 @@ TUNNEL_TOKEN=""
 
 if [ -n "${TUNNEL_ID}" ]; then
     log "Reusing existing tunnel id=${TUNNEL_ID}."
-    # Fetch the account-level token so we can rewrite credentials.json
-    # if it's missing or stale on this host.
+    # Fetch the account-level token for tunnel.env.
     TOKEN_RESP="$(cf_api GET "/accounts/${CLOUDFLARE_ACCOUNT_ID}/cfd_tunnel/${TUNNEL_ID}/token" || echo '')"
     TUNNEL_TOKEN="$(printf '%s' "${TOKEN_RESP}" \
         | python3 -c 'import sys,json; r=json.load(sys.stdin); print(r.get("result","") if r.get("success") else "")' \
@@ -168,33 +168,45 @@ if [ -z "${TUNNEL_TOKEN}" ]; then
     exit 1
 fi
 
-# ─── 4. Write credentials JSON ─────────────────────────────────────
-# The token is a base64-encoded JSON with {a, t, s}; decode to the
-# {AccountTag, TunnelID, TunnelSecret} shape cloudflared expects on
-# disk when running in --config mode (vs. token mode).
+# ─── 4. Store tunnel token in env file (chmod 600, no decode needed) ─
+# The CF API token is directly usable with `cloudflared tunnel run --token`.
+# Previous approach (base64-decode + credentials JSON) was fragile: the CF
+# API uses URL-safe base64 (chars - and _); Python's standard b64decode
+# raises binascii.Error on those chars, silently suppressed by
+# `2>/dev/null || true`. The credentials file was written empty, causing
+# cloudflared to crash-loop with no tunnel connections (2026-05-12 incident).
+# The drop-in deploy/dropins/cloudflared-token.conf wires this into ExecStart.
 sudo mkdir -p "${CF_CONFIG_DIR}"
-CREDS_FILE="${CF_CONFIG_DIR}/${TUNNEL_ID}.json"
-python3 - "${TUNNEL_TOKEN}" "${TUNNEL_ID}" <<'PY' | sudo tee "${CREDS_FILE}" >/dev/null
-import base64, json, sys
-token, tunnel_id = sys.argv[1:3]
-decoded = json.loads(base64.b64decode(token + "=" * (-len(token) % 4)).decode())
-creds = {
-    "AccountTag":   decoded["a"],
-    "TunnelID":     decoded.get("t") or tunnel_id,
-    "TunnelSecret": decoded["s"],
-}
-sys.stdout.write(json.dumps(creds))
-PY
-sudo chown ubuntu:ubuntu "${CREDS_FILE}"
-sudo chmod 600 "${CREDS_FILE}"
-log "Wrote credentials: ${CREDS_FILE}"
+TOKEN_ENV_FILE="${CF_CONFIG_DIR}/tunnel.env"
+printf 'CLOUDFLARED_TUNNEL_TOKEN=%s\n' "${TUNNEL_TOKEN}" | sudo tee "${TOKEN_ENV_FILE}" >/dev/null
+sudo chown ubuntu:ubuntu "${TOKEN_ENV_FILE}"
+sudo chmod 600 "${TOKEN_ENV_FILE}"
+log "Wrote tunnel token env: ${TOKEN_ENV_FILE}"
+
+# Ensure the cloudflared-token drop-in is in place before daemon-reload.
+# install_systemd_units.sh handles this on every pull-and-deploy, but we
+# also install it here so standalone setup-named-cloudflare-tunnel runs work.
+_CF_DROPIN_SRC="${REPO_DIR}/deploy/dropins/cloudflared-token.conf"
+_CF_DROPIN_DST="/etc/systemd/system/ict-cloudflared-tunnel.service.d/token.conf"
+if [ -f "${_CF_DROPIN_SRC}" ]; then
+    sudo mkdir -p "$(dirname "${_CF_DROPIN_DST}")"
+    sudo cp "${_CF_DROPIN_SRC}" "${_CF_DROPIN_DST}"
+    sudo chmod 0644 "${_CF_DROPIN_DST}"
+    log "Installed drop-in: ${_CF_DROPIN_DST}"
+else
+    log "WARN: drop-in source not found at ${_CF_DROPIN_SRC} — ExecStart override not applied."
+    log "WARN: Run pull-and-deploy first to sync the drop-in to the VM."
+fi
 
 # ─── 5. Write config.yml (ingress mapping) ─────────────────────────
+# No credentials-file — auth comes from --token via the drop-in
+# (deploy/dropins/cloudflared-token.conf). Omitting credentials-file
+# avoids confusing error messages from a stale or empty credentials JSON.
 sudo tee "${CF_CONFIG_DIR}/config.yml" >/dev/null <<EOF
 # Generated by setup_named_cloudflare_tunnel.sh. Do not edit by hand —
 # re-run setup-named-cloudflare-tunnel to regenerate.
 tunnel: ${TUNNEL_ID}
-credentials-file: ${CREDS_FILE}
+# credentials-file omitted — auth via --token flag (deploy/dropins/cloudflared-token.conf)
 
 # Origin keep-alive: don't churn TCP connections to localhost:8001 for
 # every request.
@@ -212,15 +224,12 @@ log "Wrote ingress config: ${CF_CONFIG_DIR}/config.yml"
 PUBLIC_URL="https://${TUNNEL_ID}.cfargotunnel.com"
 if [ -n "${TUNNEL_HOSTNAME:-}" ]; then
     log "Routing ${TUNNEL_HOSTNAME} via tunnel ${TUNNEL_ID}..."
-    # Find the zone for this hostname. The token may not have Zone:Read
-    # scope; tolerate failure and fall back to cfargotunnel.com.
     ZONE_BASE="$(printf '%s' "${TUNNEL_HOSTNAME}" | awk -F. '{ if (NF>=2) print $(NF-1)"."$NF }')"
     ZONE_LIST="$(cf_api GET "/zones?name=${ZONE_BASE}" || echo '')"
     ZONE_ID="$(printf '%s' "${ZONE_LIST}" \
         | python3 -c 'import sys,json; r=json.load(sys.stdin); print((r.get("result") or [{}])[0].get("id","") if r.get("success") else "")' \
         2>/dev/null || true)"
     if [ -n "${ZONE_ID}" ]; then
-        # Upsert a proxied CNAME → <tunnel-id>.cfargotunnel.com.
         DNS_DATA="{\"type\": \"CNAME\", \"name\": \"${TUNNEL_HOSTNAME}\", \"content\": \"${TUNNEL_ID}.cfargotunnel.com\", \"proxied\": true}"
         EXISTING="$(cf_api GET "/zones/${ZONE_ID}/dns_records?name=${TUNNEL_HOSTNAME}" || echo '')"
         RECORD_ID="$(printf '%s' "${EXISTING}" \
@@ -268,6 +277,17 @@ UNIT_STATE="$(systemctl is-active "${UNIT_NAME}" 2>/dev/null || echo unknown)"
 log "${UNIT_NAME} is-active: ${UNIT_STATE}"
 
 # ─── 8. End-to-end health probe ────────────────────────────────────
+# First check the origin directly — distinguishes "web API down" from
+# "tunnel not connected" so the failure is immediately actionable.
+log "Direct origin probe: http://localhost:${LOCAL_PORT}/api/health"
+LOCAL_PROBE="$(curl -sS --max-time 5 "http://localhost:${LOCAL_PORT}/api/health" 2>&1 || true)"
+if printf '%s' "${LOCAL_PROBE}" | grep -q '"ok"\|"status"\|"healthy"' 2>/dev/null; then
+    log "Origin localhost:${LOCAL_PORT}/api/health OK — web API is reachable."
+else
+    log "WARN: localhost:${LOCAL_PORT}/api/health unresponsive: ${LOCAL_PROBE}"
+    log "WARN: If the external probe also fails, check ict-web-api.service first."
+fi
+
 PROBE_URL="${PUBLIC_URL}/api/health"
 PROBE_DEADLINE=$(( $(date +%s) + 60 ))
 PROBE_OK=false
