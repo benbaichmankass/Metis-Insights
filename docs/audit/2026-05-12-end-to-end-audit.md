@@ -312,12 +312,18 @@ When a trade should happen and doesn't:
 **Supersedes:** Incident 2026-05-11 (silent flip, heartbeat write failure, path divergence all masked by poor exception visibility).  
 **Test:** Mock each exception; verify outcomes.report() fires and Telegram receives the alert.
 
-### 4. **Persistent HTTP Tunnel Replacement (L, Bug class: infrastructure fragility)**
+### 4. **Persistent HTTP Tunnel Replacement (L, Bug class: infrastructure fragility) — IN PROGRESS (T1)**
 **Effort:** L  
-**Action:** Replace Cloudflare quick-tunnel (temporary, 24 h lifespan) with one of: (a) Cloudflare named tunnel (persistent, account-bound), (b) deploy a reverse-proxy sidecar on the VM (Nginx) fronting port 8001, (c) Vercel custom domain with bot HTTPS endpoint.  
-**Current blocker:** Bot listens on plain HTTP; a real HTTPS endpoint requires TLS cert (self-signed or Let's Encrypt).  
-**Supersedes:** PRs #22, #29 (emergency tunnel refresh when endpoint changed).  
-**Test:** Tunnel survives 24 h; `curl https://<new-endpoint>/api/health` works; dashboard reconnects without URL edit.
+**Action:** Named Cloudflare tunnel — persistent, account-bound, stable hostname. Wrapped in `ict-cloudflared-tunnel.service` with `Restart=always` (kills the silent-crash failure class). Operator fires `setup-named-cloudflare-tunnel` (allowlisted Tier-2 action); script creates/fetches the tunnel via CF API, writes credentials + ingress config, installs the unit, returns the stable URL. Bot still listens on plain HTTP; TLS terminates at CF's edge before traffic reaches the VM — no cert management on the bot side.  
+**Implementation:**
+- `deploy/ict-cloudflared-tunnel.service`
+- `scripts/ops/setup_named_cloudflare_tunnel.sh` / `scripts/ops/teardown_named_cloudflare_tunnel.sh`
+- `.github/workflows/operator-actions.yml` — two new allowlisted actions (`setup-named-cloudflare-tunnel`, `teardown-named-cloudflare-tunnel`)
+- `docs/runbooks/cloudflare-named-tunnel.md` — operator runbook
+- `docs/sprint-logs/T1-named-cloudflare-tunnel.md` — sprint log
+
+**Supersedes:** PRs ict-trader-dashboard#22, #23, #25, #29, #30 — five `vercel.json` URL-rotation PRs in two days.  
+**Verification:** Operator fires `setup-named-cloudflare-tunnel` from workflow_dispatch UI (or labelled issue); follow-up `vercel.json` PR repoints to the stable URL. After one healthy 24 h cycle, retire the quick tunnel via `teardown-cloudflare-tunnel`.
 
 ### 5. **External Watchdog Alerting for Secondary Units (M, Bug class: silent timer failure)**
 **Effort:** M  

@@ -72,6 +72,8 @@ on:
           - disable-closed-flat-invariant
           - setup-cloudflare-tunnel
           - teardown-cloudflare-tunnel
+          - setup-named-cloudflare-tunnel
+          - teardown-named-cloudflare-tunnel
           - setup-tailscale-funnel
           - teardown-tailscale-funnel
           - enable-m5-consumer
@@ -95,6 +97,10 @@ on:
         options:
           - live
           - dry_run
+      tunnel_hostname:
+        description: "Optional stable hostname for setup-named-cloudflare-tunnel (e.g. bot-api.example.com). Requires the token to have Zone:DNS:Edit on the matching zone. If unset, the script falls back to <tunnel-id>.cfargotunnel.com (still stable)."
+        required: false
+        default: ""
   # Issue-driven trigger — mirrors vm-web-api-recover.yml. A sandbox
   # session opens an issue with label `operator-action`, the body
   # encodes `action:` + `reason:` (+ `account:` + `mode:` for
@@ -142,6 +148,7 @@ jobs:
           DISPATCH_REASON: ${{ inputs.reason }}
           DISPATCH_ACCOUNT_ID: ${{ inputs.account_id }}
           DISPATCH_MODE: ${{ inputs.mode }}
+          DISPATCH_TUNNEL_HOSTNAME: ${{ inputs.tunnel_hostname }}
           # ISSUE_BODY rides through env (NOT inline interpolation) so
           # an attacker-controlled issue body cannot inject shell.
           ISSUE_BODY: ${{ github.event.issue.body }}
@@ -153,12 +160,14 @@ jobs:
             reason="${DISPATCH_REASON}"
             account_id="${DISPATCH_ACCOUNT_ID}"
             mode="${DISPATCH_MODE}"
+            tunnel_hostname="${DISPATCH_TUNNEL_HOSTNAME}"
           else
             # Issue body convention:
             #   action: pull-and-deploy
             #   reason: <free text — single line, anything after the colon>
-            #   account: <bybit_2>      (set-account-mode only)
-            #   mode: <live|dry_run>    (set-account-mode only)
+            #   account: <bybit_2>           (set-account-mode only)
+            #   mode: <live|dry_run>         (set-account-mode only)
+            #   hostname: <bot-api.foo.com>  (setup-named-cloudflare-tunnel only)
             # Lines may be in any order; only the first match wins.
             action=$(printf '%s\n' "${ISSUE_BODY}" \
                      | grep -i -m1 '^[[:space:]]*action[[:space:]]*:' \
@@ -176,6 +185,10 @@ jobs:
                      | grep -i -m1 '^[[:space:]]*mode[[:space:]]*:' \
                      | sed -E 's/^[[:space:]]*[Mm]ode[[:space:]]*:[[:space:]]*//' \
                      | tr -d '[:space:]' || true)
+            tunnel_hostname=$(printf '%s\n' "${ISSUE_BODY}" \
+                     | grep -i -m1 '^[[:space:]]*hostname[[:space:]]*:' \
+                     | sed -E 's/^[[:space:]]*[Hh]ostname[[:space:]]*:[[:space:]]*//' \
+                     | tr -d '[:space:]' || true)
             if [ -z "${action}" ]; then
               echo "::error::Issue body must contain a line of the form 'action: <name>'. Title was: ${ISSUE_TITLE}"
               exit 1
@@ -185,7 +198,8 @@ jobs:
           echo "REASON=${reason}" >>"$GITHUB_ENV"
           echo "ACCOUNT_ID=${account_id}" >>"$GITHUB_ENV"
           echo "MODE=${mode}" >>"$GITHUB_ENV"
-          echo ">>> Resolved ACTION=${action} REASON=${reason} ACCOUNT_ID=${account_id} MODE=${mode} (event=${{ github.event_name }})"
+          echo "TUNNEL_HOSTNAME=${tunnel_hostname}" >>"$GITHUB_ENV"
+          echo ">>> Resolved ACTION=${action} REASON=${reason} ACCOUNT_ID=${account_id} MODE=${mode} TUNNEL_HOSTNAME=${tunnel_hostname} (event=${{ github.event_name }})"
 
       - name: Validate action and tier policy
         run: |
@@ -194,7 +208,7 @@ jobs:
             status-check|pull-latest-logs)
               echo "tier=1" >>"$GITHUB_ENV"
               ;;
-            pull-and-deploy|restart-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|enable-m5-consumer|disable-m5-consumer|setup-cloudflare-tunnel|teardown-cloudflare-tunnel|setup-tailscale-funnel|teardown-tailscale-funnel|backfill-pnl-nulls|set-account-mode|fix-data-dir)
+            pull-and-deploy|restart-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|enable-m5-consumer|disable-m5-consumer|setup-cloudflare-tunnel|teardown-cloudflare-tunnel|setup-named-cloudflare-tunnel|teardown-named-cloudflare-tunnel|setup-tailscale-funnel|teardown-tailscale-funnel|backfill-pnl-nulls|set-account-mode|fix-data-dir)
               echo "tier=2" >>"$GITHUB_ENV"
               if [ -z "${REASON// }" ]; then
                 echo "::error::Tier-2 action '${ACTION}' requires a non-empty 'reason' input."
@@ -273,28 +287,38 @@ jobs:
           # VM, never landing on disk. Set as a GitHub Actions secret on
           # this repo before dispatching that action.
           TS_AUTHKEY: ${{ secrets.TS_AUTHKEY }}
+          # CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID only matter for
+          # {setup,teardown}-named-cloudflare-tunnel. Same threading
+          # pattern as TS_AUTHKEY — env-only, never on disk. Reuses the
+          # secrets already declared by cf-worker-deploy.yml (the token
+          # for the named tunnel needs additional Tunnel:Edit scope on
+          # top of Workers:Edit; see scripts/ops/setup_named_cloudflare_tunnel.sh).
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           set -euo pipefail
           # Each action maps to ONE script under scripts/ops/. The
           # remote command is fixed-form; the only variable piece is
           # the script name resolved from the validated `ACTION`.
           case "${ACTION}" in
-            status-check)                    SCRIPT="status_check.sh" ;;
-            pull-latest-logs)                SCRIPT="pull_logs.sh" ;;
-            pull-and-deploy)                 SCRIPT="pull_and_deploy.sh" ;;
-            restart-bot-service)             SCRIPT="restart_bot.sh" ;;
-            reboot-vm)                       SCRIPT="reboot_vm.sh" ;;
-            enable-closed-flat-invariant)    SCRIPT="enable_closed_flat_invariant.sh" ;;
-            disable-closed-flat-invariant)   SCRIPT="disable_closed_flat_invariant.sh" ;;
-            enable-m5-consumer)              SCRIPT="enable_m5_consumer.sh" ;;
-            disable-m5-consumer)             SCRIPT="disable_m5_consumer.sh" ;;
-            setup-cloudflare-tunnel)         SCRIPT="setup_cloudflare_tunnel.sh" ;;
-            teardown-cloudflare-tunnel)      SCRIPT="teardown_cloudflare_tunnel.sh" ;;
-            setup-tailscale-funnel)          SCRIPT="setup_tailscale_funnel.sh" ;;
-            teardown-tailscale-funnel)       SCRIPT="teardown_tailscale_funnel.sh" ;;
-            backfill-pnl-nulls)              SCRIPT="backfill_pnl_nulls_action.sh" ;;
-            set-account-mode)                SCRIPT="set_account_mode.sh" ;;
-            fix-data-dir)                    SCRIPT="fix_data_dir.sh" ;;
+            status-check)                       SCRIPT="status_check.sh" ;;
+            pull-latest-logs)                   SCRIPT="pull_logs.sh" ;;
+            pull-and-deploy)                    SCRIPT="pull_and_deploy.sh" ;;
+            restart-bot-service)                SCRIPT="restart_bot.sh" ;;
+            reboot-vm)                          SCRIPT="reboot_vm.sh" ;;
+            enable-closed-flat-invariant)       SCRIPT="enable_closed_flat_invariant.sh" ;;
+            disable-closed-flat-invariant)      SCRIPT="disable_closed_flat_invariant.sh" ;;
+            enable-m5-consumer)                 SCRIPT="enable_m5_consumer.sh" ;;
+            disable-m5-consumer)                SCRIPT="disable_m5_consumer.sh" ;;
+            setup-cloudflare-tunnel)            SCRIPT="setup_cloudflare_tunnel.sh" ;;
+            teardown-cloudflare-tunnel)         SCRIPT="teardown_cloudflare_tunnel.sh" ;;
+            setup-named-cloudflare-tunnel)      SCRIPT="setup_named_cloudflare_tunnel.sh" ;;
+            teardown-named-cloudflare-tunnel)   SCRIPT="teardown_named_cloudflare_tunnel.sh" ;;
+            setup-tailscale-funnel)             SCRIPT="setup_tailscale_funnel.sh" ;;
+            teardown-tailscale-funnel)          SCRIPT="teardown_tailscale_funnel.sh" ;;
+            backfill-pnl-nulls)                 SCRIPT="backfill_pnl_nulls_action.sh" ;;
+            set-account-mode)                   SCRIPT="set_account_mode.sh" ;;
+            fix-data-dir)                       SCRIPT="fix_data_dir.sh" ;;
             *)
               echo "::error::Allowlist regression: '${ACTION}' was not mapped to a wrapper script."
               exit 2
@@ -316,6 +340,17 @@ jobs:
           fi
           if [ "${ACTION}" = "set-account-mode" ]; then
             REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID}") MODE=$(printf '%q' "${MODE}") ${REMOTE_CMD}"
+          fi
+          if [ "${ACTION}" = "setup-named-cloudflare-tunnel" ] || [ "${ACTION}" = "teardown-named-cloudflare-tunnel" ]; then
+            if [ -z "${CLOUDFLARE_API_TOKEN}" ] || [ -z "${CLOUDFLARE_ACCOUNT_ID}" ]; then
+              echo "::error::${ACTION} requires CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID secrets on this repo."
+              echo "::error::The token needs Account: Cloudflare Tunnel:Edit (plus Zone:DNS:Edit if hostname is set)."
+              exit 1
+            fi
+            REMOTE_CMD="CLOUDFLARE_API_TOKEN=$(printf '%q' "${CLOUDFLARE_API_TOKEN}") CLOUDFLARE_ACCOUNT_ID=$(printf '%q' "${CLOUDFLARE_ACCOUNT_ID}") ${REMOTE_CMD}"
+            if [ "${ACTION}" = "setup-named-cloudflare-tunnel" ] && [ -n "${TUNNEL_HOSTNAME}" ]; then
+              REMOTE_CMD="TUNNEL_HOSTNAME=$(printf '%q' "${TUNNEL_HOSTNAME}") ${REMOTE_CMD}"
+            fi
           fi
           # Capture both stdout and exit code; never let the SSH wrap
           # swallow the wrapper's exit status.
