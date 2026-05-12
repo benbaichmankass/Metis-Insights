@@ -119,17 +119,22 @@ for unit in "${UNITS[@]}"; do
 done
 echo
 
-echo "===== split-path inventory (${SPLIT_DATA}) ====="
+# Note: `find | head` under `set -o pipefail` exits with SIGPIPE (141)
+# when find has more entries than head consumes (the previous version
+# of this script hit exactly that on a VM with ~50 pending_pings
+# files). Pipe into a subshell wrapper so the upstream's SIGPIPE
+# doesn't fail the whole script. The inventory is informational only.
+echo "===== split-path inventory (${SPLIT_DATA}, first 40) ====="
 if [ -d "${SPLIT_DATA}" ]; then
-    find "${SPLIT_DATA}" -type f -printf '  %TY-%Tm-%Td %TH:%TM  %10s  %p\n' 2>/dev/null | head -40
+    { find "${SPLIT_DATA}" -type f -printf '  %TY-%Tm-%Td %TH:%TM  %10s  %p\n' 2>/dev/null || true; } | head -40 || true
 else
     echo "  (no split path; nothing to migrate)"
 fi
 echo
 
-echo "===== canonical inventory (${CANONICAL_DATA}/runtime_logs) ====="
+echo "===== canonical inventory (${CANONICAL_DATA}/runtime_logs, first 20) ====="
 if [ -d "${CANONICAL_DATA}/runtime_logs" ]; then
-    find "${CANONICAL_DATA}/runtime_logs" -maxdepth 1 -type f -printf '  %TY-%Tm-%Td %TH:%TM  %10s  %p\n' 2>/dev/null | head -20
+    { find "${CANONICAL_DATA}/runtime_logs" -maxdepth 1 -type f -printf '  %TY-%Tm-%Td %TH:%TM  %10s  %p\n' 2>/dev/null || true; } | head -20 || true
 else
     echo "  (canonical runtime_logs does not exist yet; will be created)"
 fi
