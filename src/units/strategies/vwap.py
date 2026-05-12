@@ -520,7 +520,7 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
 
     entry = last_close(candles_df)
 
-    # Attempt VWAP-to-price TP; fall back to percentage-based.
+    # Attempt VWAP-to-price TP/SL; fall back to percentage-based.
     try:
         # Phase 1: keep the order-package adapter aligned with
         # build_vwap_signal so the dispatch path's VWAP and the
@@ -530,14 +530,14 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
         typical_price = (window["high"] + window["low"] + window["close"]) / 3.0
         std_dev = float(typical_price.std())
 
-        if direction == "long":
-            tp = vwap
-            risk = entry - tp
-            sl = entry + risk if risk > 0 else entry * 0.98
-        else:
-            tp = vwap
-            risk = tp - entry
-            sl = entry - risk if risk > 0 else entry * 1.02
+        # Use SL/TP from build_vwap_signal directly. The prior formula
+        # computed `risk = entry - tp` for longs, which is always negative
+        # (entry < vwap for a valid long), so `risk > 0` never fired — sl
+        # always fell to the 2% fallback and the std-dev SL was silently
+        # ignored. Reading from signal ensures order_package() and
+        # build_vwap_signal() stay in lock-step.
+        tp = float(signal.get("take_profit", vwap))
+        sl = float(signal.get("stop_loss", entry * (0.98 if direction == "long" else 1.02)))
 
         # Confidence: deviation in std-dev units capped at 1.0
         if std_dev > 0:
