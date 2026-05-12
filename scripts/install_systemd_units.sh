@@ -79,6 +79,15 @@ shopt -u nullglob
 #   heartbeat even when the trader is healthy (2026-05-12 incident).
 #   No service restart needed after installing the drop-in — the watchdog
 #   is a oneshot fired by its timer; the next tick picks up the new env.
+#
+# Why cloudflared needs its own drop-in:
+#   setup_named_cloudflare_tunnel.sh used Python's base64.b64decode to decode
+#   the CF API token. The CF API returns URL-safe base64 (chars - and _);
+#   standard b64decode raises binascii.Error, silently swallowed by
+#   `2>/dev/null || true`. Credentials file written empty → cloudflared
+#   crash-loops → Vercel 502 on /api/bot/* (2026-05-12 incident).
+#   The drop-in switches to --token mode: raw token stored in tunnel.env,
+#   passed directly to cloudflared with no decode.
 # ---------------------------------------------------------------------------
 _WATCHDOG_DROPIN_SRC="${REPO_DIR}/deploy/dropins/watchdog-data-dir.conf"
 _WATCHDOG_DROPIN_DST="${SYSTEMD_DIR}/ict-liveness-watchdog.service.d/data-dir.conf"
@@ -88,6 +97,18 @@ if [ -f "${_WATCHDOG_DROPIN_SRC}" ]; then
         "${SUDO[@]}" mkdir -p "$(dirname "${_WATCHDOG_DROPIN_DST}")"
         "${SUDO[@]}" cp "${_WATCHDOG_DROPIN_SRC}" "${_WATCHDOG_DROPIN_DST}"
         "${SUDO[@]}" chmod 0644 "${_WATCHDOG_DROPIN_DST}"
+        changed=1
+    fi
+fi
+
+_CF_DROPIN_SRC="${REPO_DIR}/deploy/dropins/cloudflared-token.conf"
+_CF_DROPIN_DST="${SYSTEMD_DIR}/ict-cloudflared-tunnel.service.d/token.conf"
+if [ -f "${_CF_DROPIN_SRC}" ]; then
+    if [ ! -e "${_CF_DROPIN_DST}" ] || ! cmp -s "${_CF_DROPIN_SRC}" "${_CF_DROPIN_DST}"; then
+        echo ">>> install_systemd_units: dropin cloudflared-token.conf → ${_CF_DROPIN_DST}"
+        "${SUDO[@]}" mkdir -p "$(dirname "${_CF_DROPIN_DST}")"
+        "${SUDO[@]}" cp "${_CF_DROPIN_SRC}" "${_CF_DROPIN_DST}"
+        "${SUDO[@]}" chmod 0644 "${_CF_DROPIN_DST}"
         changed=1
     fi
 fi
