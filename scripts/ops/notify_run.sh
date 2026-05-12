@@ -11,14 +11,6 @@
 # Usage:
 #   notify_run.sh <action> <exit_code> <run_url> [reason]
 #
-# Args:
-#   action     — operator-actions allowlisted name (status-check,
-#                pull-latest-logs, pull-and-deploy, restart-bot-service,
-#                reboot-vm, set-account-mode, …)
-#   exit_code  — wrapper exit code captured by the workflow
-#   run_url    — GitHub Actions run URL for click-through
-#   reason     — operator-supplied reason input (Tier-2; may be empty)
-#
 # Priority mapping (per docs/claude/operator-actions.md § 5.5):
 #   Tier 1 ok       → low
 #   Tier 1 degraded → high
@@ -26,8 +18,8 @@
 #   Tier 2 deferred → normal  (exit 3 = vm-runner active)
 #   Tier 2 failed   → urgent  (exit 1)
 #   reboot-vm scheduled → high  (recovery uncertainty)
-#   pull-and-deploy ok → normal  (same shape as restart-bot-service)
 #   set-account-mode ok → normal  (audited mode flip)
+#   fix-data-dir ok → normal  (audited data-dir alignment)
 #
 # Failures inside this script never propagate. The operator-actions
 # workflow already records the action's success/failure via its own
@@ -44,8 +36,6 @@ exit_code="${2:-0}"
 run_url="${3:-}"
 reason_raw="${4:-}"
 
-# The workflow may pass reason base64-encoded with a `:b64` suffix
-# to avoid shell-quoting hazards over SSH. Decode if present.
 if [[ "${reason_raw}" == *:b64 ]]; then
     encoded="${reason_raw%:b64}"
     if [ -n "${encoded}" ]; then
@@ -57,7 +47,6 @@ else
     reason="${reason_raw}"
 fi
 
-# Resolve tier + priority + result label from action and exit code.
 case "${action}" in
     status-check|pull-latest-logs)
         tier=1
@@ -87,9 +76,6 @@ case "${action}" in
         ;;
     reboot-vm)
         tier=2
-        # The SSH step exits non-zero on reboot because the connection
-        # drops; the workflow treats that as scheduled-success. Either
-        # way the operator wants to know.
         case "${exit_code}" in
             0|255) result="scheduled (shutdown -r +1)"; priority="high" ;;
             *)     result="FAILED to schedule (exit ${exit_code})"; priority="urgent" ;;
@@ -142,17 +128,21 @@ case "${action}" in
             *) result="FAILED (exit ${exit_code})"; priority="urgent" ;;
         esac
         ;;
+    fix-data-dir)
+        tier=2
+        case "${exit_code}" in
+            0) result="ok"; priority="normal" ;;
+            3) result="deferred — vm-runner active, retry later"; priority="normal" ;;
+            *) result="FAILED (exit ${exit_code})"; priority="urgent" ;;
+        esac
+        ;;
     *)
-        # Unknown action — still notify but flag it as a contract drift.
         tier=0
         result="UNKNOWN ACTION (exit ${exit_code})"
         priority="urgent"
         ;;
 esac
 
-# Compose the message body. Keep it short — Telegram renders each
-# pending-ping JSON's "body" verbatim. A leading [ops] tag makes the
-# Claude bot channel scannable.
 body="[ops] ${action}: ${result}"
 if [ -n "${reason}" ]; then
     body+=$'\n'"reason: ${reason}"
@@ -162,7 +152,6 @@ if [ -n "${run_url}" ]; then
 fi
 body+=$'\n'"tier: ${tier}"
 
-# Enqueue via the canonical producer. send_ping.py exits 0 on success.
 if [ ! -x "${SEND_PING}" ] && [ ! -f "${SEND_PING}" ]; then
     echo "WARN: ${SEND_PING} not found; cannot notify" >&2
     exit 0
