@@ -986,3 +986,162 @@ class TestVwapInvalidDataNoTrade:
         )
         assert result["order_result"]["status"] == "skipped"
         assert exchange.calls == []
+
+
+# ---------------------------------------------------------------------------
+# Recent-context filter (operator directive 2026-05-13)
+# 24h max lookback, recency-weighted (EWM), informational only.
+# ---------------------------------------------------------------------------
+
+from src.units.strategies.vwap import (  # noqa: E402
+    RECENT_CONTEXT_NEUTRAL_BAND_PCT_DEFAULT,
+    _compute_recent_context,
+)
+
+
+def _ctx_candles(close_prices, volume=1000.0):
+    """Build an OHLCV DataFrame for recent-context tests."""
+    rows = []
+    for i, close in enumerate(close_prices):
+        rows.append({
+            "timestamp": i,
+            "open": close - 1,
+            "high": close + 2,
+            "low": close - 2,
+            "close": close,
+            "volume": volume,
+        })
+    return pd.DataFrame(rows)
+
+
+class TestComputeRecentContext:
+    """Unit tests for _compute_recent_context — 24h recency-weighted trend helper."""
+
+    def test_up_when_prices_rise_above_band(self):
+        """Steady price rise → EWM-weighted current above window open → trend=up."""
+        df = _ctx_candles([100.0, 101.0, 102.0, 103.5])  # +3.5%
+        result = _compute_recent_context(df, neutral_band_pct=0.003)
+        assert result["trend"] == "up"
+        assert result["pct"] > 0.003
+
+    def test_down_when_prices_fall_below_band(self):
+        """Steady price fall → EWM-weighted current below window open → trend=down."""
+        df = _ctx_candles([103.5, 102.0, 101.0, 100.0])  # -3.4%
+        result = _compute_recent_context(df, neutral_band_pct=0.003)
+        assert result["trend"] == "down"
+        assert result["pct"] < -0.003
+
+    def test_flat_when_prices_stable(self):
+        """Flat prices → EWM ≈ window open → trend=flat."""
+        df = _ctx_candles([100.0, 100.0, 100.0, 100.0])
+        result = _compute_recent_context(df, neutral_band_pct=0.003)
+        assert result["trend"] == "flat"
+        assert abs(result["pct"]) < 0.003
+
+    def test_unknown_when_dataframe_is_none(self):
+        result = _compute_recent_context(None)
+        assert result["trend"] == "unknown"
+        assert result["pct"] == 0.0
+
+    def test_unknown_when_fewer_than_two_rows(self):
+        df = _ctx_candles([100.0])
+        result = _compute_recent_context(df)
+        assert result["trend"] == "unknown"
+
+    def test_unknown_when_close_column_missing(self):
+        df = pd.DataFrame([{"timestamp": 0, "volume": 1000}, {"timestamp": 1, "volume": 1000}])
+        result = _compute_recent_context(df)
+        assert result["trend"] == "unknown"
+
+    def test_recent_bars_dominate_via_ewm(self):
+        """EWM weighting: a sharp recent move outweighs a flat earlier period.
+        Window starts flat then spikes up sharply at the end — trend should be up."""
+        flat = [100.0] * 20
+        spike = [130.0]  # big move in the last bar
+        df = _ctx_candles(flat + spike)
+        result = _compute_recent_context(df, neutral_band_pct=0.003)
+        assert result["trend"] == "up", (
+            "EWM must weight the recent spike heavily enough to push "
+            "the context above the neutral band even with 20 flat bars before it."
+        )
+
+    def test_uses_module_default_neutral_band(self):
+        """Default neutral_band_pct equals RECENT_CONTEXT_NEUTRAL_BAND_PCT_DEFAULT."""
+        df = _ctx_candles([100.0, 100.0])  # flat
+        result = _compute_recent_context(df)
+        assert result["trend"] == "flat"
+        assert RECENT_CONTEXT_NEUTRAL_BAND_PCT_DEFAULT == pytest.approx(0.003, rel=1e-6)
+
+
+class TestRecentContextInSignalMeta:
+    """Verify build_vwap_signal surfaces recent_context in meta without blocking signals."""
+
+    def test_meta_always_contains_recent_context_key(self):
+        """recent_context and recent_context_pct are present in meta on every tick."""
+        df = _candles_below_vwap()
+        sig = build_vwap_signal(df, symbol="BTCUSDT")
+        assert "recent_context" in sig["meta"]
+        assert "recent_context_pct" in sig["meta"]
+
+    def test_recent_context_unknown_when_no_context_candles_passed(self):
+        """Without recent_context_candles_df the context defaults to 'unknown'."""
+        df = _candles_below_vwap()
+        sig = build_vwap_signal(df, symbol="BTCUSDT")
+        assert sig["meta"]["recent_context"] == "unknown"
+        assert sig["meta"]["recent_context_pct"] == 0.0
+
+    def test_up_context_surfaced_in_meta(self):
+        ctx_df = _ctx_candles([100.0, 102.0, 104.0, 106.0])  # rising → up
+        df = _candles_below_vwap()
+        sig = build_vwap_signal(df, symbol="BTCUSDT", recent_context_candles_df=ctx_df)
+        assert sig["meta"]["recent_context"] == "up"
+        assert sig["meta"]["recent_context_pct"] > 0.003
+
+    def test_down_context_surfaced_in_meta(self):
+        ctx_df = _ctx_candles([106.0, 104.0, 102.0, 100.0])  # falling → down
+        df = _candles_below_vwap()
+        sig = build_vwap_signal(df, symbol="BTCUSDT", recent_context_candles_df=ctx_df)
+        assert sig["meta"]["recent_context"] == "down"
+        assert sig["meta"]["recent_context_pct"] < -0.003
+
+    def test_sell_signal_fires_in_up_context(self):
+        """A sell signal must fire even when recent context is 'up'.
+        The context is informational — it never blocks signals."""
+        ctx_df = _ctx_candles([100.0, 102.0, 104.0, 106.0])
+        df = _candles_above_vwap()
+        sig = build_vwap_signal(df, symbol="BTCUSDT", recent_context_candles_df=ctx_df)
+        assert sig["side"] == "sell", (
+            "Sell signal must not be blocked by uptrending recent context. "
+            "Mean-reversion shorts are valid in uptrending markets."
+        )
+        assert sig["meta"]["recent_context"] == "up"
+
+    def test_buy_signal_fires_in_down_context(self):
+        """A buy signal must fire even when recent context is 'down'.
+        The context is informational — it never blocks signals."""
+        ctx_df = _ctx_candles([106.0, 104.0, 102.0, 100.0])
+        df = _candles_below_vwap()
+        sig = build_vwap_signal(df, symbol="BTCUSDT", recent_context_candles_df=ctx_df)
+        assert sig["side"] == "buy", (
+            "Buy signal must not be blocked by downtrending recent context. "
+            "Mean-reversion longs are valid in downtrending markets."
+        )
+        assert sig["meta"]["recent_context"] == "down"
+
+    def test_no_signal_also_carries_recent_context(self):
+        """recent_context is present in meta even for no-signal (side=none) ticks."""
+        ctx_df = _ctx_candles([100.0, 101.0])
+        df = _candles_near_vwap()
+        sig = build_vwap_signal(df, symbol="BTCUSDT", recent_context_candles_df=ctx_df)
+        assert sig["side"] == "none"
+        assert "recent_context" in sig["meta"]
+
+    def test_custom_neutral_band_respected(self):
+        """neutral_band_pct parameter flows through to _compute_recent_context."""
+        ctx_df_large = _ctx_candles([100.0, 104.0])  # +4% — up under any band
+        result_large = _compute_recent_context(ctx_df_large, neutral_band_pct=0.003)
+        assert result_large["trend"] == "up"
+
+        ctx_df_tiny = _ctx_candles([100.0, 100.001])  # +0.001% — flat under 0.3% band
+        result_tiny = _compute_recent_context(ctx_df_tiny, neutral_band_pct=0.003)
+        assert result_tiny["trend"] == "flat"

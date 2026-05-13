@@ -189,6 +189,69 @@ SL_STD_MULT_DEFAULT = 0.75
 #     pullback), both sides pass through unchanged.
 HTF_BAND_PCT_DEFAULT = 0.02
 
+# Recent-context filter — replaces the disabled 4h EMA-200 HTF gate.
+# At 5m TF the EMA-200 on 4h candles looks back ~33 days — far too slow
+# for a scalper reacting to a 2-day down-move.
+#
+# Operator directive 2026-05-13: largest context window is 24h and the
+# strategy should be weighted towards more recent data, not a flat daily
+# label. Implementation:
+#   - Fetch ≤24 1h candles (24h max lookback).
+#   - Use an exponentially-weighted mean (EWM half-life = ¼ window) so
+#     the most recent hours dominate the signal; bars from the start of
+#     the window contribute minimally.
+#   - Compare the EWM-weighted recent price to the start of the window
+#     as the directional reference.
+#   - The result is INFORMATIONAL ONLY: neither buy nor sell is blocked.
+#     Mean-reversion longs are valid in a downtrend; shorts are valid in
+#     an uptrend. The context is surfaced in signal meta for operator
+#     monitoring and future confidence-weighting analysis.
+RECENT_CONTEXT_NEUTRAL_BAND_PCT_DEFAULT = 0.003  # ±0.3% treated as neutral
+
+
+def _compute_recent_context(
+    candles_df: pd.DataFrame,
+    neutral_band_pct: float = RECENT_CONTEXT_NEUTRAL_BAND_PCT_DEFAULT,
+) -> dict:
+    """Compute a recency-weighted short-term trend from a ≤24h candle window.
+
+    Uses an exponential half-life of ¼ the window length so the most
+    recent bars dominate and early bars provide diminishing context.
+    Compares the EWM-weighted current price to the oldest close in the
+    window to measure directional momentum with recency emphasis.
+
+    Returns a dict with:
+        trend   — "up", "down", "flat", or "unknown"
+        pct     — float EWM-weighted percentage change from window open
+    """
+    if (
+        candles_df is None
+        or not isinstance(candles_df, pd.DataFrame)
+        or len(candles_df) < 2
+        or "close" not in candles_df.columns
+    ):
+        return {"trend": "unknown", "pct": 0.0}
+
+    close = candles_df["close"].astype(float)
+    close_start = float(close.iloc[0])
+
+    if close_start <= 0:
+        return {"trend": "unknown", "pct": 0.0}
+
+    # EWM halflife = ¼ of the window so the last quarter dominates.
+    halflife = max(len(close) / 4.0, 1.0)
+    ewm_price = float(close.ewm(halflife=halflife, adjust=True).mean().iloc[-1])
+    pct_change = (ewm_price - close_start) / close_start
+
+    if pct_change > neutral_band_pct:
+        trend = "up"
+    elif pct_change < -neutral_band_pct:
+        trend = "down"
+    else:
+        trend = "flat"
+
+    return {"trend": trend, "pct": pct_change}
+
 
 def compute_vwap(candles_df: pd.DataFrame) -> float:
     """Return VWAP for the supplied candle window.
@@ -307,6 +370,8 @@ def build_vwap_signal(
     htf_ema: Optional[float] = None,
     htf_band_pct: float = HTF_BAND_PCT_DEFAULT,
     timeframe: Optional[str] = None,
+    recent_context_candles_df: Optional[pd.DataFrame] = None,
+    recent_context_neutral_band_pct: float = RECENT_CONTEXT_NEUTRAL_BAND_PCT_DEFAULT,
 ) -> Dict[str, Any]:
     """Compute a VWAP mean-reversion signal from OHLCV candle data.
 
@@ -398,9 +463,17 @@ def build_vwap_signal(
                 f"htf_close={htf_close:.4f} htf_ema={htf_ema:.4f} band={htf_band_pct:.4f}"
             )
 
+    # Recent context — recency-weighted short-term trend from ≤24h of 1h candles.
+    # Does NOT block either side: mean-reversion longs are valid in downtrends
+    # and shorts in uptrends. Surfaced in meta for operator monitoring and
+    # future confidence-weighting analysis.
+    recent_ctx = _compute_recent_context(
+        recent_context_candles_df, neutral_band_pct=recent_context_neutral_band_pct,
+    ) if recent_context_candles_df is not None else {"trend": "unknown", "pct": 0.0}
+
     logger.info(
-        "VWAP signal: symbol=%s vwap=%.4f price=%.4f std=%.4f deviation=%.2f side=%s",
-        symbol, vwap, current_price, std_dev, deviation, side,
+        "VWAP signal: symbol=%s vwap=%.4f price=%.4f std=%.4f deviation=%.2f side=%s recent_context=%s",
+        symbol, vwap, current_price, std_dev, deviation, side, recent_ctx["trend"],
     )
 
     # BUG-043: confidence must be threaded through to the order package
@@ -419,6 +492,8 @@ def build_vwap_signal(
         "reason": reason,
         "vwap_anchor": anchor,
         "vwap_window_bars": len(window),
+        "recent_context": recent_ctx["trend"],
+        "recent_context_pct": round(float(recent_ctx["pct"]), 6),
     }
     # The order_monitor's ohlcv_fetcher reads ``timeframe`` off the
     # package's meta to fetch fresh candles for monitor() — without it
