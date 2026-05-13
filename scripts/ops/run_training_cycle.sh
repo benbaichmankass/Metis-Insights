@@ -5,23 +5,21 @@
 # Runs a single training cycle on the training-center VM:
 #   1. Pull latest main.
 #   2. Activate the venv (creating if missing).
-#   3. For each manifest listed in TRAINING_MANIFESTS (env var, space-
+#   3. Sync label feedstock from the live VM (best-effort).
+#   4. Rebuild all dataset families from the synced data (best-effort).
+#   5. For each manifest listed in TRAINING_MANIFESTS (env var, space-
 #      separated; defaults to all baseline manifests in ml/configs/),
 #      run `python -m ml train <manifest>`. Each manifest writes a
 #      timestamped experiment dir and registers the result as
 #      `target_deployment_stage: research_only` in the local registry.
-#   4. Print a one-line summary per manifest (model_id, key metric).
-#   5. Exit 0 if every manifest ran. Exit non-zero on the FIRST failure
-#      so systemd journal carries the error.
+#   6. Print a one-line summary per manifest (model_id, key metric).
+#   7. Exit 0 if every manifest ran. Exit non-zero on the first failure
+#      (after logging); manifests with 0-row datasets are skipped with a
+#      warning rather than aborting the cycle.
 #
 # Idempotent: training writes to a fresh experiment dir each time
 # (timestamp-keyed). The registry is append-only by design (S-AI-WS4),
 # so re-runs accumulate candidates without overwriting history.
-#
-# Datasets are NOT built here — the trainer assumes datasets already
-# exist under DATASETS_ROOT. Cross-VM data sync (DB rsync from live VM)
-# is a separate follow-up; until then, the operator must seed
-# DATASETS_ROOT manually with the first build.
 #
 # Environment knobs:
 #   REPO_ROOT             — defaults to /home/ubuntu/ict-trading-bot
@@ -36,7 +34,7 @@
 #
 # Exit codes:
 #   0   every manifest succeeded
-#   1   one or more manifests failed (first failure short-circuits)
+#   1   one or more manifests failed
 #   2   environment misconfigured (missing venv tooling, repo, etc.)
 set -euo pipefail
 
@@ -82,6 +80,27 @@ fi
 # shellcheck source=/dev/null
 source "$VENV_DIR/bin/activate"
 
+# --- Data sync (best-effort) -----------------------------------------------
+# Pull fresh trade_journal.db + signal_audit.jsonl from the live VM so
+# each cycle trains on current data.  A sync failure is logged but does
+# not abort training — existing datasets from the previous cycle are
+# still usable.
+if bash scripts/ops/sync_trainer_data.sh; then
+  emit "$(printf '{"ts":"%s","status":"sync_ok"}' "$(iso_now)")"
+else
+  emit "$(printf '{"ts":"%s","status":"sync_warn","detail":"sync_trainer_data.sh returned non-zero; training will use cached data"}' "$(iso_now)")"
+fi
+
+# --- Dataset build (best-effort) -------------------------------------------
+# Rebuild all families from the freshly synced feedstock.  A build failure
+# is also non-fatal — the training loop will fail on whichever manifest
+# can't find its dataset, and that manifest will be skipped (see below).
+if DATASETS_ROOT="$DATASETS_ROOT" bash scripts/ops/build_trainer_datasets.sh; then
+  emit "$(printf '{"ts":"%s","status":"datasets_ok"}' "$(iso_now)")"
+else
+  emit "$(printf '{"ts":"%s","status":"datasets_warn","detail":"build_trainer_datasets.sh returned non-zero; some datasets may be stale"}' "$(iso_now)")"
+fi
+
 # --- Manifest list ---------------------------------------------------------
 if [ -z "${TRAINING_MANIFESTS:-}" ]; then
   # Default: every YAML under ml/configs/. Sorted for deterministic order.
@@ -104,7 +123,7 @@ for manifest in "${TRAINING_MANIFEST_LIST[@]}"; do
   if [ ! -f "$manifest" ]; then
     emit "$(printf '{"ts":"%s","status":"manifest_missing","manifest":"%s"}' "$(iso_now)" "$manifest")"
     overall_rc=1
-    break
+    continue
   fi
   start="$(iso_now)"
   set +e
@@ -153,7 +172,7 @@ print(json.dumps({
 ' "$(iso_now)" "$manifest" "$start" "$rc" "$err_tail")"
     overall_rc=1
     rm -f "/tmp/train_$$.out" "/tmp/train_$$.err"
-    break  # short-circuit on first failure
+    continue
   fi
   rm -f "/tmp/train_$$.out" "/tmp/train_$$.err"
 done

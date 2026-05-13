@@ -1,0 +1,170 @@
+name: deploy-trainer-bootstrap
+
+# One-shot bootstrap for the ict-trainer-vm (S-AI-WS9).
+#
+# Triggered manually once the operator has acknowledged issue #938
+# (trainer-vm-up notification). Runs the full sequence on the trainer VM:
+#   1. Verify role marker (/etc/ict-trainer-vm.role)
+#   2. Deploy vm-to-vm SSH key (so sync_trainer_data.sh can rsync later)
+#   3. Pull latest main
+#   4. Create venv + install deps
+#   5. Sync trade_journal.db + signal_audit.jsonl from live VM
+#   6. Build all WS5 dataset families
+#   7. Train + register + promote WS5 baselines to TARGET_STAGE
+#   8. Enable ict-trainer.service + ict-trainer.timer
+#   9. Close the notification issue
+#
+# Authority: docs/claude/trainer-vm-mode.md § 3.a — fully autonomous
+# within trainer-VM scope. No live-VM mutations.
+
+on:
+  workflow_dispatch:
+    inputs:
+      trainer_vm_ip:
+        description: 'Trainer VM public IP'
+        required: false
+        default: '158.178.209.121'
+      target_stage:
+        description: 'WS5 baseline promotion target'
+        required: false
+        default: shadow
+        type: choice
+        options:
+          - research_only
+          - candidate
+          - backtest_approved
+          - shadow
+      close_issue:
+        description: 'Issue number to close on success (leave empty to skip)'
+        required: false
+        default: '938'
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      TRAINER_IP: ${{ inputs.trainer_vm_ip || '158.178.209.121' }}
+      SSH_USER: ubuntu
+      REPO_PATH: /home/ubuntu/ict-trading-bot
+
+    steps:
+      - name: Install SSH key
+        env:
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${VM_SSH_KEY}" > ~/.ssh/trainer_key
+          chmod 600 ~/.ssh/trainer_key
+          ssh-keyscan -H "${TRAINER_IP}" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Verify trainer VM role marker
+        run: |
+          role=$(ssh -i ~/.ssh/trainer_key -o StrictHostKeyChecking=no \
+            "${SSH_USER}@${TRAINER_IP}" \
+            "head -n1 /etc/ict-trainer-vm.role 2>/dev/null || echo MISSING")
+          if [ "$role" != "training-center" ]; then
+            echo "::error::Role marker mismatch: expected 'training-center', got '${role}'"
+            exit 1
+          fi
+          echo "Role verified: ${role}"
+
+      - name: Deploy vm-to-vm SSH key
+        env:
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+        run: |
+          # Writes the OVM SSH key to the trainer VM so sync_trainer_data.sh
+          # can rsync from the live VM during this run and every subsequent
+          # systemd-driven cycle.
+          printf '%s\n' "${VM_SSH_KEY}" | \
+            ssh -i ~/.ssh/trainer_key -o StrictHostKeyChecking=no \
+              "${SSH_USER}@${TRAINER_IP}" \
+              "mkdir -p ~/.ssh && chmod 700 ~/.ssh && \
+               cat > ~/.ssh/ict-bot-ovm-private.key && \
+               chmod 600 ~/.ssh/ict-bot-ovm-private.key"
+          echo "vm-to-vm SSH key deployed."
+
+      - name: Pull latest main on trainer VM
+        run: |
+          ssh -i ~/.ssh/trainer_key -o StrictHostKeyChecking=no \
+            "${SSH_USER}@${TRAINER_IP}" \
+            "cd ${REPO_PATH} && \
+             git fetch --quiet origin main && \
+             git reset --hard origin/main && \
+             echo \"pulled: \$(git rev-parse --short HEAD)\""
+
+      - name: Set up venv on trainer VM
+        run: |
+          ssh -i ~/.ssh/trainer_key -o StrictHostKeyChecking=no \
+            "${SSH_USER}@${TRAINER_IP}" \
+            "cd ${REPO_PATH} && \
+             if [ ! -d .venv ]; then \
+               python3.11 -m venv .venv && \
+               .venv/bin/pip install --quiet --upgrade pip && \
+               .venv/bin/pip install --quiet -r requirements.txt && \
+               echo venv_created; \
+             else echo venv_exists; fi"
+
+      - name: Sync data from live VM
+        run: |
+          ssh -i ~/.ssh/trainer_key -o StrictHostKeyChecking=no \
+            "${SSH_USER}@${TRAINER_IP}" \
+            "cd ${REPO_PATH} && bash scripts/ops/sync_trainer_data.sh"
+
+      - name: Build all dataset families
+        run: |
+          ssh -i ~/.ssh/trainer_key -o StrictHostKeyChecking=no \
+            "${SSH_USER}@${TRAINER_IP}" \
+            "cd ${REPO_PATH} && \
+             VENV_DIR=${REPO_PATH}/.venv bash scripts/ops/build_trainer_datasets.sh"
+
+      - name: Bootstrap WS5 baselines
+        run: |
+          ssh -i ~/.ssh/trainer_key -o StrictHostKeyChecking=no \
+            "${SSH_USER}@${TRAINER_IP}" \
+            "cd ${REPO_PATH} && \
+             TARGET_STAGE='${{ inputs.target_stage || 'shadow' }}' \
+             REPO_ROOT=${REPO_PATH} \
+             bash scripts/ops/train_and_register_ws5_baselines.sh"
+
+      - name: Enable ict-trainer systemd units
+        run: |
+          ssh -i ~/.ssh/trainer_key -o StrictHostKeyChecking=no \
+            "${SSH_USER}@${TRAINER_IP}" \
+            "sudo systemctl daemon-reload && \
+             sudo systemctl enable ict-trainer.service && \
+             sudo systemctl enable --now ict-trainer.timer && \
+             echo \"timer: \$(systemctl is-enabled ict-trainer.timer)\" && \
+             echo \"service: \$(systemctl is-enabled ict-trainer.service)\""
+
+      - name: Close notification issue
+        if: success() && inputs.close_issue != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNum = parseInt('${{ inputs.close_issue }}');
+            if (!issueNum || isNaN(issueNum)) return;
+            const { owner, repo } = context.repo;
+            const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+            await github.rest.issues.createComment({
+              owner, repo,
+              issue_number: issueNum,
+              body: [
+                'Trainer bootstrap complete.',
+                '',
+                `- Deployed by workflow run [#${context.runId}](${runUrl})`,
+                `- Trainer VM: \`${{ env.TRAINER_IP }}\``,
+                `- WS5 baselines promoted to \`${{ inputs.target_stage || 'shadow' }}\``,
+                '- `ict-trainer.service` and `ict-trainer.timer` enabled',
+              ].join('\n'),
+            });
+            await github.rest.issues.update({
+              owner, repo,
+              issue_number: issueNum,
+              state: 'closed',
+            });
+            core.notice(`Closed issue #${issueNum}`);

@@ -24,6 +24,11 @@
 # (b) `shadow` is the gate the WS7 factory enforces, so anything below
 # it is unloadable. Override TARGET_STAGE to push further.
 #
+# Manifest failures (e.g. a 0-row dataset for review_journal or
+# setup_labels_audit when data is not yet flowing) are logged and
+# skipped rather than aborting the entire bootstrap — the run
+# continues with the remaining manifests.
+#
 # Environment knobs (env vars):
 #   REPO_ROOT           — defaults to /home/ubuntu/ict-trading-bot
 #   VENV_DIR            — defaults to "$REPO_ROOT/.venv"
@@ -52,8 +57,7 @@
 #
 # Exit codes:
 #   0   every manifest trained + every promotion succeeded
-#   1   one or more manifests failed at training OR promotion (first
-#       failure short-circuits)
+#   1   one or more manifests failed at training OR promotion
 #   2   environment misconfigured (missing venv, missing repo, etc.)
 
 # NOTE on shell flags: we deliberately do NOT use `set -e` because we
@@ -155,7 +159,7 @@ for manifest in "${MANIFEST_LIST[@]}"; do
   if [ ! -f "$manifest" ]; then
     emit "$(printf '{"ts":"%s","status":"manifest_missing","manifest":"%s"}' "$(iso_now)" "$manifest")"
     overall_rc=1
-    break
+    continue
   fi
 
   # --- Train --
@@ -165,7 +169,7 @@ for manifest in "${MANIFEST_LIST[@]}"; do
     --datasets-root "$DATASETS_ROOT" \
     --experiments-root "$EXPERIMENTS_ROOT" \
     --registry-root "$REGISTRY_ROOT" \
-    > "/tmp/train_$$.out" 2>"/tmp/train_$$.err"
+    > "/tmp/train_$$.out" 2> "/tmp/train_$$.err"
   rc=$?
   set -e
   if [ "$rc" -ne 0 ]; then
@@ -185,7 +189,7 @@ print(json.dumps({
 ' "$(iso_now)" "$manifest" "$train_start" "$rc" "$err_tail")"
     overall_rc=1
     rm -f "/tmp/train_$$.out" "/tmp/train_$$.err"
-    break
+    continue
   fi
 
   # `python -m ml train` prints a JSON summary on stdout — find the
@@ -194,8 +198,6 @@ print(json.dumps({
     | python -c '
 import json, sys
 buf = sys.stdin.read()
-# The summary is a single multi-line JSON object printed with
-# indent=2. Try to parse the trailing well-formed JSON block.
 start = buf.rfind("{")
 end = buf.rfind("}")
 if start == -1 or end == -1 or end < start:
@@ -213,7 +215,7 @@ print(mid)
     emit "$(printf '{"ts":"%s","status":"manifest_failed","phase":"parse","manifest":"%s","detail":"could not extract model_id from training stdout"}' "$(iso_now)" "$manifest")"
     overall_rc=1
     rm -f "/tmp/train_$$.out" "/tmp/train_$$.err"
-    break
+    continue
   fi
 
   emit "$(python -c '
@@ -240,7 +242,7 @@ print(json.dumps({
       --by "$PROMOTION_BY" \
       --reason "$PROMOTION_REASON" \
       --gates-acknowledged \
-      > "/tmp/promote_$$.out" 2>"/tmp/promote_$$.err"
+      > "/tmp/promote_$$.out" 2> "/tmp/promote_$$.err"
     rc=$?
     set -e
     if [ "$rc" -ne 0 ]; then
@@ -276,7 +278,7 @@ print(json.dumps({
   done
 
   if [ "$promote_failed" -eq 1 ]; then
-    break
+    continue
   fi
 
   emit "$(python -c '
