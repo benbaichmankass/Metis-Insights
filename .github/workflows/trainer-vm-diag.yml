@@ -79,7 +79,7 @@ jobs:
           #                           line1
           #                           line2
           cmd_raw="$(printf '%s' "${ISSUE_BODY}" | \
-            awk '/^cmd:/{found=1; sub(/^cmd:[[:space:]]*/,""); if($0!="") print; next} found{print}' )"
+            awk '/^cmd:/{found=1; sub(/^cmd:[[:space:]]*/,""); if($0!="" && $0!="|") print; next} found{print}' )"
           if [ -z "${cmd_raw}" ]; then
             echo "::error::Issue body must contain a 'cmd:' line."
             exit 1
