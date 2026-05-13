@@ -1,9 +1,10 @@
 name: trainer-vm-logs
 
 # One-shot diagnostic: SSHes into the trainer VM, collects backtest
-# and system logs, and comments them on a target issue.
+# and system logs, and comments them on the triggering issue.
 #
-# Trigger: workflow_dispatch only.
+# Trigger: issues.opened with title starting '[trainer-vm-logs]'
+#          OR workflow_dispatch.
 # Required secret: VM_SSH_KEY
 
 on:
@@ -12,13 +13,23 @@ on:
       issue_number:
         description: "Issue number to post logs on (default 1056)"
         default: "1056"
+  issues:
+    types: [opened]
 
 permissions:
   contents: read
   issues: write
 
+concurrency:
+  group: trainer-vm-logs-${{ github.event_name }}
+  cancel-in-progress: true
+
 jobs:
   fetch-logs:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' &&
+        startsWith(github.event.issue.title, '[trainer-vm-logs]'))
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -40,35 +51,41 @@ jobs:
               -o StrictHostKeyChecking=accept-new \
               -o ConnectTimeout=20 \
               ubuntu@158.178.209.121 bash <<'REMOTE' > vm-logs.txt 2>&1
-          set -x
-
           echo "=== ROLE MARKER ==="
           cat /etc/ict-trainer-vm.role 2>/dev/null || echo MISSING
 
           echo "=== GIT STATUS ==="
-          cd /home/ubuntu/ict-trading-bot 2>/dev/null && git log --oneline -5 || echo "repo not found"
+          cd /home/ubuntu/ict-trading-bot 2>/dev/null \
+            && git log --oneline -5 \
+            || echo "repo not found at /home/ubuntu/ict-trading-bot"
 
           echo "=== VENV CHECK ==="
-          ls -la /home/ubuntu/ict-trading-bot/.venv/bin/python 2>/dev/null || echo "no .venv"
+          ls -la /home/ubuntu/ict-trading-bot/.venv/bin/python 2>/dev/null || echo "no .venv found"
 
           echo "=== BACKTEST ERROR LOG ==="
           cat /tmp/vwap_bt_err.txt 2>/dev/null || echo "(not found)"
-
-          echo "=== BACKTEST RESULT JSON ==="
-          cat /tmp/backtest_result.json 2>/dev/null || echo "(not found)"
 
           echo "=== FRESH CSV STATUS ==="
           ls -lh /tmp/backtest_fresh.csv 2>/dev/null || echo "(not found)"
 
           echo "=== DISK SPACE ==="
-          df -h /tmp /home 2>/dev/null
+          df -h /tmp /home 2>/dev/null || true
 
-          echo "=== RECENT PYTHON PROCESSES ==="
+          echo "=== ACTIVE PYTHON PROCESSES ==="
           ps aux | grep python | grep -v grep || echo "none running"
 
           echo "=== LAST 30 LINES SYSLOG ==="
           tail -30 /var/log/syslog 2>/dev/null || journalctl -n 30 --no-pager 2>/dev/null || echo "no syslog"
           REMOTE
+
+      - name: Resolve issue number
+        id: issue
+        run: |
+          if [ "${{ github.event_name }}" = "issues" ]; then
+            echo "num=${{ github.event.issue.number }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "num=${{ inputs.issue_number }}" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Post logs as issue comment
         uses: actions/github-script@v7
@@ -76,7 +93,7 @@ jobs:
           script: |
             const fs = require('fs');
             const logs = fs.readFileSync('vm-logs.txt', 'utf8');
-            const issueNum = parseInt('${{ inputs.issue_number }}', 10) || 1056;
+            const issueNum = parseInt('${{ steps.issue.outputs.num }}', 10);
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
             const body = `**Trainer VM diagnostic logs** (run: ${runUrl})\n\n\`\`\`\n${logs.slice(0, 60000)}\n\`\`\``;
             await github.rest.issues.createComment({
@@ -84,4 +101,11 @@ jobs:
               repo: context.repo.repo,
               issue_number: issueNum,
               body,
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNum,
+              state: 'closed',
+              state_reason: 'completed',
             });
