@@ -75,7 +75,7 @@ permissions:
   issues: write
 
 concurrency:
-  group: vwap-backtest
+  group: vwap-backtest-${{ github.event_name }}
   cancel-in-progress: false
 
 jobs:
