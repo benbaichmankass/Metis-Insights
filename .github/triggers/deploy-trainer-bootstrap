@@ -6,3 +6,5 @@
 #   actor: claude-trainer (branch claude/deploy-trainer-vm-IpxZD)
 #   2026-05-13T14:00:00Z  re-trigger after fix: correct trade_journal.db path (#1045)
 #   actor: claude-trainer
+#   2026-05-13T14:43:00Z  re-trigger after fix: drop -- before key=value family args (#1047)
+#   actor: claude-trainer
