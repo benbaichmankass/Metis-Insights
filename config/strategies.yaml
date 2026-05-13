@@ -36,42 +36,18 @@ strategies:
     # Strategy-specific (mirrors the legacy class defaults at
     # strategies/turtle_soup_mtf_v1.py:38-55)
     sweep_lookback_15m: 60
-    # 2026-05-09 turtle-soup-signal-fix: cadence pair (C2+C3) shipped on
-    # the 0.30 ATR-stop baseline. Phase-2 backtest
-    # (experiments/2026-05-08-all-models-training/results/phase2_sweep.json):
-    # baseline 32 trades / Sharpe +1.33 → C2+C3 37 trades / Sharpe +1.49,
-    # OOS Sharpe +1.22 → +2.48, E[R] +0.266 → +0.241 R per trade
-    # (essentially flat). Pair must ship together — buffer alone failed
-    # the expectancy gate, tp1 alone cut cadence. Full sweep table in
-    # src/units/strategies/turtle_soup.py::_DEFAULTS comment block.
     min_sweep_buffer_bps: 10
     min_body_to_range: 0.60
     atr_period: 14
-    # 2026-05-08 training run tightened 0.35 → 0.30 (single-knob lift,
-    # +0.53 Sharpe full-sample, +0.97 OOS, no cadence cost). See
-    # experiments/2026-05-08-all-models-training/RECOMMENDATIONS.md.
     atr_stop_mult: 0.30
     be_at_r: 0.75
-    # 2026-05-09 turtle-soup-signal-fix: tightened 1.25 → 1.00 R as part
-    # of the C2+C3 cadence pair (see min_sweep_buffer_bps comment above).
     tp1_at_r: 1.00
     tp2_at_r: 3.0
     partial_close_pct: 0.25
     trail_atr_mult: 1.2
     max_entry_wait_bars_1m: 20
     entry_tf: "1m"
-    # 2026-05-09 turtle-soup-signal-fix: structural cadence fix. The
-    # detector now scans the last K bars (most-recent first) for a
-    # setup instead of only iloc[-1]. K=4 covers a 1-hour scan-back at
-    # 15 m, enough to catch a setup that closed between pipeline ticks
-    # without reactivating stale signals (the strategy_monocle gate
-    # downstream guards against re-emitting an open setup).
     setup_lookback_bars: 4
-
-    # Shadow-mode predictors (S-AI-WS7-PART-5; mirrors vwap PART-4).
-    # See the comment block on `vwap.shadow_model_ids` for the full
-    # contract — registry-backed factory + stage gate + per-model
-    # error isolation. Empty list (default) = no shadow side-channel.
     shadow_model_ids: []
 
   vwap:
@@ -79,70 +55,33 @@ strategies:
     signal_prefixes: [vwap]
     enabled: true
     risk_pct: 1.0
-    # Operator directive (S-015 mid-sprint): VWAP runs at 5m, not 15m.
-    # 5m gives the mean-reversion signal more bars to react to intra-day
-    # deviations and matches the timeframe the analyst tunes against.
-    # PM REVIEW required because this changes which bars the live trader
-    # consumes and the cadence of order generation.
     timeframe: "5m"
     symbols:
       - BTCUSDT
-    threshold: 0.01           # VWAP deviation threshold (preserved from S-011)
-    # S-047 T4: time-decay close window for monitor() (minutes). The
-    # mean-reversion thesis is session-bounded; if TP/SL/VWAP-cross
-    # haven't fired by the end of this window the monitor closes the
-    # position so capital recycles. Tunable here; the strategy module
-    # falls back to MONITOR_HOLD_WINDOW_MINUTES (240) when this key
-    # is missing.
+    threshold: 0.01
     monitor_hold_window_minutes: 240
 
-    # Recent-context filter (operator directive 2026-05-13). Replaces the
-    # disabled 4h EMA-200 gate with a recency-weighted short-term trend measure.
-    #
-    # Fetches ≤24h of 1h candles. Uses an EWM (half-life = ¼ window) so the
-    # last few hours dominate — more recent price action carries more weight
-    # than the start of the window. Neither buy nor sell is blocked: the
-    # context is INFORMATIONAL ONLY, surfaced in signal meta as
-    # recent_context ("up"/"down"/"flat") and recent_context_pct.
-    #
-    # Key differences from the old 4h EMA-200 HTF gate:
-    #   - Old: ~33-day lookback; hard-blocked SELL in uptrend.
-    #   - New: ≤24h lookback, recency-weighted. No blocking.
+    # Recent-context filter (operator directive 2026-05-13).
+    # Informational only — does not block entries.
     recent_context_filter:
       enabled: true
       timeframe: "1h"
-      lookback_bars: 24        # 24 × 1h = 24h max lookback
-      # ±0.3% EWM-weighted change treated as flat (not trending).
+      lookback_bars: 24
       neutral_band_pct: 0.003
 
-    # Legacy HTF trend gate (S-050; experiments/2026-05-08-all-models-training).
-    # Blocks BUY when 4h close < EMA-200 × (1 - band_pct); blocks SELL when
-    # 4h close > EMA-200 × (1 + band_pct).
+    # HTF trend gate — re-enabled 2026-05-13 with 5m-appropriate config.
+    # Interim setting: 1h EMA-20 (~20h trend context) pending backtest
+    # results from vwap-backtest issue #1066 (8 random 30-day windows
+    # across 365 days of data). Will be updated to the winning config
+    # once results are in; revert to enabled: false if no-filter wins.
     #
-    # DISABLED 2026-05-13: the 38-month training dataset (Jan 2023 → Feb 2026)
-    # was dominated by bull-market conditions. The 4h EMA-200 (~33 days look-
-    # back) is too slow to capture short-term downtrends; the bot kept entering
-    # longs into a clearly falling 2-day market. Re-enable only after a fresh
-    # backtest on recent 5m data (last 90 days) covering both up and down
-    # regimes — trigger via vwap-backtest workflow with `days: 90`.
+    # Replaces the old 4h EMA-200 (~33-day lookback) which was biased by
+    # a 38-month bull-dominated dataset and blocked sell entries in a
+    # clearly falling market (2026-05-11/12 incident).
     htf_trend_filter:
-      enabled: false
-      htf_timeframe: "4h"
-      ema_period: 200
-      # 0.020 = 2% band (band sweep showed +0.35 Sharpe + 13% cadence
-      # recovery vs the originally-proposed 0.010; see PLAN.md V2 results).
+      enabled: true
+      htf_timeframe: "1h"
+      ema_period: 20
       band_pct: 0.02
 
-    # Shadow-mode predictors (S-AI-WS7-PART-4). List of registered
-    # model_ids that should score every vwap signal as a side-channel
-    # observation. Each model is loaded via
-    # ml.shadow.factory.resolve_predictors, wrapped in ShadowPredictor,
-    # and called inside vwap.order_package(). The score does NOT
-    # influence the deterministic decision (verified by
-    # tests/test_vwap_shadow.py::test_no_predictor_keys_unchanged).
-    # Models must be promoted past `backtest_approved` (i.e. at
-    # `shadow`, `advisory`, `limited_live`, or `live_approved`) for
-    # the factory to load them; entries failing the stage gate are
-    # logged and skipped without crashing the strategy.
-    # Empty list (default) = no shadow side-channel.
     shadow_model_ids: []
