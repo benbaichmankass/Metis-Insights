@@ -131,23 +131,23 @@ emit "$(printf '{"ts":"%s","status":"build_start","datasets_root":"%s","version"
 build_family backtest_results \
   --output-dir "$DATASETS_ROOT" --version "$DATASET_VERSION" \
   --source "trade_journal.db" --overwrite \
-  -- "db_path=${DB_PATH}"
+  "db_path=${DB_PATH}"
 
 build_family trade_outcomes \
   --output-dir "$DATASETS_ROOT" --version "$DATASET_VERSION" \
   --source "trade_journal.db" --overwrite \
-  -- "db_path=${DB_PATH}"
+  "db_path=${DB_PATH}"
 
 build_family execution_quality \
   --output-dir "$DATASETS_ROOT" --version "$DATASET_VERSION" \
   --source "trade_journal.db" --overwrite \
-  -- "db_path=${DB_PATH}" "slippage_cap_bps=200.0"
+  "db_path=${DB_PATH}" "slippage_cap_bps=200.0"
 
 if [ -f "$ACCOUNTS_YAML" ]; then
   build_family account_context \
     --output-dir "$DATASETS_ROOT" --version "$DATASET_VERSION" \
     --source "trade_journal.db" --overwrite \
-    -- "db_path=${DB_PATH}" "accounts_yaml_path=${ACCOUNTS_YAML}"
+    "db_path=${DB_PATH}" "accounts_yaml_path=${ACCOUNTS_YAML}"
 else
   emit "$(printf '{"ts":"%s","status":"skipped","family":"account_context","detail":"config/accounts.yaml not found"}' "$(iso_now)")"
 fi
@@ -155,14 +155,14 @@ fi
 build_family setup_labels \
   --output-dir "$DATASETS_ROOT" --version "$DATASET_VERSION" \
   --source "trade_journal.db" --overwrite \
-  -- "db_path=${DB_PATH}" "risk_pct=1.0" "r_cap=3.0"
+  "db_path=${DB_PATH}" "risk_pct=1.0" "r_cap=3.0"
 
 if [ -f "$AUDIT_PATH" ]; then
   build_family setup_labels_audit \
     --output-dir "$DATASETS_ROOT" --version "$DATASET_VERSION" \
     --source "trade_journal.db" --overwrite \
-    -- "db_path=${DB_PATH}" "audit_log_path=${AUDIT_PATH}" \
-       "risk_pct=1.0" "r_cap=3.0" "match_window_seconds=60"
+    "db_path=${DB_PATH}" "audit_log_path=${AUDIT_PATH}" \
+    "risk_pct=1.0" "r_cap=3.0" "match_window_seconds=60"
 else
   emit "$(printf '{"ts":"%s","status":"skipped","family":"setup_labels_audit","detail":"signal_audit.jsonl absent — no signals fired yet"}' "$(iso_now)")"
 fi
@@ -172,7 +172,7 @@ fi
 build_family review_journal \
   --output-dir "$DATASETS_ROOT" --version "$DATASET_VERSION" \
   --source "comms-artifacts" --overwrite \
-  -- "comms_root=${COMMS_ROOT}" "include_archive=true"
+  "comms_root=${COMMS_ROOT}" "include_archive=true"
 
 # ---- market_raw + market_features (Bybit public klines) -----------------
 # The bybit_offvm adapter requires ICT_OFFVM_BUILD_HOST=1 to guard against
@@ -196,15 +196,15 @@ fi
 build_family market_raw \
   --output-dir "$DATASETS_ROOT" --version "$DATASET_VERSION" \
   --source "bybit_v5_offvm" --symbol-scope BTCUSDT --timeframe 1h --overwrite \
-  -- "adapter=bybit_v5_offvm" "symbol=BTCUSDT" "timeframe=1h" \
-     "start=${MARKET_START}" "end=${MARKET_END}"
+  "adapter=bybit_v5_offvm" "symbol=BTCUSDT" "timeframe=1h" \
+  "start=${MARKET_START}" "end=${MARKET_END}"
 
 if [ -d "$MARKET_RAW_PATH" ]; then
   build_family market_features \
     --output-dir "$DATASETS_ROOT" --version "$DATASET_VERSION" \
     --source "${MARKET_RAW_PATH}" --symbol-scope BTCUSDT --timeframe 1h --overwrite \
-    -- "market_raw_path=${MARKET_RAW_PATH}" "vol_window_n=20" "forward_window_m=5" \
-       "vol_threshold=0.005" "trend_threshold=0.005" "n_vol_buckets=3"
+    "market_raw_path=${MARKET_RAW_PATH}" "vol_window_n=20" "forward_window_m=5" \
+    "vol_threshold=0.005" "trend_threshold=0.005" "n_vol_buckets=3"
 else
   emit "$(printf '{"ts":"%s","status":"skipped","family":"market_features","detail":"market_raw path not found; regime-classifier baseline skipped"}' "$(iso_now)")"
 fi
