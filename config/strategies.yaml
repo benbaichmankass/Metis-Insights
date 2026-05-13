@@ -96,23 +96,38 @@ strategies:
     # is missing.
     monitor_hold_window_minutes: 240
 
-    # Phase 2 HTF trend gate (S-050; experiments/2026-05-08-all-models-training).
-    # Blocks BUY (mean-reversion long) when 4 h close < EMA-200 × (1 - band_pct);
-    # blocks SELL when 4 h close > EMA-200 × (1 + band_pct). The ±band_pct
-    # region passes through unchanged.
+    # Recent-context filter (operator directive 2026-05-13). Replaces the
+    # disabled 4h EMA-200 gate with a recency-weighted short-term trend measure.
     #
-    # DISABLED 2026-05-13: the 38-month training dataset (Jan 2023 → Feb 2026)
-    # was dominated by bull-market conditions. The 4h EMA-200 (~33 days look-
-    # back) is too slow to capture short-term downtrends; the bot kept entering
-    # longs into a clearly falling 2-day market. Re-enable only after a fresh
-    # backtest on recent 5m data (last 90 days) covering both up and down
-    # regimes — trigger via vwap-backtest workflow with `days: 90`.
+    # Fetches ≤24h of 1h candles. Uses an EWM (half-life = ¼ window) so the
+    # last few hours dominate — more recent price action carries more weight
+    # than the start of the window. Neither buy nor sell is blocked: the
+    # context is INFORMATIONAL ONLY, surfaced in signal meta as
+    # recent_context ("up"/"down"/"flat") and recent_context_pct.
+    #
+    # Key differences from the old 4h EMA-200 HTF gate:
+    #   - Old: ~33-day lookback; hard-blocked SELL in uptrend.
+    #   - New: ≤24h lookback, recency-weighted. No blocking.
+    recent_context_filter:
+      enabled: true
+      timeframe: "1h"
+      lookback_bars: 24        # 24 × 1h = 24h max lookback
+      # ±0.3% EWM-weighted change treated as flat (not trending).
+      neutral_band_pct: 0.003
+
+    # HTF trend gate — re-enabled 2026-05-13 with 5m-appropriate config.
+    # Interim setting: 1h EMA-20 (~20h trend context) pending backtest
+    # results from vwap-backtest issue #1066 (8 random 30-day windows
+    # across 365 days of data). Will be updated to the winning config
+    # once results are in; revert to enabled: false if no-filter wins.
+    #
+    # Replaces the old 4h EMA-200 (~33-day lookback) which was biased by
+    # a 38-month bull-dominated dataset and blocked sell entries in a
+    # clearly falling market (2026-05-11/12 incident).
     htf_trend_filter:
-      enabled: false
-      htf_timeframe: "4h"
-      ema_period: 200
-      # 0.020 = 2% band (band sweep showed +0.35 Sharpe + 13% cadence
-      # recovery vs the originally-proposed 0.010; see PLAN.md V2 results).
+      enabled: true
+      htf_timeframe: "1h"
+      ema_period: 20
       band_pct: 0.02
 
     # Shadow-mode predictors (S-AI-WS7-PART-4). List of registered
