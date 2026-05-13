@@ -266,12 +266,8 @@ jobs:
                exit \$EXIT" \
               > backtest-result.json
 
-          # Validate the output is parseable JSON
-          python3 -c "
-import json, os, sys
-data = json.load(open('backtest-result.json'))
-print('valid JSON,', os.path.getsize('backtest-result.json'), 'bytes', file=sys.stderr)
-"
+          # Validate the output is parseable JSON (single-line to stay within block scalar)
+          python3 -c "import json,os,sys; d=json.load(open('backtest-result.json')); print('valid JSON,', os.path.getsize('backtest-result.json'), 'bytes', file=sys.stderr)"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
