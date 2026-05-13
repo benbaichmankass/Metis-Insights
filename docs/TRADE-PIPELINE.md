@@ -191,20 +191,27 @@ If a stage is added, removed, or reordered, also update the top-level diagram be
 
 ## Stage 8: Position Monitoring & Exit
 
-**Files:** `src/runtime/order_monitor.py` (`run_monitor_tick()`)
+**Files:** `src/runtime/order_monitor.py` (`run_monitor_tick()`, `_apply_update()`, `_apply_partial_close()`, `_send_modify_to_exchange()`, `_send_close_to_exchange()`), `src/units/strategies/vwap.py` (`monitor()`), `src/units/strategies/turtle_soup.py` (`monitor()`), `src/units/strategies/_base.py` (`monitor_breakeven_sl()`), `config/strategies.yaml`
 
-**Inputs:** Open positions from the journal; fresh candles each tick from Stage 1; strategy `monitor()` hooks per open position.
+**Inputs:** Open packages from the `order_packages` table (status='open') queried per-strategy each tick; fresh candles per package at its `meta.timeframe` (falling back to `config/strategies.yaml`'s per-strategy timeframe when legacy rows lack the key); per-strategy cfg map passed through to each `monitor()` call.
 
-**Outputs:** Exit verdicts (close, partial close, trail, hold) applied to `trade_journal.db`; close orders submitted via Stage 7's executor.
+**Outputs:** Strategy verdicts written back to the journal and (for live accounts) routed to the exchange. Shapes: `{"sl": float}` / `{"tp": float}` modify the package row and call `_send_modify_to_exchange` (Bybit `set_trading_stop`); `{"action": "close", "reason", "exit_price"}` closes both package and linked trade row and calls `_send_close_to_exchange` (reduce-only market order); `{"action": "close", "close_qty_pct": <1.0, "reason", "exit_price", "next_tp"?}` reduces `trades.position_size` and optionally rolls `order_packages.tp` forward without closing the package. Each per-pkg dispatch emits one INFO log line (`pkg_id`, `symbol`, `candles`, `verdict`) so the operator can confirm the loop reached each open position.
 
-**Description:** After Stage 7 places an order, position management runs every tick on every open position. The monitor calls each strategy's `monitor()` hook with the latest candles; the hook returns `None` (hold) or an exit verdict. Verdicts cover take-profit / stop-loss fills, time-based exits, and strategy-specific signals like a VWAP cross. Non-`None` verdicts are applied to the journal and (for live accounts) routed back through the executor as close orders.
+**Description:** The trader's main loop (`src/main.py`) invokes `run_monitor_tick()` after every entry-side tick. For every open package the loop fetches fresh candles, decodes the package row, and calls the owning strategy's `monitor(cfg, candles_df, open_pkg)` hook. Each strategy implements its own exit ladder; the operator is hands-off — every adjustment to a live position originates from `monitor()`.
+
+`vwap.monitor()` close-path priority (first match wins): (1) TP-cross — `close ≥ tp` long / `close ≤ tp` short → full close; (2) SL-cross → full close; (3) VWAP-cross — live VWAP recomputed from fresh candles; price reverted across the live VWAP line → full close; (4) Time-decay — package older than `cfg.monitor_hold_window_minutes` (default 240) → full close; (5) SL-to-break-even — price moved past `cfg.be_at_r × 1R` in our favour (default `be_at_r=1.0`) → slide SL to entry (one-shot, idempotent on subsequent ticks).
+
+`turtle_soup.monitor()` close-path priority (first match wins): (1) SL-cross → full close; (2) TP1 partial — price reached the package's `tp` (= TP1 at signal time) and `meta.tp2` is present → emit `{action: close, close_qty_pct: cfg.partial_close_pct (default 0.25), reason: tp1_partial, next_tp: meta.tp2}`. `_apply_partial_close` reduces `trades.position_size` and rolls `order_packages.tp` forward to TP2 so the next tick targets the runner; (3) TP2 full close — package's tp has been rolled to TP2 and price hit it → full close; (4) SL-to-break-even — price moved past `cfg.be_at_r × 1R` (default `be_at_r=0.75`) → slide SL to entry.
+
+All thresholds live in `config/strategies.yaml` (`strategies.<strategy>.{be_at_r, monitor_hold_window_minutes, partial_close_pct, tp1_at_r, tp2_at_r}`) and are picked up on the next config reload — no code changes required to tune the monitor. The break-even one-R distance is computed from the original `abs(entry - sl)` at signal time; once SL has slid to entry, the helper is idempotent and does not continue trailing (that's a deliberate scope boundary — there is no ATR-based progressive trail today).
 
 **Failure modes:**
-- Strategy `monitor()` raises — caught and logged; the position keeps the previous verdict for the tick.
+- Strategy `monitor()` raises — caught in `_call_strategy_monitor`, logged at WARNING; the package keeps its previous state for the tick.
+- OHLCV fetcher returns `None` (timeframe missing in `meta`, exchange read failure, etc.) — monitor short-circuits to `None` and the diagnostic log line surfaces `candles=None` so the silent-no-data case is visible to the operator instead of looking like a working but inert monitor.
 - Stop-loss / take-profit price drift between detection and submission — broker may fill at a different price; recorded faithfully in the journal.
 - Bot restart between detection and submission — closed-flat invariant + journal reconciliation handle the resume case.
 
-**Last verified:** 2026-05-10
+**Last verified:** 2026-05-13
 
 ---
 
