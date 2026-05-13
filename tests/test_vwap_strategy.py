@@ -222,21 +222,23 @@ class TestBuildVwapSignal:
         assert "take_profit" not in signal
 
     def test_sl_distance_uses_sl_std_mult(self):
-        """The stop-loss distance from entry equals sl_std_mult * std_dev.
+        """The stop-loss distance from entry equals sl_std_mult * std_dev
+        (subject to the ATR floor — the larger of the two wins).
 
-        The default 0.5 reflects the 2026-05-03 operator directive that
-        pairs the 1.0σ entry threshold with a 0.5σ stop to preserve a
-        risk:reward of 1:2 at the entry boundary.
+        The default 0.75 reflects the 2026-05-12 live-trading adjustment:
+        the original 0.5σ stop was too tight and price noise was triggering
+        sl_cross before the mean-reversion thesis played out. The ATR floor
+        is an additional noise guard (see SL_STD_MULT_DEFAULT comment).
         """
         df = _candles_below_vwap()
         s_default = build_vwap_signal(df, symbol="BTCUSDT")
         s_wide = build_vwap_signal(df, symbol="BTCUSDT", sl_std_mult=2.0)
 
         std_dev = s_default["meta"]["std_dev"]
-        # default = SL_STD_MULT_DEFAULT = 0.5 (operator directive 2026-05-03)
+        # default = SL_STD_MULT_DEFAULT = 0.75 (2026-05-12 live-trading adjustment)
         d_default = s_default["entry_price"] - s_default["stop_loss"]
         d_wide = s_wide["entry_price"] - s_wide["stop_loss"]
-        assert d_default == pytest.approx(0.5 * std_dev, rel=1e-6)
+        assert d_default == pytest.approx(0.75 * std_dev, rel=1e-6)
         assert d_wide == pytest.approx(2.0 * std_dev, rel=1e-6)
 
     def test_signal_is_packageable_after_g5_fix(self):
@@ -311,24 +313,27 @@ class TestBuildVwapSignal:
             "out-of-sample threshold sweep + operator approval."
         )
 
-    def test_sl_default_pinned_to_half_sigma_per_operator_directive(self):
-        """CP-2026-05-03-20 operator directive: SL_STD_MULT_DEFAULT halved
-        from 1.0 to 0.5 in lock-step with the entry-threshold revert so
-        the risk:reward at the entry boundary stays 1:2 (reward = 2 ×
-        risk). Pinning both constants prevents a future tuning sprint
-        from drifting one without the other."""
+    def test_sl_default_pinned_to_current_value(self):
+        """2026-05-12 live-trading adjustment: SL_STD_MULT_DEFAULT raised
+        from 0.5 to 0.75 after the 0.5σ stop proved too tight — live price
+        noise was triggering sl_cross before mean-reversion played out.
+        Pins the current value so a future tuning sprint must explicitly
+        update this test (and document the rationale) when it changes."""
         from src.units.strategies.vwap import SL_STD_MULT_DEFAULT
-        assert SL_STD_MULT_DEFAULT == 0.5, (
-            "Operator directive 2026-05-03 paired SL_STD_MULT_DEFAULT=0.5 "
-            "with ENTRY_STD_THRESHOLD=1.0 to preserve risk:reward 1:2."
+        assert SL_STD_MULT_DEFAULT == 0.75, (
+            "2026-05-12 adjustment raised SL_STD_MULT_DEFAULT to 0.75 for "
+            "live-trading noise tolerance. Any change requires a fresh "
+            "out-of-sample SL sweep + operator approval."
         )
 
-    def test_risk_reward_at_entry_boundary_is_one_to_two(self):
-        """End-to-end pin of the operator's R:R 1:2 contract. At the entry
-        boundary (|deviation| ≈ ENTRY_STD_THRESHOLD), reward should be
-        twice risk for both buy and sell signals, using the module
-        defaults — i.e. callers don't have to pass anything to get the
-        contracted R:R."""
+    def test_risk_reward_at_entry_boundary(self):
+        """End-to-end pin of the R:R contract at the entry boundary.
+
+        As of the 2026-05-12 live-trading adjustment, the boundary R:R is
+        4:3 (≈1.33:1) — ENTRY_STD_THRESHOLD=1.0 / SL_STD_MULT_DEFAULT=0.75.
+        The prior 2:1 contract was relaxed when the 0.5σ stop was raised to
+        0.75σ to reduce noise-triggered sl_cross in live trading. Realised
+        R:R on signals that fire deeper than 1σ will exceed the floor."""
         from src.units.strategies.vwap import SL_STD_MULT_DEFAULT
 
         for df, side, direction_factor in (
@@ -345,21 +350,17 @@ class TestBuildVwapSignal:
             reward = abs(tp - entry)
             assert risk > 0 and reward > 0
 
-            # The R:R contract is determined by the CONSTANTS (entry
-            # threshold and SL multiplier), not by how far past the
-            # threshold the actual signal fired. The deeper a signal
-            # fires beyond the threshold, the BETTER the realised R:R.
-            # So pin: realised reward:risk >= the boundary contract of
-            # ENTRY_STD_THRESHOLD / SL_STD_MULT_DEFAULT = 1.0 / 0.5 = 2.0.
+            # Pin the constant ratio so a change to either ENTRY_STD_THRESHOLD
+            # or SL_STD_MULT_DEFAULT forces an explicit test update.
             boundary_rr = ENTRY_STD_THRESHOLD / SL_STD_MULT_DEFAULT
-            assert boundary_rr == pytest.approx(2.0), (
-                "Operator R:R 1:2 contract: ENTRY_STD_THRESHOLD / "
-                "SL_STD_MULT_DEFAULT must equal 2.0 (reward = 2 × risk "
-                "at the entry boundary)"
+            assert boundary_rr == pytest.approx(1.0 / 0.75, rel=1e-6), (
+                "2026-05-12: boundary R:R is ENTRY_STD_THRESHOLD / "
+                "SL_STD_MULT_DEFAULT = 1.0 / 0.75 ≈ 1.33:1. Update "
+                "this test when either constant changes."
             )
             assert (reward / risk) >= boundary_rr - 1e-6, (
                 f"R:R regression: realised reward/risk={reward/risk:.3f} "
-                f"is below the boundary contract {boundary_rr:.3f} "
+                f"is below the boundary floor {boundary_rr:.3f} "
                 f"(side={side}, entry={entry}, sl={sl}, tp={tp})"
             )
 
