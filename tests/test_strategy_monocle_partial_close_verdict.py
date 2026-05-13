@@ -317,3 +317,55 @@ class TestNoLinkedTrade:
         assert not db.trade_updates
         assert s.no_change_count == 1
         assert s.error_count == 0
+
+
+# ---------------------------------------------------------------------------
+# 7. next_tp — roll the package's tp forward after a partial close
+# ---------------------------------------------------------------------------
+
+class TestPartialCloseNextTp:
+    """turtle_soup.monitor emits ``next_tp=meta.tp2`` alongside a TP1
+    partial so the next monitor tick compares price against TP2 rather
+    than re-emitting the same TP1 partial. Pins that ``_apply_partial_close``
+    propagates the new target into the order_packages.tp field.
+    """
+
+    def test_partial_close_with_next_tp_updates_package_tp(self):
+        trade = _FakeTrade(20, 0.010)
+        db = _FakeDB(trade)
+        verdict = {
+            "action": "close",
+            "close_qty_pct": 0.25,
+            "reason": "tp1_partial",
+            "exit_price": 102.0,
+            "next_tp": 106.0,
+        }
+        s = _summary()
+
+        _apply_update(db, _pkg(linked_trade_id=20), verdict, s)
+
+        # Exactly one pkg update — the tp roll-forward (no status change).
+        assert len(db.pkg_updates) == 1
+        pkg_id, updates = db.pkg_updates[0]
+        assert updates == {"tp": 106.0}
+        # Trade-row update carries the new position size + partial-close note.
+        assert s.updated_count == 1
+        assert s.error_count == 0
+
+    def test_partial_close_without_next_tp_leaves_package_tp_alone(self):
+        """Backward-compat: existing vwap-style partial verdicts (no
+        ``next_tp``) must not write to the package row — only the trade
+        row is touched."""
+        trade = _FakeTrade(21, 0.010)
+        db = _FakeDB(trade)
+        verdict = {
+            "action": "close",
+            "close_qty_pct": 0.25,
+            "reason": "partial_tp",
+        }
+        s = _summary()
+
+        _apply_update(db, _pkg(linked_trade_id=21), verdict, s)
+
+        assert not db.pkg_updates
+        assert s.updated_count == 1
