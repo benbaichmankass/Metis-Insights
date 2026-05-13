@@ -100,7 +100,19 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
-    args = parser.parse_args(argv)
+    # parse_known_args lets family key=value kwargs appear anywhere in the
+    # token stream (before or after --flags, with or without a -- separator).
+    # parse_args rejects them when they trail optional flags due to a known
+    # argparse limitation with nargs="*" positionals.
+    args, extras = parser.parse_known_args(argv)
+    extras = [e for e in extras if e != "--"]  # strip bare separator
+    bad_flags = [e for e in extras if e.startswith("-")]
+    if bad_flags:
+        parser.error(f"unrecognized arguments: {' '.join(bad_flags)}")
+    if args.cmd == "build":
+        args.family_arg = list(args.family_arg or []) + extras
+    elif extras:
+        parser.error(f"unrecognized arguments: {' '.join(extras)}")
     if args.cmd == "list-families":
         return _cmd_list_families(args)
     if args.cmd == "build":
