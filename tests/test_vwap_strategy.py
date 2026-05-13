@@ -222,21 +222,23 @@ class TestBuildVwapSignal:
         assert "take_profit" not in signal
 
     def test_sl_distance_uses_sl_std_mult(self):
-        """The stop-loss distance from entry equals sl_std_mult * std_dev.
+        """The stop-loss distance from entry equals sl_std_mult * std_dev
+        (subject to the ATR floor — the larger of the two wins).
 
-        The default 0.5 reflects the 2026-05-03 operator directive that
-        pairs the 1.0σ entry threshold with a 0.5σ stop to preserve a
-        risk:reward of 1:2 at the entry boundary.
+        The default 0.75 reflects the 2026-05-12 live-trading adjustment:
+        the original 0.5σ stop was too tight and price noise was triggering
+        sl_cross before the mean-reversion thesis played out. The ATR floor
+        is an additional noise guard (see SL_STD_MULT_DEFAULT comment).
         """
         df = _candles_below_vwap()
         s_default = build_vwap_signal(df, symbol="BTCUSDT")
         s_wide = build_vwap_signal(df, symbol="BTCUSDT", sl_std_mult=2.0)
 
         std_dev = s_default["meta"]["std_dev"]
-        # default = SL_STD_MULT_DEFAULT = 0.5 (operator directive 2026-05-03)
+        # default = SL_STD_MULT_DEFAULT = 0.75 (2026-05-12 live-trading adjustment)
         d_default = s_default["entry_price"] - s_default["stop_loss"]
         d_wide = s_wide["entry_price"] - s_wide["stop_loss"]
-        assert d_default == pytest.approx(0.5 * std_dev, rel=1e-6)
+        assert d_default == pytest.approx(0.75 * std_dev, rel=1e-6)
         assert d_wide == pytest.approx(2.0 * std_dev, rel=1e-6)
 
     def test_signal_is_packageable_after_g5_fix(self):
@@ -311,24 +313,27 @@ class TestBuildVwapSignal:
             "out-of-sample threshold sweep + operator approval."
         )
 
-    def test_sl_default_pinned_to_half_sigma_per_operator_directive(self):
-        """CP-2026-05-03-20 operator directive: SL_STD_MULT_DEFAULT halved
-        from 1.0 to 0.5 in lock-step with the entry-threshold revert so
-        the risk:reward at the entry boundary stays 1:2 (reward = 2 ×
-        risk). Pinning both constants prevents a future tuning sprint
-        from drifting one without the other."""
+    def test_sl_default_pinned_to_current_value(self):
+        """2026-05-12 live-trading adjustment: SL_STD_MULT_DEFAULT raised
+        from 0.5 to 0.75 after the 0.5σ stop proved too tight — live price
+        noise was triggering sl_cross before mean-reversion played out.
+        Pins the current value so a future tuning sprint must explicitly
+        update this test (and document the rationale) when it changes."""
         from src.units.strategies.vwap import SL_STD_MULT_DEFAULT
-        assert SL_STD_MULT_DEFAULT == 0.5, (
-            "Operator directive 2026-05-03 paired SL_STD_MULT_DEFAULT=0.5 "
-            "with ENTRY_STD_THRESHOLD=1.0 to preserve risk:reward 1:2."
+        assert SL_STD_MULT_DEFAULT == 0.75, (
+            "2026-05-12 adjustment raised SL_STD_MULT_DEFAULT to 0.75 for "
+            "live-trading noise tolerance. Any change requires a fresh "
+            "out-of-sample SL sweep + operator approval."
         )
 
-    def test_risk_reward_at_entry_boundary_is_one_to_two(self):
-        """End-to-end pin of the operator's R:R 1:2 contract. At the entry
-        boundary (|deviation| ≈ ENTRY_STD_THRESHOLD), reward should be
-        twice risk for both buy and sell signals, using the module
-        defaults — i.e. callers don't have to pass anything to get the
-        contracted R:R."""
+    def test_risk_reward_at_entry_boundary(self):
+        """End-to-end pin of the R:R contract at the entry boundary.
+
+        As of the 2026-05-12 live-trading adjustment, the boundary R:R is
+        4:3 (≈1.33:1) — ENTRY_STD_THRESHOLD=1.0 / SL_STD_MULT_DEFAULT=0.75.
+        The prior 2:1 contract was relaxed when the 0.5σ stop was raised to
+        0.75σ to reduce noise-triggered sl_cross in live trading. Realised
+        R:R on signals that fire deeper than 1σ will exceed the floor."""
         from src.units.strategies.vwap import SL_STD_MULT_DEFAULT
 
         for df, side, direction_factor in (
@@ -345,21 +350,17 @@ class TestBuildVwapSignal:
             reward = abs(tp - entry)
             assert risk > 0 and reward > 0
 
-            # The R:R contract is determined by the CONSTANTS (entry
-            # threshold and SL multiplier), not by how far past the
-            # threshold the actual signal fired. The deeper a signal
-            # fires beyond the threshold, the BETTER the realised R:R.
-            # So pin: realised reward:risk >= the boundary contract of
-            # ENTRY_STD_THRESHOLD / SL_STD_MULT_DEFAULT = 1.0 / 0.5 = 2.0.
+            # Pin the constant ratio so a change to either ENTRY_STD_THRESHOLD
+            # or SL_STD_MULT_DEFAULT forces an explicit test update.
             boundary_rr = ENTRY_STD_THRESHOLD / SL_STD_MULT_DEFAULT
-            assert boundary_rr == pytest.approx(2.0), (
-                "Operator R:R 1:2 contract: ENTRY_STD_THRESHOLD / "
-                "SL_STD_MULT_DEFAULT must equal 2.0 (reward = 2 × risk "
-                "at the entry boundary)"
+            assert boundary_rr == pytest.approx(1.0 / 0.75, rel=1e-6), (
+                "2026-05-12: boundary R:R is ENTRY_STD_THRESHOLD / "
+                "SL_STD_MULT_DEFAULT = 1.0 / 0.75 ≈ 1.33:1. Update "
+                "this test when either constant changes."
             )
             assert (reward / risk) >= boundary_rr - 1e-6, (
                 f"R:R regression: realised reward/risk={reward/risk:.3f} "
-                f"is below the boundary contract {boundary_rr:.3f} "
+                f"is below the boundary floor {boundary_rr:.3f} "
                 f"(side={side}, entry={entry}, sl={sl}, tp={tp})"
             )
 
@@ -985,3 +986,162 @@ class TestVwapInvalidDataNoTrade:
         )
         assert result["order_result"]["status"] == "skipped"
         assert exchange.calls == []
+
+
+# ---------------------------------------------------------------------------
+# Recent-context filter (operator directive 2026-05-13)
+# 24h max lookback, recency-weighted (EWM), informational only.
+# ---------------------------------------------------------------------------
+
+from src.units.strategies.vwap import (  # noqa: E402
+    RECENT_CONTEXT_NEUTRAL_BAND_PCT_DEFAULT,
+    _compute_recent_context,
+)
+
+
+def _ctx_candles(close_prices, volume=1000.0):
+    """Build an OHLCV DataFrame for recent-context tests."""
+    rows = []
+    for i, close in enumerate(close_prices):
+        rows.append({
+            "timestamp": i,
+            "open": close - 1,
+            "high": close + 2,
+            "low": close - 2,
+            "close": close,
+            "volume": volume,
+        })
+    return pd.DataFrame(rows)
+
+
+class TestComputeRecentContext:
+    """Unit tests for _compute_recent_context — 24h recency-weighted trend helper."""
+
+    def test_up_when_prices_rise_above_band(self):
+        """Steady price rise → EWM-weighted current above window open → trend=up."""
+        df = _ctx_candles([100.0, 101.0, 102.0, 103.5])  # +3.5%
+        result = _compute_recent_context(df, neutral_band_pct=0.003)
+        assert result["trend"] == "up"
+        assert result["pct"] > 0.003
+
+    def test_down_when_prices_fall_below_band(self):
+        """Steady price fall → EWM-weighted current below window open → trend=down."""
+        df = _ctx_candles([103.5, 102.0, 101.0, 100.0])  # -3.4%
+        result = _compute_recent_context(df, neutral_band_pct=0.003)
+        assert result["trend"] == "down"
+        assert result["pct"] < -0.003
+
+    def test_flat_when_prices_stable(self):
+        """Flat prices → EWM ≈ window open → trend=flat."""
+        df = _ctx_candles([100.0, 100.0, 100.0, 100.0])
+        result = _compute_recent_context(df, neutral_band_pct=0.003)
+        assert result["trend"] == "flat"
+        assert abs(result["pct"]) < 0.003
+
+    def test_unknown_when_dataframe_is_none(self):
+        result = _compute_recent_context(None)
+        assert result["trend"] == "unknown"
+        assert result["pct"] == 0.0
+
+    def test_unknown_when_fewer_than_two_rows(self):
+        df = _ctx_candles([100.0])
+        result = _compute_recent_context(df)
+        assert result["trend"] == "unknown"
+
+    def test_unknown_when_close_column_missing(self):
+        df = pd.DataFrame([{"timestamp": 0, "volume": 1000}, {"timestamp": 1, "volume": 1000}])
+        result = _compute_recent_context(df)
+        assert result["trend"] == "unknown"
+
+    def test_recent_bars_dominate_via_ewm(self):
+        """EWM weighting: a sharp recent move outweighs a flat earlier period.
+        Window starts flat then spikes up sharply at the end — trend should be up."""
+        flat = [100.0] * 20
+        spike = [130.0]  # big move in the last bar
+        df = _ctx_candles(flat + spike)
+        result = _compute_recent_context(df, neutral_band_pct=0.003)
+        assert result["trend"] == "up", (
+            "EWM must weight the recent spike heavily enough to push "
+            "the context above the neutral band even with 20 flat bars before it."
+        )
+
+    def test_uses_module_default_neutral_band(self):
+        """Default neutral_band_pct equals RECENT_CONTEXT_NEUTRAL_BAND_PCT_DEFAULT."""
+        df = _ctx_candles([100.0, 100.0])  # flat
+        result = _compute_recent_context(df)
+        assert result["trend"] == "flat"
+        assert RECENT_CONTEXT_NEUTRAL_BAND_PCT_DEFAULT == pytest.approx(0.003, rel=1e-6)
+
+
+class TestRecentContextInSignalMeta:
+    """Verify build_vwap_signal surfaces recent_context in meta without blocking signals."""
+
+    def test_meta_always_contains_recent_context_key(self):
+        """recent_context and recent_context_pct are present in meta on every tick."""
+        df = _candles_below_vwap()
+        sig = build_vwap_signal(df, symbol="BTCUSDT")
+        assert "recent_context" in sig["meta"]
+        assert "recent_context_pct" in sig["meta"]
+
+    def test_recent_context_unknown_when_no_context_candles_passed(self):
+        """Without recent_context_candles_df the context defaults to 'unknown'."""
+        df = _candles_below_vwap()
+        sig = build_vwap_signal(df, symbol="BTCUSDT")
+        assert sig["meta"]["recent_context"] == "unknown"
+        assert sig["meta"]["recent_context_pct"] == 0.0
+
+    def test_up_context_surfaced_in_meta(self):
+        ctx_df = _ctx_candles([100.0, 102.0, 104.0, 106.0])  # rising → up
+        df = _candles_below_vwap()
+        sig = build_vwap_signal(df, symbol="BTCUSDT", recent_context_candles_df=ctx_df)
+        assert sig["meta"]["recent_context"] == "up"
+        assert sig["meta"]["recent_context_pct"] > 0.003
+
+    def test_down_context_surfaced_in_meta(self):
+        ctx_df = _ctx_candles([106.0, 104.0, 102.0, 100.0])  # falling → down
+        df = _candles_below_vwap()
+        sig = build_vwap_signal(df, symbol="BTCUSDT", recent_context_candles_df=ctx_df)
+        assert sig["meta"]["recent_context"] == "down"
+        assert sig["meta"]["recent_context_pct"] < -0.003
+
+    def test_sell_signal_fires_in_up_context(self):
+        """A sell signal must fire even when recent context is 'up'.
+        The context is informational — it never blocks signals."""
+        ctx_df = _ctx_candles([100.0, 102.0, 104.0, 106.0])
+        df = _candles_above_vwap()
+        sig = build_vwap_signal(df, symbol="BTCUSDT", recent_context_candles_df=ctx_df)
+        assert sig["side"] == "sell", (
+            "Sell signal must not be blocked by uptrending recent context. "
+            "Mean-reversion shorts are valid in uptrending markets."
+        )
+        assert sig["meta"]["recent_context"] == "up"
+
+    def test_buy_signal_fires_in_down_context(self):
+        """A buy signal must fire even when recent context is 'down'.
+        The context is informational — it never blocks signals."""
+        ctx_df = _ctx_candles([106.0, 104.0, 102.0, 100.0])
+        df = _candles_below_vwap()
+        sig = build_vwap_signal(df, symbol="BTCUSDT", recent_context_candles_df=ctx_df)
+        assert sig["side"] == "buy", (
+            "Buy signal must not be blocked by downtrending recent context. "
+            "Mean-reversion longs are valid in downtrending markets."
+        )
+        assert sig["meta"]["recent_context"] == "down"
+
+    def test_no_signal_also_carries_recent_context(self):
+        """recent_context is present in meta even for no-signal (side=none) ticks."""
+        ctx_df = _ctx_candles([100.0, 101.0])
+        df = _candles_near_vwap()
+        sig = build_vwap_signal(df, symbol="BTCUSDT", recent_context_candles_df=ctx_df)
+        assert sig["side"] == "none"
+        assert "recent_context" in sig["meta"]
+
+    def test_custom_neutral_band_respected(self):
+        """neutral_band_pct parameter flows through to _compute_recent_context."""
+        ctx_df_large = _ctx_candles([100.0, 104.0])  # +4% — up under any band
+        result_large = _compute_recent_context(ctx_df_large, neutral_band_pct=0.003)
+        assert result_large["trend"] == "up"
+
+        ctx_df_tiny = _ctx_candles([100.0, 100.001])  # +0.001% — flat under 0.3% band
+        result_tiny = _compute_recent_context(ctx_df_tiny, neutral_band_pct=0.003)
+        assert result_tiny["trend"] == "flat"

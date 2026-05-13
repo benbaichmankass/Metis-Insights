@@ -96,10 +96,28 @@ strategies:
     # is missing.
     monitor_hold_window_minutes: 240
 
-    # Phase 2 HTF trend gate (S-050; experiments/2026-05-08-all-models-training).
-    # Blocks BUY (mean-reversion long) when 4 h close < EMA-200 × (1 - band_pct);
-    # blocks SELL when 4 h close > EMA-200 × (1 + band_pct). The ±band_pct
-    # region passes through unchanged.
+    # Recent-context filter (operator directive 2026-05-13). Replaces the
+    # disabled 4h EMA-200 gate with a recency-weighted short-term trend measure.
+    #
+    # Fetches ≤24h of 1h candles. Uses an EWM (half-life = ¼ window) so the
+    # last few hours dominate — more recent price action carries more weight
+    # than the start of the window. Neither buy nor sell is blocked: the
+    # context is INFORMATIONAL ONLY, surfaced in signal meta as
+    # recent_context ("up"/"down"/"flat") and recent_context_pct.
+    #
+    # Key differences from the old 4h EMA-200 HTF gate:
+    #   - Old: ~33-day lookback; hard-blocked SELL in uptrend.
+    #   - New: ≤24h lookback, recency-weighted. No blocking.
+    recent_context_filter:
+      enabled: true
+      timeframe: "1h"
+      lookback_bars: 24        # 24 × 1h = 24h max lookback
+      # ±0.3% EWM-weighted change treated as flat (not trending).
+      neutral_band_pct: 0.003
+
+    # Legacy HTF trend gate (S-050; experiments/2026-05-08-all-models-training).
+    # Blocks BUY when 4h close < EMA-200 × (1 - band_pct); blocks SELL when
+    # 4h close > EMA-200 × (1 + band_pct).
     #
     # DISABLED 2026-05-13: the 38-month training dataset (Jan 2023 → Feb 2026)
     # was dominated by bull-market conditions. The 4h EMA-200 (~33 days look-

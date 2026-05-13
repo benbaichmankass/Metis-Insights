@@ -719,13 +719,9 @@ def vwap_signal_builder(settings: dict) -> Dict[str, Any]:
         symbol, timeframe, len(candles_df),
     )
 
-    # Phase 2 HTF trend gate (training run 2026-05-08-all-models-training).
-    # When ``htf_trend_filter.enabled`` is true in strategies.yaml, fetch
-    # HTF candles, compute the EMA, and pass close + EMA into
-    # build_vwap_signal so the strategy can block fades against trend.
-    # Failure to fetch HTF data degrades to "no gate" rather than
-    # blocking the entire strategy — the audit log records the missing
-    # input via the absent htf_* meta keys.
+    # Legacy HTF trend gate (4h EMA-200) — kept in code but only runs when
+    # explicitly enabled. DISABLED 2026-05-13: gate was biased long by the
+    # 38-month bull-market training dataset (see strategies.yaml comment).
     htf_close: Optional[float] = None
     htf_ema: Optional[float] = None
     htf_band_pct: Optional[float] = None
@@ -750,12 +746,40 @@ def vwap_signal_builder(settings: dict) -> Dict[str, Any]:
                 symbol, htf_tf, exc,
             )
 
+    # Daily bias filter (operator directive 2026-05-13): fetch ≤24h of 1h
+    # candles to compute the intra-day directional lean. Informational only
+    # — neither side is blocked. Failure degrades gracefully to no bias data.
+    # Recent context filter (operator directive 2026-05-13): fetch ≤24h of
+    # 1h candles for a recency-weighted short-term trend measure. Informational
+    # only — neither side is blocked. Failure degrades gracefully to no context.
+    recent_context_df: Optional[pd.DataFrame] = None
+    recent_context_filter_cfg = vwap_cfg.get("recent_context_filter") or {}
+    if recent_context_filter_cfg.get("enabled"):
+        ctx_tf = str(recent_context_filter_cfg.get("timeframe") or "1h")
+        lookback_bars = int(recent_context_filter_cfg.get("lookback_bars") or 24)
+        try:
+            recent_context_df = fetch_candles(
+                symbol, ctx_tf, exchange_client=exchange, limit=lookback_bars,
+            )
+            if recent_context_df is not None and recent_context_df.empty:
+                recent_context_df = None
+        except Exception as exc:  # noqa: BLE001 — degrade gracefully
+            logger.warning(
+                "VWAP recent-context fetch failed for symbol=%s tf=%s: %s — skipping",
+                symbol, ctx_tf, exc,
+            )
+
     kwargs: Dict[str, Any] = {"symbol": symbol, "timeframe": timeframe}
     if htf_close is not None and htf_ema is not None:
         kwargs["htf_close"] = htf_close
         kwargs["htf_ema"] = htf_ema
         if htf_band_pct is not None:
             kwargs["htf_band_pct"] = htf_band_pct
+    if recent_context_df is not None:
+        kwargs["recent_context_candles_df"] = recent_context_df
+        neutral_band = recent_context_filter_cfg.get("neutral_band_pct")
+        if neutral_band is not None:
+            kwargs["recent_context_neutral_band_pct"] = float(neutral_band)
 
     sig = build_vwap_signal(candles_df, **kwargs)
     # Mirror turtle_soup's per-tick audit row (event=turtle_soup_eval at
@@ -781,6 +805,8 @@ def vwap_signal_builder(settings: dict) -> Dict[str, Any]:
             "vwap": _meta.get("vwap"),
             "deviation_std": _meta.get("deviation_std"),
             "htf_blocked": _meta.get("htf_blocked"),
+            "recent_context": _meta.get("recent_context"),
+            "recent_context_pct": _meta.get("recent_context_pct"),
             "reason": _meta.get("reason") or _sig.get("reason"),
         })
     except Exception:  # noqa: BLE001
