@@ -16,6 +16,9 @@ Usage
     # Compare all built-in configs (current vs proposed vs middle vs no-filter):
     python -m src.backtest.run_backtest_vwap --compare
 
+    # Limit to recent data (last 90 days — matches live strategy timeframe):
+    python -m src.backtest.run_backtest_vwap --compare --days 90
+
     # Single custom run:
     python -m src.backtest.run_backtest_vwap --htf-timeframe 1h --ema-period 50
 
@@ -26,6 +29,18 @@ Environment
 -----------
 BACKTEST_DATA_PATH   Override CSV path (default: data/backtest_candles.csv)
 TRADE_JOURNAL_DB     Override SQLite path (unused here but kept for parity)
+
+Data freshness
+--------------
+For meaningful results, run scripts/ops/fetch_backtest_candles.py first to
+populate BACKTEST_DATA_PATH with recent 5m data that covers current market
+conditions (both up and down regimes). The default data/backtest_candles.csv
+in the repo is a small sample for unit tests only.
+
+    BACKTEST_DATA_PATH=/tmp/fresh.csv \
+        python scripts/ops/fetch_backtest_candles.py --days 90
+    BACKTEST_DATA_PATH=/tmp/fresh.csv \
+        python -m src.backtest.run_backtest_vwap --compare
 
 Output
 ------
@@ -356,6 +371,22 @@ def main(argv: list[str]) -> int:
         help="Run all COMPARE_CONFIGS side-by-side",
     )
     parser.add_argument("--label", default="", help="Label for the run")
+    parser.add_argument(
+        "--start-date",
+        default="",
+        help="Filter data from YYYY-MM-DD UTC (inclusive). Use with fresh 5m data.",
+    )
+    parser.add_argument(
+        "--end-date",
+        default="",
+        help="Filter data up to YYYY-MM-DD UTC (inclusive).",
+    )
+    parser.add_argument(
+        "--days",
+        type=int,
+        default=0,
+        help="Shorthand for --start-date N days ago (overridden by --start-date).",
+    )
     args = parser.parse_args(argv[1:])
 
     try:
@@ -364,6 +395,36 @@ def main(argv: list[str]) -> int:
     except Exception as exc:
         sys.stderr.write(f"load_data failed: {exc}\n")
         return 1
+
+    # Date-range filtering — lets the caller window the CSV to recent data
+    # without re-fetching the full file. --days is a convenience shorthand.
+    df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True, errors="coerce")
+    df = df.dropna(subset=["timestamp"]).sort_values("timestamp").reset_index(drop=True)
+
+    start_date = args.start_date
+    if not start_date and args.days > 0:
+        import datetime as _dt
+        start_date = (
+            _dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(days=args.days)
+        ).strftime("%Y-%m-%d")
+
+    if start_date:
+        start_ts = pd.Timestamp(start_date, tz="UTC")
+        df = df[df["timestamp"] >= start_ts].reset_index(drop=True)
+    if args.end_date:
+        end_ts = pd.Timestamp(args.end_date, tz="UTC") + pd.Timedelta(days=1)
+        df = df[df["timestamp"] < end_ts].reset_index(drop=True)
+
+    if df.empty:
+        sys.stderr.write("No data remaining after date filtering.\n")
+        return 1
+
+    if start_date or args.end_date:
+        print(
+            f"Date-filtered: {len(df)} bars "
+            f"({df['timestamp'].iloc[0].date()} → {df['timestamp'].iloc[-1].date()})",
+            file=sys.stderr,
+        )
 
     try:
         if args.compare:
