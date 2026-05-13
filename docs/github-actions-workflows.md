@@ -1,12 +1,17 @@
 # GitHub Actions — Canonical Reference
 
 > **Status:** Canonical. Adopted in sprint **S-CANON-1** (2026-05-10).
+> Last updated: 2026-05-13 (added trainer-VM workflows, vwap-backtest,
+> doc-audit, complete autonomy matrix, exact MCP trigger calls).
 > **Repo:** `benbaichmankass/ict-trading-bot`.
 > **Authority:** This is the single source of truth for what GitHub
 > Actions exist in this repo, how they are triggered, what they do, and
 > when Claude may use or modify them. Linked from
 > [`CLAUDE-RULES-CANONICAL.md`](CLAUDE-RULES-CANONICAL.md) and
 > [`ARCHITECTURE-CANONICAL.md`](ARCHITECTURE-CANONICAL.md).
+>
+> **Other repo:** `benbaichmankass/ict-trader-dashboard` has **no**
+> `.github/workflows/` directory as of this writing.
 
 ## Why this doc exists
 
@@ -17,169 +22,789 @@ unavailable; that assumption is wrong and has cost work. Inspect this
 document first, then read the specific workflow file under
 `.github/workflows/`.
 
-## Permission tiers for editing workflows
+**Key constraint:** The GitHub MCP tools available to Claude Code on the
+web do **not** include `run_workflow`, `download_artifact`, or
+`get_run_logs`. All Claude-initiated triggers must use one of the MCP
+patterns listed below. The `.mcp.json` in the repo root enables
+`workflow_dispatch` via the CLI-side GitHub MCP server (takes effect
+after a session restart with `GITHUB_TOKEN` set).
 
-Workflow files map to permission tiers (see
-[`CLAUDE-RULES-CANONICAL.md`](CLAUDE-RULES-CANONICAL.md) §
-"Permission Tiers"):
+---
 
-- **Tier 1** — adding or fixing CI checks, lint config, inventory
-  workflows, label bootstrap, secret-scan: edit freely after
-  validation.
-- **Tier 2** — anything that mutates the VM (operator-actions,
-  vm-net-fix, vm-web-api-recover, vm-cloud-fix), changes deployment
-  behaviour, or changes branch-protection requirements: requires
-  explicit operator approval before merge.
-- **Tier 3** — none of the workflows currently encode strategy or
-  risk policy directly, but a workflow that adds a strategy parameter
-  toggle, lifts an account from `dry_run` → `live`, or weakens a guard
-  (`dry-run-guard`, `env-gate-guard`, `silent-empty-guard`) is **Tier
-  3**: do not merge without explicit approval.
+## MCP trigger patterns
 
-## Conventions
+Claude has three ways to fire a workflow without operator-UI access:
 
-- All trigger-only-by-issue workflows use a corresponding label and
-  rely on `bootstrap-labels.yml` to create labels idempotently. The
-  declared labels are: `vm-diag-request`, `vm-web-api-recover`,
-  `operator-action`, `vm-cloud-fix-request`, `vm-net-diag-request`,
-  `vm-net-fix-request`, `health-snapshot-trigger`, `oci-verify`.
-- **Job IDs match workflow names** for every CI guard. The GitHub
-  status-context name comes from the job ID, so each guard's job
-  matches the workflow file name (`pytest-collect`, `secret-scan`,
-  `ruff-lint`, `dry-run-guard`, `env-gate-guard`,
-  `silent-empty-guard`, `repo-inventory`). `REQUIRED_CONTEXTS` in
-  `branch-protection-sync.yml` is the source of truth for which
-  contexts gate `main`; it is currently
-  `["pytest-collect","secret-scan","ruff-lint","dry-run-guard"]`.
-- Issue-driven mutating workflows take the issue body verbatim through
-  the `ISSUE_BODY` env var; do **not** interpolate
-  `${{ github.event.issue.body }}` directly into shell.
-- All read-only VM SSH workflows use the `VM_SSH_KEY` repo secret.
-  The single mutating OCI storage workflow uses `VM_SSH_PRIVATE_KEY`
-  on the `production-oci` environment (same key material; the
-  scope split is what carries the approval gate).
-- Mutating actions log a JSON artifact with pre-/post-state.
-- Secrets used: `VM_SSH_KEY` (repo), `VM_SSH_PRIVATE_KEY`
-  (env `production-oci`), `DIAG_READ_TOKEN`,
-  `BRANCH_PROTECTION_TOKEN`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`,
-  plus the Oracle Cloud (`OCI_CLI_*`) set used by `oci-storage` and
-  `vm-cloud-fix`.
+### Pattern A — Issue-driven (preferred for most ops workflows)
+
+Open a GitHub issue with the correct label. The workflow's
+`issues: types: [opened]` handler picks it up, runs, comments the
+result back on the issue, and closes the issue.
+
+**MCP call:**
+```
+mcp__github__issue_write
+  owner: benbaichmankass
+  repo: ict-trading-bot
+  title: "[<tag>] <description>"
+  body: |
+    <key>: <value>
+    ...
+  labels: ["<label-name>"]
+```
+
+The issue `body` is the payload: each workflow documents its expected
+keys. Always quote the body through the `body` field — never inline
+`${{ github.event.issue.body }}` into shell; the workflow reads through
+`ISSUE_BODY` env var to prevent shell injection.
+
+### Pattern B — Push-sentinel (for push-triggered workflows)
+
+Some workflows use `push: paths: [.github/triggers/<name>]` as an
+alternative trigger so they can be fired without UI or `gh` access.
+Touch the sentinel file to start a run.
+
+**MCP call:**
+```
+mcp__github__create_or_update_file
+  owner: benbaichmankass
+  repo: ict-trading-bot
+  path: .github/triggers/<workflow-name>
+  message: "chore: trigger <workflow-name>"
+  content: <base64 of "timestamp\n">
+  branch: main
+  sha: <current file SHA, if file exists>
+```
+
+Get the current SHA first with `mcp__github__get_file_contents` so the
+update call doesn't fail. The sentinel file carries no semantic content;
+only its mtime matters.
+
+### Pattern C — workflow_dispatch (operator-UI only for now)
+
+Workflows that have only `workflow_dispatch` (no issue trigger, no
+sentinel) require an operator to click "Run workflow" in the GitHub
+Actions UI. Claude cannot fire these from a web sandbox session.
+After a session restart with `.mcp.json` loaded and `GITHUB_TOKEN` set,
+the CLI GitHub MCP server exposes `mcp__github__create_workflow_dispatch`
+which would unlock these.
+
+---
+
+## Autonomy levels
+
+| Level | Meaning |
+|---|---|
+| **AUTONOMOUS** | Claude may trigger without operator confirmation. Trainer-VM ops, read-only diag, doc audit, health snapshots, and anything in the sandbox that is read-only or trainer-scoped. |
+| **OPERATOR-APPROVAL** | Claude must get operator sign-off in conversation before opening the issue / touching the sentinel. Mutating live-VM ops, OCI infrastructure changes. |
+| **AUTO** | Runs automatically (CI guard on PR/push, cron schedule). Claude never needs to trigger these; they self-fire. |
+
+---
+
+## Quick-reference cheat sheet
+
+| Workflow | Autonomy | Trigger pattern | Label / sentinel |
+|---|---|---|---|
+| `pytest-collect.yml` | AUTO | PR/push | — |
+| `ruff-lint.yml` | AUTO | PR/push | — |
+| `secret-scan.yml` | AUTO | PR/push | — |
+| `dry-run-guard.yml` | AUTO | PR | — |
+| `env-gate-guard.yml` | AUTO | PR | — |
+| `silent-empty-guard.yml` | AUTO | PR | — |
+| `arch-doc-guard.yml` | AUTO | PR | — |
+| `repo-inventory.yml` | AUTO | PR/push | — |
+| `bootstrap-labels.yml` | AUTO / AUTONOMOUS | push (paths: this file) + B-sentinel or `workflow_dispatch` | `.github/triggers/bootstrap-labels` |
+| `branch-protection-sync.yml` | OPERATOR-APPROVAL | C (workflow_dispatch) | — |
+| `health-snapshot.yml` | AUTONOMOUS | A or E (every 6h) | `health-snapshot-trigger` |
+| `vm-diag-snapshot.yml` | AUTONOMOUS | A | `vm-diag-request` |
+| `trainer-vm-diag.yml` | AUTONOMOUS | A | `trainer-vm-diag-request` |
+| `vm-web-api-recover.yml` | AUTONOMOUS | A | `vm-web-api-recover` |
+| `vm-net-diag.yml` | AUTONOMOUS | A | `vm-net-diag-request` |
+| `doc-audit-weekly.yml` | AUTONOMOUS | A or E (Mon 12:00 UTC) | `doc-audit-now` |
+| `vwap-backtest.yml` | AUTONOMOUS | A | `vwap-backtest-trigger` |
+| `provision-training-vm.yml` | AUTONOMOUS | A | `provision-training-vm` |
+| `provision-training-vm-auto-retry.yml` | AUTO | E (every 10 min) | — |
+| `deploy-trainer-bootstrap.yml` | AUTONOMOUS | B | `.github/triggers/deploy-trainer-bootstrap` |
+| `operator-actions.yml` | OPERATOR-APPROVAL | A | `operator-action` |
+| `vm-net-fix.yml` | OPERATOR-APPROVAL | A | `vm-net-fix-request` |
+| `vm-cloud-fix.yml` | OPERATOR-APPROVAL | A | `vm-cloud-fix-request` |
+| `oci-storage-verify.yml` | AUTONOMOUS | C (workflow_dispatch) | — |
+| `oci-storage.yml` | OPERATOR-APPROVAL | C (workflow_dispatch) | — |
+| `training-run.yml` | OPERATOR-APPROVAL | push to `claude/training-plan-*` | — |
+| `training-rerun-5m.yml` | OPERATOR-APPROVAL | push to experiment paths | — |
+| `hf-cron.yml` | OPERATOR-APPROVAL | C (workflow_dispatch) | — |
+| `continue-work.yml` | AUTONOMOUS | C (workflow_dispatch) | — |
+
+---
 
 ## Workflow Catalogue
 
-### CI / PR guards
+### CI / PR guards (all AUTO)
 
-| File | Trigger | Purpose | Tier | Notes |
-|---|---|---|---|---|
-| `pytest-collect.yml` | `pull_request`, `push` to `main` | Runs `pytest --collect-only` to surface import / collection failures. **Blocking** as of S-045. | 1 | Required status check on `main`. |
-| `ruff-lint.yml` | `pull_request`, `push` to `main` | Runs ruff with default rules, exclusions in `ruff.toml`. | 1 | Required status check on `main`. |
-| `secret-scan.yml` | `pull_request`, `push` to `main` | Runs `scripts/secret_scan.py` over every tracked file. | 1 | Required status check on `main`. |
-| `dry-run-guard.yml` | `pull_request` to `main` | Fails PRs that introduce dry-run flag flips that would silently downgrade live mode. Pings operator on hit. | 3 (touching the guard itself) | See `scripts/check_dry_run_in_diff.py`, `docs/claude/trading-mode-flags.md`. |
-| `env-gate-guard.yml` | `pull_request` to `main` | Fails PRs that add env-gate reads in protected files without `# allow-silent: <reason>`. | 3 (touching the guard itself) | See `docs/audits/env-gate-purge-2026-05-10.md`. |
-| `silent-empty-guard.yml` | `pull_request` to `main` | Fails PRs that add broad `except` handlers in protected read-paths without an explicit justification. | 3 (touching the guard itself) | See `docs/audits/silent-empty-2026-05-10.md`. |
-| `repo-inventory.yml` | `pull_request`, `push` to `main` | Advisory; uploads `scripts/repo_inventory.py` output as build artifact. | 1 | Promotion to blocking is a deliberate later step. |
+These run on every PR or push to `main`. Claude never triggers them;
+they self-fire. Touching a guard's own logic is **Tier 3**.
+
+| File | Trigger | Purpose | Required on `main`? |
+|---|---|---|---|
+| `pytest-collect.yml` | PR, push `main` | `pytest --collect-only` — surfaces import/collection failures. | Yes |
+| `ruff-lint.yml` | PR, push `main` | `ruff check` with rules from `ruff.toml`. | Yes |
+| `secret-scan.yml` | PR, push `main` | `scripts/secret_scan.py` over every tracked file. | Yes |
+| `dry-run-guard.yml` | PR to `main` | Fails PRs that flip dry-run flags, silently downgrading live mode. Telegrams operator on hit. | Yes |
+| `env-gate-guard.yml` | PR to `main` | Fails PRs adding env-gate reads in protected files without `# allow-silent: <reason>`. | No (advisory) |
+| `silent-empty-guard.yml` | PR to `main` | Fails PRs adding broad `except` handlers in protected read-paths without justification. | No (advisory) |
+| `arch-doc-guard.yml` | PR to `main` | Emits `::warning` when high-impact subsystems change without an architecture-doc update. Always exits 0 (advisory). | No |
+| `repo-inventory.yml` | PR, push `main` | Uploads `scripts/repo_inventory.py` output as build artifact. Advisory only. | No |
+
+`REQUIRED_CONTEXTS` in `branch-protection-sync.yml` is the authoritative
+list of blocking checks. Currently: `["pytest-collect","secret-scan","ruff-lint","dry-run-guard"]`.
+
+---
 
 ### Repo / branch admin
 
-| File | Trigger | Purpose | Tier |
-|---|---|---|---|
-| `bootstrap-labels.yml` | `push` to `main` (paths: this file), `workflow_dispatch` | Creates required labels (`vm-diag-request`, `operator-action`, `vm-web-api-recover`, `oci-verify`, etc.) idempotently. | 1 |
-| `branch-protection-sync.yml` | (push / dispatch) | Idempotently PUTs the branch-protection spec for `main`. Required-status-checks contexts are hardcoded in this file. | 2 |
+#### `bootstrap-labels.yml`
 
-### VM operations (PM-side / sandbox bridges)
+**Autonomy:** AUTO (self-fires on merge of this file) / AUTONOMOUS (Claude
+may re-run via B-sentinel if a label gets deleted).
 
-| File | Trigger | Purpose | Tier | Allowed actions |
-|---|---|---|---|---|
-| `operator-actions.yml` | `workflow_dispatch`, `issues.opened` (label `operator-action`) | Single bridge for allowlisted mutating VM operations. | 2 (Tier-2 actions need a `reason`) | `status-check`, `pull-latest-logs`, `pull-and-deploy`, `restart-bot-service`, `reboot-vm` |
-| `vm-diag-snapshot.yml` | `workflow_dispatch`, `issues.opened` (label `vm-diag-request`) | Read-only relay for `/api/diag/*`. Posts JSON as issue comment, closes issue. | 1 | Read only |
-| `vm-web-api-recover.yml` | `issues.opened` (label `vm-web-api-recover`) | Restarts `ict-web-api.service` only. Restart-only, no edits. | 2 | `systemctl restart ict-web-api.service` |
-| `vm-net-diag.yml` | `workflow_dispatch`, `issues.opened` (label `vm-net-diag-request`) | Read-only network diagnostics; checks 8001 reachability. | 1 | Read only |
-| `vm-net-fix.yml` | `workflow_dispatch`, `issues.opened` (label `vm-net-fix-request`) | Opens TCP/8001 via `ufw` + `iptables -I INPUT ACCEPT`; verifies. | 2 | Local firewall only |
-| `vm-cloud-fix.yml` | `workflow_dispatch`, `issues.opened` (label `vm-cloud-fix-request`) | Adds Oracle Cloud Security List ingress rule for the dashboard API port. | 3 (cloud-side change) | OCI ingress rule |
+**Trigger:** `push` to `main` (paths: this file) + `workflow_dispatch`.
+
+**Purpose:** Idempotently creates all labels that other workflows filter
+on. Safe to re-run at any time; existing labels are left alone.
+
+**MCP trigger (re-run if label deleted):**
+```
+mcp__github__create_or_update_file
+  path: .github/triggers/bootstrap-labels
+  message: "chore: re-sync labels"
+  branch: main
+```
+Or just touch `.github/workflows/bootstrap-labels.yml` in a PR to main.
+
+**Current label set:** `vm-diag-request`, `vm-web-api-recover`,
+`operator-action`, `vm-cloud-fix-request`, `vm-net-diag-request`,
+`vm-net-fix-request`, `health-snapshot-trigger`, `cf-worker-deploy`,
+`provision-training-vm`, `doc-audit-now`, `doc-drift`,
+`vwap-backtest-trigger`, `trainer-vm-diag-request`.
+
+---
+
+#### `branch-protection-sync.yml`
+
+**Autonomy:** OPERATOR-APPROVAL.
+
+**Trigger:** `workflow_dispatch` (operator-click only — no issue trigger,
+no sentinel).
+
+**Purpose:** PUTs the branch-protection spec for `main` idempotently.
+Hardcoded `REQUIRED_CONTEXTS` is authoritative.
+
+**Secrets:** `BRANCH_PROTECTION_TOKEN` (PAT, fine-grained,
+`administration:write`).
+
+**MCP trigger:** None available from sandbox. Operator clicks in Actions UI.
+
+---
+
+### Health & diagnostics
+
+#### `health-snapshot.yml`
+
+**Autonomy:** AUTONOMOUS.
+
+**Trigger:** Schedule every 6h (cron `0 */6 * * *`), `workflow_dispatch`,
+and `issues.opened` with label `health-snapshot-trigger`.
+
+**Purpose:** SSHes into the **live VM**, runs
+`scripts/collect_health_snapshot.sh`, uploads artifact. The
+`/health-review` skill reads pasted-by-operator artifact content (not
+repo-resident), so no merge step is needed.
+
+**MCP trigger (autonomous, Pattern A):**
+```
+mcp__github__issue_write
+  title: "[health-snapshot] on-demand snapshot"
+  body: "reason: Claude-initiated snapshot for health review"
+  labels: ["health-snapshot-trigger"]
+```
+Workflow SSHes, uploads artifact, comments result URL, closes issue.
+
+**Secrets:** `VM_SSH_KEY`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`.
+
+---
+
+#### `vm-diag-snapshot.yml`
+
+**Autonomy:** AUTONOMOUS — read-only relay, no operator approval needed.
+
+**Trigger:** `issues.opened` (label `vm-diag-request`), `workflow_dispatch`.
+
+**Purpose:** Hits `/api/diag/<path>` on the live VM via SSH tunnel, posts
+the JSON response as an issue comment, closes the issue. The PM-side
+session's primary window into the live VM.
+
+**Issue format:**
+```
+title: "[diag-request] <path-and-query>"
+body: (empty body is fine; the path comes from the title)
+labels: ["vm-diag-request"]
+```
+
+Examples:
+```
+title: "[diag-request] snapshot?limit=200"
+title: "[diag-request] audit?limit=50"
+title: "[diag-request] status"
+title: "[diag-request] journalctl?unit=ict-trader-live.service&lines=100"
+```
+
+**Full pattern:** [`docs/claude/diag-relay.md`](claude/diag-relay.md).
+
+**Secrets:** `VM_SSH_KEY`, `DIAG_READ_TOKEN`.
+
+---
+
+#### `trainer-vm-diag.yml`
+
+**Autonomy:** AUTONOMOUS — trainer VM is fully autonomous Claude territory.
+Claude may open these issues at any time without operator approval.
+
+**Trigger:** `issues.opened` (label `trainer-vm-diag-request`),
+`workflow_dispatch`.
+
+**Purpose:** Unrestricted SSH relay into the **trainer VM**
+(`158.178.209.121`). Runs any bash command, posts full output as issue
+comment, closes issue. Commands delivered via stdin (no shell injection).
+
+**Issue format:**
+```
+title: "[trainer-diag] <description>"
+body: |
+  cmd: <bash command>
+labels: ["trainer-vm-diag-request"]
+```
+
+Multi-line commands:
+```
+body: |
+  cmd: |
+    cd /home/ubuntu/ict-trading-bot
+    tail -n 200 runtime_logs/trainer/dataset_builds.jsonl
+```
+
+**MCP trigger (Pattern A):**
+```
+mcp__github__issue_write
+  title: "[trainer-diag] check trainer service status"
+  body: "cmd: journalctl -u ict-trainer.service -n 100 --no-pager"
+  labels: ["trainer-vm-diag-request"]
+```
+
+**Common commands Claude uses autonomously:**
+- `journalctl -u ict-trainer.service -n 100 --no-pager` — service log
+- `cat runtime_logs/trainer/dataset_builds.jsonl | tail -50` — build log
+- `python -m ml.registry list` — registry state
+- `ls -la ml/models/` — model artifact inventory
+- `systemctl status ict-trainer.service ict-trainer.timer` — service state
+- `df -h && free -m` — resource usage
+- `cat /etc/ict-trainer-vm.role` — role marker verification
+
+**Full permission scope:** `docs/claude/trainer-vm-mode.md` § 9.
+
+**Secrets:** `VM_SSH_KEY`. **Variables:** `TRAINER_VM_IP` (default
+`158.178.209.121`), `TRAINER_VM_USER` (default `ubuntu`).
+
+---
+
+### VM operations
+
+#### `operator-actions.yml`
+
+**Autonomy:** OPERATOR-APPROVAL — always confirm with operator before opening
+this issue. Tier-1 actions (`status-check`, `pull-latest-logs`) need only
+in-conversation approval; Tier-2 actions (`pull-and-deploy`,
+`restart-bot-service`, `reboot-vm`, `set-account-mode`) need explicit
+operator ack.
+
+**Trigger:** `issues.opened` (label `operator-action`), `workflow_dispatch`.
+
+**Purpose:** Single bridge for the allowlisted mutating live-VM operations.
+Runs via SSH; logs a JSON audit artifact (pre-/post-state). The issue body
+is passed verbatim through `ISSUE_BODY` env var.
+
+**Issue format:**
+```
+title: "[operator-action] <action-name>"
+body: |
+  action: <name>
+  reason: <text>
+labels: ["operator-action"]
+```
+
+For `set-account-mode`:
+```
+body: |
+  action: set-account-mode
+  account: bybit_2
+  mode: live
+  reason: <operator-approved reason>
+```
+
+**Allowlisted actions:**
+- `status-check` — read-only health dump (Tier 1)
+- `pull-latest-logs` — fetch recent log files (Tier 1)
+- `pull-and-deploy` — git pull + restart services (Tier 2)
+- `restart-bot-service` — `systemctl restart ict-trader-live.service` (Tier 2)
+- `reboot-vm` — full VM reboot (Tier 2)
+- `set-account-mode` — flip `mode: live|dry_run` in `accounts.yaml` (Tier 2, sanctioned wire)
+- `teardown-cloudflare-tunnel` — stops `ict-cloudflared-tunnel.service` (Tier 2)
+
+**Full contract:** [`docs/claude/operator-actions.md`](claude/operator-actions.md).
+
+**Secrets:** `VM_SSH_KEY`, `DIAG_READ_TOKEN`.
+
+---
+
+#### `vm-web-api-recover.yml`
+
+**Autonomy:** AUTONOMOUS — self-heal when the web API is down (curl exit 7).
+No operator approval needed; restart-only, no edits.
+
+**Trigger:** `issues.opened` (label `vm-web-api-recover`).
+
+**Purpose:** `systemctl restart ict-web-api.service` + health probe on the
+live VM. Fires when `/api/diag/*` returns curl exit 7 (FastAPI down).
+
+**MCP trigger (Pattern A):**
+```
+mcp__github__issue_write
+  title: "[vm-web-api-recover] web API is down — exit 7"
+  body: "Diag relay returning curl exit 7; restarting ict-web-api.service."
+  labels: ["vm-web-api-recover"]
+```
+
+**Secrets:** `VM_SSH_KEY`.
+
+---
+
+#### `vm-net-diag.yml`
+
+**Autonomy:** AUTONOMOUS — read-only network diagnostics.
+
+**Trigger:** `issues.opened` (label `vm-net-diag-request`),
+`workflow_dispatch`.
+
+**Purpose:** SSH + port-reachability checks; tests TCP/8001 from the
+runner. Posts results as issue comment.
+
+**MCP trigger (Pattern A):**
+```
+mcp__github__issue_write
+  title: "[vm-net-diag] check port 8001 reachability"
+  body: "Checking TCP/8001 access from external runner."
+  labels: ["vm-net-diag-request"]
+```
+
+---
+
+#### `vm-net-fix.yml`
+
+**Autonomy:** OPERATOR-APPROVAL — modifies the live VM's local firewall.
+
+**Trigger:** `issues.opened` (label `vm-net-fix-request`),
+`workflow_dispatch`.
+
+**Purpose:** Opens TCP/8001 via `ufw allow` + `iptables -I INPUT ACCEPT`;
+verifies post-fix.
+
+**MCP trigger (Pattern A, after operator approval):**
+```
+mcp__github__issue_write
+  title: "[vm-net-fix] open port 8001"
+  body: "Operator approved. Opening ufw + iptables for dashboard API port."
+  labels: ["vm-net-fix-request"]
+```
+
+---
+
+#### `vm-cloud-fix.yml`
+
+**Autonomy:** OPERATOR-APPROVAL (Tier 3 — cloud-side infrastructure change).
+
+**Trigger:** `issues.opened` (label `vm-cloud-fix-request`),
+`workflow_dispatch`.
+
+**Purpose:** Adds an Oracle Cloud Security List ingress rule for the
+dashboard API port. This is a cloud-side change (OCI VCN Security List),
+not a VM-local change.
+
+**Secrets:** `VM_SSH_KEY`, OCI CLI set (`OCI_CLI_USER`, `OCI_CLI_FINGERPRINT`,
+`OCI_CLI_TENANCY`, `OCI_CLI_REGION`, `OCI_CLI_KEY_CONTENT`).
+
+---
+
+### Trainer VM lifecycle
+
+#### `provision-training-vm.yml`
+
+**Autonomy:** AUTONOMOUS — provisioning new trainer-VM infrastructure is
+fully Claude-autonomous per `trainer-vm-mode.md` § 3.
+
+**Trigger:** `issues.opened` (label `provision-training-vm`),
+`workflow_dispatch`.
+
+**Purpose:** Provisions a new OCI Always Free Ampere A1 VM for the model
+training center. Idempotent — refuses to create a duplicate if a
+non-TERMINATED `ict-trainer-vm` already exists.
+
+**Issue format:**
+```
+title: "[provision-training-vm] S-AI-WS9 training center"
+body: |
+  confirm: yes
+  reason: S-AI-WS9 — provision model training center VM
+labels: ["provision-training-vm"]
+```
+
+The `confirm: yes` line is an audit-trail formality, not a human gate.
+Claude always includes it.
+
+**Secrets:** `VM_SSH_KEY`, OCI CLI set.
+
+---
+
+#### `provision-training-vm-auto-retry.yml`
+
+**Autonomy:** AUTO — cron-driven retry loop; Claude never triggers this.
+
+**Trigger:** Schedule every 10 minutes, `workflow_dispatch`.
+
+**Purpose:** Retries `provision-training-vm.yml` until OCI has Ampere A1
+capacity. When the VM is detected as existing, opens a one-time
+notification issue and goes silent on subsequent ticks.
+
+**Note:** This workflow runs perpetually until the trainer VM exists. To
+stop it entirely, disable the schedule in GitHub Actions settings.
+
+---
+
+#### `deploy-trainer-bootstrap.yml`
+
+**Autonomy:** AUTONOMOUS — trainer VM bootstrap is fully autonomous.
+
+**Trigger:** `workflow_dispatch`, and `push` to `main` paths:
+`.github/triggers/deploy-trainer-bootstrap` (the push sentinel).
+
+**Purpose:** Full one-shot bootstrap sequence on the trainer VM after
+provisioning:
+1. Verify role marker (`/etc/ict-trainer-vm.role`)
+2. Deploy vm-to-vm SSH key
+3. Pull latest `main`
+4. Create venv + install deps
+5. Sync `trade_journal.db` + `signal_audit.jsonl` from live VM (read-only)
+6. Build all WS5 dataset families
+7. Train + register + promote WS5 baselines to `target_stage`
+8. Enable `ict-trainer.service` + `ict-trainer.timer`
+9. Close the notification issue
+
+**MCP trigger (Pattern B — push sentinel):**
+```
+mcp__github__create_or_update_file
+  owner: benbaichmankass
+  repo: ict-trading-bot
+  path: .github/triggers/deploy-trainer-bootstrap
+  message: "chore: trigger deploy-trainer-bootstrap"
+  content: <base64("triggered: <timestamp>\n")>
+  branch: main
+  sha: <current SHA from get_file_contents>
+```
+
+Get the current SHA first:
+```
+mcp__github__get_file_contents
+  path: .github/triggers/deploy-trainer-bootstrap
+  owner: benbaichmankass
+  repo: ict-trading-bot
+```
+
+**Default inputs** (applied when push-triggered): `trainer_vm_ip=158.178.209.121`,
+`target_stage=shadow`, `close_issue=938`.
+
+**Timeout:** 90 minutes (dataset build + training can take ~60 min).
+
+**Secrets:** `VM_SSH_KEY`, OCI CLI set.
+
+---
+
+### Backtesting
+
+#### `vwap-backtest.yml`
+
+**Autonomy:** AUTONOMOUS — backtests on the trainer VM are fully autonomous.
+
+**Trigger:** `issues.opened` (label `vwap-backtest-trigger` or title prefix
+`[vwap-backtest]`), `workflow_dispatch`.
+
+**Purpose:** SSHes into the **trainer VM**, fetches fresh 5m BTCUSDT data
+from Bybit, runs the VWAP HTF-filter comparison backtest, posts results
+as an issue comment. Runs on the trainer VM to avoid compute contention
+on the live trader.
+
+**Issue format:**
+```
+title: "[vwap-backtest] HTF filter comparison — BTCUSDT 5m"
+body: |
+  compare: true
+  days: 365
+  num_windows: 8
+  window_days: 30
+labels: ["vwap-backtest-trigger"]
+```
+
+All body keys are optional (all have defaults). Dispatch variant uploads
+an artifact.
+
+**MCP trigger (Pattern A):**
+```
+mcp__github__issue_write
+  title: "[vwap-backtest] HTF comparison — latest data"
+  body: "compare: true\ndays: 365\nnum_windows: 8\nwindow_days: 30"
+  labels: ["vwap-backtest-trigger"]
+```
+
+**Secrets:** `VM_SSH_KEY`. **Variables:** `TRAINER_VM_SSH_HOST` (default
+`158.178.209.121`).
+
+---
+
+### Documentation
+
+#### `doc-audit-weekly.yml`
+
+**Autonomy:** AUTONOMOUS — Claude may fire an on-demand audit at any time.
+
+**Trigger:** Schedule Monday 12:00 UTC, `workflow_dispatch`, and
+`issues.opened` (label `doc-audit-now`).
+
+**Purpose:** Runs `scripts/ops/audit_verification_checklist.py` against
+`docs/ARCHITECTURE-CANONICAL.md`. If any `[x]` line references a path
+that no longer exists, files a new issue tagged `doc-drift`.
+
+**MCP trigger (Pattern A, autonomous):**
+```
+mcp__github__issue_write
+  title: "[doc-audit] on-demand architecture doc audit"
+  body: "reason: Claude-initiated audit — checking for stale paths"
+  labels: ["doc-audit-now"]
+```
+
+---
 
 ### OCI block storage
 
-| File | Trigger | Purpose | Tier | Allowed actions |
-|---|---|---|---|---|
-| `oci-storage.yml` | `workflow_dispatch` (input `mode = dry-run | execute`) | Provisions / re-checks the OCI block volume (`ict-bot-data-vol`) for the live trading VM: create → attach → mkfs → mount → fstab → rsync migrate → install systemd drop-ins → restart services → verify. Mutating job uses `environment: production-oci` (one approval per dispatch). | 2 | All helper scripts under `scripts/oci_*.sh` and `scripts/migrate_to_data_dir.sh`; SSH to the live VM. |
-| `oci-storage-verify.yml` | `workflow_dispatch` | Read-only health check of the OCI storage state. SSHes the VM, runs `scripts/verify_storage_setup.sh`, posts the report to a labelled GitHub Issue (`oci-verify`) and to the run summary. **No env gate** — read-only checks shouldn't pause for approval. | 1 | Read only over SSH. |
+#### `oci-storage.yml`
 
-The storage state is **also** included in every 6-hourly
-`health-snapshot-pr.yml` snapshot via the `=== STORAGE ===` section in
-`scripts/collect_health_snapshot.sh`. The `/health-review` skill picks
-it up automatically; no separate cron is needed.
+**Autonomy:** OPERATOR-APPROVAL — provisions/modifies live trading VM storage.
+Environment `production-oci` carries an approval gate.
 
-The full runbook lives at
-[`docs/automation/oci-storage-setup.md`](automation/oci-storage-setup.md).
+**Trigger:** `workflow_dispatch` (inputs: `mode = dry-run | execute`).
 
-### Training / data
+**Purpose:** Provisions / re-checks the OCI block volume (`ict-bot-data-vol`)
+for the live trading VM: create → attach → mkfs → mount → fstab → rsync
+migrate → install systemd drop-ins → restart services → verify.
 
-| File | Trigger | Purpose | Tier |
-|---|---|---|---|
-| `training-run.yml` | `push` to `claude/training-plan-*` (paths: `experiments/*/hypotheses.py`, `scripts/training/**`, this file), `workflow_dispatch` | Autonomous training run; commits results to `claude/training-results-<run-id>`, opens draft `TRAINING-RESULTS:` PR, fires Telegram ping. | 2 (results inform Tier-3 strategy decisions) |
-| `training-rerun-5m.yml` | `push` (paths in `experiments/2026-05-07-vwap-accuracy/`), `workflow_dispatch` | Re-runs the VWAP-accuracy experiment at the production 5m timeframe on a runner that has live market-data egress. | 2 |
-| `hf-cron.yml` | `workflow_dispatch` | Manual one-shot HuggingFace AutoTrain run. Daily cron disabled (CP-2026-05-02-02). | 2 |
+**MCP trigger:** None from sandbox. Operator clicks in Actions UI.
 
-### Sprint / session continuity
+**Secrets:** `VM_SSH_PRIVATE_KEY` (env `production-oci`), OCI CLI set.
 
-| File | Trigger | Purpose | Tier |
-|---|---|---|---|
-| `continue-work.yml` | `workflow_dispatch` (typically) | Bounded sprint-continuation handoff: validates `automation/session_handoff/next_session.json`, surfaces fields, appends history, uploads artifact. | 1 |
+---
+
+#### `oci-storage-verify.yml`
+
+**Autonomy:** AUTONOMOUS — read-only storage health check.
+
+**Trigger:** `workflow_dispatch`.
+
+**Purpose:** SSHes the live VM, runs `scripts/verify_storage_setup.sh`,
+posts the report to a labelled `oci-verify` issue and to the run summary.
+
+**MCP trigger:** No Pattern A trigger exists. Operator dispatches from
+Actions UI (or via CLI GitHub MCP after session restart).
+
+**Note:** The 6-hourly `health-snapshot.yml` includes `=== STORAGE ===`
+in its artifact, so a dedicated dispatch is only needed when responding
+to a suspected mount regression.
+
+**Secrets:** `VM_SSH_KEY`.
+
+---
+
+### Training / ML
+
+#### `training-run.yml`
+
+**Autonomy:** OPERATOR-APPROVAL — results inform Tier-3 strategy decisions.
+
+**Trigger:** `push` to `claude/training-plan-*` (paths:
+`experiments/*/hypotheses.py`, `scripts/training/**`, this file),
+`workflow_dispatch`.
+
+**Purpose:** Autonomous training run; commits results to
+`claude/training-results-<run-id>`, opens draft `TRAINING-RESULTS:` PR,
+fires Telegram ping.
+
+**Secrets:** `VM_SSH_KEY`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`,
+`HF_TOKEN`.
+
+---
+
+#### `training-rerun-5m.yml`
+
+**Autonomy:** OPERATOR-APPROVAL.
+
+**Trigger:** `push` (paths in `experiments/2026-05-07-vwap-accuracy/`),
+`workflow_dispatch`.
+
+**Purpose:** Re-runs the VWAP-accuracy experiment at the production 5m
+timeframe on a runner with live market-data egress.
+
+---
+
+#### `hf-cron.yml`
+
+**Autonomy:** OPERATOR-APPROVAL.
+
+**Trigger:** `workflow_dispatch` (daily cron disabled as of CP-2026-05-02-02).
+
+**Purpose:** Manual one-shot HuggingFace AutoTrain run.
+
+**MCP trigger:** None from sandbox. Operator dispatches from Actions UI.
+
+**Secrets:** `HF_TOKEN`, `VM_SSH_KEY`.
+
+---
+
+### Session continuity
+
+#### `continue-work.yml`
+
+**Autonomy:** AUTONOMOUS.
+
+**Trigger:** `workflow_dispatch`.
+
+**Purpose:** Bounded sprint-continuation handoff: validates
+`automation/session_handoff/next_session.json`, surfaces fields, appends
+history, uploads artifact.
+
+**MCP trigger:** No Pattern A trigger. Operator dispatches from Actions UI
+(or CLI GitHub MCP after session restart).
+
+---
 
 ## How Claude should use these workflows
 
-- **Reading VM state from a sandbox session** — open an issue with
-  the right label (e.g. `vm-diag-request` with title
-  `[diag-request] snapshot?limit=200`). The workflow runs, comments the
-  result, closes the issue. Full pattern in
-  [`docs/claude/diag-relay.md`](claude/diag-relay.md).
-- **Restarting the web API** — open an issue with label
-  `vm-web-api-recover`. No body required.
-- **Triggering a Tier-2 operator action** — confirm operator approval
-  in conversation, then open an issue with label `operator-action` and
-  body `action: <name>\nreason: <text>`. Allowed names listed above.
-- **Checking OCI storage state** — in a session with hosted GitHub MCP,
-  ask the operator to dispatch `oci-storage-verify` (one button, no
-  approval); Claude then reads the resulting `oci-verify`-labelled issue
-  for the report. The 6-hourly health snapshot already includes the
-  `=== STORAGE ===` block, so a fresh dispatch is only needed when
-  responding to a suspected mount regression.
-- **Adding a CI check** — edit/create a workflow under
-  `.github/workflows/`, then if it should be a required status check,
-  add it to the `required_contexts` array in
-  `branch-protection-sync.yml` in the same PR.
-- **Inspecting workflow outputs** — the GitHub MCP available to Claude
-  Code on the web does not currently include `run_workflow` /
-  `download_artifact` / `get_run_logs`. For autonomy, drive workflows
-  via the issue-trigger pattern and consume the result as a comment.
+**Reading live VM state:**
+```
+mcp__github__issue_write
+  title: "[diag-request] snapshot?limit=200"
+  labels: ["vm-diag-request"]
+```
+Full pattern: [`docs/claude/diag-relay.md`](claude/diag-relay.md).
+
+**Reading trainer VM state (any command):**
+```
+mcp__github__issue_write
+  title: "[trainer-diag] <description>"
+  body: "cmd: <bash command>"
+  labels: ["trainer-vm-diag-request"]
+```
+Full pattern: [`docs/claude/trainer-vm-mode.md`](claude/trainer-vm-mode.md) § 9.
+
+**Restarting the web API (live VM, autonomous):**
+```
+mcp__github__issue_write
+  title: "[vm-web-api-recover] web API down"
+  labels: ["vm-web-api-recover"]
+```
+
+**Triggering a Tier-2 operator action (live VM, approval required):**
+1. Confirm operator approval in conversation.
+2. Open issue:
+```
+mcp__github__issue_write
+  title: "[operator-action] restart-bot-service"
+  body: "action: restart-bot-service\nreason: <operator-approved reason>"
+  labels: ["operator-action"]
+```
+
+**Re-triggering trainer bootstrap (push sentinel):**
+```
+mcp__github__get_file_contents + mcp__github__create_or_update_file
+  path: .github/triggers/deploy-trainer-bootstrap
+  branch: main
+```
+
+**Running a VWAP backtest (trainer VM, autonomous):**
+```
+mcp__github__issue_write
+  title: "[vwap-backtest] <description>"
+  body: "compare: true\ndays: 365"
+  labels: ["vwap-backtest-trigger"]
+```
+
+**Firing an on-demand doc audit (autonomous):**
+```
+mcp__github__issue_write
+  title: "[doc-audit] on-demand"
+  labels: ["doc-audit-now"]
+```
+
+**Adding a CI check:**
+Edit/create a workflow under `.github/workflows/`. If it should be a
+required status check, add its job ID to `REQUIRED_CONTEXTS` in
+`branch-protection-sync.yml` in the same PR.
+
+**Checking workflow output:**
+The hosted GitHub MCP does **not** expose `download_artifact` or
+`get_run_logs`. For autonomous workflows: consume results from the issue
+comment (the workflow posts output there and closes the issue). For
+operator-dispatched workflows with artifacts: ask the operator to
+download + paste the artifact content.
+
+---
 
 ## Modification policy
 
 - Every change to a workflow under `.github/workflows/` must mention
   this doc in the PR body when it changes triggers, secrets, allowed
   actions, or tier classification.
-- New workflows must be listed in this catalogue (table + brief
-  description) before merge.
-- Removing or weakening a guard workflow (`dry-run-guard`,
-  `env-gate-guard`, `silent-empty-guard`) is Tier 3 and requires
-  explicit operator approval — guards exist precisely so silent
-  downgrades cannot ship.
+- New workflows must be listed in this catalogue before merge.
+- New issue-driven workflows must have their label added to `bootstrap-labels.yml`
+  in the same PR.
+- Removing or weakening a guard workflow (`dry-run-guard`, `env-gate-guard`,
+  `silent-empty-guard`, `arch-doc-guard`) is Tier 3 and requires explicit
+  operator approval.
+
+---
 
 ## Required secrets quick reference
 
 | Secret | Scope | Used by |
 |---|---|---|
-| `VM_SSH_KEY` | repo | All read-only VM SSH workflows (`vm-diag-snapshot`, `vm-net-diag`, `health-snapshot-pr`, `oci-storage-verify`, etc.) |
+| `VM_SSH_KEY` | repo | All VM SSH workflows (live VM and trainer VM) |
 | `VM_SSH_PRIVATE_KEY` | env `production-oci` | `oci-storage` mutating job only (env scope carries the approval gate) |
 | `DIAG_READ_TOKEN` | repo | `vm-diag-snapshot`, post-action verification in `operator-actions` |
-| `BRANCH_PROTECTION_TOKEN` (PAT, fine-grained, `administration:write`) | repo | `branch-protection-sync` |
-| `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | repo | `dry-run-guard`, `env-gate-guard`, `silent-empty-guard`, `training-run` (operator pings) |
-| `OCI_CLI_USER`, `OCI_CLI_FINGERPRINT`, `OCI_CLI_TENANCY`, `OCI_CLI_REGION`, `OCI_CLI_KEY_CONTENT` | repo | `vm-cloud-fix`, `oci-storage` |
-| `HF_TOKEN` (where present) | repo | `hf-cron`, `training-run` (HF dataset publishing) |
+| `BRANCH_PROTECTION_TOKEN` | repo | `branch-protection-sync` (PAT, fine-grained, `administration:write`) |
+| `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | repo | `dry-run-guard`, `env-gate-guard`, `silent-empty-guard`, `training-run` |
+| `OCI_CLI_USER`, `OCI_CLI_FINGERPRINT`, `OCI_CLI_TENANCY`, `OCI_CLI_REGION`, `OCI_CLI_KEY_CONTENT` | repo | `vm-cloud-fix`, `oci-storage`, `provision-training-vm`, `provision-training-vm-auto-retry` |
+| `HF_TOKEN` | repo | `hf-cron`, `training-run` |
 
 ## Optional repo variables
 
 | Variable | Default | Used by |
 |---|---|---|
-| `VM_SSH_HOST` | `158.178.210.252` | VM SSH workflows |
-| `VM_SSH_USER` | `ubuntu` | VM SSH workflows |
+| `VM_SSH_HOST` | `158.178.210.252` | Live VM SSH workflows |
+| `VM_SSH_USER` | `ubuntu` | Live VM SSH workflows |
+| `TRAINER_VM_IP` | `158.178.209.121` | `trainer-vm-diag.yml`, `deploy-trainer-bootstrap.yml` |
+| `TRAINER_VM_USER` | `ubuntu` | `trainer-vm-diag.yml` |
+| `TRAINER_VM_SSH_HOST` | `158.178.209.121` | `vwap-backtest.yml` |
