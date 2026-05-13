@@ -13,6 +13,30 @@
 > **Other repo:** `benbaichmankass/ict-trader-dashboard` has **no**
 > `.github/workflows/` directory as of this writing.
 
+---
+
+## ⛔ STOP — Read before touching any workflow
+
+**Before creating a new workflow or writing any SSH/diag/backtest
+automation, check the catalogue below first.** Most common operations
+already have a workflow. Creating a duplicate wastes PRs, clutters the
+Actions tab, and adds dead code.
+
+| Need | Existing workflow | Trigger |
+|---|---|---|
+| Run any command on the **trainer VM** | `trainer-vm-diag.yml` | `trainer-vm-diag-request` label |
+| Run any command on the **live VM** (read-only) | `vm-diag-snapshot.yml` | `vm-diag-request` label |
+| Mutate the **live VM** (restart, deploy, mode-flip) | `operator-actions.yml` | `operator-action` label |
+| Run a **VWAP backtest** on the trainer VM | `vwap-backtest.yml` | `vwap-backtest-trigger` label |
+| Check network reachability from GitHub runner | `vm-net-diag.yml` | `vm-net-diag-request` label |
+| Restart the live VM web API | `vm-web-api-recover.yml` | `vm-web-api-recover` label |
+| Take a health snapshot of the live VM | `health-snapshot.yml` | `health-snapshot-trigger` label |
+
+If the use case is not in this table, read the full catalogue before
+deciding to create a new workflow.
+
+---
+
 ## Why this doc exists
 
 Claude is allowed (and expected) to use GitHub Actions as part of the
@@ -509,22 +533,12 @@ provisioning:
 
 **MCP trigger (Pattern B — push sentinel):**
 ```
-mcp__github__create_or_update_file
-  owner: benbaichmankass
-  repo: ict-trading-bot
+mcp__github__get_file_contents + mcp__github__create_or_update_file
   path: .github/triggers/deploy-trainer-bootstrap
   message: "chore: trigger deploy-trainer-bootstrap"
   content: <base64("triggered: <timestamp>\n")>
   branch: main
   sha: <current SHA from get_file_contents>
-```
-
-Get the current SHA first:
-```
-mcp__github__get_file_contents
-  path: .github/triggers/deploy-trainer-bootstrap
-  owner: benbaichmankass
-  repo: ict-trading-bot
 ```
 
 **Default inputs** (applied when push-triggered): `trainer_vm_ip=158.178.209.121`,
@@ -778,7 +792,7 @@ download + paste the artifact content.
 - Every change to a workflow under `.github/workflows/` must mention
   this doc in the PR body when it changes triggers, secrets, allowed
   actions, or tier classification.
-- New workflows must be listed in this catalogue before merge.
+- **New workflows must be listed in this catalogue before merge.**
 - New issue-driven workflows must have their label added to `bootstrap-labels.yml`
   in the same PR.
 - Removing or weakening a guard workflow (`dry-run-guard`, `env-gate-guard`,
