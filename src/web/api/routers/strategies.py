@@ -87,7 +87,7 @@ def _load_strategies_yaml() -> Dict[str, Any]:
         with _STRATEGIES_YAML.open(encoding="utf-8") as fh:
             raw = yaml.safe_load(fh) or {}
         return raw.get("strategies") or {} if isinstance(raw, dict) else {}
-    except Exception:
+    except Exception:  # allow-silent: best-effort yaml read; logs + returns safe empty default
         logger.exception("strategies: failed to load strategies.yaml")
         return {}
 
@@ -99,7 +99,7 @@ def _load_changelog() -> Dict[str, List[Dict[str, str]]]:
         with _CHANGELOG_JSON.open(encoding="utf-8") as fh:
             data = json.load(fh)
         return data if isinstance(data, dict) else {}
-    except Exception:
+    except Exception:  # allow-silent: best-effort json read; logs + returns safe empty default
         logger.exception("strategies: failed to load strategy_changelog.json")
         return {}
 
@@ -128,7 +128,7 @@ def _query_stats(db_path: Path) -> Dict[str, Dict[str, Any]]:
             ).fetchall()
         finally:
             conn.close()
-    except sqlite3.Error:
+    except sqlite3.Error:  # allow-silent: best-effort db read; logs + returns safe empty default
         logger.exception("strategies: sqlite read failed")
         return {}
 
