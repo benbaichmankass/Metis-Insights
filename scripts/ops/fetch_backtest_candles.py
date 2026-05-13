@@ -6,11 +6,11 @@ root). No authentication required — Bybit V5 public klines endpoint.
 
 Usage
 -----
-    # Last 90 days (default):
+    # Last 365 days (default — wide enough for random-window sampling):
     python scripts/ops/fetch_backtest_candles.py
 
     # Explicit date range:
-    python scripts/ops/fetch_backtest_candles.py \
+    python scripts/ops/fetch_backtest_candles.py \\
         --start-date 2026-02-01 --end-date 2026-05-13
 
     # Override output path:
@@ -148,8 +148,8 @@ def main(argv: list[str]) -> int:
     parser.add_argument(
         "--days",
         type=int,
-        default=90,
-        help="Trailing calendar days to fetch (default 90). Overridden by --start-date.",
+        default=365,
+        help="Trailing calendar days to fetch (default 365). Overridden by --start-date.",
     )
     parser.add_argument(
         "--start-date",
@@ -189,7 +189,7 @@ def main(argv: list[str]) -> int:
 
     print(
         f"Fetching {args.symbol} {args.interval}m candles "
-        f"{start_dt.date()} → {(end_dt - timedelta(days=1)).date()} …",
+        f"{start_dt.date()} -> {(end_dt - timedelta(days=1)).date()} …",
         file=sys.stderr,
     )
 
@@ -209,7 +209,7 @@ def main(argv: list[str]) -> int:
     df.to_csv(output_path, index=False)
     print(
         f"Wrote {len(df)} rows "
-        f"({df['timestamp'].iloc[0].date()} → {df['timestamp'].iloc[-1].date()}) "
+        f"({df['timestamp'].iloc[0].date()} -> {df['timestamp'].iloc[-1].date()}) "
         f"to {output_path}",
         file=sys.stderr,
     )
