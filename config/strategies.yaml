@@ -61,6 +61,14 @@ strategies:
     threshold: 0.01
     monitor_hold_window_minutes: 240
 
+    # SL-to-break-even threshold (R multiples). When price moves >= be_at_r
+    # x original_risk in the trade's favour and no close path (TP/SL/VWAP-
+    # cross/time-decay) has fired, the strategy slides SL to entry. 1.0 is
+    # the legacy hard-coded default (pre-2026-05-13). Lower values (e.g.
+    # 0.5) protect faster on shallow mean-reversion runs that retrace
+    # before reaching VWAP; higher (e.g. 1.5) lets the trade run further.
+    be_at_r: 1.0
+
     # Recent-context filter (operator directive 2026-05-13).
     # Informational only — does not block entries.
     recent_context_filter:

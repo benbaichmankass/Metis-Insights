@@ -903,12 +903,27 @@ def monitor(cfg, candles_df, open_pkg):
 
     # 5. SL-to-break-even — defence-in-depth fallback that runs only
     #    when none of the four close paths fire. Once price has moved
-    #    >= 1R in our favour the original invalidation level no longer
-    #    needs to be defended; sliding SL to entry locks in the gain
-    #    while leaving the position open to ride toward TP/VWAP. Last
-    #    in the priority chain so a close verdict (TP/SL/VWAP-cross/
-    #    time-decay) always wins on the same tick — BE never converts
-    #    a would-be exit into "still in market". The shared helper in
-    #    ``_base`` is idempotent: once SL is at entry the next +1R
-    #    tick is a no-op rather than re-writing the same value.
-    return monitor_breakeven_sl(open_pkg, candles_df)
+    #    >= ``cfg["be_at_r"]`` × 1R in our favour the original
+    #    invalidation level no longer needs to be defended; sliding
+    #    SL to entry locks in the gain while leaving the position
+    #    open to ride toward TP/VWAP. Last in the priority chain so a
+    #    close verdict (TP/SL/VWAP-cross/time-decay) always wins on
+    #    the same tick — BE never converts a would-be exit into
+    #    "still in market". The shared helper in ``_base`` is
+    #    idempotent: once SL is at entry the next +1R tick is a
+    #    no-op rather than re-writing the same value.
+    #
+    #    ``cfg["be_at_r"]`` is operator-tunable via
+    #    ``config/strategies.yaml`` (defaults to 1.0R, matching the
+    #    pre-2026-05-13 hard-coded behaviour). Setting it lower
+    #    (e.g. 0.5) protects faster on shallow mean-reversion runs
+    #    that retrace before reaching VWAP; setting it higher
+    #    (e.g. 1.5) lets the trade run further before the stop is
+    #    raised. Invalid / non-positive values fall back to 1.0.
+    try:
+        be_at_r = float(cfg_dict.get("be_at_r", 1.0))
+    except (TypeError, ValueError):
+        be_at_r = 1.0
+    if be_at_r <= 0:
+        be_at_r = 1.0
+    return monitor_breakeven_sl(open_pkg, candles_df, one_r_threshold=be_at_r)
