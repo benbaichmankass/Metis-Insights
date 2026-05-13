@@ -2,22 +2,29 @@
 
 Backtests the live VWAP mean-reversion strategy (build_vwap_signal) against
 historical M5 candle data with support for comparing different HTF trend-filter
-configurations side-by-side.
+configurations side-by-side.  Supports both full-range and random-window modes
+for robust out-of-sample validation across multiple market regimes.
 
 Problem context
 ---------------
 The live config uses ``4h EMA-200`` (~800 h ≈ 33 days of look-back) which is
 too slow to detect intraday reversals: the bot keeps entering longs into clear
-short-term downtrends. This script compares the current config against faster
+short-term downtrends.  This script compares the current config against faster
 alternatives to find the sweet spot before touching config/strategies.yaml.
 
 Usage
 -----
-    # Compare all built-in configs (current vs proposed vs middle vs no-filter):
+    # Compare all configs over random windows (recommended for robust results):
+    python -m src.backtest.run_backtest_vwap --compare --windows 8 --window-days 30
+
+    # Compare over full date range (no windowing):
     python -m src.backtest.run_backtest_vwap --compare
 
-    # Single custom run:
-    python -m src.backtest.run_backtest_vwap --htf-timeframe 1h --ema-period 50
+    # Limit to recent data (last 90 days):
+    python -m src.backtest.run_backtest_vwap --compare --days 90
+
+    # Single custom run with windows:
+    python -m src.backtest.run_backtest_vwap --htf-timeframe 1h --ema-period 50 --windows 8
 
     # Disable the HTF filter entirely (baseline):
     python -m src.backtest.run_backtest_vwap --no-htf
@@ -27,10 +34,22 @@ Environment
 BACKTEST_DATA_PATH   Override CSV path (default: data/backtest_candles.csv)
 TRADE_JOURNAL_DB     Override SQLite path (unused here but kept for parity)
 
+Data freshness
+--------------
+For meaningful results, run scripts/ops/fetch_backtest_candles.py first to
+populate BACKTEST_DATA_PATH with recent 5m data that covers current market
+conditions (both up and down regimes).  The default data/backtest_candles.csv
+in the repo is a small sample for unit tests only.
+
+    BACKTEST_DATA_PATH=/tmp/fresh.csv \\
+        python scripts/ops/fetch_backtest_candles.py --days 365
+    BACKTEST_DATA_PATH=/tmp/fresh.csv \\
+        python -m src.backtest.run_backtest_vwap --compare --windows 8
+
 Output
 ------
 Single line of compact JSON to stdout so ``tail -1`` in wrapper scripts
-works. Informational progress goes to stderr.
+works.  Informational progress goes to stderr.
 
 Trade simulation close conditions (matches vwap.monitor() priority order):
   1. SL-cross
@@ -42,6 +61,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import random
+import statistics
 import sys
 import traceback
 from collections import Counter
@@ -62,31 +83,54 @@ M5_LOOKBACK_BARS = 300  # ~25 h at 5 m
 # monitor_hold_window_minutes = 240 min / 5 min per bar = 48 bars
 HOLD_BARS_MAX = 48
 
-# --compare sweeps these configs.  Add or remove entries freely.
+# Warmup bars prepended to each random window so HTF EMAs are stable at the
+# window boundary.  7 days × 288 5m bars/day covers convergence for all
+# configs in COMPARE_CONFIGS (longest is 1h EMA-50: 50 × 3 × 12 = 1800 bars).
+WARMUP_BARS = 2016
+
+# Normalised pandas frequency strings for resample() and pd.Timedelta().
+_HTF_FREQ: dict[str, str] = {
+    "5m": "5min",
+    "15m": "15min",
+    "30m": "30min",
+    "1h": "1h",
+    "4h": "4h",
+    "1d": "1D",
+}
+
+# --compare sweeps these configs.  Configs are chosen to be appropriate for
+# an intraday 5m mean-reversion strategy — fast enough to capture same-session
+# and multi-session directional bias without the lag of EMA-200 on 4h bars.
 COMPARE_CONFIGS: list[dict[str, Any]] = [
-    {
-        "label": "current (4h EMA-200)",
-        "htf_timeframe": "4h",
-        "ema_period": 200,
-        "band_pct": 0.02,
-    },
-    {
-        "label": "proposed (1h EMA-50)",
-        "htf_timeframe": "1h",
-        "ema_period": 50,
-        "band_pct": 0.02,
-    },
-    {
-        "label": "middle (4h EMA-20)",
-        "htf_timeframe": "4h",
-        "ema_period": 20,
-        "band_pct": 0.02,
-    },
     {
         "label": "no HTF filter (baseline)",
         "htf_timeframe": None,
         "ema_period": None,
         "band_pct": None,
+    },
+    {
+        "label": "15m EMA-20 (intraday fast)",
+        "htf_timeframe": "15m",
+        "ema_period": 20,
+        "band_pct": 0.02,
+    },
+    {
+        "label": "1h EMA-20 (intraday)",
+        "htf_timeframe": "1h",
+        "ema_period": 20,
+        "band_pct": 0.02,
+    },
+    {
+        "label": "1h EMA-50 (multi-session)",
+        "htf_timeframe": "1h",
+        "ema_period": 50,
+        "band_pct": 0.02,
+    },
+    {
+        "label": "4h EMA-20 (few-day)",
+        "htf_timeframe": "4h",
+        "ema_period": 20,
+        "band_pct": 0.02,
     },
 ]
 
@@ -98,8 +142,7 @@ def _resample_to_htf(m5_df: pd.DataFrame, htf_timeframe: str) -> pd.DataFrame:
     ``[T, T + freq)`` — the close of that period is the close of the
     last M5 bar whose timestamp falls in ``[T, T + freq)``.
     """
-    freq_map = {"1h": "1h", "4h": "4h", "1d": "1D"}
-    freq = freq_map.get(htf_timeframe, htf_timeframe)
+    freq = _HTF_FREQ.get(htf_timeframe, htf_timeframe)
     df = m5_df.set_index("timestamp").sort_index()
     htf = (
         df.resample(freq, closed="left", label="left")
@@ -222,9 +265,12 @@ def run_single(
     ema_period: int | None = 200,
     band_pct: float = 0.02,
     label: str = "",
+    start_bar: int = 0,
 ) -> dict[str, Any]:
     """Run the VWAP backtest with one HTF config.
 
+    ``start_bar`` sets the earliest bar index where trading signals are
+    evaluated — useful when run_windows() prepends a warmup prefix.
     When ``htf_timeframe`` or ``ema_period`` is None the HTF gate is
     disabled (baseline — no trend filtering).
     """
@@ -240,7 +286,7 @@ def run_single(
         )
         htf_df = _resample_to_htf(df, htf_timeframe)
         htf_ema_series = _build_htf_ema(htf_df, ema_period)
-        htf_period_delta = pd.Timedelta(htf_timeframe)
+        htf_period_delta = pd.Timedelta(_HTF_FREQ.get(htf_timeframe, htf_timeframe))
     else:
         htf_df = htf_ema_series = htf_period_delta = None
 
@@ -248,7 +294,8 @@ def run_single(
     blocked_count = 0
     in_trade_until = -1  # bar index; skip bars i <= in_trade_until
 
-    for i in range(M5_LOOKBACK_BARS, len(df)):
+    trade_start = max(M5_LOOKBACK_BARS, start_bar)
+    for i in range(trade_start, len(df)):
         if i <= in_trade_until:
             continue
 
@@ -293,8 +340,6 @@ def run_single(
         win_rate = round(wins / len(trades) * 100, 1)
         avg_r = round(total_r / len(trades), 3)
         exit_reasons = dict(Counter(t["exit_reason"] for t in trades))
-        import statistics
-
         sharpe_r = round(
             statistics.mean(r_vals) / statistics.stdev(r_vals)
             if len(r_vals) > 1
@@ -331,12 +376,110 @@ def run_single(
     }
 
 
+def run_windows(
+    df: pd.DataFrame,
+    n_windows: int = 8,
+    window_days: int = 30,
+    htf_timeframe: str | None = "4h",
+    ema_period: int | None = 200,
+    band_pct: float = 0.02,
+    label: str = "",
+    seed: int = 42,
+) -> dict[str, Any]:
+    """Run the backtest over N random windows and return aggregate stats.
+
+    Each window is ``window_days`` long, preceded by ``WARMUP_BARS`` bars so
+    that HTF EMAs are stable before trading starts.  Windows are sampled
+    uniformly at random from the full dataset using ``seed`` for
+    reproducibility across runs.
+    """
+    BARS_PER_DAY = 288  # 5m × 12/h × 24 h
+    window_bars = window_days * BARS_PER_DAY
+
+    min_length = WARMUP_BARS + window_bars
+    if len(df) < min_length:
+        raise ValueError(
+            f"Dataset too small ({len(df)} bars) for warmup ({WARMUP_BARS}) "
+            f"+ window ({window_bars}). Need at least {min_length} bars "
+            f"(approx {min_length // BARS_PER_DAY} days)."
+        )
+
+    max_start = len(df) - window_bars
+    pool_size = max_start - WARMUP_BARS + 1
+    if pool_size < 1:
+        raise ValueError(
+            f"Not enough post-warmup bars for a window. "
+            f"max_start={max_start}, WARMUP_BARS={WARMUP_BARS}"
+        )
+
+    rng = random.Random(seed)
+    start_positions = sorted(
+        rng.sample(range(WARMUP_BARS, max_start + 1), min(n_windows, pool_size))
+    )
+
+    cfg_label = (
+        f"{htf_timeframe} EMA-{ema_period}"
+        if htf_timeframe and ema_period
+        else "no HTF filter"
+    )
+    window_results: list[dict] = []
+    for w_idx, start_pos in enumerate(start_positions):
+        # Slice includes warmup prefix so EMA is warm at the window boundary.
+        slice_df = df.iloc[
+            start_pos - WARMUP_BARS : start_pos + window_bars
+        ].reset_index(drop=True)
+        w_start_date = df["timestamp"].iloc[start_pos].date()
+        w_end_pos = min(start_pos + window_bars - 1, len(df) - 1)
+        w_end_date = df["timestamp"].iloc[w_end_pos].date()
+        print(
+            f"  [{label or cfg_label}] window {w_idx + 1}/{len(start_positions)}: "
+            f"{w_start_date} -> {w_end_date} …",
+            file=sys.stderr,
+        )
+        r = run_single(
+            slice_df,
+            htf_timeframe=htf_timeframe,
+            ema_period=ema_period,
+            band_pct=band_pct,
+            label=label or cfg_label,
+            start_bar=WARMUP_BARS,
+        )
+        window_results.append(r)
+
+    sharpe_vals = [r["sharpe_r"] for r in window_results]
+    total_r_vals = [r["total_r"] for r in window_results]
+    win_rate_vals = [r["win_rate_pct"] for r in window_results]
+    positive_windows = sum(1 for r in window_results if r["total_r"] > 0)
+
+    return {
+        "label": label or cfg_label,
+        "config": {
+            "htf_timeframe": htf_timeframe,
+            "ema_period": ema_period,
+            "band_pct": band_pct if htf_timeframe and ema_period else None,
+        },
+        "n_windows": len(window_results),
+        "window_days": window_days,
+        "seed": seed,
+        "mean_sharpe": round(statistics.mean(sharpe_vals), 3),
+        "std_sharpe": round(
+            statistics.stdev(sharpe_vals) if len(sharpe_vals) > 1 else 0.0, 3
+        ),
+        "min_sharpe": round(min(sharpe_vals), 3),
+        "max_sharpe": round(max(sharpe_vals), 3),
+        "mean_total_r": round(statistics.mean(total_r_vals), 2),
+        "mean_win_rate_pct": round(statistics.mean(win_rate_vals), 1),
+        "positive_windows": positive_windows,
+        "windows": window_results,
+    }
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description="VWAP HTF-filter backtest")
     parser.add_argument(
         "--htf-timeframe",
         default="4h",
-        help="HTF timeframe (1h, 4h, 1d) — ignored with --compare",
+        help="HTF timeframe (15m, 1h, 4h, 1d) — ignored with --compare",
     )
     parser.add_argument(
         "--ema-period",
@@ -356,6 +499,40 @@ def main(argv: list[str]) -> int:
         help="Run all COMPARE_CONFIGS side-by-side",
     )
     parser.add_argument("--label", default="", help="Label for the run")
+    parser.add_argument(
+        "--start-date",
+        default="",
+        help="Filter data from YYYY-MM-DD UTC (inclusive). Use with fresh 5m data.",
+    )
+    parser.add_argument(
+        "--end-date",
+        default="",
+        help="Filter data up to YYYY-MM-DD UTC (inclusive).",
+    )
+    parser.add_argument(
+        "--days",
+        type=int,
+        default=0,
+        help="Shorthand for --start-date N days ago (overridden by --start-date).",
+    )
+    parser.add_argument(
+        "--windows",
+        type=int,
+        default=0,
+        help="Number of random windows to sample (0 = use full date range).",
+    )
+    parser.add_argument(
+        "--window-days",
+        type=int,
+        default=30,
+        help="Calendar days per random window (used with --windows).",
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=42,
+        help="Random seed for window sampling (used with --windows).",
+    )
     args = parser.parse_args(argv[1:])
 
     try:
@@ -365,30 +542,87 @@ def main(argv: list[str]) -> int:
         sys.stderr.write(f"load_data failed: {exc}\n")
         return 1
 
+    # Date-range filtering — lets the caller window the CSV to recent data
+    # without re-fetching the full file. --days is a convenience shorthand.
+    df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True, errors="coerce")
+    df = df.dropna(subset=["timestamp"]).sort_values("timestamp").reset_index(drop=True)
+
+    start_date = args.start_date
+    if not start_date and args.days > 0:
+        import datetime as _dt
+        start_date = (
+            _dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(days=args.days)
+        ).strftime("%Y-%m-%d")
+
+    if start_date:
+        start_ts = pd.Timestamp(start_date, tz="UTC")
+        df = df[df["timestamp"] >= start_ts].reset_index(drop=True)
+    if args.end_date:
+        end_ts = pd.Timestamp(args.end_date, tz="UTC") + pd.Timedelta(days=1)
+        df = df[df["timestamp"] < end_ts].reset_index(drop=True)
+
+    if df.empty:
+        sys.stderr.write("No data remaining after date filtering.\n")
+        return 1
+
+    if start_date or args.end_date:
+        print(
+            f"Date-filtered: {len(df)} bars "
+            f"({df['timestamp'].iloc[0].date()} -> {df['timestamp'].iloc[-1].date()})",
+            file=sys.stderr,
+        )
+
     try:
+        use_windows = args.windows > 0
+
         if args.compare:
             results = []
             for cfg in COMPARE_CONFIGS:
                 print(f"Running: {cfg['label']} …", file=sys.stderr)
-                r = run_single(
-                    df,
-                    htf_timeframe=cfg["htf_timeframe"],
-                    ema_period=cfg["ema_period"],
-                    band_pct=cfg.get("band_pct") or 0.02,
-                    label=cfg["label"],
-                )
+                if use_windows:
+                    r = run_windows(
+                        df,
+                        n_windows=args.windows,
+                        window_days=args.window_days,
+                        htf_timeframe=cfg["htf_timeframe"],
+                        ema_period=cfg["ema_period"],
+                        band_pct=cfg.get("band_pct") or 0.02,
+                        label=cfg["label"],
+                        seed=args.seed,
+                    )
+                else:
+                    r = run_single(
+                        df,
+                        htf_timeframe=cfg["htf_timeframe"],
+                        ema_period=cfg["ema_period"],
+                        band_pct=cfg.get("band_pct") or 0.02,
+                        label=cfg["label"],
+                    )
                 results.append(r)
-            output: dict[str, Any] = {"comparison": results}
+            key = "window_comparison" if use_windows else "comparison"
+            output: dict[str, Any] = {key: results}
         else:
             htf_tf = None if args.no_htf else args.htf_timeframe
             ema_p = None if args.no_htf else args.ema_period
-            output = run_single(
-                df,
-                htf_timeframe=htf_tf,
-                ema_period=ema_p,
-                band_pct=args.band_pct,
-                label=args.label,
-            )
+            if use_windows:
+                output = run_windows(
+                    df,
+                    n_windows=args.windows,
+                    window_days=args.window_days,
+                    htf_timeframe=htf_tf,
+                    ema_period=ema_p,
+                    band_pct=args.band_pct,
+                    label=args.label,
+                    seed=args.seed,
+                )
+            else:
+                output = run_single(
+                    df,
+                    htf_timeframe=htf_tf,
+                    ema_period=ema_p,
+                    band_pct=args.band_pct,
+                    label=args.label,
+                )
     except Exception as exc:
         sys.stderr.write(f"{type(exc).__name__}: {exc}\n")
         traceback.print_exc(file=sys.stderr)

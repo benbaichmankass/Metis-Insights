@@ -99,11 +99,16 @@ strategies:
     # Phase 2 HTF trend gate (S-050; experiments/2026-05-08-all-models-training).
     # Blocks BUY (mean-reversion long) when 4 h close < EMA-200 × (1 - band_pct);
     # blocks SELL when 4 h close > EMA-200 × (1 + band_pct). The ±band_pct
-    # region passes through unchanged. 38-month BTCUSDT 5 m backtest
-    # (Jan 2023 → Feb 2026): full-sample Sharpe -0.39 → +2.47, walk-forward
-    # OOS +0.22 → +1.10. Operator-controllable kill-switch via ``enabled``.
+    # region passes through unchanged.
+    #
+    # DISABLED 2026-05-13: the 38-month training dataset (Jan 2023 → Feb 2026)
+    # was dominated by bull-market conditions. The 4h EMA-200 (~33 days look-
+    # back) is too slow to capture short-term downtrends; the bot kept entering
+    # longs into a clearly falling 2-day market. Re-enable only after a fresh
+    # backtest on recent 5m data (last 90 days) covering both up and down
+    # regimes — trigger via vwap-backtest workflow with `days: 90`.
     htf_trend_filter:
-      enabled: true
+      enabled: false
       htf_timeframe: "4h"
       ema_period: 200
       # 0.020 = 2% band (band sweep showed +0.35 Sharpe + 13% cadence

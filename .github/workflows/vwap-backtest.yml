@@ -1,8 +1,18 @@
 name: vwap-backtest
 
-# Issue-driven / dispatch trigger that SSHes into the live VM, runs the
-# VWAP HTF-filter comparison backtest, and comments results back on the
-# issue so a PM-side Claude Code session can read them.
+# Issue-driven / dispatch trigger that SSHes into the TRAINER VM,
+# fetches fresh 5m BTCUSDT data, runs the VWAP HTF-filter comparison
+# backtest, and comments results back on the issue.
+#
+# Runs on the TRAINER VM (ict-trainer-vm, 158.178.209.121) — NOT the
+# live trader VM — to avoid compute contention and keep backtest
+# workloads isolated from live trading. A role-marker check
+# (/etc/ict-trainer-vm.role == "training-center") guards every run.
+#
+# IMPORTANT: the data fetch step always pulls fresh candles from Bybit
+# so results reflect current market conditions, not a stale historical
+# CSV.  Default pool is the last 365 days (wide enough for random-
+# window sampling across multiple market regimes).
 #
 # Two trigger paths:
 #   1. issues.opened with label `vwap-backtest-trigger` (session-driven)
@@ -10,31 +20,50 @@ name: vwap-backtest
 #   3. workflow_dispatch (operator-click, produces artifact)
 #
 # Issue body (optional, all keys have defaults):
-#   compare: true          # default true — run all four configs
+#   compare: true          # default true — run all configs
+#   days: 365              # trailing days of 5m data to fetch
+#   start_date: 2026-02-01 # explicit start (overrides days)
+#   end_date: 2026-05-13   # explicit end (default: today)
+#   num_windows: 8         # random windows per config (0 = full range)
+#   window_days: 30        # calendar days per window
 #   htf_timeframe: 1h      # used only when compare: false
 #   ema_period: 50         # used only when compare: false
 #   band_pct: 0.02         # used only when compare: false
 #
 # Required secrets:
-#   VM_SSH_KEY   — SSH private key for ubuntu@158.178.210.252
+#   VM_SSH_KEY   — SSH private key (same key authorised on both VMs)
 #
 # Optional repo variables:
-#   VM_SSH_HOST  — defaults to 158.178.210.252
-#   VM_SSH_USER  — defaults to ubuntu
+#   TRAINER_VM_SSH_HOST  — defaults to 158.178.209.121
 
 on:
   workflow_dispatch:
     inputs:
       compare:
-        description: "Run all four HTF configs side-by-side"
+        description: "Run all HTF configs side-by-side"
         type: boolean
         default: true
+      days:
+        description: "Trailing days of 5m data to fetch (default 365)"
+        default: "365"
+      start_date:
+        description: "Backtest start date YYYY-MM-DD (overrides days)"
+        default: ""
+      end_date:
+        description: "Backtest end date YYYY-MM-DD (default: today)"
+        default: ""
+      num_windows:
+        description: "Random windows per config (0 = full range, no sampling)"
+        default: "8"
+      window_days:
+        description: "Calendar days per random window"
+        default: "30"
       htf_timeframe:
-        description: "HTF timeframe (1h, 4h, 1d) — used only when compare=false"
-        default: "4h"
+        description: "HTF timeframe (15m, 1h, 4h, 1d) — used only when compare=false"
+        default: "1h"
       ema_period:
         description: "EMA period — used only when compare=false"
-        default: "200"
+        default: "50"
       band_pct:
         description: "Band pct (e.g. 0.02) — used only when compare=false"
         default: "0.02"
@@ -68,33 +97,44 @@ jobs:
           set -euo pipefail
 
           # Extract key: value pairs from the issue body.
-          # grep -m1 returns first match; || echo sets a safe default.
           COMPARE=$(printf '%s' "${ISSUE_BODY}" | grep -m1 -i '^compare:' | awk '{print $2}' || true)
+          DAYS=$(printf '%s' "${ISSUE_BODY}" | grep -m1 -i '^days:' | awk '{print $2}' || true)
+          START_DATE=$(printf '%s' "${ISSUE_BODY}" | grep -m1 -i '^start_date:' | awk '{print $2}' || true)
+          END_DATE=$(printf '%s' "${ISSUE_BODY}" | grep -m1 -i '^end_date:' | awk '{print $2}' || true)
+          NUM_WINDOWS=$(printf '%s' "${ISSUE_BODY}" | grep -m1 -i '^num_windows:' | awk '{print $2}' || true)
+          WINDOW_DAYS=$(printf '%s' "${ISSUE_BODY}" | grep -m1 -i '^window_days:' | awk '{print $2}' || true)
           HTF_TF=$(printf '%s' "${ISSUE_BODY}" | grep -m1 -i '^htf_timeframe:' | awk '{print $2}' || true)
           EMA_PERIOD=$(printf '%s' "${ISSUE_BODY}" | grep -m1 -i '^ema_period:' | awk '{print $2}' || true)
           BAND_PCT=$(printf '%s' "${ISSUE_BODY}" | grep -m1 -i '^band_pct:' | awk '{print $2}' || true)
 
           # Defaults
-          [ -z "${COMPARE}" ]    && COMPARE="true"
-          [ -z "${HTF_TF}" ]     && HTF_TF="4h"
-          [ -z "${EMA_PERIOD}" ] && EMA_PERIOD="200"
-          [ -z "${BAND_PCT}" ]   && BAND_PCT="0.02"
+          [ -z "${COMPARE}" ]     && COMPARE="true"
+          [ -z "${DAYS}" ]        && DAYS="365"
+          [ -z "${START_DATE}" ]  && START_DATE=""
+          [ -z "${END_DATE}" ]    && END_DATE=""
+          [ -z "${NUM_WINDOWS}" ] && NUM_WINDOWS="8"
+          [ -z "${WINDOW_DAYS}" ] && WINDOW_DAYS="30"
+          [ -z "${HTF_TF}" ]      && HTF_TF="1h"
+          [ -z "${EMA_PERIOD}" ]  && EMA_PERIOD="50"
+          [ -z "${BAND_PCT}" ]    && BAND_PCT="0.02"
 
-          # Validate: compare must be true/false, others alphanumeric+dot
-          if ! printf '%s' "${COMPARE}" | grep -qiE '^(true|false)$'; then
-            COMPARE="true"
-          fi
-          if ! printf '%s' "${HTF_TF}" | grep -qE '^[0-9]+[hmHMdD]$'; then
-            HTF_TF="4h"
-          fi
-          if ! printf '%s' "${EMA_PERIOD}" | grep -qE '^[0-9]+$'; then
-            EMA_PERIOD="200"
-          fi
-          if ! printf '%s' "${BAND_PCT}" | grep -qE '^0?\.[0-9]+$'; then
-            BAND_PCT="0.02"
-          fi
+          # Validate
+          if ! printf '%s' "${COMPARE}" | grep -qiE '^(true|false)$'; then COMPARE="true"; fi
+          if ! printf '%s' "${DAYS}" | grep -qE '^[0-9]+$'; then DAYS="365"; fi
+          if ! printf '%s' "${START_DATE}" | grep -qE '^([0-9]{4}-[0-9]{2}-[0-9]{2})?$'; then START_DATE=""; fi
+          if ! printf '%s' "${END_DATE}" | grep -qE '^([0-9]{4}-[0-9]{2}-[0-9]{2})?$'; then END_DATE=""; fi
+          if ! printf '%s' "${NUM_WINDOWS}" | grep -qE '^[0-9]+$'; then NUM_WINDOWS="8"; fi
+          if ! printf '%s' "${WINDOW_DAYS}" | grep -qE '^[0-9]+$'; then WINDOW_DAYS="30"; fi
+          if ! printf '%s' "${HTF_TF}" | grep -qE '^[0-9]+[hmHMdD]$'; then HTF_TF="1h"; fi
+          if ! printf '%s' "${EMA_PERIOD}" | grep -qE '^[0-9]+$'; then EMA_PERIOD="50"; fi
+          if ! printf '%s' "${BAND_PCT}" | grep -qE '^0?\.[0-9]+$'; then BAND_PCT="0.02"; fi
 
           echo "bt_compare=${COMPARE}" >> "$GITHUB_ENV"
+          echo "bt_days=${DAYS}" >> "$GITHUB_ENV"
+          echo "bt_start_date=${START_DATE}" >> "$GITHUB_ENV"
+          echo "bt_end_date=${END_DATE}" >> "$GITHUB_ENV"
+          echo "bt_num_windows=${NUM_WINDOWS}" >> "$GITHUB_ENV"
+          echo "bt_window_days=${WINDOW_DAYS}" >> "$GITHUB_ENV"
           echo "bt_htf_tf=${HTF_TF}" >> "$GITHUB_ENV"
           echo "bt_ema_period=${EMA_PERIOD}" >> "$GITHUB_ENV"
           echo "bt_band_pct=${BAND_PCT}" >> "$GITHUB_ENV"
@@ -103,6 +143,11 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         run: |
           echo "bt_compare=${{ inputs.compare }}" >> "$GITHUB_ENV"
+          echo "bt_days=${{ inputs.days }}" >> "$GITHUB_ENV"
+          echo "bt_start_date=${{ inputs.start_date }}" >> "$GITHUB_ENV"
+          echo "bt_end_date=${{ inputs.end_date }}" >> "$GITHUB_ENV"
+          echo "bt_num_windows=${{ inputs.num_windows }}" >> "$GITHUB_ENV"
+          echo "bt_window_days=${{ inputs.window_days }}" >> "$GITHUB_ENV"
           echo "bt_htf_tf=${{ inputs.htf_timeframe }}" >> "$GITHUB_ENV"
           echo "bt_ema_period=${{ inputs.ema_period }}" >> "$GITHUB_ENV"
           echo "bt_band_pct=${{ inputs.band_pct }}" >> "$GITHUB_ENV"
@@ -110,7 +155,7 @@ jobs:
       - name: Set up SSH key
         env:
           VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
-          VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '158.178.210.252' }}
+          TRAINER_VM_SSH_HOST: ${{ vars.TRAINER_VM_SSH_HOST || '158.178.209.121' }}
         run: |
           set -euo pipefail
           if [ -z "${VM_SSH_KEY}" ]; then
@@ -120,12 +165,69 @@ jobs:
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
           printf '%s\n' "${VM_SSH_KEY}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -t rsa,ecdsa,ed25519 "${VM_SSH_HOST}" >> ~/.ssh/known_hosts 2>/dev/null
+          ssh-keyscan -H "${TRAINER_VM_SSH_HOST}" >> ~/.ssh/known_hosts 2>/dev/null || true
 
-      - name: Run VWAP backtest on VM
+      - name: Verify trainer VM role marker
         env:
-          VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '158.178.210.252' }}
-          VM_SSH_USER: ${{ vars.VM_SSH_USER || 'ubuntu' }}
+          TRAINER_VM_SSH_HOST: ${{ vars.TRAINER_VM_SSH_HOST || '158.178.209.121' }}
+        run: |
+          set -euo pipefail
+          role=$(ssh -i ~/.ssh/id_rsa \
+              -o BatchMode=yes \
+              -o StrictHostKeyChecking=accept-new \
+              -o ConnectTimeout=20 \
+              "ubuntu@${TRAINER_VM_SSH_HOST}" \
+              "head -n1 /etc/ict-trainer-vm.role 2>/dev/null || echo MISSING")
+          if [ "${role}" != "training-center" ]; then
+            echo "::error::Role marker mismatch: expected 'training-center', got '${role}'"
+            echo "::error::Refusing to run backtest — ensure TRAINER_VM_SSH_HOST points to the trainer VM, not the live VM."
+            exit 1
+          fi
+          echo "Trainer VM role verified: ${role}"
+
+      - name: Pull latest code on trainer VM
+        env:
+          TRAINER_VM_SSH_HOST: ${{ vars.TRAINER_VM_SSH_HOST || '158.178.209.121' }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/id_rsa \
+              -o BatchMode=yes \
+              -o StrictHostKeyChecking=accept-new \
+              -o ConnectTimeout=20 \
+              "ubuntu@${TRAINER_VM_SSH_HOST}" \
+              "cd /home/ubuntu/ict-trading-bot && \
+               git fetch --quiet origin main && \
+               git reset --hard origin/main && \
+               echo \"pulled: \$(git rev-parse --short HEAD)\""
+
+      - name: Fetch fresh 5m backtest data on trainer VM
+        env:
+          TRAINER_VM_SSH_HOST: ${{ vars.TRAINER_VM_SSH_HOST || '158.178.209.121' }}
+        run: |
+          set -euo pipefail
+
+          # Build fetch args — use explicit dates if provided, else --days.
+          if [ -n "${bt_start_date}" ]; then
+            FETCH_ARGS="--start-date ${bt_start_date}"
+            [ -n "${bt_end_date}" ] && FETCH_ARGS="${FETCH_ARGS} --end-date ${bt_end_date}"
+          else
+            FETCH_ARGS="--days ${bt_days:-365}"
+            [ -n "${bt_end_date}" ] && FETCH_ARGS="${FETCH_ARGS} --end-date ${bt_end_date}"
+          fi
+
+          ssh -i ~/.ssh/id_rsa \
+              -o BatchMode=yes \
+              -o StrictHostKeyChecking=accept-new \
+              -o ConnectTimeout=20 \
+              "ubuntu@${TRAINER_VM_SSH_HOST}" \
+              "cd /home/ubuntu/ict-trading-bot && \
+               source .venv/bin/activate && \
+               python scripts/ops/fetch_backtest_candles.py ${FETCH_ARGS} \
+                 --output /tmp/backtest_fresh.csv 2>&1"
+
+      - name: Run VWAP backtest on trainer VM
+        env:
+          TRAINER_VM_SSH_HOST: ${{ vars.TRAINER_VM_SSH_HOST || '158.178.209.121' }}
         run: |
           set -euo pipefail
 
@@ -136,15 +238,27 @@ jobs:
             CLI_ARGS="--htf-timeframe ${bt_htf_tf} --ema-period ${bt_ema_period} --band-pct ${bt_band_pct}"
           fi
 
+          # Append random-window args when num_windows > 0.
+          if [ "${bt_num_windows:-0}" -gt 0 ]; then
+            CLI_ARGS="${CLI_ARGS} --windows ${bt_num_windows} --window-days ${bt_window_days:-30}"
+          fi
+
+          # Pass date args through in case the fresh CSV covers a wider window
+          # than needed (--days acts as a filter inside the script too).
+          [ -n "${bt_start_date}" ] && CLI_ARGS="${CLI_ARGS} --start-date ${bt_start_date}"
+          [ -n "${bt_end_date}" ]   && CLI_ARGS="${CLI_ARGS} --end-date ${bt_end_date}"
+          [ -z "${bt_start_date}" ] && CLI_ARGS="${CLI_ARGS} --days ${bt_days:-365}"
+
           # Run the script: stderr goes to a temp file (printed to Actions log),
           # stdout (the single JSON line) is captured as the result.
           ssh -i ~/.ssh/id_rsa \
               -o BatchMode=yes \
               -o StrictHostKeyChecking=accept-new \
               -o ConnectTimeout=20 \
-              "${VM_SSH_USER}@${VM_SSH_HOST}" \
-              "cd /opt/ict-trading-bot && \
-               source venv/bin/activate && \
+              "ubuntu@${TRAINER_VM_SSH_HOST}" \
+              "cd /home/ubuntu/ict-trading-bot && \
+               source .venv/bin/activate && \
+               BACKTEST_DATA_PATH=/tmp/backtest_fresh.csv \
                python -m src.backtest.run_backtest_vwap ${CLI_ARGS} \
                  2>/tmp/vwap_bt_err.txt; \
                EXIT=\$?; \
@@ -154,10 +268,10 @@ jobs:
 
           # Validate the output is parseable JSON
           python3 -c "
-          import json, os, sys
-          data = json.load(open('backtest-result.json'))
-          print('valid JSON,', os.path.getsize('backtest-result.json'), 'bytes', file=sys.stderr)
-          "
+import json, os, sys
+data = json.load(open('backtest-result.json'))
+print('valid JSON,', os.path.getsize('backtest-result.json'), 'bytes', file=sys.stderr)
+"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -178,9 +292,22 @@ jobs:
 
             let body = `**VWAP HTF Backtest Results**\nRun: ${runUrl}\n\n`;
 
-            if (data.comparison) {
+            if (data.window_comparison) {
+              const wdays = data.window_comparison[0]?.window_days ?? '?';
+              const nwin  = data.window_comparison[0]?.n_windows ?? '?';
+              body += `Random-window comparison (${nwin} windows × ${wdays} days each)\n\n`;
+              body += `| Config | Mean Sharpe | ±Std | Min | Max | Mean Total R | Mean Win% | Positive/${nwin} |\n`;
+              body += `|--------|------------|------|-----|-----|-------------|-----------|-------------------|\n`;
+              for (const r of data.window_comparison) {
+                body += `| ${r.label} | ${r.mean_sharpe} | ±${r.std_sharpe} | ${r.min_sharpe} | ${r.max_sharpe} | ${r.mean_total_r} | ${r.mean_win_rate_pct}% | ${r.positive_windows}/${r.n_windows} |\n`;
+              }
+              body += `\n<details><summary>Full JSON</summary>\n\n\`\`\`json\n`;
+              const full = JSON.stringify(data, null, 2);
+              body += full.length <= 40000 ? full : full.slice(0, 40000) + '\n... (truncated)';
+              body += `\n\`\`\`\n</details>`;
+            } else if (data.comparison) {
               body += `| Config | Trades | Win% | Total R | Avg R/trade | Blocked |\n`;
-              body += `|--------|--------|------|---------|-------------|----------|\n`;
+              body += `|--------|--------|------|---------|-------------|---------|\n`;
               for (const r of data.comparison) {
                 const blocked = r.htf_blocked_count ?? 0;
                 body += `| ${r.label} | ${r.total_trades} | ${r.win_rate_pct}% | ${r.total_r} | ${r.avg_r_per_trade} | ${blocked} |\n`;
@@ -217,7 +344,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              body: `❌ **VWAP backtest failed.**\nRun: ${runUrl}\n\nCommon causes: VM_SSH_KEY secret unset; no backtest CSV on the VM (set \`BACKTEST_DATA_PATH\` or place file at \`data/backtest_candles.csv\`); Python environment issue.`,
+              body: `❌ **VWAP backtest failed.**\nRun: ${runUrl}\n\nCommon causes: VM_SSH_KEY secret unset; TRAINER_VM_SSH_HOST points to wrong VM (role marker check will catch this); fetch_backtest_candles.py failed (network/Bybit outage); Python environment issue.`,
             });
             await github.rest.issues.update({
               owner: context.repo.owner,
