@@ -1,0 +1,36 @@
+{
+  "vwap": [
+    {
+      "date": "2026-05-12",
+      "ref": "PR #1031",
+      "summary": "Raised SL_STD_MULT 0.5→0.75 + added ATR floor on stop distance — reduces premature SL hits on volatile bars"
+    },
+    {
+      "date": "2026-05-12",
+      "ref": "PR #1030",
+      "summary": "Fixed order_package() SL always falling back to 2% flat stop regardless of signal SL"
+    },
+    {
+      "date": "2026-05-08",
+      "ref": "S-050",
+      "summary": "Added 4h EMA-200 ±2% HTF trend gate — backtest Sharpe -0.39→+2.47, walk-forward OOS +0.22→+1.10"
+    },
+    {
+      "date": "2026-05-06",
+      "ref": "S-015",
+      "summary": "Changed timeframe 15m→5m for faster mean-reversion signal cadence"
+    }
+  ],
+  "turtle_soup": [
+    {
+      "date": "2026-05-09",
+      "ref": "turtle-soup-signal-fix C2+C3",
+      "summary": "Cadence pair: min_sweep_buffer_bps=10, tp1_at_r=1.00, setup_lookback_bars=4 — OOS Sharpe +1.22→+2.48"
+    },
+    {
+      "date": "2026-05-08",
+      "ref": "2026-05-08 training run",
+      "summary": "Tightened atr_stop_mult 0.35→0.30 (+0.53 Sharpe full-sample, +0.97 OOS, no cadence cost)"
+    }
+  ]
+}
