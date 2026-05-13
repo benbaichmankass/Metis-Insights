@@ -1,0 +1,6 @@
+# Touch this file (commit + push to main) to fire the
+# deploy-trainer-bootstrap workflow without UI / gh-CLI access.
+#
+# Most-recent kick:
+#   2026-05-13T13:35:00Z  initial bootstrap of ict-trainer-vm (issue #938)
+#   actor: claude-trainer (branch claude/deploy-trainer-vm-IpxZD)

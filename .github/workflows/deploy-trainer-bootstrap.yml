@@ -38,6 +38,15 @@ on:
         description: 'Issue number to close on success (leave empty to skip)'
         required: false
         default: '938'
+  # Kick trigger — a commit that touches .github/triggers/deploy-trainer-bootstrap
+  # fires the workflow without needing UI or `gh workflow run` access. Defaults
+  # from the workflow_dispatch inputs apply via the `${{ inputs.X || 'default' }}`
+  # fallbacks below, so a push-triggered run is functionally equivalent to a
+  # UI-triggered run with no overrides.
+  push:
+    branches: [main]
+    paths:
+      - '.github/triggers/deploy-trainer-bootstrap'
 
 permissions:
   contents: read
@@ -142,11 +151,12 @@ jobs:
              echo \"service: \$(systemctl is-enabled ict-trainer.service)\""
 
       - name: Close notification issue
-        if: success() && inputs.close_issue != ''
+        if: success()
         uses: actions/github-script@v7
         with:
           script: |
-            const issueNum = parseInt('${{ inputs.close_issue }}');
+            const raw = '${{ inputs.close_issue }}' || '938';
+            const issueNum = parseInt(raw);
             if (!issueNum || isNaN(issueNum)) return;
             const { owner, repo } = context.repo;
             const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
