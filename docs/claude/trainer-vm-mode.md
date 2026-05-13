@@ -230,6 +230,78 @@ live-VM scope.
 
 ---
 
+## 9. Trainer VM visibility — diag relay (autonomous permission)
+
+Claude has **full, unconditional visibility** into everything on the
+trainer VM. No operator approval is required to pull any log, run any
+read or diagnostic command, or inspect any artifact.
+
+### 9.a The `trainer-vm-diag` workflow
+
+`.github/workflows/trainer-vm-diag.yml` is an issue-driven SSH relay.
+Claude opens a `trainer-vm-diag-request`-labelled issue with a `cmd:`
+block and the workflow SSHes into the trainer VM, runs the command, and
+posts the full output back as an issue comment.
+
+**Issue format:**
+
+```
+Title: [trainer-diag] <short description>
+Body:
+cmd: <any bash command or script>
+```
+
+Multi-line commands:
+```
+cmd: |
+  cd /home/ubuntu/ict-trading-bot
+  tail -n 500 runtime_logs/trainer/dataset_builds.jsonl
+  systemctl status ict-trainer.timer
+```
+
+The command is sent via SSH stdin — it is never interpolated in the
+shell invocation, so it is safe to include paths, flags, and pipes.
+
+### 9.b What Claude may pull without asking
+
+Everything. There are no restricted paths on the trainer VM. Claude
+is autonomous here. Examples of things Claude pulls routinely:
+
+| What | Command |
+|---|---|
+| Trainer service status | `systemctl status ict-trainer.service ict-trainer.timer` |
+| Recent training logs | `tail -n 500 runtime_logs/trainer/training_runs.jsonl` |
+| Dataset build log | `tail -n 300 runtime_logs/trainer/dataset_builds.jsonl` |
+| DB sync audit trail | `tail -n 100 runtime_logs/trainer/db_pulls.jsonl` |
+| Disk + memory | `df -h && free -h` |
+| Python / venv state | `ls .venv/lib/python*/site-packages/ \| grep -E 'ccxt\|torch\|sklearn'` |
+| Systemd journal (last N lines) | `journalctl -u ict-trainer.service -n 200 --no-pager` |
+| Registry state | `python -m ml.registry list --all` |
+| Dataset output | `ls -lh datasets-out/` |
+| Any log file | `cat runtime_logs/trainer/<file>.jsonl` |
+| Any script output | `bash scripts/ops/<script>.sh` (read-only scripts) |
+
+### 9.c GitHub Actions workflow run logs
+
+Claude cannot read GitHub Actions run logs directly via MCP tools in
+the current toolset. The operator pastes failing step output into
+chat, or Claude uses the diag relay to check what happened on the VM
+side. When `.mcp.json` is loaded (next session start after it was
+added to main), `workflow_dispatch` + `list_workflow_runs` may become
+available.
+
+### 9.d Usage contract
+
+- Claude opens `trainer-vm-diag-request` issues autonomously whenever
+  it needs visibility, without asking the operator first.
+- Every such issue is self-documenting: the title names the intent,
+  the body carries the command, the workflow posts the full output.
+  No separate audit entry is needed.
+- Claude closes the loop by reacting to the issue comment in the same
+  conversation turn — it reads the output, diagnoses, and acts.
+
+---
+
 ## 8. Related docs
 
 - [`vm-operator-mode.md`](vm-operator-mode.md) — live VM trust contract (the restrictive counterpart).

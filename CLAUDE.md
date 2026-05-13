@@ -375,6 +375,13 @@ below are the contract.
   self-creates the labels other workflows filter on. Edit the
   `LABELS` array in that file and merge; the next push runs the
   sync. No `create_label` MCP needed.
+- **Trainer VM full visibility** — `.github/workflows/trainer-vm-diag.yml`
+  is the unrestricted SSH relay for the trainer VM. Claude opens a
+  `trainer-vm-diag-request`-labelled issue with a `cmd:` block
+  (any bash) and the output comes back as an issue comment. No
+  operator approval needed — trainer VM is autonomous territory.
+  See `docs/claude/trainer-vm-mode.md` § 9 for usage and the
+  complete list of what Claude pulls routinely.
 - **Workflow dispatch** — there's no general-purpose workaround.
   Workflows that need to be Claude-driven from a session must use
   an `issues.opened` (or `pull_request.opened`) trigger filtered to
