@@ -400,16 +400,116 @@ def monitor(cfg, candles_df, open_pkg):
     """Re-evaluate an open turtle_soup order package against fresh candles.
 
     Per CLAUDE.md § Architecture rules § 2 the strategy unit monitors
-    open packages. v1 logic — break-even SL after 1R; the sweep/reversal
-    thesis is "the prior swing held"; once 1R has been captured the
-    original invalidation level no longer needs to be defended.
+    open packages. Close-path priority (first match wins):
 
-    Future versions can add: opposite-sweep close (the next swing-low
-    sweep on a long-bias trade), time-decay close, structure-break
-    close.
+    1. **SL-cross** — current close has hit the package's ``sl``
+       (long: close ≤ sl; short: close ≥ sl). Emits a full close so
+       the position exits at market when the invalidation level is
+       breached.
+    2. **TP1 partial** — when the package is still targeting TP1
+       (i.e. its ``tp`` field is the original 1R target, not yet
+       rolled forward to TP2) and price has crossed it (long: close
+       ≥ tp; short: close ≤ tp), emit a partial close of
+       ``cfg["partial_close_pct"]`` (default 0.25) with
+       ``next_tp=meta["tp2"]`` so the monitor loop rolls the package
+       to TP2 for the runner. Requires ``meta.tp2`` to be present —
+       legacy rows without it skip directly to a full close.
+    3. **TP2 full close** — when the package's ``tp`` has been rolled
+       to TP2 (or there is no TP2 in meta) and price crosses it,
+       emit a full close.
+    4. **SL-to-break-even** — defence-in-depth fallback via
+       ``_base.monitor_breakeven_sl`` using
+       ``cfg["be_at_r"]`` as the threshold (default 1.0R when cfg
+       is absent, matching the unit-test contract; strategies.yaml
+       supplies 0.75R in production).
 
     Parameters mirror ``order_package``; see ``_base.monitor_breakeven_sl``
     for the return contract.
     """
+    import math
     from src.units.strategies._base import monitor_breakeven_sl
-    return monitor_breakeven_sl(open_pkg, candles_df)
+
+    if candles_df is None or len(candles_df) == 0:
+        return None
+    try:
+        current_price = float(candles_df["close"].iloc[-1])
+    except (KeyError, IndexError, ValueError, TypeError):
+        return None
+
+    try:
+        sl = float(open_pkg["sl"])
+        tp = float(open_pkg["tp"])
+        direction = str(open_pkg["direction"]).lower()
+    except (KeyError, TypeError, ValueError):
+        return None
+
+    if direction not in ("long", "short"):
+        return None
+
+    meta = open_pkg.get("meta") or {}
+    if isinstance(meta, str):
+        # Defensive: the order_monitor loop normalises the JSON blob,
+        # but unit tests and ad-hoc callers may pass the raw row.
+        try:
+            import json as _json
+            meta = _json.loads(meta) if meta else {}
+        except Exception:  # noqa: BLE001
+            meta = {}
+
+    cfg_dict = cfg if isinstance(cfg, dict) else {}
+
+    try:
+        tp2_raw = meta.get("tp2") if isinstance(meta, dict) else None
+        tp2 = float(tp2_raw) if tp2_raw is not None else None
+    except (TypeError, ValueError):
+        tp2 = None
+
+    try:
+        partial_pct = float(cfg_dict.get("partial_close_pct", 0.25))
+    except (TypeError, ValueError):
+        partial_pct = 0.25
+    if not (0.0 < partial_pct < 1.0):
+        partial_pct = 0.25
+
+    # 1. SL-cross.
+    if direction == "long" and current_price <= sl:
+        return {"action": "close", "reason": "sl_cross", "exit_price": current_price}
+    if direction == "short" and current_price >= sl:
+        return {"action": "close", "reason": "sl_cross", "exit_price": current_price}
+
+    # Detect "have we already partial-closed at TP1?" — the partial path
+    # rolls the package's tp forward to meta.tp2, so a match (within
+    # float tolerance) means we're on the runner.
+    on_tp2_runner = (
+        tp2 is not None and math.isclose(tp, tp2, rel_tol=1e-9, abs_tol=1e-8)
+    )
+
+    # 2 / 3. TP-cross.
+    tp_hit = (
+        (direction == "long" and current_price >= tp)
+        or (direction == "short" and current_price <= tp)
+    )
+    if tp_hit:
+        if not on_tp2_runner and tp2 is not None:
+            return {
+                "action": "close",
+                "close_qty_pct": partial_pct,
+                "reason": "tp1_partial",
+                "exit_price": current_price,
+                "next_tp": tp2,
+            }
+        return {
+            "action": "close",
+            "reason": "tp2_cross" if on_tp2_runner else "tp_cross",
+            "exit_price": current_price,
+        }
+
+    # 4. SL-to-break-even — falls through when no close path fired.
+    try:
+        be_at_r = float(cfg_dict.get("be_at_r", 1.0))
+    except (TypeError, ValueError):
+        be_at_r = 1.0
+    if be_at_r <= 0:
+        be_at_r = 1.0
+
+    return monitor_breakeven_sl(open_pkg, candles_df, one_r_threshold=be_at_r)
