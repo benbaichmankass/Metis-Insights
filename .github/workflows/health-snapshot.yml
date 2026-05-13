@@ -65,11 +65,14 @@ jobs:
       github.event_name != 'issues' ||
       contains(github.event.issue.labels.*.name, 'health-snapshot-trigger')
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     env:
       VM_HOST: 158.178.210.252
       VM_USER: ubuntu
       VM_REPO: /home/ubuntu/ict-trading-bot
+      TRAINER_HOST: ${{ vars.TRAINER_VM_IP || '158.178.209.121' }}
+      TRAINER_USER: ubuntu
+      TRAINER_REPO: /home/ubuntu/ict-trading-bot
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -117,6 +120,71 @@ jobs:
               > artifacts/health/pipeline_test.json
           echo "pipeline test result:"
           cat artifacts/health/pipeline_test.json
+
+      - name: Collect snapshot from trainer VM
+        # continue-on-error: trainer VM may not yet be provisioned.
+        # A missing trainer snapshot degrades to trainer_service=skip in
+        # /health-review — it does not block the live-VM snapshot upload.
+        id: trainer_snapshot
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          # Default file so the artifact upload always finds something.
+          echo "trainer_vm_not_reached: true" > artifacts/health/trainer_snapshot.txt
+          # Write collection script locally; pipe via stdin so nothing in
+          # the remote command string is shell-interpolated here.
+          cat > /tmp/trainer_collect.sh <<'TRAINER_SCRIPT'
+          set -u
+          REPO=/home/ubuntu/ict-trading-bot
+          echo "=== TRAINER META ==="
+          echo "collected_at: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          echo "hostname: $(hostname)"
+          echo "git_head: $(git -C "$REPO" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+          echo "uptime: $(uptime -p 2>/dev/null || uptime)"
+          echo "=== TRAINER SERVICE ==="
+          echo "trainer_enabled: $(systemctl is-enabled ict-trainer.service 2>/dev/null || echo unknown)"
+          echo "trainer_active: $(systemctl is-active ict-trainer.service 2>/dev/null || echo unknown)"
+          echo "timer_enabled: $(systemctl is-enabled ict-trainer.timer 2>/dev/null || echo unknown)"
+          echo "timer_active: $(systemctl is-active ict-trainer.timer 2>/dev/null || echo unknown)"
+          systemctl show ict-trainer.service \
+            --property=ExecMainStatus,ActiveEnterTimestamp,ActiveExitTimestamp 2>/dev/null || true
+          systemctl show ict-trainer.timer \
+            --property=NextElapseUSecRealtime,LastTriggerUSec 2>/dev/null || true
+          echo "=== TRAINER RECENT LOG ==="
+          journalctl -u ict-trainer.service -n 100 --no-pager 2>/dev/null \
+            || echo "no journal entries"
+          echo "=== TRAINER DATASETS ==="
+          if [ -d "$REPO/ml/datasets/built" ]; then
+            ls -la "$REPO/ml/datasets/built/" 2>/dev/null || true
+            echo "family_count: $(ls "$REPO/ml/datasets/built/" 2>/dev/null | wc -l)"
+          else
+            echo "no_datasets_dir: true"
+          fi
+          if [ -f "$REPO/runtime_logs/trainer/dataset_builds.jsonl" ]; then
+            echo "--- last 10 dataset build events ---"
+            tail -n 10 "$REPO/runtime_logs/trainer/dataset_builds.jsonl"
+          else
+            echo "no_dataset_build_log: true"
+          fi
+          echo "=== TRAINER REGISTRY ==="
+          if [ -f "$REPO/.venv/bin/python" ]; then
+            cd "$REPO" && .venv/bin/python -m ml.registry list 2>/dev/null \
+              || echo "registry_empty_or_error: true"
+          else
+            echo "no_venv: true"
+          fi
+          echo "=== TRAINER RESOURCES ==="
+          df -h /home 2>/dev/null | tail -1 || true
+          free -m 2>/dev/null | head -2 || true
+          echo "=== TRAINER END ==="
+          TRAINER_SCRIPT
+          ssh -i ~/.ssh/id_rsa \
+              -o StrictHostKeyChecking=accept-new \
+              -o ConnectTimeout=20 \
+              "${TRAINER_USER}@${TRAINER_HOST}" 'bash -s' \
+              < /tmp/trainer_collect.sh \
+              > artifacts/health/trainer_snapshot.txt 2>&1
+          echo "trainer snapshot bytes: $(wc -c < artifacts/health/trainer_snapshot.txt)"
 
       - name: Upload run artifacts
         # The artifact is the deliverable. Operator downloads it from

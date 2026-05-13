@@ -17,7 +17,10 @@
     "alert_delivery":      {"status": "ok | watch | concern", "note": "..."},
     "strategy_silence":    {"status": "ok | watch | concern", "note": "..."},
     "db_integrity":        {"status": "ok | watch | concern", "note": "..."},
-    "audit_log_freshness": {"status": "ok | watch | concern", "note": "..."}
+    "audit_log_freshness": {"status": "ok | watch | concern", "note": "..."},
+    "trainer_service":     {"status": "ok | watch | concern | skip", "note": "..."},
+    "trainer_datasets":    {"status": "ok | watch | concern | skip", "note": "..."},
+    "trainer_registry":    {"status": "ok | watch | concern | skip", "note": "..."}
   },
   "anomalies": [
     "free-form list of notable items the reviewer flagged"

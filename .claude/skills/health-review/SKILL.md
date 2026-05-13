@@ -30,13 +30,18 @@ can pull live via the diag relay.
 
 ## Inputs expected in chat
 
-- `health_snapshot.txt` (required) — raw VM snapshot. Sectioned with
+- `health_snapshot.txt` (required) — raw live-VM snapshot. Sectioned with
   `=== NAME ===` headers (META, PROCESSES, HEARTBEAT, TICKS, SIGNALS,
   ORDERS, TRADES, POSITIONS, MONITORING, API, ERRORS, STORAGE, DB,
-  AUDIT_LOG, VM, END). This is the source of truth.
+  AUDIT_LOG, VM, END). This is the source of truth for the live bot.
 - `pipeline_test.json` (optional, recommended) — active dry-run smoke
   result. `warn` with note "plumbing-on-rejection path exercised" is
   the expected outcome when no exchange client is wired in.
+- `trainer_snapshot.txt` (optional) — trainer VM snapshot collected by the
+  same workflow. Sectioned with `=== TRAINER <NAME> ===` headers (META,
+  SERVICE, RECENT LOG, DATASETS, REGISTRY, RESOURCES, END). If the file
+  starts with `trainer_vm_not_reached: true`, the trainer VM was
+  unreachable — grade all three trainer dimensions as `skip`.
 
 If the operator hasn't pasted a snapshot, **stop and ask them to
 paste it** — referencing the runbook (`docs/runbooks/health-check.md`)
@@ -272,6 +277,92 @@ an out-of-band dry-run of `safe_place_order`. A `warn` with note
 when no exchange client is wired into the smoke; do not grade it
 as `concern`.
 
+## Trainer VM health review
+
+The training center VM (`158.178.209.121`) runs the ML lifecycle
+independent of the live trader. Include it in every health review where
+`trainer_snapshot.txt` is present and reachable.
+
+### What the trainer snapshot contains
+
+- `=== TRAINER SERVICE ===` — systemd unit and timer state. Key fields:
+  `trainer_enabled`, `trainer_active`, `timer_enabled`, `timer_active`,
+  plus `ActiveEnterTimestamp` / `ActiveExitTimestamp` from `systemctl show`.
+- `=== TRAINER RECENT LOG ===` — last 100 journal lines for
+  `ict-trainer.service`. The primary signal for training failures and
+  progress.
+- `=== TRAINER DATASETS ===` — `ls` of `ml/datasets/built/` and the last
+  10 lines of `runtime_logs/trainer/dataset_builds.jsonl`. Shows which
+  families exist and when they were last built.
+- `=== TRAINER REGISTRY ===` — output of `python -m ml.registry list`.
+  Shows all registered models and their current stage
+  (`research_only`, `candidate`, `backtest_approved`, `shadow`,
+  `live_approved`).
+- `=== TRAINER RESOURCES ===` — disk and memory.
+
+### Grading rubric
+
+#### `trainer_service`
+
+Evaluates whether the training cycle is running as expected.
+
+- `ok` — `timer_enabled=enabled`, `timer_active=active`, and the service's
+  `ActiveExitTimestamp` is within the expected cycle window (typically
+  ≤ 24h ago for a daily timer). No `Failed` / `error` lines in recent log.
+- `watch` — timer or service disabled, last successful run > 24h ago but
+  < 72h, or service ran but produced no output (empty log section).
+- `concern` — service `ExecMainStatus` is non-zero, timer inactive with no
+  next elapse time, persistent `error` / `FAILED` / `exit code` lines in
+  the journal, or last run > 72h ago.
+- `skip` — trainer VM was unreachable (`trainer_vm_not_reached: true`).
+
+#### `trainer_datasets`
+
+Evaluates whether the WS5 dataset families are present and fresh.
+
+- `ok` — `ml/datasets/built/` exists with all expected families present
+  (`backtest_results`, `trade_outcomes`, `setup_labels`, `signal_features`,
+  and any other registered families). Last build log shows success within
+  72h.
+- `watch` — some families present but one or more missing, or last build
+  > 72h ago.
+- `concern` — `no_datasets_dir: true` (bootstrap never completed or
+  datasets wiped), or all build log entries show errors.
+- `skip` — trainer VM unreachable.
+
+Expected dataset families (check against `ml/datasets/built/` listing):
+`backtest_results`, `trade_outcomes`, `setup_labels`, `signal_features`.
+If the registry lists families that aren't built, that's `watch`.
+
+#### `trainer_registry`
+
+Evaluates whether models are being produced and progressing through the
+promotion pipeline.
+
+- `ok` — registry has at least one model at `shadow` stage or above.
+  Model artifact IDs and timestamps are consistent with recent training
+  runs visible in the service log.
+- `watch` — models exist but none past `candidate` stage, or most recent
+  model is > 7 days old with no new training run visible in the log.
+- `concern` — `registry_empty_or_error: true`, or registry has models but
+  all are `research_only` (training is running but nothing passes eval),
+  or model artifact paths don't exist on disk.
+- `skip` — trainer VM unreachable.
+
+### How trainer findings affect `overall_assessment`
+
+- Any trainer dimension `concern` → `overall_assessment` downgrades to
+  `investigate` only if the live-bot findings don't already mandate it.
+  Add an entry in `anomalies` naming the specific trainer issue.
+- Any trainer dimension `watch` → `caution` if no other `concern` on the
+  live side.
+- All trainer dimensions `ok` or `skip` → no effect on overall assessment.
+
+The trainer VM is **not** a blocker for the live trader — a down trainer
+doesn't affect live trading. Escalate trainer issues with lower urgency
+than live-bot `concern` findings (don't set `operator_attention_required`
+for trainer-only issues unless a model that's `live_approved` is involved).
+
 ## Decision procedure
 
 Grade the snapshot + the live diag pulls from the pre-review step
@@ -341,6 +432,13 @@ Map findings to the layer-2 dimensions (these differ from layer 1):
     main DB suggest a stuck checkpoint; surface as `watch`.
   Grade `watch` for soft signals (large WAL, mtime modestly stale);
   reserve `concern` for integrity failures or hours-stale mtimes.
+- `trainer_service` — is `ict-trainer.service` / timer running as expected?
+  Grade from `=== TRAINER SERVICE ===` and `=== TRAINER RECENT LOG ===`.
+  See "Trainer VM health review" § Grading rubric above.
+- `trainer_datasets` — are WS5 dataset families present and recently built?
+  Grade from `=== TRAINER DATASETS ===`. See rubric above.
+- `trainer_registry` — are models in the registry and progressing through
+  stages? Grade from `=== TRAINER REGISTRY ===`. See rubric above.
 - `audit_log_freshness` — read the `=== AUDIT_LOG ===` block.
   `events_last_hour` should be > 0 during any active trading
   session (every tick writes a `pipeline_result` event). Zero
@@ -407,7 +505,10 @@ Schema reminder:
     "alert_delivery":      {"status": "ok | watch | concern", "note": "..."},
     "strategy_silence":    {"status": "ok | watch | concern", "note": "..."},
     "db_integrity":        {"status": "ok | watch | concern", "note": "..."},
-    "audit_log_freshness": {"status": "ok | watch | concern", "note": "..."}
+    "audit_log_freshness": {"status": "ok | watch | concern", "note": "..."},
+    "trainer_service":     {"status": "ok | watch | concern | skip", "note": "..."},
+    "trainer_datasets":    {"status": "ok | watch | concern | skip", "note": "..."},
+    "trainer_registry":    {"status": "ok | watch | concern | skip", "note": "..."}
   },
   "anomalies": ["...free-form list..."],
   "trade_decision_grades": [
