@@ -9,7 +9,7 @@
         "--toolsets=all"
       ],
       "env": {
-        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GHPAT}"
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
       }
     }
   }
