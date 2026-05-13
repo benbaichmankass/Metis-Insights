@@ -1,0 +1,223 @@
+name: trainer-vm-diag
+
+# Full-visibility diag relay for the trainer VM (158.178.209.121).
+#
+# The trainer VM is fully autonomous Claude territory
+# (docs/claude/trainer-vm-mode.md § 3 + § 9). Claude may open
+# issues with this label at any time, without operator approval,
+# to pull any log, run any read or diagnostic command, or inspect
+# any training artifact on the VM.
+#
+# Two trigger paths:
+#
+#   1. workflow_dispatch — operator or Claude clicks "Run workflow".
+#      cmd input is the bash command to run on the trainer VM.
+#      Result is shown in run logs + uploaded as artifact.
+#
+#   2. issues.opened with label `trainer-vm-diag-request` — the
+#      fully automated path. Issue body must contain a `cmd:` line:
+#
+#        cmd: journalctl -u ict-trainer.service -n 100
+#
+#      Multi-line commands use a fenced block:
+#
+#        cmd: |
+#          cd /home/ubuntu/ict-trading-bot
+#          tail -n 200 runtime_logs/trainer/dataset_builds.jsonl
+#
+#      The workflow SSHes into the trainer VM, runs the command via
+#      stdin (no shell interpolation of the command string), posts
+#      the output as an issue comment, and closes the issue.
+#
+# Required repo secrets:
+#   * VM_SSH_KEY         — SSH private key; must be authorized on
+#                          the trainer VM's ubuntu account.
+#
+# Required repo variables (or hardcoded defaults):
+#   * TRAINER_VM_IP      — defaults to 158.178.209.121
+#   * TRAINER_VM_USER    — defaults to ubuntu
+#
+# Required repo label:
+#   * trainer-vm-diag-request — created by bootstrap-labels.yml
+
+on:
+  workflow_dispatch:
+    inputs:
+      cmd:
+        description: "Bash command to run on trainer VM"
+        required: true
+        default: "systemctl status ict-trainer.service"
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: trainer-vm-diag
+  cancel-in-progress: true
+
+jobs:
+  diag:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'trainer-vm-diag-request'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Parse command from issue body
+        id: parse
+        if: github.event_name == 'issues'
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          set -euo pipefail
+          # Extract everything after the first `cmd:` line.
+          # Supports single-line:   cmd: journalctl -n 100
+          # Supports fenced block:  cmd: |
+          #                           line1
+          #                           line2
+          cmd_raw="$(printf '%s' "${ISSUE_BODY}" | \
+            awk '/^cmd:/{found=1; sub(/^cmd:[[:space:]]*/,""); if($0!="") print; next} found{print}' )"
+          if [ -z "${cmd_raw}" ]; then
+            echo "::error::Issue body must contain a 'cmd:' line."
+            exit 1
+          fi
+          # Write to a file to avoid length limits in env vars.
+          printf '%s\n' "${cmd_raw}" > /tmp/trainer_diag_cmd.sh
+          echo "cmd_present=true" >> "$GITHUB_OUTPUT"
+
+      - name: Use dispatch command
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          DISPATCH_CMD: ${{ inputs.cmd }}
+        run: printf '%s\n' "${DISPATCH_CMD}" > /tmp/trainer_diag_cmd.sh
+
+      - name: Set up SSH key
+        env:
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+          TRAINER_IP: ${{ vars.TRAINER_VM_IP || '158.178.209.121' }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VM_SSH_KEY}" ]; then
+            echo "::error::VM_SSH_KEY secret is unset."
+            exit 1
+          fi
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${VM_SSH_KEY}" > ~/.ssh/trainer_key
+          chmod 600 ~/.ssh/trainer_key
+          ssh-keyscan -t ed25519,ecdsa,rsa "${TRAINER_IP}" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Run command on trainer VM
+        env:
+          TRAINER_IP: ${{ vars.TRAINER_VM_IP || '158.178.209.121' }}
+          TRAINER_USER: ${{ vars.TRAINER_VM_USER || 'ubuntu' }}
+        run: |
+          set -euo pipefail
+          # Send the command file via stdin — command string is never
+          # interpolated in the SSH invocation, so issue body can't
+          # inject shell metacharacters.
+          ssh -i ~/.ssh/trainer_key \
+              -o BatchMode=yes \
+              -o StrictHostKeyChecking=accept-new \
+              -o ConnectTimeout=20 \
+              "${TRAINER_USER}@${TRAINER_IP}" \
+              'bash -s' < /tmp/trainer_diag_cmd.sh \
+              > /tmp/trainer_diag_output.txt 2>&1 || true
+          wc -c /tmp/trainer_diag_output.txt
+
+      - name: Print output (run-log preview)
+        run: |
+          bytes="$(wc -c < /tmp/trainer_diag_output.txt)"
+          echo "=== trainer-vm-diag output (${bytes} bytes) ==="
+          head -c 8000 /tmp/trainer_diag_output.txt
+          if [ "${bytes}" -gt 8000 ]; then
+            echo "... (truncated — full output in artifact / issue comment)"
+          fi
+
+      - name: Upload artifact
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: trainer-vm-diag-${{ github.run_id }}
+          path: /tmp/trainer_diag_output.txt
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Post result to issue
+        if: github.event_name == 'issues'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const out = fs.readFileSync('/tmp/trainer_diag_output.txt', 'utf8');
+            const cmd = fs.readFileSync('/tmp/trainer_diag_cmd.sh', 'utf8').trim();
+            const MAX = 55_000;
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const header = [
+              `**trainer-vm-diag** result`,
+              `Run: ${runUrl}`,
+              ``,
+              `**Command:**`,
+              '```bash',
+              cmd.slice(0, 500),
+              '```',
+              ''
+            ].join('\n');
+            const body = out.length <= MAX
+              ? header + '\n**Output:**\n```\n' + out + '\n```'
+              : header + `\n**Output** (first ${MAX} of ${out.length} bytes — full output in run artifact):\n\`\`\`\n` + out.slice(0, MAX) + '\n... (truncated)\n```';
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              state: 'closed',
+              state_reason: 'completed'
+            });
+
+      - name: Post failure note to issue
+        if: github.event_name == 'issues' && failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `❌ **trainer-vm-diag failed.**\nRun: ${runUrl}\n\nCheck run logs. Common causes: VM_SSH_KEY unset, SSH timeout (VM down?), malformed \`cmd:\` block.`
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              state: 'closed',
+              state_reason: 'not_planned'
+            });
+
+      - name: Post cancellation note to issue
+        if: github.event_name == 'issues' && cancelled()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `⏭ **trainer-vm-diag cancelled** — preempted by a newer diag request.\nRun: ${runUrl}\n\nRe-open this issue to retry.`
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              state: 'closed',
+              state_reason: 'not_planned'
+            });
