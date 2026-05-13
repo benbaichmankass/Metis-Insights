@@ -159,6 +159,11 @@ def _apply_partial_close(
     * Updates ``trades.position_size`` to
       ``original_position_size * (1 - cumulative_closed_pct)``.
     * Keeps ``order_packages.status = 'open'``.
+    * When the verdict carries a ``next_tp`` float, also rolls the
+      ``order_packages.tp`` field forward so the next monitor tick
+      compares price against the new target (e.g. TP2 after a TP1
+      partial). Without this the next tick would re-emit the same
+      TP1 partial verdict and double-partial the position.
     * When cumulative closed pct >= 1.0 (sequential partials totalling
       100 %), falls through to a full close of both the package and
       the trade row.
@@ -171,6 +176,7 @@ def _apply_partial_close(
     close_qty_pct = float((verdict or {}).get("close_qty_pct", 1.0))
     reason = str((verdict or {}).get("reason") or "partial_close")
     exit_price = (verdict or {}).get("exit_price")
+    next_tp = (verdict or {}).get("next_tp")
     now = datetime.now(timezone.utc).isoformat()
 
     linked_trade_id = open_pkg.get("linked_trade_id")
@@ -253,10 +259,24 @@ def _apply_partial_close(
         summary.errors.append(f"{pkg_id}: partial-close trade-write failed")
         return
 
+    # Roll the package's tp forward when the verdict supplied next_tp
+    # (e.g. turtle_soup emits next_tp=meta.tp2 alongside a TP1 partial).
+    # Failure here is non-fatal — the partial close has already landed
+    # and the next tick will retry against the stale tp at worst.
+    if next_tp is not None:
+        try:
+            db.update_order_package(pkg_id, {"tp": float(next_tp)})
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "order_monitor: partial-close next_tp write failed pkg=%s: %s",
+                pkg_id, exc,
+            )
+
     logger.info(
         "order_monitor: partial close pkg=%s trade=%s "
-        "close_pct=%.3f new_position_size=%.8f remaining_pct=%.3f",
-        pkg_id, linked_trade_id, close_qty_pct, new_position_size, remaining_pct,
+        "close_pct=%.3f new_position_size=%.8f remaining_pct=%.3f next_tp=%s",
+        pkg_id, linked_trade_id, close_qty_pct, new_position_size,
+        remaining_pct, next_tp,
     )
     summary.updated_count += 1
 
@@ -2292,6 +2312,8 @@ def run_monitor_tick(
                     normalised["meta"] = {}
 
             candles = None
+            candle_count: Optional[int] = None
+            tf_used = (normalised.get("meta") or {}).get("timeframe")
             if ohlcv_fetcher is not None:
                 try:
                     # Pass strategy_name so the fetcher can fall back to
@@ -2303,9 +2325,11 @@ def run_monitor_tick(
                     # emit a close verdict.
                     candles = ohlcv_fetcher(
                         normalised.get("symbol"),
-                        (normalised.get("meta") or {}).get("timeframe"),
+                        tf_used,
                         strategy_name,
                     )
+                    if candles is not None and hasattr(candles, "__len__"):
+                        candle_count = len(candles)
                 except Exception as exc:  # noqa: BLE001
                     logger.warning(
                         "order_monitor: ohlcv_fetcher failed for %s: %s",
@@ -2313,19 +2337,50 @@ def run_monitor_tick(
                     )
                     candles = None
 
+            # Per-pkg dispatch trace. Operators investigating "the monitor
+            # doesn't seem to be doing anything" need to see (a) that the
+            # loop reached this package, (b) whether candles arrived, and
+            # (c) the verdict shape. INFO so it shows in the systemd log
+            # without DEBUG; bounded by (open_packages × strategies)
+            # per tick which is small in practice.
+            pkg_id_log = normalised.get("order_package_id")
+            symbol_log = normalised.get("symbol")
+            if candles is None:
+                logger.info(
+                    "order_monitor: %s pkg=%s symbol=%s tf=%s candles=None "
+                    "(monitor will short-circuit)",
+                    strategy_name, pkg_id_log, symbol_log, tf_used,
+                )
             verdict = _call_strategy_monitor(strategy_name, cfg, candles, normalised)
             if verdict is None:
                 summary.no_change_count += 1
+                if candles is not None:
+                    logger.info(
+                        "order_monitor: %s pkg=%s symbol=%s candles=%s "
+                        "verdict=None (no action)",
+                        strategy_name, pkg_id_log, symbol_log, candle_count,
+                    )
                 continue
 
+            logger.info(
+                "order_monitor: %s pkg=%s symbol=%s candles=%s verdict=%s",
+                strategy_name, pkg_id_log, symbol_log, candle_count, verdict,
+            )
             _apply_update(db, normalised, verdict, summary)
 
         summaries[strategy_name] = summary.to_dict()
-        if summary.updated_count or summary.closed_count:
+        # Per-strategy summary: log on every tick that had at least one
+        # open package, even when nothing changed. Pre-this-PR the log
+        # only fired when updated/closed > 0, which made a passive
+        # monitor (no verdict-firing condition met) indistinguishable
+        # from a broken / un-invoked monitor in the journal.
+        if summary.open_count > 0:
             logger.info(
-                "order_monitor: %s — open=%d updated=%d closed=%d",
+                "order_monitor: %s — open=%d updated=%d closed=%d "
+                "no_change=%d errors=%d",
                 strategy_name, summary.open_count,
                 summary.updated_count, summary.closed_count,
+                summary.no_change_count, summary.error_count,
             )
 
     # BUG-042 PR 2: write-back reconciler. No-op when
