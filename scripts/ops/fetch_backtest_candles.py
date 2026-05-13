@@ -66,12 +66,14 @@ def fetch_klines(
     interval_ms = _interval_ms(interval)
 
     while cursor_ms < end_ms:
+        # Pass only `start` (no `end`) so Bybit returns the next `limit` bars
+        # going forward from cursor_ms.  Passing both start+end causes Bybit to
+        # return the NEWEST limit bars in the range, breaking forward pagination.
         params = {
             "category": "linear",
             "symbol": symbol,
             "interval": interval,
             "start": cursor_ms,
-            "end": end_ms,
             "limit": MAX_BARS_PER_REQUEST,
         }
         resp = None
@@ -101,6 +103,9 @@ def fetch_klines(
         if not candles:
             break
 
+        # candles[0] = newest bar in batch, candles[-1] = oldest
+        newest_ms = int(candles[0][0])
+
         added = 0
         for c in reversed(candles):  # reverse to oldest-first
             ts_ms = int(c[0])
@@ -119,15 +124,14 @@ def fetch_klines(
         if added == 0:
             break
 
-        # Next page starts after the oldest candle returned.
-        oldest_ms = int(candles[-1][0])
-        next_cursor = oldest_ms + interval_ms
+        # Advance cursor past the newest bar returned in this batch.
+        next_cursor = newest_ms + interval_ms
         if next_cursor <= cursor_ms:
             break
         cursor_ms = next_cursor
 
         print(
-            f"  fetched up to {datetime.fromtimestamp(oldest_ms / 1000, tz=timezone.utc).date()}"
+            f"  fetched up to {datetime.fromtimestamp(newest_ms / 1000, tz=timezone.utc).date()}"
             f" ({len(rows)} bars so far)",
             file=sys.stderr,
         )
