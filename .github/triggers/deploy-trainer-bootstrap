@@ -4,3 +4,5 @@
 # Most-recent kick:
 #   2026-05-13T13:35:00Z  initial bootstrap of ict-trainer-vm (issue #938)
 #   actor: claude-trainer (branch claude/deploy-trainer-vm-IpxZD)
+#   2026-05-13T14:00:00Z  re-trigger after fix: correct trade_journal.db path (#1045)
+#   actor: claude-trainer
