@@ -101,6 +101,7 @@ def execute_pkg(
     *,
     dry_run: Optional[bool] = None,
     qty_override: Optional[float] = None,
+    reduce_only: bool = False,
 ) -> str:
     """Risk-size and execute *pkg* on the account described by *account_cfg*.
 
@@ -130,6 +131,17 @@ def execute_pkg(
         actually placed matches what the live RiskManager already
         approved (preserves daily-loss-budget state). Used by
         ``Coordinator.multi_account_execute``.
+    reduce_only : bool, default False
+        When True the order is sent with ``reduceOnly=True`` so Bybit
+        treats it as a position-reducing fill (intent-mode delta-aware
+        dispatch). The order's SL/TP are NOT forwarded to the exchange
+        — reduce-only fills inherit the parent position's risk levels,
+        and re-sending TP/SL on a partial close would corrupt the
+        existing trading-stop on the position. The trade-journal row is
+        stamped with ``setup_type=intent_reduce`` and a notes entry so
+        ``/closed`` / hourly-report aggregations can distinguish reduce
+        legs from opens. Bybit linear/inverse only — spot accounts do
+        not support reduceOnly and the path raises ``ValueError``.
 
     Returns
     -------
@@ -144,6 +156,19 @@ def execute_pkg(
         When required account_cfg fields are missing or pkg is invalid.
     """
     account_id = account_cfg.get("account_id") or account_cfg.get("id") or "unknown"
+
+    # Reduce-only orders are derivatives-only on Bybit (linear/inverse).
+    # Spot reduceOnly is not supported on V5 — fail fast rather than
+    # silently dropping the flag and sending a regular order that would
+    # OPEN a new position instead of reducing the existing one.
+    if reduce_only:
+        market_type = str(account_cfg.get("market_type") or "spot").strip().lower()
+        if market_type not in {"linear", "inverse"}:
+            raise ValueError(
+                f"execute_pkg: reduce_only=True requires a derivatives "
+                f"account (market_type in linear/inverse); got "
+                f"market_type={market_type!r} for account={account_id!r}"
+            )
 
     # 1. Pause check
     if is_paused(account_id):
@@ -220,13 +245,17 @@ def execute_pkg(
         "qty": qty,
         "strategy": pkg.strategy,
         "account_id": account_id,
+        # Reduce-only flag plumbed through to _submit_order. The Bybit
+        # branch drops SL/TP and sets ``reduceOnly=True`` on the kwargs
+        # — see _submit_order for the dispatch.
+        "reduce_only": bool(reduce_only),
     }
 
     logger.info(
         "execute_pkg: account=%s strategy=%s symbol=%s direction=%s entry=%.4f "
-        "sl=%.4f tp=%.4f qty=%.4f dry_run=%s",
+        "sl=%.4f tp=%.4f qty=%.4f dry_run=%s reduce_only=%s",
         account_id, pkg.strategy, pkg.symbol, pkg.direction,
-        pkg.entry, pkg.sl, pkg.tp, qty, is_dry,
+        pkg.entry, pkg.sl, pkg.tp, qty, is_dry, reduce_only,
     )
 
     # 6. Submit or simulate
@@ -252,8 +281,15 @@ def execute_pkg(
     # bypassed it. Best-effort — a journal failure must never crash the
     # order path. Status starts ``open``; the close path (S-030 monitor
     # loop) updates it via ``Database.update_trade``.
+    #
+    # Reduce-only orders share the same write path but the row is
+    # stamped with the ``intent_reduce`` setup-type marker so
+    # downstream aggregations can distinguish a reduce leg from an
+    # open. The monitor loop already correlates fills by symbol +
+    # qty + side, so no extra plumbing is needed there.
     _log_trade_to_journal(
         pkg, account_cfg, order, trade_id=trade_id, is_dry=is_dry,
+        intent_reduce=reduce_only,
     )
     return trade_id
 
@@ -440,9 +476,18 @@ def _submit_order(client: Any, order: dict, account_cfg: dict) -> str:
                 "orderType": "Market",
                 "qty": str(order["qty"]),
             }
-            # Derivatives (linear/inverse) accept SL/TP on Market.
-            kwargs["stopLoss"] = quantize_price(order["sl"], tick)
-            kwargs["takeProfit"] = quantize_price(order["tp"], tick)
+            if order.get("reduce_only"):
+                # Reduce-only path (intent-mode delta dispatch, S-MSE-2).
+                # Skip SL/TP — the parent position already has them set
+                # and Bybit refuses TP/SL on a reduceOnly leg
+                # (retCode 110076 / 30024 depending on the failure
+                # mode). The reduce-only flag itself is the signal to
+                # Bybit that this order trims an open position.
+                kwargs["reduceOnly"] = True
+            else:
+                # Derivatives (linear/inverse) accept SL/TP on Market.
+                kwargs["stopLoss"] = quantize_price(order["sl"], tick)
+                kwargs["takeProfit"] = quantize_price(order["tp"], tick)
             resp = client.place_order(**kwargs)
             return str((resp.get("result") or {}).get("orderId") or uuid.uuid4().hex)
         if exchange == "binance":
@@ -542,6 +587,7 @@ def _log_trade_to_journal(
     is_dry: bool = False,
     status: str = "open",
     reason: Optional[str] = None,
+    intent_reduce: bool = False,
 ) -> bool:
     """Insert a row into ``trade_journal.db::trades`` for an executor event.
 
@@ -590,12 +636,32 @@ def _log_trade_to_journal(
         }
         if reason is not None:
             notes_payload["reason"] = str(reason)
+        if intent_reduce:
+            # Intent-mode reduce leg (S-MSE-2). Stamped so /closed,
+            # hourly-report, and the trade-monocle audit can
+            # distinguish reduce legs from new opens without re-
+            # parsing the exchange response. The execution_delta meta
+            # (action + qty_delta + reason) is already on the pkg via
+            # the dispatcher; carry the action token through for
+            # diagnostics.
+            notes_payload["intent_reduce"] = True
+            delta_meta = (pkg.meta or {}).get("execution_delta") or {}
+            if delta_meta:
+                notes_payload["intent_action"] = delta_meta.get("action")
+                notes_payload["intent_target_qty"] = delta_meta.get("target_qty")
+                notes_payload["intent_current_qty"] = delta_meta.get("current_qty")
         base_entry_reason = (pkg.meta or {}).get("entry_reason") \
             or f"{pkg.strategy} signal"
         if status != "open" and reason:
             entry_reason = f"{status.upper()}: {reason} | {base_entry_reason}"
+        elif intent_reduce:
+            entry_reason = f"INTENT_REDUCE: {base_entry_reason}"
         else:
             entry_reason = base_entry_reason
+        # Reduce legs land a distinguishing ``setup_type`` so downstream
+        # aggregations can filter them out of "new entries" cohorts
+        # without joining notes JSON.
+        setup_type = "intent_reduce" if intent_reduce else pkg.strategy
         trade_row_id = db.insert_trade({
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "symbol": pkg.symbol,
@@ -604,7 +670,7 @@ def _log_trade_to_journal(
             "stop_loss": float(pkg.sl),
             "take_profit_1": float(pkg.tp),
             "position_size": float(order.get("qty") or 0.0),
-            "setup_type": pkg.strategy,
+            "setup_type": setup_type,
             "entry_reason": entry_reason[:500],
             "status": status,
             "is_backtest": 0,

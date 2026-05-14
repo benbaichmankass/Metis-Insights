@@ -17,6 +17,7 @@ Data flow:
 """
 from __future__ import annotations
 
+import dataclasses
 import importlib
 import logging
 import os
@@ -721,6 +722,9 @@ class Coordinator:
         for account in accounts:
             if account_type and account.account_type != account_type:
                 continue
+            # Reset per-iteration so intent_legs from a previous account
+            # doesn't leak into a non-intent dispatch on the next.
+            intent_legs: Optional[List[Dict[str, Any]]] = None
 
             # Pre-build a minimal account_cfg for the sizing_failed /
             # below_min_balance refusal-journal writes downstream.
@@ -994,24 +998,26 @@ class Coordinator:
                             "error": f"intent_noop:{delta.reason}",
                         })
                         continue
-                    if delta.action in ("reduce", "close", "flip"):
-                        # Reduce-only / flip wiring is intentionally a
-                        # follow-up — needs reduce-only flag plumbing
-                        # into execute_pkg + the per-account close path.
-                        # Surface the refusal so the operator sees the
-                        # condition explicitly instead of silently sending
-                        # an opposite-side market order.
-                        risk_reason = f"intent_{delta.action}_not_yet_wired_v1"
+                    # Reduce-only on Bybit V5 is derivatives-only. Spot
+                    # accounts cannot send reduceOnly orders — refuse
+                    # the reduce / close / flip path with a clear
+                    # reason instead of letting Bybit return
+                    # retCode 110086.
+                    _market_type = (
+                        getattr(account, "market_type", "spot") or "spot"
+                    ).lower()
+                    if (
+                        delta.action in ("reduce", "close", "flip")
+                        and _market_type not in {"linear", "inverse"}
+                    ):
+                        risk_reason = (
+                            f"intent_{delta.action}_requires_derivatives"
+                        )
                         raise RiskBreach(
                             f"Account '{account.name}': {risk_reason} "
-                            f"(target={delta.target_qty}, current={delta.current_qty}). "
-                            f"Operator override or wait for follow-up PR."
+                            f"(market_type={_market_type!r}). "
+                            f"Reduce-only dispatch needs linear/inverse perpetuals."
                         )
-                    # delta.action ∈ {"open", "increase"} — use the
-                    # delta qty as the order size. The RiskManager
-                    # already capped it (we passed sized_qty in); the
-                    # delta computer returns ≤ sized_qty by
-                    # construction.
                     if delta.qty_delta < account.risk_manager.min_qty:
                         # Position is within one min-lot of the target;
                         # treat as noop to avoid spamming dust orders.
@@ -1038,6 +1044,17 @@ class Coordinator:
                         })
                         continue
                     effective_qty = float(delta.qty_delta)
+                    # Build leg list for the dispatcher. The vast
+                    # majority of ticks produce a single "open"/"increase"
+                    # leg matching pkg.direction; the reduce / close /
+                    # flip branches build their legs against
+                    # ``delta.side`` (the opposite of the current net
+                    # position) and pass ``reduce_only=True`` so Bybit
+                    # treats the order as a position-reducing fill.
+                    # Flip is the only multi-leg case: close-leg first
+                    # (reduce-only), then a new open on the opposite
+                    # direction.
+                    intent_legs = _build_intent_legs(pkg, delta)
                 elif not (pkg.meta and pkg.meta.get("is_test")):
                     # Legacy single-strategy / first-wins multiplexer
                     # path. Binary open-position guard stays — see
@@ -1069,22 +1086,43 @@ class Coordinator:
                 # the dry-run-guard CI regex (which conservatively flags
                 # any new `dry_run=<truthy-token>` text as a flag flip).
                 exec_dry_run = bool(effective_dry)
-                trade_id = execute_pkg(
-                    pkg, account_cfg,
-                    exchange_client=client,
-                    balance_usdt=balance,
-                    dry_run=exec_dry_run,
-                    qty_override=effective_qty,
-                )
-                self.push_alert(
-                    f"multi_execute: {account.name} {pkg.strategy} "
-                    f"{pkg.direction} {pkg.symbol} qty={effective_qty} → {trade_id}",
-                    source="accounts",
-                    level="info",
-                    account=account.name,
-                    trade_id=trade_id,
-                    sized_qty=effective_qty,
-                )
+                # Legacy / single-leg path: build a one-entry legs list
+                # so the same loop below handles both modes uniformly.
+                # ``intent_legs`` is set above only for intent-mode
+                # packages; non-intent packages take this default.
+                if intent_legs is None:
+                    intent_legs = [
+                        {
+                            "pkg": pkg,
+                            "qty": effective_qty,
+                            "reduce_only": False,
+                            "label": "primary",
+                        }
+                    ]
+                leg_trade_ids: List[str] = []
+                for _leg in intent_legs:
+                    _leg_trade_id = execute_pkg(
+                        _leg["pkg"], account_cfg,
+                        exchange_client=client,
+                        balance_usdt=balance,
+                        dry_run=exec_dry_run,
+                        qty_override=_leg["qty"],
+                        reduce_only=bool(_leg.get("reduce_only", False)),
+                    )
+                    leg_trade_ids.append(_leg_trade_id)
+                    self.push_alert(
+                        f"multi_execute: {account.name} {pkg.strategy} "
+                        f"{_leg['pkg'].direction} {pkg.symbol} "
+                        f"qty={_leg['qty']} reduce_only="
+                        f"{bool(_leg.get('reduce_only', False))} "
+                        f"leg={_leg.get('label', '?')} → {_leg_trade_id}",
+                        source="accounts",
+                        level="info",
+                        account=account.name,
+                        trade_id=_leg_trade_id,
+                        sized_qty=_leg["qty"],
+                    )
+                trade_id = leg_trade_ids[-1] if leg_trade_ids else None
                 results.append({
                     "name": account.name,
                     "exchange": account.exchange,
@@ -1092,6 +1130,7 @@ class Coordinator:
                     "trade_id": trade_id,
                     "sized_qty": effective_qty,
                     "error": None,
+                    "leg_trade_ids": leg_trade_ids if len(leg_trade_ids) > 1 else None,
                 })
                 # Reset the consecutive exchange-rejection counter on a
                 # clean placement — the borrow gate is open again.
@@ -1716,6 +1755,99 @@ class Coordinator:
 def is_paused(account_id: str) -> bool:
     """Check if *account_id* is currently halted.  Used by accounts unit (PR #122)."""
     return account_id in _PAUSED_ACCOUNTS
+
+
+def _build_intent_legs(pkg: "OrderPackage", delta) -> List[Dict[str, Any]]:
+    """Translate an ``ExecutionDelta`` into a list of executor legs.
+
+    Each leg is a dict consumed by ``multi_account_execute``'s
+    intent-mode dispatcher:
+
+    ::
+
+        {
+            "pkg":         <OrderPackage with the leg's direction>,
+            "qty":         <float, qty_override for execute_pkg>,
+            "reduce_only": <bool, plumbed to execute_pkg's reduce_only>,
+            "label":       <str, audit name; "primary" / "close" / "open">,
+        }
+
+    Mapping (matches ``src.runtime.intents.compute_execution_delta``):
+
+    * ``open`` / ``increase`` — 1 leg, direction = ``pkg.direction``
+      (unchanged), reduce_only=False.
+    * ``reduce`` / ``close``  — 1 leg, direction = ``delta.side``
+      (opposite of the current net), reduce_only=True. The trade
+      journal stamps ``setup_type='intent_reduce'`` so downstream
+      aggregations can filter reduce legs out of "new entries"
+      cohorts.
+    * ``flip``                — 2 legs in order:
+        (1) close leg — direction opposite of current side,
+            qty = abs(current_qty), reduce_only=True.
+        (2) open leg  — direction = ``delta.side`` (the new desired
+            net), qty = ``delta.qty_delta``, reduce_only=False.
+
+    Pkg copies via ``dataclasses.replace`` so the per-leg direction
+    mutation doesn't leak to other accounts in the same dispatch
+    round (the same ``pkg`` instance is the input for every account
+    in ``multi_account_execute``).
+
+    Used only when ``package_is_intent_mode(pkg)`` is True; the
+    non-intent legacy path is unchanged.
+    """
+    if delta.action in ("open", "increase"):
+        # Direction matches pkg.direction by construction (the
+        # aggregator's winning side is what the OrderPackage already
+        # carries).
+        return [
+            {
+                "pkg": pkg,
+                "qty": float(delta.qty_delta),
+                "reduce_only": False,
+                "label": "primary",
+            }
+        ]
+    if delta.action in ("reduce", "close"):
+        # delta.side is the order direction (opposite of current).
+        leg_pkg = dataclasses.replace(pkg, direction=delta.side)
+        # ``meta`` is mutable; share by reference so the trade-journal
+        # row picks up the execution_delta block we stamped earlier.
+        return [
+            {
+                "pkg": leg_pkg,
+                "qty": float(delta.qty_delta),
+                "reduce_only": True,
+                "label": delta.action,
+            }
+        ]
+    if delta.action == "flip":
+        current_side = "long" if delta.current_qty > 0 else "short"
+        close_side = "short" if current_side == "long" else "long"
+        close_qty = abs(float(delta.current_qty))
+        close_pkg = dataclasses.replace(pkg, direction=close_side)
+        # Open leg's direction is delta.side — the new desired
+        # net direction after the flip.
+        open_pkg = dataclasses.replace(pkg, direction=delta.side)
+        return [
+            {
+                "pkg": close_pkg,
+                "qty": close_qty,
+                "reduce_only": True,
+                "label": "flip_close",
+            },
+            {
+                "pkg": open_pkg,
+                "qty": float(delta.qty_delta),
+                "reduce_only": False,
+                "label": "flip_open",
+            },
+        ]
+    raise ValueError(
+        f"_build_intent_legs: unsupported delta.action={delta.action!r}; "
+        "expected one of open/increase/reduce/close/flip (noop should be "
+        "filtered upstream)."
+    )
+
 
 
 def _log_new_order_package(pkg: "OrderPackage") -> Optional[str]:
