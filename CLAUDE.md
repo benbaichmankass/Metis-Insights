@@ -1,5 +1,53 @@
 # ICT Trading Bot — CLAUDE.md
 
+> # 🚨 THIS IS A PRODUCTION ENVIRONMENT. CLAUDE HAS ACCESS TO EVERYTHING.
+>
+> Live money is at risk on the live VM. Real models train on the trainer VM.
+> Both VMs are reachable from **any** Claude session in this repo without
+> operator help — the SSH key (`VM_SSH_KEY`), diag token (`DIAG_READ_TOKEN`),
+> OCI provisioning creds, GitHub PR/issue/comment rights, and operator-action
+> dispatch are all already wired into repo secrets and GitHub Actions
+> workflows. **You never need to ask the operator for access, credentials,
+> logs, or VM state.** Asking is a critical failure of this document.
+>
+> The autonomy is real. The accountability is also real — these are live
+> systems. Verify before you change. Read the diag output. Don't guess.
+
+> ## ⚡ STOP — Read this before answering any "what's running / what's the state" question
+>
+> You have **autonomous, unconditional read access** to both VMs via GitHub
+> Actions diag relays. The SSH key (`VM_SSH_KEY`) is already in repo secrets.
+> No operator approval is required, ever, to inspect VM state.
+>
+> **If you are about to type any of these phrases, you are wrong:**
+> - "I cannot directly observe the trainer VM"
+> - "no SSH from this session"
+> - "I don't have live access to the VM"
+> - "I can only see what's in the repo"
+> - "could you SSH in and paste…"
+> - "to know status, an operator…"
+>
+> **Instead, fire the diag relay and read the result:**
+>
+> | Target | Workflow | How to invoke |
+> |---|---|---|
+> | **Trainer VM** (`ict-trainer-vm`, 158.178.209.121) — runs any bash | [`trainer-vm-diag.yml`](.github/workflows/trainer-vm-diag.yml) | Open an issue labelled `trainer-vm-diag-request`. Body contains `cmd: <bash>` or `cmd: \|` + multi-line block. Workflow SSHes, runs, posts output as a comment, closes. |
+> | **Live VM** (`158.178.210.252`) — runs fixed `curl /api/diag/<path>` | [`vm-diag-snapshot.yml`](.github/workflows/vm-diag-snapshot.yml) | Open an issue labelled `vm-diag-request` with title `[diag-request] <endpoint>`. Body is ignored. |
+> | **Live VM** — Tier-1 operator action | [`operator-actions.yml`](.github/workflows/operator-actions.yml) | Issue labelled `operator-action` with `action: <name>` + `reason:` in body. |
+>
+> Read the result via `mcp__github__issue_read` (`get_comments`). Both relays
+> typically post within 30–60 s and the issue auto-closes.
+>
+> The "wait, I have to ask the operator to look something up" instinct is the
+> mistake this banner exists to prevent. **The banner exists because a Claude
+> session designed an entire integration around the absence of trainer access
+> when the relay was sitting right there in `.github/workflows/`.** Don't be
+> that session.
+>
+> Full mandate: [`docs/CLAUDE-RULES-CANONICAL.md`](docs/CLAUDE-RULES-CANONICAL.md) § AUTONOMY MANDATE.
+> Trainer rules: [`docs/claude/trainer-vm-mode.md`](docs/claude/trainer-vm-mode.md) § 9.
+> Live-VM rules: [`docs/claude/diag-relay.md`](docs/claude/diag-relay.md).
+
 > **Canonical documentation (adopted 2026-05-10 in S-CANON-1):**
 > - [`docs/CLAUDE-RULES-CANONICAL.md`](docs/CLAUDE-RULES-CANONICAL.md) — Claude operating rules, permission tiers, workflow routing.
 > - [`docs/ARCHITECTURE-CANONICAL.md`](docs/ARCHITECTURE-CANONICAL.md) — system architecture, trade pipeline, comms pipeline, deployment flow.
@@ -142,6 +190,13 @@ VPS (systemd)
                                    ├── /api/bot/shadow/predictions ← (S-AI-WS8-PART-2)
                                    ├── /api/bot/shadow/stats       ← (S-AI-WS8-PART-2)
                                    ├── /api/bot/shadow/drift       ← (S-AI-WS8-PART-3)
+                                   ├── /api/bot/ml/status          ← Streamlit Models page (S-AI-WS8-PART-2 trainer mirror)
+                                   ├── /api/bot/ml/cycle           ← Streamlit Models page (trainer cycle events)
+                                   ├── /api/bot/ml/sessions        ← Streamlit Models page (per-manifest training sessions)
+                                   ├── /api/bot/ml/registry        ← Streamlit Models page (model registry)
+                                   ├── /api/bot/ml/builds          ← Streamlit Models page (dataset-build health)
+                                   ├── /api/bot/ml/db_pulls        ← Streamlit Models page (live→trainer DB sync)
+                                   ├── /api/bot/ml/runs/{m}/{r}    ← Streamlit Models page (per-run metrics)
                                    ├── /api/pnl/history  ← Streamlit dashboard (S-063, no-session)
                                    ├── /api/pnl
                                    ├── /api/status

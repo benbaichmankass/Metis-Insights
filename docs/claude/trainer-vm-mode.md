@@ -236,6 +236,17 @@ Claude has **full, unconditional visibility** into everything on the
 trainer VM. No operator approval is required to pull any log, run any
 read or diagnostic command, or inspect any artifact.
 
+> **Anti-pattern check.** If you are about to write any of these phrases,
+> stop and fire `trainer-vm-diag-request` first:
+> "I cannot directly observe the trainer VM" /
+> "no SSH from this session" /
+> "I don't have live access" /
+> "I can only see what's in the repo" /
+> "to know status, an operator…" /
+> "could you SSH in and paste…".
+> See root `CLAUDE.md` banner for the full list. The relay below is the
+> remedy in every case.
+
 ### 9.a The `trainer-vm-diag` workflow
 
 `.github/workflows/trainer-vm-diag.yml` is an issue-driven SSH relay.
