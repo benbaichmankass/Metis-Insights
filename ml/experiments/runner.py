@@ -158,6 +158,7 @@ def run_experiment(
             model_state_path=str(model_state_path.resolve()),
             metrics=metrics,
             code_revision=_resolve_commit_sha(code_revision),
+            run_id=run_id,
             notes=manifest.notes,
             by=by,
         )
