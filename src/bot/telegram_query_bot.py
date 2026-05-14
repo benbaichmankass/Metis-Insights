@@ -4,11 +4,10 @@ import logging
 import re
 import asyncio
 import sys
-import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
-from dotenv import load_dotenv, dotenv_values
+from dotenv import load_dotenv
 from telegram import Update, BotCommand, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 
@@ -21,6 +20,23 @@ from src.bot.comms_handler import (
     GitPusher,
     GitPushError,
     install_comms_handlers,
+)
+# PR-4: trade formatting + cloud/VM helpers extracted to separate modules.
+from src.bot.trade_notifier import (
+    _duplicate_key_warning,
+    _render_account_balance,
+    _render_account_positions,
+    fetch_open_positions_count,
+    fetch_today_pnl,
+    format_backtest_summary,
+    get_strategy_label,
+)
+from src.bot.cloud_notifier import (
+    PENDING_PINGS_DIR,
+    PING_DRAIN_INTERVAL_S,
+    _drain_pending_pings,
+    get_service_status,
+    toggle_service,
 )
 
 load_dotenv()
@@ -99,358 +115,6 @@ BACKTEST_STATUS = {
 }
 
 
-def is_authorised(update: Update) -> bool:
-    if update.effective_chat:
-        chat_id = update.effective_chat.id
-    elif update.callback_query:
-        chat_id = update.callback_query.message.chat.id
-    else:
-        return False
-    return str(chat_id) == str(TELEGRAM_CHAT_ID)
-
-
-def is_halted() -> bool:
-    return os.path.exists(HALT_FLAG_PATH)
-
-
-def fetch_today_pnl(account_id: str | None = None) -> tuple:
-    """Back-compat wrapper. S-031 PR1
-    (architecture-audit-2026-05-02 P1-6) moved the SQL query into
-    ``src.units.ui.processor.get_today_pnl`` so the bot stops touching
-    ``trade_journal.db`` directly. The tuple shape is preserved for
-    existing handlers."""
-    from src.units.ui.processor import get_today_pnl
-    result = get_today_pnl(account_id)
-    return (result["trade_count"], result["total_pnl_usd"])
-
-
-def fetch_open_positions_count(account_id: str | None = None) -> int:
-    """Back-compat wrapper — see ``fetch_today_pnl`` for context."""
-    from src.units.ui.processor import get_open_positions_count
-    return get_open_positions_count(account_id)
-
-
-_STRATEGY_DISPLAY = {
-    "killzone": "ICT",
-    "ict": "ICT",
-    "vwap": "VWAP",
-    "breakout": "Breakout",
-    "breakout_confirmation": "Breakout",
-    "turtle_soup": "Turtle Soup",
-    "multiplexed": "Multi",
-}
-
-# Default label when STRATEGY env var is missing or unrecognised. The bot is
-# live-trading only; this fallback should rarely be visible.
-_DEFAULT_STRATEGY_LABEL = "Strategy"
-
-
-def get_strategy_label(account: dict | None = None) -> str:
-    """Return the display name for the active strategy.
-
-    Resolution order (S-012 PR hotfix — accounts.yaml strategies field):
-
-      1. ``STRATEGY`` (or legacy ``STRATEGY_NAME``) in the account's
-         .env file. Used by env-discovered accounts.
-      2. ``account["strategies"]`` from accounts.yaml. When the account
-         runs a single strategy, that name is shown; when it runs more
-         than one (the post-S-012 multiplexer norm), label is "Multi".
-      3. Fall back to the global ``STRATEGY`` env var.
-      4. ``_DEFAULT_STRATEGY_LABEL``.
-
-    Defensive against missing/malformed env files because this is called
-    at ``post_init`` time and must never crash the bot.
-    """
-    try:
-        if account is None:
-            accounts = dl.list_accounts() or []
-            account = accounts[0] if accounts else {}
-
-        # 1. Per-account .env STRATEGY/STRATEGY_NAME
-        env_vars = _account_env(account)
-        raw = str(env_vars.get("STRATEGY", env_vars.get("STRATEGY_NAME", ""))).strip().lower()
-        if raw:
-            label = _STRATEGY_DISPLAY.get(raw)
-            if label:
-                return label
-
-        # 2. accounts.yaml strategies list
-        strategies = account.get("strategies") if isinstance(account, dict) else None
-        if isinstance(strategies, list) and strategies:
-            normalized = [str(s).strip().lower() for s in strategies if s]
-            if len(normalized) == 1:
-                label = _STRATEGY_DISPLAY.get(normalized[0])
-                if label:
-                    return label
-            elif len(normalized) > 1:
-                # Multi-strategy account → multiplexer label.
-                return _STRATEGY_DISPLAY["multiplexed"]
-
-        # 3. Process-wide STRATEGY env (the run_pipeline default since PR C5).
-        proc_raw = str(os.environ.get("STRATEGY", "")).strip().lower()
-        if proc_raw:
-            label = _STRATEGY_DISPLAY.get(proc_raw)
-            if label:
-                return label
-
-        return _DEFAULT_STRATEGY_LABEL
-    except Exception:
-        return _DEFAULT_STRATEGY_LABEL
-
-
-
-# fetch_last_5_trades and fetch_latest_backtest_result were removed in PR-F
-# (Sprint S-001). /last5 now reads via dl.recent_trades_for; /latest_backtest
-# and the post-backtest broadcast read via dl.latest_backtests_per_model().
-
-
-def format_backtest_summary(latest):
-    return (
-        f"✅ *Latest backtest result*\n"
-        f"🆔 Row ID: {latest['id']}\n"
-        f"🗓 Run Date: {latest['run_date']}\n"
-        f"🏷 Strategy Version: {latest['strategy_version']}\n"
-        f"📅 Period: {latest['start_date']} → {latest['end_date']}\n"
-        f"🔢 Total Trades: {latest['total_trades']}\n"
-        f"✅ Winners: {latest['winning_trades']}\n"
-        f"❌ Losers: {latest['losing_trades']}\n"
-        f"🎯 Win Rate: {latest['win_rate']}\n"
-        f"⚖️ Profit Factor: {latest['profit_factor']}\n"
-        f"📈 Expectancy: {latest['expectancy']}\n"
-        f"📉 Max Drawdown: {latest['max_drawdown']}\n"
-        f"📉 Max Drawdown %: {latest['max_drawdown_pct']}\n"
-        f"📐 Sharpe Ratio: {latest['sharpe_ratio']}\n"
-        f"💵 Total PnL: {latest['total_pnl']}\n"
-        f"💹 Total PnL %: {latest['total_pnl_pct']}\n"
-        f"🥇 Avg Win: {latest['avg_win']}\n"
-        f"🥀 Avg Loss: {latest['avg_loss']}\n"
-        f"🚀 Largest Win: {latest['largest_win']}\n"
-        f"💥 Largest Loss: {latest['largest_loss']}\n"
-        f"🕒 Saved At: {latest['created_at']}"
-    )
-
-
-def run_shell_command(cmd):
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=20)
-    return ((result.stdout or "") + (result.stderr or "")).strip()
-
-
-def get_service_status(service_name: str) -> str:
-    try:
-        return run_shell_command(["systemctl", "is-active", service_name]) or "unknown"
-    except Exception as e:
-        return f"error: {e}"
-
-
-def _known_systemd_units() -> set:
-    """Return the set of systemd unit stems present in the repo's deploy/.
-
-    Used by toggle_service() to fail loudly when callers pass a service
-    name that has no matching unit file — the failure mode that
-    triggered S-012 (PM § 8 #5).
-    """
-    deploy_dir = os.path.join(REPO_ROOT, "deploy")
-    try:
-        return {
-            name[: -len(".service")]
-            for name in os.listdir(deploy_dir)
-            if name.endswith(".service")
-        }
-    except FileNotFoundError:
-        return set()
-
-
-def toggle_service(service_name: str, action: str) -> str:
-    # S-012 PR D3: pre-validate against deploy/. If the unit file does
-    # not exist in the repo, refuse to call systemctl rather than let
-    # the operator see a confusing "Unit not found" error from systemd.
-    known = _known_systemd_units()
-    if known and service_name not in known:
-        return (
-            f"❌ Refusing to {action} `{service_name}`: no matching unit "
-            f"file in deploy/. Known units: `{', '.join(sorted(known))}`. "
-            "If this service should exist, add the unit file in a PR; "
-            "otherwise fix the caller."
-        )
-    try:
-        result = subprocess.run(
-            ["sudo", "systemctl", action, service_name],
-            capture_output=True, text=True, timeout=15
-        )
-        if result.returncode == 0:
-            new_status = get_service_status(service_name)
-            return f"✅ `{service_name}` {action}ed. Status: `{new_status}`"
-        err = (result.stderr or result.stdout or "unknown error").strip()
-        return f"❌ Failed to {action} `{service_name}`:\n{err}"
-    except Exception as e:
-        return f"❌ Exception toggling `{service_name}`: {e}"
-
-
-def get_last_logs(lines: int = 20) -> str:
-    """Return the most recent journalctl lines for the live trader service.
-
-    Thin wrapper kept for backwards-compat with any importers; new call sites
-    should use ``dl.recent_logs_for(service, n=...)`` directly.
-    """
-    return dl.recent_logs_for(LIVE_SERVICE_NAME, n=lines)
-
-
-def _account_env(account: dict) -> dict:
-    """Best-effort load of the account's .env file (for strategy-label
-    rendering). Empty dict on any failure — the caller's label fallback
-    handles the “unknown” case."""
-    path = (account or {}).get("env_path") or ""
-    if not path or not os.path.exists(path):
-        return {}
-    try:
-        return {k: v for k, v in dotenv_values(path).items() if v is not None}
-    except Exception:  # noqa: BLE001
-        return {}
-
-
-def _bybit_creds_diagnostic(account: dict) -> str | None:
-    """Return a diagnostic string when an account is missing Bybit creds.
-
-    Returns ``None`` when both API key + secret env vars are present
-    (in which case any balance failure is on the API side, not config).
-
-    S-023 PR2: delegates to the shared
-    ``data_loaders.credentials_check`` so /balance and
-    /accounts_status give identical wording and stay in sync as the
-    diagnostic logic evolves.
-    """
-    return dl.credentials_check(account or {})
-
-
-def _account_key_fingerprint(account: dict) -> str | None:
-    """Last-4 of the resolved API key, or None if unresolvable.
-
-    Sourced from ``src.units.accounts.clients.resolve_credentials`` so
-    the fingerprint we render is exactly the key the
-    bybit_client_for/binance_conn_for path will use — no chance of
-    drift between "what we show" and "what makes the API call".
-    """
-    try:
-        from src.units.accounts.clients import resolve_credentials
-        creds = resolve_credentials(account or {}) or {}
-        key = creds.get("api_key") or ""
-        return f"…{str(key)[-4:]}" if key else None
-    except Exception:  # noqa: BLE001
-        return None
-
-
-def _account_balance_header(account: dict, *, exchange_suffix: str = "") -> str:
-    """Build the balance block header.
-
-    Account-first labeling: the primary identifier is the account_id
-    (the thing the operator sees in accounts.yaml + the thing that
-    actually owns the API key + wallet); the strategy is shown as a
-    parenthetical. The resolved API-key fingerprint is appended so two
-    accounts that resolve to the same key are visually obvious in the
-    same /balance reply — no need to wait for the trader's
-    startup-time dup-key ping.
-    """
-    aid = (account or {}).get("account_id", "?")
-    strat = get_strategy_label(account)
-    fp = _account_key_fingerprint(account)
-    env_name = (account or {}).get("api_key_env") or ""
-    base = f"`{aid}`" + (f" ({strat})" if strat and strat != _DEFAULT_STRATEGY_LABEL else "")
-    suffix = f" {exchange_suffix}" if exchange_suffix else ""
-    # Show the env-var name + last-4 of the resolved key. Identical
-    # fingerprints across two rows = same key value in env (operator
-    # action: edit env file). Identical env_name across two rows
-    # would be a code bug (we route here through accounts.yaml so it
-    # should never happen — but if it does, the rendered string
-    # surfaces it instead of hiding it).
-    fp_part = ""
-    if env_name and fp:
-        fp_part = f"\n🔑 env `{env_name}` → {fp}"
-    elif fp:
-        fp_part = f"\n🔑 key {fp}"
-    return f"💰 *{base} Balance{suffix}*{fp_part}"
-
-
-def _duplicate_key_warning(accounts: list[dict]) -> str | None:
-    """Return a warning string when ≥ 2 accounts resolve to the same API key.
-
-    Runs against the same accounts list that ``cmd_balance`` is about
-    to render, so the warning, if present, exactly matches the rows
-    below it. Returns ``None`` when keys are distinct (clean case).
-    """
-    by_fp: dict[str, list[str]] = {}
-    for acc in accounts:
-        fp = _account_key_fingerprint(acc)
-        if not fp:
-            continue
-        by_fp.setdefault(fp, []).append(str((acc or {}).get("account_id", "?")))
-    dup_lines: list[str] = []
-    for fp, ids in by_fp.items():
-        if len(ids) > 1:
-            dup_lines.append(f"`{', '.join(sorted(ids))}` share key {fp}")
-    if not dup_lines:
-        return None
-    return (
-        "⚠️ *DUPLICATE API KEY DETECTED* — accounts below resolve to the\n"
-        "same Bybit/Binance wallet, so identical balances are expected.\n"
-        + "\n".join(f"  • {ln}" for ln in dup_lines)
-        + "\n→ fix: edit the env file so each `api_key_env` in\n"
-        "`config/accounts.yaml` points at a *distinct* key, then\n"
-        "restart the trader + bot."
-    )
-
-
-def format_bybit_balance(account: dict) -> str:
-    """Render the per-coin Bybit balance block for one account.
-    Data is sourced via ``dl.account_balance``; this function only formats."""
-    header = _account_balance_header(account)
-    payload = dl.account_balance(account)
-    if payload is None:
-        diag = _bybit_creds_diagnostic(account)
-        suffix = f"\n→ {diag}" if diag else ""
-        return f"{header}\n⚠️ Bybit error: balance unavailable.{suffix}"
-    raw = (payload or {}).get("raw") or {}
-    result_list = (raw.get("result") or {}).get("list") or []
-    if not result_list:
-        return f"{header}\nNo balance data returned from Bybit."
-    coins = result_list[0].get("coin", []) or []
-    lines = []
-    for c in coins:
-        try:
-            wb = float(c.get("walletBalance", 0) or 0)
-        except (TypeError, ValueError):
-            wb = 0.0
-        if wb <= 0:
-            continue
-        try:
-            usd = float(c.get("usdValue", "0") or 0)
-        except (TypeError, ValueError):
-            usd = 0.0
-        lines.append(f"{c.get('coin', '?')}: {wb:.4f} (≈ ${usd:.2f})")
-    text = "\n".join(lines) if lines else "No non-zero balances found."
-    return f"{header}\n{text}"
-
-
-def format_bybit_positions(account: dict) -> str:
-    """Render the open-positions block for one Bybit account using
-    ``dl.account_open_positions`` output."""
-    label = get_strategy_label(account)
-    rows = dl.account_open_positions(account)
-    if rows is None:
-        return f"📊 *{label} Positions*\n⚠️ Bybit error: positions unavailable."
-    if not rows:
-        return f"📊 *{label} Positions*\nNo open positions."
-    lines = []
-    for p in rows:
-        sym = p.get("symbol") or "?"
-        side = p.get("side") or "?"
-        size = p.get("size") or 0
-        entry = float(p.get("entry_price") or 0)
-        pnl = float(p.get("unrealised_pnl") or 0)
-        lines.append(f"{sym} {side} | Size: {size} | Entry: ${entry:,.2f} | PnL: ${pnl:+.2f}")
-    return f"📊 *{label} Positions*\n" + "\n".join(lines)
-
-
-
 async def run_backtest_in_background(application: Application):
     global BACKTEST_TASK, BACKTEST_STATUS
     BACKTEST_STATUS.update({
@@ -490,9 +154,6 @@ async def run_backtest_in_background(application: Application):
             return
 
         BACKTEST_STATUS["state"] = "completed"
-        # PR-C: pull the freshest backtest row through data_loaders. The loader
-        # returns one row per strategy_version; we surface the newest entry —
-        # which matches the legacy single-row behaviour for today's pipeline.
         rows = dl.latest_backtests_per_model()
         latest = rows[0] if rows else None
         if latest:
@@ -521,48 +182,28 @@ async def run_backtest_in_background(application: Application):
         BACKTEST_TASK = None
 
 
-
-def format_binance_balance(account: dict) -> str:
-    """Render the Binance Futures USDT balance block for one account.
-    Total/free/used are derived from the loader's ``raw`` ccxt-style
-    balance map (preserves today's UX)."""
-    header = _account_balance_header(account, exchange_suffix="(Binance)")
-    payload = dl.account_balance(account)
-    if payload is None:
-        return f"{header}\n⚠️ Error: balance unavailable."
-    raw = (payload or {}).get("raw") or {}
-    if not raw:
-        return f"{header}\nNo data returned."
-    usdt = raw.get("USDT", {}) if isinstance(raw, dict) else {}
-    total = float((usdt or {}).get("total", 0) or 0)
-    free = float((usdt or {}).get("free", 0) or 0)
-    used = float((usdt or {}).get("used", 0) or 0)
-    return (
-        f"{header}\n"
-        f"USDT Total: {total:.2f}\n"
-        f"USDT Free: {free:.2f}\n"
-        f"USDT Used: {used:.2f}"
-    )
+def is_authorised(update: Update) -> bool:
+    if update.effective_chat:
+        chat_id = update.effective_chat.id
+    elif update.callback_query:
+        chat_id = update.callback_query.message.chat.id
+    else:
+        return False
+    return str(chat_id) == str(TELEGRAM_CHAT_ID)
 
 
-def format_binance_positions(account: dict) -> str:
-    """Render the Binance open-positions block for one account using
-    ``dl.account_open_positions`` output."""
-    label = get_strategy_label(account)
-    rows = dl.account_open_positions(account)
-    if rows is None:
-        return f"📊 *{label} Positions (Binance)*\n⚠️ Error: positions unavailable."
-    if not rows:
-        return f"📊 *{label} Positions (Binance)*\nNo open positions."
-    lines = []
-    for p in rows:
-        sym = p.get("symbol") or "?"
-        side = p.get("side") or "?"
-        size = p.get("size") or 0
-        entry = float(p.get("entry_price") or 0)
-        pnl = float(p.get("unrealised_pnl") or 0)
-        lines.append(f"{sym} {side} | Size: {size} | Entry: ${entry:,.2f} | PnL: ${pnl:+.2f}")
-    return f"📊 *{label} Positions (Binance)*\n" + "\n".join(lines)
+def is_halted() -> bool:
+    return os.path.exists(HALT_FLAG_PATH)
+
+
+
+def get_last_logs(lines: int = 20) -> str:
+    """Return the most recent journalctl lines for the live trader service.
+
+    Thin wrapper kept for backwards-compat with any importers; new call sites
+    should use ``dl.recent_logs_for(service, n=...)`` directly.
+    """
+    return dl.recent_logs_for(LIVE_SERVICE_NAME, n=lines)
 
 
 # ── Commands ──────────────────────────────────────────────────────────────────
@@ -965,34 +606,6 @@ async def cmd_resume(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
     except Exception as e:
         await update.message.reply_text(f"⚠️ Failed to remove halt flag: {e}")
-
-
-def _render_account_balance(account: dict) -> str:
-    """Dispatch a single account to the right balance formatter."""
-    exchange = str((account or {}).get("exchange", "")).lower()
-    if exchange == "bybit":
-        return format_bybit_balance(account)
-    if exchange == "binance":
-        return format_binance_balance(account)
-    label = get_strategy_label(account)
-    return (
-        f"💰 *{label} Balance*\n"
-        f"Exchange=`{exchange or 'not set'}` — unsupported exchange."
-    )
-
-
-def _render_account_positions(account: dict) -> str:
-    """Dispatch a single account to the right positions formatter."""
-    exchange = str((account or {}).get("exchange", "")).lower()
-    if exchange == "bybit":
-        return format_bybit_positions(account)
-    if exchange == "binance":
-        return format_binance_positions(account)
-    label = get_strategy_label(account)
-    return (
-        f"📊 *{label} Positions*\n"
-        f"Exchange=`{exchange or 'not set'}` — unsupported exchange."
-    )
 
 
 async def cmd_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1798,93 +1411,6 @@ async def cmd_test_strategy(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await _queue_comms_ask(update, request=request, summary=summary)
 
 
-# ── Pending-pings inbox (S-019) ────────────────────────────────────────────
-#
-# Any process on the VM (deploy script, smoke runner, trader, /vm session)
-# can ping the operator without re-implementing the Telegram client by
-# dropping a JSON file in `runtime_logs/pending_pings/`. The bot's job
-# queue drains the directory every few seconds. This decouples ping
-# emission from the git-sync timer — pings fire seconds after the file
-# lands, not minutes.
-#
-# Schema: ``{"priority": "normal|high|urgent|low", "body": "..."}``.
-# Atomic writes: writers create ``<id>.json.tmp`` then ``rename`` to
-# ``<id>.json`` so the drainer never reads a half-written file.
-
-PENDING_PINGS_DIR = os.path.join(REPO_ROOT, "runtime_logs", "pending_pings")
-PING_DRAIN_INTERVAL_S = 5
-
-_PRIORITY_ICONS = {
-    "urgent": "🚨 URGENT",
-    "high":   "🔔",
-    "normal": "ℹ️",
-    "low":    "·",
-}
-
-
-async def _drain_pending_pings(context: ContextTypes.DEFAULT_TYPE):
-    """JobQueue task — scan the inbox, send each, delete on success.
-
-    Failures (Telegram 4xx, malformed JSON) move the offending file
-    aside with a ``.broken`` suffix so the drainer doesn't loop on it.
-    """
-    try:
-        os.makedirs(PENDING_PINGS_DIR, exist_ok=True)
-        names = sorted(
-            n for n in os.listdir(PENDING_PINGS_DIR)
-            if n.endswith(".json") and not n.endswith(".tmp")
-        )
-    except OSError:
-        return
-
-    if not names:
-        return
-
-    chat_id = TELEGRAM_CHAT_ID
-    if not chat_id:
-        logger.warning("ping inbox has %d file(s) but TELEGRAM_CHAT_ID is unset",
-                       len(names))
-        return
-
-    for name in names:
-        path = os.path.join(PENDING_PINGS_DIR, name)
-        try:
-            with open(path, "r", encoding="utf-8") as fh:
-                payload = json.load(fh)
-        except (OSError, json.JSONDecodeError) as exc:
-            logger.warning("ping inbox: malformed file %s — %s", name, exc)
-            try:
-                os.rename(path, path + ".broken")
-            except OSError:
-                pass
-            continue
-
-        priority = str(payload.get("priority", "normal")).lower()
-        body = str(payload.get("body", "")).strip()
-        if not body:
-            try:
-                os.unlink(path)
-            except OSError:
-                pass
-            continue
-
-        prefix = _PRIORITY_ICONS.get(priority, _PRIORITY_ICONS["normal"])
-        text = f"{prefix} {body}"
-
-        try:
-            await context.bot.send_message(
-                chat_id=chat_id, text=text,
-                disable_web_page_preview=True,
-            )
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("ping inbox: send failed for %s — %s", name, exc)
-            continue   # leave file in place; retry next tick
-
-        try:
-            os.unlink(path)
-        except OSError:
-            pass
-
 
 async def cmd_ping_test(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Verify the inbox-drain loop end-to-end.
@@ -1980,57 +1506,6 @@ async def cmd_health(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     await update.message.reply_text(body, parse_mode="HTML")
 
-
-def _read_loadavg() -> str:
-    try:
-        with open("/proc/loadavg", "r", encoding="utf-8") as fh:
-            parts = fh.read().split()
-        return " ".join(parts[:3]) if len(parts) >= 3 else "unknown"
-    except OSError:
-        return "unknown"
-
-
-def _read_uptime_human() -> str:
-    try:
-        with open("/proc/uptime", "r", encoding="utf-8") as fh:
-            secs = float(fh.read().split()[0])
-    except (OSError, ValueError):
-        return "unknown"
-    d, secs = divmod(int(secs), 86400)
-    h, secs = divmod(secs, 3600)
-    m, _ = divmod(secs, 60)
-    if d:
-        return f"{d}d {h}h {m}m"
-    if h:
-        return f"{h}h {m}m"
-    return f"{m}m"
-
-
-def _read_meminfo_mb() -> tuple[int, int]:
-    """Return (total_mb, available_mb). (0, 0) on read error."""
-    total = avail = 0
-    try:
-        with open("/proc/meminfo", "r", encoding="utf-8") as fh:
-            for line in fh:
-                if line.startswith("MemTotal:"):
-                    total = int(line.split()[1]) // 1024
-                elif line.startswith("MemAvailable:"):
-                    avail = int(line.split()[1]) // 1024
-                if total and avail:
-                    break
-    except (OSError, ValueError, IndexError):
-        return 0, 0
-    return total, avail
-
-
-def _disk_usage_repo() -> tuple[int, int]:
-    """Return (free_gb, total_gb) for the partition holding the repo."""
-    try:
-        import shutil
-        total, _, free = shutil.disk_usage(REPO_ROOT)
-        return free // (1024 ** 3), total // (1024 ** 3)
-    except OSError:
-        return 0, 0
 
 
 async def cmd_vmstats(update: Update, context: ContextTypes.DEFAULT_TYPE):
