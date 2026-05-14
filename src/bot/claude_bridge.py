@@ -66,6 +66,16 @@ SYSTEM_PROMPT = (
     "text best."
 )
 
+# cache_control is set on the system content block so the system prompt
+# is cached across turns (saves input tokens on every follow-up message).
+_SYSTEM = [
+    {
+        "type": "text",
+        "text": SYSTEM_PROMPT,
+        "cache_control": {"type": "ephemeral"},
+    }
+]
+
 _history: Dict[int, Deque[dict]] = defaultdict(lambda: deque(maxlen=MAX_HISTORY))
 _anthropic = anthropic.Anthropic()
 
@@ -126,9 +136,7 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         response = _anthropic.messages.create(
             model=MODEL,
             max_tokens=MAX_TOKENS,
-            system=SYSTEM_PROMPT,
-            thinking={"type": "adaptive"},
-            cache_control={"type": "ephemeral"},
+            system=_SYSTEM,
             messages=list(history),
         )
     except anthropic.APIError as exc:
@@ -271,7 +279,7 @@ async def cmd_schedules(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
 # training-stage commits, drained pending-pings.jsonl). Trade-execution
 # alerts continue to write to the trader bot's inbox.
 #
-# Schema: ``{"priority": "normal|high|urgent|low", "body": "..."}``.
+# Schema: ``{"priority": "normal|high|urgent|low", "body": "..."}``.  
 # Atomic writes: writers create ``<id>.json.tmp`` then ``rename`` to
 # ``<id>.json`` so the drainer never reads a half-written file.
 
