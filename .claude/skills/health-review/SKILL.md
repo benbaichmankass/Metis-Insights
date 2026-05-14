@@ -460,6 +460,35 @@ Status grades:
 - `caution`     — at least one `watch`, no `concern`.
 - `investigate` — any `concern`. ⇒ `operator_attention_required: true`.
 
+## Active watch items (specific things to grade explicitly)
+
+These are open architectural gaps from
+[`docs/ARCHITECTURE-CANONICAL.md`](../../../docs/ARCHITECTURE-CANONICAL.md)
+§ Known gaps that this skill should explicitly check in the snapshot
+data each run. Add a finding for each item — `ok` if there's no
+evidence of the issue in the current snapshot, `watch` / `concern`
+if there is. Remove a row from this list when the underlying gap is
+closed.
+
+- **Reduce-only fill correlation (S-MSE-2 / Phase 2 follow-up).** The
+  intent-mode dispatcher places reduce / close / flip legs with
+  `setup_type='intent_reduce'` and `notes.intent_reduce=True`. The
+  S-030 monitor reconciles fills by `symbol + qty + side + timestamp`
+  and currently writes the reduce as a fresh row instead of updating
+  the parent's `position_size`. Brief P&L double-counting can occur
+  on the tick a reduce fires.
+  **Grade by:** scan the TRADES section of the snapshot for any
+  `setup_type='intent_reduce'` rows; for each such row, check whether
+  a matching open parent row exists with `position_size` not yet
+  decremented to reflect the reduce leg. If yes → `watch`
+  (one tick of double-count is bounded) or `concern` if the parent
+  stays mis-sized for more than one monitor cycle (~1 min).
+  Reference the gap entry in ARCHITECTURE-CANONICAL.md when grading
+  so the operator can land the reconciler fix (S-MSE-3) with full
+  context. Until ICT scalp activates AND a real flip happens, expect
+  every grade here to be `ok` with note "no intent_reduce rows
+  observed yet".
+
 ## Output
 
 **Single-request mode** (the user passed an explicit `REQ-…` or run
