@@ -7,7 +7,11 @@ from pathlib import Path
 import pytest
 import yaml
 
-from ml.experiments.runner import run_experiment
+from ml.experiments.runner import (
+    EMPTY_DATASET_EXIT_CODE,
+    EmptyDatasetError,
+    run_experiment,
+)
 
 
 def _write_dataset(tmp_path: Path, rows: list[dict]) -> Path:
@@ -121,3 +125,25 @@ def test_run_experiment_missing_dataset(tmp_path: Path):
             experiments_root=tmp_path / "exp",
             registry_root=tmp_path / "reg",
         )
+
+
+def test_run_experiment_empty_dataset_raises_distinct_error(tmp_path: Path):
+    """0-row datasets must raise EmptyDatasetError (not the generic ValueError
+    they raised before). The CLI maps this to exit code 78 so the cycle
+    shell can emit `manifest_skipped` instead of `manifest_failed`.
+    """
+    manifest_path = _write_manifest(tmp_path)
+    datasets_root = _write_dataset(tmp_path, rows=[])
+    with pytest.raises(EmptyDatasetError) as exc_info:
+        run_experiment(
+            manifest_path=manifest_path,
+            datasets_root=datasets_root,
+            experiments_root=tmp_path / "exp",
+            registry_root=tmp_path / "reg",
+        )
+    assert exc_info.value.data_path.name == "data.jsonl"
+
+
+def test_empty_dataset_exit_code_pinned_to_78():
+    """BSD `EX_CONFIG` convention — pin so the shell branch on rc=78 stays correct."""
+    assert EMPTY_DATASET_EXIT_CODE == 78

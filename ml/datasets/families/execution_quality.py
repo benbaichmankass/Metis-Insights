@@ -160,7 +160,7 @@ class ExecutionQualityBuilder(DatasetBuilder):
                 "FROM trades t "
                 "INNER JOIN order_packages op "
                 " ON op.linked_trade_id = t.id "
-                "WHERE t.status = 'CLOSED' AND t.is_backtest = 0 "
+                "WHERE t.status = 'closed' AND t.is_backtest = 0 "
                 " AND t.entry_price IS NOT NULL "
                 " AND op.entry IS NOT NULL "
                 " AND op.entry > 0"

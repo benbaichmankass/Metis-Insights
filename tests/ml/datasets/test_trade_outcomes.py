@@ -64,7 +64,7 @@ def _row(**overrides):
         bias="BULLISH",
         pnl=10.0,
         pnl_percent=0.01,
-        status="CLOSED",
+        status="closed",
         is_backtest=0,
         strategy_name_explicit=False,
         account_id="live",

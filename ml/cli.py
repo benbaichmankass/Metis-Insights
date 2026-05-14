@@ -22,7 +22,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .datasets.cli import main as datasets_main
-from .experiments.runner import run_experiment
+from .experiments.runner import (
+    EMPTY_DATASET_EXIT_CODE,
+    EmptyDatasetError,
+    run_experiment,
+)
 from .promotion import gates_for
 from .registry.model_registry import ModelRegistry
 from .shadow.inspector import (
@@ -35,14 +39,26 @@ from .shadow.inspector import (
 
 
 def _cmd_train(args: argparse.Namespace) -> int:
-    artifacts, entry = run_experiment(
-        manifest_path=Path(args.manifest),
-        datasets_root=Path(args.datasets_root),
-        experiments_root=Path(args.experiments_root),
-        registry_root=Path(args.registry_root),
-        code_revision=args.commit_sha,
-        register=not args.no_register,
-    )
+    try:
+        artifacts, entry = run_experiment(
+            manifest_path=Path(args.manifest),
+            datasets_root=Path(args.datasets_root),
+            experiments_root=Path(args.experiments_root),
+            registry_root=Path(args.registry_root),
+            code_revision=args.commit_sha,
+            register=not args.no_register,
+        )
+    except EmptyDatasetError as exc:
+        # 0-row dataset is "data not ready yet", not a training failure.
+        # Emit a structured JSON line and exit 78 so run_training_cycle.sh
+        # can surface this as `manifest_skipped` rather than failed.
+        print(json.dumps({
+            "skipped": True,
+            "reason": "empty_dataset",
+            "dataset_path": str(exc.data_path),
+            "detail": str(exc),
+        }, indent=2, sort_keys=True))
+        return EMPTY_DATASET_EXIT_CODE
     print(json.dumps({
         "experiment_dir": str(artifacts.experiment_dir),
         "metrics": dict(artifacts.metrics),

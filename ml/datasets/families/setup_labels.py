@@ -113,7 +113,7 @@ class SetupLabelsBuilder(DatasetBuilder):
             select_cols = ", ".join(_RAW_COLUMNS)
             sql = (
                 f"SELECT {select_cols} FROM trades "
-                "WHERE status = 'CLOSED' AND is_backtest = 0 "
+                "WHERE status = 'closed' AND is_backtest = 0 "
                 "AND pnl IS NOT NULL "
                 "AND setup_type IS NOT NULL AND TRIM(setup_type) <> ''"
             )

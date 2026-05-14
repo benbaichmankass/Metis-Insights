@@ -256,7 +256,7 @@ for row in cycle_rows:
             cycles_24h += 1
         last_cycle = row
         last_cycle_outcome = row.get("overall_rc")
-    elif status in {"manifest_ok", "manifest_failed", "manifest_missing"}:
+    elif status in {"manifest_ok", "manifest_failed", "manifest_missing", "manifest_skipped"}:
         if ts and ts >= cutoff_24h:
             manifests[status] += 1
 
@@ -324,6 +324,7 @@ payload = {
         "ok": manifests.get("manifest_ok", 0),
         "failed": manifests.get("manifest_failed", 0),
         "missing": manifests.get("manifest_missing", 0),
+        "skipped": manifests.get("manifest_skipped", 0),
     },
     "dataset_builds_24h": {
         "ok": builds.get("ok", 0),
