@@ -1,0 +1,28 @@
+# Runtime account dry/live state — independent of accounts.yaml
+#
+# This file is the M2 belt-and-suspenders gate. It is checked AFTER
+# accounts.yaml resolves the per-account mode. If this file marks an
+# account dry_run: true, the coordinator treats it as dry regardless of
+# what accounts.yaml says (dry-only direction — this file can never
+# force an account live).
+#
+# Modification rules:
+#   - Only the operator (Ben) may edit this file.
+#   - The Telegram /set-account-mode command is the other sanctioned
+#     write path (operator-actions.yml wires it).
+#   - Claude must never auto-toggle entries here.
+#   - Missing accounts fall back to accounts.yaml mode silently.
+#   - Missing file → no override (fail-open to accounts.yaml).
+#
+# Current state (as of 2026-05-14 M1 audit):
+#   bybit_1        — wallet unfunded; forced dry 2026-05-10 (trade 1142
+#                    rejected: below_min_balance). Dry until funded.
+#   bybit_2        — LIVE. Linear perps (BTCUSDT), 3x leverage, vwap+ts.
+#   prop_velotrade_1 — not yet connected; dry until hookup confirmed.
+accounts:
+  bybit_1:
+    dry_run: true
+  bybit_2:
+    dry_run: false
+  prop_velotrade_1:
+    dry_run: true
