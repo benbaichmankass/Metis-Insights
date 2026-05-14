@@ -1,5 +1,8 @@
 from __future__ import annotations
-from src.runtime.signal_writer import write_signal
+from src.runtime.signal_writer import write_signal  # noqa: F401  (used in _write_ict_signals_from_meta tombstone)
+# PR-9 / D1: signal/order helpers extracted to their canonical modules.
+from src.runtime.signal_writer import _write_ict_signals_from_meta  # noqa: E402
+from src.runtime.order_bridge import _signal_to_order_package  # noqa: E402
 from src.utils.signal_audit_logger import log_signal
 from src.runtime.risk_counters import inject_runtime_counters, inject_per_strategy_counters
 from src.news.news_pipeline import get_news_score
@@ -92,57 +95,6 @@ def default_signal_builder(settings: dict) -> Dict[str, Any]:
     }
 
 
-def _signal_to_order_package(signal: Dict[str, Any], settings: dict):
-    """Build an ``OrderPackage`` from a pipeline signal dict.
-
-    The signal shape is what every builder in this module produces:
-    ``{symbol, side, price/entry_price, stop_loss, take_profit,
-    meta: {strategy_name, ...}}`` — S-026 G1: no qty (sizing is the
-    per-account RiskManager's job in G2). The Coordinator's
-    per-account dispatch path consumes ``OrderPackage``, which has a
-    slightly different shape (``direction`` instead of ``side``,
-    ``entry`` / ``sl`` / ``tp``). This helper bridges the two so we
-    can fan a pipeline-generated signal out to every account in
-    ``config/accounts.yaml`` without changing the strategy builders.
-    """
-    from src.core.coordinator import OrderPackage
-
-    meta = dict(signal.get("meta") or {})
-    side = str(signal.get("side", "")).strip().lower()
-    if side not in ("buy", "sell"):
-        raise ValueError(
-            f"_signal_to_order_package: side must be buy/sell, got {side!r}"
-        )
-    direction = "long" if side == "buy" else "short"
-
-    entry = signal.get("entry_price") or signal.get("price") or meta.get("price")
-    sl = signal.get("stop_loss") or meta.get("stop_loss") or meta.get("sl")
-    tp = signal.get("take_profit") or meta.get("take_profit") or meta.get("tp")
-    if entry is None or sl is None or tp is None:
-        raise ValueError(
-            "_signal_to_order_package: signal missing entry/sl/tp "
-            f"(entry={entry!r}, sl={sl!r}, tp={tp!r}); strategy must "
-            "populate price+stop_loss+take_profit before fan-out."
-        )
-
-    strategy = (
-        meta.get("strategy_name")
-        or signal.get("strategy")
-        or settings.get("STRATEGY")
-        or "unknown"
-    )
-    return OrderPackage(
-        strategy=str(strategy),
-        symbol=str(signal.get("symbol") or settings.get("SYMBOL") or "BTCUSDT"),
-        direction=direction,
-        entry=float(entry),
-        sl=float(sl),
-        tp=float(tp),
-        confidence=float(meta.get("confidence") or 0.0),
-        meta=meta,
-    )
-
-
 def _multi_account_dispatch_enabled(settings: dict) -> bool:
     """Return True when pipeline signals should fan out to every account.
 
@@ -184,61 +136,6 @@ def _signal_carries_full_sltp(signal: Dict[str, Any]) -> bool:
 #   turtle_soup_signal_builder → src/runtime/strategy_signal_builders.py
 #   vwap_signal_builder        → src/runtime/strategy_signal_builders.py
 
-
-def _write_ict_signals_from_meta(signal: dict, settings: dict) -> None:
-    """Write individual ICT detections even when no trade is taken."""
-    if not isinstance(signal, dict):
-        return
-
-    meta = signal.get("meta") or {}
-    symbol = signal.get("symbol", settings.get("SYMBOL", "BTCUSDT"))
-    timeframe = settings.get("TIMEFRAME", "15m")
-
-    fvgs = meta.get("fvgs") or []
-    for fvg in fvgs:
-        if not isinstance(fvg, dict):
-            continue
-        fvg_type = fvg.get("type", "unknown")
-        gap_low = fvg.get("gap_low")
-        gap_high = fvg.get("gap_high")
-        price = None
-        if gap_low is not None and gap_high is not None:
-            try:
-                price = (float(gap_low) + float(gap_high)) / 2.0
-            except Exception:
-                price = None
-        write_signal(
-            symbol=symbol,
-            signal_type=f"fvg_{fvg_type}",
-            direction=fvg_type,
-            price=price,
-            timeframe=timeframe,
-            reason="ICT FVG detected",
-            metadata=str(fvg),
-        )
-
-    order_blocks = meta.get("order_blocks") or meta.get("obs") or []
-    for ob in order_blocks:
-        if not isinstance(ob, dict):
-            continue
-        ob_type = ob.get("type", "unknown")
-        low = ob.get("low")
-        high = ob.get("high")
-        price = None
-        if low is not None and high is not None:
-            try:
-                price = (float(low) + float(high)) / 2.0
-            except Exception:
-                price = None
-        write_signal(
-            symbol=symbol,
-            signal_type=f"ob_{ob_type}",
-            direction=ob_type,
-            price=price,
-            timeframe=timeframe,
-            reason="ICT order block detected",
-            metadata=str(ob),
-        )
 
 # Ordered list of strategies tried in multiplexed mode; first actionable signal wins.
 # Source of truth is config/strategies.yaml (S-007). Order in the YAML determines
