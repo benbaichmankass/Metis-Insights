@@ -65,14 +65,33 @@ _DEFAULTS: Dict[str, Any] = {
     "atr_period": 14,
     # Sweep gate
     "sweep_buffer_bps": 5.0,         # min sweep depth in bps of close
-    # Displacement gate
-    "displacement_atr_mult": 1.0,    # body ≥ this × ATR counts as displacement
+    # Displacement gate — v2 raised 1.0 → 1.3 after the 90-day backtest
+    # showed v1 admitted too many "tepid" displacement bars whose
+    # follow-through couldn't carry to the 1.5R TP.
+    "displacement_atr_mult": 1.3,
     "min_displacement_body_to_range": 0.55,
     # FVG gate
     "min_fvg_size_bps": 2.0,         # min FVG size in bps of close
+    # Mitigation gate — v2 default is "wick_rejection": bar wicks INTO
+    # the FVG and CLOSES BACK OUTSIDE with a matching-direction body.
+    # This is a stronger reversal signal than v1's "any overlap with
+    # matching body", which was the dominant timeout driver in the
+    # first backtest. Legacy v1 logic is available as
+    # "body_inside_fvg" for back-compat / A/B comparison.
+    "mitigation_mode": "wick_rejection",  # "wick_rejection" | "body_inside_fvg"
     # Entry / risk
     "atr_sl_buffer_mult": 0.20,
     "tp_at_r": 1.5,
+    # HTF bias filter (v2). When ``htf_trend_filter_enabled`` is True,
+    # the caller must pass cfg["htf_close"] and cfg["htf_ema"]. Trades
+    # are blocked unless their direction matches the HTF bias:
+    # bullish bias = htf_close > htf_ema; bearish = htf_close < htf_ema.
+    # When the caller doesn't supply both, the filter logs and skips
+    # (so unit tests / fixtures without HTF data still work). The
+    # runtime signal builder + backtest CLI compute HTF EMA by
+    # resampling the same OHLCV feed so no second data source is
+    # required.
+    "htf_trend_filter_enabled": True,
     # Session filter (UTC hours). When ``session_filter_enabled`` is False the
     # gate is a no-op. When True, signals only fire if the most recent bar's
     # UTC hour is in [session_start_hour, session_end_hour). Defaults span
@@ -396,21 +415,77 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
             "Strategy 'ict_scalp': displacement leg has no qualifying FVG."
         )
 
+    # HTF bias filter (v2). Block trades against the HTF trend when
+    # configured + caller-supplied. See _DEFAULTS comment for the
+    # contract; missing values skip the filter rather than block.
+    if bool(params["htf_trend_filter_enabled"]):
+        htf_close = cfg.get("htf_close")
+        htf_ema = cfg.get("htf_ema")
+        if htf_close is not None and htf_ema is not None:
+            try:
+                hc, he = float(htf_close), float(htf_ema)
+            except (TypeError, ValueError):
+                hc = he = None
+            if hc is not None and he is not None:
+                if direction == "long" and hc <= he:
+                    raise ValueError(
+                        "Strategy 'ict_scalp': HTF bias is bearish "
+                        f"(close={hc:.2f} <= ema={he:.2f}); blocking long."
+                    )
+                if direction == "short" and hc >= he:
+                    raise ValueError(
+                        "Strategy 'ict_scalp': HTF bias is bullish "
+                        f"(close={hc:.2f} >= ema={he:.2f}); blocking short."
+                    )
+
     last_idx = len(df) - 1
-    # Mitigation: the current bar overlaps the FVG and the body matches
-    # the setup direction (clean entry confirmation).
+    # Mitigation gate (v2). Two modes — see _DEFAULTS comment on
+    # mitigation_mode for rationale.
     last_open = float(df["open"].iloc[last_idx])
     last_close = float(df["close"].iloc[last_idx])
+    last_high = float(df["high"].iloc[last_idx])
+    last_low = float(df["low"].iloc[last_idx])
     last_body_bullish = last_close > last_open
     last_body_bearish = last_close < last_open
     matches_body = (
         (direction == "long" and last_body_bullish)
         or (direction == "short" and last_body_bearish)
     )
-    if not _bar_overlaps_fvg(df, bar_idx=last_idx, fvg=fvg) or not matches_body:
+
+    mitigation_mode = str(params["mitigation_mode"]).strip().lower()
+    if mitigation_mode == "wick_rejection":
+        # Bar must wick INTO the FVG and CLOSE OUTSIDE it.
+        # Long: low <= fvg_high (wick entered the gap from above) AND
+        #       close > fvg_high (closed back above the gap) AND
+        #       body is bullish.
+        # Short: high >= fvg_low (wick entered the gap from below) AND
+        #       close < fvg_low (closed back below the gap) AND
+        #       body is bearish.
+        if direction == "long":
+            wicked_in = last_low <= fvg["high"]
+            closed_out = last_close > fvg["high"]
+        else:
+            wicked_in = last_high >= fvg["low"]
+            closed_out = last_close < fvg["low"]
+        if not (wicked_in and closed_out and matches_body):
+            raise ValueError(
+                "Strategy 'ict_scalp': last bar did not produce a wick "
+                "rejection at the FVG (need wick-in + close-out + "
+                "matching-direction body)."
+            )
+    elif mitigation_mode == "body_inside_fvg":
+        # Legacy v1 logic kept for A/B / regression coverage. Any
+        # range overlap with a matching body is enough.
+        if not _bar_overlaps_fvg(df, bar_idx=last_idx, fvg=fvg) or not matches_body:
+            raise ValueError(
+                "Strategy 'ict_scalp': last bar did not mitigate the FVG "
+                "with a matching-direction body."
+            )
+    else:
         raise ValueError(
-            "Strategy 'ict_scalp': last bar did not mitigate the FVG with "
-            "a matching-direction body."
+            f"Strategy 'ict_scalp': unknown mitigation_mode "
+            f"{mitigation_mode!r}; expected 'wick_rejection' or "
+            "'body_inside_fvg'."
         )
 
     # Risk model
@@ -464,6 +539,12 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
             "strategy_name": "ict_scalp_5m",
             "timeframe": timeframe,
             "setup_tf": timeframe,
+            "mitigation_mode": mitigation_mode,
+            "htf_filter_active": bool(
+                params["htf_trend_filter_enabled"]
+                and cfg.get("htf_close") is not None
+                and cfg.get("htf_ema") is not None
+            ),
             "sweep_level": float(sweep["level"]),
             "sweep_extreme": float(sweep["extreme"]),
             "sweep_idx_from_end": int(last_idx - sweep_idx),

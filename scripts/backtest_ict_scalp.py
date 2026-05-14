@@ -121,6 +121,58 @@ def _simulate_exit(
     }
 
 
+def _build_htf_series(
+    df: pd.DataFrame,
+    *,
+    htf_rule: str,
+    ema_period: int,
+) -> Optional[pd.DataFrame]:
+    """Resample the 5m OHLCV feed to ``htf_rule`` and return a per-row
+    DataFrame containing (timestamp, htf_close, htf_ema) aligned to the
+    HTF bar. Caller forward-fills onto the 5m index.
+
+    v2 backtest CLI: lets the strategy's HTF bias filter run without a
+    second data feed. Returns None when the frame doesn't have a
+    ``timestamp`` column or pandas resample fails.
+    """
+    if "timestamp" not in df.columns:
+        return None
+    try:
+        ts = pd.to_datetime(df["timestamp"], utc=True, errors="coerce")
+        if ts.isna().any():
+            return None
+        tmp = df.copy()
+        tmp["timestamp"] = ts
+        tmp = tmp.set_index("timestamp")
+        agg = tmp.resample(htf_rule).agg({"close": "last"}).dropna()
+        if len(agg) < ema_period + 1:
+            return None
+        agg["htf_ema"] = agg["close"].ewm(span=ema_period, adjust=False).mean()
+        agg = agg.rename(columns={"close": "htf_close"}).reset_index()
+        return agg
+    except Exception:
+        return None
+
+
+def _htf_values_for_bar(
+    htf_df: Optional[pd.DataFrame], *, bar_ts: Any
+) -> tuple[Optional[float], Optional[float]]:
+    """Return the most recent (htf_close, htf_ema) at or before bar_ts."""
+    if htf_df is None or len(htf_df) == 0:
+        return None, None
+    try:
+        bar_ts = pd.Timestamp(bar_ts)
+        if bar_ts.tzinfo is None:
+            bar_ts = bar_ts.tz_localize("UTC")
+        mask = htf_df["timestamp"] <= bar_ts
+        if not mask.any():
+            return None, None
+        row = htf_df.loc[mask].iloc[-1]
+        return float(row["htf_close"]), float(row["htf_ema"])
+    except Exception:
+        return None, None
+
+
 def run_backtest(
     df: pd.DataFrame,
     *,
@@ -130,8 +182,11 @@ def run_backtest(
     warmup_bars: int,
     timeout_bars: int,
     cooldown_bars: int,
+    htf_rule: str = "1h",
+    htf_ema_period: int = 20,
 ) -> Dict[str, Any]:
     cfg = {"symbol": symbol, "timeframe": timeframe, **cfg_overrides}
+    htf_df = _build_htf_series(df, htf_rule=htf_rule, ema_period=htf_ema_period)
     trades: List[Trade] = []
     n = len(df)
     if n < warmup_bars + 5:
@@ -139,13 +194,36 @@ def run_backtest(
             f"Not enough candles: have {n}, need at least {warmup_bars + 5}"
         )
 
+    # Slide a fixed-size window instead of growing prefix. The strategy
+    # only needs max(swing_lookback, sweep_lookback, atr_period) bars
+    # of history, so a 80-bar window is sufficient at defaults. This
+    # makes the backtest O(n * window) instead of O(n^2), which is the
+    # difference between minutes and hours on a 26k-bar feed.
+    window_size = max(
+        int(cfg.get("swing_lookback_bars", 20)),
+        int(cfg.get("sweep_lookback_bars", 12)),
+        int(cfg.get("atr_period", 14)),
+    ) + 10
+    window_size = max(window_size, warmup_bars)
+
     next_eligible_idx = warmup_bars
     for i in range(warmup_bars, n - 1):
         if i < next_eligible_idx:
             continue
-        window = df.iloc[: i + 1].copy()
+        lo = max(0, i + 1 - window_size)
+        window = df.iloc[lo : i + 1]
+        # v2 HTF bias: look up htf_close + htf_ema as of this bar's
+        # timestamp from the resampled series. The strategy reads
+        # them from cfg, so we copy + augment per iteration.
+        per_bar_cfg = dict(cfg)
+        if htf_df is not None and "timestamp" in df.columns:
+            bar_ts = df["timestamp"].iloc[i]
+            htf_close, htf_ema = _htf_values_for_bar(htf_df, bar_ts=bar_ts)
+            if htf_close is not None and htf_ema is not None:
+                per_bar_cfg["htf_close"] = htf_close
+                per_bar_cfg["htf_ema"] = htf_ema
         try:
-            pkg = order_package(cfg, candles_df=window)
+            pkg = order_package(per_bar_cfg, candles_df=window)
         except ValueError:
             continue
         direction = pkg["direction"]
@@ -293,6 +371,10 @@ def main(argv: List[str]) -> int:
                    help="Force-close a trade after N bars if neither SL nor TP hits (default: 24 → 2h on 5m).")
     p.add_argument("--cooldown-bars", type=int, default=3,
                    help="Skip N bars after each exit before re-evaluating (default: 3).")
+    p.add_argument("--htf-rule", default="1h",
+                   help="HTF resample rule for the bias filter (default: 1h).")
+    p.add_argument("--htf-ema-period", type=int, default=20,
+                   help="HTF EMA period for the bias filter (default: 20).")
     p.add_argument("--json", dest="json_out", default=None,
                    help="Write summary to this JSON file. '-' means stdout.")
     p.add_argument("--ignore-yaml", action="store_true",
@@ -316,6 +398,8 @@ def main(argv: List[str]) -> int:
             warmup_bars=int(args.warmup_bars),
             timeout_bars=int(args.timeout_bars),
             cooldown_bars=int(args.cooldown_bars),
+            htf_rule=str(args.htf_rule),
+            htf_ema_period=int(args.htf_ema_period),
         )
     except Exception as exc:
         print(f"ERROR: backtest failed: {exc}", file=sys.stderr)

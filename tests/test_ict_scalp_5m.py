@@ -220,7 +220,10 @@ class TestICTScalpNoSignal:
         df.iloc[last_idx, df.columns.get_loc("high")] = 50_500.0
         df.iloc[last_idx, df.columns.get_loc("low")] = 50_460.0
         df.iloc[last_idx, df.columns.get_loc("close")] = 50_495.0
-        with pytest.raises(ValueError, match="mitigate"):
+        # v2 default: wick_rejection raises with the "wick rejection"
+        # phrasing rather than v1's "mitigate". Match either so the
+        # test stays passing under both modes.
+        with pytest.raises(ValueError, match="wick rejection|mitigate"):
             order_package({"symbol": "BTCUSDT"}, candles_df=df)
 
     def test_bullish_setup_with_bearish_last_body_does_not_fire(self):
@@ -231,7 +234,7 @@ class TestICTScalpNoSignal:
         # Flip the last bar to bearish, keeping range overlapping FVG.
         df.iloc[last_idx, df.columns.get_loc("open")] = 50_450.0
         df.iloc[last_idx, df.columns.get_loc("close")] = 50_350.0
-        with pytest.raises(ValueError, match="mitigate"):
+        with pytest.raises(ValueError, match="wick rejection|mitigate"):
             order_package({"symbol": "BTCUSDT"}, candles_df=df)
 
 
@@ -419,3 +422,98 @@ class TestICTScalpYAMLRegistration:
 
         for key in _DEFAULTS:
             assert key in cfg, f"YAML missing tuning knob: {key}"
+
+
+# ---------------------------------------------------------------------------
+# v2: mitigation modes
+# ---------------------------------------------------------------------------
+
+
+class TestICTScalpMitigationModes:
+    def test_default_mitigation_mode_is_wick_rejection(self):
+        pkg = order_package({"symbol": "BTCUSDT"}, candles_df=_bullish_scalp_frame())
+        assert pkg["meta"]["mitigation_mode"] == "wick_rejection"
+
+    def test_body_inside_fvg_mode_still_works_on_v1_style_setup(self):
+        """The legacy v1 mode (body_inside_fvg) is preserved so the
+        operator can A/B vs v2 without rolling back code."""
+        pkg = order_package(
+            {"symbol": "BTCUSDT", "mitigation_mode": "body_inside_fvg"},
+            candles_df=_bullish_scalp_frame(),
+        )
+        assert pkg["direction"] == "long"
+        assert pkg["meta"]["mitigation_mode"] == "body_inside_fvg"
+
+    def test_unknown_mitigation_mode_raises(self):
+        with pytest.raises(ValueError, match="unknown mitigation_mode"):
+            order_package(
+                {"symbol": "BTCUSDT", "mitigation_mode": "garbage"},
+                candles_df=_bullish_scalp_frame(),
+            )
+
+    def test_wick_rejection_rejects_when_close_stays_inside_fvg(self):
+        """Body inside FVG but closing INSIDE the gap fails the v2
+        wick-rejection gate (no clean reversal). The v1 mode would
+        have accepted it."""
+        df = _bullish_scalp_frame().copy()
+        last_idx = len(df) - 1
+        # Bullish body, range overlaps FVG, but close stays inside the
+        # FVG zone (50_320 .. 50_350). Set close = 50_340.
+        df.iloc[last_idx, df.columns.get_loc("open")] = 50_325.0
+        df.iloc[last_idx, df.columns.get_loc("high")] = 50_345.0
+        df.iloc[last_idx, df.columns.get_loc("low")] = 50_322.0
+        df.iloc[last_idx, df.columns.get_loc("close")] = 50_340.0
+        # v2 wick_rejection: close <= fvg_high → fails closed_out gate.
+        with pytest.raises(ValueError, match="wick rejection"):
+            order_package({"symbol": "BTCUSDT"}, candles_df=df)
+
+
+# ---------------------------------------------------------------------------
+# v2: HTF bias filter
+# ---------------------------------------------------------------------------
+
+
+class TestICTScalpHTFFilter:
+    def test_htf_filter_blocks_long_when_htf_bearish(self):
+        with pytest.raises(ValueError, match="HTF bias is bearish"):
+            order_package(
+                {"symbol": "BTCUSDT", "htf_close": 100.0, "htf_ema": 110.0},
+                candles_df=_bullish_scalp_frame(),
+            )
+
+    def test_htf_filter_allows_long_when_htf_bullish(self):
+        pkg = order_package(
+            {"symbol": "BTCUSDT", "htf_close": 110.0, "htf_ema": 100.0},
+            candles_df=_bullish_scalp_frame(),
+        )
+        assert pkg["direction"] == "long"
+        assert pkg["meta"]["htf_filter_active"] is True
+
+    def test_htf_filter_blocks_short_when_htf_bullish(self):
+        with pytest.raises(ValueError, match="HTF bias is bullish"):
+            order_package(
+                {"symbol": "BTCUSDT", "htf_close": 110.0, "htf_ema": 100.0},
+                candles_df=_bearish_scalp_frame(),
+            )
+
+    def test_htf_filter_skips_when_inputs_missing(self):
+        """No htf_close / htf_ema in cfg → the filter is a no-op so
+        tests that don't supply HTF data still work."""
+        pkg = order_package({"symbol": "BTCUSDT"}, candles_df=_bullish_scalp_frame())
+        assert pkg["direction"] == "long"
+        assert pkg["meta"]["htf_filter_active"] is False
+
+    def test_htf_filter_disabled_via_cfg_skips_check(self):
+        """Operator can turn the filter off explicitly even when HTF
+        values are present (e.g. for an A/B run)."""
+        pkg = order_package(
+            {
+                "symbol": "BTCUSDT",
+                "htf_trend_filter_enabled": False,
+                "htf_close": 100.0,
+                "htf_ema": 110.0,   # would block under enabled=true
+            },
+            candles_df=_bullish_scalp_frame(),
+        )
+        assert pkg["direction"] == "long"
+        assert pkg["meta"]["htf_filter_active"] is False
