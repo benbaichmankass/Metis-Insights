@@ -341,6 +341,50 @@ def enqueue_stuck_strategy_alert(
         return None
 
 
+def enqueue_naked_position_alert(
+    *,
+    trade_id: Any,
+    account: str,
+    symbol: str,
+    side: str,
+    sl: Optional[float],
+    tp: Optional[float],
+    priority: str = "critical",
+) -> Optional[Path]:
+    """Drop a Telegram-ready JSON ping for an open trade without valid SL/TP.
+
+    Fired once per trade by ``_check_naked_positions`` in the monitor loop.
+    Priority is critical — a live position without SL/TP is unacceptable.
+    """
+    try:
+        sl_str = f"{sl:.4f}" if isinstance(sl, (int, float)) else "NULL"
+        tp_str = f"{tp:.4f}" if isinstance(tp, (int, float)) else "NULL"
+        body = (
+            "🚨 NAKED POSITION — open trade has no valid SL/TP\n"
+            f"Trade id: {trade_id}\n"
+            f"Account: {account}\n"
+            f"Symbol: {symbol} | Side: {side}\n"
+            f"stop_loss={sl_str}  take_profit_1={tp_str}\n"
+            "Action: check trade on exchange and set SL/TP manually."
+        )[:1024]
+        payload = {"priority": priority, "body": body}
+        PENDING_PINGS_DIR.mkdir(parents=True, exist_ok=True)
+        name = f"{int(uuid.uuid4().int % 10**12):012d}-naked-position.json"
+        path = PENDING_PINGS_DIR / name
+        tmp = path.with_suffix(".json.tmp")
+        with tmp.open("w", encoding="utf-8") as fh:
+            json.dump(payload, fh, ensure_ascii=False)
+        os.replace(tmp, path)
+        return path
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "execution_diagnostics: naked-position ping enqueue failed for "
+            "trade_id=%s symbol=%s: %s",
+            trade_id, symbol, exc,
+        )
+        return None
+
+
 def enqueue_orphan_rollup(
     *,
     suppressed_count: int,

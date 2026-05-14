@@ -2239,6 +2239,100 @@ def _decode_notes(notes_raw: Optional[str]) -> Dict[str, Any]:
         return {}
 
 
+_NAKED_POSITION_GRACE_SECONDS = 300  # 5 min after opening before alerting
+
+
+def _check_naked_positions(db) -> Dict[str, int]:
+    """Scan open live trades for missing or non-positive SL/TP values.
+
+    Logs WARNING and enqueues a Telegram alert for each naked trade.
+    Idempotent: the alert is stamped into ``trades.notes`` so subsequent
+    ticks don't re-fire the same ping. Never raises.
+
+    Returns ``{"checked", "naked", "alerted", "errors"}`` counts.
+    """
+    summary: Dict[str, int] = {"checked": 0, "naked": 0, "alerted": 0, "errors": 0}
+    try:
+        conn = db.connect()
+        try:
+            conn.row_factory = __import__("sqlite3").Row
+            rows = conn.execute(
+                "SELECT id, account_id, symbol, direction, "
+                "stop_loss, take_profit_1, created_at, notes "
+                "FROM trades "
+                "WHERE status='open' AND COALESCE(is_backtest,0)=0 "
+                "AND ("
+                "  stop_loss IS NULL OR stop_loss <= 0 "
+                "  OR take_profit_1 IS NULL OR take_profit_1 <= 0"
+                ")"
+            ).fetchall()
+        finally:
+            conn.close()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("_check_naked_positions: DB read failed: %s", exc)
+        summary["errors"] += 1
+        return summary
+
+    summary["checked"] = len(rows)
+    if not rows:
+        return summary
+
+    now = datetime.now(timezone.utc)
+    for row in rows:
+        trade_id = row["id"]
+        created = _parse_created_at(row["created_at"])
+        if (
+            created is not None
+            and (now - created).total_seconds() < _NAKED_POSITION_GRACE_SECONDS
+        ):
+            continue  # still within grace window
+
+        summary["naked"] += 1
+        notes = _decode_notes(row["notes"])
+        if notes.get("naked_sltp_alerted_at"):
+            continue  # already alerted; skip
+
+        sl = row["stop_loss"]
+        tp = row["take_profit_1"]
+        account = str(row["account_id"] or "unknown")
+        symbol = str(row["symbol"] or "?")
+        side = str(row["direction"] or "?")
+        logger.warning(
+            "_check_naked_positions: open trade id=%s account=%s symbol=%s "
+            "side=%s sl=%r tp=%r — naked position, SL/TP must be set manually",
+            trade_id, account, symbol, side, sl, tp,
+        )
+        try:
+            from src.runtime.execution_diagnostics import enqueue_naked_position_alert
+            enqueue_naked_position_alert(
+                trade_id=trade_id,
+                account=account,
+                symbol=symbol,
+                side=side,
+                sl=sl,
+                tp=tp,
+            )
+            summary["alerted"] += 1
+            updated_notes = dict(notes)
+            updated_notes["naked_sltp_alerted_at"] = now.isoformat()
+            try:
+                db.update_trade(trade_id, {"notes": json.dumps(updated_notes)})
+            except Exception as stamp_exc:  # noqa: BLE001
+                logger.warning(
+                    "_check_naked_positions: notes stamp failed for "
+                    "trade_id=%s: %s",
+                    trade_id, stamp_exc,
+                )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "_check_naked_positions: alert enqueue failed for "
+                "trade_id=%s: %s",
+                trade_id, exc,
+            )
+            summary["errors"] += 1
+    return summary
+
+
 def run_monitor_tick(
     *,
     db_path: Optional[str] = None,
@@ -2452,6 +2546,16 @@ def run_monitor_tick(
     # position-orphan reconciler calls lived here. They only swept
     # spot-margin accounts (none exist post-PR-3) and were deleted
     # alongside their loop bodies.
+
+    # Naked-position check: alert on any open live trade that has no valid
+    # SL/TP. New orders are blocked at execute_pkg before reaching the
+    # exchange; this sweep catches any pre-fix rows that slipped through.
+    try:
+        naked_summary = _check_naked_positions(db)
+        if naked_summary.get("naked") or naked_summary.get("errors"):
+            summaries["__naked_positions__"] = naked_summary
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("run_monitor_tick: naked-position check raised: %s", exc)
 
     # S-067 follow-up #3 Phase-2: closed → exchange-flat invariant check.
     # Gated by ``CLOSED_FLAT_INVARIANT_ENABLED`` env (default false).

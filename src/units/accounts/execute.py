@@ -271,6 +271,24 @@ def execute_pkg(
     if _is_test_order(pkg):
         return _submit_test_order(exchange_client, order, account_cfg)
 
+    # Guard: refuse a live open order without valid SL/TP.
+    # Reduce-only legs close an existing position — they intentionally
+    # carry no new SL/TP. All other live orders must have both set and
+    # positive before they reach the exchange.
+    if not reduce_only:
+        _sl = order.get("sl")
+        _tp = order.get("tp")
+        if not (
+            isinstance(_sl, (int, float)) and _sl > 0
+            and isinstance(_tp, (int, float)) and _tp > 0
+        ):
+            raise ValueError(
+                f"execute_pkg: refusing live order without valid SL/TP "
+                f"(account={account_id!r} strategy={pkg.strategy!r} "
+                f"symbol={pkg.symbol!r} sl={_sl!r} tp={_tp!r}). "
+                "Strategy must populate stop_loss + take_profit before execution."
+            )
+
     trade_id = _submit_order(exchange_client, order, account_cfg)
 
     # CLAUDE.md § Architecture rules § 3 + architecture-audit-2026-05-02
@@ -491,13 +509,24 @@ def _submit_order(client: Any, order: dict, account_cfg: dict) -> str:
             resp = client.place_order(**kwargs)
             return str((resp.get("result") or {}).get("orderId") or uuid.uuid4().hex)
         if exchange == "binance":
-            resp = client.place_order(
+            if not order.get("reduce_only"):
+                # SL/TP attachment for Binance requires separate
+                # STOP_MARKET + TAKE_PROFIT_MARKET orders; that wiring
+                # is not yet implemented. Block live open-position orders
+                # until it is, so we never place a naked entry.
+                raise NotImplementedError(
+                    "Binance live orders are blocked: SL/TP attachment "
+                    "(separate stop-market / take-profit-market orders) "
+                    "is not yet wired in _submit_order. Implement before "
+                    "enabling a Binance account in config/accounts.yaml."
+                )
+            # Reduce-only (close/trim) legs carry no SL/TP by design.
+            resp = client.place_market_order(
                 symbol=order["symbol"],
                 side=order["side"].upper(),
-                order_type="MARKET",
-                quantity=order["qty"],
+                amount=order["qty"],
             )
-            return str(resp.get("orderId") or uuid.uuid4().hex)
+            return str((resp or {}).get("id") or (resp or {}).get("orderId") or uuid.uuid4().hex)
     except Exception as exc:
         logger.error("_submit_order(%s): %s", exchange, exc)
         # BUG-057 reopen (2026-05-06): Bybit still rejects spot SL/TP
