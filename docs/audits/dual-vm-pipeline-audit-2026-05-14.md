@@ -114,7 +114,7 @@ src/
   strategy_registry.py       # Strategy name → config/prefix lookup
   core/
     coordinator.py           # 81 KB — signal dispatch, risk gate, order routing
-    signals.py               # Signal dataclass + DB writer
+    signals.py               # ICT/SMC signal detector (FVG, OB, swing points)
   runtime/
     pipeline.py              # 60 KB — per-tick pipeline, all strategy dispatch ⚠️ MONOLITH
     order_monitor.py         # 100 KB — position monitor, all strategy logic inline ⚠️ MONOLITH
@@ -138,8 +138,8 @@ src/
     risk_counters.py         # 6.1 KB — daily/intraday risk counters
     signal_writer.py         # 0.7 KB
   pipeline/
-    types.py                 # Pipeline type definitions
-    __init__.py              # Re-exports
+    types.py                 # WS2 future pipeline type definitions (TradeCandidate, ExecutionIntent)
+    __init__.py              # Re-exports (additive; not yet on live runtime path)
   comms/
     models.py                # 16 KB — Telegram message models
     store.py                 # 8.5 KB — comms DB (follow_ups, etc)
@@ -154,7 +154,9 @@ src/
     recurring_dispatch.py    # 6.8 KB — recurring task scheduler
     data_loaders.py          # 1 KB
     alert_manager.py         # 1 KB
-    test_strategy_consumer.py # 17 KB — ⚠️ TEST FILE IN SRC/BOT/
+    test_strategy_consumer.py # 17 KB — M5 artifact consumer for /test Telegram command
+                              #          (production code; test_ prefix refers to the
+                              #           /test strategy command it serves, not a pytest test)
   ict_detection/
     fvg_detector.py          # Fair value gap detector
     liquidity.py             # Liquidity sweep detector
@@ -165,8 +167,8 @@ src/
   exchange/                  # Bybit + DXtrade clients
   data_layer/                # Candle DB, signal DB
   units/
-    strategies/              # turtle_soup.py, vwap.py strategy logic
-    accounts/                # Account loader, executor, risk manager
+    strategies/              # turtle_soup.py, vwap.py strategy logic + _base.py helpers
+    accounts/                # Account loader, executor, risk manager, DXtrade scaffold
   web/                       # FastAPI web app
   news/                      # News filter layer
 ```
@@ -178,7 +180,6 @@ config/
   accounts.yaml         # ONLY dry/live toggle per account — authoritative
   strategies.yaml       # Strategy params (enabled, timeframe, symbols, etc)
   units.yaml            # Position sizing inputs
-  strategies.yaml       # Backtest + runtime strategy config
   strategy_changelog.json
   master-secrets.template.yaml
   bybit_config_template.py
@@ -304,23 +305,24 @@ Executor: log rejection to trade_journal.db, do NOT call exchange
 | D3 | **telegram_query_bot.py monolith (127 KB)** | `src/bot/telegram_query_bot.py` | MEDIUM | Single file contains all Telegram commands, hourly report rendering, health commands, account commands, strategy controls. M3 target: split trade_notifier vs cloud_notifier. |
 | D4 | **No structured trace IDs** | Everywhere | MEDIUM | Logs use plain `logger.info()`. No trade_id / signal_id propagated through pipeline stages. When a trade dies silently, there's no stage-tagged breadcrumb to locate it. |
 | D5 | **Three notification paths** | `src/runtime/notify.py`, `src/comms/`, `src/bot/comms_handler.py` | MEDIUM | `notify.py` wraps raw Telegram send; `src/comms/` has models + templates + store; `comms_handler.py` has command dispatch. Boundaries are unclear — trade vs cloud notifications mix across all three. |
-| D6 | **spot-margin path dormant** | `config/accounts.yaml` + `src/units/accounts/execute.py` | LOW | bybit_1 migrated to spot cash; bybit_2 migrated to linear perps (2026-05-10). Spot-margin (borrow-capacity) logic remains in execute.py marked for deletion. |
+| D6 | **spot-margin path dormant** | `src/units/accounts/execute.py` | LOW | bybit_2 migrated from spot-margin to linear perps 2026-05-10. Borrow-capacity helpers (`_coin_borrow_qty`, `_coin_borrow_usd`, orphan reconciler) remain in execute.py (57 KB). Deeply interleaved — deletion requires careful scoping. Gate: Ben confirms bybit_2 stable on linear. |
 | D7 | **prop_velotrade_1 scaffold** | `config/accounts.yaml`, `src/units/accounts/dxtrade_client.py` | LOW | 4 `NotImplementedError` methods, empty strategies list, no live env vars. Scaffold is safe (no live routing possible) but creates noise in account listings and health reports. |
-| D8 | **test file in src/bot/** | `src/bot/test_strategy_consumer.py` | LOW | 17 KB test file lives in production source directory. Should be in `tests/`. |
+| D8 | ~~**test file in src/bot/**~~ **RETRACTED** | `src/bot/test_strategy_consumer.py` | — | Post-merge verification: this is **production code**, not a test file. The `test_` prefix refers to the `/test <strategy>` Telegram command it serves (M5 artifact consumer). It belongs in `src/bot/` and imports from `src.comms`. No action needed. |
 | D9 | **No account_state.yaml / per-VM gate** | Config layer | MEDIUM | Dry/live is embedded per-account in accounts.yaml with no VM-scoping. No separate runtime state file. M2 target: `account_state.yaml` with per-VM dry/live state, independent of the static config. |
-| D10 | **ETHUSDT multi-symbol aspirational** | `config/strategies.yaml` | LOW | turtle_soup symbols list previously had ETHUSDT (dropped 2026-05-11 commit note). strategies.yaml still documents this as aspirational. No multi-symbol multiplexer exists yet. The per-tick pipeline iterates one symbol from env `SYMBOL`. |
+| D10 | ~~**ETHUSDT multi-symbol aspirational**~~ **RESOLVED** | `config/strategies.yaml` | — | ETHUSDT was already removed from the active symbols list (dropped 2026-05-11). The comment in strategies.yaml already explains the limitation. No action needed. |
 | D11 | **runtime_flags/ mostly empty** | `runtime_flags/` | LOW | Only `send_hourly_demo` flag file present. Flag-based runtime control is underdeveloped — no flags for per-account dry/live toggle, strategy enable/disable at runtime without restart. |
-| D12 | **fly.toml orphan** | Repo root (not confirmed) | LOW | Potential leftover from earlier Fly.io deployment attempt. Not seen in current tree listing — may have been cleaned already. Verify at TRAINING_CENTER. |
+| D12 | ~~**fly.toml orphan**~~ **RESOLVED** | Repo root | — | Confirmed absent from repo root. Already cleaned. No action needed. |
 
 ### 5.2 Stale / Orphan Files
 
 | Item | Status | Action |
 |------|--------|--------|
-| `trainer-vm-logs.yml` | DELETED (2026-05-13 commit) | Done |
-| Spot-margin borrow-capacity logic in `execute.py` | Dormant, documented | Delete in M4 cleanup PR |
-| `src/bot/test_strategy_consumer.py` | Wrong directory | Move to `tests/` |
-| `comms/archive/` | Likely stale comms artifacts | Audit contents |
-| `experiments/` | Check for stale experiment files | Audit in M4 |
+| `trainer-vm-logs.yml` | DELETED (2026-05-13 commit) | ✅ Done |
+| `comms/archive/` | Empty (.gitkeep only) | ✅ Clean, no action |
+| `experiments/` | Legitimate dated experiment logs | ✅ Keep as-is |
+| `fly.toml` | Absent from repo root | ✅ Already clean |
+| `src/bot/test_strategy_consumer.py` | Production code (M5 consumer) | ✅ Correct location, no action |
+| Spot-margin borrow-capacity logic in `execute.py` | Dormant | Delete in PR-2 (gated on Ben confirming bybit_2 stable) |
 | `visualize_all.py`, `visualize_swings.py` | Root-level scripts | Confirm still needed or move to `tools/` |
 
 ---
@@ -341,54 +343,44 @@ Executor: log rejection to trade_journal.db, do NOT call exchange
 
 ---
 
-## 7. Proposed PR Sequence (5–7 PRs)
+## 7. Proposed PR Sequence
 
-Ordered by risk (lowest impact first, LIVE_TRADER untouched until M2 permission).
+~~PR-1 (repo hygiene) — **RETIRED**: post-merge verification found nothing to do. test_strategy_consumer.py is production code, experiments/ is legitimate, comms/archive/ is empty by design, fly.toml is absent.~~
 
-### PR-1: Repo Hygiene — Move test file, audit orphans
-- Move `src/bot/test_strategy_consumer.py` → `tests/bot/test_strategy_consumer.py`
-- Audit `comms/archive/` and `experiments/` contents; delete confirmed stale
-- Confirm `fly.toml` absent or delete if present
-- **Risk:** Zero live impact — test file and dead artifacts only
+| PR | Scope | Risk | Gate |
+|----|-------|------|------|
+| PR-2 | Delete dormant spot-margin path from execute.py | Low | Ben confirms bybit_2 stable on linear |
+| PR-3 | account_state.yaml gate foundation (M2) | Medium | Ben permission + TRAINING_CENTER deploy first |
+| PR-4 | Lean Telegram split — trade_notifier + cloud_notifier (M3) | Medium | TRAINING_CENTER smoke test + TC IP needed |
+| PR-5 | Pipeline trace IDs — thread UUID4 through coordinator→monitor | Low | None (additive only) |
+| PR-6 | order_monitor.py per-strategy dispatch | Medium | Full test suite + TC dry-run smoke |
 
 ### PR-2: Delete spot-margin dormant path
-- Remove borrow-capacity logic from `src/units/accounts/execute.py`
-- Add comment tombstone in accounts.yaml: "spot-margin path removed yyyy-mm-dd"
-- **Risk:** Low — bybit_1 is dry_run, bybit_2 is linear. No live routing uses this path.
-- **Gate:** Ben confirms bybit_2 is stable on linear before merge.
+- Remove borrow-capacity helpers from `src/units/accounts/execute.py` (`_coin_borrow_qty`, `_coin_borrow_usd`, `_coin_borrowed_qty`, borrow orphan reconciler, related sizing branches)
+- Scope is significant (57 KB file, helpers deeply interleaved) — needs targeted read before implementation
+- **Gate:** Ben confirms bybit_2 (vwap/linear/3×) is trading reliably
 
-### PR-3: account_state.yaml foundation (M2 gate design)
+### PR-3: account_state.yaml foundation (M2)
 - Add `config/account_state.yaml` with per-VM per-account `dry_run` boolean, separate from accounts.yaml
 - `orders.py` reads this file and enforces it BEFORE RiskManager.approve()
-- No auto-toggle: only Ben can modify account_state.yaml or call the Telegram command
-- Tests: gate refusal when account_state.yaml says dry, even if accounts.yaml says live
-- **Risk:** TRAINING_CENTER deploy first for smoke test; LIVE_TRADER requires Ben permission
-- **Requires:** Ben permission before any LIVE_TRADER change
+- No auto-toggle; only Ben can modify via file edit or Telegram command
+- Tests: gate refusal when account_state.yaml says dry even if accounts.yaml says live
+- **Gate:** Ben permission before any LIVE_TRADER change; TRAINING_CENTER first
 
 ### PR-4: Lean Telegram Split (M3)
-- Extract `trade_notifier.py` from `telegram_query_bot.py` monolith — trades + hourly summaries
+- Extract `trade_notifier.py` — trades + hourly summaries
 - Extract `cloud_notifier.py` — VM health, deploy events, sprint notifications
-- Archive duplicated notification logic between `notify.py` and comms_handler.py
-- **Risk:** Medium (Telegram bot is a live service) — TRAINING_CENTER test first
-- **Gate:** Smoke test on TRAINING_CENTER confirms both notifiers send correctly
+- **Gate:** TRAINING_CENTER IP + smoke test confirmation
 
-### PR-5: Pipeline trace IDs (M4 partial)
-- Add `trace_id` (UUID4, generated at signal creation) to `Signal` dataclass
-- Thread `trace_id` through coordinator → executor → outcomes → order_monitor
-- Log at each stage: `logger.info("[stage] trace_id=%s ...", trace_id)`
-- **Risk:** Low — additive logging change, no logic change
+### PR-5: Pipeline trace IDs
+- Add `trace_id` (UUID4) to `OrderPackage` in coordinator.py at signal-receipt time
+- Thread through execute.py → outcomes.py → order_monitor.py log lines
+- **Gate:** None — additive logging only
 
 ### PR-6: order_monitor.py per-strategy dispatch
-- Extract turtle_soup monitor branch from order_monitor.py → `src/units/strategies/turtle_soup_monitor.py`
-- Extract vwap monitor branch → `src/units/strategies/vwap_monitor.py`
-- order_monitor.py becomes dispatcher: `strategy_monitor = MONITOR_REGISTRY[pkg.strategy]; strategy_monitor.tick(pkg, price)`
-- **Risk:** Medium — this is the position management path. Tests required before any live deploy.
+- Extract turtle_soup and vwap monitor branches to `src/units/strategies/{strategy}_monitor.py`
+- order_monitor.py becomes a dispatcher
 - **Gate:** Full test suite pass + TRAINING_CENTER dry-run smoke
-
-### PR-7: Strategy registry — seal multi-symbol
-- Document and enforce that the per-tick pipeline iterates exactly one symbol (env `SYMBOL`)
-- Remove aspirational ETHUSDT from `config/strategies.yaml` OR add a `WARN: multi-symbol not yet supported` comment clearly
-- **Risk:** Zero — config/doc change only
 
 ---
 
@@ -408,11 +400,12 @@ Ordered by risk (lowest impact first, LIVE_TRADER untouched until M2 permission)
 
 | Priority | Action | Why |
 |----------|--------|-----|
-| HIGH | Confirm TRAINING_CENTER IP | Can't audit VM2 without it |
+| HIGH | Confirm TRAINING_CENTER IP | Can't audit VM2 or run PR-4 without it |
 | HIGH | Provide SSH key or trigger `vm-diag-snapshot` | VM runtime data missing from this audit |
-| MEDIUM | Confirm bybit_2 (vwap/linear/3×) is trading cleanly today | Gate for PR-2 (spot-margin deletion) |
-| LOW | Confirm bybit_1 wallet will be funded soon | Determines if dry_run status is temporary or permanent |
-| LOW | Confirm prop_velotrade_1 hookup timeline | If indefinitely deferred, consider removing scaffold from main config |
+| MEDIUM | Confirm bybit_2 (vwap/linear/3×) is trading cleanly | Gate for PR-2 (spot-margin deletion) |
+| MEDIUM | Permission for M2 (account_state.yaml + orders.py) | Gate for PR-3 |
+| LOW | Confirm bybit_1 wallet funding timeline | Determines if dry_run is temporary or permanent |
+| LOW | Confirm prop_velotrade_1 hookup timeline | If indefinitely deferred, consider removing scaffold |
 
 ---
 
@@ -422,15 +415,15 @@ Ordered by risk (lowest impact first, LIVE_TRADER untouched until M2 permission)
 - [x] Account posture documented (3 accounts, modes, strategies, markets)
 - [x] Pipeline flow mapped (tick → signal → coordinator → executor → monitor)
 - [x] Dry/live gate traced to single source of truth
-- [x] Debt inventory (12 items, prioritized)
-- [x] Stale/orphan file list
+- [x] Debt inventory (10 active items after D8/D10/D12 retracted)
+- [x] Stale/orphan file verification (all clean except spot-margin in execute.py)
 - [x] VM differences documented (repo-visible)
 - [x] Workflow catalogue (25 workflows, purposes mapped)
 - [x] Recent incident log (2026-05-13 to 2026-05-14)
-- [x] 7-PR cleanup sequence proposed
+- [x] PR sequence proposed (5 PRs, PR-1 retired)
 - [ ] VM runtime data (journalctl, systemctl status) — **PENDING SSH key / vm-diag trigger**
 - [ ] TRAINING_CENTER audit — **PENDING IP confirmation**
 
 ---
 
-*Audit conducted 2026-05-14 by Claude (autonomous). All findings from GitHub repo state at commit `3492da7`. Live VM data pending operator action.*
+*Audit conducted 2026-05-14 by Claude (autonomous). Post-merge corrections applied same day: D8/D10/D12 retracted, PR-1 retired, orphan inventory verified clean. Live VM data pending operator action.*
