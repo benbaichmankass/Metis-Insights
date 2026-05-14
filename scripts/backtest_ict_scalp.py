@@ -194,11 +194,24 @@ def run_backtest(
             f"Not enough candles: have {n}, need at least {warmup_bars + 5}"
         )
 
+    # Slide a fixed-size window instead of growing prefix. The strategy
+    # only needs max(swing_lookback, sweep_lookback, atr_period) bars
+    # of history, so a 80-bar window is sufficient at defaults. This
+    # makes the backtest O(n * window) instead of O(n^2), which is the
+    # difference between minutes and hours on a 26k-bar feed.
+    window_size = max(
+        int(cfg.get("swing_lookback_bars", 20)),
+        int(cfg.get("sweep_lookback_bars", 12)),
+        int(cfg.get("atr_period", 14)),
+    ) + 10
+    window_size = max(window_size, warmup_bars)
+
     next_eligible_idx = warmup_bars
     for i in range(warmup_bars, n - 1):
         if i < next_eligible_idx:
             continue
-        window = df.iloc[: i + 1].copy()
+        lo = max(0, i + 1 - window_size)
+        window = df.iloc[lo : i + 1]
         # v2 HTF bias: look up htf_close + htf_ema as of this bar's
         # timestamp from the resampled series. The strategy reads
         # them from cfg, so we copy + augment per iteration.
