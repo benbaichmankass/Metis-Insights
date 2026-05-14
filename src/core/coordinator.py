@@ -34,6 +34,29 @@ _REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")
 _UNITS_YAML = os.path.join(_REPO_ROOT, "config", "units.yaml")
 _ACCOUNTS_YAML = os.path.join(_REPO_ROOT, "config", "accounts.yaml")
 
+
+def _has_open_position(account_name: str, symbol: str) -> bool:
+    """Return True if account already has an open live trade for symbol."""
+    import sqlite3
+    db_path = (
+        os.environ.get("TRADE_JOURNAL_DB")
+        or os.path.join(_REPO_ROOT, "trade_journal.db")
+    )
+    if not os.path.exists(db_path):
+        return False
+    try:
+        with sqlite3.connect(db_path) as conn:
+            row = conn.execute(
+                "SELECT COUNT(*) FROM trades "
+                "WHERE account_id = ? AND symbol = ? "
+                "AND status = 'open' AND COALESCE(is_backtest, 0) = 0",
+                (account_name, symbol),
+            ).fetchone()
+        return bool(row and row[0] > 0)
+    except Exception:  # noqa: BLE001
+        return False
+
+
 # In-process pause sentinels (PR #122 will replace with persistent flags).
 _PAUSED_ACCOUNTS: set[str] = set()
 
@@ -944,6 +967,19 @@ class Coordinator:
                 # reason flows through the result row's ``error`` field
                 # so /signals and the diagnostic ping can distinguish a
                 # true risk breach from a mission-aware skip.
+                # Open-position guard: refuse a second order for the same
+                # account+symbol if one is already live. The exchange
+                # would reject it anyway (110007 on linear perps) but
+                # catching it here avoids the API call and gives a clear
+                # journal reason. Test/smoke orders bypass this check.
+                if not (pkg.meta and pkg.meta.get("is_test")):
+                    if _has_open_position(account.name, pkg.symbol):
+                        risk_reason = "open_position_exists"
+                        raise RiskBreach(
+                            f"Account '{account.name}' already has an open "
+                            f"{pkg.symbol} position — skipping new order"
+                        )
+
                 ok, reason = account.risk_manager.evaluate(pkg)
                 if not ok:
                     risk_reason = reason or "risk_gate_refused"
