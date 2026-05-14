@@ -53,7 +53,7 @@ def test_vwap_signal_builder_prefers_strategies_yaml(monkeypatch):
     strategies.yaml entry must win. This is the actual failure mode
     on the production VM if the operator's `.env` files weren't
     updated alongside the YAML."""
-    from src.runtime import pipeline as pipeline_mod
+    from src.runtime import strategy_signal_builders as ssb
     from src.units import strategies as strategies_mod
 
     captured: dict = {}
@@ -65,21 +65,21 @@ def test_vwap_signal_builder_prefers_strategies_yaml(monkeypatch):
             return None  # short-circuit before build_vwap_signal
 
     monkeypatch.setattr(
-        pipeline_mod, "_build_killzone_exchange", lambda s: _StubExchange()
+        ssb, "_build_killzone_exchange", lambda s: _StubExchange()
     )
     monkeypatch.setattr(
         strategies_mod, "load_strategy_config",
         lambda *a, **kw: {"vwap": {"timeframe": "5m"}},
     )
     monkeypatch.setattr(
-        pipeline_mod, "load_strategy_config",
+        ssb, "load_strategy_config",
         lambda *a, **kw: {"vwap": {"timeframe": "5m"}},
         raising=False,
     )
 
     settings = {"SYMBOL": "BTCUSDT", "TIMEFRAME": "15m", "MAX_QTY": 1.0}
     with pytest.raises(RuntimeError, match="no candle data returned"):
-        pipeline_mod.vwap_signal_builder(settings)
+        ssb.vwap_signal_builder(settings)
 
     assert captured["timeframe"] == "5m", (
         f"vwap_signal_builder used {captured['timeframe']!r} from env "
@@ -92,7 +92,7 @@ def test_vwap_signal_builder_falls_through_to_env_if_yaml_absent(monkeypatch):
     refactor accidentally drops the key), the env var still works as
     a fallback. Same for the lowercase ``timeframe`` settings key.
     Default of 5m only fires when nothing else is configured."""
-    from src.runtime import pipeline as pipeline_mod
+    from src.runtime import strategy_signal_builders as ssb
     from src.units import strategies as strategies_mod
 
     captured: dict = {}
@@ -103,7 +103,7 @@ def test_vwap_signal_builder_falls_through_to_env_if_yaml_absent(monkeypatch):
             return None
 
     monkeypatch.setattr(
-        pipeline_mod, "_build_killzone_exchange", lambda s: _StubExchange()
+        ssb, "_build_killzone_exchange", lambda s: _StubExchange()
     )
     monkeypatch.setattr(
         strategies_mod, "load_strategy_config", lambda *a, **kw: {}
@@ -111,12 +111,12 @@ def test_vwap_signal_builder_falls_through_to_env_if_yaml_absent(monkeypatch):
 
     settings = {"SYMBOL": "BTCUSDT", "TIMEFRAME": "1h"}
     with pytest.raises(RuntimeError):
-        pipeline_mod.vwap_signal_builder(settings)
+        ssb.vwap_signal_builder(settings)
     assert captured["timeframe"] == "1h"
 
 
 def test_vwap_default_timeframe_is_5m_when_nothing_configured(monkeypatch):
-    from src.runtime import pipeline as pipeline_mod
+    from src.runtime import strategy_signal_builders as ssb
     from src.units import strategies as strategies_mod
 
     captured: dict = {}
@@ -127,12 +127,12 @@ def test_vwap_default_timeframe_is_5m_when_nothing_configured(monkeypatch):
             return None
 
     monkeypatch.setattr(
-        pipeline_mod, "_build_killzone_exchange", lambda s: _StubExchange()
+        ssb, "_build_killzone_exchange", lambda s: _StubExchange()
     )
     monkeypatch.setattr(
         strategies_mod, "load_strategy_config", lambda *a, **kw: {}
     )
     settings = {"SYMBOL": "BTCUSDT"}
     with pytest.raises(RuntimeError):
-        pipeline_mod.vwap_signal_builder(settings)
+        ssb.vwap_signal_builder(settings)
     assert captured["timeframe"] == "5m"
