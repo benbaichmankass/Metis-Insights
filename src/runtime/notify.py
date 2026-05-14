@@ -99,6 +99,38 @@ def notify_operator(telegram_client: Any, message: str) -> None:
         logger.exception("Failed to notify operator: %s | original=%s", exc, message)
 
 
+def send_to_operator(
+    plain: str,
+    html: Optional[str] = None,
+    *,
+    telegram_client: Any = None,
+) -> None:
+    """Single entry-point for runtime-to-operator messages.
+
+    Resolution order:
+      1. telegram_client present → ``notify_operator(client, plain)``
+      2. html provided           → ``send_telegram_direct(html, "HTML")``;
+                                   on failure falls back to plain.
+      3. plain only              → ``send_telegram_direct(plain, None)``
+
+    Callers should not replicate this fallback chain themselves. Raises only
+    if ALL paths fail; individual step failures are logged.
+    """
+    if telegram_client is not None:
+        notify_operator(telegram_client, plain)
+        return
+    if html is not None:
+        try:
+            send_telegram_direct(html, parse_mode="HTML")
+            return
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "send_to_operator: HTML send failed (%s); falling back to plain text",
+                exc,
+            )
+    send_telegram_direct(plain, parse_mode=None)
+
+
 def send_via_alert_manager(message: str) -> None:
     """Send a message to the operator's Telegram chat. Plain-text mode.
 

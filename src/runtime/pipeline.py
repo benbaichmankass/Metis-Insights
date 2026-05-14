@@ -28,11 +28,7 @@ from typing import Any, Callable, Dict, Optional  # noqa: E402
 
 import pandas as pd  # noqa: E402
 
-from src.runtime.notify import (  # noqa: E402
-    notify_operator,
-    send_telegram_direct,
-    send_via_alert_manager,
-)
+from src.runtime.notify import send_to_operator  # noqa: E402
 from src.runtime.orders import safe_place_order  # noqa: E402
 from src.runtime.outcomes import Level, report  # noqa: E402
 from src.units.ui.telegram_format import Section, kv_block, render_html, render_plain  # noqa: E402
@@ -773,10 +769,7 @@ def run_pipeline(
                 f"Adj: {news_result.adjustment:.4f} | Items: {news_result.item_count}"
             )[:200]
             try:
-                if telegram_client is not None:
-                    notify_operator(telegram_client, _veto_msg)
-                else:
-                    send_via_alert_manager(_veto_msg)
+                send_to_operator(_veto_msg, telegram_client=telegram_client)
             except Exception:
                 logger.exception("news veto notify failed")
         else:
@@ -1082,22 +1075,10 @@ def run_pipeline(
     html_body = render_html(header=header, sections=sections)
     plain_body = render_plain(header=header, sections=sections)
 
-    if telegram_client is not None:
-        notify_operator(telegram_client, plain_body)
-    else:
-        try:
-            send_telegram_direct(html_body, parse_mode="HTML")
-        except Exception:  # noqa: BLE001
-            # HTML send failed (network, parse-mode rejection, missing
-            # creds path that *did* raise). Fall back to the plain-text
-            # channel so the message still lands.
-            logger.exception(
-                "pipeline: HTML send failed; falling back to plain text",
-            )
-            try:
-                send_via_alert_manager(plain_body)
-            except Exception:  # noqa: BLE001
-                logger.exception("pipeline: plain-text fallback also failed")
+    try:
+        send_to_operator(plain_body, html_body, telegram_client=telegram_client)
+    except Exception:  # noqa: BLE001
+        logger.exception("pipeline: all notify paths failed")
 
     logger.info("Pipeline complete: %s", result)
 
