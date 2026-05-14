@@ -22,7 +22,7 @@ from __future__ import annotations
 import logging
 import os
 import uuid
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from src.core.coordinator import OrderPackage, is_paused
 from src.units.accounts.precision import (
@@ -355,7 +355,6 @@ def _fetch_balance(
         Spot symbol (e.g. ``"BTCUSDT"``); used to identify base coin.
     """
     exchange = (account_cfg.get("exchange") or "bybit").lower()
-    category = _bybit_category(account_cfg)
     try:
         if exchange == "bybit":
             resp = client.get_wallet_balance(accountType="UNIFIED")
