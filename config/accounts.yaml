@@ -26,6 +26,14 @@
 # the Telegram /accounts command flips it at runtime via
 # `set_account_dry_run()`.
 #
+# IMPORTANT — runtime overrides are ephemeral: `set_account_dry_run()`
+# stores the override in `_DRY_RUN_OVERRIDES` (an in-process Python
+# dict in src/units/accounts/__init__.py). That dict is wiped on every
+# service restart. A git-sync deploy that restarts ict-trader-live.service
+# will silently clear any Telegram-applied dry_run override, falling back
+# to this YAML field. Always set `mode: dry_run` HERE (not just via
+# Telegram) when you want dry_run to survive restarts.
+#
 # Bybit V5 category routing (operator directives 2026-05-06 + 2026-05-10):
 #   `market_type: spot`         → Bybit spot cash market (place_order
 #                                 category="spot", marketUnit="baseCoin").
@@ -112,7 +120,21 @@ accounts:
     type: regular
     exchange: bybit
     api_key_env: BYBIT_API_KEY_2
-    mode: live                         # see header — ONLY dry/live toggle
+    mode: dry_run                      # 2026-05-14 incident: ict-trader-live
+                                       # service restart at ~06:00 UTC (triggered
+                                       # by git-sync pulling commit 6f84ddd) wiped
+                                       # the in-process _DRY_RUN_OVERRIDES dict
+                                       # (accounts/__init__.py) — that dict is
+                                       # ephemeral and not persisted to disk.
+                                       # Trader fell back to this YAML field, which
+                                       # was `live`, and placed trade 1319 (SHORT
+                                       # BTCUSDT 0.004 @ 79,829.3) unintentionally.
+                                       # Set dry_run here (the ONLY persistent
+                                       # toggle) until a conscious go-live PR with
+                                       # operator sign-off. Telegram /accounts
+                                       # dry|live overrides are ephemeral and do
+                                       # NOT survive service restarts — always set
+                                       # the mode in this YAML file.
     market_type: linear                # PR 3 — Bybit V5 USDT-margined
                                        # linear perpetuals. Was
                                        # spot-margin pre-cutover.

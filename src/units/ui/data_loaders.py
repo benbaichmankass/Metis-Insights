@@ -364,6 +364,8 @@ def recent_signals_for(strategy: str, n: int = 5) -> List[Dict[str, Any]]:
         conn = sqlite3.connect(SIGNALS_DB)
         try:
             conn.row_factory = sqlite3.Row
+            from src.runtime.signal_notifications import ensure_signals_table as _est
+            _est(conn)
             cols = ("id, timestamp, symbol, signal_type, direction, price,"
                     " timeframe, reason, metadata")
             if prefixes:
@@ -764,6 +766,8 @@ def _count_signals_today(strategy: str) -> int:
     try:
         conn = sqlite3.connect(SIGNALS_DB)
         try:
+            from src.runtime.signal_notifications import ensure_signals_table as _est
+            _est(conn)
             if prefixes:
                 where = " OR ".join(["signal_type LIKE ?"] * len(prefixes))
                 row = conn.execute(
