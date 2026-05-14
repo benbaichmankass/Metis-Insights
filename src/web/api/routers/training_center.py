@@ -175,7 +175,7 @@ def get_sessions(limit: int = Query(default=50, ge=1, le=200)) -> dict[str, Any]
     """
     root = _mirror_root()
     raw = _read_jsonl_tail(root / "training_cycle.jsonl", limit=0)
-    keep = {"manifest_ok", "manifest_failed", "manifest_missing"}
+    keep = {"manifest_ok", "manifest_failed", "manifest_missing", "manifest_skipped"}
     sessions = [r for r in raw if r.get("status") in keep]
     if limit > 0 and len(sessions) > limit:
         sessions = sessions[-limit:]

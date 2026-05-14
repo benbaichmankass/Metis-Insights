@@ -164,6 +164,34 @@ print(json.dumps({
     "metrics_path": summary.get("metrics_path"),
 }))
 ' "$(iso_now)" "$manifest" "$start" "$summary")"
+  elif [ "$rc" -eq 78 ]; then
+    # Exit 78 (BSD EX_CONFIG) — `python -m ml train` raised
+    # EmptyDatasetError. Dataset built fine but has 0 rows yet (live
+    # trader hasn't produced enough closed-trade history, or no
+    # health-review answers exist). Clean skip, not a failure:
+    # overall_rc unchanged so the cycle reports green when every
+    # manifest either trained or was correctly skipped for "no data".
+    summary="$(tail -n 50 "/tmp/train_$$.out" | grep -E '^\{' | tail -n 1 || true)"
+    if [ -z "$summary" ]; then summary='{}'; fi
+    emit "$(python -c '
+import json, sys
+ts, manifest, start, summary_raw = sys.argv[1:5]
+try:
+    summary = json.loads(summary_raw)
+except Exception:
+    summary = {}
+print(json.dumps({
+    "ts": ts,
+    "status": "manifest_skipped",
+    "manifest": manifest,
+    "started": start,
+    "reason": summary.get("reason", "empty_dataset"),
+    "dataset_path": summary.get("dataset_path"),
+    "detail": summary.get("detail"),
+}))
+' "$(iso_now)" "$manifest" "$start" "$summary")"
+    rm -f "/tmp/train_$$.out" "/tmp/train_$$.err"
+    continue
   else
     err_tail="$(tail -n 5 "/tmp/train_$$.err" 2>/dev/null | tr '\n' ' ' | head -c 500)"
     emit "$(python -c '

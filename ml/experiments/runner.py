@@ -22,6 +22,23 @@ from ..registry.model_registry import ModelRegistry, RegistryEntry
 from .splitters import split as split_rows
 
 
+class EmptyDatasetError(RuntimeError):
+    """Raised when the dataset exists but has 0 rows.
+
+    Distinct from `FileNotFoundError` (build never ran). The CLI maps this
+    to exit code 78 (BSD `EX_CONFIG`) so `run_training_cycle.sh` can emit
+    a clean `manifest_skipped` status instead of `manifest_failed` —
+    distinguishes "no data yet" from real training failures.
+    """
+
+    def __init__(self, data_path: Path):
+        super().__init__(f"dataset at {data_path} is empty")
+        self.data_path = data_path
+
+
+EMPTY_DATASET_EXIT_CODE = 78
+
+
 @dataclass(frozen=True)
 class ExperimentArtifacts:
     experiment_dir: Path
@@ -89,7 +106,7 @@ def run_experiment(
         )
     rows = _load_jsonl(data_path)
     if not rows:
-        raise ValueError(f"dataset at {data_path} is empty")
+        raise EmptyDatasetError(data_path)
 
     train_rows, eval_rows = split_rows(rows, manifest.evaluator_config)
 

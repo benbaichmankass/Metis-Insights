@@ -107,7 +107,7 @@ def _trade(**overrides):
         entry_price=42000.0,
         pnl=10.0,
         pnl_percent=1.0,
-        status="CLOSED",
+        status="closed",
         is_backtest=0,
         account_id="live",
         created_at="2026-05-01T12:30:00Z",
