@@ -117,6 +117,14 @@ fi
 
 emit "$(printf '{"ts":"%s","status":"cycle_start","manifest_count":%d,"head":"%s"}' "$(iso_now)" "${#TRAINING_MANIFEST_LIST[@]}" "$HEAD_SHA")"
 
+# Mirror current state to the live VM before training starts so the
+# dashboard reflects "cycle in progress" within seconds. Failure here
+# is non-fatal — training proceeds and the post-cycle publish below
+# will re-attempt.
+bash scripts/ops/publish_trainer_mirror.sh >/dev/null 2>&1 \
+  && emit "$(printf '{"ts":"%s","status":"publish_pre_ok"}' "$(iso_now)")" \
+  || emit "$(printf '{"ts":"%s","status":"publish_pre_warn"}' "$(iso_now)")"
+
 # --- Train each manifest --------------------------------------------------
 overall_rc=0
 for manifest in "${TRAINING_MANIFEST_LIST[@]}"; do
@@ -178,4 +186,12 @@ print(json.dumps({
 done
 
 emit "$(printf '{"ts":"%s","status":"cycle_end","overall_rc":%d}' "$(iso_now)" "$overall_rc")"
+
+# Mirror final state to the live VM so the dashboard reflects the
+# cycle's outcome (and any new registry rows). Non-fatal — the 2-min
+# heartbeat timer will pick it up on the next tick if this fails.
+bash scripts/ops/publish_trainer_mirror.sh >/dev/null 2>&1 \
+  && emit "$(printf '{"ts":"%s","status":"publish_post_ok"}' "$(iso_now)")" \
+  || emit "$(printf '{"ts":"%s","status":"publish_post_warn"}' "$(iso_now)")"
+
 exit "$overall_rc"

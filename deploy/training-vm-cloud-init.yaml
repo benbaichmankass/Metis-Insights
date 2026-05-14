@@ -96,6 +96,53 @@ write_files:
       [Install]
       WantedBy=timers.target
 
+  - path: /etc/systemd/system/ict-trainer-publish.service
+    permissions: '0644'
+    owner: root:root
+    content: |
+      # Trainer-mirror publisher (S-AI-WS8-PART-2).
+      # Builds runtime_logs/trainer_status.json and rsyncs trainer
+      # artifacts to the live VM so the Streamlit dashboard has
+      # transparency into trainer state. Read-only push — only JSONL
+      # logs, registry, status blob, and experiment metrics.json files
+      # cross. No code, no secrets, no live-trader paths touched.
+      # Enabled by default at boot so the dashboard is never blind to
+      # a freshly-provisioned trainer.
+      [Unit]
+      Description=Publish trainer mirror to live VM
+      After=network-online.target
+      Wants=network-online.target
+
+      [Service]
+      Type=oneshot
+      User=ubuntu
+      WorkingDirectory=/home/ubuntu/ict-trading-bot
+      ExecStart=/bin/bash scripts/ops/publish_trainer_mirror.sh
+      StandardOutput=journal
+      StandardError=journal
+
+      [Install]
+      WantedBy=multi-user.target
+
+  - path: /etc/systemd/system/ict-trainer-publish.timer
+    permissions: '0644'
+    owner: root:root
+    content: |
+      # 2-minute heartbeat for the trainer-mirror publisher.
+      # Keeps the dashboard's "trainer status" panel live even when
+      # no training cycle is running. Persistent=true so a paused VM
+      # catches up on resume.
+      [Unit]
+      Description=Periodic trainer mirror publish
+
+      [Timer]
+      OnBootSec=30sec
+      OnUnitActiveSec=2min
+      Persistent=true
+
+      [Install]
+      WantedBy=timers.target
+
 runcmd:
   # Idempotent repo clone. If the directory already exists (e.g.
   # cloud-init re-run on an image with prior state) skip the clone.
@@ -107,8 +154,11 @@ runcmd:
     fi
   - chown -R ubuntu:ubuntu /home/ubuntu/ict-trading-bot
   # Reload systemd so the unit + timer files are discovered, but
-  # do NOT enable or start them. Operator opt-in is the contract.
+  # do NOT enable or start ict-trainer.{service,timer} — operator
+  # opt-in is the contract. The mirror-publisher timer DOES start
+  # automatically so the dashboard sees the trainer immediately.
   - systemctl daemon-reload
+  - systemctl enable --now ict-trainer-publish.timer || true
   # Sanity check: print Python + repo state to /var/log/cloud-init-output.log
   - python3.11 --version
   - sudo -u ubuntu sh -c "cd /home/ubuntu/ict-trading-bot && git log -1 --oneline"
@@ -119,6 +169,8 @@ final_message: |
   Repo: /home/ubuntu/ict-trading-bot
   ict-trainer.service: installed, disabled.
   ict-trainer.timer: installed, disabled.
+  ict-trainer-publish.service: installed, enabled (oneshot).
+  ict-trainer-publish.timer:   installed, enabled (every 2 min).
   Live trader status: this VM is NOT the live trader.
   Operator enables training with:
     sudo systemctl enable --now ict-trainer.service

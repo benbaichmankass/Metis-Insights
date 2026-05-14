@@ -27,6 +27,7 @@ from src.web.api.routers import status_fragment as status_fragment_router
 from src.web.api.routers import strategies as strategies_router
 from src.web.api.routers import trade_scores as trade_scores_router
 from src.web.api.routers import trades_closed as trades_closed_router
+from src.web.api.routers import training_center as training_center_router
 
 app = FastAPI(title="ICT Trading Bot — Dashboard API", version="0.2.0")
 
@@ -60,6 +61,7 @@ app.include_router(shadow_router.router)
 app.include_router(health_snapshots_router.router)
 app.include_router(trade_scores_router.router)
 app.include_router(strategies_router.router)
+app.include_router(training_center_router.router)
 
 
 @app.get("/api/health", tags=["health"])
