@@ -1,0 +1,248 @@
+name: ict-scalp-backtest
+
+# Self-contained backtest workflow for the ict_scalp_5m strategy.
+# Runs entirely inside the GitHub Actions runner — no SSH to any VM,
+# no live-trader exposure. This is the pre-live gate referenced in
+# docs/strategies/ict_scalp_5m.md: the operator must see a passing
+# backtest summary here before flipping `enabled: true` in
+# config/strategies.yaml.
+#
+# Three trigger paths:
+#   1. workflow_dispatch    — operator clicks "Run workflow"
+#   2. issues.opened with label `ict-scalp-backtest-request`
+#   3. issues.opened with title starting `[ict-scalp-backtest]`
+#
+# Issue body (optional, all keys have defaults):
+#   timeframe: 5m
+#   data: data/backtest_candles.csv      # repo-relative path to OHLCV CSV
+#   fetch_fresh: false                    # true → fetch from Bybit before running
+#   days: 30                              # only if fetch_fresh=true
+#   warmup_bars: 50
+#   timeout_bars: 24
+#   cooldown_bars: 3
+#
+# Outputs:
+#   * `backtest-result.json` artifact (14-day retention)
+#   * Issue comment with the summary table (when triggered by issue)
+#
+# Safety: this workflow only READS the repo and runs the strategy
+# unit on historical candles. It does not push, deploy, or touch
+# config/strategies.yaml. Flipping the strategy live is still a
+# separate, explicit operator action.
+
+on:
+  workflow_dispatch:
+    inputs:
+      timeframe:
+        description: "Strategy timeframe label (5m | 1m | 15m etc.)"
+        default: "5m"
+      data:
+        description: "Repo-relative path to the OHLCV CSV (ignored if fetch_fresh=true)"
+        default: "data/backtest_candles.csv"
+      fetch_fresh:
+        description: "Pull fresh BTCUSDT candles from Bybit before running"
+        type: boolean
+        default: false
+      days:
+        description: "Trailing days of candles to fetch (only when fetch_fresh=true)"
+        default: "30"
+      warmup_bars:
+        description: "Skip the first N bars (lookback warmup)"
+        default: "50"
+      timeout_bars:
+        description: "Force-close trades after N bars without SL/TP hit"
+        default: "24"
+      cooldown_bars:
+        description: "Bars to skip after each exit before re-evaluating"
+        default: "3"
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: ict-scalp-backtest-${{ github.event_name }}-${{ github.event.issue.number || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  backtest:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' && (
+        contains(github.event.issue.labels.*.name, 'ict-scalp-backtest-request') ||
+        startsWith(github.event.issue.title, '[ict-scalp-backtest]')
+      ))
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Parse issue body
+        if: github.event_name == 'issues'
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          set -euo pipefail
+
+          TIMEFRAME=$(printf '%s' "${ISSUE_BODY}" | grep -m1 -i '^timeframe:' | awk '{print $2}' || true)
+          DATA=$(printf '%s' "${ISSUE_BODY}" | grep -m1 -i '^data:' | awk '{print $2}' || true)
+          FETCH_FRESH=$(printf '%s' "${ISSUE_BODY}" | grep -m1 -i '^fetch_fresh:' | awk '{print $2}' || true)
+          DAYS=$(printf '%s' "${ISSUE_BODY}" | grep -m1 -i '^days:' | awk '{print $2}' || true)
+          WARMUP_BARS=$(printf '%s' "${ISSUE_BODY}" | grep -m1 -i '^warmup_bars:' | awk '{print $2}' || true)
+          TIMEOUT_BARS=$(printf '%s' "${ISSUE_BODY}" | grep -m1 -i '^timeout_bars:' | awk '{print $2}' || true)
+          COOLDOWN_BARS=$(printf '%s' "${ISSUE_BODY}" | grep -m1 -i '^cooldown_bars:' | awk '{print $2}' || true)
+
+          [ -z "${TIMEFRAME}" ]     && TIMEFRAME="5m"
+          [ -z "${DATA}" ]          && DATA="data/backtest_candles.csv"
+          [ -z "${FETCH_FRESH}" ]   && FETCH_FRESH="false"
+          [ -z "${DAYS}" ]          && DAYS="30"
+          [ -z "${WARMUP_BARS}" ]   && WARMUP_BARS="50"
+          [ -z "${TIMEOUT_BARS}" ]  && TIMEOUT_BARS="24"
+          [ -z "${COOLDOWN_BARS}" ] && COOLDOWN_BARS="3"
+
+          # Sanity-validate so a malformed issue body can't inject args.
+          if ! printf '%s' "${TIMEFRAME}" | grep -qE '^[0-9]+[mhdMHD]$'; then TIMEFRAME="5m"; fi
+          if ! printf '%s' "${DATA}" | grep -qE '^[A-Za-z0-9_./-]+$'; then DATA="data/backtest_candles.csv"; fi
+          if ! printf '%s' "${FETCH_FRESH}" | grep -qiE '^(true|false)$'; then FETCH_FRESH="false"; fi
+          if ! printf '%s' "${DAYS}" | grep -qE '^[0-9]+$'; then DAYS="30"; fi
+          if ! printf '%s' "${WARMUP_BARS}" | grep -qE '^[0-9]+$'; then WARMUP_BARS="50"; fi
+          if ! printf '%s' "${TIMEOUT_BARS}" | grep -qE '^[0-9]+$'; then TIMEOUT_BARS="24"; fi
+          if ! printf '%s' "${COOLDOWN_BARS}" | grep -qE '^[0-9]+$'; then COOLDOWN_BARS="3"; fi
+
+          echo "bt_timeframe=${TIMEFRAME}" >> "$GITHUB_ENV"
+          echo "bt_data=${DATA}" >> "$GITHUB_ENV"
+          echo "bt_fetch_fresh=${FETCH_FRESH}" >> "$GITHUB_ENV"
+          echo "bt_days=${DAYS}" >> "$GITHUB_ENV"
+          echo "bt_warmup_bars=${WARMUP_BARS}" >> "$GITHUB_ENV"
+          echo "bt_timeout_bars=${TIMEOUT_BARS}" >> "$GITHUB_ENV"
+          echo "bt_cooldown_bars=${COOLDOWN_BARS}" >> "$GITHUB_ENV"
+
+      - name: Set params from dispatch inputs
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          echo "bt_timeframe=${{ inputs.timeframe }}" >> "$GITHUB_ENV"
+          echo "bt_data=${{ inputs.data }}" >> "$GITHUB_ENV"
+          echo "bt_fetch_fresh=${{ inputs.fetch_fresh }}" >> "$GITHUB_ENV"
+          echo "bt_days=${{ inputs.days }}" >> "$GITHUB_ENV"
+          echo "bt_warmup_bars=${{ inputs.warmup_bars }}" >> "$GITHUB_ENV"
+          echo "bt_timeout_bars=${{ inputs.timeout_bars }}" >> "$GITHUB_ENV"
+          echo "bt_cooldown_bars=${{ inputs.cooldown_bars }}" >> "$GITHUB_ENV"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install minimal deps
+        run: |
+          python -m pip install --upgrade pip
+          # Strategy + backtest CLI only need numpy / pandas / pyyaml /
+          # requests (requests is used by fetch_backtest_candles.py).
+          pip install numpy pandas pyyaml requests
+
+      - name: Fetch fresh candles (optional)
+        if: env.bt_fetch_fresh == 'true'
+        run: |
+          set -euo pipefail
+          python scripts/ops/fetch_backtest_candles.py \
+            --days "${bt_days}" \
+            --output data/backtest_candles.csv
+          echo "bt_data=data/backtest_candles.csv" >> "$GITHUB_ENV"
+
+      - name: Verify data file
+        run: |
+          set -euo pipefail
+          if [ ! -f "${bt_data}" ]; then
+            echo "::error::Data file not found: ${bt_data}"
+            ls -la data/ || true
+            exit 1
+          fi
+          wc -l "${bt_data}"
+          head -3 "${bt_data}"
+
+      - name: Run ict_scalp_5m backtest
+        run: |
+          set -euo pipefail
+          python scripts/backtest_ict_scalp.py \
+            --data "${bt_data}" \
+            --timeframe "${bt_timeframe}" \
+            --warmup-bars "${bt_warmup_bars}" \
+            --timeout-bars "${bt_timeout_bars}" \
+            --cooldown-bars "${bt_cooldown_bars}" \
+            --json backtest-result.json \
+            | tee backtest-summary.txt
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ict-scalp-backtest-${{ github.run_id }}
+          path: |
+            backtest-result.json
+            backtest-summary.txt
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: Comment results on issue
+        if: github.event_name == 'issues' && success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const data = JSON.parse(fs.readFileSync('backtest-result.json', 'utf8'));
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+
+            let body = `**ict_scalp_5m backtest results**\nRun: ${runUrl}\n\n`;
+            body += `| Symbol | Timeframe | Data range | Bars | Trades | Win% | Expectancy R | Total R | Max DD R | Sharpe R |\n`;
+            body += `|--------|-----------|------------|------|--------|------|--------------|---------|----------|----------|\n`;
+            body += `| ${data.symbol} | ${data.timeframe} | ${data.data_start} → ${data.data_end} | ${data.bars} | ${data.total_trades} | ${data.win_rate_pct ?? 0}% | ${data.expectancy_r ?? 0} | ${data.total_r ?? 0} | ${data.max_drawdown_r ?? 0} | ${data.sharpe_r ?? 0} |\n`;
+
+            if (data.by_outcome && Object.keys(data.by_outcome).length) {
+              body += `\n**By outcome:** `;
+              body += Object.entries(data.by_outcome).map(([k, v]) => `${k}=${v}`).join(', ');
+              body += `\n`;
+            }
+
+            body += `\n<details><summary>Full JSON</summary>\n\n\`\`\`json\n`;
+            const full = JSON.stringify(data, null, 2);
+            body += full.length <= 40000 ? full : full.slice(0, 40000) + '\n... (truncated)';
+            body += `\n\`\`\`\n</details>\n`;
+
+            body += `\n---\n`;
+            body += `Pre-live gate. To promote: flip \`enabled: true\` in \`config/strategies.yaml::ict_scalp_5m\` via a PR. Operator-approval required.\n`;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body.slice(0, 65000),
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              state: 'closed',
+              state_reason: 'completed',
+            });
+
+      - name: Comment failure on issue
+        if: github.event_name == 'issues' && failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `ict_scalp_5m backtest failed.\nRun: ${runUrl}\n\nCheck the workflow logs. Common causes: data file missing or malformed; fetch_backtest_candles.py network error; Python dependency failure.`,
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              state: 'closed',
+              state_reason: 'not_planned',
+            });

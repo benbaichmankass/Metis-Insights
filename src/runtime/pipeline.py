@@ -10,6 +10,7 @@ from src.news.news_pipeline import get_news_score
 # PR-6: signal builder functions extracted to strategy_signal_builders.py.
 # Re-exported here for back-compat (existing callers + tests import from pipeline).
 from src.runtime.strategy_signal_builders import (  # noqa: E402
+    ict_scalp_signal_builder,
     turtle_soup_signal_builder,
     vwap_signal_builder,
 )
@@ -166,6 +167,10 @@ STRATEGY_RISK_PCT: Dict[str, float] = {
 _STRATEGY_BUILDERS: Dict[str, Callable[[dict], Dict[str, Any]]] = {
     "turtle_soup": turtle_soup_signal_builder,
     "vwap": vwap_signal_builder,
+    # ict_scalp_5m is registered so config/strategies.yaml can opt it in,
+    # but its builder short-circuits to side="none" while enabled=false
+    # so live behaviour is unchanged until the operator flips the flag.
+    "ict_scalp_5m": ict_scalp_signal_builder,
 }
 
 
@@ -246,6 +251,12 @@ def run_pipeline(
         builder = turtle_soup_signal_builder
     elif strategy_name == "vwap":
         builder = vwap_signal_builder
+    elif strategy_name in ("ict_scalp", "ict_scalp_5m"):
+        # Opt-in via STRATEGY env var for diagnostics / single-strategy
+        # backtests. The builder still honours the YAML enabled flag,
+        # so STRATEGY=ict_scalp_5m alone does NOT place live orders;
+        # the operator must also set enabled=true in strategies.yaml.
+        builder = ict_scalp_signal_builder
     elif strategy_name in ("multiplexed_intents", "multi_strategy_intents"):
         # Explicit opt-in via STRATEGY env var. Same effect as
         # setting MULTI_STRATEGY_INTENT_LAYER=true and leaving STRATEGY

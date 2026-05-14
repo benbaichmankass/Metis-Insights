@@ -111,6 +111,11 @@ jobs:
                 color: '5319e7',
                 description: 'Triggers trainer-vm-diag workflow — full-visibility SSH command runner on the trainer VM (autonomous Claude).',
               },
+              {
+                name: 'ict-scalp-backtest-request',
+                color: '0075ca',
+                description: 'Triggers ict-scalp-backtest workflow — self-contained pre-live gate for the ict_scalp_5m strategy.',
+              },
             ];
             for (const l of LABELS) {
               try {
