@@ -312,12 +312,14 @@ def coord(tmp_path):
 def _patched_execute_pkg(captured: list):
     """Stub for ``execute_pkg`` — records calls and returns a fake trade_id."""
     def _impl(pkg, account_cfg, *, exchange_client=None, balance_usdt=None,
-             dry_run=None, qty_override=None):
+             dry_run=None, qty_override=None, reduce_only=False):
         captured.append({
             "pkg": pkg,
             "account_cfg": account_cfg,
             "qty_override": qty_override,
             "dry_run": dry_run,
+            "reduce_only": reduce_only,
+            "direction": pkg.direction,
         })
         return f"test-trade-{len(captured)}"
     return _impl
@@ -425,13 +427,16 @@ class TestIntentModeDispatchBranch:
         assert captured[0]["qty_override"] == pytest.approx(0.15, abs=1e-3)
         assert pkg.meta["execution_delta"]["action"] == "increase"
 
-    def test_intent_mode_opposite_side_is_refused(
+    def test_intent_mode_flip_dispatches_close_then_open(
         self, coord, accounts_yaml, trade_db, monkeypatch,
     ):
-        """Existing short + intent-mode long pkg → flip refused (v1 not wired)."""
+        """Existing short + intent-mode long pkg → two legs:
+        (1) reduce-only close of the short, (2) regular open of the long.
+        """
         captured = []
         _patch_dispatch_deps(monkeypatch, captured)
 
+        # Seed an open short of 0.03; intent says long, risk sizes 0.2.
         _insert_trade(
             trade_db, account_id="bybit_2", symbol="BTCUSDT",
             direction="short", position_size=0.03,
@@ -442,9 +447,22 @@ class TestIntentModeDispatchBranch:
             pkg, accounts_path=accounts_yaml,
             balance_fetcher=self._balance_fetcher,
         )
-        assert captured == []
-        assert results[0]["trade_id"] is None
-        assert "intent_flip_not_yet_wired_v1" in (results[0]["error"] or "")
+        assert len(captured) == 2, "flip must dispatch close + open in sequence"
+        # Leg 1: close the existing short — direction flipped to "long"
+        # (the Buy side that reduces a short), reduce_only=True, qty=0.03.
+        assert captured[0]["direction"] == "long"
+        assert captured[0]["reduce_only"] is True
+        assert captured[0]["qty_override"] == pytest.approx(0.03, abs=1e-6)
+        # Leg 2: open the new long at the risk-sized qty (delta.qty_delta).
+        assert captured[1]["direction"] == "long"
+        assert captured[1]["reduce_only"] is False
+        assert captured[1]["qty_override"] == pytest.approx(0.2, abs=1e-3)
+        # The result's primary trade_id is the LAST leg (the open).
+        assert results[0]["trade_id"] == "test-trade-2"
+        assert results[0]["leg_trade_ids"] == ["test-trade-1", "test-trade-2"]
+        assert results[0]["error"] is None
+        # Audit record on pkg.meta carries the flip action.
+        assert pkg.meta["execution_delta"]["action"] == "flip"
 
     def test_legacy_mode_still_uses_binary_open_guard(
         self, coord, accounts_yaml, trade_db, monkeypatch,
@@ -504,6 +522,166 @@ class TestIntentModeDispatchBranch:
         )
         assert captured == []
         assert "intent_sub_min_qty_delta" in (results[0]["error"] or "")
+
+
+class TestIntentModeReduceClose:
+    """S-MSE-2 — reduce-only / close / flip wiring for the dispatcher."""
+
+    def _balance_fetcher(self, account):
+        return 10_000.0
+
+    def test_reduce_dispatches_reduce_only_opposite_side(
+        self, coord, accounts_yaml, trade_db, monkeypatch,
+    ):
+        """Existing long above target → reduce-only sell for the delta."""
+        captured = []
+        _patch_dispatch_deps(monkeypatch, captured)
+
+        # Risk-sized target = 0.2, existing = 0.5 → delta = 0.3 reduce.
+        _insert_trade(
+            trade_db, account_id="bybit_2", symbol="BTCUSDT",
+            direction="long", position_size=0.5,
+        )
+
+        pkg = _intent_pkg(direction="long")
+        results = coord.multi_account_execute(
+            pkg, accounts_path=accounts_yaml,
+            balance_fetcher=self._balance_fetcher,
+        )
+        assert len(captured) == 1
+        assert captured[0]["direction"] == "short", (
+            "reduce leg's order direction must be opposite of current"
+        )
+        assert captured[0]["reduce_only"] is True
+        assert captured[0]["qty_override"] == pytest.approx(0.3, abs=1e-3)
+        assert results[0]["error"] is None
+        assert pkg.meta["execution_delta"]["action"] == "reduce"
+
+    def test_intent_mode_spot_account_refuses_reduce(
+        self, tmp_path, monkeypatch,
+    ):
+        """Reduce/close/flip on a spot account must refuse, not silently buy."""
+        # Custom accounts.yaml with a spot account, otherwise identical
+        # to the linear bybit_2 fixture.
+        spot_yaml = textwrap.dedent("""\
+            accounts:
+              bybit_spot:
+                type: regular
+                exchange: bybit
+                api_key_env: BYBIT_API_KEY_2
+                mode: live
+                market_type: spot
+                strategies: [turtle_soup, vwap]
+                risk:
+                  max_dd_pct: 0.05
+                  daily_usd: 100
+                  pos_size: 500
+                  risk_pct: 0.01
+                  min_balance_usd: 50
+        """)
+        spot_path = tmp_path / "accounts.yaml"
+        spot_path.write_text(spot_yaml)
+
+        db_path = tmp_path / "trade_journal.db"
+        _init_trade_journal(str(db_path))
+        _insert_trade(
+            str(db_path), account_id="bybit_spot", symbol="BTCUSDT",
+            direction="long", position_size=0.5,
+        )
+        monkeypatch.setenv("TRADE_JOURNAL_DB", str(db_path))
+        monkeypatch.setenv("BYBIT_API_KEY_2", "test-key")
+        monkeypatch.setenv("BYBIT_API_SECRET_2", "test-secret")
+
+        units_path = tmp_path / "units.yaml"
+        units_path.write_text("units: {}\n")
+        spot_coord = Coordinator(units_path=str(units_path))
+
+        captured = []
+        _patch_dispatch_deps(monkeypatch, captured)
+
+        pkg = _intent_pkg(direction="long")
+        results = spot_coord.multi_account_execute(
+            pkg, accounts_path=str(spot_path),
+            balance_fetcher=lambda acc: 10_000.0,
+        )
+        assert captured == [], "spot reduce path must refuse before placement"
+        assert "intent_reduce_requires_derivatives" in (results[0]["error"] or "")
+
+
+class TestBuildIntentLegs:
+    """Unit tests for the pure ``_build_intent_legs`` helper."""
+
+    def _delta(
+        self, action, side, qty_delta=0.02, target_qty=0.02, current_qty=0.0,
+    ):
+        from src.runtime.intents import ExecutionDelta
+        return ExecutionDelta(
+            action=action,
+            side=side,
+            qty_delta=qty_delta,
+            target_qty=target_qty,
+            current_qty=current_qty,
+            reason="test",
+        )
+
+    def test_open_returns_single_primary_leg(self):
+        from src.core.coordinator import _build_intent_legs
+        pkg = _intent_pkg(direction="long")
+        legs = _build_intent_legs(
+            pkg, self._delta("open", "long", 0.02, 0.02, 0.0),
+        )
+        assert len(legs) == 1
+        assert legs[0]["pkg"] is pkg
+        assert legs[0]["qty"] == 0.02
+        assert legs[0]["reduce_only"] is False
+        assert legs[0]["label"] == "primary"
+
+    def test_reduce_flips_direction_and_sets_reduce_only(self):
+        from src.core.coordinator import _build_intent_legs
+        pkg = _intent_pkg(direction="long")
+        legs = _build_intent_legs(
+            pkg, self._delta("reduce", "short", 0.02, 0.03, 0.05),
+        )
+        assert len(legs) == 1
+        assert legs[0]["pkg"].direction == "short"
+        assert legs[0]["pkg"] is not pkg, "must be a fresh copy"
+        assert legs[0]["reduce_only"] is True
+
+    def test_close_flips_direction_and_sets_reduce_only(self):
+        from src.core.coordinator import _build_intent_legs
+        pkg = _intent_pkg(direction="long")
+        legs = _build_intent_legs(
+            pkg, self._delta("close", "short", 0.04, 0.0, 0.04),
+        )
+        assert len(legs) == 1
+        assert legs[0]["pkg"].direction == "short"
+        assert legs[0]["reduce_only"] is True
+
+    def test_flip_returns_close_then_open(self):
+        from src.core.coordinator import _build_intent_legs
+        pkg = _intent_pkg(direction="long")
+        legs = _build_intent_legs(
+            pkg, self._delta("flip", "long", 0.02, 0.02, -0.03),
+        )
+        assert len(legs) == 2
+        # Close leg: long (Buy) reduces an existing short.
+        assert legs[0]["pkg"].direction == "long"
+        assert legs[0]["qty"] == pytest.approx(0.03, abs=1e-9)
+        assert legs[0]["reduce_only"] is True
+        assert legs[0]["label"] == "flip_close"
+        # Open leg: new direction = delta.side.
+        assert legs[1]["pkg"].direction == "long"
+        assert legs[1]["qty"] == 0.02
+        assert legs[1]["reduce_only"] is False
+        assert legs[1]["label"] == "flip_open"
+
+    def test_unsupported_action_raises(self):
+        from src.core.coordinator import _build_intent_legs
+        pkg = _intent_pkg(direction="long")
+        with pytest.raises(ValueError, match="unsupported delta.action"):
+            _build_intent_legs(
+                pkg, self._delta("noop", None, 0.0, 0.0, 0.0),
+            )
 
 
 class TestPackageIsIntentModeHelper:
