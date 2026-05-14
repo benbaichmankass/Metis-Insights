@@ -30,6 +30,21 @@ Environment=MONITOR_RECONCILE_ENABLED=true
 # tick. close = submit a market close. See
 # src/runtime/order_monitor.py::ORPHAN_POSITION_POLICY for semantics.
 Environment=ORPHAN_POSITION_POLICY=adopt
+# Multi-strategy intent layer (PR #1125 + #1129). When true the
+# pipeline runs the intent-aware multiplexer
+# (src/runtime/intent_multiplexer.py): every enabled strategy emits
+# a StrategyIntent each tick, the aggregator collapses them into one
+# DesiredPosition for BTCUSDT (same-direction reinforcement keeps the
+# larger valid target; conflicts resolve deterministically by
+# priority), and Coordinator.multi_account_execute sends only the
+# delta to reach that target. Per-account RiskManager still owns
+# sizing and the daily-loss / margin / position-size caps —
+# the intent layer never bypasses risk.
+# Default is false in src/runtime/intent_multiplexer.py; pinning to
+# true here is the operator's opt-in for Bybit2 / BTCUSDT (Turtle
+# Soup + VWAP coexistence). Override or revert by editing this line
+# and firing pull-and-deploy.
+Environment=MULTI_STRATEGY_INTENT_LAYER=true
 ExecStart=/usr/bin/python3 -u -B -m src.main
 Restart=always
 RestartSec=10
