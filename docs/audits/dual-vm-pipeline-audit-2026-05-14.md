@@ -300,15 +300,15 @@ Executor: log rejection to trade_journal.db, do NOT call exchange
 
 | ID | Item | Location | Severity | Notes |
 |----|------|----------|----------|-------|
-| D1 | **pipeline.py monolith (60 KB)** | `src/runtime/pipeline.py` | HIGH | All strategy dispatch, candle routing, and per-tick orchestration in one file. No trace IDs between pipeline stages. Hard to debug without knowing which stage a signal died in. |
-| D2 | **order_monitor.py monolith (100 KB)** | `src/runtime/order_monitor.py` | HIGH | All position monitor logic for all strategies is inline. turtle_soup and vwap monitor branches are interleaved with shared infra. Per-strategy extraction needed. |
-| D3 | **telegram_query_bot.py monolith (127 KB)** | `src/bot/telegram_query_bot.py` | MEDIUM | Single file contains all Telegram commands, hourly report rendering, health commands, account commands, strategy controls. M3 target: split trade_notifier vs cloud_notifier. |
-| D4 | **No structured trace IDs** | Everywhere | MEDIUM | Logs use plain `logger.info()`. No trade_id / signal_id propagated through pipeline stages. When a trade dies silently, there's no stage-tagged breadcrumb to locate it. |
+| D1 | **pipeline.py monolith (60 KB)** | `src/runtime/pipeline.py` | HIGH | All strategy dispatch, candle routing, and per-tick orchestration in one file. Trace IDs now added (PR-5). Target for PR-6 redefined scope: extract per-strategy tick dispatch to slim pipeline.py. |
+| D2 | ~~**order_monitor.py monolith**~~ **RESOLVED** | `src/runtime/order_monitor.py` | — | Dispatch pattern already in place via `_call_strategy_monitor()` (dynamically imports `src.units.strategies.{name}` and calls `monitor()`). Both `vwap.py` and `turtle_soup.py` have `monitor()` hooks. Infrastructure helpers (reconcile, orphan watchdog, exchange send/modify) are legitimate shared code and belong here. No per-strategy branches inline. |
+| D3 | **telegram_query_bot.py partially split** | `src/bot/telegram_query_bot.py` | LOW | **PR-4 merged (2026-05-14):** extracted `trade_notifier.py` (balance/positions/PnL formatting) and `cloud_notifier.py` (VM helpers + pending-pings drainer). Monolith trimmed by 562 lines. Remaining Telegram command handlers (~2085 lines) are command plumbing — further split if bot grows. |
+| D4 | ~~**No structured trace IDs**~~ **RESOLVED** | — | — | **PR-5 merged (2026-05-14):** `trace_id` (UUID4 hex) added to `OrderPackage` in `coordinator.py`. Threaded through dispatch log at signal-receipt, risk-gate, and executor stages. |
 | D5 | **Three notification paths** | `src/runtime/notify.py`, `src/comms/`, `src/bot/comms_handler.py` | MEDIUM | `notify.py` wraps raw Telegram send; `src/comms/` has models + templates + store; `comms_handler.py` has command dispatch. Boundaries are unclear — trade vs cloud notifications mix across all three. |
-| D6 | **spot-margin path dormant** | `src/units/accounts/execute.py` | LOW | bybit_2 migrated from spot-margin to linear perps 2026-05-10. Borrow-capacity helpers (`_coin_borrow_qty`, `_coin_borrow_usd`, orphan reconciler) remain in execute.py (57 KB). Deeply interleaved — deletion requires careful scoping. Gate: Ben confirms bybit_2 stable on linear. |
+| D6 | ~~**spot-margin path dormant**~~ **RESOLVED** | — | — | **PR-2 merged (2026-05-14):** all spot-specific code deleted from `execute.py` (−506 lines). Borrow-capacity helpers, spot-sell guard, `_post_close_flat_check`, and related test files removed. |
 | D7 | **prop_velotrade_1 scaffold** | `config/accounts.yaml`, `src/units/accounts/dxtrade_client.py` | LOW | 4 `NotImplementedError` methods, empty strategies list, no live env vars. Scaffold is safe (no live routing possible) but creates noise in account listings and health reports. |
 | D8 | ~~**test file in src/bot/**~~ **RETRACTED** | `src/bot/test_strategy_consumer.py` | — | Post-merge verification: this is **production code**, not a test file. The `test_` prefix refers to the `/test <strategy>` Telegram command it serves (M5 artifact consumer). It belongs in `src/bot/` and imports from `src.comms`. No action needed. |
-| D9 | **No account_state.yaml / per-VM gate** | Config layer | MEDIUM | Dry/live is embedded per-account in accounts.yaml with no VM-scoping. No separate runtime state file. M2 target: `account_state.yaml` with per-VM dry/live state, independent of the static config. |
+| D9 | ~~**No account_state.yaml / per-VM gate**~~ **RESOLVED** | — | — | **PR-3 merged (2026-05-14):** `config/account_state.yaml` added. `orders.py` reads it via `account_state_dry_run()` and enforces it before `RiskManager.approve()`. State file can only increase dryness — never force live over accounts.yaml dry. 6 contract tests. |
 | D10 | ~~**ETHUSDT multi-symbol aspirational**~~ **RESOLVED** | `config/strategies.yaml` | — | ETHUSDT was already removed from the active symbols list (dropped 2026-05-11). The comment in strategies.yaml already explains the limitation. No action needed. |
 | D11 | **runtime_flags/ mostly empty** | `runtime_flags/` | LOW | Only `send_hourly_demo` flag file present. Flag-based runtime control is underdeveloped — no flags for per-account dry/live toggle, strategy enable/disable at runtime without restart. |
 | D12 | ~~**fly.toml orphan**~~ **RESOLVED** | Repo root | — | Confirmed absent from repo root. Already cleaned. No action needed. |
@@ -347,13 +347,13 @@ Executor: log rejection to trade_journal.db, do NOT call exchange
 
 ~~PR-1 (repo hygiene) — **RETIRED**: post-merge verification found nothing to do. test_strategy_consumer.py is production code, experiments/ is legitimate, comms/archive/ is empty by design, fly.toml is absent.~~
 
-| PR | Scope | Risk | Gate |
-|----|-------|------|------|
-| PR-2 | Delete dormant spot-margin path from execute.py | Low | Ben confirms bybit_2 stable on linear |
-| PR-3 | account_state.yaml gate foundation (M2) | Medium | Ben permission + TRAINING_CENTER deploy first |
-| PR-4 | Lean Telegram split — trade_notifier + cloud_notifier (M3) | Medium | TRAINING_CENTER smoke test + TC IP needed |
-| PR-5 | Pipeline trace IDs — thread UUID4 through coordinator→monitor | Low | None (additive only) |
-| PR-6 | order_monitor.py per-strategy dispatch | Medium | Full test suite + TC dry-run smoke |
+| PR | Scope | Risk | Status |
+|----|-------|------|--------|
+| PR-2 | Delete dormant spot-margin path from execute.py | Low | ✅ **MERGED** #1102 (2026-05-14) — −506 lines |
+| PR-3 | account_state.yaml gate foundation (M2) | Medium | ✅ **MERGED** #1105 (2026-05-14) |
+| PR-4 | Lean Telegram split — trade_notifier + cloud_notifier (M3) | Medium | ✅ **MERGED** #1106 (2026-05-14) — −562 lines |
+| PR-5 | Pipeline trace IDs — thread UUID4 through coordinator→monitor | Low | ✅ **MERGED** #1102 (same PR as PR-2) |
+| PR-6 | **REDEFINED** — order_monitor.py per-strategy dispatch was already implemented (S-030 PR3). New scope: pipeline.py top-level strategy-dispatch extraction (D1) | Medium | 📋 Scoping in progress |
 
 ### PR-2: Delete spot-margin dormant path
 - Remove borrow-capacity helpers from `src/units/accounts/execute.py` (`_coin_borrow_qty`, `_coin_borrow_usd`, `_coin_borrowed_qty`, borrow orphan reconciler, related sizing branches)
@@ -391,7 +391,7 @@ Executor: log rejection to trade_journal.db, do NOT call exchange
 | Strategies always generate (VM1 + VM2) | PARTIAL — VM2 IP unknown | VM1: turtle_soup + vwap both running in `ict-trader-live`. VM2: backtesting only (no live strategy) |
 | Gate: Manual per-account dry/live | CONFIRMED | accounts.yaml is the single source; RiskManager enforces; no auto-toggle |
 | Live trader hands-off | CONFIRMED | bybit_2 live, bybit_1 dry. No planned changes without Ben permission |
-| Telegram: Trade + Cloud split | NOT YET | Single monolith `telegram_query_bot.py`; M3 will split |
+| Telegram: Trade + Cloud split | DONE | PR-4 merged: `trade_notifier.py` + `cloud_notifier.py` extracted; bot trimmed by 562 lines |
 | Dual VMs | PARTIAL | LIVE_TRADER confirmed; TRAINING_CENTER IP unconfirmed |
 
 ---

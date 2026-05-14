@@ -65,8 +65,8 @@ def patch_exchange(monkeypatch):
     def _set(df: pd.DataFrame) -> _StubExchange:
         stub = _StubExchange(df)
         holder["stub"] = stub
-        from src.runtime import pipeline as pl
-        monkeypatch.setattr(pl, "_build_killzone_exchange", lambda settings: stub)
+        from src.runtime import strategy_signal_builders as ssb
+        monkeypatch.setattr(ssb, "_build_killzone_exchange", lambda settings: stub)
         return stub
 
     return _set
