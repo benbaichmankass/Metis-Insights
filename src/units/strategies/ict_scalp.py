@@ -43,10 +43,12 @@ Strategies are pure signal generators (see ``_base.py``): no
 """
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, Dict, Optional
 
 import pandas as pd
 
+from src.runtime.shadow_adapter import with_shadow_preds
 from src.units.strategies._base import (
     monitor_breakeven_sl,
     require_candles,
@@ -66,18 +68,18 @@ _DEFAULTS: Dict[str, Any] = {
     # Sweep gate
     "sweep_buffer_bps": 5.0,         # min sweep depth in bps of close
     # Displacement gate — v2 raised 1.0 → 1.3 after the 90-day backtest
-    # showed v1 admitted too many "tepid" displacement bars whose
+    # showed v1 admitted too many “tepid” displacement bars whose
     # follow-through couldn't carry to the 1.5R TP.
     "displacement_atr_mult": 1.3,
     "min_displacement_body_to_range": 0.55,
     # FVG gate
     "min_fvg_size_bps": 2.0,         # min FVG size in bps of close
-    # Mitigation gate — v2 default is "wick_rejection": bar wicks INTO
+    # Mitigation gate — v2 default is “wick_rejection”: bar wicks INTO
     # the FVG and CLOSES BACK OUTSIDE with a matching-direction body.
-    # This is a stronger reversal signal than v1's "any overlap with
-    # matching body", which was the dominant timeout driver in the
+    # This is a stronger reversal signal than v1's “any overlap with
+    # matching body”, which was the dominant timeout driver in the
     # first backtest. Legacy v1 logic is available as
-    # "body_inside_fvg" for back-compat / A/B comparison.
+    # “body_inside_fvg” for back-compat / A/B comparison.
     "mitigation_mode": "wick_rejection",  # "wick_rejection" | "body_inside_fvg"
     # Entry / risk
     "atr_sl_buffer_mult": 0.20,
@@ -139,13 +141,13 @@ def _detect_sweep(
 
     A liquidity sweep requires BOTH (a) the bar pierces a swing extreme
     by ``sweep_buffer_bps`` of price AND (b) the same bar closes back
-    inside the prior range (the "reversion" gate). Without the
+    inside the prior range (the “reversion” gate). Without the
     reversion gate a regular breakout bar — which makes a fresh high or
     low and keeps going — would be misclassified as a sweep, and the
     downstream displacement leg would then look for a reversal that
     never came. Same gate ordering that turtle_soup uses.
 
-    Returns a dict with keys ``direction`` ("long" | "short" | None),
+    Returns a dict with keys ``direction`` (“long” | “short” | None),
     ``index`` (positional index in ``df``), ``level`` (the swept swing
     extreme), and ``extreme`` (how far price pierced — the bar's low for
     long sweeps, high for short).
@@ -320,9 +322,9 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
     Parameters
     ----------
     cfg : dict
-        Strategy config; ``cfg["timeframe"]`` defaults to "5m". May
+        Strategy config; ``cfg["timeframe"]`` defaults to “5m”. May
         override any key in ``_DEFAULTS``. ``cfg["symbol"]`` is required
-        for the package's symbol field (falls back to "BTCUSDT").
+        for the package's symbol field (falls back to “BTCUSDT”).
     candles_df : pd.DataFrame
         OHLCV frame at ``cfg["timeframe"]``. Must have columns
         ``open``, ``high``, ``low``, ``close`` (volume optional).
@@ -557,7 +559,80 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
             "risk_per_unit": float(risk),
         },
     }
-    return package
+    return with_shadow_preds(
+        package,
+        predictors=_resolve_shadow_predictors(cfg),
+        feature_row=_build_shadow_feature_row(package),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Shadow-predictor helpers (WS7 audit-only)
+# ---------------------------------------------------------------------------
+
+
+def _resolve_shadow_predictors(cfg: Dict[str, Any]) -> list:
+    """Pick the shadow predictors for this tick from cfg.
+
+    Same 3-mode resolution priority as turtle_soup._resolve_shadow_predictors
+    (S-AI-WS7-PART-5): explicit plural injection wins, then singular
+    legacy injection, then config-driven shadow_model_ids resolved via
+    the registry-backed factory.
+    """
+    if "_shadow_predictors" in cfg:
+        return list(cfg["_shadow_predictors"] or [])
+    single = cfg.get("_shadow_predictor")
+    if single is not None:
+        return [single]
+    ids = cfg.get("shadow_model_ids") or []
+    if not ids:
+        return []
+    from ml.registry.model_registry import ModelRegistry
+    from ml.shadow.factory import (
+        DEFAULT_LOG_PATH,
+        DEFAULT_REGISTRY_ROOT,
+        resolve_predictors,
+    )
+
+    registry_root = Path(
+        cfg.get("_shadow_registry_root") or DEFAULT_REGISTRY_ROOT
+    )
+    log_path = Path(cfg.get("_shadow_log_path") or DEFAULT_LOG_PATH)
+    return resolve_predictors(
+        ids,
+        ModelRegistry(registry_root),
+        log_path=log_path,
+    )
+
+
+def _build_shadow_feature_row(package: Dict[str, Any]) -> Dict[str, Any]:
+    """Project the order package to a signal-time feature dict.
+
+    Shared surface with other strategies (strategy_name, setup_type,
+    timeframe, direction, confidence, atr, body_to_range) plus
+    ict_scalp-specific features (sweep_depth_atr, fvg_size_norm,
+    displacement_idx_from_end). Outcome columns (pnl, r_multiple) are
+    excluded by construction.
+    """
+    meta = package.get("meta") or {}
+    atr = float(meta.get("atr", 0.0) or 0.0)
+    sweep_extreme = float(meta.get("sweep_extreme", 0.0) or 0.0)
+    sweep_level = float(meta.get("sweep_level", 0.0) or 0.0)
+    fvg_size = float(meta.get("fvg_size", 0.0) or 0.0)
+    sweep_depth_atr = abs(sweep_extreme - sweep_level) / atr if atr > 0 else 0.0
+    fvg_size_norm = min(fvg_size / max(atr, 1e-9), 1.0) if atr > 0 else 0.0
+    return {
+        "strategy_name":             "ict_scalp_5m",
+        "setup_type":                meta.get("setup_tf", ""),
+        "timeframe":                 meta.get("timeframe", ""),
+        "direction":                 package.get("direction", ""),
+        "confidence":                float(package.get("confidence", 0.0) or 0.0),
+        "atr":                       atr,
+        "body_to_range":             float(meta.get("displacement_body_to_range", 0.0) or 0.0),
+        "sweep_depth_atr":           sweep_depth_atr,
+        "fvg_size_norm":             fvg_size_norm,
+        "displacement_idx_from_end": int(meta.get("displacement_idx_from_end", 0) or 0),
+    }
 
 
 # ---------------------------------------------------------------------------
