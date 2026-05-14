@@ -26,6 +26,8 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 import yaml
 
+from src.runtime.orders import account_state_dry_run
+
 if TYPE_CHECKING:
     from src.units.accounts.account import TradingAccount
 
@@ -783,6 +785,18 @@ class Coordinator:
                 effective_dry = bool(dry_run)
             else:
                 effective_dry = account_dry
+
+            # account_state.yaml belt-and-suspenders gate (PR-3 / M2).
+            # Only enforces dryness — never forces live. A missing file
+            # or missing account entry is a no-op (fail-open).
+            state_dry = account_state_dry_run(account.name)
+            if state_dry is True and not effective_dry:
+                logger.warning(
+                    "[coordinator] account_state.yaml overrides %s to dry_run "
+                    "(accounts.yaml said live, state file says dry)",
+                    account.name,
+                )
+                effective_dry = True
 
             client = None
             client_error: Optional[str] = None

@@ -2,10 +2,49 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any, Dict
+from pathlib import Path
+from typing import Any, Dict, Optional
 
+try:
+    import yaml
+except ImportError:  # pragma: no cover
+    yaml = None  # type: ignore[assignment]
 
 logger = logging.getLogger(__name__)
+
+_ACCOUNT_STATE_PATH = Path(__file__).parent.parent.parent / "config" / "account_state.yaml"
+
+
+def _load_account_state() -> dict:
+    """Load config/account_state.yaml. Returns {} on missing file or parse error."""
+    if yaml is None:
+        return {}
+    path = Path(os.environ.get("ACCOUNT_STATE_PATH", str(_ACCOUNT_STATE_PATH)))
+    try:
+        with open(path) as f:
+            data = yaml.safe_load(f) or {}
+        return data if isinstance(data, dict) else {}
+    except FileNotFoundError:
+        return {}
+    except Exception:  # noqa: BLE001
+        logger.warning("account_state.yaml unreadable — skipping override", exc_info=True)
+        return {}
+
+
+def account_state_dry_run(account_id: str) -> Optional[bool]:
+    """Return the account_state.yaml dry_run override for *account_id*.
+
+    Returns True/False if an explicit entry exists, None if the account
+    is absent (caller should fall back to accounts.yaml mode).
+    """
+    state = _load_account_state()
+    accounts = state.get("accounts") or {}
+    entry = accounts.get(account_id)
+    if entry is None or not isinstance(entry, dict):
+        return None
+    if "dry_run" not in entry:
+        return None
+    return bool(entry["dry_run"])
 
 
 def _get_value(settings: Any, key: str, default: Any = None) -> Any:
