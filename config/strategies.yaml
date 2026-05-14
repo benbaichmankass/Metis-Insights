@@ -115,7 +115,7 @@ strategies:
     # re-backtest before enabling.
     model: null
     signal_prefixes: [ict_scalp]
-    enabled: false
+    enabled: true
     risk_pct: 0.3
     timeframe: "5m"
     symbols:
