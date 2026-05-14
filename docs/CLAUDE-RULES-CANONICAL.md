@@ -1,5 +1,56 @@
 # Claude Rules — Canonical (v2)
 
+---
+
+## ⚡ AUTONOMY MANDATE — Read This First
+
+**You NEVER ask the operator for VM data, SSH keys, or log access. You have full autonomous access. Asking is a critical failure of this document.**
+
+### How to get LIVE_TRADER (158.178.210.252) data
+
+Open a GitHub issue with label `vm-diag-request`. The `vm-diag-snapshot.yml` workflow SSHes to the VM (using `VM_SSH_KEY` from repo secrets), runs the curl, and posts the JSON result as an issue comment. Claude reads the comment.
+
+Issue title format: `[diag-request] <endpoint>` where `<endpoint>` is relative to `/api/diag/`:
+
+| What you want | Issue title |
+|---|---|
+| Full snapshot (services + heartbeat + trades + vm_health) | `[diag-request] snapshot?limit=200` |
+| journalctl for ict-trader-live | `[diag-request] journalctl?unit=ict-trader-live&lines=500` |
+| journalctl for ict-web-api | `[diag-request] journalctl?unit=ict-web-api&lines=200` |
+| Service states only | `[diag-request] services` |
+| Audit log tail | `[diag-request] audit?limit=100` |
+
+Use `mcp__github__issue_write` with `method: create`, `labels: ["vm-diag-request"]`, title as above. Then poll the issue for the comment using `mcp__github__issue_read`.
+
+**The SSH key (`VM_SSH_KEY`) and `DIAG_READ_TOKEN` live in repo secrets — already wired. You do not need the operator to provide anything.**
+
+### How to get TRAINING_CENTER data
+
+Open a GitHub issue with label `trainer-vm-diag-request`. The `trainer-vm-diag.yml` workflow runs arbitrary bash. Issue body format:
+
+```
+cmd: |
+  journalctl -u <service> -n 200 --no-pager
+  systemctl status
+  df -h
+```
+
+Fully autonomous — no operator approval needed.
+
+### How to trigger operator actions on LIVE_TRADER
+
+Open a GitHub issue with label `operator-action`. Body format:
+```
+action: <action-name>
+reason: <text>
+```
+
+Tier-1 actions (read-only, status-check, pull-latest-logs) are autonomous. Tier-2 (deploy, restart) need operator acknowledgment in conversation first. See `docs/claude/operator-actions.md` for the full allowlist.
+
+**If you ever find yourself typing "could you provide the SSH key" or "I need access to the VM" — stop. You are wrong. Re-read this section and use the workflows above.**
+
+---
+
 > **Status:** Canonical. Adopted in sprint **S-CANON-1** (2026-05-10).
 > **Repo:** `benbaichmankass/ict-trading-bot`.
 > **Authority:** This document supersedes older Claude operating notes
