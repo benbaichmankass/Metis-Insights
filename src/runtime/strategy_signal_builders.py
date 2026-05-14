@@ -178,6 +178,131 @@ def turtle_soup_signal_builder(settings: dict) -> Dict[str, Any]:
     }
 
 
+def ict_scalp_signal_builder(settings: dict) -> Dict[str, Any]:
+    """ICT scalp v1 — liquidity sweep + displacement + FVG mitigation.
+
+    Default timeframe is 5m; ``config/strategies.yaml::ict_scalp_5m.timeframe``
+    is the source of truth and can be flipped to "1m" (or any other TF
+    the connector serves) without touching this builder.
+
+    Honours the ``enabled`` flag in ``config/strategies.yaml``. When
+    ``enabled: false`` (the default) the builder short-circuits to a
+    ``side="none"`` no-op so live behaviour is unchanged — the
+    multiplexer's existing skip path absorbs it. Flipping the flag to
+    ``true`` is the deliberate operator action that promotes the
+    strategy into the live loop.
+    """
+    from src.units.strategies import load_strategy_config
+    from src.units.strategies.ict_scalp import order_package
+    from src.runtime.market_data import fetch_candles
+
+    try:
+        strategies_cfg = load_strategy_config()
+    except Exception:  # noqa: BLE001 — never fail-open on a config error
+        strategies_cfg = {}
+    ict_cfg = strategies_cfg.get("ict_scalp_5m", {}) or {}
+
+    symbol = settings.get("SYMBOL", settings.get("symbol", "BTCUSDT"))
+
+    if not bool(ict_cfg.get("enabled", False)):
+        logger.info(
+            "ict_scalp_5m: strategy disabled in config/strategies.yaml — "
+            "returning side=none"
+        )
+        return {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {
+                "strategy_name": "ict_scalp_5m",
+                "reason": "disabled_in_yaml",
+            },
+        }
+
+    timeframe = str(
+        ict_cfg.get("timeframe")
+        or settings.get("ICT_SCALP_TIMEFRAME")
+        or settings.get("TIMEFRAME")
+        or "5m"
+    )
+
+    exchange = _build_killzone_exchange(settings)
+    # Same lookback as turtle_soup so the rolling windows have headroom.
+    candles_df = fetch_candles(
+        symbol, timeframe, exchange_client=exchange, limit=200,
+    )
+    if candles_df is None:
+        raise RuntimeError(
+            f"ict_scalp_5m: no candle data returned for symbol={symbol} "
+            f"timeframe={timeframe}. Check that the exchange connection "
+            "is configured and the symbol is valid."
+        )
+
+    _publish_liquidity_state(symbol, candles_df)
+
+    cfg: Dict[str, Any] = {"symbol": symbol, "timeframe": timeframe, **ict_cfg}
+
+    try:
+        pkg = order_package(cfg, candles_df=candles_df)
+    except ValueError as exc:
+        logger.info("ict_scalp_5m: no actionable signal (%s)", exc)
+        try:
+            log_signal({
+                "event": "ict_scalp_eval",
+                "strategy": "ict_scalp_5m",
+                "symbol": symbol,
+                "timeframe": timeframe,
+                "side": "none",
+                "reason": str(exc),
+            })
+        except Exception:  # noqa: BLE001
+            logger.exception("ict_scalp_5m: dedicated audit emit failed")
+        return {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {
+                "strategy_name": "ict_scalp_5m",
+                "reason": str(exc),
+            },
+        }
+
+    side = "buy" if pkg["direction"] == "long" else "sell"
+    logger.info(
+        "ict_scalp_5m: %s signal at %s (entry=%s sl=%s tp=%s confidence=%.3f)",
+        side, symbol, pkg["entry"], pkg["sl"], pkg["tp"], pkg["confidence"],
+    )
+    pkg_meta = pkg.get("meta") or {}
+    try:
+        log_signal({
+            "event": "ict_scalp_eval",
+            "strategy": "ict_scalp_5m",
+            "symbol": symbol,
+            "timeframe": timeframe,
+            "side": side,
+            "entry": pkg["entry"],
+            "stop_loss": pkg["sl"],
+            "take_profit": pkg["tp"],
+            "confidence": pkg["confidence"],
+        })
+    except Exception:  # noqa: BLE001
+        logger.exception("ict_scalp_5m: dedicated audit emit failed")
+
+    return {
+        "symbol": symbol,
+        "side": side,
+        "price": pkg["entry"],
+        "entry_price": pkg["entry"],
+        "stop_loss": pkg["sl"],
+        "take_profit": pkg["tp"],
+        "pattern": "ict_scalp",
+        "meta": {
+            **pkg_meta,
+            "strategy_name": "ict_scalp_5m",
+            "confidence": pkg["confidence"],
+            "direction": pkg["direction"],
+        },
+    }
+
+
 def vwap_signal_builder(settings: dict) -> Dict[str, Any]:
     """
     Fetch OHLCV candles from the configured exchange and return a VWAP

@@ -49,6 +49,7 @@ from src.runtime.intents import (
 )
 from src.runtime.runtime_flags import is_strategy_paused
 from src.runtime.strategy_signal_builders import (
+    ict_scalp_signal_builder,
     turtle_soup_signal_builder,
     vwap_signal_builder,
 )
@@ -71,6 +72,10 @@ def _default_intent_builders() -> Dict[str, IntentBuilder]:
     return {
         "turtle_soup": turtle_soup_signal_builder,
         "vwap": vwap_signal_builder,
+        # ict_scalp_5m: registered so the intent layer is plumbed
+        # through, but the builder honours YAML enabled=false so it
+        # only contributes intents once the operator flips the flag.
+        "ict_scalp_5m": ict_scalp_signal_builder,
     }
 
 

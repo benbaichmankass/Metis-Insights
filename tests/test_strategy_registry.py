@@ -160,13 +160,17 @@ def test_service_name_unknown_strategy_raises(tmp_path):
 
 def test_real_yaml_loads():
     strategies = reg.load_strategies(_REAL_YAML)
-    assert len(strategies) == 2  # S-012 PR B1: roster reduced to turtle_soup + vwap
+    # turtle_soup + vwap (live) + ict_scalp_5m (registered, disabled).
+    # Bumped from 2 → 3 by the ict_scalp_5m landing; turn-on for live
+    # is gated by the `enabled` flag in the YAML, not by the registry
+    # row count.
+    assert len(strategies) == 3
 
 
 def test_real_yaml_has_required_strategies():
     strategies = reg.load_strategies(_REAL_YAML)
     names = {s["name"] for s in strategies}
-    assert names == {"turtle_soup", "vwap"}
+    assert names == {"turtle_soup", "vwap", "ict_scalp_5m"}
 
 
 def test_real_yaml_vwap_no_model():

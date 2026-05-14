@@ -1,0 +1,337 @@
+#!/usr/bin/env python3
+"""Standalone backtest CLI for the ict_scalp_5m strategy.
+
+Reads an OHLCV CSV (timestamp, open, high, low, close, volume), walks
+the frame bar-by-bar from a warm-up offset, invokes the units-layer
+``order_package()`` on a rolling window, and simulates fills on the
+strategy's own SL/TP using the subsequent bars. Prints a summary and
+optionally writes it to JSON.
+
+This script is the pre-live gate referenced by
+``.github/workflows/ict-scalp-backtest.yml`` and
+``docs/strategies/ict_scalp_5m.md``. The runtime signal builder
+(``src/runtime/strategy_signal_builders.py::ict_scalp_signal_builder``)
+honours the YAML ``enabled`` flag separately — running this script
+does not place orders or change live behaviour.
+
+Exit codes
+----------
+0  success
+1  runtime error (bad data, exception during walk)
+2  CLI usage error
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import statistics
+import sys
+from dataclasses import dataclass, field
+from datetime import date
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+import pandas as pd
+
+# Ensure src/ is importable when invoked as a script.
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
+from src.units.strategies.ict_scalp import order_package  # noqa: E402
+from src.units.strategies import load_strategy_config  # noqa: E402
+
+
+@dataclass
+class Trade:
+    entry_index: int
+    entry_time: Any
+    direction: str
+    entry: float
+    sl: float
+    tp: float
+    risk: float
+    exit_index: Optional[int] = None
+    exit_time: Any = None
+    exit_price: Optional[float] = None
+    outcome: str = "open"           # tp_hit | sl_hit | timeout | open
+    r_multiple: float = 0.0
+    meta: Dict[str, Any] = field(default_factory=dict)
+
+
+def _load_candles(path: str) -> pd.DataFrame:
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"Candle CSV not found: {path}")
+    df = pd.read_csv(path)
+    needed = {"open", "high", "low", "close"}
+    missing = needed - set(df.columns)
+    if missing:
+        raise ValueError(f"Missing columns in {path}: {sorted(missing)}")
+    if "timestamp" in df.columns:
+        df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce")
+        df = df.dropna(subset=["timestamp"]).sort_values("timestamp").reset_index(drop=True)
+    return df
+
+
+def _load_yaml_params() -> Dict[str, Any]:
+    try:
+        cfg = load_strategy_config().get("ict_scalp_5m", {}) or {}
+    except Exception:
+        cfg = {}
+    # Strip fields the unit doesn't consume.
+    for k in ("enabled", "model", "signal_prefixes", "symbols", "risk_pct", "shadow_model_ids"):
+        cfg.pop(k, None)
+    return cfg
+
+
+def _simulate_exit(
+    df: pd.DataFrame,
+    *,
+    start_idx: int,
+    direction: str,
+    sl: float,
+    tp: float,
+    timeout_bars: int,
+) -> Dict[str, Any]:
+    """Walk forward from start_idx checking SL/TP hits against bar
+    extremes. Assumes intra-bar SL/TP fills are at the level (no slippage).
+    Returns dict with outcome, exit_index, exit_price.
+    """
+    last = min(len(df) - 1, start_idx + timeout_bars)
+    for j in range(start_idx, last + 1):
+        bar_low = float(df["low"].iloc[j])
+        bar_high = float(df["high"].iloc[j])
+        if direction == "long":
+            # Pessimistic ordering: if both touched in one bar, count SL first.
+            if bar_low <= sl:
+                return {"outcome": "sl_hit", "exit_index": j, "exit_price": sl}
+            if bar_high >= tp:
+                return {"outcome": "tp_hit", "exit_index": j, "exit_price": tp}
+        else:
+            if bar_high >= sl:
+                return {"outcome": "sl_hit", "exit_index": j, "exit_price": sl}
+            if bar_low <= tp:
+                return {"outcome": "tp_hit", "exit_index": j, "exit_price": tp}
+    # Timeout: close at the last bar's close.
+    return {
+        "outcome": "timeout",
+        "exit_index": last,
+        "exit_price": float(df["close"].iloc[last]),
+    }
+
+
+def run_backtest(
+    df: pd.DataFrame,
+    *,
+    cfg_overrides: Dict[str, Any],
+    timeframe: str,
+    symbol: str,
+    warmup_bars: int,
+    timeout_bars: int,
+    cooldown_bars: int,
+) -> Dict[str, Any]:
+    cfg = {"symbol": symbol, "timeframe": timeframe, **cfg_overrides}
+    trades: List[Trade] = []
+    n = len(df)
+    if n < warmup_bars + 5:
+        raise ValueError(
+            f"Not enough candles: have {n}, need at least {warmup_bars + 5}"
+        )
+
+    next_eligible_idx = warmup_bars
+    for i in range(warmup_bars, n - 1):
+        if i < next_eligible_idx:
+            continue
+        window = df.iloc[: i + 1].copy()
+        try:
+            pkg = order_package(cfg, candles_df=window)
+        except ValueError:
+            continue
+        direction = pkg["direction"]
+        entry = float(pkg["entry"])
+        sl = float(pkg["sl"])
+        tp = float(pkg["tp"])
+        risk = abs(entry - sl)
+        if risk <= 0:
+            continue
+        # Fill simulation starts on the next bar.
+        result = _simulate_exit(
+            df,
+            start_idx=i + 1,
+            direction=direction,
+            sl=sl,
+            tp=tp,
+            timeout_bars=timeout_bars,
+        )
+        exit_price = float(result["exit_price"])
+        if direction == "long":
+            r = (exit_price - entry) / risk
+        else:
+            r = (entry - exit_price) / risk
+        ts = df["timestamp"].iloc[i] if "timestamp" in df.columns else i
+        exit_ts = (
+            df["timestamp"].iloc[result["exit_index"]] if "timestamp" in df.columns else result["exit_index"]
+        )
+        trades.append(
+            Trade(
+                entry_index=i,
+                entry_time=ts,
+                direction=direction,
+                entry=entry,
+                sl=sl,
+                tp=tp,
+                risk=risk,
+                exit_index=int(result["exit_index"]),
+                exit_time=exit_ts,
+                exit_price=exit_price,
+                outcome=str(result["outcome"]),
+                r_multiple=round(float(r), 4),
+                meta=pkg.get("meta") or {},
+            )
+        )
+        next_eligible_idx = int(result["exit_index"]) + 1 + cooldown_bars
+
+    return _summarize(trades, df, timeframe=timeframe, symbol=symbol)
+
+
+def _summarize(
+    trades: List[Trade],
+    df: pd.DataFrame,
+    *,
+    timeframe: str,
+    symbol: str,
+) -> Dict[str, Any]:
+    n = len(trades)
+    if n == 0:
+        return {
+            "strategy": "ict_scalp_5m",
+            "symbol": symbol,
+            "timeframe": timeframe,
+            "total_trades": 0,
+            "win_rate_pct": 0.0,
+            "expectancy_r": 0.0,
+            "total_r": 0.0,
+            "max_drawdown_r": 0.0,
+            "sharpe_r": 0.0,
+            "by_outcome": {},
+            "data_start": str(df["timestamp"].iloc[0]) if "timestamp" in df.columns and len(df) else None,
+            "data_end": str(df["timestamp"].iloc[-1]) if "timestamp" in df.columns and len(df) else None,
+            "bars": int(len(df)),
+            "run_date": str(date.today()),
+        }
+    rs = [t.r_multiple for t in trades]
+    wins = [r for r in rs if r > 0]
+    losses = [r for r in rs if r <= 0]
+    by_outcome: Dict[str, int] = {}
+    for t in trades:
+        by_outcome[t.outcome] = by_outcome.get(t.outcome, 0) + 1
+    cum = 0.0
+    peak = 0.0
+    max_dd = 0.0
+    for r in rs:
+        cum += r
+        if cum > peak:
+            peak = cum
+        dd = peak - cum
+        if dd > max_dd:
+            max_dd = dd
+    mean = sum(rs) / n
+    stdev = statistics.pstdev(rs) if n > 1 else 0.0
+    sharpe = (mean / stdev) if stdev > 0 else 0.0
+    return {
+        "strategy": "ict_scalp_5m",
+        "symbol": symbol,
+        "timeframe": timeframe,
+        "total_trades": int(n),
+        "winning_trades": int(len(wins)),
+        "losing_trades": int(len(losses)),
+        "win_rate_pct": round(100.0 * len(wins) / n, 2),
+        "expectancy_r": round(mean, 4),
+        "total_r": round(sum(rs), 4),
+        "max_drawdown_r": round(max_dd, 4),
+        "sharpe_r": round(sharpe, 4),
+        "avg_win_r": round(sum(wins) / len(wins), 4) if wins else 0.0,
+        "avg_loss_r": round(sum(losses) / len(losses), 4) if losses else 0.0,
+        "by_outcome": by_outcome,
+        "data_start": str(df["timestamp"].iloc[0]) if "timestamp" in df.columns else None,
+        "data_end": str(df["timestamp"].iloc[-1]) if "timestamp" in df.columns else None,
+        "bars": int(len(df)),
+        "run_date": str(date.today()),
+    }
+
+
+def _format_text(summary: Dict[str, Any]) -> str:
+    lines = [
+        f"ict_scalp_5m backtest — {summary['symbol']} {summary['timeframe']}",
+        f"  data: {summary.get('data_start')} → {summary.get('data_end')} ({summary['bars']} bars)",
+        f"  total_trades   : {summary['total_trades']}",
+    ]
+    if summary["total_trades"]:
+        lines.extend([
+            f"  win_rate_pct   : {summary['win_rate_pct']}%",
+            f"  expectancy_r   : {summary['expectancy_r']}",
+            f"  total_r        : {summary['total_r']}",
+            f"  max_drawdown_r : {summary['max_drawdown_r']}",
+            f"  sharpe_r       : {summary['sharpe_r']}",
+            f"  avg_win_r      : {summary['avg_win_r']}",
+            f"  avg_loss_r     : {summary['avg_loss_r']}",
+            f"  by_outcome     : {summary['by_outcome']}",
+        ])
+    return "\n".join(lines)
+
+
+def main(argv: List[str]) -> int:
+    p = argparse.ArgumentParser(description="Backtest ict_scalp_5m.")
+    p.add_argument("--data", default=os.environ.get("BACKTEST_DATA_PATH", "data/backtest_candles.csv"),
+                   help="OHLCV CSV path (default: $BACKTEST_DATA_PATH or data/backtest_candles.csv).")
+    p.add_argument("--timeframe", default="5m", help="Strategy timeframe label (default: 5m).")
+    p.add_argument("--symbol", default="BTCUSDT")
+    p.add_argument("--warmup-bars", type=int, default=50,
+                   help="Skip the first N bars to give lookback windows room (default: 50).")
+    p.add_argument("--timeout-bars", type=int, default=24,
+                   help="Force-close a trade after N bars if neither SL nor TP hits (default: 24 → 2h on 5m).")
+    p.add_argument("--cooldown-bars", type=int, default=3,
+                   help="Skip N bars after each exit before re-evaluating (default: 3).")
+    p.add_argument("--json", dest="json_out", default=None,
+                   help="Write summary to this JSON file. '-' means stdout.")
+    p.add_argument("--ignore-yaml", action="store_true",
+                   help="Ignore config/strategies.yaml; use unit defaults only.")
+    args = p.parse_args(argv[1:])
+
+    try:
+        df = _load_candles(args.data)
+    except Exception as exc:
+        print(f"ERROR: failed to load candles from {args.data}: {exc}", file=sys.stderr)
+        return 1
+
+    cfg_overrides = {} if args.ignore_yaml else _load_yaml_params()
+
+    try:
+        summary = run_backtest(
+            df,
+            cfg_overrides=cfg_overrides,
+            timeframe=args.timeframe,
+            symbol=args.symbol,
+            warmup_bars=int(args.warmup_bars),
+            timeout_bars=int(args.timeout_bars),
+            cooldown_bars=int(args.cooldown_bars),
+        )
+    except Exception as exc:
+        print(f"ERROR: backtest failed: {exc}", file=sys.stderr)
+        return 1
+
+    print(_format_text(summary))
+
+    if args.json_out:
+        payload = json.dumps(summary, indent=2, default=str)
+        if args.json_out == "-":
+            print(payload)
+        else:
+            Path(args.json_out).write_text(payload)
+            print(f"\nJSON written to {args.json_out}", file=sys.stderr)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

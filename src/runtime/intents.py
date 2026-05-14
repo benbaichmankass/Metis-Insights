@@ -99,6 +99,10 @@ SUPPORTED_SYMBOLS: frozenset[str] = frozenset({"BTCUSDT"})
 DEFAULT_PRIORITIES: Dict[str, int] = {
     "turtle_soup": 50,
     "vwap": 40,
+    # ict_scalp_5m is below vwap so even if accidentally enabled it
+    # cannot override the established strategies on a tie. Tune
+    # upward only after a backtest validates the edge.
+    "ict_scalp_5m": 30,
 }
 
 # Priority used when a strategy is not listed in DEFAULT_PRIORITIES and

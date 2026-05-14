@@ -90,3 +90,44 @@ strategies:
       band_pct: 0.02
 
     shadow_model_ids: []
+
+  ict_scalp_5m:
+    # ICT scalp v1 — liquidity sweep + displacement + FVG mitigation.
+    # See src/units/strategies/ict_scalp.py + docs/strategies/ict_scalp_5m.md.
+    #
+    # Disabled by default. The strategy is wired through the registry
+    # and signal builders so it can be backtested at unit level and
+    # turned on by flipping enabled→true once a backtest validates the
+    # signal definition. While enabled=false the runtime builder
+    # short-circuits to side="none" so live behaviour is unchanged.
+    #
+    # The 1m variant is a config flip: copy this block under a new
+    # name with timeframe: "1m", retune sweep_lookback_bars /
+    # swing_lookback_bars to span a similar wall-clock window, and
+    # re-backtest before enabling.
+    model: null
+    signal_prefixes: [ict_scalp]
+    enabled: false
+    risk_pct: 0.3
+    timeframe: "5m"
+    symbols:
+      - BTCUSDT
+    # Lookbacks
+    sweep_lookback_bars: 12
+    swing_lookback_bars: 20
+    atr_period: 14
+    # Gate thresholds
+    sweep_buffer_bps: 5.0
+    displacement_atr_mult: 1.0
+    min_displacement_body_to_range: 0.55
+    min_fvg_size_bps: 2.0
+    # Risk
+    atr_sl_buffer_mult: 0.20
+    tp_at_r: 1.5
+    # Session filter — disabled by default; crypto runs 24/7. Operator
+    # can scope to London + NY kill-zones (07-17 UTC) by flipping
+    # session_filter_enabled→true.
+    session_filter_enabled: false
+    session_start_hour: 7
+    session_end_hour: 17
+    shadow_model_ids: []
