@@ -87,7 +87,7 @@ jobs:
         startsWith(github.event.issue.title, '[vwap-backtest]')
       ))
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - name: Parse issue body
         if: github.event_name == 'issues'
@@ -96,7 +96,6 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Extract key: value pairs from the issue body.
           COMPARE=$(printf '%s' "${ISSUE_BODY}" | grep -m1 -i '^compare:' | awk '{print $2}' || true)
           DAYS=$(printf '%s' "${ISSUE_BODY}" | grep -m1 -i '^days:' | awk '{print $2}' || true)
           START_DATE=$(printf '%s' "${ISSUE_BODY}" | grep -m1 -i '^start_date:' | awk '{print $2}' || true)
@@ -107,7 +106,6 @@ jobs:
           EMA_PERIOD=$(printf '%s' "${ISSUE_BODY}" | grep -m1 -i '^ema_period:' | awk '{print $2}' || true)
           BAND_PCT=$(printf '%s' "${ISSUE_BODY}" | grep -m1 -i '^band_pct:' | awk '{print $2}' || true)
 
-          # Defaults
           [ -z "${COMPARE}" ]     && COMPARE="true"
           [ -z "${DAYS}" ]        && DAYS="365"
           [ -z "${START_DATE}" ]  && START_DATE=""
@@ -118,7 +116,6 @@ jobs:
           [ -z "${EMA_PERIOD}" ]  && EMA_PERIOD="50"
           [ -z "${BAND_PCT}" ]    && BAND_PCT="0.02"
 
-          # Validate
           if ! printf '%s' "${COMPARE}" | grep -qiE '^(true|false)$'; then COMPARE="true"; fi
           if ! printf '%s' "${DAYS}" | grep -qE '^[0-9]+$'; then DAYS="365"; fi
           if ! printf '%s' "${START_DATE}" | grep -qE '^([0-9]{4}-[0-9]{2}-[0-9]{2})?$'; then START_DATE=""; fi
@@ -206,7 +203,6 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Build fetch args — use explicit dates if provided, else --days.
           if [ -n "${bt_start_date}" ]; then
             FETCH_ARGS="--start-date ${bt_start_date}"
             [ -n "${bt_end_date}" ] && FETCH_ARGS="${FETCH_ARGS} --end-date ${bt_end_date}"
@@ -219,6 +215,8 @@ jobs:
               -o BatchMode=yes \
               -o StrictHostKeyChecking=accept-new \
               -o ConnectTimeout=20 \
+              -o ServerAliveInterval=30 \
+              -o ServerAliveCountMax=10 \
               "ubuntu@${TRAINER_VM_SSH_HOST}" \
               "cd /home/ubuntu/ict-trading-bot && \
                source .venv/bin/activate && \
@@ -231,42 +229,51 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Build CLI args safely — all values were validated above.
           if [ "${bt_compare}" = "true" ]; then
             CLI_ARGS="--compare"
           else
             CLI_ARGS="--htf-timeframe ${bt_htf_tf} --ema-period ${bt_ema_period} --band-pct ${bt_band_pct}"
           fi
 
-          # Append random-window args when num_windows > 0.
           if [ "${bt_num_windows:-0}" -gt 0 ]; then
             CLI_ARGS="${CLI_ARGS} --windows ${bt_num_windows} --window-days ${bt_window_days:-30}"
           fi
 
-          # Pass date args through in case the fresh CSV covers a wider window
-          # than needed (--days acts as a filter inside the script too).
           [ -n "${bt_start_date}" ] && CLI_ARGS="${CLI_ARGS} --start-date ${bt_start_date}"
           [ -n "${bt_end_date}" ]   && CLI_ARGS="${CLI_ARGS} --end-date ${bt_end_date}"
           [ -z "${bt_start_date}" ] && CLI_ARGS="${CLI_ARGS} --days ${bt_days:-365}"
 
-          # Run the script: stderr goes to a temp file (printed to Actions log),
-          # stdout (the single JSON line) is captured as the result.
+          # Write JSON to a file on the trainer VM rather than piping through SSH stdout.
+          # This survives NAT connection drops that occur on long-running SSH sessions.
+          # ServerAliveInterval keeps the connection alive during computation.
           ssh -i ~/.ssh/id_rsa \
               -o BatchMode=yes \
               -o StrictHostKeyChecking=accept-new \
               -o ConnectTimeout=20 \
+              -o ServerAliveInterval=30 \
+              -o ServerAliveCountMax=20 \
               "ubuntu@${TRAINER_VM_SSH_HOST}" \
               "cd /home/ubuntu/ict-trading-bot && \
                source .venv/bin/activate && \
                BACKTEST_DATA_PATH=/tmp/backtest_fresh.csv \
                python -m src.backtest.run_backtest_vwap ${CLI_ARGS} \
+                 > /tmp/backtest_result.json \
                  2>/tmp/vwap_bt_err.txt; \
                EXIT=\$?; \
                cat /tmp/vwap_bt_err.txt >&2; \
-               exit \$EXIT" \
-              > backtest-result.json
+               exit \$EXIT"
 
-          # Validate the output is parseable JSON (single-line to stay within block scalar)
+      - name: Fetch backtest result from trainer VM
+        env:
+          TRAINER_VM_SSH_HOST: ${{ vars.TRAINER_VM_SSH_HOST || '158.178.209.121' }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/id_rsa \
+              -o BatchMode=yes \
+              -o StrictHostKeyChecking=accept-new \
+              -o ConnectTimeout=20 \
+              "ubuntu@${TRAINER_VM_SSH_HOST}" \
+              "cat /tmp/backtest_result.json" > backtest-result.json
           python3 -c "import json,os,sys; d=json.load(open('backtest-result.json')); print('valid JSON,', os.path.getsize('backtest-result.json'), 'bytes', file=sys.stderr)"
 
       - name: Upload artifact
