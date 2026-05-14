@@ -26,13 +26,19 @@ load_dotenv()
 import logging  # noqa: E402
 from typing import Any, Callable, Dict, Optional  # noqa: E402
 
-import pandas as pd  # noqa: E402
-
 from src.runtime.notify import send_to_operator  # noqa: E402
 from src.runtime.orders import safe_place_order  # noqa: E402
 from src.runtime.outcomes import Level, report  # noqa: E402
-from src.units.ui.telegram_format import Section, kv_block, render_html, render_plain  # noqa: E402
+from src.units.ui.telegram_format import render_html, render_plain  # noqa: E402
 from src.web.runtime_status import write_status  # noqa: E402
+# PR-8 / D1: formatting helpers extracted to pipeline_result.py.
+from src.runtime.pipeline_result import _pipeline_result_sections  # noqa: E402
+# PR-8 / D1: strategy-monocle DB-gate helpers extracted to strategy_monocle.py.
+from src.runtime.strategy_monocle import (  # noqa: E402
+    _refusal_cooldown_seconds,  # noqa: F401  (re-export: tests import from pipeline)
+    _has_open_package_for_strategy,
+    _recent_refusal_for_strategy,
+)
 
 _OUTCOME_LEVEL_BY_STATUS: Dict[str, Level] = {
     # Happy / expected
@@ -84,32 +90,6 @@ def default_signal_builder(settings: dict) -> Dict[str, Any]:
         "symbol": settings.get("SYMBOL", settings.get("symbol", "BTCUSDT")),
         "side": "buy",
     }
-
-
-def _build_killzone_exchange(settings: dict):
-    """Back-compat shim — the canonical home is now
-    ``src.runtime.market_data._build_exchange_client``.
-
-    S-033 (architecture-audit-2026-05-02 § P1-8): connector
-    construction moved out of the pipeline so signal builders aren't
-    coupled to exchange reachability. Existing call sites + tests that
-    monkeypatch ``pipeline._build_killzone_exchange`` keep working
-    through this thin re-export.
-    """
-    from src.runtime.market_data import _build_exchange_client
-    return _build_exchange_client(settings)
-
-
-def _killzone_symbol(settings: dict) -> str:
-    configured = settings.get("SYMBOL")
-    if configured:
-        return configured
-
-    exchange_name = str(settings.get("EXCHANGE", settings.get("exchange", "bybit"))).strip().lower()
-    if exchange_name == "binance":
-        return "BTC/USDT"
-
-    return "BTC/USDT:USDT"
 
 
 def _signal_to_order_package(signal: Dict[str, Any], settings: dict):
@@ -183,144 +163,6 @@ def _multi_account_dispatch_enabled(settings: dict) -> bool:
     return str(raw).strip().lower() in {"true", "1", "yes", "on"}
 
 
-def _signal_meta(signal: Dict[str, Any]) -> Dict[str, Any]:
-    meta = signal.get("meta") if isinstance(signal, dict) else None
-    return meta if isinstance(meta, dict) else {}
-
-
-def _extract_order_package_fields(signal: Dict[str, Any]) -> Dict[str, Any]:
-    """Pull entry / sl / tp / direction off *signal* with the same
-    precedence as ``_signal_to_order_package``.
-
-    Returns ``None`` for any field that isn't present so the renderer
-    can show ``—`` rather than fabricating a value. Used only for the
-    operator-facing Telegram envelope; never as a sizing input.
-    """
-    meta = _signal_meta(signal)
-    entry = signal.get("entry_price") or signal.get("price") or meta.get("price")
-    sl = signal.get("stop_loss") or meta.get("stop_loss") or meta.get("sl")
-    tp = signal.get("take_profit") or meta.get("take_profit") or meta.get("tp")
-    side = (signal.get("side") or "").lower()
-    direction = "long" if side == "buy" else ("short" if side == "sell" else None)
-    return {
-        "entry": entry,
-        "sl": sl,
-        "tp": tp,
-        "direction": direction,
-        "confidence": signal.get("confidence") or meta.get("confidence"),
-    }
-
-
-def _pipeline_result_sections(
-    *, signal: Dict[str, Any], result: Dict[str, Any], strategy: str,
-) -> list:
-    """Build the collapsable detail sections for the per-tick Telegram
-    "Pipeline result" message.
-
-    Sections are stable in shape so the operator can predict where to
-    look:
-
-    1. **Strategy** — name + signal confidence + meta keys.
-    2. **Order package** — entry / sl / tp / direction / qty when the
-       signal carried them; explicit "(not generated)" otherwise.
-    3. **Multi-account dispatch** — per-account result list when the
-       multi_account path ran.
-    4. **Why & next step** — only when status indicates a failure;
-       echoes the reason string and the operator-actionable hint
-       (e.g. "/accounts live <account_name> to flip out of dry mode").
-    """
-    sections: list = []
-    status = result.get("status", "unknown")
-    reason = result.get("reason")
-    meta = _signal_meta(signal)
-
-    # 1. Strategy detail
-    strat_rows = [
-        ("Strategy", strategy),
-        ("Symbol", signal.get("symbol")),
-        ("Side", signal.get("side")),
-        ("Qty (signal)", signal.get("qty")),
-        ("Confidence", signal.get("confidence") or meta.get("confidence")),
-    ]
-    sections.append(Section(
-        summary=f"Strategy — {strategy}",
-        body=kv_block(strat_rows),
-        priority=10,
-    ))
-
-    # 2. Order package detail (entry / sl / tp / direction). The
-    # "not generated" body is only meaningful when the strategy
-    # actually fired (side ∈ {'buy', 'sell'}) — on no-signal ticks
-    # there's no package to show and the section adds noise. CP-18 P3.
-    pkg = _extract_order_package_fields(signal)
-    side_actionable = str(signal.get("side", "")).strip().lower() in ("buy", "sell")
-    if any(v is not None for v in (pkg["entry"], pkg["sl"], pkg["tp"])):
-        pkg_rows = [
-            ("Direction", pkg["direction"]),
-            ("Entry",     pkg["entry"]),
-            ("Stop loss", pkg["sl"]),
-            ("Take profit", pkg["tp"]),
-            ("Confidence", pkg["confidence"]),
-        ]
-        sections.append(Section(
-            summary="Order package — generated",
-            body=kv_block(pkg_rows),
-            priority=20,
-        ))
-    elif side_actionable:
-        sections.append(Section(
-            summary="Order package — not generated",
-            body=(
-                "Signal did not carry entry/sl/tp at the top level; the "
-                "legacy single-client validation path ran instead of the "
-                "multi-account dispatch fast-path."
-            ),
-            priority=20,
-        ))
-
-    # 3. Multi-account dispatch (only when that path ran)
-    multi = result.get("multi_account_results")
-    if isinstance(multi, list) and multi:
-        lines = []
-        for r in multi:
-            if not isinstance(r, dict):
-                continue
-            acc = r.get("name") or r.get("account") or r.get("account_id") or "?"
-            err = r.get("error")
-            st = "ok" if err is None else (str(err) or "error")
-            qty = r.get("sized_qty") if r.get("sized_qty") is not None else r.get("qty")
-            line = f"{acc}: {st}"
-            if qty is not None and err is None:
-                line += f" qty={qty}"
-            lines.append(line)
-        sections.append(Section(
-            summary=f"Accounts dispatched — {len(multi)}",
-            body="\n".join(lines) or "(empty)",
-            priority=30,
-        ))
-
-    # 4. Failure remediation hint
-    if status in {"failed_validation", "failed_exchange",
-                  "failed_dispatch", "error"}:
-        hint_lines = []
-        if reason:
-            hint_lines.append(f"Reason: {reason}")
-        if reason and "account_mode_dry_run" in str(reason):
-            hint_lines.append(
-                "Action: this account is in dry_run mode "
-                "(config/accounts.yaml `mode: dry_run` or runtime "
-                "/accounts dry/live override). Flip it via Telegram "
-                "/accounts live <account_name> to start live execution."
-            )
-        sections.append(Section(
-            summary=f"Why & next step — {status}",
-            body="\n".join(hint_lines) or "(no detail)",
-            priority=5,
-        ))
-
-    return sections
-
-
 def _signal_carries_full_sltp(signal: Dict[str, Any]) -> bool:
     """True only when the signal carries entry, sl, and tp at the top
     level (or under ``meta``). Same shape as the local
@@ -337,213 +179,10 @@ def _signal_carries_full_sltp(signal: Dict[str, Any]) -> bool:
     )
 
 
-def _has_open_package_for_strategy(strategy_name: Optional[str]) -> Optional[str]:
-    """Strategy-monocle gate: return the order_package_id of an existing
-    open package for *strategy_name*, or ``None`` when no open package
-    exists.
-
-    Operator directive 2026-05-03: a strategy may have **one** open
-    package globally — across all accounts that follow it. Once a
-    package is logged, the strategy's job is to monitor + update
-    that package via ``order_monitor`` until SL/TP hits or the
-    strategy decides to close (PRs 2 + 3 of this sprint wire the
-    close path).
-
-    Best-effort — a DB-read failure returns ``None`` (i.e. "no open
-    package known"), which means the dispatcher proceeds. The risk
-    is creating one extra duplicate package in the DB-read failure
-    window; the alternative (refusing the dispatch on every
-    DB-read failure) trades a real bug for a hypothetical one.
-
-    The strategy_name is read from ``signal.meta.strategy_name``
-    (the canonical attribution source post-BUG-033). When unset
-    (multiplexer / unknown), the gate is bypassed — there's no
-    canonical name to scope the open-package query to.
-    """
-    if not strategy_name:
-        return None
-    try:
-        from src.units.db.database import Database
-        import os as _os
-        db_path = (
-            _os.environ.get("TRADE_JOURNAL_DB")
-            or _os.path.join(
-                _os.path.abspath(
-                    _os.path.join(_os.path.dirname(__file__), "..", "..")
-                ),
-                "trade_journal.db",
-            )
-        )
-        db = Database(db_path=db_path)
-        # 2026-05-09 — dropped ``linked_only=True``. With the filter on,
-        # a multi-account dispatch where every account refused on
-        # ``zero_exchange_capacity`` left the package row at
-        # status='open', linked_trade_id=NULL — and the next tick's gate
-        # query filtered it out, letting the dispatch retry every
-        # minute. The result was 50+ rejection rows per cluster in
-        # ``trades`` until ``_sweep_unlinked_packages`` orphaned the
-        # row at +5 min. Treating any open row (linked or not) as
-        # gate-blocking turns the rejection cadence from 1/min into
-        # 1 per 5-min sweep window.
-        rows = db.get_order_packages_by_strategy(
-            strategy_name, status="open", limit=1,
-        )
-        if rows:
-            return str(rows[0].get("order_package_id") or "")
-        return None
-    except Exception as exc:  # noqa: BLE001
-        logger.warning(
-            "_has_open_package_for_strategy(%s): DB read failed — %s",
-            strategy_name, exc,
-        )
-        return None
-
-
-# Default cooldown (seconds) after a strategy was internally refused
-# (sized_qty=0 from RiskManager) before the dispatcher will re-attempt
-# the same strategy. Tuned to one full 5 m candle so VWAP / turtle_soup
-# get a fresh bar of market data before retrying — the most common
-# transient cause of a sized_qty=0 refusal is Bybit V5 returning
-# ``availableToBorrow=0`` for the borrow side of a spot-margin order
-# (S-056 / S-058) and that field repopulates on the exchange's own
-# cadence, not ours. Pre-fix the strategy_monocle gate only blocked
-# on *open* packages, so a refused signal re-fired every minute and
-# accumulated 20 ``status='rejected'`` rows over 1 h on 2026-05-10
-# (per the trade-journal evidence FU-20260510-002 originally
-# mislabelled as a 170131 cluster). Operator override via
-# ``STRATEGY_REFUSAL_COOLDOWN_SECONDS`` in the systemd unit.
-_DEFAULT_REFUSAL_COOLDOWN_SECONDS = 300
-
-
-def _refusal_cooldown_seconds() -> int:
-    raw = os.environ.get("STRATEGY_REFUSAL_COOLDOWN_SECONDS")
-    if raw is None:
-        return _DEFAULT_REFUSAL_COOLDOWN_SECONDS
-    try:
-        v = int(str(raw).strip())
-    except (TypeError, ValueError):
-        return _DEFAULT_REFUSAL_COOLDOWN_SECONDS
-    return v if v >= 0 else _DEFAULT_REFUSAL_COOLDOWN_SECONDS
-
-
-def _recent_refusal_for_strategy(
-    strategy_name: Optional[str],
-    cooldown_seconds: Optional[int] = None,
-) -> Optional[Dict[str, Any]]:
-    """Return ``{"order_package_id", "age_seconds", "cooldown_seconds"}``
-    when *strategy_name* has a ``status='rejected'`` order_packages row
-    updated within the cooldown window, else ``None``.
-
-    Belt-and-braces companion to ``_has_open_package_for_strategy``.
-    The open-package gate already blocks dispatch while a strategy has
-    an outstanding live position; this gate blocks dispatch while a
-    strategy's most-recent attempt was *internally refused*
-    (``sized_qty=0`` → ``log_rejection_to_journal(status='rejected')``
-    in coordinator.multi_account_execute). The two together prevent
-    both kinds of duplicate dispatch — including the
-    sized_qty=0 cascade FU-20260510-002 captured.
-
-    Best-effort — DB-read failure returns ``None`` (i.e. "no
-    cooldown known") rather than refusing every dispatch on a
-    transient SQLite hiccup. Tradeoff matches the open-package
-    helper's contract.
-    """
-    if not strategy_name:
-        return None
-    cooldown = cooldown_seconds if cooldown_seconds is not None else _refusal_cooldown_seconds()
-    if cooldown <= 0:
-        return None
-    try:
-        from datetime import datetime, timezone
-        from src.units.db.database import Database
-        import os as _os
-        db_path = (
-            _os.environ.get("TRADE_JOURNAL_DB")
-            or _os.path.join(
-                _os.path.abspath(
-                    _os.path.join(_os.path.dirname(__file__), "..", "..")
-                ),
-                "trade_journal.db",
-            )
-        )
-        db = Database(db_path=db_path)
-        rows = db.get_order_packages_by_strategy(
-            strategy_name, status="rejected", limit=1,
-        )
-        if not rows:
-            return None
-        row = rows[0]
-        updated = row.get("updated_at") or row.get("created_at")
-        if not updated:
-            return None
-        try:
-            ts = datetime.fromisoformat(str(updated).replace("Z", "+00:00"))
-            if ts.tzinfo is None:
-                ts = ts.replace(tzinfo=timezone.utc)
-        except (TypeError, ValueError):
-            return None
-        age_seconds = (datetime.now(timezone.utc) - ts).total_seconds()
-        if age_seconds < 0 or age_seconds > cooldown:
-            return None
-        return {
-            "order_package_id": str(row.get("order_package_id") or ""),
-            "age_seconds": float(age_seconds),
-            "cooldown_seconds": int(cooldown),
-        }
-    except Exception as exc:  # noqa: BLE001
-        logger.warning(
-            "_recent_refusal_for_strategy(%s): DB read failed — %s",
-            strategy_name, exc,
-        )
-        return None
-
-
 # turtle_soup_signal_builder and vwap_signal_builder are re-exported from
-# src.runtime.strategy_signal_builders (PR-6 extraction). They are imported
-# at the top of this file for back-compat; the bodies below are removed.
-#
-# The following is a tombstone comment so grep / git blame traces back here:
+# src.runtime.strategy_signal_builders (PR-6 extraction).
 #   turtle_soup_signal_builder → src/runtime/strategy_signal_builders.py
 #   vwap_signal_builder        → src/runtime/strategy_signal_builders.py
-
-
-def _coerce_ohlcv_with_dt_index(raw: Any) -> pd.DataFrame:
-    """
-    Normalise raw exchange OHLCV into a DataFrame with a UTC
-    ``DatetimeIndex``.
-
-    The ICT analyzer requires a DatetimeIndex (kill-zones are derived
-    from ``df.index.hour``). We accept either:
-
-    - a list of ``[ts_ms, open, high, low, close, volume]`` rows
-      (the ccxt / Bybit / Binance native shape), or
-    - a DataFrame already containing a ``timestamp`` column in ms or a
-      DatetimeIndex.
-    """
-    if isinstance(raw, pd.DataFrame):
-        df = raw.copy()
-    else:
-        df = pd.DataFrame(
-            raw,
-            columns=["timestamp", "open", "high", "low", "close", "volume"],
-        )
-
-    if not isinstance(df.index, pd.DatetimeIndex):
-        if "timestamp" not in df.columns:
-            raise RuntimeError(
-                "ICT strategy: candle frame is missing a 'timestamp' "
-                "column and has no DatetimeIndex."
-            )
-        df["timestamp"] = pd.to_datetime(
-            df["timestamp"], unit="ms", utc=True
-        )
-        df = df.set_index("timestamp")
-
-    for col in ("open", "high", "low", "close", "volume"):
-        if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors="coerce")
-
-    return df
 
 
 def _write_ict_signals_from_meta(signal: dict, settings: dict) -> None:
