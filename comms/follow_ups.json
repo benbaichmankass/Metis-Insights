@@ -290,6 +290,22 @@
       "snoozed_until": null,
       "closed_at": null,
       "closed_reason": null
+    },
+    {
+      "id": "FU-20260514-001",
+      "opened_at": "2026-05-14T17:10:00+00:00",
+      "opened_by": "claude",
+      "source": "operator-chat-2026-05-14-post-1133-cycle-diag",
+      "related_prs": [1133],
+      "title": "prop-mission-policy-baseline-v0 collapses to majority-class predictor",
+      "description": "First post-#1133 cycle on 2026-05-14 registered prop-mission-policy-baseline-v0 with accuracy=1.0 but f1=0.0, precision=0.0, recall=0.0, brier=0.0 on n_eval=53. The classifier is predicting the majority class on every eval row — the positive 'pass' label is degenerate or near-empty. Training pipeline is mechanically fine; the model itself is useless. Likely root cause: the prop-mission 'pass' label is rare with only ~80 closed trades total in the journal, so the binary classifier learns the trivial 'always negative' policy. Status=candidate, stage=research_only — nothing live consumes the model, so it's not a live-trading blocker.",
+      "expected_check": "Pull the most recent run for prop-mission-policy-baseline-v0 from /api/bot/ml/registry (or directly from the trainer's ml/registry-store/prop-mission-policy-baseline-v0.json). If the latest run's metrics still show accuracy=1.0 + f1/precision/recall = 0.0, the degenerate-class behaviour persists — surface as anomaly. If f1 > 0 (or n_eval has grown materially > 53 AND the positive-class rate is non-trivial), the trade count + label balance has improved enough to attempt a real fit. Cross-check with trade_journal.db trade-count (`SELECT COUNT(*) FROM trades WHERE status='closed'`); progress requires more closed trades.",
+      "trigger_condition": "Any /health-review run where the trainer dimensions are graded (trainer_registry).",
+      "resolution_criteria": "Close once the latest prop-mission run shows f1 > 0.1 AND non-zero precision+recall, indicating the model is actually distinguishing pass/fail. Or close if the model is deprecated / replaced.",
+      "status": "open",
+      "snoozed_until": null,
+      "closed_at": null,
+      "closed_reason": null
     }
   ]
 }
