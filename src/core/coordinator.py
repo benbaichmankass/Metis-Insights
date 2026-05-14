@@ -20,6 +20,7 @@ from __future__ import annotations
 import importlib
 import logging
 import os
+import uuid
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
@@ -92,6 +93,7 @@ class OrderPackage:
     tp: float            # primary take-profit price
     confidence: float = 0.0  # 0..1 model score / probability
     meta: Dict[str, Any] = field(default_factory=dict)
+    trace_id: str = field(default_factory=lambda: uuid.uuid4().hex)
 
 
 # ---------------------------------------------------------------------------
@@ -212,7 +214,15 @@ class Coordinator:
                 "_shadow_predictors": self._get_shadow_predictors(strategy),
             }
             pkg_dict = mod.order_package(cfg, candles_df=candles_df)
-            return OrderPackage(strategy=strategy, **pkg_dict)
+            pkg = OrderPackage(strategy=strategy, **pkg_dict)
+            if pkg.meta is None:
+                pkg.meta = {}
+            pkg.meta["trace_id"] = pkg.trace_id
+            logger.info(
+                "[coordinator] trace_id=%s strategy=%s symbol=%s direction=%s",
+                pkg.trace_id, strategy, pkg.symbol, pkg.direction,
+            )
+            return pkg
         except ImportError:
             raise NotImplementedError(
                 f"Strategy module 'src.units.strategies.{strategy}' not found; "
@@ -700,6 +710,10 @@ class Coordinator:
             return pkg.strategy in assigned
 
         accounts = [a for a in accounts if _eligible_for_dispatch(a)]
+        logger.info(
+            "[coordinator.dispatch] trace_id=%s strategy=%s symbol=%s eligible_accounts=%d",
+            getattr(pkg, "trace_id", "?"), pkg.strategy, pkg.symbol, len(accounts),
+        )
 
         results = []
         for account in accounts:
@@ -819,70 +833,11 @@ class Coordinator:
                 # Cash spot (``market_type: spot``): the account holds
                 # real BTC and USDT, and a sell order can only spend
                 # BTC while a buy can only spend USDT. Use the
-                # direction-aware free balance so the sizer never
-                # produces a qty that exceeds actual holdings. Without
-                # this override, total-portfolio balance produces
-                # Bybit ErrCode 170131 ("Insufficient balance") on
-                # spot Sell when the wallet holds USDT.
-                #
-                # PR 5 (2026-05-10): the spot-margin branch was deleted.
-                # bybit_2 migrated to linear perps in PR 3 and no other
-                # account uses spot-margin; the override now only
-                # fires for ``market_type: spot``.
                 _market_type = (
                     getattr(account, "market_type", "spot") or "spot"
                 ).lower()
-                if (
-                    _market_type == "spot"
-                    and client is not None
-                    and not effective_dry
-                    and not bool(getattr(pkg, "meta", None) and (pkg.meta or {}).get("is_test"))
-                ):
-                    try:
-                        from src.units.accounts.execute import (
-                            _fetch_spot_coin_balances,
-                        )
-                        _spot_bal = _fetch_spot_coin_balances(client, pkg.symbol)
-                        # S-052: total account equity (free + locked across
-                        # all coins, in USD, net of any open borrow
-                        # liability). RiskManager uses this for the
-                        # min_balance_usd gate so a wallet with $120 total
-                        # but only $40 free USDT isn't refused as "too
-                        # small". None when the exchange didn't return
-                        # totalEquity — gate falls back to ``balance``
-                        # (pre-S-052 contract).
-                        total_account_usd = _spot_bal.get("total_account_usd")
-                        if pkg.direction == "short":
-                            balance = _spot_bal["base_usd_value"]
-                        else:
-                            balance = _spot_bal["quote_usdt"]
-                        available_usd = None
-                        logger.debug(
-                            "multi_account_execute: spot balance override "
-                            "account=%s market_type=%s direction=%s "
-                            "symbol=%s balance=%.4f "
-                            "total_account=%s",
-                            account.name, _market_type, pkg.direction,
-                            pkg.symbol, balance,
-                            f"{total_account_usd:.4f}" if total_account_usd is not None else "n/a",
-                        )
-                    except Exception as _spot_exc:  # noqa: BLE001
-                        logger.warning(
-                            "multi_account_execute: spot direction-aware balance "
-                            "failed for %s (%s): %s — using total portfolio value",
-                            account.name, pkg.symbol, _spot_exc,
-                        )
-                        available_usd = None
-                        total_account_usd = None
-                else:
-                    available_usd = None
-                    total_account_usd = None
-                # Forward the routing label as a primitive (legacy
-                # interface — see ``size_order_from_cfg``). With the
-                # spot-margin sizing kernel removed (PR 5) this is a
-                # no-op for sizing math, but the parameter is retained
-                # so existing tests / direct callers stay
-                # source-compatible.
+                available_usd = None
+                total_account_usd = None
                 sized_qty = account.risk_manager.position_size(
                     pkg, balance,
                     market_type=_market_type,
