@@ -57,7 +57,7 @@
 | **WS6** | Open-source model layer | 📋 NOT STARTED | [ws6-open-source-models.md](docs/sprint-plans/ai-traders/ws6-open-source-models.md) |
 | **WS7** | Deployment tiers | 🔄 IN PROGRESS (PART-1..PART-6 done — shadow harness complete; model training + audit log rotation queued) | [ws7-deployment-tiers.md](docs/sprint-plans/ai-traders/ws7-deployment-tiers.md) |
 | **WS8** | Monitoring and feedback loops | 🔄 IN PROGRESS (PART-1 inspector CLI + PART-2 dashboard endpoints + PART-3 drift detector shipped; external-reference variant + alerting queued) | [ws8-monitoring-feedback.md](docs/sprint-plans/ai-traders/ws8-monitoring-feedback.md) |
-| **WS9** | Oracle / Hugging Face runtime split | 🔄 IN PROGRESS — two-VM topology shipped (training-center VM provisioning workflow); cross-VM data flow + training-cycle script queued | [ws9-runtime-split.md](docs/sprint-plans/ai-traders/ws9-runtime-split.md) |
+| **WS9** | Oracle / Hugging Face runtime split | 🔄 IN PROGRESS — two-VM topology shipped (training-center VM provisioning workflow + `run_training_cycle.sh`); training cycle stabilised end-to-end on 2026-05-14 (S-AI-WS9-FU-2): case-insensitive setup matching, empty-dataset clean-skip path, run-versioned registry with per-run history, on-disk reconciler. Daily-cadence cycle now lands all trainable manifests with `overall_rc=0`. HF lifecycle queued. | [ws9-runtime-split.md](docs/sprint-plans/ai-traders/ws9-runtime-split.md) |
 | **WS10** | Architecture-doc enforcement | 🔄 IN PROGRESS (advisory guard + checklist + PR template + changelog/known-gaps sections shipped; hard-fail upgrade queued) | [ws10-arch-doc-enforcement.md](docs/sprint-plans/ai-traders/ws10-arch-doc-enforcement.md) |
 
 **Non-negotiable rules:**

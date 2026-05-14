@@ -91,13 +91,82 @@ matches `RegistryEntry.to_dict()`:
       "at": "2026-05-10T12:00:00+00:00"
     }
   ],
-  "notes": ""
+  "notes": "",
+  "runs": [
+    {
+      "run_id": "20260514T162241Z",
+      "model_state_path": "/abs/path/.../<runid>/model_state.json",
+      "metrics": { "mse": 0.001, "mae": 0.025, "n_eval": 2.0 },
+      "code_revision": "abc123def",
+      "at": "2026-05-14T16:22:41+00:00",
+      "by": "experiments-runner"
+    }
+  ]
 }
 ```
 
 The `history` array is append-only — every promotion adds a
 `StatusEvent` and never edits past entries. This is the durable
-audit trail.
+audit trail of status changes.
+
+The `runs` array is append-only too — every training cycle adds a
+`RunRecord` and never edits past entries. See "Per-run training
+history" below.
+
+## Per-run training history (added 2026-05-14, #1133/#1139)
+
+Every training cycle on the trainer VM re-runs every manifest. The
+registry preserves the full per-run history under a stable `model_id`:
+
+- The top-level fields (`metrics`, `model_state_path`,
+  `code_revision`) mirror the **newest** run.
+- The `runs` array records **every** run, sorted by `run_id` (a UTC
+  timestamp `YYYYMMDDTHHMMSSZ` produced by `run_experiment`).
+- Each `RunRecord` carries the run's `run_id`, `model_state_path`,
+  `metrics`, `code_revision`, `at`, and `by`.
+
+### Append-on-duplicate `register()`
+
+`ModelRegistry.register(...)` is idempotent on `(model_id, run_id)`:
+
+1. **First call for `model_id`** — creates the entry with
+   `runs=(first_run,)`.
+2. **Subsequent call, new `run_id`** — appends a new `RunRecord`,
+   refreshes the entry's top-level metrics / state path / code
+   revision to the latest run, and appends a
+   `StatusEvent("re-trained at run_id=X")` to `history`. Status,
+   stage, `created_at`, and `stage_history` are preserved.
+3. **Same `(model_id, run_id)` twice** — no-op (guards retries
+   without duplicating a run).
+
+This is the contract behind daily-cadence training: re-runs of the
+same manifest never raise — they accumulate per-run history.
+
+### Backfill: `python -m ml.registry.reconcile`
+
+Strictly-additive reconciler that walks
+`<experiments_root>/<model_id>/` and rebuilds `runs` from every run
+dir on disk. Existing `RunRecord`s are preserved verbatim; missing
+ones are synthesized with `code_revision="unknown"` and
+`by="registry-reconcile (backfilled from disk)"` so the gap is
+self-documenting. A `RunRecord` whose experiment dir is missing
+from disk is preserved, not dropped — reconcile never causes data
+loss.
+
+```
+python -m ml.registry.reconcile \
+    [--registry-root  ml/registry-store] \
+    [--experiments-root ml/experiments-runs] \
+    [--model-id MODEL_ID]   (repeatable, default = all entries)
+    [--dry-run]
+```
+
+Use cases:
+- One-shot migration for entries written before `runs` existed.
+- Restore from backup that pre-dates today's runs.
+- Sanity-recovery after manual edits drop a row.
+
+Idempotent — re-running on an in-sync registry is a no-op.
 
 ## Rollback
 
@@ -112,16 +181,29 @@ tier metadata. The artifact triple under
 
 ## Versioning
 
-The registry stores `model_id` strings as opaque identifiers.
-Versioning is the manifest author's responsibility — typical
-convention: `<task>-<approach>-<vNNN>` (e.g.
-`setup-quality-baseline-v0`). A new training run with the same
-`model_id` is rejected (`RegistryError`); use a fresh id when
-producing a successor.
+The registry stores `model_id` strings as opaque identifiers — the
+manifest author owns the family-level convention (typical:
+`<task>-<approach>-<vNNN>`, e.g. `setup-quality-baseline-v0`).
+
+Within a `model_id`, **per-run versioning** is the `run_id` —
+the UTC timestamp `YYYYMMDDTHHMMSSZ` produced by
+`ml.experiments.runner.run_experiment` and recorded on every
+`RunRecord` in `runs`. Daily-cadence training accumulates run
+records under a stable `model_id` (see "Per-run training history"
+above).
+
+For a **family-level successor** (architectural change to the
+manifest, breaking schema, etc.), bump the manifest's `model_id`
+suffix (`-v0` → `-v1`) so the new family lives in its own
+registry entry. The append-on-duplicate path is for repeat training
+runs of the same manifest, not for evolving the manifest itself.
 
 ## Forbidden
 
 - Editing past `StatusEvent` entries. The history is append-only.
+- Editing past `RunRecord` entries. The `runs` list is
+  append-only too. Use `python -m ml.registry.reconcile` if a
+  reconstruction from disk is needed.
 - Promoting through a tier without satisfying its documented gates
   (the CLI enforces this; bypassing requires editing the JSON
   directly, which is a process violation).
@@ -137,5 +219,7 @@ This doc must be reviewed in the same PR as any change to:
 - `VALID_STATUSES` or `_ALLOWED_TRANSITIONS` in
   `ml/registry/model_registry.py`,
 - `PROMOTION_GATES` in `ml/promotion/__init__.py`,
-- the `RegistryEntry` field set,
-- the CLI `promote` semantics.
+- the `RegistryEntry` or `RunRecord` field set,
+- the `register()` append/idempotency contract,
+- the CLI `promote` semantics,
+- the `ml/registry/reconcile.py` reconciler behaviour.
