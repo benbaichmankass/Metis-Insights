@@ -936,12 +936,112 @@ class Coordinator:
                 # reason flows through the result row's ``error`` field
                 # so /signals and the diagnostic ping can distinguish a
                 # true risk breach from a mission-aware skip.
-                # Open-position guard: refuse a second order for the same
-                # account+symbol if one is already live. The exchange
-                # would reject it anyway (110007 on linear perps) but
-                # catching it here avoids the API call and gives a clear
-                # journal reason. Test/smoke orders bypass this check.
-                if not (pkg.meta and pkg.meta.get("is_test")):
+                #
+                # Intent-aware multi-strategy mode (#1125 follow-up):
+                # when the package came out of the intent multiplexer
+                # the binary open-position guard is too coarse — it
+                # would block Turtle Soup's reinforcement of an open
+                # VWAP long even though the two strategies agreed on
+                # direction. Use the delta computer instead so:
+                #   * already-at-target  → noop (no order; logged + skipped)
+                #   * below-target same  → top up by the delta
+                #   * opposite direction → refuse (v1: flip not wired)
+                # Non-intent packages still see the legacy binary block
+                # so existing tests / legacy single-strategy mode keep
+                # the same behaviour.
+                from src.runtime.intents import (
+                    compute_execution_delta_for_package,
+                    package_is_intent_mode,
+                )
+                intent_mode = package_is_intent_mode(pkg)
+                effective_qty = sized_qty
+                if intent_mode and not (pkg.meta and pkg.meta.get("is_test")):
+                    from src.runtime.positions import current_net_position_qty
+                    current_signed_qty = current_net_position_qty(
+                        account.name, pkg.symbol,
+                    )
+                    delta = compute_execution_delta_for_package(
+                        pkg,
+                        current_signed_qty=current_signed_qty,
+                        risk_sized_qty=sized_qty,
+                    )
+                    pkg.meta["execution_delta"] = {
+                        "action": delta.action,
+                        "side": delta.side,
+                        "qty_delta": delta.qty_delta,
+                        "target_qty": delta.target_qty,
+                        "current_qty": delta.current_qty,
+                        "reason": delta.reason,
+                    }
+                    if delta.action == "noop":
+                        logger.info(
+                            "[coordinator] intent-mode noop for %s/%s: %s",
+                            account.name, pkg.symbol, delta.reason,
+                        )
+                        from src.units.accounts.execute import log_rejection_to_journal
+                        log_rejection_to_journal(
+                            pkg, account_cfg,
+                            reason=f"intent_noop:{delta.reason}",
+                            status="rejected",
+                            sized_qty=0.0,
+                        )
+                        results.append({
+                            "name": account.name,
+                            "exchange": account.exchange,
+                            "account_type": account.account_type,
+                            "trade_id": None,
+                            "sized_qty": 0.0,
+                            "error": f"intent_noop:{delta.reason}",
+                        })
+                        continue
+                    if delta.action in ("reduce", "close", "flip"):
+                        # Reduce-only / flip wiring is intentionally a
+                        # follow-up — needs reduce-only flag plumbing
+                        # into execute_pkg + the per-account close path.
+                        # Surface the refusal so the operator sees the
+                        # condition explicitly instead of silently sending
+                        # an opposite-side market order.
+                        risk_reason = f"intent_{delta.action}_not_yet_wired_v1"
+                        raise RiskBreach(
+                            f"Account '{account.name}': {risk_reason} "
+                            f"(target={delta.target_qty}, current={delta.current_qty}). "
+                            f"Operator override or wait for follow-up PR."
+                        )
+                    # delta.action ∈ {"open", "increase"} — use the
+                    # delta qty as the order size. The RiskManager
+                    # already capped it (we passed sized_qty in); the
+                    # delta computer returns ≤ sized_qty by
+                    # construction.
+                    if delta.qty_delta < account.risk_manager.min_qty:
+                        # Position is within one min-lot of the target;
+                        # treat as noop to avoid spamming dust orders.
+                        logger.info(
+                            "[coordinator] intent-mode sub-min_qty delta for "
+                            "%s/%s (delta=%s min_qty=%s) — treating as noop",
+                            account.name, pkg.symbol,
+                            delta.qty_delta, account.risk_manager.min_qty,
+                        )
+                        from src.units.accounts.execute import log_rejection_to_journal
+                        log_rejection_to_journal(
+                            pkg, account_cfg,
+                            reason="intent_sub_min_qty_delta",
+                            status="rejected",
+                            sized_qty=0.0,
+                        )
+                        results.append({
+                            "name": account.name,
+                            "exchange": account.exchange,
+                            "account_type": account.account_type,
+                            "trade_id": None,
+                            "sized_qty": 0.0,
+                            "error": "intent_sub_min_qty_delta",
+                        })
+                        continue
+                    effective_qty = float(delta.qty_delta)
+                elif not (pkg.meta and pkg.meta.get("is_test")):
+                    # Legacy single-strategy / first-wins multiplexer
+                    # path. Binary open-position guard stays — see
+                    # block comment above for the rationale.
                     if _has_open_position(account.name, pkg.symbol):
                         risk_reason = "open_position_exists"
                         raise RiskBreach(
@@ -974,23 +1074,23 @@ class Coordinator:
                     exchange_client=client,
                     balance_usdt=balance,
                     dry_run=exec_dry_run,
-                    qty_override=sized_qty,
+                    qty_override=effective_qty,
                 )
                 self.push_alert(
                     f"multi_execute: {account.name} {pkg.strategy} "
-                    f"{pkg.direction} {pkg.symbol} qty={sized_qty} → {trade_id}",
+                    f"{pkg.direction} {pkg.symbol} qty={effective_qty} → {trade_id}",
                     source="accounts",
                     level="info",
                     account=account.name,
                     trade_id=trade_id,
-                    sized_qty=sized_qty,
+                    sized_qty=effective_qty,
                 )
                 results.append({
                     "name": account.name,
                     "exchange": account.exchange,
                     "account_type": account.account_type,
                     "trade_id": trade_id,
-                    "sized_qty": sized_qty,
+                    "sized_qty": effective_qty,
                     "error": None,
                 })
                 # Reset the consecutive exchange-rejection counter on a
