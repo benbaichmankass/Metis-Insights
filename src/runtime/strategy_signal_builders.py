@@ -183,7 +183,7 @@ def vwap_signal_builder(settings: dict) -> Dict[str, Any]:
     Fetch OHLCV candles from the configured exchange and return a VWAP
     mean-reversion signal.
 
-    Safe under DRY_RUN=true: fetches market data for signal computation but
+    Safe in dry-run mode: fetches market data for signal computation but
     relies on safe_place_order to prevent any actual order submission.
 
     If candle data is unavailable or insufficient, raises a clear,
