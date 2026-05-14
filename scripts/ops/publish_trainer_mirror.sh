@@ -56,7 +56,15 @@ set -uo pipefail
 REPO_ROOT="${REPO_ROOT:-/home/ubuntu/ict-trading-bot}"
 LIVE_VM_IP="${LIVE_VM_IP:-158.178.210.252}"
 LIVE_VM_USER="${LIVE_VM_USER:-ubuntu}"
-LIVE_VM_MIRROR_PATH="${LIVE_VM_MIRROR_PATH:-/home/ubuntu/ict-trading-bot/runtime_logs/trainer_mirror}"
+# Live VM resolves `runtime_logs_dir()` (src/utils/paths.py) through the
+# `DATA_DIR` umbrella env var set in `/etc/ict-trader/web-api.env` to
+# `/data/bot-data`, putting runtime_logs on the attached storage volume.
+# The trainer-mirror reader (`src/web/api/routers/training_center.py`)
+# uses the same helper, so we MUST publish into the same canonical
+# location — not into the repo-relative path. If `DATA_DIR` ever changes
+# on the live VM, update this default to match (or set
+# LIVE_VM_MIRROR_PATH at the systemd-unit level).
+LIVE_VM_MIRROR_PATH="${LIVE_VM_MIRROR_PATH:-/data/bot-data/runtime_logs/trainer_mirror}"
 VM_SSH_KEY="${VM_SSH_KEY:-$HOME/.ssh/ict-bot-ovm-private.key}"
 TRAINER_VM_IP="${TRAINER_VM_IP:-158.178.209.121}"
 TRAINING_LOG_PATH="${TRAINING_LOG_PATH:-$REPO_ROOT/runtime_logs/training_cycle.jsonl}"
