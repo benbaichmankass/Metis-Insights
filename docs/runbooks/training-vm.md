@@ -139,11 +139,11 @@ systemctl status ict-trainer.service  # → loaded, inactive (DISABLED)
 python3.11 --version                  # → 3.11.x
 ```
 
-If any of these fail, check `/var/log/cloud-init-output.log` for
-the apt/git error and re-trigger the workflow after fixing
-(the script is idempotent; it'll skip because the instance
-already exists, so you'll need to terminate first OR SSH in and
-fix manually — both autonomous-Claude under the trainer charter).
+If any of these fail, Claude checks `/var/log/cloud-init-output.log`
+via the `trainer-vm-diag` relay and either re-triggers the workflow
+after termination (idempotent provisioning) or fires a follow-up diag
+`cmd:` to fix in place. Both paths are autonomous under the trainer
+charter — no operator involvement.
 
 ## First action — WS5 baseline kickoff (autonomous-Claude)
 
@@ -180,8 +180,8 @@ What it does (per JSONL audit row in
   (e.g. `advisory`). Per the trainer charter § 3.a, autonomous up
   to `live_approved`. Stage transitions past `advisory` additionally
   require a sprint-log entry under `docs/sprint-logs/S-AI-WS5-PROMOTION-*`
-  per § 3.b — this script doesn't write that log; Claude does it
-  manually before bumping `TARGET_STAGE`.
+  per § 3.b — this script doesn't write that log; Claude writes it
+  in the same PR that bumps `TARGET_STAGE`.
 - `PROMOTION_BY` — defaults to `claude-trainer`. Recorded on every
   `StatusEvent` row the registry appends.
 - `PROMOTION_REASON` — defaults to a structured boilerplate citing
@@ -291,10 +291,11 @@ operator if it's anything else).
 
 ### Cloud-init failure (VM up, but `/etc/ict-trainer-vm.role` missing)
 
-SSH in (autonomous-Claude) and check
-`/var/log/cloud-init-output.log`. Common failures: apt-mirror flake
-(re-run the affected `apt install` manually), git-clone HTTP timeout
-(network blip; clone manually).
+Claude fires `trainer-vm-diag` with `cmd: cat /var/log/cloud-init-output.log`
+to read the failure. Common failures: apt-mirror flake (fix with a
+follow-up diag `cmd: sudo apt-get install -y <pkg>`), git-clone HTTP
+timeout (network blip; retry via diag `cmd:` with the clone). All
+recovery paths are autonomous via the diag relay.
 
 ### SSH connection refused
 

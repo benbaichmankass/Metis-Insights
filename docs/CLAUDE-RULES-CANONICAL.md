@@ -47,7 +47,23 @@ reason: <text>
 
 Tier-1 actions (read-only, status-check, pull-latest-logs) are autonomous. Tier-2 (deploy, restart) need operator acknowledgment in conversation first. See `docs/claude/operator-actions.md` for the full allowlist.
 
-**If you ever find yourself typing "could you provide the SSH key" or "I need access to the VM" — stop. You are wrong. Re-read this section and use the workflows above.**
+**If you ever find yourself typing any of these — stop. You are wrong. Re-read this section and use the workflows above:**
+
+- "could you provide the SSH key"
+- "I need access to the VM"
+- "I cannot directly observe the trainer VM"
+- "no SSH from this session"
+- "I don't have live access to the VM"
+- "I can only see what's in the repo"
+- "could you SSH in and paste…"
+- "to know status, an operator…"
+
+This anti-pattern list is duplicated in the root `CLAUDE.md` banner because
+a 2026-05-14 incident (`claude/training-center-streamlit-integration-ROYWF`)
+designed an integration around the *absence* of trainer access when the
+`trainer-vm-diag.yml` relay was sitting right there in `.github/workflows/`.
+The lesson stays in two places on purpose: a fresh session that skims past
+the CLAUDE.md pointer must still hit it here.
 
 ---
 
