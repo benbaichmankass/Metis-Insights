@@ -77,17 +77,14 @@ strategies:
       lookback_bars: 24
       neutral_band_pct: 0.003
 
-    # HTF trend gate — re-enabled 2026-05-13 with 5m-appropriate config.
-    # Interim setting: 1h EMA-20 (~20h trend context) pending backtest
-    # results from vwap-backtest issue #1066 (8 random 30-day windows
-    # across 365 days of data). Will be updated to the winning config
-    # once results are in; revert to enabled: false if no-filter wins.
-    #
-    # Replaces the old 4h EMA-200 (~33-day lookback) which was biased by
-    # a 38-month bull-dominated dataset and blocked sell entries in a
-    # clearly falling market (2026-05-11/12 incident).
+    # HTF trend gate — disabled. Backtest #1090 (8 random 30-day windows,
+    # May 2025-May 2026) showed no HTF config improves on the baseline:
+    # all Sharpes clustered near zero with std 4x the mean. The 1h EMA-20
+    # that was previously live was the worst tested config (Sharpe 0.009,
+    # 4/8 positive vs baseline 5/8). Re-enable with a specific config if
+    # future backtests on broader data show a clear edge.
     htf_trend_filter:
-      enabled: true
+      enabled: false
       htf_timeframe: "1h"
       ema_period: 20
       band_pct: 0.02
