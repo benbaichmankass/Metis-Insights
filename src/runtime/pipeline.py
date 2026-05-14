@@ -3,6 +3,7 @@ from src.runtime.signal_writer import write_signal  # noqa: F401  (used in _writ
 # PR-9 / D1: signal/order helpers extracted to their canonical modules.
 from src.runtime.signal_writer import _write_ict_signals_from_meta  # noqa: E402
 from src.runtime.order_bridge import _signal_to_order_package  # noqa: E402
+from src.runtime.runtime_flags import is_strategy_paused  # noqa: E402 (D11)
 from src.utils.signal_audit_logger import log_signal
 from src.runtime.risk_counters import inject_runtime_counters, inject_per_strategy_counters
 from src.news.news_pipeline import get_news_score
@@ -184,6 +185,9 @@ def multiplexed_signal_builder(settings: dict) -> Dict[str, Any]:
     symbol = settings.get("SYMBOL", settings.get("symbol", "BTCUSDT"))
 
     for strategy_name in STRATEGIES:
+        if is_strategy_paused(strategy_name):
+            logger.info("Multiplexer: '%s' paused via runtime flag — skipping", strategy_name)
+            continue
         builder = _STRATEGY_BUILDERS.get(strategy_name)
         if builder is None:
             logger.warning("Multiplexer: unknown strategy '%s' — skipping", strategy_name)
