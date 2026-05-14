@@ -157,11 +157,24 @@ def _strategies_from_registry() -> list:
 STRATEGIES = _strategies_from_registry()
 
 # Per-strategy risk allocation fractions applied inside the multiplexer.
-# S-012 PR C5: roster reduced to turtle_soup + vwap (50 / 50 split). The
-# legacy breakout / killzone / ict builders and entries are deleted.
+# This is the MULTIPLIER on each account's ``risk_pct`` used by
+# ``RiskManager.position_size`` (see ``meta["strategy_risk_pct"]``).
+# It is NOT a 100% split — each strategy independently scales the
+# account's per-trade risk; the daily-loss cap is the system-wide
+# bound on total drawdown.
+#
+# Production roster + their per-strategy fractions:
+#   * turtle_soup — 0.5: higher-conviction MTF setup
+#   * vwap         — 0.5: higher-frequency mean reversion
+#   * ict_scalp_5m — 0.3: scalp, smaller risk per trade. Matches the
+#     0.3 % risk fraction documented in config/strategies.yaml so a
+#     YAML reader and the dispatcher agree. Inactive at runtime
+#     until enabled=true in strategies.yaml AND ict_scalp_5m is on
+#     the account's strategies list in accounts.yaml.
 STRATEGY_RISK_PCT: Dict[str, float] = {
     "turtle_soup": 0.5,
     "vwap": 0.5,
+    "ict_scalp_5m": 0.3,
 }
 
 _STRATEGY_BUILDERS: Dict[str, Callable[[dict], Dict[str, Any]]] = {
