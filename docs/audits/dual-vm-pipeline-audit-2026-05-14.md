@@ -300,7 +300,7 @@ Executor: log rejection to trade_journal.db, do NOT call exchange
 
 | ID | Item | Location | Severity | Notes |
 |----|------|----------|----------|-------|
-| D1 | **pipeline.py monolith (60 KB)** | `src/runtime/pipeline.py` | HIGH | All strategy dispatch, candle routing, and per-tick orchestration in one file. Trace IDs now added (PR-5). Target for PR-6 redefined scope: extract per-strategy tick dispatch to slim pipeline.py. |
+| D1 | **pipeline.py monolith — in progress** | `src/runtime/pipeline.py` | MEDIUM | **PR-6 merged (2026-05-14):** signal builders extracted to `strategy_signal_builders.py` (−303 lines). **PR-8 in progress:** strategy-monocle DB gates extracted to `strategy_monocle.py`, Telegram formatter extracted to `pipeline_result.py`, plus dead-code removal — pipeline.py now 729 lines (from 1412). Remaining: `run_pipeline` orchestrator (~360 lines), `multiplexed_signal_builder`, `_write_ict_signals_from_meta`, `_signal_to_order_package`. Further extraction possible once CI green. |
 | D2 | ~~**order_monitor.py monolith**~~ **RESOLVED** | `src/runtime/order_monitor.py` | — | Dispatch pattern already in place via `_call_strategy_monitor()` (dynamically imports `src.units.strategies.{name}` and calls `monitor()`). Both `vwap.py` and `turtle_soup.py` have `monitor()` hooks. Infrastructure helpers (reconcile, orphan watchdog, exchange send/modify) are legitimate shared code and belong here. No per-strategy branches inline. |
 | D3 | **telegram_query_bot.py partially split** | `src/bot/telegram_query_bot.py` | LOW | **PR-4 merged (2026-05-14):** extracted `trade_notifier.py` (balance/positions/PnL formatting) and `cloud_notifier.py` (VM helpers + pending-pings drainer). Monolith trimmed by 562 lines. Remaining Telegram command handlers (~2085 lines) are command plumbing — further split if bot grows. |
 | D4 | ~~**No structured trace IDs**~~ **RESOLVED** | — | — | **PR-5 merged (2026-05-14):** `trace_id` (UUID4 hex) added to `OrderPackage` in `coordinator.py`. Threaded through dispatch log at signal-receipt, risk-gate, and executor stages. |
@@ -354,7 +354,8 @@ Executor: log rejection to trade_journal.db, do NOT call exchange
 | PR-4 | Lean Telegram split — trade_notifier + cloud_notifier (M3) | Medium | ✅ **MERGED** #1106 (2026-05-14) — −562 lines |
 | PR-5 | Pipeline trace IDs — thread UUID4 through coordinator→monitor | Low | ✅ **MERGED** #1102 (same PR as PR-2) |
 | PR-6 | Signal builder extraction from pipeline.py → strategy_signal_builders.py (D1) | Medium | ✅ **MERGED** #1107 (2026-05-14) — −303 lines |
-| PR-7 | Notification path consolidation — `send_to_operator()` helper in notify.py (D5) | Low | ✅ **MERGED** — |
+| PR-7 | Notification path consolidation — `send_to_operator()` helper in notify.py (D5) | Low | ✅ **MERGED** #1108 (2026-05-14) |
+| PR-8 | pipeline.py continued cleanup — strategy_monocle.py + pipeline_result.py + dead-code removal (D1) | Low | 🔄 **IN PROGRESS** — branch `claude/pr8-pipeline-d1-cleanup` |
 
 ### PR-2: Delete spot-margin dormant path
 - Remove borrow-capacity helpers from `src/units/accounts/execute.py` (`_coin_borrow_qty`, `_coin_borrow_usd`, `_coin_borrowed_qty`, borrow orphan reconciler, related sizing branches)
