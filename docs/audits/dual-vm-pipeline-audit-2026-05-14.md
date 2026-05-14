@@ -310,7 +310,7 @@ Executor: log rejection to trade_journal.db, do NOT call exchange
 | D8 | ~~**test file in src/bot/**~~ **RETRACTED** | `src/bot/test_strategy_consumer.py` | — | Post-merge verification: this is **production code**, not a test file. The `test_` prefix refers to the `/test <strategy>` Telegram command it serves (M5 artifact consumer). It belongs in `src/bot/` and imports from `src.comms`. No action needed. |
 | D9 | ~~**No account_state.yaml / per-VM gate**~~ **RESOLVED** | — | — | **PR-3 merged (2026-05-14):** `config/account_state.yaml` added. `orders.py` reads it via `account_state_dry_run()` and enforces it before `RiskManager.approve()`. State file can only increase dryness — never force live over accounts.yaml dry. 6 contract tests. |
 | D10 | ~~**ETHUSDT multi-symbol aspirational**~~ **RESOLVED** | `config/strategies.yaml` | — | ETHUSDT was already removed from the active symbols list (dropped 2026-05-11). The comment in strategies.yaml already explains the limitation. No action needed. |
-| D11 | **runtime_flags/ mostly empty** | `runtime_flags/` | LOW | Only `send_hourly_demo` flag file present. Flag-based runtime control is underdeveloped — no flags for per-account dry/live toggle, strategy enable/disable at runtime without restart. |
+| D11 | ~~**runtime_flags/ mostly empty**~~ **RESOLVED** | — | — | **PR-11 merged (2026-05-14):** `src/runtime/runtime_flags.py` added — `flags_dir()`, `is_strategy_paused()`, `list_paused_strategies()`. `multiplexed_signal_builder()` in `pipeline.py` now checks `is_strategy_paused()` before each builder call and skips paused strategies; returns `side='none'` when all are paused. Per-account dry/live toggle flags deliberately excluded (Tier-3). 14 tests. |
 | D12 | ~~**fly.toml orphan**~~ **RESOLVED** | Repo root | — | Confirmed absent from repo root. Already cleaned. No action needed. |
 
 ### 5.2 Stale / Orphan Files
@@ -356,7 +356,9 @@ Executor: log rejection to trade_journal.db, do NOT call exchange
 | PR-6 | Signal builder extraction from pipeline.py → strategy_signal_builders.py (D1) | Medium | ✅ **MERGED** #1107 (2026-05-14) — −303 lines |
 | PR-7 | Notification path consolidation — `send_to_operator()` helper in notify.py (D5) | Low | ✅ **MERGED** #1108 (2026-05-14) |
 | PR-8 | pipeline.py continued cleanup — strategy_monocle.py + pipeline_result.py + dead-code removal (D1) | Low | ✅ **MERGED** #1109 (2026-05-14) — 1090 → 729 lines |
-| PR-9 | pipeline.py further cleanup — order_bridge.py + _write_ict_signals_from_meta → signal_writer.py (D1) | Low | 🔄 **IN PROGRESS** — branch `claude/pr9-pipeline-d1-cont` |
+| PR-9 | pipeline.py further cleanup — order_bridge.py + _write_ict_signals_from_meta → signal_writer.py (D1) | Low | ✅ **MERGED** #1110 (2026-05-14) |
+| PR-10 | telegram_query_bot.py helper extraction — signal/account/trade helpers (D3) | Low | ✅ **MERGED** #1111 (2026-05-14) — −412 lines |
+| PR-11 | runtime_flags module + multiplexer pause check (D11) | Low | ✅ **MERGED** (2026-05-14) — 14 tests |
 
 ### PR-2: Delete spot-margin dormant path
 - Remove borrow-capacity helpers from `src/units/accounts/execute.py` (`_coin_borrow_qty`, `_coin_borrow_usd`, `_coin_borrowed_qty`, borrow orphan reconciler, related sizing branches)
