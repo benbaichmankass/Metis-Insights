@@ -33,15 +33,14 @@ def get_last_signals(conn, table='signals', limit=5):
 def format_signals(df):
     if df is None or df.empty:
         return "No signals generated yet."
-    lines = ["📊 Last 5 Signals\n"]
+    lines = ["\U0001f4ca Last 5 Signals\n"]
     for _, r in df.iterrows():
         lines.append(
             f"• {str(r.get('timestamp',''))[:19]} | "
             f"{r.get('symbol','?')} | "
             f"{r.get('signal_type', r.get('type','?'))} | "
             f"{r.get('direction', r.get('side',''))} | "
-            f"{r.get('price', r.get('price_level', r.get('entry_price','')))}"
-        )
+            f"{r.get('price', r.get('price_level', r.get('entry_price','')))}")
     return "\n".join(lines)
 
 
@@ -60,6 +59,16 @@ def ensure_signals_table(conn):
         metadata TEXT
     )
     """)
+    # Migration: add signal_type to tables created before the column was
+    # required. Deployed DBs that pre-date the column hit the warning:
+    #   data_loaders._count_signals_today: no such column: signal_type
+    # ALTER TABLE cannot add NOT NULL without a default on existing rows,
+    # so we add as TEXT DEFAULT '' and rely on new rows being inserted
+    # with an explicit value via insert_signal().
+    cur.execute("PRAGMA table_info(signals)")
+    cols = {row[1] for row in cur.fetchall()}
+    if "signal_type" not in cols:
+        cur.execute("ALTER TABLE signals ADD COLUMN signal_type TEXT DEFAULT ''")
     conn.commit()
 
 
