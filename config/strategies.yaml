@@ -135,6 +135,11 @@ strategies:
     # backtest CLI computes these by resampling the 5m feed; the
     # runtime signal builder fetches HTF candles separately).
     htf_trend_filter_enabled: true
+    # HTF fetch parameters the runtime signal builder consumes. The
+    # backtest CLI uses these too (via --htf-rule / --htf-ema-period
+    # flags, default to the same values).
+    htf_filter_timeframe: "1h"
+    htf_filter_ema_period: 20
     # Risk
     atr_sl_buffer_mult: 0.20
     tp_at_r: 1.5
