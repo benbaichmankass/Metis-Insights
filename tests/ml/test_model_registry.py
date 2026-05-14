@@ -77,17 +77,54 @@ class TestModelRegistry:
         assert len(entry.history) == 1
         assert entry.history[0].to_status == "candidate"
 
-    def test_register_rejects_duplicate(self, tmp_path: Path):
+    def test_register_appends_run_on_duplicate(self, tmp_path: Path):
+        """Re-registering the same model_id used to raise. Now it appends
+        a new RunRecord and refreshes top-level metrics — daily-cadence
+        re-trains accumulate training history under a stable model_id.
+        """
+        reg = ModelRegistry(tmp_path)
+        first = reg.register(
+            model_id="m-1", manifest={}, model_state_path="/tmp/s1.json",
+            metrics={"mse": 0.5}, code_revision="rev1", run_id="20260514T120000Z",
+        )
+        assert len(first.runs) == 1
+        assert first.runs[0].run_id == "20260514T120000Z"
+        assert first.metrics["mse"] == 0.5
+
+        second = reg.register(
+            model_id="m-1", manifest={}, model_state_path="/tmp/s2.json",
+            metrics={"mse": 0.3}, code_revision="rev2", run_id="20260515T120000Z",
+        )
+        # New run appended; top-level metrics now reflect the latest run.
+        assert len(second.runs) == 2
+        assert second.runs[0].run_id == "20260514T120000Z"
+        assert second.runs[1].run_id == "20260515T120000Z"
+        assert second.metrics["mse"] == 0.3
+        assert second.model_state_path == "/tmp/s2.json"
+        assert second.code_revision == "rev2"
+        # Status + created_at preserved across re-trains.
+        assert second.status == first.status
+        assert second.created_at == first.created_at
+        # History grew with a re-trained event.
+        assert len(second.history) == 2
+        assert "re-trained" in second.history[-1].reason
+
+    def test_register_idempotent_on_same_run_id(self, tmp_path: Path):
+        """Re-registering the same (model_id, run_id) is a no-op — guards
+        against double-publishing if a cycle retries before completing.
+        """
         reg = ModelRegistry(tmp_path)
         reg.register(
             model_id="m-1", manifest={}, model_state_path="/tmp/s.json",
-            metrics={}, code_revision="x",
+            metrics={"mse": 0.1}, code_revision="rev1", run_id="run-a",
         )
-        with pytest.raises(RegistryError):
-            reg.register(
-                model_id="m-1", manifest={}, model_state_path="/tmp/s.json",
-                metrics={}, code_revision="x",
-            )
+        again = reg.register(
+            model_id="m-1", manifest={}, model_state_path="/tmp/s.json",
+            metrics={"mse": 0.99}, code_revision="rev2", run_id="run-a",
+        )
+        assert len(again.runs) == 1
+        # Top-level didn't change because the run was deduplicated.
+        assert again.metrics["mse"] == 0.1
 
     def test_promote_allowed_transition(self, tmp_path: Path):
         reg = ModelRegistry(tmp_path)

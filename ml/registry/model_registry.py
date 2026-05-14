@@ -128,6 +128,48 @@ class StageEvent:
 
 
 @dataclass(frozen=True)
+class RunRecord:
+    """One training run of a registered model (S-AI-WS8-PART-2 follow-up).
+
+    `register()` appends a `RunRecord` every time it's called for an existing
+    `model_id`, instead of raising. This preserves the full training history
+    (one record per cycle) without polluting the model_id namespace with
+    timestamp suffixes — `model_id` stays stable as declared in the manifest,
+    `run_id` is the unique per-run identifier produced by `run_experiment`
+    (e.g. `20260514T162241Z`). The newest record's `metrics` /
+    `code_revision` / `model_state_path` define the entry's "current" state.
+    """
+
+    run_id: str
+    model_state_path: str
+    metrics: Mapping[str, float]
+    code_revision: str
+    at: datetime
+    by: str = "experiments-runner"
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "run_id": self.run_id,
+            "model_state_path": self.model_state_path,
+            "metrics": dict(self.metrics),
+            "code_revision": self.code_revision,
+            "at": self.at.isoformat(),
+            "by": self.by,
+        }
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> "RunRecord":
+        return cls(
+            run_id=payload["run_id"],
+            model_state_path=payload["model_state_path"],
+            metrics=dict(payload.get("metrics", {})),
+            code_revision=payload.get("code_revision", "unknown"),
+            at=datetime.fromisoformat(payload["at"]),
+            by=payload.get("by", "experiments-runner"),
+        )
+
+
+@dataclass(frozen=True)
 class RegistryEntry:
     model_id: str
     status: str
@@ -140,6 +182,11 @@ class RegistryEntry:
     notes: str = ""
     target_deployment_stage: str = _DEFAULT_STAGE
     stage_history: tuple[StageEvent, ...] = field(default_factory=tuple)
+    # Per-run training history. Daily cadence: one record per cycle.
+    # Newest record's `metrics` / `code_revision` / `model_state_path`
+    # mirror the entry's top-level fields. Backward-compatible — older
+    # entries written before this field existed deserialize with `runs=()`.
+    runs: tuple[RunRecord, ...] = field(default_factory=tuple)
 
     def __post_init__(self) -> None:
         if self.status not in VALID_STATUSES:
@@ -168,6 +215,7 @@ class RegistryEntry:
             "notes": self.notes,
             "target_deployment_stage": self.target_deployment_stage,
             "stage_history": [e.to_dict() for e in self.stage_history],
+            "runs": [r.to_dict() for r in self.runs],
         }
 
     @classmethod
@@ -190,6 +238,9 @@ class RegistryEntry:
             stage_history=tuple(
                 StageEvent.from_dict(e)
                 for e in payload.get("stage_history", [])
+            ),
+            runs=tuple(
+                RunRecord.from_dict(r) for r in payload.get("runs", [])
             ),
         )
 
@@ -231,12 +282,73 @@ class ModelRegistry:
         model_state_path: str,
         metrics: Mapping[str, float],
         code_revision: str,
+        run_id: str | None = None,
         notes: str = "",
         by: str = "experiments-runner",
     ) -> RegistryEntry:
-        if self.exists(model_id):
-            raise RegistryError(f"model_id {model_id!r} already registered")
+        """Register a training run for ``model_id``.
+
+        Append-on-duplicate semantics: re-registering the same ``model_id``
+        appends a new :class:`RunRecord` to the existing entry's ``runs``
+        list (preserving full training history) and refreshes the entry's
+        top-level ``metrics`` / ``model_state_path`` / ``code_revision`` to
+        reflect the latest run. Status, stage, and historical events are
+        preserved as-is. Daily-cadence re-trains no longer raise.
+
+        ``run_id`` is the unique per-run identifier (e.g.
+        ``20260514T162241Z``) produced by
+        :func:`ml.experiments.runner.run_experiment`. When omitted it's
+        derived from ``_now_utc()`` so callers that haven't been updated
+        yet still work, but the runner always supplies it explicitly.
+        """
+        stage = manifest.get("target_deployment_stage", _DEFAULT_STAGE)
+        if stage not in VALID_DEPLOYMENT_STAGES:
+            raise RegistryError(
+                f"manifest.target_deployment_stage must be one of "
+                f"{VALID_DEPLOYMENT_STAGES}; got {stage!r}"
+            )
         now = _now_utc()
+        if not run_id:
+            run_id = now.strftime("%Y%m%dT%H%M%SZ")
+        new_run = RunRecord(
+            run_id=run_id,
+            model_state_path=model_state_path,
+            metrics=metrics,
+            code_revision=code_revision,
+            at=now,
+            by=by,
+        )
+
+        if self.exists(model_id):
+            existing = self.get(model_id)
+            # Idempotency: if this exact run_id is already recorded,
+            # don't duplicate — return the existing entry untouched.
+            if any(r.run_id == run_id for r in existing.runs):
+                return existing
+            event = StatusEvent(
+                from_status=existing.status,
+                to_status=existing.status,
+                by=by,
+                reason=f"re-trained (run_id={run_id})",
+                at=now,
+            )
+            entry = RegistryEntry(
+                model_id=existing.model_id,
+                status=existing.status,
+                manifest=manifest,
+                model_state_path=model_state_path,
+                metrics=metrics,
+                code_revision=code_revision,
+                created_at=existing.created_at,
+                history=existing.history + (event,),
+                notes=notes or existing.notes,
+                target_deployment_stage=existing.target_deployment_stage,
+                stage_history=existing.stage_history,
+                runs=existing.runs + (new_run,),
+            )
+            self._write(entry)
+            return entry
+
         event = StatusEvent(
             from_status=None,
             to_status="candidate",
@@ -244,12 +356,6 @@ class ModelRegistry:
             reason="initial registration",
             at=now,
         )
-        stage = manifest.get("target_deployment_stage", _DEFAULT_STAGE)
-        if stage not in VALID_DEPLOYMENT_STAGES:
-            raise RegistryError(
-                f"manifest.target_deployment_stage must be one of "
-                f"{VALID_DEPLOYMENT_STAGES}; got {stage!r}"
-            )
         entry = RegistryEntry(
             model_id=model_id,
             status="candidate",
@@ -262,6 +368,7 @@ class ModelRegistry:
             notes=notes,
             target_deployment_stage=stage,
             stage_history=(),
+            runs=(new_run,),
         )
         self._write(entry)
         return entry
