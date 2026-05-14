@@ -2,7 +2,8 @@
 
 Deterministic ICT-style scalping strategy. Code lives at
 `src/units/strategies/ict_scalp.py`; unit tests at
-`tests/test_ict_scalp_5m.py`; YAML config under
+`tests/test_ict_scalp_5m.py`; shadow-predictor tests at
+`tests/test_ict_scalp_shadow.py`; YAML config under
 `config/strategies.yaml::ict_scalp_5m`.
 
 ## What the strategy looks for
@@ -18,15 +19,19 @@ A scalp setup fires on the **most recent closed bar** when ALL of:
    comes.
 2. **Displacement** — at least one bar between the sweep bar and the
    current bar has a body of size ≥ `displacement_atr_mult` × ATR
-   (default 1.0 × ATR(14)), body-to-range ≥
+   (default 1.3 × ATR(14), raised from 1.0 in v2), body-to-range ≥
    `min_displacement_body_to_range` (default 0.55), and is in the
    setup direction (bullish body for a long, bearish for a short).
 3. **Fair Value Gap (FVG)** — a 3-candle imbalance in the displacement
    leg of size ≥ `min_fvg_size_bps` of price (default 2 bps) and in the
    setup direction. Bullish: `high[i-2] < low[i]`. Bearish: mirror.
    The most recent qualifying FVG is the one used.
-4. **Mitigation** — the most recent bar's range overlaps the FVG AND
-   its body direction matches the setup (clean entry confirmation).
+4. **Mitigation** — default mode (v2) is `wick_rejection`: the most
+   recent bar's low (long) or high (short) wicks into the FVG and the
+   bar closes back outside with a body in the setup direction. Legacy
+   mode `body_inside_fvg` (v1) accepts any range overlap with a
+   matching body and is available for A/B comparison via
+   `cfg["mitigation_mode"]`.
 
 When all four conditions hold:
 
@@ -125,9 +130,12 @@ short-circuits to `side="none"` so live behaviour is unchanged.
 * **Single-bar mitigation.** v1 only looks at the most recent bar for
   the mitigation gate. Multi-bar consolidation entries are out of
   scope.
-* **No HTF bias.** The strategy doesn't consult a higher timeframe
-  trend. A future v2 could add an HTF filter analogous to
-  `vwap.htf_trend_filter` (currently disabled there too).
+* **HTF bias filter (v2, default on).** The strategy checks
+  `cfg["htf_close"]` vs `cfg["htf_ema"]` when
+  `htf_trend_filter_enabled: true` (default). The runtime signal
+  builder supplies these by resampling the 5m feed to 1h — no second
+  data source required. When both values are absent (e.g. unit tests
+  without HTF data) the filter is a no-op.
 * **Session filter off by default.** Crypto is 24/7; the filter exists
   in case the operator wants to scope to London + NY kill-zones
   (07-17 UTC).
@@ -137,19 +145,27 @@ short-circuits to `side="none"` so live behaviour is unchanged.
 * **Priority below VWAP and Turtle Soup.** Set to 30 in
   `DEFAULT_PRIORITIES` so accidental enablement cannot override the
   established strategies on a tie.
-* **No ML.** Purely deterministic gates. Adding a shadow predictor
-  follows the same `shadow_model_ids` pattern as turtle_soup/vwap.
+* **Shadow ML wired (audit-only).** `_resolve_shadow_predictors` +
+  `_build_shadow_feature_row` are live in the unit (PR #1160).
+  No model is bound yet — `shadow_model_ids: []` in YAML. The feature
+  row exposes the shared WS5 surface plus three ict_scalp-specific
+  columns (`sweep_depth_atr`, `fvg_size_norm`,
+  `displacement_idx_from_end`). Shadow scores are side-effect only
+  and cannot influence trade decisions. Phase 2 (train on ≥200 live
+  signals) and Phase 3 (bind model in YAML) are tracked in issues
+  #1161 and #1162.
 
 ## Files
 
 | File | Purpose |
-|------|---------|
-| `src/units/strategies/ict_scalp.py` | Pure unit; `order_package()` + `monitor()`. |
+|------|--------|
+| `src/units/strategies/ict_scalp.py` | Pure unit; `order_package()` + `monitor()` + shadow helpers. |
 | `src/runtime/strategy_signal_builders.py::ict_scalp_signal_builder` | Pipeline-side builder; honours `enabled` flag. |
 | `src/runtime/pipeline.py` | Registers in `_STRATEGY_BUILDERS`; `STRATEGY=ict_scalp_5m` env override. |
 | `src/runtime/intent_multiplexer.py` | Registers in `_default_intent_builders`. |
 | `src/runtime/intents.py::DEFAULT_PRIORITIES` | Priority 30 (below vwap=40, turtle_soup=50). |
-| `config/strategies.yaml::ict_scalp_5m` | Live config, `enabled: false` until backtest passes. |
-| `tests/test_ict_scalp_5m.py` | 27 unit tests covering happy path, no-signal, invalid data, timeframe, session filter, monitor, YAML registration. |
+| `config/strategies.yaml::ict_scalp_5m` | Live config, `enabled: true` since v2 live (2026-05-14). |
+| `tests/test_ict_scalp_5m.py` | Unit tests covering happy path, no-signal, invalid data, timeframe, session filter, monitor, YAML registration, mitigation modes, HTF filter. |
+| `tests/test_ict_scalp_shadow.py` | Shadow-predictor integration tests: passthrough, singular/plural injection, audit log, broken-predictor isolation, registry-driven multi-model, feature-row field assertions. |
 | `scripts/backtest_ict_scalp.py` | Standalone CLI for local backtests. |
 | `.github/workflows/ict-scalp-backtest.yml` | CI-side pre-live gate. |
