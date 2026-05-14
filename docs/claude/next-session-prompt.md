@@ -1,4 +1,4 @@
-# Next-session prompt — post-S-067-followups (2026-05-10)
+# Next-session prompt — post-VWAP-backtest (2026-05-14)
 
 Use this as the prompt when starting the next Claude Code session on
 `benbaichmankass/ict-trading-bot`. Copy-paste the block below verbatim
@@ -6,145 +6,97 @@ into a fresh session.
 
 ---
 
-You are picking up an autonomous session on `benbaichmankass/ict-trading-bot`.
-The S-067 follow-up queue closed on 2026-05-10 — see
-`docs/claude/checkpoints/CHECKPOINT_LOG.md` § CP-2026-05-10-03 for the
-ledger (10 items shipped, 4 Phase-2 follow-ups filed).
+CONTEXT — picking up from the VWAP backtest debug session (2026-05-14).
 
-## Read first (in this order)
+All VWAP backtest work landed on `ict-trading-bot` main:
+  `a78fa500` — fix YAML syntax in vwap-backtest.yml (broken issues trigger)
+  `0d51697`  — fix fetch_backtest_candles pagination (Bybit start+end bug)
+  `8462f32`  — fix SSH timeout on long backtest runs (ServerAliveInterval)
+  `6f84ddd`  — disable htf_trend_filter (backtest #1090 — all HTF configs
+               near-zero Sharpe; no-filter baseline wins on 8 random
+               30-day windows across 365-day dataset)
 
-1. `docs/claude/checkpoints/CHECKPOINT_LOG.md` § top entry —
-   confirms what shipped + the 4 Phase-2 follow-ups filed.
-2. `docs/claude/milestone-state.md` § Queued milestones — workplan
-   priority order.
-3. The phase-2 references inside the most recent CP entries
-   (linked below).
+Config is deployed to the live VM (ict-trader-live.service is active,
+heartbeat healthy, bybit_2 is the active live account).
 
-## Hard constraints (unchanged from last session)
+TWO OPEN ISSUES — both need fixing, Item 1 is CRITICAL:
 
-- **Tier 1 by default; Tier 2 = DRAFT + ping operator.** See
-  `docs/CLAUDE-RULES-CANONICAL.md` § Permission Tiers (canonical
-  authority since 2026-05-10).
-- **One PR per item.** Don't bundle.
-- **Self-merge Tier 1 after CI green.**
-- **Live-mode invariant.** No edits to `src/runtime/{orders,pipeline,
-  risk_counters,order_monitor}.py`, `src/main.py`,
-  `src/units/accounts/execute.py`, `config/{accounts,strategies}.yaml`,
-  or `deploy/*.service` in any Tier-1 PR. Items A and B below
-  explicitly touch these and are flagged Tier 2.
-- **Auto-ping mechanics.** `notify_on_pull.py` keys off
-  `docs/claude/checkpoints/CHECKPOINT_LOG.md` diff lines. Append to
-  the canonical log directly when you have local clone access; only
-  fall back to standalone CP files in `docs/claude/checkpoints/CP-*.md`
-  when the MCP API can't round-trip the full file. Lesson learned
-  from CP-2026-05-10-03.
+──────────────────────────────────────────────────────────────
+ITEM 1 — CRITICAL: bybit_2 went live unintentionally
+──────────────────────────────────────────────────────────────
+Between 05:34–05:53 UTC 2026-05-14, bybit_2 was in dry_run mode
+(trades 1315–1318 all REJECTED: account_mode_dry_run). Then at
+06:00 UTC trade 1319 was placed as a real live trade WITHOUT any
+intentional operator action:
 
-## Pickup queue (priority order)
+  Trade 1319: SHORT BTCUSDT 0.004 BTC @ 79,829.3
+  SL: 79,971.72  |  TP: 79,433.43
+  pkg: pkg-c0599d3a4b0d463c  |  account: bybit_2
+  Status at last check (07:08 UTC): OPEN
+  SL/TP are native Bybit bracket orders (submitted with entry).
 
-### Workplan priorities (from `milestone-state.md` § Queued milestones)
+Actions required:
+1. Pull a fresh vm-diag snapshot to check if trade 1319 is still
+   open: issue title `[diag-request] snapshot?limit=5`,
+   label `vm-diag-request`.
+2. If still open on Bybit: close it safely (operator action or
+   manual Bybit UI close). Confirm closure via follow-up diag.
+3. Investigate WHY bybit_2 flipped from dry_run to live between
+   05:53 and 06:00 — check for config change, service restart,
+   git-sync timer push, or env override around that window.
+   Pull journalctl: `[diag-request] journalctl?unit=ict-trader-live.service&lines=200&since=2026-05-14T05:30:00Z&until=2026-05-14T06:15:00Z`
+4. Return bybit_2 to dry_run mode. Use the sanctioned wire:
+   operator-action issue with:
+     action: set-account-mode
+     account: bybit_2
+     mode: dry_run
+     reason: accidental live flip on 2026-05-14; investigating root cause
+5. Lock the config so git-sync can't flip it again.
 
-1. **S-047 T6 — end-to-end live smoke + runbook (D8)** — workplan
-   priority #1. Operator-gated on a Bybit web-UI Spot Margin toggle
-   for `bybit_2`. Ad-hoc / live-trading. Runs in parallel with the
-   queue below.
-2. **S-047 T7 — sprint close** — docs-only after T6.
-3. **M5 — Strategy testing workflow** — auto-claude.
+──────────────────────────────────────────────────────────────
+ITEM 2 — DB schema gap: no such column: signal_type
+──────────────────────────────────────────────────────────────
+The live VM logs a repeating WARNING every tick:
+  src.units.ui.data_loaders | _count_signals_today(vwap):
+    no such column: signal_type
+  src.units.ui.data_loaders | _count_signals_today(turtle_soup):
+    no such column: signal_type
 
-### S-067 Phase-2 follow-ups (filed 2026-05-10)
+The UI data_loaders are querying a `signal_type` column that
+doesn't exist in the deployed database schema.
 
-Each is one PR, sized for 30-90 min:
+Actions required:
+1. Read `src/units/ui/data_loaders.py` — find the query using
+   `signal_type`.
+2. Check the DB migration infrastructure — how are existing
+   migrations applied? Look for an `alembic/` dir, a
+   `migrations/` dir, or inline `CREATE TABLE` / `ALTER TABLE`
+   statements in the codebase.
+3. Write and apply a migration to add the `signal_type` column
+   (or fix the query if the column was removed intentionally).
+4. Deploy via operator-action pull-and-deploy after merging.
 
-#### A. Closed-flat invariant tick-loop wiring (Tier 2 — DRAFT + ping)
+──────────────────────────────────────────────────────────────
+DIAG HOW-TO (updated — read before using vm-diag-snapshot)
+──────────────────────────────────────────────────────────────
+vm-diag-snapshot reads the issue TITLE as the diag path; body
+is ignored. ALWAYS use:
+  title:  [diag-request] snapshot?limit=5
+  labels: ["vm-diag-request"]
+  body:   (anything or empty)
 
-Phase-2 of S-067 follow-up #3. The Phase-1 module + tests + design
-memo shipped via PR #658 (`src/runtime/closed_flat_invariant.py`,
-`docs/claude/closed-flat-invariant.md`). This phase wires
-`closed_flat_invariant.check()` into the tick loop in
-`src/runtime/order_monitor.py` (post-close hook, alongside
-`_reconcile_orphan_positions`), gated by
-`CLOSED_FLAT_INVARIANT_ENABLED` (default `false`). After a 7-day
-alert-only soak, file the auto-flatten promotion PR (per-account
-`closed_flat_auto_flatten` flag in `config/accounts.yaml`).
+DO NOT put `cmd:` in the body — that is for trainer-vm-diag,
+a completely different workflow.
 
-#### B. Env-gate purge Phase-2 annotations (Tier 2 — DRAFT + ping)
+Use `snapshot?limit=5` for packages/trades/health.
+Use `snapshot?limit=200` ONLY when you need audit history
+(the 665kB response truncates — only audit_tail appears).
 
-Phase-2 of S-067 follow-up #4. The Phase-1 audit + lint guard
-shipped via PR #659. This phase adds inline
-`# allow-silent: <reason>` comments on the two surviving env-gate
-call sites (`src/runtime/pipeline.py:194` for
-`MULTI_ACCOUNT_DISPATCH`, `src/runtime/order_monitor.py:680` for
-`MONITOR_RECONCILE_ENABLED`) plus per-survivor regression tests
-asserting "flipping this gate does NOT bypass `RiskManager.evaluate`".
+Operator-actions issue body format (Tier-2 requires reason):
+  action: <action>
+  reason: <non-empty text>
 
-#### C. Exchange-fills FIFO lot-matching P&L (Tier 1)
-
-Phase-2 of S-067 follow-up #6. The Phase-1 store + puller +
-fee/flow aggregates shipped via PR #652
-(`src/runtime/exchange_fills_{store,puller}.py`,
-`/api/bot/pnl/exchange?days=N`). This phase adds true P&L
-attribution via FIFO buy/sell lot pairing over the fills stream,
-with `realized_pnl` / `unrealized_pnl` fields added to the wire
-shape (additive — existing dashboard readers won't break).
-
-#### D. hourly_report + boot_audit borderline narrowings (Tier 1, 4 small PRs)
-
-Phase-2 of S-067 follow-up #8. The Phase-1 audit + lint guard
-extension shipped via PR #656
-(`docs/audits/silent-empty-reporting-2026-05-10.md`). Each of the
-four borderline sites becomes one Tier-1 PR:
-
-* D1. `src/runtime/boot_audit.py:72` — replace `0`-on-failure with
-  `None`-on-failure; render `(query failed)` in the boot ping.
-* D2. `src/runtime/hourly_report.py:250` (`list_accounts`) — narrow
-  except, surface "data unavailable" in report body.
-* D3. `src/runtime/hourly_report.py:312`
-  (`strategy_dashboard_data`) — same shape.
-* D4. `src/runtime/hourly_report.py:409` (`run_all_checks`) —
-  same; downstream `checks_critical = any(...)` aggregation needs
-  to tolerate an "unknown" sentinel.
-
-Each ships with a regression test that asserts the new sentinel
-flows through the report assembly without crashing.
-
-## Stop conditions (unchanged)
-
-- >90 min on a single item without a shippable PR → commit
-  `BLOCKED-PM`, file draft, skip.
-- Tier-1 fix surfacing Tier-2 concern → stop, refile.
-- End of queue → append a checkpoint to `CHECKPOINT_LOG.md`
-  (canonical log; this is what triggers the auto-ping) and stop.
-
-## What's already deployed (don't redo)
-
-The full S-067 + S-067-followup ledger is in
-`CHECKPOINT_LOG.md` § CP-2026-05-10-03. Highlights:
-
-- Shared real-schema test fixture (`tests/fixtures/real_schema_db.py`).
-  Default for any new endpoint regression test.
-- `/api/diag/version` (returns the running web-api git SHA) +
-  deploy script enumeration via `systemctl list-units 'ict-*.service'`
-  + post-deploy SHA round-trip assertion.
-- Exchange-fills sqlite store + Bybit puller CLI + endpoint
-  (Phase 1).
-- `silent-empty-guard` + `env-gate-guard` CI workflows + their
-  `# allow-silent: <reason>` override syntax. Both lint scripts:
-  `scripts/check_silent_empty_in_diff.py` +
-  `scripts/check_env_gate_in_diff.py`.
-- Closed-flat invariant module (Phase 1, tests + memo).
-
-## What you must NOT touch
-
-- Live-order path files except as flagged Tier-2 in items A and B
-  above (which require operator ack pre-merge).
-- `config/accounts.yaml` / `config/strategies.yaml` — Tier 3.
-- `deploy/*.service` — outside scope of every queued item.
-- Anything that would silence the `silent-empty-guard` or
-  `env-gate-guard` workflows. The guards are the contract this
-  sprint shipped; respect them.
-
-## Workplan order context
-
-S-047 T6 is workplan priority #1 but operator-gated on a Bybit
-toggle and runs on its own branch in parallel. The 4 Phase-2
-follow-ups (A–D above) are the next-most-actionable Tier-1 work
-while S-047 T6 waits.
+Full docs:
+  docs/claude/diag-relay.md
+  docs/claude/operator-actions.md
+  docs/claude/debug-memory.md § "Session 2026-05-14"

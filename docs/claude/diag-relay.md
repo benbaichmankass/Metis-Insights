@@ -6,35 +6,65 @@ accepts `*.github.com`, `*.vercel.app`, `*.anthropic.com`, etc., not
 `158.178.210.252:*`). This doc is the contract for how a session
 fetches `/api/diag/*` data anyway.
 
-If you skim nothing else: open a labelled issue, wait, read the
-result comment.
+If you skim nothing else: open a labelled issue **with the exact title
+format below**, wait, read the result comment.
+
+## ⚠️ Common mistakes (read before first use)
+
+**1. The issue TITLE is the diag path. The body is ignored.**
+The workflow reads the title, strips the `[diag-request]` prefix, and
+passes the remainder directly to `curl .../api/diag/<path>`. It
+validates against `^[A-Za-z0-9/?&=_.:%-]+$` — spaces, colons, and any
+other special character in the title cause an immediate validation
+error. The body content is never read.
+
+**2. `cmd:` in the body is for `trainer-vm-diag`, NOT this workflow.**
+`trainer-vm-diag` runs arbitrary bash on the trainer VM and reads the
+`cmd:` field from the issue body. `vm-diag-snapshot` only runs a
+fixed-form curl — no shell, body ignored. These are two completely
+different workflows.
+
+**3. Use `limit=5` to see packages/trades; `limit=200` only shows audit_tail.**
+GitHub truncates issue comments at ~55 kB. `snapshot?limit=200` produces
+~665 kB; only the `audit_tail` array (200 entries × ~1 kB each) fits.
+The `order_packages`, `trades`, and `vm_health` sections are always
+truncated out. Use `snapshot?limit=5` when you need to inspect positions,
+packages, or trade SL/TP. Use `audit?limit=200` only for audit history.
+
+**4. Space back-to-back requests 90 s apart.**
+`concurrency: cancel-in-progress: true` means any new issue preempts
+an in-flight run. Create a new issue only after the previous one has
+received a result or failure comment.
 
 ## TL;DR — fetching diag data from a sandbox session
 
 ```
-1. Use `mcp__github__issue_write` (operation: open) with:
-     title  = "[diag-request] snapshot?limit=200"
+1. Use `mcp__github__issue_write` (method: create) with:
+     title  = "[diag-request] snapshot?limit=5"
      labels = ["vm-diag-request"]
-     body   = "" (anything, ignored by the workflow)
+     body   = ""  ← ignored; anything or empty works
+
+   Use snapshot?limit=5 for packages/trades/health.
+   Use audit?limit=200 for audit trail only.
+   Use journal?table=trades&limit=20 for trade rows.
+   Use journalctl?unit=ict-trader-live.service&lines=100 for logs.
 
 2. Wait ~30–60 s. The `vm-diag-snapshot` GitHub Actions workflow
    triggers on `issues.opened` filtered to that label, runs the
    diag fetch over SSH + curl, posts the JSON back as a comment,
    and closes the issue.
 
-3. Poll `mcp__github__issue_read` (operation: get_comments) on the
-   issue number. The newest comment whose author is
-   `github-actions[bot]` carries:
+3. Poll `mcp__github__issue_read` (method: get_comments) on the
+   issue number. The newest comment from `github-actions[bot]` carries:
      **vm-diag-snapshot** result for `<path>`
      Run: <url>
      Bytes: <size>
 
      ```json
-     <pretty-printed snapshot or audit/journal/services tail>
+     <pretty-printed snapshot>
      ```
 
-4. Parse and proceed. Closed issues stay around as a permanent
-   audit log of every diag query in the repo's issue history.
+4. Parse and proceed. Closed issues stay as a permanent audit log.
 ```
 
 `<path>` can be any of the read-only diag endpoints documented in
@@ -99,7 +129,7 @@ Tier 1 read-only — same class as everything else in
 - only runs `curl -sS --fail -H 'Authorization: Bearer …' …
   /api/diag/<path>` over the SSH tunnel — fixed-form, no shell
   expansion of the issue title beyond a regex-validated path
-  fragment (`^[A-Za-z0-9/?&=_.-]+$`)
+  fragment (`^[A-Za-z0-9/?&=_.:%-]+$`)
 - never SSHes a non-curl command
 - doesn't call any of the routes that `vm-operator-mode.md` § 9
   marks Tier 3 (mutating routes don't exist on the diag surface
@@ -145,6 +175,8 @@ when any step errors. Common causes:
 | `HTTP 401` | GitHub secret ≠ VM env | re-sync token between the two |
 | run never starts | label name typo on issue | label must be exactly `vm-diag-request` |
 | run starts but never replies | github-actions bot lacks `issues: write` | workflow already declares it; check repo Actions permissions |
+| `Rejected diag_path (illegal characters)` | issue title has spaces, commas, or other non-path chars | use exact format `[diag-request] snapshot?limit=5` |
+| run cancelled / preempted | another diag issue was opened before this one finished | `cancel-in-progress: true`; wait 90 s between requests |
 
 ### When the relay itself is down — self-heal
 

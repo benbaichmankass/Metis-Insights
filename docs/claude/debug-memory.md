@@ -189,6 +189,47 @@ These are NOT bugs but they kept catching me out today. Future sessions should r
   - `tests/test_validation.py::test_dry_run_and_allow_live_both_truthy_is_contradiction` — same area
 - **Local sandbox can't run the FastAPI router tests** — the system's `jwt` Python module clashes with `cryptography` from `pip install`. Acceptable; CI exercises them.
 
+## Session 2026-05-14: VWAP backtest debug & live trading learnings
+
+### 2026-05-14: Bybit V5 klines — NEVER pass both `start` + `end`
+- Cause: `/v5/market/kline` with BOTH `start` + `end` returns the NEWEST `limit` bars in the range — NOT bars forward from `start`. The cursor advanced only ~5 min per iteration → 500k duplicate rows, only 4 unique days from a 365-day fetch.
+- Fix: Drop `end` from API params. Advance cursor with `candles[0][0]` (newest returned bar) + `interval_ms`. With only `start`, Bybit returns `limit` bars forward from `start`.
+- Check: After fetch, `len(df) ≈ len(df.drop_duplicates())` and date range spans the full requested window. 365 days of 5m BTCUSDT ≈ 105,000 rows.
+- File: `scripts/ops/fetch_backtest_candles.py` (commit `0d51697`)
+
+### 2026-05-14: YAML `run: |` block scalar — unindented content terminates the block
+- Cause: A `python3 -c "..."` validation snippet inside `run: |` had its Python code at column 0 (unindented relative to the block scalar). YAML terminated the block scalar, causing a `ScannerError` on the entire workflow file. GitHub **silently dropped ALL issues-event runs** because the workflow couldn't be parsed from main — not just the broken step.
+- Fix: Every line inside `run: |` must stay indented past the block scalar's opening level. Collapse multi-line `python3 -c` snippets to a single line to eliminate the risk.
+- File: `.github/workflows/vwap-backtest.yml` (commit `a78fa500`)
+
+### 2026-05-14: SSH NAT timeout on long-running remote jobs (>10 min)
+- Cause: No `ServerAliveInterval` set. NAT idle timeout (~15 min) silently drops the SSH connection mid-job. The remote process runs to completion but stdout is lost and the caller receives a non-zero exit code or hangs.
+- Fix: Add `-o ServerAliveInterval=30 -o ServerAliveCountMax=20` to any SSH call that may run >10 min. Write results to a file on the remote and fetch in a separate lightweight SSH step rather than piping through the long connection's stdout.
+- File: `.github/workflows/vwap-backtest.yml` (commit `8462f32`)
+
+### 2026-05-14: vm-diag-snapshot — TITLE is the diag path; body is completely ignored
+- Cause: Created issue with a human-readable title ("vm-diag: check open positions and SL/TP status") expecting the workflow to read the `cmd:` in the body. The workflow reads the TITLE as the diag API path and validates it against `^[A-Za-z0-9/?&=_.:%-]+$` — spaces/colons fail → immediate validation error, not an SSH error.
+- Fix: Always use exactly `[diag-request] snapshot?limit=5` (or another valid path) as the issue title. The body is completely ignored by this workflow.
+- **Critical distinction:** `cmd:` in the body is the contract for `trainer-vm-diag` (arbitrary bash on the trainer VM). `vm-diag-snapshot` only runs a fixed-form curl to `/api/diag/<path>` — no shell commands, body ignored. Two completely different workflows.
+- See: `docs/claude/diag-relay.md`
+
+### 2026-05-14: vm-diag-snapshot — use `limit=5` not `limit=200` to see packages/trades
+- Cause: `snapshot?limit=200` produces ~665 kB JSON; GitHub truncates issue comments at ~55 kB. With 200 audit events (~1 kB each) the entire `audit_tail` array fills the comment. The `order_packages`, `trades`, and `vm_health` sections are ALWAYS truncated out when using `limit=200`.
+- Fix: Use `snapshot?limit=5` when investigating open packages, positions, trade SL/TP, or any non-audit data. The compact audit_tail allows the full snapshot (order_packages + trades + vm_health) to appear within the 55 kB limit. Use `audit?limit=200` only when you specifically need audit history.
+
+### 2026-05-14: operator-actions.yml — Tier-2 fails before SSH if `reason:` is missing
+- Cause: Issue body was only `action: pull-and-deploy` with no `reason:` line. The workflow validates `[ -z "${REASON// }" ]` and exits "Tier-2 action requires a non-empty reason" before any SSH attempt — the failure comment says "failure happened before SSH ran" with no other detail.
+- Fix: Always include BOTH lines for Tier-2 actions:
+  ```
+  action: pull-and-deploy
+  reason: <non-empty explanation>
+  ```
+  Tier-1 actions (`status-check`, `pull-latest-logs`) don't require `reason:`. See `docs/claude/operator-actions.md` for the full tier/action list.
+
+### 2026-05-14: vm-diag-snapshot concurrency — space rapid-fire requests 90 s apart
+- Cause: `concurrency: cancel-in-progress: true` means any new `vm-diag-request` issue preempts an in-flight run. Creating issues in rapid succession causes all but the last to be cancelled. The preempted issue receives a "run cancelled" comment and closes as `not_planned` with no diag result.
+- Fix: Wait for the result comment (or failure comment) to appear on the current issue before opening a new one. If retrying after a cancellation, wait ~90 s to ensure the preempting run has completed before opening another issue.
+
 ## Add new entries here
 
 Use this format:
