@@ -724,3 +724,103 @@ def compute_execution_delta(
             f"then open {target}"
         ),
     )
+
+
+# ---------------------------------------------------------------------------
+# OrderPackage bridge — used by Coordinator.multi_account_execute
+# ---------------------------------------------------------------------------
+
+
+# Sentinel passed by ``intent_multiplexer._desired_to_pipeline_signal``
+# on the package's meta so the dispatcher can recognise an intent-mode
+# package without doing a duck-type check on the rest of meta. Kept here
+# (not in intent_multiplexer.py) so both the writer and the reader
+# import from the same module.
+INTENT_MODE_META_KEY = "aggregated_via"
+INTENT_MODE_META_VALUE = "multi_strategy_intent_layer"
+
+
+def package_is_intent_mode(pkg) -> bool:
+    """True when *pkg* was produced by the intent-aware multiplexer."""
+    meta = getattr(pkg, "meta", None) or {}
+    return meta.get(INTENT_MODE_META_KEY) == INTENT_MODE_META_VALUE
+
+
+def compute_execution_delta_for_package(
+    pkg,
+    current_signed_qty: float,
+    *,
+    risk_sized_qty: float,
+    qty_precision: int = 6,
+    min_delta: float = 0.0,
+) -> ExecutionDelta:
+    """Bridge an ``OrderPackage`` into an ``ExecutionDelta``.
+
+    ``Coordinator.multi_account_execute`` already computes
+    ``risk_sized_qty`` via the per-account RiskManager. That qty is the
+    AUTHORITATIVE cap on how much to send for an open/increase — the
+    intent layer never gets to size above what the risk manager
+    approved. The aggregator's ``aggregated_target_qty`` (when
+    non-zero) acts as an upper bound on top.
+
+    Resolution order for the effective target:
+      1. ``min(risk_sized_qty, aggregated_target_qty)`` when the intent
+         layer set a non-zero target (i.e. the strategy expressed an
+         explicit size preference).
+      2. ``risk_sized_qty`` otherwise — the production path. Strategies
+         currently emit ``target_qty=0`` as the "RiskManager decides"
+         sentinel, so this branch is the common one.
+
+    Direction comes from ``pkg.direction`` (the aggregator's winning
+    side, already resolved). The delta is computed against the signed
+    current net position.
+
+    Parameters
+    ----------
+    pkg : OrderPackage
+        Package coming out of the intent multiplexer.
+    current_signed_qty : float
+        Signed net position for ``(account, pkg.symbol)``. Positive long,
+        negative short, zero flat. Read from the trade journal by the
+        caller — see ``src.runtime.positions.current_net_position_qty``.
+    risk_sized_qty : float
+        Output of the per-account RiskManager's ``position_size``. This
+        is the cap; the delta will never exceed this.
+    qty_precision, min_delta :
+        Passed through to ``compute_execution_delta``.
+
+    Returns
+    -------
+    ExecutionDelta
+    """
+    if pkg.direction not in ("long", "short"):
+        raise ValueError(
+            f"compute_execution_delta_for_package: pkg.direction must be "
+            f"'long'/'short' for an intent-mode package; got {pkg.direction!r}"
+        )
+
+    aggregated_target = float((pkg.meta or {}).get("aggregated_target_qty") or 0.0)
+    risk_qty = float(risk_sized_qty)
+    if aggregated_target > 0:
+        effective_target = min(aggregated_target, risk_qty)
+    else:
+        effective_target = risk_qty
+
+    desired = DesiredPosition(
+        symbol=pkg.symbol,
+        side=pkg.direction,
+        target_qty=max(0.0, effective_target),
+        contributing_intents=tuple(),
+        winning_intent=None,
+        reason="bridged_from_order_package",
+        meta={
+            "aggregated_target_qty": aggregated_target,
+            "risk_sized_qty": risk_qty,
+        },
+    )
+    return compute_execution_delta(
+        current_signed_qty=current_signed_qty,
+        desired=desired,
+        qty_precision=qty_precision,
+        min_delta=min_delta,
+    )
