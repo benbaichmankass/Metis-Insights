@@ -329,11 +329,10 @@ def _build_monitor_ohlcv_fetcher(settings: dict):
     on init failure so the caller's ``run_monitor_tick`` falls back
     to the prior no-change behaviour.
     """
-    from src.runtime.market_data import fetch_candles
-    from src.runtime.pipeline import _build_killzone_exchange
+    from src.runtime.market_data import fetch_candles, _build_exchange_client
 
     try:
-        exchange = _build_killzone_exchange(settings)
+        exchange = _build_exchange_client(settings)
     except Exception as exc:  # noqa: BLE001
         logger.warning("monitor: ohlcv exchange init failed (%s)", exc)
         return None
