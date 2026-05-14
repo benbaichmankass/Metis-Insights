@@ -21,6 +21,49 @@ Describes the repo-native training factory: directory layout, the
 experiment-runner contracts, the `Predictor` abstraction (WS4-FU),
 the split strategies (WS4-FU), and the umbrella CLI.
 
+## Cadence (S-AI-WS8-PART-2, adopted 2026-05-14)
+
+One training cycle per day. One shared data sync per cycle that all
+manifests reuse. Concretely:
+
+- `ict-trainer.timer` is `OnCalendar=daily, RandomizedDelaySec=1h,
+  Persistent=true`. Each firing triggers `ict-trainer.service`, which
+  runs `scripts/ops/run_training_cycle.sh` end-to-end.
+- The cycle is **a single umbrella pass over every manifest in
+  `ml/configs/`**. It is not one timer per model — that would
+  re-download the live VM's `trade_journal.db` and rebuild every
+  family per manifest, which both wastes I/O and risks intra-day
+  inconsistency between models.
+- The cycle:
+  1. `git fetch && git reset --hard origin/main` — pin to the
+     deployed code.
+  2. **`sync_trainer_data.sh`** — one rsync of `trade_journal.db`
+     and `signal_audit.jsonl` from the live VM. Shared by all
+     manifests in this cycle.
+  3. **`build_trainer_datasets.sh`** — one rebuild of every dataset
+     family on top of that shared snapshot. Shared by all manifests.
+  4. **Iterate manifests** — `python -m ml train <manifest>` for each
+     `ml/configs/*.yaml`. Each manifest gets its own
+     `experiments-runs/<model_id>/<run_id>/` and append-only registry
+     row, but they all see the same dataset version.
+  5. **Publish to live VM mirror** — `publish_trainer_mirror.sh` at
+     cycle start and cycle end so the Streamlit dashboard reflects
+     "in progress" and "complete" within seconds of each transition.
+- Between cycles the heartbeat publisher
+  (`ict-trainer-publish.timer`, every 2 min) keeps
+  `trainer_status.json` fresh so dashboard liveness reflects the
+  trainer even when no training is running.
+
+Activation is autonomous: Claude fires `trainer-vm-diag-request`
+with `cmd: sudo systemctl enable --now ict-trainer.timer`. The
+trainer charter authorizes trainer-side systemd changes without
+operator approval.
+
+If a single cycle's runtime exceeds ~6 h (currently each manifest
+takes 2–10 minutes; 8 manifests fit comfortably in <1 h), revisit
+this single-umbrella-cycle design. Until then, daily-shared-sync is
+the canonical pattern.
+
 ## Directory layout
 
 ```

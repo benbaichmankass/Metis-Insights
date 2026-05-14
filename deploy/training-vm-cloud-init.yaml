@@ -52,8 +52,13 @@ write_files:
     content: |
       # ICT model training center service (S-AI-WS9).
       #
-      # DISABLED BY DEFAULT. The operator opts in with:
-      #   sudo systemctl enable --now ict-trainer.service
+      # DISABLED BY DEFAULT. Claude enables it autonomously via the
+      # trainer-vm-diag relay (the trainer charter at
+      # docs/claude/trainer-vm-mode.md § 3.a authorizes trainer-side
+      # systemd changes without operator approval). The dispatch:
+      #
+      #   trainer-vm-diag-request issue body:
+      #     cmd: sudo systemctl enable --now ict-trainer.service
       #
       # Defers to scripts/ops/run_training_cycle.sh inside the cloned
       # repo. That script is the operator-facing entrypoint; it can
@@ -82,9 +87,15 @@ write_files:
     permissions: '0644'
     owner: root:root
     content: |
-      # Optional timer for periodic training cycles. Also disabled
-      # by default. Operator enables with:
-      #   sudo systemctl enable --now ict-trainer.timer
+      # Daily cadence timer for the training cycle. Disabled by default
+      # at provision time; Claude enables it autonomously via the
+      # trainer-vm-diag relay once a cycle is desired:
+      #
+      #   trainer-vm-diag-request issue body:
+      #     cmd: sudo systemctl enable --now ict-trainer.timer
+      #
+      # One umbrella cycle per day handles all manifests on a single
+      # shared dataset sync — see docs/ml/training-center.md § Cadence.
       [Unit]
       Description=Periodic ICT model training cycle
 
@@ -167,10 +178,11 @@ final_message: |
   ICT training-center VM bootstrap complete (S-AI-WS9).
   Role marker: /etc/ict-trainer-vm.role
   Repo: /home/ubuntu/ict-trading-bot
-  ict-trainer.service: installed, disabled.
-  ict-trainer.timer: installed, disabled.
+  ict-trainer.service: installed, disabled (Claude enables via diag relay).
+  ict-trainer.timer:   installed, disabled (Claude enables via diag relay).
   ict-trainer-publish.service: installed, enabled (oneshot).
   ict-trainer-publish.timer:   installed, enabled (every 2 min).
   Live trader status: this VM is NOT the live trader.
-  Operator enables training with:
-    sudo systemctl enable --now ict-trainer.service
+  Claude enables training autonomously via trainer-vm-diag:
+    cmd: sudo systemctl enable --now ict-trainer.timer
+  (Daily cadence; one umbrella cycle covers all manifests.)

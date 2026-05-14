@@ -11,13 +11,17 @@
 # Idempotent: re-running is safe. Each unit file is rewritten from this
 # script, daemon-reload is fired, and the timer is left enabled+running.
 #
-# Run on the trainer VM. From a Claude session, dispatch via the
-# `trainer-vm-diag-request` issue label with body:
+# Runs on the trainer VM. Claude dispatches it autonomously via the
+# trainer-vm-diag relay (trainer-VM systemd is in scope per
+# `docs/claude/trainer-vm-mode.md` § 3.a — no operator approval).
+# The dispatch is a single issue:
 #
-#   cmd: |
-#     cd /home/ubuntu/ict-trading-bot
-#     git pull --ff-only origin main
-#     sudo bash scripts/ops/install_trainer_publish_units.sh
+#   labels: ["trainer-vm-diag-request"]
+#   body:
+#     cmd: |
+#       cd /home/ubuntu/ict-trading-bot
+#       git pull --ff-only origin main
+#       sudo bash scripts/ops/install_trainer_publish_units.sh
 #
 # Exit codes:
 #   0   units installed/refreshed and timer enabled

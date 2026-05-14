@@ -13,6 +13,46 @@
 > The autonomy is real. The accountability is also real — these are live
 > systems. Verify before you change. Read the diag output. Don't guess.
 
+> # 🤖 THERE IS NO "MANUAL." There is only autonomous-Claude or approval-gated-Claude.
+>
+> Every operational action in this repo runs through a GitHub Actions
+> workflow that Claude can dispatch. The operator **approves** actions; the
+> operator never **executes** actions. The vocabulary contract is binary:
+>
+> | Mode | Means | Examples |
+> |---|---|---|
+> | **Autonomous** | Claude fires the workflow without asking | trainer-VM systemd changes, `provision-training-vm`, diag relays, all read-only ops, draft PRs, doc edits |
+> | **Approval-gated** | Operator says "yes" in chat, Claude then fires the workflow | live-VM service restart, deploy to live, account-mode flips via `set-account-mode`, merging PRs that touch `config/strategies.yaml` / `config/accounts.yaml` / `src/runtime/orders.py` |
+>
+> Words and phrases that are **banned** in PR bodies, commit messages,
+> runbooks, sprint logs, and chat replies:
+>
+> - "operator runs X" / "operator executes X" / "operator SSHes" / "operator types X"
+> - "the operator will need to manually …"
+> - "this requires a manual step / manual sync / manual SSH session"
+> - "please run X on the VM" / "please install X" / "please enable X"
+> - "I'll need you to flip the switch" / "you'll need to do this"
+>
+> Replace each with: "Claude fires `<workflow>`" (autonomous) or "Claude
+> fires `<workflow>` after operator approval in chat" (approval-gated).
+>
+> The **only** exemption is the literal laws of physics — e.g. plugging in
+> a USB key the operator physically holds, getting OCI's CAPTCHA, calling
+> a human at Bybit support. If a task can in principle be expressed as a
+> GitHub Action, it **must** be expressed as one rather than as operator
+> toil. "No allowlisted wrapper script exists yet" is not an exemption;
+> the right move is to add the wrapper script in the same PR.
+>
+> Anti-pattern that triggered this rule (2026-05-14): a PR body said
+> "Enabling actual training is a separate decision — operator runs
+> `sudo systemctl enable --now ict-trainer.service`." That's wrong on
+> three axes: (1) the trainer-VM autonomy charter already authorizes
+> Claude to manage trainer systemd, (2) the diag relay can execute
+> arbitrary trainer bash, (3) framing the operator as the one who
+> "runs" anything inverts the contract. The correct move was: Claude
+> fires the diag relay with `systemctl enable --now <unit>` in the
+> body, and the operator's only role is to nod or veto in chat.
+
 > ## ⚡ STOP — Read this before answering any "what's running / what's the state" question
 >
 > You have **autonomous, unconditional read access** to both VMs via GitHub
@@ -143,9 +183,9 @@ When in doubt about scope, default to the **live-VM** rules and ask.
 
 This repo ships a **project-level Claude Code skill** at
 [`.claude/skills/health-review/SKILL.md`](.claude/skills/health-review/SKILL.md).
-It is the manual replacement for the autonomous Claude routine — when
-the operator types `/health-review` (or asks for "the health review"
-/ "the layer-2 review"), Claude reads `artifacts/health/latest.json`
+It is the on-demand entry point to Claude's Layer-2 review routine —
+when the operator invokes `/health-review` in chat (or asks for "the
+health review" / "the layer-2 review"), Claude reads `artifacts/health/latest.json`
 and `artifacts/health/health_snapshot.txt` from the current `main`
 HEAD and emits a JSON response per
 [`comms/schema/health_review_response.template.json`](comms/schema/health_review_response.template.json).
