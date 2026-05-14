@@ -530,6 +530,14 @@ def execute_pkg(
     if exchange_client is None:
         is_dry = True
 
+    trace_id = getattr(pkg, "trace_id", None) or (pkg.meta or {}).get("trace_id", "?")
+    logger.info(
+        "[execute_pkg] trace_id=%s account=%s strategy=%s symbol=%s direction=%s dry=%s",
+        trace_id, account_id,
+        getattr(pkg, "strategy", "?"), getattr(pkg, "symbol", "?"),
+        getattr(pkg, "direction", "?"), is_dry,
+    )
+
     # 3. Fetch balance — direction-aware for spot accounts so the sizer
     # never produces a qty exceeding what the account actually holds.
     # Spot sell (short): balance = USD value of held base coin.

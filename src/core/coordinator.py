@@ -92,6 +92,7 @@ class OrderPackage:
     tp: float            # primary take-profit price
     confidence: float = 0.0  # 0..1 model score / probability
     meta: Dict[str, Any] = field(default_factory=dict)
+    trace_id: str = field(default_factory=lambda: uuid.uuid4().hex)
 
 
 # ---------------------------------------------------------------------------
@@ -212,7 +213,15 @@ class Coordinator:
                 "_shadow_predictors": self._get_shadow_predictors(strategy),
             }
             pkg_dict = mod.order_package(cfg, candles_df=candles_df)
-            return OrderPackage(strategy=strategy, **pkg_dict)
+            pkg = OrderPackage(strategy=strategy, **pkg_dict)
+            if pkg.meta is None:
+                pkg.meta = {}
+            pkg.meta["trace_id"] = pkg.trace_id
+            logger.info(
+                "[coordinator] trace_id=%s strategy=%s symbol=%s direction=%s",
+                pkg.trace_id, strategy, pkg.symbol, pkg.direction,
+            )
+            return pkg
         except ImportError:
             raise NotImplementedError(
                 f"Strategy module 'src.units.strategies.{strategy}' not found; "
@@ -700,6 +709,10 @@ class Coordinator:
             return pkg.strategy in assigned
 
         accounts = [a for a in accounts if _eligible_for_dispatch(a)]
+        logger.info(
+            "[coordinator.dispatch] trace_id=%s strategy=%s symbol=%s eligible_accounts=%d",
+            getattr(pkg, "trace_id", "?"), pkg.strategy, pkg.symbol, len(accounts),
+        )
 
         results = []
         for account in accounts:
