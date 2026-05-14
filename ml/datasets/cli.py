@@ -18,12 +18,35 @@ for the `backtest_results` family.
 from __future__ import annotations
 
 import argparse
+import inspect
 import json
 import sys
+import types
+import typing
 from pathlib import Path
+from typing import Any
 
 from .registry import get_builder, list_families
 from .validate import validate_dataset
+
+# Reserved kwargs of `DatasetBuilder.build()` — if a family-arg `key=value`
+# pair collides with one of these, it's lifted out of `iter_kwargs` into the
+# corresponding explicit argparse arg (but only when the explicit arg is
+# unset). This prevents `TypeError: build() got multiple values for keyword
+# argument 'timeframe'` when a caller redundantly provides both
+# `--timeframe 1h` and `timeframe=1h` (as `scripts/ops/build_trainer_datasets.sh`
+# does for `market_raw`).
+_BUILDER_BUILD_RESERVED: frozenset[str] = frozenset({
+    "output_dir",
+    "version",
+    "source",
+    "symbol_scope",
+    "timeframe",
+    "timezone_name",
+    "commit_sha",
+    "notes",
+    "overwrite",
+})
 
 
 def _cmd_list_families(_args: argparse.Namespace) -> int:
@@ -42,11 +65,113 @@ def _parse_kv_list(values: list[str]) -> dict[str, str]:
     return out
 
 
+def _coerce_bool(value: str) -> bool:
+    v = value.strip().lower()
+    if v in {"true", "1", "yes", "y", "on"}:
+        return True
+    if v in {"false", "0", "no", "n", "off"}:
+        return False
+    raise ValueError(f"cannot coerce {value!r} to bool")
+
+
+def _coerce_to_annotation(value: str, annotation: Any) -> Any:
+    """Coerce a CLI string `key=value` value to the builder's declared type.
+
+    Honours `inspect.signature(builder.iter_rows)` parameter annotations.
+    Handles `Path`, `int`, `float`, `bool`, and `Optional[T]` / `T | None` /
+    `T | U` unions — when a union has multiple non-None members we prefer
+    `Path` over numerics over `bool` over `str` (a deliberate ordering: callers
+    who declare e.g. `Path | str` typically want the Path form because that's
+    where the `.is_file()` / `.is_dir()` predicates live).
+
+    Anything we can't coerce (missing annotation, exotic type) passes through
+    as the original string — keeps the historical behaviour intact for kwargs
+    that have always been strings.
+    """
+    if annotation is inspect.Parameter.empty:
+        return value
+
+    origin = typing.get_origin(annotation)
+    # Handle Union / Optional. `typing.get_origin(Optional[X])` returns
+    # `typing.Union` on 3.8+; on 3.10+ `X | None` returns
+    # `types.UnionType`. Both expose args via `typing.get_args`.
+    if origin is typing.Union or origin is types.UnionType:
+        candidates = [a for a in typing.get_args(annotation) if a is not type(None)]
+        for preferred in (Path, int, float, bool, str):
+            if preferred in candidates:
+                return _coerce_to_annotation(value, preferred)
+        if candidates:
+            return _coerce_to_annotation(value, candidates[0])
+        return value
+
+    if annotation is Path:
+        return Path(value)
+    if annotation is bool:
+        return _coerce_bool(value)
+    if annotation is int:
+        return int(value)
+    if annotation is float:
+        return float(value)
+    return value
+
+
+def _coerce_iter_kwargs(builder: Any, raw: dict[str, str]) -> dict[str, Any]:
+    """Coerce every `key=value` CLI pair using the builder's iter_rows signature.
+
+    Production builders use `from __future__ import annotations`, which makes
+    every annotation a string at runtime. `typing.get_type_hints()` resolves
+    those strings to real type objects so we can dispatch on `Path`, `int`,
+    `bool`, etc. Falls back to the raw `inspect.signature(...)` annotations
+    when type-hint resolution fails (e.g. a forward ref the test stub can't
+    look up).
+    """
+    sig = inspect.signature(builder.iter_rows)
+    try:
+        hints = typing.get_type_hints(builder.iter_rows)
+    except (NameError, TypeError):
+        hints = {}
+    coerced: dict[str, Any] = {}
+    for key, value in raw.items():
+        param = sig.parameters.get(key)
+        annotation: Any = inspect.Parameter.empty
+        if key in hints:
+            annotation = hints[key]
+        elif param is not None and param.annotation is not inspect.Parameter.empty:
+            annotation = param.annotation
+        coerced[key] = _coerce_to_annotation(value, annotation)
+    return coerced
+
+
+def _lift_reserved_into_args(
+    iter_kwargs: dict[str, Any], args: argparse.Namespace
+) -> dict[str, Any]:
+    """Move kvs that collide with `builder.build()` reserved kwargs into args.
+
+    For each reserved kwarg:
+      - If the corresponding `args.<name>` is already set (not None / empty),
+        the CLI flag wins and we silently drop the kv.
+      - Otherwise we copy the kv value into `args.<name>` (so the explicit
+        `builder.build()` call carries it) and remove it from `iter_kwargs`.
+
+    Either way the kv never reaches `**iter_kwargs` in the build() call, so
+    Python can't raise `multiple values for keyword argument`.
+    """
+    remaining: dict[str, Any] = {}
+    for key, value in iter_kwargs.items():
+        if key in _BUILDER_BUILD_RESERVED:
+            current = getattr(args, key, None)
+            if current is None or current == "":
+                setattr(args, key, value)
+            continue
+        remaining[key] = value
+    return remaining
+
+
 def _cmd_build(args: argparse.Namespace) -> int:
     builder = get_builder(args.family)
-    iter_kwargs: dict[str, object] = dict(_parse_kv_list(args.family_arg))
-    if "db_path" in iter_kwargs:
-        iter_kwargs["db_path"] = Path(str(iter_kwargs["db_path"]))
+    raw_kwargs = _parse_kv_list(args.family_arg)
+    iter_kwargs = _coerce_iter_kwargs(builder, raw_kwargs)
+    iter_kwargs = _lift_reserved_into_args(iter_kwargs, args)
     paths = builder.build(
         output_dir=Path(args.output_dir),
         version=args.version,

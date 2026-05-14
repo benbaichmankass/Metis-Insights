@@ -196,7 +196,7 @@ fi
 build_family market_raw \
   --output-dir "$DATASETS_ROOT" --version "$DATASET_VERSION" \
   --source "bybit_v5_offvm" --symbol-scope BTCUSDT --timeframe 1h --overwrite \
-  "adapter=bybit_v5_offvm" "symbol=BTCUSDT" "timeframe=1h" \
+  "adapter=bybit_v5_offvm" "symbol=BTCUSDT" \
   "start=${MARKET_START}" "end=${MARKET_END}"
 
 if [ -d "$MARKET_RAW_PATH" ]; then
