@@ -246,9 +246,32 @@ def run_pipeline(
         builder = turtle_soup_signal_builder
     elif strategy_name == "vwap":
         builder = vwap_signal_builder
+    elif strategy_name in ("multiplexed_intents", "multi_strategy_intents"):
+        # Explicit opt-in via STRATEGY env var. Same effect as
+        # setting MULTI_STRATEGY_INTENT_LAYER=true and leaving STRATEGY
+        # at "multiplexed" — kept as an explicit alias for runbook
+        # clarity ("STRATEGY=multiplexed_intents" reads better than a
+        # separate flag).
+        from src.runtime.intent_multiplexer import multiplexed_intent_signal_builder
+        builder = multiplexed_intent_signal_builder
     else:
-        # "multiplexed" or anything unknown → multiplexer.
-        builder = multiplexed_signal_builder
+        # "multiplexed" or anything unknown → legacy first-wins
+        # multiplexer by default. Operator can opt into the intent-aware
+        # multi-strategy multiplexer by exporting
+        # MULTI_STRATEGY_INTENT_LAYER=true (or
+        # STRATEGY=multiplexed_intents above) once the new layer is
+        # approved for live use. Default is **off** so this change does
+        # not flip live behaviour on its own — see
+        # src/runtime/intent_multiplexer.py for the contract.
+        from src.runtime.intent_multiplexer import (
+            intent_multiplexer_enabled,
+            multiplexed_intent_signal_builder,
+        )
+        if intent_multiplexer_enabled(settings):
+            builder = multiplexed_intent_signal_builder
+            strategy_name = "multiplexed_intents"
+        else:
+            builder = multiplexed_signal_builder
 
     logger.info("Using strategy builder: %s", strategy_name)
     signal = builder(settings)
