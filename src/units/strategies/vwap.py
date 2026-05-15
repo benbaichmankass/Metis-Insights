@@ -151,7 +151,28 @@ MIN_HOLD_MINUTES_FOR_VWAP_CROSS_DEFAULT = 10.0
 # point; if the live cadence/PnL profile underperforms expectations,
 # the right next move is a fresh threshold sweep on out-of-sample data,
 # not silently bumping the constant back up.
-ENTRY_STD_THRESHOLD = 1.0
+#
+# 2026-05-15 raised 1.0σ → 1.5σ following issue #1200 threshold sweep on
+# the same 8 random 30-day windows used in #1192 (May 2025-April 2026, no
+# HTF gate):
+#
+#   threshold | mean Sharpe | mean total R | win% | positive/8
+#   ---------|------------|--------------|------|----------
+#   0.8σ     |   0.002    |    1.08      | 38.3%|    3
+#   1.0σ     |   0.011    |    6.02      | 37.2%|    3
+#   1.2σ     |   0.005    |    2.73      | 35.2%|    3
+#   1.5σ ★   |   0.015    |    6.38      | 33.8%|    4
+#   2.0σ     |  -0.016    |   -5.08      | 29.5%|    4 (collapses)
+#
+# 1.5σ has the highest mean Sharpe, the highest mean total R, and the most
+# positive windows (4/8 vs 1.0σ's 3/8). The 38-month V6 result
+# (`experiments/2026-05-08-all-models-training/RECOMMENDATIONS.md`) showed
+# the same ordering — 1.5σ Sharpe +0.21 vs 1.0σ -0.39 — so this isn't
+# overfitting to a single regime. 2.0σ collapses because the trade count
+# drops below 200/window and the residual variance dominates. Cadence at
+# 1.5σ drops ~30% (387 → 295 mean trades/30d), which the operator has
+# previously accepted as the right trade-off for the v2 fixes.
+ENTRY_STD_THRESHOLD = 1.5
 
 # Internal alias retained for backwards-compatible imports.
 _ENTRY_STD_THRESHOLD = ENTRY_STD_THRESHOLD
