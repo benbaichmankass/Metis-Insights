@@ -617,6 +617,10 @@ def _build_account_client(account_id):
                 "account_id": acc.name,
                 "exchange": acc.exchange,
                 "api_key_env": acc.api_key_env,
+                # Without this, _bybit_category() in execute.py defaults
+                # to "spot" and the close path sends spot reduceOnly to a
+                # linear account → Bybit 170131. See FU-20260515-001.
+                "market_type": getattr(acc, "market_type", None) or "spot",
             }
             exchange_lc = (acc.exchange or "").lower()
             if exchange_lc == "bybit":
