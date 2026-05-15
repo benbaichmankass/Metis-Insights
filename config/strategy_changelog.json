@@ -1,6 +1,11 @@
 {
   "vwap": [
     {
+      "date": "2026-05-15",
+      "ref": "vwap_cross gates",
+      "summary": "Added min_r_for_vwap_cross (0.25R) + min_hold_minutes_for_vwap_cross (10m) gates on the vwap_cross close path — suppresses micro-R exits from VWAP-drifts-to-price (3/6 closes on 2026-05-14 exited at R-capture 0.009-0.085, net loss after fees)"
+    },
+    {
       "date": "2026-05-12",
       "ref": "PR #1031",
       "summary": "Raised SL_STD_MULT 0.5→0.75 + added ATR floor on stop distance — reduces premature SL hits on volatile bars"
