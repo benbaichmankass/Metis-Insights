@@ -151,6 +151,13 @@ COMPARE_CONFIGS: list[dict[str, Any]] = [
 ]
 
 
+# Entry-threshold sweep (2026-05-15). Triggered by --threshold-sweep, runs
+# the no-HTF baseline at each threshold to isolate the standalone effect.
+# Values picked to span the 2026-05-08 V6 experiment range and bracket
+# the current live default (1.0σ).
+THRESHOLD_SWEEP: list[float] = [0.8, 1.0, 1.2, 1.5, 2.0]
+
+
 def _resample_to_htf(m5_df: pd.DataFrame, htf_timeframe: str) -> pd.DataFrame:
     """Resample an M5 OHLCV DataFrame to a higher timeframe.
 
@@ -514,6 +521,15 @@ def main(argv: list[str]) -> int:
         action="store_true",
         help="Run all COMPARE_CONFIGS side-by-side",
     )
+    parser.add_argument(
+        "--threshold-sweep",
+        action="store_true",
+        help=(
+            "Sweep ENTRY_STD_THRESHOLD across THRESHOLD_SWEEP values "
+            "(0.8/1.0/1.2/1.5/2.0σ), no HTF gate. Mutually exclusive "
+            "with --compare."
+        ),
+    )
     parser.add_argument("--label", default="", help="Label for the run")
     parser.add_argument(
         "--start-date",
@@ -591,7 +607,53 @@ def main(argv: list[str]) -> int:
     try:
         use_windows = args.windows > 0
 
-        if args.compare:
+        if args.compare and args.threshold_sweep:
+            sys.stderr.write("--compare and --threshold-sweep are mutually exclusive\n")
+            return 1
+
+        if args.threshold_sweep:
+            # Monkey-patch the module-level threshold for each iteration.
+            # Restore after the sweep so the rest of the process (and any
+            # downstream tests in the same Python session) sees the live
+            # default again.
+            from src.units.strategies import vwap as _vwap_mod
+            original_threshold = _vwap_mod.ENTRY_STD_THRESHOLD
+            results = []
+            try:
+                for threshold in THRESHOLD_SWEEP:
+                    _vwap_mod.ENTRY_STD_THRESHOLD = threshold
+                    _vwap_mod._ENTRY_STD_THRESHOLD = threshold
+                    label = f"entry {threshold}σ (no HTF)"
+                    print(f"Running: {label} …", file=sys.stderr)
+                    if use_windows:
+                        r = run_windows(
+                            df,
+                            n_windows=args.windows,
+                            window_days=args.window_days,
+                            htf_timeframe=None,
+                            ema_period=None,
+                            band_pct=0.02,
+                            label=label,
+                            seed=args.seed,
+                        )
+                    else:
+                        r = run_single(
+                            df,
+                            htf_timeframe=None,
+                            ema_period=None,
+                            band_pct=0.02,
+                            label=label,
+                        )
+                    # Tag the threshold so downstream readers can identify
+                    # which σ value produced each row.
+                    r["entry_std_threshold"] = threshold
+                    results.append(r)
+            finally:
+                _vwap_mod.ENTRY_STD_THRESHOLD = original_threshold
+                _vwap_mod._ENTRY_STD_THRESHOLD = original_threshold
+            key = "threshold_window_comparison" if use_windows else "threshold_comparison"
+            output: dict[str, Any] = {key: results}
+        elif args.compare:
             results = []
             for cfg in COMPARE_CONFIGS:
                 print(f"Running: {cfg['label']} …", file=sys.stderr)
