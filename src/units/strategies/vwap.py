@@ -100,6 +100,36 @@ SESSION_MIN_BARS = 50
 # editing source.
 MONITOR_HOLD_WINDOW_MINUTES = 240
 
+# 2026-05-15 vwap_cross micro-exit gates. Live observation: of 6 closed
+# vwap trades on 2026-05-14, 3 exited via vwap_cross at R-capture
+# 0.009-0.085 — net loss after Bybit's 0.055% taker fee. Mechanism:
+# when VWAP drifts *to* price rather than price reverting *to* VWAP,
+# ``current_price >= vwap_live`` fires within a bar or two and the
+# trade is booked as a tiny "win" the mean-reversion thesis never
+# actually delivered. The gates below suppress those exits:
+#
+#   * MIN_R_FOR_VWAP_CROSS — vwap_cross is allowed only when the
+#     trade has captured at least this many R-multiples (where
+#     R = |entry - sl|). 0.25R chosen to cover Bybit linear taker
+#     fees (~0.11% round-trip on the 0.5σ-to-0.75σ stop distance
+#     we now run) with margin to spare. Operators can override via
+#     ``config/strategies.yaml`` ``min_r_for_vwap_cross``. Set to 0
+#     to restore v1 "any cross closes" behaviour.
+#
+#   * MIN_HOLD_MINUTES_FOR_VWAP_CROSS — vwap_cross is allowed only
+#     after the trade has been open at least this long. 10 min ≈ two
+#     5m bars on the strategy timeframe, which is the minimum window
+#     for a mean-reversion to actually develop. Operator-tunable via
+#     ``min_hold_minutes_for_vwap_cross``. Set to 0 to disable.
+#
+# SL / TP / time_decay close paths are unaffected by these gates —
+# they continue to operate as before. The gates can only suppress
+# vwap_cross from firing; they never convert a would-be-closed
+# trade into a no-action without an alternative close path being
+# available later in the priority chain.
+MIN_R_FOR_VWAP_CROSS_DEFAULT = 0.25
+MIN_HOLD_MINUTES_FOR_VWAP_CROSS_DEFAULT = 10.0
+
 # Minimum standard-deviation bands required to call a reversion signal.
 # Price must deviate at least this many std-devs from VWAP to be actionable.
 #
@@ -748,6 +778,73 @@ def _build_shadow_feature_row(package: Dict[str, Any]) -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
+def _vwap_cross_gates_pass(
+    open_pkg: Dict[str, Any],
+    current_price: float,
+    sl: float,
+    direction: str,
+    cfg: Dict[str, Any],
+) -> bool:
+    """Return True when vwap_cross is allowed to close the trade.
+
+    Two independent gates — both must pass:
+
+      1. **R-capture** — trade has moved at least
+         ``cfg["min_r_for_vwap_cross"]`` R-multiples in the trade's
+         favour, where ``R = |entry - sl|``. Default 0.25R. Stops
+         "VWAP drifted to price" exits at sub-fee R-capture
+         (live observation 2026-05-14).
+
+      2. **Hold time** — trade has been open at least
+         ``cfg["min_hold_minutes_for_vwap_cross"]`` minutes. Default
+         10 min (≈ two 5m bars). Stops same-bar / next-bar closes
+         before a mean-reversion has had time to develop.
+
+    Either gate set to ``0`` (or non-positive) disables that gate.
+    Setting both to 0 restores v1 "any cross closes" behaviour.
+
+    Falls through to v1 behaviour (returns True) when the data needed
+    to evaluate a gate is missing or malformed — better to close on
+    the cross than crash the monitor tick. The other close paths
+    (SL / TP / time_decay) continue to operate regardless of these
+    gates.
+    """
+    try:
+        min_r = float(cfg.get("min_r_for_vwap_cross", MIN_R_FOR_VWAP_CROSS_DEFAULT))
+    except (TypeError, ValueError):
+        min_r = MIN_R_FOR_VWAP_CROSS_DEFAULT
+    try:
+        min_hold = float(
+            cfg.get("min_hold_minutes_for_vwap_cross", MIN_HOLD_MINUTES_FOR_VWAP_CROSS_DEFAULT)
+        )
+    except (TypeError, ValueError):
+        min_hold = MIN_HOLD_MINUTES_FOR_VWAP_CROSS_DEFAULT
+
+    if min_r > 0:
+        try:
+            entry = float(open_pkg["entry"])
+        except (KeyError, TypeError, ValueError):
+            return True
+        risk = abs(entry - sl)
+        if risk <= 0:
+            return True
+        if direction == "long":
+            r_captured = (current_price - entry) / risk
+        else:
+            r_captured = (entry - current_price) / risk
+        if r_captured < min_r:
+            return False
+
+    if min_hold > 0:
+        opened_at = _parse_created_at(open_pkg.get("created_at"))
+        if opened_at is not None:
+            age_minutes = (datetime.now(timezone.utc) - opened_at).total_seconds() / 60.0
+            if age_minutes < min_hold:
+                return False
+
+    return True
+
+
 def _parse_created_at(raw: Any) -> Optional[datetime]:
     """Parse the ``created_at`` field from an order_packages row.
 
@@ -875,14 +972,19 @@ def monitor(cfg, candles_df, open_pkg):
     except (ValueError, KeyError):
         vwap_live = None
 
+    cfg_dict = cfg if isinstance(cfg, dict) else {}
+
     if vwap_live is not None and vwap_live != tp:
-        if direction == "long" and current_price >= vwap_live:
-            return {"action": "close", "reason": "vwap_cross", "exit_price": current_price}
-        if direction == "short" and current_price <= vwap_live:
+        cross_triggered = (
+            (direction == "long" and current_price >= vwap_live)
+            or (direction == "short" and current_price <= vwap_live)
+        )
+        if cross_triggered and _vwap_cross_gates_pass(
+            open_pkg, current_price, sl, direction, cfg_dict,
+        ):
             return {"action": "close", "reason": "vwap_cross", "exit_price": current_price}
 
     # 4. Time-decay.
-    cfg_dict = cfg if isinstance(cfg, dict) else {}
     hold_minutes = cfg_dict.get("monitor_hold_window_minutes", MONITOR_HOLD_WINDOW_MINUTES)
     try:
         hold_minutes = float(hold_minutes)

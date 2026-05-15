@@ -132,6 +132,22 @@ COMPARE_CONFIGS: list[dict[str, Any]] = [
         "ema_period": 20,
         "band_pct": 0.02,
     },
+    {
+        # Phase-3 design from the 2026-05-08-all-models-training run:
+        # on the 38-month dataset, 1h EMA-200 dominated 4h EMA-200 across
+        # every metric (Sharpe +3.23 vs +2.47). Distinct from the 1h
+        # EMA-20 config tested in #1090 — EMA-20 looks back ~20 hours,
+        # EMA-200 looks back ~200 hours (~8 days), so this is a true
+        # regime filter rather than a session-trend filter. Currently
+        # disabled in production because #1090 (8x 30-day windows) found
+        # the fast-EMA configs near-zero Sharpe; this run is the
+        # apples-to-apples test of whether the slow-EMA design helps
+        # in the same regime where the fast-EMA ones didn't.
+        "label": "1h EMA-200 (multi-week regime)",
+        "htf_timeframe": "1h",
+        "ema_period": 200,
+        "band_pct": 0.02,
+    },
 ]
 
 
