@@ -1,6 +1,11 @@
 """Tests for partial-close verdict shape in _apply_update / _apply_partial_close.
 
-Strategy-monocle sprint PR 2/3 — DB-side only. No exchange calls.
+These tests pin the DB-side bookkeeping. The 2026-05-15 FU-20260515-002
+refactor wired the partial-close path through the exchange first (mirror
+of the PR #1190 full-close fix), so an autouse fixture mocks both
+``_send_partial_close_to_exchange`` and ``_send_close_to_exchange`` to
+return ok=True. That isolates the DB-side assertions here from the
+exchange-side wiring covered in ``tests/test_s030_pr4_exchange_modify_close.py``.
 
 Contracts:
 1. Full close (close_qty_pct unset / 1.0): existing full-close path unchanged.
@@ -21,16 +26,52 @@ import sys
 from typing import List, Optional
 from unittest.mock import MagicMock
 
+import pytest
+
 
 # Stub pandas before importing order_monitor (signal_notifications pulls it).
 sys.modules.setdefault("pandas", MagicMock())
 sys.modules.setdefault("src.runtime.signal_notifications", MagicMock())
 sys.modules.setdefault("src.runtime.signal_writer", MagicMock())
 
+from src.runtime import order_monitor as _om  # noqa: E402
 from src.runtime.order_monitor import (  # noqa: E402
     _apply_update,
     _StrategyTickSummary,
 )
+
+
+@pytest.fixture(autouse=True)
+def _mock_exchange_dispatch(monkeypatch):
+    """Auto-mock the exchange wrappers so the DB-side tests below
+    aren't gated on a live Bybit client. ``_apply_partial_close`` and
+    the full-close branch of ``_apply_update`` both dispatch to the
+    exchange before any DB write (FU-20260515-002 / PR #1190); without
+    these stubs the helpers would return ``{"ok": False, "error":
+    "no_client"}`` and the DB would never be touched.
+
+    ``_capture_fill_details`` is forced to return ``None`` so the
+    callers fall back to the verdict's projected exit_price + the
+    requested qty — preserving the pre-refactor numeric expectations
+    (e.g. 50%-of-0.010 → 0.005 remaining)."""
+    monkeypatch.setattr(
+        _om, "_send_partial_close_to_exchange",
+        lambda matched_trade, qty: {
+            "ok": True, "exchange_response": None,
+            "exchange_order_id": "STUB-PARTIAL", "error": None,
+        },
+    )
+    monkeypatch.setattr(
+        _om, "_send_close_to_exchange",
+        lambda matched_trade: {
+            "ok": True, "exchange_response": None,
+            "exchange_order_id": "STUB-FULL", "error": None,
+        },
+    )
+    monkeypatch.setattr(
+        _om, "_capture_fill_details",
+        lambda matched_trade, oid: None,
+    )
 
 
 # ---------------------------------------------------------------------------

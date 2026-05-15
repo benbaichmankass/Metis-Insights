@@ -145,28 +145,47 @@ def _apply_partial_close(
 ) -> None:
     """Partial-close path for ``close_qty_pct < 1.0`` verdicts.
 
-    DB-side only (no exchange call — that is PR 3 of the
-    strategy-monocle sprint, Tier 2).
+    Exchange-first ordering (FU-20260515-002, 2026-05-15): mirrors the
+    fix applied to ``_apply_update``'s full-close branch in PR #1190.
+    Pre-this-PR the partial-close path was DB-only and a strategy that
+    emitted a partial verdict (e.g. turtle_soup TP1 partial_close_pct=
+    0.25) would mark the trade row down in size while leaving the full
+    Bybit position open; the exchange-side SL/TP eventually closed the
+    full original size at SL or TP. The new order is:
 
-    Behaviour
-    ---------
-    * Reads the linked ``trades`` row to get the current
-      ``position_size`` and ``notes`` JSON.
+      1. Look up the linked ``trades`` row (read-only).
+      2. Compute the qty to close from the verdict pct against the
+         stored ``original_position_size``.
+      3. Call ``_send_partial_close_to_exchange`` — short-circuits to
+         ok=True on dry-run accounts.
+      4. On ok=False, log ERROR, do NOT touch the DB, count an error,
+         return so the next monitor tick re-attempts.
+      5. On ok=True, look up the actual filled qty + avg price via
+         ``account_order_status`` (FU-20260515-002 Gap A) and update
+         the DB with those instead of the verdict-projected values.
+
+    Behaviour preserved from the legacy DB-only path:
+
     * Appends a fragment to ``notes.partial_closes``:
-      ``{"qty": pct, "reason": str, "ts": iso, ["exit_price": float]}``.
+      ``{"qty": pct, "reason": str, "ts": iso, "filled_qty": float,
+         "exit_price": float?, "exit_price_source": "exchange"|"verdict",
+         "exchange_order_id": str?}``.
     * Stores ``notes.original_position_size`` on the first partial so
       subsequent calls can compute the remaining fraction correctly.
-    * Updates ``trades.position_size`` to
-      ``original_position_size * (1 - cumulative_closed_pct)``.
+    * Updates ``trades.position_size`` by subtracting the actual
+      ``filled_qty`` from the current value (falling back to the
+      verdict-requested qty when the order-status lookup is
+      unavailable, e.g. dry-run accounts).
     * Keeps ``order_packages.status = 'open'``.
     * When the verdict carries a ``next_tp`` float, also rolls the
       ``order_packages.tp`` field forward so the next monitor tick
       compares price against the new target (e.g. TP2 after a TP1
-      partial). Without this the next tick would re-emit the same
-      TP1 partial verdict and double-partial the position.
+      partial).
     * When cumulative closed pct >= 1.0 (sequential partials totalling
-      100 %), falls through to a full close of both the package and
-      the trade row.
+      100 %), falls through to ``_full_close_trade_and_package`` —
+      which assumes the exchange close has already happened. So the
+      cumulative-100% leg still attempts an exchange close first;
+      only when that succeeds do the DB rows flip.
     * No-op (warning logged) when there is no linked trade row or when
       ``linked_trade_id`` is absent (the fallback symbol/strategy match
       is intentionally skipped for partial closes to avoid wrong-row
@@ -175,7 +194,7 @@ def _apply_partial_close(
     pkg_id = open_pkg.get("order_package_id")
     close_qty_pct = float((verdict or {}).get("close_qty_pct", 1.0))
     reason = str((verdict or {}).get("reason") or "partial_close")
-    exit_price = (verdict or {}).get("exit_price")
+    verdict_exit_price = (verdict or {}).get("exit_price")
     next_tp = (verdict or {}).get("next_tp")
     now = datetime.now(timezone.utc).isoformat()
 
@@ -214,24 +233,97 @@ def _apply_partial_close(
     original_pos = trade_notes.get("original_position_size") or float(
         trade.get("position_size") or 0.0
     )
+    current_pos = float(trade.get("position_size") or 0.0)
     partials: list = list(trade_notes.get("partial_closes") or [])
     already_closed_pct = sum(float(p.get("qty", 0)) for p in partials)
     new_total_closed = already_closed_pct + close_qty_pct
 
-    fragment: Dict[str, Any] = {"qty": close_qty_pct, "reason": reason, "ts": now}
-    if exit_price is not None:
-        fragment["exit_price"] = float(exit_price)
+    # Exchange-first: dispatch the partial close BEFORE any DB write.
+    # ``_send_partial_close_to_exchange`` short-circuits to ok=True on
+    # dry-run accounts so paper trading still books the journal-side
+    # partial. The verdict pct is applied against the ORIGINAL position
+    # size so cumulative partial pcts always sum against the same base.
+    requested_qty = round(original_pos * close_qty_pct, 8)
+    if requested_qty <= 0:
+        logger.warning(
+            "order_monitor: partial-close requested qty <= 0 for pkg=%s "
+            "(original_pos=%.8f close_qty_pct=%.4f) — skipping",
+            pkg_id, original_pos, close_qty_pct,
+        )
+        summary.no_change_count += 1
+        return
+
+    ex_result = _send_partial_close_to_exchange(trade, requested_qty)
+    logger.info(
+        "order_monitor: exchange partial close for pkg=%s account=%s "
+        "qty=%.8f → %s",
+        pkg_id, trade.get("account_id"), requested_qty, ex_result,
+    )
+
+    if not ex_result.get("ok"):
+        # Exchange refused or errored. Do NOT touch the DB so the
+        # next monitor tick re-attempts and the strategy-monocle gate
+        # continues to suppress duplicate signals.
+        err_str = ex_result.get("error") or "unknown"
+        logger.error(
+            "order_monitor: exchange partial close failed — leaving DB open. "
+            "pkg=%s account=%s symbol=%s qty=%s error=%s",
+            pkg_id, trade.get("account_id"),
+            trade.get("symbol"), requested_qty, err_str,
+        )
+        summary.error_count += 1
+        summary.errors.append(
+            f"{pkg_id}: exchange partial close failed: {err_str}"
+        )
+        return
+
+    # Exchange ack (or dry-run short-circuit). Look up the actual fill
+    # details via account_order_status so the DB reflects what really
+    # filled (rounded for lot-size, partial fills, slippage). When the
+    # lookup fails or returns no avg_price, fall back to the verdict's
+    # projected exit_price + the requested qty and annotate the
+    # fragment so consumers can distinguish "exchange-confirmed" from
+    # "verdict-projected" fills downstream.
+    fill_details = _capture_fill_details(
+        trade, ex_result.get("exchange_order_id"),
+    )
+    if fill_details is not None and fill_details.get("filled_qty"):
+        actual_filled_qty = float(fill_details["filled_qty"])
+        actual_exit_price: Optional[float] = float(fill_details["avg_price"])
+        exit_price_source = "exchange"
+    else:
+        actual_filled_qty = float(requested_qty)
+        actual_exit_price = (
+            float(verdict_exit_price) if verdict_exit_price is not None else None
+        )
+        exit_price_source = "verdict"
+
+    fragment: Dict[str, Any] = {
+        "qty": close_qty_pct,
+        "reason": reason,
+        "ts": now,
+        "filled_qty": actual_filled_qty,
+        "exit_price_source": exit_price_source,
+    }
+    if actual_exit_price is not None:
+        fragment["exit_price"] = actual_exit_price
+    if ex_result.get("exchange_order_id"):
+        fragment["exchange_order_id"] = str(ex_result["exchange_order_id"])
     partials.append(fragment)
 
     if new_total_closed >= 1.0:
-        # Sequential partials reached/exceeded 100 % — full close.
+        # Sequential partials reached/exceeded 100 % — fall through to
+        # the shared full-close helper. The exchange close has already
+        # landed above, so the helper only writes the DB.
         trade_notes["partial_closes"] = partials
+        if "original_position_size" not in trade_notes:
+            trade_notes["original_position_size"] = original_pos
         _full_close_trade_and_package(
             db,
             pkg_id=pkg_id,
             linked_trade_id=int(linked_trade_id),
             reason=reason,
-            exit_price=exit_price,
+            exit_price=actual_exit_price,
             extra_notes=trade_notes,
             summary=summary,
         )
@@ -242,8 +334,7 @@ def _apply_partial_close(
         trade_notes["original_position_size"] = original_pos
     trade_notes["partial_closes"] = partials
 
-    remaining_pct = 1.0 - new_total_closed
-    new_position_size = round(original_pos * remaining_pct, 8)
+    new_position_size = max(0.0, round(current_pos - actual_filled_qty, 8))
 
     try:
         db.update_trade(int(linked_trade_id), {
@@ -274,9 +365,10 @@ def _apply_partial_close(
 
     logger.info(
         "order_monitor: partial close pkg=%s trade=%s "
-        "close_pct=%.3f new_position_size=%.8f remaining_pct=%.3f next_tp=%s",
-        pkg_id, linked_trade_id, close_qty_pct, new_position_size,
-        remaining_pct, next_tp,
+        "close_pct=%.3f filled_qty=%.8f new_position_size=%.8f "
+        "exit_price=%s exit_price_source=%s next_tp=%s",
+        pkg_id, linked_trade_id, close_qty_pct, actual_filled_qty,
+        new_position_size, actual_exit_price, exit_price_source, next_tp,
     )
     summary.updated_count += 1
 
@@ -377,9 +469,11 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
                 summary.no_change_count += 1
                 return
             if close_qty_pct < 1.0:
-                # Partial-close path is left untouched by the 2026-05-15
-                # exchange-first reorder — it has the same anti-pattern
-                # but addressing it is a separate Tier-2 PR.
+                # Partial-close path was originally DB-only. The
+                # 2026-05-15 exchange-first refactor (FU-20260515-002)
+                # reordered it to dispatch to the exchange before any
+                # DB write, mirroring the full-close branch fixed in
+                # PR #1190.
                 _apply_partial_close(db, open_pkg, verdict, summary)
                 return
             # close_qty_pct == 1.0 falls through to full-close below.
@@ -470,9 +564,34 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
             summary.errors.append(f"{pkg_id}: exchange close failed: {err_str}")
             return
 
-        # Exchange close ok (or dry-run skip). Now write the DB
-        # updates in the original order: package close → trade close
-        # → trade PnL.
+        # Exchange close ok (or dry-run skip). Capture the actual fill
+        # price from Bybit before writing the DB so the trade row's
+        # exit_price + PnL reflect what really filled, not the
+        # verdict's projected close price (FU-20260515-002).
+        #
+        # Bybit's ``place_order`` response doesn't include a fill price,
+        # so the lookup hits ``account_order_status`` against the
+        # returned ``exchange_order_id``. Read-failure / not-found
+        # falls back to ``verdict.exit_price`` and the notes field
+        # records ``exit_price_source="verdict"`` so consumers can tell
+        # exchange-confirmed exit_prices apart from projected ones —
+        # the reverse_reconciler is the SSOT for delayed reconciliation
+        # if the first-attempt avg_price is stale.
+        fill_details = _capture_fill_details(
+            matched_trade, ex_result.get("exchange_order_id"),
+        )
+        if fill_details is not None and fill_details.get("avg_price"):
+            actual_exit_price: Optional[float] = float(fill_details["avg_price"])
+            exit_price_source = "exchange"
+        else:
+            verdict_exit_price = (verdict or {}).get("exit_price")
+            actual_exit_price = (
+                float(verdict_exit_price) if verdict_exit_price is not None else None
+            )
+            exit_price_source = "verdict"
+
+        # Now write the DB updates in the original order: package
+        # close → trade close → trade PnL.
         try:
             db.update_order_package(pkg_id, {
                 "status": "closed",
@@ -488,12 +607,25 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
             return
 
         try:
-            close_updates = {
+            close_updates: Dict[str, Any] = {
                 "status": "closed",
                 "exit_reason": reason,
-                "exit_price": (verdict or {}).get("exit_price"),
             }
-            close_updates = {k: v for k, v in close_updates.items() if v is not None}
+            if actual_exit_price is not None:
+                close_updates["exit_price"] = actual_exit_price
+            # Annotate the notes field when we had to fall back to the
+            # verdict's exit_price (lookup unavailable / dry-run /
+            # not-found) so downstream consumers (hourly reports,
+            # backtest comparisons, ML datasets) can filter on
+            # exchange-confirmed fills only. Skip the annotation when
+            # there was no exit_price either side — nothing meaningful
+            # to source-tag.
+            if exit_price_source == "verdict" and actual_exit_price is not None:
+                existing_notes = _decode_notes(matched_trade.get("notes"))
+                existing_notes["exit_price_source"] = "verdict"
+                close_updates["notes"] = json.dumps(
+                    existing_notes, ensure_ascii=False,
+                )[:2000]
             trade_id = matched_trade.get("id")
             if trade_id is not None:
                 db.update_trade(int(trade_id), close_updates)
@@ -505,18 +637,12 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
             )
 
         # Realised-PnL booking. Mirrors the gross-PnL formula in the
-        # backtester so live + backtest accounting line up. PnL is
-        # computed from ``verdict.exit_price`` — capturing the actual
-        # fill price from the exchange response is out of scope:
-        # Bybit's place_order response doesn't include a fill price,
-        # so it would require a separate ``account_order_status``
-        # lookup (a bigger change tracked as FU-20260515-002).
-        # TODO(FU-20260515-002): replace verdict.exit_price with the
-        # real fill price from a post-close account_order_status read.
-        exit_price_for_pnl = (verdict or {}).get("exit_price")
-        if exit_price_for_pnl is not None:
+        # backtester so live + backtest accounting line up. Computed
+        # from the exchange-confirmed avg_price when available, else
+        # from the verdict-projected exit_price.
+        if actual_exit_price is not None:
             pnl_updates = _compute_close_pnl(
-                matched_trade, float(exit_price_for_pnl),
+                matched_trade, float(actual_exit_price),
             )
             trade_id = matched_trade.get("id")
             if pnl_updates and trade_id is not None:
@@ -760,6 +886,128 @@ def _send_close_to_exchange(matched_trade: Dict[str, Any]) -> Dict[str, Any]:
     except Exception as exc:  # noqa: BLE001
         logger.warning("order_monitor: exchange close failed: %s", exc)
         return {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
+
+
+def _send_partial_close_to_exchange(
+    matched_trade: Dict[str, Any], qty: float,
+) -> Dict[str, Any]:
+    """Send a reduce-only close order for *qty* (subset of the matched
+    trade's position_size) to the exchange.
+
+    FU-20260515-002 Gap B: companion to :func:`_send_close_to_exchange`
+    for the partial-close path. ``close_open_position`` always sets
+    ``reduceOnly=True`` regardless of whether qty matches the full
+    position size, so the same helper handles both legs.
+
+    Dry-run short-circuit: when the resolved cfg has ``mode ==
+    "dry_run"`` the helper returns ``{"ok": True, "skipped":
+    "dry_run", ...}`` WITHOUT calling ``close_open_position`` — the
+    caller (``_apply_partial_close``) treats that exactly like a live
+    success and writes the DB-side partial.
+
+    Best-effort — never raises. ``client is None`` or any underlying
+    exception returns ``{"ok": False, ...}`` so the caller can leave
+    the DB row untouched and retry next tick.
+    """
+    try:
+        from src.units.accounts.execute import close_open_position
+        client, cfg = _build_account_client(matched_trade.get("account_id"))
+        if client is None or cfg is None:
+            return {"ok": False, "error": "no_client",
+                    "exchange_order_id": None}
+        if (cfg or {}).get("mode") == "dry_run":
+            return {
+                "ok": True,
+                "skipped": "dry_run",
+                "exchange_response": None,
+                "exchange_order_id": None,
+                "error": None,
+            }
+        return close_open_position(
+            client, cfg,
+            symbol=matched_trade.get("symbol"),
+            side=matched_trade.get("direction"),
+            qty=float(qty),
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("order_monitor: exchange partial close failed: %s", exc)
+        return {"ok": False,
+                "error": f"{type(exc).__name__}: {exc}",
+                "exchange_order_id": None}
+
+
+def _capture_fill_details(
+    matched_trade: Dict[str, Any],
+    exchange_order_id: Optional[str],
+) -> Optional[Dict[str, float]]:
+    """Look up the actual fill price + qty for *exchange_order_id*.
+
+    FU-20260515-002 Gap A: Bybit's ``place_order`` response doesn't
+    carry a fill price, so the close path used to record the
+    monitor's projected ``verdict.exit_price`` as the journal's
+    ``exit_price``. The reverse_reconciler eventually caught the
+    discrepancy on closed trades but the journal's per-trade P&L was
+    wrong in the meantime. This helper closes the gap by hitting
+    ``account_order_status`` against the returned order id.
+
+    Returns
+    -------
+    dict | None
+        ``{"avg_price": float, "filled_qty": float}`` when the
+        exchange reports a non-zero ``avg_price``. ``None`` when:
+
+        * ``exchange_order_id`` is falsy (dry-run skip leaves it
+          unset)
+        * the account cfg can't be resolved (no client)
+        * the account is ``mode: dry_run`` (no order to look up)
+        * ``account_order_status`` returns ``None`` (read failure)
+        * the exchange reports ``status="not_found"`` with zero
+          ``avg_price``, even after a single short-delay retry
+          (Bybit's order index lag is ~1-3 s after place_order; one
+          retry catches most of it without pinning a tight loop)
+        * any unexpected exception
+
+    The caller is expected to fall back to verdict-derived values
+    and annotate ``trades.notes`` with ``exit_price_source="verdict"``.
+    """
+    if not exchange_order_id:
+        return None
+    try:
+        _, cfg = _build_account_client(matched_trade.get("account_id"))
+        if cfg is None:
+            return None
+        if (cfg or {}).get("mode") == "dry_run":
+            return None
+        from src.units.accounts.clients import account_order_status
+
+        status = account_order_status(cfg, str(exchange_order_id))
+        # Single short-delay retry when the order is genuinely
+        # "not_found" — Bybit's open-orders index typically populates
+        # within ~50-200 ms but order_history can lag 1-3 s after
+        # place_order. ``account_order_status`` checks both, so a
+        # not_found verdict means the order hasn't landed in either
+        # index yet. One retry catches that race; further failures
+        # fall through to the verdict-derived fallback and the
+        # reverse_reconciler picks up any lasting discrepancy.
+        if status is not None:
+            avg_price = float(status.get("avg_price") or 0.0)
+            status_label = str(status.get("status") or "").lower()
+            if avg_price <= 0.0 and status_label == "not_found":
+                import time
+                time.sleep(0.5)
+                status = account_order_status(cfg, str(exchange_order_id))
+        if status is None:
+            return None
+        avg_price = float(status.get("avg_price") or 0.0)
+        if avg_price <= 0.0:
+            return None
+        return {
+            "avg_price": avg_price,
+            "filled_qty": float(status.get("filled_qty") or 0.0),
+        }
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("_capture_fill_details: %s", exc)
+        return None
 
 
 def _send_modify_to_exchange(matched_trade: Dict[str, Any], *,
