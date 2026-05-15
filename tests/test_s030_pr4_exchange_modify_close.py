@@ -18,6 +18,7 @@ position kept consuming margin).
 """
 from __future__ import annotations
 
+import json
 import logging
 from unittest.mock import patch
 
@@ -481,4 +482,316 @@ def test_close_writes_db_when_account_is_dry_run(tmp_db):
     assert float(trade_after.get("exit_price")) == 81209.0
     assert trade_after.get("pnl") is not None
     assert summary.closed_count == 1
+    assert summary.error_count == 0
+
+
+# ---------------------------------------------------------------------------
+# FU-20260515-002 Gap A — fill-price capture (full close)
+# ---------------------------------------------------------------------------
+#
+# PR #1190 fixed the phantom-DB-close cascade, but the journal still
+# wrote ``exit_price = verdict.exit_price`` — the monitor's projected
+# close price — instead of the actual Bybit fill price. These three
+# tests pin the FU-20260515-002 wiring that captures the real avg_price
+# via ``account_order_status`` after a successful close, with graceful
+# fallback to the verdict-derived value (and a notes annotation) when
+# the lookup is unavailable.
+
+
+def test_full_close_uses_account_order_status_avg_price_when_available(tmp_db):
+    """Happy path: the exchange returns ok=True, the post-close
+    ``account_order_status`` lookup returns a non-zero ``avg_price``,
+    and the trade row records THAT — not the verdict's projection."""
+    _seed(tmp_db)
+    open_pkg = tmp_db.get_order_packages_by_strategy("vwap", status="open")[0]
+    open_trade = tmp_db.get_trades(
+        filters={"strategy_name": "vwap", "symbol": "BTCUSDT", "status": "open"},
+    )[0]
+    trade_id = open_trade["id"]
+
+    summary = om._StrategyTickSummary()
+    verdict = {"action": "close", "reason": "vwap_cross", "exit_price": 81209.0}
+
+    with patch.object(
+        om, "_send_close_to_exchange",
+        return_value={
+            "ok": True, "exchange_response": {"retCode": 0},
+            "exchange_order_id": "fake-orderid", "error": None,
+        },
+    ), patch.object(
+        om, "_capture_fill_details",
+        return_value={"avg_price": 81210.5, "filled_qty": 0.001},
+    ):
+        om._apply_update(tmp_db, dict(open_pkg), verdict, summary)
+
+    trade_after = _read_trade(tmp_db, trade_id)
+
+    assert trade_after.get("status") == "closed"
+    assert float(trade_after.get("exit_price")) == 81210.5  # exchange avg, not verdict
+    assert trade_after.get("pnl") is not None
+    # No "exit_price_source: verdict" annotation when exchange-confirmed.
+    notes = json.loads(trade_after.get("notes") or "{}")
+    assert notes.get("exit_price_source") != "verdict"
+    assert summary.closed_count == 1
+    assert summary.error_count == 0
+
+
+def test_full_close_falls_back_to_verdict_when_avg_price_unavailable(tmp_db):
+    """``_capture_fill_details`` returns ``None`` when
+    ``account_order_status`` reports ``status="not_found"`` /
+    ``avg_price=0`` even after the single retry — caller falls back
+    to ``verdict.exit_price`` and stamps ``exit_price_source: "verdict"``
+    on the trade row's notes so consumers can filter out projected
+    exit_prices downstream."""
+    _seed(tmp_db)
+    open_pkg = tmp_db.get_order_packages_by_strategy("vwap", status="open")[0]
+    open_trade = tmp_db.get_trades(
+        filters={"strategy_name": "vwap", "symbol": "BTCUSDT", "status": "open"},
+    )[0]
+    trade_id = open_trade["id"]
+
+    summary = om._StrategyTickSummary()
+    verdict = {"action": "close", "reason": "vwap_cross", "exit_price": 81209.0}
+
+    with patch.object(
+        om, "_send_close_to_exchange",
+        return_value={
+            "ok": True, "exchange_response": {"retCode": 0},
+            "exchange_order_id": "fake-orderid", "error": None,
+        },
+    ), patch(
+        "src.units.accounts.clients.account_order_status",
+        return_value={"status": "not_found", "avg_price": 0.0,
+                      "filled_qty": 0.0, "order_id": "fake-orderid",
+                      "exec_time": None},
+    ):
+        om._apply_update(tmp_db, dict(open_pkg), verdict, summary)
+
+    trade_after = _read_trade(tmp_db, trade_id)
+    assert trade_after.get("status") == "closed"
+    assert float(trade_after.get("exit_price")) == 81209.0  # fallback to verdict
+    notes = json.loads(trade_after.get("notes") or "{}")
+    assert notes.get("exit_price_source") == "verdict"
+    assert summary.closed_count == 1
+
+
+def test_full_close_falls_back_when_order_status_returns_none(tmp_db):
+    """``account_order_status`` returns ``None`` on a read failure
+    (creds missing, network, etc.). ``_capture_fill_details`` short-
+    circuits the same way as the not_found path — the caller uses
+    ``verdict.exit_price`` and stamps the notes annotation."""
+    _seed(tmp_db)
+    open_pkg = tmp_db.get_order_packages_by_strategy("vwap", status="open")[0]
+    open_trade = tmp_db.get_trades(
+        filters={"strategy_name": "vwap", "symbol": "BTCUSDT", "status": "open"},
+    )[0]
+    trade_id = open_trade["id"]
+
+    summary = om._StrategyTickSummary()
+    verdict = {"action": "close", "reason": "vwap_cross", "exit_price": 81209.0}
+
+    with patch.object(
+        om, "_send_close_to_exchange",
+        return_value={
+            "ok": True, "exchange_response": {"retCode": 0},
+            "exchange_order_id": "fake-orderid", "error": None,
+        },
+    ), patch(
+        "src.units.accounts.clients.account_order_status",
+        return_value=None,
+    ):
+        om._apply_update(tmp_db, dict(open_pkg), verdict, summary)
+
+    trade_after = _read_trade(tmp_db, trade_id)
+    assert trade_after.get("status") == "closed"
+    assert float(trade_after.get("exit_price")) == 81209.0
+    notes = json.loads(trade_after.get("notes") or "{}")
+    assert notes.get("exit_price_source") == "verdict"
+    assert summary.closed_count == 1
+
+
+# ---------------------------------------------------------------------------
+# FU-20260515-002 Gap B — partial-close exchange wiring
+# ---------------------------------------------------------------------------
+#
+# Pre-FU-20260515-002, ``_apply_partial_close`` was DB-only by design:
+# a partial-close verdict (e.g. turtle_soup TP1 partial_close_pct=0.25)
+# would mark the trade row down in size while the live Bybit position
+# stayed at the original size. The exchange-side SL/TP would eventually
+# fire against the full original size. These three tests pin the
+# refactored exchange-first behaviour: the partial close hits Bybit
+# FIRST and the DB only follows on ok=True (mirror of the PR #1190
+# full-close fix).
+
+
+def _seed_with_link(db, *, pkg_id="pkg-1", strategy="vwap", direction="long",
+                    symbol="BTCUSDT", position_size=0.001):
+    """Seed an open package + a linked trade row, and patch the
+    package's ``linked_trade_id`` to point at the trade row's id.
+
+    ``_apply_partial_close`` refuses to act without a numeric
+    ``linked_trade_id`` (the symbol/strategy fallback is unsafe for
+    partials — the wrong-row update would silently shrink an
+    unrelated position). The default ``_seed`` doesn't wire the link,
+    so partial-close tests need this fuller fixture.
+    """
+    db.insert_order_package({
+        "order_package_id": pkg_id, "strategy_name": strategy,
+        "symbol": symbol, "direction": direction,
+        "entry": 100.0, "sl": 98.0, "tp": 104.0, "confidence": 0.6,
+    })
+    trade_id = db.insert_trade({
+        "timestamp": "2026-05-02T20:00:00+00:00",
+        "symbol": symbol, "direction": direction,
+        "entry_price": 100.0, "stop_loss": 98.0, "take_profit_1": 104.0,
+        "position_size": position_size, "status": "open", "is_backtest": 0,
+        "strategy_name": strategy, "account_id": "bybit_2",
+        "setup_type": strategy,
+    })
+    db.update_order_package(pkg_id, {"linked_trade_id": int(trade_id)})
+    return trade_id
+
+
+def test_partial_close_dispatches_to_exchange_with_reduce_only(tmp_db):
+    """Happy path: the partial close hits the exchange (close_open_position
+    via ``_send_partial_close_to_exchange``), the post-close fill lookup
+    returns the actual filled qty, and the trade row's position_size is
+    decremented by the EXCHANGE-reported qty — not by the verdict's
+    requested fraction. ``close_open_position`` always sets
+    reduceOnly=True, so the partial dispatch can never accidentally
+    open a fresh position even when the exchange rounds the qty."""
+    trade_id = _seed_with_link(tmp_db, position_size=0.004)
+    open_pkg = tmp_db.get_order_packages_by_strategy("vwap", status="open")[0]
+    pkg_dict = dict(open_pkg)
+    pkg_dict["linked_trade_id"] = int(trade_id)
+
+    summary = om._StrategyTickSummary()
+    verdict = {
+        "action": "close", "close_qty_pct": 0.25,
+        "reason": "tp1_partial", "exit_price": 102.0,
+    }
+
+    with patch.object(
+        om, "_send_partial_close_to_exchange",
+        return_value={
+            "ok": True, "exchange_response": {"retCode": 0},
+            "exchange_order_id": "partial-orderid", "error": None,
+        },
+    ) as mock_partial, patch.object(
+        om, "_capture_fill_details",
+        return_value={"avg_price": 102.1, "filled_qty": 0.001},
+    ):
+        om._apply_partial_close(tmp_db, pkg_dict, verdict, summary)
+
+    # Exchange called with the verdict-requested qty (0.004 * 0.25).
+    args, kwargs = mock_partial.call_args
+    assert args[0]["id"] == trade_id
+    assert abs(args[1] - 0.001) < 1e-8  # 0.004 * 0.25
+
+    trade_after = _read_trade(tmp_db, trade_id)
+    # position_size decremented by ACTUAL filled qty (0.001), not by
+    # the verdict-requested 0.001 (they happen to match here — what
+    # the test really pins is that we used filled_qty, not requested).
+    assert abs(float(trade_after["position_size"]) - 0.003) < 1e-8
+    notes = json.loads(trade_after.get("notes") or "{}")
+    partials = notes.get("partial_closes", [])
+    assert len(partials) == 1
+    frag = partials[0]
+    assert frag["filled_qty"] == 0.001
+    assert frag["exit_price"] == 102.1
+    assert frag["exit_price_source"] == "exchange"
+    assert frag["exchange_order_id"] == "partial-orderid"
+    assert summary.updated_count == 1
+    assert summary.error_count == 0
+
+
+def test_partial_close_leaves_db_unchanged_when_exchange_fails(tmp_db, caplog):
+    """Exchange refuses (170131, network, rate-limit). The DB row is
+    untouched — position_size stays at the original, notes are not
+    rewritten, no partial_closes fragment is appended — and the
+    failure is logged at ERROR with the pkg_id + Bybit error string.
+    The next monitor tick will re-attempt; strategy_monocle continues
+    to suppress duplicate signals."""
+    trade_id = _seed_with_link(tmp_db, position_size=0.004)
+    open_pkg = tmp_db.get_order_packages_by_strategy("vwap", status="open")[0]
+    pkg_dict = dict(open_pkg)
+    pkg_dict["linked_trade_id"] = int(trade_id)
+
+    summary = om._StrategyTickSummary()
+    verdict = {
+        "action": "close", "close_qty_pct": 0.25,
+        "reason": "tp1_partial", "exit_price": 102.0,
+    }
+
+    err = "Insufficient balance. (ErrCode: 170131)"
+    with caplog.at_level(logging.ERROR, logger="src.runtime.order_monitor"), \
+            patch.object(
+                om, "_send_partial_close_to_exchange",
+                return_value={
+                    "ok": False, "exchange_response": None,
+                    "exchange_order_id": None, "error": err,
+                },
+            ):
+        om._apply_partial_close(tmp_db, pkg_dict, verdict, summary)
+
+    trade_after = _read_trade(tmp_db, trade_id)
+    # position_size unchanged.
+    assert abs(float(trade_after["position_size"]) - 0.004) < 1e-8
+    # notes carry no partial_closes fragment.
+    notes = json.loads(trade_after.get("notes") or "{}")
+    assert not notes.get("partial_closes")
+    # Summary reflects the failure.
+    assert summary.updated_count == 0
+    assert summary.error_count == 1
+    pkg_id = open_pkg["order_package_id"]
+    error_messages = [
+        r.getMessage() for r in caplog.records if r.levelno >= logging.ERROR
+    ]
+    assert any(pkg_id in m and "170131" in m for m in error_messages), (
+        f"expected an ERROR log mentioning {pkg_id!r} and '170131', "
+        f"got: {error_messages!r}"
+    )
+
+
+def test_partial_close_dry_run_short_circuit(tmp_db):
+    """``_send_partial_close_to_exchange`` short-circuits to
+    ``{ok: True, skipped: 'dry_run', exchange_order_id: None}`` on
+    dry-run accounts. The caller treats that exactly like a live ack
+    and writes the DB partial using the verdict-requested qty
+    (no exchange to look up an avg_price from). The fragment's
+    ``exit_price_source`` is ``"verdict"`` since we never got an
+    exchange-confirmed fill price."""
+    trade_id = _seed_with_link(tmp_db, position_size=0.004)
+    open_pkg = tmp_db.get_order_packages_by_strategy("vwap", status="open")[0]
+    pkg_dict = dict(open_pkg)
+    pkg_dict["linked_trade_id"] = int(trade_id)
+
+    summary = om._StrategyTickSummary()
+    verdict = {
+        "action": "close", "close_qty_pct": 0.25,
+        "reason": "tp1_partial", "exit_price": 102.0,
+    }
+
+    with patch.object(
+        om, "_send_partial_close_to_exchange",
+        return_value={
+            "ok": True, "skipped": "dry_run",
+            "exchange_response": None, "exchange_order_id": None,
+            "error": None,
+        },
+    ):
+        om._apply_partial_close(tmp_db, pkg_dict, verdict, summary)
+
+    trade_after = _read_trade(tmp_db, trade_id)
+    # Decremented by the verdict-requested qty (0.004 * 0.25 = 0.001).
+    assert abs(float(trade_after["position_size"]) - 0.003) < 1e-8
+    notes = json.loads(trade_after.get("notes") or "{}")
+    partials = notes.get("partial_closes", [])
+    assert len(partials) == 1
+    frag = partials[0]
+    assert frag["qty"] == 0.25
+    assert frag["filled_qty"] == 0.001  # verdict-requested
+    assert frag["exit_price"] == 102.0  # verdict
+    assert frag["exit_price_source"] == "verdict"
+    assert summary.updated_count == 1
     assert summary.error_count == 0
