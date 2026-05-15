@@ -2,6 +2,11 @@
   "vwap": [
     {
       "date": "2026-05-15",
+      "ref": "shadow regime-classifier",
+      "summary": "Wired regime-classifier-baseline-v0 as a shadow predictor on VWAP signals (zero production effect — predictions logged to runtime_logs/shadow_predictions.jsonl only). Promoted to `shadow` stage via trainer-vm-diag #1203. Macro_f1=0.33 on n=4147, f1_range=0.62 — gathering 30 days of data to correlate model-says-range with VWAP winners"
+    },
+    {
+      "date": "2026-05-15",
       "ref": "entry threshold 1.5σ",
       "summary": "Raised ENTRY_STD_THRESHOLD 1.0σ → 1.5σ following issue #1200 threshold sweep (8 random 30-day windows, May 2025-April 2026): 1.5σ mean Sharpe 0.015 vs 1.0σ 0.011, mean total R 6.38 vs 6.02, 4/8 positive windows vs 3/8. Cadence drops ~30% (387 → 295 trades/30d). Same ordering as the 38-month V6 experiment, so not regime-overfit"
     },
