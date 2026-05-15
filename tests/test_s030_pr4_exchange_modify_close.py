@@ -18,6 +18,7 @@ position kept consuming margin).
 """
 from __future__ import annotations
 
+import logging
 from unittest.mock import patch
 
 import pandas as pd
@@ -317,3 +318,167 @@ class TestExchangeDispatch:
         # DB row updated even though exchange wasn't touched.
         rows = tmp_db.get_order_packages_by_strategy("vwap")
         assert rows[0]["sl"] == 100.0
+
+
+# ---------------------------------------------------------------------------
+# 2026-05-15: exchange-first close ordering (no phantom DB closes)
+# ---------------------------------------------------------------------------
+#
+# Pin the close branch of ``_apply_update`` so it:
+#   (1) writes the DB only when the exchange call returns ok=True,
+#   (2) leaves every row UNCHANGED when the exchange returns ok=False,
+#   (3) treats the ``skipped: "dry_run"`` short-circuit as a success
+#       (so paper accounts still book the DB close as before).
+#
+# Pre-fix, the DB rows were flipped first and a fabricated PnL was
+# stamped before the exchange call. On a Bybit 170131 / network blip
+# / rate-limit the journal would lie about a still-open position and
+# the reverse-reconciler would adopt it as a duplicate
+# ``adopted_orphan`` row. These three tests anchor that fix.
+
+
+def _read_pkg(db, pkg_id):
+    """Find an order_package by id regardless of current status.
+
+    ``get_order_packages_by_strategy`` filters on status, so a row
+    that may have flipped to 'closed' has to be looked up by scanning
+    both buckets — the public API doesn't expose a "get by id"
+    helper in every Database build.
+    """
+    for status in ("open", "closed"):
+        try:
+            rows = db.get_order_packages_by_strategy("vwap", status=status)
+        except TypeError:
+            rows = db.get_order_packages_by_strategy("vwap")
+        for r in rows or []:
+            if r.get("order_package_id") == pkg_id:
+                return r
+    return None
+
+
+def _read_trade(db, trade_id):
+    rows = db.get_trades(filters={"id": int(trade_id)})
+    return rows[0] if rows else None
+
+
+def test_close_writes_db_when_exchange_succeeds(tmp_db, caplog):
+    """When the exchange close returns ok=True the DB rows flip to
+    closed, exit_price is stamped, PnL is computed, and the summary
+    counter increments — exactly the existing happy-path contract,
+    just gated on a real exchange ack."""
+    _seed(tmp_db)
+    open_pkg = tmp_db.get_order_packages_by_strategy("vwap", status="open")[0]
+    open_trade = tmp_db.get_trades(
+        filters={"strategy_name": "vwap", "symbol": "BTCUSDT", "status": "open"},
+    )[0]
+    trade_id = open_trade["id"]
+
+    summary = om._StrategyTickSummary()
+    verdict = {"action": "close", "reason": "vwap_cross", "exit_price": 81209.0}
+
+    with patch.object(
+        om, "_send_close_to_exchange",
+        return_value={
+            "ok": True, "exchange_response": {"retCode": 0},
+            "exchange_order_id": "fake-orderid", "error": None,
+        },
+    ):
+        om._apply_update(tmp_db, dict(open_pkg), verdict, summary)
+
+    pkg_after = _read_pkg(tmp_db, open_pkg["order_package_id"])
+    trade_after = _read_trade(tmp_db, trade_id)
+
+    assert pkg_after is not None and pkg_after.get("status") == "closed"
+    assert pkg_after.get("close_reason") == "vwap_cross"
+    assert trade_after is not None and trade_after.get("status") == "closed"
+    assert float(trade_after.get("exit_price")) == 81209.0
+    assert trade_after.get("pnl") is not None
+    assert summary.closed_count == 1
+    assert summary.error_count == 0
+
+
+def test_close_leaves_db_open_when_exchange_fails(tmp_db, caplog):
+    """When the exchange close returns ok=False NOTHING in the DB
+    changes — no phantom 'closed' row, no fabricated PnL — and the
+    error is logged at ERROR with the package id + Bybit error string.
+    The next monitor tick will re-attempt; the strategy-monocle gate
+    keeps duplicate signals suppressed in the meantime."""
+    _seed(tmp_db)
+    open_pkg = tmp_db.get_order_packages_by_strategy("vwap", status="open")[0]
+    open_trade = tmp_db.get_trades(
+        filters={"strategy_name": "vwap", "symbol": "BTCUSDT", "status": "open"},
+    )[0]
+    trade_id = open_trade["id"]
+
+    summary = om._StrategyTickSummary()
+    verdict = {"action": "close", "reason": "vwap_cross", "exit_price": 81209.0}
+
+    err = "Insufficient balance. (ErrCode: 170131)"
+    with caplog.at_level(logging.ERROR, logger="src.runtime.order_monitor"), \
+            patch.object(
+                om, "_send_close_to_exchange",
+                return_value={
+                    "ok": False, "exchange_response": None,
+                    "exchange_order_id": None, "error": err,
+                },
+            ):
+        om._apply_update(tmp_db, dict(open_pkg), verdict, summary)
+
+    pkg_after = _read_pkg(tmp_db, open_pkg["order_package_id"])
+    trade_after = _read_trade(tmp_db, trade_id)
+
+    # Package and trade rows are STILL open.
+    assert pkg_after is not None and pkg_after.get("status") == "open"
+    assert trade_after is not None and trade_after.get("status") == "open"
+    assert trade_after.get("exit_price") is None
+    assert trade_after.get("pnl") is None
+    # Summary reflects the failure, not a close.
+    assert summary.closed_count == 0
+    assert summary.error_count == 1
+    # ERROR log carries both the package id and the Bybit error string.
+    pkg_id = open_pkg["order_package_id"]
+    error_messages = [
+        r.getMessage() for r in caplog.records if r.levelno >= logging.ERROR
+    ]
+    assert any(pkg_id in m and "170131" in m for m in error_messages), (
+        f"expected an ERROR log mentioning {pkg_id!r} and '170131', "
+        f"got: {error_messages!r}"
+    )
+
+
+def test_close_writes_db_when_account_is_dry_run(tmp_db):
+    """A dry-run account short-circuits inside
+    ``_send_close_to_exchange`` with ``{ok: True, skipped: 'dry_run',
+    ...}`` — the caller treats that exactly like a live success and
+    proceeds with the DB close. This pins the contract that paper
+    accounts still get journaled closes (otherwise the DB would
+    forever lag the strategy's view of its own paper book)."""
+    _seed(tmp_db)
+    open_pkg = tmp_db.get_order_packages_by_strategy("vwap", status="open")[0]
+    open_trade = tmp_db.get_trades(
+        filters={"strategy_name": "vwap", "symbol": "BTCUSDT", "status": "open"},
+    )[0]
+    trade_id = open_trade["id"]
+
+    summary = om._StrategyTickSummary()
+    verdict = {"action": "close", "reason": "vwap_cross", "exit_price": 81209.0}
+
+    with patch.object(
+        om, "_send_close_to_exchange",
+        return_value={
+            "ok": True, "skipped": "dry_run",
+            "exchange_response": None, "exchange_order_id": None,
+            "error": None,
+        },
+    ):
+        om._apply_update(tmp_db, dict(open_pkg), verdict, summary)
+
+    pkg_after = _read_pkg(tmp_db, open_pkg["order_package_id"])
+    trade_after = _read_trade(tmp_db, trade_id)
+
+    assert pkg_after is not None and pkg_after.get("status") == "closed"
+    assert trade_after is not None and trade_after.get("status") == "closed"
+    assert float(trade_after.get("exit_price")) == 81209.0
+    assert trade_after.get("pnl") is not None
+    assert summary.closed_count == 1
+    assert summary.error_count == 0
