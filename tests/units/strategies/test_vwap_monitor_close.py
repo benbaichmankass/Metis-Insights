@@ -166,8 +166,14 @@ class TestVwapCrossClose:
         # Frame: 95, 96, 99.2. Live vwap ~96.7. Long entry was below
         # vwap (deviation > 0). Last close 99.2 > live vwap → cross.
         # tp = 105.0 — not yet reached, so TP-cross does not fire.
+        # Pkg pre-aged 15 min so the new min_hold_minutes_for_vwap_cross
+        # gate (default 10 min) passes; r_captured = (99.2-95)/1.5
+        # = 2.8R, well above the default 0.25R gate.
         df = _candles_with_close([95.0, 96.0, 99.2])
-        pkg = _pkg(direction="long", entry=95.0, sl=93.5, tp=105.0)
+        pkg = _pkg(
+            direction="long", entry=95.0, sl=93.5, tp=105.0,
+            created_at=_iso_minutes_ago(15),
+        )
         verdict = vwap.monitor({}, df, pkg)
         assert verdict is not None
         assert verdict["action"] == "close"
@@ -176,9 +182,14 @@ class TestVwapCrossClose:
 
     def test_short_close_crosses_back_below_live_vwap(self):
         # Frame: 105, 104, 100.8. Live vwap ~103.3. Short entry was
-        # above vwap. Last close 100.8 < live vwap → cross.
+        # above vwap. Last close 100.8 < live vwap → cross. Pre-aged
+        # 15 min for the hold-time gate; r_captured ≈ 2.8R covers the
+        # R gate by a wide margin.
         df = _candles_with_close([105.0, 104.0, 100.8])
-        pkg = _pkg(direction="short", entry=105.0, sl=106.5, tp=95.0)
+        pkg = _pkg(
+            direction="short", entry=105.0, sl=106.5, tp=95.0,
+            created_at=_iso_minutes_ago(15),
+        )
         verdict = vwap.monitor({}, df, pkg)
         assert verdict is not None
         assert verdict["reason"] == "vwap_cross"
@@ -450,6 +461,186 @@ class TestSlToBreakeven:
         verdict = vwap.monitor({"monitor_hold_window_minutes": 60}, df, pkg)
         assert verdict is not None
         assert verdict.get("reason") == "time_decay"
+
+
+# ---------------------------------------------------------------------------
+# 7. vwap_cross close-path gates (2026-05-15)
+# ---------------------------------------------------------------------------
+
+
+class TestVwapCrossGates:
+    """The two gates that suppress micro-R / same-bar vwap_cross exits.
+
+    Both gates must pass for vwap_cross to fire:
+      * R-capture >= ``min_r_for_vwap_cross`` (default 0.25R)
+      * Age >= ``min_hold_minutes_for_vwap_cross`` (default 10 min)
+
+    Either gate at 0 disables itself; both at 0 restores v1 "any cross
+    closes" behaviour.
+
+    Frames pick a cross point at controlled R-capture so the gate
+    boundary is the variable under test.
+    """
+
+    # Long: entry 100, sl 96 → 1R = 4 price points. tp 120 (out of reach).
+    # Frame [88, 92, ...] → live vwap ≈ 90 + (last close)/3. For a long
+    # to cross live vwap, ``current_price >= vwap_live``. Choose last
+    # close X so that vwap_live = (88+92+X)/3 (typical-price ≈ close at
+    # 0.1% high/low envelope and equal volume) and X >= vwap_live.
+    # Solving: X >= (88+92+X)/3 → X >= 90. So any X >= 90 triggers the
+    # raw cross; r_captured = (X - 100) / 4. To pre-age past the hold
+    # gate, use created_at 30 minutes ago across this class.
+
+    def test_r_capture_below_gate_blocks_vwap_cross(self):
+        # X = 101 → cross would fire (101 >= ~93.7); r_captured = 0.25R.
+        # Default gate is 0.25R inclusive (>=). Use 100.9 for strictly
+        # below 0.25R: r_captured = 0.225 → gate blocks. Verdict should
+        # be None (no other close path triggers; sl/tp/time_decay all
+        # dormant; BE not reached at +0.225R).
+        df = _candles_with_close([88.0, 92.0, 100.9])
+        pkg = _pkg(
+            direction="long", entry=100.0, sl=96.0, tp=120.0,
+            created_at=_iso_minutes_ago(30),
+        )
+        # raw cross would fire (100.9 > vwap_live ≈ 93.6) but R-gate blocks
+        assert vwap.monitor({}, df, pkg) is None
+
+    def test_r_capture_at_gate_fires_vwap_cross(self):
+        # X = 101 → r_captured = 0.25R; default gate is >= 0.25 so fires.
+        df = _candles_with_close([88.0, 92.0, 101.0])
+        pkg = _pkg(
+            direction="long", entry=100.0, sl=96.0, tp=120.0,
+            created_at=_iso_minutes_ago(30),
+        )
+        verdict = vwap.monitor({}, df, pkg)
+        assert verdict is not None
+        assert verdict["reason"] == "vwap_cross"
+        assert verdict["exit_price"] == 101.0
+
+    def test_age_below_gate_blocks_vwap_cross(self):
+        # Same frame as the at-gate test (r_captured = 0.25R passes the
+        # R-gate). Age 5 min < default 10 min → hold gate blocks.
+        df = _candles_with_close([88.0, 92.0, 101.0])
+        pkg = _pkg(
+            direction="long", entry=100.0, sl=96.0, tp=120.0,
+            created_at=_iso_minutes_ago(5),
+        )
+        assert vwap.monitor({}, df, pkg) is None
+
+    def test_age_at_gate_fires_vwap_cross(self):
+        # Age 10 min == default hold gate. Comparison is "age >= min_hold"
+        # so the boundary fires.
+        df = _candles_with_close([88.0, 92.0, 101.0])
+        pkg = _pkg(
+            direction="long", entry=100.0, sl=96.0, tp=120.0,
+            created_at=_iso_minutes_ago(10.5),
+        )
+        verdict = vwap.monitor({}, df, pkg)
+        assert verdict is not None
+        assert verdict["reason"] == "vwap_cross"
+
+    def test_micro_r_short_blocked(self):
+        # Mirror for shorts: entry 100, sl 104 → 1R = 4. X = 99.1 →
+        # r_captured = 0.225R → blocked. Pre-aged 30 min.
+        df = _candles_with_close([108.0, 102.0, 99.1])
+        pkg = _pkg(
+            direction="short", entry=100.0, sl=104.0, tp=80.0,
+            created_at=_iso_minutes_ago(30),
+        )
+        # raw cross would fire (99.1 < vwap_live ≈ 103.0); R-gate blocks
+        assert vwap.monitor({}, df, pkg) is None
+
+    def test_disable_r_gate_via_cfg(self):
+        # min_r_for_vwap_cross = 0 → r-gate disabled. Same micro-R frame
+        # as test_r_capture_below_gate_blocks_vwap_cross now fires.
+        df = _candles_with_close([88.0, 92.0, 100.9])
+        pkg = _pkg(
+            direction="long", entry=100.0, sl=96.0, tp=120.0,
+            created_at=_iso_minutes_ago(30),
+        )
+        verdict = vwap.monitor({"min_r_for_vwap_cross": 0}, df, pkg)
+        assert verdict is not None
+        assert verdict["reason"] == "vwap_cross"
+
+    def test_disable_hold_gate_via_cfg(self):
+        # min_hold_minutes_for_vwap_cross = 0 → hold gate disabled.
+        # Same just-opened frame that test_age_below_gate_blocks fires.
+        df = _candles_with_close([88.0, 92.0, 101.0])
+        pkg = _pkg(
+            direction="long", entry=100.0, sl=96.0, tp=120.0,
+            # Just-opened; default hold gate would block.
+        )
+        verdict = vwap.monitor({"min_hold_minutes_for_vwap_cross": 0}, df, pkg)
+        assert verdict is not None
+        assert verdict["reason"] == "vwap_cross"
+
+    def test_disable_both_gates_restores_v1(self):
+        # Both gates off: micro-R (r=0.225) + just-opened (age=0) still
+        # closes on the cross.
+        df = _candles_with_close([88.0, 92.0, 100.9])
+        pkg = _pkg(direction="long", entry=100.0, sl=96.0, tp=120.0)
+        verdict = vwap.monitor(
+            {"min_r_for_vwap_cross": 0, "min_hold_minutes_for_vwap_cross": 0},
+            df, pkg,
+        )
+        assert verdict is not None
+        assert verdict["reason"] == "vwap_cross"
+
+    def test_custom_thresholds(self):
+        # Operator tightens R-gate to 0.5R and loosens hold to 5 min.
+        # Frame r_captured = 0.25R → R-gate (0.5R) blocks even with age 30m.
+        df = _candles_with_close([88.0, 92.0, 101.0])
+        pkg = _pkg(
+            direction="long", entry=100.0, sl=96.0, tp=120.0,
+            created_at=_iso_minutes_ago(30),
+        )
+        cfg = {"min_r_for_vwap_cross": 0.5, "min_hold_minutes_for_vwap_cross": 5}
+        assert vwap.monitor(cfg, df, pkg) is None
+
+    def test_garbage_cfg_falls_back_to_defaults(self):
+        # Non-numeric cfg values silently fall back to module defaults.
+        # Same gated frame: r=0.225R, age 30m → r-gate (default 0.25R) blocks.
+        df = _candles_with_close([88.0, 92.0, 100.9])
+        pkg = _pkg(
+            direction="long", entry=100.0, sl=96.0, tp=120.0,
+            created_at=_iso_minutes_ago(30),
+        )
+        cfg = {"min_r_for_vwap_cross": "abc", "min_hold_minutes_for_vwap_cross": None}
+        assert vwap.monitor(cfg, df, pkg) is None
+
+    def test_gates_dont_block_sl_cross(self):
+        # SL-cross is priority 2 — fires before vwap_cross is even
+        # considered. The gates must not extend to SL.
+        df = _candles_with_close([100.0, 98.0, 96.0])  # last close == sl
+        pkg = _pkg(
+            direction="long", entry=100.0, sl=96.0, tp=120.0,
+            # Just-opened, micro-R-in-loss — under the v1 vwap_cross gates
+            # the cross-close would be blocked; SL must still close.
+        )
+        verdict = vwap.monitor({}, df, pkg)
+        assert verdict is not None
+        assert verdict["reason"] == "sl_cross"
+
+    def test_gates_dont_block_tp_cross(self):
+        # TP-cross is priority 1.
+        df = _candles_with_close([100.0, 110.0, 121.0])
+        pkg = _pkg(direction="long", entry=100.0, sl=96.0, tp=120.0)
+        verdict = vwap.monitor({}, df, pkg)
+        assert verdict is not None
+        assert verdict["reason"] == "tp_cross"
+
+    def test_gates_block_micro_r_but_time_decay_still_fires(self):
+        # Old + low-R + cross → vwap_cross gates block; time_decay then
+        # fires on the next priority. Confirms the gates suppress vwap_cross
+        # without preventing the trade from ever closing.
+        df = _candles_with_close([88.0, 92.0, 100.9])  # r ≈ 0.225 (gated)
+        pkg = _pkg(
+            direction="long", entry=100.0, sl=96.0, tp=120.0,
+            created_at=_iso_minutes_ago(99999),
+        )
+        verdict = vwap.monitor({"monitor_hold_window_minutes": 60}, df, pkg)
+        assert verdict is not None
+        assert verdict["reason"] == "time_decay"
 
 
 # ---------------------------------------------------------------------------

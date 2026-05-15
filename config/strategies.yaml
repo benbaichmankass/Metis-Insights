@@ -61,6 +61,24 @@ strategies:
     threshold: 0.01
     monitor_hold_window_minutes: 240
 
+    # vwap_cross close-path gates (2026-05-15). Block vwap_cross from
+    # firing when the trade has captured < min_r_for_vwap_cross R OR
+    # when the trade has been open < min_hold_minutes_for_vwap_cross
+    # minutes. Both must pass for vwap_cross to fire.
+    #
+    # Rationale: on 2026-05-14, 3/6 closed VWAP trades exited via
+    # vwap_cross at R-capture 0.009-0.085 — net loss after Bybit's
+    # 0.055% taker fee. Mechanism: when VWAP drifts *to* price rather
+    # than price reverting *to* VWAP, the cross fires at micro-edge
+    # even though the mean-reversion thesis never played out. Gates
+    # don't affect SL/TP/time_decay; only suppress the no-edge vwap
+    # cross exits.
+    #
+    # Set either to 0 to disable that gate. Setting both to 0 restores
+    # the v1 "any cross closes" behaviour.
+    min_r_for_vwap_cross: 0.25
+    min_hold_minutes_for_vwap_cross: 10
+
     # SL-to-break-even threshold (R multiples). When price moves >= be_at_r
     # x original_risk in the trade's favour and no close path (TP/SL/VWAP-
     # cross/time-decay) has fired, the strategy slides SL to entry. 1.0 is
