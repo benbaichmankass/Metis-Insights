@@ -107,7 +107,23 @@ strategies:
       ema_period: 20
       band_pct: 0.02
 
-    shadow_model_ids: []
+    # Shadow-mode predictors (WS7 / S-AI-WS7-PART-4). Each id is resolved
+    # via ml/shadow/factory.resolve_predictors against ml/registry-store/.
+    # Predictions are logged to runtime_logs/shadow_predictions.jsonl on
+    # every signal — they have **zero effect** on the order package per
+    # the WS7 non-negotiable. Use for data gathering and offline analysis
+    # before promoting a model from shadow → advisory → limited_live →
+    # live_approved.
+    #
+    # regime-classifier-baseline-v0 (added 2026-05-15) — promoted to
+    # `shadow` stage via trainer-vm-diag #1203 after the HTF backtest
+    # ruled out HTF gates. Model metrics: macro_f1=0.33 on n=4147,
+    # f1_range=0.62 (real signal on the regime where VWAP fades work),
+    # f1_trend=0.0 (degenerate trend class — model never predicts trend).
+    # The "range" prediction is the useful one — gathering 30 days of
+    # data to correlate model-says-range with VWAP winners, then decide
+    # whether to promote to gate.
+    shadow_model_ids: ["regime-classifier-baseline-v0"]
 
   ict_scalp_5m:
     # ICT scalp v2 — liquidity sweep + displacement + FVG wick-rejection
