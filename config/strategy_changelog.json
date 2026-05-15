@@ -2,6 +2,11 @@
   "vwap": [
     {
       "date": "2026-05-15",
+      "ref": "entry threshold 1.5σ",
+      "summary": "Raised ENTRY_STD_THRESHOLD 1.0σ → 1.5σ following issue #1200 threshold sweep (8 random 30-day windows, May 2025-April 2026): 1.5σ mean Sharpe 0.015 vs 1.0σ 0.011, mean total R 6.38 vs 6.02, 4/8 positive windows vs 3/8. Cadence drops ~30% (387 → 295 trades/30d). Same ordering as the 38-month V6 experiment, so not regime-overfit"
+    },
+    {
+      "date": "2026-05-15",
       "ref": "vwap_cross gates",
       "summary": "Added min_r_for_vwap_cross (0.25R) + min_hold_minutes_for_vwap_cross (10m) gates on the vwap_cross close path — suppresses micro-R exits from VWAP-drifts-to-price (3/6 closes on 2026-05-14 exited at R-capture 0.009-0.085, net loss after fees)"
     },
