@@ -377,10 +377,102 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
                 summary.no_change_count += 1
                 return
             if close_qty_pct < 1.0:
+                # Partial-close path is left untouched by the 2026-05-15
+                # exchange-first reorder — it has the same anti-pattern
+                # but addressing it is a separate Tier-2 PR.
                 _apply_partial_close(db, open_pkg, verdict, summary)
                 return
             # close_qty_pct == 1.0 falls through to full-close below.
         reason = str((verdict or {}).get("reason") or "monitor_close")
+
+        # 2026-05-15: exchange-first close ordering. Pre-this-PR the
+        # DB rows were flipped to ``status='closed'`` and a fabricated
+        # PnL was stamped BEFORE the live exchange call, so any
+        # exchange failure (Bug 1 / 170131, network blips, rate limits)
+        # left the journal lying about a still-open position and the
+        # reverse-reconciler then adopted the live position as a
+        # duplicate ``adopted_orphan`` row. The new order is:
+        #
+        #   1. Look up the matched trade row (read-only).
+        #   2. Attempt ``_send_close_to_exchange`` — short-circuits to
+        #      ok=True on dry-run accounts.
+        #   3. On ok=True, write package close + trade close + PnL.
+        #      Increment ``summary.closed_count``.
+        #   4. On ok=False, log ERROR, do NOT touch the DB, count an
+        #      error, and return so the next monitor tick re-attempts.
+        #
+        # The legacy comment block about the deleted
+        # ``MONITOR_APPLY_TO_EXCHANGE`` shadow-mode gate (operator
+        # directive 2026-05-03) is kept below in the modify branch
+        # for history.
+
+        matched_trade: Optional[Dict[str, Any]] = None
+        try:
+            linked_trade_id = open_pkg.get("linked_trade_id")
+            if linked_trade_id:
+                rows = db.get_trades(filters={"id": int(linked_trade_id)})
+                matched_trade = rows[0] if rows else None
+            else:
+                matched_trade = _find_trade_by_match(
+                    db,
+                    strategy=open_pkg.get("strategy_name"),
+                    symbol=open_pkg.get("symbol"),
+                )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "order_monitor: trade lookup failed for pkg=%s: %s",
+                pkg_id, exc,
+            )
+            matched_trade = None
+
+        # No trade row → nothing to close on the exchange. Still flip
+        # the package status so the strategy-monocle gate clears. This
+        # preserves the prior behaviour for the "package without a
+        # linked trade" case (e.g. exchange_rejected at entry where
+        # the package was never paired with a live position).
+        if matched_trade is None:
+            try:
+                db.update_order_package(pkg_id, {
+                    "status": "closed",
+                    "close_reason": reason,
+                })
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "order_monitor: order_packages close write failed for %s: %s",
+                    pkg_id, exc,
+                )
+                summary.error_count += 1
+                summary.errors.append(f"{pkg_id}: close-write failed")
+                return
+            summary.closed_count += 1
+            return
+
+        # Exchange-first: attempt the live close BEFORE any DB write.
+        ex_result = _send_close_to_exchange(matched_trade)
+        logger.info(
+            "order_monitor: exchange close for pkg=%s account=%s → %s",
+            pkg_id, matched_trade.get("account_id"), ex_result,
+        )
+        if not ex_result.get("ok"):
+            # Exchange refused or errored. Do NOT touch the DB so the
+            # next monitor tick re-attempts and the strategy-monocle
+            # gate continues to suppress duplicate signals.
+            err_str = ex_result.get("error") or "unknown"
+            logger.error(
+                "order_monitor: exchange close failed — leaving DB open. "
+                "pkg=%s account=%s symbol=%s qty=%s error=%s",
+                pkg_id, matched_trade.get("account_id"),
+                matched_trade.get("symbol"),
+                matched_trade.get("position_size"),
+                err_str,
+            )
+            summary.error_count += 1
+            summary.errors.append(f"{pkg_id}: exchange close failed: {err_str}")
+            return
+
+        # Exchange close ok (or dry-run skip). Now write the DB
+        # updates in the original order: package close → trade close
+        # → trade PnL.
         try:
             db.update_order_package(pkg_id, {
                 "status": "closed",
@@ -395,13 +487,6 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
             summary.errors.append(f"{pkg_id}: close-write failed")
             return
 
-        # Update the linked trade row, if there is one. The S-029 PR2
-        # writer doesn't yet stamp linked_trade_id — that's a
-        # follow-up. For now, fall back to "close every trade with
-        # status=open whose strategy + symbol matches the package".
-        # The fallback is conservative: if no rows match, nothing
-        # happens; if multiple match, the close-side trade-row update
-        # uses the most recent.
         try:
             close_updates = {
                 "status": "closed",
@@ -409,52 +494,27 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
                 "exit_price": (verdict or {}).get("exit_price"),
             }
             close_updates = {k: v for k, v in close_updates.items() if v is not None}
-
-            matched_trade = None
-            linked_trade_id = open_pkg.get("linked_trade_id")
-            if linked_trade_id:
-                db.update_trade(int(linked_trade_id), close_updates)
-                # Re-read the row so the exchange-side close has the
-                # account_id + position_size.
-                rows = db.get_trades(filters={"id": int(linked_trade_id)})
-                matched_trade = rows[0] if rows else None
-            else:
-                # Fallback close-by-symbol-and-strategy.
-                matched_trade = _close_trade_by_match(
-                    db,
-                    strategy=open_pkg.get("strategy_name"),
-                    symbol=open_pkg.get("symbol"),
-                    updates=close_updates,
-                )
+            trade_id = matched_trade.get("id")
+            if trade_id is not None:
+                db.update_trade(int(trade_id), close_updates)
+                matched_trade = {**matched_trade, **close_updates}
         except Exception as exc:  # noqa: BLE001
             logger.warning(
                 "order_monitor: trades close-side update failed for %s: %s",
                 pkg_id, exc,
             )
-            matched_trade = None
 
-        # Exchange-side close. Operator directive 2026-05-03: per-account
-        # ``RiskManager.dry_run`` is the only dry/live toggle in the
-        # codebase. The prior ``MONITOR_APPLY_TO_EXCHANGE`` env-gate
-        # violated that contract — DB-only "shadow mode" was a soak-test
-        # scaffold from S-052 that survived past its sell-by, and on
-        # 2026-05-09 it stranded vwap/bybit_2 trade #1049: monitor
-        # fired tp_cross, DB flipped to status='closed', the live BTC
-        # position kept consuming margin until the orphan-position
-        # reconciler swept it. The gate is gone; live mode is the only
-        # mode. Per-account dry_run still suppresses the order at the
-        # ``_send_close_to_exchange`` boundary when the account is
-        # paper.
-        # Realised-PnL booking. The trade-row write above only stamped
-        # status/exit_reason/exit_price; the database-layer docstring
-        # contract (src/units/db/database.py § "the monitor loop updates
-        # it on close") expects pnl + pnl_percent on the same close.
-        # The 2026-05-10 layer-2 review surfaced 38 closed trades with
-        # pnl=NULL because this second write was never wired. Gross
-        # PnL only — fees are settled by the exchange-truth-attribution
-        # reconciler, not here.
+        # Realised-PnL booking. Mirrors the gross-PnL formula in the
+        # backtester so live + backtest accounting line up. PnL is
+        # computed from ``verdict.exit_price`` — capturing the actual
+        # fill price from the exchange response is out of scope:
+        # Bybit's place_order response doesn't include a fill price,
+        # so it would require a separate ``account_order_status``
+        # lookup (a bigger change tracked as FU-20260515-002).
+        # TODO(FU-20260515-002): replace verdict.exit_price with the
+        # real fill price from a post-close account_order_status read.
         exit_price_for_pnl = (verdict or {}).get("exit_price")
-        if matched_trade and exit_price_for_pnl is not None:
+        if exit_price_for_pnl is not None:
             pnl_updates = _compute_close_pnl(
                 matched_trade, float(exit_price_for_pnl),
             )
@@ -469,12 +529,6 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
                         pkg_id, exc,
                     )
 
-        if matched_trade:
-            ex_result = _send_close_to_exchange(matched_trade)
-            logger.info(
-                "order_monitor: exchange close for pkg=%s account=%s → %s",
-                pkg_id, matched_trade.get("account_id"), ex_result,
-            )
         summary.closed_count += 1
         return
 
@@ -567,6 +621,36 @@ def _compute_close_pnl(matched_trade: Dict[str, Any],
     }
 
 
+def _find_trade_by_match(db, *, strategy: Optional[str],
+                         symbol: Optional[str]) -> Optional[Dict[str, Any]]:
+    """Read-only: return the most-recent open trade row matching the
+    strategy + symbol (or ``None`` if none). Used by the exchange-first
+    close path in ``_apply_update`` to look up the trade row's
+    ``account_id`` + ``position_size`` BEFORE attempting the live
+    close. The companion ``_close_trade_by_match`` keeps its
+    find-and-update semantics for any caller that still wants the
+    legacy combined behaviour.
+    """
+    if not strategy or not symbol:
+        return None
+    try:
+        rows = db.get_trades(
+            filters={
+                "strategy_name": strategy,
+                "symbol": symbol,
+                "status": "open",
+            },
+            limit=1,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "order_monitor: _find_trade_by_match read failed for %s/%s: %s",
+            strategy, symbol, exc,
+        )
+        return None
+    return rows[0] if rows else None
+
+
 def _close_trade_by_match(db, *, strategy: Optional[str], symbol: Optional[str],
                           updates: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """Best-effort: find the most-recent open trade row matching the
@@ -621,6 +705,11 @@ def _build_account_client(account_id):
                 # to "spot" and the close path sends spot reduceOnly to a
                 # linear account → Bybit 170131. See FU-20260515-001.
                 "market_type": getattr(acc, "market_type", None) or "spot",
+                # 2026-05-15: surface the per-account mode so the
+                # exchange-side wiring (``_send_close_to_exchange``,
+                # ``_send_modify_to_exchange``) can short-circuit on
+                # paper accounts without ever calling ``place_order``.
+                "mode": getattr(acc, "mode", "live") or "live",
             }
             exchange_lc = (acc.exchange or "").lower()
             if exchange_lc == "bybit":
@@ -641,12 +730,27 @@ def _send_close_to_exchange(matched_trade: Dict[str, Any]) -> Dict[str, Any]:
     """Send a reduce-only close order for the matched trade row.
 
     Returns the helper's result dict. Best-effort — never raises.
+
+    Dry-run short-circuit (2026-05-15): when the resolved cfg has
+    ``mode == "dry_run"`` the helper returns
+    ``{"ok": True, "skipped": "dry_run", ...}`` WITHOUT calling
+    ``close_open_position``. This is the single dry/live toggle for
+    monitor-driven closes and lets the caller's exchange-first flow
+    proceed with the DB updates exactly as a live success would.
     """
     try:
         from src.units.accounts.execute import close_open_position
         client, cfg = _build_account_client(matched_trade.get("account_id"))
         if client is None or cfg is None:
             return {"ok": False, "error": "no_client"}
+        if (cfg or {}).get("mode") == "dry_run":
+            return {
+                "ok": True,
+                "skipped": "dry_run",
+                "exchange_response": None,
+                "exchange_order_id": None,
+                "error": None,
+            }
         return close_open_position(
             client, cfg,
             symbol=matched_trade.get("symbol"),
