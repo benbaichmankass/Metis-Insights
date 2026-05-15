@@ -9,15 +9,23 @@
 # directory on the live VM.
 #
 # Destination on the live VM (read by the FastAPI router at
-# src/web/api/routers/training_center.py):
+# src/web/api/routers/training_center.py AND the WS7 shadow factory
+# at ml/shadow/factory.py):
 #
-#   /home/ubuntu/ict-trading-bot/runtime_logs/trainer_mirror/
-#     trainer_status.json
-#     training_cycle.jsonl
-#     registry.jsonl
-#     trainer/dataset_builds.jsonl
-#     trainer/db_pulls.jsonl
-#     experiments-runs/<model_id>/<run_id>/metrics.json
+#   /data/bot-data/runtime_logs/trainer_mirror/
+#     trainer_status.json                  ← dashboard
+#     training_cycle.jsonl                 ← dashboard
+#     registry.jsonl                       ← dashboard (synthesized
+#                                            from models/ each cycle)
+#     trainer/dataset_builds.jsonl         ← dashboard
+#     trainer/db_pulls.jsonl               ← dashboard
+#     experiments-runs/<model_id>/<run_id>/metrics.json  ← dashboard
+#     models/<model_id>.json               ← shadow factory
+#
+# The `models/` subdir is the WS7 shadow factory's registry root —
+# its `*.json` glob would otherwise pick up sibling artifacts at
+# the parent level (notably `trainer_status.json`) and fail to
+# parse them as `RegistryEntry` rows.
 #
 # Architecture rationale (S-AI-WS8-PART-2):
 # The training center is autonomous and write-isolated from the live
@@ -93,6 +101,49 @@ fi
 
 STATUS_PATH="$REPO_ROOT/runtime_logs/trainer_status.json"
 mkdir -p "$(dirname "$STATUS_PATH")"
+
+# --- Synthesize registry.jsonl from per-model JSONs -----------------------
+# The S-AI-WS9-FU-2 refactor switched the on-disk layout to per-model
+# JSON files (`<model_id>.json`) but this publisher and its downstream
+# consumer (`src/web/api/routers/training_center.py`) still read
+# `registry.jsonl`. Synthesize it from the per-model JSONs each
+# publish, atomic write-then-rename so a concurrent reader sees
+# either the old file or the new one but never a partial.
+#
+# Doing this here (and not in `python -m ml train`) keeps the
+# registry's external contract — one JSON per `model_id` — unchanged
+# and avoids any new write coupling between the trainer's hot loop
+# and a synthesized index file. The publisher is the only writer of
+# registry.jsonl on the trainer.
+if [ -d "$REGISTRY_ROOT" ]; then
+  python3 - "$REGISTRY_ROOT" <<'PY' || \
+    emit "$(printf '{"ts":"%s","status":"registry_synth_failed"}' "$(date -u +%Y-%m-%dT%H:%M:%S+00:00)")"
+import json
+import os
+import sys
+import tempfile
+from pathlib import Path
+
+root = Path(sys.argv[1])
+out = root / "registry.jsonl"
+models = 0
+with tempfile.NamedTemporaryFile(
+    mode="w", dir=str(root), suffix=".tmp", delete=False, encoding="utf-8"
+) as fh:
+    tmp_path = fh.name
+    for f in sorted(root.glob("*.json")):
+        if f.name == "registry.jsonl":
+            continue
+        try:
+            entry = json.load(open(f, encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        fh.write(json.dumps(entry, separators=(",", ":")) + "\n")
+        models += 1
+os.replace(tmp_path, out)
+print(f"registry_synth_ok models={models} path={out}")
+PY
+fi
 
 # --- Build trainer_status.json --------------------------------------------
 # Python stdlib only; produces a single JSON blob describing trainer state.
@@ -364,8 +415,10 @@ SSH_OPTS="-i ${VM_SSH_KEY} -o StrictHostKeyChecking=no -o ConnectTimeout=15 -o B
 
 # Ensure mirror dirs exist on the live VM. mkdir -p is idempotent;
 # permission of ubuntu user is sufficient (the dest is under ~ubuntu).
+# `models/` is read by the WS7 shadow factory; `trainer/` +
+# `experiments-runs/` are read by the dashboard router.
 ssh ${SSH_OPTS} "${LIVE_VM_USER}@${LIVE_VM_IP}" \
-  "mkdir -p '${LIVE_VM_MIRROR_PATH}/trainer' '${LIVE_VM_MIRROR_PATH}/experiments-runs'" \
+  "mkdir -p '${LIVE_VM_MIRROR_PATH}/trainer' '${LIVE_VM_MIRROR_PATH}/experiments-runs' '${LIVE_VM_MIRROR_PATH}/models'" \
   || { emit "$(printf '{"ts":"%s","status":"mkdir_failed"}' "$(iso_now)")"; exit 1; }
 
 push_one() {
@@ -384,6 +437,30 @@ push_one "$TRAINING_LOG_PATH"                                  "training_cycle.j
 push_one "$REGISTRY_ROOT/registry.jsonl"                       "registry.jsonl"              || overall_rc=1
 push_one "$REPO_ROOT/runtime_logs/trainer/dataset_builds.jsonl" "trainer/dataset_builds.jsonl" || overall_rc=1
 push_one "$REPO_ROOT/runtime_logs/trainer/db_pulls.jsonl"      "trainer/db_pulls.jsonl"       || overall_rc=1
+
+# Per-model registry JSONs — the WS7 shadow factory in
+# `ml/shadow/factory.py` reads `<DATA_DIR>/runtime_logs/trainer_mirror/models`
+# on the live VM (resolved from `DATA_DIR=/data/bot-data` in
+# `deploy/dropins/data-dir.conf`). The factory's `ModelRegistry(<that
+# path>)` globs `*.json`, so the registry must land as concrete
+# per-model files — the synthesized `registry.jsonl` above is for the
+# dashboard's `/api/bot/ml/registry`, not for the strategy factory.
+#
+# The `models/` subdirectory isolates per-model JSONs from sibling
+# artifacts like `trainer_status.json` at the parent level, which
+# would otherwise be picked up by the registry's `*.json` glob and
+# fail `RegistryEntry.from_dict()`. --delete-after is safe because
+# nothing other than per-model JSONs lives under `models/`.
+if [ -d "$REGISTRY_ROOT" ]; then
+  rsync -az --no-perms --no-owner --no-group --delete-after \
+    -e "ssh ${SSH_OPTS}" \
+    --include='*.json' \
+    --exclude='registry.jsonl' \
+    --exclude='*' \
+    "${REGISTRY_ROOT}/" \
+    "${LIVE_VM_USER}@${LIVE_VM_IP}:${LIVE_VM_MIRROR_PATH}/models/" \
+    || overall_rc=1
+fi
 
 # Experiments tree: rsync recursively, only the metrics + manifest JSON
 # (no raw model_state.json blobs unless small — see --include below).

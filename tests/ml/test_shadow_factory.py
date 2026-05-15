@@ -12,6 +12,7 @@ from ml.registry.model_registry import ModelRegistry
 from ml.shadow.factory import (
     LIVE_INFLUENCE_STAGES,
     ShadowFactoryError,
+    _resolve_default_registry_root,
     resolve_predictor,
     resolve_predictors,
 )
@@ -194,3 +195,38 @@ class TestResolvePredictors:
     def test_empty_list(self, tmp_path: Path):
         registry = ModelRegistry(tmp_path / "registry-store")
         assert resolve_predictors([], registry) == []
+
+
+class TestResolveDefaultRegistryRoot:
+    """The default-registry-root resolver picks the right path for the
+    running environment so live-VM strategies, the dashboard, and
+    trainer-VM tooling all land on the registry the trainer writes."""
+
+    def test_explicit_env_override_wins(self, tmp_path: Path, monkeypatch):
+        monkeypatch.setenv("ML_REGISTRY_ROOT", str(tmp_path / "explicit"))
+        monkeypatch.setenv("DATA_DIR", "/data/bot-data")
+        assert _resolve_default_registry_root() == tmp_path / "explicit"
+
+    def test_data_dir_canonical_layout(self, monkeypatch):
+        monkeypatch.delenv("ML_REGISTRY_ROOT", raising=False)
+        monkeypatch.setenv("DATA_DIR", "/data/bot-data")
+        # `models/` subdir so the factory's glob doesn't see sibling
+        # artifacts like `trainer_status.json` in the same mirror dir.
+        assert _resolve_default_registry_root() == Path(
+            "/data/bot-data/runtime_logs/trainer_mirror/models"
+        )
+
+    def test_relative_data_dir_falls_through(self, monkeypatch):
+        # A relative DATA_DIR is a misconfiguration (src/utils/paths.py
+        # logs CRITICAL when it sees one). The factory ignores it and
+        # falls through to the local dev path rather than building a
+        # path relative to CWD, which would silently land on a
+        # non-existent directory.
+        monkeypatch.delenv("ML_REGISTRY_ROOT", raising=False)
+        monkeypatch.setenv("DATA_DIR", "data")
+        assert _resolve_default_registry_root() == Path("./ml/registry-store")
+
+    def test_no_env_falls_back_to_local(self, monkeypatch):
+        monkeypatch.delenv("ML_REGISTRY_ROOT", raising=False)
+        monkeypatch.delenv("DATA_DIR", raising=False)
+        assert _resolve_default_registry_root() == Path("./ml/registry-store")

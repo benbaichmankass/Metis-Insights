@@ -2,8 +2,9 @@
 
 **Master plan:** [`docs/AI-TRADERS-ROADMAP.md`](../../AI-TRADERS-ROADMAP.md)
 **Milestone:** M9 (closes the WS7 deployment-tier gap)
-**Sprint id:** **S-AI-WS7-FU-REGISTRY-WIRE** (draft)
-**Status:** 📋 NOT STARTED — drafted 2026-05-15 from a live pipeline verification session.
+**Sprint id:** **S-AI-WS7-FU-REGISTRY-WIRE**
+**Status:** 🔄 IN PROGRESS — T1 (T1.B chosen) + T4 ship in this PR.
+  T2 + T3 + T5 remain open as separate PRs.
 
 ## Why this sprint exists
 
@@ -108,34 +109,38 @@ production. Concretely:
 
 ### T1. Registry-path bridge (the critical fix)
 
-Two acceptable approaches; pick one in the sprint plan when sized.
+**Decision (2026-05-15):** T1.B chosen. T1.A documented below for
+historical context but not implemented.
 
-**T1.A** — Trainer rsyncs per-model JSONs into the live VM's
-strategy-factory path:
+**T1.B — implemented in this sprint.** Strategy factory resolves its
+default registry root from the environment using the existing
+`DATA_DIR` umbrella that the live VM's systemd drop-in
+(`deploy/dropins/data-dir.conf`) already sets to `/data/bot-data`:
 
-- `publish_trainer_mirror.sh` gains a new rsync target:
-  `${REGISTRY_ROOT}/*.json` → `live:/home/ubuntu/ict-trading-bot/ml/registry-store/`.
-- Same SSH key, same trust contract as the existing dashboard mirror
-  push.
-- Pro: zero changes to strategy code, env, or live-VM unit files.
-- Con: feels hacky (two destinations for the same data, drift risk).
+- `ml/shadow/factory.py::DEFAULT_REGISTRY_ROOT` resolves via
+  `_resolve_default_registry_root()` in this order:
+  1. `ML_REGISTRY_ROOT` env var (explicit override; used by tests).
+  2. `$DATA_DIR/runtime_logs/trainer_mirror/models` if `DATA_DIR`
+     is set and absolute.
+  3. `./ml/registry-store` — local-dev / trainer-VM fallback.
+- `scripts/ops/publish_trainer_mirror.sh` rsyncs the trainer's
+  per-model JSONs into `<mirror>/models/` (a new subdirectory; keeps
+  the registry's `*.json` glob from picking up sibling artifacts
+  like `trainer_status.json`).
+- **No live-VM unit file edit needed** — the existing
+  `DATA_DIR=/data/bot-data` drop-in (already applied to
+  `ict-trader-live.service`) provides everything the factory needs.
+- Symmetry win: the dashboard router and the strategy factory both
+  resolve through the same `DATA_DIR`-driven path system. One source
+  of truth for "where does live state live."
 
-**T1.B** — Strategy factory respects an `ML_REGISTRY_ROOT` env var,
-and the live VM systemd unit points it at the existing mirror path:
+**T1.A — not implemented (historical alternative).** Trainer rsyncs
+per-model JSONs into the live VM's strategy-factory path:
 
-- New: `ml/shadow/factory.py::DEFAULT_REGISTRY_ROOT` reads from
-  `os.environ.get("ML_REGISTRY_ROOT")` with the current path as
-  fallback.
-- New: trainer also synthesizes a per-model directory under
-  `/data/bot-data/runtime_logs/trainer_mirror/` so the factory's
-  `ModelRegistry(<mirror>)` construction finds the same per-model
-  JSONs.
-- Operator action: `ict-trader-live.service` Environment= adds
-  `ML_REGISTRY_ROOT=/data/bot-data/runtime_logs/trainer_mirror`.
-- Pro: cleaner separation of trainer-write vs live-read territories,
-  no rsync into the app dir.
-- Con: touches a live-VM unit file → needs an operator-approval
-  action via `operator-actions.yml`.
+- `${REGISTRY_ROOT}/*.json` → `live:/home/ubuntu/ict-trading-bot/ml/registry-store/`.
+- Pro: zero changes to strategy code.
+- Con: two destinations for the same data; drift risk; mutates the
+  live VM's application directory which can clash with deploys.
 
 Acceptance: live VM `ModelRegistry(<configured-root>)` construction
 succeeds and lists ≥ 1 model.
