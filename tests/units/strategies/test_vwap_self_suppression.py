@@ -129,6 +129,50 @@ def test_other_strategy_open_package_does_not_block(tmp_journal):
     assert isinstance(pkg, dict)
 
 
+def test_shadow_predictions_fire_even_when_open_package_suppresses(tmp_journal):
+    """The open-package gate suppresses order placement but must NOT
+    suppress shadow observation. Models that subscribe to vwap signals
+    via `shadow_model_ids` need to see every evaluation, otherwise a
+    stuck/orphaned open package can silence the observer for hours
+    (S-AI-WS7-FU-REGISTRY-WIRE regression — the original gate aborted
+    `order_package` before the shadow predictor was ever called).
+    """
+    from ml.predictors.shadow import ShadowPredictor
+    from ml.predictors.constant import ConstantPredictor
+
+    _insert_pkg(tmp_journal, pkg_id="pkg-vwap-stuck", linked_trade_id=42)
+
+    base = ConstantPredictor({"trainer": "x", "constant": 0.42})
+    captured: list[dict] = []
+    original = base.predict
+
+    def _capture(row):
+        captured.append(dict(row))
+        return original(row)
+
+    base.predict = _capture  # type: ignore[assignment]
+    wrapped = ShadowPredictor(
+        base, model_id="test-observer", stage="shadow", log_path=None
+    )
+
+    # The gate fires (still raises ValueError) — but only AFTER the
+    # shadow predictor has observed the signal.
+    with pytest.raises(ValueError, match="open package already exists"):
+        vwap.order_package(
+            {"symbol": "BTCUSDT", "_shadow_predictors": [wrapped]},
+            candles_df=_bullish_candles(),
+        )
+
+    assert len(captured) == 1, (
+        "shadow predictor must observe the signal even when the "
+        "open-package gate suppresses order placement"
+    )
+    row = captured[0]
+    assert row["strategy_name"] == "vwap"
+    assert row["symbol"] == "BTCUSDT"
+    assert row["direction"] in ("long", "short")
+
+
 def test_db_read_failure_does_not_block(monkeypatch):
     """Best-effort: a journal outage must degrade to "no
     defence-in-depth" rather than "strategy stops generating
