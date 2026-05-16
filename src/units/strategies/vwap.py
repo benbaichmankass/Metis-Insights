@@ -661,14 +661,21 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
         (self-suppression — see ``_has_open_vwap_package``). The
         pipeline catches ValueError as "no actionable signal" and
         records the tick as flat without dispatching.
+
+    Notes
+    -----
+    Shadow-prediction call placement: the open-package gate moved
+    AFTER signal building + shadow prediction in S-AI-WS7-FU-REGISTRY-WIRE.
+    Before that fix, the gate aborted the function at line 667 before
+    `with_shadow_preds` was reached, so any time the strategy held an
+    open package (including stuck/orphaned ones) the shadow harness
+    saw zero signals — defeating the whole purpose of the
+    observe-only contract. The new order keeps the open-package
+    self-suppression intact but lets shadow models observe every
+    actionable signal evaluation regardless of order-placement
+    outcome.
     """
     candles_df = require_candles(candles_df, "vwap")
-
-    if _has_open_vwap_package():
-        raise ValueError(
-            "Strategy 'vwap': linked open package already exists; "
-            "deferring entry until monitor() closes it."
-        )
 
     symbol = cfg.get("symbol") or cfg.get("SYMBOL") or "BTCUSDT"
 
@@ -719,11 +726,31 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
         "confidence": round(confidence, 4),
         "meta": {**meta, "signal": signal},
     }
-    return with_shadow_preds(
+
+    # Emit shadow predictions on every actionable signal evaluation,
+    # regardless of whether the open-package gate below lets the
+    # order through. `with_shadow_preds` is called for its
+    # side-effect (predictor.predict → ShadowPredictor writes the
+    # audit log); the returned `package` is byte-identical to the
+    # input.
+    with_shadow_preds(
         package,
         predictors=_resolve_shadow_predictors(cfg),
         feature_row=_build_shadow_feature_row(package),
     )
+
+    # Open-package self-suppression, enforced AFTER the shadow
+    # prediction so the observer captures every signal regardless of
+    # the order-placement outcome. The pipeline catches this
+    # ValueError as "no actionable signal" and records the tick as
+    # flat without dispatching the order.
+    if _has_open_vwap_package():
+        raise ValueError(
+            "Strategy 'vwap': linked open package already exists; "
+            "deferring entry until monitor() closes it."
+        )
+
+    return package
 
 
 def _resolve_shadow_predictors(cfg: Dict[str, Any]) -> list:
