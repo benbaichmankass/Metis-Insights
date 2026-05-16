@@ -128,12 +128,13 @@ def _load_account_cfgs() -> Dict[str, Dict[str, Any]]:
         return {}
 
     out: Dict[str, Dict[str, Any]] = {}
-    for entry in (data.get("accounts") or []):
-        if not isinstance(entry, dict):
+    raw = data.get("accounts") if isinstance(data, dict) else None
+    if not isinstance(raw, dict):
+        return {}
+    for name, cfg in raw.items():
+        if not isinstance(cfg, dict):
             continue
-        aid = entry.get("account_id")
-        if aid:
-            out[str(aid)] = entry
+        out[str(name)] = cfg
     return out
 
 

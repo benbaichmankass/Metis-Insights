@@ -190,6 +190,31 @@ def _read_row(db_path: Path, trade_id: int) -> sqlite3.Row:
     return row
 
 
+class TestLoadAccountCfgs:
+    """``_load_account_cfgs`` must parse the real ``accounts:`` dict
+    shape (keys = account_id), matching
+    ``order_monitor._load_account_cfgs_for_reconcile``. A regression
+    test for the 2026-05-16 bug where the loader assumed a list shape
+    and skipped every row of the live YAML."""
+
+    def test_parses_dict_form_yaml(self, script, tmp_path, monkeypatch):
+        yaml_path = tmp_path / "accounts.yaml"
+        yaml_path.write_text(
+            "accounts:\n"
+            "  bybit_1:\n"
+            "    exchange: bybit\n"
+            "    market_type: spot\n"
+            "  bybit_2:\n"
+            "    exchange: bybit\n"
+            "    market_type: linear\n",
+            encoding="utf-8",
+        )
+        monkeypatch.setenv("ACCOUNTS_YAML_PATH", str(yaml_path))
+        cfgs = script._load_account_cfgs()
+        assert set(cfgs.keys()) == {"bybit_1", "bybit_2"}
+        assert cfgs["bybit_2"]["market_type"] == "linear"
+
+
 class TestCandidateFilter:
     """``_candidate_rows`` should yield exactly the orphan rows
     we want to backfill — not the closed ones, not the open ones,
