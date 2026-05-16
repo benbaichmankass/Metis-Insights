@@ -26,8 +26,25 @@ so one bad model_id doesn't poison the whole list.
 
 Defaults:
 
-- `DEFAULT_REGISTRY_ROOT` = `./ml/registry-store` (same as the CLI
-  default in `ml/cli.py`).
+- `DEFAULT_REGISTRY_ROOT` — resolved at import time from the
+  environment so the factory automatically lands on the right path
+  without per-caller plumbing. Resolution order:
+
+  1. `ML_REGISTRY_ROOT` env var (explicit override; used by tests
+     and by anyone who wants to force a non-default location).
+  2. `$DATA_DIR/runtime_logs/trainer_mirror/models` if `DATA_DIR`
+     is set and absolute. This is the canonical layout on the live
+     VM, where the systemd drop-in `deploy/dropins/data-dir.conf`
+     pins `DATA_DIR=/data/bot-data` and the trainer's
+     `scripts/ops/publish_trainer_mirror.sh` syncs per-model
+     registry JSONs into a `models/` subdirectory inside the same
+     trainer mirror the dashboard reads from at the parent path.
+     The subdirectory keeps `.list()` glob calls from picking up
+     sibling artifacts like `trainer_status.json`, which would
+     fail `RegistryEntry.from_dict()`.
+  3. `./ml/registry-store` — local-dev / trainer-VM fallback,
+     where `python -m ml train` writes per-model JSONs directly.
+
 - `DEFAULT_LOG_PATH`      = `runtime_logs/shadow_predictions.jsonl`.
 """
 from __future__ import annotations
@@ -35,6 +52,7 @@ from __future__ import annotations
 import importlib
 import json
 import logging
+import os
 from pathlib import Path
 from typing import Iterable, List
 
@@ -42,7 +60,25 @@ from ..predictors.base import Predictor
 from ..predictors.shadow import ShadowPredictor
 from ..registry.model_registry import ModelRegistry, RegistryEntry, RegistryError
 
-DEFAULT_REGISTRY_ROOT = Path("./ml/registry-store")
+
+def _resolve_default_registry_root() -> Path:
+    """Pick the registry root for the running environment.
+
+    See module docstring for the resolution order. Splitting this out
+    of a module-level constant lets tests monkeypatch ``os.environ``
+    and call ``_resolve_default_registry_root()`` directly to verify
+    each branch.
+    """
+    explicit = os.environ.get("ML_REGISTRY_ROOT")
+    if explicit:
+        return Path(explicit)
+    data_dir = os.environ.get("DATA_DIR")
+    if data_dir and os.path.isabs(data_dir):
+        return Path(data_dir) / "runtime_logs" / "trainer_mirror" / "models"
+    return Path("./ml/registry-store")
+
+
+DEFAULT_REGISTRY_ROOT = _resolve_default_registry_root()
 DEFAULT_LOG_PATH = Path("runtime_logs/shadow_predictions.jsonl")
 
 LIVE_INFLUENCE_STAGES: frozenset[str] = frozenset(
