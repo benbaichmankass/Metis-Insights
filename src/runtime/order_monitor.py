@@ -1770,9 +1770,13 @@ def _reconcile_open_trades(db) -> Dict[str, int]:
 
         for row in trade_rows:
             trade_id_str = _extract_trade_id_from_notes(row.get("notes"))
-            if trade_id_str is None or not _is_numeric_order_id(trade_id_str):
-                # Non-numeric (``rejected-…``, ``exchange_rejected-…``,
-                # ``dry-…``) or missing — never a live exchange order.
+            if trade_id_str is None or not _is_real_order_id(trade_id_str):
+                # Synthetic id (``rejected-…``, ``exchange_rejected-…``,
+                # ``dry-…``, …) or missing — never a live exchange
+                # order. Pre-2026-05-16 the gate was ``.isdigit()``
+                # which also rejected Bybit V5 UUID-format orderIds
+                # and silently turned this reconciler into a no-op
+                # for every linear-perp account; see _is_real_order_id.
                 summary["skipped_non_numeric"] += 1
                 continue
 
@@ -2078,6 +2082,60 @@ def _stuck_strategy_threshold_minutes() -> float:
         return float(_DEFAULT_STUCK_STRATEGY_THRESHOLD_MINUTES)
 
 
+# Position-alive package release (PR claude/watchdog-cadence-fix-JZkeL).
+# When the watchdog's exchange cross-check confirms the position is
+# still live at Bybit but the package row has been silent for this
+# many minutes, close the package row alone — the strategy_monocle
+# gate reopens for new dispatches and the trade row stays open so
+# the existing monitor + reconciler keep tracking the live
+# position. Default 90 min: well above any healthy monitor verdict
+# cadence (vwap's 5 m candle path nudges SL on every cross), so a
+# normally-monitored trade never trips this.
+_DEFAULT_RELEASE_STUCK_PKG_MINUTES = 90
+
+
+def _release_stuck_pkg_minutes() -> float:
+    """Read ``RELEASE_STUCK_PKG_MINUTES`` at call time.
+
+    Threshold for releasing a position-alive but otherwise silent
+    package row so the strategy_monocle gate can reopen without
+    cascading the live trade row to ``orphaned``. Clamped to
+    ``>= threshold_minutes`` (releasing before the stuck-strategy
+    threshold itself is meaningless because the SQL filter already
+    skipped the row). Set to ``0`` to disable — the watchdog falls
+    back to the pre-2026-05-16 "defer forever, alert once"
+    behaviour in the position-alive branch.
+    """
+    raw = os.environ.get("RELEASE_STUCK_PKG_MINUTES")
+    if raw is None or str(raw).strip() == "":
+        return float(_DEFAULT_RELEASE_STUCK_PKG_MINUTES)
+    try:
+        v = float(raw)
+    except (TypeError, ValueError):
+        return float(_DEFAULT_RELEASE_STUCK_PKG_MINUTES)
+    if v <= 0:
+        return 0.0  # 0 = disabled
+    return v
+
+
+def _pkg_age_minutes(updated_at: Any) -> Optional[float]:
+    """Return age (in minutes) of an order_packages row given the
+    raw ``updated_at`` string. ``None`` on unparseable input — the
+    caller treats that as "skip the release check" so a malformed
+    timestamp doesn't drive a force-close.
+    """
+    if not updated_at:
+        return None
+    try:
+        ts = datetime.fromisoformat(str(updated_at).replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return None
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=timezone.utc)
+    delta = datetime.now(timezone.utc) - ts
+    return delta.total_seconds() / 60.0
+
+
 def _watchdog_stuck_strategies(db) -> Dict[str, int]:
     """Detect + recover packages stuck at ``status='open'`` AND
     ``linked_trade_id IS NOT NULL`` for longer than the configured
@@ -2088,21 +2146,28 @@ def _watchdog_stuck_strategies(db) -> Dict[str, int]:
     account per tick) before deciding what to do:
 
       * **Position alive at exchange** (the ``(symbol, direction)``
-        pair shows up in the exchange's position list, including
-        the spot-margin synthesised view from
-        ``walletBalance > 0`` / ``borrowAmount > 0``) → **defer**.
-        The trade is patient, not stuck — vwap holds for hours
-        waiting for mean reversion. Stamp the meta to silence
-        future ticks; emit the alert ONCE on first sighting (with
-        ``auto_cleared=False`` so the operator knows we did NOT
-        cascade); leave the package + trade rows alone.
+        pair shows up in the exchange's position list) → never
+        cascade the trade row, but if the package row itself has
+        been silent for at least ``RELEASE_STUCK_PKG_MINUTES``
+        (default 90 min) close the **package** row alone so the
+        strategy_monocle gate reopens for new dispatches; the
+        trade row stays ``status='open'`` and the existing monitor
+        + per-trade reconciler keep tracking the live position.
+        Below the release threshold, stamp the meta to silence
+        future ticks and emit the alert ONCE. PR
+        claude/watchdog-cadence-fix-JZkeL.
 
       * **Position flat at exchange** (read succeeded, no matching
         position) → genuine orphan. Force-close the package
         (``status='closed'``, ``close_reason='stuck_strategy_watchdog'``),
         cascade the linked trade row to ``status='orphaned'``, emit
-        the high-priority alert. Same behaviour as before this
-        check was added.
+        the high-priority alert. The pre-2026-05-16 daily-orphan
+        cluster on bybit_2 was upstream: ``_is_numeric_order_id``
+        rejected every Bybit V5 UUID-format orderId so
+        :func:`_reconcile_open_trades` silently skipped these
+        trades and the watchdog inherited an exchange-side-closed
+        position as a "true orphan". Fix in the same PR. This
+        branch is now a genuine last-resort safety net.
 
       * **Position read failed** (creds missing / network /
         exchange error) → defer conservatively. Better to leave a
@@ -2125,14 +2190,22 @@ def _watchdog_stuck_strategies(db) -> Dict[str, int]:
 
     Returns a summary
     ``{checked, alerted, auto_cleared, deferred_position_alive,
-       skipped_position_read_failed, errors}`` so the caller can
-    log a per-tick line when non-zero.
+       released_alive, skipped_position_read_failed, errors}`` so
+    the caller can log a per-tick line when non-zero.
+    ``released_alive`` counts position-alive packages that were
+    force-closed at the package level (gate reopens, trade row
+    untouched) per the new RELEASE_STUCK_PKG_MINUTES contract.
     """
     summary = {
         "checked": 0,
         "alerted": 0,
         "auto_cleared": 0,
         "deferred_position_alive": 0,
+        # PR claude/watchdog-cadence-fix-JZkeL: position-alive but
+        # otherwise silent packages get the package row force-closed
+        # after RELEASE_STUCK_PKG_MINUTES so the strategy_monocle
+        # gate reopens; the trade row stays open.
+        "released_alive": 0,
         "skipped_position_read_failed": 0,
         "errors": 0,
     }
@@ -2241,22 +2314,53 @@ def _watchdog_stuck_strategies(db) -> Dict[str, int]:
                 position_alive = (str(symbol), direction) in live_set
 
         if position_alive is True:
-            # Trade is alive at the exchange — leave the package
-            # alone. Emit the alert ONCE so the operator knows the
-            # strategy hasn't progressed (e.g. price never reached
-            # SL/TP for vwap), but do NOT cascade.
+            # Trade is alive at the exchange — never cascade the
+            # trade row. Two sub-cases:
+            #
+            #   * Package age < RELEASE_STUCK_PKG_MINUTES: defer.
+            #     Emit the alert ONCE so the operator knows the
+            #     strategy hasn't progressed; stamp the meta to
+            #     silence subsequent ticks. Same behaviour as the
+            #     2026-05-09 refinement.
+            #
+            #   * Package age >= RELEASE_STUCK_PKG_MINUTES: close
+            #     the PACKAGE row only (close_reason=
+            #     ``watchdog_released_alive``). The trade row
+            #     stays ``status='open'`` so the existing monitor
+            #     verdict path + per-trade reconciler keep
+            #     tracking the live position; the strategy_monocle
+            #     gate reopens for new dispatches. PR
+            #     claude/watchdog-cadence-fix-JZkeL.
             summary["deferred_position_alive"] += 1
+            age_minutes = _pkg_age_minutes(row["updated_at"])
+            release_threshold = _release_stuck_pkg_minutes()
+            should_release_pkg = (
+                release_threshold > 0
+                and age_minutes is not None
+                and age_minutes >= release_threshold
+            )
             try:
-                # Stamp the meta so subsequent ticks skip the alert.
+                updated_meta = dict(meta)
                 if not already_alerted:
-                    updated_meta = dict(meta)
                     updated_meta["stuck_alert_emitted_at"] = now_iso
                     updated_meta["stuck_position_alive_seen_at"] = now_iso
+                if should_release_pkg:
+                    updated_meta["stuck_force_cleared_at"] = now_iso
+                    updated_meta["stuck_force_cleared_by"] = (
+                        "watchdog_released_alive"
+                    )
+                    db.update_order_package(pkg_id, {
+                        "status": "closed",
+                        "close_reason": "watchdog_released_alive",
+                        "meta": updated_meta,
+                    })
+                    summary["released_alive"] += 1
+                elif not already_alerted:
                     db.update_order_package(pkg_id, {"meta": updated_meta})
             except Exception as exc:  # noqa: BLE001
                 logger.warning(
-                    "_watchdog_stuck_strategies: meta-stamp failed for "
-                    "pkg_id=%s: %s",
+                    "_watchdog_stuck_strategies: position-alive update failed "
+                    "for pkg_id=%s: %s",
                     pkg_id, exc,
                 )
                 summary["errors"] += 1
@@ -2268,7 +2372,12 @@ def _watchdog_stuck_strategies(db) -> Dict[str, int]:
                         order_package_id=str(pkg_id),
                         db_trade_id=trade_id,
                         stuck_minutes=int(threshold_minutes),
-                        auto_cleared=False,
+                        # ``auto_cleared`` here flags whether the
+                        # strategy_monocle gate was reopened — the
+                        # released-alive path DOES reopen the gate,
+                        # so the operator's alert body matches the
+                        # observable system state.
+                        auto_cleared=should_release_pkg,
                     )
                     summary["alerted"] += 1
                 except Exception as exc:  # noqa: BLE001
@@ -2357,16 +2466,20 @@ def _watchdog_stuck_strategies(db) -> Dict[str, int]:
         summary["auto_cleared"]
         or summary["alerted"]
         or summary["deferred_position_alive"]
+        or summary["released_alive"]
         or summary["skipped_position_read_failed"]
     ):
         logger.info(
             "_watchdog_stuck_strategies: checked=%d alerted=%d "
             "auto_cleared=%d deferred_position_alive=%d "
-            "skipped_position_read_failed=%d errors=%d (threshold=%d min)",
+            "released_alive=%d skipped_position_read_failed=%d "
+            "errors=%d (threshold=%d min release=%d min)",
             summary["checked"], summary["alerted"], summary["auto_cleared"],
             summary["deferred_position_alive"],
+            summary["released_alive"],
             summary["skipped_position_read_failed"],
             summary["errors"], int(threshold_minutes),
+            int(_release_stuck_pkg_minutes()),
         )
     return summary
 
@@ -2420,28 +2533,93 @@ def _extract_trade_id_from_notes(notes_raw: Optional[str]) -> Optional[str]:
     return s or None
 
 
-def _is_numeric_order_id(trade_id: str) -> bool:
-    """A real Bybit V5 orderId is a digit-only string (UUID-shaped on
-    a few endpoints, but the executor stamps the digit form). The
-    journal also stores synthesised ids like ``rejected-<hex>`` and
-    ``dry-<hex>`` for never-placed orders — those are non-numeric and
-    must be skipped by the SSOT reconciler.
+# Trade-id prefixes the executor stamps when no live exchange order
+# ever existed. The reconciler must skip these — handing them to
+# ``account_order_status`` would either 404 or (worse) collide with
+# an unrelated live order. Kept in sync with the synthesis sites in
+# ``src/units/accounts/execute.py`` and ``src/units/accounts/integrator.py``.
+_SYNTHETIC_TRADE_ID_PREFIXES = (
+    "dry-",                  # _log_trade_to_journal dry-run path
+    "rejected-",             # risk-manager rejection synthesis
+    "exchange_rejected-",    # post-place exchange refusal synthesis
+    "open-",                 # _log_trade_to_journal status-prefixed fallback
+    "closed-",               # idem
+    "dry-bybit-",            # legacy integrator paths
+    "dry-breakout-",
+    "dry-velotrade-",
+)
+
+
+def _is_real_order_id(trade_id: str) -> bool:
+    """Return True when *trade_id* looks like an exchange-issued order
+    id the reconciler can hand back to ``account_order_status``.
+
+    Bybit V5 returns orderIds in two shapes depending on the endpoint
+    and account type: a long digit-only string (``1842564317108924672``)
+    on some flows and a UUID-shaped string
+    (``bbfcde38-82db-4621-b400-9b9a7fa0b313``) on others. Both are
+    valid lookup keys for ``/v5/order/realtime`` and
+    ``/v5/order/history``.
+
+    The journal also writes synthetic identifiers for rows that never
+    became live orders (``dry-<hex>``, ``rejected-<hex>``,
+    ``exchange_rejected-<hex>``, …). Those must be skipped.
+
+    Previous name: ``_is_numeric_order_id``. Pre-2026-05-16 the
+    function required ``.isdigit()``, which silently rejected every
+    valid Bybit V5 UUID-format orderId. The reconciler's
+    ``skipped_non_numeric`` counter swallowed every vwap/bybit_2
+    trade, leaving the stuck-strategy watchdog as the only writer
+    that ever touched these rows — and it orphaned them at 30 min
+    with ``exit_price=NULL``. See PR #1xxx + diag #1252 for the
+    journal evidence.
     """
-    return bool(trade_id) and trade_id.isdigit()
+    if not trade_id:
+        return False
+    s = str(trade_id).strip()
+    if not s:
+        return False
+    for prefix in _SYNTHETIC_TRADE_ID_PREFIXES:
+        if s.startswith(prefix):
+            return False
+    return True
+
+
+# Backwards-compatible alias for any out-of-tree caller. Tests inside
+# this repo import the new name directly.
+_is_numeric_order_id = _is_real_order_id
 
 
 def _close_trade_from_order_status(
     db, row: Dict[str, Any], order_status: Dict[str, Any],
 ) -> None:
-    """Mark a trade row 'closed' using the real fill price + exec time
-    from Bybit's order history. Cascades the linked ``order_packages``
-    row (close_reason='reconciler_filled').
+    """Mark a trade row 'closed' when Bybit reports the entry order
+    filled and the position flat. Cascades the linked
+    ``order_packages`` row (close_reason='reconciler_filled').
 
-    Replaces the legacy reconciler-close path that left
-    ``exit_price=NULL`` and forced downstream PnL math to depend on
-    ghost-row cleanup.
+    Exit-price caveat (2026-05-16): ``order_status`` is the **entry**
+    order's status, and its ``avg_price`` is the entry fill price,
+    NOT the close fill. For trades closed via the monitor verdict
+    path (``_apply_update``) the real exit fill is already captured
+    via ``_capture_fill_details`` against the separate close-order
+    id; this reconciler path runs only when the verdict path did not
+    fire (e.g. Bybit's broker-side stop-loss closed the position on
+    a wick the bot's 5 m sampling never saw). In that case the close
+    fill lives in ``/v5/position/closed-pnl`` or
+    ``/v5/execution/list`` under a different orderId the bot does
+    not track. Querying those is a follow-up — for now we mark the
+    row closed (so the strategy_monocle gate clears and downstream
+    aggregations stop treating it as open) but leave ``exit_price``
+    untouched (``NULL``) and stamp
+    ``notes.exit_price_source='entry_order_avg_price_unreliable'``
+    so PnL consumers can filter on it.
+
+    Pre-2026-05-16 this helper wrote ``exit_price = order_status.avg_price``
+    on the assumption that the lookup returned the close fill. That
+    assumption was harmless only because ``_is_numeric_order_id``
+    rejected every UUID-format orderId and the path was effectively
+    dead code on bybit_2.
     """
-    avg_price = float(order_status.get("avg_price") or 0.0)
     exec_time = order_status.get("exec_time")
     closed_at = (
         str(exec_time) if exec_time
@@ -2453,14 +2631,13 @@ def _close_trade_from_order_status(
         "closed_by": "monitor_reconciler",
         "closed_reason":
             "reconciler — Bybit reports order filled and position flat",
+        "exit_price_source": "entry_order_avg_price_unreliable",
     })
     updates: Dict[str, Any] = {
         "status": "closed",
         "exit_reason": "reconciler_filled",
         "notes": json.dumps(notes, ensure_ascii=False)[:500],
     }
-    if avg_price > 0:
-        updates["exit_price"] = avg_price
     db.update_trade(int(row["id"]), updates)
 
     pkg_id = _extract_package_id(row.get("notes"))
@@ -2891,7 +3068,11 @@ def run_monitor_tick(
     # Gated by MONITOR_RECONCILE_ENABLED (helper checks).
     try:
         watchdog_summary = _watchdog_stuck_strategies(db)
-        if watchdog_summary.get("alerted") or watchdog_summary.get("errors"):
+        if (
+            watchdog_summary.get("alerted")
+            or watchdog_summary.get("errors")
+            or watchdog_summary.get("released_alive")
+        ):
             summaries["__stuck_strategy_watchdog__"] = watchdog_summary
     except Exception as exc:  # noqa: BLE001
         logger.warning(

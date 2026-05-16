@@ -25,6 +25,7 @@ from src.runtime.order_monitor import (
     _exchange_position_set,
     _extract_trade_id_from_notes,
     _is_numeric_order_id,
+    _is_real_order_id,
     _mark_orphaned,
     _parse_created_at,
     _reconcile_open_trades,
@@ -512,9 +513,24 @@ class TestSSOTReconciler:
         assert summary["closed"] == 0
         assert _read_trade(tmp_db, trade_id)["status"] == "open"
 
-    def test_orderid_filled_position_flat_marks_closed_with_real_exit(
+    def test_orderid_filled_position_flat_marks_closed_without_exit_price(
         self, tmp_db, tmp_path, monkeypatch,
     ):
+        """When the reconciler sees the entry order filled + position
+        flat, mark the trade ``closed`` but DO NOT write
+        ``exit_price`` — the lookup returned the entry order's
+        avg_price, not the close fill (Bybit's broker-side SL fires
+        a separate close order the bot does not currently track).
+        ``exit_price`` stays NULL and ``notes.exit_price_source``
+        flags it as unreliable so PnL consumers can filter.
+
+        Pre-2026-05-16 this test asserted ``exit_price = mocked
+        avg_price``, but that was only safe because
+        ``_is_numeric_order_id`` rejected UUID-format orderIds so
+        the path never actually fired in production. Now that the
+        gate is fixed, the close-fill recovery is a follow-up PR
+        (Bybit V5 closed-pnl / execution-list integration).
+        """
         monkeypatch.setattr(
             "src.runtime.execution_diagnostics.PENDING_PINGS_DIR",
             tmp_path / "pings",
@@ -538,10 +554,39 @@ class TestSSOTReconciler:
         row = _read_trade_full(tmp_db, trade_id)
         assert row["status"] == "closed"
         assert row["exit_reason"] == "reconciler_filled"
-        assert abs(row["exit_price"] - 80123.45) < 1e-6
+        assert row["exit_price"] is None
         notes = json.loads(row["notes"])
         assert notes["closed_by"] == "monitor_reconciler"
         assert notes["closed_at"] == "1762620000000"
+        assert notes["exit_price_source"] == "entry_order_avg_price_unreliable"
+
+    def test_uuid_format_trade_id_is_reconciled(
+        self, tmp_db, tmp_path, monkeypatch,
+    ):
+        """Smoking-gun regression: a Bybit V5 UUID-format trade_id
+        (the shape that produced the 11/11 vwap orphan cluster on
+        bybit_2 since 2026-05-15) must flow through the reconciler
+        instead of being silently dropped as ``skipped_non_numeric``.
+        """
+        monkeypatch.setattr(
+            "src.runtime.execution_diagnostics.PENDING_PINGS_DIR",
+            tmp_path / "pings",
+        )
+        bybit_uuid = "bbfcde38-82db-4621-b400-9b9a7fa0b313"
+        trade_id = _insert_trade(tmp_db, trade_id=bybit_uuid)
+
+        with patch(
+            "src.units.accounts.clients.account_order_status",
+            return_value=_filled_status(bybit_uuid, avg_price=80000.0),
+        ), patch(
+            "src.units.accounts.clients.account_open_positions",
+            return_value=[],
+        ):
+            summary = _reconcile_open_trades(tmp_db)
+
+        assert summary["skipped_non_numeric"] == 0
+        assert summary["closed"] == 1
+        assert _read_trade(tmp_db, trade_id)["status"] == "closed"
 
     def test_orderid_filled_position_open_leaves_row_open(
         self, tmp_db, tmp_path, monkeypatch,
@@ -773,21 +818,52 @@ class TestExchangePositionSet:
 # ---------------------------------------------------------------------------
 
 
-class TestNumericOrderIdAndNotesExtraction:
-    def test_real_bybit_orderid_is_numeric(self):
-        assert _is_numeric_order_id("1842564317108924672") is True
+class TestRealOrderIdAndNotesExtraction:
+    """Regression coverage for ``_is_real_order_id`` — the gate the
+    SSOT reconciler uses to decide whether ``notes.trade_id`` is a
+    lookup key Bybit can resolve.
 
-    def test_rejected_prefix_is_non_numeric(self):
-        assert _is_numeric_order_id("rejected-deadbeefcafe") is False
+    Pre-2026-05-16 this gate was named ``_is_numeric_order_id`` and
+    accepted only ``.isdigit()`` strings, silently rejecting every
+    valid Bybit V5 UUID-format orderId. The current contract:
+    accept anything that doesn't begin with a known-synthetic
+    prefix (``dry-``, ``rejected-``, ``exchange_rejected-``, …).
+    The legacy name is preserved as an alias for any out-of-tree
+    caller.
+    """
 
-    def test_exchange_rejected_prefix_is_non_numeric(self):
-        assert _is_numeric_order_id("exchange_rejected-deadbeef1234") is False
+    def test_digit_only_bybit_orderid_accepted(self):
+        assert _is_real_order_id("1842564317108924672") is True
 
-    def test_dry_prefix_is_non_numeric(self):
-        assert _is_numeric_order_id("dry-abc123def456") is False
+    def test_uuid_format_bybit_orderid_accepted(self):
+        # Real shape observed on bybit_2 vwap entries (linear perp,
+        # diag #1252) — Bybit V5 stamps these for some flows.
+        assert _is_real_order_id("bbfcde38-82db-4621-b400-9b9a7fa0b313") is True
 
-    def test_empty_string_is_non_numeric(self):
-        assert _is_numeric_order_id("") is False
+    def test_rejected_prefix_skipped(self):
+        assert _is_real_order_id("rejected-deadbeefcafe") is False
+
+    def test_exchange_rejected_prefix_skipped(self):
+        assert _is_real_order_id("exchange_rejected-deadbeef1234") is False
+
+    def test_dry_prefix_skipped(self):
+        assert _is_real_order_id("dry-abc123def456") is False
+        assert _is_real_order_id("dry-bybit-abc1234567") is False
+        assert _is_real_order_id("dry-velotrade-abc1234567") is False
+
+    def test_open_closed_fallback_prefix_skipped(self):
+        # ``_log_trade_to_journal`` writes ``{status}-<hex>`` when
+        # the trade_id arg is None (legacy callers); the reconciler
+        # must skip those.
+        assert _is_real_order_id("open-abc123def456") is False
+        assert _is_real_order_id("closed-abc123def456") is False
+
+    def test_empty_string_rejected(self):
+        assert _is_real_order_id("") is False
+        assert _is_real_order_id("   ") is False
+
+    def test_legacy_alias_resolves_to_same_callable(self):
+        assert _is_numeric_order_id is _is_real_order_id
 
     def test_extract_trade_id_happy_path(self):
         notes = json.dumps({"trade_id": "1900000000000000001"})
@@ -1748,6 +1824,7 @@ class TestStuckStrategyWatchdog:
         assert summary == {
             "checked": 0, "alerted": 0, "auto_cleared": 0,
             "deferred_position_alive": 0,
+            "released_alive": 0,
             "skipped_position_read_failed": 0,
             "errors": 0,
         }
@@ -1787,6 +1864,7 @@ class TestStuckStrategyWatchdog:
         assert second == {
             "checked": 0, "alerted": 0, "auto_cleared": 0,
             "deferred_position_alive": 0,
+            "released_alive": 0,
             "skipped_position_read_failed": 0,
             "errors": 0,
         }
@@ -1917,4 +1995,128 @@ class TestStuckStrategyWatchdog:
         # Package + trade left untouched — wait for the next tick
         # when the read might succeed.
         assert _read_package(tmp_db, "pkg-read-failure")["status"] == "open"
+        assert _read_trade(tmp_db, trade_id)["status"] == "open"
+
+    def test_position_alive_releases_package_after_release_threshold(
+        self, tmp_db, tmp_path, monkeypatch,
+    ):
+        """RELEASE_STUCK_PKG_MINUTES contract (PR claude/watchdog-cadence-fix-JZkeL):
+        when the exchange-side position is still alive and the
+        package has been silent for at least the release threshold,
+        force-close the **package row alone** so the
+        strategy_monocle gate reopens for new dispatches. The trade
+        row stays ``status='open'`` — the monitor + per-trade
+        reconciler keep tracking the live position to its real
+        close.
+        """
+        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
+        monkeypatch.setenv("RELEASE_STUCK_PKG_MINUTES", "90")
+        trade_id = _insert_trade(tmp_db, status="open")
+        self._insert_pkg_with_age(
+            tmp_db, pkg_id="pkg-release-after-90",
+            linked_trade_id=trade_id, age_minutes=95,
+        )
+        pings_dir = tmp_path / "pings"
+        monkeypatch.setattr(
+            "src.runtime.execution_diagnostics.PENDING_PINGS_DIR",
+            pings_dir,
+        )
+        with patch(
+            "src.units.accounts.clients.account_open_positions",
+            return_value=[
+                {"symbol": "BTCUSDT", "side": "long", "size": 0.004},
+            ],
+        ):
+            summary = _watchdog_stuck_strategies(tmp_db)
+
+        assert summary["deferred_position_alive"] == 1
+        assert summary["released_alive"] == 1
+        assert summary["auto_cleared"] == 0  # NOT the orphan path
+        assert summary["alerted"] == 1
+        assert summary["errors"] == 0
+
+        # Package row force-closed with the new close_reason.
+        pkg = _read_package(tmp_db, "pkg-release-after-90")
+        assert pkg["status"] == "closed"
+        assert pkg["close_reason"] == "watchdog_released_alive"
+
+        # Trade row left ALIVE — the live position is still on
+        # Bybit, the existing reconciler will close it for real.
+        trade = _read_trade(tmp_db, trade_id)
+        assert trade["status"] == "open"
+        assert trade["exit_reason"] is None
+
+        # Alert fires with auto_cleared=True because the
+        # strategy_monocle gate WAS reopened by the package
+        # release — that's the observable system change the
+        # operator cares about.
+        queued = sorted(pings_dir.glob("*.json"))
+        assert len(queued) == 1
+        evt = json.loads(queued[0].read_text())
+        assert "force-cleared" in evt["body"]
+
+    def test_position_alive_below_release_threshold_just_defers(
+        self, tmp_db, tmp_path, monkeypatch,
+    ):
+        """Below RELEASE_STUCK_PKG_MINUTES the watchdog must keep
+        the pre-2026-05-16 defer+alert-once behaviour — neither
+        the package nor the trade row is touched beyond a meta
+        stamp.
+        """
+        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
+        monkeypatch.setenv("RELEASE_STUCK_PKG_MINUTES", "90")
+        trade_id = _insert_trade(tmp_db, status="open")
+        self._insert_pkg_with_age(
+            tmp_db, pkg_id="pkg-alive-50",
+            linked_trade_id=trade_id, age_minutes=50,
+        )
+        pings_dir = tmp_path / "pings"
+        monkeypatch.setattr(
+            "src.runtime.execution_diagnostics.PENDING_PINGS_DIR",
+            pings_dir,
+        )
+        with patch(
+            "src.units.accounts.clients.account_open_positions",
+            return_value=[
+                {"symbol": "BTCUSDT", "side": "long", "size": 0.004},
+            ],
+        ):
+            summary = _watchdog_stuck_strategies(tmp_db)
+
+        assert summary["deferred_position_alive"] == 1
+        assert summary["released_alive"] == 0
+        assert _read_package(tmp_db, "pkg-alive-50")["status"] == "open"
+        assert _read_trade(tmp_db, trade_id)["status"] == "open"
+
+    def test_position_alive_release_disabled_when_env_zero(
+        self, tmp_db, tmp_path, monkeypatch,
+    ):
+        """``RELEASE_STUCK_PKG_MINUTES=0`` opts out of the release
+        path entirely — the watchdog reverts to the pre-2026-05-16
+        defer-forever behaviour for position-alive packages even
+        well past the release window.
+        """
+        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
+        monkeypatch.setenv("RELEASE_STUCK_PKG_MINUTES", "0")
+        trade_id = _insert_trade(tmp_db, status="open")
+        self._insert_pkg_with_age(
+            tmp_db, pkg_id="pkg-release-disabled",
+            linked_trade_id=trade_id, age_minutes=240,  # 4h
+        )
+        pings_dir = tmp_path / "pings"
+        monkeypatch.setattr(
+            "src.runtime.execution_diagnostics.PENDING_PINGS_DIR",
+            pings_dir,
+        )
+        with patch(
+            "src.units.accounts.clients.account_open_positions",
+            return_value=[
+                {"symbol": "BTCUSDT", "side": "long", "size": 0.004},
+            ],
+        ):
+            summary = _watchdog_stuck_strategies(tmp_db)
+
+        assert summary["deferred_position_alive"] == 1
+        assert summary["released_alive"] == 0
+        assert _read_package(tmp_db, "pkg-release-disabled")["status"] == "open"
         assert _read_trade(tmp_db, trade_id)["status"] == "open"
