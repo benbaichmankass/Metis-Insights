@@ -64,12 +64,10 @@ _BORROW_POLL_ATTEMPTS = 10
 
 
 def _load_bybit2_cfg(accounts_path: Optional[str] = None) -> Dict[str, Any]:
-    import yaml
+    from src.config.accounts_loader import load_accounts_dict
 
     path = accounts_path or os.path.join(_REPO_ROOT, "config", "accounts.yaml")
-    with open(path, "r", encoding="utf-8") as fh:
-        cfg = yaml.safe_load(fh) or {}
-    accounts = (cfg.get("accounts") or {})
+    accounts = load_accounts_dict(path)
     bybit_2 = accounts.get("bybit_2")
     if not bybit_2:
         raise SystemExit("config/accounts.yaml has no `bybit_2` row")

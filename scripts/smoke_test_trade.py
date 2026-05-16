@@ -92,11 +92,10 @@ AUDIT_PATH = REPO_ROOT / "runtime_logs" / "signal_audit.jsonl"
 
 
 def _load_accounts_yaml() -> Dict[str, Dict[str, Any]]:
-    import yaml
-    yaml_path = REPO_ROOT / "config" / "accounts.yaml"
-    with yaml_path.open(encoding="utf-8") as fh:
-        raw = yaml.safe_load(fh) or {}
-    return raw.get("accounts") or {}
+    # Delegates to the canonical reader in src/config/accounts_loader.py
+    # so smoke tests stay aligned with the production dict-shape schema.
+    from src.config.accounts_loader import load_accounts_dict
+    return load_accounts_dict(REPO_ROOT / "config" / "accounts.yaml")
 
 
 def _account_settings(name: str) -> Dict[str, Any]:

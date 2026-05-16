@@ -142,12 +142,18 @@ def test_list_accounts_empty_repo(fake_repo):
 
 
 def test_list_accounts_yaml_takes_precedence(fake_repo):
+    """``accounts.yaml`` overrides ``.env``-discovered accounts.
+
+    Uses the production dict-shape (S-012 PR B3); the historical
+    list-shape parser branch was dropped when ``data_loaders``
+    switched to the canonical ``load_accounts_dict`` reader.
+    """
     pytest.importorskip("yaml")
     (fake_repo / ".env").write_text("BYBIT_API_KEY=abc\nBYBIT_API_SECRET=def\n")
     yaml_path = fake_repo / "config" / "accounts.yaml"
     yaml_path.write_text(
         "accounts:\n"
-        "  - account_id: live\n"
+        "  live:\n"
         "    exchange: bybit\n"
         "    env_path: /custom/.env\n"
         "    service: ict-trader-live\n"

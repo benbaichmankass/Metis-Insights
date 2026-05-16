@@ -60,6 +60,7 @@ _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
+from src.config.accounts_loader import load_accounts_dict  # noqa: E402
 from src.units.accounts.clients import account_closed_pnl_for_trade  # noqa: E402
 
 
@@ -94,47 +95,6 @@ def _candidate_rows(conn: sqlite3.Connection) -> List[sqlite3.Row]:
         """
     )
     return cur.fetchall()
-
-
-def _load_account_cfgs() -> Dict[str, Dict[str, Any]]:
-    """Best-effort load of accounts.yaml → ``{account_id: cfg}``.
-
-    Mirrors ``order_monitor._load_account_cfgs_for_reconcile`` but
-    standalone so the script doesn't drag in the full reconciler
-    import surface. Any failure → empty dict; the script then
-    skips every row with an unknown account_id (logged).
-    """
-    try:
-        import yaml  # noqa: F401
-    except ImportError:
-        print("warning: PyYAML not installed — cannot load accounts.yaml",
-              file=sys.stderr)
-        return {}
-    import yaml
-
-    yaml_path = os.environ.get("ACCOUNTS_YAML_PATH") or os.path.join(
-        _REPO_ROOT, "config", "accounts.yaml",
-    )
-    if not os.path.exists(yaml_path):
-        print(f"warning: accounts.yaml not found at {yaml_path}",
-              file=sys.stderr)
-        return {}
-    try:
-        with open(yaml_path, "r", encoding="utf-8") as fh:
-            data = yaml.safe_load(fh) or {}
-    except Exception as exc:  # noqa: BLE001
-        print(f"warning: failed to parse {yaml_path}: {exc}",
-              file=sys.stderr)
-        return {}
-
-    out: Dict[str, Dict[str, Any]] = {}
-    for entry in (data.get("accounts") or []):
-        if not isinstance(entry, dict):
-            continue
-        aid = entry.get("account_id")
-        if aid:
-            out[str(aid)] = entry
-    return out
 
 
 def _parse_created_at_to_ms(value: Any) -> Optional[int]:
@@ -308,7 +268,7 @@ def main() -> int:
         print(f"no candidate rows in {db_path} — nothing to backfill")
         return 0
 
-    cfgs = _load_account_cfgs()
+    cfgs = load_accounts_dict()
 
     plans: List[Tuple[int, Dict[str, Any]]] = []
     skipped: List[Tuple[int, str]] = []

@@ -172,15 +172,15 @@ def _risk_pairs(data: dict, tier: str) -> list[tuple[str, str]]:
 
 
 def _load_accounts_yaml(accounts_path: Path) -> dict:
-    """Load accounts.yaml. Returns the parsed mapping; never None."""
-    import yaml
-    if not accounts_path.exists():
-        return {}
-    with accounts_path.open("r", encoding="utf-8") as fh:
-        raw = yaml.safe_load(fh) or {}
-    if not isinstance(raw, dict):
-        return {}
-    return raw.get("accounts") or {}
+    """Load accounts.yaml. Returns the parsed mapping; never None.
+
+    Delegates to the canonical reader at ``src/config/accounts_loader.py``
+    so render-env stays aligned with the production dict-shape schema.
+    """
+    if str(_REPO_ROOT) not in sys.path:
+        sys.path.insert(0, str(_REPO_ROOT))
+    from src.config.accounts_loader import load_accounts_dict
+    return load_accounts_dict(accounts_path)
 
 
 def _per_account_pairs(

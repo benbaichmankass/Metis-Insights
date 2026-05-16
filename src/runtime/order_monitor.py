@@ -1189,26 +1189,10 @@ def _load_account_cfgs_for_reconcile() -> Dict[str, Dict[str, Any]]:
     returns an empty dict so the reconciler runs as a no-op rather
     than orphaning trades on a config-load error.
     """
-    try:
-        import yaml  # type: ignore
-    except ImportError:
-        return {}
-    path = os.path.join(_REPO_ROOT, "config", "accounts.yaml")
-    if not os.path.exists(path):
-        return {}
-    try:
-        with open(path, "r", encoding="utf-8") as fh:
-            data = yaml.safe_load(fh) or {}
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("_load_account_cfgs_for_reconcile: %s", exc)
-        return {}
-    raw = data.get("accounts") if isinstance(data, dict) else None
-    if not isinstance(raw, dict):
-        return {}
+    from src.config.accounts_loader import load_accounts_dict
+    raw = load_accounts_dict()
     out: Dict[str, Dict[str, Any]] = {}
     for name, cfg in raw.items():
-        if not isinstance(cfg, dict):
-            continue
         if cfg.get("enabled") is False:
             continue
         out[str(name)] = {
