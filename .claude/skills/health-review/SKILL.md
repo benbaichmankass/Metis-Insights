@@ -489,6 +489,22 @@ closed.
   every grade here to be `ok` with note "no intent_reduce rows
   observed yet".
 
+- **Shadow-prediction observability for vwap (PR #1274 follow-up).** PR
+  #1274 fixed a regression where the open-package self-suppression
+  gate in `vwap.order_package` silenced shadow observation: any time
+  the strategy held an open package, the gate aborted before
+  `with_shadow_preds` ran, so models attached via `shadow_model_ids`
+  saw zero signals. The fix moved the shadow call ahead of the gate.
+  **Grade by:** if the 6h audit window contains any `vwap_eval` with
+  `side != "none"` AND `config/strategies.yaml`'s
+  `vwap.shadow_model_ids` is non-empty, pull
+  `/api/bot/shadow/stats?model_id=<id>&stage=shadow` and confirm the
+  count is non-zero over the same window. Mismatch (actionable vwap
+  signals fired but shadow log empty) → `concern` on a new
+  `shadow_observability` line in `anomalies` and reference FU-20260516-001.
+  No-op when `shadow_model_ids` is empty (note that in anomalies so
+  the operator sees observation is currently disabled).
+
 ## Output
 
 **Single-request mode** (the user passed an explicit `REQ-…` or run
