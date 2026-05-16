@@ -125,18 +125,72 @@ def _resolve_predictor_class(trainer_qualname: str) -> type[Predictor]:
     return predictor_cls
 
 
-def _load_model_state(model_state_path: str | Path) -> dict:
+def _load_model_state(
+    model_state_path: str | Path,
+    *,
+    registry_root: Path | None = None,
+) -> dict:
+    """Resolve and load a model_state.json file.
+
+    The registry entry stores ``model_state_path`` as an absolute path
+    relative to the trainer VM's filesystem (e.g.
+    ``/home/ubuntu/ict-trading-bot/ml/experiments-runs/<model_id>/<run_id>/model_state.json``).
+    When the same registry entry is consumed on the live VM via the
+    trainer mirror, that absolute path does not exist — the equivalent
+    file is at ``<registry_root>/../experiments-runs/<model_id>/<run_id>/model_state.json``
+    instead.
+
+    Resolution order:
+
+    1. The literal ``model_state_path`` from the entry (works on the
+       trainer VM where it was registered).
+    2. Strip everything up to and including ``experiments-runs/``,
+       then resolve the suffix under ``<registry_root>/../experiments-runs/``.
+       Works on the live VM where the mirror lives next to the
+       ``models/`` subdir.
+
+    Raises ``ShadowFactoryError`` if both attempts fail. The fallback
+    is silent on success — the strategy doesn't need to know which
+    branch matched.
+    """
     p = Path(model_state_path)
-    if not p.is_file():
-        raise ShadowFactoryError(
-            f"model_state_path not found at {p}"
-        )
+    if p.is_file():
+        candidate = p
+    else:
+        candidate = _resolve_state_path_via_mirror(p, registry_root)
+        if candidate is None or not candidate.is_file():
+            raise ShadowFactoryError(
+                f"model_state_path not found at {p}"
+                + (f" (also tried mirror fallback {candidate})" if candidate else "")
+            )
     try:
-        return json.loads(p.read_text(encoding="utf-8"))
+        return json.loads(candidate.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         raise ShadowFactoryError(
-            f"failed to read model state at {p}: {exc}"
+            f"failed to read model state at {candidate}: {exc}"
         ) from exc
+
+
+def _resolve_state_path_via_mirror(
+    original: Path,
+    registry_root: Path | None,
+) -> Path | None:
+    """Map a trainer-VM absolute path to its live-VM mirror location.
+
+    Looks for ``experiments-runs`` in the path's parts and rebuilds
+    the suffix under ``<registry_root>/../experiments-runs/``. Returns
+    ``None`` when ``registry_root`` is unset or the path has no
+    ``experiments-runs`` segment.
+    """
+    if registry_root is None:
+        return None
+    parts = original.parts
+    try:
+        idx = parts.index("experiments-runs")
+    except ValueError:
+        return None
+    suffix = Path(*parts[idx + 1 :])
+    return registry_root.parent / "experiments-runs" / suffix
 
 
 def _check_stage(entry: RegistryEntry) -> None:
@@ -177,7 +231,7 @@ def resolve_predictor(
             f"model_id {model_id!r} not found in registry: {exc}"
         ) from exc
     _check_stage(entry)
-    state = _load_model_state(entry.model_state_path)
+    state = _load_model_state(entry.model_state_path, registry_root=registry.root)
     predictor_cls = _resolve_predictor_class(state.get("trainer", ""))
     base_predictor = predictor_cls(state)
     return ShadowPredictor(
