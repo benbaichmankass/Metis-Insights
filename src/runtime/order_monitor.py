@@ -1818,7 +1818,9 @@ def _reconcile_open_trades(db) -> Dict[str, int]:
                         symbol=str(row.get("symbol")),
                         side=str(row.get("direction") or "").lower(),
                         db_trade_id=row.get("id"),
-                        linked_package_id=_extract_package_id(row.get("notes")),
+                        linked_package_id=_resolve_linked_package_id(
+                            db, row.get("id"),
+                        ),
                     )
                     orphan_pings_emitted += 1
                 else:
@@ -1876,7 +1878,9 @@ def _reconcile_open_trades(db) -> Dict[str, int]:
                     symbol=str(sym),
                     side=side,
                     db_trade_id=row.get("id"),
-                    linked_package_id=_extract_package_id(row.get("notes")),
+                    linked_package_id=_resolve_linked_package_id(
+                        db, row.get("id"),
+                    ),
                     classification=cls_info.get("classification"),
                     classification_note=cls_info.get("note"),
                 )
@@ -2501,7 +2505,23 @@ def _watchdog_stuck_strategies(db) -> Dict[str, int]:
 
 def _extract_package_id(notes_raw: Optional[str]) -> Optional[str]:
     """Pull ``order_package_id`` out of the trades.notes JSON blob if
-    present. Best-effort — returns None on any decode failure."""
+    present. Best-effort — returns None on any decode failure.
+
+    Production note (2026-05-16): the live writer in
+    ``_log_trade_to_journal`` does **not** stamp ``order_package_id``
+    into ``notes`` — it only writes ``trade_id`` (the exchange order
+    id). The canonical journal-side trade↔package link is
+    ``order_packages.linked_trade_id``; use
+    :func:`_resolve_linked_package_id` for production lookups.
+    This helper survives only for legacy fixtures / older trade rows
+    that did stamp the package id into notes.
+
+    Pre-2026-05-16 the function fell back to ``notes.get('trade_id')``
+    when ``order_package_id`` was missing — that returned the Bybit
+    UUID, which was then passed to ``db.update_order_package(pkg_id)``
+    and silently no-op'd because no row matched. The fallback was
+    removed so the cascade no-op is replaced by an honest None.
+    """
     if not notes_raw:
         return None
     try:
@@ -2510,7 +2530,93 @@ def _extract_package_id(notes_raw: Optional[str]) -> Optional[str]:
         return None
     if not isinstance(notes, dict):
         return None
-    return notes.get("order_package_id") or notes.get("trade_id")
+    pkg_id = notes.get("order_package_id")
+    if pkg_id is None:
+        return None
+    s = str(pkg_id).strip()
+    return s or None
+
+
+def _resolve_linked_package_id(db, trade_id: Any) -> Optional[str]:
+    """Look up ``order_packages.order_package_id`` for the package
+    whose ``linked_trade_id`` matches *trade_id*.
+
+    The canonical journal-side link is one-way (package → trade via
+    ``linked_trade_id``); the trade row carries no back-reference.
+    Callers needing the linked package id should resolve it here
+    instead of digging through ``trades.notes`` JSON.
+
+    Returns ``None`` on any read failure or when no package is
+    linked. Best-effort — never raises.
+    """
+    if trade_id is None:
+        return None
+    try:
+        conn = db.connect()
+        try:
+            row = conn.execute(
+                "SELECT order_package_id FROM order_packages "
+                "WHERE linked_trade_id = ? "
+                "ORDER BY created_at DESC LIMIT 1",
+                (int(trade_id),),
+            ).fetchone()
+        finally:
+            conn.close()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "_resolve_linked_package_id: lookup failed for trade_id=%s: %s",
+            trade_id, exc,
+        )
+        return None
+    if row is None:
+        return None
+    pkg_id = row[0] if not isinstance(row, dict) else row.get("order_package_id")
+    if not pkg_id:
+        return None
+    return str(pkg_id)
+
+
+def _cascade_close_linked_package(
+    db,
+    trade_id: Any,
+    *,
+    close_reason: str,
+    caller: str,
+) -> bool:
+    """Close the order_packages row linked to *trade_id*.
+
+    Replaces the legacy ``_extract_package_id(notes) →
+    update_order_package`` pattern that silently no-op'd in
+    production because ``notes`` didn't carry ``order_package_id``.
+    Uses the canonical ``linked_trade_id`` lookup instead.
+
+    Returns True when a package row was updated. ``False`` on lookup
+    miss or update failure — caller should not crash on either;
+    ``_sweep_stuck_linked_packages`` remains the safety net for
+    cascade misses. *caller* labels the log line for diagnostics.
+    """
+    pkg_id = _resolve_linked_package_id(db, trade_id)
+    if not pkg_id:
+        return False
+    try:
+        affected = db.update_order_package(pkg_id, {
+            "status": "closed",
+            "close_reason": close_reason,
+        })
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "%s: package cascade failed for pkg_id=%s linked to trade_id=%s: %s",
+            caller, pkg_id, trade_id, exc,
+        )
+        return False
+    if not affected:
+        logger.warning(
+            "%s: package cascade no-op for pkg_id=%s linked to trade_id=%s "
+            "(row not found — stale link?)",
+            caller, pkg_id, trade_id,
+        )
+        return False
+    return True
 
 
 def _extract_trade_id_from_notes(notes_raw: Optional[str]) -> Optional[str]:
@@ -2640,19 +2746,19 @@ def _close_trade_from_order_status(
     }
     db.update_trade(int(row["id"]), updates)
 
-    pkg_id = _extract_package_id(row.get("notes"))
-    if pkg_id:
-        try:
-            db.update_order_package(pkg_id, {
-                "status": "closed",
-                "close_reason": "reconciler_filled",
-            })
-        except Exception as exc:  # noqa: BLE001
-            logger.warning(
-                "_close_trade_from_order_status: package cascade failed "
-                "for pkg_id=%s linked to trade_id=%s: %s",
-                pkg_id, row.get("id"), exc,
-            )
+    # Cascade by canonical link (order_packages.linked_trade_id), not
+    # by notes-JSON scraping. Pre-2026-05-16 this used
+    # ``_extract_package_id(row.notes)`` which silently no-op'd in
+    # production because the writer never stamped order_package_id
+    # into notes — ``_sweep_stuck_linked_packages`` cleaned up in a
+    # second pass with ``close_reason='stuck_cascade_recovered'``,
+    # leaving every row with a misleading "recovered" stamp. PR
+    # claude/cascade-fix-by-linked-trade-id.
+    _cascade_close_linked_package(
+        db, row.get("id"),
+        close_reason="reconciler_filled",
+        caller="_close_trade_from_order_status",
+    )
 
 
 def _mark_orphaned(db, row: Dict[str, Any]) -> None:
@@ -2687,14 +2793,21 @@ def _mark_orphaned(db, row: Dict[str, Any]) -> None:
         "exit_reason": "reconciler",
         "notes": json.dumps(notes, ensure_ascii=False)[:500],
     })
-    pkg_id = _extract_package_id(row.get("notes"))
+    # Cascade by canonical link (order_packages.linked_trade_id),
+    # with a second attempt on transient failures. Pre-2026-05-16
+    # the lookup went through ``_extract_package_id(row.notes)``,
+    # which the live writer doesn't populate; the orphan cascade
+    # was silently dead in production and ``_sweep_stuck_linked_packages``
+    # was doing all the work. PR claude/cascade-fix-by-linked-trade-id.
+    pkg_id = _resolve_linked_package_id(db, row.get("id"))
     if not pkg_id:
         return
 
     last_exc: Optional[BaseException] = None
+    affected = 0
     for attempt in (1, 2):
         try:
-            db.update_order_package(pkg_id, {
+            affected = db.update_order_package(pkg_id, {
                 "status": "closed",
                 "close_reason": "reconciler",
             })
@@ -2716,6 +2829,16 @@ def _mark_orphaned(db, row: Dict[str, Any]) -> None:
             symbol=row.get("symbol"),
             direction=row.get("direction"),
             error=str(last_exc),
+        )
+    elif not affected:
+        # Lookup succeeded but the UPDATE matched zero rows — stale
+        # link. Log audibly so the operator notices; the sweep will
+        # not catch this case because the package id is "real" from
+        # the linked_trade_id query but the row may have been deleted.
+        logger.warning(
+            "_mark_orphaned: package cascade no-op for pkg_id=%s linked to "
+            "trade_id=%s (row not found — stale link?)",
+            pkg_id, row.get("id"),
         )
 
 

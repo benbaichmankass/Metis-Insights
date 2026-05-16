@@ -21,14 +21,17 @@ from unittest.mock import patch
 import pytest
 
 from src.runtime.order_monitor import (
+    _cascade_close_linked_package,
     _classify_orphan_close,
     _exchange_position_set,
+    _extract_package_id,
     _extract_trade_id_from_notes,
     _is_numeric_order_id,
     _is_real_order_id,
     _mark_orphaned,
     _parse_created_at,
     _reconcile_open_trades,
+    _resolve_linked_package_id,
     _sweep_stuck_linked_packages,
     _sweep_unlinked_packages,
     _watchdog_stuck_strategies,
@@ -2120,3 +2123,155 @@ class TestStuckStrategyWatchdog:
         assert summary["released_alive"] == 0
         assert _read_package(tmp_db, "pkg-release-disabled")["status"] == "open"
         assert _read_trade(tmp_db, trade_id)["status"] == "open"
+
+
+# ---------------------------------------------------------------------------
+# Package cascade by canonical link (PR claude/cascade-fix-by-linked-trade-id)
+# ---------------------------------------------------------------------------
+
+
+class TestPackageCascadeByLinkedTradeId:
+    """Regression coverage for the cascade misroute discovered in
+    diag #1292 (2026-05-16).
+
+    Pre-2026-05-16 production trade rows did NOT carry
+    ``order_package_id`` in their ``notes`` JSON (the live writer
+    in ``_log_trade_to_journal`` only stamps ``trade_id``). The
+    cascade paths in ``_close_trade_from_order_status`` and
+    ``_mark_orphaned`` looked the package id up via
+    ``_extract_package_id(row.notes)``, which fell back to
+    ``notes.trade_id`` (the Bybit UUID) when ``order_package_id``
+    was absent — that UUID was then passed to
+    ``db.update_order_package`` and silently matched zero rows.
+
+    ``_sweep_stuck_linked_packages`` was doing the cascade work in
+    a second pass and stamping every recovered row with
+    ``close_reason='stuck_cascade_recovered'``, hiding the latent
+    bug behind a "recovered" label that suggested something
+    abnormal had happened.
+
+    The fix: route the cascade through ``_resolve_linked_package_id``
+    (a ``WHERE linked_trade_id = ?`` lookup on the packages table),
+    so the direct cascade actually fires and stamps the correct
+    ``close_reason='reconciler_filled'`` (or ``'reconciler'`` for the
+    orphan path) on the same tick.
+    """
+
+    def test_resolve_linked_package_id_happy_path(self, tmp_db):
+        trade_id = _insert_trade(tmp_db)
+        _insert_package(tmp_db, pkg_id="pkg-link-1", linked_trade_id=trade_id)
+        resolved = _resolve_linked_package_id(tmp_db, trade_id)
+        assert resolved == "pkg-link-1"
+
+    def test_resolve_linked_package_id_returns_none_when_no_package(
+        self, tmp_db,
+    ):
+        trade_id = _insert_trade(tmp_db)
+        assert _resolve_linked_package_id(tmp_db, trade_id) is None
+
+    def test_resolve_linked_package_id_handles_none_trade_id(self, tmp_db):
+        assert _resolve_linked_package_id(tmp_db, None) is None
+
+    def test_extract_package_id_no_longer_falls_back_to_trade_id(self):
+        """Pre-fix this returned ``notes.trade_id`` when
+        ``order_package_id`` was absent — the silent cascade bug.
+        """
+        notes = json.dumps({"trade_id": "1842564317108924672"})
+        assert _extract_package_id(notes) is None
+
+    def test_extract_package_id_still_reads_explicit_field(self):
+        notes = json.dumps({
+            "trade_id": "1842564317108924672",
+            "order_package_id": "pkg-explicit-1",
+        })
+        assert _extract_package_id(notes) == "pkg-explicit-1"
+
+    def test_cascade_close_succeeds_without_notes_pkg_id(self, tmp_db):
+        """The production scenario: trade.notes carries only
+        trade_id (no order_package_id). The cascade must still find
+        and close the package via linked_trade_id.
+        """
+        trade_id = _insert_trade(tmp_db)  # no notes_pkg_id
+        _insert_package(
+            tmp_db, pkg_id="pkg-cascade-prod",
+            linked_trade_id=trade_id,
+        )
+        ok = _cascade_close_linked_package(
+            tmp_db, trade_id,
+            close_reason="reconciler_filled",
+            caller="test_cascade_prod",
+        )
+        assert ok is True
+        pkg = _read_package(tmp_db, "pkg-cascade-prod")
+        assert pkg["status"] == "closed"
+        assert pkg["close_reason"] == "reconciler_filled"
+
+    def test_cascade_close_returns_false_when_no_link(self, tmp_db):
+        trade_id = _insert_trade(tmp_db)
+        ok = _cascade_close_linked_package(
+            tmp_db, trade_id,
+            close_reason="reconciler_filled",
+            caller="test_no_link",
+        )
+        assert ok is False
+
+    def test_reconciler_close_path_stamps_reconciler_filled_directly(
+        self, tmp_db, tmp_path, monkeypatch,
+    ):
+        """End-to-end: a trade whose notes carry only trade_id (the
+        production shape) flows through ``_reconcile_open_trades``;
+        on a filled-order + position-flat verdict the linked
+        package row is closed with ``close_reason='reconciler_filled'``
+        in the same tick — NOT ``'stuck_cascade_recovered'``.
+        """
+        monkeypatch.setattr(
+            "src.runtime.execution_diagnostics.PENDING_PINGS_DIR",
+            tmp_path / "pings",
+        )
+        bybit_uuid = "eac9d644-fb24-44f8-889b-c0ec6a98363e"
+        trade_id = _insert_trade(tmp_db, trade_id=bybit_uuid)
+        _insert_package(
+            tmp_db, pkg_id="pkg-prod-shape",
+            linked_trade_id=trade_id,
+        )
+
+        with patch(
+            "src.units.accounts.clients.account_order_status",
+            return_value=_filled_status(bybit_uuid),
+        ), patch(
+            "src.units.accounts.clients.account_open_positions",
+            return_value=[],
+        ):
+            _reconcile_open_trades(tmp_db)
+
+        pkg = _read_package(tmp_db, "pkg-prod-shape")
+        assert pkg["status"] == "closed"
+        assert pkg["close_reason"] == "reconciler_filled"
+
+    def test_orphan_cascade_stamps_reconciler_directly(
+        self, tmp_db, tmp_path, monkeypatch,
+    ):
+        """Same as above but for ``_mark_orphaned`` — when Bybit
+        says ``not_found`` the trade is orphaned and the linked
+        package closes with ``close_reason='reconciler'`` in the
+        same tick, not via the sweep.
+        """
+        monkeypatch.setattr(
+            "src.runtime.execution_diagnostics.PENDING_PINGS_DIR",
+            tmp_path / "pings",
+        )
+        trade_id = _insert_trade(tmp_db, trade_id="1900000000001230001")
+        _insert_package(
+            tmp_db, pkg_id="pkg-orphan-prod",
+            linked_trade_id=trade_id,
+        )
+
+        with patch(
+            "src.units.accounts.clients.account_order_status",
+            return_value=_not_found_status("1900000000001230001"),
+        ):
+            _reconcile_open_trades(tmp_db)
+
+        pkg = _read_package(tmp_db, "pkg-orphan-prod")
+        assert pkg["status"] == "closed"
+        assert pkg["close_reason"] == "reconciler"
