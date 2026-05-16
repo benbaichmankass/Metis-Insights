@@ -1147,6 +1147,39 @@ def _parse_created_at(value: Any) -> Optional[datetime]:
     return dt
 
 
+def _isoformat_to_ms(value: Any) -> Optional[int]:
+    """Return *value* as epoch milliseconds, or ``None`` when it
+    can't be parsed. Builds on :func:`_parse_created_at` for
+    consistency with the rest of the reconciler.
+
+    Used by the closed-pnl recovery path
+    (``_close_trade_from_order_status``) to feed
+    ``account_closed_pnl_for_trade``'s ``opened_at_ms`` parameter
+    from the trade row's ``created_at`` column.
+    """
+    dt = _parse_created_at(value)
+    if dt is None:
+        return None
+    return int(dt.timestamp() * 1000)
+
+
+def _safe_float(value: Any) -> Optional[float]:
+    """Best-effort coerce to float. ``None`` on failure or NaN.
+
+    The qty filter on closed-pnl lookups uses this to forgive
+    blank ``position_size`` values without raising.
+    """
+    if value is None:
+        return None
+    try:
+        f = float(value)
+    except (TypeError, ValueError):
+        return None
+    if f != f:  # NaN check
+        return None
+    return f
+
+
 def _load_account_cfgs_for_reconcile() -> Dict[str, Dict[str, Any]]:
     """Return ``{account_id: account_cfg_dict}`` from accounts.yaml.
 
@@ -1853,7 +1886,7 @@ def _reconcile_open_trades(db) -> Dict[str, int]:
             # gap the legacy reconciler-close path left as
             # exit_price=NULL).
             try:
-                _close_trade_from_order_status(db, row, order_status)
+                _close_trade_from_order_status(db, row, order_status, cfg=cfg)
                 summary["closed"] += 1
             except Exception as exc:  # noqa: BLE001
                 logger.warning(
@@ -2697,53 +2730,121 @@ _is_numeric_order_id = _is_real_order_id
 
 
 def _close_trade_from_order_status(
-    db, row: Dict[str, Any], order_status: Dict[str, Any],
+    db,
+    row: Dict[str, Any],
+    order_status: Dict[str, Any],
+    *,
+    cfg: Optional[Dict[str, Any]] = None,
 ) -> None:
     """Mark a trade row 'closed' when Bybit reports the entry order
     filled and the position flat. Cascades the linked
     ``order_packages`` row (close_reason='reconciler_filled').
 
-    Exit-price caveat (2026-05-16): ``order_status`` is the **entry**
-    order's status, and its ``avg_price`` is the entry fill price,
-    NOT the close fill. For trades closed via the monitor verdict
-    path (``_apply_update``) the real exit fill is already captured
-    via ``_capture_fill_details`` against the separate close-order
-    id; this reconciler path runs only when the verdict path did not
-    fire (e.g. Bybit's broker-side stop-loss closed the position on
-    a wick the bot's 5 m sampling never saw). In that case the close
-    fill lives in ``/v5/position/closed-pnl`` or
-    ``/v5/execution/list`` under a different orderId the bot does
-    not track. Querying those is a follow-up — for now we mark the
-    row closed (so the strategy_monocle gate clears and downstream
-    aggregations stop treating it as open) but leave ``exit_price``
-    untouched (``NULL``) and stamp
+    Exit-price recovery (2026-05-16 follow-up PR): when ``cfg`` is
+    available the helper queries Bybit V5
+    ``/v5/position/closed-pnl`` via
+    :func:`account_closed_pnl_for_trade` and writes the real
+    ``avgExitPrice`` as ``exit_price`` on the trade row (plus a
+    ``notes.exit_price_source='bybit_closed_pnl'`` stamp + the
+    recovered ``closed_pnl`` for posterity). When the lookup
+    fails — read error, unsupported category (spot), or no
+    matching record — the row still closes (so the
+    strategy_monocle gate clears) but with ``exit_price=NULL`` and
     ``notes.exit_price_source='entry_order_avg_price_unreliable'``
-    so PnL consumers can filter on it.
+    so PnL consumers can filter.
 
-    Pre-2026-05-16 this helper wrote ``exit_price = order_status.avg_price``
-    on the assumption that the lookup returned the close fill. That
-    assumption was harmless only because ``_is_numeric_order_id``
-    rejected every UUID-format orderId and the path was effectively
-    dead code on bybit_2.
+    The ``order_status`` argument carries the entry order's
+    ``avg_price``, which is the **entry** fill — emphatically NOT
+    the exit fill. Pre-2026-05-16 the helper wrote it as
+    ``exit_price`` and produced silently wrong PnL; the previous
+    PR (#1268) removed that write. This PR closes the loop by
+    sourcing the real exit fill from closed-pnl.
+
+    Args:
+      * ``order_status`` — return value of
+        :func:`account_order_status`; used for ``exec_time`` (the
+        entry fill time, kept as a notes annotation but no longer
+        as the closed_at for the trade row when closed-pnl provides
+        a real exit time).
+      * ``cfg`` — account config dict. Required for the closed-pnl
+        recovery; when omitted the helper degrades to the NULL-
+        exit-price fallback. Defaulted ``None`` so test fixtures
+        that don't care about exit-price recovery keep working.
     """
-    exec_time = order_status.get("exec_time")
-    closed_at = (
-        str(exec_time) if exec_time
-        else datetime.now(timezone.utc).isoformat()
-    )
     notes = _decode_notes(row.get("notes"))
-    notes.update({
-        "closed_at": closed_at,
-        "closed_by": "monitor_reconciler",
-        "closed_reason":
-            "reconciler — Bybit reports order filled and position flat",
-        "exit_price_source": "entry_order_avg_price_unreliable",
-    })
-    updates: Dict[str, Any] = {
-        "status": "closed",
-        "exit_reason": "reconciler_filled",
-        "notes": json.dumps(notes, ensure_ascii=False)[:500],
-    }
+
+    # Closed-pnl recovery — the real close fill for broker-side-
+    # SL/TP closes. Skipped when cfg is missing (legacy callers /
+    # tests) or when the account can't supply it (spot category,
+    # creds missing, network error). On skip we fall back to the
+    # NULL-exit-price contract.
+    closed_pnl_rec: Optional[Dict[str, Any]] = None
+    if cfg is not None:
+        try:
+            from src.units.accounts.clients import (
+                account_closed_pnl_for_trade,
+            )
+            opened_at_ms = _isoformat_to_ms(row.get("created_at"))
+            if opened_at_ms is not None:
+                closed_pnl_rec = account_closed_pnl_for_trade(
+                    cfg,
+                    symbol=str(row.get("symbol") or ""),
+                    direction=str(row.get("direction") or ""),
+                    opened_at_ms=opened_at_ms,
+                    qty=_safe_float(row.get("position_size")),
+                )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "_close_trade_from_order_status: closed-pnl lookup raised "
+                "for trade_id=%s: %s",
+                row.get("id"), exc,
+            )
+            closed_pnl_rec = None
+
+    if closed_pnl_rec is not None and closed_pnl_rec.get("avg_exit_price"):
+        # Real close fill recovered.
+        avg_exit_price = float(closed_pnl_rec["avg_exit_price"])
+        closed_at = (
+            str(closed_pnl_rec.get("closed_at"))
+            if closed_pnl_rec.get("closed_at")
+            else datetime.now(timezone.utc).isoformat()
+        )
+        notes.update({
+            "closed_at": closed_at,
+            "closed_by": "monitor_reconciler",
+            "closed_reason":
+                "reconciler — Bybit reports order filled and position flat",
+            "exit_price_source": "bybit_closed_pnl",
+            "bybit_closed_pnl": closed_pnl_rec.get("closed_pnl"),
+        })
+        updates: Dict[str, Any] = {
+            "status": "closed",
+            "exit_reason": "reconciler_filled",
+            "exit_price": avg_exit_price,
+            "notes": json.dumps(notes, ensure_ascii=False)[:500],
+        }
+    else:
+        # Fallback: gate clears but exit_price stays NULL with the
+        # unreliable-source flag (pre-2026-05-16 contract preserved
+        # for the no-cfg path + the no-record path).
+        exec_time = order_status.get("exec_time")
+        closed_at = (
+            str(exec_time) if exec_time
+            else datetime.now(timezone.utc).isoformat()
+        )
+        notes.update({
+            "closed_at": closed_at,
+            "closed_by": "monitor_reconciler",
+            "closed_reason":
+                "reconciler — Bybit reports order filled and position flat",
+            "exit_price_source": "entry_order_avg_price_unreliable",
+        })
+        updates = {
+            "status": "closed",
+            "exit_reason": "reconciler_filled",
+            "notes": json.dumps(notes, ensure_ascii=False)[:500],
+        }
+
     db.update_trade(int(row["id"]), updates)
 
     # Cascade by canonical link (order_packages.linked_trade_id), not
