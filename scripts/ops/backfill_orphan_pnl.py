@@ -1,0 +1,358 @@
+"""One-shot backfill for orphaned trades that closed via Bybit V5
+broker-side SL/TP and were watchdog-orphaned with exit_price=NULL.
+
+Companion to PR #1299 (claude/exit-price-from-closed-pnl), which
+landed ``account_closed_pnl_for_trade`` so future trades close with
+the real exit fill. This script applies the same recovery to the
+historical orphan cluster from 2026-05-15/16 (trade ids 1450 + 1454-
+1466 on bybit_2 vwap) — and to any other orphan within Bybit's
+7-day closed-pnl retention window.
+
+Usage on the VM:
+    cd /home/ubuntu/ict-trading-bot
+    python3 scripts/ops/backfill_orphan_pnl.py            # dry-run
+    python3 scripts/ops/backfill_orphan_pnl.py --apply    # write
+
+What this fixes:
+  * status='orphaned' → 'closed' (so /api/pnl + dashboards stop
+    skipping the row)
+  * exit_price=NULL → recovered avg_exit_price from Bybit
+  * pnl=NULL → recovered closed_pnl (net of fees, from Bybit)
+  * notes JSON gains:
+      - backfilled_at / backfilled_by / backfilled_source
+      - backfilled_pnl (the closed_pnl Bybit reported)
+      - exit_price_source='bybit_closed_pnl_backfill'
+      - existing orphaned_at / orphaned_by / orphaned_reason
+        are PRESERVED as audit trail
+  * exit_reason='stuck_strategy_watchdog' → 'backfill_closed_pnl_recovery'
+    so the backfill is distinguishable from native reconciler closes
+
+Safety:
+  * Idempotent. The WHERE clause filters status='orphaned', so once
+    a row is rewritten to 'closed' it no longer matches and re-runs
+    are no-ops.
+  * Skips rows where account_closed_pnl_for_trade returns None — the
+    row stays orphaned and is logged for operator follow-up. Most
+    common cause: Bybit's 7-day window expired, or qty/side filter
+    didn't match (rare; suggests the orphan didn't correspond to a
+    real Bybit close).
+  * Skips rows where the recovered avg_exit_price is 0 — defends
+    against malformed Bybit records.
+  * Backtest rows (is_backtest=1) are not touched.
+  * Each row is its own UPDATE — partial completion is safe and a
+    re-run picks up where it left off.
+
+Mirrors the structure of backfill_pnl_nulls.py for consistency.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import sqlite3
+import sys
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional, Tuple
+
+# The script lives in scripts/ops/; the repo root is two levels up.
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(
+    os.path.abspath(__file__))))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+
+from src.units.accounts.clients import account_closed_pnl_for_trade  # noqa: E402
+
+
+def _connect(db_path: str) -> sqlite3.Connection:
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def _candidate_rows(conn: sqlite3.Connection) -> List[sqlite3.Row]:
+    """Rows that this backfill targets.
+
+    Filter: orphaned + stuck_strategy_watchdog + NULL exit_price.
+    The watchdog reason is the marker for the specific failure mode
+    PR #1268 + #1299 + this backfill chain remediate; widening to
+    any orphan would risk picking up rows orphaned for a different
+    reason (reverse_reconciler, manual cleanup, etc.) where the
+    closed-pnl lookup is the wrong tool.
+    """
+    cur = conn.execute(
+        """
+        SELECT id, symbol, direction, entry_price, exit_price,
+               position_size, status, exit_reason, pnl, pnl_percent,
+               is_backtest, strategy_name, account_id, created_at,
+               timestamp, notes
+        FROM trades
+        WHERE status = 'orphaned'
+          AND exit_reason = 'stuck_strategy_watchdog'
+          AND exit_price IS NULL
+          AND COALESCE(is_backtest, 0) = 0
+        ORDER BY id ASC
+        """
+    )
+    return cur.fetchall()
+
+
+def _load_account_cfgs() -> Dict[str, Dict[str, Any]]:
+    """Best-effort load of accounts.yaml → ``{account_id: cfg}``.
+
+    Mirrors ``order_monitor._load_account_cfgs_for_reconcile`` but
+    standalone so the script doesn't drag in the full reconciler
+    import surface. Any failure → empty dict; the script then
+    skips every row with an unknown account_id (logged).
+    """
+    try:
+        import yaml  # noqa: F401
+    except ImportError:
+        print("warning: PyYAML not installed — cannot load accounts.yaml",
+              file=sys.stderr)
+        return {}
+    import yaml
+
+    yaml_path = os.environ.get("ACCOUNTS_YAML_PATH") or os.path.join(
+        _REPO_ROOT, "config", "accounts.yaml",
+    )
+    if not os.path.exists(yaml_path):
+        print(f"warning: accounts.yaml not found at {yaml_path}",
+              file=sys.stderr)
+        return {}
+    try:
+        with open(yaml_path, "r", encoding="utf-8") as fh:
+            data = yaml.safe_load(fh) or {}
+    except Exception as exc:  # noqa: BLE001
+        print(f"warning: failed to parse {yaml_path}: {exc}",
+              file=sys.stderr)
+        return {}
+
+    out: Dict[str, Dict[str, Any]] = {}
+    for entry in (data.get("accounts") or []):
+        if not isinstance(entry, dict):
+            continue
+        aid = entry.get("account_id")
+        if aid:
+            out[str(aid)] = entry
+    return out
+
+
+def _parse_created_at_to_ms(value: Any) -> Optional[int]:
+    """Mirror :func:`order_monitor._isoformat_to_ms` for stand-alone
+    use. ``CURRENT_TIMESTAMP`` (sqlite default, no tz) and ISO-8601
+    with tz both supported."""
+    if value is None:
+        return None
+    s = str(value).strip()
+    if not s:
+        return None
+    if "T" not in s and " " in s:
+        s = s.replace(" ", "T", 1)
+    try:
+        dt = datetime.fromisoformat(s)
+    except ValueError:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return int(dt.timestamp() * 1000)
+
+
+def _decode_notes(raw: Any) -> Dict[str, Any]:
+    if not raw:
+        return {}
+    try:
+        decoded = json.loads(raw)
+    except (TypeError, ValueError):
+        return {}
+    return decoded if isinstance(decoded, dict) else {}
+
+
+def _compute_pnl_percent(
+    row: sqlite3.Row, closed_pnl: float, avg_exit_price: float,
+) -> Optional[float]:
+    """Match the gross-PnL-percent convention used by the live
+    writer + ``backfill_pnl_nulls.py`` so the backfilled row reads
+    consistently with the rest of the table.
+
+    ``pnl_percent = (pnl / notional) * 100`` where notional is
+    entry_price * position_size. When entry_price or position_size
+    are missing, returns ``None`` (rare on the orphan cluster).
+    """
+    try:
+        entry = float(row["entry_price"]) if row["entry_price"] else None
+        size = float(row["position_size"]) if row["position_size"] else None
+    except (TypeError, ValueError):
+        return None
+    if not entry or not size:
+        return None
+    notional = entry * size
+    if notional == 0:
+        return None
+    return round((closed_pnl / notional) * 100.0, 4)
+
+
+def _plan_row(
+    row: sqlite3.Row, cfg: Optional[Dict[str, Any]],
+) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+    """Return ``(updates, skip_reason)``. Exactly one is non-None.
+
+    ``updates`` is the dict ready to feed ``UPDATE trades SET …``;
+    ``skip_reason`` is a human-readable why-this-row-stays-orphaned.
+    """
+    if cfg is None:
+        return None, f"no account cfg for account_id={row['account_id']!r}"
+
+    opened_at_ms = _parse_created_at_to_ms(row["created_at"])
+    if opened_at_ms is None:
+        return None, f"unparseable created_at={row['created_at']!r}"
+
+    notes = _decode_notes(row["notes"])
+    orphaned_at = notes.get("orphaned_at")
+    closed_at_ms: Optional[int] = None
+    if orphaned_at:
+        closed_at_ms = _parse_created_at_to_ms(orphaned_at)
+        if closed_at_ms is not None:
+            # +60s slack on the upper bound — the orphan stamp lands
+            # slightly after Bybit's exec timestamp.
+            closed_at_ms += 60_000
+
+    qty: Optional[float] = None
+    try:
+        if row["position_size"] is not None:
+            qty = float(row["position_size"])
+    except (TypeError, ValueError):
+        qty = None
+
+    rec = account_closed_pnl_for_trade(
+        cfg,
+        symbol=str(row["symbol"] or ""),
+        direction=str(row["direction"] or ""),
+        opened_at_ms=opened_at_ms,
+        closed_at_ms=closed_at_ms,
+        qty=qty,
+    )
+    if rec is None:
+        return None, "account_closed_pnl_for_trade returned None"
+
+    avg_exit_price = rec.get("avg_exit_price") or 0.0
+    if not avg_exit_price or avg_exit_price <= 0:
+        return None, f"recovered avg_exit_price={avg_exit_price!r} (degenerate)"
+
+    closed_pnl = rec.get("closed_pnl")
+    if closed_pnl is None:
+        return None, "recovered closed_pnl=None"
+
+    pnl_percent = _compute_pnl_percent(row, float(closed_pnl), float(avg_exit_price))
+
+    new_notes = dict(notes)
+    new_notes.update({
+        "backfilled_at": datetime.now(timezone.utc).isoformat(),
+        "backfilled_by": "backfill_orphan_pnl_script",
+        "backfilled_source": "bybit_closed_pnl",
+        "backfilled_pnl": float(closed_pnl),
+        "backfilled_closed_at": rec.get("closed_at"),
+        "exit_price_source": "bybit_closed_pnl_backfill",
+    })
+
+    updates: Dict[str, Any] = {
+        "status": "closed",
+        "exit_reason": "backfill_closed_pnl_recovery",
+        "exit_price": float(avg_exit_price),
+        "pnl": round(float(closed_pnl), 4),
+        "notes": json.dumps(new_notes, ensure_ascii=False)[:500],
+    }
+    if pnl_percent is not None:
+        updates["pnl_percent"] = pnl_percent
+    return updates, None
+
+
+def _apply_updates(
+    conn: sqlite3.Connection, plans: List[Tuple[int, Dict[str, Any]]],
+) -> int:
+    """Write each plan as its own UPDATE — partial completion safe.
+    The WHERE guard re-checks status='orphaned' so a concurrent
+    writer (unlikely on this DB) can't double-write."""
+    cur = conn.cursor()
+    n = 0
+    for trade_id, u in plans:
+        sets = ", ".join(f"{k} = ?" for k in u.keys())
+        params = list(u.values()) + [trade_id]
+        cur.execute(
+            f"UPDATE trades SET {sets} "
+            "WHERE id = ? AND status = 'orphaned'",
+            params,
+        )
+        n += cur.rowcount
+    conn.commit()
+    return n
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--apply", action="store_true",
+                        help="Write the backfill (default: dry-run).")
+    parser.add_argument("--db", default=None,
+                        help="Path to trade_journal.db (default: "
+                             "$TRADE_JOURNAL_DB or ./trade_journal.db).")
+    args = parser.parse_args()
+
+    db_path = args.db or os.environ.get("TRADE_JOURNAL_DB",
+                                        "trade_journal.db")
+    if not os.path.exists(db_path):
+        print(f"error: db not found at {db_path}", file=sys.stderr)
+        return 2
+
+    conn = _connect(db_path)
+    rows = _candidate_rows(conn)
+    if not rows:
+        print(f"no candidate rows in {db_path} — nothing to backfill")
+        return 0
+
+    cfgs = _load_account_cfgs()
+
+    plans: List[Tuple[int, Dict[str, Any]]] = []
+    skipped: List[Tuple[int, str]] = []
+    for row in rows:
+        cfg = cfgs.get(str(row["account_id"])) if row["account_id"] else None
+        updates, reason = _plan_row(row, cfg)
+        if updates is None:
+            skipped.append((row["id"], reason or "unknown"))
+            continue
+        plans.append((row["id"], updates))
+
+    print(f"db: {db_path}")
+    print(f"candidates: {len(rows)} | recoverable: {len(plans)} | "
+          f"skipped: {len(skipped)}")
+    print()
+    if plans:
+        print("would update:")
+        for trade_id, u in plans[:20]:
+            row = next(r for r in rows if r["id"] == trade_id)
+            pnl = u.get("pnl")
+            print(f"  id={trade_id} {str(row['direction'] or '?'):>5} "
+                  f"{str(row['symbol'] or '?'):<10} "
+                  f"acct={row['account_id']!s:<10} "
+                  f"size={row['position_size']!s:<8} "
+                  f"entry={row['entry_price']!s} "
+                  f"→ exit={u['exit_price']:.4f} "
+                  f"pnl={pnl:+.4f}")
+        if len(plans) > 20:
+            print(f"  ... and {len(plans) - 20} more")
+        print()
+    if skipped:
+        print("skipped:")
+        for trade_id, why in skipped:
+            print(f"  id={trade_id}: {why}")
+        print()
+
+    if not args.apply:
+        print("dry-run — pass --apply to write.")
+        return 0
+
+    n = _apply_updates(conn, plans)
+    print(f"wrote {n} row(s).")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
