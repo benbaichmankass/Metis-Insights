@@ -184,46 +184,19 @@ def _exchange_from_env(env_path: str) -> str:
 
 
 def _load_yaml_accounts() -> List[Dict[str, Any]]:
-    try:
-        import yaml  # type: ignore
-    except ImportError as exc:
-        # PyYAML moved to a hard dep in requirements.txt — an ImportError
-        # here is a deployment / venv issue, not graceful degradation.
-        try:
-            from src.runtime.outcomes import Level, report
-            report(
-                "data_loaders",
-                "pyyaml_missing",
-                level=Level.WARN,
-                reason=f"{type(exc).__name__}: {exc}",
-            )
-        except Exception:  # noqa: BLE001
-            pass
-        return []
-    if not os.path.exists(ACCOUNTS_YAML_PATH):
-        return []
-    try:
-        with open(ACCOUNTS_YAML_PATH, "r", encoding="utf-8") as fh:
-            data = yaml.safe_load(fh) or {}
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("_load_yaml_accounts: %s", exc)
-        return []
-    raw = data.get("accounts") if isinstance(data, dict) else None
-    # Support two YAML shapes:
-    #   list:  [{account_id: foo, ...}, ...]
-    #   dict:  {foo: {...}, bar: {...}}    (S-012 PR B3 production shape)
-    if isinstance(raw, dict):
-        items = []
-        for key, item in raw.items():
-            if not isinstance(item, dict):
-                continue
-            merged = dict(item)
-            merged.setdefault("account_id", key)
-            items.append(merged)
-    elif isinstance(raw, list):
-        items = [item for item in raw if isinstance(item, dict)]
-    else:
-        return []
+    # Production shape (S-012 PR B3) is dict-keyed-by-account-id; the
+    # canonical reader handles parse failures + missing-file + non-dict
+    # shapes uniformly so every consumer of accounts.yaml stays in sync.
+    # Legacy list-shape fixtures are no longer accepted — they were a
+    # back-compat path for pre-S-012 tests and are not present in
+    # any production YAML.
+    from src.config.accounts_loader import load_accounts_dict
+    raw_cfgs = load_accounts_dict(ACCOUNTS_YAML_PATH)
+    items = []
+    for key, item in raw_cfgs.items():
+        merged = dict(item)
+        merged.setdefault("account_id", key)
+        items.append(merged)
 
     out = []
     for item in items:

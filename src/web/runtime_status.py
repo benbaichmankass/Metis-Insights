@@ -113,17 +113,11 @@ def _read_live_per_account(
     rooted in this single off-by-default. Mirror the canonical
     resolver so the dashboard agrees with the executor.
     """
-    try:
-        import yaml
-        with accounts_yaml.open(encoding="utf-8") as fh:
-            raw = yaml.safe_load(fh) or {}
-    except Exception as exc:  # noqa: BLE001
-        _swallow_runtime_status("accounts_yaml_read_failed", exc,
-                                path=str(accounts_yaml))
-        return {}
+    from src.config.accounts_loader import load_accounts_dict
+    raw_cfgs = load_accounts_dict(accounts_yaml)
     overrides = overrides or {}
     out: Dict[str, bool] = {}
-    for name, cfg in (raw.get("accounts") or {}).items():
+    for name, cfg in raw_cfgs.items():
         if name in overrides:
             # Override is dry_run=True/False; live = not dry_run.
             out[name] = not bool(overrides[name])

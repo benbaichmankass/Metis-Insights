@@ -193,7 +193,8 @@ def build_config(
     # payload populates from whatever loaded successfully.
     config_load_errors: List[Dict[str, Any]] = []
 
-    accounts_raw = _read_yaml(a_path, errors=config_load_errors)
+    from src.config.accounts_loader import load_accounts_dict
+    accounts_dict = load_accounts_dict(a_path, errors=config_load_errors)
     strategies_raw = _read_yaml(s_path, errors=config_load_errors)
     # Override the module-level paths so the runtime-status reader
     # picks up monkeypatched paths in tests.
@@ -206,7 +207,7 @@ def build_config(
 
     accounts: List[Dict[str, Any]] = [
         _public_account(name, cfg)
-        for name, cfg in (accounts_raw.get("accounts") or {}).items()
+        for name, cfg in accounts_dict.items()
     ]
 
     strategies = _redact_recursive(strategies_raw.get("strategies") or {})

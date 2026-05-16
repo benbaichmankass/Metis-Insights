@@ -165,17 +165,18 @@ def tmp_db(tmp_path) -> Path:
 
 @pytest.fixture
 def fake_cfgs(monkeypatch):
-    """Replace _load_account_cfgs with a stub that returns a single
-    bybit_2 entry. The script's account_closed_pnl_for_trade mock
-    receives this dict but doesn't inspect its contents — any
-    truthy dict will do."""
+    """Replace ``load_accounts_dict`` (re-exported into the script's
+    namespace via ``from src.config.accounts_loader import ...``)
+    with a stub returning a single bybit_2 entry. The script's
+    ``account_closed_pnl_for_trade`` mock receives this dict but
+    doesn't inspect its contents — any truthy dict will do."""
     stub = {"bybit_2": {
         "account_id": "bybit_2",
         "exchange": "bybit",
         "market_type": "linear",
     }}
     monkeypatch.setattr(
-        "backfill_orphan_pnl._load_account_cfgs",
+        "backfill_orphan_pnl.load_accounts_dict",
         lambda: stub,
     )
     return stub

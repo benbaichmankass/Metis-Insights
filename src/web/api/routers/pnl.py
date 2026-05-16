@@ -36,24 +36,8 @@ def _resolve_accounts_yaml() -> Path:
 
 
 def _load_account_ids(accounts_yaml: Path) -> list[str]:
-    try:
-        import yaml
-        with accounts_yaml.open(encoding="utf-8") as fh:
-            raw = yaml.safe_load(fh) or {}
-    except Exception as exc:  # noqa: BLE001
-        try:
-            from src.runtime.outcomes import Level, report
-            report(
-                "pnl_endpoint",
-                "accounts_yaml_read_failed",
-                level=Level.WARN,
-                reason=f"{type(exc).__name__}: {exc}",
-                path=str(accounts_yaml),
-            )
-        except Exception:  # noqa: BLE001
-            pass
-        return []
-    return list((raw.get("accounts") or {}).keys())
+    from src.config.accounts_loader import load_accounts_dict
+    return list(load_accounts_dict(accounts_yaml).keys())
 
 
 def _zero_account() -> Dict[str, float]:
