@@ -12,7 +12,9 @@ from ml.registry.model_registry import ModelRegistry
 from ml.shadow.factory import (
     LIVE_INFLUENCE_STAGES,
     ShadowFactoryError,
+    _load_model_state,
     _resolve_default_registry_root,
+    _resolve_state_path_via_mirror,
     resolve_predictor,
     resolve_predictors,
 )
@@ -230,3 +232,73 @@ class TestResolveDefaultRegistryRoot:
         monkeypatch.delenv("ML_REGISTRY_ROOT", raising=False)
         monkeypatch.delenv("DATA_DIR", raising=False)
         assert _resolve_default_registry_root() == Path("./ml/registry-store")
+
+
+class TestModelStatePathMirrorFallback:
+    """The registry's `model_state_path` is an absolute path on the
+    trainer VM's filesystem. On the live VM the equivalent file lives
+    under the trainer mirror — `_load_model_state` resolves the
+    mismatch transparently so a single registry entry works on both
+    machines."""
+
+    def _make_state_file(self, tmp_path: Path, *, mid: str, run_id: str) -> Path:
+        run_dir = tmp_path / "trainer-mirror" / "experiments-runs" / mid / run_id
+        run_dir.mkdir(parents=True)
+        state_path = run_dir / "model_state.json"
+        state_path.write_text('{"trainer": "x", "constant": 0.5}')
+        return state_path
+
+    def test_resolver_extracts_suffix_from_experiments_runs(self, tmp_path: Path):
+        # Trainer-VM absolute path the entry stored.
+        trainer_abs = Path(
+            "/home/ubuntu/ict-trading-bot/ml/experiments-runs/m1/r1/model_state.json"
+        )
+        registry_root = tmp_path / "trainer-mirror" / "models"
+        # `parent` of registry_root is `<mirror>/`; `experiments-runs/`
+        # lives next to `models/` in the canonical layout.
+        result = _resolve_state_path_via_mirror(trainer_abs, registry_root)
+        assert result == tmp_path / "trainer-mirror" / "experiments-runs" / "m1" / "r1" / "model_state.json"
+
+    def test_resolver_returns_none_when_registry_root_missing(self):
+        trainer_abs = Path(
+            "/home/ubuntu/ict-trading-bot/ml/experiments-runs/m1/r1/model_state.json"
+        )
+        assert _resolve_state_path_via_mirror(trainer_abs, None) is None
+
+    def test_resolver_returns_none_when_no_experiments_runs_segment(self, tmp_path: Path):
+        # Pathological path without "experiments-runs/" — resolver
+        # signals "give up" rather than guessing.
+        weird = Path("/home/ubuntu/some/other/place/model_state.json")
+        registry_root = tmp_path / "trainer-mirror" / "models"
+        assert _resolve_state_path_via_mirror(weird, registry_root) is None
+
+    def test_load_state_uses_literal_path_when_present(self, tmp_path: Path):
+        state_path = tmp_path / "literal" / "model_state.json"
+        state_path.parent.mkdir(parents=True)
+        state_path.write_text('{"trainer": "ok"}')
+        # registry_root is irrelevant when the literal path resolves.
+        assert _load_model_state(state_path, registry_root=tmp_path / "anywhere") == {"trainer": "ok"}
+
+    def test_load_state_falls_back_to_mirror_when_literal_missing(self, tmp_path: Path):
+        # The trainer-VM absolute path that the registry entry stored.
+        trainer_abs = Path(
+            "/home/ubuntu/ict-trading-bot/ml/experiments-runs/m1/r1/model_state.json"
+        )
+        # The actual file on the live VM under the mirror.
+        actual = self._make_state_file(tmp_path, mid="m1", run_id="r1")
+        registry_root = tmp_path / "trainer-mirror" / "models"
+        assert _load_model_state(trainer_abs, registry_root=registry_root) == {
+            "trainer": "x",
+            "constant": 0.5,
+        }
+        # Sanity: the file we found was the mirror-resolved one.
+        assert actual.is_file()
+
+    def test_load_state_raises_when_both_paths_miss(self, tmp_path: Path):
+        trainer_abs = Path(
+            "/home/ubuntu/ict-trading-bot/ml/experiments-runs/missing/r/model_state.json"
+        )
+        registry_root = tmp_path / "trainer-mirror" / "models"
+        registry_root.mkdir(parents=True)
+        with pytest.raises(ShadowFactoryError, match="model_state_path not found"):
+            _load_model_state(trainer_abs, registry_root=registry_root)

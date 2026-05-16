@@ -462,14 +462,22 @@ if [ -d "$REGISTRY_ROOT" ]; then
     || overall_rc=1
 fi
 
-# Experiments tree: rsync recursively, only the metrics + manifest JSON
-# (no raw model_state.json blobs unless small — see --include below).
+# Experiments tree: rsync recursively. Includes metrics.json +
+# manifest.json (consumed by the dashboard's run-detail drill-down)
+# AND model_state.json (consumed by the WS7 shadow factory — the
+# registry entry's `model_state_path` points at this file). Without
+# the model_state.json include the factory's `_load_model_state`
+# falls back via the mirror resolver in ml/shadow/factory.py but
+# still finds nothing, leaving the strategy with an empty predictor
+# list and no shadow predictions on the live VM. Baseline models are
+# all small JSON dicts (few KB), not heavy weights — safe to mirror.
 if [ -d "$EXPERIMENTS_ROOT" ]; then
   rsync -az --no-perms --no-owner --no-group \
     -e "ssh ${SSH_OPTS}" \
     --include='*/' \
     --include='metrics.json' \
     --include='manifest.json' \
+    --include='model_state.json' \
     --exclude='*' \
     "${EXPERIMENTS_ROOT}/" \
     "${LIVE_VM_USER}@${LIVE_VM_IP}:${LIVE_VM_MIRROR_PATH}/experiments-runs/" \
