@@ -1,0 +1,35 @@
+name: Canonical DB resolver
+
+# Fails the PR check when a new operator-action wrapper introduces an
+# inline `${TRADE_JOURNAL_DB:-${REPO_DIR}/trade_journal.db}` fallback
+# instead of calling the canonical `runtime_db_path` helper from
+# scripts/ops/_lib.sh.
+#
+# Motivation: the 2026-05-16 orphan-backfill failure (issue #1308 —
+# 14 candidates processed against a stale repo-local DB while the
+# live trader writes to /data/bot-data/trade_journal.db per the
+# systemd drop-in) was caused by every operator wrapper rolling its
+# own DB-path resolution. This guard freezes the count at zero.
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  canonical-db-resolver:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run guard
+        run: python scripts/check_canonical_db_resolver.py --list

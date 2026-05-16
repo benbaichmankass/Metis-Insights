@@ -37,7 +37,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/ops/_lib.sh
 source "${SCRIPT_DIR}/_lib.sh"
 
-DB_PATH="${TRADE_JOURNAL_DB:-${REPO_DIR}/trade_journal.db}"
+DB_PATH="$(runtime_db_path)"
 PY_SCRIPT="${REPO_DIR}/scripts/ops/backfill_orphan_pnl.py"
 
 if [ ! -f "${PY_SCRIPT}" ]; then
