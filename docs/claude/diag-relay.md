@@ -31,10 +31,13 @@ The `order_packages`, `trades`, and `vm_health` sections are always
 truncated out. Use `snapshot?limit=5` when you need to inspect positions,
 packages, or trade SL/TP. Use `audit?limit=200` only for audit history.
 
-**4. Space back-to-back requests 90 s apart.**
-`concurrency: cancel-in-progress: true` means any new issue preempts
-an in-flight run. Create a new issue only after the previous one has
-received a result or failure comment.
+**4. Back-to-back requests queue cleanly — no spacing needed.**
+The workflow uses `concurrency: cancel-in-progress: false` (set on
+2026-05-16 after the preemption mode silently dropped three pairs
+of back-to-back requests fired ~3 s apart). Each diag-request job
+takes ~15 s and is bounded by `timeout-minutes: 5`, so the second
+of two simultaneous issues simply waits its turn. Fire as many as
+you need without artificial spacing.
 
 ## TL;DR — fetching diag data from a sandbox session
 
@@ -176,7 +179,7 @@ when any step errors. Common causes:
 | run never starts | label name typo on issue | label must be exactly `vm-diag-request` |
 | run starts but never replies | github-actions bot lacks `issues: write` | workflow already declares it; check repo Actions permissions |
 | `Rejected diag_path (illegal characters)` | issue title has spaces, commas, or other non-path chars | use exact format `[diag-request] snapshot?limit=5` |
-| run cancelled / preempted | another diag issue was opened before this one finished | `cancel-in-progress: true`; wait 90 s between requests |
+| run never replies, issue stays open | runner hung past `timeout-minutes: 5` (extremely rare with current SSH/curl timeouts) | re-open the issue; if recurring, check vm-web-api self-heal |
 
 ### When the relay itself is down — self-heal
 

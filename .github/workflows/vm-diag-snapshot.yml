@@ -64,15 +64,25 @@ permissions:
 
 concurrency:
   group: vm-diag-snapshot
-  # 2026-05-11 FU-20260511-005: bumped from false → true. With
-  # cancel-in-progress: false, a single hung SSH/curl step held the
-  # lane and subsequent diag-request issues queued indefinitely (no
-  # comment, no failure ping). Issues #941 / #942 / #947 in that
-  # session never received a result. Preemption gives us
-  # "always-fresh" semantics — a newer diag-request always wins —
-  # and the cancelled-run handler below posts a re-open hint on the
-  # preempted issue so neither side is silently dropped.
-  cancel-in-progress: true
+  # 2026-05-16: reverted to ``false`` after the cancel-in-progress
+  # mode silently dropped #1278 / #1281 / #1284 (three back-to-back
+  # diag-request pairs filed ~3 s apart during PR #1268 monitoring).
+  # The cancelled-run handler below was supposed to comment on
+  # preempted issues, but GitHub Actions cancels queued (not-yet-
+  # started) runs BEFORE the runner picks them up — so the
+  # ``if: cancelled()`` step never executes and no comment fires.
+  # The earlier issue stays open with no comment, indistinguishable
+  # from a wedge.
+  #
+  # The 2026-05-11 reason for ``true`` (a hung SSH/curl step holding
+  # the lane indefinitely) is moot now: ``timeout-minutes: 5`` on
+  # the job already bounds any hung run to 5 min, and the SSH
+  # ConnectTimeout + curl --max-time inside the step bound it
+  # further. With ``cancel-in-progress: false``, requests queue and
+  # each completes in turn — no silent cancellations, no lost
+  # diag-requests, worst-case latency for the second request is
+  # one full job cycle (typically ~15 s, hard-capped at 5 min).
+  cancel-in-progress: false
 
 jobs:
   snapshot:
