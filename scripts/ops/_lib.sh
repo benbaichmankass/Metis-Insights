@@ -57,3 +57,141 @@ require_systemctl() {
         return 1
     fi
 }
+
+
+# load_runtime_env — populate DATA_DIR / TRADE_JOURNAL_DB (and friends) so
+# operator-action wrappers run with the same path resolution the live
+# trader services see at runtime.
+#
+# WHY: operator-action wrappers run from a fresh shell, not as a child of
+# ict-trader-live.service, so they do NOT inherit the systemd drop-in's
+# Environment= directives. Before this helper existed, every wrapper that
+# touched the SQLite journal defaulted to ${REPO_DIR}/trade_journal.db —
+# the pre-2026-05-12 path. The live trader has been writing to
+# /data/bot-data/trade_journal.db since the data-dir externalisation, so
+# the wrappers were silently reading a stale file. The 2026-05-16
+# orphan-backfill failure (issue #1308 — 14 candidates recovered against
+# the wrong DB, 0 useful writes) was the proximate trigger.
+#
+# Resolution order, matching systemd's load order (drop-in → EnvironmentFile):
+#
+#   1. Drop-in defaults from deploy/dropins/data-dir.conf, parsed as
+#      `Environment=KEY=VAL` lines.
+#   2. ${REPO_DIR}/.env, sourced as a shell file (KEY=VAL pairs). Per the
+#      drop-in's own docstring, .env wins over the drop-in because
+#      systemd loads EnvironmentFile after Environment=.
+#   3. systemctl show ict-trader-live.service --property=Environment,
+#      which captures whatever the running unit is actually using
+#      (including any other drop-ins the operator may have layered on).
+#      Authoritative if systemctl is available and the unit is loaded.
+#
+# Idempotent — vars already set in the caller's environment win over
+# every layer above (export -p semantics; we never overwrite a pre-set var).
+#
+# Variables exported (whitelist; expand here as new ones become canonical):
+#   DATA_DIR, TRADE_JOURNAL_DB, MODEL_DIR, LOG_DIR, RUNTIME_LOGS_DIR,
+#   RUNTIME_STATE_DIR, ARTIFACTS_DIR
+#
+# Returns 0 always. Diagnostic-quiet by design — if no source is
+# available (running on a dev box, deploy/ stripped, no systemd), the
+# wrapper falls back to its own defaults.
+
+_RUNTIME_ENV_WHITELIST="DATA_DIR TRADE_JOURNAL_DB MODEL_DIR LOG_DIR RUNTIME_LOGS_DIR RUNTIME_STATE_DIR ARTIFACTS_DIR"
+
+load_runtime_env() {
+    # Resolution order (most authoritative first):
+    #
+    #   0. Caller's pre-existing shell env — wins everything. Snapshotted
+    #      up front and restored at the end so explicit operator overrides
+    #      (e.g. `TRADE_JOURNAL_DB=/tmp/sandbox.db ./wrapper.sh`) take
+    #      precedence over both the drop-in and the .env layer.
+    #   1. Live systemctl unit — what the trader is actually using.
+    #   2. .env file at ${REPO_DIR}/.env — operator's override of the
+    #      drop-in's defaults, per the drop-in's documented semantics.
+    #   3. Drop-in defaults at deploy/dropins/data-dir.conf — base layer.
+    #
+    # Each layer overwrites the previous, then the caller's snapshot is
+    # re-applied at the end. The result: caller env > systemctl > .env >
+    # drop-in > "unset".
+    local key
+
+    # Snapshot caller's pre-set values.
+    local _preset=""
+    for key in ${_RUNTIME_ENV_WHITELIST}; do
+        if [ -n "${!key+x}" ]; then
+            _preset+="${key}=${!key}"$'\n'
+        fi
+    done
+
+    # Layer 3 (lowest priority): drop-in defaults
+    local dropin="${REPO_DIR}/deploy/dropins/data-dir.conf"
+    if [ -f "${dropin}" ]; then
+        while IFS= read -r line; do
+            if [[ "${line}" =~ ^Environment=([A-Z_][A-Z0-9_]*)=(.*)$ ]]; then
+                key="${BASH_REMATCH[1]}"
+                case " ${_RUNTIME_ENV_WHITELIST} " in
+                    *" ${key} "*) export "${key}=${BASH_REMATCH[2]}" ;;
+                esac
+            fi
+        done < "${dropin}"
+    fi
+
+    # Layer 2: .env overrides (systemd EnvironmentFile semantics)
+    local env_file="${REPO_DIR}/.env"
+    if [ -f "${env_file}" ]; then
+        while IFS= read -r line; do
+            if [[ "${line}" =~ ^([A-Z_][A-Z0-9_]*)=(.*)$ ]]; then
+                key="${BASH_REMATCH[1]}"
+                local val="${BASH_REMATCH[2]}"
+                # Strip surrounding quotes (`KEY="val"` and `KEY='val'`).
+                val="${val#\"}"; val="${val%\"}"
+                val="${val#\'}"; val="${val%\'}"
+                case " ${_RUNTIME_ENV_WHITELIST} " in
+                    *" ${key} "*) export "${key}=${val}" ;;
+                esac
+            fi
+        done < "${env_file}"
+    fi
+
+    # Layer 1: live systemd unit
+    if command -v systemctl >/dev/null 2>&1; then
+        local env_line
+        env_line=$(systemctl show ict-trader-live.service --property=Environment --value 2>/dev/null || true)
+        if [ -n "${env_line}" ]; then
+            for assign in ${env_line}; do
+                if [[ "${assign}" =~ ^([A-Z_][A-Z0-9_]*)=(.*)$ ]]; then
+                    key="${BASH_REMATCH[1]}"
+                    case " ${_RUNTIME_ENV_WHITELIST} " in
+                        *" ${key} "*) export "${assign?}" ;;
+                    esac
+                fi
+            done
+        fi
+    fi
+
+    # Layer 0 (highest priority): restore caller's pre-set values
+    if [ -n "${_preset}" ]; then
+        while IFS= read -r assign; do
+            if [ -n "${assign}" ]; then
+                export "${assign?}"
+            fi
+        done <<<"${_preset}"
+    fi
+}
+
+
+# runtime_db_path — print the canonical trade_journal.db path the live
+# trader services use. Operator-action wrappers must call this instead
+# of constructing `${TRADE_JOURNAL_DB:-${REPO_DIR}/trade_journal.db}`
+# inline — the inline form misses the systemd drop-in's pinning of the
+# DB to /data/bot-data/, which is the bug load_runtime_env exists to fix.
+#
+# Always returns a non-empty path. If load_runtime_env couldn't find a
+# canonical source (dev box / stripped deploy/), falls back to the
+# pre-2026-05-12 repo-local path — preserving the old single-machine
+# layout for tests + developer environments.
+
+runtime_db_path() {
+    load_runtime_env
+    printf '%s\n' "${TRADE_JOURNAL_DB:-${REPO_DIR}/trade_journal.db}"
+}
