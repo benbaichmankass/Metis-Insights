@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import logging
 import os
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
@@ -211,6 +212,227 @@ def _bybit_order_status_lookup(
         if str(rec.get("orderId") or "") == str(order_id):
             return rec
     return None
+
+
+def _bybit_closed_pnl_lookup(
+    client: Any,
+    *,
+    category: str,
+    symbol: str,
+    side: str,
+    start_ts_ms: int,
+    end_ts_ms: int,
+    qty_target: Optional[float] = None,
+    qty_tolerance: float = 0.05,
+) -> Optional[Dict[str, Any]]:
+    """Find the Bybit V5 closed-pnl record matching a trade we know
+    closed via broker-side SL/TP or external flatten.
+
+    Bybit V5 emits a row on ``/v5/position/closed-pnl`` for every
+    position that closes, regardless of whether the close fired from
+    the entry order's attached SL/TP, a separate close order, or an
+    operator flatten. The row carries the canonical close fill —
+    ``avgExitPrice`` (the realised close price) and ``closedPnl``
+    (the realised PnL net of fees).
+
+    The reconciler reaches this helper only on the
+    "filled entry order + position flat" verdict, where the entry
+    order's ``avgPrice`` is the entry fill (not the exit). The
+    closed-pnl record is the authoritative exit fill.
+
+    Args:
+      * ``category`` — ``linear`` / ``inverse``. ``spot`` and
+        ``option`` are not supported by this endpoint and are
+        skipped at the public-helper layer.
+      * ``symbol`` — exchange symbol the trade ran on.
+      * ``side`` — side of the **close** order (i.e. opposite of the
+        trade's direction; ``"Sell"`` for a closed long, ``"Buy"``
+        for a closed short). Used to disambiguate when multiple
+        positions cycled on the same symbol inside the window.
+      * ``start_ts_ms`` / ``end_ts_ms`` — search window in epoch
+        milliseconds. The trade row's ``created_at`` is the natural
+        start (minus a small grace); ``now()`` is the natural end.
+        Bybit caps the window at 7 days; the caller is expected to
+        not exceed that.
+      * ``qty_target`` — optional. When set, records whose ``qty``
+        differs from ``qty_target`` by more than ``qty_tolerance``
+        (relative) are filtered out. This protects against a
+        partial-close cycle accidentally matching.
+
+    Returns the raw inner record dict for the best match — the
+    most recent (by ``updatedTime``) record whose ``side`` matches
+    and whose ``qty`` is within tolerance of ``qty_target`` (when
+    given). Returns ``None`` when no matching record exists or any
+    SDK call raises.
+
+    Wrapper at the call site is :func:`account_closed_pnl_for_trade`,
+    which performs the account+category checks and converts API
+    failures into ``None`` (vs ``{}``) so callers can distinguish.
+    """
+    try:
+        resp = client.get_closed_pnl(
+            category=category,
+            symbol=symbol,
+            startTime=int(start_ts_ms),
+            endTime=int(end_ts_ms),
+            limit=50,
+        ) or {}
+    except Exception:  # noqa: BLE001
+        # Re-raise; the public wrapper logs + reports the failure
+        # with the right account context.
+        raise
+
+    records = ((resp.get("result") or {}).get("list") or [])
+    if not records:
+        return None
+
+    side_str = str(side or "").lower()
+    candidates: list = []
+    for rec in records:
+        rec_side = str(rec.get("side") or "").lower()
+        if side_str and rec_side and rec_side != side_str:
+            continue
+        if qty_target is not None and qty_target > 0:
+            rec_qty = _f(rec.get("qty"))
+            if rec_qty <= 0:
+                continue
+            rel_diff = abs(rec_qty - qty_target) / qty_target
+            if rel_diff > qty_tolerance:
+                continue
+        candidates.append(rec)
+
+    if not candidates:
+        return None
+
+    # Most recent by updatedTime (epoch ms string). Bybit returns
+    # newest-first by default but we re-sort defensively.
+    def _ts(rec: Dict[str, Any]) -> int:
+        try:
+            return int(rec.get("updatedTime") or rec.get("createdTime") or 0)
+        except (TypeError, ValueError):
+            return 0
+
+    candidates.sort(key=_ts, reverse=True)
+    return candidates[0]
+
+
+def account_closed_pnl_for_trade(
+    account: Dict[str, Any],
+    *,
+    symbol: str,
+    direction: str,
+    opened_at_ms: int,
+    closed_at_ms: Optional[int] = None,
+    qty: Optional[float] = None,
+) -> Optional[Dict[str, Any]]:
+    """Look up Bybit V5 closed-pnl for the position that opened with
+    *direction* on *symbol* at ``opened_at_ms`` and closed before
+    ``closed_at_ms`` (or now).
+
+    Used by :func:`order_monitor._close_trade_from_order_status` to
+    recover the real ``exit_price`` for trades closed by Bybit's
+    broker-side SL/TP — the entry order's ``avgPrice`` is the entry
+    fill, not the exit fill, and the actual close lives on a
+    separate orderId the bot doesn't track. The closed-pnl record
+    carries the authoritative ``avgExitPrice`` + ``closedPnl``.
+
+    Return contract:
+      * ``{"avg_exit_price", "avg_entry_price", "closed_pnl",
+        "qty", "side", "closed_at"}`` on a successful lookup. Both
+        prices are floats; ``closed_at`` is the Bybit
+        ``updatedTime`` string (epoch ms).
+      * ``None`` on **read failure**, unsupported category
+        (``spot`` / ``option``), missing creds, or no matching
+        record. Mirrors :func:`account_order_status` so the caller
+        can keep the existing "leave ``exit_price`` NULL" fallback
+        on None.
+
+    Args:
+      * ``direction`` — the trade row's ``direction`` (``"long"`` /
+        ``"short"``). Internally translated to the **close-side**
+        (``"Sell"`` for long, ``"Buy"`` for short).
+      * ``opened_at_ms`` — epoch ms when the trade was opened.
+        Used as the start of the search window with a small grace
+        margin to forgive intra-tick clock skew.
+      * ``closed_at_ms`` — epoch ms upper bound. Optional; defaults
+        to ``now``. Bybit caps the window at 7 days; the helper
+        clamps the start to ``end - 7 days`` to stay valid.
+      * ``qty`` — when supplied, filters records whose ``qty``
+        differs by more than 5 % (relative). Prevents a partial-
+        close cycle from accidentally matching the full close.
+
+    Currently only ``bybit`` (``linear`` / ``inverse``) is wired.
+    Spot accounts have no closed-pnl endpoint — they return
+    ``None`` (caller stays on the NULL fallback).
+    """
+    if not isinstance(account, dict) or not symbol or not direction:
+        return None
+    ex = (account.get("exchange") or "unknown").lower()
+    if ex != "bybit":
+        return None
+    try:
+        from src.units.accounts.execute import _bybit_category
+        category = _bybit_category(account)
+    except Exception:  # noqa: BLE001
+        return None
+    if category not in ("linear", "inverse"):
+        return None
+
+    direction_str = str(direction).lower()
+    if direction_str == "long":
+        close_side = "Sell"
+    elif direction_str == "short":
+        close_side = "Buy"
+    else:
+        return None
+
+    end_ms = int(closed_at_ms) if closed_at_ms else int(
+        datetime.now(timezone.utc).timestamp() * 1000
+    )
+    # 60-second start-window slack absorbs sub-second skew between
+    # the bot's wall clock and Bybit's exec timestamps.
+    start_ms = max(int(opened_at_ms) - 60_000, end_ms - 7 * 24 * 60 * 60 * 1000)
+
+    try:
+        client = bybit_client_for(account)
+        if client is None:
+            return None
+        rec = _bybit_closed_pnl_lookup(
+            client,
+            category=category,
+            symbol=symbol,
+            side=close_side,
+            start_ts_ms=start_ms,
+            end_ts_ms=end_ms,
+            qty_target=qty,
+        )
+    except Exception as exc:  # noqa: BLE001
+        aid = account.get("account_id") or "unknown"
+        logger.warning(
+            "account_closed_pnl_for_trade(account=%s symbol=%s "
+            "direction=%s): %s",
+            aid, symbol, direction, exc,
+        )
+        try:
+            from src.runtime.api_reporting import report_api_failure
+            report_api_failure(
+                exchange=ex, op="get_closed_pnl", account_id=str(aid),
+                error=f"{type(exc).__name__}: {exc}", exception=exc,
+            )
+        except Exception:  # noqa: BLE001
+            pass
+        return None
+
+    if rec is None:
+        return None
+    return {
+        "avg_exit_price": _f(rec.get("avgExitPrice")),
+        "avg_entry_price": _f(rec.get("avgEntryPrice")),
+        "closed_pnl": _f(rec.get("closedPnl")),
+        "qty": _f(rec.get("qty")),
+        "side": str(rec.get("side") or ""),
+        "closed_at": rec.get("updatedTime") or rec.get("createdTime"),
+    }
 
 
 def account_order_status(

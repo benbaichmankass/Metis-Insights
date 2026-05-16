@@ -2275,3 +2275,186 @@ class TestPackageCascadeByLinkedTradeId:
         pkg = _read_package(tmp_db, "pkg-orphan-prod")
         assert pkg["status"] == "closed"
         assert pkg["close_reason"] == "reconciler"
+
+
+# ---------------------------------------------------------------------------
+# Exit-price recovery from Bybit V5 closed-pnl
+# (PR claude/exit-price-from-closed-pnl)
+# ---------------------------------------------------------------------------
+
+
+class TestExitPriceFromClosedPnl:
+    """The reconciler-close path used to leave ``exit_price=NULL``
+    for trades closed via Bybit's broker-side SL/TP — the entry
+    order's avg_price is the entry fill, not the exit fill, and
+    the actual close lives on a separate orderId the bot doesn't
+    track. This PR sources the real exit fill from
+    ``/v5/position/closed-pnl`` via
+    :func:`account_closed_pnl_for_trade`.
+
+    The contract:
+      * lookup succeeds → trade closes with the real ``exit_price``
+        and ``notes.exit_price_source='bybit_closed_pnl'``
+      * lookup fails or no record → trade closes with
+        ``exit_price=NULL`` and the pre-PR
+        ``notes.exit_price_source='entry_order_avg_price_unreliable'``
+        fallback (gate clears, exit_price is honestly missing)
+    """
+
+    _ACCOUNTS_YAML = _ACCOUNTS_YAML  # reuse module fixture text
+
+    def test_close_writes_real_exit_price_when_closed_pnl_available(
+        self, tmp_db, tmp_path, monkeypatch,
+    ):
+        monkeypatch.setattr(
+            "src.runtime.execution_diagnostics.PENDING_PINGS_DIR",
+            tmp_path / "pings",
+        )
+        cfg_path = tmp_path / "accounts.yaml"
+        cfg_path.write_text(self._ACCOUNTS_YAML)
+        monkeypatch.setenv("ACCOUNTS_YAML_PATH", str(cfg_path))
+
+        bybit_uuid = "1900000000000000700"
+        trade_id = _insert_trade(tmp_db, trade_id=bybit_uuid)
+
+        closed_pnl_payload = {
+            "avg_exit_price": 79235.7,
+            "avg_entry_price": 80000.0,
+            "closed_pnl": -3.82,
+            "qty": 0.005,
+            "side": "Sell",
+            "closed_at": "1762620000000",
+        }
+
+        with patch(
+            "src.units.accounts.clients.account_order_status",
+            return_value=_filled_status(bybit_uuid, avg_price=80000.0),
+        ), patch(
+            "src.units.accounts.clients.account_open_positions",
+            return_value=[],
+        ), patch(
+            "src.units.accounts.clients.account_closed_pnl_for_trade",
+            return_value=closed_pnl_payload,
+        ):
+            summary = _reconcile_open_trades(tmp_db)
+
+        assert summary["closed"] == 1
+        row = _read_trade_full(tmp_db, trade_id)
+        assert row["status"] == "closed"
+        assert row["exit_reason"] == "reconciler_filled"
+        assert row["exit_price"] is not None
+        assert abs(row["exit_price"] - 79235.7) < 1e-6
+        notes = json.loads(row["notes"])
+        assert notes["exit_price_source"] == "bybit_closed_pnl"
+        assert notes["bybit_closed_pnl"] == -3.82
+        assert notes["closed_at"] == "1762620000000"
+
+    def test_close_falls_back_to_null_when_closed_pnl_unavailable(
+        self, tmp_db, tmp_path, monkeypatch,
+    ):
+        """``account_closed_pnl_for_trade`` returns ``None`` —
+        the trade still closes (gate clears) but ``exit_price``
+        stays NULL with the unreliable-source flag."""
+        monkeypatch.setattr(
+            "src.runtime.execution_diagnostics.PENDING_PINGS_DIR",
+            tmp_path / "pings",
+        )
+        cfg_path = tmp_path / "accounts.yaml"
+        cfg_path.write_text(self._ACCOUNTS_YAML)
+        monkeypatch.setenv("ACCOUNTS_YAML_PATH", str(cfg_path))
+
+        bybit_uuid = "1900000000000000800"
+        trade_id = _insert_trade(tmp_db, trade_id=bybit_uuid)
+
+        with patch(
+            "src.units.accounts.clients.account_order_status",
+            return_value=_filled_status(bybit_uuid),
+        ), patch(
+            "src.units.accounts.clients.account_open_positions",
+            return_value=[],
+        ), patch(
+            "src.units.accounts.clients.account_closed_pnl_for_trade",
+            return_value=None,
+        ):
+            _reconcile_open_trades(tmp_db)
+
+        row = _read_trade_full(tmp_db, trade_id)
+        assert row["status"] == "closed"
+        assert row["exit_reason"] == "reconciler_filled"
+        assert row["exit_price"] is None
+        notes = json.loads(row["notes"])
+        assert notes["exit_price_source"] == "entry_order_avg_price_unreliable"
+
+    def test_close_falls_back_to_null_when_no_exit_price_in_record(
+        self, tmp_db, tmp_path, monkeypatch,
+    ):
+        """Closed-pnl record present but ``avg_exit_price`` is 0 /
+        missing — degrade to the NULL fallback rather than write
+        a zero. Defends against malformed records."""
+        monkeypatch.setattr(
+            "src.runtime.execution_diagnostics.PENDING_PINGS_DIR",
+            tmp_path / "pings",
+        )
+        cfg_path = tmp_path / "accounts.yaml"
+        cfg_path.write_text(self._ACCOUNTS_YAML)
+        monkeypatch.setenv("ACCOUNTS_YAML_PATH", str(cfg_path))
+
+        bybit_uuid = "1900000000000000900"
+        trade_id = _insert_trade(tmp_db, trade_id=bybit_uuid)
+
+        with patch(
+            "src.units.accounts.clients.account_order_status",
+            return_value=_filled_status(bybit_uuid),
+        ), patch(
+            "src.units.accounts.clients.account_open_positions",
+            return_value=[],
+        ), patch(
+            "src.units.accounts.clients.account_closed_pnl_for_trade",
+            return_value={"avg_exit_price": 0.0, "closed_pnl": 0.0,
+                          "qty": 0.005, "side": "Sell", "closed_at": None},
+        ):
+            _reconcile_open_trades(tmp_db)
+
+        row = _read_trade_full(tmp_db, trade_id)
+        assert row["status"] == "closed"
+        assert row["exit_price"] is None
+        notes = json.loads(row["notes"])
+        assert notes["exit_price_source"] == "entry_order_avg_price_unreliable"
+
+    def test_close_falls_back_when_closed_pnl_lookup_raises(
+        self, tmp_db, tmp_path, monkeypatch,
+    ):
+        """If the closed-pnl helper raises (programming error,
+        not a SDK-level failure), the close path catches and
+        degrades to the NULL fallback rather than re-raise. The
+        trade row close is more important than the exit-price
+        recovery; an exception here must NOT block the gate clear.
+        """
+        monkeypatch.setattr(
+            "src.runtime.execution_diagnostics.PENDING_PINGS_DIR",
+            tmp_path / "pings",
+        )
+        cfg_path = tmp_path / "accounts.yaml"
+        cfg_path.write_text(self._ACCOUNTS_YAML)
+        monkeypatch.setenv("ACCOUNTS_YAML_PATH", str(cfg_path))
+
+        bybit_uuid = "1900000000000001000"
+        trade_id = _insert_trade(tmp_db, trade_id=bybit_uuid)
+
+        with patch(
+            "src.units.accounts.clients.account_order_status",
+            return_value=_filled_status(bybit_uuid),
+        ), patch(
+            "src.units.accounts.clients.account_open_positions",
+            return_value=[],
+        ), patch(
+            "src.units.accounts.clients.account_closed_pnl_for_trade",
+            side_effect=RuntimeError("simulated SDK explosion"),
+        ):
+            _reconcile_open_trades(tmp_db)
+
+        row = _read_trade_full(tmp_db, trade_id)
+        assert row["status"] == "closed"
+        assert row["exit_price"] is None
+        notes = json.loads(row["notes"])
+        assert notes["exit_price_source"] == "entry_order_avg_price_unreliable"
