@@ -599,3 +599,68 @@ async def get_log_file(
         "size_bytes": path.stat().st_size,
         "lines": [ln.rstrip("\n") for ln in content[-n:]],
     }
+
+
+@router.get("/shadow_stats")
+async def get_shadow_stats(
+    request: Request,
+    model_id: str | None = None,
+    stage: str | None = None,
+    since: str | None = None,
+) -> dict[str, Any]:
+    """Token-gated mirror of GET /api/bot/shadow/stats for diag-relay access.
+
+    FU-20260516-001: /api/bot/shadow/stats is not under /api/diag/ so the
+    vm-diag-snapshot relay cannot reach it. This endpoint exposes the same
+    aggregate shadow-prediction stats through the authenticated diag surface
+    so Layer-2 health reviews can cross-tab audit actionable signals against
+    shadow prediction counts without requiring SSH.
+    """
+    _require_diag_token(request)
+    try:
+        from ml.shadow.inspector import aggregate, filter_records, iter_records
+    except ImportError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"error": "shadow_inspector_unavailable", "detail": str(exc)},
+        ) from exc
+
+    override = __import__("os").environ.get("SHADOW_PREDICTIONS_LOG")
+    log = (
+        __import__("pathlib").Path(override)
+        if override
+        else runtime_logs_dir() / "shadow_predictions.jsonl"
+    )
+
+    since_dt = None
+    if since is not None:
+        try:
+            from datetime import timezone
+            ts = __import__("datetime").datetime.fromisoformat(since)
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
+            since_dt = ts
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail={"error": "invalid_since", "detail": str(exc)}) from exc
+
+    records = filter_records(iter_records(log), model_id=model_id, stage=stage, since=since_dt)
+    stats = aggregate(records)
+    rows = [
+        {
+            "model_id": s.model_id,
+            "stage": s.stage,
+            "count": s.count,
+            "score_mean": s.score_mean,
+            "score_min": s.score_min if s.count else None,
+            "score_max": s.score_max if s.count else None,
+            "first_seen": s.first_seen.isoformat() if s.first_seen else None,
+            "last_seen": s.last_seen.isoformat() if s.last_seen else None,
+        }
+        for s in stats
+    ]
+    return {
+        "log_present": log.is_file(),
+        "log_path": str(log),
+        "records": rows,
+        "count": len(rows),
+    }
