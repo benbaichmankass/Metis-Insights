@@ -416,6 +416,38 @@
       "closed_at": null,
       "closed_reason": null,
       "_progress": "2026-05-17T09:52:43Z — backfill-pnl-nulls operator action #1353 confirmed: trade #1503 pnl=+0.57231732, pnl_percent=+0.1828, source=bybit_closed_pnl. Post-backfill candidate count=0. First condition met. Second condition (next reconciler_filled trade with pnl != NULL) pending next natural reconciler_filled close."
+    },
+    {
+      "id": "FU-20260517-002",
+      "opened_at": "2026-05-17T10:05:00+00:00",
+      "opened_by": "claude",
+      "source": "health-review-20260517-followup",
+      "related_prs": [1351],
+      "title": "Verify vwap shadow predictions flow on next actionable signal (post-#1351 fix)",
+      "description": "PR #1351 added _emit_vwap_shadow_preds() in strategy_signal_builders.py to wire vwap shadow observation bypassed by the multiplexed pipeline (FU-20260516-001). The fix is deployed (SHA 520bde4). Verification was blocked at deploy time: (a) no actionable vwap signal had fired since restart, and (b) trade #1503 was open, which would have suppressed predictions via the pipeline open_package_exists gate anyway. The new helper fires regardless of the gate. shadow_predictions.jsonl was absent as expected post-deploy.",
+      "expected_check": "At the next /health-review, cross-tab the 6h audit tail against /api/bot/shadow/stats?model_id=regime-classifier-baseline-v0&stage=shadow. (1) Count vwap_eval events with side in {buy, sell}. (2) Count shadow records in the same window. (3) The two counts must match (±1 for startup-window races). A mismatch where actionable_count > shadow_count is a regression — surface as concern with the delta and a sample vwap_eval timestamp. If no actionable vwap signal fired in the window, note that and keep open.",
+      "trigger_condition": "Any /health-review run where the 6h audit window contains at least one vwap_eval with side != 'none' AND config/strategies.yaml has a non-empty vwap.shadow_model_ids.",
+      "resolution_criteria": "Close after a single review window where (a) at least one actionable vwap signal fired, (b) shadow_predictions.jsonl gained matching rows, and (c) /api/bot/shadow/stats returns count > 0 for regime-classifier-baseline-v0.",
+      "status": "open",
+      "snoozed_until": null,
+      "closed_at": null,
+      "closed_reason": null
+    },
+    {
+      "id": "FU-20260517-003",
+      "opened_at": "2026-05-17T10:05:00+00:00",
+      "opened_by": "claude",
+      "source": "health-review-20260517-followup",
+      "related_prs": [1354],
+      "title": "Verify _count_signals_today warning absent after PR #1354 deploy",
+      "description": "PR #1354 fixed SIGNALS_DB path resolution: on the live VM (DATA_DIR=/data/bot-data) signal_writer.py writes to /data/bot-data/data/trades.db, but data_loaders.py was resolving <REPO_ROOT>/data/trades.db — a different path. Not found → fell through to trade_journal.db whose signals table uses logged_at_utc (not timestamp), causing the recurring WARNING '_count_signals_today: no such column: timestamp' on every strategy tick across all strategies. Fix: data_dir()/trades.db added as canonical candidate; trade_journal.db fallback removed.",
+      "expected_check": "After PR #1354 deploys, pull journalctl?unit=ict-trader-live.service&lines=400 and grep for '_count_signals_today'. Expect zero WARNING lines with 'no such column: timestamp'. Secondary: if /data/bot-data/data/trades.db exists and has rows, _count_signals_today should return non-zero counts for active strategies. If the DB doesn't exist yet (signal_writer never fired), count returns 0 gracefully — that's correct behavior, not an error.",
+      "trigger_condition": "First /health-review run after PR #1354 is deployed.",
+      "resolution_criteria": "Close after one review where journalctl shows zero '_count_signals_today: no such column: timestamp' lines over the 6h window post-deploy.",
+      "status": "open",
+      "snoozed_until": null,
+      "closed_at": null,
+      "closed_reason": null
     }
   ]
 }
