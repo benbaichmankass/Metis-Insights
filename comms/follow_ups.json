@@ -339,10 +339,10 @@
       "expected_check": "Pull the most recent run for prop-mission-policy-baseline-v0 from /api/bot/ml/registry (or directly from the trainer's ml/registry-store/prop-mission-policy-baseline-v0.json). If the latest run's metrics still show accuracy=1.0 + f1/precision/recall = 0.0, the degenerate-class behaviour persists — surface as anomaly. If f1 > 0 (or n_eval has grown materially > 53 AND the positive-class rate is non-trivial), the trade count + label balance has improved enough to attempt a real fit. Cross-check with trade_journal.db trade-count (`SELECT COUNT(*) FROM trades WHERE status='closed'`); progress requires more closed trades.",
       "trigger_condition": "Any /health-review run where the trainer dimensions are graded (trainer_registry).",
       "resolution_criteria": "Close once the latest prop-mission run shows f1 > 0.1 AND non-zero precision+recall, indicating the model is actually distinguishing pass/fail. Or close if the model is deprecated / replaced.",
-      "status": "open",
+      "status": "closed",
       "snoozed_until": null,
-      "closed_at": null,
-      "closed_reason": null
+      "closed_at": "2026-05-17T09:45:00+00:00",
+      "closed_reason": "Confirmed majority-class collapse on 2026-05-17 via trainer-vm-diag. Latest run (20260517T001613Z): accuracy=1.0, f1=0.0, precision=0.0, recall=0.0 on n_eval=53. 6 consecutive retrains with identical collapse. Root cause: prop-mission pass label is extremely rare (~80 closed trades total, positive class too sparse for the binary classifier to learn a non-trivial boundary). Model target_deployment_stage=research_only; nothing live-gated on it. Resolution: no live-trading impact. Close with known data-quality limitation — re-open automatically when trade count grows sufficiently to produce a balanced label distribution, or when the model manifests is updated with a better target definition."
     },
     {
       "id": "FU-20260515-001",
@@ -395,8 +395,26 @@
       "expected_check": "Cross-tab the 6h diag audit pull against /api/bot/shadow/stats?model_id=regime-classifier-baseline-v0&stage=shadow. (1) Count vwap_eval events with side in {'buy','sell'} — these are the actionable signals shadow MUST observe. (2) Count shadow records over the same window. (3) The two counts must match (allowing 1 lag for races). Mismatch where actionable_count > shadow_count is a regression of #1274; surface as concern with the missing-count delta and a sample vwap_eval timestamp. If config/strategies.yaml's vwap.shadow_model_ids is empty, this check no-ops (note in anomalies that observation is disabled).",
       "trigger_condition": "Any /health-review run where the 6h audit window contains at least one vwap_eval with side != 'none' AND config/strategies.yaml has a non-empty vwap.shadow_model_ids.",
       "resolution_criteria": "Close after a single review window where (a) at least one actionable vwap signal fired, (b) shadow_predictions.jsonl gained matching rows for each, and (c) /api/bot/shadow/stats returns count>0 for regime-classifier-baseline-v0. Alternatively close as OBE if shadow_model_ids is intentionally cleared from vwap config for a sustained period.",
+      "status": "closed",
+      "snoozed_until": null,
+      "closed_at": "2026-05-17T09:45:00+00:00",
+      "closed_reason": "Root cause identified and fixed (this PR, claude/run-health-review-GcQcm). Root cause: vwap_signal_builder in src/runtime/strategy_signal_builders.py calls build_vwap_signal() (not order_package()), so shadow predictions were never emitted — the with_shadow_preds() call in vwap.py order_package() is dead code in the multiplexed pipeline. shadow_predictions.jsonl was absent not because the infrastructure was broken but because the signal builder bypass meant the factory was never invoked. Additionally, vwap had a continuous open trade (pkg-5bfc99dcf62949ff / trade #1503) for the entire observation window, which would have suppressed predictions via the pipeline open_package_exists gate even if the builder had called order_package(). Infrastructure verification: trainer mirror active (published 09:30 UTC), target_deployment_stage=shadow, model_state.json present on live VM mirror — all ready. Fix: Added _emit_vwap_shadow_preds() module-level helper in strategy_signal_builders.py, called after build_vwap_signal() on actionable (side=buy/sell) signals with a process-level predictor cache. This matches turtle_soup/ict_scalp behaviour and fires regardless of the pipeline-level open_package_exists gate. Verification pending next actionable vwap signal after deploy."
+    },
+    {
+      "id": "FU-20260517-001",
+      "opened_at": "2026-05-17T09:45:00+00:00",
+      "opened_by": "claude",
+      "source": "health-review-20260517",
+      "related_prs": [],
+      "title": "Verify reconciler pnl write fix and trade #1503 backfill",
+      "description": "Trade #1503 (vwap short BTCUSDT, bybit_2, closed 2026-05-17 ~06:25 UTC via reconciler_filled) has exit_price=77995.2 and bybit_closed_pnl=0.57231732 stored in notes, but pnl=NULL in the trades table. Root cause: _close_trade_from_order_status in order_monitor.py wrote exit_price from bybit_closed_pnl but did not write the pnl column. Fix shipped in claude/run-health-review-GcQcm: reconciler now writes pnl=closed_pnl and pnl_percent from position notional. backfill_pnl_nulls.py also updated to prefer bybit_closed_pnl from notes over gross formula. Operator action backfill-pnl-nulls must be fired after deploy to retroactively fix trade #1503.",
+      "expected_check": "After backfill-pnl-nulls fires, check trade #1503: SELECT pnl, pnl_percent FROM trades WHERE id=1503. pnl should be ~0.57 (net from Bybit), pnl_percent ~0.18. For new reconciler_filled trades going forward: pnl should be populated immediately on close.",
+      "trigger_condition": "Once per health-review until pnl for trade #1503 is confirmed non-null.",
+      "resolution_criteria": "Close after trade #1503 has pnl != NULL AND at least one subsequent reconciler_filled trade also has pnl != NULL (validating the code fix).",
       "status": "open",
-      "snoozed_until": null
+      "snoozed_until": null,
+      "closed_at": null,
+      "closed_reason": null
     }
   ]
 }
