@@ -8,7 +8,6 @@ import time
 
 from dotenv import load_dotenv
 
-from src.exchange.binance_connector import BinanceConnector
 from src.exchange.bybit_connector import BybitConnector
 from src.runtime.heartbeat import write_heartbeat
 from src.runtime.hourly_report import (
@@ -43,22 +42,6 @@ class BybitExchangeAdapter:
         qty = float(order.get("qty", 0))
         symbol = order.get("symbol", self._symbol)
         logger.info("BybitExchangeAdapter.place_order: %s %s %s", symbol, side, qty)
-        if qty <= 0:
-            raise ValueError(f"Invalid qty for adapter: {qty}")
-        return self._connector.place_market_order(symbol, side, qty)
-
-
-class BinanceExchangeAdapter:
-    """Thin adapter so BinanceConnector works with safe_place_order."""
-    def __init__(self, connector, symbol: str):
-        self._connector = connector
-        self._symbol = symbol
-
-    def place_order(self, **order):
-        side = order.get("side")
-        qty = float(order.get("qty", 0))
-        symbol = order.get("symbol", self._symbol)
-        logger.info("BinanceExchangeAdapter.place_order: %s %s %s", symbol, side, qty)
         if qty <= 0:
             raise ValueError(f"Invalid qty for adapter: {qty}")
         return self._connector.place_market_order(symbol, side, qty)
@@ -99,14 +82,6 @@ def _build_exchange_adapter(settings: dict):
     testnet = bybit_testnet_raw not in {"false", "0", "no"}
 
     logger.info("Exchange mode: exchange=%s testnet=%s symbol=%s", exchange_name, testnet, symbol)
-
-    if exchange_name == "binance":
-        connector = BinanceConnector(
-            api_key=settings.get("BINANCE_API_KEY"),
-            api_secret=settings.get("BINANCE_API_SECRET"),
-            testnet=testnet,
-        )
-        return BinanceExchangeAdapter(connector, symbol)
 
     connector = BybitConnector(
         api_key=settings.get("BYBIT_API_KEY"),
