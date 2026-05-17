@@ -396,6 +396,27 @@
       "resolution_criteria": "Close after a single review window where (a) at least one actionable vwap signal fired, (b) shadow_predictions.jsonl gained matching rows for each, and (c) /api/bot/shadow/stats returns count>0 for regime-classifier-baseline-v0. Alternatively close as OBE if shadow_model_ids is intentionally cleared from vwap config for a sustained period.",
       "status": "open",
       "snoozed_until": null
+    },
+    {
+      "id": "FU-20260517-001",
+      "opened_at": "2026-05-17T04:45:00+00:00",
+      "opened_by": "claude",
+      "source": "issue-1320-backfill-orphan-pnl-rerun",
+      "related_prs": [
+        1268,
+        1299,
+        1311,
+        1318
+      ],
+      "title": "Trade 1454 (short BTCUSDT, qty=0.001) not recoverable post-#1318 cred fix",
+      "description": "Issue #1320 re-fire of backfill-orphan-pnl recovered 19/34 orphan trades after #1318 fixed the silent-credential failure. 14 skips are legitimate (outside Bybit's 7-day window). Trade 1454 is the one anomalous skip: only short in the 2026-05-15/16 cluster, smallest qty (0.001 BTC), well inside the 7-day window. account_closed_pnl_for_trade returned None \u2014 either Bybit has no record (position never opened, pre-#1268 UUID-orderid residue) or qty filter (5% tolerance) rejected the match. Real PnL impact small, but the case isolates the remaining edge of the orphan-recovery codepath.",
+      "expected_check": "If reviewing within the 7-day window from 2026-05-15: fire trainer-vm-diag with a Python snippet that (a) reads trade 1454 row, (b) calls account_closed_pnl_for_trade with widened qty_tolerance (e.g. 50%), (c) dumps raw Bybit closed-pnl response for BTCUSDT/Buy (close-side of short) over [created_at-60s, orphaned_at+60s]. Determine: real Bybit record exists but qty-filtered, OR no record exists.",
+      "trigger_condition": "Any /health-review run before 2026-05-22T13:03:20+00:00 (7-day Bybit window from trade 1454's orphaned_at).",
+      "resolution_criteria": "Close after one of: (a) confirmed Bybit has no record (position never opened on exchange \u2014 accept as permanent orphan), (b) confirmed qty-filter mismatch + decide whether to widen tolerance globally or hand-recover this trade, (c) the 7-day window passes (auto-stale, accept as permanent orphan).",
+      "status": "open",
+      "snoozed_until": null,
+      "closed_at": null,
+      "closed_reason": null
     }
   ]
 }
