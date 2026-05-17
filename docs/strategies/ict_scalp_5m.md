@@ -121,9 +121,16 @@ After a passing backtest:
    via `Coordinator.reload_strategy_config()` if the runtime supports
    in-place reload).
 
-While `enabled: false` (the default) the runtime signal builder
+When `enabled: false` the runtime signal builder
 (`src/runtime/strategy_signal_builders.py::ict_scalp_signal_builder`)
 short-circuits to `side="none"` so live behaviour is unchanged.
+**Current production status: `enabled: true` since 2026-05-14
+(PR #1156, post pre-live gate).** A 2026-05-17 sprint (PR #1358)
+flipped `enabled: false` based on a stale-comment-driven audit
+finding (H-2 in `docs/audits/full-pipeline-structural-audit-2026-05-17.md`)
+without operator approval; that flip was reverted on the same date.
+Future sessions: never flip `enabled` on this strategy without an
+operator-approved Tier-3 PR citing the change in chat.
 
 ## Assumptions and limitations
 

@@ -88,6 +88,64 @@
 > Trainer rules: [`docs/claude/trainer-vm-mode.md`](docs/claude/trainer-vm-mode.md) § 9.
 > Live-VM rules: [`docs/claude/diag-relay.md`](docs/claude/diag-relay.md).
 
+> ## 📚 STOP — Read the docs at session start AND session end. Reconcile contradictions.
+>
+> **The 2026-05-17 `ict_scalp_5m` deactivation incident (PR #1358) happened
+> because a Claude session trusted a stale inline comment in
+> `config/strategies.yaml` over the actual YAML field, did not read the
+> commit history of the line it was changing, and self-merged a Tier-3
+> PR claiming "the comment says disabled, the field now matches." The
+> comment was leftover v1 boilerplate; PR #1156 had flipped the field to
+> `enabled: true` on 2026-05-14 with operator approval after the pre-live
+> gate cleared.** The root cause was a Claude session not reading and
+> reconciling the documentation — not the absence of guardrails. The fix
+> is the discipline below, every session, no exceptions. Full incident
+> record: `docs/sprint-logs/S-AUDIT-PIPELINE-2026-05-17.md` § Addendum.
+>
+> **At session start, before touching any file:**
+> - Read this file (CLAUDE.md) end-to-end.
+> - Read [`docs/CLAUDE-RULES-CANONICAL.md`](docs/CLAUDE-RULES-CANONICAL.md),
+>   [`docs/ARCHITECTURE-CANONICAL.md`](docs/ARCHITECTURE-CANONICAL.md),
+>   and [`ROADMAP.md`](ROADMAP.md). When canonical and this file
+>   disagree, canonical wins.
+> - For any file you plan to edit, read it whole, then run
+>   `git log -p <file> | head -200` to see the most recent operator-
+>   approval citations for the lines you intend to change. If a recent
+>   operator-approved PR touched a line, that is a load-bearing decision
+>   — never undo it on inference from a comment, doc, or audit finding.
+> - When a YAML field disagrees with a surrounding inline comment or a
+>   doc page: **the field is the truth.** The comment is stale. Fix the
+>   comment, don't flip the field. The 2026-05-17 incident was caused by
+>   doing the opposite.
+>
+> **While working:**
+> - When you change a YAML field, edit every nearby comment that
+>   references it in the same diff. Stale comments are landmines for
+>   the next session.
+> - When you change behaviour described in `docs/`, update the doc in
+>   the same PR. Drift between code and docs is what produced PR #1358.
+> - When you file an audit finding about a code/config/doc disagreement,
+>   include the output of `git log -p <file>` for the line in question
+>   so the next session can see the operator-approval history without
+>   re-deriving it. Audit findings without that context spread
+>   contamination.
+>
+> **At session end, before opening any PR or declaring the task done:**
+> - Re-read CLAUDE.md, the canonical architecture doc, and the README.
+> - For every file you touched: re-read it whole and reconcile its
+>   inline comments and docstrings against the changes you made. Fix
+>   contradictions you created in the same session — never leave them
+>   for the next.
+> - For every doc page covering a code area you touched: re-read it
+>   and reconcile. If you renamed, deprecated, enabled, disabled, or
+>   moved anything — the docs reflect it before the session closes.
+> - If you find an existing contradiction the session did not cause
+>   (like the PR #1358 stale comment): fix it in the same PR or open
+>   a separate draft PR before closing. Don't walk past it.
+>
+> Full procedure: [`docs/CLAUDE-RULES-CANONICAL.md`](docs/CLAUDE-RULES-CANONICAL.md)
+> § Documentation Hygiene & Premise Verification.
+
 > **Canonical documentation (adopted 2026-05-10 in S-CANON-1):**
 > - [`docs/CLAUDE-RULES-CANONICAL.md`](docs/CLAUDE-RULES-CANONICAL.md) — Claude operating rules, permission tiers, workflow routing.
 > - [`docs/ARCHITECTURE-CANONICAL.md`](docs/ARCHITECTURE-CANONICAL.md) — system architecture, trade pipeline, comms pipeline, deployment flow.

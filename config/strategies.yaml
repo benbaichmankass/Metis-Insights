@@ -137,11 +137,18 @@ strategies:
     # raised 1.0 → 1.3. Set mitigation_mode: "body_inside_fvg" to
     # restore v1 behaviour for A/B comparisons.
     #
-    # Disabled by default. The strategy is wired through the registry
-    # and signal builders so it can be backtested at unit level and
-    # turned on by flipping enabled→true once a backtest validates the
-    # signal definition. While enabled=false the runtime builder
-    # short-circuits to side="none" so live behaviour is unchanged.
+    # STATUS: live since 2026-05-14 (PR #1156, operator-approved
+    # after the pre-live gate cleared: 59.3 % win rate, +0.301 R
+    # expectancy, max DD 3.47R on 90 days of fresh BTCUSDT 5m
+    # candles — issue #1153 single-variant + #1154 attribution).
+    # The runtime signal builder honours the `enabled` field below
+    # as the single source of truth; flipping `enabled: false`
+    # short-circuits the builder to side="none" without code
+    # changes. **Do not flip `enabled: false` on the basis of any
+    # comment, doc, or audit finding that says this strategy is
+    # disabled-by-default — that framing is leftover v1 boilerplate
+    # and PR #1156 supersedes it. Disabling requires the same
+    # Tier-3 operator approval path that PR #1156 used to enable.**
     #
     # The 1m variant is a config flip: copy this block under a new
     # name with timeframe: "1m", retune sweep_lookback_bars /
@@ -149,7 +156,7 @@ strategies:
     # re-backtest before enabling.
     model: null
     signal_prefixes: [ict_scalp]
-    enabled: false
+    enabled: true
     risk_pct: 0.3
     timeframe: "5m"
     symbols:

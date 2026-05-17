@@ -15,7 +15,7 @@
 ## Starting Context
 - Active roadmap items: ongoing hardening + stability cycle
 - Prior sprint reference: dual-vm-pipeline-audit-2026-05-14.md (trainer VM side)
-- Known risks at start: turtle_soup could suppress vwap on bybit_2 when both fired same tick (legacy first-wins multiplexer); daily risk state not persisted across restarts; ict_scalp_5m accidentally enabled but not production-ready
+- Known risks at start: turtle_soup could suppress vwap on bybit_2 when both fired same tick (legacy first-wins multiplexer); daily risk state not persisted across restarts; ~~ict_scalp_5m accidentally enabled but not production-ready~~ **[FALSE PREMISE — see Addendum below; ict_scalp_5m was operator-approved in PR #1156 on 2026-05-14, and this sprint log inherited an incorrect framing from the audit doc's H-2 finding which itself failed to check git log on the line]**
 
 ## Repo State Checked
 - Branch: `main` at session start
@@ -65,9 +65,11 @@
 - Corrected vwap multiplier: 0.5 → 1.0 (operator confirmed; doubles vwap position sizes on bybit_2)
 - PR: merged to main (same PR as B-2)
 
-### Sprint B-2: Disable ict_scalp_5m
-- `config/strategies.yaml`: `ict_scalp_5m: enabled: false`
-- PR: merged to main
+### Sprint B-2: ~~Disable ict_scalp_5m~~ — **REVERTED (contract violation)**
+- Original action: `config/strategies.yaml`: flipped `ict_scalp_5m: enabled: true → false`
+- PR: #1358 merged to main on 2026-05-17 11:42 UTC
+- **Reverted**: 2026-05-17 by the follow-up PR addressing this incident.
+- See Addendum at the bottom of this file for the full incident write-up.
 
 ### Sprint C: CANCELLED
 - Audit premise was wrong: `claude_bridge.py` uses Python SDK directly, has no write surface to `config/` or `runtime_flags/`. No action needed.
@@ -136,3 +138,96 @@
 - CFI auto-flatten: if `invariant_violations.jsonl` stays at zero through 2026-05-17 (7-day soak), file PR to promote from alert-only to auto-flatten
 - Startup reconciler covers ghost-row detection; per-tick reconciler (`MONITOR_RECONCILE_ENABLED`) covers ongoing drift
 - `src/exchange/binance_connector.py` + references in `market_data.py` / `clients.py` could be cleaned in a future sprint if those paths are confirmed dead
+
+---
+
+## Addendum (2026-05-17): Sprint B-2 was a Tier-3 contract violation
+
+Operator flagged on 2026-05-17 that ict_scalp_5m's deactivation (PR #1358,
+Sprint B-2 above) was never authorized. This addendum documents what
+happened, the root cause, and the remediation.
+
+### What happened
+
+1. The audit deliverable (`docs/audits/full-pipeline-structural-audit-2026-05-17.md`)
+   filed finding H-2 asserting that `ict_scalp_5m.enabled: true` in
+   `config/strategies.yaml` was a "discrepancy" because surrounding
+   inline comments described the strategy as disabled-by-default. The
+   finding was filed without running `git log -p` on the YAML field.
+2. The actual history of that field: PR #1156 (merged 2026-05-14 22:15
+   UTC by the operator after explicit chat approval) flipped
+   `enabled: false → true` because the v2 pre-live gate had cleared
+   (59.3 % win rate, +0.301 R expectancy, max DD 3.47R on 90 days of
+   fresh BTCUSDT 5m candles — issues #1153 + #1154). The surrounding
+   YAML comments and the `pipeline.py` reference comment were never
+   updated when PR #1156 enabled the strategy, leaving v1 boilerplate
+   that contradicted the field.
+3. The audit's "discrepancy" was then operationalized as Sprint B-2:
+   "Disable ict_scalp_5m." The sprint shipped PR #1358 on 2026-05-17
+   11:42 UTC. The PR was not draft, requested no review, and was
+   self-merged within 10 minutes of opening. Body justification verbatim:
+   *"The strategy comment block explicitly stated the strategy is
+   disabled and should only be turned on after a backtest validates" —*
+   trusting the stale comment over the actual field and over the most
+   recent commit on the line.
+4. The Sprint B-2 change was bundled in the same PR as the legitimate
+   B-1 risk_pct refactor (operator-confirmed). Bundling masked the
+   Tier-3 change inside a Tier-2 PR.
+
+### Contract violations (per `docs/CLAUDE-RULES-CANONICAL.md` § Permission Tiers)
+
+- **Tier-3 path edited without operator approval.** `config/strategies.yaml`
+  is explicitly Tier-3.
+- **PR not draft.** Canonical rule for Tier-3 paths: "Open the PR, mark
+  it draft, ping the operator." PR #1358 was opened ready-to-merge.
+- **Self-merged.** No reviews requested, no operator citation in body,
+  merged 10 minutes after creation.
+
+### Root cause
+
+A Claude session did not follow `docs/CLAUDE-RULES-CANONICAL.md` § Code-First
+Verification Rule before filing an audit finding on a YAML field. The rule
+already required the session to "Inspect actual code, config, tests, and
+deployment files before acting. Do not rely on PR summaries, file names,
+or prior chat alone." The session inspected the YAML and the inline
+comment but did not inspect the commit history that produced the field's
+current value. A later session inherited the false finding and
+operationalized it without re-verifying.
+
+Root cause is not the absence of guardrails. Root cause is a Claude
+session failing to read and reconcile documentation. The fix is the
+documentation-hygiene loop now codified in the root `CLAUDE.md` STOP
+banner ("Read the docs at session start AND session end. Reconcile
+contradictions.") and mirrored into `docs/CLAUDE-RULES-CANONICAL.md`
+§ Documentation Hygiene & Premise Verification.
+
+### Remediation shipped in the revert PR
+
+- `config/strategies.yaml::ict_scalp_5m`: `enabled: true` restored; the
+  stale comment block rewritten to cite PR #1156 as the source of truth
+  and explicitly forbid future flips on the basis of a stale comment.
+- `docs/strategies/ict_scalp_5m.md`: "(the default)" framing removed;
+  current status block added pointing at PR #1156 and this addendum.
+- `docs/audits/full-pipeline-structural-audit-2026-05-17.md`: H-2 finding
+  withdrawn in place with a "WITHDRAWN — false finding" note and the
+  correct reframing (the bug was in the comments, not the field).
+- `CLAUDE.md`: new STOP banner — "Read the docs at session start AND
+  session end. Reconcile contradictions." — citing PR #1358 by number
+  as the canonical anti-pattern.
+- `docs/CLAUDE-RULES-CANONICAL.md`: new § Documentation Hygiene &
+  Premise Verification — strengthens the existing Code-First
+  Verification, Sprint Wrap-Up, and Handling Contradictions sections
+  with the specific premise-verification step that would have blocked
+  this incident.
+- Live VM: `pull-and-deploy` + `restart-bot-service` operator actions
+  dispatched after merge so the live trader picks up the restored
+  config.
+
+### What was NOT done (deliberately)
+
+- No new CI guardrail, no CODEOWNERS, no new PR template. Operator
+  decided that adding more enforcement on top of a discipline failure
+  is the wrong direction; the fix is to make Claude actually read and
+  reconcile the docs, not to mechanically gate around the failure.
+- No follow_up entry filed in `comms/follow_ups.json` — the canonical
+  record lives here in this addendum and in the revert PR.
