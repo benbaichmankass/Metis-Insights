@@ -41,7 +41,7 @@ Usage:
 
 Environment:
     ICT_TRADER_DATA_ROOT   Default /home/ubuntu/ict-trader-data
-    QASHDEV_BASE_URL       Default https://raw.githubusercontent.com/qashdev/btc/main/data/spot/monthly/klines/BTCUSDT/5m
+    QASHDEV_BASE_URL       Default https://raw.githubusercontent.com/qashdev/btc/main/historical_data/spot/monthly/klines/BTCUSDT/5m
 """
 from __future__ import annotations
 
@@ -65,7 +65,7 @@ PARQUET_PATH = DATA_ROOT / "btc_5m.parquet"
 
 BASE_URL = os.environ.get(
     "QASHDEV_BASE_URL",
-    "https://raw.githubusercontent.com/qashdev/btc/main/data/spot/monthly/klines/BTCUSDT/5m",
+    "https://raw.githubusercontent.com/qashdev/btc/main/historical_data/spot/monthly/klines/BTCUSDT/5m",
 )
 
 # Earliest month qashdev/btc has on record per the 2026-05-08 experiment
