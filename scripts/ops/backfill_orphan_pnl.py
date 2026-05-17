@@ -226,6 +226,65 @@ def _plan_row(
     return updates, None
 
 
+# Marker substring for the skip reason produced when
+# account_closed_pnl_for_trade returns None — the silent-fallback chain
+# this script most often hits when credentials are missing from the
+# wrapper's environment. See _warn_if_silent_credential_failure below.
+_CREDS_OR_DATA_GAP_MARKER = "account_closed_pnl_for_trade returned None"
+
+
+def _warn_if_silent_credential_failure(
+    plans: List[Tuple[int, Dict[str, Any]]],
+    skipped: List[Tuple[int, str]],
+) -> None:
+    """Surface the silent-credential-failure case loudly when the skip
+    pattern matches its signature.
+
+    ``account_closed_pnl_for_trade`` returns ``None`` for three different
+    reasons:
+      1. Bybit's 7-day window expired (legitimate data gap)
+      2. Credentials missing in the wrapper's env (silent auth failure
+         — never reaches Bybit at all)
+      3. Bybit returned records but the qty/side filter rejected them
+
+    All three collapse to the same skip reason string, so an operator
+    looking at "0 recovered" can't tell why. The 2026-05-16 backfill
+    spent two PRs (#1311, this one) untangling that ambiguity. Once
+    distinguished, the operator can act: rotate creds vs accept the
+    data gap vs widen the qty tolerance.
+
+    Heuristic: if recoveries=0 AND every skip carries the marker AND
+    we had ≥2 candidates with recent ``created_at``, the credential-
+    missing signature dominates and we should say so. We don't claim
+    certainty — the warning points at the most likely cause and
+    surfaces the diagnostic command for the operator to confirm.
+    """
+    if not skipped or plans:
+        return
+    if not all(_CREDS_OR_DATA_GAP_MARKER in reason for _, reason in skipped):
+        return
+    print(
+        "─" * 70,
+        "WARNING: 100% of candidates skipped with "
+        "'account_closed_pnl_for_trade returned None'.",
+        "",
+        "This skip reason is shared by three failure modes:",
+        "  (a) Bybit's 7-day closed-pnl window expired for the trade",
+        "  (b) Exchange CREDENTIALS NOT REACHABLE from this process's",
+        "      env — silent auth failure, never reached Bybit",
+        "  (c) Bybit returned records but qty/side filter rejected them",
+        "",
+        "When 100% of candidates collapse to this single reason, (b) is",
+        "the most likely cause — a real data gap would mix with at least",
+        "some successful recoveries. If running this via an operator-",
+        "action wrapper, confirm scripts/ops/_lib.sh::load_runtime_secrets",
+        "is called before invoking this script. See PR #1311 + the",
+        "post-#1311 follow-up for the structural fix.",
+        "─" * 70,
+        sep="\n",
+    )
+
+
 def _apply_updates(
     conn: sqlite3.Connection, plans: List[Tuple[int, Dict[str, Any]]],
 ) -> int:
@@ -304,6 +363,8 @@ def main() -> int:
         for trade_id, why in skipped:
             print(f"  id={trade_id}: {why}")
         print()
+
+    _warn_if_silent_credential_failure(plans, skipped)
 
     if not args.apply:
         print("dry-run — pass --apply to write.")

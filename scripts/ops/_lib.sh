@@ -195,3 +195,54 @@ runtime_db_path() {
     load_runtime_env
     printf '%s\n' "${TRADE_JOURNAL_DB:-${REPO_DIR}/trade_journal.db}"
 }
+
+
+# load_runtime_secrets — source ${REPO_DIR}/.env in full so the wrapper's
+# Python subprocesses can authenticate to exchange APIs (Bybit, Binance, …).
+#
+# WHY (the 2026-05-16 silent-credential failure, issue #1314):
+# operator-action wrappers run via SSH from a fresh shell — they are NOT
+# children of ict-trader-live.service and so do NOT inherit the systemd
+# unit's EnvironmentFile=/home/ubuntu/ict-trading-bot/.env. The backfill-
+# orphan-pnl wrapper then invoked python3, which called
+# resolve_credentials(), which read os.environ for BYBIT_API_KEY_2, got
+# None, returned None, and propagated four silent-fallback layers up to
+# the script's "account_closed_pnl_for_trade returned None" skip — same
+# skip reason as "Bybit had no record." The script reported "0 recovered"
+# while never having reached Bybit at all.
+#
+# WHY this is a distinct helper from load_runtime_env:
+# load_runtime_env is whitelist-gated (only DATA_DIR / TRADE_JOURNAL_DB /
+# MODEL_DIR / LOG_DIR / RUNTIME_LOGS_DIR / RUNTIME_STATE_DIR /
+# ARTIFACTS_DIR get exported from .env or the drop-in). That tightness is
+# load-bearing — it prevents random .env keys from leaking into wrapper
+# shells where they might shadow caller env or break expectations. But
+# credentials are precisely the keys NOT in that whitelist. Folding
+# secrets into load_runtime_env would either (a) widen the whitelist to
+# permit BYBIT_*, BINANCE_*, etc. — ad-hoc and hard to maintain — or
+# (b) drop the whitelist entirely, losing the gate. A separate helper
+# lets each wrapper explicitly opt in: "I need exchange auth."
+#
+# Behavior:
+#   - Sources ${REPO_DIR}/.env via `set -a; source; set +a` so every
+#     KEY=VAL line becomes an exported env var. Comments and blanks are
+#     handled by bash's source semantics. Quoted values are stripped by
+#     bash, matching systemd's EnvironmentFile parsing.
+#   - Returns 0 always. If .env is missing (dev box, fresh checkout),
+#     the wrapper proceeds with whatever the caller's shell already had;
+#     the eventual resolve_credentials() will return None and the
+#     wrapper's existing error-handling kicks in. We do NOT exit non-zero
+#     here because the wrapper may not actually need creds for every run.
+#   - Idempotent in the sense that re-sourcing .env is a no-op against
+#     the same file. Calling load_runtime_secrets twice is safe.
+
+load_runtime_secrets() {
+    local env_file="${REPO_DIR}/.env"
+    if [ ! -f "${env_file}" ]; then
+        return 0
+    fi
+    set -a
+    # shellcheck disable=SC1090
+    source "${env_file}"
+    set +a
+}
