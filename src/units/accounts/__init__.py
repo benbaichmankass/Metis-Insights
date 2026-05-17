@@ -101,7 +101,7 @@ def load_accounts(config_path: str = _DEFAULT_ACCOUNTS_YAML) -> "List":
             # write back on each record_trade_result.
             rm = PropRiskManager(cfg, account_name=name, dry_run=dry_run)
         else:
-            rm = RiskManager(cfg.get("risk") or {}, dry_run=dry_run)
+            rm = RiskManager(cfg.get("risk") or {}, dry_run=dry_run, account_id=name)
         # Forward-compat: skip accounts explicitly disabled in YAML.
         # (Velotrade scaffold ships with ``enabled: false`` until
         # credentials + SDK wiring land in a follow-up sprint.)
