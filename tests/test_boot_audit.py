@@ -261,3 +261,189 @@ def test_query_failure_renders_in_ping_body(tmp_journal, monkeypatch):
         f"Ping body must render the failed strategy as '(query failed)'; got:\n{body}"
     )
     assert "WARNING" in body, "Ping body must include a WARNING line on failure"
+
+
+# ---------------------------------------------------------------------------
+# Sprint A-3: reconcile_journal_vs_exchange_on_boot
+# ---------------------------------------------------------------------------
+
+import sqlite3 as _sqlite3
+
+
+def _make_journal_with_open_trade(tmp_path, *, account_id="bybit_2", symbol="BTCUSDT"):
+    """Create a minimal trade_journal.db with one open trade row."""
+    db_path = tmp_path / "trade_journal.db"
+    conn = _sqlite3.connect(str(db_path))
+    conn.execute("""
+        CREATE TABLE trades (
+            id INTEGER PRIMARY KEY,
+            account_id TEXT,
+            symbol TEXT,
+            side TEXT,
+            status TEXT,
+            is_backtest INTEGER DEFAULT 0
+        )
+    """)
+    conn.execute(
+        "INSERT INTO trades (id, account_id, symbol, side, status, is_backtest) "
+        "VALUES (?, ?, ?, ?, 'open', 0)",
+        (42, account_id, symbol, "buy"),
+    )
+    conn.commit()
+    conn.close()
+    return str(db_path)
+
+
+_LIVE_BYBIT_CFG = {
+    "account_id": "bybit_2",
+    "exchange": "bybit",
+    "api_key_env": "BYBIT_API_KEY_2",
+    "api_secret_env": "BYBIT_SECRET_2",
+    "mode": "live",
+    "market_type": "linear",
+}
+
+_DRY_BYBIT_CFG = {**_LIVE_BYBIT_CFG, "account_id": "bybit_1", "mode": "dry_run"}
+
+
+class TestReconcileJournalVsExchange:
+    """Sprint A-3: reconcile_journal_vs_exchange_on_boot contracts."""
+
+    def _patch(self, monkeypatch, *, account_cfgs, positions_map, telegram_calls):
+        """Patch accounts, exchange, and telegram for reconciler tests.
+
+        account_open_positions is imported lazily inside the function body,
+        so we patch it at the source module so the lazy import picks up the
+        mock.
+        """
+        import src.runtime.boot_audit as _ba
+        monkeypatch.setattr(_ba, "_load_account_cfgs", lambda: account_cfgs)
+        # Patch at source so the `from ... import account_open_positions`
+        # inside reconcile_journal_vs_exchange_on_boot picks up the mock.
+        monkeypatch.setattr(
+            "src.units.accounts.clients.account_open_positions",
+            lambda cfg: positions_map.get(cfg.get("account_id")),
+        )
+        monkeypatch.setattr(
+            _ba, "_send_ghost_alert",
+            lambda ghosts: telegram_calls.extend(ghosts),
+        )
+
+    def test_clean_boot_no_alert(self, tmp_path, monkeypatch):
+        """Journal open trade + matching exchange position → silent, no Telegram."""
+        db_path = _make_journal_with_open_trade(tmp_path)
+        monkeypatch.setenv("TRADE_JOURNAL_DB", db_path)
+        telegram_calls: list[str] = []
+        self._patch(
+            monkeypatch,
+            account_cfgs={"bybit_2": _LIVE_BYBIT_CFG},
+            positions_map={"bybit_2": [{"symbol": "BTCUSDT", "size": 0.01}]},
+            telegram_calls=telegram_calls,
+        )
+        from src.runtime.boot_audit import reconcile_journal_vs_exchange_on_boot
+        result = reconcile_journal_vs_exchange_on_boot()
+        assert result["ghost_trades"] == 0
+        assert not telegram_calls, "No alert when journal and exchange agree"
+
+    def test_ghost_trade_triggers_alert(self, tmp_path, monkeypatch):
+        """Journal open, Bybit flat → ghost detected, Telegram alert fires."""
+        db_path = _make_journal_with_open_trade(tmp_path)
+        monkeypatch.setenv("TRADE_JOURNAL_DB", db_path)
+        telegram_calls: list[str] = []
+        self._patch(
+            monkeypatch,
+            account_cfgs={"bybit_2": _LIVE_BYBIT_CFG},
+            positions_map={"bybit_2": []},  # Bybit has no positions
+            telegram_calls=telegram_calls,
+        )
+        from src.runtime.boot_audit import reconcile_journal_vs_exchange_on_boot
+        result = reconcile_journal_vs_exchange_on_boot()
+        assert result["ghost_trades"] == 1
+        assert len(telegram_calls) == 1
+        assert "42" in telegram_calls[0]       # trade id
+        assert "BTCUSDT" in telegram_calls[0]  # symbol
+
+    def test_dry_account_skipped(self, tmp_path, monkeypatch):
+        """Dry account is skipped — no exchange query, no alert."""
+        db_path = _make_journal_with_open_trade(tmp_path, account_id="bybit_1")
+        monkeypatch.setenv("TRADE_JOURNAL_DB", db_path)
+        positions_called: list[str] = []
+
+        import src.runtime.boot_audit as _ba
+        monkeypatch.setattr(_ba, "_load_account_cfgs",
+                            lambda: {"bybit_1": _DRY_BYBIT_CFG})
+        monkeypatch.setattr(
+            "src.units.accounts.clients.account_open_positions",
+            lambda cfg: positions_called.append(cfg) or [],
+        )
+        telegram_calls: list[str] = []
+        monkeypatch.setattr(_ba, "_send_ghost_alert",
+                            lambda ghosts: telegram_calls.extend(ghosts))
+
+        from src.runtime.boot_audit import reconcile_journal_vs_exchange_on_boot
+        result = reconcile_journal_vs_exchange_on_boot()
+        assert result["checked_accounts"] == 0
+        assert not positions_called, "Must not query exchange for dry accounts"
+        assert not telegram_calls
+
+    def test_exchange_query_none_is_error_not_ghost(self, tmp_path, monkeypatch):
+        """Exchange returns None (creds failure) → error count, NO ghost alert."""
+        db_path = _make_journal_with_open_trade(tmp_path)
+        monkeypatch.setenv("TRADE_JOURNAL_DB", db_path)
+        telegram_calls: list[str] = []
+        self._patch(
+            monkeypatch,
+            account_cfgs={"bybit_2": _LIVE_BYBIT_CFG},
+            positions_map={"bybit_2": None},  # None = creds/network failure
+            telegram_calls=telegram_calls,
+        )
+        from src.runtime.boot_audit import reconcile_journal_vs_exchange_on_boot
+        result = reconcile_journal_vs_exchange_on_boot()
+        assert result["ghost_trades"] == 0
+        assert result["errors"] >= 1
+        assert not telegram_calls, "Creds failure must not fire a ghost alert"
+
+    def test_untracked_position_no_alert(self, tmp_path, monkeypatch):
+        """Exchange has a position, journal has no open row → log only, no Telegram."""
+        # Empty journal (no open trades).
+        db_path = tmp_path / "trade_journal.db"
+        conn = _sqlite3.connect(str(db_path))
+        conn.execute(
+            "CREATE TABLE trades (id INTEGER PRIMARY KEY, account_id TEXT, "
+            "symbol TEXT, side TEXT, status TEXT, is_backtest INTEGER DEFAULT 0)"
+        )
+        conn.commit()
+        conn.close()
+        monkeypatch.setenv("TRADE_JOURNAL_DB", str(db_path))
+
+        telegram_calls: list[str] = []
+        self._patch(
+            monkeypatch,
+            account_cfgs={"bybit_2": _LIVE_BYBIT_CFG},
+            positions_map={"bybit_2": [{"symbol": "BTCUSDT", "size": 0.01}]},
+            telegram_calls=telegram_calls,
+        )
+        from src.runtime.boot_audit import reconcile_journal_vs_exchange_on_boot
+        result = reconcile_journal_vs_exchange_on_boot()
+        assert result["ghost_trades"] == 0
+        assert result["untracked_positions"] == 1
+        assert not telegram_calls, "Untracked positions must not trigger Telegram"
+
+    def test_no_db_no_raise(self, tmp_path, monkeypatch):
+        """Missing trade_journal.db: function returns without raising."""
+        monkeypatch.setenv(
+            "TRADE_JOURNAL_DB", str(tmp_path / "nonexistent.db")
+        )
+        import src.runtime.boot_audit as _ba
+        monkeypatch.setattr(_ba, "_load_account_cfgs",
+                            lambda: {"bybit_2": _LIVE_BYBIT_CFG})
+        monkeypatch.setattr(
+            "src.units.accounts.clients.account_open_positions",
+            lambda cfg: [{"symbol": "BTCUSDT", "size": 0.001}],
+        )
+        monkeypatch.setattr(_ba, "_send_ghost_alert", lambda ghosts: None)
+
+        from src.runtime.boot_audit import reconcile_journal_vs_exchange_on_boot
+        result = reconcile_journal_vs_exchange_on_boot()
+        assert isinstance(result, dict)
+        assert result["ghost_trades"] == 0  # empty journal → no ghosts
