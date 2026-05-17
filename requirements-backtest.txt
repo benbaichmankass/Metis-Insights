@@ -1,0 +1,27 @@
+# Backtest-only dependencies (S-TRAINER-BT-1, 2026-05-17).
+#
+# These are the deps the trainer-VM needs for the issue-driven backtest
+# sweep (scripts/ops/run_backtest_sweep.sh + the experiments/ harnesses).
+# pandas + numpy are already in requirements.txt (production runtime
+# uses them); this file adds the parquet engine + the data-fetcher
+# extras. Install via:
+#
+#     /home/ubuntu/.venvs/ict-trainer/bin/pip install -r requirements.txt -r requirements-backtest.txt
+#
+# Bootstrap script `scripts/ops/trainer_bootstrap.sh` does both files
+# in one call. Runbook: docs/runbooks/trainer-backtest.md.
+
+# Parquet engine — pandas uses it via DataFrame.to_parquet / read_parquet.
+# The 2026-05-08 experiment harness hand-installed it on the trainer
+# (no requirements file); pinning here so future trainer re-provisions
+# get it deterministically.
+pyarrow>=14.0.0
+
+# HTTP fetcher for the qashdev/btc monthly CSV archive (Binance Vision
+# mirror). The fetcher hits raw.githubusercontent.com.
+requests>=2.31.0
+
+# Used by the cache-freshness check (parsing month strings → datetimes).
+# Already a transitive dep of pandas; pinning explicitly so the
+# fetcher can `import dateutil` without lying about its deps.
+python-dateutil>=2.8.2

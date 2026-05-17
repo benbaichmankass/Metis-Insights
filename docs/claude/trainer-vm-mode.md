@@ -313,11 +313,44 @@ available.
 
 ---
 
+## 10. Running an interactive backtest sweep
+
+Distinct from a training cycle. Use this when the operator (or a
+session in this thread) wants the trainer to evaluate one or more
+strategy variants against the persistent BTCUSDT 5m parquet cache and
+return a comparable Sharpe / cadence / max-DD table.
+
+**One-issue dispatch:**
+
+Open a `trainer-vm-diag-request`-labelled issue with body:
+
+```yaml
+cmd: |
+  cd /home/ubuntu/ict-trading-bot && git pull --ff-only && \
+    bash scripts/ops/run_backtest_sweep.sh
+```
+
+The orchestrator handles the venv bootstrap, the parquet cache
+refresh, the variant harness, and the ict_scalp re-validation. Output
+is posted as an issue comment (SUMMARY.md tail) and persists on the
+trainer at `/home/ubuntu/ict-trader-data/backtests/<UTC-date>/`.
+
+Full procedure, file layout, gate criteria, and failure modes:
+[`docs/runbooks/trainer-backtest.md`](../runbooks/trainer-backtest.md).
+
+This is autonomous trainer-VM work per § 3.a. Adopted 2026-05-17 in
+S-TRAINER-BT-1, after the PR #1358 incident exposed that the trainer's
+venv had never been bootstrapped (the cloud-init's claim that
+`run_training_cycle.sh` "does not yet exist" was itself stale —
+the script existed, but no session had ever fired it on this trainer
+instance, so the venv was missing).
+
 ## 8. Related docs
 
 - [`vm-operator-mode.md`](vm-operator-mode.md) — live VM trust contract (the restrictive counterpart).
 - [`operator-actions.md`](operator-actions.md) — narrow mutating bridge for live-VM actions from PM-side sessions.
 - [`docs/sprint-plans/ai-traders/ws9-runtime-split.md`](../sprint-plans/ai-traders/ws9-runtime-split.md) — the policy of record for the two-VM split.
 - [`docs/runbooks/training-vm.md`](../runbooks/training-vm.md) — provisioning + bootstrap runbook for the trainer.
+- [`docs/runbooks/trainer-backtest.md`](../runbooks/trainer-backtest.md) — backtest sweep orchestrator + per-step infrastructure (S-TRAINER-BT-1).
 - [`docs/AI-TRADERS-ROADMAP.md`](../AI-TRADERS-ROADMAP.md) — master plan; § "Non-negotiable rules" defers the live-wiring gate to this doc.
 - [`docs/ml/model-registry-policy.md`](../ml/model-registry-policy.md) — registry append-only semantics + the promotion ladder.
