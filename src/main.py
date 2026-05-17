@@ -444,6 +444,15 @@ def main() -> None:
     except Exception as exc:  # noqa: BLE001
         logger.warning("boot_audit skipped: %s", exc)
 
+    # Sprint A-3: compare journal open rows against live Bybit positions.
+    # Ghost rows (journal open, Bybit flat) get a Telegram alert immediately
+    # on startup — before the first tick — so the operator can investigate.
+    try:
+        from src.runtime.boot_audit import reconcile_journal_vs_exchange_on_boot
+        reconcile_journal_vs_exchange_on_boot()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("boot_reconcile skipped: %s", exc)
+
     # PR 3 cutover: set per-symbol leverage on every linear-perp account
     # before the first tick. Best-effort; logs warnings on failure and
     # never blocks boot. Idempotent on Bybit's retCode=110043 ("leverage
