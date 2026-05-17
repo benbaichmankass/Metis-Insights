@@ -7,7 +7,7 @@ Set via the `STRATEGY` environment variable.
 | `killzone`          | `killzone_signal_builder`         | Default. ICT kill-zone scalper using FVG + order-block detection.  |
 | `vwap`              | `vwap_signal_builder`             | VWAP mean-reversion on 5 m candles.                               |
 | `breakout`          | `breakout_model_signal_builder`   | ML breakout-confirmation model (XGBoost).                          |
-| `ict_scalp_5m`      | `ict_scalp_signal_builder`        | ICT scalp v1 on 5 m — liquidity sweep + displacement + FVG mitigation. Disabled by default in `config/strategies.yaml`; see `docs/strategies/ict_scalp_5m.md`. |
+| `ict_scalp_5m`      | `ict_scalp_signal_builder`        | ICT scalp v2 on 5 m — liquidity sweep + displacement + FVG wick-rejection + HTF bias filter. Live since 2026-05-14 (PR #1156, post pre-live gate); see `docs/strategies/ict_scalp_5m.md`. |
 | `multiplexed`       | `multiplexed_signal_builder`      | Tries strategies in `STRATEGIES` order; first actionable wins.     |
 
 ## Multiplexed mode

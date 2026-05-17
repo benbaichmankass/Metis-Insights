@@ -347,6 +347,134 @@ disagree, the actual code and active deployment files take precedence
 over summaries; this document remains the authority for **process**
 rules.
 
+## Documentation Hygiene & Premise Verification (2026-05-17)
+
+Adopted in response to the PR #1358 incident, where a Claude session
+disabled a live-trading strategy (`ict_scalp_5m`) on the basis of a
+stale inline comment and a downstream audit finding that had inherited
+the same stale framing — bypassing the Tier-3 operator-approval rule.
+Full incident: `docs/sprint-logs/S-AUDIT-PIPELINE-2026-05-17.md` §
+Addendum. Root cause: a Claude session not reading and reconciling
+documentation. Fix: the loop below, every session, no exceptions.
+
+This section is a strengthening of the existing Code-First Verification
+Rule (above) and Sprint Wrap-Up Requirements (below). When they
+overlap, this section is the authority because it is the more recent
+and more specific.
+
+### Field vs. comment precedence
+
+When the live value of a YAML field, a config constant, a code symbol,
+or an SQL row disagrees with a surrounding inline comment, docstring,
+sibling doc, or audit finding: **the field is the truth.** The
+surrounding text is stale. The fix is to update the text, never to
+flip the field.
+
+This rule has exactly one exception: a doc explicitly marked
+"canonical" or "authoritative" (the documents listed in
+§ Document Priority above) wins over a non-canonical field comment.
+The PR #1358 stale comment was *not* canonical — it was inline
+boilerplate left over from a prior version. A canonical doc would
+have prevailed; ordinary inline comments do not.
+
+### Premise verification before filing an audit finding
+
+Before writing an audit finding that asserts a discrepancy between a
+field value and a comment / doc / prior intent statement, Claude must:
+
+1. Run `git log -p <file>` on the file in question and surface, in
+   the finding itself, the most recent commit that touched the
+   relevant line. Include the SHA, the PR number, the merge date, and
+   any operator-approval citation present in the PR body.
+2. If the most recent commit on the line is an operator-approved
+   merge, the field is the truth and the surrounding text is stale.
+   The finding must be filed as a documentation-hygiene fix
+   (update the comment / doc), not as a "fix the field" item.
+3. If the most recent commit's authorization is unclear, the finding
+   must be filed in `discussion` form, not `quick fix` or `proper fix`
+   form — and must be resolved by asking the operator before any
+   action item is scheduled.
+
+Audit findings filed without this context spread contamination: the
+next session inherits the false premise and operationalizes it. The
+chain that produced PR #1358 was exactly this: audit-doc finding H-2
+→ sprint plan B-2 → unauthorized PR. Every audit finding must be
+self-defensive against this chain.
+
+### Premise verification before operationalizing an audit finding
+
+A Claude session that takes an audit finding off the shelf and turns
+it into a sprint task or PR carries the responsibility to re-verify
+the finding's premise before acting. The finding's age, author, or
+inclusion in a respected document does not transfer the verification
+duty. Re-run step 1 of "Premise verification before filing an audit
+finding" against the line you are about to change.
+
+If the re-verification surfaces an operator-approved commit on the
+line, **stop**. Do not file the PR. Update the audit finding in place
+to mark it withdrawn, cite the operator-approved commit, and reframe
+the work item if there is still a real (documentation-hygiene) issue
+to fix.
+
+### Session-start documentation read
+
+At the start of every session, before touching any file:
+
+1. Read the root `CLAUDE.md` end-to-end.
+2. Read this document, `ARCHITECTURE-CANONICAL.md`, and `ROADMAP.md`.
+3. For any file you plan to edit, read it whole.
+4. For any Tier-2 or Tier-3 file you plan to edit, also run
+   `git log -p <file> | head -200` and read it. The most recent
+   operator-approved commit on the line you are about to change is
+   load-bearing context, not an optional check.
+
+The previous "skim the canonical doc and move on" pattern that
+produced PR #1358 (the sprint log confirms canonical docs were
+listed as reviewed) is not sufficient. Reading is followed by
+reconciling — the next subsection.
+
+### Session-end reconciliation pass
+
+Before opening any PR, declaring a task done, or otherwise closing
+the session, Claude must:
+
+1. Re-read the root `CLAUDE.md`, this document, and the relevant
+   subsystem docs covering the code area touched.
+2. For every file edited in the session: re-read it whole and
+   reconcile inline comments and docstrings against the changes
+   made. If the change added a feature, removed a code path,
+   enabled or disabled something, renamed or moved something —
+   the inline text must reflect the new reality.
+3. For every doc page covering a code area touched: re-read it and
+   reconcile against the code. Drift between doc and code is the
+   landmine the next session steps on.
+4. Existing contradictions the session did not cause (like the
+   PR #1358 stale comment, which existed before that session
+   started) are not someone else's problem. Fix them in the same
+   PR, or open a separate draft PR before closing the session.
+   Walking past a known contradiction is the same failure mode as
+   creating one.
+
+The Sprint Wrap-Up Requirements section below restates several of
+these duties at the sprint scope. This subsection restates them at
+the session scope because not every session is a full sprint — but
+every session still touches docs that the next session will trust.
+
+### Why no new mechanical guardrails
+
+In the PR #1358 post-mortem the operator explicitly rejected adding
+new CODEOWNERS, CI gates, or PR templates to enforce the Tier-3 rule.
+The reasoning: the rule already exists in this document, and the
+prior session read this document. Mechanical guardrails on top of a
+discipline failure are patches on patches. The fix is for Claude
+sessions to actually follow the rules they have already loaded — the
+documentation hygiene loop above is the mechanism.
+
+If a future incident demonstrates that this loop also fails in
+practice, the right response is to reconsider this decision then,
+with that incident's specifics, not to pre-empt it with infrastructure
+that papers over the discipline gap.
+
 ## GitHub Actions Rule
 
 Claude is allowed to inspect, create, modify, and use GitHub Actions

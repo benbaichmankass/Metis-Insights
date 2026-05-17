@@ -62,7 +62,7 @@ and the AI integration has no clear execution boundary.
 | Files | `src/runtime/strategy_signal_builders.py`, `src/units/strategies/turtle_soup.py`, `src/units/strategies/vwap.py`, `src/units/strategies/ict_scalp.py` |
 | Behavior | Each strategy fetches candles via ccxt, applies its rule set, returns `{symbol, side, entry_price, stop_loss, take_profit, meta}` or `side="none"` |
 | Clarity | **Clear at the unit level.** Each strategy is isolated. The indirection through `strategy_signal_builders.py` wrappers is clean. |
-| Safety | **Amber.** `ict_scalp_5m` is `enabled: true` in `config/strategies.yaml` but the builder's guard checks `enabled` at runtime. If the guard fails or the YAML is edited without testing, the strategy activates live. |
+| Safety | **Green.** `ict_scalp_5m` is `enabled: true` in `config/strategies.yaml`, which is the operator-approved state per PR #1156 (pre-live gate cleared 2026-05-14). The runtime builder's `enabled`-check is one layer; routing to live also requires the strategy to be on the account's `strategies` list. (Earlier draft of this audit flagged the enabled state as a discrepancy — that framing was wrong; see H-2 below for the withdrawal.) |
 
 ### Step 3 — Multiplexing: Signal Selection
 
@@ -207,13 +207,39 @@ and the AI integration has no clear execution boundary.
 
 ---
 
-**H-2: `ict_scalp_5m` is `enabled: true` in strategies.yaml**
+**H-2: ~~`ict_scalp_5m` is `enabled: true` in strategies.yaml~~ — WITHDRAWN (false finding)**
 
-- **File**: `config/strategies.yaml` (line `enabled: true` under `ict_scalp_5m`)
-- **Observed behavior**: The strategy registry reads `enabled` from YAML. When `enabled: true`, the builder IS included in the multiplexer loop every tick. The builder's internal guard (`if not cfg.get("enabled"): return side="none"`) is a second layer, but there is a comment in `pipeline.py` saying `ict_scalp_5m` is "inactive at runtime until enabled=true in strategies.yaml AND ict_scalp_5m is on the account's strategies list." The YAML says `enabled: true`.
-- **Problem**: The intent in all code comments is that this strategy should be `enabled: false` until validated. The YAML says `enabled: true`. This is a discrepancy. If the account were also wired to `ict_scalp_5m`, it would fire live.
-- **Proper fix**: Set `enabled: false` in YAML, add a pre-commit check that blocks enabling it without a corresponding account assignment and backtest reference.
-- **Classification**: Quick fix — config change with a guard.
+> **WITHDRAWN 2026-05-17.** This finding was wrong. It treated stale
+> inline comments in `config/strategies.yaml` and `src/runtime/pipeline.py`
+> as authoritative and the `enabled: true` YAML field as a "discrepancy"
+> — without checking `git log -p` on the field. The actual history is
+> that PR #1156 (2026-05-14, merged by the operator after explicit chat
+> approval) flipped `ict_scalp_5m.enabled: false → true` because the
+> pre-live gate had cleared (59.3 % win, +0.301 R expectancy, max DD
+> 3.47R on 90 days of fresh BTCUSDT 5m candles — issues #1153 + #1154).
+> The surrounding YAML comments and the `pipeline.py` comment were
+> never updated when PR #1156 enabled the strategy, leaving boilerplate
+> from v1 that contradicted the field.
+>
+> This audit's H-2 finding was operationalized as Sprint B-2 of
+> S-AUDIT-PIPELINE-2026-05-17, which shipped PR #1358 flipping
+> `enabled: true → false` without operator approval. That PR violated
+> the canonical Tier-3 protocol (`docs/CLAUDE-RULES-CANONICAL.md` §
+> Permission Tiers — config/strategies.yaml edits require explicit
+> operator approval before merge) and was reverted on 2026-05-17.
+>
+> **The correct finding** that should have been filed here was a
+> documentation-hygiene one: the YAML comment block and the
+> `pipeline.py` comment lagged the field. Fix the *comment*, not the
+> field. That correction shipped alongside the revert PR.
+>
+> Lessons codified in `CLAUDE.md` STOP banner: "Read the docs at
+> session start AND session end. Reconcile contradictions." Before
+> filing an audit finding about a code/config/doc disagreement, run
+> `git log -p <file>` on the line in question and surface the most
+> recent operator-approval citation. If a recent operator-approved PR
+> set the line, the **field is the truth** and the surrounding text
+> is stale — never the other way around.
 
 ---
 
@@ -546,12 +572,12 @@ All entrypoints are legitimate except the duplicate session_handoff dirs and the
 - Autonomous: Yes
 - Effort: 1 hour
 
-**A-4: Fix `ict_scalp_5m` YAML `enabled: false`**
-- Goal: Prevent accidental activation
-- Files: `config/strategies.yaml`
-- Risk: Low — config-only change, no code change
-- Autonomous: Yes (confirm with operator first)
-- Effort: 5 minutes
+**A-4: ~~Fix `ict_scalp_5m` YAML `enabled: false`~~ — WITHDRAWN**
+- Withdrawn 2026-05-17. The premise of this item (that `enabled: true`
+  was an accidental discrepancy) was wrong; see H-2 above. PR #1156
+  is the operator-approved live state. The correct fix — bringing
+  the surrounding YAML comments into agreement with the field — was
+  bundled with the revert of the unauthorized PR #1358.
 
 ---
 
@@ -702,7 +728,7 @@ All entrypoints are legitimate except the duplicate session_handoff dirs and the
 
 4. **What is the approved promotion criteria for the regime-classifier model?** The current state (macro_f1=0.33, degenerate trend class) does not support promotion. But the promotion threshold is not documented. Sprint D-3 should establish this.
 
-5. **Is the intent multiplexer (`MULTI_STRATEGY_INTENT_LAYER`) intended to become the default before or after ict_scalp_5m is enabled?** The routing simplification in Sprint C-2 depends on this.
+5. ~~**Is the intent multiplexer (`MULTI_STRATEGY_INTENT_LAYER`) intended to become the default before or after ict_scalp_5m is enabled?**~~ **RESOLVED.** Both happened: ict_scalp_5m enabled in PR #1156 (2026-05-14), intent multiplexer default-on in Sprint D-1 of this sprint. The question presupposed ict_scalp_5m was still gated, which was incorrect (see H-2 withdrawal).
 
 ---
 
@@ -713,7 +739,7 @@ Sprint A (Week 1-2):   Safety-critical fixes. No dependencies. Do immediately.
   A-1: Persist daily PnL
   A-2: Halt flag to runtime_flags/
   A-3: SQLite WAL mode
-  A-4: ict_scalp_5m enabled=false
+  A-4: [WITHDRAWN — false finding; see H-2]
 
 Sprint F (Week 2-3):   Hygiene. Low risk, parallel to A. No dependencies.
   Delete sprint dirs, move test file, untrack runtime state, merge src/pipeline/

@@ -5,19 +5,30 @@ Python-based ICT trading bot for crypto trading workflows, focused on ICT concep
 ## Workflow source of truth
 
 The repo is the source of truth for how this program is planned and executed.
-Future Claude sessions and contributors should read these in order:
+**Canonical docs (adopted 2026-05-10 in S-CANON-1) override older notes
+when they disagree** — always read these first:
 
 | Doc | Purpose |
 |---|---|
-| [`docs/workplan.md`](docs/workplan.md) | Master workplan — goal, priorities, milestone types, merge tiers, VM rules. |
+| [`CLAUDE.md`](CLAUDE.md) | Claude session router and standing rules. **Includes the mandatory documentation-hygiene loop** (read docs at session start AND session end; reconcile contradictions) added after the 2026-05-17 PR #1358 incident — read this banner every session. |
+| [`docs/CLAUDE-RULES-CANONICAL.md`](docs/CLAUDE-RULES-CANONICAL.md) | Authoritative Claude operating rules — permission tiers (Tier-1 / 2 / 3), workflow routing, **Documentation Hygiene & Premise Verification**. |
+| [`docs/ARCHITECTURE-CANONICAL.md`](docs/ARCHITECTURE-CANONICAL.md) | System architecture, trade pipeline, comms pipeline, deployment flow. |
 | [`ROADMAP.md`](ROADMAP.md) | Sprint-level backlog and phase status. |
+| [`docs/SPRINT-LOG-TEMPLATE-CANONICAL.md`](docs/SPRINT-LOG-TEMPLATE-CANONICAL.md) | Mandatory sprint-log format. |
+| [`docs/github-actions-workflows.md`](docs/github-actions-workflows.md) | Canonical GitHub Actions reference. |
+
+Historical operating notes preserved for context (canonical docs above
+supersede when they disagree):
+
+| Doc | Purpose |
+|---|---|
+| [`docs/workplan.md`](docs/workplan.md) | Older master workplan — goal, priorities, milestone types, merge tiers, VM rules. |
 | [`docs/claude/milestone-state.md`](docs/claude/milestone-state.md) | Quick-glance "where the program is right now" — active milestone, queued milestones, open blockers. |
-| [`docs/claude/operating-protocol.md`](docs/claude/operating-protocol.md) | Consolidated Claude operating protocol — session shape, merge authority, ping-PR pattern. |
+| [`docs/claude/operating-protocol.md`](docs/claude/operating-protocol.md) | Older Claude operating protocol — session shape, merge authority, ping-PR pattern. Superseded by `docs/CLAUDE-RULES-CANONICAL.md`. |
 | [`docs/claude/decomposition-rules.md`](docs/claude/decomposition-rules.md) | Normative rules for milestone → sprint → checkpoint decomposition. |
 | [`docs/claude/sprint-planning.md`](docs/claude/sprint-planning.md) | Binding sprint-prompt template (every sprint must satisfy it). |
 | [`docs/claude/checkpoint-workflow.md`](docs/claude/checkpoint-workflow.md) | Resume rules and end-of-session handoff format. |
 | [`docs/claude/checkpoints/CHECKPOINT_LOG.md`](docs/claude/checkpoints/CHECKPOINT_LOG.md) | Append-only log of session handoffs (the source of truth for "where to resume"). |
-| [`CLAUDE.md`](CLAUDE.md) | Claude session router and standing rules (autonomous live-trading rule, architecture rules, Telegram pings). |
 
 ## Features
 

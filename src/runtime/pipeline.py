@@ -185,9 +185,12 @@ STRATEGY_RISK_PCT: Dict[str, float] = _strategy_risk_pcts_from_registry()
 _STRATEGY_BUILDERS: Dict[str, Callable[[dict], Dict[str, Any]]] = {
     "turtle_soup": turtle_soup_signal_builder,
     "vwap": vwap_signal_builder,
-    # ict_scalp_5m is registered so config/strategies.yaml can opt it in,
-    # but its builder short-circuits to side="none" while enabled=false
-    # so live behaviour is unchanged until the operator flips the flag.
+    # ict_scalp_5m is live since 2026-05-14 (PR #1156, operator-approved
+    # post pre-live gate). The builder honours the YAML enabled flag as
+    # single source of truth — flipping enabled=false short-circuits to
+    # side="none" without code changes. Do not edit enabled here on the
+    # basis of any stale-comment-driven claim; see config/strategies.yaml
+    # § ict_scalp_5m STATUS block and the 2026-05-17 incident addendum.
     "ict_scalp_5m": ict_scalp_signal_builder,
 }
 
@@ -271,9 +274,11 @@ def run_pipeline(
         builder = vwap_signal_builder
     elif strategy_name in ("ict_scalp", "ict_scalp_5m"):
         # Opt-in via STRATEGY env var for diagnostics / single-strategy
-        # backtests. The builder still honours the YAML enabled flag,
-        # so STRATEGY=ict_scalp_5m alone does NOT place live orders;
-        # the operator must also set enabled=true in strategies.yaml.
+        # backtests. The builder honours the YAML `enabled` flag; YAML
+        # is live (enabled: true) since 2026-05-14 (PR #1156). Setting
+        # STRATEGY=ict_scalp_5m alone is therefore sufficient to route
+        # signals through the live order path; ensure that is intended
+        # before using this env override outside backtest/diag contexts.
         builder = ict_scalp_signal_builder
     elif strategy_name in ("multiplexed_intents", "multi_strategy_intents"):
         # Explicit opt-in via STRATEGY env var. Same effect as

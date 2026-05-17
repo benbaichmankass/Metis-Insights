@@ -72,9 +72,10 @@ def _default_intent_builders() -> Dict[str, IntentBuilder]:
     return {
         "turtle_soup": turtle_soup_signal_builder,
         "vwap": vwap_signal_builder,
-        # ict_scalp_5m: registered so the intent layer is plumbed
-        # through, but the builder honours YAML enabled=false so it
-        # only contributes intents once the operator flips the flag.
+        # ict_scalp_5m: live since 2026-05-14 (PR #1156, operator-
+        # approved post pre-live gate). The builder honours the YAML
+        # `enabled` flag as single source of truth; this registration
+        # plumbs it through the intent layer when enabled.
         "ict_scalp_5m": ict_scalp_signal_builder,
     }
 
