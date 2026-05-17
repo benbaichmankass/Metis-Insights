@@ -34,7 +34,7 @@ import time
 from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Callable, Dict
+from typing import Dict
 
 import pandas as pd
 

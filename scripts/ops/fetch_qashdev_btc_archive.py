@@ -107,7 +107,7 @@ def _fetch_one_month(yyyy_mm: str) -> Optional[bytes]:
     for attempt in range(MAX_RETRIES):
         try:
             resp = requests.get(url, timeout=REQUEST_TIMEOUT_S)
-        except requests.RequestException as exc:
+        except requests.RequestException:
             if attempt == MAX_RETRIES - 1:
                 raise
             time.sleep(RETRY_BACKOFF_S[attempt])
