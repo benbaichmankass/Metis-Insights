@@ -17,7 +17,7 @@ from src.runtime.strategy_signal_builders import (  # noqa: E402
 
 import os
 
-HALT_FLAG_PATH = "/tmp/trader_halt.flag"
+HALT_FLAG_PATH = os.environ.get("HALT_FLAG_PATH", "/data/bot-data/trader_halt.flag")
 
 # S-026 G2: legacy single-client path placeholder. Sizing is decided
 # per-account inside Coordinator.multi_account_execute via
