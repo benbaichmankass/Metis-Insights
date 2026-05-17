@@ -405,16 +405,17 @@
       "opened_at": "2026-05-17T09:45:00+00:00",
       "opened_by": "claude",
       "source": "health-review-20260517",
-      "related_prs": [],
+      "related_prs": [1351],
       "title": "Verify reconciler pnl write fix and trade #1503 backfill",
       "description": "Trade #1503 (vwap short BTCUSDT, bybit_2, closed 2026-05-17 ~06:25 UTC via reconciler_filled) has exit_price=77995.2 and bybit_closed_pnl=0.57231732 stored in notes, but pnl=NULL in the trades table. Root cause: _close_trade_from_order_status in order_monitor.py wrote exit_price from bybit_closed_pnl but did not write the pnl column. Fix shipped in claude/run-health-review-GcQcm: reconciler now writes pnl=closed_pnl and pnl_percent from position notional. backfill_pnl_nulls.py also updated to prefer bybit_closed_pnl from notes over gross formula. Operator action backfill-pnl-nulls must be fired after deploy to retroactively fix trade #1503.",
       "expected_check": "After backfill-pnl-nulls fires, check trade #1503: SELECT pnl, pnl_percent FROM trades WHERE id=1503. pnl should be ~0.57 (net from Bybit), pnl_percent ~0.18. For new reconciler_filled trades going forward: pnl should be populated immediately on close.",
-      "trigger_condition": "Once per health-review until pnl for trade #1503 is confirmed non-null.",
+      "trigger_condition": "Once per health-review until pnl for trade #1503 is confirmed non-null AND one subsequent reconciler_filled trade has pnl != NULL.",
       "resolution_criteria": "Close after trade #1503 has pnl != NULL AND at least one subsequent reconciler_filled trade also has pnl != NULL (validating the code fix).",
       "status": "open",
       "snoozed_until": null,
       "closed_at": null,
-      "closed_reason": null
+      "closed_reason": null,
+      "_progress": "2026-05-17T09:52:43Z — backfill-pnl-nulls operator action #1353 confirmed: trade #1503 pnl=+0.57231732, pnl_percent=+0.1828, source=bybit_closed_pnl. Post-backfill candidate count=0. First condition met. Second condition (next reconciler_filled trade with pnl != NULL) pending next natural reconciler_filled close."
     }
   ]
 }

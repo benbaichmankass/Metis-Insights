@@ -29,7 +29,7 @@ from typing import Any, Dict, List, Optional
 logger = logging.getLogger(__name__)
 
 _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-from src.utils.paths import repo_root as _repo_root  # noqa: E402
+from src.utils.paths import repo_root as _repo_root, data_dir as _data_dir  # noqa: E402
 REPO_ROOT = _repo_root()
 
 ACCOUNTS_YAML_PATH = os.path.join(REPO_ROOT, "config", "accounts.yaml")
@@ -49,14 +49,19 @@ _TJ_CANDIDATES = [
 TRADE_JOURNAL_DB = next((p for p in _TJ_CANDIDATES if p and os.path.exists(p)),
                        os.path.join(REPO_ROOT, "trade_journal.db"))
 
-# Signals DB written by src/runtime/signal_writer.py (literal "data/trades.db").
+# Signals DB written by src/runtime/signal_writer.py via data_dir()/"trades.db".
+# On the live VM DATA_DIR=/data/bot-data so the canonical path is
+# /data/bot-data/data/trades.db — NOT <repo>/data/trades.db.
+# The trade_journal.db fallback was removed: it has an incompatible signals
+# schema (logged_at_utc column, not timestamp) that causes the warning
+# "_count_signals_today: no such column: timestamp".
 _SIG_CANDIDATES = [
     os.environ.get("SIGNALS_DB", ""),
-    os.path.join(REPO_ROOT, "data", "trades.db"),
-    os.path.join(REPO_ROOT, "trade_journal.db"),  # legacy combined DB
+    str(_data_dir() / "trades.db"),          # canonical: DATA_DIR/data/trades.db
+    os.path.join(REPO_ROOT, "data", "trades.db"),  # legacy repo-relative fallback
 ]
 SIGNALS_DB = next((p for p in _SIG_CANDIDATES if p and os.path.exists(p)),
-                  os.path.join(REPO_ROOT, "data", "trades.db"))
+                  str(_data_dir() / "trades.db"))
 
 # Strategy → signal_type substring mapping (filters /last5 and /status).
 # Used as a fallback when the registry is unavailable (S-007).
