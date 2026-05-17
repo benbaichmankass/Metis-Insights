@@ -35,6 +35,73 @@ def _publish_liquidity_state(symbol: str, candles_df: Any) -> None:
         logger.exception("liquidity state publish failed for symbol=%s", symbol)
 
 
+# Per-process shadow predictor cache for the vwap signal builder.
+# Keyed by frozenset(shadow_model_ids) so a config reload (different
+# ids) gets a fresh resolution. The coordinator uses its own
+# _shadow_predictors_cache for the order_package path; this cache
+# covers the signal-builder path which bypasses the coordinator.
+_VWAP_SHADOW_CACHE: dict = {}
+
+
+def _emit_vwap_shadow_preds(sig: dict, vwap_cfg: dict, symbol: str) -> None:
+    """Emit shadow predictions for an actionable vwap signal (side=buy/sell).
+
+    Called as a side-effect from vwap_signal_builder. The predictor list
+    is resolved once per unique shadow_model_ids config and cached
+    process-wide. Per WS7: zero effect on order placement or trading
+    decisions — data gathering only.
+
+    Swallows all exceptions so a factory failure never breaks the signal
+    builder hot path.
+    """
+    try:
+        shadow_ids = tuple(vwap_cfg.get("shadow_model_ids") or [])
+        if not shadow_ids:
+            return
+        cache_key = shadow_ids
+        if cache_key not in _VWAP_SHADOW_CACHE:
+            from pathlib import Path
+            from ml.registry.model_registry import ModelRegistry
+            from ml.shadow.factory import (
+                DEFAULT_LOG_PATH,
+                DEFAULT_REGISTRY_ROOT,
+                resolve_predictors,
+            )
+            registry_root = Path(
+                vwap_cfg.get("_shadow_registry_root") or DEFAULT_REGISTRY_ROOT
+            )
+            log_path = Path(
+                vwap_cfg.get("_shadow_log_path") or DEFAULT_LOG_PATH
+            )
+            _VWAP_SHADOW_CACHE[cache_key] = resolve_predictors(
+                list(shadow_ids),
+                ModelRegistry(registry_root),
+                log_path=log_path,
+            )
+        predictors = _VWAP_SHADOW_CACHE[cache_key]
+        if not predictors:
+            return
+        from src.runtime.shadow_adapter import with_shadow_preds
+        meta = sig.get("meta") or {}
+        feature_row = {
+            "strategy_name": "vwap",
+            "symbol": str(sig.get("symbol") or symbol),
+            "direction": "long" if sig.get("side") == "buy" else "short",
+            "confidence": float(
+                sig.get("confidence") or meta.get("confidence") or 0.0
+            ),
+            "setup_type": str(meta.get("setup_type") or ""),
+            "killzone": str(meta.get("killzone") or ""),
+        }
+        with_shadow_preds(
+            sig,
+            predictors=predictors,
+            feature_row=feature_row,
+        )
+    except Exception:  # noqa: BLE001
+        logger.warning("VWAP: shadow prediction emit failed", exc_info=False)
+
+
 def turtle_soup_signal_builder(settings: dict) -> Dict[str, Any]:
     """Sweep + reversal at 15m. S-012 PR C3 wires it into the multiplexer.
 
@@ -468,6 +535,14 @@ def vwap_signal_builder(settings: dict) -> Dict[str, Any]:
             kwargs["recent_context_neutral_band_pct"] = float(neutral_band)
 
     sig = build_vwap_signal(candles_df, **kwargs)
+
+    # Shadow predictions: emit on every actionable vwap signal regardless
+    # of the pipeline-level open-package gate (which fires after signal
+    # generation and would otherwise suppress all shadow data while a
+    # trade is open). Per WS7: zero effect on order placement.
+    if sig.get("side") in ("buy", "sell"):
+        _emit_vwap_shadow_preds(sig, vwap_cfg, symbol)
+
     # Mirror turtle_soup's per-tick audit row (event=turtle_soup_eval at
     # L482-491 / L518-531 of the original pipeline.py). VWAP previously
     # emitted nothing on flat ticks, leaving operators with no way to

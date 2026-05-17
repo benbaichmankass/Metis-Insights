@@ -2830,6 +2830,18 @@ def _close_trade_from_order_status(
             "exit_price": avg_exit_price,
             "notes": json.dumps(notes, ensure_ascii=False)[:500],
         }
+        _closed_pnl_val = closed_pnl_rec.get("closed_pnl")
+        if _closed_pnl_val is not None:
+            try:
+                updates["pnl"] = float(_closed_pnl_val)
+                _entry = _safe_float(row.get("entry_price"))
+                _qty = _safe_float(row.get("position_size"))
+                if _entry and _qty and _entry * _qty > 0:
+                    updates["pnl_percent"] = round(
+                        float(_closed_pnl_val) / (_entry * _qty) * 100, 4
+                    )
+            except (TypeError, ValueError):
+                pass
     else:
         # Fallback: gate clears but exit_price stays NULL with the
         # unreliable-source flag (pre-2026-05-16 contract preserved

@@ -27,18 +27,21 @@ Safety:
   filled, NULL is correct.
 - Backtest rows (is_backtest=1) are left alone for the same reason.
 
-Mirrors the gross-PnL formula in src/runtime/order_monitor.py
-::_compute_close_pnl. Fees are not deducted; the
-exchange-truth-attribution reconciler handles net-of-fees PnL
-separately.
+PnL source priority:
+1. ``notes.bybit_closed_pnl`` — net-of-fees PnL from Bybit's
+   closed-pnl API (written by the reconciler path since
+   2026-05-16). Most accurate.
+2. Gross-PnL formula from entry/exit/size. Fees not deducted; the
+   pnl_percent is computed from the same position notional.
 """
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import sqlite3
 import sys
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 
 def _connect(db_path: str) -> sqlite3.Connection:
@@ -52,7 +55,7 @@ def _candidate_rows(conn: sqlite3.Connection) -> List[sqlite3.Row]:
         """
         SELECT id, symbol, direction, entry_price, exit_price,
                position_size, status, pnl, pnl_percent, is_backtest,
-               strategy_name, account_id, timestamp
+               strategy_name, account_id, timestamp, notes
         FROM trades
         WHERE status = 'closed'
           AND pnl IS NULL
@@ -66,6 +69,19 @@ def _candidate_rows(conn: sqlite3.Connection) -> List[sqlite3.Row]:
     return cur.fetchall()
 
 
+def _bybit_closed_pnl_from_notes(row: sqlite3.Row) -> Optional[float]:
+    """Return notes.bybit_closed_pnl if present, else None."""
+    try:
+        notes_raw = row["notes"]
+        if not notes_raw:
+            return None
+        notes = json.loads(notes_raw)
+        val = notes.get("bybit_closed_pnl")
+        return float(val) if val is not None else None
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return None
+
+
 def _compute(row: sqlite3.Row) -> Dict[str, float] | None:
     direction = (row["direction"] or "").lower()
     try:
@@ -74,19 +90,30 @@ def _compute(row: sqlite3.Row) -> Dict[str, float] | None:
         size = float(row["position_size"])
     except (TypeError, ValueError):
         return None
+    notional = entry * size
+    if notional == 0:
+        return None
+
+    # Prefer net-of-fees Bybit figure when the reconciler stored it.
+    bybit_pnl = _bybit_closed_pnl_from_notes(row)
+    if bybit_pnl is not None:
+        return {
+            "pnl": round(bybit_pnl, 8),
+            "pnl_percent": round(bybit_pnl / notional * 100.0, 4),
+            "_source": "bybit_closed_pnl",
+        }
+
     if direction == "long":
         gross_pnl = (exit_p - entry) * size
     elif direction == "short":
         gross_pnl = (entry - exit_p) * size
     else:
         return None
-    notional = entry * size
-    if notional == 0:
-        return None
     pnl_percent = (gross_pnl / notional) * 100.0
     return {
         "pnl": round(gross_pnl, 2),
         "pnl_percent": round(pnl_percent, 4),
+        "_source": "gross_formula",
     }
 
 
@@ -135,7 +162,8 @@ def main() -> int:
               f"{row['symbol']:<10} "
               f"entry={row['entry_price']:.2f} exit={row['exit_price']:.2f} "
               f"size={row['position_size']:.4f} "
-              f"→ pnl={u['pnl']:+.2f} pnl_percent={u['pnl_percent']:+.4f}")
+              f"→ pnl={u['pnl']:+.8f} pnl_percent={u['pnl_percent']:+.4f}"
+              f" [{u.get('_source', 'gross_formula')}]")
     if len(updates) > 10:
         print(f"  ... and {len(updates) - 10} more")
     print()
@@ -156,6 +184,7 @@ def main() -> int:
             "WHERE id = ? AND pnl IS NULL",
             (u["pnl"], u["pnl_percent"], trade_id),
         )
+        # _source is metadata for display only, not a DB column
     conn.commit()
     print(f"wrote {len(updates)} rows.")
     return 0
