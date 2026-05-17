@@ -63,10 +63,14 @@ write_files:
       # Defers to scripts/ops/run_training_cycle.sh inside the cloned
       # repo. That script is the operator-facing entrypoint; it can
       # call ml.cli, run experiment manifests, sync from the live VM,
-      # etc. The script does NOT yet exist on `main` — it's a
-      # placeholder filed for a follow-up PR. Until the script lands,
-      # `systemctl start ict-trainer.service` will fail loudly and
-      # the unit will stay inactive, which is the intended safety.
+      # etc.
+      #
+      # Backtest sweeps (post-incident validation, ad-hoc cadence
+      # sweeps, etc.) use a separate orchestrator —
+      # scripts/ops/run_backtest_sweep.sh + docs/runbooks/trainer-
+      # backtest.md. That orchestrator can run without the
+      # ict-trainer.service systemd unit being enabled; the unit is
+      # for scheduled training cycles, not interactive backtests.
       [Unit]
       Description=ICT model training center (S-AI-WS9)
       After=network-online.target
@@ -173,6 +177,12 @@ runcmd:
   # Sanity check: print Python + repo state to /var/log/cloud-init-output.log
   - python3.11 --version
   - sudo -u ubuntu sh -c "cd /home/ubuntu/ict-trading-bot && git log -1 --oneline"
+  # Bootstrap the trainer venv with runtime + backtest deps so an
+  # interactive backtest sweep can run immediately on a fresh
+  # provision. Idempotent: re-runs are no-ops. The
+  # ict-trainer.service systemd unit independently bootstraps if
+  # missing (see scripts/ops/run_training_cycle.sh § Venv).
+  - sudo -u ubuntu bash /home/ubuntu/ict-trading-bot/scripts/ops/trainer_bootstrap.sh || true
 
 final_message: |
   ICT training-center VM bootstrap complete (S-AI-WS9).
