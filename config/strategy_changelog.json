@@ -1,6 +1,11 @@
 {
   "vwap": [
     {
+      "date": "2026-05-17",
+      "ref": "post-incident validation (issue #1370)",
+      "summary": "Reverted ENTRY_STD_THRESHOLD 1.5σ → 1.0σ (undoing PR #1205) and SL_STD_MULT_DEFAULT 0.75σ → 0.5σ (undoing PR #1183). The 2026-05-17 backtest sweep across 3.16 years of BTCUSDT 5m with the HTF 4h ±2% gate present showed V_1175_htf_only (1.0σ entry, 0.5σ SL) Total R +411.8 vs V_PROD (1.5σ, 0.75σ SL) +133.1 — 3× advantage on the same dataset. The 2026-05-15 #1200 sweep that justified 1.5σ was run without the HTF gate; once the gate is present the optimum shifts. SL widening hurt in both gate regimes."
+    },
+    {
       "date": "2026-05-15",
       "ref": "shadow regime-classifier",
       "summary": "Wired regime-classifier-baseline-v0 as a shadow predictor on VWAP signals (zero production effect — predictions logged to runtime_logs/shadow_predictions.jsonl only). Promoted to `shadow` stage via trainer-vm-diag #1203. Macro_f1=0.33 on n=4147, f1_range=0.62 — gathering 30 days of data to correlate model-says-range with VWAP winners"

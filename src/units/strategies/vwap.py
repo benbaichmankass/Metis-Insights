@@ -111,8 +111,8 @@ MONITOR_HOLD_WINDOW_MINUTES = 240
 #   * MIN_R_FOR_VWAP_CROSS — vwap_cross is allowed only when the
 #     trade has captured at least this many R-multiples (where
 #     R = |entry - sl|). 0.25R chosen to cover Bybit linear taker
-#     fees (~0.11% round-trip on the 0.5σ-to-0.75σ stop distance
-#     we now run) with margin to spare. Operators can override via
+#     fees (~0.11% round-trip on the 0.5σ stop distance we now run)
+#     with margin to spare. Operators can override via
 #     ``config/strategies.yaml`` ``min_r_for_vwap_cross``. Set to 0
 #     to restore v1 "any cross closes" behaviour.
 #
@@ -152,27 +152,28 @@ MIN_HOLD_MINUTES_FOR_VWAP_CROSS_DEFAULT = 10.0
 # the right next move is a fresh threshold sweep on out-of-sample data,
 # not silently bumping the constant back up.
 #
-# 2026-05-15 raised 1.0σ → 1.5σ following issue #1200 threshold sweep on
-# the same 8 random 30-day windows used in #1192 (May 2025-April 2026, no
-# HTF gate):
+# 2026-05-17 set to 1.0σ following the post-incident validation backtest
+# (issue #1370, full table in `experiments/2026-05-17-post-incident-
+# validation/SUMMARY.md`). With the HTF 4h ±2% gate present, the
+# threshold/SL ablation across 3.16 years of BTCUSDT 5m data showed:
 #
-#   threshold | mean Sharpe | mean total R | win% | positive/8
-#   ---------|------------|--------------|------|----------
-#   0.8σ     |   0.002    |    1.08      | 38.3%|    3
-#   1.0σ     |   0.011    |    6.02      | 37.2%|    3
-#   1.2σ     |   0.005    |    2.73      | 35.2%|    3
-#   1.5σ ★   |   0.015    |    6.38      | 33.8%|    4
-#   2.0σ     |  -0.016    |   -5.08      | 29.5%|    4 (collapses)
+#   variant                           | Total R | Sharpe | Win % | DD R
+#   ----------------------------------|---------|--------|-------|------
+#   V_1175_htf_only (1.0σ, SL 0.5σ)   | +411.8  | +2.82  | 26.2% | -55.2
+#   V_1175_1183_htf_sl (1.0σ, SL 0.75)| +148.7  | +1.34  | 33.1% | -76.7
+#   V_PROD (1.5σ, SL 0.75)            | +133.1  | +1.38  | 30.7% | -52.5
 #
-# 1.5σ has the highest mean Sharpe, the highest mean total R, and the most
-# positive windows (4/8 vs 1.0σ's 3/8). The 38-month V6 result
-# (`experiments/2026-05-08-all-models-training/RECOMMENDATIONS.md`) showed
-# the same ordering — 1.5σ Sharpe +0.21 vs 1.0σ -0.39 — so this isn't
-# overfitting to a single regime. 2.0σ collapses because the trade count
-# drops below 200/window and the residual variance dominates. Cadence at
-# 1.5σ drops ~30% (387 → 295 mean trades/30d), which the operator has
-# previously accepted as the right trade-off for the v2 fixes.
-ENTRY_STD_THRESHOLD = 1.5
+# The 2026-05-15 #1200 sweep that justified 1.5σ was run **without** the
+# HTF gate; once the HTF gate is in place the picture flips and 1.0σ
+# dominates by 3× on total R. This isn't reverting a wrong decision —
+# both decisions optimised correctly for the regime they were measured
+# in. SL widening (PR #1183) hurts in both regimes.
+#
+# Prior values for the record: 1.0σ (2026-05-03 directive, default) →
+# 2.0σ briefly during the 2026-05-09 cadence audit → 1.0σ again later
+# 2026-05-09 → 1.5σ on 2026-05-15 (PR #1205) → 1.0σ on 2026-05-17 (this
+# revert).
+ENTRY_STD_THRESHOLD = 1.0
 
 # Internal alias retained for backwards-compatible imports.
 _ENTRY_STD_THRESHOLD = ENTRY_STD_THRESHOLD
@@ -195,24 +196,23 @@ _ENTRY_STD_THRESHOLD = ENTRY_STD_THRESHOLD
 # So R/R (reward:risk) at the entry boundary equals
 # ENTRY_STD_THRESHOLD / SL_STD_MULT.
 #
-# 2026-05-03 operator directive (CP-2026-05-03-20): the strategy must
-# preserve a **risk:reward of 1:2** (reward is twice risk) at the entry
-# boundary while delivering a higher cadence of order packages. To honour
-# both: ENTRY_STD_THRESHOLD reverted from 2.0σ to 1.0σ (above) AND
-# SL_STD_MULT_DEFAULT halved from 1.0 to 0.5 here. Result at the boundary:
-# reward = 1.0 × std_dev, risk = 0.5 × std_dev → reward:risk = 2:1
-# (i.e. risk:reward = 1:2). Operators tuning either value must move the
-# other in lock-step or the R:R contract drifts. Tunable per call via the
-# ``sl_std_mult`` arg to ``build_vwap_signal`` or the matching entry in
-# ``config/strategies.yaml`` (consumed by the pipeline-side
-# vwap_signal_builder when it wires it through).
+# Per the 2026-05-03 operator directive (CP-2026-05-03-20): preserve
+# risk:reward of 1:2 at the entry boundary. At ENTRY_STD_THRESHOLD=1.0σ
+# and SL_STD_MULT_DEFAULT=0.5σ, reward = 1.0 × std_dev / risk = 0.5 ×
+# std_dev → reward:risk = 2:1 (risk:reward = 1:2). Operators tuning
+# either value must move the other in lock-step or the R:R contract
+# drifts. Tunable per call via the ``sl_std_mult`` arg to
+# ``build_vwap_signal`` or the matching entry in
+# ``config/strategies.yaml`` (consumed by vwap_signal_builder).
 #
-# 2026-05-12: raised 0.5 → 0.75. The 0.5 value produced stops tight
-# enough that live price noise was triggering sl_cross before the
-# mean-reversion thesis played out. New boundary R:R at 1.0σ entry:
-# 1.0σ / 0.75σ = 1.33:1 (reward:risk). An ATR-based floor in
-# build_vwap_signal provides an additional noise guard.
-SL_STD_MULT_DEFAULT = 0.75
+# 2026-05-17 reverted to 0.5σ following the post-incident validation
+# backtest (issue #1370). PR #1183 had widened 0.5 → 0.75 on 2026-05-12
+# to combat live "noise stops" before mean-reversion played out, but
+# the 3.16-year backtest with HTF gate present showed the SL widening
+# costs ~63% of total R (V_1175_htf_only +411 R vs V_1175_1183_htf_sl
+# +148 R). The ATR-based floor in build_vwap_signal still provides
+# the noise guard PR #1183 sought, without the R:R contract drift.
+SL_STD_MULT_DEFAULT = 0.5
 
 
 # Phase 2 of the 2026-05-07-vwap-accuracy training run + the
