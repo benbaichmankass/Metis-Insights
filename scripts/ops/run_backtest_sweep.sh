@@ -61,22 +61,26 @@ ICT_TRADER_DATA_ROOT="$DATA_ROOT" \
     "$REPO_ROOT/experiments/2026-05-17-post-incident-validation/scripts/run.py" \
     2>&1 | tee "$OUT_DIR/harness_stdout.log"
 
-# 4. ict_scalp_5m re-validation — fed the same 3-year qashdev parquet
-# (converted to CSV since the existing CLI is CSV-only).
+# 4. ict_scalp_5m re-validation — fed the same qashdev parquet, subsampled
+# to the last 12 months. ict_scalp_5m's CLI is a pure-Python loop and
+# the full 3-year (332k-bar) input overruns the trainer-vm-diag SSH
+# timeout (~5 min). 12 months ≈ 105k bars finishes in ~90 s. PR #1156's
+# original pre-live gate ran on 90 days; 12 months is comfortably wider.
 echo
 echo "--- step 4: ict_scalp_5m re-validation ---"
 ICT_SCALP_CSV="$OUT_DIR/btc_5m_for_ict_scalp.csv"
 ICT_SCALP_JSON="$OUT_DIR/ict_scalp_metrics.json"
 
-# Parquet → CSV with the columns ict_scalp expects (open/high/low/close
-# required, timestamp optional but useful for the date-range report).
-echo "  converting parquet -> CSV for ict_scalp's CSV-only loader..."
+# Parquet → CSV (last 12 months) with the columns ict_scalp expects.
+echo "  converting parquet -> CSV (last 12 months) for ict_scalp's CSV-only loader..."
 "$VENV_DIR/bin/python" - <<PYEOF
 import pandas as pd
 df = pd.read_parquet("$DATA_ROOT/btc_5m.parquet")
 df = df[["timestamp", "open", "high", "low", "close", "volume"]]
+# 12 months at 5m = 12 * 30 * 24 * 12 = 103,680 bars; round up to 105_120.
+df = df.iloc[-105_120:].copy()
 df.to_csv("$ICT_SCALP_CSV", index=False)
-print(f"  wrote {len(df):,} rows -> $ICT_SCALP_CSV ({pd.io.common.file_path_to_url('$ICT_SCALP_CSV')})")
+print(f"  wrote {len(df):,} rows -> $ICT_SCALP_CSV")
 print(f"  range: {df['timestamp'].iloc[0]} -> {df['timestamp'].iloc[-1]}")
 PYEOF
 
