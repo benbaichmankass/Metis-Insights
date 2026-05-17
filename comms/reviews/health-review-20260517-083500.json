@@ -1,0 +1,145 @@
+{
+  "request_id": "REQ-20260517-083500-manual-health-review",
+  "reviewed_at": "2026-05-17T08:50:00+00:00",
+  "reviewer": "claude",
+  "overall_assessment": "investigate",
+  "findings": {
+    "heartbeat": {
+      "status": "ok",
+      "note": "Age 13.85s at snapshot (08:35:25 UTC). Well within healthy threshold. No stale-heartbeat alert in the 6h window."
+    },
+    "ticks": {
+      "status": "ok",
+      "note": "Last tick 08:35:25 UTC. Audit tail (05:43–06:26 UTC) shows consistent ~1.2-min cadence; 35 full evaluation cycles with no gaps detected."
+    },
+    "signals": {
+      "status": "ok",
+      "note": "All 3 strategies evaluated every tick in audit tail. 36/36/35 evals for turtle_soup/vwap/ict_scalp respectively. Actionable vwap shorts confirmed by trades #1502, #1503 within 6h window. No silence."
+    },
+    "orders": {
+      "status": "concern",
+      "note": "4× consecutive ErrCode 10001 exchange_rejected at ~00:28 UTC (LONG Buy SL placed above last_price due to fast-drop race). Triggered circuit breaker → bybit_2 dry_run. 3 BUG-049 orphaned pkgs (no linked_trade_id) in window. Post-recovery window has no exchange errors."
+    },
+    "trades": {
+      "status": "watch",
+      "note": "2 live vwap shorts in window: #1503 (reconciler_filled, null PnL needs backfill), #1502 (closed). 3 BUG-049 dry_run orphan packages. Historical 12+ orphaned trades; backfill script ran 04:40 UTC. Monitor close path failed on #1503."
+    },
+    "monitoring": {
+      "status": "concern",
+      "note": "stuck_alert_emitted_at confirmed on pkg-5bfc99dcf62949ff at 05:41:23 UTC (trade #1503 open >30 min). Reconciler_filled recovery path operated instead of standard monitor close. 'Gate was blocked' pattern persists in prior-era trades. Alert generated; delivery unverified."
+    },
+    "sizing": {
+      "status": "ok",
+      "note": "Both live trades at 0.004 BTC. Consistent with bybit_2 config: risk_pct=0.01, leverage=3. No oversize detected."
+    },
+    "api_errors": {
+      "status": "concern",
+      "note": "ErrCode 10001 cluster: 4 consecutive at 00:28 UTC. Root cause: fast price drop between VWAP LONG signal gen and order submission renders SL (set below entry at signal time) above last_price on Bybit. Root cause unresolved; circuit breaker is mitigation only."
+    },
+    "state_consistency": {
+      "status": "watch",
+      "note": "bybit_2 auto-tripped to dry_run by circuit breaker at 00:28 UTC; dry_run active at 6h window open (~02:35 UTC). Recovered to live before trade #1502 entry (~04:00–04:30 UTC est). Recovery mechanism unconfirmed. Current state: live=true matches config."
+    },
+    "alert_delivery": {
+      "status": "watch",
+      "note": "stuck_alert confirmed generated (package metadata). Cannot verify end-to-end delivery: journalctl endpoint timed out (200-line query), bot.log endpoint returns stale 2026-05-03 content (reads head, not tail). Partial confidence only."
+    },
+    "strategy_silence": {
+      "status": "ok",
+      "note": "No silence detected. All 3 strategies active every ~1.2 min throughout 43-min audit tail. No gap >5 min. Cadence uniform."
+    },
+    "db_integrity": {
+      "status": "skip",
+      "note": "Not accessible via FastAPI diag relay (/api/diag/* does not expose DB integrity checks). Requires health_snapshot.txt artifact via workflow_dispatch. Cannot grade this session."
+    },
+    "audit_log_freshness": {
+      "status": "ok",
+      "note": "Last audit event 2026-05-17T06:26:45 UTC. 142 events across 43 min with continuous writes. No stale period detected in captured window."
+    },
+    "trainer_service": {
+      "status": "skip",
+      "note": "Trainer VM not reachable via live-VM diag relay. No trainer_snapshot.txt available this session. Cannot grade."
+    },
+    "trainer_datasets": {
+      "status": "skip",
+      "note": "Trainer VM not reachable via live-VM diag relay. Cannot grade."
+    },
+    "trainer_registry": {
+      "status": "watch",
+      "note": "FU-20260514-001 open: prop-mission-policy-baseline-v0 suspected f1=0 (majority-class collapse). Cannot confirm current registry state without trainer snapshot. Follow-up persists."
+    }
+  },
+  "anomalies": [
+    "CRITICAL: ErrCode 10001 LONG SL race condition — 4 consecutive exchange rejections at ~00:28 UTC triggered circuit breaker. SL set below entry at signal time ends up above last_price when price drops fast between signal gen and order submission. Root cause unresolved; circuit breaker is not a fix.",
+    "bybit_2 dry_run state was active at the 6h window open (estimated 02:35–04:00 UTC). Recovery to live mode mechanism not confirmed in available data (likely bot restart or operator action). 3 BUG-049 orphaned packages created during this interval.",
+    "Trade #1503 null PnL: reconciler_filled exit but pnl_usd not written to journal. backfill_orphan_pnl_script must be run. Same backfill pattern seen on 12+ historical trades; last backfill ran 2026-05-17T04:40 UTC.",
+    "Monitor close path failure on trade #1503: trade open >30 min, stuck_alert emitted 05:41 UTC, closed only via reconciler_filled. The 'gate was blocked' orphan pattern (seen in 12+ earlier trades) suggests a systemic monitor close path issue, not a one-off.",
+    "FU-20260516-001 BLOCKED: shadow prediction observability for vwap cannot be checked this session. /api/bot/shadow/stats is not under /api/diag/ and is not accessible via the diag relay. Manual SSH check required.",
+    "Alert delivery unverifiable: journalctl endpoint timed out on 200-line query; bot.log endpoint reads file head (2026-05-03 content), not tail. No confirmed path to check whether circuit breaker and stuck-trade alerts reached Telegram.",
+    "audit?limit=600 covers only ~43 min at current ~1.2-min tick rate (not 6h). Full 6h audit window requires limit ~6000 or artifact-based review."
+  ],
+  "trade_decision_grades": [
+    {
+      "trade_id": 1502,
+      "timestamp": "2026-05-17T04:30:00+00:00",
+      "symbol": "BTCUSDT",
+      "direction": "short",
+      "setup": "vwap",
+      "entry_price": null,
+      "exit_price": null,
+      "stop_loss": null,
+      "take_profit_1": null,
+      "position_size": 0.004,
+      "exit_reason": "closed",
+      "decision_grade": "B",
+      "entry_quality": "acceptable",
+      "exit_quality": "unknown",
+      "risk_management": "correct",
+      "rationale": "1.76σ short, session VWAP anchor (57 bars), recent_context=down. Above 1.5σ threshold, directional alignment present. Fill prices unavailable; exit path normal (no reconciler flag, no stuck alert).",
+      "alternative_action": "none — all signal criteria met; full fill data needed to grade execution timing"
+    },
+    {
+      "trade_id": 1503,
+      "timestamp": "2026-05-17T04:45:00+00:00",
+      "symbol": "BTCUSDT",
+      "direction": "short",
+      "setup": "vwap",
+      "entry_price": null,
+      "exit_price": null,
+      "stop_loss": null,
+      "take_profit_1": null,
+      "position_size": 0.004,
+      "exit_reason": "reconciler_filled",
+      "decision_grade": "C",
+      "entry_quality": "acceptable",
+      "exit_quality": "unknown",
+      "risk_management": "correct",
+      "rationale": "Strong signal: 2.01σ short, session VWAP anchor (63 bars), recent_context=down. Good entry setup. Penalised: trade stuck >30 min, monitor close failed, exit via reconciler_filled, null PnL. Signal A-grade; execution C.",
+      "alternative_action": "Investigate why monitor close path failed. Run backfill script to recover PnL. If pattern repeats, check reconciler gating logic."
+    }
+  ],
+  "follow_up_evaluations": [
+    {
+      "follow_up_id": "FU-20260511-007",
+      "status": "not_triggered",
+      "notes": "ict-web-api.service active at review time per services snapshot. No fresh unexpected restart observed. Trigger condition (restart without logged shutdown + no Tier-2 dispatch) not confirmed. Follow-up remains open."
+    },
+    {
+      "follow_up_id": "FU-20260511-008",
+      "status": "not_triggered",
+      "notes": "Heartbeat age 13.85s at review time (healthy). No [CRITICAL] heartbeat stale alert in 6h window. Trigger condition not met this cycle. Follow-up remains open for next stale event."
+    },
+    {
+      "follow_up_id": "FU-20260514-001",
+      "status": "triggered_blocked",
+      "notes": "Trigger met: /health-review attempted to grade trainer_registry. BLOCKED: trainer snapshot unavailable via live-VM diag relay. Cannot confirm whether prop-mission-policy-baseline-v0 f1 is still 0. Claude fires trainer-vm-diag relay to check registry if operator wants this resolved now."
+    },
+    {
+      "follow_up_id": "FU-20260516-001",
+      "status": "triggered_blocked",
+      "notes": "Trigger met: actionable vwap_eval events confirmed in 6h window (trades #1502, #1503 are vwap shorts) AND shadow_model_ids=['regime-classifier-baseline-v0'] non-empty. BLOCKED: /api/bot/shadow/stats not accessible via /api/diag/ relay. Cannot cross-tab audit actionable count vs shadow stats. Requires manual SSH or addition of shadow/stats to diag allowlist."
+    }
+  ],
+  "recommended_action": "1) Fix ErrCode 10001 LONG SL race condition: before submitting a Buy order, re-fetch last_price and assert SL < last_price; abort with cause if not (do not auto-flip account mode). 2) Run backfill_orphan_pnl_script for trade #1503 null PnL. 3) Confirm bybit_2 live-mode recovery path and document it — if circuit breaker auto-trip is still present in code, remove it per Prime Directive (no auto-flip). 4) Manually SSH to check /api/bot/shadow/stats to resolve FU-20260516-001, or add shadow/stats to diag relay allowlist. 5) Investigate monitor close path failure pattern on trade #1503 and the 12+ historical 'gate was blocked' trades.",
+  "operator_attention_required": true
+}
