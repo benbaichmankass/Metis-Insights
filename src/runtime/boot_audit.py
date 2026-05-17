@@ -139,7 +139,7 @@ def _load_account_cfgs() -> Dict[str, Dict[str, Any]]:
     try:
         from src.config.accounts_loader import load_accounts_dict
         raw = load_accounts_dict()
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001  # allow-silent: best-effort config read; reconciler runs as a no-op on failure
         logger.warning("boot_reconcile: could not load accounts config: %s", exc)
         return {}
     out: Dict[str, Dict[str, Any]] = {}
@@ -171,7 +171,7 @@ def _open_journal_trades(account_id: str, db_path: str) -> List[Dict[str, Any]]:
                 (account_id,),
             ).fetchall()
         return [dict(r) for r in rows]
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001  # allow-silent: best-effort journal read; empty list lets reconciler skip account safely
         logger.warning(
             "boot_reconcile: journal query failed for account=%s: %s",
             account_id, exc,
@@ -211,13 +211,13 @@ def reconcile_journal_vs_exchange_on_boot() -> Dict[str, Any]:
 
     try:
         cfgs = _load_account_cfgs()
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001  # allow-silent: best-effort; config load failure is a no-op not a crash
         logger.warning("boot_reconcile: could not load account configs: %s", exc)
         return summary
 
     try:
         from src.units.accounts.clients import account_open_positions
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001  # allow-silent: import failure means exchange client unavailable; reconciler skips cleanly
         logger.warning("boot_reconcile: could not import account_open_positions: %s", exc)
         return summary
 
@@ -236,7 +236,7 @@ def reconcile_journal_vs_exchange_on_boot() -> Dict[str, Any]:
         # --- journal open trades for this account -------------------------
         try:
             journal_trades = _open_journal_trades(account_id, db_path)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001  # allow-silent: per-account read failure skips that account; never-raise contract
             logger.warning(
                 "boot_reconcile: journal query error for account=%s: %s",
                 account_id, exc,
@@ -247,7 +247,7 @@ def reconcile_journal_vs_exchange_on_boot() -> Dict[str, Any]:
         # --- live positions from Bybit -------------------------------------
         try:
             positions = account_open_positions(cfg)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001  # allow-silent: exchange call failure skips account; never-raise contract
             logger.warning(
                 "boot_reconcile: exchange query error for account=%s: %s",
                 account_id, exc,
@@ -329,5 +329,5 @@ def _send_ghost_alert(ghosts: List[str]) -> None:
     try:
         from src.runtime.notify import send_telegram_direct
         send_telegram_direct(message, parse_mode=None)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001  # allow-silent: Telegram send failure must never suppress the log entries already written
         logger.warning("boot_reconcile: Telegram ghost alert failed: %s", exc)

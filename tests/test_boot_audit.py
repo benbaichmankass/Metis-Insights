@@ -14,6 +14,7 @@ Three contracts under test:
 from __future__ import annotations
 
 import logging
+import sqlite3 as _sqlite3
 
 import pytest
 
@@ -266,8 +267,6 @@ def test_query_failure_renders_in_ping_body(tmp_journal, monkeypatch):
 # ---------------------------------------------------------------------------
 # Sprint A-3: reconcile_journal_vs_exchange_on_boot
 # ---------------------------------------------------------------------------
-
-import sqlite3 as _sqlite3
 
 
 def _make_journal_with_open_trade(tmp_path, *, account_id="bybit_2", symbol="BTCUSDT"):
