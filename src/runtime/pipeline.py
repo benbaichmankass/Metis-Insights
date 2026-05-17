@@ -163,19 +163,24 @@ STRATEGIES = _strategies_from_registry()
 # account's per-trade risk; the daily-loss cap is the system-wide
 # bound on total drawdown.
 #
-# Production roster + their per-strategy fractions:
-#   * turtle_soup — 0.5: higher-conviction MTF setup
-#   * vwap         — 0.5: higher-frequency mean reversion
-#   * ict_scalp_5m — 0.3: scalp, smaller risk per trade. Matches the
-#     0.3 % risk fraction documented in config/strategies.yaml so a
-#     YAML reader and the dispatcher agree. Inactive at runtime
-#     until enabled=true in strategies.yaml AND ict_scalp_5m is on
-#     the account's strategies list in accounts.yaml.
-STRATEGY_RISK_PCT: Dict[str, float] = {
-    "turtle_soup": 0.5,
-    "vwap": 0.5,
-    "ict_scalp_5m": 0.3,
-}
+# B-1: loaded from config/strategies.yaml (``risk_pct`` field per strategy)
+# so there is a single source of truth. The hardcoded fallback dict fires
+# only if the registry is unavailable at startup (e.g. missing pyyaml).
+def _strategy_risk_pcts_from_registry() -> Dict[str, float]:
+    try:
+        from src.strategy_registry import load_strategies
+        return {
+            s["name"]: float(s.get("risk_pct") or 1.0)
+            for s in load_strategies()
+        }
+    except Exception as exc:
+        logger.warning(
+            "pipeline: registry unavailable for risk_pct, using hardcoded fallback: %s", exc
+        )
+        return {"turtle_soup": 0.5, "vwap": 1.0, "ict_scalp_5m": 0.3}
+
+
+STRATEGY_RISK_PCT: Dict[str, float] = _strategy_risk_pcts_from_registry()
 
 _STRATEGY_BUILDERS: Dict[str, Callable[[dict], Dict[str, Any]]] = {
     "turtle_soup": turtle_soup_signal_builder,
