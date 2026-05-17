@@ -429,6 +429,17 @@ def main() -> None:
     settings = build_settings_from_env()
 
     validate_startup()
+
+    # D-3: enable WAL on the trade journal so the pipeline writer, order
+    # monitor reader, dashboard API, and diag relay can run concurrently
+    # without "database is locked" contention. Persistent at the file
+    # level — idempotent on every boot. Best-effort; never blocks start.
+    try:
+        from src.utils.db_init import enable_wal_mode
+        enable_wal_mode()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("WAL enable skipped: %s", exc)
+
     # Operator directive 2026-05-03 — dry/live mode is no longer in env.
     # Per-account ``mode: live | dry_run`` in config/accounts.yaml is the
     # only toggle (see RiskManager.dry_run). Startup logs only report

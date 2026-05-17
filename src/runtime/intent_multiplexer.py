@@ -252,11 +252,17 @@ def _desired_to_pipeline_signal(
 
 
 def intent_multiplexer_enabled(settings: dict) -> bool:
-    """Operator opt-in for the intent-aware multiplexer.
+    """Operator opt-out for the intent-aware multiplexer.
 
-    Default is **off** so this PR alone does not change live behaviour.
-    Flip via ``MULTI_STRATEGY_INTENT_LAYER=true`` in the live trader's
-    environment after operator approval.
+    D-1: default flipped to **on** (2026-05-17). The legacy first-wins
+    multiplexer let a turtle_soup signal on the same tick globally
+    suppress a vwap signal, so vwap never reached bybit_2 (its only
+    trading account) when both fired together. Intent layer produces
+    one DesiredPosition per strategy; each routes to its assigned
+    account per ``account.strategies``.
+
+    Set ``MULTI_STRATEGY_INTENT_LAYER=false`` (env or settings dict)
+    to roll back to the legacy path without a code change.
     """
     raw = (
         settings.get("MULTI_STRATEGY_INTENT_LAYER")
@@ -264,7 +270,7 @@ def intent_multiplexer_enabled(settings: dict) -> bool:
         else None
     )
     if raw is None:
-        raw = os.environ.get("MULTI_STRATEGY_INTENT_LAYER", "false")
+        raw = os.environ.get("MULTI_STRATEGY_INTENT_LAYER", "true")
     return str(raw).strip().lower() in {"true", "1", "yes", "on"}
 
 

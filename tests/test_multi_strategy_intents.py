@@ -745,17 +745,20 @@ class TestMultiplexerWiring:
 
 
 class TestMultiplexerEnableFlag:
-    def test_default_off(self, monkeypatch):
+    def test_default_on(self, monkeypatch):
+        # D-1 (2026-05-17): default flipped from off → on.
         monkeypatch.delenv("MULTI_STRATEGY_INTENT_LAYER", raising=False)
-        assert intent_multiplexer_enabled({}) is False
-
-    def test_settings_overrides_env(self, monkeypatch):
-        monkeypatch.delenv("MULTI_STRATEGY_INTENT_LAYER", raising=False)
-        assert intent_multiplexer_enabled({"MULTI_STRATEGY_INTENT_LAYER": "true"}) is True
-
-    def test_env_can_enable(self, monkeypatch):
-        monkeypatch.setenv("MULTI_STRATEGY_INTENT_LAYER", "true")
         assert intent_multiplexer_enabled({}) is True
+
+    def test_settings_can_disable(self, monkeypatch):
+        # Rollback path: settings dict explicitly disables.
+        monkeypatch.delenv("MULTI_STRATEGY_INTENT_LAYER", raising=False)
+        assert intent_multiplexer_enabled({"MULTI_STRATEGY_INTENT_LAYER": "false"}) is False
+
+    def test_env_can_disable(self, monkeypatch):
+        # Rollback path: env var explicitly disables.
+        monkeypatch.setenv("MULTI_STRATEGY_INTENT_LAYER", "false")
+        assert intent_multiplexer_enabled({}) is False
 
 
 class TestDesiredToPipelineSignal:
