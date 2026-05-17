@@ -670,6 +670,25 @@ class TestStrategyDashboardData:
         rows = dl.strategy_dashboard_data(["vwap"])
         assert rows[0]["signals_today"] == 2
 
+    def test_signals_today_returns_zero_for_incompatible_schema(self, tmp_path, monkeypatch):
+        # Regression test for "no such column: timestamp" warning.
+        # trade_journal.db has a signals table with logged_at_utc (not timestamp).
+        # _count_signals_today must return 0 gracefully instead of logging a warning.
+        bad_db = str(tmp_path / "trade_journal.db")
+        conn = sqlite3.connect(bad_db)
+        conn.execute(
+            "CREATE TABLE signals "
+            "(id INTEGER PRIMARY KEY, logged_at_utc TEXT NOT NULL, "
+            "strategy TEXT, symbol TEXT, side TEXT)"
+        )
+        conn.commit()
+        conn.close()
+        monkeypatch.setattr(dl, "SIGNALS_DB", bad_db)
+        monkeypatch.setattr(dl, "TRADE_JOURNAL_DB", str(tmp_path / "notj.db"))
+        # Must not raise; returns 0 silently (warning is acceptable, exception is not)
+        rows = dl.strategy_dashboard_data(["vwap"])
+        assert rows[0]["signals_today"] == 0
+
     def test_pnl_sums_closed_trades_today(self, tmp_path, monkeypatch):
         from datetime import date
         today = date.today().isoformat() + "T10:00:00"
