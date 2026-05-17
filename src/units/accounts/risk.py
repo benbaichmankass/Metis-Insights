@@ -31,10 +31,21 @@ Sizing inputs (also from the ``risk`` section):
   - leverage: per-account leverage for linear-perp accounts (PR 3
     cutover). 0 means "not configured" — set_leverage is skipped at
     startup. Cash spot accounts ignore this field.
+
+State persistence (A-1):
+  - daily_pnl and daily_high_equity are written to a ``daily_risk_state``
+    table in the trade journal DB on every change and reloaded on startup.
+  - Persistence is keyed by ``account_id`` (the YAML account name, e.g.
+    "bybit_2"). When ``account_id`` is empty the manager runs in-memory
+    only (backward-compatible with existing tests and one-off callers).
+  - DB path: TRADE_JOURNAL_DB env var, falling back to
+    /data/bot-data/trade_journal.db (production default).
+  - All DB ops are best-effort — a failure never blocks a trade.
 """
 from __future__ import annotations
 
 import math
+import os
 from datetime import datetime, timezone
 from typing import Any, Optional
 from src.core.coordinator import OrderPackage
@@ -54,6 +65,19 @@ _DEFAULT_TEST_QTY = 0.0001
 # would push the resulting position into a margin-call state.
 # 0.9 = use up to 90% of available margin for a new position.
 _MARGIN_SAFETY_BUFFER = 0.9
+
+# Production trade-journal path (matches coordinator.py + deploy).
+_DEFAULT_DB_PATH = "/data/bot-data/trade_journal.db"
+
+_CREATE_DAILY_RISK_STATE = """
+CREATE TABLE IF NOT EXISTS daily_risk_state (
+    account_id       TEXT NOT NULL,
+    date             TEXT NOT NULL,
+    daily_pnl        REAL NOT NULL DEFAULT 0.0,
+    daily_high_equity REAL,
+    PRIMARY KEY (account_id, date)
+)
+"""
 
 
 def _is_test_order(pkg: "OrderPackage") -> bool:
@@ -149,7 +173,13 @@ class RiskManager:
         Maximum single-position size in USD (e.g., 500).
     """
 
-    def __init__(self, config: dict, *, dry_run: bool = False) -> None:
+    def __init__(
+        self,
+        config: dict,
+        *,
+        dry_run: bool = False,
+        account_id: str = "",
+    ) -> None:
         self.max_dd_pct: float = float(config.get("max_dd_pct", 0.05))
         self.max_daily_loss_usd: float = float(config.get("daily_usd", 100.0))
         self.max_pos_size_usd: float = float(config.get("pos_size", 500.0))
@@ -162,14 +192,74 @@ class RiskManager:
         # margin pre-flight cap (see method docstring).
         self.leverage: int = int(config.get("leverage", 0) or 0)
         self.dry_run: bool = bool(dry_run)
+        # A-1: account name used as the persistence key. Empty string
+        # disables persistence (backward-compat for tests + one-off callers).
+        self.account_id: str = account_id
         self.daily_pnl: float = 0.0
         self.current_equity: Optional[float] = None
         self.daily_high_equity: Optional[float] = None
         self._last_reset_utc_date: Optional[Any] = self._today_utc()
+        # Restore daily_pnl + daily_high_equity from the previous run.
+        self._load_daily_state()
 
     @staticmethod
     def _today_utc():
         return datetime.now(timezone.utc).date()
+
+    @staticmethod
+    def _risk_db_path() -> str:
+        return os.environ.get("TRADE_JOURNAL_DB") or _DEFAULT_DB_PATH
+
+    def _ensure_state_table(self, conn: Any) -> None:
+        conn.execute(_CREATE_DAILY_RISK_STATE)
+
+    def _load_daily_state(self) -> None:
+        """Restore today's daily_pnl + daily_high_equity from SQLite.
+
+        No-op when account_id is empty or the DB is unavailable.
+        """
+        if not self.account_id:
+            return
+        try:
+            import sqlite3
+            today = str(self._today_utc())
+            with sqlite3.connect(self._risk_db_path(), timeout=5) as conn:
+                self._ensure_state_table(conn)
+                row = conn.execute(
+                    "SELECT daily_pnl, daily_high_equity "
+                    "FROM daily_risk_state "
+                    "WHERE account_id=? AND date=?",
+                    (self.account_id, today),
+                ).fetchone()
+            if row:
+                self.daily_pnl = float(row[0])
+                self.daily_high_equity = float(row[1]) if row[1] is not None else None
+        except Exception:
+            pass  # DB unavailable at startup — stay in-memory
+
+    def _save_daily_state(self) -> None:
+        """Persist current daily_pnl + daily_high_equity to SQLite.
+
+        Best-effort — a DB write failure never blocks a trade.
+        """
+        if not self.account_id:
+            return
+        try:
+            import sqlite3
+            today = str(self._today_utc())
+            with sqlite3.connect(self._risk_db_path(), timeout=5) as conn:
+                self._ensure_state_table(conn)
+                conn.execute(
+                    """INSERT INTO daily_risk_state
+                           (account_id, date, daily_pnl, daily_high_equity)
+                       VALUES (?, ?, ?, ?)
+                       ON CONFLICT(account_id, date) DO UPDATE SET
+                           daily_pnl=excluded.daily_pnl,
+                           daily_high_equity=excluded.daily_high_equity""",
+                    (self.account_id, today, self.daily_pnl, self.daily_high_equity),
+                )
+        except Exception:
+            pass  # Best-effort — never let a DB write stop a trade
 
     def _maybe_roll_daily(self) -> None:
         today = self._today_utc()
@@ -177,6 +267,7 @@ class RiskManager:
             self.daily_pnl = 0.0
             self.daily_high_equity = self.current_equity
             self._last_reset_utc_date = today
+            self._save_daily_state()
 
     def update_equity(self, equity_usd: float) -> None:
         self._maybe_roll_daily()
@@ -225,6 +316,7 @@ class RiskManager:
     def record_trade_result(self, pnl_usd: float) -> None:
         self._maybe_roll_daily()
         self.daily_pnl += pnl_usd
+        self._save_daily_state()
 
     def position_size(
         self,
@@ -335,6 +427,7 @@ class RiskManager:
         self.daily_pnl = 0.0
         self.daily_high_equity = self.current_equity
         self._last_reset_utc_date = self._today_utc()
+        self._save_daily_state()
 
     def report(self) -> dict:
         dd = self.intraday_drawdown()
