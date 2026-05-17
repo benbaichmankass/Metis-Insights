@@ -57,6 +57,13 @@ if not OLD_HARNESS_PATH.exists():
 sys.path.insert(0, str(REPO_ROOT))
 _spec = importlib.util.spec_from_file_location("old_harness", OLD_HARNESS_PATH)
 old = importlib.util.module_from_spec(_spec)
+# Register in sys.modules BEFORE exec_module. The 2026-05-08 run.py
+# defines Metrics with @dataclass; the dataclass decorator does
+# sys.modules.get(cls.__module__) internally and crashes with
+# AttributeError if the module is not registered. This is the
+# canonical importlib pattern documented at
+# https://docs.python.org/3/library/importlib.html#importing-a-source-file-directly.
+sys.modules["old_harness"] = old
 _spec.loader.exec_module(old)
 
 # Reuse engine surface
