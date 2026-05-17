@@ -231,3 +231,74 @@ contradictions.") and mirrored into `docs/CLAUDE-RULES-CANONICAL.md`
   reconcile the docs, not to mechanically gate around the failure.
 - No follow_up entry filed in `comms/follow_ups.json` — the canonical
   record lives here in this addendum and in the revert PR.
+
+---
+
+## Closure (2026-05-17, follow-up sprint S-TRAINER-BT-1)
+
+The PR #1358 incident response continued past the immediate revert
+(PR #1364) into the broader question: *did production vwap +
+turtle_soup + ict_scalp v2 actually deserve to be running?* The
+answer is "yes for ict_scalp; mostly yes for vwap with one
+substantive tuning correction; yes for turtle_soup." Documented
+fully in [`S-TRAINER-BT-1.md`](S-TRAINER-BT-1.md); summary here.
+
+### Three follow-up PRs landed in the same day
+
+| PR | What | Tier | Merged |
+|---|---|---|---|
+| **#1364** | Restore `ict_scalp_5m enabled: true` + doc-hygiene rule | Tier 3 | 2026-05-17 |
+| **#1366** | Trainer backtest sweep infrastructure (venv bootstrap, qashdev fetcher, experiment harness, orchestrator, runbook) | Tier 1 | 2026-05-17 |
+| **#1372** | Revert vwap PR #1183 (SL 0.75σ → 0.5σ) + PR #1205 (entry 1.5σ → 1.0σ) based on PR #1366's 3-year ablation evidence | Tier 3 | 2026-05-17 |
+
+PR #1364 closed the immediate Tier-3 violation. PR #1366 built the
+infrastructure that should have existed before any audit finding was
+filed against a strategy parameter (the missing trainer-VM venv was
+the reason no session had run a fresh backtest in weeks). PR #1372
+applied the evidence PR #1366 produced to tune vwap back to its
+empirically-best config.
+
+### Backtest evidence (3.16 years BTCUSDT 5m, issue #1370)
+
+vwap ablation across PR #1175 / #1183 / #1205:
+- **V_1175_htf_only** (1.0σ entry, 0.5σ SL, HTF gate): Total R **+411.8**, Sharpe +2.82, DD -55 R.
+- V_PROD pre-revert (1.5σ entry, 0.75σ SL, HTF gate): Total R +133.1, Sharpe +1.38, DD -52 R.
+
+PR #1175 (HTF gate) is the dominant winning factor (-73 R → +412 R).
+PR #1183 + PR #1205 each net-degraded performance vs the V_1175
+baseline. The PR #1200 sweep that justified PR #1205 was run
+*without* the HTF gate; the optimum shifted once the gate was in
+place. PR #1372 reverts vwap to the V_1175_htf_only params.
+
+ict_scalp_5m v2 (90-day re-validation, issue #1373): 54 trades,
+59.3 % win, +0.382 R expectancy, +20.6 R total, 4.6 R max DD —
+**clears the PR #1156 pre-live gate decisively**. The restore in
+PR #1364 was empirically justified.
+
+### Production deploy
+
+`pull-and-deploy` (#1374) + explicit `restart-bot-service` (#1375)
+dispatched after PR #1372 merged. Post-restart journalctl confirmed:
+- `sl_std_mult: 0.5` in vwap signal meta (was 0.75 pre-deploy).
+- `ict_scalp_5m: no actionable signal (no liquidity sweep in last
+  12 bars)` — active evaluation, no longer `strategy disabled in
+  config/strategies.yaml — returning side=none`.
+
+### Counter-anti-pattern
+
+The PR #1358 incident triggered the "read docs at session start AND
+end, reconcile contradictions" rule (CLAUDE.md STOP banner +
+`docs/CLAUDE-RULES-CANONICAL.md` § Documentation Hygiene & Premise
+Verification). The follow-up sprint S-TRAINER-BT-1 demonstrated the
+positive form: every Tier-3 change in PR #1372 carried explicit
+operator chat approval, a 3-year backtest evidence table, and a
+draft-first-then-merge sequence; every comment near a changed
+constant was updated in the same diff; the doc closure happens in
+its own PR rather than bundled into one of the strategy PRs.
+
+### Audit log closed
+
+This incident's blast radius is fully accounted for. No follow-up
+PRs are pending against the original Tier-3 violation or its
+downstream remediation. Future related work tracks under
+`S-TRAINER-BT-*` if the backtest infrastructure needs extending.
