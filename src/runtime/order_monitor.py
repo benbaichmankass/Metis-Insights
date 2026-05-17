@@ -548,21 +548,44 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
             pkg_id, matched_trade.get("account_id"), ex_result,
         )
         if not ex_result.get("ok"):
-            # Exchange refused or errored. Do NOT touch the DB so the
-            # next monitor tick re-attempts and the strategy-monocle
-            # gate continues to suppress duplicate signals.
             err_str = ex_result.get("error") or "unknown"
-            logger.error(
-                "order_monitor: exchange close failed — leaving DB open. "
-                "pkg=%s account=%s symbol=%s qty=%s error=%s",
-                pkg_id, matched_trade.get("account_id"),
-                matched_trade.get("symbol"),
-                matched_trade.get("position_size"),
-                err_str,
+            # Bybit signals "position already gone" with retCode 30031
+            # (position size is zero) or 110017 / 110025. When the
+            # exchange's internal SL/TP fires before the monitor's close
+            # attempt, we get one of these. Treat as exchange-closed so
+            # the DB is updated and the reconciler doesn't have to clean
+            # up a stale open row.
+            _already_closed = (
+                "position size is zero" in err_str.lower()
+                or "retCode=30031" in err_str
+                or "retCode=110017" in err_str
+                or "retCode=110025" in err_str
             )
-            summary.error_count += 1
-            summary.errors.append(f"{pkg_id}: exchange close failed: {err_str}")
-            return
+            if _already_closed:
+                logger.info(
+                    "order_monitor: exchange reports position already closed "
+                    "(SL/TP fired before monitor) — proceeding with DB update. "
+                    "pkg=%s account=%s error=%s",
+                    pkg_id, matched_trade.get("account_id"), err_str,
+                )
+                # Fall through to DB update as if exchange close succeeded.
+                ex_result = {"ok": True, "skipped": "already_closed_on_exchange",
+                             "exchange_response": None, "exchange_order_id": None,
+                             "error": None}
+            else:
+                # Exchange refused for an unrecognised reason. Leave DB open
+                # so the next monitor tick re-attempts.
+                logger.error(
+                    "order_monitor: exchange close failed — leaving DB open. "
+                    "pkg=%s account=%s symbol=%s qty=%s error=%s",
+                    pkg_id, matched_trade.get("account_id"),
+                    matched_trade.get("symbol"),
+                    matched_trade.get("position_size"),
+                    err_str,
+                )
+                summary.error_count += 1
+                summary.errors.append(f"{pkg_id}: exchange close failed: {err_str}")
+                return
 
         # Exchange close ok (or dry-run skip). Capture the actual fill
         # price from Bybit before writing the DB so the trade row's

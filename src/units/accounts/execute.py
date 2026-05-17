@@ -506,6 +506,37 @@ def _submit_order(client: Any, order: dict, account_cfg: dict) -> str:
                 # Derivatives (linear/inverse) accept SL/TP on Market.
                 kwargs["stopLoss"] = quantize_price(order["sl"], tick)
                 kwargs["takeProfit"] = quantize_price(order["tp"], tick)
+            # ErrCode 10001 guard: for Buy (Long) orders Bybit requires
+            # SL < last_price at submission time. Fast price drops between
+            # signal generation and order arrival can violate this even
+            # when the strategy set SL correctly below the entry price.
+            # Pre-fetch last_price and abort cleanly rather than letting
+            # Bybit reject and increment the exchange_rejected counter.
+            if kwargs.get("side") == "Buy" and not order.get("reduce_only"):
+                try:
+                    _ticker = client.get_tickers(
+                        category=category, symbol=order["symbol"]
+                    )
+                    _last = float(
+                        ((_ticker.get("result") or {}).get("list") or [{}])[0]
+                        .get("lastPrice") or 0
+                    )
+                    _sl = float(kwargs.get("stopLoss") or 0)
+                    if _last > 0 and _sl >= _last:
+                        raise RuntimeError(
+                            f"ErrCode 10001 pre-check: Buy SL {_sl} >= "
+                            f"last_price {_last} for {order['symbol']} — "
+                            "aborting; price moved against signal between "
+                            "generation and submission."
+                        )
+                except RuntimeError:
+                    raise
+                except Exception as _te:
+                    logger.warning(
+                        "_submit_order: SL pre-check ticker fetch failed "
+                        "for %s: %s — proceeding without check",
+                        order["symbol"], _te,
+                    )
             resp = client.place_order(**kwargs)
             return str((resp.get("result") or {}).get("orderId") or uuid.uuid4().hex)
         if exchange == "binance":
