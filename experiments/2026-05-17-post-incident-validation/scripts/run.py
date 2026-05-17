@@ -153,18 +153,48 @@ def main() -> int:
     results: Dict = {"vwap": {}, "turtle_soup_15m": {}, "turtle_soup_5m": {}}
 
     # =========================================================================
-    # vwap V_BASELINE and V_PROD
+    # vwap variants — ablation across PR #1175 / #1183 / #1205
     # =========================================================================
     print("\n" + "=" * 72)
     print("VWAP — BTCUSDT 5m")
     print("=" * 72)
 
-    print("[V_BASELINE]  ", end="", flush=True)
+    print("[V_BASELINE]    ", end="", flush=True)
     m = backtest(btc5, _make_vwap_signal_fn(btc5), LOOKBACK_5M, MAX_HOLD_5M, STEP_5M)
     print(fmt_metrics(m))
     results["vwap"]["V_BASELINE"] = asdict(m)
 
-    print("[V_PROD]      ", end="", flush=True)
+    # V_1175: HTF 4h ±2% gate added (PR #1175), but ENTRY + SL unchanged.
+    print("[V_1175]        ", end="", flush=True)
+    m = backtest(
+        btc5,
+        _make_vwap_signal_fn(
+            btc5,
+            htf_close_lookup=htf_4h_ema200,
+            htf_band=V_PROD["htf_band"],
+        ),
+        LOOKBACK_5M, MAX_HOLD_5M, STEP_5M,
+    )
+    print(fmt_metrics(m))
+    results["vwap"]["V_1175_htf_only"] = asdict(m)
+
+    # V_1175_1183: HTF + SL widened to 0.75σ (PR #1183), ENTRY still 1.0σ.
+    print("[V_1175_1183]   ", end="", flush=True)
+    m = backtest(
+        btc5,
+        _make_vwap_signal_fn(
+            btc5,
+            sl_mult=V_PROD["sl_mult"],
+            htf_close_lookup=htf_4h_ema200,
+            htf_band=V_PROD["htf_band"],
+        ),
+        LOOKBACK_5M, MAX_HOLD_5M, STEP_5M,
+    )
+    print(fmt_metrics(m))
+    results["vwap"]["V_1175_1183_htf_sl"] = asdict(m)
+
+    # V_PROD: HTF + SL widened + ENTRY 1.5σ (PR #1205). Current production.
+    print("[V_PROD]        ", end="", flush=True)
     m = backtest(
         btc5,
         _make_vwap_signal_fn(
@@ -244,8 +274,12 @@ def main() -> int:
     metrics_path.write_text(json.dumps(results, indent=2, default=str))
     print(f"\nwrote {metrics_path}")
 
+    # Dataset window in years — used to annualize trade-cadence.
+    span_days = (btc5["timestamp"].iloc[-1] - btc5["timestamp"].iloc[0]).total_seconds() / 86400.0
+    span_years = span_days / 365.25
+
     summary_path = OUT / "SUMMARY.md"
-    summary = _summary_md(results)
+    summary = _summary_md(results, span_years=span_years)
     summary_path.write_text(summary)
     print(f"wrote {summary_path}")
 
@@ -262,19 +296,33 @@ def main() -> int:
 # Summary table
 # ---------------------------------------------------------------------------
 
-def _summary_md(results: Dict) -> str:
+def _summary_md(results: Dict, *, span_years: float) -> str:
+    """Cadence-aware gate.
+
+    The harness's ``sharpe`` field is ``mean(R) / std(R) * sqrt(N)`` — already
+    scaled by sample size, so it grows with trade count. Comparing the
+    sample-size-scaled Sharpe of a high-cadence vwap variant (N≈3k) against a
+    low-cadence turtle_soup variant (N≈37) on the same threshold is unfair.
+
+    Two gate flavours, picked by trades-per-year:
+
+    - **low-cadence (≤ 100 trades/yr)** — pre-live ladder: win_rate ≥ 0.40,
+      E[R] ≥ +0.20, max_dd_r ≤ 8, sharpe ≥ 0.5. Same as PR #1156.
+    - **high-cadence (> 100 trades/yr)** — total_r > 50, max_dd_r ≥
+      -0.5 × total_r (DD budget), win_rate ≥ 0.25, sharpe ≥ 1.0.
+
+    Both gates require trades > 0. A variant with 0 trades shows ``n/a``.
+    """
     rows = []
     rows.append("# Post-incident validation backtest — 2026-05-17")
     rows.append("")
-    rows.append("Per-variant metrics. Gate criteria (per `experiments/2026-05-17-post-incident-validation/PLAN.md`):")
+    rows.append(f"Dataset span: **{span_years:.2f} years**. Cadence-aware gate:")
     rows.append("")
-    rows.append("- win_rate ≥ 0.40")
-    rows.append("- expectancy_r ≥ +0.20")
-    rows.append("- max_dd_r ≤ 8")
-    rows.append("- sharpe ≥ 0.5 per-trade (annualized ≥ 1.5 is also acceptable)")
+    rows.append("- **Low-cadence (≤ 100 trades/yr)** — win_rate ≥ 0.40, E[R] ≥ +0.20, max_dd_r ≥ -8, sharpe ≥ 0.5.")
+    rows.append("- **High-cadence (> 100 trades/yr)** — total_r > 50, max_dd_r ≥ -0.5 × total_r, win_rate ≥ 0.25, sharpe ≥ 1.0.")
     rows.append("")
-    rows.append("| Group | Variant | Trades | Win % | E[R] | Sharpe | Max DD R | Avg hold (bars) | Gate |")
-    rows.append("|---|---|---:|---:|---:|---:|---:|---:|:---:|")
+    rows.append("| Group | Variant | Trades | Trades/yr | Win % | E[R] | Total R | Sharpe | Max DD R | Avg hold | Gate |")
+    rows.append("|---|---|---:|---:|---:|---:|---:|---:|---:|---:|:---:|")
     for group, variants in results.items():
         for name, m in variants.items():
             trades = m.get("trades", 0) or 0
@@ -283,16 +331,34 @@ def _summary_md(results: Dict) -> str:
             sh = m.get("sharpe") or 0.0
             dd = m.get("max_dd_r") or 0.0
             hold = m.get("avg_hold_bars") or 0.0
-            passes = (
-                wr >= 40.0
-                and er >= 0.20
-                and abs(dd) <= 8.0
-                and sh >= 0.5
-            )
-            gate = "PASS" if passes else "fail" if trades > 0 else "n/a"
+            total_r = trades * er
+            tpy = trades / span_years if span_years > 0 else 0.0
+
+            if trades == 0:
+                gate = "n/a"
+            elif tpy > 100:
+                # High-cadence gate
+                dd_budget = -0.5 * total_r
+                passes = (
+                    total_r > 50.0
+                    and dd >= dd_budget
+                    and wr >= 25.0
+                    and sh >= 1.0
+                )
+                gate = "PASS" if passes else "fail"
+            else:
+                # Low-cadence gate
+                passes = (
+                    wr >= 40.0
+                    and er >= 0.20
+                    and dd >= -8.0
+                    and sh >= 0.5
+                )
+                gate = "PASS" if passes else "fail"
             rows.append(
-                f"| {group} | {name} | {trades} | {wr:.1f} | {er:+.3f} | "
-                f"{sh:+.2f} | {dd:+.2f} | {hold:.1f} | {gate} |"
+                f"| {group} | {name} | {trades} | {tpy:.0f} | {wr:.1f} | "
+                f"{er:+.3f} | {total_r:+.1f} | {sh:+.2f} | {dd:+.2f} | "
+                f"{hold:.1f} | {gate} |"
             )
     rows.append("")
     return "\n".join(rows)

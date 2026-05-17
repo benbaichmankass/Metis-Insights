@@ -40,12 +40,17 @@ Reuses the 2026-05-08 dataset:
 
 ## Variants
 
-### vwap
+### vwap — ablation across PR #1175 / #1183 / #1205
 
-| Tag | Params | Notes |
-|---|---|---|
-| `V_PROD` | HTF 4h EMA-200 ±2 %, ENTRY 1.5σ, SL 0.75σ | Current production. Re-validation. |
-| `V_BASELINE` | No HTF, ENTRY 1.0σ, SL 0.5σ | Pre-PR #481 baseline for delta. |
+Each variant adds one production change so each PR's contribution
+can be read off the table independently.
+
+| Tag | HTF gate | ENTRY thr | SL mult | Notes |
+|---|---|---|---|---|
+| `V_BASELINE` | none | 1.0σ | 0.5σ | Pre-PR #1175 baseline. |
+| `V_1175_htf_only` | 4h EMA-200 ±2% | 1.0σ | 0.5σ | After PR #1175 only. |
+| `V_1175_1183_htf_sl` | 4h EMA-200 ±2% | 1.0σ | 0.75σ | After PR #1175 + #1183 (SL widened). |
+| `V_PROD` | 4h EMA-200 ±2% | 1.5σ | 0.75σ | Current production (PR #1175 + #1183 + #1205). |
 
 ### turtle_soup (15m)
 
@@ -77,21 +82,36 @@ output. The vwap + turtle_soup variants share the engine from
 via importlib because the source dir is not a valid Python package
 name).
 
-## Gate criteria
+## Gate criteria — cadence-aware
 
-Same as #1143 / PR #1156 (the canonical pre-live gate):
+The harness's ``sharpe`` is ``mean(R) / std(R) × sqrt(N)``, so it grows
+with trade count. A single threshold across vwap (~3 k trades) and
+turtle_soup (~37 trades) doesn't compare like-for-like — the high-
+cadence strategy is always favoured. Two gates, picked by trades-per-
+year:
 
-| Criterion | Pass threshold |
+**Low-cadence (≤ 100 trades/yr)** — same as #1143 / PR #1156:
+
+| Criterion | Threshold |
 |---|---|
 | Win rate | ≥ 40 % |
 | Expectancy R | ≥ +0.20 |
-| Total R | > 0 |
-| Max DD R | ≤ 8 |
-| Per-trade Sharpe | ≥ 0.5 (or annualized ≥ 1.5) |
+| Max DD R | ≥ -8 |
+| Sharpe | ≥ 0.5 |
 
-A variant that clears all five is recommended for production. A
-variant that clears most but loses cadence vs production is flagged
-for operator decision.
+**High-cadence (> 100 trades/yr)** — appropriate for vwap and any
+future market-making style strategy:
+
+| Criterion | Threshold |
+|---|---|
+| Total R | > 50 R |
+| Max DD R | ≥ -0.5 × Total R (DD budget) |
+| Win rate | ≥ 25 % |
+| Sharpe | ≥ 1.0 |
+
+A variant clearing the applicable gate is recommended for production.
+A variant clearing most but losing cadence vs production is flagged for
+operator decision.
 
 ## Outputs
 

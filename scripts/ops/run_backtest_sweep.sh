@@ -61,12 +61,27 @@ ICT_TRADER_DATA_ROOT="$DATA_ROOT" \
     "$REPO_ROOT/experiments/2026-05-17-post-incident-validation/scripts/run.py" \
     2>&1 | tee "$OUT_DIR/harness_stdout.log"
 
-# 4. ict_scalp_5m re-validation (separate harness)
+# 4. ict_scalp_5m re-validation — fed the same 3-year qashdev parquet
+# (converted to CSV since the existing CLI is CSV-only).
 echo
 echo "--- step 4: ict_scalp_5m re-validation ---"
+ICT_SCALP_CSV="$OUT_DIR/btc_5m_for_ict_scalp.csv"
 ICT_SCALP_JSON="$OUT_DIR/ict_scalp_metrics.json"
+
+# Parquet → CSV with the columns ict_scalp expects (open/high/low/close
+# required, timestamp optional but useful for the date-range report).
+echo "  converting parquet -> CSV for ict_scalp's CSV-only loader..."
+"$VENV_DIR/bin/python" - <<PYEOF
+import pandas as pd
+df = pd.read_parquet("$DATA_ROOT/btc_5m.parquet")
+df = df[["timestamp", "open", "high", "low", "close", "volume"]]
+df.to_csv("$ICT_SCALP_CSV", index=False)
+print(f"  wrote {len(df):,} rows -> $ICT_SCALP_CSV ({pd.io.common.file_path_to_url('$ICT_SCALP_CSV')})")
+print(f"  range: {df['timestamp'].iloc[0]} -> {df['timestamp'].iloc[-1]}")
+PYEOF
+
 "$VENV_DIR/bin/python" "$REPO_ROOT/scripts/backtest_ict_scalp.py" \
-    --data "$REPO_ROOT/data/backtest_candles.csv" \
+    --data "$ICT_SCALP_CSV" \
     --timeframe 5m \
     --json "$ICT_SCALP_JSON" \
     2>&1 | tee "$OUT_DIR/ict_scalp_stdout.log" || \
