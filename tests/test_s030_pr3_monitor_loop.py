@@ -232,11 +232,13 @@ class TestRunMonitorTick:
         trade = tmp_db.get_trades(filters={"id": trade_id})[0]
         assert trade["status"] == "closed"
         assert trade["exit_price"] == 110.0
-        # gross_pnl = (110 - 100) * 2.0 = 20.0; pnl_percent = 10%
-        assert trade["pnl"] is not None
-        assert trade["pnl_percent"] is not None
-        assert trade["pnl"] == pytest.approx(20.0, abs=0.01)
-        assert trade["pnl_percent"] == pytest.approx(10.0, abs=0.001)
+        # 2026-05-18 SSOT PnL refactor: the monitor close path no
+        # longer computes gross PnL locally. ``pnl`` stays NULL until
+        # ``_sweep_pending_pnl_from_bybit`` fills it from Bybit's
+        # closed-pnl record. See order_monitor.py docstring for
+        # _compute_close_pnl (now-deleted) and the new sweep.
+        assert trade["pnl"] is None
+        assert trade["pnl_percent"] is None
 
     def test_close_path_books_pnl_for_short(self, tmp_db):
         """Short side of the PnL formula — short profits when exit < entry."""
@@ -271,9 +273,12 @@ class TestRunMonitorTick:
             )
 
         trade = tmp_db.get_trades(filters={"id": trade_id})[0]
-        # gross_pnl = (100 - 90) * 2.0 = 20.0
-        assert trade["pnl"] == pytest.approx(20.0, abs=0.01)
-        assert trade["pnl_percent"] == pytest.approx(10.0, abs=0.001)
+        # 2026-05-18 SSOT PnL refactor: pnl stays NULL on close; the
+        # Bybit sweep populates it next tick. See companion update on
+        # the long-side test above.
+        assert trade["pnl"] is None
+        assert trade["pnl_percent"] is None
+        assert trade["exit_price"] == 90.0
 
     def test_close_path_skips_pnl_when_exit_price_missing(self, tmp_db):
         """Verdict without exit_price → status flips, pnl stays NULL."""
@@ -363,3 +368,192 @@ class TestRunMonitorTickDefensive:
         )
         summaries = om.run_monitor_tick(strategies=["vwap"])
         assert summaries == {}
+
+
+# ---------------------------------------------------------------------
+# _sweep_pending_pnl_from_bybit (2026-05-18 SSOT PnL refactor)
+# ---------------------------------------------------------------------
+class TestSweepPendingPnlFromBybit:
+    """The sister sweep that fills pnl from Bybit for any DB-closed
+    row whose pnl is still NULL. Pre-this-PR the monitor close path
+    wrote a fee-blind gross PnL; this PR deletes that write and
+    replaces it with a periodic Bybit lookup. See order_monitor.py
+    docstrings for the architectural directive."""
+
+    def _seed_closed_pending(self, db, *, trade_id_hint=None, **overrides):
+        """Insert a status='closed' row with pnl=NULL (the new
+        steady-state shape between monitor-close and Bybit-sweep)."""
+        row = {
+            "timestamp": "2026-05-18T07:30:00+00:00",
+            "symbol": "BTCUSDT",
+            "direction": "long",
+            "entry_price": 76700.0,
+            "stop_loss": 76600.0,
+            "take_profit_1": 77000.0,
+            "position_size": 0.004,
+            "setup_type": "vwap",
+            "entry_reason": "vwap signal",
+            "status": "closed",
+            "exit_reason": "tp_cross",
+            "exit_price": 76977.6,
+            "is_backtest": 0,
+            "strategy_name": "vwap",
+            "account_id": "bybit_2",
+            "notes": '{"trade_id": "x"}',
+        }
+        row.update(overrides)
+        return db.insert_trade(row)
+
+    def test_sweep_noop_when_recon_disabled(self, tmp_db, monkeypatch):
+        monkeypatch.delenv("MONITOR_RECONCILE_ENABLED", raising=False)
+        self._seed_closed_pending(tmp_db)
+        summary = om._sweep_pending_pnl_from_bybit(tmp_db)
+        assert summary == {
+            "scanned": 0, "filled": 0,
+            "still_pending": 0, "errors": 0,
+        }
+
+    def test_sweep_fills_pnl_from_bybit(self, tmp_db, monkeypatch):
+        """Happy path: Bybit returns a record, sweep writes pnl +
+        exit_price + notes stamp."""
+        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
+        trade_id = self._seed_closed_pending(tmp_db)
+
+        # Stub the account-cfg loader so the sweep has a cfg to call
+        # Bybit with.
+        monkeypatch.setattr(
+            om, "_load_account_cfgs_for_reconcile",
+            lambda: {"bybit_2": {"id": "bybit_2", "category": "linear"}},
+        )
+
+        # Stub Bybit's closed-pnl response — what the real API returns
+        # ~30-60s after the close fill.
+        def _fake_closed_pnl(cfg, *, symbol, direction, opened_at_ms, qty):
+            assert symbol == "BTCUSDT"
+            assert direction == "long"
+            return {
+                "avg_exit_price": 76977.6,
+                "closed_pnl": 0.42,  # net of fees from Bybit
+                "closed_at": "2026-05-18T07:40:00Z",
+            }
+        monkeypatch.setattr(
+            "src.units.accounts.clients.account_closed_pnl_for_trade",
+            _fake_closed_pnl,
+        )
+
+        summary = om._sweep_pending_pnl_from_bybit(tmp_db)
+        assert summary["scanned"] == 1
+        assert summary["filled"] == 1
+        assert summary["still_pending"] == 0
+        assert summary["errors"] == 0
+
+        trade = tmp_db.get_trades(filters={"id": trade_id})[0]
+        assert trade["pnl"] == pytest.approx(0.42, abs=0.001)
+        assert trade["exit_price"] == pytest.approx(76977.6, abs=0.01)
+        # pnl_percent = 0.42 / (76700 * 0.004) * 100 ≈ 0.1369
+        assert trade["pnl_percent"] == pytest.approx(0.1369, abs=0.001)
+        # Notes stamped with Bybit-truth marker.
+        import json as _json
+        notes = _json.loads(trade["notes"])
+        assert notes["exit_price_source"] == "bybit_closed_pnl"
+        assert notes["bybit_closed_pnl"] == 0.42
+
+    def test_sweep_leaves_row_pending_when_bybit_has_no_record(
+        self, tmp_db, monkeypatch,
+    ):
+        """Bybit hasn't booked the closed-pnl yet (typical for a
+        trade that closed < 30s ago). Sweep returns 'still_pending'
+        and the row stays at pnl=NULL for the next tick."""
+        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
+        trade_id = self._seed_closed_pending(tmp_db)
+        monkeypatch.setattr(
+            om, "_load_account_cfgs_for_reconcile",
+            lambda: {"bybit_2": {"id": "bybit_2"}},
+        )
+        monkeypatch.setattr(
+            "src.units.accounts.clients.account_closed_pnl_for_trade",
+            lambda *a, **kw: None,  # Bybit returns no record
+        )
+
+        summary = om._sweep_pending_pnl_from_bybit(tmp_db)
+        assert summary["filled"] == 0
+        assert summary["still_pending"] == 1
+
+        trade = tmp_db.get_trades(filters={"id": trade_id})[0]
+        assert trade["pnl"] is None  # still pending — try next tick
+
+    def test_sweep_short_direction_pnl_percent_math(
+        self, tmp_db, monkeypatch,
+    ):
+        """Short-side variant — same formula, different sign convention.
+        Bybit's closed_pnl is already signed, we just write it through."""
+        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
+        trade_id = self._seed_closed_pending(
+            tmp_db, direction="short", entry_price=77100.0,
+            stop_loss=77200.0, take_profit_1=76900.0, exit_price=76990.0,
+        )
+        monkeypatch.setattr(
+            om, "_load_account_cfgs_for_reconcile",
+            lambda: {"bybit_2": {"id": "bybit_2"}},
+        )
+        monkeypatch.setattr(
+            "src.units.accounts.clients.account_closed_pnl_for_trade",
+            lambda *a, **kw: {
+                "avg_exit_price": 76990.0,
+                "closed_pnl": 0.20,
+                "closed_at": "2026-05-18T08:55:00Z",
+            },
+        )
+
+        om._sweep_pending_pnl_from_bybit(tmp_db)
+        trade = tmp_db.get_trades(filters={"id": trade_id})[0]
+        assert trade["pnl"] == pytest.approx(0.20, abs=0.001)
+        # pnl_percent = 0.20 / (77100 * 0.004) * 100 ≈ 0.0649
+        assert trade["pnl_percent"] == pytest.approx(0.0649, abs=0.001)
+
+    def test_sweep_skips_already_filled_rows(self, tmp_db, monkeypatch):
+        """Rows that already have non-NULL pnl (reconciler-filled
+        ones) must not be re-fetched — the SQL filter is the gate."""
+        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
+        # Seed a closed-and-already-filled trade.
+        self._seed_closed_pending(tmp_db)
+        # Now flip pnl to non-NULL to simulate a previously-filled row.
+        conn = tmp_db.connect()
+        conn.execute("UPDATE trades SET pnl = 0.99 WHERE pnl IS NULL")
+        conn.commit()
+        conn.close()
+
+        monkeypatch.setattr(
+            om, "_load_account_cfgs_for_reconcile",
+            lambda: {"bybit_2": {"id": "bybit_2"}},
+        )
+        # If the sweep wrongly scans this row it'd call our stub —
+        # raise to make the failure loud.
+        def _should_not_be_called(*a, **kw):
+            raise AssertionError("sweep called for already-filled row")
+        monkeypatch.setattr(
+            "src.units.accounts.clients.account_closed_pnl_for_trade",
+            _should_not_be_called,
+        )
+
+        summary = om._sweep_pending_pnl_from_bybit(tmp_db)
+        assert summary["scanned"] == 0
+
+    def test_sweep_skips_backtest_rows(self, tmp_db, monkeypatch):
+        """Backtest trades have no Bybit counterpart — must not be
+        scanned regardless of pnl state."""
+        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
+        self._seed_closed_pending(tmp_db, is_backtest=1)
+        monkeypatch.setattr(
+            om, "_load_account_cfgs_for_reconcile",
+            lambda: {"bybit_2": {"id": "bybit_2"}},
+        )
+        monkeypatch.setattr(
+            "src.units.accounts.clients.account_closed_pnl_for_trade",
+            lambda *a, **kw: (_ for _ in ()).throw(
+                AssertionError("backtest row scanned")
+            ),
+        )
+        summary = om._sweep_pending_pnl_from_bybit(tmp_db)
+        assert summary["scanned"] == 0
+
