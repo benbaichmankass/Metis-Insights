@@ -138,8 +138,8 @@ def _load_db_rows(
         """
         SELECT id, symbol, direction, entry_price, exit_price,
                stop_loss, take_profit_1, position_size, status,
-               exit_reason, pnl, account_id, created_at, timestamp,
-               notes
+               exit_reason, pnl, account_id, strategy_name,
+               created_at, timestamp, notes
         FROM trades
         WHERE account_id = ?
           AND status = 'closed'
