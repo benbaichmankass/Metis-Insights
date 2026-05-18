@@ -225,21 +225,27 @@ class TestBuildVwapSignal:
         """The stop-loss distance from entry equals sl_std_mult * std_dev
         (subject to the ATR floor — the larger of the two wins).
 
-        The default 0.75 reflects the 2026-05-12 live-trading adjustment:
-        the original 0.5σ stop was too tight and price noise was triggering
-        sl_cross before the mean-reversion thesis played out. The ATR floor
-        is an additional noise guard (see SL_STD_MULT_DEFAULT comment).
+        The default 0.5 reflects the 2026-05-17 revert (issue #1370): the
+        3.16-year backtest with the HTF 4h ±2% gate (PR #1175) present
+        showed widening SL from 0.5σ → 0.75σ cost ~63% of total R
+        (V_1175_htf_only +411 R vs V_1175_1183_htf_sl +148 R). The ATR
+        floor in build_vwap_signal still provides the noise guard PR #1183
+        sought, without the R:R contract drift.
         """
         df = _candles_below_vwap()
         s_default = build_vwap_signal(df, symbol="BTCUSDT")
         s_wide = build_vwap_signal(df, symbol="BTCUSDT", sl_std_mult=2.0)
 
         std_dev = s_default["meta"]["std_dev"]
-        # default = SL_STD_MULT_DEFAULT = 0.75 (2026-05-12 live-trading adjustment)
+        atr = s_default["meta"]["atr"]
+        # SL distance is max(sl_std_mult * std_dev, atr) — whichever is
+        # larger wins. With the fixture's small std_dev relative to the
+        # one-bar gap, the ATR floor dominates at the default 0.5σ;
+        # at sl_std_mult=2.0 the std-dev term wins.
         d_default = s_default["entry_price"] - s_default["stop_loss"]
         d_wide = s_wide["entry_price"] - s_wide["stop_loss"]
-        assert d_default == pytest.approx(0.75 * std_dev, rel=1e-6)
-        assert d_wide == pytest.approx(2.0 * std_dev, rel=1e-6)
+        assert d_default == pytest.approx(max(0.5 * std_dev, atr), rel=1e-6)
+        assert d_wide == pytest.approx(max(2.0 * std_dev, atr), rel=1e-6)
 
     def test_signal_is_packageable_after_g5_fix(self):
         """The signal returned by build_vwap_signal must satisfy the
@@ -314,26 +320,29 @@ class TestBuildVwapSignal:
         )
 
     def test_sl_default_pinned_to_current_value(self):
-        """2026-05-12 live-trading adjustment: SL_STD_MULT_DEFAULT raised
-        from 0.5 to 0.75 after the 0.5σ stop proved too tight — live price
-        noise was triggering sl_cross before mean-reversion played out.
-        Pins the current value so a future tuning sprint must explicitly
-        update this test (and document the rationale) when it changes."""
+        """2026-05-17 revert (issue #1370): SL_STD_MULT_DEFAULT reverted
+        from 0.75 back to 0.5 after the 3.16-year backtest with the HTF
+        4h ±2% gate (PR #1175) showed the SL widening cost ~63% of total
+        R. The ATR-based floor in build_vwap_signal still provides the
+        noise guard PR #1183 sought. Pins the current value so a future
+        tuning sprint must explicitly update this test (and document the
+        rationale) when it changes."""
         from src.units.strategies.vwap import SL_STD_MULT_DEFAULT
-        assert SL_STD_MULT_DEFAULT == 0.75, (
-            "2026-05-12 adjustment raised SL_STD_MULT_DEFAULT to 0.75 for "
-            "live-trading noise tolerance. Any change requires a fresh "
+        assert SL_STD_MULT_DEFAULT == 0.5, (
+            "2026-05-17 reverted SL_STD_MULT_DEFAULT to 0.5 per the "
+            "issue #1370 backtest. Any change requires a fresh "
             "out-of-sample SL sweep + operator approval."
         )
 
     def test_risk_reward_at_entry_boundary(self):
         """End-to-end pin of the R:R contract at the entry boundary.
 
-        As of the 2026-05-12 live-trading adjustment, the boundary R:R is
-        4:3 (≈1.33:1) — ENTRY_STD_THRESHOLD=1.0 / SL_STD_MULT_DEFAULT=0.75.
-        The prior 2:1 contract was relaxed when the 0.5σ stop was raised to
-        0.75σ to reduce noise-triggered sl_cross in live trading. Realised
-        R:R on signals that fire deeper than 1σ will exceed the floor."""
+        Per the 2026-05-03 operator directive (CP-2026-05-03-20) and
+        reaffirmed by the 2026-05-17 revert, the boundary R:R is 2:1 —
+        ENTRY_STD_THRESHOLD=1.0 / SL_STD_MULT_DEFAULT=0.5. Operators
+        tuning either value must move the other in lock-step or the R:R
+        contract drifts. Realised R:R on signals that fire deeper than 1σ
+        will exceed the floor."""
         from src.units.strategies.vwap import SL_STD_MULT_DEFAULT
 
         for df, side, direction_factor in (
@@ -353,10 +362,11 @@ class TestBuildVwapSignal:
             # Pin the constant ratio so a change to either ENTRY_STD_THRESHOLD
             # or SL_STD_MULT_DEFAULT forces an explicit test update.
             boundary_rr = ENTRY_STD_THRESHOLD / SL_STD_MULT_DEFAULT
-            assert boundary_rr == pytest.approx(1.0 / 0.75, rel=1e-6), (
-                "2026-05-12: boundary R:R is ENTRY_STD_THRESHOLD / "
-                "SL_STD_MULT_DEFAULT = 1.0 / 0.75 ≈ 1.33:1. Update "
-                "this test when either constant changes."
+            assert boundary_rr == pytest.approx(1.0 / 0.5, rel=1e-6), (
+                "Boundary R:R is ENTRY_STD_THRESHOLD / "
+                "SL_STD_MULT_DEFAULT = 1.0 / 0.5 = 2:1 per the 2026-05-03 "
+                "operator directive (CP-2026-05-03-20). Update this test "
+                "when either constant changes."
             )
             assert (reward / risk) >= boundary_rr - 1e-6, (
                 f"R:R regression: realised reward/risk={reward/risk:.3f} "

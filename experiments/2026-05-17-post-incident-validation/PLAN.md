@@ -25,9 +25,13 @@ re-validation:
    → 42`, `sweep_lookback_15m: 60 → 180`) so the wall-clock lookback
    window is preserved.
 
-4. **`vwap` baseline re-validation.** Confirm V1 (HTF 4h ±2 %,
-   ENTRY_STD_THRESHOLD 1.5σ since PR #1205, SL_STD_MULT 0.75 since
-   PR #1183) hasn't drifted on the same harness.
+4. **`vwap` baseline re-validation.** Originally framed as confirming
+   the pre-revert config (HTF 4h ±2 %, ENTRY_STD_THRESHOLD 1.5σ since
+   PR #1205, SL_STD_MULT 0.75 since PR #1183) hadn't drifted. The
+   ablation outcome instead drove the 2026-05-17 revert (commit
+   66e520c, PR #1372): `V_1175_htf_only` (1.0σ / 0.5σ) won the sweep
+   at +411.8 R / Sharpe +2.82, vs `V_PROD` (1.5σ / 0.75σ) at +133.1 R
+   / Sharpe +1.38. Live config now matches `V_1175_htf_only`.
 
 ## Data
 
@@ -50,7 +54,7 @@ can be read off the table independently.
 | `V_BASELINE` | none | 1.0σ | 0.5σ | Pre-PR #1175 baseline. |
 | `V_1175_htf_only` | 4h EMA-200 ±2% | 1.0σ | 0.5σ | After PR #1175 only. |
 | `V_1175_1183_htf_sl` | 4h EMA-200 ±2% | 1.0σ | 0.75σ | After PR #1175 + #1183 (SL widened). |
-| `V_PROD` | 4h EMA-200 ±2% | 1.5σ | 0.75σ | Current production (PR #1175 + #1183 + #1205). |
+| `V_PROD` | 4h EMA-200 ±2% | 1.5σ | 0.75σ | Pre-revert production. After this sweep, reverted to `V_1175_htf_only` config (commit 66e520c, PR #1372). |
 
 ### turtle_soup (15m)
 
