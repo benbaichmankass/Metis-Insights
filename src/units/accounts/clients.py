@@ -91,6 +91,11 @@ def bybit_client_for(account: Dict[str, Any]):
     if not creds:
         return None
     from pybit.unified_trading import HTTP  # type: ignore
+    demo = str(account.get("demo", "false")).strip().lower() in ("true", "1", "yes")
+    if demo:
+        # Bybit demo trading (https://api-demo.bybit.com). pybit >= 5.7 supports
+        # demo=True natively; set-leverage and order calls route to the demo endpoint.
+        return HTTP(demo=True, api_key=creds["api_key"], api_secret=creds["api_secret"])
     testnet = str(os.environ.get("BYBIT_TESTNET", "false")).strip().lower() == "true"
     return HTTP(testnet=testnet, api_key=creds["api_key"], api_secret=creds["api_secret"])
 
