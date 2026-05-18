@@ -184,12 +184,20 @@ def _plan_row(
     except (TypeError, ValueError):
         qty = None
 
+    entry_price: Optional[float] = None
+    try:
+        if row["entry_price"] is not None:
+            entry_price = float(row["entry_price"])
+    except (TypeError, ValueError):
+        entry_price = None
+
     rec = account_closed_pnl_for_trade(
         cfg,
         symbol=str(row["symbol"] or ""),
         direction=str(row["direction"] or ""),
         opened_at_ms=opened_at_ms,
         qty=qty,
+        entry_price=entry_price,
     )
     if rec is None:
         return None, "account_closed_pnl_for_trade returned None"
