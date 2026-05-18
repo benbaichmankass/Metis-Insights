@@ -2844,6 +2844,7 @@ def _close_trade_from_order_status(
                     direction=str(row.get("direction") or ""),
                     opened_at_ms=opened_at_ms,
                     qty=_safe_float(row.get("position_size")),
+                    entry_price=_safe_float(row.get("entry_price")),
                 )
         except Exception as exc:  # noqa: BLE001
             logger.warning(
@@ -3274,6 +3275,7 @@ def _sweep_pending_pnl_from_bybit(db) -> Dict[str, int]:
                     direction=str(row.get("direction") or ""),
                     opened_at_ms=opened_at_ms,
                     qty=_safe_float(row.get("position_size")),
+                    entry_price=_safe_float(row.get("entry_price")),
                 )
             except Exception as exc:  # noqa: BLE001
                 logger.warning(

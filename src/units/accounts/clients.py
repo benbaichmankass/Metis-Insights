@@ -224,6 +224,8 @@ def _bybit_closed_pnl_lookup(
     end_ts_ms: int,
     qty_target: Optional[float] = None,
     qty_tolerance: float = 0.05,
+    entry_price_target: Optional[float] = None,
+    entry_price_tolerance: float = 0.001,
 ) -> Optional[Dict[str, Any]]:
     """Find the Bybit V5 closed-pnl record matching a trade we know
     closed via broker-side SL/TP or external flatten.
@@ -258,12 +260,27 @@ def _bybit_closed_pnl_lookup(
         differs from ``qty_target`` by more than ``qty_tolerance``
         (relative) are filtered out. This protects against a
         partial-close cycle accidentally matching.
+      * ``entry_price_target`` — optional. When set, records whose
+        ``avgEntryPrice`` differs from ``entry_price_target`` by
+        more than ``entry_price_tolerance`` (relative, default 10
+        bps) are filtered out. THIS IS THE PRIMARY DISAMBIGUATOR —
+        side/qty are not unique on a high-frequency strategy (every
+        VWAP-on-BTCUSDT trade has identical ``(side, qty)``), but
+        ``avgEntryPrice`` reflects the trade's actual fill price.
+        Adopted 2026-05-18 after issue #1411's backfill dispatch
+        proved that side+qty alone collapses 15+ distinct trades
+        onto the most-recent close.
 
-    Returns the raw inner record dict for the best match — the
-    most recent (by ``updatedTime``) record whose ``side`` matches
-    and whose ``qty`` is within tolerance of ``qty_target`` (when
-    given). Returns ``None`` when no matching record exists or any
-    SDK call raises.
+    Returns the raw inner record dict for the best match. Selection
+    order:
+      1. If multiple records pass all filters, prefer the one whose
+         ``avgEntryPrice`` is closest to ``entry_price_target``
+         (when supplied), then most-recent by ``updatedTime``.
+      2. Otherwise most-recent by ``updatedTime`` (preserves the
+         pre-2026-05-18 behaviour for callers that don't supply
+         ``entry_price_target``).
+    Returns ``None`` when no matching record exists or any SDK call
+    raises.
 
     Wrapper at the call site is :func:`account_closed_pnl_for_trade`,
     which performs the account+category checks and converts API
@@ -299,19 +316,40 @@ def _bybit_closed_pnl_lookup(
             rel_diff = abs(rec_qty - qty_target) / qty_target
             if rel_diff > qty_tolerance:
                 continue
+        if entry_price_target is not None and entry_price_target > 0:
+            rec_entry = _f(rec.get("avgEntryPrice"))
+            if rec_entry <= 0:
+                continue
+            rel_diff = abs(rec_entry - entry_price_target) / entry_price_target
+            if rel_diff > entry_price_tolerance:
+                continue
         candidates.append(rec)
 
     if not candidates:
         return None
 
-    # Most recent by updatedTime (epoch ms string). Bybit returns
-    # newest-first by default but we re-sort defensively.
     def _ts(rec: Dict[str, Any]) -> int:
         try:
             return int(rec.get("updatedTime") or rec.get("createdTime") or 0)
         except (TypeError, ValueError):
             return 0
 
+    if entry_price_target is not None and entry_price_target > 0:
+        # Prefer closest avgEntryPrice match; break ties by most-recent.
+        # avgEntryPrice is the trade's actual fill price — unique per
+        # position to within a few bps.
+        def _entry_diff(rec: Dict[str, Any]) -> float:
+            rec_entry = _f(rec.get("avgEntryPrice"))
+            if rec_entry <= 0:
+                return float("inf")
+            return abs(rec_entry - entry_price_target) / entry_price_target
+        candidates.sort(key=lambda r: (_entry_diff(r), -_ts(r)))
+        return candidates[0]
+
+    # Caller didn't supply entry_price_target — preserve the
+    # pre-2026-05-18 most-recent-by-updatedTime fallback. Safe for
+    # the orphan-reconciler path (which fires within ~60s of the
+    # close, so most-recent IS the right answer).
     candidates.sort(key=_ts, reverse=True)
     return candidates[0]
 
@@ -324,6 +362,7 @@ def account_closed_pnl_for_trade(
     opened_at_ms: int,
     closed_at_ms: Optional[int] = None,
     qty: Optional[float] = None,
+    entry_price: Optional[float] = None,
 ) -> Optional[Dict[str, Any]]:
     """Look up Bybit V5 closed-pnl for the position that opened with
     *direction* on *symbol* at ``opened_at_ms`` and closed before
@@ -360,6 +399,12 @@ def account_closed_pnl_for_trade(
       * ``qty`` — when supplied, filters records whose ``qty``
         differs by more than 5 % (relative). Prevents a partial-
         close cycle from accidentally matching the full close.
+      * ``entry_price`` — when supplied, filters records whose
+        ``avgEntryPrice`` differs by more than 10 bps (relative).
+        THE primary disambiguator on high-frequency strategies
+        where every trade shares ``(side, qty)``. See
+        :func:`_bybit_closed_pnl_lookup` for the full rationale and
+        the 2026-05-18 incident (issue #1411) that motivated it.
 
     Currently only ``bybit`` (``linear`` / ``inverse``) is wired.
     Spot accounts have no closed-pnl endpoint — they return
@@ -405,6 +450,7 @@ def account_closed_pnl_for_trade(
             start_ts_ms=start_ms,
             end_ts_ms=end_ms,
             qty_target=qty,
+            entry_price_target=entry_price,
         )
     except Exception as exc:  # noqa: BLE001
         aid = account.get("account_id") or "unknown"
