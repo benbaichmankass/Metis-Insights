@@ -35,7 +35,6 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import sqlite3
 import sys
@@ -243,8 +242,10 @@ def main() -> int:
         # Show histogram.
         positions: List[float] = []
         for r in classified:
-            entry = r["entry"]; tp = r["tp"]; sl = r["sl"]
-            exit_ = r["exit"]; direction = r["direction"]
+            entry = r["entry"]
+            tp = r["tp"]
+            exit_ = r["exit"]
+            direction = r["direction"]
             if direction == "long":
                 tp_dist = tp - entry
             else:
