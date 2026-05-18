@@ -218,22 +218,50 @@ def _per_day_breakdown(records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return out
 
 
+def _parse_ms(value: Any) -> Optional[int]:
+    if value is None:
+        return None
+    s = str(value).strip()
+    if not s:
+        return None
+    if "T" not in s and " " in s:
+        s = s.replace(" ", "T", 1)
+    try:
+        dt = datetime.fromisoformat(s)
+    except ValueError:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return int(dt.timestamp() * 1000)
+
+
 def _db_cross_check(
     db_path: str, account_id: str, records: List[Dict[str, Any]],
 ) -> Dict[str, Any]:
-    """For each Bybit closed-pnl record, find the matching trade in
-    the bot DB by (symbol, side, qty, entry_price ±10bps,
-    createdTime within ±10min of trades.created_at + a few hours).
+    """Pair each Bybit closed-pnl record with one DB trade row.
 
-    Each matched trade comparison reports DB pnl vs Bybit pnl. Bybit
-    is ground truth; |diff| > $0.01 is flagged as a DB-discrepancy.
+    Uses the same temporal-ordering matcher as the live close-loop
+    (PR #1425) and the rebuild script (PR #1430): for each Bybit
+    record (oldest first), find the DB row whose
+    (symbol, direction, qty±5%, entry_price±10bps) matches AND
+    whose ``created_at`` is the most-recent open at or before the
+    Bybit record's ``createdTime``. Each DB row is consumed once.
+
+    2026-05-18 fix (post-#1433): the prior matcher used
+    closest-by-entry-price only, which mis-paired adjacent trades
+    that shared (side, qty, entry) within tolerance. The audit's
+    "92 discrepancies" was largely audit-side mispairings, not
+    rebuild-side errors.
+
+    Returns matched / unmatched-db / unmatched-bybit counts +
+    flagged rows where |db_pnl - bybit_pnl| > $0.01.
     """
     if not os.path.exists(db_path):
         return {"db_present": False}
 
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
-    rows = conn.execute(
+    db_rows_raw = conn.execute(
         "SELECT id, symbol, direction, entry_price, exit_price, "
         "       position_size, status, pnl, account_id, created_at, "
         "       notes "
@@ -241,69 +269,84 @@ def _db_cross_check(
         " WHERE account_id = ? "
         "   AND COALESCE(is_backtest, 0) = 0 "
         "   AND status = 'closed' "
-        " ORDER BY id DESC LIMIT 500",
+        " ORDER BY datetime(created_at) ASC, id ASC LIMIT 500",
         (account_id,),
     ).fetchall()
     conn.close()
 
+    db_rows: List[Dict[str, Any]] = []
+    for r in db_rows_raw:
+        d = dict(r)
+        d["_created_at_ms"] = _parse_ms(d.get("created_at"))
+        d["_consumed"] = False
+        db_rows.append(d)
+
     matched: List[Dict[str, Any]] = []
-    db_unmatched: List[Dict[str, Any]] = []
-    bybit_unmatched_ids: set = set(range(len(records)))
+    bybit_unmatched: List[int] = []
 
-    for row in rows:
-        sym = str(row["symbol"] or "")
-        direction = str(row["direction"] or "").lower()
+    # Iterate Bybit records oldest-first so consumption is
+    # deterministic — earlier closes claim earlier opens.
+    records_sorted = sorted(
+        records,
+        key=lambda r: int(r.get("createdTime")
+                          or r.get("updatedTime") or 0),
+    )
+
+    for rec in records_sorted:
+        sym = str(rec.get("symbol") or "")
         try:
-            entry = float(row["entry_price"] or 0)
-            qty = float(row["position_size"] or 0)
+            rec_qty = float(rec.get("qty") or 0)
+            rec_entry = float(rec.get("avgEntryPrice") or 0)
+            rec_created = int(rec.get("createdTime")
+                              or rec.get("updatedTime") or 0)
         except (TypeError, ValueError):
-            db_unmatched.append({
-                "trade_id": row["id"], "reason": "non-numeric entry/qty",
-            })
             continue
-        if entry <= 0 or qty <= 0:
-            db_unmatched.append({
-                "trade_id": row["id"], "reason": "zero entry/qty",
-            })
+        if rec_qty <= 0 or rec_entry <= 0 or rec_created <= 0:
             continue
-        close_side = "Sell" if direction == "long" else "Buy"
+        rec_side = str(rec.get("side") or "")
+        if rec_side.lower() == "sell":
+            want_direction = "long"
+        elif rec_side.lower() == "buy":
+            want_direction = "short"
+        else:
+            continue
 
-        found_idx: Optional[int] = None
-        best_entry_diff = float("inf")
-        for i, rec in enumerate(records):
-            if i not in bybit_unmatched_ids:
+        best_row: Optional[Dict[str, Any]] = None
+        best_gap_ms: int = -1
+        for row in db_rows:
+            if row["_consumed"]:
                 continue
-            if str(rec.get("symbol") or "") != sym:
+            if str(row.get("symbol") or "") != sym:
                 continue
-            if str(rec.get("side") or "") != close_side:
+            if str(row.get("direction") or "").lower() != want_direction:
                 continue
             try:
-                rec_entry = float(rec.get("avgEntryPrice") or 0)
-                rec_qty = float(rec.get("qty") or 0)
+                row_qty = float(row.get("position_size") or 0)
+                row_entry = float(row.get("entry_price") or 0)
             except (TypeError, ValueError):
                 continue
-            if rec_entry <= 0 or rec_qty <= 0:
+            if row_qty <= 0 or row_entry <= 0:
                 continue
-            if abs(rec_qty - qty) / qty > 0.05:
+            if abs(row_qty - rec_qty) / rec_qty > 0.05:
                 continue
-            diff = abs(rec_entry - entry) / entry
-            if diff > 0.001:
+            if abs(row_entry - rec_entry) / rec_entry > 0.001:
                 continue
-            if diff < best_entry_diff:
-                best_entry_diff = diff
-                found_idx = i
+            opened_at_ms = row.get("_created_at_ms")
+            if opened_at_ms is None:
+                continue
+            if rec_created + 2_000 < opened_at_ms:
+                continue
+            gap = rec_created - opened_at_ms
+            # Smallest gap = most-recent open before this close
+            if best_row is None or gap < best_gap_ms:
+                best_row = row
+                best_gap_ms = gap
 
-        if found_idx is None:
-            db_unmatched.append({
-                "trade_id": row["id"],
-                "symbol": sym, "direction": direction,
-                "entry": entry, "qty": qty,
-                "reason": "no Bybit record within entry/qty/side tolerance",
-            })
+        if best_row is None:
+            bybit_unmatched.append(records.index(rec))
             continue
-
-        bybit_unmatched_ids.discard(found_idx)
-        rec = records[found_idx]
+        best_row["_consumed"] = True
+        row = best_row
         bybit_pnl = _f(rec.get("closedPnl"))
         db_pnl = row["pnl"]
         diff = None
@@ -316,22 +359,32 @@ def _db_cross_check(
                 pass
         matched.append({
             "trade_id": row["id"],
-            "symbol": sym, "direction": direction,
-            "entry": entry,
+            "symbol": sym,
+            "direction": str(row.get("direction") or "").lower(),
+            "entry": float(row.get("entry_price") or 0),
             "db_pnl": db_pnl,
             "bybit_pnl": bybit_pnl,
             "diff": diff,
             "flagged": flagged,
         })
 
+    db_unmatched = [
+        {"trade_id": r["id"],
+         "symbol": r.get("symbol"),
+         "direction": r.get("direction"),
+         "entry": r.get("entry_price"),
+         "reason": "no Bybit close paired (consumed-row matcher)"}
+        for r in db_rows if not r["_consumed"]
+    ]
+
     return {
         "db_present": True,
         "matched_count": len(matched),
         "db_unmatched_count": len(db_unmatched),
-        "bybit_unmatched_count": len(bybit_unmatched_ids),
+        "bybit_unmatched_count": len(bybit_unmatched),
         "matched": matched,
         "db_unmatched": db_unmatched,
-        "bybit_unmatched_indices": sorted(bybit_unmatched_ids),
+        "bybit_unmatched_indices": sorted(bybit_unmatched),
     }
 
 
