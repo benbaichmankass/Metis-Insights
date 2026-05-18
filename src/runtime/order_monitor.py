@@ -1273,6 +1273,7 @@ def _load_account_cfgs_for_reconcile() -> Dict[str, Dict[str, Any]]:
             "api_secret_env": cfg.get("api_secret_env"),
             "mode": cfg.get("mode") or "live",
             "market_type": cfg.get("market_type") or "spot",
+            "demo": cfg.get("demo", False),
         }
     return out
 
