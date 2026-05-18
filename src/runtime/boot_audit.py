@@ -153,6 +153,7 @@ def _load_account_cfgs() -> Dict[str, Dict[str, Any]]:
             "api_secret_env": cfg.get("api_secret_env"),
             "mode": cfg.get("mode") or "live",
             "market_type": cfg.get("market_type") or "spot",
+            "demo": cfg.get("demo", False),
         }
     return out
 

@@ -171,6 +171,7 @@ def _apply_per_account_leverage() -> None:
             "api_key_env": getattr(account, "api_key_env", ""),
             "exchange": "bybit",
             "env_path": getattr(account, "env_path", ""),
+            "demo": getattr(account, "demo", False),
         }
         try:
             client = bybit_client_for(account_cfg)
