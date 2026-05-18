@@ -90,6 +90,7 @@ on:
           - vwap-backtest-sweep
           - set-account-mode
           - fix-data-dir
+          - rotate-account-keys
       reason:
         description: "Why this action is being run (audit trail; required for Tier-2)"
         required: false
@@ -242,7 +243,7 @@ jobs:
             status-check|pull-latest-logs|inspect-closed-pnl|bybit-account-audit|strategy-performance-audit|monitor-miss-analysis|vwap-backtest-sweep)
               echo "tier=1" >>"$GITHUB_ENV"
               ;;
-            pull-and-deploy|restart-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|enable-m5-consumer|disable-m5-consumer|setup-cloudflare-tunnel|teardown-cloudflare-tunnel|setup-named-cloudflare-tunnel|teardown-named-cloudflare-tunnel|setup-tailscale-funnel|teardown-tailscale-funnel|backfill-pnl-nulls|backfill-orphan-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|rebuild-pnl-from-bybit|set-account-mode|fix-data-dir)
+            pull-and-deploy|restart-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|enable-m5-consumer|disable-m5-consumer|setup-cloudflare-tunnel|teardown-cloudflare-tunnel|setup-named-cloudflare-tunnel|teardown-named-cloudflare-tunnel|setup-tailscale-funnel|teardown-tailscale-funnel|backfill-pnl-nulls|backfill-orphan-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|rebuild-pnl-from-bybit|set-account-mode|fix-data-dir|rotate-account-keys)
               echo "tier=2" >>"$GITHUB_ENV"
               if [ -z "${REASON// }" ]; then
                 echo "::error::Tier-2 action '${ACTION}' requires a non-empty 'reason' input."
@@ -275,6 +276,20 @@ jobs:
               echo "::error::set-account-mode account_id '${ACCOUNT_ID}' contains invalid characters (allowed: A-Z a-z 0-9 _ -)."
               exit 1
             fi
+          fi
+          # rotate-account-keys requires account_id; validate it.
+          if [ "${ACTION}" = "rotate-account-keys" ]; then
+            if [ -z "${ACCOUNT_ID// }" ]; then
+              echo "::error::rotate-account-keys requires 'account_id' (workflow_dispatch input) or 'account: <name>' (issue body)."
+              exit 1
+            fi
+            case "${ACCOUNT_ID}" in
+              bybit_1|bybit_2) ;;
+              *)
+                echo "::error::rotate-account-keys account_id must be bybit_1 or bybit_2 (got '${ACCOUNT_ID}')."
+                exit 1
+                ;;
+            esac
           fi
           echo ">>> Resolved tier: $(grep tier= "$GITHUB_ENV" | tail -1)"
 
@@ -329,6 +344,12 @@ jobs:
           # top of Workers:Edit; see scripts/ops/setup_named_cloudflare_tunnel.sh).
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # BYBIT key/secret pairs — only consumed by rotate-account-keys.
+          # Ride through SSH env (via REMOTE_CMD prefix), never in run logs.
+          BYBIT_API_KEY_1: ${{ secrets.BYBIT_API_KEY_1 }}
+          BYBIT_API_SECRET_1: ${{ secrets.BYBIT_API_SECRET_1 }}
+          BYBIT_API_KEY_2: ${{ secrets.BYBIT_API_KEY_2 }}
+          BYBIT_API_SECRET_2: ${{ secrets.BYBIT_API_SECRET_2 }}
         run: |
           set -euo pipefail
           # Each action maps to ONE script under scripts/ops/. The
@@ -362,6 +383,7 @@ jobs:
             vwap-backtest-sweep)                SCRIPT="vwap_backtest_sweep_action.sh" ;;
             set-account-mode)                   SCRIPT="set_account_mode.sh" ;;
             fix-data-dir)                       SCRIPT="fix_data_dir.sh" ;;
+            rotate-account-keys)                SCRIPT="rotate_account_keys.sh" ;;
             *)
               echo "::error::Allowlist regression: '${ACTION}' was not mapped to a wrapper script."
               exit 2
@@ -383,6 +405,26 @@ jobs:
           fi
           if [ "${ACTION}" = "set-account-mode" ]; then
             REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID}") MODE=$(printf '%q' "${MODE}") ${REMOTE_CMD}"
+          fi
+          if [ "${ACTION}" = "rotate-account-keys" ]; then
+            case "${ACCOUNT_ID}" in
+              bybit_1)
+                if [ -z "${BYBIT_API_KEY_1}" ] || [ -z "${BYBIT_API_SECRET_1}" ]; then
+                  echo "::error::rotate-account-keys(bybit_1): BYBIT_API_KEY_1 / BYBIT_API_SECRET_1 secrets not set."
+                  echo "::error::Add them at Settings → Secrets and variables → Actions before dispatching."
+                  exit 1
+                fi
+                REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID}") NEW_API_KEY=$(printf '%q' "${BYBIT_API_KEY_1}") NEW_API_SECRET=$(printf '%q' "${BYBIT_API_SECRET_1}") ${REMOTE_CMD}"
+                ;;
+              bybit_2)
+                if [ -z "${BYBIT_API_KEY_2}" ] || [ -z "${BYBIT_API_SECRET_2}" ]; then
+                  echo "::error::rotate-account-keys(bybit_2): BYBIT_API_KEY_2 / BYBIT_API_SECRET_2 secrets not set."
+                  echo "::error::Add them at Settings → Secrets and variables → Actions before dispatching."
+                  exit 1
+                fi
+                REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID}") NEW_API_KEY=$(printf '%q' "${BYBIT_API_KEY_2}") NEW_API_SECRET=$(printf '%q' "${BYBIT_API_SECRET_2}") ${REMOTE_CMD}"
+                ;;
+            esac
           fi
           if [ "${ACTION}" = "inspect-closed-pnl" ] && [ -n "${TRADE_ID}" ]; then
             REMOTE_CMD="ACTION_TRADE_ID=$(printf '%q' "${TRADE_ID}") ${REMOTE_CMD}"
@@ -555,6 +597,14 @@ jobs:
           notify_reason="${REASON}"
           if [ "${ACTION}" = "set-account-mode" ]; then
             target_descr="target ${ACCOUNT_ID}=${MODE}"
+            if [ -n "${notify_reason}" ]; then
+              notify_reason="${target_descr} | ${notify_reason}"
+            else
+              notify_reason="${target_descr}"
+            fi
+          fi
+          if [ "${ACTION}" = "rotate-account-keys" ]; then
+            target_descr="account=${ACCOUNT_ID}"
             if [ -n "${notify_reason}" ]; then
               notify_reason="${target_descr} | ${notify_reason}"
             else
