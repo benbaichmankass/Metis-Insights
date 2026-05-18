@@ -225,10 +225,17 @@ def _plan_row(
 
     pnl_percent = _compute_pnl_percent(row, float(closed_pnl))
 
+    # 2026-05-18: the 500-char notes cap previously used here
+    # silently truncated the JSON when audit fields stacked
+    # (incident #1420 — original_pnl was lost on 11 rows because
+    # backfill stamps + pre-existing notes pushed past 500). The
+    # `notes` column is TEXT (unbounded in SQLite); 4000 chars
+    # leaves room for any reasonable nested audit trail while
+    # keeping diagnostic output readable.
     updates: Dict[str, Any] = {
         "pnl": round(float(closed_pnl), 4),
         "exit_price": float(avg_exit_price),
-        "notes": json.dumps(new_notes, ensure_ascii=False)[:500],
+        "notes": json.dumps(new_notes, ensure_ascii=False)[:4000],
     }
     if pnl_percent is not None:
         updates["pnl_percent"] = pnl_percent

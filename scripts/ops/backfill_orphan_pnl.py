@@ -222,12 +222,16 @@ def _plan_row(
         "exit_price_source": "bybit_closed_pnl_backfill",
     })
 
+    # 2026-05-18: 500-char cap bumped to 4000 to prevent audit-
+    # trail truncation when nested fields stack. See issue #1420
+    # for the failure mode (original_pnl lost on 11 rows in the
+    # sibling backfill_monitor_closed_pnl.py path).
     updates: Dict[str, Any] = {
         "status": "closed",
         "exit_reason": "backfill_closed_pnl_recovery",
         "exit_price": float(avg_exit_price),
         "pnl": round(float(closed_pnl), 4),
-        "notes": json.dumps(new_notes, ensure_ascii=False)[:500],
+        "notes": json.dumps(new_notes, ensure_ascii=False)[:4000],
     }
     if pnl_percent is not None:
         updates["pnl_percent"] = pnl_percent
