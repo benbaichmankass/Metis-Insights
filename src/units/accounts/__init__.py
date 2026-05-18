@@ -146,6 +146,7 @@ def load_accounts(config_path: str = _DEFAULT_ACCOUNTS_YAML) -> "List":
             configured=configured,
             configured_reason=configured_reason,
             market_type=cfg.get("market_type", "spot"),
+            demo=bool(cfg.get("demo", False)),
         )
         # Mirror the resolved mode onto the account object so the
         # legacy ``account.dry_run`` callers (TradingAccount.place_order

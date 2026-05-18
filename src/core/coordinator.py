@@ -767,6 +767,9 @@ class Coordinator:
                 # plumb-through the executor falls back to the default
                 # (spot) and ignores any per-account override.
                 "market_type": getattr(account, "market_type", "spot"),
+                # Forward demo flag so execute.py stamps is_demo on trade rows
+                # and Telegram notifications carry the DEMO TRADER prefix.
+                "demo": getattr(account, "demo", False),
             }
 
             # Per-account live/dry resolution. The caller-supplied
@@ -1129,12 +1132,21 @@ class Coordinator:
                     "leg_trade_ids": leg_trade_ids if len(leg_trade_ids) > 1 else None,
                 })
                 _EXCHANGE_REJECTION_COUNTS.pop(account.name, None)
+                if getattr(account, "demo", False):
+                    _enqueue_demo_ping(
+                        account=account.name,
+                        pkg=pkg,
+                        qty=effective_qty,
+                        status="submitted",
+                        detail=f"trade_id={trade_id}",
+                    )
             except RiskBreach as exc:
                 _emit_execution_failure_ping(
                     account=account.name,
                     pkg=pkg,
                     qty=sized_qty,
                     reason=f"RiskBreach: {exc}",
+                    demo=getattr(account, "demo", False),
                 )
                 from src.units.accounts.execute import log_rejection_to_journal
                 log_rejection_to_journal(
@@ -1167,6 +1179,7 @@ class Coordinator:
                     pkg=pkg,
                     qty=sized_qty,
                     reason=f"{type(exc).__name__}: {exc}",
+                    demo=getattr(account, "demo", False),
                 )
                 from src.units.accounts.execute import log_rejection_to_journal
                 log_rejection_to_journal(
@@ -1964,6 +1977,7 @@ def _emit_execution_failure_ping(
     pkg: "OrderPackage",
     qty: Optional[float],
     reason: str,
+    demo: bool = False,
 ) -> None:
     """Best-effort diagnostic ping for a per-account execution failure.
 
@@ -1980,11 +1994,40 @@ def _emit_execution_failure_ping(
             side=("buy" if getattr(pkg, "direction", "") == "long" else "sell"),
             qty=qty,
             reason=reason,
+            demo=demo,
         )
     except Exception as exc:  # noqa: BLE001
         logger.warning(
             "_emit_execution_failure_ping failed for %s: %s", account, exc,
         )
+
+
+def _enqueue_demo_ping(
+    *,
+    account: str,
+    pkg: "OrderPackage",
+    qty: Optional[float],
+    status: str,
+    detail: str,
+) -> None:
+    """Best-effort Telegram ping for a demo-account trade event.
+
+    Separate from _emit_execution_failure_ping so successful demo submissions
+    also reach the operator with the *DEMO TRADER* prefix. Never raises.
+    """
+    try:
+        from src.runtime.execution_diagnostics import enqueue_demo_trade_notification
+        enqueue_demo_trade_notification(
+            account=account,
+            strategy=getattr(pkg, "strategy", "unknown"),
+            symbol=getattr(pkg, "symbol", "?"),
+            side=("buy" if getattr(pkg, "direction", "") == "long" else "sell"),
+            qty=qty,
+            status=status,
+            detail=detail,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("_enqueue_demo_ping failed for %s: %s", account, exc)
 
 
 def _log_smoke_to_journal(

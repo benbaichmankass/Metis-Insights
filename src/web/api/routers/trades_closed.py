@@ -112,7 +112,8 @@ def _row_to_wire(row: sqlite3.Row) -> Dict[str, Any]:
 
 
 def _query_closed_trades(
-    db_path: Path, limit: int, since: Optional[str]
+    db_path: Path, limit: int, since: Optional[str],
+    account_id: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """Return up to *limit* closed trades, newest-first by closedAt
     (``op.updated_at``), filtered by *since* (ISO-8601 UTC) when provided.
@@ -140,6 +141,12 @@ def _query_closed_trades(
               AND COALESCE(t.is_backtest, 0) = 0
         """
         params: List[Any] = []
+        if account_id:
+            sql += " AND t.account_id = ?"
+            params.append(account_id)
+        else:
+            # Exclude demo account trades from the live journal view.
+            sql += " AND COALESCE(t.is_demo, 0) = 0"
         if since:
             sql += (
                 " AND datetime(COALESCE(op.updated_at, t.timestamp)) >= datetime(?)"
@@ -160,8 +167,12 @@ def _query_closed_trades(
 async def get_closed_trades(
     limit: int = Query(DEFAULT_LIMIT, ge=1, le=MAX_LIMIT),
     since: Optional[str] = Query(None, max_length=64),
+    account_id: Optional[str] = Query(None, max_length=64),
 ) -> List[Dict[str, Any]]:
     """Return up to ``limit`` closed (live, non-backtest) trades.
+
+    Pass ``account_id=bybit_1`` to get demo-account trades for the Demo tab.
+    Without ``account_id``, demo trades are excluded from the response.
 
     Best-effort: returns ``[]`` on missing DB, locked DB, or an
     unexpected sqlite error. The dashboard treats an empty list the
@@ -170,7 +181,7 @@ async def get_closed_trades(
     if not _DB_PATH.exists():
         return []
     try:
-        return _query_closed_trades(_DB_PATH, limit, since)
+        return _query_closed_trades(_DB_PATH, limit, since, account_id=account_id)
     except sqlite3.Error:
         logger.exception("trades_closed: sqlite read failed")
         return []

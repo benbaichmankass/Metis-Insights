@@ -63,6 +63,7 @@ def _query_pnl(
                    COALESCE(SUM(CASE WHEN status =  'open' THEN pnl ELSE 0 END), 0) AS unrealized
               FROM trades
              WHERE COALESCE(is_backtest, 0) = 0
+               AND COALESCE(is_demo, 0) = 0
              GROUP BY account_id
             """
         )
@@ -76,6 +77,7 @@ def _query_pnl(
             SELECT account_id, COUNT(*) AS cnt
               FROM trades
              WHERE COALESCE(is_backtest, 0) = 0
+               AND COALESCE(is_demo, 0) = 0
                AND COALESCE(status, 'open')
                        NOT IN ('rejected', 'exchange_rejected', 'rejected_too_small', 'orphaned')
                AND substr(COALESCE(created_at, timestamp), 1, 10) = ?

@@ -734,6 +734,7 @@ def _log_trade_to_journal(
             "entry_reason": entry_reason[:500],
             "status": status,
             "is_backtest": 0,
+            "is_demo": int(bool(account_cfg.get("demo", False))),
             "strategy_name": pkg.strategy,
             "account_id": str(
                 account_cfg.get("account_id") or account_cfg.get("id") or "unknown"

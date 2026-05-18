@@ -49,6 +49,7 @@ def enqueue_execution_failure(
     qty: Optional[float],
     reason: str,
     priority: str = "high",
+    demo: bool = False,
 ) -> Optional[Path]:
     """Drop a Telegram-ready JSON ping for a per-account execution failure.
 
@@ -57,8 +58,9 @@ def enqueue_execution_failure(
     test). Failure to enqueue is logged at WARN — never raises.
     """
     try:
+        prefix = "*DEMO TRADER* " if demo else ""
         body = (
-            "⚠️ Order execution failed\n"
+            f"{prefix}⚠️ Order execution failed\n"
             f"Account: {account}\n"
             f"Strategy: {strategy}\n"
             f"Symbol: {symbol} | Side: {side} | Qty: {qty if qty is not None else '?'}\n"
@@ -77,6 +79,49 @@ def enqueue_execution_failure(
         logger.warning(
             "execution_diagnostics: enqueue failed for account=%s reason=%r: %s",
             account, reason[:80], exc,
+        )
+        return None
+
+
+def enqueue_demo_trade_notification(
+    *,
+    account: str,
+    strategy: str,
+    symbol: str,
+    side: str,
+    qty: Optional[float],
+    status: str,
+    detail: str,
+    priority: str = "normal",
+) -> Optional[Path]:
+    """Drop a *DEMO TRADER* prefixed Telegram ping for a demo-account event.
+
+    Used for successful demo trade submissions so the operator can track
+    demo activity without it blending into live-account notifications.
+    Never raises.
+    """
+    try:
+        qty_str = f"{qty:.4f}" if qty is not None else "?"
+        body = (
+            f"*DEMO TRADER* {status.upper()}\n"
+            f"Account: {account}\n"
+            f"Strategy: {strategy}\n"
+            f"Symbol: {symbol} | Side: {side} | Qty: {qty_str}\n"
+            f"Detail: {detail}"
+        )[:1024]
+        payload = {"priority": priority, "body": body}
+        PENDING_PINGS_DIR.mkdir(parents=True, exist_ok=True)
+        name = f"{int(uuid.uuid4().int % 10**12):012d}-demotrade.json"
+        path = PENDING_PINGS_DIR / name
+        tmp = path.with_suffix(".json.tmp")
+        with tmp.open("w", encoding="utf-8") as fh:
+            json.dump(payload, fh, ensure_ascii=False)
+        os.replace(tmp, path)
+        return path
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "execution_diagnostics: demo ping enqueue failed for account=%s: %s",
+            account, exc,
         )
         return None
 
