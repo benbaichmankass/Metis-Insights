@@ -86,6 +86,7 @@ on:
           - inspect-closed-pnl
           - bybit-account-audit
           - strategy-performance-audit
+          - monitor-miss-analysis
           - set-account-mode
           - fix-data-dir
       reason:
@@ -227,7 +228,7 @@ jobs:
         run: |
           set -euo pipefail
           case "${ACTION}" in
-            status-check|pull-latest-logs|inspect-closed-pnl|bybit-account-audit|strategy-performance-audit)
+            status-check|pull-latest-logs|inspect-closed-pnl|bybit-account-audit|strategy-performance-audit|monitor-miss-analysis)
               echo "tier=1" >>"$GITHUB_ENV"
               ;;
             pull-and-deploy|restart-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|enable-m5-consumer|disable-m5-consumer|setup-cloudflare-tunnel|teardown-cloudflare-tunnel|setup-named-cloudflare-tunnel|teardown-named-cloudflare-tunnel|setup-tailscale-funnel|teardown-tailscale-funnel|backfill-pnl-nulls|backfill-orphan-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|rebuild-pnl-from-bybit|set-account-mode|fix-data-dir)
@@ -346,6 +347,7 @@ jobs:
             inspect-closed-pnl)                 SCRIPT="inspect_closed_pnl_action.sh" ;;
             bybit-account-audit)                SCRIPT="bybit_account_audit_action.sh" ;;
             strategy-performance-audit)         SCRIPT="strategy_performance_audit_action.sh" ;;
+            monitor-miss-analysis)              SCRIPT="monitor_miss_analysis_action.sh" ;;
             set-account-mode)                   SCRIPT="set_account_mode.sh" ;;
             fix-data-dir)                       SCRIPT="fix_data_dir.sh" ;;
             *)
@@ -380,6 +382,9 @@ jobs:
             REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID}") ACTION_DAYS=$(printf '%q' "${ACTION_DAYS}") ${REMOTE_CMD}"
           fi
           if [ "${ACTION}" = "strategy-performance-audit" ]; then
+            REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID}") ACTION_DAYS=$(printf '%q' "${ACTION_DAYS}") ${REMOTE_CMD}"
+          fi
+          if [ "${ACTION}" = "monitor-miss-analysis" ]; then
             REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID}") ACTION_DAYS=$(printf '%q' "${ACTION_DAYS}") ${REMOTE_CMD}"
           fi
           if [ "${ACTION}" = "setup-named-cloudflare-tunnel" ] || [ "${ACTION}" = "teardown-named-cloudflare-tunnel" ]; then
