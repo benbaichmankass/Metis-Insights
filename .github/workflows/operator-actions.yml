@@ -87,6 +87,7 @@ on:
           - bybit-account-audit
           - strategy-performance-audit
           - monitor-miss-analysis
+          - vwap-backtest-sweep
           - set-account-mode
           - fix-data-dir
       reason:
@@ -209,6 +210,14 @@ jobs:
                      | grep -i -m1 '^[[:space:]]*days[[:space:]]*:' \
                      | sed -E 's/^[[:space:]]*[Dd]ays[[:space:]]*:[[:space:]]*//' \
                      | tr -d '[:space:]' || true)
+            windows=$(printf '%s\n' "${ISSUE_BODY}" \
+                     | grep -i -m1 '^[[:space:]]*windows[[:space:]]*:' \
+                     | sed -E 's/^[[:space:]]*[Ww]indows[[:space:]]*:[[:space:]]*//' \
+                     | tr -d '[:space:]' || true)
+            window_days=$(printf '%s\n' "${ISSUE_BODY}" \
+                     | grep -i -m1 '^[[:space:]]*window_days[[:space:]]*:' \
+                     | sed -E 's/^[[:space:]]*[Ww]indow_days[[:space:]]*:[[:space:]]*//' \
+                     | tr -d '[:space:]' || true)
             if [ -z "${action}" ]; then
               echo "::error::Issue body must contain a line of the form 'action: <name>'. Title was: ${ISSUE_TITLE}"
               exit 1
@@ -222,13 +231,15 @@ jobs:
           echo "TRADE_ID=${trade_id}" >>"$GITHUB_ENV"
           echo "ACTION_SYMBOL=${symbol}" >>"$GITHUB_ENV"
           echo "ACTION_DAYS=${days}" >>"$GITHUB_ENV"
-          echo ">>> Resolved ACTION=${action} REASON=${reason} ACCOUNT_ID=${account_id} MODE=${mode} TUNNEL_HOSTNAME=${tunnel_hostname} TRADE_ID=${trade_id} SYMBOL=${symbol} DAYS=${days} (event=${{ github.event_name }})"
+          echo "ACTION_WINDOWS=${windows}" >>"$GITHUB_ENV"
+          echo "ACTION_WINDOW_DAYS=${window_days}" >>"$GITHUB_ENV"
+          echo ">>> Resolved ACTION=${action} REASON=${reason} ACCOUNT_ID=${account_id} MODE=${mode} TUNNEL_HOSTNAME=${tunnel_hostname} TRADE_ID=${trade_id} SYMBOL=${symbol} DAYS=${days} WINDOWS=${windows} WINDOW_DAYS=${window_days} (event=${{ github.event_name }})"
 
       - name: Validate action and tier policy
         run: |
           set -euo pipefail
           case "${ACTION}" in
-            status-check|pull-latest-logs|inspect-closed-pnl|bybit-account-audit|strategy-performance-audit|monitor-miss-analysis)
+            status-check|pull-latest-logs|inspect-closed-pnl|bybit-account-audit|strategy-performance-audit|monitor-miss-analysis|vwap-backtest-sweep)
               echo "tier=1" >>"$GITHUB_ENV"
               ;;
             pull-and-deploy|restart-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|enable-m5-consumer|disable-m5-consumer|setup-cloudflare-tunnel|teardown-cloudflare-tunnel|setup-named-cloudflare-tunnel|teardown-named-cloudflare-tunnel|setup-tailscale-funnel|teardown-tailscale-funnel|backfill-pnl-nulls|backfill-orphan-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|rebuild-pnl-from-bybit|set-account-mode|fix-data-dir)
@@ -348,6 +359,7 @@ jobs:
             bybit-account-audit)                SCRIPT="bybit_account_audit_action.sh" ;;
             strategy-performance-audit)         SCRIPT="strategy_performance_audit_action.sh" ;;
             monitor-miss-analysis)              SCRIPT="monitor_miss_analysis_action.sh" ;;
+            vwap-backtest-sweep)                SCRIPT="vwap_backtest_sweep_action.sh" ;;
             set-account-mode)                   SCRIPT="set_account_mode.sh" ;;
             fix-data-dir)                       SCRIPT="fix_data_dir.sh" ;;
             *)
@@ -386,6 +398,9 @@ jobs:
           fi
           if [ "${ACTION}" = "monitor-miss-analysis" ]; then
             REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID}") ACTION_DAYS=$(printf '%q' "${ACTION_DAYS}") ${REMOTE_CMD}"
+          fi
+          if [ "${ACTION}" = "vwap-backtest-sweep" ]; then
+            REMOTE_CMD="ACTION_DAYS=$(printf '%q' "${ACTION_DAYS}") ACTION_WINDOWS=$(printf '%q' "${ACTION_WINDOWS}") ACTION_WINDOW_DAYS=$(printf '%q' "${ACTION_WINDOW_DAYS}") ${REMOTE_CMD}"
           fi
           if [ "${ACTION}" = "setup-named-cloudflare-tunnel" ] || [ "${ACTION}" = "teardown-named-cloudflare-tunnel" ]; then
             if [ -z "${CLOUDFLARE_API_TOKEN}" ] || [ -z "${CLOUDFLARE_ACCOUNT_ID}" ]; then
