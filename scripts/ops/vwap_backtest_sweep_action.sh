@@ -66,10 +66,13 @@ fi
 
 echo
 echo "===== run_backtest_vwap.py --compare --windows ${WINDOWS} --window-days ${WINDOW_DAYS} --days ${DAYS} ====="
+# `python3 -m src.backtest...` needs the repo root on sys.path. Use
+# `cd ${REPO_DIR}` so Python's CWD-relative import finds `src/`.
 set +e
-BACKTEST_DATA_PATH="${DATA_PATH}" python3 -m src.backtest.run_backtest_vwap \
+( cd "${REPO_DIR}" && \
+  BACKTEST_DATA_PATH="${DATA_PATH}" python3 -m src.backtest.run_backtest_vwap \
     --compare --windows "${WINDOWS}" --window-days "${WINDOW_DAYS}" \
-    --days "${DAYS}"
+    --days "${DAYS}" )
 backtest_code=$?
 set -e
 
