@@ -171,9 +171,40 @@ MIN_HOLD_MINUTES_FOR_VWAP_CROSS_DEFAULT = 10.0
 #
 # Prior values for the record: 1.0σ (2026-05-03 directive, default) →
 # 2.0σ briefly during the 2026-05-09 cadence audit → 1.0σ again later
-# 2026-05-09 → 1.5σ on 2026-05-15 (PR #1205) → 1.0σ on 2026-05-17 (this
+# 2026-05-09 → 1.5σ on 2026-05-15 (PR #1205) → 1.0σ on 2026-05-17 (last
 # revert).
-ENTRY_STD_THRESHOLD = 1.0
+#
+# 2026-05-18: raised to 2.0σ following the regime-aware threshold sweep
+# in issue #1471 (90 days × 6 random 14-day windows × recency-bias 0.7,
+# no HTF gate). Evidence:
+#
+#   threshold | overall R | strong-down | sideways | strong-up/med | weak-up/low | strong-up/low | all-positive?
+#   ----------|-----------|-------------|----------|---------------|-------------|---------------|---------------
+#   0.8σ      | +18.17    |   +2.0      |  +29.0   |   +39.4       |   +9.8      |   -10.7       |    NO
+#   1.0σ      | +17.04    |   +4.9      |  +24.7   |   +35.3       |   +6.6      |    -4.4       |    NO  (production)
+#   1.2σ      |  +8.54    |  +11.5      |  +13.8   |   +17.1       |   +4.0      |   -12.3       |    NO
+#   1.5σ      |  +8.56    |   +7.4      |  +19.1   |   +14.8       |   -3.5      |    -1.1       |    NO
+#   2.0σ      | +16.48    |  +29.1      |   +9.1   |   +19.3       |   +7.9      |   +14.3       |    YES (6/6 windows positive)
+#
+# 2.0σ is the only variant profitable in EVERY regime tested + has
+# the highest Sharpe (0.088) AND the lowest Sharpe-std (0.030) → most
+# consistent across regimes. Crucially, 2.0σ is the only one positive
+# in `strong-up/low` — which is the regime that has been bleeding the
+# live trader since 2026-05-12 (operator audit issue #1429: real
+# 18.25% WR, -$44/7d net over 137 closes on bybit_2).
+#
+# Why higher entry → profitable when lower wasn't: the R:R contract is
+# (ENTRY_STD_THRESHOLD / SL_STD_MULT_DEFAULT). At 1.0σ entry + 0.5σ SL,
+# R:R = 2:1 → breakeven WR = 33.3%; observed 29% → losing. At 2.0σ +
+# 0.5σ SL, R:R = 4:1 → breakeven WR = 20%; observed 27-29% → winning.
+# Win-rate barely changes; the wider TP target inverts the math.
+#
+# Coverage gap acknowledged: the 90-day sample missed the `weak-down`
+# trend regime (Bybit market didn't grind slowly down in that window).
+# Follow-up: re-validate on a longer history (180-365 d) to fill that
+# gap before claiming robustness across ALL regimes. For now the
+# evidence is strong enough to stop the live bleeding.
+ENTRY_STD_THRESHOLD = 2.0
 
 # Internal alias retained for backwards-compatible imports.
 _ENTRY_STD_THRESHOLD = ENTRY_STD_THRESHOLD
@@ -196,14 +227,24 @@ _ENTRY_STD_THRESHOLD = ENTRY_STD_THRESHOLD
 # So R/R (reward:risk) at the entry boundary equals
 # ENTRY_STD_THRESHOLD / SL_STD_MULT.
 #
-# Per the 2026-05-03 operator directive (CP-2026-05-03-20): preserve
-# risk:reward of 1:2 at the entry boundary. At ENTRY_STD_THRESHOLD=1.0σ
-# and SL_STD_MULT_DEFAULT=0.5σ, reward = 1.0 × std_dev / risk = 0.5 ×
-# std_dev → reward:risk = 2:1 (risk:reward = 1:2). Operators tuning
-# either value must move the other in lock-step or the R:R contract
-# drifts. Tunable per call via the ``sl_std_mult`` arg to
-# ``build_vwap_signal`` or the matching entry in
-# ``config/strategies.yaml`` (consumed by vwap_signal_builder).
+# 2026-05-03 operator directive (CP-2026-05-03-20) targeted a 1:2
+# risk:reward at the entry boundary; with ENTRY_STD_THRESHOLD=1.0σ and
+# SL_STD_MULT_DEFAULT=0.5σ that gave reward:risk = 2:1.
+#
+# 2026-05-18: ENTRY_STD_THRESHOLD raised to 2.0σ (regime-aware backtest
+# in issue #1471). SL_STD_MULT stays at 0.5σ, so the new R:R is 4:1
+# (breakeven WR ≈ 20%, observed 27-29% → profitable in every regime
+# tested). This makes the R:R more favourable than the original
+# directive; the trade-off is fewer fills (~60% cadence reduction).
+# Operator-approved 2026-05-18 with explicit "cadence is less
+# important; I mainly just want to ensure that trades are happening
+# so we can learn from live trading."
+#
+# Operators tuning either constant must keep the relationship explicit
+# — the R:R contract is (ENTRY_STD_THRESHOLD / SL_STD_MULT). Tunable
+# per call via the ``sl_std_mult`` arg to ``build_vwap_signal`` or
+# the matching entry in ``config/strategies.yaml`` (consumed by
+# vwap_signal_builder).
 #
 # 2026-05-17 reverted to 0.5σ following the post-incident validation
 # backtest (issue #1370). PR #1183 had widened 0.5 → 0.75 on 2026-05-12
