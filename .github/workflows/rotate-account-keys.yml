@@ -1,0 +1,285 @@
+name: rotate-account-keys
+
+# Canonical key-rotation path (2026-05-18) — replaces the SOPS/Colab/age-key flow.
+#
+# Operator workflow:
+#   1. Add / update secrets in Settings → Secrets and variables → Actions:
+#        BYBIT_API_KEY_1   — bybit_1 demo account API key
+#        BYBIT_API_SECRET_1 — bybit_1 demo account secret
+#        BYBIT_API_KEY_2   — bybit_2 live account API key
+#        BYBIT_API_SECRET_2 — bybit_2 live account secret
+#   2. Dispatch this workflow with the desired account_id.
+#      Claude fires after operator confirms the secrets are in place.
+#
+# The workflow SSHes to the live VM, patches BYBIT_API_KEY_N and
+# BYBIT_API_SECRET_N in the .env file using scripts/ops/rotate_account_keys.sh,
+# then restarts ict-trader-live + ict-web-api.
+#
+# Security contract:
+#   * Secret values are passed through SSH env (-o SendEnv) — never appear
+#     in run logs or the audit artifact.
+#   * The ops script exits 2 if either ACCOUNT_ID or the key/secret is empty,
+#     so a missing secret causes a clear failure rather than writing blank creds.
+#   * The audit artifact records the action name and account but NEVER the
+#     key/secret values.
+#
+# Required repo secrets:
+#   VM_SSH_KEY           — SSH key for the live VM
+#   BYBIT_API_KEY_1      — bybit_1 (demo) API key
+#   BYBIT_API_SECRET_1   — bybit_1 (demo) API secret
+#   BYBIT_API_KEY_2      — bybit_2 (live) API key
+#   BYBIT_API_SECRET_2   — bybit_2 (live) API secret
+#   DIAG_READ_TOKEN      — bearer for post-action diag check (optional)
+#
+# Optional repo variables:
+#   VM_SSH_HOST          — defaults to 158.178.210.252
+#   VM_SSH_USER          — defaults to ubuntu
+
+on:
+  workflow_dispatch:
+    inputs:
+      account_id:
+        description: "Account to rotate keys for"
+        required: true
+        type: choice
+        options:
+          - bybit_1
+          - bybit_2
+      reason:
+        description: "Why keys are being rotated (audit trail)"
+        required: true
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rotate-account-keys
+  cancel-in-progress: false
+
+jobs:
+  rotate-keys:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '158.178.210.252' }}
+      VM_SSH_USER: ${{ vars.VM_SSH_USER || 'ubuntu' }}
+      ACCOUNT_ID: ${{ inputs.account_id }}
+      REASON: ${{ inputs.reason }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+    steps:
+      - name: Checkout (for ops script path)
+        uses: actions/checkout@v4
+
+      - name: Validate inputs
+        run: |
+          set -euo pipefail
+          case "${ACCOUNT_ID}" in
+            bybit_1|bybit_2) ;;
+            *)
+              echo "::error::Unknown account_id '${ACCOUNT_ID}'."
+              exit 2
+              ;;
+          esac
+          if [ -z "${REASON// }" ]; then
+            echo "::error::reason is required — provide an audit-trail note."
+            exit 1
+          fi
+          echo ">>> Rotating keys for account: ${ACCOUNT_ID}"
+          echo ">>> Reason: ${REASON}"
+
+      - name: Set up SSH key
+        env:
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VM_SSH_KEY}" ]; then
+            echo "::error::VM_SSH_KEY secret is unset."
+            exit 1
+          fi
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${VM_SSH_KEY}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -t rsa,ecdsa,ed25519 "${VM_SSH_HOST}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Verify API key secrets are set
+        env:
+          BYBIT_API_KEY_1: ${{ secrets.BYBIT_API_KEY_1 }}
+          BYBIT_API_SECRET_1: ${{ secrets.BYBIT_API_SECRET_1 }}
+          BYBIT_API_KEY_2: ${{ secrets.BYBIT_API_KEY_2 }}
+          BYBIT_API_SECRET_2: ${{ secrets.BYBIT_API_SECRET_2 }}
+        run: |
+          set -euo pipefail
+          case "${ACCOUNT_ID}" in
+            bybit_1)
+              if [ -z "${BYBIT_API_KEY_1}" ] || [ -z "${BYBIT_API_SECRET_1}" ]; then
+                echo "::error::BYBIT_API_KEY_1 and/or BYBIT_API_SECRET_1 secrets are not set."
+                echo "::error::Add them at Settings → Secrets and variables → Actions before dispatching."
+                exit 1
+              fi
+              ;;
+            bybit_2)
+              if [ -z "${BYBIT_API_KEY_2}" ] || [ -z "${BYBIT_API_SECRET_2}" ]; then
+                echo "::error::BYBIT_API_KEY_2 and/or BYBIT_API_SECRET_2 secrets are not set."
+                echo "::error::Add them at Settings → Secrets and variables → Actions before dispatching."
+                exit 1
+              fi
+              ;;
+          esac
+          echo ">>> Secret presence check passed for ${ACCOUNT_ID}"
+
+      - name: Capture pre-rotation service state
+        env:
+          DIAG_READ_TOKEN: ${{ secrets.DIAG_READ_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DIAG_READ_TOKEN:-}" ]; then
+            echo '{"diag_skipped": true}' > pre-state.json
+            exit 0
+          fi
+          ssh -i ~/.ssh/id_rsa \
+              -o BatchMode=yes \
+              -o StrictHostKeyChecking=accept-new \
+              -o ConnectTimeout=15 \
+              "${VM_SSH_USER}@${VM_SSH_HOST}" \
+              "curl -sS --fail --max-time 15 \
+                    -H 'Authorization: Bearer ${DIAG_READ_TOKEN}' \
+                    'http://127.0.0.1:8001/api/diag/status'" \
+              > pre-state.json \
+            || echo '{"diag_unreachable": true}' > pre-state.json
+
+      - name: Rotate keys on VM
+        id: rotate
+        env:
+          BYBIT_API_KEY_1: ${{ secrets.BYBIT_API_KEY_1 }}
+          BYBIT_API_SECRET_1: ${{ secrets.BYBIT_API_SECRET_1 }}
+          BYBIT_API_KEY_2: ${{ secrets.BYBIT_API_KEY_2 }}
+          BYBIT_API_SECRET_2: ${{ secrets.BYBIT_API_SECRET_2 }}
+        run: |
+          set -euo pipefail
+
+          # Select the right key/secret pair for the target account.
+          # Values ride through the SSH SendEnv channel as NEW_API_KEY and
+          # NEW_API_SECRET — never appear in the command string or run log.
+          case "${ACCOUNT_ID}" in
+            bybit_1)
+              export NEW_API_KEY="${BYBIT_API_KEY_1}"
+              export NEW_API_SECRET="${BYBIT_API_SECRET_1}"
+              ;;
+            bybit_2)
+              export NEW_API_KEY="${BYBIT_API_KEY_2}"
+              export NEW_API_SECRET="${BYBIT_API_SECRET_2}"
+              ;;
+          esac
+
+          set +e
+          ssh -i ~/.ssh/id_rsa \
+              -o BatchMode=yes \
+              -o StrictHostKeyChecking=accept-new \
+              -o ConnectTimeout=15 \
+              -o SendEnv="NEW_API_KEY NEW_API_SECRET" \
+              "${VM_SSH_USER}@${VM_SSH_HOST}" \
+              "ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID}") \
+               NEW_API_KEY=\${NEW_API_KEY} \
+               NEW_API_SECRET=\${NEW_API_SECRET} \
+               bash /home/ubuntu/ict-trading-bot/scripts/ops/rotate_account_keys.sh" \
+              > action-output.txt 2>&1
+          rc=$?
+          set -e
+
+          echo "exit_code=${rc}" >> "$GITHUB_OUTPUT"
+          echo ">>> Rotate exit code: ${rc}"
+          cat action-output.txt
+          exit "${rc}"
+
+      - name: Capture post-rotation service state
+        if: always()
+        env:
+          DIAG_READ_TOKEN: ${{ secrets.DIAG_READ_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DIAG_READ_TOKEN:-}" ]; then
+            echo '{"diag_skipped": true}' > post-state.json
+            exit 0
+          fi
+          attempts=4
+          while [ "${attempts}" -gt 0 ]; do
+            if ssh -i ~/.ssh/id_rsa \
+                   -o BatchMode=yes \
+                   -o StrictHostKeyChecking=accept-new \
+                   -o ConnectTimeout=10 \
+                   "${VM_SSH_USER}@${VM_SSH_HOST}" \
+                   "curl -sS --fail --max-time 15 \
+                         -H 'Authorization: Bearer ${DIAG_READ_TOKEN}' \
+                         'http://127.0.0.1:8001/api/diag/status'" \
+                   > post-state.json 2>/dev/null; then
+              break
+            fi
+            attempts=$(( attempts - 1 ))
+            sleep 5
+          done
+          [ "${attempts}" -gt 0 ] \
+            || echo '{"diag_unreachable_after_rotation": true}' > post-state.json
+
+      - name: Build audit bundle (no secret values)
+        if: always()
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, pathlib
+          def load(p):
+              try: return json.loads(pathlib.Path(p).read_text())
+              except Exception as e: return {"_load_error": str(e)}
+          bundle = {
+              "action": "rotate-account-keys",
+              "account_id": os.environ["ACCOUNT_ID"],
+              "reason": os.environ.get("REASON", ""),
+              "run_url": os.environ["RUN_URL"],
+              "exit_code": os.environ.get("EXIT_CODE", ""),
+              "pre_state": load("pre-state.json"),
+              "post_state": load("post-state.json"),
+              # key/secret values intentionally absent
+              "action_output": pathlib.Path("action-output.txt").read_text()[-4000:]
+                  if pathlib.Path("action-output.txt").exists() else "",
+          }
+          pathlib.Path("audit-bundle.json").write_text(json.dumps(bundle, indent=2, default=str))
+          print("Audit bundle bytes:", pathlib.Path("audit-bundle.json").stat().st_size)
+          PY
+        env:
+          EXIT_CODE: ${{ steps.rotate.outputs.exit_code }}
+
+      - name: Notify operator via Telegram
+        if: always()
+        continue-on-error: true
+        env:
+          NOTIFY_EXIT_CODE: ${{ steps.rotate.outputs.exit_code }}
+        run: |
+          set -uo pipefail
+          exit_code="${NOTIFY_EXIT_CODE:-99}"
+          [ -n "${exit_code}" ] || exit_code=99
+          reason_b64="$(printf '%s' "rotate-keys account=${ACCOUNT_ID} | ${REASON}" | base64 -w0):b64"
+          ssh -i ~/.ssh/id_rsa \
+              -o BatchMode=yes \
+              -o StrictHostKeyChecking=accept-new \
+              -o ConnectTimeout=15 \
+              "${VM_SSH_USER}@${VM_SSH_HOST}" \
+              "bash /home/ubuntu/ict-trading-bot/scripts/ops/notify_run.sh \
+                    'rotate-account-keys' \
+                    '${exit_code}' \
+                    '${RUN_URL}' \
+                    '${reason_b64}'" \
+            || echo "::warning::notify_run.sh failed — Telegram ping not delivered."
+
+      - name: Upload audit artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rotate-keys-${{ inputs.account_id }}-${{ github.run_id }}
+          path: |
+            audit-bundle.json
+            pre-state.json
+            post-state.json
+            action-output.txt
+          retention-days: 30
+          if-no-files-found: warn

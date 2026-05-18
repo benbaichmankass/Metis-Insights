@@ -70,29 +70,42 @@
 # (RiskManager.approve(order)).
 
 accounts:
-  # bybit_1: turtle_soup only — operator-confirmed wallet holds BTC + USDT
-  # so the swept-and-reversal MTF strategy can size off either base asset.
+  # bybit_1: Bybit demo trading account — all three strategies at full
+  # priority. Reconfigured 2026-05-18 (operator-approved): previously
+  # turtle_soup / spot / dry_run. Now mirrors bybit_2's runtime profile
+  # (linear perps, 3× leverage, live mode) but on the Bybit demo endpoint
+  # (https://api-demo.bybit.com) so all strategies can be evaluated in a
+  # realistic execution environment without real-money risk.
+  #
+  # Keys rotated via the rotate-account-keys GitHub Actions workflow
+  # (the new canonical path — replaces the SOPS/Colab/age-key flow).
+  # To update: add BYBIT_API_KEY_1 / BYBIT_API_SECRET_1 to repo secrets,
+  # then dispatch rotate-account-keys with account_id=bybit_1.
   bybit_1:
     type: regular
     exchange: bybit
     api_key_env: BYBIT_API_KEY_1       # env var holding the actual key
-    mode: dry_run                      # 2026-05-10 health-review: gate_balance=$0
-                                       # — trade 1142 (turtle_soup short) was
-                                       # rejected for below_min_balance. Flip
-                                       # to dry_run until the wallet is funded
-                                       # so signals don't get routed at an
-                                       # unfunded live account.
-    market_type: spot                  # Bybit V5 category — spot for cash
-                                       # market BTCUSDT (operator directive
-                                       # 2026-05-06: trader was placing
-                                       # perpetuals; this routes to spot).
-    strategies: [turtle_soup]
+    demo: true                         # Bybit demo trading endpoint
+                                       # (https://api-demo.bybit.com).
+                                       # bybit_client_for() passes demo=True
+                                       # to pybit.unified_trading.HTTP.
+    mode: live                         # 2026-05-18 operator approval: reconfigured
+                                       # as demo account — live mode is correct
+                                       # (demo accounts trade paper money, not dry_run
+                                       # which suppresses all exchange calls).
+    market_type: linear                # USDT-margined linear perpetuals — same
+                                       # as bybit_2. set-leverage fires at boot
+                                       # via _apply_per_account_leverage.
+    strategies: [turtle_soup, vwap, ict_scalp_5m]   # all three active strategies;
+                                       # execution-priority order matches list order.
     risk:
       max_dd_pct: 0.05                 # 5% max intra-day drawdown
       daily_usd: 100                   # $100 max daily loss
       pos_size: 500                    # $500 max single position (approval gate only)
       risk_pct: 0.01                   # 1% balance risked per trade (S-026 G2)
       min_balance_usd: 50              # refuse to size below $50 (S-026 G2)
+      leverage: 3                      # 3× leverage — same as bybit_2; applied
+                                       # via /v5/position/set-leverage at boot.
 
   # bybit_2: vwap only on Bybit V5 USDT-margined linear perpetuals at 3×
   # leverage. PR 3 cutover (2026-05-10) — migrated from spot-margin
