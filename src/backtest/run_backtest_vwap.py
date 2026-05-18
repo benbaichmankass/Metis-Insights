@@ -627,7 +627,13 @@ def run_windows(
 
     sharpe_vals = [r["sharpe_r"] for r in window_results]
     total_r_vals = [r["total_r"] for r in window_results]
-    win_rate_vals = [r["win_rate_pct"] for r in window_results]
+    # Adaptive mode marks skipped windows as ``win_rate_pct=None`` (no
+    # trades taken means win-rate is undefined, not 0). Filter for
+    # aggregation; ``statistics.mean`` chokes on ``None``.
+    win_rate_vals = [
+        r["win_rate_pct"] for r in window_results
+        if r.get("win_rate_pct") is not None
+    ]
     positive_windows = sum(1 for r in window_results if r["total_r"] > 0)
 
     # Per-regime aggregation: group by regime label, compute mean
@@ -641,13 +647,13 @@ def run_windows(
     for reg, items in sorted(by_regime.items()):
         rs = [it["total_r"] for it in items]
         sharpes = [it["sharpe_r"] for it in items]
-        wrs = [it["win_rate_pct"] for it in items]
+        wrs = [it["win_rate_pct"] for it in items if it.get("win_rate_pct") is not None]
         per_regime_stats.append({
             "regime": reg,
             "n_windows": len(items),
             "mean_total_r": round(statistics.mean(rs), 2),
             "mean_sharpe": round(statistics.mean(sharpes), 3),
-            "mean_win_rate_pct": round(statistics.mean(wrs), 1),
+            "mean_win_rate_pct": round(statistics.mean(wrs), 1) if wrs else None,
             "positive_windows": sum(1 for v in rs if v > 0),
         })
 
@@ -669,7 +675,9 @@ def run_windows(
         "min_sharpe": round(min(sharpe_vals), 3),
         "max_sharpe": round(max(sharpe_vals), 3),
         "mean_total_r": round(statistics.mean(total_r_vals), 2),
-        "mean_win_rate_pct": round(statistics.mean(win_rate_vals), 1),
+        "mean_win_rate_pct": (
+            round(statistics.mean(win_rate_vals), 1) if win_rate_vals else None
+        ),
         "positive_windows": positive_windows,
         "windows": window_results,
         "by_regime": per_regime_stats,
