@@ -120,7 +120,7 @@ on:
   # autonomous-dispatch path; no operator click required. Label
   # `operator-action` is created idempotently by bootstrap-labels.yml.
   issues:
-    types: [opened]
+    types: [opened, labeled]
 
 permissions:
   contents: read
@@ -136,7 +136,12 @@ jobs:
   operator-action:
     if: |
       github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'operator-action'))
+      (github.event_name == 'issues' &&
+       (
+         (github.event.action == 'opened' && contains(github.event.issue.labels.*.name, 'operator-action')) ||
+         (github.event.action == 'labeled' && github.event.label.name == 'operator-action')
+       )
+      )
     runs-on: ubuntu-latest
     # 10 min covers status-check / restart-bot-service / reboot-vm.
     # pull-and-deploy can pip-install on a cold cache, so allow more
