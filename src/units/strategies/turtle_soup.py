@@ -512,4 +512,19 @@ def monitor(cfg, candles_df, open_pkg):
     if be_at_r <= 0:
         be_at_r = 1.0
 
-    return monitor_breakeven_sl(open_pkg, candles_df, one_r_threshold=be_at_r)
+    # ``be_offset_bps`` (2026-05-18): see `_base.monitor_breakeven_sl`
+    # docstring. Lifts the trailed SL above break-even by N bps so
+    # round-trip taker fees don't turn the protective close into a
+    # scratch loss.
+    try:
+        be_offset_bps = float(cfg_dict.get("be_offset_bps", 0.0))
+    except (TypeError, ValueError):
+        be_offset_bps = 0.0
+    if be_offset_bps < 0:
+        be_offset_bps = 0.0
+
+    return monitor_breakeven_sl(
+        open_pkg, candles_df,
+        one_r_threshold=be_at_r,
+        be_offset_bps=be_offset_bps,
+    )
