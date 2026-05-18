@@ -87,7 +87,17 @@ _DEFAULT_LIMIT = 100
 _MAX_LIMIT = 1000
 _DEFAULT_JOURNAL_LINES = 200
 _MAX_JOURNAL_LINES = 2000
-_JOURNALCTL_TIMEOUT_S = 10
+# 2026-05-18: bumped 10 → 30 after repeated `journalctl?lines=30..300`
+# calls timed out on the live VM mid-health-review. Root cause is a
+# large persistent journal whose backwards-scan exceeds the prior 10 s
+# cap even for small `-n` values. The companion curl --max-time in
+# .github/workflows/vm-diag-snapshot.yml was bumped from 20 → 40 so
+# the HTTP layer doesn't preempt the new server-side limit. A longer
+# tail-scan is bounded by the FastAPI worker thread budget; the read
+# is the only path to `order_monitor:` lines (the trader writes to
+# journal only — bot.log went stale 2026-05-03) so the diag surface
+# stops working entirely if this is too tight.
+_JOURNALCTL_TIMEOUT_S = 30
 _SYSTEMCTL_TIMEOUT_S = 5
 
 # Strict ISO-8601 form accepted by /api/diag/journalctl?since=… / ?until=…
