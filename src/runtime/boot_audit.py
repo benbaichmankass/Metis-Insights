@@ -166,7 +166,7 @@ def _open_journal_trades(account_id: str, db_path: str) -> List[Dict[str, Any]]:
         with sqlite3.connect(db_path, timeout=5) as conn:
             conn.row_factory = sqlite3.Row
             rows = conn.execute(
-                "SELECT id, symbol, side FROM trades "
+                "SELECT id, symbol, direction FROM trades "
                 "WHERE account_id = ? AND status = 'open' "
                 "AND COALESCE(is_backtest, 0) = 0",
                 (account_id,),
