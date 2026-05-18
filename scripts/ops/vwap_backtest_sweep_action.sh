@@ -43,12 +43,13 @@ WINDOWS="${ACTION_WINDOWS:-8}"
 WINDOW_DAYS="${ACTION_WINDOW_DAYS:-30}"
 RECENT_ONLY_FRAC="${ACTION_RECENT_ONLY_FRAC:-1.0}"
 
-# Map mode → run_backtest_vwap flag. Default fallback is --compare.
+# Map mode → run_backtest_vwap flag.
 case "${MODE}" in
     compare)            BACKTEST_FLAG="--compare" ;;
     threshold-sweep)    BACKTEST_FLAG="--threshold-sweep" ;;
+    adaptive)           BACKTEST_FLAG="--adaptive" ;;
     *)
-        log "ERROR: unknown mode '${MODE}' (allowed: compare, threshold-sweep)"
+        log "ERROR: unknown mode '${MODE}' (allowed: compare, threshold-sweep, adaptive)"
         record_audit "vwap-backtest-sweep" "error" \
             "{\"reason\": \"bad mode\", \"mode\": \"${MODE}\"}" >/dev/null || true
         exit 1
