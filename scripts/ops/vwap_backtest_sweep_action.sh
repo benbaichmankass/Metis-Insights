@@ -41,6 +41,7 @@ MODE="${ACTION_MODE:-compare}"
 DAYS="${ACTION_DAYS:-90}"
 WINDOWS="${ACTION_WINDOWS:-8}"
 WINDOW_DAYS="${ACTION_WINDOW_DAYS:-30}"
+RECENT_ONLY_FRAC="${ACTION_RECENT_ONLY_FRAC:-1.0}"
 
 # Map mode → run_backtest_vwap flag. Default fallback is --compare.
 case "${MODE}" in
@@ -79,14 +80,12 @@ if [ ! -f "${DATA_PATH}" ]; then
 fi
 
 echo
-echo "===== run_backtest_vwap.py ${BACKTEST_FLAG} --windows ${WINDOWS} --window-days ${WINDOW_DAYS} --days ${DAYS} ====="
-# `python3 -m src.backtest...` needs the repo root on sys.path. Use
-# `cd ${REPO_DIR}` so Python's CWD-relative import finds `src/`.
+echo "===== run_backtest_vwap.py ${BACKTEST_FLAG} --windows ${WINDOWS} --window-days ${WINDOW_DAYS} --days ${DAYS} --recent-only-frac ${RECENT_ONLY_FRAC} ====="
 set +e
 ( cd "${REPO_DIR}" && \
   BACKTEST_DATA_PATH="${DATA_PATH}" python3 -m src.backtest.run_backtest_vwap \
     "${BACKTEST_FLAG}" --windows "${WINDOWS}" --window-days "${WINDOW_DAYS}" \
-    --days "${DAYS}" )
+    --days "${DAYS}" --recent-only-frac "${RECENT_ONLY_FRAC}" )
 backtest_code=$?
 set -e
 
