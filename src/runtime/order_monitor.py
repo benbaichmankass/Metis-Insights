@@ -659,24 +659,19 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
                 pkg_id, exc,
             )
 
-        # Realised-PnL booking. Mirrors the gross-PnL formula in the
-        # backtester so live + backtest accounting line up. Computed
-        # from the exchange-confirmed avg_price when available, else
-        # from the verdict-projected exit_price.
-        if actual_exit_price is not None:
-            pnl_updates = _compute_close_pnl(
-                matched_trade, float(actual_exit_price),
-            )
-            trade_id = matched_trade.get("id")
-            if pnl_updates and trade_id is not None:
-                try:
-                    db.update_trade(int(trade_id), pnl_updates)
-                    matched_trade = {**matched_trade, **pnl_updates}
-                except Exception as exc:  # noqa: BLE001
-                    logger.warning(
-                        "order_monitor: trades pnl update failed for %s: %s",
-                        pkg_id, exc,
-                    )
+        # Realised-PnL booking (2026-05-18 SSOT refactor): pnl is no
+        # longer computed locally at close time. The Bybit-truth sweep
+        # ``_sweep_pending_pnl_from_bybit`` (invoked from
+        # ``run_monitor_tick``) fills ``pnl`` / ``exit_price`` /
+        # ``notes.bybit_closed_pnl`` from Bybit's
+        # ``/v5/position/closed-pnl`` endpoint within a few ticks of
+        # close. Until that lookup succeeds, ``pnl`` stays NULL and
+        # the dashboard renders an em-dash for the row. This deletes
+        # the historical fee-blind gross-PnL write that produced
+        # silent dashboard / Bybit discrepancies (e.g. trade #1540's
+        # gross +$1.03 vs Bybit's net of fees).
+        # (Was: ``_compute_close_pnl(matched_trade, actual_exit_price)``
+        # followed by ``db.update_trade(trade_id, pnl_updates)``.)
 
         summary.closed_count += 1
         return
@@ -786,37 +781,23 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
         return
 
 
-def _compute_close_pnl(matched_trade: Dict[str, Any],
-                       exit_price: float) -> Dict[str, Any]:
-    """Realised gross PnL + PnL% for a closed trade row.
-
-    Mirrors the gross-PnL formula in src/backtest/backtester.py so the
-    live + backtest accounting line up. Returns {"pnl", "pnl_percent"}
-    when the matched row carries entry_price + position_size + a known
-    direction; returns {} otherwise so callers can skip the second
-    write without raising.
-
-    Fees are not deducted here — the exchange-truth-attribution
-    reconciler is responsible for net-of-fees PnL.
-    """
-    try:
-        entry = float(matched_trade["entry_price"])
-        size = float(matched_trade["position_size"])
-    except (KeyError, TypeError, ValueError):
-        return {}
-    direction = str(matched_trade.get("direction") or "").lower()
-    if direction == "long":
-        gross_pnl = (exit_price - entry) * size
-    elif direction == "short":
-        gross_pnl = (entry - exit_price) * size
-    else:
-        return {}
-    notional = entry * size
-    pnl_percent = (gross_pnl / notional * 100.0) if notional else 0.0
-    return {
-        "pnl": round(gross_pnl, 2),
-        "pnl_percent": round(pnl_percent, 4),
-    }
+# ``_compute_close_pnl`` was deleted on 2026-05-18 as part of the
+# SSOT PnL refactor (#1400's sibling). The local gross-PnL formula it
+# implemented (``(exit - entry) * size`` for longs, mirror for shorts)
+# was fee-blind and produced silent discrepancies between the dashboard
+# and Bybit's account view — e.g. trade #1540 closed via tp_cross
+# recorded +$1.03 gross while Bybit's actual net (after taker fees on
+# both sides) was ~+$0.57. The single source of PnL is now Bybit's
+# ``/v5/position/closed-pnl`` endpoint, reached via
+# ``account_closed_pnl_for_trade`` and applied by either:
+#   * the inline reconciler path (DB-open / exchange-flat orphan) in
+#     ``_close_trade_from_order_status``; or
+#   * the post-close pending-pnl sweep ``_sweep_pending_pnl_from_bybit``
+#     for any trade that was closed by the monitor (tp_cross, monitor
+#     SL, partial close) — Bybit's record typically lands within 30-60s
+#     of the close, so this sweep usually completes within one tick.
+# The dashboard treats ``pnl IS NULL`` as "pending" (em-dash) per the
+# Position-shape contract in CLAUDE.md.
 
 
 def _find_trade_by_match(db, *, strategy: Optional[str],
@@ -3173,6 +3154,199 @@ def _check_naked_positions(db) -> Dict[str, int]:
     return summary
 
 
+def _sweep_pending_pnl_from_bybit(db) -> Dict[str, int]:
+    """Fill ``pnl`` / ``exit_price`` / ``notes.bybit_closed_pnl`` for
+    any DB-closed trade that hasn't yet been reconciled against
+    Bybit's authoritative ``/v5/position/closed-pnl`` record.
+
+    Sister sweep to :func:`_reconcile_open_trades`. Where that one
+    detects DB-open / exchange-flat orphans, this one detects DB-
+    closed / pnl-still-pending rows. The combination guarantees
+    every live trade's final ``pnl`` is Bybit-truth, never a fee-
+    blind local computation.
+
+    Adopted 2026-05-18 as part of the SSOT PnL refactor (operator
+    directive: "Bybit is the only source of trade data; the system
+    doesn't need its own calculator"). The historical fee-blind
+    ``_compute_close_pnl`` was deleted in the same change; close
+    paths now leave ``pnl`` NULL and this sweep fills it on the next
+    monitor tick once Bybit's closed-pnl record is available (usually
+    30-60 s after the close fill).
+
+    Gated by ``MONITOR_RECONCILE_ENABLED`` (same flag as the rest of
+    the reconciler family). Best-effort — never raises.
+
+    Returns:
+        dict: ``{"scanned", "filled", "still_pending", "errors"}``
+        counts for the tick. ``still_pending`` is the expected
+        steady state for a freshly-closed row whose Bybit record
+        hasn't propagated yet — it'll flip to ``filled`` on the
+        next tick.
+    """
+    summary: Dict[str, int] = {
+        "scanned": 0, "filled": 0, "still_pending": 0, "errors": 0,
+    }
+    if not _reconcile_enabled():
+        return summary
+
+    # Scope: closed, non-backtest, pnl IS NULL, opened within
+    # Bybit's 7-day closed-pnl retention window. Cap at 50 to
+    # bound per-tick API load — the sweep runs every tick so a
+    # backlog drains in a couple of minutes.
+    try:
+        conn = db.connect()
+        try:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT id, symbol, direction, position_size, "
+                "       entry_price, account_id, created_at, notes "
+                "  FROM trades "
+                " WHERE status = 'closed' "
+                "   AND COALESCE(is_backtest, 0) = 0 "
+                "   AND pnl IS NULL "
+                "   AND datetime(created_at) >= "
+                "       datetime('now', '-7 days') "
+                " ORDER BY datetime(created_at) DESC "
+                " LIMIT 50"
+            )
+            rows = [dict(r) for r in cursor.fetchall()]
+        finally:
+            try:
+                conn.close()
+            except Exception:  # noqa: BLE001
+                pass
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "_sweep_pending_pnl_from_bybit: scan query failed: %s", exc,
+        )
+        return summary
+
+    if not rows:
+        return summary
+    summary["scanned"] = len(rows)
+
+    try:
+        cfgs = _load_account_cfgs_for_reconcile()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "_sweep_pending_pnl_from_bybit: account cfg load failed: %s",
+            exc,
+        )
+        summary["errors"] = len(rows)
+        return summary
+    if not cfgs:
+        # No accounts configured → can't ask Bybit. Rows stay pending.
+        summary["still_pending"] = len(rows)
+        return summary
+
+    try:
+        from src.units.accounts.clients import (
+            account_closed_pnl_for_trade,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "_sweep_pending_pnl_from_bybit: clients import failed: %s",
+            exc,
+        )
+        summary["errors"] = len(rows)
+        return summary
+
+    for row in rows:
+        try:
+            aid = row.get("account_id")
+            cfg = cfgs.get(aid) if aid else None
+            if cfg is None:
+                # Row was booked under an account no longer in YAML
+                # (typical for retired accounts). Skip silently — the
+                # backfill script can target these explicitly.
+                summary["still_pending"] += 1
+                continue
+
+            opened_at_ms = _isoformat_to_ms(row.get("created_at"))
+            if opened_at_ms is None:
+                summary["still_pending"] += 1
+                continue
+
+            try:
+                rec = account_closed_pnl_for_trade(
+                    cfg,
+                    symbol=str(row.get("symbol") or ""),
+                    direction=str(row.get("direction") or ""),
+                    opened_at_ms=opened_at_ms,
+                    qty=_safe_float(row.get("position_size")),
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "_sweep_pending_pnl_from_bybit: closed-pnl lookup "
+                    "raised for trade_id=%s: %s",
+                    row.get("id"), exc,
+                )
+                summary["errors"] += 1
+                continue
+
+            if rec is None or not rec.get("avg_exit_price"):
+                # Bybit hasn't booked the record yet. Try again next
+                # tick. This is the steady-state path for trades that
+                # just closed seconds ago.
+                summary["still_pending"] += 1
+                continue
+
+            # Got Bybit truth — write it.
+            avg_exit_price = float(rec["avg_exit_price"])
+            closed_pnl = rec.get("closed_pnl")
+            notes = _decode_notes(row.get("notes"))
+            notes["exit_price_source"] = "bybit_closed_pnl"
+            if closed_pnl is not None:
+                notes["bybit_closed_pnl"] = closed_pnl
+            if rec.get("closed_at") and "closed_at" not in notes:
+                notes["closed_at"] = str(rec["closed_at"])
+
+            updates: Dict[str, Any] = {
+                "exit_price": avg_exit_price,
+                "notes": json.dumps(notes, ensure_ascii=False)[:500],
+            }
+            if closed_pnl is not None:
+                try:
+                    updates["pnl"] = float(closed_pnl)
+                    _entry = _safe_float(row.get("entry_price"))
+                    _qty = _safe_float(row.get("position_size"))
+                    if _entry and _qty and _entry * _qty > 0:
+                        updates["pnl_percent"] = round(
+                            float(closed_pnl)
+                            / (_entry * _qty) * 100.0,
+                            4,
+                        )
+                except (TypeError, ValueError):
+                    pass
+
+            try:
+                db.update_trade(int(row["id"]), updates)
+                summary["filled"] += 1
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "_sweep_pending_pnl_from_bybit: db update failed "
+                    "for trade_id=%s: %s",
+                    row.get("id"), exc,
+                )
+                summary["errors"] += 1
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "_sweep_pending_pnl_from_bybit: row %s raised: %s",
+                row.get("id"), exc,
+            )
+            summary["errors"] += 1
+
+    if summary["filled"] > 0 or summary["errors"] > 0:
+        logger.info(
+            "_sweep_pending_pnl_from_bybit: scanned=%d filled=%d "
+            "still_pending=%d errors=%d",
+            summary["scanned"], summary["filled"],
+            summary["still_pending"], summary["errors"],
+        )
+
+    return summary
+
+
 def run_monitor_tick(
     *,
     db_path: Optional[str] = None,
@@ -3346,6 +3520,24 @@ def run_monitor_tick(
     except Exception as exc:  # noqa: BLE001
         logger.warning(
             "run_monitor_tick: reverse reconciler raised: %s", exc,
+        )
+
+    # 2026-05-18 SSOT PnL refactor: pending-pnl sweep. Picks up any
+    # closed-but-pending row whose ``pnl`` is still NULL (because the
+    # monitor-side close path no longer computes gross PnL locally)
+    # and queries Bybit's closed-pnl endpoint for the authoritative
+    # net number. Runs after both reconcilers so any newly-closed row
+    # gets its first lookup attempt on the same tick it was closed.
+    try:
+        pending_pnl = _sweep_pending_pnl_from_bybit(db)
+        if (
+            pending_pnl.get("filled")
+            or pending_pnl.get("errors")
+        ):
+            summaries["__pending_pnl_sweep__"] = pending_pnl
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "run_monitor_tick: pending-pnl sweep raised: %s", exc,
         )
 
     # BUG-049: sweep order_packages that are status='open' but have no
