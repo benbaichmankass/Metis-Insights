@@ -464,6 +464,22 @@
       "snoozed_until": null,
       "closed_at": null,
       "closed_reason": null
+    },
+    {
+      "id": "FU-20260518-002",
+      "opened_at": "2026-05-18T00:10:00+00:00",
+      "opened_by": "claude",
+      "source": "operator-chat-2026-05-18-vwap-sltp-not-moving",
+      "related_prs": [],
+      "title": "Verify SL/TP modify-path actually reaches Bybit (post-modify-path exchange-first fix)",
+      "description": "Operator reported 2026-05-18 that SL/TP movements (notably SL-to-break-even at +1R from monitor_breakeven_sl) were NOT happening on live trades. Diagnosis: src/runtime/order_monitor.py:_apply_update's modify branch was DB-first with a silent skip when the trade-row lookup returned no matching open row. So the strategy verdict moved the SL in the journal but the modify-order call never reached Bybit. Symmetric to the partial-close bug fixed by FU-20260515-002. Fix shipped in this PR: exchange-first ordering (mirror close path PR #1190 + partial-close FU-20260515-002), ERROR log on missing trade row, DB written only after _send_modify_to_exchange returns ok=True. Dry-run short-circuit added to _send_modify_to_exchange for parity with close. 4 regression tests pinned in tests/test_s030_pr4_exchange_modify_close.py.",
+      "expected_check": "Each /health-review for the next several windows: (a) pull the 6h audit tail and grep for 'order_monitor: exchange modify for pkg' info lines — every monitor_breakeven_sl that fires (i.e. every closed trade that ran past +1R before exit) should have a matching exchange-modify info line within seconds. (b) Grep for the new ERROR lines: 'order_monitor: modify-path trade lookup returned no open row' and 'order_monitor: exchange modify failed' — both indicate the modify path is reaching the fix but failing. Non-zero counts of either are a concern. (c) Spot-check one closed trade that hit +1R mid-life: verify stop_loss in the trade row equals entry_price (break-even moved through), not the original SL. Pre-fix this check failed consistently.",
+      "trigger_condition": "Any /health-review run until status is closed.",
+      "resolution_criteria": "Close after 3 consecutive review windows where (a) every observed +1R+ VWAP trade shows an exchange modify info line and (b) zero 'modify-path trade lookup returned no open row' ERROR lines appear. Pair the closure with the FU-20260518-001 rollup so VWAP performance numbers are interpreted with the fix in place.",
+      "status": "open",
+      "snoozed_until": null,
+      "closed_at": null,
+      "closed_reason": null
     }
   ]
 }

@@ -289,12 +289,18 @@ class TestExchangeDispatch:
         assert captured[0]["sl"] == 100.0
         assert captured[0]["tp"] is None
 
-    def test_modify_with_no_open_trade_skips_exchange(
-        self, tmp_db, monkeypatch,
+    def test_modify_with_no_open_trade_leaves_db_unchanged_and_logs_error(
+        self, tmp_db, caplog,
     ):
-        """If there's a package but no matching open trade row, the
-        monitor still updates the DB but doesn't try to call the
-        exchange (no account_id to dispatch to)."""
+        """2026-05-18 modify-path exchange-first refactor: when the
+        package has no matching open trade row, the modify path now
+        logs ERROR and leaves the DB row unchanged so the strategy
+        verdict re-fires next tick. Pre-this-PR the DB was flipped to
+        the new SL/TP even though no exchange call ever fired — the
+        strategy + dashboard showed an SL move that hadn't actually
+        reached Bybit. Live impact was SL-to-break-even verdicts
+        getting silently dropped and trades running to their original
+        SL."""
         # Only insert a package, NOT a trade row.
         tmp_db.insert_order_package({
             "order_package_id": "pkg-orphan", "strategy_name": "vwap",
@@ -305,7 +311,51 @@ class TestExchangeDispatch:
         send_modify_calls = []
         with patch(
             "src.runtime.order_monitor._send_modify_to_exchange",
-            side_effect=lambda *a, **kw: send_modify_calls.append((a, kw)),
+            side_effect=lambda *a, **kw: (send_modify_calls.append((a, kw)),
+                                          {"ok": True})[-1],
+        ), patch(
+            "src.units.strategies.vwap.monitor",
+            return_value={"sl": 100.0},
+        ), caplog.at_level("ERROR", logger="src.runtime.order_monitor"):
+            om.run_monitor_tick(
+                strategies=["vwap"],
+                ohlcv_fetcher=lambda s, t: _candles(102.0),
+            )
+
+        # Exchange not called (no trade row → no account_id to dispatch).
+        assert send_modify_calls == []
+        # DB row UNCHANGED so the verdict re-fires next tick when the
+        # linkage lands.
+        rows = tmp_db.get_order_packages_by_strategy("vwap")
+        assert rows[0]["sl"] == 98.0
+        # ERROR logged so the operator + health-review see the miss
+        # instead of the silent skip we used to have.
+        error_messages = [
+            r.getMessage() for r in caplog.records if r.levelname == "ERROR"
+        ]
+        assert any("modify-path trade lookup returned no open row"
+                   in m for m in error_messages), error_messages
+
+    def test_modify_writes_db_only_after_exchange_success(self, tmp_db):
+        """2026-05-18: the modify path is now exchange-first. The
+        ``order_packages`` row's sl/tp must NOT be flipped until the
+        exchange call returns ok=True. Mirrors the close-path
+        invariant from PR #1190."""
+        _seed(tmp_db)
+
+        call_order: list[str] = []
+
+        def _stub_modify(matched, *, sl=None, tp=None):
+            # Capture the DB state visible to the exchange caller — if
+            # exchange-first ordering holds, the DB row's sl/tp are
+            # still the seed values (98.0 / 104.0).
+            current = tmp_db.get_order_packages_by_strategy("vwap")[0]
+            call_order.append(f"exchange:sl={current['sl']}")
+            return {"ok": True}
+
+        with patch(
+            "src.runtime.order_monitor._send_modify_to_exchange",
+            side_effect=_stub_modify,
         ), patch(
             "src.units.strategies.vwap.monitor",
             return_value={"sl": 100.0},
@@ -315,8 +365,83 @@ class TestExchangeDispatch:
                 ohlcv_fetcher=lambda s, t: _candles(102.0),
             )
 
-        assert send_modify_calls == []
-        # DB row updated even though exchange wasn't touched.
+        # The exchange call observed the OLD sl (98.0), then the DB
+        # was updated to the new value (100.0) only after ok=True.
+        assert call_order == ["exchange:sl=98.0"]
+        rows = tmp_db.get_order_packages_by_strategy("vwap")
+        assert rows[0]["sl"] == 100.0
+
+    def test_modify_leaves_db_unchanged_when_exchange_fails(self, tmp_db, caplog):
+        """2026-05-18: exchange-first ordering must NOT touch the DB
+        when ``_send_modify_to_exchange`` returns ok=False. The next
+        monitor tick re-attempts; the journal never lies about an SL
+        move that didn't reach Bybit."""
+        _seed(tmp_db)
+
+        with patch(
+            "src.runtime.order_monitor._send_modify_to_exchange",
+            return_value={"ok": False, "error": "Bybit retCode=10001 SL race"},
+        ), patch(
+            "src.units.strategies.vwap.monitor",
+            return_value={"sl": 100.0, "tp": 105.0},
+        ), caplog.at_level("ERROR", logger="src.runtime.order_monitor"):
+            om.run_monitor_tick(
+                strategies=["vwap"],
+                ohlcv_fetcher=lambda s, t: _candles(102.0),
+            )
+
+        rows = tmp_db.get_order_packages_by_strategy("vwap")
+        assert rows[0]["sl"] == 98.0  # seed value, untouched
+        assert rows[0]["tp"] == 104.0  # seed value, untouched
+        error_messages = [
+            r.getMessage() for r in caplog.records if r.levelname == "ERROR"
+        ]
+        assert any("exchange modify failed — leaving DB unchanged"
+                   in m for m in error_messages), error_messages
+
+    def test_modify_dry_run_short_circuit_writes_db(self, tmp_db, monkeypatch):
+        """2026-05-18: the dry-run short-circuit in
+        ``_send_modify_to_exchange`` returns ok=True without calling
+        ``modify_open_order`` so paper accounts still book the DB
+        update. Mirrors the close-path dry-run handling."""
+        _seed(tmp_db)
+
+        # Stub the modify wrapper itself so we never touch
+        # ``modify_open_order`` even by accident.
+        modify_calls = []
+
+        def _stub_modify(client, cfg, *, symbol, sl=None, tp=None):
+            modify_calls.append((symbol, sl, tp))
+            return {"ok": True}
+
+        # Force the resolved account cfg to mode=dry_run.
+        def _stub_build(account_id):
+            return object(), {
+                "account_id": account_id,
+                "exchange": "bybit",
+                "mode": "dry_run",
+                "market_type": "linear",
+            }
+
+        monkeypatch.setattr(
+            "src.runtime.order_monitor._build_account_client", _stub_build,
+        )
+        monkeypatch.setattr(
+            "src.units.accounts.execute.modify_open_order", _stub_modify,
+        )
+
+        with patch(
+            "src.units.strategies.vwap.monitor",
+            return_value={"sl": 100.0},
+        ):
+            om.run_monitor_tick(
+                strategies=["vwap"],
+                ohlcv_fetcher=lambda s, t: _candles(102.0),
+            )
+
+        # Dry-run path skipped ``modify_open_order`` entirely.
+        assert modify_calls == []
+        # DB row still updated as if the live call had succeeded.
         rows = tmp_db.get_order_packages_by_strategy("vwap")
         assert rows[0]["sl"] == 100.0
 
