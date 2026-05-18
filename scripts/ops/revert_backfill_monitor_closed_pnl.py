@@ -177,9 +177,11 @@ def _plan_row(
     cleaned["reverted_at"] = datetime.now(timezone.utc).isoformat()
     cleaned["reverted_by"] = "revert_backfill_monitor_closed_pnl_script"
 
+    # 2026-05-18: 4000-char cap matches the backfill writers
+    # (see incident #1420). 500 was too tight for audit fields.
     updates: Dict[str, Any] = {
         "pnl": new_pnl,
-        "notes": json.dumps(cleaned, ensure_ascii=False)[:500],
+        "notes": json.dumps(cleaned, ensure_ascii=False)[:4000],
     }
 
     if new_pnl is not None:
