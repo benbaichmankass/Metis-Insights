@@ -245,3 +245,184 @@ class TestIssue1411Scenario:
             results.append(float(rec["closedPnl"]))
         # All collapse onto the same value — the issue #1411 pattern.
         assert len(set(results)) == 1
+
+
+class TestTemporalOrdering:
+    """Issue #1419 fix: when both entry_price and opened_at_ms are
+    supplied, prefer the EARLIEST close after the trade opened.
+    Critical when several trades share (side, qty, entry±10bps) —
+    entry_price alone can't disambiguate them; their open
+    timestamps can."""
+
+    def test_picks_earliest_close_after_open(self):
+        """Issue #1419 reproduction: trade #1540's actual data.
+        5 records pass the entry±10bps filter; the correct match
+        is the EARLIEST one whose createdTime ≥ opened_at_ms,
+        not the closest entry-price match."""
+        # Trade #1540 opened at 06:32:09 UTC = 1779085929000 ms.
+        opened_at_ms = 1779085929000
+        # Records mirror the issue #1423 diag output for #1540's
+        # search window. Each entry within 10 bps of 76719.7.
+        records = [
+            # [09] later trade — entry 76750.9 (+4.1 bps), pnl=-0.171
+            _rec(side="Sell", qty=0.004, entry=76750.9, exit_=76792.6,
+                 pnl=-0.171, updated=1779100600475),
+            # [10] later trade — entry 76733.7 (+1.8 bps), pnl=-0.200
+            _rec(side="Sell", qty=0.004, entry=76733.7, exit_=76768.2,
+                 pnl=-0.200, updated=1779099857757),
+            # [11] later trade — entry 76727.6 (+1.0 bps, closest!), pnl=-0.468
+            _rec(side="Sell", qty=0.004, entry=76727.6, exit_=76694.9,
+                 pnl=-0.468, updated=1779099560698),
+            # [12] later trade — entry 76750.1 (+4.0 bps), pnl=-0.488
+            _rec(side="Sell", qty=0.004, entry=76750.1, exit_=76712.5,
+                 pnl=-0.488, updated=1779099260893),
+            # [15] THE ACTUAL CLOSE for trade #1540 — entry 76681.9
+            # (+4.9 bps, NOT the closest), exit 76977.6, pnl=+0.845.
+            # createdTime=07:26:37 = 1779089197750ms — the earliest
+            # close after opened_at_ms.
+            _rec(side="Sell", qty=0.004, entry=76681.9, exit_=76977.6,
+                 pnl=0.8447, updated=1779089197750),
+        ]
+        client = _make_client(records)
+        rec = _bybit_closed_pnl_lookup(
+            client, category="linear", symbol="BTCUSDT", side="Sell",
+            start_ts_ms=1779085869000, end_ts_ms=1779109708919,
+            qty_target=0.004,
+            entry_price_target=76719.7,
+            opened_at_ms=opened_at_ms,
+        )
+        assert rec is not None
+        # Must pick record [15], NOT [11] (which is what the
+        # entry-price-only matcher picked in #1419).
+        assert abs(float(rec["closedPnl"]) - 0.8447) < 1e-4
+        assert abs(float(rec["avgEntryPrice"]) - 76681.9) < 1e-3
+        # Sanity: verify the older entry-price-only matcher would
+        # have picked record [11] (the wrong one).
+        rec_wrong = _bybit_closed_pnl_lookup(
+            client, category="linear", symbol="BTCUSDT", side="Sell",
+            start_ts_ms=1779085869000, end_ts_ms=1779109708919,
+            qty_target=0.004,
+            entry_price_target=76719.7,
+            # No opened_at_ms → falls back to closest-entry
+        )
+        assert abs(float(rec_wrong["closedPnl"]) - (-0.468)) < 1e-3
+
+    def test_filters_out_closes_before_open(self):
+        """A close that happened BEFORE the trade opened can't be
+        this trade's close. The 60s slack permits intra-tick skew
+        but anything older than that must be filtered out."""
+        opened_at_ms = 1779100000000
+        records = [
+            # Pre-open close (5 min before open) — must be skipped
+            _rec(side="Sell", qty=0.004, entry=76700.0, exit_=76800.0,
+                 pnl=0.4, updated=1779099700000),
+            # Post-open close — should win
+            _rec(side="Sell", qty=0.004, entry=76710.0, exit_=76900.0,
+                 pnl=0.76, updated=1779100100000),
+        ]
+        client = _make_client(records)
+        rec = _bybit_closed_pnl_lookup(
+            client, category="linear", symbol="BTCUSDT", side="Sell",
+            start_ts_ms=1779099000000, end_ts_ms=1779101000000,
+            qty_target=0.004,
+            entry_price_target=76705.0,
+            opened_at_ms=opened_at_ms,
+        )
+        assert rec is not None
+        assert abs(float(rec["closedPnl"]) - 0.76) < 1e-3
+
+    def test_2s_slack_admits_near_open_records(self):
+        """Bybit's createdTime can be 1-2 s off opened_at_ms due to
+        clock skew between the VM's wall clock and Bybit's exec
+        engine. 2s slack permits this. A 30s-before-open close
+        from a separate trade is rejected (tested below)."""
+        opened_at_ms = 1779100000000
+        records = [
+            # 1s before opened_at_ms — within 2s slack, should match
+            _rec(side="Sell", qty=0.004, entry=76700.0, exit_=76800.0,
+                 pnl=0.4, updated=1779099999000),
+        ]
+        client = _make_client(records)
+        rec = _bybit_closed_pnl_lookup(
+            client, category="linear", symbol="BTCUSDT", side="Sell",
+            start_ts_ms=1779099000000, end_ts_ms=1779101000000,
+            qty_target=0.004,
+            entry_price_target=76700.0,
+            opened_at_ms=opened_at_ms,
+        )
+        assert rec is not None
+        assert abs(float(rec["closedPnl"]) - 0.4) < 1e-3
+
+    def test_30s_before_open_close_is_rejected(self):
+        """A close 30s before opened_at_ms is from a different
+        (earlier) trade — too far outside the 2s clock-skew
+        slack to be this trade's close."""
+        opened_at_ms = 1779100000000
+        records = [
+            # 30s before — outside slack, must be rejected
+            _rec(side="Sell", qty=0.004, entry=76700.0, exit_=76800.0,
+                 pnl=0.4, updated=1779099970000),
+            # 5s after — the legitimate match
+            _rec(side="Sell", qty=0.004, entry=76702.0, exit_=76850.0,
+                 pnl=0.6, updated=1779100005000),
+        ]
+        client = _make_client(records)
+        rec = _bybit_closed_pnl_lookup(
+            client, category="linear", symbol="BTCUSDT", side="Sell",
+            start_ts_ms=1779099000000, end_ts_ms=1779101000000,
+            qty_target=0.004,
+            entry_price_target=76700.0,
+            opened_at_ms=opened_at_ms,
+        )
+        assert rec is not None
+        assert abs(float(rec["closedPnl"]) - 0.6) < 1e-3
+
+    def test_consecutive_trades_share_entry_get_distinct_closes(self):
+        """Three VWAP shorts that all entered at the SAME price
+        (VWAP mean-revert hits the same level) get correctly
+        paired with their own distinct closes by temporal ordering.
+        This is the #1419 collapse pattern that entry_price alone
+        couldn't resolve. Realistic 5-min spacing matches the
+        production VWAP cadence."""
+        # All entered at 76700.0.
+        # Trade A: opened t=0,    closed t=1min
+        # Trade B: opened t=5min, closed t=8min
+        # Trade C: opened t=10min, closed t=13min
+        records = [
+            # Close for trade C (closed t=13min = 780_000 ms after base)
+            _rec(side="Sell", qty=0.004, entry=76700.0, exit_=76900.0,
+                 pnl=0.8, updated=1779100780000),
+            # Close for trade B (closed t=8min)
+            _rec(side="Sell", qty=0.004, entry=76700.0, exit_=76850.0,
+                 pnl=0.6, updated=1779100480000),
+            # Close for trade A (closed t=1min)
+            _rec(side="Sell", qty=0.004, entry=76700.0, exit_=76800.0,
+                 pnl=0.4, updated=1779100060000),
+        ]
+        client = _make_client(records)
+
+        # Trade A: opened at t=0
+        rec_a = _bybit_closed_pnl_lookup(
+            client, category="linear", symbol="BTCUSDT", side="Sell",
+            start_ts_ms=1779099000000, end_ts_ms=1779101000000,
+            qty_target=0.004, entry_price_target=76700.0,
+            opened_at_ms=1779100000000,
+        )
+        # Trade B: opened at t=5min
+        rec_b = _bybit_closed_pnl_lookup(
+            client, category="linear", symbol="BTCUSDT", side="Sell",
+            start_ts_ms=1779099000000, end_ts_ms=1779101000000,
+            qty_target=0.004, entry_price_target=76700.0,
+            opened_at_ms=1779100300000,
+        )
+        # Trade C: opened at t=10min
+        rec_c = _bybit_closed_pnl_lookup(
+            client, category="linear", symbol="BTCUSDT", side="Sell",
+            start_ts_ms=1779099000000, end_ts_ms=1779101000000,
+            qty_target=0.004, entry_price_target=76700.0,
+            opened_at_ms=1779100600000,
+        )
+        # Each trade gets a DIFFERENT close — no collapse.
+        assert abs(float(rec_a["closedPnl"]) - 0.4) < 1e-3
+        assert abs(float(rec_b["closedPnl"]) - 0.6) < 1e-3
+        assert abs(float(rec_c["closedPnl"]) - 0.8) < 1e-3
