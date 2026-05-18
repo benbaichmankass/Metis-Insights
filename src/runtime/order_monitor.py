@@ -696,6 +696,83 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
         summary.no_change_count += 1
         return
 
+    # 2026-05-18: exchange-first modify ordering. Mirrors the close-path
+    # refactor from PR #1190 + the partial-close refactor from
+    # FU-20260515-002. Pre-this-PR the DB row was updated FIRST and the
+    # exchange call only fired if a matching trade row was found; when
+    # the lookup returned empty rows the exchange call was silently
+    # skipped. Live impact: SL-to-break-even verdicts moved the DB's
+    # stored SL but never reached Bybit, so the trade ran to its
+    # original SL while the strategy log + dashboard showed a new one.
+    # New order is symmetric with the close path:
+    #
+    #   1. Look up the matched trade row (read-only). Prefer the
+    #      package's ``linked_trade_id``; fall back to the open
+    #      trade matching strategy+symbol.
+    #   2. No trade row → ERROR log + ``summary.error_count`` + return
+    #      without touching the DB. The strategy will re-emit the
+    #      verdict next tick once the linkage lands.
+    #   3. ``_send_modify_to_exchange`` — short-circuits to ok=True
+    #      on dry-run accounts.
+    #   4. On ok=True, write the sl/tp updates to ``order_packages``
+    #      and increment ``summary.updated_count``.
+    #   5. On ok=False, log ERROR, leave the DB row untouched, count
+    #      an error, and return so the next monitor tick re-attempts.
+
+    matched_trade: Optional[Dict[str, Any]] = None
+    try:
+        linked_trade_id = open_pkg.get("linked_trade_id")
+        if linked_trade_id:
+            rows = db.get_trades(filters={"id": int(linked_trade_id)})
+            matched_trade = rows[0] if rows else None
+        else:
+            matched_trade = _find_trade_by_match(
+                db,
+                strategy=open_pkg.get("strategy_name"),
+                symbol=open_pkg.get("symbol"),
+            )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "order_monitor: modify-path trade lookup failed for pkg=%s: %s",
+            pkg_id, exc,
+        )
+        matched_trade = None
+
+    if matched_trade is None:
+        logger.error(
+            "order_monitor: modify-path trade lookup returned no open row — "
+            "skipping exchange modify AND leaving DB row unchanged so the "
+            "verdict re-fires next tick. pkg=%s strategy=%s symbol=%s "
+            "verdict_updates=%s",
+            pkg_id, open_pkg.get("strategy_name"),
+            open_pkg.get("symbol"), updates,
+        )
+        summary.error_count += 1
+        summary.errors.append(f"{pkg_id}: modify-path missing trade row")
+        return
+
+    ex_result = _send_modify_to_exchange(
+        matched_trade,
+        sl=updates.get("sl"),
+        tp=updates.get("tp"),
+    )
+    logger.info(
+        "order_monitor: exchange modify for pkg=%s account=%s → %s",
+        pkg_id, matched_trade.get("account_id"), ex_result,
+    )
+    if not ex_result.get("ok"):
+        err_str = ex_result.get("error") or "unknown"
+        logger.error(
+            "order_monitor: exchange modify failed — leaving DB unchanged. "
+            "pkg=%s account=%s symbol=%s sl=%s tp=%s error=%s",
+            pkg_id, matched_trade.get("account_id"),
+            matched_trade.get("symbol"),
+            updates.get("sl"), updates.get("tp"), err_str,
+        )
+        summary.error_count += 1
+        summary.errors.append(f"{pkg_id}: exchange modify failed: {err_str}")
+        return
+
     try:
         db.update_order_package(pkg_id, updates)
         summary.updated_count += 1
@@ -707,34 +784,6 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
         summary.error_count += 1
         summary.errors.append(f"{pkg_id}: update-write failed")
         return
-
-    # Exchange-side modify. The prior shadow-mode env-gate
-    # (``MONITOR_APPLY_TO_EXCHANGE``) is gone — see the matching
-    # comment in the close path above. Looks up the matched trade row
-    # to get account_id + symbol; bypasses the exchange call when no
-    # trade row matches (the package may have been dispatched but the
-    # account_id linkage hasn't been wired in yet).
-    try:
-        rows = db.get_trades(filters={
-            "strategy_name": open_pkg.get("strategy_name"),
-            "symbol": open_pkg.get("symbol"),
-            "status": "open",
-        }, limit=1) or []
-        if rows:
-            ex_result = _send_modify_to_exchange(
-                rows[0],
-                sl=updates.get("sl"),
-                tp=updates.get("tp"),
-            )
-            logger.info(
-                "order_monitor: exchange modify for pkg=%s account=%s → %s",
-                pkg_id, rows[0].get("account_id"), ex_result,
-            )
-    except Exception as exc:  # noqa: BLE001
-        logger.warning(
-            "order_monitor: exchange modify lookup failed for %s: %s",
-            pkg_id, exc,
-        )
 
 
 def _compute_close_pnl(matched_trade: Dict[str, Any],
@@ -1036,12 +1085,27 @@ def _capture_fill_details(
 def _send_modify_to_exchange(matched_trade: Dict[str, Any], *,
                              sl: Optional[float] = None,
                              tp: Optional[float] = None) -> Dict[str, Any]:
-    """Send a SL/TP modify to the exchange for the matched trade row."""
+    """Send a SL/TP modify to the exchange for the matched trade row.
+
+    Dry-run short-circuit (2026-05-18): when the resolved cfg has
+    ``mode == "dry_run"`` the helper returns
+    ``{"ok": True, "skipped": "dry_run", ...}`` WITHOUT calling
+    ``modify_open_order``. Mirrors ``_send_close_to_exchange`` so the
+    exchange-first modify flow in ``_apply_update`` writes the DB
+    exactly as a live success would on paper accounts.
+    """
     try:
         from src.units.accounts.execute import modify_open_order
         client, cfg = _build_account_client(matched_trade.get("account_id"))
         if client is None or cfg is None:
             return {"ok": False, "error": "no_client"}
+        if (cfg or {}).get("mode") == "dry_run":
+            return {
+                "ok": True,
+                "skipped": "dry_run",
+                "exchange_response": None,
+                "error": None,
+            }
         return modify_open_order(
             client, cfg,
             symbol=matched_trade.get("symbol"),
