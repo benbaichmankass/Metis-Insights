@@ -889,6 +889,9 @@ def _build_account_client(account_id):
                 # ``_send_modify_to_exchange``) can short-circuit on
                 # paper accounts without ever calling ``place_order``.
                 "mode": getattr(acc, "mode", "live") or "live",
+                # Required by bybit_client_for() to route demo accounts to
+                # api-demo.bybit.com instead of api.bybit.com.
+                "demo": getattr(acc, "demo", False),
             }
             exchange_lc = (acc.exchange or "").lower()
             if exchange_lc == "bybit":
