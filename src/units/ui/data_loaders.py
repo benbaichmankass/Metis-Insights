@@ -226,7 +226,7 @@ def _load_yaml_accounts() -> List[Dict[str, Any]]:
         # silently fell through to the legacy env_path branch (which
         # doesn't exist for accounts.yaml-managed accounts), which was
         # the second contributing cause of "balance unavailable".
-        for k in ("api_key_env", "api_secret_env", "type", "risk", "market_type"):
+        for k in ("api_key_env", "api_secret_env", "type", "risk", "market_type", "demo"):
             v = item.get(k)
             if v is not None:
                 entry[k] = v
