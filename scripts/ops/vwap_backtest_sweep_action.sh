@@ -26,6 +26,7 @@
 # Operator invokes via operator-actions issue:
 #   action: vwap-backtest-sweep
 #   reason: <text>
+#   mode: <compare|threshold-sweep>  (optional, default 'compare')
 #   days: <int>          (optional, default 90 — total history pulled)
 #   windows: <int>       (optional, default 8 — random sub-windows)
 #   window_days: <int>   (optional, default 30 — size of each sub-window)
@@ -36,9 +37,22 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/ops/_lib.sh
 source "${SCRIPT_DIR}/_lib.sh"
 
+MODE="${ACTION_MODE:-compare}"
 DAYS="${ACTION_DAYS:-90}"
 WINDOWS="${ACTION_WINDOWS:-8}"
 WINDOW_DAYS="${ACTION_WINDOW_DAYS:-30}"
+
+# Map mode → run_backtest_vwap flag. Default fallback is --compare.
+case "${MODE}" in
+    compare)            BACKTEST_FLAG="--compare" ;;
+    threshold-sweep)    BACKTEST_FLAG="--threshold-sweep" ;;
+    *)
+        log "ERROR: unknown mode '${MODE}' (allowed: compare, threshold-sweep)"
+        record_audit "vwap-backtest-sweep" "error" \
+            "{\"reason\": \"bad mode\", \"mode\": \"${MODE}\"}" >/dev/null || true
+        exit 1
+        ;;
+esac
 
 DATA_PATH="${REPO_DIR}/data/backtest_sweep_$(date +%Y%m%d).csv"
 
@@ -65,13 +79,13 @@ if [ ! -f "${DATA_PATH}" ]; then
 fi
 
 echo
-echo "===== run_backtest_vwap.py --compare --windows ${WINDOWS} --window-days ${WINDOW_DAYS} --days ${DAYS} ====="
+echo "===== run_backtest_vwap.py ${BACKTEST_FLAG} --windows ${WINDOWS} --window-days ${WINDOW_DAYS} --days ${DAYS} ====="
 # `python3 -m src.backtest...` needs the repo root on sys.path. Use
 # `cd ${REPO_DIR}` so Python's CWD-relative import finds `src/`.
 set +e
 ( cd "${REPO_DIR}" && \
   BACKTEST_DATA_PATH="${DATA_PATH}" python3 -m src.backtest.run_backtest_vwap \
-    --compare --windows "${WINDOWS}" --window-days "${WINDOW_DAYS}" \
+    "${BACKTEST_FLAG}" --windows "${WINDOWS}" --window-days "${WINDOW_DAYS}" \
     --days "${DAYS}" )
 backtest_code=$?
 set -e
@@ -88,6 +102,6 @@ if [ "${backtest_code}" -ne 0 ]; then
 fi
 
 record_audit "vwap-backtest-sweep" "ok" \
-    "{\"days\": ${DAYS}, \"windows\": ${WINDOWS}, \"window_days\": ${WINDOW_DAYS}}" \
+    "{\"mode\": \"${MODE}\", \"days\": ${DAYS}, \"windows\": ${WINDOWS}, \"window_days\": ${WINDOW_DAYS}}" \
     >/dev/null || true
 exit 0
