@@ -405,7 +405,9 @@
       "opened_at": "2026-05-17T09:45:00+00:00",
       "opened_by": "claude",
       "source": "health-review-20260517",
-      "related_prs": [1351],
+      "related_prs": [
+        1351
+      ],
       "title": "Verify reconciler pnl write fix and trade #1503 backfill",
       "description": "Trade #1503 (vwap short BTCUSDT, bybit_2, closed 2026-05-17 ~06:25 UTC via reconciler_filled) has exit_price=77995.2 and bybit_closed_pnl=0.57231732 stored in notes, but pnl=NULL in the trades table. Root cause: _close_trade_from_order_status in order_monitor.py wrote exit_price from bybit_closed_pnl but did not write the pnl column. Fix shipped in claude/run-health-review-GcQcm: reconciler now writes pnl=closed_pnl and pnl_percent from position notional. backfill_pnl_nulls.py also updated to prefer bybit_closed_pnl from notes over gross formula. Operator action backfill-pnl-nulls must be fired after deploy to retroactively fix trade #1503.",
       "expected_check": "After backfill-pnl-nulls fires, check trade #1503: SELECT pnl, pnl_percent FROM trades WHERE id=1503. pnl should be ~0.57 (net from Bybit), pnl_percent ~0.18. For new reconciler_filled trades going forward: pnl should be populated immediately on close.",
@@ -422,7 +424,9 @@
       "opened_at": "2026-05-17T10:05:00+00:00",
       "opened_by": "claude",
       "source": "health-review-20260517-followup",
-      "related_prs": [1351],
+      "related_prs": [
+        1351
+      ],
       "title": "Verify vwap shadow predictions flow on next actionable signal (post-#1351 fix)",
       "description": "PR #1351 added _emit_vwap_shadow_preds() in strategy_signal_builders.py to wire vwap shadow observation bypassed by the multiplexed pipeline (FU-20260516-001). The fix is deployed (SHA 520bde4). Verification was blocked at deploy time: (a) no actionable vwap signal had fired since restart, and (b) trade #1503 was open, which would have suppressed predictions via the pipeline open_package_exists gate anyway. The new helper fires regardless of the gate. shadow_predictions.jsonl was absent as expected post-deploy.",
       "expected_check": "At the next /health-review, cross-tab the 6h audit tail against /api/bot/shadow/stats?model_id=regime-classifier-baseline-v0&stage=shadow. (1) Count vwap_eval events with side in {buy, sell}. (2) Count shadow records in the same window. (3) The two counts must match (±1 for startup-window races). A mismatch where actionable_count > shadow_count is a regression — surface as concern with the delta and a sample vwap_eval timestamp. If no actionable vwap signal fired in the window, note that and keep open.",
@@ -438,7 +442,9 @@
       "opened_at": "2026-05-17T10:05:00+00:00",
       "opened_by": "claude",
       "source": "health-review-20260517-followup",
-      "related_prs": [1354],
+      "related_prs": [
+        1354
+      ],
       "title": "Verify _count_signals_today warning absent after PR #1354 deploy",
       "description": "PR #1354 fixed SIGNALS_DB path resolution: on the live VM (DATA_DIR=/data/bot-data) signal_writer.py writes to /data/bot-data/data/trades.db, but data_loaders.py was resolving <REPO_ROOT>/data/trades.db — a different path. Not found → fell through to trade_journal.db whose signals table uses logged_at_utc (not timestamp), causing the recurring WARNING '_count_signals_today: no such column: timestamp' on every strategy tick across all strategies. Fix: data_dir()/trades.db added as canonical candidate; trade_journal.db fallback removed.",
       "expected_check": "After PR #1354 deploys, pull journalctl?unit=ict-trader-live.service&lines=400 and grep for '_count_signals_today'. Expect zero WARNING lines with 'no such column: timestamp'. Secondary: if /data/bot-data/data/trades.db exists and has rows, _count_signals_today should return non-zero counts for active strategies. If the DB doesn't exist yet (signal_writer never fired), count returns 0 gracefully — that's correct behavior, not an error.",
@@ -454,7 +460,9 @@
       "opened_at": "2026-05-18T00:00:00+00:00",
       "opened_by": "claude",
       "source": "operator-chat-2026-05-18-vwap-performance-review",
-      "related_prs": [1372],
+      "related_prs": [
+        1372
+      ],
       "title": "Track VWAP performance over multiple reviews after the 2026-05-17 revert",
       "description": "Commit 66e520c (PR #1372) reverted ENTRY_STD_THRESHOLD 1.5σ → 1.0σ and SL_STD_MULT_DEFAULT 0.75σ → 0.5σ on 2026-05-17 after the issue #1370 backtest showed the post-#1183/#1205 config underperformed by 3× total R when the HTF gate is on. Operator's directive 2026-05-18: surface VWAP P&L, win rate, and recent-drawdown numbers in every health review for the next several days so the live-trading outcome is held against the backtest expectation (V_1175_htf_only: +411.8 R / Sharpe +2.82 / 26.2 % WR over 3.16 y). Do NOT make further parameter changes until at least 3-4 review windows have produced clean data — the May-15 parameter thrash showed how stacking edits hides which change moved the needle. Note: the SL/TP modify-path bug (FU-20260518-002) may also be contaminating recent VWAP outcomes; weigh the two together.",
       "expected_check": "Each /health-review while this is open: in addition to the regular grading, pull /api/bot/strategies and the 6h-window closed-trades filtered to setup_type='vwap'. Report (a) count of closed VWAP trades since previous review, (b) win rate, (c) gross R sum, (d) any trade where exit_reason is sl_hit but the SL was supposed to have moved to break-even (suggests the modify-path bug — cross-reference FU-20260518-002), (e) any trade exiting via vwap_cross below 0.25 R (gate failure). Add the rollup to anomalies prefixed 'FU-20260518-001:'.",
@@ -476,6 +484,22 @@
       "expected_check": "Each /health-review for the next several windows: (a) pull the 6h audit tail and grep for 'order_monitor: exchange modify for pkg' info lines — every monitor_breakeven_sl that fires (i.e. every closed trade that ran past +1R before exit) should have a matching exchange-modify info line within seconds. (b) Grep for the new ERROR lines: 'order_monitor: modify-path trade lookup returned no open row' and 'order_monitor: exchange modify failed' — both indicate the modify path is reaching the fix but failing. Non-zero counts of either are a concern. (c) Spot-check one closed trade that hit +1R mid-life: verify stop_loss in the trade row equals entry_price (break-even moved through), not the original SL. Pre-fix this check failed consistently.",
       "trigger_condition": "Any /health-review run until status is closed.",
       "resolution_criteria": "Close after 3 consecutive review windows where (a) every observed +1R+ VWAP trade shows an exchange modify info line and (b) zero 'modify-path trade lookup returned no open row' ERROR lines appear. Pair the closure with the FU-20260518-001 rollup so VWAP performance numbers are interpreted with the fix in place.",
+      "status": "open",
+      "snoozed_until": null,
+      "closed_at": null,
+      "closed_reason": null
+    },
+    {
+      "id": "FU-20260518-003",
+      "opened_at": "2026-05-18T20:44:32.292156+00:00",
+      "opened_by": "claude",
+      "source": "session_01LsgzrBzfwPkZG5iBrXk8Ss",
+      "related_prs": [],
+      "title": "operator-actions workflow completion comments missing on some runs",
+      "description": "Two operator-action issues — #1490 (vwap-backtest-sweep adaptive, dispatched 2026-05-18T20:01Z) and #1492 (pull-and-deploy for PR #1491, dispatched 20:24Z) — never posted completion comments and remained open >30 min. The work itself succeeded: #1495 vm-diag-snapshot at 20:32Z showed git_sha=0967f19 (post-#1491 main) with bot uptime ~175 s, meaning #1492 ran the deploy + restart even though no completion comment was posted. Suspected cause: workflow comment-posting step racing the issue-close, OR action-runner crashing mid-run, OR the serialization gate timing out without the completion handler firing. No data loss but operator/Claude visibility into action outcomes is degraded — we have to fall back to diag snapshots to confirm.",
+      "expected_check": "Compare counts of recently dispatched operator-action issues vs those that received a github-actions[bot] completion comment. Any open operator-action issue with no completion comment >20 min after creation is a potential instance.",
+      "trigger_condition": "Any operator-action issue (label=operator-action) in the review window that is still open >20 min after creation with no completion comment.",
+      "resolution_criteria": "Either: (a) root-caused and fixed in operator-actions.yml (the comment-post step should be in an always() block keyed on action-output.txt presence so it runs even on script timeout/error), OR (b) 14 consecutive days with zero stuck operator-action issues observed.",
       "status": "open",
       "snoozed_until": null,
       "closed_at": null,
