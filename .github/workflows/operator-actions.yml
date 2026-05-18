@@ -81,6 +81,7 @@ on:
           - backfill-pnl-nulls
           - backfill-orphan-pnl
           - backfill-monitor-closed-pnl
+          - revert-backfill-monitor-closed-pnl
           - set-account-mode
           - fix-data-dir
       reason:
@@ -210,7 +211,7 @@ jobs:
             status-check|pull-latest-logs)
               echo "tier=1" >>"$GITHUB_ENV"
               ;;
-            pull-and-deploy|restart-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|enable-m5-consumer|disable-m5-consumer|setup-cloudflare-tunnel|teardown-cloudflare-tunnel|setup-named-cloudflare-tunnel|teardown-named-cloudflare-tunnel|setup-tailscale-funnel|teardown-tailscale-funnel|backfill-pnl-nulls|backfill-orphan-pnl|backfill-monitor-closed-pnl|set-account-mode|fix-data-dir)
+            pull-and-deploy|restart-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|enable-m5-consumer|disable-m5-consumer|setup-cloudflare-tunnel|teardown-cloudflare-tunnel|setup-named-cloudflare-tunnel|teardown-named-cloudflare-tunnel|setup-tailscale-funnel|teardown-tailscale-funnel|backfill-pnl-nulls|backfill-orphan-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|set-account-mode|fix-data-dir)
               echo "tier=2" >>"$GITHUB_ENV"
               if [ -z "${REASON// }" ]; then
                 echo "::error::Tier-2 action '${ACTION}' requires a non-empty 'reason' input."
@@ -321,6 +322,7 @@ jobs:
             backfill-pnl-nulls)                 SCRIPT="backfill_pnl_nulls_action.sh" ;;
             backfill-orphan-pnl)                SCRIPT="backfill_orphan_pnl_action.sh" ;;
             backfill-monitor-closed-pnl)        SCRIPT="backfill_monitor_closed_pnl_action.sh" ;;
+            revert-backfill-monitor-closed-pnl) SCRIPT="revert_backfill_monitor_closed_pnl_action.sh" ;;
             set-account-mode)                   SCRIPT="set_account_mode.sh" ;;
             fix-data-dir)                       SCRIPT="fix_data_dir.sh" ;;
             *)
