@@ -180,7 +180,7 @@ jobs:
               -o StrictHostKeyChecking=accept-new \
               -o ConnectTimeout=15 \
               "${VM_SSH_USER}@${VM_SSH_HOST}" \
-              "curl -sS --fail --max-time 20 \
+              "curl -sS --fail --max-time 40 \
                     -H 'Authorization: Bearer ${DIAG_READ_TOKEN}' \
                     'http://127.0.0.1:8001/api/diag/${diag_path_safe}'" \
               > diag-output.json
