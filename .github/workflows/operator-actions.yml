@@ -82,6 +82,7 @@ on:
           - backfill-orphan-pnl
           - backfill-monitor-closed-pnl
           - revert-backfill-monitor-closed-pnl
+          - rebuild-pnl-from-bybit
           - inspect-closed-pnl
           - bybit-account-audit
           - set-account-mode
@@ -228,7 +229,7 @@ jobs:
             status-check|pull-latest-logs|inspect-closed-pnl|bybit-account-audit)
               echo "tier=1" >>"$GITHUB_ENV"
               ;;
-            pull-and-deploy|restart-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|enable-m5-consumer|disable-m5-consumer|setup-cloudflare-tunnel|teardown-cloudflare-tunnel|setup-named-cloudflare-tunnel|teardown-named-cloudflare-tunnel|setup-tailscale-funnel|teardown-tailscale-funnel|backfill-pnl-nulls|backfill-orphan-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|set-account-mode|fix-data-dir)
+            pull-and-deploy|restart-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|enable-m5-consumer|disable-m5-consumer|setup-cloudflare-tunnel|teardown-cloudflare-tunnel|setup-named-cloudflare-tunnel|teardown-named-cloudflare-tunnel|setup-tailscale-funnel|teardown-tailscale-funnel|backfill-pnl-nulls|backfill-orphan-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|rebuild-pnl-from-bybit|set-account-mode|fix-data-dir)
               echo "tier=2" >>"$GITHUB_ENV"
               if [ -z "${REASON// }" ]; then
                 echo "::error::Tier-2 action '${ACTION}' requires a non-empty 'reason' input."
@@ -340,6 +341,7 @@ jobs:
             backfill-orphan-pnl)                SCRIPT="backfill_orphan_pnl_action.sh" ;;
             backfill-monitor-closed-pnl)        SCRIPT="backfill_monitor_closed_pnl_action.sh" ;;
             revert-backfill-monitor-closed-pnl) SCRIPT="revert_backfill_monitor_closed_pnl_action.sh" ;;
+            rebuild-pnl-from-bybit)             SCRIPT="rebuild_pnl_from_bybit_action.sh" ;;
             inspect-closed-pnl)                 SCRIPT="inspect_closed_pnl_action.sh" ;;
             bybit-account-audit)                SCRIPT="bybit_account_audit_action.sh" ;;
             set-account-mode)                   SCRIPT="set_account_mode.sh" ;;
@@ -371,6 +373,9 @@ jobs:
           fi
           if [ "${ACTION}" = "bybit-account-audit" ]; then
             REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID}") ACTION_SYMBOL=$(printf '%q' "${ACTION_SYMBOL}") ACTION_DAYS=$(printf '%q' "${ACTION_DAYS}") ${REMOTE_CMD}"
+          fi
+          if [ "${ACTION}" = "rebuild-pnl-from-bybit" ]; then
+            REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID}") ACTION_DAYS=$(printf '%q' "${ACTION_DAYS}") ${REMOTE_CMD}"
           fi
           if [ "${ACTION}" = "setup-named-cloudflare-tunnel" ] || [ "${ACTION}" = "teardown-named-cloudflare-tunnel" ]; then
             if [ -z "${CLOUDFLARE_API_TOKEN}" ] || [ -z "${CLOUDFLARE_ACCOUNT_ID}" ]; then
