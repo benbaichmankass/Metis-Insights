@@ -49,6 +49,22 @@ _MIRROR_SUBPATH = "trainer_mirror"
 # trainer and follow a predictable shape, so this is permissive but bounded.
 _SAFE_ID = re.compile(r"^[A-Za-z0-9._\-]{1,128}$")
 
+# Two-bucket deployment view (per operator directive 2026-05-18). The
+# registry has 7 stages; from a runtime-impact perspective only two
+# matter: SHADOW (predictions logged in real-time but decisions
+# unchanged) or LIVE (predictions actually influence the trade
+# decision). OFFLINE = the model exists in the registry but no
+# strategy references it, so nothing happens at runtime.
+#
+# Important: there is currently NO live-influence code path. Every
+# model wired into a strategy's ``shadow_model_ids`` is observe-only
+# regardless of registry stage. So today every wired model returns
+# SHADOW. ``LIVE`` is reserved for the future ``live_model_ids``
+# wiring (Phase 3 of the Models work).
+_BUCKET_LIVE = "LIVE"
+_BUCKET_SHADOW = "SHADOW"
+_BUCKET_OFFLINE = "OFFLINE"
+
 
 def _mirror_root() -> Path:
     return runtime_logs_dir() / _MIRROR_SUBPATH
@@ -151,15 +167,114 @@ def get_cycle(limit: int = Query(default=50, ge=1, le=1000)) -> dict[str, Any]:
     }
 
 
+def _load_shadow_wiring_map() -> dict[str, list[str]]:
+    """Invert ``config/strategies.yaml``'s ``shadow_model_ids`` lists.
+
+    Returns ``{model_id: [strategy_name, ...]}`` so registry-row enrichment
+    can answer "which strategy/strategies reference this model?" in O(1).
+    Falls back to an empty map on any read failure — the dashboard then
+    surfaces every model as OFFLINE rather than crashing.
+
+    Path is resolved per-request via ``repo_root()`` so the env-var
+    monkeypatch in tests (``ICT_REPO_ROOT``) wins over the module-level
+    default in ``src.units.strategies``.
+    """
+    try:
+        from src.utils.paths import repo_root
+        from src.units.strategies import load_strategy_config
+        config_path = str(Path(repo_root()) / "config" / "strategies.yaml")
+        strategies = load_strategy_config(config_path)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("training_center: shadow_wiring_map load failed: %s", exc)
+        return {}
+    inverted: dict[str, list[str]] = {}
+    for strategy_name, params in (strategies or {}).items():
+        if not isinstance(params, dict):
+            continue
+        model_ids = params.get("shadow_model_ids") or []
+        if not isinstance(model_ids, list):
+            continue
+        for mid in model_ids:
+            if not isinstance(mid, str) or not mid:
+                continue
+            inverted.setdefault(mid, []).append(str(strategy_name))
+    return inverted
+
+
+def _compute_deployment_bucket(linked_strategies: list[str]) -> str:
+    """Collapse the 7 registry stages to the operator's 2-bucket view.
+
+    Today: any model referenced by a strategy's ``shadow_model_ids`` is
+    SHADOW (predictions logged, decisions unchanged). Anything else is
+    OFFLINE. ``LIVE`` is not returned yet — the live-influence code path
+    doesn't exist; Phase 3 of the Models work adds ``live_model_ids``
+    and the decision-overlay hook, and this helper will be extended to
+    return LIVE when that lands.
+    """
+    return _BUCKET_SHADOW if linked_strategies else _BUCKET_OFFLINE
+
+
+def _enrich_registry_row(
+    row: dict[str, Any],
+    shadow_map: dict[str, list[str]],
+) -> dict[str, Any]:
+    """Flatten useful manifest fields onto the row + compute bucket.
+
+    All new keys are additive — existing consumers continue to see the
+    same fields they always did. Dashboard renderers should treat every
+    enriched field as nullable.
+    """
+    model_id = str(row.get("model_id") or "")
+    manifest = row.get("manifest") if isinstance(row.get("manifest"), dict) else {}
+    dataset = manifest.get("dataset") if isinstance(manifest.get("dataset"), dict) else None
+    runs = row.get("runs") if isinstance(row.get("runs"), list) else []
+    latest_run = runs[-1] if runs else None
+    linked_strategies = list(shadow_map.get(model_id, []))
+    enriched = dict(row)
+    enriched["linked_strategies"] = linked_strategies
+    enriched["deployment_bucket"] = _compute_deployment_bucket(linked_strategies)
+    enriched["model_family"] = manifest.get("model_family")
+    enriched["trainer"] = manifest.get("trainer")
+    enriched["evaluator"] = manifest.get("evaluator")
+    enriched["dataset_ref"] = dataset
+    enriched["latest_run"] = latest_run
+    return enriched
+
+
 @router.get("/registry")
 def get_registry() -> dict[str, Any]:
-    """Model registry rows — append-only history from `ml/registry-store/registry.jsonl`."""
+    """Model registry rows — append-only history from `ml/registry-store/registry.jsonl`.
+
+    Each row is enriched (2026-05-18) with:
+
+      * ``linked_strategies`` — list of strategy names whose
+        ``shadow_model_ids`` references this ``model_id``. Empty list
+        means the model exists in the registry but no strategy uses it.
+      * ``deployment_bucket`` — ``"LIVE" | "SHADOW" | "OFFLINE"``. Today
+        any wired model is SHADOW (the live-influence path is not yet
+        implemented). The dashboard renders this as the headline pill on
+        each per-model card.
+      * ``model_family`` — flattened from ``manifest.model_family``
+        (e.g. ``trade_outcome_classifier``).
+      * ``trainer`` / ``evaluator`` — fully-qualified callable names
+        from the manifest.
+      * ``dataset_ref`` — ``{family, symbol_scope, timeframe, version}``
+        for the dataset this model was trained on.
+      * ``latest_run`` — newest entry from ``runs[]`` (run_id, at,
+        metrics, etc.) or ``None`` if no runs are recorded yet.
+
+    All enriched fields are additive — pre-existing consumers see the
+    same shape with extra keys, never missing ones. Enriched fields are
+    nullable; renderers must treat missing manifest data as "—".
+    """
     root = _mirror_root()
     rows = _read_jsonl_tail(root / "registry.jsonl", limit=0)
+    shadow_map = _load_shadow_wiring_map()
+    enriched = [_enrich_registry_row(r, shadow_map) for r in rows]
     return {
         **_mirror_meta(),
-        "rows": rows,
-        "count": len(rows),
+        "rows": enriched,
+        "count": len(enriched),
     }
 
 
