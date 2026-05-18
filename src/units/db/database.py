@@ -24,6 +24,21 @@ def _migrate_add_strategy_name(cursor: sqlite3.Cursor) -> bool:
     return True
 
 
+def _migrate_add_is_demo(cursor: sqlite3.Cursor) -> bool:
+    """Add ``is_demo`` column to ``trades`` table if absent.
+
+    Demo trades (from accounts with ``demo: true`` in accounts.yaml) carry
+    is_demo=1 so PnL/stats queries can exclude them from live-account
+    aggregations. Idempotent: returns True only on the run that adds the column.
+    """
+    cursor.execute("PRAGMA table_info(trades)")
+    columns = {row[1] for row in cursor.fetchall()}
+    if "is_demo" in columns:
+        return False
+    cursor.execute("ALTER TABLE trades ADD COLUMN is_demo BOOLEAN DEFAULT 0")
+    return True
+
+
 def _migrate_add_account_id(cursor: sqlite3.Cursor) -> bool:
     """Add ``account_id`` column to ``trades`` table if absent.
 
@@ -90,12 +105,14 @@ class Database:
                 is_backtest BOOLEAN DEFAULT 1,
                 strategy_name TEXT,
                 account_id TEXT NOT NULL DEFAULT 'live',
+                is_demo BOOLEAN DEFAULT 0,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
         ''')
         # Idempotent migrations for pre-existing DBs missing these columns.
         _migrate_add_strategy_name(cursor)
         _migrate_add_account_id(cursor)
+        _migrate_add_is_demo(cursor)
         # Index for efficient per-account trade history queries.
         cursor.execute(
             "CREATE INDEX IF NOT EXISTS idx_trades_account_created "
