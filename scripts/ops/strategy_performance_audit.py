@@ -322,6 +322,43 @@ def main() -> int:
     print(f"  SHORT:  {json.dumps(_wlsummary(pnls_short))}")
     print()
 
+    # ============== 1b. By strategy_name ==============
+    # Which strategy is responsible for which slice of the losses?
+    # If one strategy is positive-edge and another is bleeding, that
+    # tells us where to focus.
+    by_strategy: Dict[str, List[float]] = defaultdict(list)
+    by_strategy_dir: Dict[Tuple[str, str], List[float]] = defaultdict(list)
+    for db, rec in pairs:
+        s_name = str(db.get("strategy_name") or "<none>")
+        direction = str(db.get("direction") or "?").lower()
+        pnl = _f(rec.get("closedPnl"))
+        by_strategy[s_name].append(pnl)
+        by_strategy_dir[(s_name, direction)].append(pnl)
+    print("===== by strategy_name =====")
+    print("  strategy            n     W   L   wr      sum_pnl  expectancy")
+    for sname in sorted(by_strategy.keys()):
+        s = _wlsummary(by_strategy[sname])
+        wr = (f"{s['win_rate_pct']:>5}%"
+              if s["win_rate_pct"] is not None else " n/a ")
+        print(f"  {sname:<19} {s['count']:<4} {s['wins']:<3} {s['losses']:<3} "
+              f"{wr}  {s['sum_pnl']:+8.4f}  {s['expectancy']!s}")
+    print()
+    # Strategy × direction — does any strategy's long bias dominate?
+    print("===== by strategy × direction =====")
+    print("  strategy            dir    n    W   L   wr      sum_pnl")
+    for sname in sorted(by_strategy.keys()):
+        for dir_ in ("long", "short"):
+            items = by_strategy_dir.get((sname, dir_), [])
+            if not items:
+                continue
+            s = _wlsummary(items)
+            wr = (f"{s['win_rate_pct']:>5}%"
+                  if s["win_rate_pct"] is not None else " n/a ")
+            print(f"  {sname:<19} {dir_:<5}  {s['count']:<4} "
+                  f"{s['wins']:<3} {s['losses']:<3} {wr}  "
+                  f"{s['sum_pnl']:+8.4f}")
+    print()
+
     # ============== 2. By exit_reason ==============
     by_reason: Dict[str, List[float]] = defaultdict(list)
     for db, rec in pairs:
