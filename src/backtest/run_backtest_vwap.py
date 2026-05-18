@@ -399,6 +399,112 @@ def run_single(
     }
 
 
+def classify_window_regime(df_slice: pd.DataFrame) -> dict[str, Any]:
+    """Label a window by trend + volatility regime.
+
+    Operator directive 2026-05-18: a strategy that overfits to one
+    market regime is a strategy that will surprise us when the
+    regime changes. We need to know which regimes each backtest
+    window represents, and surface per-regime aggregate performance
+    so we can tell whether 2.0σ is robust or just lucky on
+    chop-heavy windows.
+
+    Trend bucket — total % move over window:
+      strong-down  : < -5%
+      weak-down    : -5% .. -1%
+      sideways     : -1% .. +1%
+      weak-up      : +1% .. +5%
+      strong-up    : > +5%
+
+    Volatility bucket — mean per-bar high-low range as bps of close:
+      low     : < 15 bps  (slow tape)
+      medium  : 15-35 bps
+      high    : > 35 bps  (volatile tape)
+
+    Returns ``{"trend", "volatility", "regime", "pct_change",
+    "avg_range_bps"}``. ``regime`` is the combined ``trend/volatility``
+    label suitable for grouping.
+    """
+    if (
+        df_slice is None
+        or "close" not in df_slice.columns
+        or len(df_slice) < 10
+    ):
+        return {
+            "trend": "unknown", "volatility": "unknown",
+            "regime": "unknown",
+            "pct_change": 0.0, "avg_range_bps": 0.0,
+        }
+    close = df_slice["close"].astype(float)
+    open_px = float(close.iloc[0])
+    close_px = float(close.iloc[-1])
+    if open_px <= 0:
+        return {
+            "trend": "unknown", "volatility": "unknown",
+            "regime": "unknown",
+            "pct_change": 0.0, "avg_range_bps": 0.0,
+        }
+    pct_change = (close_px - open_px) / open_px
+    if pct_change < -0.05:
+        trend = "strong-down"
+    elif pct_change < -0.01:
+        trend = "weak-down"
+    elif pct_change < 0.01:
+        trend = "sideways"
+    elif pct_change < 0.05:
+        trend = "weak-up"
+    else:
+        trend = "strong-up"
+
+    high = df_slice["high"].astype(float)
+    low = df_slice["low"].astype(float)
+    # bar_range / close → fraction; × 10_000 → bps
+    bar_range_bps = ((high - low) / close * 10_000).mean()
+    if bar_range_bps < 15:
+        volatility = "low"
+    elif bar_range_bps < 35:
+        volatility = "medium"
+    else:
+        volatility = "high"
+
+    return {
+        "trend": trend,
+        "volatility": volatility,
+        "regime": f"{trend}/{volatility}",
+        "pct_change": round(pct_change * 100, 2),
+        "avg_range_bps": round(float(bar_range_bps), 2),
+    }
+
+
+def _select_start_positions(
+    rng: random.Random,
+    pool_min: int,
+    pool_max: int,
+    n_windows: int,
+    recent_only_frac: float = 1.0,
+) -> list[int]:
+    """Pick ``n_windows`` start positions from ``[pool_min, pool_max]``.
+
+    When ``recent_only_frac < 1.0`` (e.g. 0.5), sampling is restricted
+    to the most-recent fraction of the pool — i.e. windows starting
+    in roughly the last ``recent_only_frac × pool_span`` bars. This
+    biases the backtest toward present-regime data without over-
+    sampling any single window.
+    """
+    if pool_max < pool_min:
+        return []
+    pool_span = pool_max - pool_min + 1
+    recent_only_frac = max(0.0, min(1.0, float(recent_only_frac)))
+    if recent_only_frac < 1.0:
+        cutoff = pool_max - int(pool_span * recent_only_frac) + 1
+        effective_min = max(pool_min, cutoff)
+    else:
+        effective_min = pool_min
+    effective_pool = list(range(effective_min, pool_max + 1))
+    k = min(n_windows, len(effective_pool))
+    return sorted(rng.sample(effective_pool, k))
+
+
 def run_windows(
     df: pd.DataFrame,
     n_windows: int = 8,
@@ -408,6 +514,7 @@ def run_windows(
     band_pct: float = 0.02,
     label: str = "",
     seed: int = 42,
+    recent_only_frac: float = 1.0,
 ) -> dict[str, Any]:
     """Run the backtest over N random windows and return aggregate stats.
 
@@ -436,8 +543,9 @@ def run_windows(
         )
 
     rng = random.Random(seed)
-    start_positions = sorted(
-        rng.sample(range(WARMUP_BARS, max_start + 1), min(n_windows, pool_size))
+    start_positions = _select_start_positions(
+        rng, WARMUP_BARS, max_start, n_windows,
+        recent_only_frac=recent_only_frac,
     )
 
     cfg_label = (
@@ -467,12 +575,40 @@ def run_windows(
             label=label or cfg_label,
             start_bar=WARMUP_BARS,
         )
+        # Classify regime on the TRADING portion (skip warmup) so the
+        # label reflects what the strategy actually faced, not the
+        # warmup prefix used to seed HTF EMAs.
+        regime = classify_window_regime(
+            slice_df.iloc[WARMUP_BARS:].reset_index(drop=True)
+        )
+        r["regime"] = regime
         window_results.append(r)
 
     sharpe_vals = [r["sharpe_r"] for r in window_results]
     total_r_vals = [r["total_r"] for r in window_results]
     win_rate_vals = [r["win_rate_pct"] for r in window_results]
     positive_windows = sum(1 for r in window_results if r["total_r"] > 0)
+
+    # Per-regime aggregation: group by regime label, compute mean
+    # total_r / win_rate / sharpe / sample count per regime. Surfaces
+    # whether a config works only in one regime or across regimes.
+    by_regime: dict[str, list[dict]] = {}
+    for r in window_results:
+        regime_label = r.get("regime", {}).get("regime", "unknown")
+        by_regime.setdefault(regime_label, []).append(r)
+    per_regime_stats = []
+    for reg, items in sorted(by_regime.items()):
+        rs = [it["total_r"] for it in items]
+        sharpes = [it["sharpe_r"] for it in items]
+        wrs = [it["win_rate_pct"] for it in items]
+        per_regime_stats.append({
+            "regime": reg,
+            "n_windows": len(items),
+            "mean_total_r": round(statistics.mean(rs), 2),
+            "mean_sharpe": round(statistics.mean(sharpes), 3),
+            "mean_win_rate_pct": round(statistics.mean(wrs), 1),
+            "positive_windows": sum(1 for v in rs if v > 0),
+        })
 
     return {
         "label": label or cfg_label,
@@ -484,6 +620,7 @@ def run_windows(
         "n_windows": len(window_results),
         "window_days": window_days,
         "seed": seed,
+        "recent_only_frac": recent_only_frac,
         "mean_sharpe": round(statistics.mean(sharpe_vals), 3),
         "std_sharpe": round(
             statistics.stdev(sharpe_vals) if len(sharpe_vals) > 1 else 0.0, 3
@@ -494,6 +631,7 @@ def run_windows(
         "mean_win_rate_pct": round(statistics.mean(win_rate_vals), 1),
         "positive_windows": positive_windows,
         "windows": window_results,
+        "by_regime": per_regime_stats,
     }
 
 
@@ -565,6 +703,17 @@ def main(argv: list[str]) -> int:
         default=42,
         help="Random seed for window sampling (used with --windows).",
     )
+    parser.add_argument(
+        "--recent-only-frac",
+        type=float,
+        default=1.0,
+        help=(
+            "Restrict window-sampling pool to the most-recent fraction "
+            "of the dataset (e.g. 0.5 = last half). Default 1.0 (full "
+            "range). Use < 1.0 to weight the backtest toward present "
+            "market conditions without distorting individual windows."
+        ),
+    )
     args = parser.parse_args(argv[1:])
 
     try:
@@ -635,6 +784,7 @@ def main(argv: list[str]) -> int:
                             band_pct=0.02,
                             label=label,
                             seed=args.seed,
+                            recent_only_frac=args.recent_only_frac,
                         )
                     else:
                         r = run_single(
@@ -667,6 +817,7 @@ def main(argv: list[str]) -> int:
                         band_pct=cfg.get("band_pct") or 0.02,
                         label=cfg["label"],
                         seed=args.seed,
+                        recent_only_frac=args.recent_only_frac,
                     )
                 else:
                     r = run_single(
@@ -692,6 +843,7 @@ def main(argv: list[str]) -> int:
                     band_pct=args.band_pct,
                     label=args.label,
                     seed=args.seed,
+                    recent_only_frac=args.recent_only_frac,
                 )
             else:
                 output = run_single(
@@ -706,9 +858,88 @@ def main(argv: list[str]) -> int:
         traceback.print_exc(file=sys.stderr)
         return 1
 
+    # Print a human-readable regime-coverage summary to stderr so the
+    # operator sees at a glance whether the windows span enough regimes
+    # to draw robust conclusions. The JSON on stdout (below) carries
+    # the per-config × per-regime breakdown for tooling.
+    try:
+        _print_regime_coverage(output, args.windows)
+    except Exception as exc:  # noqa: BLE001
+        print(f"(regime coverage summary failed: {exc})", file=sys.stderr)
+
     # Single compact line so ``tail -1`` in wrapper scripts gets the JSON.
     print(json.dumps(output, default=str))
     return 0
+
+
+def _print_regime_coverage(output: dict[str, Any], n_windows: int) -> None:
+    """Stderr-only readable summary of how windows are distributed by
+    regime, and per-regime mean_total_r for each config."""
+    # Find the per-config results list across all output shapes.
+    configs = []
+    if "window_comparison" in output:
+        configs = output["window_comparison"]
+    elif "threshold_window_comparison" in output:
+        configs = output["threshold_window_comparison"]
+    elif "windows" in output:
+        configs = [output]
+    if not configs or not isinstance(configs, list):
+        return
+
+    # Regime distribution is the same across configs (same windows, same
+    # seed) so we just take the first.
+    first = configs[0]
+    windows = first.get("windows") or []
+    if not windows:
+        return
+
+    regime_counts: dict[str, int] = {}
+    for w in windows:
+        reg = w.get("regime", {}).get("regime", "unknown")
+        regime_counts[reg] = regime_counts.get(reg, 0) + 1
+
+    print("\n===== regime coverage =====", file=sys.stderr)
+    if len(windows) < 4:
+        print(
+            f"  ⚠️  only {len(windows)} window(s) — too few to draw "
+            "regime-robust conclusions. Re-run with more --windows.",
+            file=sys.stderr,
+        )
+    total = sum(regime_counts.values())
+    for reg, cnt in sorted(regime_counts.items(),
+                           key=lambda kv: kv[1], reverse=True):
+        pct = 100.0 * cnt / total if total else 0.0
+        print(f"  {reg:<28} {cnt:>3}  ({pct:.1f}%)", file=sys.stderr)
+    # Coverage warnings — recent crypto tends to lack some regimes.
+    expected = {
+        "strong-down", "weak-down", "sideways", "weak-up", "strong-up",
+    }
+    seen_trends = {reg.split("/")[0] for reg in regime_counts.keys()}
+    missing = expected - seen_trends
+    if missing:
+        print(
+            f"  ⚠️  missing trend regimes: {sorted(missing)} — backtest "
+            "coverage may be biased. Consider widening --days or fetching "
+            "older candles.",
+            file=sys.stderr,
+        )
+
+    # Per-config × per-regime PnL table
+    print("\n===== per-config × per-regime mean_total_r =====",
+          file=sys.stderr)
+    print(f"  {'config':<35}  {'overall':>8}  {'per-regime':<40}",
+          file=sys.stderr)
+    for cfg in configs:
+        label = (cfg.get("label") or "?")[:34]
+        overall = cfg.get("mean_total_r", 0)
+        by_reg = cfg.get("by_regime") or []
+        reg_str = "  ".join(
+            f"{r['regime'].split('/')[0][:6]}={r['mean_total_r']:+.1f}"
+            f"(n={r['n_windows']})"
+            for r in by_reg
+        )
+        print(f"  {label:<35}  {overall:+8.2f}  {reg_str}",
+              file=sys.stderr)
 
 
 if __name__ == "__main__":

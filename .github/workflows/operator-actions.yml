@@ -226,6 +226,10 @@ jobs:
                      | grep -i -m1 '^[[:space:]]*bt_mode[[:space:]]*:' \
                      | sed -E 's/^[[:space:]]*[Bb][Tt]_mode[[:space:]]*:[[:space:]]*//' \
                      | tr -d '[:space:]' || true)
+            recent_only_frac=$(printf '%s\n' "${ISSUE_BODY}" \
+                     | grep -i -m1 '^[[:space:]]*recent_only_frac[[:space:]]*:' \
+                     | sed -E 's/^[[:space:]]*[Rr]ecent_only_frac[[:space:]]*:[[:space:]]*//' \
+                     | tr -d '[:space:]' || true)
             if [ -z "${action}" ]; then
               echo "::error::Issue body must contain a line of the form 'action: <name>'. Title was: ${ISSUE_TITLE}"
               exit 1
@@ -242,7 +246,8 @@ jobs:
           echo "ACTION_WINDOWS=${windows}" >>"$GITHUB_ENV"
           echo "ACTION_WINDOW_DAYS=${window_days}" >>"$GITHUB_ENV"
           echo "ACTION_MODE=${bt_mode}" >>"$GITHUB_ENV"
-          echo ">>> Resolved ACTION=${action} REASON=${reason} ACCOUNT_ID=${account_id} MODE=${mode} TUNNEL_HOSTNAME=${tunnel_hostname} TRADE_ID=${trade_id} SYMBOL=${symbol} DAYS=${days} WINDOWS=${windows} WINDOW_DAYS=${window_days} BT_MODE=${bt_mode} (event=${{ github.event_name }})"
+          echo "ACTION_RECENT_ONLY_FRAC=${recent_only_frac}" >>"$GITHUB_ENV"
+          echo ">>> Resolved ACTION=${action} REASON=${reason} ACCOUNT_ID=${account_id} MODE=${mode} TUNNEL_HOSTNAME=${tunnel_hostname} TRADE_ID=${trade_id} SYMBOL=${symbol} DAYS=${days} WINDOWS=${windows} WINDOW_DAYS=${window_days} BT_MODE=${bt_mode} RECENT_ONLY_FRAC=${recent_only_frac} (event=${{ github.event_name }})"
 
       - name: Validate action and tier policy
         run: |
@@ -450,7 +455,7 @@ jobs:
             REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID}") ACTION_DAYS=$(printf '%q' "${ACTION_DAYS}") ${REMOTE_CMD}"
           fi
           if [ "${ACTION}" = "vwap-backtest-sweep" ]; then
-            REMOTE_CMD="ACTION_MODE=$(printf '%q' "${ACTION_MODE}") ACTION_DAYS=$(printf '%q' "${ACTION_DAYS}") ACTION_WINDOWS=$(printf '%q' "${ACTION_WINDOWS}") ACTION_WINDOW_DAYS=$(printf '%q' "${ACTION_WINDOW_DAYS}") ${REMOTE_CMD}"
+            REMOTE_CMD="ACTION_MODE=$(printf '%q' "${ACTION_MODE}") ACTION_DAYS=$(printf '%q' "${ACTION_DAYS}") ACTION_WINDOWS=$(printf '%q' "${ACTION_WINDOWS}") ACTION_WINDOW_DAYS=$(printf '%q' "${ACTION_WINDOW_DAYS}") ACTION_RECENT_ONLY_FRAC=$(printf '%q' "${ACTION_RECENT_ONLY_FRAC}") ${REMOTE_CMD}"
           fi
           if [ "${ACTION}" = "setup-named-cloudflare-tunnel" ] || [ "${ACTION}" = "teardown-named-cloudflare-tunnel" ]; then
             if [ -z "${CLOUDFLARE_API_TOKEN}" ] || [ -z "${CLOUDFLARE_ACCOUNT_ID}" ]; then
