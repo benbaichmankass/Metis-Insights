@@ -82,6 +82,7 @@ on:
           - backfill-orphan-pnl
           - backfill-monitor-closed-pnl
           - revert-backfill-monitor-closed-pnl
+          - inspect-closed-pnl
           - set-account-mode
           - fix-data-dir
       reason:
@@ -192,6 +193,10 @@ jobs:
                      | grep -i -m1 '^[[:space:]]*hostname[[:space:]]*:' \
                      | sed -E 's/^[[:space:]]*[Hh]ostname[[:space:]]*:[[:space:]]*//' \
                      | tr -d '[:space:]' || true)
+            trade_id=$(printf '%s\n' "${ISSUE_BODY}" \
+                     | grep -i -m1 '^[[:space:]]*trade_id[[:space:]]*:' \
+                     | sed -E 's/^[[:space:]]*[Tt]rade_id[[:space:]]*:[[:space:]]*//' \
+                     | tr -d '[:space:]' || true)
             if [ -z "${action}" ]; then
               echo "::error::Issue body must contain a line of the form 'action: <name>'. Title was: ${ISSUE_TITLE}"
               exit 1
@@ -202,13 +207,14 @@ jobs:
           echo "ACCOUNT_ID=${account_id}" >>"$GITHUB_ENV"
           echo "MODE=${mode}" >>"$GITHUB_ENV"
           echo "TUNNEL_HOSTNAME=${tunnel_hostname}" >>"$GITHUB_ENV"
-          echo ">>> Resolved ACTION=${action} REASON=${reason} ACCOUNT_ID=${account_id} MODE=${mode} TUNNEL_HOSTNAME=${tunnel_hostname} (event=${{ github.event_name }})"
+          echo "TRADE_ID=${trade_id}" >>"$GITHUB_ENV"
+          echo ">>> Resolved ACTION=${action} REASON=${reason} ACCOUNT_ID=${account_id} MODE=${mode} TUNNEL_HOSTNAME=${tunnel_hostname} TRADE_ID=${trade_id} (event=${{ github.event_name }})"
 
       - name: Validate action and tier policy
         run: |
           set -euo pipefail
           case "${ACTION}" in
-            status-check|pull-latest-logs)
+            status-check|pull-latest-logs|inspect-closed-pnl)
               echo "tier=1" >>"$GITHUB_ENV"
               ;;
             pull-and-deploy|restart-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|enable-m5-consumer|disable-m5-consumer|setup-cloudflare-tunnel|teardown-cloudflare-tunnel|setup-named-cloudflare-tunnel|teardown-named-cloudflare-tunnel|setup-tailscale-funnel|teardown-tailscale-funnel|backfill-pnl-nulls|backfill-orphan-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|set-account-mode|fix-data-dir)
@@ -323,6 +329,7 @@ jobs:
             backfill-orphan-pnl)                SCRIPT="backfill_orphan_pnl_action.sh" ;;
             backfill-monitor-closed-pnl)        SCRIPT="backfill_monitor_closed_pnl_action.sh" ;;
             revert-backfill-monitor-closed-pnl) SCRIPT="revert_backfill_monitor_closed_pnl_action.sh" ;;
+            inspect-closed-pnl)                 SCRIPT="inspect_closed_pnl_action.sh" ;;
             set-account-mode)                   SCRIPT="set_account_mode.sh" ;;
             fix-data-dir)                       SCRIPT="fix_data_dir.sh" ;;
             *)
@@ -346,6 +353,9 @@ jobs:
           fi
           if [ "${ACTION}" = "set-account-mode" ]; then
             REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID}") MODE=$(printf '%q' "${MODE}") ${REMOTE_CMD}"
+          fi
+          if [ "${ACTION}" = "inspect-closed-pnl" ] && [ -n "${TRADE_ID}" ]; then
+            REMOTE_CMD="ACTION_TRADE_ID=$(printf '%q' "${TRADE_ID}") ${REMOTE_CMD}"
           fi
           if [ "${ACTION}" = "setup-named-cloudflare-tunnel" ] || [ "${ACTION}" = "teardown-named-cloudflare-tunnel" ]; then
             if [ -z "${CLOUDFLARE_API_TOKEN}" ] || [ -z "${CLOUDFLARE_ACCOUNT_ID}" ]; then
