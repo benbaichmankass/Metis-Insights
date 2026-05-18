@@ -95,6 +95,51 @@ class TestMonitorBreakevenSL:
         df2 = _candles(101.0, 104.0)  # = 2R
         assert monitor_breakeven_sl(self.LONG_PKG, df2, one_r_threshold=2.0) == {"sl": 100.0}
 
+    # ----- be_offset_bps — fee-aware BE-stop (2026-05-18) -----
+
+    def test_long_be_offset_bps_lifts_sl_above_entry(self):
+        """be_offset_bps=15 → SL = entry × (1 + 15/10000) = entry × 1.0015.
+
+        Covers the fee-induced scratch-loss pattern the operator observed
+        on trade #1531 (pre-this-PR, SL moved to exact entry → close
+        netted -$0.24 after Bybit's ~7.5 bps round-trip taker fees on
+        $307 notional). With offset, SL moves to entry + 15 bps so the
+        close clears fees + small profit margin.
+        """
+        df = _candles(101.0, 102.0)  # at +1R
+        result = monitor_breakeven_sl(self.LONG_PKG, df, be_offset_bps=15.0)
+        # entry=100.0 × (1 + 15/10000) = 100.15
+        assert result == {"sl": 100.15}
+
+    def test_short_be_offset_bps_lowers_sl_below_entry(self):
+        """For shorts, the offset moves SL the other direction —
+        entry × (1 - bps/10000) — so it still locks in a small profit."""
+        df = _candles(99.0, 98.0)  # at +1R for a short
+        result = monitor_breakeven_sl(self.SHORT_PKG, df, be_offset_bps=15.0)
+        # entry=100.0 × (1 - 15/10000) = 99.85
+        assert result == {"sl": 99.85}
+
+    def test_be_offset_bps_zero_is_legacy_behaviour(self):
+        """be_offset_bps=0 (the default) preserves the pre-2026-05-18
+        behaviour: SL moves to exactly entry, no offset."""
+        df = _candles(101.0, 102.0)
+        result = monitor_breakeven_sl(self.LONG_PKG, df, be_offset_bps=0.0)
+        assert result == {"sl": 100.0}
+
+    def test_be_offset_bps_only_fires_after_1r_trigger(self):
+        """The offset doesn't change the trigger condition — price must
+        still reach +1R before the trail-to-BE fires at all."""
+        df = _candles(100.5, 101.5)  # below +1R (101 < entry+1R=102)
+        assert monitor_breakeven_sl(self.LONG_PKG, df, be_offset_bps=50.0) is None
+
+    def test_be_offset_bps_idempotent_when_sl_already_above_entry(self):
+        """Once SL has been moved above entry by a previous fire, the
+        next +1R tick must not re-write the same value (or worse, keep
+        creeping). The ``sl < entry`` guard short-circuits."""
+        pkg = {**self.LONG_PKG, "sl": 100.15}  # already at +15 bps
+        df = _candles(103.0, 103.5)
+        assert monitor_breakeven_sl(pkg, df, be_offset_bps=15.0) is None
+
 
 class TestMonitorBreakevenSLDefensive:
     """The monitor must never raise — bad inputs return None."""

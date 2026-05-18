@@ -41,6 +41,14 @@ strategies:
     atr_period: 14
     atr_stop_mult: 0.30
     be_at_r: 0.75
+    # SL-to-break-even offset in basis points (2026-05-18, operator
+    # directive). When the trail-to-break-even rule fires, the new SL
+    # is set to entry × (1 ± be_offset_bps/10000) instead of exactly
+    # at entry, so Bybit's round-trip taker fees (~7.5 bps on linear
+    # perps for this account) don't turn a break-even close into a
+    # scratch loss. 15 bps ≈ 2× the round-trip fee rate, giving a
+    # small profit margin on each BE close.
+    be_offset_bps: 15
     tp1_at_r: 1.00
     tp2_at_r: 3.0
     partial_close_pct: 0.25
@@ -86,6 +94,15 @@ strategies:
     # 0.5) protect faster on shallow mean-reversion runs that retrace
     # before reaching VWAP; higher (e.g. 1.5) lets the trade run further.
     be_at_r: 1.0
+    # SL-to-break-even offset in basis points (2026-05-18, operator
+    # directive). When the trail-to-break-even rule fires, the new SL
+    # is set to entry × (1 ± be_offset_bps/10000) instead of exactly
+    # at entry, so Bybit's round-trip taker fees (~7.5 bps on linear
+    # perps for this account) don't turn a break-even close into a
+    # scratch loss. 15 bps ≈ 2× the round-trip fee rate, giving a
+    # small profit margin on each BE close (operator framing: "at
+    # least net wins, not net scratches").
+    be_offset_bps: 15
 
     # Recent-context filter (operator directive 2026-05-13).
     # Informational only — does not block entries.
@@ -184,6 +201,12 @@ strategies:
     # Risk
     atr_sl_buffer_mult: 0.20
     tp_at_r: 1.5
+    # SL-to-break-even offset in basis points (2026-05-18, operator
+    # directive). When the trail-to-break-even rule fires, the new SL
+    # is set to entry × (1 ± be_offset_bps/10000) instead of exactly
+    # at entry, so Bybit's round-trip taker fees don't turn the
+    # protective close into a scratch loss. See vwap section above.
+    be_offset_bps: 15
     # Session filter — disabled by default; crypto runs 24/7. Operator
     # can scope to London + NY kill-zones (07-17 UTC) by flipping
     # session_filter_enabled→true.

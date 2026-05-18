@@ -1076,4 +1076,20 @@ def monitor(cfg, candles_df, open_pkg):
         be_at_r = 1.0
     if be_at_r <= 0:
         be_at_r = 1.0
-    return monitor_breakeven_sl(open_pkg, candles_df, one_r_threshold=be_at_r)
+    # ``be_offset_bps`` (2026-05-18): basis-point offset above entry
+    # (long) / below entry (short) when SL trails to break-even, so
+    # the close clears Bybit's round-trip fees instead of netting a
+    # scratch loss. Default 0 preserves pre-this-PR behaviour for
+    # configs that haven't opted in. See `_base.monitor_breakeven_sl`
+    # docstring for the operator rationale.
+    try:
+        be_offset_bps = float(cfg_dict.get("be_offset_bps", 0.0))
+    except (TypeError, ValueError):
+        be_offset_bps = 0.0
+    if be_offset_bps < 0:
+        be_offset_bps = 0.0
+    return monitor_breakeven_sl(
+        open_pkg, candles_df,
+        one_r_threshold=be_at_r,
+        be_offset_bps=be_offset_bps,
+    )

@@ -646,7 +646,21 @@ def monitor(cfg, candles_df, open_pkg):
     v1 monitor: trail SL to break-even once price has moved 1R in the
     trade's favour. Delegates to ``monitor_breakeven_sl`` so the
     behaviour matches the rest of the strategy roster.
+
+    ``be_offset_bps`` (2026-05-18) reads from cfg and shifts the
+    trailed SL above entry (long) / below entry (short) by N bps so
+    Bybit's round-trip fees don't turn the protective close into a
+    scratch loss. See `_base.monitor_breakeven_sl` docstring.
     """
     if candles_df is None:
         return None
-    return monitor_breakeven_sl(open_pkg, candles_df)
+    cfg_dict = cfg if isinstance(cfg, dict) else {}
+    try:
+        be_offset_bps = float(cfg_dict.get("be_offset_bps", 0.0))
+    except (TypeError, ValueError):
+        be_offset_bps = 0.0
+    if be_offset_bps < 0:
+        be_offset_bps = 0.0
+    return monitor_breakeven_sl(
+        open_pkg, candles_df, be_offset_bps=be_offset_bps,
+    )

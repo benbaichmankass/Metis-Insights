@@ -87,6 +87,7 @@ def monitor_breakeven_sl(
     candles_df: pd.DataFrame,
     *,
     one_r_threshold: float = 1.0,
+    be_offset_bps: float = 0.0,
 ) -> Optional[Dict[str, Any]]:
     """Standard "trail SL to break-even after 1R" monitor rule.
 
@@ -98,10 +99,21 @@ def monitor_breakeven_sl(
     Algorithm:
       - 1R = abs(entry - sl).
       - For longs: when current_price ≥ entry + (one_r_threshold × 1R)
-        AND current sl < entry, return ``{"sl": entry}`` so the caller
-        moves the stop to break-even.
-      - Symmetric for shorts.
+        AND current sl < entry, return ``{"sl": entry * (1 + be_offset_bps / 10000)}``
+        so the caller moves the stop slightly ABOVE break-even (covers
+        round-trip taker fees + small profit buffer).
+      - Symmetric for shorts: returns ``{"sl": entry * (1 - be_offset_bps / 10000)}``.
       - Otherwise return ``None`` (no change).
+
+    The ``be_offset_bps`` parameter (2026-05-18) was added after the
+    operator observed that pre-offset trades closing at exact-entry
+    netted small losses once Bybit's fees (≈ 7.5 bps round-trip on
+    linear-perp taker) were subtracted. Setting ``be_offset_bps`` at
+    ~15 (≈ 2× the round-trip fee rate) gives a small profit margin
+    on each break-even close instead of a fee-induced scratch loss.
+    Strategy configs in ``config/strategies.yaml`` pass their own
+    value; the helper default of ``0.0`` preserves pre-2026-05-18
+    behaviour for callers that don't opt in.
 
     The caller (S-030 PR3 monitor loop) consumes the dict and writes
     it back via ``Database.update_order_package``.
@@ -131,12 +143,18 @@ def monitor_breakeven_sl(
     if one_r <= 0:
         return None
 
+    # Fee-aware offset: lock in a small profit above entry for longs
+    # (below entry for shorts) so the round-trip taker fees don't
+    # turn a break-even SL into a small loss. ``be_offset_bps`` is
+    # in basis points of entry price (e.g. 15 → 0.15 %).
+    offset = entry * (be_offset_bps / 10000.0) if be_offset_bps else 0.0
+
     if direction == "long":
         if current_price >= entry + (one_r_threshold * one_r) and sl < entry:
-            return {"sl": entry}
+            return {"sl": entry + offset}
         return None
     if direction == "short":
         if current_price <= entry - (one_r_threshold * one_r) and sl > entry:
-            return {"sl": entry}
+            return {"sl": entry - offset}
         return None
     return None
