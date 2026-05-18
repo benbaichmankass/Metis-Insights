@@ -226,6 +226,7 @@ def _bybit_closed_pnl_lookup(
     qty_tolerance: float = 0.05,
     entry_price_target: Optional[float] = None,
     entry_price_tolerance: float = 0.001,
+    opened_at_ms: Optional[int] = None,
 ) -> Optional[Dict[str, Any]]:
     """Find the Bybit V5 closed-pnl record matching a trade we know
     closed via broker-side SL/TP or external flatten.
@@ -263,22 +264,35 @@ def _bybit_closed_pnl_lookup(
       * ``entry_price_target`` — optional. When set, records whose
         ``avgEntryPrice`` differs from ``entry_price_target`` by
         more than ``entry_price_tolerance`` (relative, default 10
-        bps) are filtered out. THIS IS THE PRIMARY DISAMBIGUATOR —
-        side/qty are not unique on a high-frequency strategy (every
-        VWAP-on-BTCUSDT trade has identical ``(side, qty)``), but
-        ``avgEntryPrice`` reflects the trade's actual fill price.
-        Adopted 2026-05-18 after issue #1411's backfill dispatch
-        proved that side+qty alone collapses 15+ distinct trades
-        onto the most-recent close.
+        bps) are filtered out. Pairs with ``opened_at_ms`` below to
+        identify the right trade.
+      * ``opened_at_ms`` — optional. When set, records whose
+        ``createdTime`` is more than 60 s before ``opened_at_ms``
+        are filtered out (a close cannot precede the open of the
+        position it closes). Combined with ``entry_price_target``
+        this disambiguates trades that share ``(side, qty,
+        entry_price)`` but opened at different times — issue #1419
+        revealed that on a high-frequency strategy where 5+ trades
+        share ``(side, qty, entry±10bps)``, the matcher MUST also
+        partition by time-after-open to pair each trade with its
+        own close.
 
     Returns the raw inner record dict for the best match. Selection
     order:
-      1. If multiple records pass all filters, prefer the one whose
-         ``avgEntryPrice`` is closest to ``entry_price_target``
-         (when supplied), then most-recent by ``updatedTime``.
-      2. Otherwise most-recent by ``updatedTime`` (preserves the
-         pre-2026-05-18 behaviour for callers that don't supply
-         ``entry_price_target``).
+      1. When both ``opened_at_ms`` AND ``entry_price_target`` are
+         supplied: prefer the EARLIEST ``createdTime`` (i.e. the
+         first close that happened at or after the trade was
+         opened). Issue #1419's true diagnosis: among 5 records
+         within 10 bps of #1540's entry, the right match is the
+         one whose close happened first after the trade opened, not
+         the closest entry-price match.
+      2. When only ``entry_price_target`` is supplied: prefer the
+         closest ``avgEntryPrice`` match, then most-recent by
+         ``updatedTime``.
+      3. Otherwise most-recent by ``updatedTime`` (preserves the
+         pre-2026-05-18 behaviour for the orphan-reconciler path —
+         it fires within ~60 s of the close, so most-recent IS the
+         right answer).
     Returns ``None`` when no matching record exists or any SDK call
     raises.
 
@@ -323,6 +337,21 @@ def _bybit_closed_pnl_lookup(
             rel_diff = abs(rec_entry - entry_price_target) / entry_price_target
             if rel_diff > entry_price_tolerance:
                 continue
+        if opened_at_ms is not None:
+            # Close cannot precede open. 2 s slack absorbs clock
+            # drift between the VM's wall clock (used for
+            # ``opened_at_ms``) and Bybit's exec engine — measured
+            # to be < 1 s in practice. 60 s would be too generous:
+            # consecutive trades spaced minutes apart would
+            # inherit each other's closes (issue #1419's
+            # consecutive-shorts collapse).
+            try:
+                rec_created = int(rec.get("createdTime")
+                                  or rec.get("updatedTime") or 0)
+            except (TypeError, ValueError):
+                rec_created = 0
+            if rec_created and rec_created + 2_000 < int(opened_at_ms):
+                continue
         candidates.append(rec)
 
     if not candidates:
@@ -334,10 +363,33 @@ def _bybit_closed_pnl_lookup(
         except (TypeError, ValueError):
             return 0
 
+    if (entry_price_target is not None and entry_price_target > 0
+            and opened_at_ms is not None):
+        # Issue #1419 fix: when we have both the entry price and
+        # the open time, the right close is the EARLIEST one that
+        # happened at or after open. Each trade has exactly one
+        # such close; consecutive trades sharing (side, qty, entry)
+        # get partitioned by their open timestamps. This is the
+        # only ordering that handles all three callers correctly:
+        #   * orphan reconciler — closes seconds after open, earliest
+        #     match is the one just placed
+        #   * live sweep — closes minutes after open, earliest match
+        #     is the trade's actual close
+        #   * backfill on older trades — earliest match is the close
+        #     bound to the trade's open, not a later trade's close
+        def _created_ts(rec: Dict[str, Any]) -> int:
+            try:
+                return int(rec.get("createdTime")
+                           or rec.get("updatedTime") or 0)
+            except (TypeError, ValueError):
+                return 0
+        candidates.sort(key=_created_ts)
+        return candidates[0]
+
     if entry_price_target is not None and entry_price_target > 0:
-        # Prefer closest avgEntryPrice match; break ties by most-recent.
-        # avgEntryPrice is the trade's actual fill price — unique per
-        # position to within a few bps.
+        # entry_price supplied but no opened_at_ms — fall back to
+        # closest-entry, most-recent. Adopted 2026-05-18 in the
+        # PR-#1417 partial fix.
         def _entry_diff(rec: Dict[str, Any]) -> float:
             rec_entry = _f(rec.get("avgEntryPrice"))
             if rec_entry <= 0:
@@ -451,6 +503,7 @@ def account_closed_pnl_for_trade(
             end_ts_ms=end_ms,
             qty_target=qty,
             entry_price_target=entry_price,
+            opened_at_ms=int(opened_at_ms),
         )
     except Exception as exc:  # noqa: BLE001
         aid = account.get("account_id") or "unknown"
