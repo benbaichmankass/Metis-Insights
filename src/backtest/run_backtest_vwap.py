@@ -515,6 +515,7 @@ def run_windows(
     label: str = "",
     seed: int = 42,
     recent_only_frac: float = 1.0,
+    adaptive: bool = False,
 ) -> dict[str, Any]:
     """Run the backtest over N random windows and return aggregate stats.
 
@@ -582,6 +583,46 @@ def run_windows(
             slice_df.iloc[WARMUP_BARS:].reset_index(drop=True)
         )
         r["regime"] = regime
+        # Adaptive mode (PR #1475+): re-run this window with the
+        # per-regime threshold from vwap_policy. If the policy says
+        # skip, mark the window as zero-trade and zero R.
+        if adaptive:
+            from src.units.strategies import vwap as _vwap_mod
+            from src.units.strategies.vwap_policy import lookup_policy
+            pol = lookup_policy(regime.get("regime") or "unknown")
+            if not pol.get("allow"):
+                # Override the result with a zero-trade window.
+                r = {
+                    **r,
+                    "label": f"adaptive (SKIP {regime['regime']})",
+                    "total_trades": 0, "wins": 0, "losses": 0,
+                    "win_rate_pct": None,
+                    "total_r": 0.0, "avg_r_per_trade": 0.0,
+                    "sharpe_r": 0.0,
+                    "exit_reasons": {},
+                    "adaptive_skipped": True,
+                    "adaptive_policy": pol,
+                }
+            else:
+                # Re-run with the policy threshold.
+                _original = _vwap_mod.ENTRY_STD_THRESHOLD
+                _vwap_mod.ENTRY_STD_THRESHOLD = pol["threshold"]
+                _vwap_mod._ENTRY_STD_THRESHOLD = pol["threshold"]
+                try:
+                    r = run_single(
+                        slice_df,
+                        htf_timeframe=htf_timeframe,
+                        ema_period=ema_period,
+                        band_pct=band_pct,
+                        label=f"adaptive ({regime['regime']} @ {pol['threshold']}σ)",
+                        start_bar=WARMUP_BARS,
+                    )
+                finally:
+                    _vwap_mod.ENTRY_STD_THRESHOLD = _original
+                    _vwap_mod._ENTRY_STD_THRESHOLD = _original
+                r["regime"] = regime
+                r["adaptive_skipped"] = False
+                r["adaptive_policy"] = pol
         window_results.append(r)
 
     sharpe_vals = [r["sharpe_r"] for r in window_results]
@@ -666,6 +707,16 @@ def main(argv: list[str]) -> int:
             "Sweep ENTRY_STD_THRESHOLD across THRESHOLD_SWEEP values "
             "(0.8/1.0/1.2/1.5/2.0σ), no HTF gate. Mutually exclusive "
             "with --compare."
+        ),
+    )
+    parser.add_argument(
+        "--adaptive",
+        action="store_true",
+        help=(
+            "Adaptive mode: classify each window's regime and apply the "
+            "per-regime entry threshold (or skip) from "
+            "``src/units/strategies/vwap_policy.py``. Mutually exclusive "
+            "with --compare and --threshold-sweep."
         ),
     )
     parser.add_argument("--label", default="", help="Label for the run")
@@ -756,11 +807,33 @@ def main(argv: list[str]) -> int:
     try:
         use_windows = args.windows > 0
 
-        if args.compare and args.threshold_sweep:
-            sys.stderr.write("--compare and --threshold-sweep are mutually exclusive\n")
+        if sum(bool(x) for x in (args.compare, args.threshold_sweep,
+                                   args.adaptive)) > 1:
+            sys.stderr.write(
+                "--compare / --threshold-sweep / --adaptive are mutually "
+                "exclusive\n"
+            )
             return 1
 
-        if args.threshold_sweep:
+        if args.adaptive:
+            if not use_windows:
+                sys.stderr.write(
+                    "--adaptive requires --windows (regime is classified "
+                    "per window)\n"
+                )
+                return 1
+            print("Running: adaptive (regime → policy) …", file=sys.stderr)
+            output = run_windows(
+                df,
+                n_windows=args.windows,
+                window_days=args.window_days,
+                htf_timeframe=None, ema_period=None, band_pct=0.02,
+                label="adaptive",
+                seed=args.seed,
+                recent_only_frac=args.recent_only_frac,
+                adaptive=True,
+            )
+        elif args.threshold_sweep:
             # Monkey-patch the module-level threshold for each iteration.
             # Restore after the sweep so the rest of the process (and any
             # downstream tests in the same Python session) sees the live
