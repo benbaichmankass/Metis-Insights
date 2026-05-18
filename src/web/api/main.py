@@ -1,7 +1,7 @@
 """FastAPI app entrypoint for the dashboard backend.
 
-Serves REST endpoints consumed by the Vercel React dashboard.
-The HTMX/Streamlit UIs have been removed; only the REST API remains.
+Serves REST endpoints consumed by the Streamlit dashboard
+(benbaichmankass/ict-trader-dashboard, streamlit_app.py).
 """
 from __future__ import annotations
 

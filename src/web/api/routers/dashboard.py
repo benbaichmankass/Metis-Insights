@@ -103,6 +103,7 @@ def _pnl_stats() -> tuple[float, float, int, float]:
                     COUNT(CASE WHEN status!='open' AND pnl>0 THEN 1 END)
                 FROM trades
                 WHERE COALESCE(is_backtest,0)=0
+                  AND COALESCE(is_demo,0)=0
                 """,
                 (today,),
             )
@@ -246,6 +247,7 @@ async def get_positions() -> list[dict[str, Any]]:
                 FROM trades
                 WHERE status = 'open'
                   AND COALESCE(is_backtest, 0) = 0
+                  AND COALESCE(is_demo, 0) = 0
                 ORDER BY created_at DESC
                 LIMIT 50
                 """

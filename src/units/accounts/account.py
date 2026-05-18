@@ -51,6 +51,7 @@ class TradingAccount:
         configured: bool = True,
         configured_reason: Optional[str] = None,
         market_type: str = "spot",
+        demo: bool = False,
     ) -> None:
         self.name = name
         self.exchange = exchange
@@ -86,6 +87,11 @@ class TradingAccount:
         # ``market_type`` field; default is ``spot`` per the operator
         # directive 2026-05-06 (the perp-instead-of-spot fix).
         self.market_type: str = str(market_type or "spot").strip().lower()
+        # True when this account routes to Bybit's demo trading endpoint
+        # (https://api-demo.bybit.com). Populated from accounts.yaml `demo: true`.
+        # Used by: coordinator (demo Telegram prefix), execute.py (is_demo DB flag),
+        # clients.py (demo=True to pybit HTTP).
+        self.demo: bool = bool(demo)
 
     def place_order(self, order: OrderPackage, *, dry_run: Optional[bool] = None) -> str:
         """Risk-check and route *order* to the exchange.

@@ -41,7 +41,8 @@ MAX_DAYS = 90
 
 
 def _query_history(
-    db_path: Path, days: int, today_utc: date
+    db_path: Path, days: int, today_utc: date,
+    account_id: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """Return a contiguous list of N daily points, or ``[]`` if there are no
     realised trades in the window (or no DB).
@@ -57,19 +58,29 @@ def _query_history(
     conn = sqlite3.connect(str(db_path))
     try:
         cur = conn.cursor()
+        base_where = (
+            "COALESCE(is_backtest, 0) = 0"
+            " AND status != 'open'"
+            " AND substr(COALESCE(created_at, timestamp), 1, 10) >= ?"
+            " AND substr(COALESCE(created_at, timestamp), 1, 10) <= ?"
+        )
+        params: list = [start.isoformat(), today_utc.isoformat()]
+        if account_id:
+            base_where += " AND account_id = ?"
+            params.append(account_id)
+        else:
+            # Exclude demo trades from the live aggregate view.
+            base_where += " AND COALESCE(is_demo, 0) = 0"
         cur.execute(
-            """
+            f"""
             SELECT substr(COALESCE(created_at, timestamp), 1, 10) AS day,
                    COALESCE(SUM(pnl), 0)                         AS realized,
                    COUNT(*)                                       AS trades
               FROM trades
-             WHERE COALESCE(is_backtest, 0) = 0
-               AND status != 'open'
-               AND substr(COALESCE(created_at, timestamp), 1, 10) >= ?
-               AND substr(COALESCE(created_at, timestamp), 1, 10) <= ?
+             WHERE {base_where}
              GROUP BY day
             """,
-            (start.isoformat(), today_utc.isoformat()),
+            params,
         )
         rows = {r[0]: (float(r[1]), int(r[2])) for r in cur.fetchall()}
     finally:
@@ -94,11 +105,12 @@ def build_pnl_history(
     days: int,
     db_path: Optional[Path] = None,
     now_utc: Optional[datetime] = None,
+    account_id: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     db_path = db_path or pnl_module._resolve_db_path()
     now = now_utc or datetime.now(timezone.utc)
     try:
-        return _query_history(db_path, days, now.date())
+        return _query_history(db_path, days, now.date(), account_id=account_id)
     except sqlite3.Error as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -112,5 +124,6 @@ def build_pnl_history(
 @router.get("/pnl/history")
 async def get_pnl_history(
     days: int = Query(DEFAULT_DAYS, ge=1, le=MAX_DAYS),
+    account_id: Optional[str] = Query(None, max_length=64),
 ) -> List[Dict[str, Any]]:
-    return build_pnl_history(days)
+    return build_pnl_history(days, account_id=account_id)
