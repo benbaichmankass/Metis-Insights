@@ -184,7 +184,7 @@ def _load_shadow_wiring_map() -> dict[str, list[str]]:
         from src.units.strategies import load_strategy_config
         config_path = str(Path(repo_root()) / "config" / "strategies.yaml")
         strategies = load_strategy_config(config_path)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001  # allow-silent: graceful fallback — any YAML/path failure yields OFFLINE rendering, never a 5xx
         logger.warning("training_center: shadow_wiring_map load failed: %s", exc)
         return {}
     inverted: dict[str, list[str]] = {}
