@@ -1,42 +1,50 @@
-"""Adaptive policy for the VWAP strategy — maps market regime to
-entry threshold (and a skip flag for regimes where no threshold
-works).
+"""Adaptive policy for the VWAP strategy — a skip-list over market
+regimes where the strategy consistently bleeds, regardless of
+threshold.
 
-Why a lookup table
-------------------
-Issue #1474's 365-day backtest revealed regime-dependent edge.
-Issue #1511's adaptive validation refined the policy:
+Design (post-#1536 retest)
+--------------------------
+Earlier iterations (#1474, #1511) tried to assign a per-regime entry
+threshold tuned to small-n backtests. The 24-window retest in #1533
+exposed the failure mode: with n=1 per regime, a single-day shift in
+the data window flipped ``weak-up/medium`` from +19 R to -24 R at
+the same 1.2σ threshold. The per-regime threshold picks are noise we
+cannot yet measure reliably; the **skip-list** is where the signal is.
 
-  regime           policy          total R (8 windows × 14d, #1511)
-  ---------------  --------------  -------------------------
-  strong-down/low  0.8σ entry      +26.9
-  weak-down/low    1.5σ entry      +26.8
-  weak-up/medium   1.2σ entry      +19.2
-  weak-up/low      SKIP            0     (3/3 windows = no trades)
-  sideways/low     SKIP            0     (2/2 windows skipped post-#1511)
+This module is now a pure skip-list. For every regime not in the
+skip set, ``lookup_policy`` returns ``threshold=None``, which the
+adaptive backtest interprets as "do not override the module-level
+``ENTRY_STD_THRESHOLD``" — i.e. use the live-trader default.
 
-No single fixed threshold wins across the year — but a policy that
-picks the per-regime optimum (and refuses to trade `weak-up/low`
-and `sideways/low`) beats every fixed-threshold variant on the
-same data. This module is the lookup table.
+Skip-list (regimes the strategy loses in across all tested thresholds):
+
+  regime           evidence
+  ---------------  -------------------------
+  weak-up/low      #1474 backtest: 3 windows × 5 thresholds, ALL lose
+                   (-4 to -10 R/window). Mean-reversion longs into a
+                   slow drift get steamrolled by the trend.
+  sideways/low     #1511 adaptive backtest: 2 windows × 1.2σ (the
+                   prior best-of-bad-lot pick) → -2.92 R mean. Chop
+                   with no consistent edge at any tested threshold.
 
 When the live signal builder fires:
   1. Classify current regime via ``regime.classify_regime``
   2. Look up policy via ``lookup_policy``
-  3. If ``allow == False`` → no signal
-  4. Else use the policy's ``entry_std_threshold`` instead of the
-     module constant ``ENTRY_STD_THRESHOLD``
+  3. If ``allow == False`` → no signal (skip)
+  4. Else use the module constant ``ENTRY_STD_THRESHOLD`` as-is
 
-Sample-size caveat
-------------------
-The 365-day backtest had 8 random 14-day windows distributed across
-5 regimes. Some regimes have n=1. Optimal-threshold picks are
-provisional and should be re-validated as the trader collects more
-live data per regime. The skip flag for ``weak-up/low`` is the
-highest-confidence call (n=3 windows, all losing, all thresholds).
-The ``sideways/low`` skip is lower-confidence (n=2, both losing at
-the prior best-of-bad-lot threshold) — revisit once more samples
-land or in a wider-history sweep.
+Why skip-only beats per-regime thresholds
+-----------------------------------------
+The #1511 → #1533 comparison: same seed, +1 day of data, mean_total_r
+collapsed from +8.38 R to +1.32 R. The active-regime threshold
+picks (0.8σ for strong-down, 1.5σ for weak-down, 1.2σ for weak-up/medium)
+swung wildly between draws because each was estimated from n=1. The
+*skip* rules held up: skipped windows reliably went to zero in both
+runs. Hence: keep what works, drop what doesn't.
+
+Re-introducing per-regime thresholds will require ≥3 same-direction
+samples per regime — until then, the trader's existing
+``ENTRY_STD_THRESHOLD`` is the least-regret choice.
 """
 from __future__ import annotations
 
@@ -48,10 +56,12 @@ from typing import Any, Dict, Optional
 #
 #   {"allow": bool, "threshold": float | None, "rationale": str}
 #
+# ``threshold=None`` means "use the module-level ENTRY_STD_THRESHOLD"
+# (do not override). Active entries here would be regime-specific
+# overrides; with the post-#1536 skip-only design there are none.
+#
 # A regime not in the table falls back to ``DEFAULT_POLICY``.
 POLICY_TABLE: Dict[str, Dict[str, Any]] = {
-    # Skipped regimes — historical evidence shows the strategy
-    # loses regardless of threshold. Stand down.
     "weak-up/low": {
         "allow": False,
         "threshold": None,
@@ -68,58 +78,25 @@ POLICY_TABLE: Dict[str, Dict[str, Any]] = {
             "issue #1511 adaptive backtest: 2 windows × 1.2σ "
             "(the prior best-of-bad-lot pick from #1474) gave "
             "-2.92 R mean. Chop regime with no consistent edge — "
-            "every threshold tested in #1474 was marginal-to-losing. "
-            "Stand down rather than keep bleeding while we wait for "
-            "more samples."
+            "every threshold tested in #1474 was marginal-to-losing."
         ),
-    },
-
-    # Active regimes with per-regime threshold tuned to backtest.
-    "strong-down/low": {
-        "allow": True, "threshold": 0.8,
-        "rationale": "issue #1474: +26.9 R at 0.8σ (n=1)",
-    },
-    "strong-down/medium": {
-        "allow": True, "threshold": 2.0,
-        "rationale": "issue #1471 (90d): +29.1 R at 2.0σ (n=1)",
-    },
-    "weak-down/low": {
-        "allow": True, "threshold": 1.5,
-        "rationale": "issue #1474: +26.8 R at 1.5σ (n=1)",
-    },
-    "weak-down/medium": {
-        # No direct data — borrow from weak-down/low (same trend,
-        # higher volatility usually means same threshold works).
-        "allow": True, "threshold": 1.5,
-        "rationale": "extrapolated from weak-down/low (no direct data)",
-    },
-    "sideways/medium": {
-        "allow": True, "threshold": 0.8,
-        "rationale": "issue #1471 (90d): +29.0 R at 0.8σ (n=1)",
-    },
-    "weak-up/medium": {
-        "allow": True, "threshold": 1.2,
-        "rationale": "issue #1474: +19.2 R at 1.2σ (n=1)",
-    },
-    "strong-up/low": {
-        "allow": True, "threshold": 2.0,
-        "rationale": "issue #1471 (90d): +14.3 R at 2.0σ (n=1)",
-    },
-    "strong-up/medium": {
-        "allow": True, "threshold": 0.8,
-        "rationale": "issue #1471 (90d): +39.4 R at 0.8σ (n=2)",
     },
 }
 
 
-# Fallback when the regime isn't in the table (e.g. high-volatility
-# regimes we haven't sampled, or "unknown"). 1.2σ was the best
-# overall fixed threshold on the 365d backtest, so it's the least-
-# regret default.
+# Fallback for any regime not in the skip-list: allow the trade, do
+# not override the module-level threshold. The adaptive backtest
+# and live signal builder both treat ``threshold=None`` as "use
+# ``vwap.ENTRY_STD_THRESHOLD`` as-is".
 DEFAULT_POLICY: Dict[str, Any] = {
     "allow": True,
-    "threshold": 1.2,
-    "rationale": "no per-regime data; 1.2σ best overall on 365d sweep",
+    "threshold": None,
+    "rationale": (
+        "regime not in skip-list — use module ENTRY_STD_THRESHOLD. "
+        "Per-regime threshold tuning removed in skip-only refactor "
+        "after #1533 showed n=1 picks swing wildly between adjacent "
+        "data windows."
+    ),
 }
 
 
@@ -127,8 +104,8 @@ def lookup_policy(regime: str) -> Dict[str, Any]:
     """Return the policy dict for *regime*.
 
     Always returns a dict with at minimum ``{"allow", "threshold",
-    "rationale"}``. Falls back to ``DEFAULT_POLICY`` for unknown
-    regimes.
+    "rationale"}``. Falls back to ``DEFAULT_POLICY`` for any regime
+    not in the skip-list.
     """
     pol = POLICY_TABLE.get(regime)
     if pol is None:
@@ -154,15 +131,21 @@ def policy_for_candles(candles_df) -> Dict[str, Any]:
 
 
 def is_active_regime(regime: str) -> bool:
-    """True when the policy table has a non-skip entry for *regime*.
-    Useful for telemetry / per-regime trade-count auditing."""
-    pol = POLICY_TABLE.get(regime)
-    return bool(pol and pol.get("allow"))
+    """True when the policy allows trading *regime* (i.e. not in the
+    skip-list). Useful for telemetry / per-regime trade-count
+    auditing."""
+    pol = lookup_policy(regime)
+    return bool(pol.get("allow"))
 
 
 def threshold_for(regime: str) -> Optional[float]:
-    """Convenience: return the entry-σ threshold for *regime*, or
-    ``None`` when the policy says skip."""
+    """Convenience: return the entry-σ threshold override for
+    *regime*, or ``None`` when the policy says skip OR when no
+    override applies (use the module constant).
+
+    Note: ``None`` is overloaded — callers should also check
+    ``is_active_regime`` to distinguish "skip" from "no override".
+    """
     pol = lookup_policy(regime)
     if not pol.get("allow"):
         return None

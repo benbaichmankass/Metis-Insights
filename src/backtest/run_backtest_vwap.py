@@ -583,9 +583,13 @@ def run_windows(
             slice_df.iloc[WARMUP_BARS:].reset_index(drop=True)
         )
         r["regime"] = regime
-        # Adaptive mode (PR #1475+): re-run this window with the
-        # per-regime threshold from vwap_policy. If the policy says
-        # skip, mark the window as zero-trade and zero R.
+        # Adaptive mode: consult vwap_policy. If the policy says skip,
+        # mark the window as zero-trade. If it says allow with a
+        # threshold override, re-run that window with the override. If
+        # allow with ``threshold is None`` (post-#1536 skip-only design),
+        # keep the result from the original run_single above — that
+        # already used the module-level ENTRY_STD_THRESHOLD, which is
+        # what threshold=None means.
         if adaptive:
             from src.units.strategies import vwap as _vwap_mod
             from src.units.strategies.vwap_policy import lookup_policy
@@ -603,8 +607,17 @@ def run_windows(
                     "adaptive_skipped": True,
                     "adaptive_policy": pol,
                 }
+            elif pol.get("threshold") is None:
+                # Allow but no override — keep the original run_single
+                # result (already used module ENTRY_STD_THRESHOLD).
+                r["label"] = (
+                    f"adaptive ({regime['regime']} @ module "
+                    f"ENTRY_STD_THRESHOLD={_vwap_mod.ENTRY_STD_THRESHOLD}σ)"
+                )
+                r["adaptive_skipped"] = False
+                r["adaptive_policy"] = pol
             else:
-                # Re-run with the policy threshold.
+                # Re-run with the policy threshold override.
                 _original = _vwap_mod.ENTRY_STD_THRESHOLD
                 _vwap_mod.ENTRY_STD_THRESHOLD = pol["threshold"]
                 _vwap_mod._ENTRY_STD_THRESHOLD = pol["threshold"]
