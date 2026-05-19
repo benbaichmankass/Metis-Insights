@@ -1,3 +1,18 @@
+# DISABLED 2026-05-19 — file renamed to `.yaml.disabled` so the
+# trainer-cycle glob (`find ml/configs -name '*.yaml'`) skips it.
+#
+# Why: the `backtest_results` dataset family is fed by manual
+# `/test <strategy>` Telegram commands. Today's invocation cadence
+# is too sparse to keep the dataset materially populated — the
+# trainer cycle skipped this manifest every day with
+# `status=manifest_skipped, reason=empty_dataset` for the entire
+# 2026-05-13 → 2026-05-19 window. Re-enable by removing the
+# `.disabled` suffix once `/test` is wired into a recurring path
+# (e.g. CI-side backtest sweep that lands rows in the table).
+#
+# ---
+# Original manifest (preserved for reference):
+#
 # Example training manifest — baseline mean predictor on backtest_results.
 #
 # Run end-to-end:

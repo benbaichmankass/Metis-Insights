@@ -1,3 +1,20 @@
+# DISABLED 2026-05-19 — file renamed to `.yaml.disabled` so the
+# trainer-cycle glob (`find ml/configs -name '*.yaml'`) skips it.
+#
+# Why: the `review_journal` dataset family is fed by the
+# `/health-review` skill writing one JSON file per review under
+# `comms/reviews/`. Today's invocation cadence is sparse — the
+# trainer has a single file from 2026-05-17, and the dataset
+# materializes 0 rows from it. The trainer cycle skipped this
+# manifest every day with `status=manifest_skipped,
+# reason=empty_dataset` for the entire 2026-05-13 → 2026-05-19
+# window. Re-enable by removing the `.disabled` suffix once the
+# health-review skill produces enough reviews to give the
+# per-bucket mean predictor signal (rule of thumb: ≥ 30 reviews).
+#
+# ---
+# Original manifest (preserved for reference):
+#
 # Example training manifest — post-trade review baseline (WS5-E).
 #
 # Predicts the expected per-trade decision grade (A/B/C/D/F mapped
