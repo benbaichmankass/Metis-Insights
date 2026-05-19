@@ -108,6 +108,7 @@ jobs:
           BAND_PCT=$(printf '%s' "${ISSUE_BODY}" | grep -m1 -i '^band_pct:' | awk '{print $2}' || true)
           THRESHOLD_SWEEP=$(printf '%s' "${ISSUE_BODY}" | grep -m1 -i '^threshold_sweep:' | awk '{print $2}' || true)
           PARAM_SWEEP=$(printf '%s' "${ISSUE_BODY}" | grep -m1 -i '^param_sweep:' | awk '{print $2}' || true)
+          ANCHOR_COMPARE=$(printf '%s' "${ISSUE_BODY}" | grep -m1 -i '^anchor_compare:' | awk '{print $2}' || true)
 
           [ -z "${COMPARE}" ]     && COMPARE="true"
           [ -z "${DAYS}" ]        && DAYS="365"
@@ -120,6 +121,7 @@ jobs:
           [ -z "${BAND_PCT}" ]    && BAND_PCT="0.02"
           [ -z "${THRESHOLD_SWEEP}" ] && THRESHOLD_SWEEP="false"
           [ -z "${PARAM_SWEEP}" ]     && PARAM_SWEEP="false"
+          [ -z "${ANCHOR_COMPARE}" ]  && ANCHOR_COMPARE="false"
 
           if ! printf '%s' "${COMPARE}" | grep -qiE '^(true|false)$'; then COMPARE="true"; fi
           if ! printf '%s' "${DAYS}" | grep -qE '^[0-9]+$'; then DAYS="365"; fi
@@ -132,10 +134,12 @@ jobs:
           if ! printf '%s' "${BAND_PCT}" | grep -qE '^0?\.[0-9]+$'; then BAND_PCT="0.02"; fi
           if ! printf '%s' "${THRESHOLD_SWEEP}" | grep -qiE '^(true|false)$'; then THRESHOLD_SWEEP="false"; fi
           if ! printf '%s' "${PARAM_SWEEP}" | grep -qiE '^(true|false)$'; then PARAM_SWEEP="false"; fi
+          if ! printf '%s' "${ANCHOR_COMPARE}" | grep -qiE '^(true|false)$'; then ANCHOR_COMPARE="false"; fi
 
-          # param_sweep and threshold_sweep are mutually exclusive with compare.
+          # param_sweep, threshold_sweep, and anchor_compare are mutually exclusive with compare.
           if [ "${THRESHOLD_SWEEP}" = "true" ]; then COMPARE="false"; fi
           if [ "${PARAM_SWEEP}" = "true" ]; then COMPARE="false"; THRESHOLD_SWEEP="false"; fi
+          if [ "${ANCHOR_COMPARE}" = "true" ]; then COMPARE="false"; THRESHOLD_SWEEP="false"; PARAM_SWEEP="false"; fi
 
           echo "bt_compare=${COMPARE}" >> "$GITHUB_ENV"
           echo "bt_days=${DAYS}" >> "$GITHUB_ENV"
@@ -148,6 +152,7 @@ jobs:
           echo "bt_band_pct=${BAND_PCT}" >> "$GITHUB_ENV"
           echo "bt_threshold_sweep=${THRESHOLD_SWEEP}" >> "$GITHUB_ENV"
           echo "bt_param_sweep=${PARAM_SWEEP}" >> "$GITHUB_ENV"
+          echo "bt_anchor_compare=${ANCHOR_COMPARE}" >> "$GITHUB_ENV"
 
       - name: Set params from dispatch inputs
         if: github.event_name == 'workflow_dispatch'
@@ -242,7 +247,9 @@ jobs:
         run: |
           set -euo pipefail
 
-          if [ "${bt_param_sweep:-false}" = "true" ]; then
+          if [ "${bt_anchor_compare:-false}" = "true" ]; then
+            CLI_ARGS="--vwap-anchor compare --no-htf"
+          elif [ "${bt_param_sweep:-false}" = "true" ]; then
             CLI_ARGS="--param-sweep"
           elif [ "${bt_threshold_sweep:-false}" = "true" ]; then
             CLI_ARGS="--threshold-sweep"
@@ -335,6 +342,21 @@ jobs:
               body += `|-----------|------------|------|-----|-----|-------------|-----------|-------------------|\n`;
               for (const r of data.threshold_window_comparison) {
                 body += `| ${r.entry_std_threshold}σ | ${r.mean_sharpe} | ±${r.std_sharpe} | ${r.min_sharpe} | ${r.max_sharpe} | ${r.mean_total_r} | ${r.mean_win_rate_pct}% | ${r.positive_windows}/${r.n_windows} |\n`;
+              }
+              body += `\n<details><summary>Full JSON</summary>\n\n\`\`\`json\n`;
+              const full = JSON.stringify(data, null, 2);
+              body += full.length <= 40000 ? full : full.slice(0, 40000) + '\n... (truncated)';
+              body += `\n\`\`\`\n</details>`;
+            } else if (data.anchor_window_comparison) {
+              const variants = data.anchor_window_comparison;
+              const nwin  = variants[0]?.n_windows ?? '?';
+              const wdays = variants[0]?.window_days ?? '?';
+              body += `VWAP anchor comparison — ${nwin} windows × ${wdays} days each\n\n`;
+              body += `| Anchor | Mean Total R | L R | S R | Mean Win% | Pos/${nwin} |\n`;
+              body += `|--------|-------------|-----|-----|-----------|------------|\n`;
+              for (const r of variants) {
+                const wr = r.mean_win_rate_pct !== null && r.mean_win_rate_pct !== undefined ? r.mean_win_rate_pct + '%' : '-';
+                body += `| ${r.label} | ${r.mean_total_r} | ${r.mean_total_r_long ?? '-'} | ${r.mean_total_r_short ?? '-'} | ${wr} | ${r.positive_windows}/${r.n_windows} |\n`;
               }
               body += `\n<details><summary>Full JSON</summary>\n\n\`\`\`json\n`;
               const full = JSON.stringify(data, null, 2);
