@@ -21,6 +21,7 @@ name: vwap-backtest
 #
 # Issue body (optional, all keys have defaults):
 #   compare: true          # default true — run all configs
+#   param_sweep: true      # 4×3 ENTRY×SL grid sweep (overrides compare/threshold_sweep)
 #   days: 365              # trailing days of 5m data to fetch
 #   start_date: 2026-02-01 # explicit start (overrides days)
 #   end_date: 2026-05-13   # explicit end (default: today)
@@ -106,6 +107,7 @@ jobs:
           EMA_PERIOD=$(printf '%s' "${ISSUE_BODY}" | grep -m1 -i '^ema_period:' | awk '{print $2}' || true)
           BAND_PCT=$(printf '%s' "${ISSUE_BODY}" | grep -m1 -i '^band_pct:' | awk '{print $2}' || true)
           THRESHOLD_SWEEP=$(printf '%s' "${ISSUE_BODY}" | grep -m1 -i '^threshold_sweep:' | awk '{print $2}' || true)
+          PARAM_SWEEP=$(printf '%s' "${ISSUE_BODY}" | grep -m1 -i '^param_sweep:' | awk '{print $2}' || true)
 
           [ -z "${COMPARE}" ]     && COMPARE="true"
           [ -z "${DAYS}" ]        && DAYS="365"
@@ -117,6 +119,7 @@ jobs:
           [ -z "${EMA_PERIOD}" ]  && EMA_PERIOD="50"
           [ -z "${BAND_PCT}" ]    && BAND_PCT="0.02"
           [ -z "${THRESHOLD_SWEEP}" ] && THRESHOLD_SWEEP="false"
+          [ -z "${PARAM_SWEEP}" ]     && PARAM_SWEEP="false"
 
           if ! printf '%s' "${COMPARE}" | grep -qiE '^(true|false)$'; then COMPARE="true"; fi
           if ! printf '%s' "${DAYS}" | grep -qE '^[0-9]+$'; then DAYS="365"; fi
@@ -128,9 +131,11 @@ jobs:
           if ! printf '%s' "${EMA_PERIOD}" | grep -qE '^[0-9]+$'; then EMA_PERIOD="50"; fi
           if ! printf '%s' "${BAND_PCT}" | grep -qE '^0?\.[0-9]+$'; then BAND_PCT="0.02"; fi
           if ! printf '%s' "${THRESHOLD_SWEEP}" | grep -qiE '^(true|false)$'; then THRESHOLD_SWEEP="false"; fi
+          if ! printf '%s' "${PARAM_SWEEP}" | grep -qiE '^(true|false)$'; then PARAM_SWEEP="false"; fi
 
-          # Threshold-sweep is mutually exclusive with compare.
+          # param_sweep and threshold_sweep are mutually exclusive with compare.
           if [ "${THRESHOLD_SWEEP}" = "true" ]; then COMPARE="false"; fi
+          if [ "${PARAM_SWEEP}" = "true" ]; then COMPARE="false"; THRESHOLD_SWEEP="false"; fi
 
           echo "bt_compare=${COMPARE}" >> "$GITHUB_ENV"
           echo "bt_days=${DAYS}" >> "$GITHUB_ENV"
@@ -142,6 +147,7 @@ jobs:
           echo "bt_ema_period=${EMA_PERIOD}" >> "$GITHUB_ENV"
           echo "bt_band_pct=${BAND_PCT}" >> "$GITHUB_ENV"
           echo "bt_threshold_sweep=${THRESHOLD_SWEEP}" >> "$GITHUB_ENV"
+          echo "bt_param_sweep=${PARAM_SWEEP}" >> "$GITHUB_ENV"
 
       - name: Set params from dispatch inputs
         if: github.event_name == 'workflow_dispatch'
@@ -236,7 +242,9 @@ jobs:
         run: |
           set -euo pipefail
 
-          if [ "${bt_threshold_sweep:-false}" = "true" ]; then
+          if [ "${bt_param_sweep:-false}" = "true" ]; then
+            CLI_ARGS="--param-sweep"
+          elif [ "${bt_threshold_sweep:-false}" = "true" ]; then
             CLI_ARGS="--threshold-sweep"
           elif [ "${bt_compare}" = "true" ]; then
             CLI_ARGS="--compare"
@@ -304,7 +312,22 @@ jobs:
 
             let body = `**VWAP HTF Backtest Results**\nRun: ${runUrl}\n\n`;
 
-            if (data.threshold_window_comparison) {
+            if (data.param_sweep_window) {
+              const configs = data.param_sweep_window;
+              const nwin  = configs[0]?.n_windows ?? '?';
+              const wdays = configs[0]?.window_days ?? '?';
+              body += `ENTRY×SL param sweep — ${nwin} windows × ${wdays} days each\n\n`;
+              body += `| ENTRY σ | SL σ | Mean Total R | L R | S R | Mean Win% | Pos/${nwin} |\n`;
+              body += `|---------|------|-------------|-----|-----|-----------|------------|\n`;
+              const sorted = [...configs].sort((a, b) => (b.mean_total_r ?? 0) - (a.mean_total_r ?? 0));
+              for (const r of sorted) {
+                body += `| ${r.entry_std_threshold} | ${r.sl_std_mult ?? '-'} | ${r.mean_total_r} | ${r.mean_total_r_long ?? '-'} | ${r.mean_total_r_short ?? '-'} | ${r.mean_win_rate_pct}% | ${r.positive_windows}/${r.n_windows} |\n`;
+              }
+              body += `\n<details><summary>Full JSON</summary>\n\n\`\`\`json\n`;
+              const full = JSON.stringify(data, null, 2);
+              body += full.length <= 40000 ? full : full.slice(0, 40000) + '\n... (truncated)';
+              body += `\n\`\`\`\n</details>`;
+            } else if (data.threshold_window_comparison) {
               const wdays = data.threshold_window_comparison[0]?.window_days ?? '?';
               const nwin  = data.threshold_window_comparison[0]?.n_windows ?? '?';
               body += `Entry-threshold sweep — random-window comparison (${nwin} windows × ${wdays} days each, no HTF gate)\n\n`;
