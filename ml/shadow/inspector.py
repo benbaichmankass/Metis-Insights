@@ -29,7 +29,7 @@ import math
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterable, Iterator, Mapping, MutableMapping
+from typing import Any, Iterable, Iterator, Mapping, MutableMapping
 
 _LOGGER = logging.getLogger(__name__)
 
