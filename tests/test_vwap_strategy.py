@@ -418,6 +418,144 @@ class TestBuildVwapSignal:
 
 
 # ---------------------------------------------------------------------------
+# S-VWAP-POLICY-LIVE-WIRE — regime-aware policy gate
+# ---------------------------------------------------------------------------
+
+class TestPolicyGate:
+    """build_vwap_signal must honour vwap_policy decisions:
+      * allow=False  → side='none' regardless of deviation magnitude
+      * threshold override → uses overridden sigma instead of ENTRY_STD_THRESHOLD
+      * unknown / unrecognised regime → falls through to ENTRY_STD_THRESHOLD
+    """
+
+    def _skip_policy(self, regime: str) -> dict:
+        return {
+            "allow": False,
+            "threshold": None,
+            "rationale": "test skip",
+            "_regime_info": {"regime": regime, "trend": regime.split("/")[0], "volatility": "low"},
+            "regime": regime,
+            "fallback": False,
+        }
+
+    def _override_policy(self, regime: str, threshold: float) -> dict:
+        return {
+            "allow": True,
+            "threshold": threshold,
+            "rationale": "test override",
+            "_regime_info": {"regime": regime},
+            "regime": regime,
+            "fallback": False,
+        }
+
+    def test_policy_skip_suppresses_buy_signal(self):
+        """allow=False must return side='none' even when deviation >> threshold."""
+        df = _candles_below_vwap()  # normally triggers buy
+        with mock.patch(
+            "src.units.strategies.vwap.policy_for_candles",
+            return_value=self._skip_policy("weak-up/low"),
+        ):
+            signal = build_vwap_signal(df, symbol="BTCUSDT")
+        assert signal["side"] == "none"
+        assert "regime_policy_skip" in signal["meta"]["reason"]
+        assert signal["meta"]["policy_regime"] == "weak-up/low"
+        assert signal["meta"]["policy_allow"] is False
+
+    def test_policy_skip_suppresses_sell_signal(self):
+        """allow=False must return side='none' even on a sell-triggering deviation."""
+        df = _candles_above_vwap()  # normally triggers sell
+        with mock.patch(
+            "src.units.strategies.vwap.policy_for_candles",
+            return_value=self._skip_policy("sideways/low"),
+        ):
+            signal = build_vwap_signal(df, symbol="BTCUSDT")
+        assert signal["side"] == "none"
+        assert "regime_policy_skip" in signal["meta"]["reason"]
+        assert signal["meta"]["policy_regime"] == "sideways/low"
+
+    def test_policy_skip_meta_includes_vwap_and_deviation(self):
+        """Skip meta must include VWAP and deviation for audit/debugging."""
+        df = _candles_below_vwap()
+        with mock.patch(
+            "src.units.strategies.vwap.policy_for_candles",
+            return_value=self._skip_policy("weak-up/low"),
+        ):
+            signal = build_vwap_signal(df, symbol="BTCUSDT")
+        assert signal["meta"]["vwap"] > 0
+        assert "deviation_std" in signal["meta"]
+        assert signal["meta"]["std_dev"] > 0
+
+    def test_policy_threshold_override_raises_entry_bar(self):
+        """A 2.0σ override must suppress signals that would fire at 1.0σ.
+
+        Candles [100, 100, X] produce deviation = -sqrt(2) ≈ -1.41σ
+        (above 1.0σ but below 2.0σ), so the signal fires at the
+        module default but must be suppressed when policy overrides to 2.0σ.
+        """
+        # 2 candles at 100, last at 80 → deviation ≈ -1.41σ
+        df = _candles(100, 100, 80)
+
+        # Verify fires at default 1.0σ with no mock (real policy would classify
+        # as "strong-down/high" on 3 bars < 10 → unknown → DEFAULT allow=True,
+        # threshold=None → effective_threshold=1.0)
+        default_signal = build_vwap_signal(df, symbol="BTCUSDT")
+        assert default_signal["side"] == "buy", (
+            "fixture must trigger buy at 1.0σ; check _candles deviation"
+        )
+        assert abs(default_signal["meta"]["deviation_std"]) < 2.0, (
+            "fixture deviation must be between 1.0 and 2.0σ for this test to be valid"
+        )
+
+        # With 2.0σ override, the same signal must be suppressed
+        with mock.patch(
+            "src.units.strategies.vwap.policy_for_candles",
+            return_value=self._override_policy("strong-up/low", 2.0),
+        ):
+            signal = build_vwap_signal(df, symbol="BTCUSDT")
+        assert signal["side"] == "none", (
+            "2.0σ override must suppress a 1.41σ deviation"
+        )
+        assert signal["meta"].get("policy_threshold") == 2.0
+        assert signal["meta"].get("policy_allow") is True
+
+    def test_policy_threshold_override_allows_deep_signal(self):
+        """When deviation >= override threshold the signal still fires."""
+        df = _candles_below_vwap()  # deviation ≈ -2.24σ > 2.0σ
+        with mock.patch(
+            "src.units.strategies.vwap.policy_for_candles",
+            return_value=self._override_policy("strong-up/low", 2.0),
+        ):
+            signal = build_vwap_signal(df, symbol="BTCUSDT")
+        assert signal["side"] == "buy"
+        assert signal["meta"].get("policy_threshold") == 2.0
+
+    def test_unknown_regime_falls_through_to_module_constant(self):
+        """Regime not in policy table → DEFAULT_POLICY (allow=True,
+        threshold=None) → effective_threshold = ENTRY_STD_THRESHOLD.
+        Signal behaves identically to the no-policy baseline."""
+        # Small fixtures (< 10 candles) classify as 'unknown' in classify_regime
+        # → DEFAULT_POLICY (allow=True, threshold=None) automatically.
+        df = _candles_below_vwap()
+        signal = build_vwap_signal(df, symbol="BTCUSDT")
+        assert signal["side"] == "buy"
+        assert signal["meta"]["policy_allow"] is True
+        assert signal["meta"]["policy_threshold"] is None
+
+    def test_policy_meta_present_on_actionable_signal(self):
+        """policy_regime, policy_allow, policy_threshold must appear in
+        meta on every signal (not just skips) for telemetry."""
+        for df, expected_side in (
+            (_candles_below_vwap(), "buy"),
+            (_candles_above_vwap(), "sell"),
+        ):
+            signal = build_vwap_signal(df, symbol="BTCUSDT")
+            assert signal["side"] == expected_side
+            assert "policy_regime" in signal["meta"]
+            assert "policy_allow" in signal["meta"]
+            assert "policy_threshold" in signal["meta"]
+
+
+# ---------------------------------------------------------------------------
 # Phase 1 — UTC-day session-anchored VWAP slice
 # (2026-05-07-vwap-accuracy training run, PR #481)
 # ---------------------------------------------------------------------------
@@ -653,8 +791,14 @@ class TestVwapPipelineRouting:
 
         assert called_with, "vwap_signal_builder was not called"
 
-    def test_vwap_dry_run_does_not_call_exchange_place_order(self):
-        """DRY_RUN=true must never touch the exchange order path."""
+    def test_legacy_path_calls_exchange_for_validation(self):
+        """2026-05-03 operator directive: DRY_RUN is no longer a
+        process-level gate. The per-account RiskManager (mode:
+        live|dry_run in accounts.yaml) is the only dry/live toggle.
+        The legacy single-client path (signals without sl/tp) calls
+        exchange_client for halt-flag / validation rails regardless
+        of the DRY_RUN settings key. See pipeline.py comment at the
+        legacy path block and orders.py § Operator directive 2026-05-03."""
         exchange = DummyExchangeClient()
         settings = {
             "SYMBOL": "BTCUSDT",
@@ -667,9 +811,19 @@ class TestVwapPipelineRouting:
             telegram_client=DummyTelegramClient(),
             signal_builder=self._vwap_buy_signal_builder,
         )
-        assert exchange.calls == [], "Exchange order method must not be called in DRY_RUN mode"
+        # Per the 2026-05-03 directive, the legacy path submits via
+        # safe_place_order regardless of DRY_RUN; the test stubs the
+        # exchange_client to assert the dispatch shape is correct.
+        assert len(exchange.calls) == 1, (
+            "Legacy path must call exchange_client.place_order for "
+            "validation; DRY_RUN is not a process-level gate (2026-05-03)"
+        )
 
-    def test_vwap_dry_run_returns_dry_run_status(self):
+    def test_legacy_path_returns_submitted_status(self):
+        """Per the 2026-05-03 directive: the legacy path always calls
+        safe_place_order which returns status='submitted' on success
+        (not 'dry_run'). DRY_RUN status comes from the multi-account
+        path when the per-account RiskManager has dry_run=True."""
         settings = {
             "SYMBOL": "BTCUSDT",
             "DRY_RUN": "true",
@@ -681,7 +835,7 @@ class TestVwapPipelineRouting:
             telegram_client=DummyTelegramClient(),
             signal_builder=self._vwap_buy_signal_builder,
         )
-        assert result["order_result"]["status"] == "dry_run"
+        assert result["order_result"]["status"] == "submitted"
 
     def test_vwap_no_signal_returns_skipped(self):
         settings = {
@@ -797,8 +951,13 @@ class TestLiveSafetyGate:
         assert result["status"] == "submitted"
         assert len(client.calls) == 1
 
-    def test_dry_run_true_blocks_submission_regardless_of_allow_live(self):
-        """DRY_RUN=true blocks real submission even if ALLOW_LIVE_TRADING=true."""
+    def test_dry_run_flag_does_not_gate_safe_place_order(self):
+        """2026-05-03 operator directive: DRY_RUN is not a process-level
+        gate in safe_place_order. The per-account RiskManager
+        (mode: live|dry_run in accounts.yaml) is the only dry/live
+        toggle. safe_place_order is a payload-validation + halt-flag +
+        risk-cap rail, NOT a mode gate. DRY_RUN in settings has no
+        effect here — the order reaches the exchange regardless."""
         client = DummyExchangeClient()
         settings = {"DRY_RUN": "true", "ALLOW_LIVE_TRADING": "true", "MAX_QTY": "10"}
         result = safe_place_order(
@@ -806,100 +965,35 @@ class TestLiveSafetyGate:
             settings,
             client,
         )
-        assert result["status"] == "dry_run"
-        assert client.calls == []
+        assert result["status"] == "submitted"
+        assert len(client.calls) == 1
 
-    def test_mode_live_with_dry_run_truthy_is_contradiction(self, monkeypatch):
-        """BUG-031: MODE=LIVE with DRY_RUN truthy is contradictory and
-        must be refused. (The legacy test required ALLOW_LIVE_TRADING=true
-        as an explicit opt-in; under the BUG-031 default-live contract,
-        the contradiction is the operative failure mode.)"""
-        env = {
+    def test_mode_and_dry_run_flags_are_ignored_by_validate_startup(self, monkeypatch):
+        """2026-05-03 operator directive: MODE, DRY_RUN, and
+        ALLOW_LIVE_TRADING checks were removed from validate_startup.
+        The per-account RiskManager is the only dry/live toggle.
+        validate_startup must NOT raise for any combination of these
+        env vars when all required fields are valid."""
+        _required = {
             "EXCHANGE": "bybit",
             "BYBIT_API_KEY": "fake_key",
             "BYBIT_API_SECRET": "fake_secret",
             "TELEGRAM_BOT_TOKEN": "fake_token",
             "TELEGRAM_CHAT_ID": "123",
-            "MODE": "LIVE",
             "SYMBOL": "BTCUSDT",
             "TIMEFRAME": "5m",
             "RISK_PER_TRADE": "0.01",
             "MAX_QTY": "1",
-            "DRY_RUN": "true",
-            "ALLOW_LIVE_TRADING": "false",
         }
-        for k, v in env.items():
-            monkeypatch.setenv(k, v)
-
-        with pytest.raises(EnvironmentError, match="contradictory"):
-            validate_startup()
-
-    def test_mode_paper_is_rejected_by_validate_startup(self, monkeypatch):
-        """MODE=PAPER must be rejected outright — paper trading is not supported."""
-        env = {
-            "EXCHANGE": "bybit",
-            "BYBIT_API_KEY": "fake_key",
-            "BYBIT_API_SECRET": "fake_secret",
-            "TELEGRAM_BOT_TOKEN": "fake_token",
-            "TELEGRAM_CHAT_ID": "123",
-            "MODE": "PAPER",
-            "SYMBOL": "BTCUSDT",
-            "TIMEFRAME": "5m",
-            "RISK_PER_TRADE": "0.01",
-            "MAX_QTY": "1",
-            "DRY_RUN": "true",
-            "ALLOW_LIVE_TRADING": "false",
-        }
-        for k, v in env.items():
-            monkeypatch.setenv(k, v)
-
-        with pytest.raises(EnvironmentError, match="MODE"):
-            validate_startup()
-
-    def test_mode_paper_lowercase_is_rejected(self, monkeypatch):
-        """MODE=paper (lowercase) must also be rejected after .upper() normalisation."""
-        env = {
-            "EXCHANGE": "bybit",
-            "BYBIT_API_KEY": "fake_key",
-            "BYBIT_API_SECRET": "fake_secret",
-            "TELEGRAM_BOT_TOKEN": "fake_token",
-            "TELEGRAM_CHAT_ID": "123",
-            "MODE": "paper",
-            "SYMBOL": "BTCUSDT",
-            "TIMEFRAME": "5m",
-            "RISK_PER_TRADE": "0.01",
-            "MAX_QTY": "1",
-            "DRY_RUN": "true",
-            "ALLOW_LIVE_TRADING": "false",
-        }
-        for k, v in env.items():
-            monkeypatch.setenv(k, v)
-
-        with pytest.raises(EnvironmentError, match="MODE"):
-            validate_startup()
-
-    def test_mode_live_lowercase_with_dry_run_truthy_is_contradiction(self, monkeypatch):
-        """BUG-031: MODE=live (lowercase) + DRY_RUN truthy → contradictory.
-        The .upper() normalisation still applies."""
-        env = {
-            "EXCHANGE": "bybit",
-            "BYBIT_API_KEY": "fake_key",
-            "BYBIT_API_SECRET": "fake_secret",
-            "TELEGRAM_BOT_TOKEN": "fake_token",
-            "TELEGRAM_CHAT_ID": "123",
-            "MODE": "live",
-            "SYMBOL": "BTCUSDT",
-            "TIMEFRAME": "5m",
-            "RISK_PER_TRADE": "0.01",
-            "MAX_QTY": "1",
-            "DRY_RUN": "true",
-            "ALLOW_LIVE_TRADING": "false",
-        }
-        for k, v in env.items():
-            monkeypatch.setenv(k, v)
-
-        with pytest.raises(EnvironmentError, match="contradictory"):
-            validate_startup()
+        for combos in [
+            {"MODE": "LIVE", "DRY_RUN": "true", "ALLOW_LIVE_TRADING": "false"},
+            {"MODE": "PAPER", "DRY_RUN": "true"},
+            {"MODE": "paper", "DRY_RUN": "true"},
+            {"MODE": "live", "DRY_RUN": "true", "ALLOW_LIVE_TRADING": "false"},
+        ]:
+            for k, v in {**_required, **combos}.items():
+                monkeypatch.setenv(k, v)
+            validate_startup()  # must not raise
 
 
 # ---------------------------------------------------------------------------
