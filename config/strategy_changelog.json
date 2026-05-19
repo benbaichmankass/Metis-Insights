@@ -1,6 +1,11 @@
 {
   "vwap": [
     {
+      "date": "2026-05-19",
+      "ref": "param sweep S-VWAP-SWEEP-DISPATCH (issue #1569) — DRAFT, pending Ben approval",
+      "summary": "Proposed SL_STD_MULT_DEFAULT 0.5σ → 0.3σ based on 12-combo ENTRY×SL sweep: 16 windows × 14 days, 365d 5m BTCUSDT, seed=42. ENTRY=1.0/SL=0.3 mean_total_r=+4.88 (rank 1/12); current ENTRY=1.0/SL=0.5 mean_total_r=-0.46 (rank 9/12). SL tier is decisive: all SL=0.3 configs in top-4 regardless of ENTRY. Tight stops cut losing long trades shorter while preserving short-side gains. R:R changes from 2:1 to 3.33:1 at ENTRY=1.0σ. ENTRY_STD_THRESHOLD unchanged at 1.0σ. Tier-3 change — requires Ben approval before deploy."
+    },
+    {
       "date": "2026-05-17",
       "ref": "post-incident validation (issue #1370)",
       "summary": "Reverted ENTRY_STD_THRESHOLD 1.5σ → 1.0σ (undoing PR #1205) and SL_STD_MULT_DEFAULT 0.75σ → 0.5σ (undoing PR #1183). The 2026-05-17 backtest sweep across 3.16 years of BTCUSDT 5m with the HTF 4h ±2% gate present showed V_1175_htf_only (1.0σ entry, 0.5σ SL) Total R +411.8 vs V_PROD (1.5σ, 0.75σ SL) +133.1 — 3× advantage on the same dataset. The 2026-05-15 #1200 sweep that justified 1.5σ was run without the HTF gate; once the gate is present the optimum shifts. SL widening hurt in both gate regimes."
