@@ -2880,15 +2880,37 @@ def _close_trade_from_order_status(
             "exit_price": avg_exit_price,
             "notes": json.dumps(notes, ensure_ascii=False)[:500],
         }
+        # 2026-05-19: backfill entry_price from Bybit's entry-order
+        # avg_price when available. Pre-fix, `entry_price` was the
+        # intent set at order-submit time (see execute.py::
+        # _log_trade_to_journal — `pkg.entry` is the strategy's intended
+        # entry, NOT the exchange fill). The `execution_quality_labels`
+        # dataset's `entry_slippage_bps` computes `actual_entry -
+        # intended_entry` from this column joined against
+        # `order_packages.entry`, so a never-updated `entry_price`
+        # gives a degenerate dataset where mae=0.0 across every row.
+        # Updating here only when the order's avg_price differs from
+        # what's recorded keeps the write idempotent on re-reconcile.
+        _entry_avg_price = _safe_float(order_status.get("avg_price"))
+        _entry_current = _safe_float(row.get("entry_price"))
+        if _entry_avg_price > 0 and _entry_avg_price != _entry_current:
+            updates["entry_price"] = _entry_avg_price
         _closed_pnl_val = closed_pnl_rec.get("closed_pnl")
         if _closed_pnl_val is not None:
             try:
                 updates["pnl"] = float(_closed_pnl_val)
-                _entry = _safe_float(row.get("entry_price"))
+                # Use the post-update entry value for the pnl_percent
+                # denominator so the percentage reflects the actual
+                # fill, not the stale intent.
+                _entry_for_pct = (
+                    _entry_avg_price
+                    if _entry_avg_price > 0
+                    else _entry_current
+                )
                 _qty = _safe_float(row.get("position_size"))
-                if _entry and _qty and _entry * _qty > 0:
+                if _entry_for_pct and _qty and _entry_for_pct * _qty > 0:
                     updates["pnl_percent"] = round(
-                        float(_closed_pnl_val) / (_entry * _qty) * 100, 4
+                        float(_closed_pnl_val) / (_entry_for_pct * _qty) * 100, 4
                     )
             except (TypeError, ValueError):
                 pass
@@ -2913,6 +2935,14 @@ def _close_trade_from_order_status(
             "exit_reason": "reconciler_filled",
             "notes": json.dumps(notes, ensure_ascii=False)[:500],
         }
+        # 2026-05-19: same entry_price backfill as the closed_pnl
+        # branch above — the entry order's avg_price is still
+        # available in the fallback path (only the exit fill is
+        # unrecoverable).
+        _entry_avg_price = _safe_float(order_status.get("avg_price"))
+        _entry_current = _safe_float(row.get("entry_price"))
+        if _entry_avg_price > 0 and _entry_avg_price != _entry_current:
+            updates["entry_price"] = _entry_avg_price
 
     db.update_trade(int(row["id"]), updates)
 

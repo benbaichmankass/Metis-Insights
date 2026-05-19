@@ -27,7 +27,15 @@
 #                            on the live VM is a stale standalone file frozen
 #                            around 2026-05-14 — pulling from it gives the
 #                            trainer a 2-day-old snapshot of label feedstock.)
-#   LIVE_VM_AUDIT_PATH     — defaults to /home/ubuntu/ict-trading-bot/runtime_logs/signal_audit.jsonl
+#   LIVE_VM_AUDIT_PATH     — defaults to /data/bot-data/runtime_logs/signal_audit.jsonl
+#                            (canonical post-2026-05-12 path; the live VM's
+#                            DATA_DIR drop-in moved runtime_logs/ under
+#                            /data/bot-data/. Pre-2026-05-19 default
+#                            pointed at the legacy /home/ubuntu/... path,
+#                            which is stale because the trader stopped
+#                            writing there on 2026-05-12 — symptom: the
+#                            setup_labels_audit dataset froze for 8 days
+#                            until this default was updated.)
 #   VM_SSH_KEY             — defaults to ~/.ssh/ict-bot-ovm-private.key
 #   VM_SSH_USER            — defaults to ubuntu
 #   DATA_DIR               — defaults to $REPO_ROOT/data
@@ -42,7 +50,7 @@ set -uo pipefail
 REPO_ROOT="${REPO_ROOT:-/home/ubuntu/ict-trading-bot}"
 LIVE_VM_IP="${LIVE_VM_IP:-158.178.210.252}"
 LIVE_VM_DB_PATH="${LIVE_VM_DB_PATH:-/data/bot-data/trade_journal.db}"
-LIVE_VM_AUDIT_PATH="${LIVE_VM_AUDIT_PATH:-/home/ubuntu/ict-trading-bot/runtime_logs/signal_audit.jsonl}"
+LIVE_VM_AUDIT_PATH="${LIVE_VM_AUDIT_PATH:-/data/bot-data/runtime_logs/signal_audit.jsonl}"
 VM_SSH_USER="${VM_SSH_USER:-ubuntu}"
 VM_SSH_KEY="${VM_SSH_KEY:-$HOME/.ssh/ict-bot-ovm-private.key}"
 DATA_DIR="${DATA_DIR:-$REPO_ROOT/data}"

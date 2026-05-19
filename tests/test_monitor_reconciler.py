@@ -238,7 +238,8 @@ def _read_trade_full(db, trade_id):
     try:
         conn.row_factory = __import__("sqlite3").Row
         row = conn.execute(
-            "SELECT id, status, exit_reason, exit_price, notes "
+            "SELECT id, status, exit_reason, exit_price, entry_price, "
+            "pnl, pnl_percent, notes "
             "FROM trades WHERE id=?",
             (trade_id,),
         ).fetchone()
@@ -562,6 +563,38 @@ class TestSSOTReconciler:
         assert notes["closed_by"] == "monitor_reconciler"
         assert notes["closed_at"] == "1762620000000"
         assert notes["exit_price_source"] == "entry_order_avg_price_unreliable"
+        # 2026-05-19 entry_price backfill: the trade was opened at the
+        # intent (80000.0 — see _insert_trade) but Bybit reported the
+        # actual fill at 80123.45 in `avg_price`. The reconciler now
+        # writes that back so the execution_quality_labels dataset
+        # gets real signed slippage instead of an all-zero label.
+        assert row["entry_price"] == pytest.approx(80123.45)
+
+    def test_entry_price_backfill_skipped_when_already_matches(
+        self, tmp_db, tmp_path, monkeypatch,
+    ):
+        # When the recorded entry_price already equals the avg_price
+        # (no slippage), the reconciler doesn't rewrite the column —
+        # the `if _entry_avg_price != _entry_current` guard.
+        monkeypatch.setattr(
+            "src.runtime.execution_diagnostics.PENDING_PINGS_DIR",
+            tmp_path / "pings",
+        )
+        trade_id = _insert_trade(tmp_db, trade_id="2000000000000000099")
+        # Default _insert_trade plants entry_price=80000.0; tell Bybit
+        # the avg_price is exactly that.
+        with patch(
+            "src.units.accounts.clients.account_order_status",
+            return_value=_filled_status(
+                "2000000000000000099", avg_price=80000.0,
+            ),
+        ), patch(
+            "src.units.accounts.clients.account_open_positions",
+            return_value=[],
+        ):
+            _reconcile_open_trades(tmp_db)
+        row = _read_trade_full(tmp_db, trade_id)
+        assert row["entry_price"] == pytest.approx(80000.0)
 
     def test_uuid_format_trade_id_is_reconciled(
         self, tmp_db, tmp_path, monkeypatch,
