@@ -1,18 +1,18 @@
 # Current Sprint Handoff
 
 **Roadmap:** `docs/sprint-plans/ROADMAP-2026-05-19.md`  
-**Last updated:** 2026-05-19 (Sprint 3 deployed)
+**Last updated:** 2026-05-19 (Sprint 2 dispatched)
 
 ---
 
-## STATUS: MONITORING — SPRINT 3 DEPLOYED
+## STATUS: WAITING — SPRINT 2 DISPATCHED
 
-**SPRINT:** S-VWAP-LIVE-PARAM-UPDATE  
-**DEPLOYED:** PR #1571 merged and live — `git_sha=f0c6de5`, confirmed via vm-diag-snapshot issue #1574. `SL_STD_MULT_DEFAULT = 0.3σ` is running on the live VM. Bot restarted cleanly (uptime 15s at confirmation), `bybit_1: live, bybit_2: live`, all three strategies active.
+**SPRINT:** S-VWAP-ANCHOR-EXPERIMENT  
+**DISPATCHED:** Issue #1577 (`[vwap-backtest] S-VWAP-ANCHOR-EXPERIMENT anchor comparison run`) — `anchor_compare: true`, 16 windows × 14 days, seed=42, 365d pool, no HTF gate, ENTRY=1.0σ/SL=0.3σ (module defaults after PR #1571). Workflow will comment results and close the issue when complete (~20-30 min).
 
-**LAST_COMPLETED:** Sprint 3 (S-VWAP-LIVE-PARAM-UPDATE, 2026-05-19) — PR #1571 approved by Ben, merged all-green (10/10 CI checks), auto-deployed via `ict-git-sync.timer` before pull-and-deploy fired. Deploy confirmed via vm-diag-snapshot.
+**LAST_COMPLETED:** Sprint 3 (S-VWAP-LIVE-PARAM-UPDATE, 2026-05-19) — PR #1571 approved by Ben, merged all-green (10/10 CI checks), auto-deployed via `ict-git-sync.timer`. Deploy confirmed via vm-diag-snapshot (`git_sha=f0c6de5`). PR #1576 (anchor experiment code + test fixes) merged 10/10 green.
 
-**NEXT:** Monitor VWAP SL placement in live trades via `/health-review`. Watch FU-20260518-001 for whether tighter stops improve the win-rate and gross R. Next recommended sprint: Roadmap Sprint 2 (S-VWAP-ANCHOR-EXPERIMENT) — fully autonomous, can start now.
+**READY_TO_CONTINUE:** Once issue #1577 closes with results: collect anchor comparison table, determine if rolling anchor beats session anchor on long-side R, update FU-20260518-001. If rolling anchor wins → open Tier-3 PR to flip live default. If session anchor wins → session is the correct live behaviour; move to Sprint 4 (S-VWAP-POLICY-LIVE-WIRE).
 
 ---
 
