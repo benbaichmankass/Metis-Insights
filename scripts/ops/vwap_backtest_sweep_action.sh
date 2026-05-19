@@ -26,7 +26,7 @@
 # Operator invokes via operator-actions issue:
 #   action: vwap-backtest-sweep
 #   reason: <text>
-#   mode: <compare|threshold-sweep>  (optional, default 'compare')
+#   mode: <compare|threshold-sweep|adaptive|param-sweep>  (optional, default 'compare')
 #   days: <int>          (optional, default 90 — total history pulled)
 #   windows: <int>       (optional, default 8 — random sub-windows)
 #   window_days: <int>   (optional, default 30 — size of each sub-window)
@@ -48,8 +48,9 @@ case "${MODE}" in
     compare)            BACKTEST_FLAG="--compare" ;;
     threshold-sweep)    BACKTEST_FLAG="--threshold-sweep" ;;
     adaptive)           BACKTEST_FLAG="--adaptive" ;;
+    param-sweep)        BACKTEST_FLAG="--param-sweep" ;;
     *)
-        log "ERROR: unknown mode '${MODE}' (allowed: compare, threshold-sweep, adaptive)"
+        log "ERROR: unknown mode '${MODE}' (allowed: compare, threshold-sweep, adaptive, param-sweep)"
         record_audit "vwap-backtest-sweep" "error" \
             "{\"reason\": \"bad mode\", \"mode\": \"${MODE}\"}" >/dev/null || true
         exit 1
