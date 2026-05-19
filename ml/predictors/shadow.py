@@ -2,8 +2,8 @@
 
 Composes any `Predictor` with a structured audit logger. Every
 `predict(row)` call emits one JSONL line carrying
-`(predicted_at_utc, model_id, stage, score, row_keys)` and
-returns the wrapped predictor's score unchanged.
+`(predicted_at_utc, model_id, stage, score, row_keys, feature_row)`
+and returns the wrapped predictor's score unchanged.
 
 The wrapper does NOT decide what the caller does with the score —
 it is a pure side-channel observer. In shadow mode the caller is
@@ -20,14 +20,31 @@ Audit log format (one JSON object per line, UTF-8):
       "model_id":  "setup-quality-baseline-v0",
       "stage":     "shadow",
       "score":     2.713,
-      "row_keys":  ["strategy_name", "setup_type", "killzone", ...]
+      "row_keys":  ["strategy_name", "setup_type", "killzone", ...],
+      "feature_row": {
+        "strategy_name": "vwap",
+        "symbol": "BTCUSDT",
+        "direction": "buy",
+        "confidence": 0.65,
+        "setup_type": "vwap_revert",
+        "killzone": "ny",
+        "bias": "long"
+      }
     }
 
-`row_keys` is the sorted list of input feature names, NOT the
-values — protects against accidental capture of operator-side
-state in the audit trail. Operators inspect the score; if they
-need full row context they can replay the pipeline from
-`signal_audit.jsonl`.
+`row_keys` is the sorted list of input feature names; `feature_row`
+is the full values dict captured from the strategy's signal-time
+projection (added 2026-05-19 so every shadow record carries the
+strategy+symbol context needed for a deterministic trade↔score
+join). Both fields are JSON-safe: non-serializable values in
+`feature_row` are coerced to `str(value)` rather than dropping the
+record.
+
+The `feature_row` content is operationally relevant signal-time
+metadata (strategy name, symbol, direction, etc.). It does NOT
+contain operator-side secrets or risk-cap state — the strategy's
+`_build_shadow_feature_row` helpers explicitly project only the
+signal-time surface.
 """
 from __future__ import annotations
 
@@ -84,7 +101,27 @@ class ShadowPredictor(Predictor):
                 "stage": self._stage,
                 "score": score,
                 "row_keys": sorted(row.keys()),
+                "feature_row": _coerce_json_safe(row),
             }
             with self._log_path.open("a", encoding="utf-8") as fh:
                 fh.write(json.dumps(payload) + "\n")
         return score
+
+
+def _coerce_json_safe(row: Mapping[str, Any]) -> dict[str, Any]:
+    """Project ``row`` into a JSON-serializable dict.
+
+    Built-in JSON types (str / int / float / bool / None) pass
+    through unchanged. Anything else is coerced via ``str(value)``
+    so a single odd value can't break the audit-log write — losing
+    the structured form is acceptable for a side-channel; losing
+    the whole record is not.
+    """
+    out: dict[str, Any] = {}
+    for k, v in row.items():
+        key = str(k)
+        if v is None or isinstance(v, (bool, int, float, str)):
+            out[key] = v
+        else:
+            out[key] = str(v)
+    return out

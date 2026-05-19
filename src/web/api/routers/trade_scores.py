@@ -126,11 +126,23 @@ def get_trade_scores(
     for t in trades:
         window_end = t["closed_at"] or now
         window_start = t["opened_at"]
+        trade_symbol = t.get("symbol")
         # Group records by model_id and keep first/last/min/max/mean/count.
         per_model: dict[str, dict[str, Any]] = {}
         for r in shadow:
             if r.predicted_at_utc < window_start or r.predicted_at_utc > window_end:
                 continue
+            # 2026-05-19: when the shadow record carries the
+            # signal-time `feature_row.symbol`, require it to match the
+            # trade's symbol. This stops a vwap BTCUSDT prediction from
+            # being credited to an ETHUSDT turtle_soup trade just
+            # because their open windows happened to overlap. Older
+            # records (without `feature_row`) fall back to the
+            # window-only join — no regression.
+            if r.feature_row is not None and trade_symbol is not None:
+                record_symbol = r.feature_row.get("symbol")
+                if record_symbol and record_symbol != trade_symbol:
+                    continue
             slot = per_model.setdefault(
                 r.model_id,
                 {

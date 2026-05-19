@@ -29,7 +29,7 @@ import math
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterable, Iterator, Mapping, MutableMapping
+from typing import Any, Iterable, Iterator, Mapping, MutableMapping
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -39,6 +39,14 @@ class ShadowRecord:
     """Validated audit-log entry. Constructed from a raw dict via
     :func:`record_from_dict`; invariants checked at construction time
     so downstream consumers can trust the typed fields.
+
+    ``feature_row`` (added 2026-05-19) carries the strategy's
+    signal-time feature dict — ``strategy_name``, ``symbol``,
+    ``direction``, ``confidence``, etc. ``None`` for older log lines
+    written before the field existed, so consumers must treat it as
+    optional. The trade↔score join in
+    ``src/web/api/routers/trade_scores.py`` uses ``feature_row.symbol``
+    when present and falls back to timestamp-window matching.
     """
 
     predicted_at_utc: datetime
@@ -46,6 +54,7 @@ class ShadowRecord:
     stage: str
     score: float
     row_keys: tuple[str, ...]
+    feature_row: Mapping[str, Any] | None = None
 
 
 def record_from_dict(raw: Mapping[str, object]) -> ShadowRecord:
@@ -85,12 +94,23 @@ def record_from_dict(raw: Mapping[str, object]) -> ShadowRecord:
         isinstance(k, str) for k in row_keys
     ):
         raise ValueError("row_keys must be a list of str")
+    feature_row_raw = raw.get("feature_row")
+    if feature_row_raw is None:
+        feature_row: Mapping[str, Any] | None = None
+    elif isinstance(feature_row_raw, dict):
+        feature_row = {str(k): v for k, v in feature_row_raw.items()}
+    else:
+        # A non-dict feature_row is a malformed write; drop it rather
+        # than crash the whole record (the score is the load-bearing
+        # field, not the context dict).
+        feature_row = None
     return ShadowRecord(
         predicted_at_utc=ts,
         model_id=model_id,
         stage=stage,
         score=score_f,
         row_keys=tuple(row_keys),
+        feature_row=feature_row,
     )
 
 

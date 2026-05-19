@@ -75,6 +75,38 @@ class TestRecordFromDict:
             r["row_keys"] = ["ok", 42]
             record_from_dict(r)
 
+    def test_feature_row_absent_is_backward_compat(self):
+        # Records written before 2026-05-19 don't carry `feature_row`.
+        # The inspector must still parse them — fall back to None.
+        raw = _record()
+        raw.pop("feature_row", None)
+        r = record_from_dict(raw)
+        assert r.feature_row is None
+
+    def test_feature_row_present_parsed_as_dict(self):
+        raw = _record()
+        raw["feature_row"] = {
+            "strategy_name": "vwap",
+            "symbol": "BTCUSDT",
+            "direction": "buy",
+            "confidence": 0.65,
+        }
+        r = record_from_dict(raw)
+        assert r.feature_row is not None
+        assert r.feature_row["strategy_name"] == "vwap"
+        assert r.feature_row["symbol"] == "BTCUSDT"
+
+    def test_feature_row_malformed_dropped_silently(self):
+        # A non-dict feature_row (e.g. a stringified record written
+        # by an old/bugged producer) should drop the field, not crash
+        # the whole record. The score is load-bearing; the context
+        # dict is nice-to-have.
+        raw = _record()
+        raw["feature_row"] = "not-a-dict"
+        r = record_from_dict(raw)
+        assert r.feature_row is None
+        assert r.score == pytest.approx(0.5)
+
 
 class TestIterRecords:
     def test_missing_file_returns_empty_iter(self, tmp_path):
