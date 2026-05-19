@@ -1,18 +1,18 @@
 # Current Sprint Handoff
 
 **Roadmap:** `docs/sprint-plans/ROADMAP-2026-05-19.md`  
-**Last updated:** 2026-05-19 (Sprint 2 complete)
+**Last updated:** 2026-05-19 (Sprint 3 deployed)
 
 ---
 
-## STATUS: BLOCKED_PM — SPRINT 3
+## STATUS: MONITORING — SPRINT 3 DEPLOYED
 
 **SPRINT:** S-VWAP-LIVE-PARAM-UPDATE  
-**WAITING_FOR_BEN:** Review and approve the Tier-3 draft PR proposing `SL_STD_MULT_DEFAULT 0.5 → 0.3` in `src/units/strategies/vwap.py`. The 12-combo ENTRY×SL sweep shows ENTRY=1.0/SL=0.3 at `mean_total_r=+4.88` vs current config at `-0.46` (rank 9/12). This is a Tier-3 live-strategy change — Claude must not merge without Ben.
+**DEPLOYED:** PR #1571 merged and live — `git_sha=f0c6de5`, confirmed via vm-diag-snapshot issue #1574. `SL_STD_MULT_DEFAULT = 0.3σ` is running on the live VM. Bot restarted cleanly (uptime 15s at confirmation), `bybit_1: live, bybit_2: live`, all three strategies active.
 
-**LAST_COMPLETED:** Sprint 2 (S-VWAP-SWEEP-DISPATCH, 2026-05-19) — dispatched 12-combo param sweep via `vwap-backtest.yml` issue #1569, collected ranked results. Sweep ran 22 min (16 windows × 14 days, 365d 5m BTCUSDT, seed=42). Sprint log: `docs/sprint-logs/S-VWAP-SWEEP-DISPATCH-2026-05-19.md`.
+**LAST_COMPLETED:** Sprint 3 (S-VWAP-LIVE-PARAM-UPDATE, 2026-05-19) — PR #1571 approved by Ben, merged all-green (10/10 CI checks), auto-deployed via `ict-git-sync.timer` before pull-and-deploy fired. Deploy confirmed via vm-diag-snapshot.
 
-**READY_TO_CONTINUE:** Once Ben approves the Tier-3 draft PR: Claude merges it, then fires `pull-and-deploy` operator action. Then fires `vm-diag-snapshot` to confirm live SHA matches the merged commit. If Ben asks for anchor experiment first, run Sprint 2 of roadmap (S-VWAP-ANCHOR-EXPERIMENT) — see below.
+**NEXT:** Monitor VWAP SL placement in live trades via `/health-review`. Watch FU-20260518-001 for whether tighter stops improve the win-rate and gross R. Next recommended sprint: Roadmap Sprint 2 (S-VWAP-ANCHOR-EXPERIMENT) — fully autonomous, can start now.
 
 ---
 
