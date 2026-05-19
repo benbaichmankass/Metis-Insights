@@ -169,18 +169,23 @@ class TestTurtleSoupConfigDrivenShadow:
         )
         registry_root = root / "registry-store"
         registry = ModelRegistry(registry_root)
+        # 2026-05-19: register defaults to `shadow`. To land on a
+        # pre-shadow stage, declare it explicitly in the manifest so
+        # the helper isn't fighting the default.
+        pre_shadow = {"research_only", "candidate", "backtest_approved"}
+        manifest: dict = {"manifest_version": "v1"}
+        if stage in pre_shadow:
+            manifest["target_deployment_stage"] = stage
         registry.register(
             model_id=model_id,
-            manifest={"manifest_version": "v1"},
+            manifest=manifest,
             model_state_path=str(state_path),
             metrics={"mae": 0.1},
             code_revision="x",
         )
-        ladder = [
-            "candidate", "backtest_approved", "shadow",
-            "advisory", "limited_live", "live_approved",
-        ]
-        for step in ladder:
+        if stage in pre_shadow or stage == "shadow":
+            return registry_root
+        for step in ["advisory", "limited_live", "live_approved"]:
             registry.promote_stage(
                 model_id, step, by="op", reason=f"to-{step}",
             )

@@ -43,17 +43,35 @@ _ALLOWED_TRANSITIONS: dict[str, frozenset[str]] = {
 # rollback edge so an operator can demote a model that misbehaves.
 # `live_approved` has no further forward — once there, the only
 # legal move is back to `advisory` for re-evaluation.
+#
+# Direct `<pre-shadow stage> → shadow` edges (2026-05-19): the
+# default lifecycle is "every trained model lives in shadow."
+# `research_only` / `candidate` / `backtest_approved` remain
+# legal stages — they exist for models an operator has explicitly
+# retired or held back from the shadow channel — but they are
+# off the default path. The rollback edges to those pre-shadow
+# stages let an operator park a misbehaving shadow model in a
+# non-logging stage without an artificial multi-hop walk.
 _STAGE_TRANSITIONS: dict[str, frozenset[str]] = {
-    "research_only": frozenset({"candidate"}),
-    "candidate": frozenset({"backtest_approved", "research_only"}),
+    "research_only": frozenset({"candidate", "shadow"}),
+    "candidate": frozenset({"backtest_approved", "research_only", "shadow"}),
     "backtest_approved": frozenset({"shadow", "candidate"}),
-    "shadow": frozenset({"advisory", "backtest_approved"}),
+    "shadow": frozenset(
+        {"advisory", "backtest_approved", "candidate", "research_only"}
+    ),
     "advisory": frozenset({"limited_live", "shadow"}),
     "limited_live": frozenset({"live_approved", "advisory"}),
     "live_approved": frozenset({"advisory"}),
 }
 
-_DEFAULT_STAGE = "research_only"
+# Shadow is the default stage for a freshly-registered model
+# (2026-05-19). A manifest that omits `target_deployment_stage`
+# lands the model in shadow, where the live VM's shadow predictor
+# factory can pick it up once an operator wires the model_id into
+# a strategy's `shadow_model_ids`. Pre-shadow stages
+# (`research_only` / `candidate` / `backtest_approved`) remain
+# valid but are only reached by explicit operator demotion.
+_DEFAULT_STAGE = "shadow"
 
 
 class RegistryError(ValueError):

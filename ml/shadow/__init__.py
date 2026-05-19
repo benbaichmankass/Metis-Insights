@@ -16,6 +16,7 @@ from .factory import (
     DEFAULT_REGISTRY_ROOT,
     LIVE_INFLUENCE_STAGES,
     ShadowFactoryError,
+    discover_shadow_stage_model_ids,
     resolve_predictor,
     resolve_predictors,
 )
@@ -41,6 +42,7 @@ __all__ = [
     "Summary",
     "aggregate",
     "compute_drift",
+    "discover_shadow_stage_model_ids",
     "filter_records",
     "format_inspect_table",
     "format_stats_table",

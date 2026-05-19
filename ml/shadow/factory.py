@@ -242,6 +242,33 @@ def resolve_predictor(
     )
 
 
+def discover_shadow_stage_model_ids(registry: ModelRegistry) -> List[str]:
+    """Return every model_id currently at `target_deployment_stage == "shadow"`.
+
+    Used by the coordinator's auto-wire path (2026-05-19): when a
+    strategy's `shadow_model_ids` is missing/None (the default),
+    every shadow-stage model in the registry is attached as a
+    shadow predictor on that strategy's signals. Higher stages
+    (`advisory` / `limited_live` / `live_approved`) are excluded —
+    those models have promotion responsibilities of their own and
+    shouldn't be silently re-purposed as a per-strategy shadow
+    side-channel.
+
+    Strategies that opt out by setting `shadow_model_ids: []` get
+    an empty list, not the auto-discovered set; strategies with an
+    explicit non-empty list get exactly that list. The auto path
+    only fires when the field is absent or `None`.
+
+    Ordered alphabetically for stable cache identity across reloads.
+    """
+    ids = [
+        entry.model_id
+        for entry in registry.list()
+        if entry.target_deployment_stage == "shadow"
+    ]
+    return sorted(ids)
+
+
 def resolve_predictors(
     model_ids: Iterable[str],
     registry: ModelRegistry,

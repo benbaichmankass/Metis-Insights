@@ -394,10 +394,16 @@ training sessions follow the established workflow:
      (WS5-C; setup-quality scorer on `setup_labels`).
 4. **Compare runs.** `python -m ml compare <id-a> <id-b>` surfaces
    shared-metric deltas as JSON.
-5. **Promotion is gated.** Even a clean training run lands at
-   `target_deployment_stage: research_only`. Promotion to `live-approved`
-   or `champion` requires `python -m ml promote --by <name> --reason <text>`
-   and operator approval.
+5. **Promotion is gated past shadow.** Since 2026-05-19 every
+   baseline manifest declares `target_deployment_stage: shadow` and
+   `_DEFAULT_STAGE` is `shadow`, so a clean training run lands a model
+   ready for shadow consumption (predictions logged, decisions
+   unchanged). Promotion past shadow (advisory → limited_live →
+   live_approved) still requires
+   `python -m ml promote-stage --by <name> --reason <text>` and
+   operator approval. Models can be parked back at `research_only`
+   via the same CLI when an operator wants them out of the shadow
+   channel without retraining.
 
 Training sessions MUST use these established baselines + manifests
 rather than reinventing. Adding a new baseline follows the
@@ -436,10 +442,20 @@ The **authority split** is documented in
 VM is autonomous-Claude (provision, SSH, install, train, register,
 promote up to `live_approved`); live VM stays under the restrictive
 contract in [`docs/claude/vm-operator-mode.md`](claude/vm-operator-mode.md).
+
 The boundary that prevents trainer autonomy from leaking into live
-trades is the `shadow_model_ids` YAML field on the live VM — the
-trainer can write `live_approved` to the registry, but only the
-operator can wire a specific id into a strategy's YAML.
+**decisions** is the **stage** boundary, not the YAML wire-up
+(2026-05-19 update). As of the default-flip, any model registered
+at `target_deployment_stage: shadow` is auto-wired onto every
+strategy's shadow channel — predictions are logged on signals
+without operator approval. Operator approval is still required for
+the cross into live influence: the
+`shadow → advisory → limited_live → live_approved` promotion chain
+remains gated, and the live-trader's order package is unaffected by
+shadow predictions per the WS7 non-negotiable. An operator who
+wants a strategy *not* to log against the auto-wired set sets
+`shadow_model_ids: []` (explicit opt-out) or provides an explicit
+non-empty list in `config/strategies.yaml` to pin specific models.
 
 **Cross-VM data flow** (filed for follow-up — not yet wired):
 - Live VM owns `trade_journal.db`. The training center needs
@@ -572,6 +588,7 @@ filtered to architecture-level deltas only.
 | 2026-05-11 | S-AI-WS5-BOOTSTRAP | New `scripts/ops/train_and_register_ws5_baselines.sh` — the trainer's "first action" once the VM is up. Trains every `baseline-*.yaml`, walks each new model id up the promotion ladder to `TARGET_STAGE` (default `shadow`, the minimum the WS7 factory will load). Emits JSONL to `runtime_logs/trainer/ws5_baseline_kickoff.jsonl`. Distinct from the recurring `run_training_cycle.sh`. | `scripts/ops/train_and_register_ws5_baselines.sh`, `tests/test_train_and_register_ws5_baselines_sh.py`, `docs/runbooks/training-vm.md` | None until the trainer VM is up + the operator runs the script there. |
 | 2026-05-11 | S-AI-WS10-CLOSEOUT | WS10 explicitly closed. Change log refreshed to reflect today's S-AUTH-SPLIT, S-AI-WS9-AUTORETRY, S-AI-WS5-BOOTSTRAP plus the previously-missing S-AI-WS8-PART-2/3, S-AI-WS7-FU, S-AI-WS9-FU, S-AI-WS10-FU rows. Known Gaps section pruned (resolved entries removed; new gaps added) so the section reflects today's queue. Roadmap WS10 row marked DONE. | `docs/ARCHITECTURE-CANONICAL.md`, `docs/AI-TRADERS-ROADMAP.md`, `docs/sprint-plans/ai-traders/ws10-arch-doc-enforcement.md` | None — the close-out is itself the verification that WS10 prevents drift. |
 | 2026-05-12 | (post-S-CANON) | **Mode Mutation Contract enshrined** (§ above). `set-account-mode` operator action (PR #978) becomes the only path to mutate `config/accounts.yaml` `mode:`. Prime Directive added to CLAUDE-RULES-CANONICAL.md. Follow-on safeguards PR queued to remove the remaining auto-flip vectors: `_DRY_RUN_OVERRIDES` + `set_account_dry_run()` in `src/units/accounts/__init__.py`, the breaker auto-flip in `src/core/coordinator.py:1048-1068`, and the Telegram `/accounts dry\|live` handler (refactored to dispatch `set-account-mode`). | `docs/CLAUDE-RULES-CANONICAL.md`, `docs/ARCHITECTURE-CANONICAL.md`, `docs/claude/trading-mode-flags.md`, `CLAUDE.md`, `.github/workflows/operator-actions.yml` (PR #978), `scripts/ops/set_account_mode.sh` (PR #978), `docs/claude/operator-actions.md` (PR #978) | The trader stays live by design. Operator dispatches `set-account-mode` to flip mode; per-trade Telegram on every RiskManager rejection arrives in the safeguards PR. |
+| 2026-05-19 | (shadow-default-flip) | **Shadow becomes the default deployment stage; auto-wire replaces per-strategy `shadow_model_ids` lists.** `_DEFAULT_STAGE` flipped from `research_only` → `shadow` in `ml/registry/model_registry.py`; all 9 baseline manifests (`ml/configs/baseline-*.yaml`) updated to declare `target_deployment_stage: shadow`; direct one-hop edges added in `_STAGE_TRANSITIONS` (`research_only`/`candidate` → `shadow` plus rollbacks). `ml.shadow.factory.discover_shadow_stage_model_ids()` returns every shadow-stage model id; `Coordinator._get_shadow_predictors` falls back to that discovery when a strategy has no `shadow_model_ids` (or explicit `None`). Strategies opt out with `shadow_model_ids: []` or pin with a non-empty list. New `python -m ml promote-stage` CLI subcommand (with `--all-pre-shadow` bulk helper) for legacy-registry migration. `turtle_soup` and `ict_scalp_5m` flipped to the auto-wire default in `config/strategies.yaml`. The boundary that prevents trainer-VM autonomy from leaking into live decisions moves from the YAML wire-up to the `shadow → advisory` promotion gate; the latter still requires operator approval. | `ml/registry/model_registry.py`, `ml/configs/baseline-*.yaml`, `ml/cli.py`, `ml/shadow/factory.py`, `ml/shadow/__init__.py`, `src/core/coordinator.py`, `config/strategies.yaml`, `docs/ARCHITECTURE-CANONICAL.md`, `scripts/ops/train_and_register_ws5_baselines.sh`, `scripts/ops/run_training_cycle.sh`, plus matching tests. | Live-VM impact: once the trainer-VM registry-store is migrated (separate diag relay) and the live VM next reloads strategy config, every shadow-stage model starts logging predictions on every strategy's signals to `runtime_logs/shadow_predictions.jsonl`. Order package is unaffected (WS7 non-negotiable). |
 
 ---
 
@@ -588,7 +605,7 @@ milestone.
 | **Auto-flip code paths still in `src/`** | The doc-level Mode Mutation Contract is in place (§ above). The code-level deletion (the `_DRY_RUN_OVERRIDES` dict + `set_account_dry_run()` function in `src/units/accounts/__init__.py`, the breaker auto-flip in `src/core/coordinator.py:1048-1068`, and the Telegram `/accounts dry\|live` handler refactor) is the safeguards PR follow-on, kept separate from PR #978 so the diff stays reviewable. | Safeguards PR (2026-05-12 follow-up to PR #978). |
 | **Per-trade RiskManager rejection → per-trade Telegram** | The Prime Directive (§ rules doc) requires every refusal to emit its own Telegram with account/symbol/side/qty/reason/exchange-error. Today's path uses aggregate alerts when conditions cluster. The per-trade wiring ships in the safeguards PR. | Safeguards PR. |
 | **WS5 baselines not yet at `shadow` in any registry** | `train_and_register_ws5_baselines.sh` is shipped on `main` (2026-05-11) and walks each baseline to `shadow` autonomously. Blocked only on the trainer VM coming up; the auto-retry workflow loops every 10 min until OCI Always Free A1 capacity lands. | WS5 / WS7 unlock; tracked by the open `[provision-training-vm]` issue chain and the auto-retry workflow. |
-| **`shadow_model_ids` empty in production strategy YAML** | Operator step. Once a baseline lands at `shadow` on the trainer VM, the operator copies the model_id into `config/strategies.yaml` on the **live** VM and reloads. This is the only step that crosses the trainer→live boundary. | WS7 acceptance. |
+| **`shadow_model_ids` empty in production strategy YAML** | ~~Operator step~~. **Resolved 2026-05-19 by the default-flip + auto-wire.** Strategies that omit `shadow_model_ids` (or set it to `None`) auto-discover every model at `target_deployment_stage: shadow` and attach them as shadow predictors. The boundary between trainer-VM Claude and live trading moves from `shadow_model_ids` wiring to the `shadow → advisory` promotion gate; the latter still requires operator approval. | Closed. |
 | **Trainer VM not yet provisioned** | OCI Always Free Ampere A1 in `eu-paris-1` returns 500 / "Out of host capacity" intermittently. `.github/workflows/provision-training-vm-auto-retry.yml` is firing on a 10-minute cron with idempotent existence check; resolves itself when capacity opens. | S-AI-WS9; tracked by the `[trainer-vm-up]` notification issue that the auto-retry files on first success. |
 | **Trainer VM ↔ live VM data flow not yet wired** | WS9 ships trainer-VM topology + autonomous provisioning; cross-VM `trade_journal.db` access (rsync vs diag-API-over-HTTPS) is filed for Claude to decide post-provision per the trainer charter § 3.b. Both options are autonomous-Claude (read-only against the live VM). | WS9 follow-up. |
 | **No open-source model layer (HF transformers as `Predictor`)** | WS6 not started. Per the master plan, defer until the WS8 feedback loop is observable end-to-end (drift detector + dashboard panels are live as of 2026-05-11; missing piece is real shadow predictions in production, which lands when the trainer + YAML wiring resolve). | WS6. |

@@ -47,7 +47,7 @@ evaluator_config:
   split_strategy: time_aware_holdout
   time_column: trade_created_at
   holdout_fraction: 0.2
-target_deployment_stage: research_only
+target_deployment_stage: shadow
 notes: |
   WS5-C-FU baseline. Per-`audit_pattern` mean R-multiple over the
   audit-joined dataset. Time-aware holdout on `trade_created_at`

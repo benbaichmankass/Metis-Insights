@@ -55,7 +55,7 @@ evaluator_config:
   split_strategy: time_aware_holdout
   time_column: reviewed_at
   holdout_fraction: 0.2
-target_deployment_stage: research_only
+target_deployment_stage: shadow
 notes: |
   WS5-E baseline. Per-`setup` mean decision-grade score
   (A=4..F=0) over answered health-review responses. Time-aware

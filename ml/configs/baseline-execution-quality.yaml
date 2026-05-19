@@ -50,7 +50,7 @@ evaluator_config:
   split_strategy: time_aware_holdout
   time_column: trade_created_at
   holdout_fraction: 0.2
-target_deployment_stage: research_only
+target_deployment_stage: shadow
 notes: |
   WS5-D baseline. Per-strategy mean entry slippage (bps,
   capped). Time-aware holdout — eval is the latest 20 % of

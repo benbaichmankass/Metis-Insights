@@ -28,7 +28,7 @@ evaluator_config:
   target_column: total_pnl_pct
   metrics: [mse, mae]
   holdout_fraction: 0.2
-target_deployment_stage: research_only
+target_deployment_stage: shadow
 notes: |
   Smallest possible baseline: predict the mean of total_pnl_pct.
   Demo of the WS4 training-center round-trip. Not a candidate for

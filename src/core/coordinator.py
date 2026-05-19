@@ -247,26 +247,41 @@ class Coordinator:
     def _get_shadow_predictors(self, name: str) -> list:
         """Resolve and cache shadow predictors for *name* (S-AI-WS7-PART-6).
 
-        Reads ``shadow_model_ids`` from the strategy's config. When
-        non-empty, calls ``ml.shadow.factory.resolve_predictors`` once
-        and memoises the result; subsequent ticks hit the cache and
-        pay zero factory cost. ``reload_strategy_config`` clears the
-        cache so a YAML edit re-resolves on the next tick.
+        Resolution rules (2026-05-19 auto-wire update):
+          * ``shadow_model_ids`` **missing or None** — auto-discover
+            every model whose ``target_deployment_stage`` is
+            ``shadow`` from the registry and use that list. This is
+            the default lifecycle: every shadow-stage model logs
+            predictions on every strategy's signals, with zero
+            effect on the order package (the WS7 non-negotiable).
+          * ``shadow_model_ids: []`` — deliberate opt-out, no
+            shadow predictors for this strategy.
+          * ``shadow_model_ids: [...]`` (non-empty) — explicit list,
+            exactly those models, regardless of stage. The factory
+            still applies its own stage gate per-id.
 
-        Returns an empty list when the strategy has no
-        ``shadow_model_ids``, when the field is empty, or when every
-        listed id fails the factory's stage gate. Per-id failures
-        within ``resolve_predictors(strict=False)`` are logged and
-        skipped — one bad id never poisons the rest of the list.
+        Memoised. ``reload_strategy_config`` clears the cache so a
+        YAML edit AND/OR a registry promotion re-resolves on the
+        next tick. (Promotions that arrive without a YAML reload
+        will be picked up the next time the cache is cleared by
+        any other path.)
 
-        The returned list is the same object stored in the cache; the
-        dispatcher should not mutate it.
+        Per-id failures within ``resolve_predictors(strict=False)``
+        are logged and skipped — one bad id never poisons the rest
+        of the list. The returned list is the same object stored
+        in the cache; the dispatcher should not mutate it.
         """
         if name in self._shadow_predictors_cache:
             return self._shadow_predictors_cache[name]
         cfg = self._strategy_cfg(name)
-        ids = cfg.get("shadow_model_ids") or []
-        if not ids:
+        # Distinguish "missing or None" (auto-wire) from "explicit
+        # empty list" (opt-out). The YAML loader gives us None for
+        # a missing key and `[]` for `shadow_model_ids: []`.
+        raw_ids = cfg.get("shadow_model_ids", None)
+        auto_wire = raw_ids is None
+        ids: list[str] = [] if raw_ids is None else list(raw_ids)
+        if not auto_wire and not ids:
+            # Explicit opt-out — `shadow_model_ids: []`.
             self._shadow_predictors_cache[name] = []
             return self._shadow_predictors_cache[name]
         # Lazy import: ml.shadow imports the registry, which is
@@ -278,6 +293,7 @@ class Coordinator:
         from ml.shadow.factory import (
             DEFAULT_LOG_PATH,
             DEFAULT_REGISTRY_ROOT,
+            discover_shadow_stage_model_ids,
             resolve_predictors,
         )
 
@@ -285,9 +301,19 @@ class Coordinator:
             cfg.get("_shadow_registry_root") or DEFAULT_REGISTRY_ROOT
         )
         log_path = _Path(cfg.get("_shadow_log_path") or DEFAULT_LOG_PATH)
+        registry = ModelRegistry(registry_root)
+        if auto_wire:
+            ids = discover_shadow_stage_model_ids(registry)
+            if not ids:
+                # No shadow-stage models in the registry yet — cache
+                # the empty list and bail. Will repopulate the next
+                # time the cache is cleared (typically a YAML reload
+                # or a fresh process).
+                self._shadow_predictors_cache[name] = []
+                return self._shadow_predictors_cache[name]
         predictors = resolve_predictors(
             ids,
-            ModelRegistry(registry_root),
+            registry,
             log_path=log_path,
         )
         self._shadow_predictors_cache[name] = predictors

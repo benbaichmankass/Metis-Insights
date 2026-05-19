@@ -49,7 +49,7 @@ evaluator_config:
   target_column: was_taken
   threshold: 0.5
   holdout_fraction: 0.2
-target_deployment_stage: research_only
+target_deployment_stage: shadow
 notes: |
   WS5-F baseline. Per-strategy mean acceptance rate (was_taken
   ratio) on `account_context`. Holdout 0.2. Not a candidate for
