@@ -4,20 +4,21 @@ works).
 
 Why a lookup table
 ------------------
-Issue #1474's 365-day backtest revealed regime-dependent edge:
+Issue #1474's 365-day backtest revealed regime-dependent edge.
+Issue #1511's adaptive validation refined the policy:
 
-  regime           best threshold  total R (8 windows × 14d)
+  regime           policy          total R (8 windows × 14d, #1511)
   ---------------  --------------  -------------------------
-  strong-down/low  0.8σ            +26.9
-  weak-down/low    1.5σ            +26.8
-  weak-up/medium   1.2σ            +19.2
-  weak-up/low      ANY = LOSS      -5 to -10  (3/3 windows)
-  sideways/low     2.0σ            marginal
+  strong-down/low  0.8σ entry      +26.9
+  weak-down/low    1.5σ entry      +26.8
+  weak-up/medium   1.2σ entry      +19.2
+  weak-up/low      SKIP            0     (3/3 windows = no trades)
+  sideways/low     SKIP            0     (2/2 windows skipped post-#1511)
 
 No single fixed threshold wins across the year — but a policy that
-picks the per-regime optimum (and refuses to trade `weak-up/low`)
-beats every fixed-threshold variant on the same data. This module
-is the lookup table.
+picks the per-regime optimum (and refuses to trade `weak-up/low`
+and `sideways/low`) beats every fixed-threshold variant on the
+same data. This module is the lookup table.
 
 When the live signal builder fires:
   1. Classify current regime via ``regime.classify_regime``
@@ -33,6 +34,9 @@ The 365-day backtest had 8 random 14-day windows distributed across
 provisional and should be re-validated as the trader collects more
 live data per regime. The skip flag for ``weak-up/low`` is the
 highest-confidence call (n=3 windows, all losing, all thresholds).
+The ``sideways/low`` skip is lower-confidence (n=2, both losing at
+the prior best-of-bad-lot threshold) — revisit once more samples
+land or in a wider-history sweep.
 """
 from __future__ import annotations
 
@@ -57,6 +61,18 @@ POLICY_TABLE: Dict[str, Dict[str, Any]] = {
             "a slow drift get steamrolled by the trend."
         ),
     },
+    "sideways/low": {
+        "allow": False,
+        "threshold": None,
+        "rationale": (
+            "issue #1511 adaptive backtest: 2 windows × 1.2σ "
+            "(the prior best-of-bad-lot pick from #1474) gave "
+            "-2.92 R mean. Chop regime with no consistent edge — "
+            "every threshold tested in #1474 was marginal-to-losing. "
+            "Stand down rather than keep bleeding while we wait for "
+            "more samples."
+        ),
+    },
 
     # Active regimes with per-regime threshold tuned to backtest.
     "strong-down/low": {
@@ -76,10 +92,6 @@ POLICY_TABLE: Dict[str, Dict[str, Any]] = {
         # higher volatility usually means same threshold works).
         "allow": True, "threshold": 1.5,
         "rationale": "extrapolated from weak-down/low (no direct data)",
-    },
-    "sideways/low": {
-        "allow": True, "threshold": 1.2,
-        "rationale": "issue #1474: 1.2σ best of bad lot in this regime",
     },
     "sideways/medium": {
         "allow": True, "threshold": 0.8,
