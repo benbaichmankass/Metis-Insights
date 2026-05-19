@@ -291,16 +291,37 @@ class Coordinator:
 
         from ml.registry.model_registry import ModelRegistry
         from ml.shadow.factory import (
-            DEFAULT_LOG_PATH,
             DEFAULT_REGISTRY_ROOT,
             discover_shadow_stage_model_ids,
             resolve_predictors,
         )
+        from src.utils.paths import runtime_logs_dir as _runtime_logs_dir
 
         registry_root = _Path(
             cfg.get("_shadow_registry_root") or DEFAULT_REGISTRY_ROOT
         )
-        log_path = _Path(cfg.get("_shadow_log_path") or DEFAULT_LOG_PATH)
+        # 2026-05-19: resolve the shadow audit-log path through
+        # `runtime_logs_dir()` instead of the factory's CWD-relative
+        # `DEFAULT_LOG_PATH`. On the live VM `runtime_logs_dir()` is
+        # `${DATA_DIR}/runtime_logs/` (canonical
+        # `/data/bot-data/runtime_logs/` via the systemd drop-in);
+        # the factory's `Path("runtime_logs/shadow_predictions.jsonl")`
+        # resolved relative to the trader process's CWD
+        # (`/home/ubuntu/ict-trading-bot/`), so the trader wrote to
+        # one file while `src/web/api/routers/trade_scores.py` (which
+        # uses `runtime_logs_dir() / "shadow_predictions.jsonl"`)
+        # read from a different one. Symptom: `/api/bot/trades/scores`
+        # returned `log_present: False` even though shadow predictions
+        # were happily firing on every signal — the writer-vs-reader
+        # split-brain documented in `src/utils/paths.py:223` recurring
+        # one layer up. Tests are unaffected (no DATA_DIR env →
+        # `runtime_logs_dir()` returns `<repo>/runtime_logs/`, same
+        # parent as the old relative default).
+        configured_log = cfg.get("_shadow_log_path")
+        log_path = (
+            _Path(configured_log) if configured_log
+            else _runtime_logs_dir() / "shadow_predictions.jsonl"
+        )
         registry = ModelRegistry(registry_root)
         if auto_wire:
             ids = discover_shadow_stage_model_ids(registry)
