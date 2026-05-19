@@ -504,6 +504,54 @@
       "snoozed_until": null,
       "closed_at": null,
       "closed_reason": null
+    },
+    {
+      "id": "FU-20260519-001",
+      "opened_at": "2026-05-19T08:55:00+00:00",
+      "opened_by": "claude",
+      "source": "session_018tpEuahynYTB6imb6DiTTM-trainer-vm-diag-1519",
+      "related_prs": [1512, 1529, 1538],
+      "title": "regime-classifier-baseline-v0 never predicts 'trend' class (f1_trend=0.0)",
+      "description": "The 3-class regime classifier (range/trend/volatile) shows f1_trend=0.0 across every training cycle since 2026-05-14 (diag #1519 + #1528). The model always picks range or volatile and never trend. Root cause is data imbalance — far fewer 'trend'-labelled bars than 'range' in the market_features dataset. macro_f1 ~0.33, f1_range ~0.62 are usable; trend is the load-bearing degeneracy. Not blocking shadow logging (the predictor still emits a score — backfill in PR #1538 scored 0.449 on trade #1569) but nominal coverage is two-thirds of what the manifest promises.",
+      "expected_check": "Each /health-review while open: pull /api/bot/ml/registry, find regime-classifier-baseline-v0's latest run metrics, report f1_trend + n_eval prefixed 'FU-20260519-001:'. If f1_trend stays at 0 across 5+ cycles that include data from observable trending BTCUSDT periods (>1h sustained directional move), the degeneracy is structural and option (a) below applies.",
+      "trigger_condition": "Any /health-review run until status is closed.",
+      "resolution_criteria": "Close after either (a) a PR collapses the manifest to 2 classes (range vs non-range) and f1_range > 0.6 holds for 3 cycles, OR (b) SMOTE/oversampling lands and f1_trend > 0.2 on 3 cycles, OR (c) operator scopes regime classification to range/volatile only and updates the manifest.",
+      "status": "open",
+      "snoozed_until": null,
+      "closed_at": null,
+      "closed_reason": null
+    },
+    {
+      "id": "FU-20260519-002",
+      "opened_at": "2026-05-19T08:55:00+00:00",
+      "opened_by": "claude",
+      "source": "session_018tpEuahynYTB6imb6DiTTM-trainer-vm-diag-1528",
+      "related_prs": [1529],
+      "title": "prop_velotrade_1 unfunded — prop-mission-policy stuck at was_taken=False",
+      "description": "prop-mission-policy-baseline-v0 shows acc=1.0, f1=0.0, n_eval stuck at 53 across 6+ training cycles since 2026-05-14. Diag #1528 confirmed every prop_velotrade_1 signal rejects at 'below_min_balance: balance=0.00 USD < min_balance_usd=50.0'. The account_context family is scoped to prop-typed accounts only by design, and prop_velotrade_1 (account_state=evaluation) is the only prop account, so the dataset is 100% was_taken=False. Operator action needed: fund prop_velotrade_1, OR widen the family scope to include bybit accounts (the latter changes the model's semantic — different decision).",
+      "expected_check": "Each /health-review while open: pull /api/bot/config or /api/diag/status and extract prop_velotrade_1's reported balance. If balance ≥ 50 USD, surface 'FU-20260519-002 ready to resolve: prop balance now $X — next training cycle (Wed 00:24 UTC) should produce mixed was_taken labels.' Optionally cross-reference /api/bot/ml/registry's latest prop-mission-policy run for was_taken distribution drift.",
+      "trigger_condition": "Any /health-review run until status is closed.",
+      "resolution_criteria": "Close after either (a) prop_velotrade_1 funded AND 3 consecutive training cycles produce was_taken with ≥ 10% positive class (f1 > 0 on next training), OR (b) a follow-up PR widens account_context scope and the next cycle's prop-mission-policy run shows balanced labels from bybit-account rejections.",
+      "status": "open",
+      "snoozed_until": null,
+      "closed_at": null,
+      "closed_reason": null
+    },
+    {
+      "id": "FU-20260519-003",
+      "opened_at": "2026-05-19T08:55:00+00:00",
+      "opened_by": "claude",
+      "source": "session_018tpEuahynYTB6imb6DiTTM",
+      "related_prs": [1521, 1529, 1530, 1538, 1548],
+      "title": "test_coordinator_shadow_cache.py::test_reload_invalidates_cache fails on main",
+      "description": "Pre-existing test failure on origin/main as of 2026-05-19. The test calls `coord.reload_strategy_config(config_path=str(tmp_path / 'no-such-yaml'))` and asserts the cache is cleared, but reload returns early on FileNotFoundError before `self._shadow_predictors_cache.clear()` runs. Reproduced across every PR in this session (1521, 1529, 1530, 1538, 1548) — present on main before any of them. Not blocking CI; pytest-collect only collects. One-line fix in src/core/coordinator.py: move the cache-clear above the FileNotFoundError early-return.",
+      "expected_check": "Each /health-review while open: if the trainer VM is reachable, fire trainer-vm-diag with `cd /home/ubuntu/ict-trading-bot && .venv/bin/python -m pytest tests/test_coordinator_shadow_cache.py::TestShadowPredictorCache::test_reload_invalidates_cache -v` and check the exit. Passing run = ready to close. Optional one-shot since this is purely a unit-test issue with no live-trading impact.",
+      "trigger_condition": "Any /health-review run until status is closed.",
+      "resolution_criteria": "Close after a follow-up PR lands `self._shadow_predictors_cache.clear()` before the FileNotFoundError early-return in `Coordinator.reload_strategy_config` (src/core/coordinator.py:~1328), and the test passes on origin/main HEAD.",
+      "status": "open",
+      "snoozed_until": null,
+      "closed_at": null,
+      "closed_reason": null
     }
   ]
 }
