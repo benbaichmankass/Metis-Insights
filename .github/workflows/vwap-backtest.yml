@@ -21,6 +21,7 @@ name: vwap-backtest
 #
 # Issue body (optional, all keys have defaults):
 #   compare: true          # default true — run all configs
+#   param_sweep: true      # 4×3 ENTRY×SL grid sweep (overrides compare/threshold_sweep)
 #   days: 365              # trailing days of 5m data to fetch
 #   start_date: 2026-02-01 # explicit start (overrides days)
 #   end_date: 2026-05-13   # explicit end (default: today)

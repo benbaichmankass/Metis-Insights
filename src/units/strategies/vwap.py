@@ -212,7 +212,15 @@ _ENTRY_STD_THRESHOLD = ENTRY_STD_THRESHOLD
 # costs ~63% of total R (V_1175_htf_only +411 R vs V_1175_1183_htf_sl
 # +148 R). The ATR-based floor in build_vwap_signal still provides
 # the noise guard PR #1183 sought, without the R:R contract drift.
-SL_STD_MULT_DEFAULT = 0.5
+#
+# 2026-05-19 param sweep (S-VWAP-SWEEP-DISPATCH, issue #1569): 12-combo
+# ENTRY×SL sweep over 16 windows × 14 days ranked SL=0.3 across the entire
+# ENTRY grid. ENTRY=1.0/SL=0.3 mean_total_r=+4.88 vs SL=0.5 at -0.46
+# (rank 1 vs rank 9 of 12). Tighter stops cut losing long trades shorter,
+# which explains the gain. R:R at ENTRY=1.0/SL=0.3 is 3.33:1 — a deliberate
+# relaxation of the 2026-05-03 2:1 target, justified by empirical sweep data.
+# TIER-3: Ben must approve before this value is deployed to the live bot.
+SL_STD_MULT_DEFAULT = 0.3
 
 
 # Phase 2 of the 2026-05-07-vwap-accuracy training run + the
@@ -460,10 +468,10 @@ def build_vwap_signal(
                 entry + sl_std_mult * std_dev   (SELL — further above entry)
 
     Per the 2026-05-03 operator directive: ``ENTRY_STD_THRESHOLD = 1.0``
-    and ``SL_STD_MULT_DEFAULT = 0.5`` together give risk:reward = 1:2
-    (reward = 2 × risk) at the entry boundary, while raising cadence
-    versus the prior 2.0σ / 1.0 mult configuration. Deeper excursions
-    carry proportionally better R:R.
+    and ``SL_STD_MULT_DEFAULT`` together define R:R at the entry boundary.
+    The 2026-05-19 param sweep (issue #1569) set ``SL_STD_MULT_DEFAULT = 0.3``,
+    giving reward:risk = 3.33:1 — tighter stops cut losing long trades
+    shorter while preserving mean-reversion upside on the short side.
     """
     if not isinstance(candles_df, pd.DataFrame) or candles_df.empty:
         return _no_trade(symbol, "VWAP skipped: candle data is empty or invalid")

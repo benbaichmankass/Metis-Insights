@@ -1,58 +1,82 @@
 # Current Sprint Handoff
 
 **Roadmap:** `docs/sprint-plans/ROADMAP-2026-05-19.md`  
-**Last updated:** 2026-05-19 (Sprint 1 complete)
+**Last updated:** 2026-05-19 (Sprint 3 deployed)
 
 ---
 
-## STATUS: READY — SPRINT 2
+## STATUS: MONITORING — SPRINT 3 DEPLOYED
 
-**Active sprint:** S-VWAP-SWEEP-DISPATCH  
-**Sprint type:** auto-claude (Tier-1 operator-action dispatch)
+**SPRINT:** S-VWAP-LIVE-PARAM-UPDATE  
+**DEPLOYED:** PR #1571 merged and live — `git_sha=f0c6de5`, confirmed via vm-diag-snapshot issue #1574. `SL_STD_MULT_DEFAULT = 0.3σ` is running on the live VM. Bot restarted cleanly (uptime 15s at confirmation), `bybit_1: live, bybit_2: live`, all three strategies active.
 
-## What was done in this session (Sprint 1 — S-VWAP-PARAM-SWEEP)
+**LAST_COMPLETED:** Sprint 3 (S-VWAP-LIVE-PARAM-UPDATE, 2026-05-19) — PR #1571 approved by Ben, merged all-green (10/10 CI checks), auto-deployed via `ict-git-sync.timer` before pull-and-deploy fired. Deploy confirmed via vm-diag-snapshot.
 
-- Added `PARAM_SWEEP_ENTRY = [0.8, 1.0, 1.2, 1.5]` and `PARAM_SWEEP_SL = [0.3, 0.5, 0.7]` constants
-- Added `sl_std_mult: float | None = None` to `run_single` and `run_windows`
-- Added long/short trade split throughout: `total_r_long`, `total_r_short`, `wins_long`, `wins_short`, `trades_long`, `trades_short` in `run_single` return dict
-- Added `mean_total_r_long`, `mean_total_r_short` to `run_windows` aggregate and `per_regime_stats`
-- Added `--param-sweep` CLI flag (4 × 3 = 12 combinations, monkey-patches ENTRY, passes sl_std_mult directly)
-- Added `--entry-threshold SIGMA` and `--sl-mult SIGMA` standalone CLI overrides
-- Updated `_print_regime_coverage` to show L/S split per config and handle `param_sweep_window` key
-- 87 tests pass; pre-existing unrelated failure unchanged
-- Sprint log: `docs/sprint-logs/S-VWAP-PARAM-SWEEP-2026-05-19.md`
+**NEXT:** Monitor VWAP SL placement in live trades via `/health-review`. Watch FU-20260518-001 for whether tighter stops improve the win-rate and gross R. Next recommended sprint: Roadmap Sprint 2 (S-VWAP-ANCHOR-EXPERIMENT) — fully autonomous, can start now.
 
-## What to do next (Sprint 2 first actions)
+---
 
-1. **Read the sprint definition:** `ROADMAP-2026-05-19.md` → Sprint 2 (S-VWAP-SWEEP-DISPATCH)
-2. **Verify the operator-action script:** read `scripts/ops/vwap_backtest_sweep_action.sh` to confirm it can pass `--param-sweep --windows 24 --window-days 14`
-3. **Check `operator-actions.yml`:** confirm `bt_mode: compare` dispatch key at line 231
-4. **Dispatch action:** open issue labelled `operator-action` with `action: vwap-backtest-sweep` and body containing `bt_mode: param-sweep` (or whatever the script expects) plus `--windows 24 --window-days 14`
-5. **Collect results:** read output JSON via `mcp__github__issue_read` once the action completes
-6. **Analyse:** identify the winning (ENTRY, SL) pair; produce a short table of `mean_total_r`, `mean_total_r_long`, `mean_total_r_short` per combo
-7. **Propose Tier-3 PR:** if a clear winner emerges, open a draft PR that updates `ENTRY_STD_THRESHOLD` and `SL_STD_MULT_DEFAULT` in `vwap.py` — ping Ben for approval
+## What was done in this session (Sprint 2 — S-VWAP-SWEEP-DISPATCH)
 
-## Key context for Sprint 2
+- Diagnosed `operator-actions.yml` label-trigger unreliability: issues #1563, #1565, #1567, #1455 all failed to trigger the workflow. Root cause: label-payload timing in `issues.opened` + `issues.labeled` events
+- Added `--param-sweep` support to `vwap-backtest.yml` (PR #1568, merged): `param_sweep: true` issue body field, mutex with compare/threshold-sweep, `param_sweep_window` result table in issue comment
+- Dispatched 12-combo sweep via issue #1569; sweep completed in 22 min; issue closed `completed`
+- Collected sweep results (see sprint log for full table)
+- Opened Tier-3 draft PR: `SL_STD_MULT_DEFAULT = 0.3` in `vwap.py` + updated inline comments
 
-- Sweep grid: `PARAM_SWEEP_ENTRY = [0.8, 1.0, 1.2, 1.5]` × `PARAM_SWEEP_SL = [0.3, 0.5, 0.7]` = 12 combinations
-- Runner call: `python -m src.backtest.run_backtest_vwap --param-sweep --windows 24 --window-days 14 --seed 42`
-- Output key in JSON: `param_sweep_window`
-- The dispatch key is `bt_mode:` (NOT `mode:`) — see `operator-actions.yml:231`
-- Live constants NOT changed yet: `ENTRY_STD_THRESHOLD = 1.0σ`, `SL_STD_MULT_DEFAULT = 0.5σ`
-- Changing live constants is Tier-3 — requires Ben approval before merge
+## Sweep results summary
 
-## Open follow-up items to be aware of
+| ENTRY σ | SL σ | Mean Total R | L R | S R | Pos/16 |
+|---------|------|-------------|-----|-----|--------|
+| **1.0** | **0.3** | **+4.88** | -0.58 | +5.45 | 9/16 |
+| 0.8 | 0.3 | +4.82 | -1.35 | +6.17 | 8/16 |
+| 1.5 | 0.3 | +3.13 | -2.24 | +5.37 | 8/16 |
+| 1.2 | 0.3 | +3.07 | -1.35 | +4.42 | 9/16 |
+| ... | ... | ... | ... | ... | ... |
+| **1.0** | **0.5** | **-0.46** | -1.34 | +0.89 | 9/16 ← CURRENT LIVE |
+
+Full ranked table: `docs/sprint-logs/S-VWAP-SWEEP-DISPATCH-2026-05-19.md` § Sweep Results.
+
+## What to do next (Sprint 3 first actions — after Ben approval)
+
+1. **Wait for Ben to review the Tier-3 draft PR** (see PR linked in sprint log)
+2. **Once approved: merge the PR** (Claude merges, no self-merge)
+3. **Fire `pull-and-deploy` operator action** to deploy the new `SL_STD_MULT_DEFAULT = 0.3`
+4. **Fire `vm-diag-snapshot`** to confirm the live VM is running the new SHA
+5. **Monitor:** next `/health-review` should surface VWAP SL=0.3σ in the trade stats. Watch for any anomalous SL placements
+
+## Optional parallel sprint (no Ben approval needed)
+
+Roadmap Sprint 2 (S-VWAP-ANCHOR-EXPERIMENT) can run concurrently:
+- Add `--vwap-anchor rolling|session` CLI flag to `run_backtest_vwap.py`
+- Comparison run: same 16 windows, ENTRY=1.0/SL=0.3 (sweep winner), two anchor variants
+- Dispatch via `vwap-backtest.yml` issue
+- Sprint is fully autonomous (Tier-1 backtest only)
+
+## Key context for Sprint 3
+
+- Tier-3 change: `SL_STD_MULT_DEFAULT = 0.5 → 0.3` in `src/units/strategies/vwap.py`
+- R:R implication: 2:1 → 3.33:1 (reward:risk at entry boundary with ENTRY=1.0)
+- The 2026-05-03 directive was to preserve 2:1 R:R — this change intentionally relaxes that
+- Live constants currently: `ENTRY_STD_THRESHOLD = 1.0σ`, `SL_STD_MULT_DEFAULT = 0.5σ`
+- Proposed: keep ENTRY at 1.0σ, reduce SL to 0.3σ
+- Deploy path: `pull-and-deploy` operator action after merge
+- Long-side issue NOT fully resolved by this change (L R = -0.58 at best) — anchor experiment and policy gate are the follow-on levers
+
+## Open follow-up items
 
 From `comms/follow_ups.json`:
 
-| FU ID | Summary | Blocking Sprint 2? |
+| FU ID | Summary | Blocking? |
 |---|---|---|
-| FU-20260519-001 | regime-classifier-baseline-v0 f1_trend=0.0 | No (Sprint 5 handles this) |
-| FU-20260519-002 | prop_velotrade_1 at $0 balance → degenerate ML labels | No (operator action needed) |
-| FU-20260519-003 | test_reload_invalidates_cache flake | No (Sprint 6 handles this) |
-| FU-20260518-001 | VWAP performance tracking | Add Sprint 2 sweep results here when collected |
-| FU-20260518-003 | Operator-action completion-comment race | No (Sprint 8 handles this) |
+| FU-20260518-001 | VWAP performance tracking | Updated with sweep results; monitor after deploy |
+| FU-20260518-003 | Operator-action completion-comment race | No — title-prefix path is reliable alternative |
+| FU-20260519-001 | regime-classifier-baseline-v0 f1_trend=0.0 | No — Sprint 5 handles this |
+| FU-20260519-002 | prop_velotrade_1 at $0 balance → degenerate ML labels | No |
+| FU-20260519-003 | test_reload_invalidates_cache flake | No — Sprint 6 handles this |
 
 ## Waiting for Ben
 
-Nothing currently blocked on Ben for Sprint 2 dispatch. Tier-3 approval needed only if a clear (ENTRY, SL) winner emerges and a `vwap.py` PR is proposed.
+**Tier-3 draft PR:** `SL_STD_MULT_DEFAULT 0.5 → 0.3` in `src/units/strategies/vwap.py`  
+Evidence: ENTRY=1.0/SL=0.3 = mean_total_r +4.88 vs current +(-0.46) across 16 windows × 14 days.  
+Action needed: Review, approve, and confirm merge or request further experiments first.
