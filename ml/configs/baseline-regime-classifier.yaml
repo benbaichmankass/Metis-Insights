@@ -62,7 +62,7 @@ evaluator_config:
   split_strategy: time_aware_holdout
   time_column: ts
   holdout_fraction: 0.2
-target_deployment_stage: research_only
+target_deployment_stage: shadow
 notes: |
   WS5-B-PART-2 PR 2B baseline. 3-class regime classifier
   (trend / range / volatile) with `vol_bucket` as the sole

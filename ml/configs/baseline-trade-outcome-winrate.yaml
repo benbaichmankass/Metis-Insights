@@ -38,7 +38,7 @@ evaluator_config:
   target_column: won
   threshold: 0.5
   holdout_fraction: 0.2
-target_deployment_stage: research_only
+target_deployment_stage: shadow
 notes: |
   WS5-A first-baseline demo. Per-strategy historical winrate
   predictor against the trade_outcomes family. Not a candidate

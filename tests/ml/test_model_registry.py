@@ -188,13 +188,17 @@ def test_valid_statuses_complete():
 class TestDeploymentStage:
     """WS7-PART-1: target_deployment_stage on RegistryEntry."""
 
-    def test_default_stage_is_research_only(self, tmp_path: Path):
+    def test_default_stage_is_shadow(self, tmp_path: Path):
+        # 2026-05-19: the default lifecycle is "every trained model
+        # lives in shadow." A manifest that omits
+        # `target_deployment_stage` lands the model in shadow, not
+        # `research_only`.
         reg = ModelRegistry(tmp_path)
         entry = reg.register(
             model_id="m-1", manifest={"manifest_version": "v1"},
             model_state_path="/tmp/s.json", metrics={}, code_revision="x",
         )
-        assert entry.target_deployment_stage == "research_only"
+        assert entry.target_deployment_stage == "shadow"
         assert entry.stage_history == ()
 
     def test_register_picks_up_manifest_stage(self, tmp_path: Path):
@@ -235,9 +239,16 @@ class TestDeploymentStage:
         assert e2.stage_history[0].to_stage == "candidate"
 
     def test_promote_stage_forward(self, tmp_path: Path):
+        # Register a model into research_only explicitly (the default
+        # is now `shadow`, but the candidate transition test needs a
+        # model that starts pre-shadow).
         reg = ModelRegistry(tmp_path)
         reg.register(
-            model_id="m-1", manifest={"manifest_version": "v1"},
+            model_id="m-1",
+            manifest={
+                "manifest_version": "v1",
+                "target_deployment_stage": "research_only",
+            },
             model_state_path="/tmp/s.json", metrics={}, code_revision="x",
         )
         updated = reg.promote_stage(
@@ -251,7 +262,11 @@ class TestDeploymentStage:
     def test_promote_stage_rollback(self, tmp_path: Path):
         reg = ModelRegistry(tmp_path)
         reg.register(
-            model_id="m-1", manifest={"manifest_version": "v1"},
+            model_id="m-1",
+            manifest={
+                "manifest_version": "v1",
+                "target_deployment_stage": "research_only",
+            },
             model_state_path="/tmp/s.json", metrics={}, code_revision="x",
         )
         reg.promote_stage(
@@ -266,16 +281,48 @@ class TestDeploymentStage:
         assert rolled.target_deployment_stage == "candidate"
         assert len(rolled.stage_history) == 3
 
-    def test_promote_stage_disallowed_skip(self, tmp_path: Path):
-        # Skipping `candidate` from `research_only` straight to `shadow`
-        # is not a legal transition.
+    def test_promote_stage_research_only_direct_to_shadow(self, tmp_path: Path):
+        # 2026-05-19: the legal graph allows a one-hop migration from
+        # `research_only` straight to `shadow`. Pre-shadow stages
+        # remain valid as explicit operator-demoted parks, but the
+        # default lifecycle bypasses them — and demoted models can be
+        # re-promoted in a single hop instead of walking back up the
+        # whole ladder.
+        reg = ModelRegistry(tmp_path)
+        reg.register(
+            model_id="m-1",
+            manifest={
+                "manifest_version": "v1",
+                "target_deployment_stage": "research_only",
+            },
+            model_state_path="/tmp/s.json", metrics={}, code_revision="x",
+        )
+        updated = reg.promote_stage(
+            "m-1", "shadow", by="op", reason="default-policy-2026-05-19",
+        )
+        assert updated.target_deployment_stage == "shadow"
+        assert updated.stage_history[-1].from_stage == "research_only"
+        assert updated.stage_history[-1].to_stage == "shadow"
+
+    def test_promote_stage_shadow_can_demote_to_research_only(
+        self, tmp_path: Path
+    ):
+        # The inverse of the direct shadow promotion edge: a misbehaving
+        # shadow model can be parked back in `research_only` in one hop,
+        # so the audit log captures the demotion intent cleanly.
         reg = ModelRegistry(tmp_path)
         reg.register(
             model_id="m-1", manifest={"manifest_version": "v1"},
             model_state_path="/tmp/s.json", metrics={}, code_revision="x",
         )
-        with pytest.raises(RegistryError, match="not allowed"):
-            reg.promote_stage("m-1", "shadow", by="op", reason="skip-gate")
+        assert reg.get("m-1").target_deployment_stage == "shadow"
+        rolled = reg.promote_stage(
+            "m-1",
+            "research_only",
+            by="op",
+            reason="park-pending-investigation",
+        )
+        assert rolled.target_deployment_stage == "research_only"
 
     def test_promote_stage_unknown(self, tmp_path: Path):
         reg = ModelRegistry(tmp_path)
@@ -287,8 +334,8 @@ class TestDeploymentStage:
             reg.promote_stage("m-1", "made-up", by="op", reason="x")
 
     def test_promote_stage_no_op_refused(self, tmp_path: Path):
-        # Already in research_only — promote_stage to research_only should
-        # raise, not silently noop. Audit log integrity matters.
+        # Already in shadow (the new default) — promote_stage to shadow
+        # should raise, not silently noop. Audit log integrity matters.
         reg = ModelRegistry(tmp_path)
         reg.register(
             model_id="m-1", manifest={"manifest_version": "v1"},
@@ -296,7 +343,7 @@ class TestDeploymentStage:
         )
         with pytest.raises(RegistryError, match="no-op"):
             reg.promote_stage(
-                "m-1", "research_only", by="op", reason="hold",
+                "m-1", "shadow", by="op", reason="hold",
             )
 
     def test_promote_stage_blank_by_or_reason(self, tmp_path: Path):

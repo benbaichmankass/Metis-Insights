@@ -5,7 +5,8 @@ Subcommands:
   validate-dataset <path>     — passthrough to ml.datasets `validate`
   list-families               — passthrough to ml.datasets `list-families`
   train <manifest>            — run an experiment, register as candidate
-  promote <id> <status>       — state transition with operator gates
+  promote <id> <status>       — legacy WS4 status transition with operator gates
+  promote-stage <id> <stage>  — WS7 target_deployment_stage transition
   list-models [--status S]    — enumerate registry entries
   list-trainers               — introspection helper
   list-evaluators             — introspection helper
@@ -28,7 +29,7 @@ from .experiments.runner import (
     run_experiment,
 )
 from .promotion import gates_for
-from .registry.model_registry import ModelRegistry
+from .registry.model_registry import ModelRegistry, RegistryError
 from .shadow.inspector import (
     aggregate,
     filter_records,
@@ -81,6 +82,60 @@ def _cmd_promote(args: argparse.Namespace) -> int:
     updated = registry.promote(
         args.model_id, args.new_status, by=args.by, reason=args.reason,
     )
+    print(json.dumps(updated.to_dict(), indent=2, sort_keys=True))
+    return 0
+
+
+def _cmd_promote_stage(args: argparse.Namespace) -> int:
+    # WS7 deployment-stage transition (orthogonal to legacy WS4 status).
+    # Bulk-friendly: if --all-pre-shadow is set, transition every model
+    # whose current stage is in {research_only, candidate, backtest_approved}
+    # to `shadow` in one invocation (legal one-hop per the 2026-05-19 graph).
+    registry = ModelRegistry(Path(args.registry_root))
+    if args.all_pre_shadow:
+        if args.new_stage != "shadow":
+            sys.stderr.write(
+                "--all-pre-shadow only supports --new-stage=shadow; "
+                f"got {args.new_stage!r}\n"
+            )
+            return 2
+        pre_shadow = {"research_only", "candidate", "backtest_approved"}
+        transitioned: list[dict] = []
+        skipped: list[dict] = []
+        for entry in registry.list():
+            if entry.target_deployment_stage not in pre_shadow:
+                skipped.append({
+                    "model_id": entry.model_id,
+                    "current_stage": entry.target_deployment_stage,
+                })
+                continue
+            updated = registry.promote_stage(
+                entry.model_id, "shadow", by=args.by, reason=args.reason,
+            )
+            transitioned.append({
+                "model_id": updated.model_id,
+                "from_stage": entry.target_deployment_stage,
+                "to_stage": updated.target_deployment_stage,
+            })
+        print(json.dumps({
+            "transitioned": transitioned,
+            "skipped": skipped,
+            "transitioned_count": len(transitioned),
+            "skipped_count": len(skipped),
+        }, indent=2, sort_keys=True))
+        return 0
+    if not args.model_id:
+        sys.stderr.write(
+            "promote-stage requires either <model_id> or --all-pre-shadow\n"
+        )
+        return 2
+    try:
+        updated = registry.promote_stage(
+            args.model_id, args.new_stage, by=args.by, reason=args.reason,
+        )
+    except RegistryError as exc:
+        sys.stderr.write(f"promote-stage failed: {exc}\n")
+        return 1
     print(json.dumps(updated.to_dict(), indent=2, sort_keys=True))
     return 0
 
@@ -269,6 +324,33 @@ def _build_parser() -> argparse.ArgumentParser:
     p_promote.add_argument("--reason", required=True)
     p_promote.add_argument("--gates-acknowledged", action="store_true")
 
+    p_promote_stage = sub.add_parser(
+        "promote-stage",
+        help=(
+            "WS7 target_deployment_stage transition. Pass --all-pre-shadow "
+            "to bulk-migrate every research_only/candidate/backtest_approved "
+            "entry into shadow in one go."
+        ),
+    )
+    p_promote_stage.add_argument("model_id", nargs="?", default=None)
+    p_promote_stage.add_argument(
+        "--new-stage", required=True,
+        help="target_deployment_stage to transition into",
+    )
+    p_promote_stage.add_argument(
+        "--registry-root", default="./ml/registry-store",
+    )
+    p_promote_stage.add_argument("--by", required=True)
+    p_promote_stage.add_argument("--reason", required=True)
+    p_promote_stage.add_argument(
+        "--all-pre-shadow", action="store_true",
+        help=(
+            "transition every entry whose target_deployment_stage is "
+            "research_only/candidate/backtest_approved into shadow "
+            "(only valid with --new-stage=shadow)"
+        ),
+    )
+
     p_list = sub.add_parser("list-models")
     p_list.add_argument("--registry-root", default="./ml/registry-store")
     p_list.add_argument("--status", default=None)
@@ -368,6 +450,7 @@ def main(argv: list[str] | None = None) -> int:
     dispatch = {
         "train": _cmd_train,
         "promote": _cmd_promote,
+        "promote-stage": _cmd_promote_stage,
         "list-models": _cmd_list_models,
         "list-trainers": _cmd_list_trainers,
         "list-evaluators": _cmd_list_evaluators,

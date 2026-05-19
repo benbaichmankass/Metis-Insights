@@ -44,27 +44,43 @@ def _make_registered_model(
     )
     registry_root = tmp_path / "registry-store"
     registry = ModelRegistry(registry_root)
+    # Register directly into a pre-shadow stage when requested so the
+    # 2026-05-19 default-flip (register defaults to `shadow`) doesn't
+    # silently bump test fixtures past the stage they're trying to
+    # cover. For shadow / advisory / limited_live / live_approved the
+    # ladder walk still applies; the new direct edges keep that walk
+    # legal.
+    pre_shadow = {"research_only", "candidate", "backtest_approved"}
+    manifest: dict = {"manifest_version": "v1"}
+    if stage in pre_shadow:
+        manifest["target_deployment_stage"] = stage
     registry.register(
         model_id=model_id,
-        manifest={"manifest_version": "v1"},
+        manifest=manifest,
         model_state_path=str(state_path),
         metrics={"mae": 0.1},
         code_revision="x",
     )
-    # Walk up the stage ladder to the requested stage.
     ladder = [
         "candidate", "backtest_approved", "shadow",
         "advisory", "limited_live", "live_approved",
     ]
     if stage not in ladder + ["research_only"]:
         raise ValueError(stage)
-    if stage != "research_only":
-        for step in ladder:
-            registry.promote_stage(
-                model_id, step, by="op", reason=f"to-{step}",
-            )
-            if step == stage:
-                break
+    if stage in pre_shadow:
+        # Registered directly at the requested stage — nothing to do.
+        return registry, state_path
+    # Default registration lands at `shadow`. Walk forward from shadow
+    # to the target stage.
+    if stage == "shadow":
+        return registry, state_path
+    onward_from_shadow = ["advisory", "limited_live", "live_approved"]
+    for step in onward_from_shadow:
+        registry.promote_stage(
+            model_id, step, by="op", reason=f"to-{step}",
+        )
+        if step == stage:
+            break
     return registry, state_path
 
 
@@ -197,6 +213,53 @@ class TestResolvePredictors:
     def test_empty_list(self, tmp_path: Path):
         registry = ModelRegistry(tmp_path / "registry-store")
         assert resolve_predictors([], registry) == []
+
+
+class TestDiscoverShadowStageModelIds:
+    """The 2026-05-19 auto-wire helper. Returns every model in the
+    `shadow` stage exactly — higher stages (advisory / limited_live
+    / live_approved) are intentionally excluded so a model promoted
+    past shadow doesn't silently keep showing up as a shadow
+    side-channel on every strategy."""
+
+    def test_returns_only_shadow_stage_models(self, tmp_path: Path):
+        from ml.shadow.factory import discover_shadow_stage_model_ids
+
+        _make_registered_model(tmp_path, model_id="m-shadow-a", stage="shadow")
+        _make_registered_model(tmp_path, model_id="m-shadow-b", stage="shadow")
+        _make_registered_model(
+            tmp_path, model_id="m-advisory", stage="advisory",
+        )
+        _make_registered_model(
+            tmp_path, model_id="m-research", stage="research_only",
+        )
+        registry = ModelRegistry(tmp_path / "registry-store")
+        assert discover_shadow_stage_model_ids(registry) == [
+            "m-shadow-a", "m-shadow-b",
+        ]
+
+    def test_returns_empty_when_no_shadow_stage_models(self, tmp_path: Path):
+        from ml.shadow.factory import discover_shadow_stage_model_ids
+
+        _make_registered_model(
+            tmp_path, model_id="m-advisory", stage="advisory",
+        )
+        _make_registered_model(
+            tmp_path, model_id="m-research", stage="research_only",
+        )
+        registry = ModelRegistry(tmp_path / "registry-store")
+        assert discover_shadow_stage_model_ids(registry) == []
+
+    def test_stable_alphabetical_order(self, tmp_path: Path):
+        from ml.shadow.factory import discover_shadow_stage_model_ids
+
+        # Register in reverse-alpha order; expect alpha-sorted output.
+        for mid in ["zzz", "aaa", "mmm"]:
+            _make_registered_model(tmp_path, model_id=mid, stage="shadow")
+        registry = ModelRegistry(tmp_path / "registry-store")
+        assert discover_shadow_stage_model_ids(registry) == [
+            "aaa", "mmm", "zzz",
+        ]
 
 
 class TestResolveDefaultRegistryRoot:

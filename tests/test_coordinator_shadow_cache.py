@@ -114,12 +114,55 @@ def coord(tmp_path):
 
 
 class TestShadowPredictorCache:
-    def test_strategy_without_shadow_field_returns_empty(self, coord):
+    def test_no_shadow_models_in_registry_returns_empty(self, coord):
         # turtle_soup has no shadow_model_ids in the fixture YAML.
+        # Under the 2026-05-19 auto-wire default, that means
+        # "discover everything in shadow stage." With no models
+        # registered (the default fixture state), the discovery
+        # returns nothing and the cache lands at [].
         out = coord._get_shadow_predictors("turtle_soup")
         assert out == []
         # Cache populated with the empty list.
         assert coord._shadow_predictors_cache["turtle_soup"] == []
+
+    def test_auto_wires_shadow_stage_models_when_field_missing(
+        self, tmp_path, coord
+    ):
+        # turtle_soup has no shadow_model_ids in fixture YAML →
+        # auto-wire. Register two shadow-stage models in a registry
+        # and inject the registry root the same way other tests do.
+        registry_root = _register_models(
+            tmp_path, ["m-auto-a", "m-auto-b"],
+        )
+        log_path = tmp_path / "audit.jsonl"
+        # Inject the registry root + log path but explicitly DO NOT
+        # set shadow_model_ids — that's the auto-wire trigger.
+        for s in coord.list_strategies():
+            if isinstance(s, dict) and s.get("name") == "turtle_soup":
+                s["_shadow_registry_root"] = str(registry_root)
+                s["_shadow_log_path"] = str(log_path)
+                # Belt-and-suspenders — the fixture already omits
+                # the key, but make the intent explicit.
+                s.pop("shadow_model_ids", None)
+                break
+        out = coord._get_shadow_predictors("turtle_soup")
+        assert sorted(p.model_id for p in out) == [
+            "m-auto-a", "m-auto-b",
+        ]
+
+    def test_explicit_empty_list_opts_out_of_auto_wire(
+        self, tmp_path, coord
+    ):
+        # `shadow_model_ids: []` is the deliberate opt-out. Even
+        # with shadow-stage models present in the registry, the
+        # strategy should resolve to an empty predictor list.
+        _register_models(tmp_path, ["m-auto-a"])
+        for s in coord.list_strategies():
+            if isinstance(s, dict) and s.get("name") == "turtle_soup":
+                s["shadow_model_ids"] = []  # explicit opt-out
+                break
+        out = coord._get_shadow_predictors("turtle_soup")
+        assert out == []
 
     def test_resolves_once_then_caches(self, tmp_path, coord):
         registry_root = _register_models(tmp_path, ["m-a", "m-b"])

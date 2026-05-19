@@ -9,13 +9,17 @@
 #
 # Difference from scripts/ops/run_training_cycle.sh:
 #   - run_training_cycle.sh is the recurring systemd-driven loop
-#     (timer-triggered). It trains everything but stops at
-#     `research_only` (the default registration state).
-#   - This script is the **bootstrap** — run once after the trainer
-#     VM comes up, to seed the registry with every WS5 baseline at a
-#     stage that lets the WS7 harness load it. After this runs once,
-#     the recurring run_training_cycle.sh keeps producing fresh
-#     candidates without further intervention.
+#     (timer-triggered). It trains everything; since the
+#     2026-05-19 default flip, `python -m ml train` auto-registers
+#     each model at `shadow` (the manifest declares it) — no
+#     post-training ladder walk is required to make the model
+#     loadable by the WS7 harness.
+#   - This script is the historical **bootstrap** for the
+#     pre-2026-05-19 lifecycle where models registered at
+#     `research_only` and an operator walked the ladder. With
+#     the new default the script's only remaining job is the
+#     train step; the promotion loop below is a no-op when
+#     TARGET_STAGE matches the manifest's stage (shadow).
 #
 # Autonomous-Claude per docs/claude/trainer-vm-mode.md § 3.a. The
 # promotion ladder is fully autonomous up to `live_approved`; this
@@ -231,8 +235,14 @@ print(json.dumps({
   rm -f "/tmp/train_$$.out" "/tmp/train_$$.err"
 
   # --- Promote step-by-step up to TARGET_STAGE --
-  # `python -m ml train` auto-registers at `research_only` (index 0).
-  # We walk indices 1..TARGET_INDEX, calling promote for each.
+  # Pre-2026-05-19: `python -m ml train` auto-registered at
+  # `research_only` (index 0) and this loop walked indices 1..TARGET_INDEX
+  # one promote at a time.
+  # Post-2026-05-19 default flip: training registers at the manifest's
+  # `target_deployment_stage` (now `shadow` for every baseline), so the
+  # loop typically has no work to do when TARGET_STAGE=shadow. The loop
+  # is preserved for compatibility with overridden TARGET_STAGE values
+  # (e.g. promoting an audit model to `advisory`).
   promote_failed=0
   for ((i = 1; i <= TARGET_INDEX; i++)); do
     next_stage="${LADDER[$i]}"

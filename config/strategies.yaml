@@ -56,7 +56,10 @@ strategies:
     max_entry_wait_bars_1m: 20
     entry_tf: "1m"
     setup_lookback_bars: 4
-    shadow_model_ids: []
+    # shadow_model_ids omitted (2026-05-19): auto-wire every model
+    # whose target_deployment_stage == "shadow" on this strategy's
+    # signals. Set `shadow_model_ids: []` to opt out entirely or
+    # provide an explicit list to pin specific models.
 
   vwap:
     model: null
@@ -213,4 +216,7 @@ strategies:
     session_filter_enabled: false
     session_start_hour: 7
     session_end_hour: 17
-    shadow_model_ids: []
+    # shadow_model_ids omitted (2026-05-19): auto-wire every model
+    # whose target_deployment_stage == "shadow" on this strategy's
+    # signals. Set `shadow_model_ids: []` to opt out entirely or
+    # provide an explicit list to pin specific models.

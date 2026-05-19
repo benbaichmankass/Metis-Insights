@@ -28,7 +28,7 @@ evaluator_config:
   target_column: won
   threshold: 0.5
   holdout_fraction: 0.2
-target_deployment_stage: research_only
+target_deployment_stage: shadow
 notes: |
   WS4-FU sanity baseline: global mean of `won` as a single constant
   prediction. Compare against `trade-outcome-winrate-baseline-v0`

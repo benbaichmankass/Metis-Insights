@@ -10,8 +10,9 @@
 #   5. For each manifest listed in TRAINING_MANIFESTS (env var, space-
 #      separated; defaults to all baseline manifests in ml/configs/),
 #      run `python -m ml train <manifest>`. Each manifest writes a
-#      timestamped experiment dir and registers the result as
-#      `target_deployment_stage: research_only` in the local registry.
+#      timestamped experiment dir and registers the result at the stage
+#      declared in the manifest's `target_deployment_stage` field
+#      (2026-05-19: every baseline manifest declares `shadow`).
 #   6. Print a one-line summary per manifest (model_id, key metric).
 #   7. Exit 0 if every manifest ran. Exit non-zero on the first failure
 #      (after logging); manifests with 0-row datasets are skipped with a

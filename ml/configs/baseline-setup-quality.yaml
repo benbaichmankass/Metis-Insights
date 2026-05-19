@@ -43,7 +43,7 @@ evaluator_config:
   split_strategy: time_aware_holdout
   time_column: created_at
   holdout_fraction: 0.2
-target_deployment_stage: research_only
+target_deployment_stage: shadow
 notes: |
   WS5-C baseline. Per-setup_type mean R-multiple. Time-aware
   holdout — eval is the latest 20 % of trades by `created_at`.
