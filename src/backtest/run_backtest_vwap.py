@@ -220,6 +220,7 @@ def _simulate_trade(
     entry: float,
     sl: float,
     tp: float,
+    vwap_anchor: str = "session",
 ) -> dict[str, Any] | None:
     """Forward-simulate a trade from ``entry_idx``.
 
@@ -258,7 +259,12 @@ def _simulate_trade(
         # VWAP-cross: recompute live VWAP on the rolling window to this bar.
         win_start = max(0, j - M5_LOOKBACK_BARS + 1)
         try:
-            vwap_live = compute_vwap(_session_anchor_slice(df.iloc[win_start : j + 1]))
+            _monitor_slice = df.iloc[win_start : j + 1]
+            vwap_live = compute_vwap(
+                _monitor_slice
+                if vwap_anchor == "rolling"
+                else _session_anchor_slice(_monitor_slice)
+            )
             if direction == "long" and bar_c >= vwap_live:
                 exit_price, exit_reason, exit_idx = bar_c, "vwap_cross", j
                 break
@@ -298,6 +304,7 @@ def run_single(
     label: str = "",
     start_bar: int = 0,
     sl_std_mult: float | None = None,
+    vwap_anchor: str = "session",
 ) -> dict[str, Any]:
     """Run the VWAP backtest with one HTF config.
 
@@ -342,8 +349,13 @@ def run_single(
         else:
             htf_close = htf_ema_val = None
 
+        window_for_signal = (
+            window.drop(columns=["timestamp"], errors="ignore")
+            if vwap_anchor == "rolling"
+            else window
+        )
         signal = build_vwap_signal(
-            window,
+            window_for_signal,
             symbol="BTCUSDT",
             htf_close=htf_close,
             htf_ema=htf_ema_val,
@@ -361,7 +373,7 @@ def run_single(
         sl = signal["stop_loss"]
         tp = signal["take_profit"]
 
-        trade = _simulate_trade(df, i, direction, entry, sl, tp)
+        trade = _simulate_trade(df, i, direction, entry, sl, tp, vwap_anchor=vwap_anchor)
         if trade:
             trades.append(trade)
             in_trade_until = i + trade["duration_bars"]
@@ -420,6 +432,7 @@ def run_single(
         "sharpe_r": sharpe_r,
         "htf_blocked_count": blocked_count,
         "exit_reasons": exit_reasons,
+        "vwap_anchor": vwap_anchor,
     }
 
 
@@ -541,6 +554,7 @@ def run_windows(
     recent_only_frac: float = 1.0,
     adaptive: bool = False,
     sl_std_mult: float | None = None,
+    vwap_anchor: str = "session",
 ) -> dict[str, Any]:
     """Run the backtest over N random windows and return aggregate stats.
 
@@ -601,6 +615,7 @@ def run_windows(
             label=label or cfg_label,
             start_bar=WARMUP_BARS,
             sl_std_mult=sl_std_mult,
+            vwap_anchor=vwap_anchor,
         )
         # Classify regime on the TRADING portion (skip warmup) so the
         # label reflects what the strategy actually faced, not the
@@ -658,6 +673,7 @@ def run_windows(
                         label=f"adaptive ({regime['regime']} @ {pol['threshold']}σ)",
                         start_bar=WARMUP_BARS,
                         sl_std_mult=sl_std_mult,
+                        vwap_anchor=vwap_anchor,
                     )
                 finally:
                     _vwap_mod.ENTRY_STD_THRESHOLD = _original
@@ -729,6 +745,7 @@ def run_windows(
             round(statistics.mean(win_rate_vals), 1) if win_rate_vals else None
         ),
         "positive_windows": positive_windows,
+        "vwap_anchor": vwap_anchor,
         "windows": window_results,
         "by_regime": per_regime_stats,
     }
@@ -804,6 +821,19 @@ def main(argv: list[str]) -> int:
         help=(
             "Override sl_std_mult for a single run (default: use "
             "SL_STD_MULT_DEFAULT). Ignored by --param-sweep (which sweeps its own grid)."
+        ),
+    )
+    parser.add_argument(
+        "--vwap-anchor",
+        choices=["session", "rolling", "compare"],
+        default="session",
+        help=(
+            "VWAP anchor mode. 'session' (default) = UTC-midnight reset "
+            "(matches live build_vwap_signal behaviour); 'rolling' = pure "
+            "300-bar rolling window (no daily reset); 'compare' = run both "
+            "variants on the same windows and output a side-by-side table. "
+            "'compare' requires --windows and is mutually exclusive with "
+            "--compare / --threshold-sweep / --adaptive / --param-sweep."
         ),
     )
     parser.add_argument("--label", default="", help="Label for the run")
@@ -894,15 +924,56 @@ def main(argv: list[str]) -> int:
     try:
         use_windows = args.windows > 0
 
+        anchor_compare = args.vwap_anchor == "compare"
         if sum(bool(x) for x in (args.compare, args.threshold_sweep,
-                                   args.adaptive, args.param_sweep)) > 1:
+                                   args.adaptive, args.param_sweep,
+                                   anchor_compare)) > 1:
             sys.stderr.write(
                 "--compare / --threshold-sweep / --adaptive / --param-sweep "
-                "are mutually exclusive\n"
+                "/ --vwap-anchor compare are mutually exclusive\n"
             )
             return 1
 
-        if args.adaptive:
+        if anchor_compare:
+            if not use_windows:
+                sys.stderr.write(
+                    "--vwap-anchor compare requires --windows\n"
+                )
+                return 1
+            from src.units.strategies import vwap as _vwap_mod
+            _orig_thr = _vwap_mod.ENTRY_STD_THRESHOLD
+            if args.entry_threshold is not None:
+                _vwap_mod.ENTRY_STD_THRESHOLD = args.entry_threshold
+                _vwap_mod._ENTRY_STD_THRESHOLD = args.entry_threshold
+            htf_tf = None if args.no_htf else args.htf_timeframe
+            ema_p = None if args.no_htf else args.ema_period
+            results = []
+            try:
+                for anchor in ("session", "rolling"):
+                    print(
+                        f"Running: anchor={anchor} …",
+                        file=sys.stderr,
+                    )
+                    r = run_windows(
+                        df,
+                        n_windows=args.windows,
+                        window_days=args.window_days,
+                        htf_timeframe=htf_tf,
+                        ema_period=ema_p,
+                        band_pct=args.band_pct,
+                        label=f"anchor={anchor}",
+                        seed=args.seed,
+                        recent_only_frac=args.recent_only_frac,
+                        sl_std_mult=args.sl_mult,
+                        vwap_anchor=anchor,
+                    )
+                    results.append(r)
+            finally:
+                if args.entry_threshold is not None:
+                    _vwap_mod.ENTRY_STD_THRESHOLD = _orig_thr
+                    _vwap_mod._ENTRY_STD_THRESHOLD = _orig_thr
+            output: dict[str, Any] = {"anchor_window_comparison": results}
+        elif args.adaptive:
             if not use_windows:
                 sys.stderr.write(
                     "--adaptive requires --windows (regime is classified "
@@ -1055,6 +1126,7 @@ def main(argv: list[str]) -> int:
                         seed=args.seed,
                         recent_only_frac=args.recent_only_frac,
                         sl_std_mult=args.sl_mult,
+                        vwap_anchor=args.vwap_anchor,
                     )
                 else:
                     output = run_single(
@@ -1064,6 +1136,7 @@ def main(argv: list[str]) -> int:
                         band_pct=args.band_pct,
                         label=args.label,
                         sl_std_mult=args.sl_mult,
+                        vwap_anchor=args.vwap_anchor,
                     )
             finally:
                 if args.entry_threshold is not None:
@@ -1099,6 +1172,8 @@ def _print_regime_coverage(output: dict[str, Any], n_windows: int) -> None:
         configs = output["threshold_window_comparison"]
     elif "param_sweep_window" in output:
         configs = output["param_sweep_window"]
+    elif "anchor_window_comparison" in output:
+        configs = output["anchor_window_comparison"]
     elif "windows" in output:
         configs = [output]
     if not configs or not isinstance(configs, list):
