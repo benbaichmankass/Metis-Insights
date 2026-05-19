@@ -13,6 +13,8 @@ Subcommands:
   compare <id-a> <id-b>       — side-by-side metric diff (WS4-FU)
   shadow-inspect              — tail shadow_predictions.jsonl with filters (WS8-PART-1)
   shadow-stats                — per-(model_id, stage) aggregate over the audit log (WS8-PART-1)
+  shadow-drift                — window-over-window drift report for one model_id (WS8-PART-3)
+  backfill-shadow-predictions — retroactive-decision replay of every historical trade (2026-05-19)
 """
 from __future__ import annotations
 
@@ -304,6 +306,25 @@ def _cmd_compare(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_backfill_shadow_predictions(args: argparse.Namespace) -> int:
+    # Retroactive-decision backfill: replay every historical trade
+    # through every shadow-stage model and write the results to a
+    # one-shot JSONL file. See `ml/shadow/backfill.py` for the
+    # leakage/contract rules.
+    from .shadow.backfill import run_backfill
+
+    registry = ModelRegistry(Path(args.registry_root))
+    summary = run_backfill(
+        db_path=Path(args.db),
+        registry=registry,
+        output_path=Path(args.output),
+        include_rejected=args.include_rejected,
+        limit=args.limit if args.limit and args.limit > 0 else None,
+    )
+    print(json.dumps(summary, indent=2, sort_keys=True))
+    return 0
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="python -m ml")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -428,6 +449,48 @@ def _build_parser() -> argparse.ArgumentParser:
         help="upper bound for histogram clamp (default 1.0)",
     )
 
+    p_bf = sub.add_parser(
+        "backfill-shadow-predictions",
+        help=(
+            "Retroactive-decision backfill (2026-05-19): score every "
+            "historical trade in `trade_journal.db` against every "
+            "shadow-stage model in the registry and write the results "
+            "to a JSONL file. Records carry `backfill_kind: "
+            "retroactive_decision` + `trade_id` so the trades-scores "
+            "endpoint joins them deterministically and the drift "
+            "endpoint can filter them out."
+        ),
+    )
+    p_bf.add_argument(
+        "--db",
+        required=True,
+        help="Path to trade_journal.db (the synced one on the trainer VM)",
+    )
+    p_bf.add_argument(
+        "--registry-root", default="./ml/registry-store",
+    )
+    p_bf.add_argument(
+        "--output",
+        default="./runtime_logs/shadow_predictions_backfill.jsonl",
+        help="Where to write the backfill JSONL (truncated on every run)",
+    )
+    p_bf.add_argument(
+        "--include-rejected", action="store_true", default=True,
+        help=(
+            "Score rejected + exchange_rejected signals too (default). "
+            "Pass --no-include-rejected to score only "
+            "open/closed/orphaned trades."
+        ),
+    )
+    p_bf.add_argument(
+        "--no-include-rejected", dest="include_rejected",
+        action="store_false",
+    )
+    p_bf.add_argument(
+        "--limit", type=int, default=0,
+        help="Cap rows for testing; 0 (default) = no cap",
+    )
+
     return parser
 
 
@@ -458,6 +521,7 @@ def main(argv: list[str] | None = None) -> int:
         "shadow-inspect": _cmd_shadow_inspect,
         "shadow-stats": _cmd_shadow_stats,
         "shadow-drift": _cmd_shadow_drift,
+        "backfill-shadow-predictions": _cmd_backfill_shadow_predictions,
     }
     handler = dispatch.get(args.cmd)
     if handler is None:

@@ -47,6 +47,18 @@ class ShadowRecord:
     optional. The trade↔score join in
     ``src/web/api/routers/trade_scores.py`` uses ``feature_row.symbol``
     when present and falls back to timestamp-window matching.
+
+    ``backfill_kind`` (added 2026-05-19) marks records emitted by
+    ``python -m ml backfill-shadow-predictions``. The CLI replays
+    every historical trade through the current shadow-stage model
+    set, stamps the resulting record with ``backfill_kind:
+    "retroactive_decision"`` and a ``trade_id``, and writes the
+    line to ``runtime_logs/shadow_predictions_backfill.jsonl``.
+    Real-time records leave both fields unset, so consumers can
+    cleanly distinguish: ``trade_scores`` joins by ``trade_id``
+    when present; ``shadow-drift`` excludes backfill records by
+    default so the synthetic timestamps don't pollute the
+    window-over-window comparison.
     """
 
     predicted_at_utc: datetime
@@ -55,6 +67,8 @@ class ShadowRecord:
     score: float
     row_keys: tuple[str, ...]
     feature_row: Mapping[str, Any] | None = None
+    backfill_kind: str | None = None
+    trade_id: str | None = None
 
 
 def record_from_dict(raw: Mapping[str, object]) -> ShadowRecord:
@@ -104,6 +118,18 @@ def record_from_dict(raw: Mapping[str, object]) -> ShadowRecord:
         # than crash the whole record (the score is the load-bearing
         # field, not the context dict).
         feature_row = None
+    backfill_kind_raw = raw.get("backfill_kind")
+    backfill_kind = (
+        str(backfill_kind_raw)
+        if isinstance(backfill_kind_raw, str) and backfill_kind_raw
+        else None
+    )
+    trade_id_raw = raw.get("trade_id")
+    trade_id = (
+        str(trade_id_raw)
+        if trade_id_raw is not None and trade_id_raw != ""
+        else None
+    )
     return ShadowRecord(
         predicted_at_utc=ts,
         model_id=model_id,
@@ -111,6 +137,8 @@ def record_from_dict(raw: Mapping[str, object]) -> ShadowRecord:
         score=score_f,
         row_keys=tuple(row_keys),
         feature_row=feature_row,
+        backfill_kind=backfill_kind,
+        trade_id=trade_id,
     )
 
 

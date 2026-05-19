@@ -94,13 +94,17 @@ def _record(
 def client(tmp_path, monkeypatch):
     db = tmp_path / "trade_journal.db"
     log = tmp_path / "shadow_predictions.jsonl"
+    backfill = tmp_path / "shadow_predictions_backfill.jsonl"
     monkeypatch.setattr(trade_scores_router, "_DB_PATH", db)
     monkeypatch.setattr(trade_scores_router, "_SHADOW_LOG", log)
-    return TestClient(api_main.app), db, log
+    monkeypatch.setattr(
+        trade_scores_router, "_SHADOW_BACKFILL_LOG", backfill,
+    )
+    return TestClient(api_main.app), db, log, backfill
 
 
 def test_records_with_matching_symbol_are_joined(client):
-    tc, db, log = client
+    tc, db, log, backfill = client
     opened = "2026-05-19T04:00:00+00:00"
     closed = "2026-05-19T05:00:00+00:00"
     _seed_db(db, [
@@ -123,7 +127,7 @@ def test_records_with_matching_symbol_are_joined(client):
 
 
 def test_records_with_different_symbol_are_excluded(client):
-    tc, db, log = client
+    tc, db, log, backfill = client
     opened = "2026-05-19T04:00:00+00:00"
     closed = "2026-05-19T05:00:00+00:00"
     _seed_db(db, [
@@ -149,7 +153,7 @@ def test_legacy_records_without_feature_row_still_join(client):
     # Records written before 2026-05-19 don't carry `feature_row`.
     # The endpoint must fall back to the timestamp-window-only join
     # for those records — no regression for data already on disk.
-    tc, db, log = client
+    tc, db, log, backfill = client
     opened = "2026-05-19T04:00:00+00:00"
     closed = "2026-05-19T05:00:00+00:00"
     _seed_db(db, [
@@ -168,7 +172,7 @@ def test_legacy_records_without_feature_row_still_join(client):
 def test_overlapping_trades_dont_cross_pollinate(client):
     # Two concurrent trades on different symbols. Each should land
     # only its own symbol's shadow records.
-    tc, db, log = client
+    tc, db, log, backfill = client
     opened = "2026-05-19T04:00:00+00:00"
     closed = "2026-05-19T05:00:00+00:00"
     _seed_db(db, [
@@ -188,3 +192,57 @@ def test_overlapping_trades_dont_cross_pollinate(client):
     by_symbol = {t["symbol"]: t for t in body["trades"]}
     assert {s["model_id"] for s in by_symbol["BTCUSDT"]["scores"]} == {"m-btc"}
     assert {s["model_id"] for s in by_symbol["ETHUSDT"]["scores"]} == {"m-eth"}
+
+
+def test_backfill_record_joins_by_trade_id_outside_window(client):
+    # 2026-05-19 retroactive-decision backfill: records carry
+    # `trade_id` + `backfill_kind`, stamped at run-time. The
+    # endpoint must match by trade_id directly — the synthetic
+    # `predicted_at_utc` won't fall inside the historical trade's
+    # opened/closed window.
+    tc, db, log, backfill = client
+    opened = "2026-05-01T04:00:00+00:00"
+    closed = "2026-05-01T05:00:00+00:00"
+    _seed_db(db, [
+        {"id": 99, "symbol": "BTCUSDT", "status": "closed",
+         "opened_at": opened, "closed_at": closed},
+    ])
+    # Backfill log written days after the trade closed (the typical
+    # run-time stamp). The window-based fallback would exclude it.
+    backfill_rec = _record(
+        ts="2026-05-19T06:00:00+00:00", model_id="m-backfill",
+        score=0.42, symbol="BTCUSDT", strategy_name="vwap",
+    )
+    backfill_rec["backfill_kind"] = "retroactive_decision"
+    backfill_rec["trade_id"] = "99"
+    _write_shadow_log(backfill, [backfill_rec])
+    r = tc.get("/api/bot/trades/scores?limit=10")
+    body = r.json()
+    assert body["backfill_log_present"] is True
+    trade = body["trades"][0]
+    assert len(trade["scores"]) == 1
+    score_row = trade["scores"][0]
+    assert score_row["model_id"] == "m-backfill"
+    assert score_row["backfill_kind"] == "retroactive_decision"
+
+
+def test_backfill_record_with_wrong_trade_id_is_excluded(client):
+    # `trade_id` mismatch must exclude the record, even if symbol +
+    # timestamp would otherwise have matched.
+    tc, db, log, backfill = client
+    opened = "2026-05-19T04:00:00+00:00"
+    closed = "2026-05-19T05:00:00+00:00"
+    _seed_db(db, [
+        {"id": 1, "symbol": "BTCUSDT", "status": "closed",
+         "opened_at": opened, "closed_at": closed},
+    ])
+    rec = _record(
+        ts="2026-05-19T04:30:00+00:00", model_id="m-stale",
+        score=0.3, symbol="BTCUSDT",
+    )
+    rec["backfill_kind"] = "retroactive_decision"
+    rec["trade_id"] = "9999"  # belongs to a different (absent) trade
+    _write_shadow_log(backfill, [rec])
+    r = tc.get("/api/bot/trades/scores?limit=10")
+    trade = r.json()["trades"][0]
+    assert trade["scores"] == []
