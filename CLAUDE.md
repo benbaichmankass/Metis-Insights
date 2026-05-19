@@ -215,12 +215,28 @@ one of them at a time.
 | `instance-20260414-1555` (`158.178.210.252`) | **Live trader** — runs `ict-trader-live.service`, holds money-at-risk | [`docs/claude/vm-operator-mode.md`](docs/claude/vm-operator-mode.md) | **Restricted.** Tier-1 read autonomous; Tier-2 mutations need operator ack (Telegram `/vm_write` or PM-side issue → `operator-actions.yml`); Tier-3 paths (live order code, risk caps, key rotation) are hard-blocked. **Account-mode flips have a sanctioned wire: `set-account-mode` operator action; code paths that flip mode outside that action are Tier-3 violations.** |
 | `ict-trainer-vm` (`VM.Standard.A1.Flex`, Ampere A1) | **Training center** — runs the ML lifecycle (datasets, training, registry, eval), no live trade authority of its own | [`docs/claude/trainer-vm-mode.md`](docs/claude/trainer-vm-mode.md) | **Autonomous.** Claude provisions, SSHes, installs, syncs read-only DB from live, runs training cycles, writes the registry up to `live_approved` stage, terminates + re-provisions — all without operator-in-the-loop. |
 
-The separation works because **the live trader has no path to load
-a model unless the operator edits `shadow_model_ids` in the strategy
-YAML on the live VM**. The registry stage is metadata; the YAML edit
-is the actual live-trading switch. Claude can autonomously promote a
-model to `live_approved` in the registry; only the operator can wire
-it into a strategy. See trainer-vm-mode.md § 5 for the full step-by-step.
+The separation has two gates (2026-05-19 update; see
+`docs/ARCHITECTURE-CANONICAL.md` § Change log for the
+shadow-default-flip rollout):
+
+1. **Stage gate** — autonomous-Claude on the trainer VM can write a
+   model into the registry up to `live_approved`, but only stages
+   in `{advisory, limited_live, live_approved}` ever influence the
+   order package. Models at `shadow` log predictions but never
+   change order decisions; models at `research_only` / `candidate`
+   / `backtest_approved` are refused by the shadow factory.
+2. **Promotion gate** — the `shadow → advisory` transition (and
+   every step beyond) is the operator-approved gate. Promoting
+   past shadow is the move that turns a model from "observing" to
+   "influencing." This is the live-trading switch.
+
+Since the default flip, models at `shadow` auto-wire onto every
+strategy's predictor list when the strategy YAML omits
+`shadow_model_ids` (or sets it to `None`). An explicit `[]` opts a
+strategy out; an explicit list pins specific ids. This means
+shadow-mode logging is enabled-by-default for any newly-trained
+model — the operator's role is the promotion gate, not the YAML
+wire-up. See trainer-vm-mode.md § 5 for the full lifecycle.
 
 **Hard limits that survive the split** (apply on either VM):
 

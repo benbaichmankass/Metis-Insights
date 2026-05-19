@@ -7,15 +7,15 @@
 > register the WS5 baselines so the shadow harness has something
 > live to score against.
 >
-> **2026-05-11 authority-model update:** Trainer-VM scope (`ict-trainer-vm`)
-> is now autonomous-Claude per [`docs/claude/trainer-vm-mode.md`](claude/trainer-vm-mode.md).
-> Operator-approval gates **only** apply at the live-VM YAML wiring
-> step (adding model ids to `shadow_model_ids` in a strategy YAML);
-> registry-stage promotions up to `live_approved` are autonomous.
-> The "operator-blocked" status above is now Claude-blocked — once
-> the trainer VM is provisioned (auto-retry loop running), Claude
-> trains + registers via `scripts/ops/train_and_register_ws5_baselines.sh`
-> without further operator action.
+> **2026-05-11 authority-model update (revised 2026-05-19):** Trainer-VM
+> scope (`ict-trainer-vm`) is now autonomous-Claude per
+> [`docs/claude/trainer-vm-mode.md`](claude/trainer-vm-mode.md).
+> Operator-approval gates apply at the `shadow → advisory`
+> promotion edge (the live-trading switch since the 2026-05-19
+> shadow-default flip); registry-stage promotions up to `shadow`
+> are autonomous. Shadow models auto-wire onto every strategy via
+> `Coordinator._get_shadow_predictors` — no per-model YAML edit
+> required.
 >
 > **2026-05-11 WS10 close-out:** Architecture-doc enforcement is now
 > live (advisory guard + pre-commit hook + weekly doc audit + Change
@@ -75,11 +75,13 @@
    load N concurrent shadow predictors from YAML without any code
    change. **Claude-unlock (2026-05-11):** once the trainer VM is
    provisioned (tracked by the `[provision-training-vm]` auto-retry
-   loop), Claude trains + registers the WS5 baselines via
-   `scripts/ops/train_and_register_ws5_baselines.sh` and promotes
-   them through the ladder up to `live_approved`. Adding any of
-   those model ids to a strategy's `shadow_model_ids` field — the
-   actual live-trading switch — remains operator-controlled.
+   loop), Claude trains + registers the WS5 baselines at `shadow`
+   (the 2026-05-19 default) and promotes them through the ladder
+   up to `live_approved` as warranted. Shadow models auto-wire onto
+   every strategy's predictor list — no per-model YAML edit
+   required. The live-trading switch is the `shadow → advisory`
+   transition (and every step beyond), which remains operator-
+   controlled.
 9. **WS8 (monitoring) — ✅ DONE 2026-05-10 + 2026-05-11 dashboard.**
    PART-1 CLI (`python -m ml shadow-inspect / shadow-stats`).
    PART-2 dashboard endpoints (`/api/bot/shadow/predictions`,
@@ -104,13 +106,18 @@
 
 - Live trading safety > feature growth.
 - No heavy training on the Oracle live VM (WS9).
-- **No model id added to a strategy's `shadow_model_ids` YAML field
-  without operator approval** (2026-05-11 clarification). This is
-  the live-trading wiring step — the live `Coordinator` reads the
-  YAML and loads the listed models. Registry stage promotion
-  (`research_only → … → live_approved`) is autonomous-Claude on
-  the trainer VM and does **not** wire anything; it's metadata.
-  See [`docs/claude/trainer-vm-mode.md`](claude/trainer-vm-mode.md) § 5
+- **No promotion past `shadow` without operator approval**
+  (2026-05-19 clarification, supersedes the 2026-05-11 YAML-wiring
+  rule). Stages `advisory` / `limited_live` / `live_approved` are
+  the only ones that can influence the order package; the
+  `shadow → advisory` transition is the live-trading switch and
+  every step beyond is operator-gated. Registering at `shadow`
+  (the current default) and promoting from below up to `shadow`
+  is autonomous-Claude. Shadow models auto-wire onto every
+  strategy's predictor list and log to
+  `runtime_logs/shadow_predictions.jsonl` with zero effect on the
+  order package. See
+  [`docs/claude/trainer-vm-mode.md`](claude/trainer-vm-mode.md) § 5
   for the full step-by-step.
 - AI output cannot bypass risk caps, broker validation, or
   mission-aware account restrictions.

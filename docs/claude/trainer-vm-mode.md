@@ -17,11 +17,27 @@ in the same chain of actions.
 
 The live trader's trust contract is conservative because every
 mutation has direct money-at-risk consequences. The trainer VM has
-**no path to live influence on its own** — the live VM's `Coordinator`
-only loads shadow models that the operator has wired into
-`config/strategies.yaml` via the `shadow_model_ids` field. Until that
-YAML edit lands and the live VM reloads, anything written to the
-model registry is just metadata.
+**no path to live order influence on its own**. As of the 2026-05-19
+shadow-default flip the boundary is the **stage gate**, not the
+YAML wire-up:
+
+- Models registered at `target_deployment_stage: shadow` (the
+  current default) auto-wire onto every strategy via
+  `Coordinator._get_shadow_predictors`. They log predictions to
+  `runtime_logs/shadow_predictions.jsonl` on every signal but
+  **never change the order package** — that's the WS7
+  non-negotiable.
+- Models at `advisory` / `limited_live` / `live_approved` are the
+  only stages that can influence the order package. Promotion
+  past `shadow` requires operator approval — that's the live-
+  trading switch.
+- Models at `research_only` / `candidate` / `backtest_approved`
+  are refused by the shadow factory entirely. These stages exist
+  as explicit operator-demotion parks, not as the default path.
+
+A strategy can opt out of auto-wire by setting
+`shadow_model_ids: []` in its YAML; a non-empty list pins specific
+ids. Missing/None triggers auto-wire.
 
 That separation lets Claude run the trainer autonomously without
 risking the live trader, which is the point of the two-VM topology
@@ -108,9 +124,10 @@ artifact in the same PR / pushes the JSONL line in the same step.
   `limited_live` or `live_approved`, Claude additionally writes
   a sprint-log entry under `docs/sprint-logs/S-AI-WS5-PROMOTION-*`
   with: model id, dataset hash, eval metrics, the decision rule
-  that justified the promotion, and a "live wiring still
-  operator-gated" reminder pointing to the `shadow_model_ids`
-  YAML.
+  that justified the promotion, and a "still operator-gated"
+  reminder for any promotion past `shadow` (the `shadow → advisory`
+  edge is where live influence begins, per the 2026-05-19 default
+  flip).
 - **Workflow dispatch:** when Claude fires
   `provision-training-vm`, `vm-web-api-recover`, or any other
   trainer-scoped workflow, the issue body it authors counts as
@@ -130,15 +147,17 @@ The trainer's autonomous authority **does not** extend to:
   the live VM, edits to `/etc/ict-trader/`, edits to live unit files
   — is **Tier 3** under [`vm-operator-mode.md`](vm-operator-mode.md)
   and remains there.
-- **Strategy YAML wiring on the live VM.** `config/strategies.yaml`
+- **Strategy YAML edits on the live VM.** `config/strategies.yaml`
   is checked into the repo, but the *deployed* copy on the live VM
-  is what the live `Coordinator` reads. Adding a `shadow_model_ids`
-  entry, even via a PR, is a live-trading decision: the operator
-  reviews + merges + the live VM pulls + restarts. Claude can
-  *propose* the edit in a PR, but **never** merge it to `main`
-  itself. PRs that touch `config/strategies.yaml` or
-  `config/accounts.yaml` are marked draft + operator-review-required
-  in the PR body.
+  is what the live `Coordinator` reads. Since the 2026-05-19
+  shadow-default flip the YAML no longer controls *whether* shadow
+  predictions log (auto-wire handles that), but every other
+  parameter in the file — risk_pct, timeframes, gate thresholds,
+  shadow opt-out via `shadow_model_ids: []`, or pinning a specific
+  list — is still a live-trading decision. Claude can *propose* an
+  edit in a PR, but **never** merge it to `main` itself. PRs that
+  touch `config/strategies.yaml` or `config/accounts.yaml` are
+  marked draft + operator-review-required in the PR body.
 - **Risk caps / account flags.** `config/risk_caps.yaml`,
   `config/accounts.yaml` `mode` field flips (`live ↔ dry_run`),
   exchange API keys, JWT signing keys — all immutable from the
@@ -164,22 +183,26 @@ The trainer's autonomous authority **does not** extend to:
 
 ## 5. Promotion-to-live workflow (the one place autonomy meets caution)
 
-The promotion ladder is Claude's to manage end-to-end on the
-registry side. The live-trading wiring is the operator's.
+Updated 2026-05-19 (shadow-default flip). The promotion ladder is
+Claude's to manage end-to-end on the registry side up to `shadow`.
+The `shadow → advisory` transition (and every step beyond) is the
+operator-approved gate where autonomy ends.
 
 | Step | Actor | Why |
 |---|---|---|
 | Train + eval a model | Claude (trainer) | Pure trainer workload. |
-| Register at `research_only` / `candidate` / `backtest_approved` | Claude (trainer) | Metadata only. |
-| Promote to `shadow` | Claude (trainer) | Eligible to load; no live influence. |
-| Promote to `advisory` | Claude (trainer) | Eligible to surface in dashboard panels; still no live influence. |
-| Promote to `limited_live` / `live_approved` | Claude (trainer) | Metadata only — the registry stage doesn't wire the model anywhere. Sprint-log entry mandatory (§ 3.b). |
-| Add model id to `shadow_model_ids` in a strategy's YAML | Operator (live VM) | This is the live-trading switch. PR proposing the edit is fine; merging it is not. |
-| Reload the live `Coordinator` to pick up the new YAML | Operator (Telegram `/vm_write` or `operator-actions.yml` `restart-bot-service`) | Live-VM action, Tier 2. |
+| Register at `shadow` (the default since 2026-05-19) | Claude (trainer) | Auto-wired onto every strategy via `Coordinator._get_shadow_predictors` on the next reload; predictions log but never influence the order package. |
+| Register at `research_only` / `candidate` / `backtest_approved` (only when explicitly demoted) | Claude (trainer) | Operator-park stages — refused by the shadow factory; predictions don't log. |
+| Promote `shadow → advisory` | Operator-approved (Claude proposes via PR + sprint-log entry) | **This is the live-trading switch.** `advisory` and higher stages can influence the order package. Sprint-log entry mandatory (§ 3.b). |
+| Promote `advisory → limited_live → live_approved` | Operator-approved (same flow) | Further along the live-influence ladder. |
+| (Optional) Pin or opt-out via `shadow_model_ids` in a strategy YAML | Operator (live VM) | Override the auto-wire default for a specific strategy. PR proposing the edit is fine; merging it requires operator approval per § 4. |
+| Reload the live `Coordinator` to pick up registry or YAML changes | Operator (Telegram `/vm_write` or `operator-actions.yml` `restart-bot-service` / `pull-and-deploy`) | Live-VM action, Tier 2. |
 
-The boundary is the YAML, not the registry. A `live_approved` model
-that's not in any strategy's `shadow_model_ids` list influences
-nothing.
+The boundary is the stage, not the YAML. A `shadow` model
+auto-wires onto every strategy with no manual YAML edit; a model
+at `research_only` / `candidate` / `backtest_approved` is refused
+even if pinned. Operator approval lives at the `shadow → advisory`
+transition.
 
 ---
 
