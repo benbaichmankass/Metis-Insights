@@ -157,6 +157,14 @@ COMPARE_CONFIGS: list[dict[str, Any]] = [
 # the current live default (1.0σ).
 THRESHOLD_SWEEP: list[float] = [0.8, 1.0, 1.2, 1.5, 2.0]
 
+# Strategy-parameter sweep grid (Sprint S-VWAP-PARAM-SWEEP, 2026-05-19).
+# Triggered by --param-sweep; runs all ENTRY × SL combinations so the
+# next session can identify a winning (ENTRY, SL) pair before proposing a
+# Tier-3 change to vwap.py constants. Values bracket the live defaults
+# (1.0σ / 0.5σ) and the backtest-optimal points documented in vwap.py.
+PARAM_SWEEP_ENTRY: list[float] = [0.8, 1.0, 1.2, 1.5]
+PARAM_SWEEP_SL: list[float] = [0.3, 0.5, 0.7]
+
 
 def _resample_to_htf(m5_df: pd.DataFrame, htf_timeframe: str) -> pd.DataFrame:
     """Resample an M5 OHLCV DataFrame to a higher timeframe.
@@ -289,6 +297,7 @@ def run_single(
     band_pct: float = 0.02,
     label: str = "",
     start_bar: int = 0,
+    sl_std_mult: float | None = None,
 ) -> dict[str, Any]:
     """Run the VWAP backtest with one HTF config.
 
@@ -339,6 +348,7 @@ def run_single(
             htf_close=htf_close,
             htf_ema=htf_ema_val,
             htf_band_pct=band_pct if use_htf else 0.02,
+            **({"sl_std_mult": sl_std_mult} if sl_std_mult is not None else {}),
         )
 
         if signal.get("side") == "none":
@@ -356,6 +366,8 @@ def run_single(
             trades.append(trade)
             in_trade_until = i + trade["duration_bars"]
 
+    long_trades = [t for t in trades if t["direction"] == "long"]
+    short_trades = [t for t in trades if t["direction"] == "short"]
     if trades:
         r_vals = [t["pnl_r"] for t in trades]
         wins = sum(1 for r in r_vals if r > 0)
@@ -369,10 +381,16 @@ def run_single(
             else 0.0,
             3,
         )
+        total_r_long = round(sum(t["pnl_r"] for t in long_trades), 2)
+        total_r_short = round(sum(t["pnl_r"] for t in short_trades), 2)
+        wins_long = sum(1 for t in long_trades if t["pnl_r"] > 0)
+        wins_short = sum(1 for t in short_trades if t["pnl_r"] > 0)
     else:
         wins = 0
         total_r = avg_r = win_rate = sharpe_r = 0.0
         exit_reasons = {}
+        total_r_long = total_r_short = 0.0
+        wins_long = wins_short = 0
 
     cfg_label = (
         f"{htf_timeframe} EMA-{ema_period}" if use_htf else "no HTF filter"
@@ -388,10 +406,16 @@ def run_single(
         "start_date": str(df["timestamp"].iloc[0].date()),
         "end_date": str(df["timestamp"].iloc[-1].date()),
         "total_trades": len(trades),
+        "trades_long": len(long_trades),
+        "trades_short": len(short_trades),
         "wins": wins,
+        "wins_long": wins_long,
+        "wins_short": wins_short,
         "losses": len(trades) - wins,
         "win_rate_pct": win_rate,
         "total_r": total_r,
+        "total_r_long": total_r_long,
+        "total_r_short": total_r_short,
         "avg_r_per_trade": avg_r,
         "sharpe_r": sharpe_r,
         "htf_blocked_count": blocked_count,
@@ -516,6 +540,7 @@ def run_windows(
     seed: int = 42,
     recent_only_frac: float = 1.0,
     adaptive: bool = False,
+    sl_std_mult: float | None = None,
 ) -> dict[str, Any]:
     """Run the backtest over N random windows and return aggregate stats.
 
@@ -575,6 +600,7 @@ def run_windows(
             band_pct=band_pct,
             label=label or cfg_label,
             start_bar=WARMUP_BARS,
+            sl_std_mult=sl_std_mult,
         )
         # Classify regime on the TRADING portion (skip warmup) so the
         # label reflects what the strategy actually faced, not the
@@ -599,9 +625,11 @@ def run_windows(
                 r = {
                     **r,
                     "label": f"adaptive (SKIP {regime['regime']})",
-                    "total_trades": 0, "wins": 0, "losses": 0,
+                    "total_trades": 0, "trades_long": 0, "trades_short": 0,
+                    "wins": 0, "wins_long": 0, "wins_short": 0, "losses": 0,
                     "win_rate_pct": None,
-                    "total_r": 0.0, "avg_r_per_trade": 0.0,
+                    "total_r": 0.0, "total_r_long": 0.0, "total_r_short": 0.0,
+                    "avg_r_per_trade": 0.0,
                     "sharpe_r": 0.0,
                     "exit_reasons": {},
                     "adaptive_skipped": True,
@@ -629,6 +657,7 @@ def run_windows(
                         band_pct=band_pct,
                         label=f"adaptive ({regime['regime']} @ {pol['threshold']}σ)",
                         start_bar=WARMUP_BARS,
+                        sl_std_mult=sl_std_mult,
                     )
                 finally:
                     _vwap_mod.ENTRY_STD_THRESHOLD = _original
@@ -640,6 +669,8 @@ def run_windows(
 
     sharpe_vals = [r["sharpe_r"] for r in window_results]
     total_r_vals = [r["total_r"] for r in window_results]
+    total_r_long_vals = [r.get("total_r_long", 0.0) for r in window_results]
+    total_r_short_vals = [r.get("total_r_short", 0.0) for r in window_results]
     # Adaptive mode marks skipped windows as ``win_rate_pct=None`` (no
     # trades taken means win-rate is undefined, not 0). Filter for
     # aggregation; ``statistics.mean`` chokes on ``None``.
@@ -659,12 +690,16 @@ def run_windows(
     per_regime_stats = []
     for reg, items in sorted(by_regime.items()):
         rs = [it["total_r"] for it in items]
+        rs_long = [it.get("total_r_long", 0.0) for it in items]
+        rs_short = [it.get("total_r_short", 0.0) for it in items]
         sharpes = [it["sharpe_r"] for it in items]
         wrs = [it["win_rate_pct"] for it in items if it.get("win_rate_pct") is not None]
         per_regime_stats.append({
             "regime": reg,
             "n_windows": len(items),
             "mean_total_r": round(statistics.mean(rs), 2),
+            "mean_total_r_long": round(statistics.mean(rs_long), 2),
+            "mean_total_r_short": round(statistics.mean(rs_short), 2),
             "mean_sharpe": round(statistics.mean(sharpes), 3),
             "mean_win_rate_pct": round(statistics.mean(wrs), 1) if wrs else None,
             "positive_windows": sum(1 for v in rs if v > 0),
@@ -688,6 +723,8 @@ def run_windows(
         "min_sharpe": round(min(sharpe_vals), 3),
         "max_sharpe": round(max(sharpe_vals), 3),
         "mean_total_r": round(statistics.mean(total_r_vals), 2),
+        "mean_total_r_long": round(statistics.mean(total_r_long_vals), 2),
+        "mean_total_r_short": round(statistics.mean(total_r_short_vals), 2),
         "mean_win_rate_pct": (
             round(statistics.mean(win_rate_vals), 1) if win_rate_vals else None
         ),
@@ -738,6 +775,35 @@ def main(argv: list[str]) -> int:
             "per-regime entry threshold (or skip) from "
             "``src/units/strategies/vwap_policy.py``. Mutually exclusive "
             "with --compare and --threshold-sweep."
+        ),
+    )
+    parser.add_argument(
+        "--param-sweep",
+        action="store_true",
+        help=(
+            "Sweep ENTRY × SL across PARAM_SWEEP_ENTRY × PARAM_SWEEP_SL grids "
+            "(no HTF gate). Mutually exclusive with --compare, --threshold-sweep, "
+            "and --adaptive."
+        ),
+    )
+    parser.add_argument(
+        "--entry-threshold",
+        type=float,
+        default=None,
+        metavar="SIGMA",
+        help=(
+            "Override ENTRY_STD_THRESHOLD for a single run (default: use "
+            "module constant). Ignored by --param-sweep (which sweeps its own grid)."
+        ),
+    )
+    parser.add_argument(
+        "--sl-mult",
+        type=float,
+        default=None,
+        metavar="SIGMA",
+        help=(
+            "Override sl_std_mult for a single run (default: use "
+            "SL_STD_MULT_DEFAULT). Ignored by --param-sweep (which sweeps its own grid)."
         ),
     )
     parser.add_argument("--label", default="", help="Label for the run")
@@ -829,10 +895,10 @@ def main(argv: list[str]) -> int:
         use_windows = args.windows > 0
 
         if sum(bool(x) for x in (args.compare, args.threshold_sweep,
-                                   args.adaptive)) > 1:
+                                   args.adaptive, args.param_sweep)) > 1:
             sys.stderr.write(
-                "--compare / --threshold-sweep / --adaptive are mutually "
-                "exclusive\n"
+                "--compare / --threshold-sweep / --adaptive / --param-sweep "
+                "are mutually exclusive\n"
             )
             return 1
 
@@ -854,6 +920,50 @@ def main(argv: list[str]) -> int:
                 recent_only_frac=args.recent_only_frac,
                 adaptive=True,
             )
+        elif args.param_sweep:
+            # Monkey-patch ENTRY_STD_THRESHOLD per row; pass sl_std_mult
+            # directly to run_single/run_windows (no monkey-patch needed
+            # — sl_std_mult is already a named parameter of build_vwap_signal).
+            from src.units.strategies import vwap as _vwap_mod
+            original_threshold = _vwap_mod.ENTRY_STD_THRESHOLD
+            results = []
+            try:
+                for entry_thr in PARAM_SWEEP_ENTRY:
+                    _vwap_mod.ENTRY_STD_THRESHOLD = entry_thr
+                    _vwap_mod._ENTRY_STD_THRESHOLD = entry_thr
+                    for sl_mult in PARAM_SWEEP_SL:
+                        combo_label = f"entry {entry_thr}σ sl {sl_mult}σ"
+                        print(f"Running: {combo_label} …", file=sys.stderr)
+                        if use_windows:
+                            r = run_windows(
+                                df,
+                                n_windows=args.windows,
+                                window_days=args.window_days,
+                                htf_timeframe=None,
+                                ema_period=None,
+                                band_pct=0.02,
+                                label=combo_label,
+                                seed=args.seed,
+                                recent_only_frac=args.recent_only_frac,
+                                sl_std_mult=sl_mult,
+                            )
+                        else:
+                            r = run_single(
+                                df,
+                                htf_timeframe=None,
+                                ema_period=None,
+                                band_pct=0.02,
+                                label=combo_label,
+                                sl_std_mult=sl_mult,
+                            )
+                        r["entry_std_threshold"] = entry_thr
+                        r["sl_std_mult"] = sl_mult
+                        results.append(r)
+            finally:
+                _vwap_mod.ENTRY_STD_THRESHOLD = original_threshold
+                _vwap_mod._ENTRY_STD_THRESHOLD = original_threshold
+            key = "param_sweep_window" if use_windows else "param_sweep"
+            output: dict[str, Any] = {key: results}
         elif args.threshold_sweep:
             # Monkey-patch the module-level threshold for each iteration.
             # Restore after the sweep so the rest of the process (and any
@@ -925,28 +1035,40 @@ def main(argv: list[str]) -> int:
             key = "window_comparison" if use_windows else "comparison"
             output: dict[str, Any] = {key: results}
         else:
+            from src.units.strategies import vwap as _vwap_mod
+            _orig_thr = _vwap_mod.ENTRY_STD_THRESHOLD
+            if args.entry_threshold is not None:
+                _vwap_mod.ENTRY_STD_THRESHOLD = args.entry_threshold
+                _vwap_mod._ENTRY_STD_THRESHOLD = args.entry_threshold
             htf_tf = None if args.no_htf else args.htf_timeframe
             ema_p = None if args.no_htf else args.ema_period
-            if use_windows:
-                output = run_windows(
-                    df,
-                    n_windows=args.windows,
-                    window_days=args.window_days,
-                    htf_timeframe=htf_tf,
-                    ema_period=ema_p,
-                    band_pct=args.band_pct,
-                    label=args.label,
-                    seed=args.seed,
-                    recent_only_frac=args.recent_only_frac,
-                )
-            else:
-                output = run_single(
-                    df,
-                    htf_timeframe=htf_tf,
-                    ema_period=ema_p,
-                    band_pct=args.band_pct,
-                    label=args.label,
-                )
+            try:
+                if use_windows:
+                    output = run_windows(
+                        df,
+                        n_windows=args.windows,
+                        window_days=args.window_days,
+                        htf_timeframe=htf_tf,
+                        ema_period=ema_p,
+                        band_pct=args.band_pct,
+                        label=args.label,
+                        seed=args.seed,
+                        recent_only_frac=args.recent_only_frac,
+                        sl_std_mult=args.sl_mult,
+                    )
+                else:
+                    output = run_single(
+                        df,
+                        htf_timeframe=htf_tf,
+                        ema_period=ema_p,
+                        band_pct=args.band_pct,
+                        label=args.label,
+                        sl_std_mult=args.sl_mult,
+                    )
+            finally:
+                if args.entry_threshold is not None:
+                    _vwap_mod.ENTRY_STD_THRESHOLD = _orig_thr
+                    _vwap_mod._ENTRY_STD_THRESHOLD = _orig_thr
     except Exception as exc:
         sys.stderr.write(f"{type(exc).__name__}: {exc}\n")
         traceback.print_exc(file=sys.stderr)
@@ -975,6 +1097,8 @@ def _print_regime_coverage(output: dict[str, Any], n_windows: int) -> None:
         configs = output["window_comparison"]
     elif "threshold_window_comparison" in output:
         configs = output["threshold_window_comparison"]
+    elif "param_sweep_window" in output:
+        configs = output["param_sweep_window"]
     elif "windows" in output:
         configs = [output]
     if not configs or not isinstance(configs, list):
@@ -1026,13 +1150,20 @@ def _print_regime_coverage(output: dict[str, Any], n_windows: int) -> None:
     for cfg in configs:
         label = (cfg.get("label") or "?")[:34]
         overall = cfg.get("mean_total_r", 0)
+        overall_l = cfg.get("mean_total_r_long")
+        overall_s = cfg.get("mean_total_r_short")
         by_reg = cfg.get("by_regime") or []
         reg_str = "  ".join(
             f"{r['regime'].split('/')[0][:6]}={r['mean_total_r']:+.1f}"
             f"(n={r['n_windows']})"
             for r in by_reg
         )
-        print(f"  {label:<35}  {overall:+8.2f}  {reg_str}",
+        ls_str = (
+            f"  L:{overall_l:+.2f} S:{overall_s:+.2f}"
+            if overall_l is not None and overall_s is not None
+            else ""
+        )
+        print(f"  {label:<35}  {overall:+8.2f}{ls_str}  {reg_str}",
               file=sys.stderr)
 
 
