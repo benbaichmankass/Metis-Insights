@@ -113,6 +113,74 @@ def coord(tmp_path):
     )
 
 
+class TestShadowLogPathResolution:
+    """2026-05-19: the coordinator resolves the shadow audit log
+    path through ``runtime_logs_dir()`` so the trader writes to the
+    same canonical location ``trade_scores.py`` reads from.
+
+    Pre-fix, both helpers SAID they shared a path
+    (``runtime_logs/shadow_predictions.jsonl``) but the factory's
+    relative ``DEFAULT_LOG_PATH`` resolved against the trader's CWD
+    (``/home/ubuntu/ict-trading-bot/``) while the endpoint used
+    ``runtime_logs_dir()`` (DATA_DIR-anchored,
+    ``/data/bot-data/runtime_logs/``). Symptom: live
+    ``/api/bot/trades/scores`` returned ``log_present: False`` even
+    though predictions were firing.
+    """
+
+    def test_uses_runtime_logs_dir_when_cfg_unset(
+        self, tmp_path, coord, monkeypatch,
+    ):
+        # Point ``runtime_logs_dir`` at a known tmp location via
+        # the canonical RUNTIME_LOGS_DIR env override, register a
+        # shadow-stage model, and verify the resolved log path lands
+        # under that directory — proving the fix routes through
+        # ``runtime_logs_dir()``.
+        target = tmp_path / "canonical_runtime_logs"
+        target.mkdir()
+        monkeypatch.setenv("RUNTIME_LOGS_DIR", str(target))
+
+        registry_root = _register_models(tmp_path, ["m-canonical"])
+        for s in coord.list_strategies():
+            if isinstance(s, dict) and s.get("name") == "turtle_soup":
+                s["_shadow_registry_root"] = str(registry_root)
+                # Crucially: NO _shadow_log_path override. The
+                # coordinator must fall back to runtime_logs_dir().
+                s.pop("shadow_model_ids", None)
+                s.pop("_shadow_log_path", None)
+                break
+
+        predictors = coord._get_shadow_predictors("turtle_soup")
+        assert len(predictors) == 1
+        # The ShadowPredictor's `_log_path` is the resolved path
+        # the trader will write to on the next signal.
+        resolved = predictors[0]._log_path  # noqa: SLF001
+        assert resolved == target / "shadow_predictions.jsonl"
+
+    def test_explicit_cfg_path_still_wins(
+        self, tmp_path, coord, monkeypatch,
+    ):
+        # Operator-pinned `_shadow_log_path` must override the
+        # `runtime_logs_dir()` default — the runtime / test escape
+        # hatch is preserved.
+        target = tmp_path / "ignored_default"
+        target.mkdir()
+        monkeypatch.setenv("RUNTIME_LOGS_DIR", str(target))
+        pinned = tmp_path / "operator_pinned.jsonl"
+
+        registry_root = _register_models(tmp_path, ["m-canonical"])
+        for s in coord.list_strategies():
+            if isinstance(s, dict) and s.get("name") == "turtle_soup":
+                s["_shadow_registry_root"] = str(registry_root)
+                s["_shadow_log_path"] = str(pinned)
+                s.pop("shadow_model_ids", None)
+                break
+
+        predictors = coord._get_shadow_predictors("turtle_soup")
+        assert len(predictors) == 1
+        assert predictors[0]._log_path == pinned  # noqa: SLF001
+
+
 class TestShadowPredictorCache:
     def test_no_shadow_models_in_registry_returns_empty(self, coord):
         # turtle_soup has no shadow_model_ids in the fixture YAML.
