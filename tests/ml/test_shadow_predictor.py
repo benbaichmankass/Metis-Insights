@@ -53,19 +53,60 @@ class TestShadowPredictor:
         assert lines[0]["row_keys"] == ["setup_type", "strategy_name"]
         assert lines[1]["row_keys"] == ["setup_type", "strategy_name"]
 
-    def test_does_not_capture_row_values(self, tmp_path: Path):
-        # The audit log records row KEYS only, not values. Operators
-        # shouldn't be able to accidentally leak account state or
-        # PII into the audit by virtue of the model seeing it.
+    def test_captures_feature_row_values(self, tmp_path: Path):
+        # 2026-05-19: the audit log now carries the full feature_row
+        # values dict alongside `row_keys`. This is the field the
+        # trades↔scores join uses to attach a confidence score to the
+        # right trade (matching by symbol when present).
+        log = tmp_path / "audit.jsonl"
+        inner = _FakePredictor(score=0.65)
+        shadow = ShadowPredictor(
+            inner, model_id="m-1", stage="shadow", log_path=log,
+        )
+        shadow.predict({
+            "strategy_name": "vwap",
+            "symbol": "BTCUSDT",
+            "direction": "buy",
+            "confidence": 0.5,
+            "setup_type": "vwap_revert",
+        })
+        entry = json.loads(log.read_text().strip())
+        assert entry["feature_row"] == {
+            "strategy_name": "vwap",
+            "symbol": "BTCUSDT",
+            "direction": "buy",
+            "confidence": 0.5,
+            "setup_type": "vwap_revert",
+        }
+
+    def test_non_json_serializable_row_values_coerced_to_str(
+        self, tmp_path: Path,
+    ):
+        # A predictor row may carry non-builtin types — datetime, an
+        # enum, a numpy scalar. Coerce to str so a single odd value
+        # doesn't crash the audit-log write. The score is the
+        # load-bearing field; the context dict is nice-to-have.
+        from datetime import datetime, timezone
+
         log = tmp_path / "audit.jsonl"
         inner = _FakePredictor(score=0.5)
         shadow = ShadowPredictor(
             inner, model_id="m-1", stage="shadow", log_path=log,
         )
-        secret = "VELOTRADE_API_KEY_SECRET_DO_NOT_LOG"
-        shadow.predict({"public_feature": 1, "api_key": secret})
-        contents = log.read_text()
-        assert secret not in contents
+        ts = datetime(2026, 5, 19, 12, 0, tzinfo=timezone.utc)
+        shadow.predict({
+            "strategy_name": "vwap",
+            "signal_ts": ts,            # datetime → str
+            "tags": ("ny", "open"),     # tuple → str
+            "raw_count": 7,             # int passes through
+        })
+        entry = json.loads(log.read_text().strip())
+        # JSON-safe primitives survive intact.
+        assert entry["feature_row"]["strategy_name"] == "vwap"
+        assert entry["feature_row"]["raw_count"] == 7
+        # Non-primitive values get str()-coerced rather than dropped.
+        assert "2026-05-19" in entry["feature_row"]["signal_ts"]
+        assert "ny" in entry["feature_row"]["tags"]
 
     def test_creates_parent_dir(self, tmp_path: Path):
         log = tmp_path / "nested" / "deep" / "audit.jsonl"
