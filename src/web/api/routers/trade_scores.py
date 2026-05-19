@@ -35,6 +35,13 @@ _DB_PATH = Path(os.environ.get("TRADE_JOURNAL_DB", str(_REPO_ROOT / "trade_journ
 # Aligned with the WS7 shadow-predictions writer (which respects
 # runtime_logs_dir()).
 _SHADOW_LOG = runtime_logs_dir() / "shadow_predictions.jsonl"
+# Retroactive-decision backfill (2026-05-19): one-shot output of
+# `python -m ml backfill-shadow-predictions`, scoring every
+# historical trade with every shadow-stage model. Optional —
+# absent means no backfill has been run yet.
+_SHADOW_BACKFILL_LOG = (
+    runtime_logs_dir() / "shadow_predictions_backfill.jsonl"
+)
 
 
 def _parse_iso(raw: Any) -> datetime | None:
@@ -101,17 +108,28 @@ def _load_trade_windows(limit: int, include_open: bool) -> list[dict[str, Any]]:
 
 
 def _shadow_records_safe() -> list:
-    if not _SHADOW_LOG.exists():
-        return []
-    try:
-        return list(iter_records(_SHADOW_LOG))
-    except (OSError, ValueError):
-        # OSError = file read failure (permissions, missing midway through tail).
-        # ValueError = inspector's malformed-record signal. Both are
-        # legitimate "no data this tick"; the endpoint stays best-effort and
-        # the dashboard shows an em-dash per trade.
-        logger.exception("trade_scores: failed to read shadow predictions log")
-        return []
+    # Read the real-time log plus the optional retroactive-decision
+    # backfill log written by `python -m ml backfill-shadow-predictions`
+    # (added 2026-05-19). Backfill records carry `backfill_kind` +
+    # `trade_id` so the JOIN below can attach them deterministically
+    # to historical trades the real-time stream never scored. A
+    # missing backfill file is the common case — the endpoint stays
+    # zero-config.
+    out: list = []
+    for path in (_SHADOW_LOG, _SHADOW_BACKFILL_LOG):
+        if not path.exists():
+            continue
+        try:
+            out.extend(iter_records(path))
+        except (OSError, ValueError):
+            # OSError = file read failure (permissions, missing midway through tail).
+            # ValueError = inspector's malformed-record signal. Both are
+            # legitimate "no data this tick"; the endpoint stays best-effort and
+            # the dashboard shows an em-dash per trade.
+            logger.exception(
+                "trade_scores: failed to read shadow log %s", path,
+            )
+    return out
 
 
 @router.get("/scores")
@@ -127,22 +145,34 @@ def get_trade_scores(
         window_end = t["closed_at"] or now
         window_start = t["opened_at"]
         trade_symbol = t.get("symbol")
+        trade_id_str = str(t.get("id") or "")
         # Group records by model_id and keep first/last/min/max/mean/count.
         per_model: dict[str, dict[str, Any]] = {}
         for r in shadow:
-            if r.predicted_at_utc < window_start or r.predicted_at_utc > window_end:
-                continue
-            # 2026-05-19: when the shadow record carries the
-            # signal-time `feature_row.symbol`, require it to match the
-            # trade's symbol. This stops a vwap BTCUSDT prediction from
-            # being credited to an ETHUSDT turtle_soup trade just
-            # because their open windows happened to overlap. Older
-            # records (without `feature_row`) fall back to the
-            # window-only join — no regression.
-            if r.feature_row is not None and trade_symbol is not None:
-                record_symbol = r.feature_row.get("symbol")
-                if record_symbol and record_symbol != trade_symbol:
+            # 2026-05-19 backfill: records emitted by
+            # `python -m ml backfill-shadow-predictions` carry
+            # `trade_id`. When present, join directly to that trade —
+            # the synthetic `predicted_at_utc` (set to run-time, not
+            # signal-time, per the chosen "now + retroactive_decision
+            # tag" semantics) wouldn't fall inside the historical
+            # trade's window otherwise.
+            if r.trade_id is not None:
+                if r.trade_id != trade_id_str:
                     continue
+            else:
+                if r.predicted_at_utc < window_start or r.predicted_at_utc > window_end:
+                    continue
+                # 2026-05-19: when the shadow record carries the
+                # signal-time `feature_row.symbol`, require it to match the
+                # trade's symbol. This stops a vwap BTCUSDT prediction from
+                # being credited to an ETHUSDT turtle_soup trade just
+                # because their open windows happened to overlap. Older
+                # records (without `feature_row`) fall back to the
+                # window-only join — no regression.
+                if r.feature_row is not None and trade_symbol is not None:
+                    record_symbol = r.feature_row.get("symbol")
+                    if record_symbol and record_symbol != trade_symbol:
+                        continue
             slot = per_model.setdefault(
                 r.model_id,
                 {
@@ -156,6 +186,12 @@ def get_trade_scores(
                     "score_sum": 0.0,
                     "first_ts": None,
                     "last_ts": None,
+                    # If ANY record in this slot is a backfill record,
+                    # the dashboard renders the score with a
+                    # "retroactive decision" annotation. Real-time
+                    # records leave `backfill_kind` None which serializes
+                    # to JSON null.
+                    "backfill_kind": None,
                 },
             )
             slot["count"] += 1
@@ -168,6 +204,8 @@ def get_trade_scores(
             if slot["last_ts"] is None or r.predicted_at_utc > slot["last_ts"]:
                 slot["last_ts"] = r.predicted_at_utc
                 slot["score_last"] = r.score
+            if r.backfill_kind and slot["backfill_kind"] is None:
+                slot["backfill_kind"] = r.backfill_kind
         scores_out = []
         for slot in per_model.values():
             scores_out.append({
@@ -181,6 +219,7 @@ def get_trade_scores(
                 "score_mean": slot["score_sum"] / slot["count"] if slot["count"] else None,
                 "first_ts": slot["first_ts"].isoformat() if slot["first_ts"] else None,
                 "last_ts": slot["last_ts"].isoformat() if slot["last_ts"] else None,
+                "backfill_kind": slot["backfill_kind"],
             })
         scores_out.sort(key=lambda s: s["model_id"])
         out_trades.append({
@@ -194,6 +233,8 @@ def get_trade_scores(
     return {
         "log_present": _SHADOW_LOG.is_file(),
         "log_path": str(_SHADOW_LOG),
+        "backfill_log_present": _SHADOW_BACKFILL_LOG.is_file(),
+        "backfill_log_path": str(_SHADOW_BACKFILL_LOG),
         "shadow_record_count": len(shadow),
         "trades": out_trades,
     }

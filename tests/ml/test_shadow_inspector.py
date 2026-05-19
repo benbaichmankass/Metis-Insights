@@ -107,6 +107,30 @@ class TestRecordFromDict:
         assert r.feature_row is None
         assert r.score == pytest.approx(0.5)
 
+    def test_backfill_kind_and_trade_id_round_trip(self):
+        # 2026-05-19: backfill records carry `backfill_kind` +
+        # `trade_id`. The inspector parses them as optional strs.
+        raw = _record()
+        raw["backfill_kind"] = "retroactive_decision"
+        raw["trade_id"] = "1234"
+        r = record_from_dict(raw)
+        assert r.backfill_kind == "retroactive_decision"
+        assert r.trade_id == "1234"
+
+    def test_backfill_fields_default_none(self):
+        # Real-time records (no backfill metadata) parse with the new
+        # fields set to None — backward-compat with logs written
+        # before the field existed.
+        r = record_from_dict(_record())
+        assert r.backfill_kind is None
+        assert r.trade_id is None
+
+    def test_empty_string_trade_id_normalizes_to_none(self):
+        raw = _record()
+        raw["trade_id"] = ""
+        r = record_from_dict(raw)
+        assert r.trade_id is None
+
 
 class TestIterRecords:
     def test_missing_file_returns_empty_iter(self, tmp_path):
