@@ -8,17 +8,25 @@ run in shadow mode at all.
 
 Stage gate (`LIVE_INFLUENCE_STAGES`):
 
-- `shadow`              ✅ allowed — that's the whole point.
+- `shadow`              ✅ allowed — the default stage for any
+                         registered model (2026-05-19 default
+                         flip). Auto-wires onto every strategy
+                         via `discover_shadow_stage_model_ids()`
+                         + `Coordinator._get_shadow_predictors`
+                         when the strategy YAML omits
+                         `shadow_model_ids`.
 - `advisory`            ✅ allowed — advisory mode displays the
                          score; running it as a shadow side-channel
                          is a strict subset.
 - `limited_live`        ✅ allowed — same reasoning.
 - `live_approved`       ✅ allowed — running an approved model in
                          shadow against another strategy is fine.
-- `research_only`       ❌ refused — model has not been promoted
-                         past the leakage / walk-forward gates.
+- `research_only`       ❌ refused — operator-parked. Pre-shadow
+                         stages now exist only as explicit
+                         demotion targets; they are not the
+                         default registration state.
 - `candidate`           ❌ refused — same.
-- `backtest_approved`   ❌ refused — backtest is not yet shadow.
+- `backtest_approved`   ❌ refused — same.
 
 Refusal raises `ShadowFactoryError`. Per-model errors are
 collected when `resolve_predictors()` is called with multiple ids

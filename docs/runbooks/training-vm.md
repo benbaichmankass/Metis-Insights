@@ -26,11 +26,13 @@ trader process. The Always Free Ampere A1 tier gives us 4 OCPU /
 spare for a third side-car if needed.
 
 The split is also the foundation of the [trainer-VM autonomous
-authority](../claude/trainer-vm-mode.md): because the trainer has
-no path to influence live trades on its own (the live VM only
-loads models that the operator has wired into a strategy's
-`shadow_model_ids` YAML field), Claude operates the trainer
-without the live-VM trust contract's restrictions.
+authority](../claude/trainer-vm-mode.md): the trainer has no path
+to live order influence on its own. As of the 2026-05-19 shadow-
+default flip the gate is the **stage**, not the YAML — models at
+`shadow` auto-wire and log predictions without changing order
+decisions; `advisory` and higher stages are the only ones that
+influence orders, and the `shadow → advisory` promotion is
+operator-approved.
 
 ## What ships when you provision
 
@@ -192,17 +194,20 @@ What it does (per JSONL audit row in
   `EXPERIMENTS_ROOT`, `REGISTRY_ROOT` — paths, see the script's
   header docstring for defaults.
 
-**Idempotency note:** every run produces a fresh set of model_ids
-(the registry is append-only by WS4 rule). Don't run this twice by
-accident — the trainer ends up with N×9 baseline rows, all at
-`shadow`. The next operator-side step (adding to `shadow_model_ids`
-in a strategy YAML on the live VM) is the chance to pick the
-intended row.
+**Idempotency note:** every run appends a new `RunRecord` to each
+manifest's existing entry (one entry per `model_id`, runs are
+accumulated). Don't worry about re-running by accident — the
+registry won't grow N×9 rows; you just get more runs under the same
+9 (or fewer) model_ids, with the newest run's metrics surfaced at
+the top level.
 
-After this completes, run `python -m ml list-models --status shadow`
-to see the registered set. The model_ids are what the operator
-copies into `config/strategies.yaml::shadow_model_ids` on the live
-VM to wire them in.
+After this completes, run `python -m ml list-models` (no `--status`
+filter; that flag is for the legacy WS4 status enum) to see the
+registered set. As of the 2026-05-19 shadow-default flip every
+registered model is automatically picked up by the auto-wire path
+on the live VM — no `shadow_model_ids` YAML edit required to start
+logging. Use `shadow_model_ids: [...]` only to pin specific models
+or to opt a strategy out entirely.
 
 ## Enable training cycles (autonomous-Claude)
 
