@@ -21,6 +21,7 @@ Operator quick-reference:
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -60,3 +61,17 @@ def list_paused_strategies() -> list[str]:
         for p in d.iterdir()
         if p.is_file() and p.name.startswith(prefix)
     )
+
+
+def _centralized_allocator_enabled(settings: dict) -> bool:
+    """Return True when the typed allocator path should shadow the dispatch.
+
+    Feature flag for S5 (M11 multi-strategy architecture). Default is
+    **false** — the live pipeline uses the existing path unchanged.
+    Operator opt-in: export CENTRALIZED_ALLOCATOR=true (or set it in
+    the settings dict). Shadow mode only: dispatch is unchanged until S6.
+    """
+    raw = settings.get("CENTRALIZED_ALLOCATOR") if isinstance(settings, dict) else None
+    if raw is None:
+        raw = os.environ.get("CENTRALIZED_ALLOCATOR", "false")
+    return str(raw).strip().lower() in {"true", "1", "yes", "on"}
