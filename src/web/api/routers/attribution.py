@@ -64,7 +64,7 @@ def get_net_positions(
     resolved_path = db_path or str(_DB_PATH)
     try:
         raw = net_positions_by_symbol(db_path=resolved_path)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001  # allow-silent: best-effort read; missing/corrupt DB must never 5xx the endpoint
         logger.warning("get_net_positions: read failed: %s", exc)
         raw = {}
 
@@ -119,7 +119,7 @@ def _query_attribution(db_path: Path) -> List[Dict[str, Any]]:
             ).fetchall()
         finally:
             conn.close()
-    except sqlite3.Error as exc:
+    except sqlite3.Error as exc:  # allow-silent: best-effort read; DB errors must never 5xx the attribution endpoint
         logger.warning("_query_attribution: db error: %s", exc)
         return []
 
