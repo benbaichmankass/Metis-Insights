@@ -1,86 +1,73 @@
 # Current Sprint Handoff
 
-**Roadmap:** `docs/sprint-plans/ROADMAP-2026-05-19.md`  
-**Last updated:** 2026-05-20 (Sprints 4–9 complete)
+**Roadmap:** `docs/sprint-plans/ROADMAP-MULTI-STRATEGY-REFACTOR-2026-05-20.md`  
+**Last updated:** 2026-05-20 (S-REFACTOR-S0 + S-REFACTOR-S1 complete)
 
 ---
 
-## STATUS: ALL SPRINTS COMPLETE — AWAITING BEN'S REVIEW
+## STATUS: AWAITING BEN'S REVIEW
 
 **LAST_COMPLETED (this session):**
-- Sprint 4 (S-VWAP-POLICY-LIVE-WIRE, 2026-05-20) — PR #1579 merged; policy gate live
-- Sprint 6 (S-TEST-CACHE-FLAKE-FIX, 2026-05-20) — PR #1580 merged; FU-20260519-003 closed
-- Sprint 5 (S-ML-REGIME-CLASSIFIER-FIX, 2026-05-20) — PR #1588 merged; FU-20260519-001 closed
-- Sprint 9 (S-BACKTEST-DOC-DRIFT-FIX, 2026-05-20) — PR #1592 merged; stale comments fixed
-- Sprint 7 (S-JANITOR-BRANCH-CLEANUP, 2026-05-20) — S-047-STATUS.md written; all branches accounted for
-- Sprint 8 (S-OPS-COMMENT-RACE-FIX, 2026-05-20) — draft PR open; two comment steps merged into one `if: always()` step; FU-20260518-003 closed; awaiting Ben's ack before merge
+- S-REFACTOR-S0 — Multi-strategy architecture planning docs created: phase roadmap, architecture target doc, sprint logs. ROADMAP.md updated with M11. (2026-05-20, Tier-1)
+- S-REFACTOR-S1 — Core abstractions scaffolded in `src/core/`: AccountProfile, InstrumentProfile, SignalPackage, OrderPackage, StrategyInterface, AllocatorInterface, PassthroughAllocator. Tests written. (2026-05-20, Tier-1)
+
+**OPEN ITEMS FROM PRIOR ROADMAP (`ROADMAP-2026-05-19.md`):**
+- Sprint 8 (S-OPS-COMMENT-RACE-FIX) — draft PR open; Ben's ack required before merge (Tier-2 CI workflow change)
+- PR #1026 (circuit breaker removal + linear perps margin fix) — Ben's approval required (Tier-3)
+- FU-20260518-001 — VWAP performance tracking post-policy-gate; monitoring only
 
 **READY_TO_CONTINUE:**
-1. Monitor `/health-review` for regime skip events (weak-up/low + sideways/low suppressed by Sprint 4 gate)
-2. Check FU-20260518-001 for long-side R improvement after policy gate live
-3. Merge Sprint 8 PR after Ben's ack (workflow change, Tier-2)
-4. Review PR #1026 (`no-auto-dry-flip-and-margin-cap`) — Prime Directive violation (circuit breaker) + linear perps margin fix; needs Ben's approval
+Next: **S-REFACTOR-S2** — Load `config/accounts.yaml` into typed `AccountProfile` objects. Add `config/instruments.yaml`. Add read-only `coordinator.account_profiles` and `coordinator.instrument_profiles` properties. Ping Ben for Tier-2 review before merging.
+
+**Key planning docs for this initiative:**
+- `docs/sprint-plans/ROADMAP-MULTI-STRATEGY-REFACTOR-2026-05-20.md` — phase roadmap (S0-S8)
+- `docs/architecture/multi-strategy-architecture-target.md` — architecture target reference
+- `docs/sprint-logs/S-REFACTOR-S0-2026-05-20.md` — S0 sprint log
+- `docs/sprint-logs/S-REFACTOR-S1-2026-05-20.md` — S1 sprint log
 
 ---
 
 ## What was done in this session
 
-### Sprint 8 — S-OPS-COMMENT-RACE-FIX (draft PR open)
-- Root cause: two comment steps (`success()` / `failure()`) silently dropped when any post-exec `always()` step failed, or when job cancelled (notify-SSH hang)
-- Fix: replaced both steps with single `if: always() && github.event_name == 'issues'` step; `EXIT_CODE` from `steps.exec.outputs.exit_code` is authoritative success signal
-- `.github/workflows/operator-actions.yml` lines 670–757 replaced
-- FU-20260518-003 closed
+### S-REFACTOR-S0 (documentation only, Tier-1)
+- Inspected full repo structure: `src/`, `config/`, `docs/`, all strategy modules, runtime modules, ICT detection modules, ML layer
+- Created `docs/sprint-plans/ROADMAP-MULTI-STRATEGY-REFACTOR-2026-05-20.md` — master phase roadmap with S0-S8 sprints, risk register, DoD for S1, decision-tier rules
+- Created `docs/architecture/multi-strategy-architecture-target.md` — architecture target grounded in actual repo file paths
+- Updated `ROADMAP.md` — added M11 milestone, S-REFACTOR-S0/S1 sprint ledger entries
+- Updated `CURRENT-SPRINT.md` (this file)
 
-### Sprint 4 — S-VWAP-POLICY-LIVE-WIRE (PR #1579)
-- Policy gate wired into `build_vwap_signal`: weak-up/low + sideways/low → skip; strong-up/low → 2.0σ override
-- 7 new `TestPolicyGate` tests; 7 pre-existing test fixes (DRY_RUN/MODE gate removed)
-- 77/77 tests passing
-
-### Sprint 6 — S-TEST-CACHE-FLAKE-FIX (PR #1580)
-- `Coordinator.reload_strategy_config`: moved `_shadow_predictors_cache.clear()` before try/except
-- test_reload_invalidates_cache: 3/3 passes
-
-### Sprint 5 — S-ML-REGIME-CLASSIFIER-FIX (PR #1588)
-- Root cause: per-bucket modal-class predictor cannot predict "trend" because vol_bucket doesn't separate trend from range in any bucket
-- Fix step 1: collapse 3-class → 2-class (merge "trend" → "range")
-- Fix step 2: recalibrate vol_threshold 0.005 → 0.003 (≈p50 of forward_vol) to prevent range-dominance
-- Final metrics: f1_range=0.551, f1_volatile=0.661, macro_f1=0.606 (vs 0.0 for trend/volatile previously)
-- 385/385 ML tests passing
-
-### Sprint 9 — S-BACKTEST-DOC-DRIFT-FIX (PR #1592)
-- Fixed stale comments in `vwap_backtest_sweep_action.sh` (header block) and `operator-actions.yml` (parser comment)
-
-### Sprint 7 — S-JANITOR-BRANCH-CLEANUP
-- Audited 25+ S-047/S-049 branches; all are squash-merge orphans (work completed 2026-05-07)
-- Spot-margin code was deleted from `main` in PR #792 (2026-05-10) after bybit_2 migrated to linear perps
-- Only active S-047 code remaining on `main`: VWAP monitor close logic (T4, PR #469)
-- 0 open S-047 PRs to close
-- PR #1026 (circuit breaker removal + linear perps margin fix) flagged for Ben — not superseded
-- `docs/sprint-plans/S-047-STATUS.md` written
+### S-REFACTOR-S1 (scaffolding, Tier-1)
+- Created 6 new abstract type files in `src/core/`:
+  - `account_profile.py` — `AccountProfile` frozen dataclass with `from_dict()`, IB/Bybit detection
+  - `instrument_profile.py` — `InstrumentProfile` frozen dataclass with pre-built BTCUSDT + MES profiles
+  - `signal_contract.py` — `SignalPackage` with `is_actionable`, `with_account()`
+  - `order_contract.py` — `OrderPackage` with `from_signal()` attribution builder
+  - `strategy_interface.py` — `StrategyInterface` ABC with `build_signal()`, `build_order_package()`, `category` property
+  - `allocator.py` — `AllocatorInterface` ABC + `PassthroughAllocator` (identity allocator preserving current sizing behavior)
+- Created `tests/test_s1_abstractions.py` — 12 tests covering all new types
+- No existing files modified. Zero live path changes.
 
 ---
 
-## Sprint 5 key findings
+## S1 Verification Checklist
 
-| vol_threshold | vol_b0→ | vol_b1→ | vol_b2→ | Notes |
-|---|---|---|---|---|
-| 0.005 | range | range | range | all-range degenerate (current before fix) |
-| 0.003 | range | volatile | volatile | **non-degenerate, exploits autocorrelation** |
-| 0.002 | volatile | volatile | volatile | all-volatile degenerate |
+- [x] Only new files added — no existing file modified
+- [x] `AccountProfile` correctly detects Bybit vs IB exchange from raw account dict
+- [x] `InstrumentProfile` provides pre-built BTCUSDT/Bybit and MES/IB profiles
+- [x] `SignalPackage.is_actionable` gates on side != "none" AND entry_price not None
+- [x] `OrderPackage.from_signal()` preserves raw signal attribution
+- [x] `PassthroughAllocator` filters out non-actionable signals
+- [x] `PassthroughAllocator` computes qty = balance * risk_pct / sl_distance (current behavior)
+- [x] Frozen dataclasses raise AttributeError on mutation attempt
+
+---
 
 ## Open follow-up items
 
 | FU ID | Summary | Blocking? |
 |---|---|---|
-| FU-20260518-001 | VWAP performance tracking | Watch after policy gate deploys |
-| ~~FU-20260518-003~~ | ~~Operator-action completion-comment race~~ | **CLOSED — Sprint 8** |
-| ~~FU-20260519-001~~ | ~~regime-classifier f1_trend=0.0~~ | **CLOSED — Sprint 5** |
-| FU-20260519-002 | prop_velotrade_1 at $0 balance → degenerate ML labels | No |
-| ~~FU-20260519-003~~ | ~~test_reload_invalidates_cache flake~~ | **CLOSED — Sprint 6** |
+| FU-20260518-001 | VWAP performance tracking post policy gate | Watch only |
+| S1-NOTE-001 | `src/core/signals.py` content not fully inspected — verify no semantic overlap with `signal_contract.py` before S3 wiring | Before S3 |
+| S1-NOTE-002 | `src/strategy_registry.py` is ML model registry not strategy registry — new name or file needed in S3 | Before S3 |
+| S1-NOTE-003 | `src/units/strategies/_base.py` partially aligned with `StrategyInterface` — full alignment is S3 work | Before S3 |
 | PR #1026 | Circuit breaker removal + linear perps margin fix | Needs Ben's review (Tier-3) |
-
-## Next sprint options
-
-All roadmap sprints complete. Pending actions:
-1. Ben reviews and merges Sprint 8 PR (operator-actions.yml workflow change, Tier-2 ack required)
-2. Ben reviews PR #1026 (Tier-3: circuit breaker removal + linear perps margin fix)
