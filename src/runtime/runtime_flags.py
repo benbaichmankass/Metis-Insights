@@ -75,3 +75,22 @@ def _centralized_allocator_enabled(settings: dict) -> bool:
     if raw is None:
         raw = os.environ.get("CENTRALIZED_ALLOCATOR", "false")
     return str(raw).strip().lower() in {"true", "1", "yes", "on"}
+
+
+def _advisory_mode_enabled(settings: dict) -> bool:
+    """Return True when advisory-stage model scores should be routed to the
+    coordinator advisory hook.
+
+    Feature flag for S10 (M11 — ML decision-layer advisory hooks). Default
+    is **false** — advisory scores are computed by `with_shadow_preds_advisory`
+    but the coordinator hook is not called. The live order path is completely
+    unaffected in either state; the hook only logs scores.
+
+    Operator opt-in: export ADVISORY_MODE=true (or set in the settings dict).
+    The shadow → advisory promotion gate remains the operator's explicit
+    approval step; this flag only enables the score-logging side-channel.
+    """
+    raw = settings.get("ADVISORY_MODE") if isinstance(settings, dict) else None
+    if raw is None:
+        raw = os.environ.get("ADVISORY_MODE", "false")
+    return str(raw).strip().lower() in {"true", "1", "yes", "on"}
