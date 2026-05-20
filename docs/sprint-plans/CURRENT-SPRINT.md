@@ -1,74 +1,53 @@
 # Current Sprint Handoff
 
 **Roadmap:** `docs/sprint-plans/ROADMAP-2026-05-19.md`  
-**Last updated:** 2026-05-19 (Sprint 4 in progress)
+**Last updated:** 2026-05-20 (Sprint 6 complete)
 
 ---
 
-## STATUS: WAITING FOR BEN — SPRINT 4 TIER-3 PR OPEN
+## STATUS: SPRINT 6 COMPLETE — MERGED
 
-**SPRINT:** S-VWAP-POLICY-LIVE-WIRE  
-**PR:** Draft Tier-3 PR — `policy_for_candles` wired into `build_vwap_signal` in `src/units/strategies/vwap.py`
+**SPRINT:** S-TEST-CACHE-FLAKE-FIX  
+**Commit:** One-line fix in `src/core/coordinator.py` — cache cleared before `FileNotFoundError` early-return path
 
 **LAST_COMPLETED:**
+- Sprint 4 (S-VWAP-POLICY-LIVE-WIRE, 2026-05-20) — PR #1579 merged; policy gate live: weak-up/low + sideways/low suppressed, strong-up/low → 2.0σ
 - Sprint 3 (S-VWAP-LIVE-PARAM-UPDATE, 2026-05-19) — PR #1571 merged, SL=0.3 live
-- Sprint 2 (S-VWAP-ANCHOR-EXPERIMENT, 2026-05-19) — PR #1576 merged; anchor comparison run via issue #1577 concluded: **session anchor wins** (+4.88 vs +1.75 rolling). No Tier-3 flip.
+- Sprint 2 (S-VWAP-ANCHOR-EXPERIMENT, 2026-05-19) — PR #1576 merged; session anchor wins (+4.88 vs +1.75)
+- Sprint 6 (S-TEST-CACHE-FLAKE-FIX, 2026-05-20) — coordinator cache-clear bug fixed; FU-20260519-003 closed
 
-**READY_TO_CONTINUE:** Once Ben approves and merges the Sprint 4 Tier-3 PR:
-1. `ict-git-sync.timer` auto-deploys to live VM (or Claude fires `pull-and-deploy` if needed)
-2. Monitor `/health-review` for regime skip events (weak-up/low, sideways/low trades suppressed; strong-up/low signals at 2.0σ threshold)
-3. Check FU-20260518-001 for impact on long-side R — first live data with policy gate active
-4. Proceed to Sprint 5 (S-REGIME-CLASSIFIER-BASELINE) or Sprint 6 (S-FLAKE-RELOAD-CACHE) depending on priority
+**READY_TO_CONTINUE:**
+1. Monitor `/health-review` for regime skip events (weak-up/low and sideways/low suppressed; strong-up/low at 2.0σ)
+2. Check FU-20260518-001 for impact on long-side R post policy gate
+3. Sprint 5 (S-ML-REGIME-CLASSIFIER-FIX) — fix f1_trend=0.0 in regime classifier baseline; Tier-1 autonomous
+4. Sprint 9 (S-BACKTEST-DOC-DRIFT-FIX) — 30-minute comment drift cleanup; Tier-1 autonomous
 
 ---
 
-## What was done in this session (Sprint 4 — S-VWAP-POLICY-LIVE-WIRE)
+## What was done in this session (Sprint 6 — S-TEST-CACHE-FLAKE-FIX)
 
-### Anchor experiment results collected (issue #1577)
-- Session anchor wins: +4.88 overall vs +1.75 rolling
-- Rolling destroys short-side R (-2.32 vs +5.45); long-side gain (+4.07 vs -0.58) doesn't compensate
-- No Tier-3 flip. Long-side problem is a regime/policy problem → Sprint 4
+### Root cause
+`Coordinator.reload_strategy_config` cleared `_shadow_predictors_cache` only on the success path. When called with a missing YAML path, the `FileNotFoundError` early-return at line 1378 exited before the clear at line 1383.
 
-### Policy gate implemented (`src/units/strategies/vwap.py`)
-- Added top-level import: `from src.units.strategies.vwap_policy import policy_for_candles`
-- In `build_vwap_signal`: after computing deviation, calls `policy_for_candles(candles_df)`
-  - `allow=False` → return `side="none"` with `reason="regime_policy_skip: regime=<regime>"`
-  - `threshold=N` → use N as `effective_threshold` instead of `ENTRY_STD_THRESHOLD`
-  - `threshold=None` → use `ENTRY_STD_THRESHOLD` unchanged
-- `confidence` updated to use `effective_threshold`
-- `base_meta` always includes `policy_regime`, `policy_allow`, `policy_threshold`
+`test_reload_invalidates_cache` exercises this deliberately (passes `no-such-yaml`) and asserts `cache == {}` — which was failing when the cache had been primed.
 
-### Tests added (`tests/test_vwap_strategy.py`)
-- `TestPolicyGate` (7 tests): skip suppresses buy/sell, skip meta auditable, 2.0σ override raises entry bar, deep signals pass override, unknown regime falls through to module constant, policy meta on every signal
-- Fixed 7 pre-existing test failures (DRY_RUN/MODE checks removed by 2026-05-03 directive)
-- **77/77 tests passing, 0 regressions**
+### Fix (`src/core/coordinator.py`)
+Moved `self._shadow_predictors_cache.clear()` to before the `try/except` block so it runs unconditionally. One-line change in substance.
 
-### Sprint logs written
-- `docs/sprint-logs/S-VWAP-ANCHOR-EXPERIMENT-2026-05-19.md`
-- `docs/sprint-logs/S-VWAP-POLICY-LIVE-WIRE-2026-05-19.md`
+### Test result
+`test_reload_invalidates_cache` passes 3/3 consecutive runs post-fix. No regressions in `test_coordinator_shadow_cache.py` (all 9 passing) or `test_vwap_strategy.py` (77 passing).
 
-## Sprint 4 key context
+---
 
-### Policy table live after merge
-| Regime | Effect |
-|--------|--------|
-| `weak-up/low` | skip — strategy loses at all thresholds in this regime |
-| `sideways/low` | skip — no consistent edge at any threshold |
-| `strong-up/low` | threshold override → 2.0σ (vs 1.0σ default) |
-| all others | fall through to ENTRY_STD_THRESHOLD=1.0σ |
+## Sprint 6 key context
 
-### What this changes live
-- Some signals that would have fired (weak-up/low, sideways/low regimes) will be suppressed
-- Strong-up/low signals require 2.0σ deviation instead of 1.0σ
-- All other regimes: no change
-- SL/TP/exit paths: unchanged
-- Cadence will decrease in the skip regimes; this is intentional
-
-### What this does NOT change
-- ENTRY_STD_THRESHOLD constant (still 1.0σ)
-- SL_STD_MULT_DEFAULT constant (still 0.3σ)
-- HTF gate
-- Monitor/exit logic
+| Item | Detail |
+|------|--------|
+| File changed | `src/core/coordinator.py:1374-1378` |
+| Nature of fix | Move cache clear before try/except — ensures it runs on both success and FileNotFoundError paths |
+| Test | `tests/test_coordinator_shadow_cache.py::TestShadowPredictorCache::test_reload_invalidates_cache` |
+| Tier | Tier-1 (test infrastructure, no live strategy code) |
+| FU closed | FU-20260519-003 |
 
 ## Open follow-up items
 
@@ -76,12 +55,15 @@
 |---|---|---|
 | FU-20260518-001 | VWAP performance tracking | Updated with anchor results; watch after policy gate deploys |
 | FU-20260518-003 | Operator-action completion-comment race | No — title-prefix path is reliable |
-| FU-20260519-001 | regime-classifier-baseline-v0 f1_trend=0.0 | No — Sprint 5 |
+| FU-20260519-001 | regime-classifier-baseline-v0 f1_trend=0.0 | No — Sprint 5 next |
 | FU-20260519-002 | prop_velotrade_1 at $0 balance → degenerate ML labels | No |
-| FU-20260519-003 | test_reload_invalidates_cache flake | No — Sprint 6 |
+| ~~FU-20260519-003~~ | ~~test_reload_invalidates_cache flake~~ | **CLOSED — Sprint 6** |
 
-## Waiting for Ben
+## Next sprint options (all Tier-1, autonomous)
 
-**Tier-3 draft PR:** Policy gate wired into `build_vwap_signal` (weak-up/low + sideways/low skip; strong-up/low → 2.0σ override)  
-Evidence: vwap_policy.py policy table backed by issue #1536 24-window adaptive backtest (n=3-6 per regime, n≥3 + positive mean_R required for each entry).  
-Action needed: Review, approve, and confirm merge.
+| Priority | Sprint | Effort | Notes |
+|---|---|---|---|
+| 1 | Sprint 5: S-ML-REGIME-CLASSIFIER-FIX | ~2h | Fix f1_trend=0.0 regime classifier degeneracy |
+| 2 | Sprint 9: S-BACKTEST-DOC-DRIFT-FIX | ~30m | Comment drift in backtest files |
+| 3 | Sprint 7: S-JANITOR-BRANCH-CLEANUP | ~30m | Document stale claude/ branches |
+| 4 | Sprint 8: S-OPS-COMMENT-RACE-FIX | ~1h | Low urgency |
