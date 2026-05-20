@@ -1,0 +1,64 @@
+# config/instruments.yaml — typed instrument specifications for the multi-strategy
+# architecture refactor (S-REFACTOR-S2, 2026-05-20).
+#
+# Consumed by:
+#   - src/core/profile_loader.load_instrument_profiles()
+#   - coordinator.instrument_profiles (read-only property, S2)
+#   - Future: allocator position sizing (S4), IB execution layer (S7)
+#
+# Schema per instrument:
+#   exchange:             bybit | interactive_brokers
+#   category:            linear | inverse | spot | futures | unknown
+#   base_asset:          underlying asset ticker
+#   quote_currency:      pricing currency
+#   settlement_currency: P&L settlement currency
+#   tick_size:           minimum price increment
+#   min_qty:             minimum order quantity (contracts or units)
+#   qty_step:            order quantity granularity
+#   contract_value_usd:  USD notional per contract (futures); 1.0 for crypto perps
+#   max_leverage:        maximum allowed leverage (0 = no cap / spot)
+#   display_name:        human-readable label for UI / logs
+#
+# Adding a new instrument:
+#   1. Add entry here following the schema above.
+#   2. If IB: ensure execution layer (S7) handles the symbol before enabling live.
+#   3. Add the symbol to the relevant strategy's config/strategies.yaml entry.
+#   4. Run tests/test_s2_profile_wiring.py to validate the new entry loads cleanly.
+
+instruments:
+
+  # ------------------------------------------------------------------
+  # BTCUSDT — Bybit V5 USDT-margined linear perpetual
+  # Current live instrument for all three active strategies.
+  # bybit_1 and bybit_2 both trade this symbol.
+  # ------------------------------------------------------------------
+  BTCUSDT:
+    exchange: bybit
+    category: linear
+    base_asset: BTC
+    quote_currency: USDT
+    settlement_currency: USDT
+    tick_size: 0.1           # minimum price increment ($0.10)
+    min_qty: 0.001           # minimum order size (0.001 BTC)
+    qty_step: 0.001          # qty granularity
+    contract_value_usd: 1.0  # 1 USDT per $1 of BTC move (linear perp)
+    max_leverage: 100        # Bybit max for BTC linear
+    display_name: "BTC/USDT Perp (Bybit)"
+
+  # ------------------------------------------------------------------
+  # MES — Micro E-mini S&P 500 futures via CME / Interactive Brokers
+  # Deferred to S7 (IB execution layer). Spec included from S2 so
+  # instrument_profiles is IB-aware before IB wiring begins.
+  # ------------------------------------------------------------------
+  MES:
+    exchange: interactive_brokers
+    category: futures
+    base_asset: ES              # underlying E-mini S&P 500
+    quote_currency: USD
+    settlement_currency: USD
+    tick_size: 0.25             # $0.25 per index point
+    min_qty: 1.0                # 1 contract minimum
+    qty_step: 1.0               # whole contracts only
+    contract_value_usd: 5.0     # $5 per index point per contract
+    max_leverage: 0             # no leverage cap (futures margin set by broker)
+    display_name: "Micro E-mini S&P 500 (CME/IB)"
