@@ -902,6 +902,32 @@ class Coordinator:
                 ).lower()
                 available_usd = None
                 total_account_usd = None
+                if (
+                    _market_type == "linear"
+                    and client is not None
+                    and not effective_dry
+                    and not bool(
+                        getattr(pkg, "meta", None)
+                        and (pkg.meta or {}).get("is_test")
+                    )
+                ):
+                    try:
+                        from src.units.accounts.execute import (
+                            _fetch_linear_available_balance,
+                        )
+                        available_usd = _fetch_linear_available_balance(client)
+                        logger.debug(
+                            "multi_account_execute: linear available-balance "
+                            "account=%s available_usd=%s",
+                            account.name,
+                            f"{available_usd:.4f}" if available_usd is not None else "n/a",
+                        )
+                    except Exception as _lin_exc:  # noqa: BLE001
+                        logger.warning(
+                            "multi_account_execute: linear available-balance "
+                            "fetch failed for %s: %s — sizer falls back to buffer",
+                            account.name, _lin_exc,
+                        )
                 sized_qty = account.risk_manager.position_size(
                     pkg, balance,
                     market_type=_market_type,

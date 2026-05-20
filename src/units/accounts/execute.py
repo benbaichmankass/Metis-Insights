@@ -424,6 +424,29 @@ def _fetch_balance(
     return 0.0
 
 
+def _fetch_linear_available_balance(client: Any) -> Optional[float]:
+    """Return USDT availableToWithdraw for a Bybit UNIFIED linear-perp account.
+
+    This is the exact free collateral Bybit will allow for new-position
+    initial margin — more accurate than balance × leverage × buffer because
+    it reflects existing open positions consuming margin. Returns None on
+    any error so the caller can fall back gracefully.
+    """
+    try:
+        resp = client.get_wallet_balance(accountType="UNIFIED") or {}
+        wallet_list = (resp.get("result") or {}).get("list") or [{}]
+        coins = (wallet_list[0] if wallet_list else {}).get("coin", [])
+        for coin in coins:
+            if (coin.get("coin") or "").upper() == "USDT":
+                raw = coin.get("availableToWithdraw")
+                if raw not in (None, "", "null"):
+                    return max(0.0, float(raw))
+        return None
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("_fetch_linear_available_balance: %s", exc)
+        return None
+
+
 def _submit_order(client: Any, order: dict, account_cfg: dict) -> str:
     """Place the order via the exchange client and return a trade_id."""
     exchange = (account_cfg.get("exchange") or "bybit").lower()
