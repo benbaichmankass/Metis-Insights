@@ -1,3 +1,4 @@
+"""TRANSLATOR / Coordinator — S-008 PR #120.
 
 Central routing layer between the 9 units defined in config/units.yaml.
 No unit communicates with another unit directly; all cross-unit data flows
@@ -323,7 +324,7 @@ class Coordinator:
         # resolved relative to the trader process's CWD
         # (`/home/ubuntu/ict-trading-bot/`), so the trader wrote to
         # one file while `src/web/api/routers/trade_scores.py` (which
-        # uses `runtime_logs_dir() / "shadow_predictions.jsonl"`)
+        # uses `runtime_logs_dir() / "shadow_predictions.jsonl"`) 
         # read from a different one. Symptom: `/api/bot/trades/scores`
         # returned `log_present: False` even though shadow predictions
         # were happily firing on every signal — the writer-vs-reader

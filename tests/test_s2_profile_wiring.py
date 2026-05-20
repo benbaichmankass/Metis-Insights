@@ -14,8 +14,6 @@ import os
 import tempfile
 import textwrap
 
-import pytest
-
 from src.core.account_profile import AccountProfile
 from src.core.profile_loader import load_account_profiles, load_instrument_profiles
 

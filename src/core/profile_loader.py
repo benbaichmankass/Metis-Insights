@@ -13,8 +13,6 @@ import logging
 import os
 from typing import TYPE_CHECKING
 
-import yaml
-
 if TYPE_CHECKING:
     from src.core.account_profile import AccountProfile
     from src.core.instrument_profile import InstrumentProfile
@@ -22,7 +20,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 _REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-_DEFAULT_ACCOUNTS_PATH = os.path.join(_REPO_ROOT, "config", "accounts.yaml")
 _DEFAULT_INSTRUMENTS_PATH = os.path.join(_REPO_ROOT, "config", "instruments.yaml")
 
 
@@ -31,28 +28,23 @@ def load_account_profiles(
 ) -> dict[str, "AccountProfile"]:
     """Load config/accounts.yaml and return typed AccountProfile objects.
 
+    Delegates to the canonical src.config.accounts_loader.load_accounts_dict()
+    reader so this function never hand-rolls its own YAML parser.
+
     Args:
-        path: Override path to accounts.yaml. Defaults to config/accounts.yaml.
+        path: Override path. Defaults to config/accounts.yaml (via canonical loader).
 
     Returns:
         Dict keyed by account_id. Empty dict on any load failure.
     """
     from src.core.account_profile import AccountProfile
+    from src.config.accounts_loader import load_accounts_dict
 
-    resolved = path or _DEFAULT_ACCOUNTS_PATH
-    try:
-        with open(resolved, "r") as f:
-            raw = yaml.safe_load(f) or {}
-        return {
-            account_id: AccountProfile.from_dict(account_id, data)
-            for account_id, data in raw.get("accounts", {}).items()
-        }
-    except FileNotFoundError:
-        logger.warning("load_account_profiles: accounts.yaml not found at %s", resolved)
-        return {}
-    except Exception as exc:
-        logger.warning("load_account_profiles: failed to parse %s: %s", resolved, exc)
-        return {}
+    raw = load_accounts_dict(path)
+    return {
+        account_id: AccountProfile.from_dict(account_id, data)
+        for account_id, data in raw.items()
+    }
 
 
 def load_instrument_profiles(
@@ -61,7 +53,7 @@ def load_instrument_profiles(
     """Load config/instruments.yaml and return typed InstrumentProfile objects.
 
     Falls back to the pre-built BTCUSDT/Bybit profile when instruments.yaml
-    does not exist yet. This preserves current behavior during the S2→S7
+    does not exist yet. This preserves current behavior during the S2->S7
     migration window.
 
     Args:
@@ -70,6 +62,7 @@ def load_instrument_profiles(
     Returns:
         Dict keyed by symbol. Falls back to {BTCUSDT: <pre-built>} on FileNotFoundError.
     """
+    import yaml
     from src.core.instrument_profile import InstrumentProfile
 
     resolved = path or _DEFAULT_INSTRUMENTS_PATH
