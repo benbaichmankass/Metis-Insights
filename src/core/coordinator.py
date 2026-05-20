@@ -30,7 +30,11 @@ import yaml
 from src.runtime.orders import account_state_dry_run
 
 if TYPE_CHECKING:
+    from typing import Sequence
     from src.units.accounts.account import TradingAccount
+    from src.core.allocator import AllocatorInterface
+    from src.core.signal_contract import SignalPackage
+    from src.core.order_contract import OrderPackage
 
 logger = logging.getLogger(__name__)
 
@@ -135,6 +139,7 @@ class Coordinator:
         # the next tick. Lifts the per-tick factory call out of the
         # strategy hot path.
         self._shadow_predictors_cache: Dict[str, list] = {}
+        self._allocator: Any = None  # lazy-init PassthroughAllocator (S4)
         self._reload()
 
     @property
@@ -149,6 +154,46 @@ class Coordinator:
         from src.core.profile_loader import load_instrument_profiles
         return load_instrument_profiles(self._instruments_path)
 
+    @property
+    def allocator(self) -> "AllocatorInterface":
+        """Lazy-init PassthroughAllocator (S4 wiring).
+
+        Returns the same instance on repeated calls. The instance is shared
+        across calls; hot-path allocate() calls are cheap (no IO).
+        Swap in a different allocator by replacing self._allocator directly
+        in tests or future sprints.
+        """
+        if self._allocator is None:
+            from src.core.allocator import PassthroughAllocator
+            self._allocator = PassthroughAllocator()
+        return self._allocator
+
+    def build_order_packages(
+        self,
+        signals: "Sequence[SignalPackage]",
+        portfolio_state: dict,
+    ) -> "list[OrderPackage]":
+        """Size a batch of SignalPackages through the allocator (S4 wiring).
+
+        This is the typed entry point for the allocator path. It does NOT
+        replace multi_account_execute — callers opt in explicitly. The live
+        pipeline's multi_account_execute path is unchanged until S5/S6.
+
+        Args:
+            signals: SignalPackage objects from strategy signal builders.
+                     Each should have account_id bound via with_account().
+            portfolio_state: Must include 'balance' (float) and
+                             'risk_pct_by_strategy' (dict[str, float]).
+
+        Returns:
+            List of sized OrderPackage objects ready for account_execute().
+            Empty list when no signal is actionable or no valid stop-loss.
+        """
+        from typing import Sequence as _Seq
+        from src.core.signal_contract import SignalPackage as _SP
+        from src.core.order_contract import OrderPackage as _OP
+        return self.allocator.allocate(signals, portfolio_state)
+
     def _reload(self) -> None:
         try:
             self._cfg = _load_units(self._units_path)
@@ -160,7 +205,7 @@ class Coordinator:
         """Re-read units.yaml and refresh the Coordinator's config in-place.
 
         Returns a summary of what changed: ``{reloaded: bool, units_path: str,
-        strategy_count: int, enabled_strategies: list[str]}}``.
+        strategy_count: int, enabled_strategies: list[str]}``.
 
         Pushes an info alert so Telegram / App consumers see the reload event.
         """
@@ -324,7 +369,7 @@ class Coordinator:
         # resolved relative to the trader process's CWD
         # (`/home/ubuntu/ict-trading-bot/`), so the trader wrote to
         # one file while `src/web/api/routers/trade_scores.py` (which
-        # uses `runtime_logs_dir() / "shadow_predictions.jsonl"`) 
+        # uses `runtime_logs_dir() / "shadow_predictions.jsonl"`)
         # read from a different one. Symptom: `/api/bot/trades/scores`
         # returned `log_present: False` even though shadow predictions
         # were happily firing on every signal — the writer-vs-reader
@@ -1953,228 +1998,3 @@ def _log_new_order_package(pkg: "OrderPackage") -> Optional[str]:
     ``linked_only=True`` filter actually find anything to gate on.
     """
     try:
-        import json as _json
-        import uuid
-        from src.units.db.database import Database
-
-        order_package_id = (
-            (pkg.meta or {}).get("order_package_id")
-            or f"pkg-{uuid.uuid4().hex[:16]}"
-        )
-        path = (
-            os.environ.get("TRADE_JOURNAL_DB")
-            or os.path.join(_REPO_ROOT, "trade_journal.db")
-        )
-        db = Database(db_path=path)
-        meta_for_log = {
-            k: v for k, v in (pkg.meta or {}).items()
-            if k not in {"order_package_id"}
-        }
-        db.insert_order_package({
-            "order_package_id": order_package_id,
-            "strategy_name": pkg.strategy,
-            "symbol": pkg.symbol,
-            "direction": pkg.direction,
-            "entry": float(pkg.entry),
-            "sl": float(pkg.sl),
-            "tp": float(pkg.tp),
-            "confidence": float(getattr(pkg, "confidence", 0.0) or 0.0),
-            "signal_logic": _json.dumps(meta_for_log, default=str)[:1000],
-            "status": "open",
-            "meta": meta_for_log,
-        })
-        # Stamp the id back onto pkg.meta so the executor can read it.
-        if pkg.meta is None:
-            pkg.meta = {}
-        pkg.meta["order_package_id"] = order_package_id
-        return order_package_id
-    except Exception as exc:  # noqa: BLE001
-        logger.warning(
-            "_log_new_order_package failed for %s/%s: %s",
-            getattr(pkg, "strategy", "?"), getattr(pkg, "symbol", "?"), exc,
-        )
-        return None
-
-
-def _explain_zero_sized_qty(
-    *,
-    balance: float,
-    available_usd: Optional[float],
-    total_account_usd: Optional[float],
-    risk_manager: Any,
-    direction: str,
-    market_type: str,
-) -> str:
-    """Synthesise an operator-actionable reason string for a
-    ``sized_qty <= 0`` outcome.
-
-    Pre-fix the rejection site hardcoded ``below_min_balance`` which
-    was misleading whenever the actual cause was the daily-loss-budget
-    gate or any other RiskManager refusal — operators saw
-    "balance=186.87 < 50.0" and couldn't tell the comparison was a
-    lie.
-
-    Returns a structured-token-prefixed reason whose first segment
-    matches one of the known refusal causes (so log-grepping stays
-    practical) followed by the relevant inputs:
-
-      * ``below_min_balance:`` — total equity is below the configured
-        floor.
-      * ``risk_refused:`` — generic catch-all (daily-loss budget or
-        any other RiskManager rule). Includes balance +
-        total_account_usd so the operator can reproduce.
-
-    PR 5 (2026-05-10): the ``zero_exchange_capacity`` token was
-    removed alongside the spot-margin code paths.
-    """
-    min_balance_usd = float(getattr(risk_manager, "min_balance_usd", 0.0) or 0.0)
-    gate_balance = (
-        float(total_account_usd) if total_account_usd is not None else float(balance)
-    )
-
-    # 1. Below-min-balance gate — mirror RiskManager.position_size's
-    #    own check at risk.py:541 so the message is accurate when
-    #    that's the cause.
-    if gate_balance < min_balance_usd:
-        return (
-            f"below_min_balance: gate_balance={gate_balance:.2f} USD < "
-            f"min_balance_usd={min_balance_usd:.2f}"
-        )
-
-    # 2. Generic refusal — daily-loss budget or any future
-    #    RiskManager rule. Surface the inputs the operator needs
-    #    to reproduce.
-    avail_str = (
-        f"{float(available_usd):.2f}" if available_usd is not None else "n/a"
-    )
-    total_str = (
-        f"{float(total_account_usd):.2f}" if total_account_usd is not None else "n/a"
-    )
-    return (
-        f"risk_refused: sized_qty=0 with balance={balance:.2f} "
-        f"available_usd={avail_str} total_account_usd={total_str} "
-        f"min_balance_usd={min_balance_usd:.2f} direction={direction} "
-        f"market_type={market_type} — check daily-loss budget / "
-        f"liquidation buffer / max_borrow"
-    )
-
-
-def _emit_execution_failure_ping(
-    *,
-    account: str,
-    pkg: "OrderPackage",
-    qty: Optional[float],
-    reason: str,
-    demo: bool = False,
-) -> None:
-    """Best-effort diagnostic ping for a per-account execution failure.
-
-    Drops a JSON payload into ``runtime_logs/pending_pings/`` so the
-    Telegram bot's ~5 s job-queue tick delivers it to the operator.
-    Never raises — diagnostics must not crash the order path.
-    """
-    try:
-        from src.runtime.execution_diagnostics import enqueue_execution_failure
-        enqueue_execution_failure(
-            account=account,
-            strategy=getattr(pkg, "strategy", "unknown"),
-            symbol=getattr(pkg, "symbol", "?"),
-            side=("buy" if getattr(pkg, "direction", "") == "long" else "sell"),
-            qty=qty,
-            reason=reason,
-            demo=demo,
-        )
-    except Exception as exc:  # noqa: BLE001
-        logger.warning(
-            "_emit_execution_failure_ping failed for %s: %s", account, exc,
-        )
-
-
-def _enqueue_demo_ping(
-    *,
-    account: str,
-    pkg: "OrderPackage",
-    qty: Optional[float],
-    status: str,
-    detail: str,
-) -> None:
-    """Best-effort Telegram ping for a demo-account trade event.
-
-    Separate from _emit_execution_failure_ping so successful demo submissions
-    also reach the operator with the *DEMO TRADER* prefix. Never raises.
-    """
-    try:
-        from src.runtime.execution_diagnostics import enqueue_demo_trade_notification
-        enqueue_demo_trade_notification(
-            account=account,
-            strategy=getattr(pkg, "strategy", "unknown"),
-            symbol=getattr(pkg, "symbol", "?"),
-            side=("buy" if getattr(pkg, "direction", "") == "long" else "sell"),
-            qty=qty,
-            status=status,
-            detail=detail,
-        )
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("_enqueue_demo_ping failed for %s: %s", account, exc)
-
-
-def _log_smoke_to_journal(
-    pkg: "OrderPackage",
-    result: Dict[str, Any],
-    *,
-    db_path: Optional[str] = None,
-) -> bool:
-    """Write a row for the smoke order into ``trade_journal.db``.
-
-    The row uses ``strategy_name="smoke_test"`` and ``status`` set to the
-    smoke outcome (``rejected_too_small`` / ``dry_run`` / ``submitted`` /
-    ``error``) so future ``/strategies`` aggregations can filter these
-    out. Returns True on a successful insert, False on any error
-    (logged but not re-raised — journal failure must never crash the
-    smoke harness).
-    """
-    try:
-        from datetime import datetime, timezone
-        from src.units.db.database import Database
-
-        path = db_path or os.environ.get("TRADE_JOURNAL_DB") or os.path.join(
-            _REPO_ROOT, "trade_journal.db"
-        )
-        db = Database(db_path=path)
-        smoke_id = (pkg.meta or {}).get("smoke_id", "")
-        notes = (
-            f"smoke_id={smoke_id} "
-            f"trade_id={result.get('trade_id')} "
-            f"reason={result.get('reason', '')[:240]}"
-        )
-        db.insert_trade({
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "symbol": pkg.symbol,
-            "direction": pkg.direction,
-            "entry_price": float(pkg.entry),
-            "stop_loss": float(pkg.sl),
-            "take_profit_1": float(pkg.tp),
-            "position_size": float((pkg.meta or {}).get("test_qty") or 0.0),
-            "setup_type": "smoke_test",
-            "entry_reason": "live-plumbing smoke",
-            "exit_reason": result.get("reason", ""),
-            "status": str(result.get("status") or "smoke_test"),
-            "notes": notes,
-            "is_backtest": 0,
-            "strategy_name": "smoke_test",
-            "account_id": str(result.get("account_id") or "unknown"),
-        })
-        return True
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("_log_smoke_to_journal failed: %s", exc)
-        try:
-            from src.runtime.outcomes import Level, report
-            report(
-                "smoke_test",
-                "journal_write_failed",
-                level=Level.WARN,
-                reason=f"{type(exc).__name__}: {exc}",
-            )
-        except Exception:  # noqa: BLE001
-            pass
-        return False
