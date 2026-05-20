@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import dataclasses
 from typing import Any, Dict, List
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 
 # ---------------------------------------------------------------------------
@@ -258,7 +258,7 @@ class TestPipelineS7TypedDispatch:
         coord = MagicMock()
         coord.multi_account_execute.return_value = [{"status": "legacy"}]
 
-        result = self._run(settings, signal, coord)
+        self._run(settings, signal, coord)
         coord.build_order_packages.assert_not_called()
         coord.multi_account_execute_typed.assert_not_called()
         coord.multi_account_execute.assert_called_once()
@@ -270,7 +270,7 @@ class TestPipelineS7TypedDispatch:
         coord = MagicMock()
         coord.multi_account_execute.return_value = []
 
-        result = self._run(settings, signal, coord)
+        self._run(settings, signal, coord)
         coord.build_order_packages.assert_not_called()
         coord.multi_account_execute_typed.assert_not_called()
         coord.multi_account_execute.assert_called_once()
