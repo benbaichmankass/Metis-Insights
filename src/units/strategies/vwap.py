@@ -52,6 +52,7 @@ from src.units.strategies._base import (
     require_candles,
     side_to_direction,
 )
+from src.units.strategies.vwap_policy import policy_for_candles
 
 logger = logging.getLogger(__name__)
 
@@ -497,15 +498,50 @@ def build_vwap_signal(
 
     deviation = (current_price - vwap) / std_dev if std_dev > 0 else 0.0
 
-    if deviation <= -ENTRY_STD_THRESHOLD:
+    # S-VWAP-POLICY-LIVE-WIRE: classify current regime and apply the policy
+    # gate. Classifying on candles_df (full lookback) gives a more stable
+    # regime reading than the potentially-short session slice.
+    pol = policy_for_candles(candles_df)
+    regime_info = pol.get("_regime_info") or {}
+    policy_regime = regime_info.get("regime", "unknown")
+    effective_threshold = (
+        pol["threshold"] if pol.get("threshold") is not None else ENTRY_STD_THRESHOLD
+    )
+
+    if not pol.get("allow", True):
+        skip_reason = f"regime_policy_skip: regime={policy_regime}"
+        logger.info("VWAP policy skip: symbol=%s regime=%s", symbol, policy_regime)
+        return {
+            "symbol": symbol,
+            "side": "none",
+            "confidence": 0.0,
+            "meta": {
+                "strategy_name": "vwap",
+                "reason": skip_reason,
+                "vwap": vwap,
+                "current_price": current_price,
+                "std_dev": std_dev,
+                "deviation_std": deviation,
+                "confidence": 0.0,
+                "vwap_anchor": anchor,
+                "vwap_window_bars": len(window),
+                "recent_context": "unknown",
+                "recent_context_pct": 0.0,
+                "policy_regime": policy_regime,
+                "policy_allow": False,
+                "policy_threshold": None,
+            },
+        }
+
+    if deviation <= -effective_threshold:
         side = "buy"
         reason = f"price {current_price:.4f} is {abs(deviation):.2f} std-devs below VWAP {vwap:.4f}"
-    elif deviation >= ENTRY_STD_THRESHOLD:
+    elif deviation >= effective_threshold:
         side = "sell"
         reason = f"price {current_price:.4f} is {deviation:.2f} std-devs above VWAP {vwap:.4f}"
     else:
         side = "none"
-        reason = f"price {current_price:.4f} within {ENTRY_STD_THRESHOLD} std-dev of VWAP {vwap:.4f} — no signal"
+        reason = f"price {current_price:.4f} within {effective_threshold} std-dev of VWAP {vwap:.4f} — no signal"
 
     # Phase 2 HTF trend gate. When the runtime supplies htf_close + htf_ema,
     # block fades pointing against a strong higher-timeframe trend.
@@ -538,8 +574,8 @@ def build_vwap_signal(
     # BUG-043: confidence must be threaded through to the order package
     # so the journal records a real conviction value (not 0.0). Same
     # formula as ``order_package()`` below — magnitude of the std-dev
-    # deviation, normalised to ENTRY_STD_THRESHOLD, capped at 1.0.
-    confidence = round(min(abs(deviation) / ENTRY_STD_THRESHOLD, 1.0), 4)
+    # deviation, normalised to the effective entry threshold, capped at 1.0.
+    confidence = round(min(abs(deviation) / effective_threshold, 1.0), 4)
 
     base_meta = {
         "strategy_name": "vwap",
@@ -553,6 +589,9 @@ def build_vwap_signal(
         "vwap_window_bars": len(window),
         "recent_context": recent_ctx["trend"],
         "recent_context_pct": round(float(recent_ctx["pct"]), 6),
+        "policy_regime": policy_regime,
+        "policy_allow": True,
+        "policy_threshold": pol.get("threshold"),
     }
     # The order_monitor's ohlcv_fetcher reads ``timeframe`` off the
     # package's meta to fetch fresh candles for monitor() — without it
