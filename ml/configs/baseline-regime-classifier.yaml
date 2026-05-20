@@ -48,7 +48,6 @@ trainer_config:
   feature_column: vol_bucket
   unknown_bucket: ""
   class_labels:
-    - trend
     - range
     - volatile
 dataset:
@@ -64,8 +63,17 @@ evaluator_config:
   holdout_fraction: 0.2
 target_deployment_stage: shadow
 notes: |
-  WS5-B-PART-2 PR 2B baseline. 3-class regime classifier
-  (trend / range / volatile) with `vol_bucket` as the sole
-  feature. Time-aware holdout — eval is the latest 20 % of bars
-  to mirror the live deployment shape.
-  Not a candidate for any live tier.
+  WS5-B-PART-2 PR 2B baseline. 2-class regime classifier
+  (range / volatile) with `vol_bucket` as the sole feature.
+  Time-aware holdout — eval is the latest 20 % of bars to
+  mirror the live deployment shape. Not a candidate for any
+  live tier.
+
+  S-ML-REGIME-CLASSIFIER-FIX (2026-05-20): collapsed from
+  3-class (trend/range/volatile) to 2-class (range/volatile).
+  Root cause of original f1_trend=0.0: vol_bucket cannot
+  separate "trend" from "range" — trend was never the modal
+  class in any bucket (vol_b0: range 4137 vs trend 2088;
+  vol_b1: range 3109 vs trend 2327; vol_b2: volatile 2531 vs
+  range 2220 vs trend 2203). The binary question "will the next
+  5 hours be high-vol?" is what vol_bucket can actually answer.

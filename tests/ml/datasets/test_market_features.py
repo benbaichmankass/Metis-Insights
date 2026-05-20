@@ -108,9 +108,8 @@ def _trending_then_choppy(n_per_phase: int = 80) -> list[float]:
 
 
 class TestRegimeLabelingRule:
-    def test_volatile_overrides_trend(self):
-        # High vol with strong directional move → "volatile" wins over
-        # "trend" because vol is checked first.
+    def test_high_vol_returns_volatile(self):
+        # High forward vol → "volatile" regardless of direction.
         assert (
             _label_regime(
                 forward_log_return=0.1,
@@ -121,7 +120,9 @@ class TestRegimeLabelingRule:
             == "volatile"
         )
 
-    def test_trend_when_low_vol_and_strong_move(self):
+    def test_low_vol_strong_move_returns_range(self):
+        # 2-class collapse: strong directional move in a calm period
+        # used to return "trend"; now returns "range".
         assert (
             _label_regime(
                 forward_log_return=0.02,
@@ -129,7 +130,7 @@ class TestRegimeLabelingRule:
                 trend_threshold=0.005,
                 vol_threshold=0.005,
             )
-            == "trend"
+            == "range"
         )
 
     def test_range_when_quiet(self):
@@ -143,7 +144,8 @@ class TestRegimeLabelingRule:
             == "range"
         )
 
-    def test_negative_trend(self):
+    def test_negative_strong_move_returns_range(self):
+        # 2-class collapse: negative directional move in calm period → "range".
         assert (
             _label_regime(
                 forward_log_return=-0.02,
@@ -151,8 +153,20 @@ class TestRegimeLabelingRule:
                 trend_threshold=0.005,
                 vol_threshold=0.005,
             )
-            == "trend"
+            == "range"
         )
+
+    def test_label_regime_never_returns_trend(self):
+        # Regression guard: "trend" class was eliminated in
+        # S-ML-REGIME-CLASSIFIER-FIX. No inputs should ever produce it.
+        for flr, fvol in [(0.5, 0.0001), (-0.5, 0.0), (0.0, 0.0), (0.1, 0.004)]:
+            result = _label_regime(
+                forward_log_return=flr,
+                forward_vol=fvol,
+                trend_threshold=0.005,
+                vol_threshold=0.005,
+            )
+            assert result != "trend", f"unexpected 'trend' for flr={flr}, fvol={fvol}"
 
 
 class TestMarketFeaturesBuilder:
@@ -215,9 +229,9 @@ class TestMarketFeaturesBuilder:
         assert len(rows) == expected_count
 
     def test_phase_distribution(self, tmp_path: Path):
-        # The synthetic dataset has three distinct phases. With low
-        # thresholds tuned to the synthetic, all three regime classes
-        # should appear in the output.
+        # The synthetic dataset has three distinct phases. After the
+        # 2-class collapse (S-ML-REGIME-CLASSIFIER-FIX), exactly the
+        # two REGIME_LABELS (range / volatile) must appear.
         market_raw = _stage_market_raw(
             tmp_path, closes=_trending_then_choppy(n_per_phase=80)
         )
@@ -232,10 +246,12 @@ class TestMarketFeaturesBuilder:
             )
         )
         labels = {r["regime_label"] for r in rows}
-        # Trend (Phase A) + volatile (Phase B) + range (Phase C) must all
-        # appear if thresholds are chosen sanely.
-        assert labels == set(REGIME_LABELS), (
-            f"expected all three regimes; got {labels}"
+        assert "trend" not in labels, "trend class was eliminated; should not appear"
+        assert labels <= set(REGIME_LABELS), (
+            f"unexpected regime labels: {labels - set(REGIME_LABELS)}"
+        )
+        assert "volatile" in labels and "range" in labels, (
+            f"expected both range and volatile; got {labels}"
         )
 
     def test_log_return_matches_close_diff(self, tmp_path: Path):
