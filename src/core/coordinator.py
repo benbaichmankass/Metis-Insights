@@ -32,6 +32,7 @@ if TYPE_CHECKING:
     from typing import Sequence
     from src.units.accounts.account import TradingAccount
     from src.core.allocator import AllocatorInterface
+    from src.core.portfolio_state import PortfolioState
     from src.core.signal_contract import SignalPackage
     from src.core.order_contract import OrderPackage
 
@@ -170,25 +171,43 @@ class Coordinator:
     def build_order_packages(
         self,
         signals: "Sequence[SignalPackage]",
-        portfolio_state: dict,
+        portfolio_state: "dict | PortfolioState | None" = None,
+        *,
+        db_path: Optional[str] = None,
     ) -> "list[OrderPackage]":
-        """Size a batch of SignalPackages through the allocator (S4 wiring).
+        """Size a batch of SignalPackages through the allocator (S8 wiring).
 
-        This is the typed entry point for the allocator path. It does NOT
-        replace multi_account_execute — callers opt in explicitly. The live
-        pipeline's multi_account_execute path is unchanged until S5/S6.
+        Builds a typed ``PortfolioState`` from whatever the caller provides,
+        enriches it with live net positions from the trade journal, then
+        delegates to ``self.allocator.allocate()``.
 
         Args:
             signals: SignalPackage objects from strategy signal builders.
-                     Each should have account_id bound via with_account().
-            portfolio_state: Must include 'balance' (float) and
-                             'risk_pct_by_strategy' (dict[str, float]).
+            portfolio_state: Either a typed ``PortfolioState`` (used as-is),
+                a legacy dict (converted via ``PortfolioState.from_dict()``),
+                or ``None`` (creates a zero-balance state). When a dict or
+                ``None`` is passed, net positions are fetched from the trade
+                journal and merged in.
+            db_path: Override for the trade journal path (tests / staging).
 
         Returns:
             List of sized OrderPackage objects ready for account_execute().
             Empty list when no signal is actionable or no valid stop-loss.
         """
-        return self.allocator.allocate(signals, portfolio_state)
+        from src.core.portfolio_state import PortfolioState
+        from src.runtime.positions import net_positions_by_symbol
+
+        if isinstance(portfolio_state, PortfolioState):
+            ps = portfolio_state
+        elif portfolio_state is None:
+            live_positions = net_positions_by_symbol(db_path=db_path)
+            ps = PortfolioState(balance=0.0, net_positions=live_positions)
+        else:
+            ps = PortfolioState.from_dict(portfolio_state)
+            if not ps.net_positions:
+                ps.net_positions = net_positions_by_symbol(db_path=db_path)
+
+        return self.allocator.allocate(signals, ps)
 
     def multi_account_execute_typed(
         self,

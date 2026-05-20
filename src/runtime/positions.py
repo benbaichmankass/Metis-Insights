@@ -129,3 +129,53 @@ def current_net_position_qty(
         # Any other direction value (legacy data) is silently skipped —
         # logging here would be noisy on every dispatch tick.
     return net
+
+
+def net_positions_by_symbol(*, db_path: Optional[str] = None) -> dict[str, float]:
+    """Return signed net qty per symbol aggregated across all live accounts.
+
+    Queries all open, non-backtest trades in the trade journal, summing
+    signed qty (long +, short −) per symbol irrespective of account.
+
+    Parameters
+    ----------
+    db_path : str, optional
+        Override the default ``trade_journal.db`` path.
+
+    Returns
+    -------
+    dict[str, float]
+        ``{symbol: net_qty}``.  Only symbols with non-zero net are included.
+        Returns an empty dict when the journal doesn't exist or the read fails.
+    """
+    path = db_path or _trade_journal_path()
+    if not os.path.exists(path):
+        return {}
+
+    try:
+        with sqlite3.connect(path) as conn:
+            rows = conn.execute(
+                "SELECT symbol, direction, position_size "
+                "FROM trades "
+                "WHERE status = 'open' AND COALESCE(is_backtest, 0) = 0",
+            ).fetchall()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "net_positions_by_symbol: read failed: %s (treating all as flat)", exc
+        )
+        return {}
+
+    acc: dict[str, float] = {}
+    for symbol, direction, qty in rows:
+        if symbol is None or qty is None:
+            continue
+        try:
+            q = float(qty)
+        except (TypeError, ValueError):
+            continue
+        d = (direction or "").lower()
+        if d == "long":
+            acc[symbol] = acc.get(symbol, 0.0) + q
+        elif d == "short":
+            acc[symbol] = acc.get(symbol, 0.0) - q
+    return acc
