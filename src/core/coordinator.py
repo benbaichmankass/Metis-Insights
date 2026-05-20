@@ -1372,15 +1372,15 @@ class Coordinator:
         import os as _os
 
         path = config_path or _os.path.join(_REPO_ROOT, "config", "strategies.yaml")
+
+        # Always clear the cache so stale predictor state never survives a
+        # reload call, even when the YAML path doesn't exist.
+        self._shadow_predictors_cache.clear()
+
         try:
             cfg = load_strategy_config(path)
         except FileNotFoundError:
             return {"reloaded": False, "error": f"strategies.yaml not found: {path}"}
-
-        # S-AI-WS7-PART-6: drop the resolved-predictor cache so a
-        # YAML edit (adding / removing / changing shadow_model_ids)
-        # is picked up on the next dispatch.
-        self._shadow_predictors_cache.clear()
 
         summary = {
             "reloaded": True,
