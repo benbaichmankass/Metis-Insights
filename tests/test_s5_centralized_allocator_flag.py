@@ -1,8 +1,6 @@
 """S5: CENTRALIZED_ALLOCATOR feature-flag tests."""
 import os
 
-import pytest
-
 from src.runtime.runtime_flags import _centralized_allocator_enabled
 
 
