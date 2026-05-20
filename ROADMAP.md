@@ -1,6 +1,6 @@
 # ICT Trading Bot — Product Roadmap
 
-> **Last Updated:** 2026-05-20 (through S-REFACTOR-S1).
+> **Last Updated:** 2026-05-20 (M11 complete — S0–S11 all merged).
 >
 > **Canonical authority:**
 > 1. [`docs/CLAUDE-RULES-CANONICAL.md`](docs/CLAUDE-RULES-CANONICAL.md)
@@ -39,7 +39,7 @@
 | **M8** | pm-sprint | Strategy tuning | 📋 NOT STARTED |
 | **M9** | auto-claude | AI / model roadmap | 🔄 IN PROGRESS — WS1+WS2+WS4+WS4-FU+WS5-A closed; WS5-B-PART-1 + PART-2 (PR 2A + PR 2B) + WS5-C closed 2026-05-10. |
 | **M10** | auto-claude | HF / data pipeline | 🔄 IN PROGRESS — WS3 closed; WS5-B-PART-1 adds `market_raw`; WS5-B-PART-2 PR 2A wires Bybit off-VM fetch; PR 2B adds `market_features`; WS5-C adds `setup_labels` (fifth buildable family); WS9 continuous. |
-| **M11** | auto-claude | Multi-strategy architecture refactor | 🔄 IN PROGRESS — S0 planning docs + S1 scaffolding complete 2026-05-20. See [`ROADMAP-MULTI-STRATEGY-REFACTOR-2026-05-20.md`](docs/sprint-plans/ROADMAP-MULTI-STRATEGY-REFACTOR-2026-05-20.md). |
+| **M11** | auto-claude | Multi-strategy architecture refactor | ✅ COMPLETE 2026-05-20 — S0–S11 all merged (PRs #1604–#1610). Typed abstractions, allocator, advisory ML hooks, attribution API, ICT filter module, health-review update. S7 IB/MES deferred pending credentials. See [`ROADMAP-MULTI-STRATEGY-REFACTOR-2026-05-20.md`](docs/sprint-plans/ROADMAP-MULTI-STRATEGY-REFACTOR-2026-05-20.md). |
 
 ### M9 / M10 — AI traders workstreams (WS1–WS10)
 
@@ -110,6 +110,16 @@ Full detail preserved in git history. Recent AI-traders sprints:
 |---|---|---|---|
 | **S-REFACTOR-S0** | **S0 — Multi-strategy architecture planning (2026-05-20).** Created phase roadmap `docs/sprint-plans/ROADMAP-MULTI-STRATEGY-REFACTOR-2026-05-20.md`, architecture target `docs/architecture/multi-strategy-architecture-target.md`, sprint logs. Strategy category mapping: vwap=mean-reversion, turtle_soup=trend-pullback, ict_scalp=breakout-expansion. Three initial core strategies confirmed; ICT filter module deferred as fourth component. Documentation-only (Tier-1). | ✅ Done 2026-05-20 | M11 |
 | **S-REFACTOR-S1** | **S1 — Architecture scaffolding (2026-05-20).** Six new abstract types in `src/core/`: `AccountProfile` (typed YAML-backed, IB/Bybit-aware), `InstrumentProfile` (pre-built BTCUSDT/Bybit + MES/IB profiles), `SignalPackage` (normalized signal contract with is_actionable + attribution), `OrderPackage` (typed order with from_signal() attribution builder), `StrategyInterface` ABC (build_signal + build_order_package + category), `AllocatorInterface` ABC + `PassthroughAllocator` (identity allocator preserving current sizing behavior). 12 new tests in `tests/test_s1_abstractions.py`. No existing files modified. Zero live path changes. (Tier-1). | ✅ Done 2026-05-20 | M11 |
+| **S-REFACTOR-S2** | **S2 — Account + instrument profile wiring (2026-05-20).** `config/instruments.yaml` added (BTCUSDT/Bybit + MES/IB placeholder). `src/core/profile_loader.py` added — loads `accounts.yaml` into typed `AccountProfile` objects, instruments.yaml into `InstrumentProfile` objects. `AccountProfile.from_dict()` corrected for actual `mode: live\|dry_run` schema. `Coordinator.account_profiles` + `Coordinator.instrument_profiles` read-only properties added. 15 new tests in `tests/test_s1_abstractions.py` (extended). Execution path unchanged. (Tier-2). | ✅ Done 2026-05-20 | M11 |
+| **S-REFACTOR-S3** | **S3 — Signal/order package contracts wired (2026-05-20).** `SignalPackage` wired into all three live strategy signal builders via `_with_signal_package()` helper in `src/runtime/strategy_signal_builders.py`. Attribution fields (`strategy_name`, `category`, `instrument`) populated on every outgoing signal. 20 new tests. Additive only — live dict shape unchanged; existing callers unaffected. (Tier-2). | ✅ Done 2026-05-20 | M11 |
+| **S-REFACTOR-S4** | **S4 — Allocator + net position accounting (2026-05-20).** `AllocatorInterface` wired into `Coordinator` via `coordinator.allocator` property; `coordinator.build_order_packages()` delegates to allocator. `PassthroughAllocator` is default — identical sizing behavior as before. 19 new tests. Live path unchanged. (Tier-2). | ✅ Done 2026-05-20 | M11 |
+| **S-REFACTOR-S5** | **S5 — CENTRALIZED_ALLOCATOR feature flag shadow mode (2026-05-20).** `_centralized_allocator_enabled()` added to `src/runtime/runtime_flags.py`. Shadow audit block added to `pipeline.py` multi-account dispatch — logs typed path decisions to `allocator_decisions.jsonl` when flag is on, without affecting orders. Default off — live runtime unaffected. 10 new tests. (Tier-3, PM-approved). | ✅ Done 2026-05-20 | M11 |
+| **S-REFACTOR-S6** | **S6 — CENTRALIZED_ALLOCATOR primary path (2026-05-20).** When `CENTRALIZED_ALLOCATOR=true` and signal has a typed `SignalPackage`, coordinator builds an `OrderPackage` from typed fields (not raw dict). Allocator qty logged. Fallback to raw dict path when flag off or signal_package absent — zero behavior change in production (flag defaults false). 14 new tests. (Tier-3, PM-approved). | ✅ Done 2026-05-20 | M11 |
+| **S-REFACTOR-S7** | **S7 — Typed multi-account dispatch (2026-05-20).** `Coordinator.multi_account_execute_typed()` added — typed dispatch path that builds `OrderPackage` via allocator and logs attribution. Pipeline `S7 typed dispatch` path hooked in. PR #1604. 13 new tests. (Tier-2, merged). Note: IB/MES shadow integration (original S7 in roadmap) deferred — no IB credentials in scope. | ✅ Done 2026-05-20 (`#1604`) | M11 |
+| **S-REFACTOR-S8** | **S8 — PortfolioState typed snapshot + net position accounting (2026-05-20).** New `src/core/portfolio_state.py`: `PortfolioState` dataclass snapshots all open positions cross-strategy; `net_positions_by_symbol()` aggregates signed qty per symbol. Coordinator exposes `portfolio_state` read-only property. PR #1605. 26 new tests. (Tier-2, merged). | ✅ Done 2026-05-20 (`#1605`) | M11 |
+| **S-REFACTOR-S9** | **S9 — StrategyBase aligned with StrategyInterface (2026-05-20).** `src/units/strategies/_base.py` updated so `StrategyBase` formally inherits `StrategyInterface` (S1-NOTE-003). `strategy_id` + `_category` class attributes; `category` property; static helpers delegate to module-level functions. `build_signal` / `build_order_package` raise `NotImplementedError` on base. 29 new tests. All existing module-level helpers unchanged (backward-compat). (Tier-1). | ✅ Done 2026-05-20 | M11 |
+| **S-REFACTOR-S10** | **S10 — ML decision-layer advisory hooks (2026-05-20).** `Coordinator.log_advisory_scores()` method added — writes structured advisory decision records to `runtime_logs/advisory_decisions.jsonl` whenever a shadow/advisory model's score influences dispatch logging. Advisory flag propagates through coordinator with no order effect (read-only until PM promotes a model to advisory stage). `src/web/api/routers/diag.py` `_LOG_FILES` allowlist extended with `advisory_decisions` key. (Tier-1). | ✅ Done 2026-05-20 | M11 |
+| **S-REFACTOR-S11** | **S11 — Attribution API (2026-05-20).** New `src/web/api/routers/attribution.py`: `GET /api/bot/positions/net` returns net open positions per symbol (calls `net_positions_by_symbol()`); `GET /api/bot/strategy/attribution` returns closed-trade P&L grouped by strategy_name from `trade_journal.db`. Both endpoints are best-effort read (DB errors return empty, never 5xx). 19 tests (direct router-function call pattern — TestClient avoided due to pyo3 panic). PR #1608. Health-review skill + schema updated to add four new M11 dimensions: `net_positions`, `strategy_attribution`, `advisory_scores`, `allocator_path`. ICT filter module public API (`src/ict_detection/__init__.py`) + 20 module tests landed in same window. PR #1609 (S2 + S8-ICT combined). PR #1610 (health-review doc update). (Tier-1). | ✅ Done 2026-05-20 (`#1608` `#1609` `#1610`) | M11 |
 | **S-AI-ROADMAP** | AI traders models roadmap adopted | ✅ Done (`#693` `1eb59f6`) | M9, M10 |
 | **S-AI-WS1** | Architecture baseline | ✅ Done (`#694` `f453b89`) | M9 |
 | **S-AI-WS2** | Canonical trade pipeline | ✅ Done (`#701` `42a1e6f`) | M9 |
@@ -191,8 +201,8 @@ Full detail preserved in git history. Recent AI-traders sprints:
 - **WS5-B-PART-1 follow-ups:** `yfinance` adapter; `binance_offvm`
   adapter; on-disk Parquet adapter; the actual Bybit off-VM
   fetch wiring (filed under WS5-B-PART-2).
-- **M11 — Multi-strategy architecture refactor:** S2-S8 not yet started.
-  See `docs/sprint-plans/ROADMAP-MULTI-STRATEGY-REFACTOR-2026-05-20.md`.
+- **M11 IB/MES shadow integration (S7-IB):** Deferred from M11 — no IB credentials in scope.
+  When credentials are available, wire `IB_SHADOW_ENABLED=true` per `ROADMAP-MULTI-STRATEGY-REFACTOR-2026-05-20.md § S7`.
 
 ---
 
