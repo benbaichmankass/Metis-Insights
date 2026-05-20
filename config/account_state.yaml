@@ -15,13 +15,15 @@
 #   - Missing file → no override (fail-open to accounts.yaml).
 #
 # Current state (as of 2026-05-14 M1 audit):
-#   bybit_1        — wallet unfunded; forced dry 2026-05-10 (trade 1142
-#                    rejected: below_min_balance). Dry until funded.
+#   bybit_1        — LIVE (demo endpoint). Reconfigured 2026-05-18 as Bybit
+#                    demo account (api-demo.bybit.com). Dry override lifted
+#                    2026-05-20 — original dry set 2026-05-10 for unfunded
+#                    wallet no longer applies on the demo endpoint.
 #   bybit_2        — LIVE. Linear perps (BTCUSDT), 3x leverage, vwap+ts.
 #   prop_velotrade_1 — not yet connected; dry until hookup confirmed.
 accounts:
   bybit_1:
-    dry_run: true
+    dry_run: false
   bybit_2:
     dry_run: false
   prop_velotrade_1:
