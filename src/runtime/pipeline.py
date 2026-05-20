@@ -3,7 +3,7 @@ from src.runtime.signal_writer import write_signal  # noqa: F401  (used in _writ
 # PR-9 / D1: signal/order helpers extracted to their canonical modules.
 from src.runtime.signal_writer import _write_ict_signals_from_meta  # noqa: E402
 from src.runtime.order_bridge import _signal_to_order_package  # noqa: E402
-from src.runtime.runtime_flags import is_strategy_paused  # noqa: E402 (D11)
+from src.runtime.runtime_flags import _centralized_allocator_enabled, is_strategy_paused  # noqa: E402 (D11)
 from src.utils.signal_audit_logger import log_signal
 from src.runtime.risk_counters import inject_runtime_counters, inject_per_strategy_counters
 from src.news.news_pipeline import get_news_score
@@ -482,16 +482,55 @@ def run_pipeline(
                     return result
                 try:
                     from src.core.coordinator import Coordinator
-                    pkg = _signal_to_order_package(signal, settings)
                     coord = Coordinator()
-                    multi_results = coord.multi_account_execute(pkg)
+                    _sig_pkg = signal.get("signal_package")
+                    _sized_qty: dict = {}
+                    if (
+                        _centralized_allocator_enabled(settings)
+                        and _sig_pkg is not None
+                        and getattr(_sig_pkg, "is_actionable", False)
+                    ):
+                        # S7: typed dispatch path — allocator computes qty;
+                        # multi_account_execute_typed handles per-account
+                        # dispatch. Per-account RiskManager still runs.
+                        _bal = float(
+                            settings.get("SHADOW_BALANCE_USDT")
+                            or os.environ.get("SHADOW_BALANCE_USDT")
+                            or 10_000
+                        )
+                        _alloc_pkgs = coord.build_order_packages(
+                            [_sig_pkg], {"balance": _bal}
+                        )
+                        if _alloc_pkgs:
+                            multi_results = coord.multi_account_execute_typed(
+                                _alloc_pkgs
+                            )
+                            logger.info(
+                                "CENTRALIZED_ALLOCATOR typed dispatch: "
+                                "strategy=%s symbol=%s side=%s pkgs=%d",
+                                _sig_pkg.strategy_id,
+                                _sig_pkg.symbol,
+                                _sig_pkg.side,
+                                len(_alloc_pkgs),
+                            )
+                        else:
+                            # Allocator produced nothing — fall back to legacy path.
+                            pkg = _signal_to_order_package(signal, settings)
+                            multi_results = coord.multi_account_execute(pkg)
+                            _sized_qty = (pkg.meta or {}).get(
+                                "sized_qty_by_account", {}
+                            )
+                    else:
+                        pkg = _signal_to_order_package(signal, settings)
+                        multi_results = coord.multi_account_execute(pkg)
+                        _sized_qty = (pkg.meta or {}).get(
+                            "sized_qty_by_account", {}
+                        )
                     result = {
                         "status": "multi_account_dispatched",
                         "multi_account_results": multi_results,
                         "order": signal,
-                        "sized_qty_by_account": (pkg.meta or {}).get(
-                            "sized_qty_by_account", {}
-                        ),
+                        "sized_qty_by_account": _sized_qty,
                     }
                 except Exception as exc:  # noqa: BLE001
                     logger.exception(
@@ -599,7 +638,7 @@ def run_pipeline(
     ):
         logger.warning(
             "pipeline: actionable %s signal lacks entry/sl/tp at top level "
-            "→ falls into legacy single-client path. signal=%s",
+            "falls into legacy single-client path. signal=%s",
             _strategy, signal,
         )
         try:

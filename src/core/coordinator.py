@@ -1,4 +1,4 @@
-
+"""TRANSLATOR / Coordinator — S-008 PR #120.
 Central routing layer between the 9 units defined in config/units.yaml.
 No unit communicates with another unit directly; all cross-unit data flows
 through this class.
@@ -29,7 +29,11 @@ import yaml
 from src.runtime.orders import account_state_dry_run
 
 if TYPE_CHECKING:
+    from typing import Sequence
     from src.units.accounts.account import TradingAccount
+    from src.core.allocator import AllocatorInterface
+    from src.core.signal_contract import SignalPackage
+    from src.core.order_contract import OrderPackage
 
 logger = logging.getLogger(__name__)
 
@@ -134,6 +138,7 @@ class Coordinator:
         # the next tick. Lifts the per-tick factory call out of the
         # strategy hot path.
         self._shadow_predictors_cache: Dict[str, list] = {}
+        self._allocator: Any = None  # lazy-init PassthroughAllocator (S4)
         self._reload()
 
     @property
@@ -148,6 +153,94 @@ class Coordinator:
         from src.core.profile_loader import load_instrument_profiles
         return load_instrument_profiles(self._instruments_path)
 
+    @property
+    def allocator(self) -> "AllocatorInterface":
+        """Lazy-init PassthroughAllocator (S4 wiring).
+
+        Returns the same instance on repeated calls. The instance is shared
+        across calls; hot-path allocate() calls are cheap (no IO).
+        Swap in a different allocator by replacing self._allocator directly
+        in tests or future sprints.
+        """
+        if self._allocator is None:
+            from src.core.allocator import PassthroughAllocator
+            self._allocator = PassthroughAllocator()
+        return self._allocator
+
+    def build_order_packages(
+        self,
+        signals: "Sequence[SignalPackage]",
+        portfolio_state: dict,
+    ) -> "list[OrderPackage]":
+        """Size a batch of SignalPackages through the allocator (S4 wiring).
+
+        This is the typed entry point for the allocator path. It does NOT
+        replace multi_account_execute — callers opt in explicitly. The live
+        pipeline's multi_account_execute path is unchanged until S5/S6.
+
+        Args:
+            signals: SignalPackage objects from strategy signal builders.
+                     Each should have account_id bound via with_account().
+            portfolio_state: Must include 'balance' (float) and
+                             'risk_pct_by_strategy' (dict[str, float]).
+
+        Returns:
+            List of sized OrderPackage objects ready for account_execute().
+            Empty list when no signal is actionable or no valid stop-loss.
+        """
+        return self.allocator.allocate(signals, portfolio_state)
+
+    def multi_account_execute_typed(
+        self,
+        pkgs: "list[OrderPackage]",
+        accounts_path: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """Dispatch pre-sized typed OrderPackages from build_order_packages().
+
+        S7 (M11): converts each typed OrderPackage (order_contract.py) to
+        the legacy coordinator format and delegates to multi_account_execute.
+        Per-account RiskManager sizing still runs; allocator-computed qty is
+        stored in meta['allocator_qty'] for audit only — the RiskManager
+        remains the single live-sizing authority until S8.
+
+        Parameters
+        ----------
+        pkgs : list[OrderPackage]
+            Typed packages from build_order_packages() / allocator.allocate().
+        accounts_path : str, optional
+            Override path to accounts.yaml (forwarded to multi_account_execute).
+
+        Returns
+        -------
+        list[dict]
+            Concatenated per-account results from multi_account_execute.
+            Flat packages (qty==0 or side=='none') are skipped silently.
+        """
+        results: List[Dict[str, Any]] = []
+        for typed_pkg in pkgs:
+            if getattr(typed_pkg, "is_flat", False):
+                logger.debug(
+                    "multi_account_execute_typed: skipping flat pkg strategy=%s",
+                    getattr(typed_pkg, "strategy_id", "?"),
+                )
+                continue
+            legacy_pkg = OrderPackage(
+                strategy=str(getattr(typed_pkg, "strategy_id", "") or ""),
+                symbol=str(getattr(typed_pkg, "symbol", "") or "BTCUSDT"),
+                direction=str(getattr(typed_pkg, "side", "long")),
+                entry=float(getattr(typed_pkg, "entry_price", 0.0) or 0.0),
+                sl=float(getattr(typed_pkg, "stop_loss", 0.0) or 0.0),
+                tp=float(getattr(typed_pkg, "take_profit", 0.0) or 0.0),
+                confidence=0.0,
+                meta={"allocator_qty": getattr(typed_pkg, "qty", 0.0)},
+            )
+            account_results = self.multi_account_execute(
+                legacy_pkg,
+                accounts_path=accounts_path,
+            )
+            results.extend(account_results)
+        return results
+
     def _reload(self) -> None:
         try:
             self._cfg = _load_units(self._units_path)
@@ -159,7 +252,7 @@ class Coordinator:
         """Re-read units.yaml and refresh the Coordinator's config in-place.
 
         Returns a summary of what changed: ``{reloaded: bool, units_path: str,
-        strategy_count: int, enabled_strategies: list[str]}}``.
+        strategy_count: int, enabled_strategies: list[str]}``.
 
         Pushes an info alert so Telegram / App consumers see the reload event.
         """
