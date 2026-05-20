@@ -76,11 +76,17 @@ _CANONICAL_UNITS: tuple[str, ...] = (
     "ict-cloudflared-tunnel.service",
 )
 
+_ADVISORY_LOG = runtime_logs_dir() / "advisory_decisions.jsonl"
+
 _LOG_FILES: dict[str, Path] = {
     "audit": _AUDIT_LOG,
     "status": _STATUS_JSON,
     "heartbeat": _HEARTBEAT,
     "bot_log": _BOT_LOG,
+    # M11 S10: ML advisory-score audit log. Written by
+    # Coordinator.log_advisory_scores() when advisory-stage models are active.
+    # Empty/absent when no advisory models are wired (expected for most installs).
+    "advisory_decisions": _ADVISORY_LOG,
 }
 
 _DEFAULT_LIMIT = 100

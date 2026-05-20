@@ -20,7 +20,11 @@
     "audit_log_freshness": {"status": "ok | watch | concern", "note": "..."},
     "trainer_service":     {"status": "ok | watch | concern | skip", "note": "..."},
     "trainer_datasets":    {"status": "ok | watch | concern | skip", "note": "..."},
-    "trainer_registry":    {"status": "ok | watch | concern | skip", "note": "..."}
+    "trainer_registry":    {"status": "ok | watch | concern | skip", "note": "..."},
+    "net_positions":       {"status": "ok | watch | concern", "note": "..."},
+    "strategy_attribution":{"status": "ok | watch | concern", "note": "..."},
+    "advisory_scores":     {"status": "ok | watch | concern | skip", "note": "..."},
+    "allocator_path":      {"status": "ok | watch | concern | skip", "note": "..."}
   },
   "anomalies": [
     "free-form list of notable items the reviewer flagged"
