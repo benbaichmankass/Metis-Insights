@@ -21,6 +21,10 @@ class AccountProfile:
     account_type: AccountType
     exchange: ExchangeID
     dry_run: bool
+    # True when routing to Bybit demo endpoint (demo: true in accounts.yaml).
+    # Distinct from dry_run: demo accounts DO call the exchange (paper money);
+    # dry_run accounts suppress all exchange calls entirely.
+    demo: bool = False
     base_currency: str = "USDT"
     max_concurrent_positions: int = 1
     tags: tuple[str, ...] = field(default_factory=tuple)
@@ -31,7 +35,12 @@ class AccountProfile:
 
     @classmethod
     def from_dict(cls, account_id: str, data: dict) -> "AccountProfile":
-        """Build an AccountProfile from a raw accounts.yaml entry dict."""
+        """Build an AccountProfile from a raw accounts.yaml entry dict.
+
+        accounts.yaml uses ``mode: live | dry_run`` (string) for the live/dry
+        toggle and an optional ``demo: true`` bool for the Bybit demo endpoint.
+        This method maps both correctly.
+        """
         exchange_raw = data.get("exchange", "bybit").lower()
         if exchange_raw == "bybit":
             exchange: ExchangeID = "bybit"
@@ -40,18 +49,25 @@ class AccountProfile:
         else:
             exchange = "unknown"
 
-        dry_run = bool(data.get("dry_run", True))
-        account_type_raw = data.get("account_type", "")
+        # accounts.yaml uses mode: live | dry_run (not a bool dry_run field)
+        mode = str(data.get("mode", "dry_run")).lower()
+        dry_run = mode != "live"
 
+        # demo: true means routes to Bybit demo endpoint — real trades, paper money
+        demo = bool(data.get("demo", False))
+
+        account_type_raw = data.get("account_type", "")
         if account_type_raw:
             account_type: AccountType = account_type_raw  # type: ignore[assignment]
-        elif exchange == "bybit" and dry_run:
+        elif demo:
             account_type = "bybit_demo"
         elif exchange == "bybit" and not dry_run:
             account_type = "bybit_live"
+        elif exchange == "bybit":
+            account_type = "bybit_demo"
         elif exchange == "interactive_brokers" and dry_run:
             account_type = "ib_paper"
-        elif exchange == "interactive_brokers" and not dry_run:
+        elif exchange == "interactive_brokers":
             account_type = "ib_live"
         else:
             account_type = "unknown"
@@ -64,6 +80,7 @@ class AccountProfile:
             account_type=account_type,
             exchange=exchange,
             dry_run=dry_run,
+            demo=demo,
             base_currency=data.get("base_currency", "USDT"),
             max_concurrent_positions=int(data.get("max_concurrent_positions", 1)),
             tags=tags,
@@ -87,8 +104,9 @@ class AccountProfile:
 
     @property
     def is_demo(self) -> bool:
-        return self.dry_run
+        return self.demo
 
     def __repr__(self) -> str:
-        live_label = "LIVE" if self.is_live else "demo"
-        return f"AccountProfile({self.account_id!r}, {self.exchange}, {live_label})"
+        live_label = "LIVE" if self.is_live else "dry_run"
+        demo_label = "/demo" if self.demo else ""
+        return f"AccountProfile({self.account_id!r}, {self.exchange}{demo_label}, {live_label})"

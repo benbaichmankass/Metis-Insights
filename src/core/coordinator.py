@@ -37,6 +37,7 @@ logger = logging.getLogger(__name__)
 _REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 _UNITS_YAML = os.path.join(_REPO_ROOT, "config", "units.yaml")
 _ACCOUNTS_YAML = os.path.join(_REPO_ROOT, "config", "accounts.yaml")
+_INSTRUMENTS_YAML = os.path.join(_REPO_ROOT, "config", "instruments.yaml")
 
 
 def _has_open_position(account_name: str, symbol: str) -> bool:
@@ -121,9 +122,11 @@ class Coordinator:
         self,
         units_path: str = _UNITS_YAML,
         accounts_path: str = _ACCOUNTS_YAML,
+        instruments_path: str = _INSTRUMENTS_YAML,
     ) -> None:
         self._units_path = units_path
         self._accounts_path = accounts_path
+        self._instruments_path = instruments_path
         self._cfg: Dict[str, Any] = {}
         # S-AI-WS7-PART-6: Coordinator-side cache of resolved
         # ShadowPredictor lists, keyed by strategy name. Lazily
@@ -133,6 +136,18 @@ class Coordinator:
         # strategy hot path.
         self._shadow_predictors_cache: Dict[str, list] = {}
         self._reload()
+
+    @property
+    def account_profiles(self) -> Dict[str, Any]:
+        """Read-only typed view of config/accounts.yaml as AccountProfile objects."""
+        from src.core.profile_loader import load_account_profiles
+        return load_account_profiles(self._accounts_path)
+
+    @property
+    def instrument_profiles(self) -> Dict[str, Any]:
+        """Read-only typed view of config/instruments.yaml as InstrumentProfile objects."""
+        from src.core.profile_loader import load_instrument_profiles
+        return load_instrument_profiles(self._instruments_path)
 
     def _reload(self) -> None:
         try:
@@ -145,7 +160,7 @@ class Coordinator:
         """Re-read units.yaml and refresh the Coordinator's config in-place.
 
         Returns a summary of what changed: ``{reloaded: bool, units_path: str,
-        strategy_count: int, enabled_strategies: list[str]}``.
+        strategy_count: int, enabled_strategies: list[str]}}``.
 
         Pushes an info alert so Telegram / App consumers see the reload event.
         """
@@ -309,7 +324,7 @@ class Coordinator:
         # resolved relative to the trader process's CWD
         # (`/home/ubuntu/ict-trading-bot/`), so the trader wrote to
         # one file while `src/web/api/routers/trade_scores.py` (which
-        # uses `runtime_logs_dir() / "shadow_predictions.jsonl"`)
+        # uses `runtime_logs_dir() / "shadow_predictions.jsonl"`) 
         # read from a different one. Symptom: `/api/bot/trades/scores`
         # returned `log_present: False` even though shadow predictions
         # were happily firing on every signal — the writer-vs-reader
