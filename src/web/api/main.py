@@ -11,6 +11,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.web.api.routers import auth as auth_router
+from src.web.api.routers import attribution as attribution_router
 from src.web.api.routers import backtests as backtests_router
 from src.web.api.routers import bot_config as bot_config_router
 from src.web.api.routers import dashboard as dashboard_router
@@ -62,6 +63,7 @@ app.include_router(health_snapshots_router.router)
 app.include_router(trade_scores_router.router)
 app.include_router(strategies_router.router)
 app.include_router(training_center_router.router)
+app.include_router(attribution_router.router)
 
 
 @app.get("/api/health", tags=["health"])
