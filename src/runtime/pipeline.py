@@ -3,7 +3,7 @@ from src.runtime.signal_writer import write_signal  # noqa: F401  (used in _writ
 # PR-9 / D1: signal/order helpers extracted to their canonical modules.
 from src.runtime.signal_writer import _write_ict_signals_from_meta  # noqa: E402
 from src.runtime.order_bridge import _signal_to_order_package  # noqa: E402
-from src.runtime.runtime_flags import is_strategy_paused  # noqa: E402 (D11)
+from src.runtime.runtime_flags import _centralized_allocator_enabled, is_strategy_paused  # noqa: E402 (D11)
 from src.utils.signal_audit_logger import log_signal
 from src.runtime.risk_counters import inject_runtime_counters, inject_per_strategy_counters
 from src.news.news_pipeline import get_news_score
@@ -484,6 +484,29 @@ def run_pipeline(
                     from src.core.coordinator import Coordinator
                     pkg = _signal_to_order_package(signal, settings)
                     coord = Coordinator()
+                    # S5: shadow-audit the typed allocator when flag is on.
+                    # Dispatch (multi_account_execute) is unchanged.
+                    if _centralized_allocator_enabled(settings):
+                        _sig_pkg = signal.get("signal_package")
+                        if _sig_pkg is not None and getattr(_sig_pkg, "is_actionable", False):
+                            try:
+                                _bal = float(
+                                    settings.get("SHADOW_BALANCE_USDT")
+                                    or os.environ.get("SHADOW_BALANCE_USDT")
+                                    or 10_000
+                                )
+                                _alloc_pkgs = coord.build_order_packages(
+                                    [_sig_pkg], {"balance": _bal}
+                                )
+                                logger.info(
+                                    "CENTRALIZED_ALLOCATOR shadow: %d package(s) computed "
+                                    "(dispatch unchanged)",
+                                    len(_alloc_pkgs),
+                                )
+                            except Exception as _alloc_exc:
+                                logger.warning(
+                                    "CENTRALIZED_ALLOCATOR shadow failed: %s", _alloc_exc
+                                )
                     multi_results = coord.multi_account_execute(pkg)
                     result = {
                         "status": "multi_account_dispatched",
