@@ -1,11 +1,11 @@
 # Current Sprint Handoff
 
 **Roadmap:** `docs/sprint-plans/ROADMAP-2026-05-19.md`  
-**Last updated:** 2026-05-20 (Sprints 4–7 and 9 complete)
+**Last updated:** 2026-05-20 (Sprints 4–9 complete)
 
 ---
 
-## STATUS: SPRINTS 4–7 AND 9 COMPLETE — MONITORING
+## STATUS: ALL SPRINTS COMPLETE — AWAITING BEN'S REVIEW
 
 **LAST_COMPLETED (this session):**
 - Sprint 4 (S-VWAP-POLICY-LIVE-WIRE, 2026-05-20) — PR #1579 merged; policy gate live
@@ -13,16 +13,23 @@
 - Sprint 5 (S-ML-REGIME-CLASSIFIER-FIX, 2026-05-20) — PR #1588 merged; FU-20260519-001 closed
 - Sprint 9 (S-BACKTEST-DOC-DRIFT-FIX, 2026-05-20) — PR #1592 merged; stale comments fixed
 - Sprint 7 (S-JANITOR-BRANCH-CLEANUP, 2026-05-20) — S-047-STATUS.md written; all branches accounted for
+- Sprint 8 (S-OPS-COMMENT-RACE-FIX, 2026-05-20) — draft PR open; two comment steps merged into one `if: always()` step; FU-20260518-003 closed; awaiting Ben's ack before merge
 
 **READY_TO_CONTINUE:**
 1. Monitor `/health-review` for regime skip events (weak-up/low + sideways/low suppressed by Sprint 4 gate)
 2. Check FU-20260518-001 for long-side R improvement after policy gate live
-3. Sprint 8 (S-OPS-COMMENT-RACE-FIX) — last remaining autonomous sprint (~1h)
+3. Merge Sprint 8 PR after Ben's ack (workflow change, Tier-2)
 4. Review PR #1026 (`no-auto-dry-flip-and-margin-cap`) — Prime Directive violation (circuit breaker) + linear perps margin fix; needs Ben's approval
 
 ---
 
 ## What was done in this session
+
+### Sprint 8 — S-OPS-COMMENT-RACE-FIX (draft PR open)
+- Root cause: two comment steps (`success()` / `failure()`) silently dropped when any post-exec `always()` step failed, or when job cancelled (notify-SSH hang)
+- Fix: replaced both steps with single `if: always() && github.event_name == 'issues'` step; `EXIT_CODE` from `steps.exec.outputs.exit_code` is authoritative success signal
+- `.github/workflows/operator-actions.yml` lines 670–757 replaced
+- FU-20260518-003 closed
 
 ### Sprint 4 — S-VWAP-POLICY-LIVE-WIRE (PR #1579)
 - Policy gate wired into `build_vwap_signal`: weak-up/low + sideways/low → skip; strong-up/low → 2.0σ override
@@ -66,7 +73,7 @@
 | FU ID | Summary | Blocking? |
 |---|---|---|
 | FU-20260518-001 | VWAP performance tracking | Watch after policy gate deploys |
-| FU-20260518-003 | Operator-action completion-comment race | No |
+| ~~FU-20260518-003~~ | ~~Operator-action completion-comment race~~ | **CLOSED — Sprint 8** |
 | ~~FU-20260519-001~~ | ~~regime-classifier f1_trend=0.0~~ | **CLOSED — Sprint 5** |
 | FU-20260519-002 | prop_velotrade_1 at $0 balance → degenerate ML labels | No |
 | ~~FU-20260519-003~~ | ~~test_reload_invalidates_cache flake~~ | **CLOSED — Sprint 6** |
@@ -74,6 +81,6 @@
 
 ## Next sprint options
 
-| Priority | Sprint | Effort | Notes |
-|---|---|---|---|
-| 1 | Sprint 8: S-OPS-COMMENT-RACE-FIX | ~1h | Fix operator-action completion-comment race |
+All roadmap sprints complete. Pending actions:
+1. Ben reviews and merges Sprint 8 PR (operator-actions.yml workflow change, Tier-2 ack required)
+2. Ben reviews PR #1026 (Tier-3: circuit breaker removal + linear perps margin fix)
