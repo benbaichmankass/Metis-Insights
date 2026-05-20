@@ -19,8 +19,11 @@ Knobs (all kwargs):
   log-return vol feature. Larger = smoother feature.
 - `forward_window_m` (int, default 5) — forward window for the
   regime label. Larger = more "regime"-flavored labels.
-- `vol_threshold`    (float, default 0.005) — forward-window vol
+- `vol_threshold`    (float, default 0.003) — forward-window vol
   cutoff above which the regime is classified as "volatile".
+  Calibrated to ≈p50 of forward_vol on BTCUSDT 1h so the two
+  classes are balanced and vol_autocorrelation makes each bucket
+  non-trivially predictable (vol_b0→range, vol_b1/b2→volatile).
 - `trend_threshold`  (float, default 0.005) — abs forward-window
   log return above which the (non-volatile) regime is classified
   as "trend".
@@ -194,7 +197,7 @@ class MarketFeaturesBuilder(DatasetBuilder):
         market_raw_path: Path | str,
         vol_window_n: int = 20,
         forward_window_m: int = 5,
-        vol_threshold: float = 0.005,
+        vol_threshold: float = 0.003,
         trend_threshold: float = 0.005,
         n_vol_buckets: int = 3,
         **_: Any,
