@@ -209,6 +209,60 @@ class Coordinator:
 
         return self.allocator.allocate(signals, ps)
 
+    def log_advisory_scores(
+        self,
+        scores: dict[str, float],
+        *,
+        strategy_id: str = "",
+        symbol: str = "",
+    ) -> None:
+        """Log advisory-stage model scores. No order action taken (S10).
+
+        This is the coordinator advisory hook wired by S10. It is a
+        read-only observation point: scores are emitted to the Python
+        logger at INFO level and to ``runtime_logs/advisory_decisions.jsonl``
+        for audit. The live order path is completely unaffected.
+
+        The hook is a noop when ``scores`` is empty so callers can always
+        invoke it unconditionally without an ``if advisory_scores:`` guard.
+
+        Parameters
+        ----------
+        scores : dict[str, float]
+            ``{model_id: score}`` from ``with_shadow_preds_advisory()``.
+            Only advisory-stage scores are expected here (shadow scores are
+            filtered out by the adapter before reaching the coordinator).
+        strategy_id : str
+            Strategy that generated the signal (for audit context).
+        symbol : str
+            Trading symbol (for audit context).
+        """
+        if not scores:
+            return
+        import json
+        from datetime import datetime, timezone
+        from pathlib import Path
+
+        logged_at = datetime.now(timezone.utc).isoformat()
+        for model_id, score in scores.items():
+            logger.info(
+                "advisory_score model_id=%s score=%.6f strategy=%s symbol=%s",
+                model_id, score, strategy_id, symbol,
+            )
+        log_path = Path("runtime_logs/advisory_decisions.jsonl")
+        try:
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            payload = {
+                "logged_at_utc": logged_at,
+                "strategy_id": strategy_id,
+                "symbol": symbol,
+                "advisory_scores": scores,
+            }
+            with log_path.open("a", encoding="utf-8") as fh:
+                fh.write(json.dumps(payload) + "\n")
+        except OSError as exc:
+            logger.warning("log_advisory_scores: could not write audit log: %s", exc)
+
     def multi_account_execute_typed(
         self,
         pkgs: "list[OrderPackage]",

@@ -1,12 +1,12 @@
-"""Per-strategy shadow-mode adapter (S-AI-WS7-PART-2 + PART-4).
+"""Per-strategy shadow-mode adapter (S-AI-WS7-PART-2 + PART-4 + S10).
 
-Provides `with_shadow_pred` (single predictor, original PART-2 API)
-and `with_shadow_preds` (plural — added in PART-4 so a strategy can
-run multiple shadow models concurrently). Both return the
-deterministic decision byte-for-byte regardless of any predictor
-outcome.
+Provides `with_shadow_pred` (single predictor, original PART-2 API),
+`with_shadow_preds` (plural — added in PART-4 so a strategy can run
+multiple shadow models concurrently), and `with_shadow_preds_advisory`
+(S10 — like `with_shadow_preds` but also captures scores from
+`advisory`-stage predictors and returns them alongside the decision).
 
-Non-negotiables both helpers enforce by construction:
+Non-negotiables all helpers enforce by construction:
 
 - **Shadow = observe.** The deterministic decision is returned
   byte-for-byte. There is no code path in which the model's score
@@ -23,6 +23,10 @@ Non-negotiables both helpers enforce by construction:
   unconditionally even when no model is wired.
 - **Bare `Predictor` is rejected.** `ShadowPredictor` is the
   audit-log surface and must not be bypassed.
+- **Advisory scores are observation-only.** `with_shadow_preds_advisory`
+  returns scores for advisory-stage predictors as a dict. The caller
+  (Coordinator advisory hook) logs them; no code path acts on them
+  until the operator explicitly enables the advisory gate.
 
 Example: PART-3 vwap usage with a config-driven predictor list
 (plural form is the production path going forward)::
@@ -53,6 +57,8 @@ from ml.predictors.shadow import ShadowPredictor
 _DEFAULT_LOGGER = logging.getLogger(__name__)
 
 T = TypeVar("T")
+
+_ADVISORY_STAGE = "advisory"
 
 
 def with_shadow_preds(
@@ -134,3 +140,61 @@ def with_shadow_pred(
         feature_row=feature_row,
         logger=logger,
     )
+
+
+def with_shadow_preds_advisory(
+    decision: T,
+    *,
+    predictors: Sequence[ShadowPredictor] | Iterable[ShadowPredictor] | None,
+    feature_row: Mapping[str, Any],
+    logger: logging.Logger | None = None,
+) -> tuple[T, dict[str, float]]:
+    """Run shadow predictors and capture scores from advisory-stage models.
+
+    Identical to `with_shadow_preds` in its observe-only contract — the
+    decision is returned byte-identical regardless of any predictor outcome.
+    Additionally returns a ``dict[model_id, score]`` for every predictor
+    whose ``stage == "advisory"``. Shadow-stage predictor scores are still
+    written to the audit log but are NOT included in the returned dict.
+
+    Parameters
+    ----------
+    decision : T
+        The strategy's deterministic output. Returned unchanged.
+    predictors : Sequence[ShadowPredictor] | Iterable[...] | None
+        The shadow wrappers. ``None`` and empty sequence are pass-through.
+    feature_row : Mapping[str, Any]
+        Row passed to every predictor.
+    logger : logging.Logger | None
+        Optional logger for predictor failures.
+
+    Returns
+    -------
+    tuple[T, dict[str, float]]
+        ``(decision, advisory_scores)`` where ``advisory_scores`` maps
+        ``model_id → score`` for every advisory-stage predictor that
+        succeeded. Empty dict when no advisory predictors are wired or
+        all advisory calls fail.
+    """
+    if predictors is None:
+        return decision, {}
+    log = logger if logger is not None else _DEFAULT_LOGGER
+    advisory_scores: dict[str, float] = {}
+    for predictor in predictors:
+        if not isinstance(predictor, ShadowPredictor):
+            raise TypeError(
+                f"every entry in `predictors` must be a ShadowPredictor; "
+                f"got {type(predictor).__name__}"
+            )
+        try:
+            score = predictor.predict(feature_row)
+            if predictor.stage == _ADVISORY_STAGE:
+                advisory_scores[predictor.model_id] = score
+        except Exception as exc:  # noqa: BLE001 — see contract above
+            log.warning(
+                "shadow_predict_failed model_id=%s stage=%s err=%s",
+                predictor.model_id,
+                predictor.stage,
+                exc,
+            )
+    return decision, advisory_scores
