@@ -226,8 +226,9 @@ jobs:
                      | sed -E 's/^[[:space:]]*[Ww]indow_days[[:space:]]*:[[:space:]]*//' \
                      | tr -d '[:space:]' || true)
             # bt_mode chosen distinct from `mode:` (which set-account-mode owns).
-            # Used by vwap-backtest-sweep to pick between --compare and
-            # --threshold-sweep on src.backtest.run_backtest_vwap.
+            # Used by vwap-backtest-sweep to select the run_backtest_vwap flag:
+            # compare → --compare, threshold-sweep → --threshold-sweep,
+            # adaptive → --adaptive, param-sweep → --param-sweep.
             bt_mode=$(printf '%s\n' "${ISSUE_BODY}" \
                      | grep -i -m1 '^[[:space:]]*bt_mode[[:space:]]*:' \
                      | sed -E 's/^[[:space:]]*[Bb][Tt]_mode[[:space:]]*:[[:space:]]*//' \

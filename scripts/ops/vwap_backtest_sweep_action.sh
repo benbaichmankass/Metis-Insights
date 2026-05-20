@@ -7,18 +7,11 @@
 # multiple HTF-gate configurations side-by-side over a 90-day
 # window with 8x 30-day random sub-windows.
 #
-# Tests the live-trading concern from 2026-05-18: VWAP-long is
-# losing 89% (10.9% win) while VWAP-short hits 40.9%. The
-# 4h-EMA-200 HTF gate (disabled 2026-05-13 due to long-bias
-# entrenchment) protected the 1.0σ entry threshold in backtests,
-# but that gate's 33-day lookback is too slow for the 5m
-# strategy in a fast-moving market. We want gates that work
-# across various regimes.
-#
-# Compares: no-gate (baseline), 15m EMA-20, 1h EMA-20/50/200,
-# 4h EMA-20. The 1h EMA-200 was the Phase-3 design from
-# 2026-05-08-all-models-training; the shorter ones test whether
-# fast-response gates work better in chop.
+# Supports four modes (pass via bt_mode: key in the operator-action issue):
+#   compare        — HTF-gate variants side-by-side (no-gate, 15m/1h/4h EMA)
+#   threshold-sweep — entry σ-threshold vs R trade-off matrix
+#   adaptive       — 24-window adaptive backtest (fixed params, regime split)
+#   param-sweep    — multi-param grid: entry σ × SL σ × anchor combinations
 #
 # No DB writes. No live-trading side effects. ~2-5 min runtime
 # depending on data freshness.
