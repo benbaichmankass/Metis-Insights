@@ -19,8 +19,11 @@ Knobs (all kwargs):
   log-return vol feature. Larger = smoother feature.
 - `forward_window_m` (int, default 5) — forward window for the
   regime label. Larger = more "regime"-flavored labels.
-- `vol_threshold`    (float, default 0.005) — forward-window vol
+- `vol_threshold`    (float, default 0.003) — forward-window vol
   cutoff above which the regime is classified as "volatile".
+  Calibrated to ≈p50 of forward_vol on BTCUSDT 1h so the two
+  classes are balanced and vol_autocorrelation makes each bucket
+  non-trivially predictable (vol_b0→range, vol_b1/b2→volatile).
 - `trend_threshold`  (float, default 0.005) — abs forward-window
   log return above which the (non-volatile) regime is classified
   as "trend".
@@ -41,7 +44,7 @@ Knobs (all kwargs):
 | `vol_bucket` | str | Quantile bucket of `rolling_log_return_vol` over the entire dataset. |
 | `forward_log_return` | float | `ln(close[t + forward_window_m] / close[t])`. |
 | `forward_log_return_vol` | float | stdev of `log_return` over `[t + 1 .. t + forward_window_m]` (strictly after `t`). |
-| `regime_label` | str | One of `"trend"`, `"range"`, `"volatile"` — derived from forward stats. |
+| `regime_label` | str | One of `"range"`, `"volatile"` — derived from forward stats (2-class since S-ML-REGIME-CLASSIFIER-FIX). |
 | `source` | str | Copied from `market_raw` (the upstream adapter name). |
 
 ## Leakage discipline
@@ -84,7 +87,7 @@ from ..metadata import LeakageStatus
 
 _FAMILY = "market_features"
 
-REGIME_LABELS: tuple[str, ...] = ("trend", "range", "volatile")
+REGIME_LABELS: tuple[str, ...] = ("range", "volatile")
 
 
 def _label_regime(
@@ -96,21 +99,22 @@ def _label_regime(
 ) -> str:
     """Map (forward_log_return, forward_vol) → regime class.
 
-    Rule (in order):
+    2-class scheme (S-ML-REGIME-CLASSIFIER-FIX, 2026-05-20):
       1. forward_vol > vol_threshold → "volatile"
-      2. |forward_log_return| > trend_threshold → "trend"
-      3. else → "range"
+      2. else → "range"
 
-    Order matters: a high-vol bar with a strong directional
-    move is classified "volatile" first. The intuition is that
-    a regime classifier downstream of this family is more
-    interested in "should I trust the trend?" than in "did the
-    price move a lot?", so vol gates the trend bucket.
+    The original 3-class scheme (trend / range / volatile) was
+    collapsed because ``vol_bucket`` (the sole feature) cannot
+    separate "trend" from "range" — in every bucket, "trend" is
+    outnumbered by "range" or "volatile", so the modal-class
+    predictor never predicted "trend" → f1_trend = 0.0 in all
+    training runs since 2026-05-14.
+
+    ``trend_threshold`` is kept in the signature for backward
+    compatibility but is no longer used.
     """
     if forward_vol > vol_threshold:
         return "volatile"
-    if abs(forward_log_return) > trend_threshold:
-        return "trend"
     return "range"
 
 
@@ -193,7 +197,7 @@ class MarketFeaturesBuilder(DatasetBuilder):
         market_raw_path: Path | str,
         vol_window_n: int = 20,
         forward_window_m: int = 5,
-        vol_threshold: float = 0.005,
+        vol_threshold: float = 0.003,
         trend_threshold: float = 0.005,
         n_vol_buckets: int = 3,
         **_: Any,

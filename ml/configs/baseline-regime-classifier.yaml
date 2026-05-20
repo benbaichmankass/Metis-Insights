@@ -25,7 +25,7 @@
 #     --symbol-scope BTCUSDT --timeframe 1h \
 #     -- market_raw_path=./datasets-out/market_raw/BTCUSDT/1h/v001 \
 #        vol_window_n=20 forward_window_m=5 \
-#        vol_threshold=0.005 trend_threshold=0.005 \
+#        vol_threshold=0.003 trend_threshold=0.005 \
 #        n_vol_buckets=3
 #
 #   # 3. Train + evaluate the classifier.
@@ -48,7 +48,6 @@ trainer_config:
   feature_column: vol_bucket
   unknown_bucket: ""
   class_labels:
-    - trend
     - range
     - volatile
 dataset:
@@ -64,8 +63,25 @@ evaluator_config:
   holdout_fraction: 0.2
 target_deployment_stage: shadow
 notes: |
-  WS5-B-PART-2 PR 2B baseline. 3-class regime classifier
-  (trend / range / volatile) with `vol_bucket` as the sole
-  feature. Time-aware holdout — eval is the latest 20 % of bars
-  to mirror the live deployment shape.
-  Not a candidate for any live tier.
+  WS5-B-PART-2 PR 2B baseline. 2-class regime classifier
+  (range / volatile) with `vol_bucket` as the sole feature.
+  Time-aware holdout — eval is the latest 20 % of bars to
+  mirror the live deployment shape. Not a candidate for any
+  live tier.
+
+  S-ML-REGIME-CLASSIFIER-FIX (2026-05-20): collapsed from
+  3-class (trend/range/volatile) to 2-class (range/volatile)
+  and recalibrated vol_threshold from 0.005 to 0.003.
+
+  Root cause of f1_trend=0.0: vol_bucket cannot separate
+  "trend" from "range" — trend was never the modal class in any
+  bucket. Collapse fix: "trend" merged into "range".
+
+  Root cause of f1_volatile=0.0 after initial collapse:
+  vol_threshold=0.005 labeled only 22.9% volatile; with trend
+  merged into range, vol_b2 became range-modal (4423 vs 2531).
+  vol_threshold=0.003 (≈p50 of forward_vol on BTCUSDT 1h)
+  achieves 50/50 balance and exploits vol autocorrelation:
+    vol_b0→range(4791 vs 2158), vol_b1→volatile(3571 vs 3382),
+    vol_b2→volatile(4672 vs 2282) — all three buckets predict
+    different classes (well, b0 vs b1/b2) non-degenerately.
