@@ -481,32 +481,61 @@ def run_pipeline(
                     _report_pipeline_outcome(result, signal)
                     return result
                 try:
-                    from src.core.coordinator import Coordinator
-                    pkg = _signal_to_order_package(signal, settings)
+                    from src.core.coordinator import (
+                        Coordinator,
+                        OrderPackage as _CoordOrderPackage,
+                    )
                     coord = Coordinator()
-                    # S5: shadow-audit the typed allocator when flag is on.
-                    # Dispatch (multi_account_execute) is unchanged.
-                    if _centralized_allocator_enabled(settings):
-                        _sig_pkg = signal.get("signal_package")
-                        if _sig_pkg is not None and getattr(_sig_pkg, "is_actionable", False):
-                            try:
-                                _bal = float(
-                                    settings.get("SHADOW_BALANCE_USDT")
-                                    or os.environ.get("SHADOW_BALANCE_USDT")
-                                    or 10_000
-                                )
-                                _alloc_pkgs = coord.build_order_packages(
-                                    [_sig_pkg], {"balance": _bal}
-                                )
-                                logger.info(
-                                    "CENTRALIZED_ALLOCATOR shadow: %d package(s) computed "
-                                    "(dispatch unchanged)",
-                                    len(_alloc_pkgs),
-                                )
-                            except Exception as _alloc_exc:
-                                logger.warning(
-                                    "CENTRALIZED_ALLOCATOR shadow failed: %s", _alloc_exc
-                                )
+                    _sig_pkg = signal.get("signal_package")
+                    if (
+                        _centralized_allocator_enabled(settings)
+                        and _sig_pkg is not None
+                        and getattr(_sig_pkg, "is_actionable", False)
+                    ):
+                        # S6: primary typed path — build the coordinator
+                        # OrderPackage from the typed SignalPackage (S3)
+                        # instead of the raw signal dict. Dispatch via
+                        # multi_account_execute is unchanged.
+                        _raw = (
+                            _sig_pkg.raw
+                            if isinstance(getattr(_sig_pkg, "raw", None), dict)
+                            else {}
+                        )
+                        pkg = _CoordOrderPackage(
+                            strategy=_sig_pkg.strategy_id,
+                            symbol=_sig_pkg.symbol,
+                            direction=_sig_pkg.side,
+                            entry=float(_sig_pkg.entry_price or 0.0),
+                            sl=float(_sig_pkg.stop_loss or 0.0),
+                            tp=float(_sig_pkg.take_profit or 0.0),
+                            confidence=float(_raw.get("confidence", 0.0)),
+                            meta=dict(signal.get("meta") or {}),
+                        )
+                        try:
+                            _bal = float(
+                                settings.get("SHADOW_BALANCE_USDT")
+                                or os.environ.get("SHADOW_BALANCE_USDT")
+                                or 10_000
+                            )
+                            _alloc_pkgs = coord.build_order_packages(
+                                [_sig_pkg], {"balance": _bal}
+                            )
+                            logger.info(
+                                "CENTRALIZED_ALLOCATOR primary: strategy=%s "
+                                "symbol=%s side=%s allocator_qty=%s "
+                                "(dispatch via multi_account_execute)",
+                                _sig_pkg.strategy_id,
+                                _sig_pkg.symbol,
+                                _sig_pkg.side,
+                                _alloc_pkgs[0].qty if _alloc_pkgs else "none",
+                            )
+                        except Exception as _alloc_exc:
+                            logger.warning(
+                                "CENTRALIZED_ALLOCATOR allocator failed: %s",
+                                _alloc_exc,
+                            )
+                    else:
+                        pkg = _signal_to_order_package(signal, settings)
                     multi_results = coord.multi_account_execute(pkg)
                     result = {
                         "status": "multi_account_dispatched",
