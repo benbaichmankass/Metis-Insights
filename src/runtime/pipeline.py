@@ -481,69 +481,56 @@ def run_pipeline(
                     _report_pipeline_outcome(result, signal)
                     return result
                 try:
-                    from src.core.coordinator import (
-                        Coordinator,
-                        OrderPackage as _CoordOrderPackage,
-                    )
+                    from src.core.coordinator import Coordinator
                     coord = Coordinator()
                     _sig_pkg = signal.get("signal_package")
+                    _sized_qty: dict = {}
                     if (
                         _centralized_allocator_enabled(settings)
                         and _sig_pkg is not None
                         and getattr(_sig_pkg, "is_actionable", False)
                     ):
-                        # S6: primary typed path — build the coordinator
-                        # OrderPackage from the typed SignalPackage (S3)
-                        # instead of the raw signal dict. Dispatch via
-                        # multi_account_execute is unchanged.
-                        _raw = (
-                            _sig_pkg.raw
-                            if isinstance(getattr(_sig_pkg, "raw", None), dict)
-                            else {}
+                        # S7: typed dispatch path — allocator computes qty;
+                        # multi_account_execute_typed handles per-account
+                        # dispatch. Per-account RiskManager still runs.
+                        _bal = float(
+                            settings.get("SHADOW_BALANCE_USDT")
+                            or os.environ.get("SHADOW_BALANCE_USDT")
+                            or 10_000
                         )
-                        pkg = _CoordOrderPackage(
-                            strategy=_sig_pkg.strategy_id,
-                            symbol=_sig_pkg.symbol,
-                            direction=_sig_pkg.side,
-                            entry=float(_sig_pkg.entry_price or 0.0),
-                            sl=float(_sig_pkg.stop_loss or 0.0),
-                            tp=float(_sig_pkg.take_profit or 0.0),
-                            confidence=float(_raw.get("confidence", 0.0)),
-                            meta=dict(signal.get("meta") or {}),
+                        _alloc_pkgs = coord.build_order_packages(
+                            [_sig_pkg], {"balance": _bal}
                         )
-                        try:
-                            _bal = float(
-                                settings.get("SHADOW_BALANCE_USDT")
-                                or os.environ.get("SHADOW_BALANCE_USDT")
-                                or 10_000
-                            )
-                            _alloc_pkgs = coord.build_order_packages(
-                                [_sig_pkg], {"balance": _bal}
+                        if _alloc_pkgs:
+                            multi_results = coord.multi_account_execute_typed(
+                                _alloc_pkgs
                             )
                             logger.info(
-                                "CENTRALIZED_ALLOCATOR primary: strategy=%s "
-                                "symbol=%s side=%s allocator_qty=%s "
-                                "(dispatch via multi_account_execute)",
+                                "CENTRALIZED_ALLOCATOR typed dispatch: "
+                                "strategy=%s symbol=%s side=%s pkgs=%d",
                                 _sig_pkg.strategy_id,
                                 _sig_pkg.symbol,
                                 _sig_pkg.side,
-                                _alloc_pkgs[0].qty if _alloc_pkgs else "none",
+                                len(_alloc_pkgs),
                             )
-                        except Exception as _alloc_exc:
-                            logger.warning(
-                                "CENTRALIZED_ALLOCATOR allocator failed: %s",
-                                _alloc_exc,
+                        else:
+                            # Allocator produced nothing — fall back to legacy path.
+                            pkg = _signal_to_order_package(signal, settings)
+                            multi_results = coord.multi_account_execute(pkg)
+                            _sized_qty = (pkg.meta or {}).get(
+                                "sized_qty_by_account", {}
                             )
                     else:
                         pkg = _signal_to_order_package(signal, settings)
-                    multi_results = coord.multi_account_execute(pkg)
+                        multi_results = coord.multi_account_execute(pkg)
+                        _sized_qty = (pkg.meta or {}).get(
+                            "sized_qty_by_account", {}
+                        )
                     result = {
                         "status": "multi_account_dispatched",
                         "multi_account_results": multi_results,
                         "order": signal,
-                        "sized_qty_by_account": (pkg.meta or {}).get(
-                            "sized_qty_by_account", {}
-                        ),
+                        "sized_qty_by_account": _sized_qty,
                     }
                 except Exception as exc:  # noqa: BLE001
                     logger.exception(
@@ -651,7 +638,7 @@ def run_pipeline(
     ):
         logger.warning(
             "pipeline: actionable %s signal lacks entry/sl/tp at top level "
-            "→ falls into legacy single-client path. signal=%s",
+            "falls into legacy single-client path. signal=%s",
             _strategy, signal,
         )
         try:
