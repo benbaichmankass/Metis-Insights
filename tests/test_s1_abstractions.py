@@ -21,7 +21,7 @@ from src.core.allocator import PassthroughAllocator
 
 class TestAccountProfile:
     def test_from_dict_bybit_live(self):
-        data = {"exchange": "bybit", "dry_run": False}
+        data = {"exchange": "bybit", "mode": "live"}
         profile = AccountProfile.from_dict("bybit_2", data)
         assert profile.account_id == "bybit_2"
         assert profile.exchange == "bybit"
@@ -30,19 +30,19 @@ class TestAccountProfile:
         assert profile.account_type == "bybit_live"
 
     def test_from_dict_bybit_demo(self):
-        data = {"exchange": "bybit", "dry_run": True}
+        data = {"exchange": "bybit", "mode": "live", "demo": True}
         profile = AccountProfile.from_dict("bybit_1", data)
         assert profile.is_demo is True
         assert profile.account_type == "bybit_demo"
 
     def test_frozen(self):
-        data = {"exchange": "bybit", "dry_run": False}
+        data = {"exchange": "bybit", "mode": "live"}
         profile = AccountProfile.from_dict("bybit_2", data)
         with pytest.raises((dataclasses.FrozenInstanceError, AttributeError)):
             profile.dry_run = True  # type: ignore[misc]
 
     def test_ib_paper_profile(self):
-        data = {"exchange": "interactive_brokers", "dry_run": True}
+        data = {"exchange": "interactive_brokers", "mode": "dry_run"}
         profile = AccountProfile.from_dict("ib_paper_1", data)
         assert profile.is_ib is True
         assert profile.account_type == "ib_paper"
