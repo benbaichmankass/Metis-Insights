@@ -105,9 +105,16 @@ pulls:
    Compare against the audit tail: every `signal → order` transition
    should produce a row here.
 3. **Recent trades** — `journal?table=trades&limit=100`. Same idea
-   for `order → fill → trade`.
+   for `order → fill → trade`. Also used to derive M11 attribution
+   dimensions (net_positions, strategy_attribution) — see below.
 4. **Status snapshot** — `status` (heartbeat + status.json + vm_health).
    Cross-check against the embedded HEARTBEAT block.
+5. **Advisory decisions log** (M11 S10) — `log_file?name=advisory_decisions&lines=200`.
+   Returns the tail of `runtime_logs/advisory_decisions.jsonl` written by
+   `Coordinator.log_advisory_scores()` when advisory-stage ML models are
+   active. If `present: false`, advisory models are not wired — grade
+   `advisory_scores` as `skip`. If present, check score freshness and
+   whether all expected model IDs appear.
 
 If the relay returns curl exit 7 (`Failed to connect to 127.0.0.1`),
 the web-api is down — fire `vm-web-api-recover` and retry once. If
@@ -143,6 +150,24 @@ follow-ups discovered during a review go in the response's
 `anomalies` array with a clear "open as new follow-up" hint in
 `recommended_action`; the operator (or a separate skill) is
 responsible for editing the file.
+
+### Deriving M11 attribution dimensions from pull 3
+
+The M11 refactor (merged 2026-05-20) added two new Tier-1 API endpoints:
+`GET /api/bot/positions/net` and `GET /api/bot/strategy/attribution`. These
+are not under `/api/diag/` so the diag relay cannot fetch them directly.
+Instead derive the same data from the pull-3 trades table:
+
+- **Net positions** — filter `journal?table=trades&limit=100` rows to
+  `status='open'`; sum `position_size * (1 if direction='long' else -1)`
+  per symbol across all accounts. This is the net_qty reported by the
+  `/api/bot/positions/net` endpoint.
+- **Strategy attribution** — group closed trades by `strategy_name`;
+  compute win count (`pnl > 0`) and total. These are the `win_rate` and
+  `total_pnl` values from `/api/bot/strategy/attribution`.
+
+Use these derived views to populate the `net_positions` and
+`strategy_attribution` finding dimensions.
 
 ### Sanity-check rubric for the 6-hour window
 
@@ -432,6 +457,49 @@ Map findings to the layer-2 dimensions (these differ from layer 1):
     main DB suggest a stuck checkpoint; surface as `watch`.
   Grade `watch` for soft signals (large WAL, mtime modestly stale);
   reserve `concern` for integrity failures or hours-stale mtimes.
+- `net_positions` — derived from pull-3 open trades (see "Deriving M11
+  attribution dimensions" above). Grade:
+  - `ok` — net qty per symbol is within expected range given open trades.
+    No phantom positions (net qty with no matching open trade rows).
+  - `watch` — net qty is larger than expected for the account's risk caps,
+    or a symbol has open trades but the computed net rounds to zero (equal
+    long/short, which is unusual given the strategies).
+  - `concern` — net qty per symbol far exceeds the `pos_size` cap in
+    `config/accounts.yaml`, or computed net disagrees with open trade
+    count by more than rounding error (possible double-count / orphan).
+- `strategy_attribution` — derived from pull-3 closed trades grouped by
+  `strategy_name`. Cross-check against `config/strategies.yaml` enabled list.
+  - `ok` — all enabled strategies have at least some closed trades in the
+    trailing 7-day window; win rates are plausible (5–95%); no strategy
+    showing 100% loss over ≥ 5 trades.
+  - `watch` — one strategy has zero closed trades in the last 7 days (may
+    just mean no signals fired); or win rate is at an extreme but sample is
+    small (< 5 trades). Note the strategy name.
+  - `concern` — a strategy has > 5 consecutive losses with no wins; or a
+    strategy in `strategies.yaml` as `enabled: true` has never produced a
+    trade row (wiring gap, not just silence).
+- `advisory_scores` — grade from pull-5 (`log_file?name=advisory_decisions`):
+  - `skip` — log absent (`present: false`); no advisory-stage models wired.
+    This is the expected state for most installs (M11 S10 machinery is wired
+    but only activates when a model reaches advisory stage).
+  - `ok` — log is present; entries are recent (within the last 24h); all
+    expected model IDs appear; score values are in [0, 1].
+  - `watch` — log is present but last entry is > 24h old (model may have
+    stopped predicting); or a model_id appears in the log but is absent from
+    `config/strategies.yaml` shadow_model_ids.
+  - `concern` — log is present but score values are all 0.0 or all 1.0 for
+    > 20 consecutive rows (model output collapse); or OSError entries appear
+    in the log indicating write failures in the advisory hook.
+- `allocator_path` — check `runtime_logs/runtime_status.json` for the
+  `CENTRALIZED_ALLOCATOR` flag value (written by the pipeline on startup):
+  - `skip` — flag absent or `false` (legacy passthrough path is active;
+    this is the expected default until the flag is explicitly enabled).
+  - `ok` — flag is `true` and `runtime_logs/allocator_decisions.jsonl`
+    exists with recent entries; typed dispatch path is confirmed active.
+  - `watch` — flag is `true` but allocator_decisions.jsonl is absent or
+    stale (typed path enabled but not writing decisions).
+  - `concern` — flag value in runtime_status.json contradicts what the
+    audit tail shows (e.g., flag=true but no typed packages in audit).
 - `trainer_service` — is `ict-trainer.service` / timer running as expected?
   Grade from `=== TRAINER SERVICE ===` and `=== TRAINER RECENT LOG ===`.
   See "Trainer VM health review" § Grading rubric above.
@@ -553,7 +621,11 @@ Schema reminder:
     "audit_log_freshness": {"status": "ok | watch | concern", "note": "..."},
     "trainer_service":     {"status": "ok | watch | concern | skip", "note": "..."},
     "trainer_datasets":    {"status": "ok | watch | concern | skip", "note": "..."},
-    "trainer_registry":    {"status": "ok | watch | concern | skip", "note": "..."}
+    "trainer_registry":    {"status": "ok | watch | concern | skip", "note": "..."},
+    "net_positions":       {"status": "ok | watch | concern", "note": "..."},
+    "strategy_attribution":{"status": "ok | watch | concern", "note": "..."},
+    "advisory_scores":     {"status": "ok | watch | concern | skip", "note": "..."},
+    "allocator_path":      {"status": "ok | watch | concern | skip", "note": "..."}
   },
   "anomalies": ["...free-form list..."],
   "trade_decision_grades": [
