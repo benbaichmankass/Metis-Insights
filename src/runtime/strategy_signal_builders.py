@@ -7,6 +7,10 @@ meta}. No qty — sizing is the per-account RiskManager's job (S-026 G1).
 The module-level ``_build_killzone_exchange`` shim is kept as a named
 attribute so tests can monkeypatch it: ``monkeypatch.setattr(
 strategy_signal_builders, "_build_killzone_exchange", ...)``.
+
+S3 (M11): every builder now also attaches a typed ``SignalPackage`` under
+``sig["signal_package"]`` via ``_with_signal_package()``. All existing dict
+keys are preserved unchanged — live pipeline consumers are unaffected.
 """
 from __future__ import annotations
 
@@ -33,6 +37,32 @@ def _publish_liquidity_state(symbol: str, candles_df: Any) -> None:
         write_state(symbol, candles_df)
     except Exception:
         logger.exception("liquidity state publish failed for symbol=%s", symbol)
+
+
+def _with_signal_package(strategy_id: str, sig: dict) -> dict:
+    """Attach a typed SignalPackage to a builder result dict (S3 wiring).
+
+    Purely additive — all existing dict keys are preserved unchanged.
+    Downstream pipeline consumers that expect a plain dict are unaffected.
+    S4 (allocator wiring) will consume sig["signal_package"] directly.
+    """
+    from datetime import datetime, timezone
+    from src.core.signal_contract import SignalPackage
+    raw_side = sig.get("side", "none")
+    sp_side: str = {"buy": "long", "sell": "short"}.get(raw_side, "none")
+    sig["signal_package"] = SignalPackage(
+        strategy_id=strategy_id,
+        symbol=str(sig.get("symbol", "")),
+        account_id="",  # bound by allocator in S4
+        side=sp_side,  # type: ignore[arg-type]
+        entry_price=sig.get("price") or sig.get("entry_price"),
+        stop_loss=sig.get("stop_loss"),
+        take_profit=sig.get("take_profit"),
+        timestamp_utc=datetime.now(timezone.utc).isoformat(),
+        raw={k: v for k, v in sig.items() if k != "signal_package"},
+        source_context=dict(sig.get("meta") or {}),
+    )
+    return sig
 
 
 # Per-process shadow predictor cache for the vwap signal builder.
@@ -115,8 +145,9 @@ def turtle_soup_signal_builder(settings: dict) -> Dict[str, Any]:
     -------
     dict
         Pipeline signal: {symbol, side, price, stop_loss, take_profit,
-        meta} where side ∈ {"buy", "sell", "none"}. S-026 G1: no qty —
-        sizing is the per-account RiskManager's job.
+        meta, signal_package} where side ∈ {"buy", "sell", "none"}.
+        ``signal_package`` is a typed ``SignalPackage`` (S3 wiring).
+        S-026 G1: no qty — sizing is the per-account RiskManager's job.
     """
     from src.units.strategies.turtle_soup import order_package
     from src.runtime.market_data import fetch_candles
@@ -188,11 +219,11 @@ def turtle_soup_signal_builder(settings: dict) -> Dict[str, Any]:
         }
         if stage_rejections is not None:
             meta["stage_rejections"] = stage_rejections
-        return {
+        return _with_signal_package("turtle_soup", {
             "symbol": symbol,
             "side": "none",
             "meta": meta,
-        }
+        })
 
     side = "buy" if pkg["direction"] == "long" else "sell"
     logger.info(
@@ -222,7 +253,7 @@ def turtle_soup_signal_builder(settings: dict) -> Dict[str, Any]:
         )
     except Exception:  # noqa: BLE001
         logger.exception("Turtle Soup: dedicated audit emit failed")
-    return {
+    return _with_signal_package("turtle_soup", {
         "symbol": symbol,
         "side": side,
         "price": pkg["entry"],
@@ -242,7 +273,7 @@ def turtle_soup_signal_builder(settings: dict) -> Dict[str, Any]:
             "confidence": pkg["confidence"],
             "direction": pkg["direction"],
         },
-    }
+    })
 
 
 def ict_scalp_signal_builder(settings: dict) -> Dict[str, Any]:
@@ -276,14 +307,14 @@ def ict_scalp_signal_builder(settings: dict) -> Dict[str, Any]:
             "ict_scalp_5m: strategy disabled in config/strategies.yaml — "
             "returning side=none"
         )
-        return {
+        return _with_signal_package("ict_scalp_5m", {
             "symbol": symbol,
             "side": "none",
             "meta": {
                 "strategy_name": "ict_scalp_5m",
                 "reason": "disabled_in_yaml",
             },
-        }
+        })
 
     timeframe = str(
         ict_cfg.get("timeframe")
@@ -359,14 +390,14 @@ def ict_scalp_signal_builder(settings: dict) -> Dict[str, Any]:
             })
         except Exception:  # noqa: BLE001
             logger.exception("ict_scalp_5m: dedicated audit emit failed")
-        return {
+        return _with_signal_package("ict_scalp_5m", {
             "symbol": symbol,
             "side": "none",
             "meta": {
                 "strategy_name": "ict_scalp_5m",
                 "reason": str(exc),
             },
-        }
+        })
 
     side = "buy" if pkg["direction"] == "long" else "sell"
     logger.info(
@@ -389,7 +420,7 @@ def ict_scalp_signal_builder(settings: dict) -> Dict[str, Any]:
     except Exception:  # noqa: BLE001
         logger.exception("ict_scalp_5m: dedicated audit emit failed")
 
-    return {
+    return _with_signal_package("ict_scalp_5m", {
         "symbol": symbol,
         "side": side,
         "price": pkg["entry"],
@@ -403,7 +434,7 @@ def ict_scalp_signal_builder(settings: dict) -> Dict[str, Any]:
             "confidence": pkg["confidence"],
             "direction": pkg["direction"],
         },
-    }
+    })
 
 
 def vwap_signal_builder(settings: dict) -> Dict[str, Any]:
@@ -572,4 +603,4 @@ def vwap_signal_builder(settings: dict) -> Dict[str, Any]:
         })
     except Exception:  # noqa: BLE001
         logger.exception("VWAP: dedicated audit emit failed")
-    return sig
+    return _with_signal_package("vwap", sig)

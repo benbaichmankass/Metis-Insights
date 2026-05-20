@@ -14,8 +14,6 @@ import os
 import tempfile
 import textwrap
 
-import pytest
-
 from src.core.account_profile import AccountProfile
 from src.core.profile_loader import load_account_profiles, load_instrument_profiles
 
@@ -28,16 +26,14 @@ class TestAccountProfileSchemaFix:
     """Verify from_dict() handles the actual accounts.yaml schema fields."""
 
     def test_bybit_1_demo_mode_live(self):
-        # bybit_1 in accounts.yaml: exchange=bybit, demo=true, mode=live
         data = {"exchange": "bybit", "demo": True, "mode": "live"}
         p = AccountProfile.from_dict("bybit_1", data)
         assert p.demo is True
-        assert p.dry_run is False        # mode=live → not dry_run
+        assert p.dry_run is False
         assert p.is_live is True
-        assert p.account_type == "bybit_demo"  # demo=true overrides live→demo type
+        assert p.account_type == "bybit_demo"
 
     def test_bybit_2_live_no_demo(self):
-        # bybit_2 in accounts.yaml: exchange=bybit, mode=live (no demo flag)
         data = {"exchange": "bybit", "mode": "live"}
         p = AccountProfile.from_dict("bybit_2", data)
         assert p.demo is False
@@ -46,16 +42,14 @@ class TestAccountProfileSchemaFix:
         assert p.account_type == "bybit_live"
 
     def test_prop_velotrade_dry_run(self):
-        # prop_velotrade_1: exchange=velotrade, mode=dry_run
         data = {"exchange": "velotrade", "mode": "dry_run"}
         p = AccountProfile.from_dict("prop_velotrade_1", data)
         assert p.dry_run is True
         assert p.is_live is False
-        assert p.exchange == "unknown"   # velotrade maps to unknown until S7+
+        assert p.exchange == "unknown"
         assert p.account_type == "unknown"
 
     def test_missing_mode_defaults_to_dry_run(self):
-        # mode field absent → default is dry_run (safe)
         data = {"exchange": "bybit"}
         p = AccountProfile.from_dict("test_acct", data)
         assert p.dry_run is True
@@ -215,11 +209,7 @@ class TestLoadInstrumentProfiles:
 # ---------------------------------------------------------------------------
 
 class TestCoordinatorProfileProperties:
-    """Smoke test: coordinator properties return correct types.
-
-    Uses temp YAML files to avoid reading live config from disk.
-    Does NOT import coordinator at module level (avoids live wiring at import).
-    """
+    """Smoke test: coordinator properties return correct types."""
 
     def _write_yaml(self, content: str) -> str:
         f = tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False)
