@@ -22,6 +22,13 @@ executed or simulated.  The dry/live execution decision lives entirely in
 the Accounts layer (``TradingAccount.dry_run``).  This separation ensures
 signal logic is never coupled to execution mode.
 
+**StrategyBase (S9 / S1-NOTE-003)**
+Concrete strategies may optionally subclass :class:`StrategyBase` to get a
+typed class-based interface aligned with :class:`src.core.strategy_interface.StrategyInterface`.
+The existing module-level helper functions below remain in place for backward
+compatibility — live strategies that have not yet migrated to class-based
+implementations continue to work without change.
+
 Raises
 ------
 ValueError
@@ -30,9 +37,15 @@ ValueError
 """
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, TYPE_CHECKING
 
 import pandas as pd
+
+from src.core.strategy_interface import StrategyInterface
+
+if TYPE_CHECKING:
+    from src.core.signal_contract import SignalPackage
+    from src.core.order_contract import OrderPackage
 
 
 def side_to_direction(side: str) -> str:
@@ -158,3 +171,99 @@ def monitor_breakeven_sl(
             return {"sl": entry - offset}
         return None
     return None
+
+
+# ---------------------------------------------------------------------------
+# StrategyBase — typed class-based interface (S9 / S1-NOTE-003)
+# ---------------------------------------------------------------------------
+
+
+class StrategyBase(StrategyInterface):
+    """Concrete base for class-based ICT strategy adapters.
+
+    Inherits :class:`~src.core.strategy_interface.StrategyInterface` and
+    provides:
+
+    - ``strategy_id`` class attribute (must be overridden by subclasses).
+    - ``category`` property driven by ``_category`` class attribute.
+    - Static helper methods delegating to the module-level functions above
+      so subclasses don't need to import them separately.
+    - ``build_signal`` and ``build_order_package`` raise ``NotImplementedError``
+      — each concrete subclass provides its own logic.
+
+    Migration path
+    --------------
+    Existing live strategies use module-level ``order_package()`` functions
+    and do not subclass ``StrategyBase``. That path remains valid and is
+    unaffected by this class. Subclassing ``StrategyBase`` is opt-in for new
+    or refactored strategy adapters.
+    """
+
+    strategy_id: str = ""
+    _category: str = "unknown"
+
+    @property
+    def category(self) -> str:
+        return self._category
+
+    # ------------------------------------------------------------------
+    # Delegating static methods (convenience wrappers around module helpers)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def side_to_direction(side: str) -> str:
+        return side_to_direction(side)
+
+    @staticmethod
+    def derive_sl_tp(
+        entry: float,
+        direction: str,
+        sl_pct: float = 0.02,
+        reward_ratio: float = 2.0,
+    ) -> tuple[float, float]:
+        return derive_sl_tp(entry, direction, sl_pct, reward_ratio)
+
+    @staticmethod
+    def require_candles(
+        candles_df: Optional[pd.DataFrame], name: str
+    ) -> pd.DataFrame:
+        return require_candles(candles_df, name)
+
+    @staticmethod
+    def monitor_breakeven_sl(
+        open_pkg: Dict[str, Any],
+        candles_df: pd.DataFrame,
+        *,
+        one_r_threshold: float = 1.0,
+        be_offset_bps: float = 0.0,
+    ) -> Optional[Dict[str, Any]]:
+        return monitor_breakeven_sl(
+            open_pkg,
+            candles_df,
+            one_r_threshold=one_r_threshold,
+            be_offset_bps=be_offset_bps,
+        )
+
+    # ------------------------------------------------------------------
+    # Abstract methods declared by StrategyInterface
+    # ------------------------------------------------------------------
+
+    def build_signal(
+        self,
+        bars: Any,
+        cfg: dict,
+        **kwargs: Any,
+    ) -> "SignalPackage":
+        raise NotImplementedError(
+            f"{self.__class__.__name__}.build_signal() not implemented"
+        )
+
+    def build_order_package(
+        self,
+        signal: "SignalPackage",
+        cfg: dict,
+        **kwargs: Any,
+    ) -> "OrderPackage":
+        raise NotImplementedError(
+            f"{self.__class__.__name__}.build_order_package() not implemented"
+        )
