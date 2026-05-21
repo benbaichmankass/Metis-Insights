@@ -108,8 +108,17 @@ def _size_unbounded(
     balance_usdt: float,
     min_qty: float = _DEFAULT_MIN_QTY,
     qty_precision: int = _DEFAULT_QTY_PRECISION,
+    contract_value_usd: float = 1.0,
 ) -> float:
-    """Raw position-size calculation with no upper-bound clamp."""
+    """Raw position-size calculation with no upper-bound clamp.
+
+    ``contract_value_usd`` is the USD value of a 1-point price move for one
+    unit/contract. It is ``1.0`` for crypto perps (a $1 price move on one
+    coin-unit is $1), so the crypto path is unchanged. For futures like MES
+    it is the contract multiplier ($5/index-point), so risk-per-contract is
+    ``risk_distance × contract_value_usd`` and the qty comes out in whole
+    contracts.
+    """
     if balance_usdt <= 0:
         raise ValueError(f"balance_usdt must be positive, got {balance_usdt}")
     if risk_pct <= 0:
@@ -122,10 +131,36 @@ def _size_unbounded(
             "cannot compute position size (division by zero)."
         )
 
+    cvu = float(contract_value_usd) if contract_value_usd else 1.0
     risk_usdt = balance_usdt * risk_pct
-    raw_qty = risk_usdt / risk_distance
+    raw_qty = risk_usdt / (risk_distance * cvu)
     floored = _floor_to_step(raw_qty, qty_precision)
     return max(min_qty, floored)
+
+
+# Lazy cache of symbol -> contract_value_usd from config/instruments.yaml,
+# so the sizing hot path avoids a YAML read per call. Defaults to 1.0 for
+# any symbol without a profile, so the crypto path is unaffected even when
+# instruments.yaml is missing or partial.
+_CONTRACT_VALUE_CACHE: Optional[dict] = None
+
+
+def contract_value_usd_for(symbol: str) -> float:
+    """Return the USD-per-point contract value for *symbol* (default 1.0)."""
+    global _CONTRACT_VALUE_CACHE
+    if not symbol:
+        return 1.0
+    if _CONTRACT_VALUE_CACHE is None:
+        try:
+            from src.core.profile_loader import load_instrument_profiles
+            profiles = load_instrument_profiles()
+            _CONTRACT_VALUE_CACHE = {
+                sym: float(getattr(p, "contract_value_usd", 1.0) or 1.0)
+                for sym, p in (profiles or {}).items()
+            }
+        except Exception:  # noqa: BLE001
+            _CONTRACT_VALUE_CACHE = {}
+    return _CONTRACT_VALUE_CACHE.get(symbol, 1.0)
 
 
 def size_order(
@@ -376,34 +411,44 @@ class RiskManager:
         )
         effective_risk_pct = self.risk_pct * strategy_risk_pct
 
+        # Per-instrument contract value ($/point). 1.0 for crypto (path
+        # unchanged); the MES contract multiplier ($5/point) for futures so
+        # qty comes out in whole contracts and the USD-loss math below is
+        # correct.
+        cvu = contract_value_usd_for(getattr(package, "symbol", "") or "")
+
         qty = _size_unbounded(
             package,
             risk_pct=effective_risk_pct,
             balance_usdt=balance_usd,
             min_qty=self.min_qty,
             qty_precision=self.qty_precision,
+            contract_value_usd=cvu,
         )
 
-        # S-026 G3: daily-loss-budget gate.
+        # S-026 G3: daily-loss-budget gate. USD loss at SL is
+        # qty × risk_distance × contract_value_usd (cvu=1.0 for crypto).
         self._maybe_roll_daily()
         loss_budget_remaining = self.max_daily_loss_usd + self.daily_pnl
         if loss_budget_remaining <= 0:
             return 0.0
 
         risk_distance = abs(package.entry - package.sl)
-        max_loss_at_sl = qty * risk_distance
+        max_loss_at_sl = qty * risk_distance * cvu
         if max_loss_at_sl > loss_budget_remaining:
-            scaled = loss_budget_remaining / risk_distance
+            scaled = loss_budget_remaining / (risk_distance * cvu)
             qty = _floor_to_step(scaled, self.qty_precision)
             if qty < self.min_qty:
                 return 0.0
 
         # === 2026-05-12 margin pre-flight cap ===
-        # Use the live available-margin figure when the coordinator
-        # supplied it (linear-perp accounts); fall back to the buffer
-        # estimate so there is always a ceiling even on fetch failure.
+        # Crypto-specific: caps qty by notional/leverage using price as the
+        # per-unit notional. Futures margin is per-contract SPAN/initial
+        # margin (not price×qty/leverage), and the broker rejects orders that
+        # exceed available margin at submit time — so this crypto cap is
+        # skipped for futures market types to avoid a wrong ceiling.
         effective_leverage = self.leverage if self.leverage > 0 else 1
-        if package.entry > 0:
+        if market_type != "futures" and package.entry > 0:
             if available_usd is not None:
                 max_qty_by_margin = (available_usd * effective_leverage) / package.entry
             else:
