@@ -28,6 +28,9 @@ _EXPECTED_TRADES_COLS = {
     "bias", "entry_reason", "exit_reason", "pnl", "pnl_percent",
     "status", "notes", "is_backtest", "strategy_name", "account_id",
     "created_at",
+    # Added in feat(shadow) #1538: marks trades executed on demo/paper accounts
+    # so PnL/stats queries can exclude them from live-account reporting.
+    "is_demo",
 }
 
 _EXPECTED_ORDER_PACKAGES_COLS = {

@@ -8,6 +8,11 @@ file — none of the tested helpers actually touch them.
 
 Paper trading was removed from the bot in CP-16; the live trader is the
 only target. These tests cover the single-trader API.
+
+Note: get_strategy_label, _DEFAULT_STRATEGY_LABEL, and the dotenv_values
+it uses were extracted to src/bot/trade_notifier (PR-4). The bot re-exports
+get_strategy_label but _DEFAULT_STRATEGY_LABEL and dotenv_values live in
+trade_notifier. Patches must target trade_notifier's namespace.
 """
 
 from __future__ import annotations
@@ -51,8 +56,9 @@ _tg_ext_mock.CallbackQueryHandler = MagicMock
 _tg_ext_mock.ContextTypes = MagicMock()
 _tg_ext_mock.ContextTypes.DEFAULT_TYPE = object
 
-# Now safe to import the module under test.
+# Now safe to import the modules under test.
 from src.bot import telegram_query_bot as bot  # noqa: E402
+from src.bot import trade_notifier  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -67,14 +73,17 @@ def _write_env(tmp_path: Path, name: str, **vars: str) -> Path:
 
 @pytest.fixture
 def restore_dotenv_values(monkeypatch):
-    """Restore a working ``dotenv_values`` on the bot module.
+    """Restore a working ``dotenv_values`` on trade_notifier.
+
+    get_strategy_label was extracted from telegram_query_bot to
+    src/bot/trade_notifier (PR-4). The dotenv_values it uses is bound in
+    trade_notifier's namespace. Patching bot.dotenv_values has no effect;
+    we must patch trade_notifier.dotenv_values instead.
 
     Other tests in the suite (e.g. ``test_kill_switch``, ``test_orders``)
     install a ``MagicMock`` into ``sys.modules['dotenv']`` and never
-    clean it up. That leaks across test files because import-time
-    ``from dotenv import dotenv_values`` in ``telegram_query_bot`` then
-    binds to the mock. We restore a minimal real implementation that
-    parses ``KEY=VALUE`` lines so our tests work regardless of suite order.
+    clean it up. We restore a minimal real implementation that parses
+    ``KEY=VALUE`` lines so our tests work regardless of suite order.
     """
 
     def _real_dotenv_values(path):
@@ -91,7 +100,8 @@ def restore_dotenv_values(monkeypatch):
             pass
         return result
 
-    monkeypatch.setattr(bot, "dotenv_values", _real_dotenv_values)
+    # Patch the name in trade_notifier where _account_env() calls it.
+    monkeypatch.setattr(trade_notifier, "dotenv_values", _real_dotenv_values)
 
 
 # ---------------------------------------------------------------------------
@@ -148,23 +158,25 @@ def test_get_strategy_label_falls_back_for_unknown_strategy(tmp_path, restore_do
     """Unknown / empty strategy values fall back to the default label."""
     env_file_unknown = _write_env(tmp_path, "unknown.env", STRATEGY="not-a-real-strategy")
     env_file_empty = _write_env(tmp_path, "empty.env", STRATEGY="")
-    assert bot.get_strategy_label({"env_path": str(env_file_unknown)}) == bot._DEFAULT_STRATEGY_LABEL
-    assert bot.get_strategy_label({"env_path": str(env_file_empty)}) == bot._DEFAULT_STRATEGY_LABEL
-    assert bot.get_strategy_label({}) == bot._DEFAULT_STRATEGY_LABEL
+    default = trade_notifier._DEFAULT_STRATEGY_LABEL
+    assert bot.get_strategy_label({"env_path": str(env_file_unknown)}) == default
+    assert bot.get_strategy_label({"env_path": str(env_file_empty)}) == default
+    assert bot.get_strategy_label({}) == default
 
 
 def test_get_strategy_label_reads_first_account_when_no_arg(monkeypatch, tmp_path, restore_dotenv_values):
     """Calling with no args reads from the first account returned by dl.list_accounts()."""
     env_file = _write_env(tmp_path, ".env", STRATEGY="vwap")
-    monkeypatch.setattr(bot.dl, "list_accounts", lambda: [{"env_path": str(env_file)}])
+    # get_strategy_label lives in trade_notifier; its dl reference is there too.
+    monkeypatch.setattr(trade_notifier.dl, "list_accounts", lambda: [{"env_path": str(env_file)}])
 
     assert bot.get_strategy_label() == "VWAP"
 
 
 def test_get_strategy_label_no_arg_falls_back_when_no_accounts(monkeypatch):
     """No-arg path returns default label when dl.list_accounts() is empty."""
-    monkeypatch.setattr(bot.dl, "list_accounts", lambda: [])
-    assert bot.get_strategy_label() == bot._DEFAULT_STRATEGY_LABEL
+    monkeypatch.setattr(trade_notifier.dl, "list_accounts", lambda: [])
+    assert bot.get_strategy_label() == trade_notifier._DEFAULT_STRATEGY_LABEL
 
 
 def test_get_strategy_label_swallows_unexpected_errors(monkeypatch):
@@ -173,7 +185,7 @@ def test_get_strategy_label_swallows_unexpected_errors(monkeypatch):
     def _boom():
         raise RuntimeError("unexpected env failure")
 
-    monkeypatch.setattr(bot.dl, "list_accounts", _boom)
-    assert bot.get_strategy_label() == bot._DEFAULT_STRATEGY_LABEL
+    monkeypatch.setattr(trade_notifier.dl, "list_accounts", _boom)
+    assert bot.get_strategy_label() == trade_notifier._DEFAULT_STRATEGY_LABEL
 
 
