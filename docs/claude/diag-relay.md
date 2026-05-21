@@ -1,10 +1,44 @@
 # PM-side VM diag relay
 
-The PM-side / web-sandbox session can't reach the Oracle VM directly
-(see `vm-operator-mode.md` § 9 for why — the platform allowlist
-accepts `*.github.com`, `*.vercel.app`, `*.anthropic.com`, etc., not
-`158.178.210.252:*`). This doc is the contract for how a session
-fetches `/api/diag/*` data anyway.
+There are two transports for the read-only `/api/diag/*` surface, and
+they return identical JSON. **Prefer direct; fall back to the relay.**
+
+## Transport A — direct HTTP (preferred, when the session is configured)
+
+A session whose cloud environment sets `DIAG_BASE_URL` +
+`DIAG_READ_TOKEN` (and whose Network access permits egress to the host)
+can hit the diag surface directly, in one shot:
+
+```
+scripts/ops/diag_fetch.sh 'audit?limit=600'
+scripts/ops/diag_fetch.sh 'journal?table=trades&limit=100'
+scripts/ops/diag_fetch.sh 'status'
+```
+
+`diag_fetch.sh` resolves `$DIAG_BASE_URL/api/diag/<path>` with the
+bearer in a 0600 curl config (token never hits argv/logs). Exit `0` →
+JSON on stdout. Exit `3` → direct path unavailable (env unset, egress
+blocked, or web-api down) → use Transport B. The bearer value is
+delivered by the `get-diag-token` workflow; it is installed onto the VM
+by `set-diag-token`. Both are documented under "Token management" below.
+
+> ⚠️ Direct egress to a raw `http://IP:8001` may still be refused by
+> the platform's HTTP/HTTPS security proxy even at Network access =
+> Full (it filters by hostname; a non-standard port on a bare IP can be
+> dropped). If `diag_fetch.sh` keeps returning `3` despite the env vars
+> being set, point `DIAG_BASE_URL` at an HTTPS **hostname** for the diag
+> API. Until that's in place, Transport B keeps everything working.
+>
+> Also note: SSH from a web session is impossible regardless of Network
+> access — the proxy is HTTP/HTTPS only. So direct access covers the
+> diag *read* API only; anything needing arbitrary VM bash stays on the
+> relays (Transport B / trainer-vm-diag).
+
+## Transport B — GitHub-issue relay (fallback, always available)
+
+When direct access isn't configured (or `diag_fetch.sh` returns `3`),
+the session fetches `/api/diag/*` through a GitHub Actions relay. This
+is the original mechanism and needs no per-session setup.
 
 If you skim nothing else: open a labelled issue **with the exact title
 format below**, wait, read the result comment.
@@ -160,9 +194,28 @@ secret.
   `.github/workflows/bootstrap-labels.yml` — committed in
   PR #486 + #487.
 
-To rotate `DIAG_READ_TOKEN`: edit `/etc/ict-trader/web-api.env` on
-the VM, restart `ict-web-api.service`, then update the GitHub repo
-secret. The workflow picks up the new value on its next run.
+## Token management (get-diag-token / set-diag-token)
+
+Two issue-/dispatch-driven workflows manage the bearer without anyone
+SSHing the VM by hand:
+
+- **`get-diag-token`** (label `get-diag-token`) — resolves the current
+  `DIAG_READ_TOKEN` value (from the repo secret if set, else read off
+  the VM) and delivers it to the repo owner as a short-retention
+  artifact (dispatch) or an issue comment (issue path). Use it to fill
+  a cloud environment's `DIAG_READ_TOKEN` env var for Transport A.
+  Delete the run/issue afterward to clear the at-rest copy.
+- **`set-diag-token`** (label `set-diag-token`) — pushes the
+  `DIAG_READ_TOKEN` repo secret onto the VM
+  (`/etc/ict-trader/web-api.env`, atomic write + backup) and restarts
+  `ict-web-api`, validating by `/api/diag/status` HTTP code only. The
+  token flows one way (GitHub secret → VM) and is never printed.
+
+To **rotate**: `openssl rand -hex 32` → set the `DIAG_READ_TOKEN` repo
+secret to it (Settings → Secrets → Actions) → run `set-diag-token` to
+push it to the VM → set the same value as the `DIAG_BASE_URL` consumer's
+`DIAG_READ_TOKEN` env var. The relay (Transport B) reads the repo secret
+directly, so it picks up the new value on its next run automatically.
 
 ## Failure modes
 

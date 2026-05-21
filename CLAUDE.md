@@ -475,16 +475,31 @@ endpoints return 503 if `DIAG_READ_TOKEN` is unset, 401 on bad bearer.
 
 See `docs/claude/vm-operator-mode.md` § 9 for the trust contract.
 
-### Reaching `/api/diag/*` from a PM-side / web-sandbox session
+### Reaching `/api/diag/*` from a PM-side / web session
 
-The web sandbox can't egress to `158.178.210.252:8001`. The
-`vm-diag-snapshot` GitHub Actions workflow is the relay: open an
-issue titled `[diag-request] <path>` with label `vm-diag-request`,
-the workflow runs the diag fetch over SSH + curl, posts the JSON
-back as an issue comment, and closes the issue. Full flow + failure
-modes in `docs/claude/diag-relay.md`. Don't paste the
-`DIAG_READ_TOKEN` into chat or commit it; it lives in repo secrets
-(`VM_SSH_KEY`, `DIAG_READ_TOKEN`) and on the VM only.
+Two transports, identical JSON — **try direct, fall back to the relay.**
+
+1. **Direct HTTP (preferred, when configured).** If the session's cloud
+   environment sets `DIAG_BASE_URL` + `DIAG_READ_TOKEN` and Network
+   access permits egress, fetch in one shot:
+   `scripts/ops/diag_fetch.sh '<path>'` (exit `0` = JSON; exit `3` =
+   fall back). These vars cover the **live VM only** — there is no
+   `/api/diag/*` surface on the trainer VM.
+2. **GitHub-issue relay (fallback).** Open an issue titled
+   `[diag-request] <path>` with label `vm-diag-request`; the
+   `vm-diag-snapshot` workflow runs the fetch over SSH + curl, posts
+   the JSON back as an issue comment, and closes the issue.
+
+Full flow, the direct/relay contract, token management
+(`get-diag-token` / `set-diag-token`), and failure modes are in
+`docs/claude/diag-relay.md`. The bearer lives in repo secrets
+(`VM_SSH_KEY`, `DIAG_READ_TOKEN`) and on the VM; deliver it for a cloud
+env var via the `get-diag-token` workflow, not by hand-copying.
+
+**Trainer VM** has no HTTP diag API — read it via the `trainer-vm-diag`
+relay (arbitrary SSH bash, label `trainer-vm-diag-request`). SSH from a
+web session is impossible regardless (proxy is HTTP/HTTPS-only), so
+trainer access is relay-only.
 
 ## PM-side session capabilities (Claude Code on the web)
 
@@ -498,11 +513,21 @@ no artifact download, no run-log read**), Google Drive (file search
 + read), Hugging Face (hub search, doc fetch), Bigdata.com (market
 data), Gmail (read-only labels).
 
-**Network from inside the sandbox** — outbound is allowlisted to
-`*.github.com`, `*.vercel.app`, `*.anthropic.com`, and a small set
-of platform-managed hosts. Arbitrary IPs (incl. the Oracle VM) are
-firewalled. `dangerouslyDisableSandbox: true` does **not** help —
-the egress restriction is enforced one layer below the Bash sandbox.
+**Network from inside the session** — governed by the cloud
+environment's **Network access** level (None / Trusted / Full /
+Custom). At the default **Trusted** level outbound is allowlisted to
+package registries + `*.github.com` / `*.anthropic.com` etc., and
+arbitrary IPs (incl. the Oracle VM) are firewalled —
+`dangerouslyDisableSandbox: true` does **not** help, the egress
+restriction is enforced one layer below the Bash sandbox. To reach the
+live VM's diag API directly, the environment must be set to **Full**
+(or **Custom** allowlisting the host) AND carry the `DIAG_BASE_URL` +
+`DIAG_READ_TOKEN` env vars — see "Reaching `/api/diag/*`" above. Note
+the security proxy is HTTP/HTTPS-only even at Full, so SSH/raw-TCP to
+the VMs never works from a web session; and a raw `http://IP:port` may
+still be dropped (point `DIAG_BASE_URL` at an HTTPS hostname if so).
+Network-access changes take effect on a **new** session, not the
+running one.
 
 **No custom MCP servers.** Claude Code on the web doesn't honour
 project `.mcp.json` and can't run `claude mcp add`. To get richer
