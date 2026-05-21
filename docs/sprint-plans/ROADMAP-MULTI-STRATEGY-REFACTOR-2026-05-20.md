@@ -139,7 +139,7 @@ The fourth component (ICT/FVG/OB-style signal/filter module) is planned as S8 �
 ### S2 — Account and instrument abstraction foundations
 **ID:** S-REFACTOR-S2  
 **Type:** Tier-1 / Tier-2 (config loading; read-only Coordinator accessor only)  
-**Status:** 📋 NOT STARTED  
+**Status:** ✅ COMPLETE (2026-05-20)  
 **Objective:** Load `config/accounts.yaml` into typed `AccountProfile` objects. Load instruments from a new `config/instruments.yaml`. Provide read-only accessors from `Coordinator` without changing execution behavior.
 
 **Key files to touch:**
@@ -158,7 +158,7 @@ The fourth component (ICT/FVG/OB-style signal/filter module) is planned as S8 �
 ### S3 — Strategy registry + signal/order contracts
 **ID:** S-REFACTOR-S3  
 **Type:** Tier-1 (new types only; no live path change)  
-**Status:** 📋 NOT STARTED  
+**Status:** ✅ COMPLETE (2026-05-20)  
 **Objective:** Formalize the strategy registry so each strategy is registered with an ID and exposes typed signal and order package builders. Introduce `SignalPackage` and `OrderPackage` as the canonical exchange format between pipeline stages.
 
 **Key files to touch:**
@@ -176,7 +176,7 @@ The fourth component (ICT/FVG/OB-style signal/filter module) is planned as S8 �
 ### S4 — Allocator + net position accounting
 **ID:** S-REFACTOR-S4  
 **Type:** Tier-2 (touches dispatch path; feature-flagged)  
-**Status:** 📋 NOT STARTED  
+**Status:** ✅ COMPLETE (2026-05-20)  
 **Objective:** Wire `PassthroughAllocator` as the default allocator (identity behavior). Introduce net position accounting so portfolio exposure can be netted per account+instrument across all strategies.
 
 **Key files to touch:**
@@ -193,8 +193,8 @@ The fourth component (ICT/FVG/OB-style signal/filter module) is planned as S8 �
 
 ### S5 — ML decision-layer refactor hooks
 **ID:** S-REFACTOR-S5  
-**Type:** Tier-1 (hooks only; no live inference path change)  
-**Status:** 📋 NOT STARTED  
+**Type:** Tier-3 (feature flag; PM-approved)  
+**Status:** ✅ COMPLETE (2026-05-20, PM-approved)  
 **Objective:** Refactor `src/runtime/shadow_adapter.py` to formally distinguish shadow mode (logging only, zero effect) from advisory mode (log + flag to coordinator, still no order change). Add coordinator hooks for the advisory path so the wiring exists when a model reaches advisory stage.
 
 **Key files to touch:**
@@ -208,8 +208,8 @@ The fourth component (ICT/FVG/OB-style signal/filter module) is planned as S8 �
 
 ### S6 — Streamlit / dashboard transparency pass
 **ID:** S-REFACTOR-S6  
-**Type:** Tier-1 (API endpoint additions only; no UI changes)  
-**Status:** 📋 NOT STARTED  
+**Type:** Tier-3 (CENTRALIZED_ALLOCATOR primary path; PM-approved)  
+**Status:** ✅ COMPLETE (2026-05-20, PM-approved)  
 **Objective:** Add backend-facing structures so the dashboard can show strategy attribution per trade, allocator decisions, net positions per instrument, and shadow vs live state.
 
 **Key files to touch:**
@@ -222,10 +222,15 @@ The fourth component (ICT/FVG/OB-style signal/filter module) is planned as S8 �
 
 ---
 
-### S7 — IB/MES shadow integration (later sprint)
+### S7 — Typed multi-account dispatch
 **ID:** S-REFACTOR-S7  
+**Type:** Tier-2 (coordinator + pipeline typed dispatch path)  
+**Status:** ✅ COMPLETE (2026-05-20, PR #1604)
+
+### S7-IB — IB/MES shadow integration (later sprint)
+**ID:** S-REFACTOR-S7-IB  
 **Type:** Tier-2 (new exchange adapter; dry_run only)  
-**Status:** 📋 NOT STARTED (deferred — no IB credentials in scope yet)  
+**Status:** ⛔ DEFERRED — no IB credentials in scope yet  
 **Objective:** Add an IB `AccountProfile` and a dry-run IB market data adapter. Allow the coordinator to dispatch a shadow copy of Bybit decisions to an IB dry-run account for observation.
 
 **Key files to touch:**
@@ -238,10 +243,15 @@ The fourth component (ICT/FVG/OB-style signal/filter module) is planned as S8 �
 
 ---
 
-### S8 — ICT/FVG/OB signal/filter module (later sprint)
+### S8 — PortfolioState typed snapshot
 **ID:** S-REFACTOR-S8  
+**Type:** Tier-2 (net position accounting; coordinator property)  
+**Status:** ✅ COMPLETE (2026-05-20, PR #1605)
+
+### S8-ICT — ICT/FVG/OB signal/filter module
+**ID:** S-REFACTOR-S8-ICT  
 **Type:** Tier-1 (refactor of existing code; no live behavior change)  
-**Status:** 📋 NOT STARTED (deferred)  
+**Status:** ✅ COMPLETE (2026-05-20, PR #1609)  
 **Objective:** Formalize `src/ict_detection/` as a reusable signal/filter module with a clean public API. Extract shared ICT detection logic from `ict_scalp.py` into the module. Make the module available to all strategies as a filter layer, not a standalone strategy.
 
 **Key files to touch:**
@@ -360,10 +370,15 @@ After S1 is reviewed and merged:
 |---|---|---|---|
 | S0 | S-REFACTOR-S0 | Tier-1 docs | ✅ COMPLETE (2026-05-20) |
 | S1 | S-REFACTOR-S1 | Tier-1 scaffolding | ✅ COMPLETE (2026-05-20) |
-| S2 | S-REFACTOR-S2 | Tier-1/2 abstraction wiring | 📋 NOT STARTED |
-| S3 | S-REFACTOR-S3 | Tier-1 contracts | 📋 NOT STARTED |
-| S4 | S-REFACTOR-S4 | Tier-2 allocator | 📋 NOT STARTED |
-| S5 | S-REFACTOR-S5 | Tier-1 ML hooks | 📋 NOT STARTED |
-| S6 | S-REFACTOR-S6 | Tier-1 dashboard transparency | 📋 NOT STARTED |
-| S7 | S-REFACTOR-S7 | Tier-2 IB/MES shadow (deferred) | 📋 NOT STARTED |
-| S8 | S-REFACTOR-S8 | Tier-1 ICT filter module (deferred) | 📋 NOT STARTED |
+| S2 | S-REFACTOR-S2 | Tier-1/2 abstraction wiring | ✅ COMPLETE (2026-05-20) |
+| S3 | S-REFACTOR-S3 | Tier-1 contracts | ✅ COMPLETE (2026-05-20) |
+| S4 | S-REFACTOR-S4 | Tier-2 allocator | ✅ COMPLETE (2026-05-20) |
+| S5 | S-REFACTOR-S5 | Tier-3 feature flag shadow | ✅ COMPLETE (2026-05-20, PM-approved) |
+| S6 | S-REFACTOR-S6 | Tier-3 feature flag primary path | ✅ COMPLETE (2026-05-20, PM-approved) |
+| S7 | S-REFACTOR-S7 | Tier-2 typed dispatch (PR #1604) | ✅ COMPLETE (2026-05-20) |
+| S7-IB | S-REFACTOR-S7-IB | Tier-2 IB/MES shadow | ⛔ DEFERRED — no IB credentials in scope |
+| S8 | S-REFACTOR-S8 | Tier-2 PortfolioState (PR #1605) | ✅ COMPLETE (2026-05-20) |
+| S8-ICT | S-REFACTOR-S8-ICT | Tier-1 ICT filter module (PR #1609) | ✅ COMPLETE (2026-05-20) |
+| S9 | S-REFACTOR-S9 | Tier-1 StrategyBase alignment | ✅ COMPLETE (2026-05-20) |
+| S10 | S-REFACTOR-S10 | Tier-1 ML advisory hooks | ✅ COMPLETE (2026-05-20) |
+| S11 | S-REFACTOR-S11 | Tier-1 attribution API (PR #1608) | ✅ COMPLETE (2026-05-20) |
