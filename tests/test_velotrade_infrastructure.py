@@ -213,56 +213,43 @@ class TestLoaderConfiguredFlag:
 
 
 class TestCoordinatorNotConfiguredPing:
-    def test_live_velotrade_missing_creds_emits_diagnostic(
+    def test_live_velotrade_missing_creds_silently_dropped(
         self, tmp_path, monkeypatch,
     ):
-        # Goal: exercise the full multi_account_execute path with a
-        # velotrade account whose creds aren't set, in *live* mode,
-        # and assert that (a) the result row carries a "not fully
-        # configured" error and (b) the diagnostic ping was enqueued.
+        # Post-operator-directive-2026-05-08: configured=False accounts are
+        # dropped in the _eligible_for_dispatch filter BEFORE client construction,
+        # so the "not fully configured" client_error path is never reached.
+        # The account produces no result row and no diagnostic ping — the
+        # account existence is visible via /accounts_status, not per-tick noise.
         monkeypatch.delenv("VELOTRADE_API_KEY_ABSENT", raising=False)
         monkeypatch.delenv("VELOTRADE_API_SECRET_ABSENT", raising=False)
         p = tmp_path / "accounts.yaml"
         p.write_text(_YAML_TWO_ACCOUNTS)
 
-        # Capture the ping payload via monkeypatching the diagnostic
-        # enqueue helper so the test doesn't need a writable
-        # runtime_logs/pending_pings directory.
         recorded: list[dict] = []
 
-        def _fake_enqueue(*, account, strategy, symbol, side, qty, reason,
-                          priority="high"):
-            recorded.append({
-                "account": account, "strategy": strategy, "symbol": symbol,
-                "side": side, "qty": qty, "reason": reason,
-            })
+        def _fake_enqueue(**kwargs):
+            recorded.append(kwargs)
             return None
 
         import src.runtime.execution_diagnostics as diag_mod
         monkeypatch.setattr(
             diag_mod, "enqueue_execution_failure", _fake_enqueue,
         )
-        # Coordinator imports the helper at module import time; patch
-        # the rebound name there too.
         import src.core.coordinator as coord_mod
-        # Find and replace the imported symbol if it was rebound.
         if hasattr(coord_mod, "enqueue_execution_failure"):
             monkeypatch.setattr(
                 coord_mod, "enqueue_execution_failure", _fake_enqueue,
             )
 
-        # Restrict to the velo_absent account so the bybit one
-        # doesn't add noise.
         from src.units.accounts import load_accounts
         accounts = [
             a for a in load_accounts(str(p)) if a.name == "velo_absent"
         ]
-        accounts[0].strategies = ["vwap"]  # let the strategy filter pass
+        accounts[0].strategies = ["vwap"]
         monkeypatch.setattr(
             "src.units.accounts.load_accounts", lambda path=None: accounts,
         )
-
-        # Skip the order_packages writer to avoid touching the DB.
         monkeypatch.setattr(
             coord_mod, "_log_new_order_package", lambda pkg: None,
         )
@@ -275,26 +262,21 @@ class TestCoordinatorNotConfiguredPing:
         results = coord.multi_account_execute(
             pkg, accounts_path=str(p), dry_run=False,
         )
-        velo_result = next(r for r in results if r["name"] == "velo_absent")
-        assert velo_result["trade_id"] is None
-        assert velo_result["error"] is not None
-        assert "not fully configured" in velo_result["error"]
-        assert "VELOTRADE_API_KEY_ABSENT" in velo_result["error"]
-        # Diagnostic ping should have fired with the same reason.
-        assert recorded, (
-            "expected enqueue_execution_failure to be called for the "
-            "not-configured account"
+        # configured=False → _eligible_for_dispatch drops the account; empty results.
+        assert not any(r["name"] == "velo_absent" for r in results), (
+            "configured=False account must be silently dropped before dispatch"
         )
-        assert recorded[0]["account"] == "velo_absent"
-        assert "not fully configured" in recorded[0]["reason"]
+        # No diagnostic ping for silently-dropped accounts.
+        assert not recorded, (
+            "no ping expected for configured=False drop (visibility via "
+            "/accounts_status, not per-tick noise)"
+        )
 
-    def test_dry_run_velotrade_missing_creds_does_not_ping(
+    def test_dry_run_velotrade_missing_creds_also_dropped(
         self, tmp_path, monkeypatch,
     ):
-        # Dry-run should NOT fire the ping for missing creds — by
-        # design, dry-run means "don't touch the exchange", so missing
-        # creds aren't a fault yet. The ping is reserved for real
-        # action attempts.
+        # Same rule applies in dry-run: configured=False → dropped before
+        # client construction. No result row, no ping.
         monkeypatch.delenv("VELOTRADE_API_KEY_ABSENT", raising=False)
         p = tmp_path / "accounts.yaml"
         p.write_text(_YAML_TWO_ACCOUNTS)
@@ -335,10 +317,8 @@ class TestCoordinatorNotConfiguredPing:
         results = coord.multi_account_execute(
             pkg, accounts_path=str(p), dry_run=True,
         )
-        velo_result = next(r for r in results if r["name"] == "velo_absent")
-        # Dry-run trade goes through (returns a dry-run trade_id).
-        assert velo_result["trade_id"] is not None
-        # No ping fired for the not-configured state in dry-run.
+        # configured=False → dropped even in dry-run.
+        assert not any(r["name"] == "velo_absent" for r in results)
         assert not recorded
 
 

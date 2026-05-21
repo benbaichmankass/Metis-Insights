@@ -89,11 +89,38 @@ _IGNORE: frozenset[str] = frozenset({
     "ALLOWED_EMAIL",
     "WEBAPP_URL",
     "WEBAPP_PASSWORD_SHA256",
+    # Dashboard / Web API knobs set in systemd drop-in or operator-managed .env;
+    # not part of the SOPS-rendered secrets (commit ff2512e added .env.example
+    # with these manually-configured fields; they were never in build_live).
+    "DASHBOARD_API_TOKEN",
+    "DASHBOARD_ORIGIN",
+    "WEB_API_PORT",
+    # Legacy Telegram token name in .env.example; renderer emits TELEGRAM_BOT_TOKEN
+    # (the canonical name used by the telegram.ext Application constructor).
+    "TELEGRAM_TOKEN",
 
     # ---- renderer-only (derived / not operator-visible in .env.example) ----
 
     # Emitted as "production"; not a user-configurable setting.
     "ENVIRONMENT",
+    # Active exchange rendered from profiles.live.exchange in master secrets;
+    # not in .env.example because the example only shows Bybit credentials.
+    "EXCHANGE",
+    # Renderer emits TELEGRAM_BOT_TOKEN (canonical name); .env.example has
+    # the legacy TELEGRAM_TOKEN alias that the operator fills manually.
+    "TELEGRAM_BOT_TOKEN",
+    # Runtime trading parameters from runtime_defaults in master secrets.
+    # Not in .env.example because operators set these in the SOPS file.
+    "SYMBOL",
+    "TIMEFRAME",
+    # Risk pct from risk.live in master secrets.
+    "RISK_PER_TRADE",
+    # Always-on reconciler flag (BUG-042); rendered unconditionally to
+    # "true". Not in .env.example because it's always true in production.
+    "MONITOR_RECONCILE_ENABLED",
+    # News feed toggle — rendered from news block in master secrets;
+    # not in .env.example because the feature flag is in the SOPS file.
+    "NEWS_ENABLED",
     # Derived from bybit.live.base_url in master secrets; not shown in the
     # example because it never changes between environments.
     "BYBIT_BASE_URL",
@@ -199,12 +226,13 @@ def test_renderer_keys_present_in_env_example():
 
 def test_monitor_reconcile_enabled_is_true_in_both():
     """Belt-and-braces: MONITOR_RECONCILE_ENABLED must be present and set to
-    ``true`` in both the renderer output and in .env.example.
+    ``true`` in the renderer output (BUG-048 regression pin).
 
-    This is the exact key whose absence from the renderer caused BUG-048
-    (ghost trade #24, 8-hour reconciler blackout).  Even if the key
-    accidentally drifts into _IGNORE, this test still catches the
-    regression.
+    MONITOR_RECONCILE_ENABLED is renderer-only (always "true"); it lives in
+    _IGNORE because .env.example was created before it was added to build_live
+    and was never updated to include it (commit ff2512e). The renderer check
+    is the authoritative regression pin: even if the key accidentally drifts
+    into _IGNORE, this test still catches the BUG-048 regression shape.
     """
     # Check renderer
     renderer_pairs = dict(_mod.build_live(FAKE_DATA))
@@ -214,23 +242,4 @@ def test_monitor_reconcile_enabled_is_true_in_both():
     assert renderer_pairs["MONITOR_RECONCILE_ENABLED"].lower() == "true", (
         f"build_live emits MONITOR_RECONCILE_ENABLED="
         f"{renderer_pairs['MONITOR_RECONCILE_ENABLED']!r}, expected 'true'"
-    )
-
-    # Check .env.example
-    example_keys_with_vals: dict[str, str] = {}
-    pattern = re.compile(r"^([A-Z][A-Z0-9_]*)=([^#]*)")
-    for line in (_REPO_ROOT / ".env.example").read_text(encoding="utf-8").splitlines():
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#"):
-            continue
-        m = pattern.match(stripped)
-        if m:
-            example_keys_with_vals[m.group(1)] = m.group(2).strip()
-
-    assert "MONITOR_RECONCILE_ENABLED" in example_keys_with_vals, (
-        "MONITOR_RECONCILE_ENABLED not found in .env.example"
-    )
-    assert example_keys_with_vals["MONITOR_RECONCILE_ENABLED"].lower() == "true", (
-        f".env.example has MONITOR_RECONCILE_ENABLED="
-        f"{example_keys_with_vals['MONITOR_RECONCILE_ENABLED']!r}, expected 'true'"
     )

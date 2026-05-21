@@ -90,7 +90,8 @@ def test_file_age_days(tmp_path):
 
 
 def test_read_loadavg_returns_three_floats():
-    from src.bot import telegram_query_bot as bot
+    # Helpers moved to src.bot.cloud_notifier (D3 / PR-10 extraction).
+    from src.bot import cloud_notifier as bot
     out = bot._read_loadavg()
     if out == "unknown":
         return  # /proc missing on the test box — acceptable
@@ -101,7 +102,7 @@ def test_read_loadavg_returns_three_floats():
 
 
 def test_read_uptime_human_formats_correctly():
-    from src.bot import telegram_query_bot as bot
+    from src.bot import cloud_notifier as bot
     out = bot._read_uptime_human()
     if out == "unknown":
         return
@@ -110,7 +111,7 @@ def test_read_uptime_human_formats_correctly():
 
 
 def test_read_meminfo_mb_returns_pair():
-    from src.bot import telegram_query_bot as bot
+    from src.bot import cloud_notifier as bot
     total, avail = bot._read_meminfo_mb()
     # On the test box /proc/meminfo exists; both should be > 0.
     assert total >= 0 and avail >= 0
@@ -119,7 +120,7 @@ def test_read_meminfo_mb_returns_pair():
 
 
 def test_disk_usage_repo_returns_pair():
-    from src.bot import telegram_query_bot as bot
+    from src.bot import cloud_notifier as bot
     free, total = bot._disk_usage_repo()
     assert free >= 0 and total >= 0
     if total:

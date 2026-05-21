@@ -50,27 +50,33 @@ def test_template_ict_section_references_synthetic_backtest():
 
 
 # ---------------------------------------------------------------------------
-# .env.example
+# master-secrets.template.yaml — ICT risk config (migrated from .env.example)
+#
+# ICT_RISK_PCT was removed from .env.example when the risk config migrated
+# to per-account YAML blocks in config/accounts.yaml and
+# config/master-secrets.template.yaml (operator directive 2026-05-03).
+# The 0.4% risk-per-trade value is now expressed as risk_per_trade: "0.004"
+# in the ict: section of master-secrets.template.yaml.
 # ---------------------------------------------------------------------------
 
 
-def test_env_example_has_ict_risk_pct():
-    text = (REPO_ROOT / ".env.example").read_text()
+def test_template_ict_risk_per_trade_is_point_four_percent():
+    # 0.4% risk per trade expressed as decimal: 0.004 (same value as the
+    # former ICT_RISK_PCT=0.4).
+    text = (REPO_ROOT / "config" / "master-secrets.template.yaml").read_text()
+    assert 'risk_per_trade: "0.004"' in text
+
+
+def test_template_ict_section_documents_ict_risk_pct_mapping():
+    # The template comment must still document the ICT_RISK_PCT semantic
+    # so operators know the mapping — evidence that the value was not
+    # silently dropped but deliberately re-homed.
+    text = (REPO_ROOT / "config" / "master-secrets.template.yaml").read_text()
     assert "ICT_RISK_PCT" in text
 
 
-def test_env_example_ict_risk_pct_value():
-    text = (REPO_ROOT / ".env.example").read_text()
-    assert "ICT_RISK_PCT=0.4" in text
-
-
-def test_env_example_ict_risk_pct_has_comment():
-    text = (REPO_ROOT / ".env.example").read_text()
-    for line in text.splitlines():
-        if "ICT_RISK_PCT" in line:
-            assert "#" in line or any(
-                "#" in ln and "ICT" in ln
-                for ln in text.splitlines()
-            ), "ICT_RISK_PCT line should have an inline comment"
-            return
-    assert False, "ICT_RISK_PCT not found in .env.example"
+def test_template_ict_section_references_s006_validation():
+    # S-006 backtest reference must survive so the operator can trace
+    # why 0.004 was chosen.
+    text = (REPO_ROOT / "config" / "master-secrets.template.yaml").read_text()
+    assert "S-006" in text or "PF=2.04" in text

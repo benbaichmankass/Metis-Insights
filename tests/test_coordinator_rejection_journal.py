@@ -53,7 +53,11 @@ def _vwap_pkg() -> OrderPackage:
 
 
 @pytest.fixture()
-def accounts_yaml(tmp_path):
+def accounts_yaml(tmp_path, monkeypatch):
+    # _ACCOUNTS_YAML uses api_key_env: BYBIT_KEY_1. Without the env var
+    # load_accounts marks the account configured=False, and
+    # _eligible_for_dispatch drops it — all result lists come back empty.
+    monkeypatch.setenv("BYBIT_KEY_1", "test-key")
     p = tmp_path / "accounts.yaml"
     p.write_text(_ACCOUNTS_YAML)
     return str(p)

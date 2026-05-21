@@ -43,9 +43,14 @@ def test_allow_live_false_is_caught():
     assert "ALLOW_LIVE_TRADING" in findings[0]
 
 
-def test_yaml_dry_run_true_is_caught():
+def test_yaml_dry_run_true_is_not_caught():
+    # The guard was tightened to avoid false positives on Python kwargs
+    # (dry_run=dry_run patterns). Only the canonical account-mode toggle
+    # `mode: dry_run` (in accounts.yaml) and the uppercase env-var forms
+    # DRY_RUN=true / ALLOW_LIVE_TRADING=false are flagged. A lowercase
+    # `dry_run: true` in an arbitrary YAML file is intentionally ignored.
     findings = scan_diff(_diff("config/services.yaml", ["  dry_run: true"]))
-    assert len(findings) == 1
+    assert len(findings) == 0
 
 
 def test_test_files_are_ignored():

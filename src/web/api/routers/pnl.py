@@ -36,8 +36,25 @@ def _resolve_accounts_yaml() -> Path:
 
 
 def _load_account_ids(accounts_yaml: Path) -> list[str]:
+    import logging as _logging
     from src.config.accounts_loader import load_accounts_dict
-    return list(load_accounts_dict(accounts_yaml).keys())
+    errors: list = []
+    result = load_accounts_dict(accounts_yaml, errors=errors)
+    for err in errors:
+        try:
+            from src.runtime.outcomes import Level, report
+            report(
+                "pnl_endpoint",
+                "accounts_yaml_read_failed",
+                level=Level.WARN,
+                reason=err.get("error", "parse error"),
+                path=err.get("path", str(accounts_yaml)),
+            )
+        except ImportError:
+            _logging.getLogger(__name__).warning(
+                "_load_account_ids: outcomes.report unavailable: %s", err
+            )
+    return list(result.keys())
 
 
 def _zero_account() -> Dict[str, float]:

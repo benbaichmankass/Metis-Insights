@@ -74,6 +74,10 @@ def test_live_trading_interlock_allowed():
 
 
 def test_build_settings_from_env_keys():
+    # (b) OUTDATED CONTRACT — operator directive 2026-05-03 removed
+    # DRY_RUN, ALLOW_LIVE_TRADING, mode, dry_run, allow_live_trading from
+    # build_settings_from_env (validation.py:115-157).  The S-012 uppercase-
+    # alias fix was superseded.  Updated to reflect the current key set.
     env = {**BASE_ENV}
     with pytest.MonkeyPatch().context() as mp:
         for k in list(os.environ.keys()):
@@ -82,24 +86,17 @@ def test_build_settings_from_env_keys():
             mp.setenv(k, v)
         s = build_settings_from_env()
     assert set(s.keys()) == {
-        "exchange", "mode", "symbol", "timeframe",
-        "risk_per_trade", "max_qty", "dry_run",
-        "allow_live_trading", "log_level", "tick_interval", "loop",
+        "exchange", "symbol", "timeframe",
+        "risk_per_trade", "max_qty", "log_level", "tick_interval", "loop",
         "MAX_POSITION_USD", "MAX_DAILY_LOSS_USD", "MAX_OPEN_POSITIONS",
-        # S-012 hotfix: uppercase aliases for the live-mode flags so
-        # safe_place_order's _get_value(settings, "DRY_RUN", ...) /
-        # _get_value(settings, "ALLOW_LIVE_TRADING", ...) lookups find
-        # them. MAX_QTY is the same value as max_qty, surfaced under
-        # safe_place_order's expected key.
-        "DRY_RUN", "ALLOW_LIVE_TRADING", "MAX_QTY",
+        # MAX_QTY uppercase alias retained: safe_place_order still looks up
+        # MAX_QTY from settings (orders.py:203).
+        "MAX_QTY",
     }
     assert s["exchange"] == "binance"
     assert s["risk_per_trade"] == 0.01
     assert s["tick_interval"] == 900
     assert s["loop"] is True
-    # S-012 hotfix invariants: uppercase mirrors the lowercase value.
-    assert s["DRY_RUN"] == s["dry_run"]
-    assert s["ALLOW_LIVE_TRADING"] == s["allow_live_trading"]
     assert s["MAX_QTY"] == s["max_qty"]
 
 
@@ -173,11 +170,16 @@ def test_dry_run_false_without_allow_live_passes():
     run(overrides={"DRY_RUN": "false", "ALLOW_LIVE_TRADING": "false"})
 
 
-def test_dry_run_and_allow_live_both_truthy_is_contradiction():
-    """The only state validate_startup still refuses: both flags truthy."""
-    with pytest.raises(EnvironmentError, match="both truthy"):
-        run(overrides={"DRY_RUN": "true", "ALLOW_LIVE_TRADING": "true",
-                       "MODE": "BACKTEST"})
+def test_dry_run_and_allow_live_both_truthy_is_no_longer_checked():
+    """(b) OUTDATED CONTRACT — operator directive 2026-05-03 removed the
+    DRY_RUN+ALLOW_LIVE_TRADING contradiction check from validate_startup
+    (validation.py:115-125).  The per-account accounts.yaml ``mode`` field
+    is the sole toggle; process-level interlocks were removed to eliminate
+    BUG-026/031/038 drift.  validate_startup must now ACCEPT this
+    combination without raising."""
+    # Must not raise — the interlock is gone.
+    run(overrides={"DRY_RUN": "true", "ALLOW_LIVE_TRADING": "true",
+                   "MODE": "BACKTEST"})
 
 
 def test_allow_live_accepts_literal_live_string():

@@ -21,6 +21,13 @@ def make_settings(**overrides):
 
 
 def test_dry_run_does_not_call_exchange():
+    """Operator directive 2026-05-03: DRY_RUN is no longer a gate in
+    safe_place_order. The per-account RiskManager (mode: live | dry_run in
+    accounts.yaml) is the single authoritative dry/live toggle. A caller
+    passing DRY_RUN=true in settings receives a submitted result here — the
+    dry-run interlock lives in execute_pkg / Coordinator, not in this
+    payload-validation rail.
+    """
     client = DummyClient()
     settings = make_settings(DRY_RUN="true")
     result = safe_place_order(
@@ -28,8 +35,9 @@ def test_dry_run_does_not_call_exchange():
         settings,
         client,
     )
-    assert result["status"] == "dry_run"
-    assert client.calls == []
+    # DRY_RUN is ignored by safe_place_order — the order reaches the client.
+    assert result["status"] == "submitted"
+    assert len(client.calls) == 1
 
 
 def test_live_submission_calls_exchange():
@@ -83,8 +91,11 @@ def test_live_is_the_default_when_dry_run_is_false():
 
 
 def test_explicit_allow_live_false_still_blocks():
-    """Operator can still explicitly disable live by setting
-    ALLOW_LIVE_TRADING=false (e.g. /set_all_dry temporarily)."""
+    """Operator directive 2026-05-03: ALLOW_LIVE_TRADING is no longer
+    consulted by safe_place_order. The per-account RiskManager is the
+    sole live/dry gate. ALLOW_LIVE_TRADING=false in settings is ignored
+    and the order submits normally through this validation rail.
+    """
     client = DummyClient()
     settings = make_settings(DRY_RUN="false", ALLOW_LIVE_TRADING="false")
     result = safe_place_order(
@@ -92,9 +103,9 @@ def test_explicit_allow_live_false_still_blocks():
         settings,
         client,
     )
-    assert result["status"] == "failed_validation"
-    assert "ALLOW_LIVE_TRADING" in result["reason"]
-    assert client.calls == []
+    # ALLOW_LIVE_TRADING no longer gates here — order submits.
+    assert result["status"] == "submitted"
+    assert len(client.calls) == 1
 
 
 def test_allow_live_accepts_literal_live_string():

@@ -95,9 +95,11 @@ class TestModifyOpenOrder:
 
     def test_bybit_atomic_sl_and_tp(self):
         client = _StubBybit()
+        # market_type=linear: _bybit_category defaults to "spot" when
+        # omitted (2026-05-06), and set_trading_stop is derivatives-only.
         result = modify_open_order(
-            client, {"exchange": "bybit"}, symbol="BTCUSDT",
-            sl=49500.0, tp=51000.0,
+            client, {"exchange": "bybit", "market_type": "linear"},
+            symbol="BTCUSDT", sl=49500.0, tp=51000.0,
         )
         assert result["ok"] is True
         kwargs = client.set_trading_stop_calls[0]
@@ -108,7 +110,8 @@ class TestModifyOpenOrder:
     def test_bybit_non_zero_retcode_marks_not_ok(self):
         client = _StubBybit(ret_code=10001, ret_msg="invalid sl")
         result = modify_open_order(
-            client, {"exchange": "bybit"}, symbol="BTCUSDT", sl=1.0,
+            client, {"exchange": "bybit", "market_type": "linear"},
+            symbol="BTCUSDT", sl=1.0,
         )
         assert result["ok"] is False
         assert "invalid sl" in result["error"]
@@ -119,7 +122,8 @@ class TestModifyOpenOrder:
                 raise RuntimeError("network down")
 
         result = modify_open_order(
-            _Boom(), {"exchange": "bybit"}, symbol="BTCUSDT", sl=49500.0,
+            _Boom(), {"exchange": "bybit", "market_type": "linear"},
+            symbol="BTCUSDT", sl=49500.0,
         )
         assert result["ok"] is False
         assert "RuntimeError" in result["error"]
@@ -153,8 +157,10 @@ class TestModifyOpenOrder:
 class TestCloseOpenPosition:
     def test_long_close_dispatches_sell_reduce_only(self):
         client = _StubBybit(order_id="CLOSE-LONG-1")
+        # market_type=linear: spot (the default when omitted) has no
+        # reduceOnly; this test pins the derivatives reduce-only close.
         result = close_open_position(
-            client, {"exchange": "bybit"},
+            client, {"exchange": "bybit", "market_type": "linear"},
             symbol="BTCUSDT", side="long", qty=0.001,
         )
         assert result["ok"] is True
@@ -167,7 +173,7 @@ class TestCloseOpenPosition:
     def test_short_close_dispatches_buy_reduce_only(self):
         client = _StubBybit(order_id="CLOSE-SHORT-1")
         result = close_open_position(
-            client, {"exchange": "bybit"},
+            client, {"exchange": "bybit", "market_type": "linear"},
             symbol="BTCUSDT", side="short", qty=0.002,
         )
         assert result["ok"] is True

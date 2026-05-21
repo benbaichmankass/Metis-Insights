@@ -270,7 +270,13 @@ def test_query_failure_renders_in_ping_body(tmp_journal, monkeypatch):
 
 
 def _make_journal_with_open_trade(tmp_path, *, account_id="bybit_2", symbol="BTCUSDT"):
-    """Create a minimal trade_journal.db with one open trade row."""
+    """Create a minimal trade_journal.db with one open trade row.
+
+    The column is ``direction`` (matching the production schema and the
+    ``SELECT id, symbol, direction FROM trades`` query in boot_audit.py).
+    The legacy ``side`` column was renamed; tests using this helper must
+    use the canonical name.
+    """
     db_path = tmp_path / "trade_journal.db"
     conn = _sqlite3.connect(str(db_path))
     conn.execute("""
@@ -278,13 +284,13 @@ def _make_journal_with_open_trade(tmp_path, *, account_id="bybit_2", symbol="BTC
             id INTEGER PRIMARY KEY,
             account_id TEXT,
             symbol TEXT,
-            side TEXT,
+            direction TEXT,
             status TEXT,
             is_backtest INTEGER DEFAULT 0
         )
     """)
     conn.execute(
-        "INSERT INTO trades (id, account_id, symbol, side, status, is_backtest) "
+        "INSERT INTO trades (id, account_id, symbol, direction, status, is_backtest) "
         "VALUES (?, ?, ?, ?, 'open', 0)",
         (42, account_id, symbol, "buy"),
     )
@@ -409,7 +415,7 @@ class TestReconcileJournalVsExchange:
         conn = _sqlite3.connect(str(db_path))
         conn.execute(
             "CREATE TABLE trades (id INTEGER PRIMARY KEY, account_id TEXT, "
-            "symbol TEXT, side TEXT, status TEXT, is_backtest INTEGER DEFAULT 0)"
+            "symbol TEXT, direction TEXT, status TEXT, is_backtest INTEGER DEFAULT 0)"
         )
         conn.commit()
         conn.close()

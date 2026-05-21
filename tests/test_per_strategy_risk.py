@@ -13,6 +13,7 @@ import os
 import sqlite3
 import tempfile
 from datetime import date
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -65,8 +66,18 @@ def _order(strategy="breakout", qty=0.4):
     }
 
 
+def _mock_client():
+    """Return a mock exchange client that accepts any place_order call."""
+    client = MagicMock()
+    client.place_order.return_value = {"orderId": "mock-123"}
+    return client
+
+
 def _settings(**extra):
-    return {"DRY_RUN": "true", "MAX_QTY": "10", **extra}
+    # DRY_RUN was removed per operator directive 2026-05-03; safe_place_order
+    # no longer reads it. Tests that need to verify cap logic supply a mock
+    # client so the exchange call succeeds (status='submitted').
+    return {"MAX_QTY": "10", **extra}
 
 
 # ---------------------------------------------------------------------------
@@ -172,13 +183,18 @@ def test_per_strategy_risk_refusal_daily_loss():
 
 
 def test_per_strategy_below_cap_passes_to_dry_run():
-    """Order proceeds to dry_run when strategy counters are below caps."""
+    """Order passes cap gate and reaches exchange when strategy counters are below caps.
+
+    DRY_RUN env var was removed (operator directive 2026-05-03); safe_place_order
+    now calls the client directly. We supply a mock client so the exchange call
+    succeeds and the test can verify the cap gate was NOT triggered.
+    """
     settings = _settings(
         MAX_POS_PER_STRATEGY="3",
         STRATEGY_OPEN_POSITIONS="1",  # below cap
     )
-    result = safe_place_order(_order("breakout"), settings, client=None)
-    assert result["status"] == "dry_run"
+    result = safe_place_order(_order("breakout"), settings, client=_mock_client())
+    assert result["status"] == "submitted"
 
 
 def test_per_strategy_caps_ignored_without_strategy_name():
@@ -188,15 +204,15 @@ def test_per_strategy_caps_ignored_without_strategy_name():
         MAX_POS_PER_STRATEGY="0",       # would block if checked
         STRATEGY_OPEN_POSITIONS="999",
     )
-    result = safe_place_order(order, settings, client=None)
-    assert result["status"] == "dry_run"
+    result = safe_place_order(order, settings, client=_mock_client())
+    assert result["status"] == "submitted"
 
 
 def test_per_strategy_caps_only_check_when_counter_present():
     """MAX_POS_PER_STRATEGY set but counter absent → cap silently skipped."""
     settings = _settings(MAX_POS_PER_STRATEGY="2")  # no STRATEGY_OPEN_POSITIONS
-    result = safe_place_order(_order("ict"), settings, client=None)
-    assert result["status"] == "dry_run"
+    result = safe_place_order(_order("ict"), settings, client=_mock_client())
+    assert result["status"] == "submitted"
 
 
 def test_per_strategy_positive_pnl_not_refused():
@@ -205,5 +221,5 @@ def test_per_strategy_positive_pnl_not_refused():
         MAX_DAILY_LOSS_PER_STRATEGY_USD="100",
         STRATEGY_DAILY_PNL="200.0",  # profit day
     )
-    result = safe_place_order(_order("ict"), settings, client=None)
-    assert result["status"] == "dry_run"
+    result = safe_place_order(_order("ict"), settings, client=_mock_client())
+    assert result["status"] == "submitted"

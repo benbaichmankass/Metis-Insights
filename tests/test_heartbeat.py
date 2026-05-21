@@ -75,9 +75,11 @@ def test_write_heartbeat_no_tick_renders_dash(tmp_path):
 def test_check_tick_freshness_prefers_heartbeat_when_present(tmp_path, monkeypatch):
     from src.runtime import health as h
 
-    monkeypatch.setattr(h, "_REPO_ROOT", tmp_path)
+    # check_tick_freshness resolves via runtime_logs_dir() (not _REPO_ROOT).
+    # Point RUNTIME_LOGS_DIR at the tmp path so the reader finds the files.
     rl = tmp_path / "runtime_logs"
     rl.mkdir()
+    monkeypatch.setenv("RUNTIME_LOGS_DIR", str(rl))
     hb = rl / "heartbeat.txt"
     hb.write_text("ok")
 
@@ -96,9 +98,9 @@ def test_check_tick_freshness_prefers_heartbeat_when_present(tmp_path, monkeypat
 def test_check_tick_freshness_falls_back_to_audit_when_no_heartbeat(tmp_path, monkeypatch):
     from src.runtime import health as h
 
-    monkeypatch.setattr(h, "_REPO_ROOT", tmp_path)
     rl = tmp_path / "runtime_logs"
     rl.mkdir()
+    monkeypatch.setenv("RUNTIME_LOGS_DIR", str(rl))
     audit = rl / "signal_audit.jsonl"
     audit.write_text("")
 

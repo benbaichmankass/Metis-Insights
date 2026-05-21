@@ -80,7 +80,6 @@ def isolated_diag(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     heartbeat = runtime_logs / "heartbeat.txt"
     bot_log = tmp_path / "bot.log"
     monkeypatch.setattr(diag_router, "_DB_PATH", db_path)
-    monkeypatch.setattr(diag_router, "_RUNTIME_LOGS", runtime_logs)
     monkeypatch.setattr(diag_router, "_AUDIT_LOG", audit)
     monkeypatch.setattr(diag_router, "_HEARTBEAT", heartbeat)
     monkeypatch.setattr(diag_router, "_STATUS_JSON", status_json)
