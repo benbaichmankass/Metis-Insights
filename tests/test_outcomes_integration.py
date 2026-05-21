@@ -34,7 +34,20 @@ def _signal_stub(signal):
     return lambda _settings: signal
 
 
-_ACTIONABLE = {"symbol": "BTCUSDT", "side": "buy", "qty": 1.0, "price": 50_000.0}
+# G5 (CP-2026-05-02-09): signals without entry_price/stop_loss/take_profit
+# trigger a Level.WARN "signal_missing_sltp" report that writes to
+# outcomes.jsonl — causing INFO-only tests to see unexpected WARN persists.
+# Provide full SL/TP so the pipeline takes the multi-account fast-path or
+# the legacy path without the extra WARN noise, keeping tests focused on
+# the outcome level they actually claim to test.
+_ACTIONABLE = {
+    "symbol": "BTCUSDT",
+    "side": "buy",
+    "qty": 1.0,
+    "entry_price": 50_000.0,
+    "stop_loss": 49_500.0,
+    "take_profit": 51_000.0,
+}
 
 
 @pytest.fixture
@@ -52,11 +65,10 @@ def reporter(tmp_path: Path):
 
 @pytest.fixture(autouse=True)
 def _silence_existing_telegram():
-    """The pipeline already sends a per-tick Telegram message via send_via_alert_manager.
+    """The pipeline already sends a per-tick Telegram message via send_to_operator.
     Patch it for every test in this file so we can assert on outcomes-driven sends only.
     """
-    with patch("src.runtime.pipeline.send_via_alert_manager"), \
-            patch("src.runtime.pipeline.notify_operator"):
+    with patch("src.runtime.pipeline.send_to_operator"):
         yield
 
 
@@ -76,11 +88,19 @@ def test_submitted_logs_info_no_telegram(reporter, tmp_path):
 
 
 def test_failed_exchange_pages_operator(reporter):
-    """Exchange exception → ERROR outcome → telegram."""
+    """Exchange exception → ERROR outcome → telegram.
+
+    Force the legacy single-client path (MULTI_ACCOUNT_DISPATCH=false) so
+    the injected _BoomClient is actually invoked via safe_place_order.
+    With a full SL/TP signal the default path goes through Coordinator
+    (multi-account fast-path) which doesn't use the exchange_client arg
+    directly — pinning MULTI_ACCOUNT_DISPATCH=false keeps this test on the
+    code-path that exercises the exchange_client injection contract.
+    """
     with patch("src.runtime.pipeline.os.path.exists", return_value=False), \
             patch("src.runtime.outcomes._Reporter._send_telegram_or_queue") as send:
         result = run_pipeline(
-            settings=_settings(),
+            settings=_settings(MULTI_ACCOUNT_DISPATCH="false"),
             exchange_client=_BoomClient(),
             signal_builder=_signal_stub(_ACTIONABLE),
         )
