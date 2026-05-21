@@ -1,51 +1,126 @@
 ---
 name: health-review
-description: Layer-2 review of the LIVE ICT TRADING BOT's runtime health (NOT a code review or codebase audit). The operator pulls a snapshot artifact from the health-snapshot workflow's run page and pastes it into the chat; this skill grades it and emits a JSON response matching comms/schema/health_review_response.template.json. Use when the operator says "run the health review", "/health-review", or "do the layer-2 review". Do NOT invoke this skill for code-quality audits, security reviews, or repo-scope assessments — those are separate skills (review, security-review).
+description: Layer-2 review of the LIVE ICT TRADING BOT's runtime health (NOT a code review or codebase audit). Claude pulls the live runtime state itself via the GitHub Actions diag relays (it has autonomous read access — no operator paste needed); this skill grades it and emits a JSON response matching comms/schema/health_review_response.template.json. Use when the operator says "run the health review", "/health-review", or "do the layer-2 review". Do NOT invoke this skill for code-quality audits, security reviews, or repo-scope assessments — those are separate skills (review, security-review).
 ---
 
 # /health-review — manual layer-2 review of the live ICT bot's runtime
 
 **This skill reviews the live trading bot's runtime state, not the codebase.**
-It runs only when the operator manually invokes it, with a fresh
-snapshot pasted into the chat.
+It runs whenever the operator invokes it. **Claude fetches the live
+runtime state itself** via the GitHub Actions diag relays — the
+operator does not paste, download, or fetch anything. This session is
+an ephemeral sandbox with no direct network path to the VMs, but the
+relays (`VM_SSH_KEY` + `DIAG_READ_TOKEN`, already in repo secrets)
+give Claude autonomous read access. See CLAUDE.md § "STOP — Read this
+before answering any 'what's running' question."
 
 If the user asked for a *code* review, *codebase audit*, *security
 review*, or *dependency check* — STOP. This is the wrong skill.
 Direct them to the `review` or `security-review` skill instead.
 
-## Where the inputs come from (2026-05-12 onwards)
+## Where the inputs come from (2026-05-21 onwards)
 
-The [`health-snapshot.yml`](../../../.github/workflows/health-snapshot.yml)
-workflow runs daily on cron (and on `workflow_dispatch` / labelled
-issues), SSHes to the VM, and uploads `health-snapshot-<run_id>` as an
-Action artifact. The operator downloads the artifact ZIP from the
-Actions UI and pastes the contents into the chat when they invoke
-`/health-review`. See [`docs/runbooks/health-check.md`](../../../docs/runbooks/health-check.md)
-for the full flow.
+**Claude pulls everything autonomously via the diag relays.** The
+`health-snapshot.yml` workflow still runs on cron and uploads a
+`health-snapshot-<run_id>` artifact for the deterministic Telegram
+status ping, but this skill no longer depends on it: the sandbox has
+no MCP tool to download Action artifacts, so the artifact is not the
+review's input. Instead the skill reconstructs the same runtime view
+from the relays it *can* drive (see "How Claude fetches runtime state
+itself" below).
+
+**Never ask the operator to paste, download, or SSH for a snapshot.**
+That contradicts the autonomy mandate (CLAUDE.md: "Asking is a
+critical failure of this document"). If a snapshot happens to be in
+the chat already, treat it as a supplementary cross-check — but the
+live diag pulls are the source of truth and run every time regardless.
 
 There is **no longer** a Layer-1 LLM verdict, no auto-generated
-`comms/requests/REQ-*.json`, no PR auto-merge, and no Telegram ping.
-The snapshot text is the only input — paired with what this skill
-can pull live via the diag relay.
+`comms/requests/REQ-*.json`, no PR auto-merge, and no operator-paste
+requirement.
 
-## Inputs expected in chat
+## Inputs
 
-- `health_snapshot.txt` (required) — raw live-VM snapshot. Sectioned with
-  `=== NAME ===` headers (META, PROCESSES, HEARTBEAT, TICKS, SIGNALS,
-  ORDERS, TRADES, POSITIONS, MONITORING, API, ERRORS, STORAGE, DB,
-  AUDIT_LOG, VM, END). This is the source of truth for the live bot.
-- `pipeline_test.json` (optional, recommended) — active dry-run smoke
-  result. `warn` with note "plumbing-on-rejection path exercised" is
-  the expected outcome when no exchange client is wired in.
-- `trainer_snapshot.txt` (optional) — trainer VM snapshot collected by the
-  same workflow. Sectioned with `=== TRAINER <NAME> ===` headers (META,
-  SERVICE, RECENT LOG, DATASETS, REGISTRY, RESOURCES, END). If the file
-  starts with `trainer_vm_not_reached: true`, the trainer VM was
-  unreachable — grade all three trainer dimensions as `skip`.
+- **Live diag relays (primary, always run)** — Claude pulls the live
+  runtime state via `vm-diag-snapshot.yml` (live VM) and
+  `trainer-vm-diag.yml` (trainer VM). This is the source of truth.
+  See "How Claude fetches runtime state itself" below for the exact
+  pulls and the snapshot-section → relay-endpoint mapping.
+- `health_snapshot.txt` (optional, supplementary) — if the operator
+  happens to paste a raw live-VM snapshot (sectioned with `=== NAME ===`
+  headers: META, PROCESSES, HEARTBEAT, TICKS, SIGNALS, ORDERS, TRADES,
+  POSITIONS, MONITORING, API, ERRORS, STORAGE, DB, AUDIT_LOG, VM, END),
+  use it to cross-check the diag pulls. It is never required.
+- `pipeline_test.json` (optional) — active dry-run smoke result.
+  `warn` with note "plumbing-on-rejection path exercised" is the
+  expected outcome when no exchange client is wired in.
+- `trainer_snapshot.txt` (optional, supplementary) — if pasted, use it;
+  otherwise Claude reconstructs the trainer view via `trainer-vm-diag.yml`
+  (see "Trainer VM health review" below). Sectioned with
+  `=== TRAINER <NAME> ===` headers (META, SERVICE, RECENT LOG, DATASETS,
+  REGISTRY, RESOURCES, END). If the trainer VM is unreachable, grade all
+  three trainer dimensions as `skip`.
 
-If the operator hasn't pasted a snapshot, **stop and ask them to
-paste it** — referencing the runbook (`docs/runbooks/health-check.md`)
-for how to fetch one. Don't try to synthesize a review from nothing.
+## How Claude fetches runtime state itself
+
+The diag relays are issue-driven: open a labelled issue, the matching
+GitHub Actions workflow SSHes to the VM, runs a fixed (live) or
+arbitrary (trainer) read command, posts the result back as an issue
+comment, and closes the issue. Poll `mcp__github__issue_read`
+(`get_comments`) for the `github-actions[bot]` reply (~30–60 s).
+Full contract + failure modes: `docs/claude/diag-relay.md` (live) and
+`docs/claude/trainer-vm-mode.md` § 9 (trainer).
+
+**Live VM** — `vm-diag-snapshot.yml`, issue label `vm-diag-request`,
+title `[diag-request] <path>` (body ignored). Each `=== SNAPSHOT ===`
+section maps to a diag endpoint:
+
+| Snapshot section | Diag relay pull |
+|---|---|
+| META / VM | `status` (carries `vm_health`: cpu/mem/disk) |
+| PROCESSES | `services`, or `journalctl?unit=ict-trader-live.service&lines=50` |
+| HEARTBEAT | `status`, or `log_file?name=heartbeat&lines=5` |
+| TICKS | `audit?limit=600` → `pipeline_result` events |
+| SIGNALS | `audit?limit=600` → `*_eval` events |
+| ORDERS | `journal?table=order_packages&limit=100` |
+| TRADES / POSITIONS | `journal?table=trades&limit=100` (open = `status='open'`) |
+| MONITORING | `audit?limit=600` → `monitor` events |
+| API / ERRORS | `journalctl?unit=ict-trader-live.service&lines=200` or `log_file?name=bot_log&lines=200` |
+| AUDIT_LOG | `audit?limit=600` (freshness from newest `ts`); `log_file?name=audit&lines=1` |
+
+Two live-VM snapshot sections have **no** diag-endpoint equivalent
+(the live relay is fixed-curl only — no arbitrary bash, no `sqlite3
+PRAGMA`):
+
+- **DB `integrity_check`** — not fetchable via the relay. Grade
+  `db_integrity` from what *is* reachable: journal row recency
+  (newest `trades` / `order_packages` row age) and the audit-log
+  freshness. Note in the finding that `integrity_check` was not
+  directly fetched (relay can't run `PRAGMA`). Only escalate to
+  `concern` on stale-writes evidence, not on the absence of the
+  integrity field.
+- **STORAGE (`verify_storage_setup.sh`)** — not fetchable via the
+  relay. `vm_health.disk` from `status` covers the disk-pressure
+  angle; the mount/fstab detail is unavailable. Don't fail the
+  review on its absence; mention it only if `vm_health.disk` is high.
+
+If you genuinely need those two fields, the only path that computes
+them is `health-snapshot.yml` (it runs `collect_health_snapshot.sh`
+on the VM) — but its output lands in an Action artifact the sandbox
+can't download, so don't block the review on it.
+
+**Trainer VM** — `trainer-vm-diag.yml`, issue label
+`trainer-vm-diag-request`, body `cmd: <bash>` (arbitrary). Because it
+runs arbitrary bash, Claude can reproduce the *entire*
+`trainer_snapshot.txt` (see "Trainer VM health review" below for the
+exact commands).
+
+If the relay returns curl exit 7 (`Failed to connect to 127.0.0.1`),
+the live web-api is down — fire `vm-web-api-recover` and retry once.
+If it still fails after recovery, downgrade gracefully (see the
+mandatory pre-review step below): emit the review with a `concern` on
+`api_errors`, `operator_attention_required: true`, and a note that
+the live pull could not be performed. Do not fabricate findings.
 
 ## Other files this skill reads from the repo
 
@@ -74,22 +149,20 @@ unrecognized.
 
 ## Mandatory pre-review step — fetch the live 6-hour log window
 
-**The snapshot alone is not enough.** The collector at
-`scripts/collect_health_snapshot.sh` only greps `*.log` files for
-ticks/signals/orders/trades, but the live pipeline writes to
-`runtime_logs/signal_audit.jsonl` (NDJSON, not `.log`). As a result,
-the snapshot's `=== TICKS / SIGNALS / ORDERS / TRADES ===` sections
-will frequently say "no … logs in last 1440m" even when the bot is
-actively trading. This is a known collector limitation, not a bot
-outage — and it means a snapshot-only review will always under-report
-activity.
+**This is how the review gets its data.** Claude pulls the live audit +
+journal tables via the diag relay (see `docs/claude/diag-relay.md`) —
+this is not a complement to a pasted snapshot, it *is* the input. (Even
+when a snapshot is pasted, it can't substitute: `collect_health_snapshot.sh`
+greps `*.log` for ticks/signals/orders/trades, but the live pipeline
+writes `runtime_logs/signal_audit.jsonl` (NDJSON, not `.log`), so the
+snapshot's `=== TICKS / SIGNALS / ORDERS / TRADES ===` sections
+frequently read "no … logs in last 1440m" even mid-session. That's a
+known collector limitation, so the diag pulls are authoritative.)
 
-So before grading, **always pull the live audit + journal tables via
-the diag relay** (see `docs/claude/diag-relay.md`). This is the main
-substance of the layer-2 review: Claude must look at the actual
-signals, orders, and trades produced over the recent window and
-sanity-check both the technical pipeline (does each signal that
-should have produced an order actually produce one? do orders that
+These pulls are the main substance of the layer-2 review: Claude must
+look at the actual signals, orders, and trades produced over the recent
+window and sanity-check both the technical pipeline (does each signal
+that should have produced an order actually produce one? do orders that
 fill become trades?) and the decision quality (are the signals
 reasonable for the current market context? are the position sizes,
 sides, and SL/TP wired through correctly?).
@@ -121,7 +194,8 @@ the web-api is down — fire `vm-web-api-recover` and retry once. If
 it still fails, downgrade gracefully: emit the review with a
 `concern` on `api_errors` and `operator_attention_required: true`,
 note that the 6h log review could not be performed, and stop. Do
-not fabricate findings from the snapshot alone.
+not fabricate findings — a relay outage means no live data, not a
+green light to guess.
 
 ### Follow-up log evaluation
 
@@ -305,8 +379,35 @@ as `concern`.
 ## Trainer VM health review
 
 The training center VM (`158.178.209.121`) runs the ML lifecycle
-independent of the live trader. Include it in every health review where
-`trainer_snapshot.txt` is present and reachable.
+independent of the live trader. Include it in every health review.
+
+### Fetching the trainer view yourself
+
+If `trainer_snapshot.txt` wasn't pasted, reconstruct it via the
+`trainer-vm-diag.yml` relay (issue label `trainer-vm-diag-request`,
+body `cmd: <bash>` — arbitrary bash, see `docs/claude/trainer-vm-mode.md`
+§ 9). One issue with a `cmd: |` block reproduces every section:
+
+```
+cmd: |
+  REPO=/home/ubuntu/ict-trading-bot
+  echo "=== TRAINER SERVICE ==="
+  systemctl is-enabled ict-trainer.service; systemctl is-active ict-trainer.service
+  systemctl is-enabled ict-trainer.timer;   systemctl is-active ict-trainer.timer
+  systemctl show ict-trainer.service --property=ExecMainStatus,ActiveEnterTimestamp,ActiveExitTimestamp
+  echo "=== TRAINER RECENT LOG ==="
+  journalctl -u ict-trainer.service -n 100 --no-pager
+  echo "=== TRAINER DATASETS ==="
+  ls -la "$REPO/ml/datasets/built/"; tail -n 10 "$REPO/runtime_logs/trainer/dataset_builds.jsonl"
+  echo "=== TRAINER REGISTRY ==="
+  cd "$REPO" && .venv/bin/python -m ml.registry list
+  echo "=== TRAINER RESOURCES ==="
+  df -h /home | tail -1; free -m | head -2
+```
+
+If the trainer relay errors (SSH failure, host down), grade all three
+trainer dimensions as `skip` and note the relay failure — same as the
+`trainer_vm_not_reached: true` case.
 
 ### What the trainer snapshot contains
 
@@ -440,10 +541,14 @@ Map findings to the layer-2 dimensions (these differ from layer 1):
   silence was indistinguishable from "no signal." Fixed in PR
   that adds `vwap_eval`; if a future strategy is added without
   an audit emitter, this check is what catches it.
-- `db_integrity` — read the `=== DB ===` block in the snapshot.
-  `integrity_check` should be `ok`; any other value (`malformed
-  disk image`, `index <N> has wrong # of entries`, etc.) is an
-  immediate `concern` with `operator_attention_required: true`.
+- `db_integrity` — the diag relay can't run `PRAGMA integrity_check`
+  (fixed-curl only, no `sqlite3`), so grade primarily from journal
+  recency + counts via the pulls. If a `=== DB ===` block *was*
+  pasted, use its `integrity_check`: should be `ok`; any other value
+  (`malformed disk image`, `index <N> has wrong # of entries`, etc.)
+  is an immediate `concern` with `operator_attention_required: true`.
+  Without a pasted block, note "integrity_check not fetched (relay
+  can't run PRAGMA)" and grade from the relay-reachable signals.
   Also weigh:
   - `age_seconds` — for a live trader this should be small (single
     digits during active sessions, ≤ a few minutes during quiet
@@ -685,15 +790,27 @@ trades.
   answer per `comms/schema/response.schema.json`.
 - Don't try to call the live trader, modify `config/accounts.yaml`,
   or touch anything under `src/`. Reviews are read-only.
-- Don't open issues, PRs, or commit changes — this is a sanity-review
-  skill, not a remediation skill.
-- Don't ask scoping questions. The scope is fixed: read the latest
-  health-check artifacts and emit the response JSON. If the user
-  meant a code review, the skill description is wrong — they should
-  invoke `review` or `security-review` instead.
+- Don't open issues to *deliver* the review, open PRs, or commit
+  changes — this is a sanity-review skill, not a remediation skill.
+  (The read-only diag-relay trigger issues — `vm-diag-request`,
+  `trainer-vm-diag-request`, `vm-web-api-recover` — are the
+  exception: opening them is how the review fetches its data, and the
+  workflows auto-close them.)
+- **Don't ask the operator to paste, download, or fetch a snapshot.**
+  Claude has autonomous read access via the relays; asking is a
+  critical failure of the autonomy mandate. Pull the data yourself.
+- Don't ask scoping questions. The scope is fixed: pull the live
+  runtime state via the diag relays and emit the response JSON. If
+  the user meant a code review, the skill description is wrong — they
+  should invoke `review` or `security-review` instead.
 
-## If the inputs are missing
+## If the relays are unreachable
 
-If `artifacts/health/latest.json` isn't present on the current HEAD
-(e.g., the most recent review PR hasn't been merged yet), say so in
-plain text and stop — don't synthesize a review without evidence.
+The only legitimate stop condition is a relay outage. If the live
+diag relay fails even after a `vm-web-api-recover` retry (see the
+mandatory pre-review step), emit the partial review with a `concern`
+on `api_errors`, `operator_attention_required: true`, and a note
+that the live pull could not be performed — don't synthesize findings
+without evidence. A pasted snapshot, if present, can backfill the
+non-live dimensions in that degraded case, but the diag relay being
+down is itself the headline finding.

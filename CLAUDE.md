@@ -259,10 +259,15 @@ This repo ships a **project-level Claude Code skill** at
 [`.claude/skills/health-review/SKILL.md`](.claude/skills/health-review/SKILL.md).
 It is the on-demand entry point to Claude's Layer-2 review routine —
 when the operator invokes `/health-review` in chat (or asks for "the
-health review" / "the layer-2 review"), Claude reads `artifacts/health/latest.json`
-and `artifacts/health/health_snapshot.txt` from the current `main`
-HEAD and emits a JSON response per
+health review" / "the layer-2 review"), Claude **pulls the live
+runtime state itself** via the diag relays (`vm-diag-snapshot.yml`
+for the live VM, `trainer-vm-diag.yml` for the trainer VM) and emits
+a JSON response per
 [`comms/schema/health_review_response.template.json`](comms/schema/health_review_response.template.json).
+The operator does not paste, download, or fetch a snapshot — the
+relays give Claude autonomous read access, so asking for one would
+violate the autonomy mandate above. (A pasted `health_snapshot.txt`
+is accepted only as an optional cross-check.)
 
 **This is NOT a code-quality audit** — do not invoke it for
 codebase review, security scan, or dependency check. Use the `review`
@@ -272,15 +277,16 @@ emits the same directive into every web-session's context at init so
 this can't be missed.
 
 When to invoke `/health-review`:
-- A Telegram ping arrives saying *"auto-merge queued — run /health-review for the layer-2 review"*.
-- A `comms/requests/REQ-*.json` file is sitting unanswered on `main`.
 - The operator asks for the health review, the layer-2 review, or to
   sanity-check the live bot's runtime state.
+- The cron health-snapshot Telegram ping comes back `🟡 watch` /
+  `🚨 concern` and the operator wants a deeper look.
 
-The full review procedure (inputs, decision rubric, output schema,
-"don't write files / don't ask scoping questions") lives in the skill
-file. See also [`docs/runbooks/health-check.md`](docs/runbooks/health-check.md)
-for the two-workflow (collect → review) design.
+The full review procedure (relay pulls, decision rubric, output schema,
+"don't write files / don't ask scoping questions / never ask the
+operator to paste a snapshot") lives in the skill file. See also
+[`docs/runbooks/health-check.md`](docs/runbooks/health-check.md) for the
+collect → review design.
 
 ## Project Overview
 Automated ICT (Inner Circle Trader) futures trading bot running on a VPS.
