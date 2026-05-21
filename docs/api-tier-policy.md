@@ -69,8 +69,6 @@ it to get a token in the first place).
 | `POST /api/auth/login` | `src/web/api/routers/auth.py` | Mints a JWT for the allowlisted email. Public so an unauthed caller can authenticate. |
 | `GET /api/status` | `src/web/api/routers/status.py` | Detailed runtime status. |
 | `GET /api/pnl` | `src/web/api/routers/pnl.py` | Per-account P&L (realized + unrealized). |
-| `GET /ui/fragments/status` | `src/web/api/routers/status_fragment.py` | HTMX fragment (legacy UI; will be removed). |
-| `GET /ui/fragments/pnl` | `src/web/api/routers/pnl_fragment.py` | HTMX fragment (legacy UI; will be removed). |
 
 The `PUBLIC_ROUTES` set in `src/web/api/auth.py` enumerates the routes
 that opt out of `require_session`. Adding a route there is a code change
