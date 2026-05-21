@@ -82,6 +82,43 @@ MES on the paper account:
 4. Keep `ib_live` at `mode: dry_run` until the paper account is proven;
    promote via `set-account-mode` (Tier-3, operator-approved).
 
+## Headless Gateway on the VM (IBC)
+
+The production bot runs on the OCI live VM, so the IB Gateway must run there
+too (the bot connects to `127.0.0.1:<port>`). A logged-in Gateway is the one
+hard prerequisite for any IB order to execute — no Gateway, no fills.
+
+**Artifacts:**
+- `deploy/ib-gateway.service` — systemd unit running IB Gateway under `xvfb`
+  via IBC. **Independent of `ict-trader-live`** so bot deploys/restarts never
+  re-auth IBKR.
+- `deploy/ibc/config.ini.template` — IBC config (auto-restart mode, loopback
+  API bind, auto-accept connection). Credentials substituted at render time.
+- `scripts/install_ib_gateway.sh` — idempotent installer (xvfb, IB Gateway
+  standalone, IBC, config render, unit install).
+- `scripts/ops/provision_ib_gateway.sh` — VM-side: installs the staged
+  credential env file (0600 root) + runs the installer + restarts.
+- `.github/workflows/provision-ib-gateway.yml` — renders creds from the
+  `IB_USERNAME` / `IB_PASSWORD` repo secrets, scps them to the VM (encrypted,
+  never in logs), runs the provisioner.
+
+**Provision (operator):**
+1. Add `IB_USERNAME` / `IB_PASSWORD` repo secrets (Settings → Secrets → Actions).
+2. Dispatch `provision-ib-gateway` (`trading_mode=paper`, `ib_port=7497`).
+3. Approve the IBKR Mobile 2FA prompt on your phone when the run completes.
+
+**2FA frequency:** with auto-restart mode (`IbAutoClosedown=no`), IBKR's daily
+restart reuses the auth token silently. A 2FA tap is needed only on the
+**weekly** IBKR re-auth (~Sunday) and on cold starts (VM reboot / Gateway
+maintenance). Because the Gateway unit is isolated from the trader, bot
+deploys do not trigger 2FA. If a tap is missed, the Gateway logs out and MES
+**pauses gracefully** (candle fetch returns `None`); the live crypto trader is
+unaffected.
+
+**Live account 2FA:** `U25907316` cannot disable 2FA (funded account). A live
+Gateway needs the same IBKR Mobile approval; it stays `mode: dry_run` until
+proven and separately promoted (Tier-3).
+
 ## Notes
 
 - `ib_insync` is no longer actively maintained. `requirements.txt` pins

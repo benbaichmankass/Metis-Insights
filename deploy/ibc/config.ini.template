@@ -1,0 +1,47 @@
+# IBC config template for the headless MES/IB Gateway.
+#
+# Rendered to /opt/ibc/config.ini by scripts/install_ib_gateway.sh, which
+# substitutes ${IB_USERNAME} / ${IB_PASSWORD} / ${TRADING_MODE} from
+# /etc/ict/ib-gateway.env (provisioned from repo secrets, never committed).
+#
+# Reference: IBC documentation (github.com/IbcAlpha/IBC). Only the settings
+# that matter for an unattended paper Gateway with IBKR-Mobile 2FA are set
+# here; everything else uses IBC defaults.
+
+# ---- Login ----
+IbLoginId=${IB_USERNAME}
+IbPassword=${IB_PASSWORD}
+# paper | live — set from TRADING_MODE in the env file.
+TradingMode=${TRADING_MODE}
+
+# ---- Auto-restart (minimise 2FA taps) ----
+# no  = use IB Gateway's "Auto restart" (reuses the auth token across the
+#       daily restart → silent daily restarts; only the weekly IBKR re-auth
+#       needs a 2FA tap). Do NOT set yes (cold logoff would re-auth daily).
+IbAutoClosedown=no
+# Let IBC reconnect after the daily auto-restart without a fresh login.
+ReloginAfterSecondFactorAuthenticationTimeout=yes
+# How long (seconds) to wait for the IBKR-Mobile tap before giving up the
+# login attempt and letting systemd restart the unit to try again.
+SecondFactorAuthenticationExitInterval=180
+# Do NOT exit the whole process on a 2FA timeout — keep retrying so a missed
+# tap recovers on the next attempt (MES just pauses meanwhile; crypto is
+# unaffected on its own connection).
+ExitAfterSecondFactorAuthenticationTimeout=no
+
+# ---- API socket (must match config/accounts.yaml ib_port for the account) ----
+OverrideTwsApiPort=${IB_PORT}
+# Bind the API to loopback only — the bot connects from 127.0.0.1 on the
+# same VM. Never expose the Gateway API to the network.
+BindAddress=127.0.0.1
+# Auto-accept the bot's incoming API connection (no manual dialog click).
+AcceptIncomingConnectionAction=accept
+AcceptNonBrokerageAccountWarning=yes
+AllowBlindTrading=yes
+
+# ---- Stability ----
+# Dismiss the "Exit Session Setting" / non-fatal dialogs automatically.
+DismissPasswordExpiryWarning=yes
+DismissNSEComplianceNotice=yes
+# Read-only API off — we place orders.
+ReadOnlyApi=no
