@@ -64,6 +64,7 @@ Adding an action requires a PR that updates this doc, the workflow's
 | `teardown-cloudflare-tunnel` | 2 | `scripts/ops/teardown_cloudflare_tunnel.sh` | stops the cloudflared process, strips the `@reboot` crontab entry, removes the URL file (binary stays on disk) |
 | `backfill-pnl-nulls` | 2 | `scripts/ops/backfill_pnl_nulls_action.sh` | `UPDATE trades SET pnl, pnl_percent WHERE status='closed' AND pnl IS NULL AND <complete inputs>` in `trade_journal.db`. No service touched. Idempotent (SQL guard `WHERE pnl IS NULL`). Filters: `status='closed'`, `COALESCE(is_backtest,0)=0`, full price/size triple, known direction. |
 | `backfill-orphan-pnl` | 2 | `scripts/ops/backfill_orphan_pnl_action.sh` | `UPDATE trades SET status='closed', exit_price, pnl, pnl_percent, notes, exit_reason='backfill_closed_pnl_recovery' WHERE status='orphaned' AND exit_reason='stuck_strategy_watchdog' AND exit_price IS NULL` in `trade_journal.db`. Recovers each row's real close fill from Bybit V5 `/v5/position/closed-pnl` via `account_closed_pnl_for_trade` (PR #1299). No service touched. Idempotent (SQL guard `WHERE status='orphaned'`). Bybit retains closed-pnl records for 7 days only — older orphans are listed in the skip section and remain `status='orphaned'`. Full runbook: `docs/runbooks/backfill-orphan-pnl.md`. |
+| `backfill-shadow-predictions` | 2 | `scripts/ops/backfill_shadow_predictions_action.sh` | Replays every historical trade in `trade_journal.db` against every `target_deployment_stage=shadow` model and writes `runtime_logs/shadow_predictions_backfill.jsonl` (the `ml backfill-shadow-predictions` CLI; writer truncates each run). **Observational only** — no trade-journal mutation, no service restart, no exchange calls. Read by `/api/bot/trades/scores` (`backfill_kind`) so the dashboard shows shadow decisions for the full live history. Registry root + output path resolve through the same Python the live shadow factory uses, so no path drift. Added 2026-05-21 alongside the shadow auto-wire fix (#1630). |
 | `set-account-mode` | 2 | `scripts/ops/set_account_mode.sh` | in-place edit of `config/accounts.yaml` `mode:` for the named account + restart `ict-trader-live.service`. Added 2026-05-12 in response to the silent-flip incident (see § 2.1). |
 | `fix-data-dir` | 2 | `scripts/ops/fix_data_dir.sh` | strips `DATA_DIR=` / `TRADE_JOURNAL_DB=` overrides from `.env` (backup retained), rsyncs `/home/ubuntu/ict-trading-bot/data/{runtime_logs,runtime_state,artifacts,data}/` → `/data/bot-data/<same>/` to align with the systemd drop-in's canonical mount, renames the legacy split path with a `MIGRATED-<ts>` suffix, then restarts every canonical unit. Added 2026-05-12 in response to the path-bifurcation incident (see § 2.2). |
 
@@ -178,6 +179,7 @@ Tier-2 actions:
 - `disable-m5-consumer`
 - `backfill-pnl-nulls`
 - `backfill-orphan-pnl`
+- `backfill-shadow-predictions`
 - `set-account-mode`
 - `fix-data-dir`
 
