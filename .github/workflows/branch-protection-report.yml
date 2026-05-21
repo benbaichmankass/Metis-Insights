@@ -1,0 +1,85 @@
+name: branch-protection-report
+
+# Read-only reporter for GitHub *admin* state that the hosted GitHub MCP
+# tools can't surface (branch protection / required status checks /
+# enforce_admins). A PM-side / web session has no tool to read branch
+# protection and no admin token in its shell, so it was blind to whether
+# the required-checks gate is actually live. This relay closes that gap:
+# open an issue titled "[bp-report] ..." and the workflow reads
+# `branches/main/protection` with the existing BRANCH_PROTECTION_TOKEN
+# and posts the result back as an issue comment (then closes the issue),
+# exactly like the vm-diag relays do for VM state.
+#
+# Read-only: it only GETs protection — never mutates it. Mutation lives
+# in branch-protection-sync.yml.
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  report:
+    # Title-prefix gate (no label dependency): only [bp-report] issues run.
+    if: startsWith(github.event.issue.title, '[bp-report]')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read main branch protection
+        env:
+          GH_TOKEN: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+        run: |
+          set -uo pipefail
+          if [ -z "${GH_TOKEN}" ]; then
+            {
+              echo "REPORT<<EOF"
+              echo "BRANCH_PROTECTION_TOKEN is NOT set on this repo."
+              echo "=> branch-protection-sync.yml no-ops, so main has whatever"
+              echo "   protection was last applied manually (possibly none)."
+              echo "EOF"
+            } >> "$GITHUB_ENV"
+            exit 0
+          fi
+          API="repos/${{ github.repository }}/branches/main/protection"
+          raw=$(gh api "$API" 2>&1) || true
+          # Pull out just the fields that matter; fall back to raw on parse error.
+          parsed=$(printf '%s' "$raw" | jq '{
+            required_status_checks_strict: .required_status_checks.strict,
+            required_status_checks: (.required_status_checks.contexts // []),
+            enforce_admins: .enforce_admins.enabled,
+            required_pull_request_reviews: .required_pull_request_reviews,
+            allow_force_pushes: .allow_force_pushes.enabled,
+            allow_deletions: .allow_deletions.enabled
+          }' 2>/dev/null || true)
+          {
+            echo "REPORT<<EOF"
+            if [ -n "${parsed}" ]; then
+              echo "main branch protection (live gh api read):"
+              printf '%s\n' "${parsed}"
+            else
+              echo "Could not parse protection JSON. Raw gh api response:"
+              printf '%s\n' "${raw}"
+            fi
+            echo "EOF"
+          } >> "$GITHUB_ENV"
+
+      - name: Comment result and close issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const report = process.env.REPORT || "(no output)";
+            const body = "**branch-protection-report**\n\n```json\n" + report + "\n```";
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              state: "closed",
+            });
