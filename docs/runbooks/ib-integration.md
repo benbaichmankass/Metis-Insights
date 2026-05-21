@@ -119,6 +119,19 @@ unaffected.
 Gateway needs the same IBKR Mobile approval; it stays `mode: dry_run` until
 proven and separately promoted (Tier-3).
 
+## Market data (delayed by default)
+
+MES candles come from IB via `IBMarketData.get_ohlcv` (`reqHistoricalData`).
+The connector calls `reqMarketDataType(3)` (**delayed**) by default, so it
+works **without a paid CME real-time subscription** — IB serves free delayed
+futures bars. This is the intended mode for strategy refinement and model
+training (the operator's 2026-05-21 decision). Quotes/bars lag ~10–15 min, so
+this mode is **not** for latency-sensitive live execution.
+
+To switch to real-time later: add the **CME Real-Time (NP, L1)** subscription
+on the billable IB account (the paper account shares the live account's
+subscriptions), then set `IB_MARKET_DATA_TYPE=1`. No code change needed.
+
 ## Notes
 
 - `ib_insync` is no longer actively maintained. `requirements.txt` pins

@@ -347,8 +347,8 @@ def _build_monitor_ohlcv_fetcher(settings: dict):
     return _fetch
 
 
-def run_one_tick(settings: dict, exchange_client, telegram_client) -> dict:
-    """Run a single pipeline tick and return the result."""
+def _run_symbol_tick(settings: dict, exchange_client, telegram_client) -> dict:
+    """Run the pipeline for a single symbol (the original run_one_tick body)."""
     result = run_pipeline(
         settings=settings,
         exchange_client=exchange_client,
@@ -365,6 +365,86 @@ def run_one_tick(settings: dict, exchange_client, telegram_client) -> dict:
     )
     _drain_critical_alerts(telegram_client)
     return result
+
+
+def _resolve_tick_symbols(settings: dict) -> list:
+    """Symbols to run this tick.
+
+    Default: ``[settings["SYMBOL"]]`` — single symbol, byte-identical to the
+    pre-multi-symbol behaviour. Multi-symbol only activates when
+    ``MULTI_SYMBOL_ENABLED`` is set (the MES switch); then ``SYMBOLS`` (a
+    comma list or list) is read and the primary ``SYMBOL`` is always
+    included. This is the orchestration flag that lets one process trade
+    BTCUSDT (Bybit) and MES (IB) in the same tick.
+    """
+    primary = settings.get("SYMBOL", settings.get("symbol", "BTCUSDT"))
+    enabled = str(os.environ.get("MULTI_SYMBOL_ENABLED", "false")).strip().lower() in (
+        "true", "1", "yes", "on",
+    )
+    if not enabled:
+        return [primary]
+    raw = settings.get("SYMBOLS") or os.environ.get("SYMBOLS") or ""
+    if isinstance(raw, (list, tuple)):
+        syms = [str(s).strip() for s in raw if str(s).strip()]
+    else:
+        syms = [s.strip() for s in str(raw).split(",") if s.strip()]
+    if primary and primary not in syms:
+        syms = [primary] + syms
+    seen, out = set(), []
+    for s in syms:
+        if s not in seen:
+            seen.add(s)
+            out.append(s)
+    return out or [primary]
+
+
+def _exchange_for_symbol(symbol: str):
+    """Return the instrument's exchange (BTCUSDT→bybit, MES→IB) or None."""
+    try:
+        from src.core.coordinator import _instrument_exchange_for
+        return _instrument_exchange_for(symbol)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _per_symbol_client(symbol: str, settings: dict):
+    """Build the right market-data connector for *symbol* (None on failure)."""
+    try:
+        from src.runtime.market_data import connector_for_symbol
+        return connector_for_symbol(symbol, settings)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("run_one_tick: connector build failed for %s: %s", symbol, exc)
+        return None
+
+
+def run_one_tick(settings: dict, exchange_client, telegram_client) -> dict:
+    """Run a single pipeline tick across the configured symbol(s).
+
+    Single-symbol (default) is byte-identical to the legacy behaviour.
+    With multi-symbol enabled, each symbol runs its own pipeline pass with
+    a per-symbol exchange + connector; a failure on one symbol (e.g. the IB
+    Gateway being down for MES) is isolated and never aborts the others, so
+    the live crypto path keeps trading regardless of the MES side.
+    """
+    symbols = _resolve_tick_symbols(settings)
+    if len(symbols) <= 1:
+        return _run_symbol_tick(settings, exchange_client, telegram_client)
+
+    primary = settings.get("SYMBOL", settings.get("symbol", "BTCUSDT"))
+    results = {}
+    for sym in symbols:
+        per = dict(settings)
+        per["SYMBOL"] = sym
+        ex = _exchange_for_symbol(sym)
+        if ex:
+            per["EXCHANGE"] = ex
+        client = exchange_client if sym == primary else _per_symbol_client(sym, per)
+        try:
+            results[sym] = _run_symbol_tick(per, client, telegram_client)
+        except Exception:  # noqa: BLE001
+            logger.exception("run_one_tick: symbol %s tick failed (isolated)", sym)
+            results[sym] = {"error": "tick_failed", "symbol": sym}
+    return {"multi_symbol": True, "results": results}
 
 
 def _drain_critical_alerts(telegram_client) -> None:

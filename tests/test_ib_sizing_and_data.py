@@ -120,6 +120,35 @@ class TestPositionSize:
 # ---------------------------------------------------------------------------
 
 
+class TestMultiSymbolResolution:
+    def test_default_single_symbol(self, monkeypatch):
+        monkeypatch.delenv("MULTI_SYMBOL_ENABLED", raising=False)
+        from src.main import _resolve_tick_symbols
+        assert _resolve_tick_symbols({"SYMBOL": "BTCUSDT"}) == ["BTCUSDT"]
+
+    def test_flag_off_ignores_symbols_list(self, monkeypatch):
+        monkeypatch.setenv("MULTI_SYMBOL_ENABLED", "false")
+        from src.main import _resolve_tick_symbols
+        assert _resolve_tick_symbols({"SYMBOL": "BTCUSDT", "SYMBOLS": "BTCUSDT,MES"}) == ["BTCUSDT"]
+
+    def test_flag_on_multi(self, monkeypatch):
+        monkeypatch.setenv("MULTI_SYMBOL_ENABLED", "true")
+        from src.main import _resolve_tick_symbols
+        assert _resolve_tick_symbols({"SYMBOL": "BTCUSDT", "SYMBOLS": "BTCUSDT,MES"}) == ["BTCUSDT", "MES"]
+
+    def test_flag_on_always_includes_primary(self, monkeypatch):
+        monkeypatch.setenv("MULTI_SYMBOL_ENABLED", "true")
+        from src.main import _resolve_tick_symbols
+        assert _resolve_tick_symbols({"SYMBOL": "BTCUSDT", "SYMBOLS": "MES"}) == ["BTCUSDT", "MES"]
+
+    def test_exchange_for_symbol(self, monkeypatch):
+        import src.core.coordinator as coord
+        coord._INSTRUMENT_EXCHANGE_CACHE = None
+        from src.main import _exchange_for_symbol
+        assert _exchange_for_symbol("BTCUSDT") == "bybit"
+        assert _exchange_for_symbol("MES") == "interactive_brokers"
+
+
 class TestSymbolExchangeGate:
     def test_instrument_exchange_lookup(self):
         import src.core.coordinator as coord

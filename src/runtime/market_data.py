@@ -113,11 +113,23 @@ def _build_ib_market_data(settings: Dict[str, Any]):
         or os.environ.get("IB_MD_CLIENT_ID")
         or (exec_client_id + 1)
     )
+    # Default to delayed data (3) so MES works without a paid CME real-time
+    # subscription (strategy-refinement / model-training mode). Override via
+    # IB_MARKET_DATA_TYPE=1 once a live CME feed is active.
+    try:
+        md_type = int(
+            settings.get("IB_MARKET_DATA_TYPE")
+            or os.environ.get("IB_MARKET_DATA_TYPE")
+            or 3
+        )
+    except (TypeError, ValueError):
+        md_type = 3
     return IBMarketData(
         host=str(host),
         port=int(port),
         client_id=md_client_id,
         account=str(account) if account else None,
+        market_data_type=md_type,
     )
 
 

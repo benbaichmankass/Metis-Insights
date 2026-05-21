@@ -85,6 +85,12 @@ class IBMarketData:
         Regular-trading-hours only. Default False (include the full
         electronic session, matching crypto's 24/7 candle stream as
         closely as a futures session allows).
+    market_data_type : int
+        IB market-data mode passed to ``reqMarketDataType``: 1=live,
+        2=frozen, 3=delayed, 4=delayed-frozen. **Defaults to 3 (delayed)**
+        so the bot works WITHOUT a paid CME real-time subscription —
+        suitable for strategy refinement + model training. Set to 1 once a
+        live CME subscription is active for latency-sensitive execution.
     _client : IBClient, optional
         Test seam — inject a client with a fake ib_insync ``IB``.
     """
@@ -97,9 +103,11 @@ class IBMarketData:
         client_id: int,
         account: Optional[str] = None,
         use_rth: bool = False,
+        market_data_type: int = 3,
         _client: Optional[IBClient] = None,
     ) -> None:
         self.use_rth = bool(use_rth)
+        self.market_data_type = int(market_data_type)
         if _client is not None:
             self._client = _client
         else:
@@ -122,6 +130,13 @@ class IBMarketData:
             return None
         try:
             ib = self._client.connect()
+            # Delayed mode (3) by default → no paid CME real-time feed
+            # needed; IB serves free delayed futures bars. Best-effort:
+            # older ib_insync builds always have reqMarketDataType.
+            try:
+                ib.reqMarketDataType(self.market_data_type)
+            except Exception:  # noqa: BLE001
+                pass
             contract = self._client._build_contract(symbol)
             bars = ib.reqHistoricalData(
                 contract,
