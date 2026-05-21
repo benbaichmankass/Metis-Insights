@@ -146,3 +146,45 @@ if _tgext is not None:
     _ctx = getattr(_tgext, "ContextTypes", MagicMock())
     _ctx.DEFAULT_TYPE = getattr(_ctx, "DEFAULT_TYPE", MagicMock)
     _tgext.ContextTypes = _ctx
+
+
+# ---------------------------------------------------------------------------
+# First-party module-stub leakage guard.
+#
+# Several test files stub *first-party* modules at import time, e.g.
+# ``for _mod in (..., "src.runtime.notify", ...): sys.modules.setdefault(
+# _mod, MagicMock())``. That pattern was added when the lean sandbox
+# couldn't import those modules; with the heavy/telegram deps now stubbed
+# above they import cleanly. The problem is order-dependence: whichever
+# test file is collected first wins the ``setdefault`` and installs a
+# ``MagicMock`` that survives for the whole session — so a later test that
+# needs the *real* module (and patches a real attribute on it) fails with
+# ``AttributeError`` or runs vacuously against the mock. This produced a
+# block of order-dependent failures (test_s026_g4, test_pipeline_news_veto,
+# test_notify_send_via_alert_manager, test_hourly_report, …) that pass in
+# isolation but fail in the full suite.
+#
+# Fix: import the real first-party modules here, before any test module is
+# collected. ``setdefault`` then no-ops (the real module is already
+# present), so every test sees the real module regardless of collection
+# order. Telegram/pandas/etc. are already stubbed above, so these imports
+# are network-free and side-effect-light. Anything that genuinely can't
+# import is skipped (it falls back to the per-file stub, same as before).
+for _real_mod in (
+    "src.utils.paths",
+    "src.runtime.notify",
+    "src.runtime.outcomes",
+    "src.runtime.signal_notifications",
+    "src.runtime.signal_writer",
+    "src.utils.signal_audit_logger",
+    "src.runtime.health",
+    "src.runtime.market_data",
+    "src.runtime.order_monitor",
+    "src.runtime.orders",
+    "src.runtime.hourly_report",
+    "src.runtime.pipeline",
+):
+    try:
+        __import__(_real_mod)
+    except Exception:  # pragma: no cover - env-specific import gaps
+        pass

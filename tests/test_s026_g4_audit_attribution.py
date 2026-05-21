@@ -59,10 +59,8 @@ def captured_audit(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def _silence_telegram(monkeypatch):
-    """Pipeline calls notify_operator / send_via_alert_manager every tick.
-    Silence those for tests."""
-    monkeypatch.setattr("src.runtime.pipeline.notify_operator", lambda *a, **k: None)
-    monkeypatch.setattr("src.runtime.pipeline.send_via_alert_manager", lambda *a, **k: None)
+    """Pipeline calls send_to_operator every tick. Silence it for tests."""
+    monkeypatch.setattr("src.runtime.pipeline.send_to_operator", lambda *a, **k: None)
     monkeypatch.setattr("src.runtime.pipeline.write_status", lambda *a, **k: None)
     monkeypatch.setattr("src.runtime.pipeline.get_news_score",
                         lambda *a, **k: types.SimpleNamespace(
