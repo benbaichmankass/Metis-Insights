@@ -231,7 +231,7 @@ class TestMultiAccountDispatchSizesPerAccount:
         """Pins the sprint contract: same pkg, two balances → two qtys."""
         from src.core.coordinator import Coordinator
 
-        accounts = self._stub_accounts(monkeypatch)
+        self._stub_accounts(monkeypatch)
         # Need a path that "exists" so the FileNotFoundError branch
         # isn't taken — point at a tmp file so load_accounts is reached.
         accounts_path = tmp_path / "accounts.yaml"
@@ -271,7 +271,7 @@ class TestMultiAccountDispatchSizesPerAccount:
         """Accounts below min_balance_usd produce qty=0 and are NOT routed."""
         from src.core.coordinator import Coordinator
 
-        accounts = self._stub_accounts(monkeypatch)
+        self._stub_accounts(monkeypatch)
         accounts_path = tmp_path / "accounts.yaml"
         accounts_path.write_text("accounts: {}\n")
 
