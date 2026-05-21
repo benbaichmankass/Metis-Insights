@@ -52,6 +52,10 @@ class TradingAccount:
         configured_reason: Optional[str] = None,
         market_type: str = "spot",
         demo: bool = False,
+        ib_host: Optional[str] = None,
+        ib_port: Optional[int] = None,
+        ib_account: Optional[str] = None,
+        ib_client_id: Optional[int] = None,
     ) -> None:
         self.name = name
         self.exchange = exchange
@@ -92,6 +96,17 @@ class TradingAccount:
         # Used by: coordinator (demo Telegram prefix), execute.py (is_demo DB flag),
         # clients.py (demo=True to pybit HTTP).
         self.demo: bool = bool(demo)
+        # Interactive Brokers connection identity (no API keys — auth is
+        # the IB Gateway login session). Populated from accounts.yaml
+        # ``ib_host`` / ``ib_port`` / ``ib_account`` / ``ib_client_id`` for
+        # ``exchange: interactive_brokers`` accounts; None otherwise. The
+        # coordinator forwards these into the account_cfg dict so
+        # ``ib_client_for`` can build the socket. See src/units/accounts/
+        # ib_client.py for the connection model.
+        self.ib_host: Optional[str] = ib_host
+        self.ib_port: Optional[int] = ib_port
+        self.ib_account: Optional[str] = ib_account
+        self.ib_client_id: Optional[int] = ib_client_id
 
     def place_order(self, order: OrderPackage, *, dry_run: Optional[bool] = None) -> str:
         """Risk-check and route *order* to the exchange.

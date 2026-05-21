@@ -973,6 +973,7 @@ class Coordinator:
             from src.units.accounts.execute import execute_pkg
             from src.units.accounts.clients import (
                 bybit_client_for, binance_conn_for, velotrade_client_for,
+                ib_client_for,
             )
 
             account_cfg = {
@@ -997,6 +998,13 @@ class Coordinator:
                 # Forward demo flag so execute.py stamps is_demo on trade rows
                 # and Telegram notifications carry the DEMO TRADER prefix.
                 "demo": getattr(account, "demo", False),
+                # Interactive Brokers connection params (no API keys — auth
+                # is the Gateway login session). Forwarded so ib_client_for
+                # can build the socket identity. None for non-IB accounts.
+                "ib_host": getattr(account, "ib_host", None),
+                "ib_port": getattr(account, "ib_port", None),
+                "ib_account": getattr(account, "ib_account", None),
+                "ib_client_id": getattr(account, "ib_client_id", None),
             }
 
             # Per-account live/dry resolution. The caller-supplied
@@ -1039,10 +1047,12 @@ class Coordinator:
                         client = binance_conn_for(account_cfg)
                     elif exchange_lc == "velotrade":
                         client = velotrade_client_for(account_cfg)
+                    elif exchange_lc in ("interactive_brokers", "ib"):
+                        client = ib_client_for(account_cfg)
                     else:
                         client_error = (
                             f"unsupported exchange '{exchange_lc}' "
-                            f"(expected bybit/binance/velotrade)"
+                            f"(expected bybit/binance/velotrade/interactive_brokers)"
                         )
                 except Exception as exc:  # noqa: BLE001
                     logger.warning(
