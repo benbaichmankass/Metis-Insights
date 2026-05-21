@@ -148,7 +148,9 @@ class TestBalanceDiagnostic:
     """The error message should tell the operator WHY balance failed."""
 
     def test_diagnostic_when_env_var_unset(self, monkeypatch):
-        from src.bot import telegram_query_bot as bot
+        # (a) STALE TEST: _bybit_creds_diagnostic moved to
+        # src/bot/trade_notifier.py (D3/PR-4 extraction).
+        from src.bot import trade_notifier as tn
 
         monkeypatch.delenv("BYBIT_API_KEY_1", raising=False)
         monkeypatch.delenv("BYBIT_API_SECRET_1", raising=False)
@@ -158,14 +160,15 @@ class TestBalanceDiagnostic:
             "api_key_env": "BYBIT_API_KEY_1",
             "env_path": None,
         }
-        diag = bot._bybit_creds_diagnostic(account)
+        diag = tn._bybit_creds_diagnostic(account)
         assert diag is not None
         assert "BYBIT_API_KEY_1" in diag
         assert "BYBIT_API_SECRET_1" in diag
         assert "EnvironmentFile" in diag
 
     def test_diagnostic_none_when_env_vars_present(self, monkeypatch):
-        from src.bot import telegram_query_bot as bot
+        # (a) STALE TEST: symbol moved to trade_notifier.
+        from src.bot import trade_notifier as tn
 
         monkeypatch.setenv("BYBIT_API_KEY_1", "k")
         monkeypatch.setenv("BYBIT_API_SECRET_1", "s")
@@ -174,21 +177,23 @@ class TestBalanceDiagnostic:
             "api_key_env": "BYBIT_API_KEY_1",
         }
         # Both env vars present → no diagnostic (failure is on the API side).
-        assert bot._bybit_creds_diagnostic(account) is None
+        assert tn._bybit_creds_diagnostic(account) is None
 
     def test_format_balance_error_includes_diagnostic(self, monkeypatch):
         """When account_balance returns None and creds are missing, the
         rendered Telegram message should explain why."""
-        from src.bot import telegram_query_bot as bot
+        # (a) STALE TEST: format_bybit_balance moved to trade_notifier.
+        from src.bot import trade_notifier as tn
+        from src.units.ui import data_loaders as dl
 
         monkeypatch.delenv("BYBIT_API_KEY_1", raising=False)
-        monkeypatch.setattr(bot.dl, "account_balance", lambda a: None)
+        monkeypatch.setattr(dl, "account_balance", lambda a: None)
         account = {
             "account_id": "bybit_1",
             "exchange": "bybit",
             "api_key_env": "BYBIT_API_KEY_1",
         }
-        text = bot.format_bybit_balance(account)
+        text = tn.format_bybit_balance(account)
         assert "balance unavailable" in text
         assert "BYBIT_API_KEY_1" in text       # the diagnostic surfaced
         assert "bybit_1" in text                # account id in heading
@@ -201,13 +206,15 @@ class TestBalanceDiagnostic:
 
 class TestReadAuditTail:
     def test_returns_empty_when_file_missing(self, tmp_path):
-        from src.bot import telegram_query_bot as bot
+        # (a) STALE TEST: _read_audit_tail moved to src/bot/signal_helpers.py
+        # (D3/PR-10 extraction).
+        from src.bot.signal_helpers import _read_audit_tail
 
-        out = bot._read_audit_tail(str(tmp_path / "missing.jsonl"), 10)
+        out = _read_audit_tail(str(tmp_path / "missing.jsonl"), 10)
         assert out == []
 
     def test_parses_jsonl_records(self, tmp_path):
-        from src.bot import telegram_query_bot as bot
+        from src.bot.signal_helpers import _read_audit_tail
 
         path = tmp_path / "signal_audit.jsonl"
         path.write_text(
@@ -218,13 +225,13 @@ class TestReadAuditTail:
                           "side": "sell", "qty": 0.5, "status": "dry_run",
                           "logged_at_utc": "2026-04-30T05:01:00Z"}) + "\n"
         )
-        out = bot._read_audit_tail(str(path), 10)
+        out = _read_audit_tail(str(path), 10)
         assert len(out) == 2
         assert out[0]["strategy"] == "vwap"
         assert out[1]["strategy"] == "turtle_soup"
 
     def test_skips_malformed_lines(self, tmp_path):
-        from src.bot import telegram_query_bot as bot
+        from src.bot.signal_helpers import _read_audit_tail
 
         path = tmp_path / "signal_audit.jsonl"
         path.write_text(
@@ -232,14 +239,15 @@ class TestReadAuditTail:
             + json.dumps({"strategy": "vwap", "status": "submitted"}) + "\n"
             + "another junk line\n"
         )
-        out = bot._read_audit_tail(str(path), 10)
+        out = _read_audit_tail(str(path), 10)
         assert len(out) == 1
         assert out[0]["strategy"] == "vwap"
 
 
 class TestFormatSignalRow:
     def test_renders_strategy_symbol_side_status(self):
-        from src.bot import telegram_query_bot as bot
+        # (a) STALE TEST: _format_signal_row moved to src/bot/signal_helpers.py
+        from src.bot.signal_helpers import _format_signal_row
 
         rec = {
             "strategy": "turtle_soup",
@@ -249,7 +257,7 @@ class TestFormatSignalRow:
             "status": "submitted",
             "logged_at_utc": "2026-04-30T05:04:35Z",
         }
-        text = bot._format_signal_row(rec)
+        text = _format_signal_row(rec)
         assert "turtle_soup" in text
         assert "BTCUSDT" in text
         assert "buy" in text
@@ -258,7 +266,7 @@ class TestFormatSignalRow:
         assert "🟢" in text  # submitted emoji
 
     def test_renders_failed_validation_with_reason(self):
-        from src.bot import telegram_query_bot as bot
+        from src.bot.signal_helpers import _format_signal_row
 
         rec = {
             "strategy": "vwap",
@@ -269,7 +277,7 @@ class TestFormatSignalRow:
             "reason": "ALLOW_LIVE_TRADING=true is required for live submission",
             "logged_at_utc": "2026-04-30T05:00:00Z",
         }
-        text = bot._format_signal_row(rec)
+        text = _format_signal_row(rec)
         assert "failed_validation" in text
         assert "ALLOW_LIVE_TRADING" in text
         assert "🔴" in text  # failed_validation emoji
@@ -282,7 +290,18 @@ class TestCmdSignals:
     Important: use ``new_event_loop().run_until_complete()`` rather than
     ``asyncio.run()``. ``asyncio.run`` closes the loop after the call,
     which breaks downstream tests in tests/test_telegram_query_bot.py
-    that still use the older ``asyncio.get_event_loop()`` API."""
+    that still use the older ``asyncio.get_event_loop()`` API.
+
+    (a) STALE TEST cluster — Sprint 025 T3 restructured cmd_signals:
+    - No-args now shows a strategy-picker keyboard (Step 1 of the
+      button-stepper flow) instead of a text signal list.
+    - SIGNAL_AUDIT_PATH is now in signal_helpers, not telegram_query_bot.
+    - Content flows through processor.get_signals_block, which reads
+      SIGNAL_AUDIT_PATH via the SIGNAL_AUDIT_PATH env var.
+    - Empty-state text is "No signals logged yet" (not "No signals logged").
+    - Header is "📡 Last N signals" (the "Last N signals" substring is
+      still present so "Last N signals" assertions remain valid).
+    """
 
     @staticmethod
     def _drive(coro):
@@ -292,15 +311,19 @@ class TestCmdSignals:
     def test_no_records_replies_empty(self, tmp_path, monkeypatch):
         from src.bot import telegram_query_bot as bot
 
-        monkeypatch.setattr(bot, "SIGNAL_AUDIT_PATH", str(tmp_path / "missing.jsonl"))
+        # SIGNAL_AUDIT_PATH is now read via os.environ by get_signals_block /
+        # get_recent_signals (processor.py). Pass a numeric arg so cmd_signals
+        # goes past the no-args strategy-picker step and calls get_signals_block.
+        monkeypatch.setenv("SIGNAL_AUDIT_PATH", str(tmp_path / "missing.jsonl"))
         monkeypatch.setattr(bot, "is_authorised", lambda u: True)
 
         update = MagicMock()
         update.message.reply_text = AsyncMock()
         context = MagicMock()
-        context.args = []
+        context.args = ["10"]  # numeric arg bypasses picker step
         self._drive(bot.cmd_signals(update, context))
         sent = update.message.reply_text.await_args.args[0]
+        # Sprint 025 T3: empty state now says "No signals logged yet"
         assert "No signals logged" in sent
 
     def test_returns_recent_records(self, tmp_path, monkeypatch):
@@ -315,13 +338,14 @@ class TestCmdSignals:
                           "side": "sell", "qty": 0.5, "status": "dry_run",
                           "logged_at_utc": "2026-04-30T05:01:00Z"}) + "\n"
         )
-        monkeypatch.setattr(bot, "SIGNAL_AUDIT_PATH", str(path))
+        # Route SIGNAL_AUDIT_PATH through env var (processor.get_recent_signals).
+        monkeypatch.setenv("SIGNAL_AUDIT_PATH", str(path))
         monkeypatch.setattr(bot, "is_authorised", lambda u: True)
 
         update = MagicMock()
         update.message.reply_text = AsyncMock()
         context = MagicMock()
-        context.args = []
+        context.args = ["10"]  # numeric arg bypasses the strategy-picker step
         self._drive(bot.cmd_signals(update, context))
         sent = update.message.reply_text.await_args.args[0]
         assert "vwap" in sent
@@ -340,7 +364,7 @@ class TestCmdSignals:
                           "side": "sell", "qty": 0.5, "status": "dry_run",
                           "logged_at_utc": "2026-04-30T05:01:00Z"}) + "\n"
         )
-        monkeypatch.setattr(bot, "SIGNAL_AUDIT_PATH", str(path))
+        monkeypatch.setenv("SIGNAL_AUDIT_PATH", str(path))
         monkeypatch.setattr(bot, "is_authorised", lambda u: True)
 
         update = MagicMock()
@@ -365,7 +389,7 @@ class TestCmdSignals:
                 for i in range(5)
             ) + "\n"
         )
-        monkeypatch.setattr(bot, "SIGNAL_AUDIT_PATH", str(path))
+        monkeypatch.setenv("SIGNAL_AUDIT_PATH", str(path))
         monkeypatch.setattr(bot, "is_authorised", lambda u: True)
 
         update = MagicMock()
