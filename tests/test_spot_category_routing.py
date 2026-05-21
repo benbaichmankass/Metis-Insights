@@ -348,12 +348,16 @@ class TestAccountOpenPositionsRouting:
 # ---------------------------------------------------------------------------
 
 
+# No ``api_key_env`` on purpose: with one set, load_accounts marks the
+# account ``configured=False`` (env var absent in the test process) and
+# multi_account_execute drops unconfigured accounts at the eligibility
+# filter before reaching the dispatch loop this test patches. Omitting it
+# keeps the account configured so the (patched) execute_pkg is reached.
 _SPOT_ACCOUNTS_YAML = textwrap.dedent("""\
     accounts:
       bybit_1:
         type: regular
         exchange: bybit
-        api_key_env: BYBIT_KEY_1
         market_type: spot
         risk:
           max_dd_pct: 0.05

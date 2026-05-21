@@ -42,8 +42,14 @@ class TestPositionSizeContract:
     def test_balance_drives_qty(self):
         """Same package, two balances → two different qtys.
         risk_pct=0.01, distance=500. balance=10_000 → 100/500=0.2;
-        balance=1_000 → 10/500=0.02."""
-        rm = RiskManager({"risk_pct": 0.01, "min_balance_usd": 50})
+        balance=1_000 → 10/500=0.02.
+
+        leverage=100 keeps the 2026-05-12 margin pre-flight cap from
+        binding (with leverage=1 the buffer fallback would clamp
+        balance=10_000 to 0.18) so this isolates the risk-% sizing.
+        """
+        rm = RiskManager({"risk_pct": 0.01, "min_balance_usd": 50,
+                          "leverage": 100})
         pkg = _pkg(entry=50_000.0, sl=49_500.0)
 
         qty_big = rm.position_size(pkg, balance_usd=10_000.0)
@@ -57,9 +63,15 @@ class TestPositionSizeContract:
 
     def test_two_accounts_two_qtys(self):
         """Same package, two RiskManagers (different balances) → two qtys.
-        Pins the multi-account contract from the sprint prompt."""
-        rm_a = RiskManager({"risk_pct": 0.01, "min_balance_usd": 50})
-        rm_b = RiskManager({"risk_pct": 0.01, "min_balance_usd": 50})
+        Pins the multi-account contract from the sprint prompt.
+
+        leverage=100 keeps the 2026-05-12 margin pre-flight cap from
+        binding so this isolates the risk-% sizing.
+        """
+        rm_a = RiskManager({"risk_pct": 0.01, "min_balance_usd": 50,
+                            "leverage": 100})
+        rm_b = RiskManager({"risk_pct": 0.01, "min_balance_usd": 50,
+                            "leverage": 100})
         pkg = _pkg(entry=50_000.0, sl=49_500.0)
 
         qty_a = rm_a.position_size(pkg, balance_usd=5_000.0)
@@ -70,8 +82,14 @@ class TestPositionSizeContract:
 
     def test_below_min_balance_returns_zero(self):
         """Account below min_balance_usd refuses to size (returns 0.0).
-        Pins the operator-confirmed safety floor."""
-        rm = RiskManager({"risk_pct": 0.01, "min_balance_usd": 50})
+        Pins the operator-confirmed safety floor.
+
+        leverage=100 keeps the 2026-05-12 margin pre-flight cap from
+        zeroing the at-the-floor (balance=50) case so this isolates the
+        min_balance gate.
+        """
+        rm = RiskManager({"risk_pct": 0.01, "min_balance_usd": 50,
+                          "leverage": 100})
         pkg = _pkg()
 
         # Below the min — refuse to size.
@@ -95,11 +113,16 @@ class TestPositionSizeContract:
         S-026 G3: the daily-loss budget gate IS a sizing-time clamp;
         bump ``daily_usd`` high so this assertion isolates the
         "no max-position clamp" property.
+
+        2026-05-12: the margin pre-flight cap is also a sizing-time
+        ceiling; set ``leverage`` high so it never binds and the
+        assertion stays scoped to the no-max-position-clamp property.
         """
         rm = RiskManager({
             "risk_pct": 0.01,
             "min_balance_usd": 50,
             "daily_usd": 1_000_000_000,  # disable daily-loss gate
+            "leverage": 100,  # disable margin pre-flight cap
         })
         pkg = _pkg(entry=50_000.0, sl=49_500.0)
 
@@ -129,8 +152,14 @@ class TestPositionSizeContract:
         """When the multiplexer tags a per-strategy risk allocation in
         meta.strategy_risk_pct (S-026 G1), the sizer multiplies it into
         risk_pct so two strategies on the same account split risk
-        instead of doubling it."""
-        rm = RiskManager({"risk_pct": 0.01, "min_balance_usd": 50})
+        instead of doubling it.
+
+        leverage=100 keeps the 2026-05-12 margin pre-flight cap from
+        binding on the full-risk leg (which would break the exact 2:1
+        ratio this test pins).
+        """
+        rm = RiskManager({"risk_pct": 0.01, "min_balance_usd": 50,
+                          "leverage": 100})
         pkg_full = _pkg()  # no meta override → strategy_risk_pct=1.0
         pkg_half = _pkg()
         pkg_half.meta = {"strategy_risk_pct": 0.5}
@@ -161,10 +190,16 @@ class TestMultiAccountDispatchSizesPerAccount:
 
     def _stub_accounts(self, monkeypatch):
         """Return a fake load_accounts() that yields two accounts, both
-        with their own RiskManager, place_order returning a dry trade-id."""
+        with their own RiskManager, place_order returning a dry trade-id.
 
-        rm_a = RiskManager({"risk_pct": 0.01, "min_balance_usd": 50})
-        rm_b = RiskManager({"risk_pct": 0.01, "min_balance_usd": 50})
+        leverage=100 keeps the 2026-05-12 margin pre-flight cap from
+        clamping the risk-% qtys these tests pin.
+        """
+
+        rm_a = RiskManager({"risk_pct": 0.01, "min_balance_usd": 50,
+                            "leverage": 100})
+        rm_b = RiskManager({"risk_pct": 0.01, "min_balance_usd": 50,
+                            "leverage": 100})
 
         class _Account:
             def __init__(self, name, rm):
@@ -173,6 +208,11 @@ class TestMultiAccountDispatchSizesPerAccount:
                 self.account_type = "regular"
                 self.risk_manager = rm
                 self.dry_run = True
+                # Coordinator.multi_account_execute builds account_cfg from
+                # account.api_key_env (bare attribute access) — stub fixtures
+                # must carry it or dispatch raises AttributeError.
+                self.api_key_env = ""
+                self.market_type = "spot"
                 self.calls = []
 
             def place_order(self, pkg, *, dry_run=None):
@@ -218,9 +258,14 @@ class TestMultiAccountDispatchSizesPerAccount:
         assert sized["acc_a"] == pytest.approx(0.2, rel=1e-3)
         assert sized["acc_b"] == pytest.approx(0.02, rel=1e-3)
 
-        # Both accounts received the package.
-        assert len(accounts[0].calls) == 1
-        assert len(accounts[1].calls) == 1
+        # Both accounts were routed. (Routing now goes through
+        # execute_pkg, not account.place_order — see S-028 — so the
+        # "was routed" signal is a result row with a trade_id and no
+        # error rather than a place_order call count.)
+        assert names["acc_a"]["trade_id"] is not None
+        assert names["acc_a"]["error"] is None
+        assert names["acc_b"]["trade_id"] is not None
+        assert names["acc_b"]["error"] is None
 
     def test_below_min_balance_account_is_skipped(self, monkeypatch, tmp_path):
         """Accounts below min_balance_usd produce qty=0 and are NOT routed."""
@@ -246,9 +291,12 @@ class TestMultiAccountDispatchSizesPerAccount:
         assert names["acc_b"]["sized_qty"] == 0.0
         assert "below_min_balance" in names["acc_b"]["error"]
 
-        # acc_a routed; acc_b was skipped (qty=0 → no place_order call).
-        assert len(accounts[0].calls) == 1
-        assert len(accounts[1].calls) == 0
+        # acc_a routed; acc_b skipped (qty=0). Routing now goes through
+        # execute_pkg, not account.place_order (S-028), so "routed" is a
+        # trade_id with no error and "skipped" is a None trade_id with a
+        # below_min_balance error.
+        assert names["acc_a"]["trade_id"] is not None
+        assert names["acc_b"]["trade_id"] is None
 
     def test_balance_fetcher_override(self, monkeypatch, tmp_path):
         """Caller can inject a custom balance fetcher (live processor wiring path)."""

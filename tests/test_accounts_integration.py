@@ -16,12 +16,20 @@ import pytest
 from src.core.coordinator import Coordinator, OrderPackage
 
 
+# NOTE: no per-account ``api_key_env`` here on purpose. With one set,
+# load_accounts marks the account ``configured=False`` (the env var is
+# absent in the test process) and multi_account_execute drops
+# unconfigured accounts at the eligibility filter, so the dispatch tests
+# below would see zero results. These are offline dry-run tests; they
+# force dry mode via ``dry_run=True`` on the call (process-level
+# override) rather than the account ``mode`` field, so the per-account
+# RiskManager still approves (it isn't in dry_run mode) while no live
+# exchange client is constructed.
 FULL_ACCOUNTS_YAML = textwrap.dedent("""\
     accounts:
       bybit_main:
         type: regular
         exchange: bybit
-        api_key_env: BYBIT_KEY_MAIN
         risk:
           max_dd_pct: 0.05
           daily_usd: 200
@@ -29,7 +37,6 @@ FULL_ACCOUNTS_YAML = textwrap.dedent("""\
       bybit_secondary:
         type: regular
         exchange: bybit
-        api_key_env: BYBIT_KEY_SEC
         risk:
           max_dd_pct: 0.05
           daily_usd: 100
@@ -37,7 +44,6 @@ FULL_ACCOUNTS_YAML = textwrap.dedent("""\
       prop_breakout:
         type: prop
         exchange: breakout
-        api_key_env: BREAKOUT_KEY
         risk:
           max_dd_pct: 0.02
           daily_usd: 50
@@ -74,7 +80,10 @@ class TestAccountsYamlToPlaceOrder:
         from src.units.accounts import load_accounts
         accounts = load_accounts(accounts_yaml)
         pkg = _pkg()
-        trade_ids = [a.place_order(pkg) for a in accounts]
+        # dry_run=True override: accounts default to ``mode: live`` now
+        # (Autonomous live-trading rule, 2026-05-03) so place_order would
+        # otherwise hit the live BybitAPI.place NotImplementedError.
+        trade_ids = [a.place_order(pkg, dry_run=True) for a in accounts]
         assert len(trade_ids) == 3
         assert all(tid.startswith("dry-") for tid in trade_ids)
 
@@ -84,14 +93,14 @@ class TestAccountsYamlToPlaceOrder:
         bybit = [a for a in accounts if a.exchange == "bybit"]
         pkg = _pkg()
         for acc in bybit:
-            tid = acc.place_order(pkg)
+            tid = acc.place_order(pkg, dry_run=True)
             assert tid.startswith("dry-bybit-"), f"{acc.name}: {tid}"
 
     def test_breakout_account_produces_breakout_id(self, accounts_yaml):
         from src.units.accounts import load_accounts
         accounts = load_accounts(accounts_yaml)
         prop = next(a for a in accounts if a.exchange == "breakout")
-        tid = prop.place_order(_pkg())
+        tid = prop.place_order(_pkg(), dry_run=True)
         assert tid.startswith("dry-breakout-")
 
     def test_risk_state_isolated_between_accounts(self, accounts_yaml):
@@ -104,11 +113,11 @@ class TestAccountsYamlToPlaceOrder:
         # Regular accounts still work
         regular = [a for a in accounts if a.account_type == "regular"]
         for acc in regular:
-            tid = acc.place_order(_pkg())
+            tid = acc.place_order(_pkg(), dry_run=True)
             assert tid.startswith("dry-")
-        # Prop raises
+        # Prop raises (approve() runs before routing regardless of dry_run)
         with pytest.raises(RiskBreach):
-            prop.place_order(_pkg())
+            prop.place_order(_pkg(), dry_run=True)
 
     def test_pos_size_breach_isolated(self, accounts_yaml):
         from src.units.accounts import load_accounts
@@ -118,10 +127,10 @@ class TestAccountsYamlToPlaceOrder:
         # 201 USD exceeds prop's 200 limit
         oversized = _pkg(estimated_value=201.0)
         with pytest.raises(RiskBreach):
-            prop.place_order(oversized)
+            prop.place_order(oversized, dry_run=True)
         # But it fits in bybit_main (1000 limit)
         main = next(a for a in accounts if a.name == "bybit_main")
-        tid = main.place_order(oversized)
+        tid = main.place_order(oversized, dry_run=True)
         assert tid.startswith("dry-")
 
 
@@ -133,6 +142,14 @@ class TestCoordinatorMultiAccountExecute:
     # S-026 G2: multi_account_execute now sizes per-account. Tests
     # supply a fixed balance via balance_fetcher so position_size
     # produces a non-zero qty.
+    #
+    # dry_run=True is passed as the process-level override on every call:
+    # accounts now default to ``mode: live`` (Autonomous live-trading
+    # rule), so without the override the dispatch would try to construct a
+    # real Bybit client (no creds in test env → per-account error). The
+    # override forces the whole round into dry mode while leaving each
+    # account's RiskManager out of dry_run mode so ``evaluate`` still
+    # approves clean orders.
     _BALANCE_USD = 10_000.0
 
     def _balance_fetcher(self, _account):
@@ -140,21 +157,21 @@ class TestCoordinatorMultiAccountExecute:
 
     def test_all_accounts_executed(self, coord, accounts_yaml):
         results = coord.multi_account_execute(
-            _pkg(), accounts_path=accounts_yaml,
+            _pkg(), accounts_path=accounts_yaml, dry_run=True,
             balance_fetcher=self._balance_fetcher,
         )
         assert len(results) == 3
 
     def test_no_errors_on_clean_accounts(self, coord, accounts_yaml):
         results = coord.multi_account_execute(
-            _pkg(), accounts_path=accounts_yaml,
+            _pkg(), accounts_path=accounts_yaml, dry_run=True,
             balance_fetcher=self._balance_fetcher,
         )
         assert all(r["error"] is None for r in results)
 
     def test_result_dict_keys(self, coord, accounts_yaml):
         results = coord.multi_account_execute(
-            _pkg(), accounts_path=accounts_yaml,
+            _pkg(), accounts_path=accounts_yaml, dry_run=True,
             balance_fetcher=self._balance_fetcher,
         )
         for r in results:
@@ -163,6 +180,7 @@ class TestCoordinatorMultiAccountExecute:
     def test_prop_filter_returns_one(self, coord, accounts_yaml):
         results = coord.multi_account_execute(
             _pkg(), accounts_path=accounts_yaml, account_type="prop",
+            dry_run=True,
             balance_fetcher=self._balance_fetcher,
         )
         assert len(results) == 1
@@ -171,6 +189,7 @@ class TestCoordinatorMultiAccountExecute:
     def test_regular_filter_returns_two(self, coord, accounts_yaml):
         results = coord.multi_account_execute(
             _pkg(), accounts_path=accounts_yaml, account_type="regular",
+            dry_run=True,
             balance_fetcher=self._balance_fetcher,
         )
         assert len(results) == 2
@@ -181,7 +200,7 @@ class TestCoordinatorMultiAccountExecute:
         next(a for a in accounts if a.name == "prop_breakout").risk_manager.daily_pnl = -200.0
         with patch("src.units.accounts.load_accounts", return_value=accounts):
             results = coord.multi_account_execute(
-                _pkg(), accounts_path=accounts_yaml,
+                _pkg(), accounts_path=accounts_yaml, dry_run=True,
                 balance_fetcher=self._balance_fetcher,
             )
         ok = [r for r in results if r["error"] is None]
@@ -193,7 +212,7 @@ class TestCoordinatorMultiAccountExecute:
     def test_alerts_pushed_for_successful_trades(self, coord, accounts_yaml):
         coord.pop_alerts()
         coord.multi_account_execute(
-            _pkg(), accounts_path=accounts_yaml,
+            _pkg(), accounts_path=accounts_yaml, dry_run=True,
             balance_fetcher=self._balance_fetcher,
         )
         alerts = coord.list_alerts()
@@ -202,7 +221,7 @@ class TestCoordinatorMultiAccountExecute:
 
     def test_exchange_type_present_in_results(self, coord, accounts_yaml):
         results = coord.multi_account_execute(
-            _pkg(), accounts_path=accounts_yaml,
+            _pkg(), accounts_path=accounts_yaml, dry_run=True,
             balance_fetcher=self._balance_fetcher,
         )
         exchanges = {r["exchange"] for r in results}
