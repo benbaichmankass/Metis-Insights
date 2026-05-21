@@ -517,7 +517,14 @@ def _submit_order(client: Any, order: dict, account_cfg: dict) -> str:
                 "orderType": "Market",
                 "qty": str(order["qty"]),
             }
-            if order.get("reduce_only"):
+            if category == "spot":
+                # Bybit V5 spot Market: qty is in base-coin units
+                # (marketUnit=baseCoin), and SL/TP are NOT accepted on a
+                # spot Market order (retCode 170130, BUG-061). reduceOnly
+                # is a derivatives-only concept. Spot exits are enforced
+                # by the S-030 monitor loop via close_open_position.
+                kwargs["marketUnit"] = "baseCoin"
+            elif order.get("reduce_only"):
                 # Reduce-only path (intent-mode delta dispatch, S-MSE-2).
                 # Skip SL/TP — the parent position already has them set
                 # and Bybit refuses TP/SL on a reduceOnly leg
@@ -535,7 +542,7 @@ def _submit_order(client: Any, order: dict, account_cfg: dict) -> str:
             # when the strategy set SL correctly below the entry price.
             # Pre-fetch last_price and abort cleanly rather than letting
             # Bybit reject and increment the exchange_rejected counter.
-            if kwargs.get("side") == "Buy" and not order.get("reduce_only"):
+            if kwargs.get("side") == "Buy" and kwargs.get("stopLoss") and not order.get("reduce_only"):
                 try:
                     _ticker = client.get_tickers(
                         category=category, symbol=order["symbol"]
@@ -880,6 +887,15 @@ def modify_open_order(
     exchange = (account_cfg.get("exchange") or "bybit").lower()
     if exchange == "bybit":
         category = _bybit_category(account_cfg)
+        if category == "spot":
+            # set_trading_stop is derivatives-only; Bybit returns
+            # retCode=10001 for it on spot. Spot accounts have no
+            # exchange-side SL/TP — the S-030 monitor enforces exits via
+            # a market close. Refuse cleanly instead of calling the SDK.
+            return {"ok": False, "exchange_response": None,
+                    "error": "set_trading_stop is derivatives-only; spot "
+                             "accounts have no exchange-side SL/TP (the "
+                             "monitor enforces exits via market close)"}
         try:
             tick = get_tick_size(exchange_client, symbol, category)
             kwargs = {"category": category, "symbol": symbol}
@@ -946,7 +962,12 @@ def close_open_position(
                 "orderType": "Market",
                 "qty": str(qty),
             }
-            kwargs["reduceOnly"] = True
+            if category == "spot":
+                # Spot has no reduceOnly (derivatives-only); the close is a
+                # plain Sell of base coin. qty is base-coin units.
+                kwargs["marketUnit"] = "baseCoin"
+            else:
+                kwargs["reduceOnly"] = True
             resp = exchange_client.place_order(**kwargs) or {}
             ret_code = resp.get("retCode")
             if ret_code in (0, "0", None):
