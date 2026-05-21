@@ -51,7 +51,7 @@ def test_fetcher_passes_captured_exchange_and_args(monkeypatch, fake_exchange):
     skew the other.
     """
     monkeypatch.setattr(
-        "src.runtime.pipeline._build_killzone_exchange",
+        "src.runtime.market_data._build_exchange_client",
         lambda settings: fake_exchange,
     )
 
@@ -102,7 +102,7 @@ def test_fetcher_returns_none_when_exchange_init_raises(monkeypatch):
     def _raise(_settings):
         raise RuntimeError("connector boom")
 
-    monkeypatch.setattr("src.runtime.pipeline._build_killzone_exchange", _raise)
+    monkeypatch.setattr("src.runtime.market_data._build_exchange_client", _raise)
 
     fetcher = main_module._build_monitor_ohlcv_fetcher({"EXCHANGE": "bybit"})
 
@@ -126,7 +126,7 @@ def test_fetcher_short_circuits_on_missing_inputs(
     calling ``fetch_candles`` with falsy args. The strategy_name
     fallback path is tested separately below."""
     monkeypatch.setattr(
-        "src.runtime.pipeline._build_killzone_exchange",
+        "src.runtime.market_data._build_exchange_client",
         lambda settings: fake_exchange,
     )
 
@@ -155,7 +155,7 @@ def test_fetcher_falls_back_to_strategy_yaml_timeframe(
     receives candles, and the position sits open until the watchdog
     cascades it (or operator intervention)."""
     monkeypatch.setattr(
-        "src.runtime.pipeline._build_killzone_exchange",
+        "src.runtime.market_data._build_exchange_client",
         lambda settings: fake_exchange,
     )
     monkeypatch.setattr(
@@ -198,7 +198,7 @@ def test_fetcher_propagates_none_from_fetch_candles(monkeypatch, fake_exchange):
     ``candles_df is None`` from ``len(candles_df) == 0`` only by
     way of the strategy's first guard."""
     monkeypatch.setattr(
-        "src.runtime.pipeline._build_killzone_exchange",
+        "src.runtime.market_data._build_exchange_client",
         lambda settings: fake_exchange,
     )
     monkeypatch.setattr(

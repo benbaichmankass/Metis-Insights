@@ -71,6 +71,11 @@ _tg_ext_mock.ContextTypes = MagicMock()
 _tg_ext_mock.ContextTypes.DEFAULT_TYPE = object
 
 import src.bot.telegram_query_bot as bot  # noqa: E402
+# get_strategy_label lives in trade_notifier and resolves _account_env in
+# that module's namespace (it's only re-exported through `bot`), so tests
+# must patch trade_notifier._account_env, not bot._account_env (which was
+# removed when the helper moved). See src/bot/trade_notifier.py.
+import src.bot.trade_notifier as trade_notifier  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -122,7 +127,7 @@ class TestIsAuthorised:
 class TestGetStrategyLabel:
     def _account_with(self, monkeypatch, **env_vars):
         """Return an account dict whose _account_env resolves to env_vars."""
-        monkeypatch.setattr(bot, "_account_env", lambda _acct: env_vars)
+        monkeypatch.setattr(trade_notifier, "_account_env", lambda _acct: env_vars)
         return {"env_path": "/fake/.env"}
 
     def test_killzone_maps_to_ict(self, monkeypatch):
@@ -375,7 +380,7 @@ class TestCmdStatusMultiAccount:
         monkeypatch.setattr(bot, "DB_PATH", db_path)
         monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
         monkeypatch.setattr(bot, "HALT_FLAG_PATH", str(tmp_path / "no_flag"))
-        monkeypatch.setattr(bot, "_account_env", lambda acc: {"STRATEGY": "ict"})
+        monkeypatch.setattr(trade_notifier, "_account_env", lambda acc: {"STRATEGY": "ict"})
         monkeypatch.setattr(bot, "get_service_status", lambda svc: "active")
         monkeypatch.setattr(bot.dl, "list_accounts", lambda: [
             {"account_id": "live",  "exchange": "bybit",   "env_path": "",
@@ -408,7 +413,7 @@ class TestCmdStatusMultiAccount:
         monkeypatch.setattr(bot, "DB_PATH", db_path)
         monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
         monkeypatch.setattr(bot, "HALT_FLAG_PATH", str(tmp_path / "no_flag"))
-        monkeypatch.setattr(bot, "_account_env", lambda acc: {})
+        monkeypatch.setattr(trade_notifier, "_account_env", lambda acc: {})
         monkeypatch.setattr(bot, "get_service_status", lambda svc: "inactive")
         monkeypatch.setattr(bot.dl, "list_accounts", lambda: [])
 
@@ -442,7 +447,7 @@ class TestCmdStatusMultiAccount:
         monkeypatch.setattr(bot, "HALT_FLAG_PATH", str(tmp_path / "no_flag"))
         monkeypatch.setattr(bot, "get_service_status", lambda svc: "active")
         monkeypatch.setattr(bot, "DB_PATH", str(tmp_path / "no.db"))
-        monkeypatch.setattr(bot, "_account_env", lambda acc: {})
+        monkeypatch.setattr(trade_notifier, "_account_env", lambda acc: {})
 
         def boom():
             raise RuntimeError("registry error")
@@ -577,7 +582,7 @@ class TestFormatBybitBalance:
         return {"account_id": "live", "exchange": "bybit", "env_path": ""}
 
     def test_renders_per_coin_lines_from_raw(self, monkeypatch):
-        monkeypatch.setattr(bot, "_account_env", lambda acc: {"STRATEGY": "vwap"})
+        monkeypatch.setattr(trade_notifier, "_account_env", lambda acc: {"STRATEGY": "vwap"})
         monkeypatch.setattr(bot.dl, "account_balance", lambda acc: {
             "total_usdt": 1234.0,
             "raw": {"result": {"list": [{"coin": [
@@ -598,7 +603,7 @@ class TestFormatBybitBalance:
         assert "ETH:" not in out  # zero-balance row dropped
 
     def test_returns_unavailable_when_loader_returns_none(self, monkeypatch):
-        monkeypatch.setattr(bot, "_account_env", lambda acc: {})
+        monkeypatch.setattr(trade_notifier, "_account_env", lambda acc: {})
         monkeypatch.setattr(bot.dl, "account_balance", lambda acc: None)
         out = bot.format_bybit_balance(self._account())
         assert "⚠️" in out and "unavailable" in out
@@ -609,7 +614,7 @@ class TestFormatBybitPositions:
         return {"account_id": "live", "exchange": "bybit", "env_path": ""}
 
     def test_renders_normalized_rows(self, monkeypatch):
-        monkeypatch.setattr(bot, "_account_env", lambda acc: {"STRATEGY": "ict"})
+        monkeypatch.setattr(trade_notifier, "_account_env", lambda acc: {"STRATEGY": "ict"})
         monkeypatch.setattr(bot.dl, "account_open_positions", lambda acc: [
             {"symbol": "BTCUSDT", "side": "Buy", "size": 0.05,
              "entry_price": 50000.0, "unrealised_pnl": 12.34},
@@ -621,13 +626,13 @@ class TestFormatBybitPositions:
         assert "PnL: $+12.34" in out
 
     def test_empty_list_renders_no_open(self, monkeypatch):
-        monkeypatch.setattr(bot, "_account_env", lambda acc: {})
+        monkeypatch.setattr(trade_notifier, "_account_env", lambda acc: {})
         monkeypatch.setattr(bot.dl, "account_open_positions", lambda acc: [])
         out = bot.format_bybit_positions(self._account())
         assert "No open positions" in out
 
     def test_none_renders_unavailable(self, monkeypatch):
-        monkeypatch.setattr(bot, "_account_env", lambda acc: {})
+        monkeypatch.setattr(trade_notifier, "_account_env", lambda acc: {})
         monkeypatch.setattr(bot.dl, "account_open_positions", lambda acc: None)
         out = bot.format_bybit_positions(self._account())
         assert "⚠️" in out and "unavailable" in out
@@ -638,7 +643,7 @@ class TestFormatBinanceBalance:
         return {"account_id": "alpha", "exchange": "binance", "env_path": ""}
 
     def test_renders_total_free_used(self, monkeypatch):
-        monkeypatch.setattr(bot, "_account_env", lambda acc: {"STRATEGY": "breakout"})
+        monkeypatch.setattr(trade_notifier, "_account_env", lambda acc: {"STRATEGY": "breakout"})
         monkeypatch.setattr(bot.dl, "account_balance", lambda acc: {
             "total_usdt": 500.0,
             "raw": {"USDT": {"total": 500.0, "free": 480.0, "used": 20.0}},
@@ -1820,7 +1825,7 @@ class TestCmdLogMultiAccount:
         stays intact — what changed is the delivery shape."""
         monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
         monkeypatch.setattr(bot.dl, "list_accounts", lambda: self._accounts())
-        monkeypatch.setattr(bot, "_account_env", lambda acc: {"STRATEGY": "ict"})
+        monkeypatch.setattr(trade_notifier, "_account_env", lambda acc: {"STRATEGY": "ict"})
         log_calls = []
 
         def fake_logs(svc, n=20):
@@ -1847,7 +1852,7 @@ class TestCmdLogMultiAccount:
     def test_no_accounts_falls_back_to_live_service(self, monkeypatch):
         monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
         monkeypatch.setattr(bot.dl, "list_accounts", lambda: [])
-        monkeypatch.setattr(bot, "_account_env", lambda acc: {})
+        monkeypatch.setattr(trade_notifier, "_account_env", lambda acc: {})
         monkeypatch.setattr(bot, "get_last_logs", lambda lines=20: "fallback log")
 
         upd = self._make_update()
@@ -1859,7 +1864,7 @@ class TestCmdLogMultiAccount:
     def test_one_account_log_failure_does_not_block_others(self, monkeypatch):
         monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
         monkeypatch.setattr(bot.dl, "list_accounts", lambda: self._accounts())
-        monkeypatch.setattr(bot, "_account_env", lambda acc: {})
+        monkeypatch.setattr(trade_notifier, "_account_env", lambda acc: {})
 
         def boom(svc, n=20):
             if svc == "ict-trader-live":
@@ -1980,7 +1985,7 @@ class TestCallbackHandlerLogToggleMultiAccount:
     def test_log_callback_concatenates_all_accounts(self, monkeypatch):
         monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
         monkeypatch.setattr(bot.dl, "list_accounts", lambda: self._accounts())
-        monkeypatch.setattr(bot, "_account_env", lambda acc: {})
+        monkeypatch.setattr(trade_notifier, "_account_env", lambda acc: {})
         monkeypatch.setattr(bot.dl, "recent_logs_for",
                             lambda svc, n=10: f"log:{svc}")
 
@@ -1994,7 +1999,7 @@ class TestCallbackHandlerLogToggleMultiAccount:
     def test_log_callback_fallback_when_no_accounts(self, monkeypatch):
         monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
         monkeypatch.setattr(bot.dl, "list_accounts", lambda: [])
-        monkeypatch.setattr(bot, "_account_env", lambda acc: {})
+        monkeypatch.setattr(trade_notifier, "_account_env", lambda acc: {})
         monkeypatch.setattr(bot, "get_last_logs", lambda lines=20: "fallback")
 
         upd, query = self._make_query("log")
