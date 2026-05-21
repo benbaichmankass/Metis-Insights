@@ -169,9 +169,23 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          IB_USERNAME: ${{ secrets.IB_USERNAME }}
+          IB_PASSWORD: ${{ secrets.IB_PASSWORD }}
         run: |
           set -euo pipefail
+          # Defense-in-depth: redact the credential values from the captured
+          # output before posting (GitHub masks secrets in run LOGS but not in
+          # API-posted comment bodies). Fixed-string replace, not regex.
           OUT=$(tail -c 8000 action-output.txt 2>/dev/null || echo "(no output captured)")
+          OUT=$(IB_USERNAME="${IB_USERNAME}" IB_PASSWORD="${IB_PASSWORD}" python3 - "${OUT}" <<'PY'
+          import os, sys
+          out = sys.argv[1]
+          for secret in (os.environ.get("IB_PASSWORD",""), os.environ.get("IB_USERNAME","")):
+              if secret and len(secret) >= 3:
+                  out = out.replace(secret, "***REDACTED***")
+          print(out)
+          PY
+          )
           {
             echo "**provision-ib-gateway** result (mode=${TRADING_MODE:-?} port=${IB_PORT:-?})"
             echo "Run: ${RUN_URL}"
