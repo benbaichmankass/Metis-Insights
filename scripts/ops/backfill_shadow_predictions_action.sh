@@ -24,13 +24,21 @@ source "${SCRIPT_DIR}/_lib.sh"
 
 load_runtime_env  # exports DATA_DIR / TRADE_JOURNAL_DB / RUNTIME_LOGS_DIR
 DB_PATH="$(runtime_db_path)"
-VENV_DIR="${VENV_DIR:-${REPO_DIR}/.venv}"
-PY="${VENV_DIR}/bin/python"
 
-if [ ! -x "${PY}" ]; then
-    log "ERROR: venv python not found at ${PY}. Did the VM pull latest main + install deps?"
+# Pick the interpreter the way every other live-VM wrapper does: the live
+# VM runs the system /usr/bin/python3 (deps installed at deploy time, no
+# venv), while the trainer VM uses a .venv. Prefer the venv when it
+# exists, else fall back to python3 on PATH.
+if [ -x "${REPO_DIR}/.venv/bin/python" ]; then
+    PY="${REPO_DIR}/.venv/bin/python"
+else
+    PY="python3"
+fi
+
+if ! command -v "${PY}" >/dev/null 2>&1; then
+    log "ERROR: no python interpreter found (tried ${REPO_DIR}/.venv/bin/python and python3)."
     record_audit "backfill-shadow-predictions" "error" \
-        "{\"reason\": \"venv missing\", \"path\": \"${PY}\"}" >/dev/null || true
+        "{\"reason\": \"python missing\"}" >/dev/null || true
     exit 1
 fi
 if [ ! -f "${DB_PATH}" ]; then
