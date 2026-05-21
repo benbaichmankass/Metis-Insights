@@ -471,8 +471,41 @@ def test_registry_enrichment_gracefully_handles_unreadable_strategies_yaml(
         "src.web.api.routers.training_center._load_shadow_wiring_map",
         _raises,
     )
+    # Unreadable strategies.yaml also means no auto-wire set can be
+    # derived — both the explicit map and the auto-wire list fall back to
+    # empty, so every row is OFFLINE.
+    monkeypatch.setattr(
+        "src.web.api.routers.training_center._auto_wire_strategy_names",
+        lambda: [],
+    )
     resp = client.get("/api/bot/ml/registry")
     assert resp.status_code == 200
     for row in resp.json()["rows"]:
         assert row["deployment_bucket"] == "OFFLINE"
         assert row["linked_strategies"] == []
+
+
+def test_registry_enrichment_shadow_bucket_via_auto_wire(
+    client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A shadow-stage model with NO explicit shadow_model_ids reference is
+    still SHADOW when strategies auto-wire (omit shadow_model_ids) — the
+    2026-05-19 default. Research-only models stay OFFLINE."""
+    _populate_registry_with_manifest(tmp_path)
+    # No strategy lists any model explicitly...
+    _patch_shadow_wiring(monkeypatch, {})
+    # ...but all three strategies auto-wire (omit shadow_model_ids).
+    monkeypatch.setattr(
+        "src.web.api.routers.training_center._auto_wire_strategy_names",
+        lambda: ["turtle_soup", "vwap", "ict_scalp_5m"],
+    )
+    resp = client.get("/api/bot/ml/registry")
+    assert resp.status_code == 200
+    rows = {r["model_id"]: r for r in resp.json()["rows"]}
+    shadow_model = rows["regime-classifier-baseline-v0"]  # stage=shadow
+    assert shadow_model["deployment_bucket"] == "SHADOW"
+    assert set(shadow_model["linked_strategies"]) == {"turtle_soup", "vwap", "ict_scalp_5m"}
+    # research_only model is not in the shadow channel.
+    orphan = rows["trade-outcome-winrate-v1"]
+    assert orphan["deployment_bucket"] == "OFFLINE"
+    assert orphan["linked_strategies"] == []
