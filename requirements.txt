@@ -16,6 +16,11 @@
 # =============================================================================
 
 ccxt>=4.0.0
+# Interactive Brokers TWS API (MES futures execution path). Connects to a
+# local IB Gateway / TWS socket — no API keys. The original package is no
+# longer actively maintained; the API-compatible fork is `ib_async`, which
+# src/units/accounts/ib_client.py accepts as a transparent fallback.
+ib_insync>=0.9.86
 pandas>=2.0.0
 numpy>=1.24.0
 rich>=13.0.0

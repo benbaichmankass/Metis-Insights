@@ -110,6 +110,31 @@ def _load_units(path: str = _UNITS_YAML) -> Dict[str, Any]:
         return yaml.safe_load(fh) or {}
 
 
+# Cached symbol -> exchange map from config/instruments.yaml. Used by the
+# dispatch filter to route a package only to accounts on the symbol's
+# exchange (BTCUSDT→bybit, MES→interactive_brokers). Symbols without a
+# profile return None → no symbol-based filtering (legacy behaviour).
+_INSTRUMENT_EXCHANGE_CACHE: Optional[Dict[str, str]] = None
+
+
+def _instrument_exchange_for(symbol: str) -> Optional[str]:
+    """Return the exchange a *symbol* trades on, or None if unknown."""
+    global _INSTRUMENT_EXCHANGE_CACHE
+    if not symbol:
+        return None
+    if _INSTRUMENT_EXCHANGE_CACHE is None:
+        try:
+            from src.core.profile_loader import load_instrument_profiles
+            profiles = load_instrument_profiles()
+            _INSTRUMENT_EXCHANGE_CACHE = {
+                sym: str(getattr(p, "exchange", "") or "").lower()
+                for sym, p in (profiles or {}).items()
+            }
+        except Exception:  # noqa: BLE001
+            _INSTRUMENT_EXCHANGE_CACHE = {}
+    return _INSTRUMENT_EXCHANGE_CACHE.get(symbol) or None
+
+
 # ---------------------------------------------------------------------------
 # Coordinator
 # ---------------------------------------------------------------------------
@@ -926,6 +951,23 @@ class Coordinator:
         def _eligible_for_dispatch(account_obj) -> bool:
             if not getattr(account_obj, "configured", True):
                 return False
+            # Symbol→exchange routing gate (multi-symbol M11). Applied only
+            # when EITHER side involves Interactive Brokers, so:
+            #   * a BTCUSDT (bybit) package never reaches an IB account, and
+            #   * an MES (interactive_brokers) package never reaches a bybit
+            #     account,
+            # regardless of feature flags — making it safe to assign the
+            # crypto strategies to ib_paper. Legacy crypto cross-account
+            # dispatch (bybit/binance/breakout among themselves) is left
+            # untouched, so existing dispatch behaviour/tests are unchanged.
+            inst_exchange = _instrument_exchange_for(getattr(pkg, "symbol", "") or "")
+            acct_exchange = str(getattr(account_obj, "exchange", "") or "").lower()
+            ib_involved = (
+                inst_exchange == "interactive_brokers"
+                or acct_exchange == "interactive_brokers"
+            )
+            if ib_involved and inst_exchange and acct_exchange and inst_exchange != acct_exchange:
+                return False
             assigned = getattr(account_obj, "strategies", None)
             if assigned is None:
                 return True  # legacy / no-mapping account
@@ -973,6 +1015,7 @@ class Coordinator:
             from src.units.accounts.execute import execute_pkg
             from src.units.accounts.clients import (
                 bybit_client_for, binance_conn_for, velotrade_client_for,
+                ib_client_for,
             )
 
             account_cfg = {
@@ -997,6 +1040,13 @@ class Coordinator:
                 # Forward demo flag so execute.py stamps is_demo on trade rows
                 # and Telegram notifications carry the DEMO TRADER prefix.
                 "demo": getattr(account, "demo", False),
+                # Interactive Brokers connection params (no API keys — auth
+                # is the Gateway login session). Forwarded so ib_client_for
+                # can build the socket identity. None for non-IB accounts.
+                "ib_host": getattr(account, "ib_host", None),
+                "ib_port": getattr(account, "ib_port", None),
+                "ib_account": getattr(account, "ib_account", None),
+                "ib_client_id": getattr(account, "ib_client_id", None),
             }
 
             # Per-account live/dry resolution. The caller-supplied
@@ -1039,10 +1089,12 @@ class Coordinator:
                         client = binance_conn_for(account_cfg)
                     elif exchange_lc == "velotrade":
                         client = velotrade_client_for(account_cfg)
+                    elif exchange_lc in ("interactive_brokers", "ib"):
+                        client = ib_client_for(account_cfg)
                     else:
                         client_error = (
                             f"unsupported exchange '{exchange_lc}' "
-                            f"(expected bybit/binance/velotrade)"
+                            f"(expected bybit/binance/velotrade/interactive_brokers)"
                         )
                 except Exception as exc:  # noqa: BLE001
                     logger.warning(

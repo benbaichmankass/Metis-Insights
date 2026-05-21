@@ -120,7 +120,14 @@ Running as `ict-web-api.service`, behind a Cloudflare tunnel. Dashboard frontend
 6. No net portfolio position accounting — positions per account but not cross-strategy netted
 7. `src/ict_detection/` has no public API — internal use only
 8. ML decision layer not formally separated from shadow logging
-9. No IB/MES execution path
+9. ~~No IB/MES execution path~~ — **closed 2026-05-21.** IB connection +
+   MES execution wired: `IBClient` (`src/units/accounts/ib_client.py`,
+   ib_insync, no API keys), `ib_client_for()` factory, the
+   `interactive_brokers` branch in `execute._submit_order`, the
+   coordinator client-construction branch, and the `ib_paper` (mode: live →
+   paper money) / `ib_live` (mode: dry_run) accounts in
+   `config/accounts.yaml`. Strategy routing to MES is the remaining step
+   (`strategies: []` on both today). See `docs/runbooks/ib-integration.md`.
 
 ---
 
@@ -302,19 +309,40 @@ Decision gate → advisory_flag blocks/modifies order (Tier-3, requires PM appro
 
 Both accounts run all three strategies on BTCUSDT linear perps. Account config is in `config/accounts.yaml`.
 
-### 3.2 Future IB/MES accounts (S7)
+### 3.2 IB/MES accounts (wired 2026-05-21)
 
-The account profile abstraction is designed from S1 to support IB as a first-class account type:
+IB accounts are first-class. As-built `config/accounts.yaml` (IB uses **no
+API keys** — auth is the IB Gateway login session; identity is
+host/port/clientId/account code):
 ```yaml
-# config/accounts.yaml (future, S7)
-ib_paper_1:
-  type: ib_paper
+ib_paper:                       # paper account → live mode (paper money)
   exchange: interactive_brokers
-  dry_run: true
-  base_currency: USD
+  mode: live
+  market_type: futures
+  ib_host: 127.0.0.1
+  ib_port: 7497                 # paper gateway
+  ib_account: DUQ325724
+  ib_client_id: 497
+  strategies: []               # no MES strategy assigned yet
+
+ib_live:                        # real-money account → held dry_run
+  exchange: interactive_brokers
+  mode: dry_run
+  ib_port: 7496                 # live gateway
+  ib_account: U25907316
+  ib_client_id: 496
+  strategies: []
 ```
 
-The `AccountProfile.is_ib` property and `exchange="interactive_brokers"` type are in place from S1. The IB client stub is S7. No prop-account configs are included in M11.
+`AccountProfile.is_ib` and `exchange="interactive_brokers"` are in place
+from S1. The IB client is real: `IBClient`
+(`src/units/accounts/ib_client.py`, ib_insync) connects to the Gateway
+and places a market-entry MES bracket; `ib_client_for()` constructs it;
+`execute._submit_order` routes the `interactive_brokers` branch. The
+`mode: live` paper account executes against IB paper money exactly as
+`bybit_1` runs `mode: live` against Bybit's demo endpoint; the real-money
+`ib_live` account is held `dry_run` and never opens a socket. No
+prop-account IB configs are included.
 
 ### 3.3 Account profile design rules
 
@@ -364,7 +392,11 @@ The `AccountProfile.is_ib` property and `exchange="interactive_brokers"` type ar
 4. **No silent sizing changes:** The `PassthroughAllocator` must produce identical position sizing to the current `risk.py` path for all actionable signals
 5. **Shadow predictions unaffected:** WS7 shadow logging continues to work unchanged throughout the refactor
 6. **ML models never generate raw signals:** Hard-rule strategies remain the signal source; ML acts only as a scoring/filtering layer
-7. **IB accounts always dry_run:** No live IB orders without explicit operator promotion (Tier-3)
+7. **Real-money IB account stays dry_run:** The live-money IB account
+   (`ib_live`, port 7496) is `mode: dry_run` and opens no socket; promoting
+   it to live requires explicit operator approval via the `set-account-mode`
+   action (Tier-3). The paper account (`ib_paper`, port 7497) may run
+   `mode: live` — "live" there means IB *paper money*, no real-money risk.
 
 ---
 
@@ -378,7 +410,7 @@ The `AccountProfile.is_ib` property and `exchange="interactive_brokers"` type ar
 | S4 | Layers 4-6 (allocator, order contract, net positions) | Yes — coordinator.py, positions.py (feature-flagged) |
 | S5 | Layer 7 (ML decision hooks) | Yes — shadow_adapter.py, coordinator.py |
 | S6 | Layer 9 (dashboard transparency endpoints) | Yes — src/web/api/routers/ |
-| S7 | Layer 0 extension (IB account profile + client stub) | Yes — clients.py (dry_run IB only) |
+| S7 | Layer 0 extension (IB account profile + **live client**) | Yes — ib_client.py, clients.py, execute.py, coordinator.py (wired 2026-05-21) |
 | S8 | Layer 1 (ICT filter module public API) | Yes — ict_detection/__init__.py, ict_scalp.py |
 
 ---
@@ -389,3 +421,4 @@ The `AccountProfile.is_ib` property and `exchange="interactive_brokers"` type ar
 |---|---|---|
 | 2026-05-20 | Initial architecture target document created | S-REFACTOR-S0 |
 | 2026-05-20 | S1 scaffolding: AccountProfile, InstrumentProfile, SignalPackage, OrderPackage, StrategyInterface, AllocatorInterface, PassthroughAllocator | S-REFACTOR-S1 |
+| 2026-05-21 | IB/MES execution path wired (gap #9 closed): IBClient (ib_insync, no keys), ib_client_for, execute._submit_order IB branch, coordinator branch, ib_paper (mode: live) + ib_live (mode: dry_run) accounts | S7 |

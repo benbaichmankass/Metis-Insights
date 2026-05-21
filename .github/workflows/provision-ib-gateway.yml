@@ -1,0 +1,140 @@
+name: provision-ib-gateway
+
+# Installs / re-provisions the headless IB Gateway (IBC) on the live VM for
+# the MES / Interactive Brokers integration.
+#
+# Operator workflow:
+#   1. Add secrets in Settings → Secrets and variables → Actions:
+#        IB_USERNAME — IBKR login username (paper login for now)
+#        IB_PASSWORD — IBKR login password
+#   2. Dispatch this workflow (trading_mode=paper, ib_port=7497 by default).
+#   3. When the run finishes, approve the IBKR Mobile 2FA prompt on your
+#      phone to complete the Gateway login.
+#
+# The workflow renders the credentials into an env file ON THE RUNNER, scps
+# it to the VM over the encrypted SSH channel, then runs the idempotent
+# installer (scripts/install_ib_gateway.sh) + (re)starts ib-gateway.service.
+#
+# Security contract (mirrors rotate-account-keys):
+#   * Credentials never appear in argv or run logs — they ride in a file
+#     transferred over scp and are shredded after install.
+#   * The Gateway runs independently of ict-trader-live, so this never
+#     restarts the live crypto trader.
+#
+# Required repo secrets: VM_SSH_KEY, IB_USERNAME, IB_PASSWORD
+# Optional repo variables: VM_SSH_HOST (default 158.178.210.252), VM_SSH_USER (default ubuntu)
+
+on:
+  workflow_dispatch:
+    inputs:
+      trading_mode:
+        description: "IB trading mode"
+        required: true
+        type: choice
+        default: paper
+        options:
+          - paper
+          - live
+      ib_port:
+        description: "Gateway API port (7497 paper / 7496 live)"
+        required: true
+        default: "7497"
+      reason:
+        description: "Audit-trail note"
+        required: true
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: provision-ib-gateway
+  cancel-in-progress: false
+
+jobs:
+  provision:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '158.178.210.252' }}
+      VM_SSH_USER: ${{ vars.VM_SSH_USER || 'ubuntu' }}
+      TRADING_MODE: ${{ inputs.trading_mode }}
+      IB_PORT: ${{ inputs.ib_port }}
+      REASON: ${{ inputs.reason }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate inputs + secret presence
+        env:
+          IB_USERNAME: ${{ secrets.IB_USERNAME }}
+          IB_PASSWORD: ${{ secrets.IB_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "${REASON// }" ]; then
+            echo "::error::reason is required."; exit 1
+          fi
+          if [ -z "${IB_USERNAME}" ] || [ -z "${IB_PASSWORD}" ]; then
+            echo "::error::IB_USERNAME and/or IB_PASSWORD secrets not set."
+            echo "::error::Add them at Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+          case "${IB_PORT}" in
+            7496|7497) ;;
+            *) echo "::error::ib_port must be 7496 or 7497."; exit 1 ;;
+          esac
+          if [ "${TRADING_MODE}" = "live" ]; then
+            echo "::warning::Provisioning a LIVE Gateway — the ib_live account stays mode: dry_run in accounts.yaml until separately promoted."
+          fi
+          echo ">>> provisioning IB Gateway mode=${TRADING_MODE} port=${IB_PORT}"
+
+      - name: Set up SSH key
+        env:
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VM_SSH_KEY}" ]; then echo "::error::VM_SSH_KEY unset."; exit 1; fi
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${VM_SSH_KEY}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -t rsa,ecdsa,ed25519 "${VM_SSH_HOST}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Render credential env file (runner-local, gitignored tmp)
+        env:
+          IB_USERNAME: ${{ secrets.IB_USERNAME }}
+          IB_PASSWORD: ${{ secrets.IB_PASSWORD }}
+        run: |
+          set -euo pipefail
+          umask 077
+          {
+            echo "IB_USERNAME=${IB_USERNAME}"
+            echo "IB_PASSWORD=${IB_PASSWORD}"
+            echo "TRADING_MODE=${TRADING_MODE}"
+            echo "IB_PORT=${IB_PORT}"
+          } > /tmp/ib-gateway.env.staged
+
+      - name: Stage env file on VM (scp, encrypted; not in logs)
+        run: |
+          set -euo pipefail
+          scp -i ~/.ssh/id_rsa -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
+            /tmp/ib-gateway.env.staged \
+            "${VM_SSH_USER}@${VM_SSH_HOST}:/tmp/ib-gateway.env.staged"
+          shred -u /tmp/ib-gateway.env.staged 2>/dev/null || rm -f /tmp/ib-gateway.env.staged
+
+      - name: Provision + install + restart Gateway on VM
+        id: provision
+        run: |
+          set -euo pipefail
+          set +e
+          ssh -i ~/.ssh/id_rsa -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
+              -o ConnectTimeout=20 \
+              "${VM_SSH_USER}@${VM_SSH_HOST}" \
+              "TRADING_MODE=$(printf '%q' "${TRADING_MODE}") \
+               IB_PORT=$(printf '%q' "${IB_PORT}") \
+               bash /home/ubuntu/ict-trading-bot/scripts/ops/provision_ib_gateway.sh" \
+              > action-output.txt 2>&1
+          rc=$?
+          set -e
+          echo ">>> provision exit code: ${rc}"
+          cat action-output.txt
+          exit "${rc}"

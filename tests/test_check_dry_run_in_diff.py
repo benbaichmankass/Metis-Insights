@@ -58,6 +58,21 @@ def test_test_files_are_ignored():
     assert scan_diff(_diff("tests/test_orders.py", ["DRY_RUN=true"])) == []
 
 
+def test_allow_marker_exempts_dry_line():
+    """A deliberate, marked dry line (new intentionally-dry account) is exempt."""
+    findings = scan_diff(_diff(
+        "config/accounts.yaml",
+        ["    mode: dry_run   # dry-run-guard: allow — new IB acct held dry"],
+    ))
+    assert findings == []
+
+
+def test_unmarked_dry_line_still_caught():
+    """Without the marker the guard still fires (protection intact)."""
+    findings = scan_diff(_diff("config/accounts.yaml", ["    mode: dry_run"]))
+    assert len(findings) == 1
+
+
 def test_docs_are_ignored():
     assert scan_diff(_diff("docs/foo.md", ["DRY_RUN=true"])) == []
 

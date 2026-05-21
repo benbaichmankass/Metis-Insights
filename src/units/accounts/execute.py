@@ -419,6 +419,17 @@ def _fetch_balance(
             bal = client.get_balance() or {}
             usdt = (bal.get("USDT") or {}) if isinstance(bal, dict) else {}
             return float((usdt or {}).get("total") or 0)
+        if exchange in ("interactive_brokers", "ib"):
+            # IB account equity in USD — NetLiquidation from the account
+            # summary, fed to the sizer the same way as Bybit's USD wallet
+            # value. Falls back to available funds when NetLiquidation is
+            # absent.
+            bal = client.balance() or {}
+            return float(
+                bal.get("net_liquidation")
+                or bal.get("available_funds")
+                or 0
+            )
     except Exception as exc:
         logger.warning("_fetch_balance(%s): %s — defaulting to 0", exchange, exc)
     return 0.0
@@ -504,6 +515,52 @@ def _submit_order(client: Any, order: dict, account_cfg: dict) -> str:
         raise RuntimeError(
             "breakout exchange is deprecated; migrate the account to "
             "exchange: velotrade in config/accounts.yaml."
+        )
+
+    # Interactive Brokers (MES futures via ib_insync). Dispatches to the
+    # injected IBClient, mirroring the velotrade branch's retCode-style
+    # contract so a non-zero retCode surfaces as a RuntimeError the
+    # coordinator's diagnostic-ping wrapper can format. A missing client
+    # (Gateway unreachable or connection params unset) raises
+    # IBConnectionError — the coordinator treats that as "account not
+    # usable this tick" and pings. IB uses no API keys; the live account
+    # runs mode: dry_run so this branch only fires for the paper account
+    # (mode: live → IB paper gateway, paper money) until the operator
+    # promotes the live account (Tier-3).
+    if exchange in ("interactive_brokers", "ib"):
+        from src.units.accounts.ib_client import IBClient, IBConnectionError
+        if client is None:
+            raise IBConnectionError(
+                f"IB live placement: account "
+                f"'{account_cfg.get('account_id') or 'unknown'}' has no "
+                f"IBClient (IB Gateway unreachable, or ib_port/ib_account "
+                f"unset in config/accounts.yaml)."
+            )
+        if not isinstance(client, IBClient):
+            raise TypeError(
+                f"IB _submit_order: expected IBClient, got "
+                f"{type(client).__name__}"
+            )
+        try:
+            resp = client.place({
+                "symbol": order["symbol"],
+                "side": order["side"],
+                "direction": order.get("direction"),
+                "entry": order.get("entry"),
+                "sl": order.get("sl"),
+                "tp": order.get("tp"),
+                "qty": order["qty"],
+                "strategy": order.get("strategy"),
+            }) or {}
+        except IBConnectionError as exc:
+            raise RuntimeError(f"IB _submit_order: {exc}") from exc
+        ret_code = resp.get("retCode")
+        if ret_code in (0, "0", None):
+            order_id = (resp.get("result") or {}).get("orderId")
+            return str(order_id or uuid.uuid4().hex)
+        reason = str(resp.get("retMsg") or f"retCode={ret_code}")
+        raise RuntimeError(
+            f"IB rejected order for {order['symbol']}: {reason}"
         )
 
     try:

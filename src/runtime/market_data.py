@@ -69,7 +69,113 @@ def _build_exchange_client(settings: Dict[str, Any]):
             testnet=testnet,
         )
 
+    if exchange_name in ("interactive_brokers", "ib"):
+        return _build_ib_market_data(settings)
+
     raise ValueError(f"Unsupported EXCHANGE value: {exchange_name}")
+
+
+def _build_ib_market_data(settings: Dict[str, Any]):
+    """Return an IBMarketData connector for the IB Gateway endpoint.
+
+    IB has no API keys — connection identity (host/port/clientId/account)
+    is resolved from the IB account entry in ``config/accounts.yaml`` (via
+    the canonical loader), with ``IB_HOST`` / ``IB_PORT`` env overrides.
+    The market-data ``clientId`` is offset off the execution client's id so
+    the data socket and the order socket coexist on the Gateway.
+    """
+    from src.exchange.ib_connector import IBMarketData
+
+    host = (
+        settings.get("IB_HOST")
+        or os.environ.get("IB_HOST")
+        or _ib_account_field("ib_host")
+        or "127.0.0.1"
+    )
+    port = (
+        settings.get("IB_PORT")
+        or os.environ.get("IB_PORT")
+        or _ib_account_field("ib_port")
+    )
+    if not port:
+        raise ValueError(
+            "IB market data: no ib_port (config IB account / IB_PORT env)."
+        )
+    account = (
+        settings.get("IB_ACCOUNT")
+        or os.environ.get("IB_ACCOUNT")
+        or _ib_account_field("ib_account")
+    )
+    exec_client_id = int(_ib_account_field("ib_client_id") or (int(port) % 1000))
+    # +1 keeps the market-data socket distinct from the execution socket.
+    md_client_id = int(
+        settings.get("IB_MD_CLIENT_ID")
+        or os.environ.get("IB_MD_CLIENT_ID")
+        or (exec_client_id + 1)
+    )
+    # Default to delayed data (3) so MES works without a paid CME real-time
+    # subscription (strategy-refinement / model-training mode). Override via
+    # IB_MARKET_DATA_TYPE=1 once a live CME feed is active.
+    try:
+        md_type = int(
+            settings.get("IB_MARKET_DATA_TYPE")
+            or os.environ.get("IB_MARKET_DATA_TYPE")
+            or 3
+        )
+    except (TypeError, ValueError):
+        md_type = 3
+    return IBMarketData(
+        host=str(host),
+        port=int(port),
+        client_id=md_client_id,
+        account=str(account) if account else None,
+        market_data_type=md_type,
+    )
+
+
+def _ib_account_field(field: str):
+    """Best-effort read of an ``ib_*`` field from the first IB account.
+
+    Uses the canonical accounts-dict loader (not a hand-rolled parser).
+    Returns ``None`` when no IB account is configured or on any error.
+    """
+    try:
+        from src.config.accounts_loader import load_accounts_dict
+        accounts = load_accounts_dict() or {}
+    except Exception:  # noqa: BLE001
+        return None
+    for cfg in accounts.values():
+        if not isinstance(cfg, dict):
+            continue
+        if str(cfg.get("exchange", "")).lower() in ("interactive_brokers", "ib"):
+            val = cfg.get(field)
+            if val is not None:
+                return val
+    return None
+
+
+def connector_for_symbol(symbol: str, settings: Optional[Dict[str, Any]] = None):
+    """Return the right connector for *symbol* based on its instrument profile.
+
+    Routes candle fetches per instrument: BTCUSDT → Bybit, MES →
+    Interactive Brokers (per ``config/instruments.yaml``). Falls back to the
+    process ``EXCHANGE`` setting when the symbol has no instrument profile,
+    so the existing single-symbol/single-exchange path is unchanged.
+    """
+    settings = settings or {}
+    exchange = None
+    try:
+        from src.core.profile_loader import load_instrument_profiles
+        prof = (load_instrument_profiles() or {}).get(symbol)
+        if prof is not None:
+            exchange = getattr(prof, "exchange", None)
+    except Exception:  # noqa: BLE001
+        exchange = None
+    if exchange:
+        routed = dict(settings)
+        routed["EXCHANGE"] = exchange
+        return _build_exchange_client(routed)
+    return _build_exchange_client(settings)
 
 
 def fetch_candles(

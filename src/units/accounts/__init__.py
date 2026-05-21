@@ -147,6 +147,13 @@ def load_accounts(config_path: str = _DEFAULT_ACCOUNTS_YAML) -> "List":
             configured_reason=configured_reason,
             market_type=cfg.get("market_type", "spot"),
             demo=bool(cfg.get("demo", False)),
+            # Interactive Brokers connection identity (no API keys). None
+            # for non-IB accounts; the coordinator forwards these into the
+            # account_cfg dict consumed by ib_client_for.
+            ib_host=cfg.get("ib_host"),
+            ib_port=cfg.get("ib_port"),
+            ib_account=cfg.get("ib_account"),
+            ib_client_id=cfg.get("ib_client_id"),
         )
         # Mirror the resolved mode onto the account object so the
         # legacy ``account.dry_run`` callers (TradingAccount.place_order
