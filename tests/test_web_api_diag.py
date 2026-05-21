@@ -36,9 +36,9 @@ def fake_runtime(tmp_path: Path, monkeypatch):
     status_json = runtime_logs / "status.json"
     heartbeat = runtime_logs / "heartbeat.txt"
     bot_log = tmp_path / "bot.log"
+    shadow_predictions = runtime_logs / "shadow_predictions.jsonl"
 
     monkeypatch.setattr(diag_router, "_DB_PATH", db_path)
-    monkeypatch.setattr(diag_router, "_RUNTIME_LOGS", runtime_logs)
     monkeypatch.setattr(diag_router, "_AUDIT_LOG", audit)
     monkeypatch.setattr(diag_router, "_HEARTBEAT", heartbeat)
     monkeypatch.setattr(diag_router, "_STATUS_JSON", status_json)
@@ -51,6 +51,7 @@ def fake_runtime(tmp_path: Path, monkeypatch):
             "status": status_json,
             "heartbeat": heartbeat,
             "bot_log": bot_log,
+            "shadow_predictions": shadow_predictions,
         },
     )
     return {
@@ -60,6 +61,7 @@ def fake_runtime(tmp_path: Path, monkeypatch):
         "status_json": status_json,
         "heartbeat": heartbeat,
         "bot_log": bot_log,
+        "shadow_predictions": shadow_predictions,
     }
 
 
@@ -251,8 +253,11 @@ def test_journalctl_since_param_accepts_iso_8601(client, fake_runtime):
         "2026-05-10T21:13:00+00:00",
         "2026-05-10 21:13:00",
     ):
+        # Pass via params so the client URL-encodes `+`/space correctly
+        # ('+' in a raw query string decodes to a space server-side).
         resp = client.get(
-            f"/api/diag/journalctl?unit=ict-bot&lines=10&since={ts}",
+            "/api/diag/journalctl",
+            params={"unit": "ict-bot", "lines": 10, "since": ts},
             headers=_bearer(_TOKEN),
         )
         assert resp.status_code == 200, f"rejected {ts!r}: {resp.text}"
@@ -313,6 +318,28 @@ def test_log_file_allowlisted_returns_tail(client, fake_runtime):
     body = resp.json()
     assert body["present"] is True
     assert body["lines"] == [f"line-{i}" for i in range(45, 50)]
+
+
+def test_log_file_shadow_predictions_returns_tail(client, fake_runtime):
+    fake_runtime["shadow_predictions"].write_text(
+        "\n".join(
+            f'{{"model_id": "m-{i}", "stage": "shadow"}}' for i in range(10)
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    resp = client.get(
+        "/api/diag/log_file?name=shadow_predictions&lines=3",
+        headers=_bearer(_TOKEN),
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["present"] is True
+    assert body["lines"] == [
+        '{"model_id": "m-7", "stage": "shadow"}',
+        '{"model_id": "m-8", "stage": "shadow"}',
+        '{"model_id": "m-9", "stage": "shadow"}',
+    ]
 
 
 def test_status_endpoint(client, fake_runtime):
