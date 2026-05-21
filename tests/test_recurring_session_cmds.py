@@ -200,8 +200,22 @@ class TestCmdRoadmap:
 | S-015 | **Web Client V2** | 📋 Backlog |
 """
 
-    def test_reads_roadmap_and_returns_summary(self, repo_root: Path):
-        (repo_root / "ROADMAP.md").write_text(self.SAMPLE)
+    def test_reads_roadmap_and_returns_summary(self, repo_root: Path, monkeypatch):
+        # cmd_roadmap delegates to processor.get_roadmap_summary(), which uses
+        # its own hardcoded repo-relative path — patching bot.REPO_ROOT has no
+        # effect. Monkeypatch the processor function to use the tmp ROADMAP.md.
+        from src.bot import recurring_dispatch
+        from src.units.ui import processor
+
+        roadmap_file = repo_root / "ROADMAP.md"
+        roadmap_file.write_text(self.SAMPLE)
+
+        def _summary():
+            text = roadmap_file.read_text()
+            return recurring_dispatch.render_roadmap_summary(text)
+
+        monkeypatch.setattr(processor, "get_roadmap_summary", _summary)
+
         update = _make_update()
         _run(bot.cmd_roadmap(update, _make_context()))
         reply = _last_reply(update)
@@ -210,7 +224,16 @@ class TestCmdRoadmap:
         assert "✅ 1 done" in reply
         assert "📋 1 backlog" in reply
 
-    def test_missing_roadmap_returns_warning(self, repo_root: Path):
+    def test_missing_roadmap_returns_warning(self, repo_root: Path, monkeypatch):
+        # Simulate the missing-file error path by returning a ⚠️ string from
+        # get_roadmap_summary (that is exactly what the real function returns
+        # on FileNotFoundError).
+        from src.units.ui import processor
+
+        monkeypatch.setattr(
+            processor, "get_roadmap_summary",
+            lambda: "⚠️ Could not read ROADMAP.md from the repo.",
+        )
         update = _make_update()
         _run(bot.cmd_roadmap(update, _make_context()))
         reply = _last_reply(update)
