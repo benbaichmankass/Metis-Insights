@@ -3,6 +3,13 @@
 Tests cmd_sprintlet_status, cmd_sprintlet_complete, and cmd_checkpoint
 using the same offline async pattern as test_s008_telegram_rewired.py.
 Heavy deps (telegram, pybit) are stubbed at sys.modules level.
+
+Note: _latest_sprint_from_checkpoint_log was refactored in S-031 PR5 to
+delegate to processor.get_latest_sprint() / processor.get_latest_checkpoint_header(),
+which reads from a hardcoded repo-relative path (docs/claude/checkpoints/
+CHECKPOINT_LOG.md). Patching bot.REPO_ROOT has no effect on the processor's
+own path resolution. Tests that need controlled sprint/checkpoint values must
+monkeypatch the processor functions directly.
 """
 from __future__ import annotations
 
@@ -41,6 +48,7 @@ _tg_ext.ContextTypes = MagicMock()
 _tg_ext.ContextTypes.DEFAULT_TYPE = object
 
 import src.bot.telegram_query_bot as bot  # noqa: E402
+from src.units.ui import processor  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -80,14 +88,24 @@ class TestCmdSprintletStatus:
         assert "PR1" in text
         assert "merged" in text
 
-    def test_reply_contains_sprintlet_prefix(self):
+    def test_reply_contains_sprintlet_prefix(self, monkeypatch):
+        # _latest_sprint_from_checkpoint_log delegates to processor.get_latest_sprint;
+        # pin a controlled sprint ID so the test is independent of live CHECKPOINT_LOG.
+        monkeypatch.setattr(
+            processor, "get_latest_sprint",
+            lambda: {"sprint_id": "S-008.5", "cp_id": "CP-2026-04-29-58"},
+        )
         update = _make_update()
         _run(bot.cmd_sprintlet_status(update, _make_context(["PR2"])))
         text = update.message.reply_text.call_args[0][0]
         assert "✅" in text
         assert "S-008.5" in text
 
-    def test_no_args_uses_update_fallback(self):
+    def test_no_args_uses_update_fallback(self, monkeypatch):
+        monkeypatch.setattr(
+            processor, "get_latest_sprint",
+            lambda: {"sprint_id": "S-008.5", "cp_id": "CP-2026-04-29-58"},
+        )
         update = _make_update()
         _run(bot.cmd_sprintlet_status(update, _make_context([])))
         update.message.reply_text.assert_called_once()
@@ -109,22 +127,31 @@ class TestCmdSprintletComplete:
     def setup_method(self):
         bot.TELEGRAM_CHAT_ID = "99999"
 
-    def test_replies_complete_message(self):
+    def test_replies_complete_message(self, monkeypatch):
+        monkeypatch.setattr(
+            processor, "get_latest_sprint",
+            lambda: {"sprint_id": "S-008.5", "cp_id": "CP-2026-04-29-58"},
+        )
         update = _make_update()
         _run(bot.cmd_sprintlet_complete(update, _make_context()))
         text = update.message.reply_text.call_args[0][0]
         assert "COMPLETE" in text
         assert "S-008.5" in text
 
-    def test_reply_contains_checkpoint_reference(self):
+    def test_reply_contains_checkpoint_reference(self, monkeypatch):
+        monkeypatch.setattr(
+            processor, "get_latest_sprint",
+            lambda: {"sprint_id": "S-008.5", "cp_id": "CP-2026-04-29-58"},
+        )
         update = _make_update()
         _run(bot.cmd_sprintlet_complete(update, _make_context()))
         text = update.message.reply_text.call_args[0][0]
         assert "CP-2026-04-29-58" in text
 
-    def test_reply_contains_s009_reference(self):
+    def test_reply_contains_s009_reference(self, monkeypatch):
+        # Passing a sprint arg bypasses the checkpoint log lookup entirely.
         update = _make_update()
-        _run(bot.cmd_sprintlet_complete(update, _make_context()))
+        _run(bot.cmd_sprintlet_complete(update, _make_context(["S-009"])))
         text = update.message.reply_text.call_args[0][0]
         assert "S-009" in text
 
@@ -143,26 +170,25 @@ class TestCmdCheckpoint:
     def setup_method(self):
         bot.TELEGRAM_CHAT_ID = "99999"
 
-    def test_reads_latest_checkpoint(self, tmp_path, monkeypatch):
-        log = tmp_path / "CHECKPOINT_LOG.md"
-        log.write_text(
-            "# Log\n\n## CP-2026-04-29-58 — S-008 complete\n\n## CP-2026-04-29-57 — S-008 #127\n"
-        )
-        monkeypatch.setattr(bot, "REPO_ROOT", str(tmp_path))
-        # Create the expected directory structure
-        (tmp_path / "docs" / "claude" / "checkpoints").mkdir(parents=True)
-        (tmp_path / "docs" / "claude" / "checkpoints" / "CHECKPOINT_LOG.md").write_text(
-            "# Log\n\n## CP-2026-04-29-58 — S-008 complete\n\n## CP-2026-04-29-57 — S-008 #127\n"
+    def test_reads_latest_checkpoint(self, monkeypatch):
+        # cmd_checkpoint delegates to processor.get_latest_checkpoint_header();
+        # that function uses its own hardcoded repo-relative path so patching
+        # bot.REPO_ROOT has no effect. Monkeypatch the processor function directly.
+        monkeypatch.setattr(
+            processor, "get_latest_checkpoint_header",
+            lambda: "## CP-2026-04-29-58 — S-008 complete",
         )
         update = _make_update()
         _run(bot.cmd_checkpoint(update, _make_context()))
         text = update.message.reply_text.call_args[0][0]
         assert "CP-2026-04-29-58" in text
 
-    def test_missing_log_file_replies_error(self, tmp_path, monkeypatch):
-        monkeypatch.setattr(bot, "REPO_ROOT", str(tmp_path))
-        (tmp_path / "docs" / "claude" / "checkpoints").mkdir(parents=True)
-        # Do NOT create the file
+    def test_missing_log_file_replies_error(self, monkeypatch):
+        # Simulate the "file not found" error path: processor returns a ⚠️ string.
+        monkeypatch.setattr(
+            processor, "get_latest_checkpoint_header",
+            lambda: "⚠️ Could not read checkpoint log: [Errno 2] No such file",
+        )
         update = _make_update()
         _run(bot.cmd_checkpoint(update, _make_context()))
         text = update.message.reply_text.call_args[0][0]

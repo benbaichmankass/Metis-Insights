@@ -76,9 +76,16 @@ def test_main_cli_writes_file(tmp_path, monkeypatch, capsys):
 
 def test_bot_drain_sends_each_file_and_deletes(tmp_path, monkeypatch):
     from src.bot import telegram_query_bot as bot
+    from src.bot import cloud_notifier
 
-    monkeypatch.setattr(bot, "PENDING_PINGS_DIR", str(tmp_path))
-    monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "1234")
+    # _drain_pending_pings lives in cloud_notifier and reads PENDING_PINGS_DIR
+    # from that module's namespace. Patching bot.PENDING_PINGS_DIR only rebinds
+    # the name on the bot module (which re-exports it); the drain function's
+    # default-arg fallback still refers to cloud_notifier.PENDING_PINGS_DIR.
+    # Patch cloud_notifier directly and pass pings_dir explicitly to be safe.
+    monkeypatch.setattr(cloud_notifier, "PENDING_PINGS_DIR", str(tmp_path))
+    # The drain reads chat_id from os.environ, not from bot.TELEGRAM_CHAT_ID.
+    monkeypatch.setenv("TELEGRAM_CHAT_ID", "1234")
 
     # Drop two files via the same atomic mechanism the writers use.
     send_ping.PENDING_PINGS_DIR = tmp_path  # for this call only
@@ -118,9 +125,11 @@ def test_bot_drain_skips_when_no_files(tmp_path, monkeypatch):
 
 def test_bot_drain_renames_malformed_to_broken(tmp_path, monkeypatch):
     from src.bot import telegram_query_bot as bot
+    from src.bot import cloud_notifier
 
-    monkeypatch.setattr(bot, "PENDING_PINGS_DIR", str(tmp_path))
-    monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "1234")
+    # Patch cloud_notifier.PENDING_PINGS_DIR and the env-based chat_id.
+    monkeypatch.setattr(cloud_notifier, "PENDING_PINGS_DIR", str(tmp_path))
+    monkeypatch.setenv("TELEGRAM_CHAT_ID", "1234")
     bad = tmp_path / "bad.json"
     bad.write_text("not json {")
     bot_mock = MagicMock()

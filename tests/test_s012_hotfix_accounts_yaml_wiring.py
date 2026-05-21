@@ -177,13 +177,15 @@ class TestBybitClientHonorsApiKeyEnv:
     def test_legacy_env_path_still_works(self, tmp_path, monkeypatch):
         """When account has env_path (legacy single-account discovery),
         that path is still honored."""
+        # (a) STALE TEST: bybit_client_for now lives in
+        # src/units/accounts/clients.py (S-032/S-035 relocation).
+        # _read_env_file must be patched on the clients module, not
+        # data_loaders, because resolve_credentials calls clients._read_env_file.
         from src.bot import data_loaders as dl
+        import src.units.accounts.clients as clients
 
-        # Bypass the dotenv stub by replacing _read_env_file with a real
-        # dict — the production module reads via dotenv_values which is
-        # MagicMock'd at module-collection time in this test file.
         monkeypatch.setattr(
-            dl, "_read_env_file",
+            clients, "_read_env_file",
             lambda path: {"BYBIT_API_KEY": "legacy-key", "BYBIT_API_SECRET": "legacy-secret"}
                          if path else {},
         )
@@ -242,18 +244,17 @@ class TestGetStrategyLabelFromYaml:
     def test_env_strategy_wins_when_set(self, monkeypatch):
         """The .env STRATEGY override beats the YAML strategies list
         (legacy precedence preserved for env-discovered accounts)."""
-        from src.bot import telegram_query_bot as bot
+        # (a) STALE TEST: _account_env and get_strategy_label moved to
+        # src/bot/trade_notifier.py (D3/PR-4 extraction). The patch target
+        # is trade_notifier._account_env, not telegram_query_bot._account_env.
+        from src.bot import trade_notifier as tn
 
-        # _account_env normally reads via dotenv_values, which is stubbed
-        # at module-collection time in this test file. Replace it with a
-        # plain dict matching what the production reader would return
-        # for an env file containing STRATEGY=vwap.
-        monkeypatch.setattr(bot, "_account_env", lambda acc: {"STRATEGY": "vwap"})
+        monkeypatch.setattr(tn, "_account_env", lambda acc: {"STRATEGY": "vwap"})
         account = {
             "env_path": "/tmp/fake.env",
             "strategies": ["turtle_soup"],
         }
-        assert bot.get_strategy_label(account) == "VWAP"
+        assert tn.get_strategy_label(account) == "VWAP"
 
     def test_yaml_unknown_strategy_falls_through_to_default(self):
         """A strategy not in _STRATEGY_DISPLAY falls through to the
