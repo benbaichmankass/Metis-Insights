@@ -72,6 +72,10 @@ class TestFloorRounding:
             "min_qty": 0.0001,
             "qty_precision": 3,
             "daily_usd": 1_000_000,  # disable daily-loss gate for this assertion
+            # 2026-05-12 margin pre-flight cap would clamp this $498 account
+            # to (498 * 0.9 / 50000) ≈ 0.008 at leverage=1, masking the
+            # floor-rounding behaviour under test. High leverage disables it.
+            "leverage": 100,
         })
         pkg = _pkg(entry=50_000.0, sl=49_800.0)  # distance=200
         qty = rm.position_size(pkg, balance_usd=498.0)
@@ -167,10 +171,12 @@ class TestDailyLossBudgetGate:
 
 class TestLiveBalanceFetcher:
     def _stub_accounts(self, monkeypatch):
+        # leverage=100 keeps the 2026-05-12 margin pre-flight cap from
+        # clamping the risk-% balances these tests pin.
         rm_a = RiskManager({"risk_pct": 0.01, "min_balance_usd": 50,
-                            "daily_usd": 1_000_000})
+                            "daily_usd": 1_000_000, "leverage": 100})
         rm_b = RiskManager({"risk_pct": 0.01, "min_balance_usd": 50,
-                            "daily_usd": 1_000_000})
+                            "daily_usd": 1_000_000, "leverage": 100})
 
         class _Account:
             def __init__(self, name, rm):
@@ -179,6 +185,11 @@ class TestLiveBalanceFetcher:
                 self.account_type = "regular"
                 self.risk_manager = rm
                 self.dry_run = True
+                # Coordinator.multi_account_execute reads account.api_key_env
+                # (bare attribute) when building account_cfg — stub fixtures
+                # must carry it or dispatch raises AttributeError.
+                self.api_key_env = ""
+                self.market_type = "spot"
                 self.calls = []
 
             def place_order(self, pkg, *, dry_run=None):

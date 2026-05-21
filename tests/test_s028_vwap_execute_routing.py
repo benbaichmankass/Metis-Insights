@@ -21,12 +21,18 @@ import pytest
 from src.core.coordinator import Coordinator, OrderPackage
 
 
+# NOTE: no ``api_key_env`` here on purpose. With one set, load_accounts
+# marks the account ``configured=False`` (the env var isn't present in the
+# test process), and multi_account_execute now drops unconfigured accounts
+# at the eligibility filter — BEFORE the dispatch loop these tests exercise.
+# These tests simulate the *client-construction* missing-creds path by
+# patching ``bybit_client_for`` to return None, so the account must stay
+# configured to reach that branch.
 _ACCOUNTS_YAML = textwrap.dedent("""\
     accounts:
       bybit_1:
         type: regular
         exchange: bybit
-        api_key_env: BYBIT_KEY_1
         risk:
           max_dd_pct: 0.05
           daily_usd: 100
