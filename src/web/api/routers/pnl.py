@@ -50,7 +50,7 @@ def _load_account_ids(accounts_yaml: Path) -> list[str]:
                 reason=err.get("error", "parse error"),
                 path=err.get("path", str(accounts_yaml)),
             )
-        except Exception:  # noqa: BLE001
+        except ImportError:
             _logging.getLogger(__name__).warning(
                 "_load_account_ids: outcomes.report unavailable: %s", err
             )
