@@ -13,8 +13,13 @@ Root cause: ``build_settings_from_env()`` wrote the live-mode flags as
 order-layer lookup defaulted to "false" and rejected every live
 signal.
 
-Fix: ``build_settings_from_env()`` now emits both casings. This file
-locks the fix in place.
+S-012 fix was subsequently superseded by operator directive 2026-05-03:
+per-account ``mode: live | dry_run`` in ``config/accounts.yaml`` is now
+the single dry/live toggle; ``build_settings_from_env`` and
+``safe_place_order`` no longer carry or consult DRY_RUN /
+ALLOW_LIVE_TRADING.  Tests updated to verify the current contracts
+(b: outdated contract — cite: validation.py:115-125, orders.py:213-220
+"Operator directive 2026-05-03").
 """
 from __future__ import annotations
 
@@ -45,41 +50,38 @@ def _set_env(monkeypatch, **overrides):
 
 
 # ---------------------------------------------------------------------------
-# build_settings_from_env emits BOTH casings
+# (b) OUTDATED CONTRACT — operator directive 2026-05-03 removed DRY_RUN /
+# ALLOW_LIVE_TRADING from build_settings_from_env.  The new contract is that
+# neither key appears; per-account config/accounts.yaml mode is the toggle.
 # ---------------------------------------------------------------------------
 
 
-def test_settings_dict_includes_uppercase_dry_run(monkeypatch):
+def test_settings_dict_does_not_include_dry_run(monkeypatch):
+    """build_settings_from_env must NOT emit DRY_RUN / ALLOW_LIVE_TRADING;
+    per-account mode in accounts.yaml is the sole dry/live toggle
+    (operator directive 2026-05-03, validation.py:115-125)."""
     from src.runtime.validation import build_settings_from_env
 
-    _set_env(monkeypatch, DRY_RUN="false", ALLOW_LIVE_TRADING="true")
+    _set_env(monkeypatch)
     s = build_settings_from_env()
-    assert "DRY_RUN" in s, (
-        "build_settings_from_env must emit uppercase 'DRY_RUN' so "
-        "safe_place_order's lookup finds it. S-012 hotfix."
+    assert "DRY_RUN" not in s, (
+        "build_settings_from_env must NOT emit DRY_RUN after operator "
+        "directive 2026-05-03 removed process-level mode interlocks."
     )
-    assert s["DRY_RUN"] is False
-    assert s["dry_run"] is False  # lowercase still present for back-compat
+    assert "ALLOW_LIVE_TRADING" not in s, (
+        "build_settings_from_env must NOT emit ALLOW_LIVE_TRADING after "
+        "operator directive 2026-05-03."
+    )
 
 
-def test_settings_dict_includes_uppercase_allow_live_trading(monkeypatch):
+def test_settings_dict_does_not_include_allow_live_trading(monkeypatch):
+    """Companion: ALLOW_LIVE_TRADING not present under any env combination."""
     from src.runtime.validation import build_settings_from_env
 
-    _set_env(monkeypatch, DRY_RUN="false", ALLOW_LIVE_TRADING="true")
+    _set_env(monkeypatch)
     s = build_settings_from_env()
-    assert "ALLOW_LIVE_TRADING" in s, (
-        "build_settings_from_env must emit uppercase 'ALLOW_LIVE_TRADING' "
-        "so safe_place_order's lookup finds it. S-012 hotfix — without "
-        "this key every live signal is rejected with reason "
-        "'ALLOW_LIVE_TRADING=true is required for live submission'."
-    )
-    assert s["ALLOW_LIVE_TRADING"] is True
-    assert s["allow_live_trading"] is True  # back-compat lowercase
-
-    _set_env(monkeypatch, DRY_RUN="false", ALLOW_LIVE_TRADING="false")
-    s = build_settings_from_env()
-    assert s["ALLOW_LIVE_TRADING"] is False
-    assert s["allow_live_trading"] is False
+    assert "ALLOW_LIVE_TRADING" not in s
+    assert "allow_live_trading" not in s
 
 
 # ---------------------------------------------------------------------------
@@ -111,22 +113,29 @@ def test_safe_place_order_submits_when_settings_built_from_env(monkeypatch):
 
     assert result["status"] == "submitted", (
         f"Expected live submission; got {result}. "
-        "If reason includes 'ALLOW_LIVE_TRADING=true is required', the "
-        "S-012 hotfix has regressed: build_settings_from_env must emit "
-        "the uppercase key safe_place_order looks for."
+        "safe_place_order is a payload-validation + risk-cap rail only "
+        "(operator directive 2026-05-03, orders.py:213-220); it always "
+        "submits for valid orders."
     )
     assert client.place_order.called
 
 
-def test_safe_place_order_dry_run_when_dry_run_env_true(monkeypatch):
-    """The legitimate dry-run path: settings.DRY_RUN=True → no exchange call."""
+def test_safe_place_order_always_submits_regardless_of_dry_run_key(monkeypatch):
+    """(b) OUTDATED CONTRACT — operator directive 2026-05-03: safe_place_order
+    no longer consults DRY_RUN.  Even if the caller injects DRY_RUN=True into
+    settings, the function submits; the dry-run interlock is per-account in
+    RiskManager (orders.py:213-220)."""
     from src.runtime.validation import build_settings_from_env
     from src.runtime.orders import safe_place_order
 
     _set_env(monkeypatch, DRY_RUN="true", ALLOW_LIVE_TRADING="true")
     settings = build_settings_from_env()
+    # Even if the caller manually injects a DRY_RUN key, safe_place_order
+    # ignores it and submits.
+    settings["DRY_RUN"] = True
 
     client = MagicMock()
+    client.place_order.return_value = {"orderId": "x", "ok": True}
     order = {
         "symbol": "BTCUSDT",
         "side": "buy",
@@ -135,25 +144,23 @@ def test_safe_place_order_dry_run_when_dry_run_env_true(monkeypatch):
         "meta": {"strategy_name": "turtle_soup"},
     }
     result = safe_place_order(order, settings, client)
-    assert result["status"] == "dry_run"
-    assert not client.place_order.called
+    # safe_place_order is NOT the dry-run gate; it always submits valid orders.
+    assert result["status"] == "submitted"
+    assert client.place_order.called
 
 
-def test_safe_place_order_blocks_when_env_drops_allow_live(monkeypatch):
-    """Validation passes (e.g. DRY_RUN=true) but a downstream code path
-    flips DRY_RUN=false at runtime — the order layer must still refuse
-    without ALLOW_LIVE_TRADING. The interlock is preserved by the hotfix."""
+def test_safe_place_order_submits_even_without_allow_live_key(monkeypatch):
+    """(b) OUTDATED CONTRACT — safe_place_order no longer requires
+    ALLOW_LIVE_TRADING (operator directive 2026-05-03, orders.py:213-220).
+    A missing ALLOW_LIVE_TRADING key is not a validation failure."""
     from src.runtime.validation import build_settings_from_env
     from src.runtime.orders import safe_place_order
 
-    _set_env(monkeypatch, DRY_RUN="true", ALLOW_LIVE_TRADING="false", MODE="BACKTEST")
+    _set_env(monkeypatch, DRY_RUN="false", ALLOW_LIVE_TRADING="false", MODE="BACKTEST")
     settings = build_settings_from_env()
-    # Simulate the runtime forcing DRY_RUN=false (e.g. an operator
-    # override) without flipping ALLOW_LIVE_TRADING.
-    settings["DRY_RUN"] = False
-    settings["dry_run"] = False
 
     client = MagicMock()
+    client.place_order.return_value = {"orderId": "x", "ok": True}
     order = {
         "symbol": "BTCUSDT",
         "side": "buy",
@@ -162,25 +169,27 @@ def test_safe_place_order_blocks_when_env_drops_allow_live(monkeypatch):
         "meta": {"strategy_name": "vwap"},
     }
     result = safe_place_order(order, settings, client)
-    assert result["status"] == "failed_validation"
-    assert "ALLOW_LIVE_TRADING" in result["reason"]
-    assert not client.place_order.called
+    # No ALLOW_LIVE_TRADING interlock in safe_place_order post-directive.
+    assert result["status"] == "submitted"
+    assert client.place_order.called
 
 
 # ---------------------------------------------------------------------------
-# Pin: the source has the dual-casing pattern documented
+# Pin: build_settings_from_env source documents the operator directive
 # ---------------------------------------------------------------------------
 
 
-def test_build_settings_from_env_source_documents_uppercase_aliases():
-    """The dual-casing isn't an accident — it's a documented contract.
-    If a future refactor drops the uppercase emission, this test fails
-    with the exact reason."""
+def test_build_settings_from_env_source_documents_operator_directive():
+    """The removal of DRY_RUN / ALLOW_LIVE_TRADING from build_settings_from_env
+    is documented inline with 'operator directive 2026-05-03'. This test pins
+    the comment so a future refactor can't silently re-add the keys without
+    also updating the directive comment."""
     import inspect
     from src.runtime import validation
 
     src = inspect.getsource(validation.build_settings_from_env)
-    assert '"DRY_RUN"' in src and '"ALLOW_LIVE_TRADING"' in src, (
-        "build_settings_from_env source must explicitly emit uppercase "
-        "DRY_RUN and ALLOW_LIVE_TRADING aliases. S-012 hotfix."
+    assert "2026-05-03" in src or "per-account" in src, (
+        "build_settings_from_env docstring must document the operator "
+        "directive (2026-05-03) that removed process-level dry/live flags. "
+        "S-012 hotfix superseded by operator directive."
     )

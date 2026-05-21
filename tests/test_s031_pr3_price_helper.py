@@ -39,7 +39,7 @@ class TestGetPriceHappyPath:
         args, kwargs = mock_get.call_args
         assert "api.bybit.com" in args[0]
         assert kwargs["params"]["symbol"] == "BTCUSDT"
-        assert kwargs["params"]["category"] == "linear"
+        assert kwargs["params"]["category"] == "spot"
 
     def test_default_symbol_is_btcusdt(self):
         from src.units.ui import processor

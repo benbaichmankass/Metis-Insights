@@ -889,6 +889,14 @@ class TestQtylessSignalRoutesToMultiAccountDispatch:
                 return [{"name": "fake", "trade_id": "dry-1", "error": None}]
 
         monkeypatch.setattr("src.core.coordinator.Coordinator", lambda: _StubCoord())
+        # Stub strategy-monocle gates added after this test was authored — they
+        # would otherwise intercept dispatch before it reaches multi_account_execute.
+        monkeypatch.setattr(
+            "src.runtime.pipeline._has_open_package_for_strategy", lambda s: None
+        )
+        monkeypatch.setattr(
+            "src.runtime.pipeline._recent_refusal_for_strategy", lambda s: None
+        )
 
         settings = {
             "SYMBOL": "BTCUSDT",

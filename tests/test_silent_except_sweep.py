@@ -114,8 +114,7 @@ def test_audit_log_failure_reports_warn():
     with patch.object(pl, "log_signal", side_effect=RuntimeError("disk full")), \
             patch("src.runtime.pipeline.os.path.exists", return_value=False), \
             patch("src.runtime.pipeline.write_status"), \
-            patch("src.runtime.pipeline.send_via_alert_manager"), \
-            patch("src.runtime.pipeline.notify_operator"), \
+            patch("src.runtime.pipeline.send_to_operator"), \
             patch("src.runtime.pipeline.report", side_effect=fake_report):
         pl.run_pipeline(settings=settings, signal_builder=lambda _s: actionable)
 
