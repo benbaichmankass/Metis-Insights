@@ -165,15 +165,20 @@ def test_pipeline_result_message_includes_strategy_name():
     operator's eyeball-scan still work.
     """
     captured = []
+
+    def _fake_send_to_operator(plain, html=None, *, telegram_client=None):
+        # Capture whichever text the pipeline chose to send.
+        captured.append(html if html is not None else plain)
+
     with patch("src.runtime.pipeline.os.path.exists", return_value=False), \
-         patch("src.runtime.notify.send_telegram_direct",
-               side_effect=lambda msg, **kw: captured.append(msg)):
+         patch("src.runtime.pipeline.send_to_operator",
+               side_effect=_fake_send_to_operator):
         run_pipeline(
             settings=_settings(MULTI_ACCOUNT_DISPATCH="false"),
             exchange_client=_DummyClient(),
             signal_builder=_signal_stub(_signal_with_strategy("vwap")),
         )
-    msgs = [m for m in captured if "Pipeline result" in m]
+    msgs = [m for m in captured if m and "Pipeline result" in m]
     assert msgs, f"no Pipeline result message captured. got: {captured}"
     assert "strategy=vwap" in msgs[-1], (
         f"Pipeline result message missing strategy attribution: {msgs[-1]!r}"
@@ -193,10 +198,14 @@ def test_pipeline_result_message_strategy_falls_back_to_multiplexed_when_meta_mi
     """
     captured = []
     sig_no_meta = {"symbol": "BTCUSDT", "side": "buy", "qty": 1.0, "price": 50_000.0}
+
+    def _fake_send_to_operator(plain, html=None, *, telegram_client=None):
+        captured.append(html if html is not None else plain)
+
     with patch("src.runtime.pipeline.os.path.exists", return_value=False), \
          patch.dict(os.environ, {}, clear=False), \
-         patch("src.runtime.notify.send_telegram_direct",
-               side_effect=lambda msg, **kw: captured.append(msg)):
+         patch("src.runtime.pipeline.send_to_operator",
+               side_effect=_fake_send_to_operator):
         # Drop STRATEGY so the fallback chain hits the final default.
         os.environ.pop("STRATEGY", None)
         # Settings without STRATEGY field.
@@ -207,7 +216,7 @@ def test_pipeline_result_message_strategy_falls_back_to_multiplexed_when_meta_mi
             exchange_client=_DummyClient(),
             signal_builder=_signal_stub(sig_no_meta),
         )
-    msgs = [m for m in captured if "Pipeline result" in m]
+    msgs = [m for m in captured if m and "Pipeline result" in m]
     assert msgs, f"no Pipeline result message captured. got: {captured}"
     assert "strategy=multiplexed" in msgs[-1], (
         f"BUG-033: 'unknown' must not leak; expected 'multiplexed'. got: {msgs[-1]!r}"
@@ -222,9 +231,13 @@ def test_pipeline_result_message_renders_collapsable_sections():
     Sections must include the strategy and a stance on the order
     package (generated vs not)."""
     captured = []
+
+    def _fake_send_to_operator(plain, html=None, *, telegram_client=None):
+        captured.append(html if html is not None else plain)
+
     with patch("src.runtime.pipeline.os.path.exists", return_value=False), \
-         patch("src.runtime.notify.send_telegram_direct",
-               side_effect=lambda msg, **kw: captured.append(msg)):
+         patch("src.runtime.pipeline.send_to_operator",
+               side_effect=_fake_send_to_operator):
         # signal carries entry/sl/tp so the order-package section
         # renders in "generated" mode.
         run_pipeline(
@@ -319,9 +332,13 @@ def test_pipeline_result_failed_validation_includes_remediation_section():
     Trigger failed_validation via the MAX_QTY cap instead.
     """
     captured = []
+
+    def _fake_send_to_operator(plain, html=None, *, telegram_client=None):
+        captured.append(html if html is not None else plain)
+
     with patch("src.runtime.pipeline.os.path.exists", return_value=False), \
-         patch("src.runtime.notify.send_telegram_direct",
-               side_effect=lambda msg, **kw: captured.append(msg)):
+         patch("src.runtime.pipeline.send_to_operator",
+               side_effect=_fake_send_to_operator):
         run_pipeline(
             settings={"DRY_RUN": "false", "ALLOW_LIVE_TRADING": "true",
                       "MULTI_ACCOUNT_DISPATCH": "false", "MAX_QTY": "0.0001"},

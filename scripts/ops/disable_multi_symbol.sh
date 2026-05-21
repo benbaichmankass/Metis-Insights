@@ -4,6 +4,10 @@
 # trader is unaffected by the flip either way — this just stops the MES tick.
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/ops/_lib.sh
+source "${SCRIPT_DIR}/_lib.sh"
+
 ENV_FILE="${TRADER_ENV_FILE:-/home/ubuntu/ict-trading-bot/.env}"
 
 if grep -qE "^MULTI_SYMBOL_ENABLED=" "${ENV_FILE}" 2>/dev/null; then

@@ -58,6 +58,13 @@ sys.modules["telegram.ext"].filters = _FakeFilters
 import pytest  # noqa: E402
 
 from src.bot import comms_handler as ch  # noqa: E402
+
+# comms_handler may have been imported earlier (by test_accounts_status_md_rendering
+# or test_m5_consumer) with a MagicMock InlineKeyboardMarkup/Button. Re-establish
+# the structure-preserving shape in ch's namespace so TestBuildKeyboard assertions
+# on kb.inline_keyboard work regardless of import order.
+ch.InlineKeyboardButton = lambda *a, **kw: SimpleNamespace(args=a, kwargs=kw)
+ch.InlineKeyboardMarkup = lambda rows: SimpleNamespace(inline_keyboard=rows)
 from src.comms import (  # noqa: E402
     ANSWER_STATUS,
     Answer,
@@ -346,11 +353,17 @@ class TestCommsPollerDeliver:
     def test_delivers_pending_and_marks_sent(self, store, monkeypatch):
         _run(self._impl_delivers_pending_and_marks_sent_async(store, monkeypatch))
 
-    async def _impl_skips_when_no_chat_id_async(self, store):
+    async def _impl_skips_when_no_chat_id_async(self, store, monkeypatch):
         req = _build_request()
         store.create(req)
         bot = MagicMock()
         bot.send_message = AsyncMock()
+
+        # Ensure TELEGRAM_CHAT_ID is unset — test_recurring_session_cmds
+        # sets it at module level via os.environ.setdefault, which leaks
+        # across the session and causes CommsPoller(chat_id=None) to pick
+        # it up from the environment instead of treating it as absent.
+        monkeypatch.delenv("TELEGRAM_CHAT_ID", raising=False)
 
         application = SimpleNamespace(bot=bot, bot_data={})
         poller = ch.CommsPoller(store=store, repo_root=store.root.parent, chat_id=None)
@@ -360,8 +373,8 @@ class TestCommsPollerDeliver:
         loaded = store.load(req.request_id)
         assert loaded.status == STATUS.PENDING
 
-    def test_skips_when_no_chat_id(self, store):
-        _run(self._impl_skips_when_no_chat_id_async(store))
+    def test_skips_when_no_chat_id(self, store, monkeypatch):
+        _run(self._impl_skips_when_no_chat_id_async(store, monkeypatch))
 
     async def _impl_does_not_resend_already_sent_request_async(self, store):
         req = _build_request()

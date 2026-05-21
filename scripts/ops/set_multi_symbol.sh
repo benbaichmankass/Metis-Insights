@@ -15,6 +15,10 @@
 # Idempotent: re-running just re-asserts the values + restarts.
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/ops/_lib.sh
+source "${SCRIPT_DIR}/_lib.sh"
+
 ENV_FILE="${TRADER_ENV_FILE:-/home/ubuntu/ict-trading-bot/.env}"
 SYMBOLS_VALUE="${SYMBOLS_VALUE:-BTCUSDT,MES}"
 

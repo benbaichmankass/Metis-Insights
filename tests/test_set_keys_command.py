@@ -39,7 +39,7 @@ def _make_update(chat_id: str = "12345"):
 
 
 def _run(coro):
-    return asyncio.get_event_loop().run_until_complete(coro)
+    return asyncio.run(coro)
 
 
 def test_set_keys_replies_with_colab_link():
