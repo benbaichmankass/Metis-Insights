@@ -70,7 +70,7 @@ def test_news_veto_short_circuits_order():
         patch("src.runtime.pipeline.inject_runtime_counters", side_effect=lambda s, _: dict(s)),
         patch("src.runtime.pipeline.write_signal"),
         patch("src.runtime.pipeline.log_signal"),
-        patch("src.runtime.pipeline.send_via_alert_manager"),
+        patch("src.runtime.pipeline.send_to_operator"),
     ):
         result = run_pipeline(_settings(), signal_builder=lambda s: _actionable_signal())
 
@@ -93,7 +93,7 @@ def test_news_non_veto_calls_safe_place_order():
         patch("src.runtime.pipeline.inject_runtime_counters", side_effect=lambda s, _: dict(s)),
         patch("src.runtime.pipeline.write_signal"),
         patch("src.runtime.pipeline.log_signal"),
-        patch("src.runtime.pipeline.send_via_alert_manager"),
+        patch("src.runtime.pipeline.send_to_operator"),
     ):
         result = run_pipeline(_settings(), signal_builder=lambda s: _actionable_signal())
 
@@ -111,7 +111,7 @@ def test_no_signal_skips_news_check():
         patch("src.runtime.pipeline.safe_place_order"),
         patch("src.runtime.pipeline.write_signal"),
         patch("src.runtime.pipeline.log_signal"),
-        patch("src.runtime.pipeline.send_via_alert_manager"),
+        patch("src.runtime.pipeline.send_to_operator"),
     ):
         run_pipeline(_settings(), signal_builder=lambda s: {"symbol": "BTCUSDT", "side": "none", "qty": 0})
 
@@ -135,7 +135,7 @@ def test_symbol_tags_derived_from_signal():
         patch("src.runtime.pipeline.inject_runtime_counters", side_effect=lambda s, _: dict(s)),
         patch("src.runtime.pipeline.write_signal"),
         patch("src.runtime.pipeline.log_signal"),
-        patch("src.runtime.pipeline.send_via_alert_manager"),
+        patch("src.runtime.pipeline.send_to_operator"),
     ):
         run_pipeline(_settings(), signal_builder=lambda s: _actionable_signal(symbol="BTCUSDT"))
 
@@ -160,7 +160,7 @@ def test_symbol_tags_slash_format():
         patch("src.runtime.pipeline.inject_runtime_counters", side_effect=lambda s, _: dict(s)),
         patch("src.runtime.pipeline.write_signal"),
         patch("src.runtime.pipeline.log_signal"),
-        patch("src.runtime.pipeline.send_via_alert_manager"),
+        patch("src.runtime.pipeline.send_to_operator"),
     ):
         run_pipeline(_settings(), signal_builder=lambda s: _actionable_signal(symbol="BTC/USDT:USDT"))
 
@@ -180,7 +180,7 @@ def test_veto_result_contains_signal():
         patch("src.runtime.pipeline.inject_runtime_counters", side_effect=lambda s, _: dict(s)),
         patch("src.runtime.pipeline.write_signal"),
         patch("src.runtime.pipeline.log_signal"),
-        patch("src.runtime.pipeline.send_via_alert_manager"),
+        patch("src.runtime.pipeline.send_to_operator"),
     ):
         result = run_pipeline(_settings(), signal_builder=lambda s: expected_signal)
 
@@ -188,7 +188,7 @@ def test_veto_result_contains_signal():
 
 
 # ---------------------------------------------------------------------------
-# Test 7: veto → notify_operator called exactly once with veto message
+# Test 7: veto → send_to_operator called exactly once with veto message
 # ---------------------------------------------------------------------------
 
 def test_news_veto_sends_operator_notification():
@@ -200,13 +200,12 @@ def test_news_veto_sends_operator_notification():
         patch("src.runtime.pipeline.inject_runtime_counters", side_effect=lambda s, _: dict(s)),
         patch("src.runtime.pipeline.write_signal"),
         patch("src.runtime.pipeline.log_signal"),
-        patch("src.runtime.pipeline.notify_operator") as mock_notify,
-        patch("src.runtime.pipeline.send_via_alert_manager"),
+        patch("src.runtime.pipeline.send_to_operator") as mock_notify,
     ):
         run_pipeline(_settings(), signal_builder=lambda s: _actionable_signal(),
                      telegram_client=mock_client)
 
-    # notify_operator called at least once for the veto-specific message
+    # send_to_operator called at least once for the veto-specific message
     veto_calls = [
         call for call in mock_notify.call_args_list
         if "News veto" in str(call) and "bearish" in str(call)
@@ -218,11 +217,11 @@ def test_news_veto_sends_operator_notification():
 
 
 # ---------------------------------------------------------------------------
-# Test 8: notify_operator raising does not alter the pipeline return status
+# Test 8: send_to_operator raising does not alter the pipeline return status
 # ---------------------------------------------------------------------------
 
 def test_veto_notify_failure_does_not_change_status():
-    """A RuntimeError from the veto-specific notify_operator call must be
+    """A RuntimeError from the veto-specific send_to_operator call must be
     caught by the pipeline's try/except and must not change the return status."""
     mock_client = MagicMock()
 
@@ -234,9 +233,8 @@ def test_veto_notify_failure_does_not_change_status():
         patch("src.runtime.pipeline.inject_runtime_counters", side_effect=lambda s, _: dict(s)),
         patch("src.runtime.pipeline.write_signal"),
         patch("src.runtime.pipeline.log_signal"),
-        patch("src.runtime.pipeline.notify_operator",
+        patch("src.runtime.pipeline.send_to_operator",
               side_effect=[RuntimeError("Telegram down"), None]),
-        patch("src.runtime.pipeline.send_via_alert_manager"),
     ):
         result = run_pipeline(_settings(), signal_builder=lambda s: _actionable_signal(),
                               telegram_client=mock_client)
