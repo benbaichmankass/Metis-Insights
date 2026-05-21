@@ -32,11 +32,16 @@ single command you can re-run locally.
 | `hf-cron` | `.github/workflows/hf-cron.yml` | `schedule` (HF dataset publish) | n/a | not PR-gating |
 | `training-run` | `.github/workflows/training-run.yml` | `workflow_dispatch` | n/a | not PR-gating |
 
-**Required status checks on `main`** (post-S-045): `pytest-collect`,
-`secret-scan`, `ruff-lint`, `dry-run-guard`. `repo-inventory` stays
-advisory until ≥ 5 PRs have observed the artifact and the operator
-confirms the signal is useful. Branch protection wiring is the T4
-deliverable of S-045 — see § "Branch protection wiring" below.
+**Required status checks on `main`** (2026-05-21): `pytest-collect`,
+`secret-scan`, `ruff-lint`, `dry-run-guard`, `env-gate-guard`,
+`silent-empty-guard`, `canonical-config-loaders`,
+`canonical-db-resolver`. **`enforce_admins` is now `true`** — admin /
+admin-scoped-API merges no longer bypass these checks (without it the
+required list was cosmetic, since every merge in this repo is an admin
+merge). `pytest-run` is advisory until its baseline is green on `main`,
+then it joins the list. `repo-inventory` and `arch-doc-guard` stay
+advisory by design. Branch protection wiring is in § "Branch protection
+wiring" below.
 
 > **Status-context naming (post 2026-05-10 audit):** the GitHub
 > status-context name comes from the workflow's **job ID**, not the
@@ -198,10 +203,16 @@ Current required contexts on `main`:
 - `secret-scan`
 - `ruff-lint`
 - `dry-run-guard`
+- `env-gate-guard`
+- `silent-empty-guard`
+- `canonical-config-loaders`
+- `canonical-db-resolver`
 
-`repo-inventory` stays unticked (advisory) until ≥ 5 PRs have observed
-the artifact and the operator confirms the drift signal is useful. The
-other workflows (`hf-cron`, `training-run`) are not PR-triggered and
+`enforce_admins` is set to `true` so the checks apply to admins and
+admin-scoped API merges (otherwise they're bypassed and the list is
+cosmetic). `pytest-run` joins this list once its baseline is green on
+`main`. `repo-inventory` and `arch-doc-guard` stay advisory by design.
+The other workflows (`hf-cron`, `training-run`) are not PR-triggered and
 do not appear in the branch-protection list.
 
 ### One-time operator setup

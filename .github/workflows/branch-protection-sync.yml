@@ -63,8 +63,15 @@ jobs:
           GH_TOKEN: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
         run: |
           # Hardcoded source of truth for required status checks.
-          # To change: edit this list, commit, push.
-          REQUIRED_CONTEXTS='["pytest-collect","secret-scan","ruff-lint","dry-run-guard"]'
+          # To change: edit this list, commit, push. Each entry MUST
+          # equal the corresponding workflow's job ID (verified
+          # 2026-05-21 against .github/workflows/*.yml job IDs).
+          #
+          # pytest-run is intentionally NOT here yet: it executes the
+          # full test suite and is advisory until its baseline is green
+          # on main (see pytest-run.yml header). Add "pytest-run" to
+          # this list to promote it once green.
+          REQUIRED_CONTEXTS='["pytest-collect","secret-scan","ruff-lint","dry-run-guard","env-gate-guard","silent-empty-guard","canonical-config-loaders","canonical-db-resolver"]'
 
           OWNER="benbaichmankass"
           REPO="ict-trading-bot"
@@ -103,6 +110,15 @@ jobs:
             exit 1
           fi
           rm -f "$curl_get"
+
+          # 2026-05-21: enforce required checks on admins too. Without
+          # this, repo admins — and admin-scoped API merges, which is how
+          # every merge in this repo actually happens — bypass required
+          # status checks entirely, leaving REQUIRED_CONTEXTS above
+          # cosmetic. Forcing true is what makes "checks gate merges"
+          # real. Emergency-merge escape hatch: temporarily set this to
+          # false (or toggle Settings → Branches) and push to main.
+          ENFORCE_ADMINS=true
 
           BODY=$(jq -n \
             --argjson contexts "$REQUIRED_CONTEXTS" \
