@@ -1,0 +1,67 @@
+name: pytest-run
+
+# Executes the test suite on every PR (and on push to main).
+#
+# This is the companion to `pytest-collect`, which only *imports* the
+# test tree (`--collect-only`) and never runs a single assertion. That
+# collect-only gate let real regressions through whenever the broken
+# code still imported cleanly — e.g. the operator-action allowlist guard
+# silently drifting to 14/30 actions, the dead `_RUNTIME_LOGS` test
+# fixture, and the shadow-prediction wiring gap (all had green CI).
+# `pytest-run` closes that hole by actually executing the suite.
+#
+# **ADVISORY (non-blocking) on introduction.** It is intentionally NOT
+# in `branch-protection-sync.yml`'s `REQUIRED_CONTEXTS` yet: the suite
+# has never run in CI, so its true pass/fail state on `main` is unknown.
+# Shipping advisory first surfaces that state without a wall of red
+# blocking every merge. Once it is observed green on `main`, promote it
+# to a required check (add `"pytest-run"` to `REQUIRED_CONTEXTS`) — same
+# advisory→blocking path `pytest-collect` itself followed in S-045.
+#
+# `tests/test_main_loop.py` is excluded for the same reason
+# `pytest-collect` excludes it: it imports the live trading entrypoint
+# (`src.main`) and is not sandbox/CI-safe. See CLAUDE.md "Default
+# verification". Any other module that proves CI-unsafe should be fixed,
+# not blanket-ignored — add a narrow `--ignore` with a comment if truly
+# unavoidable.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  pytest-run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install runtime + test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-test.txt
+
+      - name: Run tests
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          # Real execution (no --collect-only, no `|| true`): the job
+          # reports honest pass/fail so the advisory signal is truthful.
+          # --ignore=tests/test_main_loop.py mirrors pytest-collect: that
+          # module imports the live trading entrypoint.
+          pytest -q tests/ \
+            --ignore=tests/test_main_loop.py

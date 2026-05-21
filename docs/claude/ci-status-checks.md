@@ -24,6 +24,7 @@ single command you can re-run locally.
 | Workflow | File | Trigger | Gate | Local equivalent |
 |---|---|---|---|---|
 | `pytest-collect` | `.github/workflows/pytest-collect.yml` | `pull_request` to `main`, `push` to `main` | **blocking** (since S-045) | `PYTHONPATH=. pytest --collect-only -q tests/ --ignore=tests/test_main_loop.py` |
+| `pytest-run` | `.github/workflows/pytest-run.yml` | `pull_request` to `main`, `push` to `main` | advisory (promote to blocking once green on `main`) | `PYTHONPATH=. pytest -q tests/ --ignore=tests/test_main_loop.py` |
 | `secret-scan` | `.github/workflows/secret-scan.yml` | `pull_request` to `main`, `push` to `main` | **blocking** | `python scripts/secret_scan.py` |
 | `ruff-lint` | `.github/workflows/ruff-lint.yml` | `pull_request` to `main`, `push` to `main` | **blocking** | `ruff check .` |
 | `repo-inventory` | `.github/workflows/repo-inventory.yml` | `pull_request` to `main`, `push` to `main` | advisory | `python scripts/repo_inventory.py` |
@@ -81,6 +82,29 @@ deliverable of S-045 — see § "Branch protection wiring" below.
   `if "X" not in sys.modules:` guard into `try: import X; except
   ImportError: stub`. Do **not** add `--continue-on-collection-errors`
   back to the workflow — fix the import.
+
+### `pytest-run` (advisory — promote to blocking once green)
+
+- **What it does.** Installs `requirements.txt` + `requirements-test.txt`
+  on Python 3.11, then runs `pytest -q tests/
+  --ignore=tests/test_main_loop.py` — the **actual test suite**, not
+  just collection. This is the companion to `pytest-collect`: collection
+  only verifies imports, so a broken assertion / drifted guard / logic
+  regression passes `pytest-collect` as long as the module imports. Three
+  such regressions shipped green in this repo (the 14/30 operator-action
+  allowlist drift, the dead `_RUNTIME_LOGS` fixture, the shadow-wiring
+  gap) precisely because no job ran the test bodies.
+- **Why advisory at first.** The suite had never executed in CI, so its
+  true pass/fail state on `main` is unknown. Making it required on day
+  one risks blocking every merge behind a wall of pre-existing failures.
+  It ships advisory; once observed green on `main`, promote it by adding
+  `"pytest-run"` to `REQUIRED_CONTEXTS` in `branch-protection-sync.yml`
+  (the same advisory→blocking path `pytest-collect` followed in S-045).
+- **Why ignore `tests/test_main_loop.py`.** Same as `pytest-collect`: it
+  imports the live trading entrypoint (`src.main`) and is not CI-safe.
+- **Debug.** Reproduce with the local equivalent above. Fix the failing
+  test or the code it guards — do **not** add `|| true` or
+  `--continue-on-collection-errors`.
 
 ### `secret-scan`
 
