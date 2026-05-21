@@ -91,6 +91,21 @@ def _mock_bybit_client(order_id: str = "ord-123") -> MagicMock:
         "result": {"list": [{"coin": [{"usdValue": "10000"}]}]}
     }
     client.place_order.return_value = {"result": {"orderId": order_id}}
+    # execute._submit_order resolves the symbol tickSize via
+    # precision.get_tick_size(), which calls client.get_instruments_info().
+    # An unconfigured MagicMock returns a MagicMock here, and the tickSize
+    # then fails to convert to Decimal ("conversion from MagicMock to
+    # Decimal is not supported"). Return a realistic V5 instruments-info
+    # payload so quantize_price() gets a real tickSize. (2026-05 live tick
+    # lookup, BUG-057.)
+    client.get_instruments_info.return_value = {
+        "result": {"list": [{"priceFilter": {"tickSize": "0.10"}}]}
+    }
+    # get_tickers() feeds the Buy SL pre-check (ErrCode 10001 guard). Keep
+    # lastPrice well above the SL so the guard never trips for these tests.
+    client.get_tickers.return_value = {
+        "result": {"list": [{"lastPrice": "50000"}]}
+    }
     return client
 
 
@@ -155,8 +170,12 @@ class TestRiskSizing:
         from src.units.accounts.risk import size_order_from_cfg
         # S-026 G3: bump daily_usd so the new daily-loss budget gate
         # doesn't clip the qty for this base sizing assertion.
+        # 2026-05-12 margin pre-flight cap: with leverage=1 the buffer
+        # fallback caps qty at (balance * 0.9 / entry) = 0.18, masking
+        # the risk-based 0.2. Set leverage high so the margin ceiling
+        # never binds and this assertion isolates the risk-% sizing.
         cfg = {"risk_pct": 0.02, "min_qty": 0.001, "max_qty": 10.0,
-               "daily_usd": 1_000_000_000}
+               "daily_usd": 1_000_000_000, "leverage": 100}
         pkg = _pkg(entry=50_000.0, sl=49_000.0)
         # risk_usdt = 10_000 * 0.02 = 200; distance = 1_000; qty = 0.2
         qty = size_order_from_cfg(pkg, cfg, balance_usdt=10_000.0)
