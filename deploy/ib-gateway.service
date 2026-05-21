@@ -1,0 +1,47 @@
+# Headless IB Gateway (via IBC) for the MES/Interactive Brokers integration.
+#
+# Runs the IB Gateway GUI app under a virtual framebuffer (xvfb) with IBC
+# driving auto-login. INTENTIONALLY INDEPENDENT of ict-trader-live: bot
+# deploys/restarts must NOT restart the Gateway (a Gateway restart forces a
+# fresh IBKR login → a 2FA phone tap). Only a VM reboot or explicit Gateway
+# maintenance touches this unit.
+#
+# Credentials are NOT in this file or the repo. They are rendered to
+# /etc/ict/ib-gateway.env (root-owned, 0600) by the provision-ib-gateway
+# workflow from the IB_USERNAME / IB_PASSWORD repo secrets. IBC reads the
+# login from /opt/ibc/config.ini, which the install script renders from
+# deploy/ibc/config.ini.template + that env file.
+#
+# Auto-restart mode (IbAutoClosedown=no in config.ini) means IBKR's daily
+# restart reuses the auth token silently; only the weekly IBKR re-auth (and
+# cold starts) need a 2FA tap on IBKR Mobile.
+#
+# Install: scripts/install_ib_gateway.sh (idempotent). Provision creds +
+# enable: .github/workflows/provision-ib-gateway.yml. See
+# docs/runbooks/ib-integration.md § Headless Gateway.
+
+[Unit]
+Description=IB Gateway (headless, IBC) for MES/Interactive Brokers
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+# Login credentials + TWOFA settings (rendered from repo secrets — not committed).
+EnvironmentFile=/etc/ict/ib-gateway.env
+# IBC + Gateway locations (overridable in the env file).
+Environment=IBC_PATH=/opt/ibc
+Environment=TWS_PATH=/home/ubuntu/Jts
+Environment=IBC_INI=/opt/ibc/config.ini
+Environment=TRADING_MODE=paper
+Environment=DISPLAY=:1
+# Virtual framebuffer wraps the Gateway GUI; IBC's gatewaystart.sh launches it.
+ExecStart=/usr/bin/xvfb-run -n 1 -s "-screen 0 1024x768x24" /opt/ibc/scripts/ibcstart.sh
+Restart=always
+RestartSec=30
+# Give the Gateway time to come up + auth before systemd considers it failed.
+TimeoutStartSec=180
+
+[Install]
+WantedBy=multi-user.target

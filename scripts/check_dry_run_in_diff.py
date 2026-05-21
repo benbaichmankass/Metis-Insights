@@ -62,6 +62,17 @@ _IGNORE_PATH_RE = re.compile(
     r"^scripts/check_dry_run_in_diff\.py$"
 )
 
+# Explicit per-line override. The guard's purpose is to make a human eyeball
+# any line that puts an account in dry/paper mode. Adding a BRAND-NEW account
+# that is intentionally dry (e.g. a real-money IB account held safe until it
+# is separately promoted) is a legitimate, deliberate case — not the silent
+# live→dry flip the guard exists to catch. A line carrying this marker is
+# skipped, so the deliberate config lands without weakening the guard for
+# every other (unmarked) line. The marker MUST include a reason for the
+# audit trail, e.g.:
+#     mode: dry_run   # dry-run-guard: allow — new IB real-money acct, held dry
+_ALLOW_MARKER_RE = re.compile(r"dry-run-guard:\s*allow", re.IGNORECASE)
+
 
 def _iter_added_lines(diff_text: str) -> Iterable[Tuple[str, int, str]]:
     """Yield (file_path, line_no_in_new_file, content) for every added line."""
@@ -100,6 +111,9 @@ def scan_diff(diff_text: str) -> List[str]:
     findings: List[str] = []
     for path, lineno, content in _iter_added_lines(diff_text):
         if _IGNORE_PATH_RE.search(path):
+            continue
+        # Deliberate, auditable per-line override (see _ALLOW_MARKER_RE).
+        if _ALLOW_MARKER_RE.search(content):
             continue
         for pattern, label in _PATTERNS:
             if pattern.search(content):

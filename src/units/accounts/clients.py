@@ -156,6 +156,61 @@ def velotrade_client_for(account: Dict[str, Any]):
     )
 
 
+def ib_client_for(account: Dict[str, Any]):
+    """Return an :class:`IBClient` for *account*, or ``None`` if unusable.
+
+    Interactive Brokers' TWS API has **no API keys** — authentication is
+    the IB Gateway / TWS login session, so :func:`resolve_credentials`
+    does not apply. Connection identity is host + port + clientId + the
+    IB account code, read from the ``config/accounts.yaml`` entry with
+    environment-variable overrides:
+
+      * ``ib_host``       (env ``IB_HOST``)      — default ``127.0.0.1``
+      * ``ib_port``       (env ``IB_PORT``)      — ``7496`` live / ``7497`` paper
+      * ``ib_account``    (env ``IB_ACCOUNT``)   — e.g. ``U25907316`` / ``DUQ325724``
+      * ``ib_client_id``  (env ``IB_CLIENT_ID``) — numeric API client id
+
+    Returns ``None`` when ``ib_port`` is missing (the account cannot be
+    reached) so the coordinator treats it as "not usable this tick" and
+    refuses + pings, identical to the other ``*_client_for`` factories.
+    The returned client is **not** connected yet — the socket opens
+    lazily on first order/balance call (or via ``client.connect()``), so
+    a down Gateway surfaces as a clean refusal at execution time rather
+    than at construction.
+    """
+    if not isinstance(account, dict):
+        return None
+    exchange = str(account.get("exchange", "")).lower()
+    if exchange not in ("interactive_brokers", "ib"):
+        return None
+
+    host = account.get("ib_host") or os.environ.get("IB_HOST") or "127.0.0.1"
+    port = account.get("ib_port") or os.environ.get("IB_PORT")
+    if not port:
+        logger.warning(
+            "ib_client_for(%s): no ib_port set (config or IB_PORT env) — "
+            "cannot reach IB Gateway.",
+            account.get("account_id") or "unknown",
+        )
+        return None
+    account_code = account.get("ib_account") or os.environ.get("IB_ACCOUNT")
+    client_id = (
+        account.get("ib_client_id")
+        or os.environ.get("IB_CLIENT_ID")
+        # Stable per-port default so live (7496) and paper (7497) don't
+        # collide on a shared Gateway when client_id is left unset.
+        or (int(port) % 1000)
+    )
+    from src.units.accounts.ib_client import get_ib_client
+
+    return get_ib_client(
+        host=str(host),
+        port=int(port),
+        client_id=int(client_id),
+        account=str(account_code) if account_code else None,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Per-account exchange-state reads
 # ---------------------------------------------------------------------------

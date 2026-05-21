@@ -204,3 +204,83 @@ accounts:
       pos_size: 200                    # stricter: $200 max position
       risk_pct: 0.005                  # half-rate per trade for prop
       min_balance_usd: 50
+
+  # ------------------------------------------------------------------
+  # Interactive Brokers — MES (Micro E-mini S&P 500) futures via CME.
+  # ------------------------------------------------------------------
+  # IB's TWS API uses NO API keys: authentication is the IB Gateway /
+  # TWS login session the operator keeps running. Connection identity is
+  # host + port + clientId + the IB account code — set per account below
+  # (env overrides: IB_HOST / IB_PORT / IB_ACCOUNT / IB_CLIENT_ID). The
+  # client wrapper lives in src/units/accounts/ib_client.py; the factory
+  # is ib_client_for() in src/units/accounts/clients.py. No api_key_env
+  # field, so these accounts always load configured=True.
+  #
+  # Mode policy (operator directive 2026-05-21): the same dry/live
+  # contract as every other account applies — `mode:` is the ONLY toggle.
+  #   * ib_paper → mode: live. "Live" means the trader executes against
+  #     the IB *paper* gateway (port 7497) with paper money — exactly how
+  #     bybit_1 runs mode: live against Bybit's demo endpoint. No real
+  #     money is at risk.
+  #   * ib_live  → mode: dry_run. The real-money account (port 7496) is
+  #     held dry: RiskManager.evaluate() rejects with
+  #     reason="account_mode_dry_run" and the coordinator never even
+  #     constructs an IBClient for it, so no socket is opened against the
+  #     live gateway. Promoting it to live is a Tier-3 change via the
+  #     set-account-mode operator action.
+  #
+  # Strategy routing (multi-symbol M11): all three strategies (vwap,
+  # turtle_soup, ict_scalp_5m) run on MES on ib_paper, same as on BTCUSDT.
+  # The symbol→exchange dispatch gate (coordinator._eligible_for_dispatch)
+  # guarantees a BTCUSDT signal NEVER reaches an IB account and an MES
+  # signal NEVER reaches a bybit account — so assigning the crypto
+  # strategies here is safe: ib_paper only ever receives MES packages.
+  # MES packages are only GENERATED when the multi-symbol tick loop is on
+  # (MULTI_SYMBOL_ENABLED=true + SYMBOLS includes MES) — off by default, so
+  # in the committed state ib_paper is idle (no MES signals; BTCUSDT gated
+  # out) and opens no Gateway socket. ib_live keeps strategies: [] — the
+  # real-money account stays fully inert until deliberately promoted.
+  # Activation runbook: docs/runbooks/ib-integration.md.
+
+  # ib_paper: IB paper account DUQ325724 on the paper gateway (7497).
+  # mode: live → executes against IB paper money once the multi-symbol loop
+  # + Gateway are active.
+  ib_paper:
+    type: regular
+    exchange: interactive_brokers
+    mode: live                         # IB paper gateway — paper money (see header)
+    market_type: futures
+    ib_host: 127.0.0.1
+    ib_port: 7497                      # IB Gateway paper API port
+    ib_account: DUQ325724
+    ib_client_id: 497                  # unique per concurrent socket
+    strategies: [turtle_soup, vwap, ict_scalp_5m]   # all 3 on MES; BTCUSDT
+                                       # is gated out by exchange (see header)
+    risk:
+      max_dd_pct: 0.05                 # 5% max intra-day drawdown
+      daily_usd: 200                   # $200 max daily loss
+      pos_size: 2000                   # $2000 max single position (approval gate only)
+      risk_pct: 0.01                   # 1% balance risked per trade
+      min_balance_usd: 100             # refuse to size below $100
+
+  # ib_live: IB live account U25907316 on the live gateway (7496).
+  # mode: dry_run → real money held safe; no socket opened, no orders
+  # placed. Promote to live only via set-account-mode (Tier-3).
+  ib_live:
+    type: regular
+    exchange: interactive_brokers
+    mode: dry_run                      # dry-run-guard: allow — new IB real-money
+                                       # account, intentionally held dry until
+                                       # separately promoted (see header)
+    market_type: futures
+    ib_host: 127.0.0.1
+    ib_port: 7496                      # IB Gateway live API port
+    ib_account: U25907316
+    ib_client_id: 496                  # unique per concurrent socket
+    strategies: []                     # no MES strategy assigned yet (see header)
+    risk:
+      max_dd_pct: 0.05                 # 5% max intra-day drawdown
+      daily_usd: 200                   # $200 max daily loss
+      pos_size: 2000                   # $2000 max single position (approval gate only)
+      risk_pct: 0.01                   # 1% balance risked per trade
+      min_balance_usd: 100             # refuse to size below $100

@@ -21,7 +21,11 @@
 #
 # Adding a new instrument:
 #   1. Add entry here following the schema above.
-#   2. If IB: ensure execution layer (S7) handles the symbol before enabling live.
+#   2. If IB: ensure the execution layer handles the symbol before enabling
+#      live. The IB execution path is wired (2026-05-21): IBClient
+#      (src/units/accounts/ib_client.py) + the interactive_brokers branch in
+#      execute._submit_order currently build the MES contract only — extend
+#      IBClient._build_contract before routing a new IB symbol.
 #   3. Add the symbol to the relevant strategy's config/strategies.yaml entry.
 #   4. Run tests/test_s2_profile_wiring.py to validate the new entry loads cleanly.
 
@@ -47,8 +51,11 @@ instruments:
 
   # ------------------------------------------------------------------
   # MES — Micro E-mini S&P 500 futures via CME / Interactive Brokers
-  # Deferred to S7 (IB execution layer). Spec included from S2 so
-  # instrument_profiles is IB-aware before IB wiring begins.
+  # IB execution path wired 2026-05-21 (IBClient + ib_client_for +
+  # execute._submit_order interactive_brokers branch). Traded by the
+  # ib_paper (mode: live → paper money) and ib_live (mode: dry_run)
+  # accounts in config/accounts.yaml. No MES strategy is assigned yet —
+  # see docs/runbooks/ib-integration.md for the remaining wire-up.
   # ------------------------------------------------------------------
   MES:
     exchange: interactive_brokers
