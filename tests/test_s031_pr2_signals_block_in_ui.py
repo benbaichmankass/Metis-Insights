@@ -179,10 +179,14 @@ class TestBotWrapperCallsProcessor:
     def test_render_signals_block_is_thin_wrapper(self):
         """Source-level grep: the bot's wrapper calls the processor
         and no longer reads the audit file directly."""
-        bot_src = Path("src/bot/telegram_query_bot.py").read_text()
+        # _render_signals_block extracted to src/bot/signal_helpers.py (D3/PR-10).
+        bot_src = Path("src/bot/signal_helpers.py").read_text()
         start = bot_src.index("def _render_signals_block(")
-        # Slice through the next def.
-        after = bot_src.index("\ndef ", start + 1)
+        # Slice through the next def, or EOF if it's the last function.
+        try:
+            after = bot_src.index("\ndef ", start + 1)
+        except ValueError:
+            after = len(bot_src)
         wrapper_src = bot_src[start:after]
         assert "get_signals_block" in wrapper_src, (
             "_render_signals_block must delegate to "

@@ -188,6 +188,10 @@ def test_positions_returns_open_trade_against_canonical_schema(
         "entryPrice": 60000.0,
         "unrealizedPnl": 0.0,
         "openedAt": "2026-05-09T10:00:00Z",
+        # stopLoss, takeProfit, pattern added in ff2512e (shadow-backfill PR)
+        "stopLoss": None,
+        "takeProfit": None,
+        "pattern": None,
     }
 
 

@@ -114,7 +114,14 @@ def _read_live_per_account(
     resolver so the dashboard agrees with the executor.
     """
     from src.config.accounts_loader import load_accounts_dict
-    raw_cfgs = load_accounts_dict(accounts_yaml)
+    errors: list = []
+    raw_cfgs = load_accounts_dict(accounts_yaml, errors=errors)
+    for err in errors:
+        _swallow_runtime_status(
+            "accounts_yaml_read_failed",
+            Exception(err.get("error", "parse error")),
+            path=err.get("path", str(accounts_yaml)),
+        )
     overrides = overrides or {}
     out: Dict[str, bool] = {}
     for name, cfg in raw_cfgs.items():
