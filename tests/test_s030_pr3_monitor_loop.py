@@ -129,7 +129,7 @@ class TestRunMonitorTick:
         with patch("src.units.strategies.vwap.monitor", return_value=None):
             summaries = om.run_monitor_tick(
                 strategies=["vwap"],
-                ohlcv_fetcher=lambda s, t: _candles(100.5),
+                ohlcv_fetcher=lambda s, t, sn=None: _candles(100.5),
             )
 
         s = summaries["vwap"]
@@ -142,12 +142,22 @@ class TestRunMonitorTick:
         assert rows[0]["status"] == "open"
 
     def test_sl_update_path_writes_back(self, tmp_db):
+        # 2026-05-18 exchange-first modify ordering: the sl/tp modify
+        # path now requires a matched trade row + a successful
+        # _send_modify_to_exchange before it touches the DB. Seed the
+        # linked trade and stub the exchange call to ok=True so this
+        # test still exercises the DB write-back it was written for.
         _seed_open_pkg(tmp_db, pkg_id="pkg-sl")
+        _seed_open_trade(tmp_db)
 
-        with patch("src.units.strategies.vwap.monitor", return_value={"sl": 100.0}):
+        with patch(
+            "src.units.strategies.vwap.monitor", return_value={"sl": 100.0},
+        ), patch.object(
+            om, "_send_modify_to_exchange", return_value={"ok": True},
+        ):
             summaries = om.run_monitor_tick(
                 strategies=["vwap"],
-                ohlcv_fetcher=lambda s, t: _candles(102.0),
+                ohlcv_fetcher=lambda s, t, sn=None: _candles(102.0),
             )
 
         s = summaries["vwap"]
@@ -157,12 +167,18 @@ class TestRunMonitorTick:
         assert rows[0]["status"] == "open"  # still open, SL just moved
 
     def test_tp_update_path_writes_back(self, tmp_db):
+        # Exchange-first modify ordering (see test_sl_update_path_writes_back).
         _seed_open_pkg(tmp_db, pkg_id="pkg-tp")
+        _seed_open_trade(tmp_db)
 
-        with patch("src.units.strategies.vwap.monitor", return_value={"tp": 110.0}):
+        with patch(
+            "src.units.strategies.vwap.monitor", return_value={"tp": 110.0},
+        ), patch.object(
+            om, "_send_modify_to_exchange", return_value={"ok": True},
+        ):
             summaries = om.run_monitor_tick(
                 strategies=["vwap"],
-                ohlcv_fetcher=lambda s, t: _candles(105.0),
+                ohlcv_fetcher=lambda s, t, sn=None: _candles(105.0),
             )
 
         rows = tmp_db.get_order_packages_by_strategy("vwap")
@@ -173,14 +189,21 @@ class TestRunMonitorTick:
         _seed_open_pkg(tmp_db, pkg_id="pkg-close")
         trade_id = _seed_open_trade(tmp_db)  # same strategy/symbol
 
+        # 2026-05-15 exchange-first close ordering: the close path now
+        # dispatches to the exchange before any DB write and leaves the
+        # DB open on ok=False. Stub _send_close_to_exchange to ok=True
+        # so this test exercises the DB close logic it pins.
         with patch(
             "src.units.strategies.vwap.monitor",
             return_value={"action": "close", "reason": "vwap_cross",
                           "exit_price": 99.5},
+        ), patch.object(
+            om, "_send_close_to_exchange",
+            return_value={"ok": True, "exchange_order_id": None, "error": None},
         ):
             summaries = om.run_monitor_tick(
                 strategies=["vwap"],
-                ohlcv_fetcher=lambda s, t: _candles(99.5),
+                ohlcv_fetcher=lambda s, t, sn=None: _candles(99.5),
             )
 
         assert summaries["vwap"]["closed"] == 1
@@ -223,10 +246,13 @@ class TestRunMonitorTick:
             "src.units.strategies.vwap.monitor",
             return_value={"action": "close", "reason": "tp_cross",
                           "exit_price": 110.0},
+        ), patch.object(
+            om, "_send_close_to_exchange",
+            return_value={"ok": True, "exchange_order_id": None, "error": None},
         ):
             om.run_monitor_tick(
                 strategies=["vwap"],
-                ohlcv_fetcher=lambda s, t: _candles(110.0),
+                ohlcv_fetcher=lambda s, t, sn=None: _candles(110.0),
             )
 
         trade = tmp_db.get_trades(filters={"id": trade_id})[0]
@@ -266,10 +292,13 @@ class TestRunMonitorTick:
             "src.units.strategies.vwap.monitor",
             return_value={"action": "close", "reason": "tp_cross",
                           "exit_price": 90.0},
+        ), patch.object(
+            om, "_send_close_to_exchange",
+            return_value={"ok": True, "exchange_order_id": None, "error": None},
         ):
             om.run_monitor_tick(
                 strategies=["vwap"],
-                ohlcv_fetcher=lambda s, t: _candles(90.0),
+                ohlcv_fetcher=lambda s, t, sn=None: _candles(90.0),
             )
 
         trade = tmp_db.get_trades(filters={"id": trade_id})[0]
@@ -288,10 +317,13 @@ class TestRunMonitorTick:
         with patch(
             "src.units.strategies.vwap.monitor",
             return_value={"action": "close", "reason": "manual_close"},
+        ), patch.object(
+            om, "_send_close_to_exchange",
+            return_value={"ok": True, "exchange_order_id": None, "error": None},
         ):
             om.run_monitor_tick(
                 strategies=["vwap"],
-                ohlcv_fetcher=lambda s, t: _candles(100.0),
+                ohlcv_fetcher=lambda s, t, sn=None: _candles(100.0),
             )
 
         trade = tmp_db.get_trades(filters={"id": trade_id})[0]
@@ -308,7 +340,7 @@ class TestRunMonitorTick:
         ):
             summaries = om.run_monitor_tick(
                 strategies=["vwap"],
-                ohlcv_fetcher=lambda s, t: _candles(100.0),
+                ohlcv_fetcher=lambda s, t, sn=None: _candles(100.0),
             )
 
         assert summaries["vwap"]["no_change"] == 1
@@ -335,7 +367,7 @@ class TestRunMonitorTickDefensive:
         ):
             summaries = om.run_monitor_tick(
                 strategies=["vwap"],
-                ohlcv_fetcher=lambda s, t: _candles(100.0),
+                ohlcv_fetcher=lambda s, t, sn=None: _candles(100.0),
             )
         assert summaries["vwap"]["no_change"] == 1
         # Row untouched.
@@ -346,7 +378,7 @@ class TestRunMonitorTickDefensive:
 
         # vwap.monitor returns None when candles is None; the loop
         # treats that as no_change.
-        def _bad_fetcher(symbol, timeframe):
+        def _bad_fetcher(symbol, timeframe, strategy_name=None):
             raise RuntimeError("ohlcv unavailable")
 
         summaries = om.run_monitor_tick(
@@ -428,7 +460,9 @@ class TestSweepPendingPnlFromBybit:
 
         # Stub Bybit's closed-pnl response — what the real API returns
         # ~30-60s after the close fill.
-        def _fake_closed_pnl(cfg, *, symbol, direction, opened_at_ms, qty):
+        def _fake_closed_pnl(
+            cfg, *, symbol, direction, opened_at_ms, qty, entry_price=None,
+        ):
             assert symbol == "BTCUSDT"
             assert direction == "long"
             return {

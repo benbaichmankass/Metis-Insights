@@ -3637,3 +3637,5 @@ def run_monitor_tick(
     # ``docs/claude/closed-flat-invariant.md`` for the full design.
     from src.runtime._closed_flat_wiring import maybe_run_closed_flat_check
     maybe_run_closed_flat_check(db, summaries)
+
+    return summaries

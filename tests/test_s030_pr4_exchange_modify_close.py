@@ -64,22 +64,33 @@ class _StubBybit:
 class TestModifyOpenOrder:
     def test_bybit_set_trading_stop_called_with_sl_only(self):
         client = _StubBybit()
-        cfg = {"account_id": "bybit_2", "exchange": "bybit"}
+        # 2026-05-06 operator directive: _bybit_category now defaults to
+        # "spot" when market_type is omitted (the perp-instead-of-spot
+        # fix). set_trading_stop is only valid for derivatives, so this
+        # test pins the linear path by setting market_type explicitly.
+        cfg = {"account_id": "bybit_2", "exchange": "bybit",
+               "market_type": "linear"}
         result = modify_open_order(client, cfg, symbol="BTCUSDT", sl=49500.0)
 
         assert result["ok"] is True
+        # 2026-05 tick-size refactor: modify_open_order now quantizes
+        # sl/tp to the resolved tick (0.01 fallback for BTCUSDT) via
+        # quantize_price, so the value carries the tick's decimal places.
         assert client.set_trading_stop_calls[0] == {
-            "category": "linear", "symbol": "BTCUSDT", "stopLoss": "49500.0",
+            "category": "linear", "symbol": "BTCUSDT", "stopLoss": "49500.00",
         }
 
     def test_bybit_set_trading_stop_called_with_tp_only(self):
         client = _StubBybit()
-        cfg = {"account_id": "bybit_2", "exchange": "bybit"}
+        # market_type=linear pins the derivatives path (see sl-only test).
+        cfg = {"account_id": "bybit_2", "exchange": "bybit",
+               "market_type": "linear"}
         result = modify_open_order(client, cfg, symbol="BTCUSDT", tp=51000.0)
 
         assert result["ok"] is True
+        # 2026-05 tick-size refactor: tp quantized to the 0.01 fallback tick.
         assert client.set_trading_stop_calls[0] == {
-            "category": "linear", "symbol": "BTCUSDT", "takeProfit": "51000.0",
+            "category": "linear", "symbol": "BTCUSDT", "takeProfit": "51000.00",
         }
 
     def test_bybit_atomic_sl_and_tp(self):
@@ -90,8 +101,9 @@ class TestModifyOpenOrder:
         )
         assert result["ok"] is True
         kwargs = client.set_trading_stop_calls[0]
-        assert kwargs["stopLoss"] == "49500.0"
-        assert kwargs["takeProfit"] == "51000.0"
+        # 2026-05 tick-size refactor: both legs quantized to the 0.01 tick.
+        assert kwargs["stopLoss"] == "49500.00"
+        assert kwargs["takeProfit"] == "51000.00"
 
     def test_bybit_non_zero_retcode_marks_not_ok(self):
         client = _StubBybit(ret_code=10001, ret_msg="invalid sl")
@@ -489,9 +501,15 @@ def _read_trade(db, trade_id):
 
 def test_close_writes_db_when_exchange_succeeds(tmp_db, caplog):
     """When the exchange close returns ok=True the DB rows flip to
-    closed, exit_price is stamped, PnL is computed, and the summary
-    counter increments — exactly the existing happy-path contract,
-    just gated on a real exchange ack."""
+    closed, exit_price is stamped, and the summary counter increments
+    — exactly the existing happy-path contract, just gated on a real
+    exchange ack.
+
+    2026-05-18 SSOT PnL refactor: the close path no longer computes
+    gross PnL locally; ``pnl`` stays NULL until
+    ``_sweep_pending_pnl_from_bybit`` fills it from Bybit's closed-pnl
+    record. See order_monitor.py:662-674 + the matching update on the
+    PR3 close tests."""
     _seed(tmp_db)
     open_pkg = tmp_db.get_order_packages_by_strategy("vwap", status="open")[0]
     open_trade = tmp_db.get_trades(
@@ -518,7 +536,8 @@ def test_close_writes_db_when_exchange_succeeds(tmp_db, caplog):
     assert pkg_after.get("close_reason") == "vwap_cross"
     assert trade_after is not None and trade_after.get("status") == "closed"
     assert float(trade_after.get("exit_price")) == 81209.0
-    assert trade_after.get("pnl") is not None
+    # SSOT PnL refactor: pnl stays NULL on close; the Bybit sweep fills it.
+    assert trade_after.get("pnl") is None
     assert summary.closed_count == 1
     assert summary.error_count == 0
 
@@ -605,7 +624,8 @@ def test_close_writes_db_when_account_is_dry_run(tmp_db):
     assert pkg_after is not None and pkg_after.get("status") == "closed"
     assert trade_after is not None and trade_after.get("status") == "closed"
     assert float(trade_after.get("exit_price")) == 81209.0
-    assert trade_after.get("pnl") is not None
+    # SSOT PnL refactor: pnl stays NULL on close; the Bybit sweep fills it.
+    assert trade_after.get("pnl") is None
     assert summary.closed_count == 1
     assert summary.error_count == 0
 
@@ -653,7 +673,8 @@ def test_full_close_uses_account_order_status_avg_price_when_available(tmp_db):
 
     assert trade_after.get("status") == "closed"
     assert float(trade_after.get("exit_price")) == 81210.5  # exchange avg, not verdict
-    assert trade_after.get("pnl") is not None
+    # SSOT PnL refactor: pnl stays NULL on close; the Bybit sweep fills it.
+    assert trade_after.get("pnl") is None
     # No "exit_price_source: verdict" annotation when exchange-confirmed.
     notes = json.loads(trade_after.get("notes") or "{}")
     assert notes.get("exit_price_source") != "verdict"
