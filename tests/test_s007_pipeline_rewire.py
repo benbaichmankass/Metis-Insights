@@ -23,10 +23,17 @@ def test_registry_contains_all_pipeline_strategies():
 
 
 def test_registry_roster_is_exactly_turtle_soup_and_vwap():
-    """S-012 production roster — strict equality, no extras."""
+    """S-012 production roster — strict equality, updated for live ict_scalp_5m.
+
+    ict_scalp_5m went live 2026-05-14 (PR #1156, operator-approved) and is
+    present with enabled=true in config/strategies.yaml under the
+    '# STATUS: live since 2026-05-14 (PR #1156)' header.  The roster is now
+    turtle_soup + vwap + ict_scalp_5m; the original two-strategy assertion
+    is outdated (category b — intentional config change).
+    """
     from src.strategy_registry import load_strategies
     names = sorted(s["name"] for s in load_strategies())
-    assert names == ["turtle_soup", "vwap"]
+    assert names == ["ict_scalp_5m", "turtle_soup", "vwap"]
 
 
 def test_registry_fallback_loader_returns_new_roster(monkeypatch):
