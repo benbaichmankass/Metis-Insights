@@ -48,7 +48,7 @@ else
 fi
 
 case "${action}" in
-    status-check|pull-latest-logs)
+    status-check|pull-latest-logs|inspect-closed-pnl|bybit-account-audit|strategy-performance-audit|monitor-miss-analysis|vwap-backtest-sweep)
         tier=1
         if [ "${exit_code}" -eq 0 ]; then
             result="ok"
@@ -97,7 +97,7 @@ case "${action}" in
             *) result="FAILED (exit ${exit_code})"; priority="urgent" ;;
         esac
         ;;
-    setup-cloudflare-tunnel|teardown-cloudflare-tunnel)
+    setup-cloudflare-tunnel|teardown-cloudflare-tunnel|setup-named-cloudflare-tunnel|teardown-named-cloudflare-tunnel)
         tier=2
         case "${exit_code}" in
             0) result="ok"; priority="normal" ;;
@@ -113,7 +113,7 @@ case "${action}" in
             *) result="FAILED (exit ${exit_code})"; priority="urgent" ;;
         esac
         ;;
-    backfill-pnl-nulls)
+    backfill-pnl-nulls|backfill-orphan-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|rebuild-pnl-from-bybit|backfill-shadow-predictions|rotate-account-keys|init-diag-token)
         tier=2
         case "${exit_code}" in
             0) result="ok"; priority="normal" ;;
