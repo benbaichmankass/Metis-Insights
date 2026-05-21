@@ -75,12 +75,20 @@ fi
 
 # 4. Render config.ini from the template + env file (no creds in repo).
 log "rendering ${IBC_PATH}/config.ini from template"
-# shellcheck disable=SC1090
-set -a; source "${ENV_FILE}"; set +a
-: "${IB_USERNAME:?IB_USERNAME missing in ${ENV_FILE}}"
-: "${IB_PASSWORD:?IB_PASSWORD missing in ${ENV_FILE}}"
-: "${TRADING_MODE:=paper}"
-: "${IB_PORT:=7497}"
+# SECURITY: read the values LITERALLY — never `source` the secrets file.
+# Sourcing evaluates the line as shell, so a '$', space, '!', backtick, etc.
+# in the password gets shell-interpreted (which both fails AND can echo the
+# secret to stderr). `sed` takes everything after the first '=' verbatim, so
+# any character in the password is safe and never printed.
+read_env_value() { sed -n "s/^$1=//p" "${ENV_FILE}" | head -n1; }
+IB_USERNAME="$(read_env_value IB_USERNAME)"
+IB_PASSWORD="$(read_env_value IB_PASSWORD)"
+TRADING_MODE="$(read_env_value TRADING_MODE)"; TRADING_MODE="${TRADING_MODE:-paper}"
+IB_PORT="$(read_env_value IB_PORT)"; IB_PORT="${IB_PORT:-7497}"
+if [[ -z "${IB_USERNAME}" || -z "${IB_PASSWORD}" ]]; then
+  echo "ERROR: IB_USERNAME and/or IB_PASSWORD missing in ${ENV_FILE}" >&2
+  exit 4
+fi
 export IB_USERNAME IB_PASSWORD TRADING_MODE IB_PORT
 tmp_cfg="$(mktemp)"
 envsubst '${IB_USERNAME} ${IB_PASSWORD} ${TRADING_MODE} ${IB_PORT}' \
