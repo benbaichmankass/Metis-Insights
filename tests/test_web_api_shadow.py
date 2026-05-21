@@ -127,7 +127,9 @@ class TestPredictionsEndpoint:
             _record(model_id="m-mid", ts=_TS_MID),
             _record(model_id="m-late", ts=_TS_LATE),
         ])
-        r = c.get(f"/api/bot/shadow/predictions?since={_TS_MID}")
+        # Pass via params= so the client URL-encodes `+` in the tz offset
+        # ('+' in a raw query string decodes to a space server-side).
+        r = c.get("/api/bot/shadow/predictions", params={"since": _TS_MID})
         assert r.status_code == 200
         body = r.json()
         assert {row["model_id"] for row in body["records"]} == {"m-mid", "m-late"}
@@ -191,7 +193,9 @@ class TestStatsEndpoint:
             _record(model_id="m-a", ts=_TS_EARLY),
             _record(model_id="m-b", ts=_TS_LATE),
         ])
-        r = c.get(f"/api/bot/shadow/stats?since={_TS_MID}")
+        # Pass via params= so the client URL-encodes `+` in the tz offset
+        # ('+' in a raw query string decodes to a space server-side).
+        r = c.get("/api/bot/shadow/stats", params={"since": _TS_MID})
         body = r.json()
         assert {row["model_id"] for row in body["records"]} == {"m-b"}
 
