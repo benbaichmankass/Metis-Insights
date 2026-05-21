@@ -17,6 +17,13 @@ from src.units.strategies.vwap import (
     order_package,
 )
 
+# a4cc582 feat(vwap)!: S-VWAP-POLICY-LIVE-WIRE wired policy_for_candles into
+# build_vwap_signal. The synthetic candle fixtures here produce a
+# "sideways/low" regime (blocked by the skip-list). These tests exercise
+# SL/TP correctness, not the policy gate — stub out the policy so the
+# signal fires regardless of regime.
+_ALLOW_ALL_POLICY = {"allow": True, "threshold": None, "regime": "unknown", "fallback": True, "_regime_info": {"regime": "unknown"}}
+
 
 def _candles_below_vwap(n: int = 100, entry_price: float = 83000.0) -> pd.DataFrame:
     """Return candles where the last close is well below VWAP.
@@ -68,6 +75,9 @@ def test_order_package_long_sl_is_below_entry(monkeypatch) -> None:
     monkeypatch.setattr(
         "src.units.strategies.vwap._has_open_vwap_package", lambda: False
     )
+    monkeypatch.setattr(
+        "src.units.strategies.vwap.policy_for_candles", lambda df: dict(_ALLOW_ALL_POLICY)
+    )
     df = _candles_below_vwap()
     pkg = order_package(_cfg(), candles_df=df)
 
@@ -86,6 +96,9 @@ def test_order_package_short_sl_is_above_entry(monkeypatch) -> None:
     """For a sell signal, sl must be strictly above entry."""
     monkeypatch.setattr(
         "src.units.strategies.vwap._has_open_vwap_package", lambda: False
+    )
+    monkeypatch.setattr(
+        "src.units.strategies.vwap.policy_for_candles", lambda df: dict(_ALLOW_ALL_POLICY)
     )
     df = _candles_above_vwap()
     pkg = order_package(_cfg(), candles_df=df)
@@ -110,6 +123,9 @@ def test_order_package_sl_matches_build_vwap_signal(monkeypatch) -> None:
     monkeypatch.setattr(
         "src.units.strategies.vwap._has_open_vwap_package", lambda: False
     )
+    monkeypatch.setattr(
+        "src.units.strategies.vwap.policy_for_candles", lambda df: dict(_ALLOW_ALL_POLICY)
+    )
     df = _candles_below_vwap()
     signal = build_vwap_signal(df, symbol="BTCUSDT")
     assert signal["side"] == "buy", "fixture must produce a buy signal"
@@ -129,6 +145,9 @@ def test_atr_floor_sl_distance_gte_atr(monkeypatch) -> None:
     """build_vwap_signal must expose atr/sl_distance in meta and sl_distance >= atr."""
     monkeypatch.setattr(
         "src.units.strategies.vwap._has_open_vwap_package", lambda: False
+    )
+    monkeypatch.setattr(
+        "src.units.strategies.vwap.policy_for_candles", lambda df: dict(_ALLOW_ALL_POLICY)
     )
     df = _candles_below_vwap()
     signal = build_vwap_signal(df, symbol="BTCUSDT")

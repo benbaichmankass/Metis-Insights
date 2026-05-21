@@ -402,9 +402,11 @@ class TestICTScalpYAMLRegistration:
         raw = yaml.safe_load((repo / "config" / "strategies.yaml").read_text())
         cfg = (raw.get("strategies") or {}).get("ict_scalp_5m")
         assert cfg is not None, "ict_scalp_5m missing from config/strategies.yaml"
-        assert cfg.get("enabled") is False, (
-            "ict_scalp_5m must ship disabled by default; promote via "
-            "explicit operator action after a backtest validates the edge"
+        # PR #1156 (operator-approved 2026-05-14): ict_scalp_5m promoted to live
+        # after backtest gate cleared (59.3% win rate, +0.301 R). enabled=true.
+        assert cfg.get("enabled") is True, (
+            "ict_scalp_5m was operator-approved live per PR #1156 (2026-05-14); "
+            "enabled must be True"
         )
         assert cfg.get("timeframe") == "5m"
         assert cfg.get("signal_prefixes") == ["ict_scalp"]
