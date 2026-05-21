@@ -1,0 +1,282 @@
+name: set-diag-token
+
+# Push the DIAG_READ_TOKEN repo secret onto the live VM and restart the
+# read-only web-api so the new value takes effect. Use it to (re)sync the
+# diag bearer between GitHub and /etc/ict-trader/web-api.env — e.g. when
+# enabling direct /api/diag/* access from a Claude Code on the web
+# environment, or rotating the token.
+#
+# SECURITY — why this never "hands the token back":
+#   The token flows ONE way: GitHub secret -> VM. The workflow reads
+#   secrets.DIAG_READ_TOKEN (auto-masked in logs), writes it into the VM
+#   env file, and validates by HTTP status code only. It NEVER prints,
+#   comments, or uploads the token. Every output channel a GitHub Action
+#   has is wrong for a secret — logs are secret-masked, issue comments
+#   and artifacts are repo-visible — so DELIVERY is the operator's job:
+#   you choose the value, set it as the repo secret AND wherever you
+#   consume it (e.g. the web-session DIAG_READ_TOKEN env var). This
+#   workflow only propagates that same value to the VM.
+#
+# Operator flow:
+#   1. Generate a token:   openssl rand -hex 32
+#   2. Settings -> Secrets and variables -> Actions -> set the
+#      DIAG_READ_TOKEN repo secret to it.
+#   3. Run this workflow (Actions -> set-diag-token -> Run workflow),
+#      or open an issue labelled `set-diag-token`.
+#   4. Use the SAME value wherever you read the diag API — e.g. the
+#      DIAG_READ_TOKEN environment variable of your cloud environment.
+#
+# Trust contract:
+#   * Fixed-form remote script — no freeform shell from the issue body.
+#   * Mutates exactly one key (DIAG_READ_TOKEN) in
+#     /etc/ict-trader/web-api.env, backs the file up first, restarts
+#     ict-web-api.service ONLY. Does NOT touch ict-trader-live.service,
+#     accounts.yaml, strategies.yaml, risk caps, or order code.
+#   * Tier-2 live-VM config mutation — operator-directed. Keep it
+#     scoped to this one key; do not widen it to write arbitrary env.
+#
+# Required repo secrets:
+#   * VM_SSH_KEY        — same key as vm-diag-snapshot / vm-web-api-recover
+#   * DIAG_READ_TOKEN   — the bearer to install (operator sets this)
+#
+# Optional repo variables:
+#   * VM_SSH_HOST       — defaults to 158.178.210.252
+#   * VM_SSH_USER       — defaults to ubuntu
+
+on:
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Why this run is happening (audit only)."
+        required: false
+        default: "manual operator dispatch"
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write   # required to comment + close the request issue
+
+concurrency:
+  # Share the web-api target lock with vm-web-api-recover so a token
+  # install and a self-heal restart never race on the same unit.
+  group: vm-web-api-recover
+  cancel-in-progress: false
+
+jobs:
+  set-token:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'set-diag-token'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '158.178.210.252' }}
+      VM_SSH_USER: ${{ vars.VM_SSH_USER || 'ubuntu' }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - name: Validate secrets
+        env:
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+          DIAG_READ_TOKEN: ${{ secrets.DIAG_READ_TOKEN }}
+        run: |
+          set -eu
+          fail=0
+          if [ -z "${VM_SSH_KEY}" ]; then
+            echo "::error::VM_SSH_KEY secret is unset. Add it under Settings → Secrets → Actions."
+            fail=1
+          fi
+          if [ -z "${DIAG_READ_TOKEN}" ]; then
+            echo "::error::DIAG_READ_TOKEN secret is unset. Set it under Settings → Secrets → Actions before running."
+            fail=1
+          fi
+          # Guard against installing a typo / weak token.
+          if [ -n "${DIAG_READ_TOKEN}" ] && [ "${#DIAG_READ_TOKEN}" -lt 16 ]; then
+            echo "::error::DIAG_READ_TOKEN is shorter than 16 chars — refusing to install a weak token."
+            fail=1
+          fi
+          # The remote script wraps the token in single quotes, so a
+          # single quote in the value would break it. Hex/base64 tokens
+          # never contain one; reject it explicitly rather than corrupt
+          # the env file.
+          case "${DIAG_READ_TOKEN}" in
+            *\'*)
+              echo "::error::DIAG_READ_TOKEN contains a single quote — use a hex/base64 token (e.g. openssl rand -hex 32)."
+              fail=1
+              ;;
+          esac
+          [ "$fail" -eq 0 ] || exit 1
+
+      - name: Set up SSH key
+        env:
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "${VM_SSH_KEY}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -t rsa,ecdsa,ed25519 "${VM_SSH_HOST}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Install token on VM + restart web-api
+        id: exec
+        env:
+          DIAG_READ_TOKEN: ${{ secrets.DIAG_READ_TOKEN }}
+        run: |
+          set -euo pipefail
+          # The remote script is a QUOTED heredoc (no runner-side
+          # expansion — every $ runs on the VM). The token is injected
+          # via a bash string replacement of the __TOKEN__ placeholder,
+          # NOT via argv or interpolation, so it never lands in a
+          # process command line on the runner or the VM. The validate
+          # step above already rejected a single quote in the value.
+          template="$(cat <<'REMOTE'
+          set -euo pipefail
+          NEW_TOKEN='__TOKEN__'
+          ENVFILE=/etc/ict-trader/web-api.env
+          UNIT=ict-web-api.service
+
+          # 1. Back up the existing env file (or create it 600 root:root).
+          if sudo test -f "$ENVFILE"; then
+            sudo cp -a "$ENVFILE" "$ENVFILE.bak.$(date +%s)"
+            echo ">>> backed up $ENVFILE"
+          else
+            echo ">>> $ENVFILE did not exist — creating it"
+            sudo install -m 600 -o root -g root /dev/null "$ENVFILE"
+          fi
+
+          # 2. Replace-or-append DIAG_READ_TOKEN atomically, preserving
+          #    all other keys. Temp file is 600 + user-owned, removed
+          #    immediately after install.
+          tmp="$(mktemp)"; chmod 600 "$tmp"
+          sudo grep -v '^DIAG_READ_TOKEN=' "$ENVFILE" > "$tmp" 2>/dev/null || true
+          printf 'DIAG_READ_TOKEN=%s\n' "$NEW_TOKEN" >> "$tmp"
+          sudo install -m 600 -o root -g root "$tmp" "$ENVFILE"
+          rm -f "$tmp"
+          echo ">>> DIAG_READ_TOKEN updated in $ENVFILE (mode 600 root:root)"
+
+          # 3. Restart web-api so the new EnvironmentFile is read.
+          WRAPPER=/home/ubuntu/ict-trading-bot/scripts/ops/restart_web_api.sh
+          if [ -x "$WRAPPER" ]; then
+            echo ">>> restarting via wrapper"
+            bash "$WRAPPER" || true
+          else
+            echo ">>> wrapper absent — inline restart"
+            sudo systemctl restart "$UNIT"
+            sleep 5
+          fi
+
+          # 4. Validate by HTTP status ONLY. The token goes into a 600
+          #    curl config so it never appears in /proc/<pid>/cmdline;
+          #    the response body is discarded — only the code is logged.
+          post="$(systemctl is-active "$UNIT" 2>/dev/null || echo unknown)"
+          echo "post-restart is-active: $post"
+          cfg="$(mktemp)"; chmod 600 "$cfg"
+          printf 'header = "Authorization: Bearer %s"\n' "$NEW_TOKEN" > "$cfg"
+          code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 5 -K "$cfg" http://127.0.0.1:8001/api/diag/status || echo 000)"
+          rm -f "$cfg"
+          echo "diag_status_http: $code"
+
+          if [ "$post" = active ] && [ "$code" = 200 ]; then
+            echo "RESULT: ok — web-api active and /api/diag/status authorized with the new token."
+            exit 0
+          fi
+          echo "RESULT: problem — is-active=$post diag_status_http=$code"
+          echo "  (401 = token mismatch, 503 = DIAG disabled on VM, 000 = web-api unreachable)"
+          exit 1
+          REMOTE
+          )"
+          remote_script="${template//__TOKEN__/$DIAG_READ_TOKEN}"
+
+          set +e
+          ssh -i ~/.ssh/id_rsa \
+              -o BatchMode=yes \
+              -o StrictHostKeyChecking=accept-new \
+              -o ConnectTimeout=15 \
+              "${VM_SSH_USER}@${VM_SSH_HOST}" \
+              "bash -s" <<<"$remote_script" \
+              > action-output.txt 2>&1
+          rc=$?
+          set -e
+          echo "exit_code=${rc}" >>"$GITHUB_OUTPUT"
+          # action-output.txt carries NO token (only HTTP codes +
+          # messages); the secret is masked even if something slipped.
+          cat action-output.txt
+          exit "${rc}"
+
+      # ────────────────────────────────────────────────────────────
+      # Issue-driven path: comment status (no token) + close the issue.
+      # ────────────────────────────────────────────────────────────
+
+      - name: Reply to issue with success
+        if: github.event_name == 'issues' && success()
+        uses: actions/github-script@v7
+        env:
+          EXIT_CODE: ${{ steps.exec.outputs.exit_code }}
+        with:
+          script: |
+            const fs = require('fs');
+            const output = fs.readFileSync('action-output.txt', 'utf8');
+            const MAX_BODY = 50_000;
+            const tail = output.length > MAX_BODY ? output.slice(-MAX_BODY) : output;
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body =
+              `✅ **set-diag-token** completed.\n` +
+              `Run: ${runUrl}\n` +
+              `Exit code: ${process.env.EXIT_CODE}\n\n` +
+              `The DIAG_READ_TOKEN repo secret is now installed on the VM and ` +
+              `/api/diag/status authorized with it. Set the SAME value as the ` +
+              `DIAG_READ_TOKEN env var wherever you consume the diag API.\n` +
+              `\n\`\`\`\n${tail}\n\`\`\``;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              state: 'closed',
+              state_reason: 'completed'
+            });
+
+      - name: Reply to issue with failure
+        if: github.event_name == 'issues' && failure()
+        uses: actions/github-script@v7
+        env:
+          EXIT_CODE: ${{ steps.exec.outputs.exit_code }}
+        with:
+          script: |
+            const fs = require('fs');
+            let output = '';
+            try {
+              output = fs.readFileSync('action-output.txt', 'utf8');
+            } catch (_) {
+              output = '(no action-output.txt — failure happened before SSH ran; likely an unset secret)';
+            }
+            const MAX_BODY = 50_000;
+            const tail = output.length > MAX_BODY ? output.slice(-MAX_BODY) : output;
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body =
+              `❌ **set-diag-token run failed.**\n` +
+              `Run: ${runUrl}\n` +
+              `Exit code: ${process.env.EXIT_CODE || '(failed before exec)'}\n\n` +
+              `Common causes: DIAG_READ_TOKEN or VM_SSH_KEY secret unset; SSH host ` +
+              `unreachable; web-api didn't return active; /api/diag/status not 200 ` +
+              `(401 token mismatch / 503 DIAG disabled). No token is ever printed.\n` +
+              `\n\`\`\`\n${tail}\n\`\`\``;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              state: 'closed',
+              state_reason: 'not_planned'
+            });
