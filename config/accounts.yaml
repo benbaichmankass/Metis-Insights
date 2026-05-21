@@ -269,7 +269,9 @@ accounts:
   ib_live:
     type: regular
     exchange: interactive_brokers
-    mode: dry_run                      # real-money account held dry (see header)
+    mode: dry_run                      # dry-run-guard: allow — new IB real-money
+                                       # account, intentionally held dry until
+                                       # separately promoted (see header)
     market_type: futures
     ib_host: 127.0.0.1
     ib_port: 7496                      # IB Gateway live API port
