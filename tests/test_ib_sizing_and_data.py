@@ -120,6 +120,16 @@ class TestPositionSize:
 # ---------------------------------------------------------------------------
 
 
+class TestSymbolExchangeGate:
+    def test_instrument_exchange_lookup(self):
+        import src.core.coordinator as coord
+        coord._INSTRUMENT_EXCHANGE_CACHE = None
+        assert coord._instrument_exchange_for("BTCUSDT") == "bybit"
+        assert coord._instrument_exchange_for("MES") == "interactive_brokers"
+        assert coord._instrument_exchange_for("UNKNOWNSYM") is None
+        assert coord._instrument_exchange_for("") is None
+
+
 class TestConnectorRouting:
     def test_ib_branch_builds_ib_market_data(self):
         from src.runtime.market_data import _build_exchange_client

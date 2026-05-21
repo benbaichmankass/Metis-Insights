@@ -110,6 +110,46 @@ def _load_units(path: str = _UNITS_YAML) -> Dict[str, Any]:
         return yaml.safe_load(fh) or {}
 
 
+# Cached symbol -> exchange map from config/instruments.yaml. Used by the
+# dispatch filter to route a package only to accounts on the symbol's
+# exchange (BTCUSDT→bybit, MES→interactive_brokers). Symbols without a
+# profile return None → no symbol-based filtering (legacy behaviour).
+_INSTRUMENT_EXCHANGE_CACHE: Optional[Dict[str, str]] = None
+
+
+def _multi_symbol_routing_enabled() -> bool:
+    """True when the symbol→exchange dispatch gate is active.
+
+    Default OFF: until MES is switched on, dispatch behaves exactly as the
+    single-symbol design (strategy-name filter only), so the live crypto
+    path and all existing dispatch tests are byte-identical. The MES
+    activation step sets MULTI_SYMBOL_ENABLED=true on the VM, which turns on
+    per-symbol routing so BTCUSDT signals never reach an IB account and vice
+    versa.
+    """
+    return str(os.environ.get("MULTI_SYMBOL_ENABLED", "false")).strip().lower() in (
+        "true", "1", "yes", "on",
+    )
+
+
+def _instrument_exchange_for(symbol: str) -> Optional[str]:
+    """Return the exchange a *symbol* trades on, or None if unknown."""
+    global _INSTRUMENT_EXCHANGE_CACHE
+    if not symbol:
+        return None
+    if _INSTRUMENT_EXCHANGE_CACHE is None:
+        try:
+            from src.core.profile_loader import load_instrument_profiles
+            profiles = load_instrument_profiles()
+            _INSTRUMENT_EXCHANGE_CACHE = {
+                sym: str(getattr(p, "exchange", "") or "").lower()
+                for sym, p in (profiles or {}).items()
+            }
+        except Exception:  # noqa: BLE001
+            _INSTRUMENT_EXCHANGE_CACHE = {}
+    return _INSTRUMENT_EXCHANGE_CACHE.get(symbol) or None
+
+
 # ---------------------------------------------------------------------------
 # Coordinator
 # ---------------------------------------------------------------------------
@@ -926,6 +966,17 @@ class Coordinator:
         def _eligible_for_dispatch(account_obj) -> bool:
             if not getattr(account_obj, "configured", True):
                 return False
+            # Symbol→exchange routing gate (multi-symbol M11): a package for
+            # symbol S only dispatches to accounts on S's exchange. BTCUSDT
+            # (bybit) never reaches an IB account; MES (interactive_brokers)
+            # never reaches a bybit account. Flag-gated (default OFF) so the
+            # single-symbol path is byte-identical until MES is switched on;
+            # no-op too for symbols without an instrument profile.
+            if _multi_symbol_routing_enabled():
+                inst_exchange = _instrument_exchange_for(getattr(pkg, "symbol", "") or "")
+                acct_exchange = str(getattr(account_obj, "exchange", "") or "").lower()
+                if inst_exchange and acct_exchange and inst_exchange != acct_exchange:
+                    return False
             assigned = getattr(account_obj, "strategies", None)
             if assigned is None:
                 return True  # legacy / no-mapping account
