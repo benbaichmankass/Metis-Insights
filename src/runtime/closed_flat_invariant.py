@@ -366,5 +366,5 @@ def is_enabled() -> bool:
     """Return True if the env gate ``CLOSED_FLAT_INVARIANT_ENABLED``
     is set truthy. Default False — the wiring PR (separate Tier-2
     follow-up) will check this gate at the call site."""
-    raw = os.environ.get("CLOSED_FLAT_INVARIANT_ENABLED", "false")
+    raw = os.environ.get("CLOSED_FLAT_INVARIANT_ENABLED", "false")  # allow-silent: feature-flag gate; default=false keeps invariant inert until operator opts in via the Tier-2 wiring PR
     return raw.strip().lower() in ("1", "true", "yes", "on")

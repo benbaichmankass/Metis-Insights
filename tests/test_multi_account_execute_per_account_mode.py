@@ -63,37 +63,25 @@ _HAPPY_SPOT_BALANCES = {
 
 @pytest.fixture(autouse=True)
 def _stub_account_creds_and_balances(monkeypatch):
-    """Two pieces of plumbing exposed by PR #507's ``configured=False``
-    filter:
+    """Plumbing exposed by PR #507's ``configured=False`` filter:
 
-    1. The accounts.yaml fixtures here use ``BYBIT_KEY_LIVE`` and
-       ``BYBIT_KEY_PAPER`` as ``api_key_env``. Without env vars set,
-       ``resolve_credentials`` returns falsy and the loader marks the
-       account ``configured=False``, which the coordinator now drops
-       before dispatch — empty results, every assertion fails.
+    The accounts.yaml fixtures here use ``BYBIT_KEY_LIVE`` and
+    ``BYBIT_KEY_PAPER`` as ``api_key_env``. Without env vars set,
+    ``resolve_credentials`` returns falsy and the loader marks the
+    account ``configured=False``, which the coordinator now drops
+    before dispatch — empty results, every assertion fails.
 
-    2. The live-account path also reaches ``_fetch_spot_coin_balances``
-       (coordinator.py line 754, S-053 spot-margin sizing). The tests
-       patch ``bybit_client_for`` to ``object()`` for "truthy stub"
-       semantics; ``object()`` doesn't have ``get_wallet_balance``,
-       so the SDK call AttributeError'd and the balance came back as
-       0 → ``below_min_balance`` refusal that masked the dry/live
-       contracts these tests are pinning.
+    ``_derive_secret_env`` falls back to api_key_env when there's
+    no ``_API_KEY`` substring to replace, so the same value
+    satisfies both api_key + api_secret lookups.
 
-    Both fixes live here as autouse so individual tests don't have
-    to duplicate them — the file's contract is "exercise the dry/live
-    routing logic", not "exercise the credential gate or the sizer".
+    Note: ``_fetch_spot_coin_balances`` was removed from execute.py in
+    PR #1655 (Bybit spot semantics fix); the spot-sizing path now runs
+    through the coordinator's inline balance logic. Tests that supply
+    ``balance_fetcher`` directly are unaffected.
     """
     for name in ("BYBIT_KEY_LIVE", "BYBIT_KEY_PAPER"):
         monkeypatch.setenv(name, "test-value")
-        # ``_derive_secret_env`` falls back to api_key_env when there's
-        # no ``_API_KEY`` substring to replace, so the same value
-        # satisfies both api_key + api_secret lookups.
-
-    monkeypatch.setattr(
-        "src.units.accounts.execute._fetch_spot_coin_balances",
-        lambda client, symbol: dict(_HAPPY_SPOT_BALANCES),
-    )
 
 
 _LIVE_ACCOUNTS_YAML = textwrap.dedent("""\
