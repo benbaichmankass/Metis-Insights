@@ -229,17 +229,22 @@ accounts:
   #     live gateway. Promoting it to live is a Tier-3 change via the
   #     set-account-mode operator action.
   #
-  # strategies: [] on both — the three live strategies (vwap,
-  # turtle_soup, ict_scalp_5m) generate BTCUSDT signals, which must never
-  # route to an MES futures account. Belt-and-braces (same pattern as
-  # prop_velotrade_1): even with the connection wired and mode: live, the
-  # coordinator's per-account strategy filter blocks every signal until a
-  # MES-symbol strategy is explicitly assigned here. Wiring a MES
-  # strategy is the follow-up step (see docs/runbooks/ib-integration.md).
+  # Strategy routing (multi-symbol M11): all three strategies (vwap,
+  # turtle_soup, ict_scalp_5m) run on MES on ib_paper, same as on BTCUSDT.
+  # The symbol→exchange dispatch gate (coordinator._eligible_for_dispatch)
+  # guarantees a BTCUSDT signal NEVER reaches an IB account and an MES
+  # signal NEVER reaches a bybit account — so assigning the crypto
+  # strategies here is safe: ib_paper only ever receives MES packages.
+  # MES packages are only GENERATED when the multi-symbol tick loop is on
+  # (MULTI_SYMBOL_ENABLED=true + SYMBOLS includes MES) — off by default, so
+  # in the committed state ib_paper is idle (no MES signals; BTCUSDT gated
+  # out) and opens no Gateway socket. ib_live keeps strategies: [] — the
+  # real-money account stays fully inert until deliberately promoted.
+  # Activation runbook: docs/runbooks/ib-integration.md.
 
   # ib_paper: IB paper account DUQ325724 on the paper gateway (7497).
-  # mode: live → executes against IB paper money. Connection-only until a
-  # MES strategy is assigned.
+  # mode: live → executes against IB paper money once the multi-symbol loop
+  # + Gateway are active.
   ib_paper:
     type: regular
     exchange: interactive_brokers
@@ -249,7 +254,8 @@ accounts:
     ib_port: 7497                      # IB Gateway paper API port
     ib_account: DUQ325724
     ib_client_id: 497                  # unique per concurrent socket
-    strategies: []                     # no MES strategy assigned yet (see header)
+    strategies: [turtle_soup, vwap, ict_scalp_5m]   # all 3 on MES; BTCUSDT
+                                       # is gated out by exchange (see header)
     risk:
       max_dd_pct: 0.05                 # 5% max intra-day drawdown
       daily_usd: 200                   # $200 max daily loss

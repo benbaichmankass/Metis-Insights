@@ -199,7 +199,7 @@ class TestAccountsYaml:
         assert paper["mode"] == "live"          # paper → live (paper money)
         assert paper["ib_port"] == 7497
         assert paper["ib_account"] == "DUQ325724"
-        assert paper["strategies"] == []         # no MES strategy yet
+        assert paper["strategies"] == ["turtle_soup", "vwap", "ict_scalp_5m"]  # all 3 on MES
 
         live = accts["ib_live"]
         assert live["exchange"] == "interactive_brokers"
@@ -254,7 +254,7 @@ class TestLoadAccounts:
         assert paper.ib_port == 7497
         assert paper.ib_account == "DUQ325724"
         assert paper.ib_client_id == 497
-        assert paper.strategies == []
+        assert paper.strategies == ["turtle_soup", "vwap", "ict_scalp_5m"]
 
         live = accounts["ib_live"]
         assert live.dry_run is True           # mode: dry_run

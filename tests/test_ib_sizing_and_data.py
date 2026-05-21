@@ -159,6 +159,59 @@ class TestSymbolExchangeGate:
         assert coord._instrument_exchange_for("") is None
 
 
+class TestDispatchRoutingSafety:
+    """Safety-critical: BTCUSDT never reaches an IB account; MES never a bybit one."""
+
+    _YAML = (
+        "accounts:\n"
+        "  bybit_x:\n"
+        "    type: regular\n"
+        "    exchange: bybit\n"
+        "    strategies: [vwap]\n"
+        "    risk: {max_dd_pct: 0.05, daily_usd: 200, pos_size: 1000}\n"
+        "  ib_x:\n"
+        "    type: regular\n"
+        "    exchange: interactive_brokers\n"
+        "    strategies: [vwap]\n"
+        "    market_type: futures\n"
+        "    ib_port: 7497\n"
+        "    ib_account: TESTACC\n"
+        "    risk: {max_dd_pct: 0.05, daily_usd: 200, pos_size: 2000}\n"
+    )
+
+    def _coord_and_yaml(self, tmp_path):
+        import src.core.coordinator as coord_mod
+        coord_mod._INSTRUMENT_EXCHANGE_CACHE = None
+        p = tmp_path / "accounts.yaml"
+        p.write_text(self._YAML)
+        return coord_mod.Coordinator(), str(p)
+
+    def _pkg(self, symbol, entry, sl, tp):
+        from src.core.coordinator import OrderPackage
+        return OrderPackage(strategy="vwap", symbol=symbol, direction="long",
+                            entry=entry, sl=sl, tp=tp, meta={})
+
+    def test_btcusdt_never_reaches_ib(self, tmp_path):
+        coord, yaml_path = self._coord_and_yaml(tmp_path)
+        results = coord.multi_account_execute(
+            self._pkg("BTCUSDT", 50000.0, 49000.0, 52000.0),
+            accounts_path=yaml_path, dry_run=True,
+        )
+        exchanges = {r.get("exchange") for r in results}
+        assert "interactive_brokers" not in exchanges
+        assert "bybit" in exchanges
+
+    def test_mes_never_reaches_bybit(self, tmp_path):
+        coord, yaml_path = self._coord_and_yaml(tmp_path)
+        results = coord.multi_account_execute(
+            self._pkg("MES", 5800.0, 5750.0, 5900.0),
+            accounts_path=yaml_path, dry_run=True,
+        )
+        exchanges = {r.get("exchange") for r in results}
+        assert "bybit" not in exchanges
+        assert "interactive_brokers" in exchanges
+
+
 class TestConnectorRouting:
     def test_ib_branch_builds_ib_market_data(self):
         from src.runtime.market_data import _build_exchange_client

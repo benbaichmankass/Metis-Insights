@@ -117,21 +117,6 @@ def _load_units(path: str = _UNITS_YAML) -> Dict[str, Any]:
 _INSTRUMENT_EXCHANGE_CACHE: Optional[Dict[str, str]] = None
 
 
-def _multi_symbol_routing_enabled() -> bool:
-    """True when the symbol→exchange dispatch gate is active.
-
-    Default OFF: until MES is switched on, dispatch behaves exactly as the
-    single-symbol design (strategy-name filter only), so the live crypto
-    path and all existing dispatch tests are byte-identical. The MES
-    activation step sets MULTI_SYMBOL_ENABLED=true on the VM, which turns on
-    per-symbol routing so BTCUSDT signals never reach an IB account and vice
-    versa.
-    """
-    return str(os.environ.get("MULTI_SYMBOL_ENABLED", "false")).strip().lower() in (
-        "true", "1", "yes", "on",
-    )
-
-
 def _instrument_exchange_for(symbol: str) -> Optional[str]:
     """Return the exchange a *symbol* trades on, or None if unknown."""
     global _INSTRUMENT_EXCHANGE_CACHE
@@ -966,17 +951,23 @@ class Coordinator:
         def _eligible_for_dispatch(account_obj) -> bool:
             if not getattr(account_obj, "configured", True):
                 return False
-            # Symbol→exchange routing gate (multi-symbol M11): a package for
-            # symbol S only dispatches to accounts on S's exchange. BTCUSDT
-            # (bybit) never reaches an IB account; MES (interactive_brokers)
-            # never reaches a bybit account. Flag-gated (default OFF) so the
-            # single-symbol path is byte-identical until MES is switched on;
-            # no-op too for symbols without an instrument profile.
-            if _multi_symbol_routing_enabled():
-                inst_exchange = _instrument_exchange_for(getattr(pkg, "symbol", "") or "")
-                acct_exchange = str(getattr(account_obj, "exchange", "") or "").lower()
-                if inst_exchange and acct_exchange and inst_exchange != acct_exchange:
-                    return False
+            # Symbol→exchange routing gate (multi-symbol M11). Applied only
+            # when EITHER side involves Interactive Brokers, so:
+            #   * a BTCUSDT (bybit) package never reaches an IB account, and
+            #   * an MES (interactive_brokers) package never reaches a bybit
+            #     account,
+            # regardless of feature flags — making it safe to assign the
+            # crypto strategies to ib_paper. Legacy crypto cross-account
+            # dispatch (bybit/binance/breakout among themselves) is left
+            # untouched, so existing dispatch behaviour/tests are unchanged.
+            inst_exchange = _instrument_exchange_for(getattr(pkg, "symbol", "") or "")
+            acct_exchange = str(getattr(account_obj, "exchange", "") or "").lower()
+            ib_involved = (
+                inst_exchange == "interactive_brokers"
+                or acct_exchange == "interactive_brokers"
+            )
+            if ib_involved and inst_exchange and acct_exchange and inst_exchange != acct_exchange:
+                return False
             assigned = getattr(account_obj, "strategies", None)
             if assigned is None:
                 return True  # legacy / no-mapping account
