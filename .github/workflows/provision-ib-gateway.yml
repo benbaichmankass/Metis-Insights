@@ -3,23 +3,24 @@ name: provision-ib-gateway
 # Installs / re-provisions the headless IB Gateway (IBC) on the live VM for
 # the MES / Interactive Brokers integration.
 #
-# Operator workflow:
-#   1. Add secrets in Settings → Secrets and variables → Actions:
-#        IB_USERNAME — IBKR login username (paper login for now)
-#        IB_PASSWORD — IBKR login password
-#   2. Dispatch this workflow (trading_mode=paper, ib_port=7497 by default).
-#   3. When the run finishes, approve the IBKR Mobile 2FA prompt on your
-#      phone to complete the Gateway login.
+# Two dispatch paths (per CLAUDE.md "THERE IS NO MANUAL" — Claude drives it):
+#   1. Issue-driven (Claude self-dispatch): open an issue labelled
+#      `provision-ib-gateway`. Optional body lines `mode: paper|live` and
+#      `port: 7497|7496` (defaults: paper / 7497). The workflow runs,
+#      comments the result back, and closes the issue.
+#   2. workflow_dispatch: manual run with the same inputs.
 #
-# The workflow renders the credentials into an env file ON THE RUNNER, scps
-# it to the VM over the encrypted SSH channel, then runs the idempotent
-# installer (scripts/install_ib_gateway.sh) + (re)starts ib-gateway.service.
+# The workflow renders the IB_USERNAME / IB_PASSWORD repo secrets into an
+# env file ON THE RUNNER, scps it to the VM over the encrypted SSH channel,
+# then runs the idempotent installer + (re)starts ib-gateway.service.
 #
 # Security contract (mirrors rotate-account-keys):
 #   * Credentials never appear in argv or run logs — they ride in a file
 #     transferred over scp and are shredded after install.
 #   * The Gateway runs independently of ict-trader-live, so this never
 #     restarts the live crypto trader.
+#   * After login the operator approves the IBKR-Mobile 2FA tap (the one
+#     irreducible physical step).
 #
 # Required repo secrets: VM_SSH_KEY, IB_USERNAME, IB_PASSWORD
 # Optional repo variables: VM_SSH_HOST (default 158.178.210.252), VM_SSH_USER (default ubuntu)
@@ -43,9 +44,12 @@ on:
         description: "Audit-trail note"
         required: true
         default: ""
+  issues:
+    types: [opened]
 
 permissions:
   contents: read
+  issues: write
 
 concurrency:
   group: provision-ib-gateway
@@ -53,40 +57,57 @@ concurrency:
 
 jobs:
   provision:
+    # Run for a manual dispatch, or an issue carrying the provision label.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' &&
+       contains(github.event.issue.labels.*.name, 'provision-ib-gateway'))
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
       VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '158.178.210.252' }}
       VM_SSH_USER: ${{ vars.VM_SSH_USER || 'ubuntu' }}
-      TRADING_MODE: ${{ inputs.trading_mode }}
-      IB_PORT: ${{ inputs.ib_port }}
-      REASON: ${{ inputs.reason }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Validate inputs + secret presence
+      - name: Resolve params (both triggers)
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          IN_MODE: ${{ inputs.trading_mode }}
+          IN_PORT: ${{ inputs.ib_port }}
+          IN_REASON: ${{ inputs.reason }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+        run: |
+          set -euo pipefail
+          if [ "${EVENT_NAME}" = "workflow_dispatch" ]; then
+            MODE="${IN_MODE}"; PORT="${IN_PORT}"; REASON="${IN_REASON}"
+          else
+            MODE=$(printf '%s\n' "${ISSUE_BODY}" | grep -iE '^[[:space:]]*mode[[:space:]]*:' | head -1 | cut -d: -f2- | tr -d '[:space:]' || true)
+            PORT=$(printf '%s\n' "${ISSUE_BODY}" | grep -iE '^[[:space:]]*port[[:space:]]*:' | head -1 | cut -d: -f2- | tr -d '[:space:]' || true)
+            REASON="issue-driven provision: ${ISSUE_TITLE}"
+          fi
+          MODE="${MODE:-paper}"; PORT="${PORT:-7497}"
+          case "${MODE}" in paper|live) ;; *) echo "::error::mode must be paper|live"; exit 1 ;; esac
+          case "${PORT}" in 7496|7497) ;; *) echo "::error::port must be 7496|7497"; exit 1 ;; esac
+          {
+            echo "TRADING_MODE=${MODE}"
+            echo "IB_PORT=${PORT}"
+            echo "REASON=${REASON}"
+          } >> "$GITHUB_ENV"
+          echo ">>> provisioning IB Gateway mode=${MODE} port=${PORT}"
+
+      - name: Validate secret presence
         env:
           IB_USERNAME: ${{ secrets.IB_USERNAME }}
           IB_PASSWORD: ${{ secrets.IB_PASSWORD }}
         run: |
           set -euo pipefail
-          if [ -z "${REASON// }" ]; then
-            echo "::error::reason is required."; exit 1
-          fi
           if [ -z "${IB_USERNAME}" ] || [ -z "${IB_PASSWORD}" ]; then
             echo "::error::IB_USERNAME and/or IB_PASSWORD secrets not set."
-            echo "::error::Add them at Settings → Secrets and variables → Actions."
             exit 1
           fi
-          case "${IB_PORT}" in
-            7496|7497) ;;
-            *) echo "::error::ib_port must be 7496 or 7497."; exit 1 ;;
-          esac
-          if [ "${TRADING_MODE}" = "live" ]; then
-            echo "::warning::Provisioning a LIVE Gateway — the ib_live account stays mode: dry_run in accounts.yaml until separately promoted."
-          fi
-          echo ">>> provisioning IB Gateway mode=${TRADING_MODE} port=${IB_PORT}"
 
       - name: Set up SSH key
         env:
@@ -99,7 +120,7 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -t rsa,ecdsa,ed25519 "${VM_SSH_HOST}" >> ~/.ssh/known_hosts 2>/dev/null
 
-      - name: Render credential env file (runner-local, gitignored tmp)
+      - name: Render credential env file (runner-local)
         env:
           IB_USERNAME: ${{ secrets.IB_USERNAME }}
           IB_PASSWORD: ${{ secrets.IB_PASSWORD }}
@@ -135,6 +156,31 @@ jobs:
               > action-output.txt 2>&1
           rc=$?
           set -e
+          echo "rc=${rc}" >> "$GITHUB_OUTPUT"
           echo ">>> provision exit code: ${rc}"
           cat action-output.txt
-          exit "${rc}"
+          # Don't hard-fail here on issue trigger — the comment-back step
+          # reports the outcome and closes the issue regardless.
+          if [ "${{ github.event_name }}" != "issues" ]; then exit "${rc}"; fi
+
+      - name: Comment result + close issue (issue trigger)
+        if: always() && github.event_name == 'issues'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          OUT=$(tail -c 8000 action-output.txt 2>/dev/null || echo "(no output captured)")
+          {
+            echo "**provision-ib-gateway** result (mode=${TRADING_MODE:-?} port=${IB_PORT:-?})"
+            echo "Run: ${RUN_URL}"
+            echo ""
+            echo '```'
+            echo "${OUT}"
+            echo '```'
+            echo ""
+            echo "_If login is pending, approve the IBKR Mobile 2FA tap to complete it._"
+          } > /tmp/comment.md
+          gh issue comment "${ISSUE_NUMBER}" --repo "${{ github.repository }}" --body-file /tmp/comment.md
+          gh issue close "${ISSUE_NUMBER}" --repo "${{ github.repository }}" --reason completed
