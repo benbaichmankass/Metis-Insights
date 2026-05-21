@@ -39,9 +39,23 @@ OPS_DIR = REPO_ROOT / "scripts" / "ops"
 DOC = REPO_ROOT / "docs" / "claude" / "operator-actions.md"
 
 # Single source of truth for the allowlist as expected by every layer.
+# Single source of truth for the operator-action allowlist. Must stay in
+# lockstep with .github/workflows/operator-actions.yml (the `action` choice
+# options, the Tier classification case, and the SCRIPT-name case) and with
+# docs/claude/operator-actions.md. The guard tests below assert all three
+# agree. Previously this map listed only 14 of the live actions while the
+# workflow had grown to 30; the drift went unnoticed because CI runs
+# pytest-collect (import only), not the test bodies.
 EXPECTED_ACTIONS = {
+    # Tier 1 — read-only / analysis
     "status-check": "status_check.sh",
     "pull-latest-logs": "pull_logs.sh",
+    "inspect-closed-pnl": "inspect_closed_pnl_action.sh",
+    "bybit-account-audit": "bybit_account_audit_action.sh",
+    "strategy-performance-audit": "strategy_performance_audit_action.sh",
+    "monitor-miss-analysis": "monitor_miss_analysis_action.sh",
+    "vwap-backtest-sweep": "vwap_backtest_sweep_action.sh",
+    # Tier 2 — mutating / restart / derived-artifact writes
     "pull-and-deploy": "pull_and_deploy.sh",
     "restart-bot-service": "restart_bot.sh",
     "reboot-vm": "reboot_vm.sh",
@@ -51,8 +65,20 @@ EXPECTED_ACTIONS = {
     "disable-m5-consumer": "disable_m5_consumer.sh",
     "setup-cloudflare-tunnel": "setup_cloudflare_tunnel.sh",
     "teardown-cloudflare-tunnel": "teardown_cloudflare_tunnel.sh",
+    "setup-named-cloudflare-tunnel": "setup_named_cloudflare_tunnel.sh",
+    "teardown-named-cloudflare-tunnel": "teardown_named_cloudflare_tunnel.sh",
+    "setup-tailscale-funnel": "setup_tailscale_funnel.sh",
+    "teardown-tailscale-funnel": "teardown_tailscale_funnel.sh",
+    "backfill-pnl-nulls": "backfill_pnl_nulls_action.sh",
+    "backfill-orphan-pnl": "backfill_orphan_pnl_action.sh",
+    "backfill-monitor-closed-pnl": "backfill_monitor_closed_pnl_action.sh",
+    "revert-backfill-monitor-closed-pnl": "revert_backfill_monitor_closed_pnl_action.sh",
+    "rebuild-pnl-from-bybit": "rebuild_pnl_from_bybit_action.sh",
+    "backfill-shadow-predictions": "backfill_shadow_predictions_action.sh",
     "set-account-mode": "set_account_mode.sh",
     "fix-data-dir": "fix_data_dir.sh",
+    "rotate-account-keys": "rotate_account_keys.sh",
+    "init-diag-token": "init_diag_token.sh",
 }
 
 TIER_2_ACTIONS = {
@@ -65,8 +91,20 @@ TIER_2_ACTIONS = {
     "disable-m5-consumer",
     "setup-cloudflare-tunnel",
     "teardown-cloudflare-tunnel",
+    "setup-named-cloudflare-tunnel",
+    "teardown-named-cloudflare-tunnel",
+    "setup-tailscale-funnel",
+    "teardown-tailscale-funnel",
+    "backfill-pnl-nulls",
+    "backfill-orphan-pnl",
+    "backfill-monitor-closed-pnl",
+    "revert-backfill-monitor-closed-pnl",
+    "rebuild-pnl-from-bybit",
+    "backfill-shadow-predictions",
     "set-account-mode",
     "fix-data-dir",
+    "rotate-account-keys",
+    "init-diag-token",
 }
 
 
@@ -99,11 +137,16 @@ def test_only_two_dispatch_paths(workflow_dict: dict) -> None:
     )
 
 
-def test_issues_trigger_is_opened_only(workflow_dict: dict) -> None:
+def test_issues_trigger_is_opened_or_labeled(workflow_dict: dict) -> None:
+    # The workflow fires on issue `opened` (body carries `action:`) and
+    # `labeled` (operator adds the `operator-action` label to an existing
+    # issue). Both are gated by the label check in the job-level `if:`
+    # (see test_issue_dispatch_is_label_filtered). No other issue event
+    # (edited/closed/…) may trigger a dispatch.
     issues_trigger = workflow_dict["on"]["issues"]
     assert isinstance(issues_trigger, dict)
-    assert issues_trigger.get("types") == ["opened"], (
-        f"issues trigger must be types: [opened]; got: {issues_trigger}"
+    assert issues_trigger.get("types") == ["opened", "labeled"], (
+        f"issues trigger must be types: [opened, labeled]; got: {issues_trigger}"
     )
 
 

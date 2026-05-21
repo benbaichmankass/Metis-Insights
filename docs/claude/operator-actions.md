@@ -157,8 +157,15 @@ Claude may dispatch these without operator approval:
 
 - `status-check`
 - `pull-latest-logs`
+- `inspect-closed-pnl`
+- `bybit-account-audit`
+- `strategy-performance-audit`
+- `monitor-miss-analysis`
+- `vwap-backtest-sweep`
 
-Pre-conditions: none beyond the standard "session has a clear reason
+These are read-only analysis wrappers (they query the journal / Bybit /
+backtest harness and emit a summary; no journal mutation, no service
+restart). Pre-conditions: none beyond the standard "session has a clear reason
 to run it" (a flagged issue, a CI failure on `vm-diag-snapshot`,
 operator request, scheduled health check). The wrapper itself is
 read-only.
@@ -177,11 +184,22 @@ Tier-2 actions:
 - `disable-closed-flat-invariant`
 - `enable-m5-consumer`
 - `disable-m5-consumer`
+- `setup-cloudflare-tunnel`
+- `teardown-cloudflare-tunnel`
+- `setup-named-cloudflare-tunnel`
+- `teardown-named-cloudflare-tunnel`
+- `setup-tailscale-funnel`
+- `teardown-tailscale-funnel`
 - `backfill-pnl-nulls`
 - `backfill-orphan-pnl`
+- `backfill-monitor-closed-pnl`
+- `revert-backfill-monitor-closed-pnl`
+- `rebuild-pnl-from-bybit`
 - `backfill-shadow-predictions`
 - `set-account-mode`
 - `fix-data-dir`
+- `rotate-account-keys`
+- `init-diag-token`
 
 `pull-and-deploy` is a thin wrapper around `scripts/deploy_pull_restart.sh`
 (the canonical script the `ict-git-sync` timer also calls). It fetches

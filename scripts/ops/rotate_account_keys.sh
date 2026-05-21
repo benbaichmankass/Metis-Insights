@@ -16,6 +16,11 @@
 set -euo pipefail
 
 REPO_DIR="${BOT_REPO_DIR:-/home/ubuntu/ict-trading-bot}"
+# Source the shared operator-action lib for consistent logging + audit
+# trail. REPO_DIR is resolved above (honouring BOT_REPO_DIR), and _lib.sh
+# uses `${REPO_DIR:-…}` so it preserves that value rather than overriding.
+# shellcheck source=scripts/ops/_lib.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_lib.sh"
 ENV_FILE="${REPO_DIR}/.env"
 
 # ── Input validation ──────────────────────────────────────────────────────────
