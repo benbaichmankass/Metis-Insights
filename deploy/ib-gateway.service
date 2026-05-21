@@ -36,8 +36,10 @@ Environment=TWS_PATH=/home/ubuntu/Jts
 Environment=IBC_INI=/opt/ibc/config.ini
 Environment=TRADING_MODE=paper
 Environment=DISPLAY=:1
-# Virtual framebuffer wraps the Gateway GUI; IBC's gatewaystart.sh launches it.
-ExecStart=/usr/bin/xvfb-run -n 1 -s "-screen 0 1024x768x24" /opt/ibc/scripts/ibcstart.sh
+# Virtual framebuffer wraps the Gateway GUI. The wrapper auto-detects the
+# installed Gateway version and execs IBC's ibcstart.sh with the required
+# --gateway/--mode/--ibc-ini args (calling ibcstart.sh bare exits immediately).
+ExecStart=/usr/bin/xvfb-run -n 1 -s "-screen 0 1024x768x24" /home/ubuntu/ict-trading-bot/scripts/ib_gateway_start.sh
 Restart=always
 RestartSec=30
 # Give the Gateway time to come up + auth before systemd considers it failed.

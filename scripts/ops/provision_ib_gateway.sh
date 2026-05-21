@@ -35,6 +35,12 @@ bash "${REPO_ROOT}/scripts/install_ib_gateway.sh"
 
 echo "[provision_ib_gateway] restarting ib-gateway.service"
 sudo systemctl restart ib-gateway.service || true
-sleep 5
-sudo systemctl --no-pager --full status ib-gateway.service | head -20 || true
-echo "[provision_ib_gateway] done — approve the IBKR Mobile 2FA prompt to complete login."
+# Give IBC time to launch the Gateway + reach the login/2FA step before we
+# snapshot state (the GUI boot under xvfb takes ~20-40s).
+sleep 30
+sudo systemctl --no-pager --full status ib-gateway.service | head -25 || true
+echo "----- ib-gateway journal (last 50 lines) -----"
+# Credential values are redacted by the workflow comment-back step before
+# posting; IBC does not log the password regardless.
+sudo journalctl -u ib-gateway.service -n 50 --no-pager 2>&1 | tail -50 || true
+echo "[provision_ib_gateway] done — if login reached the 2FA step, approve the IBKR Mobile tap."
