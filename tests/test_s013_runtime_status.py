@@ -71,7 +71,12 @@ def test_live_only_true_when_override_flips_account_to_live(tmp_path):
     assert payload["live"] == {"a": True, "b": False}
 
 
-def test_live_defaults_to_false_for_accounts_without_overrides(tmp_path):
+def test_live_defaults_to_true_for_accounts_without_mode(tmp_path):
+    # Policy: live-by-default per CLAUDE.md Autonomous live-trading rule.
+    # Accounts with no `mode:` field default to live=True (not dry).
+    # The old assertion (`False`) was written under the S-012 "dry by default"
+    # baseline; the policy flipped and _read_live_per_account was updated
+    # (see runtime_status.py docstring for the 2026-05-10 incident context).
     accounts = _write_yaml(
         tmp_path / "accounts.yaml",
         "accounts:\n  a: {}\n  b: {}\n",
@@ -82,7 +87,7 @@ def test_live_defaults_to_false_for_accounts_without_overrides(tmp_path):
         dry_run_overrides={},
         git_sha="x",
     )
-    assert payload["live"] == {"a": False, "b": False}
+    assert payload["live"] == {"a": True, "b": True}
 
 
 def test_strategies_only_returns_enabled_entries(tmp_path):
