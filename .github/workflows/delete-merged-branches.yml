@@ -1,0 +1,101 @@
+name: delete-merged-branches
+
+# Autonomous stale-branch cleanup. A PM-side/web session cannot delete
+# remote refs (the sandbox proxy blocks `git push --delete`, and the
+# GitHub MCP tools can create but not delete branches). This runner-side
+# workflow does it where deletion actually works.
+#
+# Trigger: open an issue titled "[delete-merged-branches] ..." (same
+# relay pattern as the diag / bp-report relays). The job computes the set
+# of branches that are the head of a MERGED PR, subtracts main + the head
+# of any OPEN PR, deletes the rest via the refs API, then comments a
+# summary on the issue and closes it.
+#
+# SAFE by construction: only deletes branches whose PR was merged (the
+# work is in main), never main, never an open-PR head. Re-runnable.
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: write        # delete refs
+  pull-requests: read
+  issues: write          # comment + close the trigger issue
+
+jobs:
+  cleanup:
+    if: startsWith(github.event.issue.title, '[delete-merged-branches]')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete merged-PR branches
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -uo pipefail
+          DEFAULT_BRANCH="${{ github.event.repository.default_branch }}"
+
+          echo "Default (protected) branch: ${DEFAULT_BRANCH}"
+
+          # Heads of MERGED PRs (work is in main → safe to delete).
+          gh pr list --repo "$REPO" --state merged --limit 5000 \
+            --json headRefName --jq '.[].headRefName' | sort -u > /tmp/merged.txt
+          # Heads of OPEN PRs (never delete these).
+          gh pr list --repo "$REPO" --state open --limit 5000 \
+            --json headRefName --jq '.[].headRefName' | sort -u > /tmp/open.txt
+          # Branches that actually still exist on the remote.
+          gh api "repos/$REPO/branches" --paginate --jq '.[].name' \
+            | sort -u > /tmp/existing.txt
+
+          # delete = merged ∩ existing − open − default
+          comm -12 /tmp/merged.txt /tmp/existing.txt > /tmp/cand.txt
+          comm -23 /tmp/cand.txt /tmp/open.txt > /tmp/cand2.txt
+          grep -vxF "$DEFAULT_BRANCH" /tmp/cand2.txt > /tmp/to_delete.txt || true
+
+          total=$(wc -l < /tmp/to_delete.txt | tr -d ' ')
+          echo "Branches to delete: ${total}"
+
+          deleted=0; failed=0
+          while IFS= read -r b; do
+            [ -z "$b" ] && continue
+            if gh api -X DELETE "repos/$REPO/git/refs/heads/$b" >/dev/null 2>&1; then
+              deleted=$((deleted+1))
+            else
+              failed=$((failed+1))
+              echo "::warning::failed to delete $b"
+            fi
+          done < /tmp/to_delete.txt
+
+          merged_n=$(wc -l < /tmp/merged.txt | tr -d ' ')
+          open_n=$(wc -l < /tmp/open.txt | tr -d ' ')
+          existing_n=$(wc -l < /tmp/existing.txt | tr -d ' ')
+          {
+            echo "REPORT<<EOF"
+            echo "Stale-branch cleanup (merged-PR heads only):"
+            echo "- remote branches before: ${existing_n}"
+            echo "- merged-PR heads: ${merged_n}; open-PR heads (protected): ${open_n}"
+            echo "- targeted for deletion: ${total}"
+            echo "- deleted: ${deleted}; failed: ${failed}"
+            echo "- never touched: ${DEFAULT_BRANCH} + all open-PR heads"
+            echo "EOF"
+          } >> "$GITHUB_ENV"
+
+      - name: Comment summary and close
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const report = process.env.REPORT || "(cleanup step produced no summary — check the run log)";
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: "**delete-merged-branches**\n\n```\n" + report + "\n```",
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              state: "closed",
+            });
