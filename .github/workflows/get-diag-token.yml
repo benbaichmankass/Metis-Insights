@@ -1,0 +1,204 @@
+name: get-diag-token
+
+# Resolve the DIAG_READ_TOKEN value and deliver it to the repo owner so
+# it can be pasted into a Claude Code on the web environment variable.
+#
+# Resolution order:
+#   1. The DIAG_READ_TOKEN repo secret, if set (this is the value the
+#      vm-diag relay already uses, so it matches the VM by construction).
+#   2. Fallback: read it off the live VM (env file, or the running
+#      web-api process environment) over SSH.
+#
+# Delivery:
+#   * workflow_dispatch -> uploaded as the `diag-env` artifact (download
+#     from the run page).
+#   * issue-driven (label `get-diag-token`) -> posted back as an issue
+#     comment, then the issue is closed.
+#
+#   This repo has exactly two principals (owner + Claude), so the
+#   artifact / comment audience is the owner only. The value is NOT
+#   echoed to the run log (it would be masked if registered, and we
+#   avoid printing it regardless). After retrieving it you may delete
+#   the run / issue to remove the at-rest copy.
+#
+# Required repo secrets:
+#   * DIAG_READ_TOKEN   — preferred source (if set)
+#   * VM_SSH_KEY        — fallback source via SSH read
+#
+# Optional repo variables:
+#   * VM_SSH_HOST       — defaults to 158.178.210.252
+#   * VM_SSH_USER       — defaults to ubuntu
+
+on:
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Why this run is happening (audit only)."
+        required: false
+        default: "manual operator dispatch"
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: get-diag-token
+  cancel-in-progress: false
+
+jobs:
+  get-token:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'get-diag-token'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '158.178.210.252' }}
+      VM_SSH_USER: ${{ vars.VM_SSH_USER || 'ubuntu' }}
+    steps:
+      - name: Resolve token + write env block
+        id: resolve
+        env:
+          DIAG_READ_TOKEN: ${{ secrets.DIAG_READ_TOKEN }}
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+        run: |
+          set -uo pipefail
+          val=""
+          src=""
+
+          # 1. Prefer the repo secret — it already matches the VM.
+          if [ -n "${DIAG_READ_TOKEN}" ]; then
+            val="${DIAG_READ_TOKEN}"
+            src="github-secret"
+          fi
+
+          # 2. Fallback: read off the live VM.
+          if [ -z "$val" ] && [ -n "${VM_SSH_KEY}" ]; then
+            mkdir -p ~/.ssh && chmod 700 ~/.ssh
+            printf '%s\n' "${VM_SSH_KEY}" > ~/.ssh/id_rsa && chmod 600 ~/.ssh/id_rsa
+            ssh-keyscan -t rsa,ecdsa,ed25519 "${VM_SSH_HOST}" >> ~/.ssh/known_hosts 2>/dev/null
+            remote="$(cat <<'REMOTE'
+          set -u
+          ENVFILE=/etc/ict-trader/web-api.env
+          out=""
+          # a. direct read (file readable by the login user)
+          if [ -r "$ENVFILE" ]; then
+            out="$(grep -m1 '^DIAG_READ_TOKEN=' "$ENVFILE" 2>/dev/null | cut -d= -f2-)"
+          fi
+          # b. sudo read (only if passwordless sudo is available)
+          if [ -z "$out" ] && sudo -n true 2>/dev/null; then
+            out="$(sudo grep -m1 '^DIAG_READ_TOKEN=' "$ENVFILE" 2>/dev/null | cut -d= -f2-)"
+          fi
+          # c. running web-api process environment (same-user, no sudo)
+          if [ -z "$out" ]; then
+            pid="$(pgrep -f 'ict.web.api|web.api.main|uvicorn' 2>/dev/null | head -1)"
+            if [ -n "$pid" ] && [ -r "/proc/$pid/environ" ]; then
+              out="$(tr '\0' '\n' < "/proc/$pid/environ" 2>/dev/null | grep -m1 '^DIAG_READ_TOKEN=' | cut -d= -f2-)"
+            fi
+          fi
+          # d. sudo process environment
+          if [ -z "$out" ] && sudo -n true 2>/dev/null; then
+            pid="$(pgrep -f 'ict.web.api|web.api.main|uvicorn' 2>/dev/null | head -1)"
+            if [ -n "$pid" ]; then
+              out="$(sudo tr '\0' '\n' < "/proc/$pid/environ" 2>/dev/null | grep -m1 '^DIAG_READ_TOKEN=' | cut -d= -f2-)"
+            fi
+          fi
+          # Emit on a sentinel line so the runner can extract it from
+          # otherwise-quiet output.
+          printf 'DIAGVAL=%s\n' "$out"
+          REMOTE
+          )"
+            # Capture quietly — never echo SSH stdout to the run log.
+            sshout="$(ssh -i ~/.ssh/id_rsa -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15 "${VM_SSH_USER}@${VM_SSH_HOST}" "bash -s" <<<"$remote" 2>/tmp/ssherr)"
+            val="$(printf '%s' "$sshout" | sed -n 's/^DIAGVAL=//p' | head -1)"
+            [ -n "$val" ] && src="vm-readback"
+          fi
+
+          if [ -z "$val" ]; then
+            echo "::error::Could not resolve DIAG_READ_TOKEN — repo secret unset AND VM read returned nothing."
+            echo "Last SSH stderr (if any):"
+            [ -f /tmp/ssherr ] && tail -5 /tmp/ssherr || true
+            echo "resolved=false" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+
+          # Write the env block to a file (NOT to the log).
+          {
+            printf 'DIAG_READ_TOKEN=%s\n' "$val"
+            printf 'DIAG_BASE_URL=http://%s:8001\n' "$VM_SSH_HOST"
+          } > diag-env.txt
+          chmod 600 diag-env.txt
+
+          echo "resolved=true" >> "$GITHUB_OUTPUT"
+          echo "source=$src" >> "$GITHUB_OUTPUT"
+          echo ">>> resolved DIAG_READ_TOKEN from: $src"
+          echo ">>> wrote diag-env.txt ($(wc -c < diag-env.txt) bytes); value intentionally not printed here"
+
+      - name: Upload env block artifact
+        if: always() && github.event_name == 'workflow_dispatch' && steps.resolve.outputs.resolved == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: diag-env
+          path: diag-env.txt
+          retention-days: 1
+          if-no-files-found: warn
+
+      - name: Reply to issue with the env block
+        if: github.event_name == 'issues' && success()
+        uses: actions/github-script@v7
+        env:
+          SOURCE: ${{ steps.resolve.outputs.source }}
+        with:
+          script: |
+            const fs = require('fs');
+            const block = fs.readFileSync('diag-env.txt', 'utf8').trim();
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body =
+              `✅ **get-diag-token** — resolved from \`${process.env.SOURCE}\`.\n` +
+              `Run: ${runUrl}\n\n` +
+              `Paste these into your cloud environment's **Environment variables** ` +
+              `field (\`.env\` format, no quotes), then set **Network access** to ` +
+              `Full (or Custom allowlisting the host):\n\n` +
+              '```\n' + block + '\n```\n\n' +
+              `_Security note: this comment contains a live read-only token. ` +
+              `Delete this issue after copying it to remove the at-rest copy._`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              state: 'closed',
+              state_reason: 'completed'
+            });
+
+      - name: Reply to issue with failure
+        if: github.event_name == 'issues' && failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body =
+              `❌ **get-diag-token** failed to resolve the token.\n` +
+              `Run: ${runUrl}\n\n` +
+              `Either the DIAG_READ_TOKEN repo secret is unset and the VM read ` +
+              `returned nothing, or SSH/VM was unreachable. See the run log.`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              state: 'closed',
+              state_reason: 'not_planned'
+            });
