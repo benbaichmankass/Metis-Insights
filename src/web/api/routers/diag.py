@@ -77,6 +77,8 @@ _CANONICAL_UNITS: tuple[str, ...] = (
 )
 
 _ADVISORY_LOG = runtime_logs_dir() / "advisory_decisions.jsonl"
+_SHADOW_PRED_LOG = runtime_logs_dir() / "shadow_predictions.jsonl"
+_SHADOW_PRED_BACKFILL_LOG = runtime_logs_dir() / "shadow_predictions_backfill.jsonl"
 
 _LOG_FILES: dict[str, Path] = {
     "audit": _AUDIT_LOG,
@@ -87,6 +89,14 @@ _LOG_FILES: dict[str, Path] = {
     # Coordinator.log_advisory_scores() when advisory-stage models are active.
     # Empty/absent when no advisory models are wired (expected for most installs).
     "advisory_decisions": _ADVISORY_LOG,
+    # WS7 shadow-prediction audit log. Written by with_shadow_preds() on every
+    # actionable signal once a shadow-stage model is auto-wired (the default).
+    # Exposing the tail here lets a layer-2 health review confirm models are
+    # actually logging in real time — the operator's "shadow-or-live, and a
+    # non-logging model is a critical error" directive (2026-05-21). Absent
+    # only if no shadow predictions have ever been written.
+    "shadow_predictions": _SHADOW_PRED_LOG,
+    "shadow_predictions_backfill": _SHADOW_PRED_BACKFILL_LOG,
 }
 
 _DEFAULT_LIMIT = 100
