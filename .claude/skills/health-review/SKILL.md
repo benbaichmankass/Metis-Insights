@@ -63,6 +63,41 @@ requirement.
 
 ## How Claude fetches runtime state itself
 
+There are two transports for the same `/api/diag/*` read surface. Both
+return identical JSON; the only difference is speed and setup. **Try
+direct first; fall back to the issue relay.**
+
+### Transport A — direct HTTP (preferred, when configured)
+
+If this session's cloud environment has `DIAG_BASE_URL` and
+`DIAG_READ_TOKEN` set (and Network access permits egress to the host),
+fetch the diag surface directly in one shot — no GitHub round-trip:
+
+```
+scripts/ops/diag_fetch.sh 'audit?limit=600'
+scripts/ops/diag_fetch.sh 'journal?table=trades&limit=100'
+scripts/ops/diag_fetch.sh 'status'
+```
+
+The helper resolves `$DIAG_BASE_URL/api/diag/<path>` with the bearer in
+a 0600 curl config (token never hits argv/logs). Exit `0` → JSON on
+stdout, use it. Exit `3` → direct path unavailable (env unset, egress
+blocked, or web-api down) → **fall back to Transport B**. The
+`<path>` values are exactly the ones in the mapping table below.
+
+`DIAG_BASE_URL` + `DIAG_READ_TOKEN` cover the **live VM only** — the
+trainer VM has no `/api/diag/*` surface, so trainer dimensions are
+always pulled via the `trainer-vm-diag` relay (see "Trainer VM health
+review" below), regardless of direct config.
+
+(Direct egress to a raw `http://IP:8001` may still be refused by the
+platform proxy even at Network access = Full; if `diag_fetch.sh`
+returns `3` despite the env vars being set, the robust fix is to point
+`DIAG_BASE_URL` at an HTTPS hostname for the diag API. Until then the
+relay fallback keeps the review working.)
+
+### Transport B — GitHub-issue relay (fallback, always available)
+
 The diag relays are issue-driven: open a labelled issue, the matching
 GitHub Actions workflow SSHes to the VM, runs a fixed (live) or
 arbitrary (trainer) read command, posts the result back as an issue
@@ -73,7 +108,8 @@ Full contract + failure modes: `docs/claude/diag-relay.md` (live) and
 
 **Live VM** — `vm-diag-snapshot.yml`, issue label `vm-diag-request`,
 title `[diag-request] <path>` (body ignored). Each `=== SNAPSHOT ===`
-section maps to a diag endpoint:
+section maps to a diag endpoint (these `<path>` values are also what
+you pass to `diag_fetch.sh` for the direct transport):
 
 | Snapshot section | Diag relay pull |
 |---|---|
@@ -88,25 +124,25 @@ section maps to a diag endpoint:
 | API / ERRORS | `journalctl?unit=ict-trader-live.service&lines=200` or `log_file?name=bot_log&lines=200` |
 | AUDIT_LOG | `audit?limit=600` (freshness from newest `ts`); `log_file?name=audit&lines=1` |
 
-Two live-VM snapshot sections have **no** diag-endpoint equivalent
-(the live relay is fixed-curl only — no arbitrary bash, no `sqlite3
-PRAGMA`):
+Two live-VM snapshot sections have **no** diag-endpoint equivalent on
+*either* transport — the `/api/diag/*` surface itself doesn't expose
+them (no arbitrary bash, no `sqlite3 PRAGMA`), so direct HTTP doesn't
+help here:
 
-- **DB `integrity_check`** — not fetchable via the relay. Grade
-  `db_integrity` from what *is* reachable: journal row recency
-  (newest `trades` / `order_packages` row age) and the audit-log
-  freshness. Note in the finding that `integrity_check` was not
-  directly fetched (relay can't run `PRAGMA`). Only escalate to
-  `concern` on stale-writes evidence, not on the absence of the
-  integrity field.
-- **STORAGE (`verify_storage_setup.sh`)** — not fetchable via the
-  relay. `vm_health.disk` from `status` covers the disk-pressure
-  angle; the mount/fstab detail is unavailable. Don't fail the
-  review on its absence; mention it only if `vm_health.disk` is high.
+- **DB `integrity_check`** — not fetchable. Grade `db_integrity` from
+  what *is* reachable: journal row recency (newest `trades` /
+  `order_packages` row age) and the audit-log freshness. Note in the
+  finding that `integrity_check` was not directly fetched. Only
+  escalate to `concern` on stale-writes evidence, not on the absence
+  of the integrity field.
+- **STORAGE (`verify_storage_setup.sh`)** — not fetchable.
+  `vm_health.disk` from `status` covers the disk-pressure angle; the
+  mount/fstab detail is unavailable. Don't fail the review on its
+  absence; mention it only if `vm_health.disk` is high.
 
 If you genuinely need those two fields, the only path that computes
 them is `health-snapshot.yml` (it runs `collect_health_snapshot.sh`
-on the VM) — but its output lands in an Action artifact the sandbox
+on the VM) — but its output lands in an Action artifact the session
 can't download, so don't block the review on it.
 
 **Trainer VM** — `trainer-vm-diag.yml`, issue label
@@ -115,12 +151,16 @@ runs arbitrary bash, Claude can reproduce the *entire*
 `trainer_snapshot.txt` (see "Trainer VM health review" below for the
 exact commands).
 
-If the relay returns curl exit 7 (`Failed to connect to 127.0.0.1`),
+If the direct transport returns exit `3`, fall back to the relay. If
+the relay then returns curl exit 7 (`Failed to connect to 127.0.0.1`),
 the live web-api is down — fire `vm-web-api-recover` and retry once.
-If it still fails after recovery, downgrade gracefully (see the
-mandatory pre-review step below): emit the review with a `concern` on
-`api_errors`, `operator_attention_required: true`, and a note that
-the live pull could not be performed. Do not fabricate findings.
+(A failing direct transport AND a relay exit 7 both point at the same
+cause: `ict-web-api.service` is down, since both transports terminate
+at that FastAPI process.) If it still fails after recovery, downgrade
+gracefully (see the mandatory pre-review step below): emit the review
+with a `concern` on `api_errors`, `operator_attention_required: true`,
+and a note that the live pull could not be performed. Do not fabricate
+findings.
 
 ## Other files this skill reads from the repo
 
@@ -150,8 +190,11 @@ unrecognized.
 ## Mandatory pre-review step — fetch the live 6-hour log window
 
 **This is how the review gets its data.** Claude pulls the live audit +
-journal tables via the diag relay (see `docs/claude/diag-relay.md`) —
-this is not a complement to a pasted snapshot, it *is* the input. (Even
+journal tables via the diag surface — direct HTTP when the session is
+configured for it (`scripts/ops/diag_fetch.sh`), else the GitHub-issue
+relay (see "How Claude fetches runtime state itself" above and
+`docs/claude/diag-relay.md`). This is not a complement to a pasted
+snapshot, it *is* the input. (Even
 when a snapshot is pasted, it can't substitute: `collect_health_snapshot.sh`
 greps `*.log` for ticks/signals/orders/trades, but the live pipeline
 writes `runtime_logs/signal_audit.jsonl` (NDJSON, not `.log`), so the
@@ -167,9 +210,10 @@ fill become trades?) and the decision quality (are the signals
 reasonable for the current market context? are the position sizes,
 sides, and SL/TP wired through correctly?).
 
-Open a single `[diag-request]` issue per query, then poll
-`mcp__github__issue_read` for the workflow's reply comment. Required
-pulls:
+For each pull: run `scripts/ops/diag_fetch.sh '<path>'` first; on exit
+`3`, fall back to opening a single `[diag-request]` issue per query and
+polling `mcp__github__issue_read` for the workflow's reply comment.
+Required pulls:
 
 1. **6-hour audit tail** — `audit?limit=600` (≈100 events/hr cap).
    Tail of `runtime_logs/signal_audit.jsonl`. Filter the returned
