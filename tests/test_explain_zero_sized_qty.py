@@ -68,9 +68,11 @@ class TestExplainZeroSizedQty:
         had $186.87 USDT (well above the $50 floor) but Bybit's
         wallet API returned ``availableToBorrow=0`` for BTC, so the
         spot-margin SHORT path's S-054 cap collapsed to 0.
-        Pre-fix: ``below_min_balance: balance=186.87 < 50.0`` (lie).
-        Post-fix: ``zero_exchange_capacity:`` with operator-actionable
-        next steps.
+
+        PR 5 (2026-05-10): the ``zero_exchange_capacity`` token was
+        removed alongside the spot-margin code paths in coordinator.py.
+        The current contract falls through to ``risk_refused:`` with
+        all inputs for operator triage.
         """
         msg = _explain_zero_sized_qty(
             balance=186.87,
@@ -80,19 +82,16 @@ class TestExplainZeroSizedQty:
             direction="short",
             market_type="spot-margin",
         )
-        assert msg.startswith("zero_exchange_capacity:")
+        assert msg.startswith("risk_refused:")
         assert "direction=short" in msg
         assert "available_usd=0.00" in msg
-        # Operator-actionable hints in the body.
-        assert "base-coin borrow capacity" in msg
-        assert "margin tier" in msg or "seed" in msg
+        assert "balance=186.87" in msg
         # The misleading legacy template must NOT fire here.
         assert "below_min_balance" not in msg
 
     def test_zero_exchange_capacity_for_long_names_usdt_side(self):
-        """Symmetric: a long with zero USDT borrow capacity gets a
-        message naming USDT (not "base-coin") so the operator
-        diagnoses the right tier.
+        """Symmetric: a long with zero available_usd falls through to
+        risk_refused (PR 5, 2026-05-10 removed zero_exchange_capacity).
         """
         msg = _explain_zero_sized_qty(
             balance=100.0,
@@ -102,9 +101,9 @@ class TestExplainZeroSizedQty:
             direction="long",
             market_type="spot-margin",
         )
-        assert msg.startswith("zero_exchange_capacity:")
+        assert msg.startswith("risk_refused:")
         assert "direction=long" in msg
-        assert "USDT borrow capacity" in msg
+        assert "available_usd=0.00" in msg
 
     def test_below_min_balance_takes_priority_over_capacity(self):
         """Order-of-evaluation contract: when BOTH total equity is
@@ -179,10 +178,13 @@ class TestExplainZeroSizedQty:
 
     def test_pinning_case_186_87_short_btc(self):
         """Pin the literal trade 875 / 876 inputs from 2026-05-08.
-        After the fix the operator should see a message that names
-        the actual cause and points at the exchange margin tier.
         Regression guard against any future change reintroducing the
         ``balance=186.87 < 50.0`` lie.
+
+        PR 5 (2026-05-10): the ``zero_exchange_capacity`` token was
+        removed alongside the spot-margin code paths in coordinator.py
+        (see docstring at coordinator.py:2193). Current contract:
+        ``risk_refused:`` with all inputs surfaced for triage.
         """
         msg = _explain_zero_sized_qty(
             balance=186.87,
@@ -192,11 +194,10 @@ class TestExplainZeroSizedQty:
             direction="short",
             market_type="spot-margin",
         )
-        # NEVER again say the balance is below the floor when it
-        # isn't.
+        # NEVER again say the balance is below the floor when it isn't.
         assert "below_min_balance" not in msg
         assert "186.87 < 50" not in msg
-        # Real cause named.
-        assert msg.startswith("zero_exchange_capacity:")
+        # Current contract: risk_refused with all operator inputs.
+        assert msg.startswith("risk_refused:")
         assert "spot-margin" in msg
         assert "short" in msg

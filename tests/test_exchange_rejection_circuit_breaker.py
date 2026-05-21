@@ -57,8 +57,8 @@ _HAPPY_SPOT_BALANCES = {
 def _stub_account_creds_and_balances(monkeypatch):
     monkeypatch.setenv("BYBIT_KEY_LIVE", "test-value")
     monkeypatch.setattr(
-        "src.units.accounts.execute._fetch_spot_coin_balances",
-        lambda client, symbol: dict(_HAPPY_SPOT_BALANCES),
+        "src.units.accounts.execute._fetch_balance",
+        lambda client, account_cfg, **kwargs: _HAPPY_SPOT_BALANCES["total_account_usd"],
     )
 
 
@@ -75,6 +75,10 @@ def _reset_circuit_breaker_state():
 
 
 def _pkg() -> OrderPackage:
+    # Inject account_balances_usd so the coordinator's _default_balance_fetcher
+    # returns 10_000 USD for bybit_live — without this the sizer sees balance=0,
+    # refuses below_min_balance, and never reaches execute_pkg (so the rejection
+    # counter never increments).
     return OrderPackage(
         strategy="vwap",
         symbol="BTCUSDT",
@@ -83,7 +87,10 @@ def _pkg() -> OrderPackage:
         sl=79_500.0,
         tp=80_500.0,
         confidence=0.42,
-        meta={"strategy_name": "vwap"},
+        meta={
+            "strategy_name": "vwap",
+            "account_balances_usd": {"bybit_live": 10_000.0},
+        },
     )
 
 
