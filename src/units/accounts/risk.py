@@ -346,9 +346,14 @@ class RiskManager:
                                  / package.entry
 
         Buffer fallback (``available_usd`` is None — spot accounts,
-        dry-run, or any fetch failure):
+        dry-run, or any fetch failure). The basis is ``total_account_usd``
+        when supplied (total equity backs the position on UNIFIED
+        cross-margin / ``market_type: linear`` accounts), else free
+        ``balance_usd``:
 
-            max_qty_by_margin = (balance_usd * effective_leverage *
+            basis = total_account_usd if total_account_usd is not None
+                    else balance_usd
+            max_qty_by_margin = (basis * effective_leverage *
                                  _MARGIN_SAFETY_BUFFER) / package.entry
 
         The live figure is more accurate because it reflects existing
@@ -407,8 +412,19 @@ class RiskManager:
             if available_usd is not None:
                 max_qty_by_margin = (available_usd * effective_leverage) / package.entry
             else:
+                # Buffer fallback. Prefer total account equity
+                # (``total_account_usd``) over free ``balance_usd`` as the
+                # margin basis when it was supplied: live accounts are
+                # ``market_type: linear`` (Bybit UNIFIED cross-margin), where
+                # total equity — not just the free wallet balance — backs the
+                # position. Using free balance here re-imposed the very
+                # min-balance constraint that ``total_account_usd`` was added
+                # to lift (S-052), sizing locked-funds accounts to 0.0.
+                _margin_basis = (
+                    total_account_usd if total_account_usd is not None else balance_usd
+                )
                 max_qty_by_margin = (
-                    balance_usd * effective_leverage * _MARGIN_SAFETY_BUFFER
+                    _margin_basis * effective_leverage * _MARGIN_SAFETY_BUFFER
                 ) / package.entry
             if qty > max_qty_by_margin:
                 capped = _floor_to_step(max_qty_by_margin, self.qty_precision)
