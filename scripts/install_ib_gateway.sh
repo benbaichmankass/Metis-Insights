@@ -11,7 +11,7 @@
 # from the IB_USERNAME / IB_PASSWORD repo secrets. Safe to re-run.
 #
 # Credentials are never read or printed here — they live only in the
-# root-owned env file and are substituted into config.ini at render time.
+# ubuntu-owned 0600 env file and are substituted into config.ini at render time.
 #
 # NOTE: this touches no trading code and no other systemd unit. The Gateway
 # runs independently of ict-trader-live so bot restarts never re-auth IBKR.

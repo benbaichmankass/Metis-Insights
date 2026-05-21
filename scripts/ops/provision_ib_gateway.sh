@@ -21,9 +21,13 @@ if [[ ! -f "${ENV_STAGED}" ]]; then
   exit 2
 fi
 
-echo "[provision_ib_gateway] installing ${ENV_FILE} (0600, root) from staged file"
+echo "[provision_ib_gateway] installing ${ENV_FILE} (0600, ubuntu) from staged file"
 sudo mkdir -p "$(dirname "${ENV_FILE}")"
-sudo install -m 0600 -o root -g root "${ENV_STAGED}" "${ENV_FILE}"
+# Owned by ubuntu (not root): the IBC service runs as User=ubuntu and the
+# installer (run as ubuntu) sources this file to render config.ini. A
+# root-only 0600 file broke install_ib_gateway.sh with "Permission denied".
+# 0600 keeps it secret; ubuntu already holds the creds (it runs the Gateway).
+sudo install -m 0600 -o ubuntu -g ubuntu "${ENV_STAGED}" "${ENV_FILE}"
 shred -u "${ENV_STAGED}" 2>/dev/null || rm -f "${ENV_STAGED}"
 
 echo "[provision_ib_gateway] running installer"
