@@ -346,9 +346,12 @@ def fake_repo_b3(tmp_path, monkeypatch):
 
 
 def _bybit_account(env_path):
+    # market_type="linear" required since _bybit_category defaults to "spot"
+    # (2026-05-06 operator directive fix); spot accounts return [] from
+    # account_open_positions (no derivative-style positions on spot).
     return {"account_id": "live", "exchange": "bybit",
             "env_path": env_path, "service": "ict-trader-live",
-            "strategies": [], "source": "env"}
+            "strategies": [], "source": "env", "market_type": "linear"}
 
 
 def test_account_balance_bybit_happy(fake_repo_b3):
@@ -361,7 +364,9 @@ def test_account_balance_bybit_happy(fake_repo_b3):
             {"coin": "BTC", "walletBalance": "0.01", "usdValue": "650.5"},
         ]}]}
     }
-    with patch.object(dl, "_bybit_client", return_value=fake_client):
+    # bybit_client_for moved to src.units.accounts.clients (S-032/S-035);
+    # account_balance_with_diagnostic calls it via the data_loaders re-export.
+    with patch.object(dl, "bybit_client_for", return_value=fake_client):
         out = dl.account_balance(_bybit_account(env_path))
     assert out is not None
     assert out["total_usdt"] == pytest.approx(750.5)
@@ -372,7 +377,7 @@ def test_account_balance_returns_none_on_exception(fake_repo_b3):
     (fake_repo_b3 / ".env").write_text("BYBIT_API_KEY=abc\nBYBIT_API_SECRET=def\n")
     fake_client = MagicMock()
     fake_client.get_wallet_balance.side_effect = RuntimeError("net down")
-    with patch.object(dl, "_bybit_client", return_value=fake_client):
+    with patch.object(dl, "bybit_client_for", return_value=fake_client):
         assert dl.account_balance(_bybit_account(env_path)) is None
 
 
@@ -400,7 +405,10 @@ def test_account_open_positions_bybit_filters_zero_size(fake_repo_b3):
              "avgPrice": "3000", "unrealisedPnl": "0"},
         ]}
     }
-    with patch.object(dl, "_bybit_client", return_value=fake_client):
+    # account_open_positions delegates to src.units.accounts.clients which
+    # calls bybit_client_for directly (BUG-042 PR1 relocation).
+    with patch("src.units.accounts.clients.bybit_client_for",
+               return_value=fake_client):
         out = dl.account_open_positions(_bybit_account(env_path))
     assert isinstance(out, list)
     assert len(out) == 1
@@ -413,7 +421,8 @@ def test_account_open_positions_returns_none_on_exception(fake_repo_b3):
     (fake_repo_b3 / ".env").write_text("BYBIT_API_KEY=abc\nBYBIT_API_SECRET=def\n")
     fake_client = MagicMock()
     fake_client.get_positions.side_effect = RuntimeError("api down")
-    with patch.object(dl, "_bybit_client", return_value=fake_client):
+    with patch("src.units.accounts.clients.bybit_client_for",
+               return_value=fake_client):
         assert dl.account_open_positions(_bybit_account(env_path)) is None
 
 

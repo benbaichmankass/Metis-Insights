@@ -180,7 +180,10 @@ class TestBotWrappersCallProcessor:
         full ``telegram`` package).
         """
         from pathlib import Path
-        bot_src = Path("src/bot/telegram_query_bot.py").read_text()
+        # fetch_today_pnl / fetch_open_positions_count were extracted from
+        # telegram_query_bot.py into src/bot/trade_notifier.py as part of
+        # the D3/PR-10 helper-module split.
+        bot_src = Path("src/bot/trade_notifier.py").read_text()
 
         # Slice out each function to verify the wrapper, not other code.
         def _slice(name):

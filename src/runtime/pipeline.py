@@ -724,3 +724,12 @@ def run_pipeline(
         "signal": signal,
         "order_result": result,
     }
+
+
+# Back-compat shim — the canonical implementation moved to
+# src.runtime.market_data._build_exchange_client (S-033 M1 refactor).
+# Existing callers and tests that reference pipeline._build_killzone_exchange
+# keep working unchanged.
+def _build_killzone_exchange(settings: dict):
+    from src.runtime.market_data import _build_exchange_client
+    return _build_exchange_client(settings)

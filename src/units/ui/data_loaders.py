@@ -196,7 +196,29 @@ def _load_yaml_accounts() -> List[Dict[str, Any]]:
     # back-compat path for pre-S-012 tests and are not present in
     # any production YAML.
     from src.config.accounts_loader import load_accounts_dict
-    raw_cfgs = load_accounts_dict(ACCOUNTS_YAML_PATH)
+    errors: List[Dict[str, Any]] = []
+    raw_cfgs = load_accounts_dict(ACCOUNTS_YAML_PATH, errors=errors)
+    for err in errors:
+        err_msg = err.get("error", "")
+        try:
+            from src.runtime.outcomes import Level, report
+            if "PyYAML" in err_msg:
+                report(
+                    "data_loaders",
+                    "pyyaml_missing",
+                    level=Level.WARN,
+                    reason=err_msg,
+                )
+            else:
+                report(
+                    "data_loaders",
+                    "accounts_yaml_read_failed",
+                    level=Level.WARN,
+                    reason=err_msg,
+                    path=err.get("path", str(ACCOUNTS_YAML_PATH)),
+                )
+        except Exception:  # noqa: BLE001
+            pass
     items = []
     for key, item in raw_cfgs.items():
         merged = dict(item)
