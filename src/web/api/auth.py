@@ -45,8 +45,8 @@ PUBLIC_ROUTES: frozenset[str] = frozenset({
     "/api/auth/login",
     "/api/health",
     # S-014 M1 PR #2 — UI surface. ``/home`` is auth-gated client-side
-    # (auth.js redirects to /login if no token). The HTMX fragments
-    # under ``/ui/fragments/*`` (M3) are server-side ``require_session``.
+    # (auth.js redirects to /login if no token). (The HTMX
+    # ``/ui/fragments/*`` routers were removed 2026-05-21 — dead UI.)
     "/",
     "/login",
 })
