@@ -34,6 +34,10 @@ echo "[provision_ib_gateway] running installer"
 bash "${REPO_ROOT}/scripts/install_ib_gateway.sh"
 
 echo "[provision_ib_gateway] restarting ib-gateway.service"
+# Clear any start-limit rate-limit from prior (unapproved-2FA) attempts so this
+# deliberate (re)start — typically when the operator is ready to approve the
+# 2FA — always fires a fresh login.
+sudo systemctl reset-failed ib-gateway.service 2>/dev/null || true
 sudo systemctl restart ib-gateway.service || true
 # Give IBC time to launch the Gateway + reach the login/2FA step before we
 # snapshot state (the GUI boot under xvfb takes ~20-40s).
