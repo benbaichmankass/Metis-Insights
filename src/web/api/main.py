@@ -20,11 +20,9 @@ from src.web.api.routers import health_snapshots as health_snapshots_router
 from src.web.api.routers import liquidity as liquidity_router
 from src.web.api.routers import pnl as pnl_router
 from src.web.api.routers import pnl_exchange as pnl_exchange_router
-from src.web.api.routers import pnl_fragment as pnl_fragment_router
 from src.web.api.routers import pnl_history as pnl_history_router
 from src.web.api.routers import shadow as shadow_router
 from src.web.api.routers import status as status_router
-from src.web.api.routers import status_fragment as status_fragment_router
 from src.web.api.routers import strategies as strategies_router
 from src.web.api.routers import trade_scores as trade_scores_router
 from src.web.api.routers import trades_closed as trades_closed_router
@@ -49,8 +47,6 @@ app.include_router(status_router.router)
 app.include_router(pnl_router.router)
 app.include_router(pnl_history_router.router)
 app.include_router(auth_router.router)
-app.include_router(status_fragment_router.router)
-app.include_router(pnl_fragment_router.router)
 app.include_router(dashboard_router.router)
 app.include_router(bot_config_router.router)
 app.include_router(liquidity_router.router)
