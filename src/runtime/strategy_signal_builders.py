@@ -65,56 +65,100 @@ def _with_signal_package(strategy_id: str, sig: dict) -> dict:
     return sig
 
 
-# Per-process shadow predictor cache for the vwap signal builder.
-# Keyed by frozenset(shadow_model_ids) so a config reload (different
-# ids) gets a fresh resolution. The coordinator uses its own
-# _shadow_predictors_cache for the order_package path; this cache
-# covers the signal-builder path which bypasses the coordinator.
-_VWAP_SHADOW_CACHE: dict = {}
+# Per-process shadow predictor cache for the signal-builder path.
+# Keyed by (strategy_name, tuple(resolved_model_ids)) so a config reload
+# or registry promotion that changes the resolved set gets a fresh
+# resolution. The coordinator keeps its own _shadow_predictors_cache for
+# the order_package() path — which is dead in the multiplexed live
+# pipeline — so this cache covers the signal-builder path that bypasses
+# the coordinator.
+_SHADOW_PREDICTOR_CACHE: dict = {}
+
+# Sentinel distinguishing "key absent / None" (auto-wire) from an
+# explicit "shadow_model_ids: []" (opt-out), mirroring
+# Coordinator._get_shadow_predictors.
+_SHADOW_IDS_MISSING = object()
 
 
-def _emit_vwap_shadow_preds(sig: dict, vwap_cfg: dict, symbol: str) -> None:
-    """Emit shadow predictions for an actionable vwap signal (side=buy/sell).
+def _resolve_shadow_predictors(strategy_name: str, strat_cfg: dict) -> list:
+    """Resolve the shadow predictor list for a strategy's signal-builder path.
 
-    Called as a side-effect from vwap_signal_builder. The predictor list
-    is resolved once per unique shadow_model_ids config and cached
-    process-wide. Per WS7: zero effect on order placement or trading
-    decisions — data gathering only.
+    Mirrors ``Coordinator._get_shadow_predictors`` tri-state semantics
+    (the 2026-05-19 auto-wire default), which the previous vwap-only
+    emitter did not — it read ``shadow_model_ids`` directly and returned
+    on the empty/omitted case, so the auto-wire default (every strategy
+    omits the key) silenced shadow observation entirely in the live
+    multiplexed pipeline:
 
-    Swallows all exceptions so a factory failure never breaks the signal
-    builder hot path.
+      * ``shadow_model_ids`` missing / None — auto-wire every model at
+        ``target_deployment_stage == "shadow"`` from the registry.
+      * ``shadow_model_ids: []`` — explicit opt-out, no predictors.
+      * ``shadow_model_ids: [...]`` — exactly those ids (the factory
+        still applies its own per-id stage gate).
+
+    Cached per (strategy, resolved ids). Never raises — any failure
+    yields an empty list so the signal-builder hot path is unaffected.
     """
     try:
-        shadow_ids = tuple(vwap_cfg.get("shadow_model_ids") or [])
-        if not shadow_ids:
-            return
-        cache_key = shadow_ids
-        if cache_key not in _VWAP_SHADOW_CACHE:
-            from pathlib import Path
-            from ml.registry.model_registry import ModelRegistry
-            from ml.shadow.factory import (
-                DEFAULT_LOG_PATH,
-                DEFAULT_REGISTRY_ROOT,
-                resolve_predictors,
+        raw_ids = strat_cfg.get("shadow_model_ids", _SHADOW_IDS_MISSING)
+        auto_wire = raw_ids is _SHADOW_IDS_MISSING or raw_ids is None
+        explicit_ids = [] if auto_wire else list(raw_ids)
+        if not auto_wire and not explicit_ids:
+            return []  # explicit opt-out
+        from pathlib import Path
+        from ml.registry.model_registry import ModelRegistry
+        from ml.shadow.factory import (
+            DEFAULT_REGISTRY_ROOT,
+            discover_shadow_stage_model_ids,
+            resolve_predictors,
+        )
+        from src.utils.paths import runtime_logs_dir
+        registry_root = Path(
+            strat_cfg.get("_shadow_registry_root") or DEFAULT_REGISTRY_ROOT
+        )
+        configured_log = strat_cfg.get("_shadow_log_path")
+        log_path = (
+            Path(configured_log) if configured_log
+            else runtime_logs_dir() / "shadow_predictions.jsonl"
+        )
+        registry = ModelRegistry(registry_root)
+        ids = (
+            discover_shadow_stage_model_ids(registry) if auto_wire
+            else explicit_ids
+        )
+        if not ids:
+            return []
+        cache_key = (strategy_name, tuple(ids))
+        if cache_key not in _SHADOW_PREDICTOR_CACHE:
+            _SHADOW_PREDICTOR_CACHE[cache_key] = resolve_predictors(
+                list(ids), registry, log_path=log_path,
             )
-            registry_root = Path(
-                vwap_cfg.get("_shadow_registry_root") or DEFAULT_REGISTRY_ROOT
-            )
-            log_path = Path(
-                vwap_cfg.get("_shadow_log_path") or DEFAULT_LOG_PATH
-            )
-            _VWAP_SHADOW_CACHE[cache_key] = resolve_predictors(
-                list(shadow_ids),
-                ModelRegistry(registry_root),
-                log_path=log_path,
-            )
-        predictors = _VWAP_SHADOW_CACHE[cache_key]
+        return _SHADOW_PREDICTOR_CACHE[cache_key]
+    except Exception:  # noqa: BLE001
+        logger.warning(
+            "%s: shadow predictor resolve failed", strategy_name, exc_info=False
+        )
+        return []
+
+
+def _emit_shadow_preds(
+    strategy_name: str, sig: dict, strat_cfg: dict, symbol: str
+) -> None:
+    """Emit shadow predictions for an actionable signal (side=buy/sell).
+
+    Called as a side-effect from each strategy's signal builder. Per WS7:
+    zero effect on order placement or trading decisions — data gathering
+    only. Swallows all exceptions so a factory failure never breaks the
+    signal-builder hot path.
+    """
+    try:
+        predictors = _resolve_shadow_predictors(strategy_name, strat_cfg)
         if not predictors:
             return
         from src.runtime.shadow_adapter import with_shadow_preds
         meta = sig.get("meta") or {}
         feature_row = {
-            "strategy_name": "vwap",
+            "strategy_name": strategy_name,
             "symbol": str(sig.get("symbol") or symbol),
             "direction": "long" if sig.get("side") == "buy" else "short",
             "confidence": float(
@@ -129,7 +173,9 @@ def _emit_vwap_shadow_preds(sig: dict, vwap_cfg: dict, symbol: str) -> None:
             feature_row=feature_row,
         )
     except Exception:  # noqa: BLE001
-        logger.warning("VWAP: shadow prediction emit failed", exc_info=False)
+        logger.warning(
+            "%s: shadow prediction emit failed", strategy_name, exc_info=False
+        )
 
 
 def turtle_soup_signal_builder(settings: dict) -> Dict[str, Any]:
@@ -253,7 +299,7 @@ def turtle_soup_signal_builder(settings: dict) -> Dict[str, Any]:
         )
     except Exception:  # noqa: BLE001
         logger.exception("Turtle Soup: dedicated audit emit failed")
-    return _with_signal_package("turtle_soup", {
+    sig = {
         "symbol": symbol,
         "side": side,
         "price": pkg["entry"],
@@ -273,7 +319,9 @@ def turtle_soup_signal_builder(settings: dict) -> Dict[str, Any]:
             "confidence": pkg["confidence"],
             "direction": pkg["direction"],
         },
-    })
+    }
+    _emit_shadow_preds("turtle_soup", sig, cfg, symbol)
+    return _with_signal_package("turtle_soup", sig)
 
 
 def ict_scalp_signal_builder(settings: dict) -> Dict[str, Any]:
@@ -420,7 +468,7 @@ def ict_scalp_signal_builder(settings: dict) -> Dict[str, Any]:
     except Exception:  # noqa: BLE001
         logger.exception("ict_scalp_5m: dedicated audit emit failed")
 
-    return _with_signal_package("ict_scalp_5m", {
+    sig = {
         "symbol": symbol,
         "side": side,
         "price": pkg["entry"],
@@ -434,7 +482,9 @@ def ict_scalp_signal_builder(settings: dict) -> Dict[str, Any]:
             "confidence": pkg["confidence"],
             "direction": pkg["direction"],
         },
-    })
+    }
+    _emit_shadow_preds("ict_scalp_5m", sig, ict_cfg, symbol)
+    return _with_signal_package("ict_scalp_5m", sig)
 
 
 def vwap_signal_builder(settings: dict) -> Dict[str, Any]:
@@ -572,7 +622,7 @@ def vwap_signal_builder(settings: dict) -> Dict[str, Any]:
     # generation and would otherwise suppress all shadow data while a
     # trade is open). Per WS7: zero effect on order placement.
     if sig.get("side") in ("buy", "sell"):
-        _emit_vwap_shadow_preds(sig, vwap_cfg, symbol)
+        _emit_shadow_preds("vwap", sig, vwap_cfg, symbol)
 
     # Mirror turtle_soup's per-tick audit row (event=turtle_soup_eval at
     # L482-491 / L518-531 of the original pipeline.py). VWAP previously

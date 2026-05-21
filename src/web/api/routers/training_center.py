@@ -201,6 +201,44 @@ def _load_shadow_wiring_map() -> dict[str, list[str]]:
     return inverted
 
 
+def _auto_wire_strategy_names() -> list[str]:
+    """Strategy names that auto-wire every shadow-stage model.
+
+    The 2026-05-19 auto-wire default: a strategy whose ``shadow_model_ids``
+    is **missing or None** observes every model at
+    ``target_deployment_stage == "shadow"`` (see
+    ``Coordinator._get_shadow_predictors`` and
+    ``ml.shadow.factory.discover_shadow_stage_model_ids``). An explicit
+    ``[]`` opts out; an explicit list pins specific ids. This helper
+    returns the auto-wire set so registry-row enrichment can mark a
+    shadow-stage model SHADOW even when no strategy lists it explicitly —
+    without it the dashboard reported every model OFFLINE despite the
+    live pipeline observing them.
+
+    Falls back to an empty list on any read failure (same graceful
+    contract as ``_load_shadow_wiring_map``).
+    """
+    try:
+        from src.utils.paths import repo_root
+        from src.units.strategies import load_strategy_config
+        config_path = str(Path(repo_root()) / "config" / "strategies.yaml")
+        strategies = load_strategy_config(config_path)
+    except Exception as exc:  # noqa: BLE001  # allow-silent: graceful fallback — never 5xx
+        logger.warning("training_center: auto_wire_strategy_names load failed: %s", exc)
+        return []
+    names: list[str] = []
+    for strategy_name, params in (strategies or {}).items():
+        if not isinstance(params, dict):
+            continue
+        # `.get` returns None for a missing key; the loader also yields
+        # None for an explicit `shadow_model_ids:` with no value. Both
+        # mean auto-wire. An explicit list (incl. `[]`) opts out of the
+        # auto set.
+        if "shadow_model_ids" not in params or params.get("shadow_model_ids") is None:
+            names.append(str(strategy_name))
+    return names
+
+
 def _compute_deployment_bucket(linked_strategies: list[str]) -> str:
     """Collapse the 7 registry stages to the operator's 2-bucket view.
 
@@ -217,19 +255,34 @@ def _compute_deployment_bucket(linked_strategies: list[str]) -> str:
 def _enrich_registry_row(
     row: dict[str, Any],
     shadow_map: dict[str, list[str]],
+    auto_wire_names: list[str] | None = None,
 ) -> dict[str, Any]:
     """Flatten useful manifest fields onto the row + compute bucket.
 
     All new keys are additive — existing consumers continue to see the
     same fields they always did. Dashboard renderers should treat every
     enriched field as nullable.
+
+    ``linked_strategies`` resolution honours the auto-wire default: a
+    model explicitly listed in a strategy's ``shadow_model_ids`` is linked
+    to those strategies; otherwise a model at ``target_deployment_stage ==
+    "shadow"`` is linked to every auto-wiring strategy (those that omit
+    ``shadow_model_ids``). Explicit links take precedence so an
+    operator-pinned list renders verbatim.
     """
     model_id = str(row.get("model_id") or "")
     manifest = row.get("manifest") if isinstance(row.get("manifest"), dict) else {}
     dataset = manifest.get("dataset") if isinstance(manifest.get("dataset"), dict) else None
     runs = row.get("runs") if isinstance(row.get("runs"), list) else []
     latest_run = runs[-1] if runs else None
-    linked_strategies = list(shadow_map.get(model_id, []))
+    explicit_linked = list(shadow_map.get(model_id, []))
+    stage = str(row.get("target_deployment_stage") or "")
+    if explicit_linked:
+        linked_strategies = explicit_linked
+    elif stage == "shadow" and auto_wire_names:
+        linked_strategies = list(auto_wire_names)
+    else:
+        linked_strategies = []
     enriched = dict(row)
     enriched["linked_strategies"] = linked_strategies
     enriched["deployment_bucket"] = _compute_deployment_bucket(linked_strategies)
@@ -270,7 +323,8 @@ def get_registry() -> dict[str, Any]:
     root = _mirror_root()
     rows = _read_jsonl_tail(root / "registry.jsonl", limit=0)
     shadow_map = _load_shadow_wiring_map()
-    enriched = [_enrich_registry_row(r, shadow_map) for r in rows]
+    auto_wire_names = _auto_wire_strategy_names()
+    enriched = [_enrich_registry_row(r, shadow_map, auto_wire_names) for r in rows]
     return {
         **_mirror_meta(),
         "rows": enriched,
