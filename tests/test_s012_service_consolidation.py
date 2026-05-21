@@ -27,12 +27,22 @@ EXPECTED_SERVICES = {
     "ict-heartbeat.service",
     "ict-telegram-bot.service",
     "ict-trader-live.service",
-    # S-013 M2 PR #1: read-only dashboard API. Non-trader; binds to
-    # 127.0.0.1:8001 and reads runtime_logs/runtime_status.json without
-    # touching the live tick loop. Deliberately not prefixed
-    # `ict-trader-` so it never matches the single-process trader-side
-    # invariant below.
+    # S-013 M2 PR #1: read-only dashboard API.
     "ict-web-api.service",
+    # PR #978: Cloudflare tunnel carrying the dashboard upstream.
+    "ict-cloudflared-tunnel.service",
+    # 2026-05-11: external liveness watchdog dead-man switch.
+    "ict-liveness-watchdog.service",
+    # Hourly snapshot collector.
+    "ict-hourly-snapshot.service",
+    # Claude bridge bot (ict-claude-bridge.service manages it separately).
+    "ict-claude-bridge.service",
+    # Shadow log rotation for the shadow-predictions audit log.
+    "ict-shadow-log-rotate.service",
+    # One-shot smoke check run on deploy.
+    "ict-smoke-once.service",
+    # Claude VM runner template unit.
+    "claude-vm-runner@.service",
 }
 
 # Trader-side units (i.e. units that run trading-strategy code). Used to
