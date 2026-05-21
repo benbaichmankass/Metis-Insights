@@ -116,6 +116,16 @@ jobs:
                 color: '0075ca',
                 description: 'Triggers ict-scalp-backtest workflow — self-contained pre-live gate for the ict_scalp_5m strategy.',
               },
+              {
+                name: 'set-diag-token',
+                color: 'b60205',
+                description: 'Triggers set-diag-token workflow — push the DIAG_READ_TOKEN repo secret onto the live VM + restart web-api.',
+              },
+              {
+                name: 'get-diag-token',
+                color: 'b60205',
+                description: 'Triggers get-diag-token workflow — resolve the DIAG_READ_TOKEN value and deliver it to the repo owner.',
+              },
             ];
             for (const l of LABELS) {
               try {

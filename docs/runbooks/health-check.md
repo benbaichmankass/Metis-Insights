@@ -83,11 +83,25 @@ automatically.
 
 ## Running a manual review
 
-1. Open the [Actions tab](https://github.com/benbaichmankass/ict-trading-bot/actions/workflows/health-snapshot.yml).
-2. Pick the most recent successful run (or dispatch a fresh one with `workflow_dispatch`).
-3. Scroll to **Artifacts** at the bottom of the run page → download `health-snapshot-<run_id>.zip`.
-4. Extract. Open a Claude Code session on this repo.
-5. Paste the contents of `health_snapshot.txt` (and optionally `pipeline_test.json`) into the chat. Invoke `/health-review`.
+1. Open a Claude Code session on this repo and invoke `/health-review`.
+
+That's it. **Claude pulls the live runtime state itself** via the
+diag relays (`vm-diag-snapshot.yml` for the live VM,
+`trainer-vm-diag.yml` for the trainer VM) — there is nothing to
+download or paste. The cron-uploaded `health-snapshot-<run_id>`
+artifact still exists for the deterministic Telegram status ping, but
+the sandbox has no MCP tool to download Action artifacts, so the skill
+does **not** depend on it. If you happen to have a snapshot in front
+of you, you can paste it as a supplementary cross-check, but it is
+never required.
+
+The only two snapshot fields the diag relays can't reach are the DB
+`PRAGMA integrity_check` and the `verify_storage_setup.sh` STORAGE
+block (the live relay is fixed-curl only, no arbitrary bash). The
+skill grades `db_integrity` from journal recency instead and notes
+the limitation. If you specifically want those fields, download the
+artifact ZIP from the [Actions run page](https://github.com/benbaichmankass/ict-trading-bot/actions/workflows/health-snapshot.yml)
+and paste `health_snapshot.txt` alongside your `/health-review`.
 
 The skill at [`.claude/skills/health-review/SKILL.md`](../../.claude/skills/health-review/SKILL.md) carries the full review rubric (heartbeat / ticks / signals / orders / trades / monitoring / sizing / api_errors / state_consistency / alert_delivery / strategy_silence / db_integrity / audit_log_freshness) and the per-trade decision-grading rubric.
 
