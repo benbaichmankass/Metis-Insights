@@ -3,16 +3,26 @@
 The 2026-05-10 layer-2 health review surfaced a 34% rejection rate on
 bybit_2 spot-margin Buy orders (Bybit ErrCode 170131, 20/58 trades over
 9 h) where the coordinator kept re-firing into a wedged borrow gate
-because nothing tracked consecutive rejections or paused the account.
+because nothing tracked consecutive rejections or alerted the operator.
 
-The circuit breaker in src/core/coordinator.py increments a per-account
-counter on every ``exchange_rejected`` result, resets it on a successful
-placement, and once the counter reaches
-``_EXCHANGE_REJECTION_PAUSE_THRESHOLD`` it calls
-``set_account_dry_run(account, True)`` plus a ``level="critical"``
-alert.
+CONTRACT CHANGE (Prime Directive, adopted 2026-05-12 — see CLAUDE.md
+"Prime Directive" and docs/CLAUDE-RULES-CANONICAL.md): the breaker is
+**alert-only**. It MUST NOT switch an account off. "The system never
+switches itself off. No auto-flip, no breaker that toggles mode." The
+original auto-pause (``set_account_dry_run`` on threshold) was removed
+in the safeguards follow-on after the 2026-05-12 silent-flip incident.
 
-These tests pin the contract.
+Current contract in ``src/core/coordinator.py`` (lines 1387, 1452-1474):
+the coordinator increments a per-account ``_EXCHANGE_REJECTION_COUNTS``
+counter on every ``exchange_rejected`` result, clears it on a successful
+placement (line 1387), and once the counter reaches
+``_EXCHANGE_REJECTION_ALERT_THRESHOLD`` (3) it pushes a
+``level="critical"`` alert whose message says the account **stays live**
+and that the operator should use ``set-account-mode`` to pause manually
+if warranted. The account is never auto-flipped; the counter is not
+reset at the threshold.
+
+These tests pin that alert-only contract.
 """
 from __future__ import annotations
 
@@ -144,9 +154,13 @@ def test_two_rejections_below_threshold_no_auto_pause(coord, live_yaml):
     assert "bybit_live" not in _DRY_RUN_OVERRIDES
 
 
-def test_three_rejections_trips_circuit_breaker(coord, live_yaml):
-    """Threshold reached — account auto-flipped to dry_run on the 3rd
-    consecutive exchange_rejected."""
+def test_three_rejections_alerts_but_account_stays_live(coord, live_yaml):
+    """Threshold reached — the breaker alerts but the account STAYS LIVE.
+
+    Prime Directive (CLAUDE.md, 2026-05-12): no auto-flip. The counter
+    keeps its value (not reset at threshold) and no dry-run override is
+    set. Operator pauses manually via set-account-mode if warranted.
+    """
     with patch(
         "src.units.accounts.execute.execute_pkg",
         side_effect=_stub_reject,
@@ -157,11 +171,11 @@ def test_three_rejections_trips_circuit_breaker(coord, live_yaml):
         for _ in range(3):
             coord.multi_account_execute(_pkg(), accounts_path=live_yaml)
 
-    # Counter cleared after the auto-pause (so we don't double-fire).
-    assert coord_mod._EXCHANGE_REJECTION_COUNTS.get("bybit_live", 0) == 0
-    # set_account_dry_run was called → override is set.
+    # Counter reflects the 3 consecutive rejections (not reset at threshold).
+    assert coord_mod._EXCHANGE_REJECTION_COUNTS.get("bybit_live") == 3
+    # The account is NOT auto-flipped to dry_run (Prime Directive).
     from src.units.accounts import _DRY_RUN_OVERRIDES
-    assert _DRY_RUN_OVERRIDES.get("bybit_live") is True
+    assert "bybit_live" not in _DRY_RUN_OVERRIDES
 
 
 def test_successful_placement_resets_counter(coord, live_yaml):
@@ -204,9 +218,10 @@ def test_successful_placement_resets_counter(coord, live_yaml):
     assert "bybit_live" not in _DRY_RUN_OVERRIDES
 
 
-def test_critical_alert_emitted_on_pause(coord, live_yaml):
-    """The auto-pause emits a level=critical push_alert so the operator
-    sees it via the alert channel + Telegram."""
+def test_critical_alert_emitted_at_threshold(coord, live_yaml):
+    """At the threshold the breaker emits a level=critical push_alert so
+    the operator sees it via the alert channel + Telegram. The message
+    states the account STAYS LIVE (no auto-pause — Prime Directive)."""
     captured_alerts = []
     real_push = coord.push_alert
 
@@ -229,30 +244,41 @@ def test_critical_alert_emitted_on_pause(coord, live_yaml):
         f"expected exactly one critical alert; got {len(critical)} "
         f"of {len(captured_alerts)} total"
     )
-    assert "auto-paused" in critical[0]["message"]
+    # Prime Directive: the alert tells the operator the account stays live
+    # and to pause manually — it must NOT claim an auto-pause happened.
+    assert "stays live" in critical[0]["message"]
+    assert "auto-paused" not in critical[0]["message"]
     assert critical[0]["account"] == "bybit_live"
     assert critical[0]["consecutive_rejections"] == 3
 
 
-def test_pause_does_not_double_fire_on_subsequent_rejections(coord, live_yaml):
-    """After the breaker trips and counter resets, the next rejection
-    starts a new streak — it must not immediately re-pause."""
+def test_breaker_never_auto_pauses_regardless_of_streak(coord, live_yaml):
+    """No matter how long the rejection streak, the breaker never flips
+    the account to dry_run (Prime Directive). The counter keeps climbing
+    past the threshold and the account stays live; each rejection at or
+    past the threshold re-emits the critical alert."""
+    captured_alerts = []
+    real_push = coord.push_alert
+
+    def _capture(message, **kwargs):
+        captured_alerts.append({"message": message, **kwargs})
+        return real_push(message, **kwargs)
+
     with patch(
         "src.units.accounts.execute.execute_pkg",
         side_effect=_stub_reject,
     ), patch(
         "src.units.accounts.clients.bybit_client_for",
         return_value=object(),
-    ):
-        for _ in range(3):
+    ), patch.object(coord, "push_alert", side_effect=_capture):
+        for _ in range(5):
             coord.multi_account_execute(_pkg(), accounts_path=live_yaml)
 
-        # Account is now in dry_run. Subsequent dispatches go through the
-        # dry path (no exchange call, so no _stub_reject). The counter
-        # should stay zero because the dispatch succeeded in dry mode.
-        for _ in range(2):
-            coord.multi_account_execute(_pkg(), accounts_path=live_yaml)
-
-    # Either zero (dispatch succeeded as dry) or absent (popped on
-    # success) — both shapes mean the breaker did not double-fire.
-    assert coord_mod._EXCHANGE_REJECTION_COUNTS.get("bybit_live", 0) == 0
+    # Counter keeps climbing — the account is never auto-paused, so every
+    # dispatch still reaches execute_pkg and rejects.
+    assert coord_mod._EXCHANGE_REJECTION_COUNTS.get("bybit_live") == 5
+    from src.units.accounts import _DRY_RUN_OVERRIDES
+    assert "bybit_live" not in _DRY_RUN_OVERRIDES
+    # Critical alerts fire on each rejection at/after the threshold (3,4,5).
+    critical = [a for a in captured_alerts if a.get("level") == "critical"]
+    assert len(critical) == 3
