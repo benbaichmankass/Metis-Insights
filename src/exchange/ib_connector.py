@@ -24,7 +24,7 @@ imports cleanly without the package installed.
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Optional
 
 import pandas as pd
 
