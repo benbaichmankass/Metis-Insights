@@ -395,6 +395,15 @@ class TestLoader:
 class TestCoordinatorRouting:
     def test_skip_reason_in_error_field(self, accounts_yaml, monkeypatch):
         from src.core.coordinator import Coordinator
+        # _YAML_BODY uses BYBIT_API_KEY_1 / VELOTRADE_API_KEY_1.
+        # Without env vars the accounts are configured=False and
+        # _eligible_for_dispatch drops them — results list comes back empty.
+        # _derive_secret_env("BYBIT_API_KEY_1") → "BYBIT_API_SECRET_1" so
+        # both key + secret must be set.
+        monkeypatch.setenv("BYBIT_API_KEY_1", "test-key")
+        monkeypatch.setenv("BYBIT_API_SECRET_1", "test-secret")
+        monkeypatch.setenv("VELOTRADE_API_KEY_1", "test-key")
+        monkeypatch.setenv("VELOTRADE_API_SECRET_1", "test-secret")
         # Force mission complete on prop_velo so the gate fires.
         from src.units.accounts import load_accounts
         accounts = load_accounts(accounts_yaml)

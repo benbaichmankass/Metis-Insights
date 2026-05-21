@@ -507,12 +507,22 @@ class TestMultiAccountExecuteFlow:
     # account, all routed) still holds.
     _BALANCE_USD = 10_000.0
 
+    @pytest.fixture(autouse=True)
+    def _set_account_creds(self, monkeypatch):
+        # ACCOUNTS_YAML_CONTENT uses BYBIT_KEY_1/2 and BREAKOUT_KEY_1.
+        # Without the matching env vars, load_accounts marks accounts
+        # configured=False and _eligible_for_dispatch drops them before
+        # dispatch — every result list comes back empty.
+        for name in ("BYBIT_KEY_1", "BYBIT_KEY_2", "BREAKOUT_KEY_1"):
+            monkeypatch.setenv(name, "test-key")
+
     def _balance_fetcher(self, _account):
         return self._BALANCE_USD
 
     def test_returns_result_per_account(self, coord, accounts_yaml):
         results = coord.multi_account_execute(
             _pkg(), accounts_path=accounts_yaml,
+            dry_run=True,
             balance_fetcher=self._balance_fetcher,
         )
         assert len(results) == 3
@@ -520,6 +530,7 @@ class TestMultiAccountExecuteFlow:
     def test_dry_run_trade_ids_prefixed(self, coord, accounts_yaml):
         results = coord.multi_account_execute(
             _pkg(), accounts_path=accounts_yaml,
+            dry_run=True,
             balance_fetcher=self._balance_fetcher,
         )
         for r in results:
@@ -529,6 +540,7 @@ class TestMultiAccountExecuteFlow:
     def test_account_type_filter_prop_only(self, coord, accounts_yaml):
         results = coord.multi_account_execute(
             _pkg(), accounts_path=accounts_yaml, account_type="prop",
+            dry_run=True,
             balance_fetcher=self._balance_fetcher,
         )
         assert len(results) == 1
@@ -537,6 +549,7 @@ class TestMultiAccountExecuteFlow:
     def test_account_type_filter_regular_only(self, coord, accounts_yaml):
         results = coord.multi_account_execute(
             _pkg(), accounts_path=accounts_yaml, account_type="regular",
+            dry_run=True,
             balance_fetcher=self._balance_fetcher,
         )
         assert len(results) == 2
@@ -551,6 +564,7 @@ class TestMultiAccountExecuteFlow:
         with patch("src.units.accounts.load_accounts", return_value=accounts):
             results = coord.multi_account_execute(
                 _pkg(), accounts_path=accounts_yaml,
+                dry_run=True,
                 balance_fetcher=self._balance_fetcher,
             )
 
@@ -567,6 +581,7 @@ class TestMultiAccountExecuteFlow:
         with patch("src.units.accounts.load_accounts", return_value=accounts):
             results = coord.multi_account_execute(
                 _pkg(), accounts_path=accounts_yaml,
+                dry_run=True,
                 balance_fetcher=self._balance_fetcher,
             )
 
@@ -582,6 +597,7 @@ class TestMultiAccountExecuteFlow:
     def test_execute_pushes_alert_per_success(self, coord, accounts_yaml):
         coord.multi_account_execute(
             _pkg(), accounts_path=accounts_yaml,
+            dry_run=True,
             balance_fetcher=self._balance_fetcher,
         )
         alerts = coord.list_alerts()

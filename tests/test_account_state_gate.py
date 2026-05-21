@@ -98,19 +98,24 @@ def test_state_missing_file_returns_none(tmp_path):
 # ────────────────────────────────────────────────────────────────────
 
 @pytest.fixture()
-def live_coord(tmp_path):
+def live_coord(tmp_path, monkeypatch):
     """Coordinator loaded from a LIVE accounts.yaml."""
+    # _LIVE_ACCOUNTS_YAML uses api_key_env: BYBIT_KEY. Without the env var
+    # the account is marked configured=False and dropped by dispatch.
+    monkeypatch.setenv("BYBIT_KEY", "test-key")
     accts_file = tmp_path / "accounts.yaml"
     accts_file.write_text(_LIVE_ACCOUNTS_YAML)
-    return Coordinator(accounts_yaml=str(accts_file))
+    # Coordinator.__init__ uses accounts_path, not accounts_yaml.
+    return Coordinator(accounts_path=str(accts_file))
 
 
 @pytest.fixture()
-def dry_coord(tmp_path):
+def dry_coord(tmp_path, monkeypatch):
     """Coordinator loaded from a DRY accounts.yaml."""
+    monkeypatch.setenv("BYBIT_KEY", "test-key")
     accts_file = tmp_path / "accounts.yaml"
     accts_file.write_text(_DRY_ACCOUNTS_YAML)
-    return Coordinator(accounts_yaml=str(accts_file))
+    return Coordinator(accounts_path=str(accts_file))
 
 
 def _make_balance_stub(value: float = 10_000.0):
@@ -128,10 +133,18 @@ def test_state_dry_overrides_accounts_live(tmp_path, live_coord):
 
     with (
         patch.dict(os.environ, {"ACCOUNT_STATE_PATH": str(state_file)}),
-        patch("src.core.coordinator.bybit_client_for", return_value=_make_balance_stub()),
+        # bybit_client_for is imported inside multi_account_execute; patch at source.
+        patch("src.units.accounts.clients.bybit_client_for",
+              return_value=_make_balance_stub()),
         patch("src.units.accounts.execute.execute_pkg") as mock_exec,
     ):
-        live_coord.multi_account_execute(_make_pkg())
+        live_coord.multi_account_execute(
+            _make_pkg(),
+            # multi_account_execute uses its own ``accounts_path`` arg, not
+            # self._accounts_path; pass it explicitly so the right YAML is read.
+            accounts_path=live_coord._accounts_path,
+            balance_fetcher=lambda _a: 10_000.0,
+        )
 
     assert mock_exec.called
     _, kwargs = mock_exec.call_args
@@ -141,19 +154,34 @@ def test_state_dry_overrides_accounts_live(tmp_path, live_coord):
 
 
 def test_state_live_cannot_force_live_over_accounts_dry(tmp_path, dry_coord):
-    """account_state.yaml dry_run:false must NOT override accounts.yaml dry_run."""
+    """account_state.yaml dry_run:false must NOT override accounts.yaml dry_run.
+
+    A dry account (mode: dry_run) has RiskManager.dry_run=True, so
+    evaluate() returns (False, 'account_mode_dry_run') → RiskBreach.
+    execute_pkg is never reached — the state-file's dry_run:false cannot
+    elevate the account to live mode (state gate is one-directional: can
+    only add dryness, never remove it).
+    """
     state_file = tmp_path / "account_state.yaml"
     state_file.write_text(_yaml_state({"bybit_live": {"dry_run": False}}))
 
     with (
         patch.dict(os.environ, {"ACCOUNT_STATE_PATH": str(state_file)}),
-        patch("src.core.coordinator.bybit_client_for", return_value=_make_balance_stub()),
+        patch("src.units.accounts.clients.bybit_client_for",
+              return_value=_make_balance_stub()),
         patch("src.units.accounts.execute.execute_pkg") as mock_exec,
     ):
-        dry_coord.multi_account_execute(_make_pkg())
+        results = dry_coord.multi_account_execute(
+            _make_pkg(),
+            accounts_path=dry_coord._accounts_path,
+            balance_fetcher=lambda _a: 10_000.0,
+        )
 
-    assert mock_exec.called
-    _, kwargs = mock_exec.call_args
-    assert kwargs.get("dry_run") is True, (
-        "execute_pkg must remain dry_run=True; state file cannot force live over accounts.yaml dry"
+    # Dry account raises RiskBreach (account_mode_dry_run) before execute_pkg.
+    assert not mock_exec.called, (
+        "execute_pkg must not be reached for a dry account; "
+        "state file cannot force live over accounts.yaml dry"
     )
+    assert len(results) == 1
+    assert results[0]["trade_id"] is None
+    assert "account_mode_dry_run" in (results[0]["error"] or "")

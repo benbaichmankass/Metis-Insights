@@ -266,11 +266,15 @@ class TestDryRunOverrides:
         assert bybit_1.dry_run is False
 
     def test_unset_accounts_keep_default(self, accounts_yaml):
+        # Default mode is now "live" (dry_run=False) per the Autonomous
+        # live-trading rule (operator directive 2026-05-03 / CLAUDE.md).
+        # The old default was dry_run=True; that was changed so a fresh
+        # accounts.yaml without an explicit ``mode:`` field routes live.
         from src.units.accounts import set_account_dry_run, load_accounts
         set_account_dry_run("bybit_1", False)
         accounts = load_accounts(accounts_yaml)
         bybit_2 = next(a for a in accounts if a.name == "bybit_2")
-        assert bybit_2.dry_run is True
+        assert bybit_2.dry_run is False
 
     def test_toggle_back_to_dry(self, accounts_yaml):
         from src.units.accounts import set_account_dry_run, load_accounts
