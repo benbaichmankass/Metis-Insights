@@ -75,6 +75,8 @@ dist/
 *.egg-info/
 # Claude/local tooling
 .claude/settings.local.json
+# Transient git worktrees created by Claude Code background agents
+.claude/worktrees/
 # Notebook checkpoints
 .ipynb_checkpoints/
 # Python/tooling caches
