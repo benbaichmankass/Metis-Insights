@@ -247,7 +247,7 @@ def test_endpoint_includes_fifo_fields_per_symbol(client, fills_db, monkeypatch)
     assert abs(body["summary"]["total_unrealized_pnl"]) < 1e-9
 
 
-def test_endpoint_phase_one_keys_unchanged(client, fills_db):
+def test_endpoint_phase_one_keys_unchanged(client, fills_db, monkeypatch):
     """Existing Phase-1 keys (fill_count, total_fees, symbol_count,
     window_days) MUST remain. The Phase-2 additions are additive only —
     no rename, no removal — so old dashboard readers don't break."""
@@ -256,6 +256,10 @@ def test_endpoint_phase_one_keys_unchanged(client, fills_db):
               exec_time="2026-05-09T10:00:00+00:00")],
         path=fills_db,
     )
+    # Pin "now" so the day-window filter keeps the seeded fill in range
+    # regardless of the wall-clock date the suite runs on.
+    fixed_now = datetime(2026, 5, 10, 12, 0, 0, tzinfo=timezone.utc)
+    monkeypatch.setattr(store, "datetime", _frozen_datetime(fixed_now))
     body = client.get("/api/bot/pnl/exchange?days=7").json()
     summary = body["summary"]
     assert "fill_count" in summary
