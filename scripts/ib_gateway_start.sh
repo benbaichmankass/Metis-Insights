@@ -17,10 +17,17 @@ TWS_PATH="${TWS_PATH:-/home/ubuntu/Jts}"
 IBC_INI="${IBC_INI:-/opt/ibc/config.ini}"
 TRADING_MODE="${TRADING_MODE:-paper}"
 
-# Detect the installed Gateway version directory. Recent standalone builds
-# install under $TWS_PATH/ibgateway/<version>; older layouts use $TWS_PATH/<version>.
+# Detect the installed Gateway version. The current standalone build installs
+# FLAT in $TWS_PATH (no version subdir) — the version only appears in the
+# launcher name, e.g. "IB Gateway 10.45.desktop". Older install4j layouts use
+# a numeric version subdir under ibgateway/ or $TWS_PATH. Try both.
 detect_version() {
   local base v
+  # 1) Flat standalone: parse "<...> 10.45.desktop".
+  v=$(ls "${TWS_PATH}"/*.desktop 2>/dev/null \
+        | sed -nE 's#.*[^0-9]([0-9]+\.[0-9]+)\.desktop$#\1#p' | head -1)
+  if [ -n "${v}" ]; then printf '%s' "${v}"; return 0; fi
+  # 2) install4j version subdir.
   for base in "${TWS_PATH}/ibgateway" "${TWS_PATH}"; do
     [ -d "${base}" ] || continue
     v=$(ls -1 "${base}" 2>/dev/null | grep -E '^[0-9]+([.-][0-9]+)*$' | sort -V | tail -1)
