@@ -552,8 +552,8 @@ Confirmed against the repo on 2026-05-10:
 - [x] AI-scope architecture doc:
       [`architecture/ai-model-platform.md`](architecture/ai-model-platform.md)
       (S-AI-WS1, 2026-05-10)
-- [x] Mode Mutation Contract (§ above): `set-account-mode` operator
-      action shipped in PR #978 (2026-05-12). Doc-level contract in
+- [x] Mode Mutation Contract (§ above): `scripts/ops/set_account_mode.sh`
+      operator action shipped in PR #978 (2026-05-12). Doc-level contract in
       this commit; code-level cleanup of `_DRY_RUN_OVERRIDES` +
       `set_account_dry_run` + the breaker auto-flip pending in the
       safeguards PR follow-on.

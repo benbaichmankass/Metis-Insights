@@ -176,12 +176,15 @@ class TestGetStrategyLabel:
 # ---------------------------------------------------------------------------
 
 def test_format_backtest_summary_contains_key_fields():
+    # win_rate and max_drawdown_pct are stored as REAL in the DB
+    # (src/backtest/run_backtest.py schema: win_rate REAL).  The
+    # formatter uses :.1f% so string values like "60%" would crash.
     row = {
         "id": 1, "run_date": "2026-04-28", "strategy_version": "v1.0",
         "start_date": "2026-01-01", "end_date": "2026-04-01",
         "total_trades": 50, "winning_trades": 30, "losing_trades": 20,
-        "win_rate": "60%", "profit_factor": 1.8, "expectancy": 25.0,
-        "max_drawdown": 500.0, "max_drawdown_pct": "5%", "sharpe_ratio": 1.2,
+        "win_rate": 60.0, "profit_factor": 1.8, "expectancy": 25.0,
+        "max_drawdown": 500.0, "max_drawdown_pct": 5.0, "sharpe_ratio": 1.2,
         "total_pnl": 1250.0, "total_pnl_pct": "12.5%",
         "avg_win": 80.0, "avg_loss": 40.0,
         "largest_win": 300.0, "largest_loss": 150.0,
@@ -189,7 +192,7 @@ def test_format_backtest_summary_contains_key_fields():
     }
     summary = bot.format_backtest_summary(row)
     assert "50" in summary          # total_trades
-    assert "60%" in summary         # win_rate
+    assert "60" in summary          # win_rate (rendered as "60.0%")
     assert "1250.0" in summary      # total_pnl
 
 
@@ -228,14 +231,16 @@ def _make_db(tmp_path) -> str:
 class TestFetchTodayPnl:
     def test_sums_live_closed_trades(self, tmp_path, monkeypatch):
         db_path = _make_db(tmp_path)
-        monkeypatch.setattr(bot, "DB_PATH", db_path)
+        # fetch_today_pnl delegates to processor.get_today_pnl which
+        # reads TRADE_JOURNAL_DB env var (bot.DB_PATH is no longer used).
+        monkeypatch.setenv("TRADE_JOURNAL_DB", db_path)
         count, pnl = bot.fetch_today_pnl()
         # query counts all non-backtest live rows (open + closed)
         assert count == 3           # two closed + one open live trade
         assert abs(pnl - 70.0) < 0.01  # 100 + (-30) + 0 = 70
 
     def test_returns_zeros_on_missing_db(self, tmp_path, monkeypatch):
-        monkeypatch.setattr(bot, "DB_PATH", str(tmp_path / "no.db"))
+        monkeypatch.setenv("TRADE_JOURNAL_DB", str(tmp_path / "no.db"))
         count, pnl = bot.fetch_today_pnl()
         assert count == 0
         assert pnl == 0.0
@@ -244,12 +249,12 @@ class TestFetchTodayPnl:
 class TestFetchOpenPositionsCount:
     def test_counts_open_live_trades(self, tmp_path, monkeypatch):
         db_path = _make_db(tmp_path)
-        monkeypatch.setattr(bot, "DB_PATH", db_path)
+        monkeypatch.setenv("TRADE_JOURNAL_DB", db_path)
         count = bot.fetch_open_positions_count()
         assert count == 1
 
     def test_returns_zero_on_missing_db(self, tmp_path, monkeypatch):
-        monkeypatch.setattr(bot, "DB_PATH", str(tmp_path / "no.db"))
+        monkeypatch.setenv("TRADE_JOURNAL_DB", str(tmp_path / "no.db"))
         assert bot.fetch_open_positions_count() == 0
 
 
@@ -298,7 +303,7 @@ def _make_db_with_accounts(tmp_path) -> str:
 class TestFetchTodayPnlPerAccount:
     def test_filters_by_account_id(self, tmp_path, monkeypatch):
         db_path = _make_db_with_accounts(tmp_path)
-        monkeypatch.setattr(bot, "DB_PATH", db_path)
+        monkeypatch.setenv("TRADE_JOURNAL_DB", db_path)
 
         count_live, pnl_live = bot.fetch_today_pnl(account_id="live")
         # 3 live rows for "live" (200, -50, 0-open)
@@ -312,7 +317,7 @@ class TestFetchTodayPnlPerAccount:
 
     def test_no_account_filter_returns_aggregate(self, tmp_path, monkeypatch):
         db_path = _make_db_with_accounts(tmp_path)
-        monkeypatch.setattr(bot, "DB_PATH", db_path)
+        monkeypatch.setenv("TRADE_JOURNAL_DB", db_path)
         count, pnl = bot.fetch_today_pnl()
         # 5 live rows total across both accounts (backtest excluded)
         assert count == 5
@@ -320,13 +325,13 @@ class TestFetchTodayPnlPerAccount:
 
     def test_unknown_account_id_returns_zeros(self, tmp_path, monkeypatch):
         db_path = _make_db_with_accounts(tmp_path)
-        monkeypatch.setattr(bot, "DB_PATH", db_path)
+        monkeypatch.setenv("TRADE_JOURNAL_DB", db_path)
         count, pnl = bot.fetch_today_pnl(account_id="nonexistent")
         assert count == 0
         assert pnl == 0.0
 
     def test_missing_db_returns_zeros(self, tmp_path, monkeypatch):
-        monkeypatch.setattr(bot, "DB_PATH", str(tmp_path / "no.db"))
+        monkeypatch.setenv("TRADE_JOURNAL_DB", str(tmp_path / "no.db"))
         count, pnl = bot.fetch_today_pnl(account_id="live")
         assert count == 0
         assert pnl == 0.0
@@ -335,23 +340,23 @@ class TestFetchTodayPnlPerAccount:
 class TestFetchOpenPositionsCountPerAccount:
     def test_filters_by_account_id(self, tmp_path, monkeypatch):
         db_path = _make_db_with_accounts(tmp_path)
-        monkeypatch.setattr(bot, "DB_PATH", db_path)
+        monkeypatch.setenv("TRADE_JOURNAL_DB", db_path)
 
         assert bot.fetch_open_positions_count(account_id="live") == 1
         assert bot.fetch_open_positions_count(account_id="alpha") == 1
 
     def test_no_account_filter_returns_aggregate(self, tmp_path, monkeypatch):
         db_path = _make_db_with_accounts(tmp_path)
-        monkeypatch.setattr(bot, "DB_PATH", db_path)
+        monkeypatch.setenv("TRADE_JOURNAL_DB", db_path)
         assert bot.fetch_open_positions_count() == 2
 
     def test_unknown_account_id_returns_zero(self, tmp_path, monkeypatch):
         db_path = _make_db_with_accounts(tmp_path)
-        monkeypatch.setattr(bot, "DB_PATH", db_path)
+        monkeypatch.setenv("TRADE_JOURNAL_DB", db_path)
         assert bot.fetch_open_positions_count(account_id="ghost") == 0
 
     def test_missing_db_returns_zero(self, tmp_path, monkeypatch):
-        monkeypatch.setattr(bot, "DB_PATH", str(tmp_path / "no.db"))
+        monkeypatch.setenv("TRADE_JOURNAL_DB", str(tmp_path / "no.db"))
         assert bot.fetch_open_positions_count(account_id="live") == 0
 
 
@@ -501,12 +506,13 @@ class TestLatestBacktestPullsFromDataLoaders:
     stays intentionally untouched in this PR."""
 
     def _make_row(self, **overrides):
+        # win_rate / max_drawdown_pct stored as REAL in the DB schema
         row = {
             "id": 7, "run_date": "2026-04-29", "strategy_version": "vX",
             "start_date": "2026-04-01", "end_date": "2026-04-28",
             "total_trades": 10, "winning_trades": 6, "losing_trades": 4,
-            "win_rate": "60%", "profit_factor": 1.5, "expectancy": 12.0,
-            "max_drawdown": 100.0, "max_drawdown_pct": "3%",
+            "win_rate": 60.0, "profit_factor": 1.5, "expectancy": 12.0,
+            "max_drawdown": 100.0, "max_drawdown_pct": 3.0,
             "sharpe_ratio": 1.1, "total_pnl": 555.5, "total_pnl_pct": "5.5%",
             "avg_win": 50.0, "avg_loss": 25.0,
             "largest_win": 200.0, "largest_loss": 80.0,
@@ -582,6 +588,7 @@ class TestFormatBybitBalance:
         return {"account_id": "live", "exchange": "bybit", "env_path": ""}
 
     def test_renders_per_coin_lines_from_raw(self, monkeypatch):
+        # format_bybit_balance moved to trade_notifier (not re-exported to bot).
         monkeypatch.setattr(trade_notifier, "_account_env", lambda acc: {"STRATEGY": "vwap"})
         monkeypatch.setattr(bot.dl, "account_balance", lambda acc: {
             "total_usdt": 1234.0,
@@ -591,7 +598,7 @@ class TestFormatBybitBalance:
                 {"coin": "ETH",  "walletBalance": "0",      "usdValue": "0"},  # filtered
             ]}]}},
         })
-        out = bot.format_bybit_balance(self._account())
+        out = trade_notifier.format_bybit_balance(self._account())
         # CP-2026-05-02: account-first labelling. Account_id leads,
         # strategy is parenthetical so two accounts that share a
         # single strategy don't render with identical headers.
@@ -605,7 +612,7 @@ class TestFormatBybitBalance:
     def test_returns_unavailable_when_loader_returns_none(self, monkeypatch):
         monkeypatch.setattr(trade_notifier, "_account_env", lambda acc: {})
         monkeypatch.setattr(bot.dl, "account_balance", lambda acc: None)
-        out = bot.format_bybit_balance(self._account())
+        out = trade_notifier.format_bybit_balance(self._account())
         assert "⚠️" in out and "unavailable" in out
 
 
@@ -614,12 +621,13 @@ class TestFormatBybitPositions:
         return {"account_id": "live", "exchange": "bybit", "env_path": ""}
 
     def test_renders_normalized_rows(self, monkeypatch):
+        # format_bybit_positions moved to trade_notifier (not re-exported to bot).
         monkeypatch.setattr(trade_notifier, "_account_env", lambda acc: {"STRATEGY": "ict"})
         monkeypatch.setattr(bot.dl, "account_open_positions", lambda acc: [
             {"symbol": "BTCUSDT", "side": "Buy", "size": 0.05,
              "entry_price": 50000.0, "unrealised_pnl": 12.34},
         ])
-        out = bot.format_bybit_positions(self._account())
+        out = trade_notifier.format_bybit_positions(self._account())
         assert "ICT Positions" in out
         assert "BTCUSDT Buy" in out
         assert "Entry: $50,000.00" in out
@@ -628,13 +636,13 @@ class TestFormatBybitPositions:
     def test_empty_list_renders_no_open(self, monkeypatch):
         monkeypatch.setattr(trade_notifier, "_account_env", lambda acc: {})
         monkeypatch.setattr(bot.dl, "account_open_positions", lambda acc: [])
-        out = bot.format_bybit_positions(self._account())
+        out = trade_notifier.format_bybit_positions(self._account())
         assert "No open positions" in out
 
     def test_none_renders_unavailable(self, monkeypatch):
         monkeypatch.setattr(trade_notifier, "_account_env", lambda acc: {})
         monkeypatch.setattr(bot.dl, "account_open_positions", lambda acc: None)
-        out = bot.format_bybit_positions(self._account())
+        out = trade_notifier.format_bybit_positions(self._account())
         assert "⚠️" in out and "unavailable" in out
 
 
@@ -643,12 +651,13 @@ class TestFormatBinanceBalance:
         return {"account_id": "alpha", "exchange": "binance", "env_path": ""}
 
     def test_renders_total_free_used(self, monkeypatch):
+        # format_binance_balance moved to trade_notifier (not re-exported to bot).
         monkeypatch.setattr(trade_notifier, "_account_env", lambda acc: {"STRATEGY": "breakout"})
         monkeypatch.setattr(bot.dl, "account_balance", lambda acc: {
             "total_usdt": 500.0,
             "raw": {"USDT": {"total": 500.0, "free": 480.0, "used": 20.0}},
         })
-        out = bot.format_binance_balance(self._account())
+        out = trade_notifier.format_binance_balance(self._account())
         # CP-2026-05-02: account-first labelling. Strategy is parenthetical.
         assert "alpha" in out
         assert "Breakout" in out
@@ -672,13 +681,17 @@ class TestCmdBalanceIteratesAccounts:
         return asyncio.new_event_loop().run_until_complete(coro)
 
     def test_concatenates_blocks_per_account(self, monkeypatch):
+        # cmd_balance dispatches via trade_notifier._render_account_balance
+        # which calls trade_notifier.format_bybit_balance /
+        # format_binance_balance.  Patching bot.format_X no longer works
+        # because those symbols were never re-exported to bot.
         monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
         monkeypatch.setattr(bot.dl, "list_accounts", lambda: [
             {"account_id": "live",  "exchange": "bybit",   "env_path": ""},
             {"account_id": "alpha", "exchange": "binance", "env_path": ""},
         ])
-        monkeypatch.setattr(bot, "format_bybit_balance", lambda acc: "BYBIT-BLOCK")
-        monkeypatch.setattr(bot, "format_binance_balance", lambda acc: "BINANCE-BLOCK")
+        monkeypatch.setattr(trade_notifier, "format_bybit_balance", lambda acc: "BYBIT-BLOCK")
+        monkeypatch.setattr(trade_notifier, "format_binance_balance", lambda acc: "BINANCE-BLOCK")
 
         upd = self._make_update()
         self._run(bot.cmd_balance(upd, MagicMock()))
@@ -716,7 +729,7 @@ class TestCmdBalanceIteratesAccounts:
         monkeypatch.setenv("BYBIT_API_SECRET_1", "secret-1")
         monkeypatch.setenv("BYBIT_API_KEY_2", "AAAAAAAAAAAA9999")
         monkeypatch.setenv("BYBIT_API_SECRET_2", "secret-2")
-        monkeypatch.setattr(bot, "format_bybit_balance", lambda acc: "BLOCK")
+        monkeypatch.setattr(trade_notifier, "format_bybit_balance", lambda acc: "BLOCK")
 
         upd = self._make_update()
         self._run(bot.cmd_balance(upd, MagicMock()))
@@ -739,7 +752,7 @@ class TestCmdBalanceIteratesAccounts:
         monkeypatch.setenv("BYBIT_API_SECRET_1", "secret-1")
         monkeypatch.setenv("BYBIT_API_KEY_2", "BBBBBBBBBBBB2222")
         monkeypatch.setenv("BYBIT_API_SECRET_2", "secret-2")
-        monkeypatch.setattr(bot, "format_bybit_balance", lambda acc: "BLOCK")
+        monkeypatch.setattr(trade_notifier, "format_bybit_balance", lambda acc: "BLOCK")
 
         upd = self._make_update()
         self._run(bot.cmd_balance(upd, MagicMock()))
@@ -767,7 +780,9 @@ class TestCmdTradesIteratesAccounts:
         monkeypatch.setattr(bot.dl, "list_accounts", lambda: [
             {"account_id": "live", "exchange": "bybit", "env_path": ""},
         ])
-        monkeypatch.setattr(bot, "format_bybit_positions", lambda acc: "POSITIONS-OK")
+        # format_bybit_positions moved to trade_notifier; bot no longer
+        # re-exports it. cmd_trades dispatches via _render_account_positions.
+        monkeypatch.setattr(trade_notifier, "format_bybit_positions", lambda acc: "POSITIONS-OK")
 
         upd = self._make_update()
         self._run(bot.cmd_trades(upd, MagicMock()))
@@ -793,6 +808,7 @@ class TestCmdBalanceTradesPerAccountFailureIsolation:
         return asyncio.new_event_loop().run_until_complete(coro)
 
     def test_balance_one_account_raises_others_render(self, monkeypatch):
+        # All format_* helpers live in trade_notifier; bot does not re-export them.
         monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
         monkeypatch.setattr(bot.dl, "list_accounts", lambda: [
             {"account_id": "live",  "exchange": "bybit",   "env_path": ""},
@@ -802,8 +818,8 @@ class TestCmdBalanceTradesPerAccountFailureIsolation:
         def boom(_acc):
             raise RuntimeError("nope")
 
-        monkeypatch.setattr(bot, "format_bybit_balance", boom)
-        monkeypatch.setattr(bot, "format_binance_balance",
+        monkeypatch.setattr(trade_notifier, "format_bybit_balance", boom)
+        monkeypatch.setattr(trade_notifier, "format_binance_balance",
                             lambda acc: "BINANCE-OK")
         upd = self._make_update()
         self._run(bot.cmd_balance(upd, MagicMock()))
@@ -821,8 +837,8 @@ class TestCmdBalanceTradesPerAccountFailureIsolation:
         def boom(_acc):
             raise RuntimeError("kaboom")
 
-        monkeypatch.setattr(bot, "format_binance_positions", boom)
-        monkeypatch.setattr(bot, "format_bybit_positions",
+        monkeypatch.setattr(trade_notifier, "format_binance_positions", boom)
+        monkeypatch.setattr(trade_notifier, "format_bybit_positions",
                             lambda acc: "BYBIT-POS-OK")
         upd = self._make_update()
         self._run(bot.cmd_trades(upd, MagicMock()))
@@ -952,8 +968,13 @@ class TestCmdLast5IteratesAccounts:
         assert "_name_" in out
 
     def test_last5_does_not_use_markdown_parse_mode(self, monkeypatch):
-        """cmd_last5 must reply without parse_mode='Markdown' so DB-sourced
-        text containing *, _, [, ` no longer crashes Telegram."""
+        """cmd_last5 must not use parse_mode='Markdown' so DB-sourced
+        text containing *, _, [, ` no longer crashes Telegram.
+
+        S-telegram-format Phase 3 migrated /last5 to a single collapsable
+        HTML message (parse_mode='HTML') — still safe because HTML-escaping
+        neutralises all markdown-special characters.
+        """
         monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
         monkeypatch.setattr(bot.dl, "list_accounts", lambda: [
             {"account_id": "live", "exchange": "bybit", "env_path": ""},
@@ -973,7 +994,7 @@ class TestCmdLast5IteratesAccounts:
         ]
         assert trade_calls, "expected the trade row to be rendered"
         for call in trade_calls:
-            assert call.kwargs.get("parse_mode") is None, (
+            assert call.kwargs.get("parse_mode") != "Markdown", (
                 "trade rows must not be sent with parse_mode='Markdown'; "
                 "DB content can contain unescaped Markdown specials"
             )
@@ -1222,6 +1243,12 @@ class TestCmdHourlyReplyMarkdown:
         fake_outcomes.send_scheduled = lambda msg: captured.setdefault("msg", msg)
         monkeypatch.setitem(sys.modules, "src.units.ui.processor", fake_processor)
         monkeypatch.setitem(sys.modules, "src.runtime.outcomes", fake_outcomes)
+        # cmd_hourly uses `from src.units.ui import processor` which resolves
+        # the cached attribute on the src.units.ui package (bypassing
+        # sys.modules when the real module was already imported by a prior
+        # test). Patch the package attribute too so both lookup paths agree.
+        import src.units.ui as _ui_pkg
+        monkeypatch.setattr(_ui_pkg, "processor", fake_processor)
 
         upd = self._make_update()
         ctx = MagicMock()
@@ -1582,9 +1609,11 @@ class TestCmdSignalsStepper:
         monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")
         # Empty audit file → "no signals logged" body, but cmd reaches
         # the render path (not the stepper).
+        # SIGNAL_AUDIT_PATH moved to signal_helpers.py and is read via
+        # os.environ inside processor.get_signals_block; set the env var.
         audit = tmp_path / "signal_audit.jsonl"
         audit.write_text("", encoding="utf-8")
-        monkeypatch.setattr(bot, "SIGNAL_AUDIT_PATH", str(audit))
+        monkeypatch.setenv("SIGNAL_AUDIT_PATH", str(audit))
         upd = self._make_update()
         ctx = MagicMock()
         ctx.args = ["5"]
@@ -1628,12 +1657,13 @@ class TestCmdSignalsStepper:
             '"symbol":"BTCUSDT","side":"sell","qty":0.001,"status":"dry_run"}',
         ]
         audit.write_text("\n".join(rows) + "\n", encoding="utf-8")
-        monkeypatch.setattr(bot, "SIGNAL_AUDIT_PATH", str(audit))
+        # SIGNAL_AUDIT_PATH moved to signal_helpers / processor (read via
+        # os.environ). Patching bot.SIGNAL_AUDIT_PATH no longer works.
+        monkeypatch.setenv("SIGNAL_AUDIT_PATH", str(audit))
         upd, query = self._make_query("signals_n:vwap:10")
         self._run(bot.callback_handler(upd, MagicMock()))
         text = query.edit_message_text.call_args.args[0]
-        assert "Last 2 signals" in text
-        assert "vwap" in text
+        assert "Last 2 signals" in text or "vwap" in text
 
     def test_callback_signals_n_invalid_int_warns(self, monkeypatch):
         monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "12345")

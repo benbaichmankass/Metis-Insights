@@ -135,10 +135,11 @@ def test_run_checks_all_signal_prefixes_pass():
 
 
 def test_run_checks_strategies_match_roster():
-    """S-012 PR B1: registry must match the production roster exactly."""
+    """Registry must match the current production roster in config/strategies.yaml."""
     from src.strategy_registry import load_strategies
     names = {s["name"] for s in load_strategies()}
-    assert names == {"turtle_soup", "vwap"}
+    # ict_scalp_5m was added to the active roster after S-012 PR B1.
+    assert names == {"turtle_soup", "vwap", "ict_scalp_5m"}
 
 
 # ---------------------------------------------------------------------------

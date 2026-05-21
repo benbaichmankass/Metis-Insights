@@ -125,11 +125,12 @@ class TestToggleServiceValidatesUnitFile:
                 stderr = ""
             return _R()
 
-        monkeypatch.setattr(bot.subprocess, "run", _fake_run)
+        import src.bot.cloud_notifier as _cn
+        monkeypatch.setattr(_cn.subprocess, "run", _fake_run)
         # Force a known set so the test is deterministic.
         monkeypatch.setattr(
-            bot, "_known_systemd_units",
-            lambda: {"ict-trader-live", "ict-telegram-bot"},
+            _cn, "_known_systemd_units",
+            lambda repo_root=None: {"ict-trader-live", "ict-telegram-bot"},
         )
 
         result = bot.toggle_service("ict-trader-bak", "start")
@@ -153,10 +154,11 @@ class TestToggleServiceValidatesUnitFile:
                 stderr = ""
             return _R()
 
-        monkeypatch.setattr(bot.subprocess, "run", _fake_run)
+        import src.bot.cloud_notifier as _cn
+        monkeypatch.setattr(_cn.subprocess, "run", _fake_run)
         monkeypatch.setattr(
-            bot, "_known_systemd_units",
-            lambda: {"ict-trader-live", "ict-telegram-bot"},
+            _cn, "_known_systemd_units",
+            lambda repo_root=None: {"ict-trader-live", "ict-telegram-bot"},
         )
 
         result = bot.toggle_service("ict-trader-example", "start")
@@ -177,10 +179,11 @@ class TestToggleServiceValidatesUnitFile:
                 stderr = ""
             return _R()
 
-        monkeypatch.setattr(bot.subprocess, "run", _fake_run)
+        import src.bot.cloud_notifier as _cn
+        monkeypatch.setattr(_cn.subprocess, "run", _fake_run)
         monkeypatch.setattr(
-            bot, "_known_systemd_units",
-            lambda: {"ict-trader-live", "ict-telegram-bot"},
+            _cn, "_known_systemd_units",
+            lambda repo_root=None: {"ict-trader-live", "ict-telegram-bot"},
         )
 
         result = bot.toggle_service("ict-trader-live", "start")
@@ -190,9 +193,9 @@ class TestToggleServiceValidatesUnitFile:
 
     def test_known_units_returns_canonical_set(self):
         """_known_systemd_units must read deploy/ directly."""
-        import src.bot.telegram_query_bot as bot
+        from src.bot.cloud_notifier import _known_systemd_units
 
-        units = bot._known_systemd_units()
+        units = _known_systemd_units()
         # Single-process architecture (PR D2): exactly one trader-side unit.
         assert "ict-trader-live" in units
         assert "ict-telegram-bot" in units
