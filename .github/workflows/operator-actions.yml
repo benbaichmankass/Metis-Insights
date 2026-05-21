@@ -83,6 +83,7 @@ on:
           - backfill-monitor-closed-pnl
           - revert-backfill-monitor-closed-pnl
           - rebuild-pnl-from-bybit
+          - backfill-shadow-predictions
           - inspect-closed-pnl
           - bybit-account-audit
           - strategy-performance-audit
@@ -263,7 +264,7 @@ jobs:
             status-check|pull-latest-logs|inspect-closed-pnl|bybit-account-audit|strategy-performance-audit|monitor-miss-analysis|vwap-backtest-sweep)
               echo "tier=1" >>"$GITHUB_ENV"
               ;;
-            pull-and-deploy|restart-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|enable-m5-consumer|disable-m5-consumer|setup-cloudflare-tunnel|teardown-cloudflare-tunnel|setup-named-cloudflare-tunnel|teardown-named-cloudflare-tunnel|setup-tailscale-funnel|teardown-tailscale-funnel|backfill-pnl-nulls|backfill-orphan-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|rebuild-pnl-from-bybit|set-account-mode|fix-data-dir|rotate-account-keys|init-diag-token)
+            pull-and-deploy|restart-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|enable-m5-consumer|disable-m5-consumer|setup-cloudflare-tunnel|teardown-cloudflare-tunnel|setup-named-cloudflare-tunnel|teardown-named-cloudflare-tunnel|setup-tailscale-funnel|teardown-tailscale-funnel|backfill-pnl-nulls|backfill-orphan-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|rebuild-pnl-from-bybit|backfill-shadow-predictions|set-account-mode|fix-data-dir|rotate-account-keys|init-diag-token)
               echo "tier=2" >>"$GITHUB_ENV"
               if [ -z "${REASON// }" ]; then
                 echo "::error::Tier-2 action '${ACTION}' requires a non-empty 'reason' input."
@@ -396,6 +397,7 @@ jobs:
             backfill-monitor-closed-pnl)        SCRIPT="backfill_monitor_closed_pnl_action.sh" ;;
             revert-backfill-monitor-closed-pnl) SCRIPT="revert_backfill_monitor_closed_pnl_action.sh" ;;
             rebuild-pnl-from-bybit)             SCRIPT="rebuild_pnl_from_bybit_action.sh" ;;
+            backfill-shadow-predictions)        SCRIPT="backfill_shadow_predictions_action.sh" ;;
             inspect-closed-pnl)                 SCRIPT="inspect_closed_pnl_action.sh" ;;
             bybit-account-audit)                SCRIPT="bybit_account_audit_action.sh" ;;
             strategy-performance-audit)         SCRIPT="strategy_performance_audit_action.sh" ;;
