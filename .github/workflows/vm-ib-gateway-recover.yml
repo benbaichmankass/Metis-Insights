@@ -1,0 +1,189 @@
+name: vm-ib-gateway-recover
+
+# Autonomous self-heal for the IB Gateway container on the live VM.
+#
+# Why this exists (separate from operator-actions.yml):
+#   IB Gateway (the `ib-gateway` docker container) is the live trader's
+#   only path to IBKR for MES. When the account's market-data line gets
+#   bound to another session, IBKR rejects MES historical-data requests
+#   with error 162 ("Trading TWS session is connected from a different IP
+#   address") and MES goes dark — no candles, no signals, no trades.
+#   Closing the other login doesn't always release the line; the gateway
+#   has to re-login. This workflow lets a sandbox session restart the
+#   gateway autonomously (no operator click), mirroring vm-web-api-recover.
+#
+# Trust contract:
+#   * The wrapper (scripts/ops/restart_ib_gateway.sh) is fixed-form:
+#     `docker restart ib-gateway` + login/port probe + log tail. No
+#     freeform shell, no edits, no deploys.
+#   * Blast radius is the ib-gateway container only. ict-trader-live is
+#     NOT restarted (it reconnects on the next tick); BTCUSDT/Bybit is
+#     unaffected; account-mode / strategy / risk flags are NOT touched.
+#   * Triggered by `issues.opened` filtered to label
+#     `vm-ib-gateway-recover` (created idempotently by bootstrap-labels.yml).
+#
+# Required repo secrets:
+#   * VM_SSH_KEY        — same key as vm-diag-snapshot / vm-web-api-recover
+#
+# Optional repo variables:
+#   * VM_SSH_HOST       — defaults to 158.178.210.252
+#   * VM_SSH_USER       — defaults to ubuntu
+#
+# To use from a sandbox session:
+#   mcp__github__issue_write(method='create',
+#       title='[ib-recover] restart ib-gateway',
+#       labels=['vm-ib-gateway-recover'],
+#       body='<reason — captured for audit>')
+# Then read the github-actions[bot] reply on the issue.
+
+on:
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Why this run is happening (audit only)."
+        required: false
+        default: "manual operator dispatch"
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: vm-ib-gateway-recover
+  cancel-in-progress: false
+
+jobs:
+  recover:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'vm-ib-gateway-recover'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    env:
+      VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '158.178.210.252' }}
+      VM_SSH_USER: ${{ vars.VM_SSH_USER || 'ubuntu' }}
+    steps:
+      - name: Set up SSH key
+        env:
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VM_SSH_KEY}" ]; then
+            echo "::error::VM_SSH_KEY secret is unset. Add it under Settings → Secrets → Actions."
+            exit 1
+          fi
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "${VM_SSH_KEY}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -t rsa,ecdsa,ed25519 "${VM_SSH_HOST}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Restart ib-gateway on VM
+        id: exec
+        run: |
+          set -euo pipefail
+          # Prefer the wrapper on the VM (richer audit + log tail); fall
+          # back to a fixed-form inline restart when it is not present yet
+          # (e.g. before this PR auto-deploys to the VM). Same docker
+          # invocation either way.
+          read -r -d '' REMOTE_SCRIPT <<'REMOTE' || true
+          set -uo pipefail
+          WRAPPER=/home/ubuntu/ict-trading-bot/scripts/ops/restart_ib_gateway.sh
+          NAME=ib-gateway
+          API_PORT=4002
+          if [ -x "$WRAPPER" ]; then
+            echo ">>> Using wrapper: $WRAPPER"
+            bash "$WRAPPER"
+            exit $?
+          fi
+          echo ">>> Wrapper not on VM yet — inline fallback restart of $NAME"
+          command -v docker >/dev/null 2>&1 || { echo "docker not found"; exit 1; }
+          echo "pre: $(docker ps -a --filter name=^/${NAME}$ --format '{{.Status}}' || true)"
+          docker restart "$NAME" >/dev/null 2>&1 || { echo "docker restart failed"; exit 1; }
+          login_ok=no; port_ok=no
+          deadline=$(( $(date +%s) + 150 ))
+          while [ "$(date +%s)" -lt "$deadline" ]; do
+            if [ "$login_ok" != yes ] && docker logs --since 4m "$NAME" 2>&1 | grep -q "Login has completed"; then login_ok=yes; fi
+            if [ "$port_ok" != yes ] && (exec 3<>/dev/tcp/127.0.0.1/${API_PORT}) 2>/dev/null; then exec 3>&- 3<&- 2>/dev/null || true; port_ok=yes; fi
+            [ "$login_ok" = yes ] && [ "$port_ok" = yes ] && break
+            sleep 5
+          done
+          echo "login_completed=$login_ok api_port_${API_PORT}_reachable=$port_ok"
+          echo "post: $(docker ps -a --filter name=^/${NAME}$ --format '{{.Status}}' || true)"
+          echo "===== docker logs --tail 40 $NAME ====="
+          docker logs --tail 40 "$NAME" 2>&1 | tail -40 || true
+          [ "$login_ok" = yes ] && exit 0 || exit 1
+          REMOTE
+          set +e
+          ssh -i ~/.ssh/id_rsa \
+              -o BatchMode=yes \
+              -o StrictHostKeyChecking=accept-new \
+              -o ConnectTimeout=15 \
+              "${VM_SSH_USER}@${VM_SSH_HOST}" \
+              "bash -s" <<<"$REMOTE_SCRIPT" \
+              > action-output.txt 2>&1
+          rc=$?
+          set -e
+          echo "exit_code=${rc}" >>"$GITHUB_OUTPUT"
+          echo ">>> Remote exit code: ${rc}"
+          if [ "$(wc -c <action-output.txt)" -gt 4000 ]; then
+            head -c 4000 action-output.txt; echo ""; echo "... (truncated; see issue comment)"
+          else
+            cat action-output.txt
+          fi
+          exit "${rc}"
+
+      - name: Upload action output
+        if: always() && github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: vm-ib-gateway-recover-${{ github.run_id }}
+          path: action-output.txt
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: Reply to issue with success
+        if: github.event_name == 'issues' && success()
+        uses: actions/github-script@v7
+        env:
+          EXIT_CODE: ${{ steps.exec.outputs.exit_code }}
+        with:
+          script: |
+            const fs = require('fs');
+            const output = fs.readFileSync('action-output.txt', 'utf8');
+            const MAX_BODY = 50_000;
+            const tail = output.length > MAX_BODY ? output.slice(-MAX_BODY) : output;
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const note = output.length > MAX_BODY ? `\n_(last ${MAX_BODY} of ${output.length} bytes)_\n` : '';
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number,
+              body: `✅ **vm-ib-gateway-recover** completed.\nRun: ${runUrl}\nExit code: ${process.env.EXIT_CODE}\n` + note + `\n\`\`\`\n${tail}\n\`\`\``
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number,
+              state: 'closed', state_reason: 'completed'
+            });
+
+      - name: Reply to issue with failure
+        if: github.event_name == 'issues' && failure()
+        uses: actions/github-script@v7
+        env:
+          EXIT_CODE: ${{ steps.exec.outputs.exit_code }}
+        with:
+          script: |
+            const fs = require('fs');
+            let output = '';
+            try { output = fs.readFileSync('action-output.txt', 'utf8'); } catch (_) { output = '(no output — failure before SSH ran)'; }
+            const MAX_BODY = 50_000;
+            const tail = output.length > MAX_BODY ? output.slice(-MAX_BODY) : output;
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number,
+              body: `❌ **vm-ib-gateway-recover failed.**\nRun: ${runUrl}\nExit code: ${process.env.EXIT_CODE || '(setup failed)'}\n\nCommon causes: VM_SSH_KEY unset; SSH unreachable; container name not 'ib-gateway'; login needs 2FA (check the log tail below).\n\n\`\`\`\n${tail}\n\`\`\``
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number,
+              state: 'closed', state_reason: 'not_planned'
+            });
