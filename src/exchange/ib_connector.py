@@ -130,6 +130,13 @@ class IBMarketData:
             return None
         try:
             ib = self._client.connect()
+            # Re-assert the loop right before the data calls. connect() already
+            # does this, but a Telegram alert (asyncio.run) firing between
+            # connect() and here would null the current loop and ib_insync's
+            # reqHistoricalData would raise "no current event loop". Re-asserting
+            # the client's persistent loop (the one this IB is bound to) keeps
+            # the sync request resolvable.
+            self._client._ensure_event_loop()
             # Delayed mode (3) by default → no paid CME real-time feed
             # needed; IB serves free delayed futures bars. Best-effort:
             # older ib_insync builds always have reqMarketDataType.

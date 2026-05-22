@@ -404,6 +404,78 @@ class TestIBClient:
 
 
 # ---------------------------------------------------------------------------
+# Event-loop resilience (asyncio.run poisoning)
+# ---------------------------------------------------------------------------
+
+
+class TestEventLoopResilience:
+    """ib_insync resolves the event loop afresh on every sync call. Code
+    elsewhere in the process runs ``asyncio.run(...)`` (Telegram alerts),
+    which sets the thread's current loop to None on exit — poisoning the next
+    ib_insync call with "There is no current event loop in thread
+    'MainThread'". IBClient keeps a persistent loop and re-asserts it on every
+    connect() (including the cached path), so a request after a poison still
+    resolves the loop the IB is bound to.
+    """
+
+    def test_connect_binds_persistent_loop(self):
+        import asyncio
+
+        c, _ = _client()
+        c.connect()
+        assert c._loop is not None
+        assert not c._loop.is_closed()
+        # the bound loop is the thread's current loop
+        assert asyncio.get_event_loop_policy().get_event_loop() is c._loop
+
+    def test_cached_connect_reasserts_same_loop_after_poison(self):
+        import asyncio
+
+        c, fake = _client()
+        c.connect()
+        loop1 = c._loop
+        assert loop1 is not None
+
+        # Poison exactly as alert_manager's asyncio.run(...) does: on exit it
+        # calls set_event_loop(None), so the policy now raises.
+        asyncio.run(asyncio.sleep(0))
+        with pytest.raises(RuntimeError):
+            asyncio.get_event_loop_policy().get_event_loop()
+
+        # Cached connect (fake still "connected") must re-assert the SAME loop —
+        # never a fresh one, since the IB transport lives on loop1.
+        assert fake.isConnected()
+        c.connect()
+        assert c._loop is loop1
+        assert asyncio.get_event_loop_policy().get_event_loop() is loop1
+
+    def test_get_ohlcv_survives_loop_poison(self, fake_ib_module):
+        import asyncio
+
+        from src.exchange.ib_connector import IBMarketData
+
+        c, fake = _client()
+
+        # Make the fake return one bar so get_ohlcv reaches reqHistoricalData.
+        class _Bar:
+            date = "2026-05-22 08:00:00"
+            open = high = low = close = 5300.0
+            volume = 10
+
+        fake.reqMarketDataType = lambda *_a, **_k: None
+        fake.reqHistoricalData = lambda *a, **k: [_Bar()]
+        fake.qualifyContracts = lambda *cs: [setattr(x, "conId", 1) or x for x in cs]
+
+        md = IBMarketData(port=7497, client_id=498, account="DUQ325724", _client=c)
+        # Poison before the call — get_ohlcv must re-assert and still return data.
+        asyncio.run(asyncio.sleep(0))
+        df = md.get_ohlcv("MES", "5m", limit=1)
+        assert df is not None
+        assert len(df) == 1
+        assert df.iloc[0]["close"] == 5300.0
+
+
+# ---------------------------------------------------------------------------
 # Connection registry
 # ---------------------------------------------------------------------------
 
