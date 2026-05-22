@@ -93,6 +93,9 @@ class BybitOffvmMarketRawAdapter(MarketRawAdapter):
         **_: Any,
     ) -> Iterator[Mapping[str, Any]]:
         self._enforce_offvm()
+        # CLI family-args may arrive as strings; coerce defensively so the
+        # `pause > 0` throttle check never hits a str-vs-int TypeError.
+        pause = float(pause_s or 0.0)
 
         if timeframe not in _TIMEFRAME_MS:
             raise ValueError(
@@ -160,11 +163,11 @@ class BybitOffvmMarketRawAdapter(MarketRawAdapter):
                 # Page came back but every bar was filtered out.
                 # Step one bar to avoid an infinite loop.
                 cursor += bar_ms
-            if pause_s > 0:
+            if pause > 0:
                 # Extra throttle on top of ccxt's enableRateLimit so a deep
                 # multi-year pull stays gentle on the public API.
                 import time
-                time.sleep(pause_s)
+                time.sleep(pause)
 
     @classmethod
     def _build_exchange(
