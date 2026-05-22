@@ -1,9 +1,0 @@
-TARGET=live
----
-set +e
-S=/home/ubuntu/mes_pull_src
-echo "=== MES pull process ==="; pgrep -fa "ibkr_offvm" || echo "(MES pull NOT running — finished or died)"
-echo "=== MES 1m live rows ==="; wc -l "$S/datasets-out/market_raw/MES/1m/v001/data.jsonl" 2>/dev/null || echo "(no data file yet)"
-echo "=== metadata (if complete) ==="; python3 -c "import json;d=json.load(open('$S/datasets-out/market_raw/MES/1m/v001/metadata.json'));print('row_count',d['row_count'])" 2>/dev/null || echo "(not finalized yet)"
-echo "=== mes_pull.out tail ==="; tail -n 8 /home/ubuntu/mes_pull.out 2>/dev/null
-echo "=== live trader last 2 ==="; journalctl -u ict-trader-live.service -n 2 --no-pager 2>/dev/null | sed 's/.*python3\[[0-9]*\]: //'
