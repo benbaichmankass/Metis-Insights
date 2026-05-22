@@ -26,12 +26,14 @@ class _StubDB:
 
     def get_order_packages_by_strategy(
         self, strategy_name: str, *, status: Optional[str] = None,
-        limit: Optional[int] = None,
+        limit: Optional[int] = None, linked_only: bool = False,
+        symbol: Optional[str] = None,
     ):
         out = [
             p for p in self._packages
             if p.get("strategy_name") == strategy_name
             and (status is None or p.get("status") == status)
+            and (symbol is None or p.get("symbol") == symbol)
         ]
         # Newest-first by updated_at, mirroring the real method.
         out.sort(key=lambda p: p.get("updated_at", ""), reverse=True)

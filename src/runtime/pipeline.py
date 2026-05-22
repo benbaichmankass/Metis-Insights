@@ -413,7 +413,7 @@ def run_pipeline(
                     or signal.get("strategy")
                 )
                 _existing_open = _has_open_package_for_strategy(
-                    _gate_strategy
+                    _gate_strategy, signal.get("symbol")
                 )
                 if _existing_open is not None:
                     logger.info(
@@ -442,7 +442,9 @@ def run_pipeline(
                 # returning ``availableToBorrow=0`` (S-056 / S-058) and
                 # repopulating on the exchange's cadence rather than ours.
                 # Operator override: ``STRATEGY_REFUSAL_COOLDOWN_SECONDS``.
-                _recent_refusal = _recent_refusal_for_strategy(_gate_strategy)
+                _recent_refusal = _recent_refusal_for_strategy(
+                    _gate_strategy, symbol=signal.get("symbol")
+                )
                 if _recent_refusal is not None:
                     logger.info(
                         "strategy_monocle: skipping dispatch — strategy=%s "
