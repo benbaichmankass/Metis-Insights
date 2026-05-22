@@ -50,6 +50,8 @@ EXPECTED_ACTIONS = {
     # Tier 1 — read-only / analysis
     "status-check": "status_check.sh",
     "pull-latest-logs": "pull_logs.sh",
+    # PR #1698: read-only IB Gateway container status + recent logs.
+    "gateway-logs": "gateway_logs.sh",
     "inspect-closed-pnl": "inspect_closed_pnl_action.sh",
     "bybit-account-audit": "bybit_account_audit_action.sh",
     "strategy-performance-audit": "strategy_performance_audit_action.sh",

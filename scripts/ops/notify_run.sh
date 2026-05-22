@@ -48,7 +48,7 @@ else
 fi
 
 case "${action}" in
-    status-check|pull-latest-logs|inspect-closed-pnl|bybit-account-audit|strategy-performance-audit|monitor-miss-analysis|vwap-backtest-sweep)
+    status-check|gateway-logs|pull-latest-logs|inspect-closed-pnl|bybit-account-audit|strategy-performance-audit|monitor-miss-analysis|vwap-backtest-sweep)
         tier=1
         if [ "${exit_code}" -eq 0 ]; then
             result="ok"

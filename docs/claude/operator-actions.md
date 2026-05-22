@@ -52,6 +52,7 @@ Adding an action requires a PR that updates this doc, the workflow's
 | Action | Tier | Wrapper | Mutates? |
 |---|---|---|---|
 | `status-check` | 1 | `scripts/ops/status_check.sh` | no |
+| `gateway-logs` | 1 | `scripts/ops/gateway_logs.sh` | no |
 | `pull-latest-logs` | 1 | `scripts/ops/pull_logs.sh` | no |
 | `pull-and-deploy` | 2 | `scripts/ops/pull_and_deploy.sh` | git worktree + systemd units |
 | `restart-bot-service` | 2 | `scripts/ops/restart_bot.sh` | systemd unit only |
