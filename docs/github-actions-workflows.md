@@ -138,7 +138,7 @@ which would unlock these.
 | `arch-doc-guard.yml` | AUTO | PR | — |
 | `repo-inventory.yml` | AUTO | PR/push | — |
 | `bootstrap-labels.yml` | AUTO / AUTONOMOUS | push (paths: this file) + B-sentinel or `workflow_dispatch` | `.github/triggers/bootstrap-labels` |
-| `branch-protection-sync.yml` | OPERATOR-APPROVAL | C (workflow_dispatch) | — |
+| `branch-protection-sync.yml` | AUTO | push to `main` + workflow_dispatch | — |
 | `health-snapshot.yml` | AUTONOMOUS | A or E (every 6h) | `health-snapshot-trigger` |
 | `vm-diag-snapshot.yml` | AUTONOMOUS | A | `vm-diag-request` |
 | `trainer-vm-diag.yml` | AUTONOMOUS | A | `trainer-vm-diag-request` |
@@ -171,16 +171,19 @@ they self-fire. Touching a guard's own logic is **Tier 3**.
 | File | Trigger | Purpose | Required on `main`? |
 |---|---|---|---|
 | `pytest-collect.yml` | PR, push `main` | `pytest --collect-only` — surfaces import/collection failures. | Yes |
+| `pytest-run.yml` | PR, push `main` | `pytest -q tests/` — runs the **full** suite (collection only checks imports). Required since 2026-05-22 (#1721). | Yes |
 | `ruff-lint.yml` | PR, push `main` | `ruff check` with rules from `ruff.toml`. | Yes |
 | `secret-scan.yml` | PR, push `main` | `scripts/secret_scan.py` over every tracked file. | Yes |
 | `dry-run-guard.yml` | PR to `main` | Fails PRs that flip dry-run flags, silently downgrading live mode. Telegrams operator on hit. | Yes |
-| `env-gate-guard.yml` | PR to `main` | Fails PRs adding env-gate reads in protected files without `# allow-silent: <reason>`. | No (advisory) |
-| `silent-empty-guard.yml` | PR to `main` | Fails PRs adding broad `except` handlers in protected read-paths without justification. | No (advisory) |
+| `env-gate-guard.yml` | PR to `main` | Fails PRs adding env-gate reads in protected files without `# allow-silent: <reason>`. | Yes |
+| `silent-empty-guard.yml` | PR to `main` | Fails PRs adding broad `except` handlers in protected read-paths without justification. | Yes |
+| `canonical-config-loaders.yml` | PR to `main` | Fails PRs that add a hand-rolled parser for `config/accounts.yaml` outside the canonical loader module. | Yes |
+| `canonical-db-resolver.yml` | PR to `main` | Fails PRs that add an inline `trade_journal.db` path fallback outside the canonical resolver. | Yes |
 | `arch-doc-guard.yml` | PR to `main` | Emits `::warning` when high-impact subsystems change without an architecture-doc update. Always exits 0 (advisory). | No |
 | `repo-inventory.yml` | PR, push `main` | Uploads `scripts/repo_inventory.py` output as build artifact. Advisory only. | No |
 
 `REQUIRED_CONTEXTS` in `branch-protection-sync.yml` is the authoritative
-list of blocking checks. Currently: `["pytest-collect","secret-scan","ruff-lint","dry-run-guard"]`.
+list of blocking checks. Currently (2026-05-22): `["pytest-collect","pytest-run","secret-scan","ruff-lint","dry-run-guard","env-gate-guard","silent-empty-guard","canonical-config-loaders","canonical-db-resolver"]`.
 
 ---
 
@@ -215,18 +218,25 @@ Or just touch `.github/workflows/bootstrap-labels.yml` in a PR to main.
 
 #### `branch-protection-sync.yml`
 
-**Autonomy:** OPERATOR-APPROVAL.
+**Autonomy:** AUTO (self-fires on every push to `main`) + `workflow_dispatch`.
 
-**Trigger:** `workflow_dispatch` (operator-click only — no issue trigger,
-no sentinel).
+**Trigger:** `push` to `main` (every merge) and `workflow_dispatch`. A
+change to `REQUIRED_CONTEXTS` takes effect automatically on the next push
+to `main` — no operator click required. This is how the 2026-05-22
+`pytest-run` promotion (#1721) applied: the merge to `main` ran this
+workflow, which PUT the updated contexts.
 
 **Purpose:** PUTs the branch-protection spec for `main` idempotently.
 Hardcoded `REQUIRED_CONTEXTS` is authoritative.
 
 **Secrets:** `BRANCH_PROTECTION_TOKEN` (PAT, fine-grained,
-`administration:write`).
+`administration:write`). Unset → the workflow no-ops (skips the PUT and
+leaves protection unchanged).
 
-**MCP trigger:** None available from sandbox. Operator clicks in Actions UI.
+**MCP trigger:** none needed — it self-fires on merge to `main`.
+`workflow_dispatch` is available to the operator in the Actions UI as a
+manual re-sync. To read the live protection state from a PM-side session,
+fire the `branch-protection-report.yml` relay (open a `[bp-report]` issue).
 
 ---
 
