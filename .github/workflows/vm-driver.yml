@@ -1,0 +1,100 @@
+name: vm-driver
+
+# Git-push-triggered remote driver — the MCP-independent control path.
+#
+# Why this exists: the GitHub-issue diag relays (trainer-vm-diag,
+# vm-diag-snapshot, operator-actions, vm-*-recover) are driven by the
+# hosted GitHub MCP creating labelled issues. When that MCP is
+# unavailable, a sandbox session can still `git push` (the git proxy is
+# independent). This workflow turns a pushed job file into a remote
+# command run on a VM, and commits the captured output back to the repo
+# so the session can read it via `git pull` — no MCP, no operator click.
+#
+# Contract:
+#   * Drop a file at `automation/jobs/<name>.job` and push it. Format:
+#       TARGET=trainer            # or: live
+#       ---
+#       <bash to run on that VM, via stdin to `bash -s`>
+#   * The workflow SSHes to the target VM (trainer = 158.178.209.121,
+#     live = 158.178.210.252) with VM_SSH_KEY, runs the body, writes
+#     `automation/results/<name>.log`, removes the job file, and commits
+#     the result back to this branch.
+#   * Bot commits use GITHUB_TOKEN, which does NOT re-trigger workflows,
+#     and the message carries [skip ci]; the job-file removal therefore
+#     can't loop.
+#
+# Blast radius mirrors trainer-vm-diag (arbitrary bash on the trainer is
+# autonomous territory) and the live-VM relays. Do not put trade-mutating
+# commands in `live` jobs without the same care those relays demand.
+
+on:
+  push:
+    branches: [claude/mes-training-dashboard-tabs-zDNzM]
+    paths: ['automation/jobs/**']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: vm-driver
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: claude/mes-training-dashboard-tabs-zDNzM
+          fetch-depth: 0
+
+      - name: Set up SSH key
+        env:
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VM_SSH_KEY}" ]; then echo "::error::VM_SSH_KEY unset"; exit 1; fi
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${VM_SSH_KEY}" > ~/.ssh/id_rsa && chmod 600 ~/.ssh/id_rsa
+          for h in 158.178.209.121 158.178.210.252; do
+            ssh-keyscan -t rsa,ecdsa,ed25519 "$h" >> ~/.ssh/known_hosts 2>/dev/null || true
+          done
+
+      - name: Run pending jobs
+        env:
+          TRAINER_IP: ${{ vars.TRAINER_VM_IP || '158.178.209.121' }}
+          LIVE_IP: ${{ vars.VM_SSH_HOST || '158.178.210.252' }}
+          SSH_USER: ${{ vars.VM_SSH_USER || 'ubuntu' }}
+        run: |
+          set -uo pipefail
+          mkdir -p automation/results
+          shopt -s nullglob
+          for job in automation/jobs/*.job; do
+            base="$(basename "$job" .job)"
+            target="$(sed -n 's/^TARGET=//p' "$job" | head -1 | tr -d '[:space:]')"
+            [ -z "$target" ] && target=trainer
+            awk 'body{print} /^---[[:space:]]*$/{body=1}' "$job" > /tmp/body.sh
+            case "$target" in
+              live) ip="$LIVE_IP" ;;
+              *)    ip="$TRAINER_IP" ;;
+            esac
+            out="automation/results/${base}.log"
+            echo "# job=${base} target=${target} ip=${ip} started=$(date -u +%FT%TZ)" > "$out"
+            ssh -i ~/.ssh/id_rsa -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
+                -o ConnectTimeout=20 "${SSH_USER}@${ip}" 'bash -s' < /tmp/body.sh >> "$out" 2>&1
+            rc=$?
+            echo "# exit=${rc} finished=$(date -u +%FT%TZ)" >> "$out"
+            echo ">>> ${base} on ${target} exit=${rc}"
+            git rm -q "$job" || rm -f "$job"
+          done
+
+      - name: Commit results back to branch
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add automation/results automation/jobs 2>/dev/null || true
+          if git diff --cached --quiet; then echo "no changes"; exit 0; fi
+          git commit -m "vm-driver: job results [skip ci]"
+          git push origin HEAD:claude/mes-training-dashboard-tabs-zDNzM
