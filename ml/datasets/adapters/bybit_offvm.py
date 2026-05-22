@@ -128,12 +128,24 @@ class BybitOffvmMarketRawAdapter(MarketRawAdapter):
                 cursor += bar_ms
                 continue
             last_cursor = cursor
-            page = exchange.fetch_ohlcv(
-                symbol,
-                timeframe=timeframe,
-                since=cursor,
-                limit=_PAGE_LIMIT,
-            )
+            # Retry with exponential backoff on transient errors (Bybit
+            # retCode 10006 RateLimitExceeded, DDoS guard, network blips) so
+            # a deep multi-million-bar pull (e.g. years of 1m) survives the
+            # exchange's per-minute cap instead of aborting mid-stream.
+            page = None
+            for _attempt in range(7):
+                try:
+                    page = exchange.fetch_ohlcv(
+                        symbol, timeframe=timeframe, since=cursor, limit=_PAGE_LIMIT,
+                    )
+                    break
+                except Exception as exc:  # noqa: BLE001
+                    name = type(exc).__name__
+                    if any(k in name for k in ("RateLimit", "DDoS", "Network", "Timeout", "ExchangeNotAvailable")):
+                        import time
+                        time.sleep(min(2 ** _attempt, 60))
+                        continue
+                    raise
             if not page:
                 break
             advanced = False
