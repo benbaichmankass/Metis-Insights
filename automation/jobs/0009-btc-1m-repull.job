@@ -1,0 +1,16 @@
+TARGET=trainer
+---
+set +e
+R=/home/ubuntu/ict-trading-bot
+cd "$R" || exit 1
+if pgrep -f run_serious_baseline.sh >/dev/null 2>&1; then echo "ALREADY RUNNING pid=$(pgrep -f run_serious_baseline.sh)"; exit 0; fi
+git fetch -q origin claude/mes-training-dashboard-tabs-zDNzM && git checkout -f -q -B claude/mes-training-dashboard-tabs-zDNzM origin/claude/mes-training-dashboard-tabs-zDNzM
+echo "HEAD=$(git rev-parse --short HEAD)"
+mkdir -p runtime_logs/trainer
+# Re-pull BTC 1m with heavy pacing (under Bybit cap) + adapter backoff; FORCE_REPULL
+# overwrites the partial 848k pull. Derive 5m/15m from 1m, retrain. MES cache-hit.
+setsid env BASE_TF=1m BACKTEST=0 FORCE_REPULL=1 BYBIT_PAUSE_S=1.0 \
+  bash scripts/ops/run_serious_baseline.sh > runtime_logs/trainer/serious_baseline.out 2>&1 < /dev/null &
+echo "launched BTC-1m re-pull pid=$! at $(date -u +%FT%TZ)"
+sleep 12
+echo "=== early log ==="; tail -n 6 runtime_logs/trainer/serious_baseline.jsonl 2>/dev/null
