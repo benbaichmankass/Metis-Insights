@@ -1,0 +1,14 @@
+# job=0012-mes-ibkr-validate3 target=live ip=158.178.210.252 started=2026-05-22T15:28:18Z
+HEAD is now at 9097181 vm-driver job (live): MES 1m IBKR validation v3 (dated contracts)
+HEAD=9097181
+PY=/usr/bin/python3
+=== MES 1m validation (2026-05-17 -> now), dated contracts, clientId=450 pause=10s ===
+wrote dataset under /tmp/ict-mes-pull/datasets-out/market_raw/MES/1m/v001
+=== rows ===
+MES 1m rows 0
+=== sample (first+last bar) ===
+=== live trader last 3 lines ===
+2026-05-22 15:28:07,662 | INFO | src.exchange.bybit_connector | Bybit market data environment: mainnet
+✓ Database tables created/verified
+2026-05-22 15:28:09,604 | INFO | src.main | Sleeping 60 seconds until next tick (heartbeat every 60 s).
+# exit=0 finished=2026-05-22T15:28:55Z
