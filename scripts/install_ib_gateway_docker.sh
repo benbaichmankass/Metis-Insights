@@ -75,13 +75,27 @@ tmp_env="$(mktemp)"
 sudo install -m 0600 -o root -g root "${tmp_env}" "${DOCKER_ENV}"
 rm -f "${tmp_env}"
 
-# 4. Install the compose file + bring the container up.
-sudo install -m 0644 "${COMPOSE_SRC}" "${COMPOSE_DST}"
+# 4. (Re)start the container via `docker run --env-file`.
+#
+# IMPORTANT: do NOT use compose `env_file:` — Docker Compose v2 performs
+# $-interpolation on env_file values, which mangles a password containing '$'
+# (it expanded "$Word" as a variable and blanked it → wrong password → failed
+# logins). `docker run --env-file` reads the file LITERALLY, passing the
+# password exactly as stored. (COMPOSE_SRC/COMPOSE_DST kept for reference.)
+log "removing any prior container (stops a mis-credentialed one)"
+sudo docker rm -f ib-gateway 2>/dev/null || true
+
+IMAGE="ghcr.io/gnzsnz/ib-gateway:stable"
 log "pulling image"
-"${COMPOSE[@]}" -f "${COMPOSE_DST}" pull
-log "starting container"
-"${COMPOSE[@]}" -f "${COMPOSE_DST}" up -d
+sudo docker pull "${IMAGE}"
+log "starting container (literal --env-file)"
+sudo docker run -d \
+  --name ib-gateway \
+  --restart unless-stopped \
+  --env-file "${DOCKER_ENV}" \
+  -p 127.0.0.1:7497:4002 \
+  "${IMAGE}"
 sleep 8
 log "container state:"
-"${COMPOSE[@]}" -f "${COMPOSE_DST}" ps || true
+sudo docker ps --filter name=ib-gateway --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}' || true
 log "done — approve the IBKR Mobile 2FA tap to complete login."
