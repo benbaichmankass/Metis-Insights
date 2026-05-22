@@ -24,6 +24,35 @@ from typing import Any, Mapping
 from .multiclass import MulticlassPredictor
 
 
+def _build_regime_spec(
+    state: Mapping[str, Any], *, feature: str
+) -> dict[str, Any] | None:
+    """Project the live-scoring fields out of ``state`` into a spec dict.
+
+    Returns ``None`` unless the model was trained with the live-scoring
+    fields frozen in (``RegimeClassifierTrainer`` since 2026-05-22):
+    bucket labels + the rolling-vol window. Models trained before that —
+    or non-regime per-bucket models — have no spec and the live shadow
+    path scores them on the base trade-signal row, exactly as before.
+    The spec is consumed by ``src.runtime.regime_shadow``; ``None`` keeps
+    this predictor a pure, generic per-bucket classifier.
+    """
+    labels = state.get("vol_bucket_labels")
+    if not labels:
+        return None
+    return {
+        "feature_column": feature,
+        "vol_feature_column": str(
+            state.get("vol_feature_column", "rolling_log_return_vol")
+        ),
+        "vol_window_n": int(state.get("vol_window_n", 20)),
+        "vol_bucket_edges": [float(e) for e in (state.get("vol_bucket_edges") or [])],
+        "vol_bucket_labels": [str(b) for b in labels],
+        "symbol": str(state.get("symbol", "")),
+        "timeframe": str(state.get("timeframe", "")),
+    }
+
+
 class PerBucketMulticlassPredictor(MulticlassPredictor):
     def __init__(self, state: Mapping[str, Any]) -> None:
         feature = state.get("feature_column")
@@ -54,6 +83,11 @@ class PerBucketMulticlassPredictor(MulticlassPredictor):
         self._marginal = {str(c): float(p) for c, p in marginal.items()}
         self._class_labels = tuple(str(c) for c in class_labels)
         self._unknown_bucket = str(state.get("unknown_bucket", ""))
+        self.regime_spec = _build_regime_spec(state, feature=self._feature)
+
+    @property
+    def feature_column(self) -> str:
+        return self._feature
 
     def _key_for(self, row: Mapping[str, Any]) -> str:
         value = row.get(self._feature)

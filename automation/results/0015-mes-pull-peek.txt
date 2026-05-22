@@ -1,0 +1,14 @@
+# job=0015-mes-pull-peek target=live ip=158.178.210.252 started=2026-05-22T16:09:41Z
+=== MES pull process ===
+2515967 /usr/bin/python3 -m ml build-dataset market_raw --output-dir /home/ubuntu/mes_pull_src/datasets-out --version v001 --source ibkr_offvm --symbol-scope MES --timeframe 1m --overwrite adapter=ibkr_offvm symbol=MES start=2025-01-01 host=127.0.0.1 port=4002 client_id=450 pause_s=10 max_contracts=4
+=== MES 1m live rows ===
+0 /home/ubuntu/mes_pull_src/datasets-out/market_raw/MES/1m/v001/data.jsonl
+=== metadata (if complete) ===
+(not finalized yet)
+=== mes_pull.out tail ===
+Error 162, reqId 21: Historical Market Data Service error message:HMDS query returned no data: MESU6@CME Trades, contract: Contract(secType='FUT', conId=793356217, symbol='MES', lastTradeDateOrContractMonth='20260918', multiplier='5', exchange='CME', currency='USD', localSymbol='MESU6', tradingClass='MES')
+Error 162, reqId 50: Historical Market Data Service error message:HMDS query returned no data: MESM6@CME Trades, contract: Contract(secType='FUT', conId=770561194, symbol='MES', lastTradeDateOrContractMonth='20260618', multiplier='5', exchange='CME', currency='USD', localSymbol='MESM6', tradingClass='MES')
+=== live trader last 2 ===
+2026-05-22 16:09:41,670 | INFO | src.runtime.liveness_watchdog | liveness_watchdog: below_threshold: 1 actionable signals (< 5) — quiet window is normal (signals=1 trades=2)
+2026-05-22 16:09:41,670 | INFO | src.main | Sleeping 60 seconds until next tick (heartbeat every 60 s).
+# exit=0 finished=2026-05-22T16:10:14Z

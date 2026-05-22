@@ -13,7 +13,10 @@ training center format."
 from .base import CANONICAL_COLUMNS, CANONICAL_SCHEMA, MarketRawAdapter
 from .bybit_offvm import BybitOffvmMarketRawAdapter
 from .csv import CsvMarketRawAdapter
+from .ibkr_offvm import IBKRHistoricalMarketRawAdapter
 from .registry import ADAPTER_REGISTRY, get_adapter, list_adapters
+from .resample import ResampleMarketRawAdapter
+from .yfinance_offvm import YFinanceOffvmMarketRawAdapter
 
 __all__ = [
     "ADAPTER_REGISTRY",
@@ -21,7 +24,10 @@ __all__ = [
     "CANONICAL_COLUMNS",
     "CANONICAL_SCHEMA",
     "CsvMarketRawAdapter",
+    "IBKRHistoricalMarketRawAdapter",
     "MarketRawAdapter",
+    "ResampleMarketRawAdapter",
+    "YFinanceOffvmMarketRawAdapter",
     "get_adapter",
     "list_adapters",
 ]

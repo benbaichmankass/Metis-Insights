@@ -1,0 +1,40 @@
+# Serious-baseline manifest — 2-class regime classifier, MES @ 5m.
+#
+# Trained on MES 5m market history (source: IBKR (ibkr_offvm), MES front-month via ContFuture) — the actual
+# timeframe the strategies trade on (vwap/ict_scalp_5m = 5m,
+# turtle_soup = 15m), per the 2026-05-22 timeframe-alignment directive.
+# Built by scripts/ops/run_serious_baseline.sh, which pulls deep history,
+# derives market_features at 5m, and trains this manifest.
+
+manifest_version: v1
+model_id: mes-regime-5m-baseline-v1
+model_family: classification_baseline
+trainer: ml.trainers.regime_classifier.RegimeClassifierTrainer
+trainer_config:
+  target_column: regime_label
+  feature_column: vol_bucket
+  unknown_bucket: ""
+  # Live-scoring spec frozen into model_state (consumed by
+  # src/runtime/regime_shadow.py). Must match the market_features
+  # build window in run_serious_baseline.sh (vol_window_n=20).
+  vol_window_n: 20
+  vol_feature_column: rolling_log_return_vol
+  class_labels:
+    - range
+    - volatile
+dataset:
+  family: market_features
+  symbol_scope: MES
+  timeframe: 5m
+  version: v001
+evaluator: ml.evaluators.multiclass_classification.MulticlassClassificationEvaluator
+evaluator_config:
+  target_column: regime_label
+  split_strategy: time_aware_holdout
+  time_column: ts
+  holdout_fraction: 0.2
+target_deployment_stage: shadow
+notes: |
+  Serious-baseline regime classifier for MES on 5m bars. vol_bucket
+  is quantile-based (self-balancing); vol_threshold is set at build time
+  per timeframe in run_serious_baseline.sh. Registers at shadow.

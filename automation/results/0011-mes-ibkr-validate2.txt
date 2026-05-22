@@ -1,0 +1,19 @@
+# job=0011-mes-ibkr-validate2 target=live ip=158.178.210.252 started=2026-05-22T15:24:17Z
+HEAD is now at c5b323e vm-driver job (live): MES 1m IBKR validation v2 (detect python)
+HEAD=c5b323e
+=== detect python with ib_insync ===
+PY=/usr/bin/python3
+ib_insync 0.9.86
+=== MES 1m VALIDATION pull (2026-05-17 -> now) clientId=450 pause=12s ===
+Error 10339, reqId 4: Setting end date/time for continuous future security type is not allowed., contract: ContFuture(conId=770561194, symbol='MES', lastTradeDateOrContractMonth='20260618', multiplier='5', exchange='CME', currency='USD', localSymbol='MESM6', tradingClass='MES')
+wrote dataset under /tmp/ict-mes-pull/datasets-out/market_raw/MES/1m/v001
+=== rows ===
+MES 1m rows 0
+=== sample bars ===
+
+=== live trader last 4 lines ===
+Request → POST https://api.bybit.com/v5/order/create: {"category": "linear", "symbol": "BTCUSDT", "side": "Sell", "orderType": "Market", "qty": "0.003", "reduceOnly": true}.
+2026-05-22 15:24:04,113 | INFO | src.runtime.order_monitor | order_monitor: vwap — open=1 updated=0 closed=0 no_change=0 errors=1
+2026-05-22 15:24:05,646 | INFO | src.runtime.order_monitor | _reconcile_open_trades: checked=2 orphaned=0 closed=2 skipped_dry=0 skipped_no_creds=0 skipped_no_cfg=0 skipped_recent=0 skipped_non_numeric=0 errors=0
+2026-05-22 15:24:07,728 | INFO | src.main | Sleeping 60 seconds until next tick (heartbeat every 60 s).
+# exit=0 finished=2026-05-22T15:24:56Z

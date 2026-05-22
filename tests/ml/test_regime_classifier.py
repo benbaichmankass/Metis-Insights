@@ -21,7 +21,10 @@ from pathlib import Path
 
 import pytest
 
-from ml.datasets.families.market_features import MarketFeaturesBuilder
+from ml.datasets.families.market_features import (
+    REGIME_LABELS,
+    MarketFeaturesBuilder,
+)
 from ml.evaluators.multiclass_classification import (
     MulticlassClassificationEvaluator,
 )
@@ -166,6 +169,44 @@ class TestRegimeClassifierTrainer:
         with pytest.raises(ValueError, match="no rows"):
             trainer.fit([], {})
 
+    def test_synthetic_rows_have_no_regime_spec(self):
+        # Hand-built rows carry no rolling_log_return_vol / symbol /
+        # timeframe → edges/labels empty → the live path treats the
+        # model as un-bucketable. Backwards-compatible: spec is absent,
+        # not malformed.
+        state = RegimeClassifierTrainer().fit(_train_rows(), {})
+        assert state["vol_bucket_edges"] == []
+        assert state["vol_bucket_labels"] == []
+        assert state["symbol"] == ""
+        assert state["timeframe"] == ""
+        assert state["vol_window_n"] == 20
+
+    def test_freezes_bucket_edges_and_market_identity(self):
+        # Rows that carry the raw vol + market identity (the
+        # market_features shape) → the trainer reconstructs the bucket
+        # edges as the per-bucket max raw vol, and stamps symbol/tf.
+        rows = [
+            {"vol_bucket": "vol_b0", "regime_label": "range",
+             "rolling_log_return_vol": 0.0005, "symbol": "BTCUSDT", "timeframe": "5m"},
+            {"vol_bucket": "vol_b0", "regime_label": "range",
+             "rolling_log_return_vol": 0.0010, "symbol": "BTCUSDT", "timeframe": "5m"},
+            {"vol_bucket": "vol_b1", "regime_label": "volatile",
+             "rolling_log_return_vol": 0.0015, "symbol": "BTCUSDT", "timeframe": "5m"},
+            {"vol_bucket": "vol_b1", "regime_label": "volatile",
+             "rolling_log_return_vol": 0.0020, "symbol": "BTCUSDT", "timeframe": "5m"},
+            {"vol_bucket": "vol_b2", "regime_label": "volatile",
+             "rolling_log_return_vol": 0.0040, "symbol": "BTCUSDT", "timeframe": "5m"},
+        ]
+        state = RegimeClassifierTrainer().fit(
+            rows, {"class_labels": ["range", "volatile"]}
+        )
+        assert state["vol_bucket_labels"] == ["vol_b0", "vol_b1", "vol_b2"]
+        # Edge i = max raw vol in bucket i (for all but the last bucket).
+        assert state["vol_bucket_edges"] == [0.0010, 0.0020]
+        assert state["symbol"] == "BTCUSDT"
+        assert state["timeframe"] == "5m"
+        assert state["vol_feature_column"] == "rolling_log_return_vol"
+
     def test_oov_class_extends_class_labels(self):
         # Training rows include a class not in the configured class_labels.
         rows = _train_rows() + [
@@ -220,6 +261,31 @@ class TestPerBucketMulticlassPredictor:
         proba_empty = predictor.predict_proba({"vol_bucket": ""})
         for c in state["marginal_proba"]:
             assert math.isclose(proba_empty[c], state["marginal_proba"][c])
+
+    def test_regime_spec_absent_for_synthetic_state(self):
+        # Synthetic rows → no edges → no live-scoring spec.
+        state = RegimeClassifierTrainer().fit(_train_rows(), {})
+        predictor = PerBucketMulticlassPredictor(state)
+        assert predictor.regime_spec is None
+
+    def test_regime_spec_present_when_edges_frozen(self):
+        rows = [
+            {"vol_bucket": "vol_b0", "regime_label": "range",
+             "rolling_log_return_vol": 0.0005, "symbol": "MES", "timeframe": "15m"},
+            {"vol_bucket": "vol_b1", "regime_label": "volatile",
+             "rolling_log_return_vol": 0.0020, "symbol": "MES", "timeframe": "15m"},
+        ]
+        state = RegimeClassifierTrainer().fit(
+            rows, {"class_labels": ["range", "volatile"]}
+        )
+        predictor = PerBucketMulticlassPredictor(state)
+        spec = predictor.regime_spec
+        assert spec is not None
+        assert spec["symbol"] == "MES"
+        assert spec["timeframe"] == "15m"
+        assert spec["vol_bucket_labels"] == ["vol_b0", "vol_b1"]
+        assert spec["vol_bucket_edges"] == [0.0005]
+        assert spec["feature_column"] == "vol_bucket"
 
 
 class TestMulticlassClassificationEvaluator:
@@ -343,6 +409,41 @@ class TestEndToEndRegimePipeline:
             assert f"precision_{class_name}" in metrics
             assert f"recall_{class_name}" in metrics
             assert f"f1_{class_name}" in metrics
+
+    def test_live_bucketing_reproduces_training_buckets(self, tmp_path: Path):
+        # The whole point of freezing edges: a raw vol bucketed live by
+        # src.runtime.regime_shadow must land in the SAME bucket the
+        # training family assigned it. Build features, train (freezing
+        # edges), then re-bucket each training row's raw vol via the live
+        # path and assert it matches the row's stored vol_bucket.
+        from src.runtime.regime_shadow import bucket_for_vol
+
+        market_raw = _stage_market_raw(
+            tmp_path, closes=_trending_then_choppy(n_per_phase=80)
+        )
+        feat_rows = list(
+            MarketFeaturesBuilder().iter_rows(
+                market_raw_path=market_raw,
+                vol_window_n=10,
+                forward_window_m=5,
+                vol_threshold=0.005,
+                trend_threshold=0.005,
+                n_vol_buckets=3,
+            )
+        )
+        assert feat_rows
+        state = RegimeClassifierTrainer().fit(
+            feat_rows, {"vol_window_n": 10, "class_labels": list(REGIME_LABELS)}
+        )
+        edges = state["vol_bucket_edges"]
+        labels = state["vol_bucket_labels"]
+        assert edges and labels
+        mismatches = [
+            r for r in feat_rows
+            if bucket_for_vol(r["rolling_log_return_vol"], edges, labels)
+            != r["vol_bucket"]
+        ]
+        assert not mismatches, f"{len(mismatches)} live/training bucket mismatches"
 
     def test_predictor_resolution_via_evaluator_base(self, tmp_path: Path):
         # Verify that the trainer's PREDICTOR_CLASS pairing makes

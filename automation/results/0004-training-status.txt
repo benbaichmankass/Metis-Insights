@@ -1,0 +1,42 @@
+# job=0004-training-status target=trainer ip=158.178.209.121 started=2026-05-22T13:38:47Z
+=== MES regime models (registry) ===
+count 3
+ - mes-regime-15m-baseline-v1 stage=shadow metrics={"accuracy": 0.8420348058902276, "f1_range": 0.9142441860465117, "f1_volatile": 0.0, "macro_f1": 0.45712209302325585, "n_eval": 747.0, "precision_range": 0.8420348058902276, "precision_volatile": 0.0, "recall_range": 1.0, "recall_volatile": 0.0, "weighted_f1": 0.7698254257339435}
+ - mes-regime-5m-baseline-v1 stage=shadow metrics={"accuracy": 0.9205002233139794, "f1_range": 0.9586046511627907, "f1_volatile": 0.0, "macro_f1": 0.47930232558139535, "n_eval": 2239.0, "precision_range": 0.9205002233139794, "precision_volatile": 0.0, "recall_range": 1.0, "recall_volatile": 0.0, "weighted_f1": 0.8823957954651682}
+ - mes-regime-classifier-baseline-v0 stage=shadow metrics={"accuracy": 0.7476780185758514, "f1_range": 0.825668449197861, "f1_volatile": 0.5434173669467787, "macro_f1": 0.6845429080723198, "n_eval": 1292.0, "precision_range": 0.8354978354978355, "precision_volatile": 0.5271739130434783, "recall_range": 0.8160676532769556, "recall_volatile": 0.5606936416184971, "weighted_f1": 0.7500810850656052}
+=== MES market datasets ===
+  raw MES 5m rows 11221
+  feat MES 5m rows 11197
+  raw MES 15m rows 3757
+  feat MES 15m rows 3733
+=== BTC regime models (registry) ===
+ - btc-regime-5m-baseline-v1 {"accuracy": 0.8366251775897214, "f1_range": 0.9009321990251942, "f1_volatile": 0.5343837334683009, "macro_f1": 0.7176579662467475, "n_eval": 129512.0, "precision_range": 0.920776349663601, "precision_volatile": 0.48523358510170644, "recall_range": 0.8819253474131925, "recall_volatile": 0.5946131243878551, "weighted_f1": 0.8431389469198158}
+=== BTC market datasets ===
+  raw BTC 5m rows 647585
+  raw BTC 15m: none
+=== serious-baseline log tail ===
+{"ts": "2026-05-22T09:33:32+00:00", "status": "building", "family": "market_raw", "symbol": "BTCUSDT", "timeframe": "15m", "adapter": "bybit_v5_offvm"}
+{"ts": "2026-05-22T09:33:35+00:00", "status": "build_warn", "family": "market_raw", "symbol": "BTCUSDT", "timeframe": "15m", "detail": "TypeError: '>' not supported between instances of 'str' and 'int'"}
+{"ts": "2026-05-22T09:33:35+00:00", "status": "backtest_csv_ready", "path": "/home/ubuntu/ict-trading-bot/data/backtest_BTCUSDT_5m.csv", "rows": "1000"}
+{"ts": "2026-05-22T09:33:36+00:00", "status": "backtest_ok", "runner": "src.backtest.run_backtest", "tail": "Trades: 10 | PnL: -445.52 | Win rate: 30.0"}
+{"ts": "2026-05-22T09:33:38+00:00", "status": "backtest_ok", "runner": "src.backtest.run_backtest_vwap", "tail": "{\"label\": \"4h EMA-200\", \"config\": {\"htf_timeframe\": \"4h\", \"ema_period\": 200, \"band_pct\": 0.02}, \"data_bars\": 1000, \"start_date\": \"2020-03-25\", \"end_date\": \"2020"}
+{"ts": "2026-05-22T09:33:38+00:00", "status": "build_warn", "family": "backtest_results"}
+{"ts": "2026-05-22T09:33:38+00:00", "status": "mes_ibkr_skipped", "reason": "MES_IBKR!=1 (IB gateway error 162 / session conflict as of 2026-05-22)"}
+{"ts": "2026-05-22T09:33:38+00:00", "status": "session_end"}
+{"ts": "2026-05-22T10:07:25+00:00", "status": "session_start", "head": "6a44d7c", "branch": "claude/mes-training-dashboard-tabs-zDNzM", "timeframes": "5m 15m", "btc_start": "2020-01-01"}
+{"ts": "2026-05-22T10:07:25+00:00", "status": "building", "family": "market_raw", "symbol": "BTCUSDT", "timeframe": "5m", "adapter": "bybit_v5_offvm"}
+{"ts": "2026-05-22T10:12:48+00:00", "status": "build_ok", "family": "market_raw", "symbol": "BTCUSDT", "timeframe": "5m"}
+{"ts": "2026-05-22T10:12:48+00:00", "status": "building", "family": "market_features", "symbol": "BTCUSDT", "timeframe": "5m", "vol_threshold": "0.0015"}
+{"ts": "2026-05-22T10:14:10+00:00", "status": "build_ok", "family": "market_features", "symbol": "BTCUSDT", "timeframe": "5m"}
+{"ts": "2026-05-22T10:14:15+00:00", "status": "manifest_ok", "manifest": "ml/configs/btc-regime-5m.yaml", "model_id": "btc-regime-5m-baseline-v1"}
+{"ts": "2026-05-22T10:14:15+00:00", "status": "building", "family": "market_raw", "symbol": "BTCUSDT", "timeframe": "15m", "adapter": "bybit_v5_offvm"}
+{"ts": "2026-05-22T10:15:07+00:00", "status": "build_warn", "family": "market_raw", "symbol": "BTCUSDT", "timeframe": "15m", "detail": "ccxt.base.errors.RateLimitExceeded: bybit {\"retCode\":10006,\"retMsg\":\"Too many visits. Exceeded the API Rate Limit.\",\"result\":{},\"retExtInfo\":{},\"time\":1779444907700}"}
+{"ts": "2026-05-22T10:15:12+00:00", "status": "backtest_csv_ready", "path": "/home/ubuntu/ict-trading-bot/data/backtest_BTCUSDT_5m.csv", "rows": "647585"}
+{"ts": "2026-05-22T10:21:12+00:00", "status": "backtest_ok", "runner": "src.backtest.run_backtest", "tail": "Trades: 6739 | PnL: -9999.87 | Win rate: 16.9"}
+{"ts": "2026-05-22T10:47:27+00:00", "status": "backtest_ok", "runner": "src.backtest.run_backtest_vwap", "tail": "{\"label\": \"4h EMA-200\", \"config\": {\"htf_timeframe\": \"4h\", \"ema_period\": 200, \"band_pct\": 0.02}, \"data_bars\": 647585, \"start_date\": \"2020-03-25\", \"end_date\": \"20"}
+{"ts": "2026-05-22T10:47:27+00:00", "status": "build_ok", "family": "backtest_results"}
+{"ts": "2026-05-22T10:47:27+00:00", "status": "mes_ibkr_skipped", "reason": "MES_IBKR!=1 (IB gateway error 162 / session conflict as of 2026-05-22)"}
+{"ts": "2026-05-22T10:47:27+00:00", "status": "session_end"}
+=== still running? ===
+(no baseline running)
+# exit=0 finished=2026-05-22T13:38:49Z

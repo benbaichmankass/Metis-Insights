@@ -142,7 +142,13 @@ def _resolve_shadow_predictors(strategy_name: str, strat_cfg: dict) -> list:
 
 
 def _emit_shadow_preds(
-    strategy_name: str, sig: dict, strat_cfg: dict, symbol: str
+    strategy_name: str,
+    sig: dict,
+    strat_cfg: dict,
+    symbol: str,
+    *,
+    timeframe: str = "",
+    candles_df: Any = None,
 ) -> None:
     """Emit shadow predictions for an actionable signal (side=buy/sell).
 
@@ -150,16 +156,31 @@ def _emit_shadow_preds(
     zero effect on order placement or trading decisions — data gathering
     only. Swallows all exceptions so a factory failure never breaks the
     signal-builder hot path.
+
+    Regime-model wiring (2026-05-22): regime classifiers key on
+    ``vol_bucket``, which the trade-signal row lacks — so before this they
+    fell to their training marginal and logged a constant score every
+    tick. Each predictor is now scored on a row tailored to it: a regime
+    model whose ``(symbol, timeframe)`` match this signal's gets the live
+    ``vol_bucket`` computed from ``candles_df`` against the edges frozen
+    in its model state; a mismatched regime model is skipped; everything
+    else is scored on the base trade-signal row exactly as before. See
+    ``src/runtime/regime_shadow.py``.
     """
     try:
         predictors = _resolve_shadow_predictors(strategy_name, strat_cfg)
         if not predictors:
             return
         from src.runtime.shadow_adapter import with_shadow_preds
+        from src.runtime.regime_shadow import (
+            closes_from_candles,
+            feature_row_for_predictor,
+        )
         meta = sig.get("meta") or {}
-        feature_row = {
+        sig_symbol = str(sig.get("symbol") or symbol)
+        base_row = {
             "strategy_name": strategy_name,
-            "symbol": str(sig.get("symbol") or symbol),
+            "symbol": sig_symbol,
             "direction": "long" if sig.get("side") == "buy" else "short",
             "confidence": float(
                 sig.get("confidence") or meta.get("confidence") or 0.0
@@ -167,11 +188,20 @@ def _emit_shadow_preds(
             "setup_type": str(meta.get("setup_type") or ""),
             "killzone": str(meta.get("killzone") or ""),
         }
-        with_shadow_preds(
-            sig,
-            predictors=predictors,
-            feature_row=feature_row,
-        )
+        closes = closes_from_candles(candles_df)
+        for predictor in predictors:
+            row = feature_row_for_predictor(
+                predictor,
+                base_row,
+                closes=closes,
+                symbol=sig_symbol,
+                timeframe=str(timeframe or ""),
+            )
+            if row is None:
+                continue  # mismatched regime model — skip (don't log a constant)
+            # One predictor per call preserves with_shadow_preds' per-model
+            # try/except isolation + ShadowPredictor type-check.
+            with_shadow_preds(sig, predictors=[predictor], feature_row=row)
     except Exception:  # noqa: BLE001
         logger.warning(
             "%s: shadow prediction emit failed", strategy_name, exc_info=False
@@ -320,7 +350,10 @@ def turtle_soup_signal_builder(settings: dict) -> Dict[str, Any]:
             "direction": pkg["direction"],
         },
     }
-    _emit_shadow_preds("turtle_soup", sig, cfg, symbol)
+    _emit_shadow_preds(
+        "turtle_soup", sig, cfg, symbol,
+        timeframe=timeframe, candles_df=candles_df,
+    )
     return _with_signal_package("turtle_soup", sig)
 
 
@@ -483,7 +516,10 @@ def ict_scalp_signal_builder(settings: dict) -> Dict[str, Any]:
             "direction": pkg["direction"],
         },
     }
-    _emit_shadow_preds("ict_scalp_5m", sig, ict_cfg, symbol)
+    _emit_shadow_preds(
+        "ict_scalp_5m", sig, ict_cfg, symbol,
+        timeframe=timeframe, candles_df=candles_df,
+    )
     return _with_signal_package("ict_scalp_5m", sig)
 
 
@@ -622,7 +658,10 @@ def vwap_signal_builder(settings: dict) -> Dict[str, Any]:
     # generation and would otherwise suppress all shadow data while a
     # trade is open). Per WS7: zero effect on order placement.
     if sig.get("side") in ("buy", "sell"):
-        _emit_shadow_preds("vwap", sig, vwap_cfg, symbol)
+        _emit_shadow_preds(
+            "vwap", sig, vwap_cfg, symbol,
+            timeframe=timeframe, candles_df=candles_df,
+        )
 
     # Mirror turtle_soup's per-tick audit row (event=turtle_soup_eval at
     # L482-491 / L518-531 of the original pipeline.py). VWAP previously

@@ -89,9 +89,13 @@ class BybitOffvmMarketRawAdapter(MarketRawAdapter):
         api_key: str | None = None,
         api_secret: str | None = None,
         testnet: bool | None = None,
+        pause_s: float = 0.0,
         **_: Any,
     ) -> Iterator[Mapping[str, Any]]:
         self._enforce_offvm()
+        # CLI family-args may arrive as strings; coerce defensively so the
+        # `pause > 0` throttle check never hits a str-vs-int TypeError.
+        pause = float(pause_s or 0.0)
 
         if timeframe not in _TIMEFRAME_MS:
             raise ValueError(
@@ -124,12 +128,24 @@ class BybitOffvmMarketRawAdapter(MarketRawAdapter):
                 cursor += bar_ms
                 continue
             last_cursor = cursor
-            page = exchange.fetch_ohlcv(
-                symbol,
-                timeframe=timeframe,
-                since=cursor,
-                limit=_PAGE_LIMIT,
-            )
+            # Retry with exponential backoff on transient errors (Bybit
+            # retCode 10006 RateLimitExceeded, DDoS guard, network blips) so
+            # a deep multi-million-bar pull (e.g. years of 1m) survives the
+            # exchange's per-minute cap instead of aborting mid-stream.
+            page = None
+            for _attempt in range(7):
+                try:
+                    page = exchange.fetch_ohlcv(
+                        symbol, timeframe=timeframe, since=cursor, limit=_PAGE_LIMIT,
+                    )
+                    break
+                except Exception as exc:  # noqa: BLE001
+                    name = type(exc).__name__
+                    if any(k in name for k in ("RateLimit", "DDoS", "Network", "Timeout", "ExchangeNotAvailable")):
+                        import time
+                        time.sleep(min(2 ** _attempt, 60))
+                        continue
+                    raise
             if not page:
                 break
             advanced = False
@@ -159,6 +175,11 @@ class BybitOffvmMarketRawAdapter(MarketRawAdapter):
                 # Page came back but every bar was filtered out.
                 # Step one bar to avoid an infinite loop.
                 cursor += bar_ms
+            if pause > 0:
+                # Extra throttle on top of ccxt's enableRateLimit so a deep
+                # multi-year pull stays gentle on the public API.
+                import time
+                time.sleep(pause)
 
     @classmethod
     def _build_exchange(

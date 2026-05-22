@@ -1,0 +1,17 @@
+# job=0010-mes-ibkr-validate target=live ip=158.178.210.252 started=2026-05-22T15:22:55Z
+=== worktree the MES branch (live tree untouched) ===
+HEAD is now at ae6217c vm-driver job (live): MES 1m IBKR validation pull (5d, worktree, paced)
+HEAD=ae6217c
+bash: line 11: python: command not found
+=== MES 1m VALIDATION pull (2026-05-17 -> now) clientId=450 pause=12s port=4002 ===
+timeout: failed to run command ‘python’: No such file or directory
+=== rows pulled ===
+(no metadata — pull empty/failed)
+=== live trader still healthy? (last 6 lines) ===
+2026-05-22 15:22:26,397 | INFO | src.runtime.order_monitor | order_monitor: vwap — open=1 updated=0 closed=0 no_change=1 errors=0
+2026-05-22 15:22:33,321 | INFO | src.main | hourly report dispatch: slot=2026-05-22-15 strat_len=969 acct_len=424
+2026-05-22 15:22:33,466 | INFO | src.runtime.notify | Telegram send: ok=True message_id=70410 status_code=200
+2026-05-22 15:22:33,726 | INFO | src.runtime.notify | Telegram send: ok=True message_id=70411 status_code=200
+2026-05-22 15:22:34,065 | INFO | src.runtime.liveness_watchdog | liveness_watchdog: below_threshold: 1 actionable signals (< 5) — quiet window is normal (signals=1 trades=2)
+2026-05-22 15:22:34,065 | INFO | src.main | Sleeping 60 seconds until next tick (heartbeat every 60 s).
+# exit=0 finished=2026-05-22T15:23:24Z

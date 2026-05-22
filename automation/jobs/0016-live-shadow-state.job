@@ -1,0 +1,27 @@
+TARGET=live
+---
+set +e
+LR=/home/ubuntu/ict-trading-bot
+cd "$LR" 2>/dev/null
+PY=""; for c in "$LR/.venv/bin/python" /usr/bin/python3; do [ -x "$c" ] && "$c" -c "import yaml,json" 2>/dev/null && { PY="$c"; break; }; done
+echo "PY=$PY  repo=$LR  head=$(git rev-parse --short HEAD 2>/dev/null)"
+echo "=== live registry: model_id -> stage ==="
+"$PY" -m ml list-models --registry-root ml/registry-store 2>/dev/null | "$PY" -c "import sys,json
+try: d=json.load(sys.stdin)
+except Exception: d=[]
+print('count',len(d))
+for e in d: print('  ',e.get('model_id'),'->',e.get('target_deployment_stage'))" 2>/dev/null || echo "(no readable registry at ml/registry-store)"
+echo "=== shadow_predictions.jsonl (which models are logging, recent) ==="
+found=0
+for f in runtime_logs/shadow_predictions.jsonl /data/bot-data/runtime_logs/shadow_predictions.jsonl; do
+  if [ -f "$f" ]; then found=1; echo "$f : $(wc -l < "$f") lines total"; echo "  model_ids in last 500 rows:"; tail -n 500 "$f" | "$PY" -c "import sys,json
+from collections import Counter
+c=Counter()
+for l in sys.stdin:
+    l=l.strip()
+    if not l: continue
+    try: c[json.loads(l).get('model_id')]+=1
+    except Exception: pass
+[print('    ',k,v) for k,v in c.most_common()]" 2>/dev/null; fi
+done
+[ "$found" = 0 ] && echo "(no shadow_predictions.jsonl found in either path)"

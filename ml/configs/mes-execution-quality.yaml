@@ -1,0 +1,42 @@
+# MES starter manifest — execution-quality baseline (entry slippage).
+#
+# MES-scoped twin of baseline-execution-quality.yaml. Per-`strategy_name`
+# mean signed entry slippage (bps) over closed MES trades only, so the
+# three live strategies are covered in one manifest.
+#
+# Dataset must be built MES-scoped first:
+#   python -m ml build-dataset execution_quality \
+#     --output-dir ./datasets-out --version v001 \
+#     --source trade_journal.db --symbol-scope MES --overwrite \
+#     -- db_path=/abs/path/to/trade_journal.db symbol=MES \
+#        slippage_cap_bps=200.0
+#
+#   python -m ml train ml/configs/mes-execution-quality.yaml \
+#     --datasets-root ./datasets-out
+
+manifest_version: v1
+model_id: mes-execution-quality-baseline-v0
+model_family: regression_baseline
+trainer: ml.trainers.per_strategy_winrate.PerStrategyWinRateTrainer
+trainer_config:
+  target_column: entry_slippage_bps
+  feature_column: strategy_name
+  target_kind: numeric_mean
+dataset:
+  family: execution_quality
+  symbol_scope: MES
+  timeframe: all
+  version: v001
+evaluator: ml.evaluators.regression.RegressionEvaluator
+evaluator_config:
+  target_column: entry_slippage_bps
+  metrics: [mse, mae]
+  split_strategy: time_aware_holdout
+  time_column: trade_created_at
+  holdout_fraction: 0.2
+target_deployment_stage: shadow
+notes: |
+  MES starter baseline. Per-strategy mean entry slippage (bps, capped)
+  over closed MES trades. Time-aware holdout (latest 20 % by
+  trade_created_at). Registers at `shadow`. Leakage discipline: only
+  signal-time metadata may be used as features.

@@ -1,0 +1,11 @@
+# job=0009-btc-1m-repull target=trainer ip=158.178.209.121 started=2026-05-22T14:50:37Z
+HEAD=ef1c083
+launched BTC-1m re-pull pid=290270 at 2026-05-22T14:50:40Z
+=== early log ===
+{"ts": "2026-05-22T14:00:09+00:00", "status": "build_ok", "family": "market_raw", "symbol": "MES", "timeframe": "15m", "via": "resample"}
+{"ts": "2026-05-22T14:00:10+00:00", "status": "build_ok", "family": "market_features", "symbol": "MES", "timeframe": "15m", "vol_threshold": "0.0005171"}
+{"ts": "2026-05-22T14:00:10+00:00", "status": "manifest_ok", "manifest": "ml/configs/mes-regime-15m.yaml", "model_id": "mes-regime-15m-baseline-v1"}
+{"ts": "2026-05-22T14:00:10+00:00", "status": "session_end"}
+{"ts": "2026-05-22T14:50:40+00:00", "status": "session_start", "head": "ef1c083", "branch": "claude/mes-training-dashboard-tabs-zDNzM", "timeframes": "5m 15m", "btc_start": "2020-01-01"}
+{"ts": "2026-05-22T14:50:41+00:00", "status": "building", "family": "market_raw", "symbol": "BTCUSDT", "timeframe": "1m", "adapter": "bybit_v5_offvm"}
+# exit=0 finished=2026-05-22T14:50:52Z
