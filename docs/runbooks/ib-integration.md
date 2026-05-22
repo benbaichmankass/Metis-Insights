@@ -34,6 +34,18 @@ account code. Because there is no `api_key_env`, IB accounts always load
 directive). Promoting `ib_live` to live money is a Tier-3 change via the
 `set-account-mode` operator action — never an inline YAML edit on `main`.
 
+**Activation is config-driven — there is no enable flag.** MES trades
+simply because `ib_paper` is configured (IB needs no creds) with
+`mode: live`, a non-empty `strategies` list, and `symbols: [MES]`. The
+tick loop (`src/main.py::_resolve_tick_symbols`) unions every configured
+account's `symbols`, so `[BTCUSDT, MES]` falls out of the config with no
+on/off switch. The earlier `MULTI_SYMBOL_ENABLED` env (and the
+`enable-mes`/`disable-mes` operator actions that flipped it) were removed
+2026-05-22 — they were a forbidden second gate (Prime Directive rule 6).
+To stop MES, set `ib_paper` `mode: dry_run` via `set-account-mode`
+(signals still log, nothing executes) or remove its `strategies`/`symbols`
+in a PR.
+
 `ib_paper.strategies` is `[turtle_soup, vwap, ict_scalp_5m]` — the three
 live strategies, which are symbol-parameterized and produce MES signals
 for this account (and BTCUSDT signals for the Bybit accounts). `ib_live`
