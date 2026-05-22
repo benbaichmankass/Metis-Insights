@@ -197,7 +197,7 @@ class TestAccountsYaml:
         paper = accts["ib_paper"]
         assert paper["exchange"] == "interactive_brokers"
         assert paper["mode"] == "live"          # paper → live (paper money)
-        assert paper["ib_port"] == 7497
+        assert paper["ib_port"] == 4002         # host 4002 → gnzsnz socat relay 4004
         assert paper["ib_account"] == "DUQ325724"
         assert paper["strategies"] == ["turtle_soup", "vwap", "ict_scalp_5m"]  # all 3 on MES
 
@@ -251,7 +251,7 @@ class TestLoadAccounts:
         assert paper.exchange == "interactive_brokers"
         assert paper.configured is True       # IB has no api_key_env → always configured
         assert paper.dry_run is False         # mode: live
-        assert paper.ib_port == 7497
+        assert paper.ib_port == 4002          # host 4002 → gnzsnz socat relay 4004
         assert paper.ib_account == "DUQ325724"
         assert paper.ib_client_id == 497
         assert paper.strategies == ["turtle_soup", "vwap", "ict_scalp_5m"]

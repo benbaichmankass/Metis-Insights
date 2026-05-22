@@ -89,11 +89,21 @@ IMAGE="ghcr.io/gnzsnz/ib-gateway:stable"
 log "pulling image"
 sudo docker pull "${IMAGE}"
 log "starting container (literal --env-file)"
+# Port map MUST target the socat relay port (4004 paper / 4003 live), NOT the
+# Gateway's own port (4002/4001). Inside the gnzsnz image IB Gateway binds its
+# API on 127.0.0.1:4002 (localhost-ONLY), so a connection arriving via Docker's
+# NAT bridge (a non-loopback source IP) is refused — the prior `-p …:4002` map
+# hit that localhost-only port and the handshake silently timed out
+# ("API connection failed: TimeoutError()"). socat listens on 4004, accepts the
+# non-localhost bridge connection, and relays it to the Gateway from 127.0.0.1
+# (which IBC trusts), so the handshake completes. This mirrors the upstream
+# compose mapping `127.0.0.1:4002:4004`; the bot connects to host 4002
+# (config/accounts.yaml ib_paper.ib_port).
 sudo docker run -d \
   --name ib-gateway \
   --restart unless-stopped \
   --env-file "${DOCKER_ENV}" \
-  -p 127.0.0.1:7497:4002 \
+  -p 127.0.0.1:4002:4004 \
   "${IMAGE}"
 sleep 8
 log "container state:"
