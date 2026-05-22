@@ -1,0 +1,34 @@
+TARGET=trainer
+---
+set +e
+R=/home/ubuntu/ict-trading-bot
+cd "$R" || exit 1
+source .venv/bin/activate 2>/dev/null
+export ICT_OFFVM_BUILD_HOST=1
+median_vt () {  # $1 = features dir -> median forward_log_return_vol
+  python -c "import json,statistics as s;rows=[json.loads(l) for l in open('$1/data.jsonl') if l.strip()];v=[r['forward_log_return_vol'] for r in rows if r.get('forward_log_return_vol') not in (None,0)];print(round(s.median(v),7) if v else 0.0005)" 2>/dev/null || echo 0.0005
+}
+echo "### MES regime recalibration (data-driven vol_threshold = median forward vol) ###"
+for tf in 5m 15m; do
+  RAW=datasets-out/market_raw/MES/$tf/v001
+  FEAT=datasets-out/market_features/MES/$tf/v001
+  # pass 1: build to get the forward-vol distribution
+  python -m ml build-dataset market_features --output-dir datasets-out --version v001 --source $RAW --symbol-scope MES --timeframe $tf --overwrite market_raw_path=$RAW vol_window_n=20 forward_window_m=5 vol_threshold=0.0005 trend_threshold=0.0005 n_vol_buckets=3 >/dev/null 2>&1
+  MED=$(median_vt $FEAT)
+  echo "MES $tf median forward vol -> vol_threshold=$MED"
+  # pass 2: rebuild at median threshold (≈50/50 classes) and retrain
+  python -m ml build-dataset market_features --output-dir datasets-out --version v001 --source $RAW --symbol-scope MES --timeframe $tf --overwrite market_raw_path=$RAW vol_window_n=20 forward_window_m=5 vol_threshold=$MED trend_threshold=$MED n_vol_buckets=3 >/dev/null 2>&1
+  python -m ml train ml/configs/mes-regime-$tf.yaml --datasets-root datasets-out --experiments-root ml/experiments-runs --registry-root ml/registry-store 2>&1 | tail -3
+done
+echo "### BTC 15m retry (heavy pacing pause_s=1.5 to dodge Bybit rate limit) ###"
+END=$(date -u +%Y-%m-%d)
+python -m ml build-dataset market_raw --output-dir datasets-out --version v001 --source bybit_v5_offvm --symbol-scope BTCUSDT --timeframe 15m --overwrite adapter=bybit_v5_offvm symbol=BTCUSDT timeframe=15m start=2020-01-01 end=$END pause_s=1.5 2>&1 | tail -2
+RAW15=datasets-out/market_raw/BTCUSDT/15m/v001
+python -c "import json;print('BTC 15m raw rows', json.load(open('$RAW15/metadata.json'))['row_count'])" 2>/dev/null || echo "BTC15 raw: none"
+if [ -d "$RAW15" ]; then
+  MED15=$(median_vt datasets-out/market_features/BTCUSDT/15m/v001 2>/dev/null)
+  python -m ml build-dataset market_features --output-dir datasets-out --version v001 --source $RAW15 --symbol-scope BTCUSDT --timeframe 15m --overwrite market_raw_path=$RAW15 vol_window_n=20 forward_window_m=5 vol_threshold=0.0025 trend_threshold=0.0025 n_vol_buckets=3 >/dev/null 2>&1
+  python -m ml train ml/configs/btc-regime-15m.yaml --datasets-root datasets-out --experiments-root ml/experiments-runs --registry-root ml/registry-store 2>&1 | tail -3
+fi
+echo "### FINAL regime models ###"
+python -m ml list-models --registry-root ml/registry-store 2>/dev/null | python -c "import sys,json;d=json.load(sys.stdin);[print(' -',e['model_id'],'acc='+str(round(e.get('metrics',{}).get('accuracy',0),3)),'f1_range='+str(round(e.get('metrics',{}).get('f1_range',0),3)),'f1_vol='+str(round(e.get('metrics',{}).get('f1_volatile',0),3)),'n='+str(e.get('metrics',{}).get('n_eval'))) for e in d if 'regime' in (e.get('model_id') or '')]"
