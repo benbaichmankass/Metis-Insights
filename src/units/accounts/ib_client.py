@@ -198,6 +198,12 @@ class IBClient:
         """
         if self._ib is not None and self._is_connected(self._ib):
             return self._ib
+        # ib_insync requires an asyncio event loop in the current thread. The
+        # trader runs a synchronous tick loop on MainThread, where Python 3.10+
+        # no longer auto-creates a loop — ib_insync's IB() then raises "There is
+        # no current event loop in thread 'MainThread'". Ensure one exists
+        # (create a fresh loop if none is set or the existing one is closed).
+        self._ensure_event_loop()
         ib = self._new_ib()
         try:
             ib.connect(
@@ -216,6 +222,23 @@ class IBClient:
             ) from exc
         self._ib = ib
         return ib
+
+    @staticmethod
+    def _ensure_event_loop() -> None:
+        """Ensure the current thread has a usable asyncio event loop.
+
+        ib_insync (and ib_async) build their client on the thread's event loop;
+        on Python 3.10+ a synchronous worker thread has none, so we create and
+        set a fresh loop when one is absent or closed. Idempotent — once a loop
+        is set, subsequent calls are no-ops.
+        """
+        import asyncio
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_closed():
+                raise RuntimeError("event loop is closed")
+        except RuntimeError:
+            asyncio.set_event_loop(asyncio.new_event_loop())
 
     @staticmethod
     def _is_connected(ib: Any) -> bool:
