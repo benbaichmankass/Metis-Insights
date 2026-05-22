@@ -79,7 +79,7 @@ jobs:
               live) ip="$LIVE_IP" ;;
               *)    ip="$TRAINER_IP" ;;
             esac
-            out="automation/results/${base}.log"
+            out="automation/results/${base}.txt"
             echo "# job=${base} target=${target} ip=${ip} started=$(date -u +%FT%TZ)" > "$out"
             ssh -i ~/.ssh/id_rsa -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
                 -o ConnectTimeout=20 "${SSH_USER}@${ip}" 'bash -s' < /tmp/body.sh >> "$out" 2>&1
@@ -94,7 +94,7 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add automation/results automation/jobs 2>/dev/null || true
+          git add -f automation/results automation/jobs 2>/dev/null || true
           if git diff --cached --quiet; then echo "no changes"; exit 0; fi
           git commit -m "vm-driver: job results [skip ci]"
           git push origin HEAD:claude/mes-training-dashboard-tabs-zDNzM
