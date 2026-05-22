@@ -174,12 +174,17 @@ class IBKRHistoricalMarketRawAdapter(MarketRawAdapter):
             )
             contracts = [d.contract for d in details]
             contracts.sort(key=lambda c: (c.lastTradeDateOrContractMonth or ""), reverse=True)
-            # Drop contracts expiring far in the future (keep front + history).
-            end_yyyymm = end_dt.strftime("%Y%m")
+            # Keep contracts that actually carry data for [start, now]: an
+            # active future expires in the FUTURE (front month expires next
+            # month) and each contract has data for ~the quarter before its
+            # expiry. So keep expiry in [start_month, now + ~4 months] —
+            # NOT "<= now", which would drop the live front month.
+            start6 = start_dt.strftime("%Y%m")
+            end6 = (end_dt + timedelta(days=120)).strftime("%Y%m")
             contracts = [
                 c for c in contracts
-                if (c.lastTradeDateOrContractMonth or "0")[:6] <= end_yyyymm
-            ] or contracts[:1]
+                if start6 <= (c.lastTradeDateOrContractMonth or "")[:6] <= end6
+            ] or contracts
 
             MAX_TOTAL_CHUNKS = 800
             total_chunks = 0
