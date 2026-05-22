@@ -6,12 +6,14 @@ from typing import Mapping, Type
 from .base import MarketRawAdapter
 from .bybit_offvm import BybitOffvmMarketRawAdapter
 from .csv import CsvMarketRawAdapter
+from .ibkr_offvm import IBKRHistoricalMarketRawAdapter
 from .yfinance_offvm import YFinanceOffvmMarketRawAdapter
 
 ADAPTER_REGISTRY: Mapping[str, Type[MarketRawAdapter]] = {
     CsvMarketRawAdapter.source: CsvMarketRawAdapter,
     BybitOffvmMarketRawAdapter.source: BybitOffvmMarketRawAdapter,
     YFinanceOffvmMarketRawAdapter.source: YFinanceOffvmMarketRawAdapter,
+    IBKRHistoricalMarketRawAdapter.source: IBKRHistoricalMarketRawAdapter,
 }
 
 
