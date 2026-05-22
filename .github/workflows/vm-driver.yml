@@ -94,7 +94,11 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -f automation/results automation/jobs 2>/dev/null || true
+          # Job deletions are already staged by `git rm` in the previous
+          # step. Only add the results dir here — DON'T pass automation/jobs
+          # (now empty), because a no-match pathspec makes `git add` error
+          # out and stage nothing, dropping the result files.
+          git add -f automation/results
           if git diff --cached --quiet; then echo "no changes"; exit 0; fi
           git commit -m "vm-driver: job results [skip ci]"
           git push origin HEAD:claude/mes-training-dashboard-tabs-zDNzM
