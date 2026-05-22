@@ -62,7 +62,7 @@ jobs:
               {
                 name: 'vm-ib-gateway-recover',
                 color: 'b60205',
-                description: 'Triggers vm-ib-gateway-recover workflow — autonomous restart of the ib-gateway container when IBKR error 162 darkens MES.',
+                description: 'Triggers vm-ib-gateway-recover — autonomous ib-gateway container restart (IBKR error 162).',
               },
               {
                 name: 'operator-action',
