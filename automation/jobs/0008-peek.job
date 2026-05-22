@@ -1,0 +1,9 @@
+TARGET=trainer
+---
+set +e
+R=/home/ubuntu/ict-trading-bot; cd "$R"; source .venv/bin/activate 2>/dev/null
+echo "=== run processes ==="; pgrep -fa "run_serious_baseline.sh" || echo "(run_serious_baseline NOT running)"; pgrep -fa "python -m ml build-dataset|python -m ml train" | head -3
+echo "=== serious_baseline.jsonl tail ==="; tail -n 22 runtime_logs/trainer/serious_baseline.jsonl 2>/dev/null || echo "(none)"
+echo "=== market_raw rows ==="; for sym in BTCUSDT MES; do for tf in 1m 5m 15m; do python -c "import json;print('  $sym $tf', json.load(open('datasets-out/market_raw/$sym/$tf/v001/metadata.json'))['row_count'])" 2>/dev/null || echo "  $sym $tf: none/partial"; done; done
+echo "=== BTC 1m live data.jsonl lines (if mid-pull) ==="; wc -l datasets-out/market_raw/BTCUSDT/1m/v001/data.jsonl 2>/dev/null || echo "(no 1m file yet)"
+echo "=== regime models ==="; python -m ml list-models --registry-root ml/registry-store 2>/dev/null | python -c "import sys,json;d=json.load(sys.stdin);[print(' -',e['model_id'],'acc='+str(round(e.get('metrics',{}).get('accuracy',0),3)),'f1_range='+str(round(e.get('metrics',{}).get('f1_range',0),3)),'f1_vol='+str(round(e.get('metrics',{}).get('f1_volatile',0),3)),'n='+str(e.get('metrics',{}).get('n_eval'))) for e in d if 'regime' in (e.get('model_id') or '')]" || echo "(list failed)"
