@@ -144,7 +144,19 @@ case "$1" in
 esac
 """,
     )
-    _make_stub(bindir / "sudo", "#!/bin/bash\nexit 0\n")
+    # sudo must pass the command THROUGH, not swallow it. The script picks
+    # SYSTEMCTL=(sudo systemctl) whenever it runs as a non-root user (e.g.
+    # the GitHub Actions `runner` user) — it probes with
+    # `sudo -n systemctl --version` then runs `sudo systemctl list-units`.
+    # A bare `exit 0` stub made those no-ops, so the enumeration came back
+    # empty and the restart loop did nothing — the test passed only on
+    # root-uid hosts. Skip sudo's own option flags (e.g. `-n`) then exec
+    # the real command so the systemctl stub handles it, mirroring real
+    # sudo and making the test pass as both root and non-root.
+    _make_stub(
+        bindir / "sudo",
+        '#!/bin/bash\nwhile [[ "$1" == -* ]]; do shift; done\nexec "$@"\n',
+    )
     _make_stub(bindir / "python3", "#!/bin/bash\nexit 0\n")
     # pip install requirements.txt is invoked via python3 -m pip.
     # Our python3 stub returns 0 for any args, so this is fine.
