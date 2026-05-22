@@ -11,8 +11,13 @@ name: delete-merged-branches
 # of any OPEN PR, deletes the rest via the refs API, then comments a
 # summary on the issue and closes it.
 #
-# SAFE by construction: only deletes branches whose PR was merged (the
-# work is in main), never main, never an open-PR head. Re-runnable.
+# Explicit list (optional): any branch names in the issue BODY are also
+# deleted — for abandoned branches that never had a merged PR. Only names
+# matching an existing remote branch are acted on; main + open-PR heads
+# are still excluded. The body is read via env, so it can't smuggle shell.
+#
+# SAFE by construction: deletes only merged-PR heads or explicitly-named
+# existing branches, never main, never an open-PR head. Re-runnable.
 
 on:
   issues:
@@ -32,6 +37,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
         run: |
           set -uo pipefail
           DEFAULT_BRANCH="${{ github.event.repository.default_branch }}"
@@ -53,6 +59,21 @@ jobs:
           comm -23 /tmp/cand.txt /tmp/open.txt > /tmp/cand2.txt
           grep -vxF "$DEFAULT_BRANCH" /tmp/cand2.txt > /tmp/to_delete.txt || true
 
+          # Explicit list (optional): branch names in the issue body. Lets a
+          # session delete abandoned branches that never had a merged PR.
+          # Robust by construction — only names that match an EXISTING remote
+          # branch are considered (typos/prose are ignored), and open-PR
+          # heads + the default branch are still excluded. The body is read
+          # via env (not inline interpolation) so it can't smuggle shell.
+          printf '%s\n' "${ISSUE_BODY:-}" | tr ' ,;\t' '\n\n\n\n' \
+            | sed 's/^[*-] //; s/`//g; s#[^A-Za-z0-9._/-]##g' \
+            | grep -E '.' | sort -u > /tmp/req.txt
+          comm -12 /tmp/req.txt /tmp/existing.txt > /tmp/req_exist.txt
+          comm -23 /tmp/req_exist.txt /tmp/open.txt > /tmp/req_safe.txt
+          grep -vxF "$DEFAULT_BRANCH" /tmp/req_safe.txt >> /tmp/to_delete.txt || true
+          explicit_n=$(wc -l < /tmp/req_safe.txt | tr -d ' ')
+          sort -u /tmp/to_delete.txt -o /tmp/to_delete.txt
+
           total=$(wc -l < /tmp/to_delete.txt | tr -d ' ')
           echo "Branches to delete: ${total}"
 
@@ -72,9 +93,10 @@ jobs:
           existing_n=$(wc -l < /tmp/existing.txt | tr -d ' ')
           {
             echo "REPORT<<EOF"
-            echo "Stale-branch cleanup (merged-PR heads only):"
+            echo "Stale-branch cleanup (merged-PR heads + explicit list):"
             echo "- remote branches before: ${existing_n}"
             echo "- merged-PR heads: ${merged_n}; open-PR heads (protected): ${open_n}"
+            echo "- explicit-list branches matched: ${explicit_n}"
             echo "- targeted for deletion: ${total}"
             echo "- deleted: ${deleted}; failed: ${failed}"
             echo "- never touched: ${DEFAULT_BRANCH} + all open-PR heads"
