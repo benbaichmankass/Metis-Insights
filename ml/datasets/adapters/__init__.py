@@ -14,6 +14,7 @@ from .base import CANONICAL_COLUMNS, CANONICAL_SCHEMA, MarketRawAdapter
 from .bybit_offvm import BybitOffvmMarketRawAdapter
 from .csv import CsvMarketRawAdapter
 from .registry import ADAPTER_REGISTRY, get_adapter, list_adapters
+from .yfinance_offvm import YFinanceOffvmMarketRawAdapter
 
 __all__ = [
     "ADAPTER_REGISTRY",
@@ -22,6 +23,7 @@ __all__ = [
     "CANONICAL_SCHEMA",
     "CsvMarketRawAdapter",
     "MarketRawAdapter",
+    "YFinanceOffvmMarketRawAdapter",
     "get_adapter",
     "list_adapters",
 ]

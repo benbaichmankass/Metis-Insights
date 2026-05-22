@@ -1,0 +1,41 @@
+# MES starter manifest — setup-quality baseline (expected R per setup).
+#
+# MES-scoped twin of baseline-setup-quality.yaml. Per-`setup_type`
+# mean R-multiple over closed MES trades only.
+#
+# Dataset must be built MES-scoped first:
+#   python -m ml build-dataset setup_labels \
+#     --output-dir ./datasets-out --version v001 \
+#     --source trade_journal.db --symbol-scope MES --overwrite \
+#     -- db_path=/abs/path/to/trade_journal.db symbol=MES \
+#        risk_pct=1.0 r_cap=3.0
+#
+#   python -m ml train ml/configs/mes-setup-quality.yaml \
+#     --datasets-root ./datasets-out
+
+manifest_version: v1
+model_id: mes-setup-quality-baseline-v0
+model_family: regression_baseline
+trainer: ml.trainers.per_strategy_winrate.PerStrategyWinRateTrainer
+trainer_config:
+  target_column: r_multiple
+  feature_column: setup_type
+  target_kind: numeric_mean
+dataset:
+  family: setup_labels
+  symbol_scope: MES
+  timeframe: all
+  version: v001
+evaluator: ml.evaluators.regression.RegressionEvaluator
+evaluator_config:
+  target_column: r_multiple
+  metrics: [mse, mae]
+  split_strategy: time_aware_holdout
+  time_column: created_at
+  holdout_fraction: 0.2
+target_deployment_stage: shadow
+notes: |
+  MES starter baseline. Per-setup_type mean R-multiple over closed
+  MES trades. Time-aware holdout (latest 20 % by created_at).
+  Registers at `shadow`. Leakage discipline: only metadata columns
+  (`setup_type`, `killzone`, `bias`, `direction`) are features.

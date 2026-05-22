@@ -1,0 +1,42 @@
+# MES starter manifest — per-strategy outcome-probability baseline.
+#
+# MES-scoped twin of baseline-trade-outcome-winrate.yaml. Trains the
+# per-strategy historical win rate across the three live strategies
+# (turtle_soup, vwap, ict_scalp_5m) using ONLY closed MES trades.
+# The trainer groups by `strategy_name`, so this single manifest
+# covers all three strategies for the MES symbol.
+#
+# Dataset must be built MES-scoped first:
+#   python -m ml build-dataset trade_outcomes \
+#     --output-dir ./datasets-out --version v001 \
+#     --source trade_journal.db --symbol-scope MES --overwrite \
+#     -- db_path=/abs/path/to/trade_journal.db symbol=MES
+#
+#   python -m ml train ml/configs/mes-trade-outcome-winrate.yaml \
+#     --datasets-root ./datasets-out
+#
+# Skips cleanly (exit 78) until enough closed MES trades exist —
+# MES paper trading just went live, so this is empty-then-fills.
+
+manifest_version: v1
+model_id: mes-trade-outcome-winrate-baseline-v0
+model_family: classification_baseline
+trainer: ml.trainers.per_strategy_winrate.PerStrategyWinRateTrainer
+trainer_config:
+  target_column: won
+  feature_column: strategy_name
+dataset:
+  family: trade_outcomes
+  symbol_scope: MES
+  timeframe: all
+  version: v001
+evaluator: ml.evaluators.classification.ClassificationEvaluator
+evaluator_config:
+  target_column: won
+  threshold: 0.5
+  holdout_fraction: 0.2
+target_deployment_stage: shadow
+notes: |
+  MES starter baseline. Per-strategy historical win rate over closed
+  MES trades only. Registers at `shadow` — logs predictions, does not
+  influence live decisions. Promotion past shadow is the operator gate.
