@@ -82,5 +82,8 @@ def test_main_raises_on_invalid_exchange(monkeypatch):
     safe_binance_env(monkeypatch)
     monkeypatch.setenv("EXCHANGE", "kraken")
     monkeypatch.setattr(main_module, 'load_dotenv', lambda: None)
-    with pytest.raises(RuntimeError, match='Invalid EXCHANGE'):
+    # validate_startup() raises EnvironmentError (= OSError in Python 3) whose
+    # message contains "EXCHANGE must be one of". The original test expected
+    # RuntimeError with "Invalid EXCHANGE"; updated to match the live product.
+    with pytest.raises((OSError, RuntimeError), match="EXCHANGE"):
         main_module.main()

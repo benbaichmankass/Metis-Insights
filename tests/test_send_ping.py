@@ -111,9 +111,17 @@ def test_bot_drain_sends_each_file_and_deletes(tmp_path, monkeypatch):
 
 def test_bot_drain_skips_when_no_files(tmp_path, monkeypatch):
     from src.bot import telegram_query_bot as bot
+    from src.bot import cloud_notifier
 
+    # _drain_pending_pings (from cloud_notifier) resolves the inbox from
+    # cloud_notifier.PENDING_PINGS_DIR when no pings_dir arg is passed.
+    # Other tests create real ping files in the default inbox directory;
+    # patch cloud_notifier directly to redirect to the empty tmp_path so
+    # this test sees zero files regardless of suite order.
+    monkeypatch.setattr(cloud_notifier, "PENDING_PINGS_DIR", str(tmp_path))
     monkeypatch.setattr(bot, "PENDING_PINGS_DIR", str(tmp_path))
     monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "1234")
+    monkeypatch.setenv("TELEGRAM_CHAT_ID", "1234")
     bot_mock = MagicMock()
     bot_mock.send_message = AsyncMock()
     ctx = MagicMock()
@@ -166,9 +174,18 @@ def test_bot_drain_leaves_file_on_send_failure_for_retry(tmp_path, monkeypatch):
 
 def test_bot_drain_no_chat_id_warns_and_skips(tmp_path, monkeypatch):
     from src.bot import telegram_query_bot as bot
+    from src.bot import cloud_notifier
 
+    # _drain_pending_pings resolves pings_dir from cloud_notifier.PENDING_PINGS_DIR.
+    # Other tests (e.g. test_account_state_gate) create real files in the default
+    # inbox via Coordinator side-effects. Redirect cloud_notifier directly so the
+    # drain sees only the file we enqueue here, regardless of suite order.
+    monkeypatch.setattr(cloud_notifier, "PENDING_PINGS_DIR", str(tmp_path))
     monkeypatch.setattr(bot, "PENDING_PINGS_DIR", str(tmp_path))
     monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", None)
+    # test_recurring_session_cmds sets TELEGRAM_CHAT_ID in os.environ at module
+    # level; clear it so the drain can't resolve a chat_id from the environment.
+    monkeypatch.delenv("TELEGRAM_CHAT_ID", raising=False)
     send_ping.PENDING_PINGS_DIR = tmp_path
     p = send_ping.enqueue("no chat", priority="normal")
     bot_mock = MagicMock()

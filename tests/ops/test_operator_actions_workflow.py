@@ -50,6 +50,8 @@ EXPECTED_ACTIONS = {
     # Tier 1 — read-only / analysis
     "status-check": "status_check.sh",
     "pull-latest-logs": "pull_logs.sh",
+    # PR #1698: read-only IB Gateway container status + recent logs.
+    "gateway-logs": "gateway_logs.sh",
     "inspect-closed-pnl": "inspect_closed_pnl_action.sh",
     "bybit-account-audit": "bybit_account_audit_action.sh",
     "strategy-performance-audit": "strategy_performance_audit_action.sh",
@@ -76,6 +78,9 @@ EXPECTED_ACTIONS = {
     "rebuild-pnl-from-bybit": "rebuild_pnl_from_bybit_action.sh",
     "backfill-shadow-predictions": "backfill_shadow_predictions_action.sh",
     "set-account-mode": "set_account_mode.sh",
+    # PR #1656/#1670: Interactive Brokers MES multi-symbol activation toggle.
+    "enable-mes": "set_multi_symbol.sh",
+    "disable-mes": "disable_multi_symbol.sh",
     "fix-data-dir": "fix_data_dir.sh",
     "rotate-account-keys": "rotate_account_keys.sh",
     "init-diag-token": "init_diag_token.sh",

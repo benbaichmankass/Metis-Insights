@@ -48,7 +48,7 @@ else
 fi
 
 case "${action}" in
-    status-check|pull-latest-logs|inspect-closed-pnl|bybit-account-audit|strategy-performance-audit|monitor-miss-analysis|vwap-backtest-sweep)
+    status-check|gateway-logs|pull-latest-logs|inspect-closed-pnl|bybit-account-audit|strategy-performance-audit|monitor-miss-analysis|vwap-backtest-sweep)
         tier=1
         if [ "${exit_code}" -eq 0 ]; then
             result="ok"
@@ -121,6 +121,15 @@ case "${action}" in
         esac
         ;;
     set-account-mode)
+        tier=2
+        case "${exit_code}" in
+            0) result="ok"; priority="normal" ;;
+            3) result="deferred — vm-runner active, retry later"; priority="normal" ;;
+            *) result="FAILED (exit ${exit_code})"; priority="urgent" ;;
+        esac
+        ;;
+    enable-mes|disable-mes)
+        # PR #1656/#1670: IB MES multi-symbol activation toggle (restarts trader).
         tier=2
         case "${exit_code}" in
             0) result="ok"; priority="normal" ;;

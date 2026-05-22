@@ -43,6 +43,8 @@ EXPECTED_SERVICES = {
     "ict-smoke-once.service",
     # Claude VM runner template unit.
     "claude-vm-runner@.service",
+    # PR #1656: headless IB Gateway (IBC) the trader connects to for MES.
+    "ib-gateway.service",
 }
 
 # Trader-side units (i.e. units that run trading-strategy code). Used to

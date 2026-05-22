@@ -77,6 +77,17 @@ import src.bot.telegram_query_bot as bot  # noqa: E402
 # removed when the helper moved). See src/bot/trade_notifier.py.
 import src.bot.trade_notifier as trade_notifier  # noqa: E402
 
+# bot.BOT_COMMANDS is built at module load time via
+#   BotCommand(s.name, s.description) for s in BOT_COMMAND_SPECS
+# When telegram_query_bot is first imported by a file that stubbed
+# BotCommand=MagicMock (e.g. test_accounts_status_md_rendering), every
+# entry is a MagicMock with no .command/.description. Rebuild the list
+# using _FakeBotCommand so TestHelpCommandParity and other consumers
+# see real attribute access regardless of import order.
+bot.BOT_COMMANDS = [
+    _FakeBotCommand(s.name, s.description) for s in bot.BOT_COMMAND_SPECS
+]
+
 
 # ---------------------------------------------------------------------------
 # is_halted
@@ -2103,7 +2114,7 @@ class TestCmdCloseallStrategy:
 
     def _run(self, coro):
         import asyncio
-        return asyncio.get_event_loop().run_until_complete(coro)
+        return asyncio.new_event_loop().run_until_complete(coro)
 
     def _bybit_account(self, aid, strategies):
         return {
@@ -2174,7 +2185,7 @@ class TestCmdStrategiesMultiAccount:
 
     def _run(self, coro):
         import asyncio
-        return asyncio.get_event_loop().run_until_complete(coro)
+        return asyncio.new_event_loop().run_until_complete(coro)
 
     def _dashboard_rows(self, strategies=None):
         strategies = strategies or ["breakout_confirmation", "vwap", "ict"]

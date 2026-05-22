@@ -34,19 +34,7 @@ _tg.Update = MagicMock
 _tg.InlineKeyboardButton = lambda *a, **kw: SimpleNamespace(args=a, kwargs=kw)
 _tg.InlineKeyboardMarkup = lambda rows: SimpleNamespace(inline_keyboard=rows)
 
-# Reuse whatever ``TelegramError`` class already lives in
-# ``sys.modules["telegram.error"]`` — another test module
-# (e.g. ``test_s027_comms_handler``) may have stubbed it before us,
-# and ``comms_handler`` imports the class at module load. If we
-# defined a *new* class here, ``except TelegramError`` in
-# comms_handler wouldn't catch our raised instance.
 _tg_err = sys.modules["telegram.error"]
-_FakeTelegramError = getattr(_tg_err, "TelegramError", None)
-if not isinstance(_FakeTelegramError, type) or not issubclass(_FakeTelegramError, BaseException):
-    class _FakeTelegramError(Exception):  # type: ignore[no-redef]
-        pass
-
-    _tg_err.TelegramError = _FakeTelegramError
 _tg.error = _tg_err
 
 _tg_ext = sys.modules["telegram.ext"]
@@ -68,6 +56,13 @@ sys.modules["telegram.ext"].filters = _FakeFilters
 import pytest  # noqa: E402
 
 from src.bot import comms_handler as ch  # noqa: E402
+
+# comms_handler captures TelegramError at import time. If a later test file
+# (e.g. test_recurring_session_cmds) replaced telegram.error.TelegramError
+# with a new class, _tg_err.TelegramError no longer matches what comms_handler
+# has bound in its namespace. Re-read the LIVE binding from the already-imported
+# comms_handler module so raise/except always use the same class.
+_FakeTelegramError = ch.TelegramError  # type: ignore[attr-defined]
 from src.comms import (  # noqa: E402
     Choice,
     Question,

@@ -6,6 +6,10 @@
 # IBC does not log the password, so the output is safe to surface.
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/ops/_lib.sh
+source "${SCRIPT_DIR}/_lib.sh"
+
 echo "===== docker ps -a (ib-gateway) ====="
 sudo docker ps -a --filter name=ib-gateway \
   --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}' 2>&1 || true
