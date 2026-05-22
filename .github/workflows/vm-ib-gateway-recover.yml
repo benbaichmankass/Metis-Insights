@@ -14,7 +14,7 @@ name: vm-ib-gateway-recover
 #
 # Trust contract:
 #   * The wrapper (scripts/ops/restart_ib_gateway.sh) is fixed-form:
-#     `docker restart ib-gateway` + login/port probe + log tail. No
+#     `sudo docker restart ib-gateway` + login/port probe + log tail. No
 #     freeform shell, no edits, no deploys.
 #   * Blast radius is the ib-gateway container only. ict-trader-live is
 #     NOT restarted (it reconnects on the next tick); BTCUSDT/Bybit is
@@ -90,9 +90,14 @@ jobs:
           # invocation either way.
           read -r -d '' REMOTE_SCRIPT <<'REMOTE' || true
           set -uo pipefail
-          WRAPPER=/home/ubuntu/ict-trading-bot/scripts/ops/restart_ib_gateway.sh
+          REPO=/home/ubuntu/ict-trading-bot
+          WRAPPER="$REPO/scripts/ops/restart_ib_gateway.sh"
           NAME=ib-gateway
           API_PORT=4002
+          # Refresh just the wrapper from origin/main so a stale VM checkout
+          # doesn't run an older version of this script.
+          git -C "$REPO" fetch -q origin main 2>/dev/null && \
+            git -C "$REPO" checkout -q origin/main -- scripts/ops/restart_ib_gateway.sh 2>/dev/null || true
           if [ -x "$WRAPPER" ]; then
             echo ">>> Using wrapper: $WRAPPER"
             bash "$WRAPPER"
@@ -100,20 +105,20 @@ jobs:
           fi
           echo ">>> Wrapper not on VM yet — inline fallback restart of $NAME"
           command -v docker >/dev/null 2>&1 || { echo "docker not found"; exit 1; }
-          echo "pre: $(docker ps -a --filter name=^/${NAME}$ --format '{{.Status}}' || true)"
-          docker restart "$NAME" >/dev/null 2>&1 || { echo "docker restart failed"; exit 1; }
+          echo "pre: $(sudo docker ps -a --filter name=^/${NAME}$ --format '{{.Status}}' || true)"
+          sudo docker restart "$NAME" >/dev/null 2>&1 || { echo "sudo docker restart failed"; exit 1; }
           login_ok=no; port_ok=no
           deadline=$(( $(date +%s) + 150 ))
           while [ "$(date +%s)" -lt "$deadline" ]; do
-            if [ "$login_ok" != yes ] && docker logs --since 4m "$NAME" 2>&1 | grep -q "Login has completed"; then login_ok=yes; fi
+            if [ "$login_ok" != yes ] && sudo docker logs --since 4m "$NAME" 2>&1 | grep -q "Login has completed"; then login_ok=yes; fi
             if [ "$port_ok" != yes ] && (exec 3<>/dev/tcp/127.0.0.1/${API_PORT}) 2>/dev/null; then exec 3>&- 3<&- 2>/dev/null || true; port_ok=yes; fi
             [ "$login_ok" = yes ] && [ "$port_ok" = yes ] && break
             sleep 5
           done
           echo "login_completed=$login_ok api_port_${API_PORT}_reachable=$port_ok"
-          echo "post: $(docker ps -a --filter name=^/${NAME}$ --format '{{.Status}}' || true)"
-          echo "===== docker logs --tail 40 $NAME ====="
-          docker logs --tail 40 "$NAME" 2>&1 | tail -40 || true
+          echo "post: $(sudo docker ps -a --filter name=^/${NAME}$ --format '{{.Status}}' || true)"
+          echo "===== sudo docker logs --tail 40 $NAME ====="
+          sudo docker logs --tail 40 "$NAME" 2>&1 | tail -40 || true
           [ "$login_ok" = yes ] && exit 0 || exit 1
           REMOTE
           set +e

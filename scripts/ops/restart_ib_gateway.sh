@@ -12,7 +12,7 @@
 #   autonomously, mirroring restart_web_api.sh.
 #
 # Blast radius:
-#   - `docker restart ib-gateway` bounces ONLY the IB Gateway container.
+#   - `sudo docker restart ib-gateway` bounces ONLY the IB Gateway container.
 #     The live trader (ict-trader-live.service) tolerates a few ticks of
 #     "no candle data for MES" and reconnects on the next tick; BTCUSDT
 #     (Bybit) is unaffected. The gateway re-logs into the SAME paper
@@ -22,12 +22,12 @@
 #     should be rejected at code review.
 #
 # Pre/post checks:
-#   - Capture `docker ps` state of ib-gateway before restart.
-#   - `docker restart ib-gateway`.
+#   - Capture `sudo docker ps` state of ib-gateway before restart.
+#   - `sudo docker restart ib-gateway`.
 #   - Poll up to 150 s for the IBC log to show "Login has completed"
 #     (the gateway takes ~50 s to re-login) AND the API port 4002 to
 #     accept a TCP connection.
-#   - Dump the last 40 lines of `docker logs ib-gateway` so the caller
+#   - Dump the last 40 lines of `sudo docker logs ib-gateway` so the caller
 #     can confirm the login + spot any 2FA / auth prompt.
 set -uo pipefail
 
@@ -47,12 +47,12 @@ if ! command -v docker >/dev/null 2>&1; then
 fi
 
 _log "Pre-restart state:"
-docker ps -a --filter "name=^/${NAME}$" --format '{{.Names}} | {{.Status}} | {{.Ports}}' || true
+sudo docker ps -a --filter "name=^/${NAME}$" --format '{{.Names}} | {{.Status}} | {{.Ports}}' || true
 
 _log "Restarting container '${NAME}'…"
-if ! docker restart "${NAME}" >/dev/null 2>&1; then
-    _log "ERROR: 'docker restart ${NAME}' failed."
-    docker ps -a --filter "name=^/${NAME}$" --format '{{.Names}} | {{.Status}}' || true
+if ! sudo docker restart "${NAME}" >/dev/null 2>&1; then
+    _log "ERROR: 'sudo docker restart ${NAME}' failed."
+    sudo docker ps -a --filter "name=^/${NAME}$" --format '{{.Names}} | {{.Status}}' || true
     exit 1
 fi
 
@@ -62,7 +62,7 @@ port_ok=no
 deadline=$(( $(date +%s) + LOGIN_TIMEOUT ))
 while [ "$(date +%s)" -lt "${deadline}" ]; do
     if [ "${login_ok}" != yes ] && \
-       docker logs --since 4m "${NAME}" 2>&1 | grep -q "Login has completed"; then
+       sudo docker logs --since 4m "${NAME}" 2>&1 | grep -q "Login has completed"; then
         login_ok=yes
     fi
     if [ "${port_ok}" != yes ] && \
@@ -76,11 +76,11 @@ done
 _log "login_completed=${login_ok} api_port_${API_PORT}_reachable=${port_ok}"
 
 _log "Post-restart state:"
-docker ps -a --filter "name=^/${NAME}$" --format '{{.Names}} | {{.Status}} | {{.Ports}}' || true
+sudo docker ps -a --filter "name=^/${NAME}$" --format '{{.Names}} | {{.Status}} | {{.Ports}}' || true
 
 echo
-echo "===== docker logs --tail 40 ${NAME} ====="
-docker logs --tail 40 "${NAME}" 2>&1 | tail -40 || true
+echo "===== sudo docker logs --tail 40 ${NAME} ====="
+sudo docker logs --tail 40 "${NAME}" 2>&1 | tail -40 || true
 
 if command -v record_audit >/dev/null 2>&1; then
     status=$([ "${login_ok}" = yes ] && echo ok || echo failed)
