@@ -320,10 +320,10 @@ ib_paper:                       # paper account → live mode (paper money)
   mode: live
   market_type: futures
   ib_host: 127.0.0.1
-  ib_port: 7497                 # paper gateway
+  ib_port: 4002                 # host loopback → gnzsnz socat relay (→ gateway 4002)
   ib_account: DUQ325724
   ib_client_id: 497
-  strategies: []               # no MES strategy assigned yet
+  strategies: [turtle_soup, vwap, ict_scalp_5m]   # all 3, symbol-parameterized on MES
 
 ib_live:                        # real-money account → held dry_run
   exchange: interactive_brokers
@@ -333,6 +333,13 @@ ib_live:                        # real-money account → held dry_run
   ib_client_id: 496
   strategies: []
 ```
+
+MES paper trading is **live** as of 2026-05-22: all three strategies fetch
+and evaluate MES candles every tick (delayed CME data via
+`IBMarketData.get_ohlcv`), alongside BTCUSDT on the Bybit accounts. The
+gateway runs as a Docker container with a socat relay (host `127.0.0.1:4002`
+→ container `4004` → gateway `4002`); the paper account logs in with no 2FA.
+See `docs/runbooks/ib-integration.md` for the full operational detail.
 
 `AccountProfile.is_ib` and `exchange="interactive_brokers"` are in place
 from S1. The IB client is real: `IBClient`
@@ -395,7 +402,7 @@ prop-account IB configs are included.
 7. **Real-money IB account stays dry_run:** The live-money IB account
    (`ib_live`, port 7496) is `mode: dry_run` and opens no socket; promoting
    it to live requires explicit operator approval via the `set-account-mode`
-   action (Tier-3). The paper account (`ib_paper`, port 7497) may run
+   action (Tier-3). The paper account (`ib_paper`, host port 4002) runs
    `mode: live` — "live" there means IB *paper money*, no real-money risk.
 
 ---
@@ -422,3 +429,4 @@ prop-account IB configs are included.
 | 2026-05-20 | Initial architecture target document created | S-REFACTOR-S0 |
 | 2026-05-20 | S1 scaffolding: AccountProfile, InstrumentProfile, SignalPackage, OrderPackage, StrategyInterface, AllocatorInterface, PassthroughAllocator | S-REFACTOR-S1 |
 | 2026-05-21 | IB/MES execution path wired (gap #9 closed): IBClient (ib_insync, no keys), ib_client_for, execute._submit_order IB branch, coordinator branch, ib_paper (mode: live) + ib_live (mode: dry_run) accounts | S7 |
+| 2026-05-22 | **MES paper trading LIVE.** Multi-symbol pipeline runs BTCUSDT + MES every tick (all 3 strategies, symbol-parameterized; `connector_for_symbol` market-data routing + symbol→exchange dispatch gate). Headless gnzsnz Docker gateway with socat relay (host 4002 → container 4004 → gateway 4002); paper logs in without 2FA; delayed CME data. Fixes: gateway socat port-map (#1706), persistent asyncio event loop in IBClient (#1712). `ib_paper.ib_port` 7497→4002, strategies assigned. | S-MES-GOLIVE |

@@ -1,13 +1,16 @@
 # Current Sprint Handoff
 
 **Roadmap:** `docs/sprint-plans/ROADMAP-MULTI-STRATEGY-REFACTOR-2026-05-20.md`  
-**Last updated:** 2026-05-20 (M11 complete — all S0–S11 merged)
+**Last updated:** 2026-05-22 (MES paper trading live)
 
 ---
 
 ## STATUS: COMPLETE
 
-**M11 COMPLETE.** All planned sprints (S0–S11) merged to main. Deferred item: S7 IB/MES shadow integration (no credentials in scope).
+**M11 COMPLETE.** All planned sprints (S0–S11) merged to main. **S7-IB closed:**
+IB/MES execution wired 2026-05-21 and **MES paper trading went live 2026-05-22**
+(multi-symbol BTCUSDT + MES, all 3 strategies, delayed CME data; PRs #1706, #1712).
+See `docs/sprint-logs/S-MES-GOLIVE-2026-05-22.md`.
 
 ---
 
@@ -33,7 +36,7 @@
 - Sprint 8 (S-OPS-COMMENT-RACE-FIX) — draft PR open; Ben's ack required before merge
 - PR #1026 (circuit breaker removal + linear perps margin fix) — Ben's approval required (Tier-3)
 - FU-20260518-001 — VWAP performance tracking post-policy-gate; monitoring only
-- **M11 S7 IB/MES** — deferred; no IB credentials in scope. Resume when credentials available.
+- **M11 S7 IB/MES** — ✅ done; MES paper trading live 2026-05-22. Follow-ups: MES-specific ML models (needs accumulated MES paper trades), live `ib_live` promotion (Tier-3).
 
 ---
 
@@ -41,7 +44,9 @@
 
 M11 is done. No pending M11 work.
 
-Next milestone TBD (likely M6 dashboard, WS7 model training when signal count thresholds met, or IB/MES credentials arriving to unblock M11-S7).
+Next milestone TBD (likely M6 dashboard — BTCUSDT + MES performance tabs with
+TradingView-style signal/TP/SL/PnL overlays — and MES model training now that
+MES paper trades are accumulating).
 
 ---
 
@@ -59,4 +64,4 @@ Next milestone TBD (likely M6 dashboard, WS7 model training when signal count th
 |---|---|---|
 | FU-20260518-001 | VWAP performance tracking post policy gate | Watch only |
 | PR #1026 | Circuit breaker removal + linear perps margin fix | Needs Ben's review |
-| M11-S7-IB | IB/MES shadow integration | Blocked on IB credentials |
+| M11-S7-IB | IB/MES execution + MES paper go-live | ✅ Done 2026-05-22 (#1706, #1712) |

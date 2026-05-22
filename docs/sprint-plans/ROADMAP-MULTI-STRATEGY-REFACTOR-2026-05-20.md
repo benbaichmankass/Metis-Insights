@@ -227,17 +227,19 @@ The fourth component (ICT/FVG/OB-style signal/filter module) is planned as S8 �
 **Type:** Tier-2 (coordinator + pipeline typed dispatch path)  
 **Status:** ✅ COMPLETE (2026-05-20, PR #1604)
 
-### S7-IB — IB/MES shadow integration (later sprint)
+### S7-IB — IB/MES integration
 **ID:** S-REFACTOR-S7-IB  
-**Type:** Tier-2 (new exchange adapter; dry_run only)  
-**Status:** ⛔ DEFERRED — no IB credentials in scope yet  
-**Objective:** Add an IB `AccountProfile` and a dry-run IB market data adapter. Allow the coordinator to dispatch a shadow copy of Bybit decisions to an IB dry-run account for observation.
+**Type:** Tier-2 (new exchange adapter)  
+**Status:** ✅ COMPLETE — execution wired 2026-05-21; **MES paper trading went live 2026-05-22** (PRs #1706, #1712). The plan evolved from a "dry-run shadow copy of Bybit decisions" into a full **multi-symbol** path: the same three strategies are symbol-parameterized and trade BTCUSDT (Bybit) and MES (IB paper) side by side, with per-symbol data routing and a symbol→exchange dispatch gate.  
+**Objective (as built):** Real IB `AccountProfile` + market-data adapter (`IBMarketData`, delayed CME bars) + execution branch (`IBClient.place`, native MES bracket). `ib_paper` runs `mode: live` (paper money); `ib_live` (real money) held `mode: dry_run`.
 
-**Key files to touch:**
-- `src/units/accounts/clients.py` — IB client stub
-- `src/core/account_profile.py` — IB profile type already defined in S1
+**Key files (as built):**
+- `src/units/accounts/ib_client.py` — `IBClient` (connect, MES contract, bracket, persistent event loop)
+- `src/exchange/ib_connector.py` — `IBMarketData.get_ohlcv`
+- `src/units/accounts/clients.py::ib_client_for`, `src/units/accounts/execute.py` (IB branch), `src/core/coordinator.py` (dispatch gate)
+- `config/accounts.yaml` (`ib_paper` port 4002 + strategies), `scripts/install_ib_gateway_docker.sh` (socat relay)
 
-**Gate:** `IB_SHADOW_ENABLED=false` in production. Operator must set true explicitly. No live IB orders until operator explicitly promotes.
+**Gate:** The real-money `ib_live` account stays `mode: dry_run`; promoting it is a Tier-3 `set-account-mode` action (separate 2FA). Full operational detail: `docs/runbooks/ib-integration.md`.
 
 **Note:** No prop-account configs in S7. Leave room for them in the account profile schema but do not implement prop-specific behavior.
 
@@ -376,7 +378,7 @@ After S1 is reviewed and merged:
 | S5 | S-REFACTOR-S5 | Tier-3 feature flag shadow | ✅ COMPLETE (2026-05-20, PM-approved) |
 | S6 | S-REFACTOR-S6 | Tier-3 feature flag primary path | ✅ COMPLETE (2026-05-20, PM-approved) |
 | S7 | S-REFACTOR-S7 | Tier-2 typed dispatch (PR #1604) | ✅ COMPLETE (2026-05-20) |
-| S7-IB | S-REFACTOR-S7-IB | Tier-2 IB/MES shadow | ⛔ DEFERRED — no IB credentials in scope |
+| S7-IB | S-REFACTOR-S7-IB | Tier-2 IB/MES integration | ✅ COMPLETE — MES paper live 2026-05-22 (#1706, #1712) |
 | S8 | S-REFACTOR-S8 | Tier-2 PortfolioState (PR #1605) | ✅ COMPLETE (2026-05-20) |
 | S8-ICT | S-REFACTOR-S8-ICT | Tier-1 ICT filter module (PR #1609) | ✅ COMPLETE (2026-05-20) |
 | S9 | S-REFACTOR-S9 | Tier-1 StrategyBase alignment | ✅ COMPLETE (2026-05-20) |
