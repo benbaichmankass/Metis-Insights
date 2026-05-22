@@ -7,6 +7,7 @@ from .base import MarketRawAdapter
 from .bybit_offvm import BybitOffvmMarketRawAdapter
 from .csv import CsvMarketRawAdapter
 from .ibkr_offvm import IBKRHistoricalMarketRawAdapter
+from .resample import ResampleMarketRawAdapter
 from .yfinance_offvm import YFinanceOffvmMarketRawAdapter
 
 ADAPTER_REGISTRY: Mapping[str, Type[MarketRawAdapter]] = {
@@ -14,6 +15,7 @@ ADAPTER_REGISTRY: Mapping[str, Type[MarketRawAdapter]] = {
     BybitOffvmMarketRawAdapter.source: BybitOffvmMarketRawAdapter,
     YFinanceOffvmMarketRawAdapter.source: YFinanceOffvmMarketRawAdapter,
     IBKRHistoricalMarketRawAdapter.source: IBKRHistoricalMarketRawAdapter,
+    ResampleMarketRawAdapter.source: ResampleMarketRawAdapter,
 }
 
 

@@ -15,6 +15,7 @@ from .bybit_offvm import BybitOffvmMarketRawAdapter
 from .csv import CsvMarketRawAdapter
 from .ibkr_offvm import IBKRHistoricalMarketRawAdapter
 from .registry import ADAPTER_REGISTRY, get_adapter, list_adapters
+from .resample import ResampleMarketRawAdapter
 from .yfinance_offvm import YFinanceOffvmMarketRawAdapter
 
 __all__ = [
@@ -25,6 +26,7 @@ __all__ = [
     "CsvMarketRawAdapter",
     "IBKRHistoricalMarketRawAdapter",
     "MarketRawAdapter",
+    "ResampleMarketRawAdapter",
     "YFinanceOffvmMarketRawAdapter",
     "get_adapter",
     "list_adapters",
