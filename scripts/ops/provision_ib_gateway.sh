@@ -30,21 +30,11 @@ sudo mkdir -p "$(dirname "${ENV_FILE}")"
 sudo install -m 0600 -o ubuntu -g ubuntu "${ENV_STAGED}" "${ENV_FILE}"
 shred -u "${ENV_STAGED}" 2>/dev/null || rm -f "${ENV_STAGED}"
 
-echo "[provision_ib_gateway] running installer"
-bash "${REPO_ROOT}/scripts/install_ib_gateway.sh"
+echo "[provision_ib_gateway] running Docker installer (gnzsnz/ib-gateway)"
+bash "${REPO_ROOT}/scripts/install_ib_gateway_docker.sh"
 
-echo "[provision_ib_gateway] restarting ib-gateway.service"
-# Clear any start-limit rate-limit from prior (unapproved-2FA) attempts so this
-# deliberate (re)start — typically when the operator is ready to approve the
-# 2FA — always fires a fresh login.
-sudo systemctl reset-failed ib-gateway.service 2>/dev/null || true
-sudo systemctl restart ib-gateway.service || true
-# Give IBC time to launch the Gateway + reach the login/2FA step before we
-# snapshot state (the GUI boot under xvfb takes ~20-40s).
-sleep 30
-sudo systemctl --no-pager --full status ib-gateway.service | head -25 || true
-echo "----- ib-gateway journal (last 50 lines) -----"
+echo "----- ib-gateway container logs (last 60 lines) -----"
 # Credential values are redacted by the workflow comment-back step before
-# posting; IBC does not log the password regardless.
-sudo journalctl -u ib-gateway.service -n 50 --no-pager 2>&1 | tail -50 || true
+# posting; the image does not log the password.
+sudo docker logs --tail 60 ib-gateway 2>&1 | tail -60 || true
 echo "[provision_ib_gateway] done — if login reached the 2FA step, approve the IBKR Mobile tap."

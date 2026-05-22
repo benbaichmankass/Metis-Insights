@@ -1,0 +1,23 @@
+# Headless IB Gateway via the maintained gnzsnz/ib-gateway image.
+#
+# Replaces the hand-rolled native IBC install: the modern standalone IB Gateway
+# 10.45 lays its files out flat in ~/Jts, a layout IBC refuses ("can't find
+# jars/vmoptions; install the offline version"). This image bundles a
+# known-IBC-compatible Gateway + IBC in the correct layout + xvfb, so it just
+# works headless. Credentials + settings come from /etc/ict/ib-gateway-docker.env
+# (rendered from the IB_USERNAME/IB_PASSWORD repo secrets — never committed).
+#
+# 2FA: on start the container logs into IBKR and waits for the IBKR Mobile tap.
+# The API is bound to host loopback only (127.0.0.1), never the network.
+services:
+  ib-gateway:
+    image: ghcr.io/gnzsnz/ib-gateway:stable
+    container_name: ib-gateway
+    restart: unless-stopped
+    env_file:
+      - /etc/ict/ib-gateway-docker.env
+    ports:
+      # Paper API (container 4002) → host loopback 7497, matching
+      # config/accounts.yaml ib_paper.ib_port. (Live would be 4001→7496.)
+      - "127.0.0.1:7497:4002"
+    stop_grace_period: 30s
