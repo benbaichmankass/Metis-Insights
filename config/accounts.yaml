@@ -219,7 +219,7 @@ accounts:
   # Mode policy (operator directive 2026-05-21): the same dry/live
   # contract as every other account applies — `mode:` is the ONLY toggle.
   #   * ib_paper → mode: live. "Live" means the trader executes against
-  #     the IB *paper* gateway (port 7497) with paper money — exactly how
+  #     the IB *paper* gateway (port 4002) with paper money — exactly how
   #     bybit_1 runs mode: live against Bybit's demo endpoint. No real
   #     money is at risk.
   #   * ib_live  → mode: dry_run. The real-money account (port 7496) is
@@ -242,7 +242,8 @@ accounts:
   # real-money account stays fully inert until deliberately promoted.
   # Activation runbook: docs/runbooks/ib-integration.md.
 
-  # ib_paper: IB paper account DUQ325724 on the paper gateway (7497).
+  # ib_paper: IB paper account DUQ325724 on the paper gateway (host port 4002
+  # → gnzsnz socat relay 4004 → Gateway 127.0.0.1:4002).
   # mode: live → executes against IB paper money once the multi-symbol loop
   # + Gateway are active.
   ib_paper:
@@ -251,7 +252,10 @@ accounts:
     mode: live                         # IB paper gateway — paper money (see header)
     market_type: futures
     ib_host: 127.0.0.1
-    ib_port: 7497                      # IB Gateway paper API port
+    ib_port: 4002                      # host loopback → gnzsnz socat relay
+                                       # (-p 127.0.0.1:4002:4004) → Gateway paper
+                                       # API; socat presents the connection to
+                                       # the Gateway as trusted localhost
     ib_account: DUQ325724
     ib_client_id: 497                  # unique per concurrent socket
     strategies: [turtle_soup, vwap, ict_scalp_5m]   # all 3 on MES; BTCUSDT
