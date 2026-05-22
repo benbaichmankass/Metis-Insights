@@ -98,6 +98,12 @@ accounts:
                                        # via _apply_per_account_leverage.
     strategies: [turtle_soup, vwap, ict_scalp_5m]   # all three active strategies;
                                        # execution-priority order matches list order.
+    symbols: [BTCUSDT]                 # instrument(s) this account trades. The
+                                       # multi-symbol tick loop unions every
+                                       # configured account's symbols, so this
+                                       # is the source of truth for "trade BTCUSDT
+                                       # here". Routing to the bybit exchange is
+                                       # by symbol→exchange (coordinator gate).
     risk:
       max_dd_pct: 0.05                 # 5% max intra-day drawdown
       daily_usd: 100                   # $100 max daily loss
@@ -130,6 +136,7 @@ accounts:
                                        # linear perpetuals. Was
                                        # spot-margin pre-cutover.
     strategies: [vwap]
+    symbols: [BTCUSDT]                  # vwap on BTCUSDT (bybit perps)
     risk:
       max_dd_pct: 0.05
       daily_usd: 100
@@ -229,23 +236,27 @@ accounts:
   #     live gateway. Promoting it to live is a Tier-3 change via the
   #     set-account-mode operator action.
   #
-  # Strategy routing (multi-symbol M11): all three strategies (vwap,
+  # Strategy routing (multi-symbol): all three strategies (vwap,
   # turtle_soup, ict_scalp_5m) run on MES on ib_paper, same as on BTCUSDT.
   # The symbol→exchange dispatch gate (coordinator._eligible_for_dispatch)
   # guarantees a BTCUSDT signal NEVER reaches an IB account and an MES
   # signal NEVER reaches a bybit account — so assigning the crypto
   # strategies here is safe: ib_paper only ever receives MES packages.
-  # MES packages are only GENERATED when the multi-symbol tick loop is on
-  # (MULTI_SYMBOL_ENABLED=true + SYMBOLS includes MES) — off by default, so
-  # in the committed state ib_paper is idle (no MES signals; BTCUSDT gated
-  # out) and opens no Gateway socket. ib_live keeps strategies: [] — the
-  # real-money account stays fully inert until deliberately promoted.
-  # Activation runbook: docs/runbooks/ib-integration.md.
+  #
+  # Symbol set is config-driven (2026-05-22): the tick loop
+  # (src/main.py::_resolve_tick_symbols) unions the ``symbols`` of every
+  # configured account, so MES is GENERATED simply because ib_paper
+  # declares ``symbols: [MES]`` + a non-empty ``strategies`` list. There
+  # is NO separate enable flag — per the "one switch per account" rule,
+  # ``mode:`` is the only runtime gate. (The removed ``MULTI_SYMBOL_ENABLED``
+  # env was a forbidden second gate.) ib_live keeps ``strategies: []`` —
+  # the real-money account stays fully inert (out of tick loop + dispatch)
+  # until deliberately promoted. Activation runbook:
+  # docs/runbooks/ib-integration.md.
 
   # ib_paper: IB paper account DUQ325724 on the paper gateway (host port 4002
   # → gnzsnz socat relay 4004 → Gateway 127.0.0.1:4002).
-  # mode: live → executes against IB paper money once the multi-symbol loop
-  # + Gateway are active.
+  # mode: live → executes against IB paper money (Gateway must be up).
   ib_paper:
     type: regular
     exchange: interactive_brokers
@@ -260,6 +271,11 @@ accounts:
     ib_client_id: 497                  # unique per concurrent socket
     strategies: [turtle_soup, vwap, ict_scalp_5m]   # all 3 on MES; BTCUSDT
                                        # is gated out by exchange (see header)
+    symbols: [MES]                     # MES is the instrument; the multi-symbol
+                                       # tick loop unions this so MES signals are
+                                       # GENERATED. BTCUSDT signals never reach
+                                       # this account (coordinator symbol→exchange
+                                       # gate). This is the live MES enablement.
     risk:
       max_dd_pct: 0.05                 # 5% max intra-day drawdown
       daily_usd: 200                   # $200 max daily loss
@@ -282,6 +298,9 @@ accounts:
     ib_account: U25907316
     ib_client_id: 496                  # unique per concurrent socket
     strategies: []                     # no MES strategy assigned yet (see header)
+    symbols: [MES]                     # instrument identity for clarity; strategies
+                                       # [] keeps this account out of the tick loop
+                                       # + dispatch until promoted (Tier-3).
     risk:
       max_dd_pct: 0.05                 # 5% max intra-day drawdown
       daily_usd: 200                   # $200 max daily loss

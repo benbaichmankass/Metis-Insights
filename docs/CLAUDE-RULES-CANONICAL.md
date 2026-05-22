@@ -178,6 +178,22 @@ decides whether to intervene.
    trader comes up live. If state is inconsistent vs. YAML, log
    loudly and Telegram-alert — but the trader runs.
 
+6. **No second gate; no feature defaults to off.** `mode:` is the
+   ONLY runtime on/off switch. A feature must never hide behind a
+   separate enable flag that defaults off — that is a second gate by
+   another name, and it silently strands configured capability.
+   accounts.yaml + strategies.yaml are the source of truth for *what
+   runs*; whatever they declare runs all the time, gated only by each
+   account's `mode:`. **The 2026-05-22 MES discovery demonstrated
+   this:** the IB `ib_paper` account declared `mode: live` + all three
+   strategies, yet MES never traded because a `MULTI_SYMBOL_ENABLED`
+   env defaulted off — a hidden second gate. The fix removed the flag
+   and derives the traded-symbol set from `config/accounts.yaml`
+   (`_resolve_tick_symbols` unions every configured account's
+   `symbols`). When adding any capability, wire it to run from config
+   by default; if you reach for an `*_ENABLED` env that defaults off,
+   stop — that is the anti-pattern this rule forbids.
+
 ### What this rules out (queued for the safeguards PR follow-on)
 
 The doc-level contract is in this commit; the code-level deletions

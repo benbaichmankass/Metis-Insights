@@ -154,6 +154,13 @@ def load_accounts(config_path: str = _DEFAULT_ACCOUNTS_YAML) -> "List":
             ib_port=cfg.get("ib_port"),
             ib_account=cfg.get("ib_account"),
             ib_client_id=cfg.get("ib_client_id"),
+            # accounts.yaml is the single source of truth for which
+            # instrument(s) this account trades; the multi-symbol tick
+            # loop unions these across configured accounts.
+            symbols=(
+                None if "symbols" not in cfg
+                else list(cfg.get("symbols") or [])
+            ),
         )
         # Mirror the resolved mode onto the account object so the
         # legacy ``account.dry_run`` callers (TradingAccount.place_order

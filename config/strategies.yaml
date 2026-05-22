@@ -28,11 +28,14 @@ strategies:
     timeframe: "15m"          # setup TF; entry TF is 1m
     symbols:
       - BTCUSDT
-      # ETHUSDT dropped 2026-05-11 — the per-tick pipeline only iterates
-      # one symbol from settings["SYMBOL"], so a multi-symbol list here
-      # is currently aspirational, not active. Operator decision: not
-      # needed yet. Re-add with a real multi-symbol multiplexer (see
-      # FU-20260510-003 closure).
+      # NOTE (2026-05-22): this per-strategy `symbols` list is NOT the
+      # runtime source of truth and is unused by the tick loop. The
+      # traded-symbol set is derived from `config/accounts.yaml`
+      # (`_resolve_tick_symbols` unions every configured account's
+      # `symbols`); which strategy runs on which symbol follows from each
+      # account's `strategies` + the symbol→exchange dispatch gate. So
+      # turtle_soup runs on MES via the ib_paper account, not via a symbol
+      # added here. Kept as documentation of intended applicability.
     # Strategy-specific (mirrors the legacy class defaults at
     # strategies/turtle_soup_mtf_v1.py:38-55)
     sweep_lookback_15m: 60

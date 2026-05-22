@@ -84,10 +84,15 @@ from typing import Any, Dict, Iterable, Optional
 # ---------------------------------------------------------------------------
 
 
-# This PR is single-symbol. Adding a symbol later means appending it here
-# AND wiring per-symbol position-state lookups — the latter is out of
-# scope until at least one more symbol is funded on a live account.
-SUPPORTED_SYMBOLS: frozenset[str] = frozenset({"BTCUSDT"})
+# Symbols the intent layer accepts. Multi-symbol (2026-05-22): MES joins
+# BTCUSDT now that the per-symbol position-state path is wired — the
+# aggregator/delta are already symbol-parametric (every StrategyIntent /
+# DesiredPosition / ExecutionDelta carries ``symbol``), and the
+# strategy-monocle open-package gates are symbol-scoped (so an open
+# BTCUSDT package can't suppress an MES entry). This is a validation
+# whitelist, not a runtime on/off gate — accounts.yaml ``symbols`` drives
+# what actually trades; ``mode:`` is the only execution gate.
+SUPPORTED_SYMBOLS: frozenset[str] = frozenset({"BTCUSDT", "MES"})
 
 
 # Higher priority wins conflicts. Tiebreaker order is documented on
@@ -193,10 +198,10 @@ class StrategyIntent:
         if norm_symbol not in SUPPORTED_SYMBOLS:
             raise ValueError(
                 f"StrategyIntent.symbol must be one of "
-                f"{sorted(SUPPORTED_SYMBOLS)} for this PR; got {self.symbol!r}. "
-                "Multi-symbol routing is intentionally out of scope; add a "
-                "symbol to SUPPORTED_SYMBOLS only alongside the per-symbol "
-                "position-state wiring."
+                f"{sorted(SUPPORTED_SYMBOLS)}; got {self.symbol!r}. Add a "
+                "symbol to SUPPORTED_SYMBOLS only alongside its per-symbol "
+                "position-state wiring (open-package gate scoping + an "
+                "accounts.yaml account that trades it)."
             )
         # Normalise via object.__setattr__ since the dataclass is frozen.
         object.__setattr__(self, "symbol", norm_symbol)

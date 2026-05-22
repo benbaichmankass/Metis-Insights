@@ -120,26 +120,82 @@ class TestPositionSize:
 # ---------------------------------------------------------------------------
 
 
+class _FakeAcct:
+    """Minimal stand-in for TradingAccount for symbol-derivation tests."""
+
+    def __init__(self, *, exchange, strategies, symbols=None, configured=True):
+        self.exchange = exchange
+        self.strategies = strategies
+        self.symbols = symbols
+        self.configured = configured
+
+
+def _patch_accounts(monkeypatch, accounts):
+    monkeypatch.setattr(
+        "src.units.accounts.load_accounts", lambda *a, **k: accounts
+    )
+
+
 class TestMultiSymbolResolution:
-    def test_default_single_symbol(self, monkeypatch):
-        monkeypatch.delenv("MULTI_SYMBOL_ENABLED", raising=False)
+    """Symbols are derived from configured accounts (accounts.yaml is the
+    single source of truth) — there is no MULTI_SYMBOL_ENABLED flag."""
+
+    def test_single_account_single_symbol(self, monkeypatch):
         from src.main import _resolve_tick_symbols
+        _patch_accounts(monkeypatch, [
+            _FakeAcct(exchange="bybit", strategies=["vwap"], symbols=["BTCUSDT"]),
+        ])
         assert _resolve_tick_symbols({"SYMBOL": "BTCUSDT"}) == ["BTCUSDT"]
 
-    def test_flag_off_ignores_symbols_list(self, monkeypatch):
-        monkeypatch.setenv("MULTI_SYMBOL_ENABLED", "false")
+    def test_btc_and_mes_accounts_union(self, monkeypatch):
         from src.main import _resolve_tick_symbols
-        assert _resolve_tick_symbols({"SYMBOL": "BTCUSDT", "SYMBOLS": "BTCUSDT,MES"}) == ["BTCUSDT"]
+        _patch_accounts(monkeypatch, [
+            _FakeAcct(exchange="bybit", strategies=["vwap"], symbols=["BTCUSDT"]),
+            _FakeAcct(exchange="interactive_brokers",
+                      strategies=["vwap", "turtle_soup"], symbols=["MES"]),
+        ])
+        assert _resolve_tick_symbols({"SYMBOL": "BTCUSDT"}) == ["BTCUSDT", "MES"]
 
-    def test_flag_on_multi(self, monkeypatch):
-        monkeypatch.setenv("MULTI_SYMBOL_ENABLED", "true")
+    def test_empty_strategies_account_excluded(self, monkeypatch):
+        """An account with ``strategies: []`` (e.g. ib_live) is opted out —
+        its symbol is NOT added to the tick."""
         from src.main import _resolve_tick_symbols
-        assert _resolve_tick_symbols({"SYMBOL": "BTCUSDT", "SYMBOLS": "BTCUSDT,MES"}) == ["BTCUSDT", "MES"]
+        _patch_accounts(monkeypatch, [
+            _FakeAcct(exchange="bybit", strategies=["vwap"], symbols=["BTCUSDT"]),
+            _FakeAcct(exchange="interactive_brokers", strategies=[], symbols=["MES"]),
+        ])
+        assert _resolve_tick_symbols({"SYMBOL": "BTCUSDT"}) == ["BTCUSDT"]
 
-    def test_flag_on_always_includes_primary(self, monkeypatch):
-        monkeypatch.setenv("MULTI_SYMBOL_ENABLED", "true")
+    def test_unconfigured_account_excluded(self, monkeypatch):
         from src.main import _resolve_tick_symbols
-        assert _resolve_tick_symbols({"SYMBOL": "BTCUSDT", "SYMBOLS": "MES"}) == ["BTCUSDT", "MES"]
+        _patch_accounts(monkeypatch, [
+            _FakeAcct(exchange="bybit", strategies=["vwap"], symbols=["BTCUSDT"]),
+            _FakeAcct(exchange="interactive_brokers", strategies=["vwap"],
+                      symbols=["MES"], configured=False),
+        ])
+        assert _resolve_tick_symbols({"SYMBOL": "BTCUSDT"}) == ["BTCUSDT"]
+
+    def test_missing_symbols_falls_back_to_exchange_default(self, monkeypatch):
+        """An account that omits ``symbols`` trades its exchange default."""
+        from src.main import _resolve_tick_symbols
+        _patch_accounts(monkeypatch, [
+            _FakeAcct(exchange="interactive_brokers", strategies=["vwap"], symbols=None),
+        ])
+        assert _resolve_tick_symbols({"SYMBOL": "BTCUSDT"}) == ["BTCUSDT", "MES"]
+
+    def test_primary_always_first(self, monkeypatch):
+        from src.main import _resolve_tick_symbols
+        _patch_accounts(monkeypatch, [
+            _FakeAcct(exchange="interactive_brokers", strategies=["vwap"], symbols=["MES"]),
+        ])
+        assert _resolve_tick_symbols({"SYMBOL": "BTCUSDT"}) == ["BTCUSDT", "MES"]
+
+    def test_account_load_failure_falls_back_to_primary(self, monkeypatch):
+        from src.main import _resolve_tick_symbols
+        def _boom(*a, **k):
+            raise RuntimeError("config blew up")
+        monkeypatch.setattr("src.units.accounts.load_accounts", _boom)
+        assert _resolve_tick_symbols({"SYMBOL": "BTCUSDT"}) == ["BTCUSDT"]
 
     def test_exchange_for_symbol(self, monkeypatch):
         import src.core.coordinator as coord

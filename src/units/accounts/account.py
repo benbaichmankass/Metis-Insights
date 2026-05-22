@@ -56,6 +56,7 @@ class TradingAccount:
         ib_port: Optional[int] = None,
         ib_account: Optional[str] = None,
         ib_client_id: Optional[int] = None,
+        symbols: Optional[List[str]] = None,
     ) -> None:
         self.name = name
         self.exchange = exchange
@@ -107,6 +108,16 @@ class TradingAccount:
         self.ib_port: Optional[int] = ib_port
         self.ib_account: Optional[str] = ib_account
         self.ib_client_id: Optional[int] = ib_client_id
+        # Instrument symbol(s) this account trades. accounts.yaml is the
+        # single source of truth for "what does this account trade", which
+        # the multi-symbol tick loop unions to decide which symbols to run
+        # each tick (src/main.py::_resolve_tick_symbols). None / empty ⇒
+        # fall back to the per-exchange default (bybit→BTCUSDT,
+        # interactive_brokers→MES) so an account that omits the field still
+        # trades its natural instrument rather than nothing.
+        self.symbols: Optional[List[str]] = (
+            None if symbols is None else [str(s).strip() for s in symbols if str(s).strip()]
+        )
 
     def place_order(self, order: OrderPackage, *, dry_run: Optional[bool] = None) -> str:
         """Risk-check and route *order* to the exchange.
