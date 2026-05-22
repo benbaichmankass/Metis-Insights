@@ -186,13 +186,20 @@ for manifest in "${MANIFESTS[@]}"; do
     --registry-root "$REGISTRY_ROOT" \
     >/tmp/mestrain_$$.out 2>/tmp/mestrain_$$.err
   rc=$?
-  summary="$(grep -E '^\{' /tmp/mestrain_$$.out | tail -n1)"
-  [ -z "$summary" ] && summary='{}'
+  # `ml train` prints an indented (multi-line) JSON object on stdout, so
+  # parse the whole file rather than grepping a single `{` line.
+  json_field() {
+    python3 -c 'import json,sys
+try:
+    print(json.load(open(sys.argv[1])).get(sys.argv[2]) or "")
+except Exception:
+    print("")' "/tmp/mestrain_$$.out" "$1" 2>/dev/null
+  }
   if [ "$rc" -eq 0 ]; then
-    mid="$(printf '%s' "$summary" | python3 -c 'import json,sys;print(json.load(sys.stdin).get("model_id") or "")' 2>/dev/null)"
+    mid="$(json_field model_id)"
     emit "$(json_kv status=manifest_ok manifest="$manifest" model_id="$mid")"
   elif [ "$rc" -eq 78 ]; then
-    reason="$(printf '%s' "$summary" | python3 -c 'import json,sys;print(json.load(sys.stdin).get("reason") or "empty_dataset")' 2>/dev/null)"
+    reason="$(json_field reason)"
     emit "$(json_kv status=manifest_skipped manifest="$manifest" reason="${reason:-empty_dataset}")"
   else
     emit "$(json_kv status=manifest_failed manifest="$manifest" exit_code="$rc" stderr_tail="$(tail -n1 /tmp/mestrain_$$.err 2>/dev/null | head -c 300)")"
