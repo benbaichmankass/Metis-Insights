@@ -1,0 +1,24 @@
+TARGET=live
+---
+set +e
+LR=/home/ubuntu/ict-trading-bot   # live trader working tree — DO NOT touch
+S=/tmp/ict-mes-pull               # scratch worktree of the MES branch
+echo "=== worktree the MES branch (live tree untouched) ==="
+git -C "$LR" fetch -q origin claude/mes-training-dashboard-tabs-zDNzM 2>&1 | tail -1
+git -C "$LR" worktree remove --force "$S" 2>/dev/null
+git -C "$LR" worktree add -f "$S" origin/claude/mes-training-dashboard-tabs-zDNzM 2>&1 | tail -1
+cd "$S" || { echo "no scratch"; exit 1; }
+echo "HEAD=$(git rev-parse --short HEAD)"
+source "$LR/.venv/bin/activate" 2>/dev/null
+python -c "import ib_insync,pandas;print('deps ok: ib_insync',ib_insync.__version__)" 2>&1 | tail -1
+export ICT_IB_HISTORICAL_OK=1
+START=$(date -u -d '5 days ago' +%Y-%m-%d 2>/dev/null || echo 2026-05-17)
+echo "=== MES 1m VALIDATION pull ($START -> now) clientId=450 pause=12s port=4002 ==="
+timeout 300 python -m ml build-dataset market_raw --output-dir "$S/datasets-out" --version v001 \
+  --source ibkr_offvm --symbol-scope MES --timeframe 1m --overwrite \
+  adapter=ibkr_offvm symbol=MES start="$START" host=127.0.0.1 port=4002 client_id=450 pause_s=12 2>&1 | tail -10
+echo "=== rows pulled ==="
+python -c "import json;print('MES 1m rows', json.load(open('$S/datasets-out/market_raw/MES/1m/v001/metadata.json'))['row_count'])" 2>/dev/null || echo "(no metadata — pull empty/failed)"
+echo "=== live trader still healthy? (last 6 lines) ==="
+journalctl -u ict-trader-live.service -n 6 --no-pager 2>/dev/null | sed 's/.*python3\[[0-9]*\]: //' | tail -6 || echo "(journal n/a)"
+git -C "$LR" worktree remove --force "$S" 2>/dev/null
