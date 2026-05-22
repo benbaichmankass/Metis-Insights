@@ -10,13 +10,15 @@ name: pytest-run
 # fixture, and the shadow-prediction wiring gap (all had green CI).
 # `pytest-run` closes that hole by actually executing the suite.
 #
-# **ADVISORY (non-blocking) on introduction.** It is intentionally NOT
-# in `branch-protection-sync.yml`'s `REQUIRED_CONTEXTS` yet: the suite
-# has never run in CI, so its true pass/fail state on `main` is unknown.
-# Shipping advisory first surfaces that state without a wall of red
-# blocking every merge. Once it is observed green on `main`, promote it
-# to a required check (add `"pytest-run"` to `REQUIRED_CONTEXTS`) — same
-# advisory→blocking path `pytest-collect` itself followed in S-045.
+# **REQUIRED (blocking) as of 2026-05-22.** It shipped advisory first
+# (the suite had never run in CI, so its pass/fail state on `main` was
+# unknown — shipping advisory surfaced that without a wall of red), then
+# was promoted by adding `"pytest-run"` to `branch-protection-sync.yml`'s
+# `REQUIRED_CONTEXTS` (#1721) once the baseline went green on `main`:
+# #1658-1667 cleared the failure backlog, #1681 the order-dependent +
+# post-IB-merge regressions, #1717 the non-root sudo-stub fix that failed
+# only on the CI runner. Same advisory→blocking path `pytest-collect`
+# followed in S-045.
 #
 # `tests/test_main_loop.py` is excluded for the same reason
 # `pytest-collect` excludes it: it imports the live trading entrypoint

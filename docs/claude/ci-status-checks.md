@@ -24,7 +24,7 @@ single command you can re-run locally.
 | Workflow | File | Trigger | Gate | Local equivalent |
 |---|---|---|---|---|
 | `pytest-collect` | `.github/workflows/pytest-collect.yml` | `pull_request` to `main`, `push` to `main` | **blocking** (since S-045) | `PYTHONPATH=. pytest --collect-only -q tests/ --ignore=tests/test_main_loop.py` |
-| `pytest-run` | `.github/workflows/pytest-run.yml` | `pull_request` to `main`, `push` to `main` | advisory (promote to blocking once green on `main`) | `PYTHONPATH=. pytest -q tests/ --ignore=tests/test_main_loop.py` |
+| `pytest-run` | `.github/workflows/pytest-run.yml` | `pull_request` to `main`, `push` to `main` | **blocking** (since 2026-05-22) | `PYTHONPATH=. pytest -q tests/ --ignore=tests/test_main_loop.py` |
 | `secret-scan` | `.github/workflows/secret-scan.yml` | `pull_request` to `main`, `push` to `main` | **blocking** | `python scripts/secret_scan.py` |
 | `ruff-lint` | `.github/workflows/ruff-lint.yml` | `pull_request` to `main`, `push` to `main` | **blocking** | `ruff check .` |
 | `repo-inventory` | `.github/workflows/repo-inventory.yml` | `pull_request` to `main`, `push` to `main` | advisory | `python scripts/repo_inventory.py` |
@@ -32,16 +32,16 @@ single command you can re-run locally.
 | `hf-cron` | `.github/workflows/hf-cron.yml` | `schedule` (HF dataset publish) | n/a | not PR-gating |
 | `training-run` | `.github/workflows/training-run.yml` | `workflow_dispatch` | n/a | not PR-gating |
 
-**Required status checks on `main`** (2026-05-21): `pytest-collect`,
-`secret-scan`, `ruff-lint`, `dry-run-guard`, `env-gate-guard`,
-`silent-empty-guard`, `canonical-config-loaders`,
+**Required status checks on `main`** (2026-05-22): `pytest-collect`,
+`pytest-run`, `secret-scan`, `ruff-lint`, `dry-run-guard`,
+`env-gate-guard`, `silent-empty-guard`, `canonical-config-loaders`,
 `canonical-db-resolver`. **`enforce_admins` is now `true`** — admin /
 admin-scoped-API merges no longer bypass these checks (without it the
 required list was cosmetic, since every merge in this repo is an admin
-merge). `pytest-run` is advisory until its baseline is green on `main`,
-then it joins the list. `repo-inventory` and `arch-doc-guard` stay
-advisory by design. Branch protection wiring is in § "Branch protection
-wiring" below.
+merge). `pytest-run` was promoted from advisory to required on
+2026-05-22 (#1721) once its baseline went green on `main`.
+`repo-inventory` and `arch-doc-guard` stay advisory by design. Branch
+protection wiring is in § "Branch protection wiring" below.
 
 > **Status-context naming (post 2026-05-10 audit):** the GitHub
 > status-context name comes from the workflow's **job ID**, not the
@@ -88,7 +88,7 @@ wiring" below.
   ImportError: stub`. Do **not** add `--continue-on-collection-errors`
   back to the workflow — fix the import.
 
-### `pytest-run` (advisory — promote to blocking once green)
+### `pytest-run` (blocking — since 2026-05-22)
 
 - **What it does.** Installs `requirements.txt` + `requirements-test.txt`
   on Python 3.11, then runs `pytest -q tests/
@@ -99,12 +99,16 @@ wiring" below.
   such regressions shipped green in this repo (the 14/30 operator-action
   allowlist drift, the dead `_RUNTIME_LOGS` fixture, the shadow-wiring
   gap) precisely because no job ran the test bodies.
-- **Why advisory at first.** The suite had never executed in CI, so its
-  true pass/fail state on `main` is unknown. Making it required on day
-  one risks blocking every merge behind a wall of pre-existing failures.
-  It ships advisory; once observed green on `main`, promote it by adding
-  `"pytest-run"` to `REQUIRED_CONTEXTS` in `branch-protection-sync.yml`
-  (the same advisory→blocking path `pytest-collect` followed in S-045).
+- **Why advisory at first, now blocking.** The suite had never executed
+  in CI, so its true pass/fail state on `main` was unknown. Making it
+  required on day one would have blocked every merge behind a wall of
+  pre-existing failures, so it shipped advisory. The baseline was then
+  driven green — #1658-1667 cleared the failure backlog, #1681 the
+  order-dependent + post-IB-merge regressions, #1717 the non-root
+  sudo-stub fix that failed only on the CI runner — and on 2026-05-22 it
+  was promoted by adding `"pytest-run"` to `REQUIRED_CONTEXTS` in
+  `branch-protection-sync.yml` (#1721), the same advisory→blocking path
+  `pytest-collect` followed in S-045.
 - **Why ignore `tests/test_main_loop.py`.** Same as `pytest-collect`: it
   imports the live trading entrypoint (`src.main`) and is not CI-safe.
 - **Debug.** Reproduce with the local equivalent above. Fix the failing
@@ -197,9 +201,10 @@ GETs the current protection (preserving any existing PR-review /
 restrictions / admin-enforcement values), then PUTs the new spec.
 Idempotent — re-running with no change is a no-op.
 
-Current required contexts on `main`:
+Current required contexts on `main` (2026-05-22):
 
 - `pytest-collect`
+- `pytest-run`
 - `secret-scan`
 - `ruff-lint`
 - `dry-run-guard`
@@ -210,8 +215,9 @@ Current required contexts on `main`:
 
 `enforce_admins` is set to `true` so the checks apply to admins and
 admin-scoped API merges (otherwise they're bypassed and the list is
-cosmetic). `pytest-run` joins this list once its baseline is green on
-`main`. `repo-inventory` and `arch-doc-guard` stay advisory by design.
+cosmetic). `pytest-run` was promoted into this list on 2026-05-22
+(#1721) once its baseline went green on `main`. `repo-inventory` and
+`arch-doc-guard` stay advisory by design.
 The other workflows (`hf-cron`, `training-run`) are not PR-triggered and
 do not appear in the branch-protection list.
 
