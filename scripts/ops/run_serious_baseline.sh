@@ -111,9 +111,10 @@ except Exception: print("")' /tmp/sb_train_$$.out 2>/dev/null)"
 }
 
 # --- BTCUSDT (Bybit, deep, throttled) -------------------------------------
+NOW_UTC="$(date -u +%Y-%m-%d)"
 for tf in $TIMEFRAMES; do
   build_and_train_regime "$BTC_SYMBOL" "$tf" "bybit_v5_offvm" \
-    "start=$BTC_START" "pause_s=$BYBIT_PAUSE_S"
+    "start=$BTC_START" "end=$NOW_UTC" "pause_s=$BYBIT_PAUSE_S"
 done
 
 # --- Backtests over the deep 5m history -----------------------------------
