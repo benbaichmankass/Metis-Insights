@@ -1,0 +1,24 @@
+TARGET=live
+---
+set +e
+LR=/home/ubuntu/ict-trading-bot
+S=/home/ubuntu/mes_pull_src   # persistent worktree of the MES branch (NOT the live trader tree)
+if pgrep -f "build-dataset market_raw.*ibkr_offvm" >/dev/null 2>&1; then echo "ALREADY PULLING pid=$(pgrep -f ibkr_offvm)"; exit 0; fi
+git -C "$LR" fetch -q origin claude/mes-training-dashboard-tabs-zDNzM 2>&1 | tail -1
+git -C "$LR" worktree remove --force "$S" 2>/dev/null
+git -C "$LR" worktree add -f "$S" origin/claude/mes-training-dashboard-tabs-zDNzM 2>&1 | tail -1
+cd "$S" || exit 1
+echo "HEAD=$(git rev-parse --short HEAD)"
+PY=""; for c in "$LR/.venv/bin/python" /usr/bin/python3 "$(command -v python3)"; do [ -x "$c" ] && "$c" -c "import ib_insync,pandas,yaml" 2>/dev/null && { PY="$c"; break; }; done
+echo "PY=$PY"
+setsid env ICT_IB_HISTORICAL_OK=1 "$PY" -m ml build-dataset market_raw \
+  --output-dir "$S/datasets-out" --version v001 --source ibkr_offvm \
+  --symbol-scope MES --timeframe 1m --overwrite \
+  adapter=ibkr_offvm symbol=MES start=2025-01-01 host=127.0.0.1 port=4002 \
+  client_id=450 pause_s=10 max_contracts=4 \
+  > /home/ubuntu/mes_pull.out 2>&1 < /dev/null &
+echo "launched MES 1m full pull pid=$! at $(date -u +%FT%TZ)"
+sleep 15
+echo "=== early out ==="; tail -n 8 /home/ubuntu/mes_pull.out 2>/dev/null || echo "(no out yet)"
+echo "=== live data.jsonl lines so far ==="; wc -l "$S/datasets-out/market_raw/MES/1m/v001/data.jsonl" 2>/dev/null || echo "(buffering)"
+echo "=== live trader last 2 ==="; journalctl -u ict-trader-live.service -n 2 --no-pager 2>/dev/null | sed 's/.*python3\[[0-9]*\]: //'
