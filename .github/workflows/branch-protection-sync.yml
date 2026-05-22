@@ -67,11 +67,13 @@ jobs:
           # equal the corresponding workflow's job ID (verified
           # 2026-05-21 against .github/workflows/*.yml job IDs).
           #
-          # pytest-run is intentionally NOT here yet: it executes the
-          # full test suite and is advisory until its baseline is green
-          # on main (see pytest-run.yml header). Add "pytest-run" to
-          # this list to promote it once green.
-          REQUIRED_CONTEXTS='["pytest-collect","secret-scan","ruff-lint","dry-run-guard","env-gate-guard","silent-empty-guard","canonical-config-loaders","canonical-db-resolver"]'
+          # pytest-run executes the full test suite. Promoted from
+          # advisory to required on 2026-05-22 once its baseline went
+          # green on main: #1658-1667 cleared the failure backlog, #1681
+          # the order-dependent + post-IB-merge regressions, and #1717
+          # the non-root sudo-stub fix that was failing only on the CI
+          # runner. See pytest-run.yml header.
+          REQUIRED_CONTEXTS='["pytest-collect","pytest-run","secret-scan","ruff-lint","dry-run-guard","env-gate-guard","silent-empty-guard","canonical-config-loaders","canonical-db-resolver"]'
 
           OWNER="benbaichmankass"
           REPO="ict-trading-bot"
