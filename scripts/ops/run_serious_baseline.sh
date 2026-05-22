@@ -69,53 +69,90 @@ source "$VENV_DIR/bin/activate"
 python -c "import ccxt" 2>/dev/null || { pip install --quiet "ccxt>=4.0" && emit status=ccxt_installed || emit status=ccxt_warn; }
 export ICT_OFFVM_BUILD_HOST=1
 
-build_and_train_regime() {
-  # build_and_train_regime <symbol> <adapter-args...> via globals SYM/TF
-  local sym="$1" tf="$2" adapter="$3"; shift 3
-  local raw_dir="${DATASETS_ROOT}/market_raw/${sym}/${tf}/${DATASET_VERSION}"
-  emit status=building family=market_raw symbol="$sym" timeframe="$tf" adapter="$adapter"
-  if python -m ml build-dataset market_raw \
-      --output-dir "$DATASETS_ROOT" --version "$DATASET_VERSION" \
-      --source "$adapter" --symbol-scope "$sym" --timeframe "$tf" --overwrite \
-      "adapter=$adapter" "symbol=$sym" "timeframe=$tf" "$@" \
-      >/tmp/sb_raw_$$.out 2>/tmp/sb_raw_$$.err; then
-    emit status=build_ok family=market_raw symbol="$sym" timeframe="$tf"
-  else
-    emit status=build_warn family=market_raw symbol="$sym" timeframe="$tf" detail="$(tail -n1 /tmp/sb_raw_$$.err 2>/dev/null | head -c 200)"
-    return 1
-  fi
-  [ -d "$raw_dir" ] || { emit status=build_warn family=market_raw detail="no raw dir $raw_dir"; return 1; }
-  local vt; vt="$(vol_threshold_for "$tf")"
-  emit status=building family=market_features symbol="$sym" timeframe="$tf" vol_threshold="$vt"
-  python -m ml build-dataset market_features \
-    --output-dir "$DATASETS_ROOT" --version "$DATASET_VERSION" \
+# Architecture (2026-05-22): pull the finest TF (5m) ONCE and cache it;
+# derive every higher TF (15m, …) from the cached 5m via the `resample`
+# adapter — no second download, no exchange rate-limit risk. Regime label
+# threshold is data-driven (median forward vol) so classes stay balanced.
+
+median_vt() {  # median forward_log_return_vol of a market_features dir
+  python3 -c "import json,sys,statistics as s
+rows=[json.loads(l) for l in open(sys.argv[1]+'/data.jsonl') if l.strip()]
+v=[r['forward_log_return_vol'] for r in rows if r.get('forward_log_return_vol') not in (None,0)]
+print(round(s.median(v),7) if v else 0.001)" "$1" 2>/dev/null || echo 0.001
+}
+
+features_and_train() {  # <sym> <tf> <raw_dir>
+  local sym="$1" tf="$2" raw_dir="$3"
+  [ -f "$raw_dir/data.jsonl" ] || { emit status=build_warn family=market_features symbol="$sym" timeframe="$tf" detail="no raw $raw_dir"; return 1; }
+  local feat_dir="${DATASETS_ROOT}/market_features/${sym}/${tf}/${DATASET_VERSION}"
+  # pass 1: build to read the forward-vol distribution
+  python -m ml build-dataset market_features --output-dir "$DATASETS_ROOT" --version "$DATASET_VERSION" \
     --source "$raw_dir" --symbol-scope "$sym" --timeframe "$tf" --overwrite \
-    "market_raw_path=$raw_dir" "vol_window_n=20" "forward_window_m=5" \
-    "vol_threshold=$vt" "trend_threshold=$vt" "n_vol_buckets=3" \
+    "market_raw_path=$raw_dir" vol_window_n=20 forward_window_m=5 vol_threshold=0.001 trend_threshold=0.001 n_vol_buckets=3 \
     >/tmp/sb_feat_$$.out 2>/tmp/sb_feat_$$.err \
-    && emit status=build_ok family=market_features symbol="$sym" timeframe="$tf" \
     || { emit status=build_warn family=market_features symbol="$sym" timeframe="$tf" detail="$(tail -n1 /tmp/sb_feat_$$.err 2>/dev/null | head -c 200)"; return 1; }
+  local vt; vt="$(median_vt "$feat_dir")"
+  # pass 2: rebuild at the median threshold (≈balanced range/volatile)
+  python -m ml build-dataset market_features --output-dir "$DATASETS_ROOT" --version "$DATASET_VERSION" \
+    --source "$raw_dir" --symbol-scope "$sym" --timeframe "$tf" --overwrite \
+    "market_raw_path=$raw_dir" vol_window_n=20 forward_window_m=5 "vol_threshold=$vt" "trend_threshold=$vt" n_vol_buckets=3 \
+    >/dev/null 2>&1
+  emit status=build_ok family=market_features symbol="$sym" timeframe="$tf" vol_threshold="$vt"
   local key; key="$(echo "$sym" | grep -qi MES && echo mes || echo btc)"
   local manifest="ml/configs/${key}-regime-${tf}.yaml"
   [ -f "$manifest" ] || { emit status=manifest_missing manifest="$manifest"; return 1; }
   python -m ml train "$manifest" --datasets-root "$DATASETS_ROOT" \
     --experiments-root "$EXPERIMENTS_ROOT" --registry-root "$REGISTRY_ROOT" \
     >/tmp/sb_train_$$.out 2>/tmp/sb_train_$$.err
-  local rc=$?
-  local mid; mid="$(python3 -c 'import json,sys
+  local rc=$? mid
+  mid="$(python3 -c 'import json,sys
 try: print(json.load(open(sys.argv[1])).get("model_id") or "")
 except Exception: print("")' /tmp/sb_train_$$.out 2>/dev/null)"
   if [ "$rc" -eq 0 ]; then emit status=manifest_ok manifest="$manifest" model_id="$mid"
   else emit status=manifest_failed manifest="$manifest" exit_code="$rc" detail="$(tail -n1 /tmp/sb_train_$$.err 2>/dev/null | head -c 200)"; fi
-  rm -f /tmp/sb_raw_$$.* /tmp/sb_feat_$$.* /tmp/sb_train_$$.*
+  rm -f /tmp/sb_feat_$$.* /tmp/sb_train_$$.*
 }
 
-# --- BTCUSDT (Bybit, deep, throttled) -------------------------------------
+pull_5m_cached() {  # <sym> <adapter> <adapter-args...> — pull 5m once, reuse if cached
+  local sym="$1" adapter="$2"; shift 2
+  local raw5="${DATASETS_ROOT}/market_raw/${sym}/5m/${DATASET_VERSION}"
+  if [ "${FORCE_REPULL:-0}" != "1" ] && [ -f "$raw5/data.jsonl" ] && [ "$(wc -l <"$raw5/data.jsonl" 2>/dev/null || echo 0)" -gt 1000 ]; then
+    emit status=cache_hit family=market_raw symbol="$sym" timeframe=5m rows="$(wc -l <"$raw5/data.jsonl")"
+    return 0
+  fi
+  emit status=building family=market_raw symbol="$sym" timeframe=5m adapter="$adapter"
+  python -m ml build-dataset market_raw --output-dir "$DATASETS_ROOT" --version "$DATASET_VERSION" \
+    --source "$adapter" --symbol-scope "$sym" --timeframe 5m --overwrite \
+    "adapter=$adapter" "symbol=$sym" "timeframe=5m" "$@" \
+    >/tmp/sb_raw_$$.out 2>/tmp/sb_raw_$$.err \
+    && { emit status=build_ok family=market_raw symbol="$sym" timeframe=5m rows="$(wc -l <"$raw5/data.jsonl" 2>/dev/null || echo 0)"; rm -f /tmp/sb_raw_$$.*; return 0; } \
+    || { emit status=build_warn family=market_raw symbol="$sym" timeframe=5m detail="$(tail -n1 /tmp/sb_raw_$$.err 2>/dev/null | head -c 200)"; rm -f /tmp/sb_raw_$$.*; return 1; }
+}
+
+derive_tf_from_5m() {  # <sym> <tf> — build higher-TF market_raw from cached 5m (no network)
+  local sym="$1" tf="$2"
+  local raw5="${DATASETS_ROOT}/market_raw/${sym}/5m/${DATASET_VERSION}"
+  [ -f "$raw5/data.jsonl" ] || { emit status=resample_skip symbol="$sym" timeframe="$tf" detail="no cached 5m"; return 1; }
+  emit status=resampling family=market_raw symbol="$sym" timeframe="$tf" from=5m
+  python -m ml build-dataset market_raw --output-dir "$DATASETS_ROOT" --version "$DATASET_VERSION" \
+    --source resample --symbol-scope "$sym" --timeframe "$tf" --overwrite \
+    "adapter=resample" "symbol=$sym" "timeframe=$tf" "source_path=$raw5" >/dev/null 2>&1 \
+    && { emit status=build_ok family=market_raw symbol="$sym" timeframe="$tf" via=resample; return 0; } \
+    || { emit status=build_warn family=market_raw symbol="$sym" timeframe="$tf" via=resample; return 1; }
+}
+
+# Higher TFs to derive from the cached 5m base (everything in TIMEFRAMES except 5m).
+HIGHER_TFS="$(printf '%s\n' $TIMEFRAMES | grep -v '^5m$' | tr '\n' ' ')"
+
+# --- BTCUSDT (Bybit 5m cached once, higher TFs resampled) -----------------
 NOW_UTC="$(date -u +%Y-%m-%d)"
-for tf in $TIMEFRAMES; do
-  build_and_train_regime "$BTC_SYMBOL" "$tf" "bybit_v5_offvm" \
-    "start=$BTC_START" "end=$NOW_UTC" "pause_s=$BYBIT_PAUSE_S"
-done
+if pull_5m_cached "$BTC_SYMBOL" "bybit_v5_offvm" "start=$BTC_START" "end=$NOW_UTC" "pause_s=$BYBIT_PAUSE_S"; then
+  features_and_train "$BTC_SYMBOL" 5m "${DATASETS_ROOT}/market_raw/${BTC_SYMBOL}/5m/${DATASET_VERSION}"
+  for tf in $HIGHER_TFS; do
+    derive_tf_from_5m "$BTC_SYMBOL" "$tf" \
+      && features_and_train "$BTC_SYMBOL" "$tf" "${DATASETS_ROOT}/market_raw/${BTC_SYMBOL}/${tf}/${DATASET_VERSION}"
+  done
+fi
 
 # --- Backtests over the deep 5m history -----------------------------------
 BT_RAW="${DATASETS_ROOT}/market_raw/${BTC_SYMBOL}/5m/${DATASET_VERSION}/data.jsonl"
@@ -150,17 +187,29 @@ else
   emit status=backtest_skipped detail="no 5m market_raw at $BT_RAW"
 fi
 
-# --- MES (IBKR) — GATED on IB health --------------------------------------
+# --- MES — 5m base cached once, higher TFs resampled ----------------------
+# Source of the 5m base: IBKR (deep, live-VM gateway) when MES_IBKR=1, else
+# yfinance ES=F (~60d) as the starter. Either way 5m is cached and 15m is
+# derived from it — no per-TF re-download.
+MES_5M_OK=0
 if [ "$MES_IBKR" = "1" ]; then
-  emit status=mes_ibkr_start note="requires healthy IB gateway + ICT_IB_HISTORICAL_OK=1"
+  emit status=mes_ibkr_start note="IBKR 5m base via live gateway (paced)"
   export ICT_IB_HISTORICAL_OK=1
-  for tf in $TIMEFRAMES; do
-    build_and_train_regime "MES" "$tf" "ibkr_offvm" \
-      "start=${MES_START:-2018-01-01}" "host=127.0.0.1" "port=${IB_HIST_PORT:-4002}" \
-      "client_id=${IB_HIST_CLIENT_ID:-450}" "pause_s=${IB_HIST_PAUSE_S:-12}"
-  done
+  pull_5m_cached "MES" "ibkr_offvm" \
+    "start=${MES_START:-2016-01-01}" "host=127.0.0.1" "port=${IB_HIST_PORT:-4002}" \
+    "client_id=${IB_HIST_CLIENT_ID:-450}" "pause_s=${IB_HIST_PAUSE_S:-12}" && MES_5M_OK=1
 else
-  emit status=mes_ibkr_skipped reason="MES_IBKR!=1 (IB gateway error 162 / session conflict as of 2026-05-22)"
+  emit status=mes_yfinance_start note="ES=F ~60d 5m starter (set MES_IBKR=1 for deep IBKR base)"
+  MES_YF_START="$(date -u -d '58 days ago' +%Y-%m-%d 2>/dev/null || echo 2026-03-01)"
+  pull_5m_cached "MES" "yfinance_offvm" \
+    "symbol=MES" "start=$MES_YF_START" "end=$(date -u +%Y-%m-%d)" && MES_5M_OK=1
+fi
+if [ "$MES_5M_OK" = "1" ]; then
+  features_and_train "MES" 5m "${DATASETS_ROOT}/market_raw/MES/5m/${DATASET_VERSION}"
+  for tf in $HIGHER_TFS; do
+    derive_tf_from_5m "MES" "$tf" \
+      && features_and_train "MES" "$tf" "${DATASETS_ROOT}/market_raw/MES/${tf}/${DATASET_VERSION}"
+  done
 fi
 
 emit status=session_end
