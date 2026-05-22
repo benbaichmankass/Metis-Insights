@@ -41,10 +41,10 @@ IB_HIST_EXPECTED = "1"
 # Chunk sizes stay well under IBKR's per-barSize duration ceiling so each
 # reqHistoricalData call is accepted.
 _TIMEFRAME_TO_IB: Mapping[str, tuple[str, int]] = {
-    "1m":  ("1 min",   1),
-    "5m":  ("5 mins",  20),
-    "15m": ("15 mins", 30),
-    "1h":  ("1 hour",  60),
+    "1m":  ("1 min",   7),
+    "5m":  ("5 mins",  30),
+    "15m": ("15 mins", 60),
+    "1h":  ("1 hour",  120),
     "1d":  ("1 day",   365),
 }
 
@@ -75,6 +75,7 @@ class IBKRHistoricalMarketRawAdapter(MarketRawAdapter):
         what_to_show: str = "TRADES",
         use_rth: bool = False,
         pause_s: float = 12.0,
+        max_contracts: int = 4,
         **_: Any,
     ) -> Iterator[Mapping[str, Any]]:
         self._enforce_opt_in()
@@ -94,7 +95,7 @@ class IBKRHistoricalMarketRawAdapter(MarketRawAdapter):
             start_dt=start_dt, end_dt=end_dt,
             host=host, port=int(port), client_id=int(client_id),
             what_to_show=what_to_show, use_rth=bool(use_rth),
-            pause_s=float(pause_s),
+            pause_s=float(pause_s), max_contracts=int(max_contracts),
         )
         seen: set[str] = set()
         for b in sorted(bars, key=lambda r: r["ts"]):
@@ -134,6 +135,7 @@ class IBKRHistoricalMarketRawAdapter(MarketRawAdapter):
         what_to_show: str,
         use_rth: bool,
         pause_s: float,
+        max_contracts: int = 4,
     ) -> list[dict[str, Any]]:
         """Connect to the live IB gateway and pull chunked history.
 
@@ -144,60 +146,85 @@ class IBKRHistoricalMarketRawAdapter(MarketRawAdapter):
         from datetime import timedelta
 
         try:
-            from ib_insync import IB, ContFuture  # type: ignore[import-not-found]
+            from ib_insync import IB, Future  # type: ignore[import-not-found]
         except ImportError as e:
             raise RuntimeError(
                 "ib_insync is required for IBKRHistoricalMarketRawAdapter; "
                 "install with `pip install ib_insync` on the live VM."
             ) from e
 
+        def _to_dt(v: Any) -> datetime:
+            if isinstance(v, (int, float)):
+                return datetime.fromtimestamp(int(v), tz=timezone.utc)
+            return v if getattr(v, "tzinfo", None) else v.replace(tzinfo=timezone.utc)
+
         ib = IB()
         ib.connect(host, port, clientId=client_id, timeout=30)
         out: list[dict[str, Any]] = []
+        seen: set[str] = set()
         try:
             try:
                 ib.reqMarketDataType(3)  # delayed-OK; harmless for historical
             except Exception:  # noqa: BLE001
                 pass
-            contract = ContFuture(symbol, exchange, currency=currency)
-            ib.qualifyContracts(contract)
-            cursor_end = end_dt
-            while cursor_end > start_dt:
-                bars = ib.reqHistoricalData(
-                    contract,
-                    endDateTime=cursor_end,
-                    durationStr=f"{chunk_days} D",
-                    barSizeSetting=bar_size,
-                    whatToShow=what_to_show,
-                    useRTH=use_rth,
-                    formatDate=2,  # epoch seconds, UTC
-                )
-                if not bars:
+            # IBKR forbids endDateTime on a ContFuture (Error 10339), so page
+            # over DATED contracts and stitch the newest expiries for depth.
+            details = ib.reqContractDetails(
+                Future(symbol, exchange=exchange, currency=currency, includeExpired=True)
+            )
+            contracts = [d.contract for d in details]
+            contracts.sort(key=lambda c: (c.lastTradeDateOrContractMonth or ""), reverse=True)
+            # Drop contracts expiring far in the future (keep front + history).
+            end_yyyymm = end_dt.strftime("%Y%m")
+            contracts = [
+                c for c in contracts
+                if (c.lastTradeDateOrContractMonth or "0")[:6] <= end_yyyymm
+            ] or contracts[:1]
+
+            MAX_TOTAL_CHUNKS = 800
+            total_chunks = 0
+            reached_start = False
+            for c in contracts[:max_contracts]:
+                if reached_start or total_chunks >= MAX_TOTAL_CHUNKS:
                     break
-                for b in bars:
-                    ts = b.date
-                    if isinstance(ts, (int, float)):
-                        dt = datetime.fromtimestamp(int(ts), tz=timezone.utc)
-                    else:
-                        dt = ts if ts.tzinfo else ts.replace(tzinfo=timezone.utc)
-                    out.append({
-                        "ts": _iso(dt),
-                        "open": b.open, "high": b.high, "low": b.low,
-                        "close": b.close, "volume": b.volume,
-                    })
-                earliest = min(b.date for b in bars)
-                earliest_dt = (
-                    datetime.fromtimestamp(int(earliest), tz=timezone.utc)
-                    if isinstance(earliest, (int, float))
-                    else (earliest if earliest.tzinfo else earliest.replace(tzinfo=timezone.utc))
-                )
-                # Step the window back; stop if the gateway stops giving us
-                # earlier data (earliest no longer advancing).
-                next_end = earliest_dt - timedelta(seconds=1)
-                if next_end >= cursor_end:
-                    break
-                cursor_end = next_end
-                time.sleep(pause_s)  # pace to protect the live trading session
+                exp = (c.lastTradeDateOrContractMonth or "")[:8]
+                try:
+                    exp_dt = datetime.strptime(exp, "%Y%m%d").replace(tzinfo=timezone.utc) + timedelta(days=2)
+                except ValueError:
+                    exp_dt = end_dt
+                cursor_end = min(end_dt, exp_dt)
+                last_cursor: datetime | None = None
+                while cursor_end > start_dt and total_chunks < MAX_TOTAL_CHUNKS:
+                    bars = ib.reqHistoricalData(
+                        c, endDateTime=cursor_end, durationStr=f"{chunk_days} D",
+                        barSizeSetting=bar_size, whatToShow=what_to_show,
+                        useRTH=use_rth, formatDate=2,
+                    )
+                    total_chunks += 1
+                    if not bars:
+                        break
+                    for b in bars:
+                        dt = _to_dt(b.date)
+                        if dt < start_dt or dt > end_dt:
+                            continue
+                        ts = _iso(dt)
+                        if ts in seen:
+                            continue
+                        seen.add(ts)
+                        out.append({
+                            "ts": ts, "open": b.open, "high": b.high,
+                            "low": b.low, "close": b.close, "volume": b.volume,
+                        })
+                    earliest_dt = min(_to_dt(b.date) for b in bars)
+                    if earliest_dt <= start_dt:
+                        reached_start = True
+                        break
+                    next_end = earliest_dt - timedelta(seconds=1)
+                    if last_cursor is not None and next_end >= last_cursor:
+                        break  # not advancing — exhausted this contract's retention
+                    last_cursor = cursor_end
+                    cursor_end = next_end
+                    time.sleep(pause_s)  # pace to protect the live trading session
         finally:
             ib.disconnect()
         return out
