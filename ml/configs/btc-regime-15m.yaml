@@ -14,6 +14,11 @@ trainer_config:
   target_column: regime_label
   feature_column: vol_bucket
   unknown_bucket: ""
+  # Live-scoring spec frozen into model_state (consumed by
+  # src/runtime/regime_shadow.py). Must match the market_features
+  # build window in run_serious_baseline.sh (vol_window_n=20).
+  vol_window_n: 20
+  vol_feature_column: rolling_log_return_vol
   class_labels:
     - range
     - volatile

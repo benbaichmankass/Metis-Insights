@@ -64,11 +64,19 @@ dataset purely for analysis / sanity-checking; the third is
 the label.
 
 `vol_bucket` thresholds are quantile-derived from the full
-dataset (train + eval combined). For research-only baselines
-this is acceptable. A promotion-ready variant should compute
-quantile thresholds on the train split only and freeze them
-into `model_state` so the eval split is bucketed against
-training-set quantiles. Filed as a follow-up.
+dataset (train + eval combined) at build time. For research-only
+baselines this is acceptable.
+
+Live-scoring freeze (2026-05-22): `RegimeClassifierTrainer` now
+reconstructs the bucket edges from the train rows it is fit on
+(the largest raw `rolling_log_return_vol` in each bucket is that
+bucket's upper cut point) and freezes them into `model_state`, so
+the live shadow path (`src/runtime/regime_shadow.py`) can bucket a
+tick's rolling vol against the SAME edges the model trained on.
+This is the train-split-only freeze the follow-up below called
+for — but only for the live path. The eval split is still bucketed
+against the build-time full-dataset quantiles, so the train-split
+eval-leakage cleanup remains a follow-up.
 
 Metadata stamps `leakage_test_status: passed` because the
 window separation is guaranteed by construction (the forward

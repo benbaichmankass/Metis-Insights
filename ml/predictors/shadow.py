@@ -91,6 +91,16 @@ class ShadowPredictor(Predictor):
     def stage(self) -> str:
         return self._stage
 
+    @property
+    def wrapped(self) -> Predictor:
+        """The composed base predictor.
+
+        Lets a caller introspect model-specific metadata (e.g. a regime
+        model's `regime_spec`) without bypassing the audit-log surface
+        — `predict()` is still the only way to score.
+        """
+        return self._wrapped
+
     def predict(self, row: Mapping[str, Any]) -> float:
         score = float(self._wrapped.predict(row))
         if self._log_path is not None:
