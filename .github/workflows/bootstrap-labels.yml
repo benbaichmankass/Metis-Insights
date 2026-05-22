@@ -60,6 +60,11 @@ jobs:
                 description: 'Triggers vm-web-api-recover workflow — self-heal restart of ict-web-api.service when the diag relay is exit-7-ing.',
               },
               {
+                name: 'vm-ib-gateway-recover',
+                color: 'b60205',
+                description: 'Triggers vm-ib-gateway-recover workflow — autonomous restart of the ib-gateway container when IBKR error 162 darkens MES.',
+              },
+              {
                 name: 'operator-action',
                 color: 'd93f0b',
                 // GitHub caps label descriptions at 100 chars — keep this short or
