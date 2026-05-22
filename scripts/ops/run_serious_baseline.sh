@@ -35,6 +35,11 @@ DATASET_VERSION="${DATASET_VERSION:-v001}"
 BTC_SYMBOL="${BTC_SYMBOL:-BTCUSDT}"
 BTC_START="${BTC_START:-2020-01-01}"
 BYBIT_PAUSE_S="${BYBIT_PAUSE_S:-0.25}"
+# BASE_TF is the single finest granularity we pull + cache per symbol; every
+# regime timeframe in TIMEFRAMES is derived from it by resampling (no second
+# download). 1m is the finest the strategies use (turtle_soup entry), so it
+# feeds all training.
+BASE_TF="${BASE_TF:-1m}"
 TIMEFRAMES="${TIMEFRAMES:-5m 15m}"
 MES_IBKR="${MES_IBKR:-0}"
 SERIOUS_LOG_PATH="${SERIOUS_LOG_PATH:-$REPO_ROOT/runtime_logs/trainer/serious_baseline.jsonl}"
@@ -113,52 +118,54 @@ except Exception: print("")' /tmp/sb_train_$$.out 2>/dev/null)"
   rm -f /tmp/sb_feat_$$.* /tmp/sb_train_$$.*
 }
 
-pull_5m_cached() {  # <sym> <adapter> <adapter-args...> — pull 5m once, reuse if cached
+pull_base_cached() {  # <sym> <adapter> <adapter-args...> — pull the BASE_TF once, reuse if cached
   local sym="$1" adapter="$2"; shift 2
-  local raw5="${DATASETS_ROOT}/market_raw/${sym}/5m/${DATASET_VERSION}"
-  if [ "${FORCE_REPULL:-0}" != "1" ] && [ -f "$raw5/data.jsonl" ] && [ "$(wc -l <"$raw5/data.jsonl" 2>/dev/null || echo 0)" -gt 1000 ]; then
-    emit status=cache_hit family=market_raw symbol="$sym" timeframe=5m rows="$(wc -l <"$raw5/data.jsonl")"
+  local rawb="${DATASETS_ROOT}/market_raw/${sym}/${BASE_TF}/${DATASET_VERSION}"
+  if [ "${FORCE_REPULL:-0}" != "1" ] && [ -f "$rawb/data.jsonl" ] && [ "$(wc -l <"$rawb/data.jsonl" 2>/dev/null || echo 0)" -gt 1000 ]; then
+    emit status=cache_hit family=market_raw symbol="$sym" timeframe="$BASE_TF" rows="$(wc -l <"$rawb/data.jsonl")"
     return 0
   fi
-  emit status=building family=market_raw symbol="$sym" timeframe=5m adapter="$adapter"
+  emit status=building family=market_raw symbol="$sym" timeframe="$BASE_TF" adapter="$adapter"
   python -m ml build-dataset market_raw --output-dir "$DATASETS_ROOT" --version "$DATASET_VERSION" \
-    --source "$adapter" --symbol-scope "$sym" --timeframe 5m --overwrite \
-    "adapter=$adapter" "symbol=$sym" "timeframe=5m" "$@" \
+    --source "$adapter" --symbol-scope "$sym" --timeframe "$BASE_TF" --overwrite \
+    "adapter=$adapter" "symbol=$sym" "timeframe=$BASE_TF" "$@" \
     >/tmp/sb_raw_$$.out 2>/tmp/sb_raw_$$.err \
-    && { emit status=build_ok family=market_raw symbol="$sym" timeframe=5m rows="$(wc -l <"$raw5/data.jsonl" 2>/dev/null || echo 0)"; rm -f /tmp/sb_raw_$$.*; return 0; } \
-    || { emit status=build_warn family=market_raw symbol="$sym" timeframe=5m detail="$(tail -n1 /tmp/sb_raw_$$.err 2>/dev/null | head -c 200)"; rm -f /tmp/sb_raw_$$.*; return 1; }
+    && { emit status=build_ok family=market_raw symbol="$sym" timeframe="$BASE_TF" rows="$(wc -l <"$rawb/data.jsonl" 2>/dev/null || echo 0)"; rm -f /tmp/sb_raw_$$.*; return 0; } \
+    || { emit status=build_warn family=market_raw symbol="$sym" timeframe="$BASE_TF" detail="$(tail -n1 /tmp/sb_raw_$$.err 2>/dev/null | head -c 200)"; rm -f /tmp/sb_raw_$$.*; return 1; }
 }
 
-derive_tf_from_5m() {  # <sym> <tf> — build higher-TF market_raw from cached 5m (no network)
+derive_tf_from_base() {  # <sym> <tf> — build a TF's market_raw from the cached BASE_TF (no network)
   local sym="$1" tf="$2"
-  local raw5="${DATASETS_ROOT}/market_raw/${sym}/5m/${DATASET_VERSION}"
-  [ -f "$raw5/data.jsonl" ] || { emit status=resample_skip symbol="$sym" timeframe="$tf" detail="no cached 5m"; return 1; }
-  emit status=resampling family=market_raw symbol="$sym" timeframe="$tf" from=5m
+  local rawb="${DATASETS_ROOT}/market_raw/${sym}/${BASE_TF}/${DATASET_VERSION}"
+  if [ "$tf" = "$BASE_TF" ]; then return 0; fi  # base already present
+  [ -f "$rawb/data.jsonl" ] || { emit status=resample_skip symbol="$sym" timeframe="$tf" detail="no cached $BASE_TF"; return 1; }
+  emit status=resampling family=market_raw symbol="$sym" timeframe="$tf" from="$BASE_TF"
   python -m ml build-dataset market_raw --output-dir "$DATASETS_ROOT" --version "$DATASET_VERSION" \
     --source resample --symbol-scope "$sym" --timeframe "$tf" --overwrite \
-    "adapter=resample" "symbol=$sym" "timeframe=$tf" "source_path=$raw5" >/dev/null 2>&1 \
+    "adapter=resample" "symbol=$sym" "timeframe=$tf" "source_path=$rawb" >/dev/null 2>&1 \
     && { emit status=build_ok family=market_raw symbol="$sym" timeframe="$tf" via=resample; return 0; } \
     || { emit status=build_warn family=market_raw symbol="$sym" timeframe="$tf" via=resample; return 1; }
 }
 
-# Higher TFs to derive from the cached 5m base (everything in TIMEFRAMES except 5m).
-HIGHER_TFS="$(printf '%s\n' $TIMEFRAMES | grep -v '^5m$' | tr '\n' ' ')"
-
-# --- BTCUSDT (Bybit 5m cached once, higher TFs resampled) -----------------
-NOW_UTC="$(date -u +%Y-%m-%d)"
-if pull_5m_cached "$BTC_SYMBOL" "bybit_v5_offvm" "start=$BTC_START" "end=$NOW_UTC" "pause_s=$BYBIT_PAUSE_S"; then
-  features_and_train "$BTC_SYMBOL" 5m "${DATASETS_ROOT}/market_raw/${BTC_SYMBOL}/5m/${DATASET_VERSION}"
-  for tf in $HIGHER_TFS; do
-    derive_tf_from_5m "$BTC_SYMBOL" "$tf" \
-      && features_and_train "$BTC_SYMBOL" "$tf" "${DATASETS_ROOT}/market_raw/${BTC_SYMBOL}/${tf}/${DATASET_VERSION}"
+train_symbol_tfs() {  # <sym> — derive every TIMEFRAMES TF from the cached base and train its regime
+  local sym="$1" tf
+  for tf in $TIMEFRAMES; do
+    derive_tf_from_base "$sym" "$tf" \
+      && features_and_train "$sym" "$tf" "${DATASETS_ROOT}/market_raw/${sym}/${tf}/${DATASET_VERSION}"
   done
+}
+
+# --- BTCUSDT (Bybit BASE_TF cached once, regime TFs resampled) ------------
+NOW_UTC="$(date -u +%Y-%m-%d)"
+if pull_base_cached "$BTC_SYMBOL" "bybit_v5_offvm" "start=$BTC_START" "end=$NOW_UTC" "pause_s=$BYBIT_PAUSE_S"; then
+  train_symbol_tfs "$BTC_SYMBOL"
 fi
 
-# --- Backtests over the deep 5m history -----------------------------------
+# --- Backtests over the deep 5m history (set BACKTEST=0 to skip) -----------
 BT_RAW="${DATASETS_ROOT}/market_raw/${BTC_SYMBOL}/5m/${DATASET_VERSION}/data.jsonl"
 BT_CSV="${DATA_DIR}/backtest_${BTC_SYMBOL}_5m.csv"
 BT_DB="${DATA_DIR}/backtest_baseline.db"
-if [ -f "$BT_RAW" ]; then
+if [ "${BACKTEST:-1}" = "1" ] && [ -f "$BT_RAW" ]; then
   python3 - "$BT_RAW" "$BT_CSV" <<'PY'
 import json, sys, csv
 src, dst = sys.argv[1], sys.argv[2]
@@ -187,29 +194,25 @@ else
   emit status=backtest_skipped detail="no 5m market_raw at $BT_RAW"
 fi
 
-# --- MES — 5m base cached once, higher TFs resampled ----------------------
-# Source of the 5m base: IBKR (deep, live-VM gateway) when MES_IBKR=1, else
-# yfinance ES=F (~60d) as the starter. Either way 5m is cached and 15m is
-# derived from it — no per-TF re-download.
-MES_5M_OK=0
+# --- MES — base cached once, regime TFs resampled -------------------------
+# Base source: IBKR (deep, live-VM gateway) when MES_IBKR=1 — IBKR can serve
+# 1m, so it uses the global BASE_TF. Otherwise yfinance ES=F, which only
+# serves ~7d of 1m, so the yfinance starter falls back to a 5m base (~60d).
+# Either way the base is cached once and 5m/15m derive from it.
+MES_OK=0
 if [ "$MES_IBKR" = "1" ]; then
-  emit status=mes_ibkr_start note="IBKR 5m base via live gateway (paced)"
+  emit status=mes_ibkr_start note="IBKR ${BASE_TF} base via live gateway (paced)"
   export ICT_IB_HISTORICAL_OK=1
-  pull_5m_cached "MES" "ibkr_offvm" \
+  pull_base_cached "MES" "ibkr_offvm" \
     "start=${MES_START:-2016-01-01}" "host=127.0.0.1" "port=${IB_HIST_PORT:-4002}" \
-    "client_id=${IB_HIST_CLIENT_ID:-450}" "pause_s=${IB_HIST_PAUSE_S:-12}" && MES_5M_OK=1
+    "client_id=${IB_HIST_CLIENT_ID:-450}" "pause_s=${IB_HIST_PAUSE_S:-12}" && MES_OK=1
 else
-  emit status=mes_yfinance_start note="ES=F ~60d 5m starter (set MES_IBKR=1 for deep IBKR base)"
+  BASE_TF="5m"  # yfinance 1m only goes back ~7d; use a 5m base for the starter
+  emit status=mes_yfinance_start note="ES=F ~60d 5m starter base (set MES_IBKR=1 for deep IBKR 1m base)"
   MES_YF_START="$(date -u -d '58 days ago' +%Y-%m-%d 2>/dev/null || echo 2026-03-01)"
-  pull_5m_cached "MES" "yfinance_offvm" \
-    "symbol=MES" "start=$MES_YF_START" "end=$(date -u +%Y-%m-%d)" && MES_5M_OK=1
+  pull_base_cached "MES" "yfinance_offvm" \
+    "symbol=MES" "start=$MES_YF_START" "end=$(date -u +%Y-%m-%d)" && MES_OK=1
 fi
-if [ "$MES_5M_OK" = "1" ]; then
-  features_and_train "MES" 5m "${DATASETS_ROOT}/market_raw/MES/5m/${DATASET_VERSION}"
-  for tf in $HIGHER_TFS; do
-    derive_tf_from_5m "MES" "$tf" \
-      && features_and_train "MES" "$tf" "${DATASETS_ROOT}/market_raw/MES/${tf}/${DATASET_VERSION}"
-  done
-fi
+[ "$MES_OK" = "1" ] && train_symbol_tfs "MES"
 
 emit status=session_end
