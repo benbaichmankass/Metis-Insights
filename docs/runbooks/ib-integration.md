@@ -1,9 +1,16 @@
 # Runbook — Interactive Brokers (MES) integration
 
-Wired 2026-05-21. Connects the trader to Interactive Brokers via the TWS
-API (`ib_insync`) for **MES** (Micro E-mini S&P 500) futures on CME. This
-is the connection + execution plumbing; assigning a MES *strategy* is the
-remaining step (see "Remaining wire-up" below).
+**Status: LIVE for MES paper trading (2026-05-22).** Wired 2026-05-21,
+taken live 2026-05-22. Connects the trader to Interactive Brokers via the
+TWS API (`ib_insync`) for **MES** (Micro E-mini S&P 500) futures on CME.
+
+The bot now trades **two symbols at once**: BTCUSDT (Bybit) and MES (IB
+paper). All three live strategies (`turtle_soup`, `vwap`, `ict_scalp_5m`)
+are symbol-parameterized and evaluate **both** symbols every tick through
+the intent multiplexer / coordinator; MES signals route to `ib_paper` and
+BTCUSDT signals route to the Bybit accounts (symbol→exchange dispatch gate
+in `src/core/coordinator.py`). Market data is **delayed** CME data, so no
+paid real-time subscription is required (see "Market data" below).
 
 ## Why there are no API keys
 
@@ -18,20 +25,23 @@ account code. Because there is no `api_key_env`, IB accounts always load
 
 ## Accounts (config/accounts.yaml)
 
-| Account | IB code | Port | `mode:` | Meaning |
+| Account | IB code | `ib_port` (host) | `mode:` | Meaning |
 |---|---|---|---|---|
-| `ib_paper` | `DUQ325724` | 7497 | `live` | Executes against the IB **paper** gateway — **paper money**, no real-money risk. Same pattern as `bybit_1` running `mode: live` on Bybit's demo endpoint. |
+| `ib_paper` | `DUQ325724` | 4002 | `live` | Executes against the IB **paper** gateway — **paper money**, no real-money risk. Same pattern as `bybit_1` running `mode: live` on Bybit's demo endpoint. `ib_port: 4002` is the **host loopback** the bot dials; inside the Docker gateway it reaches the API via a socat relay (see "Headless Gateway" below). |
 | `ib_live` | `U25907316` | 7496 | `dry_run` | Real-money account, **held dry**. RiskManager rejects with `account_mode_dry_run`; the coordinator never even constructs an `IBClient`, so no socket is opened against the live gateway. |
 
 `mode:` is the **only** dry/live toggle (per the 2026-05-03 operator
 directive). Promoting `ib_live` to live money is a Tier-3 change via the
 `set-account-mode` operator action — never an inline YAML edit on `main`.
 
-Both accounts ship `strategies: []`. The three live strategies (`vwap`,
-`turtle_soup`, `ict_scalp_5m`) emit **BTCUSDT** signals, which must never
-route to an MES futures account. The empty list is belt-and-braces (same
-as `prop_velotrade_1`): the coordinator's per-account strategy filter
-blocks every signal until a MES-symbol strategy is explicitly assigned.
+`ib_paper.strategies` is `[turtle_soup, vwap, ict_scalp_5m]` — the three
+live strategies, which are symbol-parameterized and produce MES signals
+for this account (and BTCUSDT signals for the Bybit accounts). `ib_live`
+keeps `strategies: []` (belt-and-braces, same as `prop_velotrade_1`):
+combined with `mode: dry_run` the real-money account never receives a
+signal or opens a socket. The symbol→exchange dispatch gate in the
+coordinator guarantees a BTCUSDT signal can never reach an MES futures
+account and vice-versa.
 
 Per-account connection params can be overridden by environment variables
 (`IB_HOST` / `IB_PORT` / `IB_ACCOUNT` / `IB_CLIENT_ID`); unset → the
@@ -64,44 +74,94 @@ Gateway too — it exercises the exact `ib_client_for → IBClient.connect`
 path the trader uses.
 
 Prerequisites for a green run: `ib_insync` (or `ib_async`) installed, and
-an **IB Gateway / TWS running with the API enabled** on the configured
-port (7496 live / 7497 paper), with "Allow connections from localhost"
-and the API socket port matching `ib_port`.
+an **IB Gateway / TWS running with the API enabled** reachable on the
+account's `ib_port` — `127.0.0.1:4002` for paper (Docker socat relay),
+`127.0.0.1:7496` for live.
 
-## Remaining wire-up (MES strategy)
+## Event loop (why MES candle fetch needs a persistent loop)
 
-The connection is live but no signal flows to MES yet. To actually trade
-MES on the paper account:
-
-1. Add a strategy whose symbol is `MES` (see the `new-strategy` skill /
-   `docs` for the strategy wiring checklist). `MES` is already in
-   `config/instruments.yaml` and `InstrumentProfile.mes_cme()`.
-2. Assign it under `ib_paper.strategies:` in `config/accounts.yaml`.
-3. Confirm `IBClient._build_contract` covers the symbol — today it builds
-   the MES front-month only and rejects any other symbol.
-4. Keep `ib_live` at `mode: dry_run` until the paper account is proven;
-   promote via `set-account-mode` (Tier-3, operator-approved).
+`ib_insync` is async under the hood; its sync calls (`connect`,
+`qualifyContracts`, `reqHistoricalData`, …) resolve the thread's asyncio
+loop afresh on every call via `asyncio.get_event_loop_policy().get_event_loop()`.
+Other code in the trader process runs `asyncio.run(...)` (e.g. Telegram
+alerts), which calls `set_event_loop(None)` on exit — **poisoning** the
+thread's current loop so the next `ib_insync` call raises `There is no
+current event loop in thread 'MainThread'` (the symptom that blocked the
+first MES go-live attempt). `IBClient` therefore keeps **one persistent
+loop** (the loop the `IB` instance is built on) and **re-asserts it as the
+current loop on every `connect()`** — including the cached-connection path
+— so order, balance, contract and `get_ohlcv` calls always resolve the
+loop the socket transport is bound to. Re-using the *same* loop is
+essential: a fresh loop would not be bound to the live IB socket and the
+request would hang. See `src/units/accounts/ib_client.py::_ensure_event_loop`
+and the regression tests in `tests/test_ib_integration.py`
+(`TestEventLoopResilience`). Fixed in PR #1712.
 
 ## Headless Gateway on the VM (Docker — current)
 
-The Gateway now runs as the **gnzsnz/ib-gateway Docker container** (compose at
-`deploy/ib-gateway.compose.yml`, installer `scripts/install_ib_gateway_docker.sh`).
-The hand-rolled native IBC install below is **superseded**: the modern
-standalone IB Gateway 10.45 installs flat in `~/Jts`, a layout IBC refuses
-("can't find jars/vmoptions; install the offline version"). The Docker image
-bundles a known IBC-compatible Gateway+IBC in the correct layout, so it just
-works headless. It reads creds from `/etc/ict/ib-gateway-docker.env` (rendered
-from `IB_USERNAME`/`IB_PASSWORD`) and maps the paper API (container 4002) to
-host loopback `127.0.0.1:7497`. The `provision-ib-gateway` workflow drives it;
-on start the container logs in and waits for the IBKR Mobile 2FA tap.
+The Gateway runs as the **gnzsnz/ib-gateway Docker container** (image
+`ghcr.io/gnzsnz/ib-gateway:stable`, installer `scripts/install_ib_gateway_docker.sh`;
+`deploy/ib-gateway.compose.yml` is kept for reference only — see the env-file
+note below). The hand-rolled native IBC install further down is **superseded**:
+the modern standalone IB Gateway 10.45 installs flat in `~/Jts`, a layout IBC
+refuses ("can't find jars/vmoptions; install the offline version"). The Docker
+image bundles a known IBC-compatible Gateway+IBC in the correct layout, so it
+just works headless.
+
+**Port mapping (the socat relay — PR #1706).** Inside the container, IB
+Gateway binds its paper API on `127.0.0.1:4002` **localhost-only**. A
+connection arriving over Docker's NAT bridge has a non-loopback source IP
+and the Gateway refuses it (the earlier `-p …:4002` map produced
+`API connection failed: TimeoutError()`). The gnzsnz image ships a **socat
+relay** on container port `4004` that accepts the bridged connection and
+forwards it to the Gateway's loopback `4002`. So the installer maps
+**host `127.0.0.1:4002` → container `4004`** (`docker run … -p 127.0.0.1:4002:4004`),
+and the bot dials `127.0.0.1:4002` (`ib_paper.ib_port: 4002`). `docker ps`
+shows `127.0.0.1:4002->4004/tcp`.
+
+**Credentials.** The container reads creds from `/etc/ict/ib-gateway-docker.env`
+(rendered from the `IB_USERNAME` / `IB_PASSWORD` repo secrets). It is loaded
+via `docker run --env-file` (read **literally**), NOT compose `env_file:`,
+because Compose v2 performs `$`-interpolation on env-file values and mangles a
+password containing `$`.
+
+**Login / 2FA.** The `provision-ib-gateway` workflow drives the (re)create.
+The **paper** account logs in straight through — it clicks "Paper Log In" and
+reaches `Login has completed` with **no IBKR Mobile 2FA prompt**. (2FA only
+applies to the live account; see below.) `READ_ONLY_API=no` so the API accepts
+orders. After login the journal shows `Market data farm connection is OK` +
+`HMDS data farm connection is OK` and MES candles flow.
+
+**Provision (Docker — current path):** Claude fires the
+`provision-ib-gateway` workflow (issue label `provision-ib-gateway`,
+body `mode: paper`), which runs `scripts/install_ib_gateway_docker.sh` on
+the VM: it (re)creates the container with the socat port-map above and the
+container logs into the **paper** account with no 2FA. The `IB_USERNAME` /
+`IB_PASSWORD` repo secrets must be set first. A code change to the IB Python
+path (e.g. `ib_client.py`) needs only `pull-and-deploy` (restart trader) —
+**no** gateway re-provision; re-provision only when the container/port-map
+or creds change.
+
+**Paper account 2FA:** none. The paper login completes without an IBKR
+Mobile prompt, so paper go-live and gateway re-provisions are fully
+autonomous. If the Gateway is ever down, MES **pauses gracefully** (candle
+fetch returns `None`) and the live crypto trader is unaffected.
+
+**Live account 2FA:** `U25907316` cannot disable 2FA (funded account). A
+live Gateway needs an IBKR Mobile approval on (re)login; it stays
+`mode: dry_run` until proven and separately promoted (Tier-3). This is the
+one place a physical operator tap is unavoidable.
 
 ## Headless Gateway on the VM (IBC — superseded native install)
+
+> Superseded by the Docker path above; kept for historical record. The
+> modern flat standalone Gateway 10.45 is incompatible with native IBC.
 
 The production bot runs on the OCI live VM, so the IB Gateway must run there
 too (the bot connects to `127.0.0.1:<port>`). A logged-in Gateway is the one
 hard prerequisite for any IB order to execute — no Gateway, no fills.
 
-**Artifacts:**
+**Artifacts (native IBC — no longer used):**
 - `deploy/ib-gateway.service` — systemd unit running IB Gateway under `xvfb`
   via IBC. **Independent of `ict-trader-live`** so bot deploys/restarts never
   re-auth IBKR.
@@ -114,23 +174,6 @@ hard prerequisite for any IB order to execute — no Gateway, no fills.
 - `.github/workflows/provision-ib-gateway.yml` — renders creds from the
   `IB_USERNAME` / `IB_PASSWORD` repo secrets, scps them to the VM (encrypted,
   never in logs), runs the provisioner.
-
-**Provision (operator):**
-1. Add `IB_USERNAME` / `IB_PASSWORD` repo secrets (Settings → Secrets → Actions).
-2. Dispatch `provision-ib-gateway` (`trading_mode=paper`, `ib_port=7497`).
-3. Approve the IBKR Mobile 2FA prompt on your phone when the run completes.
-
-**2FA frequency:** with auto-restart mode (`IbAutoClosedown=no`), IBKR's daily
-restart reuses the auth token silently. A 2FA tap is needed only on the
-**weekly** IBKR re-auth (~Sunday) and on cold starts (VM reboot / Gateway
-maintenance). Because the Gateway unit is isolated from the trader, bot
-deploys do not trigger 2FA. If a tap is missed, the Gateway logs out and MES
-**pauses gracefully** (candle fetch returns `None`); the live crypto trader is
-unaffected.
-
-**Live account 2FA:** `U25907316` cannot disable 2FA (funded account). A live
-Gateway needs the same IBKR Mobile approval; it stays `mode: dry_run` until
-proven and separately promoted (Tier-3).
 
 ## Market data (delayed by default)
 
