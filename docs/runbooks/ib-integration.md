@@ -82,7 +82,20 @@ MES on the paper account:
 4. Keep `ib_live` at `mode: dry_run` until the paper account is proven;
    promote via `set-account-mode` (Tier-3, operator-approved).
 
-## Headless Gateway on the VM (IBC)
+## Headless Gateway on the VM (Docker — current)
+
+The Gateway now runs as the **gnzsnz/ib-gateway Docker container** (compose at
+`deploy/ib-gateway.compose.yml`, installer `scripts/install_ib_gateway_docker.sh`).
+The hand-rolled native IBC install below is **superseded**: the modern
+standalone IB Gateway 10.45 installs flat in `~/Jts`, a layout IBC refuses
+("can't find jars/vmoptions; install the offline version"). The Docker image
+bundles a known IBC-compatible Gateway+IBC in the correct layout, so it just
+works headless. It reads creds from `/etc/ict/ib-gateway-docker.env` (rendered
+from `IB_USERNAME`/`IB_PASSWORD`) and maps the paper API (container 4002) to
+host loopback `127.0.0.1:7497`. The `provision-ib-gateway` workflow drives it;
+on start the container logs in and waits for the IBKR Mobile 2FA tap.
+
+## Headless Gateway on the VM (IBC — superseded native install)
 
 The production bot runs on the OCI live VM, so the IB Gateway must run there
 too (the bot connects to `127.0.0.1:<port>`). A logged-in Gateway is the one

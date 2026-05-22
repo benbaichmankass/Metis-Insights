@@ -24,6 +24,14 @@
 Description=IB Gateway (headless, IBC) for MES/Interactive Brokers
 After=network-online.target
 Wants=network-online.target
+# Lockout safety: cap login attempts. An unapproved IBKR 2FA must NOT loop —
+# repeated failed logins can lock the IBKR account. Allow at most 3 starts per
+# day; after that systemd refuses to restart and the unit stays failed until
+# `systemctl reset-failed ib-gateway.service` (provision_ib_gateway.sh runs
+# this before each deliberate (re)start, e.g. when the operator is ready to
+# approve the 2FA).
+StartLimitIntervalSec=86400
+StartLimitBurst=3
 
 [Service]
 Type=simple
@@ -40,8 +48,12 @@ Environment=DISPLAY=:1
 # installed Gateway version and execs IBC's ibcstart.sh with the required
 # --gateway/--mode/--ibc-ini args (calling ibcstart.sh bare exits immediately).
 ExecStart=/usr/bin/xvfb-run -n 1 -s "-screen 0 1024x768x24" /home/ubuntu/ict-trading-bot/scripts/ib_gateway_start.sh
-Restart=always
-RestartSec=30
+# on-failure (not always) + slow RestartSec + the [Unit] start-limit cap means
+# an unapproved 2FA produces at most a few login attempts, never an overnight
+# loop that could lock the IBKR account. A successful login holds the process
+# open; IBKR's daily restart is handled inside the Gateway (IbAutoClosedown=no).
+Restart=on-failure
+RestartSec=120
 # Give the Gateway time to come up + auth before systemd considers it failed.
 TimeoutStartSec=180
 

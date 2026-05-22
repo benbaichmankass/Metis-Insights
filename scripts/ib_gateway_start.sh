@@ -45,6 +45,26 @@ if [ -z "${VERSION}" ]; then
   exit 5
 fi
 
+# IBC resolves jars / ibgateway.vmoptions / .install4j under
+# $TWS_PATH/$VERSION/, but the modern standalone installer lays everything FLAT
+# in $TWS_PATH (version only in the .desktop name). Bridge with a symlink
+# $TWS_PATH/$VERSION -> $TWS_PATH so all of them resolve. Force-(re)create it
+# robustly: only touch it when it is absent or already a symlink (never clobber
+# a real directory).
+if [ -d "${TWS_PATH}/jars" ]; then
+  if [ -L "${TWS_PATH}/${VERSION}" ] || [ ! -e "${TWS_PATH}/${VERSION}" ]; then
+    ln -sfn "${TWS_PATH}" "${TWS_PATH}/${VERSION}" 2>/dev/null || true
+  fi
+fi
+
+# Layout diagnostics (printed every start so the provision journal shows the
+# real on-disk state — these failures are pre-login, so safe to introspect).
+echo "[ib_gateway_start] ${TWS_PATH} contents: $(ls -1 "${TWS_PATH}" 2>/dev/null | tr '\n' ' ')"
+echo "[ib_gateway_start] ${TWS_PATH}/${VERSION} -> $(readlink "${TWS_PATH}/${VERSION}" 2>/dev/null || echo '(not a symlink)')"
+for f in jars ibgateway.vmoptions .install4j; do
+  echo "[ib_gateway_start]   ${VERSION}/${f}: $([ -e "${TWS_PATH}/${VERSION}/${f}" ] && echo present || echo MISSING)"
+done
+
 echo "[ib_gateway_start] launching IB Gateway v${VERSION} mode=${TRADING_MODE} ibc=${IBC_PATH}"
 exec "${IBC_PATH}/scripts/ibcstart.sh" "${VERSION}" --gateway \
   "--mode=${TRADING_MODE}" \

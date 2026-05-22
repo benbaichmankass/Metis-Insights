@@ -1,0 +1,34 @@
+# Headless IB Gateway via the maintained gnzsnz/ib-gateway image.
+#
+# !!! DO NOT USE THIS COMPOSE FILE TO START THE GATEWAY — reference only. !!!
+# The production path is scripts/install_ib_gateway_docker.sh (`docker run
+# --env-file`). Compose v2 performs $-interpolation on `env_file:` values, which
+# MANGLES a password containing '$' (it expands "$Word" as a shell variable and
+# blanks it → wrong password → failed logins, and once leaked the fragment).
+# `docker run --env-file` reads the file LITERALLY. This file is retained only
+# to document the image + port topology.
+#
+# Replaces the hand-rolled native IBC install: the modern standalone IB Gateway
+# 10.45 lays its files out flat in ~/Jts, a layout IBC refuses ("can't find
+# jars/vmoptions; install the offline version"). This image bundles a
+# known-IBC-compatible Gateway + IBC in the correct layout + xvfb, so it just
+# works headless. Credentials + settings come from /etc/ict/ib-gateway-docker.env
+# (rendered from the IB_USERNAME/IB_PASSWORD repo secrets — never committed).
+#
+# 2FA: on start the container logs into IBKR and waits for the IBKR Mobile tap.
+# The API is bound to host loopback only (127.0.0.1), never the network.
+services:
+  ib-gateway:
+    image: ghcr.io/gnzsnz/ib-gateway:stable
+    container_name: ib-gateway
+    restart: unless-stopped
+    env_file:
+      - /etc/ict/ib-gateway-docker.env
+    ports:
+      # Paper API: host loopback 4002 → container 4004 (the socat relay that
+      # accepts non-localhost and forwards to the Gateway's localhost-only
+      # 4002), matching config/accounts.yaml ib_paper.ib_port. Mapping straight
+      # to container 4002 reaches the Gateway's localhost-only port and the API
+      # handshake times out. (Live would be host 4001 → container 4003.)
+      - "127.0.0.1:4002:4004"
+    stop_grace_period: 30s

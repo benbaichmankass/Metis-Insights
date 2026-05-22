@@ -166,6 +166,7 @@ class IBClient:
         self._ib_factory = _ib_factory
         self._ib: Any = None
         self._contract: Any = None
+        self._loop: Any = None  # persistent asyncio loop the IB binds to
 
     # ------------------------------------------------------------------
     # Connection lifecycle
@@ -196,6 +197,14 @@ class IBClient:
         Raises :class:`IBConnectionError` when the Gateway is unreachable
         (e.g. not running, wrong port, or the clientId is taken).
         """
+        # Re-assert the loop FIRST, on every call — including the cached-return
+        # path below. ib_insync resolves the loop afresh on each sync call, and
+        # other code (e.g. Telegram alerts via asyncio.run) sets the thread's
+        # current loop to None on exit, so a cached connection's next request
+        # would otherwise raise "There is no current event loop in thread
+        # 'MainThread'". _ensure_event_loop re-asserts THIS client's persistent
+        # loop (the one the IB is bound to) so every downstream call resolves it.
+        self._ensure_event_loop()
         if self._ib is not None and self._is_connected(self._ib):
             return self._ib
         ib = self._new_ib()
@@ -216,6 +225,35 @@ class IBClient:
             ) from exc
         self._ib = ib
         return ib
+
+    def _ensure_event_loop(self) -> None:
+        """Make this client's persistent asyncio loop the thread's current loop.
+
+        ib_insync resolves the event loop afresh on every sync call (connect,
+        qualifyContracts, reqHistoricalData, …) via
+        ``asyncio.get_event_loop_policy().get_event_loop()``. On Python 3.10+ a
+        synchronous worker thread has no loop by default, and — worse — any code
+        in the process that runs ``asyncio.run(...)`` (e.g. Telegram alerts)
+        sets the thread's current loop to None on exit. Either case makes the
+        NEXT ib_insync call raise "There is no current event loop in thread
+        'MainThread'".
+
+        We keep ONE persistent loop per client — the loop the IB instance is
+        built on — and re-assert it as current. Re-using the SAME loop (never a
+        fresh one once the IB exists) is essential: the IB's socket transport
+        lives on it, so dispatching a request on a different loop would hang
+        instead of returning bars.
+        """
+        import asyncio
+        try:
+            # A loop already running on this thread is always correct to use.
+            asyncio.get_running_loop()
+            return
+        except RuntimeError:
+            pass
+        if self._loop is None or self._loop.is_closed():
+            self._loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self._loop)
 
     @staticmethod
     def _is_connected(ib: Any) -> bool:

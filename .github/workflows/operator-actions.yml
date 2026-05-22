@@ -64,6 +64,7 @@ on:
         type: choice
         options:
           - status-check
+          - gateway-logs
           - pull-latest-logs
           - pull-and-deploy
           - restart-bot-service
@@ -263,7 +264,7 @@ jobs:
         run: |
           set -euo pipefail
           case "${ACTION}" in
-            status-check|pull-latest-logs|inspect-closed-pnl|bybit-account-audit|strategy-performance-audit|monitor-miss-analysis|vwap-backtest-sweep)
+            status-check|gateway-logs|pull-latest-logs|inspect-closed-pnl|bybit-account-audit|strategy-performance-audit|monitor-miss-analysis|vwap-backtest-sweep)
               echo "tier=1" >>"$GITHUB_ENV"
               ;;
             pull-and-deploy|restart-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|enable-m5-consumer|disable-m5-consumer|setup-cloudflare-tunnel|teardown-cloudflare-tunnel|setup-named-cloudflare-tunnel|teardown-named-cloudflare-tunnel|setup-tailscale-funnel|teardown-tailscale-funnel|backfill-pnl-nulls|backfill-orphan-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|rebuild-pnl-from-bybit|backfill-shadow-predictions|set-account-mode|enable-mes|disable-mes|fix-data-dir|rotate-account-keys|init-diag-token)
@@ -380,6 +381,7 @@ jobs:
           # the script name resolved from the validated `ACTION`.
           case "${ACTION}" in
             status-check)                       SCRIPT="status_check.sh" ;;
+            gateway-logs)                       SCRIPT="gateway_logs.sh" ;;
             pull-latest-logs)                   SCRIPT="pull_logs.sh" ;;
             pull-and-deploy)                    SCRIPT="pull_and_deploy.sh" ;;
             restart-bot-service)                SCRIPT="restart_bot.sh" ;;
