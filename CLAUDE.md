@@ -195,6 +195,13 @@ decides whether to intervene.
 - **Every rejection is its own Telegram ping.** Not aggregate.
 - **Boot always starts the trader live (per YAML).** No
   refuse-to-start logic.
+- **No second gate; no feature defaults to off.** `mode:` is the only
+  runtime switch. Never hide a capability behind a separate
+  default-off `*_ENABLED` flag — that's a second gate that silently
+  strands configured capability (the 2026-05-22 MES case: `ib_paper`
+  was `mode: live` with all 3 strategies, but `MULTI_SYMBOL_ENABLED`
+  defaulted off so MES never traded). What accounts.yaml /
+  strategies.yaml declare, runs — gated only by `mode:`.
 
 Full text + enforcement: [`docs/CLAUDE-RULES-CANONICAL.md`](docs/CLAUDE-RULES-CANONICAL.md) § Prime Directive.
 Architecture contract: [`docs/ARCHITECTURE-CANONICAL.md`](docs/ARCHITECTURE-CANONICAL.md) § Mode Mutation Contract.

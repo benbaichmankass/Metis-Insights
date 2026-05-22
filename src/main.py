@@ -367,35 +367,71 @@ def _run_symbol_tick(settings: dict, exchange_client, telegram_client) -> dict:
     return result
 
 
-def _resolve_tick_symbols(settings: dict) -> list:
-    """Symbols to run this tick.
+# Per-exchange default instrument when a configured account omits the
+# ``symbols`` field in accounts.yaml. Keeps an account trading its natural
+# instrument rather than nothing.
+_EXCHANGE_DEFAULT_SYMBOL = {
+    "bybit": "BTCUSDT",
+    "interactive_brokers": "MES",
+}
 
-    Default: ``[settings["SYMBOL"]]`` — single symbol, byte-identical to the
-    pre-multi-symbol behaviour. Multi-symbol only activates when
-    ``MULTI_SYMBOL_ENABLED`` is set (the MES switch); then ``SYMBOLS`` (a
-    comma list or list) is read and the primary ``SYMBOL`` is always
-    included. This is the orchestration flag that lets one process trade
-    BTCUSDT (Bybit) and MES (IB) in the same tick.
+
+def _resolve_tick_symbols(settings: dict) -> list:
+    """Symbols to run this tick — derived from configured accounts.
+
+    ``config/accounts.yaml`` is the single source of truth: the tick loop
+    trades the union of every *configured* account's ``symbols`` (falling
+    back to the per-exchange default when an account omits the field),
+    restricted to accounts that actually trade (an explicit
+    ``strategies: []`` opts an account out; ``None`` / non-empty are
+    included). So one process trades BTCUSDT (Bybit) and MES (IB) whenever
+    those accounts are configured.
+
+    There is intentionally **no enable flag**. Per the "one switch per
+    account" rule, ``mode: live|dry_run`` is the only runtime gate — a
+    ``dry_run`` account still generates signals (logged, never executed),
+    and the symbol set never depends on a separate on/off env. The
+    previous ``MULTI_SYMBOL_ENABLED`` env was a forbidden second gate and
+    has been removed.
+
+    Best-effort: the primary ``SYMBOL`` is always included, and any
+    account-load failure falls back to ``[primary]`` so a config error can
+    never empty the tick (defence-in-depth; preserves single-symbol
+    behaviour).
     """
     primary = settings.get("SYMBOL", settings.get("symbol", "BTCUSDT"))
-    enabled = str(os.environ.get("MULTI_SYMBOL_ENABLED", "false")).strip().lower() in (
-        "true", "1", "yes", "on",
-    )
-    if not enabled:
+    try:
+        from src.units.accounts import load_accounts
+
+        seen: set = set()
+        out: list = []
+        if primary:
+            seen.add(primary)
+            out.append(primary)
+        for acct in load_accounts():
+            if not getattr(acct, "configured", True):
+                continue
+            strategies = getattr(acct, "strategies", None)
+            if strategies is not None and len(strategies) == 0:
+                continue  # explicit opt-out — account trades nothing
+            syms = list(getattr(acct, "symbols", None) or [])
+            if not syms:
+                default = _EXCHANGE_DEFAULT_SYMBOL.get(
+                    str(getattr(acct, "exchange", "") or "").lower()
+                )
+                syms = [default] if default else []
+            for s in syms:
+                s = str(s).strip()
+                if s and s not in seen:
+                    seen.add(s)
+                    out.append(s)
+        return out or [primary]
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "_resolve_tick_symbols: account-derived symbols failed (%s); "
+            "single-symbol fallback to %s", exc, primary,
+        )
         return [primary]
-    raw = settings.get("SYMBOLS") or os.environ.get("SYMBOLS") or ""
-    if isinstance(raw, (list, tuple)):
-        syms = [str(s).strip() for s in raw if str(s).strip()]
-    else:
-        syms = [s.strip() for s in str(raw).split(",") if s.strip()]
-    if primary and primary not in syms:
-        syms = [primary] + syms
-    seen, out = set(), []
-    for s in syms:
-        if s not in seen:
-            seen.add(s)
-            out.append(s)
-    return out or [primary]
 
 
 def _exchange_for_symbol(symbol: str):

@@ -892,10 +892,10 @@ class TestQtylessSignalRoutesToMultiAccountDispatch:
         # Stub strategy-monocle gates added after this test was authored — they
         # would otherwise intercept dispatch before it reaches multi_account_execute.
         monkeypatch.setattr(
-            "src.runtime.pipeline._has_open_package_for_strategy", lambda s: None
+            "src.runtime.pipeline._has_open_package_for_strategy", lambda *a, **k: None
         )
         monkeypatch.setattr(
-            "src.runtime.pipeline._recent_refusal_for_strategy", lambda s: None
+            "src.runtime.pipeline._recent_refusal_for_strategy", lambda *a, **k: None
         )
 
         settings = {

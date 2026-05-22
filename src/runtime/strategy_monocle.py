@@ -41,10 +41,12 @@ def _refusal_cooldown_seconds() -> int:
     return v if v >= 0 else _DEFAULT_REFUSAL_COOLDOWN_SECONDS
 
 
-def _has_open_package_for_strategy(strategy_name: Optional[str]) -> Optional[str]:
+def _has_open_package_for_strategy(
+    strategy_name: Optional[str], symbol: Optional[str] = None
+) -> Optional[str]:
     """Strategy-monocle gate: return the order_package_id of an existing
-    open package for *strategy_name*, or ``None`` when no open package
-    exists.
+    open package for *strategy_name* (scoped to *symbol* when given), or
+    ``None`` when no open package exists.
 
     Operator directive 2026-05-03: a strategy may have **one** open
     package globally — across all accounts that follow it. Once a
@@ -52,6 +54,12 @@ def _has_open_package_for_strategy(strategy_name: Optional[str]) -> Optional[str
     that package via ``order_monitor`` until SL/TP hits or the
     strategy decides to close (PRs 2 + 3 of this sprint wire the
     close path).
+
+    Multi-symbol (2026-05-22): "one open package per strategy" is
+    **per instrument**. Pass ``symbol`` so an open BTCUSDT package
+    does not suppress an MES entry for the same strategy (and vice
+    versa). When ``symbol`` is None the query keeps its legacy
+    strategy-global scope (single-symbol callers / tests).
 
     Best-effort — a DB-read failure returns ``None`` (i.e. "no open
     package known"), which means the dispatcher proceeds. The risk
@@ -90,15 +98,15 @@ def _has_open_package_for_strategy(strategy_name: Optional[str]) -> Optional[str
         # gate-blocking turns the rejection cadence from 1/min into
         # 1 per 5-min sweep window.
         rows = db.get_order_packages_by_strategy(
-            strategy_name, status="open", limit=1,
+            strategy_name, status="open", limit=1, symbol=symbol,
         )
         if rows:
             return str(rows[0].get("order_package_id") or "")
         return None
     except Exception as exc:  # noqa: BLE001
         logger.warning(
-            "_has_open_package_for_strategy(%s): DB read failed — %s",
-            strategy_name, exc,
+            "_has_open_package_for_strategy(%s, symbol=%s): DB read failed — %s",
+            strategy_name, symbol, exc,
         )
         return None
 
@@ -106,6 +114,7 @@ def _has_open_package_for_strategy(strategy_name: Optional[str]) -> Optional[str
 def _recent_refusal_for_strategy(
     strategy_name: Optional[str],
     cooldown_seconds: Optional[int] = None,
+    symbol: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
     """Return ``{"order_package_id", "age_seconds", "cooldown_seconds"}``
     when *strategy_name* has a ``status='rejected'`` order_packages row
@@ -145,7 +154,7 @@ def _recent_refusal_for_strategy(
         )
         db = Database(db_path=db_path)
         rows = db.get_order_packages_by_strategy(
-            strategy_name, status="rejected", limit=1,
+            strategy_name, status="rejected", limit=1, symbol=symbol,
         )
         if not rows:
             return None

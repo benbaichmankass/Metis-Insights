@@ -51,11 +51,11 @@ def tmp_journal(tmp_path, monkeypatch):
 
 
 def _insert_pkg(db, *, pkg_id, strategy="vwap", status="open",
-                linked_trade_id=None):
+                linked_trade_id=None, symbol="BTCUSDT"):
     db.insert_order_package({
         "order_package_id": pkg_id,
         "strategy_name": strategy,
-        "symbol": "BTCUSDT",
+        "symbol": symbol,
         "direction": "long",
         "entry": 80_000.0,
         "sl": 79_500.0,
@@ -199,3 +199,45 @@ def test_mix_unlinked_and_linked_both_block(tmp_journal):
                 linked_trade_id=99)
     result = _has_open_package_for_strategy("vwap")
     assert result in {"pkg-unlinked", "pkg-linked"}
+
+
+# ---------------------------------------------------------------------------
+# Multi-symbol (2026-05-22): "one open package per strategy" is per instrument
+# ---------------------------------------------------------------------------
+#
+# Before symbol-scoping, an open BTCUSDT package suppressed an MES entry for
+# the same strategy (and vice versa) — the cross-contamination the multi-
+# symbol mirror has to avoid. The gate now scopes by symbol when one is
+# passed, while ``symbol=None`` keeps the legacy strategy-global scope.
+
+
+def test_open_btc_package_does_not_block_mes(tmp_journal):
+    """An open BTCUSDT vwap package must NOT block an MES vwap entry."""
+    _insert_pkg(tmp_journal, pkg_id="pkg-btc", strategy="vwap",
+                linked_trade_id=1, symbol="BTCUSDT")
+    assert _has_open_package_for_strategy("vwap", "MES") is None
+
+
+def test_symbol_scoped_gate_blocks_matching_symbol(tmp_journal):
+    """The same open BTCUSDT package still blocks a BTCUSDT entry."""
+    _insert_pkg(tmp_journal, pkg_id="pkg-btc", strategy="vwap",
+                linked_trade_id=1, symbol="BTCUSDT")
+    assert _has_open_package_for_strategy("vwap", "BTCUSDT") == "pkg-btc"
+
+
+def test_per_symbol_packages_are_independent(tmp_journal):
+    """BTC and MES packages for the same strategy are tracked separately."""
+    _insert_pkg(tmp_journal, pkg_id="pkg-btc", strategy="vwap",
+                linked_trade_id=1, symbol="BTCUSDT")
+    _insert_pkg(tmp_journal, pkg_id="pkg-mes", strategy="vwap",
+                linked_trade_id=2, symbol="MES")
+    assert _has_open_package_for_strategy("vwap", "BTCUSDT") == "pkg-btc"
+    assert _has_open_package_for_strategy("vwap", "MES") == "pkg-mes"
+
+
+def test_symbol_none_keeps_global_scope(tmp_journal):
+    """Omitting symbol preserves the legacy strategy-global behaviour."""
+    _insert_pkg(tmp_journal, pkg_id="pkg-mes", strategy="vwap",
+                linked_trade_id=2, symbol="MES")
+    # No symbol → any open package for the strategy blocks (legacy).
+    assert _has_open_package_for_strategy("vwap") == "pkg-mes"

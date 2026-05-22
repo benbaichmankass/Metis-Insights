@@ -73,7 +73,7 @@ def test_order_package_long_sl_is_below_entry(monkeypatch) -> None:
     stop_loss = entry - SL_STD_MULT * std_dev.
     """
     monkeypatch.setattr(
-        "src.units.strategies.vwap._has_open_vwap_package", lambda: False
+        "src.units.strategies.vwap._has_open_vwap_package", lambda *a, **k: False
     )
     monkeypatch.setattr(
         "src.units.strategies.vwap.policy_for_candles", lambda df: dict(_ALLOW_ALL_POLICY)
@@ -95,7 +95,7 @@ def test_order_package_long_sl_is_below_entry(monkeypatch) -> None:
 def test_order_package_short_sl_is_above_entry(monkeypatch) -> None:
     """For a sell signal, sl must be strictly above entry."""
     monkeypatch.setattr(
-        "src.units.strategies.vwap._has_open_vwap_package", lambda: False
+        "src.units.strategies.vwap._has_open_vwap_package", lambda *a, **k: False
     )
     monkeypatch.setattr(
         "src.units.strategies.vwap.policy_for_candles", lambda df: dict(_ALLOW_ALL_POLICY)
@@ -121,7 +121,7 @@ def test_order_package_sl_matches_build_vwap_signal(monkeypatch) -> None:
     it up automatically.
     """
     monkeypatch.setattr(
-        "src.units.strategies.vwap._has_open_vwap_package", lambda: False
+        "src.units.strategies.vwap._has_open_vwap_package", lambda *a, **k: False
     )
     monkeypatch.setattr(
         "src.units.strategies.vwap.policy_for_candles", lambda df: dict(_ALLOW_ALL_POLICY)
@@ -144,7 +144,7 @@ def test_order_package_sl_matches_build_vwap_signal(monkeypatch) -> None:
 def test_atr_floor_sl_distance_gte_atr(monkeypatch) -> None:
     """build_vwap_signal must expose atr/sl_distance in meta and sl_distance >= atr."""
     monkeypatch.setattr(
-        "src.units.strategies.vwap._has_open_vwap_package", lambda: False
+        "src.units.strategies.vwap._has_open_vwap_package", lambda *a, **k: False
     )
     monkeypatch.setattr(
         "src.units.strategies.vwap.policy_for_candles", lambda df: dict(_ALLOW_ALL_POLICY)

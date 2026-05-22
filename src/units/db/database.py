@@ -536,7 +536,8 @@ class Database:
             conn.close()
 
     def get_order_packages_by_strategy(self, strategy_name, *, limit=None,
-                                       status=None, linked_only=False):
+                                       status=None, linked_only=False,
+                                       symbol=None):
         """Return rows filtered by ``strategy_name`` (Rule 4 — package
         logs are queried *by strategy*).
 
@@ -550,6 +551,13 @@ class Database:
                 placed at the broker). Used by the BUG-046 gate so that
                 packages which were logged but never executed do not
                 block new signals.
+            symbol (str): Optional symbol filter. Required for correct
+                multi-symbol behaviour — the strategy-monocle gate must
+                scope "one open package per strategy" to a single
+                instrument, otherwise an open BTCUSDT package would
+                suppress an MES entry for the same strategy (and vice
+                versa). Omitting it preserves the legacy strategy-global
+                scope for single-symbol callers.
 
         Returns:
             list[dict]: Newest-first by ``updated_at``.
@@ -562,6 +570,9 @@ class Database:
             if status is not None:
                 query += " AND status = ?"
                 params.append(status)
+            if symbol is not None:
+                query += " AND symbol = ?"
+                params.append(symbol)
             if linked_only:
                 query += " AND linked_trade_id IS NOT NULL"
             query += " ORDER BY datetime(updated_at) DESC"

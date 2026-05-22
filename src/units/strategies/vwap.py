@@ -648,7 +648,7 @@ def build_vwap_signal(
     }
 
 
-def _has_open_vwap_package() -> bool:
+def _has_open_vwap_package(symbol: Optional[str] = None) -> bool:
     """Best-effort self-suppression check — is there already an open
     + linked vwap order package in the trade journal?
 
@@ -658,6 +658,11 @@ def _has_open_vwap_package() -> bool:
     linked_trade_id wiring regression) doesn't re-open the floodgates
     of duplicate entries every tick. Belt-and-braces, not a
     replacement.
+
+    Multi-symbol (2026-05-22): scope the check to ``symbol`` when given
+    so an open BTCUSDT vwap package never self-suppresses an MES vwap
+    entry (and vice versa). ``None`` keeps the legacy strategy-global
+    scope for single-symbol callers / tests.
 
     Best-effort: any failure (missing DB file, schema mismatch,
     sqlite locked) returns ``False`` so a journal outage degrades
@@ -678,7 +683,7 @@ def _has_open_vwap_package() -> bool:
             return False
         db = Database(db_path=db_path)
         rows = db.get_order_packages_by_strategy(
-            "vwap", status="open", linked_only=True, limit=1,
+            "vwap", status="open", linked_only=True, limit=1, symbol=symbol,
         )
         return bool(rows)
     except Exception:  # noqa: BLE001
@@ -791,7 +796,7 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
     # the order-placement outcome. The pipeline catches this
     # ValueError as "no actionable signal" and records the tick as
     # flat without dispatching the order.
-    if _has_open_vwap_package():
+    if _has_open_vwap_package(symbol):
         raise ValueError(
             "Strategy 'vwap': linked open package already exists; "
             "deferring entry until monitor() closes it."

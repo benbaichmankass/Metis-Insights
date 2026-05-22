@@ -78,9 +78,9 @@ EXPECTED_ACTIONS = {
     "rebuild-pnl-from-bybit": "rebuild_pnl_from_bybit_action.sh",
     "backfill-shadow-predictions": "backfill_shadow_predictions_action.sh",
     "set-account-mode": "set_account_mode.sh",
-    # PR #1656/#1670: Interactive Brokers MES multi-symbol activation toggle.
-    "enable-mes": "set_multi_symbol.sh",
-    "disable-mes": "disable_multi_symbol.sh",
+    # enable-mes / disable-mes removed 2026-05-22 — they flipped a
+    # forbidden second gate (MULTI_SYMBOL_ENABLED). The traded-symbol set
+    # is now derived from accounts.yaml; MES gating is the account `mode:`.
     "fix-data-dir": "fix_data_dir.sh",
     "rotate-account-keys": "rotate_account_keys.sh",
     "init-diag-token": "init_diag_token.sh",
