@@ -45,6 +45,17 @@ if [ -z "${VERSION}" ]; then
   exit 5
 fi
 
+# IBC's offline-layout check looks for jars at $TWS_PATH/$VERSION/jars, but the
+# modern standalone installer lays everything out FLAT in $TWS_PATH (jars at
+# $TWS_PATH/jars, version only in the .desktop name). Bridge with a symlink
+# $TWS_PATH/$VERSION -> $TWS_PATH so $TWS_PATH/$VERSION/jars (and the rest)
+# resolve. Self-referential but only used for direct path lookups, not
+# recursive traversal.
+if [ ! -e "${TWS_PATH}/${VERSION}/jars" ] && [ -d "${TWS_PATH}/jars" ]; then
+  echo "[ib_gateway_start] bridging flat install: ${TWS_PATH}/${VERSION} -> ${TWS_PATH}"
+  ln -sfn "${TWS_PATH}" "${TWS_PATH}/${VERSION}" 2>/dev/null || true
+fi
+
 echo "[ib_gateway_start] launching IB Gateway v${VERSION} mode=${TRADING_MODE} ibc=${IBC_PATH}"
 exec "${IBC_PATH}/scripts/ibcstart.sh" "${VERSION}" --gateway \
   "--mode=${TRADING_MODE}" \
