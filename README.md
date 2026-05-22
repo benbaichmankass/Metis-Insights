@@ -1,6 +1,6 @@
 # ICT Trading Bot
 
-Python-based ICT trading bot for crypto trading workflows, focused on ICT concepts such as fair value gaps (FVG), order blocks (OB), swing structure, market structure shifts, and kill zones.
+Python-based ICT trading bot focused on ICT concepts such as fair value gaps (FVG), order blocks (OB), swing structure, market structure shifts, and kill zones. It runs **multi-symbol across two asset classes at once**: BTCUSDT crypto perps on Bybit and **MES (Micro E-mini S&P 500) futures on Interactive Brokers** — the same three strategies (`turtle_soup`, `vwap`, `ict_scalp_5m`) evaluate both symbols every tick. MES paper trading went live 2026-05-22; see [`docs/runbooks/ib-integration.md`](docs/runbooks/ib-integration.md).
 
 ## Workflow source of truth
 
@@ -33,7 +33,8 @@ supersede when they disagree):
 ## Features
 
 - ICT analysis engine for market structure, swings, FVGs, and order blocks
-- Bybit and Binance exchange connectors present in the codebase
+- Bybit and Binance crypto connectors + an Interactive Brokers connector (`ib_insync`, no API keys — auth is the IB Gateway login session) for MES futures market data and execution
+- Multi-symbol pipeline: per-symbol data routing (`connector_for_symbol`) and a symbol→exchange dispatch gate so BTCUSDT and MES trade side by side without cross-routing
 - Runtime validation for startup safety checks such as `MODE`, `DRY_RUN`, `RISK_PER_TRADE`, and `MAX_QTY`
 - Kill zone scalper pipeline with exchange injection support in the runtime flow
 - Telegram bot commands for status, trade actions, and backtest access

@@ -61,20 +61,21 @@ If a stage is added, removed, or reordered, also update the top-level diagram be
 
 ## Stage 1: Market Data Ingestion
 
-**Files:** `src/exchange/bybit_connector.py`, `src/exchange/binance_connector.py`, `src/runtime/market_data.py`, `src/runtime/liquidity_state.py`
+**Files:** `src/exchange/bybit_connector.py`, `src/exchange/binance_connector.py`, `src/exchange/ib_connector.py` (`IBMarketData`), `src/runtime/market_data.py` (`connector_for_symbol`), `src/runtime/liquidity_state.py`
 
-**Inputs:** Per-tick request from `src/main.py::run_one_tick()` (default tick interval 60s, configurable via `TICK_INTERVAL_SECONDS`); per-symbol configuration from `config/strategies.yaml`.
+**Inputs:** Per-tick request from `src/main.py` (default tick interval 60s, configurable via `TICK_INTERVAL_SECONDS`); the active symbol set (BTCUSDT + MES today) from the multi-symbol orchestrator; per-symbol configuration from `config/strategies.yaml` + `config/instruments.yaml`.
 
-**Outputs:** OHLCV candles (default 5-minute bars) and current tick prices held in cached market-data state, available to all downstream stages within the tick.
+**Outputs:** OHLCV candles (default 5-minute bars) and current tick prices held in cached market-data state, available to all downstream stages within the tick — fetched **per symbol**.
 
-**Description:** The pipeline begins each tick by pulling fresh market data from the configured exchange connectors. Connectors are exchange-specific adapters that normalize REST/websocket responses to the internal candle and tick format consumed by the rest of the pipeline. Cached liquidity state (`liquidity_state.py`) preserves multi-tick context (e.g. running highs/lows) so detection stages don't have to re-derive it every tick.
+**Description:** The pipeline runs **multi-symbol**: each tick it iterates the configured symbols and `connector_for_symbol(symbol)` routes each to the right data source by its `config/instruments.yaml` exchange — BTCUSDT → Bybit, MES → Interactive Brokers (`IBMarketData.get_ohlcv` via `reqHistoricalData`, **delayed** CME bars by default so no paid real-time subscription is needed). Connectors normalize REST/websocket/TWS-API responses to the internal candle and tick format. Cached liquidity state (`liquidity_state.py`) preserves multi-tick context (e.g. running highs/lows) so detection stages don't re-derive it every tick.
 
 **Failure modes:**
 - Exchange API rate limit or 5xx — connector returns empty/stale data; the pipeline logs and skips the tick rather than acting on stale prices.
 - Network partition — same as above; heartbeat (Stage 9) reflects the tick still ran but with no signals.
 - Exchange-side symbol delisting — connector raises and the strategy for that symbol is skipped for the tick.
+- **IB Gateway down / not logged in** — `IBMarketData.get_ohlcv` returns `None`; MES strategies skip the tick gracefully and the live crypto path is unaffected.
 
-**Last verified:** 2026-05-10
+**Last verified:** 2026-05-22 (MES go-live)
 
 ---
 
@@ -172,20 +173,21 @@ If a stage is added, removed, or reordered, also update the top-level diagram be
 
 ## Stage 7: Broker Execution
 
-**Files:** `src/units/accounts/execute.py`, exchange connectors from Stage 1, per-account `mode` field in `config/accounts.yaml`
+**Files:** `src/units/accounts/execute.py` (`_submit_order`), `src/units/accounts/ib_client.py` (`IBClient.place`), exchange connectors from Stage 1, the symbol→exchange dispatch gate in `src/core/coordinator.py`, per-account `mode` field in `config/accounts.yaml`
 
 **Inputs:** Validated orders from Stage 6.
 
 **Outputs:** Live broker order acknowledgements (in `mode: live`) or simulated fills logged with the `dry_run` marker (in `mode: dry_run`). Either way, the result is recorded in the trade journal at Stage 9.
 
-**Description:** Per-account `mode: live | dry_run` in `config/accounts.yaml` is the canonical execution gate. Live mode dispatches to the exchange via the same connectors that fetched the data. Dry-run mode logs the intended order but does not submit; this is how staging and qualification runs work without touching real capital. There is no process-wide live/dry switch — every account is independent, so live and dry can coexist within one bot instance.
+**Description:** Per-account `mode: live | dry_run` in `config/accounts.yaml` is the canonical execution gate. `_submit_order` dispatches by the account's exchange: Bybit (`pybit`) for BTCUSDT, and the `interactive_brokers` branch (`IBClient.place`) for MES futures — a native bracket (market entry + TP limit + SL stop) snapped to the 0.25 tick grid; IB uses no API keys (auth is the Gateway login session). A symbol→exchange dispatch gate ensures a BTCUSDT signal never reaches the MES account and vice-versa. Dry-run mode logs the intended order but does not submit. There is no process-wide live/dry switch — every account is independent, so live and dry coexist within one bot instance (e.g. `ib_paper` live on paper money, `ib_live` held dry_run).
 
 **Failure modes:**
 - Exchange rejects (insufficient margin, symbol halted, etc.) — recorded with the rejection reason; no retry by default.
+- IB Gateway unreachable / API handshake fails — `IBClient.place` raises `IBConnectionError`; the order is refused for that account this tick (crypto unaffected).
 - Network blip mid-submit — order may have landed; reconciliation at the next tick relies on broker fills, not local optimism.
 - `mode` typo in `config/accounts.yaml` — startup config validation rejects unknown values; the bot won't start with an invalid account mode.
 
-**Last verified:** 2026-05-10
+**Last verified:** 2026-05-22 (MES go-live)
 
 ---
 
