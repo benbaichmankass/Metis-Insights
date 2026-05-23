@@ -563,6 +563,66 @@ def _format_entry_grid(out: Dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def run_emit_decisions(df, *, cfg_overrides, timeframe, symbol, warmup_bars,
+                       timeout_bars, cooldown_bars, htf_rule, htf_ema_period,
+                       out_path):
+    """Emit one labeled decision per simulated trade: the signal-time
+    shadow feature_row + the realized outcome (gross/net R, won,
+    exit_reason, entry_time). This is the training feedstock for a
+    backtest-fed gate model (operator directive: train models on the
+    decisions). Signal-time features only — no look-ahead. entry_time is
+    included so downstream training can do walk-forward / OOS splits."""
+    from src.units.strategies.ict_scalp import _build_shadow_feature_row
+    cfg = {"symbol": symbol, "timeframe": timeframe, **cfg_overrides}
+    htf_df = _build_htf_series(df, htf_rule=htf_rule, ema_period=htf_ema_period)
+    window_size = max(int(cfg.get("swing_lookback_bars", 20)),
+                      int(cfg.get("sweep_lookback_bars", 12)),
+                      int(cfg.get("atr_period", 14))) + 10
+    window_size = max(window_size, warmup_bars)
+    rows = 0
+    next_eligible = warmup_bars
+    Path(out_path).parent.mkdir(parents=True, exist_ok=True)
+    with open(out_path, "w", encoding="utf-8") as fh:
+        for i in range(warmup_bars, len(df) - 1):
+            if i < next_eligible:
+                continue
+            window = df.iloc[max(0, i + 1 - window_size): i + 1]
+            per_bar = dict(cfg)
+            if htf_df is not None and "timestamp" in df.columns:
+                hc, he = _htf_values_for_bar(htf_df, bar_ts=df["timestamp"].iloc[i])
+                if hc is not None and he is not None:
+                    per_bar["htf_close"] = hc
+                    per_bar["htf_ema"] = he
+            try:
+                pkg = order_package(per_bar, candles_df=window)
+            except ValueError:
+                continue
+            direction = pkg["direction"]
+            entry = float(pkg["entry"])
+            sl = float(pkg["sl"])
+            tp = float(pkg["tp"])
+            risk = abs(entry - sl)
+            if risk <= 0:
+                continue
+            fr = _build_shadow_feature_row(pkg)
+            res = _simulate_exit(df, start_idx=i + 1, direction=direction,
+                                 sl=sl, tp=tp, timeout_bars=timeout_bars)
+            xp = float(res["exit_price"])
+            r = (xp - entry) / risk if direction == "long" else (entry - xp) / risk
+            fee_r = (FEE_BPS_ROUNDTRIP / 10_000.0) * ((entry + xp) / 2.0) / risk
+            net_r = r - fee_r
+            rec = {**fr, "entry_time": str(df["timestamp"].iloc[i]),
+                   "gross_r": round(r, 4), "net_r": round(net_r, 4),
+                   "won": bool(net_r > 0), "exit_reason": str(res["outcome"])}
+            fh.write(json.dumps(rec, default=str) + "\n")
+            rows += 1
+            next_eligible = int(res["exit_index"]) + 1 + cooldown_bars
+    return {"strategy": "ict_scalp_5m", "symbol": symbol, "timeframe": timeframe,
+            "rows": rows, "out_path": out_path,
+            "data_start": str(df["timestamp"].iloc[0]) if len(df) else None,
+            "data_end": str(df["timestamp"].iloc[-1]) if len(df) else None}
+
+
 def main(argv: List[str]) -> int:
     global FEE_BPS_ROUNDTRIP  # set from --fee-bps-roundtrip after parse
     p = argparse.ArgumentParser(description="Backtest ict_scalp_5m.")
@@ -595,6 +655,10 @@ def main(argv: List[str]) -> int:
     p.add_argument("--displacement", type=float, default=None,
                    help="Override displacement_atr_mult for a single run "
                         "(e.g. 1.6, the S6 robust setting).")
+    p.add_argument("--emit-decisions", default=None, metavar="PATH",
+                   help="Emit per-trade labeled decisions (signal-time "
+                        "feature_row + realized outcome) as JSONL — training "
+                        "feedstock for a backtest-fed gate model.")
     args = p.parse_args(argv[1:])
     FEE_BPS_ROUNDTRIP = args.fee_bps_roundtrip
 
@@ -607,6 +671,21 @@ def main(argv: List[str]) -> int:
     cfg_overrides = {} if args.ignore_yaml else _load_yaml_params()
     if args.displacement is not None:
         cfg_overrides["displacement_atr_mult"] = args.displacement
+
+    if args.emit_decisions:
+        try:
+            out = run_emit_decisions(
+                df, cfg_overrides=cfg_overrides, timeframe=args.timeframe,
+                symbol=args.symbol, warmup_bars=int(args.warmup_bars),
+                timeout_bars=int(args.timeout_bars), cooldown_bars=int(args.cooldown_bars),
+                htf_rule=str(args.htf_rule), htf_ema_period=int(args.htf_ema_period),
+                out_path=args.emit_decisions)
+        except Exception as exc:  # noqa: BLE001
+            print(f"ERROR: emit-decisions failed: {exc}", file=sys.stderr)
+            return 1
+        print(f"emit-decisions: wrote {out['rows']} labeled decisions to "
+              f"{out['out_path']} ({out['data_start']} → {out['data_end']})")
+        return 0
 
     if args.exit_grid:
         try:
