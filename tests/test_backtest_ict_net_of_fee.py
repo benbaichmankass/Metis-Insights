@@ -55,3 +55,41 @@ def test_tight_stop_makes_fee_large_fraction_of_r():
                          _df(), timeframe="5m", symbol="BTCUSDT")
     # Same gross R, but the tight-stop trade pays a bigger fee in R.
     assert tight["total_fee_r"] > wide["total_fee_r"]
+
+
+# --- exit-grid break-even logic (S6 variation sweep) ---
+
+def _bars(rows):
+    return pd.DataFrame(rows, columns=["timestamp", "high", "low", "close"]).assign(
+        timestamp=lambda d: pd.to_datetime(
+            ["2026-01-01T00:00:00Z"] * len(d), utc=True))
+
+
+def test_exit_be_tp_hit():
+    df = _bars([[0, 102.5, 100.1, 102.0]])  # high reaches tp=102
+    r = bt._simulate_exit_be(df, start_idx=0, direction="long", entry=100.0,
+                             sl=99.0, tp=102.0, be_trigger_r=None, timeout_bars=5)
+    assert r["outcome"] == "tp_hit" and r["exit_price"] == 102.0
+
+
+def test_exit_be_sl_hit_no_be():
+    df = _bars([[0, 100.2, 98.9, 99.0]])  # low breaches sl=99
+    r = bt._simulate_exit_be(df, start_idx=0, direction="long", entry=100.0,
+                             sl=99.0, tp=102.0, be_trigger_r=None, timeout_bars=5)
+    assert r["outcome"] == "sl_hit" and r["exit_price"] == 99.0
+
+
+def test_exit_be_moves_to_entry_then_stops():
+    # risk=1; be_trigger_r=0.5 -> arm at 100.5. Bar1 arms (high 101) but
+    # doesn't stop; bar2 low 99.9 <= entry(100) -> be_stop at entry, not -1R.
+    df = _bars([[0, 101.0, 100.2, 100.8], [0, 100.4, 99.9, 100.0]])
+    r = bt._simulate_exit_be(df, start_idx=0, direction="long", entry=100.0,
+                             sl=99.0, tp=103.0, be_trigger_r=0.5, timeout_bars=5)
+    assert r["outcome"] == "be_stop" and r["exit_price"] == 100.0
+
+
+def test_exit_be_timeout():
+    df = _bars([[0, 100.4, 99.6, 100.1], [0, 100.3, 99.7, 100.2]])
+    r = bt._simulate_exit_be(df, start_idx=0, direction="long", entry=100.0,
+                             sl=99.0, tp=103.0, be_trigger_r=None, timeout_bars=1)
+    assert r["outcome"] == "timeout"

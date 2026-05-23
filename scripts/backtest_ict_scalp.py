@@ -384,6 +384,138 @@ def _format_text(summary: Dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+# ----------------------------------------------------------------------
+# Variation sweep (S6): ONE expensive entry pass -> MANY cheap exit
+# variations. Tests whether exit/target logic seriously moves the edge
+# (operator directive 2026-05-23: test many versions per run, not one
+# config over years). Entries use fixed timeout-bar spacing for
+# non-overlap so every variation compares on the SAME entry set — a
+# deliberate approximation (true exit-dependent cooldown would differ
+# per variation and confound the comparison).
+
+def _collect_entries_for_grid(df, cfg, *, warmup_bars, timeout_bars,
+                              htf_rule, htf_ema_period):
+    htf_df = _build_htf_series(df, htf_rule=htf_rule, ema_period=htf_ema_period)
+    window_size = max(int(cfg.get("swing_lookback_bars", 20)),
+                      int(cfg.get("sweep_lookback_bars", 12)),
+                      int(cfg.get("atr_period", 14))) + 10
+    window_size = max(window_size, warmup_bars)
+    entries: List[Dict[str, Any]] = []
+    next_idx = warmup_bars
+    for i in range(warmup_bars, len(df) - 1):
+        if i < next_idx:
+            continue
+        window = df.iloc[max(0, i + 1 - window_size): i + 1]
+        per_bar = dict(cfg)
+        if htf_df is not None and "timestamp" in df.columns:
+            hc, he = _htf_values_for_bar(htf_df, bar_ts=df["timestamp"].iloc[i])
+            if hc is not None and he is not None:
+                per_bar["htf_close"] = hc
+                per_bar["htf_ema"] = he
+        try:
+            pkg = order_package(per_bar, candles_df=window)
+        except ValueError:
+            continue
+        direction = pkg["direction"]
+        entry = float(pkg["entry"])
+        sl = float(pkg["sl"])
+        risk = abs(entry - sl)
+        if risk <= 0:
+            continue
+        entries.append({"i": i, "direction": direction, "entry": entry,
+                        "sl": sl, "risk": risk})
+        next_idx = i + 1 + timeout_bars
+    return entries
+
+
+def _simulate_exit_be(df, *, start_idx, direction, entry, sl, tp,
+                      be_trigger_r, timeout_bars):
+    """SL/TP exit with an optional break-even move: once price reaches
+    be_trigger_r x risk in favor, slide SL to entry. be_trigger_r=None
+    disables BE. SL-first on same-bar ties (pessimistic)."""
+    risk = abs(entry - sl)
+    cur_sl = sl
+    moved = False
+    last = min(len(df) - 1, start_idx + timeout_bars)
+    for j in range(start_idx, last + 1):
+        hi = float(df["high"].iloc[j])
+        lo = float(df["low"].iloc[j])
+        if direction == "long":
+            if be_trigger_r is not None and not moved and hi >= entry + be_trigger_r * risk:
+                cur_sl = entry
+                moved = True
+            if lo <= cur_sl:
+                return {"outcome": "be_stop" if moved else "sl_hit", "exit_index": j, "exit_price": cur_sl}
+            if hi >= tp:
+                return {"outcome": "tp_hit", "exit_index": j, "exit_price": tp}
+        else:
+            if be_trigger_r is not None and not moved and lo <= entry - be_trigger_r * risk:
+                cur_sl = entry
+                moved = True
+            if hi >= cur_sl:
+                return {"outcome": "be_stop" if moved else "sl_hit", "exit_index": j, "exit_price": cur_sl}
+            if lo <= tp:
+                return {"outcome": "tp_hit", "exit_index": j, "exit_price": tp}
+    return {"outcome": "timeout", "exit_index": last, "exit_price": float(df["close"].iloc[last])}
+
+
+def run_exit_grid(df, *, cfg_overrides, timeframe, symbol, warmup_bars,
+                  timeout_bars, htf_rule, htf_ema_period, tp_grid, be_grid):
+    cfg = {"symbol": symbol, "timeframe": timeframe, **cfg_overrides}
+    entries = _collect_entries_for_grid(
+        df, cfg, warmup_bars=warmup_bars, timeout_bars=timeout_bars,
+        htf_rule=htf_rule, htf_ema_period=htf_ema_period)
+    grid: List[Dict[str, Any]] = []
+    for tp_r in tp_grid:
+        for be in be_grid:
+            trades: List[Trade] = []
+            for e in entries:
+                d, entry, risk, sl = e["direction"], e["entry"], e["risk"], e["sl"]
+                tp = entry + tp_r * risk if d == "long" else entry - tp_r * risk
+                res = _simulate_exit_be(df, start_idx=e["i"] + 1, direction=d,
+                                        entry=entry, sl=sl, tp=tp,
+                                        be_trigger_r=be, timeout_bars=timeout_bars)
+                xp = float(res["exit_price"])
+                r = (xp - entry) / risk if d == "long" else (entry - xp) / risk
+                trades.append(Trade(
+                    entry_index=e["i"], entry_time=df["timestamp"].iloc[e["i"]],
+                    direction=d, entry=entry, sl=sl, tp=tp, risk=risk,
+                    exit_index=int(res["exit_index"]),
+                    exit_time=df["timestamp"].iloc[res["exit_index"]],
+                    exit_price=xp, outcome=str(res["outcome"]),
+                    r_multiple=round(r, 4)))
+            s = _summarize(trades, df, timeframe=timeframe, symbol=symbol)
+            grid.append({
+                "tp_at_r": tp_r, "be_trigger_r": be,
+                "total_trades": s["total_trades"], "win_rate_pct": s["win_rate_pct"],
+                "total_r": s["total_r"], "net_total_r": s["net_total_r"],
+                "net_expectancy_r": s["net_expectancy_r"],
+                "total_fee_r": s["total_fee_r"],
+                "max_drawdown_r": s["max_drawdown_r"], "by_outcome": s["by_outcome"]})
+    grid_sorted = sorted(grid, key=lambda g: g["net_total_r"], reverse=True)
+    return {
+        "strategy": "ict_scalp_5m", "symbol": symbol, "timeframe": timeframe,
+        "entries_pool": len(entries), "fee_bps_roundtrip": FEE_BPS_ROUNDTRIP,
+        "data_start": str(df["timestamp"].iloc[0]) if len(df) else None,
+        "data_end": str(df["timestamp"].iloc[-1]) if len(df) else None,
+        "grid": grid, "grid_ranked_by_net": grid_sorted, "run_date": str(date.today())}
+
+
+def _format_exit_grid(out: Dict[str, Any]) -> str:
+    lines = [
+        f"ict_scalp exit-grid — {out['symbol']} {out['timeframe']}  "
+        f"({out['data_start']} → {out['data_end']})",
+        f"  entries pool: {out['entries_pool']}  fee {out['fee_bps_roundtrip']}bps rt",
+        f"  {'tp_at_r':>7} {'be':>5} {'trades':>7} {'wr%':>6} {'gross_r':>9} {'net_r':>9} {'net_exp':>8} {'maxdd':>7}",
+    ]
+    for g in out["grid_ranked_by_net"]:
+        be = "off" if g["be_trigger_r"] is None else str(g["be_trigger_r"])
+        lines.append(
+            f"  {g['tp_at_r']:>7} {be:>5} {g['total_trades']:>7} {g['win_rate_pct']:>6} "
+            f"{g['total_r']:>9} {g['net_total_r']:>9} {g['net_expectancy_r']:>8} {g['max_drawdown_r']:>7}")
+    return "\n".join(lines)
+
+
 def main(argv: List[str]) -> int:
     global FEE_BPS_ROUNDTRIP  # set from --fee-bps-roundtrip after parse
     p = argparse.ArgumentParser(description="Backtest ict_scalp_5m.")
@@ -407,6 +539,9 @@ def main(argv: List[str]) -> int:
                    help="Round-trip taker fee bps for net-of-fee R (default 7.5; 0=gross).")
     p.add_argument("--ignore-yaml", action="store_true",
                    help="Ignore config/strategies.yaml; use unit defaults only.")
+    p.add_argument("--exit-grid", action="store_true",
+                   help="Variation sweep: one entry pass x many exit variations "
+                        "(tp_at_r x break-even), net-of-fee, ranked by net R.")
     args = p.parse_args(argv[1:])
     FEE_BPS_ROUNDTRIP = args.fee_bps_roundtrip
 
@@ -417,6 +552,27 @@ def main(argv: List[str]) -> int:
         return 1
 
     cfg_overrides = {} if args.ignore_yaml else _load_yaml_params()
+
+    if args.exit_grid:
+        try:
+            out = run_exit_grid(
+                df, cfg_overrides=cfg_overrides, timeframe=args.timeframe,
+                symbol=args.symbol, warmup_bars=int(args.warmup_bars),
+                timeout_bars=int(args.timeout_bars), htf_rule=str(args.htf_rule),
+                htf_ema_period=int(args.htf_ema_period),
+                tp_grid=[1.0, 1.5, 2.0, 2.5, 3.0], be_grid=[None, 0.5, 1.0])
+        except Exception as exc:  # noqa: BLE001
+            print(f"ERROR: exit-grid failed: {exc}", file=sys.stderr)
+            return 1
+        print(_format_exit_grid(out))
+        if args.json_out:
+            payload = json.dumps(out, indent=2, default=str)
+            if args.json_out == "-":
+                print(payload)
+            else:
+                Path(args.json_out).write_text(payload)
+                print(f"\nJSON written to {args.json_out}", file=sys.stderr)
+        return 0
 
     try:
         summary = run_backtest(
