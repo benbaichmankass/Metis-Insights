@@ -592,6 +592,9 @@ def main(argv: List[str]) -> int:
     p.add_argument("--entry-grid", action="store_true",
                    help="Entry-selectivity sweep: vary displacement_atr_mult "
                         "(full pass each), net-of-fee — tests over-trading.")
+    p.add_argument("--displacement", type=float, default=None,
+                   help="Override displacement_atr_mult for a single run "
+                        "(e.g. 1.6, the S6 robust setting).")
     args = p.parse_args(argv[1:])
     FEE_BPS_ROUNDTRIP = args.fee_bps_roundtrip
 
@@ -602,6 +605,8 @@ def main(argv: List[str]) -> int:
         return 1
 
     cfg_overrides = {} if args.ignore_yaml else _load_yaml_params()
+    if args.displacement is not None:
+        cfg_overrides["displacement_atr_mult"] = args.displacement
 
     if args.exit_grid:
         try:
