@@ -44,14 +44,23 @@ from typing import Any, Dict, List, Optional
 import yaml
 from fastapi import APIRouter
 
+from src.utils.paths import runtime_logs_dir
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/bot", tags=["bot"])
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
 _STRATEGIES_YAML = _REPO_ROOT / "config" / "strategies.yaml"
+_ACCOUNTS_YAML = _REPO_ROOT / "config" / "accounts.yaml"
 _CHANGELOG_JSON = _REPO_ROOT / "config" / "strategy_changelog.json"
 _DB_PATH = Path(os.environ.get("TRADE_JOURNAL_DB", str(_REPO_ROOT / "trade_journal.db")))
+
+# Freshness window (seconds) for treating the pipeline's last tick as
+# "running". The trader writes runtime_status.json every tick and the
+# heartbeat every 60s; 5 min is comfortably beyond a normal tick gap
+# without masking a genuine stall. Mirrors the dashboard's intent.
+_TICK_FRESH_S = 300
 
 _DESCRIPTIONS: Dict[str, Dict[str, str]] = {
     "vwap": {
@@ -209,13 +218,76 @@ def _empty_stats() -> Dict[str, Any]:
     }
 
 
+def _read_runtime_status() -> Dict[str, Any]:
+    """The pipeline's per-tick runtime_status.json (live view of what's running).
+
+    Carries ``strategies`` (the names the running process actually loaded),
+    ``live`` (per-account live/dry), and ``last_tick_utc``. Empty dict if
+    the file is missing/unreadable (pipeline never wrote one yet)."""
+    path = runtime_logs_dir() / "runtime_status.json"
+    if not path.exists():
+        return {}
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        logger.warning("strategies: runtime_status read failed")
+        return {}
+    return raw if isinstance(raw, dict) else {}
+
+
+def _account_routing() -> Dict[str, List[str]]:
+    """Map each strategy → the account ids that route it (accounts.yaml).
+
+    This is the source of truth for "which accounts run this strategy" —
+    the coordinator's per-account ``strategies`` filter (see the bot's
+    accounts.yaml). Returns {strategy_name: [account_id, ...]}."""
+    if not _ACCOUNTS_YAML.exists():
+        return {}
+    try:
+        with _ACCOUNTS_YAML.open(encoding="utf-8") as fh:
+            raw = yaml.safe_load(fh) or {}
+    except Exception:  # allow-silent: best-effort yaml read; logs + safe default
+        logger.exception("strategies: failed to load accounts.yaml")
+        return {}
+    routing: Dict[str, List[str]] = {}
+    for aid, acfg in (raw.get("accounts") or {}).items():
+        for sname in ((acfg or {}).get("strategies") or []):
+            routing.setdefault(str(sname), []).append(str(aid))
+    return routing
+
+
+def _tick_age_seconds(last_tick_utc: Any) -> Optional[float]:
+    if not isinstance(last_tick_utc, str):
+        return None
+    try:
+        ts = datetime.fromisoformat(last_tick_utc.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return (datetime.now(timezone.utc) - ts).total_seconds()
+
+
 @router.get("/strategies")
 async def get_strategies() -> Dict[str, Any]:
-    """Return config, stats, descriptions, and changelog for every strategy."""
+    """Return config, live-runtime status, stats, descriptions, and changelog.
+
+    "Live runtime" surfaces what the bot is **actually** running, not just
+    the static YAML: ``loaded`` (the running process reported this strategy
+    in its per-tick runtime_status), ``running`` (loaded AND the last tick
+    is fresh), and ``accounts`` (which accounts route the strategy, with
+    each account's live/dry state). This is what makes the Strategies tab a
+    transparent view of the VM rather than a config echo."""
     strategies_cfg = _load_strategies_yaml()
     changelog = _load_changelog()
     stats_by_name = _query_stats(_DB_PATH)
+    rt = _read_runtime_status()
+    routing = _account_routing()
     now = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+    loaded_set = {str(s) for s in (rt.get("strategies") or [])}
+    live_map = rt.get("live") if isinstance(rt.get("live"), dict) else {}
+    last_tick = rt.get("last_tick_utc")
+    tick_age = _tick_age_seconds(last_tick)
+    bot_running = tick_age is not None and tick_age <= _TICK_FRESH_S
 
     out: List[Dict[str, Any]] = []
     for name, cfg in strategies_cfg.items():
@@ -223,9 +295,18 @@ async def get_strategies() -> Dict[str, Any]:
             continue
         stats = stats_by_name.get(name, _empty_stats())
         desc = _DESCRIPTIONS.get(name, {"short": name, "how_it_works": ""})
+        loaded = name in loaded_set
+        accounts = [
+            {"id": aid, "live": bool(live_map.get(aid, False))}
+            for aid in routing.get(name, [])
+        ]
         out.append({
             "name": name,
             "enabled": bool(cfg.get("enabled", True)),
+            # Live-runtime truth (vs the static `enabled` flag above).
+            "loaded": loaded,
+            "running": bool(loaded and bot_running),
+            "accounts": accounts,
             "risk_pct": cfg.get("risk_pct"),
             "timeframe": cfg.get("timeframe"),
             "symbols": cfg.get("symbols", []),
@@ -235,4 +316,13 @@ async def get_strategies() -> Dict[str, Any]:
             "changelog": changelog.get(name, []),
         })
 
-    return {"as_of": now, "strategies": out}
+    return {
+        "as_of": now,
+        "runtime": {
+            "bot_running": bot_running,
+            "last_tick_utc": last_tick,
+            "tick_age_seconds": round(tick_age, 1) if tick_age is not None else None,
+            "loaded_strategies": sorted(loaded_set),
+        },
+        "strategies": out,
+    }
