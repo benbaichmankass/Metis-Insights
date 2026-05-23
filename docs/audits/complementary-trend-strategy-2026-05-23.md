@@ -76,6 +76,31 @@ donchian × trail sweep (atr_stop=2.5 fixed), full-3yr net-of-fee R:
 - Simplified sim (trailing on entry-ATR; no intrabar trail-vs-stop tie
   modeling beyond SL-first). Conservative-ish.
 
+## Portfolio combination (#1840) — diversification cuts DD, but a breakeven member drags ret/DD
+
+`portfolio_combine.py` on ict_scalp@1.6 + trend (net-of-fee, 3yr):
+
+| stream | trades | net R | maxDD R | ret/DD |
+|---|---|---|---|---|
+| ict_scalp | 387 | −4.5 | 33.6 | −0.13 |
+| trend | 758 | +22.5 | 42.1 | **0.53** |
+| COMBINED (weighted ~1 risk) | 1145 | +9.0 | **29.1** | 0.31 |
+| COMBINED (full-sum 2× risk) | 1145 | +18.1 | 58.2 | 0.31 |
+
+- **Diversification cuts drawdown** — combined maxDD 29.1 < trend-alone
+  42.1 (−31%) and < ict-alone 33.6. Real smoothing.
+- **But a complement must be net-positive to improve risk-adjusted
+  return.** ict_scalp (≈breakeven) reduces DD yet drags return → combined
+  ret/DD 0.31 < trend-alone 0.53. Trend solo beats trend + a breakeven
+  strategy.
+
+**Refined North Star:** "complementary by regime" is necessary but NOT
+sufficient — **each roster member must carry its own net-positive edge.**
+Diversification lowers DD but can't rescue a breakeven member's
+risk-adjusted return. → trend is a keeper; ict_scalp must become
+net-positive or be replaced as the chop complement; the priority is
+finding MORE trend-caliber net-positive complements.
+
 ## Next
 1. Trend param-robustness sweep (donchian × atr_stop × trail) net-of-fee,
    per-regime — confirm a plateau.
