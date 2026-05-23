@@ -77,6 +77,18 @@ _DESCRIPTIONS: Dict[str, Dict[str, str]] = {
             "Risk: 0.5% per trade."
         ),
     },
+    "ict_scalp_5m": {
+        "short": "ICT liquidity-sweep scalp on 5m BTCUSDT",
+        "how_it_works": (
+            "Trades the ICT sweep → displacement → fair-value-gap sequence. "
+            "Waits for price to sweep a recent swing high/low (liquidity grab), "
+            "confirm a displacement candle (body > 1.3× ATR), then enters on a "
+            "wick-rejection back out of the resulting FVG. A 1h EMA-20 "
+            "higher-timeframe bias gate blocks counter-trend entries. "
+            "Stop is ATR-buffered beyond the sweep; take-profit at 1.5R. "
+            "Risk: 0.3% per trade."
+        ),
+    },
 }
 
 
