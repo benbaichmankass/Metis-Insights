@@ -42,6 +42,11 @@ if str(_REPO_ROOT) not in sys.path:
 from src.units.strategies.ict_scalp import order_package  # noqa: E402
 from src.units.strategies import load_strategy_config  # noqa: E402
 
+# Round-trip taker fee (bps) for net-of-fee R, matching the vwap backtest
+# (S-STRAT-IMPROVE-S4). Each trade's fee in R = (FEE_BPS_ROUNDTRIP/1e4) ×
+# (entry+exit)/2 / risk. Settable via --fee-bps-roundtrip; 0 = gross only.
+FEE_BPS_ROUNDTRIP = 7.5
+
 
 @dataclass
 class Trade:
@@ -301,6 +306,15 @@ def _summarize(
     rs = [t.r_multiple for t in trades]
     wins = [r for r in rs if r > 0]
     losses = [r for r in rs if r <= 0]
+    # Net-of-fee R per trade (S-STRAT-IMPROVE-S4): subtract the round-trip
+    # taker fee expressed in R. Tight stops make this a large fraction of R.
+    def _fee_r(t: Trade) -> float:
+        if not t.exit_price or t.risk <= 0:
+            return 0.0
+        return (FEE_BPS_ROUNDTRIP / 10_000.0) * ((t.entry + t.exit_price) / 2.0) / t.risk
+    net_rs = [t.r_multiple - _fee_r(t) for t in trades]
+    net_wins = [r for r in net_rs if r > 0]
+    total_fee_r = sum(_fee_r(t) for t in trades)
     by_outcome: Dict[str, int] = {}
     for t in trades:
         by_outcome[t.outcome] = by_outcome.get(t.outcome, 0) + 1
@@ -327,6 +341,12 @@ def _summarize(
         "win_rate_pct": round(100.0 * len(wins) / n, 2),
         "expectancy_r": round(mean, 4),
         "total_r": round(sum(rs), 4),
+        # Net-of-fee (S-STRAT-IMPROVE-S4) — the inherent-edge metric.
+        "fee_bps_roundtrip": FEE_BPS_ROUNDTRIP,
+        "total_fee_r": round(total_fee_r, 4),
+        "net_total_r": round(sum(net_rs), 4),
+        "net_expectancy_r": round(sum(net_rs) / n, 4),
+        "net_win_rate_pct": round(100.0 * len(net_wins) / n, 2),
         "max_drawdown_r": round(max_dd, 4),
         "sharpe_r": round(sharpe, 4),
         "avg_win_r": round(sum(wins) / len(wins), 4) if wins else 0.0,
@@ -360,6 +380,7 @@ def _format_text(summary: Dict[str, Any]) -> str:
 
 
 def main(argv: List[str]) -> int:
+    global FEE_BPS_ROUNDTRIP  # set from --fee-bps-roundtrip after parse
     p = argparse.ArgumentParser(description="Backtest ict_scalp_5m.")
     p.add_argument("--data", default=os.environ.get("BACKTEST_DATA_PATH", "data/backtest_candles.csv"),
                    help="OHLCV CSV path (default: $BACKTEST_DATA_PATH or data/backtest_candles.csv).")
@@ -377,9 +398,12 @@ def main(argv: List[str]) -> int:
                    help="HTF EMA period for the bias filter (default: 20).")
     p.add_argument("--json", dest="json_out", default=None,
                    help="Write summary to this JSON file. '-' means stdout.")
+    p.add_argument("--fee-bps-roundtrip", type=float, default=FEE_BPS_ROUNDTRIP,
+                   help="Round-trip taker fee bps for net-of-fee R (default 7.5; 0=gross).")
     p.add_argument("--ignore-yaml", action="store_true",
                    help="Ignore config/strategies.yaml; use unit defaults only.")
     args = p.parse_args(argv[1:])
+    FEE_BPS_ROUNDTRIP = args.fee_bps_roundtrip
 
     try:
         df = _load_candles(args.data)
