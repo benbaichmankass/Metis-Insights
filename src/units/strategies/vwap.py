@@ -197,10 +197,11 @@ _ENTRY_STD_THRESHOLD = ENTRY_STD_THRESHOLD
 # So R/R (reward:risk) at the entry boundary equals
 # ENTRY_STD_THRESHOLD / SL_STD_MULT.
 #
-# Per the 2026-05-03 operator directive (CP-2026-05-03-20): preserve
-# risk:reward of 1:2 at the entry boundary. At ENTRY_STD_THRESHOLD=1.0σ
-# and SL_STD_MULT_DEFAULT=0.5σ, reward = 1.0 × std_dev / risk = 0.5 ×
-# std_dev → reward:risk = 2:1 (risk:reward = 1:2). Operators tuning
+# The 2026-05-03 operator directive (CP-2026-05-03-20) originally
+# preserved risk:reward of 1:2 at the entry boundary (SL=0.5σ). The
+# LIVE contract is now SL=0.3σ (2026-05-19 sweep + 2026-05-23 approval,
+# see below): at ENTRY_STD_THRESHOLD=1.0σ and SL_STD_MULT_DEFAULT=0.3σ
+# the boundary R:R is 1.0/0.3 = 3.33:1. Operators tuning
 # either value must move the other in lock-step or the R:R contract
 # drifts. Tunable per call via the ``sl_std_mult`` arg to
 # ``build_vwap_signal`` or the matching entry in
@@ -220,7 +221,9 @@ _ENTRY_STD_THRESHOLD = ENTRY_STD_THRESHOLD
 # (rank 1 vs rank 9 of 12). Tighter stops cut losing long trades shorter,
 # which explains the gain. R:R at ENTRY=1.0/SL=0.3 is 3.33:1 — a deliberate
 # relaxation of the 2026-05-03 2:1 target, justified by empirical sweep data.
-# TIER-3: Ben must approve before this value is deployed to the live bot.
+# APPROVED + LIVE as of 2026-05-23: operator confirmed 0.3 was proven and
+# is deployed (S-STRAT-IMPROVE-S2 measured live R:R 3.48 on bybit_2,
+# matching 1.0/0.3). The prior "must approve before deploy" note was stale.
 SL_STD_MULT_DEFAULT = 0.3
 
 

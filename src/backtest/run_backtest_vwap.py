@@ -80,6 +80,16 @@ from src.units.strategies.vwap import (
 # Match the production pipeline candle lookback fed to build_vwap_signal.
 M5_LOOKBACK_BARS = 300  # ~25 h at 5 m
 
+# Round-trip taker fee on Bybit linear perps, basis points (S-STRAT-IMPROVE-S4,
+# 2026-05-23). The live audit (bybit_2, 7d) showed the strategy is GROSS-
+# positive but NET-negative: fees were 418% of gross because the tight 0.3σ
+# stop makes the per-trade fee a large fraction of risk-R. So gross total_r is
+# misleading for selectivity work — each backtest trade now also reports
+# net_pnl_r = gross_pnl_r − fee_r, where fee_r = (FEE_BPS_ROUNDTRIP/1e4) ×
+# (entry+exit)/2 / risk. Settable via --fee-bps-roundtrip. Module-level so
+# _simulate_trade reads it without signature churn (mirrors ENTRY_STD_THRESHOLD).
+FEE_BPS_ROUNDTRIP = 7.5
+
 # monitor_hold_window_minutes = 240 min / 5 min per bar = 48 bars
 HOLD_BARS_MAX = 48
 
@@ -282,6 +292,13 @@ def _simulate_trade(
         if direction == "long"
         else (entry - exit_price) / risk
     )
+    # Net-of-fee R (S-STRAT-IMPROVE-S4). Round-trip taker fee in R units:
+    # fee charged on both legs ≈ (FEE_BPS_ROUNDTRIP/1e4) × (entry+exit)/2 per
+    # unit notional; dividing by ``risk`` expresses it in R. Tight stops make
+    # this large (a 0.3σ ≈ 14 bps stop vs a 7.5 bps round-trip ≈ 0.5R/trade),
+    # which is why high-frequency vwap is net-negative despite positive gross.
+    fee_r = (FEE_BPS_ROUNDTRIP / 10_000.0) * ((entry + exit_price) / 2.0) / risk
+    net_pnl_r = pnl_r - fee_r
     return {
         "entry_time": str(df["timestamp"].iloc[entry_idx])[:16],
         "exit_time": str(df["timestamp"].iloc[exit_idx])[:16],
@@ -292,6 +309,8 @@ def _simulate_trade(
         "exit_price": round(exit_price, 2),
         "exit_reason": exit_reason,
         "pnl_r": round(pnl_r, 3),
+        "fee_r": round(fee_r, 4),
+        "net_pnl_r": round(net_pnl_r, 3),
         "duration_bars": exit_idx - entry_idx,
     }
 
@@ -397,12 +416,28 @@ def run_single(
         total_r_short = round(sum(t["pnl_r"] for t in short_trades), 2)
         wins_long = sum(1 for t in long_trades if t["pnl_r"] > 0)
         wins_short = sum(1 for t in short_trades if t["pnl_r"] > 0)
+        # Net-of-fee aggregates (S-STRAT-IMPROVE-S4). The selectivity-relevant
+        # numbers: net total R, net per-trade R, and net win rate (a "win"
+        # after fees), split by leg. These — not the gross fields above — are
+        # what S4 ranks selectivity variants on.
+        net_r_vals = [t["net_pnl_r"] for t in trades]
+        net_total_r = round(sum(net_r_vals), 2)
+        net_avg_r = round(net_total_r / len(trades), 3)
+        net_wins = sum(1 for r in net_r_vals if r > 0)
+        net_win_rate = round(net_wins / len(trades) * 100, 1)
+        net_total_r_long = round(sum(t["net_pnl_r"] for t in long_trades), 2)
+        net_total_r_short = round(sum(t["net_pnl_r"] for t in short_trades), 2)
+        total_fee_r = round(sum(t["fee_r"] for t in trades), 2)
     else:
         wins = 0
         total_r = avg_r = win_rate = sharpe_r = 0.0
         exit_reasons = {}
         total_r_long = total_r_short = 0.0
         wins_long = wins_short = 0
+        net_total_r = net_avg_r = net_win_rate = 0.0
+        net_wins = 0
+        net_total_r_long = net_total_r_short = 0.0
+        total_fee_r = 0.0
 
     cfg_label = (
         f"{htf_timeframe} EMA-{ema_period}" if use_htf else "no HTF filter"
@@ -429,6 +464,15 @@ def run_single(
         "total_r_long": total_r_long,
         "total_r_short": total_r_short,
         "avg_r_per_trade": avg_r,
+        # Net-of-fee (S-STRAT-IMPROVE-S4) — the selectivity-ranking metrics.
+        "fee_bps_roundtrip": FEE_BPS_ROUNDTRIP,
+        "total_fee_r": total_fee_r,
+        "net_total_r": net_total_r,
+        "net_total_r_long": net_total_r_long,
+        "net_total_r_short": net_total_r_short,
+        "net_avg_r_per_trade": net_avg_r,
+        "net_win_rate_pct": net_win_rate,
+        "net_wins": net_wins,
         "sharpe_r": sharpe_r,
         "htf_blocked_count": blocked_count,
         "exit_reasons": exit_reasons,
@@ -645,6 +689,9 @@ def run_windows(
                     "win_rate_pct": None,
                     "total_r": 0.0, "total_r_long": 0.0, "total_r_short": 0.0,
                     "avg_r_per_trade": 0.0,
+                    "net_total_r": 0.0, "net_total_r_long": 0.0,
+                    "net_total_r_short": 0.0, "net_avg_r_per_trade": 0.0,
+                    "net_win_rate_pct": None, "net_wins": 0, "total_fee_r": 0.0,
                     "sharpe_r": 0.0,
                     "exit_reasons": {},
                     "adaptive_skipped": True,
@@ -687,6 +734,11 @@ def run_windows(
     total_r_vals = [r["total_r"] for r in window_results]
     total_r_long_vals = [r.get("total_r_long", 0.0) for r in window_results]
     total_r_short_vals = [r.get("total_r_short", 0.0) for r in window_results]
+    # Net-of-fee per-window aggregates (S-STRAT-IMPROVE-S4).
+    net_total_r_vals = [r.get("net_total_r", 0.0) for r in window_results]
+    net_total_r_long_vals = [r.get("net_total_r_long", 0.0) for r in window_results]
+    net_total_r_short_vals = [r.get("net_total_r_short", 0.0) for r in window_results]
+    total_trades_vals = [r.get("total_trades", 0) for r in window_results]
     # Adaptive mode marks skipped windows as ``win_rate_pct=None`` (no
     # trades taken means win-rate is undefined, not 0). Filter for
     # aggregation; ``statistics.mean`` chokes on ``None``.
@@ -695,6 +747,9 @@ def run_windows(
         if r.get("win_rate_pct") is not None
     ]
     positive_windows = sum(1 for r in window_results if r["total_r"] > 0)
+    net_positive_windows = sum(
+        1 for r in window_results if r.get("net_total_r", 0.0) > 0
+    )
 
     # Per-regime aggregation: group by regime label, compute mean
     # total_r / win_rate / sharpe / sample count per regime. Surfaces
@@ -708,6 +763,7 @@ def run_windows(
         rs = [it["total_r"] for it in items]
         rs_long = [it.get("total_r_long", 0.0) for it in items]
         rs_short = [it.get("total_r_short", 0.0) for it in items]
+        net_rs = [it.get("net_total_r", 0.0) for it in items]
         sharpes = [it["sharpe_r"] for it in items]
         wrs = [it["win_rate_pct"] for it in items if it.get("win_rate_pct") is not None]
         per_regime_stats.append({
@@ -716,9 +772,11 @@ def run_windows(
             "mean_total_r": round(statistics.mean(rs), 2),
             "mean_total_r_long": round(statistics.mean(rs_long), 2),
             "mean_total_r_short": round(statistics.mean(rs_short), 2),
+            "mean_net_total_r": round(statistics.mean(net_rs), 2),
             "mean_sharpe": round(statistics.mean(sharpes), 3),
             "mean_win_rate_pct": round(statistics.mean(wrs), 1) if wrs else None,
             "positive_windows": sum(1 for v in rs if v > 0),
+            "net_positive_windows": sum(1 for v in net_rs if v > 0),
         })
 
     return {
@@ -741,6 +799,14 @@ def run_windows(
         "mean_total_r": round(statistics.mean(total_r_vals), 2),
         "mean_total_r_long": round(statistics.mean(total_r_long_vals), 2),
         "mean_total_r_short": round(statistics.mean(total_r_short_vals), 2),
+        # Net-of-fee aggregates (S-STRAT-IMPROVE-S4) — S4 ranks variants on
+        # these, not the gross mean_total_r above.
+        "fee_bps_roundtrip": FEE_BPS_ROUNDTRIP,
+        "mean_net_total_r": round(statistics.mean(net_total_r_vals), 2),
+        "mean_net_total_r_long": round(statistics.mean(net_total_r_long_vals), 2),
+        "mean_net_total_r_short": round(statistics.mean(net_total_r_short_vals), 2),
+        "mean_trades_per_window": round(statistics.mean(total_trades_vals), 1),
+        "net_positive_windows": net_positive_windows,
         "mean_win_rate_pct": (
             round(statistics.mean(win_rate_vals), 1) if win_rate_vals else None
         ),
@@ -752,6 +818,7 @@ def run_windows(
 
 
 def main(argv: list[str]) -> int:
+    global FEE_BPS_ROUNDTRIP  # set from --fee-bps-roundtrip after parse
     parser = argparse.ArgumentParser(description="VWAP HTF-filter backtest")
     parser.add_argument(
         "--htf-timeframe",
@@ -765,6 +832,13 @@ def main(argv: list[str]) -> int:
         help="HTF EMA period — ignored with --compare",
     )
     parser.add_argument("--band-pct", type=float, default=0.02)
+    parser.add_argument(
+        "--fee-bps-roundtrip",
+        type=float,
+        default=FEE_BPS_ROUNDTRIP,
+        help="Round-trip taker fee in bps for net-of-fee R (default 7.5, "
+             "Bybit linear). Set 0 to reproduce gross-only results.",
+    )
     parser.add_argument(
         "--no-htf",
         action="store_true",
@@ -883,6 +957,12 @@ def main(argv: list[str]) -> int:
         ),
     )
     args = parser.parse_args(argv[1:])
+
+    # Apply the fee rate globally so _simulate_trade picks it up without a
+    # signature change (mirrors the ENTRY_STD_THRESHOLD monkey-patch pattern).
+    # ``global`` is declared at the top of main() (the argparse default reads
+    # the module value, which counts as a use).
+    FEE_BPS_ROUNDTRIP = args.fee_bps_roundtrip
 
     try:
         df, source_path = load_data()
