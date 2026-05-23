@@ -163,6 +163,21 @@ The comms system must stay isolated from `src/runtime/` and
 `src/units/` (no trading code imports `src.comms`) — an architecture
 invariant, not just a convention.
 
+**Verified end-to-end in S1** (2026-05-23): 163 comms tests pass; a
+schema-valid request round-trips pending → sent → answered. Concrete
+command to author a Tier-3 approval request (the bot delivers it on its
+next poll; the operator answers in Telegram and the answer is written
+back to the artifact):
+
+```bash
+python scripts/comms_ask.py \
+    --topic "Approve Tier-3 vwap SL change?" --slug vwapsl \
+    --context "Backtest evidence: <link to S-STRAT-IMPROVE-S4 artifact>." \
+    --question approve --type yes_no \
+        --prompt "Deploy SL_STD_MULT=<x> to bybit_2 live?" \
+    --expires-in 48h --commit
+```
+
 ---
 
 ## Sprint roadmap
@@ -180,7 +195,7 @@ sprint produces a sprint log under `docs/sprint-logs/`.
   confirmed; ✅ live config mapped; ✅ known problem characterized; ✅
   drift findings recorded.
 
-### S1 — Confirm the communication path — Tier 1
+### S1 — Confirm the communication path — Tier 1 — ✅ DONE 2026-05-23
 - **Goal:** verify the repo-driven Claude↔operator request/response
   flow end-to-end so later approval-gated sprints have a working
   channel. Confirm `comms_ask.py` produces a schema-valid request, the
@@ -189,6 +204,12 @@ sprint produces a sprint log under `docs/sprint-logs/`.
 - **Tier:** 1 (comms infra is isolated from trading logic).
 - **Exit criteria:** a documented, verified request→answer round-trip
   (or a precise gap list if anything is broken).
+- **Result:** 163 comms tests pass (126 core + 37 handler); a
+  schema-valid request round-trips pending → sent → answered; isolation
+  invariant holds; `GitPusher` is sandbox-safe (gated by
+  `COMMS_PUSH_ENABLED=1`). No gaps — no new code needed. The Tier-3
+  approval command is documented above. Log:
+  `docs/sprint-logs/S-STRAT-IMPROVE-S1-2026-05-23.md`.
 
 ### S2 — Full strategy + symbol performance audit — Tier 1
 - **Goal:** the evidence base. For **every strategy × every live
@@ -267,9 +288,10 @@ sprint produces a sprint log under `docs/sprint-logs/`.
 
 ## Handoff
 
-**Next sprint: S1** (confirm comms path) then **S2** (the audit, where
-the real evidence-gathering begins). S2 is the linchpin — everything
-downstream depends on its loss-driver ranking. S2's first action is the
-live-state pull + SL_STD_MULT reconciliation. All analysis sprints are
-autonomous (Tier 1); every live change is Tier 3 and stops at the
-approval gate.
+S0 (architecture) and S1 (comms path) are done. **Next sprint: S2** —
+the full strategy + symbol performance audit, where the real
+evidence-gathering begins. S2 is the linchpin: everything downstream
+depends on its loss-driver ranking. S2's first action is the live-state
+pull (via `vm-diag-snapshot`) + the SL_STD_MULT reconciliation from S0.
+All analysis sprints are autonomous (Tier 1); every live change is
+Tier 3 and stops at the approval gate.
