@@ -309,6 +309,11 @@ async def get_signals() -> list[dict[str, Any]]:
                 "timestamp": e.get("ts", e.get("timestamp", "")),
                 "symbol": e.get("symbol", "BTCUSDT"),
                 "side": side,
+                # ``strategy`` lets the dashboard's overview chart offer
+                # per-strategy signal toggles. Nullable: older rows /
+                # non-strategy events serialize as null, which the
+                # dashboard treats as "always show".
+                "strategy": e.get("strategy"),
                 "pattern": pattern,
                 "confidence": confidence,
                 "price": price,
