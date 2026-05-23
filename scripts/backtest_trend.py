@@ -72,7 +72,8 @@ def _atr(df: pd.DataFrame, period: int) -> pd.Series:
 
 def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
                  atr_stop_mult: float, trail_mult: float, timeout_bars: int,
-                 cooldown_bars: int, timeframe: str, symbol: str) -> Dict[str, Any]:
+                 cooldown_bars: int, timeframe: str, symbol: str,
+                 emit_path: Optional[str] = None) -> Dict[str, Any]:
     df = df.reset_index(drop=True)
     df["atr"] = _atr(df, atr_period)
     df["dc_hi"] = df["high"].rolling(donchian).max().shift(1)
@@ -136,6 +137,17 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
             outcome=exit_reason, r_multiple=round(r, 4), mfe_r=round(mfe, 3)))
         next_idx = exit_idx + 1 + cooldown_bars
         i = next_idx
+    if emit_path:
+        # Per-trade stream {entry_time, net_r, ...} for portfolio_combine.
+        Path(emit_path).parent.mkdir(parents=True, exist_ok=True)
+        with open(emit_path, "w", encoding="utf-8") as fh:
+            for t in trades:
+                fee_r = ((FEE_BPS_ROUNDTRIP / 10_000.0)
+                         * ((t.entry + t.exit_price) / 2.0) / t.risk) if t.risk else 0.0
+                fh.write(json.dumps({
+                    "strategy": "trend_donchian", "entry_time": str(t.entry_time),
+                    "direction": t.direction, "gross_r": t.r_multiple,
+                    "net_r": round(t.r_multiple - fee_r, 4)}, default=str) + "\n")
     return _summarize(trades, df, timeframe=timeframe, symbol=symbol,
                       params={"donchian": donchian, "atr_stop_mult": atr_stop_mult,
                               "trail_mult": trail_mult})
@@ -220,6 +232,8 @@ def main(argv: List[str]) -> int:
     p.add_argument("--cooldown-bars", type=int, default=1)
     p.add_argument("--fee-bps-roundtrip", type=float, default=FEE_BPS_ROUNDTRIP)
     p.add_argument("--json", dest="json_out", default=None)
+    p.add_argument("--emit-trades", default=None, metavar="PATH",
+                   help="Write per-trade {entry_time, net_r} JSONL for portfolio_combine.")
     args = p.parse_args(argv[1:])
     FEE_BPS_ROUNDTRIP = args.fee_bps_roundtrip
     try:
@@ -232,7 +246,8 @@ def main(argv: List[str]) -> int:
     s = run_backtest(df, donchian=args.donchian, atr_period=args.atr_period,
                      atr_stop_mult=args.atr_stop_mult, trail_mult=args.trail_mult,
                      timeout_bars=args.timeout_bars, cooldown_bars=args.cooldown_bars,
-                     timeframe=args.timeframe, symbol=args.symbol)
+                     timeframe=args.timeframe, symbol=args.symbol,
+                     emit_path=args.emit_trades)
     print(_fmt(s))
     if args.json_out:
         payload = json.dumps(s, indent=2, default=str)
