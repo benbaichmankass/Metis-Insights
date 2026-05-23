@@ -348,7 +348,9 @@ sprint produces a sprint log under `docs/sprint-logs/`.
   AND MES**, regime-split, long/short? Backtest hard + tweak each.
 - **Prerequisites / sub-tasks:**
   - ict_scalp backtest instrumented (net-of-fee, 3604b86); **turtle_soup
-    needs a harness** (build one, Tier-1 offline tool).
+    harness built** (`scripts/backtest_turtle_soup.py`, net-of-fee +
+    long/short, single-TP1 exit to isolate setup edge; needs fresh
+    365-day 15m data to produce a real read).
   - **MES backtesting** needs MES data (IB delayed CME bars) + the
     backtests parameterized off `config/instruments.yaml` (tick size,
     fee schedule — CME/IB fees differ from Bybit's 7.5 bps) instead of
