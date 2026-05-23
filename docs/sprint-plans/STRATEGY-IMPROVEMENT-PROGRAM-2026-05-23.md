@@ -211,7 +211,7 @@ sprint produces a sprint log under `docs/sprint-logs/`.
   approval command is documented above. Log:
   `docs/sprint-logs/S-STRAT-IMPROVE-S1-2026-05-23.md`.
 
-### S2 — Full strategy + symbol performance audit — Tier 1
+### S2 — Full strategy + symbol performance audit — Tier 1 — ✅ DONE 2026-05-23
 - **Goal:** the evidence base. For **every strategy × every live
   symbol/account**, collect: win rate, expectancy, avg R, loss/win
   ratio, max drawdown, trade frequency, avg duration, exit mechanism in
@@ -229,6 +229,14 @@ sprint produces a sprint log under `docs/sprint-logs/`.
   table. **No code/config changes.**
 - **Exit criteria:** every live strategy×symbol has a metrics row and a
   named primary loss driver, evidence-cited.
+- **Result:** report at `docs/audits/strategy-loss-drivers-2026-05-23.md`
+  (evidence: live relays #1779/#1780/#1781). SL flag resolved — **0.3 is
+  live** (R:R 3.48), with a Tier-3 governance flag surfaced for the
+  operator. Dominant loss driver: **vwap overtrading → fee drag (418% of
+  gross)**; thin +$11/7d gross edge buried by fees; 74% of exits are
+  `reconciler_filled` stop-runs (17.9% WR); long-side bias (longs 79% of
+  loss). turtle_soup/ict_scalp/MES flagged **low-N** (S2-B follow-up).
+  Log: `docs/sprint-logs/S-STRAT-IMPROVE-S2-2026-05-23.md`.
 
 ### S3 — Selectivity / rule-tightening experiments — Tier 1 analysis, Tier 3 to ship
 - **Goal:** cut bad trades without cutting good ones. Backtest
@@ -288,10 +296,15 @@ sprint produces a sprint log under `docs/sprint-logs/`.
 
 ## Handoff
 
-S0 (architecture) and S1 (comms path) are done. **Next sprint: S2** —
-the full strategy + symbol performance audit, where the real
-evidence-gathering begins. S2 is the linchpin: everything downstream
-depends on its loss-driver ranking. S2's first action is the live-state
-pull (via `vm-diag-snapshot`) + the SL_STD_MULT reconciliation from S0.
-All analysis sprints are autonomous (Tier 1); every live change is
-Tier 3 and stops at the approval gate.
+S0 (architecture), S1 (comms path), and S2 (performance audit) are done.
+The evidence base — `docs/audits/strategy-loss-drivers-2026-05-23.md` —
+names **vwap overtrading → fee drag** as the dominant, real-money loss
+driver, with broken exits (`reconciler_filled` stop-runs) and long-side
+bias close behind. **Next sprint: S3** — selectivity / rule-tightening
+backtests (long/short split, session gating, entry/direction filters),
+measured **net-of-fee**, because cutting trade count is the highest-ROI,
+lowest-risk lever against fee drag. Two items carry forward: **S2-B**
+(journal-based per-strategy pull for low-N turtle_soup/ict_scalp/MES) and
+the **SL_STD_MULT governance ruling** (Tier-3, for the operator). All
+analysis sprints are autonomous (Tier 1); every live change is Tier 3
+and stops at the approval gate.
