@@ -66,6 +66,28 @@ decisive remaining lever is entry **selectivity**, best tested via the
 model-in-the-loop gate (does a setup-quality/win-prob model lift net
 OOS across all 3 years, especially 2024?). Evidence: trainer issue #1798.
 
+## ict_scalp entry-selectivity grid (S6, 2026-05-23) — first robust improvement
+
+`displacement_atr_mult` sweep, full pass each, net-of-fee, all 3 years:
+
+| disp | 2023 net | 2025 net | 2024 net |
+|---|---|---|---|
+| 1.3 (live) | +2.1 | +4.2 | −18.9 |
+| **1.6** | **+7.9** | **+9.6** | −16.5 |
+| 2.0 | +1.4 | +0.6 | −9.0 |
+| 2.5 | −0.3 | −1.4 | −3.6 |
+| 3.0 | −1.4 | +0.2 | −2.3 |
+
+**Finding: disp 1.3 → 1.6 is a robust cross-year net improvement (plateau,
+not cliff).** Best in BOTH good years (2023 +2.1→+7.9; 2025 +4.2→+9.6 ≈
+2–4× net; net/trade ~+0.015→~+0.08), by shedding ~40% of trades (fees)
+while keeping the edge. Does NOT rescue 2024 (off-regime → complement's
+job). **First concrete, evidence-backed, regime-robust improvement** —
+candidate Tier-3 change (1.3→1.6) pending exit-interaction + MES + operator
+approval. Caveat: displacement is a *quality* knob only in good regimes;
+in the 2024 chop, tightening removes gross-positive trades (no rescue).
+Evidence: trainer #1804/#1807/#1809.
+
 ## First read (12 months only — see regime confirmation above)
 
 
