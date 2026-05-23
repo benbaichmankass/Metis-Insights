@@ -273,7 +273,7 @@ def ingest_trainer_store(
     try:
         try:
             conn.execute("PRAGMA journal_mode=WAL")
-        except sqlite3.Error:
+        except sqlite3.Error:  # allow-silent: WAL is an optimization; ingest proceeds in rollback-journal mode
             pass
         conn.execute(
             "CREATE TABLE IF NOT EXISTS _ingest_meta (key TEXT PRIMARY KEY, value TEXT)"
@@ -324,7 +324,7 @@ def build_if_stale(*, mirror_root: Optional[Path] = None,
                 row = conn.execute(
                     "SELECT value FROM _ingest_meta WHERE key='source_signature'"
                 ).fetchone()
-            except sqlite3.Error:
+            except sqlite3.Error:  # allow-silent: missing/old meta → treat as stale; a full rebuild follows
                 row = None
             finally:
                 conn.close()
@@ -332,7 +332,7 @@ def build_if_stale(*, mirror_root: Optional[Path] = None,
                 return False  # already fresh
         ingest_trainer_store(mirror_root=mirror, db_path=path)
         return True
-    except Exception as exc:  # noqa: BLE001  # best-effort; Explorer must not 500
+    except Exception as exc:  # noqa: BLE001  # allow-silent: best-effort freshness; the Data Explorer must not 500 on a stale build
         logger.warning("trainer_store: build_if_stale failed: %s", exc)
         return False
 

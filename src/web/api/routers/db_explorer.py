@@ -118,7 +118,7 @@ def _resolve_table_db(table: str, db: Optional[str]) -> Optional[Tuple[str, Path
                     return (label, path)
             finally:
                 conn.close()
-        except sqlite3.Error:
+        except sqlite3.Error:  # allow-silent: skip a federated DB that can't be opened/listed; try the next
             continue
     return None
 
@@ -135,7 +135,7 @@ async def db_tables() -> Dict[str, Any]:
     for label, path in dbs:
         try:
             conn = _connect(path)
-        except sqlite3.Error:
+        except sqlite3.Error:  # allow-silent: federation skips an unreadable DB; logged, other DBs still listed
             logger.exception("db_explorer: open failed for %s", path)
             continue
         present_dbs.append(label)
