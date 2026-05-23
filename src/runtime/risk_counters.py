@@ -58,9 +58,14 @@ def inject_runtime_counters(settings: dict, exchange_client: Any) -> dict:
                 pass  # outcomes shouldn't crash the tick
 
     # ---- daily loss: trade journal DB (closed live trades only) ----
-    from src.utils.paths import trade_journal_db_path
-    db_path = settings.get("TRADE_JOURNAL_DB") or trade_journal_db_path()
-    if db_path and os.path.exists(db_path):
+    # NOTE: risk_counters intentionally engages the journal ONLY when one is
+    # EXPLICITLY configured (settings or the TRADE_JOURNAL_DB env the live
+    # systemd unit sets) — not the canonical-resolver default. "No journal
+    # configured → leave settings unchanged" is a load-bearing contract
+    # (tests: test_runtime_risk_injection / test_per_strategy_risk). This
+    # file is therefore allowlisted in scripts/check_canonical_db_resolver.py.
+    db_path = settings.get("TRADE_JOURNAL_DB") or os.environ.get("TRADE_JOURNAL_DB")
+    if db_path:
         try:
             conn = sqlite3.connect(db_path)
             cur = conn.cursor()
@@ -114,9 +119,9 @@ def inject_per_strategy_counters(
     if not strategy_name:
         return s
 
-    from src.utils.paths import trade_journal_db_path
-    _db = db_path or settings.get("TRADE_JOURNAL_DB") or trade_journal_db_path()
-    if not _db or not os.path.exists(_db):
+    # Explicit-config only (see the daily-loss note above + allowlist).
+    _db = db_path or settings.get("TRADE_JOURNAL_DB") or os.environ.get("TRADE_JOURNAL_DB")
+    if not _db:
         return s
 
     try:

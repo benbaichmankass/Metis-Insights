@@ -108,6 +108,14 @@ _PY_SCAN_DIRS = ("src", "ml")
 # basename directly — it IS the single resolver.
 _PY_ALLOWLIST = frozenset({
     "src/utils/paths.py",
+    # risk_counters reads TRADE_JOURNAL_DB to detect whether a journal is
+    # EXPLICITLY configured (env/settings) — a different semantic from
+    # resolving the canonical default. "No journal configured → leave
+    # settings unchanged" is a load-bearing contract (tests:
+    # test_runtime_risk_injection / test_per_strategy_risk), so this file
+    # legitimately reads the env directly rather than the always-resolving
+    # trade_journal_db_path(). It uses no CWD-relative fallback.
+    "src/runtime/risk_counters.py",
 })
 
 # 1. CWD-relative bare basename used as a path value — the proven bug.
