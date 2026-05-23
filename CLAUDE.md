@@ -376,8 +376,42 @@ runtime_logs/
   signal_audit.jsonl    — structured pipeline audit log (primary log source for dashboard)
   validation.jsonl      — M5 backtest-run audit log (one NDJSON row per /test invocation)
   heartbeat.txt         — mtime used to detect if bot is alive
-trade_journal.db        — SQLite: trades, order_packages, backtest_results (M5)
+trade_journal.db        — canonical SQLite (live VM: /data/bot-data/trade_journal.db).
+                          Tables: trades, order_packages, signals (dual-write),
+                          backtest_results (on-demand /test runs only),
+                          daily_risk_state (per-account daily PnL + equity-high —
+                          self-healing rebuild from trades + balance snapshot,
+                          see src/units/accounts/risk.py), strategy_versions
+                          (boot snapshot of config/strategies.yaml).
+trainer_store.db        — federated read-mostly sidecar (live VM:
+                          /data/bot-data/trainer_store.db). Trainer/ML lifecycle
+                          data ingested from runtime_logs/trainer_mirror/:
+                          training_cycle, dataset_builds, db_pulls,
+                          model_registry, experiment_runs, backtest_sweeps.
+                          Browsable in the Data Explorer alongside the journal.
 ```
+
+### Canonical persistence model (S-PERSIST-CANON, 2026-05-23)
+
+One central, queryable store, federated across two SQLite files on the
+OCI block volume (`/data/bot-data`), both browsable from the dashboard's
+**Data Explorer**:
+
+- **`trade_journal.db`** — everything the LIVE trader produces (trades,
+  order_packages, signals, backtest_results, daily_risk_state,
+  strategy_versions). Every Python caller resolves its path through the
+  single `src.utils.paths.trade_journal_db_path()` resolver; the shell
+  side uses `scripts/ops/_lib.sh::runtime_db_path`. The
+  `canonical-db-resolver` CI guard forbids the CWD-relative fallback (and
+  inline `TRADE_JOURNAL_DB` env-reads) in both shell and Python — that
+  fallback is what created the stray duplicate journals under each
+  process's working directory.
+- **`trainer_store.db`** — everything the TRAINER produces, ingested from
+  the file-based trainer mirror (`runtime_logs/trainer_mirror/`) by
+  `src/units/db/trainer_store.py` (idempotent, lazy + mtime-gated). Kept
+  separate from the money DB so ingest never contends with the live
+  trader. The `/api/bot/ml/*` and `/api/bot/backtests/sweeps` file-based
+  endpoints remain; the sidecar makes the same data SQL-queryable.
 
 ## Dashboard REST API (S-014)
 
@@ -394,8 +428,8 @@ Unauthenticated GET routes — Tier 1 read surface. See
 | `GET /api/bot/liquidity?symbol=X` | per-symbol liquidity zones (S-064) | `runtime_logs/liquidity_state.json` (pipeline writes per-tick) |
 | `GET /api/bot/config` | effective config view (S-064) | `config/accounts.yaml` + `config/strategies.yaml` + `runtime_logs/runtime_status.json`; secrets redacted |
 | `GET /api/bot/accounts/balances` | `{present, as_of, age_seconds, balances:{<account_id>:{balance, ts}}}` | `runtime_logs/balance_snapshots.json` (the balances the trader already tracks via the hourly-report `account_snapshots()`). **Read-only, connection-free** — never opens an exchange socket; reflects the last recorded balance. Tier 1. |
-| `GET /api/bot/db/tables` | `{present, db, tables:[{name, rows, columns:[{name,type}]}]}` | `trade_journal.db` schema via `sqlite_master` + `PRAGMA table_info`. **Read-only DB explorer** (Data Explorer tab). Tier 1; trade_journal.db only (no secrets there). |
-| `GET /api/bot/db/table/{name}?limit=&offset=&order_by=&order_dir=&filter_col=&filter_op=&filter_val=` | `{table, columns, rows, total, limit, offset}` | one paginated page of a table. **SELECT-only** (read-only `mode=ro` connection); table/column identifiers validated against the live schema (no identifier injection), filter values bound. `filter_op ∈ {eq,ne,gt,lt,gte,lte,like}`; `limit` 1..500. 404 on unknown table. |
+| `GET /api/bot/db/tables` | `{present, db, dbs:[...], tables:[{name, rows, columns:[{name,type}], db}]}` | **Federated** read-only DB explorer (Data Explorer tab) over BOTH halves of the canonical store: the live trader's `trade_journal.db` AND the trainer-store sidecar `trainer_store.db` (trainer/ML lifecycle data ingested from the trainer mirror — see `src/units/db/trainer_store.py`). Each table carries a `db` field (`"trade_journal"` / `"trainer_store"`). Tier 1; no secrets in either DB. The sidecar is lazily rebuilt from the mirror on read (mtime-gated). |
+| `GET /api/bot/db/table/{name}?db=&limit=&offset=&order_by=&order_dir=&filter_col=&filter_op=&filter_val=` | `{table, db, columns, rows, total, limit, offset}` | one paginated page of a table from whichever federated DB owns it (auto-routed by name; optional `db` selector ∈ {trade_journal, trainer_store}). **SELECT-only** (read-only `mode=ro` connection); table/column identifiers validated against the live schema (no identifier injection), filter values bound. `filter_op ∈ {eq,ne,gt,lt,gte,lte,like}`; `limit` 1..500. 404 on unknown table. |
 | `GET /api/bot/trades/closed?limit=N&since=ISO_TS` | `ClosedTrade[]` (#557) | `trade_journal.db::trades` filtered to closed + non-backtest, joined to `order_packages` for the closed-at proxy |
 | `GET /api/bot/strategies` | per-strategy config, **live-runtime status** (`loaded`/`running` from `runtime_status.json`), **per-account routing** (`accounts:[{id,live}]` from `accounts.yaml`), lifetime trade stats, descriptions, changelog; plus a top-level `runtime` block (`bot_running`, `last_tick_utc`, `tick_age_seconds`, `loaded_strategies`) | `config/strategies.yaml` + `config/accounts.yaml` + `config/strategy_changelog.json` + `runtime_logs/runtime_status.json` + `trade_journal.db`; Tier 1 |
 | `GET /api/bot/backtests?limit=N&strategy=X` | `BacktestRun[]` (M5 P4) | `trade_journal.db::backtest_results` (M5 consumer writes one row per `/test <strategy>`); newest-first by id; headline metrics only |
@@ -463,7 +497,8 @@ stay in place for any future browser-direct consumer.
 | `DASHBOARD_ORIGIN` | Legacy Vercel app URL — added to CORS allow-list. No-op for the Streamlit dashboard but kept for future browser-direct consumers. |
 | `DASHBOARD_API_TOKEN` | Optional bearer token for auth routes |
 | `SIGNAL_DUAL_WRITE_DISABLED` | When truthy, `signal_audit_logger._dual_write_to_db` skips hydrating `trade_journal.db::signals` (JSONL stays the source of truth). Default off → dual-write on. Toggle on the live VM via the `enable-signal-dual-write` / `disable-signal-dual-write` operator actions. |
-| `TRADE_JOURNAL_DB` | Override default `trade_journal.db` path |
+| `TRADE_JOURNAL_DB` | Canonical trade-journal SQLite path (live VM: `/data/bot-data/trade_journal.db`). Resolved by the single Python resolver `src.utils.paths.trade_journal_db_path()` (env → `$DATA_DIR/trade_journal.db` → repo-root; never a CWD-relative basename). The `canonical-db-resolver` CI guard forbids re-introducing the old inline `os.environ.get("TRADE_JOURNAL_DB") or "trade_journal.db"` fallback that seeded the stray duplicate journals. |
+| `TRAINER_STORE_DB` | Path to the trainer-store sidecar SQLite (default `$DATA_DIR/trainer_store.db`). Holds trainer/ML lifecycle data ingested from `runtime_logs/trainer_mirror/`; federated into the Data Explorer alongside `trade_journal.db`. Resolved by `src.utils.paths.trainer_store_db_path()`. Read-mostly — ingest writers never touch the money DB. |
 | `DIAG_READ_TOKEN` | Bearer for `/api/diag/*` (read-only). Unset → endpoints return 503 |
 | `M5_CONSUMER_ENABLED` | Auto-install the M5 backtest consumer in the comms poll loop. Default off; set to `1`/`true` on the VM systemd unit. Operator runbook: `docs/runbooks/strategy-testing.md` |
 | `M5_BACKTEST_TIMEOUT_S` | Wall-clock cap per backtest subprocess (default 120s) |
