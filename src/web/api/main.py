@@ -10,6 +10,7 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from src.web.api.routers import accounts as accounts_router
 from src.web.api.routers import auth as auth_router
 from src.web.api.routers import attribution as attribution_router
 from src.web.api.routers import backtests as backtests_router
@@ -49,6 +50,7 @@ app.include_router(pnl_history_router.router)
 app.include_router(auth_router.router)
 app.include_router(dashboard_router.router)
 app.include_router(bot_config_router.router)
+app.include_router(accounts_router.router)
 app.include_router(liquidity_router.router)
 app.include_router(trades_closed_router.router)
 app.include_router(backtests_router.router)

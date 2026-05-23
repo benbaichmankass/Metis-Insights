@@ -393,6 +393,7 @@ Unauthenticated GET routes — Tier 1 read surface. See
 | `GET /api/bot/signals` | recent ICT detections | `runtime_logs/signal_audit.jsonl` filtered to buy/sell |
 | `GET /api/bot/liquidity?symbol=X` | per-symbol liquidity zones (S-064) | `runtime_logs/liquidity_state.json` (pipeline writes per-tick) |
 | `GET /api/bot/config` | effective config view (S-064) | `config/accounts.yaml` + `config/strategies.yaml` + `runtime_logs/runtime_status.json`; secrets redacted |
+| `GET /api/bot/accounts/balances` | `{present, as_of, age_seconds, balances:{<account_id>:{balance, ts}}}` | `runtime_logs/balance_snapshots.json` (the balances the trader already tracks via the hourly-report `account_snapshots()`). **Read-only, connection-free** — never opens an exchange socket; reflects the last recorded balance. Tier 1. |
 | `GET /api/bot/trades/closed?limit=N&since=ISO_TS` | `ClosedTrade[]` (#557) | `trade_journal.db::trades` filtered to closed + non-backtest, joined to `order_packages` for the closed-at proxy |
 | `GET /api/bot/strategies` | per-strategy config, lifetime trade stats, descriptions, and changelog | `config/strategies.yaml` + `config/strategy_changelog.json` + `trade_journal.db`; Tier 1 |
 | `GET /api/bot/backtests?limit=N&strategy=X` | `BacktestRun[]` (M5 P4) | `trade_journal.db::backtest_results` (M5 consumer writes one row per `/test <strategy>`); newest-first by id; headline metrics only |
