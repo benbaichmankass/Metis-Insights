@@ -370,6 +370,11 @@ def _format_text(summary: Dict[str, Any]) -> str:
             f"  win_rate_pct   : {summary['win_rate_pct']}%",
             f"  expectancy_r   : {summary['expectancy_r']}",
             f"  total_r        : {summary['total_r']}",
+            f"  net_total_r    : {summary.get('net_total_r')}  "
+            f"(net_exp_r {summary.get('net_expectancy_r')}, "
+            f"net_wr {summary.get('net_win_rate_pct')}%, "
+            f"fee_r {summary.get('total_fee_r')} @ "
+            f"{summary.get('fee_bps_roundtrip')}bps rt)",
             f"  max_drawdown_r : {summary['max_drawdown_r']}",
             f"  sharpe_r       : {summary['sharpe_r']}",
             f"  avg_win_r      : {summary['avg_win_r']}",
