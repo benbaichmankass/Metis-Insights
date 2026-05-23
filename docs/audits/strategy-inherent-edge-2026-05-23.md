@@ -88,6 +88,40 @@ approval. Caveat: displacement is a *quality* knob only in good regimes;
 in the 2024 chop, tightening removes gross-positive trades (no rescue).
 Evidence: trainer #1804/#1807/#1809.
 
+## ict_scalp @1.6 full-3yr per-quarter verdict (S6, 2026-05-23) — corrects the optimistic reads
+
+Per-quarter net-of-fee at the chosen disp=1.6, all 13 quarters
+(2023Q1→2026Q1):
+
+| Window | Gross R | Net R |
+|---|---|---|
+| **Total 3.16yr** | **+69.9** | **+0.8 (≈ breakeven)** |
+| 2024 only | +15.2 | **−16.4** |
+| ex-2024 (9 q) | +54.7 | **+17.2** |
+
+**Honest verdict:** over the full 3 years, ict_scalp@1.6 is **net ≈
+breakeven** — real gross edge (+70R) but fees consume nearly all of it,
+and 2024 swings it from +17 to +0.8. The "disp 1.6 win" holds *relative
+to 1.3* but the absolute 3yr net is ~flat (earlier good-year slices were
+over-read).
+
+**Refinements (confirmed):**
+1. **Net-positive (~+17R / 9 quarters, ~+1.9R/q) OUTSIDE 2024** — a real
+   regime-dependent edge; 2024 is the killer.
+2. **No simple rule isolates 2024's losing quarters.** 2024Q1 (highest
+   vol, 58%) was a *win* (+3.9); the losers (2024Q2/Q4) just had <45% win
+   rates. Volatility does NOT separate good/bad quarters → my earlier
+   "degrades in high vol" claim is **withdrawn**. The discriminator is
+   ~outcome (win rate), which no simple leading rule captures.
+
+**Implication:** ict_scalp can't stand alone net-of-fee, but it's a
+legitimate **gross-edge component** requiring (a) further fee reduction,
+(b) a **learned signal** (model gate / regime model) to flag the bad
+periods a rule can't, and/or (c) a **diversified portfolio + decider**
+to smooth quarter noise and cover 2024-like stretches with a complement.
+Confirms the model-layer + complementary-roster are essential, not
+optional. Evidence: trainer #1811/#1812/#1815.
+
 ## First read (12 months only — see regime confirmation above)
 
 
