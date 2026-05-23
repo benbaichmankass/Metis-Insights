@@ -497,6 +497,14 @@ def ict_scalp_signal_builder(settings: dict) -> Dict[str, Any]:
             "stop_loss": pkg["sl"],
             "take_profit": pkg["tp"],
             "confidence": pkg["confidence"],
+            # Decision geometry the strategy already computed (order_package
+            # meta) — surfaced so the dashboard can DRAW the FVG zone +
+            # liquidity-sweep level it actually traded on. Not new tracking;
+            # purely the values this evaluation already produced.
+            "fvg_low": pkg_meta.get("fvg_low"),
+            "fvg_high": pkg_meta.get("fvg_high"),
+            "sweep_level": pkg_meta.get("sweep_level"),
+            "sweep_extreme": pkg_meta.get("sweep_extreme"),
         })
     except Exception:  # noqa: BLE001
         logger.exception("ict_scalp_5m: dedicated audit emit failed")
