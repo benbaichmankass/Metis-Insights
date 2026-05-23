@@ -295,6 +295,11 @@ def _summarize(
             "win_rate_pct": 0.0,
             "expectancy_r": 0.0,
             "total_r": 0.0,
+            "fee_bps_roundtrip": FEE_BPS_ROUNDTRIP,
+            "total_fee_r": 0.0,
+            "net_total_r": 0.0,
+            "net_expectancy_r": 0.0,
+            "net_win_rate_pct": 0.0,
             "max_drawdown_r": 0.0,
             "sharpe_r": 0.0,
             "by_outcome": {},
@@ -516,6 +521,48 @@ def _format_exit_grid(out: Dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def run_entry_grid(df, *, cfg_overrides, timeframe, symbol, warmup_bars,
+                   timeout_bars, cooldown_bars, htf_rule, htf_ema_period,
+                   disp_grid):
+    """Entry-selectivity sweep: vary displacement_atr_mult (the core
+    entry-quality knob) — each value is a full entry+exit pass at the
+    strategy's live exit config. Tests whether fewer/higher-quality
+    entries lift net-of-fee (the 2024 over-trading hypothesis)."""
+    rows: List[Dict[str, Any]] = []
+    for disp in disp_grid:
+        cfg = dict(cfg_overrides)
+        cfg["displacement_atr_mult"] = disp
+        s = run_backtest(df, cfg_overrides=cfg, timeframe=timeframe,
+                         symbol=symbol, warmup_bars=warmup_bars,
+                         timeout_bars=timeout_bars, cooldown_bars=cooldown_bars,
+                         htf_rule=htf_rule, htf_ema_period=htf_ema_period)
+        rows.append({
+            "displacement_atr_mult": disp,
+            "total_trades": s["total_trades"], "win_rate_pct": s["win_rate_pct"],
+            "total_r": s["total_r"], "net_total_r": s["net_total_r"],
+            "net_expectancy_r": s["net_expectancy_r"],
+            "total_fee_r": s["total_fee_r"], "max_drawdown_r": s["max_drawdown_r"]})
+    return {
+        "strategy": "ict_scalp_5m", "symbol": symbol, "timeframe": timeframe,
+        "fee_bps_roundtrip": FEE_BPS_ROUNDTRIP,
+        "data_start": str(df["timestamp"].iloc[0]) if len(df) else None,
+        "data_end": str(df["timestamp"].iloc[-1]) if len(df) else None,
+        "entry_grid": rows, "run_date": str(date.today())}
+
+
+def _format_entry_grid(out: Dict[str, Any]) -> str:
+    lines = [
+        f"ict_scalp entry-selectivity grid — {out['symbol']} {out['timeframe']}  "
+        f"({out['data_start']} → {out['data_end']})  fee {out['fee_bps_roundtrip']}bps",
+        f"  {'disp_atr':>8} {'trades':>7} {'wr%':>6} {'gross_r':>9} {'net_r':>9} {'net_exp':>8} {'maxdd':>7}",
+    ]
+    for g in out["entry_grid"]:
+        lines.append(
+            f"  {g['displacement_atr_mult']:>8} {g['total_trades']:>7} {g['win_rate_pct']:>6} "
+            f"{g['total_r']:>9} {g['net_total_r']:>9} {g['net_expectancy_r']:>8} {g['max_drawdown_r']:>7}")
+    return "\n".join(lines)
+
+
 def main(argv: List[str]) -> int:
     global FEE_BPS_ROUNDTRIP  # set from --fee-bps-roundtrip after parse
     p = argparse.ArgumentParser(description="Backtest ict_scalp_5m.")
@@ -542,6 +589,9 @@ def main(argv: List[str]) -> int:
     p.add_argument("--exit-grid", action="store_true",
                    help="Variation sweep: one entry pass x many exit variations "
                         "(tp_at_r x break-even), net-of-fee, ranked by net R.")
+    p.add_argument("--entry-grid", action="store_true",
+                   help="Entry-selectivity sweep: vary displacement_atr_mult "
+                        "(full pass each), net-of-fee — tests over-trading.")
     args = p.parse_args(argv[1:])
     FEE_BPS_ROUNDTRIP = args.fee_bps_roundtrip
 
@@ -565,6 +615,27 @@ def main(argv: List[str]) -> int:
             print(f"ERROR: exit-grid failed: {exc}", file=sys.stderr)
             return 1
         print(_format_exit_grid(out))
+        if args.json_out:
+            payload = json.dumps(out, indent=2, default=str)
+            if args.json_out == "-":
+                print(payload)
+            else:
+                Path(args.json_out).write_text(payload)
+                print(f"\nJSON written to {args.json_out}", file=sys.stderr)
+        return 0
+
+    if args.entry_grid:
+        try:
+            out = run_entry_grid(
+                df, cfg_overrides=cfg_overrides, timeframe=args.timeframe,
+                symbol=args.symbol, warmup_bars=int(args.warmup_bars),
+                timeout_bars=int(args.timeout_bars), cooldown_bars=int(args.cooldown_bars),
+                htf_rule=str(args.htf_rule), htf_ema_period=int(args.htf_ema_period),
+                disp_grid=[1.3, 1.6, 2.0, 2.5, 3.0])
+        except Exception as exc:  # noqa: BLE001
+            print(f"ERROR: entry-grid failed: {exc}", file=sys.stderr)
+            return 1
+        print(_format_entry_grid(out))
         if args.json_out:
             payload = json.dumps(out, indent=2, default=str)
             if args.json_out == "-":
