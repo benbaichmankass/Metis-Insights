@@ -21,6 +21,8 @@
 #     trainer/db_pulls.jsonl               ← dashboard
 #     experiments-runs/<model_id>/<run_id>/metrics.json  ← dashboard
 #     models/<model_id>.json               ← shadow factory
+#     backtests/<UTC-date>/SUMMARY.md       ← dashboard (Backtesting tab)
+#     backtests/<UTC-date>/all_metrics.json ← dashboard (Backtesting tab)
 #
 # The `models/` subdir is the WS7 shadow factory's registry root —
 # its `*.json` glob would otherwise pick up sibling artifacts at
@@ -79,6 +81,13 @@ TRAINING_LOG_PATH="${TRAINING_LOG_PATH:-$REPO_ROOT/runtime_logs/training_cycle.j
 REGISTRY_ROOT="${REGISTRY_ROOT:-$REPO_ROOT/ml/registry-store}"
 EXPERIMENTS_ROOT="${EXPERIMENTS_ROOT:-$REPO_ROOT/ml/experiments-runs}"
 PUBLISH_LOG_PATH="${PUBLISH_LOG_PATH:-$REPO_ROOT/runtime_logs/trainer/publish.jsonl}"
+# Backtest sweeps (strategy-improvement / validation harness output).
+# `run_backtest_sweep.sh` writes <UTC-date>/{SUMMARY.md,all_metrics.json,
+# *_metrics.json,...} here, OUTSIDE the repo. Mirror only the small
+# JSON/MD artifacts (never the multi-MB candle CSVs the harness caches
+# alongside them) — see the rsync filter below.
+ICT_TRADER_DATA_ROOT="${ICT_TRADER_DATA_ROOT:-/home/ubuntu/ict-trader-data}"
+BACKTESTS_ROOT="${BACKTESTS_ROOT:-$ICT_TRADER_DATA_ROOT/backtests}"
 
 iso_now() { date -u +'%Y-%m-%dT%H:%M:%S+00:00'; }
 
@@ -481,6 +490,31 @@ if [ -d "$EXPERIMENTS_ROOT" ]; then
     --exclude='*' \
     "${EXPERIMENTS_ROOT}/" \
     "${LIVE_VM_USER}@${LIVE_VM_IP}:${LIVE_VM_MIRROR_PATH}/experiments-runs/" \
+    || overall_rc=1
+fi
+
+# Backtest sweeps: rsync the <UTC-date>/ dirs the strategy-improvement
+# harness writes. Mirror ONLY the small text artifacts the dashboard's
+# Backtesting tab renders — SUMMARY.md (the comparable table),
+# all_metrics.json (per-variant Metrics for drill-down), any sibling
+# *_metrics.json (e.g. ict_scalp_metrics.json), and the small stdout
+# logs. The `--exclude='*'` after the includes drops everything else,
+# notably the multi-MB candle CSVs (e.g. btc_5m_for_ict_scalp.csv) the
+# harness caches alongside them — those must never cross the SSH push.
+# Read on the live VM by `src/web/api/routers/backtests.py`
+# (`/api/bot/backtests/sweeps`).
+if [ -d "$BACKTESTS_ROOT" ]; then
+  rsync -az --no-perms --no-owner --no-group \
+    -e "ssh ${SSH_OPTS}" \
+    --include='*/' \
+    --include='SUMMARY.md' \
+    --include='*_metrics.json' \
+    --include='all_metrics.json' \
+    --include='*_stdout.log' \
+    --include='harness_stdout.log' \
+    --exclude='*' \
+    "${BACKTESTS_ROOT}/" \
+    "${LIVE_VM_USER}@${LIVE_VM_IP}:${LIVE_VM_MIRROR_PATH}/backtests/" \
     || overall_rc=1
 fi
 
