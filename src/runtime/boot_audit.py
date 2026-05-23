@@ -42,8 +42,8 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 
 def _resolve_db():
     from src.units.db.database import Database
-    path = os.environ.get("TRADE_JOURNAL_DB") or str(_REPO_ROOT / "trade_journal.db")
-    return Database(db_path=path)
+    from src.utils.paths import trade_journal_db_path
+    return Database(db_path=trade_journal_db_path())
 
 
 def _load_strategy_names() -> list[str]:
@@ -208,7 +208,8 @@ def reconcile_journal_vs_exchange_on_boot() -> Dict[str, Any]:
         "errors": 0,
     }
 
-    db_path = os.environ.get("TRADE_JOURNAL_DB") or str(_REPO_ROOT / "trade_journal.db")
+    from src.utils.paths import trade_journal_db_path
+    db_path = trade_journal_db_path()
 
     try:
         cfgs = _load_account_cfgs()

@@ -8,7 +8,6 @@ Empty journal → all zeros (200). DB file unreachable → 503.
 """
 from __future__ import annotations
 
-import os
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
@@ -16,6 +15,7 @@ from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
+from src.utils.paths import trade_journal_db_path
 from src.web.api.auth import require_session
 
 router = APIRouter(prefix="/api", tags=["pnl"])
@@ -25,10 +25,7 @@ SCHEMA_VERSION = 1
 
 
 def _resolve_db_path() -> Path:
-    env_path = os.environ.get("TRADE_JOURNAL_DB")
-    if env_path:
-        return Path(env_path)
-    return _REPO_ROOT / "trade_journal.db"
+    return Path(trade_journal_db_path())
 
 
 def _resolve_accounts_yaml() -> Path:

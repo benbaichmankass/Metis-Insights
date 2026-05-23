@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 
 _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 from src.utils.paths import repo_root as _repo_root, data_dir as _data_dir  # noqa: E402
+from src.utils.paths import trade_journal_db_path as _trade_journal_db_path  # noqa: E402
 REPO_ROOT = _repo_root()
 
 ACCOUNTS_YAML_PATH = os.path.join(REPO_ROOT, "config", "accounts.yaml")
@@ -37,17 +38,18 @@ LEGACY_LIVE_SERVICE = "ict-trader-live"
 LEGACY_LIVE_ACCOUNT_ID = "live"
 TRADER_SERVICE_PREFIX = "ict-trader-"
 
-# Trade-journal DB resolution mirrors src/bot/telegram_query_bot.py.
-# The third (legacy bot-folder) candidate is preserved verbatim across
-# the S-032 file move so deployments that still have a legacy
-# ``src/bot/trade_journal.db`` keep resolving to the right path.
+# Trade-journal DB resolution mirrors src/bot/telegram_query_bot.py:
+# the canonical resolver first (TRADE_JOURNAL_DB env →
+# $DATA_DIR/trade_journal.db → repo-root), then repo root as the
+# existence-check fallback. The legacy ``src/bot/trade_journal.db``
+# candidate was dropped — it was a stray duplicate journal we are
+# eliminating (see src/utils/paths.py::trade_journal_db_path docstring).
 _TJ_CANDIDATES = [
-    os.environ.get("TRADE_JOURNAL_DB", ""),
+    _trade_journal_db_path(),
     os.path.join(REPO_ROOT, "trade_journal.db"),
-    os.path.join(REPO_ROOT, "src", "bot", "trade_journal.db"),
 ]
 TRADE_JOURNAL_DB = next((p for p in _TJ_CANDIDATES if p and os.path.exists(p)),
-                       os.path.join(REPO_ROOT, "trade_journal.db"))
+                       _trade_journal_db_path())
 
 # Signals DB written by src/runtime/signal_writer.py via data_dir()/"trades.db".
 # On the live VM DATA_DIR=/data/bot-data so the canonical path is

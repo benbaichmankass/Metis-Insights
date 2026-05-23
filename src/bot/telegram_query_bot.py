@@ -65,14 +65,16 @@ load_dotenv()
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 from src.utils.paths import repo_root as _repo_root  # noqa: E402
+from src.utils.paths import trade_journal_db_path as _trade_journal_db_path  # noqa: E402
 REPO_ROOT = _repo_root()
-# DB_PATH: check env override, then repo root, then src/bot/ (legacy).
+# DB_PATH: canonical resolver first (TRADE_JOURNAL_DB env →
+# $DATA_DIR/trade_journal.db → repo-root), then repo root as the
+# existence-check fallback.
 _DB_CANDIDATES = [
-    os.environ.get("TRADE_JOURNAL_DB", ""),
+    _trade_journal_db_path(),
     os.path.join(REPO_ROOT, "trade_journal.db"),
-    os.path.join(BASE_DIR, "trade_journal.db"),
 ]
-DB_PATH = next((p for p in _DB_CANDIDATES if p and os.path.exists(p)), os.path.join(REPO_ROOT, "trade_journal.db"))
+DB_PATH = next((p for p in _DB_CANDIDATES if p and os.path.exists(p)), _trade_journal_db_path())
 
 # Fallback service name used when dl.list_accounts() returns no accounts.
 # Multi-account deployments use per-account service keys from list_accounts().

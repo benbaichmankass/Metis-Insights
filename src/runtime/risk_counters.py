@@ -58,8 +58,9 @@ def inject_runtime_counters(settings: dict, exchange_client: Any) -> dict:
                 pass  # outcomes shouldn't crash the tick
 
     # ---- daily loss: trade journal DB (closed live trades only) ----
-    db_path = settings.get("TRADE_JOURNAL_DB") or os.environ.get("TRADE_JOURNAL_DB")
-    if db_path:
+    from src.utils.paths import trade_journal_db_path
+    db_path = settings.get("TRADE_JOURNAL_DB") or trade_journal_db_path()
+    if db_path and os.path.exists(db_path):
         try:
             conn = sqlite3.connect(db_path)
             cur = conn.cursor()
@@ -113,8 +114,9 @@ def inject_per_strategy_counters(
     if not strategy_name:
         return s
 
-    _db = db_path or settings.get("TRADE_JOURNAL_DB") or os.environ.get("TRADE_JOURNAL_DB")
-    if not _db:
+    from src.utils.paths import trade_journal_db_path
+    _db = db_path or settings.get("TRADE_JOURNAL_DB") or trade_journal_db_path()
+    if not _db or not os.path.exists(_db):
         return s
 
     try:

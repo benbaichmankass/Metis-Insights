@@ -183,9 +183,8 @@ def check_liveness(
     since_iso = since.isoformat()
 
     audit = audit_path or _SIGNAL_AUDIT
-    db = db_path or Path(
-        os.environ.get("TRADE_JOURNAL_DB") or (_REPO_ROOT / "trade_journal.db")
-    )
+    from src.utils.paths import trade_journal_db_path
+    db = db_path or Path(trade_journal_db_path())
 
     signals = _count_actionable_signals(since_iso, audit)
     trades = _count_trades_placed(since_iso, db)

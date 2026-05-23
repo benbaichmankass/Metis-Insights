@@ -20,7 +20,6 @@ The dry/live toggle is the per-account ``mode: live | dry_run`` field in
 from __future__ import annotations
 
 import logging
-import os
 import uuid
 from typing import Any, Optional
 
@@ -763,15 +762,9 @@ def _log_trade_to_journal(
         import json
         from datetime import datetime, timezone
         from src.units.db.database import Database
+        from src.utils.paths import trade_journal_db_path
 
-        path = (
-            os.environ.get("TRADE_JOURNAL_DB")
-            or os.path.join(
-                os.path.abspath(os.path.join(os.path.dirname(__file__),
-                                             "..", "..", "..")),
-                "trade_journal.db",
-            )
-        )
+        path = trade_journal_db_path()
         db = Database(db_path=path)
         if trade_id is None:
             trade_id = f"{status}-{uuid.uuid4().hex[:12]}"

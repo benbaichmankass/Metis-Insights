@@ -410,12 +410,13 @@ def get_today_pnl(account_id: Optional[str] = None) -> Dict[str, Any]:
         Never raises; on a DB failure returns zero counts with the
         same shape so renderers can show ``"N/A"`` without try/except.
     """
-    import os
     import sqlite3
     from datetime import datetime, timezone
 
+    from src.utils.paths import trade_journal_db_path
+
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    db_path = os.environ.get("TRADE_JOURNAL_DB") or "trade_journal.db"
+    db_path = trade_journal_db_path()
     try:
         conn = sqlite3.connect(db_path)
         try:
@@ -468,10 +469,11 @@ def get_open_positions_count(account_id: Optional[str] = None) -> int:
 
     Returns 0 on any error (logged) so renderers can show a sane value.
     """
-    import os
     import sqlite3
 
-    db_path = os.environ.get("TRADE_JOURNAL_DB") or "trade_journal.db"
+    from src.utils.paths import trade_journal_db_path
+
+    db_path = trade_journal_db_path()
     try:
         conn = sqlite3.connect(db_path)
         try:
@@ -1553,10 +1555,11 @@ def close_open_positions(
     exchange refusal, DB write error) are encoded as ``ok=False``
     rows with an ``error`` string so the bot can render them.
     """
-    import os
     import sqlite3
 
-    db_path = os.environ.get("TRADE_JOURNAL_DB") or "trade_journal.db"
+    from src.utils.paths import trade_journal_db_path
+
+    db_path = trade_journal_db_path()
     where = ["status = 'open'", "is_backtest = 0"]
     params: list = []
     if strategy is not None:

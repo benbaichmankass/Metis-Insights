@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import sqlite3
 import time
 import uuid
@@ -23,14 +22,14 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, status
 
-from src.utils.paths import runtime_logs_dir
+from src.utils.paths import runtime_logs_dir, trade_journal_db_path
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/bot", tags=["dashboard"])
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
-_DB_PATH = Path(os.environ.get("TRADE_JOURNAL_DB", str(_REPO_ROOT / "trade_journal.db")))
+_DB_PATH = Path(trade_journal_db_path())
 # All runtime-log paths route through runtime_logs_dir() so DATA_DIR /
 # RUNTIME_LOGS_DIR overrides apply consistently with the writers
 # (heartbeat.py, signal_audit_logger.py, runtime_status.py — all

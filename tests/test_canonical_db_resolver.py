@@ -232,3 +232,98 @@ class TestDbResolverGuard:
         mod = _load_guard()
         monkeypatch.setattr(mod, "_REPO_ROOT", tmp_path)
         assert mod._gather_offenders() == []
+
+
+class TestPythonDbResolverGuard:
+    """The Python scan forbids the CWD-relative fallback + inline
+    TRADE_JOURNAL_DB env-reads outside the canonical resolver."""
+
+    def _make(self, tmp_path, rel, body):
+        f = tmp_path / rel
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text(body, encoding="utf-8")
+        return f
+
+    def test_main_repo_python_clean(self):
+        """The real repo must pass the Python scan (full guard run)."""
+        result = subprocess.run(
+            [sys.executable,
+             str(_REPO_ROOT / "scripts" / "check_canonical_db_resolver.py"),
+             "--list"],
+            capture_output=True, text=True,
+        )
+        assert result.returncode == 0, (
+            f"guard failed:\nstdout:\n{result.stdout}\nstderr:\n{result.stderr}"
+        )
+
+    def test_catches_cwd_or_fallback(self, tmp_path, monkeypatch):
+        self._make(
+            tmp_path, "src/foo.py",
+            'db_path = os.environ.get("X") or "trade_journal.db"\n',
+        )
+        mod = _load_guard()
+        monkeypatch.setattr(mod, "_REPO_ROOT", tmp_path)
+        offenders = mod._gather_python_offenders()
+        assert len(offenders) == 1
+
+    def test_catches_db_path_default(self, tmp_path, monkeypatch):
+        self._make(
+            tmp_path, "src/bar.py",
+            'def __init__(self, db_path="trade_journal.db"):\n    pass\n',
+        )
+        mod = _load_guard()
+        monkeypatch.setattr(mod, "_REPO_ROOT", tmp_path)
+        assert len(mod._gather_python_offenders()) == 1
+
+    def test_catches_inline_env_read(self, tmp_path, monkeypatch):
+        self._make(
+            tmp_path, "ml/baz.py",
+            'p = os.environ.get("TRADE_JOURNAL_DB", "/x/trade_journal.db")\n',
+        )
+        mod = _load_guard()
+        monkeypatch.setattr(mod, "_REPO_ROOT", tmp_path)
+        assert len(mod._gather_python_offenders()) == 1
+
+    def test_allows_repo_anchored_join(self, tmp_path, monkeypatch):
+        """``os.path.join(_REPO_ROOT, "trade_journal.db")`` is absolute,
+        not CWD-relative — must NOT trip."""
+        self._make(
+            tmp_path, "src/ok.py",
+            'p = os.path.join(_REPO_ROOT, "trade_journal.db")\n'
+            'q = _REPO_ROOT / "trade_journal.db"\n',
+        )
+        mod = _load_guard()
+        monkeypatch.setattr(mod, "_REPO_ROOT", tmp_path)
+        assert mod._gather_python_offenders() == []
+
+    def test_allows_unrelated_filename_kwarg(self, tmp_path, monkeypatch):
+        """A Telegram-upload ``filename="trade_journal.db"`` is not a
+        path resolution — must NOT trip (regression for the false
+        positive on telegram_query_bot.py)."""
+        self._make(
+            tmp_path, "src/upload.py",
+            'bot.send_document(document=f, filename="trade_journal.db")\n',
+        )
+        mod = _load_guard()
+        monkeypatch.setattr(mod, "_REPO_ROOT", tmp_path)
+        assert mod._gather_python_offenders() == []
+
+    def test_allows_canonical_resolver_call(self, tmp_path, monkeypatch):
+        self._make(
+            tmp_path, "src/clean.py",
+            'from src.utils.paths import trade_journal_db_path\n'
+            'db = Database(db_path=trade_journal_db_path())\n',
+        )
+        mod = _load_guard()
+        monkeypatch.setattr(mod, "_REPO_ROOT", tmp_path)
+        assert mod._gather_python_offenders() == []
+
+    def test_allowlisted_module_may_read_env(self, tmp_path, monkeypatch):
+        """src/utils/paths.py IS the resolver — allowed to read the env."""
+        self._make(
+            tmp_path, "src/utils/paths.py",
+            'env = os.environ.get("TRADE_JOURNAL_DB")\n',
+        )
+        mod = _load_guard()
+        monkeypatch.setattr(mod, "_REPO_ROOT", tmp_path)
+        assert mod._gather_python_offenders() == []

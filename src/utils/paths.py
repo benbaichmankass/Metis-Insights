@@ -291,6 +291,51 @@ def artifacts_dir() -> Path:
     return _resolve_root("artifacts")
 
 
+_ENV_TRADE_JOURNAL_DB = "TRADE_JOURNAL_DB"
+_TRADE_JOURNAL_DB_BASENAME = "trade_journal.db"
+
+
+def trade_journal_db_path() -> str:
+    """Return the canonical absolute path to the trade-journal SQLite DB.
+
+    This is the ONE resolver every Python caller must use instead of the
+    historical ``os.environ.get("TRADE_JOURNAL_DB") or "trade_journal.db"``
+    idiom. That bare-CWD fallback is what produced the stray duplicate
+    journals on the live VM (``/home/ubuntu/ict-trading-bot/trade_journal.db``
+    and ``src/bot/trade_journal.db``): any process that started without the
+    systemd ``TRADE_JOURNAL_DB`` env wrote a fresh DB relative to its CWD.
+    The shell side already has the equivalent ``runtime_db_path`` in
+    ``scripts/ops/_lib.sh``; this is its Python twin.
+
+    Resolution order (most authoritative first):
+      1. ``TRADE_JOURNAL_DB`` env — exact path. The live services pin this
+         to ``/data/bot-data/trade_journal.db`` via the systemd drop-in.
+      2. ``$DATA_DIR/trade_journal.db`` — the umbrella data root (canonical
+         ``/data/bot-data`` on the OCI block-storage mount).
+      3. ``<repo_root>/trade_journal.db`` — last-resort dev/test fallback,
+         anchored to the repo root (NEVER the process CWD).
+
+    Always returns an absolute path. Never a bare relative basename.
+    """
+    env = os.environ.get(_ENV_TRADE_JOURNAL_DB)
+    if env:
+        return str(Path(env).expanduser())
+
+    umbrella = os.environ.get(_ENV_UMBRELLA)
+    if umbrella:
+        umbrella_root = Path(umbrella).expanduser()
+        if not umbrella_root.is_absolute():
+            # Same anchor-to-repo_root rationale as _resolve_root: a
+            # relative DATA_DIR must not resolve against the process CWD.
+            _alert_on_relative_data_dir(
+                umbrella, Path(repo_root()) / umbrella_root / _TRADE_JOURNAL_DB_BASENAME,
+            )
+            umbrella_root = Path(repo_root()) / umbrella_root
+        return str(umbrella_root / _TRADE_JOURNAL_DB_BASENAME)
+
+    return str(Path(repo_root()) / _TRADE_JOURNAL_DB_BASENAME)
+
+
 def describe_roots() -> dict[str, str]:
     """Return a debug map of the resolved roots and their env source.
 

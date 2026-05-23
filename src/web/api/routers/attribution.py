@@ -19,7 +19,6 @@ Both endpoints are unauthenticated GET — same tier policy as
 from __future__ import annotations
 
 import logging
-import os
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
@@ -28,15 +27,14 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Query
 
 from src.runtime.positions import net_positions_by_symbol
+from src.utils.paths import trade_journal_db_path
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/bot", tags=["attribution"])
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
-_DB_PATH = Path(
-    os.environ.get("TRADE_JOURNAL_DB", str(_REPO_ROOT / "trade_journal.db"))
-)
+_DB_PATH = Path(trade_journal_db_path())
 
 
 # ---------------------------------------------------------------------------

@@ -13,7 +13,6 @@ survives across processes and connections. Calling
 from __future__ import annotations
 
 import logging
-import os
 import sqlite3
 from typing import Optional
 
@@ -23,14 +22,12 @@ logger = logging.getLogger(__name__)
 def journal_db_path() -> str:
     """Resolve the trade-journal DB path.
 
-    Order: ``TRADE_JOURNAL_DB`` env var → repo-root ``trade_journal.db``.
-    Matches the convention used by ``src/core/coordinator.py``.
+    Delegates to the canonical ``trade_journal_db_path()`` resolver
+    (``TRADE_JOURNAL_DB`` env → ``$DATA_DIR/trade_journal.db`` →
+    repo-root ``trade_journal.db``). Never CWD-relative.
     """
-    env = os.environ.get("TRADE_JOURNAL_DB")
-    if env:
-        return env
-    from src.utils.paths import repo_root
-    return os.path.join(repo_root(), "trade_journal.db")
+    from src.utils.paths import trade_journal_db_path
+    return trade_journal_db_path()
 
 
 def enable_wal_mode(db_path: Optional[str] = None) -> bool:

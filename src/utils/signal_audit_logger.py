@@ -44,8 +44,7 @@ def _dual_write_to_db(payload: Dict[str, Any]) -> None:
         return
     try:
         from src.units.db.database import Database
-        db_path = os.environ.get("TRADE_JOURNAL_DB") or "trade_journal.db"
-        db = Database(db_path=db_path)
+        db = Database()  # canonical resolver — never the bare-CWD fallback
         db.insert_signal(payload)
     except Exception as exc:  # noqa: BLE001
         logger.warning("signal_audit_logger: SQL dual-write failed: %s", exc)

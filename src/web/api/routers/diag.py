@@ -33,7 +33,7 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request, status
 
-from src.utils.paths import runtime_logs_dir
+from src.utils.paths import runtime_logs_dir, trade_journal_db_path
 from src.web.runtime_status import _resolve_git_sha
 
 logger = logging.getLogger(__name__)
@@ -41,7 +41,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/diag", tags=["diag"])
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
-_DB_PATH = Path(os.environ.get("TRADE_JOURNAL_DB", str(_REPO_ROOT / "trade_journal.db")))
+_DB_PATH = Path(trade_journal_db_path())
 # Every runtime-log reader resolves through runtime_logs_dir() so DATA_DIR /
 # RUNTIME_LOGS_DIR overrides match the writers (heartbeat.py,
 # signal_audit_logger.py, runtime_status.py). The 2026-05-11 silent
