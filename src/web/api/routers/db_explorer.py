@@ -68,7 +68,7 @@ def _json_safe(value: Any) -> Any:
     if isinstance(value, (bytes, bytearray)):
         try:
             return value.decode("utf-8", "replace")
-        except Exception:  # noqa: BLE001
+        except Exception:  # noqa: BLE001  # allow-silent: best-effort display coercion; repr fallback
             return repr(value)
     return value
 
@@ -85,12 +85,12 @@ async def db_tables() -> Dict[str, Any]:
             for name in _list_tables(conn):
                 try:
                     count = conn.execute(f'SELECT COUNT(*) FROM "{name}"').fetchone()[0]
-                except sqlite3.Error:
+                except sqlite3.Error:  # allow-silent: per-table COUNT is best-effort; null renders as "—"
                     count = None
                 out.append({"name": name, "rows": count, "columns": _columns(conn, name)})
         finally:
             conn.close()
-    except sqlite3.Error:
+    except sqlite3.Error:  # allow-silent: tier-1 read; logged + returns present:false
         logger.exception("db_explorer: tables read failed")
         return {"present": False, "db": _DB_PATH.name, "tables": []}
     return {"present": True, "db": _DB_PATH.name, "tables": out}
@@ -147,7 +147,7 @@ async def db_table(
             conn.close()
     except HTTPException:
         raise
-    except sqlite3.Error:
+    except sqlite3.Error:  # allow-silent: tier-1 read; logged + surfaced as 503
         logger.exception("db_explorer: table read failed")
         raise HTTPException(status_code=503, detail="db read error")
     return {
