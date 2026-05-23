@@ -375,7 +375,22 @@ sprint produces a sprint log under `docs/sprint-logs/`.
   model-in-loop, **new-strategy R&D**.
 
 ### S6 — Strategy-edge assessment & recommendation — Tier 1 (Tier 3 to ship)
-- **Goal:** synthesize S4-B/S5 into a recommendation: which current
+- **Open-source research (done 2026-05-23):** synthesis of what works /
+  fails + new-strategy candidates + the variation-testing methodology in
+  `docs/research/algo-strategy-edges-2026-05-23.md`. Highlights: a
+  momentum+mean-reversion *blend* hit Sharpe ~1.71 (complementarity is
+  the proven win); ICT FVG/sweep concepts have backtest support (validates
+  ict_scalp) but decay as single signals → need confluence/MTF;
+  in-sample Sharpe is ~useless OOS (R²<0.025) → seek **parameter plateaus
+  not cliffs**, walk-forward, Deflated-Sharpe/PBO; near-term new-strategy
+  picks = HTF-momentum/breakout + a session/volatility overlay.
+- **Variation-testing build (next):** extend the harnesses to sweep
+  entry × exit × stop × filter grids in one pass (efficient design: one
+  expensive entry pass, then many cheap exit/stop variations from stored
+  entries), net-of-fee, across year-slices, ranking by plateau quality —
+  so we test *many versions* per strategy, not one config over years
+  (operator directive 2026-05-23). Also speeds grids enough for the
+  1-core trainer.
   strategy (if any) has a fee-survivable edge; what a robust base
   strategy looks like (edge before tuning); whether to keep/tune/retire/
   replace each. Package any live recommendation (incl. retiring vwap or
