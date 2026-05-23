@@ -317,6 +317,29 @@ async def get_signals() -> list[dict[str, Any]]:
                 "pattern": pattern,
                 "confidence": confidence,
                 "price": price,
+                # Decision geometry the strategy already computed (when
+                # present in the audit record) so the chart can DRAW the
+                # zones it traded on — never a separately-computed
+                # indicator. Generic shape: each zone is {kind, ...}.
+                "zones": _signal_zones(e),
             }
         )
     return out
+
+
+def _signal_zones(e: dict[str, Any]) -> list[dict[str, Any]]:
+    """Assemble drawable zones from the geometry a strategy logged.
+
+    Reads ONLY values the signal builder already recorded (e.g. ict_scalp's
+    fvg_low/high + sweep_level). Returns ``[]`` when no geometry is present.
+    Extend by having a strategy log its own fields and mapping them here."""
+    zones: list[dict[str, Any]] = []
+    fvg_low = e.get("fvg_low")
+    fvg_high = e.get("fvg_high")
+    if isinstance(fvg_low, (int, float)) and isinstance(fvg_high, (int, float)):
+        lo, hi = sorted((float(fvg_low), float(fvg_high)))
+        zones.append({"kind": "fvg", "low": lo, "high": hi})
+    sweep_level = e.get("sweep_level")
+    if isinstance(sweep_level, (int, float)):
+        zones.append({"kind": "sweep", "price": float(sweep_level)})
+    return zones

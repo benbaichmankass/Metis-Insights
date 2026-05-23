@@ -390,7 +390,7 @@ Unauthenticated GET routes — Tier 1 read surface. See
 | `GET /api/bot/stats` | `BotStats` JSON | `trade_journal.db` + `psutil` + `heartbeat.txt` |
 | `GET /api/bot/logs` | `LogEntry[]` | `runtime_logs/signal_audit.jsonl`, fallback `bot.log` |
 | `GET /api/bot/positions` | open positions | `trade_journal.db` WHERE status='open' |
-| `GET /api/bot/signals` | recent ICT detections | `runtime_logs/signal_audit.jsonl` filtered to buy/sell |
+| `GET /api/bot/signals` | recent ICT detections — each carries `strategy`, `pattern`, `confidence`, `price`, and `zones[]` (drawable decision geometry the strategy already logged: `{kind:"fvg",low,high}` + `{kind:"sweep",price}` for ict_scalp) | `runtime_logs/signal_audit.jsonl` filtered to buy/sell. `zones` are assembled from geometry the signal builder records (e.g. `fvg_low/high`, `sweep_level`) — never a separately-computed indicator. |
 | `GET /api/bot/liquidity?symbol=X` | per-symbol liquidity zones (S-064) | `runtime_logs/liquidity_state.json` (pipeline writes per-tick) |
 | `GET /api/bot/config` | effective config view (S-064) | `config/accounts.yaml` + `config/strategies.yaml` + `runtime_logs/runtime_status.json`; secrets redacted |
 | `GET /api/bot/accounts/balances` | `{present, as_of, age_seconds, balances:{<account_id>:{balance, ts}}}` | `runtime_logs/balance_snapshots.json` (the balances the trader already tracks via the hourly-report `account_snapshots()`). **Read-only, connection-free** — never opens an exchange socket; reflects the last recorded balance. Tier 1. |
