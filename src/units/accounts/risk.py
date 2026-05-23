@@ -32,20 +32,29 @@ Sizing inputs (also from the ``risk`` section):
     cutover). 0 means "not configured" — set_leverage is skipped at
     startup. Cash spot accounts ignore this field.
 
-State persistence (A-1):
-  - daily_pnl and daily_high_equity are written to a ``daily_risk_state``
-    table in the trade journal DB on every change and reloaded on startup.
+State persistence (A-1 + self-healing rebuild):
+  - daily_pnl and daily_high_equity are persisted to a ``daily_risk_state``
+    table in the canonical trade-journal DB and reloaded on startup.
+  - SELF-HEALING: rather than depending on a runtime caller of
+    ``record_trade_result()`` / ``update_equity()`` (there were none — the
+    bug that left ``daily_risk_state`` empty and the daily-loss /
+    max-drawdown caps reset to 0 on every restart), the manager rebuilds
+    today's state from authoritative sources on init and on every gate
+    check: realized PnL is summed from ``trades`` (this account, closed,
+    today UTC by open date) and current equity is read from
+    ``runtime_logs/balance_snapshots.json``. The reconciled state is
+    persisted so a row always exists for today.
   - Persistence is keyed by ``account_id`` (the YAML account name, e.g.
     "bybit_2"). When ``account_id`` is empty the manager runs in-memory
     only (backward-compatible with existing tests and one-off callers).
-  - DB path: TRADE_JOURNAL_DB env var, falling back to
-    /data/bot-data/trade_journal.db (production default).
+  - DB path: resolved by the single canonical resolver
+    ``src.utils.paths.trade_journal_db_path()`` (env → $DATA_DIR →
+    repo-root); never a CWD-relative basename.
   - All DB ops are best-effort — a failure never blocks a trade.
 """
 from __future__ import annotations
 
 import math
-import os
 from datetime import datetime, timezone
 from typing import Any, Optional
 from src.core.coordinator import OrderPackage
@@ -65,9 +74,6 @@ _DEFAULT_TEST_QTY = 0.0001
 # would push the resulting position into a margin-call state.
 # 0.9 = use up to 90% of available margin for a new position.
 _MARGIN_SAFETY_BUFFER = 0.9
-
-# Production trade-journal path (matches coordinator.py + deploy).
-_DEFAULT_DB_PATH = "/data/bot-data/trade_journal.db"
 
 _CREATE_DAILY_RISK_STATE = """
 CREATE TABLE IF NOT EXISTS daily_risk_state (
@@ -243,15 +249,29 @@ class RiskManager:
 
     @staticmethod
     def _risk_db_path() -> str:
-        return os.environ.get("TRADE_JOURNAL_DB") or _DEFAULT_DB_PATH
+        # Single canonical resolver (env → $DATA_DIR → repo-root); never
+        # the CWD-relative basename that seeded the stray journals.
+        from src.utils.paths import trade_journal_db_path
+        return trade_journal_db_path()
 
     def _ensure_state_table(self, conn: Any) -> None:
         conn.execute(_CREATE_DAILY_RISK_STATE)
 
     def _load_daily_state(self) -> None:
-        """Restore today's daily_pnl + daily_high_equity from SQLite.
+        """Restore + reconcile today's daily_pnl + daily_high_equity.
 
-        No-op when account_id is empty or the DB is unavailable.
+        Two sources, reconciled:
+          1. The persisted ``daily_risk_state`` row (carries the
+             intra-day equity high across restarts).
+          2. The canonical journal (authoritative for realized PnL) and
+             the balance snapshot (authoritative for current equity).
+
+        Source (2) is why the caps now survive a restart: before this
+        change nothing fed ``daily_pnl`` at runtime (record_trade_result
+        / update_equity had zero runtime callers), so the table stayed
+        empty and the daily-loss / max-drawdown caps reset to 0 on every
+        restart. Now the manager rebuilds today's state from the journal
+        on init and persists it. No-op when account_id is empty.
         """
         if not self.account_id:
             return
@@ -271,6 +291,82 @@ class RiskManager:
                 self.daily_high_equity = float(row[1]) if row[1] is not None else None
         except Exception:
             pass  # DB unavailable at startup — stay in-memory
+        # Reconcile against live sources and persist, so a row exists for
+        # today even on a fresh boot before the first trade closes.
+        self._refresh_daily_from_sources()
+
+    def _recompute_daily_pnl_from_db(self) -> Optional[float]:
+        """Sum realized PnL for this account's trades attributed to today.
+
+        Day attribution uses the trade's ``created_at`` (UTC open date) —
+        deterministic, join-free, and a close-enough proxy for this
+        intraday bot (positions open and close within the same UTC day in
+        the overwhelming majority of cases). Read-only; returns None when
+        the journal is unavailable so the caller keeps its in-memory value.
+        """
+        if not self.account_id:
+            return None
+        try:
+            import sqlite3
+            today = str(self._today_utc())
+            uri = "file:%s?mode=ro" % self._risk_db_path()
+            with sqlite3.connect(uri, uri=True, timeout=5) as conn:
+                row = conn.execute(
+                    "SELECT COALESCE(SUM(pnl), 0.0) FROM trades "
+                    "WHERE account_id=? AND status='closed' "
+                    "AND pnl IS NOT NULL AND substr(created_at,1,10)=?",
+                    (self.account_id, today),
+                ).fetchone()
+            return float(row[0]) if row and row[0] is not None else 0.0
+        except Exception:
+            return None  # journal unavailable — keep in-memory value
+
+    def _account_equity_from_snapshot(self) -> Optional[float]:
+        """Best-effort current equity from runtime_logs/balance_snapshots.json.
+
+        That file is the same per-account balance the hourly report tracks
+        and ``/api/bot/accounts/balances`` serves. Connection-free — never
+        opens an exchange socket. Returns None when unavailable.
+        """
+        if not self.account_id:
+            return None
+        try:
+            import json
+            from src.utils.paths import runtime_logs_dir
+            p = runtime_logs_dir() / "balance_snapshots.json"
+            if not p.exists():
+                return None
+            raw = json.loads(p.read_text(encoding="utf-8"))
+            entry = raw.get(self.account_id) if isinstance(raw, dict) else None
+            if isinstance(entry, dict) and entry.get("balance") is not None:
+                return float(entry["balance"])
+        except Exception:
+            return None
+        return None
+
+    def _refresh_daily_from_sources(self) -> None:
+        """Reconcile in-memory daily state with the journal + balance
+        snapshot, then persist if anything changed.
+
+        Best-effort and gated on account_id, so tests and one-off callers
+        (account_id="") are unaffected. This is what keeps the caps live
+        intra-session and persistent across restarts.
+        """
+        if not self.account_id:
+            return
+        changed = False
+        pnl = self._recompute_daily_pnl_from_db()
+        if pnl is not None and pnl != self.daily_pnl:
+            self.daily_pnl = pnl
+            changed = True
+        eq = self._account_equity_from_snapshot()
+        if eq is not None:
+            self.current_equity = eq
+            if self.daily_high_equity is None or eq > self.daily_high_equity:
+                self.daily_high_equity = eq
+                changed = True
+        if changed:
+            self._save_daily_state()
 
     def _save_daily_state(self) -> None:
         """Persist current daily_pnl + daily_high_equity to SQLite.
@@ -303,6 +399,13 @@ class RiskManager:
             self.daily_high_equity = self.current_equity
             self._last_reset_utc_date = today
             self._save_daily_state()
+        # Reconcile against the journal + balance snapshot on every gate
+        # check so the daily-loss / drawdown caps reflect realized PnL and
+        # current equity without depending on a runtime caller of
+        # record_trade_result()/update_equity() (which had none — the bug
+        # that left daily_risk_state empty). Best-effort, no-op when
+        # account_id is empty.
+        self._refresh_daily_from_sources()
 
     def update_equity(self, equity_usd: float) -> None:
         self._maybe_roll_daily()

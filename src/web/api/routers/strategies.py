@@ -35,7 +35,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
@@ -45,7 +44,7 @@ import yaml
 from fastapi import APIRouter
 
 from src.config.accounts_loader import load_accounts_dict
-from src.utils.paths import runtime_logs_dir
+from src.utils.paths import runtime_logs_dir, trade_journal_db_path
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +54,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[4]
 _STRATEGIES_YAML = _REPO_ROOT / "config" / "strategies.yaml"
 _ACCOUNTS_YAML = _REPO_ROOT / "config" / "accounts.yaml"
 _CHANGELOG_JSON = _REPO_ROOT / "config" / "strategy_changelog.json"
-_DB_PATH = Path(os.environ.get("TRADE_JOURNAL_DB", str(_REPO_ROOT / "trade_journal.db")))
+_DB_PATH = Path(trade_journal_db_path())
 
 # Freshness window (seconds) for treating the pipeline's last tick as
 # "running". The trader writes runtime_status.json every tick and the

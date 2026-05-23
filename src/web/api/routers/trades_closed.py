@@ -23,19 +23,20 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import sqlite3
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Query
 
+from src.utils.paths import trade_journal_db_path
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/bot", tags=["bot"])
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
-_DB_PATH = Path(os.environ.get("TRADE_JOURNAL_DB", str(_REPO_ROOT / "trade_journal.db")))
+_DB_PATH = Path(trade_journal_db_path())
 
 DEFAULT_LIMIT = 50
 MAX_LIMIT = 200

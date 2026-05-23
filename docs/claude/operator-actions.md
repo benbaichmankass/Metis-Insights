@@ -717,6 +717,30 @@ will not silently do nothing.
 
 ---
 
+## 11.5 Data-hygiene ops (S-PERSIST-CANON, 2026-05-23)
+
+Two persistence ops introduced with the canonical-store work. Neither
+needs a new allowlist entry today:
+
+- **Trainer-store ingest** — the federated sidecar `trainer_store.db` is
+  rebuilt **lazily on read** by the web-API (mtime-gated, see
+  `src/units/db/trainer_store.py`), so no operator action or timer is
+  required for the Data Explorer to stay fresh. A manual/cron rebuild is
+  available autonomously via `python -m src.units.db.trainer_store` on the
+  live VM (e.g. through the trainer-VM diag relay's SSH-to-live path) if a
+  push-time ingest is ever preferred.
+
+- **One-time stray-journal cleanup (operator-approved)** — the live VM
+  carries two stale duplicate journals created by the old CWD-relative
+  fallback (now eliminated): `/home/ubuntu/ict-trading-bot/trade_journal.db`
+  and `/home/ubuntu/ict-trading-bot/src/bot/trade_journal.db`. They are
+  **not** read by any service (every consumer resolves
+  `TRADE_JOURNAL_DB=/data/bot-data/trade_journal.db`). After the
+  canonical-resolver change is deployed (so nothing recreates them), Claude
+  removes them via the diag relay (`rm` of those two exact paths) — a
+  destructive op, so it runs only after explicit operator approval in chat.
+  Do **not** touch `/data/bot-data/trade_journal.db` (the canonical DB).
+
 ## 12. Cross-references
 
 - `docs/CLAUDE-RULES-CANONICAL.md` — Prime Directive: live is the

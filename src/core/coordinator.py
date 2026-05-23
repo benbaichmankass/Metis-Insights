@@ -47,10 +47,8 @@ _INSTRUMENTS_YAML = os.path.join(_REPO_ROOT, "config", "instruments.yaml")
 def _has_open_position(account_name: str, symbol: str) -> bool:
     """Return True if account already has an open live trade for symbol."""
     import sqlite3
-    db_path = (
-        os.environ.get("TRADE_JOURNAL_DB")
-        or os.path.join(_REPO_ROOT, "trade_journal.db")
-    )
+    from src.utils.paths import trade_journal_db_path
+    db_path = trade_journal_db_path()
     if not os.path.exists(db_path):
         return False
     try:
@@ -2178,10 +2176,8 @@ def _log_new_order_package(pkg: "OrderPackage") -> Optional[str]:
             (pkg.meta or {}).get("order_package_id")
             or f"pkg-{uuid.uuid4().hex[:16]}"
         )
-        path = (
-            os.environ.get("TRADE_JOURNAL_DB")
-            or os.path.join(_REPO_ROOT, "trade_journal.db")
-        )
+        from src.utils.paths import trade_journal_db_path
+        path = trade_journal_db_path()
         db = Database(db_path=path)
         meta_for_log = {
             k: v for k, v in (pkg.meta or {}).items()
@@ -2353,10 +2349,9 @@ def _log_smoke_to_journal(
     try:
         from datetime import datetime, timezone
         from src.units.db.database import Database
+        from src.utils.paths import trade_journal_db_path
 
-        path = db_path or os.environ.get("TRADE_JOURNAL_DB") or os.path.join(
-            _REPO_ROOT, "trade_journal.db"
-        )
+        path = db_path or trade_journal_db_path()
         db = Database(db_path=path)
         smoke_id = (pkg.meta or {}).get("smoke_id", "")
         notes = (

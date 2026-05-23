@@ -81,6 +81,102 @@ ALLOWLIST = frozenset({
 #     basename
 INLINE_FALLBACK_RE = re.compile(r"TRADE_JOURNAL_DB:-")
 
+# ---------------------------------------------------------------------------
+# Python side (added 2026-05-23, S-PERSIST-CANON).
+#
+# The shell scan above froze inline DB-path resolution in operator
+# wrappers. The same class of bug existed — and actually produced the
+# stray duplicate journals on the live VM — on the PYTHON side:
+#
+#   * ``Database(db_path="trade_journal.db")`` default, and
+#   * ``os.environ.get("TRADE_JOURNAL_DB") or "trade_journal.db"``
+#
+# both resolve relative to the process CWD, so any Python process that
+# started without the systemd ``TRADE_JOURNAL_DB`` env wrote a fresh DB
+# under its working directory (``/home/ubuntu/ict-trading-bot/`` for the
+# trader, ``src/bot/`` historically). The single canonical resolver is
+# ``src.utils.paths.trade_journal_db_path()``; this scan forbids both the
+# CWD-relative fallback AND any new inline ``TRADE_JOURNAL_DB`` env-read
+# outside that resolver, so every caller routes through one place.
+# ---------------------------------------------------------------------------
+
+# Directories scanned for Python offenders (runtime code only — tests
+# legitimately set the env var, and scripts/ is covered by the shell scan).
+_PY_SCAN_DIRS = ("src", "ml")
+
+# Only the canonical resolver module may read the env var / name the
+# basename directly — it IS the single resolver.
+_PY_ALLOWLIST = frozenset({
+    "src/utils/paths.py",
+    # risk_counters reads TRADE_JOURNAL_DB to detect whether a journal is
+    # EXPLICITLY configured (env/settings) — a different semantic from
+    # resolving the canonical default. "No journal configured → leave
+    # settings unchanged" is a load-bearing contract (tests:
+    # test_runtime_risk_injection / test_per_strategy_risk), so this file
+    # legitimately reads the env directly rather than the always-resolving
+    # trade_journal_db_path(). It uses no CWD-relative fallback.
+    "src/runtime/risk_counters.py",
+})
+
+# 1. CWD-relative bare basename used as a path value — the proven bug.
+#    (a) the ``... or "trade_journal.db"`` fallback idiom, and
+#    (b) a ``db_path=`` default of the bare basename (the old
+#        ``Database(db_path="trade_journal.db")`` signature).
+#    Deliberately does NOT match repo-anchored forms
+#    (``_REPO_ROOT / "trade_journal.db"``, ``os.path.join(root, …)``,
+#    which are absolute) nor unrelated kwargs like a Telegram upload's
+#    ``filename="trade_journal.db"``.
+_PY_CWD_FALLBACK_RES = (
+    re.compile(r"""\bor\s+['"]trade_journal\.db['"]"""),
+    re.compile(r"""db_path\s*=\s*['"]trade_journal\.db['"]""", re.IGNORECASE),
+)
+
+# 2. Inline TRADE_JOURNAL_DB env-read outside the canonical resolver —
+#    forces consolidation onto trade_journal_db_path().
+_PY_ENV_READ_RE = re.compile(
+    r"""(?:environ\.get|getenv)\(\s*['"]TRADE_JOURNAL_DB['"]"""
+)
+
+
+def _scan_python_file(path: Path) -> List[Tuple[int, str]]:
+    """Return ``[(line_no, content), ...]`` for offending Python lines.
+
+    Skips ``#`` comment lines. Docstring prose that merely *names* the
+    historical idiom doesn't match (the regexes require the live call
+    syntax, not prose), so the allowlisted resolver's own docstring is
+    safe — but it's allowlisted anyway.
+    """
+    hits: List[Tuple[int, str]] = []
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (UnicodeDecodeError, OSError):
+        return hits
+    for i, line in enumerate(text.splitlines(), start=1):
+        stripped = line.lstrip()
+        if stripped.startswith("#") or not stripped:
+            continue
+        if _PY_ENV_READ_RE.search(line) or any(
+            rx.search(line) for rx in _PY_CWD_FALLBACK_RES
+        ):
+            hits.append((i, line.strip()))
+    return hits
+
+
+def _gather_python_offenders() -> List[Tuple[Path, List[Tuple[int, str]]]]:
+    offenders: List[Tuple[Path, List[Tuple[int, str]]]] = []
+    for sub in _PY_SCAN_DIRS:
+        root = _REPO_ROOT / sub
+        if not root.is_dir():
+            continue
+        for path in sorted(root.rglob("*.py")):
+            rel = path.relative_to(_REPO_ROOT).as_posix()
+            if rel in _PY_ALLOWLIST:
+                continue
+            hits = _scan_python_file(path)
+            if hits:
+                offenders.append((path, hits))
+    return offenders
+
 
 def _scan_file(path: Path) -> List[Tuple[int, str]]:
     """Return ``[(line_no, content), ...]`` for any offending line."""
@@ -120,27 +216,48 @@ def main() -> int:
     args = parser.parse_args()
 
     offenders = _gather_offenders()
-    if not offenders:
+    py_offenders = _gather_python_offenders()
+    if not offenders and not py_offenders:
         if args.list:
             print(
                 "canonical-db-resolver: clean. "
-                f"{len(ALLOWLIST)} allowlisted wrapper(s), "
-                "0 hand-rolled inline resolvers.",
+                f"{len(ALLOWLIST)} allowlisted shell wrapper(s), "
+                f"{len(_PY_ALLOWLIST)} allowlisted python module(s), "
+                "0 hand-rolled inline resolvers (shell + python).",
             )
         return 0
 
-    print(
-        "canonical-db-resolver: hand-rolled DB-path resolver(s) found.",
-        file=sys.stderr,
-    )
-    print(
-        "Use `DB_PATH=\"$(runtime_db_path)\"` from scripts/ops/_lib.sh instead.\n",
-        file=sys.stderr,
-    )
-    for path, hits in offenders:
-        rel = path.relative_to(_REPO_ROOT).as_posix()
-        for line_no, content in hits:
-            print(f"  {rel}:{line_no}: {content}", file=sys.stderr)
+    if offenders:
+        print(
+            "canonical-db-resolver: hand-rolled DB-path resolver(s) found "
+            "in shell wrappers.",
+            file=sys.stderr,
+        )
+        print(
+            "Use `DB_PATH=\"$(runtime_db_path)\"` from scripts/ops/_lib.sh instead.\n",
+            file=sys.stderr,
+        )
+        for path, hits in offenders:
+            rel = path.relative_to(_REPO_ROOT).as_posix()
+            for line_no, content in hits:
+                print(f"  {rel}:{line_no}: {content}", file=sys.stderr)
+
+    if py_offenders:
+        print(
+            "canonical-db-resolver: CWD-relative fallback or inline "
+            "TRADE_JOURNAL_DB env-read found in Python.",
+            file=sys.stderr,
+        )
+        print(
+            "Use `from src.utils.paths import trade_journal_db_path` and "
+            "call `trade_journal_db_path()` (or `Database()` with no path) "
+            "instead.\n",
+            file=sys.stderr,
+        )
+        for path, hits in py_offenders:
+            rel = path.relative_to(_REPO_ROOT).as_posix()
+            for line_no, content in hits:
+                print(f"  {rel}:{line_no}: {content}", file=sys.stderr)
     return 1
 
 

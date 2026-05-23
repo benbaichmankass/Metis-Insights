@@ -25,7 +25,6 @@ single-source-of-truth summary/persist logic lives in one place.
 from __future__ import annotations
 
 import json
-import os
 import sys
 import traceback
 
@@ -55,8 +54,7 @@ def main(argv: list[str]) -> int:
         # so strip the data-source path before writing — keep it on
         # the in-memory summary so the validation log records it.
         persistable = {k: v for k, v in summary.items() if k != "data_source"}
-        db_path = os.environ.get("TRADE_JOURNAL_DB") or "trade_journal.db"
-        db = Database(db_path=db_path)
+        db = Database()  # canonical resolver — never the bare-CWD fallback
         row_id = db.save_backtest_results(persistable)
     except Exception as exc:  # noqa: BLE001
         sys.stderr.write(f"{type(exc).__name__}: {exc}\n")

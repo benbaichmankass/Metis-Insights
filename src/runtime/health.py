@@ -29,7 +29,6 @@ Severity model (matches ``src/runtime/outcomes.py``):
 from __future__ import annotations
 
 import logging
-import os
 import shutil
 import sqlite3
 import subprocess
@@ -374,13 +373,12 @@ def check_accounts_api() -> HealthCheck:
 def check_db(*, db_path: Optional[Path] = None) -> HealthCheck:
     """Open the trade-journal DB and run a trivial SELECT."""
     name = "db"
+    from src.utils.paths import trade_journal_db_path
     candidates: List[Path] = []
-    env_db = os.environ.get("TRADE_JOURNAL_DB")
-    if env_db:
-        candidates.append(Path(env_db))
     if db_path:
         candidates.append(db_path)
-    candidates.append(_REPO_ROOT / "trade_journal.db")
+    # Canonical resolver (env-first, then $DATA_DIR, then repo-root).
+    candidates.append(Path(trade_journal_db_path()))
 
     for path in candidates:
         if not path.exists():

@@ -9,13 +9,17 @@ from src.backtest.backtester import ICTBacktester
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 from src.utils.paths import repo_root as _repo_root  # noqa: E402
+from src.utils.paths import trade_journal_db_path as _trade_journal_db_path  # noqa: E402
 REPO_ROOT = _repo_root()
+# Canonical resolver first (TRADE_JOURNAL_DB env →
+# $DATA_DIR/trade_journal.db → repo-root), then repo root as the
+# existence-check fallback. The SCRIPT_DIR (CWD-ish) candidate was
+# dropped — see src/utils/paths.py::trade_journal_db_path.
 DB_CANDIDATES = [
-    os.environ.get("TRADE_JOURNAL_DB", ""),
+    _trade_journal_db_path(),
     os.path.join(REPO_ROOT, "trade_journal.db"),
-    os.path.join(SCRIPT_DIR, "trade_journal.db"),
 ]
-DB_PATH = next((p for p in DB_CANDIDATES if p and os.path.exists(p)), os.path.join(REPO_ROOT, "trade_journal.db"))
+DB_PATH = next((p for p in DB_CANDIDATES if p and os.path.exists(p)), _trade_journal_db_path())
 
 DATA_CANDIDATES = [
     os.environ.get("BACKTEST_DATA_PATH", ""),

@@ -677,11 +677,9 @@ def _has_open_vwap_package(symbol: Optional[str] = None) -> bool:
     try:
         import os as _os
         from src.units.db.database import Database
-        from src.utils.paths import repo_root as _repo_root
+        from src.utils.paths import trade_journal_db_path
 
-        db_path = _os.environ.get("TRADE_JOURNAL_DB") or _os.path.join(
-            str(_repo_root()), "trade_journal.db"
-        )
+        db_path = trade_journal_db_path()
         if not _os.path.exists(db_path):
             return False
         db = Database(db_path=db_path)

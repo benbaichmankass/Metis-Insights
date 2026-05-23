@@ -57,13 +57,23 @@ def _migrate_add_account_id(cursor: sqlite3.Cursor) -> bool:
 class Database:
     """Manages SQLite database for trade journal and backtest results"""
     
-    def __init__(self, db_path='trade_journal.db'):
+    def __init__(self, db_path=None):
         """
         Initialize database connection
-        
+
         Args:
-            db_path (str): Path to SQLite database file
+            db_path (str | None): Path to SQLite database file. When None
+                (the default), resolves the canonical trade-journal path via
+                ``src.utils.paths.trade_journal_db_path()`` — the env-first,
+                CWD-independent resolver. Passing ``None`` is the correct way
+                to get the live/canonical DB; an explicit path is for tests
+                and one-off tooling only. The historical default of the bare
+                relative ``"trade_journal.db"`` is what seeded the stray
+                duplicate journals on the live VM and must not return.
         """
+        if db_path is None:
+            from src.utils.paths import trade_journal_db_path
+            db_path = trade_journal_db_path()
         self.db_path = Path(db_path)
         self.conn = None
         self.create_tables()

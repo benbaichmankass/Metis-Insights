@@ -33,7 +33,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import sqlite3
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -144,15 +143,10 @@ def _max_logged_at(records: List[Dict[str, Any]]) -> Optional[str]:
 
 
 def _trade_journal_path() -> Optional[Path]:
-    """Resolve the trade journal DB the same way data_loaders does."""
-    candidates = [
-        os.environ.get("TRADE_JOURNAL_DB", ""),
-        str(_REPO_ROOT / "trade_journal.db"),
-    ]
-    for c in candidates:
-        if c and Path(c).exists():
-            return Path(c)
-    return None
+    """Resolve the canonical trade journal DB; None if it doesn't exist."""
+    from src.utils.paths import trade_journal_db_path
+    p = Path(trade_journal_db_path())
+    return p if p.exists() else None
 
 
 def trades_in_window(since: datetime) -> Dict[str, Any]:

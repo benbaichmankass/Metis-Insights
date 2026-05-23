@@ -197,3 +197,58 @@ def test_absolute_umbrella_unchanged(paths_module, monkeypatch, tmp_path):
     assert resolved == tmp_path / "abs-root" / "runtime_logs"
     # Sanity: tmp_path is NOT inside repo_root.
     assert not str(resolved).startswith(paths_module.repo_root())
+
+
+# ────────────────────────────────────────────────────────────────────
+# trade_journal_db_path() — the single canonical DB-path resolver
+# (S-PERSIST-CANON, 2026-05-23). Replaces the ~20 inline
+# ``os.environ.get("TRADE_JOURNAL_DB") or "trade_journal.db"`` idioms
+# that seeded the stray duplicate journals on the live VM.
+# ────────────────────────────────────────────────────────────────────
+
+
+def test_db_path_env_first(paths_module, monkeypatch, tmp_path):
+    """TRADE_JOURNAL_DB env wins over everything (the live-VM case)."""
+    monkeypatch.setenv("TRADE_JOURNAL_DB", str(tmp_path / "canonical.db"))
+    monkeypatch.setenv("DATA_DIR", str(tmp_path / "ignored"))
+    assert paths_module.trade_journal_db_path() == str(tmp_path / "canonical.db")
+
+
+def test_db_path_data_dir_umbrella(paths_module, monkeypatch, tmp_path):
+    """With TRADE_JOURNAL_DB unset, falls back to $DATA_DIR/trade_journal.db."""
+    monkeypatch.delenv("TRADE_JOURNAL_DB", raising=False)
+    monkeypatch.setenv("DATA_DIR", str(tmp_path / "bot-data"))
+    assert paths_module.trade_journal_db_path() == str(
+        tmp_path / "bot-data" / "trade_journal.db"
+    )
+
+
+def test_db_path_repo_root_fallback(paths_module, monkeypatch):
+    """With neither env set, anchors to repo_root — never a bare basename."""
+    monkeypatch.delenv("TRADE_JOURNAL_DB", raising=False)
+    monkeypatch.delenv("DATA_DIR", raising=False)
+    resolved = paths_module.trade_journal_db_path()
+    assert resolved == str(Path(paths_module.repo_root()) / "trade_journal.db")
+
+
+def test_db_path_is_always_absolute_and_never_cwd(paths_module, monkeypatch, tmp_path):
+    """The resolver must never return the bare CWD-relative basename —
+    that is the exact bug (stray journals at each process's CWD)."""
+    monkeypatch.delenv("TRADE_JOURNAL_DB", raising=False)
+    monkeypatch.delenv("DATA_DIR", raising=False)
+    monkeypatch.chdir(tmp_path)  # CWD is now tmp_path, NOT repo_root
+    resolved = paths_module.trade_journal_db_path()
+    assert Path(resolved).is_absolute()
+    assert resolved != "trade_journal.db"
+    assert str(tmp_path) not in resolved  # CWD-independent
+
+
+def test_db_path_relative_data_dir_anchors_to_repo(paths_module, monkeypatch):
+    """A relative DATA_DIR resolves the DB under repo_root, not CWD."""
+    monkeypatch.delenv("TRADE_JOURNAL_DB", raising=False)
+    monkeypatch.setenv("DATA_DIR", "data/")
+    resolved = paths_module.trade_journal_db_path()
+    assert Path(resolved).is_absolute()
+    assert resolved == str(
+        Path(paths_module.repo_root()) / "data" / "trade_journal.db"
+    )

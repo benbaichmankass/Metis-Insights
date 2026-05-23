@@ -76,16 +76,8 @@ def _has_open_package_for_strategy(
         return None
     try:
         from src.units.db.database import Database
-        import os as _os
-        db_path = (
-            _os.environ.get("TRADE_JOURNAL_DB")
-            or _os.path.join(
-                _os.path.abspath(
-                    _os.path.join(_os.path.dirname(__file__), "..", "..")
-                ),
-                "trade_journal.db",
-            )
-        )
+        from src.utils.paths import trade_journal_db_path
+        db_path = trade_journal_db_path()
         db = Database(db_path=db_path)
         # 2026-05-09 — dropped ``linked_only=True``. With the filter on,
         # a multi-account dispatch where every account refused on
@@ -142,16 +134,8 @@ def _recent_refusal_for_strategy(
     try:
         from datetime import datetime, timezone
         from src.units.db.database import Database
-        import os as _os
-        db_path = (
-            _os.environ.get("TRADE_JOURNAL_DB")
-            or _os.path.join(
-                _os.path.abspath(
-                    _os.path.join(_os.path.dirname(__file__), "..", "..")
-                ),
-                "trade_journal.db",
-            )
-        )
+        from src.utils.paths import trade_journal_db_path
+        db_path = trade_journal_db_path()
         db = Database(db_path=db_path)
         rows = db.get_order_packages_by_strategy(
             strategy_name, status="rejected", limit=1, symbol=symbol,

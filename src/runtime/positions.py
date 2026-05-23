@@ -40,12 +40,9 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 
-_REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-_DEFAULT_DB_PATH = os.path.join(_REPO_ROOT, "trade_journal.db")
-
-
 def _trade_journal_path() -> str:
-    return os.environ.get("TRADE_JOURNAL_DB") or _DEFAULT_DB_PATH
+    from src.utils.paths import trade_journal_db_path
+    return trade_journal_db_path()
 
 
 def current_net_position_qty(
