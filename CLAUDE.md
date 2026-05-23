@@ -462,6 +462,7 @@ stay in place for any future browser-direct consumer.
 |----------|---------|
 | `DASHBOARD_ORIGIN` | Legacy Vercel app URL — added to CORS allow-list. No-op for the Streamlit dashboard but kept for future browser-direct consumers. |
 | `DASHBOARD_API_TOKEN` | Optional bearer token for auth routes |
+| `SIGNAL_DUAL_WRITE_DISABLED` | When truthy, `signal_audit_logger._dual_write_to_db` skips hydrating `trade_journal.db::signals` (JSONL stays the source of truth). Default off → dual-write on. Toggle on the live VM via the `enable-signal-dual-write` / `disable-signal-dual-write` operator actions. |
 | `TRADE_JOURNAL_DB` | Override default `trade_journal.db` path |
 | `DIAG_READ_TOKEN` | Bearer for `/api/diag/*` (read-only). Unset → endpoints return 503 |
 | `M5_CONSUMER_ENABLED` | Auto-install the M5 backtest consumer in the comms poll loop. Default off; set to `1`/`true` on the VM systemd unit. Operator runbook: `docs/runbooks/strategy-testing.md` |
