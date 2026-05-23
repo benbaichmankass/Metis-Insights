@@ -44,6 +44,7 @@ from typing import Any, Dict, List, Optional
 import yaml
 from fastapi import APIRouter
 
+from src.config.accounts_loader import load_accounts_dict
 from src.utils.paths import runtime_logs_dir
 
 logger = logging.getLogger(__name__)
@@ -236,21 +237,21 @@ def _read_runtime_status() -> Dict[str, Any]:
 
 
 def _account_routing() -> Dict[str, List[str]]:
-    """Map each strategy → the account ids that route it (accounts.yaml).
+    """Map each strategy → the account ids that route it.
 
-    This is the source of truth for "which accounts run this strategy" —
-    the coordinator's per-account ``strategies`` filter (see the bot's
-    accounts.yaml). Returns {strategy_name: [account_id, ...]}."""
-    if not _ACCOUNTS_YAML.exists():
-        return {}
+    Source of truth for "which accounts run this strategy": each
+    account's per-account ``strategies`` filter (the coordinator's
+    dispatch gate). Read via the canonical ``load_accounts_dict`` (the
+    dict-shape reader) — never a hand-rolled parser. Returns
+    {strategy_name: [account_id, ...]}."""
+    errors: List[Dict[str, Any]] = []
     try:
-        with _ACCOUNTS_YAML.open(encoding="utf-8") as fh:
-            raw = yaml.safe_load(fh) or {}
-    except Exception:  # allow-silent: best-effort yaml read; logs + safe default
-        logger.exception("strategies: failed to load accounts.yaml")
+        accounts = load_accounts_dict(_ACCOUNTS_YAML, errors=errors)
+    except Exception:  # allow-silent: best-effort; logs + safe default
+        logger.exception("strategies: failed to load account routing")
         return {}
     routing: Dict[str, List[str]] = {}
-    for aid, acfg in (raw.get("accounts") or {}).items():
+    for aid, acfg in (accounts or {}).items():
         for sname in ((acfg or {}).get("strategies") or []):
             routing.setdefault(str(sname), []).append(str(aid))
     return routing
