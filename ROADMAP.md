@@ -85,8 +85,13 @@
 
 ### Active milestone queue (next 3)
 
-1. **M6 — Web app UI (dashboard repo).**
-2. **(M5 P4 closed 2026-05-10).**
+1. **Strategy Improvement Program (M7 + M8)** — multi-sprint program to
+   improve profitability / cut bad trades, starting from the bybit_2
+   vwap loss problem. Plan:
+   [`docs/sprint-plans/STRATEGY-IMPROVEMENT-PROGRAM-2026-05-23.md`](docs/sprint-plans/STRATEGY-IMPROVEMENT-PROGRAM-2026-05-23.md).
+   S0 (kickoff/architecture) done 2026-05-23; next is S1 (comms path)
+   then S2 (full performance audit).
+2. **M6 — Web app UI (dashboard repo).**
 3. **Closed-flat invariant auto-flatten promotion** — gated on ≥ 7 days clean alert-only soak.
 
 > **AI-traders queue note:** WS1+WS2+WS3+WS4+WS5-A+WS4-FU+WS5-B-PART-1 closed
@@ -108,6 +113,7 @@ Full detail preserved in git history. Recent AI-traders sprints:
 
 | Sprint | Title | Status | M-mapping |
 |---|---|---|---|
+| **S-STRAT-IMPROVE-S0** | **Strategy Improvement Program — kickoff & architecture (2026-05-23).** Mapped the live system (3 strategies × 2 symbols; bybit_2 real-money vwap is the loss target at ~18% WR + long/short asymmetry), confirmed canonical paths + existing tooling (strategy-performance-audit / vwap-backtest-sweep / diag relays / pull-and-deploy), and wrote the 7-sprint program plan. Recorded vwap.py R:R comment drift + live-vs-repo SL_STD_MULT ambiguity as S2 reconciliation items. Documentation-only (Tier-1). Plan: [`STRATEGY-IMPROVEMENT-PROGRAM-2026-05-23.md`](docs/sprint-plans/STRATEGY-IMPROVEMENT-PROGRAM-2026-05-23.md). Log: [`S-STRAT-IMPROVE-S0-2026-05-23.md`](docs/sprint-logs/S-STRAT-IMPROVE-S0-2026-05-23.md). | ✅ Done 2026-05-23 | M7/M8 |
 | **S-REFACTOR-S0** | **S0 — Multi-strategy architecture planning (2026-05-20).** Created phase roadmap `docs/sprint-plans/ROADMAP-MULTI-STRATEGY-REFACTOR-2026-05-20.md`, architecture target `docs/architecture/multi-strategy-architecture-target.md`, sprint logs. Strategy category mapping: vwap=mean-reversion, turtle_soup=trend-pullback, ict_scalp=breakout-expansion. Three initial core strategies confirmed; ICT filter module deferred as fourth component. Documentation-only (Tier-1). | ✅ Done 2026-05-20 | M11 |
 | **S-REFACTOR-S1** | **S1 — Architecture scaffolding (2026-05-20).** Six new abstract types in `src/core/`: `AccountProfile` (typed YAML-backed, IB/Bybit-aware), `InstrumentProfile` (pre-built BTCUSDT/Bybit + MES/IB profiles), `SignalPackage` (normalized signal contract with is_actionable + attribution), `OrderPackage` (typed order with from_signal() attribution builder), `StrategyInterface` ABC (build_signal + build_order_package + category), `AllocatorInterface` ABC + `PassthroughAllocator` (identity allocator preserving current sizing behavior). 12 new tests in `tests/test_s1_abstractions.py`. No existing files modified. Zero live path changes. (Tier-1). | ✅ Done 2026-05-20 | M11 |
 | **S-REFACTOR-S2** | **S2 — Account + instrument profile wiring (2026-05-20).** `config/instruments.yaml` added (BTCUSDT/Bybit + MES/IB placeholder). `src/core/profile_loader.py` added — loads `accounts.yaml` into typed `AccountProfile` objects, instruments.yaml into `InstrumentProfile` objects. `AccountProfile.from_dict()` corrected for actual `mode: live\|dry_run` schema. `Coordinator.account_profiles` + `Coordinator.instrument_profiles` read-only properties added. 15 new tests in `tests/test_s1_abstractions.py` (extended). Execution path unchanged. (Tier-2). | ✅ Done 2026-05-20 | M11 |
