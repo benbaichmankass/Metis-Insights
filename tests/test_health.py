@@ -289,8 +289,12 @@ def test_db_writable_is_ok(tmp_path):
 
 
 def test_db_missing_returns_warn(tmp_path, monkeypatch):
-    monkeypatch.setattr(h, "_REPO_ROOT", tmp_path)
-    monkeypatch.delenv("TRADE_JOURNAL_DB", raising=False)
+    # check_db resolves the canonical DB via trade_journal_db_path()
+    # (S-PERSIST-CANON). Point both the env-resolved path and the explicit
+    # db_path at non-existent files so the probe finds no DB → warn. Using
+    # the env makes this robust against any other test that created a
+    # trade_journal.db at the real repo root.
+    monkeypatch.setenv("TRADE_JOURNAL_DB", str(tmp_path / "nope.db"))
     c = check_db(db_path=tmp_path / "nope.db")
     assert c.status == "warn"
 
