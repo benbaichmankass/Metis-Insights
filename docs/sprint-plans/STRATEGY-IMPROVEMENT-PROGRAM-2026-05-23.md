@@ -26,6 +26,44 @@ one pass.
 
 ---
 
+## North Star (operator vision, 2026-05-23)
+
+The end state is **not** "make vwap work." It is a **portfolio of 3–5
+complementary strategies, each with its own durable, fee-survivable
+edge**, running on **both currencies (BTCUSDT and MES)**, coordinated by
+a **decider layer that picks the best trade** when strategies compete.
+
+Principles for getting there:
+- **Edge-first.** A strategy earns a roster slot only if it shows a
+  real net-of-fee edge in backtest (before exit/fee tuning). Tuning
+  improves an edged strategy; it cannot manufacture edge (S4-B proved
+  this for vwap).
+- **Deep-dive every existing strategy** (vwap, turtle_soup, ict_scalp)
+  on **both** symbols — backtest hard, tweak, and see what, if anything,
+  makes each effective. Low live-trade counts are fine; backtesting is
+  the instrument.
+- **Be creative about NEW strategies.** Within the existing architecture
+  (`StrategyInterface` → `SignalPackage` → `OrderPackage` → intent
+  multiplexer), the *signal logic and trade-package construction can be
+  anything* that produces an edge — momentum, breakout, carry,
+  mean-reversion variants, regime-conditioned, ML-scored, multi-leg, etc.
+  Aim for **complementary** edges (different market conditions) so the
+  portfolio is smoother than any single strategy.
+- **The decider layer** is the existing intent multiplexer / coordinator
+  (priority → timestamp → name today). The vision is a smarter decider
+  that chooses the best trade by edge/confidence/regime-fit — the M11
+  advisory-ML hooks + regime models are the natural inputs. Designing
+  this is part of the program.
+- **Complementarity > individual maximization.** 3–5 strategies whose
+  edges fire in different regimes beat one over-tuned strategy.
+
+Everything below serves this North Star. The near-term sprints establish
+which current strategies have edge (S4-B-3, S5), then the program moves
+to creative new-strategy design + the decider (S6+). Going live with any
+strategy (add/retire/replace/promote) remains Tier-3, operator-gated.
+
+---
+
 ## Current state (verified 2026-05-23, S0)
 
 ### What is live
@@ -267,13 +305,46 @@ sprint produces a sprint log under `docs/sprint-logs/`.
   this branch merges to `main` (or S4-B runs via `trainer-vm-diag` with a
   branch checkout). Operator decision point.
 
-### S4-B — Selectivity / rule-tightening experiments — Tier 1 analysis, Tier 3 to ship
-- **Goal:** cut bad trades without cutting good ones — the highest-ROI
-  lever against the dominant fee-drag driver. Backtest candidate
-  filters: better confirmation, session gating, HTF alignment,
-  momentum/volatility filters, symbol-specific filters. The
-  **long-vs-short split** + **net-of-fee** are now in the backtest
-  (S4-A).
+### S4-B — Net-of-fee selectivity sweeps — Tier 1 — ✅ DONE 2026-05-23
+- **Ran:** threshold sweep (#1784, 8×14d/365d) + param sweep entry×SL
+  (#1785, 12 configs × 3×14d/365d), net-of-fee.
+- **Verdict: vwap has NO inherent edge — tuning cannot fix it.** 0/8 and
+  0/36 windows net-positive; best config −41.7R/14d. Selectivity +
+  fee-efficiency reduce the bleed but never reach positive; gross is
+  ~flat-to-negative over a regime-diverse year. Full evidence + caveats:
+  `docs/audits/vwap-viability-verdict-2026-05-23.md`. Confirms the
+  operator's intuition ("not robust even in theory"). Log:
+  `docs/sprint-logs/S-STRAT-IMPROVE-S4-B-2026-05-23.md`.
+
+> **PROGRAM PIVOT (operator-directed 2026-05-23):** from *tuning vwap* to
+> **edge-first** — establish which (if any) strategy has a durable,
+> fee-survivable inherent edge, and what a robust base strategy looks
+> like, before proposing any live direction. The sprints below are
+> re-scoped accordingly.
+
+### S4-B-3 — vwap HTF/regime edge filter — Tier 1 — NEXT (last vwap lever)
+- **Goal:** the one untested vwap lever — does an HTF/regime trend
+  filter create *gross* edge (regime-robust, not a static short-bias)?
+  Run `vwap-backtest-sweep bt_mode: compare` net-of-fee. Even a positive
+  result must clear the fee hurdle. If it doesn't lift gross, vwap is
+  done as a standalone edge.
+
+### S5 — Cross-strategy inherent-edge audit — Tier 1
+- **Goal:** do `turtle_soup` and `ict_scalp` have a durable net-of-fee
+  edge on fresh 365-day data (regime-split, long/short)? ict_scalp
+  backtest is instrumented (net-of-fee, committed 3604b86); turtle_soup
+  needs a harness. Run on the trainer VM (uncapped) — it needs `git pull`
+  + a pandas venv first (1-core, slow but no 15-min cap).
+- **Deliverable:** per-strategy inherent-edge table (gross + net,
+  long/short, by-regime), evidence-cited.
+
+### S6 — Strategy-edge assessment & recommendation — Tier 1 (Tier 3 to ship)
+- **Goal:** synthesize S4-B/S5 into a recommendation: which current
+  strategy (if any) has a fee-survivable edge; what a robust base
+  strategy looks like (edge before tuning); whether to keep/tune/retire/
+  replace each. Package any live recommendation (incl. retiring vwap or
+  cutting its frequency) as a **Tier-3 draft PR + approval request** —
+  retiring/replacing a live strategy stops at the operator gate.
 - **Regime constraint (operator directive 2026-05-23):** the live
   long/short gap reflects a **down-market regime**, not a permanent
   edge. Do **NOT** introduce a static short-bias / long-suppression.
@@ -288,34 +359,16 @@ sprint produces a sprint log under `docs/sprint-logs/`.
   change is a **Tier-3 draft PR + approval request** — never merged in
   this sprint.
 
-### S5 — SL/TP & exit-geometry research — Tier 1 analysis, Tier 3 to ship
-- **Goal:** experiment with multi-tier TPs, partial exits, break-even
-  moves, dynamic/ATR-based trailing, adaptive exits. (turtle_soup
-  already has TP1/TP2 + partial + trail; vwap is single-target +
-  vwap_cross/time-decay; ict_scalp is single TP@1.5R — uneven exit
-  sophistication is itself a finding to test.) Includes the S3 carry-
-  over: whether a wider/time-boxed stop or faster managed-exit cadence
-  converts native SL-runs into `vwap_cross` thesis-completions (69.6%
-  WR) without re-inflating fees.
-- **Deliverable:** backtested exit-logic variants with expected metric
-  impact + tradeoff, per strategy. Tier-3 draft PRs for the winners.
-
-### S6 — Validate winners on strongest & weakest symbols — Tier 1
-- **Goal:** take the best S4/S5 candidates and validate on the best- and
-  worst-performing symbols/accounts to check generalization (avoid
-  overfit to BTCUSDT + the current regime). Compare results explicitly.
-- **Deliverable:** a generalization report; promote only changes that
-  hold up across symbols AND market regimes.
-
-### S7 — Package & prepare rollout — Tier 3
-- **Goal:** bundle the validated winners into clean, small Tier-3 PRs,
-  each with: what changed, why it should help, expected metric impact,
-  tradeoff, and the approval request. Document the staged rollout
-  (draft PR → operator approval → merge → `pull-and-deploy` →
-  `restart-bot-service` → verify live via diag relay → confirm metrics
-  improve over a soak window).
-- **Deliverable:** approval-ready PR bundle + rollout runbook. **Stop at
-  the approval gate.**
+> **Superseded by the edge-first pivot (2026-05-23).** The original
+> S5 (SL/TP & exit-geometry research), S6 (validate winners across
+> symbols), and S7 (package & rollout) assumed a tunable-but-edged
+> strategy. S4-B showed vwap has no inherent edge, so exit-geometry
+> tuning is moot until an edged strategy exists. Those scopes are folded
+> forward: exit-geometry research applies **per strategy that S5 finds
+> has an edge**; cross-symbol/regime validation + the Tier-3 packaging &
+> staged rollout (draft PR → approval → `pull-and-deploy` →
+> `restart-bot-service` → verify live → soak) become the back half of
+> **S6** once a recommendation exists.
 
 ---
 
@@ -334,7 +387,22 @@ sprint produces a sprint log under `docs/sprint-logs/`.
 
 ---
 
-## Handoff
+## Handoff (updated 2026-05-23 — edge-first pivot)
+
+S0–S4-B done. **Headline: vwap has no inherent edge** (S4-B verdict:
+0/8 + 0/36 windows net-positive across selectivity + entry×SL fee
+sweeps). Program pivoted from tuning-vwap to **edge-first**: S4-B-3
+(last vwap lever — HTF/regime edge filter), then **S5** (does
+turtle_soup / ict_scalp have a durable net-of-fee edge on fresh
+365-day data — ict_scalp instrumented; turtle_soup needs a harness;
+run on the 1-core trainer VM, uncapped), then **S6** (strategy-edge
+assessment + recommendation: keep/tune/retire/replace, Tier-3 to ship).
+Trainer prerequisite: `git pull` + a pandas venv. No live change without
+operator sign-off (retiring/replacing a live strategy is Tier-3).
+
+---
+
+## Superseded handoff (pre-pivot, kept for history)
 
 S0 (architecture), S1 (comms path), S2 (performance audit), and S3
 (exit-mechanism diagnosis, technical-first) are done. The evidence base
