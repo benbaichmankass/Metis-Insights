@@ -83,6 +83,11 @@ write_files:
       ExecStart=/bin/bash scripts/ops/run_training_cycle.sh
       StandardOutput=journal
       StandardError=journal
+      # Hard cap so a hung step (e.g. a stalled market_raw Bybit klines
+      # fetch) can't wedge the oneshot cycle indefinitely — systemd kills
+      # it after 2h and the daily timer retries cleanly next run.
+      # (S-STRAT-IMPROVE training-pipeline audit, 2026-05-23.)
+      TimeoutStartSec=7200
 
       [Install]
       WantedBy=multi-user.target
