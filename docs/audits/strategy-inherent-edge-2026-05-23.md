@@ -122,6 +122,37 @@ to smooth quarter noise and cover 2024-like stretches with a complement.
 Confirms the model-layer + complementary-roster are essential, not
 optional. Evidence: trainer #1811/#1812/#1815.
 
+## ict_scalp model-gate test (S6, 2026-05-23) — gate REJECTED out-of-sample
+
+Emitted per-trade labeled decisions (`--emit-decisions`) and ran
+`gate_analysis.py` (walk-forward single-feature gate, train→test). On the
+disp=1.3 superset (659 trades, train 395 / test 264):
+
+| feature gate | train_net | TEST_net | baseline test_net |
+|---|---|---|---|
+| confidence ≥0.70 | +22.3 | +0.2 | (+5.2) |
+| atr ≤78 | +21.2 | −2.6 | |
+| body_to_range ≥0.93 | +22.8 | −0.8 | |
+| sweep_depth ≥0.80 | +18.6 | −0.7 | |
+| fvg_size_norm ≥0.52 | +7.2 | +0.7 | |
+| displacement_idx ≤0 | −6.3 | +4.8 | |
+
+**Verdict: a learned entry gate does NOT lift ict_scalp net OOS — rejected.**
+Every feature underperforms the no-gate baseline (+5.2) out-of-sample;
+features look strong in-sample (+18..+23 train) and fail OOS (overfit,
+correctly caught). The two tentative winners from the smaller disp=1.6
+set (387 rows: fvg_size_norm ≤0.965, displacement_idx ≤0) did NOT
+replicate — `fvg_size_norm` flipped direction → multiple-testing noise.
+
+**Implication:** ict_scalp's per-trade outcomes are not predictable from
+the available signal-time features — no rule *or* learned gate separates
+winners from losers OOS; a complex model would overfit harder. So the
+path is NOT a smarter gate: accept ict_scalp as a modest gross-edge
+component, reduce its fee tax, and deliver stability via the
+**diversified portfolio + complementary strategies + decider**. The
+emit→gate→OOS loop works and correctly prevented deploying a fake edge.
+Evidence: trainer #1828 (1.6) / #1831 (1.3).
+
 ## First read (12 months only — see regime confirmation above)
 
 
