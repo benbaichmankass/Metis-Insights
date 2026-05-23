@@ -49,6 +49,16 @@ Principles for getting there:
   mean-reversion variants, regime-conditioned, ML-scored, multi-leg, etc.
   Aim for **complementary** edges (different market conditions) so the
   portfolio is smoother than any single strategy.
+- **Regime coverage > universal strategies (operator directive 2026-05-23).**
+  A strategy being *regime-conditional is a feature, not a defect.* Each
+  strategy should OWN the regimes it's good at; we then build complements
+  that cover the regimes where it's weak, so **something is always
+  trading well**. Concretely: ict_scalp (breakout-flavored) has edge in
+  trending/clean-displacement regimes (2023/2025) and loses in chop
+  (2024) — that's fine *if* (a) we know its "on" condition (regime
+  detection) and (b) a complementary strategy (e.g. mean-reversion/range)
+  profits in the chop. The decider routes by regime. Goal: continuous
+  coverage, not one do-everything strategy.
 - **The decider layer** is the existing intent multiplexer / coordinator
   (priority → timestamp → name today). The vision is a smarter decider
   that chooses the best trade by edge/confidence/regime-fit — the M11
