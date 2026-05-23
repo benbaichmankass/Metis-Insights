@@ -35,6 +35,37 @@ no-overfit directive, both strategies were re-run on full-year 2023 and
 
 ---
 
+## ict_scalp exit-variation grid (S6, 2026-05-23)
+
+Variation sweep (tp_at_r ∈ {1.0,1.5,2.0,2.5,3.0} × break-even ∈
+{off,0.5R,1.0R}; one entry pass → many cheap exit sims, net-of-fee) per
+year-slice. Best variation by net R:
+
+| Year | entries | best variation | gross R | net R | runner-up read |
+|---|---|---|---|---|---|
+| 2023 | 156 | tp=3.0 / no-BE | +43.8 | **+14.8** | tp=1.5 only +1.5 |
+| 2025 (12mo) | 203 | tp=1.5 / no-BE | +46.6 | **+5.5** | tp=3.0 lower |
+| 2024 | 254 | tp=2.5 / no-BE | +35.5 | **−12.5** | every variation net-negative |
+
+**Findings:**
+1. **Break-even consistently hurts** — `be=None` tops every year; BE
+   stops winners out on retracement. Drop BE for ict_scalp. (Robust
+   cross-year.)
+2. **Exit target is a serious lever but regime-dependent (cliff, not
+   plateau)** — best tp = 3.0 (2023) vs 1.5 (2025). No single fixed tp
+   is robustly optimal → argues for a **regime-adaptive exit**, not a
+   static retune. A fixed tp is a compromise (overfitting recent regime
+   if chosen from one year).
+3. **2024 net-negative at every exit variation despite +35R gross** —
+   254 entries × fees. An **over-trading / selectivity** problem the
+   exit cannot fix → the next lever is cutting low-quality entries
+   (entry-threshold sweep + **model-as-gate**).
+
+**Implication:** exit dimension characterized (no BE; adaptive tp). The
+decisive remaining lever is entry **selectivity**, best tested via the
+model-in-the-loop gate (does a setup-quality/win-prob model lift net
+OOS across all 3 years, especially 2024?). Evidence: trainer issue #1798.
+
 ## First read (12 months only — see regime confirmation above)
 
 
