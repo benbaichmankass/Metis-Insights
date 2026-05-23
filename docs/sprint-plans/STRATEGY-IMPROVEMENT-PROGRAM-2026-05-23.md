@@ -251,13 +251,29 @@ sprint produces a sprint log under `docs/sprint-logs/`.
 - **Exit criteria met:** technical-first question answered; program
   proceeds to strategy improvement.
 
-### S4 — Selectivity / rule-tightening experiments — Tier 1 analysis, Tier 3 to ship
+### S4-A — Backtest net-of-fee instrumentation — Tier 1 — ✅ DONE 2026-05-23
+- **Why:** S2 proved the strategy is gross-positive / net-negative
+  (fees 418% of gross), so the gross-R backtest output is misleading.
+- **Done:** `run_backtest_vwap.py` now reports per-trade `net_pnl_r`
+  (gross − round-trip fee) + aggregate `net_total_r` (+ long/short),
+  `net_win_rate_pct`, `total_fee_r`, `mean_trades_per_window`,
+  `net_positive_windows`, per-regime net — via a `--fee-bps-roundtrip`
+  arg (default 7.5). Additive; `--fee-bps-roundtrip 0` reproduces gross.
+  102 tests pass. Local single-window preview confirmed fees dwarf gross
+  and selectivity reduces drag (low-confidence, not regime-diverse). Log:
+  `docs/sprint-logs/S-STRAT-IMPROVE-S4-A-2026-05-23.md`.
+- **Blocker for S4-B:** the `vwap-backtest-sweep` relay runs from the
+  VM's `main` checkout, so the net-of-fee output appears there only after
+  this branch merges to `main` (or S4-B runs via `trainer-vm-diag` with a
+  branch checkout). Operator decision point.
+
+### S4-B — Selectivity / rule-tightening experiments — Tier 1 analysis, Tier 3 to ship
 - **Goal:** cut bad trades without cutting good ones — the highest-ROI
   lever against the dominant fee-drag driver. Backtest candidate
   filters: better confirmation, session gating, HTF alignment,
-  momentum/volatility filters, symbol-specific filters. Add the
-  **long-vs-short split** to the backtest aggregate (the
-  S-VWAP-POLICY-INVESTIGATION follow-up).
+  momentum/volatility filters, symbol-specific filters. The
+  **long-vs-short split** + **net-of-fee** are now in the backtest
+  (S4-A).
 - **Regime constraint (operator directive 2026-05-23):** the live
   long/short gap reflects a **down-market regime**, not a permanent
   edge. Do **NOT** introduce a static short-bias / long-suppression.
