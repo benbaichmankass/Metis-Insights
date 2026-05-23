@@ -1,37 +1,50 @@
 """Read-only DB explorer — GET /api/bot/db/tables, /api/bot/db/table/{name}.
 
 Tier-1 read surface for the dashboard's Data Explorer tab. Browses the
-operational ``trade_journal.db`` ONLY — no secrets live there
-(credentials are env/config and redacted elsewhere); the tables are the
-same trade/signal/backtest telemetry already exposed piecemeal by the
-other dashboard routes.
+**federated canonical store**: the live trader's ``trade_journal.db`` AND
+the trainer-store sidecar ``trainer_store.db`` (trainer/ML lifecycle data
+ingested from the trainer mirror — see ``src/units/db/trainer_store.py``).
+Together they make every producer — live trader and trainer — queryable
+from one place. No secrets live in either DB (credentials are
+env/config and redacted elsewhere).
+
+Each table in the listing carries a ``db`` field (``"trade_journal"`` or
+``"trainer_store"``) so the UI can group them; the table-read endpoint
+auto-routes by table name (or an explicit ``db`` query param).
 
 Safety contract (read-only, injection-free):
   * SELECT only. No writes, no DDL, no ``ATTACH``, no arbitrary SQL.
+  * Both DBs are opened ``mode=ro``.
   * Table and column identifiers are validated against the **live
-    schema** (``sqlite_master`` / ``PRAGMA table_info``) before use —
-    never interpolated from raw user input — so there is no
-    SQL-injection surface on identifiers.
+    schema** (``sqlite_master`` / ``PRAGMA table_info``) before use.
   * Filter values are bound parameters.
-  * Results are capped (``MAX_LIMIT``) and paginated; every list view
-    also returns ``total`` so the UI can page.
+  * Results are capped (``MAX_LIMIT``) and paginated; list views return
+    ``total`` so the UI can page.
 """
 from __future__ import annotations
 
 import logging
 import sqlite3
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import APIRouter, HTTPException, Query
 
-from src.utils.paths import trade_journal_db_path
+from src.units.db.trainer_store import build_if_stale
+from src.utils.paths import trade_journal_db_path, trainer_store_db_path
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/bot", tags=["bot"])
 
+# Module-level so tests can monkeypatch the live path. The trainer-store
+# path is resolved alongside; federation only includes a DB whose file
+# actually exists.
 _DB_PATH = Path(trade_journal_db_path())
+_TRAINER_STORE_DB = Path(trainer_store_db_path())
+
+_DB_TRADE_JOURNAL = "trade_journal"
+_DB_TRAINER_STORE = "trainer_store"
 
 DEFAULT_LIMIT = 100
 MAX_LIMIT = 500
@@ -43,9 +56,24 @@ _FILTER_OPS: Dict[str, str] = {
 }
 
 
-def _connect() -> sqlite3.Connection:
-    # read-only URI so even a bug can't mutate the journal.
-    conn = sqlite3.connect(f"file:{_DB_PATH}?mode=ro", uri=True)
+def _federated_dbs() -> List[Tuple[str, Path]]:
+    """Ordered (label, path) for every DB in the federated store that
+    currently exists. ``trade_journal`` first so its tables win a name
+    collision (there are none today, but the order is deterministic)."""
+    # Refresh the trainer-store sidecar from the mirror if it changed
+    # (no-op when there's no mirror, e.g. dev/CI).
+    build_if_stale(db_path=str(_TRAINER_STORE_DB))
+    out: List[Tuple[str, Path]] = []
+    if _DB_PATH.exists():
+        out.append((_DB_TRADE_JOURNAL, _DB_PATH))
+    if _TRAINER_STORE_DB.exists():
+        out.append((_DB_TRAINER_STORE, _TRAINER_STORE_DB))
+    return out
+
+
+def _connect(path: Path) -> sqlite3.Connection:
+    # read-only URI so even a bug can't mutate the DB.
+    conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -53,7 +81,8 @@ def _connect() -> sqlite3.Connection:
 def _list_tables(conn: sqlite3.Connection) -> List[str]:
     rows = conn.execute(
         "SELECT name FROM sqlite_master WHERE type='table' "
-        "AND name NOT LIKE 'sqlite_%' ORDER BY name"
+        "AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '\\_%' ESCAPE '\\' "
+        "ORDER BY name"
     ).fetchall()
     return [r["name"] for r in rows]
 
@@ -73,32 +102,68 @@ def _json_safe(value: Any) -> Any:
     return value
 
 
+def _resolve_table_db(table: str, db: Optional[str]) -> Optional[Tuple[str, Path]]:
+    """Return the (label, path) of the federated DB that owns *table*.
+
+    Honours an explicit ``db`` selector; otherwise searches in federation
+    order. Returns None when no DB has the table.
+    """
+    for label, path in _federated_dbs():
+        if db and db != label:
+            continue
+        try:
+            conn = _connect(path)
+            try:
+                if table in _list_tables(conn):
+                    return (label, path)
+            finally:
+                conn.close()
+        except sqlite3.Error:
+            continue
+    return None
+
+
 @router.get("/db/tables")
 async def db_tables() -> Dict[str, Any]:
-    """List every table in trade_journal.db with its columns + row count."""
-    if not _DB_PATH.exists():
-        return {"present": False, "db": _DB_PATH.name, "tables": []}
-    try:
-        conn = _connect()
+    """List every table across the federated store (trade_journal +
+    trainer_store) with its columns + row count + owning ``db``."""
+    dbs = _federated_dbs()
+    if not dbs:
+        return {"present": False, "db": _DB_PATH.name, "dbs": [], "tables": []}
+    out: List[Dict[str, Any]] = []
+    present_dbs: List[str] = []
+    for label, path in dbs:
         try:
-            out: List[Dict[str, Any]] = []
+            conn = _connect(path)
+        except sqlite3.Error:
+            logger.exception("db_explorer: open failed for %s", path)
+            continue
+        present_dbs.append(label)
+        try:
             for name in _list_tables(conn):
                 try:
                     count = conn.execute(f'SELECT COUNT(*) FROM "{name}"').fetchone()[0]
                 except sqlite3.Error:  # allow-silent: per-table COUNT is best-effort; null renders as "—"
                     count = None
-                out.append({"name": name, "rows": count, "columns": _columns(conn, name)})
+                out.append({
+                    "name": name, "rows": count,
+                    "columns": _columns(conn, name), "db": label,
+                })
         finally:
             conn.close()
-    except sqlite3.Error:  # allow-silent: tier-1 read; logged + returns present:false
-        logger.exception("db_explorer: tables read failed")
-        return {"present": False, "db": _DB_PATH.name, "tables": []}
-    return {"present": True, "db": _DB_PATH.name, "tables": out}
+    return {
+        "present": bool(out),
+        # Back-compat: ``db`` was the single trade_journal name pre-federation.
+        "db": _DB_PATH.name,
+        "dbs": present_dbs,
+        "tables": out,
+    }
 
 
 @router.get("/db/table/{table}")
 async def db_table(
     table: str,
+    db: Optional[str] = Query(None, max_length=32),
     limit: int = Query(DEFAULT_LIMIT, ge=1, le=MAX_LIMIT),
     offset: int = Query(0, ge=0),
     order_by: Optional[str] = Query(None, max_length=64),
@@ -107,19 +172,18 @@ async def db_table(
     filter_op: str = Query("eq"),
     filter_val: Optional[str] = Query(None, max_length=256),
 ) -> Dict[str, Any]:
-    """Return one page of *table*, optionally filtered + ordered.
+    """Return one page of *table* from whichever federated DB owns it.
 
     404 on an unknown table. Unknown order/filter columns are ignored
     (rather than erroring) so a stale UI selection degrades gracefully.
     """
-    if not _DB_PATH.exists():
-        raise HTTPException(status_code=404, detail="database not present")
+    target = _resolve_table_db(table, db)
+    if target is None:
+        raise HTTPException(status_code=404, detail=f"unknown table: {table}")
+    label, path = target
     try:
-        conn = _connect()
+        conn = _connect(path)
         try:
-            tables = _list_tables(conn)
-            if table not in tables:
-                raise HTTPException(status_code=404, detail=f"unknown table: {table}")
             colnames = {c["name"] for c in _columns(conn, table)}
 
             params: List[Any] = []
@@ -145,13 +209,12 @@ async def db_table(
             columns = _columns(conn, table)
         finally:
             conn.close()
-    except HTTPException:
-        raise
     except sqlite3.Error:  # allow-silent: tier-1 read; logged + surfaced as 503
         logger.exception("db_explorer: table read failed")
         raise HTTPException(status_code=503, detail="db read error")
     return {
         "table": table,
+        "db": label,
         "columns": columns,
         "rows": data,
         "total": total,

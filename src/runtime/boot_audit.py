@@ -55,6 +55,51 @@ def _load_strategy_names() -> list[str]:
         return []
 
 
+def snapshot_strategy_versions_on_boot() -> Optional[int]:
+    """Snapshot the active ``config/strategies.yaml`` into
+    ``trade_journal.db::strategy_versions`` on boot.
+
+    Wires the previously-dead ``strategy_versions`` table to an actual
+    producer (S-PERSIST-CANON): each distinct strategies.yaml content gets
+    one row, keyed by a short content hash so an unchanged config is an
+    idempotent no-op. Gives the Data Explorer an in-DB, queryable history
+    of strategy-config versions alongside git + strategy_changelog.json.
+    Best-effort — never raises; a failure never blocks boot.
+
+    Returns the new row id, or None when the config was unchanged or the
+    snapshot could not be written.
+    """
+    try:
+        import hashlib
+        from datetime import datetime, timezone
+
+        import yaml
+
+        from src.units.db.database import Database
+        from src.utils.paths import repo_root
+
+        cfg_path = os.path.join(repo_root(), "config", "strategies.yaml")
+        with open(cfg_path, "r", encoding="utf-8") as fh:
+            raw = fh.read()
+        parsed = yaml.safe_load(raw) or {}
+        digest = hashlib.sha256(raw.encode("utf-8")).hexdigest()[:12]
+        version_name = f"strategies-{digest}"
+
+        db = Database()
+        if db.get_strategy_version(version_name) is not None:
+            return None  # unchanged config — idempotent
+        desc = f"auto-snapshot {datetime.now(timezone.utc).isoformat()}"
+        row_id = db.save_strategy_version(version_name, parsed, description=desc)
+        logger.info(
+            "boot_audit: snapshotted strategy config version %s (row %s)",
+            version_name, row_id,
+        )
+        return row_id
+    except Exception as exc:  # noqa: BLE001  # allow-silent: best-effort audit snapshot; never blocks boot
+        logger.warning("boot_audit: strategy_version snapshot failed: %s", exc)
+        return None
+
+
 def report_open_packages_on_boot() -> dict[str, Optional[int]]:
     """Log (and optionally Telegram-ping) open linked packages per strategy.
 

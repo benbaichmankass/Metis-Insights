@@ -336,6 +336,41 @@ def trade_journal_db_path() -> str:
     return str(Path(repo_root()) / _TRADE_JOURNAL_DB_BASENAME)
 
 
+_ENV_TRAINER_STORE_DB = "TRAINER_STORE_DB"
+_TRAINER_STORE_DB_BASENAME = "trainer_store.db"
+
+
+def trainer_store_db_path() -> str:
+    """Return the canonical absolute path to the trainer-store sidecar DB.
+
+    The trainer-store is the *federated* half of the canonical store: a
+    read-mostly SQLite next to ``trade_journal.db`` that holds the
+    trainer/ML lifecycle data (training-cycle events, dataset builds,
+    DB-pull log, model registry, experiment runs, backtest sweeps)
+    ingested from the trainer-mirror JSONL/JSON files. Keeping it separate
+    from ``trade_journal.db`` means the ingest writers never touch the
+    live money DB, while the Data Explorer browses both as one store.
+
+    Resolution mirrors ``trade_journal_db_path()``:
+      1. ``TRAINER_STORE_DB`` env — exact path.
+      2. ``$DATA_DIR/trainer_store.db`` — the umbrella data root.
+      3. ``<repo_root>/trainer_store.db`` — dev/test fallback.
+    Always absolute; never a bare relative basename.
+    """
+    env = os.environ.get(_ENV_TRAINER_STORE_DB)
+    if env:
+        return str(Path(env).expanduser())
+
+    umbrella = os.environ.get(_ENV_UMBRELLA)
+    if umbrella:
+        umbrella_root = Path(umbrella).expanduser()
+        if not umbrella_root.is_absolute():
+            umbrella_root = Path(repo_root()) / umbrella_root
+        return str(umbrella_root / _TRAINER_STORE_DB_BASENAME)
+
+    return str(Path(repo_root()) / _TRAINER_STORE_DB_BASENAME)
+
+
 def describe_roots() -> dict[str, str]:
     """Return a debug map of the resolved roots and their env source.
 

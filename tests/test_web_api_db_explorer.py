@@ -90,3 +90,64 @@ class TestReadOnly:
         # path by confirming there is no such route + reads still work.
         body = client.get("/api/bot/db/tables").json()
         assert body["present"] is True
+
+
+@pytest.fixture
+def federated_client(monkeypatch, tmp_path):
+    """Both halves of the federated store present: a trade_journal DB and
+    a trainer_store sidecar."""
+    monkeypatch.setenv("DATA_DIR", str(tmp_path / "empty"))  # no trainer_mirror
+
+    tj = tmp_path / "trade_journal.db"
+    conn = sqlite3.connect(str(tj))
+    try:
+        conn.execute("CREATE TABLE trades (id INTEGER PRIMARY KEY, symbol TEXT)")
+        conn.execute("INSERT INTO trades (symbol) VALUES ('BTCUSDT')")
+        conn.commit()
+    finally:
+        conn.close()
+
+    sidecar = tmp_path / "trainer_store.db"
+    conn = sqlite3.connect(str(sidecar))
+    try:
+        conn.execute("CREATE TABLE model_registry (model_id TEXT, status TEXT)")
+        conn.execute("INSERT INTO model_registry VALUES ('m1', 'candidate')")
+        # a private table the explorer must hide
+        conn.execute("CREATE TABLE _ingest_meta (key TEXT, value TEXT)")
+        conn.commit()
+    finally:
+        conn.close()
+
+    from src.web.api import main as api_main
+    from src.web.api.routers import db_explorer as dbx
+    monkeypatch.setattr(dbx, "_DB_PATH", tj)
+    monkeypatch.setattr(dbx, "_TRAINER_STORE_DB", sidecar)
+    return TestClient(api_main.app, raise_server_exceptions=False)
+
+
+class TestFederation:
+    def test_tables_span_both_dbs_with_db_tag(self, federated_client):
+        body = federated_client.get("/api/bot/db/tables").json()
+        assert body["present"] is True
+        assert set(body["dbs"]) == {"trade_journal", "trainer_store"}
+        by_name = {t["name"]: t for t in body["tables"]}
+        assert by_name["trades"]["db"] == "trade_journal"
+        assert by_name["model_registry"]["db"] == "trainer_store"
+        # private bookkeeping table is hidden
+        assert "_ingest_meta" not in by_name
+
+    def test_read_trainer_table_auto_routes(self, federated_client):
+        body = federated_client.get("/api/bot/db/table/model_registry").json()
+        assert body["db"] == "trainer_store"
+        assert body["total"] == 1
+        assert body["rows"][0]["model_id"] == "m1"
+
+    def test_explicit_db_selector(self, federated_client):
+        body = federated_client.get(
+            "/api/bot/db/table/model_registry?db=trainer_store"
+        ).json()
+        assert body["db"] == "trainer_store"
+        # Selecting the wrong db for a table → 404.
+        assert federated_client.get(
+            "/api/bot/db/table/trades?db=trainer_store"
+        ).status_code == 404

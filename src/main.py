@@ -570,6 +570,15 @@ def main() -> None:
     except Exception as exc:  # noqa: BLE001
         logger.warning("boot_reconcile skipped: %s", exc)
 
+    # S-PERSIST-CANON: snapshot the active strategies.yaml into the
+    # (previously dead) trade_journal.db::strategy_versions table so the
+    # Data Explorer carries an in-DB strategy-config version history.
+    try:
+        from src.runtime.boot_audit import snapshot_strategy_versions_on_boot
+        snapshot_strategy_versions_on_boot()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("strategy_version snapshot skipped: %s", exc)
+
     # PR 3 cutover: set per-symbol leverage on every linear-perp account
     # before the first tick. Best-effort; logs warnings on failure and
     # never blocks boot. Idempotent on Bybit's retCode=110043 ("leverage
