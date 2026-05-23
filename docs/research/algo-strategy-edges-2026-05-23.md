@@ -105,6 +105,46 @@ So our process must be variation-first and overfit-hardened:
 4. **Decider** — feed regime/vol bucket + per-strategy confidence/edge
    into the intent multiplexer so it picks the best trade by regime fit.
 
+## 6. Model integration in backtesting (operator directive 2026-05-23)
+
+Two distinct uses; both reuse the existing `ml/` registry +
+`_build_shadow_feature_row` + `ml.shadow.factory`. **Strategy-agnostic /
+profitability-first:** edge ≠ ICT — any stable positive net-of-fee
+return qualifies; ict_scalp is kept only because it empirically has edge.
+
+**A. Inference (the full-system picture).** At each backtest entry,
+score the signal-time feature row with registry model(s) and use it
+(i) as an **entry gate** (take only trades above a score threshold —
+measure net-of-fee *with vs without*) and (ii) as a **decider input**
+(rank competing signals by confidence/regime-fit). Shows strategies +
+models + decider running together. Cheap: our models are per-bucket
+means / modal classifiers → microseconds per entry, negligible overhead.
+
+**B. Training from backtest decisions.** Each simulated trade is a
+labeled example: (signal-time feature_row → realized net-R / win-loss /
+variation). The backtest emits these → existing `trade_outcomes` /
+`setup_labels` families → `python -m ml train`. Gives models a huge,
+regime-diverse labeled sample live trading can't produce fast.
+
+**Discipline to avoid bad results (mandatory):**
+- **No leakage** — signal-time features only; never outcome-as-feature
+  (ml/ framework already enforces this).
+- **Walk-forward, never in-sample** — train on one period, validate
+  net-of-fee OOS on another; a backtest-trained model must improve OOS or
+  it's rejected.
+- **No circular overfit** — never score the same backtest a model trained
+  on; confirm gates with Deflated-Sharpe / PBO (multiple-testing).
+- **Shadow-stage + operator promotion gate** — backtest-trained models
+  land `research_only`/`shadow`; influence live only after OOS validation
+  + operator approval. The backtest-as-trainer never auto-promotes live.
+- **Zero live impact** — inference cheap; training offline on the trainer;
+  labels are JSONL.
+
+**Implementation:** add `--model <id>` (gate) + `--emit-decisions <path>`
+(training feedstock) to the variation-sweep harness. Sequence: (1) does a
+model gate lift net OOS? (2) emit decisions → train a backtest-fed model →
+OOS-validate → only then consider shadow.
+
 ## Sources
 
 - [Intraday Return Predictability in Crypto: Momentum, Reversal, or Both (SSRN)](https://papers.ssrn.com/sol3/Delivery.cfm/SSRN_ID4135239_code2537556.pdf?abstractid=4080253&mirid=1)
