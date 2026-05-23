@@ -56,6 +56,18 @@ Principles for getting there:
   this is part of the program.
 - **Complementarity > individual maximization.** 3–5 strategies whose
   edges fire in different regimes beat one over-tuned strategy.
+- **Models participate in backtesting (operator directive 2026-05-23).**
+  The trained registry models (trade-outcome winrate, regime
+  classifiers, setup-quality, etc.) must be evaluated *inside* the
+  backtest, not only shadow-logged live. Build a **model-in-the-loop
+  backtest**: at each signal, score the strategy's shadow feature-row
+  (reuse `_build_shadow_feature_row` + `ml.shadow.factory`/`Predictor`)
+  and test the model as an **entry gate** (take only trades scored above
+  a threshold) and as a **decider input** (rank competing signals by
+  model score). Measure net-of-fee edge with vs without the model gate —
+  this both tests whether models add edge and validates the decider
+  offline before any live promotion (which stays the operator-gated
+  shadow→advisory step).
 
 Everything below serves this North Star. The near-term sprints establish
 which current strategies have edge (S4-B-3, S5), then the program moves
@@ -329,14 +341,25 @@ sprint produces a sprint log under `docs/sprint-logs/`.
   result must clear the fee hurdle. If it doesn't lift gross, vwap is
   done as a standalone edge.
 
-### S5 — Cross-strategy inherent-edge audit — Tier 1
-- **Goal:** do `turtle_soup` and `ict_scalp` have a durable net-of-fee
-  edge on fresh 365-day data (regime-split, long/short)? ict_scalp
-  backtest is instrumented (net-of-fee, committed 3604b86); turtle_soup
-  needs a harness. Run on the trainer VM (uncapped) — it needs `git pull`
-  + a pandas venv first (1-core, slow but no 15-min cap).
-- **Deliverable:** per-strategy inherent-edge table (gross + net,
-  long/short, by-regime), evidence-cited.
+### S5 — Cross-strategy inherent-edge audit (both currencies + models) — Tier 1
+- **Goal:** the full strategy-improvement treatment for **every** current
+  strategy on **both** symbols. Do `turtle_soup` and `ict_scalp` (and
+  vwap, for completeness) have a durable net-of-fee edge — on **BTCUSDT
+  AND MES**, regime-split, long/short? Backtest hard + tweak each.
+- **Prerequisites / sub-tasks:**
+  - ict_scalp backtest instrumented (net-of-fee, 3604b86); **turtle_soup
+    needs a harness** (build one, Tier-1 offline tool).
+  - **MES backtesting** needs MES data (IB delayed CME bars) + the
+    backtests parameterized off `config/instruments.yaml` (tick size,
+    fee schedule — CME/IB fees differ from Bybit's 7.5 bps) instead of
+    hardcoded BTCUSDT/Bybit.
+  - **Model-in-the-loop** (operator directive): wire registry models as
+    entry gate + decider input into the harness; report net-of-fee with
+    vs without the model gate.
+  - Run on the trainer VM (uncapped) — needs `git pull` + a pandas venv
+    (1-core, slow but no 15-min cap).
+- **Deliverable:** per-strategy × per-symbol inherent-edge table (gross +
+  net, long/short, by-regime, model-gated vs raw), evidence-cited.
 
 ### S6 — Strategy-edge assessment & recommendation — Tier 1 (Tier 3 to ship)
 - **Goal:** synthesize S4-B/S5 into a recommendation: which current
