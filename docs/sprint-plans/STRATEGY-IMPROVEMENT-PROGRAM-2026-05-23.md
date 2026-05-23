@@ -362,14 +362,17 @@ sprint produces a sprint log under `docs/sprint-logs/`.
     (1-core, slow but no 15-min cap).
 - **Deliverable:** per-strategy × per-symbol inherent-edge table (gross +
   net, long/short, by-regime, model-gated vs raw), evidence-cited.
-- **First read (2026-05-23, BTCUSDT 12mo net-of-fee):** ict_scalp
-  **gross +45.6R / net +4.2R** (204 trades, 53.4% WR); turtle_soup
-  **gross +11.4R / net +1.3R** (60 trades, 61.7% WR). **Both have
-  genuine edge** (vwap had none) — two keepers + vwap to retire/rework.
-  Net is thin (fees eat ~90% of gross) → fee-efficiency tuning is the
-  lever. Audit: `docs/audits/strategy-inherent-edge-2026-05-23.md`.
-  Remaining: regime confirmation (2023/2024 slices), harness speedup,
-  fee-efficiency sweeps, MES, model-in-loop.
+- **Read + regime confirmation (2026-05-23, BTCUSDT, net-of-fee, 2023/24/25):**
+  **ict_scalp has a DURABLE gross edge** (positive every year, +29..+46R
+  gross; net +2.1/−18.9/+4.2 — 2024 net-negative is fees/over-trading,
+  not edge) → **keeper**. **turtle_soup did NOT hold** (gross negative in
+  2023 & 2024; the +11.4R in 2025 was a regime artifact) → rework/
+  exit-investigate. vwap: no edge. **Only 1 of 3 has durable edge →
+  creative new-strategy workstream is central.** Audit:
+  `docs/audits/strategy-inherent-edge-2026-05-23.md`.
+  Remaining: harness speedup (per-bar too slow on 1-core for full 3yr),
+  fee-efficiency sweeps for ict_scalp, turtle_soup exit-rescue, MES,
+  model-in-loop, **new-strategy R&D**.
 
 ### S6 — Strategy-edge assessment & recommendation — Tier 1 (Tier 3 to ship)
 - **Goal:** synthesize S4-B/S5 into a recommendation: which current

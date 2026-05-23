@@ -3,7 +3,40 @@
 > **Sprint:** S-STRAT-IMPROVE-S5 (Tier-1 analysis). **No live change.**
 > **Question (operator North Star):** which strategies have a durable,
 > fee-survivable *inherent* edge — the basis for a 3–5 strategy roster?
-> **First answer: ict_scalp and turtle_soup both DO; vwap does not.**
+> **Final answer (after regime confirmation): only ict_scalp has a
+> DURABLE gross edge (all 3 years). turtle_soup's edge did NOT hold —
+> its 12-month positive was a regime artifact. vwap has none.**
+
+## ⚠️ Regime confirmation (2023 / 2024 / 2025) — supersedes the 12mo read
+
+The first read below used only recent 12 months. Per the operator's
+no-overfit directive, both strategies were re-run on full-year 2023 and
+2024 slices. Net-of-fee R by year:
+
+| Strategy | 2023 | 2024 | 2025 | Gross-edge durable? |
+|---|---|---|---|---|
+| **ict_scalp** | gross +31.2 / **net +2.1** | gross +29.2 / net −18.9 | gross +45.6 / **net +4.2** | **YES** — gross positive all 3 yrs (+29..+46/yr) |
+| **turtle_soup** | gross −6.0 / net −15.0 | gross −13.7 / net −25.4 | gross +11.4 / net +1.3 | **NO** — gross negative in 2023 & 2024 |
+
+**Revised verdict:**
+- **ict_scalp = durable keeper.** Positive *gross* edge every year; the
+  negative 2024 *net* is a fee/over-trading problem (256 trades, 48R
+  fees), not an edge problem. Fee-efficiency tuning (fewer/wider trades)
+  is the lever to make a regime-robust gross edge solidly net-positive.
+- **turtle_soup = not a durable keeper (as the bare setup).** The +11.4R
+  in 2025 was a single-window artifact; gross was negative in 2023+2024.
+  *Caveat:* this is the simplified single-TP1 harness — turtle_soup's
+  live TP2/partial/ATR-trail/BE management might rescue it, so the action
+  is "investigate exits / rework the setup," not "condemn."
+- **vwap = no edge** (S4-B).
+- **Roster implication:** only 1 of 3 current strategies has confirmed
+  durable edge → the **creative new-strategy workstream is central**, not
+  optional, to fill the 3–5 slot roster.
+
+---
+
+## First read (12 months only — see regime confirmation above)
+
 
 ## Method
 
