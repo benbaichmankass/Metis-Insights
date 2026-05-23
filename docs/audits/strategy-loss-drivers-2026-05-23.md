@@ -14,6 +14,7 @@
 | Live VM state snapshot | `vm-diag-snapshot` | #1779 | actions/runs/26327050769 |
 | bybit_2 (real money) audit | `strategy-performance-audit` | #1780 | actions/runs/26327051057 |
 | bybit_1 (demo) audit | `strategy-performance-audit` | #1781 | actions/runs/26327051441 |
+| bybit_2 reconciler-close classification | `monitor-miss-analysis` | #1782 | actions/runs/26327530047 |
 
 Live VM: `git_sha 461bcb0` (**= `main` HEAD**), heartbeat `running`
 (age 52s), `bot_uptime_s 5837` (~1.6h since restart), `last_tick`
@@ -87,17 +88,35 @@ so no edge claim can be made about them yet. MES is ~1 day old.
    ~24 trades/day, fees are 418% of gross on bybit_2 and 480% on
    bybit_1. **This is the single biggest lever: fewer, higher-quality
    entries.** Selectivity (S3) directly attacks this.
-2. **Designed exits rarely fire; exchange stop-runs dominate.**
-   `reconciler_filled` (exchange-side closes, i.e. the live SL order
-   getting run) is 74% of exits at 17.9% WR and accounts for ~98% of
-   the loss. The *strategy's own* profitable exits — `vwap_cross`
-   (69.6% WR) and `tp_cross` (100%) — fire on only 16% of trades.
-   The thesis-completion exit works; the trades mostly never reach it
-   because the tight stop is hit first. Exit/stop redesign is S4.
-3. **Long-side bias.** Longs 20% WR vs shorts 35% WR; longs are 79% of
-   the loss. Mean-reversion longs in a trending/down-drifting BTC
-   regime get run. Direction-aware gating or asymmetric SL is an S3/S4
-   candidate. (Corroborated on bybit_1: vwap long 0/14.)
+2. **Exits are WORKING AS DESIGNED — not a bug** (confirmed
+   2026-05-23 via `monitor-miss-analysis`, #1782). Of the 125
+   `reconciler_filled` closes: **36 TP_hit + 84 SL_hit + only 5
+   between_TP_SL** → **96% are native Bybit SL/TP bracket fires**
+   (`execute.py` submits `stopLoss`/`takeProfit` with each entry; the
+   exchange closes server-side between the bot's 60s ticks and the
+   reconciler correctly records it). Only 5 trades (−$0.44, negligible)
+   closed anywhere unexpected. **The technical-first question is
+   answered: no monitor bug, no need for a faster monitor tape.** The
+   losses are genuine strategy losses — the stop is hit 84× vs the TP
+   36× (mean_R −0.788 vs +1.712). One subtle, legitimate enhancement
+   for S5 (exit geometry, Tier-3): because the native stop usually
+   fires within the 60s window, the bot's profitable `vwap_cross`
+   exit (69.6% WR, S2) rarely gets to compete — a wider/time-boxed
+   stop or a faster managed-exit cadence could convert some SL-runs
+   into thesis-completions, but that is an exit-design change, not a
+   bug fix.
+3. **Long-side bias — but read it as REGIME, not a permanent edge
+   (operator directive 2026-05-23).** Longs 20% WR vs shorts 35% WR;
+   longs are 79% of the loss (monitor-miss confirms: longs 71 SL / 20
+   TP vs shorts 13 SL / 16 TP). The live window has been a **down
+   market**, so mean-reversion *buys* get run — this is expected in a
+   downtrend and will likely flip in an uptrend. **Do NOT bake in a
+   static short-bias / long-suppression**: any direction handling must
+   be **regime-robust** (e.g. an HTF-trend-aware gate that
+   symmetrically suppresses *counter-trend* fades in either direction),
+   validated across up AND down market windows — never a fit to the
+   current regime. (Corroborated on bybit_1: vwap long 0/14, same
+   window.)
 4. **Tight SL (0.3σ) trades WR for R:R.** R:R 3.48 means few winners
    pay for many small losers; observed WR (25%) barely clears breakeven
    (22%) *gross*, so the geometry is roughly sound but leaves no margin
@@ -120,22 +139,30 @@ so no edge claim can be made about them yet. MES is ~1 day old.
   in the signal writer) would let S3 test whether deeper stretches are
   higher-quality entries. Filed as an instrumentation follow-up.
 
-## Handoff to S3 / S4
+## Handoff (re-planned 2026-05-23 per operator: technical-first)
 
-The evidence points at **selectivity first** (S3): cutting trade count
-attacks the dominant fee-drag driver directly and is the highest-ROI,
-lowest-risk lever. Concretely for S3 backtests (Tier-1 analysis;
-any live change is Tier-3):
-- Add the **long/short split** to the backtest aggregate (the prior
-  S-VWAP-POLICY-INVESTIGATION follow-up).
-- Test session gating (drop the dead 22–06 / 09–11 UTC hours),
-  entry-threshold raises, and direction-aware filters — measured by
-  *net-of-fee* expectancy and trade-count reduction, not gross R.
+The operator's technical-first check is **complete and clean** (driver
+#2 above): the reconciler dominance is working-as-designed native
+bracket fires, not a bug. So the program proceeds to strategy
+improvement, with the regime caveat (driver #3) as a hard constraint.
 
-Then S4 (exit logic): why 74% of trades resolve as `reconciler_filled`
-stop-runs instead of reaching `vwap_cross`/`tp_cross`, and whether a
-break-even move, partial exit, or wider-but-time-boxed stop converts
-stop-runs into thesis-completions without re-inflating fees.
+Re-numbered sprint sequence (this report closes the diagnostic step):
+- **S3 (this report's diagnostic half) — DONE:** exit-mechanism
+  diagnosis → no bug.
+- **S4 — selectivity / rule-tightening** (Tier-1 analysis; Tier-3 to
+  ship). Highest-ROI lever against the dominant fee-drag driver.
+  Concretely: add the **long/short split** to the backtest aggregate
+  (the S-VWAP-POLICY-INVESTIGATION follow-up); test session gating
+  (the dead 22–06 / 09–11 UTC hours), entry-threshold raises, and a
+  **regime-robust** (not static-short) counter-trend gate — measured
+  by *net-of-fee* expectancy + trade-count reduction, validated across
+  up AND down windows.
+- **S5 — exit geometry** (Tier-3 to ship): test whether a
+  wider/time-boxed stop or a faster managed-exit cadence converts
+  native SL-runs into `vwap_cross` thesis-completions (69.6% WR)
+  without re-inflating fees.
+- **S6 — validate winners on strongest/weakest symbols; S7 — package
+  for approval.**
 
 All recommendations above are **analysis only**. Every live change is
 Tier-3 and stops at the operator-approval gate (comms path verified in

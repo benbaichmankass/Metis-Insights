@@ -62,19 +62,15 @@ The real-money `bybit_2` vwap account is losing:
   `vwap_cross` exit conditions, with a **long-vs-short split** added to
   the backtest aggregate.
 
-### Live-vs-repo verification flag (carry into S2)
+### Live-vs-repo verification flag — RESOLVED (S2/S3, 2026-05-23)
 
-`src/units/strategies/vwap.py:224` sets `SL_STD_MULT_DEFAULT = 0.3`
-with an explicit `# TIER-3: Ben must approve before this value is
-deployed to the live bot` note (line 223), justified by the
-2026-05-19 sweep (#1569: ENTRY=1.0/SL=0.3 ranked #1, +4.88 mean R).
-But the earlier S-TRAINER-BT-1 deploy (2026-05-17) confirmed the live
-VM running `sl_std_mult: 0.5`. **It is unknown from the repo alone
-whether the live VM currently runs 0.3 or 0.5.** The R:R worked-example
-comment at `vwap.py:200-208` still cites `0.5σ → 1:2`, which is stale
-vs the 0.3 field (actual R:R 3.33:1, per line 221). The whole vwap loss
-analysis depends on knowing the *actual live* SL multiplier — so S2's
-first action is to pull live state via the diag relay and reconcile.
+`src/units/strategies/vwap.py:224` sets `SL_STD_MULT_DEFAULT = 0.3`.
+S2 confirmed **0.3 is live** (live VM SHA == main HEAD; empirical R:R
+3.48 on bybit_2 = 1.0/0.3). The operator confirmed 2026-05-23 that 0.3
+was proven + approved; the in-code "must approve before deploy" note
+(line 223) and the stale R:R worked-example (`vwap.py:200-208`, was
+`0.5σ → 1:2`) were **fixed in S3** to match the live field. No value
+changed. Closed.
 
 ---
 
@@ -238,36 +234,64 @@ sprint produces a sprint log under `docs/sprint-logs/`.
   loss). turtle_soup/ict_scalp/MES flagged **low-N** (S2-B follow-up).
   Log: `docs/sprint-logs/S-STRAT-IMPROVE-S2-2026-05-23.md`.
 
-### S3 — Selectivity / rule-tightening experiments — Tier 1 analysis, Tier 3 to ship
-- **Goal:** cut bad trades without cutting good ones. Backtest
-  candidate filters: better confirmation, session gating, HTF
-  alignment, momentum/volatility filters, symbol-specific filters.
-  Add the **long-vs-short split** to the backtest aggregate (the
-  explicit S-VWAP-POLICY-INVESTIGATION follow-up).
-- **Method:** reuse the 24-window framework (`vwap-backtest-sweep`) and
-  trainer-VM sweeps; require n≥3 windows positive on both legs before
-  proposing anything.
+### S3 — Exit-mechanism diagnosis (technical-first) — Tier 1 — ✅ DONE 2026-05-23
+- **Why inserted:** operator directive 2026-05-23 — if the
+  `reconciler_filled` exit dominance is a *bug* (designed exits not
+  firing, everything reverting to exchange closes), fix it BEFORE
+  tuning strategies.
+- **Goal:** empirically classify the `reconciler_filled` closes as
+  native-bracket fires (working-as-designed) vs anomalous (bug).
+- **Tool:** `monitor-miss-analysis` action (#1782).
+- **Result — no bug.** Of 125 reconciler closes: 36 TP_hit + 84 SL_hit
+  + only 5 between_TP_SL → **96% are native Bybit SL/TP bracket fires**
+  (`execute.py` submits stopLoss/takeProfit per entry; the exchange
+  closes between 60s ticks; the reconciler records it). Losses are
+  genuine strategy losses (stop hit 84× vs TP 36×). No faster monitor
+  tape needed. One exit-geometry enhancement deferred to S5.
+- **Exit criteria met:** technical-first question answered; program
+  proceeds to strategy improvement.
+
+### S4 — Selectivity / rule-tightening experiments — Tier 1 analysis, Tier 3 to ship
+- **Goal:** cut bad trades without cutting good ones — the highest-ROI
+  lever against the dominant fee-drag driver. Backtest candidate
+  filters: better confirmation, session gating, HTF alignment,
+  momentum/volatility filters, symbol-specific filters. Add the
+  **long-vs-short split** to the backtest aggregate (the
+  S-VWAP-POLICY-INVESTIGATION follow-up).
+- **Regime constraint (operator directive 2026-05-23):** the live
+  long/short gap reflects a **down-market regime**, not a permanent
+  edge. Do **NOT** introduce a static short-bias / long-suppression.
+  Any direction handling must be **regime-robust** (symmetric
+  counter-trend gating, HTF-aware) and validated across **up AND down**
+  market windows.
+- **Method:** reuse the 24-window framework (`vwap-backtest-sweep`,
+  key `bt_mode:`) and trainer-VM sweeps; measure **net-of-fee**
+  expectancy + trade-count reduction; require n≥3 windows positive on
+  both legs (long AND short) before proposing anything.
 - **Deliverable:** ranked, backtested selectivity proposals. Any live
   change is a **Tier-3 draft PR + approval request** — never merged in
   this sprint.
 
-### S4 — SL/TP & exit-logic research — Tier 1 analysis, Tier 3 to ship
+### S5 — SL/TP & exit-geometry research — Tier 1 analysis, Tier 3 to ship
 - **Goal:** experiment with multi-tier TPs, partial exits, break-even
   moves, dynamic/ATR-based trailing, adaptive exits. (turtle_soup
   already has TP1/TP2 + partial + trail; vwap is single-target +
   vwap_cross/time-decay; ict_scalp is single TP@1.5R — uneven exit
-  sophistication is itself a finding to test.)
+  sophistication is itself a finding to test.) Includes the S3 carry-
+  over: whether a wider/time-boxed stop or faster managed-exit cadence
+  converts native SL-runs into `vwap_cross` thesis-completions (69.6%
+  WR) without re-inflating fees.
 - **Deliverable:** backtested exit-logic variants with expected metric
   impact + tradeoff, per strategy. Tier-3 draft PRs for the winners.
 
-### S5 — Validate winners on strongest & weakest symbols — Tier 1
-- **Goal:** take the best S3/S4 candidates and validate on the best- and
+### S6 — Validate winners on strongest & weakest symbols — Tier 1
+- **Goal:** take the best S4/S5 candidates and validate on the best- and
   worst-performing symbols/accounts to check generalization (avoid
-  overfit to BTCUSDT). Compare results explicitly.
+  overfit to BTCUSDT + the current regime). Compare results explicitly.
 - **Deliverable:** a generalization report; promote only changes that
-  hold up across symbols.
+  hold up across symbols AND market regimes.
 
-### S6 — Package & prepare rollout — Tier 3
+### S7 — Package & prepare rollout — Tier 3
 - **Goal:** bundle the validated winners into clean, small Tier-3 PRs,
   each with: what changed, why it should help, expected metric impact,
   tradeoff, and the approval request. Document the staged rollout
@@ -296,15 +320,22 @@ sprint produces a sprint log under `docs/sprint-logs/`.
 
 ## Handoff
 
-S0 (architecture), S1 (comms path), and S2 (performance audit) are done.
-The evidence base — `docs/audits/strategy-loss-drivers-2026-05-23.md` —
-names **vwap overtrading → fee drag** as the dominant, real-money loss
-driver, with broken exits (`reconciler_filled` stop-runs) and long-side
-bias close behind. **Next sprint: S3** — selectivity / rule-tightening
-backtests (long/short split, session gating, entry/direction filters),
+S0 (architecture), S1 (comms path), S2 (performance audit), and S3
+(exit-mechanism diagnosis, technical-first) are done. The evidence base
+— `docs/audits/strategy-loss-drivers-2026-05-23.md` — names **vwap
+overtrading → fee drag** as the dominant, real-money loss driver. S3
+**cleared the technical-first check**: the `reconciler_filled` exits are
+96% native-bracket fires, working as designed — losses are genuine
+strategy losses, not a bug. The SL_STD_MULT governance flag is
+**resolved** (operator confirmed 0.3 approved/live 2026-05-23; stale
+comments fixed in `vwap.py`).
+
+**Next sprint: S4** — selectivity / rule-tightening backtests
+(long/short split, session gating, regime-robust counter-trend gate),
 measured **net-of-fee**, because cutting trade count is the highest-ROI,
-lowest-risk lever against fee drag. Two items carry forward: **S2-B**
-(journal-based per-strategy pull for low-N turtle_soup/ict_scalp/MES) and
-the **SL_STD_MULT governance ruling** (Tier-3, for the operator). All
-analysis sprints are autonomous (Tier 1); every live change is Tier 3
-and stops at the approval gate.
+lowest-risk lever against fee drag. **Hard constraint (operator):** no
+static short-bias — direction handling must be regime-robust and
+validated across up AND down windows. One item still carries forward:
+**S2-B** (journal-based per-strategy pull for low-N
+turtle_soup/ict_scalp/MES). All analysis sprints are autonomous
+(Tier 1); every live change is Tier 3 and stops at the approval gate.
