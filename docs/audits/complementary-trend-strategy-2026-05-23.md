@@ -45,6 +45,25 @@ ict_scalp is the inverse. A portfolio of the two is **smoother than
 either alone** — the North Star (regime coverage so something always
 trades well), matching the research's momentum+MR blend (~Sharpe 1.71).
 
+## Robustness confirmation (#1838) — plateau, not a lucky config
+
+donchian × trail sweep (atr_stop=2.5 fixed), full-3yr net-of-fee R:
+
+| donch \ trail | 2.5 | 3.0 | 3.5 |
+|---|---|---|---|
+| 15 | −24.5 | +34.6 | +37.7 |
+| 20 | −21.7 | +22.5 | +29.3 |
+| 25 | −10.1 | +40.0 | +33.8 |
+| 30 | −31.6 | +14.6 | +19.7 |
+
+- **One interpretable sensitivity:** trail must be LOOSER than the entry
+  stop. `trail=2.5` (≤ the 2.5 stop) is negative everywhere (cuts winners
+  early → kills the trend edge); `trail≥3.0` is positive everywhere.
+- **Valid region (trail 3.0–3.5 × donchian 15–30) is a robust PLATEAU:**
+  +14.6 to +40.0R, all positive. Passes plateau-not-cliff. The edge is
+  real, not param-overfit. (Don't chase the 25/3.0 peak; plateau
+  membership matters more.)
+
 ## Caveats (intellectual honesty)
 
 - **Single param set** (Donchian 20 / 2.5 / 3.0). Could be lucky — needs
