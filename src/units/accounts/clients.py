@@ -752,7 +752,19 @@ def account_open_positions(
             client = ib_read_client_for(account)
             if client is None:
                 return None
-            return client.positions()
+            from src.units.accounts.ib_client import IBConnectionError
+            try:
+                return client.positions()
+            except IBConnectionError as exc:
+                # A down/evicted Gateway is an expected, recurring state —
+                # fail quietly (log only) instead of routing through the
+                # generic report_api_failure below, which would emit a
+                # WARN+ outcome / Telegram ping on every read.
+                logger.warning(
+                    "account_open_positions(%s): IB gateway unreachable: %s",
+                    account.get("account_id") or "unknown", exc,
+                )
+                return None
         if ex == "bybit":
             client = bybit_client_for(account)
             if client is None:

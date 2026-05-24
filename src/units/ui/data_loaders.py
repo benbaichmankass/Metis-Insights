@@ -666,16 +666,16 @@ def _ib_balance_diagnostic(account: Dict[str, Any], aid: str) -> Dict[str, Any]:
     try:
         bal = client.balance() or {}
     except IBConnectionError as exc:
+        # A down/evicted Gateway is an EXPECTED, recurring state (the IB
+        # session is single-per-username — an operator login evicts it).
+        # The coordinator resolves balances every tick through this path,
+        # so emitting a WARN+ outcome / Telegram ping here would storm.
+        # Fail quietly: the precise reason is logged + returned, and the
+        # hourly digest surfaces it once per hour via api_ok=False. No
+        # report_api_failure (unlike Bybit, whose failures are rarer and
+        # actionable).
         err_str = str(exc)
         logger.warning("account_balance(%s): %s", aid, err_str)
-        try:
-            from src.runtime.api_reporting import report_api_failure
-            report_api_failure(
-                exchange="interactive_brokers", op="balance",
-                account_id=str(aid), error=err_str, exception=exc,
-            )
-        except Exception:  # noqa: BLE001
-            pass
         return {"status": "api_error", "total_usdt": None, "raw": None,
                 "error": err_str}
     except Exception as exc:  # noqa: BLE001
