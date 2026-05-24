@@ -240,7 +240,7 @@ All thresholds live in `config/strategies.yaml` (`strategies.<strategy>.{be_at_r
 
 **Files:** `src/bot/telegram_query_bot.py`, `src/web/api/routers/diag.py`, `src/runtime/hourly_report.py`, `src/web/runtime_status.py`, dashboard repo `benbaichmankass/ict-trader-dashboard`
 
-**Inputs:** Logs and journal from Stage 9; operator commands via Telegram or via the operator-actions GitHub Actions workflow.
+**Inputs:** Logs and journal from Stage 9; operator commands via Telegram or via the system-actions GitHub Actions workflow.
 
 **Outputs:** Hourly Telegram summaries (per-strategy and per-account); FastAPI diagnostic endpoints (live status, halt/resume, pending alerts); dashboard tabs consuming the unauthenticated Tier 1 endpoints documented in [`api-tier-policy.md`](api-tier-policy.md).
 

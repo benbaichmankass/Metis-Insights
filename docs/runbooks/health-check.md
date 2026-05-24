@@ -124,7 +124,7 @@ The workflow runs, comments back the artifact URL on the issue, and closes it. T
 
 | Secret | Purpose |
 |---|---|
-| `VM_SSH_KEY` | SSH private key for `ubuntu@158.178.210.252`. Reused from the other VM-touching workflows (operator-actions, vm-diag-snapshot, vm-web-api-recover). |
+| `VM_SSH_KEY` | SSH private key for `ubuntu@158.178.210.252`. Reused from the other VM-touching workflows (system-actions, vm-diag-snapshot, vm-web-api-recover). |
 
 Optional repo variables `VM_SSH_HOST`, `VM_SSH_USER` can override the
 defaults; the workflow uses the canonical Oracle VM by default.

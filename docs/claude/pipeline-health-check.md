@@ -66,7 +66,7 @@ verdict for an order. Each rejection event is:
 
 1. **Pre-check** — fast: extract the rejection metadata from the
    issue body (parsed through env, never inline `${{ }}` per the
-   operator-actions convention).
+   system-actions convention).
 2. **Diag pulls** — SSH to the live VM and fetch via
    `/api/diag/*`:
    - `/api/diag/status` (heartbeat + accounts + last_tick_utc),
@@ -171,7 +171,7 @@ knows what happened.
   `scripts/send_ping.py` already drain through
   `ict-claude-bridge.service` to `@claude_ict_comms_bot`.
 - **Issue-triggered workflows**: `vm-diag-snapshot.yml`,
-  `vm-web-api-recover.yml`, and `operator-actions.yml` all use the
+  `vm-web-api-recover.yml`, and `system-actions.yml` all use the
   pattern. This workflow follows the same shape (label-filtered
   `issues.opened`, body-through-env, structured artifact).
 - **Audit log**: `runtime_logs/signal_audit.jsonl` is already the
@@ -233,7 +233,7 @@ knows what happened.
   contract.
 - [`docs/ARCHITECTURE-CANONICAL.md`](../ARCHITECTURE-CANONICAL.md)
   § Mode Mutation Contract — the system-design counterpart.
-- [`docs/claude/operator-actions.md`](operator-actions.md) — the
+- [`docs/claude/system-actions.md`](system-actions.md) — the
   established issue-triggered workflow pattern this one inherits.
 - [`docs/claude/diag-relay.md`](diag-relay.md) — the diag-pull
   pattern reused here.

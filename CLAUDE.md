@@ -141,7 +141,7 @@ one of them at a time.
 
 | VM | Role | Trust contract | Default posture |
 |---|---|---|---|
-| `instance-20260414-1555` (`158.178.210.252`) | **Live trader** — runs `ict-trader-live.service`, holds money-at-risk | [`docs/claude/vm-operator-mode.md`](docs/claude/vm-operator-mode.md) | **Restricted.** Tier-1 read autonomous; Tier-2 mutations need operator ack (Telegram `/vm_write` or PM-side issue → `operator-actions.yml`); Tier-3 paths (live order code, risk caps, key rotation) are hard-blocked. **Account-mode flips have a sanctioned wire: `set-account-mode` operator action; code paths that flip mode outside that action are Tier-3 violations.** |
+| `instance-20260414-1555` (`158.178.210.252`) | **Live trader** — runs `ict-trader-live.service`, holds money-at-risk | [`docs/claude/vm-operator-mode.md`](docs/claude/vm-operator-mode.md) | **Restricted.** Tier-1 read autonomous; Tier-2 mutations need operator ack (Telegram `/vm_write` or PM-side issue → `system-actions.yml`); Tier-3 paths (live order code, risk caps, key rotation) are hard-blocked. **Account-mode flips have a sanctioned wire: `set-account-mode` operator action; code paths that flip mode outside that action are Tier-3 violations.** |
 | `ict-trainer-vm` (`VM.Standard.A1.Flex`, Ampere A1) | **Training center** — runs the ML lifecycle (datasets, training, registry, eval), no live trade authority of its own | [`docs/claude/trainer-vm-mode.md`](docs/claude/trainer-vm-mode.md) | **Autonomous.** Claude provisions, SSHes, installs, syncs read-only DB from live, runs training cycles, writes the registry up to `live_approved` stage, terminates + re-provisions — all without operator-in-the-loop. |
 
 The separation has two gates (2026-05-19 update; see
@@ -512,7 +512,7 @@ below are the contract.
   `/api/diag/*` from a PM-side / web-sandbox session" above and the
   full doc at `docs/claude/diag-relay.md`.
 - **VM operator actions (narrow mutating)** —
-  `.github/workflows/operator-actions.yml` exposes a fixed
+  `.github/workflows/system-actions.yml` exposes a fixed
   allowlist (`status-check`, `pull-latest-logs`, `pull-and-deploy`,
   `restart-bot-service`, `reboot-vm`, `set-account-mode`, …).
   Tier-1 actions are autonomous; Tier-2 actions require an operator
@@ -520,13 +520,13 @@ below are the contract.
   paths, identical allowlist + audit:
   - `workflow_dispatch` — operator clicks "Run workflow" in the
     Actions UI.
-  - **Issue-driven** — open a labelled issue (`operator-action`)
+  - **Issue-driven** — open a labelled issue (`system-action`)
     with body `action: <name>\nreason: <text>` (plus `account:` +
     `mode:` lines for `set-account-mode`). Workflow runs, comments
     back, closes the issue. Body parsing rides through env
     (`ISSUE_BODY`), not inline interpolation.
 
-  Full contract: `docs/claude/operator-actions.md`. **Account-mode
+  Full contract: `docs/claude/system-actions.md`. **Account-mode
   flips have one sanctioned wire (`set-account-mode`); strategy
   parameter changes, risk caps, and live order code remain Tier-3
   PRs.**
@@ -555,7 +555,7 @@ below are the contract.
   Workflows that need to be Claude-driven from a session must use
   an `issues.opened` (or `pull_request.opened`) trigger filtered to
   a label. Pattern is the diag relay (`vm-diag-snapshot.yml`),
-  `vm-web-api-recover.yml`, and now `operator-actions.yml` (whose
+  `vm-web-api-recover.yml`, and now `system-actions.yml` (whose
   Tier-2 ack is the operator's in-conversation approval — Claude
   carries that approval into the issue body).
 

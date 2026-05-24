@@ -1,10 +1,10 @@
-# Operator actions — PM-side mutating bridge
+# System-actions — tiered production-mutation bridge
 
 > Companion to `docs/claude/vm-operator-mode.md` (VM-resident `/vm`
 > tiers) and `docs/claude/diag-relay.md` (PM-side **read-only**
 > bridge). This doc covers the third axis: a **narrow, allowlisted
 > set of mutating actions** a PM-side / web-sandbox session can drive
-> on the VM via the GitHub Actions workflow `operator-actions`.
+> on the VM via the GitHub Actions workflow `system-actions`.
 
 ---
 
@@ -18,7 +18,7 @@ two mutually exclusive options when something went wrong on the VM:
 2. **Wake the operator on Telegram** and ask them to SSH in — the
    only mutation path, but adds human latency to every recovery.
 
-`operator-actions.yml` is the small, audited middle path: a fixed
+`system-actions.yml` is the small, audited middle path: a fixed
 allowlist of recovery / hygiene actions that don't touch strategy
 behaviour, with pre/post verification baked into the workflow.
 
@@ -33,7 +33,7 @@ Two dispatch paths, identical allowlist + audit:
 - **`workflow_dispatch`** — operator clicks "Run workflow" in the
   Actions UI. The original path; still available.
 - **Issue-driven** — sandbox session opens an issue with label
-  `operator-action`, body encoding `action: <name>` + `reason: <text>`.
+  `system-action`, body encoding `action: <name>` + `reason: <text>`.
   The workflow runs, posts the result back as an issue comment, and
   closes the issue. Same allowlist enforcement, same audit artifact.
   Required when the sandbox needs to dispatch autonomously and `gh`
@@ -45,7 +45,7 @@ Two dispatch paths, identical allowlist + audit:
 
 Adding an action requires a PR that updates this doc, the workflow's
 `inputs.action.options` list, the wrapper mapping in
-`operator-actions.yml`, the priority case in
+`system-actions.yml`, the priority case in
 `scripts/ops/notify_run.sh`, and the `EXPECTED_ACTIONS` constant in
 `tests/ops/test_operator_actions_workflow.py`.
 
@@ -101,7 +101,9 @@ this workflow:
 - Strategy parameter changes (`config/strategies.yaml`)
 - Risk caps (`src/runtime/risk_counters.py`, `config/risk_caps.yaml`)
 - Live order code (`src/runtime/orders.py`)
-- Anthropic / exchange / Telegram key rotation
+- Anthropic (Claude-on-VM) key rotation — out-of-band only. (Exchange
+  *account* keys are not forbidden here: they're applied by the
+  `rotate-account-keys` carve-out below, sourced from Actions secrets.)
 - Disabling/masking `ict-trader-live.service`
 
 If you want any of those, you do not want this workflow. Open a PR.
@@ -237,7 +239,7 @@ without an operator ack. The ack flow is:
    subsequently opens captures the dispatched action + reason.
 3. Dispatch path:
    - **Issue-driven (preferred when sandbox lacks a `run_workflow`
-     tool):** Claude opens an issue with label `operator-action` and a
+     tool):** Claude opens an issue with label `system-action` and a
      body that encodes the agreed `action:` + `reason:`. Workflow runs,
      posts result back, closes the issue. Same allowlist + audit as
      `workflow_dispatch`.
@@ -259,12 +261,14 @@ that judgement; an autonomous dispatcher does, by trust contract.
 
 ### Tier 3 — never via this workflow
 
-Out of scope for `operator-actions` regardless of approval:
+Out of scope for `system-actions` regardless of approval:
 
 - Strategy parameter changes (`config/strategies.yaml`)
 - Risk caps (`src/runtime/risk_counters.py`, `config/risk_caps.yaml`)
 - Live order code (`src/runtime/orders.py`)
-- Anthropic / exchange / Telegram key rotation
+- Anthropic (Claude-on-VM) key rotation — out-of-band only. (Exchange
+  *account* keys are not forbidden here: they're applied by the
+  `rotate-account-keys` carve-out below, sourced from Actions secrets.)
 - Disabling/masking `ict-trader-live.service` (stopping is Tier-2 in
   the VM-runner protocol; **disabling/masking is Tier 3** there too)
 
@@ -274,6 +278,13 @@ Out of scope for `operator-actions` regardless of approval:
   Rationale + contract in § 2.1.
 - `fix-data-dir` for the `DATA_DIR=` / `TRADE_JOURNAL_DB=` overrides
   in `.env`. Rationale + contract in § 2.2.
+- `rotate-account-keys` **applies** an exchange account key that the
+  operator has placed in the GitHub Actions secrets
+  (`BYBIT_API_KEY_<n>` / `BYBIT_API_SECRET_<n>`): it re-renders the VM
+  `.env` from those secrets and restarts the trader. The human step is
+  updating the secret value; Claude only dispatches the apply. Tier-2
+  (credential-touching + restart → operator OK in chat). *Generating* a
+  new key at the exchange remains the human's job.
 
 Everything else above stays Tier-3. If you want any of those, you
 do not want this workflow. Open a PR.
@@ -356,7 +367,7 @@ preview that streams while the workflow is running.
 
 Every workflow run produces:
 
-1. **An artifact** (`operator-action-<action>-<run_id>.zip`)
+1. **An artifact** (`system-action-<action>-<run_id>.zip`)
    containing:
    - `audit-bundle.json` — structured: action, reason, tier, exit
      code, pre-state, post-state, output excerpt. For
@@ -384,7 +395,7 @@ indefinitely (they are tiny — < 1 KB each).
 ### 5.5 Transparency rule (always-notify)
 
 **Operator directive, 2026-05-08:** *autonomy is complemented by full
-transparency.* Every operator-actions run notifies the operator,
+transparency.* Every system-actions run notifies the operator,
 **regardless of dispatcher class or action tier**, and regardless of
 whether operator action was needed.
 
@@ -564,7 +575,7 @@ Current .env DATA_DIR: <value, or 'unset'>; canonical (systemd drop-in): /data/b
 ### 7.1 Issue-driven dispatch — body format
 
 Once the operator has acked the action, Claude opens an issue with
-label `operator-action`. Body must contain (any line order):
+label `system-action`. Body must contain (any line order):
 
 ```
 action: <one of the allowlist names>
@@ -582,7 +593,7 @@ For `fix-data-dir`, no additional lines are needed — the wrapper
 is fully parameter-free (its target is always the systemd-declared
 canonical path).
 
-The `Resolve action + reason` step in `operator-actions.yml` parses
+The `Resolve action + reason` step in `system-actions.yml` parses
 the lines case-insensitively from the first match. Tier-2 actions
 **must** include a non-empty `reason`; the workflow rejects
 empty-reason Tier-2 dispatches with exit 1 in the validation step.
@@ -593,7 +604,7 @@ gates `account` on `[A-Za-z0-9_-]+`.
 The issue title is informational only — recommended form:
 
 ```
-[operator-action] <action> — <one-line reason>
+[system-action] <action> — <one-line reason>
 ```
 
 The workflow comments back on the issue with the run URL + wrapper
@@ -604,20 +615,20 @@ Recommended path for Claude (web sandbox):
 
 ```
 mcp__github__issue_write(method='create',
-    title='[operator-action] pull-and-deploy — <reason>',
-    labels=['operator-action'],
+    title='[system-action] pull-and-deploy — <reason>',
+    labels=['system-action'],
     body='action: pull-and-deploy\nreason: <reason>')
 
 # set-account-mode variant:
 mcp__github__issue_write(method='create',
-    title='[operator-action] set-account-mode — flip bybit_2 to live',
-    labels=['operator-action'],
+    title='[system-action] set-account-mode — flip bybit_2 to live',
+    labels=['system-action'],
     body='action: set-account-mode\naccount: bybit_2\nmode: live\nreason: <reason>')
 
 # fix-data-dir variant:
 mcp__github__issue_write(method='create',
-    title='[operator-action] fix-data-dir — strip stale .env override',
-    labels=['operator-action'],
+    title='[system-action] fix-data-dir — strip stale .env override',
+    labels=['system-action'],
     body='action: fix-data-dir\nreason: <reason>')
 ```
 
@@ -683,11 +694,11 @@ All already in place except the optional reboot sudoers entry.
 for their post-edit restarts.
 
 `reboot-vm` requires one additional sudoers entry. Edit
-`/etc/sudoers.d/ict-operator-actions` (create if missing) on the VM,
+`/etc/sudoers.d/ict-system-actions` (create if missing) on the VM,
 mode `0440`, owner `root:root`, contents:
 
 ```
-# operator-actions reboot path — see docs/claude/operator-actions.md § 10
+# system-actions reboot path — see docs/claude/system-actions.md § 10
 ubuntu ALL=(ALL) NOPASSWD: /sbin/shutdown -r *
 ```
 
@@ -750,12 +761,12 @@ needs a new allowlist entry today:
   contract (the bridge that **predates** this one and shares the
   same SSH wiring).
 - `docs/claude/diag-relay.md` — full operator + session flow for
-  the read-only relay; shape mirrors the operator-actions flow on
+  the read-only relay; shape mirrors the system-actions flow on
   the request side.
 - `docs/claude/operating-protocol.md` § 4 — merge-authority tiers
   (the *PR* tiers; this doc is the *dispatch* tiers, distinct).
 - `scripts/deploy_pull_restart.sh` — canonical deploy flow; the
   `claude-vm-runner` defer guard there is mirrored here.
-- `.github/workflows/operator-actions.yml` — the workflow itself.
+- `.github/workflows/system-actions.yml` — the workflow itself.
 - `scripts/ops/*.sh` — wrapper scripts (one per action).
 - `tests/ops/` — workflow + script validation.

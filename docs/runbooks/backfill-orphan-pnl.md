@@ -38,11 +38,11 @@ idempotent.
 
 ## Dispatch — Claude-driven (default)
 
-Claude fires `operator-actions.yml` with `action: backfill-orphan-pnl`
+Claude fires `system-actions.yml` with `action: backfill-orphan-pnl`
 after operator approval in chat. The issue-driven path:
 
 1. Operator says "yes, fire backfill-orphan-pnl" (or equivalent).
-2. Claude opens an issue with label `operator-action`:
+2. Claude opens an issue with label `system-action`:
 
    ```
    action: backfill-orphan-pnl
@@ -64,7 +64,7 @@ after operator approval in chat. The issue-driven path:
 
 ## Dispatch — workflow_dispatch (manual)
 
-Operator clicks "Run workflow" on `operator-actions.yml`:
+Operator clicks "Run workflow" on `system-actions.yml`:
 
 - **Action**: `backfill-orphan-pnl`
 - **Reason**: short string explaining why (audit requirement)

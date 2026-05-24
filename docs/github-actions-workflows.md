@@ -26,7 +26,7 @@ Actions tab, and adds dead code.
 |---|---|---|
 | Run any command on the **trainer VM** | `trainer-vm-diag.yml` | `trainer-vm-diag-request` label |
 | Run any command on the **live VM** (read-only) | `vm-diag-snapshot.yml` | `vm-diag-request` label |
-| Mutate the **live VM** (restart, deploy, mode-flip) | `operator-actions.yml` | `operator-action` label |
+| Mutate the **live VM** (restart, deploy, mode-flip) | `system-actions.yml` | `system-action` label |
 | Run a **VWAP backtest** on the trainer VM | `vwap-backtest.yml` | `vwap-backtest-trigger` label |
 | Check network reachability from GitHub runner | `vm-net-diag.yml` | `vm-net-diag-request` label |
 | Restart the live VM web API | `vm-web-api-recover.yml` | `vm-web-api-recover` label |
@@ -149,7 +149,7 @@ which would unlock these.
 | `provision-training-vm.yml` | AUTONOMOUS | A | `provision-training-vm` |
 | `provision-training-vm-auto-retry.yml` | AUTO | E (every 10 min) | — |
 | `deploy-trainer-bootstrap.yml` | AUTONOMOUS | B | `.github/triggers/deploy-trainer-bootstrap` |
-| `operator-actions.yml` | OPERATOR-APPROVAL | A | `operator-action` |
+| `system-actions.yml` | OPERATOR-APPROVAL | A | `system-action` |
 | `vm-net-fix.yml` | OPERATOR-APPROVAL | A | `vm-net-fix-request` |
 | `vm-cloud-fix.yml` | OPERATOR-APPROVAL | A | `vm-cloud-fix-request` |
 | `oci-storage-verify.yml` | AUTONOMOUS | C (workflow_dispatch) | — |
@@ -209,7 +209,7 @@ mcp__github__create_or_update_file
 Or just touch `.github/workflows/bootstrap-labels.yml` in a PR to main.
 
 **Current label set:** `vm-diag-request`, `vm-web-api-recover`,
-`operator-action`, `vm-cloud-fix-request`, `vm-net-diag-request`,
+`system-action`, `vm-cloud-fix-request`, `vm-net-diag-request`,
 `vm-net-fix-request`, `health-snapshot-trigger`, `cf-worker-deploy`,
 `provision-training-vm`, `doc-audit-now`, `doc-drift`,
 `vwap-backtest-trigger`, `trainer-vm-diag-request`.
@@ -352,7 +352,7 @@ mcp__github__issue_write
 
 ### VM operations
 
-#### `operator-actions.yml`
+#### `system-actions.yml`
 
 **Autonomy:** OPERATOR-APPROVAL — always confirm with operator before opening
 this issue. Tier-1 actions (`status-check`, `pull-latest-logs`) need only
@@ -360,7 +360,7 @@ in-conversation approval; Tier-2 actions (`pull-and-deploy`,
 `restart-bot-service`, `reboot-vm`, `set-account-mode`) need explicit
 operator ack.
 
-**Trigger:** `issues.opened` (label `operator-action`), `workflow_dispatch`.
+**Trigger:** `issues.opened` (label `system-action`), `workflow_dispatch`.
 
 **Purpose:** Single bridge for the allowlisted mutating live-VM operations.
 Runs via SSH; logs a JSON audit artifact (pre-/post-state). The issue body
@@ -368,11 +368,11 @@ is passed verbatim through `ISSUE_BODY` env var.
 
 **Issue format:**
 ```
-title: "[operator-action] <action-name>"
+title: "[system-action] <action-name>"
 body: |
   action: <name>
   reason: <text>
-labels: ["operator-action"]
+labels: ["system-action"]
 ```
 
 For `set-account-mode`:
@@ -393,7 +393,7 @@ body: |
 - `set-account-mode` — flip `mode: live|dry_run` in `accounts.yaml` (Tier 2, sanctioned wire)
 - `teardown-cloudflare-tunnel` — stops `ict-cloudflared-tunnel.service` (Tier 2)
 
-**Full contract:** [`docs/claude/operator-actions.md`](claude/operator-actions.md).
+**Full contract:** [`docs/claude/system-actions.md`](claude/system-actions.md).
 
 **Secrets:** `VM_SSH_KEY`, `DIAG_READ_TOKEN`.
 
@@ -756,9 +756,9 @@ mcp__github__issue_write
 2. Open issue:
 ```
 mcp__github__issue_write
-  title: "[operator-action] restart-bot-service"
+  title: "[system-action] restart-bot-service"
   body: "action: restart-bot-service\nreason: <operator-approved reason>"
-  labels: ["operator-action"]
+  labels: ["system-action"]
 ```
 
 **Re-triggering trainer bootstrap (push sentinel):**
@@ -817,7 +817,7 @@ download + paste the artifact content.
 |---|---|---|
 | `VM_SSH_KEY` | repo | All VM SSH workflows (live VM and trainer VM) |
 | `VM_SSH_PRIVATE_KEY` | env `production-oci` | `oci-storage` mutating job only (env scope carries the approval gate) |
-| `DIAG_READ_TOKEN` | repo | `vm-diag-snapshot`, post-action verification in `operator-actions` |
+| `DIAG_READ_TOKEN` | repo | `vm-diag-snapshot`, post-action verification in `system-actions` |
 | `BRANCH_PROTECTION_TOKEN` | repo | `branch-protection-sync` (PAT, fine-grained, `administration:write`) |
 | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | repo | `dry-run-guard`, `env-gate-guard`, `silent-empty-guard`, `training-run` |
 | `OCI_CLI_USER`, `OCI_CLI_FINGERPRINT`, `OCI_CLI_TENANCY`, `OCI_CLI_REGION`, `OCI_CLI_KEY_CONTENT` | repo | `vm-cloud-fix`, `oci-storage`, `provision-training-vm`, `provision-training-vm-auto-retry` |

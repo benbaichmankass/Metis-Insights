@@ -284,14 +284,14 @@ to `src/web/api/routers/diag.py` from a sandbox session remains
 See `docs/claude/diag-relay.md` for the full operator and
 session-side flow + failure modes.
 
-### 9.b Sandbox sessions reach a *narrow mutating surface* via operator-actions
+### 9.b Sandbox sessions reach a *narrow mutating surface* via system-actions
 
-A separate workflow `operator-actions.yml` extends the PM-side
+A separate workflow `system-actions.yml` extends the PM-side
 bridge with a fixed allowlist of mutating actions: `status-check`,
 `pull-latest-logs`, `restart-bot-service`, `reboot-vm`. There is no
 freeform-command input. The contract — tiers, ping format, reboot
 doctrine, sudoers requirements — lives in
-`docs/claude/operator-actions.md`.
+`docs/claude/system-actions.md`.
 
 This is **not** a relaxation of the immutability rules above:
 

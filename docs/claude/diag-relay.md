@@ -240,7 +240,7 @@ If every diag request comes back with `❌ vm-diag-snapshot run failed`
 and the underlying run shows `Process completed with exit code 7`,
 that's `curl: (7) Failed to connect to 127.0.0.1` — the FastAPI
 process serving `/api/diag/*` (`ict-web-api.service`) is down on the
-VM. The diag relay can't fix itself; the operator-actions allowlist
+VM. The diag relay can't fix itself; the system-actions allowlist
 doesn't include a web-api restart; and the sandbox session has no
 `workflow_dispatch` MCP to fire it anyway.
 

@@ -139,7 +139,7 @@ which:
   eventual safety net during the soak.
 
 The env var is **not** set in any deploy or config file. The
-soak is started and rolled back via the canonical operator-actions
+soak is started and rolled back via the canonical system-actions
 GitHub workflow — no SSH-from-laptop required:
 
 * **Start the soak:** dispatch `enable-closed-flat-invariant`
@@ -153,9 +153,9 @@ GitHub workflow — no SSH-from-laptop required:
   companion of the enable action.
 
 Both actions are allowlisted in
-`.github/workflows/operator-actions.yml` and follow the same
+`.github/workflows/system-actions.yml` and follow the same
 audit + Telegram-notify shape as `restart-bot-service`. See
-`docs/claude/operator-actions.md` for the dispatch flow.
+`docs/claude/system-actions.md` for the dispatch flow.
 
 Verification:
 

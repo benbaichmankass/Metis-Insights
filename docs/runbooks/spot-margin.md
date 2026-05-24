@@ -217,7 +217,7 @@ Use this when:
    bash scripts/ops/_lib.sh   # not directly executable; use record_audit
    ```
 
-   Or open an `operator-action` issue with `action: status-check` so the
+   Or open an `system-action` issue with `action: status-check` so the
    workflow snapshots the post-flatten wallet state.
 
 ### What NOT to do
@@ -235,7 +235,7 @@ Use this when:
   The bot's wallet read may race the manual repay and momentarily
   see the borrow as "settled, no DB row" → trigger Layer 2 → emit a
   spurious audit. If you must use the web-UI, halt the trader first
-  (`operator-action: restart-bot-service` after the manual repay
+  (`system-action: restart-bot-service` after the manual repay
   completes is sufficient).
 
 ---

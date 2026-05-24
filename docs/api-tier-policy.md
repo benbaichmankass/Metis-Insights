@@ -103,7 +103,7 @@ controls. These will require:
 - An audit log entry per call with the caller's email + IP.
 
 S-065 will land the first Tier-3 endpoint (halt). Until then, all
-mutating operator actions go through the `operator-actions.yml`
+mutating operator actions go through the `system-actions.yml`
 GitHub workflow (Tier-2 ack via "Run workflow" click; allowlist of
 four actions).
 
@@ -116,7 +116,7 @@ four actions).
 - `CLAUDE.md` — top-level architecture diagram (lists the Tier-1
   endpoints under "Dashboard REST API").
 - `docs/claude/vm-operator-mode.md` § 9 — diag-token contract.
-- `docs/claude/operator-actions.md` — Tier-2 GitHub-workflow allowlist
+- `docs/claude/system-actions.md` — Tier-2 GitHub-workflow allowlist
   for the four mutating ops actions.
 - `docs/sprints/sprint-063-prompt.md` — context for the S-063 auth
   decision (option (a)).

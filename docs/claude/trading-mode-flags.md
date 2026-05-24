@@ -67,9 +67,9 @@ it on every call. Accepts case-insensitive `live` / `dry` / `dry_run`
 
 **Sanctioned mutation path:** `set-account-mode` operator action
 (`scripts/ops/set_account_mode.sh`, allowlisted in
-`.github/workflows/operator-actions.yml`). Edits YAML, restarts the
+`.github/workflows/system-actions.yml`). Edits YAML, restarts the
 trader, Telegrams the operator with the diff. Dispatch via labelled
-issue (`operator-action`) with body:
+issue (`system-action`) with body:
 
 ```
 action: set-account-mode
@@ -78,7 +78,7 @@ mode: <live|dry_run>
 reason: <one-line audit text>
 ```
 
-Doc: [`docs/claude/operator-actions.md`](operator-actions.md) § 2.1
+Doc: [`docs/claude/system-actions.md`](system-actions.md) § 2.1
 + § 7.1.
 
 **Queued for deletion in the safeguards PR (follow-on to PR #978):**
@@ -132,14 +132,14 @@ the bot to YAML-driven behaviour.
 Dispatch the operator action. There is exactly one way:
 
 **Via the Actions UI** (operator clicks):
-1. Actions → operator-actions → Run workflow.
+1. Actions → system-actions → Run workflow.
 2. Pick `set-account-mode`, fill `account_id`, `mode`, `reason`. Run.
 3. Workflow Telegrams the result; audit artifact attached to the run.
 
 **Via labelled issue** (autonomous dispatch after explicit operator ack):
 ```
-Title: [operator-action] set-account-mode — <reason>
-Labels: operator-action
+Title: [system-action] set-account-mode — <reason>
+Labels: system-action
 Body:
   action: set-account-mode
   account: bybit_2

@@ -56,7 +56,7 @@ auto-install the consumer pass into `CommsPoller.poll_once`.
 
 | Env var | Default | Purpose |
 |---|---|---|
-| `M5_CONSUMER_ENABLED` | unset (`0`) | Auto-install the consumer when the bot boots. Set to `1`/`true`/`yes`/`on` to enable. **Activation + kill switch:** the operator-actions workflow (`enable-m5-consumer` / `disable-m5-consumer`) — see "Activation" and "Kill switch" sections below. |
+| `M5_CONSUMER_ENABLED` | unset (`0`) | Auto-install the consumer when the bot boots. Set to `1`/`true`/`yes`/`on` to enable. **Activation + kill switch:** the system-actions workflow (`enable-m5-consumer` / `disable-m5-consumer`) — see "Activation" and "Kill switch" sections below. |
 | `M5_BACKTEST_TIMEOUT_S` | `120` | Wall-clock cap per subprocess run, in seconds. A multi-MB CSV that exceeds this surfaces as `outcome=timeout`. |
 | `BACKTEST_DATA_PATH` | `data/backtest_candles.csv` (or `data/candles.csv`) | Override the candle CSV the runner reads. |
 | `TRADE_JOURNAL_DB` | `trade_journal.db` | Override the SQLite path; the run row lands in `backtest_results`. |
@@ -214,7 +214,7 @@ audit trail (what lands in the validation log).
 
 ## Activation
 
-**The consumer is activated through the operator-actions workflow,
+**The consumer is activated through the system-actions workflow,
 not a manual SSH session.** The runtime config (env-file edit +
 systemd restart) lives entirely on the VM; Claude or the operator
 fires it from this side via a labelled issue or the workflow UI.
@@ -226,8 +226,8 @@ edit, restart, journal tail, audit artifact + Telegram notify) and
 closes the issue with a result comment. No SSH needed.
 
 ```text
-Title:  [operator-action] enable-m5-consumer
-Label:  operator-action
+Title:  [system-action] enable-m5-consumer
+Label:  system-action
 Body:
   action: enable-m5-consumer
   reason: <why now — e.g. M5 milestone activation, post-deploy smoke>
@@ -237,7 +237,7 @@ The `mcp__github__issue_write` MCP tool is the autonomous path.
 
 ### Operator (UI click)
 
-Run `operator-actions` workflow → action `enable-m5-consumer`,
+Run `system-actions` workflow → action `enable-m5-consumer`,
 reason field non-empty. Same script, same audit trail.
 
 ### What the script does
@@ -263,8 +263,8 @@ Same machinery, opposite direction — `disable-m5-consumer` flips
 `M5_CONSUMER_ENABLED=0` and restarts the bot:
 
 ```text
-Title:  [operator-action] disable-m5-consumer
-Label:  operator-action
+Title:  [system-action] disable-m5-consumer
+Label:  system-action
 Body:
   action: disable-m5-consumer
   reason: <why — e.g. emergency stop, runaway backtests, debug>
@@ -301,9 +301,9 @@ wiring.
 | See the registered strategies | Type `/test bogus` — the rejection lists them |
 | Read the latest run row | `sqlite3 trade_journal.db 'SELECT * FROM backtest_results ORDER BY id DESC LIMIT 1'` |
 | Read the last 10 audit rows | `tail -n 10 runtime_logs/validation.jsonl \| jq .` |
-| Activate the consumer | `[operator-action] enable-m5-consumer` issue (or workflow UI) |
-| Disable the consumer | `[operator-action] disable-m5-consumer` issue (or workflow UI) |
-| Raise the timeout | edit `/home/ubuntu/ict-trading-bot/.env` (`M5_BACKTEST_TIMEOUT_S=…`), then `[operator-action] restart-bot-service` |
+| Activate the consumer | `[system-action] enable-m5-consumer` issue (or workflow UI) |
+| Disable the consumer | `[system-action] disable-m5-consumer` issue (or workflow UI) |
+| Raise the timeout | edit `/home/ubuntu/ict-trading-bot/.env` (`M5_BACKTEST_TIMEOUT_S=…`), then `[system-action] restart-bot-service` |
 | Cancel a pending request | edit `comms/requests/REQ-….json`, set `status: cancelled`, commit, push |
 
 ---

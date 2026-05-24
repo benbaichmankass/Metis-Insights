@@ -37,15 +37,15 @@ cmd: |
 
 Fully autonomous — no operator approval needed.
 
-### How to trigger operator actions on LIVE_TRADER
+### How to trigger system-actions on LIVE_TRADER
 
-Open a GitHub issue with label `operator-action`. Body format:
+Open a GitHub issue with label `system-action`. Body format:
 ```
 action: <action-name>
 reason: <text>
 ```
 
-Tier-1 actions (read-only, status-check, pull-latest-logs) are autonomous. Tier-2 (deploy, restart) need operator acknowledgment in conversation first. See `docs/claude/operator-actions.md` for the full allowlist.
+Tier-1 actions (read-only, status-check, pull-latest-logs) are autonomous. Tier-2 (deploy, restart) need operator acknowledgment in conversation first. See `docs/claude/system-actions.md` for the full allowlist.
 
 When you need VM, trainer, or database state, fetch it through the relays
 above rather than assuming you can't reach it. The 2026-05-14 incident
@@ -149,7 +149,7 @@ decides whether to intervene.
 
 1. **One switch per account.** There is exactly one sanctioned path
    that may write `config/accounts.yaml` `mode:`: the
-   `set-account-mode` operator action (PR #978, 2026-05-12,
+   `set-account-mode` system-action (PR #978, 2026-05-12,
    `scripts/ops/set_account_mode.sh`). The OPERATOR controls it.
    Every other code path that could write to mode — runtime override
    dicts, auto-flipping breakers, "safety" defaults that go dry on
@@ -225,7 +225,7 @@ ship in a separate PR that landed after PR #978:
 
 ### Mechanically enforced
 
-The `set-account-mode` operator action is the allowlisted, audited,
+The `set-account-mode` system-action is the allowlisted, audited,
 Telegram-notified mutation wire. The CI guards (`dry-run-guard.yml`
 + the safeguards-PR follow-up rule) block new code from writing to
 account modes outside this wire. Bypassing either is a Tier-3
@@ -269,9 +269,9 @@ Claude must:
 
 1. **Treat VM activation as in-scope.** If a sprint adds a feature
    that needs a VM env-var, a service restart, or a deploy, the
-   sprint includes wiring that activation through the operator-actions
+   sprint includes wiring that activation through the system-actions
    workflow (`scripts/ops/*.sh` + an allowlist entry in
-   `.github/workflows/operator-actions.yml`). Do not punt the
+   `.github/workflows/system-actions.yml`). Do not punt the
    activation to a manual SSH session in a runbook.
 2. **Use the issue-driven dispatch path autonomously.** Tier-1 ops
    actions (read-only) fire without approval; Tier-2 ops actions
@@ -279,7 +279,7 @@ Claude must:
    `set-account-mode`**) fire after a single in-conversation operator
    ack — open the labelled issue from the sandbox, watch the workflow
    comment back, confirm the result. See
-   `docs/claude/operator-actions.md` for the full contract.
+   `docs/claude/system-actions.md` for the full contract.
 3. **Never write a runbook step that says "operator: SSH to the VM
    and run X"** when the same X can be allowlisted as a wrapper
    script. If the wrapper script doesn't exist yet, write it in the
@@ -299,7 +299,7 @@ manual SSH is the documented exception.
 **Anti-pattern:** "I shipped the code and tests; you (operator)
 need to flip the env var on the VM and restart the bot." This
 strands the milestone half-shipped, hides activation latency, and
-puts manual toil on the operator that the operator-actions
+puts manual toil on the operator that the system-actions
 workflow exists to eliminate. The 2026-05-12 directive added a
 related anti-pattern: any safeguard that requires the operator to
 flip switches Claude could flip itself (once explicitly authorized)
@@ -316,7 +316,7 @@ operator for approval only when the tier requires it (Tier 2 / Tier 3 below).
 |---|---|---|---|---|
 | **Tier 1** | Safe autonomous work | Docs, tests, repo hygiene, CI, GitHub Actions updates, non-live-path refactors, validation tooling, communication infrastructure that does not alter trading behavior | Alter strategy logic, alter risk meaning, promote to live | Commit to `main` once validated; no approval needed |
 | **Tier 2** | Potential production-impact work with bounded scope | Prepare changes touching runtime flow, deploy flow, timers, bot writeback, order path, or services; run strongest safe validation; draft concise risk summary | Merge if the change can affect live trading behavior and is not fully proven safe | **Approval required before merge** |
-| **Tier 3** | Strategy and risk authority boundary | Analyze, test, prepare docs, and propose exact code changes | Merge or silently ship changes to strategy logic, risk caps, sizing formulas, thresholds, live promotion, **or any code path that writes `config/accounts.yaml` `mode:` outside the `set-account-mode` operator action** | **Explicit product approval required before merge** |
+| **Tier 3** | Strategy and risk authority boundary | Analyze, test, prepare docs, and propose exact code changes | Merge or silently ship changes to strategy logic, risk caps, sizing formulas, thresholds, live promotion, **or any code path that writes `config/accounts.yaml` `mode:` outside the `set-account-mode` system-action** | **Explicit product approval required before merge** |
 
 ### Tier 1 examples
 
@@ -354,7 +354,7 @@ operator for approval only when the tier requires it (Tier 2 / Tier 3 below).
 - Position sizing formulas in `src/units/accounts/risk.py`.
 - Risk cap values in `config/accounts.yaml` (`risk:` blocks).
 - Account-mode flips (`config/accounts.yaml` `mode:`) via any code
-  path other than the `set-account-mode` operator action. The
+  path other than the `set-account-mode` system-action. The
   operator dispatching `set-account-mode` is fine; Claude proposing
   a PR that adds a *new* code path that writes to mode is Tier-3.
 - Changing what conditions permit or block trading
@@ -553,7 +553,7 @@ reconciliation pass).
 | Sprint log format | [`SPRINT-LOG-TEMPLATE-CANONICAL.md`](SPRINT-LOG-TEMPLATE-CANONICAL.md) |
 | GitHub Actions usage and workflow automation | [`github-actions-workflows.md`](github-actions-workflows.md) |
 | Telegram comms architecture | [`claude/comms-architecture.md`](claude/comms-architecture.md) |
-| Operator-actions / VM dispatch | [`claude/operator-actions.md`](claude/operator-actions.md) |
+| Operator-actions / VM dispatch | [`claude/system-actions.md`](claude/system-actions.md) |
 | Mode mutation contract | [`ARCHITECTURE-CANONICAL.md`](ARCHITECTURE-CANONICAL.md) § Mode Mutation Contract |
 | Deployment & ops | [`claude/deployment-ops.md`](claude/deployment-ops.md), [`DEPLOYMENT_LIVE_TRADING.md`](../DEPLOYMENT_LIVE_TRADING.md) |
 | API tier policy | [`api-tier-policy.md`](api-tier-policy.md) |

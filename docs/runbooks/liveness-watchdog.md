@@ -69,8 +69,8 @@ What to do:
    `sudo systemctl status ict-trader-live`. Likely causes: unit
    masked, sudo permission revoked, or systemd itself unresponsive.
 4. If you didn't enable autoheal (or 8 min hasn't passed), restart
-   manually: dispatch the `restart-bot-service` operator-action via
-   `[operator-action] restart-bot-service` issue.
+   manually: dispatch the `restart-bot-service` system-action via
+   `[system-action] restart-bot-service` issue.
 
 ### `[ACTION] Autoheal dispatched`
 ```
@@ -121,7 +121,7 @@ LIVENESS_RESTART_UNIT=ict-trader-live.service   # default
 ```
 
 After editing the service file, deploy via the standard
-`pull-and-deploy` operator-action or `scripts/install_systemd_units.sh`;
+`pull-and-deploy` system-action or `scripts/install_systemd_units.sh`;
 both call `daemon-reload` and re-trigger the timer.
 
 After editing `.env`: `sudo systemctl restart ict-liveness-watchdog.service`
