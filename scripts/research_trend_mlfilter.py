@@ -39,7 +39,8 @@ FEATS = ["dir_long", "breakout_depth_atr", "atr_pct", "dc_width_atr",
 
 def _adx(df: pd.DataFrame, period: int) -> pd.Series:
     h, low, c = df["high"], df["low"], df["close"]
-    up = h.diff(); down = -low.diff()
+    up = h.diff()
+    down = -low.diff()
     plus_dm = ((up > down) & (up > 0)) * up.clip(lower=0)
     minus_dm = ((down > up) & (down > 0)) * down.clip(lower=0)
     pc = c.shift(1)
