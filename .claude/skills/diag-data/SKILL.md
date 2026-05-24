@@ -1,0 +1,62 @@
+---
+name: diag-data
+description: Retrieve live runtime state from the production VMs (signals, orders, trades, journal tables, service/heartbeat status, journalctl) without asking the operator. Use whenever you need real runtime data — "what is the bot doing", "pull the recent trades", "is the trader alive", "check the audit log", debugging live behavior. Read-only. Composes with vm-ops, db-wiring, and the health-review skill.
+---
+
+# /diag-data — pull live runtime state yourself
+
+You have autonomous **read** access to both VMs. Never ask the operator to
+SSH in or paste a snapshot — fetch what you need through the diag surface.
+This skill is the read primitive other skills build on.
+
+The authoritative contract (paths, failure modes, token management) is
+`docs/claude/diag-relay.md` — read it if anything here is ambiguous. This
+skill is the fast how-to.
+
+## Two transports, identical JSON — try direct, fall back to the relay
+
+**Transport A — direct HTTP (when the session is configured for it).**
+```
+scripts/ops/diag_fetch.sh '<path>'
+```
+Resolves `$DIAG_BASE_URL/api/diag/<path>` with the bearer in a 0600 curl
+config. Exit `0` → JSON on stdout. Exit `3` → not configured / egress blocked
+/ web-api down → fall back to Transport B. Live VM only.
+
+**Transport B — GitHub-issue relay (always available).** Open a labelled
+issue; the workflow SSHes, runs the read, comments the JSON back, closes the
+issue. Poll `mcp__github__issue_read` (`get_comments`) for the
+`github-actions[bot]` reply (~30–60 s).
+
+| Target | Label | Issue shape |
+|---|---|---|
+| **Live VM** (`vm-diag-snapshot.yml`) | `vm-diag-request` | **title** = the path: `[diag-request] <path>` (body ignored) |
+| **Trainer VM** (`trainer-vm-diag.yml`) | `trainer-vm-diag-request` | **body** = `cmd: <bash>` or a `cmd: |` block (arbitrary bash) |
+
+Common live-VM `<path>` values (full list in `docs/claude/diag-relay.md`):
+`snapshot?limit=5` (packages/trades/health — keep limit small; GitHub
+truncates comments ~55 kB), `audit?limit=600` (signal_audit tail),
+`journal?table=order_packages&limit=100`, `journal?table=trades&limit=100`,
+`status` (heartbeat + status.json + vm_health), `services`,
+`journalctl?unit=ict-trader-live&lines=200`,
+`log_file?name=heartbeat&lines=5`.
+
+## Pitfalls (from `docs/claude/diag-relay.md` + debug-memory)
+
+- Live VM: the **title is the path**; the body is ignored. `cmd:` in the body
+  is for the **trainer** relay only.
+- Use `limit=5` for packages/trades; `snapshot?limit=200` (~665 kB) gets
+  truncated to just the audit tail.
+- Back-to-back requests queue cleanly (`cancel-in-progress: false`) — fire as
+  many as you need.
+- curl exit 7 (`Failed to connect to 127.0.0.1`) = `ict-web-api.service` is
+  down → fire `vm-web-api-recover` (label `vm-web-api-recover`) and retry once.
+- The live relay is fixed-curl only: it **cannot** run `sqlite3 PRAGMA` or
+  arbitrary bash. For DB integrity / arbitrary shell on the live VM there is
+  no read path; on the **trainer** VM you have arbitrary bash via its relay.
+
+## Honesty
+
+Report only what a pull actually returned. If a relay failed, say so and which
+one — don't infer the state you couldn't read. "audit pull failed, graded from
+status only" is a valid, honest result.
