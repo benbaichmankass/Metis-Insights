@@ -142,6 +142,7 @@ def test_run_checks_strategies_match_roster():
     # fade_breakout_4h at S9 (2026-05-24, execution: shadow data-collector).
     assert names == {
         "turtle_soup", "vwap", "ict_scalp_5m", "trend_donchian", "fade_breakout_4h",
+        "squeeze_breakout_4h",
     }
 
 
