@@ -96,8 +96,21 @@ accounts:
     market_type: linear                # USDT-margined linear perpetuals — same
                                        # as bybit_2. set-leverage fires at boot
                                        # via _apply_per_account_leverage.
-    strategies: [turtle_soup, vwap, ict_scalp_5m]   # all three active strategies;
+    strategies: [turtle_soup, vwap, ict_scalp_5m, fade_breakout_4h]
                                        # execution-priority order matches list order.
+                                       # fade_breakout_4h added 2026-05-24 (S9) for
+                                       # SHADOW data collection only: it is
+                                       # `execution: shadow` in config/strategies.yaml
+                                       # (data-only, never sends a live order on ANY
+                                       # account). Routed to the DEMO account — not the
+                                       # real-money bybit_2 — because the execution gate
+                                       # fails open on a registry-read error, so the
+                                       # unvalidated strategy is kept off real money
+                                       # entirely. Demo captures identical signal data
+                                       # (same BTCUSDT feed) at zero risk. Promote to
+                                       # bybit_2 + execution: live only after live shadow
+                                       # proof (Tier-3 operator-approval path). Evidence:
+                                       # docs/audits/fade-breakout-complement-2026-05-24.md.
     symbols: [BTCUSDT]                 # instrument(s) this account trades. The
                                        # multi-symbol tick loop unions every
                                        # configured account's symbols, so this
