@@ -56,7 +56,7 @@ def fetch_funding(symbol: str, start_ms: int, end_ms: int) -> list[dict]:
                 resp = requests.get(BYBIT_FUNDING_URL, params=params, timeout=20)
                 resp.raise_for_status()
                 break
-            except requests.RequestException as exc:
+            except requests.RequestException:
                 if attempt < _RETRY_LIMIT - 1:
                     time.sleep(_RETRY_BACKOFF[attempt])
                 else:
