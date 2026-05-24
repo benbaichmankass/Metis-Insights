@@ -1,5 +1,11 @@
 # Next-session prompt — post-VWAP-backtest (2026-05-14)
 
+> **✅ CLOSED / HISTORICAL (do not action).** This was a one-shot, dated
+> hand-off prompt. Its two items — the 2026-05-14 bybit_2 incident and the
+> `signal_type` migration — are resolved and long superseded. It is retained
+> only because a few historical docs link to it; it is **not** a live action
+> list. Don't pick anything up from here.
+
 Use this as the prompt when starting the next Claude Code session on
 `benbaichmankass/ict-trading-bot`. Copy-paste the block below verbatim
 into a fresh session.
