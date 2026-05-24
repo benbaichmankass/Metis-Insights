@@ -21,6 +21,20 @@ import pytest
 from src.core.coordinator import Coordinator, OrderPackage
 
 
+@pytest.fixture(autouse=True)
+def _force_execution_live(monkeypatch):
+    """Isolate these routing-mechanics tests from the per-strategy
+    execution gate (S9). vwap is ``execution: shadow`` in the live
+    config/strategies.yaml, so without this the coordinator would force
+    every vwap dispatch dry via the strategy gate and mask the
+    live-path routing under test here. The strategy gate has dedicated
+    coverage in tests/test_strategy_execution_gate.py.
+    """
+    monkeypatch.setattr(
+        "src.strategy_registry.execution_mode", lambda *a, **k: "live"
+    )
+
+
 # NOTE: no ``api_key_env`` here on purpose. With one set, load_accounts
 # marks the account ``configured=False`` (the env var isn't present in the
 # test process), and multi_account_execute now drops unconfigured accounts
