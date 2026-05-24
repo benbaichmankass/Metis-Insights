@@ -68,6 +68,44 @@ committed `ib_*` YAML fields are used. Host defaults to `127.0.0.1`.
 | Executor | `src/units/accounts/execute.py::_submit_order` | `interactive_brokers` branch — dispatches to `IBClient.place`, reads the Bybit-style `retCode` envelope, raises `RuntimeError` on rejection / `IBConnectionError` on a missing client. Also a `_fetch_balance` branch (NetLiquidation). |
 | Coordinator | `src/core/coordinator.py::multi_account_execute` | Client-construction switch builds the IB client (only when `not effective_dry`) and forwards `ib_*` fields into `account_cfg`. |
 | Account model | `src/units/accounts/account.py` + `__init__.py` | `TradingAccount` carries `ib_host/ib_port/ib_account/ib_client_id`, loaded from YAML. |
+| Read path | `src/units/accounts/clients.py::ib_read_client_for` + `IBClient.balance/positions`, `src/units/ui/data_loaders.py::account_balance_with_diagnostic` (IB branch) + `account_open_positions` (IB branch) | The **reporting / observability** surface — feeds the hourly Telegram digest (`account_snapshots()`) and the dashboard balance snapshot (`runtime_logs/balance_snapshots.json`). Uses a **read-only, PID-salted clientId** (`ib_read_client_for`) so a probe never collides with the trader's execution socket (clientId 497/496), and **gates on `mode`** so a dry IB account (`ib_live`) is never dialled — the live gateway socket stays closed until promotion, mirroring the coordinator. |
+
+## Reporting / observability (read path)
+
+Distinct from the execution path above. The execution path was wired at
+the 2026-05-21 MES go-live, but the **read path** that feeds the hourly
+Telegram digest and the Streamlit dashboard was blind to IB until it was
+wired separately:
+
+- **Field preservation.** `src/units/ui/data_loaders.py::_load_yaml_accounts`
+  (the UI/Telegram account loader, distinct from the production
+  `src/units/accounts/__init__.py::load_accounts`) must carry the IB
+  connection fields (`ib_host/ib_port/ib_account/ib_client_id`) **and**
+  `mode` through to the account dict the read path receives. When they
+  were dropped, `ib_client_for` saw no `ib_port` and every IB account
+  read failed with "ib_port unset". This is the IB equivalent of the
+  S-023 credential-field-preservation fix.
+- **Balance + positions.** `account_balance_with_diagnostic` reports IB
+  `NetLiquidation` (falling back to `AvailableFunds`) as `total_usdt`,
+  and `account_open_positions` returns the per-account open positions
+  from `IBClient.positions()` (IB portfolio, filtered to the account
+  code). A Gateway-down probe surfaces a **precise** `api_error` (the
+  real "failed to connect to IB Gateway …" reason) instead of the
+  earlier generic "exchange not supported".
+- **Read clientId.** `ib_read_client_for` uses `readonly=True` and a
+  process-unique clientId (`9000 + os.getpid() % 900`) so the probe can
+  never transmit an order and never collides with the live execution
+  socket — whether it runs inside the trader process (hourly report) or
+  another process (Telegram `/accounts_status`).
+- **Dry-run gate.** Both read functions return early for a `mode:
+  dry_run` IB account **without opening a socket**, so the live gateway
+  (`ib_live`, port 7496) is never dialled from the read path. `ib_live`
+  therefore reports `dry_run` rather than a false connection error.
+
+Because the dashboard balance endpoint (`/api/bot/accounts/balances`) is
+connection-free — it reads `runtime_logs/balance_snapshots.json` written
+by the trader's `account_snapshots()` — fixing the trader-process read
+populates the dashboard for free, no socket from the web-api process.
 
 ## Verifying connectivity
 

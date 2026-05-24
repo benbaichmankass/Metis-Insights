@@ -496,6 +496,52 @@ class IBClient:
             "account": self.account or "",
         }
 
+    def positions(self) -> list:
+        """Return open positions for the connected account.
+
+        Shape mirrors ``account_open_positions``'s Bybit/Binance return so
+        the hourly report, dashboard and reconciler consume IB the same
+        way: ``[{symbol, side, size, entry_price, unrealised_pnl}]``. Only
+        non-zero positions are returned. Reads IB's portfolio (per-account
+        market value + unrealised PnL); raises :class:`IBConnectionError`
+        if the read fails so callers map it to "could not read" rather than
+        "no positions".
+        """
+        ib = self.connect()
+        try:
+            items = ib.portfolio()
+        except Exception as exc:  # noqa: BLE001
+            raise IBConnectionError(
+                f"IBClient.positions: portfolio() failed for "
+                f"{self._masked_account()}: {type(exc).__name__}: {exc}"
+            ) from exc
+        out = []
+        for it in items or []:
+            size = float(getattr(it, "position", 0) or 0)
+            if size == 0:
+                continue
+            # A multi-account login returns portfolio items for every
+            # account on the login; keep only this client's account when
+            # one is configured so a shared Gateway doesn't leak positions.
+            if self.account:
+                it_acct = getattr(it, "account", None)
+                if it_acct and str(it_acct) != str(self.account):
+                    continue
+            contract = getattr(it, "contract", None)
+            symbol = (
+                getattr(contract, "localSymbol", None)
+                or getattr(contract, "symbol", None)
+                or self.symbol
+            )
+            out.append({
+                "symbol": symbol,
+                "side": "long" if size > 0 else "short",
+                "size": abs(size),
+                "entry_price": float(getattr(it, "averageCost", 0) or 0),
+                "unrealised_pnl": float(getattr(it, "unrealizedPNL", 0) or 0),
+            })
+        return out
+
     # ------------------------------------------------------------------
     # Diagnostics
     # ------------------------------------------------------------------

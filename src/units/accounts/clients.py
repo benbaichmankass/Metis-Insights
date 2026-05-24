@@ -156,7 +156,12 @@ def velotrade_client_for(account: Dict[str, Any]):
     )
 
 
-def ib_client_for(account: Dict[str, Any]):
+def ib_client_for(
+    account: Dict[str, Any],
+    *,
+    client_id: Optional[int] = None,
+    readonly: bool = False,
+):
     """Return an :class:`IBClient` for *account*, or ``None`` if unusable.
 
     Interactive Brokers' TWS API has **no API keys** — authentication is
@@ -194,21 +199,53 @@ def ib_client_for(account: Dict[str, Any]):
         )
         return None
     account_code = account.get("ib_account") or os.environ.get("IB_ACCOUNT")
-    client_id = (
-        account.get("ib_client_id")
-        or os.environ.get("IB_CLIENT_ID")
-        # Stable per-port default so live (7496) and paper (7497) don't
-        # collide on a shared Gateway when client_id is left unset.
-        or (int(port) % 1000)
+    resolved_client_id = (
+        client_id
+        if client_id is not None
+        else (
+            account.get("ib_client_id")
+            or os.environ.get("IB_CLIENT_ID")
+            # Stable per-port default so live (7496) and paper (7497) don't
+            # collide on a shared Gateway when client_id is left unset.
+            or (int(port) % 1000)
+        )
     )
     from src.units.accounts.ib_client import get_ib_client
 
     return get_ib_client(
         host=str(host),
         port=int(port),
-        client_id=int(client_id),
+        client_id=int(resolved_client_id),
         account=str(account_code) if account_code else None,
+        readonly=bool(readonly),
     )
+
+
+def _ib_read_client_id() -> int:
+    """A read-dedicated, process-unique IB clientId.
+
+    Read probes (hourly-report balance/positions, ``/accounts_status``,
+    CLIs) must NEVER reuse the trader's *execution* clientId (496/497): a
+    probe opened from a different process with the same clientId is
+    rejected by the Gateway as "clientId already in use" and races the
+    live execution socket. Keying reads off a high, PID-salted id means
+    (a) reads never collide with the execution sockets and (b) two reader
+    processes don't collide with each other (the trader's hourly report
+    vs. the Telegram bot's ``/accounts_status``). Within one process the
+    id is stable, so the connection registry reuses a single read socket.
+    """
+    return 9000 + (os.getpid() % 900)
+
+
+def ib_read_client_for(account: Dict[str, Any]):
+    """Return a **read-only** :class:`IBClient` for balance/position probes.
+
+    Same host/port/account resolution as :func:`ib_client_for`, but with a
+    process-unique read clientId (:func:`_ib_read_client_id`) and
+    ``readonly=True`` so a probe can never transmit an order. Returns
+    ``None`` when the account is not an IB account or ``ib_port`` is unset.
+    """
+    return ib_client_for(account, client_id=_ib_read_client_id(), readonly=True)
 
 
 # ---------------------------------------------------------------------------
@@ -703,6 +740,19 @@ def account_open_positions(
         return None
     ex = (account.get("exchange") or "unknown").lower()
     try:
+        if ex in ("interactive_brokers", "ib"):
+            # Dry IB accounts (ib_live) are never dialled from the read
+            # path — the live gateway socket stays closed until promotion,
+            # mirroring the coordinator which never constructs a client for
+            # a dry account. Return None ("could not read") rather than a
+            # false empty list.
+            mode = str(account.get("mode") or "live").lower()
+            if mode != "live":
+                return None
+            client = ib_read_client_for(account)
+            if client is None:
+                return None
+            return client.positions()
         if ex == "bybit":
             client = bybit_client_for(account)
             if client is None:
