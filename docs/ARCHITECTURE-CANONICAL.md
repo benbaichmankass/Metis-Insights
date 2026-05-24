@@ -160,18 +160,47 @@ Bybit, MES → Interactive Brokers (delayed CME bars via `reqHistoricalData`,
 no paid real-time subscription). See `docs/runbooks/ib-integration.md`.
 
 ### Step 2 — Strategy evaluation
-Strategy modules in `src/units/strategies/` (e.g. `turtle_soup.py`,
-`vwap.py`, `ict_scalp_5m`) consume market data and emit signals. They are
-**symbol-parameterized**: the same three live strategies evaluate every
-configured symbol each tick (BTCUSDT and MES today), and the intent
-multiplexer / coordinator coordinates intents across strategies per symbol.
-Strategy logic is kept separate from broker execution.
+Strategy modules in `src/units/strategies/` consume market data and emit
+signals. The current roster (5 registered; `squeeze_breakout_4h` pending
+merge in PRs #1907/#1908): `turtle_soup`, `vwap`, `ict_scalp_5m`,
+`trend_donchian`, `fade_breakout_4h`. Two classes:
+- **Symbol-parameterized** (`turtle_soup`, `vwap`, `ict_scalp_5m`) —
+  evaluate every configured symbol each tick (BTCUSDT and MES).
+- **BTC-tuned** (`trend_donchian`, `fade_breakout_4h`) — crypto-specific
+  Donchian breakout / failed-breakout fade; the params do not transfer to
+  MES (MES gets its own re-tuned configs when IBKR is live).
 
-### Step 3 — Strategy output normalization
+Each strategy carries a per-strategy `execution: live | shadow` gate in
+`config/strategies.yaml` (S9, 2026-05-24): `live` is eligible to execute;
+`shadow` runs + LOGS order packages everywhere (data collection) but never
+sends a live order. Live today: `turtle_soup`, `ict_scalp_5m`,
+`trend_donchian`. Shadow: `vwap` (no net-of-fee edge), `fade_breakout_4h`
+(validated complement, maturing on demo). Strategy logic is kept separate
+from broker execution.
+
+### Step 3 — Strategy output normalization & the decider (intent aggregation)
 Signals are normalised to the internal order/intent representation used
 by the runtime pipeline. The runtime audit logger
 (`src/utils/signal_audit_logger.py`) writes
 `runtime_logs/signal_audit.jsonl` for every decision.
+
+The execution layer holds **one net position per symbol per account**
+(`src/runtime/intents.py::aggregate_intents`), so a single account running
+several strategies already routes every tick through a **decider** — today
+crude: static priority (highest-priority strategy wins a conflict;
+same-direction takes max `target_qty`). This is the **single-account
+design** (operator direction 2026-05-24): one pot of capital used
+maximally — NOT a per-strategy capital split — with the decider
+concentrating the fund on the highest-probability trade each tick.
+bybit_1 (demo) and bybit_2 (live) are mirrors (same roster, same decider,
+same gates); MES is a separate IBKR book, not a redundant split of the
+crypto fund. **Decider-v2** (research) makes the selection smart
+(regime-rule or selection-model, highest P(profit)) once ≥2 members are
+live — a naive greedy decider lets the high-frequency 2h trend hog the
+book and forfeits ~half the blend's return + diversification, so v2's job
+is genuine selection. Design + single-account simulation:
+[`docs/sprint-plans/DECIDER-SINGLE-ACCOUNT-2026-05-24.md`](sprint-plans/DECIDER-SINGLE-ACCOUNT-2026-05-24.md),
+`scripts/research_decider.py`.
 
 ### Step 4 — Risk gating
 Before any order reaches broker execution, risk controls decide whether
@@ -210,8 +239,13 @@ MES account and vice-versa. Per-account dry/live mode is set in
 execution gate; the **only** sanctioned mutation path for that field is the
 `set-account-mode` operator action (§ Mode Mutation Contract). The
 real-money `ib_live` account is held `mode: dry_run`; the `ib_paper`
-account runs `mode: live` (paper money) and is **live for MES as of
-2026-05-22**.
+account runs `mode: live` (paper money) and went **live for MES on
+2026-05-22**. NOTE (2026-05-24): the IBKR account is currently **offline
+pending new-user approval**, so MES is not executing right now even though
+the config still declares it live — the data, edge, and cross-asset
+diversification (corr 0.009 vs the BTC book) are validated and
+`data/SPX500_1m.parquet` (1m S&P 500, 2020–2026, Dukascopy) is cached on
+the trainer, so only the broker login waits.
 
 ### Step 7 — Logging and state updates
 The runtime records:
@@ -249,9 +283,10 @@ mode-flip part of an automated response.
 ### Step 8 — Operator visibility and control
 The Telegram bot (`src/bot/telegram_query_bot.py`) plus the FastAPI
 diag surface (`src/web/api/routers/diag.py`) expose status, halt and
-resume actions, and pending requests. The Vercel dashboard
-(`ict-trader-dashboard`) consumes the unauthenticated Tier 1 endpoints
-documented in [`api-tier-policy.md`](api-tier-policy.md).
+resume actions, and pending requests. The Streamlit dashboard
+(`ict-trader-dashboard`, Streamlit Community Cloud — the React+Vercel
+stack was retired 2026-05-12) consumes the unauthenticated Tier 1
+endpoints documented in [`api-tier-policy.md`](api-tier-policy.md).
 
 ## Research and Validation Pipeline
 
@@ -472,6 +507,24 @@ rather than reinventing. Adding a new baseline follows the
 [`docs/data/dataset-taxonomy.md`](data/dataset-taxonomy.md) and
 [`docs/ml/training-center.md`](ml/training-center.md).
 
+**New strategies + the cycle (S9, 2026-05-24).** The recurring
+`run_training_cycle.sh` trains every manifest in `ml/configs/` each
+cycle. The `trade_outcomes` manifests are roster-agnostic —
+`baseline-trade-outcome-global.yaml` is `symbol_scope: all` (all rows,
+strategy ignored) and `baseline-trade-outcome-winrate.yaml` groups by
+`strategy_name` — so trades from the new members (`trend_donchian`,
+`fade_breakout_4h`, and `squeeze_breakout_4h` once merged) **feed the
+datasets automatically with no manifest change**. No per-strategy
+manifest is scoped to the new strategies yet, and none is required for
+ingestion. The one **new training target** is the cross-strategy
+**decider-v2 selection model** ("which signal to trust now" — the
+models-in-the-loop belongs here, NOT the per-strategy entry filter,
+which failed because the trend edge is exit-driven): it is research-
+stage and should be added as a manifest only **once ≥2 members are
+live** (until then it has insufficient multi-member feedstock). Design:
+[`docs/sprint-plans/DECIDER-SINGLE-ACCOUNT-2026-05-24.md`](sprint-plans/DECIDER-SINGLE-ACCOUNT-2026-05-24.md);
+simulator: `scripts/research_decider.py`.
+
 The full AI-platform architecture (five-layer model, leakage rules,
 forbidden behaviors, model registry append-only invariant) lives in
 [`docs/architecture/ai-model-platform.md`](architecture/ai-model-platform.md).
@@ -655,6 +708,7 @@ filtered to architecture-level deltas only.
 | 2026-05-21 | (shadow-live-wiring + CI-hardening + triage) | **Shadow predictions made real on the live path; CI turned into a genuine merge gate; ~94 stale tests fixed + real bugs surfaced.** (1) **Shadow auto-wire fix** (#1630): the live multiplexed pipeline runs strategies through `src/runtime/strategy_signal_builders.py`, not `Coordinator.order_package()`, so the 2026-05-19 auto-wire never fired — zero shadow predictions despite 7 shadow-stage models. Added a generic `_resolve_shadow_predictors`/`_emit_shadow_preds` (mirrors `Coordinator._get_shadow_predictors` tri-state) wired into all three builders; made `/api/bot/ml/registry`'s `deployment_bucket` auto-wire-aware so shadow-stage models render SHADOW not OFFLINE. Verified live: all 7 models now log on every actionable signal. (2) **Diag/admin observability relays**: `/api/diag/log_file` allowlist gained `shadow_predictions` + `_backfill` (#1634); new `branch-protection-report.yml` (read GitHub admin state) and `delete-merged-branches.yml` (runner-side branch cleanup — the sandbox proxy blocks `git push --delete`). (3) **`backfill-shadow-predictions` operator action** (#1635/#1639) — replays all history through shadow models onto the live VM. (4) **CI now executes tests**: new `pytest-run.yml` (advisory) runs the full suite (`pytest-collect` only imported); `branch-protection-sync` set to `enforce_admins: true` + promoted `env-gate-guard`/`silent-empty-guard`/`canonical-config-loaders`/`canonical-db-resolver` to required (8 total) — admin/API merges no longer bypass checks. (5) **Test-backlog triage** (#1648/#1649/#1650/#1651): ~94 stale-test fixes across telegram/web-api/order-monitor/accounts; fixed a real bug (`run_monitor_tick` returned `None` despite its dict contract). (6) **Real bugs flagged + fixed**: removed dead `/ui/fragments/{status,pnl}` routers that 500'd in prod (#1654); corrected Bybit V5 spot order semantics in `execute.py` (#1655, dormant path — all live accounts are linear). (7) Deleted 757 merged-PR branches. Dashboard repo (`ict-trader-dashboard`) got its first CI (ruff + import-smoke, #60). | `src/runtime/strategy_signal_builders.py`, `src/web/api/routers/training_center.py`, `src/web/api/routers/diag.py`, `src/units/accounts/execute.py`, `.github/workflows/{pytest-run,branch-protection-sync,branch-protection-report,delete-merged-branches}.yml`, `scripts/ops/backfill_shadow_predictions_action.sh`, `.github/workflows/operator-actions.yml`, `docs/claude/{ci-status-checks,operator-actions}.md`, `docs/api-tier-policy.md`, `CLAUDE.md`, many `tests/` | Live VM: shadow predictions now flow (real-time + full backfill) with zero order-package effect; CI genuinely gates merges (incl. admins); the `/ui/fragments` 500 is gone. `pytest-run` stays advisory until the remaining ~150-test backlog clears, then it joins `REQUIRED_CONTEXTS`. #1655 (spot semantics) is the only behavioural change to live-order code and is dormant (no spot account). |
 | 2026-05-22 | (pytest-run promotion) | **`pytest-run` promoted from advisory to a required status check (9 required contexts total).** The full-suite gate (added 2026-05-21, advisory) had its baseline driven green, then `"pytest-run"` was added to `REQUIRED_CONTEXTS` in `branch-protection-sync.yml` (#1721). Path to green: #1658-1667 cleared the original failure backlog; #1681 fixed order-dependent test-isolation failures + post-IB-merge contract drift (`ib-gateway.service` in `EXPECTED_SERVICES`; the `enable-mes`/`disable-mes`/`gateway-logs` operator-action allowlist + wrapper/notify/doc contracts); #1717 fixed the last CI-only failure — `test_deploy_pull_restart_enumeration`'s `sudo` stub (`exit 0`) assumed root uid, so it passed on root dev containers but failed on GitHub's non-root runner, diagnosed via a temporary `pytest-diag` workflow run on the real runner. Closes the gap `pytest-collect` left open (imports only, never executed an assertion). | `.github/workflows/{pytest-run,branch-protection-sync}.yml`, `docs/claude/ci-status-checks.md`, `docs/github-actions-workflows.md`, this file, several `tests/` | None on live-VM behaviour — CI-gating only. Future PRs must keep the full suite green to merge. |
 | 2026-05-23 | S-PERSIST-CANON | **Persistence centralized into one federated canonical store + daily_risk_state fixed.** (1) Single canonical Python DB-path resolver `src.utils.paths.trade_journal_db_path()` (env → $DATA_DIR → repo-root, never CWD-relative); ~20 inline `os.environ.get("TRADE_JOURNAL_DB") or "trade_journal.db"` idioms consolidated onto it; `Database()` defaults to it; `canonical-db-resolver` guard extended to forbid the CWD-relative fallback + inline env-reads in Python (not just shell). This eliminates the root cause of the stray duplicate journals. (2) New federated sidecar `trainer_store.db` (`src/units/db/trainer_store.py`) ingests the trainer-mirror JSONL/JSON (training_cycle, dataset_builds, db_pulls, model_registry, experiment_runs, backtest_sweeps); the Data Explorer federates both DBs. (3) `daily_risk_state` self-healing rebuild in `RiskManager` (was empty because record_trade_result/update_equity had no runtime callers) — makes the per-account daily-loss / max-drawdown caps persist across restarts AND actually enforce. (4) `strategy_versions` (was dead) wired to a boot-time content-hashed snapshot of `config/strategies.yaml`. Draft PR; risk-logic change operator-gated. | `src/utils/paths.py`, `src/units/db/{database,trainer_store}.py`, `src/units/accounts/risk.py`, `src/runtime/{boot_audit,risk_counters,…}.py`, `src/web/api/routers/db_explorer.py`, `src/main.py`, `scripts/check_canonical_db_resolver.py`, this file, `CLAUDE.md`, many `tests/` | Live VM: behaviour-preserving for DB-path resolution (systemd env unchanged); the risk-cap change makes configured daily_usd/max_dd_pct enforce for the first time (operator merges when ready); Data Explorer gains the trainer tables. |
+| 2026-05-23/24 | S-STRAT-IMPROVE-S8/S9 | **Multi-member book + per-strategy execution gate + single-account decider.** (1) **Per-strategy `execution: live \| shadow` gate** (S9, operator-approved 2026-05-24): a second declared, default-permissive execution gate beside accounts.yaml `mode:`. `shadow` runs + LOGS order packages everywhere (data collection) but never sends a live order — enforced in `Coordinator.multi_account_execute` by folding into the same `effective_dry` resolution as `mode:` (no new order path); fails OPEN on a registry-read error (treats as dry). Read from the registry via `src/strategy_registry.py::execution_mode`; surfaced on `/api/bot/config`. Codified in CLAUDE.md + CLAUDE-RULES-CANONICAL.md Prime Directive. (2) **Roster grew 3 → 5** (squeeze = pending 6th): `trend_donchian` (Donchian-breakout trend-follower) went live on bybit_2 (real money) at 1h (S8) then **migrated 1h → 2h** (S9, +52.5R/6yr, net-positive every year, walk-forward validated); `fade_breakout_4h` (failed-breakout fade, uncorrelated complement, monthly_corr 0.035) wired `execution: shadow` → bybit_1 (demo); `squeeze_breakout_4h` (volatility-squeeze breakout, corr 0.30) built `shadow`, PRs #1907/#1908 pending operator merge. (3) **Single-account decider design** (operator direction 2026-05-24): one pot of capital used maximally, all strategies running, a decider concentrating the fund on the best opportunity each tick — NOT a per-strategy capital split. Supersedes the multi-account-blend design (PR #1902, closed). The intent aggregator IS the decider (crude static-priority today); decider-v2 makes it smart once ≥2 members live. (4) **MES / cross-asset data** sourced + cached: clean 1m S&P 500 via Dukascopy (`data/SPX500_1m.parquet`, 2020–2026, on the trainer), SPX-trend net-positive + near-uncorrelated with BTC (corr 0.009). | `config/strategies.yaml`, `config/accounts.yaml`, `src/strategy_registry.py`, `src/core/coordinator.py`, `src/units/strategies/{trend_donchian,fade_breakout_4h,squeeze_breakout_4h}.py`, `src/runtime/{strategy_signal_builders,pipeline,intent_multiplexer,intents}.py`, `scripts/{backtest_trend,backtest_fade,backtest_squeeze,research_decider}.py`, `scripts/ops/fetch_dukascopy_index.py`, `docs/sprint-plans/DECIDER-SINGLE-ACCOUNT-2026-05-24.md`, `docs/sprint-logs/S-STRAT-IMPROVE-S9-2026-05-24.md`, `docs/audits/{fade,squeeze}-breakout-complement-2026-05-24.md`, README, `.claude/skills/{new-strategy,health-review}/SKILL.md`, this file | Live VM: `trend_donchian` trades real money on bybit_2 (2h); `vwap` + `fade_breakout_4h` are `execution: shadow` (data-only, no money). bybit_1 (demo) mirrors the full roster for shadow data. Squeeze begins shadow on operator merge of #1907/#1908. MES execution waits on IBKR new-user approval (data + edge already validated). |
 | 2026-05-22 | (regime-shadow-wiring + MES-mirror + promotion-tracker) | **Regime shadow models made informative; MES mirror activated config-driven (second gate removed); promotion tracker shipped.** (1) **Regime feature wiring** (#1722): the four regime classifiers (`{btc,mes}-regime-{5m,15m}`) were live-shadowing but emitting a *constant* score — the strategy feature row carried no `vol_bucket`, so each predictor fell back to its training marginal. `RegimeClassifierTrainer` now freezes the quantile bucket edges + vol window + symbol/timeframe into `model_state`; new `src/runtime/regime_shadow.py` computes the live `vol_bucket` per tick from candles and feeds it only to the matching `(symbol, timeframe)` model; the strategy-monocle open-package gates were scoped by symbol. All four models retrained with edges; verified live (`btc-regime-5m` now scores 0.835 on `vol_b2`, not the old 0.7164 constant). Stale 1d v0 regime models demoted to `research_only`. (2) **MES mirror** (#1761): all three strategies now trade BTCUSDT + MES every tick. Tick symbols are derived from `config/accounts.yaml` (`_resolve_tick_symbols` unions every configured account's `symbols`); **`MULTI_SYMBOL_ENABLED` removed** — it was a forbidden second gate that left `ib_paper` (`mode: live`, all three strategies) idle. `mode:` is now the only runtime gate; the `enable-mes`/`disable-mes` operator actions + wrappers were deleted, and "no second gate; nothing defaults to off" was codified as Prime Directive rule 6. Verified live: every tick logs both symbols × three strategies, MES data flows from the IB paper gateway, per-symbol isolation holds (BTC's open vwap package no longer suppresses MES). (3) **Promotion-readiness tracker** (ict-trader-dashboard #62): new 🚦 Promotion page grades each shadow model (prediction volume, days-in-shadow, score range, wired check, KS/PSI drift, win/loss score edge) toward the operator-gated shadow→advisory promotion. | `ml/trainers/regime_classifier.py`, `ml/predictors/{per_bucket_multiclass,shadow}.py`, `src/runtime/{regime_shadow,strategy_signal_builders,intents,pipeline,strategy_monocle}.py`, `src/units/db/database.py`, `src/units/accounts/{account,__init__}.py`, `src/main.py`, `config/{accounts,strategies}.yaml`, `ml/configs/*regime*.yaml`, `.github/workflows/operator-actions.yml`, `docs/{CLAUDE-RULES-CANONICAL,claude/operator-actions,runbooks/ib-integration}.md`, `CLAUDE.md`, ict-trader-dashboard `streamlit_app.py`, many `tests/` | Live VM: regime shadow predictions now carry a real `vol_bucket` (still observe-only — never touches orders); MES paper trades as a full mirror of BTC across all three strategies; the only runtime gate is each account's `mode:`. |
 
 ---

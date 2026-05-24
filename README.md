@@ -1,6 +1,11 @@
 # ICT Trading Bot
 
-Python-based ICT trading bot focused on ICT concepts such as fair value gaps (FVG), order blocks (OB), swing structure, market structure shifts, and kill zones. It runs **multi-symbol across two asset classes at once**: BTCUSDT crypto perps on Bybit and **MES (Micro E-mini S&P 500) futures on Interactive Brokers** — the same three strategies (`turtle_soup`, `vwap`, `ict_scalp_5m`) evaluate both symbols every tick. MES paper trading went live 2026-05-22; see [`docs/runbooks/ib-integration.md`](docs/runbooks/ib-integration.md).
+Python-based ICT trading bot focused on ICT concepts such as fair value gaps (FVG), order blocks (OB), swing structure, market structure shifts, and kill zones. It runs a **multi-strategy roster** coordinated by the intent/decider layer, each member gated by a per-strategy `execution: live | shadow` switch (S9, 2026-05-24): `live` members trade real money on accounts that route them; `shadow` members run and **log** order packages for data collection but never send a live order.
+
+- **Roster (5 registered; `squeeze_breakout_4h` pending merge):** `turtle_soup`, `vwap`, `ict_scalp_5m`, `trend_donchian`, `fade_breakout_4h`. Live execution today: `turtle_soup`, `ict_scalp_5m`, `trend_donchian`. Shadow (data-only): `vwap` (no net-of-fee edge), `fade_breakout_4h` (validated complement, maturing on demo).
+- **Multi-symbol across two asset classes:** the three symbol-parameterized strategies (`turtle_soup`, `vwap`, `ict_scalp_5m`) evaluate BTCUSDT crypto perps on Bybit and **MES (Micro E-mini S&P 500) futures on Interactive Brokers**. `trend_donchian` / `fade_breakout_4h` are BTC-tuned (crypto-specific; the params don't transfer — MES gets its own re-tuned configs).
+- **Single-account decider (design):** one pot of capital, all strategies running, a decider layer that concentrates the fund on the highest-probability trade each tick (not a per-strategy capital split). bybit_1 (demo) mirrors bybit_2 (live); MES is a separate IBKR book. See [`docs/sprint-plans/DECIDER-SINGLE-ACCOUNT-2026-05-24.md`](docs/sprint-plans/DECIDER-SINGLE-ACCOUNT-2026-05-24.md).
+- **MES status:** paper went live 2026-05-22, but the IBKR account is currently offline pending new-user approval. Clean 1m S&P 500 data is sourced + cached (`data/SPX500_1m.parquet`, 2020–2026, Dukascopy) and the SPX edge + cross-asset diversification (corr 0.009 vs the BTC book) are validated — only execution waits. See [`docs/runbooks/ib-integration.md`](docs/runbooks/ib-integration.md).
 
 ## Workflow source of truth
 
