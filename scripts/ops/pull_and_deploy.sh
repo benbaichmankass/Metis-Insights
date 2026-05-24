@@ -3,7 +3,7 @@
 #
 # Thin wrapper around `scripts/deploy_pull_restart.sh` (the canonical,
 # already-deployed deploy script that the `ict-git-sync` timer also
-# invokes). Adds the operator-actions audit conventions:
+# invokes). Adds the system-actions audit conventions:
 #
 #   - capture pre-sync HEAD + post-sync HEAD
 #   - record an audit JSON via record_audit() so the diag relay can

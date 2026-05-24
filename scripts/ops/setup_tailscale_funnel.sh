@@ -60,7 +60,7 @@ source "${SCRIPT_DIR}/_lib.sh"
 
 LOCAL_PORT=8001
 URL_FILE="${REPO_DIR}/runtime_logs/tailscale_funnel_url.txt"
-# TS_AUTHKEY comes in via the SSH env channel from operator-actions.yml.
+# TS_AUTHKEY comes in via the SSH env channel from system-actions.yml.
 # It is consumed once (for `tailscale up`) and then unset; nothing touches
 # disk, nothing logs the value.
 
@@ -96,7 +96,7 @@ fi
 if ! tailscale status --json 2>/dev/null | grep -q '"BackendState":"Running"'; then
     log "tailscale not authenticated — reading TS_AUTHKEY from SSH env."
     if [ -z "${TS_AUTHKEY:-}" ]; then
-        log "ERROR: TS_AUTHKEY env var unset. The operator-actions workflow must"
+        log "ERROR: TS_AUTHKEY env var unset. The system-actions workflow must"
         log "       pass it through from the GitHub Actions secret of the same name."
         log "       Add the secret at: Settings → Secrets and variables → Actions."
         record_audit "setup-tailscale-funnel" "error" \

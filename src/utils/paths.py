@@ -44,7 +44,7 @@ Canonical-path enforcement (2026-05-12, post-incident):
   when ``DATA_DIR`` is set and relative, so the misalignment is
   visible in journalctl. The trader still starts (Prime Directive
   — see docs/CLAUDE-RULES-CANONICAL.md § Prime Directive); the
-  ``scripts/ops/fix_data_dir.sh`` operator-action wrapper is the
+  ``scripts/ops/fix_data_dir.sh`` system-action wrapper is the
   remediation wire.
 """
 
@@ -150,7 +150,7 @@ def _alert_on_relative_data_dir(umbrella: str, resolved: Path) -> None:
     This alert is the structural prevention: every consumer process
     that starts with a relative DATA_DIR now leaves a CRITICAL line
     in journalctl and queues a Telegram ping. The remediation wire
-    is the ``fix-data-dir`` operator-action (see
+    is the ``fix-data-dir`` system-action (see
     ``scripts/ops/fix_data_dir.sh``).
     """
     global _RELATIVE_DATA_DIR_ALERTED
@@ -162,7 +162,7 @@ def _alert_on_relative_data_dir(umbrella: str, resolved: Path) -> None:
         "repo_root). This is almost certainly wrong on the live VM where "
         "systemd drop-ins declare DATA_DIR=%s. Reader-vs-writer split-brain "
         "is the likely failure mode. Fix: dispatch the fix-data-dir "
-        "operator-action (scripts/ops/fix_data_dir.sh) which strips the "
+        "system-action (scripts/ops/fix_data_dir.sh) which strips the "
         ".env override so the systemd value wins.",
         umbrella, resolved, _CANONICAL_DATA_DIR_HINT,
     )
@@ -192,7 +192,7 @@ def _alert_on_data_dir_mismatch(umbrella: str) -> None:
         "systemd-declared value %s. This may be intentional (test deploy, "
         "alternative mount) — but on the live VM it usually means the .env "
         "carries a stale value. If unexpected, dispatch the fix-data-dir "
-        "operator-action to strip the .env override.",
+        "system-action to strip the .env override.",
         umbrella, _CANONICAL_DATA_DIR_HINT,
     )
     _swallow_paths_warning(
@@ -226,7 +226,7 @@ def _resolve_root(subdir: str) -> Path:
         # whose actual location depended on each consumer's CWD at the
         # moment of read/write. Trader writes used the trader's CWD;
         # web-api reads used the web-api's CWD; status-check diagnostic
-        # used the operator-action wrapper's CWD. Result: writer-vs-
+        # used the system-action wrapper's CWD. Result: writer-vs-
         # reader path divergence even though both consumers called the
         # SAME ``runtime_logs_dir()`` helper. Anchor relative umbrella
         # paths to repo_root so the resolved path is absolute and
@@ -241,7 +241,7 @@ def _resolve_root(subdir: str) -> Path:
         # health-snapshot collector, watchdog) looked at the
         # canonical path while consumers reading the .env relative
         # value resolved here. The alert below makes the
-        # misalignment loud; the fix-data-dir operator-action is
+        # misalignment loud; the fix-data-dir system-action is
         # the remediation wire.
         umbrella_root = Path(umbrella).expanduser()
         if not umbrella_root.is_absolute():

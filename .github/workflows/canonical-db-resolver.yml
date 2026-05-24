@@ -1,6 +1,6 @@
 name: Canonical DB resolver
 
-# Fails the PR check when a new operator-action wrapper introduces an
+# Fails the PR check when a new system-action wrapper introduces an
 # inline `${TRADE_JOURNAL_DB:-${REPO_DIR}/trade_journal.db}` fallback
 # instead of calling the canonical `runtime_db_path` helper from
 # scripts/ops/_lib.sh.

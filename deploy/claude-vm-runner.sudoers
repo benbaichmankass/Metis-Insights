@@ -21,7 +21,7 @@
 # Defaults!/usr/local/bin/claude-vm-dispatch !requiretty   — explicit
 # in case the global sudoers config changes the default.
 #
-# `ufw` is allowlisted so the operator-actions / vm-net-fix workflows
+# `ufw` is allowlisted so the system-actions / vm-net-fix workflows
 # can open or close dashboard ingress ports without granting blanket
 # root. Whitelisted because the VM-local firewall has historically
 # blocked TCP/8001 across reboots when iptables-persistent rules

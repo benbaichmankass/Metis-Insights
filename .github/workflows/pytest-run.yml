@@ -5,7 +5,7 @@ name: pytest-run
 # This is the companion to `pytest-collect`, which only *imports* the
 # test tree (`--collect-only`) and never runs a single assertion. That
 # collect-only gate let real regressions through whenever the broken
-# code still imported cleanly — e.g. the operator-action allowlist guard
+# code still imported cleanly — e.g. the system-action allowlist guard
 # silently drifting to 14/30 actions, the dead `_RUNTIME_LOGS` test
 # fixture, and the shadow-prediction wiring gap (all had green CI).
 # `pytest-run` closes that hole by actually executing the suite.

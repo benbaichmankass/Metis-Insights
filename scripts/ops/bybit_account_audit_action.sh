@@ -14,7 +14,7 @@
 #
 # No DB writes. No live-trading side effects.
 #
-# Operator invokes via operator-actions issue with body:
+# Operator invokes via system-actions issue with body:
 #   action: bybit-account-audit
 #   reason: <text>
 #   account: <id>     (e.g. bybit_2 — REQUIRED)
@@ -33,7 +33,7 @@ PY_SCRIPT="${REPO_DIR}/scripts/ops/bybit_account_audit.py"
 
 # account_id is plumbed via the existing ACCOUNT_ID env (used by
 # set-account-mode). Symbol + days come through new env slots
-# added by this PR's operator-actions.yml edit.
+# added by this PR's system-actions.yml edit.
 ACCOUNT="${ACCOUNT_ID:-}"
 SYMBOL="${ACTION_SYMBOL:-}"
 DAYS="${ACTION_DAYS:-7}"

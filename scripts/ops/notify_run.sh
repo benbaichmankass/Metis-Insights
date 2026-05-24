@@ -2,7 +2,7 @@
 # Operator-actions transparency notifier — routes the run summary
 # through @claude_ict_comms_bot.
 #
-# Invoked by the operator-actions GitHub workflow as the final step,
+# Invoked by the system-actions GitHub workflow as the final step,
 # over SSH. Constructs a single Telegram-friendly message and queues
 # it via scripts/send_ping.py --target claude. The Claude-bridge
 # service (`ict-claude-bridge.service`) drains the queue within ~5 s
@@ -11,7 +11,7 @@
 # Usage:
 #   notify_run.sh <action> <exit_code> <run_url> [reason]
 #
-# Priority mapping (per docs/claude/operator-actions.md § 5.5):
+# Priority mapping (per docs/claude/system-actions.md § 5.5):
 #   Tier 1 ok       → low
 #   Tier 1 degraded → high
 #   Tier 2 ok       → normal
@@ -21,7 +21,7 @@
 #   set-account-mode ok → normal  (audited mode flip)
 #   fix-data-dir ok → normal  (audited data-dir alignment)
 #
-# Failures inside this script never propagate. The operator-actions
+# Failures inside this script never propagate. The system-actions
 # workflow already records the action's success/failure via its own
 # exit code; a notify failure shouldn't flip an otherwise-successful
 # run to failed.

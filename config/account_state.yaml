@@ -9,7 +9,7 @@
 # Modification rules:
 #   - Only the operator (Ben) may edit this file.
 #   - The Telegram /set-account-mode command is the other sanctioned
-#     write path (operator-actions.yml wires it).
+#     write path (system-actions.yml wires it).
 #   - Claude must never auto-toggle entries here.
 #   - Missing accounts fall back to accounts.yaml mode silently.
 #   - Missing file → no override (fail-open to accounts.yaml).

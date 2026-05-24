@@ -2,17 +2,17 @@ name: vm-web-api-recover
 
 # Self-heal bridge for the read-only diag surface.
 #
-# Why this exists (separate from operator-actions.yml):
+# Why this exists (separate from system-actions.yml):
 #   The vm-diag-snapshot relay (PM-side read access) depends on
 #   ict-web-api.service being up. When that service is down, every
 #   diag request fails with curl exit 7 and Claude on the web sandbox
-#   is silently blinded. The operator-actions allowlist
+#   is silently blinded. The system-actions allowlist
 #   (status-check, pull-latest-logs, pull-and-deploy,
 #   restart-bot-service, reboot-vm) doesn't include a path to restart
 #   the web API specifically — restart-bot-service targets the
 #   trader, not the API.
 #
-#   Like operator-actions.yml (which gained an issue-driven trigger
+#   Like system-actions.yml (which gained an issue-driven trigger
 #   alongside its workflow_dispatch path), this workflow uses the
 #   issue-driven pattern from vm-diag-snapshot.yml: open a labelled
 #   issue, the workflow runs, posts the result back, closes the
@@ -63,7 +63,7 @@ permissions:
   issues: write   # required to comment + close the request issue
 
 # Serialise — never restart the same unit twice concurrently. Shares
-# the same target as operator-actions, so the group covers both
+# the same target as system-actions, so the group covers both
 # workflows when GitHub schedules them.
 concurrency:
   group: vm-web-api-recover

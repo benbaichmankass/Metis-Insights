@@ -329,7 +329,7 @@ echo "    \"destination\": \"${PUBLIC_URL}/api/bot/:path*\""
 echo "  Then redeploy the dashboard."
 echo
 echo "  After verifying the dashboard, retire the quick tunnel:"
-echo "    operator-action: teardown-cloudflare-tunnel"
+echo "    system-action: teardown-cloudflare-tunnel"
 echo "=========================================="
 
 exit 0

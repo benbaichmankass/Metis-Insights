@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Tier-2 self-heal action: restart the read-only web API systemd unit.
 #
-# Why this lives outside operator-actions.yml's allowlist:
+# Why this lives outside system-actions.yml's allowlist:
 #   The web-api hosts /api/diag/* — the read-only surface the
 #   PM-side / web-sandbox session uses for visibility. When that
 #   service is down, the diag relay (vm-diag-snapshot.yml) fails

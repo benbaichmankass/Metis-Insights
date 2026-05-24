@@ -3,7 +3,7 @@
 What's load-bearing
 -------------------
 ``load_runtime_secrets`` sources ``${REPO_DIR}/.env`` in full so that
-operator-action wrappers running via SSH (i.e. NOT as a child of
+system-action wrappers running via SSH (i.e. NOT as a child of
 ict-trader-live.service, and thus NOT inheriting the systemd
 EnvironmentFile) can authenticate to exchange APIs. The 2026-05-16
 silent-credential failure (issue #1314, post-#1311) was caused by the

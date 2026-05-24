@@ -10,7 +10,7 @@
 #
 # No DB writes. No live-trading side effects.
 #
-# Operator invokes via operator-actions issue with body:
+# Operator invokes via system-actions issue with body:
 #   action: inspect-closed-pnl
 #   reason: <text>
 #   trade_id: <int>   (default: 1540 — the canonical incident-#1411 example)
@@ -25,7 +25,7 @@ load_runtime_secrets  # exchange creds for the Bybit call
 DB_PATH="$(runtime_db_path)"
 PY_SCRIPT="${REPO_DIR}/scripts/ops/inspect_closed_pnl.py"
 
-# trade_id is plumbed from the operator-actions workflow as
+# trade_id is plumbed from the system-actions workflow as
 # ACTION_TRADE_ID (added in the same PR as this script). Default 1540.
 TRADE_ID="${ACTION_TRADE_ID:-1540}"
 
