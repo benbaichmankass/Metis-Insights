@@ -561,6 +561,41 @@ Sprint logs must be uniform and must use the canonical sprint log
 template. Logs describe verified reality, not just PR intent.
 New sprint logs live under `docs/sprint-logs/`.
 
+## Strategy-improvement program — branching convention (2026-05-24)
+
+The strategy-improvement program is a **continuous, multi-session**
+effort (find/validate complementary strategies, build the decider, add
+cross-asset members). It uses two kinds of branch — keep them separate:
+
+1. **Persistent program branch** — `claude/strategy-improvement-program-EZi1X`
+   (PR #1787 is its living research ledger: kept open, **not** a merge
+   candidate). This is where research **tooling and artifacts** accumulate
+   across sessions — backtest/validation harnesses (`scripts/backtest_*.py`,
+   `scripts/research_decider.py`, `scripts/ops/fetch_dukascopy_index.py`),
+   audit docs, sprint logs, and design docs. **Future research sessions
+   continue on this branch** so the harnesses are not re-derived each
+   session.
+2. **Fresh, focused branches cut from current `main`** — for anything that
+   LANDS on `main`: strategy wiring, `config/*` changes, doc reconciliation.
+   Cut these from `main`, **never from the program branch.**
+
+**Why the split (the hazard it prevents):** the program branch carries
+in-flight, research-only edits that are not meant for `main` (the
+2026-05-24 session found it held unrelated `ict_scalp` signal-builder
+deletions). If a main-bound PR were branched off the program branch, those
+edits would leak into `main`. So every main-bound deliverable is
+re-implemented or cherry-picked onto a clean branch off `main` — exactly
+how the S9 trend/fade/squeeze wiring (#1875/#1884/#1885/#1907/#1908) and the
+close-out docs (#1915) reached `main` while the harnesses stayed on the
+program branch.
+
+**Hygiene:** periodically land stable harnesses to `main` via clean PRs and
+rebase the program branch on `main`, so it does not accumulate unbounded
+divergence. The session-config "develop on
+`claude/strategy-improvement-program-EZi1X`" directive points research
+sessions at the persistent branch by default; the operator repoints it only
+to start a new program line.
+
 ## Handling Contradictions
 
 When Claude finds contradictory instructions:
