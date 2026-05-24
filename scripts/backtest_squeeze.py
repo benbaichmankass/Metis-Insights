@@ -180,7 +180,7 @@ def run_backtest(df: pd.DataFrame, *, bb_period: int, bb_std: float,
                 fr = _fee_r(t)
                 fh.write(json.dumps({
                     "strategy": "squeeze_breakout", "entry_time": str(t.entry_time),
-                    "direction": t.direction, "gross_r": t.r_multiple,
+                    "direction": t.direction, "exit_time": str(t.exit_time), "gross_r": t.r_multiple,
                     "net_r": round(t.r_multiple - fr, 4)}, default=str) + "\n")
     return _summarize(trades, df, timeframe=timeframe, symbol=symbol,
                       params={"bb_period": bb_period, "bb_std": bb_std,

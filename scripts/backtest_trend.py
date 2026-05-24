@@ -146,7 +146,7 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
                          * ((t.entry + t.exit_price) / 2.0) / t.risk) if t.risk else 0.0
                 fh.write(json.dumps({
                     "strategy": "trend_donchian", "entry_time": str(t.entry_time),
-                    "direction": t.direction, "gross_r": t.r_multiple,
+                    "direction": t.direction, "exit_time": str(t.exit_time), "gross_r": t.r_multiple,
                     "net_r": round(t.r_multiple - fee_r, 4)}, default=str) + "\n")
     return _summarize(trades, df, timeframe=timeframe, symbol=symbol,
                       params={"donchian": donchian, "atr_stop_mult": atr_stop_mult,

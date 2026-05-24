@@ -274,7 +274,7 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
                 fr = _fee_r(t)
                 fh.write(json.dumps({
                     "strategy": "fade_breakout", "entry_time": str(t.entry_time),
-                    "direction": t.direction, "gross_r": t.r_multiple,
+                    "direction": t.direction, "exit_time": str(t.exit_time), "gross_r": t.r_multiple,
                     "net_r": round(t.r_multiple - fr, 4)}, default=str) + "\n")
     return _summarize(trades, df, timeframe=timeframe, symbol=symbol,
                       params={"donchian": donchian, "atr_stop_buffer": atr_stop_buffer,
