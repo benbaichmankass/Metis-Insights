@@ -61,11 +61,30 @@ accounts.yaml activation (step 6).
 - Operator merges both Tier-3 PRs; activation is the final gated step.
 
 ## Status
-- [ ] Strategy module (`trend_donchian.py`)
-- [ ] Signal builder + pipeline/intent registration
-- [ ] Live trailing-stop monitor (careful)
-- [ ] config/strategies.yaml block
-- [ ] tests + intent regression
-- [ ] wiring draft PR
+- [x] Strategy module (`trend_donchian.py`) — order_package + Chandelier
+      trailing-stop monitor
+- [x] Signal builder + pipeline/intent registration (priority 20)
+- [x] Live trailing-stop monitor — ratcheting Chandelier; reads the
+      frozen entry-ATR + trail params from the package meta (the monitor
+      tick passes `cfg={}`), ratchets the SL only in the favourable
+      direction, and never places it on the wrong side of the current
+      price (no instant stop-out)
+- [x] config/strategies.yaml block (`enabled: true`, risk_pct 0.3,
+      donchian 20 / atr_stop 2.5 / trail 3.0, BTCUSDT)
+- [x] tests + intent regression (22 new in tests/test_trend_donchian.py;
+      204 existing strategy/pipeline/monitor tests still green)
+- [x] wiring draft PR
 - [ ] accounts.yaml activation draft PR (operator merges)
 - [ ] pull-and-deploy + live verification
+
+### Implementation note — risk_pct plumbing
+`load_strategies()` does NOT surface the strategies.yaml `risk_pct`
+field, so the registry-driven `STRATEGY_RISK_PCT` defaults every
+strategy to 1.0 (a pre-existing latent gap affecting turtle_soup /
+ict_scalp too). To guarantee the conservative 0.3 for the real-money
+launch WITHOUT changing the other live strategies' sizing (which would
+be an unapproved Tier-3 change), the trend_donchian signal builder sets
+`meta["strategy_risk_pct"] = 0.3` directly from its YAML, and both
+multiplexers now preserve a builder-provided value instead of
+overwriting it. Net: trend sizes at 0.3 × the account `risk_pct`;
+turtle_soup / vwap / ict_scalp sizing is unchanged.
