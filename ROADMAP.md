@@ -1,6 +1,14 @@
 # ICT Trading Bot — Product Roadmap
 
-> **Last Updated:** 2026-05-20 (M11 complete — S0–S11 all merged).
+> **Last Updated:** 2026-05-24 (governance/rules cleanup — Phases 1–7;
+> M11 complete; strategy-improvement program S0–S9 + MES go-live).
+>
+> **This file is the single source of milestone + sprint state** — every
+> milestone and sprint, its status (done / in-progress / not-started), and
+> its date. The older `docs/claude/milestone-state.md` and
+> `docs/claude/workplan.md` are **historical** (frozen; superseded
+> 2026-05-10) and must not be used for current status — they are kept for
+> context only. When they disagree with this file, this file wins.
 >
 > **Canonical authority:**
 > 1. [`docs/CLAUDE-RULES-CANONICAL.md`](docs/CLAUDE-RULES-CANONICAL.md)
@@ -102,8 +110,12 @@
 
 ### Repo and hosting boundary (MANDATORY)
 
-Dashboard web app **lives in a separate repository** and **runs
-on Vercel** — NOT on the Oracle VM.
+Dashboard web app **lives in a separate repository**
+(`benbaichmankass/ict-trader-dashboard`) and **runs on Streamlit
+Community Cloud** (`streamlit_app.py`) — NOT on the Oracle VM. (The
+previous React+Vercel+Cloudflare stack was retired 2026-05-12; see
+root `CLAUDE.md` § Dashboard consumer. Older sprint-ledger rows below
+that mention Vercel are preserved as historical record.)
 
 ---
 
@@ -113,6 +125,9 @@ Full detail preserved in git history. Recent AI-traders sprints:
 
 | Sprint | Title | Status | M-mapping |
 |---|---|---|---|
+| **S-GOV-CLEANUP** | **Governance / rules-and-workflow cleanup (2026-05-24).** Multi-phase restructure of the operating contract. Phase 1 restructured the operating rules (CLAUDE.md instruction hierarchy + autonomy/honesty/tiers; canonical reframe); Phase 2a/2b renamed operator-actions → system-actions everywhere + autonomy reframe; Phase 4a shipped the core composable skills (diag-data, vm-ops, git-actions, db-wiring) + doc-freshness + health-review-backlog. Phase 4b added the next skills wave (backtesting, model-training, db-setup, sprint-format, workplan-vs-architecture); Phase 5 rebuilt `/health-review` to the autonomous spec + persisted per-trade Claude scores to `comms/claude_trade_scores.jsonl`; Phase 6 made this file the single source of milestone/sprint state (milestone-state.md + workplan.md marked historical); Phase 7 rebuilt `docs/claude/INDEX.md` + ran doc-freshness. Phase 3 (Claude comms-bot teardown) + follow_ups.json retirement intentionally DEFERRED to a dedicated comms/telegram cleanup session (see `docs/claude/open-considerations.md`). Tier-1 throughout. | ✅ Phases 1/2/4a merged; 4b/5/6/7 this PR | governance |
+| **S-MES-GOLIVE** | **MES paper trading go-live (2026-05-22).** IB/MES execution path taken live — multi-symbol BTCUSDT + MES, all 3 strategies, delayed CME data. Gateway socat port fix (#1706) + persistent event loop (#1712); traded-symbol set derived from `config/accounts.yaml` (removed the hidden `MULTI_SYMBOL_ENABLED` third gate — the discovery behind Prime-Directive rule 6). Log: [`S-MES-GOLIVE-2026-05-22.md`](docs/sprint-logs/S-MES-GOLIVE-2026-05-22.md). | ✅ Done 2026-05-22 | M11 |
+| **S-STRAT-IMPROVE-S9** | **Strategy Improvement Program — complementary-strategy wiring + close-out (2026-05-24).** Wired trend/fade/squeeze members through the execution layer with the S9 per-strategy `execution: live\|shadow` gate (#1875/#1884/#1885/#1907/#1908), routed shadow data-collectors to bybit_1 (demo), and landed close-out docs (#1915). Research harnesses (`backtest_fade.py`, `fetch_dukascopy_index.py`, single-account decider) accumulate on the persistent program branch; main-bound wiring was cut from clean branches off main per the branching convention. Tier-1/2/3 mixed (strategy YAML + routing operator-gated). Log: [`S-STRAT-IMPROVE-S9-2026-05-24.md`](docs/sprint-logs/S-STRAT-IMPROVE-S9-2026-05-24.md). | ✅ Done 2026-05-24 | M7/M8 |
 | **S-STRAT-IMPROVE-S4-A** | **Strategy Improvement Program — backtest net-of-fee instrumentation (2026-05-23).** Added per-trade `net_pnl_r` (gross − round-trip fee) + net aggregates (net_total_r long/short, net_win_rate, total_fee_r, mean_trades_per_window, net_positive_windows, per-regime net) to `src/backtest/run_backtest_vwap.py` via `--fee-bps-roundtrip` (default 7.5). Additive; fee=0 reproduces gross; 102 tests pass. Required because S2 showed gross-positive/net-negative — gross-R sweeps mislead. Local single-window preview: fees dwarf gross; only the most selective threshold survives net (low-confidence, not regime-diverse). Tier-1. Log: [`S-STRAT-IMPROVE-S4-A-2026-05-23.md`](docs/sprint-logs/S-STRAT-IMPROVE-S4-A-2026-05-23.md). | ✅ Done 2026-05-23 | M7/M8 |
 | **S-STRAT-IMPROVE-S3** | **Strategy Improvement Program — exit-mechanism diagnosis (technical-first, 2026-05-23).** Operator directive: rule out a monitor bug before tuning. `monitor-miss-analysis` (#1782) classified the 125 `reconciler_filled` closes — 36 TP_hit / 84 SL_hit / 5 between_TP_SL → **96% native Bybit bracket fires (working as designed)**; losses are genuine strategy losses (stop hit 84× vs TP 36×). Fixed the now-confirmed-stale `SL_STD_MULT` comments in `vwap.py` (operator confirmed 0.3 approved/live; value unchanged). Recorded the regime caveat (long/short gap = down-market, not a permanent edge → no static short-bias). Re-planned: selectivity→S4, exit geometry→S5. Tier-1. Log: [`S-STRAT-IMPROVE-S3-2026-05-23.md`](docs/sprint-logs/S-STRAT-IMPROVE-S3-2026-05-23.md). | ✅ Done 2026-05-23 | M7/M8 |
 | **S-STRAT-IMPROVE-S2** | **Strategy Improvement Program — full performance audit (2026-05-23).** Live read-only audit (relays #1779/#1780/#1781). Resolved the S0 SL_STD_MULT flag: **0.3 is live** (R:R 3.48) — Tier-3 governance flag surfaced (live value vs in-code "approve before deploy" note). Dominant loss driver = **vwap overtrading → fee drag (418% of gross)**: a thin +$11/7d gross edge buried by $47 fees; 74% of exits are `reconciler_filled` stop-runs at 17.9% WR; long-side bias (longs 79% of loss). turtle_soup/ict_scalp/MES flagged low-N. Report: [`strategy-loss-drivers-2026-05-23.md`](docs/audits/strategy-loss-drivers-2026-05-23.md). Tier-1. Log: [`S-STRAT-IMPROVE-S2-2026-05-23.md`](docs/sprint-logs/S-STRAT-IMPROVE-S2-2026-05-23.md). | ✅ Done 2026-05-23 | M7/M8 |

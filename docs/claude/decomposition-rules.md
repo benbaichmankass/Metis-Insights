@@ -1,5 +1,14 @@
 # Milestone → sprint → checkpoint decomposition rules
 
+> **Reconciliation note (2026-05-24, Phase 6):** milestone + sprint state
+> now lives in **[`ROADMAP.md`](../../ROADMAP.md)** — the single source.
+> Where this doc says "update `milestone-state.md`," read "update
+> `ROADMAP.md`"; `docs/claude/milestone-state.md` is now **frozen /
+> historical** and must not be used for current status. References below
+> to `docs/workplan.md` (the original operator workplan) are likewise
+> historical — its milestone-type definitions are carried forward by the
+> canonical doc set, which wins on any conflict.
+
 > **Purpose:** the normative contract for how work is decomposed in this
 > repo. Every roadmap item, every ad-hoc request, and every recurring
 > auto-task lands as a milestone, breaks into session-sized sprints, and

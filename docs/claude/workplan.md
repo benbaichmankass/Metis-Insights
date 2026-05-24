@@ -1,4 +1,4 @@
-# AI Trader — Canonical Workplan (the decider)
+# AI Trader — Original Workplan (HISTORICAL — superseded 2026-05-10)
 
 > **Status:** Superseded 2026-05-10 by the S-CANON-1 canonical
 > doc set. Authority order is now:
@@ -10,14 +10,16 @@
 > This file is preserved for historical context. Do not treat it
 > as authoritative on policy or sequencing.
 
-> **Authority:** This document is the canonical workplan for the
-> AI Trader project, captured verbatim from the operator on
-> **2026-05-06**. **It is the decider** for what the project is
-> building and the rules it follows. When any other doc, code,
-> sprint prompt, checkpoint, ROADMAP entry, or CLAUDE.md rule
-> contradicts this file, **this file wins** — reconcile the
-> conflict (update the contradicting doc, or consolidate it into
-> this one) in the same session.
+> **Authority (HISTORICAL — no longer in force):** This document was
+> captured verbatim from the operator on **2026-05-06** as the original
+> "decider" for what the project is building and the rules it follows.
+> **That authority was superseded on 2026-05-10** by the canonical doc
+> set (see the banner above). It is **no longer the decider** and does
+> **not** win conflicts — when this file disagrees with
+> `docs/CLAUDE-RULES-CANONICAL.md`, `docs/ARCHITECTURE-CANONICAL.md`,
+> `ROADMAP.md`, or `CLAUDE.md`, **the canonical doc wins.** Read this
+> file only for the original goal + operating-principle framing, which
+> the canonical set carries forward.
 >
 > **2026-05-08 correction (S-048 P1-A):** § "Telegram bots /
 > @claude_ict_comms_bot / ClaudeBot workflow" was rewritten in

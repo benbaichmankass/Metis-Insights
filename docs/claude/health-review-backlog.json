@@ -1,5 +1,19 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat.",
   "schema_version": 1,
-  "items": []
+  "items": [
+    {
+      "id": "BL-20260524-001",
+      "opened_at": "2026-05-24T00:00:00+00:00",
+      "opened_by": "claude",
+      "source": "Phase 7 doc-freshness sweep",
+      "title": "Stale workplan/milestone-state references in docs/claude process notes",
+      "description": "After Phase 6 froze milestone-state.md + workplan.md as historical, a few lower-precedence docs still mention them as live: colab-workflows.md:57 ('a workplan [requirement]'), and assorted historical bug-log.md entries (BUG-059/063/064) reference them. decomposition-rules.md + auto-task-daily-trade-audit.md were given reconciliation notes; this is the residual minor tail. Bug-log entries are historical record and should stay; colab-workflows.md could be lightly reworded.",
+      "tier": 1,
+      "trigger_condition": "Any /health-review run.",
+      "resolution_criteria": "colab-workflows.md no longer frames the workplan as a live authority; confirm no docs/claude/* non-historical page treats milestone-state.md/workplan.md as current.",
+      "status": "open",
+      "snoozed_until": null
+    }
+  ]
 }

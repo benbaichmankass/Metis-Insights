@@ -1,7 +1,10 @@
 # Auto-task: Daily one-trade lifecycle audit
 
-S-067 follow-up #7. Auto-task / Audit-debug category per
-`docs/claude/workplan.md` § Auto-task routine.
+S-067 follow-up #7. Auto-task / Audit-debug category. (The
+`docs/claude/workplan.md` references in this file are **historical** —
+the workplan was superseded 2026-05-10; permission tiers + merge
+authority are now in `docs/CLAUDE-RULES-CANONICAL.md` § Permission Tiers,
+and milestone/sprint state in `ROADMAP.md`.)
 
 ## Why this exists
 
