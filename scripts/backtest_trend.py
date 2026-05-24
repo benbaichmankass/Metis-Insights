@@ -47,7 +47,7 @@ class Trade:
 
 
 def _load_candles(path: str) -> pd.DataFrame:
-    df = pd.read_csv(path)
+    df = pd.read_parquet(path) if path.endswith(".parquet") else pd.read_csv(path)
     cols = {c.lower(): c for c in df.columns}
     need = ["timestamp", "open", "high", "low", "close"]
     df = df.rename(columns={cols[c]: c for c in need if c in cols and cols[c] != c})
