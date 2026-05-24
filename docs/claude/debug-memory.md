@@ -217,14 +217,14 @@ These are NOT bugs but they kept catching me out today. Future sessions should r
 - Cause: `snapshot?limit=200` produces ~665 kB JSON; GitHub truncates issue comments at ~55 kB. With 200 audit events (~1 kB each) the entire `audit_tail` array fills the comment. The `order_packages`, `trades`, and `vm_health` sections are ALWAYS truncated out when using `limit=200`.
 - Fix: Use `snapshot?limit=5` when investigating open packages, positions, trade SL/TP, or any non-audit data. The compact audit_tail allows the full snapshot (order_packages + trades + vm_health) to appear within the 55 kB limit. Use `audit?limit=200` only when you specifically need audit history.
 
-### 2026-05-14: operator-actions.yml — Tier-2 fails before SSH if `reason:` is missing
+### 2026-05-14: system-actions.yml — Tier-2 fails before SSH if `reason:` is missing
 - Cause: Issue body was only `action: pull-and-deploy` with no `reason:` line. The workflow validates `[ -z "${REASON// }" ]` and exits "Tier-2 action requires a non-empty reason" before any SSH attempt — the failure comment says "failure happened before SSH ran" with no other detail.
 - Fix: Always include BOTH lines for Tier-2 actions:
   ```
   action: pull-and-deploy
   reason: <non-empty explanation>
   ```
-  Tier-1 actions (`status-check`, `pull-latest-logs`) don't require `reason:`. See `docs/claude/operator-actions.md` for the full tier/action list.
+  Tier-1 actions (`status-check`, `pull-latest-logs`) don't require `reason:`. See `docs/claude/system-actions.md` for the full tier/action list.
 
 ### 2026-05-14: vm-diag-snapshot concurrency — space rapid-fire requests 90 s apart
 - Cause: `concurrency: cancel-in-progress: true` means any new `vm-diag-request` issue preempts an in-flight run. Creating issues in rapid succession causes all but the last to be cancelled. The preempted issue receives a "run cancelled" comment and closes as `not_planned` with no diag result.

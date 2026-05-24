@@ -43,7 +43,7 @@ rotations. Free for the one-VM-one-port use case.
    - Name: `TS_AUTHKEY`
    - Value: `tskey-auth-...` (paste from step 3)
 
-   The operator-actions workflow reads this secret only when
+   The system-actions workflow reads this secret only when
    dispatching `setup-tailscale-funnel`, passes it to the VM as a
    one-shot SSH env var, the wrapper consumes it once for
    `tailscale up`, and immediately unsets it. The key never lands on
@@ -67,20 +67,20 @@ rotations. Free for the one-VM-one-port use case.
 Once prereqs 1-4 are done, the migration is three labelled-issue
 dispatches plus a dashboard PR. Every step is GitHub-Action-driven;
 no VM SSH from the operator at any point. Each action requires
-operator approval before the workflow runs (per the operator-actions
+operator approval before the workflow runs (per the system-actions
 contract — the dispatching agent opens the issue, but only the
 operator can merge / approve the workflow run if the repo gating
 is enabled).
 
 ```text
-1.  operator-action: setup-tailscale-funnel  (first run)
+1.  system-action: setup-tailscale-funnel  (first run)
         → installs tailscale on the VM, authenticates via the
           TS_AUTHKEY secret passed over SSH, fails-fast at Funnel
           enablement.
         → operator does step 5(b) of "Operator setup" above
           (admin-console click to enable Funnel for the device).
 
-2.  operator-action: setup-tailscale-funnel  (second run)
+2.  system-action: setup-tailscale-funnel  (second run)
         → idempotent re-run; this time Funnel succeeds. Workflow
           comments back the public URL of the form
           https://ict-trader-live.<tailnet>.ts.net.
@@ -90,7 +90,7 @@ is enabled).
           https://<that-url>/api/bot/:path*
         → merge to main; Vercel auto-deploys.
 
-4.  operator-action: teardown-cloudflare-tunnel
+4.  system-action: teardown-cloudflare-tunnel
         → stops the cloudflared quick-tunnel process and removes
           the @reboot crontab entry. The trycloudflare URL stops
           serving immediately. (Keep this step LAST, so we don't
@@ -107,13 +107,13 @@ this breaks, it's a real Tailscale outage (rare, Tailscale's edge has
 If anything breaks during or after the migration, revert by running:
 
 ```text
-operator-action: setup-cloudflare-tunnel
+system-action: setup-cloudflare-tunnel
         → mints a fresh trycloudflare URL.
 
 dashboard PR: revert vercel.json to the previous trycloudflare URL,
             or set it to the new one printed in this step.
 
-operator-action: teardown-tailscale-funnel
+system-action: teardown-tailscale-funnel
         → drops the public Funnel exposure (Tailscale stays
           installed for any future use).
 ```
@@ -145,7 +145,7 @@ Considered + rejected for this iteration:
 
 - `scripts/ops/setup_tailscale_funnel.sh` — new wrapper.
 - `scripts/ops/teardown_tailscale_funnel.sh` — symmetric companion.
-- `.github/workflows/operator-actions.yml` — `setup-tailscale-funnel`
+- `.github/workflows/system-actions.yml` — `setup-tailscale-funnel`
   + `teardown-tailscale-funnel` added to the allowlist (Tier-2,
   reason required) and mapped to the wrappers above.
 - `docs/runbooks/tailscale-funnel-migration.md` — this file.

@@ -1,4 +1,4 @@
-name: operator-actions
+name: system-actions
 
 # PM-side / web-sandbox bridge for a small, auditable set of mutating
 # VM operations. Every action is gated by a fixed allowlist; there is
@@ -7,7 +7,7 @@ name: operator-actions
 # Two dispatch paths, both flowing through the SAME allowlist + audit:
 #   1. workflow_dispatch — operator clicks "Run workflow" in the
 #      Actions UI. Used for ad-hoc operator interventions.
-#   2. issues.opened (label `operator-action`) — sandbox session opens
+#   2. issues.opened (label `system-action`) — sandbox session opens
 #      an issue, body encodes `action:` + `reason:`. Lets a Claude
 #      sandbox session autonomously drive the same allowlist when the
 #      operator has granted Tier-2/Tier-3 permission in conversation.
@@ -15,7 +15,7 @@ name: operator-actions
 #      idempotently by bootstrap-labels.yml. Trust contract is
 #      identical — see Tier policy below.
 #
-# Trust contract (full text in docs/claude/operator-actions.md):
+# Trust contract (full text in docs/claude/system-actions.md):
 #   * Allowlisted actions only — the `case` arms below are exhaustive
 #     and reject anything else with exit 2.
 #   * One wrapper script per action. The workflow does not embed
@@ -53,13 +53,13 @@ name: operator-actions
 # vm_bootstrap.sh — NOT mutated by this workflow):
 #   * NOPASSWD systemctl    — already present
 #   * NOPASSWD shutdown -r  — manual one-time add for reboot-vm; see
-#                             docs/claude/operator-actions.md § Setup
+#                             docs/claude/system-actions.md § Setup
 
 on:
   workflow_dispatch:
     inputs:
       action:
-        description: "Operator action (allowlisted)"
+        description: "System action (allowlisted)"
         required: true
         type: choice
         options:
@@ -117,12 +117,12 @@ on:
         required: false
         default: ""
   # Issue-driven trigger — mirrors vm-web-api-recover.yml. A sandbox
-  # session opens an issue with label `operator-action`, the body
+  # session opens an issue with label `system-action`, the body
   # encodes `action:` + `reason:` (+ `account:` + `mode:` for
   # set-account-mode), this workflow runs, posts the result back as
   # a comment, and closes the issue. This is the canonical
   # autonomous-dispatch path; no operator click required. Label
-  # `operator-action` is created idempotently by bootstrap-labels.yml.
+  # `system-action` is created idempotently by bootstrap-labels.yml.
   issues:
     types: [opened, labeled]
 
@@ -130,20 +130,20 @@ permissions:
   contents: read
   issues: write   # required to comment + close issue-driven requests
 
-# Serialise. Two operator actions on the same VM at the same time is
+# Serialise. Two system-actions on the same VM at the same time is
 # never desired and likely buggy.
 concurrency:
-  group: operator-actions
+  group: system-actions
   cancel-in-progress: false
 
 jobs:
-  operator-action:
+  system-action:
     if: |
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'issues' &&
        (
-         (github.event.action == 'opened' && contains(github.event.issue.labels.*.name, 'operator-action')) ||
-         (github.event.action == 'labeled' && github.event.label.name == 'operator-action')
+         (github.event.action == 'opened' && contains(github.event.issue.labels.*.name, 'system-action')) ||
+         (github.event.action == 'labeled' && github.event.label.name == 'system-action')
        )
       )
     runs-on: ubuntu-latest
@@ -601,7 +601,7 @@ jobs:
       # ────────────────────────────────────────────────────────────
       # Transparency notify — routes through @claude_ict_comms_bot.
       # Fires for every action regardless of dispatcher / tier /
-      # outcome per docs/claude/operator-actions.md § 5.5.
+      # outcome per docs/claude/system-actions.md § 5.5.
       # Notify failures never break the workflow; the artifact + run
       # log remain the canonical audit trail.
       # ────────────────────────────────────────────────────────────
@@ -666,7 +666,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: operator-action-${{ env.ACTION }}-${{ github.run_id }}
+          name: system-action-${{ env.ACTION }}-${{ github.run_id }}
           path: |
             audit-bundle.json
             pre-state.json
@@ -711,7 +711,7 @@ jobs:
             let body;
             if (isSuccess) {
               body =
-                `✅ **operator-action \`${process.env.ACTION}\`** completed.\n` +
+                `✅ **system-action \`${process.env.ACTION}\`** completed.\n` +
                 `Run: ${runUrl}\n` +
                 `Wrapper exit code: ${exitCode}\n` +
                 `Reason: ${process.env.REASON || '(none)'}\n` +
@@ -719,7 +719,7 @@ jobs:
                 `\n\`\`\`\n${tail}\n\`\`\``;
             } else {
               body =
-                `❌ **operator-action \`${process.env.ACTION || '(unresolved)'}\` failed.**\n` +
+                `❌ **system-action \`${process.env.ACTION || '(unresolved)'}\` failed.**\n` +
                 `Run: ${runUrl}\n` +
                 `Wrapper exit code: ${exitCode || '(set up failed before exec)'}\n` +
                 `Reason: ${process.env.REASON || '(none)'}\n\n` +

@@ -73,7 +73,7 @@ This doc separates "permissions" into five tiers. The split exists because the s
 
 ## Tier 3 — VM operator
 
-**Identity:** anyone who can SSH to `158.178.210.252` as `ubuntu`. In practice: the human operator and the issue-driven `operator-actions.yml` workflow (and Claude, indirectly, through that workflow).
+**Identity:** anyone who can SSH to `158.178.210.252` as `ubuntu`. In practice: the human operator and the issue-driven `system-actions.yml` workflow (and Claude, indirectly, through that workflow).
 
 **Authority on the live VM:**
 - `mount` / `umount /data/bot-data`.
@@ -90,7 +90,7 @@ This doc separates "permissions" into five tiers. The split exists because the s
 
 **Why it's separate:** the things this tier *can* do (mount, restart) are recoverable: if it goes wrong, you `umount` and `systemctl restart` and you're back. The things it *can't* do (touch risk caps, edit unit files) have ongoing consequences that survive a reboot.
 
-**Recommendation:** keep installation of the data-dir drop-in as a **manual operator step**. Don't try to automate it via `operator-actions.yml`. The action is rare (once per VM) and the consequences of getting it wrong (trader silently writes to the wrong filesystem) outweigh the convenience.
+**Recommendation:** keep installation of the data-dir drop-in as a **manual operator step**. Don't try to automate it via `system-actions.yml`. The action is rare (once per VM) and the consequences of getting it wrong (trader silently writes to the wrong filesystem) outweigh the convenience.
 
 ## Tier 4 — Application runtime
 

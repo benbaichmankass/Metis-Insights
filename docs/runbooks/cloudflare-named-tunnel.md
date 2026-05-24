@@ -44,8 +44,8 @@ you don't own a CF-managed domain.
 Open an issue on `benbaichmankass/ict-trading-bot`:
 
 ```
-Title: [operator-action] setup-named-cloudflare-tunnel
-Labels: operator-action
+Title: [system-action] setup-named-cloudflare-tunnel
+Labels: system-action
 Body:
   action: setup-named-cloudflare-tunnel
   reason: T1 reconstruction — replace ephemeral quick tunnel with stable hostname
@@ -107,8 +107,8 @@ After **one** full healthy cycle on the named tunnel (at least 24 h with
 the dashboard live), tear down the quick-tunnel residue:
 
 ```
-Title: [operator-action] teardown-cloudflare-tunnel
-Labels: operator-action
+Title: [system-action] teardown-cloudflare-tunnel
+Labels: system-action
 Body:
   action: teardown-cloudflare-tunnel
   reason: named tunnel verified live for 24h; quick tunnel no longer needed

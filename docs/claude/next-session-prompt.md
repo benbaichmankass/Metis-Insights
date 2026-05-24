@@ -46,7 +46,7 @@ Actions required:
    git-sync timer push, or env override around that window.
    Pull journalctl: `[diag-request] journalctl?unit=ict-trader-live.service&lines=200&since=2026-05-14T05:30:00Z&until=2026-05-14T06:15:00Z`
 4. Return bybit_2 to dry_run mode. Use the sanctioned wire:
-   operator-action issue with:
+   system-action issue with:
      action: set-account-mode
      account: bybit_2
      mode: dry_run
@@ -74,7 +74,7 @@ Actions required:
    statements in the codebase.
 3. Write and apply a migration to add the `signal_type` column
    (or fix the query if the column was removed intentionally).
-4. Deploy via operator-action pull-and-deploy after merging.
+4. Deploy via system-action pull-and-deploy after merging.
 
 ──────────────────────────────────────────────────────────────
 DIAG HOW-TO (updated — read before using vm-diag-snapshot)
@@ -98,5 +98,5 @@ Operator-actions issue body format (Tier-2 requires reason):
 
 Full docs:
   docs/claude/diag-relay.md
-  docs/claude/operator-actions.md
+  docs/claude/system-actions.md
   docs/claude/debug-memory.md § "Session 2026-05-14"

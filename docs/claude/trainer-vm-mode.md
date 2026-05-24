@@ -165,8 +165,8 @@ The trainer's autonomous authority **does not** extend to:
 - **Live VM service control.** `restart-bot-service`, `reboot-vm`,
   any systemctl action against `ict-trader-live.service` /
   `ict-web-api.service` — those route through
-  `operator-actions.yml` and the Tier-2 ack contract in
-  [`docs/claude/operator-actions.md`](operator-actions.md). The
+  `system-actions.yml` and the Tier-2 ack contract in
+  [`docs/claude/system-actions.md`](system-actions.md). The
   trainer charter doesn't override that.
 - **Master secrets.** `config/master-secrets.template.yaml` is a
   template only; populated secrets live outside the repo and
@@ -196,7 +196,7 @@ operator-approved gate where autonomy ends.
 | Promote `shadow → advisory` | Operator-approved (Claude proposes via PR + sprint-log entry) | **This is the live-trading switch.** `advisory` and higher stages can influence the order package. Sprint-log entry mandatory (§ 3.b). |
 | Promote `advisory → limited_live → live_approved` | Operator-approved (same flow) | Further along the live-influence ladder. |
 | (Optional) Pin or opt-out via `shadow_model_ids` in a strategy YAML | Operator (live VM) | Override the auto-wire default for a specific strategy. PR proposing the edit is fine; merging it requires operator approval per § 4. |
-| Reload the live `Coordinator` to pick up registry or YAML changes | Operator (Telegram `/vm_write` or `operator-actions.yml` `restart-bot-service` / `pull-and-deploy`) | Live-VM action, Tier 2. |
+| Reload the live `Coordinator` to pick up registry or YAML changes | Operator (Telegram `/vm_write` or `system-actions.yml` `restart-bot-service` / `pull-and-deploy`) | Live-VM action, Tier 2. |
 
 The boundary is the stage, not the YAML. A `shadow` model
 auto-wires onto every strategy with no manual YAML edit; a model
@@ -243,7 +243,7 @@ operator. Examples that look trainer-side but aren't:
   operator review.
 - Modifying `.github/workflows/*` that the live VM consumes
   (`vm-diag-snapshot.yml`, `vm-web-api-recover.yml`,
-  `operator-actions.yml`) — those are live-VM trust surface even
+  `system-actions.yml`) — those are live-VM trust surface even
   though they live in the bot repo.
 
 When in doubt: open a PR, mark it draft, leave a comment naming
@@ -371,7 +371,7 @@ instance, so the venv was missing).
 ## 8. Related docs
 
 - [`vm-operator-mode.md`](vm-operator-mode.md) — live VM trust contract (the restrictive counterpart).
-- [`operator-actions.md`](operator-actions.md) — narrow mutating bridge for live-VM actions from PM-side sessions.
+- [`system-actions.md`](system-actions.md) — narrow mutating bridge for live-VM actions from PM-side sessions.
 - [`docs/sprint-plans/ai-traders/ws9-runtime-split.md`](../sprint-plans/ai-traders/ws9-runtime-split.md) — the policy of record for the two-VM split.
 - [`docs/runbooks/training-vm.md`](../runbooks/training-vm.md) — provisioning + bootstrap runbook for the trainer.
 - [`docs/runbooks/trainer-backtest.md`](../runbooks/trainer-backtest.md) — backtest sweep orchestrator + per-step infrastructure (S-TRAINER-BT-1).

@@ -1,8 +1,8 @@
-"""Tests for the operator-actions GitHub workflow + wrapper scripts.
+"""Tests for the system-actions GitHub workflow + wrapper scripts.
 
 These tests are static — they parse YAML and read shell scripts; they
 do NOT execute the workflow or SSH anywhere. They guard the contract
-documented in `docs/claude/operator-actions.md`:
+documented in `docs/claude/system-actions.md`:
 
 * The action allowlist is a single source of truth across the
   workflow, the wrappers, and the doc.
@@ -11,7 +11,7 @@ documented in `docs/claude/operator-actions.md`:
   `set -euo pipefail`, and sources `_lib.sh`.
 
 Note on the exec bit: wrappers are invoked via `bash <path>` from
-`operator-actions.yml` (see REMOTE_CMD in the Execute step), so the
+`system-actions.yml` (see REMOTE_CMD in the Execute step), so the
 +x bit on disk is not load-bearing for the workflow path. Older
 wrappers were committed exec; newer ones added through the GitHub
 Contents API land as 100644. We don't enforce +x in tests for that
@@ -34,15 +34,15 @@ except ImportError:  # pragma: no cover
     yaml = None
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-WORKFLOW = REPO_ROOT / ".github" / "workflows" / "operator-actions.yml"
+WORKFLOW = REPO_ROOT / ".github" / "workflows" / "system-actions.yml"
 OPS_DIR = REPO_ROOT / "scripts" / "ops"
-DOC = REPO_ROOT / "docs" / "claude" / "operator-actions.md"
+DOC = REPO_ROOT / "docs" / "claude" / "system-actions.md"
 
 # Single source of truth for the allowlist as expected by every layer.
-# Single source of truth for the operator-action allowlist. Must stay in
-# lockstep with .github/workflows/operator-actions.yml (the `action` choice
+# Single source of truth for the system-action allowlist. Must stay in
+# lockstep with .github/workflows/system-actions.yml (the `action` choice
 # options, the Tier classification case, and the SCRIPT-name case) and with
-# docs/claude/operator-actions.md. The guard tests below assert all three
+# docs/claude/system-actions.md. The guard tests below assert all three
 # agree. Previously this map listed only 14 of the live actions while the
 # workflow had grown to 30; the drift went unnoticed because CI runs
 # pytest-collect (import only), not the test bodies.
@@ -141,14 +141,14 @@ def test_only_two_dispatch_paths(workflow_dict: dict) -> None:
     on = workflow_dict["on"]
     assert isinstance(on, dict)
     assert set(on.keys()) == {"workflow_dispatch", "issues"}, (
-        f"operator-actions allows exactly workflow_dispatch + issues; "
+        f"system-actions allows exactly workflow_dispatch + issues; "
         f"got triggers: {list(on)}"
     )
 
 
 def test_issues_trigger_is_opened_or_labeled(workflow_dict: dict) -> None:
     # The workflow fires on issue `opened` (body carries `action:`) and
-    # `labeled` (operator adds the `operator-action` label to an existing
+    # `labeled` (operator adds the `system-action` label to an existing
     # issue). Both are gated by the label check in the job-level `if:`
     # (see test_issue_dispatch_is_label_filtered). No other issue event
     # (edited/closed/…) may trigger a dispatch.
@@ -163,10 +163,10 @@ def test_issue_dispatch_is_label_filtered() -> None:
     raw = WORKFLOW.read_text()
     assert (
         "github.event_name == 'issues'" in raw
-        and "contains(github.event.issue.labels.*.name, 'operator-action')" in raw
+        and "contains(github.event.issue.labels.*.name, 'system-action')" in raw
     ), (
-        "operator-actions.yml must gate issue-driven dispatch behind "
-        "the label `operator-action`. Update bootstrap-labels.yml + the "
+        "system-actions.yml must gate issue-driven dispatch behind "
+        "the label `system-action`. Update bootstrap-labels.yml + the "
         "job-level `if:` if you intend to change this."
     )
 
@@ -194,7 +194,7 @@ def test_action_input_is_choice_with_full_allowlist(workflow_dict: dict) -> None
     assert action.get("type") == "choice"
     assert set(action.get("options", [])) == set(EXPECTED_ACTIONS), (
         "Workflow `action` choice options drift from EXPECTED_ACTIONS — "
-        "update both the workflow and docs/claude/operator-actions.md."
+        "update both the workflow and docs/claude/system-actions.md."
     )
 
 
@@ -208,7 +208,7 @@ def test_no_freeform_command_input(workflow_dict: dict) -> None:
 def test_no_freeform_command_input_regex_fallback() -> None:
     text = WORKFLOW.read_text()
     assert not re.search(r"^\s+command:\s*$", text, re.MULTILINE), (
-        "Found a `command:` input — operator-actions allows no freeform shell."
+        "Found a `command:` input — system-actions allows no freeform shell."
     )
 
 
@@ -279,7 +279,7 @@ def test_wrapper_parses_with_bash_n(script: str) -> None:
 def test_doc_lists_every_action(action: str) -> None:
     text = DOC.read_text()
     assert action in text, (
-        f"docs/claude/operator-actions.md must mention every action in the "
+        f"docs/claude/system-actions.md must mention every action in the "
         f"allowlist; '{action}' is missing."
     )
 
@@ -292,7 +292,7 @@ def test_doc_calls_out_docker_omission() -> None:
 def test_doc_includes_dispatcher_trust_contract() -> None:
     text = DOC.read_text()
     assert "Dispatcher trust contract" in text, (
-        "operator-actions.md must keep § 3.5 'Dispatcher trust contract'."
+        "system-actions.md must keep § 3.5 'Dispatcher trust contract'."
     )
     for dispatcher in ("Operator", "Perplexity", "PM-side Claude"):
         assert dispatcher in text, (
@@ -303,7 +303,7 @@ def test_doc_includes_dispatcher_trust_contract() -> None:
 def test_doc_includes_transparency_rule() -> None:
     text = DOC.read_text()
     assert "Transparency rule" in text, (
-        "operator-actions.md must keep § 5.5 'Transparency rule (always-notify)'."
+        "system-actions.md must keep § 5.5 'Transparency rule (always-notify)'."
     )
     collapsed = re.sub(r"\s+", " ", text.lower())
     assert "autonomy is complemented by full transparency" in collapsed, (
@@ -340,8 +340,8 @@ def test_notify_run_handles_every_allowlisted_action() -> None:
 def test_workflow_invokes_notify_step() -> None:
     text = WORKFLOW.read_text()
     assert "Notify operator via Claude bot channel" in text, (
-        "operator-actions.yml must include the transparency-rule "
-        "notify step (see docs/claude/operator-actions.md § 5.5)."
+        "system-actions.yml must include the transparency-rule "
+        "notify step (see docs/claude/system-actions.md § 5.5)."
     )
     assert "notify_run.sh" in text, (
         "Notify step must invoke scripts/ops/notify_run.sh."

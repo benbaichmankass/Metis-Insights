@@ -96,7 +96,7 @@ protection wiring is in § "Branch protection wiring" below.
   just collection. This is the companion to `pytest-collect`: collection
   only verifies imports, so a broken assertion / drifted guard / logic
   regression passes `pytest-collect` as long as the module imports. Three
-  such regressions shipped green in this repo (the 14/30 operator-action
+  such regressions shipped green in this repo (the 14/30 system-action
   allowlist drift, the dead `_RUNTIME_LOGS` fixture, the shadow-wiring
   gap) precisely because no job ran the test bodies.
 - **Why advisory at first, now blocking.** The suite had never executed

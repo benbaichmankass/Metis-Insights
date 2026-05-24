@@ -287,24 +287,24 @@ The operator is non-technical. The VM is a free-tier Oracle box. Therefore:
 
 - Never ship a markdown CLI checklist when a notebook is appropriate.
 
-### 7.1 PM-side dispatch — the operator-actions workflow
+### 7.1 PM-side dispatch — the system-actions workflow
 
 A small, allowlisted set of mutating VM actions is also reachable
 from PM-side / web-sandbox sessions via
-`.github/workflows/operator-actions.yml`. The full per-action
+`.github/workflows/system-actions.yml`. The full per-action
 contract, tier mapping, audit trail, and reboot doctrine live in
-`docs/claude/operator-actions.md`. Short version:
+`docs/claude/system-actions.md`. Short version:
 
 - **Tier 1 (autonomous):** `status-check`, `pull-latest-logs`.
 - **Tier 2 (PM-side Claude pings operator first):**
   `restart-bot-service`, `reboot-vm`. Use the ping format in
-  `docs/claude/operator-actions.md` § 7. Other dispatchers
+  `docs/claude/system-actions.md` § 7. Other dispatchers
   (operator, Perplexity) are autonomous on Tier-2 per the
-  dispatcher trust contract in `docs/claude/operator-actions.md`
+  dispatcher trust contract in `docs/claude/system-actions.md`
   § 3.5.
-- **Transparency rule (always-notify):** every operator-actions
+- **Transparency rule (always-notify):** every system-actions
   run notifies the operator regardless of dispatcher or tier. See
-  `docs/claude/operator-actions.md` § 5.5. Autonomy is not
+  `docs/claude/system-actions.md` § 5.5. Autonomy is not
   silence.
 - **Reboot is last resort.** Always try `status-check` →
   `restart-bot-service` first; escalate only when lower-blast-radius

@@ -65,11 +65,11 @@ jobs:
                 description: 'Triggers vm-ib-gateway-recover — autonomous ib-gateway container restart (IBKR error 162).',
               },
               {
-                name: 'operator-action',
+                name: 'system-action',
                 color: 'd93f0b',
                 // GitHub caps label descriptions at 100 chars — keep this short or
                 // the createLabel call returns 422 and the whole step fails.
-                description: 'Issue-driven dispatch for operator-actions.yml allowlist (action: <name>, reason: <text>).',
+                description: 'Issue-driven dispatch for system-actions.yml allowlist (action: <name>, reason: <text>).',
               },
               {
                 name: 'vm-cloud-fix-request',
