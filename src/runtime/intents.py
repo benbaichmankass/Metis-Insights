@@ -115,6 +115,11 @@ DEFAULT_PRIORITIES: Dict[str, int] = {
     # safety floor so a wiring slip can't let it override turtle_soup /
     # vwap / ict_scalp on any account that runs more than one strategy.
     "trend_donchian": 20,
+    # fade_breakout_4h — the floor of the roster (S9, 2026-05-24). Wired
+    # execution:shadow (data-only, never sends a live order), so its
+    # priority never arbitrates a real order; the lowest value is the
+    # safety floor for the unproven strategy.
+    "fade_breakout_4h": 10,
 }
 
 # Priority used when a strategy is not listed in DEFAULT_PRIORITIES and
