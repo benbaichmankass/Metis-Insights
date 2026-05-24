@@ -29,11 +29,15 @@ def test_registry_roster_is_exactly_turtle_soup_and_vwap():
       * ict_scalp_5m went live 2026-05-14 (PR #1156, operator-approved).
       * trend_donchian went live on bybit_2 2026-05-23 (S-STRAT-IMPROVE-S8,
         operator-approved; docs/sprint-plans/TREND-GOLIVE-PLAN-2026-05-23.md).
-    Roster is now turtle_soup + vwap + ict_scalp_5m + trend_donchian.
+      * fade_breakout_4h registered 2026-05-24 (S9) as an execution: shadow
+        data-collector (NOT live; never sends a live order).
+    Roster: turtle_soup + vwap + ict_scalp_5m + trend_donchian + fade_breakout_4h.
     """
     from src.strategy_registry import load_strategies
     names = sorted(s["name"] for s in load_strategies())
-    assert names == ["ict_scalp_5m", "trend_donchian", "turtle_soup", "vwap"]
+    assert names == [
+        "fade_breakout_4h", "ict_scalp_5m", "trend_donchian", "turtle_soup", "vwap",
+    ]
 
 
 def test_registry_fallback_loader_returns_new_roster(monkeypatch):
