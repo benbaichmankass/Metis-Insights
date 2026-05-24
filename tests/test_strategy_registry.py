@@ -164,13 +164,13 @@ def test_real_yaml_loads():
     # Bumped from 2 → 3 by the ict_scalp_5m landing; turn-on for live
     # is gated by the `enabled` flag in the YAML, not by the registry
     # row count.
-    assert len(strategies) == 3
+    assert len(strategies) == 4
 
 
 def test_real_yaml_has_required_strategies():
     strategies = reg.load_strategies(_REAL_YAML)
     names = {s["name"] for s in strategies}
-    assert names == {"turtle_soup", "vwap", "ict_scalp_5m"}
+    assert names == {"turtle_soup", "vwap", "ict_scalp_5m", "trend_donchian"}
 
 
 def test_real_yaml_vwap_no_model():
