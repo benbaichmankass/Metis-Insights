@@ -10,7 +10,19 @@ S-MSE-1 / Phase 2) is fully strategy-agnostic. Adding a new strategy
 is a wiring exercise: implement the signal logic in one place, then
 register the strategy's name at five thin touch points so the
 multiplexer, the dispatcher, the risk gate, and the audit log all
-see it as a peer of Turtle Soup, VWAP, and ICT scalp.
+see it as a peer of the current roster (turtle_soup, vwap,
+ict_scalp_5m, trend_donchian, fade_breakout_4h; squeeze_breakout_4h
+pending merge).
+
+**S9 shadow-first path (2026-05-24).** Since the per-strategy
+`execution: live|shadow` gate landed, a brand-new strategy ships
+`enabled: true` + `execution: shadow` — it RUNS and LOGS its order
+packages on every tick (live data collection) but never sends a live
+order. This supersedes the older `enabled: false` "inert until the
+operator flips it" pattern: shadow lets the strategy prove itself on
+live data at zero risk, then graduates `shadow → live`. See "The
+execution gate" below; `fade_breakout_4h` / `squeeze_breakout_4h` are
+the worked examples.
 
 If you find yourself editing `src/runtime/intents.py::aggregate_intents`,
 `compute_execution_delta`, or `src/core/coordinator.py::multi_account_execute`
@@ -29,14 +41,47 @@ than the aggregator.
   entry, how SL/TP are computed. If unclear, ask before coding.
 - **Risk fraction** — multiplier on the account's `risk_pct`. Typical
   range 0.2 – 1.0; lower for scalps, higher for high-conviction setups.
-- **Priority for conflict resolution** — integer; the existing roster
-  uses turtle_soup=50, vwap=40, ict_scalp_5m=30. Higher wins ties.
-- **Which accounts route this strategy** — for Bybit2 (the funded
-  live linear-perp account), add the name to `bybit_2.strategies` in
-  `config/accounts.yaml`. For dry-run-only smoke, add to `bybit_1` or
-  leave off the list and use `STRATEGY=<name>` env override.
+- **Priority for conflict resolution** — integer; the current roster
+  uses turtle_soup=50, vwap=40, ict_scalp_5m=30, trend_donchian=20,
+  fade_breakout_4h=10 (squeeze_breakout_4h=5, pending merge). Higher
+  wins ties. Pick a deliberately low value for an untested strategy so
+  a wiring slip can't let it override an established member.
+- **Execution mode** — `live` or `shadow` (S9 per-strategy gate). A
+  new, unvalidated strategy ships `execution: shadow`. See "The
+  execution gate" below.
+- **Which accounts route this strategy** — a `shadow` strategy goes to
+  **bybit_1 (demo) first** for shadow data collection. Only a proven
+  `execution: live` strategy is added to `bybit_2.strategies` (the
+  funded live linear-perp account); that is the live activation and is
+  operator-gated.
 
 If any of these are missing, **ask first**. Do not invent values.
+
+## The execution gate (`execution: live | shadow`) — S9
+
+Two declared, default-permissive execution gates govern whether an
+enabled strategy actually trades (see CLAUDE.md § Prime Directive):
+
+- **Per-account** — `config/accounts.yaml::mode: live | dry_run`
+  (operator-controlled via `set-account-mode`).
+- **Per-strategy** — `config/strategies.yaml::execution: live | shadow`.
+  `live` (default) = eligible to execute on accounts that route it.
+  `shadow` = runs + LOGS order packages everywhere (data collection)
+  but never sends a live order (treated as dry on every account).
+
+The strategy itself stays a pure signal generator and knows nothing
+about the gate — `execution: shadow` is enforced in
+`Coordinator.multi_account_execute`, folded into the same
+`effective_dry` resolution as `mode:` (it reuses the dry-run
+short-circuit; no new order path). The gate **fails OPEN on a
+registry-read error** (treats the strategy as shadow / dry), which is
+why a shadow strategy's safe home is **bybit_1 (demo)**.
+
+**Lifecycle of a new strategy:** ship `enabled: true` + `execution:
+shadow` → route to bybit_1 (demo) → let live shadow data confirm the
+backtest (days–weeks) → promote `shadow → live` (Tier-3, operator-
+approved) → add to `bybit_2.strategies`. This is the path `trend_donchian`
+took (now `live` on bybit_2) and `fade_breakout_4h` is on now (`shadow`).
 
 ## Touch points (canonical wiring)
 
@@ -162,10 +207,12 @@ b) **`src/runtime/intents.py::DEFAULT_PRIORITIES`** — add the
 
 ```python
 DEFAULT_PRIORITIES: Dict[str, int] = {
-    "turtle_soup":  50,
-    "vwap":         40,
-    "ict_scalp_5m": 30,
-    "<name>":       <priority>,
+    "turtle_soup":      50,
+    "vwap":             40,
+    "ict_scalp_5m":     30,
+    "trend_donchian":   20,
+    "fade_breakout_4h": 10,
+    "<name>":           <priority>,
 }
 ```
 
@@ -187,17 +234,31 @@ Add a `<name>:` block following the existing pattern:
 <name>:
   model: null
   signal_prefixes: [<token-that-prefixes-the-DB-signal_type>]
-  enabled: false              # off by default; operator flips after backtest
-  risk_pct: <fraction>        # matches STRATEGY_RISK_PCT entry
+  enabled: true               # S9 shadow-first: ship enabled so the
+                              # strategy RUNS and collects live data…
+  execution: shadow           # …but data-only — logs order packages
+                              # everywhere, never sends a live order.
+                              # Promote to `live` after shadow proves it.
+  risk_pct: <fraction>        # matches STRATEGY_RISK_PCT entry (moot
+                              # while execution: shadow)
   timeframe: "5m"             # primary timeframe
   symbols:
     - BTCUSDT                 # currently the only supported symbol
   # ... strategy-specific parameters ...
-  shadow_model_ids: []        # WS7 — empty until an approved model lands
+  shadow_model_ids: []        # keep a fresh data-collector's signal log
+                              # clean of ML predictions until it has a
+                              # track record
 ```
 
-`enabled: false` is mandatory until the strategy has a passing
-backtest. The runtime builder must honour the flag (see step 2).
+**S9 path:** ship `enabled: true` + `execution: shadow`. The strategy
+runs and logs on live ticks immediately but never risks money; you
+promote `shadow → live` only after the live shadow data confirms the
+backtest. (The legacy `enabled: false` "fully inert" pattern is still
+valid if you want zero signals/logging, but shadow is preferred — it
+collects the comparison data that justifies the eventual go-live.) The
+runtime builder honours `enabled` as the single source of truth (see
+step 2); `execution` is read from the registry and enforced in the
+coordinator.
 
 This is a **Tier-3** file per CLAUDE.md — open the PR as draft, ping
 the operator. Never merge to main without explicit approval.
@@ -205,19 +266,34 @@ the operator. Never merge to main without explicit approval.
 ### 6. Account routing — `config/accounts.yaml` *(Tier-3, separate PR)*
 
 Add the strategy name to the relevant account's `strategies:` list.
-For Bybit2 (the funded live linear-perp account):
+
+**Shadow strategy (the S9 default for a new member) → bybit_1 (demo):**
+
+```yaml
+bybit_1:
+  strategies: [turtle_soup, vwap, ict_scalp_5m, fade_breakout_4h, <new>]
+```
+
+Routing a `execution: shadow` strategy to bybit_1 (demo) begins shadow
+data collection at zero risk — the gate keeps it data-only on every
+account, and demo is the safe home since the gate fails open on a
+registry-read error.
+
+**Live strategy (after shadow proves the edge) → bybit_2 (real money):**
 
 ```yaml
 bybit_2:
-  strategies: [vwap, ict_scalp_5m, <new>]
+  strategies: [trend_donchian, <proven-new>]
 ```
 
-This step **activates the strategy on the account**. Open as a
-separate draft PR from the wiring PR so the activation is a clearly
-distinguished commit the operator can revert with a single
-`pull-and-deploy` if anything misbehaves.
+Adding a `execution: live` strategy to bybit_2 is the **live
+activation**. Open as a separate draft PR from the wiring PR so the
+activation is a clearly distinguished commit the operator can revert
+with a single `pull-and-deploy` if anything misbehaves.
 
-Tier-3 file — same draft + operator-approval rule as step 5.
+Tier-3 file — same draft + operator-approval rule as step 5. Do not
+open the bybit_2 (live) routing PR until the operator has explicitly
+authorized live activation.
 
 ### 7. Tests — `tests/test_<name>.py` and the intent test files
 
@@ -249,18 +325,30 @@ pytest tests/test_multi_strategy_intents.py \
 
 100+ passing means the wiring is sound.
 
-### 8. Activation (after merge of the wiring PR)
+### 8. Activation — the shadow-first path (S9)
 
 1. Land the wiring PR (steps 1–4, 7).
-2. Land the strategies.yaml PR with `enabled: false` (step 5).
-3. Backtest the strategy (the M5 backtest consumer via
-   `/test <name>` Telegram command — see
-   `docs/runbooks/strategy-testing.md`).
-4. Flip `enabled: true` in strategies.yaml (separate draft PR).
-5. Add the strategy name to `bybit_2.strategies` in accounts.yaml
-   (step 6, separate draft PR).
-6. Fire `pull-and-deploy` once both Tier-3 PRs are merged. The
-   trader picks the new strategy up on the next tick.
+2. Land the strategies.yaml PR with `enabled: true` + `execution:
+   shadow` (step 5). A passing offline backtest + an audit doc under
+   `docs/audits/` should already justify this — you don't ship a new
+   signal even to shadow without evidence.
+3. Land the bybit_1 (demo) routing PR (step 6) and fire
+   `pull-and-deploy`. The strategy now RUNS + LOGS order packages on
+   live ticks (data collection) without risking money. Confirm
+   `<name>_eval` rows in the audit log and the coordinator logging
+   `execution:shadow … NOT executing`.
+4. Let the live shadow data mature (days–weeks); confirm the live
+   signals match the backtest.
+5. Promote `shadow → live`: flip `execution: live` in strategies.yaml
+   and add the strategy to `bybit_2.strategies` (separate draft Tier-3
+   PRs, operator-approved). Fire `pull-and-deploy`. The strategy now
+   trades real money on the next tick.
+
+(The legacy flow — ship `enabled: false`, backtest via `/test <name>`
+per `docs/runbooks/strategy-testing.md`, then flip `enabled: true` —
+still works for a strategy you want fully inert first. Prefer shadow:
+it gathers the live comparison data that makes the go-live decision
+evidence-based.)
 
 ## Files you should NOT need to edit
 
@@ -323,3 +411,28 @@ result at the time of this skill's introduction. The wiring itself
 is fully landed — the strategy will flow through the same
 intent → aggregator → delta → dispatch pipeline as Turtle Soup and
 VWAP the moment `enabled: true` and `bybit_2.strategies` are flipped.
+
+## Worked example — shadow-first (fade_breakout_4h, S9 PRs #1884 + #1885)
+
+Reference for the S9 `execution: shadow` data-collector path — what a
+new member looks like before it has earned real money:
+
+- Strategy module: `src/units/strategies/fade_breakout_4h.py` (+ the
+  shared Chandelier `monitor()`)
+- Signal builder: `fade_breakout_4h_signal_builder` in
+  `src/runtime/strategy_signal_builders.py`
+- Pipeline + intent registration: `_STRATEGY_BUILDERS` /
+  `STRATEGY_RISK_PCT` (pipeline), `_default_intent_builders`
+  (multiplexer), `DEFAULT_PRIORITIES` (`fade_breakout_4h: 10`)
+- Config: `config/strategies.yaml::fade_breakout_4h` block —
+  `enabled: true` / `execution: shadow` / `shadow_model_ids: []`
+- Routing: `bybit_1.strategies` (demo) — NOT bybit_2 (PR #1885)
+- Tests: `tests/test_fade_breakout_4h.py` + roster-pin bumps
+- Evidence: `docs/audits/fade-breakout-complement-2026-05-24.md`
+
+`squeeze_breakout_4h` (PRs #1907 + #1908) is the same flow,
+priority 5. Both are `shadow` data-collectors on bybit_1; neither
+sends a live order. Promotion to `execution: live` + `bybit_2` is a
+later Tier-3, operator-approved step once the live shadow data
+confirms the backtest — see the single-account decider design in
+`docs/sprint-plans/DECIDER-SINGLE-ACCOUNT-2026-05-24.md`.

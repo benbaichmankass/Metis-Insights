@@ -585,6 +585,11 @@ Map findings to the layer-2 dimensions (these differ from layer 1):
   silence was indistinguishable from "no signal." Fixed in PR
   that adds `vwap_eval`; if a future strategy is added without
   an audit emitter, this check is what catches it.
+  **Shadow strategies still run** — `execution: shadow` only
+  suppresses order *execution*, not evaluation, so a `shadow`
+  strategy is expected to emit `*_eval` events and this silence
+  check applies to it normally. (It just won't produce
+  orders/trades — see `strategy_attribution`.)
 - `db_integrity` — the diag relay can't run `PRAGMA integrity_check`
   (fixed-curl only, no `sqlite3`), so grade primarily from journal
   recency + counts via the pulls. If a `=== DB ===` block *was*
@@ -618,15 +623,25 @@ Map findings to the layer-2 dimensions (these differ from layer 1):
     count by more than rounding error (possible double-count / orphan).
 - `strategy_attribution` — derived from pull-3 closed trades grouped by
   `strategy_name`. Cross-check against `config/strategies.yaml` enabled list.
-  - `ok` — all enabled strategies have at least some closed trades in the
-    trailing 7-day window; win rates are plausible (5–95%); no strategy
-    showing 100% loss over ≥ 5 trades.
-  - `watch` — one strategy has zero closed trades in the last 7 days (may
-    just mean no signals fired); or win rate is at an extreme but sample is
-    small (< 5 trades). Note the strategy name.
-  - `concern` — a strategy has > 5 consecutive losses with no wins; or a
-    strategy in `strategies.yaml` as `enabled: true` has never produced a
-    trade row (wiring gap, not just silence).
+  **First read each strategy's `execution:` field (S9 per-strategy gate).**
+  A strategy with `execution: shadow` (currently `vwap`,
+  `fade_breakout_4h`; `squeeze_breakout_4h` once merged) RUNS and logs
+  `*_eval` events + order packages by design but **never produces a
+  trade row** — its absence from the trades table is correct, not a
+  wiring gap. Grade only `execution: live` strategies against the
+  trade-row expectations below; for a `shadow` strategy, confirm it
+  logs `*_eval` events (see `strategy_silence`) and grade `ok` with
+  note "execution: shadow — data-only, no trades expected".
+  - `ok` — all enabled `execution: live` strategies have at least some
+    closed trades in the trailing 7-day window; win rates are plausible
+    (5–95%); no strategy showing 100% loss over ≥ 5 trades.
+  - `watch` — one live strategy has zero closed trades in the last 7
+    days (may just mean no signals fired); or win rate is at an extreme
+    but sample is small (< 5 trades). Note the strategy name.
+  - `concern` — a live strategy has > 5 consecutive losses with no wins;
+    or a strategy with `execution: live` routed to a `mode: live`
+    account has never produced a trade row (wiring gap, not just
+    silence). A `shadow` strategy with no trades is **never** `concern`.
 - `advisory_scores` — grade from pull-5 (`log_file?name=advisory_decisions`):
   - `skip` — log absent (`present: false`); no advisory-stage models wired.
     This is the expected state for most installs (M11 S10 machinery is wired
