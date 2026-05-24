@@ -156,6 +156,69 @@ strategies:
     # signals. Set `shadow_model_ids: []` to opt out entirely or provide
     # an explicit list to pin specific models.
 
+  fade_breakout_4h:
+    # Failed-breakout fade (S-STRAT-IMPROVE-S9) — the MIRROR of
+    # trend_donchian: fades failed Donchian breakouts (a bar that pierces
+    # the prior-bar channel then closes back inside = a liquidity grab
+    # that rejected) in CHOP (ADX<20), with a Chandelier ATR trail. Same
+    # let-winners-run lever as the trend-follower. Strategy code:
+    # src/units/strategies/fade_breakout_4h.py; validated harness:
+    # scripts/backtest_fade.py.
+    #
+    # STATUS: execution: shadow (data-only, S9 operator-approved
+    # 2026-05-24). VALIDATED as an uncorrelated complement to the live
+    # trend-follower — but it runs SHADOW, never real money, pending more
+    # live proof. Evidence (docs/audits/fade-breakout-complement-
+    # 2026-05-24.md):
+    #   * +64.2R / 6yr (2020-2026), net-positive every year, max-DD 13.9R.
+    #   * Uncorrelated with live trend_donchian (monthly_corr 0.035); the
+    #     equal-weight blend lifts return/drawdown 1.97 -> 3.80 and nearly
+    #     halves max-DD — the diversification payoff (the North Star).
+    #   * Nested walk-forward: donchian-20 / trail-3.5 wins train (2020-23)
+    #     AND holds out-of-sample (2024-26 +16.2R, exp 0.246) without
+    #     peeking. Fee-robust (+39.8R even at 15bps, 2x the modelled 7.5).
+    #   * CAVEAT (why shadow, not live): OOS expectancy decays ~half vs
+    #     train and the OOS profit is month-concentrated (42% of OOS
+    #     months positive) — more fragile than the trend-follower.
+    #
+    # The runtime builder honours `enabled` as the single source of truth;
+    # `execution: shadow` is the per-strategy execution gate (data-only on
+    # every account; enforced in Coordinator.multi_account_execute), so
+    # routing it to an account collects shadow data WITHOUT risking money.
+    # Routed to bybit_1 (demo) only — see config/accounts.yaml.
+    model: null
+    signal_prefixes: [fade_breakout, fade]
+    enabled: true
+    execution: shadow        # S9 execution gate: data-only, never sends a
+                             # live order on any account. Promote to `live`
+                             # only after live shadow data proves the edge
+                             # (Tier-3 operator-approval path).
+    risk_pct: 0.3            # conservative; matches the STRATEGY_RISK_PCT
+                             # fallback. Moot while execution: shadow.
+    timeframe: "4h"          # served as Bybit 240m via CCXT.
+    symbols:
+      - BTCUSDT              # currently the only supported symbol
+                            # (SUPPORTED_SYMBOLS gate).
+    # Strategy-specific — the nested-walk-forward train-winner (donchian 20
+    # / trail 3.5 / ADX<20). trail_mult is the Chandelier distance; looser
+    # was consistently better across the plateau (let winners run). The
+    # initial stop sits atr_stop_buffer x ATR beyond the rejection wick.
+    donchian: 20
+    atr_period: 14
+    atr_stop_buffer: 0.5
+    pierce_min: 0.0
+    trail_mult: 3.5
+    adx_max: 20.0
+    adx_period: 14
+    # No fixed profit target — the Chandelier trail is the sole profit-exit
+    # (matches the backtest). `tp` is a far ~50R sentinel that still
+    # satisfies the pipeline's full-SL/TP dispatch gate.
+    tp_r: 50.0
+    # shadow_model_ids: [] — opt out of ML shadow-prediction auto-wiring on
+    # this strategy for now (it is itself a shadow data-collector; keep its
+    # signal log clean of model predictions until it has a track record).
+    shadow_model_ids: []
+
   vwap:
     model: null
     signal_prefixes: [vwap]

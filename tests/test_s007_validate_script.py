@@ -138,8 +138,11 @@ def test_run_checks_strategies_match_roster():
     """Registry must match the current production roster in config/strategies.yaml."""
     from src.strategy_registry import load_strategies
     names = {s["name"] for s in load_strategies()}
-    # ict_scalp_5m was added to the active roster after S-012 PR B1.
-    assert names == {"turtle_soup", "vwap", "ict_scalp_5m", "trend_donchian"}
+    # ict_scalp_5m added after S-012 PR B1; trend_donchian at S8 go-live;
+    # fade_breakout_4h at S9 (2026-05-24, execution: shadow data-collector).
+    assert names == {
+        "turtle_soup", "vwap", "ict_scalp_5m", "trend_donchian", "fade_breakout_4h",
+    }
 
 
 # ---------------------------------------------------------------------------
