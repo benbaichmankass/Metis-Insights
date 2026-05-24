@@ -219,6 +219,46 @@ strategies:
     # signal log clean of model predictions until it has a track record).
     shadow_model_ids: []
 
+  squeeze_breakout_4h:
+    # Volatility-squeeze breakout (S-STRAT-IMPROVE-S9) — Bollinger-in-Keltner
+    # compression -> expansion; a different ENTRY TRIGGER than the
+    # price-channel strategies. The best member-#3 candidate found:
+    # uncorrelated (monthly_corr 0.30) with the live 2h trend, robust plateau
+    # (net-positive in train AND OOS across the param grid). Strategy code:
+    # src/units/strategies/squeeze_breakout_4h.py; harness:
+    # scripts/backtest_squeeze.py.
+    #
+    # STATUS: execution: shadow (data-only, S9 2026-05-24). VALIDATED but run
+    # SHADOW, never real money, pending live proof. Caveat: OOS returns are
+    # month-concentrated — shadow data tests whether it holds. Evidence:
+    # docs/audits/squeeze-breakout-complement-2026-05-24.md.
+    #
+    # `execution: shadow` = data-only on every account (enforced in
+    # Coordinator.multi_account_execute). Routed to bybit_1 (demo) only.
+    model: null
+    signal_prefixes: [squeeze_breakout, squeeze]
+    enabled: true
+    execution: shadow        # S9 gate: data-only, never sends a live order.
+                             # Promote to `live` + own account only after live
+                             # shadow proof (Tier-3 operator-approval path).
+    risk_pct: 0.3            # moot while execution: shadow.
+    timeframe: "4h"          # served as Bybit 240m via CCXT.
+    symbols:
+      - BTCUSDT
+    # Validated config (4h, BB(20,2.0) / KC(1.0xATR)). kc_mult 1.0 is the
+    # most-diversifying corner (corr 0.30); trail 3.5 is the Chandelier
+    # distance (let-winners-run lever).
+    bb_period: 20
+    bb_std: 2.0
+    kc_mult: 1.0
+    atr_period: 14
+    atr_stop_mult: 2.5
+    trail_mult: 3.5
+    # No fixed TP — the Chandelier trail is the sole profit-exit; tp_r is a
+    # far ~50R sentinel satisfying the pipeline's SL/TP dispatch gate.
+    tp_r: 50.0
+    shadow_model_ids: []     # opt out of ML shadow-prediction auto-wiring.
+
   vwap:
     model: null
     signal_prefixes: [vwap]

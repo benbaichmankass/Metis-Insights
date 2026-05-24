@@ -11,6 +11,7 @@ from src.news.news_pipeline import get_news_score
 # Re-exported here for back-compat (existing callers + tests import from pipeline).
 from src.runtime.strategy_signal_builders import (  # noqa: E402
     fade_breakout_4h_signal_builder,
+    squeeze_breakout_4h_signal_builder,
     ict_scalp_signal_builder,
     trend_donchian_signal_builder,
     turtle_soup_signal_builder,
@@ -181,7 +182,7 @@ def _strategy_risk_pcts_from_registry() -> Dict[str, float]:
         )
         return {
             "turtle_soup": 0.5, "vwap": 1.0, "ict_scalp_5m": 0.3,
-            "trend_donchian": 0.3, "fade_breakout_4h": 0.3,
+            "trend_donchian": 0.3, "fade_breakout_4h": 0.3, "squeeze_breakout_4h": 0.3,
         }
 
 
@@ -207,6 +208,10 @@ _STRATEGY_BUILDERS: Dict[str, Callable[[dict], Dict[str, Any]]] = {
     # logs on real ticks for data collection, never sends a live order.
     # Builder honours the YAML `enabled` flag.
     "fade_breakout_4h": fade_breakout_4h_signal_builder,
+    # squeeze_breakout_4h — volatility-squeeze breakout, the validated
+    # member-#3 candidate. Wired execution:shadow (S9, 2026-05-24) for
+    # live data collection; never sends a live order. Honours `enabled`.
+    "squeeze_breakout_4h": squeeze_breakout_4h_signal_builder,
 }
 
 

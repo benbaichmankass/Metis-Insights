@@ -165,7 +165,7 @@ def test_real_yaml_loads():
     # (S-STRAT-IMPROVE-S8, 2026-05-23), then 4 → 5 by the fade_breakout_4h
     # shadow wiring (S9, 2026-05-24). Live turn-on is gated by each
     # strategy's `enabled` / `execution` flags in the YAML, not the row count.
-    assert len(strategies) == 5
+    assert len(strategies) == 6
 
 
 def test_real_yaml_has_required_strategies():
@@ -173,6 +173,7 @@ def test_real_yaml_has_required_strategies():
     names = {s["name"] for s in strategies}
     assert names == {
         "turtle_soup", "vwap", "ict_scalp_5m", "trend_donchian", "fade_breakout_4h",
+        "squeeze_breakout_4h",
     }
 
 
