@@ -49,5 +49,4 @@ Remove stale instructions when they waste context.
 - `diag-relay.md`: how a PM-side / web-sandbox session fetches `/api/diag/*` data via the `vm-diag-snapshot` GitHub Actions relay (open a labelled issue → workflow comments JSON back → close). Read this before debugging VM-side state from a sandbox. The session-capabilities matrix that explains *why* the relay exists is in the root `CLAUDE.md` § "PM-side session capabilities".
 - `git-workflow.md`: branch, commit, push rules.
 - `security-secrets.md`: credential rules.
-- `google-drive-master-secrets.md`: SOPS-encrypted master secrets workflow — fill, encrypt, render lean .env files.
 - `ui-processor-audit.md`: which Telegram bot handlers read DB / env / Coordinator directly and which need a `src/ui/processor.py` API before a webapp UI can be added without forking logic. Per-handler migration order in § 5.

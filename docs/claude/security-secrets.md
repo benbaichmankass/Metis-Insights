@@ -75,9 +75,12 @@ These lines appear in stdout and any log aggregator attached to the process.
 
 **Never log:** `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `BYBIT_API_KEY`, `BYBIT_API_SECRET`.
 
-## Current known issue
+## Resolved finding (closed)
 
-The setup audit found committed Telegram and Bybit testnet credentials. Rotate them before pushing further changes.
+The setup audit once flagged committed Telegram + Bybit **testnet** credentials.
+Those were rotated and the finding is closed (S-017). There is no standing
+known leak: the `secret-scan` CI guard is a required check on `main` and blocks
+any committed secret, so this is enforced going forward, not a manual reminder.
 
 ---
 
