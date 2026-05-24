@@ -147,9 +147,23 @@ accounts:
     market_type: linear                # PR 3 — Bybit V5 USDT-margined
                                        # linear perpetuals. Was
                                        # spot-margin pre-cutover.
-    strategies: [trend_donchian]       # S8 go-live: trend-follower replaces
-                                       # vwap on real money (see header).
-    symbols: [BTCUSDT]                  # trend_donchian on BTCUSDT (bybit perps)
+    strategies: [trend_donchian, turtle_soup, ict_scalp_5m, vwap]
+                                       # S9 (operator-approved 2026-05-24):
+                                       # bybit_2 runs "everything except vwap"
+                                       # LIVE — trend_donchian + turtle_soup +
+                                       # ict_scalp_5m execute on real money;
+                                       # vwap is data-only here via the
+                                       # per-strategy gate (strategies.yaml
+                                       # `execution: shadow`), so it LOGS order
+                                       # packages on real money for comparison
+                                       # but never sends a live order. REQUIRES
+                                       # the execution-gate PR (#1862) deployed
+                                       # FIRST — without it, vwap would execute
+                                       # ungated on real money. NOTE: turtle_soup
+                                       # (net-negative) + ict_scalp (≈breakeven)
+                                       # are operator-chosen for real money
+                                       # despite weak backtests.
+    symbols: [BTCUSDT]                  # all on BTCUSDT (bybit perps)
     risk:
       max_dd_pct: 0.05
       daily_usd: 100
