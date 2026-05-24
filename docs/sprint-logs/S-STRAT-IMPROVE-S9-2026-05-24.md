@@ -63,6 +63,9 @@ models-in-the-loop test, and the MES/cross-asset data + research.
    diversification already validated; only execution waits.
 
 ## Reconciliation status (skills / training / docs — to verify before go-live)
+**Update: all four items below were APPLIED in PR #1915 (this close-out).**
+The notes are preserved as the record of what was flagged; the fixes
+shipped in the same PR.
 - **new-strategy skill** (`.claude/skills/new-strategy`): broadly current
   (used it for fade + squeeze) but predates the `execution: shadow` gate
   and the single-account decider framing — its activation steps say
@@ -91,6 +94,6 @@ models-in-the-loop test, and the MES/cross-asset data + research.
   selection in `research_decider.py`; pick the winner (note: the order
   tie-break test in #1914 was degenerate — the order labels didn't match
   the emit `strategy` field; re-run with matching names).
-- Apply the reconciliation items above (skill refresh, training review,
-  canonical-doc updates).
+- ~~Apply the reconciliation items above (skill refresh, training review,
+  canonical-doc updates).~~ **Done in PR #1915.**
 - Walk-forward the SPX configs before any MES live deployment.
