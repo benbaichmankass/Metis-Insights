@@ -33,7 +33,9 @@ def test_registry_roster_is_exactly_turtle_soup_and_vwap():
     """
     from src.strategy_registry import load_strategies
     names = sorted(s["name"] for s in load_strategies())
-    assert names == ["ict_scalp_5m", "trend_donchian", "turtle_soup", "vwap"]
+    assert names == [
+        "fade_breakout_4h", "ict_scalp_5m", "trend_donchian", "turtle_soup", "vwap",
+    ]
 
 
 def test_registry_fallback_loader_returns_new_roster(monkeypatch):
