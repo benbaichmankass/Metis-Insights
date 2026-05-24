@@ -1,8 +1,18 @@
-# Milestone & session state
+# Milestone & session state — HISTORICAL (frozen 2026-05-10)
 
-> **Purpose:** single quick-glance answer to "where is the program right now?"
-> for future Claude sessions. Read this **after** `checkpoints/CHECKPOINT_LOG.md`
-> (which tells you where to resume tactically) but **before** opening any sprint plan.
+> **⛔ DO NOT USE FOR CURRENT STATUS.** This file is **superseded by
+> [`ROADMAP.md`](../../ROADMAP.md)**, which is the single source of
+> milestone + sprint state (status + dates). The table below is **frozen
+> at 2026-05-10** and is deliberately stale (it still shows M9/M10 as
+> "NOT STARTED" — they are in progress / done per ROADMAP). It is kept
+> only as a record of how program state was tracked before the canonical
+> doc set consolidated it. For "where is the program right now?", read
+> ROADMAP.md. (Phase 6, 2026-05-24.)
+
+> **Original purpose (historical):** single quick-glance answer to "where
+> is the program right now?" for future Claude sessions. Read this
+> **after** `checkpoints/CHECKPOINT_LOG.md` (which tells you where to
+> resume tactically) but **before** opening any sprint plan.
 >
 > **Authority:** the S-CANON-1 canonical doc set
 > (`docs/CLAUDE-RULES-CANONICAL.md`, `docs/ARCHITECTURE-CANONICAL.md`,
