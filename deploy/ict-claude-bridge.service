@@ -1,11 +1,12 @@
 # ============================================
 # ICT CLAUDE BRIDGE SYSTEMD SERVICE
-# Telegram <-> Claude (Anthropic API) bridge
+# One-way Claude -> operator Telegram update channel
+# (@claude_ict_comms_bot). Drains runtime_logs/pending_claude_pings/.
 # Save to: /etc/systemd/system/ict-claude-bridge.service
 # ============================================
 
 [Unit]
-Description=ICT Trading Bot - Claude Telegram Bridge
+Description=ICT Trading Bot - Claude update channel (one-way)
 After=network.target
 Wants=network-online.target
 

@@ -68,6 +68,9 @@ _IGNORE: frozenset[str] = frozenset({
     # The Claude bridge bot uses a separate token and is managed by
     # ict-claude-bridge.service — not part of the live-trader env.
     "TELEGRAM_CLAUDE_BOT_TOKEN",
+    # Optional forum topic id for the Claude update channel — set on the
+    # VM (via the set-env system-action), not rendered from master-secrets.
+    "TELEGRAM_CLAUDE_THREAD_ID",
     "ANTHROPIC_API_KEY",
     "CLAUDE_MODEL",
     # Runtime tuning knobs set via systemd environment drop-ins, not

@@ -47,6 +47,14 @@ else
     reason="${reason_raw}"
 fi
 
+# send-ping IS the operator message — the action already delivered it.
+# A transparency "[ops] send-ping: ok" ping right behind it would just be
+# duplicate noise on the same channel, so skip the notify for it.
+if [ "${action}" = "send-ping" ]; then
+    echo "notify: send-ping is its own message; skipping transparency ping" >&2
+    exit 0
+fi
+
 case "${action}" in
     status-check|gateway-logs|pull-latest-logs|inspect-closed-pnl|bybit-account-audit|strategy-performance-audit|monitor-miss-analysis|vwap-backtest-sweep)
         tier=1
@@ -133,6 +141,13 @@ case "${action}" in
         case "${exit_code}" in
             0) result="ok"; priority="normal" ;;
             3) result="deferred — vm-runner active, retry later"; priority="normal" ;;
+            *) result="FAILED (exit ${exit_code})"; priority="urgent" ;;
+        esac
+        ;;
+    set-env)
+        tier=2
+        case "${exit_code}" in
+            0) result="ok"; priority="normal" ;;
             *) result="FAILED (exit ${exit_code})"; priority="urgent" ;;
         esac
         ;;

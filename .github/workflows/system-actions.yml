@@ -96,8 +96,44 @@ on:
           - fix-data-dir
           - rotate-account-keys
           - init-diag-token
+          - send-ping
+          - set-env
       reason:
         description: "Why this action is being run (audit trail; required for Tier-2)"
+        required: false
+        default: ""
+      message:
+        description: "Ping body (send-ping only)"
+        required: false
+        default: ""
+      priority:
+        description: "Ping priority (send-ping only)"
+        required: false
+        type: choice
+        default: normal
+        options:
+          - low
+          - normal
+          - high
+          - urgent
+      target:
+        description: "Ping target bot (send-ping only)"
+        required: false
+        type: choice
+        default: claude
+        options:
+          - claude
+          - trader
+      env_key:
+        description: "Env var name (set-env only; e.g. TELEGRAM_CLAUDE_THREAD_ID)"
+        required: false
+        default: ""
+      env_value:
+        description: "Env var value (set-env only; leave blank for secret-backed keys)"
+        required: false
+        default: ""
+      service:
+        description: "Service to restart after set-env (e.g. ict-claude-bridge; 'none' to skip)"
         required: false
         default: ""
       account_id:
@@ -169,6 +205,12 @@ jobs:
           DISPATCH_ACCOUNT_ID: ${{ inputs.account_id }}
           DISPATCH_MODE: ${{ inputs.mode }}
           DISPATCH_TUNNEL_HOSTNAME: ${{ inputs.tunnel_hostname }}
+          DISPATCH_MESSAGE: ${{ inputs.message }}
+          DISPATCH_PRIORITY: ${{ inputs.priority }}
+          DISPATCH_TARGET: ${{ inputs.target }}
+          DISPATCH_ENV_KEY: ${{ inputs.env_key }}
+          DISPATCH_ENV_VALUE: ${{ inputs.env_value }}
+          DISPATCH_SERVICE: ${{ inputs.service }}
           # ISSUE_BODY rides through env (NOT inline interpolation) so
           # an attacker-controlled issue body cannot inject shell.
           ISSUE_BODY: ${{ github.event.issue.body }}
@@ -181,6 +223,12 @@ jobs:
             account_id="${DISPATCH_ACCOUNT_ID}"
             mode="${DISPATCH_MODE}"
             tunnel_hostname="${DISPATCH_TUNNEL_HOSTNAME}"
+            message="${DISPATCH_MESSAGE}"
+            priority="${DISPATCH_PRIORITY}"
+            target="${DISPATCH_TARGET}"
+            env_key="${DISPATCH_ENV_KEY}"
+            env_value="${DISPATCH_ENV_VALUE}"
+            service="${DISPATCH_SERVICE}"
           else
             # Issue body convention:
             #   action: pull-and-deploy
@@ -241,6 +289,34 @@ jobs:
                      | grep -i -m1 '^[[:space:]]*recent_only_frac[[:space:]]*:' \
                      | sed -E 's/^[[:space:]]*[Rr]ecent_only_frac[[:space:]]*:[[:space:]]*//' \
                      | tr -d '[:space:]' || true)
+            # send-ping: message preserves internal spaces (trailing trim
+            # only, like reason); priority/target are single tokens.
+            message=$(printf '%s\n' "${ISSUE_BODY}" \
+                     | grep -i -m1 '^[[:space:]]*message[[:space:]]*:' \
+                     | sed -E 's/^[[:space:]]*[Mm]essage[[:space:]]*:[[:space:]]*//' \
+                     | sed -E 's/[[:space:]]+$//' || true)
+            priority=$(printf '%s\n' "${ISSUE_BODY}" \
+                     | grep -i -m1 '^[[:space:]]*priority[[:space:]]*:' \
+                     | sed -E 's/^[[:space:]]*[Pp]riority[[:space:]]*:[[:space:]]*//' \
+                     | tr -d '[:space:]' || true)
+            target=$(printf '%s\n' "${ISSUE_BODY}" \
+                     | grep -i -m1 '^[[:space:]]*target[[:space:]]*:' \
+                     | sed -E 's/^[[:space:]]*[Tt]arget[[:space:]]*:[[:space:]]*//' \
+                     | tr -d '[:space:]' || true)
+            # set-env: env_key/service are single tokens; env_value
+            # preserves internal spaces (trailing trim only).
+            env_key=$(printf '%s\n' "${ISSUE_BODY}" \
+                     | grep -i -m1 '^[[:space:]]*env_key[[:space:]]*:' \
+                     | sed -E 's/^[[:space:]]*[Ee]nv_key[[:space:]]*:[[:space:]]*//' \
+                     | tr -d '[:space:]' || true)
+            env_value=$(printf '%s\n' "${ISSUE_BODY}" \
+                     | grep -i -m1 '^[[:space:]]*env_value[[:space:]]*:' \
+                     | sed -E 's/^[[:space:]]*[Ee]nv_value[[:space:]]*:[[:space:]]*//' \
+                     | sed -E 's/[[:space:]]+$//' || true)
+            service=$(printf '%s\n' "${ISSUE_BODY}" \
+                     | grep -i -m1 '^[[:space:]]*service[[:space:]]*:' \
+                     | sed -E 's/^[[:space:]]*[Ss]ervice[[:space:]]*:[[:space:]]*//' \
+                     | tr -d '[:space:]' || true)
             if [ -z "${action}" ]; then
               echo "::error::Issue body must contain a line of the form 'action: <name>'. Title was: ${ISSUE_TITLE}"
               exit 1
@@ -258,16 +334,33 @@ jobs:
           echo "ACTION_WINDOW_DAYS=${window_days}" >>"$GITHUB_ENV"
           echo "ACTION_MODE=${bt_mode}" >>"$GITHUB_ENV"
           echo "ACTION_RECENT_ONLY_FRAC=${recent_only_frac}" >>"$GITHUB_ENV"
+          # send-ping / set-env params. ACTION_MESSAGE + ENV_VALUE may
+          # contain spaces, so they ride to later steps via $GITHUB_ENV
+          # (env, not inline interpolation) for shell safety.
+          {
+            echo "ACTION_MESSAGE<<__PING_EOF__"
+            printf '%s\n' "${message}"
+            echo "__PING_EOF__"
+          } >>"$GITHUB_ENV"
+          echo "ACTION_PRIORITY=${priority}" >>"$GITHUB_ENV"
+          echo "ACTION_TARGET=${target}" >>"$GITHUB_ENV"
+          echo "ENV_KEY=${env_key}" >>"$GITHUB_ENV"
+          {
+            echo "ENV_VALUE<<__ENVVAL_EOF__"
+            printf '%s\n' "${env_value}"
+            echo "__ENVVAL_EOF__"
+          } >>"$GITHUB_ENV"
+          echo "ENV_SERVICE=${service}" >>"$GITHUB_ENV"
           echo ">>> Resolved ACTION=${action} REASON=${reason} ACCOUNT_ID=${account_id} MODE=${mode} TUNNEL_HOSTNAME=${tunnel_hostname} TRADE_ID=${trade_id} SYMBOL=${symbol} DAYS=${days} WINDOWS=${windows} WINDOW_DAYS=${window_days} BT_MODE=${bt_mode} RECENT_ONLY_FRAC=${recent_only_frac} (event=${{ github.event_name }})"
 
       - name: Validate action and tier policy
         run: |
           set -euo pipefail
           case "${ACTION}" in
-            status-check|gateway-logs|pull-latest-logs|inspect-closed-pnl|bybit-account-audit|strategy-performance-audit|monitor-miss-analysis|vwap-backtest-sweep)
+            status-check|gateway-logs|pull-latest-logs|inspect-closed-pnl|bybit-account-audit|strategy-performance-audit|monitor-miss-analysis|vwap-backtest-sweep|send-ping)
               echo "tier=1" >>"$GITHUB_ENV"
               ;;
-            pull-and-deploy|restart-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|enable-m5-consumer|disable-m5-consumer|enable-signal-dual-write|disable-signal-dual-write|setup-cloudflare-tunnel|teardown-cloudflare-tunnel|setup-named-cloudflare-tunnel|teardown-named-cloudflare-tunnel|setup-tailscale-funnel|teardown-tailscale-funnel|backfill-pnl-nulls|backfill-orphan-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|rebuild-pnl-from-bybit|backfill-shadow-predictions|set-account-mode|fix-data-dir|rotate-account-keys|init-diag-token)
+            pull-and-deploy|restart-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|enable-m5-consumer|disable-m5-consumer|enable-signal-dual-write|disable-signal-dual-write|setup-cloudflare-tunnel|teardown-cloudflare-tunnel|setup-named-cloudflare-tunnel|teardown-named-cloudflare-tunnel|setup-tailscale-funnel|teardown-tailscale-funnel|backfill-pnl-nulls|backfill-orphan-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|rebuild-pnl-from-bybit|backfill-shadow-predictions|set-account-mode|fix-data-dir|rotate-account-keys|init-diag-token|set-env)
               echo "tier=2" >>"$GITHUB_ENV"
               if [ -z "${REASON// }" ]; then
                 echo "::error::Tier-2 action '${ACTION}' requires a non-empty 'reason' input."
@@ -314,6 +407,22 @@ jobs:
                 exit 1
                 ;;
             esac
+          fi
+          # send-ping requires a non-empty message.
+          if [ "${ACTION}" = "send-ping" ] && [ -z "${ACTION_MESSAGE// }" ]; then
+            echo "::error::send-ping requires 'message' (workflow_dispatch input) or 'message: <text>' (issue body)."
+            exit 1
+          fi
+          # set-env requires a valid env_key; service defaults in the wrapper.
+          if [ "${ACTION}" = "set-env" ]; then
+            if [ -z "${ENV_KEY// }" ]; then
+              echo "::error::set-env requires 'env_key' (workflow_dispatch input) or 'env_key: <NAME>' (issue body)."
+              exit 1
+            fi
+            if ! printf '%s' "${ENV_KEY}" | grep -Eq '^[A-Z][A-Z0-9_]*$'; then
+              echo "::error::set-env env_key '${ENV_KEY}' invalid (allowed: ^[A-Z][A-Z0-9_]*$)."
+              exit 1
+            fi
           fi
           echo ">>> Resolved tier: $(grep tier= "$GITHUB_ENV" | tail -1)"
 
@@ -374,6 +483,12 @@ jobs:
           BYBIT_API_SECRET_1: ${{ secrets.BYBIT_API_SECRET_1 }}
           BYBIT_API_KEY_2: ${{ secrets.BYBIT_API_KEY_2 }}
           BYBIT_API_SECRET_2: ${{ secrets.BYBIT_API_SECRET_2 }}
+          # Secret-backed env values for set-env. When env_key names one
+          # of these and env_value is left blank, the workflow supplies
+          # the value from this Actions secret so the token never appears
+          # in the (public) issue body or run log. Add more here as new
+          # secret-backed keys are needed.
+          SECRET_TELEGRAM_CLAUDE_BOT_TOKEN: ${{ secrets.TELEGRAM_CLAUDE_BOT_TOKEN }}
         run: |
           set -euo pipefail
           # Each action maps to ONE script under scripts/ops/. The
@@ -413,6 +528,8 @@ jobs:
             fix-data-dir)                       SCRIPT="fix_data_dir.sh" ;;
             rotate-account-keys)                SCRIPT="rotate_account_keys.sh" ;;
             init-diag-token)                    SCRIPT="init_diag_token.sh" ;;
+            send-ping)                          SCRIPT="send_ping_action.sh" ;;
+            set-env)                            SCRIPT="set_env.sh" ;;
             *)
               echo "::error::Allowlist regression: '${ACTION}' was not mapped to a wrapper script."
               exit 2
@@ -472,6 +589,20 @@ jobs:
           fi
           if [ "${ACTION}" = "vwap-backtest-sweep" ]; then
             REMOTE_CMD="ACTION_MODE=$(printf '%q' "${ACTION_MODE}") ACTION_DAYS=$(printf '%q' "${ACTION_DAYS}") ACTION_WINDOWS=$(printf '%q' "${ACTION_WINDOWS}") ACTION_WINDOW_DAYS=$(printf '%q' "${ACTION_WINDOW_DAYS}") ACTION_RECENT_ONLY_FRAC=$(printf '%q' "${ACTION_RECENT_ONLY_FRAC}") ${REMOTE_CMD}"
+          fi
+          if [ "${ACTION}" = "send-ping" ]; then
+            REMOTE_CMD="ACTION_MESSAGE=$(printf '%q' "${ACTION_MESSAGE}") ACTION_PRIORITY=$(printf '%q' "${ACTION_PRIORITY:-normal}") ACTION_TARGET=$(printf '%q' "${ACTION_TARGET:-claude}") ${REMOTE_CMD}"
+          fi
+          if [ "${ACTION}" = "set-env" ]; then
+            env_value="${ENV_VALUE}"
+            # Secret-backed keys: if the value was left blank, pull it
+            # from the matching SECRET_<KEY> Actions secret so it never
+            # transits the issue body / run log.
+            if [ -z "${env_value}" ]; then
+              secret_var="SECRET_${ENV_KEY}"
+              env_value="${!secret_var:-}"
+            fi
+            REMOTE_CMD="ENV_KEY=$(printf '%q' "${ENV_KEY}") ENV_VALUE=$(printf '%q' "${env_value}") ENV_SERVICE=$(printf '%q' "${ENV_SERVICE}") ${REMOTE_CMD}"
           fi
           if [ "${ACTION}" = "setup-named-cloudflare-tunnel" ] || [ "${ACTION}" = "teardown-named-cloudflare-tunnel" ]; then
             if [ -z "${CLOUDFLARE_API_TOKEN}" ] || [ -z "${CLOUDFLARE_ACCOUNT_ID}" ]; then
