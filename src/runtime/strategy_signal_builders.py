@@ -701,3 +701,142 @@ def vwap_signal_builder(settings: dict) -> Dict[str, Any]:
     except Exception:  # noqa: BLE001
         logger.exception("VWAP: dedicated audit emit failed")
     return _with_signal_package("vwap", sig)
+
+
+def trend_donchian_signal_builder(settings: dict) -> Dict[str, Any]:
+    """Donchian-breakout trend-follower (S-STRAT-IMPROVE-S8).
+
+    Fetches 1h candles, calls
+    ``src.units.strategies.trend_donchian.order_package``, and maps the
+    result into the pipeline-shape signal dict. The first net-positive
+    strategy in the strategy-improvement program (net +22.5R/3yr; see
+    docs/audits/complementary-trend-strategy-2026-05-23.md), going live
+    on bybit_2 per docs/sprint-plans/TREND-GOLIVE-PLAN-2026-05-23.md.
+
+    Honours the ``enabled`` flag in ``config/strategies.yaml`` as the
+    single source of truth: ``enabled: false`` short-circuits to
+    ``side="none"`` without code changes.
+    """
+    from src.units.strategies import load_strategy_config
+    from src.units.strategies.trend_donchian import order_package
+    from src.runtime.market_data import fetch_candles
+
+    try:
+        strategies_cfg = load_strategy_config()
+    except Exception:  # noqa: BLE001 — never fail-open on a config error
+        strategies_cfg = {}
+    trend_cfg = strategies_cfg.get("trend_donchian", {}) or {}
+
+    symbol = settings.get("SYMBOL", settings.get("symbol", "BTCUSDT"))
+
+    if not bool(trend_cfg.get("enabled", False)):
+        logger.info(
+            "trend_donchian: strategy disabled in config/strategies.yaml — "
+            "returning side=none"
+        )
+        return _with_signal_package("trend_donchian", {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {
+                "strategy_name": "trend_donchian",
+                "reason": "disabled_in_yaml",
+            },
+        })
+
+    timeframe = str(
+        trend_cfg.get("timeframe")
+        or settings.get("TREND_DONCHIAN_TIMEFRAME")
+        or settings.get("TIMEFRAME")
+        or "1h"
+    )
+
+    exchange = _build_killzone_exchange(settings)
+    candles_df = fetch_candles(
+        symbol, timeframe, exchange_client=exchange, limit=200,
+    )
+    if candles_df is None:
+        raise RuntimeError(
+            f"trend_donchian: no candle data returned for symbol={symbol} "
+            f"timeframe={timeframe}. Check that the exchange connection "
+            "is configured and the symbol is valid."
+        )
+
+    _publish_liquidity_state(symbol, candles_df)
+
+    cfg: Dict[str, Any] = {"symbol": symbol, "timeframe": timeframe, **trend_cfg}
+
+    try:
+        pkg = order_package(cfg, candles_df=candles_df)
+    except ValueError as exc:
+        logger.info("trend_donchian: no actionable signal (%s)", exc)
+        try:
+            log_signal({
+                "event": "trend_donchian_eval",
+                "strategy": "trend_donchian",
+                "symbol": symbol,
+                "timeframe": timeframe,
+                "side": "none",
+                "reason": str(exc),
+            })
+        except Exception:  # noqa: BLE001
+            logger.exception("trend_donchian: dedicated audit emit failed")
+        return _with_signal_package("trend_donchian", {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {
+                "strategy_name": "trend_donchian",
+                "reason": str(exc),
+            },
+        })
+
+    side = "buy" if pkg["direction"] == "long" else "sell"
+    logger.info(
+        "trend_donchian: %s signal at %s (entry=%s sl=%s tp=%s confidence=%.3f)",
+        side, symbol, pkg["entry"], pkg["sl"], pkg["tp"], pkg["confidence"],
+    )
+    pkg_meta = pkg.get("meta") or {}
+    try:
+        log_signal({
+            "event": "trend_donchian_eval",
+            "strategy": "trend_donchian",
+            "symbol": symbol,
+            "timeframe": timeframe,
+            "side": side,
+            "entry": pkg["entry"],
+            "stop_loss": pkg["sl"],
+            "take_profit": pkg["tp"],
+            "confidence": pkg["confidence"],
+        })
+    except Exception:  # noqa: BLE001
+        logger.exception("trend_donchian: dedicated audit emit failed")
+
+    sig = {
+        "symbol": symbol,
+        "side": side,
+        "price": pkg["entry"],
+        "entry_price": pkg["entry"],
+        "stop_loss": pkg["sl"],
+        "take_profit": pkg["tp"],
+        "pattern": "trend_donchian",
+        "meta": {
+            **pkg_meta,
+            "strategy_name": "trend_donchian",
+            "confidence": pkg["confidence"],
+            "direction": pkg["direction"],
+            # Carry the conservative per-strategy risk multiplier from
+            # this strategy's YAML directly on the signal meta. The
+            # registry-driven STRATEGY_RISK_PCT does NOT surface the
+            # strategies.yaml `risk_pct` field (load_strategies() omits
+            # it), so without this the downstream sizer would default
+            # the multiplier to 1.0 and trade trend at the FULL account
+            # risk_pct instead of the operator-mandated 0.3 for the
+            # initial live period. Both multiplexers preserve a
+            # builder-provided strategy_risk_pct.
+            "strategy_risk_pct": float(trend_cfg.get("risk_pct", 0.3) or 0.3),
+        },
+    }
+    _emit_shadow_preds(
+        "trend_donchian", sig, trend_cfg, symbol,
+        timeframe=timeframe, candles_df=candles_df,
+    )
+    return _with_signal_package("trend_donchian", sig)

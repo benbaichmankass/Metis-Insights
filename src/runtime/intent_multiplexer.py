@@ -50,6 +50,7 @@ from src.runtime.intents import (
 from src.runtime.runtime_flags import is_strategy_paused
 from src.runtime.strategy_signal_builders import (
     ict_scalp_signal_builder,
+    trend_donchian_signal_builder,
     turtle_soup_signal_builder,
     vwap_signal_builder,
 )
@@ -77,6 +78,11 @@ def _default_intent_builders() -> Dict[str, IntentBuilder]:
         # `enabled` flag as single source of truth; this registration
         # plumbs it through the intent layer when enabled.
         "ict_scalp_5m": ict_scalp_signal_builder,
+        # trend_donchian: Donchian-breakout trend-follower going live on
+        # bybit_2 (real money) per the 2026-05-23 go-live plan. Builder
+        # honours the YAML `enabled` flag; priority 20 (below the others)
+        # so a wiring slip can't override the established roster.
+        "trend_donchian": trend_donchian_signal_builder,
     }
 
 
