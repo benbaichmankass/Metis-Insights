@@ -22,7 +22,7 @@ AUDIT_LINES="${AUDIT_LINES:-200}"
 
 log "Collecting recent logs…"
 
-# Section ordering is intentional: operator-actions truncates this
+# Section ordering is intentional: system-actions truncates this
 # bundle to the last 50 KB before posting back to the issue comment
 # (the issue API caps at 65 KB). The MOST diagnostically useful
 # content has to live at the BOTTOM of the bundle so it survives

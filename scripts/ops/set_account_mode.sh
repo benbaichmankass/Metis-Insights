@@ -11,7 +11,7 @@
 # bybit_2 ended up live=false at runtime despite YAML declaring
 # mode: live. Per operator directive: live is the default; any
 # transition off live must be operator-driven and audited via this
-# action's transparency-notify wire (operator-actions.yml § 5.5).
+# action's transparency-notify wire (system-actions.yml § 5.5).
 #
 # Required env vars (passed by the workflow's exec step):
 #   ACCOUNT_ID  - name as keyed in config/accounts.yaml (e.g. bybit_2)

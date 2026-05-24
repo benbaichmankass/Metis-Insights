@@ -7,7 +7,7 @@ runtime_db_path``. The bug: every wrapper that touched the SQLite
 journal computed ``DB_PATH="${TRADE_JOURNAL_DB:-${REPO_DIR}/trade_journal.db}"``
 inline. That fallback misses the post-2026-05-12 data-dir externalisation
 (``Environment=TRADE_JOURNAL_DB=/data/bot-data/trade_journal.db`` in
-``deploy/dropins/data-dir.conf``) because operator-action wrappers run
+``deploy/dropins/data-dir.conf``) because system-action wrappers run
 from a fresh shell, not as a child of ict-trader-live.service, so they
 don't inherit the systemd drop-in's env.
 

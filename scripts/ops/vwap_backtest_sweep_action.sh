@@ -7,7 +7,7 @@
 # multiple HTF-gate configurations side-by-side over a 90-day
 # window with 8x 30-day random sub-windows.
 #
-# Supports four modes (pass via bt_mode: key in the operator-action issue):
+# Supports four modes (pass via bt_mode: key in the system-action issue):
 #   compare        — HTF-gate variants side-by-side (no-gate, 15m/1h/4h EMA)
 #   threshold-sweep — entry σ-threshold vs R trade-off matrix
 #   adaptive       — 24-window adaptive backtest (fixed params, regime split)
@@ -16,7 +16,7 @@
 # No DB writes. No live-trading side effects. ~2-5 min runtime
 # depending on data freshness.
 #
-# Operator invokes via operator-actions issue:
+# Operator invokes via system-actions issue:
 #   action: vwap-backtest-sweep
 #   reason: <text>
 #   mode: <compare|threshold-sweep|adaptive|param-sweep>  (optional, default 'compare')

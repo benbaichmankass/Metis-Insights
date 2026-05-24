@@ -12,7 +12,7 @@
 #
 # No DB writes. No live-trading side effects.
 #
-# Operator invokes via operator-actions issue with body:
+# Operator invokes via system-actions issue with body:
 #   action: strategy-performance-audit
 #   reason: <text>
 #   account: <id>     (required, e.g. bybit_2)

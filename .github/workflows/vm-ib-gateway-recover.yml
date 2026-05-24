@@ -2,7 +2,7 @@ name: vm-ib-gateway-recover
 
 # Autonomous self-heal for the IB Gateway container on the live VM.
 #
-# Why this exists (separate from operator-actions.yml):
+# Why this exists (separate from system-actions.yml):
 #   IB Gateway (the `ib-gateway` docker container) is the live trader's
 #   only path to IBKR for MES. When the account's market-data line gets
 #   bound to another session, IBKR rejects MES historical-data requests

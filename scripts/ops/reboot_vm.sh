@@ -22,7 +22,7 @@
 #     to 5 minutes after the call.
 #
 # Required sudoers (one-time manual setup — see
-# docs/claude/operator-actions.md § "VM sudoers setup"):
+# docs/claude/system-actions.md § "VM sudoers setup"):
 #   ubuntu ALL=(ALL) NOPASSWD: /sbin/shutdown -r *
 #
 # This script never edits config, code, or runtime flags.
@@ -65,7 +65,7 @@ log "Capturing pre-reboot snapshot…"
 record_audit "reboot-vm" "scheduled" "{\"delay_min\": 1}" >/dev/null || true
 
 log "Scheduling reboot in 1 minute (shutdown -r +1)…"
-"${SUDO[@]}" /sbin/shutdown -r +1 "operator-actions: reboot-vm requested via GitHub Actions" \
+"${SUDO[@]}" /sbin/shutdown -r +1 "system-actions: reboot-vm requested via GitHub Actions" \
     || {
         log "ERROR: shutdown command failed."
         record_audit "reboot-vm" "error" '{"reason": "shutdown call failed"}' >/dev/null || true

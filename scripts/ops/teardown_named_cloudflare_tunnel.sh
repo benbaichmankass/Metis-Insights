@@ -17,7 +17,7 @@
 #   4. Remove /etc/ict-trader/cloudflared/ contents (credentials + config).
 #   5. Drop the URL file so consumers don't read a dead tunnel.
 #   6. Leave the cloudflared binary in place + the unit file installed
-#      so a re-setup is one operator-action away.
+#      so a re-setup is one system-action away.
 
 set -euo pipefail
 

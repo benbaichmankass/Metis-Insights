@@ -149,7 +149,7 @@ def test_describe_roots_default_is_repo_relative(paths_module):
 # Before this fix, that produced ``Path("data/runtime_logs")`` — a
 # relative path whose actual location depended on each caller's CWD.
 # Result: trader writes used trader's CWD; web-api reads used web-api's
-# CWD; status-check diagnostic used the operator-action wrapper's CWD.
+# CWD; status-check diagnostic used the system-action wrapper's CWD.
 # Heartbeat writer-vs-reader path divergence even though both consumers
 # called the same ``runtime_logs_dir()`` helper.
 #

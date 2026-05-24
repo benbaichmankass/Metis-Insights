@@ -47,7 +47,7 @@ on:
   # Issue-driven trigger so a Claude Code on the web sandbox session
   # (which lacks `actions:write` on the hosted GitHub MCP server) can
   # fire the snapshot autonomously by opening a labelled issue. Mirrors
-  # vm-diag-snapshot.yml / vm-web-api-recover.yml / operator-actions.yml.
+  # vm-diag-snapshot.yml / vm-web-api-recover.yml / system-actions.yml.
   issues:
     types: [opened]
 

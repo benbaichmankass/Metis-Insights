@@ -60,10 +60,10 @@ require_systemctl() {
 
 
 # load_runtime_env — populate DATA_DIR / TRADE_JOURNAL_DB (and friends) so
-# operator-action wrappers run with the same path resolution the live
+# system-action wrappers run with the same path resolution the live
 # trader services see at runtime.
 #
-# WHY: operator-action wrappers run from a fresh shell, not as a child of
+# WHY: system-action wrappers run from a fresh shell, not as a child of
 # ict-trader-live.service, so they do NOT inherit the systemd drop-in's
 # Environment= directives. Before this helper existed, every wrapper that
 # touched the SQLite journal defaulted to ${REPO_DIR}/trade_journal.db —
@@ -201,7 +201,7 @@ runtime_db_path() {
 # Python subprocesses can authenticate to exchange APIs (Bybit, Binance, …).
 #
 # WHY (the 2026-05-16 silent-credential failure, issue #1314):
-# operator-action wrappers run via SSH from a fresh shell — they are NOT
+# system-action wrappers run via SSH from a fresh shell — they are NOT
 # children of ict-trader-live.service and so do NOT inherit the systemd
 # unit's EnvironmentFile=/home/ubuntu/ict-trading-bot/.env. The backfill-
 # orphan-pnl wrapper then invoked python3, which called

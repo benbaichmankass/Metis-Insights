@@ -3,7 +3,7 @@ name: vm-driver
 # Git-push-triggered remote driver — the MCP-independent control path.
 #
 # Why this exists: the GitHub-issue diag relays (trainer-vm-diag,
-# vm-diag-snapshot, operator-actions, vm-*-recover) are driven by the
+# vm-diag-snapshot, system-actions, vm-*-recover) are driven by the
 # hosted GitHub MCP creating labelled issues. When that MCP is
 # unavailable, a sandbox session can still `git push` (the git proxy is
 # independent). This workflow turns a pushed job file into a remote

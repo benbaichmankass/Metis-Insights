@@ -8,7 +8,7 @@
 #
 # No DB writes; no live-trading side effects.
 #
-# Operator invokes via operator-actions issue:
+# Operator invokes via system-actions issue:
 #   action: monitor-miss-analysis
 #   reason: <text>
 #   account: <id>     (required)

@@ -265,7 +265,7 @@ def _warn_if_silent_credential_failure(
         "",
         "Most likely cause: exchange CREDENTIALS NOT REACHABLE from "
         "this process's env — silent auth failure, never reached Bybit. "
-        "If running this via an operator-action wrapper, confirm "
+        "If running this via an system-action wrapper, confirm "
         "scripts/ops/_lib.sh::load_runtime_secrets is called before "
         "invoking this script. See backfill_orphan_pnl.py docstring for "
         "the full explanation.",

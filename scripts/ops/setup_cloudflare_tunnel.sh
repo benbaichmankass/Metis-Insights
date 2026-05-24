@@ -14,7 +14,7 @@
 # `<random>.trycloudflare.com` URL. The wrapper:
 #
 #   1. Installs the cloudflared static binary into ~/.local/bin (no
-#      sudo / dpkg required — the existing operator-actions sudoers
+#      sudo / dpkg required — the existing system-actions sudoers
 #      grants NOPASSWD systemctl only, not package management).
 #   2. Stops any prior cloudflared instance owned by this wrapper
 #      (PID-file tracked).

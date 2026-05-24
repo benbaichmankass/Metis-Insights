@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Autonomous self-heal action: restart the IB Gateway container.
 #
-# Why this lives outside operator-actions.yml's allowlist:
+# Why this lives outside system-actions.yml's allowlist:
 #   IB Gateway (gnzsnz/IBC docker container `ib-gateway`) is the live
 #   trader's only path to IBKR for MES market data + execution. When the
 #   account's market-data line gets bound to another session (IBKR error

@@ -30,9 +30,12 @@ them, the principles win and the conflicting text is a bug to file.
    live-trading rule in `CLAUDE.md` is the canonical safety-rail spec.
 3. **Autonomy is the default.** Claude works without per-task approval. The
    approval categories (Tier 2 / Tier 3 below) are explicit and finite.
-4. **Operator actions are simple.** Anything the operator must do on the VM
-   is a one-click Colab notebook under `notebooks/operator/`, never a
-   copy-paste CLI checklist.
+4. **Operations are autonomous.** Production actions are GitHub Actions you
+   dispatch yourself — diag relays for reads, the `system-actions` workflow
+   for tiered mutations. The operator approves by tier; they do not run
+   commands, SSH, or notebooks for you. The only genuine hand-off is a
+   physical/credential action (generating an exchange/prop account key, an
+   OCI console CAPTCHA).
 
 ---
 
@@ -195,10 +198,12 @@ protocol. The check runs before:
 
 Minimum check before any of those:
 
-1. Does the diff add a refuse-to-trade decision **outside** the dispatcher's
-   `live | dry_run` switch (the only canonical execution gate per
-   `docs/claude/workplan.md` § "Live / dry-run rule")? If yes → **stop**;
-   move the logic into the risk manager or remove it.
+1. Does the diff add a refuse-to-trade decision **outside** the two declared
+   execution gates — account `config/accounts.yaml::mode: live|dry_run` and
+   strategy `config/strategies.yaml::execution: live|shadow` — and the
+   per-trade `RiskManager`? (See `docs/CLAUDE-RULES-CANONICAL.md` § Prime
+   Directive.) If yes → **stop**; move the logic into the risk manager or
+   remove it.
 2. Does the diff add a per-account flag, schema field, env var, or
    pre-flight check whose failure path refuses a trade? Same answer.
 3. Does the diff put exchange-side state behind an operator-run notebook,
@@ -270,22 +275,18 @@ change. The ping-PR is the channel; the work-PR is the content.
 
 ## 7. VM and operator actions
 
-The operator is non-technical. The VM is a free-tier Oracle box. Therefore:
+You operate the VMs autonomously through GitHub Actions — you never write a
+runbook step that asks the operator to SSH in or run a notebook. The wiring is
+already in repo secrets (`VM_SSH_KEY`, `DIAG_READ_TOKEN`):
 
-- Any manual VM action ships as a one-click Colab notebook under
-  `notebooks/operator/`, structured per
-  `notebooks/operator/rotate_api_keys.ipynb` and `docs/claude/colab-workflows.md`
-  § "Operator VM steps".
-- Pre-fill these constants in any operator-facing notebook or script:
-
-  ```python
-  SSH_KEY_FILE = 'ict-bot-ovm-private.key'
-  VM_USER = 'ubuntu'
-  VM_HOST = "158.178.210.252"
-  REPO_DIR = '/home/ubuntu/ict-trading-bot'
-  ```
-
-- Never ship a markdown CLI checklist when a notebook is appropriate.
+- **Reads** — the diag relays (`vm-diag-snapshot.yml` for the live VM,
+  `trainer-vm-diag.yml` for the trainer). See `docs/claude/diag-relay.md`.
+- **Tiered mutations** — the `system-actions` workflow (§ 7.1). If an action
+  you need isn't allowlisted yet, add the wrapper + allowlist entry in the
+  same PR rather than punting it to a manual step.
+- The only genuine hand-off is a physical/credential action (generating an
+  exchange/prop account key, an OCI console CAPTCHA). Say so plainly and tell
+  the operator exactly what to add to Actions secrets.
 
 ### 7.1 PM-side dispatch — the system-actions workflow
 
@@ -310,8 +311,11 @@ contract, tier mapping, audit trail, and reboot doctrine live in
   `restart-bot-service` first; escalate only when lower-blast-radius
   paths fail.
 - **Out of scope for this workflow regardless of approval:**
-  strategy params, risk caps, account `mode` flips, code edits,
-  key rotation. Those remain Tier-3 PRs (§ 4.3).
+  strategy params, risk caps, code edits, and exchange/Anthropic key
+  *generation*. Those remain Tier-3 (§ 4). Two named carve-outs exist:
+  `set-account-mode` (the only `mode:` write path) and `rotate-account-keys`
+  (applies an operator-supplied key from Actions secrets) — see
+  `docs/claude/system-actions.md`.
 
 ---
 
