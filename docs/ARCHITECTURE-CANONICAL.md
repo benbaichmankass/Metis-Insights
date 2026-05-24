@@ -464,9 +464,13 @@ path. The AI-traders training pipeline is a **separate concern**
 that produces research-only baselines under `ml/`. Operator-driven
 training sessions follow the established workflow:
 
-1. **Collect feedstock.** The `/health-review` skill emits per-trade
-   `trade_decision_grades[]` against the live 6-hour window. These
-   labelled grades flow into the `trade_outcomes` family
+1. **Collect feedstock.** The autonomous `/health-review` skill emits
+   per-trade `trade_decision_grades[]` for every trade since the last
+   review and persists each one — keyed by `trade_id` — to
+   [`comms/claude_trade_scores.jsonl`](../comms/claude_trade_scores.jsonl)
+   (the durable, repo-tracked score log; a Tier-2 follow-up will ingest
+   it into its own DB table + surface it in the app). These labelled
+   grades flow into the `trade_outcomes` family
    ([`ml/datasets/families/trade_outcomes.py`](../ml/datasets/families/trade_outcomes.py))
    and the `setup_labels` family
    ([`ml/datasets/families/setup_labels.py`](../ml/datasets/families/setup_labels.py))

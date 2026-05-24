@@ -1,0 +1,28 @@
+{
+  "_comment": "Schema for comms/claude_trade_scores.jsonl — the durable, repo-tracked log of Claude's per-trade decision scores produced by .claude/skills/health-review/SKILL.md. APPEND-ONLY JSONL: one JSON object per graded trade, keyed by `trade_id` so it cross-references trade_journal.db::trades. The file may carry a single leading {\"_meta\": ...} line (skip rows without `trade_id`). This is the Tier-1 repo-artifact persistence path (operator decision 2026-05-24): scores live here now and are ingestible by the trainer (the repo is git-pulled onto the trainer VM each cycle). PLANNED Tier-2 follow-up: ingest these rows into their OWN table (`claude_trade_scores`, separate from `trades`) in the canonical store, cross-referenced by trade_id, and surface the score alongside trade data in the dashboard app. `decision_grade_score` mirrors the review_journal family mapping (A/B/C/D/F -> 4/3/2/1/0) so that ingestion is a straight column copy. This file is documentation only — it is not validated as a JSON Schema.",
+  "schema_version": 1,
+  "record": {
+    "trade_id": 0,
+    "reviewed_at": "ISO-8601 UTC timestamp — when Claude graded this trade",
+    "reviewer": "claude",
+    "review_window": "since-last-review window this grade came from, e.g. '2026-05-22T00:00Z..2026-05-24T00:00Z'",
+    "source": "health-review",
+    "symbol": "BTCUSDT",
+    "direction": "long | short",
+    "setup": "vwap | turtle_soup | ict_scalp_5m | trend_donchian | fade_breakout_4h | squeeze_breakout_4h | ...",
+    "account": "bybit_2 | bybit_1 | ib_paper | ...",
+    "entry_price": 0.0,
+    "exit_price": 0.0,
+    "stop_loss": 0.0,
+    "take_profit_1": 0.0,
+    "position_size": 0.0,
+    "exit_reason": "tp_cross | sl_hit | trail | manual | rejected | ...",
+    "decision_grade": "A | B | C | D | F",
+    "decision_grade_score": "4 | 3 | 2 | 1 | 0 — numeric mirror of decision_grade (A=4..F=0), matches the review_journal dataset family",
+    "entry_quality": "optimal | acceptable | late | early | should_skip | unknown",
+    "exit_quality": "optimal | tp_appropriate | sl_appropriate | premature_exit | held_too_long | unknown",
+    "risk_management": "correct | oversize | undersize | sl_too_tight | sl_too_wide | unknown",
+    "rationale": "<= 240 chars — why this grade given the trade's signal_logic + outcome",
+    "alternative_action": "<= 160 chars — what we'd do differently next time, or 'none'"
+  }
+}

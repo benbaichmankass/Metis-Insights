@@ -17,6 +17,7 @@
     "alert_delivery":      {"status": "ok | watch | concern", "note": "..."},
     "strategy_silence":    {"status": "ok | watch | concern", "note": "..."},
     "db_integrity":        {"status": "ok | watch | concern", "note": "..."},
+    "data_validity":       {"status": "ok | watch | concern", "note": "DB values sane: no negative sizes, no null required fields, monotonic timestamps, pnl reconciles"},
     "audit_log_freshness": {"status": "ok | watch | concern", "note": "..."},
     "trainer_service":     {"status": "ok | watch | concern | skip", "note": "..."},
     "trainer_datasets":    {"status": "ok | watch | concern | skip", "note": "..."},
@@ -29,9 +30,25 @@
   "anomalies": [
     "free-form list of notable items the reviewer flagged"
   ],
+  "backlog_drain": [
+    {
+      "_comment": "Result of draining docs/claude/health-review-backlog.json this run. One entry per backlog item triaged. action: fixed (resolved in this review's PR-less repo edits) | deferred (still open, restated) | invalid (no longer applies, closed). The skill edits the backlog file itself; this array records what it did.",
+      "item_id": "BL-YYYYMMDD-NNN",
+      "action": "fixed | deferred | invalid",
+      "note": "<= 160 chars"
+    }
+  ],
+  "sprint_doc_review": [
+    {
+      "_comment": "Recent sprint logs reviewed for doc correctness/clarity since the last review. One entry per issue found (empty array = sprints read, nothing wrong). severity: nit | drift | contradiction. Contradictions against canonical docs are fixed in-place or logged to the backlog.",
+      "sprint": "S-...",
+      "finding": "<= 200 chars",
+      "severity": "nit | drift | contradiction"
+    }
+  ],
   "trade_decision_grades": [
     {
-      "_comment": "One entry per closed or rejected trade in the 6-hour review window. Required field; pass [] only when the window genuinely contained zero trades. Letter grade is independent of dollar P&L — small wins on bad setups still grade poorly, stop-outs on textbook setups still grade fairly. The three categorical labels (entry_quality, exit_quality, risk_management) are the training-friendly fields; the letter grade is a rolled-up summary. See .claude/skills/health-review/SKILL.md § 'Per-trade decision grading' for the full rubric.",
+      "_comment": "One entry per closed or rejected trade in the SINCE-LAST-REVIEW window (not a fixed 6h window). Required field; pass [] only when the window genuinely contained zero trades. Each entry is ALSO appended (keyed by trade_id) to comms/claude_trade_scores.jsonl — the durable, trainer-ingestible score log (operator decision 2026-05-24). Letter grade is independent of dollar P&L — small wins on bad setups still grade poorly, stop-outs on textbook setups still grade fairly. The three categorical labels (entry_quality, exit_quality, risk_management) are the training-friendly fields; the letter grade is a rolled-up summary. See .claude/skills/health-review/SKILL.md § 'Per-trade decision grading' for the full rubric.",
       "trade_id": 0,
       "timestamp": "YYYY-MM-DDTHH:MM:SS+00:00",
       "symbol": "BTCUSDT",

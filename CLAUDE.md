@@ -212,8 +212,13 @@ When to invoke `/health-review`:
   `🚨 concern` and the operator wants a deeper look.
 
 The full review procedure (relay pulls, decision rubric, output schema,
-"don't write files / don't ask scoping questions / never ask the
-operator to paste a snapshot") lives in the skill file. See also
+"don't ask scoping questions / never ask the operator to paste a
+snapshot") lives in the skill file. The autonomous review **does** write
+two repo artifacts — it appends per-trade scores to
+[`comms/claude_trade_scores.jsonl`](comms/claude_trade_scores.jsonl)
+(keyed by `trade_id`) and drains
+[`docs/claude/health-review-backlog.json`](docs/claude/health-review-backlog.json)
+— but never touches `src/`, `config/`, or the live path. See also
 [`docs/runbooks/health-check.md`](docs/runbooks/health-check.md) for the
 collect → review design.
 

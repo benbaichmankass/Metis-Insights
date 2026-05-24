@@ -10,9 +10,11 @@ A single GitHub Actions workflow — [`health-snapshot.yml`](../../.github/workf
 — that periodically grabs a runtime-state snapshot from the live VM,
 classifies the result with a small deterministic rule set, posts ONE
 informational Telegram message, and uploads the snapshot as an Action
-artifact. The operator downloads the artifact when they want a deeper
-sanity-check and runs `/health-review` in a Claude Code session with
-the pasted contents.
+artifact. When the status warrants a deeper look, the operator runs
+`/health-review` — the **autonomous** layer-2 review that pulls the live
+runtime state itself via the diag relays (no download, no paste). The
+uploaded artifact is a convenience/cross-check, not an input the review
+depends on (the sandbox can't download Action artifacts anyway).
 
 ```
 cron  ──►  health-snapshot.yml  ──►  SSH to VM
@@ -23,11 +25,10 @@ cron  ──►  health-snapshot.yml  ──►  SSH to VM
                                     └─ actions/upload-artifact  (artifacts/health/**)
                                                   │
                                                   ▼
-                                       Actions UI download (operator,
-                                       only if status warrants a deeper look)
-                                                  │
-                                                  ▼
-                                       /health-review (Claude session)
+                                       /health-review (Claude session) —
+                                       autonomous: pulls live state via the
+                                       diag relays itself; persists per-trade
+                                       scores + drains the backlog
 ```
 
 No Layer-1 LLM call. No `comms/requests/REQ-*.json` artifact. No PR
