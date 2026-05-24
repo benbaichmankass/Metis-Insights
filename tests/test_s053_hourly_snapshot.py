@@ -44,8 +44,19 @@ def shn(monkeypatch):
     fake_outcomes.send_scheduled = lambda msg: None  # type: ignore[attr-defined]
     fake_hr = type(sys)("src.runtime.hourly_report")
     fake_hr.build_hourly_report = lambda **kw: "stubbed report"  # type: ignore[attr-defined]
+    # send_hourly_now is now the single hourly producer: it sends BOTH the
+    # strategy and accounts reports (via send_telegram_direct, HTML, with a
+    # send_scheduled fallback) and runs the liveness watchdog. Stub all of
+    # those lazily-imported deps so the wrapper-logic tests stay offline.
+    fake_hr.build_accounts_hourly_report = lambda **kw: "stubbed accounts report"  # type: ignore[attr-defined]
+    fake_notify = type(sys)("src.runtime.notify")
+    fake_notify.send_telegram_direct = lambda body, **kw: None  # type: ignore[attr-defined]
+    fake_watchdog = type(sys)("src.runtime.liveness_watchdog")
+    fake_watchdog.run_liveness_watchdog = lambda **kw: None  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "src.runtime.outcomes", fake_outcomes)
     monkeypatch.setitem(sys.modules, "src.runtime.hourly_report", fake_hr)
+    monkeypatch.setitem(sys.modules, "src.runtime.notify", fake_notify)
+    monkeypatch.setitem(sys.modules, "src.runtime.liveness_watchdog", fake_watchdog)
 
     return mod
 
