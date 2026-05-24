@@ -90,21 +90,28 @@ strategies:
     # provide an explicit list to pin specific models.
 
   trend_donchian:
-    # Donchian-breakout trend-follower (S-STRAT-IMPROVE-S8). Donchian(20)
+    # Donchian-breakout trend-follower (S-STRAT-IMPROVE-S8/S9). Donchian(20)
     # breakout entry + ATR(14) initial stop (2.5×) + Chandelier ATR
-    # trailing exit (3.0×), BTCUSDT 1h. Strategy code:
+    # trailing exit (3.5×), BTCUSDT 2h. Strategy code:
     # src/units/strategies/trend_donchian.py; validated harness:
     # scripts/backtest_trend.py.
     #
-    # STATUS: going live on bybit_2 (real money) per
-    # docs/sprint-plans/TREND-GOLIVE-PLAN-2026-05-23.md (operator-
-    # approved 2026-05-23, straight-to-real-execution, Tier-3). The
-    # FIRST net-positive strategy found in the strategy-improvement
-    # program: net +22.5R over 3yr (2023→2026Q1), a robust parameter
-    # plateau (trail 3.0-3.5 × donchian 15-30 all net-positive, +14.6
-    # to +40.0R), and complementary by regime to ict_scalp (trend
-    # covers the directional 2023/2024 where the scalp loses). Full
-    # evidence: docs/audits/complementary-trend-strategy-2026-05-23.md.
+    # STATUS: live on bybit_2 (real money). Went live 2026-05-23 at 1h
+    # (S8, docs/sprint-plans/TREND-GOLIVE-PLAN-2026-05-23.md). MIGRATED
+    # 1h → 2h on 2026-05-24 (S9, operator-approved) after a timeframe
+    # study + walk-forward validation found 2h materially superior:
+    #   * Full 3yr net +52.5R (2h 20/3.5) vs +22.5R (1h 20/3.0).
+    #   * Net-POSITIVE every year incl. 2025 chop (+~22R), the exact
+    #     regime where the 1h bled (~−8.5R) — the slower TF filters the
+    #     chop-induced false breakouts that whipsawed 1h.
+    #   * Walk-forward (train 2023-24 / OOS 2025-26): train-winner 20/3.5
+    #     held OOS at +16.8R, exp 0.139, 71% months positive — OOS
+    #     expectancy ≈ train (no overfit decay). Whole donchian 15-30 ×
+    #     trail 3.0-3.5 plateau positive in BOTH windows.
+    #   * ~3× lower drawdown (maxDD ~10R vs ~29R), consistency_ratio
+    #     ~0.38 vs 0.12, top-month-share 16% vs 44% (far less
+    #     period-dependent). Evidence: trainer-vm-diag #1870/#1871/#1873.
+    # 1h remains the original S8 validation; 2h is the live config.
     #
     # The runtime signal builder honours `enabled` below as the single
     # source of truth; flipping `enabled: false` short-circuits the
@@ -120,7 +127,8 @@ strategies:
                               # matches the STRATEGY_RISK_PCT fallback in
                               # src/runtime/pipeline.py. Revisit upward
                               # only after live proof (operator-approved).
-    timeframe: "1h"
+    timeframe: "2h"          # S9 migration 1h → 2h (2026-05-24, walk-forward
+                             # validated). Served as Bybit 120m via CCXT.
     symbols:
       - BTCUSDT               # currently the only supported symbol
                               # (SUPPORTED_SYMBOLS gate). NOTE: like the
@@ -128,18 +136,19 @@ strategies:
                               # intended applicability — the runtime
                               # traded-symbol set comes from
                               # config/accounts.yaml.
-    # Strategy-specific — the robust-plateau centre (atr_stop < trail is
-    # the one interpretable sensitivity: trail MUST stay looser than the
-    # entry stop or the edge goes negative).
+    # Strategy-specific — the robust-plateau centre. trail MUST stay
+    # looser than the entry stop (atr_stop < trail) or the edge goes
+    # negative; at 2h the trail=3.5 / donchian 20 corner is the
+    # walk-forward train-winner (OOS-confirmed).
     donchian: 20
     atr_period: 14
     atr_stop_mult: 2.5
-    trail_mult: 3.0
+    trail_mult: 3.5
     # No fixed profit target — the Chandelier trail is the sole
     # profit-exit (matches the backtest, which has no TP). `tp` is placed
     # tp_r × risk away as a far, effectively-unreachable sentinel that
     # still satisfies the pipeline's full-SL/TP dispatch gate. Max
-    # single-trade excursion in 3yr backtest was ~10R, so 50R is safely
+    # single-trade excursion in 3yr backtest was ~11R, so 50R is safely
     # beyond reach.
     tp_r: 50.0
     # shadow_model_ids omitted (2026-05-19 default): auto-wire every model
