@@ -11,9 +11,28 @@
 # service entries to "ict-trader-live".
 #
 # Loaded by:
-#   - src/strategy_registry.py (model / signal_prefixes)
+#   - src/strategy_registry.py (model / signal_prefixes / execution)
 #   - src/units/strategies/__init__.py::load_strategy_config (per-strategy
 #     parameters: enabled, risk_pct, timeframe, symbols, strategy-specific)
+#
+# Two-level gating (S9, operator-approved 2026-05-24):
+#   - `enabled: true|false`     — does the strategy RUN at all? false →
+#                                 the signal builder short-circuits to
+#                                 side=none (fully inert; no signals, no
+#                                 logging).
+#   - `execution: live|shadow`  — for an ENABLED strategy, do its order
+#                                 packages EXECUTE, or only get LOGGED?
+#                                 live (default) = eligible to execute on
+#                                 accounts that route it. shadow = runs +
+#                                 logs order packages everywhere (data
+#                                 collection) but never sends a live order
+#                                 (treated as dry on every account).
+#   Both default permissive (enabled implicitly required; execution→live)
+#   so omitting a field never strands capability. The account-level
+#   `mode: live|dry_run` in accounts.yaml remains the per-ACCOUNT
+#   execution gate; `execution:` is the per-STRATEGY execution gate.
+#   Neither is a hidden default-off flag — both are declared here and
+#   surfaced on /api/bot/config.
 #
 # Edit via Streamlit UI (src/web/config_ui.py) or directly here.
 # Reload at runtime: Coordinator.reload_strategy_config() or /reload_strats.
@@ -27,6 +46,9 @@ strategies:
     model: null
     signal_prefixes: [turtle_soup, sweep_reversal]
     enabled: true
+    execution: live          # S9 per-strategy execution gate: live = eligible
+                             # to execute; shadow = data-only (log packages,
+                             # never send a live order). Default live.
     risk_pct: 0.5            # = risk_per_trade 0.005 from the legacy class
     timeframe: "15m"          # setup TF; entry TF is 1m
     symbols:
@@ -92,6 +114,8 @@ strategies:
     model: null
     signal_prefixes: [trend_donchian, donchian]
     enabled: true
+    execution: live          # S9 per-strategy execution gate (live | shadow).
+                             # trend is the one net-positive strategy → live.
     risk_pct: 0.3             # conservative for the initial live period;
                               # matches the STRATEGY_RISK_PCT fallback in
                               # src/runtime/pipeline.py. Revisit upward
@@ -127,6 +151,15 @@ strategies:
     model: null
     signal_prefixes: [vwap]
     enabled: true
+    # execution: shadow (S9, operator-approved 2026-05-24). vwap has no
+    # net-of-fee edge (docs/audits/vwap-viability-verdict-2026-05-23.md),
+    # so it does NOT trade real money — but it STILL runs and LOGS its
+    # order packages on every account it routes to (data collection +
+    # comparison). "shadow" = data-only everywhere; "live" (default) =
+    # eligible to execute. This is the per-strategy execution gate;
+    # accounts.yaml `mode:` remains the per-account gate. Promote back to
+    # `execution: live` only if vwap earns a net-positive edge.
+    execution: shadow
     risk_pct: 1.0
     timeframe: "5m"
     symbols:
@@ -235,6 +268,7 @@ strategies:
     model: null
     signal_prefixes: [ict_scalp]
     enabled: true
+    execution: live          # S9 per-strategy execution gate (live | shadow).
     risk_pct: 0.3
     timeframe: "5m"
     symbols:
