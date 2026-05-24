@@ -80,12 +80,19 @@ async def _drain_pending_pings(context, chat_id: str | None = None,
                 pass
             continue
 
-        prefix = _PRIORITY_ICONS.get(priority, _PRIORITY_ICONS["normal"])
-        text = f"{prefix} {body}"
+        # Self-titled HTML pings (trade lifecycle events) carry their own
+        # header and a parse_mode; plain pings get the priority icon prefix.
+        parse_mode = payload.get("parse_mode") or None
+        if parse_mode:
+            text = body
+        else:
+            prefix = _PRIORITY_ICONS.get(priority, _PRIORITY_ICONS["normal"])
+            text = f"{prefix} {body}"
 
         try:
             await context.bot.send_message(
                 chat_id=chat_id, text=text,
+                parse_mode=parse_mode,
                 disable_web_page_preview=True,
             )
         except Exception as exc:  # noqa: BLE001

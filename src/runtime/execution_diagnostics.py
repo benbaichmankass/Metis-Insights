@@ -31,7 +31,7 @@ import logging
 import os
 import uuid
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, Sequence
 
 from src.utils.paths import runtime_logs_dir
 
@@ -461,5 +461,167 @@ def enqueue_orphan_rollup(
             "execution_diagnostics: orphan-rollup enqueue failed "
             "(suppressed=%d): %s",
             suppressed_count, exc,
+        )
+        return None
+
+
+# ── Trade lifecycle pings (open / update / close) ───────────────────────────
+#
+# Spec §4.2 (docs/TELEGRAM-SPEC.md): each trade event is its own message
+# with a clear title that draws the eye plus a collapsible details block
+# (the "Details ▾" expand) so the feed stays scannable. These go to the
+# trader inbox (@bict_trading_bot). Like every other enqueue here they are
+# best-effort and never raise — a ping failure must never touch the order
+# path. The HTML body is self-titled, so the payload carries
+# ``parse_mode: "HTML"`` and the drainer skips the priority prefix.
+
+
+def _fmt_amount(value: object) -> str:
+    """Plain currency, e.g. ``$1,234.50``. ``—`` when unparseable."""
+    try:
+        return f"${float(value):,.2f}"
+    except (TypeError, ValueError):
+        return "—"
+
+
+def _fmt_signed(value: object) -> str:
+    """Signed currency, e.g. ``+$45.00`` / ``-$10.00``. ``—`` when unset."""
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return "—"
+    return f"{'-' if v < 0 else '+'}${abs(v):,.2f}"
+
+
+def _enqueue_html_ping(body_html: str, *, kind: str, priority: str) -> Optional[Path]:
+    """Atomically enqueue a self-titled HTML ping to the trader inbox."""
+    try:
+        payload = {"priority": priority, "body": body_html, "parse_mode": "HTML"}
+        PENDING_PINGS_DIR.mkdir(parents=True, exist_ok=True)
+        name = f"{int(uuid.uuid4().int % 10**12):012d}-{kind}.json"
+        path = PENDING_PINGS_DIR / name
+        tmp = path.with_suffix(".json.tmp")
+        with tmp.open("w", encoding="utf-8") as fh:
+            json.dump(payload, fh, ensure_ascii=False)
+        os.replace(tmp, path)
+        return path
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("execution_diagnostics: %s ping enqueue failed: %s", kind, exc)
+        return None
+
+
+def enqueue_trade_open(
+    *,
+    account: str,
+    strategy: str,
+    symbol: str,
+    side: str,
+    qty: Optional[float],
+    entry: Optional[float] = None,
+    sl: Optional[float] = None,
+    tp: Optional[float] = None,
+    risk_usd: Optional[float] = None,
+    order_id: Optional[str] = None,
+    priority: str = "normal",
+) -> Optional[Path]:
+    """``🟢 TRADE OPENED — <symbol> <SIDE>`` + collapsible details."""
+    try:
+        from src.units.ui.telegram_format import Section, kv_block, render_html
+
+        title = f"🟢 TRADE OPENED — {symbol} {str(side or '').upper()}"
+        body = render_html(
+            header=title,
+            sections=[Section(summary="Details", body=kv_block([
+                ("Account", account),
+                ("Strategy", strategy),
+                ("Qty", qty),
+                ("Entry", _fmt_amount(entry)),
+                ("Stop loss", _fmt_amount(sl)),
+                ("Take profit", _fmt_amount(tp)),
+                ("Risk $", _fmt_amount(risk_usd) if risk_usd is not None else None),
+                ("Order id", order_id),
+            ]))],
+        )
+        return _enqueue_html_ping(body, kind="trade-open", priority=priority)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "execution_diagnostics: trade-open ping build failed "
+            "(account=%s symbol=%s): %s", account, symbol, exc,
+        )
+        return None
+
+
+def enqueue_trade_update(
+    *,
+    symbol: str,
+    changes: Sequence[str],
+    account: Optional[str] = None,
+    strategy: Optional[str] = None,
+    priority: str = "normal",
+) -> Optional[Path]:
+    """``✏️ TRADE UPDATED — <symbol>`` + collapsible "what changed" details."""
+    try:
+        from src.units.ui.telegram_format import Section, kv_block, render_html
+
+        title = f"✏️ TRADE UPDATED — {symbol}"
+        change_lines = "\n".join(str(c) for c in (changes or [])) or "(no detail)"
+        body = render_html(
+            header=title,
+            sections=[Section(summary="Details", body=(
+                kv_block([("Account", account), ("Strategy", strategy)])
+                + f"\n\nChanged:\n{change_lines}"
+            ))],
+        )
+        return _enqueue_html_ping(body, kind="trade-update", priority=priority)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "execution_diagnostics: trade-update ping build failed "
+            "(symbol=%s): %s", symbol, exc,
+        )
+        return None
+
+
+def enqueue_trade_close(
+    *,
+    symbol: str,
+    account: Optional[str] = None,
+    strategy: Optional[str] = None,
+    entry: Optional[float] = None,
+    exit_price: Optional[float] = None,
+    pnl: Optional[float] = None,
+    r_multiple: Optional[float] = None,
+    duration: Optional[str] = None,
+    reason: Optional[str] = None,
+    priority: str = "normal",
+) -> Optional[Path]:
+    """``🔴 TRADE CLOSED — <symbol> ±$X`` (✅ win / ❌ loss) + details."""
+    try:
+        from src.units.ui.telegram_format import Section, kv_block, render_html
+
+        verdict = ""
+        if pnl is not None:
+            try:
+                verdict = " ✅ win" if float(pnl) >= 0 else " ❌ loss"
+            except (TypeError, ValueError):
+                verdict = ""
+        title = f"🔴 TRADE CLOSED — {symbol} {_fmt_signed(pnl)}{verdict}"
+        body = render_html(
+            header=title,
+            sections=[Section(summary="Details", body=kv_block([
+                ("Account", account),
+                ("Strategy", strategy),
+                ("Entry", _fmt_amount(entry)),
+                ("Exit", _fmt_amount(exit_price)),
+                ("Realised PnL", _fmt_signed(pnl)),
+                ("R", r_multiple),
+                ("Duration", duration),
+                ("Reason", reason),
+            ]))],
+        )
+        return _enqueue_html_ping(body, kind="trade-close", priority=priority)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "execution_diagnostics: trade-close ping build failed "
+            "(symbol=%s): %s", symbol, exc,
         )
         return None

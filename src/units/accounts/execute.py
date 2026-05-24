@@ -840,6 +840,32 @@ def _log_trade_to_journal(
                         "(pkg_id=%s trade_id=%s): %s",
                         pkg_id, trade_row_id, exc,
                     )
+        # Trade-lifecycle ping (TELEGRAM-SPEC §4.2) — live opens only.
+        # Best-effort: a ping failure must never touch the order path.
+        if status == "open" and not is_dry:
+            try:
+                from src.runtime.execution_diagnostics import enqueue_trade_open
+
+                enqueue_trade_open(
+                    account=str(
+                        account_cfg.get("account_id")
+                        or account_cfg.get("id")
+                        or "unknown"
+                    ),
+                    strategy=pkg.strategy,
+                    symbol=pkg.symbol,
+                    side=pkg.direction,
+                    qty=order.get("qty"),
+                    entry=getattr(pkg, "entry", None),
+                    sl=getattr(pkg, "sl", None),
+                    tp=getattr(pkg, "tp", None),
+                    order_id=trade_id,
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "execute_pkg: trade-open ping failed (symbol=%s): %s",
+                    pkg.symbol, exc,
+                )
         return True
     except Exception as exc:  # noqa: BLE001
         logger.warning(

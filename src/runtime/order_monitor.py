@@ -426,6 +426,28 @@ def _full_close_trade_and_package(
 
     summary.closed_count += 1
 
+    # Trade-lifecycle close ping (TELEGRAM-SPEC §4.2) — best-effort. The
+    # close is already recorded; a ping failure must never affect it.
+    try:
+        from src.runtime.execution_diagnostics import enqueue_trade_close
+
+        rows = db.get_trades(filters={"id": linked_trade_id})
+        row = rows[0] if rows else {}
+        enqueue_trade_close(
+            symbol=row.get("symbol") or "?",
+            account=row.get("account_id"),
+            strategy=row.get("strategy_name") or row.get("setup_type"),
+            entry=row.get("entry_price"),
+            exit_price=exit_price if exit_price is not None else row.get("exit_price"),
+            pnl=row.get("pnl"),
+            reason=reason,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "order_monitor: trade-close ping failed for trade=%s: %s",
+            linked_trade_id, exc,
+        )
+
 
 def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
                   summary: _StrategyTickSummary) -> None:
