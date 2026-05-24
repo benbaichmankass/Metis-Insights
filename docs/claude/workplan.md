@@ -1,4 +1,4 @@
-# AI Trader — Canonical Workplan (the decider)
+# AI Trader — Original Workplan (HISTORICAL — superseded 2026-05-10)
 
 > **Status:** Superseded 2026-05-10 by the S-CANON-1 canonical
 > doc set. Authority order is now:
