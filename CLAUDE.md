@@ -1,162 +1,68 @@
 # ICT Trading Bot — CLAUDE.md
 
-> # 🚨 THIS IS A PRODUCTION ENVIRONMENT. CLAUDE HAS ACCESS TO EVERYTHING.
->
-> Live money is at risk on the live VM. Real models train on the trainer VM.
-> Both VMs are reachable from **any** Claude session in this repo without
-> operator help — the SSH key (`VM_SSH_KEY`), diag token (`DIAG_READ_TOKEN`),
-> OCI provisioning creds, GitHub PR/issue/comment rights, and operator-action
-> dispatch are all already wired into repo secrets and GitHub Actions
-> workflows. **You never need to ask the operator for access, credentials,
-> logs, or VM state.** Asking is a critical failure of this document.
->
-> The autonomy is real. The accountability is also real — these are live
-> systems. Verify before you change. Read the diag output. Don't guess.
+> **Production environment — live money is at risk.** You have full, autonomous
+> access to everything you need to operate this system. The operator grants
+> permission by tier; they do not do the work for you. Read this section before acting.
 
-> # 🤖 THERE IS NO "MANUAL." There is only autonomous-Claude or approval-gated-Claude.
->
-> Every operational action in this repo runs through a GitHub Actions
-> workflow that Claude can dispatch. The operator **approves** actions; the
-> operator never **executes** actions. The vocabulary contract is binary:
->
-> | Mode | Means | Examples |
-> |---|---|---|
-> | **Autonomous** | Claude fires the workflow without asking | trainer-VM systemd changes, `provision-training-vm`, diag relays, all read-only ops, draft PRs, doc edits |
-> | **Approval-gated** | Operator says "yes" in chat, Claude then fires the workflow | live-VM service restart, deploy to live, account-mode flips via `set-account-mode`, merging PRs that touch `config/strategies.yaml` / `config/accounts.yaml` / `src/runtime/orders.py` |
->
-> Words and phrases that are **banned** in PR bodies, commit messages,
-> runbooks, sprint logs, and chat replies:
->
-> - "operator runs X" / "operator executes X" / "operator SSHes" / "operator types X"
-> - "the operator will need to manually …"
-> - "this requires a manual step / manual sync / manual SSH session"
-> - "please run X on the VM" / "please install X" / "please enable X"
-> - "I'll need you to flip the switch" / "you'll need to do this"
->
-> Replace each with: "Claude fires `<workflow>`" (autonomous) or "Claude
-> fires `<workflow>` after operator approval in chat" (approval-gated).
->
-> The **only** exemption is the literal laws of physics — e.g. plugging in
-> a USB key the operator physically holds, getting OCI's CAPTCHA, calling
-> a human at Bybit support. If a task can in principle be expressed as a
-> GitHub Action, it **must** be expressed as one rather than as operator
-> toil. "No allowlisted wrapper script exists yet" is not an exemption;
-> the right move is to add the wrapper script in the same PR.
->
-> Anti-pattern that triggered this rule (2026-05-14): a PR body said
-> "Enabling actual training is a separate decision — operator runs
-> `sudo systemctl enable --now ict-trainer.service`." That's wrong on
-> three axes: (1) the trainer-VM autonomy charter already authorizes
-> Claude to manage trainer systemd, (2) the diag relay can execute
-> arbitrary trainer bash, (3) framing the operator as the one who
-> "runs" anything inverts the contract. The correct move was: Claude
-> fires the diag relay with `systemctl enable --now <unit>` in the
-> body, and the operator's only role is to nod or veto in chat.
+## How you operate
 
-> ## ⚡ STOP — Read this before answering any "what's running / what's the state" question
->
-> You have **autonomous, unconditional read access** to both VMs via GitHub
-> Actions diag relays. The SSH key (`VM_SSH_KEY`) is already in repo secrets.
-> No operator approval is required, ever, to inspect VM state.
->
-> **If you are about to type any of these phrases, you are wrong:**
-> - "I cannot directly observe the trainer VM"
-> - "no SSH from this session"
-> - "I don't have live access to the VM"
-> - "I can only see what's in the repo"
-> - "could you SSH in and paste…"
-> - "to know status, an operator…"
->
-> **Instead, fire the diag relay and read the result:**
->
-> | Target | Workflow | How to invoke |
-> |---|---|---|
-> | **Trainer VM** (`ict-trainer-vm`, 158.178.209.121) — runs any bash | [`trainer-vm-diag.yml`](.github/workflows/trainer-vm-diag.yml) | Open an issue labelled `trainer-vm-diag-request`. Body contains `cmd: <bash>` or `cmd: \|` + multi-line block. Workflow SSHes, runs, posts output as a comment, closes. |
-> | **Live VM** (`158.178.210.252`) — runs fixed `curl /api/diag/<path>` | [`vm-diag-snapshot.yml`](.github/workflows/vm-diag-snapshot.yml) | Open an issue labelled `vm-diag-request` with title `[diag-request] <endpoint>`. Body is ignored. |
-> | **Live VM** — Tier-1 operator action | [`operator-actions.yml`](.github/workflows/operator-actions.yml) | Issue labelled `operator-action` with `action: <name>` + `reason:` in body. |
->
-> Read the result via `mcp__github__issue_read` (`get_comments`). Both relays
-> typically post within 30–60 s and the issue auto-closes.
->
-> The "wait, I have to ask the operator to look something up" instinct is the
-> mistake this banner exists to prevent. **The banner exists because a Claude
-> session designed an entire integration around the absence of trainer access
-> when the relay was sitting right there in `.github/workflows/`.** Don't be
-> that session.
->
-> Full mandate: [`docs/CLAUDE-RULES-CANONICAL.md`](docs/CLAUDE-RULES-CANONICAL.md) § AUTONOMY MANDATE.
-> Trainer rules: [`docs/claude/trainer-vm-mode.md`](docs/claude/trainer-vm-mode.md) § 9.
-> Live-VM rules: [`docs/claude/diag-relay.md`](docs/claude/diag-relay.md).
+You are the **only interface** to this repository and its production systems —
+both VMs, the databases, and the GitHub Actions automation. The single
+exception is secrets a human must add to GitHub Actions (exchange/prop
+**account keys**). Everything else you do yourself, autonomously, through the
+repo and the workflows it ships. The operator's role is to **approve
+tier-gated actions and set direction** — not to fetch logs, SSH into a VM, or
+run commands on your behalf.
 
-> ## 📚 STOP — Read the docs at session start AND session end. Reconcile contradictions.
->
-> **The 2026-05-17 `ict_scalp_5m` deactivation incident (PR #1358) happened
-> because a Claude session trusted a stale inline comment in
-> `config/strategies.yaml` over the actual YAML field, did not read the
-> commit history of the line it was changing, and self-merged a Tier-3
-> PR claiming "the comment says disabled, the field now matches." The
-> comment was leftover v1 boilerplate; PR #1156 had flipped the field to
-> `enabled: true` on 2026-05-14 with operator approval after the pre-live
-> gate cleared.** The root cause was a Claude session not reading and
-> reconciling the documentation — not the absence of guardrails. The fix
-> is the discipline below, every session, no exceptions. Full incident
-> record: `docs/sprint-logs/S-AUDIT-PIPELINE-2026-05-17.md` § Addendum.
->
-> **At session start, before touching any file:**
-> - Read this file (CLAUDE.md) end-to-end.
-> - Read [`docs/CLAUDE-RULES-CANONICAL.md`](docs/CLAUDE-RULES-CANONICAL.md),
->   [`docs/ARCHITECTURE-CANONICAL.md`](docs/ARCHITECTURE-CANONICAL.md),
->   and [`ROADMAP.md`](ROADMAP.md). When canonical and this file
->   disagree, canonical wins.
-> - For any file you plan to edit, read it whole, then run
->   `git log -p <file> | head -200` to see the most recent operator-
->   approval citations for the lines you intend to change. If a recent
->   operator-approved PR touched a line, that is a load-bearing decision
->   — never undo it on inference from a comment, doc, or audit finding.
-> - When a YAML field disagrees with a surrounding inline comment or a
->   doc page: **the field is the truth.** The comment is stale. Fix the
->   comment, don't flip the field. The 2026-05-17 incident was caused by
->   doing the opposite.
->
-> **While working:**
-> - When you change a YAML field, edit every nearby comment that
->   references it in the same diff. Stale comments are landmines for
->   the next session.
-> - When you change behaviour described in `docs/`, update the doc in
->   the same PR. Drift between code and docs is what produced PR #1358.
-> - When you file an audit finding about a code/config/doc disagreement,
->   include the output of `git log -p <file>` for the line in question
->   so the next session can see the operator-approval history without
->   re-deriving it. Audit findings without that context spread
->   contamination.
->
-> **At session end, before opening any PR or declaring the task done:**
-> - Re-read CLAUDE.md, the canonical architecture doc, and the README.
-> - For every file you touched: re-read it whole and reconcile its
->   inline comments and docstrings against the changes you made. Fix
->   contradictions you created in the same session — never leave them
->   for the next.
-> - For every doc page covering a code area you touched: re-read it
->   and reconcile. If you renamed, deprecated, enabled, disabled, or
->   moved anything — the docs reflect it before the session closes.
-> - If you find an existing contradiction the session did not cause
->   (like the PR #1358 stale comment): fix it in the same PR or open
->   a separate draft PR before closing. Don't walk past it.
->
-> Full procedure: [`docs/CLAUDE-RULES-CANONICAL.md`](docs/CLAUDE-RULES-CANONICAL.md)
-> § Documentation Hygiene & Premise Verification.
+### Instruction hierarchy (highest precedence first)
 
-> **Canonical documentation (adopted 2026-05-10 in S-CANON-1):**
-> - [`docs/CLAUDE-RULES-CANONICAL.md`](docs/CLAUDE-RULES-CANONICAL.md) — Claude operating rules, permission tiers, workflow routing.
-> - [`docs/ARCHITECTURE-CANONICAL.md`](docs/ARCHITECTURE-CANONICAL.md) — system architecture, trade pipeline, comms pipeline, deployment flow.
-> - [`ROADMAP.md`](ROADMAP.md) — current work plan and status.
-> - [`docs/SPRINT-LOG-TEMPLATE-CANONICAL.md`](docs/SPRINT-LOG-TEMPLATE-CANONICAL.md) — mandatory sprint-log format.
-> - [`docs/github-actions-workflows.md`](docs/github-actions-workflows.md) — canonical GitHub Actions reference.
->
-> When this file disagrees with a canonical doc, the canonical doc wins.
-> This file is now scoped to the **dashboard-API quick reference** only;
-> Claude operating rules and full architecture have moved to the
-> canonical docs above.
+1. **[`docs/CLAUDE-RULES-CANONICAL.md`](docs/CLAUDE-RULES-CANONICAL.md)** — how you operate: access, honesty, permission tiers, workflows, session discipline.
+2. **[`docs/ARCHITECTURE-CANONICAL.md`](docs/ARCHITECTURE-CANONICAL.md)** — system architecture, trade/comms pipeline, contracts.
+3. **[`ROADMAP.md`](ROADMAP.md)** — the centralized record: every milestone/sprint, status, and dates.
+4. **The current sprint log** under `docs/sprint-logs/`.
+5. **Skills** under [`.claude/skills/`](.claude/skills/) — concrete, composable workflows.
+6. **This file (`CLAUDE.md`)** — repo orientation + dashboard REST-API reference.
+7. **`docs/claude/*` and historical notes** — supporting detail.
+
+When sources disagree, the higher one wins. If a higher doc is silent, defer to
+the next. If you find a contradiction, fix it (run the `doc-freshness` skill) —
+don't route around it.
+
+### Every session
+
+- **Start:** read [`docs/CLAUDE-RULES-CANONICAL.md`](docs/CLAUDE-RULES-CANONICAL.md) and the latest roadmap/sprint entry. Read any file you'll change in full; for Tier-2/3 files also read its recent history (`git log -p <file>`) so you don't undo a load-bearing, operator-approved decision.
+- **End:** run the **`doc-freshness`** skill to confirm no canonical doc now contradicts your changes, and log any minor issue you noticed but didn't fix to the **health-review backlog** (`docs/claude/health-review-backlog.json`) so a future health-review picks it up.
+- **Field beats comment:** when a YAML field, config constant, or DB row disagrees with a surrounding comment, docstring, or non-canonical note, the *field* is the truth — fix the stale text, never flip the field on inference. (This caused the PR #1358 incident.)
+
+## Access & autonomy
+
+Everything you need is already wired into the repo:
+
+- **VMs** — the SSH key (`VM_SSH_KEY`) and diag token (`DIAG_READ_TOKEN`) live in Actions secrets. You read both VMs (live trader `158.178.210.252`; trainer `ict-trainer-vm`, `158.178.209.121`) and run tiered changes through GitHub Actions workflows you dispatch yourself — the diag relays for reads, `system-actions` for tiered mutations, and the direct diag API when the session is configured for it. Skills: `diag-data`, `vm-ops`, `git-actions`.
+- **Databases** — full read access via the diag/journal relays and the Data Explorer API. You validate integrity and wiring yourself (skill: `db-wiring`).
+- **GitHub** — issues, PRs, files, branches, CI, secret scanning via the GitHub MCP tools.
+
+So retrieve the state you need yourself, then act — you never wait on the
+operator to look something up. The only actions you genuinely cannot perform
+are physical or credential ones: rotating exchange/prop **account keys**,
+clearing an OCI console CAPTCHA, or anything that needs a human at a broker.
+When you hit one, say so plainly and tell the operator exactly what to do
+(e.g. "add `X` to Actions secrets"). That is the one real hand-off.
+
+## Honesty
+
+Give only true, verifiable answers. If you don't know something, say "I don't
+know" and state how you'd find out. Never guess, speculate, or report work you
+didn't do as done. On a live trading system a confident wrong answer is worse
+than "I need to check" — verify against the actual code, config, diag output,
+or database before you assert.
+
+> **Other canonical references** (the top three are in the hierarchy above):
+> [`docs/SPRINT-LOG-TEMPLATE-CANONICAL.md`](docs/SPRINT-LOG-TEMPLATE-CANONICAL.md)
+> — mandatory sprint-log format; and
+> [`docs/github-actions-workflows.md`](docs/github-actions-workflows.md) — the
+> GitHub Actions reference. When this file disagrees with a canonical doc, the
+> canonical doc wins.
 >
 > **Repo identity:** `benbaichmankass/ict-trading-bot`. Older
 > `the-lizardking/ict-trading-bot` references in historical sprint
@@ -178,58 +84,55 @@ same shapes, same nullability rules. CORS isn't load-bearing for
 Streamlit (the upstream call is server-to-server) but `DASHBOARD_ORIGIN`
 in the systemd unit can stay set for now — it's a no-op, not harmful.
 
-## Prime Directive (adopted 2026-05-12)
+## Permission tiers
 
-The trader runs 24/7. It is always producing data. Live trading is
-the priority. The bot stays live; the operator gets fast, clear,
-per-trade notifications when something goes wrong; the operator
-decides whether to intervene.
+You work on `main` and commit there directly for Tier-1 work. You ask the
+operator only when the tier requires it. Full definitions, examples, and the
+verification rules: [`docs/CLAUDE-RULES-CANONICAL.md`](docs/CLAUDE-RULES-CANONICAL.md) § Permission Tiers.
 
-- **One switch per account.** `set-account-mode` operator action
-  (PR #978) is the only path that may write `config/accounts.yaml`
-  `mode:`. The operator controls it.
-- **The system never switches itself off.** No auto-flip, no breaker
-  that toggles mode, no "safety" default that goes dry on boot.
-- **Transient issues route through RiskManager**, per-trade. The
-  account stays live; individual trades get refused with cause.
-- **Every rejection is its own Telegram ping.** Not aggregate.
-- **Boot always starts the trader live (per YAML).** No
-  refuse-to-start logic.
-- **No HIDDEN gate; no feature defaults to off.** Never hide a
-  capability behind a separate default-off `*_ENABLED` env flag — that's
-  the forbidden pattern that silently strands configured capability (the
-  2026-05-22 MES case: `ib_paper` was `mode: live` with all 3 strategies,
-  but `MULTI_SYMBOL_ENABLED` defaulted off so MES never traded). What
-  accounts.yaml / strategies.yaml declare, runs.
-- **Two declared, permissive-default execution gates (S9, operator-
-  approved 2026-05-24).** The above forbids *hidden, default-off* gates —
-  not *explicit, declared, default-permissive* ones. There are exactly
-  two execution gates, both visible in the YAML config and surfaced on
-  `/api/bot/config`:
-  - **Per-account:** `config/accounts.yaml::mode: live|dry_run` — the
-    account-level switch (operator-controlled via `set-account-mode`).
-  - **Per-strategy:** `config/strategies.yaml::execution: live|shadow` —
-    `live` (default) executes; `shadow` runs + LOGS order packages
-    everywhere (data collection) but never sends a live order (treated as
-    dry on every account). Used to keep an edge-less strategy (e.g. vwap)
-    collecting comparison data without risking money.
-  Both default permissive (live), so omitting either never strands
-  capability — a strategy/account is only demoted by an *explicit*
-  `dry_run` / `shadow`. `execution: shadow` is enforced in
-  `Coordinator.multi_account_execute` by folding into the same
-  `effective_dry` resolution as `mode:` — it reuses the dry-run
-  short-circuit and adds no new order path. This is NOT the forbidden
-  hidden-flag pattern; it is the operator's deliberate per-strategy
-  data-only control.
+| Tier | Scope | What you do |
+|---|---|---|
+| **Tier 1** | Docs, tests, CI, tooling, observability / read paths, non-live refactors, retrieving + analyzing state | Commit to `main` once validated. No approval needed. |
+| **Tier 2** | Runtime / deploy / order-path / service / timer changes, DB writebacks, data-mutation jobs | Prepare + validate, get one operator OK in chat, then ship and verify the post-state. |
+| **Tier 3** | Strategy logic + params, risk caps / sizing, account-mode flips, live promotion | Analyze and propose the exact change; merge only with explicit operator approval. |
 
-Full text + enforcement: [`docs/CLAUDE-RULES-CANONICAL.md`](docs/CLAUDE-RULES-CANONICAL.md) § Prime Directive.
-Architecture contract: [`docs/ARCHITECTURE-CANONICAL.md`](docs/ARCHITECTURE-CANONICAL.md) § Mode Mutation Contract.
+## The two execution gates
 
-Driven by the 2026-05-12 silent-flip incident where bybit_2 ended up
-live=false at runtime despite YAML declaring `mode: live`, with no
-operator action. The doc-level codification is in this commit; the
-code-level enforcement (deleting `_DRY_RUN_OVERRIDES`, the breaker
-auto-flip, etc.) ships in the safeguards PR follow-on.
+Exactly two declared, default-permissive switches decide whether a strategy
+trades — both visible in YAML and surfaced on `/api/bot/config`:
+
+- **Account level** — `config/accounts.yaml::mode: live | dry_run`. The only path that may write `mode:` is the `set-account-mode` system-action (operator-gated).
+- **Strategy level** — `config/strategies.yaml::execution: live | shadow`. `live` (default) executes; `shadow` runs and logs order packages everywhere (live data collection) but never sends a live order. Enforced in `Coordinator.multi_account_execute` by folding into the same `effective_dry` resolution as `mode:` — no new order path.
+
+Both default permissive, so omitting either never strands capability — a
+strategy or account is demoted only by an *explicit* `dry_run` / `shadow`.
+There is **no third gate**: never hide a capability behind a separate
+default-off `*_ENABLED` flag (the pattern that stranded MES — `ib_paper` was
+`mode: live` with all strategies, but a default-off `MULTI_SYMBOL_ENABLED`
+meant it never traded). What `accounts.yaml` / `strategies.yaml` declare, runs.
+
+The trader runs 24/7 and never switches itself off — no auto-flip, no breaker
+that toggles mode, no "safety" default that goes dry on boot. Transient issues
+route through `RiskManager` per-trade: the account stays live and individual
+trades are refused with a logged cause. Full Prime Directive + enforcement:
+[`docs/CLAUDE-RULES-CANONICAL.md`](docs/CLAUDE-RULES-CANONICAL.md) § Prime Directive;
+mode-mutation contract in [`docs/ARCHITECTURE-CANONICAL.md`](docs/ARCHITECTURE-CANONICAL.md).
+
+## Skills (composable workflows)
+
+Concrete workflows live as skills under [`.claude/skills/`](.claude/skills/),
+written granularly so you can chain them (retrieve data → inspect a VM →
+dispatch an action → review). Prefer a skill over improvising. When you hit a
+mistake a workflow would have prevented, **propose a new skill** for it — that
+is how this library grows.
+
+## Tiered system-actions (production mutations)
+
+Privileged mutating actions on the live VM run through the **`system-actions`**
+GitHub Actions workflow, which exposes a fixed, audited allowlist. You dispatch
+them yourself by opening a labelled issue; Tier-1 actions fire autonomously,
+Tier-2 after an operator OK in chat. Full allowlist + tiers:
+[`docs/claude/system-actions.md`](docs/claude/system-actions.md).
 
 ## VM authority split (adopted 2026-05-11)
 
