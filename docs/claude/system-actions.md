@@ -71,6 +71,8 @@ Adding an action requires a PR that updates this doc, the workflow's
 | `set-account-mode` | 2 | `scripts/ops/set_account_mode.sh` | in-place edit of `config/accounts.yaml` `mode:` for the named account + restart `ict-trader-live.service`. Added 2026-05-12 in response to the silent-flip incident (see § 2.1). |
 | ~~`enable-mes` / `disable-mes`~~ | — | *removed 2026-05-22* | **Deleted — these were a forbidden second gate.** The `MULTI_SYMBOL_ENABLED` env they flipped no longer exists; the symbol set is derived from `config/accounts.yaml` (`_resolve_tick_symbols` unions every configured account's `symbols`). Per the "one switch per account" rule, the only way to gate MES is the account's `mode:` (via `set-account-mode` on `ib_paper` → stops execution, signals still log) or removing its `strategies` / `symbols` in a PR. |
 | `fix-data-dir` | 2 | `scripts/ops/fix_data_dir.sh` | strips `DATA_DIR=` / `TRADE_JOURNAL_DB=` overrides from `.env` (backup retained), rsyncs `/home/ubuntu/ict-trading-bot/data/{runtime_logs,runtime_state,artifacts,data}/` → `/data/bot-data/<same>/` to align with the systemd drop-in's canonical mount, renames the legacy split path with a `MIGRATED-<ts>` suffix, then restarts every canonical unit. Added 2026-05-12 in response to the path-bifurcation incident (see § 2.2). |
+| `send-ping` | 1 | `scripts/ops/send_ping_action.sh` | **No mutation, no restart.** Enqueues one immediate Telegram message via `scripts/send_ping.py` (`target=claude` default → @claude_ict_comms_bot; the bridge drains within ~5 s). This is the autonomous "Claude wants to say something NOW" path — far faster than the ≤5-min `pending-pings.jsonl` git-relay. Params: `message:` (required), `priority:` (low\|normal\|high\|urgent, default normal), `target:` (claude\|trader, default claude). The transparency notify is skipped for it (the action IS the message). Added 2026-05-24. |
+| `set-env` | 2 | `scripts/ops/set_env.sh` | Idempotent single-key upsert into the VM `.env` (preserves all other lines/comments) + restart the named `service:` so systemd re-reads its `EnvironmentFile`. The autonomous "Claude owns + configures the VM env" path. Params: `env_key:` (required, `^[A-Z][A-Z0-9_]*$`), `env_value:` (omit for secret-backed keys — see below), `service:` (allowlisted unit, or `none` to skip restart). **Values are never logged or recorded in the audit JSON.** Secret-backed keys (e.g. `TELEGRAM_CLAUDE_BOT_TOKEN`) take their value from the matching `secrets.<KEY>` GitHub Actions secret when `env_value` is blank, so the secret never transits the (public) issue body or run log. Added 2026-05-24. |
 
 **Docker is intentionally absent.** The repo's canonical runtime is
 systemd (`deploy/*.service` units installed via
@@ -168,8 +170,12 @@ Claude may dispatch these without operator approval:
 - `strategy-performance-audit`
 - `monitor-miss-analysis`
 - `vwap-backtest-sweep`
+- `send-ping`
 
-These are read-only analysis wrappers (they query the journal / Bybit /
+`send-ping` is non-mutating (it enqueues one Telegram message, no
+restart) so it sits at Tier 1 — this is the autonomous path for Claude
+to post an immediate update or "waiting on you" ping to the operator's
+channel. The rest are read-only analysis wrappers (they query the journal / Bybit /
 backtest harness and emit a summary; no journal mutation, no service
 restart). Pre-conditions: none beyond the standard "session has a clear reason
 to run it" (a flagged issue, a CI failure on `vm-diag-snapshot`,
@@ -206,6 +212,14 @@ Tier-2 actions:
 - `fix-data-dir`
 - `rotate-account-keys`
 - `init-diag-token`
+- `set-env`
+
+`set-env` mutates the VM `.env` and restarts a bot service, so it is
+Tier-2 (requires a `reason`). It is the autonomous path for Claude to
+own and configure VM environment variables — e.g. wiring
+`TELEGRAM_CLAUDE_BOT_TOKEN` / `TELEGRAM_CLAUDE_THREAD_ID` for the Claude
+update channel — without an operator hand-off. Secret values come from
+GitHub Actions secrets, never the issue body.
 
 `pull-and-deploy` is a thin wrapper around `scripts/deploy_pull_restart.sh`
 (the canonical script the `ict-git-sync` timer also calls). It fetches

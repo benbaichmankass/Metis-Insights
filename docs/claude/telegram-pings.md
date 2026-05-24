@@ -76,15 +76,42 @@ session-close ping is suppressed.
 
 ## Where the wiring lives
 
-Two distinct paths because the sandbox can't always reach Telegram:
+Three paths, in order of preference.
 
-### Path 1 — VM-side (primary, runs on the Oracle VM)
+### Path 0 — `send-ping` system-action (PRIMARY, immediate)
+
+The fastest, most reliable path and the one a web/sandbox session should
+reach for first. Claude opens a `system-action`-labelled GitHub issue:
+
+```
+action: send-ping
+message: <one-line update>
+priority: normal      # low | normal | high | urgent (optional)
+target: claude        # claude | trader (optional, default claude)
+```
+
+The `system-actions` workflow SSHes to the VM (using `VM_SSH_KEY`) and
+runs `scripts/ops/send_ping_action.sh` → `scripts/send_ping.py
+--target claude`, which the bridge drains within ~5 s. **No git push, no
+git-sync wait, no deploy/restart.** This is how Claude posts an
+immediate update or a "waiting for your input" ping autonomously —
+latency is workflow-run time (~30-60 s), not the ≤5 min of the git
+relay. Full contract: `docs/claude/system-actions.md` § `send-ping`.
+
+Use Path 1/2 below for pings that should ride along with a commit
+(checkpoints, sprint events tied to a push) or when the GitHub MCP /
+issue path is unavailable.
+
+### Path 1 — VM-side git relay (rides on commits)
 
 **Status: VERIFIED WORKING** as of 2026-05-06 (BUG-058 PR #423 +
 BUG-059 PR #426 deployed; `ict-claude-bridge.service` confirmed active).
 
 The VM has:
-- `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` in `/etc/ict-trader/claude.env`.
+- `TELEGRAM_CLAUDE_BOT_TOKEN` + `TELEGRAM_CHAT_ID` (+ optional
+  `TELEGRAM_CLAUDE_THREAD_ID`) in `.env`, read by
+  `ict-claude-bridge.service` via `EnvironmentFile`. Set them with the
+  `set-env` system-action (§ Path 0 doc).
 - `ict-git-sync.timer` — pulls `main` every 5 minutes (`deploy/ict-git-sync.timer`).
 - `scripts/deploy_pull_restart.sh` — runs on each pull; calls `scripts/notify_on_pull.py`.
 - `scripts/notify_on_pull.py` — drains `docs/claude/pending-pings.jsonl` + detects
