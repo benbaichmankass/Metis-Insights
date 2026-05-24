@@ -840,3 +840,145 @@ def trend_donchian_signal_builder(settings: dict) -> Dict[str, Any]:
         timeframe=timeframe, candles_df=candles_df,
     )
     return _with_signal_package("trend_donchian", sig)
+
+
+def fade_breakout_4h_signal_builder(settings: dict) -> Dict[str, Any]:
+    """Failed-breakout fade (S-STRAT-IMPROVE-S9), the mirror of the trend
+    follower: fades failed Donchian breakouts (pierce-and-reject) in chop
+    (ADX<20) with a Chandelier trail.
+
+    Fetches 4h candles, calls
+    ``src.units.strategies.fade_breakout_4h.order_package``, and maps the
+    result into the pipeline-shape signal dict. Validated as an
+    uncorrelated complement to trend_donchian (monthly_corr 0.035; blend
+    ret/DD 1.97->3.80) but more fragile OOS, so it is run
+    ``execution: shadow`` — logs order packages on real ticks, never
+    sends a live order. Full evidence:
+    docs/audits/fade-breakout-complement-2026-05-24.md.
+
+    Honours the ``enabled`` flag in ``config/strategies.yaml`` as the
+    single source of truth: ``enabled: false`` short-circuits to
+    ``side="none"`` without code changes. (The ``execution: shadow``
+    gate is enforced downstream in the Accounts layer, not here — this
+    builder always produces the real signal so the shadow log captures
+    exactly what would have traded.)
+    """
+    from src.units.strategies import load_strategy_config
+    from src.units.strategies.fade_breakout_4h import order_package
+    from src.runtime.market_data import fetch_candles
+
+    try:
+        strategies_cfg = load_strategy_config()
+    except Exception:  # noqa: BLE001 — never fail-open on a config error
+        strategies_cfg = {}
+    fade_cfg = strategies_cfg.get("fade_breakout_4h", {}) or {}
+
+    symbol = settings.get("SYMBOL", settings.get("symbol", "BTCUSDT"))
+
+    if not bool(fade_cfg.get("enabled", False)):
+        logger.info(
+            "fade_breakout_4h: strategy disabled in config/strategies.yaml — "
+            "returning side=none"
+        )
+        return _with_signal_package("fade_breakout_4h", {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {
+                "strategy_name": "fade_breakout_4h",
+                "reason": "disabled_in_yaml",
+            },
+        })
+
+    timeframe = str(
+        fade_cfg.get("timeframe")
+        or settings.get("FADE_BREAKOUT_4H_TIMEFRAME")
+        or settings.get("TIMEFRAME")
+        or "4h"
+    )
+
+    exchange = _build_killzone_exchange(settings)
+    candles_df = fetch_candles(
+        symbol, timeframe, exchange_client=exchange, limit=200,
+    )
+    if candles_df is None:
+        raise RuntimeError(
+            f"fade_breakout_4h: no candle data returned for symbol={symbol} "
+            f"timeframe={timeframe}. Check that the exchange connection "
+            "is configured and the symbol is valid."
+        )
+
+    _publish_liquidity_state(symbol, candles_df)
+
+    cfg: Dict[str, Any] = {"symbol": symbol, "timeframe": timeframe, **fade_cfg}
+
+    try:
+        pkg = order_package(cfg, candles_df=candles_df)
+    except ValueError as exc:
+        logger.info("fade_breakout_4h: no actionable signal (%s)", exc)
+        try:
+            log_signal({
+                "event": "fade_breakout_4h_eval",
+                "strategy": "fade_breakout_4h",
+                "symbol": symbol,
+                "timeframe": timeframe,
+                "side": "none",
+                "reason": str(exc),
+            })
+        except Exception:  # noqa: BLE001
+            logger.exception("fade_breakout_4h: dedicated audit emit failed")
+        return _with_signal_package("fade_breakout_4h", {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {
+                "strategy_name": "fade_breakout_4h",
+                "reason": str(exc),
+            },
+        })
+
+    side = "buy" if pkg["direction"] == "long" else "sell"
+    logger.info(
+        "fade_breakout_4h: %s signal at %s (entry=%s sl=%s tp=%s confidence=%.3f)",
+        side, symbol, pkg["entry"], pkg["sl"], pkg["tp"], pkg["confidence"],
+    )
+    pkg_meta = pkg.get("meta") or {}
+    try:
+        log_signal({
+            "event": "fade_breakout_4h_eval",
+            "strategy": "fade_breakout_4h",
+            "symbol": symbol,
+            "timeframe": timeframe,
+            "side": side,
+            "entry": pkg["entry"],
+            "stop_loss": pkg["sl"],
+            "take_profit": pkg["tp"],
+            "confidence": pkg["confidence"],
+        })
+    except Exception:  # noqa: BLE001
+        logger.exception("fade_breakout_4h: dedicated audit emit failed")
+
+    sig = {
+        "symbol": symbol,
+        "side": side,
+        "price": pkg["entry"],
+        "entry_price": pkg["entry"],
+        "stop_loss": pkg["sl"],
+        "take_profit": pkg["tp"],
+        "pattern": "fade_breakout_4h",
+        "meta": {
+            **pkg_meta,
+            "strategy_name": "fade_breakout_4h",
+            "confidence": pkg["confidence"],
+            "direction": pkg["direction"],
+            # Same rationale as trend_donchian: carry the per-strategy risk
+            # multiplier from YAML on the signal meta because the
+            # registry-driven STRATEGY_RISK_PCT does not surface the
+            # strategies.yaml `risk_pct` field. Moot while execution:shadow
+            # (never sends a live order) but correct for any future flip.
+            "strategy_risk_pct": float(fade_cfg.get("risk_pct", 0.3) or 0.3),
+        },
+    }
+    _emit_shadow_preds(
+        "fade_breakout_4h", sig, fade_cfg, symbol,
+        timeframe=timeframe, candles_df=candles_df,
+    )
+    return _with_signal_package("fade_breakout_4h", sig)

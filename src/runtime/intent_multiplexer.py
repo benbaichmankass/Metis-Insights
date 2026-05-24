@@ -49,6 +49,7 @@ from src.runtime.intents import (
 )
 from src.runtime.runtime_flags import is_strategy_paused
 from src.runtime.strategy_signal_builders import (
+    fade_breakout_4h_signal_builder,
     ict_scalp_signal_builder,
     trend_donchian_signal_builder,
     turtle_soup_signal_builder,
@@ -83,6 +84,11 @@ def _default_intent_builders() -> Dict[str, IntentBuilder]:
         # honours the YAML `enabled` flag; priority 20 (below the others)
         # so a wiring slip can't override the established roster.
         "trend_donchian": trend_donchian_signal_builder,
+        # fade_breakout_4h: the trend-follower's mirror, wired
+        # execution:shadow (S9, 2026-05-24) for live data collection —
+        # never sends a live order. Builder honours the YAML `enabled`
+        # flag; priority 10 (lowest on the roster).
+        "fade_breakout_4h": fade_breakout_4h_signal_builder,
     }
 
 
