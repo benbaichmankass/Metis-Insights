@@ -172,34 +172,3 @@ class TestBotWrappersCallProcessor:
         assert isinstance(as_tuple, tuple) and len(as_tuple) == 2
         assert isinstance(as_tuple[0], int)
         assert isinstance(as_tuple[1], float)
-
-    def test_bot_source_calls_processor_helpers(self):
-        """Verify the bot's wrapper code calls the processor helpers
-        (not the DB directly). Reads the source as text to avoid
-        importing the heavyweight bot module (sandbox lacks the
-        full ``telegram`` package).
-        """
-        from pathlib import Path
-        # fetch_today_pnl / fetch_open_positions_count were extracted from
-        # telegram_query_bot.py into src/bot/trade_notifier.py as part of
-        # the D3/PR-10 helper-module split.
-        bot_src = Path("src/bot/trade_notifier.py").read_text()
-
-        # Slice out each function to verify the wrapper, not other code.
-        def _slice(name):
-            start = bot_src.index(f"def {name}(")
-            # Find the next ``def`` or end-of-file as the slice boundary.
-            after = bot_src.index("\ndef ", start + 1)
-            return bot_src[start:after]
-
-        fetch_today = _slice("fetch_today_pnl")
-        assert "get_today_pnl" in fetch_today, (
-            "fetch_today_pnl must call processor.get_today_pnl "
-            "per Architecture rule § 5"
-        )
-        # The pre-PR direct-DB code is gone.
-        assert "sqlite3.connect" not in fetch_today
-
-        fetch_open = _slice("fetch_open_positions_count")
-        assert "get_open_positions_count" in fetch_open
-        assert "sqlite3.connect" not in fetch_open

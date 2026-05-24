@@ -113,8 +113,6 @@ class TestEnvDiscoveryFiltersReservedNames:
 class TestToggleServiceValidatesUnitFile:
     def test_refuses_unknown_service(self, monkeypatch):
         """toggle_service() must refuse a service with no matching unit file."""
-        import src.bot.telegram_query_bot as bot
-
         called = {"systemctl": False}
 
         def _fake_run(cmd, *a, **kw):
@@ -133,7 +131,7 @@ class TestToggleServiceValidatesUnitFile:
             lambda repo_root=None: {"ict-trader-live", "ict-telegram-bot"},
         )
 
-        result = bot.toggle_service("ict-trader-bak", "start")
+        result = _cn.toggle_service("ict-trader-bak", "start")
         assert "Refusing" in result or "no matching unit" in result
         assert "ict-trader-bak" in result
         assert called["systemctl"] is False, (
@@ -142,8 +140,6 @@ class TestToggleServiceValidatesUnitFile:
 
     def test_phantom_example_service_blocked(self, monkeypatch):
         """The exact symptom that triggered S-012: ict-trader-example refused."""
-        import src.bot.telegram_query_bot as bot
-
         called = {"systemctl": False}
 
         def _fake_run(cmd, *a, **kw):
@@ -161,14 +157,12 @@ class TestToggleServiceValidatesUnitFile:
             lambda repo_root=None: {"ict-trader-live", "ict-telegram-bot"},
         )
 
-        result = bot.toggle_service("ict-trader-example", "start")
+        result = _cn.toggle_service("ict-trader-example", "start")
         assert "ict-trader-example" in result
         assert called["systemctl"] is False
 
     def test_known_service_still_proceeds(self, monkeypatch):
         """Real services pass through to systemctl as before."""
-        import src.bot.telegram_query_bot as bot
-
         invocations = []
 
         def _fake_run(cmd, *a, **kw):
@@ -186,7 +180,7 @@ class TestToggleServiceValidatesUnitFile:
             lambda repo_root=None: {"ict-trader-live", "ict-telegram-bot"},
         )
 
-        result = bot.toggle_service("ict-trader-live", "start")
+        result = _cn.toggle_service("ict-trader-live", "start")
         # First invocation is the start (toggle); the second is is-active.
         assert any("start" in cmd for cmd in invocations)
         assert "ict-trader-live" in result

@@ -46,13 +46,15 @@ def _make_cb(data, chat_id="12345"):
 
 
 def test_command_surface_is_just_the_menu_openers():
-    names = {c.command for c in bot.BOT_COMMANDS}
+    # Assert against _MENU_OPENERS (stub-proof) — BOT_COMMANDS entries are
+    # telegram.BotCommand, which other test files may stub to MagicMock.
+    names = {name for name, _ in bot._MENU_OPENERS}
     assert names == {"start", "menu"}
 
 
 def test_descriptions_within_telegram_limits():
-    for c in bot.BOT_COMMANDS:
-        assert 1 <= len(c.description) <= 80
+    for _name, desc in bot._MENU_OPENERS:
+        assert 1 <= len(desc) <= 80
 
 
 # ── is_halted / is_authorised ────────────────────────────────────────────────

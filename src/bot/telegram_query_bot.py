@@ -132,9 +132,15 @@ def is_halted() -> bool:
 # hamburger menu Telegram shows in the composer. Per the overhaul it
 # carries only the two menu openers; there is no stale command wall.
 
+# (name, description) — the only operator-facing slash commands. Kept as
+# plain tuples (not telegram.BotCommand) so the surface is assertable even
+# when a test stubs ``telegram.BotCommand`` with a bare MagicMock.
+_MENU_OPENERS: list[tuple[str, str]] = [
+    ("start", "Open the menu"),
+    ("menu", "Open the menu"),
+]
 BOT_COMMAND_SPECS: list[BotCommand] = [
-    BotCommand("start", "Open the menu"),
-    BotCommand("menu", "Open the menu"),
+    BotCommand(name, desc) for name, desc in _MENU_OPENERS
 ]
 BOT_COMMANDS = BOT_COMMAND_SPECS
 
