@@ -250,7 +250,19 @@ def _load_yaml_accounts() -> List[Dict[str, Any]]:
         # silently fell through to the legacy env_path branch (which
         # doesn't exist for accounts.yaml-managed accounts), which was
         # the second contributing cause of "balance unavailable".
-        for k in ("api_key_env", "api_secret_env", "type", "risk", "market_type", "demo"):
+        #
+        # IB connection fields (ib_host/ib_port/ib_account/ib_client_id)
+        # + mode are the Interactive Brokers equivalent: ib_client_for /
+        # ib_read_client_for read them straight off the account dict, and
+        # the read path gates on `mode` so the dry live gateway is never
+        # dialled. Omitting them here made every IB account fall through to
+        # "unsupported"/"ib_port unset" in the hourly report + dashboard
+        # (the read path was blind to IB even though execution was wired).
+        for k in (
+            "api_key_env", "api_secret_env", "type", "risk", "market_type",
+            "demo", "mode", "symbols",
+            "ib_host", "ib_port", "ib_account", "ib_client_id",
+        ):
             v = item.get(k)
             if v is not None:
                 entry[k] = v
@@ -621,6 +633,65 @@ def _bybit_response_error(resp: Any) -> Optional[str]:
     return f"Bybit error retCode={ret_code}: {ret_msg}"
 
 
+def _ib_balance_diagnostic(account: Dict[str, Any], aid: str) -> Dict[str, Any]:
+    """Balance diagnostic for an Interactive Brokers account.
+
+    Returns the same ``{status, total_usdt, raw, error}`` shape as the
+    Bybit/Binance branches of :func:`account_balance_with_diagnostic`.
+
+    * A **dry-run** IB account (``ib_live``) is reported as ``dry_run``
+      WITHOUT opening a socket — the live gateway is never dialled from the
+      read path until promotion, mirroring the coordinator.
+    * A **live** IB account (``ib_paper``) is read via a read-only,
+      PID-salted clientId (:func:`ib_read_client_for`) so the probe never
+      collides with the trader's execution socket. ``net_liquidation``
+      (USD) is reported as ``total_usdt`` the same way Bybit's USD wallet
+      value is, falling back to available funds.
+    """
+    mode = str(account.get("mode") or "live").lower()
+    if mode != "live":
+        return {"status": "dry_run", "total_usdt": None, "raw": None,
+                "error": "account mode is dry_run — live gateway not read"}
+    try:
+        from src.units.accounts.clients import ib_read_client_for
+        from src.units.accounts.ib_client import IBConnectionError
+    except Exception as exc:  # noqa: BLE001
+        return {"status": "api_error", "total_usdt": None, "raw": None,
+                "error": f"IB client import failed: {type(exc).__name__}: {exc}"}
+
+    client = ib_read_client_for(account)
+    if client is None:
+        return {"status": "api_error", "total_usdt": None, "raw": None,
+                "error": "ib_client_for returned None (ib_port unset?)"}
+    try:
+        bal = client.balance() or {}
+    except IBConnectionError as exc:
+        # A down/evicted Gateway is an EXPECTED, recurring state (the IB
+        # session is single-per-username — an operator login evicts it).
+        # The coordinator resolves balances every tick through this path,
+        # so emitting a WARN+ outcome / Telegram ping here would storm.
+        # Fail quietly: the precise reason is logged + returned, and the
+        # hourly digest surfaces it once per hour via api_ok=False. No
+        # report_api_failure (unlike Bybit, whose failures are rarer and
+        # actionable).
+        err_str = str(exc)
+        logger.warning("account_balance(%s): %s", aid, err_str)
+        return {"status": "api_error", "total_usdt": None, "raw": None,
+                "error": err_str}
+    except Exception as exc:  # noqa: BLE001
+        err_str = f"{type(exc).__name__}: {exc}"
+        logger.warning("account_balance(%s): %s", aid, err_str)
+        return {"status": "api_error", "total_usdt": None, "raw": None,
+                "error": err_str}
+
+    total = float(
+        bal.get("net_liquidation")
+        or bal.get("available_funds")
+        or 0.0
+    )
+    return {"status": "ok", "total_usdt": total, "raw": bal, "error": None}
+
+
 def account_balance_with_diagnostic(
     account: Dict[str, Any],
 ) -> Dict[str, Any]:
@@ -646,6 +717,13 @@ def account_balance_with_diagnostic(
 
     ex = (account.get("exchange") or "unknown").lower()
     aid = account.get("account_id") or "unknown"
+
+    # Interactive Brokers has NO API keys — connection identity is
+    # host/port/clientId/account, so credentials_check() does not apply
+    # (it would wrongly report "no api_key_env configured"). Dispatch
+    # before the cred check.
+    if ex in ("interactive_brokers", "ib"):
+        return _ib_balance_diagnostic(account, str(aid))
 
     # Step 1: cred presence check (no API call yet).
     cred_err = credentials_check(account)
