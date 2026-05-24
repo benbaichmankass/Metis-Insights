@@ -113,8 +113,20 @@ accounts:
       leverage: 3                      # 3× leverage — same as bybit_2; applied
                                        # via /v5/position/set-leverage at boot.
 
-  # bybit_2: vwap only on Bybit V5 USDT-margined linear perpetuals at 3×
-  # leverage. PR 3 cutover (2026-05-10) — migrated from spot-margin
+  # bybit_2: trend_donchian only on Bybit V5 USDT-margined linear
+  # perpetuals at 3× leverage.
+  #
+  # S8 go-live (2026-05-23, operator-approved straight-to-real, Tier-3):
+  # the Donchian-breakout trend-follower takes over real-money execution
+  # on this account, replacing vwap. vwap is removed from real money (it
+  # keeps collecting data + paper-executing on bybit_1 demo + ib_paper);
+  # ict_scalp was never assigned here. trend_donchian is the first
+  # net-positive strategy in the program (+22.5R/3yr, robust plateau) and
+  # runs at the conservative risk_pct 0.3 set in config/strategies.yaml.
+  # Rationale + plan: docs/sprint-plans/TREND-GOLIVE-PLAN-2026-05-23.md;
+  # evidence: docs/audits/complementary-trend-strategy-2026-05-23.md.
+  #
+  # PR 3 cutover (2026-05-10) — migrated from spot-margin
   # because the spot-margin sizing path required client-side modelling of
   # Bybit's borrow-capacity flapping (`availableToBorrow=0` transient
   # zeros, S-056 / S-058), free-USDT-lock-in semantics on open positions,
@@ -135,8 +147,23 @@ accounts:
     market_type: linear                # PR 3 — Bybit V5 USDT-margined
                                        # linear perpetuals. Was
                                        # spot-margin pre-cutover.
-    strategies: [vwap]
-    symbols: [BTCUSDT]                  # vwap on BTCUSDT (bybit perps)
+    strategies: [trend_donchian, turtle_soup, ict_scalp_5m, vwap]
+                                       # S9 (operator-approved 2026-05-24):
+                                       # bybit_2 runs "everything except vwap"
+                                       # LIVE — trend_donchian + turtle_soup +
+                                       # ict_scalp_5m execute on real money;
+                                       # vwap is data-only here via the
+                                       # per-strategy gate (strategies.yaml
+                                       # `execution: shadow`), so it LOGS order
+                                       # packages on real money for comparison
+                                       # but never sends a live order. REQUIRES
+                                       # the execution-gate PR (#1862) deployed
+                                       # FIRST — without it, vwap would execute
+                                       # ungated on real money. NOTE: turtle_soup
+                                       # (net-negative) + ict_scalp (≈breakeven)
+                                       # are operator-chosen for real money
+                                       # despite weak backtests.
+    symbols: [BTCUSDT]                  # all on BTCUSDT (bybit perps)
     risk:
       max_dd_pct: 0.05
       daily_usd: 100
@@ -145,7 +172,7 @@ accounts:
       min_balance_usd: 50
       # PR 3 cutover: 3× leverage on linear perps. main.py at boot
       # calls /v5/position/set-leverage with this value for every
-      # symbol the account's strategies trade (BTCUSDT for vwap).
+      # symbol the account's strategies trade (BTCUSDT for trend_donchian).
       # Idempotent on retCode=110043 ("leverage not modified") so
       # restarts are safe. To change leverage live: edit this value,
       # restart the trader; the set-leverage call will apply the new

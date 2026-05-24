@@ -109,6 +109,12 @@ DEFAULT_PRIORITIES: Dict[str, int] = {
     # (PR #1156, post pre-live gate). Tune upward only with operator
     # approval after a backtest validates the priority change.
     "ict_scalp_5m": 30,
+    # trend_donchian — deliberately the LOWEST priority on the roster
+    # (S-STRAT-IMPROVE-S8 go-live). It runs alone on bybit_2 so its
+    # priority never actually arbitrates there; the low value is a
+    # safety floor so a wiring slip can't let it override turtle_soup /
+    # vwap / ict_scalp on any account that runs more than one strategy.
+    "trend_donchian": 20,
 }
 
 # Priority used when a strategy is not listed in DEFAULT_PRIORITIES and

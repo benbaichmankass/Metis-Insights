@@ -1,6 +1,9 @@
 # config/strategies.yaml — strategy config (S-012).
 #
-# Roster: turtle_soup + vwap only (PR B1, per PM § 8 #7).
+# Roster: turtle_soup, vwap, ict_scalp_5m (live since 2026-05-14,
+# PR #1156), trend_donchian (going live on bybit_2 2026-05-23,
+# S-STRAT-IMPROVE-S8). Originally turtle_soup + vwap only (PR B1, per
+# PM § 8 #7); the roster grows as new strategies clear their gates.
 #
 # Single-process architecture (PR C4, per PM § 8 #1): every strategy
 # runs inside the ict-trader-live systemd unit. The `service:` field is
@@ -8,9 +11,28 @@
 # service entries to "ict-trader-live".
 #
 # Loaded by:
-#   - src/strategy_registry.py (model / signal_prefixes)
+#   - src/strategy_registry.py (model / signal_prefixes / execution)
 #   - src/units/strategies/__init__.py::load_strategy_config (per-strategy
 #     parameters: enabled, risk_pct, timeframe, symbols, strategy-specific)
+#
+# Two-level gating (S9, operator-approved 2026-05-24):
+#   - `enabled: true|false`     — does the strategy RUN at all? false →
+#                                 the signal builder short-circuits to
+#                                 side=none (fully inert; no signals, no
+#                                 logging).
+#   - `execution: live|shadow`  — for an ENABLED strategy, do its order
+#                                 packages EXECUTE, or only get LOGGED?
+#                                 live (default) = eligible to execute on
+#                                 accounts that route it. shadow = runs +
+#                                 logs order packages everywhere (data
+#                                 collection) but never sends a live order
+#                                 (treated as dry on every account).
+#   Both default permissive (enabled implicitly required; execution→live)
+#   so omitting a field never strands capability. The account-level
+#   `mode: live|dry_run` in accounts.yaml remains the per-ACCOUNT
+#   execution gate; `execution:` is the per-STRATEGY execution gate.
+#   Neither is a hidden default-off flag — both are declared here and
+#   surfaced on /api/bot/config.
 #
 # Edit via Streamlit UI (src/web/config_ui.py) or directly here.
 # Reload at runtime: Coordinator.reload_strategy_config() or /reload_strats.
@@ -24,6 +46,9 @@ strategies:
     model: null
     signal_prefixes: [turtle_soup, sweep_reversal]
     enabled: true
+    execution: live          # S9 per-strategy execution gate: live = eligible
+                             # to execute; shadow = data-only (log packages,
+                             # never send a live order). Default live.
     risk_pct: 0.5            # = risk_per_trade 0.005 from the legacy class
     timeframe: "15m"          # setup TF; entry TF is 1m
     symbols:
@@ -64,10 +89,77 @@ strategies:
     # signals. Set `shadow_model_ids: []` to opt out entirely or
     # provide an explicit list to pin specific models.
 
+  trend_donchian:
+    # Donchian-breakout trend-follower (S-STRAT-IMPROVE-S8). Donchian(20)
+    # breakout entry + ATR(14) initial stop (2.5×) + Chandelier ATR
+    # trailing exit (3.0×), BTCUSDT 1h. Strategy code:
+    # src/units/strategies/trend_donchian.py; validated harness:
+    # scripts/backtest_trend.py.
+    #
+    # STATUS: going live on bybit_2 (real money) per
+    # docs/sprint-plans/TREND-GOLIVE-PLAN-2026-05-23.md (operator-
+    # approved 2026-05-23, straight-to-real-execution, Tier-3). The
+    # FIRST net-positive strategy found in the strategy-improvement
+    # program: net +22.5R over 3yr (2023→2026Q1), a robust parameter
+    # plateau (trail 3.0-3.5 × donchian 15-30 all net-positive, +14.6
+    # to +40.0R), and complementary by regime to ict_scalp (trend
+    # covers the directional 2023/2024 where the scalp loses). Full
+    # evidence: docs/audits/complementary-trend-strategy-2026-05-23.md.
+    #
+    # The runtime signal builder honours `enabled` below as the single
+    # source of truth; flipping `enabled: false` short-circuits the
+    # builder to side="none" without code changes (same contract as the
+    # other strategies). Disabling requires the Tier-3 operator-approval
+    # path.
+    model: null
+    signal_prefixes: [trend_donchian, donchian]
+    enabled: true
+    execution: live          # S9 per-strategy execution gate (live | shadow).
+                             # trend is the one net-positive strategy → live.
+    risk_pct: 0.3             # conservative for the initial live period;
+                              # matches the STRATEGY_RISK_PCT fallback in
+                              # src/runtime/pipeline.py. Revisit upward
+                              # only after live proof (operator-approved).
+    timeframe: "1h"
+    symbols:
+      - BTCUSDT               # currently the only supported symbol
+                              # (SUPPORTED_SYMBOLS gate). NOTE: like the
+                              # other strategies, this list documents
+                              # intended applicability — the runtime
+                              # traded-symbol set comes from
+                              # config/accounts.yaml.
+    # Strategy-specific — the robust-plateau centre (atr_stop < trail is
+    # the one interpretable sensitivity: trail MUST stay looser than the
+    # entry stop or the edge goes negative).
+    donchian: 20
+    atr_period: 14
+    atr_stop_mult: 2.5
+    trail_mult: 3.0
+    # No fixed profit target — the Chandelier trail is the sole
+    # profit-exit (matches the backtest, which has no TP). `tp` is placed
+    # tp_r × risk away as a far, effectively-unreachable sentinel that
+    # still satisfies the pipeline's full-SL/TP dispatch gate. Max
+    # single-trade excursion in 3yr backtest was ~10R, so 50R is safely
+    # beyond reach.
+    tp_r: 50.0
+    # shadow_model_ids omitted (2026-05-19 default): auto-wire every model
+    # whose target_deployment_stage == "shadow" on this strategy's
+    # signals. Set `shadow_model_ids: []` to opt out entirely or provide
+    # an explicit list to pin specific models.
+
   vwap:
     model: null
     signal_prefixes: [vwap]
     enabled: true
+    # execution: shadow (S9, operator-approved 2026-05-24). vwap has no
+    # net-of-fee edge (docs/audits/vwap-viability-verdict-2026-05-23.md),
+    # so it does NOT trade real money — but it STILL runs and LOGS its
+    # order packages on every account it routes to (data collection +
+    # comparison). "shadow" = data-only everywhere; "live" (default) =
+    # eligible to execute. This is the per-strategy execution gate;
+    # accounts.yaml `mode:` remains the per-account gate. Promote back to
+    # `execution: live` only if vwap earns a net-positive edge.
+    execution: shadow
     risk_pct: 1.0
     timeframe: "5m"
     symbols:
@@ -176,6 +268,7 @@ strategies:
     model: null
     signal_prefixes: [ict_scalp]
     enabled: true
+    execution: live          # S9 per-strategy execution gate (live | shadow).
     risk_pct: 0.3
     timeframe: "5m"
     symbols:
