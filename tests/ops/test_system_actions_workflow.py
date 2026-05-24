@@ -86,6 +86,9 @@ EXPECTED_ACTIONS = {
     "fix-data-dir": "fix_data_dir.sh",
     "rotate-account-keys": "rotate_account_keys.sh",
     "init-diag-token": "init_diag_token.sh",
+    # 2026-05-24 bots overhaul — autonomous Claude infra.
+    "send-ping": "send_ping_action.sh",   # Tier 1: immediate ping, no restart
+    "set-env": "set_env.sh",              # Tier 2: .env upsert + service restart
 }
 
 TIER_2_ACTIONS = {
@@ -114,6 +117,7 @@ TIER_2_ACTIONS = {
     "fix-data-dir",
     "rotate-account-keys",
     "init-diag-token",
+    "set-env",
 }
 
 
