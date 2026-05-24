@@ -76,19 +76,43 @@ def main() -> int:
     try:
         # Lazy imports so the lock acquisition (and its failure mode)
         # surfaces a useful error before we touch the runtime modules.
-        from src.runtime.hourly_report import build_hourly_report
+        from src.runtime.hourly_report import (
+            build_accounts_hourly_report,
+            build_hourly_report,
+        )
+        from src.runtime.notify import send_telegram_direct
         from src.runtime.outcomes import send_scheduled
 
         now = datetime.now(timezone.utc)
-        msg = build_hourly_report(now_utc=now, tick_interval_s=900)
-        print(msg)
-        print("---")
-        print(f"dispatching ({len(msg)} chars) ...")
-        send_scheduled(msg)
-        print(
-            "dispatched. If Telegram is unreachable, the message was queued "
-            "to runtime_logs/pending_pings.jsonl for the VM-side drainer."
-        )
+        # This is the SINGLE hourly producer (the duplicate in-loop path in
+        # src/main.py was removed so the operator gets exactly one dispatch
+        # per hour — see TELEGRAM-SPEC.md § 4.1). Two parts — strategies and
+        # accounts/trades — each HTML so the detail sections render as
+        # collapsible blockquotes; fall back to the plain scheduled path
+        # per-part if an HTML send fails, so one bad render never drops both.
+        strat_msg = build_hourly_report(now_utc=now, tick_interval_s=900)
+        acct_msg = build_accounts_hourly_report(now_utc=now, tick_interval_s=900)
+        for label, body in (("strategies", strat_msg), ("accounts", acct_msg)):
+            print(f"--- {label} ({len(body)} chars) ---")
+            print(body)
+            try:
+                send_telegram_direct(body, parse_mode="HTML")
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "hourly %s HTML send failed (%s); falling back to scheduled",
+                    label, exc,
+                )
+                send_scheduled(body)
+        print("dispatched (strategies + accounts).")
+
+        # Liveness watchdog piggybacks on the hourly cycle (moved here from
+        # the trader loop): pings when actionable signals fired but no
+        # trades landed (the BUG-034 gap). Best-effort; never raises.
+        try:
+            from src.runtime.liveness_watchdog import run_liveness_watchdog
+            run_liveness_watchdog(now_utc=now)
+        except Exception:  # noqa: BLE001
+            logger.exception("liveness_watchdog dispatch failed")
         return 0
     finally:
         try:
