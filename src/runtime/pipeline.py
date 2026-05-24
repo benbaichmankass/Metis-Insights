@@ -11,6 +11,7 @@ from src.news.news_pipeline import get_news_score
 # Re-exported here for back-compat (existing callers + tests import from pipeline).
 from src.runtime.strategy_signal_builders import (  # noqa: E402
     ict_scalp_signal_builder,
+    trend_donchian_signal_builder,
     turtle_soup_signal_builder,
     vwap_signal_builder,
 )
@@ -177,7 +178,10 @@ def _strategy_risk_pcts_from_registry() -> Dict[str, float]:
         logger.warning(
             "pipeline: registry unavailable for risk_pct, using hardcoded fallback: %s", exc
         )
-        return {"turtle_soup": 0.5, "vwap": 1.0, "ict_scalp_5m": 0.3}
+        return {
+            "turtle_soup": 0.5, "vwap": 1.0, "ict_scalp_5m": 0.3,
+            "trend_donchian": 0.3,
+        }
 
 
 STRATEGY_RISK_PCT: Dict[str, float] = _strategy_risk_pcts_from_registry()
@@ -192,6 +196,11 @@ _STRATEGY_BUILDERS: Dict[str, Callable[[dict], Dict[str, Any]]] = {
     # basis of any stale-comment-driven claim; see config/strategies.yaml
     # § ict_scalp_5m STATUS block and the 2026-05-17 incident addendum.
     "ict_scalp_5m": ict_scalp_signal_builder,
+    # trend_donchian — Donchian-breakout trend-follower going live on
+    # bybit_2 (real money) per docs/sprint-plans/TREND-GOLIVE-PLAN-
+    # 2026-05-23.md. Builder honours the YAML `enabled` flag as the
+    # single source of truth.
+    "trend_donchian": trend_donchian_signal_builder,
 }
 
 
@@ -232,14 +241,22 @@ def multiplexed_signal_builder(settings: dict) -> Dict[str, Any]:
             continue
 
         if signal.get("side") in ("buy", "sell"):
-            risk_scale = STRATEGY_RISK_PCT.get(strategy_name, 1.0)
             signal = dict(signal)
             meta = dict(signal.get("meta") or {})
-            meta["strategy_risk_pct"] = float(risk_scale)
+            # Preserve a builder-provided strategy_risk_pct (e.g.
+            # trend_donchian sets its own conservative 0.3 from YAML
+            # because the registry path doesn't surface the YAML
+            # risk_pct); otherwise fall back to the registry/fallback
+            # map. For the existing strategies, whose builders don't set
+            # this field, behaviour is unchanged.
+            if "strategy_risk_pct" not in meta:
+                meta["strategy_risk_pct"] = float(
+                    STRATEGY_RISK_PCT.get(strategy_name, 1.0)
+                )
             signal["meta"] = meta
             logger.info(
                 "Multiplexer: '%s' produced actionable signal (risk_scale=%.2f)",
-                strategy_name, risk_scale,
+                strategy_name, meta["strategy_risk_pct"],
             )
             return signal
 
@@ -280,6 +297,11 @@ def run_pipeline(
         # signals through the live order path; ensure that is intended
         # before using this env override outside backtest/diag contexts.
         builder = ict_scalp_signal_builder
+    elif strategy_name in ("trend_donchian", "trend"):
+        # Opt-in via STRATEGY env var for diagnostics / single-strategy
+        # runs. The builder honours the YAML `enabled` flag; route signals
+        # through the live order path only when that is intended.
+        builder = trend_donchian_signal_builder
     elif strategy_name in ("multiplexed_intents", "multi_strategy_intents"):
         # Explicit opt-in via STRATEGY env var. Same effect as
         # setting MULTI_STRATEGY_INTENT_LAYER=true and leaving STRATEGY
