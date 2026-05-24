@@ -36,6 +36,24 @@ _DEFAULT_TRADER_SERVICE = "ict-trader-live"
 
 _cache: list[dict] | None = None
 
+# Valid strategy-level execution gate values (S9). "live" = eligible to
+# execute; "shadow" = run + log order packages but never send a live
+# order (data-only). Default is "live" (permissive — omitting the field
+# never strands capability).
+_VALID_EXECUTION = ("live", "shadow")
+
+
+def _norm_execution(value: Any) -> str:
+    """Normalise a strategy's ``execution`` field to ``live`` / ``shadow``.
+
+    Unknown / missing values fall back to ``live`` (the permissive
+    default) rather than raising, so a typo can never silently strand a
+    strategy into a non-executing state — the failure mode this gate is
+    explicitly designed to avoid.
+    """
+    v = str(value or "live").strip().lower()
+    return v if v in _VALID_EXECUTION else "live"
+
 
 def _load_yaml(path: str = _YAML_PATH) -> dict[str, Any]:
     with open(path, "r", encoding="utf-8") as fh:
@@ -70,6 +88,15 @@ def load_strategies(path: str = _YAML_PATH) -> list[dict]:
             "service": str(cfg.get("service") or _DEFAULT_TRADER_SERVICE),
             "model": cfg.get("model") or None,
             "signal_prefixes": [str(p) for p in raw_prefixes] if raw_prefixes else [],
+            # Strategy-level execution gate (S9). "live" (default) →
+            # order packages are eligible to execute on accounts that
+            # route the strategy; "shadow" → the strategy still RUNS and
+            # LOGS its order packages everywhere (data collection) but
+            # never sends a live order. Permissive default (live), so
+            # omitting it strands nothing — a strategy is only demoted to
+            # data-only by an explicit `execution: shadow`. Enforced in
+            # Coordinator.multi_account_execute (folded into effective_dry).
+            "execution": _norm_execution(cfg.get("execution")),
         })
 
     if path == _YAML_PATH:
@@ -111,3 +138,25 @@ def signal_prefixes(name: str, path: str = _YAML_PATH) -> list[str]:
     list when no prefixes are configured.
     """
     return list(_strategy_cfg(name, path).get("signal_prefixes") or [])
+
+
+def execution_mode(name: str, path: str = _YAML_PATH) -> str:
+    """Return the strategy-level execution gate for *name* (S9).
+
+    ``"live"`` (default) → the strategy's order packages are eligible to
+    execute on the accounts that route it. ``"shadow"`` → the strategy
+    runs and LOGS its order packages everywhere but never sends a live
+    order (data-only). Unknown strategies resolve to ``"live"`` (the
+    permissive default) so a routing/config slip never silently parks a
+    strategy in a non-executing state.
+
+    Enforced in ``Coordinator.multi_account_execute`` by folding
+    ``execution == "shadow"`` into the per-account ``effective_dry``
+    resolution — the same place the per-account ``mode: dry_run`` gate is
+    applied. Reuses the existing, tested dry-run short-circuit; adds no
+    new order-submission code path.
+    """
+    try:
+        return _norm_execution(_strategy_cfg(name, path).get("execution"))
+    except KeyError:
+        return "live"
