@@ -50,6 +50,7 @@ from src.runtime.intents import (
 from src.runtime.runtime_flags import is_strategy_paused
 from src.runtime.strategy_signal_builders import (
     fade_breakout_4h_signal_builder,
+    squeeze_breakout_4h_signal_builder,
     ict_scalp_signal_builder,
     trend_donchian_signal_builder,
     turtle_soup_signal_builder,
@@ -89,6 +90,9 @@ def _default_intent_builders() -> Dict[str, IntentBuilder]:
         # never sends a live order. Builder honours the YAML `enabled`
         # flag; priority 10 (lowest on the roster).
         "fade_breakout_4h": fade_breakout_4h_signal_builder,
+        # squeeze_breakout_4h: validated member-#3, execution:shadow
+        # (S9, 2026-05-24) for live data collection; priority 5 (floor).
+        "squeeze_breakout_4h": squeeze_breakout_4h_signal_builder,
     }
 
 

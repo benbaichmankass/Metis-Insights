@@ -120,6 +120,9 @@ DEFAULT_PRIORITIES: Dict[str, int] = {
     # priority never arbitrates a real order; the lowest value is the
     # safety floor for the unproven strategy.
     "fade_breakout_4h": 10,
+    # squeeze_breakout_4h — the floor (S9, 2026-05-24). execution:shadow
+    # (data-only), so its priority never arbitrates a real order.
+    "squeeze_breakout_4h": 5,
 }
 
 # Priority used when a strategy is not listed in DEFAULT_PRIORITIES and
