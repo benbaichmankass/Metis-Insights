@@ -95,12 +95,39 @@ def _atr(df: pd.DataFrame, period: int) -> pd.Series:
     return tr.rolling(period, min_periods=1).mean()
 
 
+def _adx(df: pd.DataFrame, period: int) -> pd.Series:
+    """Wilder's ADX — the regime filter. High ADX = trending (where the
+    trend-follower wins and mean-reversion bleeds); low ADX = chop (where
+    mean-reversion has its edge). Used to gate mean-reversion entries to
+    the chop regime so it complements the Donchian trend-follower instead
+    of fighting it.
+    """
+    h, low, c = df["high"], df["low"], df["close"]
+    up = h.diff()
+    down = -low.diff()
+    plus_dm = ((up > down) & (up > 0)) * up.clip(lower=0)
+    minus_dm = ((down > up) & (down > 0)) * down.clip(lower=0)
+    pc = c.shift(1)
+    tr = pd.concat([(h - low), (h - pc).abs(), (low - pc).abs()], axis=1).max(axis=1)
+    alpha = 1.0 / period
+    atr = tr.ewm(alpha=alpha, adjust=False).mean()
+    plus_di = 100 * plus_dm.ewm(alpha=alpha, adjust=False).mean() / atr.replace(0, pd.NA)
+    minus_di = 100 * minus_dm.ewm(alpha=alpha, adjust=False).mean() / atr.replace(0, pd.NA)
+    dx = 100 * (plus_di - minus_di).abs() / (plus_di + minus_di).replace(0, pd.NA)
+    return dx.ewm(alpha=alpha, adjust=False).mean()
+
+
 def run_backtest(df: pd.DataFrame, *, lookback: int, z_entry: float,
                  exit_z: float, atr_period: int, atr_stop_mult: float,
                  timeout_bars: int, cooldown_bars: int, timeframe: str,
-                 symbol: str, emit_path: Optional[str] = None) -> Dict[str, Any]:
+                 symbol: str, adx_max: Optional[float] = None,
+                 adx_period: int = 14,
+                 emit_path: Optional[str] = None) -> Dict[str, Any]:
     df = df.reset_index(drop=True)
     df["atr"] = _atr(df, atr_period)
+    # ADX of the *prior* bar (shifted) so the regime gate uses only
+    # information available at entry — no lookahead.
+    df["adx"] = _adx(df, adx_period).shift(1) if adx_max is not None else None
     ma = df["close"].rolling(lookback).mean()
     sd = df["close"].rolling(lookback).std(ddof=0)
     # z of the *prior* bar's close vs prior MA/STD, shifted so the signal
@@ -120,6 +147,12 @@ def run_backtest(df: pd.DataFrame, *, lookback: int, z_entry: float,
         if atr <= 0 or pd.isna(z):
             i += 1
             continue
+        # Regime gate: only fade in chop (low ADX). Skip when trending.
+        if adx_max is not None:
+            adx_i = df["adx"].iloc[i]
+            if pd.isna(adx_i) or float(adx_i) >= adx_max:
+                i += 1
+                continue
         z = float(z)
         direction = "long" if z <= -z_entry else "short" if z >= z_entry else None
         if direction is None:
@@ -184,7 +217,8 @@ def run_backtest(df: pd.DataFrame, *, lookback: int, z_entry: float,
                     "net_r": round(t.r_multiple - fee_r, 4)}, default=str) + "\n")
     return _summarize(trades, df, timeframe=timeframe, symbol=symbol,
                       params={"lookback": lookback, "z_entry": z_entry,
-                              "exit_z": exit_z, "atr_stop_mult": atr_stop_mult})
+                              "exit_z": exit_z, "atr_stop_mult": atr_stop_mult,
+                              "adx_max": adx_max})
 
 
 def _fee_r(t: Trade) -> float:
@@ -274,6 +308,9 @@ def main(argv: List[str]) -> int:
     p.add_argument("--exit-z", type=float, default=0.0, help="Exit when z reverts to this level (0 = mean).")
     p.add_argument("--atr-period", type=int, default=14)
     p.add_argument("--atr-stop-mult", type=float, default=2.5)
+    p.add_argument("--adx-max", type=float, default=None,
+                   help="Regime gate: only enter when ADX < this (chop). Off when unset.")
+    p.add_argument("--adx-period", type=int, default=14)
     p.add_argument("--timeout-bars", type=int, default=100)
     p.add_argument("--cooldown-bars", type=int, default=1)
     p.add_argument("--fee-bps-roundtrip", type=float, default=FEE_BPS_ROUNDTRIP)
@@ -293,7 +330,8 @@ def main(argv: List[str]) -> int:
                      exit_z=args.exit_z, atr_period=args.atr_period,
                      atr_stop_mult=args.atr_stop_mult, timeout_bars=args.timeout_bars,
                      cooldown_bars=args.cooldown_bars, timeframe=args.timeframe,
-                     symbol=args.symbol, emit_path=args.emit_trades)
+                     symbol=args.symbol, adx_max=args.adx_max,
+                     adx_period=args.adx_period, emit_path=args.emit_trades)
     print(_fmt(s))
     if args.json_out:
         payload = json.dumps(s, indent=2, default=str)
