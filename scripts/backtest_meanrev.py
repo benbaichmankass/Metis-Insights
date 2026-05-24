@@ -263,6 +263,14 @@ def _summarize(trades: List[Trade], df: pd.DataFrame, *, timeframe: str,
         slot = by_year.setdefault(yr, {"trades": 0, "net_r": 0.0})
         slot["trades"] += 1
         slot["net_r"] = round(slot["net_r"] + (t.r_multiple - _fee_r(t)), 4)
+    # Month-over-month consistency (S9, operator directive 2026-05-24) —
+    # flags configs that lean on a few exceptional periods. Net-of-fee R
+    # keyed by entry time. Shared util so every backtest reports it the
+    # same way.
+    from scripts.ops.consistency import monthly_consistency
+    consistency = monthly_consistency(
+        (t.entry_time, t.r_multiple - _fee_r(t)) for t in trades
+    )
     base.update({
         "win_rate_pct": round(100 * len(wins) / n, 2),
         "total_r": round(sum(rs), 4),
@@ -277,7 +285,8 @@ def _summarize(trades: List[Trade], df: pd.DataFrame, *, timeframe: str,
         "net_expectancy_r": round(sum(net) / n, 4),
         "avg_win_r": round(sum(wins) / len(wins), 4) if wins else 0.0,
         "max_mfe_r": round(max(t.mfe_r for t in trades), 3),
-        "max_drawdown_r": round(mdd, 4), "by_outcome": by, "by_year": by_year})
+        "max_drawdown_r": round(mdd, 4), "by_outcome": by, "by_year": by_year,
+        "consistency": consistency})
     return base
 
 
@@ -293,6 +302,17 @@ def _fmt(s: Dict[str, Any]) -> str:
             f"  avg_win_r={s.get('avg_win_r')} max_mfe_r={s.get('max_mfe_r')} "
             f"maxdd_r={s['max_drawdown_r']} by={s['by_outcome']}",
             f"  by_year={s.get('by_year')}"]
+        c = s.get("consistency") or {}
+        if c:
+            lines.append(
+                f"  consistency: months={c.get('months')} "
+                f"pos={c.get('pct_months_positive')}% "
+                f"ratio={c.get('consistency_ratio')} "
+                f"(mean {c.get('monthly_mean_r')}/std {c.get('monthly_std_r')}) "
+                f"worst={c.get('worst_month_r')} "
+                f"max_neg_streak={c.get('max_consecutive_negative_months')} "
+                f"top_month_share={c.get('top_month_share')}"
+            )
     return "\n".join(lines)
 
 

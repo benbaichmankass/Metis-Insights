@@ -185,6 +185,11 @@ def _summarize(trades: List[Trade], df: pd.DataFrame, *, timeframe: str,
     by: Dict[str, int] = {}
     for t in trades:
         by[t.outcome] = by.get(t.outcome, 0) + 1
+    # Month-over-month consistency (S9, operator directive 2026-05-24).
+    from scripts.ops.consistency import monthly_consistency
+    consistency = monthly_consistency(
+        (t.entry_time, t.r_multiple - fee_r(t)) for t in trades
+    )
     base.update({
         "win_rate_pct": round(100 * len(wins) / n, 2),
         "total_r": round(sum(rs), 4),
@@ -199,7 +204,8 @@ def _summarize(trades: List[Trade], df: pd.DataFrame, *, timeframe: str,
         "net_expectancy_r": round(sum(net) / n, 4),
         "avg_win_r": round(sum(wins) / len(wins), 4) if wins else 0.0,
         "max_mfe_r": round(max(t.mfe_r for t in trades), 3),
-        "max_drawdown_r": round(mdd, 4), "by_outcome": by})
+        "max_drawdown_r": round(mdd, 4), "by_outcome": by,
+        "consistency": consistency})
     return base
 
 
@@ -214,6 +220,17 @@ def _fmt(s: Dict[str, Any]) -> str:
             f"fee_r {s['total_fee_r']}, net L/S {s.get('net_total_r_long')}/{s.get('net_total_r_short')})",
             f"  avg_win_r={s.get('avg_win_r')} max_mfe_r={s.get('max_mfe_r')} "
             f"maxdd_r={s['max_drawdown_r']} by={s['by_outcome']}"]
+        c = s.get("consistency") or {}
+        if c:
+            lines.append(
+                f"  consistency: months={c.get('months')} "
+                f"pos={c.get('pct_months_positive')}% "
+                f"ratio={c.get('consistency_ratio')} "
+                f"(mean {c.get('monthly_mean_r')}/std {c.get('monthly_std_r')}) "
+                f"worst={c.get('worst_month_r')} "
+                f"max_neg_streak={c.get('max_consecutive_negative_months')} "
+                f"top_month_share={c.get('top_month_share')}"
+            )
     return "\n".join(lines)
 
 
