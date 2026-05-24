@@ -1078,6 +1078,41 @@ class Coordinator:
                 )
                 effective_dry = True
 
+            # Strategy-level execution gate (S9, operator-approved
+            # 2026-05-24). A strategy marked ``execution: shadow`` in
+            # config/strategies.yaml still RUNS and LOGS its order
+            # packages everywhere (data collection) but never sends a
+            # live order — it is treated as dry on every account,
+            # regardless of the account's ``mode: live``. This is an
+            # explicit, permissive-default (live) demotion declared in
+            # the strategy config and surfaced on /api/bot/config — NOT a
+            # hidden default-off flag (the MULTI_SYMBOL_ENABLED
+            # anti-pattern the Prime Directive forbids). It is applied
+            # generically to any strategy by name via the registry, the
+            # same config-driven pattern as ``enabled`` / ``risk_pct``;
+            # it reuses the existing dry-run short-circuit and adds no new
+            # order-submission path. The account-level ``mode:`` remains
+            # the account execution gate; this is the per-strategy gate.
+            if not effective_dry:
+                try:
+                    from src.strategy_registry import execution_mode
+                    if execution_mode(str(pkg.strategy)) == "shadow":
+                        logger.info(
+                            "[coordinator] strategy '%s' is execution:shadow — "
+                            "logging order package on %s but NOT executing "
+                            "(data-only)",
+                            pkg.strategy, account.name,
+                        )
+                        effective_dry = True
+                except Exception as exc:  # noqa: BLE001
+                    # Fail-open to the account's own mode — never let a
+                    # registry read error block a live strategy.
+                    logger.warning(
+                        "[coordinator] execution_mode lookup failed for "
+                        "strategy '%s' (%s); using account mode",
+                        getattr(pkg, "strategy", "?"), exc,
+                    )
+
             client = None
             client_error: Optional[str] = None
             if not effective_dry:

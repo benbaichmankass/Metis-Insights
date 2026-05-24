@@ -195,13 +195,32 @@ decides whether to intervene.
 - **Every rejection is its own Telegram ping.** Not aggregate.
 - **Boot always starts the trader live (per YAML).** No
   refuse-to-start logic.
-- **No second gate; no feature defaults to off.** `mode:` is the only
-  runtime switch. Never hide a capability behind a separate
-  default-off `*_ENABLED` flag — that's a second gate that silently
-  strands configured capability (the 2026-05-22 MES case: `ib_paper`
-  was `mode: live` with all 3 strategies, but `MULTI_SYMBOL_ENABLED`
-  defaulted off so MES never traded). What accounts.yaml /
-  strategies.yaml declare, runs — gated only by `mode:`.
+- **No HIDDEN gate; no feature defaults to off.** Never hide a
+  capability behind a separate default-off `*_ENABLED` env flag — that's
+  the forbidden pattern that silently strands configured capability (the
+  2026-05-22 MES case: `ib_paper` was `mode: live` with all 3 strategies,
+  but `MULTI_SYMBOL_ENABLED` defaulted off so MES never traded). What
+  accounts.yaml / strategies.yaml declare, runs.
+- **Two declared, permissive-default execution gates (S9, operator-
+  approved 2026-05-24).** The above forbids *hidden, default-off* gates —
+  not *explicit, declared, default-permissive* ones. There are exactly
+  two execution gates, both visible in the YAML config and surfaced on
+  `/api/bot/config`:
+  - **Per-account:** `config/accounts.yaml::mode: live|dry_run` — the
+    account-level switch (operator-controlled via `set-account-mode`).
+  - **Per-strategy:** `config/strategies.yaml::execution: live|shadow` —
+    `live` (default) executes; `shadow` runs + LOGS order packages
+    everywhere (data collection) but never sends a live order (treated as
+    dry on every account). Used to keep an edge-less strategy (e.g. vwap)
+    collecting comparison data without risking money.
+  Both default permissive (live), so omitting either never strands
+  capability — a strategy/account is only demoted by an *explicit*
+  `dry_run` / `shadow`. `execution: shadow` is enforced in
+  `Coordinator.multi_account_execute` by folding into the same
+  `effective_dry` resolution as `mode:` — it reuses the dry-run
+  short-circuit and adds no new order path. This is NOT the forbidden
+  hidden-flag pattern; it is the operator's deliberate per-strategy
+  data-only control.
 
 Full text + enforcement: [`docs/CLAUDE-RULES-CANONICAL.md`](docs/CLAUDE-RULES-CANONICAL.md) § Prime Directive.
 Architecture contract: [`docs/ARCHITECTURE-CANONICAL.md`](docs/ARCHITECTURE-CANONICAL.md) § Mode Mutation Contract.

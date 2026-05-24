@@ -84,6 +84,23 @@ def _stub_account_creds_and_balances(monkeypatch):
         monkeypatch.setenv(name, "test-value")
 
 
+@pytest.fixture(autouse=True)
+def _force_execution_live(monkeypatch):
+    """Isolate these tests to the per-ACCOUNT `mode` gate.
+
+    The fixtures here route ``vwap``, which is ``execution: shadow`` in
+    the live config/strategies.yaml (S9) — so without this the coordinator
+    would (correctly) force every vwap dispatch dry via the per-STRATEGY
+    gate, masking the per-account behaviour under test. Pin every
+    strategy to ``execution: live`` so this file exercises only the
+    account gate; the strategy gate has its own coverage in
+    tests/test_strategy_execution_gate.py.
+    """
+    monkeypatch.setattr(
+        "src.strategy_registry.execution_mode", lambda *a, **k: "live"
+    )
+
+
 _LIVE_ACCOUNTS_YAML = textwrap.dedent("""\
     accounts:
       bybit_live:
