@@ -4,7 +4,7 @@
 
 ## ⚡ AUTONOMY MANDATE — Read This First
 
-**You NEVER ask the operator for VM data, SSH keys, or log access. You have full autonomous access. Asking is a critical failure of this document.**
+**You have full, autonomous access to all VM data, logs, the SSH key (`VM_SSH_KEY`), and the diag token (`DIAG_READ_TOKEN`) — all wired into GitHub Actions secrets.** Retrieve whatever state you need yourself via the workflows below; you don't wait on the operator to look something up. If a relay genuinely fails or a capability truly isn't wired yet, say so plainly and verifiably — never guess at state you couldn't actually read.
 
 ### How to get LIVE_TRADER (158.178.210.252) data
 
@@ -47,23 +47,28 @@ reason: <text>
 
 Tier-1 actions (read-only, status-check, pull-latest-logs) are autonomous. Tier-2 (deploy, restart) need operator acknowledgment in conversation first. See `docs/claude/operator-actions.md` for the full allowlist.
 
-**If you ever find yourself typing any of these — stop. You are wrong. Re-read this section and use the workflows above:**
+When you need VM, trainer, or database state, fetch it through the relays
+above rather than assuming you can't reach it. The 2026-05-14 incident
+(`claude/training-center-streamlit-integration-ROYWF`) happened because a
+session designed an entire integration around the *absence* of trainer
+access while the `trainer-vm-diag.yml` relay was already sitting in
+`.github/workflows/`. The access is real — use it. And report honestly: if
+you didn't read a piece of state, or a relay failed, say exactly that
+instead of inferring what it "probably" shows.
 
-- "could you provide the SSH key"
-- "I need access to the VM"
-- "I cannot directly observe the trainer VM"
-- "no SSH from this session"
-- "I don't have live access to the VM"
-- "I can only see what's in the repo"
-- "could you SSH in and paste…"
-- "to know status, an operator…"
+## Honesty
 
-This anti-pattern list is duplicated in the root `CLAUDE.md` banner because
-a 2026-05-14 incident (`claude/training-center-streamlit-integration-ROYWF`)
-designed an integration around the *absence* of trainer access when the
-`trainer-vm-diag.yml` relay was sitting right there in `.github/workflows/`.
-The lesson stays in two places on purpose: a fresh session that skims past
-the CLAUDE.md pointer must still hit it here.
+Give only true, verifiable answers.
+
+- If you don't know something, say "I don't know" and state how you'd find
+  out. Never guess, speculate, or present unverified inference as fact.
+- Never describe work as done that you didn't actually do, and never claim a
+  state you didn't actually observe. On a live trading system a confident
+  wrong answer is worse than "I need to check."
+- Verify against the real source — code, config, diag output, CI logs, or the
+  database — before you assert. Cite what you checked when it matters.
+- This rule overrides any incentive to look complete or finished. Surfacing a
+  gap, an uncertainty, or a mistake you made is always the correct move.
 
 ---
 
@@ -140,7 +145,7 @@ the priority. The bot stays live; the operator gets fast, clear,
 per-trade notifications when something goes wrong; the operator
 decides whether to intervene.
 
-### The five rules
+### The rules
 
 1. **One switch per account.** There is exactly one sanctioned path
    that may write `config/accounts.yaml` `mode:`: the
@@ -178,21 +183,30 @@ decides whether to intervene.
    trader comes up live. If state is inconsistent vs. YAML, log
    loudly and Telegram-alert — but the trader runs.
 
-6. **No second gate; no feature defaults to off.** `mode:` is the
-   ONLY runtime on/off switch. A feature must never hide behind a
-   separate enable flag that defaults off — that is a second gate by
-   another name, and it silently strands configured capability.
-   accounts.yaml + strategies.yaml are the source of truth for *what
-   runs*; whatever they declare runs all the time, gated only by each
-   account's `mode:`. **The 2026-05-22 MES discovery demonstrated
-   this:** the IB `ib_paper` account declared `mode: live` + all three
-   strategies, yet MES never traded because a `MULTI_SYMBOL_ENABLED`
-   env defaulted off — a hidden second gate. The fix removed the flag
-   and derives the traded-symbol set from `config/accounts.yaml`
-   (`_resolve_tick_symbols` unions every configured account's
-   `symbols`). When adding any capability, wire it to run from config
-   by default; if you reach for an `*_ENABLED` env that defaults off,
-   stop — that is the anti-pattern this rule forbids.
+6. **Exactly two declared, default-permissive gates — and no third.**
+   Two switches decide whether a strategy trades, both visible in YAML
+   and surfaced on `/api/bot/config`:
+   - **Account level** — `config/accounts.yaml::mode: live | dry_run`
+     (the only write path is the `set-account-mode` system-action, per
+     rule 1).
+   - **Strategy level** — `config/strategies.yaml::execution: live |
+     shadow`. `live` (default) executes; `shadow` runs and logs order
+     packages everywhere (live data collection) but never sends a live
+     order. Enforced in `Coordinator.multi_account_execute` by folding
+     into the same `effective_dry` resolution as `mode:` — no new order
+     path.
+
+   Both default permissive, so omitting either never strands capability;
+   a strategy or account is demoted only by an *explicit* `dry_run` /
+   `shadow`. **Never add a third gate** — never hide a capability behind
+   a separate default-off `*_ENABLED` flag. **The 2026-05-22 MES
+   discovery demonstrated why:** the IB `ib_paper` account declared
+   `mode: live` with all three strategies, yet MES never traded because
+   a `MULTI_SYMBOL_ENABLED` env defaulted off — a hidden third gate. The
+   fix removed the flag and derives the traded-symbol set from
+   `config/accounts.yaml` (`_resolve_tick_symbols` unions every
+   configured account's `symbols`). What accounts.yaml + strategies.yaml
+   declare, runs.
 
 ### What this rules out (queued for the safeguards PR follow-on)
 
@@ -294,11 +308,13 @@ flip it.
 
 ## Permission Tiers
 
-The permission model is explicit and must be used consistently.
+The permission model is explicit and must be used consistently. You work on
+`main` and commit Tier-1 work there directly once it is validated; you ask the
+operator for approval only when the tier requires it (Tier 2 / Tier 3 below).
 
 | Tier | Meaning | Claude may do | Claude must not do | Approval requirement |
 |---|---|---|---|---|
-| **Tier 1** | Safe autonomous work | Docs, tests, repo hygiene, CI, GitHub Actions updates, non-live-path refactors, validation tooling, communication infrastructure that does not alter trading behavior | Alter strategy logic, alter risk meaning, promote to live | No approval required if validated |
+| **Tier 1** | Safe autonomous work | Docs, tests, repo hygiene, CI, GitHub Actions updates, non-live-path refactors, validation tooling, communication infrastructure that does not alter trading behavior | Alter strategy logic, alter risk meaning, promote to live | Commit to `main` once validated; no approval needed |
 | **Tier 2** | Potential production-impact work with bounded scope | Prepare changes touching runtime flow, deploy flow, timers, bot writeback, order path, or services; run strongest safe validation; draft concise risk summary | Merge if the change can affect live trading behavior and is not fully proven safe | **Approval required before merge** |
 | **Tier 3** | Strategy and risk authority boundary | Analyze, test, prepare docs, and propose exact code changes | Merge or silently ship changes to strategy logic, risk caps, sizing formulas, thresholds, live promotion, **or any code path that writes `config/accounts.yaml` `mode:` outside the `set-account-mode` operator action** | **Explicit product approval required before merge** |
 
@@ -470,6 +486,12 @@ the session, Claude must:
    PR, or open a separate draft PR before closing the session.
    Walking past a known contradiction is the same failure mode as
    creating one.
+5. Run the **`doc-freshness`** skill — it sweeps the canonical doc set
+   for instructions that now contradict each other or the code. Resolve
+   what it finds. Log any minor issue you noticed but did not fix this
+   session to the **health-review backlog**
+   (`docs/claude/health-review-backlog.json`) so a future health-review picks
+   it up rather than letting it rot.
 
 The Sprint Wrap-Up Requirements section below restates several of
 these duties at the sprint scope. This subsection restates them at
@@ -503,6 +525,22 @@ they are part of this project's automation surface. Inspect the repo
 for existing workflow files and read
 [`docs/github-actions-workflows.md`](github-actions-workflows.md) before
 deciding what is or is not possible.
+
+## Skills (composable workflows)
+
+Repeatable workflows live as skills under `.claude/skills/`, written at a
+granular level so you can chain them to accomplish larger tasks (e.g. retrieve
+runtime data → inspect a VM → dispatch a system-action → review the result).
+
+- **Prefer a skill over improvising.** If a skill covers the task, use it.
+- **Propose new skills.** When you hit a mistake a clear workflow would have
+  prevented, draft a new skill for it before closing the session — that is how
+  this library grows and how recurring errors get designed out.
+- **Keep them granular and composable.** One skill, one well-scoped job, so
+  they can be patched together rather than duplicated.
+
+Every session ends by running the `doc-freshness` skill (see § Session-end
+reconciliation pass).
 
 ## Workflow Map
 
