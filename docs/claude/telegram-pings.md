@@ -1,16 +1,45 @@
 # Telegram pings — what triggers what, and where the wiring lives
 
 The system uses two bots:
-- **@bict_trading_bot** — trade alerts, system status, operator commands.
-- **@claude_ict_comms_bot** — one-way outbound channel: Claude writes sprint
-  updates, checkpoint notices, blocker pings, and merge-review requests.
-  **No operator response path exists.** The operator reads via Telegram; any
-  reply from the operator is handled through GitHub (PR comments, issue
-  updates) or a new Claude session reading repo state. This is intentional
-  design — the channel is send-only.
+- **@bict_trading_bot** — operator command bot (the 4-item menu) + trade and
+  hourly notifications. Spec: `docs/TELEGRAM-SPEC.md`.
+- **@claude_ict_comms_bot** — **one-way** outbound channel for everything
+  *Claude* is doing: sprint open/close + checkpoints, health-review open/close,
+  training-session open/close (+ results), "waiting-for-input" pings, system-
+  health snapshots, blocker and merge-review pings. **No operator response
+  path exists.** The operator reads via Telegram; any reply is handled through
+  GitHub (PR/issue comments) or a new Claude session reading repo state. This
+  is intentional — the channel is send-only.
 
-The wiring described in this doc is **fully implemented and verified** as of
-S-042 (2026-05-06). See § "Where the wiring lives" for the confirmed status.
+This is the **single source of truth** for the Claude update channel
+(`src/bot/claude_bridge.py`). The bridge is strictly send-only: as of the
+2026-05-24 overhaul it has **no freeform Anthropic chat and no trigger
+commands** (`/audit`, `/improve_strategy`, `/train_model` were removed); it
+only drains the inbox and posts to the single thread.
+
+## Single thread (TELEGRAM_CLAUDE_THREAD_ID)
+
+All Claude updates land in **one** thread. Two cases:
+- **Normal (non-forum) chat** — there is only one conversation, so nothing to
+  configure. Leave `TELEGRAM_CLAUDE_THREAD_ID` unset.
+- **Forum chat (topics enabled)** — set `TELEGRAM_CLAUDE_THREAD_ID` to the
+  numeric message-thread id of the topic you want updates in. The bridge
+  passes it as `message_thread_id` on **every** send, so updates never scatter
+  across topics. This is the fix for the historical "several threads" bug
+  (the bridge previously omitted `message_thread_id`).
+
+Required env for the bridge (`deploy/ict-claude-bridge.service`,
+`EnvironmentFile=.env`):
+
+| Var | Required | Purpose |
+|---|---|---|
+| `TELEGRAM_CLAUDE_BOT_TOKEN` | **yes** | @claude_ict_comms_bot token. If unset the bridge cannot start — the #1 reason the channel ever appears "dead". |
+| `TELEGRAM_CHAT_ID` | **yes** | Operator chat id (shared with the trader bot). |
+| `TELEGRAM_CLAUDE_THREAD_ID` | no | Forum topic id to pin all messages to one thread. |
+
+The git-relay wiring described below is **implemented and verified** as of
+S-042 (2026-05-06); the one-way/single-thread/event-vocabulary changes landed
+in the 2026-05-24 bots overhaul.
 
 ## Required pings
 
@@ -21,8 +50,14 @@ ping" below.
 
 | Event | Trigger | Message contents | Priority |
 |---|---|---|---|
-| **Checkpoint appended** | A commit on `main` modifies `docs/claude/checkpoints/CHECKPOINT_LOG.md` | CP id, sprint, current-phase line, next checkpoint id, link to the commit on github | normal |
+| **Sprint start** | T0 of every sprint | sprint id, title | normal |
+| **Checkpoint appended** | A commit on `main` modifies `docs/claude/checkpoints/CHECKPOINT_LOG.md`, or a `checkpoint` line in `pending-pings.jsonl` | CP id, sprint, current-phase line, next checkpoint id, link to the commit on github | normal |
 | **Sprint complete** | Final checkpoint of a sprint (e.g. CP-…-WRAPPED, CP-…-COMPLETE in title) | sprint id, PRs merged count, drafts left, link to the sprint summary | high |
+| **Health review start** | Claude begins a `/health-review` (layer-2) pass | scope/title | normal |
+| **Health review complete** | Claude finishes a health review | grade, one-line summary, link to the review artifact | high |
+| **Training session start** | A model training cycle / session begins (`training-start`, or commit `[TRAINING-START]`) | strategy/model under study, link | normal |
+| **Training session complete** | A training cycle finishes (`training-complete`, or PR `TRAINING-RESULTS:`) | strategy/model, result, one-line summary, link to SUMMARY.md | high |
+| **Waiting for input** | Claude is blocked on an operator decision but does not need the full draft-PR dance | the question, link to the chat / PR | **urgent** |
 | **Blocker — needs PM input** | A commit message contains `[BLOCKED-PM]` OR a PR title starts with `BLOCKED:` | what's blocked, the question, link to the PR / commit, link to the chat | **urgent** |
 | **PR opened as DRAFT for PM review** | A PR is opened with `draft: true` and a title containing `(PM REVIEW)` or `DRAFT:` | PR title, why it's gated, link | high |
 | **PR merged** | Any squash-merge to `main` from a `claude/*` branch | PR title, link | low |
@@ -97,11 +132,26 @@ of the following events before committing:
 
 | Event | When | JSON schema |
 |---|---|---|
-| **Sprint start** | T0 of every sprint | `{"event": "sprint-start", "priority": "normal", "sprint": "S-NNN", "title": "..."}` |
-| **Checkpoint** | Each intermediate checkpoint | `{"event": "checkpoint", "priority": "normal", "sprint": "S-NNN", "cp_id": "CP-...", "title": "...", "next_cp": "..."}` |
-| **Sprint complete** | Final checkpoint of every sprint | `{"event": "sprint-complete", "priority": "high", "sprint": "S-NNN", "title": "...", "summary_url": "..."}` |
-| **Blocker** | Any session that cannot proceed | `{"event": "blocker", "priority": "urgent", "sprint": "S-NNN", "question": "..."}` |
-| **Tier 2 merge review** | Any Tier 2 PR opened for operator review | `{"event": "merge-review", "priority": "high", "sprint": "S-NNN", "pr_url": "..."}` |
+| **Sprint start** | T0 of every sprint | `{"event": "sprint-start", "sprint": "S-NNN", "title": "..."}` |
+| **Checkpoint** | Each intermediate checkpoint | `{"event": "checkpoint", "sprint": "S-NNN", "cp_id": "CP-...", "title": "...", "next_cp": "..."}` |
+| **Sprint complete** | Final checkpoint of every sprint | `{"event": "sprint-complete", "sprint": "S-NNN", "title": "...", "summary_url": "..."}` |
+| **Health review start** | Start of a `/health-review` pass | `{"event": "health-review-start", "title": "..."}` |
+| **Health review complete** | End of a health review | `{"event": "health-review-complete", "grade": "🟢 healthy", "summary": "...", "summary_url": "..."}` |
+| **Training start** | A training session/cycle begins | `{"event": "training-start", "strategy": "...", "title": "..."}` |
+| **Training complete** | A training session/cycle ends | `{"event": "training-complete", "strategy": "...", "result": "...", "summary": "...", "summary_url": "..."}` |
+| **Waiting for input** | Blocked on an operator decision | `{"event": "waiting-input", "question": "...", "chat_url": "..."}` |
+| **Blocker** | Any session that cannot proceed | `{"event": "blocker", "sprint": "S-NNN", "question": "..."}` |
+| **Tier 2 merge review** | Any Tier 2 PR opened for operator review | `{"event": "merge-review", "sprint": "S-NNN", "pr_url": "..."}` |
+
+`priority` is optional: omit it and the fanout assigns one by event type
+(`*-complete` / `merge-review` → high; `blocker` / `waiting-input` → urgent;
+everything else → normal). The friendly title shown to the operator
+(`🟢 Sprint started …`, `✅ Sprint complete …`, `⏳ Waiting for your input …`)
+is rendered VM-side by `scripts/notify_on_pull.py::_render_event_body` —
+`EVENT_LABELS` / `EVENT_DEFAULT_PRIORITY` there are the canonical mapping.
+Recognised detail fields: `sprint`, `title`, `cp_id`, `next_cp`, `phase`,
+`strategy`, `model`, `result`, `grade`, `question`, `summary`, and the URL
+fields `pr_url` / `commit_url` / `chat_url` / `summary_url`.
 
 Rules:
 - One line per event. Lines are JSONL (newline-delimited JSON).

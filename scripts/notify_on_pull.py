@@ -253,6 +253,67 @@ def _record_delivered_hash(path: Path, h: str) -> None:
         logger.warning("delivered-hashes append error: %s", exc)
 
 
+# Friendly title per event type — the body the operator sees on the
+# Claude update channel. The priority icon (ℹ️/🔔/🚨) is prepended by the
+# bridge at send time, so these are content-only. Adding a new ping =
+# adding an entry here + (optionally) a default priority below. Schemas
+# for each event live in docs/claude/telegram-pings.md § Mandatory ping
+# habit.
+EVENT_LABELS: dict[str, str] = {
+    "sprint-start":            "🟢 Sprint started",
+    "checkpoint":              "📍 Checkpoint",
+    "sprint-complete":         "✅ Sprint complete",
+    "health-review-start":     "🩺 Health review started",
+    "health-review-complete":  "🩺 Health review complete",
+    "training-start":          "🧠 Training session started",
+    "training-complete":       "🧠 Training session complete",
+    "waiting-input":           "⏳ Waiting for your input",
+    "blocker":                 "🛑 Blocked — needs you",
+    "merge-review":            "🔎 Merge review",
+}
+
+# Default priority when a pending-pings.jsonl line omits "priority".
+# Completions are high (you want to see results); blockers / waiting are
+# urgent (you're being waited on); everything else is normal.
+EVENT_DEFAULT_PRIORITY: dict[str, str] = {
+    "sprint-complete":        "high",
+    "health-review-complete": "high",
+    "training-complete":      "high",
+    "merge-review":           "high",
+    "blocker":                "urgent",
+    "waiting-input":          "urgent",
+}
+
+
+def _render_event_body(event: str, entry: dict) -> str:
+    """Render one pending-pings.jsonl entry into a clean operator message.
+
+    A title line (label — sprint — title) followed by any present detail
+    fields, then any URLs. Unknown events fall back to the raw event
+    name as the label so nothing is silently dropped.
+    """
+    head = [EVENT_LABELS.get(event, event)]
+    for key in ("sprint", "title"):
+        v = entry.get(key)
+        if v:
+            head.append(str(v))
+    lines = [" — ".join(head)]
+    for key, prefix in (
+        ("cp_id", "CP"), ("next_cp", "Next"), ("phase", "Phase"),
+        ("strategy", "Strategy"), ("model", "Model"),
+        ("result", "Result"), ("grade", "Grade"),
+        ("question", "Q"), ("summary", ""),
+    ):
+        v = entry.get(key)
+        if v:
+            lines.append(f"{prefix}: {v}" if prefix else str(v))
+    for key in ("pr_url", "commit_url", "chat_url", "summary_url"):
+        v = entry.get(key)
+        if v:
+            lines.append(str(v))
+    return "\n".join(lines)
+
+
 def _drain_pending_pings(
     path: Path, delivered: Optional[set[str]] = None,
 ) -> List[Tuple[str, str, str]]:
@@ -290,21 +351,12 @@ def _drain_pending_pings(
             except json.JSONDecodeError:
                 logger.warning("pending-pings: skipping malformed line: %r", raw[:100])
                 continue
-            priority = str(entry.get("priority") or "normal")
             event = str(entry.get("event") or "ping")
-            # Build a body from the structured fields; fall back to the
-            # raw json if the schema doesn't match.
-            parts = [event]
-            for k in ("sprint", "cp_id", "title", "next_cp",
-                      "question", "summary"):
-                v = entry.get(k)
-                if v:
-                    parts.append(f"{k}={v}")
-            for k in ("commit_url", "pr_url", "chat_url", "summary_url"):
-                v = entry.get(k)
-                if v:
-                    parts.append(str(v))
-            out.append((priority, " | ".join(parts), h))
+            priority = str(
+                entry.get("priority")
+                or EVENT_DEFAULT_PRIORITY.get(event, "normal")
+            )
+            out.append((priority, _render_event_body(event, entry), h))
     except OSError as exc:
         logger.warning("pending-pings: read error: %s", exc)
     return out

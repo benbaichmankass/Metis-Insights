@@ -714,7 +714,7 @@ def test_drain_pending_pings_sprint_start_event(tmp_path):
     assert len(out) == 1
     priority, body, _ = out[0]
     assert priority == "normal"
-    assert "sprint-start" in body
+    assert "Sprint started" in body
     assert "S-042" in body
     assert "M1 verify ClaudeBot channel" in body
 
@@ -741,7 +741,7 @@ def test_drain_pending_pings_sprint_complete_event(tmp_path):
     assert len(out) == 1
     priority, body, _ = out[0]
     assert priority == "high"
-    assert "sprint-complete" in body
+    assert "Sprint complete" in body
     assert "S-042" in body
     assert summary_url in body
 
