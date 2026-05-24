@@ -241,6 +241,8 @@ def main(argv: List[str]) -> int:
     p.add_argument("--timeframe", default="1h")
     p.add_argument("--symbol", default="BTCUSDT")
     p.add_argument("--resample", default=None, help="Resample to this rule first (e.g. 1h, 4h).")
+    p.add_argument("--start", default=None, help="Filter to bars on/after this UTC date (YYYY-MM-DD), for walk-forward train/test splits.")
+    p.add_argument("--end", default=None, help="Filter to bars on/before this UTC date (YYYY-MM-DD).")
     p.add_argument("--donchian", type=int, default=20)
     p.add_argument("--atr-period", type=int, default=14)
     p.add_argument("--atr-stop-mult", type=float, default=2.5)
@@ -257,6 +259,13 @@ def main(argv: List[str]) -> int:
         df = _load_candles(args.data)
         if args.resample:
             df = _resample(df, args.resample)
+        # Walk-forward window filter (applied AFTER resample so bar
+        # boundaries are unaffected). Inclusive on both ends.
+        if args.start:
+            df = df[df["timestamp"] >= pd.Timestamp(args.start, tz="UTC")]
+        if args.end:
+            df = df[df["timestamp"] <= pd.Timestamp(args.end, tz="UTC")]
+        df = df.reset_index(drop=True)
     except Exception as exc:  # noqa: BLE001
         print(f"ERROR: load failed: {exc}", file=sys.stderr)
         return 1
