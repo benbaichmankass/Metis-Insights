@@ -34,7 +34,7 @@ def test_registry_roster_is_exactly_turtle_soup_and_vwap():
     from src.strategy_registry import load_strategies
     names = sorted(s["name"] for s in load_strategies())
     assert names == [
-        "fade_breakout_4h", "ict_scalp_5m", "trend_donchian", "turtle_soup", "vwap",
+        "fade_breakout_4h", "ict_scalp_5m", "squeeze_breakout_4h", "trend_donchian", "turtle_soup", "vwap",
     ]
 
 

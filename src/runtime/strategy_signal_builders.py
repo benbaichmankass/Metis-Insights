@@ -974,3 +974,133 @@ def fade_breakout_4h_signal_builder(settings: dict) -> Dict[str, Any]:
         timeframe=timeframe, candles_df=candles_df,
     )
     return _with_signal_package("fade_breakout_4h", sig)
+
+
+def squeeze_breakout_4h_signal_builder(settings: dict) -> Dict[str, Any]:
+    """Volatility-squeeze breakout (S-STRAT-IMPROVE-S9), member-#3 candidate.
+
+    Fetches 4h candles, calls
+    ``src.units.strategies.squeeze_breakout_4h.order_package``, maps to the
+    pipeline-shape signal dict. The best member-#3 candidate found
+    (uncorrelated 0.30 vs the live trend, robust plateau) but run
+    ``execution: shadow`` — logs order packages on real ticks, never sends
+    a live order — pending live proof. Evidence:
+    docs/audits/squeeze-breakout-complement-2026-05-24.md. Honours the YAML
+    ``enabled`` flag as the single source of truth.
+    """
+    from src.units.strategies import load_strategy_config
+    from src.units.strategies.squeeze_breakout_4h import order_package
+    from src.runtime.market_data import fetch_candles
+
+    try:
+        strategies_cfg = load_strategy_config()
+    except Exception:  # noqa: BLE001 — never fail-open on a config error
+        strategies_cfg = {}
+    sqz_cfg = strategies_cfg.get("squeeze_breakout_4h", {}) or {}
+
+    symbol = settings.get("SYMBOL", settings.get("symbol", "BTCUSDT"))
+
+    if not bool(sqz_cfg.get("enabled", False)):
+        logger.info(
+            "squeeze_breakout_4h: strategy disabled in config/strategies.yaml — "
+            "returning side=none"
+        )
+        return _with_signal_package("squeeze_breakout_4h", {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {
+                "strategy_name": "squeeze_breakout_4h",
+                "reason": "disabled_in_yaml",
+            },
+        })
+
+    timeframe = str(
+        sqz_cfg.get("timeframe")
+        or settings.get("SQUEEZE_BREAKOUT_4H_TIMEFRAME")
+        or settings.get("TIMEFRAME")
+        or "4h"
+    )
+
+    exchange = _build_killzone_exchange(settings)
+    candles_df = fetch_candles(
+        symbol, timeframe, exchange_client=exchange, limit=200,
+    )
+    if candles_df is None:
+        raise RuntimeError(
+            f"squeeze_breakout_4h: no candle data returned for symbol={symbol} "
+            f"timeframe={timeframe}. Check that the exchange connection "
+            "is configured and the symbol is valid."
+        )
+
+    _publish_liquidity_state(symbol, candles_df)
+
+    cfg: Dict[str, Any] = {"symbol": symbol, "timeframe": timeframe, **sqz_cfg}
+
+    try:
+        pkg = order_package(cfg, candles_df=candles_df)
+    except ValueError as exc:
+        logger.info("squeeze_breakout_4h: no actionable signal (%s)", exc)
+        try:
+            log_signal({
+                "event": "squeeze_breakout_4h_eval",
+                "strategy": "squeeze_breakout_4h",
+                "symbol": symbol,
+                "timeframe": timeframe,
+                "side": "none",
+                "reason": str(exc),
+            })
+        except Exception:  # noqa: BLE001
+            logger.exception("squeeze_breakout_4h: dedicated audit emit failed")
+        return _with_signal_package("squeeze_breakout_4h", {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {
+                "strategy_name": "squeeze_breakout_4h",
+                "reason": str(exc),
+            },
+        })
+
+    side = "buy" if pkg["direction"] == "long" else "sell"
+    logger.info(
+        "squeeze_breakout_4h: %s signal at %s (entry=%s sl=%s tp=%s confidence=%.3f)",
+        side, symbol, pkg["entry"], pkg["sl"], pkg["tp"], pkg["confidence"],
+    )
+    pkg_meta = pkg.get("meta") or {}
+    try:
+        log_signal({
+            "event": "squeeze_breakout_4h_eval",
+            "strategy": "squeeze_breakout_4h",
+            "symbol": symbol,
+            "timeframe": timeframe,
+            "side": side,
+            "entry": pkg["entry"],
+            "stop_loss": pkg["sl"],
+            "take_profit": pkg["tp"],
+            "confidence": pkg["confidence"],
+        })
+    except Exception:  # noqa: BLE001
+        logger.exception("squeeze_breakout_4h: dedicated audit emit failed")
+
+    sig = {
+        "symbol": symbol,
+        "side": side,
+        "price": pkg["entry"],
+        "entry_price": pkg["entry"],
+        "stop_loss": pkg["sl"],
+        "take_profit": pkg["tp"],
+        "pattern": "squeeze_breakout_4h",
+        "meta": {
+            **pkg_meta,
+            "strategy_name": "squeeze_breakout_4h",
+            "confidence": pkg["confidence"],
+            "direction": pkg["direction"],
+            # Moot while execution:shadow (never sends a live order) but
+            # carried for any future flip, same pattern as the other members.
+            "strategy_risk_pct": float(sqz_cfg.get("risk_pct", 0.3) or 0.3),
+        },
+    }
+    _emit_shadow_preds(
+        "squeeze_breakout_4h", sig, sqz_cfg, symbol,
+        timeframe=timeframe, candles_df=candles_df,
+    )
+    return _with_signal_package("squeeze_breakout_4h", sig)
