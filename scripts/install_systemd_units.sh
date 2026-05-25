@@ -136,6 +136,33 @@ if [ -f "${_TGBOT_DROPIN_SRC}" ]; then
     fi
 fi
 
+# Why ict-claude-bridge needs the data-dir drop-in:
+#   The bridge is the SOLE drainer of the Claude update channel — it reads
+#   $DATA_DIR/runtime_logs/pending_claude_pings (via runtime_logs_dir()).
+#   Producers (send-ping system-action, notify_on_pull) write to that same
+#   canonical inbox now that they load DATA_DIR. If the bridge inherits no
+#   DATA_DIR (stripped from .env) it falls back to <repo>/runtime_logs and
+#   drains a DIFFERENT directory than the writers — every Claude-channel
+#   ping is silently dropped. This drop-in was previously only installed by
+#   hand (deploy/dropins/README.md), so a reprovisioned VM (or one that
+#   never ran the manual step) leaves the channel dark. Auto-installing it
+#   here — same generic data-dir.conf the trader/web-api/telegram-bot units
+#   carry — closes that gap. The bridge is a long-running unit, so
+#   deploy_pull_restart.sh's restart enumeration picks up the new env on
+#   the next deploy (it is not in DEPLOY_RESTART_SKIP). Idempotent: a no-op
+#   when the drop-in is already present and identical.
+_BRIDGE_DROPIN_SRC="${REPO_DIR}/deploy/dropins/data-dir.conf"
+_BRIDGE_DROPIN_DST="${SYSTEMD_DIR}/ict-claude-bridge.service.d/data-dir.conf"
+if [ -f "${_BRIDGE_DROPIN_SRC}" ]; then
+    if [ ! -e "${_BRIDGE_DROPIN_DST}" ] || ! cmp -s "${_BRIDGE_DROPIN_SRC}" "${_BRIDGE_DROPIN_DST}"; then
+        echo ">>> install_systemd_units: dropin data-dir.conf → ${_BRIDGE_DROPIN_DST}"
+        "${SUDO[@]}" mkdir -p "$(dirname "${_BRIDGE_DROPIN_DST}")"
+        "${SUDO[@]}" cp "${_BRIDGE_DROPIN_SRC}" "${_BRIDGE_DROPIN_DST}"
+        "${SUDO[@]}" chmod 0644 "${_BRIDGE_DROPIN_DST}"
+        changed=1
+    fi
+fi
+
 if [ "$changed" -eq 1 ]; then
     echo ">>> install_systemd_units: daemon-reload"
     if ! "${SUDO[@]}" systemctl daemon-reload 2>&1; then

@@ -9,14 +9,16 @@ live VM consumes** — drop-ins are a parallel, additive layer.
 
 | File | Target service | Purpose |
 |---|---|---|
-| [`data-dir.conf`](./data-dir.conf) | `ict-trader-live`, `ict-web-api`, `ict-claude-bridge` | Binds to `/data/bot-data` mount: `RequiresMountsFor`, `ExecStartPre=check_data_dir.sh`, `Environment=DATA_DIR=...`. Installed manually (one-time). |
+| [`data-dir.conf`](./data-dir.conf) | `ict-trader-live`, `ict-web-api`, `ict-claude-bridge`, `ict-telegram-bot` | Binds to `/data/bot-data` mount: `RequiresMountsFor`, `ExecStartPre=check_data_dir.sh`, `Environment=DATA_DIR=...`. **`ict-claude-bridge` + `ict-telegram-bot` are auto-installed by `scripts/install_systemd_units.sh` on every pull-and-deploy** (both are ping drainers — a missing drop-in silently darkens their channel). `ict-trader-live` + `ict-web-api` are still installed manually (one-time, below). |
 | [`watchdog-data-dir.conf`](./watchdog-data-dir.conf) | `ict-liveness-watchdog` | Minimal `Environment=DATA_DIR=/data/bot-data` only — no mount guard since the watchdog should alert, not block, when the mount is absent. **Auto-installed by `scripts/install_systemd_units.sh` on every pull-and-deploy.** |
 | [`cloudflared-token.conf`](./cloudflared-token.conf) | `ict-cloudflared-tunnel` | Overrides `ExecStart` to use `--token` mode (raw CF API token stored in `tunnel.env`), bypassing the URL-safe base64 decode that silently wrote an empty credentials file and caused cloudflared to crash-loop. **Auto-installed by `scripts/install_systemd_units.sh` on every pull-and-deploy.** |
 
 ## How to install data-dir.conf (one-time, per service)
 
-For each service that should read/write to the mount (`ict-trader-live`,
-`ict-web-api`, `ict-claude-bridge`):
+`ict-claude-bridge` and `ict-telegram-bot` get this drop-in **automatically**
+from `scripts/install_systemd_units.sh` on every pull-and-deploy — no manual
+step. The two long-running money-path services (`ict-trader-live`,
+`ict-web-api`) are still installed by hand:
 
 ```bash
 sudo mkdir -p /etc/systemd/system/ict-trader-live.service.d
@@ -26,7 +28,7 @@ sudo systemctl daemon-reload
 sudo systemctl restart ict-trader-live
 ```
 
-Repeat for `ict-web-api` and `ict-claude-bridge`.
+Repeat for `ict-web-api`.
 
 ## How watchdog-data-dir.conf gets installed
 
