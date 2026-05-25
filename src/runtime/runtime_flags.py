@@ -6,9 +6,14 @@ side. The pipeline (and any other consumer) calls the helpers here rather
 than sprinkling os.path.exists() calls.
 
 Current flag conventions:
-  runtime_flags/send_hourly_demo  — force-send the hourly report (consumed on use)
   runtime_flags/pause_<name>      — pause signal generation for strategy <name>
                                     without restarting the process
+
+The old ``send_hourly_demo`` flag was retired with the hourly-producer
+consolidation (TELEGRAM-SPEC.md § 4.1): the hourly report is now driven
+solely by ``ict-hourly-snapshot.timer`` → ``scripts/send_hourly_now.py``.
+To force a send now, run that script (or start the unit) — it always
+dispatches and is flock-guarded against double-fires.
 
 The halt flag (/tmp/trader_halt.flag) predates this module. It lives in
 /tmp so it survives a fresh repo clone and is NOT managed here.

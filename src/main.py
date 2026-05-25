@@ -1,6 +1,4 @@
 from __future__ import annotations
-from datetime import datetime, timezone
-from src.utils.signal_audit_logger import should_send_summary
 
 import logging
 import os
@@ -10,12 +8,7 @@ from dotenv import load_dotenv
 
 from src.exchange.bybit_connector import BybitConnector
 from src.runtime.heartbeat import write_heartbeat
-from src.runtime.hourly_report import (
-    build_accounts_hourly_report,
-    build_hourly_report,
-)
-from src.runtime.notify import send_telegram_direct
-from src.runtime.outcomes import Level, report, send_scheduled
+from src.runtime.outcomes import Level, report
 from src.runtime.pipeline import run_pipeline
 from src.runtime.validation import build_settings_from_env, validate_startup
 
@@ -644,91 +637,14 @@ def main() -> None:
             # surfaces.
             last_tick_status = "error"
             write_heartbeat(status=last_tick_status, tick=tick_count)
-        now_utc = datetime.now(timezone.utc)
-        # BUG-032: a one-shot demo flag the operator drops on the VM after
-        # deploy (`touch runtime_flags/send_hourly_demo`). When present, the
-        # dedup marker is bypassed for one tick so the operator sees a fresh
-        # summary in Telegram and confirms the fix is live. The flag is
-        # consumed (deleted) after a successful build to prevent loops.
-        demo_flag = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-            "runtime_flags", "send_hourly_demo",
-        )
-        force_demo = os.path.exists(demo_flag)
-        try:
-            if force_demo or should_send_summary(now_utc):
-                # S-022 PR2: replace the one-line "service is alive" blurb
-                # with the structured hourly report. Sent via the
-                # scheduled-message path so it bypasses the per-fingerprint
-                # rate limit and the hourly cap on ERROR/CRITICAL alerts.
-                #
-                # BUG-032: explicit INFO log on every attempted send so the
-                # operator can grep `journalctl -u ict-trader-live` for
-                # "hourly report" when summaries stop arriving. Without this
-                # the silent-failure mode (e.g. send_via_alert_manager raising
-                # and being swallowed by send_scheduled) is invisible.
-                # S-telegram-format: two parallel hourly messages, one
-                # focused on strategies, one focused on accounts/trades.
-                # Both use HTML mode so their detail sections render as
-                # collapsable blockquotes; ``send_telegram_direct`` is
-                # called per-report so an HTML parse failure on one
-                # doesn't suppress the other.
-                strat_message = build_hourly_report(
-                    now_utc=now_utc, tick_interval_s=interval,
-                )
-                acct_message = build_accounts_hourly_report(
-                    now_utc=now_utc, tick_interval_s=interval,
-                )
-                logger.info(
-                    "hourly report dispatch: slot=%s strat_len=%d acct_len=%d",
-                    now_utc.strftime("%Y-%m-%d-%H"),
-                    len(strat_message), len(acct_message),
-                )
-                for label, body in (
-                    ("strategies", strat_message),
-                    ("accounts", acct_message),
-                ):
-                    try:
-                        send_telegram_direct(body, parse_mode="HTML")
-                    except Exception as exc:  # noqa: BLE001
-                        logger.warning(
-                            "hourly report HTML send (%s) failed (%s); "
-                            "falling back to scheduled plain-text path",
-                            label, exc,
-                        )
-                        send_scheduled(body)
-                report(
-                    "hourly_report", "dispatched",
-                    level=Level.INFO,
-                    slot=now_utc.strftime("%Y-%m-%d-%H"),
-                    strat_chars=len(strat_message),
-                    acct_chars=len(acct_message),
-                    demo=force_demo,
-                )
-                if force_demo:
-                    try:
-                        os.remove(demo_flag)
-                    except OSError:
-                        pass
-
-                # CLAUDE.md § Architecture rules § 6 +
-                # architecture-audit-2026-05-02 P0-3: liveness watchdog
-                # piggybacks on the hourly cycle. Pings the operator
-                # when actionable signals fired but no trades landed —
-                # the gap that allowed BUG-034 to hide. Best-effort;
-                # never raises.
-                try:
-                    from src.runtime.liveness_watchdog import run_liveness_watchdog
-                    run_liveness_watchdog(now_utc=now_utc)
-                except Exception:  # noqa: BLE001
-                    logger.exception("liveness_watchdog dispatch failed")
-        except Exception as exc:  # noqa: BLE001
-            logger.exception("Failed to send hourly report")
-            report(
-                "hourly_report", "failed",
-                level=Level.WARN,
-                reason=f"{type(exc).__name__}: {exc}",
-            )
+        # Hourly report + the liveness-watchdog piggyback were moved OUT
+        # of the trader loop to the single flock-guarded producer
+        # (scripts/send_hourly_now.py via ict-hourly-snapshot.timer) so
+        # the operator gets EXACTLY ONE dispatch per hour. The old
+        # in-loop should_send_summary path double-fired alongside the
+        # timer ("hourly coming too often"); see TELEGRAM-SPEC.md § 4.1.
+        # Running the watchdog from the timer is strictly better — it
+        # fires on the wall-clock hour even if a tick is wedged.
 
         # Refresh the heartbeat between ticks so the dashboard / diag
         # liveness signal is "is this process responsive *right now*"

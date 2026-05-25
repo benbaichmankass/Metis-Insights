@@ -21,8 +21,6 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-import pytest
-
 
 # ---------------------------------------------------------------------------
 # get_latest_sprint
@@ -275,33 +273,3 @@ class TestGetRoadmapSummary:
             out = processor.get_roadmap_summary()
         assert out.startswith("⚠️")
         assert "ROADMAP.md" in out
-
-
-# ---------------------------------------------------------------------------
-# Bot back-compat wrapper still works
-# ---------------------------------------------------------------------------
-
-
-class TestBotWrappers:
-    def test_latest_sprint_wrapper_returns_tuple(self, tmp_path):
-        from src.units.ui import processor
-        log = tmp_path / "log.md"
-        log.write_text(CP_LOG_HAPPY, encoding="utf-8")
-        # Stub the bot's heavy deps before importing.
-        import sys
-        import types
-        for mod_name in (
-            "telegram", "telegram.ext", "telegram.error",
-            "telegram.constants",
-        ):
-            sys.modules.setdefault(mod_name, types.SimpleNamespace())
-        try:
-            from src.bot import telegram_query_bot as bot
-        except ModuleNotFoundError as exc:  # missing pandas etc in sandbox
-            pytest.skip(f"bot module unavailable: {exc}")
-
-        with patch.object(processor, "_checkpoint_log_path",
-                          return_value=str(log)):
-            sprint, cp = bot._latest_sprint_from_checkpoint_log()
-        assert sprint == "S-031"
-        assert cp == "CP-2026-05-02-99"

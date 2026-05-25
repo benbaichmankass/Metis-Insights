@@ -119,7 +119,6 @@ def test_bot_drain_skips_when_no_files(tmp_path, monkeypatch):
     # patch cloud_notifier directly to redirect to the empty tmp_path so
     # this test sees zero files regardless of suite order.
     monkeypatch.setattr(cloud_notifier, "PENDING_PINGS_DIR", str(tmp_path))
-    monkeypatch.setattr(bot, "PENDING_PINGS_DIR", str(tmp_path))
     monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "1234")
     monkeypatch.setenv("TELEGRAM_CHAT_ID", "1234")
     bot_mock = MagicMock()
@@ -154,9 +153,11 @@ def test_bot_drain_leaves_file_on_send_failure_for_retry(tmp_path, monkeypatch):
     """A transient telegram failure must NOT delete the file — the next
     drain tick retries."""
     from src.bot import telegram_query_bot as bot
+    from src.bot import cloud_notifier
 
-    monkeypatch.setattr(bot, "PENDING_PINGS_DIR", str(tmp_path))
+    monkeypatch.setattr(cloud_notifier, "PENDING_PINGS_DIR", str(tmp_path))
     monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", "1234")
+    monkeypatch.setenv("TELEGRAM_CHAT_ID", "1234")
     send_ping.PENDING_PINGS_DIR = tmp_path
     p = send_ping.enqueue("retry me", priority="normal")
 
@@ -181,7 +182,6 @@ def test_bot_drain_no_chat_id_warns_and_skips(tmp_path, monkeypatch):
     # inbox via Coordinator side-effects. Redirect cloud_notifier directly so the
     # drain sees only the file we enqueue here, regardless of suite order.
     monkeypatch.setattr(cloud_notifier, "PENDING_PINGS_DIR", str(tmp_path))
-    monkeypatch.setattr(bot, "PENDING_PINGS_DIR", str(tmp_path))
     monkeypatch.setattr(bot, "TELEGRAM_CHAT_ID", None)
     # test_recurring_session_cmds sets TELEGRAM_CHAT_ID in os.environ at module
     # level; clear it so the drain can't resolve a chat_id from the environment.

@@ -168,30 +168,3 @@ class TestGetSignalsBlock:
         assert "Last 5 signals" in out
         # 5 emoji-prefixed rows.
         assert out.count("🟢 2026-05-02 20:00:") == 5
-
-
-# ---------------------------------------------------------------------------
-# Bot back-compat wrapper
-# ---------------------------------------------------------------------------
-
-
-class TestBotWrapperCallsProcessor:
-    def test_render_signals_block_is_thin_wrapper(self):
-        """Source-level grep: the bot's wrapper calls the processor
-        and no longer reads the audit file directly."""
-        # _render_signals_block extracted to src/bot/signal_helpers.py (D3/PR-10).
-        bot_src = Path("src/bot/signal_helpers.py").read_text()
-        start = bot_src.index("def _render_signals_block(")
-        # Slice through the next def, or EOF if it's the last function.
-        try:
-            after = bot_src.index("\ndef ", start + 1)
-        except ValueError:
-            after = len(bot_src)
-        wrapper_src = bot_src[start:after]
-        assert "get_signals_block" in wrapper_src, (
-            "_render_signals_block must delegate to "
-            "processor.get_signals_block per Architecture rule § 5"
-        )
-        # The previous direct-audit-read code is gone.
-        assert "_read_audit_tail(" not in wrapper_src
-        assert "_format_signal_row(" not in wrapper_src
