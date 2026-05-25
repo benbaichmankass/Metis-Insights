@@ -1222,6 +1222,14 @@ class Coordinator:
                 })
                 continue
 
+            # WS7 advisory influence (default-off, gated by ADVISORY_MODE).
+            # Reductive only — can shrink the RiskManager-sized qty toward a
+            # floor when a quorum of advisory-stage models is bearish, never
+            # enlarge it. Inert (returns qty unchanged) when the flag is off.
+            from src.runtime.advisory_sizing import apply_advisory_downsize
+            sized_qty = apply_advisory_downsize(
+                pkg, sized_qty, account_name=account.name,
+            )
             sized_qty_by_account[account.name] = sized_qty
 
             # 2. Refuse to forward a zero-qty order. This branch fires

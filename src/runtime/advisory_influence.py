@@ -243,3 +243,35 @@ def _assert_reductive(intended: OrderPackage, final: OrderPackage) -> None:
             f"advisory influence altered '{fld}': "
             f"{getattr(intended, fld)!r} -> {getattr(final, fld)!r}"
         )
+
+
+def advisory_downsize_factor(
+    advisory_scores: Mapping[str, float] | None,
+    policy: AdvisoryPolicy,
+    *,
+    flag_enabled: bool,
+) -> float:
+    """Reductive size multiplier for the live per-account-qty path.
+
+    Returns a factor in ``[size_floor, 1.0]`` — never above 1.0, so the
+    caller can only ever shrink the order. ``1.0`` means "no change":
+    returned whenever the flag is off, the policy isn't ``downsize``,
+    there are no scores, or the bearish quorum isn't met.
+
+    This is the scalar-qty sibling of :func:`apply_advisory_influence`
+    (which operates on a typed ``OrderPackage``). The live path
+    (``Coordinator.multi_account_execute``) sizes qty per-account via the
+    RiskManager, so it scales that scalar by this factor rather than
+    replacing a package.
+    """
+    if not flag_enabled or policy.mode != "downsize" or not advisory_scores:
+        return 1.0
+    n_scored = len(advisory_scores)
+    quorum_n = policy.resolve_quorum(n_scored)
+    bearish = sum(
+        1 for s in advisory_scores.values()
+        if float(s) < policy.bearish_threshold
+    )
+    factor = policy.size_floor if bearish >= quorum_n else 1.0
+    # Reductive invariant: never amplify.
+    return min(1.0, max(0.0, factor))
