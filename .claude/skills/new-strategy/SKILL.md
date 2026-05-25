@@ -263,7 +263,41 @@ coordinator.
 This is a **Tier-3** file per CLAUDE.md — open the PR as draft, ping
 the operator. Never merge to main without explicit approval.
 
-### 6. Account routing — `config/accounts.yaml` *(Tier-3, separate PR)*
+### 6. Description — `config/strategy_descriptions.json` *(Tier-1)*
+
+Every strategy MUST carry a human-readable description so the dashboard
+Strategies page (and anyone reading the API) can explain what it does.
+Descriptions live in `config/strategy_descriptions.json` — a sibling of
+`config/strategy_changelog.json`, deliberately OUTSIDE the Tier-3
+`config/strategies.yaml` so prose metadata is a Tier-1 edit that doesn't
+gate on strategy-logic approval. The `/api/bot/strategies` endpoint reads
+this file (`src/web/api/routers/strategies.py::_load_descriptions`); there
+is **no hardcoded fallback** — a strategy missing here renders with an
+empty description.
+
+Add a block keyed by the strategy name:
+
+```json
+{
+  "<name>": {
+    "short": "One-line summary — what it trades + timeframe + symbol.",
+    "how_it_works": "2-4 sentences: entry trigger, stop, profit-exit, any HTF/regime gate, and the per-trade risk."
+  }
+}
+```
+
+Write the `how_it_works` from the same facts you put in the strategy
+module and the `config/strategies.yaml` comment block — entry trigger,
+SL/TP rule, gates, risk_pct. Keep it accurate to the *current* config.
+
+**Updating on changes:** whenever a later PR changes how the strategy
+behaves (a new gate, a different exit, a timeframe migration, a risk
+change), update this `how_it_works` in the SAME PR so the description
+never drifts from the live behaviour — and add the matching
+`config/strategy_changelog.json` entry. The description is the "what it
+does now"; the changelog is the "how it got here".
+
+### 7. Account routing — `config/accounts.yaml` *(Tier-3, separate PR)*
 
 Add the strategy name to the relevant account's `strategies:` list.
 
@@ -295,7 +329,7 @@ Tier-3 file — same draft + operator-approval rule as step 5. Do not
 open the bybit_2 (live) routing PR until the operator has explicitly
 authorized live activation.
 
-### 7. Tests — `tests/test_<name>.py` and the intent test files
+### 8. Tests — `tests/test_<name>.py` and the intent test files
 
 a) **Strategy unit test** — `tests/test_<name>.py`. Verify
    `order_package()` produces the expected dict on a known input
@@ -325,14 +359,14 @@ pytest tests/test_multi_strategy_intents.py \
 
 100+ passing means the wiring is sound.
 
-### 8. Activation — the shadow-first path (S9)
+### 9. Activation — the shadow-first path (S9)
 
-1. Land the wiring PR (steps 1–4, 7).
+1. Land the wiring PR (steps 1–4, 6, 8).
 2. Land the strategies.yaml PR with `enabled: true` + `execution:
    shadow` (step 5). A passing offline backtest + an audit doc under
    `docs/audits/` should already justify this — you don't ship a new
    signal even to shadow without evidence.
-3. Land the bybit_1 (demo) routing PR (step 6) and fire
+3. Land the bybit_1 (demo) routing PR (step 7) and fire
    `pull-and-deploy`. The strategy now RUNS + LOGS order packages on
    live ticks (data collection) without risking money. Confirm
    `<name>_eval` rows in the audit log and the coordinator logging
@@ -376,7 +410,7 @@ and is explicitly out of scope of the current execution layer.
 ## When you're done
 
 Report back with:
-1. The PR URL for the wiring (steps 1–4, 7).
+1. The PR URL for the wiring (steps 1–4, 6, 8).
 2. The PR URL for `config/strategies.yaml` (step 5, draft, Tier-3).
 3. Whether the strategy passed unit tests + the existing intent
    regression suite.
@@ -385,7 +419,7 @@ Report back with:
 5. The next-action checklist for the operator: backtest, then flip
    `enabled: true`, then add to accounts.yaml, then `pull-and-deploy`.
 
-Do **not** open the accounts.yaml PR (step 6) until the operator has
+Do **not** open the accounts.yaml PR (step 7) until the operator has
 explicitly authorized live activation.
 
 ## Worked example — ICT scalp 5m (PR #1140 + #1141)
@@ -406,7 +440,7 @@ Reference for what a complete new-strategy PR looks like:
 - Tests: `tests/test_ict_scalp_5m.py`
 - Docs: `docs/strategies/ict_scalp_5m.md`
 
-Activation (steps 5 → 8) is operator-gated and pending the backtest
+Activation (steps 5 → 9) is operator-gated and pending the backtest
 result at the time of this skill's introduction. The wiring itself
 is fully landed — the strategy will flow through the same
 intent → aggregator → delta → dispatch pipeline as Turtle Soup and

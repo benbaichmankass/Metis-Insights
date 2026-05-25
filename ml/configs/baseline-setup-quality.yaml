@@ -25,6 +25,7 @@
 
 manifest_version: v1
 model_id: setup-quality-baseline-v0
+description: "Baseline regressor that scores the quality of a trade setup from the engineered setup labels across all strategies. Predicts the per-strategy historical mean as the reference baseline. Shadow-stage."
 model_family: regression_baseline
 trainer: ml.trainers.per_strategy_winrate.PerStrategyWinRateTrainer
 trainer_config:

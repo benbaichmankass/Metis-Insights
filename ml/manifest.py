@@ -58,6 +58,12 @@ class TrainingManifest:
     evaluator_config: Mapping[str, Any]
     target_deployment_stage: str
     notes: str = ""
+    # Human-readable summary of what this model does / how it is used.
+    # Surfaced on the dashboard Models page via /api/bot/ml/registry. Kept
+    # distinct from `notes` (operational caveats): `description` is the
+    # "about this model" prose. Authoring it is a step in the
+    # `model-training` / `new-strategy` skills.
+    description: str = ""
 
     def __post_init__(self) -> None:
         if self.manifest_version != MANIFEST_VERSION:
@@ -100,6 +106,7 @@ class TrainingManifest:
             raise ValueError("'dataset' must be a mapping")
         data["dataset"] = DatasetRef(**ds)
         data.setdefault("notes", "")
+        data.setdefault("description", "")
         data.setdefault("trainer_config", {})
         data.setdefault("evaluator_config", {})
         return cls(**data)
@@ -116,4 +123,5 @@ class TrainingManifest:
             "evaluator_config": dict(self.evaluator_config),
             "target_deployment_stage": self.target_deployment_stage,
             "notes": self.notes,
+            "description": self.description,
         }

@@ -29,6 +29,7 @@
 
 manifest_version: v1
 model_id: setup-quality-audit-baseline-v0
+description: "Baseline regressor scoring setup quality against the health-review audit labels (the post-hoc reviewer's setup grades). Per-strategy mean baseline. Shadow-stage."
 model_family: regression_baseline
 trainer: ml.trainers.per_strategy_winrate.PerStrategyWinRateTrainer
 trainer_config:

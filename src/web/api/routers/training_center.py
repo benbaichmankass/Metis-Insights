@@ -291,6 +291,10 @@ def _enrich_registry_row(
     enriched["evaluator"] = manifest.get("evaluator")
     enriched["dataset_ref"] = dataset
     enriched["latest_run"] = latest_run
+    # Human-readable "about this model" prose from the manifest (added
+    # 2026-05-25). Nullable: rows whose stored manifest predates the
+    # field carry None until the trainer re-registers the model.
+    enriched["description"] = manifest.get("description")
     return enriched
 
 
@@ -315,6 +319,9 @@ def get_registry() -> dict[str, Any]:
         for the dataset this model was trained on.
       * ``latest_run`` — newest entry from ``runs[]`` (run_id, at,
         metrics, etc.) or ``None`` if no runs are recorded yet.
+      * ``description`` — human-readable "about this model" prose from
+        ``manifest.description``. ``None`` for rows whose stored manifest
+        predates the field (re-populates on the next registration).
 
     All enriched fields are additive — pre-existing consumers see the
     same shape with extra keys, never missing ones. Enriched fields are

@@ -23,6 +23,7 @@
 
 manifest_version: v1
 model_id: trade-outcome-winrate-baseline-v0
+description: "Baseline classifier estimating a trade's win probability from the strategy's historical win rate across all symbols. The per-strategy reference for the trade-outcome family. Shadow-stage."
 model_family: classification_baseline
 trainer: ml.trainers.per_strategy_winrate.PerStrategyWinRateTrainer
 trainer_config:

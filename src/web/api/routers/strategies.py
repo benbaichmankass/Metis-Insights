@@ -54,6 +54,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[4]
 _STRATEGIES_YAML = _REPO_ROOT / "config" / "strategies.yaml"
 _ACCOUNTS_YAML = _REPO_ROOT / "config" / "accounts.yaml"
 _CHANGELOG_JSON = _REPO_ROOT / "config" / "strategy_changelog.json"
+_DESCRIPTIONS_JSON = _REPO_ROOT / "config" / "strategy_descriptions.json"
 _DB_PATH = Path(trade_journal_db_path())
 
 # Freshness window (seconds) for treating the pipeline's last tick as
@@ -62,43 +63,24 @@ _DB_PATH = Path(trade_journal_db_path())
 # without masking a genuine stall. Mirrors the dashboard's intent.
 _TICK_FRESH_S = 300
 
-_DESCRIPTIONS: Dict[str, Dict[str, str]] = {
-    "vwap": {
-        "short": "VWAP mean-reversion on 5m BTCUSDT",
-        "how_it_works": (
-            "Enters when price deviates significantly from the rolling session VWAP "
-            "(Volume-Weighted Average Price). "
-            "A 4h EMA-200 ±2% band gate blocks counter-trend entries — no longs when "
-            "the market is in a confirmed downtrend, no shorts in an uptrend. "
-            "Exits fire in priority order: SL cross → TP cross → VWAP reclaim → "
-            "240-minute time decay. Risk: 1% per trade."
-        ),
-    },
-    "turtle_soup": {
-        "short": "Liquidity sweep + reversal, 15m setup / 1m entry",
-        "how_it_works": (
-            "Identifies false breakouts (liquidity sweeps) of recent swing highs and "
-            "lows on the 15m chart. Waits for a reversal candle confirming rejection, "
-            "then refines entry on the 1m chart. "
-            "Stop is 0.30× ATR below/above entry. "
-            "TP1 at 1.0R (25% position closed, stop moved to break-even), "
-            "trailing ATR stop on the remainder, TP2 at 3.0R. "
-            "Risk: 0.5% per trade."
-        ),
-    },
-    "ict_scalp_5m": {
-        "short": "ICT liquidity-sweep scalp on 5m BTCUSDT",
-        "how_it_works": (
-            "Trades the ICT sweep → displacement → fair-value-gap sequence. "
-            "Waits for price to sweep a recent swing high/low (liquidity grab), "
-            "confirm a displacement candle (body > 1.3× ATR), then enters on a "
-            "wick-rejection back out of the resulting FVG. A 1h EMA-20 "
-            "higher-timeframe bias gate blocks counter-trend entries. "
-            "Stop is ATR-buffered beyond the sweep; take-profit at 1.5R. "
-            "Risk: 0.3% per trade."
-        ),
-    },
-}
+def _load_descriptions() -> Dict[str, Dict[str, str]]:
+    """Per-strategy human-readable descriptions.
+
+    Single source of truth is ``config/strategy_descriptions.json`` (keyed
+    by strategy name → ``{short, how_it_works}``), kept as a sibling of
+    ``strategy_changelog.json`` so the strategy roster's prose metadata
+    lives outside the Tier-3 ``strategies.yaml``. Authoring/updating an
+    entry is a step in the ``new-strategy`` skill.
+    """
+    if not _DESCRIPTIONS_JSON.exists():
+        return {}
+    try:
+        with _DESCRIPTIONS_JSON.open(encoding="utf-8") as fh:
+            data = json.load(fh)
+        return data if isinstance(data, dict) else {}
+    except Exception:  # allow-silent: best-effort json read; logs + returns safe empty default
+        logger.exception("strategies: failed to load strategy_descriptions.json")
+        return {}
 
 
 def _load_strategies_yaml() -> Dict[str, Any]:
@@ -278,6 +260,7 @@ async def get_strategies() -> Dict[str, Any]:
     transparent view of the VM rather than a config echo."""
     strategies_cfg = _load_strategies_yaml()
     changelog = _load_changelog()
+    descriptions = _load_descriptions()
     stats_by_name = _query_stats(_DB_PATH)
     rt = _read_runtime_status()
     routing = _account_routing()
@@ -294,7 +277,7 @@ async def get_strategies() -> Dict[str, Any]:
         if not isinstance(cfg, dict):
             continue
         stats = stats_by_name.get(name, _empty_stats())
-        desc = _DESCRIPTIONS.get(name, {"short": name, "how_it_works": ""})
+        desc = descriptions.get(name, {"short": name, "how_it_works": ""})
         loaded = name in loaded_set
         accounts = [
             {"id": aid, "live": bool(live_map.get(aid, False))}
