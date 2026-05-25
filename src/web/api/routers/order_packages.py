@@ -146,7 +146,7 @@ async def get_order_packages(
         return {"rows": [], "count": 0, "claude_log_present": _CLAUDE_SCORES.is_file()}
     try:
         rows = _query_order_packages(_DB_PATH, limit, since, strategy)
-    except sqlite3.Error:
+    except sqlite3.Error:  # allow-silent: best-effort read; logs + returns empty so the tab stays usable
         logger.exception("order_packages: sqlite read failed")
         return {"rows": [], "count": 0, "claude_log_present": _CLAUDE_SCORES.is_file()}
 
