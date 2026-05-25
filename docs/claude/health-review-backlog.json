@@ -96,6 +96,19 @@
       "resolution_criteria": "Operator disconnects the 'ict-trader-widget' Cloudflare Pages <-> GitHub integration (or deletes that Pages project) so the dashboard repo stops running a perpetually-failing Cloudflare Pages check; confirm ict-trader-dashboard PRs show only the real checks (ruff-lint, import-smoke) green.",
       "status": "open",
       "snoozed_until": null
+    },
+    {
+      "id": "BL-20260525-007",
+      "opened_at": "2026-05-25T00:00:00+00:00",
+      "opened_by": "claude",
+      "source": "operator flagged a live BTCUSDT trade whose TP (~143,210) sat ~2x the BTC price / above the all-time high",
+      "title": "EXPECTED, NOT A BUG: trend_donchian (+ fade/squeeze) place a far ~50R 'unreachable sentinel' TP — don't re-flag it as a broken take-profit",
+      "description": "A live trend_donchian BTCUSDT long showed TP=143,210.10 with SL=76,355.40 (entry ~77,666; current ~77,300). This is the DESIGNED 50R sentinel, not a malfunction. trend_donchian/fade_breakout_4h/squeeze_breakout_4h have NO fixed profit target (matches their backtests, which have no TP) — the Chandelier ATR trailing stop is the sole profit exit. But the pipeline's dispatch gate requires every order to carry BOTH an SL and a TP, so the TP is parked tp_r*risk away (tp_r=50.0 in config/strategies.yaml:153/216/259) where it can't realistically fill (max single-trade excursion in 3yr backtest ~11R). Signature to recognize it: reward:risk ~= 50:1. Math check on this trade: TP = entry + 50*(entry - SL) => 77,666.27 + 50*1,310.87 = 143,209.8 ~= 143,210.10. Formula lives at src/units/strategies/trend_donchian.py:190/195 (order_package) and the trade is protected by the live ratcheting trail in monitor() at trend_donchian.py:285 (moves SL up only, never loosens). The TP-cross close at trend_donchian.py:342 exists only for completeness. A far TP carries no margin/liquidation risk; if BTC ever printed 143k the trade would simply close at +50R. The only live strategy that emits this is trend_donchian (turtle_soup uses tp1_at_r 1.0 / tp2_at_r 3.0, ict_scalp tp_at_r 1.5, vwap a VWAP-anchored TP) — fade/squeeze share the 50R sentinel but run execution: shadow (no live orders).",
+      "tier": 1,
+      "trigger_condition": "Any /health-review run that scores a trend_donchian (or shadow fade/squeeze) order package and sees a TP far from price (~50R / ~2x BTC). Recognize it as the intended sentinel — do NOT score it as a TP defect.",
+      "resolution_criteria": "Informational standing note; nothing to fix. Close only if the 50R-sentinel mechanism is itself removed (e.g. the pipeline stops requiring a TP for trail-only strategies, or tp_r is changed in an operator-approved Tier-3 PR).",
+      "status": "open",
+      "snoozed_until": null
     }
   ]
 }
