@@ -14,6 +14,19 @@
       "resolution_criteria": "colab-workflows.md no longer frames the workplan as a live authority; confirm no docs/claude/* non-historical page treats milestone-state.md/workplan.md as current.",
       "status": "open",
       "snoozed_until": null
+    },
+    {
+      "id": "BL-20260525-001",
+      "opened_at": "2026-05-25T00:00:00+00:00",
+      "opened_by": "claude",
+      "source": "doc-freshness after #1933 (trader-bot menu rebuild + command scrub)",
+      "title": "Sweep docs/claude operational pages + config comments that still reference the ~40 removed Telegram commands",
+      "description": "PR #1933 rebuilt @bict_trading_bot to a 4-item menu and removed ~40 slash commands (/halt /resume /status /accounts[_status] /set_all_live /set_keys /risk_check /smoke_test /strategies /reload_strats /balance /trades /last5 /packages /signals /alerts /log /price /hourly /backtest* /webapp /health /vmstats /ping_test /vm /vm_write /checkpoint /sprintlet_* /new_session /test /toggle /closeall) plus the VM-runner subsystem. The 3 canonical docs (CLAUDE.md, ARCHITECTURE-CANONICAL.md, CLAUDE-RULES-CANONICAL.md) were fixed in the same doc-freshness pass. STILL STALE (lower-precedence, current operational guides that reference removed commands as if live): docs/claude/trading-mode-flags.md (/halt /resume /set_all_live /accounts dry|live as the kill switch), docs/claude/deployment-ops.md (verification steps using /halt->/resume, /set_keys, /accounts_status, /vm, /vm_write), docs/claude/vm-operator-mode.md (the /vm + /vm_write VM-runner trust contract — that whole command surface is gone; the diag-relay + system-action access paths remain), docs/claude/comms-architecture.md (/new_session + '/halt /status' examples), docs/claude/recurring-sessions.md ('Need to halt everything? /halt'), docs/claude/prop-account-state.md (/accounts_status as the prop-check surface — now the menu Accounts snapshot / dashboard). ALSO config-file comments (NOT editable by doc-freshness — Tier-3 config files): config/strategies.yaml references '/reload_strats' and config/accounts.yaml references 'the Telegram /accounts command flips it at runtime via set_account_dry_run()' — both now describe the removed surface; the menu kill switch persists via set_account_mode.sh. Historical records (bug-log.md, audit-log.md, milestone-state.md, architecture-audit-*, checkpoints/) intentionally LEFT AS-IS (preserved as record). Map each kill/mode/halt mention to its menu equivalent; point readers at docs/TELEGRAM-SPEC.md.",
+      "tier": 1,
+      "trigger_condition": "Any /health-review run.",
+      "resolution_criteria": "The listed docs/claude/* operational pages no longer present removed slash commands as the current operator surface (they reference the menu + docs/TELEGRAM-SPEC.md instead); the strategies.yaml + accounts.yaml comments are corrected to describe the menu kill switch / set_account_mode.sh wire (config edits require the operator / a Tier-3-aware PR).",
+      "status": "open",
+      "snoozed_until": null
     }
   ]
 }
