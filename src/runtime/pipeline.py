@@ -740,16 +740,26 @@ def run_pipeline(
     if reason:
         header += f" | reason={reason}"
 
-    sections = _pipeline_result_sections(
-        signal=signal, result=result, strategy=_strategy,
-    )
-    html_body = render_html(header=header, sections=sections)
-    plain_body = render_plain(header=header, sections=sections)
+    # Per-tick operator push is gated: a tick that produced no signal
+    # (status=skipped, reason=no_signal) is the overwhelming common case
+    # and floods the operator channel with non-actionable noise. Suppress
+    # ONLY that case — every other outcome (executed, rejected, refused,
+    # news-vetoed, error, any other skip reason) still pushes. Nothing is
+    # lost for diagnostics: the audit log (log_signal above), the
+    # runtime_status write below, and the logger.info line still record
+    # EVERY tick. Operator decision 2026-05-25.
+    _is_no_signal = status == "skipped" and (reason or "") == "no_signal"
+    if not _is_no_signal:
+        sections = _pipeline_result_sections(
+            signal=signal, result=result, strategy=_strategy,
+        )
+        html_body = render_html(header=header, sections=sections)
+        plain_body = render_plain(header=header, sections=sections)
 
-    try:
-        send_to_operator(plain_body, html_body, telegram_client=telegram_client)
-    except Exception:  # noqa: BLE001
-        logger.exception("pipeline: all notify paths failed")
+        try:
+            send_to_operator(plain_body, html_body, telegram_client=telegram_client)
+        except Exception:  # noqa: BLE001
+            logger.exception("pipeline: all notify paths failed")
 
     logger.info("Pipeline complete: %s", result)
 
