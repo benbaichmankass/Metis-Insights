@@ -24,6 +24,14 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/ops/_lib.sh
 source "${SCRIPT_DIR}/_lib.sh"
 
+# Export DATA_DIR (+ friends) so send_ping.py resolves the CANONICAL inbox
+# (runtime_logs_dir() → $DATA_DIR/runtime_logs) — the same dir the bot
+# drainers read. Without this, the action subprocess has no DATA_DIR (it's
+# stripped from .env), send_ping falls back to the repo-relative inbox, and
+# any drainer running with DATA_DIR (e.g. ict-claude-bridge) never sees the
+# ping. (2026-05-25: claude-channel pings silently undelivered.)
+load_runtime_env
+
 SEND_PING="${REPO_DIR}/scripts/send_ping.py"
 
 MESSAGE="${ACTION_MESSAGE:-}"
