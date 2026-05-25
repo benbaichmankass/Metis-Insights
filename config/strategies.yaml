@@ -165,11 +165,12 @@ strategies:
     # src/units/strategies/fade_breakout_4h.py; validated harness:
     # scripts/backtest_fade.py.
     #
-    # STATUS: execution: shadow (data-only, S9 operator-approved
-    # 2026-05-24). VALIDATED as an uncorrelated complement to the live
-    # trend-follower — but it runs SHADOW, never real money, pending more
-    # live proof. Evidence (docs/audits/fade-breakout-complement-
-    # 2026-05-24.md):
+    # STATUS: execution: live (PROMOTED from shadow 2026-05-25, operator
+    # decision, Tier-3). VALIDATED as an uncorrelated complement to the
+    # live trend-follower; now executes on real money (bybit_2) + paper
+    # (bybit_1 demo). Promoted WITHOUT the prior "more live proof" gate —
+    # explicit operator call. Evidence (docs/audits/fade-breakout-
+    # complement-2026-05-24.md):
     #   * +64.2R / 6yr (2020-2026), net-positive every year, max-DD 13.9R.
     #   * Uncorrelated with live trend_donchian (monthly_corr 0.035); the
     #     equal-weight blend lifts return/drawdown 1.97 -> 3.80 and nearly
@@ -177,24 +178,27 @@ strategies:
     #   * Nested walk-forward: donchian-20 / trail-3.5 wins train (2020-23)
     #     AND holds out-of-sample (2024-26 +16.2R, exp 0.246) without
     #     peeking. Fee-robust (+39.8R even at 15bps, 2x the modelled 7.5).
-    #   * CAVEAT (why shadow, not live): OOS expectancy decays ~half vs
+    #   * CAVEAT (the residual live risk): OOS expectancy decays ~half vs
     #     train and the OOS profit is month-concentrated (42% of OOS
-    #     months positive) — more fragile than the trend-follower.
+    #     months positive) — more fragile than the trend-follower. This
+    #     was the original reason it ran shadow; the operator promoted it
+    #     to live anyway on 2026-05-25.
     #
     # The runtime builder honours `enabled` as the single source of truth;
-    # `execution: shadow` is the per-strategy execution gate (data-only on
-    # every account; enforced in Coordinator.multi_account_execute), so
-    # routing it to an account collects shadow data WITHOUT risking money.
-    # Routed to bybit_1 (demo) only — see config/accounts.yaml.
+    # `execution:` is the per-strategy execution gate (enforced in
+    # Coordinator.multi_account_execute). Now `live`, so it executes on
+    # every account it is routed to — bybit_1 (demo, paper) AND bybit_2
+    # (real money) — see config/accounts.yaml.
     model: null
     signal_prefixes: [fade_breakout, fade]
     enabled: true
-    execution: shadow        # S9 execution gate: data-only, never sends a
-                             # live order on any account. Promote to `live`
-                             # only after live shadow data proves the edge
-                             # (Tier-3 operator-approval path).
+    execution: live          # PROMOTED from shadow to live 2026-05-25
+                             # (operator decision, Tier-3): now executes on
+                             # every routed account (real money on bybit_2,
+                             # paper on bybit_1 demo). Overrides the prior
+                             # "shadow until live proof" stance.
     risk_pct: 0.3            # conservative; matches the STRATEGY_RISK_PCT
-                             # fallback. Moot while execution: shadow.
+                             # fallback. Now ACTIVE (execution: live).
     timeframe: "4h"          # served as Bybit 240m via CCXT.
     symbols:
       - BTCUSDT              # currently the only supported symbol
@@ -215,8 +219,8 @@ strategies:
     # satisfies the pipeline's full-SL/TP dispatch gate.
     tp_r: 50.0
     # shadow_model_ids: [] — opt out of ML shadow-prediction auto-wiring on
-    # this strategy for now (it is itself a shadow data-collector; keep its
-    # signal log clean of model predictions until it has a track record).
+    # this strategy for now (keep its signal log clean of model predictions
+    # until it has a live track record). Independent of `execution:`.
     shadow_model_ids: []
 
   squeeze_breakout_4h:
@@ -228,20 +232,24 @@ strategies:
     # src/units/strategies/squeeze_breakout_4h.py; harness:
     # scripts/backtest_squeeze.py.
     #
-    # STATUS: execution: shadow (data-only, S9 2026-05-24). VALIDATED but run
-    # SHADOW, never real money, pending live proof. Caveat: OOS returns are
-    # month-concentrated — shadow data tests whether it holds. Evidence:
+    # STATUS: execution: live (PROMOTED from shadow 2026-05-25, operator
+    # decision, Tier-3). VALIDATED; now executes on real money (bybit_2) +
+    # paper (bybit_1 demo). Promoted WITHOUT the prior "live proof" gate —
+    # explicit operator call. Caveat: OOS returns are month-concentrated
+    # (the residual live risk). Evidence:
     # docs/audits/squeeze-breakout-complement-2026-05-24.md.
     #
-    # `execution: shadow` = data-only on every account (enforced in
-    # Coordinator.multi_account_execute). Routed to bybit_1 (demo) only.
+    # `execution:` = per-strategy gate (enforced in
+    # Coordinator.multi_account_execute). Now `live` — executes on every
+    # routed account: bybit_1 (demo, paper) AND bybit_2 (real money).
     model: null
     signal_prefixes: [squeeze_breakout, squeeze]
     enabled: true
-    execution: shadow        # S9 gate: data-only, never sends a live order.
-                             # Promote to `live` + own account only after live
-                             # shadow proof (Tier-3 operator-approval path).
-    risk_pct: 0.3            # moot while execution: shadow.
+    execution: live          # PROMOTED from shadow to live 2026-05-25
+                             # (operator decision, Tier-3): executes on every
+                             # routed account (real money bybit_2 + paper
+                             # bybit_1 demo).
+    risk_pct: 0.3            # now ACTIVE (execution: live).
     timeframe: "4h"          # served as Bybit 240m via CCXT.
     symbols:
       - BTCUSDT
