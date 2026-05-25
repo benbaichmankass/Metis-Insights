@@ -57,6 +57,32 @@
       "resolution_criteria": "intent_multiplexer._collect_intents emits a report()/audit event (e.g. 'strategy_builder'/'exception' with strategy + reason) on a builder exception, mirroring the legacy multiplexer, so a raising strategy shows up in signal_audit.jsonl and /api/diag/audit. (Code change — Tier-1 observability; not editable from /health-review which only writes docs + this backlog.) NOTE: this is the OBSERVABILITY gap only; the fade_breakout_4h crash itself is a separate Tier-3 strategy bug surfaced to the operator in the 2026-05-25 health-review response.",
       "status": "open",
       "snoozed_until": null
+    },
+    {
+      "id": "BL-20260525-004",
+      "opened_at": "2026-05-25T10:35:00+00:00",
+      "opened_by": "claude (model-status review)",
+      "source": "2026-05-25 per-model status review (operator asked to fix the two degenerate shadow models)",
+      "title": "MES regime models (mes-regime-5m/15m) collapse to one class (f1_volatile=0) — model/feature limitation, NOT data-blocked",
+      "description": "mes-regime-5m-baseline-v1 + mes-regime-15m-baseline-v1 never predict 'volatile' (recall_volatile=precision_volatile=f1_volatile=0; acc ~0.49-0.53). IMPORTANTLY this is NOT the missing-MES-trade-data blocker: these train on MES market_features (price history), which IS present and BALANCED — 5m: 60957 range / 25916 volatile (~70/30); 15m: 17694/11278 (~61/39). So it will NOT self-resolve when IBKR is approved + MES starts trading. Root cause: RegimeClassifierTrainer is a per-bucket MODAL-class classifier (ml/trainers/regime_classifier.py) keyed on the backward-looking vol_bucket; on MES that backward vol_bucket does not separate the (forward-vol-based) regime_label, so every bucket is range-majority and argmax always picks 'range'. BTC works because BTC vol is autocorrelated; MES intraday isn't. Operator decision 2026-05-25: LEAVE manifests as-is for now (do NOT demote to research_only); revisit in a dedicated model-training session.",
+      "tier": 1,
+      "trigger_condition": "Any /health-review run; revisit when a model-training session is scheduled, or once richer/live MES history is available.",
+      "resolution_criteria": "mes-regime-{5m,15m} eval shows f1_volatile > 0 with a non-trivial macro_f1, via a feature/model change (e.g. more vol buckets, probability-threshold eval instead of argmax, a stronger/continuous vol feature, or a forward-vol-aware feature). Trainer-side (autonomous) work; verify on the trainer VM before/after. Distinct from the MES *trade*-data models (mes-execution-quality / mes-setup-quality / mes-trade-outcome-winrate) which ARE empty_dataset-blocked and self-resolve once MES trades.",
+      "status": "open",
+      "snoozed_until": null
+    },
+    {
+      "id": "BL-20260525-005",
+      "opened_at": "2026-05-25T10:35:00+00:00",
+      "opened_by": "claude (model-status review)",
+      "source": "2026-05-25 per-model status review (shadow_predictions.jsonl)",
+      "title": "prop-mission-policy-baseline-v0 emits all-zero shadow scores — degenerate, prop-account-infra-blocked (NOT MES/IBKR-related)",
+      "description": "The shadow log shows prop-mission-policy-baseline-v0 scoring 0.000 on every live signal. Root cause (ml/trainers/per_strategy_winrate.py + ml/datasets/families/account_context.py): it learns per-strategy mean was_taken acceptance rate from PROP-account trades only (accounts.yaml type:prop), but the only prop account (prop_velotrade_1) is mode:dry_run with strategies:[] and never trades — so there are no 'taken' positives, the learned rates / global_rate are 0, and live scoring of non-prop signals falls back to 0.0. NOTE: this is NOT resolved by tomorrow's IBKR/MES approval — it needs the prop account to actually trade (prop SDK wiring + a non-empty strategies list + mode:live = Tier-3/infra). Operator decision 2026-05-25: leave as-is for now.",
+      "tier": 1,
+      "trigger_condition": "Any /health-review run; revisit once a prop account is wired + trading (prop SDK), or in a model-training session.",
+      "resolution_criteria": "Either (a) a prop account trades so account_context has 'taken' positives and the model learns non-degenerate per-strategy rates, or (b) the model is demoted from shadow / scoped so it no longer emits meaningless 0.000 predictions against non-prop live signals (a manifest/scoring change, Tier-3-aware).",
+      "status": "open",
+      "snoozed_until": null
     }
   ]
 }
