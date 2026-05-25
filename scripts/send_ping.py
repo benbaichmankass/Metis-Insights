@@ -40,14 +40,31 @@ from pathlib import Path
 from typing import Optional
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-PENDING_PINGS_DIR = REPO_ROOT / "runtime_logs" / "pending_pings"
+
+# Resolve the runtime_logs root through the canonical, DATA_DIR-aware
+# resolver so the inbox matches where the DRAINERS read
+# (src.bot.cloud_notifier + src.bot.claude_bridge) and where the other
+# producers (execution_diagnostics, liveness_watchdog, coordinator) write.
+# On the live VM DATA_DIR=/data/bot-data, so a repo-relative inbox here
+# would drop files into a directory no drainer watches → pings silently
+# never deliver. Fall back to repo-relative only if the resolver can't be
+# imported (e.g. a bare standalone invocation off-repo).
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+try:
+    from src.utils.paths import runtime_logs_dir as _runtime_logs_dir
+    _RUNTIME_LOGS = _runtime_logs_dir()
+except Exception:  # noqa: BLE001
+    _RUNTIME_LOGS = REPO_ROOT / "runtime_logs"
+
+PENDING_PINGS_DIR = _RUNTIME_LOGS / "pending_pings"
 # 2026-05-06 (BUG-058 follow-up): Claude session pings (checkpoint commits,
 # blocker PRs, sprint completion, training stages, drained
 # pending-pings.jsonl) route through @claude_ict_comms_bot via this
 # separate inbox; @bict_trading_bot keeps the existing inbox for
 # trade-execution alerts (execution_diagnostics, liveness_watchdog,
 # order_monitor). Two-bot separation per CLAUDE.md.
-PENDING_CLAUDE_PINGS_DIR = REPO_ROOT / "runtime_logs" / "pending_claude_pings"
+PENDING_CLAUDE_PINGS_DIR = _RUNTIME_LOGS / "pending_claude_pings"
 
 VALID_PRIORITIES = ("urgent", "high", "normal", "low")
 VALID_TARGETS = ("trader", "claude")

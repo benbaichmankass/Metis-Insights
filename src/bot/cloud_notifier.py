@@ -12,6 +12,7 @@ import shutil
 import subprocess
 
 from src.utils.paths import repo_root as _repo_root
+from src.utils.paths import runtime_logs_dir as _runtime_logs_dir
 
 logger = logging.getLogger(__name__)
 
@@ -20,9 +21,18 @@ REPO_ROOT = _repo_root()
 # ── Pending pings inbox ────────────────────────────────────────────────────
 # Any process on the VM drops a JSON file here to ping the operator without
 # re-implementing the Telegram client.
-# Schema: {"priority": "normal|high|urgent|low", "body": "..."}
+# Schema: {"priority": "normal|high|urgent|low", "body": "...", "parse_mode": "HTML"?}
+#
+# MUST resolve through the canonical `runtime_logs_dir()` (DATA_DIR-aware),
+# NOT repo-root-relative: on the live VM DATA_DIR=/data/bot-data, so the
+# canonical inbox is /data/bot-data/runtime_logs/pending_pings. Every
+# producer (execution_diagnostics, liveness_watchdog, coordinator,
+# send_ping) writes there; a repo-relative drainer reads a different,
+# empty directory and silently never delivers. (Fixed 2026-05-25 — trade
+# pings + send-ping smoke landed in the canonical dir while this drainer
+# watched the repo dir.)
 
-PENDING_PINGS_DIR = os.path.join(REPO_ROOT, "runtime_logs", "pending_pings")
+PENDING_PINGS_DIR = str(_runtime_logs_dir() / "pending_pings")
 PING_DRAIN_INTERVAL_S = 5
 
 _PRIORITY_ICONS = {
