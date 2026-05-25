@@ -117,3 +117,30 @@ def test_drainer_plain_ping_keeps_priority_prefix(tmp_path, monkeypatch):
     assert len(sent) == 1
     assert sent[0]["parse_mode"] is None
     assert sent[0]["text"].startswith("🔔")  # high-priority icon prefix
+
+
+def test_modify_path_fires_update_ping(monkeypatch):
+    """order_monitor's SL/TP-modify branch emits a trade-update ping."""
+    from src.runtime import order_monitor as om
+
+    captured = {}
+    monkeypatch.setattr(ed, "enqueue_trade_update", lambda **kw: captured.update(kw))
+    monkeypatch.setattr(om, "_send_modify_to_exchange", lambda *a, **k: {"ok": True})
+
+    db = MagicMock()
+    db.get_trades.return_value = [{
+        "id": 7, "symbol": "BTCUSDT", "account_id": "bybit_1",
+        "strategy_name": "vwap", "status": "open",
+    }]
+
+    summary = om._StrategyTickSummary()
+    open_pkg = {
+        "order_package_id": "pkg1", "linked_trade_id": 7,
+        "symbol": "BTCUSDT", "strategy_name": "vwap",
+    }
+    om._apply_update(db, open_pkg, {"sl": 79500.0}, summary)
+
+    assert summary.updated_count == 1
+    assert captured.get("symbol") == "BTCUSDT"
+    assert captured.get("account") == "bybit_1"
+    assert any("SL" in c for c in captured.get("changes", []))

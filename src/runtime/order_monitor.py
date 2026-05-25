@@ -371,6 +371,31 @@ def _apply_partial_close(
     )
     summary.updated_count += 1
 
+    # Trade-lifecycle update ping (TELEGRAM-SPEC §4.2) — best-effort. The
+    # partial close is already booked; a ping failure must never affect it.
+    try:
+        from src.runtime.execution_diagnostics import enqueue_trade_update
+
+        changes = [
+            f"Partial close {close_qty_pct:.0%} (filled {actual_filled_qty:g})",
+            f"New size {new_position_size:g}",
+        ]
+        if actual_exit_price is not None:
+            changes.append(f"Exit {actual_exit_price:g}")
+        if next_tp is not None:
+            changes.append(f"TP rolled to {next_tp}")
+        enqueue_trade_update(
+            symbol=trade.get("symbol") or "?",
+            account=trade.get("account_id"),
+            strategy=trade.get("strategy_name") or trade.get("setup_type"),
+            changes=changes,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "order_monitor: trade-update (partial) ping failed for trade=%s: %s",
+            linked_trade_id, exc,
+        )
+
 
 def _full_close_trade_and_package(
     db,
@@ -800,6 +825,29 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
         summary.error_count += 1
         summary.errors.append(f"{pkg_id}: update-write failed")
         return
+
+    # Trade-lifecycle update ping (SL/TP move, TELEGRAM-SPEC §4.2) —
+    # best-effort. The modify already landed; a ping failure can't affect it.
+    try:
+        from src.runtime.execution_diagnostics import enqueue_trade_update
+
+        changes = []
+        if "sl" in updates:
+            changes.append(f"SL → {updates['sl']:g}")
+        if "tp" in updates:
+            changes.append(f"TP → {updates['tp']:g}")
+        enqueue_trade_update(
+            symbol=matched_trade.get("symbol") or "?",
+            account=matched_trade.get("account_id"),
+            strategy=matched_trade.get("strategy_name")
+            or matched_trade.get("setup_type"),
+            changes=changes,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "order_monitor: trade-update (modify) ping failed for pkg=%s: %s",
+            pkg_id, exc,
+        )
 
 
 # ``_compute_close_pnl`` was deleted on 2026-05-18 as part of the
