@@ -49,6 +49,7 @@ from src.bot.strategy_execution_writer import (
     set_strategy_execution,
 )
 from src.utils.paths import repo_root as _repo_root
+from src.utils.paths import runtime_logs_dir as _runtime_logs_dir
 from src.utils.paths import trade_journal_db_path as _trade_journal_db_path
 
 load_dotenv()
@@ -191,7 +192,9 @@ def _runtime_status() -> dict:
     """Read ``runtime_logs/runtime_status.json`` best-effort."""
     import json
 
-    path = os.path.join(REPO_ROOT, "runtime_logs", "runtime_status.json")
+    # Canonical runtime_logs (DATA_DIR-aware) — the trader writes here.
+    # repo_root()/runtime_logs is the wrong, stale dir on a DATA_DIR VM.
+    path = str(_runtime_logs_dir() / "runtime_status.json")
     try:
         with open(path, encoding="utf-8") as fh:
             return json.load(fh) or {}
@@ -272,8 +275,14 @@ def _kill_summary(statuses: list[dict], strategies: list[dict]) -> dict:
 
 
 def _heartbeat() -> dict:
-    """Best-effort trader liveness from ``runtime_logs/heartbeat.txt`` mtime."""
-    path = os.path.join(REPO_ROOT, "runtime_logs", "heartbeat.txt")
+    """Best-effort trader liveness from ``runtime_logs/heartbeat.txt`` mtime.
+
+    Reads the CANONICAL runtime_logs (DATA_DIR-aware) — the same file the
+    trader writes via src.runtime.heartbeat. repo_root()/runtime_logs is a
+    stale dir on a DATA_DIR VM (it froze at the 2026-05-11 10:01:30 incident
+    mtime), which made the System view falsely report the trader 'stopped'.
+    """
+    path = str(_runtime_logs_dir() / "heartbeat.txt")
     try:
         mtime = os.path.getmtime(path)
     except OSError:
