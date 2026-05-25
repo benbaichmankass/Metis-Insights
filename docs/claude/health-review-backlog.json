@@ -12,7 +12,10 @@
       "tier": 1,
       "trigger_condition": "Any /health-review run.",
       "resolution_criteria": "colab-workflows.md no longer frames the workplan as a live authority; confirm no docs/claude/* non-historical page treats milestone-state.md/workplan.md as current.",
-      "status": "open",
+      "status": "resolved",
+      "resolved_at": "2026-05-25T08:20:00+00:00",
+      "resolved_by": "claude (/health-review)",
+      "resolution": "colab-workflows.md:57 reworded ('is a workplan violation' -> 'violates this delivery rule') so it no longer frames the frozen workplan.md as a live authority. decomposition-rules.md + auto-task-daily-trade-audit.md already carry reconciliation notes; remaining workplan/milestone-state mentions are in historical records (bug-log, milestone-state itself, INDEX) which are preserved as-is.",
       "snoozed_until": null
     },
     {
@@ -38,6 +41,20 @@
       "tier": 3,
       "trigger_condition": "Any /health-review run; surface to the operator (do NOT auto-edit accounts.yaml).",
       "resolution_criteria": "Operator decides whether MES should place live (paper) orders. If yes, set ib_port (4002) on the ib_paper account in config/accounts.yaml (Tier-3 change, operator-approved) and confirm the trader log no longer emits 'no ib_port set' + a smoke order reaches IB Gateway. If MES is data-only by design, document that and close.",
+      "status": "open",
+      "triage_note": "2026-05-25 /health-review: still occurring — ict-trader-live journal emits 'ib_client_for(ib_paper): no ib_port set ... cannot reach IB Gateway' on every tick (sha 6c31cf2). MES market data works; only the order client is blind. Unchanged; remains operator-gated (Tier-3).",
+      "snoozed_until": null
+    },
+    {
+      "id": "BL-20260525-003",
+      "opened_at": "2026-05-25T08:20:00+00:00",
+      "opened_by": "claude (/health-review)",
+      "source": "/health-review 2026-05-25 — root-causing the fade_breakout_4h silence",
+      "title": "intent_multiplexer swallows a raising strategy builder with only logger.warning — no audit/diag event, so a broken strategy is invisible in the diag surface",
+      "description": "src/runtime/intent_multiplexer.py::_collect_intents (the live path; pipeline uses multiplexed_intents) catches a builder exception with only `logger.warning('strategy X raised ... skipping this tick')` and continues. Unlike the LEGACY multiplexer (src/runtime/pipeline.py::multiplexed_signal_builder, ~L243-252) which emits a `report('strategy_builder','exception', strategy=...)` audit event, the intent layer emits NOTHING to signal_audit.jsonl / the diag relays. Consequence surfaced this review: fade_breakout_4h has been raising 'No numeric types to aggregate' every tick (origin: the ATR/ADX pd.concat([...],axis=1).max(axis=1) in src/units/strategies/fade_breakout_4h.py around L104/118) and producing ZERO eval events / zero shadow data — but because the catch is silent, there was no `*_eval`, no exception event, and no diag trace; it was only visible in journalctl. A failing strategy should be observable from the read-only diag surface, not just the systemd journal.",
+      "tier": 1,
+      "trigger_condition": "Any /health-review run; or when a strategy is mysteriously silent in the audit tail.",
+      "resolution_criteria": "intent_multiplexer._collect_intents emits a report()/audit event (e.g. 'strategy_builder'/'exception' with strategy + reason) on a builder exception, mirroring the legacy multiplexer, so a raising strategy shows up in signal_audit.jsonl and /api/diag/audit. (Code change — Tier-1 observability; not editable from /health-review which only writes docs + this backlog.) NOTE: this is the OBSERVABILITY gap only; the fade_breakout_4h crash itself is a separate Tier-3 strategy bug surfaced to the operator in the 2026-05-25 health-review response.",
       "status": "open",
       "snoozed_until": null
     }
