@@ -127,11 +127,20 @@ Both gates must be on; either off = pass-through.
    annotate) + `AdvisoryPolicy`/`parse_policy` + 15 invariant tests, in
    `src/runtime/advisory_influence.py`. Default off; not wired to any
    strategy.
-2. Wire onto **whichever model+strategy clears `gate-check` first** (see
-   open-question 1 resolution); soak ≥ 7d on the demo/paper account;
-   review `advisory_decisions.jsonl` (how often it downsized, and the
-   realized outcome of downsized-vs-full via attribution).
-3. Operator approves first live `advisory` (downsize) on that strategy.
+2. ✅ **DONE (2026-05-25)** — live-path **plumbing** shipped:
+   `src/runtime/advisory_sizing.py` (`compute_advisory_factor` +
+   `apply_advisory_downsize` + `discover_advisory_stage_model_ids`) +
+   `advisory_downsize_factor` in `advisory_influence.py`. Wired into
+   `Coordinator.multi_account_execute` at the per-account sizing point
+   (one gated call, computes the factor once per package, caches on
+   `pkg.meta`). **Inert until enabled** — `ADVISORY_MODE` off (default) →
+   qty unchanged; any error → qty unchanged. Logs applied downsizes to
+   `advisory_decisions.jsonl`.
+3. **Enablement (operator-gated, not done):** promote the first model to
+   `advisory` (whichever clears `gate-check` first), set its strategy's
+   `advisory_policy: {mode: downsize, ...}`, and flip `ADVISORY_MODE=true`
+   on the live unit. Soak ≥ 7d on the demo/paper account; review
+   `advisory_decisions.jsonl` + attribution (downsized-vs-full outcomes).
 4. `limited_live` / `live_approved` are later, separately-gated steps.
 
 ## Open questions — RESOLVED (operator, 2026-05-25)
