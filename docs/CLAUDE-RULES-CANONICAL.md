@@ -208,6 +208,19 @@ decides whether to intervene.
    configured account's `symbols`). What accounts.yaml + strategies.yaml
    declare, runs.
 
+   **Carve-out — model-influence activation is not a trade gate.** This
+   rule governs *trade capability*: whether a declared strategy/account
+   actually trades. It does **not** govern whether an ML model may move
+   real money. A model influencing the live order (the advisory downsize
+   shipped 2026-05-25, `ADVISORY_MODE` + per-strategy `advisory_policy`)
+   is correctly **default-off** — that pairs with the operator's
+   `shadow → advisory` promotion gate and is the safe default for the
+   model→money boundary. It strands no capability: with `ADVISORY_MODE`
+   off, every strategy still trades fully at full size; the switch only
+   ever lets a promoted model *reduce* an order, never enable or enlarge
+   one. So `ADVISORY_MODE` is not the forbidden "third gate" — that ban
+   is about hiding *trading* behind a default-off flag, which this isn't.
+
 ### What this rules out (queued for the safeguards PR follow-on)
 
 The doc-level contract is in this commit; the code-level deletions
