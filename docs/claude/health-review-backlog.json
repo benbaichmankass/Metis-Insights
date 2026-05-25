@@ -122,6 +122,19 @@
       "resolution_criteria": "Confirmed at least one fade AND one squeeze order package dispatched live to bybit_2 with a real (non-demo) execution, correct sizing/leverage, live trail ratchet, and correct journaling — vwap still shadow. If any of these is wrong (gated dry, mis-sized, no exchange order, mis-journaled), file a finding and surface to the operator (real money).",
       "status": "open",
       "snoozed_until": null
+    },
+    {
+      "id": "BL-20260525-009",
+      "opened_at": "2026-05-25T15:40:00+00:00",
+      "opened_by": "claude",
+      "source": "Investigating the trend_donchian stuck-watchdog alert (trade 1722 / pkg-ac6bb4b3b33f4339); fixed the alert symptom in PR #2002",
+      "title": "Zero-sized same-direction reinforcement signals persist as open order_packages (clutter + watchdog churn)",
+      "description": "trend_donchian (and any breakout strategy) re-fires a same-direction signal on each new bar while the breakout persists. The intent multiplexer correctly refuses to pyramid onto an already-open position — it sizes the reinforcement to target_qty=0.0 (aggregation_reason 'same_direction_reinforcement: ... max target_qty=0.0', sized_qty_by_account={}) — but the zero-qty package is STILL persisted as status='open' with linked_trade_id set, even though no exchange order was placed. These ghost packages never close on their own; their updated_at goes stale and they accumulate in order_packages, and they are what trips the stuck-strategy watchdog (the live snapshot for trade 1722 showed pkg-ac6bb4b3b33f4339 and earlier ones already watchdog_released_alive). PR #2002 made the watchdog timeframe-aware so it no longer false-alerts on these, but the underlying clutter remains. Root fix: a reinforcement that sizes to 0 (no order to monitor) should NOT create a lingering open order_packages row — either skip persisting it, persist it with a terminal status (e.g. status='skipped'/'no_order' + close_reason), or auto-close it so it's never gated/monitored/watchdog'd. Verify the strategy_monocle gate (pipeline.py::_has_open_package_for_strategy) and the per-strategy gates still behave correctly afterward.",
+      "tier": 2,
+      "trigger_condition": "Any /health-review run; or whenever order_packages shows multiple open same-direction zero-qty packages for one live position. Investigate the intent_multiplexer / order-package persistence path.",
+      "resolution_criteria": "A same-direction reinforcement that aggregates to target_qty=0 no longer leaves a lingering status='open' order_packages row (it is skipped or persisted terminal), so ghost packages stop accumulating and the stuck-watchdog has nothing benign to flag. Order-path change (Tier-2): open a draft PR + operator review.",
+      "status": "open",
+      "snoozed_until": null
     }
   ]
 }
