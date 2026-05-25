@@ -192,6 +192,43 @@ The trainer is **not** a live-trading blocker — escalate trainer issues
 with lower urgency; don't set `operator_attention_required` for
 trainer-only issues unless a `live_approved` model is involved.
 
+### Model status report (per-model — REQUIRED every run)
+
+Beyond the three roll-up grades above, **every review emits a per-model
+status line for every model** in `python -m ml list-models`, collected in
+`model_status[]` of the response. The point is a standing answer to "how
+is each model doing?" — its latest training result and, when it exists,
+its real shadow/live track record. For each model report:
+
+- `model_id`, `stage` (`research_only|candidate|backtest_approved|shadow|
+  advisory|limited_live|live_approved`), and registry `status`.
+- **Last training-session result** — the eval metrics from the model's
+  most recent run (`runs[-1].metrics`, or the top-level `metrics` block in
+  `list-models`): the family's headline metric (classification →
+  `macro_f1` + `accuracy`; regression → `mae`/`mse`; winrate → the rate),
+  `n_eval`, and the run's timestamp + `code_revision`. **Flag run-over-run
+  regression** (e.g. `macro_f1` fell vs the prior run in `runs[]`).
+- **Live/shadow performance from trade data, when available** — if the
+  model is at `shadow`+ summarise its prediction track record from
+  `/api/diag/log_file?name=shadow_predictions` (or `/api/bot/shadow/stats`),
+  and, for predictions joinable to closed trades, the realised
+  win-rate/PnL of the trades it scored (via `/api/bot/trades/scores`).
+  When there are **no predictions yet** (the common case while models sit
+  at `shadow` candidate), say so plainly — `predictions: 0` is an honest
+  status, never a gap to paper over. Distinguish **shadow** (observing,
+  no order influence) from **advisory+/live** (influencing orders) in the
+  note; a degrading model that *influences orders* is the urgent case.
+
+Roll this up into a `trainer_models` finding (`ok`/`watch`/`concern`/
+`skip`): `ok` when every model retrained in the last cycle with sane
+metrics; `watch` when a model's headline metric degraded run-over-run, or
+a `shadow` model still has zero predictions long after it was promoted to
+shadow; `concern` (⇒ `operator_attention_required`) when an
+`advisory`+/`live_approved` model — one that actually influences orders —
+is degrading on live/shadow data. A registry of `candidate`/`shadow`
+models with healthy metrics and zero predictions is `ok` (expected
+pre-activation), not a concern.
+
 ## Per-trade scoring (training feedstock — PERSISTED)
 
 For **every closed or rejected trade in the window**, emit a grade in
@@ -290,13 +327,16 @@ Also read `comms/follow_ups.json` and evaluate each `open` entry's
 
 Emit a single JSON object conforming to
 `comms/schema/health_review_response.template.json`: `findings` (all
-dimensions incl. `data_validity`), `anomalies`, `backlog_drain`,
-`sprint_doc_review`, `trade_decision_grades`, `recommended_action`,
-`operator_attention_required`. Set `reviewed_at` to now (UTC ISO-8601),
-`reviewer` to `claude`. `trade_decision_grades` is REQUIRED — `[]` only
-when the window genuinely held zero closed/rejected trades. Each `note`
-≤120 chars, citing specifics (counts, ages, symbols/qtys) so the operator
-can verify fast.
+dimensions incl. `data_validity` and `trainer_models`), `anomalies`,
+`backlog_drain`, `sprint_doc_review`, `trade_decision_grades`,
+`model_status`, `recommended_action`, `operator_attention_required`. Set
+`reviewed_at` to now (UTC ISO-8601), `reviewer` to `claude`.
+`trade_decision_grades` is REQUIRED — `[]` only when the window genuinely
+held zero closed/rejected trades. `model_status` is REQUIRED — one entry
+per model in the registry (§ "Model status report"); `[]` only when the
+trainer relay errored (then `trainer_models: skip`). Each `note` ≤120
+chars, citing specifics (counts, ages, symbols/qtys, metrics) so the
+operator can verify fast.
 
 ## What you DO write (and what you don't)
 
