@@ -1,9 +1,12 @@
 # WS7 — Advisory influence operator (DESIGN — operator sign-off required)
 
-**Status:** 📋 Proposal — **not implemented.** This is the design for the
-one missing piece that lets an ML model actually change a live trade.
-Nothing in this document is built yet; it needs operator sign-off on the
-contract before any code lands. Tier-3 (live order path).
+**Status:** 🔄 **Rollout step 1 BUILT (default-off, not wired)** — the
+operator + config contract + gate + invariant tests shipped as
+`src/runtime/advisory_influence.py` (2026-05-25). It is **inert**: with
+`ADVISORY_MODE` off (the default) and no strategy supplying an
+`advisory_policy`, no order is ever touched. **Wiring it onto a real
+model/strategy (rollout step 2+) is the live switch and still needs
+operator sign-off** on the contract + the open questions below. Tier-3.
 
 **Companion (already shipped, this PR):** the *decision-support* half —
 `model-attribution`, `gate-check`, `stage-guard` (read-only evidence +
@@ -119,7 +122,10 @@ Both gates must be on; either off = pass-through.
 
 ## Rollout
 
-1. Land `apply_advisory_influence` (veto-only) + config + tests. Default off.
+1. ✅ **DONE (2026-05-25)** — `apply_advisory_influence` (veto + annotate)
+   + `AdvisoryPolicy`/`parse_policy` + invariant tests, in
+   `src/runtime/advisory_influence.py`. Default off; not wired to any
+   strategy.
 2. Enable on **one** strategy on a **demo** account; soak ≥ 7d; review
    `advisory_decisions.jsonl` (how often it would have vetoed, and the
    realized outcome of vetoed-vs-taken via attribution).
