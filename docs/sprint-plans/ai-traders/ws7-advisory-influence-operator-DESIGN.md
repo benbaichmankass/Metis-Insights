@@ -1,9 +1,12 @@
 # WS7 — Advisory influence operator (DESIGN — operator sign-off required)
 
-**Status:** 📋 Proposal — **not implemented.** This is the design for the
-one missing piece that lets an ML model actually change a live trade.
-Nothing in this document is built yet; it needs operator sign-off on the
-contract before any code lands. Tier-3 (live order path).
+**Status:** 🔄 **Rollout step 1 BUILT (default-off, not wired)** — the
+operator + config contract + gate + invariant tests shipped as
+`src/runtime/advisory_influence.py` (2026-05-25). It is **inert**: with
+`ADVISORY_MODE` off (the default) and no strategy supplying an
+`advisory_policy`, no order is ever touched. **Wiring it onto a real
+model/strategy (rollout step 2+) is the live switch and still needs
+operator sign-off** on the contract + the open questions below. Tier-3.
 
 **Companion (already shipped, this PR):** the *decision-support* half —
 `model-attribution`, `gate-check`, `stage-guard` (read-only evidence +
@@ -67,29 +70,29 @@ return package
 policy) -> package`. It is the only new code on the order path, and it
 can only ever return a package that is "smaller or equal" to its input.
 
-## Influence modes (v1 ships veto-only; size-scale behind a second gate)
+## Influence modes (v1 ships downsize-to-floor; operator decision 2026-05-25)
 
 | Mode | Effect | v1? |
 |------|--------|-----|
-| `veto` | If a quorum of advisory models score below `veto_threshold`, the package is suppressed (status `advisory_veto`, logged, no order). | ✅ first |
-| `size_scale` | Multiply position size by `f ∈ [size_floor, 1.0]` derived from the score. Never > 1.0. | gated 2nd |
+| `downsize` | If a quorum of advisory models score below `bearish_threshold`, scale position size to `size_floor × qty` (never below the floor, never above 1.0). | ✅ first |
 | `annotate` | Attach score to the package for the journal; no order effect. | ✅ (free) |
+| `veto` | Special case of `downsize` with `size_floor = 0` (full suppression). Available, not defaulted. | via floor=0 |
 
-`veto`-only is the safest first step: the worst a broken model can do is
-stop a trade that would otherwise have happened. We soak that on a demo
-account before enabling `size_scale`.
+The operator chose **downsize-to-floor over a hard veto** (2026-05-25):
+the worst a bearish quorum can do is shrink the position to the floor, not
+zero it out. A hard veto remains reachable as `size_floor: 0.0`.
 
-## Config (proposed)
+## Config (per operator decisions)
 
 ```yaml
 # config/strategies.yaml  (per strategy)
 vwap:
   advisory_model_ids: ["trade-outcome-winrate-baseline-v0"]   # [] = opt out
   advisory_policy:
-    mode: veto                 # veto | size_scale | annotate
-    veto_threshold: 0.35       # quorum of advisory scores below this → veto
-    quorum: 1                  # how many advisory models must agree
-    size_floor: 0.5            # only used by size_scale; never below this
+    mode: downsize             # off | annotate | downsize
+    bearish_threshold: 0.35    # a model is "bearish" when its score < this
+    size_floor: 0.5            # smallest fraction of intended size a downsize leaves
+    quorum: majority           # majority (default) | <int>  — how many bearish models trigger
 ```
 
 Global enable stays `ADVISORY_MODE` (env / settings, default false).
@@ -103,8 +106,9 @@ Both gates must be on; either off = pass-through.
   `advisory_model_ids`), output is byte-identical to input.
 - **Fallback determinism.** A raising predictor leaves the package
   unchanged.
-- **Quorum logic.** Veto fires only when ≥ `quorum` advisory models are
-  below threshold.
+- **Quorum logic.** Downsize fires only when ≥ `quorum` advisory models
+  are below the bearish threshold; `quorum: majority` resolves to
+  `n_scored // 2 + 1`.
 - **Stage gate.** Only `advisory`+ models influence; `shadow` models are
   observe-only (existing `ShadowPredictor` stage gate).
 
@@ -119,22 +123,29 @@ Both gates must be on; either off = pass-through.
 
 ## Rollout
 
-1. Land `apply_advisory_influence` (veto-only) + config + tests. Default off.
-2. Enable on **one** strategy on a **demo** account; soak ≥ 7d; review
-   `advisory_decisions.jsonl` (how often it would have vetoed, and the
-   realized outcome of vetoed-vs-taken via attribution).
-3. Operator approves first live `advisory` (veto-only) on one strategy.
-4. Add `size_scale` behind its own gate; repeat soak.
-5. `limited_live` / `live_approved` are later, separately-gated steps.
+1. ✅ **DONE (2026-05-25)** — `apply_advisory_influence` (downsize +
+   annotate) + `AdvisoryPolicy`/`parse_policy` + 15 invariant tests, in
+   `src/runtime/advisory_influence.py`. Default off; not wired to any
+   strategy.
+2. Wire onto **whichever model+strategy clears `gate-check` first** (see
+   open-question 1 resolution); soak ≥ 7d on the demo/paper account;
+   review `advisory_decisions.jsonl` (how often it downsized, and the
+   realized outcome of downsized-vs-full via attribution).
+3. Operator approves first live `advisory` (downsize) on that strategy.
+4. `limited_live` / `live_approved` are later, separately-gated steps.
 
-## Open questions for sign-off
+## Open questions — RESOLVED (operator, 2026-05-25)
 
-1. **First model + strategy.** Which model and strategy get the first
-   veto-only advisory wire? (Recommendation: `trade-outcome-winrate` on
-   the highest-volume strategy, once it has ≥ 200 live trades and clears
-   `gate-check`.)
-2. **Veto semantics.** Hard suppress, or downsize-to-floor instead of
-   full veto? (Recommendation: hard veto in v1 — simplest to reason about.)
-3. **Quorum default** when multiple advisory models are wired (any-1 vs
-   majority).
-4. **Demo vs paper** for the soak account.
+1. **First model + strategy** → **data-driven, not predetermined.** Wire
+   whichever model+strategy *first accumulates enough live data to clear
+   `gate-check`* — `stage-guard` surfaces the first `ready: true` model.
+   (Given current data, the `trade-outcome` family on the highest-volume
+   BTCUSDT strategy is the likely first to cross the ≥200-trade bar.)
+2. **Influence semantics** → **downsize-to-floor, NOT hard veto.** A
+   bearish quorum shrinks the position to `size_floor × qty`; never zero
+   (unless `size_floor` is explicitly set to 0).
+3. **Quorum** → **majority.** A majority of the wired advisory models must
+   be bearish before a downsize applies (`quorum: majority` →
+   `n_scored // 2 + 1`), not a single model.
+4. **Demo vs paper** → **same thing here** (both are non-real-money). Soak
+   runs on the non-real-money account; no separate choice.
