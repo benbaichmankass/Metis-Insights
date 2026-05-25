@@ -219,8 +219,10 @@ ship in a separate PR that landed after PR #978:
   is `set-account-mode`.
 - Breaker auto-flip in `src/core/coordinator.py:1048-1068` — delete.
   The rejection counter remains as RiskManager input only.
-- Telegram `/accounts dry|live <name>` handler — refactor to dispatch
-  the `set-account-mode` action so exactly one mutation path exists.
+- ✅ Telegram `/accounts dry|live <name>` handler — DONE (#1933): the
+  legacy command was removed in the bot overhaul; the menu-driven kill
+  switch now persists a flip via `scripts/ops/set_account_mode.sh`, so
+  exactly one on-disk mutation path exists.
 - Any "raise on boot if mismatch" logic — must not exist.
 
 ### Mechanically enforced
