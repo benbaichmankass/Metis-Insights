@@ -104,6 +104,16 @@ Routed through `ml/__main__.py` → `ml/cli.py`. Subcommands (verified):
   `baseline-execution-quality.yaml`, `mes-*.yaml`). Each declares its
   dataset family, trainer, evaluator, and `target_deployment_stage`
   (every baseline declares `shadow`).
+  - **`description:` is mandatory** — a 1–2 sentence human-readable
+    summary of what the model does / how it is used. It flows through
+    registration into the registry row and is surfaced on the dashboard
+    Models page (`/api/bot/ml/registry` → each card's "about" line). When
+    you **add a new manifest**, author its `description`; when you change
+    what a model does (different trainer, target, dataset, stage intent),
+    **update the `description` in the same edit** so the Models page never
+    misdescribes a live model. Keep `description` (the "about") distinct
+    from `notes` (operational caveats). Older registry rows whose stored
+    manifest predates the field re-populate on the next training cycle.
 - **Dataset families** — `ml/datasets/families/*.py`: `trade_outcomes`,
   `setup_labels`, `setup_labels_audit`, `execution_quality`,
   `account_context`, `review_journal`, `market_raw`, `market_features`,

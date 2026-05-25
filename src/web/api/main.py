@@ -20,6 +20,7 @@ from src.web.api.routers import db_explorer as db_explorer_router
 from src.web.api.routers import diag as diag_router
 from src.web.api.routers import health_snapshots as health_snapshots_router
 from src.web.api.routers import liquidity as liquidity_router
+from src.web.api.routers import order_packages as order_packages_router
 from src.web.api.routers import pnl as pnl_router
 from src.web.api.routers import pnl_exchange as pnl_exchange_router
 from src.web.api.routers import pnl_history as pnl_history_router
@@ -55,6 +56,7 @@ app.include_router(accounts_router.router)
 app.include_router(db_explorer_router.router)
 app.include_router(liquidity_router.router)
 app.include_router(trades_closed_router.router)
+app.include_router(order_packages_router.router)
 app.include_router(backtests_router.router)
 app.include_router(pnl_exchange_router.router)
 app.include_router(diag_router.router)

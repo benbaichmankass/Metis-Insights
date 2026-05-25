@@ -83,6 +83,19 @@
       "resolution_criteria": "Either (a) a prop account trades so account_context has 'taken' positives and the model learns non-degenerate per-strategy rates, or (b) the model is demoted from shadow / scoped so it no longer emits meaningless 0.000 predictions against non-prop live signals (a manifest/scoring change, Tier-3-aware).",
       "status": "open",
       "snoozed_until": null
+    },
+    {
+      "id": "BL-20260525-006",
+      "opened_at": "2026-05-25T11:55:00+00:00",
+      "opened_by": "claude",
+      "source": "web-app visualizations/revamp session (ict-trader-dashboard PR #71)",
+      "title": "Stale Cloudflare Pages integration fails CI on every ict-trader-dashboard commit (vestigial 'ict-trader-widget' project)",
+      "description": "The ict-trader-dashboard repo runs a 'Cloudflare Pages' check that FAILS in ~0s on every commit/PR (seen on PR #71, commits across the session). It targets a leftover Cloudflare Pages project named 'ict-trader-widget' — a remnant of the retired React+Vercel/Cloudflare dashboard stack (PR #32 pivoted the dashboard to Streamlit; cf-worker/ was removed 2026-05-12 per CLAUDE.md). The repo no longer has any Pages build, so the Pages project has nothing to build and errors. The real CI (ruff-lint, import-smoke) is green. This is NOT fixable from the repo — there is no in-repo config that controls that Pages project; it is a Cloudflare-dashboard <-> GitHub integration. Cross-repo note: the failing check is on the DASHBOARD repo (benbaichmankass/ict-trader-dashboard), logged here because that repo has no backlog and /health-review drains this one.",
+      "tier": 1,
+      "trigger_condition": "Any /health-review run; surface to the operator (external infra — cannot be auto-fixed from either repo).",
+      "resolution_criteria": "Operator disconnects the 'ict-trader-widget' Cloudflare Pages <-> GitHub integration (or deletes that Pages project) so the dashboard repo stops running a perpetually-failing Cloudflare Pages check; confirm ict-trader-dashboard PRs show only the real checks (ruff-lint, import-smoke) green.",
+      "status": "open",
+      "snoozed_until": null
     }
   ]
 }

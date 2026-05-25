@@ -85,6 +85,20 @@ class TestTrainingManifest:
         with pytest.raises(ValueError):
             TrainingManifest.from_dict(_payload(model_id="   "))
 
+    def test_description_defaults_blank(self):
+        m = TrainingManifest.from_dict(_payload())
+        assert m.description == ""
+        assert m.to_dict()["description"] == ""
+
+    def test_description_roundtrips(self):
+        m = TrainingManifest.from_dict(
+            _payload(description="Baseline win-rate model for the trade-outcome family.")
+        )
+        assert m.description == "Baseline win-rate model for the trade-outcome family."
+        m2 = TrainingManifest.from_dict(m.to_dict())
+        assert m2 == m
+        assert m2.description == m.description
+
 
 def test_valid_deployment_stages_distinct():
     assert len(set(VALID_DEPLOYMENT_STAGES)) == len(VALID_DEPLOYMENT_STAGES)

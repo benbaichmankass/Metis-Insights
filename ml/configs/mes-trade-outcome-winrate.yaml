@@ -20,6 +20,7 @@
 
 manifest_version: v1
 model_id: mes-trade-outcome-winrate-baseline-v0
+description: "Baseline classifier estimating a MES (Micro E-mini S&P 500) trade's win probability from the strategy's historical win rate. Shadow-stage."
 model_family: classification_baseline
 trainer: ml.trainers.per_strategy_winrate.PerStrategyWinRateTrainer
 trainer_config:

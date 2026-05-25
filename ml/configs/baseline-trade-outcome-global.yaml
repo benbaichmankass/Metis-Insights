@@ -14,6 +14,7 @@
 
 manifest_version: v1
 model_id: trade-outcome-global-baseline-v0
+description: "Constant-prediction reference model: always predicts the global base win-rate of all trades. The naive floor every other trade-outcome model must beat. Shadow-stage."
 model_family: classification_baseline
 trainer: ml.trainers.constant_baseline.ConstantPredictionTrainer
 trainer_config:
