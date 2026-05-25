@@ -15,6 +15,9 @@ Subcommands:
   shadow-stats                — per-(model_id, stage) aggregate over the audit log (WS8-PART-1)
   shadow-drift                — window-over-window drift report for one model_id (WS8-PART-3)
   backfill-shadow-predictions — retroactive-decision replay of every historical trade (2026-05-19)
+  model-attribution           — per-model live attribution: shadow scores vs realized outcomes (go-live)
+  gate-check <id>             — computed shadow→advisory promotion gates (go/no-go packet; go-live)
+  stage-guard                 — propose promote/demote/hold for every model (read-only; go-live)
 """
 from __future__ import annotations
 
@@ -163,6 +166,7 @@ def _cmd_list_evaluators(_args: argparse.Namespace) -> int:
 
 
 _DEFAULT_SHADOW_LOG = Path("runtime_logs/shadow_predictions.jsonl")
+_DEFAULT_BACKFILL_LOG = Path("runtime_logs/shadow_predictions_backfill.jsonl")
 
 
 def _parse_since(raw: str | None) -> datetime | None:
@@ -322,6 +326,82 @@ def _cmd_backfill_shadow_predictions(args: argparse.Namespace) -> int:
         limit=args.limit if args.limit and args.limit > 0 else None,
     )
     print(json.dumps(summary, indent=2, sort_keys=True))
+    return 0
+
+
+def _cmd_model_attribution(args: argparse.Namespace) -> int:
+    # Per-model live attribution: join shadow scores to realized trade
+    # outcomes. Decision-support only — never mutates anything.
+    from .promotion.attribution import compute_attribution
+
+    attrs = compute_attribution(
+        db_path=args.db,
+        shadow_log=args.shadow_log,
+        backfill_log=args.backfill_log,
+        include_demo=args.include_demo,
+    )
+    if args.model_id:
+        attrs = [a for a in attrs if a.model_id == args.model_id]
+    print(json.dumps([a.to_dict() for a in attrs], indent=2, sort_keys=True))
+    return 0
+
+
+def _cmd_gate_check(args: argparse.Namespace) -> int:
+    # Computed promotion gates for one model + target stage. Reports a
+    # go/no-go packet; never promotes.
+    from .promotion.attribution import compute_attribution
+    from .promotion.gates import evaluate_gates
+    from .promotion.stage_guard import _drift_for_model
+
+    registry = ModelRegistry(Path(args.registry_root))
+    try:
+        entry = registry.get(args.model_id)
+    except RegistryError as exc:
+        sys.stderr.write(f"gate-check failed: {exc}\n")
+        return 1
+    attr = None
+    if args.db:
+        attrs = compute_attribution(
+            db_path=args.db, shadow_log=args.shadow_log,
+            backfill_log=args.backfill_log, include_demo=args.include_demo,
+        )
+        attr = next((a for a in attrs if a.model_id == args.model_id), None)
+    records = list(iter_records(args.shadow_log))
+    drift = _drift_for_model(
+        records, args.model_id,
+        reference_days=args.reference_days, current_days=args.current_days,
+    )
+    report = evaluate_gates(
+        entry, target_stage=args.target_stage, attribution=attr, drift=drift,
+    )
+    print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
+    return 0
+
+
+def _cmd_stage_guard(args: argparse.Namespace) -> int:
+    # Evaluate every model: propose promote / demote / hold. Read-only —
+    # the operator runs `promote-stage` to act on a proposal.
+    from .promotion.stage_guard import run_stage_guard
+
+    proposals = run_stage_guard(
+        registry_root=args.registry_root,
+        db_path=args.db,
+        shadow_log=args.shadow_log,
+        backfill_log=args.backfill_log,
+        reference_days=args.reference_days,
+        current_days=args.current_days,
+        include_demo=args.include_demo,
+    )
+    payload = [p.to_dict() for p in proposals]
+    print(json.dumps({
+        "proposals": payload,
+        "summary": {
+            "promote": [p.model_id for p in proposals if p.action == "promote"],
+            "demote": [p.model_id for p in proposals if p.action == "demote"],
+            "hold_count": sum(1 for p in proposals if p.action == "hold"),
+            "total": len(proposals),
+        },
+    }, indent=2, sort_keys=True))
     return 0
 
 
@@ -491,6 +571,61 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Cap rows for testing; 0 (default) = no cap",
     )
 
+    p_attr = sub.add_parser(
+        "model-attribution",
+        help=(
+            "per-model live attribution: join shadow scores to realized "
+            "trade outcomes (AUC + brier vs base-rate). Decision-support; "
+            "never mutates."
+        ),
+    )
+    p_attr.add_argument(
+        "--db", required=True,
+        help="Path to trade_journal.db (the synced copy on the trainer VM)",
+    )
+    p_attr.add_argument("--shadow-log", type=Path, default=_DEFAULT_SHADOW_LOG)
+    p_attr.add_argument("--backfill-log", type=Path, default=_DEFAULT_BACKFILL_LOG)
+    p_attr.add_argument("--model-id", default=None, help="optional filter")
+    p_attr.add_argument("--include-demo", action="store_true", default=False)
+
+    p_gate = sub.add_parser(
+        "gate-check",
+        help=(
+            "computed shadow→advisory promotion gates for one model "
+            "(go/no-go evidence packet). Reports only; never promotes."
+        ),
+    )
+    p_gate.add_argument("model_id")
+    p_gate.add_argument("--target-stage", default="advisory")
+    p_gate.add_argument("--registry-root", default="./ml/registry-store")
+    p_gate.add_argument(
+        "--db", default=None,
+        help="trade_journal.db for the live-attribution gates (optional)",
+    )
+    p_gate.add_argument("--shadow-log", type=Path, default=_DEFAULT_SHADOW_LOG)
+    p_gate.add_argument("--backfill-log", type=Path, default=_DEFAULT_BACKFILL_LOG)
+    p_gate.add_argument("--reference-days", type=float, default=30.0)
+    p_gate.add_argument("--current-days", type=float, default=7.0)
+    p_gate.add_argument("--include-demo", action="store_true", default=False)
+
+    p_guard = sub.add_parser(
+        "stage-guard",
+        help=(
+            "evaluate every model and propose promote / demote / hold. "
+            "Read-only — the operator runs promote-stage to act."
+        ),
+    )
+    p_guard.add_argument("--registry-root", default="./ml/registry-store")
+    p_guard.add_argument(
+        "--db", default=None,
+        help="trade_journal.db for the live-attribution signals (optional)",
+    )
+    p_guard.add_argument("--shadow-log", type=Path, default=_DEFAULT_SHADOW_LOG)
+    p_guard.add_argument("--backfill-log", type=Path, default=_DEFAULT_BACKFILL_LOG)
+    p_guard.add_argument("--reference-days", type=float, default=30.0)
+    p_guard.add_argument("--current-days", type=float, default=7.0)
+    p_guard.add_argument("--include-demo", action="store_true", default=False)
+
     return parser
 
 
@@ -522,6 +657,9 @@ def main(argv: list[str] | None = None) -> int:
         "shadow-stats": _cmd_shadow_stats,
         "shadow-drift": _cmd_shadow_drift,
         "backfill-shadow-predictions": _cmd_backfill_shadow_predictions,
+        "model-attribution": _cmd_model_attribution,
+        "gate-check": _cmd_gate_check,
+        "stage-guard": _cmd_stage_guard,
     }
     handler = dispatch.get(args.cmd)
     if handler is None:
