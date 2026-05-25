@@ -1,0 +1,201 @@
+"""Stage guard — promote/demote proposal generator (ML go-live, 2026-05-25).
+
+Walks every model in the registry and emits a **proposal** for each:
+
+- ``promote`` — a ``shadow`` model that clears every promotion gate
+  (``ml.promotion.gates``) is proposed for ``advisory``.
+- ``demote`` — a live-influencing model (``advisory`` and above) that
+  trips a demote trigger (drift, degeneracy, live underperformance) is
+  proposed for the next step down the ladder.
+- ``hold`` — everything else, with the blocking reasons attached.
+
+**This module never mutates the registry and never touches the order
+path.** Both promotion and demotion are operator-gated (the operator's
+explicit policy, 2026-05-25): the guard produces evidence and a
+recommendation; a human runs ``python -m ml promote-stage`` to act. The
+intended deployment is a daily job that prints this report and, when WS8
+alerting lands, pings the operator on any non-``hold`` proposal.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from typing import Any
+
+from ..registry.model_registry import ModelRegistry
+from ..shadow.drift import compute_drift
+from ..shadow.inspector import filter_records, iter_records
+from .attribution import compute_attribution
+from .gates import GateReport, GateThresholds, evaluate_gates
+
+# One-step rollback toward shadow (mirrors the registry's rollback edges).
+_DEMOTE_TARGET: dict[str, str] = {
+    "advisory": "shadow",
+    "limited_live": "advisory",
+    "live_approved": "advisory",
+}
+_LIVE_STAGES = frozenset(_DEMOTE_TARGET)
+
+
+@dataclass(frozen=True)
+class Proposal:
+    model_id: str
+    current_stage: str
+    action: str  # "promote" | "demote" | "hold"
+    proposed_stage: str | None
+    reasons: tuple[str, ...] = field(default_factory=tuple)
+    evidence: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "model_id": self.model_id,
+            "current_stage": self.current_stage,
+            "action": self.action,
+            "proposed_stage": self.proposed_stage,
+            "reasons": list(self.reasons),
+            "evidence": self.evidence,
+        }
+
+
+def _demote_triggers(
+    attribution: Any, drift: Any, thresholds: GateThresholds,
+) -> list[str]:
+    """Reasons a live-influencing model should be pulled back. Empty list
+    = healthy."""
+    reasons: list[str] = []
+    verdict = None
+    if drift is not None:
+        verdict = getattr(drift, "overall_verdict", None)
+    if verdict == "significant":
+        reasons.append("score-distribution drift verdict is 'significant'")
+    if attribution is not None:
+        spread = attribution.score_max - attribution.score_min
+        if spread <= thresholds.score_spread_eps:
+            reasons.append(f"live score output collapsed (spread {spread:.6g})")
+        if attribution.brier_lift is not None and attribution.brier_lift < 0:
+            reasons.append(
+                f"live calibration worse than base rate "
+                f"(brier_lift {attribution.brier_lift:.5f})"
+            )
+        if attribution.auc is not None and attribution.auc < 0.5:
+            reasons.append(
+                f"live discrimination inverted (AUC {attribution.auc:.3f} < 0.5)"
+            )
+    return reasons
+
+
+def propose_for_model(
+    entry: Any,
+    *,
+    attribution: Any = None,
+    drift: Any = None,
+    thresholds: GateThresholds | None = None,
+) -> Proposal:
+    """Pure proposal decision for one model (no I/O)."""
+    th = thresholds or GateThresholds()
+    stage = entry.target_deployment_stage
+
+    if stage == "shadow":
+        report: GateReport = evaluate_gates(
+            entry, target_stage="advisory",
+            attribution=attribution, drift=drift, thresholds=th,
+        )
+        if report.ready:
+            return Proposal(
+                entry.model_id, stage, "promote", "advisory",
+                reasons=("all promotion gates pass",),
+                evidence={"gate_report": report.to_dict()},
+            )
+        return Proposal(
+            entry.model_id, stage, "hold", None,
+            reasons=tuple(f"gate not met: {r.name} ({r.status})" for r in report.blocking),
+            evidence={"gate_report": report.to_dict()},
+        )
+
+    if stage in _LIVE_STAGES:
+        triggers = _demote_triggers(attribution, drift, th)
+        if triggers:
+            return Proposal(
+                entry.model_id, stage, "demote", _DEMOTE_TARGET[stage],
+                reasons=tuple(triggers),
+                evidence={
+                    "attribution": attribution.to_dict() if attribution else None,
+                    "drift_verdict": getattr(drift, "overall_verdict", None),
+                },
+            )
+        return Proposal(
+            entry.model_id, stage, "hold", None,
+            reasons=("no demote trigger tripped",),
+            evidence={
+                "attribution": attribution.to_dict() if attribution else None,
+                "drift_verdict": getattr(drift, "overall_verdict", None),
+            },
+        )
+
+    # Pre-shadow stages (research_only / candidate / backtest_approved):
+    # off the live evaluation path — nothing to propose.
+    return Proposal(
+        entry.model_id, stage, "hold", None,
+        reasons=("pre-shadow stage; not in the live influence path",),
+    )
+
+
+def _drift_for_model(
+    records: list, model_id: str, *, reference_days: float, current_days: float,
+) -> Any:
+    """Window-over-window drift for one model, or None when either window
+    is empty (mirrors the shadow-drift CLI windowing). Backfill records
+    are excluded so synthetic timestamps don't pollute the comparison."""
+    now = datetime.now(timezone.utc)
+    current_start = now - timedelta(days=current_days)
+    reference_start = current_start - timedelta(days=reference_days)
+    rows = [
+        r for r in filter_records(records, model_id=model_id)
+        if r.backfill_kind is None
+    ]
+    ref = [r.score for r in rows if reference_start <= r.predicted_at_utc < current_start]
+    cur = [r.score for r in rows if r.predicted_at_utc >= current_start]
+    if not ref or not cur:
+        return None
+    return compute_drift(ref, cur)
+
+
+def run_stage_guard(
+    *,
+    registry_root: Path | str,
+    db_path: Path | str,
+    shadow_log: Path | str,
+    backfill_log: Path | str | None = None,
+    thresholds: GateThresholds | None = None,
+    reference_days: float = 30.0,
+    current_days: float = 7.0,
+    include_demo: bool = False,
+) -> list[Proposal]:
+    """Evaluate every registered model and return its proposal.
+
+    Loads attribution once (one DB + log pass) and computes per-model
+    drift from the in-memory record set. Read-only throughout.
+    """
+    registry = ModelRegistry(Path(registry_root))
+    attribution = {
+        a.model_id: a
+        for a in compute_attribution(
+            db_path=db_path, shadow_log=shadow_log,
+            backfill_log=backfill_log, include_demo=include_demo,
+        )
+    }
+    records = list(iter_records(shadow_log))
+    proposals: list[Proposal] = []
+    for entry in registry.list():
+        drift = _drift_for_model(
+            records, entry.model_id,
+            reference_days=reference_days, current_days=current_days,
+        )
+        proposals.append(propose_for_model(
+            entry,
+            attribution=attribution.get(entry.model_id),
+            drift=drift,
+            thresholds=thresholds,
+        ))
+    return proposals

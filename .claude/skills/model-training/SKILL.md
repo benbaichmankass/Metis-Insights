@@ -92,6 +92,9 @@ Routed through `ml/__main__.py` → `ml/cli.py`. Subcommands (verified):
 | `compare <model_a> <model_b>` | Side-by-side metric diff |
 | `shadow-inspect` / `shadow-stats` / `shadow-drift` | Read `runtime_logs/shadow_predictions.jsonl` (tail / aggregate / KS+PSI drift) |
 | `backfill-shadow-predictions --db <path> [--registry-root --output --limit]` | Retroactive-decision replay scoring every historical trade |
+| `model-attribution --db <path> [--shadow-log --backfill-log --model-id]` | Per-model live attribution: joins shadow scores to realized trade outcomes (AUC + brier vs base-rate). Go-live decision-support; read-only |
+| `gate-check <model_id> [--target-stage --db --shadow-log]` | Computed shadow→advisory promotion gates (go/no-go evidence packet). Reports only; never promotes |
+| `stage-guard [--db --shadow-log --registry-root]` | Proposes promote/demote/hold for every model from gates + drift + attribution. Read-only — operator runs `promote-stage` to act |
 | `build-dataset …` / `validate-dataset <path>` | Passthrough to `ml.datasets` |
 
 > **There is no `python -m ml.registry list`.** `ml/registry/` has no
