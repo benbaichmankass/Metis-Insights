@@ -23,8 +23,10 @@ def client():
 @pytest.fixture(autouse=True)
 def _clear_cache():
     candles_router._CACHE.clear()
+    candles_router._CONNECTOR_CACHE.clear()
     yield
     candles_router._CACHE.clear()
+    candles_router._CONNECTOR_CACHE.clear()
 
 
 def test_happy_path_wire_shape(client, monkeypatch):
@@ -84,3 +86,45 @@ def test_epoch_s_handles_formats():
     assert candles_router._epoch_s(pd.Timestamp("2026-05-25T00:00:00")) == 1779667200
     assert candles_router._epoch_s(None) is None
     assert candles_router._epoch_s("not-a-date") is None
+
+
+def _fake_df():
+    return pd.DataFrame({
+        "timestamp": pd.to_datetime([1_700_000_000], unit="s"),
+        "open": [1.0], "high": [1.0], "low": [1.0], "close": [1.0], "volume": [1.0],
+    })
+
+
+def test_connector_built_once_and_reused(monkeypatch):
+    """_fetch_candles reuses the cached connector instead of rebuilding it."""
+    import src.runtime.market_data as md
+    builds = {"n": 0}
+
+    def fake_connector(symbol, settings):
+        builds["n"] += 1
+        return object()
+
+    monkeypatch.setattr(md, "connector_for_symbol", fake_connector)
+    monkeypatch.setattr(md, "fetch_candles", lambda *a, **k: _fake_df())
+
+    candles_router._fetch_candles("BTCUSDT", "5m", 10)
+    candles_router._fetch_candles("BTCUSDT", "1h", 10)
+    candles_router._fetch_candles("BTCUSDT", "5m", 10)
+    assert builds["n"] == 1  # one connector for the symbol across calls/intervals
+
+
+def test_connector_evicted_on_empty_fetch(monkeypatch):
+    """An empty fetch drops the cached connector so it rebuilds next call."""
+    import src.runtime.market_data as md
+    builds = {"n": 0}
+
+    def fake_connector(symbol, settings):
+        builds["n"] += 1
+        return object()
+
+    monkeypatch.setattr(md, "connector_for_symbol", fake_connector)
+    monkeypatch.setattr(md, "fetch_candles", lambda *a, **k: None)  # empty
+
+    candles_router._fetch_candles("BTCUSDT", "5m", 10)
+    candles_router._fetch_candles("BTCUSDT", "5m", 10)
+    assert builds["n"] == 2  # rebuilt because the prior empty fetch evicted it
