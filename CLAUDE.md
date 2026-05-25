@@ -173,8 +173,13 @@ wire-up. See trainer-vm-mode.md § 5 for the full lifecycle.
 - Never merge a PR to `main` that touches `config/strategies.yaml`,
   `config/accounts.yaml`, `config/risk_caps.yaml`,
   `src/runtime/orders.py`, `src/runtime/risk_counters.py`, or any
-  unit file the live VM consumes. Open the PR, mark it draft,
-  ping the operator.
+  unit file the live VM consumes **without explicit operator
+  approval** — these are Tier-3. The canonical gate is "explicit
+  product approval required before merge" (see
+  [`docs/CLAUDE-RULES-CANONICAL.md`](docs/CLAUDE-RULES-CANONICAL.md)
+  § Permission Tiers). By default open the PR, mark it draft, and
+  ping the operator; once the operator approves, you may merge and
+  deploy.
 - Never copy production secrets to the trainer.
 - Never provision past the OCI Always Free 4-OCPU / 24-GB tenancy
   ceiling. Live trader holds 1 / 6; trainer holds 1 / 6; up to 2 / 12

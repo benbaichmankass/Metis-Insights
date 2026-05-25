@@ -70,12 +70,13 @@
 # (RiskManager.approve(order)).
 
 accounts:
-  # bybit_1: Bybit demo trading account — all three strategies at full
-  # priority. Reconfigured 2026-05-18 (operator-approved): previously
-  # turtle_soup / spot / dry_run. Now mirrors bybit_2's runtime profile
-  # (linear perps, 3× leverage, live mode) but on the Bybit demo endpoint
-  # (https://api-demo.bybit.com) so all strategies can be evaluated in a
-  # realistic execution environment without real-money risk.
+  # bybit_1: Bybit demo trading account — the full demo mirror of bybit_2
+  # (same six strategies, same order). Reconfigured 2026-05-18
+  # (operator-approved): previously turtle_soup / spot / dry_run. Now
+  # mirrors bybit_2's runtime profile (linear perps, 3× leverage, live
+  # mode) but on the Bybit demo endpoint (https://api-demo.bybit.com) so
+  # all strategies can be evaluated in a realistic execution environment
+  # without real-money risk.
   #
   # Keys rotated via the rotate-account-keys GitHub Actions workflow
   # (the new canonical path — replaces the SOPS/Colab/age-key flow).
@@ -96,21 +97,19 @@ accounts:
     market_type: linear                # USDT-margined linear perpetuals — same
                                        # as bybit_2. set-leverage fires at boot
                                        # via _apply_per_account_leverage.
-    strategies: [turtle_soup, vwap, ict_scalp_5m, fade_breakout_4h, squeeze_breakout_4h]
+    strategies: [trend_donchian, turtle_soup, ict_scalp_5m, fade_breakout_4h, squeeze_breakout_4h, vwap]
                                        # execution-priority order matches list order.
-                                       # fade_breakout_4h added 2026-05-24 (S9) for
-                                       # SHADOW data collection only: it is
-                                       # `execution: shadow` in config/strategies.yaml
-                                       # (data-only, never sends a live order on ANY
-                                       # account). Routed to the DEMO account — not the
-                                       # real-money bybit_2 — because the execution gate
-                                       # fails open on a registry-read error, so the
-                                       # unvalidated strategy is kept off real money
-                                       # entirely. Demo captures identical signal data
-                                       # (same BTCUSDT feed) at zero risk. Promote to
-                                       # bybit_2 + execution: live only after live shadow
-                                       # proof (Tier-3 operator-approval path). Evidence:
-                                       # docs/audits/fade-breakout-complement-2026-05-24.md.
+                                       # 2026-05-25 (operator-approved): bybit_1 (demo)
+                                       # now mirrors bybit_2 EXACTLY — the same six
+                                       # strategies in the same order. trend_donchian
+                                       # added so the demo mirrors the real account's
+                                       # flagship; fade_breakout_4h + squeeze_breakout_4h
+                                       # promoted to `execution: live` in
+                                       # config/strategies.yaml the same date. Every live
+                                       # strategy here trades PAPER money (demo endpoint)
+                                       # — no real-money risk. vwap remains the only
+                                       # `execution: shadow` strategy (data-only on every
+                                       # account, incl. this one).
     symbols: [BTCUSDT]                 # instrument(s) this account trades. The
                                        # multi-symbol tick loop unions every
                                        # configured account's symbols, so this
@@ -126,16 +125,20 @@ accounts:
       leverage: 3                      # 3× leverage — same as bybit_2; applied
                                        # via /v5/position/set-leverage at boot.
 
-  # bybit_2: trend_donchian only on Bybit V5 USDT-margined linear
-  # perpetuals at 3× leverage.
+  # bybit_2: the real-money account on Bybit V5 USDT-margined linear
+  # perpetuals at 3× leverage. Runs all six strategies (see the
+  # `strategies:` list below) — everything LIVE except vwap (data-only
+  # via the per-strategy shadow gate).
   #
   # S8 go-live (2026-05-23, operator-approved straight-to-real, Tier-3):
-  # the Donchian-breakout trend-follower takes over real-money execution
-  # on this account, replacing vwap. vwap is removed from real money (it
-  # keeps collecting data + paper-executing on bybit_1 demo + ib_paper);
-  # ict_scalp was never assigned here. trend_donchian is the first
-  # net-positive strategy in the program (+22.5R/3yr, robust plateau) and
-  # runs at the conservative risk_pct 0.3 set in config/strategies.yaml.
+  # the Donchian-breakout trend-follower took over real-money execution
+  # on this account, replacing vwap as the primary. trend_donchian is the
+  # first net-positive strategy in the program (+22.5R/3yr, robust
+  # plateau) and runs at the conservative risk_pct 0.3 set in
+  # config/strategies.yaml. turtle_soup + ict_scalp_5m were added live in
+  # S9 (#1863); fade_breakout_4h + squeeze_breakout_4h were promoted from
+  # shadow to live on 2026-05-25 (operator decision). vwap stays data-only
+  # everywhere.
   # Rationale + plan: docs/sprint-plans/TREND-GOLIVE-PLAN-2026-05-23.md;
   # evidence: docs/audits/complementary-trend-strategy-2026-05-23.md.
   #
@@ -160,22 +163,34 @@ accounts:
     market_type: linear                # PR 3 — Bybit V5 USDT-margined
                                        # linear perpetuals. Was
                                        # spot-margin pre-cutover.
-    strategies: [trend_donchian, turtle_soup, ict_scalp_5m, vwap]
-                                       # S9 (operator-approved 2026-05-24):
+    strategies: [trend_donchian, turtle_soup, ict_scalp_5m, fade_breakout_4h, squeeze_breakout_4h, vwap]
+                                       # 2026-05-25 (operator-approved, Tier-3):
                                        # bybit_2 runs "everything except vwap"
-                                       # LIVE — trend_donchian + turtle_soup +
-                                       # ict_scalp_5m execute on real money;
-                                       # vwap is data-only here via the
+                                       # LIVE on real money — trend_donchian +
+                                       # turtle_soup + ict_scalp_5m +
+                                       # fade_breakout_4h + squeeze_breakout_4h
+                                       # all execute; vwap is data-only via the
                                        # per-strategy gate (strategies.yaml
                                        # `execution: shadow`), so it LOGS order
                                        # packages on real money for comparison
                                        # but never sends a live order. REQUIRES
                                        # the execution-gate PR (#1862) deployed
                                        # FIRST — without it, vwap would execute
-                                       # ungated on real money. NOTE: turtle_soup
-                                       # (net-negative) + ict_scalp (≈breakeven)
-                                       # are operator-chosen for real money
-                                       # despite weak backtests.
+                                       # ungated on real money.
+                                       #
+                                       # fade_breakout_4h + squeeze_breakout_4h
+                                       # were PROMOTED from `execution: shadow`
+                                       # to live this date (operator decision),
+                                       # overriding the prior S9 shadow-only
+                                       # stance — they now execute on real money
+                                       # WITHOUT the earlier "live shadow proof"
+                                       # gate. Their OOS expectancy is more
+                                       # fragile than trend_donchian's (see the
+                                       # strategies.yaml caveats). NOTE: like
+                                       # turtle_soup (net-negative) + ict_scalp
+                                       # (≈breakeven), these run real money on an
+                                       # explicit operator call despite the weaker
+                                       # / less-proven backtests.
     symbols: [BTCUSDT]                  # all on BTCUSDT (bybit perps)
     risk:
       max_dd_pct: 0.05
