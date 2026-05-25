@@ -129,9 +129,13 @@ def _adx(df: pd.DataFrame, period: int) -> pd.Series:
     tr = pd.concat([(h - low), (h - pc).abs(), (low - pc).abs()], axis=1).max(axis=1)
     alpha = 1.0 / period
     atr = tr.ewm(alpha=alpha, adjust=False).mean()
-    plus_di = 100 * plus_dm.ewm(alpha=alpha, adjust=False).mean() / atr.replace(0, pd.NA)
-    minus_di = 100 * minus_dm.ewm(alpha=alpha, adjust=False).mean() / atr.replace(0, pd.NA)
-    dx = 100 * (plus_di - minus_di).abs() / (plus_di + minus_di).replace(0, pd.NA)
+    # Divide-by-zero guard uses float("nan"), not pd.NA: pd.NA upcasts the
+    # float Series to object dtype and dx.ewm().mean() then raises "No
+    # numeric types to aggregate" on flat/zero-movement bars. Keeps parity
+    # with src/units/strategies/fade_breakout_4h.py::_adx (the live copy).
+    plus_di = 100 * plus_dm.ewm(alpha=alpha, adjust=False).mean() / atr.replace(0, float("nan"))
+    minus_di = 100 * minus_dm.ewm(alpha=alpha, adjust=False).mean() / atr.replace(0, float("nan"))
+    dx = 100 * (plus_di - minus_di).abs() / (plus_di + minus_di).replace(0, float("nan"))
     return dx.ewm(alpha=alpha, adjust=False).mean()
 
 

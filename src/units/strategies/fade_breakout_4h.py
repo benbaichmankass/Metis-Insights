@@ -118,9 +118,15 @@ def _adx(df: pd.DataFrame, period: int) -> pd.Series:
     tr = pd.concat([(h - low), (h - pc).abs(), (low - pc).abs()], axis=1).max(axis=1)
     alpha = 1.0 / period
     atr = tr.ewm(alpha=alpha, adjust=False).mean()
-    plus_di = 100 * plus_dm.ewm(alpha=alpha, adjust=False).mean() / atr.replace(0, pd.NA)
-    minus_di = 100 * minus_dm.ewm(alpha=alpha, adjust=False).mean() / atr.replace(0, pd.NA)
-    dx = 100 * (plus_di - minus_di).abs() / (plus_di + minus_di).replace(0, pd.NA)
+    # Divide-by-zero guard: zero out -> NaN. MUST use float("nan"), not
+    # pd.NA — pd.NA upcasts the float64 Series to object dtype, and the
+    # downstream dx.ewm().mean() then raises "No numeric types to
+    # aggregate" on any flat/zero-movement bar (the 2026-05-25 live crash:
+    # flat 4h MES/BTC bars make plus_dm/minus_dm both 0 so plus_di+minus_di
+    # is 0 everywhere). float("nan") keeps the Series numeric.
+    plus_di = 100 * plus_dm.ewm(alpha=alpha, adjust=False).mean() / atr.replace(0, float("nan"))
+    minus_di = 100 * minus_dm.ewm(alpha=alpha, adjust=False).mean() / atr.replace(0, float("nan"))
+    dx = 100 * (plus_di - minus_di).abs() / (plus_di + minus_di).replace(0, float("nan"))
     return dx.ewm(alpha=alpha, adjust=False).mean()
 
 
