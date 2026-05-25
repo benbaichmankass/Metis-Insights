@@ -1,14 +1,14 @@
 ---
 name: health-review
-description: Autonomous layer-2 review of the LIVE ICT TRADING BOT's runtime health (NOT a code review or codebase audit). Claude pulls the live runtime state itself via the GitHub Actions diag relays (autonomous read access — no operator paste), grades the full pipeline + trainer center since the last review, scores every trade in that window (persisting each score by trade_id to comms/claude_trade_scores.jsonl), reviews recent sprint logs for doc correctness, validates DB integrity + data validity, and drains docs/claude/health-review-backlog.json. Emits a JSON response matching comms/schema/health_review_response.template.json. Use when the operator says "run the health review", "/health-review", or "do the layer-2 review". Do NOT invoke for code-quality audits or security reviews — those are the `review` / `security-review` skills.
+description: Autonomous layer-2 review of the LIVE ICT TRADING BOT's runtime health (NOT a code review or codebase audit). Claude pulls the live runtime state itself via the GitHub Actions diag relays (autonomous read access — no operator paste), grades the full pipeline + trainer center since the last review, scores every strategy decision (order package) in that window (persisting each score by order_package_id to comms/claude_strategy_scores.jsonl), reports a per-model status update, reviews recent sprint logs for doc correctness, validates DB integrity + data validity, and drains docs/claude/health-review-backlog.json. Emits a JSON response matching comms/schema/health_review_response.template.json. Use when the operator says "run the health review", "/health-review", or "do the layer-2 review". Do NOT invoke for code-quality audits or security reviews — those are the `review` / `security-review` skills.
 ---
 
 # /health-review — autonomous layer-2 review of the live ICT bot
 
 This skill reviews the **live trading system's runtime state**, not the
 codebase. It is fully autonomous: Claude fetches the runtime state itself
-via the diag relays, grades it, **persists per-trade scores**, **drains
-the backlog**, and emits the response JSON. The operator pastes nothing,
+via the diag relays, grades it, **persists per-decision scores (keyed by
+order package)**, **drains the backlog**, and emits the response JSON. The operator pastes nothing,
 downloads nothing, SSHes nowhere.
 
 If the user asked for a *code* review, *codebase audit*, *security
@@ -24,8 +24,9 @@ review*, or *dependency check* — STOP, wrong skill. Point them at
 3. **Grade full pipeline health** — signal→order→trade plumbing + the
    layer-2 dimensions (§ "Pipeline rubric").
 4. **Grade trainer-center health** (§ "Trainer VM review").
-5. **Score every trade** in the window and **persist each score** by
-   `trade_id` to `comms/claude_trade_scores.jsonl` (§ "Per-trade scoring").
+5. **Score every strategy decision** (order package) in the window and
+   **persist each score** by `order_package_id` to
+   `comms/claude_strategy_scores.jsonl` (§ "Per-decision scoring").
 6. **Review recent sprint logs** for doc correctness/clarity
    (§ "Sprint-doc review").
 7. **Validate DB integrity + data validity** (§ "DB integrity & validity").
@@ -39,8 +40,10 @@ The window runs from the last review to now. Determine "last review" in
 this order:
 
 1. The newest `reviewed_at` across the score rows in
-   `comms/claude_trade_scores.jsonl` (the durable per-trade log this skill
-   writes). This is the canonical anchor.
+   `comms/claude_strategy_scores.jsonl` (the durable per-decision log this
+   skill writes). This is the canonical anchor. (NB: the 2026-05-25
+   retroactive backfill rows all share one `reviewed_at`; the next live
+   review's anchor is that backfill timestamp — page back if needed.)
 2. If that file has only its `_meta` line (no reviews yet), fall back to
    the last 24h.
 
@@ -229,22 +232,32 @@ is degrading on live/shadow data. A registry of `candidate`/`shadow`
 models with healthy metrics and zero predictions is `ok` (expected
 pre-activation), not a concern.
 
-## Per-trade scoring (training feedstock — PERSISTED)
+## Per-decision scoring (training feedstock — PERSISTED, keyed by order package)
 
-For **every closed or rejected trade in the window**, emit a grade in
-`trade_decision_grades[]` AND append the same grade — keyed by `trade_id`
-— to `comms/claude_trade_scores.jsonl` (one JSON object per line, schema
-at `comms/schema/claude_trade_scores.schema.json`). This is the durable,
-trainer-ingestible score log (operator decision 2026-05-24: artifact path
-now; its own DB table + app surface is the planned Tier-2 follow-up).
+The score belongs to the **strategy DECISION**, so it is keyed by
+`order_package_id` and persisted to `comms/claude_strategy_scores.jsonl`,
+**not** the trade journal (operator decision 2026-05-25: the order package
+is the artifact a strategy emits when it decides to act — the right anchor
+for "how good was this decision", independent of whether/how it filled).
+Cross-reference the executed `trade_id` (and the trade's outcome) on the
+row when the package filled; leave it `null` for shadow / never-filled
+packages (graded on setup quality only, `exit_quality: unknown`).
+
+For **every order package decided in the window** (executed *or* shadow),
+emit a grade in `trade_decision_grades[]` AND append the same grade —
+keyed by `order_package_id` — to `comms/claude_strategy_scores.jsonl`
+(one JSON object per line; rubric +
+retroactive backfiller: `scripts/ops/score_order_packages.py`).
 **Persisting is not optional** — the chat JSON is ephemeral; the jsonl is
-the feedstock the next training cycle reads.
+the feedstock the next training cycle reads. (The older
+`comms/claude_trade_scores.jsonl`, keyed by `trade_id`, is superseded by
+this order-package-keyed log; it carried no real rows.)
 
-Anchor each grade on the trade's `signal_logic` blob (in `trades.notes`
-or `order_packages.signal_logic`) — judge the trade against its own stated
-edge and the fill/exit data, independent of dollar outcome (a small win on
-a bad setup still grades poorly; a stop-out on a textbook setup still
-grades fairly).
+Anchor each grade on the package's `signal_logic` blob
+(`order_packages.signal_logic`) — judge the decision against its own
+stated edge and (when filled) the fill/exit data, independent of dollar
+outcome (a small win on a bad setup still grades poorly; a stop-out on a
+textbook setup still grades fairly).
 
 **Letter grade (one per trade):** `A` textbook · `B` good, one minor
 deviation · `C` acceptable, EV marginal in hindsight · `D` poor (fired
@@ -264,8 +277,11 @@ low-grade cohort (C/D/F) first and aggregate the A/B cohort in one entry
 listing the trade ids.
 
 **Append discipline:** the jsonl is append-only. Before appending, skip
-any `trade_id` already present for the same `reviewed_at` window so
-re-runs don't double-write. Append; never rewrite prior rows.
+any `order_package_id` already present so re-runs don't double-write.
+Append; never rewrite prior rows. (The full historical backfill was done
+2026-05-25 via `scripts/ops/score_order_packages.py` over all
+`order_packages`; routine runs only append packages decided since the last
+review.)
 
 ## Sprint-doc review
 
@@ -341,7 +357,8 @@ operator can verify fast.
 ## What you DO write (and what you don't)
 
 **Write (this is the autonomous spec):**
-- Append per-trade scores to `comms/claude_trade_scores.jsonl`.
+- Append per-decision scores (keyed by `order_package_id`) to
+  `comms/claude_strategy_scores.jsonl`.
 - Edit `docs/claude/health-review-backlog.json` to drain it.
 - Fix Tier-1 doc contradictions surfaced by the sprint-doc / backlog pass.
 
