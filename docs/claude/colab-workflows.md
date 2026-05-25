@@ -54,8 +54,8 @@ artifact when the same action needs to repeat (rollback, second VM, recovery).
    the message **must include the Colab open URL**, not just the GitHub
    URL. The operator clicks that link and the notebook opens in Colab
    ready to *Runtime → Run all*; pasting only a GitHub blob/raw URL
-   forces a manual download-and-upload every time and is a workplan
-   violation. Format:
+   forces a manual download-and-upload every time and violates this
+   delivery rule. Format:
 
    ```
    https://colab.research.google.com/github/<owner>/<repo>/blob/<branch>/<path>

@@ -14,6 +14,7 @@ import pytest
 
 from src.units.strategies.fade_breakout_4h import (
     _DEFAULTS,
+    _adx,
     monitor,
     order_package,
 )
@@ -169,6 +170,34 @@ def test_chop_passes_gate_and_fades():
     assert pkg["direction"] == "short"
     assert pkg["meta"]["adx"] is not None
     assert pkg["meta"]["adx"] < _DEFAULTS["adx_max"]
+
+
+# ---------------------------------------------------------------------------
+# Regression: flat / zero-movement bars must not crash _adx
+# (2026-05-25 live incident — fade_breakout_4h raised "No numeric types to
+# aggregate" every tick on calm 4h bars, producing zero shadow data. Cause:
+# the divide-by-zero guard used pd.NA, which upcast the float Series to
+# object dtype so the downstream ewm().mean() raised. A flat frame makes
+# plus_dm/minus_dm both 0 -> plus_di+minus_di == 0 everywhere, the exact
+# trigger. These tests exercise _adx, which the gate-disabled entry tests
+# above never did.)
+# ---------------------------------------------------------------------------
+
+
+def test_adx_flat_frame_stays_numeric_and_does_not_raise():
+    # A perfectly flat market has undefined directional movement; _adx must
+    # return a NUMERIC (NaN-filled) Series, never raise / never go object.
+    s = _adx(_flat_frame(n=60), 14)
+    assert str(s.dtype) != "object"  # would be object before the fix
+    assert s.isna().all()            # ADX undefined for zero-movement bars
+
+
+def test_flat_frame_with_gate_rejects_cleanly_not_aggregate_error():
+    # With the DEFAULT chop-gate active, a flat frame's ADX is undefined, so
+    # order_package must reject it as "regime not chop" — NOT crash with the
+    # pandas "No numeric types to aggregate" TypeError (the live bug).
+    with pytest.raises(ValueError, match="regime not chop"):
+        order_package({"symbol": "BTCUSDT"}, candles_df=_flat_frame())
 
 
 # ---------------------------------------------------------------------------

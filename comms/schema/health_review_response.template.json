@@ -22,6 +22,7 @@
     "trainer_service":     {"status": "ok | watch | concern | skip", "note": "..."},
     "trainer_datasets":    {"status": "ok | watch | concern | skip", "note": "..."},
     "trainer_registry":    {"status": "ok | watch | concern | skip", "note": "..."},
+    "trainer_models":      {"status": "ok | watch | concern | skip", "note": "per-model roll-up; see model_status[] for the per-model detail. concern only when an advisory+/live model degrades on live/shadow data"},
     "net_positions":       {"status": "ok | watch | concern", "note": "..."},
     "strategy_attribution":{"status": "ok | watch | concern", "note": "..."},
     "advisory_scores":     {"status": "ok | watch | concern | skip", "note": "..."},
@@ -66,6 +67,29 @@
       "risk_management": "correct | oversize | undersize | sl_too_tight | sl_too_wide | unknown",
       "rationale": "<= 240 chars — why this grade given signal_logic + outcome",
       "alternative_action": "<= 160 chars — what we'd do differently next time, or 'none'"
+    }
+  ],
+  "model_status": [
+    {
+      "_comment": "REQUIRED — one entry per model in `python -m ml list-models` (the registry). A standing status update: each model's latest training-session result, and its shadow/live track record from trade data WHEN AVAILABLE. [] only when the trainer relay errored (then findings.trainer_models = skip). See .claude/skills/health-review/SKILL.md § 'Model status report'.",
+      "model_id": "btc-regime-5m-baseline-v1",
+      "stage": "research_only | candidate | backtest_approved | shadow | advisory | limited_live | live_approved",
+      "registry_status": "candidate | promoted | ...",
+      "last_training": {
+        "run_id": "YYYYMMDDThhmmssZ",
+        "at": "YYYY-MM-DDTHH:MM:SS+00:00",
+        "code_revision": "<sha>",
+        "headline_metric": "macro_f1=0.70 | mae=3.26 | winrate=0.55",
+        "n_eval": 0,
+        "trend_vs_prior_run": "improved | flat | degraded | first_run"
+      },
+      "live_shadow": {
+        "influence": "none(shadow) | advisory | live",
+        "predictions": 0,
+        "score_summary": "score distribution / mean when predictions>0, else 'no predictions yet'",
+        "realized": "win-rate/PnL of the closed trades this model scored, when joinable; else 'n/a'"
+      },
+      "note": "<= 160 chars — one-line health verdict for this model"
     }
   ],
   "recommended_action": "what to do next, or 'none'",

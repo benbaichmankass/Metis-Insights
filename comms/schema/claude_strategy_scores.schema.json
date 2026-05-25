@@ -1,0 +1,29 @@
+{
+  "_comment": "Schema for comms/claude_strategy_scores.jsonl — the durable, repo-tracked log of Claude's per-DECISION (per-order-package) scores. APPEND-ONLY JSONL: one JSON object per graded order package, keyed by `order_package_id` so it cross-references trade_journal.db::order_packages (and, when the package filled, `linked_trade_id` -> trades.id). Supersedes the trade-keyed comms/claude_trade_scores.jsonl (operator decision 2026-05-25: the score belongs to the STRATEGY DECISION — the order package is what a strategy emits when it decides to act — independent of whether/how it filled). The file may carry a single leading {\"_meta\": ...} line (skip rows without `order_package_id`). Written by .claude/skills/health-review/SKILL.md and the retroactive backfiller scripts/ops/score_order_packages.py (which holds the canonical rubric in _grade_package). `decision_grade_score` mirrors the review_journal family mapping (A/B/C/D/F -> 4/3/2/1/0). This file is documentation only — not validated as a JSON Schema.",
+  "schema_version": 1,
+  "record": {
+    "order_package_id": "pkg-... — PRIMARY KEY; -> trade_journal.db::order_packages.order_package_id",
+    "linked_trade_id": "int or null — trades.id when the package filled; null for shadow / never-filled packages",
+    "reviewed_at": "ISO-8601 UTC timestamp — when Claude graded this decision",
+    "reviewer": "claude",
+    "source": "health-review | health-review-retroactive",
+    "strategy_name": "vwap | ict_scalp_5m | trend_donchian | fade_breakout_4h | squeeze_breakout_4h | turtle_soup | ...",
+    "symbol": "BTCUSDT | MES | ...",
+    "direction": "long | short",
+    "status": "closed | orphaned | ... (order_packages.status)",
+    "executed": "bool — true when linked_trade_id is set (the decision actually filled)",
+    "created_at": "ISO-8601 — when the order package was created (the decision timestamp)",
+    "entry": 0.0,
+    "sl": 0.0,
+    "tp": 0.0,
+    "pnl": "float or null — realised PnL of the linked trade when executed; null for shadow/unfilled",
+    "exit_reason": "tp_cross | sl_hit | trail | reconciler_filled | manual | null (close_reason/exit_reason)",
+    "decision_grade": "A | B | C | D | F",
+    "decision_grade_score": "4 | 3 | 2 | 1 | 0 — numeric mirror of decision_grade (A=4..F=0)",
+    "entry_quality": "optimal | acceptable | late | early | should_skip | unknown",
+    "exit_quality": "optimal | tp_appropriate | sl_appropriate | premature_exit | held_too_long | unknown (unknown for shadow/unfilled)",
+    "risk_management": "correct | oversize | undersize | sl_too_tight | sl_too_wide | unknown",
+    "rationale": "<= 240 chars — why this grade given the package's signal_logic + (when filled) outcome",
+    "alternative_action": "<= 160 chars — what we'd do differently next time, or 'none'"
+  }
+}
