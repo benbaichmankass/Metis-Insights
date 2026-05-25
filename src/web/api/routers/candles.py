@@ -42,6 +42,22 @@ _ALLOWED_INTERVALS = {"1m", "5m", "15m", "30m", "1h", "2h", "4h", "1d"}
 _CACHE: Dict[tuple, tuple[float, List[dict]]] = {}
 _CACHE_TTL_S = 10.0
 
+# Reuse one exchange connector per symbol instead of building a fresh ccxt
+# client (which loads markets) on every uncached request. With multiple polling
+# dashboards (production + preview) hitting several intervals, rebuilding the
+# client each call was needless load on the bot. Evicted on an empty fetch so a
+# dead connector self-heals on the next request.
+_CONNECTOR_CACHE: Dict[str, Any] = {}
+
+
+def _connector(symbol: str, settings: Dict[str, Any]):
+    client = _CONNECTOR_CACHE.get(symbol)
+    if client is None:
+        from src.runtime.market_data import connector_for_symbol
+        client = connector_for_symbol(symbol, settings)  # may raise (e.g. IB w/o ib_port)
+        _CONNECTOR_CACHE[symbol] = client
+    return client
+
 
 def _settings() -> Dict[str, Any]:
     """Connector settings from the process env (same vars the trader uses)."""
@@ -69,12 +85,14 @@ def _epoch_s(ts: Any) -> Optional[int]:
 
 def _fetch_candles(symbol: str, interval: str, limit: int) -> List[dict]:
     """Fetch via the canonical market-data path; return Lightweight-Charts rows."""
-    from src.runtime.market_data import connector_for_symbol, fetch_candles
+    from src.runtime.market_data import fetch_candles
     settings = _settings()
-    client = connector_for_symbol(symbol, settings)  # may raise (e.g. IB w/o ib_port)
+    client = _connector(symbol, settings)  # cached per symbol; may raise (IB w/o ib_port)
     df = fetch_candles(symbol, interval, settings=settings, limit=limit,
                         exchange_client=client)
     if df is None or len(df) == 0:
+        # Drop the cached connector so a stale/broken client rebuilds next call.
+        _CONNECTOR_CACHE.pop(symbol, None)
         return []
     out: List[dict] = []
     for _, row in df.iterrows():
