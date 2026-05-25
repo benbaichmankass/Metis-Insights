@@ -86,10 +86,14 @@ system-design counterpart.
    follow-on safeguards-PR rule) block new code from writing to
    account modes outside the sanctioned wire.
 
-The Telegram `/accounts dry|live <name>` command currently writes to
-the override dict; that handler is scheduled for refactor in the
-safeguards PR to dispatch `set-account-mode` instead, so there is
-exactly one mutation surface on disk.
+The operator's account-mode surface is the menu-driven kill switch in
+`src/bot/telegram_query_bot.py` (the 2026-05 bot overhaul, #1933): a
+confirmed flip persists by invoking `scripts/ops/set_account_mode.sh`
+— the sanctioned writer — so there is exactly one on-disk mutation
+surface. The legacy `/accounts dry|live <name>` command, which wrote
+the in-memory `_DRY_RUN_OVERRIDES` dict, was removed in #1933; the
+override dict + `set_account_dry_run()` themselves remain queued for
+deletion (item 3 above).
 
 ## System Layers
 
