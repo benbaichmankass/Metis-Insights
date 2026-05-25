@@ -113,6 +113,29 @@ if [ -f "${_CF_DROPIN_SRC}" ]; then
     fi
 fi
 
+# Why ict-telegram-bot needs the data-dir drop-in:
+#   The bot's pending-pings drainer (src/bot/cloud_notifier) + journal
+#   reads resolve through DATA_DIR-aware paths. Without a drop-in it
+#   inherits no DATA_DIR (stripped from .env), falls back to
+#   <repo>/runtime_logs, and drains a DIFFERENT directory than the
+#   canonical writers: execution_diagnostics trade pings + a DATA_DIR-aware
+#   send-ping write $DATA_DIR/runtime_logs/pending_pings, and the claude
+#   bridge reads $DATA_DIR/runtime_logs/pending_claude_pings. That split
+#   silently dropped trade-lifecycle + claude-channel pings (2026-05-25).
+#   This is the same generic data-dir.conf the trader/bridge/web-api units
+#   already carry, so the bot reads the canonical store too.
+_TGBOT_DROPIN_SRC="${REPO_DIR}/deploy/dropins/data-dir.conf"
+_TGBOT_DROPIN_DST="${SYSTEMD_DIR}/ict-telegram-bot.service.d/data-dir.conf"
+if [ -f "${_TGBOT_DROPIN_SRC}" ]; then
+    if [ ! -e "${_TGBOT_DROPIN_DST}" ] || ! cmp -s "${_TGBOT_DROPIN_SRC}" "${_TGBOT_DROPIN_DST}"; then
+        echo ">>> install_systemd_units: dropin data-dir.conf → ${_TGBOT_DROPIN_DST}"
+        "${SUDO[@]}" mkdir -p "$(dirname "${_TGBOT_DROPIN_DST}")"
+        "${SUDO[@]}" cp "${_TGBOT_DROPIN_SRC}" "${_TGBOT_DROPIN_DST}"
+        "${SUDO[@]}" chmod 0644 "${_TGBOT_DROPIN_DST}"
+        changed=1
+    fi
+fi
+
 if [ "$changed" -eq 1 ]; then
     echo ">>> install_systemd_units: daemon-reload"
     if ! "${SUDO[@]}" systemctl daemon-reload 2>&1; then
