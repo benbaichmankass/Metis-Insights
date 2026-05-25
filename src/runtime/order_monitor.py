@@ -2280,6 +2280,78 @@ def _release_stuck_pkg_minutes() -> float:
     return v
 
 
+# Timeframe-aware stuck threshold (2026-05-25). A package's ``updated_at``
+# only advances when ``monitor()`` returns a non-None verdict (a
+# Chandelier-trail ratchet / SL-TP move). On a multi-hour strategy a
+# perfectly healthy live position routinely goes many minutes between
+# ratchets, so the flat 30-min ``STUCK_STRATEGY_THRESHOLD_MINUTES``
+# (tuned for vwap's 5m cadence) false-fires "still stuck" on good trades
+# (trend_donchian 2h, fade/squeeze 4h). The watchdog scales its
+# position-alive quiet window by the package's OWN bar interval so a 5m
+# trade still trips at the floor while a 2h/4h trade waits proportionally
+# longer; genuine orphans (position flat) are unaffected and still trip
+# at the floor. Multiplier is operator-tunable without a restart.
+_DEFAULT_STUCK_STRATEGY_TIMEFRAME_MULT = 3.0
+
+_TIMEFRAME_UNIT_MINUTES = {"m": 1.0, "h": 60.0, "d": 1440.0, "w": 10080.0}
+
+
+def _stuck_strategy_timeframe_mult() -> float:
+    """Read ``STUCK_STRATEGY_TIMEFRAME_MULT`` at call time. Number of
+    bar-intervals of silence before a position-alive package is treated
+    as stuck. Default 3; clamped to ``>= 1`` (a sub-1 multiple would
+    fight the per-bar verdict cadence). Unparseable → default.
+    """
+    raw = os.environ.get("STUCK_STRATEGY_TIMEFRAME_MULT")
+    if raw is None or str(raw).strip() == "":
+        return _DEFAULT_STUCK_STRATEGY_TIMEFRAME_MULT
+    try:
+        return max(1.0, float(raw))
+    except (TypeError, ValueError):
+        return _DEFAULT_STUCK_STRATEGY_TIMEFRAME_MULT
+
+
+def _timeframe_to_minutes(timeframe: Any) -> Optional[float]:
+    """Parse a strategy timeframe (``"5m"``, ``"2h"``, ``"4h"``, ``"1d"``)
+    into minutes. A bare integer is treated as minutes (the CCXT-style
+    ``"120"`` == 120 m convention used elsewhere). Returns ``None`` on
+    missing / unparseable input so the caller falls back to the flat
+    floor.
+    """
+    if timeframe is None:
+        return None
+    s = str(timeframe).strip().lower()
+    if not s:
+        return None
+    if s.isdigit():
+        v = float(s)
+        return v if v > 0 else None
+    unit = _TIMEFRAME_UNIT_MINUTES.get(s[-1])
+    if unit is None:
+        return None
+    try:
+        n = float(s[:-1])
+    except ValueError:
+        return None
+    return n * unit if n > 0 else None
+
+
+def _stuck_threshold_for_package(meta: Optional[Dict[str, Any]]) -> float:
+    """Per-package stuck threshold (minutes), timeframe-aware.
+
+    ``max(floor, mult x timeframe_minutes)`` where the floor is the env
+    ``STUCK_STRATEGY_THRESHOLD_MINUTES`` (default 30). Packages without a
+    parseable ``meta.timeframe`` fall back to the flat floor — the
+    pre-2026-05-25 behaviour — so short-timeframe strategies keep
+    tripping quickly and genuinely-stuck rows are still caught.
+    """
+    floor = _stuck_strategy_threshold_minutes()
+    tf_min = _timeframe_to_minutes((meta or {}).get("timeframe"))
+    if tf_min is None:
+        return floor
+    return max(floor, _stuck_strategy_timeframe_mult() * tf_min)
+
+
 def _pkg_age_minutes(updated_at: Any) -> Optional[float]:
     """Return age (in minutes) of an order_packages row given the
     raw ``updated_at`` string. ``None`` on unparseable input — the
@@ -2368,6 +2440,10 @@ def _watchdog_stuck_strategies(db) -> Dict[str, int]:
         # after RELEASE_STUCK_PKG_MINUTES so the strategy_monocle
         # gate reopens; the trade row stays open.
         "released_alive": 0,
+        # Position-alive packages skipped because they haven't been
+        # silent for their TIMEFRAME-scaled quiet window yet (a healthy
+        # 2h/4h trade that simply hasn't ratcheted) — no alert, no churn.
+        "deferred_below_timeframe": 0,
         "skipped_position_read_failed": 0,
         "errors": 0,
     }
@@ -2493,8 +2569,21 @@ def _watchdog_stuck_strategies(db) -> Dict[str, int]:
             #     tracking the live position; the strategy_monocle
             #     gate reopens for new dispatches. PR
             #     claude/watchdog-cadence-fix-JZkeL.
-            summary["deferred_position_alive"] += 1
+            # Timeframe-aware quiet window: a position-alive package is
+            # only "stuck" once it has been silent for its own
+            # bar-interval-scaled threshold (max(floor, mult x
+            # timeframe)). A healthy multi-hour trade that simply hasn't
+            # ratcheted its trail within the floor window is NOT stuck —
+            # skip it silently (no alert, no meta churn). Genuine orphans
+            # never reach here (handled by the position-flat branch
+            # below at the floor), so this only quiets benign alerts.
+            pkg_threshold = _stuck_threshold_for_package(meta)
             age_minutes = _pkg_age_minutes(row["updated_at"])
+            if age_minutes is not None and age_minutes < pkg_threshold:
+                summary["deferred_below_timeframe"] += 1
+                continue
+
+            summary["deferred_position_alive"] += 1
             release_threshold = _release_stuck_pkg_minutes()
             should_release_pkg = (
                 release_threshold > 0
@@ -2533,7 +2622,9 @@ def _watchdog_stuck_strategies(db) -> Dict[str, int]:
                         symbol=str(symbol or "?"),
                         order_package_id=str(pkg_id),
                         db_trade_id=trade_id,
-                        stuck_minutes=int(threshold_minutes),
+                        # Report the per-package (timeframe-aware)
+                        # threshold actually waited, not the flat floor.
+                        stuck_minutes=int(pkg_threshold),
                         # ``auto_cleared`` here flags whether the
                         # strategy_monocle gate was reopened — the
                         # released-alive path DOES reopen the gate,
@@ -2629,19 +2720,23 @@ def _watchdog_stuck_strategies(db) -> Dict[str, int]:
         or summary["alerted"]
         or summary["deferred_position_alive"]
         or summary["released_alive"]
+        or summary["deferred_below_timeframe"]
         or summary["skipped_position_read_failed"]
     ):
         logger.info(
             "_watchdog_stuck_strategies: checked=%d alerted=%d "
             "auto_cleared=%d deferred_position_alive=%d "
-            "released_alive=%d skipped_position_read_failed=%d "
-            "errors=%d (threshold=%d min release=%d min)",
+            "released_alive=%d deferred_below_timeframe=%d "
+            "skipped_position_read_failed=%d "
+            "errors=%d (floor=%d min release=%d min mult=%.1f)",
             summary["checked"], summary["alerted"], summary["auto_cleared"],
             summary["deferred_position_alive"],
             summary["released_alive"],
+            summary["deferred_below_timeframe"],
             summary["skipped_position_read_failed"],
             summary["errors"], int(threshold_minutes),
             int(_release_stuck_pkg_minutes()),
+            _stuck_strategy_timeframe_mult(),
         )
     return summary
 

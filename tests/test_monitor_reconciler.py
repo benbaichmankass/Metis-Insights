@@ -32,8 +32,10 @@ from src.runtime.order_monitor import (
     _parse_created_at,
     _reconcile_open_trades,
     _resolve_linked_package_id,
+    _stuck_threshold_for_package,
     _sweep_stuck_linked_packages,
     _sweep_unlinked_packages,
+    _timeframe_to_minutes,
     _watchdog_stuck_strategies,
 )
 from src.units.db.database import Database
@@ -1861,6 +1863,7 @@ class TestStuckStrategyWatchdog:
             "checked": 0, "alerted": 0, "auto_cleared": 0,
             "deferred_position_alive": 0,
             "released_alive": 0,
+            "deferred_below_timeframe": 0,
             "skipped_position_read_failed": 0,
             "errors": 0,
         }
@@ -1901,6 +1904,7 @@ class TestStuckStrategyWatchdog:
             "checked": 0, "alerted": 0, "auto_cleared": 0,
             "deferred_position_alive": 0,
             "released_alive": 0,
+            "deferred_below_timeframe": 0,
             "skipped_position_read_failed": 0,
             "errors": 0,
         }
@@ -2156,6 +2160,180 @@ class TestStuckStrategyWatchdog:
         assert summary["released_alive"] == 0
         assert _read_package(tmp_db, "pkg-release-disabled")["status"] == "open"
         assert _read_trade(tmp_db, trade_id)["status"] == "open"
+
+    # -- Timeframe-aware quiet window (2026-05-25) -----------------------
+
+    def test_timeframe_aware_2h_below_threshold_not_alerted(
+        self, tmp_db, tmp_path, monkeypatch,
+    ):
+        """A 2h strategy's package is silent for 50 min — past the flat
+        30-min floor but well under its timeframe-scaled threshold
+        (3 x 120 = 360 min). With the position alive at the exchange it
+        is NOT a stuck trade (the Chandelier trail just hasn't ratcheted
+        within one bar), so the watchdog must skip it silently: no alert,
+        no meta churn, package + trade untouched.
+        """
+        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
+        monkeypatch.delenv("STUCK_STRATEGY_THRESHOLD_MINUTES", raising=False)
+        monkeypatch.delenv("STUCK_STRATEGY_TIMEFRAME_MULT", raising=False)
+        trade_id = _insert_trade(tmp_db, status="open")
+        self._insert_pkg_with_age(
+            tmp_db, pkg_id="pkg-2h-quiet", linked_trade_id=trade_id,
+            age_minutes=50, strategy="trend_donchian",
+            meta={"timeframe": "2h"},
+        )
+        pings_dir = tmp_path / "pings"
+        monkeypatch.setattr(
+            "src.runtime.execution_diagnostics.PENDING_PINGS_DIR", pings_dir,
+        )
+        with patch(
+            "src.units.accounts.clients.account_open_positions",
+            return_value=[{"symbol": "BTCUSDT", "side": "long", "size": 0.001}],
+        ):
+            summary = _watchdog_stuck_strategies(tmp_db)
+
+        assert summary["deferred_below_timeframe"] == 1
+        assert summary["deferred_position_alive"] == 0
+        assert summary["alerted"] == 0
+        assert summary["auto_cleared"] == 0
+        assert _read_package(tmp_db, "pkg-2h-quiet")["status"] == "open"
+        assert _read_trade(tmp_db, trade_id)["status"] == "open"
+        assert not list(pings_dir.glob("*.json"))
+
+    def test_timeframe_aware_2h_above_threshold_alerts(
+        self, tmp_db, tmp_path, monkeypatch,
+    ):
+        """Once a 2h package has been silent past its timeframe-scaled
+        threshold (>360 min) the watchdog DOES fire (position-alive
+        defer + one alert), and the alert reports the per-package
+        threshold (360 min), not the flat 30-min floor.
+        """
+        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
+        monkeypatch.delenv("STUCK_STRATEGY_THRESHOLD_MINUTES", raising=False)
+        monkeypatch.delenv("STUCK_STRATEGY_TIMEFRAME_MULT", raising=False)
+        # Keep it in the defer (not release) path so we assert on the
+        # "still stuck" alert body specifically.
+        monkeypatch.setenv("RELEASE_STUCK_PKG_MINUTES", "9999")
+        trade_id = _insert_trade(tmp_db, status="open")
+        self._insert_pkg_with_age(
+            tmp_db, pkg_id="pkg-2h-stuck", linked_trade_id=trade_id,
+            age_minutes=400, strategy="trend_donchian",
+            meta={"timeframe": "2h"},
+        )
+        pings_dir = tmp_path / "pings"
+        monkeypatch.setattr(
+            "src.runtime.execution_diagnostics.PENDING_PINGS_DIR", pings_dir,
+        )
+        with patch(
+            "src.units.accounts.clients.account_open_positions",
+            return_value=[{"symbol": "BTCUSDT", "side": "long", "size": 0.001}],
+        ):
+            summary = _watchdog_stuck_strategies(tmp_db)
+
+        assert summary["deferred_below_timeframe"] == 0
+        assert summary["deferred_position_alive"] == 1
+        assert summary["alerted"] == 1
+        queued = sorted(pings_dir.glob("*.json"))
+        assert len(queued) == 1
+        body = json.loads(queued[0].read_text())["body"]
+        assert "360 min" in body  # timeframe-aware threshold, not 30
+        assert "force-cleared" not in body
+
+    def test_timeframe_aware_5m_unaffected_trips_at_floor(
+        self, tmp_db, tmp_path, monkeypatch,
+    ):
+        """A 5m strategy keeps the flat 30-min floor (3 x 5 = 15 < 30),
+        so a 45-min-silent position-alive package still alerts — the
+        change must not blind the watchdog on short timeframes.
+        """
+        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
+        monkeypatch.delenv("STUCK_STRATEGY_THRESHOLD_MINUTES", raising=False)
+        monkeypatch.delenv("STUCK_STRATEGY_TIMEFRAME_MULT", raising=False)
+        monkeypatch.setenv("RELEASE_STUCK_PKG_MINUTES", "9999")
+        trade_id = _insert_trade(tmp_db, status="open")
+        self._insert_pkg_with_age(
+            tmp_db, pkg_id="pkg-5m-stuck", linked_trade_id=trade_id,
+            age_minutes=45, strategy="ict_scalp_5m",
+            meta={"timeframe": "5m"},
+        )
+        pings_dir = tmp_path / "pings"
+        monkeypatch.setattr(
+            "src.runtime.execution_diagnostics.PENDING_PINGS_DIR", pings_dir,
+        )
+        with patch(
+            "src.units.accounts.clients.account_open_positions",
+            return_value=[{"symbol": "BTCUSDT", "side": "long", "size": 0.001}],
+        ):
+            summary = _watchdog_stuck_strategies(tmp_db)
+
+        assert summary["deferred_below_timeframe"] == 0
+        assert summary["deferred_position_alive"] == 1
+        assert summary["alerted"] == 1
+
+    def test_timeframe_aware_orphan_still_caught_at_floor(
+        self, tmp_db, tmp_path, monkeypatch,
+    ):
+        """The timeframe gate only quiets BENIGN (position-alive) alerts.
+        A genuine orphan (position flat at the exchange) on a 2h strategy
+        must still be force-cleared at the flat floor (45 min here) — NOT
+        delayed to the 360-min timeframe threshold — so orphan cleanup
+        stays fast and the strategy gate doesn't stay stuck.
+        """
+        monkeypatch.setenv("MONITOR_RECONCILE_ENABLED", "true")
+        monkeypatch.delenv("STUCK_STRATEGY_THRESHOLD_MINUTES", raising=False)
+        monkeypatch.delenv("STUCK_STRATEGY_TIMEFRAME_MULT", raising=False)
+        trade_id = _insert_trade(tmp_db, status="open")
+        self._insert_pkg_with_age(
+            tmp_db, pkg_id="pkg-2h-orphan", linked_trade_id=trade_id,
+            age_minutes=45, strategy="trend_donchian",
+            meta={"timeframe": "2h"},
+        )
+        pings_dir = tmp_path / "pings"
+        monkeypatch.setattr(
+            "src.runtime.execution_diagnostics.PENDING_PINGS_DIR", pings_dir,
+        )
+        with patch(
+            "src.units.accounts.clients.account_open_positions",
+            return_value=[],  # position flat → genuine orphan
+        ):
+            summary = _watchdog_stuck_strategies(tmp_db)
+
+        assert summary["deferred_below_timeframe"] == 0
+        assert summary["auto_cleared"] == 1
+        assert _read_package(tmp_db, "pkg-2h-orphan")["status"] == "closed"
+        assert _read_trade(tmp_db, trade_id)["status"] == "orphaned"
+
+
+class TestTimeframeAwareThresholdHelpers:
+    """Unit coverage for the timeframe parsing + per-package threshold."""
+
+    @pytest.mark.parametrize("tf,exp", [
+        ("5m", 5.0), ("15m", 15.0), ("1h", 60.0), ("2h", 120.0),
+        ("4h", 240.0), ("1d", 1440.0), ("120", 120.0),
+        ("", None), (None, None), ("bogus", None), ("0h", None),
+    ])
+    def test_timeframe_to_minutes(self, tf, exp):
+        assert _timeframe_to_minutes(tf) == exp
+
+    def test_threshold_defaults(self, monkeypatch):
+        monkeypatch.delenv("STUCK_STRATEGY_THRESHOLD_MINUTES", raising=False)
+        monkeypatch.delenv("STUCK_STRATEGY_TIMEFRAME_MULT", raising=False)
+        assert _stuck_threshold_for_package({"timeframe": "5m"}) == 30.0
+        assert _stuck_threshold_for_package({"timeframe": "2h"}) == 360.0
+        assert _stuck_threshold_for_package({"timeframe": "4h"}) == 720.0
+        assert _stuck_threshold_for_package({}) == 30.0
+        assert _stuck_threshold_for_package(None) == 30.0
+
+    def test_threshold_respects_mult_env(self, monkeypatch):
+        monkeypatch.delenv("STUCK_STRATEGY_THRESHOLD_MINUTES", raising=False)
+        monkeypatch.setenv("STUCK_STRATEGY_TIMEFRAME_MULT", "2")
+        assert _stuck_threshold_for_package({"timeframe": "2h"}) == 240.0
+
+    def test_threshold_floor_dominates_for_short_tf(self, monkeypatch):
+        monkeypatch.setenv("STUCK_STRATEGY_THRESHOLD_MINUTES", "60")
+        monkeypatch.delenv("STUCK_STRATEGY_TIMEFRAME_MULT", raising=False)
+        # 3 x 5m = 15 < 60 floor → floor wins.
+        assert _stuck_threshold_for_package({"timeframe": "5m"}) == 60.0
 
 
 # ---------------------------------------------------------------------------
