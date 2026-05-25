@@ -1,9 +1,10 @@
 # systemd drop-ins for OCI block-storage externalization
 
 Drop-in files override or extend an existing systemd unit without
-editing the unit file itself. We use them here because the rule in
-`CLAUDE.md` is **never merge a PR that modifies a `.service` file the
-live VM consumes** — drop-ins are a parallel, additive layer.
+editing the unit file itself. We use them here because modifying a
+`.service` file the live VM consumes is a Tier-2 change that needs
+explicit operator approval before merge (per `CLAUDE.md`) — drop-ins
+are a parallel, additive layer that sidesteps that friction.
 
 ## What's here
 
