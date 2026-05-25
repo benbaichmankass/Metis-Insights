@@ -27,6 +27,19 @@
       "resolution_criteria": "The listed docs/claude/* operational pages no longer present removed slash commands as the current operator surface (they reference the menu + docs/TELEGRAM-SPEC.md instead); the strategies.yaml + accounts.yaml comments are corrected to describe the menu kill switch / set_account_mode.sh wire (config edits require the operator / a Tier-3-aware PR).",
       "status": "open",
       "snoozed_until": null
+    },
+    {
+      "id": "BL-20260525-002",
+      "opened_at": "2026-05-25T00:00:00+00:00",
+      "opened_by": "claude",
+      "source": "live verification during the trader-bot rebuild session (2026-05-25)",
+      "title": "ib_paper account has no ib_port — MES order client cannot reach IB Gateway",
+      "description": "The live trader logs `ib_client_for(ib_paper): no ib_port set (config or IB_PORT env) — cannot reach IB Gateway.` on every tick that routes to ib_paper. IB *market data* works (the gateway is up after the 2026-05-25 restart and MES candle fetches succeed via IBMarketData on 127.0.0.1:4002), so MES ticks complete fast and the heartbeat is stable. But the ib_paper account's ORDER client (src/units/accounts/clients.py::ib_client_for) has no ib_port configured, so it cannot place orders on MES — the account effectively collects signals/data but can't execute. If MES is intended to trade (paper), config/accounts.yaml::ib_paper needs `ib_port: 4002` (or the IB_PORT env on the trader unit). Pre-existing (predates this session); surfaced during post-deploy verification. Operator was informed in chat 2026-05-25 and chose to log it rather than fix immediately.",
+      "tier": 3,
+      "trigger_condition": "Any /health-review run; surface to the operator (do NOT auto-edit accounts.yaml).",
+      "resolution_criteria": "Operator decides whether MES should place live (paper) orders. If yes, set ib_port (4002) on the ib_paper account in config/accounts.yaml (Tier-3 change, operator-approved) and confirm the trader log no longer emits 'no ib_port set' + a smoke order reaches IB Gateway. If MES is data-only by design, document that and close.",
+      "status": "open",
+      "snoozed_until": null
     }
   ]
 }
