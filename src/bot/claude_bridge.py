@@ -43,6 +43,7 @@ from typing import Dict, List, Optional
 
 from dotenv import load_dotenv
 from telegram import BotCommand, Update
+from telegram.error import BadRequest
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 
 from src.utils.paths import runtime_logs_dir
@@ -176,6 +177,34 @@ async def _drain_pending_claude_pings(context: ContextTypes.DEFAULT_TYPE) -> Non
 
         try:
             await context.bot.send_message(**send_kwargs)
+        except BadRequest as exc:
+            # A stale/deleted TELEGRAM_CLAUDE_THREAD_ID makes Telegram 400
+            # ("message thread not found") on EVERY send — the channel goes
+            # dark and the inbox loops forever. Rather than silently drop
+            # updates, fall back to a thread-less send so the operator still
+            # gets the message (it lands in the chat's General view). Only
+            # for thread errors; other BadRequests retry as before.
+            if THREAD_ID is not None and "thread" in str(exc).lower():
+                logger.warning(
+                    "claude ping inbox: thread_id=%s rejected (%s) — resending "
+                    "without message_thread_id so the update still delivers; "
+                    "check TELEGRAM_CLAUDE_THREAD_ID", THREAD_ID, exc,
+                )
+                try:
+                    await context.bot.send_message(
+                        chat_id=ALLOWED_CHAT_ID,
+                        text=text,
+                        disable_web_page_preview=True,
+                    )
+                except Exception as exc2:  # noqa: BLE001
+                    logger.warning(
+                        "claude ping inbox: thread-less fallback failed for %s — %s",
+                        name, exc2,
+                    )
+                    continue   # leave file in place; retry next tick
+            else:
+                logger.warning("claude ping inbox: send failed for %s — %s", name, exc)
+                continue   # leave file in place; retry next tick
         except Exception as exc:  # noqa: BLE001
             logger.warning("claude ping inbox: send failed for %s — %s", name, exc)
             continue   # leave file in place; retry next tick
