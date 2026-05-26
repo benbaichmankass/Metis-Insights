@@ -236,7 +236,6 @@ def recent_template(data: dict[str, Any], limit: int) -> dict[str, Any]:
 def strategy_template(name: str, data: dict[str, Any]) -> dict[str, Any]:
     rc = data.get("row_counts") or {}
     rows = (data.get("rows") or {}).get("trades") or []
-    packages = (data.get("rows") or {}).get("packages") or []
     meta = data.get("meta") or {}
 
     closed = [t for t in rows if t.get("status") == "closed"]
