@@ -69,6 +69,7 @@ EXPECTED_ACTIONS = {
     "disable-signal-dual-write": "disable_signal_dual_write.sh",
     "enable-mobile-push": "enable_mobile_push.sh",
     "disable-mobile-push": "disable_mobile_push.sh",
+    "set-mobile-push-secrets": "set_mobile_push_secrets.sh",
     "setup-cloudflare-tunnel": "setup_cloudflare_tunnel.sh",
     "teardown-cloudflare-tunnel": "teardown_cloudflare_tunnel.sh",
     "setup-named-cloudflare-tunnel": "setup_named_cloudflare_tunnel.sh",
