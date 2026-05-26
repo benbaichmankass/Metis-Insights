@@ -458,6 +458,7 @@ class Database:
         ``src.runtime.mobile_push.publish_event``.
         """
         from src.runtime.mobile_push import publish_event
+        from src.runtime.mobile_push.event_kinds import TRADE_CLOSED
 
         conn = self.connect()
         try:
@@ -477,7 +478,7 @@ class Database:
         if row["is_backtest"] or row["is_demo"]:
             return
         publish_event(
-            "trade_closed",
+            TRADE_CLOSED,
             {
                 "trade_id": trade_id,
                 "symbol": row["symbol"],

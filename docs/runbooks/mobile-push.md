@@ -189,13 +189,16 @@ The row is dropped; any future FCM publishes skip that token.
 
 ## Per-device subscription preferences
 
-The default is "subscribed to everything." To narrow:
+The default is "subscribed to everything." Most operators set this via
+the Android **Settings → Notifications** screen (M12 S4) — toggles
+persist locally + POST to `/api/bot/devices/register` on each change.
+A curl path is provided too for ops scripts:
 
 ```bash
 curl -X PATCH \
      -H "Authorization: Bearer <DASHBOARD_API_TOKEN>" \
      -H "Content-Type: application/json" \
-     -d '{"subscriptions": ["trade_closed", "watchdog_alert"]}' \
+     -d '{"subscriptions": ["trade_closed", "telegram"]}' \
      https://<bot-host>/api/bot/devices/<id>/subscriptions
 ```
 
@@ -204,6 +207,35 @@ Setting `"subscriptions": null` returns to "all kinds." Setting
 as null — an explicit opt-in list is the operator's way to narrow
 scope, not a way to accidentally silence everything via an empty
 preferences screen.
+
+**Unknown kinds 400 at registration.** As of M12 S4 (PR #TODO) the
+canonical taxonomy lives in `src/runtime/mobile_push/event_kinds.py`
+and the device endpoints reject any kind not in `ALL_KINDS`. This
+catches typos at the wire (the operator's "I toggled it off but I'm
+still getting them" bug class) instead of silently never matching a
+publish three weeks later. Adding a kind:
+
+1. Add the `Final[str]` constant + `LABELS`/`DESCRIPTIONS` entry +
+   `ALL_KINDS` row to `event_kinds.py`.
+2. Add it to `IN_FLIGHT` only once a real bot-side call site emits it.
+3. Mirror the constant string in `feature/notifications/EventKind.kt`
+   on the Android side (toggle row is auto-generated from
+   `/api/bot/devices/event-kinds`).
+
+### Canonical kinds (M12 S4)
+
+| Kind | Status | Description |
+|---|---|---|
+| `trade_closed` | in flight | Every closed real-money trade (not backtest / demo). |
+| `telegram` | in flight | Every message the bot would have sent to Telegram. |
+| `signal_emitted` | reserved (M12 S5) | Each ICT detection. |
+| `health_concern` | reserved (M12 S6) | 7-point health check turned red. |
+| `service_down` | reserved (M12 S6) | systemd unit failed. |
+| `pnl_digest` | reserved (M12 S7) | Daily/hourly P&L summary. |
+
+The Android app pulls the same list via
+`GET /api/bot/devices/event-kinds` so the bot side stays the single
+source of truth.
 
 ## Troubleshooting
 
