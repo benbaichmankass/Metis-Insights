@@ -2791,19 +2791,53 @@ def _extract_package_id(notes_raw: Optional[str]) -> Optional[str]:
 
 
 def _resolve_linked_package_id(db, trade_id: Any) -> Optional[str]:
-    """Look up ``order_packages.order_package_id`` for the package
-    whose ``linked_trade_id`` matches *trade_id*.
+    """Resolve the ``order_packages.order_package_id`` for *trade_id*.
 
-    The canonical journal-side link is one-way (package → trade via
-    ``linked_trade_id``); the trade row carries no back-reference.
-    Callers needing the linked package id should resolve it here
-    instead of digging through ``trades.notes`` JSON.
+    The trade↔package link is now stored both directions:
+
+    1. ``trades.order_package_id`` (many-to-one) — canonical, set by
+       the writer in ``execute.py`` for **every** trade row produced
+       by a decision (real entry + demo mirror + intent_reduce flip
+       leg + multi-account fanout). Tried first.
+    2. ``order_packages.linked_trade_id`` (one-to-one, "primary entry
+       trade") — legacy fallback for trade rows that pre-date the
+       column. The writer also still maintains this for the primary
+       leg so the strategy_monocle gate keeps working.
+
+    Pre-fix this only consulted (2), and a multi-leg fanout's
+    secondary legs (demo, intent_reduce) failed to resolve because
+    only the last writer survived the race for the single slot.
 
     Returns ``None`` on any read failure or when no package is
     linked. Best-effort — never raises.
     """
     if trade_id is None:
         return None
+    # (1) canonical many-to-one column on the trade row itself.
+    try:
+        conn = db.connect()
+        try:
+            row = conn.execute(
+                "SELECT order_package_id FROM trades WHERE id = ?",
+                (int(trade_id),),
+            ).fetchone()
+        finally:
+            conn.close()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "_resolve_linked_package_id: trades read failed for "
+            "trade_id=%s: %s",
+            trade_id, exc,
+        )
+        row = None
+    if row is not None:
+        pkg_id = row[0] if not isinstance(row, dict) else row.get("order_package_id")
+        if pkg_id:
+            return str(pkg_id)
+
+    # (2) legacy back-compat — pre-column rows have order_package_id
+    # NULL on the trade side; fall back to the one-way link on the
+    # package side.
     try:
         conn = db.connect()
         try:
@@ -2817,7 +2851,8 @@ def _resolve_linked_package_id(db, trade_id: Any) -> Optional[str]:
             conn.close()
     except Exception as exc:  # noqa: BLE001
         logger.warning(
-            "_resolve_linked_package_id: lookup failed for trade_id=%s: %s",
+            "_resolve_linked_package_id: order_packages fallback "
+            "failed for trade_id=%s: %s",
             trade_id, exc,
         )
         return None

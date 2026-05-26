@@ -802,6 +802,12 @@ def _log_trade_to_journal(
         # aggregations can filter them out of "new entries" cohorts
         # without joining notes JSON.
         setup_type = "intent_reduce" if intent_reduce else pkg.strategy
+        # Pull the package id once: stamped on every trade row (the
+        # many-to-one back-reference the orphan reconciler reads via
+        # ``_resolve_linked_package_id``), and also fed to the
+        # primary-leg ``linked_trade_id`` update below.
+        pkg_id = (pkg.meta or {}).get("order_package_id")
+        is_demo_account = bool(account_cfg.get("demo", False))
         trade_row_id = db.insert_trade({
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "symbol": pkg.symbol,
@@ -814,32 +820,50 @@ def _log_trade_to_journal(
             "entry_reason": entry_reason[:500],
             "status": status,
             "is_backtest": 0,
-            "is_demo": int(bool(account_cfg.get("demo", False))),
+            "is_demo": int(is_demo_account),
             "strategy_name": pkg.strategy,
             "account_id": str(
                 account_cfg.get("account_id") or account_cfg.get("id") or "unknown"
             ),
             "notes": json.dumps(notes_payload, ensure_ascii=False)[:500],
+            "order_package_id": pkg_id,
         })
         # Wire the package → trade link so the strategy_monocle gate
         # (pipeline.py::_has_open_package_for_strategy, linked_only=True)
-        # actually finds an open package to gate on. Only on the
-        # successful-entry path: rejection rows must not stamp a
-        # linked_trade_id (the trade was never live; gating on it
-        # would suppress legitimate retries forever).
-        if status == "open" and trade_row_id is not None:
-            pkg_id = (pkg.meta or {}).get("order_package_id")
-            if pkg_id:
-                try:
-                    db.update_order_package(pkg_id, {
-                        "linked_trade_id": int(trade_row_id),
-                    })
-                except Exception as exc:  # noqa: BLE001
-                    logger.warning(
-                        "execute_pkg: linked_trade_id update failed "
-                        "(pkg_id=%s trade_id=%s): %s",
-                        pkg_id, trade_row_id, exc,
-                    )
+        # actually finds an open package to gate on.
+        #
+        # PRIMARY entry only. ``order_packages.linked_trade_id`` has
+        # one slot, but a single decision can fan out into multiple
+        # trade rows: real-money entry + demo mirror + intent_reduce
+        # flip leg + multi-account fanout. Pre-fix, every leg called
+        # ``update_order_package(linked_trade_id=<its own id>)`` and
+        # only the last writer survived — the rest showed up as
+        # ``(unlinked)`` in the orphan-sweep ping and the reconciler
+        # could not cascade them. Now: every leg already carries the
+        # canonical many-to-one back-reference via the trade row's
+        # ``order_package_id`` column (above) so the reconciler can
+        # resolve all of them; only the real-money primary entry
+        # writes the package's ``linked_trade_id`` slot.
+        #
+        # Rejection rows still skip this — the trade was never live;
+        # gating on it would suppress legitimate retries forever.
+        is_primary_entry = (
+            status == "open"
+            and trade_row_id is not None
+            and not intent_reduce
+            and not is_demo_account
+        )
+        if is_primary_entry and pkg_id:
+            try:
+                db.update_order_package(pkg_id, {
+                    "linked_trade_id": int(trade_row_id),
+                })
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "execute_pkg: linked_trade_id update failed "
+                    "(pkg_id=%s trade_id=%s): %s",
+                    pkg_id, trade_row_id, exc,
+                )
         # Trade-lifecycle ping (TELEGRAM-SPEC §4.2) — live opens only.
         # Best-effort: a ping failure must never touch the order path.
         if status == "open" and not is_dry:

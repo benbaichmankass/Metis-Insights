@@ -31,6 +31,15 @@ _EXPECTED_TRADES_COLS = {
     # Added in feat(shadow) #1538: marks trades executed on demo/paper accounts
     # so PnL/stats queries can exclude them from live-account reporting.
     "is_demo",
+    # Added in PR #2046 (2026-05-26): many-to-one back-reference from a
+    # trade row to the order_packages decision that produced it. Closes
+    # the "(unlinked)" gap in the orphan-reconciler sweep ping for the
+    # secondary legs of a multi-leg fanout (demo mirror, intent_reduce
+    # flip leg, multi-account fanout). The legacy one-way
+    # ``order_packages.linked_trade_id`` link still carries the
+    # "primary entry trade" — written only by the real-money primary
+    # leg of the fanout.
+    "order_package_id",
 }
 
 _EXPECTED_ORDER_PACKAGES_COLS = {
