@@ -145,4 +145,9 @@ class MulticlassClassificationEvaluator(Evaluator):
             out[f"precision_{c}"] = float(per_class_precision[c])
             out[f"recall_{c}"] = float(per_class_recall[c])
             out[f"f1_{c}"] = float(per_class_f1[c])
+            # Per-class support (eval rows whose true label is c). Lets the
+            # promotion gates compute imbalance-aware criteria — a 0.024 F1
+            # on a class with 0.5% base rate is very different from a 0.024
+            # F1 on a 50% class.
+            out[f"support_{c}"] = float(support[c])
         return out

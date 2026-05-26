@@ -34,6 +34,16 @@ from typing import Any
 @dataclass(frozen=True)
 class GateThresholds:
     min_class_f1: float = 0.30
+    # Imbalance-aware alternative path through `non_degenerate`. The plain
+    # `min_class_f1 ≥ 0.30` rule is unfair to high-precision/low-recall
+    # minority predictors on heavily skewed labels: a 0.5%-base-rate class
+    # caps F1 around its support no matter how good precision is. The
+    # alternative requires precision lift over a random predictor AND a
+    # floor on recall, so a model that's right when it fires AND fires
+    # sometimes can pass even with low F1. Both legs must hold for every
+    # observed class. Requires the evaluator to emit `support_<class>`.
+    min_class_precision_lift: float = 2.0
+    min_class_recall: float = 0.05
     min_trades: int = 200
     min_eval: int = 1000
     stability_metric_max_std: float = 0.05
@@ -108,13 +118,37 @@ def _gate_non_degenerate(entry: Any, attribution: Any, th: GateThresholds) -> Ga
     metrics = dict(entry.metrics)
     f1_keys = [k for k in metrics if k.startswith("f1_")]
     if f1_keys:
-        worst = min(float(metrics[k]) for k in f1_keys)
-        ok = worst >= th.min_class_f1
+        # Two pass paths — model is non-degenerate if EITHER holds:
+        #
+        #   (A) Strict F1 floor: min_per_class_f1 ≥ th.min_class_f1.
+        #       Original gate semantics — works fine when classes are
+        #       roughly balanced.
+        #
+        #   (B) Imbalance-aware: for every observed class, precision is at
+        #       least th.min_class_precision_lift × the class's base rate
+        #       AND recall is at least th.min_class_recall. Catches the
+        #       case where a heavy class imbalance caps F1 on the minority
+        #       no matter how well-calibrated the predictor is, but the
+        #       model is still actually predicting both classes and being
+        #       right about them more than chance would. Requires
+        #       per-class support in the metrics dict (a class without
+        #       support is treated as absent — won't gate on it).
+        worst_f1 = min(float(metrics[k]) for k in f1_keys)
+        if worst_f1 >= th.min_class_f1:
+            return GateResult(
+                "non_degenerate",
+                "pass",
+                f"min per-class F1 = {worst_f1:.3f} over {sorted(f1_keys)}",
+                value=worst_f1, threshold=th.min_class_f1,
+            )
+        imbalance_result = _eval_imbalance_aware_alt(metrics, f1_keys, worst_f1, th)
+        if imbalance_result is not None:
+            return imbalance_result
         return GateResult(
-            "non_degenerate",
-            "pass" if ok else "fail",
-            f"min per-class F1 = {worst:.3f} over {sorted(f1_keys)}",
-            value=worst, threshold=th.min_class_f1,
+            "non_degenerate", "fail",
+            f"min per-class F1 = {worst_f1:.3f} over {sorted(f1_keys)} "
+            f"(imbalance-aware alt requires per-class support metrics)",
+            value=worst_f1, threshold=th.min_class_f1,
         )
     if attribution is not None:
         spread = attribution.score_max - attribution.score_min
@@ -128,6 +162,73 @@ def _gate_non_degenerate(entry: Any, attribution: Any, th: GateThresholds) -> Ga
     return GateResult(
         "non_degenerate", "insufficient_data",
         "no per-class F1 in metrics and no live attribution to measure spread",
+    )
+
+
+def _eval_imbalance_aware_alt(
+    metrics: dict[str, Any],
+    f1_keys: list[str],
+    worst_f1: float,
+    th: GateThresholds,
+) -> GateResult | None:
+    """Return a GateResult if the imbalance-aware path can be evaluated, else None.
+
+    `None` means the metrics dict didn't carry enough info (no support
+    fields) — the caller falls back to its original fail message rather
+    than guessing.
+    """
+    classes = [k[len("f1_"):] for k in f1_keys]
+    supports = {c: metrics.get(f"support_{c}") for c in classes}
+    if any(s is None for s in supports.values()):
+        return None
+    n_total = sum(float(s) for s in supports.values())
+    if n_total <= 0:
+        return None
+    # Classes with zero support don't impose a constraint (model can't be
+    # judged on them).
+    judged = [c for c in classes if float(supports[c]) > 0]
+    if not judged:
+        return None
+    failures: list[str] = []
+    precision_lifts: list[float] = []
+    recalls: list[float] = []
+    for c in judged:
+        base_rate = float(supports[c]) / n_total
+        precision = float(metrics.get(f"precision_{c}", 0.0))
+        recall = float(metrics.get(f"recall_{c}", 0.0))
+        # Precision-lift floor: how much better than a random predictor's
+        # precision (= base_rate). Skip the lift check for classes whose
+        # base rate is already ≥ 0.5 — there's no headroom to "lift" the
+        # majority class, and we already enforce recall ≥ floor separately.
+        if base_rate < 0.5:
+            lift = precision / base_rate if base_rate > 0 else 0.0
+            precision_lifts.append(lift)
+            if lift < th.min_class_precision_lift:
+                failures.append(
+                    f"{c}: precision_lift={lift:.2f} "
+                    f"(precision={precision:.3f} / base_rate={base_rate:.3f}) "
+                    f"< {th.min_class_precision_lift:.2f}"
+                )
+        if recall < th.min_class_recall:
+            failures.append(
+                f"{c}: recall={recall:.3f} < {th.min_class_recall:.2f}"
+            )
+        recalls.append(recall)
+    if failures:
+        return GateResult(
+            "non_degenerate", "fail",
+            f"strict F1 floor not met (min={worst_f1:.3f} < {th.min_class_f1:.2f}); "
+            f"imbalance-aware alt also fails: {'; '.join(failures)}",
+            value=worst_f1, threshold=th.min_class_f1,
+        )
+    return GateResult(
+        "non_degenerate", "pass",
+        f"min per-class F1 = {worst_f1:.3f} (below strict floor "
+        f"{th.min_class_f1:.2f}); imbalance-aware alt passes — "
+        f"min precision_lift = {min(precision_lifts) if precision_lifts else float('inf'):.2f} "
+        f"(≥ {th.min_class_precision_lift:.2f}), "
+        f"min recall = {min(recalls):.3f} (≥ {th.min_class_recall:.2f})",
+        value=worst_f1, threshold=th.min_class_f1,
     )
 
 
