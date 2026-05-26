@@ -169,6 +169,7 @@ def _publish_telegram_to_fcm(message: str, *, parse_mode: Optional[str]) -> None
     to stay inside that with margin.
     """
     from src.runtime.mobile_push import publish_event
+    from src.runtime.mobile_push.event_kinds import TELEGRAM
 
     # 3 KB leaves headroom for the event_kind key + JSON envelope below
     # FCM's 4 KB data-message limit.
@@ -180,7 +181,7 @@ def _publish_telegram_to_fcm(message: str, *, parse_mode: Optional[str]) -> None
         else message[: _MAX_PAYLOAD_CHARS - len(_TRUNC_SUFFIX)] + _TRUNC_SUFFIX
     )
     publish_event(
-        "telegram",
+        TELEGRAM,
         {
             "text": body,
             "parse_mode": parse_mode or "plain",

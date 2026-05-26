@@ -93,8 +93,16 @@ def _normalize_subscriptions(value: Any) -> str | None:
     - List of strings ``["trade_closed", "signals"]`` → JSON-encoded.
     - Dict ``{"trade_closed": true, "signals": false}`` → JSON-encoded.
 
+    Unknown kinds are rejected with 400 — the canonical taxonomy lives in
+    ``src.runtime.mobile_push.event_kinds`` and a typo here would silently
+    never match a publish, which is the exact bug class the validation is
+    here to catch. Lands the operator's mistakes loudly at registration
+    time instead of as "the toggle doesn't work" three weeks later.
+
     Anything else raises 400.
     """
+    from src.runtime.mobile_push.event_kinds import is_known
+
     if value is None:
         return None
     if isinstance(value, list):
@@ -103,12 +111,24 @@ def _normalize_subscriptions(value: Any) -> str | None:
                 status_code=400,
                 detail="subscriptions list must contain only strings",
             )
+        unknown = [s for s in value if not is_known(s)]
+        if unknown:
+            raise HTTPException(
+                status_code=400,
+                detail=f"unknown subscription kind(s): {unknown}",
+            )
         return json.dumps(value)
     if isinstance(value, dict):
         if not all(isinstance(k, str) for k in value.keys()):
             raise HTTPException(
                 status_code=400,
                 detail="subscriptions dict keys must be strings",
+            )
+        unknown = [k for k in value.keys() if not is_known(k)]
+        if unknown:
+            raise HTTPException(
+                status_code=400,
+                detail=f"unknown subscription kind(s): {unknown}",
             )
         return json.dumps(value)
     raise HTTPException(
@@ -212,6 +232,40 @@ async def register_device(request: Request) -> dict[str, Any]:
         "created_at": row[4],
         "last_seen_at": row[5],
         "is_new": is_new,
+    }
+
+
+@router.get("/event-kinds")
+async def get_event_kinds() -> dict[str, Any]:
+    """Return the canonical event-kind taxonomy.
+
+    Used by the Android Notifications screen to populate per-kind toggles
+    so the app and the bot stay in sync (the app doesn't have to mirror
+    the list, just iterate this response). Each entry carries the
+    canonical kind string, a display label, and a one-line description.
+
+    The ``in_flight`` field marks kinds whose payload semantics the bot
+    already emits today; reserved kinds are listed so the operator can
+    pre-configure their preferences ahead of the wiring landing in
+    subsequent M12 sprints.
+    """
+    from src.runtime.mobile_push.event_kinds import (
+        ALL_KINDS,
+        DESCRIPTIONS,
+        IN_FLIGHT,
+        LABELS,
+    )
+
+    return {
+        "kinds": [
+            {
+                "kind": k,
+                "label": LABELS[k],
+                "description": DESCRIPTIONS[k],
+                "in_flight": k in IN_FLIGHT,
+            }
+            for k in ALL_KINDS
+        ],
     }
 
 

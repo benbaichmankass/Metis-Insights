@@ -103,11 +103,11 @@ def test_register_accepts_list_subscriptions(
         "/api/bot/devices/register",
         json={
             "token": "t",
-            "subscriptions": ["trade_closed", "watchdog_alert"],
+            "subscriptions": ["trade_closed", "telegram"],
         },
     )
     assert resp.status_code == 200
-    assert resp.json()["subscriptions"] == ["trade_closed", "watchdog_alert"]
+    assert resp.json()["subscriptions"] == ["trade_closed", "telegram"]
 
 
 def test_register_rejects_non_string_subscriptions(
@@ -118,6 +118,30 @@ def test_register_rejects_non_string_subscriptions(
         json={"token": "t", "subscriptions": [1, 2, 3]},
     )
     assert resp.status_code == 400
+
+
+def test_register_rejects_unknown_kind(
+    client: TestClient, isolated_db: Path
+) -> None:
+    """A typo in a subscription kind must 400 at registration, not silently
+    never match a publish three weeks later."""
+    resp = client.post(
+        "/api/bot/devices/register",
+        json={"token": "t", "subscriptions": ["trade_close"]},
+    )
+    assert resp.status_code == 400
+    assert "unknown subscription kind" in resp.json()["detail"]
+
+
+def test_register_rejects_unknown_kind_in_dict(
+    client: TestClient, isolated_db: Path
+) -> None:
+    resp = client.post(
+        "/api/bot/devices/register",
+        json={"token": "t", "subscriptions": {"trade_closed": True, "typo": False}},
+    )
+    assert resp.status_code == 400
+    assert "unknown subscription kind" in resp.json()["detail"]
 
 
 # ---------------------------------------------------------------------------
@@ -200,10 +224,24 @@ def test_patch_subscriptions_replaces_value(
     ).json()
     resp = client.patch(
         f"/api/bot/devices/{reg['id']}/subscriptions",
-        json={"subscriptions": ["signals", "watchdog_alert"]},
+        json={"subscriptions": ["signal_emitted", "health_concern"]},
     )
     assert resp.status_code == 200
-    assert resp.json()["subscriptions"] == ["signals", "watchdog_alert"]
+    assert resp.json()["subscriptions"] == ["signal_emitted", "health_concern"]
+
+
+def test_patch_rejects_unknown_kind(
+    client: TestClient, isolated_db: Path
+) -> None:
+    reg = client.post(
+        "/api/bot/devices/register",
+        json={"token": "x"},
+    ).json()
+    resp = client.patch(
+        f"/api/bot/devices/{reg['id']}/subscriptions",
+        json={"subscriptions": ["typo_kind"]},
+    )
+    assert resp.status_code == 400
 
 
 def test_patch_subscriptions_to_null_means_subscribe_all(
@@ -232,3 +270,46 @@ def test_patch_missing_subscriptions_field_returns_400(
         json={"other_field": "value"},
     )
     assert resp.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# GET /event-kinds  (M12 S4)
+# ---------------------------------------------------------------------------
+
+
+def test_get_event_kinds_returns_canonical_taxonomy(
+    client: TestClient, isolated_db: Path
+) -> None:
+    """The endpoint must echo every kind in event_kinds.ALL_KINDS, in order,
+    with label + description + in_flight populated."""
+    from src.runtime.mobile_push.event_kinds import (
+        ALL_KINDS,
+        DESCRIPTIONS,
+        IN_FLIGHT,
+        LABELS,
+    )
+
+    resp = client.get("/api/bot/devices/event-kinds")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert "kinds" in body
+    kinds = body["kinds"]
+    assert len(kinds) == len(ALL_KINDS)
+    for got, expected in zip(kinds, ALL_KINDS):
+        assert got["kind"] == expected
+        assert got["label"] == LABELS[expected]
+        assert got["description"] == DESCRIPTIONS[expected]
+        assert got["in_flight"] is (expected in IN_FLIGHT)
+
+
+def test_get_event_kinds_marks_in_flight_kinds_correctly(
+    client: TestClient, isolated_db: Path
+) -> None:
+    """At minimum trade_closed + telegram must be marked in_flight=True
+    because the bot has real call sites emitting them today."""
+    resp = client.get("/api/bot/devices/event-kinds")
+    by_kind = {row["kind"]: row for row in resp.json()["kinds"]}
+    assert by_kind["trade_closed"]["in_flight"] is True
+    assert by_kind["telegram"]["in_flight"] is True
+    # Reserved kinds are not in-flight yet.
+    assert by_kind["health_concern"]["in_flight"] is False
