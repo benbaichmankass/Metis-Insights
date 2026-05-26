@@ -1,5 +1,12 @@
 # Prop account state — configuration & gating
 
+> **`/accounts_status` no longer exists (PR #1933, 2026-05-25).** The
+> trader bot is menu-driven; see [`docs/TELEGRAM-SPEC.md`](../TELEGRAM-SPEC.md).
+> The prop-account checks below that reference `/accounts_status` should
+> use the menu's **💼 Accounts snapshot** view (or the dashboard's
+> Accounts page) — they read the same `runtime_status.json` /
+> `accounts.yaml` data the removed command did.
+
 The Velotrade integration adds a mission-aware risk gate on top of the
 base `RiskManager`. This doc is the operator reference for the new
 fields, the state machine, and the skip-reason vocabulary.

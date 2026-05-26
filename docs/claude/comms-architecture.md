@@ -24,8 +24,10 @@ keep the whole thing isolated from PR discussion and trading logic.
 - Replacing PR review. PRs remain the channel for code review;
   `comms/` is for *operational* questions ("which exchange should we
   prioritise?") that are noise inside a code-review thread.
-- General Telegram bot UX. Existing commands (`/halt`, `/status`,
-  `/signals`, …) stay where they are. Comms is a sibling subsystem.
+- General Telegram bot UX. The trader bot's operator UX is now
+  menu-driven (PR #1933, 2026-05-25; see
+  [`docs/TELEGRAM-SPEC.md`](../TELEGRAM-SPEC.md)); comms is a sibling
+  subsystem and does not touch that menu.
 - Database / queue infra. The repo is the database. Files are the queue.
 
 ## 2. High-level flow

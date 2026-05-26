@@ -1,5 +1,25 @@
 # Live trader VM operator mode — the contract
 
+> **This entire `/vm` / `/vm_write` command surface was removed (PR #1933,
+> 2026-05-25).** The trust contract below describes the historical
+> Telegram-dispatched VM-runner that no longer exists; the trader bot is
+> now menu-driven (see [`docs/TELEGRAM-SPEC.md`](../TELEGRAM-SPEC.md)) and
+> has no arbitrary-bash surface. **Current access paths to the live VM:**
+> - **Read** — the diag relay (`vm-diag-snapshot.yml`, label
+>   `vm-diag-request`), see [`diag-relay.md`](diag-relay.md). Fixed-form
+>   curl; no shell.
+> - **Mutate (allowlisted)** — `system-actions` workflow (label
+>   `system-action`), see [`system-actions.md`](system-actions.md). Tiered
+>   allowlist; Tier-2 needs operator ack.
+> - **Self-heal `ict-web-api`** — `vm-web-api-recover.yml` (label
+>   `vm-web-api-recover`). Restart-only, no edits.
+>
+> There is **no arbitrary-bash relay for the live VM** — that capability
+> intentionally does not exist (the live VM holds live money). For
+> arbitrary bash, only the trainer VM (`trainer-vm-diag` relay) qualifies.
+> The Tier-1/2/3 model below still informs the broader project; the
+> command surface it described is the part that is gone.
+
 > **Scope:** This doc governs **only** the live trader VM
 > (`instance-20260414-1555` — `158.178.210.252`, `eu-paris-1`,
 > `VM.Standard.E2.1.Micro`) and any Telegram-dispatched invocation

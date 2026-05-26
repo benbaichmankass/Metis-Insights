@@ -242,11 +242,15 @@ This drives the "days since last audit" input to the prioritization formula.
 
 ## Operator Reference
 
-**Need a quick health check?** `/status` (existing).
-**Need to start a session?** `/audit`, `/improve_strategy`, `/train_model` (deferred until S-NNN ships).
-**Need to know where the roadmap is?** `/roadmap` (deferred until S-NNN ships).
-**Need to weigh in mid-session?** Claude pings via Telegram if the session needs you. Otherwise let it run.
-**Need to halt everything?** `/halt` (existing).
+> The slash commands below describe the historical surface. The current
+> trader bot is menu-driven (PR #1933, 2026-05-25; see
+> [`docs/TELEGRAM-SPEC.md`](../TELEGRAM-SPEC.md)) — `/status`, `/halt`,
+> etc. no longer exist. Equivalents on the menu: System update view ⇒
+> health snapshot; Kill switch → By account ⇒ halt.
+
+**Need a quick health check?** Menu → **🩺 System update**.
+**Need to weigh in mid-session?** Claude pings via the Claude channel if it needs you. Otherwise let it run.
+**Need to halt everything?** Menu → **🛑 Kill switch** (flip the relevant accounts to `dry_run`).
 
 ---
 
