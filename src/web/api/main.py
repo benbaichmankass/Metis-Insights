@@ -18,6 +18,7 @@ from src.web.api.routers import bot_config as bot_config_router
 from src.web.api.routers import candles as candles_router
 from src.web.api.routers import dashboard as dashboard_router
 from src.web.api.routers import db_explorer as db_explorer_router
+from src.web.api.routers import devices as devices_router
 from src.web.api.routers import diag as diag_router
 from src.web.api.routers import health_snapshots as health_snapshots_router
 from src.web.api.routers import liquidity as liquidity_router
@@ -68,6 +69,7 @@ app.include_router(trade_scores_router.router)
 app.include_router(strategies_router.router)
 app.include_router(training_center_router.router)
 app.include_router(attribution_router.router)
+app.include_router(devices_router.router)
 
 
 @app.get("/api/health", tags=["health"])
