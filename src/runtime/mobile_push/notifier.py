@@ -308,7 +308,7 @@ class FcmNotifier:
             creds.refresh(Request())
             # ``creds.expiry`` is a naïve UTC datetime. Convert to epoch
             # the same way Google's helper does to avoid TZ drift.
-            from datetime import datetime, timezone
+            from datetime import timezone
 
             expiry_epoch = (
                 creds.expiry.replace(tzinfo=timezone.utc).timestamp()

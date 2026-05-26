@@ -166,7 +166,7 @@ async def register_device(request: Request) -> dict[str, Any]:
         )
         existing = cur.fetchone()
         if existing:
-            device_id, created_at = existing
+            device_id = existing[0]
             conn.execute(
                 """
                 UPDATE device_tokens
@@ -189,7 +189,6 @@ async def register_device(request: Request) -> dict[str, Any]:
                 (token, platform, label, subscriptions),
             )
             device_id = cur.lastrowid
-            created_at = None  # will be re-read below
             conn.commit()
             is_new = True
 

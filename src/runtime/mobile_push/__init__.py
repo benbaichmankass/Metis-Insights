@@ -61,7 +61,14 @@ _singleton: FcmNotifier | None = None
 
 
 def _is_enabled() -> bool:
-    return os.environ.get("MOBILE_PUSH_ENABLED", "").strip().lower() in _TRUTHY
+    # allow-silent: MOBILE_PUSH_ENABLED gates an out-of-band notification
+    # side-channel, NOT a trading capability. The BUG-039 "no third gate"
+    # rule applies to *_ENABLED flags that strand strategies/accounts on
+    # the order path; this one only controls whether trade-close events
+    # are mirrored to the operator's phone. Default-off is intentional —
+    # the notifier must be explicitly turned on after the operator has
+    # set FCM_SERVICE_ACCOUNT_JSON and registered at least one device.
+    return os.environ.get("MOBILE_PUSH_ENABLED", "").strip().lower() in _TRUTHY  # allow-silent: side-channel feature flag, not a trading gate
 
 
 def _get_notifier() -> FcmNotifier | None:
