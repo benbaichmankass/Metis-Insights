@@ -50,3 +50,9 @@ psutil>=5.9.0
 
 # Claude Telegram bridge (ict-claude-bridge.service, optional/disabled by default).
 anthropic>=0.40.0
+
+# Firebase Cloud Messaging publishing (mobile push, M12 S1). Used by
+# src/runtime/mobile_push/notifier.py to OAuth2-sign the service-account
+# JSON for FCM HTTP v1. Optional at runtime — when absent, the notifier
+# degrades to inert + logs a WARNING (the trader is unaffected).
+google-auth>=2.0.0

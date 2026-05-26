@@ -286,6 +286,28 @@ class Database:
             "ON signals (datetime(logged_at_utc) DESC)"
         )
 
+        # Device tokens table (M12 S1). Stores per-device FCM registration
+        # so the mobile_push notifier can fan out to the operator's
+        # phone(s). Operator-only data; no PII beyond the device label
+        # the operator chose. ``subscriptions`` is a JSON column —
+        # null/empty means "subscribed to everything" (default-permissive,
+        # matches the bot's no-third-gate principle).
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS device_tokens (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                token TEXT UNIQUE NOT NULL,
+                platform TEXT NOT NULL DEFAULT 'android',
+                label TEXT,
+                subscriptions TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                last_seen_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_device_tokens_platform "
+            "ON device_tokens (platform)"
+        )
+
         conn.commit()
         conn.close()
 
