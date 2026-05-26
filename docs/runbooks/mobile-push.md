@@ -7,6 +7,14 @@
 > the notifier (FCM outage, expired token, missing credentials) never
 > propagates into the trader.
 
+> **Status (2026-05-26):** the notifier module, `device_tokens`
+> table, `/api/bot/devices/*` router, and operator actions are
+> landed. The trade-close observer hook in `Database.update_trade`
+> that fans events into the notifier is **deferred to a follow-up PR**
+> while a CI test interaction is investigated. Until that lands,
+> `enable-mobile-push` flips the flag but no events fire — the
+> infrastructure is in place, the wire-up is one small commit away.
+
 ## Architecture (quick reference)
 
 ```
