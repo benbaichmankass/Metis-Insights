@@ -1,1 +1,0 @@
-Diagnostic file pushed via push_files to a fresh branch off main to test if CI runs cleanly without inheriting state from claude/elegant-mccarthy-8oTAn. If this PR's CI succeeds (or fails for a comprehensible non-403 reason), the original branch was the issue. If it also 403s at checkout, the environment is the issue. Delete after diagnosis.
