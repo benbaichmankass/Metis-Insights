@@ -257,3 +257,142 @@ def test_router_module_does_not_import_anthropic(
         "Synchronous LLM calls belong in src/runtime/insights/ (the "
         "generator process), not in the request handler."
     )
+
+
+# ---------------------------------------------------------------------------
+# History + usage endpoints (M13 S1 / PR F)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def isolated_db(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> Path:
+    """Point the canonical-db resolver at a temp DB.
+
+    The history + usage endpoints write through the
+    ``src.runtime.insights.{history,usage}`` modules, which lazy-create
+    their tables on first connect. Each test gets a fresh DB.
+    """
+    db = tmp_path / "trade_journal.db"
+    monkeypatch.setenv("TRADE_JOURNAL_DB", str(db))
+    return db
+
+
+def test_history_endpoint_empty_db_returns_empty_rows(
+    client: TestClient, insights_dir: Path, isolated_db: Path
+) -> None:
+    resp = client.get("/api/bot/insights/history?endpoint=summary&hours=24")
+    assert resp.status_code == 200, resp.text
+    out = resp.json()
+    assert out["rows"] == []
+    assert out["count"] == 0
+    assert out["endpoint"] == "summary"
+    assert out["table_present"] is True
+
+
+def test_history_endpoint_returns_appended_rows(
+    client: TestClient, insights_dir: Path, isolated_db: Path
+) -> None:
+    from src.runtime.insights import history as history_mod
+
+    payload = {
+        "summary_md": "All quiet on the western front.",
+        "grade": "good",
+        "signals": [{"kind": "test", "severity": "low", "note": "fixture"}],
+        "data_window": {"start": "2026-05-26T00:00:00+00:00",
+                        "end":   "2026-05-27T00:00:00+00:00"},
+        "row_counts": {"trades": 0},
+        "generated_at": "2026-05-26T19:00:00+00:00",
+        "model_id": "claude-haiku-4-5-20251001",
+    }
+    history_mod.append_history(endpoint="summary", payload=payload)
+
+    resp = client.get("/api/bot/insights/history?endpoint=summary&hours=24")
+    assert resp.status_code == 200
+    out = resp.json()
+    assert out["count"] == 1
+    row = out["rows"][0]
+    assert row["endpoint"] == "summary"
+    assert row["grade"] == "good"
+    assert row["model_id"] == "claude-haiku-4-5-20251001"
+    # The json sub-fields were decoded into top-level keys for the consumer.
+    assert row["payload"]["summary_md"].startswith("All quiet")
+    assert row["signals"][0]["kind"] == "test"
+
+
+def test_history_endpoint_strategy_filter(
+    client: TestClient, insights_dir: Path, isolated_db: Path
+) -> None:
+    from src.runtime.insights import history as history_mod
+
+    base = {
+        "summary_md": "x", "grade": "good", "signals": [],
+        "data_window": None, "row_counts": None,
+        "generated_at": "2026-05-26T19:00:00+00:00",
+        "model_id": "m",
+    }
+    history_mod.append_history(endpoint="strategy", payload=base, strategy_name="vwap")
+    history_mod.append_history(endpoint="strategy", payload=base, strategy_name="turtle_soup")
+
+    resp = client.get(
+        "/api/bot/insights/history?endpoint=strategy&strategy_name=vwap"
+    )
+    assert resp.status_code == 200
+    rows = resp.json()["rows"]
+    assert len(rows) == 1
+    assert rows[0]["strategy_name"] == "vwap"
+
+
+def test_history_endpoint_rejects_invalid_endpoint(
+    client: TestClient, insights_dir: Path, isolated_db: Path
+) -> None:
+    resp = client.get("/api/bot/insights/history?endpoint=bogus")
+    assert resp.status_code == 400
+
+
+def test_history_endpoint_rejects_invalid_strategy_name(
+    client: TestClient, insights_dir: Path, isolated_db: Path
+) -> None:
+    resp = client.get(
+        "/api/bot/insights/history?endpoint=strategy&strategy_name=BAD/name"
+    )
+    assert resp.status_code == 400
+
+
+def test_usage_endpoint_empty_db(
+    client: TestClient, insights_dir: Path, isolated_db: Path
+) -> None:
+    resp = client.get("/api/bot/insights/usage")
+    assert resp.status_code == 200, resp.text
+    out = resp.json()
+    assert out["current_month_usd"] == 0.0
+    assert out["current_month_tokens"] == 0
+    assert out["current_month_calls"] == 0
+    # Default budget per usage.py.
+    assert out["budget_usd"] > 0
+    assert out["table_present"] is True
+    assert out["by_endpoint"] == []
+
+
+def test_usage_endpoint_reflects_recorded_calls(
+    client: TestClient, insights_dir: Path, isolated_db: Path
+) -> None:
+    from src.runtime.insights import usage as usage_mod
+
+    usage_mod.record_usage(
+        endpoint="summary",
+        model_id="claude-haiku-4-5-20251001",
+        input_tokens=8000,
+        output_tokens=400,
+        cache_read_tokens=0,
+    )
+
+    resp = client.get("/api/bot/insights/usage")
+    assert resp.status_code == 200
+    out = resp.json()
+    assert out["current_month_calls"] == 1
+    assert out["current_month_tokens"] == 8400
+    assert out["current_month_usd"] > 0
+    assert len(out["by_endpoint"]) == 1
+    assert out["by_endpoint"][0]["endpoint"] == "summary"

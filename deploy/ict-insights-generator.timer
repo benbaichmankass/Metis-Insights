@@ -1,0 +1,31 @@
+# ============================================
+# ICT INSIGHTS GENERATOR SYSTEMD TIMER (M13 S1)
+# Fires ict-insights-generator.service every 10 minutes.
+#
+# The router serves cache files; this timer is what keeps them fresh.
+# A miss between fires (slow run, network blip) just means the
+# dashboard sees a slightly older cache — the cache_age_seconds field
+# in the response envelope makes the staleness visible.
+#
+# Save to: /etc/systemd/system/ict-insights-generator.timer
+# (installed automatically by scripts/install_systemd_units.sh)
+# ============================================
+
+[Unit]
+Description=ICT Trading Bot — AI Analyst generator (every 10 min)
+Requires=ict-insights-generator.service
+
+[Timer]
+# Initial fire 2 min after boot — gives the trader process a moment
+# to write its first heartbeat + emit some signal_audit rows before
+# the analyst tries to summarise.
+OnBootSec=2min
+# Subsequent fires every 10 min relative to last activation. Matches
+# the cost-ceiling math in docs/runbooks/insights.md.
+OnUnitActiveSec=10min
+AccuracySec=30s
+Persistent=true
+Unit=ict-insights-generator.service
+
+[Install]
+WantedBy=timers.target

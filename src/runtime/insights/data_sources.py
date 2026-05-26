@@ -167,8 +167,8 @@ def summary_data() -> dict[str, Any]:
             conn,
             """
             SELECT id, strategy_name, symbol, direction, pnl, status,
-                   exit_reason, opened_at, closed_at, account_id,
-                   order_package_id
+                   exit_reason, timestamp AS opened_at, account_id,
+                   order_package_id, created_at
             FROM trades
             WHERE created_at >= ?
               AND (is_backtest = 0 OR is_backtest IS NULL)
@@ -240,8 +240,10 @@ def recent_data(limit: int = _RECENT_DEFAULT_LIMIT) -> dict[str, Any]:
             SELECT t.id, t.strategy_name, t.symbol, t.direction,
                    t.entry_price, t.exit_price, t.stop_loss,
                    t.take_profit_1, t.position_size, t.pnl, t.exit_reason,
-                   t.opened_at, t.closed_at, t.account_id,
-                   t.order_package_id,
+                   t.timestamp AS opened_at,
+                   op.updated_at AS closed_at,
+                   t.created_at,
+                   t.account_id, t.order_package_id,
                    op.confidence, op.signal_logic
             FROM trades t
             LEFT JOIN order_packages op
@@ -249,7 +251,7 @@ def recent_data(limit: int = _RECENT_DEFAULT_LIMIT) -> dict[str, Any]:
             WHERE t.status = 'closed'
               AND (t.is_backtest = 0 OR t.is_backtest IS NULL)
               AND (t.is_demo = 0 OR t.is_demo IS NULL)
-            ORDER BY datetime(t.closed_at) DESC
+            ORDER BY datetime(t.created_at) DESC
             LIMIT ?
             """,
             (limit,),
@@ -270,8 +272,10 @@ def recent_data(limit: int = _RECENT_DEFAULT_LIMIT) -> dict[str, Any]:
         if pkg_id and pkg_id in scores_by_pkg:
             trade["claude_score"] = scores_by_pkg[pkg_id]
 
-    start_iso = trades[-1]["closed_at"] if trades else None
-    end_iso = trades[0]["closed_at"] if trades else None
+    # trades are ordered newest-first by created_at; window spans the
+    # oldest → newest closed-trade in the result.
+    start_iso = trades[-1]["created_at"] if trades else None
+    end_iso = trades[0]["created_at"] if trades else None
     return {
         "window": {"start": start_iso, "end": end_iso},
         "row_counts": {"trades": len(trades), "requested_limit": limit},
@@ -293,7 +297,8 @@ def strategy_data(name: str, days: int = 7) -> dict[str, Any]:
             conn,
             """
             SELECT id, symbol, direction, pnl, status, exit_reason,
-                   opened_at, closed_at, account_id, order_package_id
+                   timestamp AS opened_at, created_at, account_id,
+                   order_package_id
             FROM trades
             WHERE strategy_name = ?
               AND created_at >= ?
