@@ -86,7 +86,6 @@ source "$VENV_DIR/bin/activate"
 AUDIT_PATH="${DATA_DIR}/signal_audit.jsonl"
 ACCOUNTS_YAML="${REPO_ROOT}/config/accounts.yaml"
 COMMS_ROOT="${REPO_ROOT}/comms"
-MARKET_RAW_PATH="${DATASETS_ROOT}/market_raw/BTCUSDT/1h/${DATASET_VERSION}"
 
 overall_rc=0
 
@@ -196,21 +195,35 @@ if ! python -c "import ccxt" 2>/dev/null; then
   fi
 fi
 
-build_family market_raw \
-  --output-dir "$DATASETS_ROOT" --version "$DATASET_VERSION" \
-  --source "bybit_v5_offvm" --symbol-scope BTCUSDT --timeframe 1h --overwrite \
-  "adapter=bybit_v5_offvm" "symbol=BTCUSDT" \
-  "start=${MARKET_START}" "end=${MARKET_END}"
+# Build the (market_raw, market_features) pair for one BTCUSDT timeframe.
+# Each timeframe is its own dataset shard; the regime-classifier manifests
+# in ml/configs/ are sharded by timeframe (1h baseline, 5m + 15m for the
+# v2 LightGBM heads + their v1 counterparts), so the builder has to
+# produce every shard the manifests reference.
+build_btcusdt_pair() {
+  local tf="$1"
+  local raw_path="${DATASETS_ROOT}/market_raw/BTCUSDT/${tf}/${DATASET_VERSION}"
 
-if [ -d "$MARKET_RAW_PATH" ]; then
-  build_family market_features \
+  build_family market_raw \
     --output-dir "$DATASETS_ROOT" --version "$DATASET_VERSION" \
-    --source "${MARKET_RAW_PATH}" --symbol-scope BTCUSDT --timeframe 1h --overwrite \
-    "market_raw_path=${MARKET_RAW_PATH}" "vol_window_n=20" "forward_window_m=5" \
-    "vol_threshold=0.005" "trend_threshold=0.005" "n_vol_buckets=3"
-else
-  emit "$(printf '{"ts":"%s","status":"skipped","family":"market_features","detail":"market_raw path not found; regime-classifier baseline skipped"}' "$(iso_now)")"
-fi
+    --source "bybit_v5_offvm" --symbol-scope BTCUSDT --timeframe "$tf" --overwrite \
+    "adapter=bybit_v5_offvm" "symbol=BTCUSDT" "timeframe=${tf}" \
+    "start=${MARKET_START}" "end=${MARKET_END}"
+
+  if [ -d "$raw_path" ]; then
+    build_family market_features \
+      --output-dir "$DATASETS_ROOT" --version "$DATASET_VERSION" \
+      --source "${raw_path}" --symbol-scope BTCUSDT --timeframe "$tf" --overwrite \
+      "market_raw_path=${raw_path}" "vol_window_n=20" "forward_window_m=5" \
+      "vol_threshold=0.005" "trend_threshold=0.005" "n_vol_buckets=3"
+  else
+    emit "$(printf '{"ts":"%s","status":"skipped","family":"market_features","symbol":"BTCUSDT","timeframe":"%s","detail":"market_raw path not found"}' "$(iso_now)" "$tf")"
+  fi
+}
+
+build_btcusdt_pair 1h
+build_btcusdt_pair 5m
+build_btcusdt_pair 15m
 
 emit "$(printf '{"ts":"%s","status":"build_end","overall_rc":%d}' "$(iso_now)" "$overall_rc")"
 exit "$overall_rc"
