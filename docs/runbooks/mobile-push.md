@@ -61,29 +61,46 @@ Operator has already:
 If any of those need redoing, the steps are in the original M12 setup
 discussion (search session history for "Firebase setup").
 
-### 2. Add the service-account JSON to the live VM .env
+### 2. Push the service-account JSON onto the live VM (file, not .env)
 
-The trader needs the OAuth2 credentials to publish to FCM. Two repo
-secrets in `benbaichmankass/ict-trading-bot`:
+The trader needs the OAuth2 credentials to publish to FCM. The JSON
+is stored as a **file** on the VM (`${DATA_DIR}/fcm_service_account.json`,
+mode 600), and `.env` only holds a single-line pointer to it
+(`FCM_SERVICE_ACCOUNT_JSON_PATH=…`). This is the standard GCP pattern
+and is the **only** approach that works — see § Troubleshooting →
+"systemd `Ignoring invalid environment assignment`" for why a prior
+inline `FCM_SERVICE_ACCOUNT_JSON=…` approach was silently broken.
 
-- `FCM_SERVICE_ACCOUNT_JSON` — entire JSON blob (single line, escape-
-  free; GitHub Actions secrets accept multi-line input cleanly)
+Two repo secrets in `benbaichmankass/ict-trading-bot`:
+
+- `FCM_SERVICE_ACCOUNT_JSON` — entire JSON blob, **as stored in
+  Actions secrets** (multi-line is fine; Actions preserves it intact).
 - `FCM_PROJECT_ID` — optional, defaults to the `project_id` field
-  inside the service-account JSON
+  inside the service-account JSON.
 
-Pushing those values onto the VM's `.env` is currently a manual edit
-of `/home/ubuntu/ict-trading-bot/.env` plus a service restart — there
-is **not yet** a `set-env mobile-push` operator action wrapping it.
-Filed as a follow-up (small operator-action script) so the secret can
-be rotated via the existing action allowlist.
+To push (or rotate) the credential onto the live VM, open a labelled
+issue in `benbaichmankass/ict-trading-bot`:
 
-For now: SSH-relay or the trainer VM diag relay can fetch and edit the
-`.env` file. The required additions:
+- **Label:** `system-action`
+- **Body:**
+  ```
+  action: set-mobile-push-secrets
+  reason: <e.g. "M12 S1 initial push" / "credential rotation 2026-XX-XX">
+  ```
 
-```
-FCM_SERVICE_ACCOUNT_JSON={"type":"service_account","project_id":"ict-trader-mobile-app",...}
-FCM_PROJECT_ID=ict-trader-mobile-app
-```
+The workflow:
+1. Pulls the JSON from `secrets.FCM_SERVICE_ACCOUNT_JSON` (never
+   transits the issue body or the run log).
+2. Validates it parses as JSON before any write.
+3. Writes it atomically to `${DATA_DIR}/fcm_service_account.json`
+   (mode 600).
+4. Sets `FCM_SERVICE_ACCOUNT_JSON_PATH` in the trader's `.env`
+   (single-line value — systemd `EnvironmentFile`-safe).
+5. Restarts `ict-trader-live.service`.
+6. Posts an `[ops]` result on the issue and closes it.
+
+No manual SSH edit is required. Re-running this action is the canonical
+rotation path.
 
 ### 3. Install the Android app + register a device
 
@@ -196,17 +213,22 @@ Check, in order:
 
 1. **Is `MOBILE_PUSH_ENABLED=1` in `.env`?** Diag relay:
    `grep MOBILE_PUSH_ENABLED /home/ubuntu/ict-trading-bot/.env`.
-2. **Is the trader running?** `systemctl is-active ict-trader-live.service`.
-3. **Did the close actually land in `trade_journal.db`?**
+2. **Is `FCM_SERVICE_ACCOUNT_JSON_PATH` set in `.env` AND does the
+   target file exist + readable + valid JSON?**
+   - `grep FCM_SERVICE_ACCOUNT_JSON_PATH /home/ubuntu/ict-trading-bot/.env`
+   - `cat /data/bot-data/fcm_service_account.json | python3 -m json.tool >/dev/null && echo OK`
+   - If either is missing/wrong, dispatch `set-mobile-push-secrets`.
+3. **Is the trader running?** `systemctl is-active ict-trader-live.service`.
+4. **Did the close actually land in `trade_journal.db`?**
    `GET /api/diag/journal?table=trades&limit=5` — look for
    `status='closed'` rows in the last few minutes.
-4. **Was the trade backtest or demo?** The hook skips both. Confirm
+5. **Was the trade backtest or demo?** The hook skips both. Confirm
    `is_backtest=0` AND `is_demo=0` on the row.
-5. **Is the device registered?** `GET /api/bot/devices` — expect
+6. **Is the device registered?** `GET /api/bot/devices` — expect
    `count >= 1`.
-6. **Is the device subscribed to `trade_closed`?** Check the row's
+7. **Is the device subscribed to `trade_closed`?** Check the row's
    `subscriptions` JSON (null/empty = subscribed to all).
-7. **Did the notifier log a warning?**
+8. **Did the notifier log a warning?**
    `journalctl -u ict-trader-live.service --since '10 min ago' | grep -i 'mobile_push\|fcm'`.
    Common causes: bad service-account JSON, expired token (auto-
    refreshed), FCM 5xx (transient).
@@ -215,6 +237,35 @@ If everything above looks correct and notifications still don't
 arrive, the FCM token on the device may have been rotated (Android
 does this periodically). Re-register through the app — the debug
 screen has a "Re-register" button.
+
+### systemd: `Ignoring invalid environment assignment` for FCM lines
+
+If `journalctl -u ict-trader-live.service` shows lines like:
+
+```
+ict-trader-live.service: Ignoring invalid environment assignment
+  '"private_key": "-----BEGIN PRIVATE KEY-----\nMIIE...'
+```
+
+…that's a **leftover broken `FCM_SERVICE_ACCOUNT_JSON=` line in
+`.env` from before PR #2082 switched to the file-based credential
+pattern**. systemd's `EnvironmentFile` parser only supports
+single-line `KEY=VALUE`, and the service-account JSON's `private_key`
+is multi-line — every continuation line got rejected. (This is what
+made the M12 S1 push pipe silently inert until 2026-05-26.)
+
+The new notifier prefers `FCM_SERVICE_ACCOUNT_JSON_PATH` and
+ignores the orphan `FCM_SERVICE_ACCOUNT_JSON=…` lines, so pushes
+work despite the journal noise. To clean up the spam:
+
+1. SSH-relay or trainer-VM-diag to read the .env.
+2. Delete the `FCM_SERVICE_ACCOUNT_JSON=` line **and every orphan
+   continuation line** (lines starting with `"…":` or naked text
+   that systemd is rejecting).
+3. Restart `ict-trader-live.service` once.
+
+There is no automated cleanup wrapper yet — small operator task. The
+runtime impact is zero, only journal cleanliness.
 
 ### Trader crashed after enabling
 
@@ -252,9 +303,13 @@ sqlite3 /data/bot-data/trade_journal.db \
 - `src/web/api/routers/devices.py` — `/api/bot/devices/*`
 - `src/units/db/database.py` — `_fire_trade_closed_event` (the
   observer hook, inside `update_trade`)
-- `scripts/ops/enable_mobile_push.sh` / `disable_mobile_push.sh` —
-  Tier-2 operator actions
+- `src/runtime/notify.py` — `send_telegram_direct` includes a Telegram
+  → FCM mirror (every operator-facing Telegram fires
+  `publish_event("telegram", {text, parse_mode})`).
+- `scripts/ops/enable_mobile_push.sh` / `disable_mobile_push.sh` /
+  `set_mobile_push_secrets.sh` — Tier-2 operator actions
 - `tests/test_mobile_push.py`, `tests/test_devices_router.py`,
-  `tests/test_mobile_push_observer_hook.py` — coverage
+  `tests/test_mobile_push_observer_hook.py`,
+  `tests/test_notify_telegram_fcm_mirror.py` — coverage
 
 Plan: [`docs/sprint-plans/ROADMAP-ANDROID-COMPANION-APP-2026-05-26.md`](../sprint-plans/ROADMAP-ANDROID-COMPANION-APP-2026-05-26.md).
