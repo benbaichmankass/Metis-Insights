@@ -57,6 +57,48 @@ def log_signal(event: Dict[str, Any]) -> None:
         f.write(json.dumps(payload, default=str) + "\n")
     # Dual-write to trade_journal.db::signals (S-034 transition).
     _dual_write_to_db(payload)
+    # M12 S5 — mobile-push observer for buy/sell rows. Matches the
+    # /api/bot/signals dashboard filter, so we only push on actual ICT
+    # detections (skipping pipeline tick "candle observed" / "no signal"
+    # events that would flood the operator's phone). The publish itself
+    # is best-effort + feature-flagged + subscription-filtered by the
+    # notifier — never propagates into the audit-writer path.
+    try:
+        _fire_signal_emitted_event(payload)
+    except Exception:  # noqa: BLE001  # allow-silent: M12 S5 observer hook — notifier failure must never propagate into audit writer
+        pass
+
+
+def _fire_signal_emitted_event(payload: Dict[str, Any]) -> None:
+    """Mirror a buy/sell signal to subscribed Android devices via FCM.
+
+    Gating mirrors ``/api/bot/signals``'s server-side filter so the same
+    rows the dashboard surfaces are the same rows that wake the phone —
+    no surprise volume that the dashboard wouldn't have shown.
+
+    Lazy import — mobile_push is a sibling module and a startup-ordering
+    quirk (or a stripped env without google-auth) must never crash
+    log_signal's main path.
+    """
+    side = str(payload.get("side", "")).lower()
+    if side not in ("buy", "sell", "long", "short"):
+        return
+    from src.runtime.mobile_push import publish_event
+    from src.runtime.mobile_push.event_kinds import SIGNAL_EMITTED
+
+    # Subset of the audit row that's useful on a phone notification —
+    # mirrors the Signals tab's SignalCard composition. Drop zones (too
+    # big for an FCM data payload) and any field that's None.
+    out = {
+        "symbol": payload.get("symbol"),
+        "side": payload.get("side"),
+        "strategy": payload.get("strategy"),
+        "pattern": payload.get("pattern"),
+        "confidence": payload.get("confidence"),
+        "price": payload.get("price"),
+    }
+    out = {k: v for k, v in out.items() if v is not None}
+    publish_event(SIGNAL_EMITTED, out)
 
 
 def _load_state() -> Dict[str, str]:

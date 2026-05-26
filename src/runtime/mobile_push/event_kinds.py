@@ -105,7 +105,7 @@ LABELS: Final[dict[str, str]] = {
 DESCRIPTIONS: Final[dict[str, str]] = {
     TRADE_CLOSED: "Every closed real-money trade (not backtests / demos).",
     TELEGRAM: "Every message the bot would have sent to Telegram.",
-    SIGNAL_EMITTED: "Each ICT detection — reserved, lands in M12 S5.",
+    SIGNAL_EMITTED: "Each ICT detection — fires once per buy/sell signal.",
     HEALTH_CONCERN: "7-point health check turned red — reserved, M12 S6.",
     SERVICE_DOWN: "systemd unit failed — reserved, M12 S6.",
     PNL_DIGEST: "Daily / hourly P&L summary — reserved, M12 S7.",
@@ -115,7 +115,9 @@ DESCRIPTIONS: Final[dict[str, str]] = {
 #: Tests + the runbook lean on this so a regression that drops a real
 #: call site (e.g. someone refactors ``_fire_trade_closed_event`` away)
 #: is loud.
-IN_FLIGHT: Final[frozenset[str]] = frozenset({TRADE_CLOSED, TELEGRAM})
+IN_FLIGHT: Final[frozenset[str]] = frozenset(
+    {TRADE_CLOSED, TELEGRAM, SIGNAL_EMITTED}
+)
 
 
 def is_known(kind: str) -> bool:

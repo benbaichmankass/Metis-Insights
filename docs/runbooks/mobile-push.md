@@ -228,7 +228,7 @@ publish three weeks later. Adding a kind:
 |---|---|---|
 | `trade_closed` | in flight | Every closed real-money trade (not backtest / demo). |
 | `telegram` | in flight | Every message the bot would have sent to Telegram. |
-| `signal_emitted` | reserved (M12 S5) | Each ICT detection. |
+| `signal_emitted` | in flight | Each buy/sell ICT detection (mirrors `/api/bot/signals` filter). |
 | `health_concern` | reserved (M12 S6) | 7-point health check turned red. |
 | `service_down` | reserved (M12 S6) | systemd unit failed. |
 | `pnl_digest` | reserved (M12 S7) | Daily/hourly P&L summary. |
