@@ -115,28 +115,54 @@ class FcmNotifier:
     def from_env(cls) -> "FcmNotifier":
         """Build a notifier from process-env credentials.
 
-        Reads ``FCM_SERVICE_ACCOUNT_JSON`` (whole JSON blob) and
-        optionally ``FCM_PROJECT_ID`` (else falls back to the JSON's own
-        ``project_id`` field).
+        Prefers ``FCM_SERVICE_ACCOUNT_JSON_PATH`` (file path) — this is
+        the production wire because systemd ``EnvironmentFile`` only
+        supports single-line ``KEY=VALUE`` and the service-account JSON's
+        private_key field is multi-line, which silently breaks the
+        ``.env`` parser. Falls back to ``FCM_SERVICE_ACCOUNT_JSON``
+        (inline JSON) for tests + sandboxed envs where single-line JSON
+        is sufficient. Optionally reads ``FCM_PROJECT_ID`` (else falls
+        back to the JSON's own ``project_id`` field).
 
-        On any failure (missing env, bad JSON, missing project_id), logs
-        a WARNING and returns an inert notifier — never raises.
+        On any failure (missing env, unreadable file, bad JSON, missing
+        project_id), logs a WARNING and returns an inert notifier —
+        never raises.
         """
         import os
 
-        raw = os.environ.get("FCM_SERVICE_ACCOUNT_JSON", "").strip()
-        if not raw:
-            logger.warning(
-                "FcmNotifier.from_env: FCM_SERVICE_ACCOUNT_JSON not set; "
-                "notifier will be inert"
-            )
-            return cls.inert()
+        path = os.environ.get("FCM_SERVICE_ACCOUNT_JSON_PATH", "").strip()
+        if path:
+            try:
+                with open(path, encoding="utf-8") as fh:
+                    raw = fh.read().strip()
+            except OSError as exc:
+                logger.warning(
+                    "FcmNotifier.from_env: FCM_SERVICE_ACCOUNT_JSON_PATH=%s "
+                    "could not be read (%s); notifier will be inert",
+                    path,
+                    exc,
+                )
+                return cls.inert()
+            if not raw:
+                logger.warning(
+                    "FcmNotifier.from_env: %s is empty; notifier will be inert",
+                    path,
+                )
+                return cls.inert()
+        else:
+            raw = os.environ.get("FCM_SERVICE_ACCOUNT_JSON", "").strip()
+            if not raw:
+                logger.warning(
+                    "FcmNotifier.from_env: neither FCM_SERVICE_ACCOUNT_JSON_PATH "
+                    "nor FCM_SERVICE_ACCOUNT_JSON is set; notifier will be inert"
+                )
+                return cls.inert()
         try:
             info = json.loads(raw)
         except (ValueError, TypeError) as exc:
             logger.warning(
-                "FcmNotifier.from_env: FCM_SERVICE_ACCOUNT_JSON not valid "
-                "JSON (%s); notifier will be inert",
+                "FcmNotifier.from_env: service-account JSON not valid (%s); "
+                "notifier will be inert",
                 exc,
             )
             return cls.inert()
