@@ -15,8 +15,14 @@ trainer_config:
     - vol_bucket
     - rolling_log_return_vol
     - log_return
+    - log_return_lag_1
+    - log_return_lag_2
+    - hour_of_day
+    - dayofweek
   categorical_columns:
     - vol_bucket
+    - hour_of_day
+    - dayofweek
   freeze_regime_spec: true
   vol_feature_column: rolling_log_return_vol
   vol_window_n: 20
@@ -33,7 +39,7 @@ dataset:
   family: market_features
   symbol_scope: BTCUSDT
   timeframe: 15m
-  version: v001
+  version: v002
 evaluator: ml.evaluators.multiclass_classification.MulticlassClassificationEvaluator
 evaluator_config:
   target_column: regime_label

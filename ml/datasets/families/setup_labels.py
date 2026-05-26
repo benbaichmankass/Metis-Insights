@@ -25,6 +25,7 @@ is the trainer's responsibility (same rule as `trade_outcomes`).
 from __future__ import annotations
 
 import sqlite3
+from datetime import datetime
 from pathlib import Path
 from typing import Any, ClassVar, Iterator, Mapping
 
@@ -67,9 +68,32 @@ def _clip(value: float, cap: float) -> float:
     return value
 
 
+def _parse_ts_hour_dow(ts_str: str) -> tuple[int, int]:
+    """Parse signal-time ts → ``(hour_of_day, dayofweek)``.
+
+    Tolerant of ``Z`` suffix + explicit offsets. Returns ``(0, 0)`` on
+    parse failure so a single malformed row doesn't drop out — the row
+    still emits and the trainer's leakage gate stays clean (these are
+    signal-time features, not outcomes).
+    """
+    if not ts_str:
+        return 0, 0
+    s = str(ts_str).strip()
+    if s.endswith("Z"):
+        s = s[:-1] + "+00:00"
+    try:
+        dt = datetime.fromisoformat(s)
+    except ValueError:
+        return 0, 0
+    return dt.hour, dt.weekday()
+
+
 class SetupLabelsBuilder(DatasetBuilder):
     family: ClassVar[str] = "setup_labels"
-    builder_version: ClassVar[str] = "v1"
+    # v2: adds hour_of_day + dayofweek derived from `created_at` (signal
+    # time, non-leaking). Phase-2 feature expansion for the v2 LightGBM
+    # setup-quality regressor.
+    builder_version: ClassVar[str] = "v2"
     leakage_test_status: ClassVar[LeakageStatus] = LeakageStatus.SKIPPED
     label_version: ClassVar[str] = "r-multiple-from-pnl-pct-v1"
     schema: ClassVar[Mapping[str, type]] = {
@@ -85,6 +109,8 @@ class SetupLabelsBuilder(DatasetBuilder):
         "pnl_percent": float,
         "account_id": str,
         "created_at": str,
+        "hour_of_day": int,
+        "dayofweek": int,
         "won": bool,
         "r_multiple": float,
     }
@@ -148,6 +174,13 @@ class SetupLabelsBuilder(DatasetBuilder):
                         payload[col] = value
                 payload["won"] = bool(payload["pnl"] > 0)
                 payload["r_multiple"] = float(r_multiple)
+                # Derive signal-time features from `created_at` (when the
+                # trade was opened — non-leaking). Falls back to `timestamp`
+                # which historically held the same value pre S-AI-WS5-A.
+                ts_for_time = payload.get("created_at") or payload.get("timestamp") or ""
+                hour, dow = _parse_ts_hour_dow(ts_for_time)
+                payload["hour_of_day"] = int(hour)
+                payload["dayofweek"] = int(dow)
                 yield payload
         finally:
             conn.close()

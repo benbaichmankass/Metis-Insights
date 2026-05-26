@@ -355,3 +355,80 @@ class TestMarketFeaturesBuilder:
 def test_registry_includes_market_features():
     assert "market_features" in list_families()
     assert isinstance(get_builder("market_features"), MarketFeaturesBuilder)
+
+
+class TestV2FeatureExpansion:
+    """Phase-2 feature expansion: hour_of_day, dayofweek, log_return_lag_{1,2}.
+
+    All new fields are non-leaking (parsed from the bar's own ``ts`` or
+    derived from prior `log_return`s). Tests pin the schema, the
+    correctness of the parsed time features, and that lag values match
+    the underlying log_return series.
+    """
+
+    def test_v2_fields_present_in_every_row(self, tmp_path: Path):
+        market_raw = _stage_market_raw(
+            tmp_path, closes=_trending_then_choppy(n_per_phase=80)
+        )
+        builder = MarketFeaturesBuilder()
+        rows = list(
+            builder.iter_rows(
+                market_raw_path=market_raw, vol_window_n=10, forward_window_m=5
+            )
+        )
+        assert rows, "builder should emit at least one row"
+        for r in rows:
+            assert "hour_of_day" in r and isinstance(r["hour_of_day"], int)
+            assert 0 <= r["hour_of_day"] <= 23
+            assert "dayofweek" in r and isinstance(r["dayofweek"], int)
+            assert 0 <= r["dayofweek"] <= 6
+            assert "log_return_lag_1" in r and isinstance(r["log_return_lag_1"], float)
+            assert "log_return_lag_2" in r and isinstance(r["log_return_lag_2"], float)
+
+    def test_hour_dow_match_ts(self, tmp_path: Path):
+        # Hourly bars starting Wed 2025-01-01 00:00 UTC → first emitted row
+        # should land at a known (hour, dow). Wed = 2 (Mon=0).
+        market_raw = _stage_market_raw(
+            tmp_path,
+            closes=_trending_then_choppy(n_per_phase=40),
+            base_ts_iso="2025-01-01T00:00:00Z",
+            bar_seconds=3600,
+        )
+        builder = MarketFeaturesBuilder()
+        rows = list(
+            builder.iter_rows(
+                market_raw_path=market_raw, vol_window_n=10, forward_window_m=5
+            )
+        )
+        # The first emitted row is bar index 9 (vol_window_n - 1 = 9), so
+        # ts = 2025-01-01T09:00:00Z → hour=9, dow=2 (Wednesday).
+        first = rows[0]
+        assert first["hour_of_day"] == 9
+        assert first["dayofweek"] == 2
+
+    def test_log_return_lag_matches_series(self, tmp_path: Path):
+        # The lag features should equal log_return[i-1] / log_return[i-2]
+        # for each emitted bar. Easiest check: log_return_lag_1 of bar
+        # i+1 == log_return of bar i.
+        market_raw = _stage_market_raw(
+            tmp_path, closes=_trending_then_choppy(n_per_phase=80)
+        )
+        builder = MarketFeaturesBuilder()
+        rows = list(
+            builder.iter_rows(
+                market_raw_path=market_raw, vol_window_n=10, forward_window_m=5
+            )
+        )
+        # rows are contiguous bar indices once the first complete row is
+        # emitted (the builder skips earlier incomplete rows). Within the
+        # emitted span, lag_1[i+1] = log_return[i].
+        for i in range(len(rows) - 1):
+            assert math.isclose(
+                rows[i + 1]["log_return_lag_1"],
+                rows[i]["log_return"],
+                rel_tol=1e-9,
+                abs_tol=1e-12,
+            )
+
+    def test_builder_version_is_v2(self):
+        assert MarketFeaturesBuilder.builder_version == "v2"

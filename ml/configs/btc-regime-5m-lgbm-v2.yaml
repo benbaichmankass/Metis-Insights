@@ -22,8 +22,14 @@ trainer_config:
     - vol_bucket
     - rolling_log_return_vol
     - log_return
+    - log_return_lag_1
+    - log_return_lag_2
+    - hour_of_day
+    - dayofweek
   categorical_columns:
     - vol_bucket
+    - hour_of_day
+    - dayofweek
   # Freeze the live-scoring spec into model_state so
   # src/runtime/regime_shadow.py can bucket live ticks against the same
   # edges this run trained on (mirrors RegimeClassifierTrainer).
@@ -43,7 +49,7 @@ dataset:
   family: market_features
   symbol_scope: BTCUSDT
   timeframe: 5m
-  version: v001
+  version: v002
 evaluator: ml.evaluators.multiclass_classification.MulticlassClassificationEvaluator
 evaluator_config:
   target_column: regime_label

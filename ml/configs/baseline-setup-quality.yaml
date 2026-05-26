@@ -36,7 +36,7 @@ dataset:
   family: setup_labels
   symbol_scope: all
   timeframe: all
-  version: v001
+  version: v002
 evaluator: ml.evaluators.regression.RegressionEvaluator
 evaluator_config:
   target_column: r_multiple

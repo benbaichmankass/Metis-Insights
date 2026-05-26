@@ -27,7 +27,7 @@ dataset:
   family: market_features
   symbol_scope: MES
   timeframe: 15m
-  version: v001
+  version: v002
 evaluator: ml.evaluators.multiclass_classification.MulticlassClassificationEvaluator
 evaluator_config:
   target_column: regime_label

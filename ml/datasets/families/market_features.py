@@ -42,6 +42,10 @@ Knobs (all kwargs):
 | `log_return` | float | `ln(close[t] / close[t-1])`. |
 | `rolling_log_return_vol` | float | stdev of `log_return` over the window `[t - vol_window_n + 1 .. t]` (inclusive of bar `t`). |
 | `vol_bucket` | str | Quantile bucket of `rolling_log_return_vol` over the entire dataset. |
+| `hour_of_day` | int | UTC hour of `ts`, 0..23. Non-leaking (known at bar close). |
+| `dayofweek` | int | UTC day-of-week of `ts`, 0=Monday..6=Sunday. Non-leaking. |
+| `log_return_lag_1` | float | `log_return[t-1]`. Past-only — non-leaking. `NaN` represented as 0.0 for the earliest bar where the lag is undefined (handled like other early-window incomplete rows). |
+| `log_return_lag_2` | float | `log_return[t-2]`. Same handling. |
 | `forward_log_return` | float | `ln(close[t + forward_window_m] / close[t])`. |
 | `forward_log_return_vol` | float | stdev of `log_return` over `[t + 1 .. t + forward_window_m]` (strictly after `t`). |
 | `regime_label` | str | One of `"range"`, `"volatile"` — derived from forward stats (2-class since S-ML-REGIME-CLASSIFIER-FIX). |
@@ -87,6 +91,7 @@ from __future__ import annotations
 import json
 import math
 import statistics
+from datetime import datetime
 from pathlib import Path
 from typing import Any, ClassVar, Iterator, Mapping
 
@@ -163,6 +168,27 @@ def _bucket_for(value: float, boundaries: list[float], labels: list[str]) -> str
     return labels[-1]
 
 
+def _parse_ts_hour_dow(ts_str: str) -> tuple[int, int]:
+    """Parse a bar's ISO-8601 ``ts`` into ``(hour_of_day, dayofweek)``.
+
+    Tolerant of the trailing-``Z`` form (``2026-01-01T12:00:00Z``) +
+    explicit offsets. Returns ``(0, 0)`` for an unparseable ts so a single
+    malformed row doesn't blow up the cycle — the bar still emits with
+    defaulted time features and the trainer's leakage gate (and the row
+    count delta) is unaffected.
+    """
+    if not ts_str:
+        return 0, 0
+    s = ts_str.strip()
+    if s.endswith("Z"):
+        s = s[:-1] + "+00:00"
+    try:
+        dt = datetime.fromisoformat(s)
+    except ValueError:
+        return 0, 0
+    return dt.hour, dt.weekday()
+
+
 def _load_market_raw_rows(market_raw_path: Path) -> list[dict[str, Any]]:
     data_path = market_raw_path / "data.jsonl"
     if not data_path.is_file():
@@ -183,7 +209,10 @@ def _load_market_raw_rows(market_raw_path: Path) -> list[dict[str, Any]]:
 
 class MarketFeaturesBuilder(DatasetBuilder):
     family: ClassVar[str] = _FAMILY
-    builder_version: ClassVar[str] = "v1"
+    # v2: adds hour_of_day, dayofweek, log_return_lag_{1,2} (Phase-2 feature
+    # expansion for the v2 LightGBM regime heads). v1 baselines that only
+    # read `vol_bucket` are unaffected by the wider schema.
+    builder_version: ClassVar[str] = "v2"
     leakage_test_status: ClassVar[LeakageStatus] = LeakageStatus.PASSED
     label_version: ClassVar[str] = "regime-3class-v1"
     schema: ClassVar[Mapping[str, type]] = {
@@ -193,6 +222,10 @@ class MarketFeaturesBuilder(DatasetBuilder):
         "log_return": float,
         "rolling_log_return_vol": float,
         "vol_bucket": str,
+        "hour_of_day": int,
+        "dayofweek": int,
+        "log_return_lag_1": float,
+        "log_return_lag_2": float,
         "forward_log_return": float,
         "forward_log_return_vol": float,
         "regime_label": str,
@@ -288,13 +321,25 @@ class MarketFeaturesBuilder(DatasetBuilder):
                 # lack a full past window; the last forward_window_m
                 # bars lack a full forward window.
                 continue
+            ts_str = str(rows[i]["ts"])
+            hour_of_day, dayofweek = _parse_ts_hour_dow(ts_str)
+            # Lag log returns: NaN-safe (0.0 when the bar predates the
+            # earliest valid lag). Same conservative handling as the
+            # earliest past-vol bars — feature is informational only when
+            # the lag exists.
+            lag_1 = log_returns[i - 1] if i - 1 >= 0 else None
+            lag_2 = log_returns[i - 2] if i - 2 >= 0 else None
             yield {
-                "ts": str(rows[i]["ts"]),
+                "ts": ts_str,
                 "symbol": str(rows[i].get("symbol", "")),
                 "timeframe": str(rows[i].get("timeframe", "")),
                 "log_return": float(log_ret),
                 "rolling_log_return_vol": float(past_vol),
                 "vol_bucket": _bucket_for(past_vol, boundaries, bucket_labels),
+                "hour_of_day": int(hour_of_day),
+                "dayofweek": int(dayofweek),
+                "log_return_lag_1": float(lag_1) if lag_1 is not None else 0.0,
+                "log_return_lag_2": float(lag_2) if lag_2 is not None else 0.0,
                 "forward_log_return": float(forward_lr),
                 "forward_log_return_vol": float(forward_vol),
                 "regime_label": _label_regime(
