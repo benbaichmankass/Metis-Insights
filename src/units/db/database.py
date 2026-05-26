@@ -392,7 +392,7 @@ class Database:
         if rowcount > 0 and str(row.get("status", "")).lower() == "closed":
             try:
                 self._fire_trade_closed_event(int(trade_id))
-            except Exception:  # noqa: BLE001 — must never propagate to close path
+            except Exception:  # noqa: BLE001  # allow-silent: M12 S1 observer hook — notifier failure must never propagate into trader close path
                 pass
         return rowcount
 
