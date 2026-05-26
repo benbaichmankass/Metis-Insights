@@ -82,9 +82,12 @@ In parallel, the trainer cycle was kicked 5 times via `trainer-vm-diag`, the liv
 - **Live-VM post-deploy verification:** `web-api git_sha=611b4c9 matches HEAD — OK`. Trader producing ticks normally by 15:18:30 UTC. `python -c "import lightgbm"` indirectly verified by the absence of import errors in trader journal.
 - **v1-vs-v2 `compare` output captured** for both regime models at each rebalancing step (4 compare runs total).
 - **Gate-check verdicts captured** for both v2 models at three checkpoints (pre-weight, w=200, w=50 on 5m only).
+- **Post-#2068 imbalance-aware gate verified:** trainer cycle on `5662f1f` (post-#2068 merge) re-trained the v2 models with the new evaluator (emits `support_<class>`); `gate-check` then confirmed both models now report `non_degenerate=pass` via the imbalance-aware path:
+  - `btc-regime-5m-lgbm-v2`: `imbalance-aware alt passes — min precision_lift = 13.60 (≥ 2.00), min recall = 0.419 (≥ 0.05)`
+  - `btc-regime-15m-lgbm-v2`: `imbalance-aware alt passes — min precision_lift = 3.78 (≥ 2.00), min recall = 0.666 (≥ 0.05)`
+  Both also pass `sample_sufficiency` (n_eval » 1000) and `cross_run_stability` (std('macro_f1') ≈ 0.022/0.021 over 4 runs, ≤ 0.05 threshold). The only remaining failing gates are `shadow_soak` (0.06 days, needs 7) and the three insufficient_data gates (`beats_baseline`, `live_agreement`, `drift_clean`) which need live shadow predictions accumulated against closed trades. Engineering is done; only time + live data remain.
 - **Gaps not yet verified:**
-  - Imbalance-aware `non_degenerate` path needs to be re-checked against real `support_<class>` metrics once #2068 lands and the next cycle re-trains. Estimated impact (based on existing metrics' implied base rates): both 5m and 15m v2 models should pass the new path.
-  - Live shadow predictions for the new model IDs haven't been verified in `runtime_logs/shadow_predictions.jsonl` yet — that requires a live signal tick to fire after the trainer mirror has published the new registry rows.
+  - Live shadow predictions for the new model IDs haven't been verified in `runtime_logs/shadow_predictions.jsonl` — that requires a live signal tick to fire after the trainer mirror has published the new registry rows. First verifiable on the next live BTCUSDT signal.
 
 ## Documentation Updated
 - **Rules doc updates:** None.
@@ -102,7 +105,7 @@ In parallel, the trainer cycle was kicked 5 times via `trainer-vm-diag`, the liv
 ## Risks and Follow-Ups
 - **Remaining technical risks:**
   - 5m model at the new weight is healthier but still `precision_volatile ≈ 0.064` — meaningful (lift ≈ 12.8×) but not strong. The first round of live shadow predictions will tell us whether that's a real signal or a numerical fluke.
-  - With #2068 merged the imbalance-aware path is *coded* but had not been verified against the live registry at session end (the trainer cycle that re-runs the evaluator with `support_<class>` had not completed). Verification deferred to the next session (and to BL-20260526-001's first action).
+  - Imbalance-aware gate semantics are now active for every model that emits `support_<class>` (which is every model trained by the multiclass evaluator from the next cycle onward). The defaults (`min_class_precision_lift=2.0`, `min_class_recall=0.05`) were calibrated against the v2 BTC models; whether they're right for *all* future imbalanced classifiers is an open question. Worth revisiting if a future model passes the alt path but is later found to be noisy in production.
 - **Remaining product decisions (Tier 3):**
   - `shadow → advisory` promotion conversation for `btc-regime-5m-lgbm-v2` and `btc-regime-15m-lgbm-v2`, expected on or after **2026-06-02** (T+7 soak) once `shadow_soak`, `beats_baseline`, `live_agreement`, and `drift_clean` gates clear themselves with live data. Operator-gated.
 - **Blockers:**
