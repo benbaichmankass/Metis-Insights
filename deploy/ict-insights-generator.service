@@ -1,0 +1,49 @@
+# ============================================
+# ICT INSIGHTS GENERATOR SYSTEMD SERVICE (M13 S1)
+# Runs scripts/ops/run_insights_cycle.sh once per timer fire.
+#
+# Triggered by ict-insights-generator.timer (every 10 min by default).
+# Refreshes runtime_logs/insights/<endpoint>.json for the four
+# /api/bot/insights/* router endpoints (summary, recent, health, plus
+# strategy_<name> per strategy in config/strategies.yaml).
+#
+# Tier-1 read-only: never touches the order path, never writes to
+# config/, only reads trade_journal.db (mode=ro) + signal_audit.jsonl
+# + comms/claude_strategy_scores.jsonl + artifacts/health/latest.json.
+# Writes to runtime_logs/insights/, trade_journal.db::insights_history,
+# trade_journal.db::insights_usage.
+#
+# Killable: set INSIGHTS_ENABLED=0 in /home/ubuntu/ict-trading-bot/.env
+# and the next timer fire exits cleanly without spending any tokens.
+# The router keeps serving the last-good cache.
+#
+# Cost bound: INSIGHTS_MONTHLY_BUDGET_USD (default $5.00) caps monthly
+# spend. Spent rows accumulate in insights_usage; the generator
+# refuses new calls once the calendar-month sum hits the budget.
+#
+# Save to: /etc/systemd/system/ict-insights-generator.service
+# (installed automatically by scripts/install_systemd_units.sh during
+#  deploy_pull_restart.sh)
+# ============================================
+
+[Unit]
+Description=ICT Trading Bot — AI Analyst generator (cache refresh)
+After=network-online.target ict-trader-live.service ict-web-api.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/ict-trading-bot
+EnvironmentFile=/home/ubuntu/ict-trading-bot/.env
+ExecStart=/home/ubuntu/ict-trading-bot/scripts/ops/run_insights_cycle.sh
+StandardOutput=journal
+StandardError=journal
+# A single cycle is bounded: 3 globals + ~6 strategies × ~5s/call ≈ 45s.
+# 5 minutes is generous headroom; if a run goes longer something is
+# wrong (network stall, anthropic outage) — better to time out than
+# overlap with the next timer fire.
+TimeoutStartSec=5min
+
+[Install]
+WantedBy=multi-user.target
