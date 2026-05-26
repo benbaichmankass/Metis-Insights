@@ -19,7 +19,7 @@ properly-powered look. Per-regime n ranged from 1 to 6:
   ---------------  ---  ------------  ---------  --------  --------
   strong-up/low    6    2.0σ entry     +7.98      5/6      n≥3 ✓ (kept)
   strong-up/medium 3    0.8σ entry     -4.87      1/3      n≥3 but losing — drop
-  weak-down/low    3    1.5σ entry     +0.08      2/3      n≥3 but flat — drop
+  weak-down/low    3    1.5σ entry     +0.08      2/3      n≥3 but flat — SKIP
   strong-down/low  2    0.8σ entry    +10.73      1/2      n<3 — drop (revisit)
   sideways/low     3    SKIP            0.00      —        skip held up ✓
   weak-up/low      3    SKIP            0.00      —        skip held up ✓
@@ -27,9 +27,12 @@ properly-powered look. Per-regime n ranged from 1 to 6:
 
 The threshold for keeping a per-regime override is *both* n≥3 *and*
 positive mean_R. Only ``strong-up/low @ 2.0σ`` clears that bar today.
-``strong-up/medium`` has n=3 but is losing; ``weak-down/low`` has
-n=3 but is flat — neither merits an override. All n=1/n=2 picks are
-dropped; allowed regimes fall through to the module-level
+``strong-up/medium`` has n=3 but is losing — dropped to the default
+threshold. ``weak-down/low`` has n=3 but is flat — moved to SKIP
+(2026-05-26, see entry rationale) after the live signal-firing rate
+at the 1.0σ fall-through proved to be pure noise (15 reinforcement
+fires in 2h, all aggregated to target_qty=0). The n=1/n=2 picks are
+all dropped; allowed regimes fall through to the module-level
 ``ENTRY_STD_THRESHOLD``.
 
 When the live signal builder fires:
@@ -79,6 +82,22 @@ POLICY_TABLE: Dict[str, Dict[str, Any]] = {
             "(prior best-of-bad-lot pick from #1474) gave -2.92 R "
             "mean. #1536 reconfirmed at n=3: chop with no consistent "
             "edge at any tested threshold."
+        ),
+    },
+    "weak-down/low": {
+        "allow": False,
+        "threshold": None,
+        "rationale": (
+            "issue #1536 24-window adaptive: n=3 @ 1.5σ entry, mean "
+            "+0.08 R, 2/3 positive — flat at the *tightened* threshold, "
+            "and the table previously dropped this to the default 1.0σ "
+            "fall-through (looser than the already-flat 1.5σ). "
+            "2026-05-26 health-review confirmed the live cost: 15 same-"
+            "direction reinforcement fires in a 2h window, every one "
+            "aggregating to target_qty=0 against an open trend_donchian "
+            "long — zero placements, pure review-time noise (BL-009 "
+            "ghost packages). Skip is the consistent move with the n≥3 "
+            "flat-mean_R drop rule for non-strong-up regimes."
         ),
     },
 

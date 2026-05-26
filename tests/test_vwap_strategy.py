@@ -554,6 +554,46 @@ class TestPolicyGate:
             assert "policy_allow" in signal["meta"]
             assert "policy_threshold" in signal["meta"]
 
+    def test_policy_table_skips_weak_down_low(self):
+        """weak-down/low must be on the SKIP list (2026-05-26).
+
+        Historical evidence (issue #1536) was n=3 @ 1.5σ, mean +0.08 R,
+        2/3 positive — flat, dropped from the override list. Previously
+        fell through to DEFAULT_POLICY (1.0σ), which is even more
+        noise-prone than the already-flat 1.5σ. The 2026-05-26
+        health-review confirmed the live cost (15 same-direction
+        reinforcement fires aggregating to target_qty=0 in 2h).
+        """
+        from src.units.strategies.vwap_policy import POLICY_TABLE, lookup_policy
+
+        assert "weak-down/low" in POLICY_TABLE, (
+            "weak-down/low must be an explicit policy entry, not a fall-through"
+        )
+        entry = POLICY_TABLE["weak-down/low"]
+        assert entry["allow"] is False
+        assert entry["threshold"] is None
+
+        looked_up = lookup_policy("weak-down/low")
+        assert looked_up["allow"] is False
+        assert looked_up["fallback"] is False
+        assert looked_up["regime"] == "weak-down/low"
+
+    def test_policy_skip_suppresses_weak_down_low_buy_signal(self):
+        """A weak-down/low classification must suppress the buy signal
+        even when price is well past the 1.0σ default threshold —
+        parallels test_policy_skip_suppresses_buy_signal but pins the
+        2026-05-26 addition."""
+        df = _candles_below_vwap()  # would normally trigger buy at 1.0σ
+        with mock.patch(
+            "src.units.strategies.vwap.policy_for_candles",
+            return_value=self._skip_policy("weak-down/low"),
+        ):
+            signal = build_vwap_signal(df, symbol="BTCUSDT")
+        assert signal["side"] == "none"
+        assert "regime_policy_skip" in signal["meta"]["reason"]
+        assert signal["meta"]["policy_regime"] == "weak-down/low"
+        assert signal["meta"]["policy_allow"] is False
+
 
 # ---------------------------------------------------------------------------
 # Phase 1 — UTC-day session-anchored VWAP slice
