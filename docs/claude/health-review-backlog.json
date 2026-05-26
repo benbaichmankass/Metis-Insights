@@ -28,7 +28,10 @@
       "tier": 1,
       "trigger_condition": "Any /health-review run.",
       "resolution_criteria": "The listed docs/claude/* operational pages no longer present removed slash commands as the current operator surface (they reference the menu + docs/TELEGRAM-SPEC.md instead); the strategies.yaml + accounts.yaml comments are corrected to describe the menu kill switch / set_account_mode.sh wire (config edits require the operator / a Tier-3-aware PR).",
-      "status": "open",
+      "status": "partially-resolved",
+      "resolved_at": "2026-05-26T06:10:00+00:00",
+      "resolved_by": "claude (/health-review)",
+      "resolution": "/health-review 2026-05-26: added a top-of-file deprecation banner to all 6 listed docs/claude/* operational pages (trading-mode-flags.md, deployment-ops.md, vm-operator-mode.md, comms-architecture.md, recurring-sessions.md, prop-account-state.md) — each banner explicitly notes PR #1933 changed the surface, names the removed commands referenced in the body, and points to docs/TELEGRAM-SPEC.md + the current alternatives (menu / set-account-mode / diag relay / system-actions / trainer-vm-diag). A reader can no longer be misled into treating body-text slash commands as the live operator surface. Also reworded the most prominent claims (recurring-sessions.md 'Need to halt everything? /halt' line) to the menu equivalent in-place. REMAINING (still open, requires operator / Tier-3 PR): config/strategies.yaml + config/accounts.yaml comments that describe the removed /reload_strats and /accounts surfaces — config files are not editable from /health-review.",
       "snoozed_until": null
     },
     {
@@ -42,7 +45,7 @@
       "trigger_condition": "Any /health-review run; surface to the operator (do NOT auto-edit accounts.yaml).",
       "resolution_criteria": "Operator decides whether MES should place live (paper) orders. If yes, set ib_port (4002) on the ib_paper account in config/accounts.yaml (Tier-3 change, operator-approved) and confirm the trader log no longer emits 'no ib_port set' + a smoke order reaches IB Gateway. If MES is data-only by design, document that and close.",
       "status": "open",
-      "triage_note": "2026-05-25 /health-review: still occurring — ict-trader-live journal emits 'ib_client_for(ib_paper): no ib_port set ... cannot reach IB Gateway' on every tick (sha 6c31cf2). MES market data works; only the order client is blind. Unchanged; remains operator-gated (Tier-3).",
+      "triage_note": "2026-05-26 /health-review: still open (no journal pull this review — egress-blocked direct access, relay didn't fetch journalctl). Status shows ib_paper live=true with sha 2b316d0; the order-client gap (separate from market-data) would still emit the per-tick warning. Remains operator-gated (Tier-3); no change from the 2026-05-25 triage.",
       "snoozed_until": null
     },
     {
@@ -56,6 +59,7 @@
       "trigger_condition": "Any /health-review run; or when a strategy is mysteriously silent in the audit tail.",
       "resolution_criteria": "intent_multiplexer._collect_intents emits a report()/audit event (e.g. 'strategy_builder'/'exception' with strategy + reason) on a builder exception, mirroring the legacy multiplexer, so a raising strategy shows up in signal_audit.jsonl and /api/diag/audit. (Code change — Tier-1 observability; not editable from /health-review which only writes docs + this backlog.) NOTE: this is the OBSERVABILITY gap only; the fade_breakout_4h crash itself is a separate Tier-3 strategy bug surfaced to the operator in the 2026-05-25 health-review response.",
       "status": "open",
+      "triage_note": "2026-05-26 /health-review: the fade_breakout_4h crash that motivated this entry is RESOLVED (PR 7f1e436) — audit_tail this window shows fade_breakout_4h_eval emitting normally with reason 'regime not chop (ADX=20.30 >= 20.0)'. The observability gap (silent strategy-builder exception swallowing) ITSELF still exists in code; remains operator-gated (Tier-1 code change).",
       "snoozed_until": null
     },
     {
@@ -69,6 +73,7 @@
       "trigger_condition": "Any /health-review run; revisit when a model-training session is scheduled, or once richer/live MES history is available.",
       "resolution_criteria": "mes-regime-{5m,15m} eval shows f1_volatile > 0 with a non-trivial macro_f1, via a feature/model change (e.g. more vol buckets, probability-threshold eval instead of argmax, a stronger/continuous vol feature, or a forward-vol-aware feature). Trainer-side (autonomous) work; verify on the trainer VM before/after. Distinct from the MES *trade*-data models (mes-execution-quality / mes-setup-quality / mes-trade-outcome-winrate) which ARE empty_dataset-blocked and self-resolve once MES trades.",
       "status": "open",
+      "triage_note": "2026-05-26 /health-review: confirmed still degenerate after the 2026-05-26 00:16 daily training cycle — mes-regime-5m macro_f1=0.3450, f1_volatile=0.0000 (n=17375); mes-regime-15m macro_f1=0.3290, f1_volatile=0.0000 (n=5794). Run-over-run flat (no change from prior cycle). Awaits model-training session.",
       "snoozed_until": null
     },
     {
@@ -82,6 +87,7 @@
       "trigger_condition": "Any /health-review run; revisit once a prop account is wired + trading (prop SDK), or in a model-training session.",
       "resolution_criteria": "Either (a) a prop account trades so account_context has 'taken' positives and the model learns non-degenerate per-strategy rates, or (b) the model is demoted from shadow / scoped so it no longer emits meaningless 0.000 predictions against non-prop live signals (a manifest/scoring change, Tier-3-aware).",
       "status": "open",
+      "triage_note": "2026-05-26 /health-review: after the 2026-05-26 00:16 cycle, prop-mission-policy registry shows accuracy=1.0000, n_eval=53 — same degenerate trivial-accuracy fingerprint (all-zero predictions matched by all-zero labels). prop_velotrade_1 still mode=dry_run with strategies=[] (runtime live=false). Unchanged; remains operator/infra-gated.",
       "snoozed_until": null
     },
     {
@@ -95,6 +101,7 @@
       "trigger_condition": "Any /health-review run; surface to the operator (external infra — cannot be auto-fixed from either repo).",
       "resolution_criteria": "Operator disconnects the 'ict-trader-widget' Cloudflare Pages <-> GitHub integration (or deletes that Pages project) so the dashboard repo stops running a perpetually-failing Cloudflare Pages check; confirm ict-trader-dashboard PRs show only the real checks (ruff-lint, import-smoke) green.",
       "status": "open",
+      "triage_note": "2026-05-26 /health-review: external infra; nothing to verify from /health-review's read surface. Remains operator-gated.",
       "snoozed_until": null
     },
     {
@@ -108,6 +115,7 @@
       "trigger_condition": "Any /health-review run that scores a trend_donchian / fade_breakout_4h / squeeze_breakout_4h order package and sees a TP far from price (~50R / ~2x BTC). Recognize it as the intended sentinel — do NOT score it as a TP defect.",
       "resolution_criteria": "Informational standing note; nothing to fix. Close only if the 50R-sentinel mechanism is itself removed (e.g. the pipeline stops requiring a TP for trail-only strategies, or tp_r is changed in an operator-approved Tier-3 PR).",
       "status": "open",
+      "triage_note": "2026-05-26 /health-review: pattern reconfirmed — both trend_donchian packages in window (pkg-4f5b161c45fb4435, pkg-ac6bb4b3b33f4339) carry TP at ~50R sentinel (143210 / 140827 = entry + 50*(entry-SL), exactly per the formula). NOT scored as defects per this note. Standing.",
       "snoozed_until": null
     },
     {
@@ -121,6 +129,7 @@
       "trigger_condition": "Next /health-review after 2026-05-25; specifically once fade_breakout_4h and/or squeeze_breakout_4h have fired at least one live setup on bybit_2 (fade needs chop / ADX<20 failed breakout; squeeze needs a Bollinger-in-Keltner release). If neither has fired yet, keep open and re-check next run.",
       "resolution_criteria": "Confirmed at least one fade AND one squeeze order package dispatched live to bybit_2 with a real (non-demo) execution, correct sizing/leverage, live trail ratchet, and correct journaling — vwap still shadow. If any of these is wrong (gated dry, mis-sized, no exchange order, mis-journaled), file a finding and surface to the operator (real money).",
       "status": "open",
+      "triage_note": "2026-05-26 /health-review: NO fade or squeeze fired in window. Both correctly gated: fade_breakout_4h_eval reason 'regime not chop (ADX=20.30 >= 20.0) — non-actionable'; squeeze_breakout_4h_eval reason 'no squeeze release on the latest bar (prev_on=False, now_on=False)'. Strategies are evaluating live (no crashes — the 2026-05-25 fade_breakout_4h _adx fix is holding). Verification deferred to a window with an actual fire.",
       "snoozed_until": null
     },
     {
@@ -134,6 +143,7 @@
       "trigger_condition": "Any /health-review run; or whenever order_packages shows multiple open same-direction zero-qty packages for one live position. Investigate the intent_multiplexer / order-package persistence path.",
       "resolution_criteria": "A same-direction reinforcement that aggregates to target_qty=0 no longer leaves a lingering status='open' order_packages row (it is skipped or persisted terminal), so ghost packages stop accumulating and the stuck-watchdog has nothing benign to flag. Order-path change (Tier-2): open a draft PR + operator review.",
       "status": "open",
+      "triage_note": "2026-05-26 /health-review: still happening — live VM snapshot shows 15 vwap orphaned reinforcement packages from 2026-05-26T02:08 to T04:02 (every ~7-8 min). All show aggregated_target_qty=0.0, sized_qty_by_account={}, orphaned by monitor_reconciler after 5 min (BUG-049 message). Plus 1 trend_donchian closed package from window (pkg-ac6bb4b3b33f4339, watchdog_released_alive). Code change still pending; remains Tier-2.",
       "snoozed_until": null
     }
   ]

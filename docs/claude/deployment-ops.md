@@ -1,5 +1,17 @@
 # Deployment ops
 
+> **Telegram command surface has changed (PR #1933, 2026-05-25).** The
+> verification commands referenced below (`/halt`, `/resume`, `/set_keys`,
+> `/accounts_status`, `/vm`, `/vm_write`) **no longer exist** — the
+> trader bot is menu-driven (see [`docs/TELEGRAM-SPEC.md`](../TELEGRAM-SPEC.md))
+> and the `/vm` + `/vm_write` VM-runner subsystem was removed. Today's
+> equivalents: kill switch ⇒ menu's **🛑 Kill switch → By account**; mode
+> flip ⇒ `set-account-mode` operator action; VM bash on the live VM ⇒
+> `system-actions` workflow (see [`system-actions.md`](system-actions.md));
+> arbitrary VM bash on the trainer ⇒ `trainer-vm-diag` relay (see
+> [`trainer-vm-mode.md`](trainer-vm-mode.md) § 9). The verification
+> sequences below are kept for archeology of how they used to be wired.
+
 ## Default stance
 
 Do not deploy, restart, or live-trade unless explicitly asked.

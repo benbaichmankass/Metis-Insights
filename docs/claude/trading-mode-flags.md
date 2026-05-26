@@ -1,5 +1,17 @@
 # Trading-mode flags
 
+> **Telegram command surface has changed (PR #1933, 2026-05-25).**
+> The slash commands referenced in this doc (`/halt`, `/resume`,
+> `/accounts dry|live`, `/set_all_live`, `/accounts_status`) **no longer
+> exist** — the trader bot (`@bict_trading_bot`) is now menu-driven; see
+> [`docs/TELEGRAM-SPEC.md`](../TELEGRAM-SPEC.md). The operator kill switch
+> + per-account mode flip live under **🛑 Kill switch → By account** in the
+> menu (which dispatches the `set-account-mode` operator action under the
+> hood). The Tier-3 mutation contract (`set-account-mode` is the only
+> sanctioned path) is unchanged; only the front-door command surface moved.
+> Body text below that still says "Telegram `/halt`" / "Telegram `/accounts
+> dry|live`" describes the historical surface, not the current one.
+
 > **The single dry/live toggle is `mode: live | dry_run` per account in
 > `config/accounts.yaml`.** Mutated via the `set-account-mode` operator
 > action (PR #978, 2026-05-12) — the only sanctioned path. Applied via
