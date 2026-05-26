@@ -38,6 +38,17 @@ trainer_config:
   vol_window_n: 20
   seed: 42
   n_iter: 200
+  # Per-sample reweighting via Dataset(weight=...). The 5m regime label
+  # is ~99.5% range / 0.5% volatile. Initial inverse-base-rate (200×)
+  # weighting cleared the collapse (recall_volatile 0.000 → 0.530) but
+  # pushed precision_volatile down to 0.029 — the model fires almost
+  # any time, only ~1 in 35 fires are right. 50× sits between strict
+  # inverse base rate and unity: enough push to keep recall non-trivial
+  # while letting the booster be more selective. Goal is signal, not
+  # spray — precision_lift well above random AND recall above a floor.
+  class_weight:
+    range: 1.0
+    volatile: 50.0
   lgbm_params:
     learning_rate: 0.05
     num_leaves: 31

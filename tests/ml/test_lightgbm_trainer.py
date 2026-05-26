@@ -118,6 +118,35 @@ class TestLightGBMMulticlassTrainer:
         assert a["booster_str"] == b["booster_str"]
         assert a["feature_importance_gain"] == b["feature_importance_gain"]
 
+    def test_class_weight_captured_and_roundtrips(self):
+        cfg = {**_REGIME_CONFIG, "class_weight": {"range": 1.0, "volatile": 10.0}}
+        state = LightGBMMulticlassTrainer().fit(_regime_rows(), cfg)
+        assert state["class_weight"] == {"range": 1.0, "volatile": 10.0}
+        # JSON-safe alongside the rest of model_state.
+        json.loads(json.dumps(state))
+
+    def test_class_weight_none_by_default(self):
+        state = LightGBMMulticlassTrainer().fit(_regime_rows(), _REGIME_CONFIG)
+        assert state["class_weight"] is None
+
+    def test_class_weight_changes_booster(self):
+        """Reweighting the minority class must actually reach lgb.train —
+        a no-op wiring bug would yield the same booster as the unweighted run."""
+        base = LightGBMMulticlassTrainer().fit(_regime_rows(), _REGIME_CONFIG)
+        cfg = {**_REGIME_CONFIG, "class_weight": {"range": 1.0, "volatile": 50.0}}
+        weighted = LightGBMMulticlassTrainer().fit(_regime_rows(), cfg)
+        assert weighted["booster_str"] != base["booster_str"]
+
+    def test_class_weight_missing_class_raises(self):
+        cfg = {**_REGIME_CONFIG, "class_weight": {"range": 1.0}}  # volatile missing
+        with pytest.raises(ValueError, match="missing entries"):
+            LightGBMMulticlassTrainer().fit(_regime_rows(), cfg)
+
+    def test_class_weight_wrong_type_raises(self):
+        cfg = {**_REGIME_CONFIG, "class_weight": [1.0, 10.0]}  # list, not dict
+        with pytest.raises(ValueError, match="must be a dict"):
+            LightGBMMulticlassTrainer().fit(_regime_rows(), cfg)
+
     def test_leakage_gate_blocks_forward_columns(self):
         cfg = {
             **_REGIME_CONFIG,

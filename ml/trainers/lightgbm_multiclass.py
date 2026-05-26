@@ -244,9 +244,35 @@ class LightGBMMulticlassTrainer(Trainer):
 
         x_arr = np.asarray(x_matrix, dtype=np.float64)
         y_arr = np.asarray(y_vec, dtype=np.int32)
+
+        # Optional per-class weighting. Native `is_unbalance`/`scale_pos_weight`
+        # are binary-only, so for multiclass the supported path is per-sample
+        # weights on the Dataset. The manifest opts in via
+        # `trainer_config.class_weight: {<label>: <float>, ...}` and must cover
+        # every label in the training data — a missing entry is an error, not
+        # a default-to-1.0 silent surprise.
+        class_weight_cfg = config.get("class_weight")
+        sample_weights: np.ndarray | None = None
+        if class_weight_cfg is not None:
+            if not isinstance(class_weight_cfg, dict):
+                raise ValueError(
+                    "class_weight must be a dict {label: float}, "
+                    f"got {type(class_weight_cfg).__name__}"
+                )
+            missing = sorted(set(class_labels) - set(map(str, class_weight_cfg)))
+            if missing:
+                raise ValueError(
+                    f"class_weight missing entries for classes: {missing}"
+                )
+            weight_lookup = {str(k): float(v) for k, v in class_weight_cfg.items()}
+            sample_weights = np.asarray(
+                [weight_lookup[class_labels[y]] for y in y_vec], dtype=np.float64,
+            )
+
         train_data = lgb.Dataset(
             data=x_arr,
             label=y_arr,
+            weight=sample_weights,
             categorical_feature=cat_idx if cat_idx else "auto",
             free_raw_data=False,
         )
@@ -289,6 +315,10 @@ class LightGBMMulticlassTrainer(Trainer):
             "n_iter": n_iter,
             "n_train": len(kept_rows),
             "n_classes": len(class_labels),
+            "class_weight": (
+                {str(k): float(v) for k, v in class_weight_cfg.items()}
+                if class_weight_cfg is not None else None
+            ),
             # Live-scoring spec (consumed by src/runtime/regime_shadow.py;
             # empty unless freeze_regime_spec was set).
             "vol_feature_column": vol_feature_column,
