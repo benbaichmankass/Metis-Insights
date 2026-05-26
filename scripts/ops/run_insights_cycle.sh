@@ -60,18 +60,24 @@ run_endpoint() {
     fi
 }
 
-# 1. Global endpoints — fixed names.
+# M13 S2 cadence split (2026-05-26): this wrapper drives the FAST tier
+# only — the 3 global endpoints (summary, recent, health). Per-strategy
+# narratives moved to the SLOW tier (60-min cadence) in
+# run_insights_strategies_cycle.sh. The split lets the operator pin a
+# better, lower-RPD-limit model on the strategy endpoint (gemini-2.5-flash)
+# while keeping the headline narrative fresh every 15 min on 2.0-flash.
+#
+# When INSIGHTS_RUN_ALL=1 is set (manual one-off / ops debugging) the
+# wrapper falls back to the legacy "all 9 endpoints in one cycle"
+# behaviour — useful for first-cycle smoke after `enable-insights-
+# generator` so the operator sees every cache file populated at once.
 run_endpoint summary
 run_endpoint recent
 run_endpoint health
 
-# 2. Per-strategy — derive from config/strategies.yaml so the cycle
-# stays in lock-step with whatever strategies are configured. The
-# python parser tolerates a missing file and an empty / malformed YAML
-# by printing nothing — those degrade to "no per-strategy run this
-# cycle," which is correct.
-mapfile -t STRATEGIES < <(
-    "$PYTHON" - <<'PY'
+if [ "${INSIGHTS_RUN_ALL:-0}" = "1" ] || [ "${INSIGHTS_RUN_ALL:-0}" = "true" ]; then
+    mapfile -t STRATEGIES < <(
+        "$PYTHON" - <<'PY'
 import sys
 try:
     import yaml
@@ -92,10 +98,11 @@ for name in strategies:
     if isinstance(name, str) and name.replace("_", "").isalnum() and name.islower():
         print(name)
 PY
-)
-
-for name in "${STRATEGIES[@]}"; do
-    run_endpoint strategy --strategy "$name"
-done
-
-echo "run_insights_cycle: done (${#STRATEGIES[@]} strategies + 3 global endpoints)"
+    )
+    for name in "${STRATEGIES[@]}"; do
+        run_endpoint strategy --strategy "$name"
+    done
+    echo "run_insights_cycle: done (${#STRATEGIES[@]} strategies + 3 global endpoints) [INSIGHTS_RUN_ALL]"
+else
+    echo "run_insights_cycle: done (3 global endpoints) [fast tier]"
+fi

@@ -45,8 +45,10 @@ EXPECTED_SERVICES = {
     "claude-vm-runner@.service",
     # PR #1656: headless IB Gateway (IBC) the trader connects to for MES.
     "ib-gateway.service",
-    # M13 S1 (2026-05-26): AI Analyst generator timer + service.
+    # M13 S1/S2 (2026-05-26): AI Analyst generator (fast tier:
+    # globals every 15 min) + per-strategy slow tier (every 60 min).
     "ict-insights-generator.service",
+    "ict-insights-generator-strategies.service",
 }
 
 # Trader-side units (i.e. units that run trading-strategy code). Used to

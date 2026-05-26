@@ -16,14 +16,26 @@ and the broader project context (that's `CLAUDE.md`).
 
 | Component | Path / unit | Role |
 |---|---|---|
-| Generator timer | `ict-insights-generator.timer` | Fires every 10 min (after a 2 min boot delay) |
-| Generator service | `ict-insights-generator.service` | Oneshot — runs the wrapper, exits |
-| Cycle wrapper | `scripts/ops/run_insights_cycle.sh` | Drives the CLI through every endpoint |
-| Generator CLI | `python -m src.runtime.insights generate …` | One endpoint per invocation |
+| **Fast-tier timer** | `ict-insights-generator.timer` | Fires every **15 min** (after a 2 min boot delay) — drives summary + recent + health on `gemini-2.0-flash` |
+| **Fast-tier service** | `ict-insights-generator.service` | Oneshot — runs the wrapper, exits |
+| **Fast-tier wrapper** | `scripts/ops/run_insights_cycle.sh` | Globals only (skips strategies; `INSIGHTS_RUN_ALL=1` re-enables strategies for a one-off cycle) |
+| **Slow-tier timer** | `ict-insights-generator-strategies.timer` | Fires every **60 min** (after a 7 min boot delay) — drives the 6 strategies on `gemini-2.5-flash` |
+| **Slow-tier service** | `ict-insights-generator-strategies.service` | Oneshot — runs the strategies wrapper, exits |
+| **Slow-tier wrapper** | `scripts/ops/run_insights_strategies_cycle.sh` | Per-strategy only |
+| Generator CLI | `python -m src.runtime.insights generate …` | One endpoint per invocation; used by both wrappers |
 | Cache files | `runtime_logs/insights/<endpoint>.json` | What the router serves |
 | History table | `trade_journal.db::insights_history` | Durable record of every run |
 | Usage table | `trade_journal.db::insights_usage` | Per-call tokens + estimated cost |
 | Router | `src/web/api/routers/insights.py` | `/api/bot/insights/*` (read-only) |
+
+### Cadence math (M13 S2, gemini mode)
+
+| Tier | Cadence | Endpoints | Model | Calls/day | Free-tier cap |
+|---|---|---|---|---|---|
+| fast | 15 min | summary + recent + health | `gemini-2.0-flash` | 3 × 96 = **288** | 1,500 RPD |
+| slow | 60 min | 6 strategies | `gemini-2.5-flash` | 6 × 24 = **144** | 500 RPD |
+
+Aggregate: **432 calls/day** across both Gemini models. ~19% of the 2.0-flash cap and ~29% of the 2.5-flash cap — comfortable headroom for retries.
 
 ---
 
@@ -34,12 +46,13 @@ All controlled via `/home/ubuntu/ict-trading-bot/.env` on the live VM.
 | Env var | Default | Effect |
 |---|---|---|
 | `INSIGHTS_ENABLED` | `1` | Set to `0` (or `false` / `no`) to short-circuit the next timer fire. The router keeps serving the last-good cache; no tokens spent. |
-| `INSIGHTS_MODEL_MODE` | `template` | **Default since M13 S2.** `template` runs the rule-based analyst (no API call, $0 cost, deterministic, zero hallucination risk). Set to `anthropic` to use the Claude API (requires `ANTHROPIC_API_KEY` + credit balance). The dashboard surface, cache files, `insights_history`, and `insights_usage` rows are identical between modes — `template` writes rows with `model_id="template:v1"` and `estimated_cost_usd=0`. |
+| `INSIGHTS_MODEL_MODE` | `template` | **Default at code level.** Live VM is set to `gemini` (M13 S2 default). Valid values: `template` (rule-based, $0, deterministic), `anthropic` (Claude API, requires credit), `gemini` (Google Generative Language API, free tier — requires `GEMINI_API_KEY`). The dashboard surface, cache files, `insights_history`, and `insights_usage` rows are identical across modes. Template rows carry `model_id="template:v1"` + `cost=0`; Gemini rows carry the real model id and cost based on the public price table (free-tier usage records the price but doesn't bill). |
+| `GEMINI_API_KEY` | unset | Required when `INSIGHTS_MODEL_MODE=gemini`. Passed via `X-goog-api-key` header (never in the URL). Get one at https://aistudio.google.com/apikey. |
 | `INSIGHTS_MONTHLY_BUDGET_USD` | `5.00` | Calendar-month budget cap. Only enforced in `anthropic` mode — template mode bypasses the gate entirely. Once `SUM(estimated_cost_usd)` for the current month hits this, the generator skips calls and records `budget_skipped` usage rows. Bump it if you've raised your Anthropic monthly included usage; lower it to tighten. |
-| `INSIGHTS_MODEL_SUMMARY` | `claude-haiku-4-5-20251001` | (Anthropic mode only) Override the model for the `summary` endpoint. |
-| `INSIGHTS_MODEL_RECENT` | `claude-haiku-4-5-20251001` | Same for `recent`. |
-| `INSIGHTS_MODEL_STRATEGY` | `claude-sonnet-4-6` | Same for `strategy/{name}`. |
-| `INSIGHTS_MODEL_HEALTH` | `claude-sonnet-4-6` | Same for `health`. |
+| `INSIGHTS_MODEL_SUMMARY` | `claude-haiku-4-5-20251001` (anthropic) / `gemini-2.0-flash` (gemini) | Per-endpoint model override. Defaults pick the cheaper / higher-RPD model for the high-cadence global endpoints. |
+| `INSIGHTS_MODEL_RECENT`  | `claude-haiku-4-5-20251001` / `gemini-2.0-flash` | Same for `recent`. |
+| `INSIGHTS_MODEL_STRATEGY`| `claude-sonnet-4-6` / `gemini-2.5-flash` | Per-strategy uses the higher-quality / lower-RPD model — fires hourly. |
+| `INSIGHTS_MODEL_HEALTH`  | `claude-sonnet-4-6` / `gemini-2.0-flash` | Same for `health`. |
 | `ANTHROPIC_API_KEY` | (already set on the VM) | Required only when `INSIGHTS_MODEL_MODE=anthropic`. Reuses the same key as `ict-claude-bridge.service`. |
 
 After editing `.env`, the next timer fire picks up the new values

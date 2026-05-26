@@ -1,0 +1,41 @@
+# ============================================
+# ICT INSIGHTS GENERATOR — PER-STRATEGY (SLOW TIER, M13 S2)
+# Runs scripts/ops/run_insights_strategies_cycle.sh once per timer fire.
+#
+# Triggered by ict-insights-generator-strategies.timer (every 60 min
+# by default). Refreshes runtime_logs/insights/strategy_<name>.json
+# for every strategy in config/strategies.yaml.
+#
+# Tier-1 read-only: same contract as the fast-tier unit. Reads the
+# canonical trade journal in mode=ro; writes only to runtime_logs/
+# insights/, trade_journal.db::insights_history, and
+# trade_journal.db::insights_usage.
+#
+# Why a separate unit:
+#   The per-strategy narratives use gemini-2.5-flash for richer
+#   reasoning, but the free-tier 500 RPD cap on that model is tighter
+#   than 2.0-flash's 1500. Running 6 strategies × 24 cycles/day = 144
+#   calls/day on 2.5-flash (29% of the cap) keeps us comfortable.
+#
+# Save to: /etc/systemd/system/ict-insights-generator-strategies.service
+# (installed automatically by scripts/install_systemd_units.sh)
+# ============================================
+
+[Unit]
+Description=ICT Trading Bot — AI Analyst slow tier (per-strategy)
+After=network-online.target ict-trader-live.service ict-web-api.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/ict-trading-bot
+EnvironmentFile=/home/ubuntu/ict-trading-bot/.env
+ExecStart=/home/ubuntu/ict-trading-bot/scripts/ops/run_insights_strategies_cycle.sh
+StandardOutput=journal
+StandardError=journal
+# 6 strategies × ~5s/call ≈ 30s — 5 minutes is generous headroom.
+TimeoutStartSec=5min
+
+[Install]
+WantedBy=multi-user.target

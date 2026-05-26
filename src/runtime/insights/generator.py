@@ -59,16 +59,29 @@ _DEFAULT_MODELS = {
 }
 _MAX_OUTPUT_TOKENS = 800
 
+# Default models per endpoint when INSIGHTS_MODEL_MODE=gemini. The
+# operator's M13 S2 split (2026-05-26): the 6 strategies (which fire
+# on the slow 60-min cycle) get gemini-2.5-flash; the fast 15-min
+# cycle (summary, recent, health) stays on gemini-2.0-flash. The free
+# tier has 1,500 RPD on 2.0-flash and 500 RPD on 2.5-flash, both
+# comfortably under our projected daily call volume.
+_DEFAULT_GEMINI_MODELS = {
+    "summary": "gemini-2.0-flash",
+    "recent": "gemini-2.0-flash",
+    "health": "gemini-2.0-flash",
+    "strategy": "gemini-2.5-flash",
+}
+
 # Endpoints valid for the CLI / generate(). The strategy endpoint
 # requires an extra --strategy arg.
 _VALID_ENDPOINTS = {"summary", "recent", "strategy", "health"}
 
 # Generator mode. `template` (default) is provider-free and produces
-# deterministic rule-based prose; `anthropic` calls the Claude API.
-# Other providers (groq, openai, …) can be added later by branching
-# in generate() — the cache + history + usage surfaces are
-# provider-agnostic.
-_VALID_MODES = {"template", "anthropic"}
+# deterministic rule-based prose; `anthropic` calls the Claude API;
+# `gemini` calls the Google Generative Language API. Other providers
+# can be added later by branching in generate() — the cache + history
+# + usage surfaces are provider-agnostic.
+_VALID_MODES = {"template", "anthropic", "gemini"}
 
 
 def _mode() -> str:
@@ -90,10 +103,16 @@ def _enabled() -> bool:
 
 
 def _model_for(endpoint: str) -> str:
-    if _mode() == "template":
+    mode = _mode()
+    if mode == "template":
         return template_analyst.MODEL_ID
     env_key = f"INSIGHTS_MODEL_{endpoint.upper()}"
-    return os.environ.get(env_key) or _DEFAULT_MODELS[endpoint]
+    explicit = os.environ.get(env_key)
+    if explicit:
+        return explicit
+    if mode == "gemini":
+        return _DEFAULT_GEMINI_MODELS[endpoint]
+    return _DEFAULT_MODELS[endpoint]
 
 
 def _now_iso() -> str:
@@ -144,6 +163,92 @@ def _call_anthropic(
         "cache_read_input_tokens": int(
             getattr(u, "cache_read_input_tokens", 0) or 0
         ),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Gemini call (REST via httpx — no SDK dependency)
+# ---------------------------------------------------------------------------
+
+_GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models"
+
+
+def _flatten_system_blocks(blocks: list[dict[str, Any]]) -> str:
+    """Collapse the cache_control-marked block list down to plain text.
+
+    Gemini's REST API does not honour Anthropic's `cache_control` markers;
+    its own context-caching is a separate API call keyed by cache id. We
+    just concatenate the text and drop the marker — quality is unaffected.
+    """
+    parts = []
+    for blk in blocks or []:
+        if isinstance(blk, dict):
+            t = blk.get("text")
+            if isinstance(t, str):
+                parts.append(t)
+    return "\n\n".join(parts)
+
+
+def _call_gemini(
+    model_id: str,
+    system_blocks: list[dict[str, Any]],
+    user_text: str,
+) -> dict[str, Any]:
+    """Call the Google Generative Language API.
+
+    Returns the same dict shape ``_call_anthropic`` returns:
+    ``{text, input_tokens, output_tokens, cache_creation_input_tokens,
+    cache_read_input_tokens}``. Gemini does not expose Anthropic-style
+    per-call prompt-caching metrics, so the cache_* fields are always
+    0 — the downstream cost calculation still works because the
+    public price table prices Gemini's full token count uniformly.
+
+    Auth: ``GEMINI_API_KEY`` env var, passed via the ``X-goog-api-key``
+    header (NOT the URL ?key=…) so the key never enters a request
+    URL that could be incidentally logged.
+    """
+    import httpx  # already in requirements; lazy for symmetry with anthropic path
+
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        raise RuntimeError(
+            "GEMINI_API_KEY is not set — required for INSIGHTS_MODEL_MODE=gemini"
+        )
+
+    url = f"{_GEMINI_BASE_URL}/{model_id}:generateContent"
+    body = {
+        "contents": [{"role": "user", "parts": [{"text": user_text}]}],
+        "systemInstruction": {"parts": [{"text": _flatten_system_blocks(system_blocks)}]},
+        "generationConfig": {
+            "maxOutputTokens": _MAX_OUTPUT_TOKENS,
+            "temperature": 0.3,
+            "responseMimeType": "application/json",
+        },
+    }
+    headers = {
+        "Content-Type": "application/json",
+        "X-goog-api-key": api_key,
+    }
+    with httpx.Client(timeout=30.0) as client:
+        resp = client.post(url, json=body, headers=headers)
+    resp.raise_for_status()
+    payload = resp.json()
+
+    candidates = payload.get("candidates") or []
+    text = ""
+    if candidates:
+        parts = ((candidates[0] or {}).get("content") or {}).get("parts") or []
+        for p in parts:
+            if isinstance(p, dict) and isinstance(p.get("text"), str):
+                text += p["text"]
+
+    usage = payload.get("usageMetadata") or {}
+    return {
+        "text": text.strip(),
+        "input_tokens": int(usage.get("promptTokenCount", 0) or 0),
+        "output_tokens": int(usage.get("candidatesTokenCount", 0) or 0),
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
     }
 
 
@@ -311,7 +416,9 @@ def generate(
         )
         return payload
 
-    # Paid-provider path (mode == "anthropic" today; groq/openai later).
+    # Paid-provider path. Same prompt building for both Anthropic and
+    # Gemini — the prompts module is provider-agnostic; differences in
+    # SDK shape are absorbed by `_call_anthropic` / `_call_gemini`.
     if endpoint == "summary":
         system_blocks, user_text = prompts.summary_prompt(data)
     elif endpoint == "recent":
@@ -321,11 +428,17 @@ def generate(
     else:  # health
         system_blocks, user_text = prompts.health_prompt(data)
 
-    caller = anthropic_call or _call_anthropic
+    if anthropic_call is not None:
+        caller = anthropic_call
+    elif mode == "gemini":
+        caller = _call_gemini
+    else:
+        caller = _call_anthropic
+
     try:
         result = caller(model_id, system_blocks, user_text)
     except Exception:  # noqa: BLE001 — generator never raises on API err
-        logger.exception("insights.generator: anthropic call failed for %s", endpoint)
+        logger.exception("insights.generator: %s call failed for %s", mode, endpoint)
         usage.record_usage(
             endpoint=endpoint,
             model_id=model_id,

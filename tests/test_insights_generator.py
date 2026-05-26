@@ -320,3 +320,121 @@ def test_every_endpoint_prompt_marks_static_block_as_cacheable() -> None:
             b.get("cache_control", {}).get("type") == "ephemeral"
             for b in sys_blocks
         ), f"prompt builder {fn} missing cache_control marker"
+
+
+# ---------------------------------------------------------------------------
+# Gemini provider (M13 S2)
+# ---------------------------------------------------------------------------
+
+
+def test_gemini_call_posts_to_rest_api_with_header_auth(
+    isolated_dirs: dict[str, Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`_call_gemini` issues a single POST with the key in the header."""
+    from src.runtime.insights import generator as gen_mod
+
+    captured: dict = {}
+
+    class FakeResponse:
+        def raise_for_status(self) -> None: pass
+
+        def json(self) -> dict:
+            return {
+                "candidates": [{"content": {"parts": [
+                    {"text": '{"summary_md":"hi","grade":"good","signals":[]}'}
+                ]}}],
+                "usageMetadata": {"promptTokenCount": 123, "candidatesTokenCount": 7},
+            }
+
+    class FakeClient:
+        def __init__(self, *_a, **_kw): pass
+        def __enter__(self): return self
+        def __exit__(self, *_exc): pass
+        def post(self, url, json, headers):
+            captured["url"] = url
+            captured["body"] = json
+            captured["headers"] = headers
+            return FakeResponse()
+
+    import httpx
+    monkeypatch.setattr(httpx, "Client", FakeClient)
+    monkeypatch.setenv("GEMINI_API_KEY", "sk-fake-key")
+
+    result = gen_mod._call_gemini(
+        "gemini-2.0-flash",
+        [{"text": "system instructions"}],
+        "user question",
+    )
+
+    assert "gemini-2.0-flash:generateContent" in captured["url"]
+    assert captured["headers"]["X-goog-api-key"] == "sk-fake-key"
+    # Key NEVER in the URL — keeps it out of accidental logs.
+    assert "key=" not in captured["url"]
+    assert captured["body"]["systemInstruction"]["parts"][0]["text"] == "system instructions"
+    assert captured["body"]["contents"][0]["parts"][0]["text"] == "user question"
+    assert result["text"] == '{"summary_md":"hi","grade":"good","signals":[]}'
+    assert result["input_tokens"] == 123
+    assert result["output_tokens"] == 7
+    # Gemini doesn't expose Anthropic-style cache metrics — both are 0.
+    assert result["cache_creation_input_tokens"] == 0
+    assert result["cache_read_input_tokens"] == 0
+
+
+def test_gemini_call_raises_when_api_key_missing(
+    isolated_dirs: dict[str, Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from src.runtime.insights import generator as gen_mod
+
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    with pytest.raises(RuntimeError, match="GEMINI_API_KEY"):
+        gen_mod._call_gemini("gemini-2.0-flash", [{"text": "x"}], "y")
+
+
+def test_generate_routes_to_gemini_when_mode_is_gemini(
+    isolated_dirs: dict[str, Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from src.runtime.insights import generator as gen_mod, usage as usage_mod
+
+    monkeypatch.setenv("INSIGHTS_MODEL_MODE", "gemini")
+    monkeypatch.setenv("GEMINI_API_KEY", "sk-fake")
+
+    called = {"n": 0, "model_id": None}
+
+    def fake_gemini(model_id, _system, _user):
+        called["n"] += 1
+        called["model_id"] = model_id
+        return {
+            "text": '{"summary_md":"two trades, both small wins","grade":"good","signals":[]}',
+            "input_tokens": 100, "output_tokens": 20,
+            "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0,
+        }
+
+    monkeypatch.setattr(gen_mod, "_call_gemini", fake_gemini)
+
+    payload = gen_mod.generate("summary")
+    assert payload is not None
+    assert called["n"] == 1
+    assert called["model_id"] == "gemini-2.0-flash"
+
+    # The default model for the `strategy` endpoint in gemini mode is 2.5-flash.
+    payload2 = gen_mod.generate("strategy", strategy_name="vwap")
+    assert payload2 is not None
+    assert called["n"] == 2
+    assert called["model_id"] == "gemini-2.5-flash"
+
+    summary = usage_mod.summarize_usage()
+    # Two ok rows landed.
+    assert summary["current_month_calls"] == 2
+
+
+def test_explicit_endpoint_model_override_wins_in_gemini_mode(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from src.runtime.insights import generator as gen_mod
+
+    monkeypatch.setenv("INSIGHTS_MODEL_MODE", "gemini")
+    monkeypatch.setenv("INSIGHTS_MODEL_SUMMARY", "gemini-2.5-flash")
+    assert gen_mod._model_for("summary") == "gemini-2.5-flash"
+    # Other endpoints fall back to defaults.
+    monkeypatch.delenv("INSIGHTS_MODEL_RECENT", raising=False)
+    assert gen_mod._model_for("recent") == "gemini-2.0-flash"
