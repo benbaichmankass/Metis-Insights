@@ -36,6 +36,31 @@ def send_telegram_direct(message: str, *, parse_mode: Optional[str] = "HTML") ->
     or printed in any form (full, redacted, or length). Only ``ok``,
     ``message_id``, and HTTP ``status_code`` are logged on success.
     """
+    # M12 S1 mirror — every operator-facing Telegram is also published as
+    # an FCM data message to subscribed Android devices. This is the
+    # single chokepoint (every higher-level helper — send_to_operator,
+    # notify_operator, send_via_alert_manager — funnels through here), so
+    # one hook covers the hourly report, the news-veto reporter, every
+    # pipeline-result line, the watchdog (when it routes through this
+    # path), the daily heartbeat, etc.
+    #
+    # Failure isolation: publish_event already swallows every exception
+    # (feature flag off / credentials missing / FCM 5xx / network
+    # timeout). The defense-in-depth try/except here adds belt + suspenders
+    # so a bad import or a transient bug in mobile_push can't propagate
+    # into the Telegram send path.
+    #
+    # Position: BEFORE the Telegram HTTP call so the push fires even when
+    # Telegram itself is unreachable (push as a strict superset of
+    # operator-facing comms). The body the phone shows is the *intended*
+    # message, not the post-Telegram-formatting one — fine for plain text;
+    # HTML/Markdown source survives intact and is human-readable on the
+    # phone shade.
+    try:
+        _publish_telegram_to_fcm(message, parse_mode=parse_mode)
+    except Exception as exc:  # noqa: BLE001  # allow-silent: M12 S1 mirror — mobile_push failure must never propagate into the Telegram send path
+        logger.warning("notify: mobile_push mirror failed: %s", exc)
+
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
     chat_id = os.environ.get("TELEGRAM_CHAT_ID")
     if not token or not chat_id:
@@ -129,6 +154,38 @@ def send_to_operator(
                 exc,
             )
     send_telegram_direct(plain, parse_mode=None)
+
+
+def _publish_telegram_to_fcm(message: str, *, parse_mode: Optional[str]) -> None:
+    """Fan a Telegram message out to subscribed Android devices via FCM.
+
+    Lazy import — ``src.runtime.mobile_push`` is a sibling module and the
+    function-scope import means a startup ordering quirk (or a missing
+    google-auth in a stripped env) can't crash this module's import.
+
+    The payload is kept small: the message text + the parse_mode hint
+    (so the device can render Markdown / HTML differently if it wants).
+    FCM caps data payloads at 4 KB; long hourly reports get truncated
+    to stay inside that with margin.
+    """
+    from src.runtime.mobile_push import publish_event
+
+    # 3 KB leaves headroom for the event_kind key + JSON envelope below
+    # FCM's 4 KB data-message limit.
+    _MAX_PAYLOAD_CHARS = 3000
+    _TRUNC_SUFFIX = "\n…(truncated)"
+    body = (
+        message
+        if len(message) <= _MAX_PAYLOAD_CHARS
+        else message[: _MAX_PAYLOAD_CHARS - len(_TRUNC_SUFFIX)] + _TRUNC_SUFFIX
+    )
+    publish_event(
+        "telegram",
+        {
+            "text": body,
+            "parse_mode": parse_mode or "plain",
+        },
+    )
 
 
 def send_via_alert_manager(message: str) -> None:
