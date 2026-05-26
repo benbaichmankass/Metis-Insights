@@ -27,7 +27,10 @@
 #   VENV_DIR           — defaults to $REPO_ROOT/.venv
 #   DATA_DIR           — defaults to $REPO_ROOT/data
 #   DATASETS_ROOT      — defaults to $REPO_ROOT/datasets-out
-#   DATASET_VERSION    — defaults to v001
+#   DATASET_VERSION    — defaults to v002 (bumped from v001 in the Phase-2
+#                        feature-expansion sprint: market_features +
+#                        setup_labels gained new non-leaking columns and a
+#                        builder_version bump; manifests now point at v002)
 #   MARKET_START       — defaults to 2024-01-01
 #   MARKET_END         — defaults to today (UTC)
 #   BUILD_LOG_PATH     — defaults to $REPO_ROOT/runtime_logs/trainer/dataset_builds.jsonl
@@ -42,7 +45,7 @@ REPO_ROOT="${REPO_ROOT:-/home/ubuntu/ict-trading-bot}"
 VENV_DIR="${VENV_DIR:-$REPO_ROOT/.venv}"
 DATA_DIR="${DATA_DIR:-$REPO_ROOT/data}"
 DATASETS_ROOT="${DATASETS_ROOT:-$REPO_ROOT/datasets-out}"
-DATASET_VERSION="${DATASET_VERSION:-v001}"
+DATASET_VERSION="${DATASET_VERSION:-v002}"
 MARKET_START="${MARKET_START:-2024-01-01}"
 MARKET_END="${MARKET_END:-$(date -u +%Y-%m-%d)}"
 BUILD_LOG_PATH="${BUILD_LOG_PATH:-$REPO_ROOT/runtime_logs/trainer/dataset_builds.jsonl}"
