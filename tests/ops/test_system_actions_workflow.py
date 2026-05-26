@@ -67,6 +67,8 @@ EXPECTED_ACTIONS = {
     "disable-m5-consumer": "disable_m5_consumer.sh",
     "enable-signal-dual-write": "enable_signal_dual_write.sh",
     "disable-signal-dual-write": "disable_signal_dual_write.sh",
+    "enable-mobile-push": "enable_mobile_push.sh",
+    "disable-mobile-push": "disable_mobile_push.sh",
     "setup-cloudflare-tunnel": "setup_cloudflare_tunnel.sh",
     "teardown-cloudflare-tunnel": "teardown_cloudflare_tunnel.sh",
     "setup-named-cloudflare-tunnel": "setup_named_cloudflare_tunnel.sh",
