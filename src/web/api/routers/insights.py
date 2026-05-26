@@ -148,3 +148,114 @@ def get_strategy(name: str) -> dict[str, Any]:
 @router.get("/health")
 def get_health() -> dict[str, Any]:
     return _read_cache(_INSIGHTS_DIR / "health.json")
+
+
+# ---------------------------------------------------------------------------
+# History + usage (M13 S1 / PR F)
+#
+# These two endpoints expose the persistent side of the analyst — the
+# `trade_journal.db::insights_history` table (one row per generator run)
+# and `insights_usage` table (per-call tokens + estimated cost). Both
+# are read-only of the canonical store; the writes are done by the
+# generator process landed in PR C.
+#
+# Unlike the cache-only endpoints above, these DO touch the DB — they
+# use the same `src.runtime.insights.{history,usage}` helpers the
+# generator uses for its writes, so the read shape is guaranteed to
+# match. The router still does NOT import `anthropic`.
+# ---------------------------------------------------------------------------
+
+
+@router.get("/history")
+def get_history(
+    endpoint: str = Query(..., description="summary | recent | strategy | health"),
+    hours: int = Query(default=24, ge=1, le=24 * 7),
+    limit: int = Query(default=50, ge=1, le=500),
+    strategy_name: str | None = Query(default=None, description="filter when endpoint=strategy"),
+) -> dict[str, Any]:
+    """Newest-first rows from ``insights_history`` for an endpoint.
+
+    ``endpoint`` is the same enum the generator uses (``summary`` /
+    ``recent`` / ``strategy`` / ``health``). For ``strategy`` an
+    optional ``strategy_name`` filter scopes to one strategy's rows.
+
+    Returns ``{rows: [...], count, hours, endpoint, strategy_name}``.
+    Each row carries the decoded ``signals`` / ``data_window`` /
+    ``row_counts`` / ``payload`` so the consumer can drill in without
+    a second query. Empty rows when the table doesn't exist yet or no
+    runs land in the window — never errors.
+    """
+    if endpoint not in {"summary", "recent", "strategy", "health"}:
+        raise HTTPException(status_code=400, detail="invalid endpoint")
+
+    if strategy_name is not None and not _STRATEGY_NAME_PATTERN.match(strategy_name):
+        raise HTTPException(status_code=400, detail="invalid strategy name")
+
+    # Lazy-import so the cache-only endpoints above still work even if
+    # the runtime/insights/ package isn't importable (e.g. a stripped-
+    # down deploy). The router stays useful as long as the cache files
+    # are present.
+    try:
+        from src.runtime.insights import history as history_mod
+    except ImportError as exc:
+        logger.warning("insights: history module not importable: %s", exc)
+        return {
+            "rows": [],
+            "count": 0,
+            "endpoint": endpoint,
+            "hours": hours,
+            "limit": limit,
+            "strategy_name": strategy_name,
+            "table_present": False,
+        }
+
+    rows = history_mod.recent_history(
+        endpoint=endpoint,
+        hours=hours,
+        limit=limit,
+        strategy_name=strategy_name,
+    )
+    return {
+        "rows": rows,
+        "count": len(rows),
+        "endpoint": endpoint,
+        "hours": hours,
+        "limit": limit,
+        "strategy_name": strategy_name,
+        "table_present": True,
+    }
+
+
+@router.get("/usage")
+def get_usage() -> dict[str, Any]:
+    """Per-month cost + token total + per-endpoint split.
+
+    Returns the shape ``src.runtime.insights.usage.summarize_usage``
+    produces:
+
+      {
+        "current_month_usd":   <float>,
+        "current_month_tokens": <int>,
+        "current_month_calls":  <int>,
+        "budget_usd":           <float, INSIGHTS_MONTHLY_BUDGET_USD>,
+        "month_start":          "<iso>",
+        "by_endpoint": [{"endpoint": "summary", "spent": ..., "calls": ...}, ...],
+        "price_table_as_of":   "YYYY-MM-DD",
+        "table_present":        <bool>
+      }
+    """
+    try:
+        from src.runtime.insights import usage as usage_mod
+    except ImportError as exc:
+        logger.warning("insights: usage module not importable: %s", exc)
+        return {
+            "current_month_usd": 0.0,
+            "current_month_tokens": 0,
+            "current_month_calls": 0,
+            "budget_usd": 0.0,
+            "month_start": None,
+            "by_endpoint": [],
+            "price_table_as_of": None,
+            "table_present": False,
+        }
+    return usage_mod.summarize_usage()
