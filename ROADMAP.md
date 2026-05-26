@@ -48,6 +48,7 @@
 | **M9** | auto-claude | AI / model roadmap | 🔄 IN PROGRESS — WS1+WS2+WS4+WS4-FU+WS5-A closed; WS5-B-PART-1 + PART-2 (PR 2A + PR 2B) + WS5-C closed 2026-05-10. |
 | **M10** | auto-claude | HF / data pipeline | 🔄 IN PROGRESS — WS3 closed; WS5-B-PART-1 adds `market_raw`; WS5-B-PART-2 PR 2A wires Bybit off-VM fetch; PR 2B adds `market_features`; WS5-C adds `setup_labels` (fifth buildable family); WS9 continuous. |
 | **M11** | auto-claude | Multi-strategy architecture refactor | ✅ COMPLETE 2026-05-20 — S0–S11 all merged (PRs #1604–#1610). Typed abstractions, allocator, advisory ML hooks, attribution API, ICT filter module, health-review update. See [`ROADMAP-MULTI-STRATEGY-REFACTOR-2026-05-20.md`](docs/sprint-plans/ROADMAP-MULTI-STRATEGY-REFACTOR-2026-05-20.md). IB/MES execution wired 2026-05-21 (S7-IB); **MES paper trading went live 2026-05-22** — multi-symbol BTCUSDT + MES, all 3 strategies, delayed CME data (PRs #1706 socat gateway port, #1712 persistent event loop). |
+| **M12** | mixed (auto-claude bot-side, operator-driven app-side) | Native Android companion app — push notifications + read-only dashboard + home-screen widget | 📋 NOT STARTED — plan adopted 2026-05-26. 7 sprints (S1–S7) in [`ROADMAP-ANDROID-COMPANION-APP-2026-05-26.md`](docs/sprint-plans/ROADMAP-ANDROID-COMPANION-APP-2026-05-26.md). S1 = end-to-end FCM push MVP (the "low-risk first slice"); S2/S3 = Android repo scaffold + dashboard surfaces; S4 = event-driven notifications + subscriptions; S5/S6 = Glance home-screen widget (small → 4×5); S7 = release + runbook. Live order path explicitly untouched; new bot-side surface is one router + one new SQLite table + a feature-flagged, `try/except`-wrapped notifier that observes existing event sinks. |
 
 ### M9 / M10 — AI traders workstreams (WS1–WS10)
 
@@ -99,8 +100,11 @@
    [`docs/sprint-plans/STRATEGY-IMPROVEMENT-PROGRAM-2026-05-23.md`](docs/sprint-plans/STRATEGY-IMPROVEMENT-PROGRAM-2026-05-23.md).
    S0 (kickoff/architecture) done 2026-05-23; next is S1 (comms path)
    then S2 (full performance audit).
-2. **M6 — Web app UI (dashboard repo).**
-3. **Closed-flat invariant auto-flatten promotion** — gated on ≥ 7 days clean alert-only soak.
+2. **M12 — Native Android companion app.** 7-sprint program; S1 is the
+   FCM push end-to-end MVP (proves the server→phone pipe with the
+   smallest possible app). Plan:
+   [`docs/sprint-plans/ROADMAP-ANDROID-COMPANION-APP-2026-05-26.md`](docs/sprint-plans/ROADMAP-ANDROID-COMPANION-APP-2026-05-26.md).
+3. **M6 — Web app UI (dashboard repo).**
 
 > **AI-traders queue note:** WS1+WS2+WS3+WS4+WS5-A+WS4-FU+WS5-B-PART-1 closed
 > 2026-05-10. **Next on AI-traders track is WS5-B-PART-2** — regime
