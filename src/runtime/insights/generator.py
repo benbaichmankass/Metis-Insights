@@ -58,8 +58,7 @@ _VALID_ENDPOINTS = {"summary", "recent", "strategy", "health"}
 
 
 def _enabled() -> bool:
-    # allow-silent: kill switch for the read-only analyst process; not on the live/dry path (M13 S1)
-    raw = os.environ.get("INSIGHTS_ENABLED", "1").strip().lower()
+    raw = os.environ.get("INSIGHTS_ENABLED", "1").strip().lower()  # allow-silent: kill switch for the read-only analyst process; not on the live/dry path (M13 S1)
     return raw not in {"0", "false", "no", ""}
 
 
