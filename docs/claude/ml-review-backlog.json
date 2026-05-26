@@ -1,0 +1,5 @@
+{
+  "_comment": "ML-review backlog — the parking lot for AI/ML EXPERIMENT follow-ups: new manifests to try, new features to engineer, new dataset families to build, new target horizons / model families to evaluate, promotion-criteria notes (what a model would need to meet next time to clear the shadow->advisory gate). The autonomous /ml-review skill drains this list every run: it triages each open item, converts the resolved ones into experiments_proposed[] or promotion_recommendations[], marks them, or leaves them open with new evidence appended. Do NOT use this for system bugs (those go to health-review-backlog.json) or strategy trading follow-ups (those go to performance-review-backlog.json). Item ids: MB-YYYYMMDD-NNN.",
+  "schema_version": 1,
+  "items": []
+}

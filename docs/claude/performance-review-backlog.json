@@ -1,0 +1,5 @@
+{
+  "_comment": "Performance-review backlog — the parking lot for STRATEGY TRADING follow-ups: tweak ideas to revisit when more data lands, performance puzzles that need a second window, low-grade clusters worth investigating, comparisons to backtests/sweeps that prior sessions noticed but did not have enough evidence to propose as a Tier-3 change yet. The autonomous /performance-review skill drains this list every run: it triages each open item, acts on whatever the new window's data resolves, and either fires a proposed_tweaks[] entry, marks it resolved, or leaves it open with new evidence appended. Do NOT use this for system bugs (those go to health-review-backlog.json) or ML experiments (those go to ml-review-backlog.json). Item ids: PB-YYYYMMDD-NNN.",
+  "schema_version": 1,
+  "items": []
+}
