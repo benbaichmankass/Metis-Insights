@@ -229,9 +229,39 @@ def _call_gemini(
         "Content-Type": "application/json",
         "X-goog-api-key": api_key,
     }
-    with httpx.Client(timeout=30.0) as client:
-        resp = client.post(url, json=body, headers=headers)
-    resp.raise_for_status()
+
+    # One retry on 429 with a 2s backoff — covers transient rate-limit
+    # bursts on a freshly provisioned project key. The free tier's
+    # per-minute window resets quickly, so a single retry is usually
+    # enough. Persistent 429s indicate either the Generative Language
+    # API isn't enabled in the project, or a real quota cap is being
+    # hit — the error-body logging below makes both visible.
+    import time as _time
+
+    def _post_once() -> Any:
+        with httpx.Client(timeout=30.0) as client:
+            return client.post(url, json=body, headers=headers)
+
+    resp = _post_once()
+    if resp.status_code == 429:
+        _time.sleep(2.0)
+        resp = _post_once()
+
+    if resp.status_code >= 400:
+        # Log Google's actual error payload so the operator can see
+        # which quota (RPM / TPM / RPD) was hit, or whether the API
+        # is disabled / billing-required / project misconfigured.
+        try:
+            err_body = resp.json()
+        except Exception:  # noqa: BLE001
+            err_body = {"raw_text": resp.text[:500]}
+        logger.error(
+            "insights.generator: gemini %s returned HTTP %d: %s",
+            model_id,
+            resp.status_code,
+            err_body,
+        )
+        resp.raise_for_status()  # bubbles up — generator.generate() catches it
     payload = resp.json()
 
     candidates = payload.get("candidates") or []

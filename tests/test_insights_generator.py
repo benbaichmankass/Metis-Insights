@@ -336,6 +336,8 @@ def test_gemini_call_posts_to_rest_api_with_header_auth(
     captured: dict = {}
 
     class FakeResponse:
+        status_code = 200
+
         def raise_for_status(self) -> None: pass
 
         def json(self) -> dict:
@@ -438,3 +440,85 @@ def test_explicit_endpoint_model_override_wins_in_gemini_mode(
     # Other endpoints fall back to defaults.
     monkeypatch.delenv("INSIGHTS_MODEL_RECENT", raising=False)
     assert gen_mod._model_for("recent") == "gemini-2.0-flash"
+
+
+def test_gemini_call_retries_once_on_429(
+    isolated_dirs: dict[str, Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A first 429 retries after a 2s backoff; a second-call 200 wins."""
+    from src.runtime.insights import generator as gen_mod
+
+    class FakeResp429:
+        status_code = 429
+
+        def raise_for_status(self): raise AssertionError("should not reach")
+        def json(self): return {"error": {"code": 429, "message": "Rate limit"}}
+
+    class FakeResp200:
+        status_code = 200
+
+        def raise_for_status(self): pass
+        def json(self):
+            return {
+                "candidates": [{"content": {"parts": [{"text": "ok"}]}}],
+                "usageMetadata": {"promptTokenCount": 1, "candidatesTokenCount": 1},
+            }
+
+    responses = [FakeResp429(), FakeResp200()]
+
+    class FakeClient:
+        def __init__(self, *_a, **_kw): pass
+        def __enter__(self): return self
+        def __exit__(self, *_exc): pass
+        def post(self, *_a, **_kw): return responses.pop(0)
+
+    import httpx
+    monkeypatch.setattr(httpx, "Client", FakeClient)
+    monkeypatch.setattr("time.sleep", lambda _s: None)
+    monkeypatch.setenv("GEMINI_API_KEY", "sk-fake")
+
+    result = gen_mod._call_gemini("gemini-2.0-flash", [{"text": "s"}], "u")
+    assert result["text"] == "ok"
+    # both responses consumed → confirms the retry actually fired.
+    assert responses == []
+
+
+def test_gemini_call_logs_error_body_on_persistent_429(
+    isolated_dirs: dict[str, Path], monkeypatch: pytest.MonkeyPatch, caplog
+) -> None:
+    """A persistent 429 logs the response body before raising."""
+    import logging
+    from src.runtime.insights import generator as gen_mod
+
+    class FakeResp429:
+        status_code = 429
+
+        def raise_for_status(self):
+            import httpx as _h
+            raise _h.HTTPStatusError(
+                "429 Too Many Requests", request=None, response=self,
+            )
+
+        def json(self):
+            return {"error": {"code": 429, "message": "Quota exceeded for quota metric 'RequestsPerMinute'"}}
+
+    class FakeClient:
+        def __init__(self, *_a, **_kw): pass
+        def __enter__(self): return self
+        def __exit__(self, *_exc): pass
+        def post(self, *_a, **_kw): return FakeResp429()
+
+    import httpx
+    monkeypatch.setattr(httpx, "Client", FakeClient)
+    monkeypatch.setattr("time.sleep", lambda _s: None)
+    monkeypatch.setenv("GEMINI_API_KEY", "sk-fake")
+
+    caplog.set_level(logging.ERROR, logger="src.runtime.insights.generator")
+
+    with pytest.raises(httpx.HTTPStatusError):
+        gen_mod._call_gemini("gemini-2.0-flash", [{"text": "s"}], "u")
+
+    # The error log must include Google's actual quota message.
+    assert any(
+        "RequestsPerMinute" in rec.getMessage() for rec in caplog.records
+    ), f"Quota message missing from logs: {[r.getMessage() for r in caplog.records]}"
