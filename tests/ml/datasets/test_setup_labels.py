@@ -233,3 +233,53 @@ def test_registry_includes_setup_labels():
 
     assert "setup_labels" in list_families()
     assert isinstance(get_builder("setup_labels"), SetupLabelsBuilder)
+
+
+class TestV2FeatureExpansion:
+    """Phase-2 feature expansion: hour_of_day, dayofweek (parsed from
+    `created_at`, signal-time so non-leaking)."""
+
+    def test_v2_fields_present(self, tmp_path: Path):
+        # 2026-05-01 was a Friday (weekday=4) at 12:30 UTC.
+        rows = [_row(created_at="2026-05-01T12:30:00Z")]
+        db_path = _make_db(tmp_path, rows)
+        builder = SetupLabelsBuilder()
+        paths = builder.build(
+            output_dir=tmp_path / "out",
+            version="v001",
+            source=str(db_path),
+            commit_sha="x",
+            db_path=db_path,
+        )
+        emitted = [
+            json.loads(line)
+            for line in paths.data.read_text().splitlines()
+            if line
+        ]
+        assert len(emitted) == 1
+        assert emitted[0]["hour_of_day"] == 12
+        assert emitted[0]["dayofweek"] == 4  # Friday
+
+    def test_falls_back_to_timestamp_when_created_at_missing(self, tmp_path: Path):
+        # When created_at is null, the builder uses the timestamp column.
+        rows = [_row(created_at=None, timestamp="2026-05-04T08:15:00Z")]
+        db_path = _make_db(tmp_path, rows)
+        builder = SetupLabelsBuilder()
+        paths = builder.build(
+            output_dir=tmp_path / "out",
+            version="v001",
+            source=str(db_path),
+            commit_sha="x",
+            db_path=db_path,
+        )
+        emitted = [
+            json.loads(line)
+            for line in paths.data.read_text().splitlines()
+            if line
+        ]
+        # 2026-05-04 was a Monday (weekday=0).
+        assert emitted[0]["hour_of_day"] == 8
+        assert emitted[0]["dayofweek"] == 0
+
+    def test_builder_version_is_v2(self):
+        assert SetupLabelsBuilder.builder_version == "v2"
