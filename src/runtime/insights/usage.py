@@ -51,6 +51,28 @@ _PRICE_TABLE: dict[str, dict[str, float]] = {
         "cache_read": 0.30,
         "output": 15.00,
     },
+    # Gemini 2.0 Flash (Google AI Studio public price). Free tier
+    # incurs no charge but we still log the *would-be* cost so the
+    # operator can see what flipping to paid would cost; the live
+    # gate stays $0 because free-tier usage records 0 tokens against
+    # billing.
+    "gemini-2.0-flash": {
+        "input": 0.10,
+        "cache_read": 0.025,
+        "output": 0.40,
+    },
+    # Gemini 2.5 Flash
+    "gemini-2.5-flash": {
+        "input": 0.30,
+        "cache_read": 0.075,
+        "output": 2.50,
+    },
+    # Template mode — emits a 0-cost row using this fixed model id.
+    "template:v1": {
+        "input": 0.0,
+        "cache_read": 0.0,
+        "output": 0.0,
+    },
 }
 
 

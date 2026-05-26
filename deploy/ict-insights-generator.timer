@@ -1,18 +1,22 @@
 # ============================================
-# ICT INSIGHTS GENERATOR SYSTEMD TIMER (M13 S1)
-# Fires ict-insights-generator.service every 10 minutes.
+# ICT INSIGHTS GENERATOR SYSTEMD TIMER (M13 S2 fast tier)
+# Fires ict-insights-generator.service every 15 minutes.
 #
-# The router serves cache files; this timer is what keeps them fresh.
-# A miss between fires (slow run, network blip) just means the
-# dashboard sees a slightly older cache — the cache_age_seconds field
-# in the response envelope makes the staleness visible.
+# Drives the FAST tier: the 3 global endpoints (summary, recent,
+# health) on gemini-2.0-flash. The 6 per-strategy narratives moved
+# to the SLOW tier (ict-insights-generator-strategies.timer, 60-min
+# cadence on gemini-2.5-flash) so the better model can be used
+# despite the tighter 500-RPD free-tier cap.
+#
+# Cadence math: 3 endpoints × 96 cycles/day = 288 calls/day, ~19%
+# of the 1500-RPD free-tier cap on 2.0-flash.
 #
 # Save to: /etc/systemd/system/ict-insights-generator.timer
 # (installed automatically by scripts/install_systemd_units.sh)
 # ============================================
 
 [Unit]
-Description=ICT Trading Bot — AI Analyst generator (every 10 min)
+Description=ICT Trading Bot — AI Analyst fast tier (every 15 min)
 Requires=ict-insights-generator.service
 
 [Timer]
@@ -20,9 +24,8 @@ Requires=ict-insights-generator.service
 # to write its first heartbeat + emit some signal_audit rows before
 # the analyst tries to summarise.
 OnBootSec=2min
-# Subsequent fires every 10 min relative to last activation. Matches
-# the cost-ceiling math in docs/runbooks/insights.md.
-OnUnitActiveSec=10min
+# Subsequent fires every 15 min relative to last activation.
+OnUnitActiveSec=15min
 AccuracySec=30s
 Persistent=true
 Unit=ict-insights-generator.service

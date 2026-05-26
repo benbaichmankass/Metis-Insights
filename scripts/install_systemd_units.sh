@@ -189,6 +189,19 @@ if [ -f "${_INSIGHTS_DROPIN_SRC}" ]; then
     fi
 fi
 
+# M13 S2 slow tier — per-strategy unit needs the same drop-in so its
+# Python subprocess reads the canonical /data/bot-data/trade_journal.db.
+_INSIGHTS_STRATEGIES_DROPIN_DST="${SYSTEMD_DIR}/ict-insights-generator-strategies.service.d/data-dir.conf"
+if [ -f "${_INSIGHTS_DROPIN_SRC}" ]; then
+    if [ ! -e "${_INSIGHTS_STRATEGIES_DROPIN_DST}" ] || ! cmp -s "${_INSIGHTS_DROPIN_SRC}" "${_INSIGHTS_STRATEGIES_DROPIN_DST}"; then
+        echo ">>> install_systemd_units: dropin data-dir.conf → ${_INSIGHTS_STRATEGIES_DROPIN_DST}"
+        "${SUDO[@]}" mkdir -p "$(dirname "${_INSIGHTS_STRATEGIES_DROPIN_DST}")"
+        "${SUDO[@]}" cp "${_INSIGHTS_DROPIN_SRC}" "${_INSIGHTS_STRATEGIES_DROPIN_DST}"
+        "${SUDO[@]}" chmod 0644 "${_INSIGHTS_STRATEGIES_DROPIN_DST}"
+        changed=1
+    fi
+fi
+
 if [ "$changed" -eq 1 ]; then
     echo ">>> install_systemd_units: daemon-reload"
     if ! "${SUDO[@]}" systemctl daemon-reload 2>&1; then
