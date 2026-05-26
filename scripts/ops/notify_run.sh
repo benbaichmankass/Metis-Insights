@@ -135,6 +135,13 @@ case "${action}" in
             *) result="FAILED (exit ${exit_code})"; priority="normal" ;;
         esac
         ;;
+    kick-insights)
+        tier=1
+        case "${exit_code}" in
+            0) result="ok"; priority="low" ;;
+            *) result="FAILED (exit ${exit_code})"; priority="normal" ;;
+        esac
+        ;;
     set-mobile-push-secrets)
         tier=2
         case "${exit_code}" in
