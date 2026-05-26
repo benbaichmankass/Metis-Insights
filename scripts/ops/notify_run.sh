@@ -121,6 +121,13 @@ case "${action}" in
             *) result="FAILED (exit ${exit_code})"; priority="urgent" ;;
         esac
         ;;
+    enable-insights-generator|disable-insights-generator)
+        tier=2
+        case "${exit_code}" in
+            0) result="ok"; priority="normal" ;;
+            *) result="FAILED (exit ${exit_code})"; priority="urgent" ;;
+        esac
+        ;;
     set-mobile-push-secrets)
         tier=2
         case "${exit_code}" in
