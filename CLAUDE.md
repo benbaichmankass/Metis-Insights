@@ -259,6 +259,7 @@ VPS (systemd)
                                    ├── /api/pnl/history  ← Streamlit dashboard (S-063, no-session)
                                    ├── /api/pnl
                                    ├── /api/status
+                                   ├── /api/bot/insights/* ← Streamlit dashboard + Android app (M13 S1)
                                    ├── /api/diag/*       ← PM-side read-only (S-051)
                                    └── /api/health
 ```
@@ -298,6 +299,7 @@ src/
         backtests.py    — /api/bot/backtests (M5 P4)
         shadow.py       — /api/bot/shadow/{predictions,stats} (S-AI-WS8-PART-2)
         health_snapshots.py — /api/bot/health/{latest,history,snapshot,services} (#820, 2026-05-11)
+        insights.py     — /api/bot/insights/{summary,recent,strategy/{name},health} (M13 S1)
         trade_scores.py — /api/bot/trades/scores (#820, 2026-05-11)
         diag.py         — /api/diag/* endpoints (S-051, token-gated read)
         pnl.py          — /api/pnl
@@ -376,6 +378,7 @@ Unauthenticated GET routes — Tier 1 read surface. See
 | `GET /api/bot/health/snapshot?lines=N` | `{present, path, lines[]}` tail of the raw text snapshot (#820, 2026-05-11) | `artifacts/health/health_snapshot.txt` |
 | `GET /api/bot/health/services` | `{systemctl_available, services: [{unit, state, sub_state, active_enter_iso}, ...]}` for the allowlisted bot units (#820, 2026-05-11) | `systemctl show` against `ict-trader-live.service` + `ict-web-api.service` |
 | `GET /api/bot/trades/scores?limit=N&include_open=BOOL` | `{log_present, log_path, backfill_log_present, backfill_log_path, shadow_record_count, trades: [{trade_id, symbol, status, opened_at, closed_at, scores[{model_id, stage, count, score_first, score_last, score_min, score_max, score_mean, first_ts, last_ts, backfill_kind}, ...]}, ...]}` — per-trade shadow-prediction score aggregates (#820 2026-05-11; PR #1521 added `feature_row` capture + symbol-filtered join 2026-05-19; PR #1538 added the retroactive backfill envelope fields `backfill_log_*` + per-score `backfill_kind` 2026-05-19; PR #1548 canonicalized the writer path so real-time + backfill records resolve under the same `runtime_logs_dir()` root). | `trade_journal.db::trades` JOIN `runtime_logs/shadow_predictions.jsonl` (real-time) + `runtime_logs/shadow_predictions_backfill.jsonl` (one-shot historical replay written by `python -m ml backfill-shadow-predictions`) |
+| `GET /api/bot/insights/{summary,recent,strategy/{name},health}` | `{summary_md, grade, signals[], data_window, row_counts, generated_at, cache_age_seconds, model_id, cache_present, cache_path}` — AI Analyst insights, M13 S1. **Cache-only read path:** the router never calls Anthropic and never imports the `anthropic` SDK; it returns whatever the `ict-insights-generator` timer most recently wrote to `runtime_logs/insights/<endpoint>.json`. Cache miss (no file / malformed / generator disabled) returns a 200 placeholder envelope (`cache_present: false`) rather than 5xx so the dashboard doesn't break before the first run lands. `/recent?limit=N` echoes the requested `limit` in `requested_limit` (the cache content reflects whatever `limit` the generator used). `/strategy/{name}` rejects names outside `[a-z0-9_]+`. | `runtime_logs/insights/{summary,recent,strategy_<name>,health}.json`, written by the M13 generator process (lands in PR C of M13 S1) |
 | `GET /api/pnl/history?days=N` | `PnlHistoryPoint[]` (S-063) | `trade_journal.db` (closed trades, realised PnL per UTC day) |
 
 ### `BotStats` shape
