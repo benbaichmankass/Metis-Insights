@@ -375,9 +375,67 @@ class Database:
                 list(row.values()) + [int(trade_id)],
             )
             conn.commit()
-            return cursor.rowcount
+            rowcount = cursor.rowcount
         finally:
             conn.close()
+
+        # M12 S1 — mobile-push observer hook. When the update transitions
+        # a row to ``status='closed'`` and the row is a real (non-backtest,
+        # non-demo) trade, fan out a ``trade_closed`` notification to
+        # subscribed devices. The publish path is feature-flagged
+        # (``MOBILE_PUSH_ENABLED`` env, default off) and best-effort —
+        # ``publish_event`` swallows every exception so a notification
+        # failure can never propagate into the trader's close path.
+        # The whole block is also wrapped here for defense-in-depth, so
+        # a malformed import or a row-lookup glitch can't break the
+        # close even if mobile_push itself has a bug.
+        if rowcount > 0 and str(row.get("status", "")).lower() == "closed":
+            try:
+                self._fire_trade_closed_event(int(trade_id))
+            except Exception:  # noqa: BLE001  # allow-silent: M12 S1 observer hook — notifier failure must never propagate into trader close path
+                pass
+        return rowcount
+
+    def _fire_trade_closed_event(self, trade_id: int) -> None:
+        """Read the just-closed row and fire the mobile-push observer.
+
+        Separated from ``update_trade`` so the observer's row-lookup
+        doesn't sit in the update's connection scope, and so tests can
+        stub it cleanly. The publish itself is best-effort — see
+        ``src.runtime.mobile_push.publish_event``.
+        """
+        from src.runtime.mobile_push import publish_event
+
+        conn = self.connect()
+        try:
+            cur = conn.execute(
+                "SELECT symbol, direction, pnl, pnl_percent, exit_reason, "
+                "strategy_name, account_id, is_backtest, is_demo "
+                "FROM trades WHERE id = ?",
+                (trade_id,),
+            )
+            row = cur.fetchone()
+        finally:
+            conn.close()
+        if row is None:
+            return
+        # Skip backtest + demo trades — they're not real money events
+        # the operator wants a phone notification for.
+        if row["is_backtest"] or row["is_demo"]:
+            return
+        publish_event(
+            "trade_closed",
+            {
+                "trade_id": trade_id,
+                "symbol": row["symbol"],
+                "direction": row["direction"],
+                "pnl": row["pnl"],
+                "pnl_percent": row["pnl_percent"],
+                "exit_reason": row["exit_reason"],
+                "strategy": row["strategy_name"],
+                "account": row["account_id"],
+            },
+        )
 
     def get_trades(self, filters=None, limit=None):
         """
