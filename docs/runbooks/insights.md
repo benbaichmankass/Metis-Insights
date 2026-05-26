@@ -50,28 +50,23 @@ automatically — no service restart needed. (The systemd unit reads
 
 ## Activate / deactivate
 
-The unit files land via the regular `pull-and-deploy` system-action
+The unit files install via the regular `pull-and-deploy` system-action
 once this PR merges (`scripts/install_systemd_units.sh` is wired into
-the deploy flow). Enabling the timer is a one-time step:
+the deploy flow). After install, **enable + disable run through
+allowlisted system-actions** — Claude dispatches them autonomously
+with operator ack, per the Ship-Autonomously Rule. There is no manual
+SSH step.
 
-```bash
-# On the live VM, after deploy:
-sudo systemctl enable --now ict-insights-generator.timer
-```
+| Need | Action | Dispatch |
+|---|---|---|
+| Activate the timer (Tier-2) | `enable-insights-generator` | Open a `system-action`-labelled issue with body `action: enable-insights-generator\nreason: <text>`. The workflow runs `scripts/ops/enable_insights_generator.sh`, comments back with the post-state, closes. |
+| Stop the timer (Tier-2) | `disable-insights-generator` | Same shape: `action: disable-insights-generator`. Hard disable — `INSIGHTS_ENABLED=0` in `.env` is the *soft* disable (next fire no-op without stopping the timer). |
+| Trigger one cycle now (debug) | `systemctl start ict-insights-generator.service` via the on-VM wrapper if logged in | Rare — usually the 10-min cadence is enough. Mostly used to verify the cycle works end-to-end right after `enable-insights-generator`. |
 
-To stop:
-
-```bash
-sudo systemctl disable --now ict-insights-generator.timer
-```
-
-To run one cycle manually (without waiting for the timer):
-
-```bash
-sudo systemctl start ict-insights-generator.service
-# Or invoke the wrapper directly:
-sudo -u ubuntu /home/ubuntu/ict-trading-bot/scripts/ops/run_insights_cycle.sh
-```
+The wrapper records an audit row + returns the post-state (timer
+is-enabled / is-active + next-fire timestamp) in the issue comment, so
+the issue comment is the verification artefact — there's no separate
+"did it work" check.
 
 ---
 
@@ -160,18 +155,32 @@ the next month rolls or you bump the env var.
 
 ## Disable in a hurry
 
-```bash
-# On the live VM:
-echo "INSIGHTS_ENABLED=0" | sudo tee -a /home/ubuntu/ict-trading-bot/.env
-# Next timer fire (≤10 min) honours the flag. No tokens spent in the
-# meantime; the router keeps serving the last-good cache.
+**Hard disable (stop the timer):** dispatch the `disable-insights-generator`
+system-action. Body:
+
+```
+action: disable-insights-generator
+reason: <text>
 ```
 
-Or stop the timer entirely:
+The action runs `systemctl disable --now ict-insights-generator.timer` —
+no future fires, no more tokens spent.
 
-```bash
-sudo systemctl disable --now ict-insights-generator.timer
+**Soft disable (timer still scheduled but each fire no-ops):** the
+`INSIGHTS_ENABLED` toggle in `.env` lets the timer keep ticking but
+short-circuits each cycle. Flip it via the `set-env` system-action:
+
+```
+action: set-env
+env_key: INSIGHTS_ENABLED
+env_value: 0
+service: ict-insights-generator.service
 ```
 
-(The router endpoints keep returning the most recent cache files until
-those are removed — they don't disappear when the timer stops.)
+(Note: `set-env` restarts the named service. Since the generator is a
+oneshot driven by the timer, a restart here is a no-op — the next fire
+just sees the new value.)
+
+Either way, the router endpoints keep returning the most recent cache
+files until those files are removed — they don't disappear when the
+timer stops.
