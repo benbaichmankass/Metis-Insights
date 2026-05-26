@@ -32,8 +32,14 @@ from src.runtime.mobile_push.notifier import (
 
 
 @pytest.fixture(autouse=True)
-def _reset_singleton() -> None:
-    """Ensure each test starts from a fresh process-wide notifier."""
+def _reset_singleton(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Ensure each test starts from a fresh process-wide notifier and a
+    clean credential env (so an unrelated env-var set on the dev machine
+    doesn't leak into ``from_env`` and flip an inert-expectation test
+    into an active one)."""
+    monkeypatch.delenv("FCM_SERVICE_ACCOUNT_JSON_PATH", raising=False)
+    monkeypatch.delenv("FCM_SERVICE_ACCOUNT_JSON", raising=False)
+    monkeypatch.delenv("FCM_PROJECT_ID", raising=False)
     mobile_push.reset_singleton_for_testing()
     yield
     mobile_push.reset_singleton_for_testing()
@@ -128,6 +134,81 @@ def test_from_env_builds_active_notifier_with_full_config(
     )
     n = FcmNotifier.from_env()
     assert n.is_active is True
+
+
+# ---------------------------------------------------------------------------
+# FcmNotifier.from_env — path-based credentials (production wire)
+# ---------------------------------------------------------------------------
+
+_VALID_SERVICE_ACCOUNT_JSON = json.dumps(
+    {
+        "project_id": "ict-trader-mobile-app",
+        "client_email": "x@y.iam.gserviceaccount.com",
+        "private_key": "-----BEGIN PRIVATE KEY-----\nstub\n-----END PRIVATE KEY-----\n",
+        "type": "service_account",
+    }
+)
+
+
+def test_from_env_reads_credentials_from_path(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Production wire: JSON sits in a file (systemd-safe), env points at it."""
+    creds = tmp_path / "fcm_service_account.json"
+    creds.write_text(_VALID_SERVICE_ACCOUNT_JSON)
+    monkeypatch.setenv("FCM_SERVICE_ACCOUNT_JSON_PATH", str(creds))
+    n = FcmNotifier.from_env()
+    assert n.is_active is True
+
+
+def test_from_env_path_takes_priority_over_inline_json(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """If both vars are set, _PATH wins. Keeps the prod wire deterministic
+    even when a leftover ``FCM_SERVICE_ACCOUNT_JSON=...`` line lingers in
+    .env from the broken pre-fix deploy."""
+    creds = tmp_path / "creds.json"
+    creds.write_text(_VALID_SERVICE_ACCOUNT_JSON)
+    monkeypatch.setenv("FCM_SERVICE_ACCOUNT_JSON_PATH", str(creds))
+    monkeypatch.setenv("FCM_SERVICE_ACCOUNT_JSON", "this-is-not-valid-json")
+    n = FcmNotifier.from_env()
+    assert n.is_active is True
+
+
+def test_from_env_inert_when_path_does_not_exist(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setenv(
+        "FCM_SERVICE_ACCOUNT_JSON_PATH",
+        str(tmp_path / "does-not-exist.json"),
+    )
+    n = FcmNotifier.from_env()
+    assert n.is_active is False
+
+
+def test_from_env_inert_when_path_file_empty(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    creds = tmp_path / "empty.json"
+    creds.write_text("")
+    monkeypatch.setenv("FCM_SERVICE_ACCOUNT_JSON_PATH", str(creds))
+    n = FcmNotifier.from_env()
+    assert n.is_active is False
+
+
+def test_from_env_inert_when_path_file_invalid_json(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    creds = tmp_path / "bad.json"
+    creds.write_text("{not-json")
+    monkeypatch.setenv("FCM_SERVICE_ACCOUNT_JSON_PATH", str(creds))
+    n = FcmNotifier.from_env()
+    assert n.is_active is False
 
 
 # ---------------------------------------------------------------------------
