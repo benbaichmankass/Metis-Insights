@@ -491,9 +491,18 @@ the session, Claude must:
 5. Run the **`doc-freshness`** skill — it sweeps the canonical doc set
    for instructions that now contradict each other or the code. Resolve
    what it finds. Log any minor issue you noticed but did not fix this
-   session to the **health-review backlog**
-   (`docs/claude/health-review-backlog.json`) so a future health-review picks
-   it up rather than letting it rot.
+   session to the appropriate review backlog so a future review picks
+   it up rather than letting it rot. The three backlogs (split
+   2026-05-26) are:
+   - **System / pipeline / doc-drift issues** →
+     [`docs/claude/health-review-backlog.json`](claude/health-review-backlog.json)
+     (drained by `/health-review`).
+   - **Strategy / trading follow-ups** →
+     [`docs/claude/performance-review-backlog.json`](claude/performance-review-backlog.json)
+     (drained by `/performance-review`).
+   - **AI / ML experiment follow-ups** →
+     [`docs/claude/ml-review-backlog.json`](claude/ml-review-backlog.json)
+     (drained by `/ml-review`).
 
 The Sprint Wrap-Up Requirements section below restates several of
 these duties at the sprint scope. This subsection restates them at
