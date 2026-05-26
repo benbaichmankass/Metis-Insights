@@ -187,45 +187,47 @@ wire-up. See trainer-vm-mode.md § 5 for the full lifecycle.
 
 When in doubt about scope, default to the **live-VM** rules and ask.
 
-## Project-level skills (`/health-review`)
+## Project-level skills — the three-way review split (2026-05-26)
 
-This repo ships a **project-level Claude Code skill** at
-[`.claude/skills/health-review/SKILL.md`](.claude/skills/health-review/SKILL.md).
-It is the on-demand entry point to Claude's Layer-2 review routine —
-when the operator invokes `/health-review` in chat (or asks for "the
-health review" / "the layer-2 review"), Claude **pulls the live
-runtime state itself** via the diag relays (`vm-diag-snapshot.yml`
-for the live VM, `trainer-vm-diag.yml` for the trainer VM) and emits
-a JSON response per
-[`comms/schema/health_review_response.template.json`](comms/schema/health_review_response.template.json).
-The operator does not paste, download, or fetch a snapshot — the
-relays give Claude autonomous read access, so asking for one would
-violate the autonomy mandate above. (A pasted `health_snapshot.txt`
-is accepted only as an optional cross-check.)
+This repo ships **three** project-level Claude Code review skills, each
+with its own scope, output schema, and backlog. Earlier this was one
+omnibus `/health-review` that mixed system health, trade scoring, and
+model status; that proved too broad — each kind of review wants a
+different rubric and a different backlog. As of 2026-05-26 the three
+sessions are:
 
-**This is NOT a code-quality audit** — do not invoke it for
-codebase review, security scan, or dependency check. Use the `review`
-or `security-review` skills for those instead. The
-[`SessionStart` hook in `.claude/settings.json`](.claude/settings.json)
-emits the same directive into every web-session's context at init so
-this can't be missed.
+| Command | Skill file | Scope | Output template | Backlog |
+|---|---|---|---|---|
+| `/health-review` | [`.claude/skills/health-review/SKILL.md`](.claude/skills/health-review/SKILL.md) | **Technical / pipeline / data health.** Pipeline plumbing (signal→order→trade), DB integrity + data validity, service state, alert delivery, monitor cadence, strategy silence, sprint-doc drift. Also reviews the cron health-snapshot report. Trainer **service** state only (model detail belongs to /ml-review). | [`comms/schema/health_review_response.template.json`](comms/schema/health_review_response.template.json) | [`docs/claude/health-review-backlog.json`](docs/claude/health-review-backlog.json) — **system bugs**, wiring gaps, minor doc drift. |
+| `/performance-review` | [`.claude/skills/performance-review/SKILL.md`](.claude/skills/performance-review/SKILL.md) | **Trading + strategy performance.** Per-strategy aggregates (win rate, PnL, hold times, rejection clusters), per-order-package A-F decision grading (anchored on `signal_logic`, persisted to [`comms/claude_strategy_scores.jsonl`](comms/claude_strategy_scores.jsonl)), comparison vs real closed-trade PnL, **M13 AI-analyst insights cache cross-check** (`/api/bot/insights/*`), Tier-3 tweak proposals. | [`comms/schema/performance_review_response.template.json`](comms/schema/performance_review_response.template.json) | [`docs/claude/performance-review-backlog.json`](docs/claude/performance-review-backlog.json) — **strategy follow-ups**, tweak ideas to revisit, performance puzzles. |
+| `/ml-review` | [`.claude/skills/ml-review/SKILL.md`](.claude/skills/ml-review/SKILL.md) | **ML lifecycle.** Trainer-VM service health, training cycles, dataset builds, the full registry; per-model status (latest training metric + shadow/live track record); promotion / demotion recommendations against the 7-stage ladder; forward-looking experiment proposals (new manifests, features, datasets, targets, sweeps). | [`comms/schema/ml_review_response.template.json`](comms/schema/ml_review_response.template.json) | [`docs/claude/ml-review-backlog.json`](docs/claude/ml-review-backlog.json) — **AI experiment follow-ups**, promotion-criteria notes. |
 
-When to invoke `/health-review`:
-- The operator asks for the health review, the layer-2 review, or to
-  sanity-check the live bot's runtime state.
-- The cron health-snapshot Telegram ping comes back `🟡 watch` /
-  `🚨 concern` and the operator wants a deeper look.
+For **all three:**
 
-The full review procedure (relay pulls, decision rubric, output schema,
-"don't ask scoping questions / never ask the operator to paste a
-snapshot") lives in the skill file. The autonomous review **does** write
-two repo artifacts — it appends per-trade scores to
-[`comms/claude_trade_scores.jsonl`](comms/claude_trade_scores.jsonl)
-(keyed by `trade_id`) and drains
-[`docs/claude/health-review-backlog.json`](docs/claude/health-review-backlog.json)
-— but never touches `src/`, `config/`, or the live path. See also
-[`docs/runbooks/health-check.md`](docs/runbooks/health-check.md) for the
-collect → review design.
+- Claude pulls the live runtime state **itself** via the diag relays
+  (`vm-diag-snapshot.yml` for the live VM, `trainer-vm-diag.yml` for
+  the trainer). The operator does not paste, download, or fetch a
+  snapshot — that would violate the autonomy mandate above. (Pasted
+  bundles are accepted only as optional cross-check.)
+- Each session ends with **a one-line update to the Claude channel**
+  (`@claude_ict_comms_bot`) via the `send-ping` system-action — see
+  [`docs/claude/telegram-pings.md`](docs/claude/telegram-pings.md).
+- None of the three is a code-quality audit — for that, use the
+  `review` / `security-review` skills.
+- None of the three asks scoping questions — the scope of each is
+  fixed in its SKILL.md.
+- None writes to `src/`, `config/`, or any live-path file. Tier-3
+  changes are *proposed* (in `proposed_tweaks[]` /
+  `promotion_recommendations[]` / `experiments_proposed[]`); the
+  operator approves and the change ships via a normal PR.
+
+The [`SessionStart` hook in `.claude/settings.json`](.claude/settings.json)
+announces all three at session init so a fresh Claude knows which to
+pick.
+
+See also [`docs/runbooks/health-check.md`](docs/runbooks/health-check.md)
+for the collect → review design (pre-split, still mostly accurate for
+the technical-health half).
 
 ## Project Overview
 Automated ICT (Inner Circle Trader) futures trading bot running on a VPS.

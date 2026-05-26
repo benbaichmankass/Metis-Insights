@@ -1,39 +1,35 @@
 {
-  "_comment": "Template documenting the JSON Claude returns when reviewing a comms/requests/REQ-*.json health-review request. The reviewer pastes a populated copy of this object into the request's free-text answer; the Telegram bot then files it under .response.answers[0].free_text in the standard way (see comms/schema/response.schema.json). This file is documentation only — it is not validated as a JSON Schema.",
+  "_comment": "Template documenting the JSON Claude returns from /health-review (narrowed 2026-05-26). Per-decision trade scoring + model_status moved out: see comms/schema/performance_review_response.template.json and comms/schema/ml_review_response.template.json. This skill covers TECHNICAL/PIPELINE/DATA health only. This file is documentation, not a validated JSON Schema.",
   "request_id": "REQ-YYYYMMDD-HHMMSS-<slug>",
   "reviewed_at": "YYYY-MM-DDTHH:MM:SS+00:00",
   "reviewer": "claude",
+  "window_start": "YYYY-MM-DDTHH:MM:SS+00:00",
+  "window_end": "YYYY-MM-DDTHH:MM:SS+00:00",
   "overall_assessment": "healthy | caution | investigate",
   "findings": {
     "heartbeat":           {"status": "ok | watch | concern", "note": "..."},
     "ticks":               {"status": "ok | watch | concern", "note": "..."},
     "signals":             {"status": "ok | watch | concern", "note": "..."},
-    "orders":              {"status": "ok | watch | concern", "note": "..."},
-    "trades":              {"status": "ok | watch | concern", "note": "..."},
-    "monitoring":          {"status": "ok | watch | concern", "note": "..."},
-    "sizing":              {"status": "ok | watch | concern", "note": "..."},
+    "orders":              {"status": "ok | watch | concern", "note": "signal->order plumbing only (NOT scoring)"},
+    "trades":              {"status": "ok | watch | concern", "note": "order->trade plumbing only (NOT scoring)"},
+    "monitoring":          {"status": "ok | watch | concern", "note": "monitor-tick cadence"},
+    "sizing":              {"status": "ok | watch | concern", "note": "qty within per-account pos_size cap; no absurd leverage"},
     "api_errors":          {"status": "ok | watch | concern", "note": "..."},
-    "state_consistency":   {"status": "ok | watch | concern", "note": "..."},
-    "alert_delivery":      {"status": "ok | watch | concern", "note": "..."},
-    "strategy_silence":    {"status": "ok | watch | concern", "note": "..."},
-    "db_integrity":        {"status": "ok | watch | concern", "note": "..."},
-    "data_validity":       {"status": "ok | watch | concern", "note": "DB values sane: no negative sizes, no null required fields, monotonic timestamps, pnl reconciles"},
+    "state_consistency":   {"status": "ok | watch | concern", "note": "YAML mode vs runtime_status.json"},
+    "alert_delivery":      {"status": "ok | watch | concern", "note": "AlertsQueue drained"},
+    "strategy_silence":    {"status": "ok | watch | concern", "note": "enabled strategies emitting per-tick *_eval"},
+    "db_integrity":        {"status": "ok | watch | concern", "note": "integrity_check not fetched (relay can't run PRAGMA); graded from journal recency + counts"},
+    "data_validity":       {"status": "ok | watch | concern", "note": "values sane: no negative sizes, no null required fields, monotonic timestamps, pnl reconciles"},
     "audit_log_freshness": {"status": "ok | watch | concern", "note": "..."},
-    "trainer_service":     {"status": "ok | watch | concern | skip", "note": "..."},
-    "trainer_datasets":    {"status": "ok | watch | concern | skip", "note": "..."},
-    "trainer_registry":    {"status": "ok | watch | concern | skip", "note": "..."},
-    "trainer_models":      {"status": "ok | watch | concern | skip", "note": "per-model roll-up; see model_status[] for the per-model detail. concern only when an advisory+/live model degrades on live/shadow data"},
-    "net_positions":       {"status": "ok | watch | concern", "note": "..."},
-    "strategy_attribution":{"status": "ok | watch | concern", "note": "..."},
-    "advisory_scores":     {"status": "ok | watch | concern | skip", "note": "..."},
-    "allocator_path":      {"status": "ok | watch | concern | skip", "note": "..."}
+    "trainer_service":     {"status": "ok | watch | concern | skip", "note": "service health only; model/dataset detail in /ml-review"},
+    "health_snapshot":     {"status": "ok | watch | concern", "note": "cron health-snapshot generator state; cross-checked against own diag pulls"}
   },
   "anomalies": [
     "free-form list of notable items the reviewer flagged"
   ],
   "backlog_drain": [
     {
-      "_comment": "Result of draining docs/claude/health-review-backlog.json this run. One entry per backlog item triaged. action: fixed (resolved in this review's PR-less repo edits) | deferred (still open, restated) | invalid (no longer applies, closed). The skill edits the backlog file itself; this array records what it did.",
+      "_comment": "Result of draining docs/claude/health-review-backlog.json this run. One entry per backlog item triaged. action: fixed | deferred | invalid.",
       "item_id": "BL-YYYYMMDD-NNN",
       "action": "fixed | deferred | invalid",
       "note": "<= 160 chars"
@@ -41,57 +37,18 @@
   ],
   "sprint_doc_review": [
     {
-      "_comment": "Recent sprint logs reviewed for doc correctness/clarity since the last review. One entry per issue found (empty array = sprints read, nothing wrong). severity: nit | drift | contradiction. Contradictions against canonical docs are fixed in-place or logged to the backlog.",
+      "_comment": "Recent sprint logs reviewed for doc correctness/clarity since the last review. severity: nit | drift | contradiction. Contradictions against canonical docs are fixed in-place or logged to the backlog.",
       "sprint": "S-...",
       "finding": "<= 200 chars",
       "severity": "nit | drift | contradiction"
     }
   ],
-  "trade_decision_grades": [
-    {
-      "_comment": "One entry per closed or rejected trade in the SINCE-LAST-REVIEW window (not a fixed 6h window). Required field; pass [] only when the window genuinely contained zero trades. Each entry is ALSO appended (keyed by trade_id) to comms/claude_trade_scores.jsonl — the durable, trainer-ingestible score log (operator decision 2026-05-24). Letter grade is independent of dollar P&L — small wins on bad setups still grade poorly, stop-outs on textbook setups still grade fairly. The three categorical labels (entry_quality, exit_quality, risk_management) are the training-friendly fields; the letter grade is a rolled-up summary. See .claude/skills/health-review/SKILL.md § 'Per-trade decision grading' for the full rubric.",
-      "trade_id": 0,
-      "timestamp": "YYYY-MM-DDTHH:MM:SS+00:00",
-      "symbol": "BTCUSDT",
-      "direction": "long | short",
-      "setup": "vwap | turtle_soup | ...",
-      "entry_price": 0.0,
-      "exit_price": 0.0,
-      "stop_loss": 0.0,
-      "take_profit_1": 0.0,
-      "position_size": 0.0,
-      "exit_reason": "tp_cross | sl_hit | trail | manual | rejected | ...",
-      "decision_grade": "A | B | C | D | F",
-      "entry_quality": "optimal | acceptable | late | early | should_skip | unknown",
-      "exit_quality": "optimal | tp_appropriate | sl_appropriate | premature_exit | held_too_long | unknown",
-      "risk_management": "correct | oversize | undersize | sl_too_tight | sl_too_wide | unknown",
-      "rationale": "<= 240 chars — why this grade given signal_logic + outcome",
-      "alternative_action": "<= 160 chars — what we'd do differently next time, or 'none'"
-    }
-  ],
-  "model_status": [
-    {
-      "_comment": "REQUIRED — one entry per model in `python -m ml list-models` (the registry). A standing status update: each model's latest training-session result, and its shadow/live track record from trade data WHEN AVAILABLE. [] only when the trainer relay errored (then findings.trainer_models = skip). See .claude/skills/health-review/SKILL.md § 'Model status report'.",
-      "model_id": "btc-regime-5m-baseline-v1",
-      "stage": "research_only | candidate | backtest_approved | shadow | advisory | limited_live | live_approved",
-      "registry_status": "candidate | promoted | ...",
-      "last_training": {
-        "run_id": "YYYYMMDDThhmmssZ",
-        "at": "YYYY-MM-DDTHH:MM:SS+00:00",
-        "code_revision": "<sha>",
-        "headline_metric": "macro_f1=0.70 | mae=3.26 | winrate=0.55",
-        "n_eval": 0,
-        "trend_vs_prior_run": "improved | flat | degraded | first_run"
-      },
-      "live_shadow": {
-        "influence": "none(shadow) | advisory | live",
-        "predictions": 0,
-        "score_summary": "score distribution / mean when predictions>0, else 'no predictions yet'",
-        "realized": "win-rate/PnL of the closed trades this model scored, when joinable; else 'n/a'"
-      },
-      "note": "<= 160 chars — one-line health verdict for this model"
-    }
-  ],
   "recommended_action": "what to do next, or 'none'",
-  "operator_attention_required": false
+  "operator_attention_required": false,
+  "claude_channel_ping": {
+    "_comment": "The one-line update posted to @claude_ict_comms_bot via the send-ping system-action. Recorded here so the response is self-contained.",
+    "delivered_via": "send-ping | pending-pings.jsonl | skipped (relay failure)",
+    "priority": "low | normal | high | urgent",
+    "message": "<= 200 chars"
+  }
 }
