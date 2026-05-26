@@ -184,6 +184,54 @@
       "resolution_criteria": "Either (a) on a fresh training cycle with n_eval >= 1000 the v2 model beats the baseline on MAE+MSE, in which case keep at shadow and let it accumulate live shadow predictions; OR (b) the model is demoted from shadow to research_only via `python -m ml promote-stage setup-quality-lgbm-v2 --new-stage research_only` (operator-approved, semantic change to the registry); OR (c) the manifest is deprecated (removed from ml/configs/, model retired). Decision belongs to a model-training session, not this backlog item.",
       "status": "open",
       "snoozed_until": null
+    },
+    {
+      "id": "BL-20260526-004",
+      "opened_at": "2026-05-26T20:25:00+00:00",
+      "opened_by": "claude",
+      "source": "MES re-provision session 2026-05-26",
+      "title": "provision-ib-gateway workflow has dead port validator (rejects Docker-era 4002 input)",
+      "description": ".github/workflows/provision-ib-gateway.yml 'Resolve params' step still validates port against {7496,7497} (legacy native-IBC era). The current Docker path (scripts/install_ib_gateway_docker.sh) ignores IB_PORT entirely and hardcodes `-p 127.0.0.1:4002:4004`. Passing `port: 4002` in the issue body fails the validator with `port must be 7496|7497`, aborting the SSH step before any output is captured. Either accept 4002 (paper Docker host port) and 4001 (live Docker host port) and just pass them through cosmetically, or drop the `port:` input/validator entirely since the installer ignores it. Bit me on issue #2101 -> retry #2102 during the MES creds rotation.",
+      "tier": 1,
+      "trigger_condition": "Any /health-review run.",
+      "resolution_criteria": "Workflow either accepts 4002/4001 as valid `port:` values or drops the `port:` input. docs/runbooks/ib-integration.md provision example body is updated to match.",
+      "status": "open",
+      "resolved_at": null,
+      "resolved_by": null,
+      "resolution": null,
+      "snoozed_until": null
+    },
+    {
+      "id": "BL-20260526-005",
+      "opened_at": "2026-05-26T20:25:00+00:00",
+      "opened_by": "claude",
+      "source": "ict-web-api journalctl post-restart 2026-05-26",
+      "title": "Malformed PRIVATE KEY line in /home/ubuntu/ict-trading-bot/.env (literal `n` newlines)",
+      "description": "systemd repeatedly logs `Ignoring invalid environment assignment '\"private_key\": \"-----BEGIN PRIVATE KEY-----\\nMIIE...n-----END PRIVATE KEY-----n\"': /home/ubuntu/ict-trading-bot/.env` on every (re)start of ict-web-api.service. The PEM newlines are escaped as literal `n` (not `\\n`) and the value spans embedded literal `\\n` sequences that systemd's env-file parser can't accept — so the variable never reaches the process. Non-fatal (the assignment is just dropped) but pollutes the journal and means whatever feature wants that private key has been silently broken since the .env was written this way. Likely a JSON service-account credential dumped raw into a KEY=value env file. Should be moved to its own file (mounted as a secret or referenced via Path-style env, not inlined in .env) or fully escaped.",
+      "tier": 1,
+      "trigger_condition": "Any /health-review run.",
+      "resolution_criteria": "ict-web-api.service no longer logs the `Ignoring invalid environment assignment` warning; whatever feature owns that key documents where the key actually lives.",
+      "status": "open",
+      "resolved_at": null,
+      "resolved_by": null,
+      "resolution": null,
+      "snoozed_until": null
+    },
+    {
+      "id": "BL-20260526-006",
+      "opened_at": "2026-05-26T20:45:00+00:00",
+      "opened_by": "claude",
+      "source": "MES re-provision session 2026-05-26 — snapshot audit_tail review",
+      "title": "ib-integration.md doesn't explain why fade_breakout_4h / squeeze_breakout_4h emit MES eval log entries",
+      "description": "Runbook at docs/runbooks/ib-integration.md lines 49-50 says `ib_paper.strategies` = [turtle_soup, vwap, ict_scalp_5m] — the three strategies that execute MES. But after the 2026-05-25 expansion of bybit_2 to 6 strategies, the global strategy registry now also runs fade_breakout_4h and squeeze_breakout_4h against MES bars (snapshot audit_tail shows `fade_breakout_4h_eval` + `squeeze_breakout_4h_eval` rows for symbol=MES). The per-account `strategies:` filter still blocks any MES signal from those two strategies from reaching ib_paper, so behaviour is correct — but a reader of the runbook would be confused why MES eval rows appear for strategies the runbook says don't run on MES. Add one sentence: 'All registered strategies evaluate every symbol in the union of account symbols; per-account `strategies:` filters at dispatch decide which signals execute. So fade/squeeze emit MES eval audit rows but are filtered out before reaching ib_paper.'",
+      "tier": 1,
+      "trigger_condition": "Any /health-review run.",
+      "resolution_criteria": "Runbook clarifies the strategy-registry-vs-per-account-filter distinction so MES eval rows from non-ib_paper strategies are no longer surprising.",
+      "status": "open",
+      "resolved_at": null,
+      "resolved_by": null,
+      "resolution": null,
+      "snoozed_until": null
     }
   ]
 }
