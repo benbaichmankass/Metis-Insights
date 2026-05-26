@@ -1,0 +1,47 @@
+# v2 LightGBM regime classifier — BTCUSDT @ 15m.
+#
+# Same upgrade as btc-regime-5m-lgbm-v2 but for the 15m timeframe
+# (used by turtle_soup). Pair with `python -m ml compare
+# btc-regime-15m-baseline-v1 btc-regime-15m-lgbm-v2`.
+
+manifest_version: v1
+model_id: btc-regime-15m-lgbm-v2
+description: "v2 LightGBM regime classifier for BTCUSDT 15m bars (the timeframe turtle_soup trades) — same target as baseline-v1 but with continuous vol + log-return features. Shadow context signal."
+model_family: classification_lightgbm
+trainer: ml.trainers.lightgbm_multiclass.LightGBMMulticlassTrainer
+trainer_config:
+  target_column: regime_label
+  feature_columns:
+    - vol_bucket
+    - rolling_log_return_vol
+    - log_return
+  categorical_columns:
+    - vol_bucket
+  freeze_regime_spec: true
+  vol_feature_column: rolling_log_return_vol
+  vol_window_n: 20
+  seed: 42
+  n_iter: 200
+  lgbm_params:
+    learning_rate: 0.05
+    num_leaves: 31
+    min_data_in_leaf: 50
+    feature_fraction: 0.9
+    bagging_fraction: 0.9
+    bagging_freq: 5
+dataset:
+  family: market_features
+  symbol_scope: BTCUSDT
+  timeframe: 15m
+  version: v001
+evaluator: ml.evaluators.multiclass_classification.MulticlassClassificationEvaluator
+evaluator_config:
+  target_column: regime_label
+  split_strategy: time_aware_holdout
+  time_column: ts
+  holdout_fraction: 0.2
+target_deployment_stage: shadow
+notes: |
+  v2 LightGBM head, BTCUSDT @ 15m. Direct A/B vs the per-bucket-modal
+  baseline-v1 (same dataset, same split). Leakage gate forbids
+  forward_log_return / forward_log_return_vol / regime_label.

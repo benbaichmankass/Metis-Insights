@@ -50,3 +50,9 @@ psutil>=5.9.0
 
 # Claude Telegram bridge (ict-claude-bridge.service, optional/disabled by default).
 anthropic>=0.40.0
+
+# Gradient-boosted trees for the v2 model layer (LightGBMMulticlassTrainer +
+# LightGBMRegressionTrainer). Lazy-imported inside the trainer/predictor so
+# environments without lightgbm can still import ml.* — only `python -m ml
+# train …` against a LightGBM manifest requires it.
+lightgbm>=4.0.0

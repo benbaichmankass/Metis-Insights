@@ -1,0 +1,72 @@
+# v2 LightGBM setup-quality regressor.
+#
+# Replaces the per-setup_type mean baseline (`setup-quality-baseline-v0`)
+# with a gradient-boosted regressor that conditions r_multiple on the
+# full setup-metadata column set. With small n (~73 closed trades at
+# time of writing), conservative regularization is critical:
+#   - min_data_in_leaf=10 (forces leaves to span ≥10 trades)
+#   - num_leaves=15 (capped tree size)
+#   - n_iter=100 with default learning rate
+#
+# A K-fold time-aware CV pass is filed for the follow-up sprint
+# (`split_walk_forward` averaged across folds — the runner currently
+# returns only the last fold). For now the same 80/20 time-aware
+# holdout as the baseline keeps the eval directly comparable.
+#
+# Leakage gate (defaulted in trainer): forbids pnl / pnl_percent /
+# r_multiple / won as features. Only setup-metadata columns allowed.
+
+manifest_version: v1
+model_id: setup-quality-lgbm-v2
+description: "v2 LightGBM setup-quality regressor — predicts expected R-multiple from the full setup metadata (strategy, setup_type, killzone, bias, direction, symbol, account, direction) instead of per-setup_type mean alone."
+model_family: regression_lightgbm
+trainer: ml.trainers.lightgbm_regression.LightGBMRegressionTrainer
+trainer_config:
+  target_column: r_multiple
+  feature_columns:
+    - setup_type
+    - strategy_name
+    - killzone
+    - bias
+    - direction
+    - symbol
+    - account_id
+  categorical_columns:
+    - setup_type
+    - strategy_name
+    - killzone
+    - bias
+    - direction
+    - symbol
+    - account_id
+  seed: 42
+  n_iter: 100
+  lgbm_params:
+    learning_rate: 0.05
+    num_leaves: 15
+    min_data_in_leaf: 10
+    feature_fraction: 1.0
+    bagging_fraction: 1.0
+    lambda_l2: 1.0
+dataset:
+  family: setup_labels
+  symbol_scope: all
+  timeframe: all
+  version: v001
+evaluator: ml.evaluators.regression.RegressionEvaluator
+evaluator_config:
+  target_column: r_multiple
+  metrics: [mse, mae]
+  split_strategy: time_aware_holdout
+  time_column: created_at
+  holdout_fraction: 0.2
+target_deployment_stage: shadow
+notes: |
+  v2 LightGBM head over setup_labels. Conservative regularization
+  for small-n training (≈73 closed trades). Compare MAE / MSE
+  against `setup-quality-baseline-v0` (mae=0.058, mse=0.011 at last
+  cycle). If LGBM beats baseline by >5% MAE relative for 3 cycles
+  running, this is the first candidate for `shadow → advisory` review.
+  K-fold time-aware CV pass is a follow-up (requires
+  runner-level multi-fold support — `split_walk_forward` currently
+  returns only the last fold).

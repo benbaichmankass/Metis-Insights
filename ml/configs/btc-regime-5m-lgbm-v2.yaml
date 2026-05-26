@@ -1,0 +1,60 @@
+# v2 LightGBM regime classifier — BTCUSDT @ 5m.
+#
+# Replaces the per-bucket-modal baseline (`btc-regime-5m-baseline-v1`)
+# with a gradient-boosted-trees model trained on the same
+# `market_features` dataset. The baseline uses ONLY `vol_bucket` as a
+# feature; this model adds the continuous `rolling_log_return_vol` and
+# `log_return` so the trees can find interactions the modal baseline
+# can't represent.
+#
+# Registers at `shadow` like every new model. Runs in parallel with the
+# v1 baseline (different `model_id`) so `python -m ml compare` can A/B
+# the two on the same eval split.
+
+manifest_version: v1
+model_id: btc-regime-5m-lgbm-v2
+description: "v2 LightGBM regime classifier for BTCUSDT 5m bars — same target as the baseline (range vs volatile) but learns from continuous vol + log-return alongside the bucket. Shadow context signal."
+model_family: classification_lightgbm
+trainer: ml.trainers.lightgbm_multiclass.LightGBMMulticlassTrainer
+trainer_config:
+  target_column: regime_label
+  feature_columns:
+    - vol_bucket
+    - rolling_log_return_vol
+    - log_return
+  categorical_columns:
+    - vol_bucket
+  # Freeze the live-scoring spec into model_state so
+  # src/runtime/regime_shadow.py can bucket live ticks against the same
+  # edges this run trained on (mirrors RegimeClassifierTrainer).
+  freeze_regime_spec: true
+  vol_feature_column: rolling_log_return_vol
+  vol_window_n: 20
+  seed: 42
+  n_iter: 200
+  lgbm_params:
+    learning_rate: 0.05
+    num_leaves: 31
+    min_data_in_leaf: 50
+    feature_fraction: 0.9
+    bagging_fraction: 0.9
+    bagging_freq: 5
+dataset:
+  family: market_features
+  symbol_scope: BTCUSDT
+  timeframe: 5m
+  version: v001
+evaluator: ml.evaluators.multiclass_classification.MulticlassClassificationEvaluator
+evaluator_config:
+  target_column: regime_label
+  split_strategy: time_aware_holdout
+  time_column: ts
+  holdout_fraction: 0.2
+target_deployment_stage: shadow
+notes: |
+  v2 LightGBM head over the v1 market_features schema. Same
+  train/eval split as baseline-v1 (time-aware, latest 20% holdout) so
+  metrics are directly comparable. Pair with `python -m ml compare
+  btc-regime-5m-baseline-v1 btc-regime-5m-lgbm-v2` after the first
+  cycle. Leakage gate forbids forward_log_return / forward_log_return_vol
+  / regime_label.
