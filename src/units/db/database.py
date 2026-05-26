@@ -308,6 +308,59 @@ class Database:
             "ON device_tokens (platform)"
         )
 
+        # AI Analyst — per-run history (M13 S1).
+        # Every generator cycle appends one row per refreshed endpoint
+        # so the dashboard can render "what did the analyst say
+        # yesterday / two hours ago." The cache files under
+        # runtime_logs/insights/ are the live view; this table is the
+        # durable history. Browseable in the Data Explorer alongside
+        # trades / order_packages. Read-only of the live order path.
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS insights_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                generated_at TEXT NOT NULL,
+                endpoint TEXT NOT NULL,
+                strategy_name TEXT,
+                model_id TEXT,
+                grade TEXT,
+                summary_md TEXT NOT NULL,
+                signals_json TEXT,
+                data_window_json TEXT,
+                row_counts_json TEXT,
+                payload_json TEXT NOT NULL
+            )
+        ''')
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_insights_history_endpoint_ts "
+            "ON insights_history (endpoint, datetime(generated_at) DESC)"
+        )
+
+        # AI Analyst — per-call token + cost log (M13 S1).
+        # The generator writes one row per Anthropic call (ok), per
+        # budget-skip (budget_skipped), and per API error (error). The
+        # monthly budget gate sums estimated_cost_usd over the current
+        # calendar month against INSIGHTS_MONTHLY_BUDGET_USD before
+        # each call — keeps the analyst inside Anthropic monthly
+        # included usage rather than spilling into pay-as-you-go.
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS insights_usage (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ts TEXT NOT NULL,
+                endpoint TEXT NOT NULL,
+                model_id TEXT NOT NULL,
+                input_tokens INTEGER NOT NULL DEFAULT 0,
+                output_tokens INTEGER NOT NULL DEFAULT 0,
+                cache_creation_tokens INTEGER NOT NULL DEFAULT 0,
+                cache_read_tokens INTEGER NOT NULL DEFAULT 0,
+                estimated_cost_usd REAL NOT NULL DEFAULT 0.0,
+                status TEXT NOT NULL DEFAULT 'ok'
+            )
+        ''')
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_insights_usage_ts "
+            "ON insights_usage (datetime(ts) DESC)"
+        )
+
         conn.commit()
         conn.close()
 
