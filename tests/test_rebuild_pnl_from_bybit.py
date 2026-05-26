@@ -247,7 +247,7 @@ class TestPlanRewrite:
 class TestEndToEnd:
     """Drive main() against a real sqlite DB and verify the writes."""
 
-    def _make_db(self, tmp_path):
+    def _make_db(self, tmp_path, *, opened_at_iso="2026-05-18T06:00:00+00:00"):
         db_path = tmp_path / "trade_journal.db"
         conn = sqlite3.connect(db_path)
         conn.execute("""
@@ -273,20 +273,25 @@ class TestEndToEnd:
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
         """)
-        # Trade A: long, opened 06:00, with wrong DB pnl (-0.47 vs
-        # Bybit-truth +0.84 — the #1540 scenario)
-        conn.execute("""
-            INSERT INTO trades (
-                id, timestamp, symbol, direction, entry_price,
-                position_size, status, exit_reason, pnl,
-                is_backtest, strategy_name, account_id, created_at, notes
-            ) VALUES (
-                1540, '2026-05-18T06:00:00+00:00', 'BTCUSDT', 'long',
-                76700.0, 0.004, 'closed', 'tp_cross', -0.4683,
-                0, 'vwap', 'bybit_2', '2026-05-18T06:00:00+00:00',
-                '{"strategy":"vwap"}'
-            )
-        """)
+        # Trade A: long, with wrong DB pnl (-0.47 vs Bybit-truth +0.84
+        # — the #1540 scenario). Tests that hit the rebuild script's
+        # --days N window filter MUST pass a recent ``opened_at_iso``
+        # so the row falls inside the rolling window relative to
+        # ``time.time()``; the legacy 2026-05-18 default is kept for
+        # tests that don't exercise that filter.
+        conn.execute(
+            "INSERT INTO trades ("
+            "id, timestamp, symbol, direction, entry_price, "
+            "position_size, status, exit_reason, pnl, "
+            "is_backtest, strategy_name, account_id, created_at, notes"
+            ") VALUES ("
+            "1540, ?, 'BTCUSDT', 'long', "
+            "76700.0, 0.004, 'closed', 'tp_cross', -0.4683, "
+            "0, 'vwap', 'bybit_2', ?, "
+            "'{\"strategy\":\"vwap\"}'"
+            ")",
+            (opened_at_iso, opened_at_iso),
+        )
         conn.commit()
         conn.close()
         return db_path
@@ -294,14 +299,24 @@ class TestEndToEnd:
     def test_rebuild_writes_correct_pnl(
         self, script, tmp_path, monkeypatch, capsys,
     ):
-        db_path = self._make_db(tmp_path)
+        # Anchor the fixture to "now - 2 days" so the rebuild script's
+        # --days 7 window always catches it, regardless of when the
+        # test runs (the prior 2026-05-18 hardcode aged out of the
+        # window as time advanced).
+        from datetime import datetime as _dt, timezone as _tz, timedelta as _td
+        opened_at = _dt.now(_tz.utc) - _td(days=2)
+        opened_at_iso = opened_at.isoformat()
+        closed_ms = int((opened_at + _td(hours=1)).timestamp() * 1000)
+
+        db_path = self._make_db(tmp_path, opened_at_iso=opened_at_iso)
         monkeypatch.setenv("TRADE_JOURNAL_DB", str(db_path))
 
         # Stub Bybit client + accounts loader.
         rec = _bybit_rec(side="Sell", entry=76700.0, qty=0.004,
                          exit_=76977.6, pnl=0.8447,
-                         created=1779111600000)  # 2026-05-18T07:00:00Z
-        # NOTE: open is 06:00; close is 07:00 — chronologically valid.
+                         created=closed_ms)  # 1h after open, ~2d ago
+        # NOTE: open is 2d ago; close is 1h after open — chronologically valid
+        # and both inside any reasonable --days window.
 
         from unittest.mock import MagicMock
         fake_client = MagicMock()
