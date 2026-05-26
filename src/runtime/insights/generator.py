@@ -35,7 +35,14 @@ import sys
 from datetime import datetime, timezone
 from typing import Any, Callable
 
-from src.runtime.insights import cache, data_sources, history, prompts, usage
+from src.runtime.insights import (
+    cache,
+    data_sources,
+    history,
+    prompts,
+    template_analyst,
+    usage,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +63,26 @@ _MAX_OUTPUT_TOKENS = 800
 # requires an extra --strategy arg.
 _VALID_ENDPOINTS = {"summary", "recent", "strategy", "health"}
 
+# Generator mode. `template` (default) is provider-free and produces
+# deterministic rule-based prose; `anthropic` calls the Claude API.
+# Other providers (groq, openai, …) can be added later by branching
+# in generate() — the cache + history + usage surfaces are
+# provider-agnostic.
+_VALID_MODES = {"template", "anthropic"}
+
+
+def _mode() -> str:
+    raw = os.environ.get("INSIGHTS_MODEL_MODE", "template").strip().lower()  # allow-silent: provider switch for the read-only analyst (M13 S2); default `template` so the analyst works without any API key
+    if raw not in _VALID_MODES:
+        logger.warning(
+            "insights.generator: INSIGHTS_MODEL_MODE=%r is not one of %s; "
+            "falling back to 'template'",
+            raw,
+            sorted(_VALID_MODES),
+        )
+        return "template"
+    return raw
+
 
 def _enabled() -> bool:
     raw = os.environ.get("INSIGHTS_ENABLED", "1").strip().lower()  # allow-silent: kill switch for the read-only analyst process; not on the live/dry path (M13 S1)
@@ -63,6 +90,8 @@ def _enabled() -> bool:
 
 
 def _model_for(endpoint: str) -> str:
+    if _mode() == "template":
+        return template_analyst.MODEL_ID
     env_key = f"INSIGHTS_MODEL_{endpoint.upper()}"
     return os.environ.get(env_key) or _DEFAULT_MODELS[endpoint]
 
@@ -210,40 +239,86 @@ def generate(
         logger.info("insights.generator: INSIGHTS_ENABLED=0, skipping %s", endpoint)
         return None
 
+    mode = _mode()
     model_id = _model_for(endpoint)
 
-    under_budget, spent, budget = usage.budget_check()
-    if not under_budget:
-        logger.warning(
-            "insights.generator: monthly budget exhausted ($%.2f / $%.2f); "
-            "skipping %s (last-good cache preserved)",
-            spent,
-            budget,
-            endpoint,
+    # Budget gate only applies to paid-provider modes. The template
+    # mode never spends, so skipping the check keeps the analyst alive
+    # even when the legacy budget row was set to 0.
+    if mode != "template":
+        under_budget, spent, budget = usage.budget_check()
+        if not under_budget:
+            logger.warning(
+                "insights.generator: monthly budget exhausted ($%.2f / $%.2f); "
+                "skipping %s (last-good cache preserved)",
+                spent,
+                budget,
+                endpoint,
+            )
+            usage.record_usage(
+                endpoint=endpoint,
+                model_id=model_id,
+                input_tokens=0,
+                output_tokens=0,
+                status="budget_skipped",
+            )
+            return None
+
+    # Pull data (always — the template path consumes the same payload).
+    if endpoint == "summary":
+        data = data_sources.summary_data()
+    elif endpoint == "recent":
+        data = data_sources.recent_data(limit=limit)
+    elif endpoint == "strategy":
+        if not strategy_name:
+            raise ValueError("strategy endpoint requires strategy_name")
+        data = data_sources.strategy_data(strategy_name)
+    else:  # health
+        data = data_sources.health_data()
+
+    if mode == "template":
+        try:
+            parsed = template_analyst.render(
+                endpoint,
+                data,
+                strategy_name=strategy_name,
+                limit=limit,
+            )
+        except Exception:  # noqa: BLE001 — template should never raise, but degrade gracefully if it does
+            logger.exception("insights.generator: template render failed for %s", endpoint)
+            usage.record_usage(
+                endpoint=endpoint,
+                model_id=model_id,
+                input_tokens=0,
+                output_tokens=0,
+                status="error",
+            )
+            return None
+
+        payload = _envelope(endpoint, data, parsed, model_id)
+        cache.write_cache(_cache_name_for(endpoint, strategy_name), payload)
+        history.append_history(
+            endpoint=endpoint,
+            payload=payload,
+            strategy_name=strategy_name,
         )
         usage.record_usage(
             endpoint=endpoint,
             model_id=model_id,
             input_tokens=0,
             output_tokens=0,
-            status="budget_skipped",
+            status="ok",
         )
-        return None
+        return payload
 
-    # Pull data
+    # Paid-provider path (mode == "anthropic" today; groq/openai later).
     if endpoint == "summary":
-        data = data_sources.summary_data()
         system_blocks, user_text = prompts.summary_prompt(data)
     elif endpoint == "recent":
-        data = data_sources.recent_data(limit=limit)
         system_blocks, user_text = prompts.recent_prompt(data, limit)
     elif endpoint == "strategy":
-        if not strategy_name:
-            raise ValueError("strategy endpoint requires strategy_name")
-        data = data_sources.strategy_data(strategy_name)
-        system_blocks, user_text = prompts.strategy_prompt(strategy_name, data)
+        system_blocks, user_text = prompts.strategy_prompt(strategy_name or "", data)
     else:  # health
-        data = data_sources.health_data()
         system_blocks, user_text = prompts.health_prompt(data)
 
     caller = anthropic_call or _call_anthropic

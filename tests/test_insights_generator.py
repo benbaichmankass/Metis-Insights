@@ -43,6 +43,11 @@ def isolated_dirs(
     monkeypatch.setenv("TRADE_JOURNAL_DB", str(db_path))
     monkeypatch.setenv("INSIGHTS_ENABLED", "1")
     monkeypatch.setenv("INSIGHTS_MONTHLY_BUDGET_USD", "5.00")
+    # Tests in this module exercise the paid-provider (anthropic) path
+    # via the `anthropic_call` injection seam — pin the mode so the
+    # default mode flip (template ↑ 2026-05-26) doesn't bypass them.
+    # Template-mode coverage lives in test_insights_template_analyst.py.
+    monkeypatch.setenv("INSIGHTS_MODEL_MODE", "anthropic")
     return {
         "runtime_logs": runtime_logs,
         "db": db_path,
