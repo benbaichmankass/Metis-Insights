@@ -28,6 +28,14 @@ trainer_config:
   vol_window_n: 20
   seed: 42
   n_iter: 200
+  # Per-sample reweighting via Dataset(weight=...). The 15m regime label
+  # is ~96.4% range / 3.6% volatile; without this the booster predicts
+  # only the majority class and f1_volatile collapses. 28× weight
+  # ≈ inverse base rate, forcing the booster to actually commit to
+  # volatile predictions when the features support it.
+  class_weight:
+    range: 1.0
+    volatile: 28.0
   lgbm_params:
     learning_rate: 0.05
     num_leaves: 31
