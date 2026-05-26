@@ -27,8 +27,6 @@ from __future__ import annotations
 
 import sqlite3
 
-import pytest
-
 from src.runtime.order_monitor import _resolve_linked_package_id
 from src.units.db.database import Database, _migrate_add_order_package_id
 
