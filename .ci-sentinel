@@ -1,0 +1,1 @@
+Sentinel file to test webhook delivery via push_files (GitHub Contents API) vs git push to the local sandbox proxy. Delete after PR #2046 lands.
