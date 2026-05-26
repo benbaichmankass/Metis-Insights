@@ -78,6 +78,111 @@ def test_degenerate_class_f1_fails_non_degenerate():
     assert nd.status == "fail"
 
 
+def test_imbalance_aware_path_passes_high_precision_minority():
+    # Imbalanced (99% / 1%) regime label. F1 on minority caps low even when
+    # precision is excellent and recall clears the floor — strict
+    # min_class_f1 ≥ 0.3 unfairly fails this. The imbalance-aware alt
+    # (precision lift over base rate + recall floor) recognises it.
+    entry = _entry(
+        metrics={
+            "macro_f1": 0.45,
+            "f1_majority": 0.99,
+            "f1_minority": 0.20,
+            "precision_majority": 0.99,
+            "precision_minority": 0.60,    # base_rate=0.01 → lift = 60×
+            "recall_majority": 0.99,
+            "recall_minority": 0.10,       # clears default 0.05 floor
+            "support_majority": 4950.0,
+            "support_minority": 50.0,
+            "n_eval": 5000,
+        },
+        runs=_runs("macro_f1", [0.45, 0.46, 0.44]),
+    )
+    report = evaluate_gates(
+        entry, attribution=_good_attr(), drift={"overall_verdict": "no_change"},
+    )
+    nd = next(r for r in report.results if r.name == "non_degenerate")
+    assert nd.status == "pass", nd.detail
+
+
+def test_imbalance_aware_path_fails_when_recall_too_low():
+    # Same imbalance but the model only fires on the easiest minority cases
+    # — high precision, but recall under the 5% floor. Should still fail.
+    entry = _entry(
+        metrics={
+            "macro_f1": 0.45,
+            "f1_majority": 0.99,
+            "f1_minority": 0.05,
+            "precision_majority": 0.99,
+            "precision_minority": 0.60,
+            "recall_majority": 0.99,
+            "recall_minority": 0.03,       # below 0.05 floor
+            "support_majority": 4950.0,
+            "support_minority": 50.0,
+            "n_eval": 5000,
+        },
+        runs=_runs("macro_f1", [0.45, 0.46, 0.44]),
+    )
+    report = evaluate_gates(
+        entry, attribution=_good_attr(), drift={"overall_verdict": "no_change"},
+    )
+    nd = next(r for r in report.results if r.name == "non_degenerate")
+    assert nd.status == "fail", nd.detail
+    assert "recall=0.030" in nd.detail
+
+
+def test_imbalance_aware_path_fails_when_precision_no_lift():
+    # Model predicts minority class but no better than random — precision
+    # equals the base rate. Should fail the lift check.
+    entry = _entry(
+        metrics={
+            "macro_f1": 0.10,
+            "f1_majority": 0.99,
+            "f1_minority": 0.02,
+            "precision_majority": 0.99,
+            "precision_minority": 0.01,    # base_rate = 0.01 → lift = 1.0
+            "recall_majority": 0.99,
+            "recall_minority": 0.10,
+            "support_majority": 4950.0,
+            "support_minority": 50.0,
+            "n_eval": 5000,
+        },
+        runs=_runs("macro_f1", [0.10, 0.11, 0.09]),
+    )
+    report = evaluate_gates(
+        entry, attribution=_good_attr(), drift={"overall_verdict": "no_change"},
+    )
+    nd = next(r for r in report.results if r.name == "non_degenerate")
+    assert nd.status == "fail", nd.detail
+    assert "precision_lift=1.00" in nd.detail
+
+
+def test_always_majority_degenerate_still_fails_under_imbalance_path():
+    # The original degenerate case (always-predict-majority) MUST still
+    # fail — the new path doesn't relax that, it just stops punishing
+    # genuinely-discriminating-but-imbalanced models.
+    entry = _entry(
+        metrics={
+            "macro_f1": 0.50,
+            "f1_majority": 0.99,
+            "f1_minority": 0.00,
+            "precision_majority": 0.99,
+            "precision_minority": 0.00,
+            "recall_majority": 1.00,
+            "recall_minority": 0.00,       # collapsed — never fires
+            "support_majority": 4950.0,
+            "support_minority": 50.0,
+            "n_eval": 5000,
+        },
+        runs=_runs("macro_f1", [0.50, 0.51, 0.49]),
+    )
+    report = evaluate_gates(
+        entry, attribution=_good_attr(), drift={"overall_verdict": "no_change"},
+    )
+    nd = next(r for r in report.results if r.name == "non_degenerate")
+    assert nd.status == "fail", nd.detail
+
+
 def test_missing_attribution_blocks_on_insufficient_data():
     entry = _entry(
         metrics={"macro_f1": 0.70, "f1_a": 0.73, "f1_b": 0.68, "n_eval": 5000},
