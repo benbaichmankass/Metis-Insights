@@ -81,6 +81,7 @@ on:
           - disable-m5-consumer
           - enable-mobile-push
           - disable-mobile-push
+          - set-mobile-push-secrets
           - enable-signal-dual-write
           - disable-signal-dual-write
           - backfill-pnl-nulls
@@ -362,7 +363,7 @@ jobs:
             status-check|gateway-logs|pull-latest-logs|inspect-closed-pnl|bybit-account-audit|strategy-performance-audit|monitor-miss-analysis|vwap-backtest-sweep|send-ping)
               echo "tier=1" >>"$GITHUB_ENV"
               ;;
-            pull-and-deploy|restart-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|enable-m5-consumer|disable-m5-consumer|enable-mobile-push|disable-mobile-push|enable-signal-dual-write|disable-signal-dual-write|setup-cloudflare-tunnel|teardown-cloudflare-tunnel|setup-named-cloudflare-tunnel|teardown-named-cloudflare-tunnel|setup-tailscale-funnel|teardown-tailscale-funnel|backfill-pnl-nulls|backfill-orphan-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|rebuild-pnl-from-bybit|backfill-shadow-predictions|set-account-mode|fix-data-dir|rotate-account-keys|init-diag-token|set-env)
+            pull-and-deploy|restart-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|enable-m5-consumer|disable-m5-consumer|enable-mobile-push|disable-mobile-push|set-mobile-push-secrets|enable-signal-dual-write|disable-signal-dual-write|setup-cloudflare-tunnel|teardown-cloudflare-tunnel|setup-named-cloudflare-tunnel|teardown-named-cloudflare-tunnel|setup-tailscale-funnel|teardown-tailscale-funnel|backfill-pnl-nulls|backfill-orphan-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|rebuild-pnl-from-bybit|backfill-shadow-predictions|set-account-mode|fix-data-dir|rotate-account-keys|init-diag-token|set-env)
               echo "tier=2" >>"$GITHUB_ENV"
               if [ -z "${REASON// }" ]; then
                 echo "::error::Tier-2 action '${ACTION}' requires a non-empty 'reason' input."
@@ -491,6 +492,11 @@ jobs:
           # in the (public) issue body or run log. Add more here as new
           # secret-backed keys are needed.
           SECRET_TELEGRAM_CLAUDE_BOT_TOKEN: ${{ secrets.TELEGRAM_CLAUDE_BOT_TOKEN }}
+          # FCM_SERVICE_ACCOUNT_JSON is the service-account JSON that the
+          # mobile-push notifier uses to authenticate against FCM HTTP v1.
+          # Consumed by the set-mobile-push-secrets action (and by set-env
+          # when env_key=FCM_SERVICE_ACCOUNT_JSON + env_value blank).
+          SECRET_FCM_SERVICE_ACCOUNT_JSON: ${{ secrets.FCM_SERVICE_ACCOUNT_JSON }}
         run: |
           set -euo pipefail
           # Each action maps to ONE script under scripts/ops/. The
@@ -509,6 +515,7 @@ jobs:
             disable-m5-consumer)                SCRIPT="disable_m5_consumer.sh" ;;
             enable-mobile-push)                 SCRIPT="enable_mobile_push.sh" ;;
             disable-mobile-push)                SCRIPT="disable_mobile_push.sh" ;;
+            set-mobile-push-secrets)            SCRIPT="set_mobile_push_secrets.sh" ;;
             enable-signal-dual-write)           SCRIPT="enable_signal_dual_write.sh" ;;
             disable-signal-dual-write)          SCRIPT="disable_signal_dual_write.sh" ;;
             setup-cloudflare-tunnel)            SCRIPT="setup_cloudflare_tunnel.sh" ;;
@@ -607,6 +614,18 @@ jobs:
               env_value="${!secret_var:-}"
             fi
             REMOTE_CMD="ENV_KEY=$(printf '%q' "${ENV_KEY}") ENV_VALUE=$(printf '%q' "${env_value}") ENV_SERVICE=$(printf '%q' "${ENV_SERVICE}") ${REMOTE_CMD}"
+          fi
+          if [ "${ACTION}" = "set-mobile-push-secrets" ]; then
+            # The wrapper script pins ENV_KEY + ENV_SERVICE; we only need
+            # to inject ENV_VALUE from the secret. Kept separate from
+            # set-env above so the operator dispatches with no params and
+            # never has the chance to retarget the wrong key/service.
+            if [ -z "${SECRET_FCM_SERVICE_ACCOUNT_JSON}" ]; then
+              echo "::error::set-mobile-push-secrets requires the FCM_SERVICE_ACCOUNT_JSON secret on this repo."
+              echo "::error::Add it at Settings → Secrets and variables → Actions → New repository secret."
+              exit 1
+            fi
+            REMOTE_CMD="ENV_VALUE=$(printf '%q' "${SECRET_FCM_SERVICE_ACCOUNT_JSON}") ${REMOTE_CMD}"
           fi
           if [ "${ACTION}" = "setup-named-cloudflare-tunnel" ] || [ "${ACTION}" = "teardown-named-cloudflare-tunnel" ]; then
             if [ -z "${CLOUDFLARE_API_TOKEN}" ] || [ -z "${CLOUDFLARE_ACCOUNT_ID}" ]; then
