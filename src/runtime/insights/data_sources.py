@@ -48,14 +48,22 @@ def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def _connect_ro() -> sqlite3.Connection:
+def _connect_ro() -> sqlite3.Connection | None:
     """Open the trade journal in read-only mode.
 
     ``mode=ro`` ensures the generator can never accidentally mutate the
-    money DB even if a query is malformed.
+    money DB even if a query is malformed. Returns ``None`` when the
+    DB file is missing — the per-endpoint joiners interpret that as
+    "no rows" and skip the SELECTs cleanly, so the template analyst can
+    still emit a valid (empty) envelope on a brand-new install.
     """
-    uri = f"file:{trade_journal_db_path()}?mode=ro"
-    conn = sqlite3.connect(uri, uri=True)
+    db = trade_journal_db_path()
+    try:
+        uri = f"file:{db}?mode=ro"
+        conn = sqlite3.connect(uri, uri=True)
+    except sqlite3.OperationalError as exc:
+        logger.warning("insights.data_sources: cannot open %s read-only: %s", db, exc)
+        return None
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -162,6 +170,12 @@ def summary_data() -> dict[str, Any]:
     window = {"start": start.isoformat(), "end": now.isoformat()}
 
     conn = _connect_ro()
+    if conn is None:
+        return {
+            "window": window,
+            "row_counts": {"trades": 0, "order_packages": 0, "audit_events": 0, "signals": 0},
+            "rows": {"recent_trades": [], "recent_packages": [], "audit_tail_sample": []},
+        }
     try:
         trades = _safe_query(
             conn,
@@ -233,6 +247,13 @@ def recent_data(limit: int = _RECENT_DEFAULT_LIMIT) -> dict[str, Any]:
     now = _utc_now()
 
     conn = _connect_ro()
+    if conn is None:
+        return {
+            "window": {"start": None, "end": None},
+            "row_counts": {"trades": 0, "requested_limit": limit},
+            "rows": {"trades": []},
+            "meta": {"generated_at": now.isoformat()},
+        }
     try:
         trades = _safe_query(
             conn,
@@ -292,6 +313,13 @@ def strategy_data(name: str, days: int = 7) -> dict[str, Any]:
     window = {"start": start.isoformat(), "end": now.isoformat()}
 
     conn = _connect_ro()
+    if conn is None:
+        return {
+            "window": window,
+            "row_counts": {"trades": 0, "closed": 0, "wins": 0, "losses": 0, "order_packages": 0},
+            "rows": {"trades": [], "packages": []},
+            "meta": {"strategy_name": name, "total_pnl_window": 0.0},
+        }
     try:
         trades = _safe_query(
             conn,

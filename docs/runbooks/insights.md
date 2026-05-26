@@ -34,12 +34,13 @@ All controlled via `/home/ubuntu/ict-trading-bot/.env` on the live VM.
 | Env var | Default | Effect |
 |---|---|---|
 | `INSIGHTS_ENABLED` | `1` | Set to `0` (or `false` / `no`) to short-circuit the next timer fire. The router keeps serving the last-good cache; no tokens spent. |
-| `INSIGHTS_MONTHLY_BUDGET_USD` | `5.00` | Calendar-month budget cap. Once `SUM(estimated_cost_usd)` for the current month hits this, the generator skips calls and records `budget_skipped` usage rows. Bump it if you've raised your Anthropic monthly included usage; lower it to tighten. |
-| `INSIGHTS_MODEL_SUMMARY` | `claude-haiku-4-5-20251001` | Override the model for the `summary` endpoint. |
+| `INSIGHTS_MODEL_MODE` | `template` | **Default since M13 S2.** `template` runs the rule-based analyst (no API call, $0 cost, deterministic, zero hallucination risk). Set to `anthropic` to use the Claude API (requires `ANTHROPIC_API_KEY` + credit balance). The dashboard surface, cache files, `insights_history`, and `insights_usage` rows are identical between modes — `template` writes rows with `model_id="template:v1"` and `estimated_cost_usd=0`. |
+| `INSIGHTS_MONTHLY_BUDGET_USD` | `5.00` | Calendar-month budget cap. Only enforced in `anthropic` mode — template mode bypasses the gate entirely. Once `SUM(estimated_cost_usd)` for the current month hits this, the generator skips calls and records `budget_skipped` usage rows. Bump it if you've raised your Anthropic monthly included usage; lower it to tighten. |
+| `INSIGHTS_MODEL_SUMMARY` | `claude-haiku-4-5-20251001` | (Anthropic mode only) Override the model for the `summary` endpoint. |
 | `INSIGHTS_MODEL_RECENT` | `claude-haiku-4-5-20251001` | Same for `recent`. |
 | `INSIGHTS_MODEL_STRATEGY` | `claude-sonnet-4-6` | Same for `strategy/{name}`. |
 | `INSIGHTS_MODEL_HEALTH` | `claude-sonnet-4-6` | Same for `health`. |
-| `ANTHROPIC_API_KEY` | (already set on the VM) | The generator reuses the same key as `ict-claude-bridge.service`. |
+| `ANTHROPIC_API_KEY` | (already set on the VM) | Required only when `INSIGHTS_MODEL_MODE=anthropic`. Reuses the same key as `ict-claude-bridge.service`. |
 
 After editing `.env`, the next timer fire picks up the new values
 automatically — no service restart needed. (The systemd unit reads
@@ -147,7 +148,8 @@ the next month rolls or you bump the env var.
 | Cache file missing after 30+ min | Timer not enabled, or service failing | `systemctl status ict-insights-generator.timer` + `journalctl -u ict-insights-generator -n 50` |
 | All caches stuck at the same `generated_at` | `INSIGHTS_ENABLED=0` or budget exhausted | Check `.env`; query `insights_usage` for `status='budget_skipped'` rows |
 | Router returns `cache_present: false` for everything | Generator has never successfully run | First-time activation — run manually once: `sudo systemctl start ict-insights-generator.service` |
-| Generator logs say `anthropic call failed` repeatedly | API key missing or rate-limited | Check `ANTHROPIC_API_KEY` in `.env`; check Anthropic console for rate-limit / billing issues |
+| Generator logs say `anthropic call failed` repeatedly | `INSIGHTS_MODEL_MODE=anthropic` + API key missing / rate-limited / out of credit | Either top up Anthropic credit + check `ANTHROPIC_API_KEY` in `.env`, OR flip to `INSIGHTS_MODEL_MODE=template` (zero-cost rule-based mode — the default since M13 S2) |
+| Cache `model_id` says `template:v1` and the operator wanted LLM prose | `INSIGHTS_MODEL_MODE` is the default `template` | Set `INSIGHTS_MODEL_MODE=anthropic` in `.env` (and ensure `ANTHROPIC_API_KEY` is valid + the monthly budget allows it). Next cycle uses the LLM. |
 | `summary_md` cites no trade ids | Window had no closed trades | Working as designed — "no closed trades in the window" is the honest answer |
 | Cost climbing faster than expected | Prompt caching not hitting | Inspect `cache_creation_tokens` + `cache_read_tokens` in `insights_usage` — if `cache_read` stays at 0, the SDK call isn't using the cache hint |
 
