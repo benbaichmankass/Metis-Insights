@@ -61,10 +61,18 @@ Then, scoped to what changed this session:
      presented as current).
    - `docs/claude/INDEX.md` lists the files that actually exist; no dangling
      doc links.
-5. **Triage minor leftovers.** Anything real but too small to fix now (a stale
-   comment elsewhere, a doc that needs a light touch) goes into
-   `docs/claude/health-review-backlog.json` as a new `open` item so a future
-   `/health-review` drains it. Don't silently walk past it.
+5. **Triage minor leftovers.** Anything real but too small to fix now goes
+   into the appropriate review backlog as a new `open` item so a future
+   review drains it. Don't silently walk past it. Pick the right bin
+   (three-way split 2026-05-26):
+   - System / pipeline / doc-drift → `docs/claude/health-review-backlog.json`
+     (drained by `/health-review`).
+   - Strategy / trading follow-ups → `docs/claude/performance-review-backlog.json`
+     (drained by `/performance-review`).
+   - AI / ML experiment follow-ups → `docs/claude/ml-review-backlog.json`
+     (drained by `/ml-review`).
+   When in doubt for a doc-drift leftover (the common case for this skill),
+   use the health backlog.
 
 ## Output
 

@@ -1,0 +1,82 @@
+{
+  "_comment": "Template documenting the JSON Claude returns from /ml-review (introduced 2026-05-26). Covers trainer-VM service health, every model in the registry, promotion/demotion recommendations against the 7-stage ladder, and forward-looking experiment proposals. This skill never edits ml/configs/ — proposals only. This file is documentation, not a validated JSON Schema.",
+  "request_id": "REQ-YYYYMMDD-HHMMSS-<slug>",
+  "reviewed_at": "YYYY-MM-DDTHH:MM:SS+00:00",
+  "reviewer": "claude",
+  "window_start": "YYYY-MM-DDTHH:MM:SS+00:00",
+  "window_end": "YYYY-MM-DDTHH:MM:SS+00:00",
+  "overall_assessment": "healthy | caution | investigate",
+  "trainer_findings": {
+    "trainer_service":  {"status": "ok | watch | concern | skip", "note": "<= 160 chars"},
+    "trainer_datasets": {"status": "ok | watch | concern | skip", "note": "<= 160 chars"},
+    "trainer_registry": {"status": "ok | watch | concern | skip", "note": "<= 160 chars"},
+    "trainer_models":   {"status": "ok | watch | concern | skip", "note": "per-model roll-up; concern only when an advisory+/live model degrades on live/shadow data"}
+  },
+  "model_status": [
+    {
+      "_comment": "REQUIRED — one entry per model in `python -m ml list-models`. The standing answer to 'how is each model doing'. [] only when the trainer relay errored (then trainer_findings.trainer_models = skip).",
+      "model_id": "btc-regime-5m-baseline-v1",
+      "stage": "research_only | candidate | backtest_approved | shadow | advisory | limited_live | live_approved",
+      "registry_status": "candidate | promoted | ...",
+      "last_training": {
+        "run_id": "YYYYMMDDThhmmssZ",
+        "at": "YYYY-MM-DDTHH:MM:SS+00:00",
+        "code_revision": "<sha>",
+        "headline_metric": "macro_f1=0.70 | mae=3.26 | winrate=0.55",
+        "n_eval": 0,
+        "trend_vs_prior_run": "improved | flat | degraded | first_run"
+      },
+      "live_shadow": {
+        "influence": "none(shadow) | advisory | live",
+        "predictions": 0,
+        "score_summary": "score distribution / mean when predictions>0, else 'no predictions yet'",
+        "drift": "ks=... psi=... verdict=stable|drifting|insufficient",
+        "realized": "win-rate / PnL of closed trades this model scored, when joinable; else 'n/a'"
+      },
+      "note": "<= 160 chars — one-line health verdict for this model"
+    }
+  ],
+  "promotion_recommendations": [
+    {
+      "_comment": "Tier-3 stage moves. The shadow->advisory step is THE live-trading gate; advisory->limited_live->live_approved are the same Tier-3 gate, more cautiously evidenced. Demotions are also Tier-3 (less risky but still operator-decided).",
+      "model_id": "...",
+      "current_stage": "shadow",
+      "proposed_stage": "advisory",
+      "direction": "promote | demote",
+      "tier": 3,
+      "evidence": "<= 240 chars — N predictions, win-rate on joined trades, drift verdict, training trend",
+      "risk_note": "<= 160 chars — what to watch after applying, kill-switch path"
+    }
+  ],
+  "experiments_proposed": [
+    {
+      "_comment": "Forward-looking ML coverage expansion. Each proposal is an idea the operator can convert to a manifest / feature / dataset / target / sweep.",
+      "kind": "new_manifest | new_feature | new_dataset_family | new_target | hyperparam_sweep",
+      "name": "<short slug>",
+      "rationale": "<= 240 chars — what we'd learn",
+      "input_changes": "<= 200 chars — datasets / features / horizon involved",
+      "expected_metric_signal": "<what would convince us this is worth shadowing>",
+      "tier": 3,
+      "next_step": "PR a new ml/configs/<name>.yaml | extend ml/features/... | new dataset family in src/ml/datasets/..."
+    }
+  ],
+  "backlog_drain": [
+    {
+      "_comment": "Result of draining docs/claude/ml-review-backlog.json this run. action: fixed | deferred | invalid.",
+      "item_id": "MB-YYYYMMDD-NNN",
+      "action": "fixed | deferred | invalid",
+      "note": "<= 160 chars"
+    }
+  ],
+  "anomalies": [
+    "free-form list of notable items (datasets failing, runs erroring, predictions silently dropping, etc.)"
+  ],
+  "recommended_action": "what to do next, or 'none'",
+  "operator_attention_required": false,
+  "claude_channel_ping": {
+    "_comment": "The one-line update posted to @claude_ict_comms_bot via the send-ping system-action.",
+    "delivered_via": "send-ping | pending-pings.jsonl | skipped (relay failure)",
+    "priority": "low | normal | high | urgent",
+    "message": "<= 200 chars"
+  }
+}
