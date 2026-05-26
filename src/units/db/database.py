@@ -54,6 +54,34 @@ def _migrate_add_account_id(cursor: sqlite3.Cursor) -> bool:
     return True
 
 
+def _migrate_add_order_package_id(cursor: sqlite3.Cursor) -> bool:
+    """Add ``order_package_id`` column to ``trades`` table if absent.
+
+    Many-to-one back-reference from a trade row to the
+    ``order_packages`` decision that produced it. Before this column
+    the only link was ``order_packages.linked_trade_id`` (one slot per
+    package) — so when a single decision fanned out into multiple
+    trade rows (real-money entry + demo mirror + intent_reduce flip
+    leg + multi-account fanout) only the **last** writer's
+    ``update_order_package(linked_trade_id=...)`` survived. The
+    others showed up as ``(unlinked)`` in the reconciler's orphan-
+    sweep notification and could not be cascaded by
+    ``_resolve_linked_package_id``. With this column every trade row
+    carries the package id directly; the legacy ``linked_trade_id``
+    keeps its "primary entry trade" semantics for back-compat. Pre-
+    existing rows are left at NULL — the reconciler falls back to
+    the legacy lookup for them.
+
+    Idempotent: returns True only on the run that adds the column.
+    """
+    cursor.execute("PRAGMA table_info(trades)")
+    columns = {row[1] for row in cursor.fetchall()}
+    if "order_package_id" in columns:
+        return False
+    cursor.execute("ALTER TABLE trades ADD COLUMN order_package_id TEXT")
+    return True
+
+
 class Database:
     """Manages SQLite database for trade journal and backtest results"""
     
@@ -116,6 +144,7 @@ class Database:
                 strategy_name TEXT,
                 account_id TEXT NOT NULL DEFAULT 'live',
                 is_demo BOOLEAN DEFAULT 0,
+                order_package_id TEXT,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
         ''')
@@ -123,10 +152,17 @@ class Database:
         _migrate_add_strategy_name(cursor)
         _migrate_add_account_id(cursor)
         _migrate_add_is_demo(cursor)
+        _migrate_add_order_package_id(cursor)
         # Index for efficient per-account trade history queries.
         cursor.execute(
             "CREATE INDEX IF NOT EXISTS idx_trades_account_created "
             "ON trades (account_id, datetime(created_at) DESC)"
+        )
+        # Index for the reconciler's reverse lookup
+        # (``_resolve_linked_package_id`` in src/runtime/order_monitor.py).
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_trades_order_package_id "
+            "ON trades (order_package_id)"
         )
         
         # Backtest results table
