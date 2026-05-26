@@ -145,6 +145,45 @@
       "status": "open",
       "triage_note": "2026-05-26 /health-review: still happening — live VM snapshot shows 15 vwap orphaned reinforcement packages from 2026-05-26T02:08 to T04:02 (every ~7-8 min). All show aggregated_target_qty=0.0, sized_qty_by_account={}, orphaned by monitor_reconciler after 5 min (BUG-049 message). Plus 1 trend_donchian closed package from window (pkg-ac6bb4b3b33f4339, watchdog_released_alive). Code change still pending; remains Tier-2.",
       "snoozed_until": null
+    },
+    {
+      "id": "BL-20260526-001",
+      "opened_at": "2026-05-26T17:30:00+00:00",
+      "opened_by": "claude (S-V2-LIGHTGBM-PROMOTION-PREP-2026-05-26)",
+      "source": "session wrap-up — v2 BTC LightGBM regime models entered shadow at 2026-05-26 ~16:08Z + ~17:13Z (last retrain on 7015659). Promotion conversation queued for after 7-day soak.",
+      "title": "v2 BTC LightGBM regime models — 7-day shadow-soak verification + post-soak gate-check before shadow->advisory promotion conversation",
+      "description": "btc-regime-5m-lgbm-v2 and btc-regime-15m-lgbm-v2 were trained with PR #2067's class-rebalancing and PR #2072's 5m weight retune; PR #2068 added the imbalance-aware alternative path through `non_degenerate` so they can pass the gate despite low minority-class F1 on the imbalanced regime label. At session end the engineering work is fully landed; only TIME-based gates remain (shadow_soak >= 7 days; beats_baseline/live_agreement/drift_clean need live shadow predictions accumulated against closed trades). Models entered current shadow stage at 2026-05-26T16:08:23Z (15m) and 16:08:40Z (5m) per gate-check output; 7-day clock targets ~2026-06-02 16:08Z. The post-#2068 cycle that re-runs the evaluator with support_<class> and re-evaluates the gate was kicked at session end (issue #2077) but its result was not in the registry by the time this entry was opened — confirming the imbalance-aware path actually flips status=pass on both v2 models is the FIRST action of this follow-up.",
+      "tier": 1,
+      "trigger_condition": "Any /health-review run on or after 2026-06-02; or any session investigating 'are the v2 BTC models ready to promote shadow->advisory?'.",
+      "resolution_criteria": "Verified end-to-end: (1) post-#2068 cycle metrics include support_<class>; (2) `python -m ml gate-check btc-regime-{5m,15m}-lgbm-v2 --target-stage advisory` shows non_degenerate=pass via the imbalance-aware path; (3) shadow_predictions.jsonl carries entries for both model_ids tied to closed live trades (BTCUSDT only); (4) brier_lift, AUC>0.55, and a populated shadow-drift report are all present so beats_baseline/live_agreement/drift_clean clear; (5) all gates pass + the evidence packet is prepared for the operator's shadow->advisory decision. Operator-gated decision; Claude prepares the packet, operator authorizes.",
+      "status": "open",
+      "snoozed_until": "2026-06-02T16:08:00+00:00"
+    },
+    {
+      "id": "BL-20260526-002",
+      "opened_at": "2026-05-26T17:30:00+00:00",
+      "opened_by": "claude (S-V2-LIGHTGBM-PROMOTION-PREP-2026-05-26)",
+      "source": "session wrap-up — PR #2062 explicitly scoped MES manifests out; they still fail in every training cycle.",
+      "title": "MES regime + setup-quality manifests fail every trainer cycle — need yfinance/ES=F intraday market_raw on the trainer + non-empty MES setup_labels shard at v002",
+      "description": "PR #2062's build_btcusdt_pair helper fixed the BTCUSDT 5m/15m v002 shards but explicitly deferred the MES failures. Three manifests fail every cycle with FileNotFoundError at: datasets-out/market_features/MES/5m/v002/data.jsonl (mes-regime-5m.yaml), datasets-out/market_features/MES/15m/v002/data.jsonl (mes-regime-15m.yaml), and datasets-out/setup_labels/MES/all/v002/data.jsonl (mes-setup-quality.yaml). Root causes: (a) scripts/ops/build_trainer_datasets.sh only builds market_raw/features for BTCUSDT (Bybit V5 offvm adapter); MES needs the yfinance/ES=F intraday adapter — that wiring exists in the separate scripts/ops/run_mes_training.sh one-shot but isn't part of the daily cycle. (b) The cycle's setup_labels build is symbol-scope=all (not MES); a separate `build_family setup_labels --symbol-scope MES` invocation at v002 is needed (will produce an empty shard until MES trades, but an empty shard at least lets the manifest skip cleanly via empty_dataset instead of failing). Net effect: trainer cycle exits with overall_rc=1 every run even though all BTC manifests succeed.",
+      "tier": 1,
+      "trigger_condition": "Any /health-review run; or any session attempting to train MES regime / setup-quality models.",
+      "resolution_criteria": "Either (a) build_trainer_datasets.sh extended to invoke a build_market_pair-like helper for MES using the yfinance/ES=F adapter for 5m + 15m plus a MES-scoped setup_labels build, so the three failing manifests either train (where data is present) or empty_dataset-skip (where it isn't); OR (b) the three failing manifests are explicitly scoped out of the daily cycle (e.g. via a TRAINING_MANIFESTS-exclude wrapper) so overall_rc returns 0. Cycle log on next run shows zero manifest_failed events. Pure trainer-VM tooling change; autonomous (Tier-1).",
+      "status": "open",
+      "snoozed_until": null
+    },
+    {
+      "id": "BL-20260526-003",
+      "opened_at": "2026-05-26T17:30:00+00:00",
+      "opened_by": "claude (S-V2-LIGHTGBM-PROMOTION-PREP-2026-05-26)",
+      "source": "session wrap-up — `python -m ml compare setup-quality-baseline-v0 setup-quality-lgbm-v2` after PR #2053 + #2067 cycles.",
+      "title": "setup-quality-lgbm-v2 underperforms v0 baseline on n=76 closed trades — too little data for LightGBM",
+      "description": "setup-quality-lgbm-v2 trained cleanly (PR #2053's LightGBM stack works end-to-end) but loses to setup-quality-baseline-v0 on the eval split: MAE 0.0710 vs 0.0478, MSE 0.0114 vs 0.0092 (n_eval=76). Cause is dataset size, not model quality — 76 closed trades is too small for a gradient-boosted tree to beat a simple per-group-mean baseline, even with the conservative regularization PR #2053 added (min_data_in_leaf=10, num_leaves=15, lambda_l2=1.0). Promoting this model would mean shipping noise instead of signal. The model is auto-wired into the shadow factory by the 2026-05-19 default-flip rule, so it's currently logging shadow predictions on every live signal — that's fine and produces useful data, but the model itself shouldn't be considered for promotion past shadow until either it beats baseline at higher n, or the manifest is explicitly demoted/deprecated. Distinct from BL-20260526-001 (BTC regime models which DO beat their baselines on macro_f1 + the imbalance-aware path).",
+      "tier": 1,
+      "trigger_condition": "Any /health-review run; revisit specifically when n_trades >= ~1000 closed trades suitable for setup_labels OR in a dedicated model-training session reviewing the v2 setup-quality manifest.",
+      "resolution_criteria": "Either (a) on a fresh training cycle with n_eval >= 1000 the v2 model beats the baseline on MAE+MSE, in which case keep at shadow and let it accumulate live shadow predictions; OR (b) the model is demoted from shadow to research_only via `python -m ml promote-stage setup-quality-lgbm-v2 --new-stage research_only` (operator-approved, semantic change to the registry); OR (c) the manifest is deprecated (removed from ml/configs/, model retired). Decision belongs to a model-training session, not this backlog item.",
+      "status": "open",
+      "snoozed_until": null
     }
   ]
 }
