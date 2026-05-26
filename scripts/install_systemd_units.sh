@@ -163,6 +163,32 @@ if [ -f "${_BRIDGE_DROPIN_SRC}" ]; then
     fi
 fi
 
+# ict-insights-generator.service drop-in (M13 S1):
+#   Without DATA_DIR + TRADE_JOURNAL_DB, the cycle's Python subprocess
+#   resolves trade_journal_db_path() to the repo-relative fallback
+#   <repo>/trade_journal.db — a fresh empty file. Every data-source
+#   query then logs "no such table: trades" and the LLM gets a zero-
+#   row data window. The .env file alone is insufficient: it does not
+#   declare these vars (the canonical paths come from this drop-in on
+#   every other unit), AND a stray invalid line elsewhere in .env
+#   (e.g. PR #2082's incomplete FCM-credential strip) aborts the
+#   wrapper's `source .env` mid-file. The drop-in path bypasses both
+#   problems because systemd parses Environment= directives directly,
+#   so DATA_DIR + TRADE_JOURNAL_DB are in the inherited env when the
+#   wrapper starts. Surfaced by the live-VM inspect-insights audit
+#   on 2026-05-26 (issue #2096).
+_INSIGHTS_DROPIN_SRC="${REPO_DIR}/deploy/dropins/data-dir.conf"
+_INSIGHTS_DROPIN_DST="${SYSTEMD_DIR}/ict-insights-generator.service.d/data-dir.conf"
+if [ -f "${_INSIGHTS_DROPIN_SRC}" ]; then
+    if [ ! -e "${_INSIGHTS_DROPIN_DST}" ] || ! cmp -s "${_INSIGHTS_DROPIN_SRC}" "${_INSIGHTS_DROPIN_DST}"; then
+        echo ">>> install_systemd_units: dropin data-dir.conf → ${_INSIGHTS_DROPIN_DST}"
+        "${SUDO[@]}" mkdir -p "$(dirname "${_INSIGHTS_DROPIN_DST}")"
+        "${SUDO[@]}" cp "${_INSIGHTS_DROPIN_SRC}" "${_INSIGHTS_DROPIN_DST}"
+        "${SUDO[@]}" chmod 0644 "${_INSIGHTS_DROPIN_DST}"
+        changed=1
+    fi
+fi
+
 if [ "$changed" -eq 1 ]; then
     echo ">>> install_systemd_units: daemon-reload"
     if ! "${SUDO[@]}" systemctl daemon-reload 2>&1; then
