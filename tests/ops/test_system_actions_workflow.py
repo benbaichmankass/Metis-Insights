@@ -72,6 +72,7 @@ EXPECTED_ACTIONS = {
     "set-mobile-push-secrets": "set_mobile_push_secrets.sh",
     "enable-insights-generator": "enable_insights_generator.sh",
     "disable-insights-generator": "disable_insights_generator.sh",
+    "inspect-insights": "inspect_insights.sh",
     "setup-cloudflare-tunnel": "setup_cloudflare_tunnel.sh",
     "teardown-cloudflare-tunnel": "teardown_cloudflare_tunnel.sh",
     "setup-named-cloudflare-tunnel": "setup_named_cloudflare_tunnel.sh",

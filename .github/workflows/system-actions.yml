@@ -84,6 +84,7 @@ on:
           - set-mobile-push-secrets
           - enable-insights-generator
           - disable-insights-generator
+          - inspect-insights
           - enable-signal-dual-write
           - disable-signal-dual-write
           - backfill-pnl-nulls
@@ -365,7 +366,7 @@ jobs:
             status-check|gateway-logs|pull-latest-logs|inspect-closed-pnl|bybit-account-audit|strategy-performance-audit|monitor-miss-analysis|vwap-backtest-sweep|send-ping)
               echo "tier=1" >>"$GITHUB_ENV"
               ;;
-            pull-and-deploy|restart-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|enable-m5-consumer|disable-m5-consumer|enable-mobile-push|disable-mobile-push|set-mobile-push-secrets|enable-insights-generator|disable-insights-generator|enable-signal-dual-write|disable-signal-dual-write|setup-cloudflare-tunnel|teardown-cloudflare-tunnel|setup-named-cloudflare-tunnel|teardown-named-cloudflare-tunnel|setup-tailscale-funnel|teardown-tailscale-funnel|backfill-pnl-nulls|backfill-orphan-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|rebuild-pnl-from-bybit|backfill-shadow-predictions|set-account-mode|fix-data-dir|rotate-account-keys|init-diag-token|set-env)
+            pull-and-deploy|restart-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|enable-m5-consumer|disable-m5-consumer|enable-mobile-push|disable-mobile-push|set-mobile-push-secrets|enable-insights-generator|disable-insights-generator|inspect-insights|enable-signal-dual-write|disable-signal-dual-write|setup-cloudflare-tunnel|teardown-cloudflare-tunnel|setup-named-cloudflare-tunnel|teardown-named-cloudflare-tunnel|setup-tailscale-funnel|teardown-tailscale-funnel|backfill-pnl-nulls|backfill-orphan-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|rebuild-pnl-from-bybit|backfill-shadow-predictions|set-account-mode|fix-data-dir|rotate-account-keys|init-diag-token|set-env)
               echo "tier=2" >>"$GITHUB_ENV"
               if [ -z "${REASON// }" ]; then
                 echo "::error::Tier-2 action '${ACTION}' requires a non-empty 'reason' input."
@@ -520,6 +521,7 @@ jobs:
             set-mobile-push-secrets)            SCRIPT="set_mobile_push_secrets.sh" ;;
             enable-insights-generator)          SCRIPT="enable_insights_generator.sh" ;;
             disable-insights-generator)         SCRIPT="disable_insights_generator.sh" ;;
+            inspect-insights)                   SCRIPT="inspect_insights.sh" ;;
             enable-signal-dual-write)           SCRIPT="enable_signal_dual_write.sh" ;;
             disable-signal-dual-write)          SCRIPT="disable_signal_dual_write.sh" ;;
             setup-cloudflare-tunnel)            SCRIPT="setup_cloudflare_tunnel.sh" ;;
