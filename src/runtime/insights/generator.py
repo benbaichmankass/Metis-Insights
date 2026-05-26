@@ -58,6 +58,7 @@ _VALID_ENDPOINTS = {"summary", "recent", "strategy", "health"}
 
 
 def _enabled() -> bool:
+    # allow-silent: kill switch for the read-only analyst process; not on the live/dry path (M13 S1)
     raw = os.environ.get("INSIGHTS_ENABLED", "1").strip().lower()
     return raw not in {"0", "false", "no", ""}
 
@@ -249,7 +250,7 @@ def generate(
     caller = anthropic_call or _call_anthropic
     try:
         result = caller(model_id, system_blocks, user_text)
-    except Exception as exc:  # noqa: BLE001 — generator never raises on API err
+    except Exception:  # noqa: BLE001 — generator never raises on API err
         logger.exception("insights.generator: anthropic call failed for %s", endpoint)
         usage.record_usage(
             endpoint=endpoint,
