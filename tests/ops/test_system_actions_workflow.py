@@ -96,6 +96,10 @@ EXPECTED_ACTIONS = {
     # 2026-05-24 bots overhaul — autonomous Claude infra.
     "send-ping": "send_ping_action.sh",   # Tier 1: immediate ping, no restart
     "set-env": "set_env.sh",              # Tier 2: .env upsert + service restart
+    # 2026-05-27 — strips systemd-EnvironmentFile-noncompliant lines from .env
+    # (the orphan FCM-JSON-blob case that bled a PEM private key into the
+    # journalctl tail on issue #2157). Tier 2: .env mutation + service restart.
+    "scrub-env-noncompliant": "scrub_env_noncompliant.sh",
 }
 
 TIER_2_ACTIONS = {
@@ -125,6 +129,7 @@ TIER_2_ACTIONS = {
     "rotate-account-keys",
     "init-diag-token",
     "set-env",
+    "scrub-env-noncompliant",
 }
 
 
