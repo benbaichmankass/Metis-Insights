@@ -1,0 +1,144 @@
+name: diag-relay-sweep
+
+# Sweep stale, never-answered diag-relay issues.
+#
+# The `vm-diag-snapshot.yml` workflow already has success/failure/cancelled
+# handlers that close the trigger issue with a comment. But GitHub's
+# webhook layer occasionally drops `issues.opened` events when several
+# issues are filed within a few seconds — the workflow never starts at
+# all, so none of those handlers fire, and the issue stays OPEN with no
+# comment indefinitely. On 2026-05-27 there were 38 such stale issues
+# accumulated since 2026-05-17 (BL-20260527-001).
+#
+# This sweep workflow runs daily on cron + can be dispatched on-demand.
+# It finds open issues labeled `vm-diag-request` / `trainer-vm-diag-request`
+# that are older than 30 min AND have no `github-actions[bot]` comment,
+# then closes each with a short explanatory comment so future readers know
+# what happened.
+#
+# This is Tier 1 (read-modify-write on issues only, no VM contact, no
+# secrets) — fully autonomous, runs on a schedule.
+
+on:
+  schedule:
+    # Daily at 06:00 UTC — well clear of trading-hour diag fires.
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+    inputs:
+      max_age_minutes:
+        description: "Minimum age (in minutes) for an issue to be considered stale"
+        required: false
+        default: "30"
+      dry_run:
+        description: "If true, only log what would close; do not modify issues"
+        required: false
+        default: "false"
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: diag-relay-sweep
+  cancel-in-progress: false
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Sweep stale diag-relay issues
+        uses: actions/github-script@v7
+        env:
+          MAX_AGE_MINUTES: ${{ inputs.max_age_minutes || '30' }}
+          DRY_RUN: ${{ inputs.dry_run || 'false' }}
+        with:
+          script: |
+            const maxAgeMin = parseInt(process.env.MAX_AGE_MINUTES, 10);
+            const dryRun = String(process.env.DRY_RUN).toLowerCase() === 'true';
+            const cutoff = new Date(Date.now() - maxAgeMin * 60 * 1000);
+
+            const targetLabels = ['vm-diag-request', 'trainer-vm-diag-request'];
+            const swept = [];
+
+            for (const label of targetLabels) {
+              const issues = await github.paginate(github.rest.issues.listForRepo, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state: 'open',
+                labels: label,
+                per_page: 100,
+              });
+
+              for (const issue of issues) {
+                if (issue.pull_request) continue;  // skip PRs that happen to share a label
+                const createdAt = new Date(issue.created_at);
+                if (createdAt > cutoff) continue;  // too young — workflow may still be running
+
+                // Skip if a github-actions[bot] comment already exists —
+                // means the relay DID answer; the issue is open for some
+                // other reason (a human follow-up, or a separate workflow).
+                const comments = await github.rest.issues.listComments({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issue.number,
+                  per_page: 100,
+                });
+                const hasBotReply = comments.data.some(
+                  c => c.user && c.user.login === 'github-actions[bot]'
+                );
+                if (hasBotReply) continue;
+
+                const ageMin = Math.floor((Date.now() - createdAt.getTime()) / 60000);
+                swept.push({
+                  number: issue.number,
+                  title: issue.title,
+                  label,
+                  ageMin,
+                });
+
+                if (dryRun) continue;
+
+                const body = [
+                  `⏭ **diag-relay-sweep: stale issue closed.**`,
+                  ``,
+                  `This \`${label}\` issue is ${ageMin} min old with no `,
+                  `\`github-actions[bot]\` reply — the relay workflow likely never`,
+                  `triggered (webhook batching on rapid issue opens), so the`,
+                  `existing success/failure/cancelled handlers never had a job to`,
+                  `attach to. Re-open or file a fresh diag-request to retry; if`,
+                  `multiple back-to-back pulls are needed, space them ~90 s apart`,
+                  `so each completes before the next arrives.`,
+                  ``,
+                  `Background: BL-20260527-001 in \`docs/claude/health-review-backlog.json\`.`,
+                ].join('\n');
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issue.number,
+                  body,
+                });
+                await github.rest.issues.update({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issue.number,
+                  state: 'closed',
+                  state_reason: 'not_planned',
+                });
+              }
+            }
+
+            core.summary
+              .addHeading('diag-relay-sweep summary', 2)
+              .addRaw(`Cutoff: issues created before ${cutoff.toISOString()} (${maxAgeMin} min ago)\n`)
+              .addRaw(`Dry run: ${dryRun}\n`)
+              .addRaw(`Swept ${swept.length} issue(s).\n\n`);
+            if (swept.length) {
+              core.summary.addTable([
+                [{ data: 'Number', header: true }, { data: 'Label', header: true }, { data: 'Age (min)', header: true }, { data: 'Title', header: true }],
+                ...swept.map(s => [String(s.number), s.label, String(s.ageMin), s.title]),
+              ]);
+            }
+            await core.summary.write();
+
+            core.info(`Swept ${swept.length} stale diag-relay issues (dry_run=${dryRun}).`);
