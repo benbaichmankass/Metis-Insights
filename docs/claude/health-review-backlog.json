@@ -44,9 +44,12 @@
       "tier": 3,
       "trigger_condition": "Any /health-review run; surface to the operator (do NOT auto-edit accounts.yaml).",
       "resolution_criteria": "Operator decides whether MES should place live (paper) orders. If yes, set ib_port (4002) on the ib_paper account in config/accounts.yaml (Tier-3 change, operator-approved) and confirm the trader log no longer emits 'no ib_port set' + a smoke order reaches IB Gateway. If MES is data-only by design, document that and close.",
-      "status": "open",
+      "status": "resolved",
       "triage_note": "2026-05-27 /health-review: still open. Status snapshot shows ib_paper live=true on sha 6a7aef4; no journalctl pull this review (relay queue wedged after 13 min — 3 of 6 issues never returned). The order-client gap (separate from IB market-data which works) would still emit the per-tick warning. Remains operator-gated (Tier-3); no change.",
-      "snoozed_until": null
+      "snoozed_until": null,
+      "resolved_at": "2026-05-27T18:00:00+00:00",
+      "resolved_by": "claude (working session)",
+      "resolution": "PR #2167 (squashed as 288d9bf) forwarded ib_host/ib_port/ib_account/ib_client_id through _load_account_cfgs_for_reconcile in src/runtime/order_monitor.py. The original diagnosis attributed the warning to the ORDER client (coordinator.py::multi_account_execute calling ib_client_for(account_cfg)), but that path's account_cfg already carries ib_port via getattr(account, 'ib_port', None) at coordinator.py:1045 — confirmed by reading the code. The actual emitter was the MONITOR RECONCILER path: _load_account_cfgs_for_reconcile() built an account_cfg dict that only forwarded a subset of fields and dropped the IB connection keys, so account_open_positions(cfg) → ib_read_client_for(account) → ib_client_for(...) → account.get('ib_port') = None → warning + return None. Fired from 4 call sites in order_monitor.py (1523, 1877, 2491, 3463), each on a 60s monitor tick — hence the per-tick spam. Post-deploy verification on diag-request #2169 confirmed: 'ib_client_for warning count: 0' across 300 lines / ~5 ticks; reconciler successfully opened the IB read socket (clientId 9731 visible at 17:57:38). MES order dispatch was never actually blocked — the data-collection-only framing in the original description was incorrect."
     },
     {
       "id": "BL-20260525-003",
@@ -215,6 +218,58 @@
       "tier": 3,
       "trigger_condition": "Any /health-review run; or whenever a Tier-3 PR touches config/strategies.yaml for an unrelated reason and the comments can be refreshed in the same diff.",
       "resolution_criteria": "config/strategies.yaml comments at the tp_r entries for trend_donchian/fade_breakout_4h/squeeze_breakout_4h mention the short-branch clamp explicitly, OR the operator confirms the existing wording is good enough.",
+      "status": "open",
+      "snoozed_until": null
+    },
+    {
+      "id": "BL-20260527-003",
+      "opened_at": "2026-05-27T18:00:00+00:00",
+      "opened_by": "claude (working session)",
+      "source": "Today's IB Gateway wedge — Up 21h, upstream IB session dead.",
+      "title": "IBC nightly auto-restart doesn't reliably recover the upstream IB session",
+      "description": "IBC's `Auto restart time` is configured to 11:59 PM on the ib-gateway container (verified in the IBC log on issue #2165 post-recovery: `Auto restart time already set to 11:59 PM`). Yet today the container was 'Up 21 hours' with its upstream IB session entirely dead (Warning 2103 usfarm / 2105 ushmds / 2157 secdefnj all 'broken'; every API call timed out at 10s; 200/200 log lines were `remove Client <id>` with no upstream activity). Either IBC's nightly restart didn't fire, or it fired and didn't successfully re-authenticate to IB's data farms. The autonomous `vm-ib-gateway-recover` workflow is the current mitigation (Claude can dispatch it whenever the symptom recurs), but the root cause needs investigating. Candidates: 2FA timing on the nightly relogin, stale Java/Gateway state on Auto-restart that needs a hard container restart, or IB-side throttling on rapid reconnects. Probable scope: inspect IBC config (jts.ini, ibc.ini) + the docker entrypoint + gateway startup logs around the 11:59 PM window over multiple days to see if the restart fires at all.",
+      "tier": 2,
+      "trigger_condition": "Any /health-review run; investigate via gateway-logs + provision_ib_gateway.sh on the next 12-24h MES outage.",
+      "resolution_criteria": "Either IBC's nightly auto-restart reliably re-establishes the upstream IB session (verifiable by 7 consecutive days with no `Up >20h with broken farm connections` state), or a sanctioned scheduled job replaces it (e.g. systemd timer triggering vm-ib-gateway-recover at 11:55 PM UTC, before IB's reset window).",
+      "status": "open",
+      "snoozed_until": null
+    },
+    {
+      "id": "BL-20260527-004",
+      "opened_at": "2026-05-27T18:00:00+00:00",
+      "opened_by": "claude (working session)",
+      "source": "Post-deploy journal during PR #2167 ship — first signal emitted after deploy triggered FCM push attempts that all 404'd.",
+      "title": "FCM mobile-push notifier hits Firebase with stale / unregistered device tokens (404 NOT_FOUND)",
+      "description": "When the trader emitted a fresh BTCUSDT VWAP signal at 2026-05-27T17:57:30Z, the M12 mobile-push notifier (src/runtime/mobile_push/notifier.py) fired FCM push attempts that came back `status=404 body={\"error\":{\"code\":404, \"message\":\"Requested entity was not found.\",\"status\":\"NOT_FOUND\",\"details\":[...FcmEr...]}}` — Google saying the device registration tokens FCM is targeting don't exist. Visible in the post-deploy journalctl on issue #2168. Means notifications aren't reaching the Android app. Either the dashboard/Android app never registered tokens after FCM init, or the tokens stored in the bot's token store are stale (device uninstall / FCM revocation / token rotation). Notifier should be marking these tokens as dead on 404 and stop retrying them; investigate whether notifier.py implements the FCM `UNREGISTERED` cleanup (remove-on-404) or silently retries. Pre-existing (the FCM key leak earlier today is unrelated — that was about the credential shape in .env, not the device tokens).",
+      "tier": 1,
+      "trigger_condition": "Any /health-review run; tractable as a code-only investigation (no live-trading risk).",
+      "resolution_criteria": "Either (a) confirm + ship a token-cleanup-on-404 path in notifier.py so dead tokens are pruned automatically, or (b) confirm the cleanup already exists and the token store has been drained, and document the operator path to re-register the Android app's FCM token. The 404 cluster should stop appearing in the journal after a fresh signal emission.",
+      "status": "open",
+      "snoozed_until": null
+    },
+    {
+      "id": "BL-20260527-005",
+      "opened_at": "2026-05-27T18:00:00+00:00",
+      "opened_by": "claude (working session)",
+      "source": "First VWAP signal after PR #2167 deploy — visible in post-deploy journalctl on issue #2168.",
+      "title": "VWAP signal at 2026-05-27T17:57:35Z sized to target_qty=0.0",
+      "description": "Brand-new BTCUSDT buy signal emitted at 17:57:35Z (entry 74790.9, deviation -1.36σ below VWAP, regime=weak-down/medium, policy_allow=True). Aggregated with fade_breakout_4h in same-direction reinforcement (`aggregation_reason: same_direction_reinforcement: 2 intents agree on long; max target_qty=0.0 from strategy=vwap`). But `target_qty=0.0` from the intent layer means the aggregated package size is zero — coordinator would either skip dispatch or refuse via the zero-qty gate. Could be a transient balance/risk-cap condition (daily_loss_budget exhausted, available USDT below min_balance, sizing math underflow), or a config drift. One observation, not yet a pattern. Next /performance-review window should grade the post-deploy VWAP cohort and check whether target_qty stays at zero (= effective shadow even though execution=live) or recovers.",
+      "tier": 1,
+      "trigger_condition": "Next /performance-review window after at least 3 more BTCUSDT VWAP signals fire.",
+      "resolution_criteria": "Either confirm target_qty>0 on the subsequent VWAP signals (transient single-tick artifact, close), or trace the sizing-to-zero root cause (which strategy/account/RiskManager refused, with the structured reason token from _explain_zero_sized_qty).",
+      "status": "open",
+      "snoozed_until": null
+    },
+    {
+      "id": "BL-20260527-006",
+      "opened_at": "2026-05-27T18:00:00+00:00",
+      "opened_by": "claude (working session)",
+      "source": "Today's FCM-credential bleed incident (issue #2157).",
+      "title": "Operator-only follow-ups from the FCM private-key bleed",
+      "description": "The 2026-05-27 systemd-EnvironmentFile bleed dumped the FCM service-account PEM private key into the journalctl tail on TWO pull-and-deploy issue comments. PR #2158 shipped the scrub-env-noncompliant system-action and it ran successfully (12 lines stripped, journal warning is now gone — verified on issue #2161). What's left is operator-only because the MCP tools I have can neither delete issue comments (no delete_issue_comment) nor vacuum the journal (no journalctl vacuum system-action) nor rotate the FCM key (that's Google Cloud Console). Three steps:\n  1. Delete the comments containing the leaked key (one-click `...` → Delete on each):\n     - https://github.com/benbaichmankass/ict-trading-bot/issues/2157#issuecomment-4555473441\n     - https://github.com/benbaichmankass/ict-trading-bot/issues/2159#issuecomment-4555811974\n  2. Rotate the FCM service-account key at Google Cloud Console (only step that actually neutralizes the exposure — the journal copies on the VM, webhook archives, and any third-party GitHub mirror still hold the old key). After rotation, re-dispatch `set-mobile-push-secrets` with the new JSON in the FCM_SERVICE_ACCOUNT_JSON secret to update the on-disk file at ${DATA_DIR}/fcm_service_account.json.\n  3. Optional: `sudo journalctl --rotate && sudo journalctl --vacuum-time=1s` on the live VM to wipe historical journal copies containing the key. Reduces forensic surface; the scrub already stops future bleeds at source.",
+      "tier": 3,
+      "trigger_condition": "Operator-only — no autonomous action possible. Surface every /health-review run until resolved.",
+      "resolution_criteria": "Both leaked issue comments deleted (404 on the comment URLs); FCM service-account key rotated at Google Cloud Console; ${DATA_DIR}/fcm_service_account.json updated to the new credential and a fresh push test succeeds (kicks the notifier and confirms no 404 NOT_FOUND).",
       "status": "open",
       "snoozed_until": null
     }
