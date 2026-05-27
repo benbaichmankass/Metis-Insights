@@ -115,7 +115,7 @@
       "trigger_condition": "Any /health-review run that scores a trend_donchian / fade_breakout_4h / squeeze_breakout_4h order package and sees a TP far from price (~50R / ~2x BTC). Recognize it as the intended sentinel — do NOT score it as a TP defect.",
       "resolution_criteria": "Informational standing note; nothing to fix. Close only if the 50R-sentinel mechanism is itself removed (e.g. the pipeline stops requiring a TP for trail-only strategies, or tp_r is changed in an operator-approved Tier-3 PR).",
       "status": "open",
-      "triage_note": "2026-05-27 /health-review: pattern reconfirmed — pkg-f9cba06c0d0e48f3 (fade_breakout_4h long) carries TP 110281.49 with entry 75642.20, SL 74949.41 = entry + 50*(entry-SL) = 75642.20 + 50*692.79 = 110281.7 (matches). Sentinel-as-designed. Not scored as defect. Standing.",
+      "triage_note": "2026-05-27 /doc-freshness: SHORT-branch formula now clamped (PR #2141 merged 2026-05-27 09:01Z) — for shorts, tp = max(entry*0.01, entry - tp_r*risk). The clamp activates when 50R*risk > entry (the 'TP would go negative' case that hit trend_donchian at BTC ~$75k with risk ~$1500 on 2026-05-27 03:50-05:24, refused by the execute_pkg tp>0 pre-flight). Sentinel intent is unchanged — entry*0.01 is still effectively unreachable for BTC. LONG branch unaffected. Still a standing 'don't flag this as a defect' note; only the shape of the math changed for shorts.",
       "snoozed_until": null
     },
     {
@@ -199,6 +199,19 @@
       "resolution_criteria": "Either (a) on a fresh training cycle with n_eval >= 1000 the v2 model beats the baseline on MAE+MSE, in which case keep at shadow and let it accumulate live shadow predictions; OR (b) the model is demoted from shadow to research_only via `python -m ml promote-stage setup-quality-lgbm-v2 --new-stage research_only` (operator-approved, semantic change to the registry); OR (c) the manifest is deprecated (removed from ml/configs/, model retired). Decision belongs to a model-training session, not this backlog item.",
       "status": "open",
       "triage_note": "2026-05-27 /health-review: model-perf scope is /ml-review per 2026-05-26 split; no action this skill.",
+      "snoozed_until": null
+    },
+    {
+      "id": "BL-20260527-002",
+      "opened_at": "2026-05-27T09:45:00+00:00",
+      "opened_by": "claude (/doc-freshness)",
+      "source": "/doc-freshness post PR #2141 (short-TP clamp).",
+      "title": "config/strategies.yaml comments on tp_r=50.0 still say 'effectively-unreachable sentinel' without mentioning the 2026-05-27 short-branch clamp",
+      "description": "PR #2141 (merged 2026-05-27 09:01Z) clamped the short-TP formula in trend_donchian/fade_breakout_4h/squeeze_breakout_4h to `max(entry*0.01, entry - tp_r*risk)` so the pre-flight tp>0 guard accepts the order at BTC prices where unclamped 50R would go negative. The comments in config/strategies.yaml around lines 149-153 (trend_donchian), 218 (fade_breakout_4h), and 265-267 (squeeze_breakout_4h) still describe the sentinel as the unclamped formula. Not a contradiction (the clamped 1%-of-entry floor IS still effectively unreachable, so the comments' INTENT is correct), but the wording could be refreshed for accuracy. config/strategies.yaml is Tier-3, so this skill cannot edit it — surface to the operator. Minor.",
+      "tier": 3,
+      "trigger_condition": "Any /health-review run; or whenever a Tier-3 PR touches config/strategies.yaml for an unrelated reason and the comments can be refreshed in the same diff.",
+      "resolution_criteria": "config/strategies.yaml comments at the tp_r entries for trend_donchian/fade_breakout_4h/squeeze_breakout_4h mention the short-branch clamp explicitly, OR the operator confirms the existing wording is good enough.",
+      "status": "open",
       "snoozed_until": null
     }
   ]
