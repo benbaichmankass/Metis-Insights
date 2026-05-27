@@ -73,8 +73,10 @@ def test_long_breakout_produces_long_package():
     assert pkg["entry"] == pytest.approx(110.0)
     # Initial stop is atr_stop_mult below entry; risk is positive.
     assert pkg["sl"] < pkg["entry"]
-    # No fixed TP — far sentinel well above entry (tp_r × risk).
-    assert pkg["tp"] > pkg["entry"] + 10 * (pkg["entry"] - pkg["sl"])
+    # No fixed TP — far sentinel above entry, capped at the
+    # `_TP_SENTINEL_CAP_PCT` exchange tolerance (the 50R unclamped target
+    # is far outside Bybit's ~10%-from-base rule for BTC-scale risk).
+    assert pkg["entry"] < pkg["tp"] <= pkg["entry"] * 1.1
     assert 0.0 <= pkg["confidence"] <= 1.0
     meta = pkg["meta"]
     assert meta["atr"] > 0
@@ -96,9 +98,9 @@ def _btc_75k_short_breakout_frame(n: int = 60) -> pd.DataFrame:
     """BTC-scale short breakout where the unclamped 50R sentinel goes negative.
 
     Anchors the regression for the 2026-05-27 incident: entry ~$75.6k with
-    risk ~$1528 gives ``entry - 50*risk = -764``, which the live pipeline's
-    pre-flight ``tp > 0`` guard refused — every trend_donchian short
-    rejected for 4+ hours. The clamp keeps the TP a tiny positive sentinel.
+    risk ~$1528 makes ``entry - 50*risk`` negative AND any value far below
+    entry trips Bybit's ~10%-from-base-price TP rule (ErrCode 10001). The
+    cap keeps the sentinel within exchange tolerance.
     """
     rng = pd.date_range("2026-01-01", periods=n, freq="1h", tz="UTC")
     high = np.full(n, 78100.0)
@@ -116,23 +118,55 @@ def _btc_75k_short_breakout_frame(n: int = 60) -> pd.DataFrame:
     })
 
 
-def test_short_tp_clamped_positive_when_50r_would_go_negative():
-    """Regression for 2026-05-27 — see trend_donchian.py short branch."""
+def _btc_75k_long_breakout_frame(n: int = 60) -> pd.DataFrame:
+    """BTC-scale long breakout where the unclamped 50R sentinel exceeds the
+    exchange's TP cap. Used to verify the long-side clamp."""
+    rng = pd.date_range("2026-01-01", periods=n, freq="1h", tz="UTC")
+    high = np.full(n, 76200.0)
+    low = np.full(n, 73700.0)
+    close = np.full(n, 74900.0)
+    open_ = np.full(n, 74900.0)
+    last = n - 1
+    open_[last] = 76000.0
+    high[last] = 78400.0
+    low[last] = 76000.0
+    close[last] = 78000.0  # > channel high (76200), long breakout
+    return pd.DataFrame({
+        "timestamp": rng, "open": open_, "high": high, "low": low,
+        "close": close, "volume": np.ones(n),
+    })
+
+
+def test_short_tp_clamped_within_exchange_cap():
+    """Regression for 2026-05-27 — short TP capped at ~9.9% below entry."""
     pkg = order_package({"symbol": "BTCUSDT"},
                         candles_df=_btc_75k_short_breakout_frame())
     assert pkg["direction"] == "short"
     risk = pkg["sl"] - pkg["entry"]
     assert risk > 0
-    # Unclamped formula would be entry - 50*risk; assert that's negative
-    # (so this fixture actually exercises the clamp) and the clamped TP is
-    # a tiny positive sentinel.
     unclamped = pkg["entry"] - 50.0 * risk
-    assert unclamped < 0, (
-        f"fixture must hit the clamp path: unclamped={unclamped}, "
+    assert unclamped < pkg["entry"] * 0.901, (
+        f"fixture must hit the cap path: unclamped={unclamped}, "
         f"entry={pkg['entry']}, risk={risk}"
     )
-    assert pkg["tp"] > 0
-    assert pkg["tp"] <= pkg["entry"] * 0.01 + 1e-6
+    assert pkg["tp"] == pytest.approx(pkg["entry"] * 0.901)
+    assert pkg["tp"] < pkg["entry"]
+
+
+def test_long_tp_clamped_within_exchange_cap():
+    """Regression for 2026-05-27 — long TP capped at ~9.9% above entry."""
+    pkg = order_package({"symbol": "BTCUSDT"},
+                        candles_df=_btc_75k_long_breakout_frame())
+    assert pkg["direction"] == "long"
+    risk = pkg["entry"] - pkg["sl"]
+    assert risk > 0
+    unclamped = pkg["entry"] + 50.0 * risk
+    assert unclamped > pkg["entry"] * 1.099, (
+        f"fixture must hit the cap path: unclamped={unclamped}, "
+        f"entry={pkg['entry']}, risk={risk}"
+    )
+    assert pkg["tp"] == pytest.approx(pkg["entry"] * 1.099)
+    assert pkg["tp"] > pkg["entry"]
 
 
 def test_no_breakout_is_non_actionable():
