@@ -117,9 +117,12 @@
       "tier": 1,
       "trigger_condition": "Any /health-review run that scores a trend_donchian / fade_breakout_4h / squeeze_breakout_4h order package and sees a TP far from price (~50R / ~2x BTC). Recognize it as the intended sentinel — do NOT score it as a TP defect.",
       "resolution_criteria": "Informational standing note; nothing to fix. Close only if the 50R-sentinel mechanism is itself removed (e.g. the pipeline stops requiring a TP for trail-only strategies, or tp_r is changed in an operator-approved Tier-3 PR).",
-      "status": "open",
+      "status": "resolved",
       "triage_note": "2026-05-27 /doc-freshness: SHORT-branch formula now clamped (PR #2141 merged 2026-05-27 09:01Z) — for shorts, tp = max(entry*0.01, entry - tp_r*risk). The clamp activates when 50R*risk > entry (the 'TP would go negative' case that hit trend_donchian at BTC ~$75k with risk ~$1500 on 2026-05-27 03:50-05:24, refused by the execute_pkg tp>0 pre-flight). Sentinel intent is unchanged — entry*0.01 is still effectively unreachable for BTC. LONG branch unaffected. Still a standing 'don't flag this as a defect' note; only the shape of the math changed for shorts.",
-      "snoozed_until": null
+      "snoozed_until": null,
+      "resolved_at": "2026-05-27T18:30:00+00:00",
+      "resolved_by": "claude (doc-freshness)",
+      "resolution": "PR #2156 (squashed fe3d46a, merged + deployed 2026-05-27) caps the sentinel on BOTH branches of trend_donchian/fade_breakout_4h/squeeze_breakout_4h at entry*(1±_TP_SENTINEL_CAP_PCT) where _TP_SENTINEL_CAP_PCT=0.099. After the cap a trend_donchian long at BTC ~$75k yields TP ≈ entry*1.099 ≈ $82k, not the ~$143k example in the original description. The trigger condition this item warned future reviewers about — 'TP far from price (~50R / ~2x BTC)' — is no longer reachable; new trend/fade/squeeze TPs will always sit within 10% of entry. The Chandelier-trail-is-the-real-exit principle still holds (the monitor ratchet remains the sole profit-exit, just inside an exchange-valid sentinel). PR #2156 + BL-20260527-002 supersede this item."
     },
     {
       "id": "BL-20260525-008",
@@ -213,11 +216,11 @@
       "opened_at": "2026-05-27T09:45:00+00:00",
       "opened_by": "claude (/doc-freshness)",
       "source": "/doc-freshness post PR #2141 (short-TP clamp).",
-      "title": "config/strategies.yaml comments on tp_r=50.0 still say 'effectively-unreachable sentinel' without mentioning the 2026-05-27 short-branch clamp",
-      "description": "PR #2141 (merged 2026-05-27 09:01Z) clamped the short-TP formula in trend_donchian/fade_breakout_4h/squeeze_breakout_4h to `max(entry*0.01, entry - tp_r*risk)` so the pre-flight tp>0 guard accepts the order at BTC prices where unclamped 50R would go negative. The comments in config/strategies.yaml around lines 149-153 (trend_donchian), 218 (fade_breakout_4h), and 265-267 (squeeze_breakout_4h) still describe the sentinel as the unclamped formula. Not a contradiction (the clamped 1%-of-entry floor IS still effectively unreachable, so the comments' INTENT is correct), but the wording could be refreshed for accuracy. config/strategies.yaml is Tier-3, so this skill cannot edit it — surface to the operator. Minor.",
+      "title": "Stale '50R unreachable sentinel' wording in strategy module docstrings + _DEFAULTS comments + config/strategies.yaml after PR #2156 capped the TP at ±9.9% of entry",
+      "description": "PR #2141 (2026-05-27 09:01Z) clamped the SHORT branch to max(entry*0.01, entry - tp_r*risk); PR #2156 (2026-05-27, this session) then replaced that with the symmetric exchange-distance cap min/max(entry*(1±_TP_SENTINEL_CAP_PCT), entry ± tp_r*risk) on BOTH branches. The TP shape is no longer 'tp_r*risk away' — it's effectively 'min(tp_r*risk, ~10% of entry)'. Stale wording lives in THREE places now:\n  (a) config/strategies.yaml — comments at the tp_r=50.0 entries for trend_donchian/fade_breakout_4h/squeeze_breakout_4h still describe the unclamped 50R sentinel (lines 149-153, 218, 265-267 or thereabouts).\n  (b) src/units/strategies/trend_donchian.py — module docstring lines 25-26 ('tp is placed tp_r × risk away') and the _DEFAULTS comment around lines 77-81 ('50R is safely beyond anything the strategy realistically reaches') are now wrong (at BTC ~$75k with risk ~$1500, 9.9% cap = ~$7425 ≈ ~5R, not 50R).\n  (c) src/units/strategies/fade_breakout_4h.py + squeeze_breakout_4h.py — same stale '50R sentinel' wording in their _DEFAULTS blocks.\nNot a behavioural contradiction (the cap kicks in correctly at runtime, and the Chandelier-trail-is-the-real-exit principle is unchanged), but a reader of the docstrings would form an incorrect mental model of the TP placement. ALL three files (config/strategies.yaml + the three strategy modules) are Tier-3 unit files the live VM consumes; even comment-only edits need operator approval per CLAUDE.md, so this skill cannot fix it. Best handled in the next Tier-3 PR that touches any of them, or as a small operator-approved 'doc-only' PR if the operator wants to chase it sooner.",
       "tier": 3,
-      "trigger_condition": "Any /health-review run; or whenever a Tier-3 PR touches config/strategies.yaml for an unrelated reason and the comments can be refreshed in the same diff.",
-      "resolution_criteria": "config/strategies.yaml comments at the tp_r entries for trend_donchian/fade_breakout_4h/squeeze_breakout_4h mention the short-branch clamp explicitly, OR the operator confirms the existing wording is good enough.",
+      "trigger_condition": "Any /health-review run; or whenever a Tier-3 PR touches config/strategies.yaml or any of the three strategy modules for an unrelated reason — refresh the comments + docstrings in the same diff.",
+      "resolution_criteria": "config/strategies.yaml comments + the trend_donchian.py module docstring + the _DEFAULTS comments in all three strategy modules describe the post-#2156 cap (entry ± 9.9%) instead of the unclamped 50R sentinel. Or the operator confirms the current wording is good enough.",
       "status": "open",
       "snoozed_until": null
     },
