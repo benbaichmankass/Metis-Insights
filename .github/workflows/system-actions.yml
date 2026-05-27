@@ -105,6 +105,7 @@ on:
           - init-diag-token
           - send-ping
           - set-env
+          - scrub-env-noncompliant
       reason:
         description: "Why this action is being run (audit trail; required for Tier-2)"
         required: false
@@ -367,7 +368,7 @@ jobs:
             status-check|gateway-logs|pull-latest-logs|inspect-closed-pnl|bybit-account-audit|strategy-performance-audit|monitor-miss-analysis|vwap-backtest-sweep|send-ping)
               echo "tier=1" >>"$GITHUB_ENV"
               ;;
-            pull-and-deploy|restart-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|enable-m5-consumer|disable-m5-consumer|enable-mobile-push|disable-mobile-push|set-mobile-push-secrets|enable-insights-generator|disable-insights-generator|inspect-insights|kick-insights|enable-signal-dual-write|disable-signal-dual-write|setup-cloudflare-tunnel|teardown-cloudflare-tunnel|setup-named-cloudflare-tunnel|teardown-named-cloudflare-tunnel|setup-tailscale-funnel|teardown-tailscale-funnel|backfill-pnl-nulls|backfill-orphan-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|rebuild-pnl-from-bybit|backfill-shadow-predictions|set-account-mode|fix-data-dir|rotate-account-keys|init-diag-token|set-env)
+            pull-and-deploy|restart-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|enable-m5-consumer|disable-m5-consumer|enable-mobile-push|disable-mobile-push|set-mobile-push-secrets|enable-insights-generator|disable-insights-generator|inspect-insights|kick-insights|enable-signal-dual-write|disable-signal-dual-write|setup-cloudflare-tunnel|teardown-cloudflare-tunnel|setup-named-cloudflare-tunnel|teardown-named-cloudflare-tunnel|setup-tailscale-funnel|teardown-tailscale-funnel|backfill-pnl-nulls|backfill-orphan-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|rebuild-pnl-from-bybit|backfill-shadow-predictions|set-account-mode|fix-data-dir|rotate-account-keys|init-diag-token|set-env|scrub-env-noncompliant)
               echo "tier=2" >>"$GITHUB_ENV"
               if [ -z "${REASON// }" ]; then
                 echo "::error::Tier-2 action '${ACTION}' requires a non-empty 'reason' input."
@@ -549,6 +550,7 @@ jobs:
             init-diag-token)                    SCRIPT="init_diag_token.sh" ;;
             send-ping)                          SCRIPT="send_ping_action.sh" ;;
             set-env)                            SCRIPT="set_env.sh" ;;
+            scrub-env-noncompliant)             SCRIPT="scrub_env_noncompliant.sh" ;;
             *)
               echo "::error::Allowlist regression: '${ACTION}' was not mapped to a wrapper script."
               exit 2
@@ -622,6 +624,14 @@ jobs:
               env_value="${!secret_var:-}"
             fi
             REMOTE_CMD="ENV_KEY=$(printf '%q' "${ENV_KEY}") ENV_VALUE=$(printf '%q' "${env_value}") ENV_SERVICE=$(printf '%q' "${ENV_SERVICE}") ${REMOTE_CMD}"
+          fi
+          if [ "${ACTION}" = "scrub-env-noncompliant" ]; then
+            # The wrapper restarts ENV_SERVICE (defaults to
+            # ict-trader-live.service inside the script). Forward an
+            # operator-supplied service if one was set on the issue body
+            # so they can scrub a different unit's .env without editing
+            # the wrapper. No other params — the scrub policy is fixed.
+            REMOTE_CMD="ENV_SERVICE=$(printf '%q' "${ENV_SERVICE}") ${REMOTE_CMD}"
           fi
           if [ "${ACTION}" = "set-mobile-push-secrets" ]; then
             # The wrapper script pins ENV_KEY + ENV_SERVICE; we only need
