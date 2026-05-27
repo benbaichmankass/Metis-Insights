@@ -229,7 +229,10 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
     if direction == "short":
         sl = bar_hi + atr_stop_buffer * atr
         risk = sl - entry
-        tp = entry - tp_r * risk
+        # Clamp to a tiny positive value so the pre-flight tp>0 guard
+        # accepts the order; the Chandelier trail in monitor() is the
+        # real exit. Same shape as trend_donchian/squeeze_breakout_4h.
+        tp = max(entry * 0.01, entry - tp_r * risk)
     else:
         sl = bar_lo - atr_stop_buffer * atr
         risk = entry - sl

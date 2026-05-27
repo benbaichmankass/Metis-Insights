@@ -92,6 +92,49 @@ def test_short_breakout_produces_short_package():
     assert pkg["meta"]["atr"] > 0
 
 
+def _btc_75k_short_breakout_frame(n: int = 60) -> pd.DataFrame:
+    """BTC-scale short breakout where the unclamped 50R sentinel goes negative.
+
+    Anchors the regression for the 2026-05-27 incident: entry ~$75.6k with
+    risk ~$1528 gives ``entry - 50*risk = -764``, which the live pipeline's
+    pre-flight ``tp > 0`` guard refused — every trend_donchian short
+    rejected for 4+ hours. The clamp keeps the TP a tiny positive sentinel.
+    """
+    rng = pd.date_range("2026-01-01", periods=n, freq="1h", tz="UTC")
+    high = np.full(n, 78100.0)
+    low = np.full(n, 75600.0)
+    close = np.full(n, 76800.0)
+    open_ = np.full(n, 76800.0)
+    last = n - 1
+    open_[last] = 76000.0
+    high[last] = 76000.0
+    low[last] = 73800.0
+    close[last] = 75400.0  # < channel low (75600), short breakout
+    return pd.DataFrame({
+        "timestamp": rng, "open": open_, "high": high, "low": low,
+        "close": close, "volume": np.ones(n),
+    })
+
+
+def test_short_tp_clamped_positive_when_50r_would_go_negative():
+    """Regression for 2026-05-27 — see trend_donchian.py short branch."""
+    pkg = order_package({"symbol": "BTCUSDT"},
+                        candles_df=_btc_75k_short_breakout_frame())
+    assert pkg["direction"] == "short"
+    risk = pkg["sl"] - pkg["entry"]
+    assert risk > 0
+    # Unclamped formula would be entry - 50*risk; assert that's negative
+    # (so this fixture actually exercises the clamp) and the clamped TP is
+    # a tiny positive sentinel.
+    unclamped = pkg["entry"] - 50.0 * risk
+    assert unclamped < 0, (
+        f"fixture must hit the clamp path: unclamped={unclamped}, "
+        f"entry={pkg['entry']}, risk={risk}"
+    )
+    assert pkg["tp"] > 0
+    assert pkg["tp"] <= pkg["entry"] * 0.01 + 1e-6
+
+
 def test_no_breakout_is_non_actionable():
     with pytest.raises(ValueError, match="no breakout"):
         order_package({"symbol": "BTCUSDT"}, candles_df=_flat_frame())

@@ -192,7 +192,12 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
     else:
         sl = entry + atr_stop_mult * atr
         risk = sl - entry
-        tp = entry - tp_r * risk
+        # Short TP would go negative when 50R > entry (e.g. BTC ~$75k with
+        # risk ~$1500: entry - 50*risk = -764). The pipeline's pre-flight
+        # rejects orders with tp <= 0, so clamp the sentinel to a tiny
+        # positive value. The Chandelier trail in monitor() is the real
+        # profit-exit; TP is only a sentinel to satisfy the SL+TP gate.
+        tp = max(entry * 0.01, entry - tp_r * risk)
         breakout_depth = (lo - close) / atr
 
     if risk <= 0:

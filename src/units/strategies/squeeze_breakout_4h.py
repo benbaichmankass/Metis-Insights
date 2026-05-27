@@ -165,7 +165,10 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
     else:
         sl = entry + atr_stop_mult * atr
         risk = sl - entry
-        tp = entry - tp_r * risk
+        # Clamp to a tiny positive value so the pre-flight tp>0 guard
+        # accepts the order; the Chandelier trail in monitor() is the
+        # real exit. Same shape as trend_donchian/fade_breakout_4h.
+        tp = max(entry * 0.01, entry - tp_r * risk)
 
     if risk <= 0:
         raise ValueError(

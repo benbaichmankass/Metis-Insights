@@ -81,6 +81,35 @@ def test_squeeze_release_down_produces_short():
     assert pkg["tp"] < pkg["entry"]
 
 
+def _btc_75k_squeeze_release_down_frame() -> pd.DataFrame:
+    """BTC-scale squeeze release down where unclamped 50R TP goes negative.
+
+    Mirrors the trend_donchian + fade_breakout_4h regressions — all three
+    share the same short TP formula and the same pre-flight tp>0 guard.
+    Compressed range [75200, 75800] (ATR ~600) then a 1600-point bear bar
+    widens BB > KC and gives risk = 2.5*ATR_now ~$1650, so unclamped 50R
+    TP = entry - 50*1650 is ~-$8.6k (clamp must intercept).
+    """
+    rows = [(75800.0, 75200.0, 75500.0)] * 39 + [(75600.0, 73800.0, 73900.0)]
+    return _frame(rows)
+
+
+def test_short_tp_clamped_positive_when_50r_would_go_negative():
+    """Regression for 2026-05-27 — see squeeze_breakout_4h.py short branch."""
+    pkg = order_package({"symbol": "BTCUSDT"},
+                        candles_df=_btc_75k_squeeze_release_down_frame())
+    assert pkg["direction"] == "short"
+    risk = pkg["sl"] - pkg["entry"]
+    assert risk > 0
+    unclamped = pkg["entry"] - 50.0 * risk
+    assert unclamped < 0, (
+        f"fixture must hit the clamp path: unclamped={unclamped}, "
+        f"entry={pkg['entry']}, risk={risk}"
+    )
+    assert pkg["tp"] > 0
+    assert pkg["tp"] <= pkg["entry"] * 0.01 + 1e-6
+
+
 def test_still_compressed_is_non_actionable():
     with pytest.raises(ValueError, match="no squeeze release"):
         order_package({"symbol": "BTCUSDT"}, candles_df=_no_fire_compressed())

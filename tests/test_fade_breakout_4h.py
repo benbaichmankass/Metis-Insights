@@ -136,6 +136,44 @@ def test_failed_downside_produces_long():
     assert pkg["meta"]["atr"] > 0
 
 
+def _btc_75k_failed_upside_frame(n: int = 60) -> pd.DataFrame:
+    """BTC-scale failed upside breakout where unclamped 50R TP goes negative.
+
+    Mirrors the trend_donchian regression — fade/squeeze share the same
+    short TP formula and the same pre-flight tp>0 guard, so the clamp must
+    keep TP positive here too.
+    """
+    rng = pd.date_range("2026-01-01", periods=n, freq="4h", tz="UTC")
+    high = np.full(n, 77800.0)
+    low = np.full(n, 75300.0)
+    close = np.full(n, 76500.0)
+    open_ = np.full(n, 76500.0)
+    last = n - 1
+    open_[last] = 77800.0
+    high[last] = 80200.0   # pierces channel hi 77800
+    low[last] = 75400.0
+    close[last] = 76200.0  # closes back inside → SHORT fade
+    return pd.DataFrame({
+        "timestamp": rng, "open": open_, "high": high, "low": low,
+        "close": close, "volume": np.ones(n),
+    })
+
+
+def test_short_tp_clamped_positive_when_50r_would_go_negative():
+    """Regression for 2026-05-27 — see fade_breakout_4h.py short branch."""
+    pkg = order_package(_NO_GATE, candles_df=_btc_75k_failed_upside_frame())
+    assert pkg["direction"] == "short"
+    risk = pkg["sl"] - pkg["entry"]
+    assert risk > 0
+    unclamped = pkg["entry"] - 50.0 * risk
+    assert unclamped < 0, (
+        f"fixture must hit the clamp path: unclamped={unclamped}, "
+        f"entry={pkg['entry']}, risk={risk}"
+    )
+    assert pkg["tp"] > 0
+    assert pkg["tp"] <= pkg["entry"] * 0.01 + 1e-6
+
+
 def test_inside_bar_is_non_actionable():
     with pytest.raises(ValueError, match="no failed breakout"):
         order_package(_NO_GATE, candles_df=_inside_frame())
