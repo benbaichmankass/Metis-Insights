@@ -1323,11 +1323,19 @@ def _safe_float(value: Any) -> Optional[float]:
 def _load_account_cfgs_for_reconcile() -> Dict[str, Dict[str, Any]]:
     """Return ``{account_id: account_cfg_dict}`` from accounts.yaml.
 
-    Account dicts carry the keys ``account_open_positions`` reads
-    (``account_id``, ``exchange``, ``api_key_env``, ``api_secret_env``,
-    ``mode``) plus ``market_type``. Best-effort — any read failure
-    returns an empty dict so the reconciler runs as a no-op rather
-    than orphaning trades on a config-load error.
+    Account dicts carry the keys ``account_open_positions`` reads:
+    ``account_id``, ``exchange``, ``api_key_env``, ``api_secret_env``,
+    ``mode``, ``market_type``, ``demo``, plus the IB connection fields
+    (``ib_host`` / ``ib_port`` / ``ib_account`` / ``ib_client_id``).
+    The IB fields are load-bearing for ``ib_paper`` — without them
+    ``ib_read_client_for(account)`` short-circuits at "ib_port unset"
+    and the reconciler silently skips every IB account (spamming
+    ``ib_client_for(ib_paper): no ib_port set`` on each monitor tick).
+    Mirrors the dict shape ``Coordinator.multi_account_execute`` builds
+    at ``coordinator.py``'s ``account_cfg`` so the two layers stay in
+    lockstep. Best-effort — any read failure returns an empty dict so
+    the reconciler runs as a no-op rather than orphaning trades on a
+    config-load error.
     """
     from src.config.accounts_loader import load_accounts_dict
     raw = load_accounts_dict()
@@ -1343,6 +1351,13 @@ def _load_account_cfgs_for_reconcile() -> Dict[str, Dict[str, Any]]:
             "mode": cfg.get("mode") or "live",
             "market_type": cfg.get("market_type") or "spot",
             "demo": cfg.get("demo", False),
+            # IB connection fields — without these the IB branch of
+            # account_open_positions hits "ib_port unset" and returns
+            # None, silently skipping every reconciler pass on MES.
+            "ib_host": cfg.get("ib_host"),
+            "ib_port": cfg.get("ib_port"),
+            "ib_account": cfg.get("ib_account"),
+            "ib_client_id": cfg.get("ib_client_id"),
         }
     return out
 
