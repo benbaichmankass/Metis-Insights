@@ -25,6 +25,7 @@ from __future__ import annotations
 import importlib
 import json
 import sys
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -296,6 +297,12 @@ def test_history_endpoint_returns_appended_rows(
 ) -> None:
     from src.runtime.insights import history as history_mod
 
+    # generated_at must be within the query's `hours=24` window or the row
+    # is filtered out — keep it fresh relative to test runtime instead of
+    # hard-coded (the previous static 2026-05-26T19:00 value silently went
+    # stale once UTC clock passed 19:00 on 2026-05-27 and broke every PR's
+    # pytest-run downstream).
+    fresh = datetime.now(timezone.utc) - timedelta(hours=1)
     payload = {
         "summary_md": "All quiet on the western front.",
         "grade": "good",
@@ -303,7 +310,7 @@ def test_history_endpoint_returns_appended_rows(
         "data_window": {"start": "2026-05-26T00:00:00+00:00",
                         "end":   "2026-05-27T00:00:00+00:00"},
         "row_counts": {"trades": 0},
-        "generated_at": "2026-05-26T19:00:00+00:00",
+        "generated_at": fresh.isoformat(),
         "model_id": "claude-haiku-4-5-20251001",
     }
     history_mod.append_history(endpoint="summary", payload=payload)
@@ -326,10 +333,14 @@ def test_history_endpoint_strategy_filter(
 ) -> None:
     from src.runtime.insights import history as history_mod
 
+    # See sibling test above — keep generated_at fresh so the default
+    # `hours=24` window in /api/bot/insights/history doesn't filter the row
+    # out once UTC clock drifts past the hard-coded value.
+    fresh = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
     base = {
         "summary_md": "x", "grade": "good", "signals": [],
         "data_window": None, "row_counts": None,
-        "generated_at": "2026-05-26T19:00:00+00:00",
+        "generated_at": fresh,
         "model_id": "m",
     }
     history_mod.append_history(endpoint="strategy", payload=base, strategy_name="vwap")
