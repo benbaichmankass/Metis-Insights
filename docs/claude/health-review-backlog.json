@@ -184,7 +184,11 @@
       "tier": 1,
       "trigger_condition": "Any /health-review run; or any session that opens >2 diag issues in quick succession and notices subsequent ones never return.",
       "resolution_criteria": "vm-diag-snapshot.yml carries an `if: always()` (or `if: cancelled()` + `if: failure()`) closing-comment step that ALWAYS posts a result-or-error comment + closes the issue, so no diag issue can be left silently OPEN. Then sweep the 38 stale open issues — close as 'workflow run silently failed; re-open if you need the data'. Code change (Tier-1 observability); not editable from /health-review.",
-      "status": "open",
+      "status": "partially-resolved",
+      "resolved_at": "2026-05-27T09:35:11+00:00",
+      "resolved_by": "claude (session-close 2026-05-27)",
+      "resolution": "ROOT-CAUSE refined this session: vm-diag-snapshot.yml ALREADY carries `if: cancelled()` + `if: failure()` + an implicit-success handler that together cover every terminal job state. The remaining gap is when GitHub's webhook layer batches rapidly-filed `issues.opened` events and silently drops some — the workflow never starts, so none of the handlers fire. There's no in-workflow fix for that. Instead, a SEPARATE sweeper workflow `.github/workflows/diag-relay-sweep.yml` was shipped (PR #2144, merged 2026-05-27 ~09:50Z): daily cron at 06:00 UTC + on-demand workflow_dispatch; finds open `vm-diag-request` / `trainer-vm-diag-request` issues >30 min old with no `github-actions[bot]` reply, comments + closes them. REMAINING: the sweeper hasn't been verified end-to-end yet — operator should fire workflow_dispatch (dry_run=true to preview, then dry_run=false to actually close the 38 stale issues), or wait for the first cron at 2026-05-28 06:00 UTC. Once verified, mark this item fully resolved.",
+      "triage_note": "2026-05-27 session-close: sweeper workflow shipped; awaiting first run.",
       "snoozed_until": null
     },
     {
