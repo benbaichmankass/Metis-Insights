@@ -90,6 +90,12 @@ _DEFAULTS: Dict[str, Any] = {
 }
 
 
+# See trend_donchian._TP_SENTINEL_CAP_PCT — Bybit (and most exchanges)
+# reject TP further than ~10% from base price (ErrCode 10001). Cap the
+# 50R sentinel here so the order survives exchange-side validation.
+_TP_SENTINEL_CAP_PCT = 0.099
+
+
 def _resolve_params(cfg: Dict[str, Any]) -> Dict[str, Any]:
     """Return strategy params with cfg overrides on top of _DEFAULTS."""
     return {key: cfg.get(key, default) for key, default in _DEFAULTS.items()}
@@ -229,14 +235,11 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
     if direction == "short":
         sl = bar_hi + atr_stop_buffer * atr
         risk = sl - entry
-        # Clamp to a tiny positive value so the pre-flight tp>0 guard
-        # accepts the order; the Chandelier trail in monitor() is the
-        # real exit. Same shape as trend_donchian/squeeze_breakout_4h.
-        tp = max(entry * 0.01, entry - tp_r * risk)
+        tp = max(entry * (1 - _TP_SENTINEL_CAP_PCT), entry - tp_r * risk)
     else:
         sl = bar_lo - atr_stop_buffer * atr
         risk = entry - sl
-        tp = entry + tp_r * risk
+        tp = min(entry * (1 + _TP_SENTINEL_CAP_PCT), entry + tp_r * risk)
 
     if risk <= 0:
         raise ValueError(

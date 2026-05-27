@@ -94,20 +94,20 @@ def _btc_75k_squeeze_release_down_frame() -> pd.DataFrame:
     return _frame(rows)
 
 
-def test_short_tp_clamped_positive_when_50r_would_go_negative():
-    """Regression for 2026-05-27 — see squeeze_breakout_4h.py short branch."""
+def test_short_tp_clamped_within_exchange_cap():
+    """Regression for 2026-05-27 — short TP capped at ~9.9% below entry."""
     pkg = order_package({"symbol": "BTCUSDT"},
                         candles_df=_btc_75k_squeeze_release_down_frame())
     assert pkg["direction"] == "short"
     risk = pkg["sl"] - pkg["entry"]
     assert risk > 0
     unclamped = pkg["entry"] - 50.0 * risk
-    assert unclamped < 0, (
-        f"fixture must hit the clamp path: unclamped={unclamped}, "
+    assert unclamped < pkg["entry"] * 0.901, (
+        f"fixture must hit the cap path: unclamped={unclamped}, "
         f"entry={pkg['entry']}, risk={risk}"
     )
-    assert pkg["tp"] > 0
-    assert pkg["tp"] <= pkg["entry"] * 0.01 + 1e-6
+    assert pkg["tp"] == pytest.approx(pkg["entry"] * 0.901)
+    assert pkg["tp"] < pkg["entry"]
 
 
 def test_still_compressed_is_non_actionable():

@@ -83,6 +83,16 @@ _DEFAULTS: Dict[str, Any] = {
 }
 
 
+# Bybit (and most exchanges) reject TP further than ~10% from the
+# reference base price (ErrCode 10001 — hit every trend_donchian short
+# at BTC ~$75k on 2026-05-27). PR #2141 clamped the 50R sentinel to
+# `entry*0.01` to satisfy the in-process `tp>0` pre-flight, but that
+# value sits ~99% below entry and the exchange refuses it. Cap to ~9.9%
+# from entry so the sentinel is exchange-valid AND still far enough that
+# the monitor's Chandelier trail remains the real profit-exit.
+_TP_SENTINEL_CAP_PCT = 0.099
+
+
 def _resolve_params(cfg: Dict[str, Any]) -> Dict[str, Any]:
     """Return strategy params with cfg overrides on top of _DEFAULTS."""
     return {key: cfg.get(key, default) for key, default in _DEFAULTS.items()}
@@ -187,17 +197,14 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
     if direction == "long":
         sl = entry - atr_stop_mult * atr
         risk = entry - sl
-        tp = entry + tp_r * risk
+        # See `_TP_SENTINEL_CAP_PCT` — cap the 50R sentinel within the
+        # exchange's TP-distance tolerance.
+        tp = min(entry * (1 + _TP_SENTINEL_CAP_PCT), entry + tp_r * risk)
         breakout_depth = (close - hi) / atr
     else:
         sl = entry + atr_stop_mult * atr
         risk = sl - entry
-        # Short TP would go negative when 50R > entry (e.g. BTC ~$75k with
-        # risk ~$1500: entry - 50*risk = -764). The pipeline's pre-flight
-        # rejects orders with tp <= 0, so clamp the sentinel to a tiny
-        # positive value. The Chandelier trail in monitor() is the real
-        # profit-exit; TP is only a sentinel to satisfy the SL+TP gate.
-        tp = max(entry * 0.01, entry - tp_r * risk)
+        tp = max(entry * (1 - _TP_SENTINEL_CAP_PCT), entry - tp_r * risk)
         breakout_depth = (lo - close) / atr
 
     if risk <= 0:
