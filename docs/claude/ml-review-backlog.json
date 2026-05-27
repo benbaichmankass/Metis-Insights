@@ -1,5 +1,58 @@
 {
   "_comment": "ML-review backlog — the parking lot for AI/ML EXPERIMENT follow-ups: new manifests to try, new features to engineer, new dataset families to build, new target horizons / model families to evaluate, promotion-criteria notes (what a model would need to meet next time to clear the shadow->advisory gate). The autonomous /ml-review skill drains this list every run: it triages each open item, converts the resolved ones into experiments_proposed[] or promotion_recommendations[], marks them, or leaves them open with new evidence appended. Do NOT use this for system bugs (those go to health-review-backlog.json) or strategy trading follow-ups (those go to performance-review-backlog.json). Item ids: MB-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "items": []
+  "items": [
+    {
+      "id": "MB-20260527-001",
+      "opened_at": "2026-05-27T09:40:00+00:00",
+      "opened_by": "claude (/ml-review)",
+      "source": "/ml-review 2026-05-27 — first ml-review session post 2026-05-26 three-way split.",
+      "title": "Add yfinance/ES=F intraday adapter to scripts/ops/build_trainer_datasets.sh so MES regime + setup-quality manifests stop failing every daily cycle",
+      "description": "Three MES manifests fail every trainer cycle with FileNotFoundError at datasets-out/{market_features/MES/{5m,15m},setup_labels/MES/all}/v002/data.jsonl (mes-regime-5m/15m, mes-setup-quality). Root cause already diagnosed in BL-20260526-002 (health-review backlog) — build_trainer_datasets.sh only builds BTCUSDT via the Bybit V5 offvm adapter; the yfinance/ES=F adapter lives in the separate scripts/ops/run_mes_training.sh one-shot but isn't wired into the daily cycle. Net effect: ict-trainer.service exits with rc=1 every cycle even though all 12 BTC manifests succeed. Fix is a build-script extension (Tier-1 trainer-VM tooling, autonomous) — mirror the build_btcusdt_pair helper from PR #2062 for ES=F at 5m + 15m, plus a build_family setup_labels --symbol-scope MES at v002 invocation. Empty dataset is fine (gets manifest_skipped via empty_dataset instead of manifest_failed). This is the ml-review-backlog mirror of BL-20260526-002 — that one tracks the system-health symptom (trainer.service rc=1); this one tracks the ml-pipeline experiment (get the MES models actually training).",
+      "tier": 1,
+      "trigger_condition": "Any /ml-review run; or any session attempting to train MES models.",
+      "resolution_criteria": "Next trainer cycle log shows mes-regime-{5m,15m} + mes-setup-quality manifests either manifest_ok (real shards built) or manifest_skipped via empty_dataset (no data yet). cycle_end overall_rc=0. Distinct from BL-20260525-004 which is a separate ml-modeling limitation (mes-regime models collapse to majority class even when shards exist).",
+      "status": "open",
+      "snoozed_until": null
+    },
+    {
+      "id": "MB-20260527-002",
+      "opened_at": "2026-05-27T09:40:00+00:00",
+      "opened_by": "claude (/ml-review)",
+      "source": "/ml-review 2026-05-27 — re-verification of BL-20260525-004 (MES regime models collapse to one class).",
+      "title": "Experiment: forward-vol-aware vol feature for MES regime classifiers — backward vol_bucket doesn't separate forward-vol regime label on MES",
+      "description": "After today's cycle: mes-regime-5m macro_f1=0.345, mes-regime-15m macro_f1=0.329 (both flat across 11 runs). The RegimeClassifierTrainer (ml/trainers/regime_classifier.py) is a per-bucket modal-class classifier keyed on the BACKWARD-LOOKING vol_bucket; on MES that backward vol_bucket does not separate the (forward-vol-based) regime_label, so every bucket is range-majority and argmax always picks 'range' (f1_volatile=0). BTC works because BTC vol is autocorrelated; MES intraday isn't. Three concrete experiment paths to try, in order of cheapness: (1) more vol buckets (5+ instead of 2-3) so the trainer can carve out sub-regimes that DO separate forward vol; (2) probability-threshold eval instead of argmax — surface the model's volatile-class probability and tune a threshold over the eval split; (3) a stronger continuous vol feature (e.g. realized-vol-of-realized-vol, or a forward-vol-AWARE feature like the prior bar's range expansion rate). Operator decision 2026-05-25: leave manifests as-is until a dedicated model-training session — this is that session's queue.",
+      "tier": 3,
+      "trigger_condition": "Next /ml-review run; or whenever a model-training session is scheduled with capacity for MES experiments.",
+      "resolution_criteria": "mes-regime-{5m,15m} eval shows f1_volatile > 0 with macro_f1 > 0.50 via one of the three approaches; or the operator approves a manifest deprecation. Distinct from MB-20260527-001 (which is about MES *trade-data* manifests, not regime; those are empty_dataset blocked until MES trades).",
+      "status": "open",
+      "snoozed_until": null
+    },
+    {
+      "id": "MB-20260527-003",
+      "opened_at": "2026-05-27T09:40:00+00:00",
+      "opened_by": "claude (/ml-review)",
+      "source": "/ml-review 2026-05-27 — setup-quality-lgbm-v2 underperforms baseline at n=76.",
+      "title": "Decision: setup-quality-lgbm-v2 (mae 0.071 vs baseline mae 0.048 at n=76) — hold for n>=1000 or demote",
+      "description": "setup-quality-lgbm-v2 trained cleanly (PR #2053's LightGBM stack works end-to-end) but loses to setup-quality-baseline-v0 on the same n=76 eval: MAE 0.0710 vs 0.0478, MSE 0.0114 vs 0.0092. Cause is dataset size, not model quality — 76 closed trades is too small for a gradient-boosted tree to beat a simple per-group-mean baseline. The model is currently target_deployment_stage=shadow + auto-wired into the shadow factory (default-flip 2026-05-19), so it logs predictions on every live signal. That's fine for data collection but means it shouldn't be considered for shadow->advisory promotion until either (a) on a fresh cycle with n_eval >= ~1000 it beats baseline on MAE+MSE, OR (b) it's explicitly demoted to research_only via `python -m ml promote-stage setup-quality-lgbm-v2 --new-stage research_only` (semantic change to the registry, operator-approved). This is the ml-review-backlog mirror of BL-20260526-003 (health-review backlog) — same model, recorded here so /ml-review picks it up on each run.",
+      "tier": 3,
+      "trigger_condition": "Each /ml-review run; revisit specifically when n_trades >= ~1000 closed trades suitable for setup_labels, OR a dedicated model-training session reviews the v2 setup-quality manifest.",
+      "resolution_criteria": "Either (a) on a fresh training cycle with n_eval >= 1000 the v2 model beats the baseline on MAE+MSE, in which case promote toward advisory; OR (b) operator approves demotion to research_only (which would also stop the shadow predictions); OR (c) manifest is retired (removed from ml/configs/).",
+      "status": "open",
+      "snoozed_until": null
+    },
+    {
+      "id": "MB-20260527-004",
+      "opened_at": "2026-05-27T09:40:00+00:00",
+      "opened_by": "claude (/ml-review)",
+      "source": "/ml-review 2026-05-27 — v2 BTC LightGBM regime models tracking toward shadow→advisory promotion.",
+      "title": "Verify v2 BTC LightGBM regime models' soak completion + draft the shadow→advisory promotion packet (target 2026-06-02 16:08Z)",
+      "description": "btc-regime-15m-lgbm-v2 (macro_f1=0.568, f1_volatile=0.227, n=16834) and btc-regime-5m-lgbm-v2 (macro_f1=0.546) both beat their baselines (0.491 / 0.499 respectively — baselines collapse to majority with f1_volatile=0). After the 2026-05-26 retraining cycle they entered the current shadow stage at 16:08:23Z (15m) and 16:08:40Z (5m) per BL-20260526-001 — 7-day soak targets ~2026-06-02 16:08Z. Engineering work is fully landed; only the time-based promotion gates remain (shadow_soak >= 7 days; beats_baseline / live_agreement / drift_clean from accumulating live shadow predictions). When the soak completes, this skill should: (1) pull shadow_predictions.jsonl + verify entries exist for both model_ids tied to closed live BTCUSDT trades; (2) compute brier_lift, AUC, and the shadow-drift report so beats_baseline/live_agreement/drift_clean clear; (3) emit a promotion_recommendations[] entry with evidence; the operator decides shadow→advisory. Mirror of BL-20260526-001 (health-review backlog) — kept here too so /ml-review naturally picks it up on the 6/2 cadence.",
+      "tier": 3,
+      "trigger_condition": "Any /ml-review run on or after 2026-06-02; or any session investigating 'are the v2 BTC models ready to promote shadow->advisory?'.",
+      "resolution_criteria": "Verified: (1) shadow_predictions.jsonl carries entries for btc-regime-{5m,15m}-lgbm-v2 tied to closed live BTCUSDT trades; (2) brier_lift, AUC>0.55, drift report present so beats_baseline/live_agreement/drift_clean clear; (3) evidence packet prepared and an explicit promotion_recommendations[] entry emitted. Operator-gated decision; this skill prepares the packet.",
+      "status": "open",
+      "snoozed_until": "2026-06-02T16:08:00+00:00"
+    }
+  ]
 }
