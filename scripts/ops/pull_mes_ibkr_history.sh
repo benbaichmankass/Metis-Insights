@@ -59,7 +59,9 @@
 #   HEARTBEAT_MAX_AGE_S 600  (abort if the live trader heartbeat is older)
 #   MES_TIMEFRAMES     "5m 15m"
 #   MES_HIST_START     (default: 365 days ago)
-#   PULL_LOG_PATH      $REPO_ROOT/runtime_logs/ibkr_mes_pull.jsonl
+#   PULL_LOG_PATH      $DATA_DIR/runtime_logs/ibkr_mes_pull.jsonl (canonical;
+#                      readable via diag log_file?name=ibkr_mes_pull)
+#   LOCK_FILE          $DATA_DIR/runtime_logs/ibkr_mes_pull.lock (single-instance)
 #
 # Exit codes: 0 = at least one timeframe pulled with bars; 1 = all pulls
 #             failed/empty; 2 = environment misconfigured / trader unhealthy.
@@ -92,7 +94,8 @@ HEARTBEAT_MAX_AGE_S="${HEARTBEAT_MAX_AGE_S:-600}"
 MES_TIMEFRAMES="${MES_TIMEFRAMES:-5m 15m}"
 MES_HIST_START="${MES_HIST_START:-$(date -u -d '365 days ago' +%Y-%m-%d 2>/dev/null || echo 2025-05-28)}"
 MES_HIST_END="${MES_HIST_END:-$(date -u +%Y-%m-%d)}"
-PULL_LOG_PATH="${PULL_LOG_PATH:-$REPO_ROOT/runtime_logs/ibkr_mes_pull.jsonl}"
+PULL_LOG_PATH="${PULL_LOG_PATH:-$DATA_DIR/runtime_logs/ibkr_mes_pull.jsonl}"
+LOCK_FILE="${LOCK_FILE:-$DATA_DIR/runtime_logs/ibkr_mes_pull.lock}"
 
 # 1) DETACH: on the first (foreground) invocation, relaunch fully detached and
 #    return immediately so the SSH/system-actions caller doesn't block (and the
@@ -119,6 +122,18 @@ emit() {
   printf '%s\n' "$1" >> "$PULL_LOG_PATH"
   printf '%s\n' "$1"
 }
+
+# 3) SINGLE-INSTANCE LOCK: the system-action fires on issues.opened AND
+#    issues.labeled, so the wrapper can be invoked twice. Hold an exclusive
+#    lock for the whole run; a second concurrent invocation exits cleanly
+#    instead of opening a duplicate IB connection (which would collide on the
+#    clientId anyway). Lock is released when this process exits (fd closes).
+mkdir -p "$(dirname "$LOCK_FILE")" 2>/dev/null || true
+exec 9>"$LOCK_FILE"
+if ! flock -n 9; then
+  emit "$(printf '{"ts":"%s","status":"skipped","detail":"another pull_mes_ibkr_history run holds the lock — not starting a duplicate"}' "$(iso_now)")"
+  exit 0
+fi
 
 if [ ! -d "$REPO_ROOT/.git" ] && [ ! -e "$REPO_ROOT/ml" ]; then
   emit "$(printf '{"ts":"%s","status":"env_error","detail":"REPO_ROOT looks wrong: %s"}' "$(iso_now)" "$REPO_ROOT")"
