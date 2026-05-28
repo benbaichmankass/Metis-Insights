@@ -94,6 +94,19 @@ look at what caused the stall — usually a journal pull of the
 stall window (`journalctl?unit=ict-trader-live.service&since=...`)
 surfaces the trigger.
 
+> **Boot-grace exception (added 2026-05-28):** with
+> `--boot-grace-seconds 600` set (it is, in the unit file), a stall
+> that occurs within the first 10 min after a **host boot** is treated
+> as expected startup, not a fault: the `[CRITICAL] ... stale` alert and
+> autoheal are suppressed for the window, and because the stall was never
+> alerted, **no `[OK] recovered` ping fires** when the trader comes up.
+> So a normal VM reboot yields only the reboot-vm ping — no
+> heartbeat-stale/recovered spam. If the heartbeat is *still* stale once
+> the 10-min window closes, it alerts as a genuine failure-to-recover.
+> Uptime is read from `/proc/uptime` and **fails open** (treated as
+> "long up") so a real stall well after boot is never silently
+> suppressed.
+
 ## Tuning
 
 All knobs live in `deploy/ict-liveness-watchdog.service`'s
@@ -103,7 +116,8 @@ All knobs live in `deploy/ict-liveness-watchdog.service`'s
 /usr/bin/python3 -u scripts/check_heartbeat.py \
     --interval 60 \
     --grace 5 \
-    --auto-restart-after 3
+    --auto-restart-after 3 \
+    --boot-grace-seconds 600
 ```
 
 | Flag | Effect | Adjust if |
@@ -111,6 +125,7 @@ All knobs live in `deploy/ict-liveness-watchdog.service`'s
 | `--interval` | base tick interval in seconds | trader cadence changes (rare) |
 | `--grace` | threshold multiplier (alert at `interval × grace`) | you want a tighter / looser alert window. ≥3 recommended to cover a normal restart. |
 | `--auto-restart-after N` | autoheal after N consecutive stale checks. `0` disables. | set to `0` to revert to alert-only; raise to `5` for a more forgiving threshold |
+| `--boot-grace-seconds N` | suppress stale/missing alerts + autoheal (and the recovered ping) for N seconds after a host boot; `0` disables. | raise if the trader's cold start (venv + IB gateway) routinely exceeds 10 min; set `0` to alert immediately even during boot |
 
 Per-environment overrides (no service-file edit needed):
 
@@ -118,6 +133,7 @@ Per-environment overrides (no service-file edit needed):
 # /home/ubuntu/ict-trading-bot/.env
 LIVENESS_AUTO_RESTART_AFTER=0     # turn autoheal off
 LIVENESS_RESTART_UNIT=ict-trader-live.service   # default
+LIVENESS_BOOT_GRACE_SECONDS=600   # post-boot alert-suppression window (0 = off)
 ```
 
 After editing the service file, deploy via the standard

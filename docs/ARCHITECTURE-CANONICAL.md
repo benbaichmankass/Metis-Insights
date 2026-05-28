@@ -275,6 +275,14 @@ heartbeat:
   the watchdog dispatches `sudo -n systemctl restart ict-trader-live.service`
   and Telegrams the systemctl exit code. Opt-in via
   `--auto-restart-after N` (currently ON with N=3).
+- Boot-grace (`--boot-grace-seconds 600`, 2026-05-28): for the first
+  10 min after a host boot the watchdog suppresses the stale/missing
+  alert AND autoheal (the trader is expected to be starting under
+  systemd) and emits no "recovered" ping — so a VM reboot yields only
+  the reboot-vm ping, not heartbeat-stale/recovered spam. Uptime read
+  from `/proc/uptime`, fail-open (never suppresses a real post-boot
+  stall). A heartbeat still stale once the window closes alerts as a
+  genuine failure-to-recover.
 - Stdlib-only — runs even when the trader's venv is wedged.
 - Full operator runbook: [`docs/runbooks/liveness-watchdog.md`](runbooks/liveness-watchdog.md).
 
