@@ -1,6 +1,6 @@
 ---
 name: backtesting
-description: Run and interpret strategy backtests for the ICT bot — the standalone research harnesses (scripts/backtest_squeeze.py, backtest_fade.py, backtest_ict_scalp.py, src/backtest/run_backtest_vwap.py), the on-demand M5 `/test <strategy>` consumer that writes to trade_journal.db::backtest_results, and the trainer-VM sweep mirror surfaced at /api/bot/backtests/sweeps. Use when the operator says "backtest <strategy>", "run a sweep", "validate this config on history", or asks where backtest code/data/outputs live. NOT for live tuning of config/strategies.yaml params (Tier-3) — this is the evidence-gathering step that precedes that.
+description: Run and interpret strategy backtests for the ICT bot — the standalone research harnesses (scripts/backtest_squeeze.py, backtest_fade.py, backtest_trend.py, backtest_ict_scalp.py, src/backtest/run_backtest_vwap.py), the on-demand M5 `/test <strategy>` consumer that writes to trade_journal.db::backtest_results, and the trainer-VM sweep mirror surfaced at /api/bot/backtests/sweeps. Use when the operator says "backtest <strategy>", "run a sweep", "validate this config on history", or asks where backtest code/data/outputs live. NOT for live tuning of config/strategies.yaml params (Tier-3) — this is the evidence-gathering step that precedes that.
 ---
 
 # /backtesting — run and read ICT strategy backtests
@@ -20,6 +20,7 @@ takes `--fee-bps-roundtrip`; quote net metrics, not gross.
 |---|---|---|
 | `scripts/backtest_squeeze.py` | squeeze_breakout (BB/KC squeeze) | `python scripts/backtest_squeeze.py --data <csv> [...]` |
 | `scripts/backtest_fade.py` | fade_breakout (failed-breakout fade) | `python scripts/backtest_fade.py --data <csv> [...]` |
+| `scripts/backtest_trend.py` | trend_donchian (confirmed-breakout follower) | `python scripts/backtest_trend.py --data <csv> [...]` |
 | `scripts/backtest_ict_scalp.py` | ict_scalp_5m | `python scripts/backtest_ict_scalp.py --data <csv> [...]` |
 | `src/backtest/run_backtest_vwap.py` | vwap (HTF-filter sweep) | `python -m src.backtest.run_backtest_vwap [...]` |
 | `src/backtest/run_backtest_m5.py` | on-demand `/test` consumer | `python -m src.backtest.run_backtest_m5 <strategy>` |
@@ -46,12 +47,23 @@ Never a bare filename relative to CWD — pass `--data` explicitly or set
 (qashdev/btc) provisioned by `scripts/ops/trainer_bootstrap.sh`; sweeps
 that need multi-year history run there, not in the sandbox.
 
-## Running a research backtest (squeeze / fade / ict_scalp)
+## Running a research backtest (squeeze / fade / trend / ict_scalp)
 
 Common flags: `--data`, `--timeframe`, `--symbol` (default BTCUSDT),
 `--resample`, `--start`/`--end` (ISO walk-forward window),
 `--fee-bps-roundtrip` (default ~7.5 bps), `--json <out>` (write the
 summary), `--emit-trades <jsonl>` (per-trade rows).
+
+**Confidence-threshold sweeps** (squeeze / fade / trend / ict_scalp): each
+emits a live-parity per-trade `confidence` (the same formula the strategy's
+`order_package()` uses) and accepts `--min-confidence <f>` (skip entries
+below the floor) and `--confidence-sweep '<lo>:<hi>:<step>'` (tabulate net
+metrics per threshold to read off the PnL-optimal floor). This is the
+evidence path for a `config/strategies.yaml::<strategy>.min_confidence`
+proposal (Tier-3). Match the live params exactly (timeframe, trail, and any
+regime gate like fade's `--adx-max` / squeeze's `--kc-mult`) or the optimum
+shifts. Multi-year 5m sweeps (ict_scalp) are slow — run detached on the
+trainer and collect from a file.
 
 ```bash
 # Squeeze breakout (Bollinger/Keltner squeeze → breakout)
