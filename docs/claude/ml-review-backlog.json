@@ -13,7 +13,11 @@
       "trigger_condition": "Any /ml-review run; or any session attempting to train MES models.",
       "resolution_criteria": "Next trainer cycle log shows mes-regime-{5m,15m} + mes-setup-quality manifests either manifest_ok (real shards built) or manifest_skipped via empty_dataset (no data yet). cycle_end overall_rc=0. Distinct from BL-20260525-004 which is a separate ml-modeling limitation (mes-regime models collapse to majority class even when shards exist).",
       "status": "open",
-      "snoozed_until": null
+      "snoozed_until": null,
+      "evidence_log": [
+        "2026-05-28 (/ml-review, cycle run 20260528T000520Z): re-confirmed unfixed. mes-regime-15m, mes-regime-5m, mes-setup-quality => manifest_failed (FileNotFoundError on MES market_features/setup_labels datasets); mes-execution-quality + mes-trade-outcome-winrate => manifest_skipped(empty_dataset); all 12 BTC/global manifests manifest_ok; cycle_end overall_rc=1; ict-trainer.service is-active=failed, ExecMainStatus=1. Root cause: MES datasets existed only at the stale v001 (built by a 2026-05-22 run_serious_baseline.sh one-shot); manifests reference v002. datasets-out build_end overall_rc=0 but only BTCUSDT market_features (215838 rows) built — no MES families. Build-script wiring missing.",
+        "2026-05-28 (model-training, PR #2226): FIX SHIPPED + VALIDATED on the trainer (branch claude/zen-gauss-7E7Re). Added build_mes_market() to build_trainer_datasets.sh (yfinance ES=F 5m base -> resample 15m -> median-calibrated v002 market_features; symbol-scoped MES setup_labels). Validation run BUILD_EXIT=0: market_features/MES/5m=10852 rows (vol_threshold 0.0002637), 15m=3617 (0.0004862), setup_labels/MES/all=0 (empty -> clean skip). Pending: merge to main + one real daily cycle showing manifest_ok/skipped + cycle_end rc=0 to fully close."
+      ]
     },
     {
       "id": "MB-20260527-002",
@@ -26,7 +30,11 @@
       "trigger_condition": "Next /ml-review run; or whenever a model-training session is scheduled with capacity for MES experiments.",
       "resolution_criteria": "mes-regime-{5m,15m} eval shows f1_volatile > 0 with macro_f1 > 0.50 via one of the three approaches; or the operator approves a manifest deprecation. Distinct from MB-20260527-001 (which is about MES *trade-data* manifests, not regime; those are empty_dataset blocked until MES trades).",
       "status": "open",
-      "snoozed_until": null
+      "snoozed_until": null,
+      "evidence_log": [
+        "2026-05-28 (/ml-review): MES regime manifests failed again (no fresh MES dataset; blocked on MB-20260527-001). Last successful train 2026-05-26: mes-regime-15m macro_f1=0.329, mes-regime-5m macro_f1=0.345, both f1_volatile=0 (still collapsed to range-majority). NEW RECOMMENDATION: the three vol-bucket tweaks are now lower-priority than porting the winning v2 LightGBM recipe to MES. On BTC the LightGBM head lifted f1_volatile from 0 (modal baseline) to 0.228 (15m) / 0.111 (5m) on the same market_features schema with continuous vol + log-return features and inverse-base-rate class weighting (class_weight volatile:50). Propose mes-regime-{5m,15m}-lgbm-v2 manifests mirroring btc-regime-*-lgbm-v2 once MES data is wired (MB-20260527-001). This is the proven fix for the exact collapse symptom.",
+        "2026-05-28 (model-training, PR #2226): RESOLVED pending merge. Created mes-regime-{5m,15m}-lgbm-v2 (+ btc-regime-1h-lgbm-v2) and validated on the trainer against freshly-built median-calibrated MES data. f1_volatile went from 0 (collapsed modal baseline) to: mes-regime-5m-lgbm-v2 macro_f1=0.694 / f1_volatile=0.770 (n_eval=2170); mes-regime-15m-lgbm-v2 macro_f1=0.666 / f1_volatile=0.761 (n_eval=723); btc-regime-1h-lgbm-v2 macro_f1=0.637 / f1_volatile=0.490 (n_eval=4210). Collapse solved. MES eval sets are small (20% holdout of the ~60d yfinance window) — deeper IBKR history (MB-20260528-002) needed before any shadow->advisory promotion. Once merged the models register at shadow on the next cycle."
+      ]
     },
     {
       "id": "MB-20260527-003",
@@ -39,7 +47,10 @@
       "trigger_condition": "Each /ml-review run; revisit specifically when n_trades >= ~1000 closed trades suitable for setup_labels, OR a dedicated model-training session reviews the v2 setup-quality manifest.",
       "resolution_criteria": "Either (a) on a fresh training cycle with n_eval >= 1000 the v2 model beats the baseline on MAE+MSE, in which case promote toward advisory; OR (b) operator approves demotion to research_only (which would also stop the shadow predictions); OR (c) manifest is retired (removed from ml/configs/).",
       "status": "open",
-      "snoozed_until": null
+      "snoozed_until": null,
+      "evidence_log": [
+        "2026-05-28 (/ml-review, run 20260528T000544Z): re-verified, still loses. setup-quality-lgbm-v2 mae=0.0701 mse=0.0112 vs setup-quality-baseline-v0 mae=0.0464 mse=0.0089 at n_eval=78 (was 76 on 5/27 — only +2 closed trades in a week). Dataset still ~13x below the ~1000 threshold needed for the GBT to beat the per-group-mean baseline. Hold; revisit when setup_labels n_eval crosses ~1000. Shadow predictions confirmed flowing (n=14 in 48-min tail, score range -0.007..0.007 — responsive, unlike the constant baselines)."
+      ]
     },
     {
       "id": "MB-20260527-004",
@@ -52,7 +63,36 @@
       "trigger_condition": "Any /ml-review run on or after 2026-06-02; or any session investigating 'are the v2 BTC models ready to promote shadow->advisory?'.",
       "resolution_criteria": "Verified: (1) shadow_predictions.jsonl carries entries for btc-regime-{5m,15m}-lgbm-v2 tied to closed live BTCUSDT trades; (2) brier_lift, AUC>0.55, drift report present so beats_baseline/live_agreement/drift_clean clear; (3) evidence packet prepared and an explicit promotion_recommendations[] entry emitted. Operator-gated decision; this skill prepares the packet.",
       "status": "open",
-      "snoozed_until": "2026-06-02T16:08:00+00:00"
+      "snoozed_until": "2026-06-02T16:08:00+00:00",
+      "evidence_log": [
+        "2026-05-28 (/ml-review) progress check (soak still running, target ~6/2 16:08Z): (a) shadow predictions CONFIRMED flowing — btc-regime-5m-lgbm-v2 emitting in the live shadow log (n=10 in a 48-min tail window, score mean 0.918 = volatile-class prob); btc-regime-5m-baseline-v1 alongside it (mean 0.988). 15m variants fire on 15m cadence so absent from the short tail but are wired. (b) Training edge holds after today's retrain: btc-regime-15m-lgbm-v2 macro_f1=0.568 / f1_volatile=0.228 vs baseline 0.491 / 0.000; btc-regime-5m-lgbm-v2 macro_f1=0.547 / f1_volatile=0.111 vs baseline 0.499 / 0.000 (n_eval 16853 / 50568). (c) Realized join NOT yet computable — only 3 closed BTCUSDT trades in the pulled window (all small losses) and the predictions-to-closed-trades join needs /api/bot/trades/scores. Packet still pending soak completion; no promotion recommended this run."
+      ]
+    },
+    {
+      "id": "MB-20260528-001",
+      "opened_at": "2026-05-28T11:00:00+00:00",
+      "opened_by": "claude (/ml-review)",
+      "source": "/ml-review 2026-05-28 — registry sweep found an orphaned MES daily-regime model.",
+      "title": "Orphan model mes-regime-classifier-baseline-v0 (MES/1d) — never retrains, no active manifest; wire a recurring 1d manifest or deprecate",
+      "description": "mes-regime-classifier-baseline-v0 sits at stage=shadow with a single history entry ('initial registration', run 2026-05-22T09:05:39Z, code_rev c0b14ff1) and has not retrained in 6 days. It is NOT in the daily cycle's 17-manifest set (those are mes-regime-5m / mes-regime-15m at 5m/15m, plus the BTC/global set) — so it is an orphan left over from an earlier experiment. Notably its frozen metrics are the BEST of any MES regime model: macro_f1=0.685, accuracy=0.748, f1_volatile=0.543, n_eval=1292 on the MES/1d market_features dataset — i.e. on the DAILY timeframe the regime label IS separable (unlike the 5m/15m models that collapse to f1_volatile=0, MB-20260527-002). Two clean resolutions: (a) if the 1d MES regime signal is worth keeping, add an ml/configs/mes-regime-1d.yaml to the daily cycle so it retrains on fresh data and stays current; (b) if it was a one-off probe, deprecate it (promote-stage research_only or remove) so it stops occupying a shadow slot and auto-wiring onto strategies via the default-flip. Either way it should not linger as a stale shadow model.",
+      "tier": 3,
+      "trigger_condition": "Next /ml-review run; or any model-training session touching MES manifests.",
+      "resolution_criteria": "Either (a) ml/configs/mes-regime-1d.yaml exists and mes-regime-classifier-baseline-v0 (or its successor) shows fresh retrains in the cycle log; OR (b) operator approves deprecation (promote-stage research_only / manifest removal) and the model no longer sits at shadow.",
+      "status": "open",
+      "snoozed_until": null
+    },
+    {
+      "id": "MB-20260528-002",
+      "opened_at": "2026-05-28T11:30:00+00:00",
+      "opened_by": "claude (/ml-review -> model-training)",
+      "source": "Operator asked why MES isn't getting better (IBKR) data during the 2026-05-28 model-training session.",
+      "title": "Deeper MES history: run the IBKR historical pull ON the live VM (shares the one IB gateway) and sync to trainer; resolve the Error 162 session conflict",
+      "description": "MES regime models currently train on a rolling ~60-day ES=F 5m window from yfinance — the deepest intraday history yfinance serves and the only source reachable from the trainer VM. IBKR would give multi-year 1m MES history, but the architecture blocks it: (1) IB Gateway is a loopback-only socket on the LIVE VM (127.0.0.1:4002 via the gnzsnz socat relay) — the trainer VM cannot reach it. (2) IBKR permits exactly ONE logged-in session per username, so we can't run a second gateway on the trainer without disconnecting the live MES trader. The ibkr_offvm adapter (ml/datasets/adapters/ibkr_offvm.py) is therefore designed to run ON the live VM (guard ICT_IB_HISTORICAL_OK=1), sharing the live gateway on a DISTINCT clientId, paced gently (~12s between chunked reqHistoricalData calls), then the resulting market_raw shards sync to the trainer. (3) Current blocker: run_serious_baseline.sh's MES leg is gated behind MES_IBKR=1 (default 0) and was disabled 2026-05-22 because the gateway returned IBKR Error 162 'session connected from a different IP'. The 2026-05-28 IB-gateway auto-heal watchdog (ict-ib-gateway-watchdog) mitigates the overnight reset-wedge but does not address the historical-pull session conflict. PROPOSED PATH (Tier-2/3, live-VM, operator-gated): add a paced, low-priority IBKR historical-pull job on the LIVE VM (distinct clientId e.g. 450, useRTH=false, pause_s>=12) that writes market_raw/MES/{5m,15m,1m}/v002 and is picked up by the trainer sync; verify it does not perturb the live trading clientId; resolve why Error 162 fires (likely clientId collision or the gateway only accepting one source IP). Until then the ~60d yfinance window is the working fallback and the MES LightGBM models train on it.",
+      "tier": 3,
+      "trigger_condition": "Operator wants deeper/cleaner MES training history; or when the IB gateway session conflict (Error 162) is investigated.",
+      "resolution_criteria": "market_raw/MES/{5m,15m} at v002 carries multi-year (or at least multi-month) IBKR-sourced bars synced to the trainer, built without disconnecting or degrading the live MES trading session; mes-regime models retrain on it. OR operator decides the ~60d yfinance window is sufficient and this is closed as won't-do.",
+      "status": "open",
+      "snoozed_until": null
     }
   ]
 }
