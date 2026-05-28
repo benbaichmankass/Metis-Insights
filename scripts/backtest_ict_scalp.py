@@ -58,6 +58,7 @@ class Trade:
     outcome: str = "open"           # tp_hit | sl_hit | timeout | open
     r_multiple: float = 0.0
     meta: Dict[str, Any] = field(default_factory=dict)
+    confidence: float = 0.0         # live order_package() confidence (blend)
 
 
 def _load_candles(path: str) -> pd.DataFrame:
@@ -184,6 +185,7 @@ def run_backtest(
     cooldown_bars: int,
     htf_rule: str = "1h",
     htf_ema_period: int = 20,
+    min_confidence: float = 0.0,
 ) -> Dict[str, Any]:
     cfg = {"symbol": symbol, "timeframe": timeframe, **cfg_overrides}
     htf_df = _build_htf_series(df, htf_rule=htf_rule, ema_period=htf_ema_period)
@@ -227,6 +229,11 @@ def run_backtest(
         except ValueError:
             continue
         direction = pkg["direction"]
+        # Confidence is computed by the live order_package() itself, so this
+        # gate is an exact mirror of a live min_confidence floor.
+        confidence = float(pkg.get("confidence") or 0.0)
+        if confidence < min_confidence:
+            continue
         entry = float(pkg["entry"])
         sl = float(pkg["sl"])
         tp = float(pkg["tp"])
@@ -266,6 +273,7 @@ def run_backtest(
                 outcome=str(result["outcome"]),
                 r_multiple=round(float(r), 4),
                 meta=pkg.get("meta") or {},
+                confidence=round(confidence, 4),
             )
         )
         next_eligible_idx = int(result["exit_index"]) + 1 + cooldown_bars
@@ -359,6 +367,56 @@ def _format_text(summary: Dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _parse_grid(spec: str) -> List[float]:
+    spec = spec.strip()
+    if ":" in spec:
+        lo, hi, step = (float(x) for x in spec.split(":"))
+        out, v = [], lo
+        while v <= hi + 1e-9:
+            out.append(round(v, 6))
+            v += step
+        return out
+    return [float(x) for x in spec.split(",") if x.strip() != ""]
+
+
+def _confidence_sweep(df: pd.DataFrame, grid: List[float], kwargs: Dict[str, Any]) -> Dict[str, Any]:
+    rows = []
+    for thr in grid:
+        s = run_backtest(df, min_confidence=thr, **kwargs)
+        rows.append({"min_confidence": thr, "trades": s["total_trades"],
+                     "win_rate_pct": s.get("win_rate_pct", 0.0),
+                     "total_r": s.get("total_r", 0.0),
+                     "expectancy_r": s.get("expectancy_r", 0.0),
+                     "max_drawdown_r": s.get("max_drawdown_r", 0.0)})
+    best = max(rows, key=lambda r: r["total_r"]) if rows else None
+    best_exp = max((r for r in rows if r["trades"] >= 20),
+                   key=lambda r: r["expectancy_r"], default=None)
+    return {"strategy": "ict_scalp_5m", "symbol": kwargs.get("symbol"),
+            "timeframe": kwargs.get("timeframe"),
+            "data_start": str(df["timestamp"].iloc[0]) if "timestamp" in df.columns and len(df) else None,
+            "data_end": str(df["timestamp"].iloc[-1]) if "timestamp" in df.columns and len(df) else None,
+            "grid": rows, "best_by_total_r": best,
+            "best_by_expectancy_r_min20": best_exp}
+
+
+def _fmt_sweep(sw: Dict[str, Any]) -> str:
+    lines = [f"ict_scalp_5m confidence sweep — {sw['symbol']} {sw['timeframe']} "
+             f"({sw['data_start']} -> {sw['data_end']})",
+             f"  {'min_conf':>8} {'trades':>7} {'WR%':>6} {'total_R':>9} {'exp_R':>8} {'maxDD_R':>8}"]
+    for r in sw["grid"]:
+        lines.append(f"  {r['min_confidence']:>8.3f} {r['trades']:>7d} {r['win_rate_pct']:>6.1f} "
+                     f"{r['total_r']:>9.2f} {r['expectancy_r']:>8.3f} {r['max_drawdown_r']:>8.2f}")
+    b = sw.get("best_by_total_r")
+    if b:
+        lines.append(f"  -> best total_R @ min_confidence={b['min_confidence']} "
+                     f"(total_R={b['total_r']}, trades={b['trades']})")
+    be = sw.get("best_by_expectancy_r_min20")
+    if be:
+        lines.append(f"  -> best expectancy_R (>=20 trades) @ min_confidence={be['min_confidence']} "
+                     f"(exp={be['expectancy_r']}, trades={be['trades']})")
+    return "\n".join(lines)
+
+
 def main(argv: List[str]) -> int:
     p = argparse.ArgumentParser(description="Backtest ict_scalp_5m.")
     p.add_argument("--data", default=os.environ.get("BACKTEST_DATA_PATH", "data/backtest_candles.csv"),
@@ -379,6 +437,10 @@ def main(argv: List[str]) -> int:
                    help="Write summary to this JSON file. '-' means stdout.")
     p.add_argument("--ignore-yaml", action="store_true",
                    help="Ignore config/strategies.yaml; use unit defaults only.")
+    p.add_argument("--min-confidence", type=float, default=0.0,
+                   help="Skip entries whose live order_package() confidence is below this.")
+    p.add_argument("--confidence-sweep", default=None, metavar="GRID",
+                   help="Sweep min_confidence over GRID ('0:0.6:0.05' or '0,0.1,0.2') and tabulate.")
     args = p.parse_args(argv[1:])
 
     try:
@@ -388,24 +450,27 @@ def main(argv: List[str]) -> int:
         return 1
 
     cfg_overrides = {} if args.ignore_yaml else _load_yaml_params()
+    bt_kwargs = dict(
+        cfg_overrides=cfg_overrides,
+        timeframe=args.timeframe,
+        symbol=args.symbol,
+        warmup_bars=int(args.warmup_bars),
+        timeout_bars=int(args.timeout_bars),
+        cooldown_bars=int(args.cooldown_bars),
+        htf_rule=str(args.htf_rule),
+        htf_ema_period=int(args.htf_ema_period),
+    )
 
     try:
-        summary = run_backtest(
-            df,
-            cfg_overrides=cfg_overrides,
-            timeframe=args.timeframe,
-            symbol=args.symbol,
-            warmup_bars=int(args.warmup_bars),
-            timeout_bars=int(args.timeout_bars),
-            cooldown_bars=int(args.cooldown_bars),
-            htf_rule=str(args.htf_rule),
-            htf_ema_period=int(args.htf_ema_period),
-        )
+        if args.confidence_sweep:
+            summary = _confidence_sweep(df, _parse_grid(args.confidence_sweep), bt_kwargs)
+            print(_fmt_sweep(summary))
+        else:
+            summary = run_backtest(df, min_confidence=float(args.min_confidence), **bt_kwargs)
+            print(_format_text(summary))
     except Exception as exc:
         print(f"ERROR: backtest failed: {exc}", file=sys.stderr)
         return 1
-
-    print(_format_text(summary))
 
     if args.json_out:
         payload = json.dumps(summary, indent=2, default=str)

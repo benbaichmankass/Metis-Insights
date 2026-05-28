@@ -1,26 +1,28 @@
 #!/usr/bin/env python3
-"""Volatility-squeeze breakout backtest (S-STRAT-IMPROVE-S9, complement hunt).
+"""Donchian trend-follower backtest (confidence-sweep harness).
 
-A different ENTRY TRIGGER than the price-channel strategies (trend / fade):
-the TTM-style squeeze. When Bollinger Bands contract INSIDE the Keltner
-Channels, volatility is compressed (a "squeeze"); when the BBs expand back
-outside the KC, the squeeze "fires" — trade the expansion in the direction
-of price vs the basis MA, with the same wide-stop + Chandelier-runner exit
-that worked for trend/fade.
+The literal INVERSE of ``scripts/backtest_fade.py``: where the fade SHORTS
+a *failed* Donchian breakout (a pierce that snaps back inside), this BUYS a
+*confirmed* one — a bar that closes BEYOND the prior-N-bar channel — and
+rides it with a Chandelier ATR trail. It mirrors the live strategy
+``src/units/strategies/trend_donchian.py`` so a backtest can sweep the same
+``min_confidence`` entry gate the live builder would apply.
 
-Thesis: volatility is mean-reverting and clustered, so compression precedes
-expansion — this may catch the START of moves the Donchian breakout misses.
-Whether it's a *diversifier* (vs just more momentum exposure correlated with
-the trend) is the open question — emits portfolio_combine-compatible
-per-trade JSONL for the correlation check.
+Entry  : Donchian(N) channel from the prior N bars (shift(1), no lookahead).
+         close > dc_hi -> LONG ; close < dc_lo -> SHORT (confirmed break).
+Stop   : entry ∓ atr_stop_mult × ATR (symmetric, wide + fee-efficient).
+Exit   : Chandelier ATR trail (trail_mult × ATR off the since-entry extreme),
+         SL-first intrabar (conservative). Timeout backstop. The live tp is a
+         far ~50R sentinel — the trail is the sole profit-exit, so the
+         backtest never targets it.
+Confidence: breakout depth past the channel / ATR, clamped [0,1] — the EXACT
+         live formula (trend_donchian.order_package). ``--min-confidence``
+         skips entries below the floor; ``--confidence-sweep`` tabulates the
+         net metrics per threshold so a PnL-optimal floor reads off directly.
 
-Entry  : on the bar where the squeeze releases (BB width exits KC), LONG if
-         close > basis EMA else SHORT.
-Stop   : entry ∓ atr_stop_mult × ATR(atr_period) — WIDE + fee-efficient.
-Exit   : Chandelier ATR trail (trail_mult). SL-first intrabar. Timeout.
-
-Net-of-fee, long/short split, by-year, month-over-month consistency.
-Research only (Tier-1). Reads OHLCV CSV/Parquet (optionally --resample).
+Net-of-fee, long/short split, by-outcome, per-year. Research only (Tier-1),
+not wired into live. Reads an OHLCV CSV or Parquet (optionally --resample
+to a higher TF; optionally --start/--end for walk-forward windows).
 """
 from __future__ import annotations
 
@@ -56,8 +58,8 @@ class Trade:
     outcome: str
     r_multiple: float
     mfe_r: float
-    # Live-parity confidence (squeeze_breakout_4h.order_package):
-    # |close - basis| / ATR clamped [0,1]. Enables a min_confidence sweep.
+    # Live-parity confidence (trend_donchian.order_package): breakout depth
+    # past the channel / ATR, clamped [0,1].
     confidence: float = 0.0
 
 
@@ -80,7 +82,7 @@ def _resample(df: pd.DataFrame, rule: str) -> pd.DataFrame:
             .dropna().reset_index())
 
 
-def _date_filter(df, start, end):
+def _date_filter(df: pd.DataFrame, start: Optional[str], end: Optional[str]) -> pd.DataFrame:
     if start:
         df = df[df["timestamp"] >= pd.Timestamp(start, tz="UTC")]
     if end:
@@ -95,50 +97,49 @@ def _atr(df: pd.DataFrame, period: int) -> pd.Series:
     return tr.rolling(period, min_periods=1).mean()
 
 
-def run_backtest(df: pd.DataFrame, *, bb_period: int, bb_std: float,
-                 kc_mult: float, atr_period: int, atr_stop_mult: float,
-                 trail_mult: float, timeout_bars: int, cooldown_bars: int,
-                 timeframe: str, symbol: str,
+def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
+                 atr_stop_mult: float, trail_mult: float, timeout_bars: int,
+                 cooldown_bars: int, timeframe: str, symbol: str,
                  emit_path: Optional[str] = None,
                  min_confidence: float = 0.0) -> Dict[str, Any]:
     df = df.reset_index(drop=True)
     df["atr"] = _atr(df, atr_period)
-    basis = df["close"].rolling(bb_period).mean()
-    sd = df["close"].rolling(bb_period).std(ddof=0)
-    bb_up = basis + bb_std * sd
-    bb_lo = basis - bb_std * sd
-    kc_up = basis + kc_mult * df["atr"]
-    kc_lo = basis - kc_mult * df["atr"]
-    # squeeze ON when BBs sit inside the KC; fired on the prior bar (shift)
-    # so the entry uses only closed-bar info (no lookahead).
-    sqz_on = (bb_up < kc_up) & (bb_lo > kc_lo)
-    df["_sqz_prev"] = sqz_on.shift(1)
-    df["_sqz_now"] = sqz_on
-    df["_basis"] = basis
+    # Channel from the PRIOR N bars only (shift(1)) — no lookahead. Same
+    # construction as the live strategy and the fade mirror.
+    df["dc_hi"] = df["high"].rolling(donchian).max().shift(1)
+    df["dc_lo"] = df["low"].rolling(donchian).min().shift(1)
     trades: List[Trade] = []
     n = len(df)
-    i = bb_period + atr_period + 1
+    i = donchian + atr_period + 1
     next_idx = i
     while i < n - 1:
         if i < next_idx:
             i += 1
             continue
         atr = float(df["atr"].iloc[i])
-        prev = df["_sqz_prev"].iloc[i]
-        now = df["_sqz_now"].iloc[i]
-        basis_i = df["_basis"].iloc[i]
-        if atr <= 0 or pd.isna(prev) or pd.isna(basis_i):
+        hi = df["dc_hi"].iloc[i]
+        lo = df["dc_lo"].iloc[i]
+        if atr <= 0 or pd.isna(hi) or pd.isna(lo):
             i += 1
             continue
-        # squeeze fires: was ON last bar, OFF now (expansion)
-        if not (bool(prev) and not bool(now)):
-            i += 1
-            continue
+        hi, lo = float(hi), float(lo)
         c = float(df["close"].iloc[i])
-        direction = "long" if c > float(basis_i) else "short"
-        # Live-parity confidence: distance of price from the BB basis / ATR,
-        # clamped [0,1]. Gate entry on it so the sweep mirrors a live floor.
-        confidence = round(min(max(abs(c - float(basis_i)) / atr, 0.0), 1.0), 4)
+        # Confirmed breakout: close beyond the prior-N channel.
+        direction: Optional[str] = None
+        breakout_depth = 0.0
+        if c > hi:
+            direction = "long"
+            breakout_depth = (c - hi) / atr
+        elif c < lo:
+            direction = "short"
+            breakout_depth = (lo - c) / atr
+        if direction is None:
+            i += 1
+            continue
+        # Live-parity confidence + entry gate (mirrors a live min_confidence
+        # floor: skipping a low-confidence break lets the next qualifying bar
+        # fire, exactly as the live builder would).
+        confidence = round(min(max(breakout_depth, 0.0), 1.0), 4)
         if confidence < min_confidence:
             i += 1
             continue
@@ -157,7 +158,7 @@ def run_backtest(df: pd.DataFrame, *, bb_period: int, bb_std: float,
         for j in range(i + 1, min(i + timeout_bars + 1, n)):
             bh, bl = float(df["high"].iloc[j]), float(df["low"].iloc[j])
             if direction == "long":
-                if bl <= trail:
+                if bl <= trail:                       # SL-first (conservative)
                     exit_price, exit_idx = trail, j
                     exit_reason = "trail_stop" if trail > sl else "stop"
                     break
@@ -190,13 +191,12 @@ def run_backtest(df: pd.DataFrame, *, bb_period: int, bb_std: float,
             for t in trades:
                 fr = _fee_r(t)
                 fh.write(json.dumps({
-                    "strategy": "squeeze_breakout", "entry_time": str(t.entry_time),
+                    "strategy": "trend_donchian", "entry_time": str(t.entry_time),
                     "direction": t.direction, "gross_r": t.r_multiple,
                     "net_r": round(t.r_multiple - fr, 4),
                     "confidence": t.confidence}, default=str) + "\n")
     return _summarize(trades, df, timeframe=timeframe, symbol=symbol,
-                      params={"bb_period": bb_period, "bb_std": bb_std,
-                              "kc_mult": kc_mult, "atr_stop_mult": atr_stop_mult,
+                      params={"donchian": donchian, "atr_stop_mult": atr_stop_mult,
                               "trail_mult": trail_mult, "min_confidence": min_confidence})
 
 
@@ -206,10 +206,11 @@ def _fee_r(t: Trade) -> float:
     return (FEE_BPS_ROUNDTRIP / 10_000.0) * ((t.entry + t.exit_price) / 2.0) / t.risk
 
 
-def _summarize(trades, df, *, timeframe, symbol, params):
+def _summarize(trades: List[Trade], df: pd.DataFrame, *, timeframe: str,
+               symbol: str, params: Dict[str, Any]) -> Dict[str, Any]:
     n = len(trades)
     base: Dict[str, Any] = {
-        "strategy": "squeeze_breakout", "symbol": symbol, "timeframe": timeframe,
+        "strategy": "trend_donchian", "symbol": symbol, "timeframe": timeframe,
         "params": params, "total_trades": n, "fee_bps_roundtrip": FEE_BPS_ROUNDTRIP,
         "data_start": str(df["timestamp"].iloc[0]) if len(df) else None,
         "data_end": str(df["timestamp"].iloc[-1]) if len(df) else None,
@@ -225,7 +226,7 @@ def _summarize(trades, df, *, timeframe, symbol, params):
     longs = [t for t in trades if t.direction == "long"]
     shorts = [t for t in trades if t.direction == "short"]
     cum = peak = mdd = 0.0
-    for r in rs:
+    for r in net:
         cum += r
         peak = max(peak, cum)
         mdd = max(mdd, peak - cum)
@@ -238,39 +239,31 @@ def _summarize(trades, df, *, timeframe, symbol, params):
         slot = by_year.setdefault(yr, {"trades": 0, "net_r": 0.0})
         slot["trades"] += 1
         slot["net_r"] = round(slot["net_r"] + (t.r_multiple - _fee_r(t)), 4)
-    try:
-        from scripts.ops.consistency import monthly_consistency
-        consistency = monthly_consistency(
-            (t.entry_time, t.r_multiple - _fee_r(t)) for t in trades)
-    except ImportError:
-        consistency = None
     base.update({
         "win_rate_pct": round(100 * len(wins) / n, 2),
+        "total_r": round(sum(rs), 4),
         "net_total_r": round(sum(net), 4),
         "net_total_r_long": round(sum(t.r_multiple - _fee_r(t) for t in longs), 4),
         "net_total_r_short": round(sum(t.r_multiple - _fee_r(t) for t in shorts), 4),
         "net_expectancy_r": round(sum(net) / n, 4),
         "trades_long": len(longs), "trades_short": len(shorts),
-        "max_drawdown_r": round(mdd, 4), "by_outcome": by, "by_year": by_year,
-        "consistency": consistency})
+        "avg_win_r": round(sum(wins) / len(wins), 4) if wins else 0.0,
+        "max_mfe_r": round(max(t.mfe_r for t in trades), 3),
+        "max_drawdown_r": round(mdd, 4), "by_outcome": by, "by_year": by_year})
     return base
 
 
-def _fmt(s):
-    lines = [f"squeeze_breakout — {s['symbol']} {s['timeframe']} {s.get('params')}",
+def _fmt(s: Dict[str, Any]) -> str:
+    lines = [f"trend_donchian — {s['symbol']} {s['timeframe']} {s.get('params')}",
              f"  data {s.get('data_start')} -> {s.get('data_end')}  trades={s['total_trades']}"]
     if s["total_trades"]:
         lines += [
             f"  win_rate={s['win_rate_pct']}%  net_r={s['net_total_r']} "
             f"(exp {s['net_expectancy_r']}, L/S {s['trades_long']}/{s['trades_short']}, "
             f"netL/S {s.get('net_total_r_long')}/{s.get('net_total_r_short')})",
-            f"  maxdd_r={s['max_drawdown_r']} by={s['by_outcome']}",
+            f"  avg_win_r={s.get('avg_win_r')} max_mfe_r={s.get('max_mfe_r')} "
+            f"maxdd_r={s['max_drawdown_r']} by={s['by_outcome']}",
             f"  by_year={s.get('by_year')}"]
-        c = s.get("consistency") or {}
-        if c:
-            lines.append(f"  consistency: pos={c.get('pct_months_positive')}% "
-                         f"ratio={c.get('consistency_ratio')} "
-                         f"top_month_share={c.get('top_month_share')}")
     return "\n".join(lines)
 
 
@@ -286,7 +279,7 @@ def _parse_grid(spec: str) -> List[float]:
     return [float(x) for x in spec.split(",") if x.strip() != ""]
 
 
-def _confidence_sweep(df, grid, kwargs):
+def _confidence_sweep(df: pd.DataFrame, grid: List[float], kwargs: Dict[str, Any]) -> Dict[str, Any]:
     rows = []
     for thr in grid:
         s = run_backtest(df, min_confidence=thr, **kwargs)
@@ -298,7 +291,7 @@ def _confidence_sweep(df, grid, kwargs):
     best = max(rows, key=lambda r: r["net_total_r"]) if rows else None
     best_exp = max((r for r in rows if r["trades"] >= 20),
                    key=lambda r: r["net_expectancy_r"], default=None)
-    return {"strategy": "squeeze_breakout", "symbol": kwargs.get("symbol"),
+    return {"strategy": "trend_donchian", "symbol": kwargs.get("symbol"),
             "timeframe": kwargs.get("timeframe"),
             "data_start": str(df["timestamp"].iloc[0]) if len(df) else None,
             "data_end": str(df["timestamp"].iloc[-1]) if len(df) else None,
@@ -306,8 +299,8 @@ def _confidence_sweep(df, grid, kwargs):
             "best_by_net_expectancy_r_min20": best_exp}
 
 
-def _fmt_sweep(sw):
-    lines = [f"squeeze_breakout confidence sweep — {sw['symbol']} {sw['timeframe']} "
+def _fmt_sweep(sw: Dict[str, Any]) -> str:
+    lines = [f"trend_donchian confidence sweep — {sw['symbol']} {sw['timeframe']} "
              f"({sw['data_start']} -> {sw['data_end']})",
              f"  {'min_conf':>8} {'trades':>7} {'WR%':>6} {'net_R':>9} {'net_exp':>8} {'maxDD_R':>8}"]
     for r in sw["grid"]:
@@ -324,55 +317,59 @@ def _fmt_sweep(sw):
     return "\n".join(lines)
 
 
-def main(argv):
+def main(argv: List[str]) -> int:
     global FEE_BPS_ROUNDTRIP
-    p = argparse.ArgumentParser(description="Volatility-squeeze breakout backtest.")
+    p = argparse.ArgumentParser(description="Donchian trend-follower backtest (net-of-fee).")
     p.add_argument("--data", default=os.environ.get("BACKTEST_DATA_PATH", "data/backtest_candles.csv"))
-    p.add_argument("--timeframe", default="2h")
+    p.add_argument("--timeframe", default="1h")
     p.add_argument("--symbol", default="BTCUSDT")
-    p.add_argument("--resample", default=None)
-    p.add_argument("--start", default=None)
-    p.add_argument("--end", default=None)
-    p.add_argument("--bb-period", type=int, default=20)
-    p.add_argument("--bb-std", type=float, default=2.0)
-    p.add_argument("--kc-mult", type=float, default=1.5)
+    p.add_argument("--resample", default=None, help="Resample to this rule first (e.g. 1h, 2h).")
+    p.add_argument("--start", default=None, help="Walk-forward window start (ISO date, inclusive).")
+    p.add_argument("--end", default=None, help="Walk-forward window end (ISO date, inclusive).")
+    p.add_argument("--donchian", type=int, default=20)
     p.add_argument("--atr-period", type=int, default=14)
-    p.add_argument("--atr-stop-mult", type=float, default=2.5)
-    p.add_argument("--trail-mult", type=float, default=3.5)
-    p.add_argument("--timeout-bars", type=int, default=48)
+    p.add_argument("--atr-stop-mult", type=float, default=2.5,
+                   help="Initial stop entry ∓ this × ATR (live default 2.5).")
+    p.add_argument("--trail-mult", type=float, default=3.0,
+                   help="Chandelier trail distance in ATR (live default 3.0; must exceed atr-stop-mult).")
+    p.add_argument("--timeout-bars", type=int, default=200)
     p.add_argument("--cooldown-bars", type=int, default=1)
     p.add_argument("--fee-bps-roundtrip", type=float, default=FEE_BPS_ROUNDTRIP)
     p.add_argument("--min-confidence", type=float, default=0.0,
-                   help="Skip entries whose live-parity confidence (|close-basis|/ATR) is below this.")
+                   help="Skip entries whose live-parity confidence (breakout/ATR) is below this.")
     p.add_argument("--confidence-sweep", default=None, metavar="GRID",
                    help="Sweep min_confidence over GRID ('0:0.5:0.05' or '0,0.1,0.2') and tabulate.")
     p.add_argument("--json", dest="json_out", default=None)
-    p.add_argument("--emit-trades", default=None)
-    a = p.parse_args(argv[1:])
-    FEE_BPS_ROUNDTRIP = a.fee_bps_roundtrip
+    p.add_argument("--emit-trades", default=None, metavar="PATH",
+                   help="Write per-trade {entry_time, net_r, confidence} JSONL for portfolio_combine.")
+    args = p.parse_args(argv[1:])
+    FEE_BPS_ROUNDTRIP = args.fee_bps_roundtrip
     try:
-        df = _load_candles(a.data)
-        if a.resample:
-            df = _resample(df, a.resample)
-        df = _date_filter(df, a.start, a.end)
+        df = _load_candles(args.data)
+        if args.resample:
+            df = _resample(df, args.resample)
+        df = _date_filter(df, args.start, args.end)
     except Exception as exc:  # noqa: BLE001
         print(f"ERROR: load failed: {exc}", file=sys.stderr)
         return 1
-    bt_kwargs = dict(bb_period=a.bb_period, bb_std=a.bb_std, kc_mult=a.kc_mult,
-                     atr_period=a.atr_period, atr_stop_mult=a.atr_stop_mult,
-                     trail_mult=a.trail_mult, timeout_bars=a.timeout_bars,
-                     cooldown_bars=a.cooldown_bars, timeframe=a.timeframe,
-                     symbol=a.symbol)
-    if a.confidence_sweep:
-        out = _confidence_sweep(df, _parse_grid(a.confidence_sweep), bt_kwargs)
+    bt_kwargs = dict(donchian=args.donchian, atr_period=args.atr_period,
+                     atr_stop_mult=args.atr_stop_mult, trail_mult=args.trail_mult,
+                     timeout_bars=args.timeout_bars, cooldown_bars=args.cooldown_bars,
+                     timeframe=args.timeframe, symbol=args.symbol)
+    if args.confidence_sweep:
+        out = _confidence_sweep(df, _parse_grid(args.confidence_sweep), bt_kwargs)
         print(_fmt_sweep(out))
     else:
-        out = run_backtest(df, emit_path=a.emit_trades,
-                           min_confidence=a.min_confidence, **bt_kwargs)
+        out = run_backtest(df, emit_path=args.emit_trades,
+                           min_confidence=args.min_confidence, **bt_kwargs)
         print(_fmt(out))
-    if a.json_out:
+    if args.json_out:
         payload = json.dumps(out, indent=2, default=str)
-        Path(a.json_out).write_text(payload) if a.json_out != "-" else print(payload)
+        if args.json_out == "-":
+            print(payload)
+        else:
+            Path(args.json_out).write_text(payload)
+            print(f"JSON -> {args.json_out}", file=sys.stderr)
     return 0
 
 
