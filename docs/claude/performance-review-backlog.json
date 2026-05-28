@@ -12,6 +12,22 @@
       "tier": 3,
       "trigger_condition": "Next /performance-review window after this Tier-3 PR merges + deploys, when trend_donchian (or fade/squeeze) has fired at least one fresh live short.",
       "resolution_criteria": "Window contains at least one bybit_1 trend_donchian short with status != exchange_rejected and TP within 10% of entry in the linked order package. Confirmed the trade journaled cleanly. If the same cluster recurs post-merge, the root cause is something other than the TP-distance constraint and needs re-investigation.",
+      "status": "resolved",
+      "resolved_at": "2026-05-28T07:30:00+00:00",
+      "resolved_by": "claude (/performance-review)",
+      "resolution_note": "TP-distance fix confirmed deployed. Post-deploy packages (2026-05-28) carry the capped sentinel: trend_donchian short pkg-064f723182d247f6 (04:23, status=orphaned NOT exchange_rejected, tp=6765.6 vs entry=7509 = 9.90% below) and fade_breakout_4h long pkg-7797912999504b17 (06:46, FILLED/open, tp=80365.5 vs entry=73126 = 9.90% above). Zero exchange_rejected after the pre-deploy 2026-05-27 13:32-13:54 cluster (4x ErrCode 10001, tp ~1% of entry). Root cause (TP<10% of base) cleared. Caveat: confirming trend short went orphaned not filled and account not separable from order_packages — the post-cap orphan/non-fill pattern is tracked separately in PB-20260528-001.",
+      "snoozed_until": null
+    },
+    {
+      "id": "PB-20260528-001",
+      "opened_at": "2026-05-28T07:30:00+00:00",
+      "opened_by": "claude (/performance-review)",
+      "source": "/performance-review window 2026-05-27T07:44:43 -> 2026-05-28T07:22Z. Two thin-evidence performance puzzles needing a second window.",
+      "title": "Watch (a) post-cap trend_donchian short fill rate on bybit_2 and (b) fade_breakout_4h very-low-confidence fills",
+      "description": "(a) After the TP-cap fix (PB-20260527-001 resolved) trend_donchian shorts now emit valid 9.90%-capped TPs but the one post-deploy short (pkg-064f723182d247f6, 2026-05-28 04:23) went ORPHANED rather than filling. This may be the SEPARATE bybit_2 sized_qty=0 / intent-mode at_target noop the prior item flagged as unaffected by the TP fix. Confirm next window whether post-cap trend_donchian shorts on bybit_2 actually FILL (status open/closed) or keep orphaning. (b) fade_breakout_4h is live (promoted 2026-05-25) and has NO min-confidence floor. The only closed live trade this window (trade 1785 / pkg-6bc3bcac517444e2) fired at confidence=0.1039 and lost -$0.70 (reconciler_filled). Other fade decisions ranged conf 0.39 (open, pkg-7797) to 0.71 (orphaned, pkg-021a18b6efe84211). n=1 close is far too thin to justify a Tier-3 min_confidence gate, but if a second window shows fade conf<0.2 fills clustering negative, propose adding fade_breakout_4h.min_confidence (~0.20-0.25).",
+      "tier": 3,
+      "trigger_condition": "Next /performance-review window with >=1 post-cap trend_donchian short on bybit_2 AND/OR >=3 additional closed fade_breakout_4h trades carrying a confidence value.",
+      "resolution_criteria": "(a) A post-cap trend_donchian short on bybit_2 reaches status open/closed (fill confirmed) -> close (a); if it keeps orphaning, escalate the sized_qty=0 path to the health-review backlog. (b) >=4 closed fade trades accumulated -> if conf<0.2 fills are net-negative as a cohort, fire a proposed_tweaks[] entry for fade_breakout_4h.min_confidence; if conf shows no relationship to outcome, close (b) as invalid.",
       "status": "open",
       "snoozed_until": null
     }
