@@ -58,6 +58,7 @@ class Trade:
     outcome: str = "open"           # tp_hit | sl_hit | timeout | open
     r_multiple: float = 0.0
     meta: Dict[str, Any] = field(default_factory=dict)
+    confidence: float = 0.0         # live order_package() confidence (blend)
 
 
 def _load_candles(path: str) -> pd.DataFrame:
@@ -154,25 +155,6 @@ def _build_htf_series(
         return None
 
 
-def _htf_values_for_bar(
-    htf_df: Optional[pd.DataFrame], *, bar_ts: Any
-) -> tuple[Optional[float], Optional[float]]:
-    """Return the most recent (htf_close, htf_ema) at or before bar_ts."""
-    if htf_df is None or len(htf_df) == 0:
-        return None, None
-    try:
-        bar_ts = pd.Timestamp(bar_ts)
-        if bar_ts.tzinfo is None:
-            bar_ts = bar_ts.tz_localize("UTC")
-        mask = htf_df["timestamp"] <= bar_ts
-        if not mask.any():
-            return None, None
-        row = htf_df.loc[mask].iloc[-1]
-        return float(row["htf_close"]), float(row["htf_ema"])
-    except Exception:
-        return None, None
-
-
 def run_backtest(
     df: pd.DataFrame,
     *,
@@ -184,9 +166,23 @@ def run_backtest(
     cooldown_bars: int,
     htf_rule: str = "1h",
     htf_ema_period: int = 20,
+    min_confidence: float = 0.0,
+    _collect_trades: bool = False,
 ) -> Dict[str, Any]:
     cfg = {"symbol": symbol, "timeframe": timeframe, **cfg_overrides}
     htf_df = _build_htf_series(df, htf_rule=htf_rule, ema_period=htf_ema_period)
+    # Align the HTF series onto the base index ONCE via merge_asof (most
+    # recent HTF bar at-or-before each base bar) instead of a per-bar linear
+    # scan — the scan was O(n * htf_rows), which is hours on a 6yr 5m feed.
+    htf_close_arr = htf_ema_arr = None
+    if htf_df is not None and "timestamp" in df.columns and len(htf_df):
+        aligned = pd.merge_asof(
+            df[["timestamp"]].reset_index(drop=True),
+            htf_df[["timestamp", "htf_close", "htf_ema"]],
+            on="timestamp", direction="backward",
+        )
+        htf_close_arr = aligned["htf_close"].to_numpy()
+        htf_ema_arr = aligned["htf_ema"].to_numpy()
     trades: List[Trade] = []
     n = len(df)
     if n < warmup_bars + 5:
@@ -212,21 +208,25 @@ def run_backtest(
             continue
         lo = max(0, i + 1 - window_size)
         window = df.iloc[lo : i + 1]
-        # v2 HTF bias: look up htf_close + htf_ema as of this bar's
-        # timestamp from the resampled series. The strategy reads
-        # them from cfg, so we copy + augment per iteration.
+        # v2 HTF bias: read the pre-aligned htf_close + htf_ema for this bar
+        # (O(1)); the strategy reads them from cfg, so copy + augment.
         per_bar_cfg = dict(cfg)
-        if htf_df is not None and "timestamp" in df.columns:
-            bar_ts = df["timestamp"].iloc[i]
-            htf_close, htf_ema = _htf_values_for_bar(htf_df, bar_ts=bar_ts)
-            if htf_close is not None and htf_ema is not None:
-                per_bar_cfg["htf_close"] = htf_close
-                per_bar_cfg["htf_ema"] = htf_ema
+        if htf_close_arr is not None:
+            hc = htf_close_arr[i]
+            he = htf_ema_arr[i]
+            if hc == hc and he == he:  # not NaN
+                per_bar_cfg["htf_close"] = float(hc)
+                per_bar_cfg["htf_ema"] = float(he)
         try:
             pkg = order_package(per_bar_cfg, candles_df=window)
         except ValueError:
             continue
         direction = pkg["direction"]
+        # Confidence is computed by the live order_package() itself, so this
+        # gate is an exact mirror of a live min_confidence floor.
+        confidence = float(pkg.get("confidence") or 0.0)
+        if confidence < min_confidence:
+            continue
         entry = float(pkg["entry"])
         sl = float(pkg["sl"])
         tp = float(pkg["tp"])
@@ -266,11 +266,17 @@ def run_backtest(
                 outcome=str(result["outcome"]),
                 r_multiple=round(float(r), 4),
                 meta=pkg.get("meta") or {},
+                confidence=round(confidence, 4),
             )
         )
         next_eligible_idx = int(result["exit_index"]) + 1 + cooldown_bars
 
-    return _summarize(trades, df, timeframe=timeframe, symbol=symbol)
+    summary = _summarize(trades, df, timeframe=timeframe, symbol=symbol)
+    if _collect_trades:
+        # (confidence, r_multiple) per trade — lets the sweep filter by
+        # threshold without re-walking the (expensive) 5m frame N times.
+        summary["_trades"] = [(t.confidence, t.r_multiple) for t in trades]
+    return summary
 
 
 def _summarize(
@@ -359,6 +365,79 @@ def _format_text(summary: Dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _parse_grid(spec: str) -> List[float]:
+    spec = spec.strip()
+    if ":" in spec:
+        lo, hi, step = (float(x) for x in spec.split(":"))
+        out, v = [], lo
+        while v <= hi + 1e-9:
+            out.append(round(v, 6))
+            v += step
+        return out
+    return [float(x) for x in spec.split(",") if x.strip() != ""]
+
+
+def _metrics_for(thr: float, pairs: List[tuple]) -> Dict[str, Any]:
+    """Compute headline metrics for the subset of (confidence, r) trades at
+    or above the threshold."""
+    sub = [r for c, r in pairs if c >= thr]
+    n = len(sub)
+    if n == 0:
+        return {"min_confidence": thr, "trades": 0, "win_rate_pct": 0.0,
+                "total_r": 0.0, "expectancy_r": 0.0, "max_drawdown_r": 0.0}
+    wins = sum(1 for r in sub if r > 0)
+    cum = peak = mdd = 0.0
+    for r in sub:
+        cum += r
+        peak = max(peak, cum)
+        mdd = max(mdd, peak - cum)
+    return {"min_confidence": thr, "trades": n,
+            "win_rate_pct": round(100.0 * wins / n, 2),
+            "total_r": round(sum(sub), 4),
+            "expectancy_r": round(sum(sub) / n, 4),
+            "max_drawdown_r": round(mdd, 4)}
+
+
+def _confidence_sweep(df: pd.DataFrame, grid: List[float], kwargs: Dict[str, Any]) -> Dict[str, Any]:
+    # Walk the frame ONCE at min_confidence=0 (the 5m walk is the expensive
+    # part — order_package() per bar), then filter the resulting trades by
+    # each threshold. NOTE: this is a post-hoc filter, so it does not model
+    # the cooldown re-entries that gating at entry would free up — a small,
+    # conservative approximation adequate for threshold selection.
+    full = run_backtest(df, min_confidence=0.0, _collect_trades=True, **kwargs)
+    pairs = full.get("_trades", [])
+    rows = [_metrics_for(thr, pairs) for thr in grid]
+    best = max(rows, key=lambda r: r["total_r"]) if rows else None
+    best_exp = max((r for r in rows if r["trades"] >= 20),
+                   key=lambda r: r["expectancy_r"], default=None)
+    return {"strategy": "ict_scalp_5m", "symbol": kwargs.get("symbol"),
+            "timeframe": kwargs.get("timeframe"),
+            "data_start": str(df["timestamp"].iloc[0]) if "timestamp" in df.columns and len(df) else None,
+            "data_end": str(df["timestamp"].iloc[-1]) if "timestamp" in df.columns and len(df) else None,
+            "baseline_trades": full.get("total_trades", 0),
+            "grid": rows, "best_by_total_r": best,
+            "best_by_expectancy_r_min20": best_exp,
+            "note": "post-hoc confidence filter on a single walk; ignores cooldown re-entries"}
+
+
+def _fmt_sweep(sw: Dict[str, Any]) -> str:
+    lines = [f"ict_scalp_5m confidence sweep — {sw['symbol']} {sw['timeframe']} "
+             f"({sw['data_start']} -> {sw['data_end']})",
+             f"  {'min_conf':>8} {'trades':>7} {'WR%':>6} {'total_R':>9} {'exp_R':>8} {'maxDD_R':>8}"]
+    for r in sw["grid"]:
+        lines.append(f"  {r['min_confidence']:>8.3f} {r['trades']:>7d} {r['win_rate_pct']:>6.1f} "
+                     f"{r['total_r']:>9.2f} {r['expectancy_r']:>8.3f} {r['max_drawdown_r']:>8.2f}")
+    b = sw.get("best_by_total_r")
+    if b:
+        lines.append(f"  -> best total_R @ min_confidence={b['min_confidence']} "
+                     f"(total_R={b['total_r']}, trades={b['trades']})")
+    be = sw.get("best_by_expectancy_r_min20")
+    if be:
+        lines.append(f"  -> best expectancy_R (>=20 trades) @ min_confidence={be['min_confidence']} "
+                     f"(exp={be['expectancy_r']}, trades={be['trades']})")
+    return "\n".join(lines)
+
+
 def main(argv: List[str]) -> int:
     p = argparse.ArgumentParser(description="Backtest ict_scalp_5m.")
     p.add_argument("--data", default=os.environ.get("BACKTEST_DATA_PATH", "data/backtest_candles.csv"),
@@ -379,6 +458,10 @@ def main(argv: List[str]) -> int:
                    help="Write summary to this JSON file. '-' means stdout.")
     p.add_argument("--ignore-yaml", action="store_true",
                    help="Ignore config/strategies.yaml; use unit defaults only.")
+    p.add_argument("--min-confidence", type=float, default=0.0,
+                   help="Skip entries whose live order_package() confidence is below this.")
+    p.add_argument("--confidence-sweep", default=None, metavar="GRID",
+                   help="Sweep min_confidence over GRID ('0:0.6:0.05' or '0,0.1,0.2') and tabulate.")
     args = p.parse_args(argv[1:])
 
     try:
@@ -388,24 +471,27 @@ def main(argv: List[str]) -> int:
         return 1
 
     cfg_overrides = {} if args.ignore_yaml else _load_yaml_params()
+    bt_kwargs = dict(
+        cfg_overrides=cfg_overrides,
+        timeframe=args.timeframe,
+        symbol=args.symbol,
+        warmup_bars=int(args.warmup_bars),
+        timeout_bars=int(args.timeout_bars),
+        cooldown_bars=int(args.cooldown_bars),
+        htf_rule=str(args.htf_rule),
+        htf_ema_period=int(args.htf_ema_period),
+    )
 
     try:
-        summary = run_backtest(
-            df,
-            cfg_overrides=cfg_overrides,
-            timeframe=args.timeframe,
-            symbol=args.symbol,
-            warmup_bars=int(args.warmup_bars),
-            timeout_bars=int(args.timeout_bars),
-            cooldown_bars=int(args.cooldown_bars),
-            htf_rule=str(args.htf_rule),
-            htf_ema_period=int(args.htf_ema_period),
-        )
+        if args.confidence_sweep:
+            summary = _confidence_sweep(df, _parse_grid(args.confidence_sweep), bt_kwargs)
+            print(_fmt_sweep(summary))
+        else:
+            summary = run_backtest(df, min_confidence=float(args.min_confidence), **bt_kwargs)
+            print(_format_text(summary))
     except Exception as exc:
         print(f"ERROR: backtest failed: {exc}", file=sys.stderr)
         return 1
-
-    print(_format_text(summary))
 
     if args.json_out:
         payload = json.dumps(summary, indent=2, default=str)

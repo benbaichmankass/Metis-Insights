@@ -64,6 +64,12 @@ _DEFAULTS: Dict[str, Any] = {
     # a far ~50R sentinel that still satisfies the pipeline's SL/TP gate.
     "tp_r": 50.0,
     "timeframe": "4h",
+    # Minimum signal confidence (|close - basis| / ATR, [0,1]) required to
+    # emit an order. 0.0 = no gate (current live value). A 6yr BTC 4h sweep
+    # with the live params (kc_mult 1.0) found a floor only DEGRADES net_R
+    # (best at 0.0: +35.4R; monotonic decline above it). Gate kept wired
+    # (default off) for symmetry with the other breakout strategies.
+    "min_confidence": 0.0,
 }
 
 
@@ -182,6 +188,15 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
     # Confidence: how far price sits from the basis at the release,
     # normalised to ATR and clamped — a decisive expansion scores higher.
     confidence = round(min(max(abs(close - basis_now) / atr, 0.0), 1.0), 4)
+
+    # Minimum-confidence entry gate. Skip via the same non-actionable path
+    # as "no squeeze release".
+    min_confidence = float(params["min_confidence"])
+    if confidence < min_confidence:
+        raise ValueError(
+            f"Strategy 'squeeze_breakout_4h': confidence {confidence} below "
+            f"min_confidence {min_confidence} — non-actionable."
+        )
 
     try:
         entry_time = str(df["timestamp"].iloc[-1])

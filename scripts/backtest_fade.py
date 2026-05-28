@@ -79,6 +79,11 @@ class Trade:
     outcome: str
     r_multiple: float
     mfe_r: float
+    # Per-trade signal confidence, computed with the SAME formula as the
+    # live builder (src/units/strategies/fade_breakout_4h.py::order_package):
+    # pierce depth past the channel / ATR, clamped [0,1]. Lets a backtest
+    # sweep a min_confidence entry gate against the live one.
+    confidence: float = 0.0
 
 
 def _load_candles(path: str) -> pd.DataFrame:
@@ -144,7 +149,8 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
                  tp_r: float, trail_mult: float, timeout_bars: int,
                  cooldown_bars: int, timeframe: str, symbol: str,
                  adx_max: Optional[float] = None, adx_period: int = 14,
-                 emit_path: Optional[str] = None) -> Dict[str, Any]:
+                 emit_path: Optional[str] = None,
+                 min_confidence: float = 0.0) -> Dict[str, Any]:
     if exit_style not in _EXIT_STYLES:
         raise ValueError(f"exit_style must be one of {_EXIT_STYLES}")
     df = df.reset_index(drop=True)
@@ -181,11 +187,23 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
         # x ATR, then close back inside. Upside-failed -> short; else
         # downside-failed -> long.
         direction: Optional[str] = None
+        pierce_depth = 0.0
         if bar_hi >= hi + pierce_min * atr and c < hi:
             direction = "short"
+            pierce_depth = (bar_hi - hi) / atr
         elif bar_lo <= lo - pierce_min * atr and c > lo:
             direction = "long"
+            pierce_depth = (lo - bar_lo) / atr
         if direction is None:
+            i += 1
+            continue
+        # Live-parity confidence (fade_breakout_4h.order_package): pierce
+        # depth / ATR, clamped [0,1]. Gate entry on it so a sweep over
+        # min_confidence mirrors a live min_confidence floor (skipping a
+        # low-confidence signal lets the next qualifying bar fire, exactly
+        # as the live builder would).
+        confidence = round(min(max(pierce_depth, 0.0), 1.0), 4)
+        if confidence < min_confidence:
             i += 1
             continue
         entry = c
@@ -268,7 +286,8 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
             entry_index=i, entry_time=df["timestamp"].iloc[i], direction=direction,
             entry=entry, sl=sl, risk=risk, exit_index=exit_idx,
             exit_time=df["timestamp"].iloc[exit_idx], exit_price=exit_price,
-            outcome=exit_reason, r_multiple=round(r, 4), mfe_r=round(mfe, 3)))
+            outcome=exit_reason, r_multiple=round(r, 4), mfe_r=round(mfe, 3),
+            confidence=confidence))
         next_idx = exit_idx + 1 + cooldown_bars
         i = next_idx
     if emit_path:
@@ -279,12 +298,13 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
                 fh.write(json.dumps({
                     "strategy": "fade_breakout", "entry_time": str(t.entry_time),
                     "direction": t.direction, "gross_r": t.r_multiple,
-                    "net_r": round(t.r_multiple - fr, 4)}, default=str) + "\n")
+                    "net_r": round(t.r_multiple - fr, 4),
+                    "confidence": t.confidence}, default=str) + "\n")
     return _summarize(trades, df, timeframe=timeframe, symbol=symbol,
                       params={"donchian": donchian, "atr_stop_buffer": atr_stop_buffer,
                               "pierce_min": pierce_min, "exit_style": exit_style,
                               "tp_r": tp_r, "trail_mult": trail_mult,
-                              "adx_max": adx_max})
+                              "adx_max": adx_max, "min_confidence": min_confidence})
 
 
 def _fee_r(t: Trade) -> float:
@@ -328,10 +348,15 @@ def _summarize(trades: List[Trade], df: pd.DataFrame, *, timeframe: str,
         slot = by_year.setdefault(yr, {"trades": 0, "net_r": 0.0})
         slot["trades"] += 1
         slot["net_r"] = round(slot["net_r"] + (t.r_multiple - _fee_r(t)), 4)
-    from scripts.ops.consistency import monthly_consistency
-    consistency = monthly_consistency(
-        (t.entry_time, t.r_multiple - _fee_r(t)) for t in trades
-    )
+    try:
+        from scripts.ops.consistency import monthly_consistency
+        consistency = monthly_consistency(
+            (t.entry_time, t.r_multiple - _fee_r(t)) for t in trades
+        )
+    except ImportError:
+        # consistency.py ships on the strategy-improvement program branch
+        # only; the harness must still run (and sweep) without it.
+        consistency = None
     base.update({
         "win_rate_pct": round(100 * len(wins) / n, 2),
         "total_r": round(sum(rs), 4),
@@ -377,6 +402,62 @@ def _fmt(s: Dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _parse_grid(spec: str) -> List[float]:
+    """Parse a confidence-sweep spec: an explicit comma list ('0,0.1,0.2')
+    or a 'lo:hi:step' range ('0:0.5:0.05', hi inclusive)."""
+    spec = spec.strip()
+    if ":" in spec:
+        lo, hi, step = (float(x) for x in spec.split(":"))
+        out, v = [], lo
+        while v <= hi + 1e-9:
+            out.append(round(v, 6))
+            v += step
+        return out
+    return [float(x) for x in spec.split(",") if x.strip() != ""]
+
+
+def _confidence_sweep(df: pd.DataFrame, grid: List[float], kwargs: Dict[str, Any]) -> Dict[str, Any]:
+    """Re-run the backtest at each min_confidence threshold and tabulate the
+    net metrics so the PnL-optimal floor is read off directly."""
+    rows = []
+    for thr in grid:
+        s = run_backtest(df, min_confidence=thr, **kwargs)
+        rows.append({
+            "min_confidence": thr,
+            "trades": s["total_trades"],
+            "win_rate_pct": s.get("win_rate_pct", 0.0),
+            "net_total_r": s.get("net_total_r", 0.0),
+            "net_expectancy_r": s.get("net_expectancy_r", 0.0),
+            "max_drawdown_r": s.get("max_drawdown_r", 0.0),
+        })
+    best = max(rows, key=lambda r: r["net_total_r"]) if rows else None
+    best_exp = max((r for r in rows if r["trades"] >= 20), key=lambda r: r["net_expectancy_r"], default=None)
+    return {"strategy": "fade_breakout", "symbol": kwargs.get("symbol"),
+            "timeframe": kwargs.get("timeframe"),
+            "data_start": str(df["timestamp"].iloc[0]) if len(df) else None,
+            "data_end": str(df["timestamp"].iloc[-1]) if len(df) else None,
+            "grid": rows, "best_by_net_total_r": best,
+            "best_by_net_expectancy_r_min20": best_exp}
+
+
+def _fmt_sweep(sw: Dict[str, Any]) -> str:
+    lines = [f"fade_breakout confidence sweep — {sw['symbol']} {sw['timeframe']} "
+             f"({sw['data_start']} -> {sw['data_end']})",
+             f"  {'min_conf':>8} {'trades':>7} {'WR%':>6} {'net_R':>9} {'net_exp':>8} {'maxDD_R':>8}"]
+    for r in sw["grid"]:
+        lines.append(f"  {r['min_confidence']:>8.3f} {r['trades']:>7d} {r['win_rate_pct']:>6.1f} "
+                     f"{r['net_total_r']:>9.2f} {r['net_expectancy_r']:>8.3f} {r['max_drawdown_r']:>8.2f}")
+    b = sw.get("best_by_net_total_r")
+    if b:
+        lines.append(f"  -> best net_total_R @ min_confidence={b['min_confidence']} "
+                     f"(net_R={b['net_total_r']}, trades={b['trades']})")
+    be = sw.get("best_by_net_expectancy_r_min20")
+    if be:
+        lines.append(f"  -> best net_expectancy_R (>=20 trades) @ min_confidence={be['min_confidence']} "
+                     f"(exp={be['net_expectancy_r']}, trades={be['trades']})")
+    return "\n".join(lines)
+
+
 def main(argv: List[str]) -> int:
     global FEE_BPS_ROUNDTRIP
     p = argparse.ArgumentParser(description="Failed-breakout fade backtest (net-of-fee).")
@@ -402,9 +483,14 @@ def main(argv: List[str]) -> int:
     p.add_argument("--timeout-bars", type=int, default=48)
     p.add_argument("--cooldown-bars", type=int, default=1)
     p.add_argument("--fee-bps-roundtrip", type=float, default=FEE_BPS_ROUNDTRIP)
+    p.add_argument("--min-confidence", type=float, default=0.0,
+                   help="Skip entries whose live-parity confidence (pierce/ATR) is below this.")
+    p.add_argument("--confidence-sweep", default=None, metavar="GRID",
+                   help="Sweep min_confidence over GRID ('0:0.5:0.05' range or '0,0.1,0.2' list) "
+                        "and tabulate net metrics per threshold instead of a single run.")
     p.add_argument("--json", dest="json_out", default=None)
     p.add_argument("--emit-trades", default=None, metavar="PATH",
-                   help="Write per-trade {entry_time, net_r} JSONL for portfolio_combine.")
+                   help="Write per-trade {entry_time, net_r, confidence} JSONL for portfolio_combine.")
     args = p.parse_args(argv[1:])
     FEE_BPS_ROUNDTRIP = args.fee_bps_roundtrip
     try:
@@ -415,16 +501,23 @@ def main(argv: List[str]) -> int:
     except Exception as exc:  # noqa: BLE001
         print(f"ERROR: load failed: {exc}", file=sys.stderr)
         return 1
-    s = run_backtest(df, donchian=args.donchian, atr_period=args.atr_period,
+    bt_kwargs = dict(donchian=args.donchian, atr_period=args.atr_period,
                      atr_stop_buffer=args.atr_stop_buffer, pierce_min=args.pierce_min,
                      exit_style=args.exit_style, tp_r=args.tp_r,
                      trail_mult=args.trail_mult, timeout_bars=args.timeout_bars,
                      cooldown_bars=args.cooldown_bars, timeframe=args.timeframe,
                      symbol=args.symbol, adx_max=args.adx_max,
-                     adx_period=args.adx_period, emit_path=args.emit_trades)
-    print(_fmt(s))
+                     adx_period=args.adx_period)
+    if args.confidence_sweep:
+        sw = _confidence_sweep(df, _parse_grid(args.confidence_sweep), bt_kwargs)
+        print(_fmt_sweep(sw))
+        out = sw
+    else:
+        out = run_backtest(df, emit_path=args.emit_trades,
+                           min_confidence=args.min_confidence, **bt_kwargs)
+        print(_fmt(out))
     if args.json_out:
-        payload = json.dumps(s, indent=2, default=str)
+        payload = json.dumps(out, indent=2, default=str)
         if args.json_out == "-":
             print(payload)
         else:
