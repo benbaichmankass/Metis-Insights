@@ -68,7 +68,14 @@
 # over SSH / the system-actions workflow returns immediately and the ~20-30 min
 # paced pull survives the caller exiting. Monitor progress via PULL_LOG_PATH
 # (also exposed on the diag surface as log_file?name=ibkr_mes_pull).
-set -uo pipefail
+set -euo pipefail
+
+SCRIPT_NAME="pull_mes_ibkr_history.sh"
+# Source the shared ops helpers (log/record_audit/REPO_DIR) — every
+# system-action wrapper sources _lib.sh. We keep our own emit() below for the
+# structured JSONL progress log this script publishes.
+# shellcheck source=scripts/ops/_lib.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_lib.sh"
 
 REPO_ROOT="${REPO_ROOT:-/opt/ict-trading-bot}"
 VENV_DIR="${VENV_DIR:-$REPO_ROOT/.venv}"
@@ -164,12 +171,14 @@ for tf in $MES_TIMEFRAMES; do
   rc=$?
   set -e
   rows=0
-  [ -f "$out_path" ] && rows="$(wc -l < "$out_path" 2>/dev/null | tr -d ' ')"
+  if [ -f "$out_path" ]; then
+    rows="$(wc -l < "$out_path" 2>/dev/null | tr -d ' ' || echo 0)"
+  fi
   if [ "$rc" -eq 0 ] && [ "${rows:-0}" -gt 0 ]; then
     emit "$(printf '{"ts":"%s","status":"ok","family":"market_raw","symbol":"%s","timeframe":"%s","rows":%s}' "$(iso_now)" "$MES_SYMBOL" "$tf" "${rows:-0}")"
     any_ok=1
   else
-    err="$(tail -n 3 "/tmp/ibkr_mes_${tf}_$$.err" 2>/dev/null | tr '\n' ' ' | head -c 400)"
+    err="$(tail -n 3 "/tmp/ibkr_mes_${tf}_$$.err" 2>/dev/null | tr '\n' ' ' | head -c 400 || true)"
     emit "$(python3 -c "import json,sys; print(json.dumps({'ts':sys.argv[1],'status':'failed','family':'market_raw','symbol':sys.argv[2],'timeframe':sys.argv[3],'exit_code':int(sys.argv[4]),'stderr_tail':sys.argv[5]}))" \
       "$(iso_now)" "$MES_SYMBOL" "$tf" "$rc" "$err")"
   fi

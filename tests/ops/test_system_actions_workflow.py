@@ -86,6 +86,8 @@ EXPECTED_ACTIONS = {
     "revert-backfill-monitor-closed-pnl": "revert_backfill_monitor_closed_pnl_action.sh",
     "rebuild-pnl-from-bybit": "rebuild_pnl_from_bybit_action.sh",
     "backfill-shadow-predictions": "backfill_shadow_predictions_action.sh",
+    # 2026-05-28 — paced IBKR MES historical pull on the live VM (MB-20260528-002).
+    "pull-mes-ibkr-history": "pull_mes_ibkr_history.sh",
     "set-account-mode": "set_account_mode.sh",
     # enable-mes / disable-mes removed 2026-05-22 — they flipped a
     # forbidden second gate (MULTI_SYMBOL_ENABLED). The traded-symbol set
@@ -124,6 +126,7 @@ TIER_2_ACTIONS = {
     "revert-backfill-monitor-closed-pnl",
     "rebuild-pnl-from-bybit",
     "backfill-shadow-predictions",
+    "pull-mes-ibkr-history",
     "set-account-mode",
     "fix-data-dir",
     "rotate-account-keys",
