@@ -121,6 +121,30 @@ else
     "$(iso_now)" "$rc")"
 fi
 
+# --- IBKR MES market_raw shards (optional, deep history) ------------------
+# When the operator has run scripts/ops/pull_mes_ibkr_history.sh on the LIVE
+# VM, native MES intraday history lands under LIVE_VM_IBKR_PATH. Pull the whole
+# tree so build_mes_market can prefer it over the rolling ~60d ES=F yfinance
+# window. Absence is expected (and non-fatal) until that pull has been run —
+# the MES regime models fall back to yfinance. See MB-20260528-002.
+LIVE_VM_IBKR_PATH="${LIVE_VM_IBKR_PATH:-/data/bot-data/ibkr_datasets/market_raw/MES/}"
+emit "$(printf '{"ts":"%s","status":"pulling","artifact":"ibkr_market_raw_mes","src":"%s@%s:%s"}' \
+  "$(iso_now)" "$VM_SSH_USER" "$LIVE_VM_IP" "$LIVE_VM_IBKR_PATH")"
+mkdir -p "${DATA_DIR}/ibkr_datasets/market_raw/MES"
+set +e
+rsync -az --checksum -e "ssh ${SSH_OPTS}" \
+  "${VM_SSH_USER}@${LIVE_VM_IP}:${LIVE_VM_IBKR_PATH}" \
+  "${DATA_DIR}/ibkr_datasets/market_raw/MES/"
+rc=$?
+set -e
+if [ "$rc" -eq 0 ]; then
+  emit "$(printf '{"ts":"%s","status":"ok","artifact":"ibkr_market_raw_mes"}' "$(iso_now)")"
+else
+  # Non-fatal: the live-VM IBKR pull has not been run yet (yfinance fallback).
+  emit "$(printf '{"ts":"%s","status":"skipped","artifact":"ibkr_market_raw_mes","detail":"not present on live VM (run pull_mes_ibkr_history.sh) — yfinance fallback","exit_code":%d}' \
+    "$(iso_now)" "$rc")"
+fi
+
 emit "$(printf '{"ts":"%s","status":"sync_done","overall_rc":%d,"data_dir":"%s"}' \
   "$(iso_now)" "$overall_rc" "$DATA_DIR")"
 exit "$overall_rc"

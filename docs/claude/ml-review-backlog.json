@@ -91,8 +91,11 @@
       "tier": 3,
       "trigger_condition": "Operator wants deeper/cleaner MES training history; or when the IB gateway session conflict (Error 162) is investigated.",
       "resolution_criteria": "market_raw/MES/{5m,15m} at v002 carries multi-year (or at least multi-month) IBKR-sourced bars synced to the trainer, built without disconnecting or degrading the live MES trading session; mes-regime models retrain on it. OR operator decides the ~60d yfinance window is sufficient and this is closed as won't-do.",
-      "status": "open",
-      "snoozed_until": null
+      "status": "in_progress",
+      "snoozed_until": null,
+      "evidence_log": [
+        "2026-05-28 (model-training): root-caused + mechanism drafted. Live IB gateway is HEALTHY (watchdog probes report healthy=True net_liquidation=1000600.6 every 5 min) — the 2026-05-22 Error 162 was NOT a gateway fault; it came from attempting the pull from the TRAINER (different IP, loopback gateway unreachable / IBKR source-IP guard). Fix = run the pull ON the live VM sharing the one session on a distinct clientId. Drafted (operator-gated, NOT executed): scripts/ops/pull_mes_ibkr_history.sh (live-VM paced ibkr_offvm pull, clientId 450 vs exec 497, pause_s=15, use_rth=false, ~365d MES 5m+15m -> $DATA_DIR/ibkr_datasets); sync_trainer_data.sh extended to rsync those shards to the trainer; build_mes_market prefers the synced IBKR base over yfinance when >1000 rows present. REMAINING (operator): deploy to live VM via pull-and-deploy, then run the script in the CME maintenance/weekend window (shares the gateway pacing budget with live MES candle reqs); verify it does not perturb live trading; confirm the trainer picks up the deeper history on the next cycle."
+      ]
     }
   ]
 }

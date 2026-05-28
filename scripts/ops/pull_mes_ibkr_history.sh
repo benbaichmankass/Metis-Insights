@@ -1,0 +1,132 @@
+#!/usr/bin/env bash
+# scripts/ops/pull_mes_ibkr_history.sh — paced IBKR historical pull for MES,
+# run ON THE LIVE VM (where the IB Gateway lives), writing market_raw shards
+# that the trainer syncs for the MES regime models.
+#
+# WHY THIS RUNS ON THE LIVE VM (not the trainer):
+#   The IB Gateway is a loopback-only socket on the live VM
+#   (127.0.0.1:4002 via the gnzsnz socat relay). The trainer VM cannot reach
+#   it, and IBKR permits exactly ONE logged-in session per username — so we
+#   cannot stand up a second gateway on the trainer. Historical pulls
+#   therefore SHARE the live gateway on a DISTINCT clientId (default 450, vs
+#   the execution clients 497/496) and must be paced gently. This is the
+#   ibkr_offvm adapter's designed deployment (ml/datasets/adapters/ibkr_offvm.py).
+#
+#   This replaces the rolling ~60d ES=F yfinance window the trainer uses as a
+#   fallback (build_trainer_datasets.sh::build_mes_market) with deep, native
+#   MES intraday history. See docs/claude/ml-review-backlog.json MB-20260528-002
+#   and docs/runbooks/ib-integration.md § Historical backfill.
+#
+# SAFETY — this shares the live trading gateway:
+#   * Distinct clientId (default 450) so it never collides with the trader's
+#     execution socket (497) or the read probes (9000+).
+#   * Paced: pause_s=15 (above the adapter's 12s default) to stay well under
+#     IBKR's ~60 historical requests / 10 min / contract pacing ceiling that,
+#     if tripped, returns Error 162 and could disturb the live trader's own
+#     reqHistoricalData (MES candle) calls.
+#   * Run it during the CME maintenance break / weekend when the live trader
+#     is idle. It is a one-shot, not a timer, by design — re-run only when you
+#     want to extend/refresh the window.
+#   * NEVER run this on the trainer VM (it would hit Error 162 "connected from
+#     a different IP" — the 2026-05-22 failure mode — or simply fail to reach
+#     the loopback gateway).
+#
+# Output (under DATA_DIR so the trainer's sync_trainer_data.sh picks it up):
+#   $IBKR_OUT/market_raw/MES/{5m,15m}/$DATASET_VERSION/data.jsonl
+#
+# Detached, survivable launch (recommended):
+#   nohup bash scripts/ops/pull_mes_ibkr_history.sh \
+#     > runtime_logs/ibkr_mes_pull.out 2>&1 &
+# Progress: tail $PULL_LOG_PATH (default runtime_logs/ibkr_mes_pull.jsonl).
+#
+# Environment knobs:
+#   REPO_ROOT          /opt/ict-trading-bot (live VM symlink) or the working tree
+#   VENV_DIR           $REPO_ROOT/.venv
+#   DATA_DIR           /data/bot-data            (canonical live-VM data dir)
+#   IBKR_OUT           $DATA_DIR/ibkr_datasets   (synced to the trainer)
+#   DATASET_VERSION    v002
+#   MES_SYMBOL         MES
+#   IB_HOST            127.0.0.1
+#   IB_PORT            4002                       (paper gateway via socat)
+#   IB_HIST_CLIENT_ID  450                        (distinct from 497/496)
+#   IB_HIST_PAUSE_S    15
+#   MES_TIMEFRAMES     "5m 15m"
+#   MES_HIST_START     (default: 365 days ago)
+#   PULL_LOG_PATH      $REPO_ROOT/runtime_logs/ibkr_mes_pull.jsonl
+#
+# Exit codes: 0 = at least one timeframe pulled with bars; 1 = all pulls
+#             failed/empty; 2 = environment misconfigured.
+set -uo pipefail
+
+REPO_ROOT="${REPO_ROOT:-/opt/ict-trading-bot}"
+VENV_DIR="${VENV_DIR:-$REPO_ROOT/.venv}"
+DATA_DIR="${DATA_DIR:-/data/bot-data}"
+IBKR_OUT="${IBKR_OUT:-$DATA_DIR/ibkr_datasets}"
+DATASET_VERSION="${DATASET_VERSION:-v002}"
+MES_SYMBOL="${MES_SYMBOL:-MES}"
+IB_HOST="${IB_HOST:-127.0.0.1}"
+IB_PORT="${IB_PORT:-4002}"
+IB_HIST_CLIENT_ID="${IB_HIST_CLIENT_ID:-450}"
+IB_HIST_PAUSE_S="${IB_HIST_PAUSE_S:-15}"
+MES_TIMEFRAMES="${MES_TIMEFRAMES:-5m 15m}"
+MES_HIST_START="${MES_HIST_START:-$(date -u -d '365 days ago' +%Y-%m-%d 2>/dev/null || echo 2025-05-28)}"
+MES_HIST_END="${MES_HIST_END:-$(date -u +%Y-%m-%d)}"
+PULL_LOG_PATH="${PULL_LOG_PATH:-$REPO_ROOT/runtime_logs/ibkr_mes_pull.jsonl}"
+
+iso_now() { date -u +'%Y-%m-%dT%H:%M:%S+00:00'; }
+emit() {
+  mkdir -p "$(dirname "$PULL_LOG_PATH")"
+  printf '%s\n' "$1" >> "$PULL_LOG_PATH"
+  printf '%s\n' "$1"
+}
+
+if [ ! -d "$REPO_ROOT/.git" ] && [ ! -e "$REPO_ROOT/ml" ]; then
+  emit "$(printf '{"ts":"%s","status":"env_error","detail":"REPO_ROOT looks wrong: %s"}' "$(iso_now)" "$REPO_ROOT")"
+  exit 2
+fi
+cd "$REPO_ROOT"
+if [ ! -d "$VENV_DIR" ]; then
+  emit "$(printf '{"ts":"%s","status":"env_error","detail":"no venv at %s"}' "$(iso_now)" "$VENV_DIR")"
+  exit 2
+fi
+# shellcheck source=/dev/null
+source "$VENV_DIR/bin/activate"
+
+# The adapter's deliberate opt-in: it shares the live gateway, so it refuses
+# to open a socket unless this is set. We set it here because a paced pull is
+# exactly what this script is for.
+export ICT_IB_HISTORICAL_OK=1
+
+emit "$(printf '{"ts":"%s","status":"pull_start","symbol":"%s","timeframes":"%s","start":"%s","end":"%s","client_id":%s,"pause_s":%s}' \
+  "$(iso_now)" "$MES_SYMBOL" "$MES_TIMEFRAMES" "$MES_HIST_START" "$MES_HIST_END" "$IB_HIST_CLIENT_ID" "$IB_HIST_PAUSE_S")"
+
+any_ok=0
+for tf in $MES_TIMEFRAMES; do
+  out_path="${IBKR_OUT}/market_raw/${MES_SYMBOL}/${tf}/${DATASET_VERSION}/data.jsonl"
+  emit "$(printf '{"ts":"%s","status":"building","family":"market_raw","symbol":"%s","timeframe":"%s"}' "$(iso_now)" "$MES_SYMBOL" "$tf")"
+  set +e
+  python -m ml build-dataset market_raw \
+    --output-dir "$IBKR_OUT" --version "$DATASET_VERSION" \
+    --source ibkr_offvm --symbol-scope "$MES_SYMBOL" --timeframe "$tf" --overwrite \
+    "adapter=ibkr_offvm" "symbol=${MES_SYMBOL}" "timeframe=${tf}" \
+    "start=${MES_HIST_START}" "end=${MES_HIST_END}" \
+    "host=${IB_HOST}" "port=${IB_PORT}" "client_id=${IB_HIST_CLIENT_ID}" \
+    "use_rth=false" "pause_s=${IB_HIST_PAUSE_S}" \
+    >"/tmp/ibkr_mes_${tf}_$$.out" 2>"/tmp/ibkr_mes_${tf}_$$.err"
+  rc=$?
+  set -e
+  rows=0
+  [ -f "$out_path" ] && rows="$(wc -l < "$out_path" 2>/dev/null | tr -d ' ')"
+  if [ "$rc" -eq 0 ] && [ "${rows:-0}" -gt 0 ]; then
+    emit "$(printf '{"ts":"%s","status":"ok","family":"market_raw","symbol":"%s","timeframe":"%s","rows":%s}' "$(iso_now)" "$MES_SYMBOL" "$tf" "${rows:-0}")"
+    any_ok=1
+  else
+    err="$(tail -n 3 "/tmp/ibkr_mes_${tf}_$$.err" 2>/dev/null | tr '\n' ' ' | head -c 400)"
+    emit "$(python3 -c "import json,sys; print(json.dumps({'ts':sys.argv[1],'status':'failed','family':'market_raw','symbol':sys.argv[2],'timeframe':sys.argv[3],'exit_code':int(sys.argv[4]),'stderr_tail':sys.argv[5]}))" \
+      "$(iso_now)" "$MES_SYMBOL" "$tf" "$rc" "$err")"
+  fi
+  rm -f "/tmp/ibkr_mes_${tf}_$$.out" "/tmp/ibkr_mes_${tf}_$$.err"
+done
+
+emit "$(printf '{"ts":"%s","status":"pull_end","any_ok":%d,"out":"%s"}' "$(iso_now)" "$any_ok" "$IBKR_OUT")"
+[ "$any_ok" -eq 1 ] && exit 0 || exit 1
