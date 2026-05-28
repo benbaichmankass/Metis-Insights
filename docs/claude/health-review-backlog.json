@@ -291,6 +291,19 @@
       "resolution_criteria": "A /health-review confirms in the watchdog journal at least one real wedge that the watchdog auto-recovered: a probe `healthy=False` (net_liquidation=None) followed within ~2 checks by a logged `action=restart`, then a subsequent probe `healthy=True` — with NO manual vm-ib-gateway-recover dispatch in that window. Confirm across at least one (ideally a couple) overnight resets, then mark BL-20260527-003 fully resolved. If MES instead stayed healthy through the reset (no wedge to heal), record that and keep watching — absence of a wedge is not yet proof the restart path works. If guard rails tripped (`max-restarts 3` exhausted -> alert-only), surface to the operator: that means a genuine lockout the watchdog can't fix.",
       "status": "open",
       "snoozed_until": null
+    },
+    {
+      "id": "BL-20260528-001",
+      "opened_at": "2026-05-28T00:00:00+00:00",
+      "opened_by": "claude",
+      "source": "S-ANDROID-S9 session (diag pulls while debugging the Android app)",
+      "title": "vm-diag-snapshot relay rejects multi-param diag paths (the & query separator)",
+      "description": "Issue-driven diag requests whose title carries a & failed this session (#2251 `journal?table=order_packages&limit=40`, #2252 `journal?table=trades&limit=40`) while single-param paths (`journal?table=order_packages`, `db_info`) and the broad `snapshot?limit=200` succeeded. Suspected cause: GitHub stores the title's & as the HTML entity &amp;; the workflow decodes it (${raw//&amp;/&}) but the path-validation regex ^[A-Za-z0-9/?&=_.:%-]+$ in .github/workflows/vm-diag-snapshot.yml rejects the ; if any entity slips through un-decoded, so the run exits 1 with 'Rejected diag_path'. Workaround in use: single-param paths or the broad snapshot. Low priority — the relay works for the common cases.",
+      "tier": 1,
+      "trigger_condition": "Any /health-review run, or the next time a session needs a multi-param diag pull.",
+      "resolution_criteria": "A multi-param diag request (e.g. journal?table=trades&limit=40) completes and posts JSON back, OR the workflow title decode/validation is fixed (fully decode &amp; before the regex, or URL-decode) and verified with a multi-param pull.",
+      "status": "open",
+      "snoozed_until": null
     }
   ]
 }
