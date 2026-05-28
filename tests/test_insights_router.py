@@ -25,6 +25,7 @@ from __future__ import annotations
 import importlib
 import json
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -303,7 +304,10 @@ def test_history_endpoint_returns_appended_rows(
         "data_window": {"start": "2026-05-26T00:00:00+00:00",
                         "end":   "2026-05-27T00:00:00+00:00"},
         "row_counts": {"trades": 0},
-        "generated_at": "2026-05-26T19:00:00+00:00",
+        # Anchor to "now" so the history endpoint's rolling `hours` window
+        # always includes this row. A fixed past date time-bombs the test
+        # the moment the clock drifts >24h past it (the 2026-05-27 CI flake).
+        "generated_at": datetime.now(timezone.utc).isoformat(),
         "model_id": "claude-haiku-4-5-20251001",
     }
     history_mod.append_history(endpoint="summary", payload=payload)
@@ -329,7 +333,8 @@ def test_history_endpoint_strategy_filter(
     base = {
         "summary_md": "x", "grade": "good", "signals": [],
         "data_window": None, "row_counts": None,
-        "generated_at": "2026-05-26T19:00:00+00:00",
+        # Anchor to "now" (see test_history_endpoint_returns_appended_rows).
+        "generated_at": datetime.now(timezone.utc).isoformat(),
         "model_id": "m",
     }
     history_mod.append_history(endpoint="strategy", payload=base, strategy_name="vwap")

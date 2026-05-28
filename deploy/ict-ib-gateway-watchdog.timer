@@ -1,0 +1,30 @@
+# ============================================
+# ICT IB GATEWAY WATCHDOG SYSTEMD TIMER
+# Fires ict-ib-gateway-watchdog.service every 5 min.
+#
+# The wedge it heals (IBKR session dies on the overnight reset) is rare and
+# persists for hours once it happens, so a 5-min probe cadence keeps the MES
+# dark window small without hammering the Gateway. MES uses delayed (10-15 min)
+# data and is paper money, so a few minutes of catch-up gap is harmless.
+#
+# Auto-installed + enabled by scripts/install_systemd_units.sh (which does
+# `enable --now` on every deploy/*.timer).
+#
+# Save to: /etc/systemd/system/ict-ib-gateway-watchdog.timer
+# ============================================
+
+[Unit]
+Description=ICT IB Gateway Watchdog — fires every 5 min
+Requires=ict-ib-gateway-watchdog.service
+
+[Timer]
+# First fire 3 min after boot so the trader + gateway have settled.
+OnBootSec=3min
+# Every 5 min relative to last activation.
+OnUnitActiveSec=5min
+AccuracySec=20s
+Persistent=true
+Unit=ict-ib-gateway-watchdog.service
+
+[Install]
+WantedBy=timers.target
