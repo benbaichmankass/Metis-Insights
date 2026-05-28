@@ -304,6 +304,16 @@
       "resolution_criteria": "A multi-param diag request (e.g. journal?table=trades&limit=40) completes and posts JSON back, OR the workflow title decode/validation is fixed (fully decode &amp; before the regex, or URL-decode) and verified with a multi-param pull.",
       "status": "open",
       "snoozed_until": null
+    },
+    {
+      "id": "BL-20260528-FCM404",
+      "opened": "2026-05-28",
+      "opened_by": "claude/ict-order-rejections-BmqU1",
+      "severity": "medium",
+      "area": "mobile_push",
+      "title": "ict-trader-live floods 'FCM publish non-2xx: status=404 NOT_FOUND' from mobile_push.notifier",
+      "detail": "journalctl ict-trader-live (2026-05-28 ~22:13Z) shows repeated FCM publish 404 NOT_FOUND on signal_emitted pushes. Stale/unregistered Android FCM token (or wrong project). Surfaced while debugging the Android app's Order Packages/Performance tabs. Verify the registered device token + FCM project/credentials; consider pruning dead tokens so the notifier stops retrying every signal.",
+      "found_during": "order-rejection investigation (docs/audits/order-rejections-2026-05-28.md)"
     }
   ]
 }

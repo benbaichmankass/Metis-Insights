@@ -994,11 +994,24 @@ class Coordinator:
             # Mirrors the richer account_cfg built below; ``getattr``
             # keeps legacy/test fixtures (where the account object
             # may not carry ``api_key_env``) routing cleanly.
+            #
+            # ``demo`` MUST be carried here: ``_log_trade_to_journal``
+            # stamps ``is_demo`` from ``account_cfg.get("demo")``, and the
+            # two early-refusal paths below (sizing_failed at the
+            # position_size except, and the sized_qty<=0 gate) journal with
+            # THIS cfg — not the richer ``account_cfg`` built later. Without
+            # it every demo-account refusal row was written ``is_demo=0``,
+            # so a demo account (e.g. bybit_1) that trips its daily-loss cap
+            # and then size-refuses every subsequent signal looked like a
+            # LIVE-account rejection cluster in the journal. The RiskBreach
+            # and exchange_rejected paths already use the richer cfg and
+            # were stamped correctly; this aligns the early paths with them.
             _early_account_cfg = {
                 "account_id": account.name,
                 "exchange": account.exchange,
                 "api_key_env": getattr(account, "api_key_env", None),
                 "market_type": getattr(account, "market_type", "spot"),
+                "demo": getattr(account, "demo", False),
             }
 
             # Build account_cfg, resolve effective_dry and exchange client
@@ -1231,6 +1244,36 @@ class Coordinator:
                 pkg, sized_qty, account_name=account.name,
             )
             sized_qty_by_account[account.name] = sized_qty
+
+            # Latching daily-loss-cap notification (operator-approved
+            # 2026-05-28). Fire ONE Telegram when an account first exhausts
+            # its daily-loss cap and ONE when it next clears — not per-tick.
+            # Runs every dispatch (so it catches both the cross-into and the
+            # cross-out-of cap, incl. the 00:00 UTC auto-reset on the next
+            # day's first tick); the latch in daily_cap_alert self-dedups.
+            # The cap-exhaustion check uses the same equity basis the sizer
+            # used. Best-effort — never blocks dispatch.
+            try:
+                from src.runtime.daily_cap_alert import note_account_cap_state
+                _equity_basis = (
+                    total_account_usd if total_account_usd is not None else balance
+                )
+                note_account_cap_state(
+                    account.name,
+                    exhausted=account.risk_manager.is_daily_cap_exhausted(
+                        _equity_basis
+                    ),
+                    daily_pnl=account.risk_manager.daily_pnl,
+                    cap_usd=account.risk_manager.effective_daily_loss_usd(
+                        _equity_basis
+                    ),
+                    demo=getattr(account, "demo", False),
+                )
+            except Exception as _cap_exc:  # noqa: BLE001
+                logger.debug(
+                    "multi_account_execute: daily-cap note failed for %s: %s",
+                    account.name, _cap_exc,
+                )
 
             # 2. Refuse to forward a zero-qty order. This branch fires
             # for ANY sized_qty <= 0 outcome from the RiskManager —

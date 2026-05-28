@@ -118,7 +118,15 @@ accounts:
                                        # by symbol→exchange (coordinator gate).
     risk:
       max_dd_pct: 0.05                 # 5% max intra-day drawdown
-      daily_usd: 100                   # $100 max daily loss
+      daily_loss_pct: 0.05             # daily-loss cap = 5% of equity
+                                       # (operator-approved 2026-05-28; reuses the
+                                       # max_dd_pct 5% figure). The demo wallet
+                                       # holds a large paper balance, so the old
+                                       # fixed daily_usd=100 tripped on essentially
+                                       # every signal and size-refused all day; a
+                                       # %-of-equity cap scales with the account.
+      daily_usd: 100                   # absolute FALLBACK only — used when no
+                                       # equity snapshot is available (cold start)
       pos_size: 500                    # $500 max single position (approval gate only)
       risk_pct: 0.01                   # 1% balance risked per trade (S-026 G2)
       min_balance_usd: 50              # refuse to size below $50 (S-026 G2)
@@ -194,7 +202,10 @@ accounts:
     symbols: [BTCUSDT]                  # all on BTCUSDT (bybit perps)
     risk:
       max_dd_pct: 0.05
-      daily_usd: 100
+      daily_loss_pct: 0.05             # daily-loss cap = 5% of equity (real money;
+                                       # operator-approved 2026-05-28). Scales with
+                                       # the live balance instead of a fixed $100.
+      daily_usd: 100                   # absolute FALLBACK only (no equity snapshot)
       pos_size: 500
       risk_pct: 0.01
       min_balance_usd: 50
@@ -333,7 +344,9 @@ accounts:
                                        # gate). This is the live MES enablement.
     risk:
       max_dd_pct: 0.05                 # 5% max intra-day drawdown
-      daily_usd: 200                   # $200 max daily loss
+      daily_loss_pct: 0.05             # daily-loss cap = 5% of equity
+                                       # (operator-approved 2026-05-28)
+      daily_usd: 200                   # absolute FALLBACK only (no equity snapshot)
       pos_size: 2000                   # $2000 max single position (approval gate only)
       risk_pct: 0.01                   # 1% balance risked per trade
       min_balance_usd: 100             # refuse to size below $100
@@ -358,7 +371,9 @@ accounts:
                                        # + dispatch until promoted (Tier-3).
     risk:
       max_dd_pct: 0.05                 # 5% max intra-day drawdown
-      daily_usd: 200                   # $200 max daily loss
+      daily_loss_pct: 0.05             # daily-loss cap = 5% of equity
+                                       # (operator-approved 2026-05-28)
+      daily_usd: 200                   # absolute FALLBACK only (no equity snapshot)
       pos_size: 2000                   # $2000 max single position (approval gate only)
       risk_pct: 0.01                   # 1% balance risked per trade
       min_balance_usd: 100             # refuse to size below $100
