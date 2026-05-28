@@ -186,6 +186,7 @@ def run_backtest(
     htf_rule: str = "1h",
     htf_ema_period: int = 20,
     min_confidence: float = 0.0,
+    _collect_trades: bool = False,
 ) -> Dict[str, Any]:
     cfg = {"symbol": symbol, "timeframe": timeframe, **cfg_overrides}
     htf_df = _build_htf_series(df, htf_rule=htf_rule, ema_period=htf_ema_period)
@@ -278,7 +279,12 @@ def run_backtest(
         )
         next_eligible_idx = int(result["exit_index"]) + 1 + cooldown_bars
 
-    return _summarize(trades, df, timeframe=timeframe, symbol=symbol)
+    summary = _summarize(trades, df, timeframe=timeframe, symbol=symbol)
+    if _collect_trades:
+        # (confidence, r_multiple) per trade — lets the sweep filter by
+        # threshold without re-walking the (expensive) 5m frame N times.
+        summary["_trades"] = [(t.confidence, t.r_multiple) for t in trades]
+    return summary
 
 
 def _summarize(
@@ -379,15 +385,36 @@ def _parse_grid(spec: str) -> List[float]:
     return [float(x) for x in spec.split(",") if x.strip() != ""]
 
 
+def _metrics_for(thr: float, pairs: List[tuple]) -> Dict[str, Any]:
+    """Compute headline metrics for the subset of (confidence, r) trades at
+    or above the threshold."""
+    sub = [r for c, r in pairs if c >= thr]
+    n = len(sub)
+    if n == 0:
+        return {"min_confidence": thr, "trades": 0, "win_rate_pct": 0.0,
+                "total_r": 0.0, "expectancy_r": 0.0, "max_drawdown_r": 0.0}
+    wins = sum(1 for r in sub if r > 0)
+    cum = peak = mdd = 0.0
+    for r in sub:
+        cum += r
+        peak = max(peak, cum)
+        mdd = max(mdd, peak - cum)
+    return {"min_confidence": thr, "trades": n,
+            "win_rate_pct": round(100.0 * wins / n, 2),
+            "total_r": round(sum(sub), 4),
+            "expectancy_r": round(sum(sub) / n, 4),
+            "max_drawdown_r": round(mdd, 4)}
+
+
 def _confidence_sweep(df: pd.DataFrame, grid: List[float], kwargs: Dict[str, Any]) -> Dict[str, Any]:
-    rows = []
-    for thr in grid:
-        s = run_backtest(df, min_confidence=thr, **kwargs)
-        rows.append({"min_confidence": thr, "trades": s["total_trades"],
-                     "win_rate_pct": s.get("win_rate_pct", 0.0),
-                     "total_r": s.get("total_r", 0.0),
-                     "expectancy_r": s.get("expectancy_r", 0.0),
-                     "max_drawdown_r": s.get("max_drawdown_r", 0.0)})
+    # Walk the frame ONCE at min_confidence=0 (the 5m walk is the expensive
+    # part — order_package() per bar), then filter the resulting trades by
+    # each threshold. NOTE: this is a post-hoc filter, so it does not model
+    # the cooldown re-entries that gating at entry would free up — a small,
+    # conservative approximation adequate for threshold selection.
+    full = run_backtest(df, min_confidence=0.0, _collect_trades=True, **kwargs)
+    pairs = full.get("_trades", [])
+    rows = [_metrics_for(thr, pairs) for thr in grid]
     best = max(rows, key=lambda r: r["total_r"]) if rows else None
     best_exp = max((r for r in rows if r["trades"] >= 20),
                    key=lambda r: r["expectancy_r"], default=None)
@@ -395,8 +422,10 @@ def _confidence_sweep(df: pd.DataFrame, grid: List[float], kwargs: Dict[str, Any
             "timeframe": kwargs.get("timeframe"),
             "data_start": str(df["timestamp"].iloc[0]) if "timestamp" in df.columns and len(df) else None,
             "data_end": str(df["timestamp"].iloc[-1]) if "timestamp" in df.columns and len(df) else None,
+            "baseline_trades": full.get("total_trades", 0),
             "grid": rows, "best_by_total_r": best,
-            "best_by_expectancy_r_min20": best_exp}
+            "best_by_expectancy_r_min20": best_exp,
+            "note": "post-hoc confidence filter on a single walk; ignores cooldown re-entries"}
 
 
 def _fmt_sweep(sw: Dict[str, Any]) -> str:
