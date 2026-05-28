@@ -297,6 +297,16 @@ class FcmNotifier:
         the system notification are derived from ``payload`` on the
         device.
 
+        ``android.priority = HIGH`` is mandatory for these data-only
+        messages: at the default (NORMAL) priority FCM holds data
+        messages until the device next leaves Doze / App-Standby, which
+        delivers them in delayed *batches* rather than at event time —
+        exactly the symptom the operator reported. HIGH tells FCM the
+        message is time-critical, so the device is woken and
+        ``onMessageReceived`` fires within seconds. (HTTP v1's
+        ``AndroidMessagePriority`` enum is uppercase ``NORMAL``/``HIGH``,
+        unlike the legacy lowercase API.)
+
         Per FCM contract, data values MUST be strings — coerce here so
         the caller doesn't have to think about it.
         """
@@ -305,7 +315,11 @@ class FcmNotifier:
             if value is None:
                 continue
             data[str(key)] = str(value) if not isinstance(value, str) else value
-        return {"token": token, "data": data}
+        return {
+            "token": token,
+            "data": data,
+            "android": {"priority": "HIGH"},
+        }
 
     def _get_access_token(self) -> str | None:
         """Return a non-expired OAuth2 access token, refreshing if needed.

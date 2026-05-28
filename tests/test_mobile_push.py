@@ -364,6 +364,15 @@ def test_build_message_coerces_values_to_strings() -> None:
     assert "skip_me" not in msg["data"]  # null values dropped
 
 
+def test_build_message_sets_high_android_priority() -> None:
+    """Data-only messages must ride at HIGH priority so FCM delivers them
+    immediately instead of batching them out of Doze (the operator's
+    'notifications arrive in delayed batches' report)."""
+    n = FcmNotifier.inert()
+    msg = n._build_message(token="t", kind="trade_closed", payload={})
+    assert msg["android"]["priority"] == "HIGH"
+
+
 # ---------------------------------------------------------------------------
 # Subscription filtering at fan-out time
 # ---------------------------------------------------------------------------
