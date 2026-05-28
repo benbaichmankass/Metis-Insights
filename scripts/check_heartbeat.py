@@ -98,6 +98,25 @@ DEFAULT_HEARTBEAT = _resolved_runtime_logs_dir() / "heartbeat.txt"
 DEFAULT_STATE = _resolved_runtime_logs_dir() / "heartbeat_check_state.json"
 
 
+def _system_uptime_s() -> float:
+    """Seconds since the host booted.
+
+    Used by the boot-grace suppression so a VM reboot doesn't spam
+    ``[CRITICAL] heartbeat stale`` while the trader is merely (re)starting.
+    Fail-OPEN: on any read error return ``+inf`` so we treat the host as
+    "long up" and never silently suppress a *real* stall.
+    """
+    try:
+        with open("/proc/uptime", encoding="utf-8") as fh:
+            return float(fh.read().split()[0])
+    except (OSError, ValueError, IndexError):
+        pass
+    try:
+        return float(time.clock_gettime(time.CLOCK_BOOTTIME))
+    except (OSError, AttributeError, ValueError):
+        return float("inf")
+
+
 # ---------------------------------------------------------------------------
 # State helpers
 # ---------------------------------------------------------------------------
@@ -329,6 +348,21 @@ def main(argv: Optional[list] = None) -> int:
         ),
         help="systemd unit to restart on autoheal (default: %(default)s).",
     )
+    p.add_argument(
+        "--boot-grace-seconds",
+        type=int,
+        default=int(os.environ.get("LIVENESS_BOOT_GRACE_SECONDS", "0")),
+        help=(
+            "Suppress heartbeat missing/stale alerts (and autoheal) for the "
+            "first N seconds after a host boot, so a VM reboot doesn't spam "
+            "'[CRITICAL] heartbeat stale' while the trader is still starting. "
+            "While suppressed the watchdog stays silent (the reboot already "
+            "had its own ping) and emits no 'recovered' ping once the trader "
+            "comes back. If the heartbeat is STILL stale once the window "
+            "closes, it alerts as a genuine failure-to-recover. "
+            "0 = disabled (default)."
+        ),
+    )
     args = p.parse_args(argv)
 
     decision = evaluate(
@@ -369,6 +403,28 @@ def main(argv: Optional[list] = None) -> int:
         if state != decision["state"]:
             save_state(args.state, state)
         return 0
+
+    # Boot-grace suppression. Right after a host reboot the trader is
+    # expected to be (re)starting under systemd, so a stale/missing
+    # heartbeat is normal boot noise — not a fault. For the grace window
+    # we suppress the alert AND the autoheal, but keep counting the
+    # streak so a genuine failure-to-start escalates the instant the
+    # window closes. We deliberately do NOT set last_status="stale"
+    # here, so when the trader comes up no spurious "recovered" ping
+    # fires: the operator hears the reboot ping (sent elsewhere) and,
+    # only if the trader fails to return, the post-grace alert.
+    if action in {"stale", "missing"} and args.boot_grace_seconds > 0:
+        uptime = _system_uptime_s()
+        if uptime < args.boot_grace_seconds:
+            print(
+                f"[boot-grace] suppressing '{action}' alert: uptime "
+                f"{int(uptime)}s < grace {args.boot_grace_seconds}s "
+                f"(trader expected to be starting after reboot)"
+            )
+            state["last_boot_grace_ts"] = datetime.now(timezone.utc).isoformat()
+            if not args.dry_run:
+                save_state(args.state, state)  # persist the streak counter
+            return 0
 
     msg = render_alert(action, age_s, args.heartbeat)
     print(msg)

@@ -285,6 +285,73 @@ def test_main_returns_2_when_telegram_fails(tmp_path, watchdog_module):
 
 
 # ---------------------------------------------------------------------------
+# Boot-grace suppression (VM-reboot alert noise)
+# ---------------------------------------------------------------------------
+
+
+def test_boot_grace_suppresses_stale_alert_just_after_reboot(tmp_path, watchdog_module):
+    """Within the boot-grace window a stale heartbeat must NOT alert and must
+    NOT mark last_status=stale (so no later 'recovered' ping fires)."""
+    hb = tmp_path / "heartbeat.txt"
+    hb.write_text("stale")
+    import os as _os
+    _os.utime(str(hb), (time.time() - 3600, time.time() - 3600))
+    state = tmp_path / "state.json"
+    sent: list[str] = []
+    watchdog_module.send_alert = lambda msg: sent.append(msg) or True
+    watchdog_module._system_uptime_s = lambda: 30.0  # 30 s since boot
+    rc = watchdog_module.main([
+        "--heartbeat", str(hb),
+        "--state", str(state),
+        "--interval", "60",
+        "--grace", "5",
+        "--boot-grace-seconds", "600",
+        "--auto-restart-after", "3",
+    ])
+    assert rc == 0
+    assert sent == []  # no Telegram alert during boot grace
+    saved = json.loads(state.read_text())
+    assert saved.get("last_status") != "stale"  # so no later "recovered" ping
+    assert saved.get("stale_streak", 0) >= 1     # streak still counts
+
+
+def test_boot_grace_alerts_once_window_closes(tmp_path, watchdog_module):
+    """Past the boot-grace window a still-stale heartbeat alerts normally
+    (genuine failure-to-recover)."""
+    hb = tmp_path / "heartbeat.txt"
+    hb.write_text("stale")
+    import os as _os
+    _os.utime(str(hb), (time.time() - 3600, time.time() - 3600))
+    state = tmp_path / "state.json"
+    sent: list[str] = []
+    watchdog_module.send_alert = lambda msg: sent.append(msg) or True
+    watchdog_module._system_uptime_s = lambda: 9999.0  # long past boot
+    rc = watchdog_module.main([
+        "--heartbeat", str(hb),
+        "--state", str(state),
+        "--interval", "60",
+        "--grace", "5",
+        "--boot-grace-seconds", "600",
+    ])
+    assert rc == 0
+    assert len(sent) == 1 and "stale" in sent[0].lower()
+    saved = json.loads(state.read_text())
+    assert saved["last_status"] == "stale"
+
+
+def test_system_uptime_fails_open(watchdog_module, monkeypatch):
+    """If uptime can't be read at all we must return +inf — fail toward
+    alerting, never toward silently suppressing a real stall."""
+    def _boom_open(*_a, **_k):
+        raise OSError("no /proc/uptime")
+    def _boom_clock(*_a, **_k):
+        raise OSError("no CLOCK_BOOTTIME")
+    monkeypatch.setattr("builtins.open", _boom_open)
+    monkeypatch.setattr(time, "clock_gettime", _boom_clock)
+    assert watchdog_module._system_uptime_s() == float("inf")
+
+
+# ---------------------------------------------------------------------------
 # Autoheal — --auto-restart-after path (2026-05-11 silent-failure fix)
 # ---------------------------------------------------------------------------
 

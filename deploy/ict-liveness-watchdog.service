@@ -37,7 +37,17 @@ EnvironmentFile=/home/ubuntu/ict-trading-bot/.env
 # re-fires so we won't get a restart-loop on a persistently broken
 # trader; the trader-side systemd Restart=always with RestartSec=10
 # handles the actual recovery.
-ExecStart=/usr/bin/python3 -u scripts/check_heartbeat.py --interval 60 --grace 5 --auto-restart-after 3
+#
+# --boot-grace-seconds 600 → for the first 10 min after a host reboot,
+# suppress heartbeat missing/stale alerts (and autoheal): the trader is
+# expected to be coming up under systemd, so the stale heartbeat during
+# that window is boot noise, not a fault. The operator already gets the
+# reboot-vm ping; this stops the duplicate "[CRITICAL] heartbeat stale"
+# + "[OK] recovered" spam on every reboot. If the heartbeat is STILL
+# stale once the window closes, it alerts as a genuine failure-to-
+# recover. 0 = disabled. 10 min comfortably covers boot + venv + IB-
+# gateway startup.
+ExecStart=/usr/bin/python3 -u scripts/check_heartbeat.py --interval 60 --grace 5 --auto-restart-after 3 --boot-grace-seconds 600
 StandardOutput=journal
 StandardError=journal
 
