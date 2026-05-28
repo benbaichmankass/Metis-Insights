@@ -994,11 +994,24 @@ class Coordinator:
             # Mirrors the richer account_cfg built below; ``getattr``
             # keeps legacy/test fixtures (where the account object
             # may not carry ``api_key_env``) routing cleanly.
+            #
+            # ``demo`` MUST be carried here: ``_log_trade_to_journal``
+            # stamps ``is_demo`` from ``account_cfg.get("demo")``, and the
+            # two early-refusal paths below (sizing_failed at the
+            # position_size except, and the sized_qty<=0 gate) journal with
+            # THIS cfg — not the richer ``account_cfg`` built later. Without
+            # it every demo-account refusal row was written ``is_demo=0``,
+            # so a demo account (e.g. bybit_1) that trips its daily-loss cap
+            # and then size-refuses every subsequent signal looked like a
+            # LIVE-account rejection cluster in the journal. The RiskBreach
+            # and exchange_rejected paths already use the richer cfg and
+            # were stamped correctly; this aligns the early paths with them.
             _early_account_cfg = {
                 "account_id": account.name,
                 "exchange": account.exchange,
                 "api_key_env": getattr(account, "api_key_env", None),
                 "market_type": getattr(account, "market_type", "spot"),
+                "demo": getattr(account, "demo", False),
             }
 
             # Build account_cfg, resolve effective_dry and exchange client
