@@ -295,9 +295,47 @@ build_mes_features_tf() {  # <tf> <raw_dir> — 2-pass median-calibrated feature
   emit "$(printf '{"ts":"%s","status":"ok","family":"market_features","symbol":"MES","timeframe":"%s","vol_threshold":"%s"}' "$(iso_now)" "$tf" "$vt")"
 }
 
+build_mes_setup_labels() {
+  # Symbol-scoped MES setup_labels so mes-setup-quality finds a (currently
+  # empty — no closed MES trades) v002 dataset and SKIPS cleanly
+  # (empty_dataset) instead of FileNotFound-failing.
+  mes_build setup_labels \
+    --output-dir "$DATASETS_ROOT" --version "$DATASET_VERSION" \
+    --source "trade_journal.db" --symbol-scope MES --overwrite \
+    "db_path=${DB_PATH}" "symbol=MES" "risk_pct=1.0" "r_cap=3.0"
+}
+
 build_mes_market() {
   local base_tf="5m"
   local base_raw="${DATASETS_ROOT}/market_raw/MES/${base_tf}/${DATASET_VERSION}"
+
+  # Prefer deep native MES history pulled from IBKR on the live VM (synced by
+  # sync_trainer_data.sh into $DATA_DIR/ibkr_datasets) over the rolling ~60d
+  # ES=F yfinance window, when present and non-trivial. See MB-20260528-002 +
+  # scripts/ops/pull_mes_ibkr_history.sh.
+  local ibkr_src="${DATA_DIR}/ibkr_datasets/market_raw/MES"
+  local ibkr_5m="${ibkr_src}/5m/${DATASET_VERSION}/data.jsonl"
+  if [ -f "$ibkr_5m" ] && [ "$(wc -l < "$ibkr_5m" 2>/dev/null | tr -d ' ')" -gt 1000 ]; then
+    emit "$(printf '{"ts":"%s","status":"info","detail":"using synced IBKR MES market_raw (deep history) instead of yfinance"}' "$(iso_now)")"
+    local used=0
+    for tf in 5m 15m; do
+      local src_dir="${ibkr_src}/${tf}/${DATASET_VERSION}"
+      if [ -f "${src_dir}/data.jsonl" ]; then
+        local dst_dir="${DATASETS_ROOT}/market_raw/MES/${tf}/${DATASET_VERSION}"
+        mkdir -p "$dst_dir"
+        cp -f "${src_dir}/data.jsonl" "${dst_dir}/data.jsonl"
+        [ -f "${src_dir}/metadata.json" ] && cp -f "${src_dir}/metadata.json" "${dst_dir}/metadata.json"
+        build_mes_features_tf "$tf" "$dst_dir"
+        used=1
+      fi
+    done
+    if [ "$used" -eq 1 ]; then
+      build_mes_setup_labels
+      return 0
+    fi
+    emit "$(printf '{"ts":"%s","status":"warn","detail":"IBKR MES base present but no usable timeframe shards; falling back to yfinance"}' "$(iso_now)")"
+  fi
+
   if ! python -c "import yfinance" 2>/dev/null; then
     emit "$(printf '{"ts":"%s","status":"info","detail":"installing yfinance for MES ES=F pull"}' "$(iso_now)")"
     set +e; pip install --quiet "yfinance>=0.2"; set -e
@@ -320,13 +358,7 @@ build_mes_market() {
       "adapter=resample" "symbol=MES" "timeframe=15m" "source_path=${base_raw}"
     build_mes_features_tf 15m "${DATASETS_ROOT}/market_raw/MES/15m/${DATASET_VERSION}"
   fi
-  # Symbol-scoped MES setup_labels at the same version so mes-setup-quality finds
-  # a (currently empty — no closed MES trades) v002 dataset and SKIPS cleanly
-  # (empty_dataset) instead of FileNotFound-failing.
-  mes_build setup_labels \
-    --output-dir "$DATASETS_ROOT" --version "$DATASET_VERSION" \
-    --source "trade_journal.db" --symbol-scope MES --overwrite \
-    "db_path=${DB_PATH}" "symbol=MES" "risk_pct=1.0" "r_cap=3.0"
+  build_mes_setup_labels
 }
 
 build_mes_market

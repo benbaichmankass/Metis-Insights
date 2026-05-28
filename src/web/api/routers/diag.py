@@ -86,6 +86,7 @@ _CANONICAL_UNITS: tuple[str, ...] = (
 _ADVISORY_LOG = runtime_logs_dir() / "advisory_decisions.jsonl"
 _SHADOW_PRED_LOG = runtime_logs_dir() / "shadow_predictions.jsonl"
 _SHADOW_PRED_BACKFILL_LOG = runtime_logs_dir() / "shadow_predictions_backfill.jsonl"
+_IBKR_MES_PULL_LOG = runtime_logs_dir() / "ibkr_mes_pull.jsonl"
 
 _LOG_FILES: dict[str, Path] = {
     "audit": _AUDIT_LOG,
@@ -104,6 +105,11 @@ _LOG_FILES: dict[str, Path] = {
     # only if no shadow predictions have ever been written.
     "shadow_predictions": _SHADOW_PRED_LOG,
     "shadow_predictions_backfill": _SHADOW_PRED_BACKFILL_LOG,
+    # Progress log for the operator-gated MES IBKR historical pull
+    # (scripts/ops/pull_mes_ibkr_history.sh, run via the pull-mes-ibkr-history
+    # system-action). Detached + paced, so this tail is how a session monitors
+    # it. Absent until the pull has been run at least once.
+    "ibkr_mes_pull": _IBKR_MES_PULL_LOG,
 }
 
 _DEFAULT_LIMIT = 100

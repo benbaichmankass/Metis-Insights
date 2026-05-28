@@ -12,12 +12,14 @@
       "tier": 1,
       "trigger_condition": "Any /ml-review run; or any session attempting to train MES models.",
       "resolution_criteria": "Next trainer cycle log shows mes-regime-{5m,15m} + mes-setup-quality manifests either manifest_ok (real shards built) or manifest_skipped via empty_dataset (no data yet). cycle_end overall_rc=0. Distinct from BL-20260525-004 which is a separate ml-modeling limitation (mes-regime models collapse to majority class even when shards exist).",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
       "evidence_log": [
         "2026-05-28 (/ml-review, cycle run 20260528T000520Z): re-confirmed unfixed. mes-regime-15m, mes-regime-5m, mes-setup-quality => manifest_failed (FileNotFoundError on MES market_features/setup_labels datasets); mes-execution-quality + mes-trade-outcome-winrate => manifest_skipped(empty_dataset); all 12 BTC/global manifests manifest_ok; cycle_end overall_rc=1; ict-trainer.service is-active=failed, ExecMainStatus=1. Root cause: MES datasets existed only at the stale v001 (built by a 2026-05-22 run_serious_baseline.sh one-shot); manifests reference v002. datasets-out build_end overall_rc=0 but only BTCUSDT market_features (215838 rows) built — no MES families. Build-script wiring missing.",
-        "2026-05-28 (model-training, PR #2226): FIX SHIPPED + VALIDATED on the trainer (branch claude/zen-gauss-7E7Re). Added build_mes_market() to build_trainer_datasets.sh (yfinance ES=F 5m base -> resample 15m -> median-calibrated v002 market_features; symbol-scoped MES setup_labels). Validation run BUILD_EXIT=0: market_features/MES/5m=10852 rows (vol_threshold 0.0002637), 15m=3617 (0.0004862), setup_labels/MES/all=0 (empty -> clean skip). Pending: merge to main + one real daily cycle showing manifest_ok/skipped + cycle_end rc=0 to fully close."
-      ]
+        "2026-05-28 (model-training, PR #2226): FIX SHIPPED + VALIDATED on the trainer (branch claude/zen-gauss-7E7Re). Added build_mes_market() to build_trainer_datasets.sh (yfinance ES=F 5m base -> resample 15m -> median-calibrated v002 market_features; symbol-scoped MES setup_labels). Validation run BUILD_EXIT=0: market_features/MES/5m=10852 rows (vol_threshold 0.0002637), 15m=3617 (0.0004862), setup_labels/MES/all=0 (empty -> clean skip). Pending: merge to main + one real daily cycle showing manifest_ok/skipped + cycle_end rc=0 to fully close.",
+        "2026-05-28 (model-training): RESOLVED. #2226 merged to main (sha 71879f0); kicked a real cycle (head=71879f0, manifest_count=20). All MES manifests now clean: mes-regime-5m + mes-regime-15m => manifest_ok (data built, market_features/MES/5m=10852, 15m=3617); mes-setup-quality + mes-execution-quality + mes-trade-outcome-winrate => manifest_skipped(empty_dataset). cycle_end overall_rc=0 (was rc=1 every cycle). ExecMainStatus=0."
+      ],
+      "status_history": "open -> resolved 2026-05-28 (verified in cycle head=71879f0)"
     },
     {
       "id": "MB-20260527-002",
@@ -29,7 +31,8 @@
       "tier": 3,
       "trigger_condition": "Next /ml-review run; or whenever a model-training session is scheduled with capacity for MES experiments.",
       "resolution_criteria": "mes-regime-{5m,15m} eval shows f1_volatile > 0 with macro_f1 > 0.50 via one of the three approaches; or the operator approves a manifest deprecation. Distinct from MB-20260527-001 (which is about MES *trade-data* manifests, not regime; those are empty_dataset blocked until MES trades).",
-      "status": "open",
+      "status": "resolved",
+      "status_history": "open -> resolved 2026-05-28 (mes-regime-{5m,15m}-lgbm-v2 shipped in #2226; f1_volatile 0->0.77/0.76, macro_f1 0.69/0.67 on median-calibrated data; registered at shadow in cycle head=71879f0). The three vol-bucket tweaks are moot — the LightGBM port solved the collapse.",
       "snoozed_until": null,
       "evidence_log": [
         "2026-05-28 (/ml-review): MES regime manifests failed again (no fresh MES dataset; blocked on MB-20260527-001). Last successful train 2026-05-26: mes-regime-15m macro_f1=0.329, mes-regime-5m macro_f1=0.345, both f1_volatile=0 (still collapsed to range-majority). NEW RECOMMENDATION: the three vol-bucket tweaks are now lower-priority than porting the winning v2 LightGBM recipe to MES. On BTC the LightGBM head lifted f1_volatile from 0 (modal baseline) to 0.228 (15m) / 0.111 (5m) on the same market_features schema with continuous vol + log-return features and inverse-base-rate class weighting (class_weight volatile:50). Propose mes-regime-{5m,15m}-lgbm-v2 manifests mirroring btc-regime-*-lgbm-v2 once MES data is wired (MB-20260527-001). This is the proven fix for the exact collapse symptom.",
@@ -91,8 +94,11 @@
       "tier": 3,
       "trigger_condition": "Operator wants deeper/cleaner MES training history; or when the IB gateway session conflict (Error 162) is investigated.",
       "resolution_criteria": "market_raw/MES/{5m,15m} at v002 carries multi-year (or at least multi-month) IBKR-sourced bars synced to the trainer, built without disconnecting or degrading the live MES trading session; mes-regime models retrain on it. OR operator decides the ~60d yfinance window is sufficient and this is closed as won't-do.",
-      "status": "open",
-      "snoozed_until": null
+      "status": "in_progress",
+      "snoozed_until": null,
+      "evidence_log": [
+        "2026-05-28 (model-training): root-caused + mechanism drafted. Live IB gateway is HEALTHY (watchdog probes report healthy=True net_liquidation=1000600.6 every 5 min) — the 2026-05-22 Error 162 was NOT a gateway fault; it came from attempting the pull from the TRAINER (different IP, loopback gateway unreachable / IBKR source-IP guard). Fix = run the pull ON the live VM sharing the one session on a distinct clientId. Drafted (operator-gated, NOT executed): scripts/ops/pull_mes_ibkr_history.sh (live-VM paced ibkr_offvm pull, clientId 450 vs exec 497, pause_s=15, use_rth=false, ~365d MES 5m+15m -> $DATA_DIR/ibkr_datasets); sync_trainer_data.sh extended to rsync those shards to the trainer; build_mes_market prefers the synced IBKR base over yfinance when >1000 rows present. REMAINING (operator): deploy to live VM via pull-and-deploy, then run the script in the CME maintenance/weekend window (shares the gateway pacing budget with live MES candle reqs); verify it does not perturb live trading; confirm the trainer picks up the deeper history on the next cycle."
+      ]
     }
   ]
 }
