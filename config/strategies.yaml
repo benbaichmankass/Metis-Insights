@@ -151,6 +151,13 @@ strategies:
     # single-trade excursion in 3yr backtest was ~11R, so 50R is safely
     # beyond reach.
     tp_r: 50.0
+    # Minimum-confidence entry gate (breakout depth / ATR). A 6yr BTC 2h
+    # sweep at the exact live params (donchian 20 / atr_stop 2.5 / trail 3.5)
+    # found 0.30 the PnL-optimal floor: net_R 45.0 -> 56.2 (+25%), expectancy
+    # 0.070 -> 0.101 (+44%), maxDD 22.9 -> 14.8 R (-35%), 644 -> 559 trades.
+    # Shallow breaks (the live -1R conf-0.05 stop-out was one) are where the
+    # follower bled. Tier-3; evidence: trainer-vm-diag confidence-sweep v3.
+    min_confidence: 0.30
     # shadow_model_ids omitted (2026-05-19 default): auto-wire every model
     # whose target_deployment_stage == "shadow" on this strategy's
     # signals. Set `shadow_model_ids: []` to opt out entirely or provide

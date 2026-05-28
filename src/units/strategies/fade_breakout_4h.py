@@ -87,6 +87,13 @@ _DEFAULTS: Dict[str, Any] = {
     # pipeline's "signal carries full SL/TP" gate.
     "tp_r": 50.0,
     "timeframe": "4h",
+    # Minimum signal confidence (pierce depth / ATR, [0,1]) required to emit
+    # an order. 0.0 = no gate (current live value). A 6yr BTC 4h sweep WITH
+    # the live ADX<20 gate found NO confidence floor improves net_R (best at
+    # 0.0: +64.2R; any floor only cuts trades and net) — the ADX regime gate
+    # already does the filtering a confidence floor would. Gate kept wired
+    # (default off) in case a future regime warrants it.
+    "min_confidence": 0.0,
 }
 
 
@@ -251,6 +258,16 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
     # rejecting, normalised to ATR and clamped to [0, 1]. A deep grab that
     # snapped back scores higher than a marginal poke.
     confidence = round(min(max(pierce_depth, 0.0), 1.0), 4)
+
+    # Minimum-confidence entry gate (a 6yr 4h sweep showed sub-0.20 pierces
+    # are where the fade bleeds). Skip via the same non-actionable path as
+    # "no failed breakout".
+    min_confidence = float(params["min_confidence"])
+    if confidence < min_confidence:
+        raise ValueError(
+            f"Strategy 'fade_breakout_4h': confidence {confidence} below "
+            f"min_confidence {min_confidence} — non-actionable."
+        )
 
     try:
         entry_time = str(df["timestamp"].iloc[-1])

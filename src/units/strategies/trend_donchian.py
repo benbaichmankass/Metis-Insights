@@ -80,6 +80,11 @@ _DEFAULTS: Dict[str, Any] = {
     # safely beyond anything the strategy realistically reaches.
     "tp_r": 50.0,
     "timeframe": "1h",
+    # Minimum signal confidence (breakout depth / ATR, [0,1]) required to
+    # emit an order. 0.0 = no gate. A 6yr BTC 2h sweep found 0.30 optimal
+    # (net +25%, expectancy +44%, maxDD -35% vs ungated); the live value is
+    # set in config/strategies.yaml.
+    "min_confidence": 0.0,
 }
 
 
@@ -217,6 +222,17 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
     # clamped to [0, 1]. A clean break well past the channel scores
     # higher; a marginal poke scores near 0.
     confidence = round(min(max(breakout_depth, 0.0), 1.0), 4)
+
+    # Minimum-confidence entry gate. Below the floor the break is too
+    # shallow to be worth the fee-and-stop risk (a 6yr 2h sweep showed
+    # low-confidence breaks are where the strategy bleeds); skip via the
+    # same non-actionable path as "no breakout".
+    min_confidence = float(params["min_confidence"])
+    if confidence < min_confidence:
+        raise ValueError(
+            f"Strategy 'trend_donchian': confidence {confidence} below "
+            f"min_confidence {min_confidence} — non-actionable."
+        )
 
     # entry_time anchors the monitor's since-entry highest-high window so
     # a long-running trade's trail tracks the extreme from entry forward,
