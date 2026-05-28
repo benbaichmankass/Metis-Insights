@@ -20,11 +20,16 @@
 # SAFETY — this shares the live trading gateway:
 #   * Distinct clientId (default 450) so it never collides with the trader's
 #     execution socket (497) or the read probes (9000+).
-#   * Paced: pause_s=15 (above the adapter's 12s default) to stay well under
-#     IBKR's ~60 historical requests / 10 min / contract pacing ceiling that,
-#     if tripped, returns Error 162 and could disturb the live trader's own
-#     reqHistoricalData (MES candle) calls.
-#   * Run it during the CME maintenance break / weekend when the live trader
+#   * Paced: pause_s=20 (well above the adapter's 12s default) to stay well
+#     under IBKR's ~60 historical requests / 10 min / contract pacing ceiling
+#     that, if tripped, returns Error 162 and could disturb the live trader's
+#     own reqHistoricalData (MES candle) calls. At ~80 chunked requests this is
+#     ~3/min over ~27 min — the live trader's few req/tick always have headroom.
+#   * Idle priority: the whole run re-execs under `nice -n 19 ionice -c3` so it
+#     never competes with the live trader for CPU/IO. Secondary by construction.
+#   * Live-first guard: aborts if the trader heartbeat is stale (>10 min) — it
+#     will not add gateway load during a live-trading incident.
+#   * Best run during the CME maintenance break / weekend when the live trader
 #     is idle. It is a one-shot, not a timer, by design — re-run only when you
 #     want to extend/refresh the window.
 #   * NEVER run this on the trainer VM (it would hit Error 162 "connected from
@@ -49,13 +54,20 @@
 #   IB_HOST            127.0.0.1
 #   IB_PORT            4002                       (paper gateway via socat)
 #   IB_HIST_CLIENT_ID  450                        (distinct from 497/496)
-#   IB_HIST_PAUSE_S    15
+#   IB_HIST_PAUSE_S    20
+#   HEARTBEAT_FILE     /data/bot-data/runtime_logs/heartbeat.txt
+#   HEARTBEAT_MAX_AGE_S 600  (abort if the live trader heartbeat is older)
 #   MES_TIMEFRAMES     "5m 15m"
 #   MES_HIST_START     (default: 365 days ago)
 #   PULL_LOG_PATH      $REPO_ROOT/runtime_logs/ibkr_mes_pull.jsonl
 #
 # Exit codes: 0 = at least one timeframe pulled with bars; 1 = all pulls
-#             failed/empty; 2 = environment misconfigured.
+#             failed/empty; 2 = environment misconfigured / trader unhealthy.
+#
+# This script DETACHES itself on first invocation (nohup + setsid) so a caller
+# over SSH / the system-actions workflow returns immediately and the ~20-30 min
+# paced pull survives the caller exiting. Monitor progress via PULL_LOG_PATH
+# (also exposed on the diag surface as log_file?name=ibkr_mes_pull).
 set -uo pipefail
 
 REPO_ROOT="${REPO_ROOT:-/opt/ict-trading-bot}"
@@ -67,11 +79,32 @@ MES_SYMBOL="${MES_SYMBOL:-MES}"
 IB_HOST="${IB_HOST:-127.0.0.1}"
 IB_PORT="${IB_PORT:-4002}"
 IB_HIST_CLIENT_ID="${IB_HIST_CLIENT_ID:-450}"
-IB_HIST_PAUSE_S="${IB_HIST_PAUSE_S:-15}"
+IB_HIST_PAUSE_S="${IB_HIST_PAUSE_S:-20}"
+HEARTBEAT_FILE="${HEARTBEAT_FILE:-/data/bot-data/runtime_logs/heartbeat.txt}"
+HEARTBEAT_MAX_AGE_S="${HEARTBEAT_MAX_AGE_S:-600}"
 MES_TIMEFRAMES="${MES_TIMEFRAMES:-5m 15m}"
 MES_HIST_START="${MES_HIST_START:-$(date -u -d '365 days ago' +%Y-%m-%d 2>/dev/null || echo 2025-05-28)}"
 MES_HIST_END="${MES_HIST_END:-$(date -u +%Y-%m-%d)}"
 PULL_LOG_PATH="${PULL_LOG_PATH:-$REPO_ROOT/runtime_logs/ibkr_mes_pull.jsonl}"
+
+# 1) DETACH: on the first (foreground) invocation, relaunch fully detached and
+#    return immediately so the SSH/system-actions caller doesn't block (and the
+#    pull isn't SIGHUP-killed when that caller exits).
+if [ -z "${_IBKR_DETACHED:-}" ]; then
+  export _IBKR_DETACHED=1
+  mkdir -p "$(dirname "$PULL_LOG_PATH")" 2>/dev/null || true
+  setsid nohup bash "$0" "$@" >/dev/null 2>&1 < /dev/null &
+  echo "pull_mes_ibkr_history: launched detached (pid $!). Monitor ${PULL_LOG_PATH} or diag log_file?name=ibkr_mes_pull"
+  exit 0
+fi
+
+# 2) SECONDARY PRIORITY: run the detached body at idle CPU + IO priority so it
+#    never competes with the live trader for the box. (IBKR API pacing is
+#    handled separately by IB_HIST_PAUSE_S.)
+if [ -z "${_IBKR_NICED:-}" ]; then
+  export _IBKR_NICED=1
+  exec nice -n 19 ionice -c3 bash "$0" "$@"
+fi
 
 iso_now() { date -u +'%Y-%m-%dT%H:%M:%S+00:00'; }
 emit() {
@@ -91,6 +124,21 @@ if [ ! -d "$VENV_DIR" ]; then
 fi
 # shellcheck source=/dev/null
 source "$VENV_DIR/bin/activate"
+
+# SECONDARY-PRIORITY guard: only touch the shared IB gateway when the live
+# trader is healthy. If the heartbeat is stale, something is wrong with live
+# trading — do NOT add gateway load during a trader incident. Live needs first.
+if [ -f "$HEARTBEAT_FILE" ]; then
+  hb_age=$(( $(date +%s) - $(stat -c %Y "$HEARTBEAT_FILE" 2>/dev/null || echo 0) ))
+  if [ "$hb_age" -gt "$HEARTBEAT_MAX_AGE_S" ]; then
+    emit "$(printf '{"ts":"%s","status":"abort","detail":"live trader heartbeat stale (%ss > %ss) — not adding IB gateway load during a trader incident"}' \
+      "$(iso_now)" "$hb_age" "$HEARTBEAT_MAX_AGE_S")"
+    exit 2
+  fi
+  emit "$(printf '{"ts":"%s","status":"preflight_ok","detail":"trader heartbeat fresh (%ss)"}' "$(iso_now)" "$hb_age")"
+else
+  emit "$(printf '{"ts":"%s","status":"preflight_warn","detail":"no heartbeat file at %s — proceeding (cannot confirm trader health)"}' "$(iso_now)" "$HEARTBEAT_FILE")"
+fi
 
 # The adapter's deliberate opt-in: it shares the live gateway, so it refuses
 # to open a socket unless this is set. We set it here because a paced pull is
