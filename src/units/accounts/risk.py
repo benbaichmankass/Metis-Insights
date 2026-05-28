@@ -223,6 +223,18 @@ class RiskManager:
     ) -> None:
         self.max_dd_pct: float = float(config.get("max_dd_pct", 0.05))
         self.max_daily_loss_usd: float = float(config.get("daily_usd", 100.0))
+        # Percentage-based daily-loss cap (operator-approved 2026-05-28).
+        # When > 0, the daily-loss budget is ``daily_loss_pct × equity``
+        # rather than the fixed ``daily_usd`` — so the cap scales with the
+        # account instead of being a hardcoded USD figure. ``daily_usd``
+        # stays as the absolute FALLBACK used only when no equity figure is
+        # available (no balance snapshot / cold start). Opted in per-account
+        # in config/accounts.yaml; accounts without the field (e.g. the prop
+        # account) keep the pure absolute ``daily_usd`` behaviour unchanged.
+        # The bybit + IB accounts set it to 0.05 (= ``max_dd_pct``), so the
+        # daily realized-loss budget and the intraday equity-drawdown cap use
+        # the same 5%-of-equity figure.
+        self.daily_loss_pct: float = float(config.get("daily_loss_pct", 0.0) or 0.0)
         self.max_pos_size_usd: float = float(config.get("pos_size", 500.0))
         self.risk_pct: float = float(config.get("risk_pct", 0.01))
         self.min_balance_usd: float = float(config.get("min_balance_usd", 50.0))
@@ -425,6 +437,34 @@ class RiskManager:
             return 0.0
         return (self.daily_high_equity - self.current_equity) / self.daily_high_equity
 
+    def effective_daily_loss_usd(self, equity: Optional[float] = None) -> float:
+        """Return the daily-loss budget in USD for the current account state.
+
+        Percentage mode (``daily_loss_pct > 0`` and a positive *equity*
+        figure is available): ``daily_loss_pct × equity`` — the cap scales
+        with the account. *equity* defaults to ``self.current_equity`` (the
+        last balance-snapshot reading). When neither is available the cap
+        falls back to the absolute ``daily_usd`` so there is always a finite
+        budget — never an accidentally-infinite one.
+
+        Absolute mode (``daily_loss_pct == 0``, e.g. the prop account):
+        always the fixed ``daily_usd`` — behaviour unchanged.
+        """
+        eq = equity if equity is not None else self.current_equity
+        if self.daily_loss_pct > 0 and eq is not None and eq > 0:
+            return self.daily_loss_pct * float(eq)
+        return self.max_daily_loss_usd
+
+    def is_daily_cap_exhausted(self, equity: Optional[float] = None) -> bool:
+        """True when today's realized loss has met/exceeded the daily cap.
+
+        Rolls the day + reconciles from the journal first so the answer
+        reflects the same state the sizing gates see. Used by the latching
+        daily-cap notification in ``Coordinator.multi_account_execute``.
+        """
+        self._maybe_roll_daily()
+        return self.daily_pnl <= -self.effective_daily_loss_usd(equity)
+
     def approve(self, order: OrderPackage) -> bool:
         ok, _reason = self.evaluate(order)
         return ok
@@ -438,7 +478,9 @@ class RiskManager:
 
         self._maybe_roll_daily()
 
-        if self.daily_pnl < -self.max_daily_loss_usd:
+        # Percentage-based when daily_loss_pct is set (uses current equity);
+        # absolute daily_usd otherwise / on equity-unavailable fallback.
+        if self.daily_pnl < -self.effective_daily_loss_usd():
             return False, "DAILY_LOSS_CAP"
 
         estimated_value = order.meta.get("estimated_value") if order.meta else None
@@ -536,8 +578,16 @@ class RiskManager:
 
         # S-026 G3: daily-loss-budget gate. USD loss at SL is
         # qty × risk_distance × contract_value_usd (cvu=1.0 for crypto).
+        # The budget is percentage-based (``daily_loss_pct × equity``) when
+        # configured, else the absolute ``daily_usd``. ``gate_balance`` (the
+        # account equity basis resolved above — total_account_usd when
+        # supplied, else balance_usd) is the equity figure; this is what lets
+        # a large-balance account (e.g. the bybit demo) stop tripping a
+        # hardcoded $100 cap on every signal.
         self._maybe_roll_daily()
-        loss_budget_remaining = self.max_daily_loss_usd + self.daily_pnl
+        loss_budget_remaining = (
+            self.effective_daily_loss_usd(gate_balance) + self.daily_pnl
+        )
         if loss_budget_remaining <= 0:
             return 0.0
 
@@ -590,13 +640,19 @@ class RiskManager:
 
     def report(self) -> dict:
         dd = self.intraday_drawdown()
+        # Effective daily-loss cap reflects the percentage mode when set
+        # (so the dashboard/digest shows the real budget, not the absolute
+        # fallback) — uses current_equity, falling back to daily_usd.
+        eff_daily_loss = self.effective_daily_loss_usd()
         return {
             "daily_pnl": round(self.daily_pnl, 2),
-            "max_daily_loss_usd": self.max_daily_loss_usd,
+            "max_daily_loss_usd": round(eff_daily_loss, 2),
+            "daily_loss_pct": self.daily_loss_pct,
+            "daily_loss_usd_floor": self.max_daily_loss_usd,
             "max_pos_size_usd": self.max_pos_size_usd,
             "max_dd_pct": self.max_dd_pct,
             "daily_loss_remaining": round(
-                self.max_daily_loss_usd + self.daily_pnl, 2
+                eff_daily_loss + self.daily_pnl, 2
             ),
             "current_equity": (
                 round(self.current_equity, 2) if self.current_equity is not None else None
@@ -606,7 +662,7 @@ class RiskManager:
             ),
             "intraday_drawdown_pct": round(dd, 4) if dd is not None else None,
             "halted": (
-                self.daily_pnl < -self.max_daily_loss_usd
+                self.daily_pnl < -eff_daily_loss
                 or (dd is not None and dd >= self.max_dd_pct)
             ),
         }

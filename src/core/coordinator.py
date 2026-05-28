@@ -1245,6 +1245,36 @@ class Coordinator:
             )
             sized_qty_by_account[account.name] = sized_qty
 
+            # Latching daily-loss-cap notification (operator-approved
+            # 2026-05-28). Fire ONE Telegram when an account first exhausts
+            # its daily-loss cap and ONE when it next clears — not per-tick.
+            # Runs every dispatch (so it catches both the cross-into and the
+            # cross-out-of cap, incl. the 00:00 UTC auto-reset on the next
+            # day's first tick); the latch in daily_cap_alert self-dedups.
+            # The cap-exhaustion check uses the same equity basis the sizer
+            # used. Best-effort — never blocks dispatch.
+            try:
+                from src.runtime.daily_cap_alert import note_account_cap_state
+                _equity_basis = (
+                    total_account_usd if total_account_usd is not None else balance
+                )
+                note_account_cap_state(
+                    account.name,
+                    exhausted=account.risk_manager.is_daily_cap_exhausted(
+                        _equity_basis
+                    ),
+                    daily_pnl=account.risk_manager.daily_pnl,
+                    cap_usd=account.risk_manager.effective_daily_loss_usd(
+                        _equity_basis
+                    ),
+                    demo=getattr(account, "demo", False),
+                )
+            except Exception as _cap_exc:  # noqa: BLE001
+                logger.debug(
+                    "multi_account_execute: daily-cap note failed for %s: %s",
+                    account.name, _cap_exc,
+                )
+
             # 2. Refuse to forward a zero-qty order. This branch fires
             # for ANY sized_qty <= 0 outcome from the RiskManager —
             # not only true "balance below floor" cases. Pre-fix the

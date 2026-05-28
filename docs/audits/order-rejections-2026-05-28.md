@@ -131,23 +131,51 @@ paths match. Regression test: `tests/test_rejection_demo_flag.py`. This is the
 change that lets the operator (and any future diag pull) *filter the demo noise
 out* of the rejection statistic — it directly removes the false premise.
 
-## Tier-3 recommendations (operator decision — not applied)
+## Operator-approved fixes (2026-05-28, implemented on this branch)
 
-1. **Re-calibrate `bybit_1` (demo) `daily_usd`.** A $100/day cap on a ~$274k
-   paper balance is the proximate driver of the rejection flood. Options:
-   raise it to something proportional to the paper balance (the demo is a
-   *behavioural* mirror of `bybit_2`; the absolute USD cap need not match), or
-   accept it and rely on the `is_demo` fix to filter the noise. Risk-cap values
-   in `config/accounts.yaml` are **Tier-3**.
-2. **Rejection-row noise.** Consider whether a daily-loss-capped account should
-   keep writing a `rejected` *trades* row every cooldown interval, or whether
-   that belongs only on the decision-level `order_packages` / a counter. The
-   Prime Directive wants per-trade visibility, so this is a judgement call, not
-   an obvious bug — flagged, not changed.
-3. **Re-pull the original window's 8 `exchange_rejected` rows.** They predate
-   this investigation's window and are unreachable via the single-param relay
-   (no offset). Pull them via a filtered Data-Explorer query to characterise the
-   exchange-side refusals the original report mentioned.
+After review, the operator approved the following (Tier-3 — pending merge +
+deploy):
+
+1. **Percentage-based daily-loss cap.** New `daily_loss_pct` risk field; when
+   set, the daily-loss budget is `daily_loss_pct × equity` instead of the fixed
+   `daily_usd` (which becomes the absolute fallback used only when no equity
+   snapshot is available). Set to **0.05 (= `max_dd_pct`)** on the Bybit + IB
+   accounts (`bybit_1`, `bybit_2`, `ib_paper`, `ib_live`); the **prop account is
+   left unchanged** (keeps its deliberately strict absolute `$50`). This is the
+   fix that stops `bybit_1` re-tripping a $100 cap against a ~$274k paper
+   balance. Code: `src/units/accounts/risk.py` (`effective_daily_loss_usd`,
+   `is_daily_cap_exhausted`, gates in `evaluate` + `position_size`).
+2. **Latching cap-hit / resume notification.** New
+   `src/runtime/daily_cap_alert.py` + `enqueue_daily_cap_alert`: exactly one
+   Telegram when an account first exhausts its daily-loss cap, and one when it
+   clears (incl. the 00:00 UTC auto-reset). Closes the silent-cap gap — the
+   `sized_qty<=0` path previously emitted no ping. Hooked into
+   `multi_account_execute` once per account per dispatch (self-deduping latch in
+   a `runtime_logs` JSON file; money-DB schema untouched).
+3. **`is_demo` mislabel** — fixed earlier on this branch (`_early_account_cfg`
+   carries the `demo` flag).
+
+**Verified, no fix needed:**
+
+- **Daily reset / auto-resume** works by design — `RiskManager` has no persistent
+  "halted" latch; `daily_pnl` is recomputed each tick from *today's* closed
+  trades, so it resumes automatically at the UTC roll. It only *looked* stuck
+  because the demo's tiny cap re-tripped within minutes of resuming (the % cap
+  fixes that).
+- **`bybit_1` strategy wiring** — all six strategies are configured
+  (`trend_donchian, turtle_soup, ict_scalp_5m, fade_breakout_4h,
+  squeeze_breakout_4h, vwap`) and the live journalctl showed all six
+  signal-builders running each tick. `vwap` being `shadow` (data-only) is
+  correct; the other five are live-on-demo. No change required.
+
+## Remaining follow-up
+
+- **Re-pull the original window's 8 `exchange_rejected` rows** — they predate
+  this window and are unreachable via the single-param relay (no offset). Pull
+  via a filtered Data-Explorer query to characterise the exchange-side refusals.
+- **Rejection-row noise** — a daily-loss-capped account still writes a
+  `rejected` *trades* row each cooldown interval. With the % cap this is now rare
+  (caps trip far less often), so left as-is; revisit if it recurs.
 
 ## What was NOT found
 

@@ -83,6 +83,61 @@ def enqueue_execution_failure(
         return None
 
 
+def enqueue_daily_cap_alert(
+    *,
+    account: str,
+    kind: str,
+    daily_pnl: Optional[float] = None,
+    cap_usd: Optional[float] = None,
+    demo: bool = False,
+    priority: str = "high",
+) -> Optional[Path]:
+    """Drop a Telegram ping for a daily-loss-cap state transition.
+
+    ``kind`` is ``"exhausted"`` (the account just hit its daily-loss cap
+    and will refuse trades until the next UTC reset) or ``"resumed"`` (the
+    cap cleared — new UTC day or a recovering PnL — and the account is
+    trading again). Fired at most once per transition by the latching
+    state in ``src.runtime.daily_cap_alert``; this function only formats +
+    queues. Never raises.
+    """
+    try:
+        prefix = "*DEMO TRADER* " if demo else ""
+        pnl_str = f"{daily_pnl:+.2f}" if daily_pnl is not None else "?"
+        cap_str = f"{cap_usd:.2f}" if cap_usd is not None else "?"
+        if kind == "exhausted":
+            body = (
+                f"{prefix}⛔ Daily-loss cap hit\n"
+                f"Account: {account}\n"
+                f"Today's PnL: {pnl_str} USD  (cap: -{cap_str} USD)\n"
+                f"No further trades on this account today. Account stays "
+                f"live; it auto-resumes at 00:00 UTC."
+            )[:1024]
+        else:  # resumed
+            body = (
+                f"{prefix}✅ Daily-loss cap reset\n"
+                f"Account: {account}\n"
+                f"Today's PnL: {pnl_str} USD  (cap: -{cap_str} USD)\n"
+                f"Trading resumed."
+            )[:1024]
+        payload = {"priority": priority, "body": body}
+        PENDING_PINGS_DIR.mkdir(parents=True, exist_ok=True)
+        name = f"{int(uuid.uuid4().int % 10**12):012d}-dailycap.json"
+        path = PENDING_PINGS_DIR / name
+        tmp = path.with_suffix(".json.tmp")
+        with tmp.open("w", encoding="utf-8") as fh:
+            json.dump(payload, fh, ensure_ascii=False)
+        os.replace(tmp, path)
+        return path
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "execution_diagnostics: daily-cap ping enqueue failed for "
+            "account=%s kind=%s: %s",
+            account, kind, exc,
+        )
+        return None
+
+
 def enqueue_demo_trade_notification(
     *,
     account: str,
