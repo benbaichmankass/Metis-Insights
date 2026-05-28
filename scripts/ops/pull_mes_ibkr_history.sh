@@ -46,7 +46,8 @@
 #
 # Environment knobs:
 #   REPO_ROOT          /opt/ict-trading-bot (live VM symlink) or the working tree
-#   VENV_DIR           $REPO_ROOT/.venv
+#   VENV_DIR           $REPO_ROOT/.venv (used if present; the live VM has none
+#                      and falls back to system python, where deps are installed)
 #   DATA_DIR           /data/bot-data            (canonical live-VM data dir)
 #   IBKR_OUT           $DATA_DIR/ibkr_datasets   (synced to the trainer)
 #   DATASET_VERSION    v002
@@ -140,12 +141,21 @@ if [ ! -d "$REPO_ROOT/.git" ] && [ ! -e "$REPO_ROOT/ml" ]; then
   exit 2
 fi
 cd "$REPO_ROOT"
-if [ ! -d "$VENV_DIR" ]; then
-  emit "$(printf '{"ts":"%s","status":"env_error","detail":"no venv at %s"}' "$(iso_now)" "$VENV_DIR")"
-  exit 2
+# The trainer VM runs from a .venv; the LIVE VM runs from system python (the
+# trader is `python3 -m src.main`, deps installed system-wide by
+# pull_and_deploy). Use the venv when present, else fall back to system python.
+if [ -d "$VENV_DIR" ]; then
+  # shellcheck source=/dev/null
+  source "$VENV_DIR/bin/activate"
+  PY=python
+else
+  PY="$(command -v python3 || command -v python || true)"
+  if [ -z "$PY" ]; then
+    emit "$(printf '{"ts":"%s","status":"env_error","detail":"no venv at %s and no system python found"}' "$(iso_now)" "$VENV_DIR")"
+    exit 2
+  fi
+  emit "$(printf '{"ts":"%s","status":"info","detail":"no venv at %s — using system python %s"}' "$(iso_now)" "$VENV_DIR" "$PY")"
 fi
-# shellcheck source=/dev/null
-source "$VENV_DIR/bin/activate"
 
 # SECONDARY-PRIORITY guard: only touch the shared IB gateway when the live
 # trader is healthy. If the heartbeat is stale, something is wrong with live
@@ -175,7 +185,7 @@ for tf in $MES_TIMEFRAMES; do
   out_path="${IBKR_OUT}/market_raw/${MES_SYMBOL}/${tf}/${DATASET_VERSION}/data.jsonl"
   emit "$(printf '{"ts":"%s","status":"building","family":"market_raw","symbol":"%s","timeframe":"%s"}' "$(iso_now)" "$MES_SYMBOL" "$tf")"
   set +e
-  python -m ml build-dataset market_raw \
+  "$PY" -m ml build-dataset market_raw \
     --output-dir "$IBKR_OUT" --version "$DATASET_VERSION" \
     --source ibkr_offvm --symbol-scope "$MES_SYMBOL" --timeframe "$tf" --overwrite \
     "adapter=ibkr_offvm" "symbol=${MES_SYMBOL}" "timeframe=${tf}" \
