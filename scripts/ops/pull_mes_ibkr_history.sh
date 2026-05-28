@@ -95,6 +95,12 @@ HEARTBEAT_MAX_AGE_S="${HEARTBEAT_MAX_AGE_S:-600}"
 MES_TIMEFRAMES="${MES_TIMEFRAMES:-5m 15m}"
 MES_HIST_START="${MES_HIST_START:-$(date -u -d '365 days ago' +%Y-%m-%d 2>/dev/null || echo 2025-05-28)}"
 MES_HIST_END="${MES_HIST_END:-$(date -u +%Y-%m-%d)}"
+# How many dated contracts to page back through. The ibkr_offvm adapter pages
+# contracts newest-first and defaults to 4 — which for a 1y window only covers
+# the most-recent ~2 quarters (the older expiries holding the rest of the year
+# fall past index 4). Bump to 8 so a full year's quarterly contracts are paged.
+# Depth is ultimately capped by IBKR's per-contract intraday retention.
+MES_MAX_CONTRACTS="${MES_MAX_CONTRACTS:-8}"
 PULL_LOG_PATH="${PULL_LOG_PATH:-$DATA_DIR/runtime_logs/ibkr_mes_pull.jsonl}"
 LOCK_FILE="${LOCK_FILE:-$DATA_DIR/runtime_logs/ibkr_mes_pull.lock}"
 
@@ -177,8 +183,8 @@ fi
 # exactly what this script is for.
 export ICT_IB_HISTORICAL_OK=1
 
-emit "$(printf '{"ts":"%s","status":"pull_start","symbol":"%s","timeframes":"%s","start":"%s","end":"%s","client_id":%s,"pause_s":%s}' \
-  "$(iso_now)" "$MES_SYMBOL" "$MES_TIMEFRAMES" "$MES_HIST_START" "$MES_HIST_END" "$IB_HIST_CLIENT_ID" "$IB_HIST_PAUSE_S")"
+emit "$(printf '{"ts":"%s","status":"pull_start","symbol":"%s","timeframes":"%s","start":"%s","end":"%s","client_id":%s,"pause_s":%s,"max_contracts":%s}' \
+  "$(iso_now)" "$MES_SYMBOL" "$MES_TIMEFRAMES" "$MES_HIST_START" "$MES_HIST_END" "$IB_HIST_CLIENT_ID" "$IB_HIST_PAUSE_S" "$MES_MAX_CONTRACTS")"
 
 any_ok=0
 for tf in $MES_TIMEFRAMES; do
@@ -191,7 +197,7 @@ for tf in $MES_TIMEFRAMES; do
     "adapter=ibkr_offvm" "symbol=${MES_SYMBOL}" "timeframe=${tf}" \
     "start=${MES_HIST_START}" "end=${MES_HIST_END}" \
     "host=${IB_HOST}" "port=${IB_PORT}" "client_id=${IB_HIST_CLIENT_ID}" \
-    "use_rth=false" "pause_s=${IB_HIST_PAUSE_S}" \
+    "use_rth=false" "pause_s=${IB_HIST_PAUSE_S}" "max_contracts=${MES_MAX_CONTRACTS}" \
     >"/tmp/ibkr_mes_${tf}_$$.out" 2>"/tmp/ibkr_mes_${tf}_$$.err"
   rc=$?
   set -e
