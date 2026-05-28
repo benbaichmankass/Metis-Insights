@@ -155,25 +155,6 @@ def _build_htf_series(
         return None
 
 
-def _htf_values_for_bar(
-    htf_df: Optional[pd.DataFrame], *, bar_ts: Any
-) -> tuple[Optional[float], Optional[float]]:
-    """Return the most recent (htf_close, htf_ema) at or before bar_ts."""
-    if htf_df is None or len(htf_df) == 0:
-        return None, None
-    try:
-        bar_ts = pd.Timestamp(bar_ts)
-        if bar_ts.tzinfo is None:
-            bar_ts = bar_ts.tz_localize("UTC")
-        mask = htf_df["timestamp"] <= bar_ts
-        if not mask.any():
-            return None, None
-        row = htf_df.loc[mask].iloc[-1]
-        return float(row["htf_close"]), float(row["htf_ema"])
-    except Exception:
-        return None, None
-
-
 def run_backtest(
     df: pd.DataFrame,
     *,
@@ -190,6 +171,18 @@ def run_backtest(
 ) -> Dict[str, Any]:
     cfg = {"symbol": symbol, "timeframe": timeframe, **cfg_overrides}
     htf_df = _build_htf_series(df, htf_rule=htf_rule, ema_period=htf_ema_period)
+    # Align the HTF series onto the base index ONCE via merge_asof (most
+    # recent HTF bar at-or-before each base bar) instead of a per-bar linear
+    # scan — the scan was O(n * htf_rows), which is hours on a 6yr 5m feed.
+    htf_close_arr = htf_ema_arr = None
+    if htf_df is not None and "timestamp" in df.columns and len(htf_df):
+        aligned = pd.merge_asof(
+            df[["timestamp"]].reset_index(drop=True),
+            htf_df[["timestamp", "htf_close", "htf_ema"]],
+            on="timestamp", direction="backward",
+        )
+        htf_close_arr = aligned["htf_close"].to_numpy()
+        htf_ema_arr = aligned["htf_ema"].to_numpy()
     trades: List[Trade] = []
     n = len(df)
     if n < warmup_bars + 5:
@@ -215,16 +208,15 @@ def run_backtest(
             continue
         lo = max(0, i + 1 - window_size)
         window = df.iloc[lo : i + 1]
-        # v2 HTF bias: look up htf_close + htf_ema as of this bar's
-        # timestamp from the resampled series. The strategy reads
-        # them from cfg, so we copy + augment per iteration.
+        # v2 HTF bias: read the pre-aligned htf_close + htf_ema for this bar
+        # (O(1)); the strategy reads them from cfg, so copy + augment.
         per_bar_cfg = dict(cfg)
-        if htf_df is not None and "timestamp" in df.columns:
-            bar_ts = df["timestamp"].iloc[i]
-            htf_close, htf_ema = _htf_values_for_bar(htf_df, bar_ts=bar_ts)
-            if htf_close is not None and htf_ema is not None:
-                per_bar_cfg["htf_close"] = htf_close
-                per_bar_cfg["htf_ema"] = htf_ema
+        if htf_close_arr is not None:
+            hc = htf_close_arr[i]
+            he = htf_ema_arr[i]
+            if hc == hc and he == he:  # not NaN
+                per_bar_cfg["htf_close"] = float(hc)
+                per_bar_cfg["htf_ema"] = float(he)
         try:
             pkg = order_package(per_bar_cfg, candles_df=window)
         except ValueError:
