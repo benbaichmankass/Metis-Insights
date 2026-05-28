@@ -225,5 +225,111 @@ build_btcusdt_pair 1h
 build_btcusdt_pair 5m
 build_btcusdt_pair 15m
 
+# ---- MES market_features (yfinance ES=F 5m base, resampled to 15m) -------
+# MES has no deep intraday feed on the trainer VM: the IBKR gateway lives on
+# the live VM and the historical pull is operator-gated (run_serious_baseline.sh
+# MES_IBKR=1, currently blocked by an IB session conflict). So the daily cycle
+# pulls ~60d of ES=F 5m bars via yfinance — the same index level as MES, the
+# deepest intraday history yfinance serves — caches it once, and resamples
+# 5m -> 15m. This folds the MES leg of run_serious_baseline.sh into the daily
+# cycle (MB-20260527-001) so mes-regime-{5m,15m} + mes-setup-quality stop
+# FileNotFound-failing every run (data existed only at the stale v001; manifests
+# want v002).
+#
+# market_features use a DATA-DRIVEN vol_threshold (median forward-vol) so the
+# range/volatile regime label stays ~balanced. A fixed threshold collapses MES
+# intraday to all-range (forward vol is small) and every regime model's
+# f1_volatile goes to 0 (MB-20260527-002).
+#
+# All MES builds are NON-FATAL (build_warn, not overall_rc=1): a yfinance hiccup
+# must not turn the whole cycle red — the manifests then skip on empty data.
+MES_YF_START="$(date -u -d '58 days ago' +%Y-%m-%d 2>/dev/null || echo "$MARKET_START")"
+
+mes_median_vt() {  # median forward_log_return_vol of a market_features dir
+  python3 -c "import json,sys,statistics as s
+try:
+    rows=[json.loads(l) for l in open(sys.argv[1]+'/data.jsonl') if l.strip()]
+    v=[r['forward_log_return_vol'] for r in rows if r.get('forward_log_return_vol') not in (None,0)]
+    print(round(s.median(v),7) if v else 0.001)
+except Exception:
+    print(0.001)" "$1" 2>/dev/null || echo 0.001
+}
+
+mes_build() {  # non-fatal build-dataset wrapper: logs ok/warn, never flips overall_rc
+  local family="$1"; shift
+  emit "$(printf '{"ts":"%s","status":"building","family":"%s","symbol":"MES"}' "$(iso_now)" "$family")"
+  set +e
+  python -m ml build-dataset "$family" "$@" \
+    >"/tmp/mesbld_${family}_$$.out" 2>"/tmp/mesbld_${family}_$$.err"
+  local rc=$?
+  set -e
+  if [ "$rc" -eq 0 ]; then
+    emit "$(printf '{"ts":"%s","status":"ok","family":"%s","symbol":"MES"}' "$(iso_now)" "$family")"
+  else
+    local err; err="$(tail -n 2 "/tmp/mesbld_${family}_$$.err" 2>/dev/null | tr '\n' ' ' | head -c 300)"
+    emit "$(python3 -c "import json,sys; print(json.dumps({'ts':sys.argv[1],'status':'warn','family':sys.argv[2],'symbol':'MES','exit_code':int(sys.argv[3]),'stderr_tail':sys.argv[4]}))" \
+      "$(iso_now)" "$family" "$rc" "$err")"
+  fi
+  rm -f "/tmp/mesbld_${family}_$$.out" "/tmp/mesbld_${family}_$$.err"
+  return 0
+}
+
+build_mes_features_tf() {  # <tf> <raw_dir> — 2-pass median-calibrated features
+  local tf="$1" raw_dir="$2"
+  local feat_dir="${DATASETS_ROOT}/market_features/MES/${tf}/${DATASET_VERSION}"
+  if [ ! -f "$raw_dir/data.jsonl" ]; then
+    emit "$(printf '{"ts":"%s","status":"skipped","family":"market_features","symbol":"MES","timeframe":"%s","detail":"no market_raw at %s"}' "$(iso_now)" "$tf" "$raw_dir")"
+    return 0
+  fi
+  mes_build market_features \
+    --output-dir "$DATASETS_ROOT" --version "$DATASET_VERSION" \
+    --source "$raw_dir" --symbol-scope MES --timeframe "$tf" --overwrite \
+    "market_raw_path=${raw_dir}" "vol_window_n=20" "forward_window_m=5" \
+    "vol_threshold=0.001" "trend_threshold=0.001" "n_vol_buckets=3"
+  local vt; vt="$(mes_median_vt "$feat_dir")"
+  mes_build market_features \
+    --output-dir "$DATASETS_ROOT" --version "$DATASET_VERSION" \
+    --source "$raw_dir" --symbol-scope MES --timeframe "$tf" --overwrite \
+    "market_raw_path=${raw_dir}" "vol_window_n=20" "forward_window_m=5" \
+    "vol_threshold=${vt}" "trend_threshold=${vt}" "n_vol_buckets=3"
+  emit "$(printf '{"ts":"%s","status":"ok","family":"market_features","symbol":"MES","timeframe":"%s","vol_threshold":"%s"}' "$(iso_now)" "$tf" "$vt")"
+}
+
+build_mes_market() {
+  local base_tf="5m"
+  local base_raw="${DATASETS_ROOT}/market_raw/MES/${base_tf}/${DATASET_VERSION}"
+  if ! python -c "import yfinance" 2>/dev/null; then
+    emit "$(printf '{"ts":"%s","status":"info","detail":"installing yfinance for MES ES=F pull"}' "$(iso_now)")"
+    set +e; pip install --quiet "yfinance>=0.2"; set -e
+  fi
+  if ! python -c "import yfinance" 2>/dev/null; then
+    emit "$(printf '{"ts":"%s","status":"skipped","family":"market_raw","symbol":"MES","detail":"yfinance unavailable; MES regime manifests will skip"}' "$(iso_now)")"
+    return 0
+  fi
+  # 5m base via yfinance ES=F (the deepest intraday history yfinance serves)
+  mes_build market_raw \
+    --output-dir "$DATASETS_ROOT" --version "$DATASET_VERSION" \
+    --source yfinance_offvm --symbol-scope MES --timeframe "$base_tf" --overwrite \
+    "adapter=yfinance_offvm" "symbol=MES" "start=${MES_YF_START}" "end=${MARKET_END}"
+  build_mes_features_tf 5m "$base_raw"
+  # 15m derived from the cached 5m base (resample — no second download)
+  if [ -f "$base_raw/data.jsonl" ]; then
+    mes_build market_raw \
+      --output-dir "$DATASETS_ROOT" --version "$DATASET_VERSION" \
+      --source resample --symbol-scope MES --timeframe 15m --overwrite \
+      "adapter=resample" "symbol=MES" "timeframe=15m" "source_path=${base_raw}"
+    build_mes_features_tf 15m "${DATASETS_ROOT}/market_raw/MES/15m/${DATASET_VERSION}"
+  fi
+  # Symbol-scoped MES setup_labels at the same version so mes-setup-quality finds
+  # a (currently empty — no closed MES trades) v002 dataset and SKIPS cleanly
+  # (empty_dataset) instead of FileNotFound-failing.
+  mes_build setup_labels \
+    --output-dir "$DATASETS_ROOT" --version "$DATASET_VERSION" \
+    --source "trade_journal.db" --symbol-scope MES --overwrite \
+    "db_path=${DB_PATH}" "symbol=MES" "risk_pct=1.0" "r_cap=3.0"
+}
+
+build_mes_market
+
 emit "$(printf '{"ts":"%s","status":"build_end","overall_rc":%d}' "$(iso_now)" "$overall_rc")"
 exit "$overall_rc"
