@@ -202,6 +202,26 @@ live Gateway needs an IBKR Mobile approval on (re)login; it stays
 `mode: dry_run` until proven and separately promoted (Tier-3). This is the
 one place a physical operator tap is unavoidable.
 
+**Auto-heal watchdog (`ict-ib-gateway-watchdog.{service,timer}`, 2026-05-28).**
+The Gateway can stay *up* yet lose its IBKR session during IBKR's overnight
+server-reset window: the in-place re-login hits a transient "Unrecognized
+Username or Password" dialog, IBC parks on it and never retries (`restart:
+unless-stopped` doesn't help — the process *hangs*, it doesn't die), so the
+data farms read "broken", every MES request times out, and `ib_paper` goes
+dark for hours until a container restart. The watchdog
+(`scripts/check_ib_gateway.py`, fired every 5 min) probes `ib_paper` via
+`ib_connect_check` — note a logged-out Gateway still reports `connected=true`
+but `net_liquidation=None`, so **health = connected AND net_liquidation
+populated** — and after 2 consecutive wedged checks runs
+`scripts/ops/restart_ib_gateway.sh` (the same `docker restart` the manual
+`vm-ib-gateway-recover` workflow performs). Guard rails `--max-restarts 3` +
+`--cooldown-min 20` mean a genuine bad-credential / IBKR lockout can never
+become a restart loop — once exhausted it alert-only escalates to Telegram.
+This automates the recovery that previously needed a manual
+`vm-ib-gateway-recover` dispatch. Background + the diagnosis that the failure
+is the overnight-reset login dialog (not 2FA, which the paper account doesn't
+use): health-review backlog `BL-20260527-003`.
+
 ## Headless Gateway on the VM (IBC — superseded native install)
 
 > Superseded by the Docker path above; kept for historical record. The

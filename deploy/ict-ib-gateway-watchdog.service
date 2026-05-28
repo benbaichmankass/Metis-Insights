@@ -1,0 +1,46 @@
+# ============================================
+# ICT IB GATEWAY WATCHDOG SYSTEMD SERVICE
+# Runs scripts/check_ib_gateway.py once per timer fire.
+#
+# Auto-heals the recurring MES/IB Gateway wedge (BL-20260527-003): the
+# ib-gateway container stays "up" but its IBKR session dies during IBKR's
+# overnight server reset (data farms broken, every account/market-data
+# request times out), so ib_paper collects no MES candles and all MES
+# strategies skip every tick. The fix IBC can't self-apply is a full
+# container restart — this watchdog probes ib_paper and, after a sustained
+# wedge, runs scripts/ops/restart_ib_gateway.sh (the same docker-restart
+# the manual vm-ib-gateway-recover dispatches).
+#
+# Safety: --restart-after 2 (need ~10 min of wedge before acting),
+# --max-restarts 3 + --cooldown-min 20 so a genuinely bad credential /
+# IBKR lockout can NEVER turn into a restart loop (every restart is a fresh
+# IBKR login). Once exhausted the watchdog alert-only escalates.
+#
+# Requires passwordless sudo for `docker restart` (same as the
+# vm-ib-gateway-recover workflow path) and ib_insync importable under the
+# system python3 (same interpreter the trader uses).
+#
+# Save to: /etc/systemd/system/ict-ib-gateway-watchdog.service
+# (installed automatically by scripts/install_systemd_units.sh during deploy)
+# ============================================
+
+[Unit]
+Description=ICT Trading Bot — IB Gateway Watchdog (MES auto-heal)
+After=network-online.target ict-trader-live.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/ict-trading-bot
+EnvironmentFile=/home/ubuntu/ict-trading-bot/.env
+# The .env carries no DATA_DIR (stripped by the fix-data-dir step), so set it
+# explicitly here — the watchdog writes its dedup/streak state to
+# $DATA_DIR/runtime_logs/ib_gateway_watchdog_state.json (canonical OCI data dir).
+Environment=DATA_DIR=/data/bot-data
+ExecStart=/usr/bin/python3 -u scripts/check_ib_gateway.py --probe-account ib_paper --auto-restart --restart-after 2 --max-restarts 3 --cooldown-min 20
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
