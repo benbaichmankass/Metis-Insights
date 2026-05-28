@@ -19,7 +19,8 @@
         "2026-05-28 (model-training, PR #2226): FIX SHIPPED + VALIDATED on the trainer (branch claude/zen-gauss-7E7Re). Added build_mes_market() to build_trainer_datasets.sh (yfinance ES=F 5m base -> resample 15m -> median-calibrated v002 market_features; symbol-scoped MES setup_labels). Validation run BUILD_EXIT=0: market_features/MES/5m=10852 rows (vol_threshold 0.0002637), 15m=3617 (0.0004862), setup_labels/MES/all=0 (empty -> clean skip). Pending: merge to main + one real daily cycle showing manifest_ok/skipped + cycle_end rc=0 to fully close.",
         "2026-05-28 (model-training): RESOLVED. #2226 merged to main (sha 71879f0); kicked a real cycle (head=71879f0, manifest_count=20). All MES manifests now clean: mes-regime-5m + mes-regime-15m => manifest_ok (data built, market_features/MES/5m=10852, 15m=3617); mes-setup-quality + mes-execution-quality + mes-trade-outcome-winrate => manifest_skipped(empty_dataset). cycle_end overall_rc=0 (was rc=1 every cycle). ExecMainStatus=0."
       ],
-      "status_history": "open -> resolved 2026-05-28 (verified in cycle head=71879f0)",
+      "status_history": "open -> resolved 2026-05-28 (verified in cycle head=71879f0)"
+    },
     {
       "id": "MB-20260527-002",
       "opened_at": "2026-05-27T09:40:00+00:00",
