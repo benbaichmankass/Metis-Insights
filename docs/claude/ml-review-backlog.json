@@ -78,6 +78,19 @@
       "resolution_criteria": "Either (a) ml/configs/mes-regime-1d.yaml exists and mes-regime-classifier-baseline-v0 (or its successor) shows fresh retrains in the cycle log; OR (b) operator approves deprecation (promote-stage research_only / manifest removal) and the model no longer sits at shadow.",
       "status": "open",
       "snoozed_until": null
+    },
+    {
+      "id": "MB-20260528-002",
+      "opened_at": "2026-05-28T11:30:00+00:00",
+      "opened_by": "claude (/ml-review -> model-training)",
+      "source": "Operator asked why MES isn't getting better (IBKR) data during the 2026-05-28 model-training session.",
+      "title": "Deeper MES history: run the IBKR historical pull ON the live VM (shares the one IB gateway) and sync to trainer; resolve the Error 162 session conflict",
+      "description": "MES regime models currently train on a rolling ~60-day ES=F 5m window from yfinance — the deepest intraday history yfinance serves and the only source reachable from the trainer VM. IBKR would give multi-year 1m MES history, but the architecture blocks it: (1) IB Gateway is a loopback-only socket on the LIVE VM (127.0.0.1:4002 via the gnzsnz socat relay) — the trainer VM cannot reach it. (2) IBKR permits exactly ONE logged-in session per username, so we can't run a second gateway on the trainer without disconnecting the live MES trader. The ibkr_offvm adapter (ml/datasets/adapters/ibkr_offvm.py) is therefore designed to run ON the live VM (guard ICT_IB_HISTORICAL_OK=1), sharing the live gateway on a DISTINCT clientId, paced gently (~12s between chunked reqHistoricalData calls), then the resulting market_raw shards sync to the trainer. (3) Current blocker: run_serious_baseline.sh's MES leg is gated behind MES_IBKR=1 (default 0) and was disabled 2026-05-22 because the gateway returned IBKR Error 162 'session connected from a different IP'. The 2026-05-28 IB-gateway auto-heal watchdog (ict-ib-gateway-watchdog) mitigates the overnight reset-wedge but does not address the historical-pull session conflict. PROPOSED PATH (Tier-2/3, live-VM, operator-gated): add a paced, low-priority IBKR historical-pull job on the LIVE VM (distinct clientId e.g. 450, useRTH=false, pause_s>=12) that writes market_raw/MES/{5m,15m,1m}/v002 and is picked up by the trainer sync; verify it does not perturb the live trading clientId; resolve why Error 162 fires (likely clientId collision or the gateway only accepting one source IP). Until then the ~60d yfinance window is the working fallback and the MES LightGBM models train on it.",
+      "tier": 3,
+      "trigger_condition": "Operator wants deeper/cleaner MES training history; or when the IB gateway session conflict (Error 162) is investigated.",
+      "resolution_criteria": "market_raw/MES/{5m,15m} at v002 carries multi-year (or at least multi-month) IBKR-sourced bars synced to the trainer, built without disconnecting or degrading the live MES trading session; mes-regime models retrain on it. OR operator decides the ~60d yfinance window is sufficient and this is closed as won't-do.",
+      "status": "open",
+      "snoozed_until": null
     }
   ]
 }
