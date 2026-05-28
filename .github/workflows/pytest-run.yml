@@ -65,5 +65,53 @@ jobs:
           # reports honest pass/fail so the advisory signal is truthful.
           # --ignore=tests/test_main_loop.py mirrors pytest-collect: that
           # module imports the live trading entrypoint.
+          # --junitxml feeds the failure-summary step below so the failing
+          # test names land in the GitHub job summary. The run log is not
+          # readable from a web Claude session, so without this a failure is
+          # a multi-round guess (the 2026-05-28 time-bomb-test incident: a
+          # clock-relative insights test reddened pytest-run and it took a
+          # full local-repro to name it).
           pytest -q tests/ \
-            --ignore=tests/test_main_loop.py
+            --ignore=tests/test_main_loop.py \
+            --junitxml=pytest-report.xml
+
+      - name: Summarize failing tests in the job summary
+        if: failure()
+        run: |
+          # Parse the JUnit report into the Checks-tab job summary so the
+          # culprit test(s) are visible in one click — no log-diving, no
+          # local repro. Always exits 0 so it never masks the real failure.
+          python3 - >> "$GITHUB_STEP_SUMMARY" <<'PY'
+          import glob, html, sys, xml.etree.ElementTree as ET
+
+          print("### pytest-run failures\n")
+          reports = glob.glob("pytest-report.xml")
+          if not reports:
+              print("_No JUnit report produced — the job failed before tests ran "
+                    "(collection / import / dependency error). See the raw step log._")
+              sys.exit(0)
+
+          fails = []
+          for path in reports:
+              try:
+                  root = ET.parse(path).getroot()
+              except ET.ParseError:
+                  continue
+              for tc in root.iter("testcase"):
+                  bad = tc.find("failure")
+                  if bad is None:
+                      bad = tc.find("error")
+                  if bad is None:
+                      continue
+                  name = "::".join(p for p in (tc.get("classname"), tc.get("name")) if p)
+                  lines = (bad.get("message") or "").strip().splitlines()
+                  fails.append((name, lines[0] if lines else ""))
+
+          if not fails:
+              print("_JUnit report listed no failing testcases — the job likely "
+                    "failed at a non-test step._")
+          else:
+              print(f"**{len(fails)} failing test(s):**\n")
+              for name, msg in fails:
+                  print(f"- `{name}` — {html.escape(msg)[:200]}")
+          PY

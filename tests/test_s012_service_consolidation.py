@@ -49,6 +49,10 @@ EXPECTED_SERVICES = {
     # globals every 15 min) + per-strategy slow tier (every 60 min).
     "ict-insights-generator.service",
     "ict-insights-generator-strategies.service",
+    # 2026-05-28: IB Gateway auto-heal watchdog (MES session recovery —
+    # BL-20260527-003). Timer-fired oneshot; pairs with
+    # ict-ib-gateway-watchdog.timer.
+    "ict-ib-gateway-watchdog.service",
 }
 
 # Trader-side units (i.e. units that run trading-strategy code). Used to

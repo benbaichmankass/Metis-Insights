@@ -62,7 +62,7 @@
       "trigger_condition": "Any /health-review run; or when a strategy is mysteriously silent in the audit tail.",
       "resolution_criteria": "intent_multiplexer._collect_intents emits a report()/audit event (e.g. 'strategy_builder'/'exception' with strategy + reason) on a builder exception, mirroring the legacy multiplexer, so a raising strategy shows up in signal_audit.jsonl and /api/diag/audit. (Code change — Tier-1 observability; not editable from /health-review which only writes docs + this backlog.) NOTE: this is the OBSERVABILITY gap only; the fade_breakout_4h crash itself is a separate Tier-3 strategy bug surfaced to the operator in the 2026-05-25 health-review response.",
       "status": "open",
-      "triage_note": "2026-05-27 /health-review: code path unchanged in src/runtime/intent_multiplexer.py — observability gap still present (the silent swallow of strategy-builder exceptions). No audit pull this review (relay queue wedged) so cannot re-verify per-strategy *_eval emissions, but no journalctl evidence of a new silent strategy. Remains operator-gated (Tier-1 code change).",
+      "triage_note": "2026-05-28 /health-review: observability gap OBSERVED AGAIN. journalctl 04:50-04:54 shows the IB/MES outage making every MES strategy raise 'no candle data returned for MES — skipping this tick' as a bare logger.WARNING in intent_multiplexer; those MES skips emit NO *_eval and NO audit event, so MES strategy silence is invisible on the diag surface (only journalctl). Exactly the swallow this item flags. Remains operator-gated (Tier-1 code change, not editable from /health-review).",
       "snoozed_until": null
     },
     {
@@ -118,7 +118,7 @@
       "trigger_condition": "Any /health-review run that scores a trend_donchian / fade_breakout_4h / squeeze_breakout_4h order package and sees a TP far from price (~50R / ~2x BTC). Recognize it as the intended sentinel — do NOT score it as a TP defect.",
       "resolution_criteria": "Informational standing note; nothing to fix. Close only if the 50R-sentinel mechanism is itself removed (e.g. the pipeline stops requiring a TP for trail-only strategies, or tp_r is changed in an operator-approved Tier-3 PR).",
       "status": "open",
-      "triage_note": "2026-05-27 /doc-freshness: SHORT-branch formula now clamped (PR #2141 merged 2026-05-27 09:01Z) — for shorts, tp = max(entry*0.01, entry - tp_r*risk). The clamp activates when 50R*risk > entry (the 'TP would go negative' case that hit trend_donchian at BTC ~$75k with risk ~$1500 on 2026-05-27 03:50-05:24, refused by the execute_pkg tp>0 pre-flight). Sentinel intent is unchanged — entry*0.01 is still effectively unreachable for BTC. LONG branch unaffected. Still a standing 'don't flag this as a defect' note; only the shape of the math changed for shorts.",
+      "triage_note": "2026-05-28 /health-review: a SECOND consequence of the short clamp surfaced — 10 trend_donchian SHORT orders were exchange_rejected on bybit_1+bybit_2 (trades 1771-1781, 2026-05-27 13:28-13:54) with Bybit ErrCode 10001 'TakeProfit < 10_pcnt of base': the clamped entry*0.01 short-TP sits ~1% of price, far inside Bybit's required ~10% TP distance. PR #2156 (fe3d46a, 'cap 50R sentinel TP within Bybit's ~10% rule') fixed this; the running sha 771c843 includes it and NO exchange_rejected has occurred since (cluster stopped after 13:54, before the 04:55 reboot). Still the standing 'don't re-flag the 50R sentinel as a defect' note; the Bybit-rule collision is the resolved part.",
       "snoozed_until": null
     },
     {
@@ -132,7 +132,7 @@
       "trigger_condition": "Next /health-review after 2026-05-25; specifically once fade_breakout_4h and/or squeeze_breakout_4h have fired at least one live setup on bybit_2 (fade needs chop / ADX<20 failed breakout; squeeze needs a Bollinger-in-Keltner release). If neither has fired yet, keep open and re-check next run.",
       "resolution_criteria": "Confirmed at least one fade AND one squeeze order package dispatched live to bybit_2 with a real (non-demo) execution, correct sizing/leverage, live trail ratchet, and correct journaling — vwap still shadow. If any of these is wrong (gated dry, mis-sized, no exchange order, mis-journaled), file a finding and surface to the operator (real money).",
       "status": "open",
-      "triage_note": "2026-05-27 /health-review: fade_breakout_4h DID emit signals in window (3 packages: pkg-f9cba06c0d0e48f3 long open; pkg ending 2026-05-27T05:06 long closed→trade 1763; pkg from 2026-05-26T14:54 short closed→trade 1742) — but ALL aggregated_target_qty=0.0 (same-direction reinforcement of an existing trade), so no NEW live order fired to verify against. squeeze_breakout_4h: zero packages in window (no fire). vwap (still execution: shadow) emitted 8 zero-qty reinforcement packages — correct behaviour. Net: cannot confirm fade dispatches a NEW live order yet; verification deferred to a fresh fade or squeeze fire.",
+      "triage_note": "2026-05-28 /health-review: PARTIALLY VERIFIED for fade. fade_breakout_4h now has REAL closed trades on bybit_2 (real money, is_demo=0): trade 1785 (opened 2026-05-28T01:23, entry 74392.1, exit 73777.9, pnl -0.70) and trade 1769 (2026-05-27T05:24, entry 75615.8, exit 75156, pnl -0.54) — non-zero size, correct tiny risk_pct-0.3 real-money sizing, correctly journaled with strategy=fade_breakout_4h/account=bybit_2. So fade DOES dispatch a live order to bybit_2 with correct sizing+journaling. STILL UNCONFIRMED: (a) the Chandelier trail ratchet (both closed via exit_reason=reconciler_filled, not a trail/TP exit); (b) squeeze_breakout_4h has STILL not fired any live setup. Keep open for squeeze + a trail-driven fade exit.",
       "snoozed_until": null
     },
     {
@@ -146,7 +146,7 @@
       "trigger_condition": "Any /health-review run; or whenever order_packages shows multiple open same-direction zero-qty packages for one live position. Investigate the intent_multiplexer / order-package persistence path.",
       "resolution_criteria": "A same-direction reinforcement that aggregates to target_qty=0 no longer leaves a lingering status='open' order_packages row (it is skipped or persisted terminal), so ghost packages stop accumulating and the stuck-watchdog has nothing benign to flag. Order-path change (Tier-2): open a draft PR + operator review.",
       "status": "open",
-      "triage_note": "2026-05-27 /health-review: STILL HAPPENING at high cadence. 21/21 packages in window (~14h) all carry aggregated_target_qty=0.0 + empty sized_qty_by_account — across 3 strategies: 8 vwap (2026-05-26T22:22–23:13), 10 trend_donchian (2026-05-27T03:50–05:24), 3 fade_breakout_4h. 18/21 have linked_trade_id=null (pure ghost), 3 link to live trades 1742/1763/1769 (reinforcement). 15 ended status=orphaned by reconciler (5min BUG-049). Two new edge cases: conflict_resolved_by_priority (e.g. vwap wins over trend_donchian, then still aggregates to 0) also produces ghost packages. Code change still pending — Tier-2.",
+      "triage_note": "2026-05-28 /health-review: STILL HAPPENING — now 19/19 in-window packages (2026-05-28 04:04-06:04) carry aggregated_target_qty=0.0 + empty sized_qty_by_account, linked_trade_id=null, and ALL ended status=orphaned by the 5min reconciler (100%). Both edge cases present: same_direction_reinforcement AND conflict_resolved_by_priority (vwap priority=40 long beats trend_donchian short, then aggregates to 0). journalctl 06:00 confirms the downstream effect: strategy_monocle skips dispatch ('strategy=vwap already has open package pkg-5d6aa3051b364cdc') because the prior ghost is still open — self-perpetuating churn until the 5min orphan. Code change still pending — Tier-2.",
       "snoozed_until": null
     },
     {
@@ -174,7 +174,7 @@
       "trigger_condition": "Any /health-review run; or any session attempting to train MES regime / setup-quality models.",
       "resolution_criteria": "Either (a) build_trainer_datasets.sh extended to invoke a build_market_pair-like helper for MES using the yfinance/ES=F adapter for 5m + 15m plus a MES-scoped setup_labels build, so the three failing manifests either train (where data is present) or empty_dataset-skip (where it isn't); OR (b) the three failing manifests are explicitly scoped out of the daily cycle (e.g. via a TRAINING_MANIFESTS-exclude wrapper) so overall_rc returns 0. Cycle log on next run shows zero manifest_failed events. Pure trainer-VM tooling change; autonomous (Tier-1).",
       "status": "open",
-      "triage_note": "2026-05-27 /health-review: re-confirmed — trainer-vm-diag shows ict-trainer.service ExecMainStatus=1 on the 2026-05-27 00:28 cycle (InactiveEnterTimestamp 00:31:25). Timer still enabled+active; next fire 2026-05-28 00:02. Service-health graded WATCH in this review; manifest detail belongs to /ml-review.",
+      "triage_note": "2026-05-28 /health-review: re-confirmed — trainer-vm-diag shows ict-trainer.service is-active=failed, ExecMainStatus=1 on the 2026-05-28 00:02 cycle (InactiveEnterTimestamp 00:05:48). Timer enabled+active, fired on schedule, next fire Fri 2026-05-29 00:17. Service-health graded WATCH this review; manifest detail belongs to /ml-review.",
       "snoozed_until": null
     },
     {
@@ -187,11 +187,11 @@
       "tier": 1,
       "trigger_condition": "Any /health-review run; or any session that opens >2 diag issues in quick succession and notices subsequent ones never return.",
       "resolution_criteria": "vm-diag-snapshot.yml carries an `if: always()` (or `if: cancelled()` + `if: failure()`) closing-comment step that ALWAYS posts a result-or-error comment + closes the issue, so no diag issue can be left silently OPEN. Then sweep the 38 stale open issues — close as 'workflow run silently failed; re-open if you need the data'. Code change (Tier-1 observability); not editable from /health-review.",
-      "status": "partially-resolved",
-      "resolved_at": "2026-05-27T09:35:11+00:00",
-      "resolved_by": "claude (session-close 2026-05-27)",
-      "resolution": "ROOT-CAUSE refined this session: vm-diag-snapshot.yml ALREADY carries `if: cancelled()` + `if: failure()` + an implicit-success handler that together cover every terminal job state. The remaining gap is when GitHub's webhook layer batches rapidly-filed `issues.opened` events and silently drops some — the workflow never starts, so none of the handlers fire. There's no in-workflow fix for that. Instead, a SEPARATE sweeper workflow `.github/workflows/diag-relay-sweep.yml` was shipped (PR #2144, merged 2026-05-27 ~09:50Z): daily cron at 06:00 UTC + on-demand workflow_dispatch; finds open `vm-diag-request` / `trainer-vm-diag-request` issues >30 min old with no `github-actions[bot]` reply, comments + closes them. REMAINING: the sweeper hasn't been verified end-to-end yet — operator should fire workflow_dispatch (dry_run=true to preview, then dry_run=false to actually close the 38 stale issues), or wait for the first cron at 2026-05-28 06:00 UTC. Once verified, mark this item fully resolved.",
-      "triage_note": "2026-05-27 session-close: sweeper workflow shipped; awaiting first run.",
+      "status": "resolved",
+      "resolved_at": "2026-05-28T06:20:00+00:00",
+      "resolved_by": "claude (/health-review 2026-05-28)",
+      "resolution": "ROOT-CAUSE refined 2026-05-27: vm-diag-snapshot.yml ALREADY carries `if: cancelled()` + `if: failure()` + an implicit-success handler that together cover every terminal job state. The remaining gap is when GitHub's webhook layer batches rapidly-filed `issues.opened` events and silently drops some — the workflow never starts, so none of the handlers fire. There's no in-workflow fix for that. Instead, a SEPARATE sweeper workflow `.github/workflows/diag-relay-sweep.yml` was shipped (PR #2144, merged 2026-05-27 ~09:50Z): daily cron at 06:00 UTC + on-demand workflow_dispatch; finds open `vm-diag-request` / `trainer-vm-diag-request` issues >30 min old with no `github-actions[bot]` reply, comments + closes them. VERIFIED 2026-05-28: the first 06:00 UTC cron ran and cleared the entire stale backlog — `list_issues(label=vm-diag-request, state=OPEN)` returned 0 (the ~38 issues going back to #1327 are all closed). The webhook-drop wedge still recurs (this review's #2173/#2174/#2175 never returned and were closed manually), but that is now an accepted condition: the sweeper cleans up any silently-dropped issue within ≤24h, so no diag-request stays OPEN indefinitely. Mitigation confirmed working end-to-end.",
+      "triage_note": "2026-05-28 /health-review: sweeper verified — 0 open vm-diag-request issues remain after the 06:00 cron. Re-wedge of 3 rapid-fired pulls observed but auto-cleanup confirmed. Marked resolved.",
       "snoozed_until": null
     },
     {
@@ -231,7 +231,11 @@
       "tier": 2,
       "trigger_condition": "Any /health-review run; investigate via gateway-logs + provision_ib_gateway.sh on the next 12-24h MES outage.",
       "resolution_criteria": "Either IBC's nightly auto-restart reliably re-establishes the upstream IB session (verifiable by 7 consecutive days with no `Up >20h with broken farm connections` state), or a sanctioned scheduled job replaces it (e.g. systemd timer triggering vm-ib-gateway-recover at 11:55 PM UTC, before IB's reset window).",
-      "status": "open",
+      "status": "partially-resolved",
+      "resolved_at": "2026-05-28T07:05:00+00:00",
+      "resolved_by": "claude (working session, operator-directed)",
+      "resolution": "ROOT CAUSE REFINED 2026-05-28 (corrects the original 2FA/nightly-restart hypotheses). gateway-logs (issue #2184) showed the container 'Up 13h' but logged OUT of IBKR since `2026-05-28 04:30:50 IBC: detected dialog entitled: Unrecognized Username or Password` — i.e. during IBKR's overnight server-reset window the Gateway's in-place re-login hit a TRANSIENT bad-credential dialog and IBC parked on it, never retrying. NOT 2FA (the paper account DUQ325724 logs in with no 2FA — confirmed by the #2185 recover log: 'Click button: Paper Log In' → 'Login has completed', no Mobile prompt). NOT a real bad password (a full container restart re-logins cleanly — that's why vm-ib-gateway-recover works). NOT `restart: unless-stopped` (the process hangs on the dialog, it never dies, so Docker never restarts it). The gap: nothing auto-recovers a stuck login-failure dialog (`TWOFA_TIMEOUT_ACTION=restart` only covers 2FA timeouts, which never fire for paper). FIX (operator-approved 2026-05-28, branch claude/health-check-CjAWV, draft PR #2183): a symptom-driven auto-heal watchdog — scripts/check_ib_gateway.py + deploy/ict-ib-gateway-watchdog.{service,timer}, firing every 5 min: probes ib_paper via ib_connect_check (healthy ⇔ connected AND net_liquidation populated — a logged-out gateway reports connected=true but net_liquidation=None), and after 2 consecutive wedged checks runs scripts/ops/restart_ib_gateway.sh, with max-restarts=3 + 20-min cooldown so a genuine bad-cred/lockout can never become a restart loop (then it alert-only escalates). The fixed daily scheduled-restart option was considered and DROPPED as non-structural per operator — the watchdog self-heals any wedge within ~5-10 min, fine for delayed paper data. REMAINING: operator merge + pull-and-deploy, then verify the watchdog auto-heals across a few overnight IBKR resets (target: no manual vm-ib-gateway-recover needed).",
+      "triage_note": "2026-05-28 working session: RECURRED + diagnosed + fix built. gateway-logs caught the 04:30:50Z 'Unrecognized Username or Password' dialog (logged-out 2h+); restored live via vm-ib-gateway-recover #2185 (clean paper login, no 2FA). Auto-heal watchdog shipped to draft PR #2183. 2026-05-28 (S-MES-AUTOHEAL): MERGED (#2183 -> main 6972a9f) + DEPLOYED (4d4d0c3 via pull-and-deploy #2196); watchdog confirmed LIVE — timer active + healthy probe (probe: healthy=True net_liquidation=1000600.6 action=none) in the #2196 post-restart systemd dump. The HEALTHY path is proven; the RESTART path on a real wedge is not yet observed in prod — tracked for next-health-review verification as BL-20260528-001.",
       "snoozed_until": null
     },
     {
@@ -245,6 +249,7 @@
       "trigger_condition": "Any /health-review run; tractable as a code-only investigation (no live-trading risk).",
       "resolution_criteria": "Either (a) confirm + ship a token-cleanup-on-404 path in notifier.py so dead tokens are pruned automatically, or (b) confirm the cleanup already exists and the token store has been drained, and document the operator path to re-register the Android app's FCM token. The 404 cluster should stop appearing in the journal after a fresh signal emission.",
       "status": "open",
+      "triage_note": "2026-05-28 /health-review: CONFIRMED STILL OCCURRING. journalctl shows a flood of 'FCM publish non-2xx: status=404 ... NOT_FOUND' on every signal emission — ~12+ per emit at 04:55:36-38 (post-boot fade signal) and again at 06:00:35-36 (vwap signal_emitted). Dead/unregistered device tokens are not being pruned on 404; the notifier keeps targeting them each emit. No token-cleanup-on-404 path is taking effect. Tier-1 code investigation in src/runtime/mobile_push/notifier.py — not editable from /health-review.",
       "snoozed_until": null
     },
     {
@@ -258,6 +263,7 @@
       "trigger_condition": "Next /performance-review window after at least 3 more BTCUSDT VWAP signals fire.",
       "resolution_criteria": "Either confirm target_qty>0 on the subsequent VWAP signals (transient single-tick artifact, close), or trace the sizing-to-zero root cause (which strategy/account/RiskManager refused, with the structured reason token from _explain_zero_sized_qty).",
       "status": "open",
+      "triage_note": "2026-05-28 /health-review: NOT transient — sustained on every in-window vwap signal. Two distinct contributors now visible: (1) vwap is execution:shadow, so the intent layer emits target_qty=0.0 BY DESIGN (journalctl 06:00: \"vwap emitted intent side=long target_qty=0.000000 priority=40\"); (2) on bybit_1 (demo) the trades table shows status=rejected risk_refused sized_qty=0 'check daily-loss budget...' — bybit_1 closed -108 on 2026-05-28 (trade 1784) which exceeds its daily_usd=100 cap, so RiskManager is correctly refusing further trades for the UTC day (Prime-Directive per-trade refusal, not a bug). Net effect: no live vwap order, as expected. Full per-account confirmation belongs to /performance-review.",
       "snoozed_until": null
     },
     {
@@ -270,6 +276,19 @@
       "tier": 3,
       "trigger_condition": "Operator-only — no autonomous action possible. Surface every /health-review run until resolved.",
       "resolution_criteria": "Both leaked issue comments deleted (404 on the comment URLs); FCM service-account key rotated at Google Cloud Console; ${DATA_DIR}/fcm_service_account.json updated to the new credential and a fresh push test succeeds (kicks the notifier and confirms no 404 NOT_FOUND).",
+      "status": "open",
+      "snoozed_until": null
+    },
+    {
+      "id": "BL-20260528-001",
+      "opened_at": "2026-05-28T08:15:00+00:00",
+      "opened_by": "claude (working session, S-MES-AUTOHEAL)",
+      "source": "Operator request at session close — confirm the deployed IB Gateway watchdog actually heals a real wedge, not just that it probes healthy.",
+      "title": "Verify the ict-ib-gateway-watchdog RESTART path fires end-to-end on a real overnight IBKR-reset wedge",
+      "description": "The auto-heal watchdog (the BL-20260527-003 fix, PR #2183) went live on the trader VM on 2026-05-28 (main 6972a9f, deployed as 4d4d0c3 via pull-and-deploy #2196). Its HEALTHY path is confirmed — the #2196 post-restart systemd dump shows `probe: healthy=True reason=net_liquidation=1000600.6 action=none` and the timer active (TriggeredBy). What is NOT yet observed in production is the RESTART path: that on a genuine wedge (a logged-out Gateway reports `connected=true` but `net_liquidation=None`) the watchdog actually runs `scripts/ops/restart_ib_gateway.sh` and brings `ib_paper`/MES back with no human in the loop. The natural test is IBKR's overnight server-reset window (~04:30 UTC), the same window that produced the 2026-05-28 wedge. The watchdog journal is now readable from the diag surface — `ict-ib-gateway-watchdog.{service,timer}` was added to diag.py `_CANONICAL_UNITS` in #2192, so `/api/diag/journalctl?unit=ict-ib-gateway-watchdog.service` works.",
+      "tier": 1,
+      "trigger_condition": "Any /health-review run on or after 2026-05-29: pull `/api/diag/journalctl?unit=ict-ib-gateway-watchdog.service` covering the overnight window (use ?since=/?until= for the ~04:00-05:30 UTC reset) and read the per-fire `probe:` lines.",
+      "resolution_criteria": "A /health-review confirms in the watchdog journal at least one real wedge that the watchdog auto-recovered: a probe `healthy=False` (net_liquidation=None) followed within ~2 checks by a logged `action=restart`, then a subsequent probe `healthy=True` — with NO manual vm-ib-gateway-recover dispatch in that window. Confirm across at least one (ideally a couple) overnight resets, then mark BL-20260527-003 fully resolved. If MES instead stayed healthy through the reset (no wedge to heal), record that and keep watching — absence of a wedge is not yet proof the restart path works. If guard rails tripped (`max-restarts 3` exhausted -> alert-only), surface to the operator: that means a genuine lockout the watchdog can't fix.",
       "status": "open",
       "snoozed_until": null
     }
