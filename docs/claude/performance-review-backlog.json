@@ -30,6 +30,28 @@
       "resolution_criteria": "(a) A post-cap trend_donchian short on bybit_2 reaches status open/closed (fill confirmed) -> close (a); if it keeps orphaning, escalate the sized_qty=0 path to the health-review backlog. (b) >=4 closed fade trades accumulated -> if conf<0.2 fills are net-negative as a cohort, fire a proposed_tweaks[] entry for fade_breakout_4h.min_confidence; if conf shows no relationship to outcome, close (b) as invalid.",
       "status": "open",
       "snoozed_until": null
+    },
+    {
+      "id": "PB-20260529-001",
+      "opened_at": "2026-05-29T18:30:00+00:00",
+      "opened_by": "claude (order-rejection cap-fix session) — operator request",
+      "source": "Operator request: the /performance-review (strategy check) must verify that the percentage daily-loss cap (PR #2265) actually results in bybit_1 (+ other in-scope accounts) EXECUTING trades, not merely that it deployed. Mirrors health-review BL-20260529-001 on the trading side.",
+      "title": "RECURRING: confirm the %-based daily-loss cap (PR #2265) lets bybit_1 actually TRADE (sized_qty>0 fills), not just deploy",
+      "description": "PR #2265 (merged b149b15; now in main 9039511, deployed + restarted 2026-05-28T23:29:36Z) replaced bybit_1's hardcoded $100 daily-loss cap with daily_loss_pct=0.05 (5% of equity) on bybit_1/bybit_2/ib_paper/ib_live (prop unchanged). Verified deployed + healthy + unit-tested (tests/test_daily_loss_pct_cap.py). NOT YET observed on live data: an actual in-scope-account dispatch with sized_qty>0 since the deploy. Cause is benign — an extended flat/low-vol market (~16h+ as of 2026-05-29, confirmed via live journalctl with moving prices) produced NO actionable signal on any strategy (vwap regime-gated sideways/low; trend_donchian mid-channel; fade/squeeze need volatility; ict_scalp no sweep). So nothing dispatched on any account; newest trade row was still id 1866 @ 2026-05-28 22:25:01 (pre-deploy bybit_1/vwap risk_refused sized_qty=0). System-health verification is tracked in health-review-backlog BL-20260529-001; THIS is the trading-side mirror so a /performance-review confirms it when grading the post-deploy order-package cohort.",
+      "tier": 1,
+      "recurring": true,
+      "trigger_condition": "EVERY /performance-review until resolved. When grading the post-2026-05-28T23:29:36Z order-package / trade cohort, check whether bybit_1 (or bybit_2 / ib_paper) produced any dispatch with sized_qty>0 (status open/closed) vs continued sized_qty=0 / risk_refused rejections.",
+      "resolution_criteria": "RESOLVE when an in-scope-account order package created after the deploy links to a real trade (sized_qty>0, status open/closed) — i.e. the cap no longer zeroes sizing on a live signal. REGRESSION (escalate, do NOT close): a post-deploy sized_qty=0 / risk_refused rejection on an in-scope account while that account's realized daily loss is small relative to 5% of its equity — means the percentage cap did not take effect.",
+      "carry_forward_instructions": "Keep open across reviews until the resolution criteria are met. If a /performance-review window has no qualifying dispatch (quiet market), append a dated entry to check_log and leave status=open so the NEXT review continues the check. Cross-ref health-review BL-20260529-001 (same verification, system-health side).",
+      "check_log": [
+        {
+          "at": "2026-05-29T~14:30Z",
+          "by": "claude (cap-fix session)",
+          "note": "Monitored ~16h post-deploy: bot healthy + ticking on live mainnet data (prices moving each tick), all 6 strategies legitimately 'no actionable signal' (flat low-vol market). Zero dispatches on any account; no qualifying sized_qty>0 row yet. Cap fix confirmed deployed (71e7a44/9039511) + unit-tested; live trade proof pending a market signal."
+        }
+      ],
+      "status": "open",
+      "snoozed_until": null
     }
   ]
 }
