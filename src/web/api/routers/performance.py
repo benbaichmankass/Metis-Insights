@@ -209,9 +209,9 @@ async def get_performance(
     try:
         rows = _query(_DB_PATH, since)
         return _aggregate(rows, window, since)
-    except sqlite3.Error:
+    except sqlite3.Error:  # allow-silent: logged (logger.exception) + best-effort zeroed envelope so the Performance tab stays usable on a DB read failure
         logger.exception("performance: sqlite read failed")
         return _empty(window, since)
-    except Exception:  # noqa: BLE001
+    except Exception:  # noqa: BLE001  # allow-silent: logged (logger.exception) + best-effort zeroed envelope; never raise a 5xx for this Tier-1 read
         logger.exception("performance: unexpected error")
         return _empty(window, since)
