@@ -314,6 +314,33 @@
       "title": "ict-trader-live floods 'FCM publish non-2xx: status=404 NOT_FOUND' from mobile_push.notifier",
       "detail": "journalctl ict-trader-live (2026-05-28 ~22:13Z) shows repeated FCM publish 404 NOT_FOUND on signal_emitted pushes. Stale/unregistered Android FCM token (or wrong project). Surfaced while debugging the Android app's Order Packages/Performance tabs. Verify the registered device token + FCM project/credentials; consider pruning dead tokens so the notifier stops retrying every signal.",
       "found_during": "order-rejection investigation (docs/audits/order-rejections-2026-05-28.md)"
+    },
+    {
+      "id": "BL-20260529-001",
+      "opened_at": "2026-05-29T08:40:00+00:00",
+      "opened_by": "claude (working session, order-rejection % daily-loss cap)",
+      "source": "Operator request at session close — the live confirmation of PR #2265 must RECUR across health reviews until an actual bybit_1 dispatch is observed; quiet-market reviews must carry the note forward rather than close it.",
+      "title": "RECURRING: confirm the %-based daily-loss cap (PR #2265) lets bybit_1 actually size >0 on a LIVE dispatch — keep checking until observed",
+      "description": "PR #2265 (merged main b149b15) replaced bybit_1's hardcoded $100 daily-loss cap with daily_loss_pct=0.05 (5% of equity) on bybit_1/bybit_2/ib_paper/ib_live (prop unchanged), added a latching cap-hit/resume Telegram ping, and fixed the is_demo mislabel on early-refusal rows. Deployed via pull-and-deploy (issue #2267) — ict-trader-live synced a370cfd->b149b15 and restarted 2026-05-28T23:29:36Z. VERIFIED so far: deploy live (status git_sha=b149b15), trader healthy + ticking on two liveness checks (2026-05-29T00:54Z and 08:33Z, heartbeat 'running', fresh last_tick), bybit_1 live with all 6 strategies loaded; unit tests (tests/test_daily_loss_pct_cap.py) prove position_size>0 at daily_pnl=-100 on a $274k balance. NOT YET OBSERVED: an actual post-deploy dispatch on an in-scope account with sized_qty>0. Reason: extended overnight no-signal market lull — newest trade row is still id=1866 @ 2026-05-28 22:25:01 (all the recent rows are the pre-deploy bybit_1/vwap 'risk_refused: sized_qty=0' rejections); order_packages static since 22:36; every strategy returning 'no actionable signal' (vwap regime-gated, breakouts need volatility). So the positive live proof is gated on a market signal that hasn't come yet.",
+      "tier": 1,
+      "recurring": true,
+      "trigger_condition": "EVERY /health-review run until resolved. Pull `journal?table=trades` via the single-param diag relay and look for any in-scope-account (bybit_1/bybit_2/ib_paper/ib_live) trade row created AFTER 2026-05-28T23:29:36Z.",
+      "resolution_criteria": "RESOLVE (close) only when an in-scope-account trade row created after 2026-05-28T23:29:36Z is observed that is NOT a sized_qty=0/risk_refused rejection (status open/closed, or position_size>0) — i.e. the cap no longer zeroes sizing. REGRESSION (do NOT close — escalate to operator immediately): a NEW post-deploy 'risk_refused: sized_qty=0' rejection appears on an in-scope account while that account's realized daily loss is small relative to 5% of its equity, meaning the percentage cap did not take effect.",
+      "carry_forward_instructions": "This item MUST stay open and be re-checked on EVERY subsequent /health-review until the resolution criteria are met — even if the next several reviews land in a quiet market. If a review runs with no qualifying dispatch, DO NOT close it: append a dated entry to check_log recording (a) heartbeat label + last_tick (liveness), (b) newest trade-row id + timestamp, (c) whether any in-scope dispatch occurred since the deploy, and leave status=open so the NEXT review continues the watch. Only the review that actually observes a qualifying dispatch (or a regression) changes the status.",
+      "check_log": [
+        {
+          "at": "2026-05-29T00:54Z",
+          "by": "claude (deploy session)",
+          "note": "Liveness OK (git_sha b149b15, last_tick 00:53:27Z). No in-scope dispatch since deploy; newest trade id=1866 @ 2026-05-28 22:25:01. Quiet market."
+        },
+        {
+          "at": "2026-05-29T08:33Z",
+          "by": "claude (deploy session)",
+          "note": "Liveness OK (heartbeat 'running' age 46s, last_tick 08:32:38Z, uptime ~9h, no unexpected restart). Still no in-scope dispatch; newest trade id=1866. ~10h no-signal lull. Pending live confirmation."
+        }
+      ],
+      "status": "open",
+      "snoozed_until": null
     }
   ]
 }
