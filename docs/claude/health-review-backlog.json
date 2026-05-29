@@ -303,7 +303,10 @@
       "tier": 1,
       "trigger_condition": "Any /health-review run, or the next time a session needs a multi-param diag pull.",
       "resolution_criteria": "A multi-param diag request (e.g. journal?table=trades&limit=40) completes and posts JSON back, OR the workflow title decode/validation is fixed (fully decode &amp; before the regex, or URL-decode) and verified with a multi-param pull.",
-      "status": "open",
+      "status": "resolved",
+      "resolved_at": "2026-05-29T10:29:00+00:00",
+      "resolved_by": "claude (/health-review follow-up)",
+      "resolution": "VERIFIED FIXED EMPIRICALLY 2026-05-29: a fresh multi-param pull `journal?table=trades&limit=5` (issue #2315) returned JSON (5 rows) and auto-closed — the resolution criteria's first clause is met. vm-diag-snapshot.yml already carries the `${raw//&amp;/&}` entity-decode (lines ~123) and the path-validation regex already allows `&` (`^[A-Za-z0-9/?&=_.:%-]+$`), so the multi-param path now decodes and validates correctly. The prior-session failures (#2251/#2252) were not reproduced; no code change required. NOTE: the EARLIER multi-param failures observed in THIS session's first half (#2293/#2294 etc.) were the ict-web-api deploy-bounce outage (~09:45-09:52Z), not the & decode — single-param paths failed in that same window too.",
       "snoozed_until": null
     },
     {
