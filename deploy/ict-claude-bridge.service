@@ -16,8 +16,19 @@ WorkingDirectory=/home/ubuntu/ict-trading-bot
 ExecStart=/usr/bin/python3 -u -B -m src.bot.claude_bridge
 Restart=always
 RestartSec=15
-StandardOutput=append:/home/ubuntu/ict-trading-bot/runtime_logs/claude_bridge.log
-StandardError=append:/home/ubuntu/ict-trading-bot/runtime_logs/claude_bridge_error.log
+# Log to the systemd journal (was append:runtime_logs/claude_bridge*.log).
+# Rationale (2026-05-29): the bridge is the SOLE drainer of the Claude
+# update channel, but its only logs were repo-path files that no read
+# surface (diag /api/diag/journalctl|log_file|services, status_check.sh,
+# pull_logs.sh) ever exposed — so a delivery failure (e.g. a Telegram
+# send error that leaves pings undrained) was completely invisible, and
+# the StandardError append-file had already grown to ~45 MB. Journald
+# makes the bridge's send errors readable via
+# `journalctl -u ict-claude-bridge` (paired with the unit's addition to
+# diag.py::_CANONICAL_UNITS in the same change) and caps the growth via
+# journald rotation.
+StandardOutput=journal
+StandardError=journal
 EnvironmentFile=/home/ubuntu/ict-trading-bot/.env
 
 # Memory cap so a runaway bridge can't OOM the trader
