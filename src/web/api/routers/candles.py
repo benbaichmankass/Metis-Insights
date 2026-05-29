@@ -19,9 +19,11 @@ the dashboard falls back to yfinance.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import time
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List, Optional
 
 import pandas as pd
@@ -33,6 +35,21 @@ router = APIRouter(prefix="/api/bot", tags=["bot"])
 
 DEFAULT_LIMIT = 200
 MAX_LIMIT = 1000
+
+# Dedicated SINGLE-worker executor for the (blocking) market-data fetch.
+#
+# The route handler is ``async`` so it runs on uvicorn's event loop. The
+# IBKR path (MES) drives ib_insync's SYNCHRONOUS API, which internally calls
+# ``loop.run_until_complete(...)`` — illegal on an already-running loop
+# ("Cannot run the event loop while another loop is running"). Bybit (BTCUSDT)
+# is plain sync HTTP and is unaffected, which is why only MES returned
+# ``no_data``. Offloading the fetch to a worker thread gives ib_insync a
+# thread with no running loop so its sync calls resolve. **max_workers=1** is
+# load-bearing: the cached IB connection's socket transport is bound to one
+# loop/thread, so every IB request must run on that same thread — a multi-
+# worker pool would reintroduce the "Future attached to a different loop"
+# hang. Serialization is fine here: the 10 s cache keeps real fetches rare.
+_FETCH_EXECUTOR = ThreadPoolExecutor(max_workers=1, thread_name_prefix="candles-fetch")
 # Native exchange timeframes the chart offers. Kept in sync with the
 # dashboard's interval selector.
 _ALLOWED_INTERVALS = {"1m", "5m", "15m", "30m", "1h", "2h", "4h", "1d"}
@@ -139,7 +156,13 @@ async def get_candles(
         candles = cached[1]
     else:
         try:
-            candles = _fetch_candles(symbol, interval, limit)
+            # Run the blocking fetch on the dedicated single-worker thread so
+            # the IBKR (MES) path's synchronous ib_insync calls don't try to
+            # drive uvicorn's already-running event loop. See _FETCH_EXECUTOR.
+            loop = asyncio.get_running_loop()
+            candles = await loop.run_in_executor(
+                _FETCH_EXECUTOR, _fetch_candles, symbol, interval, limit
+            )
         except Exception as exc:  # allow-silent: best-effort market-data read; logs + empty so the dashboard falls back to yfinance
             logger.warning("candles: fetch failed for %s/%s: %s", symbol, interval, exc)
             candles = []
