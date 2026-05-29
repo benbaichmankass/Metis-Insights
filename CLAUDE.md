@@ -503,6 +503,29 @@ no artifact download, no run-log read**), Google Drive (file search
 + read), Hugging Face (hub search, doc fetch), Bigdata.com (market
 data), Gmail (read-only labels).
 
+**The hosted GitHub MCP drops intermittently — DO NOT treat it as an
+expired token.** In long-running sessions the `mcp__github__*` server
+disconnects and reconnects repeatedly (a single 2026-05-29 session saw
+~6 cycles). A call that lands during a drop fails with
+`MCP server "github" requires re-authorization (token expired)` — but
+this is a **transient, self-healing blip, not a real OAuth expiry**: a
+cheap retry (e.g. `get_me`) succeeds seconds later, as verified that
+session. **Correct handling:** on that error, wait a few seconds and
+retry with backoff (2s/4s/8s/16s) — `ToolSearch "select:mcp__github__get_me"`
+then `get_me` is a good liveness probe. Only escalate to the operator
+after the failures persist for **several minutes across multiple
+retries**. **Never ask the operator to "re-authorize GitHub" on the
+first hit** — they cannot trigger an in-session reauth on Claude Code
+on the web, and 16h-long monitoring loops are exactly what surface
+these drops, so a premature hand-off strands the task on a false alarm.
+The underlying connector stability is Anthropic-hosted (not fixable
+from this repo); the durable workaround for a VM-data task that must not
+depend on GitHub is the **direct diag path** (`DIAG_BASE_URL` +
+`DIAG_READ_TOKEN` + `scripts/ops/diag_fetch.sh`), which needs the
+environment created at **Full** network access — at the default
+**Trusted** level egress to the VM is firewalled and the issue relay is
+the only channel.
+
 **Network from inside the session** — governed by the cloud
 environment's **Network access** level (None / Trusted / Full /
 Custom). At the default **Trusted** level outbound is allowlisted to
