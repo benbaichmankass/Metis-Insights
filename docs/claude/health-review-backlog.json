@@ -346,9 +346,17 @@
           "at": "2026-05-29T09:52Z",
           "by": "claude (/health-review)",
           "note": "Liveness OK (status #2302: heartbeat 'running' age 3s, last_tick 09:52:07Z, git_sha 22e2cf0 after a git-sync deploy bounce, bybit_1/bybit_2/ib_paper live). Trades table READ (#2304): newest row still id=1866 @ 2026-05-28 22:25:01 — PRE-deploy, no in-scope trade row created after the 2026-05-28T23:29:36Z deploy. All recent rows (1845-1866) are the pre-deploy rejected/sz=0/is_demo=0 BTCUSDT-short cluster. order_packages (#2307) also static since 22:25:01 (vwap BTCUSDT short, all orphaned/closed). audit (#2308): all 6 strategies emit *_eval every tick, all regime-gated non-actionable — genuine no-signal lull (~11.5h), NOT a pipeline break. No qualifying dispatch and no regression. Per carry-forward, status stays OPEN."
+        },
+        {
+          "at": "2026-05-29T19:40Z",
+          "by": "claude (/health-review)",
+          "note": "RESOLVED. Trades pull (#2384) shows a QUALIFYING post-deploy dispatch: trade id=1867 account_id=bybit_1 (in-scope) created 2026-05-29T15:12:15Z — status=open, position_size=2.173 (>0), is_dry=false, ict_scalp_5m, entry 73704.1 / SL 72442.4 / TP 75596.7. This is the first actionable signal after the long lull and it sized >0 on bybit_1, exactly what PR #2265's %-cap was meant to restore (contrast id=1866, bybit_1 PRE-deploy, risk_refused sized_qty=0 on a $274k balance). The sibling row id=1868 (bybit_2, is_demo=0, same pkg-5dc66cf92b5e407f) is status=rejected sz=0 but the reason is intent_noop:at_target (already holds 0.001 BTC matching target) — a benign no-op, NOT a daily-loss-cap refusal, so NOT a regression. Criteria met: in-scope post-deploy row, position_size>0, status=open. Closing."
         }
       ],
-      "status": "open",
+      "status": "resolved",
+      "resolved_at": "2026-05-29T19:40:00+00:00",
+      "resolved_by": "claude (/health-review)",
+      "resolution": "Observed the qualifying post-deploy live dispatch: bybit_1 trade id=1867 (2026-05-29T15:12:15Z) sized position_size=2.173 >0, status=open, is_dry=false — the %-based daily-loss cap (daily_loss_pct=0.05, PR #2265 main b149b15) no longer zeroes bybit_1 sizing on a $274k balance. No regression on the sibling bybit_2 leg (intent_noop:at_target, not a cap refusal). The recurring watch is satisfied.",
       "snoozed_until": null
     },
     {
@@ -361,6 +369,7 @@
       "tier": 2,
       "trigger_condition": "Any /health-review run; or whenever a deploy of a docs/comms-only commit is observed to bounce the live trader, or a vm-web-api-recover dispatch is webhook-dropped.",
       "resolution_criteria": "PRIMARY: deploy_pull_restart.sh (or the git-sync path) skips the ict-trader-live restart when the pulled diff touches no runtime path (docs/comms-only) — verify a docs-only commit deploys without a trader uptime reset. SECONDARY: ict-web-api gets a VM-side auto-restart-on-unhealthy guard (systemd watchdog/timer probing local :8001 /api/health) so the read surface self-heals without a webhook-dependent dispatch. Both are Tier-2 deploy/runtime changes; not editable from /health-review — surface to the operator.",
+      "triage_note": "2026-05-29T19:40Z /health-review: RECURRED AGAIN this review, both gaps. (1) A docs/comms-only commit (d4e4a0c, HEAD at 19:28:42Z) was pulled by ict-git-sync and ran the full deploy_pull_restart — status #2375 shows the live trader bounced to bot_uptime_s=31 at 19:35:46Z (git_sha d4e4a0c) and web-api was down 19:29-19:35Z. The first 7 diag pulls of this review (#2367-2371) failed during that window and 4 rapid re-fires (#2378-2381) webhook-dropped (BL-20260527-001 batching). (2) vm-web-api-recover #2373 FAILED (wrapper exit 1) — it ran mid-bounce: restart_web_api.sh saw ict-web-api stop-sigterm time out (SIGKILL at 19:32:57) then a slow uvicorn boot, so its /api/health probe got curl-7 connection-refused for ~60s and gave up; the service self-recovered by 19:35. Net: ~6 min read-surface blind + 1 unnecessary failed recover, no real trading outage, all self-healed. This is now the 2nd consecutive review (cf. the in-description 09:45Z event) where a non-runtime commit bounced the money-path trader — the PRIMARY gap (gate trader restart on whether the diff touches runtime paths) is worth prioritising with the operator.",
       "status": "open",
       "snoozed_until": null
     },
@@ -381,6 +390,11 @@
           "at": "2026-05-29T14:14Z",
           "by": "claude (/ml-review)",
           "note": "First capture. btc-regime-5m-baseline-v1 + lgbm-v2: count=362, last_seen 2026-05-28T22:29:34Z. 15m/1h/mes regime v2: absent from shadow_predictions.jsonl. Trade-family models count=438, last_seen 2026-05-29T14:10:06Z. Trader heartbeat fresh (status #2348, last_tick 14:07:07Z)."
+        },
+        {
+          "at": "2026-05-29T19:40Z",
+          "by": "claude (/health-review)",
+          "note": "PROGRESS — 5m regime feed RESUMED. shadow_stats?since=2026-05-28 (#2382): btc-regime-5m-baseline-v1 + lgbm-v2 now count=466 (was 362), last_seen advanced to 2026-05-29T18:16:50Z (was stuck at 2026-05-28T22:29:34Z) — so the 5m regime shadow predictors are emitting again; the earlier ~15.7h gap aligned with the no-signal lull (BL-20260529-001), not a wiring break. All 9 emitting models (7 trade/setup/exec/prop + 2 regime-5m) share last_seen 18:16:50Z (≈80 min before this pull; consistent with shadow firing on signal-eval, plus the 19:29-19:35Z deploy bounce). STILL UNRESOLVED: the 15m/1h/mes regime v2 variants (btc-regime-{15m,1h}-lgbm-v2, mes-regime-{5m,15m}-lgbm-v2) emit ZERO shadow predictions — absent from the log entirely. Need the documented answer on whether higher-TF regime predictors are wired into the live shadow factory or 5m-only by design. Keep open per carry-forward; the 'continuous feed' clause is met for 5m but the higher-TF coverage question remains."
         }
       ],
       "status": "open",
