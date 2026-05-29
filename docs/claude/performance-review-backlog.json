@@ -1,5 +1,5 @@
 {
-  "_comment": "Performance-review backlog — the parking lot for STRATEGY TRADING follow-ups: tweak ideas to revisit when more data lands, performance puzzles that need a second window, low-grade clusters worth investigating, comparisons to backtests/sweeps that prior sessions noticed but did not have enough evidence to propose as a Tier-3 change yet. The autonomous /performance-review skill drains this list every run: it triages each open item, acts on whatever the new window's data resolves, and either fires a proposed_tweaks[] entry, marks it resolved, or leaves it open with new evidence appended. Do NOT use this for system bugs (those go to health-review-backlog.json) or ML experiments (those go to ml-review-backlog.json). Item ids: PB-YYYYMMDD-NNN.",
+  "_comment": "Performance-review backlog \u2014 the parking lot for STRATEGY TRADING follow-ups: tweak ideas to revisit when more data lands, performance puzzles that need a second window, low-grade clusters worth investigating, comparisons to backtests/sweeps that prior sessions noticed but did not have enough evidence to propose as a Tier-3 change yet. The autonomous /performance-review skill drains this list every run: it triages each open item, acts on whatever the new window's data resolves, and either fires a proposed_tweaks[] entry, marks it resolved, or leaves it open with new evidence appended. Do NOT use this for system bugs (those go to health-review-backlog.json) or ML experiments (those go to ml-review-backlog.json). Item ids: PB-YYYYMMDD-NNN.",
   "schema_version": 1,
   "items": [
     {
@@ -8,14 +8,14 @@
       "opened_by": "claude (/performance-review)",
       "source": "Investigation into the 4-hour trend_donchian short rejection cluster on 2026-05-27 03:50-05:24.",
       "title": "Validate post-cap trend_donchian short fills on bybit_1 once PR (this branch) ships",
-      "description": "PR #2141 (entry*0.01 clamp) cleared the in-process tp>0 pre-flight but the orders STILL got rejected — this time by Bybit itself (ErrCode 10001 'TakeProfit < 10pct of base'). The same trend_donchian short cluster re-fired on 2026-05-27 13:39-13:47 against api-demo.bybit.com AND api.bybit.com (entry=74940.6, tp=749.40, ~99% below entry). Follow-up PR replaces the entry*0.01 floor with an entry*(1±_TP_SENTINEL_CAP_PCT) cap (9.9% from entry) on both the long and short branches of all three sentinel strategies, so the sentinel sits inside Bybit's TP-distance tolerance. Long path got the same treatment defensively — entry + 50*risk would also exceed 10% at BTC-scale risk. Verification after merge + deploy: (1) next trend_donchian short on bybit_1 fills with sized_qty>0 and status != exchange_rejected, (2) SL/TP shape on the live order: tp ≈ entry*0.901 for a short / entry*1.099 for a long, sl on the correct side of entry, (3) post-cap cohort grades cleanly against the Chandelier-trail actual exit (TP should never fill — trail is the exit). The bybit_2 sized_qty=0 issue (intent-mode at_target noop) is still SEPARATE and unaffected.",
+      "description": "PR #2141 (entry*0.01 clamp) cleared the in-process tp>0 pre-flight but the orders STILL got rejected \u2014 this time by Bybit itself (ErrCode 10001 'TakeProfit < 10pct of base'). The same trend_donchian short cluster re-fired on 2026-05-27 13:39-13:47 against api-demo.bybit.com AND api.bybit.com (entry=74940.6, tp=749.40, ~99% below entry). Follow-up PR replaces the entry*0.01 floor with an entry*(1\u00b1_TP_SENTINEL_CAP_PCT) cap (9.9% from entry) on both the long and short branches of all three sentinel strategies, so the sentinel sits inside Bybit's TP-distance tolerance. Long path got the same treatment defensively \u2014 entry + 50*risk would also exceed 10% at BTC-scale risk. Verification after merge + deploy: (1) next trend_donchian short on bybit_1 fills with sized_qty>0 and status != exchange_rejected, (2) SL/TP shape on the live order: tp \u2248 entry*0.901 for a short / entry*1.099 for a long, sl on the correct side of entry, (3) post-cap cohort grades cleanly against the Chandelier-trail actual exit (TP should never fill \u2014 trail is the exit). The bybit_2 sized_qty=0 issue (intent-mode at_target noop) is still SEPARATE and unaffected.",
       "tier": 3,
       "trigger_condition": "Next /performance-review window after this Tier-3 PR merges + deploys, when trend_donchian (or fade/squeeze) has fired at least one fresh live short.",
       "resolution_criteria": "Window contains at least one bybit_1 trend_donchian short with status != exchange_rejected and TP within 10% of entry in the linked order package. Confirmed the trade journaled cleanly. If the same cluster recurs post-merge, the root cause is something other than the TP-distance constraint and needs re-investigation.",
       "status": "resolved",
       "resolved_at": "2026-05-28T07:30:00+00:00",
       "resolved_by": "claude (/performance-review)",
-      "resolution_note": "TP-distance fix confirmed deployed. Post-deploy packages (2026-05-28) carry the capped sentinel: trend_donchian short pkg-064f723182d247f6 (04:23, status=orphaned NOT exchange_rejected, tp=6765.6 vs entry=7509 = 9.90% below) and fade_breakout_4h long pkg-7797912999504b17 (06:46, FILLED/open, tp=80365.5 vs entry=73126 = 9.90% above). Zero exchange_rejected after the pre-deploy 2026-05-27 13:32-13:54 cluster (4x ErrCode 10001, tp ~1% of entry). Root cause (TP<10% of base) cleared. Caveat: confirming trend short went orphaned not filled and account not separable from order_packages — the post-cap orphan/non-fill pattern is tracked separately in PB-20260528-001.",
+      "resolution_note": "TP-distance fix confirmed deployed. Post-deploy packages (2026-05-28) carry the capped sentinel: trend_donchian short pkg-064f723182d247f6 (04:23, status=orphaned NOT exchange_rejected, tp=6765.6 vs entry=7509 = 9.90% below) and fade_breakout_4h long pkg-7797912999504b17 (06:46, FILLED/open, tp=80365.5 vs entry=73126 = 9.90% above). Zero exchange_rejected after the pre-deploy 2026-05-27 13:32-13:54 cluster (4x ErrCode 10001, tp ~1% of entry). Root cause (TP<10% of base) cleared. Caveat: confirming trend short went orphaned not filled and account not separable from order_packages \u2014 the post-cap orphan/non-fill pattern is tracked separately in PB-20260528-001.",
       "snoozed_until": null
     },
     {
@@ -29,19 +29,26 @@
       "trigger_condition": "Next /performance-review window with >=1 post-cap trend_donchian short on bybit_2 AND/OR >=3 additional closed fade_breakout_4h trades carrying a confidence value.",
       "resolution_criteria": "(a) A post-cap trend_donchian short on bybit_2 reaches status open/closed (fill confirmed) -> close (a); if it keeps orphaning, escalate the sized_qty=0 path to the health-review backlog. (b) >=4 closed fade trades accumulated -> if conf<0.2 fills are net-negative as a cohort, fire a proposed_tweaks[] entry for fade_breakout_4h.min_confidence; if conf shows no relationship to outcome, close (b) as invalid.",
       "status": "open",
-      "snoozed_until": null
+      "snoozed_until": null,
+      "check_log": [
+        {
+          "at": "2026-05-29T19:55:20.246630+00:00",
+          "by": "claude (/performance-review)",
+          "note": "No qualifying data this window: zero trend_donchian short fills and zero fade_breakout_4h fills on bybit_2 (audit shows both eval'd non-actionable every tick \u2014 trend=no breakout, fade=regime not chop ADX>=20). Only fills/decisions in window were 1x ict_scalp_5m (graded B) + the vwap shadow-orphan cluster. (a) and (b) both still unmet -> stays open."
+        }
+      ]
     },
     {
       "id": "PB-20260529-001",
       "opened_at": "2026-05-29T18:30:00+00:00",
-      "opened_by": "claude (order-rejection cap-fix session) — operator request",
+      "opened_by": "claude (order-rejection cap-fix session) \u2014 operator request",
       "source": "Operator request: the /performance-review (strategy check) must verify that the percentage daily-loss cap (PR #2265) actually results in bybit_1 (+ other in-scope accounts) EXECUTING trades, not merely that it deployed. Mirrors health-review BL-20260529-001 on the trading side.",
       "title": "RECURRING: confirm the %-based daily-loss cap (PR #2265) lets bybit_1 actually TRADE (sized_qty>0 fills), not just deploy",
-      "description": "PR #2265 (merged b149b15; now in main 9039511, deployed + restarted 2026-05-28T23:29:36Z) replaced bybit_1's hardcoded $100 daily-loss cap with daily_loss_pct=0.05 (5% of equity) on bybit_1/bybit_2/ib_paper/ib_live (prop unchanged). Verified deployed + healthy + unit-tested (tests/test_daily_loss_pct_cap.py). NOT YET observed on live data: an actual in-scope-account dispatch with sized_qty>0 since the deploy. Cause is benign — an extended flat/low-vol market (~16h+ as of 2026-05-29, confirmed via live journalctl with moving prices) produced NO actionable signal on any strategy (vwap regime-gated sideways/low; trend_donchian mid-channel; fade/squeeze need volatility; ict_scalp no sweep). So nothing dispatched on any account; newest trade row was still id 1866 @ 2026-05-28 22:25:01 (pre-deploy bybit_1/vwap risk_refused sized_qty=0). System-health verification is tracked in health-review-backlog BL-20260529-001; THIS is the trading-side mirror so a /performance-review confirms it when grading the post-deploy order-package cohort.",
+      "description": "PR #2265 (merged b149b15; now in main 9039511, deployed + restarted 2026-05-28T23:29:36Z) replaced bybit_1's hardcoded $100 daily-loss cap with daily_loss_pct=0.05 (5% of equity) on bybit_1/bybit_2/ib_paper/ib_live (prop unchanged). Verified deployed + healthy + unit-tested (tests/test_daily_loss_pct_cap.py). NOT YET observed on live data: an actual in-scope-account dispatch with sized_qty>0 since the deploy. Cause is benign \u2014 an extended flat/low-vol market (~16h+ as of 2026-05-29, confirmed via live journalctl with moving prices) produced NO actionable signal on any strategy (vwap regime-gated sideways/low; trend_donchian mid-channel; fade/squeeze need volatility; ict_scalp no sweep). So nothing dispatched on any account; newest trade row was still id 1866 @ 2026-05-28 22:25:01 (pre-deploy bybit_1/vwap risk_refused sized_qty=0). System-health verification is tracked in health-review-backlog BL-20260529-001; THIS is the trading-side mirror so a /performance-review confirms it when grading the post-deploy order-package cohort.",
       "tier": 1,
       "recurring": true,
       "trigger_condition": "EVERY /performance-review until resolved. When grading the post-2026-05-28T23:29:36Z order-package / trade cohort, check whether bybit_1 (or bybit_2 / ib_paper) produced any dispatch with sized_qty>0 (status open/closed) vs continued sized_qty=0 / risk_refused rejections.",
-      "resolution_criteria": "RESOLVE when an in-scope-account order package created after the deploy links to a real trade (sized_qty>0, status open/closed) — i.e. the cap no longer zeroes sizing on a live signal. REGRESSION (escalate, do NOT close): a post-deploy sized_qty=0 / risk_refused rejection on an in-scope account while that account's realized daily loss is small relative to 5% of its equity — means the percentage cap did not take effect.",
+      "resolution_criteria": "RESOLVE when an in-scope-account order package created after the deploy links to a real trade (sized_qty>0, status open/closed) \u2014 i.e. the cap no longer zeroes sizing on a live signal. REGRESSION (escalate, do NOT close): a post-deploy sized_qty=0 / risk_refused rejection on an in-scope account while that account's realized daily loss is small relative to 5% of its equity \u2014 means the percentage cap did not take effect.",
       "carry_forward_instructions": "Keep open across reviews until the resolution criteria are met. If a /performance-review window has no qualifying dispatch (quiet market), append a dated entry to check_log and leave status=open so the NEXT review continues the check. Cross-ref health-review BL-20260529-001 (same verification, system-health side).",
       "check_log": [
         {
@@ -50,8 +57,11 @@
           "note": "Monitored ~16h post-deploy: bot healthy + ticking on live mainnet data (prices moving each tick), all 6 strategies legitimately 'no actionable signal' (flat low-vol market). Zero dispatches on any account; no qualifying sized_qty>0 row yet. Cap fix confirmed deployed (71e7a44/9039511) + unit-tested; live trade proof pending a market signal."
         }
       ],
-      "status": "open",
-      "snoozed_until": null
+      "status": "resolved",
+      "snoozed_until": null,
+      "resolved_at": "2026-05-29T19:55:20.246630+00:00",
+      "resolved_by": "claude (/performance-review)",
+      "resolution": "Observed the qualifying post-deploy live dispatch: order package pkg-5dc66cf92b5e407f (ict_scalp_5m long) linked to bybit_1 trade id=1867 created 2026-05-29T15:12:15Z, status=open, position_size=2.173 (>0), is_dry=false. The %-based daily-loss cap (PR #2265, daily_loss_pct=0.05) no longer zeroes bybit_1 sizing. No regression: the sibling bybit_2 leg (trade 1868) was intent_noop:at_target (already at 0.001 BTC), not a risk_refused/sized-0 rejection. Mirrors health BL-20260529-001 (also resolved this review)."
     }
   ]
 }
