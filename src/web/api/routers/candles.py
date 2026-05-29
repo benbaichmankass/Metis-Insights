@@ -77,13 +77,26 @@ def _connector(symbol: str, settings: Dict[str, Any]):
 
 
 def _settings() -> Dict[str, Any]:
-    """Connector settings from the process env (same vars the trader uses)."""
+    """Connector settings from the process env (same vars the trader uses).
+
+    IB_MD_CLIENT_ID pins a DEDICATED IB clientId for the dashboard's
+    read-only candle fetcher so it never collides with the live trader's IB
+    sockets. The trader uses the exec client (ib_client_id, 497) + its
+    market-data offset (exec+1 = 498); a logged-out web-api used to error
+    before opening any IB socket, so nothing contended for 498. Once the
+    fetch actually connects (the event-loop fix), the web-api would grab 498
+    and the trader's MES market-data calls fail with IB error 326 ("client id
+    already in use"), starving every MES strategy of candles. Reserving 600
+    here (override via the IB_MD_CLIENT_ID env on the ict-web-api unit) keeps
+    the dashboard's data socket disjoint from the trader's 497/498.
+    """
     return {
         "EXCHANGE": os.environ.get("EXCHANGE", "bybit"),
         "BYBIT_API_KEY": os.environ.get("BYBIT_API_KEY"),
         "BYBIT_API_SECRET": os.environ.get("BYBIT_API_SECRET"),
         "BINANCE_API_KEY": os.environ.get("BINANCE_API_KEY"),
         "BINANCE_API_SECRET": os.environ.get("BINANCE_API_SECRET"),
+        "IB_MD_CLIENT_ID": os.environ.get("IB_MD_CLIENT_ID", "600"),
     }
 
 
