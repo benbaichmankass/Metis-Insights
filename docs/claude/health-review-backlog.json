@@ -363,6 +363,28 @@
       "resolution_criteria": "PRIMARY: deploy_pull_restart.sh (or the git-sync path) skips the ict-trader-live restart when the pulled diff touches no runtime path (docs/comms-only) — verify a docs-only commit deploys without a trader uptime reset. SECONDARY: ict-web-api gets a VM-side auto-restart-on-unhealthy guard (systemd watchdog/timer probing local :8001 /api/health) so the read surface self-heals without a webhook-dependent dispatch. Both are Tier-2 deploy/runtime changes; not editable from /health-review — surface to the operator.",
       "status": "open",
       "snoozed_until": null
+    },
+    {
+      "id": "BL-20260529-003",
+      "opened_at": "2026-05-29T14:25:00+00:00",
+      "opened_by": "claude (/ml-review -> handed to /health-review)",
+      "source": "/ml-review 2026-05-29 shadow_stats sweep. Logged here at operator request so a future /health-review picks up the shadow-prediction stall (the /ml-review skill cannot own a pipeline-plumbing item).",
+      "title": "Regime shadow predictions STOPPED 2026-05-28T22:29:34Z while trade-family shadow models kept emitting; higher-timeframe v2 regime models emit none at all",
+      "description": "shadow_stats since 2026-05-28 (diag mirror): btc-regime-5m-{baseline-v1,lgbm-v2} last_seen=2026-05-28T22:29:34Z, count=362 -- they STOPPED ~15.7h before the 14:10Z pull. Meanwhile all 7 trade/setup/exec/prop shadow models kept emitting through 2026-05-29T14:10Z (count=438). The 15m + 1h v2 regime variants (btc-regime-{15m,1h}-lgbm-v2, mes-regime-{5m,15m}-lgbm-v2) emit ZERO shadow predictions ever. The 22:29Z stop coincides almost exactly with the last live trade id=1866 @ 2026-05-28 22:25:01 and the start of the ~11.5h no-signal lull that BL-20260529-001 is already tracking -- so the regime-shadow feed likely shares a root cause with that lull (regime predictors invoked on a market-bar / signal-eval path that went quiet), NOT the 09:45-09:52Z git-sync restart (which is later). Impact: the v2 BTC shadow->advisory soak (ml-review MB-20260527-004, target ~6/2) cannot accumulate order-influencing evidence on any timeframe above 5m, and even the 5m feed stalled. Need to confirm whether the regime shadow factory is invoked per-tick or only on actionable signals, and why the higher-timeframe predictors never log.",
+      "tier": 1,
+      "recurring": true,
+      "trigger_condition": "EVERY /health-review until resolved. Pull shadow_stats (diag relay: [diag-request] shadow_stats?since=<recent-date>) and check last_seen + count per regime model_id.",
+      "resolution_criteria": "shadow_stats shows btc-regime-5m-{baseline,lgbm} last_seen advancing to within minutes of now (continuous feed restored) AND a documented answer to whether 15m/1h regime predictors are wired into the live shadow factory (non-zero counts, or a by-design note that only 5m feeds shadow). REGRESSION: any further multi-hour gap in a shadow-stage regime models last_seen while the trader heartbeat is fresh.",
+      "carry_forward_instructions": "Stay open and re-check on every /health-review until the regime shadow feed is confirmed continuous and the higher-timeframe coverage is explained. Cross-reference BL-20260529-001 (same ~22:25-22:29Z 5/28 window). Append a dated check_log entry each review with per-regime-model last_seen + count.",
+      "check_log": [
+        {
+          "at": "2026-05-29T14:14Z",
+          "by": "claude (/ml-review)",
+          "note": "First capture. btc-regime-5m-baseline-v1 + lgbm-v2: count=362, last_seen 2026-05-28T22:29:34Z. 15m/1h/mes regime v2: absent from shadow_predictions.jsonl. Trade-family models count=438, last_seen 2026-05-29T14:10:06Z. Trader heartbeat fresh (status #2348, last_tick 14:07:07Z)."
+        }
+      ],
+      "status": "open",
+      "snoozed_until": null
     }
   ]
 }

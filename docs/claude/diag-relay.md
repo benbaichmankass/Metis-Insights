@@ -48,9 +48,12 @@ format below**, wait, read the result comment.
 **1. The issue TITLE is the diag path. The body is ignored.**
 The workflow reads the title, strips the `[diag-request]` prefix, and
 passes the remainder directly to `curl .../api/diag/<path>`. It
-validates against `^[A-Za-z0-9/?&=_.:%-]+$` — spaces, colons, and any
-other special character in the title cause an immediate validation
-error. The body content is never read.
+validates against `^[A-Za-z0-9/?&=_.:%-]+$` — spaces, commas, and any
+character *outside* that set in the title cause an immediate validation
+error. Note the set **permits** `:` (and `.`, `%`, `=`, `&`), so an ISO
+timestamp in a query value (e.g. `journalctl?...&since=2026-05-10T21:13:00Z`,
+or `shadow_stats?since=2026-05-28T00:00:00Z`) is a valid path. The body
+content is never read.
 
 **2. `cmd:` in the body is for `trainer-vm-diag`, NOT this workflow.**
 `trainer-vm-diag` runs arbitrary bash on the trainer VM and reads the
