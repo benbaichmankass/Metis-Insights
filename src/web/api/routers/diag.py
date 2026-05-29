@@ -81,6 +81,15 @@ _CANONICAL_UNITS: tuple[str, ...] = (
     # pair above.
     "ict-ib-gateway-watchdog.service",
     "ict-ib-gateway-watchdog.timer",
+    # 2026-05-29 — the Claude update-channel drainer (@claude_ict_comms_bot).
+    # It is the SOLE consumer of runtime_logs/pending_claude_pings, but was
+    # never queryable from the diag surface, so when the channel went silent
+    # (operator received no pings) there was no read path to see whether the
+    # bridge was active or what its send errors were. Adding it here makes
+    # `/api/diag/services` report its state and `/api/diag/journalctl?unit=
+    # ict-claude-bridge.service` tail its journal (the unit now logs to
+    # journald — see deploy/ict-claude-bridge.service).
+    "ict-claude-bridge.service",
 )
 
 _ADVISORY_LOG = runtime_logs_dir() / "advisory_decisions.jsonl"

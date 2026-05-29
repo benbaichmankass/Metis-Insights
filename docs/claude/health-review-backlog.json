@@ -290,6 +290,7 @@
       "trigger_condition": "Any /health-review run on or after 2026-05-29: pull `/api/diag/journalctl?unit=ict-ib-gateway-watchdog.service` covering the overnight window (use ?since=/?until= for the ~04:00-05:30 UTC reset) and read the per-fire `probe:` lines.",
       "resolution_criteria": "A /health-review confirms in the watchdog journal at least one real wedge that the watchdog auto-recovered: a probe `healthy=False` (net_liquidation=None) followed within ~2 checks by a logged `action=restart`, then a subsequent probe `healthy=True` — with NO manual vm-ib-gateway-recover dispatch in that window. Confirm across at least one (ideally a couple) overnight resets, then mark BL-20260527-003 fully resolved. If MES instead stayed healthy through the reset (no wedge to heal), record that and keep watching — absence of a wedge is not yet proof the restart path works. If guard rails tripped (`max-restarts 3` exhausted -> alert-only), surface to the operator: that means a genuine lockout the watchdog can't fix.",
       "status": "open",
+      "triage_note": "2026-05-29 /health-review: HEALTHY PATH re-confirmed across the post-reset window — journalctl?unit=ict-ib-gateway-watchdog.service (issue #2291) shows the timer firing every ~5 min from 05:41Z through 09:42Z, EVERY probe `healthy=True net_liquidation=1000686.4 action=none`. No wedge occurred at this overnight IBKR reset, so the RESTART path is STILL unexercised in production (no action=restart line). Per resolution criteria, absence of a wedge is not proof — keep open and keep watching. (net_liquidation drifted 1000600.6->1000686.4 vs the 2026-05-28 dump; MES barely trading.)",
       "snoozed_until": null
     },
     {
@@ -302,7 +303,10 @@
       "tier": 1,
       "trigger_condition": "Any /health-review run, or the next time a session needs a multi-param diag pull.",
       "resolution_criteria": "A multi-param diag request (e.g. journal?table=trades&limit=40) completes and posts JSON back, OR the workflow title decode/validation is fixed (fully decode &amp; before the regex, or URL-decode) and verified with a multi-param pull.",
-      "status": "open",
+      "status": "resolved",
+      "resolved_at": "2026-05-29T10:29:00+00:00",
+      "resolved_by": "claude (/health-review follow-up)",
+      "resolution": "VERIFIED FIXED EMPIRICALLY 2026-05-29: a fresh multi-param pull `journal?table=trades&limit=5` (issue #2315) returned JSON (5 rows) and auto-closed — the resolution criteria's first clause is met. vm-diag-snapshot.yml already carries the `${raw//&amp;/&}` entity-decode (lines ~123) and the path-validation regex already allows `&` (`^[A-Za-z0-9/?&=_.:%-]+$`), so the multi-param path now decodes and validates correctly. The prior-session failures (#2251/#2252) were not reproduced; no code change required. NOTE: the EARLIER multi-param failures observed in THIS session's first half (#2293/#2294 etc.) were the ict-web-api deploy-bounce outage (~09:45-09:52Z), not the & decode — single-param paths failed in that same window too.",
       "snoozed_until": null
     },
     {
@@ -337,8 +341,26 @@
           "at": "2026-05-29T08:33Z",
           "by": "claude (deploy session)",
           "note": "Liveness OK (heartbeat 'running' age 46s, last_tick 08:32:38Z, uptime ~9h, no unexpected restart). Still no in-scope dispatch; newest trade id=1866. ~10h no-signal lull. Pending live confirmation."
+        },
+        {
+          "at": "2026-05-29T09:52Z",
+          "by": "claude (/health-review)",
+          "note": "Liveness OK (status #2302: heartbeat 'running' age 3s, last_tick 09:52:07Z, git_sha 22e2cf0 after a git-sync deploy bounce, bybit_1/bybit_2/ib_paper live). Trades table READ (#2304): newest row still id=1866 @ 2026-05-28 22:25:01 — PRE-deploy, no in-scope trade row created after the 2026-05-28T23:29:36Z deploy. All recent rows (1845-1866) are the pre-deploy rejected/sz=0/is_demo=0 BTCUSDT-short cluster. order_packages (#2307) also static since 22:25:01 (vwap BTCUSDT short, all orphaned/closed). audit (#2308): all 6 strategies emit *_eval every tick, all regime-gated non-actionable — genuine no-signal lull (~11.5h), NOT a pipeline break. No qualifying dispatch and no regression. Per carry-forward, status stays OPEN."
         }
       ],
+      "status": "open",
+      "snoozed_until": null
+    },
+    {
+      "id": "BL-20260529-002",
+      "opened_at": "2026-05-29T09:55:00+00:00",
+      "opened_by": "claude (/health-review)",
+      "source": "/health-review 2026-05-29 — a docs-only commit deploy bounced the live trader + web-api mid-review, and the (unnecessary) recover dispatches were all webhook-dropped.",
+      "title": "git-sync deploy restarts the LIVE TRADER for docs-only commits (brief trading + read-surface interruption); web-api has no VM-side self-heal and the GitHub recover dispatch is webhook-flaky",
+      "description": "OBSERVED this review: between status #2286 (09:44:05Z, uptime 36577s, git_sha b149b15) and status #2302 (09:52:15Z, uptime 405s, git_sha 22e2cf0) the live trader RESTARTED and HEAD advanced b149b15 -> 22e2cf0. The only commit in that range is 22e2cf0 (#2284, a DOCS-ONLY 'docs(health-review): recurring carry-forward item' change). So the ict-git-sync timer pulled the new commit and ran the full deploy_pull_restart path, which restarts ALL ict-* units (trader + web-api) regardless of whether the diff touches any runtime code. Two consequences: (1) the live money-path trader was bounced (~7 min, 09:45-09:52Z) for a pure documentation change — an unnecessary trading interruption; (2) during that window ict-web-api was down so the diag/dashboard READ surface was blinded (diag pulls #2293-#2296,#2298 failed 09:45:44-09:48:03Z). I misread (2) as a crash and fired three vm-web-api-recover dispatches (#2297/#2299/#2300) — ALL webhook-dropped (issue OPEN, updated_at==created_at, no run), same GitHub issues.opened batching as the resolved BL-20260527-001. They turned out UNNECESSARY (the deploy completed and both services self-recovered by 09:52Z). Net: no real outage, but two genuine gaps surfaced. PRIMARY GAP: deploy_pull_restart restarts the live trader for non-runtime (docs/comms) commits — consider gating the trader restart on whether the diff touches runtime paths (src/, config/, deploy/, requirements). SECONDARY GAP: ict-web-api has no VM-side self-heal and the only autonomous recover lever (GitHub-dispatched vm-web-api-recover) is webhook-flaky exactly when needed.",
+      "tier": 2,
+      "trigger_condition": "Any /health-review run; or whenever a deploy of a docs/comms-only commit is observed to bounce the live trader, or a vm-web-api-recover dispatch is webhook-dropped.",
+      "resolution_criteria": "PRIMARY: deploy_pull_restart.sh (or the git-sync path) skips the ict-trader-live restart when the pulled diff touches no runtime path (docs/comms-only) — verify a docs-only commit deploys without a trader uptime reset. SECONDARY: ict-web-api gets a VM-side auto-restart-on-unhealthy guard (systemd watchdog/timer probing local :8001 /api/health) so the read surface self-heals without a webhook-dependent dispatch. Both are Tier-2 deploy/runtime changes; not editable from /health-review — surface to the operator.",
       "status": "open",
       "snoozed_until": null
     }
