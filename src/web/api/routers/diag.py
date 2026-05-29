@@ -56,6 +56,18 @@ _STATUS_JSON = runtime_logs_dir() / "runtime_status.json"
 _JOURNAL_TABLES: dict[str, str] = {
     "order_packages": "datetime(updated_at)",
     "trades": "id",
+    # 2026-05-29 — M13 AI-analyst tables. Before this, the insights cache
+    # had NO read path on the /api/diag/* relay: the cache files
+    # (runtime_logs/insights/*.json) aren't in _LOG_FILES, the generator
+    # units weren't in _CANONICAL_UNITS, and /api/bot/insights/* lives
+    # outside /api/diag/* so the relay can't reach it. A relay-only review
+    # session (e.g. /performance-review's M13 cross-check) was therefore
+    # blind to the analyst's output AND to whether the generator was even
+    # alive. Exposing these two tables (both keyed by autoincrement id) lets
+    # a session read the analyst's history + spend via journal?table=...
+    # and confirm the generator is writing. Read-only, no secrets.
+    "insights_history": "id",
+    "insights_usage": "id",
 }
 
 _CANONICAL_UNITS: tuple[str, ...] = (
@@ -90,6 +102,19 @@ _CANONICAL_UNITS: tuple[str, ...] = (
     # ict-claude-bridge.service` tail its journal (the unit now logs to
     # journald — see deploy/ict-claude-bridge.service).
     "ict-claude-bridge.service",
+    # 2026-05-29 — M13 AI-analyst generator (fast tier every 15 min) + its
+    # per-strategy slow tier (every 60 min) and their driving timers. These
+    # are the SOLE writers of the insights cache + insights_history/usage
+    # tables, but were never queryable from the diag surface — so when
+    # /performance-review's M13 cross-check found the cache unreadable, there
+    # was no read path to tell whether the generator was alive, stale, or
+    # erroring. Adding them makes `/api/diag/services` report state and
+    # `/api/diag/journalctl?unit=ict-insights-generator.service` tail the
+    # generator log (cadence, budget skips, API errors).
+    "ict-insights-generator.service",
+    "ict-insights-generator.timer",
+    "ict-insights-generator-strategies.service",
+    "ict-insights-generator-strategies.timer",
 )
 
 _ADVISORY_LOG = runtime_logs_dir() / "advisory_decisions.jsonl"
