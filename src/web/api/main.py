@@ -16,6 +16,7 @@ from src.web.api.routers import attribution as attribution_router
 from src.web.api.routers import backtests as backtests_router
 from src.web.api.routers import bot_config as bot_config_router
 from src.web.api.routers import candles as candles_router
+from src.web.api.routers import performance as performance_router
 from src.web.api.routers import dashboard as dashboard_router
 from src.web.api.routers import db_explorer as db_explorer_router
 from src.web.api.routers import devices as devices_router
@@ -61,6 +62,7 @@ app.include_router(liquidity_router.router)
 app.include_router(trades_closed_router.router)
 app.include_router(order_packages_router.router)
 app.include_router(candles_router.router)
+app.include_router(performance_router.router)
 app.include_router(backtests_router.router)
 app.include_router(pnl_exchange_router.router)
 app.include_router(diag_router.router)
