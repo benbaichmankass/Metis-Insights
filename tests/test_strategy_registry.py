@@ -160,12 +160,14 @@ def test_service_name_unknown_strategy_raises(tmp_path):
 
 def test_real_yaml_loads():
     strategies = reg.load_strategies(_REAL_YAML)
-    # turtle_soup + vwap + ict_scalp_5m + trend_donchian + fade_breakout_4h.
+    # turtle_soup + vwap + ict_scalp_5m + trend_donchian + fade_breakout_4h +
+    # squeeze_breakout_4h + fvg_range_15m.
     # Bumped 2 → 3 by ict_scalp_5m, 3 → 4 by the trend_donchian go-live
-    # (S-STRAT-IMPROVE-S8, 2026-05-23), then 4 → 5 by the fade_breakout_4h
-    # shadow wiring (S9, 2026-05-24). Live turn-on is gated by each
+    # (S-STRAT-IMPROVE-S8, 2026-05-23), 4 → 5 by the fade_breakout_4h shadow
+    # wiring (S9, 2026-05-24), 5 → 6 by squeeze_breakout_4h, then 6 → 7 by the
+    # fvg_range_15m shadow wiring (2026-05-30). Live turn-on is gated by each
     # strategy's `enabled` / `execution` flags in the YAML, not the row count.
-    assert len(strategies) == 6
+    assert len(strategies) == 7
 
 
 def test_real_yaml_has_required_strategies():
@@ -173,7 +175,7 @@ def test_real_yaml_has_required_strategies():
     names = {s["name"] for s in strategies}
     assert names == {
         "turtle_soup", "vwap", "ict_scalp_5m", "trend_donchian", "fade_breakout_4h",
-        "squeeze_breakout_4h",
+        "squeeze_breakout_4h", "fvg_range_15m",
     }
 
 

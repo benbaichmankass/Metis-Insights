@@ -11,6 +11,7 @@ from src.news.news_pipeline import get_news_score
 # Re-exported here for back-compat (existing callers + tests import from pipeline).
 from src.runtime.strategy_signal_builders import (  # noqa: E402
     fade_breakout_4h_signal_builder,
+    fvg_range_15m_signal_builder,
     squeeze_breakout_4h_signal_builder,
     ict_scalp_signal_builder,
     trend_donchian_signal_builder,
@@ -183,6 +184,7 @@ def _strategy_risk_pcts_from_registry() -> Dict[str, float]:
         return {
             "turtle_soup": 0.5, "vwap": 1.0, "ict_scalp_5m": 0.3,
             "trend_donchian": 0.3, "fade_breakout_4h": 0.3, "squeeze_breakout_4h": 0.3,
+            "fvg_range_15m": 0.3,
         }
 
 
@@ -212,6 +214,12 @@ _STRATEGY_BUILDERS: Dict[str, Callable[[dict], Dict[str, Any]]] = {
     # member-#3 candidate. Wired execution:shadow (S9, 2026-05-24) for
     # live data collection; never sends a live order. Honours `enabled`.
     "squeeze_breakout_4h": squeeze_breakout_4h_signal_builder,
+    # fvg_range_15m — FVG mean-reversion inside a confirmed STATIC horizontal
+    # range (the range member the roster was missing; the deliberate opposite
+    # of ict_scalp's directional FVG continuation). Wired execution:shadow
+    # (2026-05-30) for live data collection; never sends a live order.
+    # Honours the YAML `enabled` flag as the single source of truth.
+    "fvg_range_15m": fvg_range_15m_signal_builder,
 }
 
 

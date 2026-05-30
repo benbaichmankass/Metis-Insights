@@ -123,6 +123,12 @@ DEFAULT_PRIORITIES: Dict[str, int] = {
     # squeeze_breakout_4h — the floor (S9, 2026-05-24). execution:shadow
     # (data-only), so its priority never arbitrates a real order.
     "squeeze_breakout_4h": 5,
+    # fvg_range_15m — the new floor (2026-05-30). The range member (FVG
+    # mean-reversion in a confirmed static range). Wired execution:shadow
+    # (data-only, never sends a live order), so its priority never arbitrates
+    # a real order; the lowest value is the safety floor for the unproven
+    # strategy.
+    "fvg_range_15m": 3,
 }
 
 # Priority used when a strategy is not listed in DEFAULT_PRIORITIES and
