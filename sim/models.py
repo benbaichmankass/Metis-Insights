@@ -94,6 +94,17 @@ class ModelScorer:
     model_ids: list[str]
     policy_cfg: Optional[dict] = None
     registry_root: Optional[str] = None
+    # SIM-native regime-GATE policy (distinct from the live downsize policy).
+    # When ``regime_gate`` is set, factor_for returns a hard gate: the trade is
+    # SKIPPED (factor 0.0) when the matching regime model's score crosses
+    # ``gate_threshold`` in ``gate_direction`` ("above" = skip when P(volatile)
+    # is high; "below" = skip when low), else taken (factor 1.0). This is the
+    # semantically-correct way to use a regime classifier — "don't trade in the
+    # wrong regime" — which the live downsize policy (low-score=bearish) can't
+    # express. Reuses the same vol-aware per-predictor row as the downsize path.
+    regime_gate: bool = False
+    gate_threshold: float = 0.66
+    gate_direction: str = "above"   # "above" | "below"
 
     def __post_init__(self) -> None:
         from src.runtime.advisory_influence import parse_policy
@@ -101,6 +112,8 @@ class ModelScorer:
         self._predictors: list[Any] = []
         self._policy = parse_policy(self.policy_cfg or {"advisory_policy": {"mode": "downsize"}})
         self._loaded = False
+        if self.gate_direction not in ("above", "below"):
+            raise ValueError(f"gate_direction must be 'above'|'below'; got {self.gate_direction!r}")
 
     def _ensure_loaded(self) -> None:
         if self._loaded:
@@ -174,5 +187,12 @@ class ModelScorer:
                 logger.debug("sim: model %s predict failed: %s", p.model_id, exc)
         if not scores:
             return 1.0, {}
+        if self.regime_gate:
+            # Hard regime gate: skip (0.0) when ANY scored regime model crosses
+            # the threshold in the configured direction, else take (1.0).
+            def _trips(v: float) -> bool:
+                return v >= self.gate_threshold if self.gate_direction == "above" else v <= self.gate_threshold
+            gated = any(_trips(v) for v in scores.values())
+            return (0.0 if gated else 1.0), scores
         factor = advisory_downsize_factor(scores, self._policy, flag_enabled=True)
         return factor, scores

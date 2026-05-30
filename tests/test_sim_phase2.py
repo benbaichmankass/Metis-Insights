@@ -230,6 +230,57 @@ class TestRegimeAwareScoring:
         assert factor == pytest.approx(1.0)
 
 
+class TestRegimeGate:
+    """Regime-GATE policy: skip the trade (factor 0.0) when the matching
+    regime model crosses the threshold in the configured direction. This is
+    the semantically-correct 'don't trade in the wrong regime' the live
+    downsize policy (low=bearish) can't express."""
+
+    def _gate_scorer(self, score_value, *, direction="above", threshold=0.66):
+        from sim.models import ModelScorer
+
+        scorer = ModelScorer(model_ids=["rg"], regime_gate=True,
+                            gate_threshold=threshold, gate_direction=direction)
+
+        class _Stub:
+            model_id = "rg"
+            # No regime_spec -> feature_row_for_predictor returns base row
+            # unchanged, so the stub is scored (good enough to test the gate).
+            def predict(self, row):
+                return score_value
+
+        scorer._predictors = [_Stub()]
+        scorer._loaded = True
+        return scorer
+
+    def test_above_gate_skips_when_high(self):
+        from sim.models import feature_row_for_trade
+        sc = self._gate_scorer(0.9, direction="above", threshold=0.66)
+        factor, scores = sc.factor_for(feature_row_for_trade(
+            strategy="vwap", symbol="BTCUSDT", direction="long", confidence=0.5))
+        assert scores == {"rg": pytest.approx(0.9)}
+        assert factor == pytest.approx(0.0)   # high P(volatile) -> skip
+
+    def test_above_gate_takes_when_low(self):
+        from sim.models import feature_row_for_trade
+        sc = self._gate_scorer(0.2, direction="above", threshold=0.66)
+        factor, _ = sc.factor_for(feature_row_for_trade(
+            strategy="vwap", symbol="BTCUSDT", direction="long", confidence=0.5))
+        assert factor == pytest.approx(1.0)   # calm regime -> take
+
+    def test_below_gate_direction(self):
+        from sim.models import feature_row_for_trade
+        sc = self._gate_scorer(0.1, direction="below", threshold=0.5)
+        factor, _ = sc.factor_for(feature_row_for_trade(
+            strategy="trend_donchian", symbol="BTCUSDT", direction="long", confidence=0.5))
+        assert factor == pytest.approx(0.0)   # low score, below-gate -> skip
+
+    def test_bad_direction_rejected(self):
+        from sim.models import ModelScorer
+        with pytest.raises(ValueError):
+            ModelScorer(model_ids=["x"], regime_gate=True, gate_direction="sideways")
+
+
 # --------------------------------------------------------------------------
 class TestModelsInLoopDiff:
     def test_diff_reports_cut_losers_and_winners(self):
