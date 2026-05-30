@@ -264,6 +264,14 @@ build_btcusdt_pair 15m
 # must not turn the whole cycle red — the manifests then skip on empty data.
 MES_YF_START="$(date -u -d '58 days ago' +%Y-%m-%d 2>/dev/null || echo "$MARKET_START")"
 
+# Deep DAILY ES=F window for the mes-regime-1d-lgbm-v2 manifest
+# (MB-20260528-001). yfinance serves 1d bars back many years (unlike its
+# ~60d intraday cap), so the daily regime head gets a real multi-year
+# training set (~2500 daily bars from 2015) - the daily timeframe is where
+# the MES regime label separates (the orphan baseline scored macro_f1=0.685
+# / f1_volatile=0.543 on 1d, vs the 5m/15m modal collapse to 0).
+MES_1D_START="${MES_1D_START:-2015-01-01}"
+
 mes_median_vt() {  # median forward_log_return_vol of a market_features dir
   python3 -c "import json,sys,statistics as s
 try:
@@ -380,7 +388,29 @@ build_mes_market() {
   build_mes_setup_labels
 }
 
+# Deep daily MES (ES=F) regime data - independent of the intraday 5m/15m
+# path (which the IBKR branch can early-return out of), so the 1d build
+# always runs. Feeds mes-regime-1d-lgbm-v2 (MB-20260528-001). Pulls 1d
+# directly from yfinance (decades of daily history), then the same
+# median-calibrated market_features as the intraday shards. Non-fatal:
+# a yfinance hiccup just makes the 1d manifest skip on empty data.
+build_mes_1d() {
+  if ! python -c "import yfinance" 2>/dev/null; then
+    set +e; pip install --quiet "yfinance>=0.2"; set -e
+  fi
+  if ! python -c "import yfinance" 2>/dev/null; then
+    emit "$(printf '{"ts":"%s","status":"skipped","family":"market_raw","symbol":"MES","timeframe":"1d","detail":"yfinance unavailable; mes-regime-1d will skip"}' "$(iso_now)")"
+    return 0
+  fi
+  mes_build market_raw \
+    --output-dir "$DATASETS_ROOT" --version "$DATASET_VERSION" \
+    --source yfinance_offvm --symbol-scope MES --timeframe 1d --overwrite \
+    "adapter=yfinance_offvm" "symbol=MES" "timeframe=1d" "start=${MES_1D_START}" "end=${MARKET_END}"
+  build_mes_features_tf 1d "${DATASETS_ROOT}/market_raw/MES/1d/${DATASET_VERSION}"
+}
+
 build_mes_market
+build_mes_1d
 
 emit "$(printf '{"ts":"%s","status":"build_end","overall_rc":%d}' "$(iso_now)" "$overall_rc")"
 exit "$overall_rc"
