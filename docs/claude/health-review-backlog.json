@@ -395,9 +395,14 @@
           "at": "2026-05-29T19:40Z",
           "by": "claude (/health-review)",
           "note": "PROGRESS \u2014 5m regime feed RESUMED. shadow_stats?since=2026-05-28 (#2382): btc-regime-5m-baseline-v1 + lgbm-v2 now count=466 (was 362), last_seen advanced to 2026-05-29T18:16:50Z (was stuck at 2026-05-28T22:29:34Z) \u2014 so the 5m regime shadow predictors are emitting again; the earlier ~15.7h gap aligned with the no-signal lull (BL-20260529-001), not a wiring break. All 9 emitting models (7 trade/setup/exec/prop + 2 regime-5m) share last_seen 18:16:50Z (\u224880 min before this pull; consistent with shadow firing on signal-eval, plus the 19:29-19:35Z deploy bounce). STILL UNRESOLVED: the 15m/1h/mes regime v2 variants (btc-regime-{15m,1h}-lgbm-v2, mes-regime-{5m,15m}-lgbm-v2) emit ZERO shadow predictions \u2014 absent from the log entirely. Need the documented answer on whether higher-TF regime predictors are wired into the live shadow factory or 5m-only by design. Keep open per carry-forward; the 'continuous feed' clause is met for 5m but the higher-TF coverage question remains."
+        },
+        {
+          "at": "2026-05-30T08:10Z",
+          "by": "claude (/health-review)",
+          "note": "RESOLVED - root cause is code-level + benign, confirming the 19:40Z suspicion. Shadow predictions are emitted ONLY as a side-effect of an actionable buy/sell signal (src/runtime/strategy_signal_builders.py::_emit_shadow_preds), not per-tick. Live audit relay 2026-05-30T07:52-08:05Z: ALL 6 strategies x {BTCUSDT,MES} eval to side=none every ~75s (vwap regime_policy_skip 'regime=sideways/low'; donchian in-channel; fade ADX 34-35 not chop; squeeze no release; turtle/ict_scalp no sweep), zero exceptions, trader healthy (uptime ~11h, last_tick 07:43Z). So every multi-hour shadow 'stall' = a no-signal lull (quiet sideways market, vwap regime-gated), NOT a wiring break. DOCUMENTED ANSWER to the higher-TF question: feature_row_for_predictor (src/runtime/regime_shadow.py) returns None for a regime model whose (symbol,timeframe) does not match the firing signal's, so on a ~5m vwap/ict_scalp signal ONLY btc-regime-5m is scored - the 15m/1h/MES regime heads are skipped BY DESIGN and cannot log via the signal-gated path. Resolution_criteria met (by-design note that only the timeframe-matching regime feeds shadow). Forward-looking coverage improvement (a per-bar regime-scoring path) tracked in ml-review-backlog MB-20260529-001."
         }
       ],
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null
     },
     {
