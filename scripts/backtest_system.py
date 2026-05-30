@@ -174,14 +174,25 @@ def generate_signal_stream(name: str, base5m: pd.DataFrame, *, start, end,
     # count — exactly what the live signal builder computes). Precompute the 1h
     # EMA once over the FULL base feed and as-of-align it to each bar so the
     # in-system stream matches live behaviour. Other strategies: htf_series=None.
-    htf_series = None
+    htf_close_arr = htf_ema_arr = None
     if name == "ict_scalp_5m" and bool(cfg.get("htf_trend_filter_enabled", True)):
         htf_tf = _PANDAS_TF.get(str(cfg.get("htf_filter_timeframe") or "1h"), "1h")
         ema_period = int(cfg.get("htf_filter_ema_period") or 20)
         htf = _resample(base5m, htf_tf)
-        htf = htf.set_index("timestamp")
         htf["ema"] = htf["close"].ewm(span=ema_period, adjust=False).mean()
-        htf_series = htf[["close", "ema"]].dropna()
+        htf = htf.dropna(subset=["ema"])
+        # Vectorized as-of join: for each df bar, the latest 1h close/ema at or
+        # before it. merge_asof is O(n) — the prior per-bar .loc filter was
+        # O(n²) and stalled the 5m/6y stream (~600k bars).
+        merged = pd.merge_asof(
+            df[["timestamp"]].sort_values("timestamp"),
+            htf[["timestamp", "close", "ema"]].rename(
+                columns={"close": "_htf_close", "ema": "_htf_ema"}
+            ).sort_values("timestamp"),
+            on="timestamp", direction="backward",
+        )
+        htf_close_arr = merged["_htf_close"].to_numpy()
+        htf_ema_arr = merged["_htf_ema"].to_numpy()
 
     rows = []
     warm = 260
@@ -189,12 +200,11 @@ def generate_signal_stream(name: str, base5m: pd.DataFrame, *, start, end,
     for i in range(warm, len(df)):
         window = df.iloc[max(0, i - warm):i + 1]
         bar_cfg = dict(cfg)
-        if htf_series is not None:
-            # as-of the bar's timestamp (last 1h close/ema at or before this bar)
-            prior = htf_series.loc[htf_series.index <= ts.iloc[i]]
-            if len(prior):
-                bar_cfg["htf_close"] = float(prior["close"].iloc[-1])
-                bar_cfg["htf_ema"] = float(prior["ema"].iloc[-1])
+        if htf_close_arr is not None:
+            hc, he = htf_close_arr[i], htf_ema_arr[i]
+            if hc == hc and he == he:  # not NaN
+                bar_cfg["htf_close"] = float(hc)
+                bar_cfg["htf_ema"] = float(he)
         try:
             pkg = order_package(bar_cfg, candles_df=window)
         except ValueError:
