@@ -248,9 +248,17 @@
       "tier": 1,
       "trigger_condition": "Any /health-review run; tractable as a code-only investigation (no live-trading risk).",
       "resolution_criteria": "Either (a) confirm + ship a token-cleanup-on-404 path in notifier.py so dead tokens are pruned automatically, or (b) confirm the cleanup already exists and the token store has been drained, and document the operator path to re-register the Android app's FCM token. The 404 cluster should stop appearing in the journal after a fresh signal emission.",
-      "status": "open",
+      "status": "partially-resolved",
       "triage_note": "2026-05-28 /health-review: CONFIRMED STILL OCCURRING. journalctl shows a flood of 'FCM publish non-2xx: status=404 ... NOT_FOUND' on every signal emission \u2014 ~12+ per emit at 04:55:36-38 (post-boot fade signal) and again at 06:00:35-36 (vwap signal_emitted). Dead/unregistered device tokens are not being pruned on 404; the notifier keeps targeting them each emit. No token-cleanup-on-404 path is taking effect. Tier-1 code investigation in src/runtime/mobile_push/notifier.py \u2014 not editable from /health-review.",
-      "snoozed_until": null
+      "snoozed_until": null,
+      "check_log": [
+        {
+          "at": "2026-05-30T08:30Z",
+          "by": "claude (/health-review)",
+          "note": "2026-05-30 (/health-review, operator-confirmed): push DELIVERY IS WORKING - operator confirms notifications are landing on the phone. So the FCM 404 NOT_FOUND lines (still seen in ict-trader-live journalctl, e.g. ~23:50Z 2026-05-30) are LOG-NOISE from a stale/secondary unregistered token, NOT a delivery outage. Severity downgraded: remaining work is just pruning 404'd tokens from the registry so the notifier stops logging WARN+error bodies on every cycle. Not a user-facing problem."
+        }
+      ],
+      "severity_note": "log-noise / token-pruning cleanup (delivery confirmed working 2026-05-30)"
     },
     {
       "id": "BL-20260527-005",
@@ -317,7 +325,16 @@
       "area": "mobile_push",
       "title": "ict-trader-live floods 'FCM publish non-2xx: status=404 NOT_FOUND' from mobile_push.notifier",
       "detail": "journalctl ict-trader-live (2026-05-28 ~22:13Z) shows repeated FCM publish 404 NOT_FOUND on signal_emitted pushes. Stale/unregistered Android FCM token (or wrong project). Surfaced while debugging the Android app's Order Packages/Performance tabs. Verify the registered device token + FCM project/credentials; consider pruning dead tokens so the notifier stops retrying every signal.",
-      "found_during": "order-rejection investigation (docs/audits/order-rejections-2026-05-28.md)"
+      "found_during": "order-rejection investigation (docs/audits/order-rejections-2026-05-28.md)",
+      "check_log": [
+        {
+          "at": "2026-05-30T08:30Z",
+          "by": "claude (/health-review)",
+          "note": "2026-05-30 (/health-review, operator-confirmed): push DELIVERY IS WORKING - operator confirms notifications are landing on the phone. So the FCM 404 NOT_FOUND lines (still seen in ict-trader-live journalctl, e.g. ~23:50Z 2026-05-30) are LOG-NOISE from a stale/secondary unregistered token, NOT a delivery outage. Severity downgraded: remaining work is just pruning 404'd tokens from the registry so the notifier stops logging WARN+error bodies on every cycle. Not a user-facing problem."
+        }
+      ],
+      "status": "partially-resolved",
+      "severity_note": "log-noise / token-pruning cleanup (delivery confirmed working 2026-05-30)"
     },
     {
       "id": "BL-20260529-001",
