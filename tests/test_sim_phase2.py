@@ -108,6 +108,65 @@ class TestModelScorer:
 # --------------------------------------------------------------------------
 # Ledger — with-model vs without-model diff
 # --------------------------------------------------------------------------
+# ModelScorer with the REAL loader (catches ctor/signature drift the stub
+# tests above can't — e.g. the ShadowPredictor `stage=` kwarg). Uses the
+# constant-baseline trainer so it needs no pandas / real model artifacts.
+# --------------------------------------------------------------------------
+class TestModelScorerRealLoader:
+    def _register_constant_model(self, tmp_path, model_id, constant, stage="shadow"):
+        import json
+        from ml.registry.model_registry import ModelRegistry
+
+        state_path = tmp_path / f"{model_id}_state.json"
+        state_path.write_text(json.dumps({
+            "trainer": "ml.trainers.constant_baseline.ConstantPredictionTrainer",
+            "constant": constant,
+        }))
+        registry_root = tmp_path / "registry-store"
+        registry = ModelRegistry(registry_root)
+        manifest = {"manifest_version": "v1", "target_deployment_stage": "research_only"}
+        registry.register(model_id=model_id, manifest=manifest,
+                          model_state_path=str(state_path), metrics={"mae": 0.1},
+                          code_revision="x")
+        return registry_root
+
+    def test_real_loader_loads_and_scores_shadow_stage_model(self, tmp_path):
+        """Regression: ModelScorer must construct ShadowPredictor correctly
+        (incl. the required stage= kwarg) and score via the real loader.
+        A constant=0.1 model is bearish (< 0.35) => factor == size_floor."""
+        from sim.models import ModelScorer, feature_row_for_trade
+
+        registry_root = self._register_constant_model(tmp_path, "const-bear", 0.1)
+        scorer = ModelScorer(
+            model_ids=["const-bear"],
+            policy_cfg={"advisory_policy": {"mode": "downsize", "bearish_threshold": 0.35,
+                                            "size_floor": 0.5, "quorum": "majority"}},
+            registry_root=str(registry_root),
+        )
+        row = feature_row_for_trade(strategy="vwap", symbol="BTCUSDT",
+                                    direction="long", confidence=0.5)
+        factor, scores = scorer.factor_for(row)
+        # The model MUST have loaded (this is what the missing-stage bug broke).
+        assert scores == {"const-bear": pytest.approx(0.1)}
+        assert factor == pytest.approx(0.5)
+
+    def test_real_loader_bullish_model_no_downsize(self, tmp_path):
+        from sim.models import ModelScorer, feature_row_for_trade
+
+        registry_root = self._register_constant_model(tmp_path, "const-bull", 0.9)
+        scorer = ModelScorer(
+            model_ids=["const-bull"],
+            policy_cfg={"advisory_policy": {"mode": "downsize", "bearish_threshold": 0.35,
+                                            "size_floor": 0.5, "quorum": "majority"}},
+            registry_root=str(registry_root),
+        )
+        factor, scores = scorer.factor_for(feature_row_for_trade(
+            strategy="vwap", symbol="BTCUSDT", direction="long", confidence=0.5))
+        assert scores == {"const-bull": pytest.approx(0.9)}
+        assert factor == pytest.approx(1.0)
+
+
+# --------------------------------------------------------------------------
 class TestModelsInLoopDiff:
     def test_diff_reports_cut_losers_and_winners(self):
         lg = SimLedger()
