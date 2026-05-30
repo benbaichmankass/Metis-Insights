@@ -248,9 +248,17 @@
       "tier": 1,
       "trigger_condition": "Any /health-review run; tractable as a code-only investigation (no live-trading risk).",
       "resolution_criteria": "Either (a) confirm + ship a token-cleanup-on-404 path in notifier.py so dead tokens are pruned automatically, or (b) confirm the cleanup already exists and the token store has been drained, and document the operator path to re-register the Android app's FCM token. The 404 cluster should stop appearing in the journal after a fresh signal emission.",
-      "status": "open",
+      "status": "partially-resolved",
       "triage_note": "2026-05-28 /health-review: CONFIRMED STILL OCCURRING. journalctl shows a flood of 'FCM publish non-2xx: status=404 ... NOT_FOUND' on every signal emission \u2014 ~12+ per emit at 04:55:36-38 (post-boot fade signal) and again at 06:00:35-36 (vwap signal_emitted). Dead/unregistered device tokens are not being pruned on 404; the notifier keeps targeting them each emit. No token-cleanup-on-404 path is taking effect. Tier-1 code investigation in src/runtime/mobile_push/notifier.py \u2014 not editable from /health-review.",
-      "snoozed_until": null
+      "snoozed_until": null,
+      "check_log": [
+        {
+          "at": "2026-05-30T08:30Z",
+          "by": "claude (/health-review)",
+          "note": "2026-05-30 (/health-review, operator-confirmed): push DELIVERY IS WORKING - operator confirms notifications are landing on the phone. So the FCM 404 NOT_FOUND lines (still seen in ict-trader-live journalctl, e.g. ~23:50Z 2026-05-30) are LOG-NOISE from a stale/secondary unregistered token, NOT a delivery outage. Severity downgraded: remaining work is just pruning 404'd tokens from the registry so the notifier stops logging WARN+error bodies on every cycle. Not a user-facing problem."
+        }
+      ],
+      "severity_note": "log-noise / token-pruning cleanup (delivery confirmed working 2026-05-30)"
     },
     {
       "id": "BL-20260527-005",
@@ -317,7 +325,16 @@
       "area": "mobile_push",
       "title": "ict-trader-live floods 'FCM publish non-2xx: status=404 NOT_FOUND' from mobile_push.notifier",
       "detail": "journalctl ict-trader-live (2026-05-28 ~22:13Z) shows repeated FCM publish 404 NOT_FOUND on signal_emitted pushes. Stale/unregistered Android FCM token (or wrong project). Surfaced while debugging the Android app's Order Packages/Performance tabs. Verify the registered device token + FCM project/credentials; consider pruning dead tokens so the notifier stops retrying every signal.",
-      "found_during": "order-rejection investigation (docs/audits/order-rejections-2026-05-28.md)"
+      "found_during": "order-rejection investigation (docs/audits/order-rejections-2026-05-28.md)",
+      "check_log": [
+        {
+          "at": "2026-05-30T08:30Z",
+          "by": "claude (/health-review)",
+          "note": "2026-05-30 (/health-review, operator-confirmed): push DELIVERY IS WORKING - operator confirms notifications are landing on the phone. So the FCM 404 NOT_FOUND lines (still seen in ict-trader-live journalctl, e.g. ~23:50Z 2026-05-30) are LOG-NOISE from a stale/secondary unregistered token, NOT a delivery outage. Severity downgraded: remaining work is just pruning 404'd tokens from the registry so the notifier stops logging WARN+error bodies on every cycle. Not a user-facing problem."
+        }
+      ],
+      "status": "partially-resolved",
+      "severity_note": "log-noise / token-pruning cleanup (delivery confirmed working 2026-05-30)"
     },
     {
       "id": "BL-20260529-001",
@@ -395,9 +412,14 @@
           "at": "2026-05-29T19:40Z",
           "by": "claude (/health-review)",
           "note": "PROGRESS \u2014 5m regime feed RESUMED. shadow_stats?since=2026-05-28 (#2382): btc-regime-5m-baseline-v1 + lgbm-v2 now count=466 (was 362), last_seen advanced to 2026-05-29T18:16:50Z (was stuck at 2026-05-28T22:29:34Z) \u2014 so the 5m regime shadow predictors are emitting again; the earlier ~15.7h gap aligned with the no-signal lull (BL-20260529-001), not a wiring break. All 9 emitting models (7 trade/setup/exec/prop + 2 regime-5m) share last_seen 18:16:50Z (\u224880 min before this pull; consistent with shadow firing on signal-eval, plus the 19:29-19:35Z deploy bounce). STILL UNRESOLVED: the 15m/1h/mes regime v2 variants (btc-regime-{15m,1h}-lgbm-v2, mes-regime-{5m,15m}-lgbm-v2) emit ZERO shadow predictions \u2014 absent from the log entirely. Need the documented answer on whether higher-TF regime predictors are wired into the live shadow factory or 5m-only by design. Keep open per carry-forward; the 'continuous feed' clause is met for 5m but the higher-TF coverage question remains."
+        },
+        {
+          "at": "2026-05-30T08:10Z",
+          "by": "claude (/health-review)",
+          "note": "RESOLVED - root cause is code-level + benign, confirming the 19:40Z suspicion. Shadow predictions are emitted ONLY as a side-effect of an actionable buy/sell signal (src/runtime/strategy_signal_builders.py::_emit_shadow_preds), not per-tick. Live audit relay 2026-05-30T07:52-08:05Z: ALL 6 strategies x {BTCUSDT,MES} eval to side=none every ~75s (vwap regime_policy_skip 'regime=sideways/low'; donchian in-channel; fade ADX 34-35 not chop; squeeze no release; turtle/ict_scalp no sweep), zero exceptions, trader healthy (uptime ~11h, last_tick 07:43Z). So every multi-hour shadow 'stall' = a no-signal lull (quiet sideways market, vwap regime-gated), NOT a wiring break. DOCUMENTED ANSWER to the higher-TF question: feature_row_for_predictor (src/runtime/regime_shadow.py) returns None for a regime model whose (symbol,timeframe) does not match the firing signal's, so on a ~5m vwap/ict_scalp signal ONLY btc-regime-5m is scored - the 15m/1h/MES regime heads are skipped BY DESIGN and cannot log via the signal-gated path. Resolution_criteria met (by-design note that only the timeframe-matching regime feeds shadow). Forward-looking coverage improvement (a per-bar regime-scoring path) tracked in ml-review-backlog MB-20260529-001."
         }
       ],
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null
     },
     {
@@ -414,6 +436,32 @@
       "resolved_at": "2026-05-29T20:05:00+00:00",
       "resolved_by": "claude (code shipped to branch, pending merge+deploy)",
       "resolution": "diag.py read-surface extended (PR #2388). Pending operator merge + deploy; flagged for post-deploy verification per trigger_condition.",
+      "snoozed_until": null
+    },
+    {
+      "id": "BL-20260529-005",
+      "opened_at": "2026-05-29T20:50:00+00:00",
+      "opened_by": "claude (M13 cache troubleshoot)",
+      "source": "Reading insights_history (now relay-reachable via BL-20260529-004's diag fix) \u2014 the M13 'health' endpoint insight grades 'concern (0/11 checks ok)' purely because its input artifact is 18 days stale.",
+      "title": "M13 'health' insight is built on an 18-day-stale health snapshot (artifacts/health/latest.json last written 2026-05-11) \u2014 the cron health-snapshot generator appears dead; the dashboard shows a FALSE 'concern'",
+      "description": "insights_history row id=1473 (endpoint=health, generated_at 2026-05-29T20:35:18Z, fresh) reports grade=concern, '0/11 checks ok', failing=[api,errors,heartbeat,monitoring,orders,pipeline,processes,resources,signals,ticks,trades], with signal stale_snapshot 'Health snapshot is 1596920s old (>1h)' and data_window.end=2026-05-11T08:58:09Z. So the M13 generator is healthy + current, but the artifact it reads (artifacts/health/latest.json / health_check_<TS>.json, surfaced by /api/bot/health/latest) was last written 2026-05-11 (~18.5 days ago). The cron health-snapshot generator (health-snapshot.yml writing artifacts/health/*) has not run since. Effect: the operator-facing M13 health card on the dashboard shows a scary 'concern / everything failing' that is an artifact-staleness artefact, NOT real system state (the live trader is healthy \u2014 heartbeat running, all 6 strategies eval'ing, confirmed in the 2026-05-29 /health-review). This is the concrete confirmation of the health_snapshot:watch flagged in that review. NOTE: distinct from the GitHub Actions diag relay \u2014 this is the on-VM cron/timer that writes the health artifacts the M13 analyst + /api/bot/health/* consume.",
+      "tier": 1,
+      "trigger_condition": "Next /health-review: pull journal?table=insights_history (endpoint=health) and /api/bot/health/latest (or services for the snapshot writer's timer if one exists) \u2014 confirm whether artifacts/health/latest.json has a recent generated_at. If still 2026-05-11, the snapshot writer is dead.",
+      "resolution_criteria": "Root-caused WHY the health-snapshot writer stopped on 2026-05-11 (timer disabled? unit removed in a refactor? path moved under the OCI data-dir migration? cron never re-enabled after a deploy?), then either revived so artifacts/health/latest.json updates on cadence (M13 health insight grades on current data) OR the M13 health endpoint is repointed at a live source so it stops surfacing an 18-day-old snapshot as 'concern'.",
+      "status": "open",
+      "snoozed_until": null
+    },
+    {
+      "id": "BL-20260529-006",
+      "opened_at": "2026-05-29T20:50:00+00:00",
+      "opened_by": "claude (M13 cache troubleshoot)",
+      "source": "Reading insights_history (relay-reachable via BL-20260529-004) \u2014 the M13 vwap strategy insight's prose contradicts its own structured row_counts.",
+      "title": "INVESTIGATE: M13 template-analyst vwap strategy insight self-contradicts \u2014 summary_md says 'Trades 89/0 closed, WR n/a (0W/0L)' while the same row's row_counts says trades_closed=10, wins=1, losses=9",
+      "description": "insights_history row id=1469 (endpoint=strategy, strategy_name=vwap, model_id=template:v1, generated_at 2026-05-29T20:35:17Z): summary_md renders 'Trades (total / closed): 89 / 0 ... Win rate: n/a (0W / 0L)', but the SAME row's row_counts_json is {trades:89, trades_closed:10, wins:1, losses:9, order_packages:20} and net PnL is rendered -$2.98 (which is non-zero, implying closed trades exist). So the markdown 'closed=0 / 0W-0L' disagrees with the structured 'closed=10 / 1W-9L / -$2.98'. The goal is NOT just to confirm the discrepancy but to ROOT-CAUSE it in the template analyst (src/runtime/insights/template_analyst.py + generator.py): likely two different closed-trade definitions feeding the same card \u2014 e.g. the prose 'closed' counts rows with a terminal close timestamp while row_counts 'trades_closed' counts a different status, OR a shadow-vs-live filter applied to one path but not the other (vwap is execution:shadow, 89 trades / mostly unfilled), OR a window/symbol-join mismatch. Whichever it is, the two numbers should be reconciled so the operator-facing prose matches the structured counts. Cosmetic-but-misleading: a reader sees 'vwap: 0 closed, WR n/a' in the narrative while the data says 1W/9L -$2.98.",
+      "tier": 1,
+      "trigger_condition": "Next /health-review or any session touching src/runtime/insights/. Re-pull insights_history (endpoint=strategy, vwap) and diff summary_md's closed/WR against row_counts to confirm it still skews; then trace the two closed-trade computations in template_analyst.py.",
+      "resolution_criteria": "Identified the exact reason the template's prose 'closed/WR' diverges from its own row_counts (the two code paths named), then reconciled so a strategy insight's summary_md closed-count + win/loss match its row_counts (verify on vwap, which exposes it because it's shadow with many unfilled rows). If the divergence is intentional (e.g. prose deliberately counts only live-filled closes), document that so it's not read as a bug.",
+      "status": "open",
       "snoozed_until": null
     }
   ]

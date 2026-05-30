@@ -31,7 +31,21 @@
 #                        feature-expansion sprint: market_features +
 #                        setup_labels gained new non-leaking columns and a
 #                        builder_version bump; manifests now point at v002)
-#   MARKET_START       — defaults to 2024-01-01
+#   MARKET_START       — defaults to a rolling 5-years-ago (UTC), so the
+#                        BTCUSDT market_raw / market_features builds carry
+#                        ≥5y of history for the regime classifiers (operator
+#                        directive 2026-05-30: "all models should have at
+#                        least five years of data to train on"). Bybit's
+#                        BTCUSDT linear-perp klines reach back to ~2020-03,
+#                        so a 5y window is fully covered; the adapter clamps
+#                        to the earliest available bar if the start predates
+#                        listing. Was 2024-01-01 (~1.4y) before this change.
+#                        Note this governs the BTC (Bybit) leg only — the MES
+#                        leg has its own MES_YF_START (yfinance caps intraday
+#                        history at ~60d) and the deep-history MES path is the
+#                        separate IBKR pull (pull_mes_ibkr_history.sh) /
+#                        run_mes_training.sh (MES_MARKET_START=2000-01-01,
+#                        daily ES=F).
 #   MARKET_END         — defaults to today (UTC)
 #   BUILD_LOG_PATH     — defaults to $REPO_ROOT/runtime_logs/trainer/dataset_builds.jsonl
 #
@@ -46,7 +60,12 @@ VENV_DIR="${VENV_DIR:-$REPO_ROOT/.venv}"
 DATA_DIR="${DATA_DIR:-$REPO_ROOT/data}"
 DATASETS_ROOT="${DATASETS_ROOT:-$REPO_ROOT/datasets-out}"
 DATASET_VERSION="${DATASET_VERSION:-v002}"
-MARKET_START="${MARKET_START:-2024-01-01}"
+# Rolling 5-years-ago window for the BTCUSDT (Bybit) market-data builds so
+# the regime classifiers always train on ≥5y of recent history. The daily
+# cron re-derives this each run; `date -d '5 years ago'` is GNU coreutils
+# (present on the trainer VM). Fallback to a fixed 2021-01-01 (still ≥5y as
+# of 2026) if `date -d` is unavailable on some host.
+MARKET_START="${MARKET_START:-$(date -u -d '5 years ago' +%Y-%m-%d 2>/dev/null || echo 2021-01-01)}"
 MARKET_END="${MARKET_END:-$(date -u +%Y-%m-%d)}"
 BUILD_LOG_PATH="${BUILD_LOG_PATH:-$REPO_ROOT/runtime_logs/trainer/dataset_builds.jsonl}"
 
@@ -245,6 +264,14 @@ build_btcusdt_pair 15m
 # must not turn the whole cycle red — the manifests then skip on empty data.
 MES_YF_START="$(date -u -d '58 days ago' +%Y-%m-%d 2>/dev/null || echo "$MARKET_START")"
 
+# Deep DAILY ES=F window for the mes-regime-1d-lgbm-v2 manifest
+# (MB-20260528-001). yfinance serves 1d bars back many years (unlike its
+# ~60d intraday cap), so the daily regime head gets a real multi-year
+# training set (~2500 daily bars from 2015) - the daily timeframe is where
+# the MES regime label separates (the orphan baseline scored macro_f1=0.685
+# / f1_volatile=0.543 on 1d, vs the 5m/15m modal collapse to 0).
+MES_1D_START="${MES_1D_START:-2015-01-01}"
+
 mes_median_vt() {  # median forward_log_return_vol of a market_features dir
   python3 -c "import json,sys,statistics as s
 try:
@@ -361,7 +388,29 @@ build_mes_market() {
   build_mes_setup_labels
 }
 
+# Deep daily MES (ES=F) regime data - independent of the intraday 5m/15m
+# path (which the IBKR branch can early-return out of), so the 1d build
+# always runs. Feeds mes-regime-1d-lgbm-v2 (MB-20260528-001). Pulls 1d
+# directly from yfinance (decades of daily history), then the same
+# median-calibrated market_features as the intraday shards. Non-fatal:
+# a yfinance hiccup just makes the 1d manifest skip on empty data.
+build_mes_1d() {
+  if ! python -c "import yfinance" 2>/dev/null; then
+    set +e; pip install --quiet "yfinance>=0.2"; set -e
+  fi
+  if ! python -c "import yfinance" 2>/dev/null; then
+    emit "$(printf '{"ts":"%s","status":"skipped","family":"market_raw","symbol":"MES","timeframe":"1d","detail":"yfinance unavailable; mes-regime-1d will skip"}' "$(iso_now)")"
+    return 0
+  fi
+  mes_build market_raw \
+    --output-dir "$DATASETS_ROOT" --version "$DATASET_VERSION" \
+    --source yfinance_offvm --symbol-scope MES --timeframe 1d --overwrite \
+    "adapter=yfinance_offvm" "symbol=MES" "timeframe=1d" "start=${MES_1D_START}" "end=${MARKET_END}"
+  build_mes_features_tf 1d "${DATASETS_ROOT}/market_raw/MES/1d/${DATASET_VERSION}"
+}
+
 build_mes_market
+build_mes_1d
 
 emit "$(printf '{"ts":"%s","status":"build_end","overall_rc":%d}' "$(iso_now)" "$overall_rc")"
 exit "$overall_rc"
