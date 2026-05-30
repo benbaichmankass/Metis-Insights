@@ -196,3 +196,120 @@ aggregator. Proposed next steps (operator-gated):
    a "hold/decider" conflict policy is arguably what that decider is FOR).
 
 Reproduce: `--flip-policy hold` (or `flat`) on `scripts/backtest_system.py`.
+
+---
+
+## Addendum — FULL 6-member coverage on a 4.2-yr window (2026-05-30, VERIFIED)
+
+Re-scoped to 2022-01..2026-02 ($10k, risk 0.3%, daily-loss cap 3%, 15m clock,
+7.5bps round-trip fee) because the 5.7-yr 5m/15m signal-gen for `fvg_range_15m`
++ `turtle_soup` + `ict_scalp_5m` together did not finish in one session. The
+window still spans a full bear-bull cycle (the 2022 drawdown plus 2023-2025
+bull plus the recent chop), so the directional findings transfer. All numbers
+below were read from completed `runtime_logs/system_backtest/results/*.json`
+**before being written here** — addresses the prior session's honesty lapse.
+
+Both rosters re-run on the same 4.2-yr window for a clean apples-to-apples
+flip-policy comparison.
+
+### 4-member baseline (no turtle / no ict_scalp), 4.2yr
+
+| flip policy | net | ret% | maxDD$ | maxDD% | ret/DD | trades | WR% | flips |
+|---|---|---|---|---|---|---|---|---|
+| **reverse (LIVE)** | **+$132** | +1.32% | $1002 | 9.61% | 0.13 | 767 | 39.1% | **160** |
+| **hold** | **+$2301** | +23.01% | $592 | 4.69% | **3.89** | 501 | 37.9% | **0** |
+| flat | +$951 | +9.51% | $762 | 6.79% | 1.25 | 654 | 39.4% | 152 |
+
+Per-strategy attribution (hold, the winner):
+trend_donchian +$1480, fade_breakout_4h +$585, fvg_range_15m +$284,
+squeeze_breakout_4h −$50.
+
+### 6-member full live roster, 4.2yr
+
+| flip policy | net | ret% | maxDD$ | maxDD% | ret/DD | trades | WR% | flips |
+|---|---|---|---|---|---|---|---|---|
+| **reverse (LIVE)** | **−$9928** | −99.28% | $9996 | 99.3% | −0.99 | 1837 | 39.1% | **306** |
+| **hold** | **−$6220** | −62.2% | $6306 | 62.97% | −0.99 | 1048 | 37.3% | **0** |
+| flat | −$9915 | −99.15% | $9969 | 99.15% | −0.99 | 1670 | 38.6% | 285 |
+
+Per-strategy attribution (hold, the least-bad):
+trend_donchian +$1008, fade_breakout_4h +$155, fvg_range_15m +$121,
+squeeze_breakout_4h −$14, **turtle_soup −$3032**, **ict_scalp_5m −$4458**.
+
+### Findings — the flip-churn result HOLDS; a NEW result emerges
+
+1. **The flip-churn finding holds at 6-member.** "hold" still beats "reverse"
+   by a wide margin ($3,708 swing: −$9928 → −$6220, with maxDD nearly halved
+   and 306 → 0 flips). Same direction as the 4-member result; the close-and-
+   reverse policy is still the biggest single mechanical drag.
+
+2. **But "hold" is NOT sufficient at 6-member — turtle + ict_scalp poison the
+   shared book.** Adding the two highest-priority strategies (turtle_soup=50,
+   ict_scalp_5m=30) takes the portfolio from +$2301 / +23% (4-member hold) to
+   −$6220 / −62% (6-member hold). They lose −$7,490 BETWEEN THEM in-system
+   under the best conflict policy, even though both are strongly net-positive
+   in their *standalone* harnesses. The two trend-followers (trend / fade /
+   fvg / squeeze) net +$1,270 in-system; turtle + ict_scalp swamp them by 6x.
+
+3. **Mechanism (consistent with `DECIDER-SINGLE-ACCOUNT-2026-05-24.md`'s
+   "GREEDY hogs the book" finding).** turtle (priority 50) and ict_scalp (30)
+   are the highest priorities in `DEFAULT_PRIORITIES`, so under either reverse
+   *or* hold they own the shared position most of the time — and when they
+   own it, their losses ARE the portfolio losses. The trend-followers' winning
+   trades cannot net them out because they rarely win the book. Standalone
+   edge does not transfer when a higher-priority loser monopolises the only
+   position. This is exactly the "GREEDY lets the trend hog the book"
+   pathology the decider plan identified at 3-member; at 6-member it's
+   inverted (the turtle/scalp HOG, not trend) and catastrophic.
+
+4. **Therefore the conflict-policy investigation is necessary but NOT
+   sufficient.** A "hold" aggregator alone would let the 6-member book bleed
+   −$6220 over 4.2yr. The decider's *selection* job (the v2 step beyond static
+   priority — pick the higher-P(profit) trade, regime-route, skip the
+   off-regime member) is the bigger lever once two-or-more strategies are
+   `execution: live` together. The flip-policy lever and the selection lever
+   are complementary, not alternatives.
+
+### Caveats
+
+- **Window differs from the original audit (4.2yr vs 5.7yr).** The 4-member
+  4.2-yr numbers above (reverse +$132, hold +$2301, flat +$951) are NOT
+  comparable to the 4-member 5.7-yr numbers in the main audit
+  (reverse −$411, hold +$127, flat −$298). Only the *flip-policy ordering*
+  transfers: hold > flat > reverse, with hold halving maxDD and zeroing flips.
+- **Caches keyed on 2022-01..2026-02.** Old 5.7y signal caches under
+  `runtime_logs/system_backtest/signals/` are unused by these results
+  (different hash key).
+- **All other modelling caveats from the main audit still apply** (single
+  netted position, fill at clock-bar close, no slippage beyond 7.5bps fee,
+  no funding).
+
+### Updated recommendations (override prior addendum's section)
+
+1. **The "hold" conflict-policy investigation remains the right Tier-3
+   research target** (PERF-20260530-001) — the directional finding extends to
+   the full live roster.
+2. **Walk-forward the "hold" policy SPLIT BY ROSTER**. Run train/OOS on
+   {4-member, 6-member}, since the 6-member finding inverts the sign — hold
+   is no longer sufficient when the high-priority members are net-negative
+   in-system.
+3. **Operator decision deferred to that walk-forward**: even if hold holds
+   OOS, the 6-member portfolio still bleeds. The decider's *selection* layer
+   (regime-route, skip-off-regime — DECIDER-SINGLE-ACCOUNT-2026-05-24.md v2
+   step 2/3) is the larger prize, not "patch aggregate_intents to hold".
+4. **Live activation gates already protect us**: turtle_soup and ict_scalp_5m
+   sit at `execution: shadow` today, so the −$7,490 in-system bleed is
+   currently a research finding, not a live-money risk. Their shadow→live
+   promotion should be conditioned on the decider work landing, not just
+   their own standalone edges.
+
+Reproduce:
+```bash
+python3 scripts/backtest_system.py --data /path/to/btc_5m.parquet \
+  --start 2022-01-01 --end 2026-02-28 \
+  --roster trend_donchian,fade_breakout_4h,squeeze_breakout_4h,fvg_range_15m,turtle_soup,ict_scalp_5m \
+  --initial-balance 10000 --risk-pct 0.3 --daily-loss-pct 3.0 \
+  --signal-ttl-bars 1 --flip-policy {reverse|hold|flat}
+```
+JSON results live at `runtime_logs/system_backtest/results/system_{4mem,6mem}_4yr_{reverse,hold,flat}.json`.
+
