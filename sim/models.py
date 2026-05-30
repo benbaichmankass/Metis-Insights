@@ -134,20 +134,42 @@ class ModelScorer:
             except Exception as exc:  # noqa: BLE001
                 logger.warning("sim: could not load model %s for scoring: %s", mid, exc)
 
-    def factor_for(self, row: dict[str, Any]) -> tuple[float, dict[str, float]]:
-        """Return ``(size_factor, {model_id: score})`` for a feature row.
+    def factor_for(
+        self, row: dict[str, Any], *,
+        closes: Optional[list] = None, symbol: str = "", timeframe: str = "",
+    ) -> tuple[float, dict[str, float]]:
+        """Return ``(size_factor, {model_id: score})`` for a decision.
+
+        Each predictor is scored on the row TAILORED to it, via the LIVE
+        ``src.runtime.regime_shadow.feature_row_for_predictor``:
+          * a regime model whose ``(symbol, timeframe)`` match this decision's
+            gets ``row`` enriched with the live ``vol_bucket`` +
+            ``rolling_log_return_vol`` computed from ``closes`` against the
+            edges frozen in its model state — exactly as the live signal
+            builder does;
+          * a mismatched regime model (or one with no computable vol) is
+            SKIPPED (not scored on a meaningless constant);
+          * a non-regime model (trade-outcome / setup-quality) gets ``row``
+            unchanged.
 
         ``size_factor`` comes from the LIVE ``advisory_downsize_factor`` —
         never a SIM reimplementation. ``1.0`` = no influence.
         """
         from src.runtime.advisory_influence import advisory_downsize_factor
+        from src.runtime.regime_shadow import feature_row_for_predictor
 
         _assert_leakage_safe(row)
         self._ensure_loaded()
+        closes = closes or []
         scores: dict[str, float] = {}
         for p in self._predictors:
+            tailored = feature_row_for_predictor(
+                p, row, closes=closes, symbol=symbol, timeframe=timeframe,
+            )
+            if tailored is None:
+                continue  # mismatched regime model — skip (don't score a constant)
             try:
-                scores[p.model_id] = float(p.predict(row))
+                scores[p.model_id] = float(p.predict(tailored))
             except Exception as exc:  # noqa: BLE001
                 logger.debug("sim: model %s predict failed: %s", p.model_id, exc)
         if not scores:
