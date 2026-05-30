@@ -340,7 +340,7 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
                         if verdict.get("action") == "close":
                             _close(pos, c[i], ts.iloc[i],
                                    verdict.get("reason", "monitor_close"), i)
-                                   pos = None
+                            pos = None
                         elif "sl" in verdict:
                             pos.sl = float(verdict["sl"])
                         elif "tp" in verdict:
