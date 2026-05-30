@@ -126,7 +126,10 @@ class ModelScorer:
                 state = _load_model_state(entry.model_state_path, registry_root=registry.root)
                 base = _resolve_predictor_class(state.get("trainer", ""))(state)
                 self._predictors.append(
-                    ShadowPredictor(base, model_id=entry.model_id, log_path=None)
+                    ShadowPredictor(
+                        base, model_id=entry.model_id,
+                        stage=entry.target_deployment_stage, log_path=None,
+                    )
                 )
             except Exception as exc:  # noqa: BLE001
                 logger.warning("sim: could not load model %s for scoring: %s", mid, exc)
