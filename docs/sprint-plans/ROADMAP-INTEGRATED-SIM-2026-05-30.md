@@ -129,6 +129,18 @@ funnel volume" line.
 - *Catches problem #2.* Surfaces "great f1, scores 3% of live decisions"
   BEFORE the shadow→advisory promotion.
 
+> **Phase 4 status (2026-05-30): BUILT.** `sim/sweep.py` — `run_sweep` runs a
+> list of variants (strategies on/off, which models advisory + downsize policy)
+> over the same history via the Phase-1/2 engine + Phase-3 attrition, ranked by
+> net_R. `python -m sim sweep --spec variants.{json,yaml} --candles …` writes
+> `SUMMARY.md` (markdown leaderboard + attrition flags) + `all_metrics.json`
+> ({headline,extra,generated_at}) + per-variant `variants.json`. `--publish`
+> opt-in mirrors to `runtime_logs/trainer_mirror/backtests/<date>/` so the
+> dashboard Backtesting tab shows SIM sweeps next to the operator's manual ones
+> (off by default so a SIM run never clobbers a real sweep).
+> `tests/test_sim_phase4.py` (10). **All four phases complete; sim total 49
+> tests.**
+
 ### Phase 4 — Multi-variation sweep
 A scenario runner over Phases 1–3: a small YAML of variants (strategies
 on/off, which models advisory + at what factor, param overrides) run over
@@ -180,6 +192,7 @@ so the dashboard shows them next to the operator's manual sweeps.
 | 1 ✅ BUILT 2026-05-30 | `sim/` engine: historical driver + ledger + funnel counts, CLI `python -m sim run` | One BTCUSDT multi-strategy run over ≥1y reproduces each strategy's solo-backtest trade set MINUS those killed by the multiplexer/risk gate; funnel counts emitted; leakage test green |
 | 2 ✅ BUILT 2026-05-30 | advisory-model injection via the real `advisory_downsize_factor` (`sim/models.py`) | with/without-model portfolio diff on the same history (`summary.json::models_in_loop`); `--models id1,id2` CLI flag; leakage guard + reductive-invariant tests green |
 | 3 ✅ BUILT 2026-05-30 | attrition report (`sim/attrition.py`) | per-model `funnel_scored` vs holdout `eval_n` → `attrition_ratio` + flagged-trade quality + promotion-readiness verdict in `summary.json::decision_attrition` |
+| 4 ✅ BUILT 2026-05-30 | variation sweep + dashboard mirror (`sim/sweep.py`) | N variants over the same history ranked by net_R; `python -m sim sweep --spec`; writes `SUMMARY.md`+`all_metrics.json`; `--publish` mirrors to `/api/bot/backtests/sweeps` |
 | 4 | variation sweep + dashboard mirror | N variants ranked; visible on `/api/bot/backtests/sweeps` |
 
 Each phase = its own PR (draft, Tier-1), validated on the trainer VM before

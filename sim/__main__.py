@@ -167,6 +167,22 @@ def main(argv: list[str] | None = None) -> int:
     run.add_argument("--registry-root", default="", help="override registry-store path")
     run.set_defaults(func=_cmd_run)
 
+    sweep = sub.add_parser("sweep", help="multi-variation sweep (Phase 4)")
+    sweep.add_argument("--candles", required=True, help="OHLCV .jsonl or .csv (ascending)")
+    sweep.add_argument("--spec", required=True, help="variants spec .json or .yaml ({variants:[...]})")
+    sweep.add_argument("--symbol", default="BTCUSDT")
+    sweep.add_argument("--warmup", type=int, default=200)
+    sweep.add_argument("--fee-bps", type=float, default=7.5)
+    sweep.add_argument("--timeout-bars", type=int, default=0)
+    sweep.add_argument("--registry-root", default="")
+    sweep.add_argument("--out-root", default="runtime_logs/sim/sweeps")
+    sweep.add_argument("--run-id", default="")
+    sweep.add_argument("--publish", action="store_true",
+                       help="also write to runtime_logs/trainer_mirror/backtests/<date>/ "
+                            "(dashboard sweep surface). Off by default so a SIM run never "
+                            "clobbers a real backtest sweep.")
+    sweep.set_defaults(func=_cmd_sweep)
+
     args = parser.parse_args(argv)
     return args.func(args)
 
