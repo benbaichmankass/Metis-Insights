@@ -64,7 +64,7 @@ evaluator_config:
   split_strategy: time_aware_holdout
   time_column: created_at
   holdout_fraction: 0.2
-target_deployment_stage: shadow
+target_deployment_stage: research_only
 notes: |
   v2 LightGBM head over setup_labels. Conservative regularization
   for small-n training (≈73 closed trades). Compare MAE / MSE
