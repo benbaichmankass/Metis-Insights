@@ -139,3 +139,54 @@ registration). The `monitor()` Chandelier trail is shared verbatim with
 3. If live shadow confirms, promote `execution: live` + route to `bybit_2`
    (Tier-3, operator-approved) — and it becomes the 2nd member, unlocking
    the regime decider.
+
+---
+
+## Addendum — time-stop / exit review (2026-05-30)
+
+Operator observation: the live fade "finds good trades but doesn't get out near
+the peak and sometimes waits longer than it should." Reviewed the exit on the
+6.2yr archive (2020-01..2026-02, BTCUSDT 4h, net-of-fee) via
+`scripts/backtest_fade.py` + `fade_exit_analysis` / `fade_timestop_validation`.
+
+### What the exit is, and why the give-back is intentional
+
+The only profit-exit is the **Chandelier trail: peak − 3.5×ATR** (the ~50R TP
+is an unreachable sentinel). On winners it keeps ~58% of the peak (avg MFE 6.25R
+→ realized 4.04R) — the ~2R give-back the operator sees. **This is optimal, not
+a bug.** Tightening the trail to "catch the peak" monotonically destroys net_R
+(trail 3.5 → +85.5R; 3.0 → +56.8; 2.0 → +23.5; 1.5 → −0.3) because it chops the
+fat-tail runners that ARE the edge. Partial scale-outs do the same (scale ½ @2R
+then trail → +38R vs +85.5R pure trail). **Conclusion: leave the 3.5×ATR trail
+alone.**
+
+### The one real change — restore the validated 48-bar time stop
+
+The live `monitor()` had **no time stop**, so it ran the `timeout=∞` regime,
+while the validated config (and `scripts/backtest_fade.py`) used
+`timeout_bars=48` (~8 days at 4h). Effect of adding it back (FULL 6yr):
+
+| time stop | net_R | exp | maxDD |
+|---|---|---|---|
+| ∞ (**live before**) | 73.5 | 0.417 | 17.2 |
+| **48 bars (validated)** | **87.7** | **0.493** | **17.0** |
+
+- **Plateau, not a spike:** 42–60 bars all net 82–88R. Robust.
+- **Walk-forward (the honest test):** TRAIN 2020-2023 independently picks
+  timeout=48 (net 61.8, plateau 42–54). **OOS 2024-2026 it is NEUTRAL** vs
+  no-stop (29.9 vs 30.2R; within noise, marginally lower maxDD). So the +14R
+  full-sample lift is **mostly a 2020-2023 effect — not future alpha.**
+- **Fee-robust** (+14R edge holds at 12 & 15 bps); **helps across every
+  donchian×trail neighbor** tested.
+- **By-year:** helps/neutral in 5 of 7 years; marginally hurts 2024 (−0.95R)
+  and 2026 (−1.06R).
+
+**Verdict:** ship the 48-bar time stop, but framed honestly — it is a
+**live↔backtest parity fix + a risk/operational improvement** (caps the stalled
+multi-week holds the operator flagged, frees capital for new signals, slightly
+lower maxDD), **NOT an alpha boost** (OOS-neutral). Implemented in
+`fade_breakout_4h.monitor()` step 3 + `_DEFAULTS["timeout_bars"]=48` +
+`config/strategies.yaml::fade_breakout_4h.timeout_bars`. Tier-3 — operator
+approval required before it reaches the live VM. The trail and all entry logic
+are unchanged, so the only behavioural delta is "stalled fades now close at ~8
+days instead of running until the trail/stop eventually catches them."

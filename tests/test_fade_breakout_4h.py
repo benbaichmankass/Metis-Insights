@@ -249,6 +249,17 @@ def test_defaults_match_validated_config():
     assert _DEFAULTS["adx_max"] == 20.0
     assert _DEFAULTS["atr_stop_buffer"] == 0.5
     assert _DEFAULTS["timeframe"] == "4h"
+    # Time-decay backstop (2026-05-30): restores parity with the validated
+    # backtest's 48-bar timeout (the live monitor previously had none).
+    assert _DEFAULTS["timeout_bars"] == 48
+
+
+def test_order_package_meta_carries_timeout_and_entry_time():
+    """The package must carry timeout_bars + entry_time so the live monitor's
+    time-decay step can count bars since entry."""
+    pkg = order_package(dict(_NO_GATE), candles_df=_failed_upside_frame())
+    assert pkg["meta"]["timeout_bars"] == _DEFAULTS["timeout_bars"]
+    assert pkg["meta"]["entry_time"] is not None
 
 
 # ---------------------------------------------------------------------------
@@ -331,3 +342,66 @@ def test_monitor_handles_json_string_meta():
 
 def test_monitor_no_candles_returns_none():
     assert monitor({}, None, _long_pkg()) is None
+
+
+# ---------------------------------------------------------------------------
+# monitor — time-decay backstop (2026-05-30, live↔backtest parity)
+# ---------------------------------------------------------------------------
+
+
+def _long_pkg_with_entry(timeout_bars: int = 3, entry_ts: str = "2026-01-02T00:00:00Z") -> dict:
+    pkg = _long_pkg()
+    pkg["meta"] = {**pkg["meta"], "entry_time": entry_ts, "timeout_bars": timeout_bars}
+    return pkg
+
+
+def _post_entry_frame(n: int, close: float = 105.0,
+                      start: str = "2026-01-02T04:00:00Z") -> pd.DataFrame:
+    """Flat frame of n bars AFTER the entry time — no SL/TP/trail cross, so
+    only the time-decay step can fire."""
+    rng = pd.date_range(start, periods=n, freq="4h", tz="UTC")
+    return pd.DataFrame({
+        "timestamp": rng,
+        "open": np.full(n, close), "high": np.full(n, close + 1),
+        "low": np.full(n, close - 1), "close": np.full(n, close),
+        "volume": np.ones(n),
+    })
+
+
+def test_monitor_time_decay_closes_after_timeout():
+    # 5 bars all after entry, timeout_bars=3 → time-decay close.
+    verdict = monitor({}, _post_entry_frame(5), _long_pkg_with_entry(timeout_bars=3))
+    assert verdict["action"] == "close"
+    assert verdict["reason"] == "time_decay"
+
+
+def test_monitor_no_time_decay_before_timeout():
+    # 2 bars after entry < timeout_bars=3, flat → no close (trail also won't
+    # ratchet a candidate above sl), so None.
+    verdict = monitor({}, _post_entry_frame(2), _long_pkg_with_entry(timeout_bars=3))
+    assert verdict is None
+
+
+def test_monitor_time_decay_disabled_when_zero():
+    # timeout_bars=0 disables the time stop even well past the window.
+    verdict = monitor({}, _post_entry_frame(10), _long_pkg_with_entry(timeout_bars=0))
+    assert verdict is None
+
+
+def test_monitor_sl_cross_precedes_time_decay():
+    # Past the timeout window AND price below SL → SL-cross wins (step 1 before
+    # the time-decay step), reason is sl_cross not time_decay.
+    pkg = _long_pkg_with_entry(timeout_bars=3)
+    frame = _post_entry_frame(5)
+    frame.iloc[-1, frame.columns.get_loc("close")] = 80.0   # below sl=83.75
+    verdict = monitor({}, frame, pkg)
+    assert verdict["action"] == "close"
+    assert verdict["reason"] == "sl_cross"
+
+
+def test_monitor_time_decay_skipped_without_entry_time():
+    # A package lacking entry_time (older rows) must not time-decay — the
+    # existing trail/SL behaviour is preserved (no spurious closes).
+    pkg = _long_pkg()   # no entry_time in meta
+    verdict = monitor({}, _post_entry_frame(10), pkg)
+    assert verdict is None

@@ -76,5 +76,12 @@
       "ref": "S-STRAT-IMPROVE FVG-range (this PR) — DRAFT, Tier-3, execution: shadow",
       "summary": "New strategy wired execution: shadow on bybit_1 (demo) for live data collection. FVG mean-reversion inside a confirmed static horizontal range (range_lookback 48 / touches 4 / ADX<20 / far-boundary target / stop 0.25xATR). Validated on 5.2y BTCUSDT 15m (2021-01..2026-02) net-of-fee: FULL +24.4R, exp +0.363, WR 50.8%, maxDD 3.0R, 57% months positive, both sides net-positive; walk-forward OOS 2024-2026 +21.8R exp +0.518 (stronger than train, no overfit decay); fee-robust (+10.5R at 15bps). Caveat: low frequency (67 trades/5.2y) + edge concentrated in the recent regime (train exp +0.10R) — hence shadow. Evidence: docs/audits/fvg-range-complement-2026-05-30.md."
     }
+  ],
+  "fade_breakout_4h": [
+    {
+      "date": "2026-05-30",
+      "ref": "exit review / time-stop (this PR) — DRAFT, Tier-3",
+      "summary": "Added an ~8-day (48-bar) time-decay close to monitor() to restore live↔backtest parity — the validated config used timeout_bars=48 but the live monitor had no time stop (ran timeout=∞), so stalled fades sat open for weeks. 6.2yr 4h walk-forward: timeout=48 is a broad plateau (42-60 net-positive), fee-robust, helps across donchian/trail neighbors; FULL 6yr +73.5R->+87.7R. HONEST framing: the +14R lift is mostly a 2020-2023 (train) effect — OOS 2024-2026 it is neutral-to-slightly-better with marginally lower maxDD. So it is a parity + risk/operational change (caps stalled holds, frees capital), NOT an alpha boost. The 3.5xATR trail + all entry logic are unchanged (tightening the trail or adding partial-TPs was tested and HURTS net — the give-back from the peak is the price of the fat-tail runners that are the edge). Evidence: docs/audits/fade-breakout-complement-2026-05-24.md § time-stop addendum."
+    }
   ]
 }

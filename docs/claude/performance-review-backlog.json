@@ -62,6 +62,20 @@
       "resolved_at": "2026-05-29T19:55:20.246630+00:00",
       "resolved_by": "claude (/performance-review)",
       "resolution": "Observed the qualifying post-deploy live dispatch: order package pkg-5dc66cf92b5e407f (ict_scalp_5m long) linked to bybit_1 trade id=1867 created 2026-05-29T15:12:15Z, status=open, position_size=2.173 (>0), is_dry=false. The %-based daily-loss cap (PR #2265, daily_loss_pct=0.05) no longer zeroes bybit_1 sizing. No regression: the sibling bybit_2 leg (trade 1868) was intent_noop:at_target (already at 0.001 BTC), not a risk_refused/sized-0 rejection. Mirrors health BL-20260529-001 (also resolved this review)."
+    },
+    {
+      "id": "PERF-20260530-001",
+      "title": "Investigate 'hold' conflict policy for the intent layer (flip-churn is the roster's #1 drag)",
+      "status": "open",
+      "priority": "high",
+      "tier": "tier-3",
+      "created": "2026-05-30",
+      "opened_by": "claude/fvg-range-mean-reversion (system-backtest session)",
+      "severity": "high",
+      "trigger_condition": "Next /performance-review, or whenever the single-account decider work is scheduled.",
+      "resolution_criteria": "Walk-forward (train/OOS) the 'hold' flip policy in scripts/backtest_system.py for BOTH rosters (4-member and 6-member, since the 6-member finding inverts the sign). If hold > reverse holds OOS for both, draft a Tier-3 design doc/PR for the intent-layer conflict-policy change (aggregate_intents / compute_execution_delta) \u2014 do NOT patch the aggregator without that. Separately: even if hold holds OOS, the 6-member portfolio still bleeds, so the decider's *selection* layer (DECIDER-SINGLE-ACCOUNT-2026-05-24.md v2 step 2/3 \u2014 regime-route, skip-off-regime, P(profit) pick) is the larger prize and must be the dependency for any turtle/ict_scalp shadow\u2192live promotion.",
+      "description": "The system/portfolio backtester (scripts/backtest_system.py, docs/audits/system-portfolio-backtest-2026-05-30.md) found the live close-and-reverse flip policy is the roster's first-order drag. ORIGINAL 4-member 5.7y: net -$411 / maxDD 11.5% / 246 flips under 'reverse' vs net +$127 / maxDD 6.8% / 0 flips under 'hold'. signal_ttl_bars is second-order. 2026-05-30 ADDENDUM (4.2yr 2022-01..2026-02 re-scope, VERIFIED from result JSON): 4-member reverse +$132 / hold +$2301 / flat +$951 \u2014 hold still wins ($2169 swing, maxDD halved, 0 flips). 6-member reverse -$9928 / hold -$6220 / flat -$9915 \u2014 hold still beats reverse by $3708 (and halves maxDD), BUT hold is NOT sufficient at 6-member because turtle_soup (-$3032) and ict_scalp_5m (-$4458) are net-negative in-system regardless of conflict policy (they're priorities 50 and 30, monopolise the position, and their standalone winning edge does NOT transfer when sharing a single position with lower-priority members). Therefore: (a) the conflict-policy lever is still the right Tier-3 research target, and (b) the decider's SELECTION layer (DECIDER-SINGLE-ACCOUNT-2026-05-24.md v2 step 2/3) is necessary on top \u2014 not as an alternative. Live activation gates already protect: turtle + ict_scalp sit at execution: shadow, so the -$7,490 in-system bleed is a research finding, not a live-money risk."
     }
-  ]
+  ],
+  "updated_at": "2026-05-30"
 }
