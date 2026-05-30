@@ -415,6 +415,32 @@
       "resolved_by": "claude (code shipped to branch, pending merge+deploy)",
       "resolution": "diag.py read-surface extended (PR #2388). Pending operator merge + deploy; flagged for post-deploy verification per trigger_condition.",
       "snoozed_until": null
+    },
+    {
+      "id": "BL-20260529-005",
+      "opened_at": "2026-05-29T20:50:00+00:00",
+      "opened_by": "claude (M13 cache troubleshoot)",
+      "source": "Reading insights_history (now relay-reachable via BL-20260529-004's diag fix) \u2014 the M13 'health' endpoint insight grades 'concern (0/11 checks ok)' purely because its input artifact is 18 days stale.",
+      "title": "M13 'health' insight is built on an 18-day-stale health snapshot (artifacts/health/latest.json last written 2026-05-11) \u2014 the cron health-snapshot generator appears dead; the dashboard shows a FALSE 'concern'",
+      "description": "insights_history row id=1473 (endpoint=health, generated_at 2026-05-29T20:35:18Z, fresh) reports grade=concern, '0/11 checks ok', failing=[api,errors,heartbeat,monitoring,orders,pipeline,processes,resources,signals,ticks,trades], with signal stale_snapshot 'Health snapshot is 1596920s old (>1h)' and data_window.end=2026-05-11T08:58:09Z. So the M13 generator is healthy + current, but the artifact it reads (artifacts/health/latest.json / health_check_<TS>.json, surfaced by /api/bot/health/latest) was last written 2026-05-11 (~18.5 days ago). The cron health-snapshot generator (health-snapshot.yml writing artifacts/health/*) has not run since. Effect: the operator-facing M13 health card on the dashboard shows a scary 'concern / everything failing' that is an artifact-staleness artefact, NOT real system state (the live trader is healthy \u2014 heartbeat running, all 6 strategies eval'ing, confirmed in the 2026-05-29 /health-review). This is the concrete confirmation of the health_snapshot:watch flagged in that review. NOTE: distinct from the GitHub Actions diag relay \u2014 this is the on-VM cron/timer that writes the health artifacts the M13 analyst + /api/bot/health/* consume.",
+      "tier": 1,
+      "trigger_condition": "Next /health-review: pull journal?table=insights_history (endpoint=health) and /api/bot/health/latest (or services for the snapshot writer's timer if one exists) \u2014 confirm whether artifacts/health/latest.json has a recent generated_at. If still 2026-05-11, the snapshot writer is dead.",
+      "resolution_criteria": "Root-caused WHY the health-snapshot writer stopped on 2026-05-11 (timer disabled? unit removed in a refactor? path moved under the OCI data-dir migration? cron never re-enabled after a deploy?), then either revived so artifacts/health/latest.json updates on cadence (M13 health insight grades on current data) OR the M13 health endpoint is repointed at a live source so it stops surfacing an 18-day-old snapshot as 'concern'.",
+      "status": "open",
+      "snoozed_until": null
+    },
+    {
+      "id": "BL-20260529-006",
+      "opened_at": "2026-05-29T20:50:00+00:00",
+      "opened_by": "claude (M13 cache troubleshoot)",
+      "source": "Reading insights_history (relay-reachable via BL-20260529-004) \u2014 the M13 vwap strategy insight's prose contradicts its own structured row_counts.",
+      "title": "INVESTIGATE: M13 template-analyst vwap strategy insight self-contradicts \u2014 summary_md says 'Trades 89/0 closed, WR n/a (0W/0L)' while the same row's row_counts says trades_closed=10, wins=1, losses=9",
+      "description": "insights_history row id=1469 (endpoint=strategy, strategy_name=vwap, model_id=template:v1, generated_at 2026-05-29T20:35:17Z): summary_md renders 'Trades (total / closed): 89 / 0 ... Win rate: n/a (0W / 0L)', but the SAME row's row_counts_json is {trades:89, trades_closed:10, wins:1, losses:9, order_packages:20} and net PnL is rendered -$2.98 (which is non-zero, implying closed trades exist). So the markdown 'closed=0 / 0W-0L' disagrees with the structured 'closed=10 / 1W-9L / -$2.98'. The goal is NOT just to confirm the discrepancy but to ROOT-CAUSE it in the template analyst (src/runtime/insights/template_analyst.py + generator.py): likely two different closed-trade definitions feeding the same card \u2014 e.g. the prose 'closed' counts rows with a terminal close timestamp while row_counts 'trades_closed' counts a different status, OR a shadow-vs-live filter applied to one path but not the other (vwap is execution:shadow, 89 trades / mostly unfilled), OR a window/symbol-join mismatch. Whichever it is, the two numbers should be reconciled so the operator-facing prose matches the structured counts. Cosmetic-but-misleading: a reader sees 'vwap: 0 closed, WR n/a' in the narrative while the data says 1W/9L -$2.98.",
+      "tier": 1,
+      "trigger_condition": "Next /health-review or any session touching src/runtime/insights/. Re-pull insights_history (endpoint=strategy, vwap) and diff summary_md's closed/WR against row_counts to confirm it still skews; then trace the two closed-trade computations in template_analyst.py.",
+      "resolution_criteria": "Identified the exact reason the template's prose 'closed/WR' diverges from its own row_counts (the two code paths named), then reconciled so a strategy insight's summary_md closed-count + win/loss match its row_counts (verify on vwap, which exposes it because it's shadow with many unfilled rows). If the divergence is intentional (e.g. prose deliberately counts only live-filled closes), document that so it's not read as a bug.",
+      "status": "open",
+      "snoozed_until": null
     }
   ]
 }
