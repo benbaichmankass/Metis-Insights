@@ -109,6 +109,17 @@ without-model** and diff realized portfolio PnL/DD/expectancy.
 - *Catches "test MLs + strategies together."* This is the with/without-model
   counterfactual on the whole system.
 
+> **Phase 3 status (2026-05-30): BUILT.** `sim/attrition.py` —
+> `compute_attrition` reads the Phase-2 ledger and, per model, reports
+> `funnel_scored` (decisions actually scored in the integrated replay) vs
+> holdout `eval_n` (`eval_n_from_registry` reads `metrics.n_eval` from the
+> model-state JSON) → `attrition_ratio`, plus `bearish` / `influenced`
+> (downsized decisions it was bearish on) / `bearish_net_r` (flagged-trade
+> quality: negative = flags losers = good) and a one-line promotion-readiness
+> verdict gated on a `_MIN_FUNNEL_VOLUME` floor. Surfaced in
+> `summary.json::decision_attrition` + the CLI. `tests/test_sim_phase3.py`
+> (11). This is the "looks great in eval, barely fires live" detector.
+
 ### Phase 3 — Decision-attrition report
 Instrument Phase 2 to count, per model: decisions the model COULD have
 scored (signals reaching advisory) vs decisions its isolated eval implied
@@ -168,7 +179,7 @@ so the dashboard shows them next to the operator's manual sweeps.
 |---|---|---|
 | 1 ✅ BUILT 2026-05-30 | `sim/` engine: historical driver + ledger + funnel counts, CLI `python -m sim run` | One BTCUSDT multi-strategy run over ≥1y reproduces each strategy's solo-backtest trade set MINUS those killed by the multiplexer/risk gate; funnel counts emitted; leakage test green |
 | 2 ✅ BUILT 2026-05-30 | advisory-model injection via the real `advisory_downsize_factor` (`sim/models.py`) | with/without-model portfolio diff on the same history (`summary.json::models_in_loop`); `--models id1,id2` CLI flag; leakage guard + reductive-invariant tests green |
-| 3 | attrition report | per-model attrition ratio + funnel-volume readiness line in `summary.json` |
+| 3 ✅ BUILT 2026-05-30 | attrition report (`sim/attrition.py`) | per-model `funnel_scored` vs holdout `eval_n` → `attrition_ratio` + flagged-trade quality + promotion-readiness verdict in `summary.json::decision_attrition` |
 | 4 | variation sweep + dashboard mirror | N variants ranked; visible on `/api/bot/backtests/sweeps` |
 
 Each phase = its own PR (draft, Tier-1), validated on the trainer VM before

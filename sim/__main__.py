@@ -99,6 +99,17 @@ def _cmd_run(args: argparse.Namespace) -> int:
         "models": model_ids,
     }
 
+    # Phase 3: decision-attrition (per model: live-funnel decision volume vs
+    # holdout n_eval, + flagged-trade quality + promotion-readiness verdict).
+    if model_ids:
+        from sim.attrition import compute_attrition, eval_n_from_registry
+        eval_n = eval_n_from_registry(model_ids, registry_root=args.registry_root or None)
+        summary["decision_attrition"] = compute_attrition(
+            ledger.trades,
+            bearish_threshold=args.bearish_threshold,
+            eval_n_by_model=eval_n,
+        )
+
     run_id = args.run_id or datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     out_dir = Path(args.out_root) / run_id
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -123,6 +134,14 @@ def _cmd_run(args: argparse.Namespace) -> int:
               f"without={m['net_r_without_model']} with={m['net_r_with_model']} "
               f"delta={m['delta_r']} | downsized={m['downsized_trades']} "
               f"(cut_losers={m['downsize_cut_losers']} cut_winners={m['downsize_cut_winners']})")
+    if summary.get("decision_attrition"):
+        print("  decision-attrition (per model):")
+        for mid, a in sorted(summary["decision_attrition"].items()):
+            ratio = a["attrition_ratio"]
+            ratio_s = f"{ratio}" if ratio is not None else "n/a"
+            print(f"    {mid:26s} scored={a['funnel_scored']} eval_n={a['eval_n']} "
+                  f"attrition={ratio_s} influenced={a['influenced']}")
+            print(f"      -> {a['readiness']}")
     print(f"  -> {out_dir}/summary.json")
     return 0
 

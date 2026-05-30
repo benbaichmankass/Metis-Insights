@@ -31,9 +31,12 @@ __all__ = [
     "run_replay",
     "ModelScorer",
     "feature_row_for_trade",
+    "compute_attrition",
+    "eval_n_from_registry",
 ]
 
 from sim.ledger import FunnelStage, SimLedger, SimTrade
 from sim.fills import BarFillModel
 from sim.engine import run_replay
 from sim.models import ModelScorer, feature_row_for_trade
+from sim.attrition import compute_attrition, eval_n_from_registry
