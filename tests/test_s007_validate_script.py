@@ -139,10 +139,12 @@ def test_run_checks_strategies_match_roster():
     from src.strategy_registry import load_strategies
     names = {s["name"] for s in load_strategies()}
     # ict_scalp_5m added after S-012 PR B1; trend_donchian at S8 go-live;
-    # fade_breakout_4h at S9 (2026-05-24, execution: shadow data-collector).
+    # fade_breakout_4h + squeeze_breakout_4h at S9 (2026-05-24, execution:
+    # shadow data-collectors); fvg_range_15m at 2026-05-30 (execution: shadow
+    # range member).
     assert names == {
         "turtle_soup", "vwap", "ict_scalp_5m", "trend_donchian", "fade_breakout_4h",
-        "squeeze_breakout_4h",
+        "squeeze_breakout_4h", "fvg_range_15m",
     }
 
 

@@ -69,5 +69,12 @@
       "ref": "PR #1156",
       "summary": "v2 promotion to enabled=true after pre-live gate cleared (issues #1153 + #1154): 59.3% win rate, +0.301 R expectancy, max DD 3.47R on 90 days of fresh BTCUSDT 5m candles. Strategy uses wick rejection + HTF 1h EMA-20 bias + displacement 1.3 × ATR"
     }
+  ],
+  "fvg_range_15m": [
+    {
+      "date": "2026-05-30",
+      "ref": "S-STRAT-IMPROVE FVG-range (this PR) — DRAFT, Tier-3, execution: shadow",
+      "summary": "New strategy wired execution: shadow on bybit_1 (demo) for live data collection. FVG mean-reversion inside a confirmed static horizontal range (range_lookback 48 / touches 4 / ADX<20 / far-boundary target / stop 0.25xATR). Validated on 5.2y BTCUSDT 15m (2021-01..2026-02) net-of-fee: FULL +24.4R, exp +0.363, WR 50.8%, maxDD 3.0R, 57% months positive, both sides net-positive; walk-forward OOS 2024-2026 +21.8R exp +0.518 (stronger than train, no overfit decay); fee-robust (+10.5R at 15bps). Caveat: low frequency (67 trades/5.2y) + edge concentrated in the recent regime (train exp +0.10R) — hence shadow. Evidence: docs/audits/fvg-range-complement-2026-05-30.md."
+    }
   ]
 }

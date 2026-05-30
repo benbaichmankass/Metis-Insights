@@ -22,5 +22,9 @@
   "squeeze_breakout_4h": {
     "short": "Volatility-squeeze breakout on 4h BTCUSDT",
     "how_it_works": "Trades the Bollinger-in-Keltner squeeze: when the Bollinger Bands (20, 2.0σ) contract inside the Keltner Channels (1.0× ATR) the market is coiled; entry fires on the expansion breakout out of that compression. Initial stop is 2.5× ATR(14); a Chandelier ATR trail at 3.5× is the sole profit-exit. A different entry trigger than the price-channel strategies, chosen for its low correlation with the live trend-follower. Risk: 0.3% per trade."
+  },
+  "fvg_range_15m": {
+    "short": "FVG mean-reversion inside a confirmed range, 15m BTCUSDT",
+    "how_it_works": "The range member of the roster — the deliberate opposite of ict_scalp_5m (which uses an FVG for directional continuation). Inside a confirmed STATIC horizontal range (ADX < 20 chop, sane width, and BOTH support & resistance touched ≥ 4 times), an unfilled Fair Value Gap sitting in the lower third (long) or upper third (short) is treated as a mean-reversion S/R level. Entry fires on a wick-rejection at the gap (price wicks into the gap and closes back out of it with a matching-direction body); the stop sits 0.25× ATR beyond the gap/range boundary (a range BREAK invalidates the thesis) and the target is the OPPOSITE boundary (full-range reversion). A time-decay backstop closes the trade after 48 bars if the range stalls. Risk: 0.3% per trade (runs in shadow — data-only — pending live confirmation of the backtest)."
   }
 }

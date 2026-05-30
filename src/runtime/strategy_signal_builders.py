@@ -1112,3 +1112,153 @@ def squeeze_breakout_4h_signal_builder(settings: dict) -> Dict[str, Any]:
         timeframe=timeframe, candles_df=candles_df,
     )
     return _with_signal_package("squeeze_breakout_4h", sig)
+
+
+def fvg_range_15m_signal_builder(settings: dict) -> Dict[str, Any]:
+    """FVG range / mean-reversion (S-STRAT-IMPROVE, 2026-05-30) — the range
+    member the roster was missing. Inside a confirmed STATIC horizontal range
+    (low ADX = chop, sane width, both boundaries touched >=4x), an unfilled FVG
+    in the lower/upper third is a mean-reversion S/R level: enter on a
+    wick-rejection at the gap, stop beyond the gap/boundary, target the OPPOSITE
+    boundary (full-range reversion). The deliberate opposite of ict_scalp_5m,
+    which uses an FVG DIRECTIONALLY (continuation, not reversion).
+
+    Fetches 15m candles, calls
+    ``src.units.strategies.fvg_range_15m.order_package``, and maps the result
+    into the pipeline-shape signal dict. Validated net-positive in the chop
+    regime where the trend-followers are flat (FULL 5y +24.4R, exp +0.363; OOS
+    2024-2026 +21.8R, exp +0.518, no overfit decay) but low-frequency and
+    recent-regime-concentrated, so it runs ``execution: shadow`` — logs order
+    packages on real ticks, never sends a live order. Full evidence:
+    docs/audits/fvg-range-complement-2026-05-30.md.
+
+    Honours the ``enabled`` flag in ``config/strategies.yaml`` as the single
+    source of truth: ``enabled: false`` short-circuits to ``side="none"``. The
+    ``execution: shadow`` gate is enforced downstream in the Accounts layer, not
+    here — this builder always produces the real signal so the shadow log
+    captures exactly what would have traded.
+    """
+    from src.units.strategies import load_strategy_config
+    from src.units.strategies.fvg_range_15m import order_package
+    from src.runtime.market_data import fetch_candles
+
+    try:
+        strategies_cfg = load_strategy_config()
+    except Exception:  # noqa: BLE001 — never fail-open on a config error
+        strategies_cfg = {}
+    fvg_cfg = strategies_cfg.get("fvg_range_15m", {}) or {}
+
+    symbol = settings.get("SYMBOL", settings.get("symbol", "BTCUSDT"))
+
+    if not bool(fvg_cfg.get("enabled", False)):
+        logger.info(
+            "fvg_range_15m: strategy disabled in config/strategies.yaml — "
+            "returning side=none"
+        )
+        return _with_signal_package("fvg_range_15m", {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {
+                "strategy_name": "fvg_range_15m",
+                "reason": "disabled_in_yaml",
+            },
+        })
+
+    timeframe = str(
+        fvg_cfg.get("timeframe")
+        or settings.get("FVG_RANGE_TIMEFRAME")
+        or settings.get("TIMEFRAME")
+        or "15m"
+    )
+
+    exchange = _build_killzone_exchange(settings)
+    # range_lookback (48) + ADX/ATR warmup; 250 gives generous headroom.
+    candles_df = fetch_candles(
+        symbol, timeframe, exchange_client=exchange, limit=250,
+    )
+    if candles_df is None:
+        raise RuntimeError(
+            f"fvg_range_15m: no candle data returned for symbol={symbol} "
+            f"timeframe={timeframe}. Check that the exchange connection "
+            "is configured and the symbol is valid."
+        )
+
+    _publish_liquidity_state(symbol, candles_df)
+
+    cfg: Dict[str, Any] = {"symbol": symbol, "timeframe": timeframe, **fvg_cfg}
+
+    try:
+        pkg = order_package(cfg, candles_df=candles_df)
+    except ValueError as exc:
+        logger.info("fvg_range_15m: no actionable signal (%s)", exc)
+        try:
+            log_signal({
+                "event": "fvg_range_15m_eval",
+                "strategy": "fvg_range_15m",
+                "symbol": symbol,
+                "timeframe": timeframe,
+                "side": "none",
+                "reason": str(exc),
+            })
+        except Exception:  # noqa: BLE001
+            logger.exception("fvg_range_15m: dedicated audit emit failed")
+        return _with_signal_package("fvg_range_15m", {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {
+                "strategy_name": "fvg_range_15m",
+                "reason": str(exc),
+            },
+        })
+
+    side = "buy" if pkg["direction"] == "long" else "sell"
+    logger.info(
+        "fvg_range_15m: %s signal at %s (entry=%s sl=%s tp=%s confidence=%.3f)",
+        side, symbol, pkg["entry"], pkg["sl"], pkg["tp"], pkg["confidence"],
+    )
+    pkg_meta = pkg.get("meta") or {}
+    try:
+        log_signal({
+            "event": "fvg_range_15m_eval",
+            "strategy": "fvg_range_15m",
+            "symbol": symbol,
+            "timeframe": timeframe,
+            "side": side,
+            "entry": pkg["entry"],
+            "stop_loss": pkg["sl"],
+            "take_profit": pkg["tp"],
+            "confidence": pkg["confidence"],
+            # Decision geometry the strategy already computed — surfaced so the
+            # dashboard can DRAW the FVG zone it traded on (same keys as
+            # ict_scalp). range_hi/range_lo bound the channel for the overlay.
+            "fvg_low": pkg_meta.get("fvg_low"),
+            "fvg_high": pkg_meta.get("fvg_high"),
+            "range_hi": pkg_meta.get("range_hi"),
+            "range_lo": pkg_meta.get("range_lo"),
+        })
+    except Exception:  # noqa: BLE001
+        logger.exception("fvg_range_15m: dedicated audit emit failed")
+
+    sig = {
+        "symbol": symbol,
+        "side": side,
+        "price": pkg["entry"],
+        "entry_price": pkg["entry"],
+        "stop_loss": pkg["sl"],
+        "take_profit": pkg["tp"],
+        "pattern": "fvg_range_15m",
+        "meta": {
+            **pkg_meta,
+            "strategy_name": "fvg_range_15m",
+            "confidence": pkg["confidence"],
+            "direction": pkg["direction"],
+            # Moot while execution:shadow (never sends a live order) but carried
+            # for any future flip, same pattern as the other members.
+            "strategy_risk_pct": float(fvg_cfg.get("risk_pct", 0.3) or 0.3),
+        },
+    }
+    _emit_shadow_preds(
+        "fvg_range_15m", sig, fvg_cfg, symbol,
+        timeframe=timeframe, candles_df=candles_df,
+    )
+    return _with_signal_package("fvg_range_15m", sig)

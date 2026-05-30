@@ -8,6 +8,7 @@ Set via the `STRATEGY` environment variable.
 | `vwap`              | `vwap_signal_builder`             | VWAP mean-reversion on 5 m candles.                               |
 | `breakout`          | `breakout_model_signal_builder`   | ML breakout-confirmation model (XGBoost).                          |
 | `ict_scalp_5m`      | `ict_scalp_signal_builder`        | ICT scalp v2 on 5 m — liquidity sweep + displacement + FVG wick-rejection + HTF bias filter. Live since 2026-05-14 (PR #1156, post pre-live gate); see `docs/strategies/ict_scalp_5m.md`. |
+| `fvg_range_15m`     | `fvg_range_15m_signal_builder`    | FVG mean-reversion inside a confirmed STATIC horizontal range on 15 m — the deliberate opposite of `ict_scalp_5m` (reversion, not continuation). `execution: shadow` (data-only) since 2026-05-30; see `docs/audits/fvg-range-complement-2026-05-30.md`. |
 | `multiplexed`       | `multiplexed_signal_builder`      | Tries strategies in `STRATEGIES` order; first actionable wins.     |
 
 ## Multiplexed mode
