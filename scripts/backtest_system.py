@@ -53,10 +53,10 @@ import hashlib
 import json
 import os
 import sys
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -247,7 +247,6 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
     clock = _date_filter(_resample(base5m, _PANDAS_TF[clock_tf]), start, end).reset_index(drop=True)
     n = len(clock)
     ts = clock["timestamp"]
-    o = clock["open"].to_numpy(float)
     h = clock["high"].to_numpy(float)
     lo = clock["low"].to_numpy(float)
     c = clock["close"].to_numpy(float)
@@ -313,14 +312,18 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
             # intrabar SL/TP first (conservative)
             if pos.side == "long":
                 if lo[i] <= pos.sl:
-                    _close(pos, pos.sl, ts.iloc[i], "sl", i); pos = None
+                    _close(pos, pos.sl, ts.iloc[i], "sl", i)
+                    pos = None
                 elif h[i] >= pos.tp:
-                    _close(pos, pos.tp, ts.iloc[i], "tp", i); pos = None
+                    _close(pos, pos.tp, ts.iloc[i], "tp", i)
+                    pos = None
             else:
                 if h[i] >= pos.sl:
-                    _close(pos, pos.sl, ts.iloc[i], "sl", i); pos = None
+                    _close(pos, pos.sl, ts.iloc[i], "sl", i)
+                    pos = None
                 elif lo[i] <= pos.tp:
-                    _close(pos, pos.tp, ts.iloc[i], "tp", i); pos = None
+                    _close(pos, pos.tp, ts.iloc[i], "tp", i)
+                    pos = None
             # owner monitor() (trail ratchet / time-decay / explicit close)
             if pos is not None:
                 mon = monitors.get(pos.owner)
@@ -336,7 +339,8 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
                     if isinstance(verdict, dict):
                         if verdict.get("action") == "close":
                             _close(pos, c[i], ts.iloc[i],
-                                   verdict.get("reason", "monitor_close"), i); pos = None
+                                   verdict.get("reason", "monitor_close"), i)
+                                   pos = None
                         elif "sl" in verdict:
                             pos.sl = float(verdict["sl"])
                         elif "tp" in verdict:
@@ -393,7 +397,8 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
 
     # final mark-to-close
     if pos is not None:
-        _close(pos, c[-1], ts.iloc[-1], "eod", n - 1); pos = None
+        _close(pos, c[-1], ts.iloc[-1], "eod", n - 1)
+        pos = None
 
     return _summarize(closed, equity_curve, base_balance=initial_balance,
                       util_bars=util_bars, total_bars=n, roster=roster,
@@ -473,7 +478,7 @@ def _fmt(s: Dict[str, Any]) -> str:
          f"({s['max_drawdown_pct']}%)  ret/DD={s['return_dd_ratio']}",
          f"  trades={s['total_trades']} WR={s['win_rate_pct']}%  "
          f"capital_util={s['capital_utilization_pct']}%  exits={s['by_exit_reason']}",
-         f"  per-strategy attribution (net $ | trades | wins):"]
+         "  per-strategy attribution (net $ | trades | wins):"]
     for name, a in sorted(s["per_strategy_attribution"].items(), key=lambda kv: -kv[1]["pnl"]):
         L.append(f"    {name:22} ${a['pnl']:>9.0f}  {a['trades']:>4}t  {a['wins']:>4}w")
     return "\n".join(L)
