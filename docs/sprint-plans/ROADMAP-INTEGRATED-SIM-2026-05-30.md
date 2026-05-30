@@ -88,6 +88,18 @@ survived multiplexer → passed risk → filled). No models yet.
 - *Catches problem #1.* The funnel counts alone are new signal: how many of
   a strategy's solo-backtest trades actually survive the integrated funnel.
 
+> **Phase 2 status (2026-05-30): BUILT.** `sim/models.py` — `ModelScorer`
+> scores SIM decisions on the leakage-safe signal-time feature row and returns
+> the size factor via the LIVE `advisory_downsize_factor` (not a copy).
+> Counterfactual loading: scores a model at ANY stage (incl. shadow /
+> candidate / research_only) by reusing the live factory's model-state load +
+> predictor class + `ShadowPredictor`, skipping ONLY the stage gate — the
+> scoring path is otherwise identical to live. `summary.json::models_in_loop`
+> reports net_r with vs without model + cut_losers/cut_winners. `--models`
+> CLI flag. `tests/test_sim_phase2.py` (15 incl. the leakage guard + the
+> reductive-never-amplify invariant). Real diffs run on the trainer VM where
+> the model files live (graceful factor=1.0 when files absent).
+
 ### Phase 2 — Models-in-the-loop
 Inject advisory-stage models into the Phase-1 loop via the REAL
 `advisory_sizing` path: at the order step, build the leakage-safe feature
@@ -155,7 +167,7 @@ so the dashboard shows them next to the operator's manual sweeps.
 | Phase | Deliverable | Acceptance |
 |---|---|---|
 | 1 ✅ BUILT 2026-05-30 | `sim/` engine: historical driver + ledger + funnel counts, CLI `python -m sim run` | One BTCUSDT multi-strategy run over ≥1y reproduces each strategy's solo-backtest trade set MINUS those killed by the multiplexer/risk gate; funnel counts emitted; leakage test green |
-| 2 | advisory-model injection via real `advisory_sizing` | with/without-model portfolio diff on the same history; numbers reconcile with `model-attribution` on the overlap |
+| 2 ✅ BUILT 2026-05-30 | advisory-model injection via the real `advisory_downsize_factor` (`sim/models.py`) | with/without-model portfolio diff on the same history (`summary.json::models_in_loop`); `--models id1,id2` CLI flag; leakage guard + reductive-invariant tests green |
 | 3 | attrition report | per-model attrition ratio + funnel-volume readiness line in `summary.json` |
 | 4 | variation sweep + dashboard mirror | N variants ranked; visible on `/api/bot/backtests/sweeps` |
 

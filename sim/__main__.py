@@ -58,6 +58,26 @@ def _cmd_run(args: argparse.Namespace) -> int:
         return 2
 
     strategies = [s.strip() for s in args.strategies.split(",") if s.strip()]
+
+    # Phase 2: optional models-in-the-loop.
+    model_scorer = None
+    model_ids = [m.strip() for m in (args.models or "").split(",") if m.strip()]
+    if model_ids:
+        from sim.models import ModelScorer
+        quorum: object = args.quorum
+        if str(args.quorum).isdigit():
+            quorum = int(args.quorum)
+        policy_cfg = {"advisory_policy": {
+            "mode": "downsize",
+            "bearish_threshold": args.bearish_threshold,
+            "size_floor": args.size_floor,
+            "quorum": quorum,
+        }}
+        model_scorer = ModelScorer(
+            model_ids=model_ids, policy_cfg=policy_cfg,
+            registry_root=args.registry_root or None,
+        )
+
     ledger = run_replay(
         candles=candles,
         strategies=strategies,
@@ -65,6 +85,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
         warmup_bars=args.warmup,
         fee_bps_roundtrip=args.fee_bps,
         timeout_bars=args.timeout_bars,
+        model_scorer=model_scorer,
     )
     summary = ledger.summary()
     summary["run"] = {
@@ -75,6 +96,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
         "fee_bps_roundtrip": args.fee_bps,
         "timeout_bars": args.timeout_bars,
         "warmup_bars": args.warmup,
+        "models": model_ids,
     }
 
     run_id = args.run_id or datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
@@ -95,6 +117,12 @@ def _cmd_run(args: argparse.Namespace) -> int:
     for strat, f in sorted(summary["funnel"].items()):
         print(f"    {strat:22s} {f['emitted']:5d} -> {f['survived_mux']:5d} "
               f"-> {f['passed_risk']:5d} -> {f['filled']:5d}")
+    if "models_in_loop" in summary:
+        m = summary["models_in_loop"]
+        print(f"  models-in-loop ({','.join(model_ids)}): "
+              f"without={m['net_r_without_model']} with={m['net_r_with_model']} "
+              f"delta={m['delta_r']} | downsized={m['downsized_trades']} "
+              f"(cut_losers={m['downsize_cut_losers']} cut_winners={m['downsize_cut_winners']})")
     print(f"  -> {out_dir}/summary.json")
     return 0
 
@@ -112,6 +140,12 @@ def main(argv: list[str] | None = None) -> int:
     run.add_argument("--timeout-bars", type=int, default=0, help="0 = no timeout")
     run.add_argument("--out-root", default="runtime_logs/sim")
     run.add_argument("--run-id", default="")
+    # Phase 2 — models-in-the-loop (optional).
+    run.add_argument("--models", default="", help="comma-separated model_ids to score as advisory (any stage)")
+    run.add_argument("--bearish-threshold", type=float, default=0.35, help="score below this = bearish vote")
+    run.add_argument("--size-floor", type=float, default=0.5, help="downsize floor (0=veto, 1=no effect)")
+    run.add_argument("--quorum", default="majority", help="bearish models needed: int or 'majority'")
+    run.add_argument("--registry-root", default="", help="override registry-store path")
     run.set_defaults(func=_cmd_run)
 
     args = parser.parse_args(argv)

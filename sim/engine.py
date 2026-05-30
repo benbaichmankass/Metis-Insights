@@ -106,6 +106,7 @@ def run_replay(
     fee_bps_roundtrip: float = 7.5,
     timeout_bars: int = 0,
     max_concurrent_per_symbol: int = 1,
+    model_scorer: Optional[Any] = None,
 ) -> SimLedger:
     """Replay ``strategies`` over ``candles`` through the real intent funnel.
 
@@ -227,12 +228,31 @@ def run_replay(
             tp=norm["tp"], future_bars=future,
         )
         ledger.record_stage(winner, FunnelStage.FILLED)
+
+        # Phase 2: score the decision against the model(s) and record the
+        # advisory size factor. The feature row is leakage-safe (signal-time
+        # only) and the factor comes from the LIVE advisory_downsize_factor.
+        # This is done at DECISION time on the signal-time row — never using
+        # the (future) outcome — so it faithfully mirrors live advisory sizing.
+        if model_scorer is not None:
+            from sim.models import feature_row_for_trade
+
+            row = feature_row_for_trade(
+                strategy=winner, symbol=symbol, direction=norm["direction"],
+                confidence=norm["confidence"], meta=norm.get("meta"),
+            )
+            factor, scores = model_scorer.factor_for(row)
+            trade.model_factor = factor
+            trade.model_scores = scores
+
         ledger.open_trade(trade)
         if res is not None:
             trade.exit_ts = res["exit_ts"]
             trade.exit = res["exit"]
             trade.exit_reason = res["exit_reason"]
             trade.r_multiple = res["r_multiple"]
+            if trade.model_factor is not None:
+                trade.r_multiple_model = round(res["r_multiple"] * trade.model_factor, 6)
         open_position = True
 
     return ledger

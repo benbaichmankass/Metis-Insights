@@ -49,8 +49,15 @@ class SimTrade:
     exit_ts: Optional[str] = None
     exit: Optional[float] = None
     exit_reason: Optional[str] = None   # "tp" | "sl" | "timeout" | "eod"
-    r_multiple: Optional[float] = None  # net-of-fee realized R
+    r_multiple: Optional[float] = None  # net-of-fee realized R (WITHOUT model)
     confidence: float = 0.0
+    # Phase 2 (models-in-the-loop): the advisory size factor a model/quorum
+    # applied to this decision (1.0 = no influence / no model), and the
+    # resulting model-adjusted R (r_multiple * model_factor). None when SIM
+    # ran without a model scorer.
+    model_factor: Optional[float] = None
+    model_scores: Optional[dict[str, float]] = None
+    r_multiple_model: Optional[float] = None
     meta: dict[str, Any] = field(default_factory=dict)
 
     def is_open(self) -> bool:
@@ -144,7 +151,7 @@ class SimLedger:
         wins = sum(1 for t in closed if t.r_multiple > 0)
         n = len(closed)
         curve = self.equity_curve_r()
-        return {
+        out: dict[str, Any] = {
             "portfolio": {
                 "closed_trades": n,
                 "open_trades": len(self.open_positions()),
@@ -157,4 +164,35 @@ class SimLedger:
             "per_strategy": self._per_strategy_stats(),
             "funnel": self.funnel(),
             "equity_curve_r": curve,
+        }
+        # Phase 2: with-model vs without-model portfolio diff, only when a
+        # model scorer ran (model_factor populated on the trades).
+        scored = [t for t in closed if t.model_factor is not None]
+        if scored:
+            out["models_in_loop"] = self._model_diff(scored, baseline_net_r=net_r)
+        return out
+
+    @staticmethod
+    def _model_diff(scored: list[SimTrade], *, baseline_net_r: float) -> dict[str, Any]:
+        """With-model vs without-model portfolio comparison (Phase 2).
+
+        ``r_multiple`` is the WITHOUT-model R; ``r_multiple_model`` =
+        r_multiple * model_factor is the WITH-model R. The diff is the realized
+        effect of letting the model(s) resize orders over this history.
+        """
+        with_r = round(sum(t.r_multiple_model for t in scored), 4)
+        without_r = round(sum(t.r_multiple for t in scored), 4)
+        downsized = [t for t in scored if t.model_factor < 1.0]
+        # On how many of the downsized trades did the model HELP (cut a loser)
+        # vs HURT (cut a winner)?
+        cut_losers = sum(1 for t in downsized if t.r_multiple < 0)
+        cut_winners = sum(1 for t in downsized if t.r_multiple > 0)
+        return {
+            "scored_trades": len(scored),
+            "downsized_trades": len(downsized),
+            "net_r_without_model": without_r,
+            "net_r_with_model": with_r,
+            "delta_r": round(with_r - without_r, 4),
+            "downsize_cut_losers": cut_losers,   # model shrank a losing trade (good)
+            "downsize_cut_winners": cut_winners,  # model shrank a winning trade (bad)
         }
