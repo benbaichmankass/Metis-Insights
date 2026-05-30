@@ -31,7 +31,21 @@
 #                        feature-expansion sprint: market_features +
 #                        setup_labels gained new non-leaking columns and a
 #                        builder_version bump; manifests now point at v002)
-#   MARKET_START       — defaults to 2024-01-01
+#   MARKET_START       — defaults to a rolling 5-years-ago (UTC), so the
+#                        BTCUSDT market_raw / market_features builds carry
+#                        ≥5y of history for the regime classifiers (operator
+#                        directive 2026-05-30: "all models should have at
+#                        least five years of data to train on"). Bybit's
+#                        BTCUSDT linear-perp klines reach back to ~2020-03,
+#                        so a 5y window is fully covered; the adapter clamps
+#                        to the earliest available bar if the start predates
+#                        listing. Was 2024-01-01 (~1.4y) before this change.
+#                        Note this governs the BTC (Bybit) leg only — the MES
+#                        leg has its own MES_YF_START (yfinance caps intraday
+#                        history at ~60d) and the deep-history MES path is the
+#                        separate IBKR pull (pull_mes_ibkr_history.sh) /
+#                        run_mes_training.sh (MES_MARKET_START=2000-01-01,
+#                        daily ES=F).
 #   MARKET_END         — defaults to today (UTC)
 #   BUILD_LOG_PATH     — defaults to $REPO_ROOT/runtime_logs/trainer/dataset_builds.jsonl
 #
@@ -46,7 +60,12 @@ VENV_DIR="${VENV_DIR:-$REPO_ROOT/.venv}"
 DATA_DIR="${DATA_DIR:-$REPO_ROOT/data}"
 DATASETS_ROOT="${DATASETS_ROOT:-$REPO_ROOT/datasets-out}"
 DATASET_VERSION="${DATASET_VERSION:-v002}"
-MARKET_START="${MARKET_START:-2024-01-01}"
+# Rolling 5-years-ago window for the BTCUSDT (Bybit) market-data builds so
+# the regime classifiers always train on ≥5y of recent history. The daily
+# cron re-derives this each run; `date -d '5 years ago'` is GNU coreutils
+# (present on the trainer VM). Fallback to a fixed 2021-01-01 (still ≥5y as
+# of 2026) if `date -d` is unavailable on some host.
+MARKET_START="${MARKET_START:-$(date -u -d '5 years ago' +%Y-%m-%d 2>/dev/null || echo 2021-01-01)}"
 MARKET_END="${MARKET_END:-$(date -u +%Y-%m-%d)}"
 BUILD_LOG_PATH="${BUILD_LOG_PATH:-$REPO_ROOT/runtime_logs/trainer/dataset_builds.jsonl}"
 
