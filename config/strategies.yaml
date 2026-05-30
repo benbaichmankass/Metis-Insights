@@ -225,6 +225,18 @@ strategies:
     # (matches the backtest). `tp` is a far ~50R sentinel that still
     # satisfies the pipeline's full-SL/TP dispatch gate.
     tp_r: 50.0
+    # Time-decay backstop: close at market after this many bars (~8 days at
+    # 4h) if the trade has neither stopped nor trailed out. Added 2026-05-30
+    # to restore live↔backtest parity — the validated config used a 48-bar
+    # timeout but the live monitor() previously had no time stop (ran the
+    # timeout=∞ regime), so stalled fades could sit open for weeks. A 6.2yr
+    # 4h walk-forward found 48 a broad plateau (42-60 all net-positive),
+    # fee-robust, helpful across donchian/trail neighbors; OOS 2024-2026 it is
+    # neutral-to-slightly-better with a marginally lower maxDD (the +14R/6yr
+    # full-sample lift is mostly a 2020-2023 effect). Parity + risk change,
+    # NOT an alpha boost. Set 0 to disable. Tier-3; evidence:
+    # docs/audits/fade-breakout-complement-2026-05-24.md § time-stop addendum.
+    timeout_bars: 48
     # shadow_model_ids: [] — opt out of ML shadow-prediction auto-wiring on
     # this strategy for now (keep its signal log clean of model predictions
     # until it has a live track record). Independent of `execution:`.

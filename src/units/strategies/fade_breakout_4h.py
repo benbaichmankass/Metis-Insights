@@ -94,6 +94,20 @@ _DEFAULTS: Dict[str, Any] = {
     # already does the filtering a confidence floor would. Gate kept wired
     # (default off) in case a future regime warrants it.
     "min_confidence": 0.0,
+    # Time-decay backstop: close at market after this many bars if the trade
+    # has neither stopped nor trailed out (matches the validated backtest's
+    # `timeout_bars=48`). Consumed by monitor(). Added 2026-05-30 to restore
+    # live↔backtest parity — the validated config that justified the strategy
+    # used a 48-bar timeout, but the live monitor previously had no time stop
+    # (it ran the timeout=∞ regime), so stalled trades could sit open for
+    # weeks. A 6.2yr 4h walk-forward (docs/audits/fade-breakout-complement-
+    # 2026-05-24.md § time-stop addendum) found 48 a BROAD plateau (42-60 all
+    # net-positive), fee-robust, and helpful across donchian/trail neighbors;
+    # the full-sample lift (+14R/6yr) is mostly a 2020-2023 effect — OOS
+    # 2024-2026 it is neutral-to-slightly-better with a marginally lower maxDD.
+    # So this is a parity + risk/operational change (caps stalled holds, frees
+    # capital), NOT an alpha boost. 0 disables the time stop.
+    "timeout_bars": 48,
 }
 
 
@@ -178,6 +192,7 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
     adx_max = _coerce_float(params["adx_max"])
     adx_period = int(params["adx_period"])
     tp_r = float(params["tp_r"])
+    timeout_bars = int(params["timeout_bars"])
     timeframe = str(cfg.get("timeframe") or params["timeframe"])
 
     needed = donchian + atr_period + adx_period + 2
@@ -297,6 +312,9 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
             "tp_r": tp_r,
             "risk_per_unit": float(risk),
             "entry_time": entry_time,
+            # Time-decay backstop (bars since entry) consumed by monitor() —
+            # restores parity with the validated backtest's 48-bar timeout.
+            "timeout_bars": timeout_bars,
             # Canonical key the order_monitor's ohlcv_fetcher reads to pull
             # fresh candles for monitor(). Without it the trail never updates.
             "timeframe": timeframe,
@@ -347,9 +365,12 @@ def monitor(cfg, candles_df, open_pkg):
 
     Close-path priority (first match wins), then the trailing ratchet:
     (1) SL-cross full close, (2) far-sentinel TP-cross full close,
-    (3) Chandelier trail ratchet at ``extreme ∓ trail_mult × ATR`` using
-    the since-entry extreme + frozen entry-time ATR, returned as
-    ``{"sl": new_sl}`` only when it tightens the stop AND sits on the
+    (3) time-decay full close after ``meta["timeout_bars"]`` bars since
+    entry (the backtest's timeout backstop — restores live↔backtest
+    parity; previously absent so the live monitor ran the timeout=∞
+    regime), (4) Chandelier trail ratchet at ``extreme ∓ trail_mult ×
+    ATR`` using the since-entry extreme + frozen entry-time ATR, returned
+    as ``{"sl": new_sl}`` only when it tightens the stop AND sits on the
     correct side of price. Otherwise ``None``.
     """
     if candles_df is None or len(candles_df) == 0:
@@ -391,7 +412,33 @@ def monitor(cfg, candles_df, open_pkg):
         if direction == "short" and current_price <= tp:
             return {"action": "close", "reason": "tp_cross", "exit_price": current_price}
 
-    # 3. Chandelier trail ratchet.
+    # 3. Time-decay backstop (matches the backtest's `timeout_bars`). Closes a
+    # trade that has neither stopped nor trailed out after N bars since entry —
+    # restores live↔backtest parity (the validated config used 48 bars; the
+    # monitor previously had no time stop) and caps the stalled multi-week
+    # holds. Counts bars in the fresh window strictly after the package's
+    # entry_time. timeout_bars<=0 (or no entry_time) disables it.
+    try:
+        timeout_bars = int(
+            meta.get("timeout_bars")
+            or cfg_dict.get("timeout_bars")
+            or _DEFAULTS["timeout_bars"]
+        )
+    except (TypeError, ValueError):
+        timeout_bars = int(_DEFAULTS["timeout_bars"])
+    entry_ts = meta.get("entry_time") or open_pkg.get("created_at")
+    if timeout_bars > 0 and entry_ts is not None \
+            and "timestamp" in getattr(candles_df, "columns", []):
+        try:
+            ts_col = pd.to_datetime(candles_df["timestamp"], utc=True, errors="coerce")
+            cutoff = pd.to_datetime(entry_ts, utc=True, errors="coerce")
+            if pd.notna(cutoff) and int((ts_col > cutoff).sum()) >= timeout_bars:
+                return {"action": "close", "reason": "time_decay",
+                        "exit_price": current_price}
+        except Exception:  # noqa: BLE001 — never let the time stop crash the monitor
+            pass
+
+    # 4. Chandelier trail ratchet.
     atr = _coerce_float(meta.get("atr"))
     if atr is None or atr <= 0:
         period = int(

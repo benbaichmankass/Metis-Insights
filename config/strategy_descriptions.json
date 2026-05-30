@@ -17,7 +17,7 @@
   },
   "fade_breakout_4h": {
     "short": "Failed-breakout fade in chop, 4h BTCUSDT",
-    "how_it_works": "The mirror of the trend-follower: fades FAILED Donchian(20) breakouts — a bar that pierces the prior channel then closes back inside (a liquidity grab that rejected) — but only in choppy regimes (ADX < 20). Initial stop sits 0.5× ATR beyond the rejection wick; a Chandelier ATR trail at 3.5× is the sole profit-exit. Validated as an uncorrelated complement to trend_donchian. Risk: 0.3% per trade."
+    "how_it_works": "The mirror of the trend-follower: fades FAILED Donchian(20) breakouts — a bar that pierces the prior channel then closes back inside (a liquidity grab that rejected) — but only in choppy regimes (ADX < 20). Initial stop sits 0.5× ATR beyond the rejection wick; a Chandelier ATR trail at 3.5× is the primary profit-exit, with an ~8-day (48-bar) time-decay close as a backstop for stalled trades. Validated as an uncorrelated complement to trend_donchian. Risk: 0.3% per trade."
   },
   "squeeze_breakout_4h": {
     "short": "Volatility-squeeze breakout on 4h BTCUSDT",
