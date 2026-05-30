@@ -196,3 +196,62 @@ aggregator. Proposed next steps (operator-gated):
    a "hold/decider" conflict policy is arguably what that decider is FOR).
 
 Reproduce: `--flip-policy hold` (or `flat`) on `scripts/backtest_system.py`.
+
+---
+
+## Addendum — FULL live-roster coverage (turtle_soup + ict_scalp_5m added, 2026-05-30)
+
+Coverage extended from 4 to all **6** BTCUSDT live members so the system test
+matches the real bybit_2 book. turtle_soup (15m) plugs in directly; ict_scalp_5m
+(5m) required injecting the 1h EMA-20 HTF bias per bar (else its HTF gate
+silently no-ops). Same window/config (2020-06..2026-02, $10k, risk 0.3%, 15m
+clock). Stream validation (H1-2024): turtle_soup 116 signals (60L/56S),
+ict_scalp_5m 166 (99L/67S) — balanced, HTF injection confirmed working.
+
+| flip policy | net | ret% | maxDD% | ret/DD | trades | flips |
+|---|---|---|---|---|---|---|
+| **reverse (LIVE)** | **−$1928** | −19.3% | 21.5% | −0.90 | 3637 | 1218 |
+| **hold** | **−$281** | −2.8% | 9.6% | −0.29 | 1894 | 0 |
+| flat | −$1024 | −10.2% | 14.0% | −0.73 | 2154 | 671 |
+
+Per-strategy attribution (net $):
+- **reverse:** trend −171, fade −529, squeeze −179, **fvg +167**, turtle −445, **ict_scalp −772**
+- **hold:** trend −136, fade −206, squeeze +11, **fvg +78**, turtle −443, **ict_scalp +408**
+
+### The finding gets STRONGER with the full roster
+
+1. **Flip-churn is even more punishing with 6 voters.** Under the live "reverse"
+   policy the 6-member book does **1218 flips** and loses **−$1928 (−19.3%)** at
+   21.5% max-drawdown — markedly worse than the 4-member −$411. More strategies =
+   more opposite votes = more whipsaw. The roster fights itself *harder* the more
+   members it has, under the current conflict policy.
+2. **"hold" again dominates** — net −$281 vs −$1928 (a **+$1647 swing**), maxDD
+   **halved** (21.5% → 9.6%), zero flips. The single biggest portfolio lever,
+   confirmed on the full roster.
+3. **ict_scalp_5m is the clearest victim of churn:** −$772 under reverse →
+   **+$408 under hold** (a $1180 swing on one strategy). Its 5m signals are the
+   most frequent, so it both triggers and suffers the most flips; left to ride
+   its own exits it is the book's best contributor.
+4. **fvg_range_15m stays net-positive under BOTH policies** (+167 reverse / +78
+   hold) — it remains a robust diversifier even in the fuller, churnier book.
+   (Its in-system $ is modest because priority 3 rarely wins the vote, but it
+   never *costs* the book.)
+5. **The book is still net-negative even under "hold" (−$281).** "hold" removes
+   the self-inflicted churn cost but does not by itself make the roster
+   profitable — turtle_soup (−443) and fade (−206) remain in-system drags. So
+   the conflict policy is necessary but not sufficient; a real decider that also
+   *allocates* (not just de-conflicts) is the larger prize.
+
+### Bottom line (unchanged, reinforced)
+
+The system backtester's headline holds across both 4- and 6-member rosters:
+**the live close-and-reverse conflict policy is the single largest drag on the
+portfolio, and it scales with roster size.** This is the strongest possible
+argument for the single-account decider
+(`docs/sprint-plans/DECIDER-SINGLE-ACCOUNT-2026-05-24.md`) — its first job
+should be a "hold / don't-whipsaw" conflict policy. Tier-3 caveats from the
+prior addendum stand: walk-forward the policy before any live `aggregate_intents`
+change; this backtest justifies the investigation, not a patch.
+
+Reproduce: `scripts/backtest_system.py` default `--roster` now includes all 6;
+`--flip-policy {reverse,hold,flat}`.
