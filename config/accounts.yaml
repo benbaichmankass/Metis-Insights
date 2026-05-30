@@ -97,7 +97,7 @@ accounts:
     market_type: linear                # USDT-margined linear perpetuals — same
                                        # as bybit_2. set-leverage fires at boot
                                        # via _apply_per_account_leverage.
-    strategies: [trend_donchian, turtle_soup, ict_scalp_5m, fade_breakout_4h, squeeze_breakout_4h, vwap]
+    strategies: [trend_donchian, turtle_soup, ict_scalp_5m, fade_breakout_4h, squeeze_breakout_4h, vwap, fvg_range_15m]
                                        # execution-priority order matches list order.
                                        # 2026-05-25 (operator-approved): bybit_1 (demo)
                                        # now mirrors bybit_2 EXACTLY — the same six
@@ -107,9 +107,13 @@ accounts:
                                        # promoted to `execution: live` in
                                        # config/strategies.yaml the same date. Every live
                                        # strategy here trades PAPER money (demo endpoint)
-                                       # — no real-money risk. vwap remains the only
-                                       # `execution: shadow` strategy (data-only on every
-                                       # account, incl. this one).
+                                       # — no real-money risk. vwap + fvg_range_15m are the
+                                       # `execution: shadow` strategies (data-only on every
+                                       # account, incl. this one). fvg_range_15m added
+                                       # 2026-05-30 (DRAFT, Tier-3) as the shadow-first
+                                       # range member — routed to the DEMO account ONLY for
+                                       # live data collection; NOT on bybit_2 (real money)
+                                       # until the operator promotes it shadow -> live.
     symbols: [BTCUSDT]                 # instrument(s) this account trades. The
                                        # multi-symbol tick loop unions every
                                        # configured account's symbols, so this

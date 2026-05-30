@@ -31,12 +31,16 @@ def test_registry_roster_is_exactly_turtle_soup_and_vwap():
         operator-approved; docs/sprint-plans/TREND-GOLIVE-PLAN-2026-05-23.md).
       * fade_breakout_4h registered 2026-05-24 (S9) as an execution: shadow
         data-collector (NOT live; never sends a live order).
-    Roster: turtle_soup + vwap + ict_scalp_5m + trend_donchian + fade_breakout_4h.
+      * fvg_range_15m registered 2026-05-30 as an execution: shadow
+        data-collector (NOT live; never sends a live order) — the range member.
+    Roster: turtle_soup + vwap + ict_scalp_5m + trend_donchian + fade_breakout_4h
+    + squeeze_breakout_4h + fvg_range_15m.
     """
     from src.strategy_registry import load_strategies
     names = sorted(s["name"] for s in load_strategies())
     assert names == [
-        "fade_breakout_4h", "ict_scalp_5m", "squeeze_breakout_4h", "trend_donchian", "turtle_soup", "vwap",
+        "fade_breakout_4h", "fvg_range_15m", "ict_scalp_5m", "squeeze_breakout_4h",
+        "trend_donchian", "turtle_soup", "vwap",
     ]
 
 

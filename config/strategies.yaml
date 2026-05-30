@@ -439,3 +439,77 @@ strategies:
     # whose target_deployment_stage == "shadow" on this strategy's
     # signals. Set `shadow_model_ids: []` to opt out entirely or
     # provide an explicit list to pin specific models.
+
+  fvg_range_15m:
+    # FVG range / mean-reversion (S-STRAT-IMPROVE, 2026-05-30) — the RANGE
+    # member the roster was missing. Inside a confirmed STATIC horizontal
+    # range (low ADX = chop, sane width, both boundaries touched >=4x), an
+    # unfilled Fair Value Gap in the lower/upper third is a mean-reversion S/R
+    # level: enter on a wick-rejection at the gap, stop beyond the gap/range
+    # boundary (a range BREAK invalidates the thesis), target the OPPOSITE
+    # boundary (full-range reversion). The DELIBERATE OPPOSITE of ict_scalp_5m,
+    # which uses an FVG DIRECTIONALLY (sweep -> displacement -> continuation in
+    # the breakout direction). Strategy code: src/units/strategies/fvg_range_15m.py;
+    # validated harness: scripts/backtest_fvg_range.py.
+    #
+    # STATUS: execution: shadow (2026-05-30). NEW + untested live — runs and
+    # LOGS its order packages on real ticks (data collection) but never sends a
+    # live order, pending live confirmation of the backtest. Evidence
+    # (docs/audits/fvg-range-complement-2026-05-30.md), BTCUSDT 15m, net-of-fee,
+    # 5.2y 2021-01..2026-02:
+    #   * FULL 5y +24.4R, expectancy +0.363, win-rate 50.8%, max-DD 3.0R, 57%
+    #     of months positive — BOTH long (+15.9R) and short (+8.5R) net-positive.
+    #   * Walk-forward (train 2021-2023 / OOS 2024-2026): the train config HOLDS
+    #     out-of-sample and is STRONGER (OOS +21.8R, exp +0.518, both sides
+    #     positive) — no overfit decay (the opposite of fade_breakout_4h's OOS
+    #     halving). Robust plateau across range_lookback 40-48 x touches 4-5 x
+    #     ADX 18-22. Fee-robust: still +10.5R net at 15bps (2x the modelled 7.5).
+    #   * CAVEAT (the residual live risk): low frequency (67 trades / 5.2y) and
+    #     the edge is concentrated in the recent regime — train (2021-2023)
+    #     expectancy is a modest +0.10R. This is exactly why it runs shadow.
+    #
+    # The runtime builder honours `enabled` below as the single source of
+    # truth; `execution:` is the per-strategy execution gate (enforced in
+    # Coordinator.multi_account_execute). Promote shadow -> live only after the
+    # live shadow data confirms the backtest (Tier-3, operator-approved).
+    model: null
+    signal_prefixes: [fvg_range, fvg_mr]
+    enabled: true
+    execution: shadow          # data-only: logs order packages everywhere,
+                               # never sends a live order. Promote to `live`
+                               # after live shadow proof (Tier-3, operator-gated).
+    risk_pct: 0.3              # low — untested; matches the STRATEGY_RISK_PCT
+                              # fallback in src/runtime/pipeline.py. Moot while
+                              # execution: shadow (never sends a live order).
+    timeframe: "15m"          # served as Bybit 15m via CCXT.
+    symbols:
+      - BTCUSDT               # currently the only supported symbol
+                              # (SUPPORTED_SYMBOLS gate). Like the other
+                              # strategies this list documents intended
+                              # applicability — the runtime traded-symbol set
+                              # comes from config/accounts.yaml.
+    # Strategy-specific — the validated walk-forward config (range_lookback 48
+    # / touches 4 / ADX<20 / far-boundary target / stop 0.25xATR). The
+    # touches=4 boundary-confirmation gate is the edge-defining lever (a
+    # genuinely oscillating range, not a one-touch spike).
+    range_lookback: 48        # prior bars defining support/resistance (~12h on 15m)
+    atr_period: 14
+    adx_period: 14
+    adx_max: 20.0             # chop gate (mirrors fade_breakout_4h's ADX<20)
+    min_width_pct: 0.015      # min range width / price (fee-clearance floor)
+    max_width_pct: 0.12       # max range width / price (reject runaway 'ranges')
+    touch_tol_pct: 0.002      # boundary-touch tolerance / price
+    min_touches: 4            # each boundary touched >= this in the window
+    third_frac: 0.34          # lower/upper fraction admitting long/short entries
+    fvg_search: 24            # bars back to scan for an unfilled matching FVG
+    min_fvg_size_bps: 2.0
+    atr_stop_buffer: 0.25     # stop placed this many ATR beyond gap / boundary
+    timeout_bars: 48          # time-decay backstop (consumed by monitor())
+    # No min_confidence floor — a 5y sweep found none improves net_R (the
+    # regime gates already do the filtering). Wired (default 0.0) for a future
+    # regime warrant.
+    min_confidence: 0.0
+    shadow_model_ids: []      # opt out of ML shadow-prediction auto-wiring —
+                              # keep this fresh data-collector's signal log
+                              # clean of model predictions until it has a track
+                              # record. Independent of `execution:`.
