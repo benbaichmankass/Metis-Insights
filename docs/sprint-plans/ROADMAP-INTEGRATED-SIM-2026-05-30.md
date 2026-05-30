@@ -70,6 +70,14 @@ loop, the portfolio ledger, and the report — not the trading logic.
 Phased so each builds on the last; each phase ships independently and is
 useful alone.
 
+> **Phase 1 status (2026-05-30): BUILT.** `sim/` package (`engine.py`,
+> `ledger.py`, `fills.py`, `__main__.py`) + `tests/test_sim_phase1.py`
+> (15 passing, incl. a faithfulness test proving the engine drives the REAL
+> `aggregate_intents` priority arbitration, not a copy). CLI verified
+> end-to-end. Real evaluation runs on the trainer VM's 5y data (the sandbox
+> sample is too short to be evidential, as documented in
+> `docs/audits/backtest-harness-validation-2026-05-30.md`). Phases 2–4 next.
+
 ### Phase 1 — Integrated pipeline replay (FOUNDATION)
 A harness that walks historical bars for a symbol set and, per bar:
 strategy builders → `aggregate_intents` → `compute_execution_delta` →
@@ -146,7 +154,7 @@ so the dashboard shows them next to the operator's manual sweeps.
 
 | Phase | Deliverable | Acceptance |
 |---|---|---|
-| 1 | `sim/` engine: historical driver + ledger + funnel counts, CLI `python -m sim run` | One BTCUSDT multi-strategy run over ≥1y reproduces each strategy's solo-backtest trade set MINUS those killed by the multiplexer/risk gate; funnel counts emitted; leakage test green |
+| 1 ✅ BUILT 2026-05-30 | `sim/` engine: historical driver + ledger + funnel counts, CLI `python -m sim run` | One BTCUSDT multi-strategy run over ≥1y reproduces each strategy's solo-backtest trade set MINUS those killed by the multiplexer/risk gate; funnel counts emitted; leakage test green |
 | 2 | advisory-model injection via real `advisory_sizing` | with/without-model portfolio diff on the same history; numbers reconcile with `model-attribution` on the overlap |
 | 3 | attrition report | per-model attrition ratio + funnel-volume readiness line in `summary.json` |
 | 4 | variation sweep + dashboard mirror | N variants ranked; visible on `/api/bot/backtests/sweeps` |
