@@ -146,6 +146,54 @@ def _cmd_run(args: argparse.Namespace) -> int:
     return 0
 
 
+def _load_spec(path: Path) -> list[dict]:
+    """Load a variants spec (.json or .yaml) -> list of variant dicts."""
+    text = path.read_text()
+    if path.suffix in (".yaml", ".yml"):
+        import yaml
+        doc = yaml.safe_load(text)
+    else:
+        doc = json.loads(text)
+    variants = doc.get("variants") if isinstance(doc, dict) else doc
+    if not isinstance(variants, list) or not variants:
+        raise ValueError(f"spec {path} must contain a non-empty 'variants' list")
+    return variants
+
+
+def _cmd_sweep(args: argparse.Namespace) -> int:
+    from sim.sweep import run_sweep, write_sweep
+
+    candles = _load_candles(Path(args.candles))
+    if len(candles) <= args.warmup:
+        print(f"ERROR: only {len(candles)} candles, need > warmup ({args.warmup})", file=sys.stderr)
+        return 2
+    variants = _load_spec(Path(args.spec))
+
+    results = run_sweep(
+        variants=variants, candles=candles, symbol=args.symbol,
+        warmup_bars=args.warmup, fee_bps_roundtrip=args.fee_bps,
+        timeout_bars=args.timeout_bars, registry_root=args.registry_root or None,
+    )
+    span = [candles[0]["ts"], candles[-1]["ts"]]
+    run_id = args.run_id or datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    out_dir = Path(args.out_root) / run_id
+    write_sweep(results, out_dir=out_dir, span=span, symbol=args.symbol)
+
+    if args.publish:
+        date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        mirror = Path("runtime_logs/trainer_mirror/backtests") / date
+        write_sweep(results, out_dir=mirror, span=span, symbol=args.symbol)
+
+    print(f"SIM sweep {run_id} — {args.symbol} {len(candles)} bars, {len(results)} variants")
+    print("  rank  variant                net_R    trades  win%   maxDD_R")
+    for i, r in enumerate(results, 1):
+        h = r["headline"]
+        print(f"  {i:<4d}  {r['name']:22s} {h['net_r']:8.2f}  {h['closed_trades']:6d}  "
+              f"{h['win_rate']*100:5.1f}  {h['max_drawdown_r']:7.2f}")
+    print(f"  -> {out_dir}/SUMMARY.md" + ("  (+published to mirror)" if args.publish else ""))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="sim", description="Integrated strategy+ML simulation harness")
     sub = parser.add_subparsers(dest="cmd", required=True)
