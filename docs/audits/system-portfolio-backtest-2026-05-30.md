@@ -130,3 +130,69 @@ python3 scripts/backtest_system.py --data <btc_5m.csv> \
 # fade time-stop off:   --override fade_breakout_4h.timeout_bars=0
 # drop a member:        --roster trend_donchian,fade_breakout_4h,squeeze_breakout_4h
 ```
+
+---
+
+## Addendum — flip-churn sensitivity sweep (2026-05-30)
+
+Finding #3 above ("the roster fights itself for one position; 22% of exits are
+flips") flagged the close-and-reverse flip policy + `signal_ttl_bars=1` as the
+chief suspects for the net-negative book. This sweep isolates them. Added a
+`--flip-policy {reverse,hold,flat}` knob to `scripts/backtest_system.py`:
+- **reverse** (default; live-faithful — what `aggregate_intents` does): on an
+  opposite net vote, close the position and open the new side immediately.
+- **hold**: ignore the opposite vote; let the current owner's monitor()/SL/TP
+  exit the position naturally.
+- **flat**: close on the opposite vote but do NOT re-open (stand aside).
+
+Full roster, 2020-06..2026-02, $10k, risk 0.3%, daily-loss cap 3%:
+
+| ttl | flip policy | net | maxDD% | ret/DD | flips |
+|---|---|---|---|---|---|
+| 1 | **reverse (LIVE)** | **−$411** | 11.5% | −0.35 | 246 |
+| 1 | **hold** | **+$127** | 6.8% | +0.19 | 0 |
+| 1 | flat | −$298 | 10.2% | −0.29 | 142 |
+| 8 | reverse | −$360 | 11.0% | −0.33 | 243 |
+| 8 | hold | +$150 | 6.6% | +0.22 | 0 |
+| 16 | hold | +$155 | 6.4% | +0.24 | 0 |
+
+### Conclusion: the flip policy is FIRST-ORDER; signal-TTL is second-order
+
+- **"reverse" (the live behaviour) is the worst policy of the three.** The
+  net-negative book is, to first order, an artifact of close-and-reverse churn:
+  246 flips over 5.7y, each a fee-paying round trip that also cuts a position
+  short before its own exit logic resolves.
+- **"hold" flips the book net-positive (+$127), zeroes the flips, and nearly
+  halves max-drawdown (11.5% → 6.8%).** Letting the position-holder ride to its
+  own SL/TP/trail — rather than being whipsawed by a higher-priority strategy's
+  opposite vote — is the single biggest portfolio-level improvement found this
+  session.
+- **`signal_ttl_bars` is second-order** (reverse −411→−350 across ttl 1→16; hold
+  +127→+155). The flip policy dominates it.
+- "flat" beats "reverse" but loses to "hold" (standing aside forfeits the
+  re-entry).
+
+### What this means (and the Tier-3 caveat)
+
+This is the most actionable finding of the system-backtest work: **the roster's
+self-interference is real and fixable, and the lever is the conflict-resolution
+behaviour of the intent layer, not any single strategy's params.** BUT the live
+`src/runtime/intents.py::aggregate_intents` + `compute_execution_delta`
+currently implement the "reverse" behaviour by design (the harness faithfully
+replicated it). Changing it to a "hold"-like policy — e.g. *don't tear an open
+winner off its exit logic just because a higher-priority strategy now votes the
+other way* — is a **Tier-3 change to a core execution invariant**, exactly the
+kind the `/new-strategy` skill warns against touching casually. This backtest
+**justifies investigating** that change; it does not authorise patching the
+aggregator. Proposed next steps (operator-gated):
+
+1. Walk-forward the "hold" policy (train/OOS split) to confirm the +$ / lower-DD
+   result is not period-specific before any live proposal.
+2. Extend system coverage to `ict_scalp_5m` + `turtle_soup` and re-run — the
+   real live book has 6 voters; the flip dynamics may differ with more members.
+3. If both hold up, draft the Tier-3 intent-layer change as its own design doc +
+   PR (the single-account decider in
+   `docs/sprint-plans/DECIDER-SINGLE-ACCOUNT-2026-05-24.md` is the natural home —
+   a "hold/decider" conflict policy is arguably what that decider is FOR).
+
+Reproduce: `--flip-policy hold` (or `flat`) on `scripts/backtest_system.py`.

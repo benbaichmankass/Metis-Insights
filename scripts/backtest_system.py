@@ -220,7 +220,8 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
                         initial_balance: float, risk_pct: float,
                         daily_loss_pct: float, signal_ttl_bars: int,
                         overrides: Dict[str, dict], refresh: bool,
-                        clock_tf: str = "15m") -> Dict[str, Any]:
+                        clock_tf: str = "15m",
+                        flip_policy: str = "reverse") -> Dict[str, Any]:
     """Drive all `roster` strategies through aggregate_intents on a shared
     account. Clock runs on `clock_tf` bars; at each tick we read each
     strategy's latest live signal (emitted within signal_ttl_bars), net them
@@ -381,15 +382,29 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
                                     entry_idx=i, meta=json.loads(row["meta_json"]),
                                     notional=qty * fill)
             elif pos is not None and pos.side != des_side and not daily_halted:
-                # opposite net desire → close current, open the new side
-                _close(pos, c[i], ts.iloc[i], "flip", i)
-                fill = c[i]
-                qty = _risk_qty(balance, risk_pct, fill, row["sl"])
-                qty = float(qty) if qty else 0.0
-                pos = _Position(side=des_side, qty=qty, entry=fill, sl=row["sl"],
-                                tp=row["tp"], owner=win_name, entry_ts=ts.iloc[i],
-                                entry_idx=i, meta=json.loads(row["meta_json"]),
-                                notional=qty * fill) if qty > 0 else None
+                # opposite net desire — behaviour governed by flip_policy:
+                #   "reverse" (default/live-faithful): close current + open the
+                #             new side immediately.
+                #   "hold":   keep the current position; ignore the opposite
+                #             vote and let the owner's monitor()/SL/TP exit it
+                #             naturally (tests whether flip-churn is the cost).
+                #   "flat":   close the current position but do NOT re-open
+                #             (stand aside on conflict).
+                if flip_policy == "hold":
+                    pass
+                else:
+                    _close(pos, c[i], ts.iloc[i], "flip", i)
+                    pos = None
+                    if flip_policy == "reverse":
+                        fill = c[i]
+                        qty = _risk_qty(balance, risk_pct, fill, row["sl"])
+                        qty = float(qty) if qty else 0.0
+                        if qty > 0:
+                            pos = _Position(side=des_side, qty=qty, entry=fill,
+                                            sl=row["sl"], tp=row["tp"], owner=win_name,
+                                            entry_ts=ts.iloc[i], entry_idx=i,
+                                            meta=json.loads(row["meta_json"]),
+                                            notional=qty * fill)
 
         eq = balance + _unrealized(pos, c[i])
         equity_high = max(equity_high, eq)
@@ -404,7 +419,8 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
                       util_bars=util_bars, total_bars=n, roster=roster,
                       params={"initial_balance": initial_balance, "risk_pct": risk_pct,
                               "daily_loss_pct": daily_loss_pct, "signal_ttl_bars": signal_ttl_bars,
-                              "clock_tf": clock_tf, "overrides": overrides},
+                              "clock_tf": clock_tf, "flip_policy": flip_policy,
+                              "overrides": overrides},
                       data_start=str(ts.iloc[0]) if n else None,
                       data_end=str(ts.iloc[-1]) if n else None)
 
@@ -501,6 +517,10 @@ def main(argv: List[str]) -> int:
     p.add_argument("--signal-ttl-bars", type=int, default=1,
                    help="Clock bars a strategy's latest signal stays live (1 = act on the freshest only).")
     p.add_argument("--clock-tf", default="15m", choices=list(_PANDAS_TF.keys()))
+    p.add_argument("--flip-policy", default="reverse", choices=["reverse", "hold", "flat"],
+                   help="On an opposite net vote with a position open: reverse "
+                        "(close+open new side, live-faithful), hold (ignore the "
+                        "flip, let monitor/SL exit), or flat (close, stand aside).")
     p.add_argument("--fee-bps-roundtrip", type=float, default=FEE_BPS_ROUNDTRIP)
     p.add_argument("--override", action="append", default=[], metavar="STRAT.key=val",
                    help="Per-strategy param override, e.g. fade_breakout_4h.timeout_bars=0. Repeatable.")
@@ -532,7 +552,8 @@ def main(argv: List[str]) -> int:
         base5m, roster=roster, start=args.start, end=args.end,
         initial_balance=args.initial_balance, risk_pct=args.risk_pct,
         daily_loss_pct=args.daily_loss_pct, signal_ttl_bars=args.signal_ttl_bars,
-        overrides=overrides, refresh=args.refresh_signals, clock_tf=args.clock_tf)
+        overrides=overrides, refresh=args.refresh_signals, clock_tf=args.clock_tf,
+        flip_policy=args.flip_policy)
     print(_fmt(out))
     if args.json_out:
         payload = json.dumps(out, indent=2, default=str)
