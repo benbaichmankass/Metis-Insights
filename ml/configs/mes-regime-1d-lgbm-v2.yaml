@@ -1,0 +1,81 @@
+# v2 LightGBM regime classifier — MES @ 1d.
+#
+# Added 2026-05-30 (operator-approved) to replace the orphaned
+# mes-regime-classifier-baseline-v0 (ml-review-backlog MB-20260528-001):
+# that model was a one-off per-bucket-modal probe on MES/1d v001 that
+# never retrains, yet its frozen metrics were the BEST of any MES regime
+# model (macro_f1=0.685, accuracy=0.748, f1_volatile=0.543, n_eval=1292)
+# — i.e. on the DAILY timeframe the regime label IS separable, where the
+# 5m/15m modal baselines collapse to f1_volatile=0 (the LightGBM port
+# fixed those, MB-20260527-002). This manifest puts the daily MES regime
+# signal on a RECURRING footing: it trains every cycle on a fresh, deep
+# daily ES=F window (build_mes_1d in build_trainer_datasets.sh pulls 1d
+# via yfinance, which serves decades of daily history — far deeper than
+# the ~60d intraday window) and uses the proven LightGBM recipe instead
+# of the modal baseline.
+#
+# Registers at `shadow` like every new model. NOTE the higher-timeframe
+# shadow-coverage caveat (MB-20260529-001): regime models only log live
+# shadow predictions when an actionable signal fires on their matching
+# timeframe, and live signals are ~all 5m — so a 1d regime head will
+# show its edge through TRAINING metrics, not a live shadow track record,
+# until a per-bar regime-scoring path exists. Promotion past shadow is
+# therefore gated on training-metric evidence + operator approval.
+
+manifest_version: v1
+model_id: mes-regime-1d-lgbm-v2
+description: "v2 LightGBM regime classifier for MES (Micro E-mini S&P 500) 1d bars — range vs volatile from continuous vol + log-return features. Replaces the orphaned mes-regime-classifier-baseline-v0; the daily timeframe separates the regime label where 5m/15m modal baselines collapse. Shadow context signal."
+model_family: classification_lightgbm
+trainer: ml.trainers.lightgbm_multiclass.LightGBMMulticlassTrainer
+trainer_config:
+  target_column: regime_label
+  feature_columns:
+    - vol_bucket
+    - rolling_log_return_vol
+    - log_return
+    - log_return_lag_1
+    - log_return_lag_2
+    - hour_of_day
+    - dayofweek
+  categorical_columns:
+    - vol_bucket
+    - hour_of_day
+    - dayofweek
+  freeze_regime_spec: true
+  vol_feature_column: rolling_log_return_vol
+  vol_window_n: 20
+  seed: 42
+  n_iter: 200
+  # MES market_features are built with a median-calibrated vol_threshold
+  # (build_mes_features_tf), so range/volatile stay ~balanced. A light
+  # volatile weight nudges the booster toward the minority signal without
+  # wrecking precision; tune from the first cycle's precision/recall.
+  class_weight:
+    range: 1.0
+    volatile: 1.5
+  lgbm_params:
+    learning_rate: 0.05
+    num_leaves: 31
+    min_data_in_leaf: 50
+    feature_fraction: 0.9
+    bagging_fraction: 0.9
+    bagging_freq: 5
+dataset:
+  family: market_features
+  symbol_scope: MES
+  timeframe: 1d
+  version: v002
+evaluator: ml.evaluators.multiclass_classification.MulticlassClassificationEvaluator
+evaluator_config:
+  target_column: regime_label
+  split_strategy: time_aware_holdout
+  time_column: ts
+  holdout_fraction: 0.2
+target_deployment_stage: shadow
+notes: |
+  v2 LightGBM head, MES @ 1d. Recurring successor to the orphaned
+  mes-regime-classifier-baseline-v0 (MB-20260528-001). Trains on the
+  deep daily ES=F window built by build_mes_1d (yfinance 1d). hour_of_day
+  is constant on a daily bar (kept for schema parity with the 5m/15m
+  manifests; the booster will simply ignore it). Leakage gate forbids
+  forward_log_return / forward_log_return_vol / regime_label.
