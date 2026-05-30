@@ -74,15 +74,22 @@ _SIG_CACHE = _REPO_ROOT / "runtime_logs" / "system_backtest" / "signals"
 # --------------------------------------------------------------------------
 # Roster: name -> (module path, timeframe). The order_package + monitor are
 # imported from the live unit; the timeframe is the strategy's setup TF.
-# vwap excluded (execution: shadow). ict_scalp_5m / turtle_soup deferred (v2).
+# vwap excluded (execution: shadow). turtle_soup + ict_scalp_5m added 2026-05-30
+# (full live-roster coverage). turtle_soup's live adapter is single-TF (the 15m
+# setup frame; its legacy 1m-entry confirmation is not in the order_package
+# path). ict_scalp_5m needs the 1h EMA-20 HTF bias injected per bar — see
+# generate_signal_stream's htf handling — else its HTF gate silently no-ops and
+# overstates the signal count.
 # --------------------------------------------------------------------------
 ROSTER: Dict[str, Dict[str, str]] = {
     "trend_donchian":      {"module": "src.units.strategies.trend_donchian", "tf": "2h"},
     "fade_breakout_4h":    {"module": "src.units.strategies.fade_breakout_4h", "tf": "4h"},
     "squeeze_breakout_4h": {"module": "src.units.strategies.squeeze_breakout_4h", "tf": "4h"},
     "fvg_range_15m":       {"module": "src.units.strategies.fvg_range_15m", "tf": "15m"},
+    "turtle_soup":         {"module": "src.units.strategies.turtle_soup", "tf": "15m"},
+    "ict_scalp_5m":        {"module": "src.units.strategies.ict_scalp", "tf": "5m"},
 }
-_PANDAS_TF = {"15m": "15min", "30m": "30min", "1h": "1h", "2h": "2h", "4h": "4h"}
+_PANDAS_TF = {"5m": "5min", "15m": "15min", "30m": "30min", "1h": "1h", "2h": "2h", "4h": "4h"}
 
 
 # --------------------------------------------------------------------------
@@ -161,13 +168,35 @@ def generate_signal_stream(name: str, base5m: pd.DataFrame, *, start, end,
     df = _resample(base5m, _PANDAS_TF[spec["tf"]])
     df = _date_filter(df, start, end)
 
+    # ict_scalp_5m HTF bias: the unit's htf_trend_filter blocks trades against
+    # the 1h EMA-20 bias, but only when the caller injects cfg["htf_close"] +
+    # cfg["htf_ema"] (otherwise it silently no-ops, overstating the signal
+    # count — exactly what the live signal builder computes). Precompute the 1h
+    # EMA once over the FULL base feed and as-of-align it to each bar so the
+    # in-system stream matches live behaviour. Other strategies: htf_series=None.
+    htf_series = None
+    if name == "ict_scalp_5m" and bool(cfg.get("htf_trend_filter_enabled", True)):
+        htf_tf = _PANDAS_TF.get(str(cfg.get("htf_filter_timeframe") or "1h"), "1h")
+        ema_period = int(cfg.get("htf_filter_ema_period") or 20)
+        htf = _resample(base5m, htf_tf)
+        htf = htf.set_index("timestamp")
+        htf["ema"] = htf["close"].ewm(span=ema_period, adjust=False).mean()
+        htf_series = htf[["close", "ema"]].dropna()
+
     rows = []
     warm = 260
     ts = df["timestamp"]
     for i in range(warm, len(df)):
         window = df.iloc[max(0, i - warm):i + 1]
+        bar_cfg = dict(cfg)
+        if htf_series is not None:
+            # as-of the bar's timestamp (last 1h close/ema at or before this bar)
+            prior = htf_series.loc[htf_series.index <= ts.iloc[i]]
+            if len(prior):
+                bar_cfg["htf_close"] = float(prior["close"].iloc[-1])
+                bar_cfg["htf_ema"] = float(prior["ema"].iloc[-1])
         try:
-            pkg = order_package(dict(cfg), candles_df=window)
+            pkg = order_package(bar_cfg, candles_df=window)
         except ValueError:
             continue
         except Exception:  # noqa: BLE001 — a strategy bug must not abort the sweep
