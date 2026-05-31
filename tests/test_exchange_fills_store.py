@@ -149,3 +149,93 @@ def test_get_fills_db_path_respects_env(monkeypatch, tmp_path):
     custom = tmp_path / "custom.db"
     monkeypatch.setenv("EXCHANGE_FILLS_DB", str(custom))
     assert store.get_fills_db_path() == custom
+
+
+# ---------------------------------------------------------------------------
+# Per-strategy net-of-fee attribution (cross-zero P3c)
+# ---------------------------------------------------------------------------
+
+def _now():
+    return datetime(2026, 5, 9, 0, 0, 0, tzinfo=timezone.utc)
+
+
+def test_fifo_pnl_by_strategy_basic_gross_net_fees(fills_db):
+    """One strategy: buy then sell at +1000 move, fees on both fills.
+
+    gross = (sell-buy)*qty ; net = gross - fees ; the three reconcile.
+    """
+    store.upsert_fills([
+        _row(exec_id="e1", order_id="o1", side="buy",  price=60_000.0, qty=1.0,
+             fee=6.0, exec_time="2026-05-08T10:00:00+00:00"),
+        _row(exec_id="e2", order_id="o2", side="sell", price=61_000.0, qty=1.0,
+             fee=6.1, exec_time="2026-05-08T11:00:00+00:00"),
+    ], path=fills_db)
+
+    rows = store.fifo_pnl_by_strategy(
+        days=7, strategy_of_order_id={"o1": "vwap", "o2": "vwap"},
+        path=fills_db, now=_now(),
+    )
+    assert len(rows) == 1
+    r = rows[0]
+    assert r["strategy"] == "vwap"
+    assert r["gross_pnl"] == pytest.approx(1000.0, abs=1e-6)
+    assert r["total_fees"] == pytest.approx(12.1, abs=1e-6)
+    assert r["net_pnl"] == pytest.approx(1000.0 - 12.1, abs=1e-6)
+    assert r["fill_count"] == 2
+    # gross - fees == net (reconciles)
+    assert r["gross_pnl"] - r["total_fees"] == pytest.approx(r["net_pnl"], abs=1e-6)
+
+
+def test_fifo_pnl_by_strategy_fee_drag_headline(fills_db):
+    """Reproduces the audit headline: a thin gross edge buried by fees so that
+    fee_pct_of_gross >> 100% (vwap was 418%)."""
+    # Gross edge of +$10 (1.0 BTC * $10 move), but $42 of fees → net negative.
+    store.upsert_fills([
+        _row(exec_id="e1", order_id="o1", side="buy",  price=60_000.0, qty=1.0,
+             fee=21.0, exec_time="2026-05-08T10:00:00+00:00"),
+        _row(exec_id="e2", order_id="o2", side="sell", price=60_010.0, qty=1.0,
+             fee=21.0, exec_time="2026-05-08T11:00:00+00:00"),
+    ], path=fills_db)
+
+    rows = store.fifo_pnl_by_strategy(
+        days=7, strategy_of_order_id={"o1": "vwap", "o2": "vwap"},
+        path=fills_db, now=_now(),
+    )
+    r = rows[0]
+    assert r["gross_pnl"] == pytest.approx(10.0, abs=1e-6)
+    assert r["total_fees"] == pytest.approx(42.0, abs=1e-6)
+    assert r["net_pnl"] == pytest.approx(-32.0, abs=1e-6)
+    assert r["fee_pct_of_gross"] == pytest.approx(420.0, abs=1e-3)  # 42/10*100
+
+
+def test_fifo_pnl_by_strategy_partitions_and_unattributed(fills_db):
+    store.upsert_fills([
+        _row(exec_id="e1", order_id="o1", side="buy",  price=100.0, qty=1.0, fee=0.1),
+        _row(exec_id="e2", order_id="o2", side="sell", price=110.0, qty=1.0, fee=0.1),
+        _row(exec_id="e3", order_id="oX", side="buy",  price=100.0, qty=1.0, fee=0.1),  # unmapped
+    ], path=fills_db)
+    rows = store.fifo_pnl_by_strategy(
+        days=7, strategy_of_order_id={"o1": "trend_donchian", "o2": "trend_donchian"},
+        path=fills_db, now=_now(),
+    )
+    names = {r["strategy"] for r in rows}
+    assert "trend_donchian" in names
+    assert "unattributed" in names  # the oX fill is bucketed, not dropped
+
+
+def test_fifo_pnl_by_strategy_zero_gross_fee_pct_is_none(fills_db):
+    """fee_pct_of_gross is None (undefined) when gross ~0, never inf/divide error."""
+    store.upsert_fills([
+        _row(exec_id="e1", order_id="o1", side="buy",  price=100.0, qty=1.0, fee=0.1),
+        _row(exec_id="e2", order_id="o2", side="sell", price=100.0, qty=1.0, fee=0.1),
+    ], path=fills_db)
+    rows = store.fifo_pnl_by_strategy(
+        days=7, strategy_of_order_id={"o1": "x", "o2": "x"}, path=fills_db, now=_now(),
+    )
+    assert rows[0]["fee_pct_of_gross"] is None
+
+
+def test_fifo_pnl_by_strategy_empty_and_missing_db(tmp_path, fills_db):
+    assert store.fifo_pnl_by_strategy(days=0, strategy_of_order_id={}, path=fills_db) == []
+    assert store.fifo_pnl_by_strategy(
+        days=7, strategy_of_order_id={}, path=tmp_path / "missing.db") == []
