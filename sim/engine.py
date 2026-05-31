@@ -167,6 +167,33 @@ def run_replay(
         df = df.sort_values("ts").reset_index(drop=True)
     n = len(df)
 
+    # Phase-2 perf (MB-20260531-001): when a model is in the loop, each decision
+    # needs the closes up to (and including) its bar to compute the live
+    # vol_bucket. Materialize the full close column ONCE here instead of
+    # rebuilding it from a growing DataFrame slice every bar — the old per-bar
+    # `[float(c) for c in history["close"].tolist()]` was O(n) per decision →
+    # O(n²) over the run, and ~19x of it was pure waste (`.tolist()` already
+    # yields Python floats, so the float() pass re-converted them). Per decision
+    # we now take an O(1)-to-set-up list slice `all_closes[: i + 1]`, which is
+    # byte-identical to the old per-bar rebuild (same values, same order).
+    all_closes: Optional[list[float]] = (
+        [float(c) for c in df["close"].tolist()] if "close" in df.columns else None
+    )
+
+    # Phase-2 perf (MB-20260531-001): row-dict materialization. The fill model
+    # resolves each trade against the FUTURE bars and the decision-bar snapshot
+    # is a row dict. Building these with ``df.iloc[j].to_dict()`` per access is
+    # pathological under pandas>=3.0 — columns are PyArrow-backed, so row-wise
+    # access deboxes every cell through the arrow iterator — and ``future`` was
+    # rebuilt for ALL remaining bars on EVERY decision => O(n^2) with a brutal
+    # constant (cProfile attributed ~66% of a model-in-loop sweep to this one
+    # list comp, the dominant driver of the multi-hour full-history runs).
+    # Convert every row to a plain dict ONCE here, then index/slice the list per
+    # decision: each row is deboxed exactly once. Byte-identical to the per-bar
+    # ``df.iloc[j].to_dict()`` (same dicts, same order); ``future`` stays
+    # read-only in fills.resolve and the decision bar is never mutated.
+    all_rows: list[dict] = [df.iloc[j].to_dict() for j in range(n)]
+
     open_position = False  # Phase-1 single-net-position gate (per symbol)
 
     for i in range(warmup_bars, n):
@@ -184,7 +211,7 @@ def run_replay(
                 continue
 
         history = df.iloc[: i + 1]  # inclusive of the current (decision) bar
-        bar = df.iloc[i].to_dict()
+        bar = all_rows[i]
 
         # Phase-5: snapshot the day-start balance so the daily-loss cap is
         # measured against the balance at the UTC day's open (no-op when None).
@@ -245,7 +272,7 @@ def run_replay(
         # intent. "flat"/"reverse" force-close the open trade at this bar's close.
         if open_position and open_side is not None and desired.side != open_side:
             if flip_policy in ("flat", "reverse"):
-                _force_close_open(ledger, df.iloc[i].to_dict(), acct)
+                _force_close_open(ledger, all_rows[i], acct)
                 open_position = False
                 open_side = None
                 if flip_policy == "flat":
@@ -272,7 +299,7 @@ def run_replay(
             risk_cash = acct.size(norm["entry"], norm["sl"])
             if risk_cash <= 0:
                 continue
-        future = [df.iloc[j].to_dict() for j in range(i + 1, n)]
+        future = all_rows[i + 1:]
         trade = SimTrade(
             strategy=winner,
             symbol=symbol,
@@ -305,7 +332,7 @@ def run_replay(
             # Closes up to and including the decision bar (never future) so a
             # regime model gets the live vol_bucket; matches the live builder
             # which passes the strategy's own candles_df.
-            closes = [float(c) for c in history["close"].tolist()] if "close" in history else []
+            closes = all_closes[: i + 1] if all_closes is not None else []
             factor, scores = model_scorer.factor_for(
                 row, closes=closes, symbol=symbol, timeframe=timeframe,
             )

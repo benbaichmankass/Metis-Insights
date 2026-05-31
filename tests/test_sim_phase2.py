@@ -375,3 +375,47 @@ class TestEngineWithModel:
         assert t.r_multiple_model == pytest.approx(t.r_multiple * 0.5)
         m = ledger.summary()["models_in_loop"]
         assert m["net_r_with_model"] == pytest.approx(m["net_r_without_model"] * 0.5)
+
+    def test_closes_precompute_is_byte_identical_and_leak_free(self, patch_units):
+        """MB-20260531-001 perf fix: the engine precomputes the close column
+        once and slices it per decision instead of rebuilding it from a growing
+        DataFrame slice every bar. Guard that the closes a model sees are
+        (a) byte-identical to the old `[float(c) for c in history["close"].tolist()]`
+        prefix, and (b) never include a future bar.
+        """
+        from sim.engine import run_replay
+
+        # Distinct close per bar so a prefix bug (wrong length / future leak)
+        # can't hide behind equal values.
+        candles = [
+            {"ts": f"2021-01-01T00:{i:02d}:00Z", "open": 100.0, "high": 104.0,
+             "low": 95.0, "close": 100.0 + i * 0.5, "volume": 1.0}
+            for i in range(60)
+        ]
+        # Reference: exactly what the old per-bar rebuild produced.
+        expected_full = [float(c["close"]) for c in candles]
+
+        ts_long = {"symbol": "BTCUSDT", "direction": "long", "entry": 100,
+                   "sl": 95, "tp": 104, "confidence": 0.9, "meta": {}}
+        patch_units("turtle_soup", _make_stub_strategy_module(ts_long))
+
+        captured: list[list[float]] = []
+
+        class _RecordingScorer(ModelScorer):
+            def factor_for(self, row, *, closes=None, symbol="", timeframe=""):
+                captured.append(list(closes or []))
+                return 1.0, {}
+
+        scorer = _RecordingScorer(model_ids=["rec"])
+        warmup = 5
+        run_replay(candles=candles, strategies=["turtle_soup"],
+                   warmup_bars=warmup, model_scorer=scorer)
+
+        assert captured, "expected the scorer to be called on at least one decision"
+        for closes in captured:
+            i = len(closes) - 1               # decision-bar index this slice claims
+            assert i >= warmup
+            # byte-identical to the old rebuild prefix, inclusive of the bar...
+            assert closes == expected_full[: i + 1]
+            # ...and the newest element is the decision bar — never a future bar.
+            assert closes[-1] == expected_full[i]

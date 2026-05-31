@@ -75,7 +75,47 @@
       "trigger_condition": "Operator decision on the proposed aggregate_intents change (drafted in docs/audits/walkforward-flip-policy-2026-05-30.md \u00a7 Tier-3 design proposal). Re-trigger next /performance-review if not acted on.",
       "resolution_criteria": "Operator approves (or declines) the Tier-3 aggregator behaviour change drafted in docs/audits/walkforward-flip-policy-2026-05-30.md. If approved, file the PR per that doc's \u00a7 Pre-merge validation; resolve this item when the PR merges + deploys + a soak window confirms no regression. If declined, resolve as won't-fix with rationale and route the operator to the decider-v2 selection layer (DECIDER-SINGLE-ACCOUNT-2026-05-24.md v2 step 2/3) as the next research target.",
       "description": "WALK-FORWARD COMPLETED 2026-05-30 \u2014 both criteria PASSED (verified from runtime_logs/system_backtest/walkforward/walkforward_20260530T211319Z.json). 24 cells (2 anchored folds \u00d7 2 halves \u00d7 2 rosters \u00d7 3 policies). Criterion 1 (4-member hold dominates reverse in net AND maxDD% across all 4 cells): PASS \u2014 A/train +$1242 swing, A/oos +$1293, B/train +$954, B/oos +$947; OOS lift bigger than train on both folds. Criterion 2 (6-member hold not worse than reverse OOS, both folds): PASS \u2014 A/oos +$5171 swing, B/oos +$5329 (hold halves the catastrophic outcome but the book still bleeds because turtle+ict_scalp lose in-system regardless of conflict policy). flat consistently sits between reverse and hold. reverse (live) is the worst policy on every 4-member cell and tied for worst on every 6-member cell. Tier-3 design proposal drafted in docs/audits/walkforward-flip-policy-2026-05-30.md \u00a7 'Tier-3 design proposal'; stops short of patching src/runtime/intents.py per session contract."
+    },
+    {
+      "id": "PERF-20260531-001",
+      "opened_at": "2026-05-31",
+      "created": "2026-05-31",
+      "opened_by": "claude (continuation session, SPX re-tune of trend_donchian)",
+      "source": "prem_runs/03 intent \u2014 trend_donchian donchian-lookback sweep on data/SPX500_1m.parquet (2.15M 1m rows, 2020-01 -> 2026-05) resampled to 2h, via standalone scripts/backtest_trend.py on the trainer VM. Net-of-fee 7.5 bps.",
+      "title": "trend_donchian on SPX: two-sided FAILS but the LONG side is a BTC-uncorrelated diversification candidate (+22.5 R long-only at donchian=20)",
+      "description": "Tested whether the one durable roster winner (trend_donchian) transfers to an uncorrelated market (SPX/MES) for diversification. RESULT: two-sided trend_donchian is net-NEGATIVE on SPX at every tested lookback (dc=20 net -13.5R, dc=30 -14.2, dc=40 -29.1, dc=55 -29.9). BUT the entire loss is the SHORT side; the LONG side is net-POSITIVE at every lookback: long-only net R = +22.45 (dc=20), +16.69 (dc=30), +9.45 (dc=40), +7.20 (dc=55). SPX's secular uptrend systematically punishes trend-breakout shorts (short-side net ~ -31..-38R across configs). Shorter lookback is clearly best (dc=20: 278 long trades, long-side exp ~ +0.08 R/trade, net-positive in 2021/2023/2024; longer lookbacks degrade both sides). maxDD grows with lookback (27.6R @ dc=20 -> 39R @ dc=55). LEAD: a long-only / long-biased trend_donchian on SPX/MES is a plausible diversification add \u2014 uncorrelated to the BTC roster, exploits the equity risk premium, positive long-side expectancy. CAVEATS: in-sample over the available 6.4y; SPX500 CFD prices (live is MES \u2014 execution/contract differ); long-side R is the long legs of the two-sided run (entries are independent, so it equals a true long-only run, but a dedicated long-only + walk-forward + corr-to-BTC-trend_donchian check should confirm before any proposal). [WALK-FORWARD ADDED 2026-05-31 \u2014 see walk_forward field: long side positive IS+OOS but thin OOS edge; dc=30 most robust.]",
+      "tier": "tier-3",
+      "priority": "low",
+      "severity": "medium",
+      "status": "open",
+      "trigger_condition": "Next /performance-review, or a strategy/model-training session with SPX/MES capacity.",
+      "resolution_criteria": "Confirm with a dedicated LONG-ONLY trend_donchian backtest on SPX/MES + walk-forward (in/out split) + low return-correlation to the live BTC trend_donchian. If it clears net-of-fee with acceptable DD, propose a long-only trend_donchian SPX/MES adapter as a Tier-3 PR for operator approval (the new-strategy wiring checklist applies). If it does not hold out-of-sample, resolve won't-fix with the evidence.",
+      "resolved_at": null,
+      "resolved_by": null,
+      "resolution_note": null,
+      "snoozed_until": null,
+      "walk_forward": "Long-side walk-forward (SPX 2h, net-of-fee): dc=20 long-only IS(2020-2023)=+21.08R/169tr -> OOS(2024-2026)=+1.15R/109tr (nearly flat); dc=30 IS=+11.73R/158tr -> OOS=+4.73R/95tr (exp +0.05). QUALIFIED PASS: the long side stays POSITIVE in both windows (does not flip negative OOS) but the OOS edge is THIN, esp. dc=20; dc=30 holds up best proportionally. Read: a legitimate-but-MODEST BTC-uncorrelated diversification lead, not a slam-dunk. Short side negative in every window (confirmed). Before any Tier-3 proposal: build a true long-only adapter, validate on live MES (not SPX500 CFD) history, and measure return-correlation to the live BTC trend_donchian \u2014 the portfolio value is the low correlation even at a modest standalone edge.",
+      "mes_validation": "ATTEMPTED on the live instrument (MES) and INCONCLUSIVE: MES market_raw on the VM spans only 2025-01-03 -> 2026-05-22 (~16 months). trend_donchian long-only on MES 2h is NEGATIVE (dc=20 long -52.4R, dc=30 long -46.1R, win ~23%) \u2014 but this does NOT refute the SPX thesis, because MES's entire window (2025-2026) coincides with the years that were ALSO negative for SPX trend_donchian long (SPX 2025/2026 legs were the drag in the full-period sweep). The SPX long-only edge originated in 2021/2023/2024 \u2014 years MES has no data for. NET: cannot validate (or refute) the long-only diversification thesis on the real tradeable instrument until MES history covers a trend-up regime. This is a HARD BLOCKER on maturing the lead \u2014 acquire deeper MES/ES history (or accept SPX500-CFD as the proxy with the known instrument mismatch) before any Tier-3 step."
+    },
+    {
+      "id": "PERF-20260531-002",
+      "opened_at": "2026-05-31",
+      "created": "2026-05-31",
+      "opened_by": "claude (continuation session, htf_pullback param sweep + walk-forward)",
+      "source": "Standalone scripts/backtest_pullback.py on the full BTC 5m archive (market_raw v002, 525,888 bars) resampled to 2h, on the trainer VM. Net-of-fee 7.5 bps.",
+      "title": "htf_pullback_trend_2h: a tuned config (pullback_frac=0.5, trail_mult=5.0) PASSES net-of-fee + walk-forward on BTC 2h \u2014 genuine positive-expectancy diversification candidate",
+      "description": "The scaffolded candidate htf_pullback_trend_2h (inert, in PR #2466) FAILS at default params (trend_lookback=50/pullback_frac=0.33/trail_mult=3.0 -> net -12.1 R over 5y). An 18-cell param sweep found a clear, CONSISTENT improvement: deeper pullback entry (pullback_frac=0.5) + WIDER trailing stop (trail_mult=5.0) flips it strongly positive at every trend_lookback tested (net +50.5/+52.3/+55.0 R at tl=30/50/80 over the full 5y). Root reason: the default trail_mult=3.0 was cutting the trend-follower's runners too early; a low-win-rate (~37%) high-R-multiple trend follower needs a wide trail to capture the rare big winners. WALK-FORWARD PASSED (the key test): at pullback_frac=0.5/trail_mult=5.0, tl=50 -> IS(2021-2023) net +32.7 R / OOS(2024-2026) net +22.4 R (159 trades, exp +0.14 R/trade, long-side +24.9 OOS); tl=80 -> IS +42.0 / OOS +14.9. Net-positive in BOTH windows at both lookbacks; tl=50 retains ~70% of its in-sample edge out-of-sample. This is the strongest candidate result of the session (session_breakout_trend is dead; SPX trend_donchian long-only is thin). CAVEATS: low win rate => higher variance / deeper equity swings; the +50R full-period figure is the best of 18 post-hoc configs (overfit risk on magnitude), but the walk-forward + cross-lookback consistency argue the SIGN and rough size are real; single market (BTC), single fee assumption.",
+      "tier": "tier-3",
+      "priority": "high",
+      "severity": "medium",
+      "status": "open",
+      "trigger_condition": "Next /performance-review, or operator capacity to evaluate a new-strategy activation.",
+      "resolution_criteria": "Operator decision on maturing htf_pullback_trend_2h toward live: (1) confirm the tuned config (trend_lookback~50, pullback_frac=0.5, trail_mult=5.0) with a finer walk-forward / multiple OOS folds + a max-drawdown and return-correlation-to-roster check; (2) if it holds, wire the scaffold per the new-strategy checklist and ship execution: shadow first (Tier-3 PR, operator-approved) to collect live data before any live money. Resolve when shadow-wired or declined with rationale.",
+      "resolved_at": null,
+      "resolved_by": null,
+      "resolution_note": null,
+      "snoozed_until": null
     }
   ],
-  "updated_at": "2026-05-30"
+  "updated_at": "2026-05-31"
 }
