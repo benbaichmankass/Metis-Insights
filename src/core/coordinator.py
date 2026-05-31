@@ -1614,7 +1614,20 @@ class Coordinator:
         # this one surfaces the cascade-into-silence pattern that
         # the operator missed during the trade 875 / 876 incident
         # (2026-05-08, Bybit ErrCode 170131).
-        if results and not any(r.get("trade_id") is not None for r in results):
+        # A round where EVERY account benignly no-op'd (already at target, or
+        # an opposite-side signal held under FLIP_POLICY=hold, or a sub-min-lot
+        # delta) placed zero trades by DESIGN — that is not a dispatch failure.
+        # Only escalate the 🚨 roll-up when at least one account failed for a
+        # genuine reason (RiskBreach, exchange rejection, missing creds). Folding
+        # the benign no-ops in here was firing false alarms on every flip-
+        # suppressed signal (health-review BL-20260531-002).
+        def _is_benign_noop(result: dict) -> bool:
+            err = str(result.get("error") or "")
+            return err.startswith("intent_noop:") or err == "intent_sub_min_qty_delta"
+
+        any_trade_placed = any(r.get("trade_id") is not None for r in results)
+        all_benign_noop = bool(results) and all(_is_benign_noop(r) for r in results)
+        if results and not any_trade_placed and not all_benign_noop:
             try:
                 from src.runtime.execution_diagnostics import (
                     enqueue_all_accounts_failed_dispatch,
