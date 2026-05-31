@@ -138,6 +138,19 @@
       "resolution_criteria": "setup_labels / trade_outcomes can be built with an include-backtest flag that adds source-tagged per-trade backtest rows; a training run shows setup-quality (or a successor) beating the per-group-mean baseline on a REAL-trade holdout with the augmented train set; execution_quality explicitly excluded. OR operator decides synthetic augmentation isn't worth the domain-shift risk and closes won't-do.",
       "status": "open",
       "snoozed_until": null
+    },
+    {
+      "id": "MB-20260531-001",
+      "opened_at": "2026-05-31T06:40:00+00:00",
+      "opened_by": "claude (SIM session)",
+      "source": "Integrated-sim build session 2026-05-30/31 — consolidation + perf findings.",
+      "title": "Consolidate sim/ (ML-advisory integrated harness) with scripts/backtest_system.py (account-level system backtest); vectorize model-in-loop scoring for the single-core trainer",
+      "description": "TWO integrated-backtest harnesses were built in parallel and both merged to main: (1) sim/ (this session, PRs #2415/#2426/#2437) — replays history through the REAL aggregate_intents, adds models-in-the-loop (with/without-model portfolio diff via the LIVE advisory_influence + regime_shadow), a regime-GATE policy (skip trades in the wrong regime), and decision-attrition (funnel_scored vs holdout eval_n + promotion-readiness); R-multiple based. (2) scripts/backtest_system.py (other session, ~#2451/#2462) — same real aggregate_intents netting but with a realistic ACCOUNT model ($ equity, finite balance, daily-loss cap, real monitor() exits, capital utilization) + the FLIP_POLICY walk-forward (docs/audits/walkforward-flip-policy-2026-05-30.md, now default hold). They overlap (both net to one position via the real intent layer) and are COMPLEMENTARY (sim has the ML layer; backtest_system has the account realism). CONSOLIDATE into ONE canonical integrated harness in the strategy session — fold sim's ML-advisory/regime-gate/attrition into backtest_system's account model (or vice-versa); keep the reuse-the-live-code discipline; don't maintain two. SEPARATELY: sim's model-in-loop path calls a LightGBM booster per emitted signal, so on the SINGLE-CORE trainer VM a full-5yr ML sweep takes hours (a 175k-bar 15m group didn't finish in ~50min). Vectorize the scorer (batch predict), cache per-bar regime scores, or run on shorter recent windows; or provision more cores. KEY FINDINGS to not re-derive: trend_donchian(2h) +99R/1691trades(135R maxDD) is the roster standout; no current shadow model is fit as a downsize-advisor (trade-quality baselines near-constant=blanket-halve=hurts; regime models are wrong-polarity for downsize → use as GATE); regime models only exist at 5m/15m/1h so the 2h/4h earners have no matching-TF regime model to gate with (train one).",
+      "tier": 1,
+      "trigger_condition": "Strategy/backtest session with capacity; or next /ml-review.",
+      "resolution_criteria": "One canonical integrated-backtest entrypoint exists (the other archived/removed with operator agreement) carrying BOTH the account model AND the ML-advisory/regime-gate/decision-attrition dimensions; model-in-loop scoring runs a full-5yr sweep in a tractable time (vectorized or windowed). The regime-gate 5m/15m sweep produces a net-R verdict.",
+      "status": "open",
+      "snoozed_until": null
     }
   ]
 }
