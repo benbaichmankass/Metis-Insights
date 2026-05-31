@@ -246,6 +246,83 @@ class TestMultiAccountExecuteWiring:
         assert all_failed is False
 
 
+class TestBenignNoopSuppression:
+    """A round where every account benignly no-op'd (already at target,
+    flip-suppressed under FLIP_POLICY=hold, or a sub-min-lot delta)
+    placed zero trades BY DESIGN — it must NOT trip the 🚨 all-fail
+    roll-up. Only a genuine failure (RiskBreach / exchange / creds) does.
+
+    Mirrors the exact post-loop guard in
+    ``Coordinator.multi_account_execute`` (health-review BL-20260531-002).
+    """
+
+    @staticmethod
+    def _should_fire(results):
+        def _is_benign_noop(result):
+            err = str(result.get("error") or "")
+            return err.startswith("intent_noop:") or err == "intent_sub_min_qty_delta"
+
+        any_trade_placed = any(r.get("trade_id") is not None for r in results)
+        all_benign_noop = bool(results) and all(_is_benign_noop(r) for r in results)
+        return bool(results) and not any_trade_placed and not all_benign_noop
+
+    def test_flip_suppressed_hold_round_does_not_fire(self):
+        """The real 2026-05-31 case: opposite-side signal held on both
+        accounts under FLIP_POLICY=hold."""
+        results = [
+            {"name": "bybit_1", "trade_id": None,
+             "error": "intent_noop:flip_suppressed_hold_policy: desired short "
+                      "opposes current long (qty=0.637); holding for owner exit"},
+            {"name": "bybit_2", "trade_id": None,
+             "error": "intent_noop:flip_suppressed_hold_policy: desired short "
+                      "opposes current long (qty=0.001); holding for owner exit"},
+        ]
+        assert self._should_fire(results) is False
+
+    def test_at_target_round_does_not_fire(self):
+        results = [
+            {"name": "bybit_2", "trade_id": None,
+             "error": "intent_noop:at_target: current=0.001 matches target=0.001 "
+                      "within min_delta=0.0"},
+        ]
+        assert self._should_fire(results) is False
+
+    def test_sub_min_qty_round_does_not_fire(self):
+        results = [
+            {"name": "bybit_2", "trade_id": None, "error": "intent_sub_min_qty_delta"},
+        ]
+        assert self._should_fire(results) is False
+
+    def test_genuine_failure_still_fires(self):
+        """A real error must still trip the alarm — the noop carve-out
+        must not swallow genuine all-fail rounds."""
+        results = [
+            {"name": "bybit_2", "trade_id": None,
+             "error": "RuntimeError: Bybit ErrCode 170131"},
+            {"name": "bybit_3", "trade_id": None, "error": "below_min_balance"},
+        ]
+        assert self._should_fire(results) is True
+
+    def test_mixed_noop_and_real_failure_still_fires(self):
+        """If one account benignly no-op'd but another genuinely failed,
+        the genuine failure must still surface."""
+        results = [
+            {"name": "bybit_1", "trade_id": None,
+             "error": "intent_noop:flip_suppressed_hold_policy: holding"},
+            {"name": "bybit_2", "trade_id": None,
+             "error": "RuntimeError: exchange rejected"},
+        ]
+        assert self._should_fire(results) is True
+
+    def test_trade_placed_never_fires_even_with_noop(self):
+        results = [
+            {"name": "bybit_1", "trade_id": "ORD-1", "error": None},
+            {"name": "bybit_2", "trade_id": None,
+             "error": "intent_noop:flip_suppressed_hold_policy: holding"},
+        ]
+        assert self._should_fire(results) is False
+
+
 # ---------------------------------------------------------------------------
 # End-to-end through Coordinator.multi_account_execute
 # ---------------------------------------------------------------------------

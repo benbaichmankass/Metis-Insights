@@ -866,7 +866,16 @@ def _log_trade_to_journal(
                 )
         # Trade-lifecycle ping (TELEGRAM-SPEC §4.2) — live opens only.
         # Best-effort: a ping failure must never touch the order path.
-        if status == "open" and not is_dry:
+        #
+        # A reduce-only leg is a PARTIAL CLOSE of an existing position, not a
+        # new open: the intent layer flips its ``direction`` to the opposite
+        # (reduce) side while keeping the parent position's entry/SL/TP. Firing
+        # the "🟢 TRADE OPENED" ping for it printed a phantom "<SYMBOL> SHORT"
+        # carrying the parent LONG's open-side SL/TP (SL below / TP above entry)
+        # — impossible for a real short, and alarming to the operator. Suppress
+        # the open-ping for reduce legs; the position is being trimmed, not
+        # opened (health-review BL-20260531-001).
+        if status == "open" and not is_dry and not intent_reduce:
             try:
                 from src.runtime.execution_diagnostics import enqueue_trade_open
 
