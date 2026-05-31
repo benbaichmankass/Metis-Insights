@@ -159,3 +159,71 @@ def test_regime_spec_of_handles_bare_predictor():
     # A bare base predictor (no `wrapped`) still surfaces its spec.
     assert regime_spec_of(bare) is not None
     assert regime_spec_of(_FakeShadow(None)) is None
+
+
+# ---------------------------------------------------------------------------
+# Equivalence guard for the O(n)->O(window) reverse-scan optimization of
+# rolling_log_return_vol (perf fix 2026-05-31). The new implementation MUST be
+# byte-identical to the original "compute all log returns, take last N" form —
+# for every history length AND with non-positive closes present (the case a
+# naive tail slice would get wrong). This locks the optimization to its oracle.
+# ---------------------------------------------------------------------------
+import random as _random  # noqa: E402
+
+
+def _rolling_vol_reference(closes, vol_window_n):
+    """The ORIGINAL pre-optimization algorithm, kept as the oracle."""
+    if vol_window_n < 2:
+        return None
+    log_returns = []
+    prev = None
+    for c in closes:
+        if prev is not None and prev > 0 and c > 0:
+            log_returns.append(math.log(c / prev))
+        prev = c
+    window = log_returns[-vol_window_n:]
+    if len(window) < 2:
+        return None
+    return statistics.pstdev(window)
+
+
+def _assert_same_vol(closes, n):
+    a = _rolling_vol_reference(closes, n)
+    b = rolling_log_return_vol(closes, n)
+    if a is None or b is None:
+        assert a is None and b is None, (closes, n, a, b)
+    else:
+        assert abs(a - b) <= 1e-15, (closes, n, a, b)
+
+
+def test_rolling_vol_equivalence_all_positive_fuzz():
+    rng = _random.Random(20260531)
+    for _ in range(2000):
+        length = rng.randint(0, 80)
+        closes = [round(rng.uniform(50.0, 50000.0), 4) for _ in range(length)]
+        n = rng.choice([2, 3, 14, 20, 30, 50])
+        _assert_same_vol(closes, n)
+
+
+def test_rolling_vol_equivalence_with_nonpositive_closes_fuzz():
+    """Skip-past-non-positive — exactly what a naive tail slice would break.
+    The reverse scan must continue backwards past a zero/negative close to
+    recover the true last-N valid pairs."""
+    rng = _random.Random(99)
+    for _ in range(2000):
+        length = rng.randint(0, 80)
+        closes = []
+        for _ in range(length):
+            if rng.random() < 0.15:
+                closes.append(rng.choice([0.0, -1.0, -100.0]))
+            else:
+                closes.append(round(rng.uniform(50.0, 50000.0), 4))
+        n = rng.choice([2, 3, 14, 20, 30])
+        _assert_same_vol(closes, n)
+
+
+def test_rolling_vol_equivalence_explicit_and_edges():
+    _assert_same_vol([100.0, 101.0, 0.0, 102.0, 103.0, 104.0], 3)
+    _assert_same_vol([100.0, 101.0, 0.0, 102.0, 103.0, 104.0], 20)
+    for closes in ([], [100.0], [0.0, 0.0], [100.0, 0.0, 101.0]):
+        _assert_same_vol(closes, 20)

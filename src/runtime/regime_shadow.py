@@ -83,15 +83,29 @@ def rolling_log_return_vol(
     """
     if vol_window_n < 2:
         return None
-    log_returns: list[float] = []
-    prev: float | None = None
-    for c in closes:
-        if prev is not None and prev > 0 and c > 0:
-            log_returns.append(math.log(c / prev))
-        prev = c
-    window = log_returns[-vol_window_n:]
+    # Only the LAST ``vol_window_n`` valid log returns affect the result, so
+    # scan close-pairs from the END and stop once we have them — O(window)
+    # instead of O(len(closes)). Rebuilding the full log-return list every bar
+    # made a long backtest O(n^2); a 60k-bar sweep paid ~6 min here alone.
+    # Byte-identical to the previous "compute all, take last N" form, INCLUDING
+    # the non-positive-close skip (we keep scanning backwards past a skipped
+    # pair), because pstdev is order-independent so the recovered set of the N
+    # highest-index valid pairs is the same set the old slice kept.
+    window: list[float] = []
+    i = len(closes) - 1
+    while i >= 1 and len(window) < vol_window_n:
+        c = closes[i]
+        prev = closes[i - 1]
+        if prev > 0 and c > 0:
+            window.append(math.log(c / prev))
+        i -= 1
     if len(window) < 2:
         return None
+    # We collected newest-first; reverse to chronological order so pstdev sums
+    # the exact same sequence the old "log_returns[-n:]" form did. Float
+    # addition isn't associative, so this reversal is what makes the result
+    # BYTE-identical (not just numerically close) to the original.
+    window.reverse()
     return statistics.pstdev(window)
 
 
