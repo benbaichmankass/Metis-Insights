@@ -3,6 +3,38 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "BL-20260531-001",
+      "opened_at": "2026-05-31T16:30:00+00:00",
+      "opened_by": "claude",
+      "source": "/health-review — operator-flagged squeeze_breakout_4h Telegram sequence (2026-05-31 16:00-16:15 UTC)",
+      "title": "Misleading 'TRADE OPENED — SHORT' ping on an intent_reduce leg (carries parent LONG's entry/SL/TP)",
+      "description": "VERIFIED ON LIVE DATA, NOT A REAL TRADING BUG — notification-only. When the multi-strategy intent layer emits an intent_reduce/close leg, coordinator._delta_to_legs does dataclasses.replace(pkg, direction=delta.side) to flip the leg's direction to the opposite (reduce-only) side, but KEEPS the parent package's entry/sl/tp. execute_pkg then fires enqueue_trade_open(side=pkg.direction) (execute.py:881) for the reduce leg, so the operator sees '🟢 TRADE OPENED — BTCUSDT SHORT' with Entry 73693.8 / SL 72385.78 (BELOW) / TP 80989.49 (ABOVE) — SL/TP levels that are correct for a LONG, not a short. Ground truth (trade 1949, bybit_1): setup_type=intent_reduce, a 0.007 reduce-only SHORT leg trimming the open LONG position (pkg-838fe5ef, dir=long, the squeeze 4h winner), NOT a new short entry. The position was never short. Two sub-issues: (a) a reduce/close leg should not fire the 'TRADE OPENED' lifecycle ping at all (it's a partial close, not an open) — or should be labelled 'POSITION REDUCED'; (b) if it does ping, it must not show the parent's open-side SL/TP on the opposite-side leg. Fix is in the notification path only (execution_diagnostics.enqueue_trade_open call site in execute.py + the reduce-leg branch in coordinator), Tier-2 (touches execute.py / coordinator.py which the live VM consumes) — propose via PR, do not self-merge.",
+      "tier": 2,
+      "trigger_condition": "Any /health-review run; or operator confusion about reduce-leg pings.",
+      "resolution_criteria": "An intent_reduce/close leg no longer emits a 'TRADE OPENED — <opposite side>' ping with the parent's open-side SL/TP. Either it emits a distinct 'POSITION REDUCED' notification, or it suppresses the open-ping for reduce_only legs. Verified against a live reduce leg.",
+      "status": "open",
+      "resolved_at": null,
+      "resolved_by": null,
+      "resolution": null,
+      "snoozed_until": null
+    },
+    {
+      "id": "BL-20260531-002",
+      "opened_at": "2026-05-31T16:30:00+00:00",
+      "opened_by": "claude",
+      "source": "/health-review — operator-flagged squeeze_breakout_4h Telegram sequence (2026-05-31 16:00-16:15 UTC)",
+      "title": "'🚨 ALL accounts failed to dispatch' fires on an expected flip_suppressed_hold_policy no-op (false alarm)",
+      "description": "VERIFIED ON LIVE DATA, NOT A REAL TRADING BUG — alerting false-positive. coordinator.multi_account_execute emits the high-priority 'ALL accounts failed to dispatch' roll-up whenever NO account placed a trade in a round (line 1617: `not any(r.trade_id)`). But under FLIP_POLICY=hold (the live default since PR #2451), an opposite-side signal against an open position is INTENTIONALLY suppressed to a noop (intent_noop:flip_suppressed_hold_policy) — zero trades placed is the CORRECT, designed outcome, not a dispatch failure. On 2026-05-31 16:15 the squeeze short signal (id 1951 bybit_1 / 1952 bybit_2) was correctly held (open long present), yet the operator got a 🚨 ALL-accounts-failed alert. The roll-up should treat a round where every account result is an intent_noop (at_target / flip_suppressed_hold_policy / hold) as a benign no-op, NOT a failure — only genuine errors (RiskBreach, exchange_rejected, missing creds) should trip the 🚨 alarm. Fix in coordinator.py:1617 guard (exclude intent_noop reasons) + possibly execution_diagnostics.enqueue_all_accounts_failed_dispatch. Tier-2 (live-path file) — propose via PR.",
+      "tier": 2,
+      "trigger_condition": "Any /health-review run; or operator alarm-fatigue on flip-suppressed signals.",
+      "resolution_criteria": "A dispatch round in which every account result is an intent_noop (at_target / flip_suppressed_hold_policy / flip-hold) no longer triggers the '🚨 ALL accounts failed to dispatch' high-priority ping; genuine all-fail rounds (risk/exchange/creds errors) still do. Verified against a flip-suppressed round.",
+      "status": "open",
+      "resolved_at": null,
+      "resolved_by": null,
+      "resolution": null,
+      "snoozed_until": null
+    },
+    {
       "id": "BL-20260524-001",
       "opened_at": "2026-05-24T00:00:00+00:00",
       "opened_by": "claude",
