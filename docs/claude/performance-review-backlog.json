@@ -75,7 +75,26 @@
       "trigger_condition": "Operator decision on the proposed aggregate_intents change (drafted in docs/audits/walkforward-flip-policy-2026-05-30.md \u00a7 Tier-3 design proposal). Re-trigger next /performance-review if not acted on.",
       "resolution_criteria": "Operator approves (or declines) the Tier-3 aggregator behaviour change drafted in docs/audits/walkforward-flip-policy-2026-05-30.md. If approved, file the PR per that doc's \u00a7 Pre-merge validation; resolve this item when the PR merges + deploys + a soak window confirms no regression. If declined, resolve as won't-fix with rationale and route the operator to the decider-v2 selection layer (DECIDER-SINGLE-ACCOUNT-2026-05-24.md v2 step 2/3) as the next research target.",
       "description": "WALK-FORWARD COMPLETED 2026-05-30 \u2014 both criteria PASSED (verified from runtime_logs/system_backtest/walkforward/walkforward_20260530T211319Z.json). 24 cells (2 anchored folds \u00d7 2 halves \u00d7 2 rosters \u00d7 3 policies). Criterion 1 (4-member hold dominates reverse in net AND maxDD% across all 4 cells): PASS \u2014 A/train +$1242 swing, A/oos +$1293, B/train +$954, B/oos +$947; OOS lift bigger than train on both folds. Criterion 2 (6-member hold not worse than reverse OOS, both folds): PASS \u2014 A/oos +$5171 swing, B/oos +$5329 (hold halves the catastrophic outcome but the book still bleeds because turtle+ict_scalp lose in-system regardless of conflict policy). flat consistently sits between reverse and hold. reverse (live) is the worst policy on every 4-member cell and tied for worst on every 6-member cell. Tier-3 design proposal drafted in docs/audits/walkforward-flip-policy-2026-05-30.md \u00a7 'Tier-3 design proposal'; stops short of patching src/runtime/intents.py per session contract."
+    },
+    {
+      "id": "PERF-20260531-001",
+      "opened_at": "2026-05-31",
+      "created": "2026-05-31",
+      "opened_by": "claude (continuation session, SPX re-tune of trend_donchian)",
+      "source": "prem_runs/03 intent \u2014 trend_donchian donchian-lookback sweep on data/SPX500_1m.parquet (2.15M 1m rows, 2020-01 -> 2026-05) resampled to 2h, via standalone scripts/backtest_trend.py on the trainer VM. Net-of-fee 7.5 bps.",
+      "title": "trend_donchian on SPX: two-sided FAILS but the LONG side is a BTC-uncorrelated diversification candidate (+22.5 R long-only at donchian=20)",
+      "description": "Tested whether the one durable roster winner (trend_donchian) transfers to an uncorrelated market (SPX/MES) for diversification. RESULT: two-sided trend_donchian is net-NEGATIVE on SPX at every tested lookback (dc=20 net -13.5R, dc=30 -14.2, dc=40 -29.1, dc=55 -29.9). BUT the entire loss is the SHORT side; the LONG side is net-POSITIVE at every lookback: long-only net R = +22.45 (dc=20), +16.69 (dc=30), +9.45 (dc=40), +7.20 (dc=55). SPX's secular uptrend systematically punishes trend-breakout shorts (short-side net ~ -31..-38R across configs). Shorter lookback is clearly best (dc=20: 278 long trades, long-side exp ~ +0.08 R/trade, net-positive in 2021/2023/2024; longer lookbacks degrade both sides). maxDD grows with lookback (27.6R @ dc=20 -> 39R @ dc=55). LEAD: a long-only / long-biased trend_donchian on SPX/MES is a plausible diversification add \u2014 uncorrelated to the BTC roster, exploits the equity risk premium, positive long-side expectancy. CAVEATS: in-sample over the available 6.4y; SPX500 CFD prices (live is MES \u2014 execution/contract differ); long-side R is the long legs of the two-sided run (entries are independent, so it equals a true long-only run, but a dedicated long-only + walk-forward + corr-to-BTC-trend_donchian check should confirm before any proposal).",
+      "tier": "tier-3",
+      "priority": "medium",
+      "severity": "medium",
+      "status": "open",
+      "trigger_condition": "Next /performance-review, or a strategy/model-training session with SPX/MES capacity.",
+      "resolution_criteria": "Confirm with a dedicated LONG-ONLY trend_donchian backtest on SPX/MES + walk-forward (in/out split) + low return-correlation to the live BTC trend_donchian. If it clears net-of-fee with acceptable DD, propose a long-only trend_donchian SPX/MES adapter as a Tier-3 PR for operator approval (the new-strategy wiring checklist applies). If it does not hold out-of-sample, resolve won't-fix with the evidence.",
+      "resolved_at": null,
+      "resolved_by": null,
+      "resolution_note": null,
+      "snoozed_until": null
     }
   ],
-  "updated_at": "2026-05-30"
+  "updated_at": "2026-05-31"
 }
