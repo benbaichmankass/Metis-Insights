@@ -151,36 +151,46 @@ _VALID_SIDES: frozenset[str] = frozenset({"long", "short", "flat"})
 # mirroring the ``--flip-policy`` knob in ``scripts/backtest_system.py`` so the
 # live path and the system backtester stay faithful twins:
 #
-#   "reverse" (default; live-faithful) — close the current position AND open
-#             the new side immediately (``action="flip"``). This is the
-#             historical behaviour the system backtester replicates.
-#   "hold"  — keep the current position; ignore the opposite vote and let the
-#             owning strategy's own ``monitor()`` / SL / TP exit it naturally
-#             (``action="noop"``). The flip-churn sweep in
-#             ``docs/audits/system-portfolio-backtest-2026-05-30.md`` found this
-#             is the single biggest portfolio-level improvement (zeroes flips,
-#             ~halves max-DD, flips the 4-member book net-positive).
+#   "hold"  (DEFAULT since 2026-05-31; walk-forward verified PASS) — keep the
+#             current position; ignore the opposite vote and let the owning
+#             strategy's own ``monitor()`` / SL / TP exit it naturally
+#             (``action="noop"``). Walk-forward (24 cells = 2 anchored folds ×
+#             2 halves × 2 rosters × 3 policies, see
+#             ``docs/audits/walkforward-flip-policy-2026-05-30.md``) showed
+#             hold beats reverse on net AND maxDD% across all four 4-member
+#             cells (OOS lift > train lift on both folds) and is materially
+#             less-bad on every single 6-member cell. Zeroes flip-churn,
+#             ~halves max-DD, flips the 4-member book net-positive.
+#   "reverse" (legacy) — close the current position AND open the new side
+#             immediately (``action="flip"``). The historical pre-2026-05-31
+#             behaviour and the rollback path: set ``FLIP_POLICY=reverse`` on
+#             the live VM (no redeploy needed). The system backtester also
+#             replicates this behaviour under ``--flip-policy reverse``.
 #   "flat"  — close the current position but do NOT re-open (``action="close"``);
-#             stand aside on conflict.
+#             stand aside on conflict. Tested by the walk-forward, never the
+#             best policy in any cell.
 #
-# The DEFAULT IS "reverse", so merging this knob changes NO live behaviour.
-# Switching to "hold" is a separate, explicit, operator-gated (Tier-3)
-# activation via the ``FLIP_POLICY`` env on the live VM (or a settings key).
-# This is NOT an auto-disable / auto-flip path: it is a per-tick target
-# decision, journalled on every suppression (the coordinator logs the
-# resulting ``noop`` to the trade journal), consistent with the Prime
-# Directive's "no silent state" rule.
+# The DEFAULT IS "hold" (2026-05-31, operator-approved). Switching back to
+# ``"reverse"`` is the operator-gated rollback path via the ``FLIP_POLICY``
+# env on the live VM (or a settings key). This is NOT an auto-disable /
+# auto-flip path: it is a per-tick target decision, journalled on every
+# suppression (the coordinator logs the resulting ``noop`` to the trade
+# journal as ``intent_noop:flip_suppressed_hold_policy:…``), consistent with
+# the Prime Directive's "no silent state" rule.
 FLIP_POLICIES: frozenset[str] = frozenset({"reverse", "hold", "flat"})
-_DEFAULT_FLIP_POLICY: str = "reverse"
+_DEFAULT_FLIP_POLICY: str = "hold"
 
 
 def resolve_flip_policy(settings: Optional[Dict[str, Any]] = None) -> str:
     """Resolve the active flip policy. Mirrors ``intent_multiplexer_enabled``.
 
     Resolution order: explicit ``settings["FLIP_POLICY"]`` → the ``FLIP_POLICY``
-    env var → ``"reverse"`` (the live-faithful default). An unrecognised value
-    falls back to the default rather than raising, so a typo on the VM can
-    never strand the order path.
+    env var → ``"hold"`` (the post-walk-forward live default since 2026-05-31;
+    see ``docs/audits/walkforward-flip-policy-2026-05-30.md``). An unrecognised
+    value falls back to the default rather than raising, so a typo on the VM
+    can never strand the order path. Operator rollback to the legacy
+    close-and-reverse behaviour: ``FLIP_POLICY=reverse`` on the systemd unit;
+    no redeploy needed.
     """
     raw = None
     if isinstance(settings, dict):

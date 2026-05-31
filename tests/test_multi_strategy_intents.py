@@ -367,10 +367,14 @@ class TestDeltaExecution:
         assert delta.qty_delta == 0.04
 
     def test_conflict_flips_with_explicit_legs(self):
-        """current=+0.01 long, desired=short 0.02 → flip."""
+        """current=+0.01 long, desired=short 0.02 + explicit ``reverse`` →
+        flip. The post-2026-05-31 default is ``hold`` (covered by the
+        TestFlipPolicy class in test_intent_delta_dispatch.py); the flip
+        mechanics this test exercises are still wired as the rollback path."""
         delta = compute_execution_delta(
             current_signed_qty=0.01,
             desired=self._desired_short(0.02),
+            flip_policy="reverse",
         )
         assert delta.action == "flip"
         assert delta.side == "short"
