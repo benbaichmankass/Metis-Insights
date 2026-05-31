@@ -7,7 +7,6 @@ PR).
 """
 from __future__ import annotations
 
-import numpy as np
 import pandas as pd
 import pytest
 
@@ -75,9 +74,12 @@ def test_session_monitor_ratchets_long_stop_up():
     fresh = _session_df(breakout=True)
     runner = fresh.iloc[-1].copy()
     runner["timestamp"] = pd.Timestamp("2026-03-02T16:00:00Z")
-    runner["high"] = 130.0
-    runner["close"] = 128.0
+    # Keep the runner ABOVE entry (so the trail ratchets) but BELOW the ~9.9%
+    # TP sentinel cap (entry 104 → tp ≈ 114) so we exercise the trail, not tp_cross.
+    runner["high"] = 112.0
+    runner["close"] = 110.0
     fresh = pd.concat([fresh, pd.DataFrame([runner])], ignore_index=True)
+    assert pkg["tp"] > 110.0, "test precondition: runner must stay below the TP sentinel"
     verdict = sess.monitor({}, fresh, pkg)
     assert verdict is not None and "sl" in verdict
     assert verdict["sl"] > pkg["sl"]

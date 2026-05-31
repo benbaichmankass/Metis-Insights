@@ -64,9 +64,18 @@ def _load_candles(path: str) -> pd.DataFrame:
     return df.dropna(subset=["timestamp"]).reset_index(drop=True)
 
 
+def _norm_rule(rule: str) -> str:
+    """Normalize a CLI resample rule for newer pandas (>=2.2): bare 'm'/'h'
+    minute/hour aliases must be 'min'/'h'. '15m' -> '15min', '2h' -> '2h'."""
+    r = rule.strip().lower()
+    if r.endswith("m") and not r.endswith("min"):
+        return r[:-1] + "min"
+    return r
+
+
 def _resample(df: pd.DataFrame, rule: str) -> pd.DataFrame:
     return (df.set_index("timestamp")
-            .resample(rule, label="right", closed="right")
+            .resample(_norm_rule(rule), label="right", closed="right")
             .agg({"open": "first", "high": "max", "low": "min", "close": "last"})
             .dropna().reset_index())
 
