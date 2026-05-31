@@ -86,6 +86,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
         fee_bps_roundtrip=args.fee_bps,
         timeout_bars=args.timeout_bars,
         model_scorer=model_scorer,
+        timeframe=args.timeframe,
     )
     summary = ledger.summary()
     summary["run"] = {
@@ -173,6 +174,7 @@ def _cmd_sweep(args: argparse.Namespace) -> int:
         variants=variants, candles=candles, symbol=args.symbol,
         warmup_bars=args.warmup, fee_bps_roundtrip=args.fee_bps,
         timeout_bars=args.timeout_bars, registry_root=args.registry_root or None,
+        timeframe=args.timeframe,
     )
     span = [candles[0]["ts"], candles[-1]["ts"]]
     run_id = args.run_id or datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
@@ -202,6 +204,7 @@ def main(argv: list[str] | None = None) -> int:
     run.add_argument("--candles", required=True, help="OHLCV .jsonl or .csv (ascending)")
     run.add_argument("--strategies", required=True, help="comma-separated strategy names")
     run.add_argument("--symbol", default="BTCUSDT")
+    run.add_argument("--timeframe", default="", help="candle timeframe (e.g. 5m/2h/4h) — lets regime models compute vol_bucket")
     run.add_argument("--warmup", type=int, default=200, help="history bars per decision (live builders fetch 200)")
     run.add_argument("--fee-bps", type=float, default=7.5, help="round-trip fee in bps")
     run.add_argument("--timeout-bars", type=int, default=0, help="0 = no timeout")
@@ -219,6 +222,7 @@ def main(argv: list[str] | None = None) -> int:
     sweep.add_argument("--candles", required=True, help="OHLCV .jsonl or .csv (ascending)")
     sweep.add_argument("--spec", required=True, help="variants spec .json or .yaml ({variants:[...]})")
     sweep.add_argument("--symbol", default="BTCUSDT")
+    sweep.add_argument("--timeframe", default="", help="candle timeframe (e.g. 5m/2h/4h) — lets regime models compute vol_bucket")
     sweep.add_argument("--warmup", type=int, default=200)
     sweep.add_argument("--fee-bps", type=float, default=7.5)
     sweep.add_argument("--timeout-bars", type=int, default=0)

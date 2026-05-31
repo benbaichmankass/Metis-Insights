@@ -94,6 +94,17 @@ class ModelScorer:
     model_ids: list[str]
     policy_cfg: Optional[dict] = None
     registry_root: Optional[str] = None
+    # SIM-native regime-GATE policy (distinct from the live downsize policy).
+    # When ``regime_gate`` is set, factor_for returns a hard gate: the trade is
+    # SKIPPED (factor 0.0) when the matching regime model's score crosses
+    # ``gate_threshold`` in ``gate_direction`` ("above" = skip when P(volatile)
+    # is high; "below" = skip when low), else taken (factor 1.0). This is the
+    # semantically-correct way to use a regime classifier — "don't trade in the
+    # wrong regime" — which the live downsize policy (low-score=bearish) can't
+    # express. Reuses the same vol-aware per-predictor row as the downsize path.
+    regime_gate: bool = False
+    gate_threshold: float = 0.66
+    gate_direction: str = "above"   # "above" | "below"
 
     def __post_init__(self) -> None:
         from src.runtime.advisory_influence import parse_policy
@@ -101,6 +112,8 @@ class ModelScorer:
         self._predictors: list[Any] = []
         self._policy = parse_policy(self.policy_cfg or {"advisory_policy": {"mode": "downsize"}})
         self._loaded = False
+        if self.gate_direction not in ("above", "below"):
+            raise ValueError(f"gate_direction must be 'above'|'below'; got {self.gate_direction!r}")
 
     def _ensure_loaded(self) -> None:
         if self._loaded:
@@ -134,23 +147,52 @@ class ModelScorer:
             except Exception as exc:  # noqa: BLE001
                 logger.warning("sim: could not load model %s for scoring: %s", mid, exc)
 
-    def factor_for(self, row: dict[str, Any]) -> tuple[float, dict[str, float]]:
-        """Return ``(size_factor, {model_id: score})`` for a feature row.
+    def factor_for(
+        self, row: dict[str, Any], *,
+        closes: Optional[list] = None, symbol: str = "", timeframe: str = "",
+    ) -> tuple[float, dict[str, float]]:
+        """Return ``(size_factor, {model_id: score})`` for a decision.
+
+        Each predictor is scored on the row TAILORED to it, via the LIVE
+        ``src.runtime.regime_shadow.feature_row_for_predictor``:
+          * a regime model whose ``(symbol, timeframe)`` match this decision's
+            gets ``row`` enriched with the live ``vol_bucket`` +
+            ``rolling_log_return_vol`` computed from ``closes`` against the
+            edges frozen in its model state — exactly as the live signal
+            builder does;
+          * a mismatched regime model (or one with no computable vol) is
+            SKIPPED (not scored on a meaningless constant);
+          * a non-regime model (trade-outcome / setup-quality) gets ``row``
+            unchanged.
 
         ``size_factor`` comes from the LIVE ``advisory_downsize_factor`` —
         never a SIM reimplementation. ``1.0`` = no influence.
         """
         from src.runtime.advisory_influence import advisory_downsize_factor
+        from src.runtime.regime_shadow import feature_row_for_predictor
 
         _assert_leakage_safe(row)
         self._ensure_loaded()
+        closes = closes or []
         scores: dict[str, float] = {}
         for p in self._predictors:
+            tailored = feature_row_for_predictor(
+                p, row, closes=closes, symbol=symbol, timeframe=timeframe,
+            )
+            if tailored is None:
+                continue  # mismatched regime model — skip (don't score a constant)
             try:
-                scores[p.model_id] = float(p.predict(row))
+                scores[p.model_id] = float(p.predict(tailored))
             except Exception as exc:  # noqa: BLE001
                 logger.debug("sim: model %s predict failed: %s", p.model_id, exc)
         if not scores:
             return 1.0, {}
+        if self.regime_gate:
+            # Hard regime gate: skip (0.0) when ANY scored regime model crosses
+            # the threshold in the configured direction, else take (1.0).
+            def _trips(v: float) -> bool:
+                return v >= self.gate_threshold if self.gate_direction == "above" else v <= self.gate_threshold
+            gated = any(_trips(v) for v in scores.values())
+            return (0.0 if gated else 1.0), scores
         factor = advisory_downsize_factor(scores, self._policy, flag_enabled=True)
         return factor, scores

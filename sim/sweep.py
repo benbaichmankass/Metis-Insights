@@ -43,6 +43,9 @@ def _variant_scorer(variant: dict, default_registry_root: Optional[str]):
     scorer = ModelScorer(
         model_ids=model_ids, policy_cfg=policy_cfg,
         registry_root=variant.get("registry_root") or default_registry_root,
+        regime_gate=bool(variant.get("regime_gate", False)),
+        gate_threshold=float(variant.get("gate_threshold", 0.66)),
+        gate_direction=str(variant.get("gate_direction", "above")),
     )
     return scorer, model_ids
 
@@ -56,6 +59,7 @@ def run_sweep(
     fee_bps_roundtrip: float = 7.5,
     timeout_bars: int = 0,
     registry_root: Optional[str] = None,
+    timeframe: str = "",
 ) -> list[dict[str, Any]]:
     """Run every variant over ``candles`` and return results ranked by net_r.
 
@@ -77,7 +81,7 @@ def run_sweep(
         ledger = run_replay(
             candles=candles, strategies=strategies, symbol=symbol,
             warmup_bars=warmup_bars, fee_bps_roundtrip=fee_bps_roundtrip,
-            timeout_bars=timeout_bars, model_scorer=scorer,
+            timeout_bars=timeout_bars, model_scorer=scorer, timeframe=timeframe,
         )
         summary = ledger.summary()
         if model_ids:
