@@ -1,7 +1,8 @@
-import json, sys
+import json
+import sys
 from collections import defaultdict
 path = sys.argv[1] if len(sys.argv) > 1 else '/tmp/research/results.jsonl'
-rows = [json.loads(l) for l in open(path) if l.strip()]
+rows = [json.loads(ln) for ln in open(path) if ln.strip()]
 ok = [r for r in rows if r.get('ok')]
 print('rows', len(rows), 'ok', len(ok), 'failed', len(rows) - len(ok))
 cfg = defaultdict(dict)

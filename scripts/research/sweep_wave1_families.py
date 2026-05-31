@@ -15,7 +15,6 @@ import json
 import subprocess
 import itertools
 import time
-import os
 from pathlib import Path
 
 REPO = '/home/ubuntu/ict-trading-bot'
