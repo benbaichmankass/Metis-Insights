@@ -3,6 +3,23 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "MB-20260531-001",
+      "opened_at": "2026-05-31T16:50:00+00:00",
+      "opened_by": "claude (/health-review, ML-perf spillover)",
+      "source": "Operator asked for a sweep ETA; profiling the running sim sweep (PID 604328) on the trainer VM surfaced an ML-inference cost concern.",
+      "title": "Regime-gate model scoring in sim is ~0.5s/bar — ~100-1000x slower than raw LGBM inference; profile + optimize the per-bar scoring path",
+      "description": "MEASURED, NOT ESTIMATED. The operator's sim sweep (2 variants over 60,000 BTC 5m bars: 5m_roster [no models] + 5m_gate66 [regime-gate model in loop]) ran 9.8h wall / 9.7h CPU at 98.8% CPU sustained (genuinely computing, not stuck) and had completed 0/2 variant outputs (sim writes only at the end). Decomposition: variant-1 (7 strategies, no ML) is ~12 min by local profiling (sim.engine run_replay measured at ~1.66 ms/bar/strategy on the 3.5-day sample); the remaining ~9.5h is variant-2's regime-gate scoring => ~0.57 SECONDS per bar. A trained LGBM regime classifier should infer in microseconds, so the per-bar cost is ~100-1000x what inference itself needs. Ruled out one obvious cause: the model is NOT reloaded per bar (sim/models.py ModelScorer._ensure_loaded guards with self._loaded, loads once). So the cost is in the PER-BAR FEATURE RECONSTRUCTION or the ShadowPredictor scoring wrapper, not the tree inference. Impact: any full-history sweep with a model in the loop is a 10+ hour single-core job, which (a) makes the consolidated sim harness impractical for routine model-in-loop sweeps and (b) is the bottleneck blocking the prem-tier-core work queued this session. NOT yet root-caused — needs a py-spy/cProfile pass on the actual VM scoring path (py-spy is not installed on the trainer; install or use cProfile via a wrapped run). Likely fixes once profiled: vectorize/batch the feature build across bars instead of rebuilding per-bar, precompute regime scores once per bar and reuse across variants, or cache the feature frame. This is ml-pipeline efficiency (sim scoring path), hence ml-review not health-review.",
+      "tier": 1,
+      "trigger_condition": "Any /ml-review run; or any session running a model-in-loop sim sweep that takes hours.",
+      "resolution_criteria": "The per-bar regime-gate scoring cost in sim is profiled (py-spy/cProfile on the real path) and the hot spot identified; either an optimization lands that brings a 60k-bar model-in-loop variant under ~30 min on one core, or the finding is documented as inherent with a recommended workflow (e.g. precompute-scores-once) in the sim/ docs.",
+      "status": "open",
+      "snoozed_until": null,
+      "evidence_log": [
+        "2026-05-31 (/health-review): VM pull on sweep PID 604328 — etime=35328s, cpu_ticks=3490149 (cpu=9.69h), bars_total=60000, variants=2, done_outputs=0. Local sim profile: run_replay no-model = 1.66 ms/bar/strategy (3000-bar sample, warmup 300). Implied variant-2 ML cost ~0.57s/bar. ModelScorer loads once (not a per-bar reload)."
+      ],
+      "status_history": "open 2026-05-31"
+    },
+    {
       "id": "MB-20260527-001",
       "opened_at": "2026-05-27T09:40:00+00:00",
       "opened_by": "claude (/ml-review)",
