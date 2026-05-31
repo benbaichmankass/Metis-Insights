@@ -107,6 +107,7 @@ def run_replay(
     timeout_bars: int = 0,
     max_concurrent_per_symbol: int = 1,
     model_scorer: Optional[Any] = None,
+    timeframe: str = "",
 ) -> SimLedger:
     """Replay ``strategies`` over ``candles`` through the real intent funnel.
 
@@ -241,7 +242,13 @@ def run_replay(
                 strategy=winner, symbol=symbol, direction=norm["direction"],
                 confidence=norm["confidence"], meta=norm.get("meta"),
             )
-            factor, scores = model_scorer.factor_for(row)
+            # Closes up to and including the decision bar (never future) so a
+            # regime model gets the live vol_bucket; matches the live builder
+            # which passes the strategy's own candles_df.
+            closes = [float(c) for c in history["close"].tolist()] if "close" in history else []
+            factor, scores = model_scorer.factor_for(
+                row, closes=closes, symbol=symbol, timeframe=timeframe,
+            )
             trade.model_factor = factor
             trade.model_scores = scores
 

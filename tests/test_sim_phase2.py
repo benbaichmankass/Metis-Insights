@@ -166,6 +166,121 @@ class TestModelScorerRealLoader:
         assert factor == pytest.approx(1.0)
 
 
+class TestRegimeAwareScoring:
+    """A regime predictor must be scored on a vol-enriched row (live
+    regime_shadow path), and SKIPPED on a (symbol,timeframe) mismatch — not
+    scored on a constant. This is what makes regime models testable in SIM."""
+
+    def _scorer_with_regime_stub(self, *, spec):
+        from sim.models import ModelScorer
+
+        class _RegimeBase:
+            regime_spec = spec
+
+            def predict(self, row):
+                # Echo the vol_bucket the enrichment injected, so the test can
+                # assert the row was tailored (constant if enrichment didn't run).
+                return 0.1 if row.get("vol_bucket") == "vol_b1" else 0.9
+
+        class _Pred:
+            model_id = "regime-stub"
+            wrapped = _RegimeBase()
+
+            def predict(self, row):
+                return _RegimeBase().predict(row)
+
+        scorer = ModelScorer(
+            model_ids=["regime-stub"],
+            policy_cfg={"advisory_policy": {"mode": "downsize", "bearish_threshold": 0.35,
+                                            "size_floor": 0.5, "quorum": "majority"}},
+        )
+        scorer._predictors = [_Pred()]
+        scorer._loaded = True
+        return scorer
+
+    def test_regime_model_scored_on_live_vol_bucket(self):
+        from sim.models import feature_row_for_trade
+
+        # Two buckets split at 0.01; a high-vol closes series lands in vol_b1.
+        spec = {"symbol": "BTCUSDT", "timeframe": "5m", "vol_window_n": 5,
+                "vol_bucket_labels": ["vol_b0", "vol_b1"], "vol_bucket_edges": [0.01],
+                "feature_column": "vol_bucket", "vol_feature_column": "rolling_log_return_vol"}
+        scorer = self._scorer_with_regime_stub(spec=spec)
+        # Big swings => high rolling vol => bucket vol_b1 => bearish 0.1.
+        closes = [100, 110, 95, 120, 90, 130]
+        factor, scores = scorer.factor_for(
+            feature_row_for_trade(strategy="vwap", symbol="BTCUSDT",
+                                  direction="long", confidence=0.5),
+            closes=closes, symbol="BTCUSDT", timeframe="5m")
+        assert scores == {"regime-stub": pytest.approx(0.1)}  # vol-enriched, not constant
+        assert factor == pytest.approx(0.5)
+
+    def test_regime_model_skipped_on_timeframe_mismatch(self):
+        from sim.models import feature_row_for_trade
+
+        spec = {"symbol": "BTCUSDT", "timeframe": "5m", "vol_window_n": 5,
+                "vol_bucket_labels": ["vol_b0", "vol_b1"], "vol_bucket_edges": [0.01]}
+        scorer = self._scorer_with_regime_stub(spec=spec)
+        # Decision is on 2h candles — regime model is 5m → must be skipped.
+        factor, scores = scorer.factor_for(
+            feature_row_for_trade(strategy="trend_donchian", symbol="BTCUSDT",
+                                  direction="long", confidence=0.5),
+            closes=[100, 110, 95, 120, 90, 130], symbol="BTCUSDT", timeframe="2h")
+        assert scores == {}          # skipped, not scored on a constant
+        assert factor == pytest.approx(1.0)
+
+
+class TestRegimeGate:
+    """Regime-GATE policy: skip the trade (factor 0.0) when the matching
+    regime model crosses the threshold in the configured direction. This is
+    the semantically-correct 'don't trade in the wrong regime' the live
+    downsize policy (low=bearish) can't express."""
+
+    def _gate_scorer(self, score_value, *, direction="above", threshold=0.66):
+        from sim.models import ModelScorer
+
+        scorer = ModelScorer(model_ids=["rg"], regime_gate=True,
+                            gate_threshold=threshold, gate_direction=direction)
+
+        class _Stub:
+            model_id = "rg"
+            # No regime_spec -> feature_row_for_predictor returns base row
+            # unchanged, so the stub is scored (good enough to test the gate).
+            def predict(self, row):
+                return score_value
+
+        scorer._predictors = [_Stub()]
+        scorer._loaded = True
+        return scorer
+
+    def test_above_gate_skips_when_high(self):
+        from sim.models import feature_row_for_trade
+        sc = self._gate_scorer(0.9, direction="above", threshold=0.66)
+        factor, scores = sc.factor_for(feature_row_for_trade(
+            strategy="vwap", symbol="BTCUSDT", direction="long", confidence=0.5))
+        assert scores == {"rg": pytest.approx(0.9)}
+        assert factor == pytest.approx(0.0)   # high P(volatile) -> skip
+
+    def test_above_gate_takes_when_low(self):
+        from sim.models import feature_row_for_trade
+        sc = self._gate_scorer(0.2, direction="above", threshold=0.66)
+        factor, _ = sc.factor_for(feature_row_for_trade(
+            strategy="vwap", symbol="BTCUSDT", direction="long", confidence=0.5))
+        assert factor == pytest.approx(1.0)   # calm regime -> take
+
+    def test_below_gate_direction(self):
+        from sim.models import feature_row_for_trade
+        sc = self._gate_scorer(0.1, direction="below", threshold=0.5)
+        factor, _ = sc.factor_for(feature_row_for_trade(
+            strategy="trend_donchian", symbol="BTCUSDT", direction="long", confidence=0.5))
+        assert factor == pytest.approx(0.0)   # low score, below-gate -> skip
+
+    def test_bad_direction_rejected(self):
+        from sim.models import ModelScorer
+        with pytest.raises(ValueError):
+            ModelScorer(model_ids=["x"], regime_gate=True, gate_direction="sideways")
+
+
 # --------------------------------------------------------------------------
 class TestModelsInLoopDiff:
     def test_diff_reports_cut_losers_and_winners(self):
