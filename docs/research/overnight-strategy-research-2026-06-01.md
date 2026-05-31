@@ -44,16 +44,45 @@ just an in-sample fit. The strongest, ranked by **out-of-sample** net R:
 **The dominant cross-cutting signal:** a **wide ATR trail (`trail_mult` ≈ 5.0)**
 lifts net R in *every* family. The program's edge is the trend runner; the
 default trail=3.0 cuts winners early. This replicates today's S-PROFIT-GAPS
-pullback finding and now generalises to Donchian, squeeze, and SPX.
+pullback finding and now generalises to Donchian, squeeze, momentum, and SPX.
+
+### 3-fold robustness — the two top leads hold in every sub-period
+Beyond the 2-way IS/OOS split, both top BTC leads were re-checked on three
+**non-overlapping 2-year folds** — net-positive in all three (not an artifact of
+the split boundary):
+
+| Lead | 2021–22 | 2023–24 | 2025–26 | DD range |
+|---|---|---|---|---|
+| **trend dc20 / 1h / trail5.0** | +14.0 | +53.8 | +24.0 | 16–21 R |
+| **pullback tl40 / pf0.5 / trail5.0 / 2h** | +30.2 | +41.8 | +7.9 | **8–15 R** |
+
+The long/short mix shifts by regime (e.g. the trend lead's 2025–26 was short-led,
+2023–24 long-led) — it adapts rather than depending on one side. The pullback lead
+is the **lower-drawdown** of the two (DD 8–15 R for +8…+42 net).
 
 ## Full walk-forward leaderboard
-All 41 both-window-positive configs are recorded in `/tmp/research/results.jsonl`
-on the trainer VM (and reproducible from `scripts/research/`). The top 20 by OOS
-net R are in the table above + the next tranche (all BTC unless noted):
-trend/1h/dc55·trail5 (OOS+22.3), trend/2h/dc30·trail4 (+21.3), pullback/4h
-variants (+10–20, DD 8–13), trend/4h/dc20–30 (+8–13, DD 7–15), SPX/1d
-long-only (+5–7.6, DD 2–4.6), squeeze/4h/std2.5 (+2.8). Momentum (wave 2) folds
-in below once complete.
+**Combined waves 1+2: 357 backtests (119 configs × 3 windows), 0 failures, and
+68 of 119 configs net-positive in BOTH in-sample and out-of-sample.** All raw
+results in `/tmp/research/results.jsonl` on the trainer VM (reproducible from
+`scripts/research/`). Beyond the top-6 table above, the next tranche (all BTC
+unless noted): trend/1h/dc55·trail5 (OOS+22.3), trend/2h/dc30·trail4 (+21.3),
+many pullback/4h variants (+10–20, DD 8–13), trend/4h/dc20–30 (+8–13, DD 7–15),
+squeeze/4h/std2.5 (+2.8).
+
+### Wave 2 (momentum) — independent confirmation
+The new `research_momentum.py` (TSMOM + MA-cross, no Donchian channel) did not
+beat the top trend/pullback leads, but it **independently re-confirmed every
+cross-cutting theme**, which matters more than the raw numbers:
+- **BTC 4h, long-only, wide trail** is the momentum sweet spot:
+  `mom_tsmom/BTC/4h/lb40/trail5 (long-only)` OOS +18.6 ≈ IS +14.8 (498 trades);
+  `mom_macross/BTC/4h/lb40/trail5 (long-only)` OOS +18.1, IS +23.7.
+- **SPX 1d long-only is net-positive in BOTH windows across THREE independent
+  families** — Donchian trend, TSMOM, and MA-cross all agree (OOS +5–7.6, IS
+  +4–7, **DD 2–7 R**). Cross-method agreement is much stronger evidence than any
+  single family: it upgrades the SPX daily long-only sleeve from "thin lead" to
+  a genuinely robust, low-vol, BTC-uncorrelated diversifier.
+- Momentum on BTC **1d** is weak (OOS ~0–2.5) — the BTC edge lives at 1h–4h,
+  the equity-index edge at 1d. Two markets, two natural horizons.
 
 ## What did NOT work
 - **`fade` (mean-reversion)** — no config reached the top tranche; BTC does not
