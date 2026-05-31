@@ -60,12 +60,18 @@ def run_sweep(
     timeout_bars: int = 0,
     registry_root: Optional[str] = None,
     timeframe: str = "",
+    account: Optional[Any] = None,
+    flip_policy: Optional[str] = None,
 ) -> list[dict[str, Any]]:
     """Run every variant over ``candles`` and return results ranked by net_r.
 
     Each result: ``{name, headline, summary}``. ``headline`` is the comparable
     scalar set (net_r preferring the with-model figure when a variant has
     models, else the portfolio net_r). Sorted best-first by ranking net_r.
+
+    Phase 5: ``account`` (an ``AccountConfig`` or None) and ``flip_policy`` are
+    applied to EVERY variant's ``run_replay`` so a sweep can compare $ outcomes
+    (final balance / DD / utilization) and conflict policies across variants.
     """
     from sim.engine import run_replay
     from sim.attrition import compute_attrition, eval_n_from_registry
@@ -82,6 +88,7 @@ def run_sweep(
             candles=candles, strategies=strategies, symbol=symbol,
             warmup_bars=warmup_bars, fee_bps_roundtrip=fee_bps_roundtrip,
             timeout_bars=timeout_bars, model_scorer=scorer, timeframe=timeframe,
+            account=account, flip_policy=flip_policy,
         )
         summary = ledger.summary()
         if model_ids:

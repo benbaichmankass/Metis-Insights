@@ -19,6 +19,58 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
+def _account_from_args(args) -> "object | None":
+    """Build an AccountConfig when any account CLI arg was supplied, else None.
+
+    Passing ``--initial-balance``, ``--risk-pct``, or ``--daily-loss-pct`` enables
+    the Phase-5 $ account layer; unspecified knobs fall back to AccountConfig
+    defaults. With none supplied the layer stays OFF (R-only, back-compatible).
+    """
+    from sim.account import AccountConfig
+
+    ib = getattr(args, "initial_balance", None)
+    rp = getattr(args, "risk_pct", None)
+    dl = getattr(args, "daily_loss_pct", None)
+    if ib is None and rp is None and dl is None:
+        return None
+    d = AccountConfig()
+    return AccountConfig(
+        initial_balance=ib if ib is not None else d.initial_balance,
+        risk_pct=rp if rp is not None else d.risk_pct,
+        daily_loss_pct=dl if dl is not None else d.daily_loss_pct,
+    )
+
+
+def _resolve_flip_policy(cli_value: "str | None") -> "str | None":
+    """Resolve the flip policy: explicit CLI value wins, else the LIVE default.
+
+    Reads ``src.runtime.intents.resolve_flip_policy`` (the source of truth — the
+    same function the live order path uses), never a hardcoded literal. Returns
+    None only if the live resolver is unavailable, in which case the engine keeps
+    its Phase-1 at-most-one-open behavior.
+    """
+    if cli_value:
+        return cli_value
+    try:
+        from src.runtime.intents import resolve_flip_policy
+        return resolve_flip_policy()
+    except Exception:  # noqa: BLE001 — never let a resolver import strand a run
+        return None
+
+
+def _add_account_cli(sp) -> None:
+    """Phase-5 CLI knobs shared by ``run`` and ``sweep`` (percent units)."""
+    sp.add_argument("--initial-balance", type=float, default=None,
+                    help="enable the $ account layer with this starting balance")
+    sp.add_argument("--risk-pct", type=float, default=None,
+                    help="percent of balance risked per trade (1.0 = 1%%)")
+    sp.add_argument("--daily-loss-pct", type=float, default=None,
+                    help="percent daily-loss cap that halts new opens (0 = off)")
+    sp.add_argument("--flip-policy", default=None, choices=["reverse", "hold", "flat"],
+                    help="conflict policy on opposite-side intent "
+                         "(default: live resolve_flip_policy())")
+
+
 def _load_candles(path: Path) -> list[dict]:
     rows: list[dict] = []
     if path.suffix == ".jsonl":
@@ -78,6 +130,12 @@ def _cmd_run(args: argparse.Namespace) -> int:
             registry_root=args.registry_root or None,
         )
 
+    # Phase 5: optional $ account layer (enabled when any account arg is passed)
+    # + flip-policy. resolve_flip_policy() is the LIVE source of truth for the
+    # default — never hardcoded here.
+    account = _account_from_args(args)
+    flip_policy = _resolve_flip_policy(getattr(args, "flip_policy", None))
+
     ledger = run_replay(
         candles=candles,
         strategies=strategies,
@@ -87,6 +145,8 @@ def _cmd_run(args: argparse.Namespace) -> int:
         timeout_bars=args.timeout_bars,
         model_scorer=model_scorer,
         timeframe=args.timeframe,
+        account=account,
+        flip_policy=flip_policy,
     )
     summary = ledger.summary()
     summary["run"] = {
@@ -143,6 +203,14 @@ def _cmd_run(args: argparse.Namespace) -> int:
             print(f"    {mid:26s} scored={a['funnel_scored']} eval_n={a['eval_n']} "
                   f"attrition={ratio_s} influenced={a['influenced']}")
             print(f"      -> {a['readiness']}")
+    if "account" in summary:
+        ac = summary["account"]
+        print(f"  account: bal {ac['initial_balance']:.0f} -> {ac['final_balance']:.0f}  "
+              f"net=${ac['net_usd']:.0f} ({ac['return_pct']}%)  "
+              f"maxDD=${ac['max_drawdown_usd']:.0f} ({ac['max_drawdown_pct']}%)  "
+              f"ret/DD={ac['return_over_dd']}  capital_util={ac['capital_utilization_pct']}%")
+        if ac["halted_days"]:
+            print(f"    daily-loss halted days: {ac['halted_days']}")
     print(f"  -> {out_dir}/summary.json")
     return 0
 
@@ -170,12 +238,23 @@ def _cmd_sweep(args: argparse.Namespace) -> int:
         return 2
     variants = _load_spec(Path(args.spec))
 
-    results = run_sweep(
+    # Phase 5: thread the optional $ account layer + flip-policy through to every
+    # variant. Forward defensively (only kwargs run_sweep declares) so the CLI
+    # stays robust regardless of run_sweep's exact signature.
+    import inspect
+
+    sweep_kwargs = dict(
         variants=variants, candles=candles, symbol=args.symbol,
         warmup_bars=args.warmup, fee_bps_roundtrip=args.fee_bps,
         timeout_bars=args.timeout_bars, registry_root=args.registry_root or None,
         timeframe=args.timeframe,
     )
+    _accepted = inspect.signature(run_sweep).parameters
+    if "account" in _accepted:
+        sweep_kwargs["account"] = _account_from_args(args)
+    if "flip_policy" in _accepted:
+        sweep_kwargs["flip_policy"] = _resolve_flip_policy(getattr(args, "flip_policy", None))
+    results = run_sweep(**sweep_kwargs)
     span = [candles[0]["ts"], candles[-1]["ts"]]
     run_id = args.run_id or datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     out_dir = Path(args.out_root) / run_id
@@ -216,6 +295,8 @@ def main(argv: list[str] | None = None) -> int:
     run.add_argument("--size-floor", type=float, default=0.5, help="downsize floor (0=veto, 1=no effect)")
     run.add_argument("--quorum", default="majority", help="bearish models needed: int or 'majority'")
     run.add_argument("--registry-root", default="", help="override registry-store path")
+    # Phase 5 — optional $ account layer + flip-policy.
+    _add_account_cli(run)
     run.set_defaults(func=_cmd_run)
 
     sweep = sub.add_parser("sweep", help="multi-variation sweep (Phase 4)")
@@ -233,6 +314,8 @@ def main(argv: list[str] | None = None) -> int:
                        help="also write to runtime_logs/trainer_mirror/backtests/<date>/ "
                             "(dashboard sweep surface). Off by default so a SIM run never "
                             "clobbers a real backtest sweep.")
+    # Phase 5 — optional $ account layer + flip-policy (applied to every variant).
+    _add_account_cli(sweep)
     sweep.set_defaults(func=_cmd_sweep)
 
     args = parser.parse_args(argv)

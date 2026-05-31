@@ -29,6 +29,8 @@ __all__ = [
     "SimLedger",
     "BarFillModel",
     "run_replay",
+    "AccountConfig",
+    "SimAccount",
     "ModelScorer",
     "feature_row_for_trade",
     "compute_attrition",
@@ -37,6 +39,7 @@ __all__ = [
     "write_sweep",
 ]
 
+from sim.account import AccountConfig, SimAccount
 from sim.ledger import FunnelStage, SimLedger, SimTrade
 from sim.fills import BarFillModel
 from sim.engine import run_replay

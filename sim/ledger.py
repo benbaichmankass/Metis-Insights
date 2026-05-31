@@ -79,6 +79,14 @@ class SimLedger:
         # funnel[strategy][stage] = count
         self._funnel: dict[str, dict[str, int]] = {}
         self._trades: list[SimTrade] = []
+        # Phase-5: optional $ account engine. Stays None for R-only runs so
+        # summary() output is byte-identical to the pre-account behavior.
+        self._account: Any = None
+
+    # -- Phase-5 account layer ---------------------------------------------
+    def attach_account(self, account: Any) -> None:
+        """Attach the Phase-5 $ account so summary() emits the account block."""
+        self._account = account
 
     # -- funnel accounting --------------------------------------------------
     def record_stage(self, strategy: str, stage: FunnelStage, n: int = 1) -> None:
@@ -170,6 +178,10 @@ class SimLedger:
         scored = [t for t in closed if t.model_factor is not None]
         if scored:
             out["models_in_loop"] = self._model_diff(scored, baseline_net_r=net_r)
+        # Phase 5: $ account block, ONLY when the account layer ran. The R block
+        # above is untouched so account=None output stays byte-identical.
+        if self._account is not None:
+            out["account"] = self._account.summary()
         return out
 
     @staticmethod
