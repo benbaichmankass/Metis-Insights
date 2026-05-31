@@ -1352,10 +1352,22 @@ class Coordinator:
                     current_signed_qty = current_net_position_qty(
                         account.name, pkg.symbol,
                     )
+                    # Conflict policy on opposite-side desired: "hold" is
+                    # the post-2026-05-30 live default (walk-forward
+                    # verified PASS, see docs/audits/walkforward-flip-
+                    # policy-2026-05-30.md). Operator can roll back to
+                    # the legacy close-and-reverse without a redeploy
+                    # via `INTENT_CONFLICT_POLICY=reverse`.
+                    _conflict_policy = os.environ.get(
+                        "INTENT_CONFLICT_POLICY", "hold",
+                    ).strip().lower()
+                    if _conflict_policy not in {"reverse", "hold"}:
+                        _conflict_policy = "hold"
                     delta = compute_execution_delta_for_package(
                         pkg,
                         current_signed_qty=current_signed_qty,
                         risk_sized_qty=sized_qty,
+                        conflict_policy=_conflict_policy,
                     )
                     pkg.meta["execution_delta"] = {
                         "action": delta.action,

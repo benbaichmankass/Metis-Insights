@@ -617,6 +617,7 @@ def compute_execution_delta(
     *,
     qty_precision: int = 6,
     min_delta: float = 0.0,
+    conflict_policy: str = "reverse",
 ) -> ExecutionDelta:
     """Translate a ``DesiredPosition`` + the current net position into a delta.
 
@@ -634,6 +635,28 @@ def compute_execution_delta(
     min_delta : float
         Treat any abs delta below this as zero (returns ``"noop"``).
         Useful when the dispatch path wants to suppress sub-tick noise.
+    conflict_policy : str
+        How to handle an opposite-side ``desired`` when the account
+        already holds a non-zero position (i.e. what the live aggregator
+        would otherwise emit as ``flip``). Tier-3 lever.
+
+        - ``"reverse"`` (legacy): close the current position and open the
+          new side immediately. The behaviour this function shipped with
+          and the only behaviour callers got pre-2026-05-31. Retained as
+          the default at this layer so existing tests keep their
+          expectations.
+        - ``"hold"``: do nothing this tick — the position-holder's
+          ``monitor()`` / SL / TP / trail / time-decay continues to own
+          the exit. Walk-forward verified PASS on both criteria
+          (``docs/audits/walkforward-flip-policy-2026-05-30.md``): hold
+          beats reverse on net **AND** maxDD% across all four
+          (fold × half) cells of the 4-member roster with OOS lift >
+          train lift on both folds, and is materially less-bad on every
+          6-member cell. The live ``Coordinator.multi_account_execute``
+          passes ``"hold"`` by default via the
+          ``INTENT_CONFLICT_POLICY`` env var (also default ``"hold"``),
+          so an operator can roll back to ``"reverse"`` without a
+          redeploy if a problem surfaces.
 
     Returns
     -------
@@ -645,10 +668,16 @@ def compute_execution_delta(
         current=+0.01 (long), desired=long 0.03 → ``action="increase"``,
         ``side="long"``, ``qty_delta=0.02``.
 
-    Conflict resolved to opposite side:
+    Conflict resolved to opposite side (``conflict_policy="reverse"``,
+    legacy behaviour):
         current=+0.01 (long), desired=short 0.02 → ``action="flip"``,
         ``side="short"``, ``qty_delta=0.02`` (close leg's qty=0.01 is
         implied by ``abs(current_qty)``).
+
+    Conflict resolved to opposite side (``conflict_policy="hold"``):
+        current=+0.01 (long), desired=short 0.02 → ``action="noop"``,
+        ``reason="conflict_hold: …"``. The downstream dispatcher logs
+        the dropped side and the position's existing exit logic runs.
 
     Same-direction but already at-or-above target:
         current=+0.05 (long), desired=long 0.03 → ``action="reduce"``,
@@ -739,10 +768,36 @@ def compute_execution_delta(
             ),
         )
 
-    # Opposite-direction → flip. Close leg qty=current_abs (implicit),
-    # new leg qty=target. The caller is responsible for sequencing the
-    # two legs (close first, then open) and for applying the per-account
-    # risk gate to each.
+    # Opposite-direction.
+    #
+    # ``conflict_policy="hold"`` (live default since 2026-05-31): do
+    # nothing this tick — the position-holder's monitor()/SL/TP/trail
+    # owns the exit. Walk-forward verified PASS on both criteria, see
+    # the function docstring and
+    # docs/audits/walkforward-flip-policy-2026-05-30.md. The aggregator's
+    # dropped_intents are still on the desired position's meta so the
+    # audit trail explains which strategy lost the conflict; the
+    # downstream coordinator emits an "intent_noop:conflict_hold:…"
+    # rejection row in the trade journal.
+    if conflict_policy == "hold":
+        return ExecutionDelta(
+            action="noop",
+            side=None,
+            qty_delta=0.0,
+            target_qty=target,
+            current_qty=current,
+            reason=(
+                f"conflict_hold: current={current_side} qty={current_abs} "
+                f"vs desired={desired.side} target={target} — holding current "
+                f"position; existing monitor()/SL/TP owns the exit. Per "
+                f"docs/audits/walkforward-flip-policy-2026-05-30.md."
+            ),
+        )
+
+    # ``conflict_policy="reverse"`` (legacy): flip. Close leg
+    # qty=current_abs (implicit), new leg qty=target. The caller is
+    # responsible for sequencing the two legs (close first, then open)
+    # and for applying the per-account risk gate to each.
     return ExecutionDelta(
         action="flip",
         side=desired.side,
@@ -783,6 +838,7 @@ def compute_execution_delta_for_package(
     risk_sized_qty: float,
     qty_precision: int = 6,
     min_delta: float = 0.0,
+    conflict_policy: str = "reverse",
 ) -> ExecutionDelta:
     """Bridge an ``OrderPackage`` into an ``ExecutionDelta``.
 
@@ -816,8 +872,13 @@ def compute_execution_delta_for_package(
     risk_sized_qty : float
         Output of the per-account RiskManager's ``position_size``. This
         is the cap; the delta will never exceed this.
-    qty_precision, min_delta :
-        Passed through to ``compute_execution_delta``.
+    qty_precision, min_delta, conflict_policy :
+        Passed through to ``compute_execution_delta``. See its docstring
+        for ``conflict_policy={"reverse","hold"}`` — note this function's
+        default stays ``"reverse"`` so existing callers and tests keep
+        the legacy behaviour. The live ``Coordinator.multi_account_execute``
+        explicitly passes ``"hold"`` (env-var-controlled) after the
+        2026-05-30 walk-forward verified PASS.
 
     Returns
     -------
@@ -853,4 +914,5 @@ def compute_execution_delta_for_package(
         desired=desired,
         qty_precision=qty_precision,
         min_delta=min_delta,
+        conflict_policy=conflict_policy,
     )
