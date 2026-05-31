@@ -180,6 +180,20 @@ def run_replay(
         [float(c) for c in df["close"].tolist()] if "close" in df.columns else None
     )
 
+    # Phase-2 perf (MB-20260531-001): row-dict materialization. The fill model
+    # resolves each trade against the FUTURE bars and the decision-bar snapshot
+    # is a row dict. Building these with ``df.iloc[j].to_dict()`` per access is
+    # pathological under pandas>=3.0 — columns are PyArrow-backed, so row-wise
+    # access deboxes every cell through the arrow iterator — and ``future`` was
+    # rebuilt for ALL remaining bars on EVERY decision => O(n^2) with a brutal
+    # constant (cProfile attributed ~66% of a model-in-loop sweep to this one
+    # list comp, the dominant driver of the multi-hour full-history runs).
+    # Convert every row to a plain dict ONCE here, then index/slice the list per
+    # decision: each row is deboxed exactly once. Byte-identical to the per-bar
+    # ``df.iloc[j].to_dict()`` (same dicts, same order); ``future`` stays
+    # read-only in fills.resolve and the decision bar is never mutated.
+    all_rows: list[dict] = [df.iloc[j].to_dict() for j in range(n)]
+
     open_position = False  # Phase-1 single-net-position gate (per symbol)
 
     for i in range(warmup_bars, n):
@@ -197,7 +211,7 @@ def run_replay(
                 continue
 
         history = df.iloc[: i + 1]  # inclusive of the current (decision) bar
-        bar = df.iloc[i].to_dict()
+        bar = all_rows[i]
 
         # Phase-5: snapshot the day-start balance so the daily-loss cap is
         # measured against the balance at the UTC day's open (no-op when None).
@@ -258,7 +272,7 @@ def run_replay(
         # intent. "flat"/"reverse" force-close the open trade at this bar's close.
         if open_position and open_side is not None and desired.side != open_side:
             if flip_policy in ("flat", "reverse"):
-                _force_close_open(ledger, df.iloc[i].to_dict(), acct)
+                _force_close_open(ledger, all_rows[i], acct)
                 open_position = False
                 open_side = None
                 if flip_policy == "flat":
@@ -285,7 +299,7 @@ def run_replay(
             risk_cash = acct.size(norm["entry"], norm["sl"])
             if risk_cash <= 0:
                 continue
-        future = [df.iloc[j].to_dict() for j in range(i + 1, n)]
+        future = all_rows[i + 1:]
         trade = SimTrade(
             strategy=winner,
             symbol=symbol,
