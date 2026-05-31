@@ -37,6 +37,7 @@ from src.runtime.intents import (  # noqa: E402
     INTENT_MODE_META_VALUE,
     compute_execution_delta_for_package,
     package_is_intent_mode,
+    resolve_flip_policy,
 )
 from src.runtime.positions import current_net_position_qty  # noqa: E402
 
@@ -251,6 +252,82 @@ class TestComputeExecutionDeltaForPackage:
         )
         assert delta.action == "flip"
         assert delta.side == "long"
+
+
+class TestFlipPolicy:
+    """Conflict-resolution policy on an opposite net vote (cross-zero P1).
+
+    Default is ``reverse`` (live-faithful close-and-reopen). ``hold`` keeps the
+    current position (noop) and ``flat`` closes-without-reopen. The system
+    backtest (docs/audits/system-portfolio-backtest-2026-05-30.md) found
+    ``hold`` removes the dominant portfolio-level loss driver.
+    """
+
+    def test_resolver_default_is_reverse(self, monkeypatch):
+        monkeypatch.delenv("FLIP_POLICY", raising=False)
+        assert resolve_flip_policy() == "reverse"
+
+    def test_resolver_reads_env(self, monkeypatch):
+        monkeypatch.setenv("FLIP_POLICY", "hold")
+        assert resolve_flip_policy() == "hold"
+
+    def test_resolver_settings_overrides_env(self, monkeypatch):
+        monkeypatch.setenv("FLIP_POLICY", "hold")
+        assert resolve_flip_policy({"FLIP_POLICY": "flat"}) == "flat"
+
+    def test_resolver_unknown_falls_back_to_reverse(self, monkeypatch):
+        monkeypatch.setenv("FLIP_POLICY", "garbage")
+        assert resolve_flip_policy() == "reverse"
+
+    def test_default_param_still_flips(self, monkeypatch):
+        """No explicit policy + no env → reverse → action='flip' (inert)."""
+        monkeypatch.delenv("FLIP_POLICY", raising=False)
+        pkg = _intent_pkg(direction="long")
+        delta = compute_execution_delta_for_package(
+            pkg, current_signed_qty=-0.02, risk_sized_qty=0.03,
+        )
+        assert delta.action == "flip"
+
+    def test_hold_policy_suppresses_flip_as_noop(self):
+        pkg = _intent_pkg(direction="long")
+        delta = compute_execution_delta_for_package(
+            pkg, current_signed_qty=-0.02, risk_sized_qty=0.03,
+            flip_policy="hold",
+        )
+        assert delta.action == "noop"
+        assert delta.qty_delta == 0.0
+        assert "hold_policy" in delta.reason
+
+    def test_flat_policy_closes_without_reopen(self):
+        pkg = _intent_pkg(direction="long")
+        delta = compute_execution_delta_for_package(
+            pkg, current_signed_qty=-0.02, risk_sized_qty=0.03,
+            flip_policy="flat",
+        )
+        assert delta.action == "close"
+        # Closing a short → buy-side reduce-only leg.
+        assert delta.side == "long"
+        assert delta.qty_delta == pytest.approx(0.02, abs=1e-9)
+        assert delta.target_qty == 0.0
+
+    def test_env_activation_drives_default_call(self, monkeypatch):
+        """With FLIP_POLICY=hold on the VM, the coordinator's call site (which
+        passes no explicit flip_policy) resolves to hold."""
+        monkeypatch.setenv("FLIP_POLICY", "hold")
+        pkg = _intent_pkg(direction="long")
+        delta = compute_execution_delta_for_package(
+            pkg, current_signed_qty=-0.02, risk_sized_qty=0.03,
+        )
+        assert delta.action == "noop"
+
+    def test_hold_does_not_affect_same_direction(self):
+        """hold only governs the opposite-vote branch — same-side still tops up."""
+        pkg = _intent_pkg(direction="long")
+        delta = compute_execution_delta_for_package(
+            pkg, current_signed_qty=0.01, risk_sized_qty=0.03,
+            flip_policy="hold",
+        )
+        assert delta.action == "increase"
 
 
 # ---------------------------------------------------------------------------

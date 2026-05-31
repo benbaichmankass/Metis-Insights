@@ -223,3 +223,119 @@ def test_per_strategy_positive_pnl_not_refused():
     )
     result = safe_place_order(_order("ict"), settings, client=_mock_client())
     assert result["status"] == "submitted"
+
+
+# ---------------------------------------------------------------------------
+# Overtrading throttle (cross-zero P2a) — counters + guards
+# ---------------------------------------------------------------------------
+
+def test_inject_trades_today_counts_open_and_closed():
+    today = date.today().isoformat() + "T12:00:00"
+    path = _make_db([
+        {"status": "open",   "is_backtest": 0, "strategy_name": "breakout", "timestamp": today},
+        {"status": "closed", "is_backtest": 0, "strategy_name": "breakout", "timestamp": today},
+        {"status": "closed", "is_backtest": 1, "strategy_name": "breakout", "timestamp": today},  # backtest — excluded
+        {"status": "open",   "is_backtest": 0, "strategy_name": "vwap",     "timestamp": today},  # other strategy
+    ])
+    try:
+        result = inject_per_strategy_counters(
+            {"TRADE_JOURNAL_DB": path}, strategy_name="breakout"
+        )
+        assert result["STRATEGY_TRADES_TODAY"] == "2"
+    finally:
+        os.unlink(path)
+
+
+def test_inject_minutes_since_last_trade_present_with_history():
+    # A trade ~120 min ago.
+    from datetime import datetime, timedelta
+    ts = (datetime.now() - timedelta(minutes=120)).strftime("%Y-%m-%dT%H:%M:%S")
+    path = _make_db([
+        {"status": "closed", "is_backtest": 0, "strategy_name": "breakout", "timestamp": ts},
+    ])
+    try:
+        result = inject_per_strategy_counters(
+            {"TRADE_JOURNAL_DB": path}, strategy_name="breakout"
+        )
+        assert "STRATEGY_MINUTES_SINCE_LAST_TRADE" in result
+        # Allow generous tolerance for clock/julianday rounding.
+        assert float(result["STRATEGY_MINUTES_SINCE_LAST_TRADE"]) == pytest.approx(120, abs=5)
+    finally:
+        os.unlink(path)
+
+
+def test_inject_minutes_since_last_trade_absent_when_no_history():
+    """No prior trade → counter omitted so the first trade is never blocked."""
+    path = _make_db([
+        {"status": "open", "is_backtest": 0, "strategy_name": "vwap"},  # other strategy only
+    ])
+    try:
+        result = inject_per_strategy_counters(
+            {"TRADE_JOURNAL_DB": path}, strategy_name="breakout"
+        )
+        assert "STRATEGY_MINUTES_SINCE_LAST_TRADE" not in result
+        assert result["STRATEGY_TRADES_TODAY"] == "0"
+    finally:
+        os.unlink(path)
+
+
+def test_refusal_max_trades_per_day():
+    settings = _settings(
+        MAX_TRADES_PER_STRATEGY_PER_DAY="6",
+        STRATEGY_TRADES_TODAY="6",  # at cap
+    )
+    result = safe_place_order(_order("vwap"), settings, client=None)
+    assert result["status"] == "refused"
+    assert "MAX_TRADES_PER_STRATEGY_PER_DAY" in result["reason"]
+    assert "vwap" in result["reason"]
+
+
+def test_under_max_trades_passes():
+    settings = _settings(
+        MAX_TRADES_PER_STRATEGY_PER_DAY="6",
+        STRATEGY_TRADES_TODAY="5",  # below cap
+    )
+    result = safe_place_order(_order("vwap"), settings, client=_mock_client())
+    assert result["status"] == "submitted"
+
+
+def test_refusal_min_trade_spacing():
+    settings = _settings(
+        MIN_TRADE_SPACING_MINUTES="30",
+        STRATEGY_MINUTES_SINCE_LAST_TRADE="10.0",  # too soon
+    )
+    result = safe_place_order(_order("ict_scalp_5m"), settings, client=None)
+    assert result["status"] == "refused"
+    assert "MIN_TRADE_SPACING_MINUTES" in result["reason"]
+
+
+def test_spacing_satisfied_passes():
+    settings = _settings(
+        MIN_TRADE_SPACING_MINUTES="30",
+        STRATEGY_MINUTES_SINCE_LAST_TRADE="45.0",  # enough time elapsed
+    )
+    result = safe_place_order(_order("ict_scalp_5m"), settings, client=_mock_client())
+    assert result["status"] == "submitted"
+
+
+def test_throttle_guards_skipped_without_counters():
+    """Caps set but live counters absent → default-permissive, order passes."""
+    settings = _settings(
+        MAX_TRADES_PER_STRATEGY_PER_DAY="1",
+        MIN_TRADE_SPACING_MINUTES="60",
+        # no STRATEGY_TRADES_TODAY / STRATEGY_MINUTES_SINCE_LAST_TRADE
+    )
+    result = safe_place_order(_order("breakout"), settings, client=_mock_client())
+    assert result["status"] == "submitted"
+
+
+def test_throttle_caps_ignored_without_strategy_name():
+    order = {"symbol": "BTCUSDT", "side": "buy", "qty": 0.4}
+    settings = _settings(
+        MAX_TRADES_PER_STRATEGY_PER_DAY="0",       # would block if checked
+        STRATEGY_TRADES_TODAY="999",
+        MIN_TRADE_SPACING_MINUTES="999",
+        STRATEGY_MINUTES_SINCE_LAST_TRADE="0.0",
+    )
+    result = safe_place_order(order, settings, client=_mock_client())
+    assert result["status"] == "submitted"
