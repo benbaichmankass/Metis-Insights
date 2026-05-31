@@ -95,6 +95,25 @@
       "resolution_note": null,
       "snoozed_until": null,
       "walk_forward": "Long-side walk-forward (SPX 2h, net-of-fee): dc=20 long-only IS(2020-2023)=+21.08R/169tr -> OOS(2024-2026)=+1.15R/109tr (nearly flat); dc=30 IS=+11.73R/158tr -> OOS=+4.73R/95tr (exp +0.05). QUALIFIED PASS: the long side stays POSITIVE in both windows (does not flip negative OOS) but the OOS edge is THIN, esp. dc=20; dc=30 holds up best proportionally. Read: a legitimate-but-MODEST BTC-uncorrelated diversification lead, not a slam-dunk. Short side negative in every window (confirmed). Before any Tier-3 proposal: build a true long-only adapter, validate on live MES (not SPX500 CFD) history, and measure return-correlation to the live BTC trend_donchian \u2014 the portfolio value is the low correlation even at a modest standalone edge."
+    },
+    {
+      "id": "PERF-20260531-002",
+      "opened_at": "2026-05-31",
+      "created": "2026-05-31",
+      "opened_by": "claude (continuation session, htf_pullback param sweep + walk-forward)",
+      "source": "Standalone scripts/backtest_pullback.py on the full BTC 5m archive (market_raw v002, 525,888 bars) resampled to 2h, on the trainer VM. Net-of-fee 7.5 bps.",
+      "title": "htf_pullback_trend_2h: a tuned config (pullback_frac=0.5, trail_mult=5.0) PASSES net-of-fee + walk-forward on BTC 2h \u2014 genuine positive-expectancy diversification candidate",
+      "description": "The scaffolded candidate htf_pullback_trend_2h (inert, in PR #2466) FAILS at default params (trend_lookback=50/pullback_frac=0.33/trail_mult=3.0 -> net -12.1 R over 5y). An 18-cell param sweep found a clear, CONSISTENT improvement: deeper pullback entry (pullback_frac=0.5) + WIDER trailing stop (trail_mult=5.0) flips it strongly positive at every trend_lookback tested (net +50.5/+52.3/+55.0 R at tl=30/50/80 over the full 5y). Root reason: the default trail_mult=3.0 was cutting the trend-follower's runners too early; a low-win-rate (~37%) high-R-multiple trend follower needs a wide trail to capture the rare big winners. WALK-FORWARD PASSED (the key test): at pullback_frac=0.5/trail_mult=5.0, tl=50 -> IS(2021-2023) net +32.7 R / OOS(2024-2026) net +22.4 R (159 trades, exp +0.14 R/trade, long-side +24.9 OOS); tl=80 -> IS +42.0 / OOS +14.9. Net-positive in BOTH windows at both lookbacks; tl=50 retains ~70% of its in-sample edge out-of-sample. This is the strongest candidate result of the session (session_breakout_trend is dead; SPX trend_donchian long-only is thin). CAVEATS: low win rate => higher variance / deeper equity swings; the +50R full-period figure is the best of 18 post-hoc configs (overfit risk on magnitude), but the walk-forward + cross-lookback consistency argue the SIGN and rough size are real; single market (BTC), single fee assumption.",
+      "tier": "tier-3",
+      "priority": "high",
+      "severity": "medium",
+      "status": "open",
+      "trigger_condition": "Next /performance-review, or operator capacity to evaluate a new-strategy activation.",
+      "resolution_criteria": "Operator decision on maturing htf_pullback_trend_2h toward live: (1) confirm the tuned config (trend_lookback~50, pullback_frac=0.5, trail_mult=5.0) with a finer walk-forward / multiple OOS folds + a max-drawdown and return-correlation-to-roster check; (2) if it holds, wire the scaffold per the new-strategy checklist and ship execution: shadow first (Tier-3 PR, operator-approved) to collect live data before any live money. Resolve when shadow-wired or declined with rationale.",
+      "resolved_at": null,
+      "resolved_by": null,
+      "resolution_note": null,
+      "snoozed_until": null
     }
   ],
   "updated_at": "2026-05-31"
