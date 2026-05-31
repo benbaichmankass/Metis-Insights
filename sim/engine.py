@@ -34,6 +34,7 @@ import importlib
 import logging
 from typing import Any, Callable, Optional
 
+from sim.account import AccountConfig, SimAccount
 from sim.fills import BarFillModel
 from sim.ledger import FunnelStage, SimLedger, SimTrade
 
@@ -108,6 +109,8 @@ def run_replay(
     max_concurrent_per_symbol: int = 1,
     model_scorer: Optional[Any] = None,
     timeframe: str = "",
+    account: Optional[AccountConfig] = None,
+    flip_policy: Optional[str] = None,
 ) -> SimLedger:
     """Replay ``strategies`` over ``candles`` through the real intent funnel.
 
@@ -121,6 +124,19 @@ def run_replay(
         builders fetch limit=200, so 200 mirrors live lookback).
     max_concurrent_per_symbol : structural risk gate for Phase 1 (1 = the live
         single-net-position model).
+    account : Phase-5 OPTIONAL $ account layer (``AccountConfig``). When None the
+        replay is byte-identical to the R-based behavior (no ``account`` block in
+        the summary, R metrics unchanged). When provided, the engine additionally
+        tracks $ equity sized via ``backtest_system``'s ``_risk_qty`` math, a UTC
+        daily-loss halt that blocks new opens once the cap is breached, and
+        capital utilization — folding in the account-realism model that previously
+        lived only in ``scripts/backtest_system.py``.
+    flip_policy : Phase-5 conflict policy when a NEW opposite-side intent arrives
+        while a position is open. ``None`` keeps the Phase-1 at-most-one-open
+        behavior (ignore the new intent). ``"hold"`` is explicit-keep; ``"flat"``
+        closes the open trade (no reopen); ``"reverse"`` closes + opens the new
+        side. Mirrors ``backtest_system``'s reconcile; the live default comes from
+        ``resolve_flip_policy`` (the CLI passes it — never hardcoded here).
 
     Determinism: pure function of (candles, strategies, params). No clock, no
     randomness. Requires pandas (strategy order_package takes a DataFrame).
@@ -137,6 +153,12 @@ def run_replay(
     order_pkgs = {s: _load_order_package(s) for s in strategies}
     fill = BarFillModel(fee_bps_roundtrip=fee_bps_roundtrip, timeout_bars=timeout_bars)
     ledger = SimLedger()
+    # Phase-5: OPTIONAL $ account layer. acct is None ⇒ the loop below is
+    # byte-identical to the R-only replay and the ledger emits no account block.
+    acct = SimAccount(account) if account is not None else None
+    # The side currently held (for flip-policy conflict detection). Tracked
+    # separately from open_position so we can compare a NEW intent's side to it.
+    open_side: Optional[str] = None
 
     # Build the candle DataFrame once; slice a view per bar (cheap, no copy of
     # the underlying buffer beyond the slice).
@@ -155,11 +177,19 @@ def run_replay(
             # (Position resolution is handled at open time via the fill model,
             # so we re-check whether it has closed by this bar.)
             open_position = _any_open(ledger)
-            if open_position:
+            # Phase-5: with a flip_policy set we must still EVALUATE this bar so a
+            # conflicting opposite-side intent can trigger the policy below. With
+            # no flip_policy this stays the exact Phase-1 short-circuit.
+            if open_position and not flip_policy:
                 continue
 
         history = df.iloc[: i + 1]  # inclusive of the current (decision) bar
         bar = df.iloc[i].to_dict()
+
+        # Phase-5: snapshot the day-start balance so the daily-loss cap is
+        # measured against the balance at the UTC day's open (no-op when None).
+        if acct is not None:
+            acct.note_day(bar.get("ts"))
 
         intents: list[Any] = []
         emit_meta: dict[str, dict] = {}
@@ -208,10 +238,40 @@ def run_replay(
             continue
         ledger.record_stage(winner, FunnelStage.SURVIVED_MUX)
 
+        # Phase-5: flip-policy. When a position is already open and the desired
+        # side OPPOSES it, the policy decides what happens (mirrors
+        # backtest_system's reconcile). Default (flip_policy None / "hold") is the
+        # Phase-1 at-most-one-open behavior: keep the open trade, ignore the new
+        # intent. "flat"/"reverse" force-close the open trade at this bar's close.
+        if open_position and open_side is not None and desired.side != open_side:
+            if flip_policy in ("flat", "reverse"):
+                _force_close_open(ledger, df.iloc[i].to_dict(), acct)
+                open_position = False
+                open_side = None
+                if flip_policy == "flat":
+                    continue  # close, do not reopen
+                # "reverse" falls through to open the new (opposite) side below
+            else:
+                continue  # "hold"/default: keep current, ignore opposite intent
+        elif open_position:
+            # same-side (or no conflict) while open — at-most-one-open still holds
+            continue
+
         # Phase-1 structural risk gate: pass (full RiskManager is Phase 2).
         ledger.record_stage(winner, FunnelStage.PASSED_RISK)
 
         norm = emit_meta[winner]
+        # Phase-5: daily-loss halt — block NEW opens for the UTC day once the
+        # day's realized loss breaches the cap (no-op when account is None).
+        if acct is not None and not acct.can_open(bar.get("ts")):
+            continue
+        # Phase-5: size the position via backtest_system's _risk_qty math; a
+        # degenerate stop distance sizes to 0 risk-cash → skip the open (as live).
+        risk_cash = 0.0
+        if acct is not None:
+            risk_cash = acct.size(norm["entry"], norm["sl"])
+            if risk_cash <= 0:
+                continue
         future = [df.iloc[j].to_dict() for j in range(i + 1, n)]
         trade = SimTrade(
             strategy=winner,
@@ -252,7 +312,14 @@ def run_replay(
             trade.model_factor = factor
             trade.model_scores = scores
 
+        # Phase-5: stash the $ risk-cash committed at entry on the trade so the
+        # account can turn the realized R into $ on close (meta, not a new field,
+        # so SimTrade.to_dict stays back-compatible).
+        if acct is not None:
+            trade.meta["risk_cash"] = risk_cash
+
         ledger.open_trade(trade)
+        open_side = norm["direction"]
         if res is not None:
             trade.exit_ts = res["exit_ts"]
             trade.exit = res["exit"]
@@ -260,9 +327,70 @@ def run_replay(
             trade.r_multiple = res["r_multiple"]
             if trade.model_factor is not None:
                 trade.r_multiple_model = round(res["r_multiple"] * trade.model_factor, 6)
+            # Phase-5: the trade resolved within the available bars — realize $.
+            if acct is not None:
+                acct.on_close(winner, risk_cash, res["r_multiple"], res["exit_ts"])
+            open_side = None  # resolved at open-time → flat again
         open_position = True
 
+    # Phase-5: bar-level capital-utilization needs a pass over the held position
+    # per bar. Because the engine resolves a trade at open-time against future
+    # bars (Phase-1 model), "held" = the bars between this trade's entry_ts and
+    # exit_ts. We attribute utilization from the recorded trades so the count is
+    # deterministic and independent of the open/close ordering above.
+    if acct is not None:
+        _mark_account_utilization(acct, df, ledger)
+        ledger.attach_account(acct)
+
     return ledger
+
+
+def _force_close_open(ledger: SimLedger, bar: dict, acct: Optional[Any]) -> None:
+    """Phase-5 flip-policy: mark-to-close the still-open trade at this bar's close.
+
+    Mirrors backtest_system's ``_close(..., "flip")``: the open position is closed
+    at the current bar's close price, the realized R is booked against the
+    entry→SL distance, and (if an account is active) the $ PnL is realized.
+    """
+    open_trades = ledger.open_positions()
+    if not open_trades:
+        return
+    t = open_trades[-1]
+    risk = abs(float(t.entry) - float(t.sl))
+    close = float(bar.get("close", t.entry))
+    if risk <= 0:
+        r = 0.0
+    elif t.direction == "long":
+        r = (close - t.entry) / risk
+    else:
+        r = (t.entry - close) / risk
+    t.exit_ts = bar.get("ts")
+    t.exit = close
+    t.exit_reason = "flip"
+    t.r_multiple = round(float(r), 6)
+    if t.model_factor is not None:
+        t.r_multiple_model = round(t.r_multiple * t.model_factor, 6)
+    if acct is not None:
+        acct.on_close(t.strategy, t.meta.get("risk_cash", 0.0), t.r_multiple, t.exit_ts)
+
+
+def _mark_account_utilization(acct: Any, df: Any, ledger: SimLedger) -> None:
+    """Deterministically accrue capital-utilization: bars with a position held.
+
+    A bar counts as "deployed" if it falls within [entry_ts, exit_ts] of any
+    closed trade. Mirrors backtest_system's ``util_bars`` / ``total_bars`` ratio.
+    Also feeds the per-day start-balance map so summary day accounting is sound.
+    """
+    ts_list = [str(t) for t in df["ts"].tolist()] if "ts" in df.columns else []
+    held = [False] * len(ts_list)
+    for t in ledger.trades:
+        if t.exit_ts is None:
+            continue
+        ent, ext = str(t.entry_ts), str(t.exit_ts)
+        for k, b in enumerate(ts_list):
+            if ent <= b <= ext:
+                held[k] = True
+    acct.mark_utilization(len(ts_list), sum(held))
 
 
 def _any_open(ledger: SimLedger) -> bool:
