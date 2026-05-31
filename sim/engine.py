@@ -167,6 +167,19 @@ def run_replay(
         df = df.sort_values("ts").reset_index(drop=True)
     n = len(df)
 
+    # Phase-2 perf (MB-20260531-001): when a model is in the loop, each decision
+    # needs the closes up to (and including) its bar to compute the live
+    # vol_bucket. Materialize the full close column ONCE here instead of
+    # rebuilding it from a growing DataFrame slice every bar — the old per-bar
+    # `[float(c) for c in history["close"].tolist()]` was O(n) per decision →
+    # O(n²) over the run, and ~19x of it was pure waste (`.tolist()` already
+    # yields Python floats, so the float() pass re-converted them). Per decision
+    # we now take an O(1)-to-set-up list slice `all_closes[: i + 1]`, which is
+    # byte-identical to the old per-bar rebuild (same values, same order).
+    all_closes: Optional[list[float]] = (
+        [float(c) for c in df["close"].tolist()] if "close" in df.columns else None
+    )
+
     open_position = False  # Phase-1 single-net-position gate (per symbol)
 
     for i in range(warmup_bars, n):
@@ -305,7 +318,7 @@ def run_replay(
             # Closes up to and including the decision bar (never future) so a
             # regime model gets the live vol_bucket; matches the live builder
             # which passes the strategy's own candles_df.
-            closes = [float(c) for c in history["close"].tolist()] if "close" in history else []
+            closes = all_closes[: i + 1] if all_closes is not None else []
             factor, scores = model_scorer.factor_for(
                 row, closes=closes, symbol=symbol, timeframe=timeframe,
             )
