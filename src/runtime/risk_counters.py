@@ -148,6 +148,39 @@ def inject_per_strategy_counters(
                 s["STRATEGY_DAILY_PNL"] = str(float(cur.fetchone()[0] or 0.0))
             except sqlite3.OperationalError:
                 s["STRATEGY_DAILY_PNL"] = "0.0"
+
+            # Overtrading throttle counters (cross-zero P2a). Feed the
+            # optional MAX_TRADES_PER_STRATEGY_PER_DAY / MIN_TRADE_SPACING_MINUTES
+            # guards in safe_place_order. Both default-permissive: a missing
+            # counter leaves the guard skipped (never blocks a trade). The
+            # spacing is computed in SQL so orders.py stays a pure numeric
+            # comparison (no timestamp parsing) — same shape as the other
+            # per-strategy guards. Counts open+closed (every trade pays fees).
+            try:
+                cur.execute(
+                    "SELECT COUNT(*) FROM trades "
+                    "WHERE strategy_name = ? AND is_backtest = 0 "
+                    "AND DATE(timestamp) = DATE('now')",
+                    (strategy_name,),
+                )
+                s["STRATEGY_TRADES_TODAY"] = str(int(cur.fetchone()[0] or 0))
+            except sqlite3.OperationalError:
+                s["STRATEGY_TRADES_TODAY"] = "0"
+
+            try:
+                # Minutes since this strategy's most recent trade. NULL (no
+                # prior trade) → counter omitted so the spacing guard is
+                # skipped (the first trade is always allowed).
+                cur.execute(
+                    "SELECT (julianday('now') - julianday(MAX(timestamp))) * 1440.0 "
+                    "FROM trades WHERE strategy_name = ? AND is_backtest = 0",
+                    (strategy_name,),
+                )
+                _mins = cur.fetchone()[0]
+                if _mins is not None:
+                    s["STRATEGY_MINUTES_SINCE_LAST_TRADE"] = str(float(_mins))
+            except sqlite3.OperationalError:
+                pass
         finally:
             conn.close()
     except Exception as exc:

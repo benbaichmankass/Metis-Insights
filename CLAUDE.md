@@ -447,6 +447,7 @@ stay in place for any future browser-direct consumer.
 | `M5_BACKTEST_TIMEOUT_S` | Wall-clock cap per backtest subprocess (default 120s) |
 | `BACKTEST_DATA_PATH` | Override the candle CSV the M5 backtest runner reads |
 | `VALIDATION_LOG_PATH` | Override the M5 validation NDJSON path (default `runtime_logs/validation.jsonl`) |
+| `FLIP_POLICY` | Conflict-resolution behaviour in the intent layer when the desired net side opposes the held position (`src/runtime/intents.py`). **Default `hold` since 2026-05-31** (PR #2451, operator-approved after the 24-cell walk-forward verified PASS — `docs/audits/walkforward-flip-policy-2026-05-30.md`): keep the position; the position-owner's monitor()/SL/TP exits — removes flip-churn. Alternatives: `reverse` (legacy close-and-reopen — the rollback path; set `FLIP_POLICY=reverse` on the VM to revert without a redeploy), `flat` (close, no re-open). Mirrors `scripts/backtest_system.py --flip-policy`. |
 
 ## Diagnostic API (S-051)
 

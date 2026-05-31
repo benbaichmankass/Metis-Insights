@@ -370,3 +370,111 @@ def fifo_pnl_by_symbol(
             "last_price": last_price,
         })
     return out
+
+
+# ---------------------------------------------------------------------------
+# Per-strategy net-of-fee attribution (cross-zero P3c)
+# ---------------------------------------------------------------------------
+#
+# The "did we cross zero, per strategy?" measurement. For each strategy it
+# reports the three numbers the loss-driver audit
+# (docs/audits/strategy-loss-drivers-2026-05-23.md) made the headline:
+#
+#   gross_pnl          — FIFO matched P&L BEFORE fees
+#   total_fees         — fees paid on every fill in the window
+#   net_pnl            — gross_pnl - total_fees (the bottom line)
+#   fee_pct_of_gross   — total_fees / gross_pnl * 100 (vwap's was 418%)
+#
+# Attribution requires a caller-supplied ``strategy_of_order_id`` map because
+# ``exchange_fills`` stores the EXCHANGE order id, while the strategy name
+# lives in ``trade_journal.db`` (order_packages / trades). Resolving that map
+# from the live DBs is a separate, schema-specific concern (P3b) — this
+# function is the pure, testable aggregation that consumes it. Fills whose
+# order_id is absent from the map are grouped under ``"unattributed"`` rather
+# than dropped, so the totals always reconcile.
+#
+# Caveat (documented, not hidden): the live book is ONE shared netted BTCUSDT
+# position, so per-strategy FIFO matches a strategy's own fills against each
+# other — an attribution approximation, the same one the audit uses. It is a
+# read-path diagnostic, never an order-path input.
+
+
+def fifo_pnl_by_strategy(
+    days: int,
+    strategy_of_order_id: Mapping[str, str],
+    path: Optional[Path] = None,
+    *,
+    now: Optional[datetime] = None,
+) -> list[dict[str, Any]]:
+    """Per-strategy gross / fees / net / fee-%-of-gross over the last *days*.
+
+    Parameters
+    ----------
+    days : int
+        Look-back window in days. ``<= 0`` returns ``[]``.
+    strategy_of_order_id : Mapping[str, str]
+        ``exchange order_id -> strategy name``. Fills whose ``order_id`` is
+        missing (or ``None``) are bucketed under ``"unattributed"``.
+    path : Path, optional
+        Fills DB path; defaults to :func:`get_fills_db_path`.
+    now : datetime, optional
+        Clock injection for deterministic tests.
+
+    Returns
+    -------
+    list[dict]
+        One row per strategy (sorted by name), each with ``strategy``,
+        ``gross_pnl``, ``total_fees``, ``net_pnl``, ``fee_pct_of_gross``
+        (``None`` when gross is ~0 — undefined, not infinite), and
+        ``fill_count``.
+    """
+    if days <= 0:
+        return []
+    p = path or get_fills_db_path()
+    if not p.exists():
+        return []
+    cutoff = ((now or datetime.now(timezone.utc)) - timedelta(days=days)).isoformat()
+    conn = sqlite3.connect(str(p))
+    try:
+        cur = conn.execute(
+            """
+            SELECT order_id, side, price, qty, fee
+            FROM exchange_fills
+            WHERE datetime(exec_time) >= datetime(?)
+            ORDER BY datetime(exec_time), exec_id
+            """,
+            (cutoff,),
+        )
+        rows = cur.fetchall()
+    finally:
+        conn.close()
+
+    # Partition fills by strategy, preserving time order within each bucket.
+    by_strategy: dict[str, list[tuple[str, float, float, float]]] = {}
+    fees_by_strategy: dict[str, float] = {}
+    for order_id, side, price, qty, fee in rows:
+        strat = strategy_of_order_id.get(str(order_id)) if order_id is not None else None
+        strat = strat or "unattributed"
+        by_strategy.setdefault(strat, []).append(
+            (str(side).lower(), float(price), float(qty), float(fee or 0.0))
+        )
+        fees_by_strategy[strat] = fees_by_strategy.get(strat, 0.0) + float(fee or 0.0)
+
+    out: list[dict[str, Any]] = []
+    for strat in sorted(by_strategy):
+        fills = by_strategy[strat]
+        # ``_fifo_match`` returns realised P&L already NET of fees; add the
+        # fees back to recover gross, so the three numbers reconcile exactly.
+        realized_net, _unrealized, _open_qty, _last = _fifo_match(fills)
+        fees = fees_by_strategy.get(strat, 0.0)
+        gross = realized_net + fees
+        fee_pct = (fees / gross * 100.0) if abs(gross) > _EPS else None
+        out.append({
+            "strategy": strat,
+            "gross_pnl": gross,
+            "total_fees": fees,
+            "net_pnl": realized_net,
+            "fee_pct_of_gross": fee_pct,
+            "fill_count": len(fills),
+        })
+    return out

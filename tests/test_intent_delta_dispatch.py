@@ -37,6 +37,7 @@ from src.runtime.intents import (  # noqa: E402
     INTENT_MODE_META_VALUE,
     compute_execution_delta_for_package,
     package_is_intent_mode,
+    resolve_flip_policy,
 )
 from src.runtime.positions import current_net_position_qty  # noqa: E402
 
@@ -244,187 +245,113 @@ class TestComputeExecutionDeltaForPackage:
         assert delta.action == "increase"
         assert delta.qty_delta == pytest.approx(0.02, abs=1e-9)
 
-    def test_current_short_long_desired_flips(self):
+    def test_current_short_long_desired_flips_under_reverse_policy(self):
+        """Explicit ``flip_policy="reverse"`` still flips. The post-2026-05-31
+        default is ``hold`` (see TestFlipPolicy); the reverse-flip mechanics
+        are still wired as the rollback path."""
         pkg = _intent_pkg(direction="long")
         delta = compute_execution_delta_for_package(
             pkg, current_signed_qty=-0.02, risk_sized_qty=0.03,
+            flip_policy="reverse",
         )
         assert delta.action == "flip"
         assert delta.side == "long"
 
 
-class TestConflictPolicyHold:
-    """Tier-3 ``conflict_policy="hold"`` — the post-2026-05-30 live default.
+class TestFlipPolicy:
+    """Conflict-resolution policy on an opposite net vote.
 
-    Walk-forward verdict: PASS on both criteria
-    (``docs/audits/walkforward-flip-policy-2026-05-30.md``). Under
-    ``hold``, an opposite-side desired with a non-zero current position
-    returns ``action="noop"`` so the position-holder's monitor() / SL /
-    TP / trail / time-decay owns the exit instead of the aggregator
-    closing-and-reversing on every conflict tick.
+    Default since 2026-05-31 (PR #2451) is ``hold`` — keep the current
+    position; the position-owner's monitor()/SL/TP exits. The walk-forward
+    audit (docs/audits/walkforward-flip-policy-2026-05-30.md) verified
+    PASS on both pre-agreed criteria (24 cells = 2 anchored folds × 2
+    halves × 2 rosters × 3 policies). ``reverse`` (legacy close-and-reopen)
+    is the rollback path; ``flat`` closes without re-opening (never the
+    best policy in any walk-forward cell).
     """
 
-    def test_hold_returns_noop_on_long_to_short_conflict_with_position(self):
-        """(a) hold-on-conflict when the account is currently long."""
-        pkg = _intent_pkg(direction="short")
-        delta = compute_execution_delta_for_package(
-            pkg, current_signed_qty=+0.02, risk_sized_qty=0.03,
-            conflict_policy="hold",
-        )
-        assert delta.action == "noop"
-        assert delta.side is None
-        assert delta.qty_delta == 0.0
-        # Preserve the current+target context so downstream observability
-        # can see what the aggregator wanted vs what we held.
-        assert delta.current_qty == pytest.approx(0.02, abs=1e-9)
-        assert delta.target_qty == pytest.approx(0.03, abs=1e-9)
-        assert "conflict_hold" in delta.reason
-        # The dropped side must still appear in the reason so the audit
-        # trail can grep for it.
-        assert "short" in delta.reason and "long" in delta.reason
+    def test_resolver_default_is_hold(self, monkeypatch):
+        monkeypatch.delenv("FLIP_POLICY", raising=False)
+        assert resolve_flip_policy() == "hold"
 
-    def test_hold_returns_noop_on_short_to_long_conflict_with_position(self):
-        """(a) symmetric: hold also fires when the account is short and
-        the aggregator now wants long."""
+    def test_resolver_reads_env(self, monkeypatch):
+        monkeypatch.setenv("FLIP_POLICY", "reverse")
+        assert resolve_flip_policy() == "reverse"
+
+    def test_resolver_settings_overrides_env(self, monkeypatch):
+        monkeypatch.setenv("FLIP_POLICY", "reverse")
+        assert resolve_flip_policy({"FLIP_POLICY": "flat"}) == "flat"
+
+    def test_resolver_unknown_falls_back_to_hold(self, monkeypatch):
+        monkeypatch.setenv("FLIP_POLICY", "garbage")
+        assert resolve_flip_policy() == "hold"
+
+    def test_default_param_holds_on_opposite_vote(self, monkeypatch):
+        """No explicit policy + no env → default ``hold`` → action='noop'.
+
+        This is the post-walk-forward live behaviour. The previous default
+        (``reverse`` → action='flip') is covered by the explicit
+        ``flip_policy="reverse"`` test in TestComputeExecutionDeltaForPackage.
+        """
+        monkeypatch.delenv("FLIP_POLICY", raising=False)
         pkg = _intent_pkg(direction="long")
         delta = compute_execution_delta_for_package(
             pkg, current_signed_qty=-0.02, risk_sized_qty=0.03,
-            conflict_policy="hold",
         )
         assert delta.action == "noop"
-        assert "conflict_hold" in delta.reason
-        assert "short" in delta.reason and "long" in delta.reason
+        assert "hold_policy" in delta.reason
 
-    def test_hold_does_not_block_open_from_flat(self):
-        """(b) hold only applies to the *flip* path. From flat (current=0)
-        the aggregator's desired side opens as usual; ``conflict_policy``
-        is irrelevant when there's nothing to flip away from."""
-        pkg = _intent_pkg(direction="short")
+    def test_hold_policy_suppresses_flip_as_noop(self):
+        pkg = _intent_pkg(direction="long")
         delta = compute_execution_delta_for_package(
-            pkg, current_signed_qty=0.0, risk_sized_qty=0.02,
-            conflict_policy="hold",
+            pkg, current_signed_qty=-0.02, risk_sized_qty=0.03,
+            flip_policy="hold",
         )
-        assert delta.action == "open"
-        assert delta.side == "short"
-        assert delta.qty_delta == pytest.approx(0.02, abs=1e-9)
+        assert delta.action == "noop"
+        assert delta.qty_delta == 0.0
+        assert "hold_policy" in delta.reason
 
-    def test_reverse_still_flips_when_explicitly_requested(self):
-        """(b cont'd) the legacy ``conflict_policy="reverse"`` is still
-        wired and still flips — the existing live behaviour is one
-        explicit kwarg away, which is the env-var rollback path."""
-        pkg = _intent_pkg(direction="short")
+    def test_reverse_policy_still_flips_when_explicitly_requested(self):
+        """Operator rollback path: explicit ``reverse`` flips as before."""
+        pkg = _intent_pkg(direction="long")
         delta = compute_execution_delta_for_package(
-            pkg, current_signed_qty=+0.02, risk_sized_qty=0.03,
-            conflict_policy="reverse",
+            pkg, current_signed_qty=-0.02, risk_sized_qty=0.03,
+            flip_policy="reverse",
         )
         assert delta.action == "flip"
-        assert delta.side == "short"
-        assert delta.qty_delta == pytest.approx(0.03, abs=1e-9)
-
-    def test_hold_does_not_block_same_side_increase(self):
-        """(d) same-side reinforcement (current long + desired long with
-        larger target) keeps producing an ``increase`` delta — hold only
-        affects the opposite-side branch."""
-        pkg = _intent_pkg(direction="long")
-        delta = compute_execution_delta_for_package(
-            pkg, current_signed_qty=+0.01, risk_sized_qty=0.03,
-            conflict_policy="hold",
-        )
-        assert delta.action == "increase"
         assert delta.side == "long"
-        assert delta.qty_delta == pytest.approx(0.02, abs=1e-9)
 
-    def test_hold_does_not_block_same_side_noop_at_target(self):
-        """(d cont'd) same-side already-at-target still noops."""
+    def test_flat_policy_closes_without_reopen(self):
         pkg = _intent_pkg(direction="long")
         delta = compute_execution_delta_for_package(
-            pkg, current_signed_qty=+0.02, risk_sized_qty=0.02,
-            conflict_policy="hold",
-        )
-        assert delta.action == "noop"
-        # The reason here is the at-target one, not the conflict_hold one.
-        assert "at_target" in delta.reason
-        assert "conflict_hold" not in delta.reason
-
-    def test_hold_does_not_block_close_to_flat(self):
-        """(d cont'd) when the aggregator returns flat (every intent flat
-        or no intents) with a current position, we still close — flat is
-        not a conflict, it's a no-vote."""
-        # Build a desired position with side=flat via the raw
-        # compute_execution_delta path (compute_execution_delta_for_package
-        # rejects pkg.direction='flat'), which is what the aggregator
-        # would produce on a no-vote tick.
-        from src.runtime.intents import DesiredPosition, compute_execution_delta
-        desired = DesiredPosition(
-            symbol="BTCUSDT",
-            side="flat",
-            target_qty=0.0,
-            contributing_intents=tuple(),
-            winning_intent=None,
-            reason="all_intents_flat",
-            meta={},
-        )
-        delta = compute_execution_delta(
-            current_signed_qty=+0.02,
-            desired=desired,
-            conflict_policy="hold",
+            pkg, current_signed_qty=-0.02, risk_sized_qty=0.03,
+            flip_policy="flat",
         )
         assert delta.action == "close"
+        # Closing a short → buy-side reduce-only leg.
+        assert delta.side == "long"
         assert delta.qty_delta == pytest.approx(0.02, abs=1e-9)
+        assert delta.target_qty == 0.0
 
-    def test_hold_preserves_dropped_intents_in_aggregator_meta(self):
-        """(c) audit trail: the aggregator's ``dropped_intents`` (the
-        losers of the conflict-priority sort) are stamped onto the
-        DesiredPosition's ``meta`` regardless of which conflict_policy
-        the dispatcher picks, so the JSONL audit trail explains the
-        held-against side. This test verifies the aggregator + the
-        delta both carry enough information to reconstruct the conflict."""
-        from src.runtime.intents import StrategyIntent, aggregate_intents
-        long_intent = StrategyIntent(
-            strategy="turtle_soup",
-            symbol="BTCUSDT",
-            side="long",
-            target_qty=0.03,
-            entry=50_000.0,
-            sl=49_500.0,
-            tp=51_500.0,
-            confidence=0.6,
+    def test_env_rollback_drives_default_call(self, monkeypatch):
+        """With ``FLIP_POLICY=reverse`` on the VM (the rollback), the
+        coordinator's call site (which passes no explicit flip_policy)
+        resolves to reverse and the dispatcher emits a flip."""
+        monkeypatch.setenv("FLIP_POLICY", "reverse")
+        pkg = _intent_pkg(direction="long")
+        delta = compute_execution_delta_for_package(
+            pkg, current_signed_qty=-0.02, risk_sized_qty=0.03,
         )
-        short_intent = StrategyIntent(
-            strategy="vwap",
-            symbol="BTCUSDT",
-            side="short",
-            target_qty=0.03,
-            entry=50_000.0,
-            sl=50_500.0,
-            tp=48_500.0,
-            confidence=0.6,
+        assert delta.action == "flip"
+
+    def test_hold_does_not_affect_same_direction(self):
+        """hold only governs the opposite-vote branch — same-side still tops up."""
+        pkg = _intent_pkg(direction="long")
+        delta = compute_execution_delta_for_package(
+            pkg, current_signed_qty=0.01, risk_sized_qty=0.03,
+            flip_policy="hold",
         )
-        desired = aggregate_intents([long_intent, short_intent])
-        # The aggregator picks one side and stamps the loser in meta —
-        # that side will be the "held against" side when the dispatcher
-        # applies conflict_policy=hold.
-        assert desired.meta.get("resolution") == "priority_conflict"
-        assert len(desired.meta.get("dropped_intents") or []) == 1
-        dropped = desired.meta["dropped_intents"][0]
-        assert dropped["strategy"] in {"turtle_soup", "vwap"}
-        assert dropped["side"] in {"long", "short"}
-        assert dropped["side"] != desired.side
-        # And the delta-level reason carries the held-vs-desired sides
-        # so a grep over signal_audit.jsonl can correlate "conflict_hold"
-        # ticks with the priority_conflict aggregator events.
-        from src.runtime.intents import compute_execution_delta
-        # Pretend we're holding a position on the OPPOSITE of the aggregator
-        # winner — that's the case where hold kicks in.
-        held_side_qty = +0.02 if desired.side == "short" else -0.02
-        delta = compute_execution_delta(
-            current_signed_qty=held_side_qty,
-            desired=desired,
-            conflict_policy="hold",
-        )
-        assert delta.action == "noop"
-        assert "conflict_hold" in delta.reason
-        assert desired.side in delta.reason
+        assert delta.action == "increase"
 
 
 # ---------------------------------------------------------------------------
@@ -604,16 +531,15 @@ class TestIntentModeDispatchBranch:
     def test_intent_mode_flip_dispatches_close_then_open(
         self, coord, accounts_yaml, trade_db, monkeypatch,
     ):
-        """Existing short + intent-mode long pkg under the legacy
-        ``INTENT_CONFLICT_POLICY=reverse`` policy → two legs:
+        """Existing short + intent-mode long pkg under the legacy/rollback
+        ``FLIP_POLICY=reverse`` policy → two legs:
         (1) reduce-only close of the short, (2) regular open of the long.
 
-        The live default since 2026-05-31 is ``hold`` (see
-        TestConflictPolicyHold + the hold-companion test below), but
-        the legacy reverse policy stays wired as the env-var rollback
-        path and this test pins it explicitly.
+        The live default since 2026-05-31 is ``hold`` (see TestFlipPolicy
+        + the companion hold-default test below); the reverse-flip
+        mechanics this test exercises stay wired as the rollback path.
         """
-        monkeypatch.setenv("INTENT_CONFLICT_POLICY", "reverse")
+        monkeypatch.setenv("FLIP_POLICY", "reverse")
         captured = []
         _patch_dispatch_deps(monkeypatch, captured)
 
@@ -648,17 +574,14 @@ class TestIntentModeDispatchBranch:
     def test_intent_mode_flip_holds_under_default_policy(
         self, coord, accounts_yaml, trade_db, monkeypatch,
     ):
-        """Same seeded state as the flip test above, but with the
-        default ``INTENT_CONFLICT_POLICY=hold`` (which is also the
-        baked-in default): the coordinator must NOT dispatch any leg,
-        must log an ``intent_noop:conflict_hold:…`` rejection, and must
-        leave the seeded short open for its own monitor()/SL/TP to close.
-
-        This is the live behaviour the walk-forward verdict licenses
-        (docs/audits/walkforward-flip-policy-2026-05-30.md).
-        """
+        """Same seeded state as the flip test above, but under the
+        post-2026-05-31 default ``FLIP_POLICY=hold``: the coordinator must
+        NOT dispatch any leg, must record action=noop on pkg.meta with the
+        hold_policy reason, and must leave the seeded short open for its
+        own monitor()/SL/TP to close. This is the live behaviour the
+        walk-forward verdict licenses (PR #2451)."""
         # No setenv — relies on the function-default "hold".
-        monkeypatch.delenv("INTENT_CONFLICT_POLICY", raising=False)
+        monkeypatch.delenv("FLIP_POLICY", raising=False)
         captured = []
         _patch_dispatch_deps(monkeypatch, captured)
 
@@ -673,17 +596,15 @@ class TestIntentModeDispatchBranch:
             balance_fetcher=self._balance_fetcher,
         )
         assert captured == [], (
-            "hold must not dispatch the close+open legs of a flip"
+            "hold (the default) must not dispatch close+open legs of a flip"
         )
-        # Coordinator records the noop on pkg.meta.
         assert pkg.meta["execution_delta"]["action"] == "noop"
-        assert "conflict_hold" in pkg.meta["execution_delta"]["reason"]
-        # And it returns a single per-account result row carrying the
-        # rejection reason so dashboards / Claude reviews can see the
-        # held tick.
+        assert "hold_policy" in pkg.meta["execution_delta"]["reason"]
+        # The dispatcher emits a per-account result row carrying the
+        # rejection reason so dashboards / reviews can see the held tick.
         assert len(results) == 1
         assert results[0]["sized_qty"] == 0.0
-        assert "intent_noop:conflict_hold" in (results[0]["error"] or "")
+        assert "intent_noop:flip_suppressed_hold_policy" in (results[0]["error"] or "")
 
     def test_legacy_mode_still_uses_binary_open_guard(
         self, coord, accounts_yaml, trade_db, monkeypatch,

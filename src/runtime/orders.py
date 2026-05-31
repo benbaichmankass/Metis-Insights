@@ -200,6 +200,45 @@ def safe_place_order(order: Dict[str, Any], settings: Any, client: Any) -> dict[
                         "order": order,
                     }
 
+        # Overtrading throttle (cross-zero P2a). Two optional, default-off
+        # selectivity guards that attack the dominant live loss driver — fee
+        # drag from over-frequent trading (vwap paid 418% of gross in fees).
+        # Both only fire when BOTH the cap and the live counter
+        # (inject_per_strategy_counters) are present, so omitting either never
+        # strands capability. Per-trade refusals → the existing rejection ping
+        # fires; the account stays live (Prime-Directive-safe, no auto-flip).
+        max_trades_raw = _get_value(settings, "MAX_TRADES_PER_STRATEGY_PER_DAY", None)
+        if max_trades_raw not in (None, ""):
+            max_trades = int(float(max_trades_raw))
+            cur_trades_raw = _get_value(settings, "STRATEGY_TRADES_TODAY", None)
+            if cur_trades_raw not in (None, ""):
+                if int(float(cur_trades_raw)) >= max_trades:
+                    return {
+                        "status": "refused",
+                        "reason": (
+                            f"strategy '{_strategy_name}' trades today "
+                            f"{int(float(cur_trades_raw))} has reached "
+                            f"MAX_TRADES_PER_STRATEGY_PER_DAY {max_trades}"
+                        ),
+                        "order": order,
+                    }
+
+        min_spacing_raw = _get_value(settings, "MIN_TRADE_SPACING_MINUTES", None)
+        if min_spacing_raw not in (None, ""):
+            min_spacing = float(min_spacing_raw)
+            mins_since_raw = _get_value(settings, "STRATEGY_MINUTES_SINCE_LAST_TRADE", None)
+            if mins_since_raw not in (None, ""):
+                mins_since = float(mins_since_raw)
+                if mins_since < min_spacing:
+                    return {
+                        "status": "refused",
+                        "reason": (
+                            f"strategy '{_strategy_name}' last trade {mins_since:.1f} min "
+                            f"ago is within MIN_TRADE_SPACING_MINUTES {min_spacing}"
+                        ),
+                        "order": order,
+                    }
+
     max_qty_raw = _get_value(settings, "MAX_QTY", None)
     if max_qty_raw not in (None, ""):
         max_qty = float(max_qty_raw)
